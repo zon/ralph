@@ -15,7 +15,8 @@
 go.work
 
 # Binary output
-ralph
+/ralph
+/bin/ralph
 /cmd/ralph/ralph
 
 # IDE
