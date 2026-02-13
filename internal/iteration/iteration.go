@@ -19,16 +19,6 @@ import (
 //
 // Returns the final iteration count and any error encountered
 func RunIterationLoop(ctx *context.Context, projectFile string, maxIters int, cleanupRegistrar func(func())) (int, error) {
-	if ctx.IsDryRun() {
-		logger.Infof("[DRY-RUN] Would run iteration loop with max %d iterations", maxIters)
-		logger.Info("[DRY-RUN] Simulating iteration sequence:")
-		for i := 1; i <= maxIters; i++ {
-			logger.Infof("[DRY-RUN]   Iteration %d/%d: develop -> commit -> check completion", i, maxIters)
-		}
-		logger.Info("[DRY-RUN] Would stop when all requirements pass or max iterations reached")
-		return maxIters, nil
-	}
-
 	logger.Infof("Starting iteration loop (max: %d)", maxIters)
 	logger.Info("==========================================")
 

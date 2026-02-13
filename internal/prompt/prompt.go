@@ -14,11 +14,6 @@ import (
 // BuildDevelopPrompt creates a prompt for the AI agent to work on project requirements
 // It includes recent git history, project requirements, and development instructions
 func BuildDevelopPrompt(ctx *context.Context, projectFile string) (string, error) {
-	if ctx.IsDryRun() {
-		logger.Info("[DRY-RUN] Would build development prompt")
-		return "dry-run-prompt", nil
-	}
-
 	var builder strings.Builder
 
 	// Header - matches develop.sh format exactly

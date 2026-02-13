@@ -108,15 +108,11 @@ func Execute(ctx *context.Context, projectFile string, cleanupRegistrar func(fun
 	logger.Success("AI agent execution completed")
 
 	// Stage project file after agent completes
-	if !ctx.IsDryRun() {
-		logger.Info("Staging project file...")
-		if err := git.StageFile(ctx, absProjectFile); err != nil {
-			logger.Warningf("Failed to stage project file: %v", err)
-		} else {
-			logger.Success("Project file staged")
-		}
+	logger.Info("Staging project file...")
+	if err := git.StageFile(ctx, absProjectFile); err != nil {
+		logger.Warningf("Failed to stage project file: %v", err)
 	} else {
-		logger.Infof("[DRY-RUN] Would stage project file: %s", absProjectFile)
+		logger.Success("Project file staged")
 	}
 
 	// Send success notification

@@ -123,15 +123,36 @@ requirements:
 }
 
 func TestBuildDevelopPrompt_DryRun(t *testing.T) {
+	// Create a temporary project file for dry-run testing
+	tmpDir := t.TempDir()
+	projectFile := filepath.Join(tmpDir, "test-project.yaml")
+
+	projectContent := `name: Test Project
+description: A test project in dry-run mode
+requirements:
+  - description: Test requirement
+    passing: false
+`
+
+	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
+		t.Fatalf("Failed to create test project file: %v", err)
+	}
+
 	ctx := context.NewContext(true, false, false, false)
 
-	prompt, err := BuildDevelopPrompt(ctx, "dummy-file.yaml")
+	prompt, err := BuildDevelopPrompt(ctx, projectFile)
 	if err != nil {
 		t.Fatalf("BuildDevelopPrompt in dry-run failed: %v", err)
 	}
 
-	if prompt != "dry-run-prompt" {
-		t.Errorf("Expected 'dry-run-prompt', got: %s", prompt)
+	// In dry-run mode, the prompt should still be built (not a dummy value)
+	// Verify it contains expected sections
+	if !strings.Contains(prompt, "Development Agent Context") {
+		t.Error("Prompt should contain 'Development Agent Context' header even in dry-run")
+	}
+
+	if !strings.Contains(prompt, "Test Project") {
+		t.Error("Prompt should contain project name even in dry-run")
 	}
 }
 
