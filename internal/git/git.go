@@ -225,72 +225,28 @@ func PushBranch(ctx *context.Context, branch string) (string, error) {
 	return remoteURL, nil
 }
 
-// GetRecentCommits retrieves the last N commit messages
-func GetRecentCommits(ctx *context.Context, count int) ([]string, error) {
-	if ctx.IsDryRun() {
-		logger.Infof("[DRY-RUN] Would get last %d commits", count)
-		dryRunCommits := make([]string, count)
-		for i := 0; i < count; i++ {
-			dryRunCommits[i] = fmt.Sprintf("dry-run commit %d", i+1)
-		}
-		return dryRunCommits, nil
-	}
-
-	// Use git log with format to get commit messages
-	cmd := exec.Command("git", "log", fmt.Sprintf("-%d", count), "--pretty=format:%h %s")
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &out
-
-	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("failed to get recent commits: %w (output: %s)", err, out.String())
-	}
-
-	output := strings.TrimSpace(out.String())
-	if output == "" {
-		return []string{}, nil
-	}
-
-	commits := strings.Split(output, "\n")
-	if ctx.IsVerbose() {
-		logger.Infof("Retrieved %d commits", len(commits))
-	}
-
-	return commits, nil
-}
-
-// GetCommitsSince retrieves commit messages since the specified base branch
-func GetCommitsSince(ctx *context.Context, base string) ([]string, error) {
+// GetCommitLog retrieves commit log formatted exactly like the reference implementation.
+// Returns a single string with commits formatted as "%h: %B" (hash: full message).
+// Gets all commits since base..HEAD.
+func GetCommitLog(ctx *context.Context, base string) (string, error) {
 	if ctx.IsDryRun() {
 		logger.Infof("[DRY-RUN] Would get commits since '%s'", base)
-		return []string{
-			"dry-run commit 1 - feature implementation",
-			"dry-run commit 2 - bug fix",
-			"dry-run commit 3 - tests",
-		}, nil
+		return "abc123: dry-run commit 1 - feature implementation\ndef456: dry-run commit 2 - bug fix\nghi789: dry-run commit 3 - tests", nil
 	}
 
-	// Use git log to get commits in current branch but not in base
-	cmd := exec.Command("git", "log", fmt.Sprintf("%s..HEAD", base), "--pretty=format:%h %s")
+	// Use git log with format matching reference: %h: %B (hash: full message body)
+	logRange := fmt.Sprintf("%s..HEAD", base)
+	cmd := exec.Command("git", "log", logRange, "--format=%h: %B")
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &out
 
 	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("failed to get commits since '%s': %w (output: %s)", base, err, out.String())
+		return "", fmt.Errorf("failed to get commit log: %w (output: %s)", err, out.String())
 	}
 
 	output := strings.TrimSpace(out.String())
-	if output == "" {
-		return []string{}, nil
-	}
-
-	commits := strings.Split(output, "\n")
-	if ctx.IsVerbose() {
-		logger.Infof("Retrieved %d commits since '%s'", len(commits), base)
-	}
-
-	return commits, nil
+	return output, nil
 }
 
 // GetDiffSince returns the diff between the base branch and HEAD

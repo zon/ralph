@@ -46,7 +46,6 @@ requirements:
 	expectedSections := []string{
 		"# Development Agent Context",
 		"## Project Information",
-		"## Recent Git History",
 		"## Project Requirements",
 		"## Instructions",
 	}
@@ -55,6 +54,11 @@ requirements:
 		if !strings.Contains(prompt, section) {
 			t.Errorf("Prompt missing expected section: %s", section)
 		}
+	}
+
+	// Recent Git History section should be omitted when there are no commits
+	if strings.Contains(prompt, "## Recent Git History") {
+		t.Error("Prompt should not contain 'Recent Git History' section when there are no commits")
 	}
 
 	// Verify project content is included

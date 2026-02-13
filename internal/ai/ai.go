@@ -9,6 +9,7 @@ import (
 
 	"github.com/zon/ralph/internal/config"
 	appcontext "github.com/zon/ralph/internal/context"
+	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/logger"
 )
 
@@ -74,12 +75,21 @@ func GeneratePRSummary(ctx *appcontext.Context, projectFile string, iterations i
 	}
 	baseBranch := ralphConfig.BaseBranch
 
+	// Get commit log since base branch
+	commitLog, err := git.GetCommitLog(ctx, baseBranch)
+	if err != nil {
+		logger.Warningf("Failed to get commit log: %v", err)
+		commitLog = "(Unable to retrieve commit log)"
+	}
+
 	// Build prompt matching ralph.sh
 	var builder strings.Builder
 	builder.WriteString("Write a concise PR description (3-5 paragraphs max) for the changes made in this branch.\n\n")
 	builder.WriteString(fmt.Sprintf("Project: %s\n", project.Description))
 	builder.WriteString(fmt.Sprintf("Status: %s\n\n", projectStatus))
-	builder.WriteString(fmt.Sprintf("Use 'git log --format=\"%%h: %%B\" %s..HEAD' to see commit messages.\n", baseBranch))
+	builder.WriteString("## Commit Log\n")
+	builder.WriteString(commitLog)
+	builder.WriteString("\n\n")
 	builder.WriteString(fmt.Sprintf("Use 'git diff %s..HEAD' to see the full changes.\n\n", baseBranch))
 	builder.WriteString("Summarize:\n")
 	builder.WriteString("1. What was implemented/changed\n")

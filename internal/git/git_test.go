@@ -396,88 +396,7 @@ func TestPushBranch_DryRun(t *testing.T) {
 // These are integration tests that should be run in a CI/CD environment
 // with proper repository setup.
 
-func TestGetRecentCommits(t *testing.T) {
-	tempDir := setupTestRepo(t)
-	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
-	os.Chdir(tempDir)
-
-	ctx := context.NewContext(false, false, false, false)
-
-	// Create a few more commits
-	for i := 1; i <= 3; i++ {
-		testFile := filepath.Join(tempDir, "test"+string(rune('0'+i))+".txt")
-		if err := os.WriteFile(testFile, []byte("test content"), 0644); err != nil {
-			t.Fatalf("Failed to create test file: %v", err)
-		}
-
-		cmd := exec.Command("git", "add", ".")
-		cmd.Dir = tempDir
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("Failed to stage files: %v", err)
-		}
-
-		cmd = exec.Command("git", "commit", "-m", "Test commit "+string(rune('0'+i)))
-		cmd.Dir = tempDir
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("Failed to create commit: %v", err)
-		}
-	}
-
-	// Get recent commits
-	commits, err := GetRecentCommits(ctx, 2)
-	if err != nil {
-		t.Fatalf("GetRecentCommits failed: %v", err)
-	}
-
-	// Should have 2 commits
-	if len(commits) != 2 {
-		t.Errorf("Expected 2 commits, got %d", len(commits))
-	}
-
-	// Most recent commit should contain "Test commit 3"
-	if len(commits) > 0 && !contains(commits[0], "Test commit 3") {
-		t.Errorf("Expected most recent commit to contain 'Test commit 3', got: %s", commits[0])
-	}
-}
-
-func TestGetRecentCommits_DryRun(t *testing.T) {
-	ctx := context.NewContext(true, false, false, false)
-
-	commits, err := GetRecentCommits(ctx, 5)
-	if err != nil {
-		t.Fatalf("GetRecentCommits in dry-run failed: %v", err)
-	}
-
-	if len(commits) != 5 {
-		t.Errorf("Expected 5 dry-run commits, got %d", len(commits))
-	}
-}
-
-func TestGetRecentCommits_NoCommits(t *testing.T) {
-	tempDir := t.TempDir()
-
-	// Initialize git repo without any commits
-	cmd := exec.Command("git", "init")
-	cmd.Dir = tempDir
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("Failed to init git repo: %v", err)
-	}
-
-	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
-	os.Chdir(tempDir)
-
-	ctx := context.NewContext(false, false, false, false)
-
-	// Should return error or empty list for repo with no commits
-	commits, err := GetRecentCommits(ctx, 5)
-	if err == nil && len(commits) > 0 {
-		t.Error("Expected error or empty list for repo with no commits")
-	}
-}
-
-func TestGetCommitsSince(t *testing.T) {
+func TestGetCommitLog_SinceBranch(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	originalDir, _ := os.Getwd()
 	defer os.Chdir(originalDir)
@@ -518,36 +437,41 @@ func TestGetCommitsSince(t *testing.T) {
 	}
 
 	// Get commits since base branch
-	commits, err := GetCommitsSince(ctx, baseBranch)
+	commitLog, err := GetCommitLog(ctx, baseBranch)
 	if err != nil {
-		t.Fatalf("GetCommitsSince failed: %v", err)
-	}
-
-	// Should have 2 commits
-	if len(commits) != 2 {
-		t.Errorf("Expected 2 commits since base, got %d", len(commits))
+		t.Fatalf("GetCommitLog failed: %v", err)
 	}
 
 	// Should contain our feature commits
-	if len(commits) > 0 && !contains(commits[0], "Feature commit") {
-		t.Errorf("Expected commits to contain 'Feature commit', got: %s", commits[0])
+	if !contains(commitLog, "Feature commit") {
+		t.Errorf("Expected commit log to contain 'Feature commit', got: %s", commitLog)
+	}
+
+	// Should have both commits
+	if !contains(commitLog, "Feature commit 1") || !contains(commitLog, "Feature commit 2") {
+		t.Errorf("Expected both feature commits in log, got: %s", commitLog)
 	}
 }
 
-func TestGetCommitsSince_DryRun(t *testing.T) {
+func TestGetCommitLog_DryRun(t *testing.T) {
 	ctx := context.NewContext(true, false, false, false)
 
-	commits, err := GetCommitsSince(ctx, "main")
+	commitLog, err := GetCommitLog(ctx, "main")
 	if err != nil {
-		t.Fatalf("GetCommitsSince in dry-run failed: %v", err)
+		t.Fatalf("GetCommitLog in dry-run failed: %v", err)
 	}
 
-	if len(commits) == 0 {
-		t.Error("Expected dry-run commits to be non-empty")
+	if commitLog == "" {
+		t.Error("Expected dry-run commit log to be non-empty")
+	}
+
+	// Should contain dry-run format with colons
+	if !contains(commitLog, ":") {
+		t.Error("Expected dry-run commit log to contain ':' separator")
 	}
 }
 
-func TestGetCommitsSince_SameBranch(t *testing.T) {
+func TestGetCommitLog_EmptyRange(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	originalDir, _ := os.Getwd()
 	defer os.Chdir(originalDir)
@@ -556,13 +480,13 @@ func TestGetCommitsSince_SameBranch(t *testing.T) {
 	ctx := context.NewContext(false, false, false, false)
 
 	// Get commits since HEAD (should be empty)
-	commits, err := GetCommitsSince(ctx, "HEAD")
+	commitLog, err := GetCommitLog(ctx, "HEAD")
 	if err != nil {
-		t.Fatalf("GetCommitsSince failed: %v", err)
+		t.Fatalf("GetCommitLog failed: %v", err)
 	}
 
-	if len(commits) != 0 {
-		t.Errorf("Expected 0 commits when comparing HEAD to HEAD, got %d", len(commits))
+	if commitLog != "" {
+		t.Errorf("Expected empty commit log when comparing HEAD to HEAD, got: %s", commitLog)
 	}
 }
 
@@ -750,19 +674,19 @@ func TestCommitChanges(t *testing.T) {
 		t.Fatalf("CommitChanges failed: %v", err)
 	}
 
-	// Verify commit was created by checking log
-	commits, err := GetRecentCommits(ctx, 1)
+	// Verify commit was created by checking log (HEAD~1 is the parent commit)
+	commitLog, err := GetCommitLog(ctx, "HEAD~1")
 	if err != nil {
-		t.Fatalf("Failed to get recent commits: %v", err)
+		t.Fatalf("Failed to get commit log: %v", err)
 	}
 
-	if len(commits) == 0 {
+	if commitLog == "" {
 		t.Error("Expected at least 1 commit after CommitChanges")
 	}
 
 	// Check that the commit message mentions the file
-	if len(commits) > 0 && !contains(commits[0], "new-file.txt") {
-		t.Logf("Commit message: %s", commits[0])
+	if !contains(commitLog, "new-file.txt") {
+		t.Logf("Commit message: %s", commitLog)
 	}
 }
 
@@ -808,19 +732,19 @@ func TestCommitChanges_MultipleFiles(t *testing.T) {
 		t.Fatalf("CommitChanges failed: %v", err)
 	}
 
-	// Verify commit was created
-	commits, err := GetRecentCommits(ctx, 1)
+	// Verify commit was created (HEAD~1 is the parent commit)
+	commitLog, err := GetCommitLog(ctx, "HEAD~1")
 	if err != nil {
-		t.Fatalf("Failed to get recent commits: %v", err)
+		t.Fatalf("Failed to get commit log: %v", err)
 	}
 
-	if len(commits) == 0 {
+	if commitLog == "" {
 		t.Error("Expected at least 1 commit after CommitChanges")
 	}
 
 	// For multiple files, should have a summary message
-	if len(commits) > 0 {
-		t.Logf("Commit message for multiple files: %s", commits[0])
+	if commitLog != "" {
+		t.Logf("Commit message for multiple files: %s", commitLog)
 	}
 }
 

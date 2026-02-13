@@ -25,22 +25,29 @@ func BuildDevelopPrompt(ctx *context.Context, projectFile string) (string, error
 	builder.WriteString("Your task is to implement requirements from the project file below.\n")
 	builder.WriteString("\n")
 
-	// Recent Git History - matches develop.sh format exactly
-	builder.WriteString("## Recent Git History\n")
-	builder.WriteString("\n")
-	commits, err := git.GetRecentCommits(ctx, 20)
+	// Load config once for both git history check and instructions
+	ralphConfig, err := config.LoadConfig()
 	if err != nil {
-		logger.Warningf("Failed to get recent commits: %v", err)
-		builder.WriteString("(Unable to retrieve git history)\n")
-	} else if len(commits) == 0 {
-		builder.WriteString("(No commits yet)\n")
-	} else {
-		for _, commit := range commits {
-			builder.WriteString(commit)
+		return "", fmt.Errorf("failed to load config: %w", err)
+	}
+
+	// Recent Git History - only include if current branch is not the base branch
+	currentBranch, err := git.GetCurrentBranch(ctx)
+	if err != nil {
+		logger.Warningf("Failed to get current branch: %v", err)
+	} else if currentBranch != ralphConfig.BaseBranch {
+		// Show all commits in this branch (since base branch)
+		commitLog, err := git.GetCommitLog(ctx, ralphConfig.BaseBranch)
+		if err != nil {
+			logger.Warningf("Failed to get branch commits: %v", err)
+		} else if commitLog != "" {
+			builder.WriteString("## Recent Git History\n")
+			builder.WriteString("\n")
+			builder.WriteString(commitLog)
+			builder.WriteString("\n")
 			builder.WriteString("\n")
 		}
 	}
-	builder.WriteString("\n")
 
 	// Project Requirements - matches develop.sh format exactly
 	builder.WriteString("## Project Requirements\n")
@@ -52,11 +59,7 @@ func BuildDevelopPrompt(ctx *context.Context, projectFile string) (string, error
 	builder.Write(projectContent)
 	builder.WriteString("\n")
 
-	// Development Instructions - loaded from config
-	ralphConfig, err := config.LoadConfig()
-	if err != nil {
-		return "", fmt.Errorf("failed to load config: %w", err)
-	}
+	// Development Instructions - already loaded from config above
 	builder.WriteString(ralphConfig.Instructions)
 	builder.WriteString("\n")
 
