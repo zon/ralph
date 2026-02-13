@@ -109,3 +109,66 @@ func CheckoutBranch(ctx *context.Context, name string) error {
 	logger.Success(fmt.Sprintf("Checked out branch: %s", name))
 	return nil
 }
+
+// HasCommits checks if the current branch has any commits
+func HasCommits(ctx *context.Context) bool {
+	if ctx.IsDryRun() {
+		logger.Info("[DRY-RUN] Would check if branch has commits")
+		return true
+	}
+
+	cmd := exec.Command("git", "rev-parse", "--verify", "HEAD")
+	if err := cmd.Run(); err != nil {
+		if ctx.IsVerbose() {
+			logger.Info("No commits found on current branch")
+		}
+		return false
+	}
+
+	if ctx.IsVerbose() {
+		logger.Info("Branch has commits")
+	}
+	return true
+}
+
+// PushBranch pushes the specified branch to origin and returns the remote URL
+func PushBranch(ctx *context.Context, branch string) (string, error) {
+	if ctx.IsDryRun() {
+		logger.Info(fmt.Sprintf("[DRY-RUN] Would push branch '%s' to origin", branch))
+		return "https://github.com/dry-run/repo", nil
+	}
+
+	// Check if there are commits to push
+	if !HasCommits(ctx) {
+		return "", fmt.Errorf("no commits to push on branch '%s'", branch)
+	}
+
+	// Push the branch with --set-upstream
+	cmd := exec.Command("git", "push", "--set-upstream", "origin", branch)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("failed to push branch '%s': %w (output: %s)", branch, err, out.String())
+	}
+
+	logger.Success(fmt.Sprintf("Pushed branch '%s' to origin", branch))
+
+	// Get the remote URL
+	cmd = exec.Command("git", "config", "--get", "remote.origin.url")
+	var urlOut bytes.Buffer
+	cmd.Stdout = &urlOut
+	cmd.Stderr = &urlOut
+
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("failed to get remote URL: %w (output: %s)", err, urlOut.String())
+	}
+
+	remoteURL := strings.TrimSpace(urlOut.String())
+	if ctx.IsVerbose() {
+		logger.Info(fmt.Sprintf("Remote URL: %s", remoteURL))
+	}
+
+	return remoteURL, nil
+}

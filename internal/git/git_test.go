@@ -210,3 +210,47 @@ func TestCreateBranch_AlreadyExists(t *testing.T) {
 		t.Error("Expected CreateBranch to fail for existing branch")
 	}
 }
+
+func TestHasCommits(t *testing.T) {
+	tempDir := setupTestRepo(t)
+	originalDir, _ := os.Getwd()
+	defer os.Chdir(originalDir)
+	os.Chdir(tempDir)
+
+	ctx := context.NewContext(false, false, false, false)
+
+	// Should have commits (setupTestRepo creates an initial commit)
+	if !HasCommits(ctx) {
+		t.Error("Expected HasCommits to return true for repo with commits")
+	}
+}
+
+func TestHasCommits_DryRun(t *testing.T) {
+	ctx := context.NewContext(true, false, false, false)
+
+	// In dry-run mode, should always return true
+	if !HasCommits(ctx) {
+		t.Error("Expected HasCommits to return true in dry-run mode")
+	}
+}
+
+func TestPushBranch_DryRun(t *testing.T) {
+	ctx := context.NewContext(true, false, false, false)
+
+	// Should not return an error in dry-run mode
+	url, err := PushBranch(ctx, "test-branch")
+	if err != nil {
+		t.Fatalf("PushBranch in dry-run failed: %v", err)
+	}
+
+	if url == "" {
+		t.Error("Expected PushBranch to return a URL in dry-run mode")
+	}
+}
+
+// Note: We skip real push tests as they require:
+// 1. A remote repository configured
+// 2. Authentication/credentials set up
+// 3. Network access
+// These are integration tests that should be run in a CI/CD environment
+// with proper repository setup.
