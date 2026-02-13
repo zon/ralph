@@ -61,7 +61,14 @@ func StartService(svc config.Service, dryRun bool) (*Process, error) {
 }
 
 // Stop gracefully stops a service process
+// It sends SIGTERM, waits for graceful shutdown, then sends SIGKILL if still running
 func (p *Process) Stop() error {
+	return p.StopWithTimeout(5 * time.Second)
+}
+
+// StopWithTimeout gracefully stops a service process with a custom timeout
+// It sends SIGTERM, waits up to timeout for graceful shutdown, then sends SIGKILL if still running
+func (p *Process) StopWithTimeout(timeout time.Duration) error {
 	if p.PID == -1 {
 		// Dry-run sentinel - nothing to stop
 		logger.Info("Would stop service: %s", p.Name)
@@ -78,13 +85,32 @@ func (p *Process) Stop() error {
 	if err := p.Cmd.Process.Signal(syscall.SIGTERM); err != nil {
 		// Process may have already exited
 		logger.Warning("Failed to send SIGTERM to %s: %v", p.Name, err)
+		return nil // Not necessarily an error if process already exited
 	}
 
-	// Wait for process to exit (with timeout handled by caller if needed)
-	_ = p.Cmd.Wait()
+	// Wait for process to exit with timeout
+	done := make(chan error, 1)
+	go func() {
+		done <- p.Cmd.Wait()
+	}()
 
-	logger.Success("Stopped service: %s", p.Name)
-	return nil
+	select {
+	case <-done:
+		// Process exited gracefully
+		logger.Success("Stopped service: %s", p.Name)
+		return nil
+	case <-time.After(timeout):
+		// Timeout reached, force kill
+		logger.Warning("Service %s did not stop gracefully, sending SIGKILL", p.Name)
+		if err := p.Cmd.Process.Kill(); err != nil {
+			logger.Error("Failed to kill service %s: %v", p.Name, err)
+			return fmt.Errorf("failed to kill service %s: %w", p.Name, err)
+		}
+		// Wait for kill to complete
+		<-done
+		logger.Success("Forcefully stopped service: %s", p.Name)
+		return nil
+	}
 }
 
 // IsRunning checks if the process is still running
@@ -162,13 +188,24 @@ func StartAllServices(services []config.Service, dryRun bool) ([]*Process, error
 }
 
 // StopAllServices stops all services in reverse order
+// It stops services gracefully with SIGTERM, waiting for clean shutdown
+// Services that don't stop within timeout are force-killed with SIGKILL
 func StopAllServices(processes []*Process) {
-	// Stop services in reverse order (LIFO)
+	if len(processes) == 0 {
+		return
+	}
+
+	logger.Info("Stopping %d service(s)...", len(processes))
+
+	// Stop services in reverse order (LIFO - last started, first stopped)
 	for i := len(processes) - 1; i >= 0; i-- {
 		if err := processes[i].Stop(); err != nil {
 			logger.Error("Error stopping service %s: %v", processes[i].Name, err)
+			// Continue stopping other services even if one fails
 		}
 	}
+
+	logger.Info("All services stopped")
 }
 
 // CheckPort checks if a TCP port is open and accepting connections

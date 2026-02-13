@@ -157,3 +157,108 @@ func TestStartAllServicesDryRun(t *testing.T) {
 		}
 	}
 }
+
+func TestGracefulShutdown(t *testing.T) {
+	// Start a long-running process that responds to SIGTERM
+	svc := config.Service{
+		Name:    "sleep-service",
+		Command: "sleep",
+		Args:    []string{"30"},
+	}
+
+	proc, err := StartService(svc, false)
+	if err != nil {
+		t.Fatalf("Failed to start service: %v", err)
+	}
+
+	// Verify process is running
+	if !proc.IsRunning() {
+		t.Fatal("Process should be running")
+	}
+
+	// Stop the process gracefully
+	err = proc.Stop()
+	if err != nil {
+		t.Errorf("Stop failed: %v", err)
+	}
+
+	// Verify process is no longer running
+	time.Sleep(100 * time.Millisecond)
+	if proc.IsRunning() {
+		t.Error("Process should have stopped")
+	}
+}
+
+func TestForceKillAfterTimeout(t *testing.T) {
+	// Start a process that ignores SIGTERM (trap in shell)
+	// This simulates a process that doesn't gracefully shut down
+	svc := config.Service{
+		Name:    "stubborn-service",
+		Command: "sh",
+		Args:    []string{"-c", "trap '' TERM; sleep 30"},
+	}
+
+	proc, err := StartService(svc, false)
+	if err != nil {
+		t.Fatalf("Failed to start service: %v", err)
+	}
+
+	// Verify process is running
+	if !proc.IsRunning() {
+		t.Fatal("Process should be running")
+	}
+
+	// Stop with a short timeout - should trigger SIGKILL
+	err = proc.StopWithTimeout(500 * time.Millisecond)
+	if err != nil {
+		t.Errorf("StopWithTimeout failed: %v", err)
+	}
+
+	// Verify process was killed
+	time.Sleep(100 * time.Millisecond)
+	if proc.IsRunning() {
+		t.Error("Process should have been killed")
+	}
+}
+
+func TestStopAllServicesOrder(t *testing.T) {
+	// Start multiple services
+	services := []config.Service{
+		{Name: "service1", Command: "sleep", Args: []string{"30"}},
+		{Name: "service2", Command: "sleep", Args: []string{"30"}},
+		{Name: "service3", Command: "sleep", Args: []string{"30"}},
+	}
+
+	processes := []*Process{}
+	for _, svc := range services {
+		proc, err := StartService(svc, false)
+		if err != nil {
+			t.Fatalf("Failed to start service %s: %v", svc.Name, err)
+		}
+		processes = append(processes, proc)
+	}
+
+	// Verify all are running
+	for _, proc := range processes {
+		if !proc.IsRunning() {
+			t.Errorf("Service %s should be running", proc.Name)
+		}
+	}
+
+	// Stop all services
+	StopAllServices(processes)
+
+	// Verify all are stopped
+	time.Sleep(200 * time.Millisecond)
+	for _, proc := range processes {
+		if proc.IsRunning() {
+			t.Errorf("Service %s should have stopped", proc.Name)
+		}
+	}
+}
+
+func TestStopAllServicesEmpty(t *testing.T) {
+	// Should handle empty slice gracefully
+	StopAllServices([]*Process{})
+	// If we get here without panic, test passes
+}

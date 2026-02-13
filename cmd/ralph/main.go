@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/alecthomas/kong"
+	"github.com/zon/ralph/internal/cleanup"
 )
 
 // Version information
@@ -11,6 +12,9 @@ var (
 	Version = "0.1.0"
 	Date    = "unknown"
 )
+
+// Global cleanup manager instance
+var cleanupManager = cleanup.NewManager()
 
 // CLI defines the command-line interface structure
 type CLI struct {
@@ -72,6 +76,12 @@ func (v *VersionCmd) Run(ctx *kong.Context) error {
 }
 
 func main() {
+	// Set up signal handlers for graceful shutdown
+	cleanupManager.SetupSignalHandlers()
+
+	// Ensure cleanup happens on normal exit
+	defer cleanupManager.Cleanup()
+
 	cli := &CLI{}
 
 	ctx := kong.Parse(cli,
