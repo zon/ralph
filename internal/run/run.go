@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/gen2brain/beeep"
 	"github.com/zon/ralph/internal/ai"
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
@@ -14,6 +13,7 @@ import (
 	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/iteration"
 	"github.com/zon/ralph/internal/logger"
+	"github.com/zon/ralph/internal/notify"
 )
 
 // Execute runs the full orchestration workflow
@@ -138,9 +138,7 @@ func Execute(ctx *context.Context, projectFile string, maxIterations int, cleanu
 	iterCount, err := iteration.RunIterationLoop(ctx, absProjectFile, maxIterations, cleanupRegistrar)
 	if err != nil {
 		// Send failure notification
-		if ctx.ShouldNotify() {
-			_ = beeep.Notify("Ralph Failed", fmt.Sprintf("Failed for project: %s", project.Name), "")
-		}
+		notify.Error(project.Name, ctx.ShouldNotify())
 		return fmt.Errorf("iteration loop failed: %w", err)
 	}
 
@@ -199,9 +197,7 @@ func Execute(ctx *context.Context, projectFile string, maxIterations int, cleanu
 	logger.Success("==========================================")
 
 	// Send success notification
-	if ctx.ShouldNotify() {
-		_ = beeep.Notify("Ralph Completed", fmt.Sprintf("PR created for project: %s", project.Name), "")
-	}
+	notify.Success(project.Name, ctx.ShouldNotify())
 
 	return nil
 }

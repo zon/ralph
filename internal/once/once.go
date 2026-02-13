@@ -5,12 +5,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/gen2brain/beeep"
 	"github.com/zon/ralph/internal/ai"
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/logger"
+	"github.com/zon/ralph/internal/notify"
 	"github.com/zon/ralph/internal/prompt"
 	"github.com/zon/ralph/internal/services"
 )
@@ -102,9 +102,7 @@ func Execute(ctx *context.Context, projectFile string, cleanupRegistrar func(fun
 	logger.Info("Running AI agent...")
 	if err := ai.RunAgent(ctx, devPrompt); err != nil {
 		// Send failure notification
-		if ctx.ShouldNotify() && !ctx.IsDryRun() {
-			_ = beeep.Notify("Ralph Failed", fmt.Sprintf("Failed for project: %s", project.Name), "")
-		}
+		notify.Error(project.Name, ctx.ShouldNotify() && !ctx.IsDryRun())
 		return fmt.Errorf("agent execution failed: %w", err)
 	}
 	logger.Success("AI agent execution completed")
@@ -122,9 +120,7 @@ func Execute(ctx *context.Context, projectFile string, cleanupRegistrar func(fun
 	}
 
 	// Send success notification
-	if ctx.ShouldNotify() && !ctx.IsDryRun() {
-		_ = beeep.Notify("Ralph Completed", fmt.Sprintf("Successfully completed for project: %s", project.Name), "")
-	}
+	notify.Success(project.Name, ctx.ShouldNotify() && !ctx.IsDryRun())
 
 	logger.Success("Single iteration completed successfully")
 

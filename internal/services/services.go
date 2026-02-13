@@ -36,7 +36,7 @@ func StartService(svc config.Service, dryRun bool) (*Process, error) {
 	// Create the command
 	cmd := exec.Command(svc.Command, svc.Args...)
 
-	// Redirect stdout/stderr to /dev/null
+	// Redirect stdout/stderr to discard output
 	cmd.Stdout = nil
 	cmd.Stderr = nil
 
