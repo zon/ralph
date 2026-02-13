@@ -1,0 +1,56 @@
+# Sample Project File
+# This file defines a development project for ralph
+# File name becomes the branch name (e.g., sample-project.yaml -> sample-project branch)
+# Format matches ../slow-choice/projects/*.yaml
+
+name: sample-project
+description: Implement user authentication with JWT tokens
+
+requirements:
+  - category: backend
+    description: User Authentication Model
+    steps:
+      - Create User model with username, email, and password fields
+      - Add bcrypt password hashing in User.setPassword()
+      - Add User.verifyPassword() method for authentication
+      - Create database migration for users table
+    passing: false
+
+  - category: backend
+    description: Login and JWT Generation
+    steps:
+      - Create POST /api/auth/login endpoint
+      - Validate username/password credentials
+      - Generate JWT token with user ID and expiration
+      - Return JWT token and user info in response
+      - Add error handling for invalid credentials
+    passing: false
+
+  - category: backend
+    description: Authentication Middleware
+    steps:
+      - Create authenticateJWT() middleware function
+      - Verify JWT token from Authorization header
+      - Decode and validate token claims
+      - Attach user object to request context
+      - Return 401 for invalid/missing tokens
+    passing: false
+
+  - category: testing
+    description: Authentication Tests
+    steps:
+      - Write unit tests for User.setPassword() and verifyPassword()
+      - Write integration tests for /api/auth/login endpoint
+      - Test JWT token generation and validation
+      - Test middleware with valid/invalid/missing tokens
+      - Test edge cases (expired tokens, malformed tokens)
+    passing: false
+
+  - category: documentation
+    description: API Documentation
+    steps:
+      - Document POST /api/auth/login endpoint (request/response format)
+      - Document Authorization header format for protected routes
+      - Add authentication section to API docs
+      - Include example curl commands
+    passing: false

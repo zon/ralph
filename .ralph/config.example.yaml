@@ -1,0 +1,34 @@
+# Ralph Configuration Example
+# Place this file at .ralph/config.yaml in your project directory
+
+# Maximum number of development iterations before stopping
+maxIterations: 10
+
+# Base branch for pull requests (default: main)
+baseBranch: main
+
+# LLM provider (e.g., anthropic, openai, ollama)
+llmProvider: anthropic
+
+# LLM model (optional, provider-specific)
+llmModel: claude-3-5-sonnet-20241022
+
+# Services to start/stop during development
+services:
+  # Example: Database service with health check
+  - name: database
+    command: docker
+    args: [compose, up, -d, db]
+    port: 5432  # Optional: port for health checking
+
+  # Example: API server
+  - name: api-server
+    command: npm
+    args: [run, dev]
+    port: 3000
+
+  # Example: Background worker (no port = no health check)
+  - name: worker
+    command: python
+    args: [worker.py]
+    # No port specified - just verify process is running

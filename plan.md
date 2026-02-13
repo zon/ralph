@@ -6,6 +6,7 @@ Port ralph.sh and develop.sh from bash to a unified Go CLI tool that can be `go 
 **Reference Implementations**: 
 - `../slow-choice/ralph.sh` - Orchestration script
 - `../slow-choice/develop.sh` - Development workflow script
+- `../slow-choice/projects/` - Example project YAML files with requirements and steps
 
 **Goal**: Create a robust, cross-platform CLI tool that orchestrates coding agents across a project by:
 1. Starting/stopping optional services (defined in .ralph/config.yaml)
@@ -36,7 +37,9 @@ Port ralph.sh and develop.sh from bash to a unified Go CLI tool that can be `go 
    - Add `--no-notify` flag for disabling notifications
 
 3. **Create configuration types and dry-run mode**
-   - Define structs for project YAML parsing (Project, Requirement)
+   - Define structs for project YAML parsing (Project, Requirement with steps array)
+   - Requirement includes: category, description, steps (array of strings), passing (bool)
+   - See `../slow-choice/projects/*.yaml` for reference examples of the format
    - Define struct for ralph config (RalphConfig with Services list)
    - Define struct for secrets YAML (API keys for LLM providers)
    - Add YAML unmarshaling support (gopkg.in/yaml.v3)
