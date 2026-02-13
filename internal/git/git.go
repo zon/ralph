@@ -288,3 +288,74 @@ func StageFile(ctx *context.Context, filePath string) error {
 
 	return nil
 }
+
+// StageAll stages all changes using git add -A
+func StageAll(ctx *context.Context) error {
+	if ctx.IsDryRun() {
+		logger.Info("[DRY-RUN] Would stage all changes (git add -A)")
+		return nil
+	}
+
+	cmd := exec.Command("git", "add", "-A")
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to stage all changes: %w (output: %s)", err, out.String())
+	}
+
+	if ctx.IsVerbose() {
+		logger.Info("Staged all changes")
+	}
+
+	return nil
+}
+
+// HasStagedChanges checks if there are any staged changes ready to commit
+func HasStagedChanges(ctx *context.Context) bool {
+	if ctx.IsDryRun() {
+		logger.Info("[DRY-RUN] Would check for staged changes")
+		return true
+	}
+
+	// Use git diff --cached --quiet to check for staged changes
+	// Exit code 0 = no staged changes, exit code 1 = has staged changes
+	cmd := exec.Command("git", "diff", "--cached", "--quiet")
+	err := cmd.Run()
+
+	hasStagedChanges := err != nil // Non-zero exit = has changes
+
+	if ctx.IsVerbose() {
+		if hasStagedChanges {
+			logger.Info("Staged changes detected")
+		} else {
+			logger.Info("No staged changes found")
+		}
+	}
+
+	return hasStagedChanges
+}
+
+// Commit creates a git commit with the specified message
+func Commit(ctx *context.Context, message string) error {
+	if ctx.IsDryRun() {
+		logger.Info(fmt.Sprintf("[DRY-RUN] Would commit with message: %s", message))
+		return nil
+	}
+
+	cmd := exec.Command("git", "commit", "-m", message)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to commit: %w (output: %s)", err, out.String())
+	}
+
+	if ctx.IsVerbose() {
+		logger.Info(fmt.Sprintf("Committed: %s", message))
+	}
+
+	return nil
+}
