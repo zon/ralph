@@ -7,15 +7,12 @@ maxIterations: 10
 # Base branch for pull requests
 baseBranch: main
 
-# LLM provider (currently only "deepseek" is supported)
-llmProvider: deepseek
-
-# LLM model to use (provider-specific)
-# DeepSeek models:
-#   - deepseek-reasoner (R1) - Advanced reasoning, best for complex coding tasks (default)
-#   - deepseek-chat (V3) - General purpose, also strong at coding
-#   - deepseek-coder - Specialized for code generation and IDE tasks
-llmModel: deepseek-reasoner
+# LLM configuration is now managed by OpenCode
+# Configure your LLM provider/model with: opencode config set model provider/model
+# Examples:
+#   opencode config set model deepseek/deepseek-chat
+#   opencode config set model anthropic/claude-3-5-sonnet-20241022
+#   opencode config set model openai/gpt-4
 
 # Services to start/stop during development
 # Each service can optionally specify a port for health checking
@@ -24,7 +21,7 @@ services:
   - name: database
     command: docker
     args: [compose, up, -d, postgres]
-    port: 5432  # Optional: port for health checking
+    port: 5432 # Optional: port for health checking
 
   # Example: Redis cache via Docker Compose
   - name: redis
@@ -49,7 +46,6 @@ services:
     command: npm
     args: [run, dev:frontend]
     port: 8080
-
 # Notes:
 # - Services are started in order before AI agent execution
 # - Health checks wait for TCP ports to respond (if port is specified)

@@ -1,8 +1,6 @@
 # Example .ralph/config.yaml
 maxIterations: 10
 baseBranch: main
-llmProvider: deepseek
-llmModel: deepseek-reasoner
 
 services:
   - name: example-service

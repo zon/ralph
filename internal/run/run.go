@@ -67,9 +67,6 @@ func Execute(ctx *context.Context, projectFile string, maxIterations int, cleanu
 	}
 
 	baseBranch := ralphConfig.BaseBranch
-	if baseBranch == "" {
-		baseBranch = "main"
-	}
 
 	if ctx.IsDryRun() {
 		logger.Info("[DRY-RUN] Full orchestration plan:")

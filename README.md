@@ -24,25 +24,28 @@ export PATH=$PATH:$(go env GOPATH)/bin
 
 ## Quick Start
 
-### 1. Set Up API Key
+### 1. Install Dependencies
 
+- **OpenCode CLI**: [opencode.ai](https://opencode.ai/docs/cli/)
+- **GitHub CLI**: [cli.github.com](https://cli.github.com/)
+
+### 2. Configure OpenCode
+
+See [OpenCode configuration docs](https://opencode.ai/docs/cli/) for setup instructions.
+
+Example:
 ```bash
-mkdir -p ~/.ralph
-cat > ~/.ralph/secrets.yaml <<EOF
-apiKeys:
-  deepseek: sk-your-deepseek-api-key-here
-EOF
+opencode config set model deepseek/deepseek-chat
+export DEEPSEEK_API_KEY=sk-your-key
 ```
 
-Get your API key from [platform.deepseek.com](https://platform.deepseek.com/)
+Get API keys: [DeepSeek](https://platform.deepseek.com/) | [OpenAI](https://platform.openai.com/) | [Anthropic](https://console.anthropic.com/)
 
-### 2. Authenticate GitHub
+### 3. Authenticate GitHub
 
-```bash
-gh auth login
-```
+See [GitHub CLI authentication](https://cli.github.com/manual/gh_auth_login)
 
-### 3. Create a Project File
+### 4. Create a Project File
 
 ```bash
 cat > projects/my-feature.yaml <<EOF
@@ -60,7 +63,7 @@ requirements:
 EOF
 ```
 
-### 4. Run Ralph
+### 5. Run Ralph
 
 ```bash
 # Preview first
@@ -117,28 +120,18 @@ requirements:
 Optional project-specific settings:
 
 ```yaml
-maxIterations: 10
-baseBranch: main
-llmProvider: deepseek
-llmModel: deepseek-reasoner
+maxIterations: 10  # Max iterations before stopping
+baseBranch: main   # Base branch for PRs
 
+# Optional: Services to manage
 services:
   - name: database
     command: docker
     args: [compose, up, -d, db]
-    port: 5432
+    port: 5432  # For health checking
 ```
 
-### Secrets (`.ralph/secrets.yaml`)
-
-API keys for LLM providers. Use global (`~/.ralph/secrets.yaml`) or project-specific (`.ralph/secrets.yaml`).
-
-```yaml
-apiKeys:
-  deepseek: sk-xxxxxxxxxxxxx
-```
-
-⚠️ Add `.ralph/secrets.yaml` to `.gitignore`
+**Note:** LLM configuration (model, API keys) is managed by OpenCode, not Ralph.
 
 ## Examples
 
@@ -178,7 +171,7 @@ ralph once projects/my-feature.yaml
 
 ### Custom Development Instructions
 
-Create `docs/develop-instructions.md` to guide the AI:
+Create `.ralph/instructions.md` to guide the AI:
 
 ```markdown
 # Development Instructions
@@ -196,12 +189,9 @@ Ralph includes this file in the AI prompt automatically.
 
 ## Troubleshooting
 
-**"No API key found"**
-```bash
-mkdir -p ~/.ralph
-echo "apiKeys:
-  deepseek: sk-your-key" > ~/.ralph/secrets.yaml
-```
+**"OpenCode not configured"**
+
+See [OpenCode configuration docs](https://opencode.ai/docs/cli/)
 
 **"Service failed to start"**
 - Verify command in `.ralph/config.yaml`
@@ -268,8 +258,4 @@ go test ./... -v
 go test ./... -cover
 ```
 
-## Documentation
 
-- [Configuration Guide](docs/configuration.md) - Detailed config options
-- [Quick Start](docs/quick-start.md) - 5-minute guide
-- [Examples](docs/examples.md) - Usage examples

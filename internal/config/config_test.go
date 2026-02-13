@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -185,6 +186,12 @@ func TestLoadConfig_Defaults(t *testing.T) {
 	if len(config.Services) != 0 {
 		t.Errorf("LoadConfig() Services length = %d, want 0", len(config.Services))
 	}
+	if config.Instructions == "" {
+		t.Error("LoadConfig() Instructions is empty, expected default instructions")
+	}
+	if !strings.Contains(config.Instructions, "## Instructions") {
+		t.Error("LoadConfig() Instructions missing expected header")
+	}
 }
 
 func TestLoadConfig_FromFile(t *testing.T) {
@@ -204,8 +211,6 @@ func TestLoadConfig_FromFile(t *testing.T) {
 	// Write config file
 	configContent := `maxIterations: 5
 baseBranch: develop
-llmProvider: deepseek
-llmModel: deepseek-reasoner
 services:
   - name: test-service
     command: echo
@@ -215,6 +220,13 @@ services:
 	configPath := filepath.Join(ralphDir, "config.yaml")
 	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
 		t.Fatalf("Failed to write config file: %v", err)
+	}
+
+	// Write custom instructions file
+	instructionsContent := "Custom instructions for testing"
+	instructionsPath := filepath.Join(ralphDir, "instructions.md")
+	if err := os.WriteFile(instructionsPath, []byte(instructionsContent), 0644); err != nil {
+		t.Fatalf("Failed to write instructions file: %v", err)
 	}
 
 	// Change to temp directory
@@ -233,40 +245,14 @@ services:
 	if config.BaseBranch != "develop" {
 		t.Errorf("LoadConfig() BaseBranch = %s, want develop", config.BaseBranch)
 	}
-	if config.LLMProvider != "deepseek" {
-		t.Errorf("LoadConfig() LLMProvider = %s, want deepseek", config.LLMProvider)
-	}
 	if len(config.Services) != 1 {
 		t.Errorf("LoadConfig() Services length = %d, want 1", len(config.Services))
 	}
 	if len(config.Services) > 0 && config.Services[0].Name != "test-service" {
 		t.Errorf("LoadConfig() Service name = %s, want test-service", config.Services[0].Name)
 	}
-}
-
-func TestLoadRalphSecrets_Empty(t *testing.T) {
-	// Create a temporary directory without secrets
-	tmpDir, err := os.MkdirTemp("", "ralph-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
-
-	// Change to temp directory
-	originalWd, _ := os.Getwd()
-	defer os.Chdir(originalWd)
-	os.Chdir(tmpDir)
-
-	secrets, err := LoadRalphSecrets()
-	if err != nil {
-		t.Errorf("LoadRalphSecrets() unexpected error: %v", err)
-	}
-
-	if secrets.APIKeys == nil {
-		t.Error("LoadRalphSecrets() APIKeys should be initialized")
-	}
-	if len(secrets.APIKeys) != 0 {
-		t.Errorf("LoadRalphSecrets() APIKeys length = %d, want 0", len(secrets.APIKeys))
+	if config.Instructions != instructionsContent {
+		t.Errorf("LoadConfig() Instructions = %s, want %s", config.Instructions, instructionsContent)
 	}
 }
 

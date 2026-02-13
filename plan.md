@@ -115,7 +115,7 @@ Port ralph.sh and develop.sh from bash to a unified Go CLI tool that can be `go 
     - Add function: `BuildDevelopPrompt(projectFile string) (string, error)`
     - Include recent git history (last 20 commits)
     - Include project requirements from YAML
-    - Read and include docs/develop-instructions.md
+    - Read and include .ralph/instructions.md
     - Format as structured context for AI agent
 
 13. **Implement AI client for agent execution with dry-run support**

@@ -48,7 +48,7 @@ requirements:
 		"## Project Information",
 		"## Recent Git History",
 		"## Project Requirements",
-		"## Development Instructions",
+		"## Instructions",
 	}
 
 	for _, section := range expectedSections {
@@ -66,7 +66,7 @@ requirements:
 		t.Error("Prompt does not contain project requirements")
 	}
 
-	// Verify default instructions are included (since no docs/develop-instructions.md exists)
+	// Verify default instructions are included (since no .ralph/instructions.md exists)
 	if !strings.Contains(prompt, "ONLY WORK ON ONE REQUIREMENT") {
 		t.Error("Prompt does not contain default instructions")
 	}
@@ -85,14 +85,14 @@ requirements:
 		t.Fatalf("Failed to create test project file: %v", err)
 	}
 
-	// Create docs directory and custom instructions
-	docsDir := filepath.Join(tmpDir, "docs")
-	if err := os.MkdirAll(docsDir, 0755); err != nil {
-		t.Fatalf("Failed to create docs directory: %v", err)
+	// Create .ralph directory and custom instructions
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	if err := os.MkdirAll(ralphDir, 0755); err != nil {
+		t.Fatalf("Failed to create .ralph directory: %v", err)
 	}
 
 	customInstructions := "Custom instruction: Do this specific thing"
-	instructionsFile := filepath.Join(docsDir, "develop-instructions.md")
+	instructionsFile := filepath.Join(ralphDir, "instructions.md")
 	if err := os.WriteFile(instructionsFile, []byte(customInstructions), 0644); err != nil {
 		t.Fatalf("Failed to create instructions file: %v", err)
 	}

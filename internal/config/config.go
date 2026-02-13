@@ -1,12 +1,16 @@
 package config
 
 import (
+	_ "embed"
 	"fmt"
 	"os"
 	"path/filepath"
 
 	"gopkg.in/yaml.v3"
 )
+
+//go:embed default-instructions.md
+var defaultInstructions string
 
 // Project represents a project YAML file with requirements
 type Project struct {
@@ -37,14 +41,8 @@ type Service struct {
 type RalphConfig struct {
 	MaxIterations int       `yaml:"maxIterations,omitempty"`
 	BaseBranch    string    `yaml:"baseBranch,omitempty"`
-	LLMProvider   string    `yaml:"llmProvider,omitempty"`
-	LLMModel      string    `yaml:"llmModel,omitempty"`
 	Services      []Service `yaml:"services,omitempty"`
-}
-
-// RalphSecrets represents the secrets.yaml structure
-type RalphSecrets struct {
-	APIKeys map[string]string `yaml:"apiKeys,omitempty"`
+	Instructions  string    `yaml:"-"` // Not persisted in YAML, loaded from .ralph/instructions.md
 }
 
 // LoadProject loads and validates a project YAML file
@@ -102,87 +100,44 @@ func LoadConfig() (*RalphConfig, error) {
 	}
 
 	configPath := filepath.Join(cwd, ".ralph", "config.yaml")
+	var config RalphConfig
 
-	// If config file doesn't exist, return defaults (not an error)
+	// If config file doesn't exist, use defaults
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		return &RalphConfig{
+		config = RalphConfig{
 			MaxIterations: 10,
 			BaseBranch:    "main",
 			Services:      []Service{},
-		}, nil
+		}
+	} else {
+		// Load config file
+		data, err := os.ReadFile(configPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read config file: %w", err)
+		}
+
+		if err := yaml.Unmarshal(data, &config); err != nil {
+			return nil, fmt.Errorf("failed to parse config YAML: %w", err)
+		}
+
+		// Apply defaults for missing values
+		if config.MaxIterations == 0 {
+			config.MaxIterations = 10
+		}
+		if config.BaseBranch == "" {
+			config.BaseBranch = "main"
+		}
 	}
 
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read config file: %w", err)
-	}
-
-	var config RalphConfig
-	if err := yaml.Unmarshal(data, &config); err != nil {
-		return nil, fmt.Errorf("failed to parse config YAML: %w", err)
-	}
-
-	// Apply defaults for missing values
-	if config.MaxIterations == 0 {
-		config.MaxIterations = 10
-	}
-	if config.BaseBranch == "" {
-		config.BaseBranch = "main"
+	// Load instructions from .ralph/instructions.md or use default
+	instructionsPath := filepath.Join(cwd, ".ralph", "instructions.md")
+	if instructionsData, err := os.ReadFile(instructionsPath); err == nil {
+		config.Instructions = string(instructionsData)
+	} else {
+		config.Instructions = defaultInstructions
 	}
 
 	return &config, nil
-}
-
-// LoadRalphSecrets loads secrets from ~/.ralph/secrets.yaml or .ralph/secrets.yaml (cwd)
-// Priority: .ralph/secrets.yaml (cwd) > ~/.ralph/secrets.yaml
-// Returns empty secrets if neither file exists (not an error)
-func LoadRalphSecrets() (*RalphSecrets, error) {
-	var secretsPath string
-
-	// Check for project-specific secrets first (highest priority)
-	cwd, err := os.Getwd()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get working directory: %w", err)
-	}
-
-	projectSecretsPath := filepath.Join(cwd, ".ralph", "secrets.yaml")
-	if _, err := os.Stat(projectSecretsPath); err == nil {
-		secretsPath = projectSecretsPath
-	} else {
-		// Fall back to global secrets
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get home directory: %w", err)
-		}
-
-		globalSecretsPath := filepath.Join(homeDir, ".ralph", "secrets.yaml")
-		if _, err := os.Stat(globalSecretsPath); err == nil {
-			secretsPath = globalSecretsPath
-		}
-	}
-
-	// If no secrets file found, return empty secrets (not an error)
-	if secretsPath == "" {
-		return &RalphSecrets{
-			APIKeys: make(map[string]string),
-		}, nil
-	}
-
-	data, err := os.ReadFile(secretsPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read secrets file: %w", err)
-	}
-
-	var secrets RalphSecrets
-	if err := yaml.Unmarshal(data, &secrets); err != nil {
-		return nil, fmt.Errorf("failed to parse secrets YAML: %w", err)
-	}
-
-	if secrets.APIKeys == nil {
-		secrets.APIKeys = make(map[string]string)
-	}
-
-	return &secrets, nil
 }
 
 // CheckCompletion checks project completion status

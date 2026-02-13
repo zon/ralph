@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/alecthomas/kong"
 	"github.com/zon/ralph/internal/cleanup"
@@ -21,9 +22,10 @@ var cleanupManager = cleanup.NewManager()
 
 // CLI defines the command-line interface structure
 type CLI struct {
-	Run     RunCmd     `cmd:"" help:"Full orchestration: create branch, iterate development, submit PR"`
-	Once    OnceCmd    `cmd:"" help:"Single development iteration"`
-	Version VersionCmd `cmd:"" help:"Show version information"`
+	WorkingDir string     `help:"Working directory to run ralph in" type:"path" short:"C"`
+	Run        RunCmd     `cmd:"" help:"Full orchestration: create branch, iterate development, submit PR"`
+	Once       OnceCmd    `cmd:"" help:"Single development iteration"`
+	Version    VersionCmd `cmd:"" help:"Show version information"`
 }
 
 // RunCmd represents the 'ralph run' command
@@ -87,6 +89,13 @@ func main() {
 			Compact: true,
 		}),
 	)
+
+	// Change working directory if specified
+	if cli.WorkingDir != "" {
+		if err := os.Chdir(cli.WorkingDir); err != nil {
+			ctx.Fatalf("failed to change to working directory %s: %v", cli.WorkingDir, err)
+		}
+	}
 
 	// Execute the selected command
 	err := ctx.Run(ctx)
