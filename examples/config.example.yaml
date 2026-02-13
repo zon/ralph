@@ -1,0 +1,58 @@
+# Ralph Configuration Example
+# Copy this file to .ralph/config.yaml in your project root
+
+# Maximum number of development iterations before stopping
+maxIterations: 10
+
+# Base branch for pull requests
+baseBranch: main
+
+# LLM provider (currently only "deepseek" is supported)
+llmProvider: deepseek
+
+# LLM model to use (provider-specific)
+# DeepSeek models:
+#   - deepseek-reasoner (R1) - Advanced reasoning, best for complex coding tasks (default)
+#   - deepseek-chat (V3) - General purpose, also strong at coding
+#   - deepseek-coder - Specialized for code generation and IDE tasks
+llmModel: deepseek-reasoner
+
+# Services to start/stop during development
+# Each service can optionally specify a port for health checking
+services:
+  # Example: PostgreSQL database via Docker Compose
+  - name: database
+    command: docker
+    args: [compose, up, -d, postgres]
+    port: 5432  # Optional: port for health checking
+
+  # Example: Redis cache via Docker Compose
+  - name: redis
+    command: docker
+    args: [compose, up, -d, redis]
+    port: 6379
+
+  # Example: Development server (Node.js)
+  - name: api-server
+    command: npm
+    args: [run, dev]
+    port: 3000
+
+  # Example: Background worker (no port for health check)
+  - name: worker
+    command: python
+    args: [worker.py]
+    # No port specified = no health check, just verify process is running
+
+  # Example: Frontend development server
+  - name: frontend
+    command: npm
+    args: [run, dev:frontend]
+    port: 8080
+
+# Notes:
+# - Services are started in order before AI agent execution
+# - Health checks wait for TCP ports to respond (if port is specified)
+# - Services are stopped gracefully (SIGTERM) after execution
+# - If a service fails to start, the command will error
+# - Use --no-services flag to skip service management

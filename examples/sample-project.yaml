@@ -1,7 +1,6 @@
 # Sample Project File
 # This file defines a development project for ralph
 # File name becomes the branch name (e.g., sample-project.yaml -> sample-project branch)
-# Format matches ../slow-choice/projects/*.yaml
 
 name: sample-project
 description: Implement user authentication with JWT tokens

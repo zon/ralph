@@ -36,7 +36,7 @@ requirements:
     passing: false
 ```
 
-**Reference**: See `../slow-choice/projects/*.yaml` for real-world examples.
+**Reference**: See `examples/sample-project.yaml` for a complete example.
 
 **Fields**:
 - `name` (required): Project name
