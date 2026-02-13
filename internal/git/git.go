@@ -172,3 +172,96 @@ func PushBranch(ctx *context.Context, branch string) (string, error) {
 
 	return remoteURL, nil
 }
+
+// GetRecentCommits retrieves the last N commit messages
+func GetRecentCommits(ctx *context.Context, count int) ([]string, error) {
+	if ctx.IsDryRun() {
+		logger.Info(fmt.Sprintf("[DRY-RUN] Would get last %d commits", count))
+		dryRunCommits := make([]string, count)
+		for i := 0; i < count; i++ {
+			dryRunCommits[i] = fmt.Sprintf("dry-run commit %d", i+1)
+		}
+		return dryRunCommits, nil
+	}
+
+	// Use git log with format to get commit messages
+	cmd := exec.Command("git", "log", fmt.Sprintf("-%d", count), "--pretty=format:%h %s")
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("failed to get recent commits: %w (output: %s)", err, out.String())
+	}
+
+	output := strings.TrimSpace(out.String())
+	if output == "" {
+		return []string{}, nil
+	}
+
+	commits := strings.Split(output, "\n")
+	if ctx.IsVerbose() {
+		logger.Info(fmt.Sprintf("Retrieved %d commits", len(commits)))
+	}
+
+	return commits, nil
+}
+
+// GetCommitsSince retrieves commit messages since the specified base branch
+func GetCommitsSince(ctx *context.Context, base string) ([]string, error) {
+	if ctx.IsDryRun() {
+		logger.Info(fmt.Sprintf("[DRY-RUN] Would get commits since '%s'", base))
+		return []string{
+			"dry-run commit 1 - feature implementation",
+			"dry-run commit 2 - bug fix",
+			"dry-run commit 3 - tests",
+		}, nil
+	}
+
+	// Use git log to get commits in current branch but not in base
+	cmd := exec.Command("git", "log", fmt.Sprintf("%s..HEAD", base), "--pretty=format:%h %s")
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("failed to get commits since '%s': %w (output: %s)", base, err, out.String())
+	}
+
+	output := strings.TrimSpace(out.String())
+	if output == "" {
+		return []string{}, nil
+	}
+
+	commits := strings.Split(output, "\n")
+	if ctx.IsVerbose() {
+		logger.Info(fmt.Sprintf("Retrieved %d commits since '%s'", len(commits), base))
+	}
+
+	return commits, nil
+}
+
+// GetDiffSince returns the diff between the base branch and HEAD
+func GetDiffSince(ctx *context.Context, base string) (string, error) {
+	if ctx.IsDryRun() {
+		logger.Info(fmt.Sprintf("[DRY-RUN] Would get diff since '%s'", base))
+		return "dry-run diff output:\n+added line\n-removed line", nil
+	}
+
+	// Use git diff to get changes between base and HEAD
+	cmd := exec.Command("git", "diff", fmt.Sprintf("%s..HEAD", base))
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("failed to get diff since '%s': %w (output: %s)", base, err, out.String())
+	}
+
+	diff := out.String()
+	if ctx.IsVerbose() {
+		logger.Info(fmt.Sprintf("Retrieved diff since '%s' (%d bytes)", base, len(diff)))
+	}
+
+	return diff, nil
+}

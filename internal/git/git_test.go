@@ -254,3 +254,273 @@ func TestPushBranch_DryRun(t *testing.T) {
 // 3. Network access
 // These are integration tests that should be run in a CI/CD environment
 // with proper repository setup.
+
+func TestGetRecentCommits(t *testing.T) {
+	tempDir := setupTestRepo(t)
+	originalDir, _ := os.Getwd()
+	defer os.Chdir(originalDir)
+	os.Chdir(tempDir)
+
+	ctx := context.NewContext(false, false, false, false)
+
+	// Create a few more commits
+	for i := 1; i <= 3; i++ {
+		testFile := filepath.Join(tempDir, "test"+string(rune('0'+i))+".txt")
+		if err := os.WriteFile(testFile, []byte("test content"), 0644); err != nil {
+			t.Fatalf("Failed to create test file: %v", err)
+		}
+
+		cmd := exec.Command("git", "add", ".")
+		cmd.Dir = tempDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("Failed to stage files: %v", err)
+		}
+
+		cmd = exec.Command("git", "commit", "-m", "Test commit "+string(rune('0'+i)))
+		cmd.Dir = tempDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("Failed to create commit: %v", err)
+		}
+	}
+
+	// Get recent commits
+	commits, err := GetRecentCommits(ctx, 2)
+	if err != nil {
+		t.Fatalf("GetRecentCommits failed: %v", err)
+	}
+
+	// Should have 2 commits
+	if len(commits) != 2 {
+		t.Errorf("Expected 2 commits, got %d", len(commits))
+	}
+
+	// Most recent commit should contain "Test commit 3"
+	if len(commits) > 0 && !contains(commits[0], "Test commit 3") {
+		t.Errorf("Expected most recent commit to contain 'Test commit 3', got: %s", commits[0])
+	}
+}
+
+func TestGetRecentCommits_DryRun(t *testing.T) {
+	ctx := context.NewContext(true, false, false, false)
+
+	commits, err := GetRecentCommits(ctx, 5)
+	if err != nil {
+		t.Fatalf("GetRecentCommits in dry-run failed: %v", err)
+	}
+
+	if len(commits) != 5 {
+		t.Errorf("Expected 5 dry-run commits, got %d", len(commits))
+	}
+}
+
+func TestGetRecentCommits_NoCommits(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// Initialize git repo without any commits
+	cmd := exec.Command("git", "init")
+	cmd.Dir = tempDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to init git repo: %v", err)
+	}
+
+	originalDir, _ := os.Getwd()
+	defer os.Chdir(originalDir)
+	os.Chdir(tempDir)
+
+	ctx := context.NewContext(false, false, false, false)
+
+	// Should return error or empty list for repo with no commits
+	commits, err := GetRecentCommits(ctx, 5)
+	if err == nil && len(commits) > 0 {
+		t.Error("Expected error or empty list for repo with no commits")
+	}
+}
+
+func TestGetCommitsSince(t *testing.T) {
+	tempDir := setupTestRepo(t)
+	originalDir, _ := os.Getwd()
+	defer os.Chdir(originalDir)
+	os.Chdir(tempDir)
+
+	ctx := context.NewContext(false, false, false, false)
+
+	// Get the current branch to use as base
+	baseBranch, _ := GetCurrentBranch(ctx)
+
+	// Create a new branch
+	testBranch := "feature-branch"
+	if err := CreateBranch(ctx, testBranch); err != nil {
+		t.Fatalf("Failed to create branch: %v", err)
+	}
+	if err := CheckoutBranch(ctx, testBranch); err != nil {
+		t.Fatalf("Failed to checkout branch: %v", err)
+	}
+
+	// Create commits on the new branch
+	for i := 1; i <= 2; i++ {
+		testFile := filepath.Join(tempDir, "feature"+string(rune('0'+i))+".txt")
+		if err := os.WriteFile(testFile, []byte("feature content"), 0644); err != nil {
+			t.Fatalf("Failed to create test file: %v", err)
+		}
+
+		cmd := exec.Command("git", "add", ".")
+		cmd.Dir = tempDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("Failed to stage files: %v", err)
+		}
+
+		cmd = exec.Command("git", "commit", "-m", "Feature commit "+string(rune('0'+i)))
+		cmd.Dir = tempDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("Failed to create commit: %v", err)
+		}
+	}
+
+	// Get commits since base branch
+	commits, err := GetCommitsSince(ctx, baseBranch)
+	if err != nil {
+		t.Fatalf("GetCommitsSince failed: %v", err)
+	}
+
+	// Should have 2 commits
+	if len(commits) != 2 {
+		t.Errorf("Expected 2 commits since base, got %d", len(commits))
+	}
+
+	// Should contain our feature commits
+	if len(commits) > 0 && !contains(commits[0], "Feature commit") {
+		t.Errorf("Expected commits to contain 'Feature commit', got: %s", commits[0])
+	}
+}
+
+func TestGetCommitsSince_DryRun(t *testing.T) {
+	ctx := context.NewContext(true, false, false, false)
+
+	commits, err := GetCommitsSince(ctx, "main")
+	if err != nil {
+		t.Fatalf("GetCommitsSince in dry-run failed: %v", err)
+	}
+
+	if len(commits) == 0 {
+		t.Error("Expected dry-run commits to be non-empty")
+	}
+}
+
+func TestGetCommitsSince_SameBranch(t *testing.T) {
+	tempDir := setupTestRepo(t)
+	originalDir, _ := os.Getwd()
+	defer os.Chdir(originalDir)
+	os.Chdir(tempDir)
+
+	ctx := context.NewContext(false, false, false, false)
+
+	// Get commits since HEAD (should be empty)
+	commits, err := GetCommitsSince(ctx, "HEAD")
+	if err != nil {
+		t.Fatalf("GetCommitsSince failed: %v", err)
+	}
+
+	if len(commits) != 0 {
+		t.Errorf("Expected 0 commits when comparing HEAD to HEAD, got %d", len(commits))
+	}
+}
+
+func TestGetDiffSince(t *testing.T) {
+	tempDir := setupTestRepo(t)
+	originalDir, _ := os.Getwd()
+	defer os.Chdir(originalDir)
+	os.Chdir(tempDir)
+
+	ctx := context.NewContext(false, false, false, false)
+
+	// Get the current branch to use as base
+	baseBranch, _ := GetCurrentBranch(ctx)
+
+	// Create a new branch
+	testBranch := "diff-test-branch"
+	if err := CreateBranch(ctx, testBranch); err != nil {
+		t.Fatalf("Failed to create branch: %v", err)
+	}
+	if err := CheckoutBranch(ctx, testBranch); err != nil {
+		t.Fatalf("Failed to checkout branch: %v", err)
+	}
+
+	// Make a change
+	testFile := filepath.Join(tempDir, "changed.txt")
+	if err := os.WriteFile(testFile, []byte("new content\n"), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	cmd := exec.Command("git", "add", ".")
+	cmd.Dir = tempDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to stage files: %v", err)
+	}
+
+	cmd = exec.Command("git", "commit", "-m", "Add changed.txt")
+	cmd.Dir = tempDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to create commit: %v", err)
+	}
+
+	// Get diff since base branch
+	diff, err := GetDiffSince(ctx, baseBranch)
+	if err != nil {
+		t.Fatalf("GetDiffSince failed: %v", err)
+	}
+
+	// Diff should contain the new file
+	if !contains(diff, "changed.txt") {
+		t.Error("Expected diff to contain 'changed.txt'")
+	}
+
+	if !contains(diff, "new content") {
+		t.Error("Expected diff to contain 'new content'")
+	}
+}
+
+func TestGetDiffSince_DryRun(t *testing.T) {
+	ctx := context.NewContext(true, false, false, false)
+
+	diff, err := GetDiffSince(ctx, "main")
+	if err != nil {
+		t.Fatalf("GetDiffSince in dry-run failed: %v", err)
+	}
+
+	if diff == "" {
+		t.Error("Expected dry-run diff to be non-empty")
+	}
+}
+
+func TestGetDiffSince_NoDiff(t *testing.T) {
+	tempDir := setupTestRepo(t)
+	originalDir, _ := os.Getwd()
+	defer os.Chdir(originalDir)
+	os.Chdir(tempDir)
+
+	ctx := context.NewContext(false, false, false, false)
+
+	// Get diff since HEAD (should be empty)
+	diff, err := GetDiffSince(ctx, "HEAD")
+	if err != nil {
+		t.Fatalf("GetDiffSince failed: %v", err)
+	}
+
+	if diff != "" {
+		t.Errorf("Expected empty diff when comparing HEAD to HEAD, got: %s", diff)
+	}
+}
+
+// Helper function to check if a string contains a substring
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && containsHelper(s, substr))
+}
+
+func containsHelper(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
