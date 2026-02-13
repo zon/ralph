@@ -7,6 +7,7 @@ import (
 	"github.com/zon/ralph/internal/cleanup"
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/once"
+	"github.com/zon/ralph/internal/run"
 )
 
 // Version information
@@ -36,13 +37,9 @@ type RunCmd struct {
 
 // Run executes the run command
 func (r *RunCmd) Run(ctx *kong.Context) error {
-	fmt.Printf("Running full orchestration for: %s\n", r.ProjectFile)
-	fmt.Printf("Max iterations: %d\n", r.MaxIterations)
-	if r.DryRun {
-		fmt.Println("[DRY-RUN] Simulating execution...")
-	}
-	// TODO: Implement full orchestration logic
-	return fmt.Errorf("not implemented yet")
+	// Note: NoServices is not applicable for run command, always false
+	execCtx := context.NewContext(r.DryRun, r.Verbose, r.NoNotify, false)
+	return run.Execute(execCtx, r.ProjectFile, r.MaxIterations, cleanupManager.RegisterCleanup)
 }
 
 // OnceCmd represents the 'ralph once' command
