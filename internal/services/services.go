@@ -2,8 +2,10 @@ package services
 
 import (
 	"fmt"
+	"net"
 	"os/exec"
 	"syscall"
+	"time"
 
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/logger"
@@ -132,6 +134,33 @@ func containsSpace(s string) bool {
 	return false
 }
 
+// StartAllServices starts all services and waits for them to become healthy
+// Returns a slice of started processes and any error encountered
+func StartAllServices(services []config.Service, dryRun bool) ([]*Process, error) {
+	processes := []*Process{}
+	healthTimeout := 30 * time.Second
+
+	for _, svc := range services {
+		// Start the service
+		proc, err := StartService(svc, dryRun)
+		if err != nil {
+			// If a service fails to start, stop all previously started services
+			StopAllServices(processes)
+			return nil, fmt.Errorf("failed to start service %s: %w", svc.Name, err)
+		}
+		processes = append(processes, proc)
+
+		// Wait for health check
+		if err := WaitForHealth(proc, healthTimeout, dryRun); err != nil {
+			// If health check fails, stop all services
+			StopAllServices(processes)
+			return nil, fmt.Errorf("health check failed for service %s: %w", svc.Name, err)
+		}
+	}
+
+	return processes, nil
+}
+
 // StopAllServices stops all services in reverse order
 func StopAllServices(processes []*Process) {
 	// Stop services in reverse order (LIFO)
@@ -140,4 +169,66 @@ func StopAllServices(processes []*Process) {
 			logger.Error("Error stopping service %s: %v", processes[i].Name, err)
 		}
 	}
+}
+
+// CheckPort checks if a TCP port is open and accepting connections
+func CheckPort(port int) bool {
+	address := fmt.Sprintf("localhost:%d", port)
+	conn, err := net.DialTimeout("tcp", address, 1*time.Second)
+	if err != nil {
+		return false
+	}
+	conn.Close()
+	return true
+}
+
+// WaitForPort waits for a TCP port to become available with a timeout
+// Returns nil if port becomes available, error if timeout is reached
+func WaitForPort(port int, timeout time.Duration) error {
+	address := fmt.Sprintf("localhost:%d", port)
+	deadline := time.Now().Add(timeout)
+	interval := 500 * time.Millisecond
+
+	logger.Info("Waiting for port %d to be ready...", port)
+
+	for time.Now().Before(deadline) {
+		conn, err := net.DialTimeout("tcp", address, 1*time.Second)
+		if err == nil {
+			conn.Close()
+			logger.Success("Port %d is ready", port)
+			return nil
+		}
+
+		// Wait before retrying
+		time.Sleep(interval)
+	}
+
+	return fmt.Errorf("timeout waiting for port %d to become available", port)
+}
+
+// WaitForHealth waits for a service to become healthy
+// For services with ports, it checks port availability
+// For services without ports, it just verifies the process is running
+func WaitForHealth(p *Process, timeout time.Duration, dryRun bool) error {
+	if dryRun {
+		if p.Service.Port > 0 {
+			logger.Info("Would wait for port %d (service: %s)", p.Service.Port, p.Name)
+		} else {
+			logger.Info("Would verify process is running (service: %s)", p.Name)
+		}
+		return nil
+	}
+
+	// If service has a port, wait for it
+	if p.Service.Port > 0 {
+		return WaitForPort(p.Service.Port, timeout)
+	}
+
+	// For services without ports, just verify the process is still running
+	if !p.IsRunning() {
+		return fmt.Errorf("service %s is not running", p.Name)
+	}
+
+	logger.Success("Service %s is running", p.Name)
+	return nil
 }
