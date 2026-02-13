@@ -121,8 +121,8 @@ Port ralph.sh and develop.sh from bash to a unified Go CLI tool that can be `go 
 13. **Implement AI client for agent execution with dry-run support**
     - Create `internal/ai` package
     - Add function: `RunAgent(prompt string, dryRun bool) error`
-    - Use gollm to send prompts to LLM
-    - Configure gollm with API keys from ralph-secrets.yaml
+    - Use go-deepseek client to send prompts to DeepSeek API
+    - Configure with API keys from ralph-secrets.yaml
     - In dry-run mode: log "Would run agent with prompt (first 200 chars): <prompt...>" and return success
     - Stream output to stdout for real-time feedback
     - Handle API errors and retries
@@ -132,7 +132,7 @@ Port ralph.sh and develop.sh from bash to a unified Go CLI tool that can be `go 
     - Build prompt from project description and status
     - Include git commits and diff from main..HEAD
     - Request concise 3-5 paragraph summary
-    - Use gollm to generate summary
+    - Use go-deepseek client to generate summary
     - Return summary text (no temp file needed)
 
 ### Phase 6: Once Command (replaces develop.sh)
@@ -297,7 +297,7 @@ ralph help                            # Show help
 - **YAML Parsing**: `gopkg.in/yaml.v3`
 - **Colored Output**: `github.com/fatih/color`
 - **Notifications**: `github.com/gen2brain/beeep`
-- **LLM Client**: `github.com/teilomillet/gollm`
+- **LLM Client**: `github.com/go-deepseek/deepseek`
 
 ## External Tool Dependencies
 
@@ -314,8 +314,8 @@ Configuration settings and services. Example:
 ```yaml
 maxIterations: 10
 baseBranch: main
-llmProvider: anthropic  # or openai, ollama, etc. (gollm supported providers)
-llmModel: claude-3-5-sonnet-20241022  # optional, provider-specific model
+llmProvider: deepseek  # LLM provider
+llmModel: deepseek-reasoner  # optional, provider-specific model (R1 for reasoning)
 
 services:
   - name: database
@@ -338,8 +338,7 @@ Stores API keys for LLM providers globally. Example:
 
 ```yaml
 apiKeys:
-  anthropic: sk-ant-xxxxxxxxxxxxx
-  openai: sk-xxxxxxxxxxxxx
+  deepseek: sk-xxxxxxxxxxxxx
   # Add other provider keys as needed
 ```
 
@@ -360,7 +359,7 @@ Overrides global secrets for project-specific API keys. Same format as ~/.ralph/
 - API keys stored in ~/.ralph/secrets.yaml (global) or .ralph/secrets.yaml (project-specific)
 - Secrets priority: .ralph/secrets.yaml (cwd) > ~/.ralph/secrets.yaml
 - Agent execution is synchronous (blocking) for now
-- gollm supports multiple LLM providers (Anthropic, OpenAI, Ollama, etc.)
+- Supports DeepSeek LLM provider via direct API calls
 - **Dry-run mode**: `--dry-run` flag available on all commands - outputs execution plan without side effects
 - Dry-run should be implemented early (step 3) and threaded through all operations for testing
 - The `run` command orchestrates everything; `once` is for a single development iteration

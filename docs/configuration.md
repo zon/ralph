@@ -60,8 +60,8 @@ Project-specific settings for ralph behavior and services.
 ```yaml
 maxIterations: 10
 baseBranch: main
-llmProvider: anthropic
-llmModel: claude-3-5-sonnet-20241022
+llmProvider: deepseek
+llmModel: deepseek-reasoner
 
 services:
   - name: database
@@ -78,8 +78,9 @@ services:
 **Fields**:
 - `maxIterations` (optional, default: 10): Maximum development iterations
 - `baseBranch` (optional, default: "main"): Base branch for PRs
-- `llmProvider` (optional): LLM provider (anthropic, openai, ollama, etc.)
+- `llmProvider` (optional, default: "deepseek"): LLM provider
 - `llmModel` (optional): Provider-specific model name
+  - DeepSeek models: `deepseek-reasoner` (R1, default), `deepseek-chat` (V3), `deepseek-coder`
 - `services` (optional): List of services to start/stop
   - `name` (required): Service name
   - `command` (required): Command to execute
@@ -100,8 +101,10 @@ API keys for LLM providers.
 
 ```yaml
 apiKeys:
-  anthropic: sk-ant-xxxxxxxxxxxxx
-  openai: sk-xxxxxxxxxxxxx
+  deepseek: sk-xxxxxxxxxxxxx
+  # Add other providers as needed for future multi-provider support
+  # anthropic: sk-ant-xxxxxxxxxxxxx
+  # openai: sk-xxxxxxxxxxxxx
 ```
 
 **IMPORTANT**: 
@@ -210,8 +213,8 @@ ralph run task.yaml
 ```yaml
 maxIterations: 15
 baseBranch: develop
-llmProvider: anthropic
-llmModel: claude-3-5-sonnet-20241022
+llmProvider: deepseek
+llmModel: deepseek-reasoner
 
 services:
   - name: postgres
@@ -233,7 +236,7 @@ services:
 **~/.ralph/secrets.yaml**:
 ```yaml
 apiKeys:
-  anthropic: sk-ant-your-key-here
+  deepseek: sk-your-key-here
 ```
 
 **projects/feature.yaml**:

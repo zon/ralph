@@ -1,10 +1,11 @@
 module github.com/zon/ralph
 
-go 1.22.2
+go 1.23.4
 
 require (
 	github.com/alecthomas/kong v1.14.0
 	github.com/fatih/color v1.18.0
+	github.com/go-deepseek/deepseek v0.8.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 

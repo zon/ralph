@@ -7,11 +7,15 @@ maxIterations: 10
 # Base branch for pull requests (default: main)
 baseBranch: main
 
-# LLM provider (e.g., anthropic, openai, ollama)
-llmProvider: anthropic
+# LLM provider (default: deepseek)
+llmProvider: deepseek
 
 # LLM model (optional, provider-specific)
-llmModel: claude-3-5-sonnet-20241022
+# Available DeepSeek models:
+#   - deepseek-reasoner (R1) - Advanced reasoning, best for complex coding (default)
+#   - deepseek-chat (V3) - General purpose, also strong at coding
+#   - deepseek-coder - Specialized for code generation
+llmModel: deepseek-reasoner
 
 # Services to start/stop during development
 services:
@@ -19,7 +23,7 @@ services:
   - name: database
     command: docker
     args: [compose, up, -d, db]
-    port: 5432  # Optional: port for health checking
+    port: 5432 # Optional: port for health checking
 
   # Example: API server
   - name: api-server

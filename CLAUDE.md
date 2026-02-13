@@ -7,3 +7,4 @@ Port ralph.sh and develop.sh bash scripts to a unified Go CLI tool that orchestr
 - Do not create summary documentation files after completing each step
 - Focus on code, tests, and inline documentation
 - Keep implementation lean and focused
+- Do not commit changes immediately after completing work - wait for explicit instruction

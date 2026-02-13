@@ -204,8 +204,8 @@ func TestLoadConfig_FromFile(t *testing.T) {
 	// Write config file
 	configContent := `maxIterations: 5
 baseBranch: develop
-llmProvider: anthropic
-llmModel: claude-3-5-sonnet-20241022
+llmProvider: deepseek
+llmModel: deepseek-reasoner
 services:
   - name: test-service
     command: echo
@@ -233,8 +233,8 @@ services:
 	if config.BaseBranch != "develop" {
 		t.Errorf("LoadConfig() BaseBranch = %s, want develop", config.BaseBranch)
 	}
-	if config.LLMProvider != "anthropic" {
-		t.Errorf("LoadConfig() LLMProvider = %s, want anthropic", config.LLMProvider)
+	if config.LLMProvider != "deepseek" {
+		t.Errorf("LoadConfig() LLMProvider = %s, want deepseek", config.LLMProvider)
 	}
 	if len(config.Services) != 1 {
 		t.Errorf("LoadConfig() Services length = %d, want 1", len(config.Services))
