@@ -588,3 +588,107 @@ func TestStageFile_NonExistent(t *testing.T) {
 		t.Error("Expected error when staging non-existent file, got nil")
 	}
 }
+
+func TestCommitChanges(t *testing.T) {
+	tempDir := setupTestRepo(t)
+	originalDir, _ := os.Getwd()
+	defer os.Chdir(originalDir)
+	os.Chdir(tempDir)
+
+	ctx := context.NewContext(false, false, false, false)
+
+	// Create a new file to commit
+	testFile := filepath.Join(tempDir, "new-file.txt")
+	if err := os.WriteFile(testFile, []byte("test content"), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	// Commit the changes
+	err := CommitChanges(ctx)
+	if err != nil {
+		t.Fatalf("CommitChanges failed: %v", err)
+	}
+
+	// Verify commit was created by checking log
+	commits, err := GetRecentCommits(ctx, 1)
+	if err != nil {
+		t.Fatalf("Failed to get recent commits: %v", err)
+	}
+
+	if len(commits) == 0 {
+		t.Error("Expected at least 1 commit after CommitChanges")
+	}
+
+	// Check that the commit message mentions the file
+	if len(commits) > 0 && !contains(commits[0], "new-file.txt") {
+		t.Logf("Commit message: %s", commits[0])
+	}
+}
+
+func TestCommitChanges_NoChanges(t *testing.T) {
+	tempDir := setupTestRepo(t)
+	originalDir, _ := os.Getwd()
+	defer os.Chdir(originalDir)
+	os.Chdir(tempDir)
+
+	ctx := context.NewContext(false, false, false, false)
+
+	// Try to commit with no changes
+	err := CommitChanges(ctx)
+	if err == nil {
+		t.Error("Expected error when committing with no changes, got nil")
+	}
+
+	expectedMsg := "no changes to commit"
+	if err != nil && !contains(err.Error(), expectedMsg) {
+		t.Errorf("Expected error containing '%s', got: %v", expectedMsg, err)
+	}
+}
+
+func TestCommitChanges_MultipleFiles(t *testing.T) {
+	tempDir := setupTestRepo(t)
+	originalDir, _ := os.Getwd()
+	defer os.Chdir(originalDir)
+	os.Chdir(tempDir)
+
+	ctx := context.NewContext(false, false, false, false)
+
+	// Create multiple files
+	for i := 1; i <= 5; i++ {
+		testFile := filepath.Join(tempDir, "file"+string(rune('0'+i))+".txt")
+		if err := os.WriteFile(testFile, []byte("content"), 0644); err != nil {
+			t.Fatalf("Failed to create test file: %v", err)
+		}
+	}
+
+	// Commit the changes
+	err := CommitChanges(ctx)
+	if err != nil {
+		t.Fatalf("CommitChanges failed: %v", err)
+	}
+
+	// Verify commit was created
+	commits, err := GetRecentCommits(ctx, 1)
+	if err != nil {
+		t.Fatalf("Failed to get recent commits: %v", err)
+	}
+
+	if len(commits) == 0 {
+		t.Error("Expected at least 1 commit after CommitChanges")
+	}
+
+	// For multiple files, should have a summary message
+	if len(commits) > 0 {
+		t.Logf("Commit message for multiple files: %s", commits[0])
+	}
+}
+
+func TestCommitChanges_DryRun(t *testing.T) {
+	ctx := context.NewContext(true, false, false, false)
+
+	// Should not error in dry-run mode
+	err := CommitChanges(ctx)
+	if err != nil {
+		t.Errorf("CommitChanges in dry-run should not error, got: %v", err)
+	}
+}

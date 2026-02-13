@@ -359,3 +359,109 @@ func Commit(ctx *context.Context, message string) error {
 
 	return nil
 }
+
+// CommitChanges stages all changes and commits them with a descriptive message
+// It generates the commit message based on changed files
+// Returns error if there are no changes to commit
+func CommitChanges(ctx *context.Context) error {
+	if ctx.IsDryRun() {
+		logger.Info("[DRY-RUN] Would stage and commit all changes with generated message")
+		return nil
+	}
+
+	// Stage all changes
+	if err := StageAll(ctx); err != nil {
+		return fmt.Errorf("failed to stage changes: %w", err)
+	}
+
+	// Check if there are any staged changes
+	if !HasStagedChanges(ctx) {
+		return fmt.Errorf("no changes to commit")
+	}
+
+	// Get list of changed files to generate commit message
+	message, err := generateCommitMessage(ctx)
+	if err != nil {
+		// Fallback to generic message if generation fails
+		logger.Warning("Failed to generate commit message: %v, using fallback", err)
+		message = "Update project files"
+	}
+
+	// Commit the staged changes
+	if err := Commit(ctx, message); err != nil {
+		return fmt.Errorf("failed to commit: %w", err)
+	}
+
+	logger.Success("Changes committed: %s", message)
+	return nil
+}
+
+// generateCommitMessage creates a descriptive commit message from changed files
+func generateCommitMessage(ctx *context.Context) (string, error) {
+	// Get list of staged files
+	cmd := exec.Command("git", "diff", "--cached", "--name-only")
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("failed to get staged files: %w (output: %s)", err, out.String())
+	}
+
+	stagedFiles := strings.TrimSpace(out.String())
+	if stagedFiles == "" {
+		return "Update files", nil
+	}
+
+	files := strings.Split(stagedFiles, "\n")
+	fileCount := len(files)
+
+	if ctx.IsVerbose() {
+		logger.Info("Generating commit message for %d file(s)", fileCount)
+	}
+
+	// Generate message based on files changed
+	if fileCount == 1 {
+		return fmt.Sprintf("Update %s", files[0]), nil
+	} else if fileCount <= 3 {
+		// List all files if 2-3 files
+		return fmt.Sprintf("Update %s", strings.Join(files, ", ")), nil
+	} else {
+		// For many files, use a summary
+		// Try to categorize by directory or file type
+		categories := categorizeFiles(files)
+		if len(categories) == 1 {
+			for category := range categories {
+				return fmt.Sprintf("Update %s files (%d files)", category, fileCount), nil
+			}
+		}
+		return fmt.Sprintf("Update %d files across project", fileCount), nil
+	}
+}
+
+// categorizeFiles groups files by directory or type
+func categorizeFiles(files []string) map[string]int {
+	categories := make(map[string]int)
+
+	for _, file := range files {
+		// Try to extract directory or file type
+		if strings.Contains(file, "/") {
+			parts := strings.Split(file, "/")
+			if len(parts) > 1 {
+				dir := parts[0]
+				categories[dir]++
+			}
+		} else {
+			// Root level files - categorize by extension
+			if strings.Contains(file, ".") {
+				parts := strings.Split(file, ".")
+				ext := parts[len(parts)-1]
+				categories[ext]++
+			} else {
+				categories["root"]++
+			}
+		}
+	}
+
+	return categories
+}
