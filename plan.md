@@ -46,7 +46,6 @@ Port ralph.sh and develop.sh from bash to a unified Go CLI tool that can be `go 
    - Add function: `LoadConfig() (*Config, error)` - loads .ralph/config.yaml in cwd
    - Add function: `LoadRalphSecrets() (*RalphSecrets, error)` - checks ~/.ralph/secrets.yaml, then .ralph/secrets.yaml in cwd
    - Create validation logic for project files
-   - Support reading/writing project files with requirement status updates
    - Add DryRun context/flag that gets passed to all operations
    - When DryRun=true, operations log what they would do instead of executing
 
@@ -102,13 +101,11 @@ Port ralph.sh and develop.sh from bash to a unified Go CLI tool that can be `go 
     - Create `internal/project` package
     - Add function: `LoadProject(path string) (*Project, error)`
     - Add function: `ValidateProject(p *Project) error`
-    - Add function: `SaveProject(path string, p *Project) error`
     - Extract branch name from file basename
 
 11. **Implement requirement checking**
     - Add function: `CheckCompletion(p *Project) (bool, int, int)` - returns complete, passing, failing counts
     - Count passing/failing requirements
-    - Add function: `UpdateRequirementStatus(p *Project, reqID string, passing bool) error`
     - Return detailed status information
 
 ### Phase 5: AI Agent Integration (from develop.sh)
