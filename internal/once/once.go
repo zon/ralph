@@ -43,7 +43,7 @@ func Execute(ctx *context.Context, projectFile string, cleanupRegistrar func(fun
 		return fmt.Errorf("project file not found: %s", absProjectFile)
 	}
 
-	logger.Infof("Loading project file: %s", absProjectFile)
+	logger.Verbosef("Loading project file: %s", absProjectFile)
 
 	// Load and validate project
 	project, err := config.LoadProject(absProjectFile)
@@ -71,7 +71,7 @@ func Execute(ctx *context.Context, projectFile string, cleanupRegistrar func(fun
 
 	// Start services if not disabled
 	if ctx.ShouldStartServices() && len(ralphConfig.Services) > 0 {
-		logger.Infof("Starting %d service(s)...", len(ralphConfig.Services))
+		logger.Verbosef("Starting %d service(s)...", len(ralphConfig.Services))
 
 		processes, err = services.StartAllServices(ralphConfig.Services, ctx.IsDryRun())
 		if err != nil {
@@ -91,28 +91,28 @@ func Execute(ctx *context.Context, projectFile string, cleanupRegistrar func(fun
 	}
 
 	// Generate development prompt
-	logger.Info("Generating development prompt...")
+	logger.Verbose("Generating development prompt...")
 	devPrompt, err := prompt.BuildDevelopPrompt(ctx, absProjectFile)
 	if err != nil {
 		return fmt.Errorf("failed to build prompt: %w", err)
 	}
-	logger.Success("Development prompt generated")
+	logger.Verbose("Development prompt generated")
 
 	// Run AI agent with prompt
-	logger.Info("Running AI agent...")
+	logger.Verbose("Running AI agent...")
 	if err := ai.RunAgent(ctx, devPrompt); err != nil {
 		// Send failure notification
 		notify.Error(project.Name, ctx.ShouldNotify() && !ctx.IsDryRun())
 		return fmt.Errorf("agent execution failed: %w", err)
 	}
-	logger.Success("AI agent execution completed")
+	logger.Verbose("AI agent execution completed")
 
 	// Stage project file after agent completes
-	logger.Info("Staging project file...")
+	logger.Verbose("Staging project file...")
 	if err := git.StageFile(ctx, absProjectFile); err != nil {
 		logger.Warningf("Failed to stage project file: %v", err)
 	} else {
-		logger.Success("Project file staged")
+		logger.Verbose("Project file staged")
 	}
 
 	// Send success notification
