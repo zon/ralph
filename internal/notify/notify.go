@@ -24,7 +24,7 @@ func Success(projectName string, enabled bool) {
 	// Use dialog-information icon (stock icon available on most Linux systems)
 	if err := beeep.Notify(title, message, "dialog-information"); err != nil {
 		// Gracefully handle notification failures
-		logger.Warning("Failed to send desktop notification: %v", err)
+		logger.Warningf("Failed to send desktop notification: %v", err)
 	}
 }
 
@@ -41,6 +41,6 @@ func Error(projectName string, enabled bool) {
 	// Use dialog-error icon (stock icon available on most Linux systems)
 	if err := beeep.Notify(title, message, "dialog-error"); err != nil {
 		// Gracefully handle notification failures
-		logger.Warning("Failed to send desktop notification: %v", err)
+		logger.Warningf("Failed to send desktop notification: %v", err)
 	}
 }

@@ -59,10 +59,10 @@ func IsAuthenticated(ctx *context.Context) bool {
 func CreatePR(ctx *context.Context, title, body, base, head string) (string, error) {
 	if ctx.IsDryRun() {
 		logger.Info("[DRY-RUN] Would create PR:")
-		logger.Info("[DRY-RUN]   Title: %s", title)
-		logger.Info("[DRY-RUN]   Base: %s", base)
-		logger.Info("[DRY-RUN]   Head: %s", head)
-		logger.Info("[DRY-RUN]   Body: %s", truncate(body, 200))
+		logger.Infof("[DRY-RUN]   Title: %s", title)
+		logger.Infof("[DRY-RUN]   Base: %s", base)
+		logger.Infof("[DRY-RUN]   Head: %s", head)
+		logger.Infof("[DRY-RUN]   Body: %s", truncate(body, 200))
 		return "https://github.com/dry-run/repo/pull/123", nil
 	}
 
@@ -101,10 +101,10 @@ func CreatePR(ctx *context.Context, title, body, base, head string) (string, err
 	}
 
 	if ctx.IsVerbose() {
-		logger.Info("Created PR: %s", prURL)
+		logger.Infof("Created PR: %s", prURL)
 	}
 
-	logger.Success("Pull request created: %s", prURL)
+	logger.Successf("Pull request created: %s", prURL)
 
 	return prURL, nil
 }

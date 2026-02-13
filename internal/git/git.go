@@ -84,7 +84,7 @@ func GetCurrentBranch(ctx *context.Context) (string, error) {
 	}
 
 	if ctx.IsVerbose() {
-		logger.Info(fmt.Sprintf("Current branch: %s", branch))
+		logger.Infof("Current branch: %s", branch)
 	}
 
 	return branch, nil
@@ -93,7 +93,7 @@ func GetCurrentBranch(ctx *context.Context) (string, error) {
 // BranchExists checks if a git branch exists (local or remote)
 func BranchExists(ctx *context.Context, name string) bool {
 	if ctx.IsDryRun() {
-		logger.Info(fmt.Sprintf("[DRY-RUN] Would check if branch '%s' exists", name))
+		logger.Infof("[DRY-RUN] Would check if branch '%s' exists", name)
 		return false
 	}
 
@@ -101,7 +101,7 @@ func BranchExists(ctx *context.Context, name string) bool {
 	cmd := exec.Command("git", "rev-parse", "--verify", "--quiet", name)
 	if err := cmd.Run(); err == nil {
 		if ctx.IsVerbose() {
-			logger.Info(fmt.Sprintf("Branch '%s' exists locally", name))
+			logger.Infof("Branch '%s' exists locally", name)
 		}
 		return true
 	}
@@ -110,13 +110,13 @@ func BranchExists(ctx *context.Context, name string) bool {
 	cmd = exec.Command("git", "rev-parse", "--verify", "--quiet", "origin/"+name)
 	if err := cmd.Run(); err == nil {
 		if ctx.IsVerbose() {
-			logger.Info(fmt.Sprintf("Branch '%s' exists remotely", name))
+			logger.Infof("Branch '%s' exists remotely", name)
 		}
 		return true
 	}
 
 	if ctx.IsVerbose() {
-		logger.Info(fmt.Sprintf("Branch '%s' does not exist", name))
+		logger.Infof("Branch '%s' does not exist", name)
 	}
 
 	return false
@@ -125,7 +125,7 @@ func BranchExists(ctx *context.Context, name string) bool {
 // CreateBranch creates a new git branch
 func CreateBranch(ctx *context.Context, name string) error {
 	if ctx.IsDryRun() {
-		logger.Info(fmt.Sprintf("[DRY-RUN] Would create branch: %s", name))
+		logger.Infof("[DRY-RUN] Would create branch: %s", name)
 		return nil
 	}
 
@@ -138,14 +138,14 @@ func CreateBranch(ctx *context.Context, name string) error {
 		return fmt.Errorf("failed to create branch '%s': %w (output: %s)", name, err, out.String())
 	}
 
-	logger.Success(fmt.Sprintf("Created branch: %s", name))
+	logger.Successf("Created branch: %s", name)
 	return nil
 }
 
 // CheckoutBranch switches to the specified git branch
 func CheckoutBranch(ctx *context.Context, name string) error {
 	if ctx.IsDryRun() {
-		logger.Info(fmt.Sprintf("[DRY-RUN] Would checkout branch: %s", name))
+		logger.Infof("[DRY-RUN] Would checkout branch: %s", name)
 		return nil
 	}
 
@@ -158,7 +158,7 @@ func CheckoutBranch(ctx *context.Context, name string) error {
 		return fmt.Errorf("failed to checkout branch '%s': %w (output: %s)", name, err, out.String())
 	}
 
-	logger.Success(fmt.Sprintf("Checked out branch: %s", name))
+	logger.Successf("Checked out branch: %s", name)
 	return nil
 }
 
@@ -186,7 +186,7 @@ func HasCommits(ctx *context.Context) bool {
 // PushBranch pushes the specified branch to origin and returns the remote URL
 func PushBranch(ctx *context.Context, branch string) (string, error) {
 	if ctx.IsDryRun() {
-		logger.Info(fmt.Sprintf("[DRY-RUN] Would push branch '%s' to origin", branch))
+		logger.Infof("[DRY-RUN] Would push branch '%s' to origin", branch)
 		return "https://github.com/dry-run/repo", nil
 	}
 
@@ -205,7 +205,7 @@ func PushBranch(ctx *context.Context, branch string) (string, error) {
 		return "", fmt.Errorf("failed to push branch '%s': %w (output: %s)", branch, err, out.String())
 	}
 
-	logger.Success(fmt.Sprintf("Pushed branch '%s' to origin", branch))
+	logger.Successf("Pushed branch '%s' to origin", branch)
 
 	// Get the remote URL
 	cmd = exec.Command("git", "config", "--get", "remote.origin.url")
@@ -219,7 +219,7 @@ func PushBranch(ctx *context.Context, branch string) (string, error) {
 
 	remoteURL := strings.TrimSpace(urlOut.String())
 	if ctx.IsVerbose() {
-		logger.Info(fmt.Sprintf("Remote URL: %s", remoteURL))
+		logger.Infof("Remote URL: %s", remoteURL)
 	}
 
 	return remoteURL, nil
@@ -228,7 +228,7 @@ func PushBranch(ctx *context.Context, branch string) (string, error) {
 // GetRecentCommits retrieves the last N commit messages
 func GetRecentCommits(ctx *context.Context, count int) ([]string, error) {
 	if ctx.IsDryRun() {
-		logger.Info(fmt.Sprintf("[DRY-RUN] Would get last %d commits", count))
+		logger.Infof("[DRY-RUN] Would get last %d commits", count)
 		dryRunCommits := make([]string, count)
 		for i := 0; i < count; i++ {
 			dryRunCommits[i] = fmt.Sprintf("dry-run commit %d", i+1)
@@ -253,7 +253,7 @@ func GetRecentCommits(ctx *context.Context, count int) ([]string, error) {
 
 	commits := strings.Split(output, "\n")
 	if ctx.IsVerbose() {
-		logger.Info(fmt.Sprintf("Retrieved %d commits", len(commits)))
+		logger.Infof("Retrieved %d commits", len(commits))
 	}
 
 	return commits, nil
@@ -262,7 +262,7 @@ func GetRecentCommits(ctx *context.Context, count int) ([]string, error) {
 // GetCommitsSince retrieves commit messages since the specified base branch
 func GetCommitsSince(ctx *context.Context, base string) ([]string, error) {
 	if ctx.IsDryRun() {
-		logger.Info(fmt.Sprintf("[DRY-RUN] Would get commits since '%s'", base))
+		logger.Infof("[DRY-RUN] Would get commits since '%s'", base)
 		return []string{
 			"dry-run commit 1 - feature implementation",
 			"dry-run commit 2 - bug fix",
@@ -287,7 +287,7 @@ func GetCommitsSince(ctx *context.Context, base string) ([]string, error) {
 
 	commits := strings.Split(output, "\n")
 	if ctx.IsVerbose() {
-		logger.Info(fmt.Sprintf("Retrieved %d commits since '%s'", len(commits), base))
+		logger.Infof("Retrieved %d commits since '%s'", len(commits), base)
 	}
 
 	return commits, nil
@@ -296,7 +296,7 @@ func GetCommitsSince(ctx *context.Context, base string) ([]string, error) {
 // GetDiffSince returns the diff between the base branch and HEAD
 func GetDiffSince(ctx *context.Context, base string) (string, error) {
 	if ctx.IsDryRun() {
-		logger.Info(fmt.Sprintf("[DRY-RUN] Would get diff since '%s'", base))
+		logger.Infof("[DRY-RUN] Would get diff since '%s'", base)
 		return "dry-run diff output:\n+added line\n-removed line", nil
 	}
 
@@ -312,7 +312,7 @@ func GetDiffSince(ctx *context.Context, base string) (string, error) {
 
 	diff := out.String()
 	if ctx.IsVerbose() {
-		logger.Info(fmt.Sprintf("Retrieved diff since '%s' (%d bytes)", base, len(diff)))
+		logger.Infof("Retrieved diff since '%s' (%d bytes)", base, len(diff))
 	}
 
 	return diff, nil
@@ -321,7 +321,7 @@ func GetDiffSince(ctx *context.Context, base string) (string, error) {
 // StageFile stages a specific file using git add
 func StageFile(ctx *context.Context, filePath string) error {
 	if ctx.IsDryRun() {
-		logger.Info(fmt.Sprintf("[DRY-RUN] Would stage file: %s", filePath))
+		logger.Infof("[DRY-RUN] Would stage file: %s", filePath)
 		return nil
 	}
 
@@ -335,7 +335,7 @@ func StageFile(ctx *context.Context, filePath string) error {
 	}
 
 	if ctx.IsVerbose() {
-		logger.Info(fmt.Sprintf("Staged file: %s", filePath))
+		logger.Infof("Staged file: %s", filePath)
 	}
 
 	return nil
@@ -392,7 +392,7 @@ func HasStagedChanges(ctx *context.Context) bool {
 // Commit creates a git commit with the specified message
 func Commit(ctx *context.Context, message string) error {
 	if ctx.IsDryRun() {
-		logger.Info(fmt.Sprintf("[DRY-RUN] Would commit with message: %s", message))
+		logger.Infof("[DRY-RUN] Would commit with message: %s", message)
 		return nil
 	}
 
@@ -406,7 +406,7 @@ func Commit(ctx *context.Context, message string) error {
 	}
 
 	if ctx.IsVerbose() {
-		logger.Info(fmt.Sprintf("Committed: %s", message))
+		logger.Infof("Committed: %s", message)
 	}
 
 	return nil
@@ -435,7 +435,7 @@ func CommitChanges(ctx *context.Context) error {
 	message, err := generateCommitMessage(ctx)
 	if err != nil {
 		// Fallback to generic message if generation fails
-		logger.Warning("Failed to generate commit message: %v, using fallback", err)
+		logger.Warningf("Failed to generate commit message: %v, using fallback", err)
 		message = "Update project files"
 	}
 
@@ -444,7 +444,7 @@ func CommitChanges(ctx *context.Context) error {
 		return fmt.Errorf("failed to commit: %w", err)
 	}
 
-	logger.Success("Changes committed: %s", message)
+	logger.Successf("Changes committed: %s", message)
 	return nil
 }
 
@@ -469,7 +469,7 @@ func generateCommitMessage(ctx *context.Context) (string, error) {
 	fileCount := len(files)
 
 	if ctx.IsVerbose() {
-		logger.Info("Generating commit message for %d file(s)", fileCount)
+		logger.Infof("Generating commit message for %d file(s)", fileCount)
 	}
 
 	// Generate message based on files changed

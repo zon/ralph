@@ -46,6 +46,11 @@ func RunAgent(ctx *appcontext.Context, prompt string) error {
 // GeneratePRSummary generates a pull request summary using AI
 // It includes project description, status, commits, and diff
 func GeneratePRSummary(ctx *appcontext.Context, projectFile string, iterations int) (string, error) {
+	if ctx.IsDryRun() {
+		logger.Info("[DRY-RUN] Would generate PR summary")
+		return "dry-run-pr-summary", nil
+	}
+
 	// Load project file
 	project, err := config.LoadProject(projectFile)
 	if err != nil {
@@ -83,11 +88,6 @@ func GeneratePRSummary(ctx *appcontext.Context, projectFile string, iterations i
 	builder.WriteString("Be concise and focus on what matters for code review.\n")
 
 	prompt := builder.String()
-
-	if ctx.IsDryRun() {
-		logger.Info(prompt)
-		return "dry-run-pr-summary", nil
-	}
 
 	if ctx.IsVerbose() {
 		logger.Info(prompt)

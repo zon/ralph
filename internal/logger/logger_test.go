@@ -9,47 +9,47 @@ import (
 // and state management.
 
 func TestInfo(t *testing.T) {
-	// Test that Info doesn't panic and accepts format strings
+	// Test that Info doesn't panic
 	defer func() {
 		if r := recover(); r != nil {
 			t.Errorf("Info panicked: %v", r)
 		}
 	}()
 	Info("test message")
-	Info("formatted: %s, %d", "test", 42)
+	Infof("formatted: %s, %d", "test", 42)
 }
 
 func TestSuccess(t *testing.T) {
-	// Test that Success doesn't panic and accepts format strings
+	// Test that Success doesn't panic
 	defer func() {
 		if r := recover(); r != nil {
 			t.Errorf("Success panicked: %v", r)
 		}
 	}()
 	Success("operation completed")
-	Success("completed: %d items", 5)
+	Successf("completed: %d items", 5)
 }
 
 func TestWarning(t *testing.T) {
-	// Test that Warning doesn't panic and accepts format strings
+	// Test that Warning doesn't panic
 	defer func() {
 		if r := recover(); r != nil {
 			t.Errorf("Warning panicked: %v", r)
 		}
 	}()
 	Warning("potential issue")
-	Warning("warning: %s", "something")
+	Warningf("warning: %s", "something")
 }
 
 func TestError(t *testing.T) {
-	// Test that Error doesn't panic and accepts format strings
+	// Test that Error doesn't panic
 	defer func() {
 		if r := recover(); r != nil {
 			t.Errorf("Error panicked: %v", r)
 		}
 	}()
 	Error("something failed")
-	Error("error: %v", "details")
+	Errorf("error: %v", "details")
 }
 
 func TestVerboseWhenDisabled(t *testing.T) {
@@ -63,7 +63,7 @@ func TestVerboseWhenDisabled(t *testing.T) {
 	}()
 
 	Verbose("debug info")
-	Verbose("debug: %s", "test")
+	Verbosef("debug: %s", "test")
 }
 
 func TestVerboseWhenEnabled(t *testing.T) {
@@ -78,7 +78,7 @@ func TestVerboseWhenEnabled(t *testing.T) {
 	}()
 
 	Verbose("debug info")
-	Verbose("debug: %d", 123)
+	Verbosef("debug: %d", 123)
 }
 
 func TestSetVerbose(t *testing.T) {
@@ -103,8 +103,8 @@ func TestFormattedMessages(t *testing.T) {
 		}
 	}()
 
-	Info("file: %s, line: %d", "test.go", 42)
-	Success("processed %d files", 10)
-	Warning("skipped %s", "file.txt")
-	Error("failed at line %d", 100)
+	Infof("file: %s, line: %d", "test.go", 42)
+	Successf("processed %d files", 10)
+	Warningf("skipped %s", "file.txt")
+	Errorf("failed at line %d", 100)
 }

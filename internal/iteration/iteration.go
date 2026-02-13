@@ -20,16 +20,16 @@ import (
 // Returns the final iteration count and any error encountered
 func RunIterationLoop(ctx *context.Context, projectFile string, maxIters int, cleanupRegistrar func(func())) (int, error) {
 	if ctx.IsDryRun() {
-		logger.Info("[DRY-RUN] Would run iteration loop with max %d iterations", maxIters)
+		logger.Infof("[DRY-RUN] Would run iteration loop with max %d iterations", maxIters)
 		logger.Info("[DRY-RUN] Simulating iteration sequence:")
 		for i := 1; i <= maxIters; i++ {
-			logger.Info("[DRY-RUN]   Iteration %d/%d: develop -> commit -> check completion", i, maxIters)
+			logger.Infof("[DRY-RUN]   Iteration %d/%d: develop -> commit -> check completion", i, maxIters)
 		}
 		logger.Info("[DRY-RUN] Would stop when all requirements pass or max iterations reached")
 		return maxIters, nil
 	}
 
-	logger.Info("Starting iteration loop (max: %d)", maxIters)
+	logger.Infof("Starting iteration loop (max: %d)", maxIters)
 	logger.Info("==========================================")
 
 	iterationCount := 0
@@ -38,7 +38,7 @@ func RunIterationLoop(ctx *context.Context, projectFile string, maxIters int, cl
 		iterationCount = i
 
 		logger.Info("")
-		logger.Info("=== Iteration %d/%d ===", i, maxIters)
+		logger.Infof("=== Iteration %d/%d ===", i, maxIters)
 
 		// Run single development iteration (once command logic)
 		logger.Info("Running development iteration...")
@@ -47,12 +47,12 @@ func RunIterationLoop(ctx *context.Context, projectFile string, maxIters int, cl
 		}
 
 		// Commit changes after iteration
-		logger.Info("Committing changes from iteration %d...", i)
+		logger.Infof("Committing changes from iteration %d...", i)
 		if err := CommitChanges(ctx, i); err != nil {
 			// If there are no changes, it's not fatal - continue to next iteration
-			logger.Warning("Commit failed (may be no changes): %v", err)
+			logger.Warningf("Commit failed (may be no changes): %v", err)
 		} else {
-			logger.Success("Committed changes from iteration %d", i)
+			logger.Successf("Committed changes from iteration %d", i)
 		}
 
 		// Load and check project completion status
@@ -62,7 +62,7 @@ func RunIterationLoop(ctx *context.Context, projectFile string, maxIters int, cl
 		}
 
 		allComplete, passingCount, failingCount := config.CheckCompletion(project)
-		logger.Info("Status after iteration %d: %d passing, %d failing", i, passingCount, failingCount)
+		logger.Infof("Status after iteration %d: %d passing, %d failing", i, passingCount, failingCount)
 
 		// Stop if all requirements are passing
 		if allComplete {
@@ -77,7 +77,7 @@ func RunIterationLoop(ctx *context.Context, projectFile string, maxIters int, cl
 	}
 
 	logger.Info("==========================================")
-	logger.Success("Iteration loop completed after %d iteration(s)", iterationCount)
+	logger.Successf("Iteration loop completed after %d iteration(s)", iterationCount)
 
 	return iterationCount, nil
 }
@@ -85,7 +85,7 @@ func RunIterationLoop(ctx *context.Context, projectFile string, maxIters int, cl
 // CommitChanges stages all changes and commits them with an iteration-based message
 func CommitChanges(ctx *context.Context, iteration int) error {
 	if ctx.IsDryRun() {
-		logger.Info("[DRY-RUN] Would commit changes from iteration %d", iteration)
+		logger.Infof("[DRY-RUN] Would commit changes from iteration %d", iteration)
 		return nil
 	}
 
@@ -108,7 +108,7 @@ func CommitChanges(ctx *context.Context, iteration int) error {
 	}
 
 	if ctx.IsVerbose() {
-		logger.Info("Committed with message: %s", commitMsg)
+		logger.Infof("Committed with message: %s", commitMsg)
 	}
 
 	return nil

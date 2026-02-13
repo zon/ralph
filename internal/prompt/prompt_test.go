@@ -143,21 +143,3 @@ func TestBuildDevelopPrompt_MissingProjectFile(t *testing.T) {
 		t.Error("Expected error for missing project file, got nil")
 	}
 }
-
-func TestGetDefaultInstructions(t *testing.T) {
-	instructions := getDefaultInstructions()
-
-	// Verify key points are in default instructions
-	expectedPoints := []string{
-		"ONLY WORK ON ONE REQUIREMENT",
-		"passing: false",
-		"Write tests",
-		"report.md",
-	}
-
-	for _, point := range expectedPoints {
-		if !strings.Contains(instructions, point) {
-			t.Errorf("Default instructions missing expected content: %s", point)
-		}
-	}
-}

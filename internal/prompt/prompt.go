@@ -35,7 +35,7 @@ func BuildDevelopPrompt(ctx *context.Context, projectFile string) (string, error
 	builder.WriteString("\n")
 	commits, err := git.GetRecentCommits(ctx, 20)
 	if err != nil {
-		logger.Warning(fmt.Sprintf("Failed to get recent commits: %v", err))
+		logger.Warningf("Failed to get recent commits: %v", err)
 		builder.WriteString("(Unable to retrieve git history)\n")
 	} else if len(commits) == 0 {
 		builder.WriteString("(No commits yet)\n")
@@ -68,7 +68,7 @@ func BuildDevelopPrompt(ctx *context.Context, projectFile string) (string, error
 	prompt := builder.String()
 
 	if ctx.IsVerbose() {
-		logger.Info(fmt.Sprintf("Generated prompt (%d bytes)", len(prompt)))
+		logger.Infof("Generated prompt (%d bytes)", len(prompt))
 	}
 
 	return prompt, nil

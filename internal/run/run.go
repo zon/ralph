@@ -46,7 +46,7 @@ func Execute(ctx *context.Context, projectFile string, maxIterations int, cleanu
 		return fmt.Errorf("project file not found: %s", absProjectFile)
 	}
 
-	logger.Info("Loading project file: %s", absProjectFile)
+	logger.Infof("Loading project file: %s", absProjectFile)
 
 	// Load and validate project
 	project, err := config.LoadProject(absProjectFile)
@@ -54,11 +54,11 @@ func Execute(ctx *context.Context, projectFile string, maxIterations int, cleanu
 		return fmt.Errorf("failed to load project: %w", err)
 	}
 
-	logger.Success("Loaded project: %s", project.Name)
+	logger.Successf("Loaded project: %s", project.Name)
 
 	// Extract branch name from project file basename
 	branchName := extractBranchName(absProjectFile)
-	logger.Info("Branch name: %s", branchName)
+	logger.Infof("Branch name: %s", branchName)
 
 	// Load configuration
 	ralphConfig, err := config.LoadConfig()
@@ -72,11 +72,11 @@ func Execute(ctx *context.Context, projectFile string, maxIterations int, cleanu
 		logger.Info("[DRY-RUN] Full orchestration plan:")
 		logger.Info("[DRY-RUN]   1. Validate git repository exists")
 		logger.Info("[DRY-RUN]   2. Check for detached HEAD state")
-		logger.Info("[DRY-RUN]   3. Create branch: %s", branchName)
-		logger.Info("[DRY-RUN]   4. Run up to %d iterations (develop -> commit -> check)", maxIterations)
+		logger.Infof("[DRY-RUN]   3. Create branch: %s", branchName)
+		logger.Infof("[DRY-RUN]   4. Run up to %d iterations (develop -> commit -> check)", maxIterations)
 		logger.Info("[DRY-RUN]   5. Generate PR summary using AI")
 		logger.Info("[DRY-RUN]   6. Push branch to origin")
-		logger.Info("[DRY-RUN]   7. Create GitHub PR (base: %s, head: %s)", baseBranch, branchName)
+		logger.Infof("[DRY-RUN]   7. Create GitHub PR (base: %s, head: %s)", baseBranch, branchName)
 		logger.Info("[DRY-RUN]   8. Display PR URL")
 		return nil
 	}
@@ -106,16 +106,16 @@ func Execute(ctx *context.Context, projectFile string, maxIterations int, cleanu
 		return fmt.Errorf("failed to get current branch: %w", err)
 	}
 
-	logger.Info("Current branch: %s", currentBranch)
+	logger.Infof("Current branch: %s", currentBranch)
 
 	// Create new branch
-	logger.Info("Creating branch: %s", branchName)
+	logger.Infof("Creating branch: %s", branchName)
 	if err := git.CreateBranch(ctx, branchName); err != nil {
 		return fmt.Errorf("failed to create branch: %w", err)
 	}
 
 	// Checkout new branch
-	logger.Info("Checking out branch: %s", branchName)
+	logger.Infof("Checking out branch: %s", branchName)
 	if err := git.CheckoutBranch(ctx, branchName); err != nil {
 		return fmt.Errorf("failed to checkout branch: %w", err)
 	}
@@ -123,13 +123,13 @@ func Execute(ctx *context.Context, projectFile string, maxIterations int, cleanu
 	// Register cleanup to return to original branch on failure
 	if cleanupRegistrar != nil {
 		cleanupRegistrar(func() {
-			logger.Info("Returning to original branch: %s", currentBranch)
+			logger.Infof("Returning to original branch: %s", currentBranch)
 			_ = git.CheckoutBranch(ctx, currentBranch)
 		})
 	}
 
 	// Run iteration loop
-	logger.Info("Starting iteration loop (max: %d)", maxIterations)
+	logger.Infof("Starting iteration loop (max: %d)", maxIterations)
 	logger.Info("==========================================")
 
 	iterCount, err := iteration.RunIterationLoop(ctx, absProjectFile, maxIterations, cleanupRegistrar)
@@ -140,7 +140,7 @@ func Execute(ctx *context.Context, projectFile string, maxIterations int, cleanu
 	}
 
 	logger.Info("==========================================")
-	logger.Success("Iteration loop completed after %d iteration(s)", iterCount)
+	logger.Successf("Iteration loop completed after %d iteration(s)", iterCount)
 
 	// Generate PR summary using AI
 	logger.Info("Generating PR summary...")
@@ -151,18 +151,18 @@ func Execute(ctx *context.Context, projectFile string, maxIterations int, cleanu
 	logger.Success("PR summary generated")
 
 	if ctx.IsVerbose() {
-		logger.Info("PR Summary:\n%s", prSummary)
+		logger.Infof("PR Summary:\n%s", prSummary)
 	}
 
 	// Push branch to origin
-	logger.Info("Pushing branch '%s' to origin...", branchName)
+	logger.Infof("Pushing branch '%s' to origin...", branchName)
 	remoteURL, err := git.PushBranch(ctx, branchName)
 	if err != nil {
 		return fmt.Errorf("failed to push branch: %w", err)
 	}
 
 	if ctx.IsVerbose() {
-		logger.Info("Remote URL: %s", remoteURL)
+		logger.Infof("Remote URL: %s", remoteURL)
 	}
 
 	// Check if gh CLI is available and authenticated
@@ -190,7 +190,7 @@ func Execute(ctx *context.Context, projectFile string, maxIterations int, cleanu
 	logger.Success("==========================================")
 	logger.Success("Pull Request Created Successfully!")
 	logger.Success("==========================================")
-	logger.Success("URL: %s", prURL)
+	logger.Successf("URL: %s", prURL)
 	logger.Success("==========================================")
 
 	// Send success notification

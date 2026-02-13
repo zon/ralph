@@ -43,7 +43,7 @@ func Execute(ctx *context.Context, projectFile string, cleanupRegistrar func(fun
 		return fmt.Errorf("project file not found: %s", absProjectFile)
 	}
 
-	logger.Info("Loading project file: %s", absProjectFile)
+	logger.Infof("Loading project file: %s", absProjectFile)
 
 	// Load and validate project
 	project, err := config.LoadProject(absProjectFile)
@@ -51,14 +51,14 @@ func Execute(ctx *context.Context, projectFile string, cleanupRegistrar func(fun
 		return fmt.Errorf("failed to load project: %w", err)
 	}
 
-	logger.Success("Loaded project: %s", project.Name)
+	logger.Successf("Loaded project: %s", project.Name)
 	if project.Description != "" && ctx.IsVerbose() {
-		logger.Info("Description: %s", project.Description)
+		logger.Infof("Description: %s", project.Description)
 	}
 
 	// Show project status
 	allComplete, passingCount, failingCount := config.CheckCompletion(project)
-	logger.Info("Requirements: %d passing, %d failing (complete: %v)", passingCount, failingCount, allComplete)
+	logger.Infof("Requirements: %d passing, %d failing (complete: %v)", passingCount, failingCount, allComplete)
 
 	// Load configuration
 	ralphConfig, err := config.LoadConfig()
@@ -71,7 +71,7 @@ func Execute(ctx *context.Context, projectFile string, cleanupRegistrar func(fun
 
 	// Start services if not disabled
 	if ctx.ShouldStartServices() && len(ralphConfig.Services) > 0 {
-		logger.Info("Starting %d service(s)...", len(ralphConfig.Services))
+		logger.Infof("Starting %d service(s)...", len(ralphConfig.Services))
 
 		processes, err = services.StartAllServices(ralphConfig.Services, ctx.IsDryRun())
 		if err != nil {
@@ -111,12 +111,12 @@ func Execute(ctx *context.Context, projectFile string, cleanupRegistrar func(fun
 	if !ctx.IsDryRun() {
 		logger.Info("Staging project file...")
 		if err := git.StageFile(ctx, absProjectFile); err != nil {
-			logger.Warning("Failed to stage project file: %v", err)
+			logger.Warningf("Failed to stage project file: %v", err)
 		} else {
 			logger.Success("Project file staged")
 		}
 	} else {
-		logger.Info("[DRY-RUN] Would stage project file: %s", absProjectFile)
+		logger.Infof("[DRY-RUN] Would stage project file: %s", absProjectFile)
 	}
 
 	// Send success notification
