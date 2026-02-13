@@ -214,16 +214,9 @@ Port ralph.sh and develop.sh from bash to a unified Go CLI tool that can be `go 
     - Match bash script formatting: `[INFO]`, `[SUCCESS]`, etc.
     - Optional verbose mode flag (--verbose)
 
-24. **Add progress indicators**
-    - Show current iteration number (N/MAX)
-    - Display separator lines between iterations
-    - Show which service is starting/stopping
-    - Show summary of completion status (X passing, Y failing)
-    - Display agent execution progress
-
 ### Phase 11: Configuration & Cleanup
 
-25. **Add configuration management**
+24. **Add configuration management**
     - Support for config file (.ralph/config.yaml in cwd) - optional
     - Support for global secrets file (~/.ralph/secrets.yaml) - optional
     - Support for project secrets file (.ralph/secrets.yaml in cwd) - optional
@@ -232,7 +225,7 @@ Port ralph.sh and develop.sh from bash to a unified Go CLI tool that can be `go 
     - Secrets priority: .ralph/secrets.yaml (cwd) > ~/.ralph/secrets.yaml
     - Command-line flag overrides (highest priority)
 
-26. **Implement cleanup handlers**
+25. **Implement cleanup handlers**
     - Create temp directory for prompt/summary files
     - Register signal handlers (SIGINT, SIGTERM)
     - Always stop services on exit (defer pattern)
@@ -240,12 +233,12 @@ Port ralph.sh and develop.sh from bash to a unified Go CLI tool that can be `go 
 
 ### Phase 12: Cross-Platform Support
 
-27. **Handle platform-specific differences**
+26. **Handle platform-specific differences**
     - Use `filepath.Join()` for all paths
     - Use `os/exec` for running commands (git, gh, etc.)
     - Handle signal behavior (SIGINT, SIGTERM)
 
-28. **Add desktop notifications**
+27. **Add desktop notifications**
     - Use `github.com/gen2brain/beeep` for cross-platform notifications
     - Success: "Ralph completed successfully for {project}"
     - Error: "Ralph failed for {project}"
@@ -254,7 +247,7 @@ Port ralph.sh and develop.sh from bash to a unified Go CLI tool that can be `go 
 
 ### Phase 13: Documentation & Distribution
 
-29. **Create documentation**
+28. **Create documentation**
     - Write comprehensive README.md
     - Add usage examples for both commands
     - Document configuration options
@@ -262,7 +255,7 @@ Port ralph.sh and develop.sh from bash to a unified Go CLI tool that can be `go 
     - Document project YAML format
     - Create installation instructions
 
-30. **Prepare for go install**
+29. **Prepare for go install**
     - Ensure main.go is in cmd/ralph/
     - Test `go install github.com/zon/ralph/cmd/ralph`
     - Verify binary works from $GOPATH/bin
