@@ -56,6 +56,111 @@ func setupTestRepo(t *testing.T) string {
 	return tempDir
 }
 
+func TestIsGitRepository(t *testing.T) {
+	tempDir := setupTestRepo(t)
+	originalDir, _ := os.Getwd()
+	defer os.Chdir(originalDir)
+	os.Chdir(tempDir)
+
+	ctx := context.NewContext(false, false, false, false)
+
+	// Should be true inside a git repository
+	if !IsGitRepository(ctx) {
+		t.Error("Expected IsGitRepository to return true inside a git repo")
+	}
+}
+
+func TestIsGitRepository_NotRepo(t *testing.T) {
+	tempDir := t.TempDir()
+	originalDir, _ := os.Getwd()
+	defer os.Chdir(originalDir)
+	os.Chdir(tempDir)
+
+	ctx := context.NewContext(false, false, false, false)
+
+	// Should be false outside a git repository
+	if IsGitRepository(ctx) {
+		t.Error("Expected IsGitRepository to return false outside a git repo")
+	}
+}
+
+func TestIsGitRepository_DryRun(t *testing.T) {
+	ctx := context.NewContext(true, false, false, false)
+
+	// Should always return true in dry-run mode
+	if !IsGitRepository(ctx) {
+		t.Error("Expected IsGitRepository to return true in dry-run mode")
+	}
+}
+
+func TestIsDetachedHead(t *testing.T) {
+	tempDir := setupTestRepo(t)
+	originalDir, _ := os.Getwd()
+	defer os.Chdir(originalDir)
+	os.Chdir(tempDir)
+
+	ctx := context.NewContext(false, false, false, false)
+
+	// Should not be detached on a normal branch
+	isDetached, err := IsDetachedHead(ctx)
+	if err != nil {
+		t.Fatalf("IsDetachedHead failed: %v", err)
+	}
+
+	if isDetached {
+		t.Error("Expected IsDetachedHead to return false on a branch")
+	}
+}
+
+func TestIsDetachedHead_Detached(t *testing.T) {
+	tempDir := setupTestRepo(t)
+	originalDir, _ := os.Getwd()
+	defer os.Chdir(originalDir)
+	os.Chdir(tempDir)
+
+	ctx := context.NewContext(false, false, false, false)
+
+	// Get the commit hash to checkout
+	cmd := exec.Command("git", "rev-parse", "HEAD")
+	cmd.Dir = tempDir
+	output, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("Failed to get commit hash: %v", err)
+	}
+	commitHash := string(output[:7]) // Use first 7 chars
+
+	// Checkout the commit directly (detached HEAD)
+	cmd = exec.Command("git", "checkout", commitHash)
+	cmd.Dir = tempDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to checkout commit: %v", err)
+	}
+
+	// Should be detached now
+	isDetached, err := IsDetachedHead(ctx)
+	if err != nil {
+		t.Fatalf("IsDetachedHead failed: %v", err)
+	}
+
+	if !isDetached {
+		t.Error("Expected IsDetachedHead to return true in detached HEAD state")
+	}
+}
+
+func TestIsDetachedHead_DryRun(t *testing.T) {
+	ctx := context.NewContext(true, false, false, false)
+
+	// Should always return false in dry-run mode
+	isDetached, err := IsDetachedHead(ctx)
+	if err != nil {
+		t.Fatalf("IsDetachedHead in dry-run failed: %v", err)
+	}
+
+	if isDetached {
+		t.Error("Expected IsDetachedHead to return false in dry-run mode")
+	}
+}
+
 func TestGetCurrentBranch(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	defer os.Chdir(tempDir) // Ensure we're in the test repo
@@ -86,6 +191,42 @@ func TestGetCurrentBranch_DryRun(t *testing.T) {
 
 	if branch != "dry-run-branch" {
 		t.Errorf("Expected dry-run branch to be 'dry-run-branch', got '%s'", branch)
+	}
+}
+
+func TestGetCurrentBranch_DetachedHead(t *testing.T) {
+	tempDir := setupTestRepo(t)
+	originalDir, _ := os.Getwd()
+	defer os.Chdir(originalDir)
+	os.Chdir(tempDir)
+
+	ctx := context.NewContext(false, false, false, false)
+
+	// Get the commit hash to checkout
+	cmd := exec.Command("git", "rev-parse", "HEAD")
+	cmd.Dir = tempDir
+	output, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("Failed to get commit hash: %v", err)
+	}
+	commitHash := string(output[:7]) // Use first 7 chars
+
+	// Checkout the commit directly (detached HEAD)
+	cmd = exec.Command("git", "checkout", commitHash)
+	cmd.Dir = tempDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to checkout commit: %v", err)
+	}
+
+	// GetCurrentBranch should return error for detached HEAD
+	_, err = GetCurrentBranch(ctx)
+	if err == nil {
+		t.Error("Expected GetCurrentBranch to return error in detached HEAD state")
+	}
+
+	expectedMsg := "detached HEAD state"
+	if err != nil && !contains(err.Error(), expectedMsg) {
+		t.Errorf("Expected error containing '%s', got: %v", expectedMsg, err)
 	}
 }
 

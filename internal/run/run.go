@@ -73,13 +73,29 @@ func Execute(ctx *context.Context, projectFile string, maxIterations int, cleanu
 
 	if ctx.IsDryRun() {
 		logger.Info("[DRY-RUN] Full orchestration plan:")
-		logger.Info("[DRY-RUN]   1. Create branch: %s", branchName)
-		logger.Info("[DRY-RUN]   2. Run up to %d iterations (develop -> commit -> check)", maxIterations)
-		logger.Info("[DRY-RUN]   3. Generate PR summary using AI")
-		logger.Info("[DRY-RUN]   4. Push branch to origin")
-		logger.Info("[DRY-RUN]   5. Create GitHub PR (base: %s, head: %s)", baseBranch, branchName)
-		logger.Info("[DRY-RUN]   6. Display PR URL")
+		logger.Info("[DRY-RUN]   1. Validate git repository exists")
+		logger.Info("[DRY-RUN]   2. Check for detached HEAD state")
+		logger.Info("[DRY-RUN]   3. Create branch: %s", branchName)
+		logger.Info("[DRY-RUN]   4. Run up to %d iterations (develop -> commit -> check)", maxIterations)
+		logger.Info("[DRY-RUN]   5. Generate PR summary using AI")
+		logger.Info("[DRY-RUN]   6. Push branch to origin")
+		logger.Info("[DRY-RUN]   7. Create GitHub PR (base: %s, head: %s)", baseBranch, branchName)
+		logger.Info("[DRY-RUN]   8. Display PR URL")
 		return nil
+	}
+
+	// Validate git repository exists
+	if !git.IsGitRepository(ctx) {
+		return fmt.Errorf("not a git repository, please run 'git init' or run ralph from within a git repository")
+	}
+
+	// Check for detached HEAD state
+	isDetached, err := git.IsDetachedHead(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to check HEAD state: %w", err)
+	}
+	if isDetached {
+		return fmt.Errorf("repository is in detached HEAD state, please checkout a branch first")
 	}
 
 	// Check if branch already exists

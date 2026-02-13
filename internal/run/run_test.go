@@ -123,3 +123,52 @@ func TestExecute_InvalidProjectFile(t *testing.T) {
 		t.Error("Execute() with nonexistent file should return error")
 	}
 }
+
+func TestExecute_NotGitRepository(t *testing.T) {
+	// Create a temporary directory that's NOT a git repository
+	tmpDir := t.TempDir()
+	projectFile := filepath.Join(tmpDir, "test-project.yaml")
+
+	projectContent := `name: Test Project
+description: A test project
+requirements:
+  - description: Test requirement 1
+    passing: false
+`
+
+	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
+		t.Fatalf("Failed to create test project file: %v", err)
+	}
+
+	// Change to the temp directory
+	originalDir, _ := os.Getwd()
+	defer os.Chdir(originalDir)
+	os.Chdir(tmpDir)
+
+	ctx := context.NewContext(false, false, true, false)
+
+	err := Execute(ctx, projectFile, 10, nil)
+
+	if err == nil {
+		t.Error("Execute() should return error when not in a git repository")
+	}
+
+	expectedMsg := "not a git repository"
+	if err != nil && !contains(err.Error(), expectedMsg) {
+		t.Errorf("Expected error containing '%s', got: %v", expectedMsg, err)
+	}
+}
+
+// Helper function to check if a string contains a substring
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && containsHelper(s, substr))
+}
+
+func containsHelper(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}

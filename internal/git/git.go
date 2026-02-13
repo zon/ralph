@@ -10,7 +10,54 @@ import (
 	"github.com/zon/ralph/internal/logger"
 )
 
+// IsGitRepository checks if the current directory is inside a git repository
+func IsGitRepository(ctx *context.Context) bool {
+	if ctx.IsDryRun() {
+		logger.Info("[DRY-RUN] Would check if directory is a git repository")
+		return true
+	}
+
+	cmd := exec.Command("git", "rev-parse", "--git-dir")
+	if err := cmd.Run(); err != nil {
+		if ctx.IsVerbose() {
+			logger.Info("Not a git repository")
+		}
+		return false
+	}
+
+	if ctx.IsVerbose() {
+		logger.Info("Git repository detected")
+	}
+	return true
+}
+
+// IsDetachedHead checks if the repository is in a detached HEAD state
+func IsDetachedHead(ctx *context.Context) (bool, error) {
+	if ctx.IsDryRun() {
+		logger.Info("[DRY-RUN] Would check for detached HEAD state")
+		return false, nil
+	}
+
+	cmd := exec.Command("git", "symbolic-ref", "-q", "HEAD")
+	err := cmd.Run()
+
+	// Exit code 0 = on a branch (not detached)
+	// Exit code 1 = detached HEAD
+	isDetached := err != nil
+
+	if ctx.IsVerbose() {
+		if isDetached {
+			logger.Info("Repository is in detached HEAD state")
+		} else {
+			logger.Info("Repository is on a branch (not detached)")
+		}
+	}
+
+	return isDetached, nil
+}
+
 // GetCurrentBranch returns the name of the current git branch
+// Returns error if in detached HEAD state
 func GetCurrentBranch(ctx *context.Context) (string, error) {
 	if ctx.IsDryRun() {
 		logger.Info("[DRY-RUN] Would get current git branch")
@@ -29,6 +76,11 @@ func GetCurrentBranch(ctx *context.Context) (string, error) {
 	branch := strings.TrimSpace(out.String())
 	if branch == "" {
 		return "", fmt.Errorf("failed to determine current branch")
+	}
+
+	// Check for detached HEAD state
+	if branch == "HEAD" {
+		return "", fmt.Errorf("repository is in detached HEAD state, please checkout a branch first")
 	}
 
 	if ctx.IsVerbose() {
