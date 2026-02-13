@@ -1,0 +1,11 @@
+# Example .ralph/config.yaml
+maxIterations: 10
+baseBranch: main
+llmProvider: deepseek
+llmModel: deepseek-reasoner
+
+services:
+  - name: example-service
+    command: echo
+    args: ["Running service..."]
+    # port: 8080  # Optional: for health checking

@@ -5,6 +5,8 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/zon/ralph/internal/cleanup"
+	"github.com/zon/ralph/internal/context"
+	"github.com/zon/ralph/internal/once"
 )
 
 // Version information
@@ -54,12 +56,8 @@ type OnceCmd struct {
 
 // Run executes the once command
 func (o *OnceCmd) Run(ctx *kong.Context) error {
-	fmt.Printf("Running single iteration for: %s\n", o.ProjectFile)
-	if o.DryRun {
-		fmt.Println("[DRY-RUN] Simulating execution...")
-	}
-	// TODO: Implement single iteration logic
-	return fmt.Errorf("not implemented yet")
+	execCtx := context.NewContext(o.DryRun, o.Verbose, o.NoNotify, o.NoServices)
+	return once.Execute(execCtx, o.ProjectFile, cleanupManager.RegisterCleanup)
 }
 
 // VersionCmd represents the 'ralph version' command

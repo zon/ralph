@@ -524,3 +524,67 @@ func containsHelper(s, substr string) bool {
 	}
 	return false
 }
+
+func TestStageFile(t *testing.T) {
+	tempDir := setupTestRepo(t)
+	originalDir, _ := os.Getwd()
+	defer os.Chdir(originalDir)
+	os.Chdir(tempDir)
+
+	ctx := context.NewContext(false, false, false, false)
+
+	// Create a new file
+	testFile := filepath.Join(tempDir, "newfile.txt")
+	if err := os.WriteFile(testFile, []byte("new content"), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	// Stage the file
+	err := StageFile(ctx, testFile)
+	if err != nil {
+		t.Fatalf("StageFile failed: %v", err)
+	}
+
+	// Verify the file is staged by checking git status
+	cmd := exec.Command("git", "status", "--porcelain")
+	cmd.Dir = tempDir
+	output, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("Failed to run git status: %v", err)
+	}
+
+	statusOutput := string(output)
+	if !contains(statusOutput, "newfile.txt") {
+		t.Errorf("Expected newfile.txt to be staged, git status output: %s", statusOutput)
+	}
+
+	// Check for 'A' (added) flag
+	if !contains(statusOutput, "A") {
+		t.Errorf("Expected file to be marked as Added in git status, got: %s", statusOutput)
+	}
+}
+
+func TestStageFile_DryRun(t *testing.T) {
+	ctx := context.NewContext(true, false, false, false)
+
+	// Should not return error in dry-run mode, even for non-existent file
+	err := StageFile(ctx, "/tmp/nonexistent.txt")
+	if err != nil {
+		t.Errorf("StageFile in dry-run should not fail: %v", err)
+	}
+}
+
+func TestStageFile_NonExistent(t *testing.T) {
+	tempDir := setupTestRepo(t)
+	originalDir, _ := os.Getwd()
+	defer os.Chdir(originalDir)
+	os.Chdir(tempDir)
+
+	ctx := context.NewContext(false, false, false, false)
+
+	// Try to stage a non-existent file
+	err := StageFile(ctx, filepath.Join(tempDir, "nonexistent.txt"))
+	if err == nil {
+		t.Error("Expected error when staging non-existent file, got nil")
+	}
+}

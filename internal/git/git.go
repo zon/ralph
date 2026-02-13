@@ -265,3 +265,26 @@ func GetDiffSince(ctx *context.Context, base string) (string, error) {
 
 	return diff, nil
 }
+
+// StageFile stages a specific file using git add
+func StageFile(ctx *context.Context, filePath string) error {
+	if ctx.IsDryRun() {
+		logger.Info(fmt.Sprintf("[DRY-RUN] Would stage file: %s", filePath))
+		return nil
+	}
+
+	cmd := exec.Command("git", "add", filePath)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to stage file '%s': %w (output: %s)", filePath, err, out.String())
+	}
+
+	if ctx.IsVerbose() {
+		logger.Info(fmt.Sprintf("Staged file: %s", filePath))
+	}
+
+	return nil
+}
