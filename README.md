@@ -116,4 +116,4 @@ services:
 
 Create `.ralph/instructions.md` to guide the AI. Ralph includes this file in the AI prompt automatically. If not present, [default instructions](internal/config/default-instructions.md) are used.
 
-**Note:** The default instructions include important functions for requirement management. Edit carefully to preserve this functionality.
+**Note:** The default instructions include important instructions for requirement management and reporting. Edit carefully to preserve this functionality.
