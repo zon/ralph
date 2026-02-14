@@ -46,7 +46,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		return fmt.Errorf("project file not found: %s", absProjectFile)
 	}
 
-	logger.Infof("Loading project file: %s", absProjectFile)
+	logger.Verbosef("Loading project file: %s", absProjectFile)
 
 	// Load and validate project
 	project, err := config.LoadProject(absProjectFile)
@@ -58,7 +58,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 
 	// Extract branch name from project file basename
 	branchName := extractBranchName(absProjectFile)
-	logger.Infof("Branch name: %s", branchName)
+	logger.Verbosef("Branch name: %s", branchName)
 
 	// Load configuration
 	ralphConfig, err := config.LoadConfig()
@@ -93,16 +93,16 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		return fmt.Errorf("failed to get current branch: %w", err)
 	}
 
-	logger.Infof("Current branch: %s", currentBranch)
+	logger.Verbosef("Current branch: %s", currentBranch)
 
 	// Create new branch
-	logger.Infof("Creating branch: %s", branchName)
+	logger.Verbosef("Creating branch: %s", branchName)
 	if err := git.CreateBranch(ctx, branchName); err != nil {
 		return fmt.Errorf("failed to create branch: %w", err)
 	}
 
 	// Checkout new branch
-	logger.Infof("Checking out branch: %s", branchName)
+	logger.Verbosef("Checking out branch: %s", branchName)
 	if err := git.CheckoutBranch(ctx, branchName); err != nil {
 		return fmt.Errorf("failed to checkout branch: %w", err)
 	}
@@ -116,8 +116,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	}
 
 	// Run iteration loop
-	logger.Infof("Starting iteration loop (max: %d)", ctx.MaxIterations)
-	logger.Info("==========================================")
+	logger.Verbosef("Starting iteration loop (max: %d)", ctx.MaxIterations)
 
 	iterCount, err := iteration.RunIterationLoop(ctx, cleanupRegistrar)
 	if err != nil {
@@ -126,7 +125,6 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		return fmt.Errorf("iteration loop failed: %w", err)
 	}
 
-	logger.Info("==========================================")
 	logger.Successf("Iteration loop completed after %d iteration(s)", iterCount)
 
 	// Generate PR summary using AI
@@ -174,11 +172,8 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	}
 
 	// Display PR URL
-	logger.Success("==========================================")
 	logger.Success("Pull Request Created Successfully!")
-	logger.Success("==========================================")
 	logger.Successf("URL: %s", prURL)
-	logger.Success("==========================================")
 
 	// Send success notification
 	notify.Success(project.Name, ctx.ShouldNotify())

@@ -19,8 +19,7 @@ import (
 //
 // Returns the final iteration count and any error encountered
 func RunIterationLoop(ctx *context.Context, cleanupRegistrar func(func())) (int, error) {
-	logger.Infof("Starting iteration loop (max: %d)", ctx.MaxIterations)
-	logger.Info("==========================================")
+	logger.Verbosef("Starting iteration loop (max: %d)", ctx.MaxIterations)
 
 	iterationCount := 0
 
@@ -66,7 +65,6 @@ func RunIterationLoop(ctx *context.Context, cleanupRegistrar func(func())) (int,
 		}
 	}
 
-	logger.Info("==========================================")
 	logger.Successf("Iteration loop completed after %d iteration(s)", iterationCount)
 
 	return iterationCount, nil

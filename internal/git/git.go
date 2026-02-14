@@ -83,9 +83,7 @@ func GetCurrentBranch(ctx *context.Context) (string, error) {
 		return "", fmt.Errorf("repository is in detached HEAD state, please checkout a branch first")
 	}
 
-	if ctx.IsVerbose() {
-		logger.Infof("Current branch: %s", branch)
-	}
+	logger.Verbosef("Current branch: %s", branch)
 
 	return branch, nil
 }
@@ -138,7 +136,7 @@ func CreateBranch(ctx *context.Context, name string) error {
 		return fmt.Errorf("failed to create branch '%s': %w (output: %s)", name, err, out.String())
 	}
 
-	logger.Successf("Created branch: %s", name)
+	logger.Verbosef("Created branch: %s", name)
 	return nil
 }
 

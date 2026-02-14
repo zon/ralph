@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 
 	"github.com/zon/ralph/internal/ai"
-	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/config"
+	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/notify"
@@ -50,8 +50,6 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	if err != nil {
 		return fmt.Errorf("failed to load project: %w", err)
 	}
-
-	logger.Successf("Loaded project: %s", project.Name)
 	if project.Description != "" && ctx.IsVerbose() {
 		logger.Infof("Description: %s", project.Description)
 	}
