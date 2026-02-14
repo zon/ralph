@@ -8,7 +8,7 @@ import (
 	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/notify"
 	"github.com/zon/ralph/internal/once"
-	"github.com/zon/ralph/internal/run"
+	"github.com/zon/ralph/internal/project"
 )
 
 // Cmd defines the command-line arguments and execution context
@@ -90,5 +90,5 @@ func (c *Cmd) Run() error {
 		return nil
 	}
 	// Execute full orchestration mode
-	return run.Execute(ctx, c.cleanupRegistrar)
+	return project.Execute(ctx, c.cleanupRegistrar)
 }
