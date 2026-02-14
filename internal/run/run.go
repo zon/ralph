@@ -82,11 +82,6 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		return fmt.Errorf("repository is in detached HEAD state, please checkout a branch first")
 	}
 
-	// Check if branch already exists
-	if git.BranchExists(ctx, branchName) {
-		return fmt.Errorf("branch '%s' already exists, please delete or rename it first", branchName)
-	}
-
 	// Get current branch for potential rollback
 	currentBranch, err := git.GetCurrentBranch(ctx)
 	if err != nil {
@@ -95,16 +90,26 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 
 	logger.Verbosef("Current branch: %s", currentBranch)
 
-	// Create new branch
-	logger.Verbosef("Creating branch: %s", branchName)
-	if err := git.CreateBranch(ctx, branchName); err != nil {
-		return fmt.Errorf("failed to create branch: %w", err)
-	}
+	// Check if we're already on the target branch
+	if currentBranch == branchName {
+		logger.Infof("Already on branch '%s'", branchName)
+	} else {
+		// Check if branch exists but is not currently active
+		if git.BranchExists(ctx, branchName) {
+			return fmt.Errorf("branch '%s' already exists but is not currently active, please delete the branch or switch to it manually before running", branchName)
+		}
 
-	// Checkout new branch
-	logger.Verbosef("Checking out branch: %s", branchName)
-	if err := git.CheckoutBranch(ctx, branchName); err != nil {
-		return fmt.Errorf("failed to checkout branch: %w", err)
+		// Create new branch
+		logger.Verbosef("Creating branch: %s", branchName)
+		if err := git.CreateBranch(ctx, branchName); err != nil {
+			return fmt.Errorf("failed to create branch: %w", err)
+		}
+
+		// Checkout new branch
+		logger.Verbosef("Checking out branch: %s", branchName)
+		if err := git.CheckoutBranch(ctx, branchName); err != nil {
+			return fmt.Errorf("failed to checkout branch: %w", err)
+		}
 	}
 
 	// Register cleanup to return to original branch on failure

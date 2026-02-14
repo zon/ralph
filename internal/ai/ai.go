@@ -1,22 +1,17 @@
 package ai
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
-	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/config"
+	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/logger"
 )
-
-// opencodeEvent represents a JSON event from OpenCode's --format json output
-type opencodeEvent struct {
-	Content string `json:"content"`
-}
 
 // RunAgent executes an AI agent with the given prompt using OpenCode CLI
 // OpenCode manages its own configuration for API keys and models
@@ -46,6 +41,7 @@ func RunAgent(ctx *context.Context, prompt string) error {
 
 // GeneratePRSummary generates a pull request summary using AI
 // It includes project description, status, commits, and diff
+// This matches ralph.sh's approach: agent writes to a file, we read it back
 func GeneratePRSummary(ctx *context.Context, projectFile string, iterations int) (string, error) {
 	if ctx.IsDryRun() {
 		logger.Info("[DRY-RUN] Would generate PR summary")
@@ -82,7 +78,22 @@ func GeneratePRSummary(ctx *context.Context, projectFile string, iterations int)
 		commitLog = "(Unable to retrieve commit log)"
 	}
 
-	// Build prompt matching ralph.sh
+	// Create temp directory and file for agent to write to
+	tmpDir := "tmp"
+	if err := os.MkdirAll(tmpDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create tmp directory: %w", err)
+	}
+
+	tmpFile := filepath.Join(tmpDir, fmt.Sprintf("pr-summary-%d.txt", os.Getpid()))
+	defer os.Remove(tmpFile) // Clean up temp file when done
+
+	// Get absolute path for the temp file
+	absPath, err := filepath.Abs(tmpFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path: %w", err)
+	}
+
+	// Build prompt matching ralph.sh - agent writes to file instead of outputting
 	var builder strings.Builder
 	builder.WriteString("Write a concise PR description (3-5 paragraphs max) for the changes made in this branch.\n\n")
 	builder.WriteString(fmt.Sprintf("Project: %s\n", project.Description))
@@ -90,12 +101,15 @@ func GeneratePRSummary(ctx *context.Context, projectFile string, iterations int)
 	builder.WriteString("## Commit Log\n")
 	builder.WriteString(commitLog)
 	builder.WriteString("\n\n")
+	builder.WriteString(fmt.Sprintf("Review the git commits from %s..HEAD to understand what was changed.\n", baseBranch))
+	builder.WriteString(fmt.Sprintf("Use 'git log --format=\"%%h: %%B\" %s..HEAD' to see commit messages.\n", baseBranch))
 	builder.WriteString(fmt.Sprintf("Use 'git diff %s..HEAD' to see the full changes.\n\n", baseBranch))
 	builder.WriteString("Summarize:\n")
 	builder.WriteString("1. What was implemented/changed\n")
 	builder.WriteString("2. Key technical decisions\n")
 	builder.WriteString("3. Any notable considerations or future work\n\n")
-	builder.WriteString("Be concise and focus on what matters for code review.\n")
+	builder.WriteString("Be concise and focus on what matters for code review.\n\n")
+	builder.WriteString(fmt.Sprintf("Write your summary to the file: %s\n", absPath))
 
 	prompt := builder.String()
 
@@ -103,39 +117,27 @@ func GeneratePRSummary(ctx *context.Context, projectFile string, iterations int)
 		logger.Info(prompt)
 	}
 
-	cmd := exec.Command("opencode", "run", "--format", "json", prompt)
+	// Run opencode without --format json, let it write the file
+	cmd := exec.Command("opencode", "run", prompt)
 	cmd.Env = os.Environ()
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 
-	output, err := cmd.CombinedOutput()
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("opencode execution failed: %w", err)
+	}
+
+	// Read the summary from the file the agent wrote
+	summaryBytes, err := os.ReadFile(tmpFile)
 	if err != nil {
-		return "", fmt.Errorf("opencode execution failed: %w\nOutput: %s", err, string(output))
+		return "", fmt.Errorf("failed to read summary file: %w", err)
 	}
 
-	// Parse JSON output to extract content
-	// OpenCode outputs one JSON object per line
-	lines := strings.Split(string(output), "\n")
-	var summary strings.Builder
-
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-
-		var event opencodeEvent
-		if err := json.Unmarshal([]byte(line), &event); err != nil {
-			continue // Skip non-JSON lines
-		}
-
-		if event.Content != "" {
-			summary.WriteString(event.Content)
-		}
+	summary := strings.TrimSpace(string(summaryBytes))
+	if summary == "" {
+		return "", fmt.Errorf("summary file is empty")
 	}
 
-	result := summary.String()
-	if result == "" {
-		return "", fmt.Errorf("no content found in opencode output")
-	}
-
-	return strings.TrimSpace(result), nil
+	return summary, nil
 }
