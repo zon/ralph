@@ -8,48 +8,41 @@ description: Implement user authentication with JWT tokens
 requirements:
   - category: backend
     description: User Authentication Model
-    steps:
-      - Create User model with username, email, and password fields
-      - Add bcrypt password hashing in User.setPassword()
-      - Add User.verifyPassword() method for authentication
-      - Create database migration for users table
+    items:
+      - User model with username, email, and hashed password
+      - Password verification capability
+      - Database schema for storing users
     passing: false
 
   - category: backend
     description: Login and JWT Generation
-    steps:
-      - Create POST /api/auth/login endpoint
-      - Validate username/password credentials
-      - Generate JWT token with user ID and expiration
-      - Return JWT token and user info in response
-      - Add error handling for invalid credentials
+    items:
+      - Login endpoint accepting credentials
+      - JWT token generation with user claims
+      - Error responses for invalid credentials
     passing: false
 
   - category: backend
     description: Authentication Middleware
-    steps:
-      - Create authenticateJWT() middleware function
-      - Verify JWT token from Authorization header
-      - Decode and validate token claims
-      - Attach user object to request context
-      - Return 401 for invalid/missing tokens
+    items:
+      - JWT verification for protected routes
+      - User context extraction from valid tokens
+      - Unauthorized responses for invalid tokens
     passing: false
 
   - category: testing
     description: Authentication Tests
-    steps:
-      - Write unit tests for User.setPassword() and verifyPassword()
-      - Write integration tests for /api/auth/login endpoint
-      - Test JWT token generation and validation
-      - Test middleware with valid/invalid/missing tokens
-      - Test edge cases (expired tokens, malformed tokens)
+    items:
+      - Password hashing and verification tests
+      - Login endpoint integration tests
+      - JWT token validation tests
+      - Middleware authorization tests with various token states
     passing: false
 
   - category: documentation
     description: API Documentation
-    steps:
-      - Document POST /api/auth/login endpoint (request/response format)
-      - Document Authorization header format for protected routes
-      - Add authentication section to API docs
-      - Include example curl commands
+    items:
+      - Login endpoint documentation with examples
+      - Authorization header format specification
+      - Authentication flow documentation
     passing: false

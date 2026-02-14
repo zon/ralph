@@ -24,14 +24,14 @@ func TestValidateProject(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "valid project with steps",
+			name: "valid project with items",
 			project: &Project{
 				Name: "test-project",
 				Requirements: []Requirement{
 					{
 						Category:    "backend",
 						Description: "Test requirement",
-						Steps:       []string{"Step 1", "Step 2"},
+						Items:       []string{"Item 1", "Item 2"},
 						Passing:     false,
 					},
 				},
@@ -295,7 +295,7 @@ requirements:
 	}
 }
 
-func TestLoadProjectWithSteps(t *testing.T) {
+func TestLoadProjectWithItems(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "ralph-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
@@ -303,25 +303,25 @@ func TestLoadProjectWithSteps(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	// Project file matching ../slow-choice/projects/*.yaml format
-	projectContent := `name: test-with-steps
-description: Test project with steps
+	projectContent := `name: test-with-items
+description: Test project with items
 
 requirements:
   - category: backend
     description: User Authentication
-    steps:
-      - Create User model
-      - Add password hashing
-      - Implement login endpoint
+    items:
+      - User model with credentials
+      - Password hashing capability
+      - Login endpoint
     passing: false
   - category: testing
     description: Write tests
-    steps:
-      - Unit tests for auth
+    items:
+      - Authentication unit tests
       - Integration tests
     passing: false
 `
-	projectPath := filepath.Join(tmpDir, "test-steps.yaml")
+	projectPath := filepath.Join(tmpDir, "test-items.yaml")
 	if err := os.WriteFile(projectPath, []byte(projectContent), 0644); err != nil {
 		t.Fatalf("Failed to write project file: %v", err)
 	}
@@ -331,8 +331,8 @@ requirements:
 		t.Errorf("LoadProject() unexpected error: %v", err)
 	}
 
-	if project.Name != "test-with-steps" {
-		t.Errorf("LoadProject() Name = %s, want test-with-steps", project.Name)
+	if project.Name != "test-with-items" {
+		t.Errorf("LoadProject() Name = %s, want test-with-items", project.Name)
 	}
 	if len(project.Requirements) != 2 {
 		t.Fatalf("LoadProject() Requirements length = %d, want 2", len(project.Requirements))
@@ -346,11 +346,11 @@ requirements:
 	if req1.Description != "User Authentication" {
 		t.Errorf("Requirement[0] Description = %s, want 'User Authentication'", req1.Description)
 	}
-	if len(req1.Steps) != 3 {
-		t.Errorf("Requirement[0] Steps length = %d, want 3", len(req1.Steps))
+	if len(req1.Items) != 3 {
+		t.Errorf("Requirement[0] Items length = %d, want 3", len(req1.Items))
 	}
-	if len(req1.Steps) > 0 && req1.Steps[0] != "Create User model" {
-		t.Errorf("Requirement[0] Steps[0] = %s, want 'Create User model'", req1.Steps[0])
+	if len(req1.Items) > 0 && req1.Items[0] != "User model with credentials" {
+		t.Errorf("Requirement[0] Items[0] = %s, want 'User model with credentials'", req1.Items[0])
 	}
 
 	// Check second requirement
@@ -358,8 +358,8 @@ requirements:
 	if req2.Category != "testing" {
 		t.Errorf("Requirement[1] Category = %s, want testing", req2.Category)
 	}
-	if len(req2.Steps) != 2 {
-		t.Errorf("Requirement[1] Steps length = %d, want 2", len(req2.Steps))
+	if len(req2.Items) != 2 {
+		t.Errorf("Requirement[1] Items length = %d, want 2", len(req2.Items))
 	}
 }
 

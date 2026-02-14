@@ -25,7 +25,7 @@ type Requirement struct {
 	Category    string   `yaml:"category,omitempty"`
 	Name        string   `yaml:"name,omitempty"`
 	Description string   `yaml:"description,omitempty"`
-	Steps       []string `yaml:"steps,omitempty"`
+	Items       []string `yaml:"items,omitempty"`
 	Passing     bool     `yaml:"passing"`
 }
 

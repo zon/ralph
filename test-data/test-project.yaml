@@ -4,14 +4,14 @@ requirements:
   - id: req1
     category: testing
     description: Implement feature A
-    steps:
-      - Write tests
-      - Implement feature
+    items:
+      - Tests for feature A
+      - Feature A implementation
     passing: false
   - id: req2
     category: testing
     description: Implement feature B
-    steps:
-      - Write tests
-      - Implement feature
+    items:
+      - Tests for feature B
+      - Feature B implementation
     passing: true

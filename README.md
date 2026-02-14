@@ -58,11 +58,11 @@ description: Add user authentication
 
 requirements:
   - category: backend
-    description: User Authentication Model
-    steps:
-      - Create User model with username and email fields
-      - Add password hashing with bcrypt
-      - Add login validation method
+    description: OIDC Authentication Integration
+    items:
+      - OIDC provider configuration
+      - User session management with JWT tokens
+      - Protected route authorization
     passing: false
 EOF
 ```
