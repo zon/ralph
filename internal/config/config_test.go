@@ -214,7 +214,7 @@ baseBranch: develop
 services:
   - name: test-service
     command: echo
-    args: [hello]
+    ctx: [hello]
     port: 8080
 `
 	configPath := filepath.Join(ralphDir, "config.yaml")

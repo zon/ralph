@@ -35,7 +35,7 @@ requirements:
 	defer os.Chdir(oldWd)
 	os.Chdir(tmpDir)
 
-	ctx := context.NewContext(false, false, false, false)
+	ctx := &context.Context{ProjectFile: "", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 
 	prompt, err := BuildDevelopPrompt(ctx, projectFile)
 	if err != nil {
@@ -108,7 +108,7 @@ requirements:
 	defer os.Chdir(oldWd)
 	os.Chdir(tmpDir)
 
-	ctx := context.NewContext(false, false, false, false)
+	ctx := &context.Context{ProjectFile: "", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 
 	prompt, err := BuildDevelopPrompt(ctx, projectFile)
 	if err != nil {
@@ -142,7 +142,7 @@ requirements:
 		t.Fatalf("Failed to create test project file: %v", err)
 	}
 
-	ctx := context.NewContext(true, false, false, false)
+	ctx := &context.Context{ProjectFile: "", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 
 	prompt, err := BuildDevelopPrompt(ctx, projectFile)
 	if err != nil {
@@ -161,7 +161,7 @@ requirements:
 }
 
 func TestBuildDevelopPrompt_MissingProjectFile(t *testing.T) {
-	ctx := context.NewContext(false, false, false, false)
+	ctx := &context.Context{ProjectFile: "", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 
 	_, err := BuildDevelopPrompt(ctx, "/nonexistent/project.yaml")
 	if err == nil {

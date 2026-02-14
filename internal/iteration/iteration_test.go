@@ -9,8 +9,6 @@ import (
 )
 
 func TestRunIterationLoop_DryRun(t *testing.T) {
-	ctx := context.NewContext(true, false, false, false)
-
 	// Create a temporary project file
 	tmpDir := t.TempDir()
 	projectFile := filepath.Join(tmpDir, "test-project.yaml")
@@ -28,20 +26,26 @@ requirements:
 		t.Fatalf("Failed to create test project file: %v", err)
 	}
 
+	ctx := &context.Context{ProjectFile: projectFile, MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
+
 	// Run iteration loop in dry-run mode
-	iterations, err := RunIterationLoop(ctx, projectFile, 5, nil)
+	iterations, err := RunIterationLoop(ctx, nil)
 	if err != nil {
 		t.Errorf("RunIterationLoop failed in dry-run: %v", err)
 	}
 
 	// In dry-run mode, it should return max iterations
-	if iterations != 5 {
-		t.Errorf("Expected 5 iterations, got %d", iterations)
+	if iterations != 10 {
+		t.Errorf("Expected 10 iterations, got %d", iterations)
 	}
 }
 
 func TestCommitChanges_DryRun(t *testing.T) {
-	ctx := context.NewContext(true, false, false, false)
+	// Create a temporary project file
+	tmpDir := t.TempDir()
+	projectFile := filepath.Join(tmpDir, "test-project.yaml")
+
+	ctx := &context.Context{ProjectFile: projectFile, MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 
 	// In dry-run mode, should not error
 	err := CommitChanges(ctx, 1)

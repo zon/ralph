@@ -23,7 +23,7 @@ func TestIsGHInstalled(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.NewContext(tt.dryRun, false, true, false)
+			ctx := &context.Context{ProjectFile: "", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 			// Just ensure it doesn't panic
 			_ = IsGHInstalled(ctx)
 		})
@@ -47,7 +47,7 @@ func TestIsAuthenticated(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.NewContext(tt.dryRun, false, true, false)
+			ctx := &context.Context{ProjectFile: "", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 			// Just ensure it doesn't panic
 			_ = IsAuthenticated(ctx)
 		})
@@ -77,7 +77,7 @@ func TestCreatePR(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.NewContext(tt.dryRun, false, true, false)
+			ctx := &context.Context{ProjectFile: "", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 			url, err := CreatePR(ctx, tt.title, tt.body, tt.base, tt.head)
 
 			if tt.wantErr && err == nil {

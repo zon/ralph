@@ -2,20 +2,12 @@ package context
 
 // Context holds the execution context for ralph commands
 type Context struct {
-	DryRun     bool
-	Verbose    bool
-	NoNotify   bool
-	NoServices bool // Only applicable for 'once' command
-}
-
-// NewContext creates a new execution context
-func NewContext(dryRun, verbose, noNotify, noServices bool) *Context {
-	return &Context{
-		DryRun:     dryRun,
-		Verbose:    verbose,
-		NoNotify:   noNotify,
-		NoServices: noServices,
-	}
+	ProjectFile   string
+	MaxIterations int
+	DryRun        bool
+	Verbose       bool
+	NoNotify      bool
+	NoServices    bool
 }
 
 // IsDryRun returns true if running in dry-run mode

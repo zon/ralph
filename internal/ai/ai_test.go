@@ -7,7 +7,7 @@ import (
 )
 
 func TestRunAgentDryRun(t *testing.T) {
-	ctx := context.NewContext(true, false, true, false)
+	ctx := &context.Context{ProjectFile: "", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 
 	err := RunAgent(ctx, "test prompt")
 	if err != nil {
@@ -19,7 +19,7 @@ func TestRunAgentDryRun(t *testing.T) {
 // OpenCode manages its own configuration and will fail appropriately if not configured
 
 func TestGeneratePRSummaryDryRun(t *testing.T) {
-	ctx := context.NewContext(true, false, true, false)
+	ctx := &context.Context{ProjectFile: "", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 
 	summary, err := GeneratePRSummary(ctx, "test.yaml", 3)
 	if err != nil {
@@ -32,7 +32,7 @@ func TestGeneratePRSummaryDryRun(t *testing.T) {
 }
 
 func TestGeneratePRSummaryNoProject(t *testing.T) {
-	ctx := context.NewContext(false, false, true, false)
+	ctx := &context.Context{ProjectFile: "", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 
 	_, err := GeneratePRSummary(ctx, "nonexistent.yaml", 1)
 	if err == nil {

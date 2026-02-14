@@ -130,17 +130,17 @@ func (p *Process) IsRunning() bool {
 }
 
 // joinArgs joins command arguments into a string for display
-func joinArgs(args []string) string {
-	if len(args) == 0 {
+func joinArgs(ctx []string) string {
+	if len(ctx) == 0 {
 		return ""
 	}
 
 	result := ""
-	for i, arg := range args {
+	for i, arg := range ctx {
 		if i > 0 {
 			result += " "
 		}
-		// Quote args that contain spaces
+		// Quote ctx that contain spaces
 		if containsSpace(arg) {
 			result += fmt.Sprintf("'%s'", arg)
 		} else {

@@ -33,7 +33,7 @@ type Requirement struct {
 type Service struct {
 	Name    string   `yaml:"name"`
 	Command string   `yaml:"command"`
-	Args    []string `yaml:"args,omitempty"`
+	Args    []string `yaml:"ctx,omitempty"`
 	Port    int      `yaml:"port,omitempty"` // Optional, for health checking
 }
 

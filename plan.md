@@ -29,8 +29,9 @@ Port ralph.sh and develop.sh from bash to a unified Go CLI tool that can be `go 
 
 2. **Define CLI structure with kong**
    - Install kong CLI framework (github.com/alecthomas/kong)
-   - Define CLI struct with Run and Once commands
-   - Create commands: `ralph run <project-file>` and `ralph once <project-file>`
+   - Define CLI struct with Run as default command
+   - Create default command: `ralph <project-file>` for full orchestration
+   - Add `--once` flag for single development iteration mode
    - Add `--help` flag support (automatic with kong)
    - Add `--version` flag support
    - Add `--dry-run` flag for simulation mode (outputs planned actions without executing)
@@ -137,7 +138,7 @@ Port ralph.sh and develop.sh from bash to a unified Go CLI tool that can be `go 
 
 ### Phase 6: Once Command (replaces develop.sh)
 
-15. **Implement `ralph once` command with dry-run**
+15. **Implement `ralph --once` mode with dry-run**
     - Validate project file exists
     - Start all services defined in .ralph/config.yaml (if present)
     - Wait for services to be healthy (skip health check in dry-run)
@@ -173,7 +174,7 @@ Port ralph.sh and develop.sh from bash to a unified Go CLI tool that can be `go 
 
 ### Phase 8: Orchestration Command (replaces ralph.sh)
 
-19. **Implement `ralph run` command with dry-run**
+19. **Implement `ralph` default command with dry-run**
     - Validate project file exists
     - Extract branch name from project file basename
     - Create and checkout new branch
@@ -266,20 +267,15 @@ Port ralph.sh and develop.sh from bash to a unified Go CLI tool that can be `go 
 ## CLI Command Structure
 
 ```
-ralph run <project-file>              # Full orchestration (branch, iterate, PR)
-  --max-iterations int                # Override max iterations (default: 10)
-  --dry-run                           # Simulate execution, output plan without running
-  --no-notify                         # Disable desktop notifications
-  --verbose                           # Enable verbose logging
-
-ralph once <project-file>             # Single development iteration
+ralph <project-file>                  # Full orchestration (branch, iterate, PR)
+  --once                              # Single iteration (produces report.md, stages project file only, no branch/commit/PR)
+  --max-iterations int                # Override max iterations (default: 10, not for --once)
   --dry-run                           # Simulate execution, output plan without running
   --no-notify                         # Disable desktop notifications
   --no-services                       # Skip service startup
   --verbose                           # Enable verbose logging
-
-ralph version                         # Show version
-ralph help                            # Show help
+  -v, --version                       # Show version
+  -h, --help                          # Show help
 ```
 
 ---

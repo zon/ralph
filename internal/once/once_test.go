@@ -26,8 +26,8 @@ requirements:
 	}
 
 	// Execute in dry-run mode (should not fail)
-	ctx := context.NewContext(true, false, true, true) // dry-run, no verbose, no notify, no services
-	err := Execute(ctx, projectFile, nil)
+	ctx := &context.Context{ProjectFile: projectFile, MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false} // dry-run, no verbose, no notify, no services
+	err := Execute(ctx, nil)
 
 	if err != nil {
 		t.Errorf("Execute failed in dry-run mode: %v", err)
@@ -35,10 +35,10 @@ requirements:
 }
 
 func TestExecute_InvalidProjectFile(t *testing.T) {
-	ctx := context.NewContext(true, false, true, true)
+	ctx := &context.Context{ProjectFile: "/nonexistent/project.yaml", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 
 	// Test with non-existent file
-	err := Execute(ctx, "/nonexistent/project.yaml", nil)
+	err := Execute(ctx, nil)
 	if err == nil {
 		t.Error("Expected error for non-existent project file, got nil")
 	}
@@ -59,8 +59,8 @@ requirements:
 		t.Fatalf("Failed to create invalid project file: %v", err)
 	}
 
-	ctx := context.NewContext(true, false, true, true)
-	err := Execute(ctx, projectFile, nil)
+	ctx := &context.Context{ProjectFile: projectFile, MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
+	err := Execute(ctx, nil)
 
 	if err == nil {
 		t.Error("Expected error for invalid YAML, got nil")
@@ -81,8 +81,8 @@ requirements: []
 		t.Fatalf("Failed to create test project file: %v", err)
 	}
 
-	ctx := context.NewContext(true, false, true, true)
-	err := Execute(ctx, projectFile, nil)
+	ctx := &context.Context{ProjectFile: projectFile, MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
+	err := Execute(ctx, nil)
 
 	if err == nil {
 		t.Error("Expected error for project with no requirements, got nil")

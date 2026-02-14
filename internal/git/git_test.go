@@ -62,7 +62,7 @@ func TestIsGitRepository(t *testing.T) {
 	defer os.Chdir(originalDir)
 	os.Chdir(tempDir)
 
-	ctx := context.NewContext(false, false, false, false)
+	ctx := &context.Context{ProjectFile: "", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 
 	// Should be true inside a git repository
 	if !IsGitRepository(ctx) {
@@ -76,7 +76,7 @@ func TestIsGitRepository_NotRepo(t *testing.T) {
 	defer os.Chdir(originalDir)
 	os.Chdir(tempDir)
 
-	ctx := context.NewContext(false, false, false, false)
+	ctx := &context.Context{ProjectFile: "", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 
 	// Should be false outside a git repository
 	if IsGitRepository(ctx) {
@@ -85,7 +85,7 @@ func TestIsGitRepository_NotRepo(t *testing.T) {
 }
 
 func TestIsGitRepository_DryRun(t *testing.T) {
-	ctx := context.NewContext(true, false, false, false)
+	ctx := &context.Context{ProjectFile: "", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 
 	// Should always return true in dry-run mode
 	if !IsGitRepository(ctx) {
@@ -99,7 +99,7 @@ func TestIsDetachedHead(t *testing.T) {
 	defer os.Chdir(originalDir)
 	os.Chdir(tempDir)
 
-	ctx := context.NewContext(false, false, false, false)
+	ctx := &context.Context{ProjectFile: "", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 
 	// Should not be detached on a normal branch
 	isDetached, err := IsDetachedHead(ctx)
@@ -118,7 +118,7 @@ func TestIsDetachedHead_Detached(t *testing.T) {
 	defer os.Chdir(originalDir)
 	os.Chdir(tempDir)
 
-	ctx := context.NewContext(false, false, false, false)
+	ctx := &context.Context{ProjectFile: "", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 
 	// Get the commit hash to checkout
 	cmd := exec.Command("git", "rev-parse", "HEAD")
@@ -148,7 +148,7 @@ func TestIsDetachedHead_Detached(t *testing.T) {
 }
 
 func TestIsDetachedHead_DryRun(t *testing.T) {
-	ctx := context.NewContext(true, false, false, false)
+	ctx := &context.Context{ProjectFile: "", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 
 	// Should always return false in dry-run mode
 	isDetached, err := IsDetachedHead(ctx)
@@ -168,7 +168,7 @@ func TestGetCurrentBranch(t *testing.T) {
 	defer os.Chdir(originalDir)
 	os.Chdir(tempDir)
 
-	ctx := context.NewContext(false, false, false, false)
+	ctx := &context.Context{ProjectFile: "", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 
 	branch, err := GetCurrentBranch(ctx)
 	if err != nil {
@@ -182,7 +182,7 @@ func TestGetCurrentBranch(t *testing.T) {
 }
 
 func TestGetCurrentBranch_DryRun(t *testing.T) {
-	ctx := context.NewContext(true, false, false, false)
+	ctx := &context.Context{ProjectFile: "", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 
 	branch, err := GetCurrentBranch(ctx)
 	if err != nil {
@@ -200,7 +200,7 @@ func TestGetCurrentBranch_DetachedHead(t *testing.T) {
 	defer os.Chdir(originalDir)
 	os.Chdir(tempDir)
 
-	ctx := context.NewContext(false, false, false, false)
+	ctx := &context.Context{ProjectFile: "", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 
 	// Get the commit hash to checkout
 	cmd := exec.Command("git", "rev-parse", "HEAD")
@@ -236,7 +236,7 @@ func TestBranchExists(t *testing.T) {
 	defer os.Chdir(originalDir)
 	os.Chdir(tempDir)
 
-	ctx := context.NewContext(false, false, false, false)
+	ctx := &context.Context{ProjectFile: "", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 
 	// Check for current branch (should exist)
 	currentBranch, _ := GetCurrentBranch(ctx)
@@ -251,7 +251,7 @@ func TestBranchExists(t *testing.T) {
 }
 
 func TestBranchExists_DryRun(t *testing.T) {
-	ctx := context.NewContext(true, false, false, false)
+	ctx := &context.Context{ProjectFile: "", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 
 	// In dry-run mode, should always return false
 	exists := BranchExists(ctx, "any-branch")
@@ -266,7 +266,7 @@ func TestCreateBranch(t *testing.T) {
 	defer os.Chdir(originalDir)
 	os.Chdir(tempDir)
 
-	ctx := context.NewContext(false, false, false, false)
+	ctx := &context.Context{ProjectFile: "", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 
 	branchName := "test-feature-branch"
 
@@ -282,7 +282,7 @@ func TestCreateBranch(t *testing.T) {
 }
 
 func TestCreateBranch_DryRun(t *testing.T) {
-	ctx := context.NewContext(true, false, false, false)
+	ctx := &context.Context{ProjectFile: "", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 
 	// Should not return an error in dry-run mode
 	if err := CreateBranch(ctx, "test-branch"); err != nil {
@@ -296,7 +296,7 @@ func TestCheckoutBranch(t *testing.T) {
 	defer os.Chdir(originalDir)
 	os.Chdir(tempDir)
 
-	ctx := context.NewContext(false, false, false, false)
+	ctx := &context.Context{ProjectFile: "", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 
 	branchName := "checkout-test-branch"
 
@@ -322,7 +322,7 @@ func TestCheckoutBranch(t *testing.T) {
 }
 
 func TestCheckoutBranch_DryRun(t *testing.T) {
-	ctx := context.NewContext(true, false, false, false)
+	ctx := &context.Context{ProjectFile: "", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 
 	// Should not return an error in dry-run mode
 	if err := CheckoutBranch(ctx, "any-branch"); err != nil {
@@ -336,7 +336,7 @@ func TestCreateBranch_AlreadyExists(t *testing.T) {
 	defer os.Chdir(originalDir)
 	os.Chdir(tempDir)
 
-	ctx := context.NewContext(false, false, false, false)
+	ctx := &context.Context{ProjectFile: "", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 
 	branchName := "duplicate-branch"
 
@@ -358,7 +358,7 @@ func TestHasCommits(t *testing.T) {
 	defer os.Chdir(originalDir)
 	os.Chdir(tempDir)
 
-	ctx := context.NewContext(false, false, false, false)
+	ctx := &context.Context{ProjectFile: "", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 
 	// Should have commits (setupTestRepo creates an initial commit)
 	if !HasCommits(ctx) {
@@ -367,7 +367,7 @@ func TestHasCommits(t *testing.T) {
 }
 
 func TestHasCommits_DryRun(t *testing.T) {
-	ctx := context.NewContext(true, false, false, false)
+	ctx := &context.Context{ProjectFile: "", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 
 	// In dry-run mode, should always return true
 	if !HasCommits(ctx) {
@@ -376,7 +376,7 @@ func TestHasCommits_DryRun(t *testing.T) {
 }
 
 func TestPushBranch_DryRun(t *testing.T) {
-	ctx := context.NewContext(true, false, false, false)
+	ctx := &context.Context{ProjectFile: "", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 
 	// Should not return an error in dry-run mode
 	url, err := PushBranch(ctx, "test-branch")
@@ -402,7 +402,7 @@ func TestGetCommitLog_SinceBranch(t *testing.T) {
 	defer os.Chdir(originalDir)
 	os.Chdir(tempDir)
 
-	ctx := context.NewContext(false, false, false, false)
+	ctx := &context.Context{ProjectFile: "", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 
 	// Get the current branch to use as base
 	baseBranch, _ := GetCurrentBranch(ctx)
@@ -454,7 +454,7 @@ func TestGetCommitLog_SinceBranch(t *testing.T) {
 }
 
 func TestGetCommitLog_DryRun(t *testing.T) {
-	ctx := context.NewContext(true, false, false, false)
+	ctx := &context.Context{ProjectFile: "", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 
 	commitLog, err := GetCommitLog(ctx, "main")
 	if err != nil {
@@ -477,7 +477,7 @@ func TestGetCommitLog_EmptyRange(t *testing.T) {
 	defer os.Chdir(originalDir)
 	os.Chdir(tempDir)
 
-	ctx := context.NewContext(false, false, false, false)
+	ctx := &context.Context{ProjectFile: "", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 
 	// Get commits since HEAD (should be empty)
 	commitLog, err := GetCommitLog(ctx, "HEAD")
@@ -496,7 +496,7 @@ func TestGetDiffSince(t *testing.T) {
 	defer os.Chdir(originalDir)
 	os.Chdir(tempDir)
 
-	ctx := context.NewContext(false, false, false, false)
+	ctx := &context.Context{ProjectFile: "", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 
 	// Get the current branch to use as base
 	baseBranch, _ := GetCurrentBranch(ctx)
@@ -545,7 +545,7 @@ func TestGetDiffSince(t *testing.T) {
 }
 
 func TestGetDiffSince_DryRun(t *testing.T) {
-	ctx := context.NewContext(true, false, false, false)
+	ctx := &context.Context{ProjectFile: "", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 
 	diff, err := GetDiffSince(ctx, "main")
 	if err != nil {
@@ -563,7 +563,7 @@ func TestGetDiffSince_NoDiff(t *testing.T) {
 	defer os.Chdir(originalDir)
 	os.Chdir(tempDir)
 
-	ctx := context.NewContext(false, false, false, false)
+	ctx := &context.Context{ProjectFile: "", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 
 	// Get diff since HEAD (should be empty)
 	diff, err := GetDiffSince(ctx, "HEAD")
@@ -596,7 +596,7 @@ func TestStageFile(t *testing.T) {
 	defer os.Chdir(originalDir)
 	os.Chdir(tempDir)
 
-	ctx := context.NewContext(false, false, false, false)
+	ctx := &context.Context{ProjectFile: "", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 
 	// Create a new file
 	testFile := filepath.Join(tempDir, "newfile.txt")
@@ -630,7 +630,7 @@ func TestStageFile(t *testing.T) {
 }
 
 func TestStageFile_DryRun(t *testing.T) {
-	ctx := context.NewContext(true, false, false, false)
+	ctx := &context.Context{ProjectFile: "", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 
 	// Should not return error in dry-run mode, even for non-existent file
 	err := StageFile(ctx, "/tmp/nonexistent.txt")
@@ -645,7 +645,7 @@ func TestStageFile_NonExistent(t *testing.T) {
 	defer os.Chdir(originalDir)
 	os.Chdir(tempDir)
 
-	ctx := context.NewContext(false, false, false, false)
+	ctx := &context.Context{ProjectFile: "", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 
 	// Try to stage a non-existent file
 	err := StageFile(ctx, filepath.Join(tempDir, "nonexistent.txt"))
@@ -660,7 +660,7 @@ func TestCommitChanges(t *testing.T) {
 	defer os.Chdir(originalDir)
 	os.Chdir(tempDir)
 
-	ctx := context.NewContext(false, false, false, false)
+	ctx := &context.Context{ProjectFile: "", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 
 	// Create a new file to commit
 	testFile := filepath.Join(tempDir, "new-file.txt")
@@ -696,7 +696,7 @@ func TestCommitChanges_NoChanges(t *testing.T) {
 	defer os.Chdir(originalDir)
 	os.Chdir(tempDir)
 
-	ctx := context.NewContext(false, false, false, false)
+	ctx := &context.Context{ProjectFile: "", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 
 	// Try to commit with no changes
 	err := CommitChanges(ctx)
@@ -716,7 +716,7 @@ func TestCommitChanges_MultipleFiles(t *testing.T) {
 	defer os.Chdir(originalDir)
 	os.Chdir(tempDir)
 
-	ctx := context.NewContext(false, false, false, false)
+	ctx := &context.Context{ProjectFile: "", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 
 	// Create multiple files
 	for i := 1; i <= 5; i++ {
@@ -749,7 +749,7 @@ func TestCommitChanges_MultipleFiles(t *testing.T) {
 }
 
 func TestCommitChanges_DryRun(t *testing.T) {
-	ctx := context.NewContext(true, false, false, false)
+	ctx := &context.Context{ProjectFile: "", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 
 	// Should not error in dry-run mode
 	err := CommitChanges(ctx)

@@ -7,8 +7,8 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/config"
-	appcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/logger"
 )
@@ -21,7 +21,7 @@ type opencodeEvent struct {
 // RunAgent executes an AI agent with the given prompt using OpenCode CLI
 // OpenCode manages its own configuration for API keys and models
 // In dry-run mode, it logs what would be executed without actually calling OpenCode
-func RunAgent(ctx *appcontext.Context, prompt string) error {
+func RunAgent(ctx *context.Context, prompt string) error {
 	if ctx.IsDryRun() {
 		logger.Info(prompt)
 		return nil
@@ -46,7 +46,7 @@ func RunAgent(ctx *appcontext.Context, prompt string) error {
 
 // GeneratePRSummary generates a pull request summary using AI
 // It includes project description, status, commits, and diff
-func GeneratePRSummary(ctx *appcontext.Context, projectFile string, iterations int) (string, error) {
+func GeneratePRSummary(ctx *context.Context, projectFile string, iterations int) (string, error) {
 	if ctx.IsDryRun() {
 		logger.Info("[DRY-RUN] Would generate PR summary")
 		return "dry-run-pr-summary", nil

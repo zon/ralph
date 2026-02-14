@@ -18,21 +18,21 @@ import (
 // 4. Stops when all requirements pass OR max iterations reached
 //
 // Returns the final iteration count and any error encountered
-func RunIterationLoop(ctx *context.Context, projectFile string, maxIters int, cleanupRegistrar func(func())) (int, error) {
-	logger.Infof("Starting iteration loop (max: %d)", maxIters)
+func RunIterationLoop(ctx *context.Context, cleanupRegistrar func(func())) (int, error) {
+	logger.Infof("Starting iteration loop (max: %d)", ctx.MaxIterations)
 	logger.Info("==========================================")
 
 	iterationCount := 0
 
-	for i := 1; i <= maxIters; i++ {
+	for i := 1; i <= ctx.MaxIterations; i++ {
 		iterationCount = i
 
 		logger.Info("")
-		logger.Infof("=== Iteration %d/%d ===", i, maxIters)
+		logger.Infof("=== Iteration %d/%d ===", i, ctx.MaxIterations)
 
 		// Run single development iteration (once command logic)
 		logger.Info("Running development iteration...")
-		if err := once.Execute(ctx, projectFile, cleanupRegistrar); err != nil {
+		if err := once.Execute(ctx, cleanupRegistrar); err != nil {
 			return iterationCount, fmt.Errorf("iteration %d failed: %w", i, err)
 		}
 
@@ -46,7 +46,7 @@ func RunIterationLoop(ctx *context.Context, projectFile string, maxIters int, cl
 		}
 
 		// Load and check project completion status
-		project, err := config.LoadProject(projectFile)
+		project, err := config.LoadProject(ctx.ProjectFile)
 		if err != nil {
 			return iterationCount, fmt.Errorf("failed to reload project after iteration %d: %w", i, err)
 		}
@@ -61,7 +61,7 @@ func RunIterationLoop(ctx *context.Context, projectFile string, maxIters int, cl
 		}
 
 		// Continue to next iteration if not at max
-		if i < maxIters {
+		if i < ctx.MaxIterations {
 			logger.Info("Requirements not complete, continuing to next iteration...")
 		}
 	}

@@ -67,33 +67,31 @@ EOF
 
 ```bash
 # Preview first
-ralph run projects/my-feature.yaml --dry-run
+ralph projects/my-feature.yaml --dry-run
 
 # Execute full workflow: branch → iterate → PR
-ralph run projects/my-feature.yaml
+ralph projects/my-feature.yaml
 ```
 
-## Commands
+## Usage
 
-### `ralph run <project-file>`
+Run `ralph --help` to see all available options.
 
-Full orchestration: creates branch, iterates development cycles, commits changes, generates PR summary, and creates GitHub pull request.
+### Full Orchestration
 
-**Options:**
-- `--max-iterations <n>` - Max iterations (default: 10)
-- `--dry-run` - Preview without executing
-- `--no-notify` - Disable notifications
-- `--verbose` - Detailed logging
+```bash
+ralph <project-file>
+```
 
-### `ralph once <project-file>`
+Creates branch, iterates development cycles, commits changes, generates PR summary, and creates GitHub pull request.
 
-Single development iteration: starts services, runs AI agent, stages changes, stops services.
+### Single Iteration Mode
 
-**Options:**
-- `--dry-run` - Preview without executing
-- `--no-notify` - Disable notifications
-- `--no-services` - Skip service startup
-- `--verbose` - Detailed logging
+```bash
+ralph <project-file> --once
+```
+
+Runs a single development iteration without creating branches, committing, or submitting PRs. Stages the project file only and produces a `report.md` file with development results. Useful for local development and testing.
 
 ## Configuration
 
@@ -147,10 +145,10 @@ requirements:
 EOF
 
 # Preview
-ralph run projects/add-logging.yaml --dry-run
+ralph projects/add-logging.yaml --dry-run
 
 # Execute
-ralph run projects/add-logging.yaml
+ralph projects/add-logging.yaml
 ```
 
 ### With Services
@@ -166,7 +164,7 @@ services:
 EOF
 
 # Run - services start/stop automatically
-ralph once projects/my-feature.yaml
+ralph --once projects/my-feature.yaml
 ```
 
 ### Custom Development Instructions
@@ -219,19 +217,22 @@ gh auth login
 
 ## How It Works
 
-**`ralph run`:**
+**`ralph <project-file>`** (full orchestration):
 1. Create git branch from filename
 2. Iterate: start services → run AI agent → commit changes
 3. Continue until requirements pass or max iterations
 4. Generate PR summary with AI
 5. Push branch and create GitHub PR
 
-**`ralph once`:**
+**`ralph --once <project-file>`** (single iteration):
 1. Start configured services
 2. Generate prompt from git history + project requirements + custom instructions
 3. Run AI agent to implement changes
-4. Stage project file
-5. Stop services
+4. Stage project file only (other changes remain unstaged)
+5. Generate `report.md` with development results
+6. Stop services
+
+Note: `--once` mode does not create branches, commit changes, or submit PRs.
 
 ## Dependencies
 

@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 
 	"github.com/zon/ralph/internal/ai"
-	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
+	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/notify"
@@ -23,7 +23,7 @@ import (
 // 4. Runs the AI agent with the prompt
 // 5. Stages the project file after completion
 // 6. Sends desktop notifications on success/failure
-func Execute(ctx *context.Context, projectFile string, cleanupRegistrar func(func())) error {
+func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	// Enable verbose logging if requested
 	if ctx.IsVerbose() {
 		logger.SetVerbose(true)
@@ -34,7 +34,7 @@ func Execute(ctx *context.Context, projectFile string, cleanupRegistrar func(fun
 	}
 
 	// Validate project file exists
-	absProjectFile, err := filepath.Abs(projectFile)
+	absProjectFile, err := filepath.Abs(ctx.ProjectFile)
 	if err != nil {
 		return fmt.Errorf("failed to resolve project file path: %w", err)
 	}

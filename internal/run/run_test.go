@@ -100,9 +100,9 @@ requirements:
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.NewContext(tt.dryRun, false, true, false)
+			ctx := &context.Context{ProjectFile: projectFile, MaxIterations: tt.maxIterations, DryRun: tt.dryRun, Verbose: false, NoNotify: true, NoServices: false}
 
-			err := Execute(ctx, projectFile, tt.maxIterations, nil)
+			err := Execute(ctx, nil)
 
 			if tt.wantErr && err == nil {
 				t.Error("Execute() expected error, got nil")
@@ -115,9 +115,9 @@ requirements:
 }
 
 func TestExecute_InvalidProjectFile(t *testing.T) {
-	ctx := context.NewContext(false, false, true, false)
+	ctx := &context.Context{ProjectFile: "/nonexistent/project.yaml", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 
-	err := Execute(ctx, "/nonexistent/project.yaml", 10, nil)
+	err := Execute(ctx, nil)
 
 	if err == nil {
 		t.Error("Execute() with nonexistent file should return error")
@@ -145,9 +145,9 @@ requirements:
 	defer os.Chdir(originalDir)
 	os.Chdir(tmpDir)
 
-	ctx := context.NewContext(false, false, true, false)
+	ctx := &context.Context{ProjectFile: projectFile, MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
 
-	err := Execute(ctx, projectFile, 10, nil)
+	err := Execute(ctx, nil)
 
 	if err == nil {
 		t.Error("Execute() should return error when not in a git repository")

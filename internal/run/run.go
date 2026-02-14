@@ -26,7 +26,7 @@ import (
 // 6. Push branch to origin
 // 7. Create GitHub pull request
 // 8. Display PR URL on success
-func Execute(ctx *context.Context, projectFile string, maxIterations int, cleanupRegistrar func(func())) error {
+func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	// Enable verbose logging if requested
 	if ctx.IsVerbose() {
 		logger.SetVerbose(true)
@@ -37,7 +37,7 @@ func Execute(ctx *context.Context, projectFile string, maxIterations int, cleanu
 	}
 
 	// Validate project file exists
-	absProjectFile, err := filepath.Abs(projectFile)
+	absProjectFile, err := filepath.Abs(ctx.ProjectFile)
 	if err != nil {
 		return fmt.Errorf("failed to resolve project file path: %w", err)
 	}
@@ -116,10 +116,10 @@ func Execute(ctx *context.Context, projectFile string, maxIterations int, cleanu
 	}
 
 	// Run iteration loop
-	logger.Infof("Starting iteration loop (max: %d)", maxIterations)
+	logger.Infof("Starting iteration loop (max: %d)", ctx.MaxIterations)
 	logger.Info("==========================================")
 
-	iterCount, err := iteration.RunIterationLoop(ctx, absProjectFile, maxIterations, cleanupRegistrar)
+	iterCount, err := iteration.RunIterationLoop(ctx, cleanupRegistrar)
 	if err != nil {
 		// Send failure notification
 		notify.Error(project.Name, ctx.ShouldNotify())
