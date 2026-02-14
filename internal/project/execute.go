@@ -1,4 +1,4 @@
-package requirement
+package project
 
 import (
 	"fmt"
@@ -11,7 +11,6 @@ import (
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/github"
-	"github.com/zon/ralph/internal/iteration"
 	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/notify"
 )
@@ -122,7 +121,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	// Run iteration loop
 	logger.Verbosef("Starting iteration loop (max: %d)", ctx.MaxIterations)
 
-	iterCount, err := iteration.RunIterationLoop(ctx, cleanupRegistrar)
+	iterCount, err := RunIterationLoop(ctx, cleanupRegistrar)
 	if err != nil {
 		// Send failure notification
 		notify.Error(project.Name, ctx.ShouldNotify())

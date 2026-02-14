@@ -1,4 +1,4 @@
-package requirement
+package project
 
 import (
 	"os"

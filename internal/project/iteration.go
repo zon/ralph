@@ -1,4 +1,4 @@
-package iteration
+package project
 
 import (
 	"fmt"
@@ -7,12 +7,12 @@ import (
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/logger"
-	"github.com/zon/ralph/internal/once"
+	"github.com/zon/ralph/internal/requirement"
 )
 
 // RunIterationLoop runs multiple development iterations until completion or max iterations
 // Each iteration:
-// 1. Runs the once/develop command internally
+// 1. Runs a single development iteration (requirement.Execute)
 // 2. Commits the changes
 // 3. Checks project completion status
 // 4. Stops when all requirements pass OR max iterations reached
@@ -35,9 +35,9 @@ func RunIterationLoop(ctx *context.Context, cleanupRegistrar func(func())) (int,
 		logger.Verbose("")
 		logger.Verbosef("=== Iteration %d/%d ===", i, ctx.MaxIterations)
 
-		// Run single development iteration (once command logic)
+		// Run single development iteration
 		logger.Verbose("Running development iteration...")
-		if err := once.Execute(ctx, cleanupRegistrar); err != nil {
+		if err := requirement.Execute(ctx, cleanupRegistrar); err != nil {
 			return iterationCount, fmt.Errorf("iteration %d failed: %w", i, err)
 		}
 

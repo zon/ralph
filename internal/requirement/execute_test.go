@@ -1,4 +1,4 @@
-package once
+package requirement
 
 import (
 	"os"
@@ -14,7 +14,7 @@ func TestExecute_DryRun(t *testing.T) {
 	projectFile := filepath.Join(tmpDir, "test-project.yaml")
 
 	projectYAML := `name: Test Project
-description: Test project for once command
+description: Test project for requirement execution
 requirements:
   - id: req1
     description: Test requirement

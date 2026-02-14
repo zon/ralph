@@ -7,7 +7,7 @@ import (
 	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/notify"
-	"github.com/zon/ralph/internal/once"
+	"github.com/zon/ralph/internal/project"
 	"github.com/zon/ralph/internal/requirement"
 )
 
@@ -81,7 +81,7 @@ func (c *Cmd) Run() error {
 			return fmt.Errorf("failed to load project: %w", err)
 		}
 
-		if err := once.Execute(ctx, c.cleanupRegistrar); err != nil {
+		if err := requirement.Execute(ctx, c.cleanupRegistrar); err != nil {
 			notify.Error(project.Name, ctx.ShouldNotify() && !ctx.IsDryRun())
 			return err
 		}
@@ -90,5 +90,5 @@ func (c *Cmd) Run() error {
 		return nil
 	}
 	// Execute full orchestration mode
-	return requirement.Execute(ctx, c.cleanupRegistrar)
+	return project.Execute(ctx, c.cleanupRegistrar)
 }
