@@ -106,9 +106,9 @@ func TestStartServiceDryRun(t *testing.T) {
 		Port:    8080,
 	}
 
-	proc, err := StartService(svc, true)
+	proc, err := startService(svc, true)
 	if err != nil {
-		t.Fatalf("StartService in dry-run mode failed: %v", err)
+		t.Fatalf("startService in dry-run mode failed: %v", err)
 	}
 
 	if proc.PID != -1 {
@@ -142,9 +142,9 @@ func TestStartAllServicesDryRun(t *testing.T) {
 		},
 	}
 
-	processes, err := StartAllServices(services, true)
+	processes, err := startAllServices(services, true)
 	if err != nil {
-		t.Fatalf("StartAllServices in dry-run mode failed: %v", err)
+		t.Fatalf("startAllServices in dry-run mode failed: %v", err)
 	}
 
 	if len(processes) != 3 {
@@ -166,7 +166,7 @@ func TestGracefulShutdown(t *testing.T) {
 		Args:    []string{"30"},
 	}
 
-	proc, err := StartService(svc, false)
+	proc, err := startService(svc, false)
 	if err != nil {
 		t.Fatalf("Failed to start service: %v", err)
 	}
@@ -198,7 +198,7 @@ func TestForceKillAfterTimeout(t *testing.T) {
 		Args:    []string{"-c", "trap '' TERM; sleep 30"},
 	}
 
-	proc, err := StartService(svc, false)
+	proc, err := startService(svc, false)
 	if err != nil {
 		t.Fatalf("Failed to start service: %v", err)
 	}
@@ -231,7 +231,7 @@ func TestStopAllServicesOrder(t *testing.T) {
 
 	processes := []*Process{}
 	for _, svc := range services {
-		proc, err := StartService(svc, false)
+		proc, err := startService(svc, false)
 		if err != nil {
 			t.Fatalf("Failed to start service %s: %v", svc.Name, err)
 		}
@@ -246,7 +246,7 @@ func TestStopAllServicesOrder(t *testing.T) {
 	}
 
 	// Stop all services
-	StopAllServices(processes)
+	stopAllServices(processes)
 
 	// Verify all are stopped
 	time.Sleep(200 * time.Millisecond)
@@ -259,6 +259,120 @@ func TestStopAllServicesOrder(t *testing.T) {
 
 func TestStopAllServicesEmpty(t *testing.T) {
 	// Should handle empty slice gracefully
-	StopAllServices([]*Process{})
+	stopAllServices([]*Process{})
 	// If we get here without panic, test passes
+}
+
+func TestManagerStartStop(t *testing.T) {
+	mgr := NewManager()
+
+	services := []config.Service{
+		{Name: "service1", Command: "sleep", Args: []string{"30"}},
+		{Name: "service2", Command: "sleep", Args: []string{"30"}},
+	}
+
+	// Start services
+	err := mgr.Start(services, false)
+	if err != nil {
+		t.Fatalf("Manager.Start failed: %v", err)
+	}
+
+	// Verify processes are tracked
+	mgr.mu.Lock()
+	processCount := len(mgr.processes)
+	mgr.mu.Unlock()
+
+	if processCount != 2 {
+		t.Errorf("Expected 2 processes, got %d", processCount)
+	}
+
+	// Stop services
+	mgr.Stop()
+
+	// Verify process list is cleared
+	mgr.mu.Lock()
+	processCount = len(mgr.processes)
+	mgr.mu.Unlock()
+
+	if processCount != 0 {
+		t.Errorf("Expected 0 processes after stop, got %d", processCount)
+	}
+}
+
+func TestManagerMultipleStops(t *testing.T) {
+	mgr := NewManager()
+
+	services := []config.Service{
+		{Name: "service1", Command: "sleep", Args: []string{"30"}},
+	}
+
+	// Start service
+	err := mgr.Start(services, false)
+	if err != nil {
+		t.Fatalf("Manager.Start failed: %v", err)
+	}
+
+	// Stop multiple times - should be safe
+	mgr.Stop()
+	mgr.Stop()
+	mgr.Stop()
+
+	// Verify process list is still empty
+	mgr.mu.Lock()
+	processCount := len(mgr.processes)
+	mgr.mu.Unlock()
+
+	if processCount != 0 {
+		t.Errorf("Expected 0 processes after multiple stops, got %d", processCount)
+	}
+}
+
+func TestManagerStopBeforeStart(t *testing.T) {
+	mgr := NewManager()
+
+	// Stop before starting - should be safe
+	mgr.Stop()
+
+	// Verify no panic occurred
+	mgr.mu.Lock()
+	processCount := len(mgr.processes)
+	mgr.mu.Unlock()
+
+	if processCount != 0 {
+		t.Errorf("Expected 0 processes, got %d", processCount)
+	}
+}
+
+func TestManagerDryRun(t *testing.T) {
+	mgr := NewManager()
+
+	services := []config.Service{
+		{Name: "service1", Command: "echo", Args: []string{"test"}, Port: 8080},
+	}
+
+	// Start in dry-run mode
+	err := mgr.Start(services, true)
+	if err != nil {
+		t.Fatalf("Manager.Start in dry-run failed: %v", err)
+	}
+
+	// Verify process is tracked
+	mgr.mu.Lock()
+	processCount := len(mgr.processes)
+	mgr.mu.Unlock()
+
+	if processCount != 1 {
+		t.Errorf("Expected 1 process in dry-run, got %d", processCount)
+	}
+
+	// Stop should work in dry-run too
+	mgr.Stop()
+
+	mgr.mu.Lock()
+	processCount = len(mgr.processes)
+	mgr.mu.Unlock()
+
+	if processCount != 0 {
+		t.Errorf("Expected 0 processes after stop, got %d", processCount)
+	}
 }

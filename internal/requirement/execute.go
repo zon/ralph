@@ -63,24 +63,30 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	// Track started services for cleanup
-	var processes []*services.Process
+	// Create service manager for this requirement run
+	svcMgr := services.NewManager()
 
 	// Start services if not disabled
 	if ctx.ShouldStartServices() && len(ralphConfig.Services) > 0 {
 		logger.Verbosef("Starting %d service(s)...", len(ralphConfig.Services))
 
-		processes, err = services.StartAllServices(ralphConfig.Services, ctx.IsDryRun())
-		if err != nil {
+		if err := svcMgr.Start(ralphConfig.Services, ctx.IsDryRun()); err != nil {
 			return fmt.Errorf("failed to start services: %w", err)
 		}
 
-		// Register cleanup handler for services
+		// Register cleanup handler for signal interrupts (SIGINT/SIGTERM)
 		if cleanupRegistrar != nil {
 			cleanupRegistrar(func() {
-				services.StopAllServices(processes)
+				svcMgr.Stop()
 			})
 		}
+
+		// Ensure services are stopped when this function exits (success or error)
+		defer func() {
+			logger.Verbose("Stopping services after requirement run...")
+			svcMgr.Stop()
+			logger.Verbose("Services stopped")
+		}()
 
 		logger.Verbose("All services started and healthy")
 	} else if len(ralphConfig.Services) > 0 {

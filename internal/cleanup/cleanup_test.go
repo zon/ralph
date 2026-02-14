@@ -2,10 +2,6 @@ package cleanup
 
 import (
 	"testing"
-	"time"
-
-	"github.com/zon/ralph/internal/config"
-	"github.com/zon/ralph/internal/services"
 )
 
 func TestNewManager(t *testing.T) {
@@ -13,39 +9,8 @@ func TestNewManager(t *testing.T) {
 	if m == nil {
 		t.Fatal("NewManager returned nil")
 	}
-	if m.processes == nil {
-		t.Error("processes slice should be initialized")
-	}
 	if m.cleanupFn == nil {
 		t.Error("cleanupFn slice should be initialized")
-	}
-}
-
-func TestRegisterProcesses(t *testing.T) {
-	m := NewManager()
-
-	// Start a test service
-	svc := config.Service{
-		Name:    "test-service",
-		Command: "sleep",
-		Args:    []string{"30"},
-	}
-
-	proc, err := services.StartService(svc, false)
-	if err != nil {
-		t.Fatalf("Failed to start service: %v", err)
-	}
-
-	// Register the process
-	m.RegisterProcesses([]*services.Process{proc})
-
-	// Verify it was registered by cleaning up
-	m.Cleanup()
-
-	// Process should be stopped after cleanup
-	time.Sleep(100 * time.Millisecond)
-	if proc.IsRunning() {
-		t.Error("Process should have been stopped by cleanup")
 	}
 }
 

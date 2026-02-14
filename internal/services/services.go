@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"os/exec"
+	"sync"
 	"syscall"
 	"time"
 
@@ -19,9 +20,57 @@ type Process struct {
 	PID     int
 }
 
-// StartService starts a service and returns a Process handle
+// Manager manages a collection of running services
+// It tracks all running processes and ensures they're only stopped once
+type Manager struct {
+	mu        sync.Mutex
+	processes []*Process
+}
+
+// NewManager creates a new service manager
+func NewManager() *Manager {
+	return &Manager{
+		processes: make([]*Process, 0),
+	}
+}
+
+// Start starts all configured services and tracks them
+func (m *Manager) Start(services []config.Service, dryRun bool) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Start all services
+	processes, err := startAllServices(services, dryRun)
+	if err != nil {
+		return err
+	}
+
+	// Track the started processes
+	m.processes = processes
+	return nil
+}
+
+// Stop stops all tracked services and clears the process list
+// Can be called multiple times safely - subsequent calls are no-ops
+func (m *Manager) Stop() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// If no processes, nothing to do
+	if len(m.processes) == 0 {
+		return
+	}
+
+	// Stop all services
+	stopAllServices(m.processes)
+
+	// Clear the process list so subsequent calls are no-ops
+	m.processes = nil
+}
+
+// startService starts a service and returns a Process handle
 // In dry-run mode, it logs what would be done without executing
-func StartService(svc config.Service, dryRun bool) (*Process, error) {
+func startService(svc config.Service, dryRun bool) (*Process, error) {
 	cmdStr := fmt.Sprintf("%s %s", svc.Command, joinArgs(svc.Args))
 
 	if dryRun {
@@ -160,18 +209,18 @@ func containsSpace(s string) bool {
 	return false
 }
 
-// StartAllServices starts all services and waits for them to become healthy
+// startAllServices starts all services and waits for them to become healthy
 // Returns a slice of started processes and any error encountered
-func StartAllServices(services []config.Service, dryRun bool) ([]*Process, error) {
+func startAllServices(services []config.Service, dryRun bool) ([]*Process, error) {
 	processes := []*Process{}
 	healthTimeout := 30 * time.Second
 
 	for _, svc := range services {
 		// Start the service
-		proc, err := StartService(svc, dryRun)
+		proc, err := startService(svc, dryRun)
 		if err != nil {
 			// If a service fails to start, stop all previously started services
-			StopAllServices(processes)
+			stopAllServices(processes)
 			return nil, fmt.Errorf("failed to start service %s: %w", svc.Name, err)
 		}
 		processes = append(processes, proc)
@@ -179,7 +228,7 @@ func StartAllServices(services []config.Service, dryRun bool) ([]*Process, error
 		// Wait for health check
 		if err := WaitForHealth(proc, healthTimeout, dryRun); err != nil {
 			// If health check fails, stop all services
-			StopAllServices(processes)
+			stopAllServices(processes)
 			return nil, fmt.Errorf("health check failed for service %s: %w", svc.Name, err)
 		}
 	}
@@ -187,10 +236,10 @@ func StartAllServices(services []config.Service, dryRun bool) ([]*Process, error
 	return processes, nil
 }
 
-// StopAllServices stops all services in reverse order
+// stopAllServices stops all services in reverse order
 // It stops services gracefully with SIGTERM, waiting for clean shutdown
 // Services that don't stop within timeout are force-killed with SIGKILL
-func StopAllServices(processes []*Process) {
+func stopAllServices(processes []*Process) {
 	if len(processes) == 0 {
 		return
 	}
