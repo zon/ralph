@@ -1,9 +1,5 @@
 # Ralph
 
-## AI-Powered Development Orchestration
-
-I made a Ralph.
-
 Ralph orchestrates AI coding agents to automate development workflows from branch creation through pull request submission.
 
 ## Features
@@ -19,6 +15,7 @@ Ralph orchestrates AI coding agents to automate development workflows from branc
 
 ### 1. Install Dependencies
 
+- **Go**: [go.dev/dl](https://go.dev/dl)
 - **Git**: [git-scm.com](https://git-scm.com/downloads)
 - **GitHub CLI**: [cli.github.com](https://cli.github.com/)
 - **OpenCode**: [opencode.ai](https://opencode.ai/docs/cli/)
