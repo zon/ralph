@@ -114,22 +114,4 @@ services:
 
 ### Custom Development Instructions (`.ralph/instructions.md`)
 
-Create `.ralph/instructions.md` to guide the AI:
-
-```markdown
-# Development Instructions
-
-## Code Style
-- Use functional components in React
-- Follow airbnb eslint rules
-
-## Testing
-- Write tests for all new endpoints
-- Minimum 80% coverage
-
-## Architecture
-- Keep components small and focused
-- Use TypeScript for all new code
-```
-
-Ralph includes this file in the AI prompt automatically. If not present, default instructions are used.
+Create `.ralph/instructions.md` to guide the AI. Ralph includes this file in the AI prompt automatically. If not present, [default instructions](internal/config/default-instructions.md) are used.
