@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
+	"github.com/zon/ralph/internal/notify"
 	"github.com/zon/ralph/internal/once"
 	"github.com/zon/ralph/internal/run"
 )
@@ -73,7 +75,19 @@ func (c *Cmd) Run() error {
 
 	if c.Once {
 		// Execute single iteration mode
-		return once.Execute(ctx, c.cleanupRegistrar)
+		// Load project for notification
+		project, err := config.LoadProject(ctx.ProjectFile)
+		if err != nil {
+			return fmt.Errorf("failed to load project: %w", err)
+		}
+
+		if err := once.Execute(ctx, c.cleanupRegistrar); err != nil {
+			notify.Error(project.Name, ctx.ShouldNotify() && !ctx.IsDryRun())
+			return err
+		}
+
+		notify.Success(project.Name, ctx.ShouldNotify() && !ctx.IsDryRun())
+		return nil
 	}
 	// Execute full orchestration mode
 	return run.Execute(ctx, c.cleanupRegistrar)

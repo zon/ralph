@@ -156,7 +156,7 @@ func CheckoutBranch(ctx *context.Context, name string) error {
 		return fmt.Errorf("failed to checkout branch '%s': %w (output: %s)", name, err, out.String())
 	}
 
-	logger.Successf("Checked out branch: %s", name)
+	logger.Verbosef("Checked out branch: %s", name)
 	return nil
 }
 

@@ -10,7 +10,6 @@ import (
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/logger"
-	"github.com/zon/ralph/internal/notify"
 	"github.com/zon/ralph/internal/prompt"
 	"github.com/zon/ralph/internal/services"
 )
@@ -99,8 +98,6 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	// Run AI agent with prompt
 	logger.Verbose("Running AI agent...")
 	if err := ai.RunAgent(ctx, devPrompt); err != nil {
-		// Send failure notification
-		notify.Error(project.Name, ctx.ShouldNotify() && !ctx.IsDryRun())
 		return fmt.Errorf("agent execution failed: %w", err)
 	}
 	logger.Verbose("AI agent execution completed")
@@ -112,9 +109,6 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	} else {
 		logger.Verbose("Project file staged")
 	}
-
-	// Send success notification
-	notify.Success(project.Name, ctx.ShouldNotify() && !ctx.IsDryRun())
 
 	logger.Verbose("Single iteration completed successfully")
 
