@@ -43,7 +43,7 @@ See [GitHub CLI authentication](https://cli.github.com/manual/gh_auth_login)
 
 ### 4. Configure OpenCode
 
-See [OpenCode authentication docs](https://opencode.ai/docs/cli/authentication) for setup instructions.
+See [OpenCode authentication docs](https://opencode.ai/docs/cli/#auth) for setup instructions.
 
 ## Usage
 
