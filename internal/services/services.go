@@ -213,7 +213,6 @@ func containsSpace(s string) bool {
 // Returns a slice of started processes and any error encountered
 func startAllServices(services []config.Service, dryRun bool) ([]*Process, error) {
 	processes := []*Process{}
-	healthTimeout := 30 * time.Second
 
 	for _, svc := range services {
 		// Start the service
@@ -225,8 +224,11 @@ func startAllServices(services []config.Service, dryRun bool) ([]*Process, error
 		}
 		processes = append(processes, proc)
 
+		// Use service-specific timeout (default applied by config package)
+		timeout := time.Duration(svc.Timeout) * time.Second
+
 		// Wait for health check
-		if err := WaitForHealth(proc, healthTimeout, dryRun); err != nil {
+		if err := WaitForHealth(proc, timeout, dryRun); err != nil {
 			// If health check fails, stop all services
 			stopAllServices(processes)
 			return nil, fmt.Errorf("health check failed for service %s: %w", svc.Name, err)

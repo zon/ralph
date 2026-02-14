@@ -34,7 +34,8 @@ type Service struct {
 	Name    string   `yaml:"name"`
 	Command string   `yaml:"command"`
 	Args    []string `yaml:"ctx,omitempty"`
-	Port    int      `yaml:"port,omitempty"` // Optional, for health checking
+	Port    int      `yaml:"port,omitempty"`    // Optional, for health checking
+	Timeout int      `yaml:"timeout,omitempty"` // Optional, health check timeout in seconds (default: 30)
 }
 
 // RalphConfig represents the .ralph/config.yaml structure
@@ -126,6 +127,12 @@ func LoadConfig() (*RalphConfig, error) {
 		}
 		if config.BaseBranch == "" {
 			config.BaseBranch = "main"
+		}
+		// Apply default timeout for services
+		for i := range config.Services {
+			if config.Services[i].Timeout == 0 {
+				config.Services[i].Timeout = 30
+			}
 		}
 	}
 
