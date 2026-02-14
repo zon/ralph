@@ -13,3 +13,7 @@
 6. Update the requirement in the project YAML file to 'passing: true' ONLY if:
    - The requirement is fully implemented and complete
    - All tests are passing
+7. If you are COMPLETELY BLOCKED and cannot make any progress:
+   - Write a summary to 'blocked.md' explaining what blocked you
+   - Include what you tried and why it didn't work
+   - Do NOT update the requirement to passing

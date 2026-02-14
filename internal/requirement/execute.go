@@ -42,6 +42,16 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		return fmt.Errorf("project file not found: %s", absProjectFile)
 	}
 
+	// Check if blocked.md exists from a previous blocked run
+	blockedPath := filepath.Join(filepath.Dir(absProjectFile), "blocked.md")
+	if _, err := os.Stat(blockedPath); err == nil {
+		blockedContent, readErr := os.ReadFile(blockedPath)
+		if readErr != nil {
+			return fmt.Errorf("agent is blocked (blocked.md exists but could not read): %w", readErr)
+		}
+		return fmt.Errorf("agent is blocked:\n%s", string(blockedContent))
+	}
+
 	logger.Verbosef("Loading project file: %s", absProjectFile)
 
 	// Load and validate project
