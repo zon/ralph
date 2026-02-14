@@ -59,7 +59,7 @@ func RunIterationLoop(ctx *context.Context, cleanupRegistrar func(func())) (int,
 		allComplete, passingCount, failingCount := config.CheckCompletion(currentProject)
 		logger.Verbosef("Status after iteration %d: %d passing, %d failing", i, passingCount, failingCount)
 
-		// Check for newly completed requirements
+		// Check for newly completed requirements and show them immediately after AI completes
 		for idx, req := range currentProject.Requirements {
 			if req.Passing && !previousProject.Requirements[idx].Passing {
 				// This requirement just passed

@@ -27,7 +27,7 @@ func RunAgent(ctx *context.Context, prompt string) error {
 	}
 
 	cmd := exec.Command("opencode", "run", prompt)
-	cmd.Env = os.Environ()
+	cmd.Env = append(os.Environ(), "FORCE_COLOR=1")
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -119,10 +119,12 @@ func GeneratePRSummary(ctx *context.Context, projectFile string, iterations int)
 
 	// Run opencode without --format json, let it write the file
 	cmd := exec.Command("opencode", "run", prompt)
-	cmd.Env = os.Environ()
+	cmd.Env = append(os.Environ(), "FORCE_COLOR=1")
 	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	if ctx.IsVerbose() {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+	}
 
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("opencode execution failed: %w", err)

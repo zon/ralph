@@ -100,11 +100,7 @@ func CreatePR(ctx *context.Context, title, body, base, head string) (string, err
 		return "", fmt.Errorf("failed to parse PR URL from gh output: %s", output)
 	}
 
-	if ctx.IsVerbose() {
-		logger.Infof("Created PR: %s", prURL)
-	}
-
-	logger.Successf("Pull request created: %s", prURL)
+	logger.Verbosef("Created PR: %s", prURL)
 
 	return prURL, nil
 }

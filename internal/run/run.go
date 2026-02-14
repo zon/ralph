@@ -150,11 +150,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		return fmt.Errorf("failed to push branch: %w", err)
 	}
 
-	if ctx.IsVerbose() {
-		logger.Verbosef("Remote URL: %s", remoteURL)
-	}
-
-	logger.Verbose("Pushed branch to origin")
+	logger.Verbosef("Remote URL: %s", remoteURL)
 
 	// Check if gh CLI is available and authenticated
 	if !github.IsGHInstalled(ctx) {
@@ -177,8 +173,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		return fmt.Errorf("failed to create pull request: %w", err)
 	}
 
-	// Display PR URL
-	logger.Successf("Created pull request: %s", prURL)
+	logger.Successf("Pull request created: %s", prURL)
 
 	// Send success notification
 	notify.Success(project.Name, ctx.ShouldNotify())

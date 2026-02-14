@@ -203,7 +203,7 @@ func PushBranch(ctx *context.Context, branch string) (string, error) {
 		return "", fmt.Errorf("failed to push branch '%s': %w (output: %s)", branch, err, out.String())
 	}
 
-	logger.Successf("Pushed branch '%s' to origin", branch)
+	logger.Verbosef("Pushed branch '%s' to origin", branch)
 
 	// Get the remote URL
 	cmd = exec.Command("git", "config", "--get", "remote.origin.url")
