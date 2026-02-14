@@ -1,4 +1,4 @@
-package project
+package requirement
 
 import (
 	"fmt"
