@@ -1,5 +1,7 @@
 # Ralph
 
+I made a Ralph.
+
 Ralph orchestrates AI coding agents to automate development workflows from branch creation through pull request submission.
 
 ## Features
