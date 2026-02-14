@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/zon/ralph/internal/context"
+	"github.com/zon/ralph/internal/testutil"
 )
 
 func TestRunIterationLoop_DryRun(t *testing.T) {
@@ -26,7 +26,7 @@ requirements:
 		t.Fatalf("Failed to create test project file: %v", err)
 	}
 
-	ctx := &context.Context{ProjectFile: projectFile, MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
+	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
 
 	// Run iteration loop in dry-run mode
 	iterations, err := RunIterationLoop(ctx, nil)
@@ -45,7 +45,7 @@ func TestCommitChanges_DryRun(t *testing.T) {
 	tmpDir := t.TempDir()
 	projectFile := filepath.Join(tmpDir, "test-project.yaml")
 
-	ctx := &context.Context{ProjectFile: projectFile, MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
+	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
 
 	// In dry-run mode, should not error
 	err := CommitChanges(ctx, 1)

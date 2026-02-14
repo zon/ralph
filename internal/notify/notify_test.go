@@ -12,21 +12,15 @@ func TestSuccess(t *testing.T) {
 		wantPanic   bool
 	}{
 		{
-			name:        "notifications enabled",
-			projectName: "test-project",
-			enabled:     true,
-			wantPanic:   false,
-		},
-		{
 			name:        "notifications disabled",
 			projectName: "test-project",
 			enabled:     false,
 			wantPanic:   false,
 		},
 		{
-			name:        "empty project name with notifications",
+			name:        "empty project name notifications disabled",
 			projectName: "",
-			enabled:     true,
+			enabled:     false,
 			wantPanic:   false,
 		},
 	}
@@ -42,6 +36,7 @@ func TestSuccess(t *testing.T) {
 			}()
 
 			// Should not panic or return error
+			// NOTE: Tests should never use enabled=true to avoid real desktop notifications
 			Success(tt.projectName, tt.enabled)
 		})
 	}
@@ -55,21 +50,15 @@ func TestError(t *testing.T) {
 		wantPanic   bool
 	}{
 		{
-			name:        "notifications enabled",
-			projectName: "test-project",
-			enabled:     true,
-			wantPanic:   false,
-		},
-		{
 			name:        "notifications disabled",
 			projectName: "test-project",
 			enabled:     false,
 			wantPanic:   false,
 		},
 		{
-			name:        "empty project name with notifications",
+			name:        "empty project name notifications disabled",
 			projectName: "",
-			enabled:     true,
+			enabled:     false,
 			wantPanic:   false,
 		},
 	}
@@ -85,6 +74,7 @@ func TestError(t *testing.T) {
 			}()
 
 			// Should not panic or return error
+			// NOTE: Tests should never use enabled=true to avoid real desktop notifications
 			Error(tt.projectName, tt.enabled)
 		})
 	}

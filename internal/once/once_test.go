@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/zon/ralph/internal/context"
+	"github.com/zon/ralph/internal/testutil"
 )
 
 func TestExecute_DryRun(t *testing.T) {
@@ -26,7 +26,7 @@ requirements:
 	}
 
 	// Execute in dry-run mode (should not fail)
-	ctx := &context.Context{ProjectFile: projectFile, MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false} // dry-run, no verbose, no notify, no services
+	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile)) // dry-run, no verbose, no notify, no services
 	err := Execute(ctx, nil)
 
 	if err != nil {
@@ -35,7 +35,7 @@ requirements:
 }
 
 func TestExecute_InvalidProjectFile(t *testing.T) {
-	ctx := &context.Context{ProjectFile: "/nonexistent/project.yaml", MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
+	ctx := testutil.NewContext(testutil.WithProjectFile("/nonexistent/project.yaml"))
 
 	// Test with non-existent file
 	err := Execute(ctx, nil)
@@ -59,7 +59,7 @@ requirements:
 		t.Fatalf("Failed to create invalid project file: %v", err)
 	}
 
-	ctx := &context.Context{ProjectFile: projectFile, MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
+	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
 	err := Execute(ctx, nil)
 
 	if err == nil {
@@ -81,7 +81,7 @@ requirements: []
 		t.Fatalf("Failed to create test project file: %v", err)
 	}
 
-	ctx := &context.Context{ProjectFile: projectFile, MaxIterations: 10, DryRun: true, Verbose: false, NoNotify: true, NoServices: false}
+	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
 	err := Execute(ctx, nil)
 
 	if err == nil {
