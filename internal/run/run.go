@@ -33,7 +33,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	}
 
 	if ctx.IsDryRun() {
-		logger.Info("=== DRY-RUN MODE: No changes will be made ===")
+		logger.Verbose("=== DRY-RUN MODE: No changes will be made ===")
 	}
 
 	// Validate project file exists
@@ -54,7 +54,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		return fmt.Errorf("failed to load project: %w", err)
 	}
 
-	logger.Successf("Loaded project: %s", project.Name)
+	logger.Verbosef("Loaded project: %s", project.Name)
 
 	// Extract branch name from project file basename
 	branchName := extractBranchName(absProjectFile)
@@ -92,30 +92,29 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 
 	// Check if we're already on the target branch
 	if currentBranch == branchName {
-		logger.Infof("Already on branch '%s'", branchName)
+		logger.Verbosef("Already on branch '%s'", branchName)
 	} else {
 		// Check if branch exists but is not currently active
 		if git.BranchExists(ctx, branchName) {
 			return fmt.Errorf("branch '%s' already exists but is not currently active, please delete the branch or switch to it manually before running", branchName)
 		}
 
-		// Create new branch
 		logger.Verbosef("Creating branch: %s", branchName)
 		if err := git.CreateBranch(ctx, branchName); err != nil {
 			return fmt.Errorf("failed to create branch: %w", err)
 		}
 
-		// Checkout new branch
-		logger.Verbosef("Checking out branch: %s", branchName)
 		if err := git.CheckoutBranch(ctx, branchName); err != nil {
 			return fmt.Errorf("failed to checkout branch: %w", err)
 		}
+
+		logger.Successf("Created branch: %s", branchName)
 	}
 
 	// Register cleanup to return to original branch on failure
 	if cleanupRegistrar != nil {
 		cleanupRegistrar(func() {
-			logger.Infof("Returning to original branch: %s", currentBranch)
+			logger.Verbosef("Returning to original branch: %s", currentBranch)
 			_ = git.CheckoutBranch(ctx, currentBranch)
 		})
 	}
@@ -130,30 +129,32 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		return fmt.Errorf("iteration loop failed: %w", err)
 	}
 
-	logger.Successf("Iteration loop completed after %d iteration(s)", iterCount)
+	logger.Verbosef("Iteration loop completed after %d iteration(s)", iterCount)
 
 	// Generate PR summary using AI
-	logger.Info("Generating PR summary...")
+	logger.Verbose("Generating PR summary...")
 	prSummary, err := ai.GeneratePRSummary(ctx, absProjectFile, iterCount)
 	if err != nil {
 		return fmt.Errorf("failed to generate PR summary: %w", err)
 	}
-	logger.Success("PR summary generated")
+	logger.Verbose("PR summary generated")
 
 	if ctx.IsVerbose() {
-		logger.Infof("PR Summary:\n%s", prSummary)
+		logger.Verbosef("PR Summary:\n%s", prSummary)
 	}
 
 	// Push branch to origin
-	logger.Infof("Pushing branch '%s' to origin...", branchName)
+	logger.Verbosef("Pushing branch '%s' to origin...", branchName)
 	remoteURL, err := git.PushBranch(ctx, branchName)
 	if err != nil {
 		return fmt.Errorf("failed to push branch: %w", err)
 	}
 
 	if ctx.IsVerbose() {
-		logger.Infof("Remote URL: %s", remoteURL)
+		logger.Verbosef("Remote URL: %s", remoteURL)
 	}
+
+	logger.Verbose("Pushed branch to origin")
 
 	// Check if gh CLI is available and authenticated
 	if !github.IsGHInstalled(ctx) {
@@ -170,15 +171,14 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		prTitle = project.Name
 	}
 
-	logger.Info("Creating GitHub pull request...")
+	logger.Verbose("Creating GitHub pull request...")
 	prURL, err := github.CreatePR(ctx, prTitle, prSummary, baseBranch, branchName)
 	if err != nil {
 		return fmt.Errorf("failed to create pull request: %w", err)
 	}
 
 	// Display PR URL
-	logger.Success("Pull Request Created Successfully!")
-	logger.Successf("URL: %s", prURL)
+	logger.Successf("Created pull request: %s", prURL)
 
 	// Send success notification
 	notify.Success(project.Name, ctx.ShouldNotify())

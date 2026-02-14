@@ -29,14 +29,14 @@ func Infof(format string, ctx ...interface{}) {
 	infoColor.Printf("[INFO] "+format+"\n", ctx...)
 }
 
-// Success logs a success message (plain string)
+// Success logs a success message with checkmark (plain string)
 func Success(msg string) {
-	successColor.Printf("[SUCCESS] %s\n", msg)
+	successColor.Printf("✓ %s\n", msg)
 }
 
-// Successf logs a success message with formatting
+// Successf logs a success message with checkmark and formatting
 func Successf(format string, ctx ...interface{}) {
-	successColor.Printf("[SUCCESS] "+format+"\n", ctx...)
+	successColor.Printf("✓ "+format+"\n", ctx...)
 }
 
 // Warning logs a warning message (plain string)

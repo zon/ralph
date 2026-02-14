@@ -30,7 +30,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	}
 
 	if ctx.IsDryRun() {
-		logger.Info("=== DRY-RUN MODE: No changes will be made ===")
+		logger.Verbose("=== DRY-RUN MODE: No changes will be made ===")
 	}
 
 	// Validate project file exists
@@ -51,12 +51,12 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		return fmt.Errorf("failed to load project: %w", err)
 	}
 	if project.Description != "" && ctx.IsVerbose() {
-		logger.Infof("Description: %s", project.Description)
+		logger.Verbosef("Description: %s", project.Description)
 	}
 
 	// Show project status
 	allComplete, passingCount, failingCount := config.CheckCompletion(project)
-	logger.Infof("Requirements: %d passing, %d failing (complete: %v)", passingCount, failingCount, allComplete)
+	logger.Verbosef("Requirements: %d passing, %d failing (complete: %v)", passingCount, failingCount, allComplete)
 
 	// Load configuration
 	ralphConfig, err := config.LoadConfig()
@@ -83,9 +83,9 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 			})
 		}
 
-		logger.Success("All services started and healthy")
+		logger.Verbose("All services started and healthy")
 	} else if len(ralphConfig.Services) > 0 {
-		logger.Info("Skipping service startup (--no-services flag)")
+		logger.Verbose("Skipping service startup (--no-services flag)")
 	}
 
 	// Generate development prompt
@@ -108,7 +108,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	// Stage project file after agent completes
 	logger.Verbose("Staging project file...")
 	if err := git.StageFile(ctx, absProjectFile); err != nil {
-		logger.Warningf("Failed to stage project file: %v", err)
+		logger.Verbosef("Failed to stage project file: %v", err)
 	} else {
 		logger.Verbose("Project file staged")
 	}
@@ -116,7 +116,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	// Send success notification
 	notify.Success(project.Name, ctx.ShouldNotify() && !ctx.IsDryRun())
 
-	logger.Success("Single iteration completed successfully")
+	logger.Verbose("Single iteration completed successfully")
 
 	return nil
 }

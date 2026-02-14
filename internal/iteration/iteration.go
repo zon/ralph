@@ -21,51 +21,75 @@ import (
 func RunIterationLoop(ctx *context.Context, cleanupRegistrar func(func())) (int, error) {
 	logger.Verbosef("Starting iteration loop (max: %d)", ctx.MaxIterations)
 
+	// Load initial project state to track requirement completions
+	previousProject, err := config.LoadProject(ctx.ProjectFile)
+	if err != nil {
+		return 0, fmt.Errorf("failed to load initial project state: %w", err)
+	}
+
 	iterationCount := 0
 
 	for i := 1; i <= ctx.MaxIterations; i++ {
 		iterationCount = i
 
-		logger.Info("")
-		logger.Infof("=== Iteration %d/%d ===", i, ctx.MaxIterations)
+		logger.Verbose("")
+		logger.Verbosef("=== Iteration %d/%d ===", i, ctx.MaxIterations)
 
 		// Run single development iteration (once command logic)
-		logger.Info("Running development iteration...")
+		logger.Verbose("Running development iteration...")
 		if err := once.Execute(ctx, cleanupRegistrar); err != nil {
 			return iterationCount, fmt.Errorf("iteration %d failed: %w", i, err)
 		}
 
 		// Commit changes after iteration
-		logger.Infof("Committing changes from iteration %d...", i)
+		logger.Verbosef("Committing changes from iteration %d...", i)
 		if err := CommitChanges(ctx, i); err != nil {
 			// If there are no changes, it's not fatal - continue to next iteration
-			logger.Warningf("Commit failed (may be no changes): %v", err)
+			logger.Verbosef("Commit failed (may be no changes): %v", err)
 		} else {
-			logger.Successf("Committed changes from iteration %d", i)
+			logger.Verbosef("Committed changes from iteration %d", i)
 		}
 
 		// Load and check project completion status
-		project, err := config.LoadProject(ctx.ProjectFile)
+		currentProject, err := config.LoadProject(ctx.ProjectFile)
 		if err != nil {
 			return iterationCount, fmt.Errorf("failed to reload project after iteration %d: %w", i, err)
 		}
 
-		allComplete, passingCount, failingCount := config.CheckCompletion(project)
-		logger.Infof("Status after iteration %d: %d passing, %d failing", i, passingCount, failingCount)
+		allComplete, passingCount, failingCount := config.CheckCompletion(currentProject)
+		logger.Verbosef("Status after iteration %d: %d passing, %d failing", i, passingCount, failingCount)
+
+		// Check for newly completed requirements
+		for idx, req := range currentProject.Requirements {
+			if req.Passing && !previousProject.Requirements[idx].Passing {
+				// This requirement just passed
+				description := req.Description
+				if description == "" {
+					description = req.Name
+				}
+				if description == "" {
+					description = req.Category
+				}
+				logger.Successf("Requirement complete: %s", description)
+			}
+		}
 
 		// Stop if all requirements are passing
 		if allComplete {
-			logger.Success("All requirements passing! Stopping iteration loop.")
+			logger.Success("All requirements complete")
 			break
 		}
 
+		// Update previous state for next iteration
+		previousProject = currentProject
+
 		// Continue to next iteration if not at max
 		if i < ctx.MaxIterations {
-			logger.Info("Requirements not complete, continuing to next iteration...")
+			logger.Verbose("Requirements not complete, continuing to next iteration...")
 		}
 	}
 
-	logger.Successf("Iteration loop completed after %d iteration(s)", iterationCount)
+	logger.Verbosef("Iteration loop completed after %d iteration(s)", iterationCount)
 
 	return iterationCount, nil
 }

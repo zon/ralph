@@ -18,12 +18,12 @@ import (
 // In dry-run mode, it logs what would be executed without actually calling OpenCode
 func RunAgent(ctx *context.Context, prompt string) error {
 	if ctx.IsDryRun() {
-		logger.Info(prompt)
+		logger.Verbose(prompt)
 		return nil
 	}
 
 	if ctx.IsVerbose() {
-		logger.Info(prompt)
+		logger.Verbose(prompt)
 	}
 
 	cmd := exec.Command("opencode", "run", prompt)
@@ -74,7 +74,7 @@ func GeneratePRSummary(ctx *context.Context, projectFile string, iterations int)
 	// Get commit log since base branch
 	commitLog, err := git.GetCommitLog(ctx, baseBranch)
 	if err != nil {
-		logger.Warningf("Failed to get commit log: %v", err)
+		logger.Verbosef("Failed to get commit log: %v", err)
 		commitLog = "(Unable to retrieve commit log)"
 	}
 
@@ -114,7 +114,7 @@ func GeneratePRSummary(ctx *context.Context, projectFile string, iterations int)
 	prompt := builder.String()
 
 	if ctx.IsVerbose() {
-		logger.Info(prompt)
+		logger.Verbose(prompt)
 	}
 
 	// Run opencode without --format json, let it write the file
