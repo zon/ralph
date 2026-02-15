@@ -4,6 +4,8 @@ I made a Ralph.
 
 Ralph orchestrates AI coding agents to automate development workflows from branch creation through pull request submission.
 
+See [docs/projects.md](docs/projects.md) for writing project files.
+
 ## Features
 
 - 🤖 AI-driven development with OpenCode CLI
@@ -47,45 +49,18 @@ See [OpenCode authentication docs](https://opencode.ai/docs/cli/#auth) for setup
 
 ## Usage
 
-### Create a Project File
-
-Define your development requirements in a YAML file:
-
 ```bash
-cat > my-feature.yaml <<EOF
-name: my-feature
-description: Add user authentication
-
-requirements:
-  - category: backend
-    description: OIDC Authentication Integration
-    items:
-      - OIDC provider configuration
-      - User session management with JWT tokens
-      - Protected route authorization
-    passing: false
-EOF
-```
-
-### Full Orchestration
-
-Creates branch, iterates development cycles, commits changes, generates PR summary, and creates GitHub pull request.
-
-```bash
-# Preview first
+# Preview workflow
 ralph my-feature.yaml --dry-run
 
-# Execute full workflow: branch → iterate → PR
+# Full workflow: branch → iterate → commit → PR
 ralph my-feature.yaml
-```
 
-### Single Iteration Mode
-
-Runs a single development iteration without creating branches, committing, or submitting PRs. Useful for local development and testing changes before committing.
-
-```bash
+# Single iteration (no branch/commit/PR)
 ralph my-feature.yaml --once
 ```
+
+See [docs/projects.md](docs/projects.md) for how to write project files.
 
 ## Configuration
 
