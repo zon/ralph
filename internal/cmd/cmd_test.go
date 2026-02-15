@@ -16,35 +16,47 @@ func TestRemoteFlagValidation(t *testing.T) {
 	}{
 		{
 			name:        "watch without remote should fail",
-			args:        []string{"--watch", "test.yaml"},
+			args:        []string{"run", "--watch", "test.yaml"},
 			expectError: true,
 			errorMsg:    "--watch flag is only applicable with --remote flag",
 		},
 		{
 			name:        "remote with once should fail",
-			args:        []string{"--remote", "--once", "test.yaml"},
+			args:        []string{"run", "--remote", "--once", "test.yaml"},
 			expectError: true,
 			errorMsg:    "--remote flag is incompatible with --once flag",
 		},
 		{
 			name:        "remote alone should succeed validation",
-			args:        []string{"--remote", "test.yaml"},
+			args:        []string{"run", "--remote", "test.yaml"},
 			expectError: false,
 		},
 		{
 			name:        "remote with watch should succeed validation",
-			args:        []string{"--remote", "--watch", "test.yaml"},
+			args:        []string{"run", "--remote", "--watch", "test.yaml"},
 			expectError: false,
 		},
 		{
 			name:        "once alone should succeed validation",
-			args:        []string{"--once", "test.yaml"},
+			args:        []string{"run", "--once", "test.yaml"},
 			expectError: false,
 		},
 		{
 			name:        "no flags should succeed validation",
-			args:        []string{"test.yaml"},
+			args:        []string{"run", "test.yaml"},
 			expectError: false,
+		},
+		{
+			name:        "default command - watch without remote should fail",
+			args:        []string{"--watch", "test.yaml"},
+			expectError: true,
+			errorMsg:    "--watch flag is only applicable with --remote flag",
+		},
+		{
+			name:        "default command - remote with once should fail",
+			args:        []string{"--remote", "--once", "test.yaml"},
+			expectError: true,
+			errorMsg:    "--remote flag is incompatible with --once flag",
 		},
 	}
 
@@ -73,13 +85,13 @@ func TestRemoteFlagValidation(t *testing.T) {
 			// Now run validation
 			// We need to mock the execution to test only validation
 			// Override the project file validation since we're not testing that
-			if cmd.ProjectFile == "" {
-				cmd.ProjectFile = "test.yaml"
+			if cmd.Run.ProjectFile == "" {
+				cmd.Run.ProjectFile = "test.yaml"
 			}
 
 			// Test watch flag validation
-			if cmd.Watch && !cmd.Remote {
-				err = cmd.validateFlags()
+			if cmd.Run.Watch && !cmd.Run.Remote {
+				err = validateRunFlags(&cmd.Run)
 				if !tt.expectError {
 					t.Errorf("expected no error, got: %v", err)
 				} else if err == nil {
@@ -91,8 +103,8 @@ func TestRemoteFlagValidation(t *testing.T) {
 			}
 
 			// Test remote + once validation
-			if cmd.Remote && cmd.Once {
-				err = cmd.validateFlags()
+			if cmd.Run.Remote && cmd.Run.Once {
+				err = validateRunFlags(&cmd.Run)
 				if !tt.expectError {
 					t.Errorf("expected no error, got: %v", err)
 				} else if err == nil {
@@ -104,7 +116,7 @@ func TestRemoteFlagValidation(t *testing.T) {
 			}
 
 			// Should pass validation
-			err = cmd.validateFlags()
+			err = validateRunFlags(&cmd.Run)
 			if tt.expectError && err == nil {
 				t.Error("expected error but got none")
 			} else if !tt.expectError && err != nil {
@@ -125,28 +137,28 @@ func TestFlagParsing(t *testing.T) {
 	}{
 		{
 			name:         "remote flag sets Remote to true",
-			args:         []string{"--remote", "test.yaml"},
+			args:         []string{"run", "--remote", "test.yaml"},
 			expectRemote: true,
 			expectWatch:  false,
 			expectOnce:   false,
 		},
 		{
 			name:         "watch flag sets Watch to true",
-			args:         []string{"--remote", "--watch", "test.yaml"},
+			args:         []string{"run", "--remote", "--watch", "test.yaml"},
 			expectRemote: true,
 			expectWatch:  true,
 			expectOnce:   false,
 		},
 		{
 			name:         "once flag sets Once to true",
-			args:         []string{"--once", "test.yaml"},
+			args:         []string{"run", "--once", "test.yaml"},
 			expectRemote: false,
 			expectWatch:  false,
 			expectOnce:   true,
 		},
 		{
 			name:           "no-notify flag sets NoNotify to true",
-			args:           []string{"--no-notify", "test.yaml"},
+			args:           []string{"run", "--no-notify", "test.yaml"},
 			expectRemote:   false,
 			expectWatch:    false,
 			expectOnce:     false,
@@ -154,9 +166,23 @@ func TestFlagParsing(t *testing.T) {
 		},
 		{
 			name:         "default values",
-			args:         []string{"test.yaml"},
+			args:         []string{"run", "test.yaml"},
 			expectRemote: false,
 			expectWatch:  false,
+			expectOnce:   false,
+		},
+		{
+			name:         "default command - remote flag sets Remote to true",
+			args:         []string{"--remote", "test.yaml"},
+			expectRemote: true,
+			expectWatch:  false,
+			expectOnce:   false,
+		},
+		{
+			name:         "default command - watch flag sets Watch to true",
+			args:         []string{"--remote", "--watch", "test.yaml"},
+			expectRemote: true,
+			expectWatch:  true,
 			expectOnce:   false,
 		},
 	}
@@ -177,28 +203,28 @@ func TestFlagParsing(t *testing.T) {
 				t.Fatalf("failed to parse args: %v", err)
 			}
 
-			if cmd.Remote != tt.expectRemote {
-				t.Errorf("expected Remote=%v, got %v", tt.expectRemote, cmd.Remote)
+			if cmd.Run.Remote != tt.expectRemote {
+				t.Errorf("expected Remote=%v, got %v", tt.expectRemote, cmd.Run.Remote)
 			}
-			if cmd.Watch != tt.expectWatch {
-				t.Errorf("expected Watch=%v, got %v", tt.expectWatch, cmd.Watch)
+			if cmd.Run.Watch != tt.expectWatch {
+				t.Errorf("expected Watch=%v, got %v", tt.expectWatch, cmd.Run.Watch)
 			}
-			if cmd.Once != tt.expectOnce {
-				t.Errorf("expected Once=%v, got %v", tt.expectOnce, cmd.Once)
+			if cmd.Run.Once != tt.expectOnce {
+				t.Errorf("expected Once=%v, got %v", tt.expectOnce, cmd.Run.Once)
 			}
-			if cmd.NoNotify != tt.expectNoNotify {
-				t.Errorf("expected NoNotify=%v, got %v", tt.expectNoNotify, cmd.NoNotify)
+			if cmd.Run.NoNotify != tt.expectNoNotify {
+				t.Errorf("expected NoNotify=%v, got %v", tt.expectNoNotify, cmd.Run.NoNotify)
 			}
 		})
 	}
 }
 
-// validateFlags extracts the validation logic for testing
-func (c *Cmd) validateFlags() error {
-	if c.Watch && !c.Remote {
+// validateRunFlags extracts the validation logic for testing
+func validateRunFlags(r *RunCmd) error {
+	if r.Watch && !r.Remote {
 		return fmt.Errorf("--watch flag is only applicable with --remote flag")
 	}
-	if c.Remote && c.Once {
+	if r.Remote && r.Once {
 		return fmt.Errorf("--remote flag is incompatible with --once flag")
 	}
 	return nil

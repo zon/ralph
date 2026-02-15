@@ -34,7 +34,7 @@ requirements:
       - Command outputs link to GitHub SSH key settings page
       - Command applies to configured Kubernetes context and namespace
       - Command provides helpful feedback on success and errors
-    passing: false
+    passing: true
 
   - category: config-github
     description: GitHub credentials configuration
