@@ -110,7 +110,7 @@ requirements:
       - Script at ./scripts/push-default-image.sh builds and pushes image
       - Script uses configured repository and tag from variables
       - Image is published and tagged for use in workflows
-    passing: false
+    passing: true
 
   - category: documentation
     description: Usage documentation
