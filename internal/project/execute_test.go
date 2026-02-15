@@ -21,7 +21,7 @@ func TestExtractBranchName(t *testing.T) {
 		},
 		{
 			name:         "yml extension",
-			projectFile:  "/path/to/another-feature.yml",
+			projectFile:  "/path/to/another-feature.yaml",
 			expectedName: "another-feature",
 		},
 		{

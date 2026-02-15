@@ -2,6 +2,8 @@ package project
 
 import (
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
@@ -94,7 +96,7 @@ func RunIterationLoop(ctx *context.Context, cleanupRegistrar func(func())) (int,
 	return iterationCount, nil
 }
 
-// CommitChanges stages all changes and commits them with an iteration-based message
+// CommitChanges stages all changes and commits them using report.md as the commit message
 func CommitChanges(ctx *context.Context, iteration int) error {
 	if ctx.IsDryRun() {
 		logger.Infof("[DRY-RUN] Would commit changes from iteration %d", iteration)
@@ -111,16 +113,36 @@ func CommitChanges(ctx *context.Context, iteration int) error {
 		return fmt.Errorf("no changes to commit")
 	}
 
-	// Generate commit message based on iteration
-	commitMsg := fmt.Sprintf("Development iteration %d", iteration)
+	// Read commit message from report.md
+	reportPath := "report.md"
+	commitMsg, err := os.ReadFile(reportPath)
+	if err != nil {
+		// If report.md doesn't exist, fall back to iteration-based message
+		logger.Warningf("Failed to read report.md: %v, using fallback message", err)
+		commitMsg = []byte(fmt.Sprintf("Development iteration %d", iteration))
+	}
+
+	// Clean up and validate commit message
+	message := strings.TrimSpace(string(commitMsg))
+	if message == "" {
+		message = fmt.Sprintf("Development iteration %d", iteration)
+	}
 
 	// Commit the staged changes
-	if err := git.Commit(ctx, commitMsg); err != nil {
+	if err := git.Commit(ctx, message); err != nil {
 		return fmt.Errorf("failed to commit: %w", err)
 	}
 
 	if ctx.IsVerbose() {
-		logger.Infof("Committed with message: %s", commitMsg)
+		logger.Infof("Committed with message: %s", message)
+	}
+
+	// Remove report.md after successful commit
+	if err := os.Remove(reportPath); err != nil {
+		// Log warning but don't fail the commit if cleanup fails
+		logger.Warningf("Failed to remove report.md: %v", err)
+	} else if ctx.IsVerbose() {
+		logger.Verbose("Removed report.md")
 	}
 
 	return nil
