@@ -133,13 +133,25 @@ func buildWorkflowSpec(image, repoURL, branch string, params map[string]string, 
 
 // buildParameters builds workflow parameters from the params map
 func buildParameters(params map[string]string) []map[string]interface{} {
+	// Define required and optional parameters
+	allParams := []string{"project-file", "config-yaml", "instructions-md"}
 	var parameters []map[string]interface{}
-	for name, value := range params {
-		parameters = append(parameters, map[string]interface{}{
-			"name":  name,
-			"value": value,
-		})
+
+	for _, name := range allParams {
+		param := map[string]interface{}{
+			"name": name,
+		}
+
+		if value, exists := params[name]; exists {
+			param["value"] = value
+		} else {
+			// Set default empty string for optional parameters
+			param["value"] = ""
+		}
+
+		parameters = append(parameters, param)
 	}
+
 	return parameters
 }
 
@@ -220,35 +232,18 @@ func buildEnvVars(repoURL, branch string, cfg *config.RalphConfig) []map[string]
 			"value": branch,
 		},
 		{
-			"name": "PROJECT_FILE",
-			"valueFrom": map[string]interface{}{
-				"parameter": map[string]string{
-					"name": "project-file",
-				},
-			},
+			"name":  "PROJECT_FILE",
+			"value": "{{workflow.parameters.project-file}}",
+		},
+		{
+			"name":  "CONFIG_YAML",
+			"value": "{{workflow.parameters.config-yaml}}",
+		},
+		{
+			"name":  "INSTRUCTIONS_MD",
+			"value": "{{workflow.parameters.instructions-md}}",
 		},
 	}
-
-	// Add optional parameters
-	envVars = append(envVars, map[string]interface{}{
-		"name": "CONFIG_YAML",
-		"valueFrom": map[string]interface{}{
-			"parameter": map[string]interface{}{
-				"name":    "config-yaml",
-				"default": "",
-			},
-		},
-	})
-
-	envVars = append(envVars, map[string]interface{}{
-		"name": "INSTRUCTIONS_MD",
-		"valueFrom": map[string]interface{}{
-			"parameter": map[string]interface{}{
-				"name":    "instructions-md",
-				"default": "",
-			},
-		},
-	})
 
 	// Add user-specified environment variables from config
 	for key, value := range cfg.Workflow.Env {
