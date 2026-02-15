@@ -77,7 +77,7 @@ requirements:
       - Workflow creates branch and PR just like normal execution
       - Workflow uses configured image, configMaps, secrets, and env vars
       - Workflow applies to configured Kubernetes context and namespace
-    passing: false
+    passing: true
 
   - category: execution
     description: Workflow submission and monitoring
@@ -88,7 +88,7 @@ requirements:
       - When --watch flag is used, argo submit --watch monitors execution
       - User receives workflow name and monitoring information
       - Errors during workflow submission are reported clearly
-    passing: false
+    passing: true
 
   - category: workflow-lifecycle
     description: Workflow cleanup and resource management
@@ -98,7 +98,7 @@ requirements:
       - Workflows use volatile filesystem for git repository
       - No persistent volume claims are created
       - Completed workflows are automatically cleaned up by Argo
-    passing: false
+    passing: true
 
   - category: default-image
     description: Default container image creation

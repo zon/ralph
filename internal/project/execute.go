@@ -13,18 +13,20 @@ import (
 	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/notify"
+	"github.com/zon/ralph/internal/workflow"
 )
 
 // Execute runs the full orchestration workflow
 // Steps:
 // 1. Validate project file exists
-// 2. Extract branch name from project file basename
-// 3. Create and checkout new branch
-// 4. Run iteration loop (develop + commit until complete)
-// 5. Generate PR summary using AI
-// 6. Push branch to origin
-// 7. Create GitHub pull request
-// 8. Display PR URL on success
+// 2. If remote mode: Generate and submit Argo Workflow, then exit
+// 3. Extract branch name from project file basename
+// 4. Create and checkout new branch
+// 5. Run iteration loop (develop + commit until complete)
+// 6. Generate PR summary using AI
+// 7. Push branch to origin
+// 8. Create GitHub pull request
+// 9. Display PR URL on success
 func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	// Enable verbose logging if requested
 	if ctx.IsVerbose() {
@@ -54,6 +56,11 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	}
 
 	logger.Verbosef("Loaded project: %s", project.Name)
+
+	// Handle remote execution mode
+	if ctx.IsRemote() {
+		return executeRemote(ctx, project)
+	}
 
 	// Extract branch name from project file basename
 	branchName := extractBranchName(absProjectFile)
@@ -220,4 +227,51 @@ func extractBranchName(projectFile string) string {
 	}
 
 	return finalName
+}
+
+// executeRemote handles remote execution via Argo Workflows
+func executeRemote(ctx *context.Context, project *config.Project) error {
+	logger.Verbose("Remote execution mode enabled")
+
+	// Load configuration
+	ralphConfig, err := config.LoadConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	// Generate workflow YAML
+	logger.Verbose("Generating Argo Workflow YAML...")
+	workflowYAML, err := workflow.GenerateWorkflow(ctx, project.Name)
+	if err != nil {
+		return fmt.Errorf("failed to generate workflow: %w", err)
+	}
+
+	if ctx.IsVerbose() {
+		logger.Verbosef("Generated workflow YAML:\n%s", workflowYAML)
+	}
+
+	if ctx.IsDryRun() {
+		logger.Info("=== DRY-RUN: Workflow YAML ===")
+		fmt.Println(workflowYAML)
+		logger.Info("=== DRY-RUN: Would submit workflow to Argo ===")
+		return nil
+	}
+
+	// Submit workflow
+	logger.Info("Submitting workflow to Argo Workflows...")
+	output, err := workflow.SubmitWorkflow(ctx, workflowYAML, ralphConfig)
+	if err != nil {
+		return fmt.Errorf("failed to submit workflow: %w", err)
+	}
+
+	logger.Success("Workflow submitted successfully!")
+	fmt.Println(output)
+
+	if !ctx.ShouldWatch() {
+		logger.Info("\nTo watch workflow execution, run:")
+		logger.Info("  argo watch <workflow-name>")
+		logger.Info("\nOr use the --watch flag with ralph --remote")
+	}
+
+	return nil
 }
