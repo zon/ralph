@@ -81,7 +81,7 @@ baseBranch: main   # Base branch for PRs
 # Optional: Services to manage
 services:
   - name: database
-    command: docker
+    command: podman
     args: [compose, up, -d, db]
     port: 5432  # For health checking
     

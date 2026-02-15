@@ -103,7 +103,7 @@ requirements:
   - category: default-image
     description: Default container image creation
     items:
-      - Dockerfile builds image with ralph and dependencies installed
+      - Containerfile builds image with ralph and dependencies installed
       - Image includes go toolchain
       - Image includes bun runtime
       - Image includes playwright with browser dependencies

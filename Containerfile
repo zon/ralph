@@ -1,5 +1,5 @@
 # Build stage - compile ralph
-FROM golang:1.25-bookworm AS builder
+FROM docker.io/library/golang:1.25-bookworm AS builder
 
 WORKDIR /build
 
@@ -11,10 +11,10 @@ RUN go mod download
 COPY . .
 
 # Build ralph binary
-RUN CGO_ENABLED=0 GOOS=linux go build -o ralph .
+RUN CGO_ENABLED=0 GOOS=linux go build -o ralph ./cmd/ralph
 
 # Runtime stage - multi-purpose image with all dependencies
-FROM ubuntu:24.04
+FROM docker.io/library/ubuntu:24.04
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -33,8 +33,10 @@ RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" | tar -C /
 
 # Install Bun runtime
 ENV BUN_INSTALL=/usr/local/bun
+ENV PATH="${BUN_INSTALL}/bin:${PATH}"
 RUN curl -fsSL https://bun.sh/install | bash \
-    && ln -s ${BUN_INSTALL}/bin/bun /usr/local/bin/bun
+    && ln -s ${BUN_INSTALL}/bin/bun /usr/local/bin/bun \
+    && ln -s ${BUN_INSTALL}/bin/bunx /usr/local/bin/bunx
 
 # Install Playwright dependencies
 RUN apt-get update && apt-get install -y \
@@ -55,7 +57,7 @@ RUN apt-get update && apt-get install -y \
     libgbm1 \
     libpango-1.0-0 \
     libcairo2 \
-    libasound2 \
+    libasound2t64 \
     libxshmfence1 \
     && rm -rf /var/lib/apt/lists/*
 

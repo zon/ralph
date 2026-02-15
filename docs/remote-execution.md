@@ -205,7 +205,7 @@ export RALPH_IMAGE_TAG=v1.0.0
 ```
 
 The script:
-1. Builds the multi-stage Dockerfile
+1. Builds the multi-stage Containerfile
 2. Tags the image
 3. Pushes to the configured registry
 
@@ -351,7 +351,7 @@ If the default image fails to pull:
 
 ```bash
 # Check if image exists
-docker pull ghcr.io/zon/ralph:latest
+podman pull ghcr.io/zon/ralph:latest
 
 # Use a custom image
 # Add to .ralph/config.yaml:

@@ -13,8 +13,8 @@ echo "Full image: ${IMAGE}"
 echo ""
 
 # Build the image
-echo "Building Docker image..."
-docker build -t "${IMAGE}" -f Dockerfile .
+echo "Building image with Podman..."
+podman build -t "${IMAGE}" -f Containerfile .
 
 echo ""
 echo "Image built successfully!"
@@ -22,7 +22,7 @@ echo ""
 
 # Push the image
 echo "Pushing image to registry..."
-docker push "${IMAGE}"
+podman push "${IMAGE}"
 
 echo ""
 echo "Image pushed successfully!"

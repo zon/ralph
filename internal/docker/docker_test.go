@@ -7,25 +7,25 @@ import (
 	"testing"
 )
 
-// TestDockerfileExists verifies that the Dockerfile exists in the project root
+// TestDockerfileExists verifies that the Containerfile exists in the project root
 func TestDockerfileExists(t *testing.T) {
 	// Get project root (go up from internal/docker to root)
 	projectRoot := filepath.Join("..", "..")
-	dockerfilePath := filepath.Join(projectRoot, "Dockerfile")
+	containerfilePath := filepath.Join(projectRoot, "Containerfile")
 
-	if _, err := os.Stat(dockerfilePath); os.IsNotExist(err) {
-		t.Fatalf("Dockerfile does not exist at %s", dockerfilePath)
+	if _, err := os.Stat(containerfilePath); os.IsNotExist(err) {
+		t.Fatalf("Containerfile does not exist at %s", containerfilePath)
 	}
 }
 
-// TestDockerfileContainsRequiredComponents verifies Dockerfile includes all required dependencies
+// TestDockerfileContainsRequiredComponents verifies Containerfile includes all required dependencies
 func TestDockerfileContainsRequiredComponents(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
-	dockerfilePath := filepath.Join(projectRoot, "Dockerfile")
+	containerfilePath := filepath.Join(projectRoot, "Containerfile")
 
-	content, err := os.ReadFile(dockerfilePath)
+	content, err := os.ReadFile(containerfilePath)
 	if err != nil {
-		t.Fatalf("Failed to read Dockerfile: %v", err)
+		t.Fatalf("Failed to read Containerfile: %v", err)
 	}
 
 	dockerfile := string(content)
@@ -66,31 +66,31 @@ func TestDockerfileContainsRequiredComponents(t *testing.T) {
 			}
 		}
 		if !found {
-			t.Errorf("Dockerfile is missing required component: %s", component.name)
+			t.Errorf("Containerfile is missing required component: %s", component.name)
 		}
 	}
 }
 
-// TestDockerfileUsesMultiStageBuilds verifies Dockerfile uses multi-stage builds
+// TestDockerfileUsesMultiStageBuilds verifies Containerfile uses multi-stage builds
 func TestDockerfileUsesMultiStageBuilds(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
-	dockerfilePath := filepath.Join(projectRoot, "Dockerfile")
+	containerfilePath := filepath.Join(projectRoot, "Containerfile")
 
-	content, err := os.ReadFile(dockerfilePath)
+	content, err := os.ReadFile(containerfilePath)
 	if err != nil {
-		t.Fatalf("Failed to read Dockerfile: %v", err)
+		t.Fatalf("Failed to read Containerfile: %v", err)
 	}
 
 	dockerfile := string(content)
 
 	// Check for multi-stage build pattern (FROM ... AS ...)
 	if !strings.Contains(dockerfile, "AS builder") && !strings.Contains(dockerfile, "AS build") {
-		t.Error("Dockerfile should use multi-stage builds for efficient image size")
+		t.Error("Containerfile should use multi-stage builds for efficient image size")
 	}
 
 	// Check for COPY --from pattern
 	if !strings.Contains(dockerfile, "COPY --from=") {
-		t.Error("Dockerfile should copy artifacts from build stage")
+		t.Error("Containerfile should copy artifacts from build stage")
 	}
 }
 
@@ -141,9 +141,9 @@ func TestPushScriptContentsValid(t *testing.T) {
 		{"Set error handling", "set -e"},
 		{"Repository variable", "REPOSITORY"},
 		{"Tag variable", "TAG"},
-		{"Docker build command", "docker build"},
-		{"Docker push command", "docker push"},
-		{"Dockerfile reference", "Dockerfile"},
+		{"Podman build command", "podman build"},
+		{"Podman push command", "podman push"},
+		{"Containerfile reference", "Containerfile"},
 	}
 
 	for _, element := range requiredElements {

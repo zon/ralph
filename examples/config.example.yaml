@@ -17,15 +17,15 @@ baseBranch: main
 # Services to start/stop during development
 # Each service can optionally specify a port for health checking
 services:
-  # Example: PostgreSQL database via Docker Compose
+  # Example: PostgreSQL database via Podman Compose
   - name: database
-    command: docker
+    command: podman
     args: [compose, up, -d, postgres]
     port: 5432 # Optional: port for health checking
 
-  # Example: Redis cache via Docker Compose
+  # Example: Redis cache via Podman Compose
   - name: redis
-    command: docker
+    command: podman
     args: [compose, up, -d, redis]
     port: 6379
 
