@@ -1,9 +1,11 @@
 package cmd
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
@@ -46,11 +48,18 @@ type RunCmd struct {
 
 // ConfigCmd defines the config subcommand group
 type ConfigCmd struct {
-	Git ConfigGitCmd `cmd:"" help:"Configure git credentials for remote execution"`
+	Git    ConfigGitCmd    `cmd:"" help:"Configure git credentials for remote execution"`
+	Github ConfigGithubCmd `cmd:"" help:"Configure GitHub credentials for remote execution"`
 }
 
 // ConfigGitCmd configures git credentials for Argo Workflows
 type ConfigGitCmd struct {
+	Context   string `help:"Kubernetes context to use (defaults to current context)"`
+	Namespace string `help:"Kubernetes namespace to use (defaults to context default or 'default')"`
+}
+
+// ConfigGithubCmd configures GitHub credentials for Argo Workflows
+type ConfigGithubCmd struct {
 	Context   string `help:"Kubernetes context to use (defaults to current context)"`
 	Namespace string `help:"Kubernetes namespace to use (defaults to context default or 'default')"`
 }
@@ -138,6 +147,92 @@ func (c *ConfigGitCmd) Run() error {
 	fmt.Println("3. Make sure to enable 'Allow write access' if Ralph needs to push commits")
 	fmt.Println()
 	fmt.Printf("Configuration complete! The secret '%s' is ready for use in namespace '%s'.\n", k8s.GitSecretName, namespace)
+
+	return nil
+}
+
+// Run executes the config github command
+func (c *ConfigGithubCmd) Run() error {
+	ctx := context.Background()
+
+	fmt.Println("Configuring GitHub credentials for Ralph remote execution...")
+	fmt.Println()
+
+	// Get the Kubernetes context to use
+	kubeContext := c.Context
+	if kubeContext == "" {
+		currentCtx, err := k8s.GetCurrentContext(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to get current Kubernetes context: %w\n\nMake sure kubectl is installed and configured.", err)
+		}
+		kubeContext = currentCtx
+		fmt.Printf("Using current Kubernetes context: %s\n", kubeContext)
+	} else {
+		fmt.Printf("Using Kubernetes context: %s\n", kubeContext)
+	}
+
+	// Get the namespace to use
+	namespace := c.Namespace
+	if namespace == "" {
+		ns, err := k8s.GetNamespaceForContext(ctx, kubeContext)
+		if err != nil {
+			logger.Warningf("Failed to get namespace for context: %v", err)
+		}
+		if ns == "" {
+			namespace = "default"
+			fmt.Printf("Using namespace: %s (default)\n", namespace)
+		} else {
+			namespace = ns
+			fmt.Printf("Using namespace: %s\n", namespace)
+		}
+	} else {
+		fmt.Printf("Using namespace: %s\n", namespace)
+	}
+
+	fmt.Println()
+
+	// Output link to GitHub token creation page
+	fmt.Println("GitHub Personal Access Token Required")
+	fmt.Println("======================================")
+	fmt.Println()
+	fmt.Println("Ralph needs a GitHub personal access token to create pull requests.")
+	fmt.Println()
+	fmt.Println("Create a new token with 'repo' scope at:")
+	fmt.Println("  https://github.com/settings/tokens/new?description=Ralph%20Remote%20Execution&scopes=repo")
+	fmt.Println()
+
+	// Prompt for GitHub token
+	fmt.Print("Enter your GitHub personal access token (input will be hidden): ")
+
+	// Read token from stdin
+	reader := bufio.NewReader(os.Stdin)
+	tokenInput, err := reader.ReadString('\n')
+	if err != nil {
+		return fmt.Errorf("failed to read token: %w", err)
+	}
+
+	token := strings.TrimSpace(tokenInput)
+	if token == "" {
+		return fmt.Errorf("token cannot be empty")
+	}
+
+	fmt.Println()
+
+	// Create or update the Kubernetes secret
+	fmt.Printf("Creating/updating Kubernetes secret '%s'...\n", k8s.GitHubSecretName)
+
+	secretData := map[string]string{
+		"token": token,
+	}
+
+	if err := k8s.CreateOrUpdateSecret(ctx, k8s.GitHubSecretName, namespace, kubeContext, secretData); err != nil {
+		return fmt.Errorf("failed to create/update secret: %w", err)
+	}
+
+	fmt.Printf("✓ Secret '%s' created/updated successfully\n", k8s.GitHubSecretName)
+	fmt.Println()
+
+	fmt.Printf("Configuration complete! The secret '%s' is ready for use in namespace '%s'.\n", k8s.GitHubSecretName, namespace)
 
 	return nil
 }
