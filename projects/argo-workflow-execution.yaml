@@ -55,7 +55,7 @@ requirements:
       - OpenCode credentials include all configured providers and tokens
       - Command applies to configured Kubernetes context and namespace
       - Command provides helpful feedback on success and errors
-    passing: false
+    passing: true
 
   - category: workflow-generation
     description: Argo Workflow YAML generation
