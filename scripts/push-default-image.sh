@@ -3,7 +3,7 @@ set -e
 
 # Configuration variables
 REPOSITORY="${RALPH_IMAGE_REPOSITORY:-ghcr.io/zon/ralph}"
-TAG="${RALPH_IMAGE_TAG:-latest}"
+TAG=$(cat CONTAINER_VERSION)
 IMAGE="${REPOSITORY}:${TAG}"
 
 echo "Building Ralph default image..."

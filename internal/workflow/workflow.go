@@ -14,6 +14,9 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// DefaultContainerVersion is the default container image tag (set via ldflags during build)
+var DefaultContainerVersion = "latest"
+
 // GenerateWorkflow generates an Argo Workflow YAML for remote execution
 func GenerateWorkflow(ctx *execcontext.Context, projectName string) (string, error) {
 	// Get current branch
@@ -71,7 +74,7 @@ func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL,
 
 	// Determine image repository and tag
 	imageRepo := "ghcr.io/zon/ralph"
-	imageTag := "latest"
+	imageTag := DefaultContainerVersion
 	if ralphConfig.Workflow.Image.Repository != "" {
 		imageRepo = ralphConfig.Workflow.Image.Repository
 	}

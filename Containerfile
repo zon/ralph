@@ -7,11 +7,11 @@ WORKDIR /build
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy source code
+# Copy source code and version files
 COPY . .
 
-# Build ralph binary
-RUN CGO_ENABLED=0 GOOS=linux go build -o ralph ./cmd/ralph
+# Build ralph binary using Makefile (includes version injection)
+RUN make build
 
 # Runtime stage - multi-purpose image with all dependencies
 FROM docker.io/library/ubuntu:24.04

@@ -1,6 +1,7 @@
 package workflow
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -441,7 +442,7 @@ requirements:
 	template := templates[0].(map[string]interface{})
 	container := template["container"].(map[string]interface{})
 
-	expectedImage := "ghcr.io/zon/ralph:latest"
+	expectedImage := fmt.Sprintf("ghcr.io/zon/ralph:%s", DefaultContainerVersion)
 	if container["image"] != expectedImage {
 		t.Errorf("container.image = %v, want %v", container["image"], expectedImage)
 	}
