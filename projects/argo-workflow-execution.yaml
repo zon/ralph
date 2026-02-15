@@ -12,7 +12,7 @@ requirements:
       - Config supports workflow.env map for environment variables
       - Config supports workflow.context for Kubernetes context name
       - Config supports workflow.namespace for Kubernetes namespace
-    passing: false
+    passing: true
 
   - category: cli
     description: Remote execution command-line interface

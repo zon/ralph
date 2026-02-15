@@ -38,12 +38,29 @@ type Service struct {
 	Timeout int      `yaml:"timeout,omitempty"` // Optional, health check timeout in seconds (default: 30)
 }
 
+// ImageConfig represents container image configuration
+type ImageConfig struct {
+	Repository string `yaml:"repository,omitempty"`
+	Tag        string `yaml:"tag,omitempty"`
+}
+
+// WorkflowConfig represents Argo Workflow configuration options
+type WorkflowConfig struct {
+	Image      ImageConfig       `yaml:"image,omitempty"`
+	ConfigMaps []string          `yaml:"configMaps,omitempty"`
+	Secrets    []string          `yaml:"secrets,omitempty"`
+	Env        map[string]string `yaml:"env,omitempty"`
+	Context    string            `yaml:"context,omitempty"`
+	Namespace  string            `yaml:"namespace,omitempty"`
+}
+
 // RalphConfig represents the .ralph/config.yaml structure
 type RalphConfig struct {
-	MaxIterations int       `yaml:"maxIterations,omitempty"`
-	BaseBranch    string    `yaml:"baseBranch,omitempty"`
-	Services      []Service `yaml:"services,omitempty"`
-	Instructions  string    `yaml:"-"` // Not persisted in YAML, loaded from .ralph/instructions.md
+	MaxIterations int            `yaml:"maxIterations,omitempty"`
+	BaseBranch    string         `yaml:"baseBranch,omitempty"`
+	Services      []Service      `yaml:"services,omitempty"`
+	Workflow      WorkflowConfig `yaml:"workflow,omitempty"`
+	Instructions  string         `yaml:"-"` // Not persisted in YAML, loaded from .ralph/instructions.md
 }
 
 // LoadProject loads and validates a project YAML file
