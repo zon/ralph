@@ -275,9 +275,9 @@ These are embedded into the workflow and written to the container filesystem at 
 ### Credentials Storage
 
 All credentials are stored as Kubernetes Secrets:
-- `ralph-git-credentials`: SSH private key for git operations
-- `ralph-github-credentials`: GitHub personal access token
-- `ralph-opencode-credentials`: OpenCode auth.json with AI provider tokens
+- `git-credentials`: SSH private key for git operations
+- `github-credentials`: GitHub personal access token
+- `opencode-credentials`: OpenCode auth.json with AI provider tokens
 
 ### Context and Namespace
 
@@ -316,20 +316,20 @@ argo version
 kubectl get workflows -n argo
 
 # Check if secrets exist
-kubectl get secrets -n argo | grep ralph
+kubectl get secrets -n argo
 ```
 
 ### Credentials Issues
 
 ```bash
 # Verify git credentials
-kubectl get secret ralph-git-credentials -n argo -o yaml
+kubectl get secret git-credentials -n argo -o yaml
 
 # Verify GitHub credentials  
-kubectl get secret ralph-github-credentials -n argo -o yaml
+kubectl get secret github-credentials -n argo -o yaml
 
 # Verify OpenCode credentials
-kubectl get secret ralph-opencode-credentials -n argo -o yaml
+kubectl get secret opencode-credentials -n argo -o yaml
 ```
 
 ### Workflow Execution Fails
