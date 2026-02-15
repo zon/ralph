@@ -23,7 +23,7 @@ requirements:
       - Remote mode is incompatible with --once flag
       - Remote mode without --watch disables notifications
       - Help text documents remote execution and watch options
-    passing: false
+    passing: true
 
   - category: config-git
     description: Git credentials configuration

@@ -21,6 +21,8 @@ type Cmd struct {
 	NoNotify      bool   `help:"Disable desktop notifications" default:"false"`
 	NoServices    bool   `help:"Skip service startup" default:"false"`
 	Verbose       bool   `help:"Enable verbose logging" default:"false"`
+	Remote        bool   `help:"Execute workflow in Argo Workflows (incompatible with --once)" default:"false"`
+	Watch         bool   `help:"Watch workflow execution (only applicable with --remote)" default:"false"`
 	ShowVersion   bool   `help:"Show version information" short:"v" name:"version"`
 
 	version          string       `kong:"-"`
@@ -63,6 +65,15 @@ func (c *Cmd) Run() error {
 		return fmt.Errorf("project file required (see --help)")
 	}
 
+	// Validate flag combinations
+	if c.Watch && !c.Remote {
+		return fmt.Errorf("--watch flag is only applicable with --remote flag")
+	}
+
+	if c.Remote && c.Once {
+		return fmt.Errorf("--remote flag is incompatible with --once flag")
+	}
+
 	// Create execution context
 	ctx := &execcontext.Context{
 		ProjectFile:   c.ProjectFile,
@@ -71,6 +82,8 @@ func (c *Cmd) Run() error {
 		Verbose:       c.Verbose,
 		NoNotify:      c.NoNotify,
 		NoServices:    c.NoServices,
+		Remote:        c.Remote,
+		Watch:         c.Watch,
 	}
 
 	if c.Once {
