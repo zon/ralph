@@ -3,6 +3,7 @@ package git
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -535,4 +536,37 @@ func categorizeFiles(files []string) map[string]int {
 	}
 
 	return categories
+}
+
+// DeleteFile removes a file from the filesystem and stages the deletion
+func DeleteFile(ctx *context.Context, filePath string) error {
+	if ctx.IsDryRun() {
+		logger.Infof("[DRY-RUN] Would delete file: %s", filePath)
+		return nil
+	}
+
+	// Remove the file from filesystem
+	if err := os.Remove(filePath); err != nil {
+		return fmt.Errorf("failed to delete file '%s': %w", filePath, err)
+	}
+
+	if ctx.IsVerbose() {
+		logger.Infof("Deleted file: %s", filePath)
+	}
+
+	// Stage the deletion
+	cmd := exec.Command("git", "rm", filePath)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to stage deletion of '%s': %w (output: %s)", filePath, err, out.String())
+	}
+
+	if ctx.IsVerbose() {
+		logger.Infof("Staged deletion: %s", filePath)
+	}
+
+	return nil
 }

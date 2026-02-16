@@ -502,7 +502,7 @@ func TestBuildExecutionScript(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			script := buildExecutionScript(tt.dryRun, tt.verbose)
+			script := buildExecutionScript(tt.dryRun, tt.verbose, "Ralph Bot", "ralph@example.com")
 
 			// Verify script contains key elements
 			expectedElements := []string{
