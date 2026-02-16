@@ -36,12 +36,10 @@ RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" | tar -C /
     && ln -s /usr/local/go/bin/go /usr/local/bin/go \
     && ln -s /usr/local/go/bin/gofmt /usr/local/bin/gofmt
 
-# Install air (Go live reload tool)
+# Install Go development tools (air for live reload, templ for templates)
 RUN go install github.com/air-verse/air@latest \
-    && ln -s /root/go/bin/air /usr/local/bin/air
-
-# Install templ (Go template tool)
-RUN go install github.com/a-h/templ/cmd/templ@latest \
+    && go install github.com/a-h/templ/cmd/templ@latest \
+    && ln -s /root/go/bin/air /usr/local/bin/air \
     && ln -s /root/go/bin/templ /usr/local/bin/templ
 
 # Install Bun runtime

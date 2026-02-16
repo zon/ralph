@@ -231,6 +231,9 @@ echo "Cloning repository: $GIT_REPO_URL"
 git clone -b "$GIT_BRANCH" "$GIT_REPO_URL" /workspace/repo
 cd /workspace/repo
 
+echo "Fetching main branch for PR diff..."
+git fetch origin main:main || echo "Warning: Could not fetch main branch"
+
 echo "Setting up application config and secrets..."
 mkdir -p config/backend config/teller
 
