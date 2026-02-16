@@ -241,20 +241,15 @@ func executeRemote(ctx *context.Context, project *config.Project) error {
 
 	// Generate workflow YAML
 	logger.Verbose("Generating Argo Workflow YAML...")
-	workflowYAML, err := workflow.GenerateWorkflow(ctx, project.Name)
+	workflowYAML, err := workflow.GenerateWorkflow(ctx, project.Name, ctx.IsDryRun(), ctx.IsVerbose())
 	if err != nil {
 		return fmt.Errorf("failed to generate workflow: %w", err)
 	}
 
+	// Note: When --dry-run is used with --remote, we submit a real workflow
+	// but the ralph command inside the workflow will run with --dry-run flag
 	if ctx.IsVerbose() {
 		logger.Verbosef("Generated workflow YAML:\n%s", workflowYAML)
-	}
-
-	if ctx.IsDryRun() {
-		logger.Info("=== DRY-RUN: Workflow YAML ===")
-		fmt.Println(workflowYAML)
-		logger.Info("=== DRY-RUN: Would submit workflow to Argo ===")
-		return nil
 	}
 
 	// Submit workflow

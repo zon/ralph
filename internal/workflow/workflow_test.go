@@ -87,7 +87,9 @@ requirements:
 	// Generate workflow using the testable function
 	repoURL := "git@github.com:test/repo.git"
 	branch := "main"
-	workflowYAML, err := GenerateWorkflowWithGitInfo(ctx, "test-project", repoURL, branch)
+	dryRun := false
+	verbose := false
+	workflowYAML, err := GenerateWorkflowWithGitInfo(ctx, "test-project", repoURL, branch, dryRun, verbose)
 	if err != nil {
 		t.Fatalf("GenerateWorkflowWithGitInfo failed: %v", err)
 	}
@@ -425,7 +427,9 @@ requirements:
 	// Generate workflow using the testable function
 	repoURL := "git@github.com:test/repo.git"
 	branch := "main"
-	workflowYAML, err := GenerateWorkflowWithGitInfo(ctx, "test-project", repoURL, branch)
+	dryRun := false
+	verbose := false
+	workflowYAML, err := GenerateWorkflowWithGitInfo(ctx, "test-project", repoURL, branch, dryRun, verbose)
 	if err != nil {
 		t.Fatalf("GenerateWorkflowWithGitInfo failed: %v", err)
 	}
@@ -449,26 +453,62 @@ requirements:
 }
 
 func TestBuildExecutionScript(t *testing.T) {
-	script := buildExecutionScript()
-
-	// Verify script contains key elements
-	expectedElements := []string{
-		"#!/bin/sh",
-		"set -e",
-		"git clone",
-		"GIT_REPO_URL",
-		"GIT_BRANCH",
-		"mkdir -p ~/.ssh",
-		"ssh-privatekey",
-		"GITHUB_TOKEN",
-		"auth.json",
-		"ralph /tmp/project.yaml",
+	tests := []struct {
+		name            string
+		dryRun          bool
+		verbose         bool
+		expectedCommand string
+	}{
+		{
+			name:            "no flags",
+			dryRun:          false,
+			verbose:         false,
+			expectedCommand: "ralph /tmp/project.yaml",
+		},
+		{
+			name:            "dry-run only",
+			dryRun:          true,
+			verbose:         false,
+			expectedCommand: "ralph /tmp/project.yaml --dry-run",
+		},
+		{
+			name:            "verbose only",
+			dryRun:          false,
+			verbose:         true,
+			expectedCommand: "ralph /tmp/project.yaml --verbose",
+		},
+		{
+			name:            "both flags",
+			dryRun:          true,
+			verbose:         true,
+			expectedCommand: "ralph /tmp/project.yaml --dry-run --verbose",
+		},
 	}
 
-	for _, element := range expectedElements {
-		if !strings.Contains(script, element) {
-			t.Errorf("Script does not contain expected element: %s", element)
-		}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			script := buildExecutionScript(tt.dryRun, tt.verbose)
+
+			// Verify script contains key elements
+			expectedElements := []string{
+				"#!/bin/sh",
+				"set -e",
+				"git clone",
+				"GIT_REPO_URL",
+				"GIT_BRANCH",
+				"mkdir -p ~/.ssh",
+				"ssh-privatekey",
+				"GITHUB_TOKEN",
+				"auth.json",
+				tt.expectedCommand,
+			}
+
+			for _, element := range expectedElements {
+				if !strings.Contains(script, element) {
+					t.Errorf("Script does not contain expected element: %s", element)
+				}
+			}
+		})
 	}
 }
 

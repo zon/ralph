@@ -18,7 +18,7 @@ import (
 var DefaultContainerVersion = "latest"
 
 // GenerateWorkflow generates an Argo Workflow YAML for remote execution
-func GenerateWorkflow(ctx *execcontext.Context, projectName string) (string, error) {
+func GenerateWorkflow(ctx *execcontext.Context, projectName string, dryRun, verbose bool) (string, error) {
 	// Get current branch
 	currentBranch, err := getCurrentBranch()
 	if err != nil {
@@ -31,12 +31,12 @@ func GenerateWorkflow(ctx *execcontext.Context, projectName string) (string, err
 		return "", fmt.Errorf("failed to get remote URL: %w", err)
 	}
 
-	return GenerateWorkflowWithGitInfo(ctx, projectName, remoteURL, currentBranch)
+	return GenerateWorkflowWithGitInfo(ctx, projectName, remoteURL, currentBranch, dryRun, verbose)
 }
 
 // GenerateWorkflowWithGitInfo generates an Argo Workflow YAML with provided git information
 // This allows for easier testing by accepting git info as parameters
-func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL, branch string) (string, error) {
+func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL, branch string, dryRun, verbose bool) (string, error) {
 	// Load ralph config
 	ralphConfig, err := config.LoadConfig()
 	if err != nil {
@@ -96,6 +96,8 @@ func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL,
 			branch,
 			params,
 			ralphConfig,
+			dryRun,
+			verbose,
 		),
 	}
 
@@ -109,7 +111,7 @@ func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL,
 }
 
 // buildWorkflowSpec constructs the workflow spec
-func buildWorkflowSpec(image, repoURL, branch string, params map[string]string, cfg *config.RalphConfig) map[string]interface{} {
+func buildWorkflowSpec(image, repoURL, branch string, params map[string]string, cfg *config.RalphConfig, dryRun, verbose bool) map[string]interface{} {
 	spec := map[string]interface{}{
 		"entrypoint": "ralph-executor",
 		// TTL to auto-delete after 1 day
@@ -124,7 +126,7 @@ func buildWorkflowSpec(image, repoURL, branch string, params map[string]string, 
 			"parameters": buildParameters(params),
 		},
 		"templates": []interface{}{
-			buildMainTemplate(image, repoURL, branch, cfg),
+			buildMainTemplate(image, repoURL, branch, cfg, dryRun, verbose),
 		},
 	}
 
@@ -156,7 +158,7 @@ func buildParameters(params map[string]string) []map[string]interface{} {
 }
 
 // buildMainTemplate builds the main execution template
-func buildMainTemplate(image, repoURL, branch string, cfg *config.RalphConfig) map[string]interface{} {
+func buildMainTemplate(image, repoURL, branch string, cfg *config.RalphConfig, dryRun, verbose bool) map[string]interface{} {
 	template := map[string]interface{}{
 		"name": "ralph-executor",
 		"container": map[string]interface{}{
@@ -166,7 +168,7 @@ func buildMainTemplate(image, repoURL, branch string, cfg *config.RalphConfig) m
 				"-c",
 			},
 			"args": []string{
-				buildExecutionScript(),
+				buildExecutionScript(dryRun, verbose),
 			},
 			"env":          buildEnvVars(repoURL, branch, cfg),
 			"volumeMounts": buildVolumeMounts(cfg),
@@ -179,8 +181,17 @@ func buildMainTemplate(image, repoURL, branch string, cfg *config.RalphConfig) m
 }
 
 // buildExecutionScript builds the shell script that runs in the container
-func buildExecutionScript() string {
-	script := `#!/bin/sh
+func buildExecutionScript(dryRun, verbose bool) string {
+	// Build ralph command with flags
+	ralphCmd := "ralph /tmp/project.yaml"
+	if dryRun {
+		ralphCmd += " --dry-run"
+	}
+	if verbose {
+		ralphCmd += " --verbose"
+	}
+
+	script := fmt.Sprintf(`#!/bin/sh
 set -e
 
 echo "Setting up git credentials..."
@@ -213,10 +224,10 @@ if [ -n "$INSTRUCTIONS_MD" ]; then
 fi
 
 echo "Running ralph..."
-ralph /tmp/project.yaml
+%s
 
 echo "Execution complete!"
-`
+`, ralphCmd)
 	return script
 }
 
