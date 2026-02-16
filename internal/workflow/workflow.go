@@ -18,13 +18,7 @@ import (
 var DefaultContainerVersion = "latest"
 
 // GenerateWorkflow generates an Argo Workflow YAML for remote execution
-func GenerateWorkflow(ctx *execcontext.Context, projectName string, dryRun, verbose bool) (string, error) {
-	// Get current branch
-	currentBranch, err := getCurrentBranch()
-	if err != nil {
-		return "", fmt.Errorf("failed to get current branch: %w", err)
-	}
-
+func GenerateWorkflow(ctx *execcontext.Context, projectName, projectBranch string, dryRun, verbose bool) (string, error) {
 	// Get git remote URL
 	remoteURL, err := getRemoteURL()
 	if err != nil {
@@ -49,7 +43,7 @@ func GenerateWorkflow(ctx *execcontext.Context, projectName string, dryRun, verb
 		return "", fmt.Errorf("failed to calculate relative project path: %w", err)
 	}
 
-	return GenerateWorkflowWithGitInfo(ctx, projectName, remoteURL, currentBranch, relProjectPath, dryRun, verbose)
+	return GenerateWorkflowWithGitInfo(ctx, projectName, remoteURL, projectBranch, relProjectPath, dryRun, verbose)
 }
 
 // GenerateWorkflowWithGitInfo generates an Argo Workflow YAML with provided git information

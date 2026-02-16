@@ -260,14 +260,29 @@ func executeRemote(ctx *context.Context, project *config.Project) error {
 	}
 	projectBranch := extractBranchName(absProjectFile)
 
-	// Only push if we're on the project branch
-	if currentBranch == projectBranch {
-		logger.Verbosef("Current branch '%s' matches project branch, ensuring it's pushed to remote...", currentBranch)
-		if err := ensureBranchPushed(ctx, currentBranch); err != nil {
-			return fmt.Errorf("failed to ensure branch is pushed: %w", err)
+	// Ensure the project branch exists and is pushed to remote
+	// This is critical for workflow execution to work properly
+	logger.Verbosef("Ensuring project branch '%s' is ready for remote execution...", projectBranch)
+
+	// If we're not on the project branch, we need to create/checkout it
+	if currentBranch != projectBranch {
+		logger.Verbosef("Current branch '%s' differs from project branch '%s'", currentBranch, projectBranch)
+
+		// Check if project branch exists locally
+		if git.BranchExists(ctx, projectBranch) {
+			logger.Verbosef("Project branch '%s' already exists locally", projectBranch)
+		} else {
+			// Create the project branch
+			logger.Verbosef("Creating project branch '%s'...", projectBranch)
+			if err := git.CreateBranch(ctx, projectBranch); err != nil {
+				return fmt.Errorf("failed to create project branch: %w", err)
+			}
 		}
-	} else {
-		logger.Verbosef("Current branch '%s' differs from project branch '%s', skipping push", currentBranch, projectBranch)
+	}
+
+	// Ensure the project branch is pushed to remote
+	if err := ensureBranchPushed(ctx, projectBranch); err != nil {
+		return fmt.Errorf("failed to ensure branch is pushed: %w", err)
 	}
 
 	// Load configuration
@@ -278,7 +293,7 @@ func executeRemote(ctx *context.Context, project *config.Project) error {
 
 	// Generate workflow YAML
 	logger.Verbose("Generating Argo Workflow YAML...")
-	workflowYAML, err := workflow.GenerateWorkflow(ctx, project.Name, ctx.IsDryRun(), ctx.IsVerbose())
+	workflowYAML, err := workflow.GenerateWorkflow(ctx, project.Name, projectBranch, ctx.IsDryRun(), ctx.IsVerbose())
 	if err != nil {
 		return fmt.Errorf("failed to generate workflow: %w", err)
 	}
