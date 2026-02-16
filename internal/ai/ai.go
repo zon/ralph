@@ -26,7 +26,13 @@ func RunAgent(ctx *context.Context, prompt string) error {
 		logger.Verbose(prompt)
 	}
 
-	cmd := exec.Command("opencode", "run", prompt)
+	// Load config to get model
+	ralphConfig, err := config.LoadConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	cmd := exec.Command("opencode", "run", "--model", ralphConfig.Model, prompt)
 	cmd.Env = append(os.Environ(), "FORCE_COLOR=1")
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
@@ -117,8 +123,8 @@ func GeneratePRSummary(ctx *context.Context, projectFile string, iterations int)
 		logger.Verbose(prompt)
 	}
 
-	// Run opencode without --format json, let it write the file
-	cmd := exec.Command("opencode", "run", prompt)
+	// Run opencode with the configured model, let it write the file
+	cmd := exec.Command("opencode", "run", "--model", ralphConfig.Model, prompt)
 	cmd.Env = append(os.Environ(), "FORCE_COLOR=1")
 	cmd.Stdin = os.Stdin
 	if ctx.IsVerbose() {

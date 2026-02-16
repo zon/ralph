@@ -16,30 +16,15 @@ RUN make build
 # Runtime stage - multi-purpose image with all dependencies
 FROM docker.io/library/ubuntu:24.04
 
-# Install system dependencies
+# Install all system dependencies in one layer
 RUN apt-get update && apt-get install -y \
     ca-certificates \
     git \
     openssh-client \
     curl \
     unzip \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Go toolchain
-ENV GO_VERSION=1.25.0
-RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" | tar -C /usr/local -xzf - \
-    && ln -s /usr/local/go/bin/go /usr/local/bin/go \
-    && ln -s /usr/local/go/bin/gofmt /usr/local/bin/gofmt
-
-# Install Bun runtime
-ENV BUN_INSTALL=/usr/local/bun
-ENV PATH="${BUN_INSTALL}/bin:${PATH}"
-RUN curl -fsSL https://bun.sh/install | bash \
-    && ln -s ${BUN_INSTALL}/bin/bun /usr/local/bin/bun \
-    && ln -s ${BUN_INSTALL}/bin/bunx /usr/local/bin/bunx
-
-# Install Playwright dependencies
-RUN apt-get update && apt-get install -y \
+    nodejs \
+    npm \
     # Playwright system dependencies
     libnss3 \
     libnspr4 \
@@ -60,6 +45,39 @@ RUN apt-get update && apt-get install -y \
     libasound2t64 \
     libxshmfence1 \
     && rm -rf /var/lib/apt/lists/*
+
+# Install GitHub CLI
+RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
+    && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+    && apt-get update \
+    && apt-get install -y gh \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Go toolchain
+ENV GO_VERSION=1.25.0
+RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" | tar -C /usr/local -xzf - \
+    && ln -s /usr/local/go/bin/go /usr/local/bin/go \
+    && ln -s /usr/local/go/bin/gofmt /usr/local/bin/gofmt
+
+# Install air (Go live reload tool)
+RUN go install github.com/air-verse/air@latest \
+    && ln -s /root/go/bin/air /usr/local/bin/air
+
+# Install templ (Go template tool)
+RUN go install github.com/a-h/templ/cmd/templ@latest \
+    && ln -s /root/go/bin/templ /usr/local/bin/templ
+
+# Install Bun runtime
+ENV BUN_INSTALL=/usr/local/bun
+ENV PATH="${BUN_INSTALL}/bin:${PATH}"
+RUN curl -fsSL https://bun.sh/install | bash \
+    && ln -s ${BUN_INSTALL}/bin/bun /usr/local/bin/bun \
+    && ln -s ${BUN_INSTALL}/bin/bunx /usr/local/bin/bunx
+
+# Install OpenCode CLI
+RUN bun install -g opencode-ai \
+    && ln -s ${BUN_INSTALL}/bin/opencode /usr/local/bin/opencode
 
 # Install Playwright via bun
 RUN bun add -g playwright \

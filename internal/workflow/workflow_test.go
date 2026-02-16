@@ -87,9 +87,10 @@ requirements:
 	// Generate workflow using the testable function
 	repoURL := "git@github.com:test/repo.git"
 	branch := "main"
+	relProjectPath := "project.yaml"
 	dryRun := false
 	verbose := false
-	workflowYAML, err := GenerateWorkflowWithGitInfo(ctx, "test-project", repoURL, branch, dryRun, verbose)
+	workflowYAML, err := GenerateWorkflowWithGitInfo(ctx, "test-project", repoURL, branch, relProjectPath, dryRun, verbose)
 	if err != nil {
 		t.Fatalf("GenerateWorkflowWithGitInfo failed: %v", err)
 	}
@@ -148,6 +149,9 @@ requirements:
 	if podGC["strategy"] != "OnWorkflowCompletion" {
 		t.Errorf("podGC.strategy = %v, want OnWorkflowCompletion", podGC["strategy"])
 	}
+	if podGC["deleteDelayDuration"] != "10m" {
+		t.Errorf("podGC.deleteDelayDuration = %v, want 10m", podGC["deleteDelayDuration"])
+	}
 
 	// Verify arguments
 	arguments, ok := spec["arguments"].(map[string]interface{})
@@ -162,6 +166,7 @@ requirements:
 
 	// Verify project-file parameter exists
 	hasProjectFile := false
+	hasProjectPath := false
 	hasConfigYaml := false
 	hasInstructionsMd := false
 	for _, param := range parameters {
@@ -175,6 +180,12 @@ requirements:
 				t.Error("project-file parameter does not contain project content")
 			}
 		}
+		if paramMap["name"] == "project-path" {
+			hasProjectPath = true
+			if paramMap["value"] != "project.yaml" {
+				t.Errorf("project-path = %v, want project.yaml", paramMap["value"])
+			}
+		}
 		if paramMap["name"] == "config-yaml" {
 			hasConfigYaml = true
 		}
@@ -185,6 +196,9 @@ requirements:
 
 	if !hasProjectFile {
 		t.Error("project-file parameter not found")
+	}
+	if !hasProjectPath {
+		t.Error("project-path parameter not found")
 	}
 	if !hasConfigYaml {
 		t.Error("config-yaml parameter not found")
@@ -427,9 +441,10 @@ requirements:
 	// Generate workflow using the testable function
 	repoURL := "git@github.com:test/repo.git"
 	branch := "main"
+	relProjectPath := "project.yaml"
 	dryRun := false
 	verbose := false
-	workflowYAML, err := GenerateWorkflowWithGitInfo(ctx, "test-project", repoURL, branch, dryRun, verbose)
+	workflowYAML, err := GenerateWorkflowWithGitInfo(ctx, "test-project", repoURL, branch, relProjectPath, dryRun, verbose)
 	if err != nil {
 		t.Fatalf("GenerateWorkflowWithGitInfo failed: %v", err)
 	}
@@ -463,25 +478,25 @@ func TestBuildExecutionScript(t *testing.T) {
 			name:            "no flags",
 			dryRun:          false,
 			verbose:         false,
-			expectedCommand: "ralph /tmp/project.yaml",
+			expectedCommand: "ralph \"$PROJECT_PATH\"",
 		},
 		{
 			name:            "dry-run only",
 			dryRun:          true,
 			verbose:         false,
-			expectedCommand: "ralph /tmp/project.yaml --dry-run",
+			expectedCommand: "ralph \"$PROJECT_PATH\" --dry-run",
 		},
 		{
 			name:            "verbose only",
 			dryRun:          false,
 			verbose:         true,
-			expectedCommand: "ralph /tmp/project.yaml --verbose",
+			expectedCommand: "ralph \"$PROJECT_PATH\" --verbose",
 		},
 		{
 			name:            "both flags",
 			dryRun:          true,
 			verbose:         true,
-			expectedCommand: "ralph /tmp/project.yaml --dry-run --verbose",
+			expectedCommand: "ralph \"$PROJECT_PATH\" --dry-run --verbose",
 		},
 	}
 

@@ -20,13 +20,23 @@ echo ""
 echo "Image built successfully!"
 echo ""
 
-# Push the image
+# Push the image with version tag
 echo "Pushing image to registry..."
 podman push "${IMAGE}"
 
 echo ""
-echo "Image pushed successfully!"
-echo "Image: ${IMAGE}"
+echo "Image pushed successfully with tag: ${TAG}"
+
+# Also tag and push as latest
+LATEST_IMAGE="${REPOSITORY}:latest"
+echo "Tagging and pushing as latest..."
+podman tag "${IMAGE}" "${LATEST_IMAGE}"
+podman push "${LATEST_IMAGE}"
+
+echo ""
+echo "Images pushed successfully!"
+echo "  - ${IMAGE}"
+echo "  - ${LATEST_IMAGE}"
 echo ""
 echo "You can now use this image in your workflow configuration:"
 echo ""

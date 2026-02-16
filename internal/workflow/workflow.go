@@ -31,12 +31,30 @@ func GenerateWorkflow(ctx *execcontext.Context, projectName string, dryRun, verb
 		return "", fmt.Errorf("failed to get remote URL: %w", err)
 	}
 
-	return GenerateWorkflowWithGitInfo(ctx, projectName, remoteURL, currentBranch, dryRun, verbose)
+	// Get git repository root
+	repoRoot, err := getRepoRoot()
+	if err != nil {
+		return "", fmt.Errorf("failed to get repository root: %w", err)
+	}
+
+	// Get absolute path to project file
+	absProjectFile, err := filepath.Abs(ctx.ProjectFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve project file path: %w", err)
+	}
+
+	// Calculate relative path from repo root
+	relProjectPath, err := filepath.Rel(repoRoot, absProjectFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to calculate relative project path: %w", err)
+	}
+
+	return GenerateWorkflowWithGitInfo(ctx, projectName, remoteURL, currentBranch, relProjectPath, dryRun, verbose)
 }
 
 // GenerateWorkflowWithGitInfo generates an Argo Workflow YAML with provided git information
 // This allows for easier testing by accepting git info as parameters
-func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL, branch string, dryRun, verbose bool) (string, error) {
+func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL, branch, relProjectPath string, dryRun, verbose bool) (string, error) {
 	// Load ralph config
 	ralphConfig, err := config.LoadConfig()
 	if err != nil {
@@ -58,6 +76,7 @@ func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL,
 	// Build workflow parameters
 	params := map[string]string{
 		"project-file": string(projectContent),
+		"project-path": relProjectPath,
 	}
 
 	// Check for config.yaml
@@ -118,9 +137,10 @@ func buildWorkflowSpec(image, repoURL, branch string, params map[string]string, 
 		"ttlStrategy": map[string]interface{}{
 			"secondsAfterCompletion": 86400, // 1 day
 		},
-		// Delete pods after completion
+		// Keep pods for 10 minutes after completion for log inspection
 		"podGC": map[string]interface{}{
-			"strategy": "OnWorkflowCompletion",
+			"strategy":            "OnWorkflowCompletion",
+			"deleteDelayDuration": "10m",
 		},
 		"arguments": map[string]interface{}{
 			"parameters": buildParameters(params),
@@ -136,7 +156,7 @@ func buildWorkflowSpec(image, repoURL, branch string, params map[string]string, 
 // buildParameters builds workflow parameters from the params map
 func buildParameters(params map[string]string) []map[string]interface{} {
 	// Define required and optional parameters
-	allParams := []string{"project-file", "config-yaml", "instructions-md"}
+	allParams := []string{"project-file", "project-path", "config-yaml", "instructions-md"}
 	var parameters []map[string]interface{}
 
 	for _, name := range allParams {
@@ -183,7 +203,7 @@ func buildMainTemplate(image, repoURL, branch string, cfg *config.RalphConfig, d
 // buildExecutionScript builds the shell script that runs in the container
 func buildExecutionScript(dryRun, verbose bool) string {
 	// Build ralph command with flags
-	ralphCmd := "ralph /tmp/project.yaml"
+	ralphCmd := "ralph \"$PROJECT_PATH\""
 	if dryRun {
 		ralphCmd += " --dry-run"
 	}
@@ -211,9 +231,38 @@ echo "Cloning repository: $GIT_REPO_URL"
 git clone -b "$GIT_BRANCH" "$GIT_REPO_URL" /workspace/repo
 cd /workspace/repo
 
+echo "Setting up application config and secrets..."
+mkdir -p config/backend config/teller
+
+# Copy main config from configmap if it exists
+if [ -d /configmaps/ploits-config ]; then
+  cp /configmaps/ploits-config/main.yaml config/main.yaml 2>/dev/null || true
+fi
+
+# Copy backend JWT keys from secret if they exist
+if [ -d /secrets/ploits-backend-jwt ]; then
+  cp /secrets/ploits-backend-jwt/private_key.pem config/backend/private_key.pem 2>/dev/null || true
+  cp /secrets/ploits-backend-jwt/public_key.pem config/backend/public_key.pem 2>/dev/null || true
+fi
+
+# Copy Teller credentials from secret if they exist
+if [ -d /secrets/ploits-teller ]; then
+  cp /secrets/ploits-teller/certificate.pem config/teller/certificate.pem 2>/dev/null || true
+  cp /secrets/ploits-teller/private_key.pem config/teller/private_key.pem 2>/dev/null || true
+  cp /secrets/ploits-teller/credentials.yaml config/teller/credentials.yaml 2>/dev/null || true
+fi
+
+# Copy secrets.yaml from ploits-secrets if it exists
+if [ -d /secrets/ploits-secrets ]; then
+  cp /secrets/ploits-secrets/secrets.yaml config/secrets.yaml 2>/dev/null || true
+fi
+
+echo "Writing project file to: $PROJECT_PATH"
+mkdir -p "$(dirname "$PROJECT_PATH")"
+echo "$PROJECT_FILE" > "$PROJECT_PATH"
+
 echo "Writing parameter files..."
 mkdir -p /workspace/repo/.ralph
-echo "$PROJECT_FILE" > /tmp/project.yaml
 
 if [ -n "$CONFIG_YAML" ]; then
   echo "$CONFIG_YAML" > /workspace/repo/.ralph/config.yaml
@@ -245,6 +294,10 @@ func buildEnvVars(repoURL, branch string, cfg *config.RalphConfig) []map[string]
 		{
 			"name":  "PROJECT_FILE",
 			"value": "{{workflow.parameters.project-file}}",
+		},
+		{
+			"name":  "PROJECT_PATH",
+			"value": "{{workflow.parameters.project-path}}",
 		},
 		{
 			"name":  "CONFIG_YAML",
@@ -378,6 +431,16 @@ func getRemoteURL() (string, error) {
 	output, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("failed to get remote URL: %w", err)
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
+// getRepoRoot gets the git repository root directory
+func getRepoRoot() (string, error) {
+	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to get repository root: %w", err)
 	}
 	return strings.TrimSpace(string(output)), nil
 }

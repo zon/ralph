@@ -73,6 +73,13 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
+	// Run build commands before starting services
+	if len(ralphConfig.Builds) > 0 {
+		if err := services.RunBuilds(ralphConfig.Builds, ctx.IsDryRun()); err != nil {
+			return fmt.Errorf("failed to run builds: %w", err)
+		}
+	}
+
 	// Create service manager for this requirement run
 	svcMgr := services.NewManager()
 
