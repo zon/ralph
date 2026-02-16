@@ -13,37 +13,12 @@ COPY . .
 # Build ralph binary using Makefile (includes version injection)
 RUN make build
 
-# Runtime stage - multi-purpose image with all dependencies
-FROM docker.io/library/ubuntu:24.04
+# Runtime stage - use official Playwright image with all browsers pre-installed
+FROM mcr.microsoft.com/playwright:v1.58.2-noble
 
-# Install all system dependencies in one layer
+# Install additional system dependencies (Playwright deps already included)
 RUN apt-get update && apt-get install -y \
-    ca-certificates \
-    git \
-    openssh-client \
-    curl \
     unzip \
-    nodejs \
-    npm \
-    # Playwright system dependencies
-    libnss3 \
-    libnspr4 \
-    libatk1.0-0 \
-    libatk-bridge2.0-0 \
-    libcups2 \
-    libdrm2 \
-    libdbus-1-3 \
-    libxkbcommon0 \
-    libatspi2.0-0 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxfixes3 \
-    libxrandr2 \
-    libgbm1 \
-    libpango-1.0-0 \
-    libcairo2 \
-    libasound2t64 \
-    libxshmfence1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install GitHub CLI
@@ -79,11 +54,7 @@ RUN curl -fsSL https://bun.sh/install | bash \
 RUN bun install -g opencode-ai \
     && ln -s ${BUN_INSTALL}/bin/opencode /usr/local/bin/opencode
 
-# Install Playwright via bun
-RUN bun add -g playwright \
-    && bunx playwright install chromium \
-    && bunx playwright install firefox \
-    && bunx playwright install webkit
+# Note: Playwright and all browsers are pre-installed in the base image
 
 # Copy ralph binary from builder
 COPY --from=builder /build/ralph /usr/local/bin/ralph
