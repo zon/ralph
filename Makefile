@@ -1,6 +1,5 @@
 # Read version from VERSION file
 VERSION := $(shell cat VERSION)
-CONTAINER_VERSION := $(shell cat CONTAINER_VERSION)
 BUILD_DATE := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
@@ -10,7 +9,7 @@ MAIN_PATH := ./cmd/ralph
 INSTALL_PATH := $(GOPATH)/bin
 
 # ldflags to inject version information
-LDFLAGS := -X main.Version=$(VERSION) -X main.Date=$(BUILD_DATE) -X github.com/zon/ralph/internal/workflow.DefaultContainerVersion=$(CONTAINER_VERSION)
+LDFLAGS := -X main.Version=$(VERSION) -X main.Date=$(BUILD_DATE) -X github.com/zon/ralph/internal/workflow.DefaultContainerVersion=$(VERSION)
 
 .PHONY: help
 help: ## Show this help message
@@ -50,9 +49,8 @@ test: ## Run tests
 
 .PHONY: container-build
 container-build: ## Build container image
-	@CONTAINER_VERSION=$$(cat CONTAINER_VERSION); \
-	REPOSITORY="ghcr.io/zon/ralph"; \
-	IMAGE="$$REPOSITORY:$$CONTAINER_VERSION"; \
+	@REPOSITORY="ghcr.io/zon/ralph"; \
+	IMAGE="$$REPOSITORY:$(VERSION)"; \
 	echo "Building container $$IMAGE..."; \
 	podman build -t "$$IMAGE" -f Containerfile .
 
