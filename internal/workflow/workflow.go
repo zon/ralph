@@ -460,7 +460,7 @@ func getRepoRoot() (string, error) {
 	return strings.TrimSpace(string(output)), nil
 }
 
-// SubmitWorkflow submits a workflow to Argo
+// SubmitWorkflow submits a workflow to Argo and returns the workflow name
 func SubmitWorkflow(ctx *execcontext.Context, workflowYAML string, ralphConfig *config.RalphConfig) (string, error) {
 	// Check if argo CLI is installed
 	if _, err := exec.LookPath("argo"); err != nil {
@@ -501,5 +501,30 @@ func SubmitWorkflow(ctx *execcontext.Context, workflowYAML string, ralphConfig *
 		return "", fmt.Errorf("failed to submit workflow: %w\nOutput: %s", err, string(output))
 	}
 
-	return string(output), nil
+	// Extract workflow name from output
+	// Output format: "Name:                ralph-project-name-xxxxx"
+	workflowName := extractWorkflowName(string(output))
+	if workflowName == "" {
+		// Fallback: return first line if we can't extract name
+		lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+		if len(lines) > 0 {
+			workflowName = strings.TrimSpace(lines[0])
+		}
+	}
+
+	return workflowName, nil
+}
+
+// extractWorkflowName extracts the workflow name from argo submit output
+func extractWorkflowName(output string) string {
+	lines := strings.Split(output, "\n")
+	for _, line := range lines {
+		if strings.HasPrefix(strings.TrimSpace(line), "Name:") {
+			parts := strings.Fields(line)
+			if len(parts) >= 2 {
+				return parts[1]
+			}
+		}
+	}
+	return ""
 }

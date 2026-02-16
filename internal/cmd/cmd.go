@@ -75,12 +75,12 @@ func loadContextAndNamespace(ctx context.Context, flagContext, flagNamespace str
 		// Command-line flag takes highest priority
 		kubeContext = flagContext
 		contextSource = "flag"
-		fmt.Printf("Using Kubernetes context: %s\n", kubeContext)
+		logger.Verbosef("Using Kubernetes context: %s", kubeContext)
 	} else if ralphConfig != nil && ralphConfig.Workflow.Context != "" {
 		// .ralph/config.yaml is second priority
 		kubeContext = ralphConfig.Workflow.Context
 		contextSource = ".ralph/config.yaml"
-		fmt.Printf("Using context from .ralph/config.yaml: %s\n", kubeContext)
+		logger.Verbosef("Using context from .ralph/config.yaml: %s", kubeContext)
 	} else {
 		// Fall back to kubectl current context
 		currentCtx, err := k8s.GetCurrentContext(ctx)
@@ -89,7 +89,7 @@ func loadContextAndNamespace(ctx context.Context, flagContext, flagNamespace str
 		}
 		kubeContext = currentCtx
 		contextSource = "kubectl"
-		fmt.Printf("Using current Kubernetes context: %s\n", kubeContext)
+		logger.Verbosef("Using current Kubernetes context: %s", kubeContext)
 	}
 
 	// Determine the namespace
@@ -98,27 +98,27 @@ func loadContextAndNamespace(ctx context.Context, flagContext, flagNamespace str
 	if flagNamespace != "" {
 		// Command-line flag takes highest priority
 		namespace = flagNamespace
-		fmt.Printf("Using namespace: %s\n", namespace)
+		logger.Verbosef("Using namespace: %s", namespace)
 	} else if ralphConfig != nil && ralphConfig.Workflow.Namespace != "" {
 		// .ralph/config.yaml is second priority
 		namespace = ralphConfig.Workflow.Namespace
 		if contextSource == ".ralph/config.yaml" {
-			fmt.Printf("Using namespace from .ralph/config.yaml: %s\n", namespace)
+			logger.Verbosef("Using namespace from .ralph/config.yaml: %s", namespace)
 		} else {
-			fmt.Printf("Using namespace from .ralph/config.yaml: %s (context from %s)\n", namespace, contextSource)
+			logger.Verbosef("Using namespace from .ralph/config.yaml: %s (context from %s)", namespace, contextSource)
 		}
 	} else {
 		// Fall back to kubectl context namespace
 		ns, err := k8s.GetNamespaceForContext(ctx, kubeContext)
 		if err != nil {
-			logger.Warningf("Failed to get namespace for context: %v", err)
+			logger.Verbosef("Failed to get namespace for context: %v", err)
 		}
 		if ns == "" {
 			namespace = "default"
-			fmt.Printf("Using namespace: %s (default)\n", namespace)
+			logger.Verbosef("Using namespace: %s (default)", namespace)
 		} else {
 			namespace = ns
-			fmt.Printf("Using namespace: %s (from kubectl context)\n", namespace)
+			logger.Verbosef("Using namespace: %s (from kubectl context)", namespace)
 		}
 	}
 

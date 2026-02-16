@@ -333,19 +333,20 @@ func executeRemote(ctx *context.Context, project *config.Project) error {
 	}
 
 	// Submit workflow
-	logger.Info("Submitting workflow to Argo Workflows...")
-	output, err := workflow.SubmitWorkflow(ctx, workflowYAML, ralphConfig)
+	workflowName, err := workflow.SubmitWorkflow(ctx, workflowYAML, ralphConfig)
 	if err != nil {
 		return fmt.Errorf("failed to submit workflow: %w", err)
 	}
 
-	logger.Success("Workflow submitted successfully!")
-	fmt.Println(output)
+	logger.Successf("Workflow submitted: %s", workflowName)
 
 	if !ctx.ShouldWatch() {
-		logger.Info("\nTo watch workflow execution, run:")
-		logger.Info("  argo watch <workflow-name>")
-		logger.Info("\nOr use the --watch flag with ralph --remote")
+		// Determine namespace for the log command
+		namespace := ralphConfig.Workflow.Namespace
+		if namespace == "" {
+			namespace = "default"
+		}
+		logger.Infof("To watch logs, run: argo logs -n %s -f %s", namespace, workflowName)
 	}
 
 	return nil
@@ -360,11 +361,11 @@ func ensureBranchPushed(ctx *context.Context, branch string) error {
 	}
 
 	// Branch doesn't exist on remote, push it
-	logger.Infof("Branch '%s' not found on remote, pushing...", branch)
+	logger.Verbosef("Branch '%s' not found on remote, pushing...", branch)
 	if _, err := git.PushBranch(ctx, branch); err != nil {
 		return fmt.Errorf("failed to push branch: %w", err)
 	}
 
-	logger.Successf("Branch '%s' pushed to remote", branch)
+	logger.Verbosef("Branch '%s' pushed to remote", branch)
 	return nil
 }
