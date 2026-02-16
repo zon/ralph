@@ -137,6 +137,15 @@ func CommitChanges(ctx *context.Context, iteration int) error {
 		logger.Infof("Committed with message: %s", message)
 	}
 
+	// Push after commit if in remote mode
+	if ctx.IsRemote() {
+		logger.Verbose("Remote mode: pushing commit to origin...")
+		if err := git.PushCurrentBranch(ctx); err != nil {
+			return fmt.Errorf("failed to push commit: %w", err)
+		}
+		logger.Verbose("Pushed commit to origin")
+	}
+
 	// Remove report.md after successful commit
 	if err := os.Remove(reportPath); err != nil {
 		// Log warning but don't fail the commit if cleanup fails

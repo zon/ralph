@@ -259,6 +259,35 @@ func PushBranch(ctx *context.Context, branch string) (string, error) {
 	return remoteURL, nil
 }
 
+// PushCurrentBranch pushes the current branch to origin
+// This is a simpler version of PushBranch that doesn't require branch name or return URL
+func PushCurrentBranch(ctx *context.Context) error {
+	if ctx.IsDryRun() {
+		logger.Info("[DRY-RUN] Would push current branch to origin")
+		return nil
+	}
+
+	// Get current branch
+	branch, err := GetCurrentBranch(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get current branch: %w", err)
+	}
+
+	// Push the branch
+	cmd := exec.Command("git", "push", "--set-upstream", "origin", branch)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to push branch '%s': %w (output: %s)", branch, err, out.String())
+	}
+
+	logger.Verbosef("Pushed branch '%s' to origin", branch)
+
+	return nil
+}
+
 // GetCommitLog retrieves commit log formatted exactly like the reference implementation.
 // Returns a single string with commits formatted as "%h: %B" (hash: full message).
 // Gets all commits since base..HEAD.
