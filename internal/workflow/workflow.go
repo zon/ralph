@@ -210,6 +210,8 @@ func buildExecutionScript(dryRun, verbose bool) string {
 	if verbose {
 		ralphCmd += " --verbose"
 	}
+	// Always disable notifications when running in workflow container
+	ralphCmd += " --no-notify"
 
 	script := fmt.Sprintf(`#!/bin/sh
 set -e

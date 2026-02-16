@@ -74,6 +74,7 @@ requirements:
       - Workflow checks out the current branch
       - Workflow writes parameter files to disk before running ralph
       - Workflow runs ralph with the embedded project file
+      - Workflow runs ralph with --no-notify flag to disable notifications in container
       - Workflow creates branch and PR just like normal execution
       - Workflow uses configured image, configMaps, secrets, and env vars
       - Workflow applies to configured Kubernetes context and namespace

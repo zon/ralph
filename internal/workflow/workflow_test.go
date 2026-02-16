@@ -478,25 +478,25 @@ func TestBuildExecutionScript(t *testing.T) {
 			name:            "no flags",
 			dryRun:          false,
 			verbose:         false,
-			expectedCommand: "ralph \"$PROJECT_PATH\"",
+			expectedCommand: "ralph \"$PROJECT_PATH\" --no-notify",
 		},
 		{
 			name:            "dry-run only",
 			dryRun:          true,
 			verbose:         false,
-			expectedCommand: "ralph \"$PROJECT_PATH\" --dry-run",
+			expectedCommand: "ralph \"$PROJECT_PATH\" --dry-run --no-notify",
 		},
 		{
 			name:            "verbose only",
 			dryRun:          false,
 			verbose:         true,
-			expectedCommand: "ralph \"$PROJECT_PATH\" --verbose",
+			expectedCommand: "ralph \"$PROJECT_PATH\" --verbose --no-notify",
 		},
 		{
 			name:            "both flags",
 			dryRun:          true,
 			verbose:         true,
-			expectedCommand: "ralph \"$PROJECT_PATH\" --dry-run --verbose",
+			expectedCommand: "ralph \"$PROJECT_PATH\" --dry-run --verbose --no-notify",
 		},
 	}
 
