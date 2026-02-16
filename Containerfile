@@ -19,6 +19,7 @@ FROM mcr.microsoft.com/playwright:v1.58.2-noble
 # Install additional system dependencies (Playwright deps already included)
 RUN apt-get update && apt-get install -y \
     unzip \
+    net-tools \
     && rm -rf /var/lib/apt/lists/*
 
 # Install GitHub CLI
