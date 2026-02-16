@@ -6,9 +6,9 @@ import (
 	"github.com/zon/ralph/internal/cmd"
 )
 
-// Version information
+// Version information (set via ldflags during build)
 var (
-	Version = "0.1.0"
+	Version = "dev"
 	Date    = "unknown"
 )
 

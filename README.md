@@ -14,6 +14,7 @@ See [docs/projects.md](docs/projects.md) for writing project files.
 - 🚀 Service management (start/stop dev services)
 - 🔍 Dry-run mode to preview actions
 - 🎯 YAML-based project definitions
+- ☁️ Remote execution via Argo Workflows on Kubernetes
 
 ## Installation
 
@@ -58,9 +59,14 @@ ralph my-feature.yaml
 
 # Single iteration (no branch/commit/PR)
 ralph my-feature.yaml --once
+
+# Remote execution on Kubernetes
+ralph my-feature.yaml --remote --watch
 ```
 
 See [docs/projects.md](docs/projects.md) for how to write project files.
+
+See [docs/remote-execution.md](docs/remote-execution.md) for remote execution with Argo Workflows.
 
 ## Configuration
 
@@ -75,7 +81,7 @@ baseBranch: main   # Base branch for PRs
 # Optional: Services to manage
 services:
   - name: database
-    command: docker
+    command: podman
     args: [compose, up, -d, db]
     port: 5432  # For health checking
     
@@ -83,9 +89,19 @@ services:
     command: npm
     args: [run, dev]
     port: 3000
+
+# Optional: Workflow settings for remote execution
+workflow:
+  image:
+    repository: ghcr.io/zon/ralph
+    tag: latest
+  context: my-cluster
+  namespace: argo
 ```
 
 **Note:** LLM configuration (model, API keys) is managed by OpenCode, not Ralph.
+
+See [docs/remote-execution.md](docs/remote-execution.md) for full workflow configuration options.
 
 ### Custom Development Instructions (`.ralph/instructions.md`)
 

@@ -120,6 +120,42 @@ func BranchExists(ctx *context.Context, name string) bool {
 	return false
 }
 
+// RemoteBranchExists checks if a branch exists on the remote
+func RemoteBranchExists(ctx *context.Context, name string) bool {
+	if ctx.IsDryRun() {
+		logger.Infof("[DRY-RUN] Would check if branch '%s' exists on remote", name)
+		return false
+	}
+
+	// Use git ls-remote to check if branch exists on remote
+	// This works even if we haven't fetched recently
+	cmd := exec.Command("git", "ls-remote", "--heads", "origin", name)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+
+	if err := cmd.Run(); err != nil {
+		if ctx.IsVerbose() {
+			logger.Infof("Failed to check remote branch '%s': %v", name, err)
+		}
+		return false
+	}
+
+	// If output is empty, branch doesn't exist on remote
+	output := strings.TrimSpace(out.String())
+	exists := output != ""
+
+	if ctx.IsVerbose() {
+		if exists {
+			logger.Infof("Branch '%s' exists on remote", name)
+		} else {
+			logger.Infof("Branch '%s' does not exist on remote", name)
+		}
+	}
+
+	return exists
+}
+
 // CreateBranch creates a new git branch
 func CreateBranch(ctx *context.Context, name string) error {
 	if ctx.IsDryRun() {
@@ -221,6 +257,35 @@ func PushBranch(ctx *context.Context, branch string) (string, error) {
 	}
 
 	return remoteURL, nil
+}
+
+// PushCurrentBranch pushes the current branch to origin
+// This is a simpler version of PushBranch that doesn't require branch name or return URL
+func PushCurrentBranch(ctx *context.Context) error {
+	if ctx.IsDryRun() {
+		logger.Info("[DRY-RUN] Would push current branch to origin")
+		return nil
+	}
+
+	// Get current branch
+	branch, err := GetCurrentBranch(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get current branch: %w", err)
+	}
+
+	// Push the branch
+	cmd := exec.Command("git", "push", "--set-upstream", "origin", branch)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to push branch '%s': %w (output: %s)", branch, err, out.String())
+	}
+
+	logger.Verbosef("Pushed branch '%s' to origin", branch)
+
+	return nil
 }
 
 // GetCommitLog retrieves commit log formatted exactly like the reference implementation.

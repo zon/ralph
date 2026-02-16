@@ -21,7 +21,7 @@ import (
 // 3. Generates a development prompt with context
 // 4. Runs the AI agent with the prompt
 // 5. Stages the project file after completion
-// 6. Sends desktop notifications on success/failure
+// Note: Build commands should be run once at the project level, not per iteration
 func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	// Enable verbose logging if requested
 	if ctx.IsVerbose() {

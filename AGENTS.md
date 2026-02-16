@@ -8,6 +8,5 @@
 
 **DO NOT:**
 - Run ralph commands without the `--dry-run` flag for testing
-- Execute `./scripts/push-default-image.sh` script
 
 Always use `--dry-run` when testing ralph functionality to avoid unintended side effects.

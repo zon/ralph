@@ -398,3 +398,207 @@ func TestSaveProject(t *testing.T) {
 		t.Errorf("Loaded project name = %s, want %s", loaded.Name, project.Name)
 	}
 }
+
+func TestLoadConfig_WithWorkflowConfig(t *testing.T) {
+	// Create a temporary directory with workflow config
+	tmpDir, err := os.MkdirTemp("", "ralph-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create .ralph directory
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	if err := os.Mkdir(ralphDir, 0755); err != nil {
+		t.Fatalf("Failed to create .ralph dir: %v", err)
+	}
+
+	// Write config file with workflow settings
+	configContent := `maxIterations: 5
+baseBranch: main
+workflow:
+  image:
+    repository: ghcr.io/example/ralph-runner
+    tag: v1.0.0
+  configMaps:
+    - app-config
+    - shared-data
+  secrets:
+    - api-keys
+    - database-creds
+  env:
+    LOG_LEVEL: debug
+    APP_ENV: production
+  context: my-k8s-cluster
+  namespace: ralph-workflows
+`
+	configPath := filepath.Join(ralphDir, "config.yaml")
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("Failed to write config file: %v", err)
+	}
+
+	// Change to temp directory
+	originalWd, _ := os.Getwd()
+	defer os.Chdir(originalWd)
+	os.Chdir(tmpDir)
+
+	config, err := LoadConfig()
+	if err != nil {
+		t.Errorf("LoadConfig() unexpected error: %v", err)
+	}
+
+	// Verify workflow image config
+	if config.Workflow.Image.Repository != "ghcr.io/example/ralph-runner" {
+		t.Errorf("Workflow.Image.Repository = %s, want ghcr.io/example/ralph-runner", config.Workflow.Image.Repository)
+	}
+	if config.Workflow.Image.Tag != "v1.0.0" {
+		t.Errorf("Workflow.Image.Tag = %s, want v1.0.0", config.Workflow.Image.Tag)
+	}
+
+	// Verify configMaps
+	if len(config.Workflow.ConfigMaps) != 2 {
+		t.Errorf("Workflow.ConfigMaps length = %d, want 2", len(config.Workflow.ConfigMaps))
+	}
+	if len(config.Workflow.ConfigMaps) > 0 && config.Workflow.ConfigMaps[0] != "app-config" {
+		t.Errorf("Workflow.ConfigMaps[0] = %s, want app-config", config.Workflow.ConfigMaps[0])
+	}
+	if len(config.Workflow.ConfigMaps) > 1 && config.Workflow.ConfigMaps[1] != "shared-data" {
+		t.Errorf("Workflow.ConfigMaps[1] = %s, want shared-data", config.Workflow.ConfigMaps[1])
+	}
+
+	// Verify secrets
+	if len(config.Workflow.Secrets) != 2 {
+		t.Errorf("Workflow.Secrets length = %d, want 2", len(config.Workflow.Secrets))
+	}
+	if len(config.Workflow.Secrets) > 0 && config.Workflow.Secrets[0] != "api-keys" {
+		t.Errorf("Workflow.Secrets[0] = %s, want api-keys", config.Workflow.Secrets[0])
+	}
+	if len(config.Workflow.Secrets) > 1 && config.Workflow.Secrets[1] != "database-creds" {
+		t.Errorf("Workflow.Secrets[1] = %s, want database-creds", config.Workflow.Secrets[1])
+	}
+
+	// Verify environment variables
+	if len(config.Workflow.Env) != 2 {
+		t.Errorf("Workflow.Env length = %d, want 2", len(config.Workflow.Env))
+	}
+	if config.Workflow.Env["LOG_LEVEL"] != "debug" {
+		t.Errorf("Workflow.Env[LOG_LEVEL] = %s, want debug", config.Workflow.Env["LOG_LEVEL"])
+	}
+	if config.Workflow.Env["APP_ENV"] != "production" {
+		t.Errorf("Workflow.Env[APP_ENV] = %s, want production", config.Workflow.Env["APP_ENV"])
+	}
+
+	// Verify Kubernetes context and namespace
+	if config.Workflow.Context != "my-k8s-cluster" {
+		t.Errorf("Workflow.Context = %s, want my-k8s-cluster", config.Workflow.Context)
+	}
+	if config.Workflow.Namespace != "ralph-workflows" {
+		t.Errorf("Workflow.Namespace = %s, want ralph-workflows", config.Workflow.Namespace)
+	}
+}
+
+func TestLoadConfig_WithPartialWorkflowConfig(t *testing.T) {
+	// Create a temporary directory with minimal workflow config
+	tmpDir, err := os.MkdirTemp("", "ralph-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create .ralph directory
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	if err := os.Mkdir(ralphDir, 0755); err != nil {
+		t.Fatalf("Failed to create .ralph dir: %v", err)
+	}
+
+	// Write config file with only image repository
+	configContent := `workflow:
+  image:
+    repository: my-registry/ralph
+  context: dev-cluster
+`
+	configPath := filepath.Join(ralphDir, "config.yaml")
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("Failed to write config file: %v", err)
+	}
+
+	// Change to temp directory
+	originalWd, _ := os.Getwd()
+	defer os.Chdir(originalWd)
+	os.Chdir(tmpDir)
+
+	config, err := LoadConfig()
+	if err != nil {
+		t.Errorf("LoadConfig() unexpected error: %v", err)
+	}
+
+	// Verify partial config loads correctly
+	if config.Workflow.Image.Repository != "my-registry/ralph" {
+		t.Errorf("Workflow.Image.Repository = %s, want my-registry/ralph", config.Workflow.Image.Repository)
+	}
+	if config.Workflow.Image.Tag != "" {
+		t.Errorf("Workflow.Image.Tag = %s, want empty string", config.Workflow.Image.Tag)
+	}
+	if config.Workflow.Context != "dev-cluster" {
+		t.Errorf("Workflow.Context = %s, want dev-cluster", config.Workflow.Context)
+	}
+
+	// Verify optional fields are empty/nil
+	if len(config.Workflow.ConfigMaps) != 0 {
+		t.Errorf("Workflow.ConfigMaps length = %d, want 0", len(config.Workflow.ConfigMaps))
+	}
+	if len(config.Workflow.Secrets) != 0 {
+		t.Errorf("Workflow.Secrets length = %d, want 0", len(config.Workflow.Secrets))
+	}
+	if len(config.Workflow.Env) != 0 {
+		t.Errorf("Workflow.Env length = %d, want 0", len(config.Workflow.Env))
+	}
+}
+
+func TestLoadConfig_WithoutWorkflowConfig(t *testing.T) {
+	// Create a temporary directory with config but no workflow section
+	tmpDir, err := os.MkdirTemp("", "ralph-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create .ralph directory
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	if err := os.Mkdir(ralphDir, 0755); err != nil {
+		t.Fatalf("Failed to create .ralph dir: %v", err)
+	}
+
+	// Write config file without workflow section
+	configContent := `maxIterations: 3
+baseBranch: main
+`
+	configPath := filepath.Join(ralphDir, "config.yaml")
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("Failed to write config file: %v", err)
+	}
+
+	// Change to temp directory
+	originalWd, _ := os.Getwd()
+	defer os.Chdir(originalWd)
+	os.Chdir(tmpDir)
+
+	config, err := LoadConfig()
+	if err != nil {
+		t.Errorf("LoadConfig() unexpected error: %v", err)
+	}
+
+	// Verify workflow config exists but is empty
+	if config.Workflow.Image.Repository != "" {
+		t.Errorf("Workflow.Image.Repository = %s, want empty string", config.Workflow.Image.Repository)
+	}
+	if config.Workflow.Image.Tag != "" {
+		t.Errorf("Workflow.Image.Tag = %s, want empty string", config.Workflow.Image.Tag)
+	}
+	if config.Workflow.Context != "" {
+		t.Errorf("Workflow.Context = %s, want empty string", config.Workflow.Context)
+	}
+	if config.Workflow.Namespace != "" {
+		t.Errorf("Workflow.Namespace = %s, want empty string", config.Workflow.Namespace)
+	}
+}

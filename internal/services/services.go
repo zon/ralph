@@ -3,7 +3,9 @@ package services
 import (
 	"fmt"
 	"net"
+	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -11,6 +13,44 @@ import (
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/logger"
 )
+
+// RunBuilds executes build commands sequentially before starting services
+// Build commands are run with connected output and expected to exit
+func RunBuilds(builds []config.Build, dryRun bool) error {
+	if len(builds) == 0 {
+		return nil
+	}
+
+	logger.Verbosef("Running %d build command(s)...", len(builds))
+
+	for _, build := range builds {
+		cmdStr := fmt.Sprintf("%s %s", build.Command, strings.Join(build.Args, " "))
+
+		if dryRun {
+			logger.Infof("Would run build: %s with command: %s", build.Name, cmdStr)
+			continue
+		}
+
+		logger.Infof("Running build: %s", build.Name)
+		logger.Verbosef("Command: %s", cmdStr)
+
+		// Create the command
+		cmd := exec.Command(build.Command, build.Args...)
+
+		// Connect stdout/stderr to show build output
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+
+		// Run the build command and wait for it to complete
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("build %s failed: %w", build.Name, err)
+		}
+
+		logger.Successf("Build %s completed successfully", build.Name)
+	}
+
+	return nil
+}
 
 // Process represents a running service process
 type Process struct {
