@@ -242,6 +242,34 @@ func extractBranchName(projectFile string) string {
 func executeRemote(ctx *context.Context, project *config.Project) error {
 	logger.Verbose("Remote execution mode enabled")
 
+	// Check if we're in a git repository
+	if !git.IsGitRepository(ctx) {
+		return fmt.Errorf("not in a git repository - remote execution requires git")
+	}
+
+	// Get current branch
+	currentBranch, err := git.GetCurrentBranch(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get current branch: %w", err)
+	}
+
+	// Extract project branch name from project file
+	absProjectFile, err := filepath.Abs(ctx.ProjectFile)
+	if err != nil {
+		return fmt.Errorf("failed to resolve project file path: %w", err)
+	}
+	projectBranch := extractBranchName(absProjectFile)
+
+	// Only push if we're on the project branch
+	if currentBranch == projectBranch {
+		logger.Verbosef("Current branch '%s' matches project branch, ensuring it's pushed to remote...", currentBranch)
+		if err := ensureBranchPushed(ctx, currentBranch); err != nil {
+			return fmt.Errorf("failed to ensure branch is pushed: %w", err)
+		}
+	} else {
+		logger.Verbosef("Current branch '%s' differs from project branch '%s', skipping push", currentBranch, projectBranch)
+	}
+
 	// Load configuration
 	ralphConfig, err := config.LoadConfig()
 	if err != nil {
@@ -277,5 +305,23 @@ func executeRemote(ctx *context.Context, project *config.Project) error {
 		logger.Info("\nOr use the --watch flag with ralph --remote")
 	}
 
+	return nil
+}
+
+// ensureBranchPushed checks if a branch exists on remote and pushes it if not
+func ensureBranchPushed(ctx *context.Context, branch string) error {
+	// Check if branch exists on remote
+	if git.RemoteBranchExists(ctx, branch) {
+		logger.Verbosef("Branch '%s' already exists on remote", branch)
+		return nil
+	}
+
+	// Branch doesn't exist on remote, push it
+	logger.Infof("Branch '%s' not found on remote, pushing...", branch)
+	if _, err := git.PushBranch(ctx, branch); err != nil {
+		return fmt.Errorf("failed to push branch: %w", err)
+	}
+
+	logger.Successf("Branch '%s' pushed to remote", branch)
 	return nil
 }
