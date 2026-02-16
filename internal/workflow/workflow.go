@@ -223,6 +223,10 @@ echo "Setting up OpenCode credentials..."
 mkdir -p ~/.local/share/opencode
 cp /secrets/opencode/auth.json ~/.local/share/opencode/auth.json
 
+echo "Configuring git user..."
+git config --global user.name "Ralph Bot"
+git config --global user.email "ralph@ralph-bot.local"
+
 echo "Cloning repository: $GIT_REPO_URL"
 git clone -b "$GIT_BRANCH" "$GIT_REPO_URL" /workspace/repo
 cd /workspace/repo
