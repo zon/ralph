@@ -1,5 +1,7 @@
 package context
 
+import "os"
+
 // Context holds the execution context for ralph commands
 type Context struct {
 	ProjectFile   string
@@ -44,4 +46,10 @@ func (c *Context) IsRemote() bool {
 // ShouldWatch returns true if workflow execution should be watched
 func (c *Context) ShouldWatch() bool {
 	return c.Watch
+}
+
+// IsWorkflowExecution returns true if running inside a workflow container
+// This is detected via the RALPH_WORKFLOW_EXECUTION environment variable
+func (c *Context) IsWorkflowExecution() bool {
+	return os.Getenv("RALPH_WORKFLOW_EXECUTION") == "true"
 }

@@ -137,9 +137,10 @@ func CommitChanges(ctx *context.Context, iteration int) error {
 		logger.Infof("Committed with message: %s", message)
 	}
 
-	// Push after commit if in remote mode
-	if ctx.IsRemote() {
-		logger.Verbose("Remote mode: pushing commit to origin...")
+	// Push after commit if running in workflow execution mode
+	// (commits are pushed incrementally so they appear in the final PR)
+	if ctx.IsWorkflowExecution() {
+		logger.Verbose("Workflow execution: pushing commit to origin...")
 		if err := git.PushCurrentBranch(ctx); err != nil {
 			return fmt.Errorf("failed to push commit: %w", err)
 		}

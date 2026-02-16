@@ -312,6 +312,10 @@ func buildEnvVars(repoURL, branch string, cfg *config.RalphConfig) []map[string]
 			"name":  "INSTRUCTIONS_MD",
 			"value": "{{workflow.parameters.instructions-md}}",
 		},
+		{
+			"name":  "RALPH_WORKFLOW_EXECUTION",
+			"value": "true",
+		},
 	}
 
 	// Add user-specified environment variables from config
