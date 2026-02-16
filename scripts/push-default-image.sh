@@ -12,6 +12,11 @@ echo "Tag: ${TAG}"
 echo "Full image: ${IMAGE}"
 echo ""
 
+# Authenticate to GitHub Container Registry
+echo "Authenticating to GitHub Container Registry..."
+gh auth token | podman login ghcr.io -u zon --password-stdin
+echo ""
+
 # Build the image
 echo "Building image with Podman..."
 podman build -t "${IMAGE}" -f Containerfile .
