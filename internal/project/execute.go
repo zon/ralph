@@ -13,6 +13,7 @@ import (
 	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/notify"
+	"github.com/zon/ralph/internal/services"
 	"github.com/zon/ralph/internal/workflow"
 )
 
@@ -20,13 +21,14 @@ import (
 // Steps:
 // 1. Validate project file exists
 // 2. If remote mode: Generate and submit Argo Workflow, then exit
-// 3. Extract branch name from project file basename
-// 4. Create and checkout new branch
-// 5. Run iteration loop (develop + commit until complete)
-// 6. Generate PR summary using AI
-// 7. Push branch to origin
-// 8. Create GitHub pull request
-// 9. Display PR URL on success
+// 3. Run build commands once before starting iterations
+// 4. Extract branch name from project file basename
+// 5. Create and checkout new branch
+// 6. Run iteration loop (develop + commit until complete)
+// 7. Generate PR summary using AI
+// 8. Push branch to origin
+// 9. Create GitHub pull request
+// 10. Display PR URL on success
 func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	// Enable verbose logging if requested
 	if ctx.IsVerbose() {
@@ -73,6 +75,13 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	}
 
 	baseBranch := ralphConfig.BaseBranch
+
+	// Run build commands before starting iteration loop
+	if len(ralphConfig.Builds) > 0 {
+		if err := services.RunBuilds(ralphConfig.Builds, ctx.IsDryRun()); err != nil {
+			return fmt.Errorf("failed to run builds: %w", err)
+		}
+	}
 
 	// Validate git repository exists
 	if !git.IsGitRepository(ctx) {

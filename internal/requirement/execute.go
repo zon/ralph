@@ -21,7 +21,7 @@ import (
 // 3. Generates a development prompt with context
 // 4. Runs the AI agent with the prompt
 // 5. Stages the project file after completion
-// 6. Sends desktop notifications on success/failure
+// Note: Build commands should be run once at the project level, not per iteration
 func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	// Enable verbose logging if requested
 	if ctx.IsVerbose() {
@@ -71,13 +71,6 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	ralphConfig, err := config.LoadConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
-	}
-
-	// Run build commands before starting services
-	if len(ralphConfig.Builds) > 0 {
-		if err := services.RunBuilds(ralphConfig.Builds, ctx.IsDryRun()); err != nil {
-			return fmt.Errorf("failed to run builds: %w", err)
-		}
 	}
 
 	// Create service manager for this requirement run

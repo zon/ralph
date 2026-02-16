@@ -14,6 +14,19 @@ baseBranch: main
 #   opencode config set model anthropic/claude-3-5-sonnet-20241022
 #   opencode config set model openai/gpt-4
 
+# Build commands to run once at the start of a project
+# These are executed before starting services and before the iteration loop
+builds:
+  # Example: Compile the application
+  - name: compile-app
+    command: go
+    args: [build, -o, bin/app, ./cmd/app]
+
+  # Example: Generate code
+  - name: generate-proto
+    command: protoc
+    args: [--go_out=., --go_opt=paths=source_relative, proto/*.proto]
+
 # Services to start/stop during development
 # Each service can optionally specify a port for health checking
 services:
@@ -47,6 +60,12 @@ services:
     args: [run, dev:frontend]
     port: 8080
 # Notes:
+# Build Commands:
+# - Build commands are executed once at the start of a project (not per iteration)
+# - They run sequentially and must complete successfully before proceeding
+# - Useful for compilation, code generation, or other setup tasks
+#
+# Services:
 # - Services are started in order before AI agent execution
 # - Health checks wait for TCP ports to respond (if port is specified)
 # - Services are stopped gracefully (SIGTERM) after execution
