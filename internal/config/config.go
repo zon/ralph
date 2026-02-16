@@ -51,6 +51,12 @@ type ImageConfig struct {
 	Tag        string `yaml:"tag,omitempty"`
 }
 
+// GitUserConfig represents git user configuration
+type GitUserConfig struct {
+	Name  string `yaml:"name,omitempty"`
+	Email string `yaml:"email,omitempty"`
+}
+
 // WorkflowConfig represents Argo Workflow configuration options
 type WorkflowConfig struct {
 	Image      ImageConfig       `yaml:"image,omitempty"`
@@ -59,6 +65,7 @@ type WorkflowConfig struct {
 	Env        map[string]string `yaml:"env,omitempty"`
 	Context    string            `yaml:"context,omitempty"`
 	Namespace  string            `yaml:"namespace,omitempty"`
+	GitUser    GitUserConfig     `yaml:"gitUser,omitempty"`
 }
 
 // RalphConfig represents the .ralph/config.yaml structure

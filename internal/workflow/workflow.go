@@ -182,7 +182,7 @@ func buildMainTemplate(image, repoURL, branch string, cfg *config.RalphConfig, d
 				"-c",
 			},
 			"args": []string{
-				buildExecutionScript(dryRun, verbose),
+				buildExecutionScript(dryRun, verbose, cfg.Workflow.GitUser.Name, cfg.Workflow.GitUser.Email),
 			},
 			"env":          buildEnvVars(repoURL, branch, cfg),
 			"volumeMounts": buildVolumeMounts(cfg),
@@ -195,7 +195,7 @@ func buildMainTemplate(image, repoURL, branch string, cfg *config.RalphConfig, d
 }
 
 // buildExecutionScript builds the shell script that runs in the container
-func buildExecutionScript(dryRun, verbose bool) string {
+func buildExecutionScript(dryRun, verbose bool, gitUserName, gitUserEmail string) string {
 	// Build ralph command with flags
 	ralphCmd := "ralph \"$PROJECT_PATH\""
 	if dryRun {
@@ -206,6 +206,14 @@ func buildExecutionScript(dryRun, verbose bool) string {
 	}
 	// Always disable notifications when running in workflow container
 	ralphCmd += " --no-notify"
+
+	// Use default git user if not provided
+	if gitUserName == "" {
+		gitUserName = "Ralph Bot"
+	}
+	if gitUserEmail == "" {
+		gitUserEmail = "ralph@ralph-bot.local"
+	}
 
 	script := fmt.Sprintf(`#!/bin/sh
 set -e
@@ -224,8 +232,8 @@ mkdir -p ~/.local/share/opencode
 cp /secrets/opencode/auth.json ~/.local/share/opencode/auth.json
 
 echo "Configuring git user..."
-git config --global user.name "Ralph Bot"
-git config --global user.email "ralph@ralph-bot.local"
+git config --global user.name "%s"
+git config --global user.email "%s"
 
 echo "Cloning repository: $GIT_REPO_URL"
 git clone -b "$GIT_BRANCH" "$GIT_REPO_URL" /workspace/repo
@@ -279,7 +287,7 @@ echo "Running ralph..."
 %s
 
 echo "Execution complete!"
-`, ralphCmd)
+`, gitUserName, gitUserEmail, ralphCmd)
 	return script
 }
 
