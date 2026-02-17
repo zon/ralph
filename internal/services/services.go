@@ -136,7 +136,7 @@ func startService(svc config.Service, dryRun bool) (*Process, error) {
 
 	// Start the service
 	if err := cmd.Start(); err != nil {
-		return nil, fmt.Errorf("failed to start service %s: %w", svc.Name, err)
+		return nil, fmt.Errorf("failed to start service %s (command: %s): %w", svc.Name, cmdStr, err)
 	}
 
 	logger.Verbosef("Started service: %s (PID: %d)", svc.Name, cmd.Process.Pid)
@@ -271,7 +271,8 @@ func startAllServices(services []config.Service, dryRun bool) ([]*Process, error
 		if err := WaitForHealth(proc, timeout, dryRun); err != nil {
 			// If health check fails, stop all services
 			stopAllServices(processes)
-			return nil, fmt.Errorf("health check failed for service %s: %w", svc.Name, err)
+			cmdStr := fmt.Sprintf("%s %s", svc.Command, joinArgs(svc.Args))
+			return nil, fmt.Errorf("health check failed for service %s (command: %s): %w", svc.Name, cmdStr, err)
 		}
 	}
 

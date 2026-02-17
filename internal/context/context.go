@@ -12,6 +12,7 @@ type Context struct {
 	NoServices    bool
 	Remote        bool
 	Watch         bool
+	Notes         []string // Runtime notes to pass to the agent
 }
 
 // IsDryRun returns true if running in dry-run mode
@@ -52,4 +53,17 @@ func (c *Context) ShouldWatch() bool {
 // This is detected via the RALPH_WORKFLOW_EXECUTION environment variable
 func (c *Context) IsWorkflowExecution() bool {
 	return os.Getenv("RALPH_WORKFLOW_EXECUTION") == "true"
+}
+
+// AddNote adds a runtime note to be passed to the agent
+func (c *Context) AddNote(note string) {
+	if c.Notes == nil {
+		c.Notes = []string{}
+	}
+	c.Notes = append(c.Notes, note)
+}
+
+// HasNotes returns true if there are any notes
+func (c *Context) HasNotes() bool {
+	return len(c.Notes) > 0
 }

@@ -127,3 +127,75 @@ func TestShouldWatch(t *testing.T) {
 		})
 	}
 }
+
+func TestAddNote(t *testing.T) {
+	ctx := &Context{}
+
+	// Initially should have no notes
+	if ctx.HasNotes() {
+		t.Error("New context should not have notes")
+	}
+
+	// Add first note
+	ctx.AddNote("First note")
+	if !ctx.HasNotes() {
+		t.Error("Context should have notes after adding one")
+	}
+	if len(ctx.Notes) != 1 {
+		t.Errorf("Expected 1 note, got %d", len(ctx.Notes))
+	}
+	if ctx.Notes[0] != "First note" {
+		t.Errorf("Expected note 'First note', got '%s'", ctx.Notes[0])
+	}
+
+	// Add second note
+	ctx.AddNote("Second note")
+	if len(ctx.Notes) != 2 {
+		t.Errorf("Expected 2 notes, got %d", len(ctx.Notes))
+	}
+	if ctx.Notes[1] != "Second note" {
+		t.Errorf("Expected note 'Second note', got '%s'", ctx.Notes[1])
+	}
+}
+
+func TestHasNotes(t *testing.T) {
+	tests := []struct {
+		name      string
+		notes     []string
+		expectHas bool
+	}{
+		{
+			name:      "no notes",
+			notes:     nil,
+			expectHas: false,
+		},
+		{
+			name:      "empty slice",
+			notes:     []string{},
+			expectHas: false,
+		},
+		{
+			name:      "one note",
+			notes:     []string{"note"},
+			expectHas: true,
+		},
+		{
+			name:      "multiple notes",
+			notes:     []string{"note1", "note2"},
+			expectHas: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := &Context{
+				Notes: tt.notes,
+			}
+
+			result := ctx.HasNotes()
+			if result != tt.expectHas {
+				t.Errorf("expected HasNotes()=%v, got %v", tt.expectHas, result)
+			}
+		})
+	}
+}

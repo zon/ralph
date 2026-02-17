@@ -81,24 +81,30 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		logger.Verbosef("Starting %d service(s)...", len(ralphConfig.Services))
 
 		if err := svcMgr.Start(ralphConfig.Services, ctx.IsDryRun()); err != nil {
-			return fmt.Errorf("failed to start services: %w", err)
-		}
+			// Add note to context to inform agent about service failure instead of failing
+			note := fmt.Sprintf("# Service Startup Failed\n\n%s\n\nServices are required. Fix this before proceeding.", err.Error())
+			ctx.AddNote(note)
+			logger.Verbosef("Service startup failed, note added to context")
 
-		// Register cleanup handler for signal interrupts (SIGINT/SIGTERM)
-		if cleanupRegistrar != nil {
-			cleanupRegistrar(func() {
+			// Continue execution instead of returning error
+		} else {
+			// Services started successfully
+			// Register cleanup handler for signal interrupts (SIGINT/SIGTERM)
+			if cleanupRegistrar != nil {
+				cleanupRegistrar(func() {
+					svcMgr.Stop()
+				})
+			}
+
+			// Ensure services are stopped when this function exits (success or error)
+			defer func() {
+				logger.Verbose("Stopping services after requirement run...")
 				svcMgr.Stop()
-			})
+				logger.Verbose("Services stopped")
+			}()
+
+			logger.Verbose("All services started and healthy")
 		}
-
-		// Ensure services are stopped when this function exits (success or error)
-		defer func() {
-			logger.Verbose("Stopping services after requirement run...")
-			svcMgr.Stop()
-			logger.Verbose("Services stopped")
-		}()
-
-		logger.Verbose("All services started and healthy")
 	} else if len(ralphConfig.Services) > 0 {
 		logger.Verbose("Skipping service startup (--no-services flag)")
 	}

@@ -25,6 +25,16 @@ func BuildDevelopPrompt(ctx *context.Context, projectFile string) (string, error
 	builder.WriteString("Your task is to implement requirements from the project file below.\n")
 	builder.WriteString("\n")
 
+	// Include any runtime notes from context
+	if ctx.HasNotes() {
+		builder.WriteString("## System Notes\n")
+		builder.WriteString("\n")
+		for _, note := range ctx.Notes {
+			builder.WriteString(note)
+			builder.WriteString("\n\n")
+		}
+	}
+
 	// Load config once for both git history check and instructions
 	ralphConfig, err := config.LoadConfig()
 	if err != nil {

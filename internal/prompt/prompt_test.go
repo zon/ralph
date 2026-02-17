@@ -170,3 +170,88 @@ func TestBuildDevelopPrompt_MissingProjectFile(t *testing.T) {
 		t.Error("Expected error for missing project file, got nil")
 	}
 }
+
+func TestBuildDevelopPrompt_WithNote(t *testing.T) {
+	// Create a temporary project file
+	tmpDir := t.TempDir()
+	projectFile := filepath.Join(tmpDir, "test-project.yaml")
+	projectContent := `name: Test Project
+description: A test project
+requirements:
+  - category: Feature
+    description: Implement feature X
+    passing: false
+`
+	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
+		t.Fatalf("Failed to create test project file: %v", err)
+	}
+
+	// Change to temp directory
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+	defer os.Chdir(oldWd)
+	os.Chdir(tmpDir)
+
+	// Create context with a note
+	ctx := testutil.NewContext()
+	ctx.AddNote("# Service Startup Failed\n\nfailed to start service test-service: connection refused\n\nServices are required. Fix this before proceeding.")
+
+	prompt, err := BuildDevelopPrompt(ctx, projectFile)
+	if err != nil {
+		t.Fatalf("BuildDevelopPrompt failed: %v", err)
+	}
+
+	// Verify prompt contains the system notes section
+	if !strings.Contains(prompt, "## System Notes") {
+		t.Error("Prompt missing 'System Notes' section when context has notes")
+	}
+
+	// Verify note content is included
+	if !strings.Contains(prompt, "Service Startup Failed") {
+		t.Error("Prompt does not contain note content")
+	}
+
+	if !strings.Contains(prompt, "failed to start service test-service") {
+		t.Error("Prompt does not contain service failure details from note")
+	}
+
+	if !strings.Contains(prompt, "Services are required. Fix this before proceeding.") {
+		t.Error("Prompt does not contain service requirement message from note")
+	}
+}
+
+func TestBuildDevelopPrompt_WithoutNote(t *testing.T) {
+	// Create a temporary project file
+	tmpDir := t.TempDir()
+	projectFile := filepath.Join(tmpDir, "test-project.yaml")
+	projectContent := `name: Test Project
+requirements:
+  - description: Feature 1
+    passing: false
+`
+	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
+		t.Fatalf("Failed to create test project file: %v", err)
+	}
+
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+	defer os.Chdir(oldWd)
+	os.Chdir(tmpDir)
+
+	// Create context without notes
+	ctx := testutil.NewContext()
+
+	prompt, err := BuildDevelopPrompt(ctx, projectFile)
+	if err != nil {
+		t.Fatalf("BuildDevelopPrompt failed: %v", err)
+	}
+
+	// Verify prompt does NOT contain system notes section when context has no notes
+	if strings.Contains(prompt, "## System Notes") {
+		t.Error("Prompt should not contain 'System Notes' section when context has no notes")
+	}
+}
