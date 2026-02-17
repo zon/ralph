@@ -3,8 +3,10 @@ package cmd
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/zon/ralph/internal/config"
@@ -420,6 +422,12 @@ func (c *ConfigOpencodeCmd) Run() error {
 	fmt.Printf("✓ Secret '%s' created/updated successfully\n", k8s.OpenCodeSecretName)
 	fmt.Println()
 
+	// Check if auth.json contains Anthropic OAuth credentials
+	// If so, remove them to prevent OAuth refresh token conflicts between local and remote
+	if err := removeAnthropicOAuthFromLocal(authFilePath, string(authFileContent)); err != nil {
+		return fmt.Errorf("failed to handle local Anthropic OAuth credentials: %w", err)
+	}
+
 	fmt.Printf("Configuration complete! The secret '%s' is ready for use in namespace '%s'.\n", k8s.OpenCodeSecretName, namespace)
 
 	return nil
@@ -502,4 +510,55 @@ func (r *RunCmd) Run() error {
 	}
 	// Execute full orchestration mode
 	return project.Execute(ctx, r.cleanupRegistrar)
+}
+
+// removeAnthropicOAuthFromLocal removes Anthropic OAuth credentials from local auth.json
+// to prevent OAuth refresh token conflicts between local and remote execution
+func removeAnthropicOAuthFromLocal(authFilePath, authContent string) error {
+	// Parse the auth.json content
+	var authData map[string]interface{}
+	if err := json.Unmarshal([]byte(authContent), &authData); err != nil {
+		return fmt.Errorf("failed to parse auth.json: %w", err)
+	}
+
+	// Check if Anthropic entry exists and is OAuth type
+	anthropic, hasAnthropic := authData["anthropic"].(map[string]interface{})
+	if !hasAnthropic {
+		// No Anthropic entry, nothing to do
+		return nil
+	}
+
+	authType, _ := anthropic["type"].(string)
+	if authType != "oauth" {
+		// Not OAuth, nothing to do (API keys don't have refresh token conflicts)
+		return nil
+	}
+
+	// Remove the Anthropic entry
+	delete(authData, "anthropic")
+
+	// Write the modified auth.json back
+	modifiedAuth, err := json.MarshalIndent(authData, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal modified auth.json: %w", err)
+	}
+
+	if err := os.WriteFile(authFilePath, modifiedAuth, 0600); err != nil {
+		return fmt.Errorf("failed to write modified auth.json: %w", err)
+	}
+
+	fmt.Println("⚠️  Removed Anthropic OAuth from local config to prevent token conflicts. Launching 'opencode auth login'...")
+
+	// Launch opencode auth login to restore local access
+	cmd := exec.Command("opencode", "auth", "login")
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		fmt.Printf("⚠️  Warning: opencode auth login failed: %v\n", err)
+		fmt.Println("You can run 'opencode auth login' manually later to restore local access.")
+	}
+
+	return nil
 }
