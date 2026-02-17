@@ -421,11 +421,11 @@ workflow:
     repository: ghcr.io/example/ralph-runner
     tag: v1.0.0
   configMaps:
-    - app-config
-    - shared-data
+    - name: app-config
+    - name: shared-data
   secrets:
-    - api-keys
-    - database-creds
+    - name: api-keys
+    - name: database-creds
   env:
     LOG_LEVEL: debug
     APP_ENV: production
@@ -459,22 +459,22 @@ workflow:
 	if len(config.Workflow.ConfigMaps) != 2 {
 		t.Errorf("Workflow.ConfigMaps length = %d, want 2", len(config.Workflow.ConfigMaps))
 	}
-	if len(config.Workflow.ConfigMaps) > 0 && config.Workflow.ConfigMaps[0] != "app-config" {
-		t.Errorf("Workflow.ConfigMaps[0] = %s, want app-config", config.Workflow.ConfigMaps[0])
+	if len(config.Workflow.ConfigMaps) > 0 && config.Workflow.ConfigMaps[0].Name != "app-config" {
+		t.Errorf("Workflow.ConfigMaps[0].Name = %s, want app-config", config.Workflow.ConfigMaps[0].Name)
 	}
-	if len(config.Workflow.ConfigMaps) > 1 && config.Workflow.ConfigMaps[1] != "shared-data" {
-		t.Errorf("Workflow.ConfigMaps[1] = %s, want shared-data", config.Workflow.ConfigMaps[1])
+	if len(config.Workflow.ConfigMaps) > 1 && config.Workflow.ConfigMaps[1].Name != "shared-data" {
+		t.Errorf("Workflow.ConfigMaps[1].Name = %s, want shared-data", config.Workflow.ConfigMaps[1].Name)
 	}
 
 	// Verify secrets
 	if len(config.Workflow.Secrets) != 2 {
 		t.Errorf("Workflow.Secrets length = %d, want 2", len(config.Workflow.Secrets))
 	}
-	if len(config.Workflow.Secrets) > 0 && config.Workflow.Secrets[0] != "api-keys" {
-		t.Errorf("Workflow.Secrets[0] = %s, want api-keys", config.Workflow.Secrets[0])
+	if len(config.Workflow.Secrets) > 0 && config.Workflow.Secrets[0].Name != "api-keys" {
+		t.Errorf("Workflow.Secrets[0].Name = %s, want api-keys", config.Workflow.Secrets[0].Name)
 	}
-	if len(config.Workflow.Secrets) > 1 && config.Workflow.Secrets[1] != "database-creds" {
-		t.Errorf("Workflow.Secrets[1] = %s, want database-creds", config.Workflow.Secrets[1])
+	if len(config.Workflow.Secrets) > 1 && config.Workflow.Secrets[1].Name != "database-creds" {
+		t.Errorf("Workflow.Secrets[1].Name = %s, want database-creds", config.Workflow.Secrets[1].Name)
 	}
 
 	// Verify environment variables

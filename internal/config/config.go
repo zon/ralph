@@ -57,15 +57,29 @@ type GitUserConfig struct {
 	Email string `yaml:"email,omitempty"`
 }
 
+// ConfigMapMount represents a ConfigMap to mount with destination info
+type ConfigMapMount struct {
+	Name     string `yaml:"name"`               // Name of the ConfigMap
+	DestFile string `yaml:"destFile,omitempty"` // Destination file path (if mounting a single file)
+	DestDir  string `yaml:"destDir,omitempty"`  // Destination directory (if mounting entire ConfigMap)
+}
+
+// SecretMount represents a Secret to mount with destination info
+type SecretMount struct {
+	Name     string `yaml:"name"`               // Name of the Secret
+	DestFile string `yaml:"destFile,omitempty"` // Destination file path (if mounting a single file)
+	DestDir  string `yaml:"destDir,omitempty"`  // Destination directory (if mounting entire Secret)
+}
+
 // WorkflowConfig represents Argo Workflow configuration options
 type WorkflowConfig struct {
-	Image      ImageConfig       `yaml:"image,omitempty"`
-	ConfigMaps []string          `yaml:"configMaps,omitempty"`
-	Secrets    []string          `yaml:"secrets,omitempty"`
-	Env        map[string]string `yaml:"env,omitempty"`
-	Context    string            `yaml:"context,omitempty"`
-	Namespace  string            `yaml:"namespace,omitempty"`
-	GitUser    GitUserConfig     `yaml:"gitUser,omitempty"`
+	Image      ImageConfig         `yaml:"image,omitempty"`
+	ConfigMaps []ConfigMapMount    `yaml:"configMaps,omitempty"`
+	Secrets    []SecretMount       `yaml:"secrets,omitempty"`
+	Env        map[string]string   `yaml:"env,omitempty"`
+	Context    string              `yaml:"context,omitempty"`
+	Namespace  string              `yaml:"namespace,omitempty"`
+	GitUser    GitUserConfig       `yaml:"gitUser,omitempty"`
 }
 
 // RalphConfig represents the .ralph/config.yaml structure
