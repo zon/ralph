@@ -43,9 +43,9 @@ requirements:
     repository: my-registry/ralph
     tag: v1.0.0
   configMaps:
-    - my-config
+    - name: my-config
   secrets:
-    - my-secret
+    - name: my-secret
   env:
     MY_VAR: my-value
   context: my-context
@@ -502,7 +502,11 @@ func TestBuildExecutionScript(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			script := buildExecutionScript(tt.dryRun, tt.verbose, "Ralph Bot", "ralph@example.com")
+			// Create a minimal config for testing
+			cfg := &config.RalphConfig{
+				Workflow: config.WorkflowConfig{},
+			}
+			script := buildExecutionScript(tt.dryRun, tt.verbose, "Ralph Bot", "ralph@example.com", cfg)
 
 			// Verify script contains key elements
 			expectedElements := []string{

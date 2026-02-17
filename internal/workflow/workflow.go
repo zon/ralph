@@ -182,7 +182,7 @@ func buildMainTemplate(image, repoURL, branch string, cfg *config.RalphConfig, d
 				"-c",
 			},
 			"args": []string{
-				buildExecutionScript(dryRun, verbose, cfg.Workflow.GitUser.Name, cfg.Workflow.GitUser.Email),
+				buildExecutionScript(dryRun, verbose, cfg.Workflow.GitUser.Name, cfg.Workflow.GitUser.Email, cfg),
 			},
 			"env":          buildEnvVars(repoURL, branch, cfg),
 			"volumeMounts": buildVolumeMounts(cfg),
@@ -195,7 +195,7 @@ func buildMainTemplate(image, repoURL, branch string, cfg *config.RalphConfig, d
 }
 
 // buildExecutionScript builds the shell script that runs in the container
-func buildExecutionScript(dryRun, verbose bool, gitUserName, gitUserEmail string) string {
+func buildExecutionScript(dryRun, verbose bool, gitUserName, gitUserEmail string, cfg *config.RalphConfig) string {
 	// Build ralph command with flags
 	ralphCmd := "ralph \"$PROJECT_PATH\""
 	if dryRun {
@@ -241,32 +241,6 @@ cd /workspace/repo
 
 echo "Fetching main branch for PR diff..."
 git fetch origin main:main || echo "Warning: Could not fetch main branch"
-
-echo "Setting up application config and secrets..."
-mkdir -p config/backend config/teller
-
-# Copy main config from configmap if it exists
-if [ -d /configmaps/ploits-config ]; then
-  cp /configmaps/ploits-config/main.yaml config/main.yaml 2>/dev/null || true
-fi
-
-# Copy backend JWT keys from secret if they exist
-if [ -d /secrets/ploits-backend-jwt ]; then
-  cp /secrets/ploits-backend-jwt/private_key.pem config/backend/private_key.pem 2>/dev/null || true
-  cp /secrets/ploits-backend-jwt/public_key.pem config/backend/public_key.pem 2>/dev/null || true
-fi
-
-# Copy Teller credentials from secret if they exist
-if [ -d /secrets/ploits-teller ]; then
-  cp /secrets/ploits-teller/certificate.pem config/teller/certificate.pem 2>/dev/null || true
-  cp /secrets/ploits-teller/private_key.pem config/teller/private_key.pem 2>/dev/null || true
-  cp /secrets/ploits-teller/credentials.yaml config/teller/credentials.yaml 2>/dev/null || true
-fi
-
-# Copy secrets.yaml from ploits-secrets if it exists
-if [ -d /secrets/ploits-secrets ]; then
-  cp /secrets/ploits-secrets/secrets.yaml config/secrets.yaml 2>/dev/null || true
-fi
 
 echo "Writing project file to: $PROJECT_PATH"
 mkdir -p "$(dirname "$PROJECT_PATH")"
@@ -356,21 +330,59 @@ func buildVolumeMounts(cfg *config.RalphConfig) []map[string]interface{} {
 	}
 
 	// Add user-specified configMaps
-	for _, cm := range cfg.Workflow.ConfigMaps {
-		mounts = append(mounts, map[string]interface{}{
-			"name":      sanitizeName(cm),
-			"mountPath": fmt.Sprintf("/configmaps/%s", cm),
-			"readOnly":  true,
-		})
+	for i, cm := range cfg.Workflow.ConfigMaps {
+		mount := map[string]interface{}{
+			"name":     sanitizeName(cm.Name),
+			"readOnly": true,
+		}
+
+		if cm.DestFile != "" {
+			// Mount specific key (filename) to the destination file path
+			mount["mountPath"] = cm.DestFile
+			mount["subPath"] = filepath.Base(cm.DestFile)
+		} else if cm.DestDir != "" {
+			// Mount entire ConfigMap to the destination directory
+			mount["mountPath"] = cm.DestDir
+		} else {
+			// Fallback: mount to a default location
+			mount["mountPath"] = fmt.Sprintf("/configmaps/%s", cm.Name)
+		}
+
+		// If mounting multiple items from the same ConfigMap to different paths,
+		// we need unique volume names
+		if cm.DestFile != "" {
+			mount["name"] = fmt.Sprintf("%s-%d", sanitizeName(cm.Name), i)
+		}
+
+		mounts = append(mounts, mount)
 	}
 
 	// Add user-specified secrets
-	for _, secret := range cfg.Workflow.Secrets {
-		mounts = append(mounts, map[string]interface{}{
-			"name":      sanitizeName(secret),
-			"mountPath": fmt.Sprintf("/secrets/%s", secret),
-			"readOnly":  true,
-		})
+	for i, secret := range cfg.Workflow.Secrets {
+		mount := map[string]interface{}{
+			"name":     sanitizeName(secret.Name),
+			"readOnly": true,
+		}
+
+		if secret.DestFile != "" {
+			// Mount specific key (filename) to the destination file path
+			mount["mountPath"] = secret.DestFile
+			mount["subPath"] = filepath.Base(secret.DestFile)
+		} else if secret.DestDir != "" {
+			// Mount entire Secret to the destination directory
+			mount["mountPath"] = secret.DestDir
+		} else {
+			// Fallback: mount to a default location
+			mount["mountPath"] = fmt.Sprintf("/secrets/%s", secret.Name)
+		}
+
+		// If mounting multiple items from the same Secret to different paths,
+		// we need unique volume names
+		if secret.DestFile != "" {
+			mount["name"] = fmt.Sprintf("%s-%d", sanitizeName(secret.Name), i)
+		}
+
+		mounts = append(mounts, mount)
 	}
 
 	return mounts
@@ -400,23 +412,65 @@ func buildVolumes(cfg *config.RalphConfig) []map[string]interface{} {
 	}
 
 	// Add user-specified configMaps
-	for _, cm := range cfg.Workflow.ConfigMaps {
-		volumes = append(volumes, map[string]interface{}{
-			"name": sanitizeName(cm),
-			"configMap": map[string]interface{}{
-				"name": cm,
-			},
-		})
+	for i, cm := range cfg.Workflow.ConfigMaps {
+		volumeName := sanitizeName(cm.Name)
+
+		// If mounting a specific file, we need a unique volume name
+		// and use items to select the specific key
+		if cm.DestFile != "" {
+			volumeName = fmt.Sprintf("%s-%d", sanitizeName(cm.Name), i)
+			volumes = append(volumes, map[string]interface{}{
+				"name": volumeName,
+				"configMap": map[string]interface{}{
+					"name": cm.Name,
+					"items": []map[string]interface{}{
+						{
+							"key":  filepath.Base(cm.DestFile),
+							"path": filepath.Base(cm.DestFile),
+						},
+					},
+				},
+			})
+		} else {
+			// Mount entire ConfigMap
+			volumes = append(volumes, map[string]interface{}{
+				"name": volumeName,
+				"configMap": map[string]interface{}{
+					"name": cm.Name,
+				},
+			})
+		}
 	}
 
 	// Add user-specified secrets
-	for _, secret := range cfg.Workflow.Secrets {
-		volumes = append(volumes, map[string]interface{}{
-			"name": sanitizeName(secret),
-			"secret": map[string]interface{}{
-				"secretName": secret,
-			},
-		})
+	for i, secret := range cfg.Workflow.Secrets {
+		volumeName := sanitizeName(secret.Name)
+
+		// If mounting a specific file, we need a unique volume name
+		// and use items to select the specific key
+		if secret.DestFile != "" {
+			volumeName = fmt.Sprintf("%s-%d", sanitizeName(secret.Name), i)
+			volumes = append(volumes, map[string]interface{}{
+				"name": volumeName,
+				"secret": map[string]interface{}{
+					"secretName": secret.Name,
+					"items": []map[string]interface{}{
+						{
+							"key":  filepath.Base(secret.DestFile),
+							"path": filepath.Base(secret.DestFile),
+						},
+					},
+				},
+			})
+		} else {
+			// Mount entire Secret
+			volumes = append(volumes, map[string]interface{}{
+				"name": volumeName,
+				"secret": map[string]interface{}{
+					"secretName": secret.Name,
+				},
+			})
+		}
 	}
 
 	return volumes
