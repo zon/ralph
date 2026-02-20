@@ -157,6 +157,47 @@ func RemoteBranchExists(ctx *context.Context, name string) bool {
 	return exists
 }
 
+// IsBranchSyncedWithRemote checks if the local branch is in sync with its remote counterpart.
+// Returns an error if the remote branch doesn't exist or the local branch is ahead/behind.
+func IsBranchSyncedWithRemote(ctx *context.Context, branch string) error {
+	if ctx.IsDryRun() {
+		logger.Infof("[DRY-RUN] Would check if branch '%s' is synced with remote", branch)
+		return nil
+	}
+
+	// Check that the remote branch exists
+	remoteRef := fmt.Sprintf("origin/%s", branch)
+	cmd := exec.Command("git", "rev-parse", "--verify", remoteRef)
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("branch '%s' has not been pushed to remote - please push before running with --remote", branch)
+	}
+
+	// Compare local and remote commit hashes
+	localCmd := exec.Command("git", "rev-parse", branch)
+	var localOut bytes.Buffer
+	localCmd.Stdout = &localOut
+	if err := localCmd.Run(); err != nil {
+		return fmt.Errorf("failed to get local commit for branch '%s': %w", branch, err)
+	}
+
+	remoteCmd := exec.Command("git", "rev-parse", remoteRef)
+	var remoteOut bytes.Buffer
+	remoteCmd.Stdout = &remoteOut
+	if err := remoteCmd.Run(); err != nil {
+		return fmt.Errorf("failed to get remote commit for branch '%s': %w", branch, err)
+	}
+
+	localHash := strings.TrimSpace(localOut.String())
+	remoteHash := strings.TrimSpace(remoteOut.String())
+
+	if localHash != remoteHash {
+		return fmt.Errorf("branch '%s' is not in sync with remote - please push your changes before running with --remote", branch)
+	}
+
+	logger.Verbosef("Branch '%s' is in sync with remote", branch)
+	return nil
+}
+
 // CreateBranch creates a new git branch
 func CreateBranch(ctx *context.Context, name string) error {
 	if ctx.IsDryRun() {

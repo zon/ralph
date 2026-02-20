@@ -17,8 +17,10 @@ import (
 // DefaultContainerVersion is the default container image tag (set via ldflags during build)
 var DefaultContainerVersion = "latest"
 
-// GenerateWorkflow generates an Argo Workflow YAML for remote execution
-func GenerateWorkflow(ctx *execcontext.Context, projectName, projectBranch string, dryRun, verbose bool) (string, error) {
+// GenerateWorkflow generates an Argo Workflow YAML for remote execution.
+// cloneBranch is the branch the container will clone (current local branch).
+// projectBranch is the branch the container will create and work on (derived from the project file name).
+func GenerateWorkflow(ctx *execcontext.Context, projectName, cloneBranch, projectBranch string, dryRun, verbose bool) (string, error) {
 	// Get git remote URL
 	remoteURL, err := getRemoteURL()
 	if err != nil {
@@ -43,12 +45,12 @@ func GenerateWorkflow(ctx *execcontext.Context, projectName, projectBranch strin
 		return "", fmt.Errorf("failed to calculate relative project path: %w", err)
 	}
 
-	return GenerateWorkflowWithGitInfo(ctx, projectName, remoteURL, projectBranch, relProjectPath, dryRun, verbose)
+	return GenerateWorkflowWithGitInfo(ctx, projectName, remoteURL, cloneBranch, projectBranch, relProjectPath, dryRun, verbose)
 }
 
 // GenerateWorkflowWithGitInfo generates an Argo Workflow YAML with provided git information
 // This allows for easier testing by accepting git info as parameters
-func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL, branch, relProjectPath string, dryRun, verbose bool) (string, error) {
+func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL, cloneBranch, projectBranch, relProjectPath string, dryRun, verbose bool) (string, error) {
 	// Load ralph config
 	ralphConfig, err := config.LoadConfig()
 	if err != nil {
@@ -106,7 +108,8 @@ func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL,
 		"spec": buildWorkflowSpec(
 			image,
 			repoURL,
-			branch,
+			cloneBranch,
+			projectBranch,
 			params,
 			ralphConfig,
 			dryRun,
@@ -124,7 +127,7 @@ func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL,
 }
 
 // buildWorkflowSpec constructs the workflow spec
-func buildWorkflowSpec(image, repoURL, branch string, params map[string]string, cfg *config.RalphConfig, dryRun, verbose bool) map[string]interface{} {
+func buildWorkflowSpec(image, repoURL, cloneBranch, projectBranch string, params map[string]string, cfg *config.RalphConfig, dryRun, verbose bool) map[string]interface{} {
 	spec := map[string]interface{}{
 		"entrypoint": "ralph-executor",
 		// TTL to auto-delete after 1 day
@@ -140,7 +143,7 @@ func buildWorkflowSpec(image, repoURL, branch string, params map[string]string, 
 			"parameters": buildParameters(params),
 		},
 		"templates": []interface{}{
-			buildMainTemplate(image, repoURL, branch, cfg, dryRun, verbose),
+			buildMainTemplate(image, repoURL, cloneBranch, projectBranch, cfg, dryRun, verbose),
 		},
 	}
 
@@ -172,7 +175,7 @@ func buildParameters(params map[string]string) []map[string]interface{} {
 }
 
 // buildMainTemplate builds the main execution template
-func buildMainTemplate(image, repoURL, branch string, cfg *config.RalphConfig, dryRun, verbose bool) map[string]interface{} {
+func buildMainTemplate(image, repoURL, cloneBranch, projectBranch string, cfg *config.RalphConfig, dryRun, verbose bool) map[string]interface{} {
 	template := map[string]interface{}{
 		"name": "ralph-executor",
 		"container": map[string]interface{}{
@@ -184,7 +187,7 @@ func buildMainTemplate(image, repoURL, branch string, cfg *config.RalphConfig, d
 			"args": []string{
 				buildExecutionScript(dryRun, verbose, cfg.Workflow.GitUser.Name, cfg.Workflow.GitUser.Email, cfg),
 			},
-			"env":          buildEnvVars(repoURL, branch, cfg),
+			"env":          buildEnvVars(repoURL, cloneBranch, projectBranch, cfg),
 			"volumeMounts": buildVolumeMounts(cfg),
 			"workingDir":   "/workspace",
 		},
@@ -239,8 +242,10 @@ echo "Cloning repository: $GIT_REPO_URL"
 git clone -b "$GIT_BRANCH" "$GIT_REPO_URL" /workspace/repo
 cd /workspace/repo
 
-echo "Fetching main branch for PR diff..."
-git fetch origin main:main || echo "Warning: Could not fetch main branch"
+if [ "$PROJECT_BRANCH" != "$GIT_BRANCH" ]; then
+  echo "Creating and checking out project branch: $PROJECT_BRANCH"
+  git checkout -b "$PROJECT_BRANCH"
+fi
 
 echo "Writing project file to: $PROJECT_PATH"
 mkdir -p "$(dirname "$PROJECT_PATH")"
@@ -266,7 +271,7 @@ echo "Execution complete!"
 }
 
 // buildEnvVars builds environment variables for the container
-func buildEnvVars(repoURL, branch string, cfg *config.RalphConfig) []map[string]interface{} {
+func buildEnvVars(repoURL, cloneBranch, projectBranch string, cfg *config.RalphConfig) []map[string]interface{} {
 	envVars := []map[string]interface{}{
 		{
 			"name":  "GIT_REPO_URL",
@@ -274,7 +279,11 @@ func buildEnvVars(repoURL, branch string, cfg *config.RalphConfig) []map[string]
 		},
 		{
 			"name":  "GIT_BRANCH",
-			"value": branch,
+			"value": cloneBranch,
+		},
+		{
+			"name":  "PROJECT_BRANCH",
+			"value": projectBranch,
 		},
 		{
 			"name":  "PROJECT_FILE",

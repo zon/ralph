@@ -86,11 +86,12 @@ requirements:
 
 	// Generate workflow using the testable function
 	repoURL := "git@github.com:test/repo.git"
-	branch := "main"
+	cloneBranch := "main"
+	projectBranch := "test-project"
 	relProjectPath := "project.yaml"
 	dryRun := false
 	verbose := false
-	workflowYAML, err := GenerateWorkflowWithGitInfo(ctx, "test-project", repoURL, branch, relProjectPath, dryRun, verbose)
+	workflowYAML, err := GenerateWorkflowWithGitInfo(ctx, "test-project", repoURL, cloneBranch, projectBranch, relProjectPath, dryRun, verbose)
 	if err != nil {
 		t.Fatalf("GenerateWorkflowWithGitInfo failed: %v", err)
 	}
@@ -251,6 +252,7 @@ requirements:
 
 	hasGitRepoURL := false
 	hasGitBranch := false
+	hasProjectBranch := false
 	hasProjectFileEnv := false
 	hasCustomEnv := false
 	for _, envVar := range env {
@@ -263,6 +265,15 @@ requirements:
 		}
 		if envMap["name"] == "GIT_BRANCH" {
 			hasGitBranch = true
+			if envMap["value"] != cloneBranch {
+				t.Errorf("GIT_BRANCH = %v, want %v", envMap["value"], cloneBranch)
+			}
+		}
+		if envMap["name"] == "PROJECT_BRANCH" {
+			hasProjectBranch = true
+			if envMap["value"] != projectBranch {
+				t.Errorf("PROJECT_BRANCH = %v, want %v", envMap["value"], projectBranch)
+			}
 		}
 		if envMap["name"] == "PROJECT_FILE" {
 			hasProjectFileEnv = true
@@ -277,6 +288,9 @@ requirements:
 	}
 	if !hasGitBranch {
 		t.Error("GIT_BRANCH environment variable not found")
+	}
+	if !hasProjectBranch {
+		t.Error("PROJECT_BRANCH environment variable not found")
 	}
 	if !hasProjectFileEnv {
 		t.Error("PROJECT_FILE environment variable not found")
@@ -440,11 +454,12 @@ requirements:
 
 	// Generate workflow using the testable function
 	repoURL := "git@github.com:test/repo.git"
-	branch := "main"
+	cloneBranch := "main"
+	projectBranch := "test-project"
 	relProjectPath := "project.yaml"
 	dryRun := false
 	verbose := false
-	workflowYAML, err := GenerateWorkflowWithGitInfo(ctx, "test-project", repoURL, branch, relProjectPath, dryRun, verbose)
+	workflowYAML, err := GenerateWorkflowWithGitInfo(ctx, "test-project", repoURL, cloneBranch, projectBranch, relProjectPath, dryRun, verbose)
 	if err != nil {
 		t.Fatalf("GenerateWorkflowWithGitInfo failed: %v", err)
 	}
@@ -515,6 +530,7 @@ func TestBuildExecutionScript(t *testing.T) {
 				"git clone",
 				"GIT_REPO_URL",
 				"GIT_BRANCH",
+				"PROJECT_BRANCH",
 				"mkdir -p ~/.ssh",
 				"ssh-privatekey",
 				"GITHUB_TOKEN",

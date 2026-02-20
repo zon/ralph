@@ -14,7 +14,18 @@ echo ""
 
 # Authenticate to GitHub Container Registry
 echo "Authenticating to GitHub Container Registry..."
-gh auth token | podman login ghcr.io -u zon --password-stdin
+if ! TOKEN=$(gh auth token 2>/dev/null) || [ -z "$TOKEN" ]; then
+  echo "Error: not authenticated to GitHub. Run: gh auth login"
+  exit 1
+fi
+
+if ! gh auth status 2>&1 | grep -q "write:packages"; then
+  echo "Error: GitHub token is missing the 'write:packages' scope."
+  echo "Re-authenticate with: gh auth login --scopes write:packages"
+  exit 1
+fi
+
+echo "$TOKEN" | podman login ghcr.io -u zon --password-stdin
 echo ""
 
 # Build the image

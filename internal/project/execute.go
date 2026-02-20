@@ -281,6 +281,12 @@ func executeRemote(ctx *context.Context, project *config.Project) error {
 		return fmt.Errorf("failed to get current branch: %w", err)
 	}
 
+	// Ensure the current branch is in sync with its remote before submitting the workflow
+	logger.Verbosef("Checking branch '%s' is in sync with remote...", currentBranch)
+	if err := git.IsBranchSyncedWithRemote(ctx, currentBranch); err != nil {
+		return err
+	}
+
 	// Extract project branch name from project file
 	absProjectFile, err := filepath.Abs(ctx.ProjectFile)
 	if err != nil {
@@ -288,40 +294,15 @@ func executeRemote(ctx *context.Context, project *config.Project) error {
 	}
 	projectBranch := extractBranchName(absProjectFile)
 
-	// Ensure the project branch exists and is pushed to remote
-	// This is critical for workflow execution to work properly
-	logger.Verbosef("Ensuring project branch '%s' is ready for remote execution...", projectBranch)
-
-	// If we're not on the project branch, we need to create/checkout it
-	if currentBranch != projectBranch {
-		logger.Verbosef("Current branch '%s' differs from project branch '%s'", currentBranch, projectBranch)
-
-		// Check if project branch exists locally
-		if git.BranchExists(ctx, projectBranch) {
-			logger.Verbosef("Project branch '%s' already exists locally", projectBranch)
-		} else {
-			// Create the project branch
-			logger.Verbosef("Creating project branch '%s'...", projectBranch)
-			if err := git.CreateBranch(ctx, projectBranch); err != nil {
-				return fmt.Errorf("failed to create project branch: %w", err)
-			}
-		}
-	}
-
-	// Ensure the project branch is pushed to remote
-	if err := ensureBranchPushed(ctx, projectBranch); err != nil {
-		return fmt.Errorf("failed to ensure branch is pushed: %w", err)
-	}
-
 	// Load configuration
 	ralphConfig, err := config.LoadConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	// Generate workflow YAML
+	// Generate workflow YAML - clone from current branch; workflow will create project branch inside container
 	logger.Verbose("Generating Argo Workflow YAML...")
-	workflowYAML, err := workflow.GenerateWorkflow(ctx, project.Name, projectBranch, ctx.IsDryRun(), ctx.IsVerbose())
+	workflowYAML, err := workflow.GenerateWorkflow(ctx, project.Name, currentBranch, projectBranch, ctx.IsDryRun(), ctx.IsVerbose())
 	if err != nil {
 		return fmt.Errorf("failed to generate workflow: %w", err)
 	}
@@ -349,23 +330,5 @@ func executeRemote(ctx *context.Context, project *config.Project) error {
 		logger.Infof("To watch logs, run: argo logs -n %s -f %s", namespace, workflowName)
 	}
 
-	return nil
-}
-
-// ensureBranchPushed checks if a branch exists on remote and pushes it if not
-func ensureBranchPushed(ctx *context.Context, branch string) error {
-	// Check if branch exists on remote
-	if git.RemoteBranchExists(ctx, branch) {
-		logger.Verbosef("Branch '%s' already exists on remote", branch)
-		return nil
-	}
-
-	// Branch doesn't exist on remote, push it
-	logger.Verbosef("Branch '%s' not found on remote, pushing...", branch)
-	if _, err := git.PushBranch(ctx, branch); err != nil {
-		return fmt.Errorf("failed to push branch: %w", err)
-	}
-
-	logger.Verbosef("Branch '%s' pushed to remote", branch)
 	return nil
 }
