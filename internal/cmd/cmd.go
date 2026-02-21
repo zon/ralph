@@ -43,6 +43,7 @@ type RunCmd struct {
 	Remote        bool   `help:"Execute workflow in Argo Workflows (incompatible with --once)" default:"false"`
 	Watch         bool   `help:"Watch workflow execution (only applicable with --remote)" default:"false"`
 	ShowVersion   bool   `help:"Show version information" short:"v" name:"version"`
+	Instructions  string `help:"Path to an instructions file that overrides the default agent instructions" type:"path" optional:""`
 
 	version          string       `kong:"-"`
 	date             string       `kong:"-"`
@@ -490,6 +491,7 @@ func (r *RunCmd) Run() error {
 		NoServices:    r.NoServices,
 		Remote:        r.Remote,
 		Watch:         r.Watch,
+		Instructions:  r.Instructions,
 	}
 
 	if r.Once {

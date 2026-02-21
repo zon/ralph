@@ -405,6 +405,52 @@ func TestConfigOpencodeCommand(t *testing.T) {
 	}
 }
 
+func TestInstructionsFlagParsing(t *testing.T) {
+	tests := []struct {
+		name                 string
+		args                 []string
+		expectedInstructions string
+	}{
+		{
+			name:                 "no instructions flag defaults to empty",
+			args:                 []string{"run", "test.yaml"},
+			expectedInstructions: "",
+		},
+		{
+			name:                 "instructions flag is parsed",
+			args:                 []string{"run", "--instructions", "/path/to/instructions.md", "test.yaml"},
+			expectedInstructions: "/path/to/instructions.md",
+		},
+		{
+			name:                 "instructions flag with default command",
+			args:                 []string{"--instructions", "/path/to/instructions.md", "test.yaml"},
+			expectedInstructions: "/path/to/instructions.md",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := &Cmd{}
+			parser, err := kong.New(cmd,
+				kong.Name("ralph"),
+				kong.Exit(func(int) {}),
+			)
+			if err != nil {
+				t.Fatalf("failed to create parser: %v", err)
+			}
+
+			_, err = parser.Parse(tt.args)
+			if err != nil {
+				t.Fatalf("failed to parse args: %v", err)
+			}
+
+			if cmd.Run.Instructions != tt.expectedInstructions {
+				t.Errorf("expected Instructions=%q, got %q", tt.expectedInstructions, cmd.Run.Instructions)
+			}
+		})
+	}
+}
+
 func TestConfigOpencodeFlags(t *testing.T) {
 	tests := []struct {
 		name              string

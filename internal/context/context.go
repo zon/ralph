@@ -13,6 +13,7 @@ type Context struct {
 	Remote        bool
 	Watch         bool
 	Notes         []string // Runtime notes to pass to the agent
+	Instructions  string   // Path to an instructions file that overrides the default instructions
 }
 
 // IsDryRun returns true if running in dry-run mode
