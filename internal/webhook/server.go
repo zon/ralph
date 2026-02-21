@@ -15,8 +15,9 @@ import (
 
 // EventHandler is called when a webhook event passes all filters.
 // eventType is the X-GitHub-Event header value.
+// repoOwner and repoName identify the repository the event belongs to.
 // payload is the parsed JSON payload.
-type EventHandler func(eventType string, payload map[string]interface{})
+type EventHandler func(eventType string, repoOwner, repoName string, payload map[string]interface{})
 
 // Server is the GitHub webhook HTTP server.
 type Server struct {
@@ -121,7 +122,7 @@ func (s *Server) handleWebhook(c *gin.Context) {
 			return
 		}
 		if s.handler != nil {
-			s.handler(eventType, payload)
+			s.handler(eventType, owner, repoName, payload)
 		}
 		c.Status(http.StatusOK)
 
@@ -145,7 +146,7 @@ func (s *Server) handleWebhook(c *gin.Context) {
 			return
 		}
 		if s.handler != nil {
-			s.handler(eventType, payload)
+			s.handler(eventType, owner, repoName, payload)
 		}
 		c.Status(http.StatusOK)
 

@@ -61,7 +61,7 @@ requirements:
       - For comment events, service invokes ralph with the project file and --instructions, submitting a remote workflow
       - For approval events, service invokes ralph merge with the project file and PR branch name
       - The service does not wait for any workflow to complete
-    passing: false
+    passing: true
 
   - category: dev-environment
     description: Hot-reload development environment using Air

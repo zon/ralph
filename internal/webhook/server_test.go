@@ -121,7 +121,7 @@ func TestHandleWebhook_UnknownRepo_Returns401(t *testing.T) {
 
 func TestHandleWebhook_IssueComment_Ignored200(t *testing.T) {
 	var called bool
-	s := NewServer(testConfig(), func(_ string, _ map[string]interface{}) {
+	s := NewServer(testConfig(), func(_ string, _, _ string, _ map[string]interface{}) {
 		called = true
 	})
 	body := buildPayload("acme", "myrepo", nil)
@@ -133,7 +133,7 @@ func TestHandleWebhook_IssueComment_Ignored200(t *testing.T) {
 
 func TestHandleWebhook_UnrecognisedEvent_Ignored200(t *testing.T) {
 	var called bool
-	s := NewServer(testConfig(), func(_ string, _ map[string]interface{}) {
+	s := NewServer(testConfig(), func(_ string, _, _ string, _ map[string]interface{}) {
 		called = true
 	})
 	body := buildPayload("acme", "myrepo", nil)
@@ -149,7 +149,7 @@ func TestHandleWebhook_UnrecognisedEvent_Ignored200(t *testing.T) {
 
 func TestHandleWebhook_ReviewComment_PRNotOpenedByRalph_Ignored200(t *testing.T) {
 	var called bool
-	s := NewServer(testConfig(), func(_ string, _ map[string]interface{}) {
+	s := NewServer(testConfig(), func(_ string, _, _ string, _ map[string]interface{}) {
 		called = true
 	})
 	// PR opened by a human, not ralph-bot
@@ -165,7 +165,7 @@ func TestHandleWebhook_ReviewComment_PRNotOpenedByRalph_Ignored200(t *testing.T)
 
 func TestHandleWebhook_ReviewComment_PostedByRalph_Ignored200(t *testing.T) {
 	var called bool
-	s := NewServer(testConfig(), func(_ string, _ map[string]interface{}) {
+	s := NewServer(testConfig(), func(_ string, _, _ string, _ map[string]interface{}) {
 		called = true
 	})
 	// PR opened by ralph-bot but comment also posted by ralph-bot
@@ -181,7 +181,7 @@ func TestHandleWebhook_ReviewComment_PostedByRalph_Ignored200(t *testing.T) {
 
 func TestHandleWebhook_ReviewComment_RalphPRCaseInsensitive_HandlerCalled(t *testing.T) {
 	var called bool
-	s := NewServer(testConfig(), func(_ string, _ map[string]interface{}) {
+	s := NewServer(testConfig(), func(_ string, _, _ string, _ map[string]interface{}) {
 		called = true
 	})
 	// PR opened by ralph-bot (different case) and comment from a human
@@ -197,7 +197,7 @@ func TestHandleWebhook_ReviewComment_RalphPRCaseInsensitive_HandlerCalled(t *tes
 
 func TestHandleWebhook_PullRequestReview_PRNotOpenedByRalph_Ignored200(t *testing.T) {
 	var called bool
-	s := NewServer(testConfig(), func(_ string, _ map[string]interface{}) {
+	s := NewServer(testConfig(), func(_ string, _, _ string, _ map[string]interface{}) {
 		called = true
 	})
 	// PR opened by human, not ralph-bot
@@ -213,7 +213,7 @@ func TestHandleWebhook_PullRequestReview_PRNotOpenedByRalph_Ignored200(t *testin
 
 func TestHandleWebhook_PullRequestReview_ReviewPostedByRalph_Ignored200(t *testing.T) {
 	var called bool
-	s := NewServer(testConfig(), func(_ string, _ map[string]interface{}) {
+	s := NewServer(testConfig(), func(_ string, _, _ string, _ map[string]interface{}) {
 		called = true
 	})
 	// PR opened by ralph-bot but review also posted by ralph-bot
@@ -229,7 +229,7 @@ func TestHandleWebhook_PullRequestReview_ReviewPostedByRalph_Ignored200(t *testi
 
 func TestHandleWebhook_PullRequestReviewComment_HandlerCalled(t *testing.T) {
 	var receivedEvent string
-	s := NewServer(testConfig(), func(eventType string, _ map[string]interface{}) {
+	s := NewServer(testConfig(), func(eventType string, _, _ string, _ map[string]interface{}) {
 		receivedEvent = eventType
 	})
 	body := buildPayload("acme", "myrepo", map[string]interface{}{
@@ -248,7 +248,7 @@ func TestHandleWebhook_PullRequestReviewComment_HandlerCalled(t *testing.T) {
 
 func TestHandleWebhook_PullRequestReview_ApprovedState_HandlerCalled(t *testing.T) {
 	var receivedEvent string
-	s := NewServer(testConfig(), func(eventType string, _ map[string]interface{}) {
+	s := NewServer(testConfig(), func(eventType string, _, _ string, _ map[string]interface{}) {
 		receivedEvent = eventType
 	})
 	body := buildPayload("acme", "myrepo", map[string]interface{}{
@@ -263,7 +263,7 @@ func TestHandleWebhook_PullRequestReview_ApprovedState_HandlerCalled(t *testing.
 
 func TestHandleWebhook_PullRequestReview_ApprovedStateCaseInsensitive_HandlerCalled(t *testing.T) {
 	var receivedEvent string
-	s := NewServer(testConfig(), func(eventType string, _ map[string]interface{}) {
+	s := NewServer(testConfig(), func(eventType string, _, _ string, _ map[string]interface{}) {
 		receivedEvent = eventType
 	})
 	body := buildPayload("acme", "myrepo", map[string]interface{}{
@@ -281,7 +281,7 @@ func TestHandleWebhook_PullRequestReview_NonApprovedState_Ignored200(t *testing.
 	for _, state := range states {
 		t.Run(fmt.Sprintf("state=%q", state), func(t *testing.T) {
 			var called bool
-			s := NewServer(testConfig(), func(_ string, _ map[string]interface{}) {
+			s := NewServer(testConfig(), func(_ string, _, _ string, _ map[string]interface{}) {
 				called = true
 			})
 			body := buildPayload("acme", "myrepo", map[string]interface{}{
@@ -301,7 +301,7 @@ func TestHandleWebhook_PullRequestReview_NonApprovedState_Ignored200(t *testing.
 
 func TestHandleWebhook_HandlerReceivesPayload(t *testing.T) {
 	var receivedPayload map[string]interface{}
-	s := NewServer(testConfig(), func(_ string, payload map[string]interface{}) {
+	s := NewServer(testConfig(), func(_ string, _, _ string, payload map[string]interface{}) {
 		receivedPayload = payload
 	})
 	body := buildPayload("acme", "myrepo", map[string]interface{}{
