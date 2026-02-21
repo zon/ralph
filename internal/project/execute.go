@@ -97,9 +97,15 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	logger.Verbosef("Current branch: %s", currentBranch)
 
 	// Validate current branch is in sync with remote
-	logger.Verbosef("Checking branch '%s' is in sync with remote...", currentBranch)
-	if err := git.IsBranchSyncedWithRemote(ctx, currentBranch); err != nil {
-		return err
+	// Skip this check when running inside a workflow container — the container may have
+	// created a fresh local branch that hasn't been pushed yet, and it will push after work is done.
+	if !ctx.IsWorkflowExecution() {
+		logger.Verbosef("Checking branch '%s' is in sync with remote...", currentBranch)
+		if err := git.IsBranchSyncedWithRemote(ctx, currentBranch); err != nil {
+			return err
+		}
+	} else {
+		logger.Verbosef("Skipping remote sync check (running in workflow container)")
 	}
 
 	// Switch to project branch if different from current
