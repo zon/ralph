@@ -40,8 +40,8 @@ type RunCmd struct {
 	NoNotify      bool   `help:"Disable desktop notifications" default:"false"`
 	NoServices    bool   `help:"Skip service startup" default:"false"`
 	Verbose       bool   `help:"Enable verbose logging" default:"false"`
-	Remote        bool   `help:"Execute workflow in Argo Workflows (incompatible with --once)" default:"false"`
-	Watch         bool   `help:"Watch workflow execution (only applicable with --remote)" default:"false"`
+	Local         bool   `help:"Run on this machine instead of in Argo Workflows" default:"false"`
+	Watch         bool   `help:"Watch workflow execution (only applicable without --local)" default:"false"`
 	ShowVersion   bool   `help:"Show version information" short:"v" name:"version"`
 
 	version          string       `kong:"-"`
@@ -472,12 +472,12 @@ func (r *RunCmd) Run() error {
 	}
 
 	// Validate flag combinations
-	if r.Watch && !r.Remote {
-		return fmt.Errorf("--watch flag is only applicable with --remote flag")
+	if r.Watch && r.Local {
+		return fmt.Errorf("--watch flag is not applicable with --local flag")
 	}
 
-	if r.Remote && r.Once {
-		return fmt.Errorf("--remote flag is incompatible with --once flag")
+	if r.Local && r.Once {
+		return fmt.Errorf("--local flag is incompatible with --once flag")
 	}
 
 	// Create execution context
@@ -488,7 +488,7 @@ func (r *RunCmd) Run() error {
 		Verbose:       r.Verbose,
 		NoNotify:      r.NoNotify,
 		NoServices:    r.NoServices,
-		Remote:        r.Remote,
+		Remote:        !r.Local,
 		Watch:         r.Watch,
 	}
 

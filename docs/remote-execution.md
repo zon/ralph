@@ -126,7 +126,7 @@ All workflow settings are optional. Ralph uses sensible defaults if not specifie
 Submit a workflow and return immediately:
 
 ```bash
-ralph my-feature.yaml --remote
+ralph my-feature.yaml
 ```
 
 This:
@@ -140,7 +140,7 @@ This:
 Submit a workflow and watch its progress:
 
 ```bash
-ralph my-feature.yaml --remote --watch
+ralph my-feature.yaml --watch
 ```
 
 This:
@@ -227,7 +227,7 @@ Your custom image should include:
 
 ## How It Works
 
-When you run `ralph --remote`, here's what happens:
+When you run ralph in remote mode (the default), here's what happens:
 
 ### 1. Workflow Generation
 
@@ -372,7 +372,7 @@ ralph config github
 ralph config opencode
 
 # Run project remotely with monitoring
-ralph my-feature.yaml --remote --watch
+ralph my-feature.yaml --watch
 ```
 
 ### Custom Image and Environment
@@ -390,7 +390,7 @@ workflow:
 ```
 
 ```bash
-ralph my-feature.yaml --remote --watch
+ralph my-feature.yaml --watch
 ```
 
 ### Multiple Clusters
@@ -398,17 +398,17 @@ ralph my-feature.yaml --remote --watch
 ```bash
 # Development cluster
 ralph config git --context dev --namespace argo-dev
-ralph my-feature.yaml --remote --watch
+ralph my-feature.yaml --watch
 
 # Production cluster  
 ralph config git --context prod --namespace argo-prod
-ralph my-feature.yaml --remote --watch
+ralph my-feature.yaml --watch
 ```
 
 ## Limitations
 
-- Remote execution is incompatible with `--once` flag
-- The `--watch` flag requires `--remote` flag
+- Remote execution is incompatible with `--once` flag (use `--local --once` instead)
+- The `--watch` flag is not applicable with `--local` flag
 - Notifications are disabled in remote mode without `--watch`
 - Workflow cleanup happens after 1 day (not configurable)
 

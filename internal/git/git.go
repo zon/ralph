@@ -169,7 +169,7 @@ func IsBranchSyncedWithRemote(ctx *context.Context, branch string) error {
 	remoteRef := fmt.Sprintf("origin/%s", branch)
 	cmd := exec.Command("git", "rev-parse", "--verify", remoteRef)
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("branch '%s' has not been pushed to remote - please push before running with --remote", branch)
+		return fmt.Errorf("branch '%s' has not been pushed to remote - please push before running remotely", branch)
 	}
 
 	// Compare local and remote commit hashes
@@ -191,7 +191,7 @@ func IsBranchSyncedWithRemote(ctx *context.Context, branch string) error {
 	remoteHash := strings.TrimSpace(remoteOut.String())
 
 	if localHash != remoteHash {
-		return fmt.Errorf("branch '%s' is not in sync with remote - please push your changes before running with --remote", branch)
+		return fmt.Errorf("branch '%s' is not in sync with remote - please push your changes before running remotely", branch)
 	}
 
 	logger.Verbosef("Branch '%s' is in sync with remote", branch)
