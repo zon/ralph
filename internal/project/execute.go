@@ -148,31 +148,6 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		return fmt.Errorf("failed to reload project after iteration loop: %w", err)
 	}
 
-	allComplete, _, _ := config.CheckCompletion(project)
-
-	// If project is complete, delete the project file and commit that change
-	if allComplete {
-		logger.Verbose("Project complete - deleting project file before creating PR")
-
-		// Delete the project file
-		if err := git.DeleteFile(ctx, absProjectFile); err != nil {
-			return fmt.Errorf("failed to delete project file: %w", err)
-		}
-
-		// Commit and push the deletion
-		commitMsg := fmt.Sprintf("Remove project file %s", filepath.Base(absProjectFile))
-		if err := git.Commit(ctx, commitMsg); err != nil {
-			return fmt.Errorf("failed to commit project file deletion: %w", err)
-		}
-		if err := git.PushCurrentBranch(ctx); err != nil {
-			return fmt.Errorf("failed to push project file deletion: %w", err)
-		}
-
-		logger.Verbosef("Deleted and committed removal of project file: %s", filepath.Base(absProjectFile))
-	} else {
-		logger.Verbose("Project not complete - keeping project file")
-	}
-
 	if ctx.IsVerbose() {
 		logger.Verbosef("PR Summary:\n%s", prSummary)
 	}

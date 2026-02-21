@@ -1,0 +1,79 @@
+name: webhook-service-deployment
+description: Helm chart for the ralph-webhook service with RBAC, ingress, and CLI commands to provision its config and secrets into Kubernetes
+
+requirements:
+  - category: helm
+    description: Helm Chart Scaffolding
+    items:
+      - Chart.yaml with name, description, and version fields
+      - Helm chart defaults to the ralph-webhook namespace
+      - values.yaml with sensible defaults for image, replicas, and resources
+    passing: true
+
+  - category: helm
+    description: Service Account and RBAC
+    items:
+      - ServiceAccount manifest created for ralph-webhook
+      - Role granting create permissions on workflows.argoproj.io in the same namespace
+      - RoleBinding attaching the Role to the ServiceAccount
+      - Deployment references the ServiceAccount
+    passing: true
+
+  - category: helm
+    description: Deployment and Service Manifests
+    items:
+      - Deployment manifest for the ralph-webhook service
+      - Service manifest exposing the webhook HTTP port
+      - Configurable image repository and tag via values.yaml
+      - Deployment mounts webhook-config and webhook-secrets Kubernetes secrets
+    passing: true
+
+  - category: helm
+    description: Ingress Manifest
+    items:
+      - Ingress manifest for the ralph-webhook service
+      - Default hostname is ralph.wurbs.chat
+      - Hostname configurable via values.yaml
+    passing: true
+
+  - category: helm
+    description: Helm Chart Validation
+    items:
+      - helm lint passes without errors or warnings
+      - helm template renders all manifests without errors
+    passing: true
+
+  - category: backend
+    description: Config Command Subcommands
+    items:
+      - ConfigWebhookConfigCmd and ConfigWebhookSecretCmd added to ConfigCmd in internal/cmd/cmd.go
+      - Both commands accept --context and --namespace flags (defaulting to ralph-webhook namespace)
+    passing: true
+
+  - category: backend
+    description: webhook-config command
+    items:
+      - Repos auto-detected from current git remote using k8s.GetGitHubRepo
+      - Missing AppConfig fields filled with defaults (port=8080, model from .ralph/config.yaml, clonePath defaulted to /repos/<repo-name> since projects are always in ./projects relative to the repo root)
+      - ralphUsername defaults to the authenticated gh CLI user (gh api user --jq .login)
+      - Serializes AppConfig as YAML and writes it to a Kubernetes secret named "webhook-config" in the target namespace
+      - Accepts an optional --config flag to load a partial AppConfig YAML file as a starting point
+    passing: true
+
+  - category: backend
+    description: webhook-secret command
+    items:
+      - GitHubToken removed from the Secrets struct and ValidateConfig since the webhook service never uses it at runtime
+      - Webhook secret auto-generated (cryptographically random) for each repo in the webhook-config secret
+      - Webhook secret registered on GitHub via "gh api" for the repo's webhook (matched by the ingress hostname ralph.wurbs.chat)
+      - Serializes Secrets as YAML and writes it to a Kubernetes secret named "webhook-secrets" in the target namespace
+      - Requires webhook-config secret to already exist in the namespace (reads repo list from it)
+    passing: true
+
+  - category: testing
+    description: Unit Tests
+    items:
+      - Tests for default-filling logic in webhook-config command
+      - Tests for secret generation and serialization in webhook-secret command
+    passing: true
+
