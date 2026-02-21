@@ -16,6 +16,7 @@ import (
 	"github.com/zon/ralph/internal/notify"
 	"github.com/zon/ralph/internal/project"
 	"github.com/zon/ralph/internal/requirement"
+	"github.com/zon/ralph/internal/workflow"
 	"golang.org/x/term"
 )
 
@@ -23,11 +24,20 @@ import (
 type Cmd struct {
 	// Subcommands
 	Run    RunCmd    `cmd:"" default:"withargs" help:"Execute ralph with a project file (default command)"`
+	Merge  MergeCmd  `cmd:"" help:"Submit an Argo workflow to merge a completed PR"`
 	Config ConfigCmd `cmd:"" help:"Configure credentials for remote execution"`
 
 	version          string       `kong:"-"`
 	date             string       `kong:"-"`
 	cleanupRegistrar func(func()) `kong:"-"`
+}
+
+// MergeCmd is the command for submitting a merge workflow for a completed PR
+type MergeCmd struct {
+	ProjectFile string `arg:"" help:"Path to project YAML file" type:"path"`
+	Branch      string `arg:"" help:"PR branch name to merge"`
+	DryRun      bool   `help:"Simulate execution without making changes" default:"false"`
+	Verbose     bool   `help:"Enable verbose logging" default:"false"`
 }
 
 // RunCmd is the default command for executing ralph
@@ -43,6 +53,7 @@ type RunCmd struct {
 	Local         bool   `help:"Run on this machine instead of in Argo Workflows" default:"false"`
 	Watch         bool   `help:"Watch workflow execution (only applicable without --local)" default:"false"`
 	ShowVersion   bool   `help:"Show version information" short:"v" name:"version"`
+	Instructions  string `help:"Path to an instructions file that overrides the default agent instructions" type:"path" optional:""`
 
 	version          string       `kong:"-"`
 	date             string       `kong:"-"`
@@ -447,6 +458,50 @@ func (c *Cmd) SetCleanupRegistrar(cleanupRegistrar func(func())) {
 	c.Run.cleanupRegistrar = cleanupRegistrar
 }
 
+// Run executes the merge command (implements kong.Run interface)
+func (m *MergeCmd) Run() error {
+	if m.ProjectFile == "" {
+		return fmt.Errorf("project file required (see --help)")
+	}
+	if m.Branch == "" {
+		return fmt.Errorf("PR branch name required (see --help)")
+	}
+
+	// Load ralph config for workflow submission
+	ralphConfig, err := config.LoadConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load ralph config: %w", err)
+	}
+
+	// Generate the merge workflow
+	workflowYAML, err := workflow.GenerateMergeWorkflow(m.ProjectFile, m.Branch)
+	if err != nil {
+		return fmt.Errorf("failed to generate merge workflow: %w", err)
+	}
+
+	if m.DryRun {
+		logger.Infof("Dry run: would submit merge workflow for branch %s", m.Branch)
+		if m.Verbose {
+			fmt.Println(workflowYAML)
+		}
+		return nil
+	}
+
+	// Submit the workflow (does not wait for completion)
+	ctx := &execcontext.Context{
+		ProjectFile: m.ProjectFile,
+		DryRun:      m.DryRun,
+		Verbose:     m.Verbose,
+	}
+	workflowName, err := workflow.SubmitWorkflow(ctx, workflowYAML, ralphConfig)
+	if err != nil {
+		return fmt.Errorf("failed to submit merge workflow: %w", err)
+	}
+
+	logger.Successf("Merge workflow submitted: %s", workflowName)
+	return nil
+}
+
 // Run executes the run command (implements kong.Run interface)
 func (r *RunCmd) Run() error {
 	// Handle version flag
@@ -490,6 +545,7 @@ func (r *RunCmd) Run() error {
 		NoServices:    r.NoServices,
 		Remote:        !r.Local,
 		Watch:         r.Watch,
+		Instructions:  r.Instructions,
 	}
 
 	if r.Once {

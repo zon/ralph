@@ -72,3 +72,10 @@ func WithNoServices(noServices bool) ContextOption {
 		ctx.NoServices = noServices
 	}
 }
+
+// WithInstructions sets the instructions file path
+func WithInstructions(instructions string) ContextOption {
+	return func(ctx *context.Context) {
+		ctx.Instructions = instructions
+	}
+}

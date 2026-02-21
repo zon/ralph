@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/alecthomas/kong"
@@ -400,6 +401,141 @@ func TestConfigOpencodeCommand(t *testing.T) {
 				if cmd.Config.Opencode.Namespace != "" {
 					// Namespace was set, which is valid
 				}
+			}
+		})
+	}
+}
+
+func TestInstructionsFlagParsing(t *testing.T) {
+	tests := []struct {
+		name                 string
+		args                 []string
+		expectedInstructions string
+	}{
+		{
+			name:                 "no instructions flag defaults to empty",
+			args:                 []string{"run", "test.yaml"},
+			expectedInstructions: "",
+		},
+		{
+			name:                 "instructions flag is parsed",
+			args:                 []string{"run", "--instructions", "/path/to/instructions.md", "test.yaml"},
+			expectedInstructions: "/path/to/instructions.md",
+		},
+		{
+			name:                 "instructions flag with default command",
+			args:                 []string{"--instructions", "/path/to/instructions.md", "test.yaml"},
+			expectedInstructions: "/path/to/instructions.md",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := &Cmd{}
+			parser, err := kong.New(cmd,
+				kong.Name("ralph"),
+				kong.Exit(func(int) {}),
+			)
+			if err != nil {
+				t.Fatalf("failed to create parser: %v", err)
+			}
+
+			_, err = parser.Parse(tt.args)
+			if err != nil {
+				t.Fatalf("failed to parse args: %v", err)
+			}
+
+			if cmd.Run.Instructions != tt.expectedInstructions {
+				t.Errorf("expected Instructions=%q, got %q", tt.expectedInstructions, cmd.Run.Instructions)
+			}
+		})
+	}
+}
+
+func TestMergeCmdFlagParsing(t *testing.T) {
+	tests := []struct {
+		name               string
+		args               []string
+		expectedFileSuffix string
+		expectedBranch     string
+		expectedDryRun     bool
+		expectedVerbose    bool
+		wantParseErr       bool
+	}{
+		{
+			name:               "basic merge command",
+			args:               []string{"merge", "project.yaml", "ralph/my-feature"},
+			expectedFileSuffix: "project.yaml",
+			expectedBranch:     "ralph/my-feature",
+			expectedDryRun:     false,
+			expectedVerbose:    false,
+		},
+		{
+			name:               "merge with dry-run flag",
+			args:               []string{"merge", "project.yaml", "ralph/my-feature", "--dry-run"},
+			expectedFileSuffix: "project.yaml",
+			expectedBranch:     "ralph/my-feature",
+			expectedDryRun:     true,
+			expectedVerbose:    false,
+		},
+		{
+			name:               "merge with verbose flag",
+			args:               []string{"merge", "project.yaml", "ralph/my-feature", "--verbose"},
+			expectedFileSuffix: "project.yaml",
+			expectedBranch:     "ralph/my-feature",
+			expectedDryRun:     false,
+			expectedVerbose:    true,
+		},
+		{
+			name:               "merge with both flags",
+			args:               []string{"merge", "project.yaml", "ralph/my-feature", "--dry-run", "--verbose"},
+			expectedFileSuffix: "project.yaml",
+			expectedBranch:     "ralph/my-feature",
+			expectedDryRun:     true,
+			expectedVerbose:    true,
+		},
+		{
+			name:         "merge missing branch should fail",
+			args:         []string{"merge", "project.yaml"},
+			wantParseErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := &Cmd{}
+			parser, err := kong.New(cmd,
+				kong.Name("ralph"),
+				kong.Exit(func(int) {}),
+			)
+			if err != nil {
+				t.Fatalf("failed to create parser: %v", err)
+			}
+
+			_, err = parser.Parse(tt.args)
+			if tt.wantParseErr {
+				if err == nil {
+					t.Error("expected parse error but got none")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("failed to parse args: %v", err)
+			}
+
+			// ProjectFile is resolved to absolute path by Kong's type:"path",
+			// so check that the path ends with the expected suffix
+			if !strings.HasSuffix(cmd.Merge.ProjectFile, tt.expectedFileSuffix) {
+				t.Errorf("expected ProjectFile ending with %q, got %q", tt.expectedFileSuffix, cmd.Merge.ProjectFile)
+			}
+			if cmd.Merge.Branch != tt.expectedBranch {
+				t.Errorf("expected Branch=%q, got %q", tt.expectedBranch, cmd.Merge.Branch)
+			}
+			if cmd.Merge.DryRun != tt.expectedDryRun {
+				t.Errorf("expected DryRun=%v, got %v", tt.expectedDryRun, cmd.Merge.DryRun)
+			}
+			if cmd.Merge.Verbose != tt.expectedVerbose {
+				t.Errorf("expected Verbose=%v, got %v", tt.expectedVerbose, cmd.Merge.Verbose)
 			}
 		})
 	}

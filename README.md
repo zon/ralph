@@ -68,6 +68,34 @@ See [docs/projects.md](docs/projects.md) for how to write project files.
 
 See [docs/remote-execution.md](docs/remote-execution.md) for remote execution with Argo Workflows.
 
+## GitHub Webhook Service
+
+The `ralph-webhook` binary listens for GitHub webhook events and triggers ralph workflows in response.
+
+### Running locally with hot reload
+
+Install [Air](https://github.com/air-verse/air) for live reloading during development:
+
+```bash
+go install github.com/air-verse/air@latest
+```
+
+Start the webhook service with hot reload from the repository root:
+
+```bash
+air -c cmd/ralph-webhook/.air.toml
+```
+
+Air watches `cmd/ralph-webhook/` and `internal/webhook/` for Go source file changes and automatically rebuilds and restarts the service.
+
+Set the required environment variables or use CLI flags before starting:
+
+```bash
+export WEBHOOK_CONFIG=/path/to/config.yaml
+export WEBHOOK_SECRETS=/path/to/secrets.yaml
+air -c cmd/ralph-webhook/.air.toml
+```
+
 ## Configuration
 
 ### Ralph Config (`.ralph/config.yaml`)

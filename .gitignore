@@ -18,6 +18,7 @@ go.work
 /ralph
 /bin/ralph
 /cmd/ralph/ralph
+/ralph-webhook
 
 # IDE
 .idea/

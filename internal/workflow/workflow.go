@@ -590,6 +590,226 @@ func SubmitWorkflow(ctx *execcontext.Context, workflowYAML string, ralphConfig *
 	return workflowName, nil
 }
 
+// GenerateMergeWorkflow generates an Argo Workflow YAML for merging a PR.
+// It clones the repo, checks out prBranch, verifies all requirements pass,
+// removes the project file, commits and pushes, then merges the PR via gh CLI.
+func GenerateMergeWorkflow(projectFile, prBranch string) (string, error) {
+	// Get git remote URL
+	remoteURL, err := getRemoteURL()
+	if err != nil {
+		return "", fmt.Errorf("failed to get remote URL: %w", err)
+	}
+
+	// Get current branch (base branch to clone from)
+	currentBranch, err := getCurrentBranch()
+	if err != nil {
+		return "", fmt.Errorf("failed to get current branch: %w", err)
+	}
+
+	// Get git repository root
+	repoRoot, err := getRepoRoot()
+	if err != nil {
+		return "", fmt.Errorf("failed to get repository root: %w", err)
+	}
+
+	// Get absolute path to project file
+	absProjectFile, err := filepath.Abs(projectFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve project file path: %w", err)
+	}
+
+	// Calculate relative path from repo root
+	relProjectPath, err := filepath.Rel(repoRoot, absProjectFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to calculate relative project path: %w", err)
+	}
+
+	return GenerateMergeWorkflowWithGitInfo(projectFile, remoteURL, currentBranch, prBranch, relProjectPath)
+}
+
+// GenerateMergeWorkflowWithGitInfo generates a merge Argo Workflow YAML with provided git information.
+// This allows for easier testing by accepting git info as parameters.
+func GenerateMergeWorkflowWithGitInfo(projectFile, repoURL, cloneBranch, prBranch, relProjectPath string) (string, error) {
+	// Load ralph config
+	ralphConfig, err := config.LoadConfig()
+	if err != nil {
+		return "", fmt.Errorf("failed to load config: %w", err)
+	}
+
+	// Read project file content
+	projectContent, err := os.ReadFile(projectFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to read project file: %w", err)
+	}
+
+	// Determine image repository and tag
+	imageRepo := "ghcr.io/zon/ralph"
+	imageTag := DefaultContainerVersion
+	if ralphConfig.Workflow.Image.Repository != "" {
+		imageRepo = ralphConfig.Workflow.Image.Repository
+	}
+	if ralphConfig.Workflow.Image.Tag != "" {
+		imageTag = ralphConfig.Workflow.Image.Tag
+	}
+	image := fmt.Sprintf("%s:%s", imageRepo, imageTag)
+
+	// Use default git user if not provided
+	gitUserName := ralphConfig.Workflow.GitUser.Name
+	if gitUserName == "" {
+		gitUserName = "Ralph Bot"
+	}
+	gitUserEmail := ralphConfig.Workflow.GitUser.Email
+	if gitUserEmail == "" {
+		gitUserEmail = "ralph@ralph-bot.local"
+	}
+
+	// Build workflow parameters
+	params := []map[string]interface{}{
+		{"name": "project-file", "value": string(projectContent)},
+		{"name": "project-path", "value": relProjectPath},
+	}
+
+	// Build the workflow structure
+	workflow := map[string]interface{}{
+		"apiVersion": "argoproj.io/v1alpha1",
+		"kind":       "Workflow",
+		"metadata": map[string]interface{}{
+			"generateName": "ralph-merge-",
+		},
+		"spec": map[string]interface{}{
+			"entrypoint": "ralph-merger",
+			"ttlStrategy": map[string]interface{}{
+				"secondsAfterCompletion": 86400,
+			},
+			"podGC": map[string]interface{}{
+				"strategy":            "OnWorkflowCompletion",
+				"deleteDelayDuration": "10m",
+			},
+			"arguments": map[string]interface{}{
+				"parameters": params,
+			},
+			"templates": []interface{}{
+				buildMergeTemplate(image, repoURL, cloneBranch, prBranch, gitUserName, gitUserEmail, ralphConfig),
+			},
+		},
+	}
+
+	// Marshal to YAML
+	yamlData, err := yaml.Marshal(workflow)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal workflow to YAML: %w", err)
+	}
+
+	return string(yamlData), nil
+}
+
+// buildMergeTemplate builds the merge execution template
+func buildMergeTemplate(image, repoURL, cloneBranch, prBranch, gitUserName, gitUserEmail string, cfg *config.RalphConfig) map[string]interface{} {
+	template := map[string]interface{}{
+		"name": "ralph-merger",
+		"container": map[string]interface{}{
+			"image": image,
+			"command": []string{
+				"/bin/sh",
+				"-c",
+			},
+			"args": []string{
+				buildMergeScript(gitUserName, gitUserEmail),
+			},
+			"env": []map[string]interface{}{
+				{"name": "GIT_REPO_URL", "value": repoURL},
+				{"name": "GIT_BRANCH", "value": cloneBranch},
+				{"name": "PR_BRANCH", "value": prBranch},
+				{"name": "PROJECT_FILE", "value": "{{workflow.parameters.project-file}}"},
+				{"name": "PROJECT_PATH", "value": "{{workflow.parameters.project-path}}"},
+			},
+			"volumeMounts": []map[string]interface{}{
+				{"name": "git-credentials", "mountPath": "/secrets/git", "readOnly": true},
+				{"name": "github-credentials", "mountPath": "/secrets/github", "readOnly": true},
+			},
+			"workingDir": "/workspace",
+		},
+		"volumes": []map[string]interface{}{
+			{
+				"name": "git-credentials",
+				"secret": map[string]interface{}{
+					"secretName": k8s.GitSecretName,
+				},
+			},
+			{
+				"name": "github-credentials",
+				"secret": map[string]interface{}{
+					"secretName": k8s.GitHubSecretName,
+				},
+			},
+		},
+	}
+
+	return template
+}
+
+// buildMergeScript builds the shell script that checks requirements and merges the PR
+func buildMergeScript(gitUserName, gitUserEmail string) string {
+	script := fmt.Sprintf(`#!/bin/sh
+set -e
+
+echo "Setting up git credentials..."
+mkdir -p ~/.ssh
+cp /secrets/git/ssh-privatekey ~/.ssh/id_ed25519
+chmod 600 ~/.ssh/id_ed25519
+ssh-keyscan github.com >> ~/.ssh/known_hosts
+
+echo "Setting up GitHub token..."
+export GITHUB_TOKEN=$(cat /secrets/github/token)
+
+echo "Configuring git user..."
+git config --global user.name "%s"
+git config --global user.email "%s"
+
+echo "Cloning repository: $GIT_REPO_URL"
+git clone -b "$GIT_BRANCH" "$GIT_REPO_URL" /workspace/repo
+cd /workspace/repo
+
+echo "Checking out PR branch: $PR_BRANCH"
+git fetch origin "$PR_BRANCH"
+git checkout "$PR_BRANCH"
+
+echo "Writing project file to: $PROJECT_PATH"
+mkdir -p "$(dirname "$PROJECT_PATH")"
+echo "$PROJECT_FILE" > "$PROJECT_PATH"
+
+echo "Checking requirement status..."
+PASSING=$(ralph --once "$PROJECT_PATH" --dry-run 2>&1 | grep -c "passing: true" || true)
+FAILING=$(ralph --once "$PROJECT_PATH" --dry-run 2>&1 | grep -c "passing: false" || true)
+
+# Check all requirements pass using ralph's own config parsing
+cat "$PROJECT_PATH" | grep "passing: false" > /tmp/failing_reqs.txt 2>&1 || true
+if [ -s /tmp/failing_reqs.txt ]; then
+  echo "Not all requirements are passing. Aborting merge."
+  cat /tmp/failing_reqs.txt
+  exit 0
+fi
+
+echo "All requirements passing. Proceeding with merge..."
+
+echo "Removing project file: $PROJECT_PATH"
+rm "$PROJECT_PATH"
+
+echo "Committing deletion of project file..."
+git add -A
+git commit -m "Remove completed project file: $PROJECT_PATH"
+
+echo "Pushing changes..."
+git push origin "$PR_BRANCH"
+
+echo "Merging PR via gh CLI..."
+gh pr merge "$PR_BRANCH" --merge --delete-branch
+
+echo "Merge complete!"
+`, gitUserName, gitUserEmail)
+	return script
+}
+
 // extractWorkflowName extracts the workflow name from argo submit output
 func extractWorkflowName(output string) string {
 	lines := strings.Split(output, "\n")

@@ -69,8 +69,16 @@ func BuildDevelopPrompt(ctx *context.Context, projectFile string) (string, error
 	builder.Write(projectContent)
 	builder.WriteString("\n")
 
-	// Development Instructions - already loaded from config above
-	builder.WriteString(ralphConfig.Instructions)
+	// Development Instructions - use --instructions file if provided, otherwise use config instructions
+	instructions := ralphConfig.Instructions
+	if ctx.Instructions != "" {
+		instructionsData, err := os.ReadFile(ctx.Instructions)
+		if err != nil {
+			return "", fmt.Errorf("failed to read instructions file %s: %w", ctx.Instructions, err)
+		}
+		instructions = string(instructionsData)
+	}
+	builder.WriteString(instructions)
 	builder.WriteString("\n")
 
 	prompt := builder.String()
