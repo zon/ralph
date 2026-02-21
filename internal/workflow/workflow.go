@@ -644,7 +644,7 @@ func GenerateMergeWorkflowWithGitInfo(projectFile, repoURL, cloneBranch, prBranc
 
 	// Determine image repository and tag
 	imageRepo := "ghcr.io/zon/ralph"
-	imageTag := DefaultContainerVersion
+	imageTag := DefaultContainerVersion()
 	if ralphConfig.Workflow.Image.Repository != "" {
 		imageRepo = ralphConfig.Workflow.Image.Repository
 	}
