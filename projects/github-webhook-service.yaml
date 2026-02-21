@@ -32,7 +32,7 @@ requirements:
       - Each repo entry in secrets has its webhook secret for request validation
       - Config and secrets file paths are specified via environment variables or CLI flags
       - Service fails to start with a clear error if required secrets are missing
-    passing: false
+    passing: true
 
   - category: ralph-cli-instructions-flag
     description: Ralph CLI accepts an --instructions flag to override agent instructions
