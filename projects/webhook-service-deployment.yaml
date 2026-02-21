@@ -8,7 +8,7 @@ requirements:
       - Chart.yaml with name, description, and version fields
       - Helm chart defaults to the ralph-webhook namespace
       - values.yaml with sensible defaults for image, replicas, and resources
-    passing: false
+    passing: true
 
   - category: helm
     description: Service Account and RBAC
@@ -17,7 +17,7 @@ requirements:
       - Role granting create permissions on workflows.argoproj.io in the same namespace
       - RoleBinding attaching the Role to the ServiceAccount
       - Deployment references the ServiceAccount
-    passing: false
+    passing: true
 
   - category: helm
     description: Deployment and Service Manifests
@@ -26,7 +26,7 @@ requirements:
       - Service manifest exposing the webhook HTTP port
       - Configurable image repository and tag via values.yaml
       - Deployment mounts webhook-config and webhook-secrets Kubernetes secrets
-    passing: false
+    passing: true
 
   - category: helm
     description: Ingress Manifest
@@ -34,14 +34,14 @@ requirements:
       - Ingress manifest for the ralph-webhook service
       - Default hostname is ralph.wurbs.chat
       - Hostname configurable via values.yaml
-    passing: false
+    passing: true
 
   - category: helm
     description: Helm Chart Validation
     items:
       - helm lint passes without errors or warnings
       - helm template renders all manifests without errors
-    passing: false
+    passing: true
 
   - category: backend
     description: Config Command Subcommands
@@ -76,3 +76,4 @@ requirements:
       - Tests for default-filling logic in webhook-config command
       - Tests for secret generation and serialization in webhook-secret command
     passing: false
+
