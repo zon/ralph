@@ -215,7 +215,12 @@ func PullRebase(ctx *context.Context) error {
 		return nil
 	}
 
-	cmd := exec.Command("git", "pull", "--rebase", "origin")
+	branch, err := GetCurrentBranch(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get current branch for pull: %w", err)
+	}
+
+	cmd := exec.Command("git", "pull", "--rebase", "origin", branch)
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &out
