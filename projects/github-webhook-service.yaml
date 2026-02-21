@@ -69,7 +69,7 @@ requirements:
       - Service directory contains an Air config (.air.toml) for hot reload during development
       - Air watches Go source files and rebuilds on change
       - README or comments document how to run the service locally with Air
-    passing: false
+    passing: true
 
   - category: container
     description: Webhook service binary is included in the existing ralph container image
