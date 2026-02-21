@@ -104,10 +104,22 @@ func (s *Server) handleWebhook(c *gin.Context) {
 		return
 	}
 
+	ralphUsername := s.config.App.RalphUsername
+
 	switch eventType {
 	case "pull_request_review_comment":
-		// Handled as-is; event-level filtering (ralph author, etc.) is the
-		// responsibility of the EventHandler.
+		// Only process events on PRs opened by ralph.
+		prAuthor, _ := nestedString(payload, "pull_request", "user", "login")
+		if !strings.EqualFold(prAuthor, ralphUsername) {
+			c.Status(http.StatusOK)
+			return
+		}
+		// Ignore events posted by ralph.
+		commenter, _ := nestedString(payload, "comment", "user", "login")
+		if strings.EqualFold(commenter, ralphUsername) {
+			c.Status(http.StatusOK)
+			return
+		}
 		if s.handler != nil {
 			s.handler(eventType, payload)
 		}
@@ -117,6 +129,18 @@ func (s *Server) handleWebhook(c *gin.Context) {
 		// Only process reviews where state == "approved".
 		state, _ := nestedString(payload, "review", "state")
 		if strings.ToLower(state) != "approved" {
+			c.Status(http.StatusOK)
+			return
+		}
+		// Only process events on PRs opened by ralph.
+		prAuthor, _ := nestedString(payload, "pull_request", "user", "login")
+		if !strings.EqualFold(prAuthor, ralphUsername) {
+			c.Status(http.StatusOK)
+			return
+		}
+		// Ignore reviews posted by ralph.
+		reviewer, _ := nestedString(payload, "review", "user", "login")
+		if strings.EqualFold(reviewer, ralphUsername) {
 			c.Status(http.StatusOK)
 			return
 		}

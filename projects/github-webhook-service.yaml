@@ -21,7 +21,7 @@ requirements:
       - All events are filtered to only process PRs opened by ralph (configurable ralph username)
       - All events posted by ralph are ignored
       - Events that fail these checks are acknowledged with 200 but not processed
-    passing: false
+    passing: true
 
   - category: configuration
     description: Config and secrets loaded from separate YAML files
