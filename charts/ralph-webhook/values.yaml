@@ -13,7 +13,8 @@ service:
 
 ingress:
   enabled: true
-  className: ""
+  className: public
+  clusterIssuer: lets-encrypt
   annotations: {}
   hostname: ralph.wurbs.chat
   path: /
