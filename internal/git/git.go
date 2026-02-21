@@ -206,6 +206,12 @@ func Fetch(ctx *context.Context) error {
 	return nil
 }
 
+// remoteBranchExists checks whether a branch exists on the remote.
+func remoteBranchExists(branch string) bool {
+	cmd := exec.Command("git", "ls-remote", "--exit-code", "--heads", "origin", branch)
+	return cmd.Run() == nil
+}
+
 // PullRebase pulls remote changes using rebase to avoid merge commits.
 // This should be called before pushing to handle cases where the remote
 // branch has advanced (e.g. from a previous run or another pod).
@@ -218,6 +224,11 @@ func PullRebase(ctx *context.Context) error {
 	branch, err := GetCurrentBranch(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get current branch for pull: %w", err)
+	}
+
+	if !remoteBranchExists(branch) {
+		logger.Verbosef("Remote branch %q does not exist yet, skipping pull --rebase", branch)
+		return nil
 	}
 
 	cmd := exec.Command("git", "pull", "--rebase", "origin", branch)
