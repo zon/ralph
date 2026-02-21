@@ -72,12 +72,9 @@ requirements:
     passing: false
 
   - category: container
-    description: Containerfile and push script for the webhook service
+    description: Webhook service binary is included in the existing ralph container image
     items:
-      - Service has its own Containerfile at services/github-webhook/Containerfile
-      - Containerfile builds a minimal Go binary image with gh CLI installed
-      - Push script at services/github-webhook/push.sh builds and pushes the image to ghcr.io
-      - Push script reads image repository and tag from environment variables with sensible defaults
-      - Push script authenticates to GitHub Container Registry using gh auth token
-      - Push script tags the image as both versioned and latest
+      - The existing ralph Containerfile is updated to also build and include the webhook service binary
+      - The webhook service binary is available at a well-known path in the container (e.g. /usr/local/bin/github-webhook)
+      - The container image can run either the ralph CLI or the webhook service depending on the entrypoint/command used
     passing: false
