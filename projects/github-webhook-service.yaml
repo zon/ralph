@@ -77,5 +77,5 @@ requirements:
       - The existing ralph Containerfile is updated to also build and include the webhook service binary
       - The webhook service binary is available at a well-known path in the container (e.g. /usr/local/bin/github-webhook)
       - The container image can run either the ralph CLI or the webhook service depending on the entrypoint/command used
-    passing: false
+    passing: true
 
