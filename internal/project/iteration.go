@@ -1,6 +1,7 @@
 package project
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -11,6 +12,9 @@ import (
 	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/requirement"
 )
+
+// ErrNoChanges is returned by CommitChanges when there are no staged changes to commit
+var ErrNoChanges = errors.New("no changes to commit")
 
 // RunIterationLoop runs multiple development iterations until completion or max iterations
 // Each iteration:
@@ -46,8 +50,11 @@ func RunIterationLoop(ctx *context.Context, cleanupRegistrar func(func())) (int,
 		// Commit changes after iteration
 		logger.Verbosef("Committing changes from iteration %d...", i)
 		if err := CommitChanges(ctx, i); err != nil {
-			// If there are no changes, it's not fatal - continue to next iteration
-			logger.Verbosef("Commit failed (may be no changes): %v", err)
+			if errors.Is(err, ErrNoChanges) {
+				logger.Verbosef("No changes to commit after iteration %d", i)
+			} else {
+				return iterationCount, fmt.Errorf("iteration %d commit failed: %w", i, err)
+			}
 		} else {
 			logger.Verbosef("Committed changes from iteration %d", i)
 		}
@@ -110,7 +117,7 @@ func CommitChanges(ctx *context.Context, iteration int) error {
 
 	// Check if there are any staged changes to commit
 	if !git.HasStagedChanges(ctx) {
-		return fmt.Errorf("no changes to commit")
+		return ErrNoChanges
 	}
 
 	// Read commit message from report.md

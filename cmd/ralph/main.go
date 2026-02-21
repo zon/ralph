@@ -4,13 +4,11 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/zon/ralph/internal/cleanup"
 	"github.com/zon/ralph/internal/cmd"
+	"github.com/zon/ralph/internal/version"
 )
 
-// Version information (set via ldflags during build)
-var (
-	Version = "dev"
-	Date    = "unknown"
-)
+// Date is set via ldflags during build
+var Date = "unknown"
 
 // Global cleanup manager instance
 var cleanupManager = cleanup.NewManager()
@@ -23,7 +21,7 @@ func main() {
 	defer cleanupManager.Cleanup()
 
 	c := &cmd.Cmd{}
-	c.SetVersion(Version, Date)
+	c.SetVersion(version.Version(), Date)
 	c.SetCleanupRegistrar(cleanupManager.RegisterCleanup)
 
 	ctx := kong.Parse(c,
