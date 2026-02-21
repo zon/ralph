@@ -206,6 +206,28 @@ func Fetch(ctx *context.Context) error {
 	return nil
 }
 
+// PullRebase pulls remote changes using rebase to avoid merge commits.
+// This should be called before pushing to handle cases where the remote
+// branch has advanced (e.g. from a previous run or another pod).
+func PullRebase(ctx *context.Context) error {
+	if ctx.IsDryRun() {
+		logger.Info("[DRY-RUN] Would pull --rebase from remote")
+		return nil
+	}
+
+	cmd := exec.Command("git", "pull", "--rebase", "origin")
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to pull --rebase: %w (output: %s)", err, out.String())
+	}
+
+	logger.Verbosef("Pulled and rebased from remote")
+	return nil
+}
+
 // CheckoutBranch switches to the specified git branch
 func CheckoutBranch(ctx *context.Context, name string) error {
 	if ctx.IsDryRun() {

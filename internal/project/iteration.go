@@ -150,6 +150,13 @@ func CommitChanges(ctx *context.Context, iteration int) error {
 		logger.Infof("Committed with message: %s", message)
 	}
 
+	// Pull remote changes before pushing to handle resumed workflows where
+	// the remote branch has advanced since we last pushed
+	logger.Verbose("Pulling remote changes before push...")
+	if err := git.PullRebase(ctx); err != nil {
+		return fmt.Errorf("failed to pull before push: %w", err)
+	}
+
 	// Push commit to origin
 	logger.Verbose("Pushing commit to origin...")
 	if err := git.PushCurrentBranch(ctx); err != nil {
