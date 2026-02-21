@@ -13,7 +13,7 @@ requirements:
       - Service handles pull_request_review events where the review state is "approved"
       - Service ignores issue_comment events entirely
       - Unrecognized event types are ignored gracefully with 200
-    passing: false
+    passing: true
 
   - category: event-filtering
     description: Only process events on PRs opened by ralph, not posted by ralph
