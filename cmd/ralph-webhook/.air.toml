@@ -1,0 +1,27 @@
+# Air configuration for hot-reload development of the ralph-webhook service.
+# Run from the repository root: air -c cmd/ralph-webhook/.air.toml
+# Or run from cmd/ralph-webhook/: air
+
+root = "../.."
+tmp_dir = "tmp"
+
+[build]
+  # Build the ralph-webhook binary from the repository root.
+  cmd = "go build -o ./tmp/ralph-webhook ./cmd/ralph-webhook"
+  bin = "./tmp/ralph-webhook"
+  # Directories to watch for changes (relative to root).
+  include_dir = ["cmd/ralph-webhook", "internal/webhook"]
+  include_ext = ["go"]
+  exclude_dir = ["tmp", "vendor"]
+  # Kill the running process before restarting.
+  send_interrupt = true
+  kill_delay = "500ms"
+  # Delay before triggering a rebuild after a change.
+  delay = 1000
+
+[log]
+  time = true
+
+[color]
+  build = "yellow"
+  runner = "green"

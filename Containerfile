@@ -59,8 +59,8 @@ RUN bun install -g opencode-ai \
 # Copy ralph binary from builder
 COPY --from=builder /build/ralph /usr/local/bin/ralph
 
-# Copy github-webhook binary from builder
-COPY --from=builder /build/github-webhook /usr/local/bin/github-webhook
+# Copy ralph-webhook binary from builder
+COPY --from=builder /build/ralph-webhook /usr/local/bin/ralph-webhook
 
 # Set up working directory
 WORKDIR /workspace

@@ -5,9 +5,9 @@ GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
 # Go build settings
 BINARY_NAME := ralph
-WEBHOOK_BINARY_NAME := github-webhook
+WEBHOOK_BINARY_NAME := ralph-webhook
 MAIN_PATH := ./cmd/ralph
-WEBHOOK_MAIN_PATH := ./cmd/github-webhook
+WEBHOOK_MAIN_PATH := ./cmd/ralph-webhook
 INSTALL_PATH := $(GOPATH)/bin
 
 # ldflags to inject build-time information
@@ -21,7 +21,7 @@ help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-15s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 .PHONY: build
-build: ## Build the ralph binary and github-webhook binary with version information
+build: ## Build the ralph binary and ralph-webhook binary with version information
 	@echo "Building $(BINARY_NAME) v$(VERSION)..."
 	go build -ldflags "$(LDFLAGS)" -o $(BINARY_NAME) $(MAIN_PATH)
 	@echo "Build complete: ./$(BINARY_NAME)"
@@ -30,7 +30,7 @@ build: ## Build the ralph binary and github-webhook binary with version informat
 	@echo "Build complete: ./$(WEBHOOK_BINARY_NAME)"
 
 .PHONY: install
-install: ## Install ralph and github-webhook to GOPATH/bin with version information
+install: ## Install ralph and ralph-webhook to GOPATH/bin with version information
 	@echo "Installing $(BINARY_NAME) v$(VERSION) to $(INSTALL_PATH)..."
 	go install -ldflags "$(LDFLAGS)" $(MAIN_PATH)
 	@echo "Installation complete: $(INSTALL_PATH)/$(BINARY_NAME)"

@@ -70,7 +70,7 @@ See [docs/remote-execution.md](docs/remote-execution.md) for remote execution wi
 
 ## GitHub Webhook Service
 
-The `github-webhook` binary listens for GitHub webhook events and triggers ralph workflows in response.
+The `ralph-webhook` binary listens for GitHub webhook events and triggers ralph workflows in response.
 
 ### Running locally with hot reload
 
@@ -83,17 +83,17 @@ go install github.com/air-verse/air@latest
 Start the webhook service with hot reload from the repository root:
 
 ```bash
-air -c cmd/github-webhook/.air.toml
+air -c cmd/ralph-webhook/.air.toml
 ```
 
-Air watches `cmd/github-webhook/` and `internal/webhook/` for Go source file changes and automatically rebuilds and restarts the service.
+Air watches `cmd/ralph-webhook/` and `internal/webhook/` for Go source file changes and automatically rebuilds and restarts the service.
 
 Set the required environment variables or use CLI flags before starting:
 
 ```bash
 export WEBHOOK_CONFIG=/path/to/config.yaml
 export WEBHOOK_SECRETS=/path/to/secrets.yaml
-air -c cmd/github-webhook/.air.toml
+air -c cmd/ralph-webhook/.air.toml
 ```
 
 ## Configuration
