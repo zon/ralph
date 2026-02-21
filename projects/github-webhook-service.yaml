@@ -81,3 +81,4 @@ requirements:
       - Push script authenticates to GitHub Container Registry using gh auth token
       - Push script tags the image as both versioned and latest
     passing: false
+
