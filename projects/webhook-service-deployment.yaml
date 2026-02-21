@@ -68,12 +68,12 @@ requirements:
       - Webhook secret registered on GitHub via "gh api" for the repo's webhook (matched by the ingress hostname ralph.wurbs.chat)
       - Serializes Secrets as YAML and writes it to a Kubernetes secret named "webhook-secrets" in the target namespace
       - Requires webhook-config secret to already exist in the namespace (reads repo list from it)
-    passing: false
+    passing: true
 
   - category: testing
     description: Unit Tests
     items:
       - Tests for default-filling logic in webhook-config command
       - Tests for secret generation and serialization in webhook-secret command
-    passing: false
+    passing: true
 

@@ -121,7 +121,6 @@ func testConfigWithClonePath() *Config {
 			},
 		},
 		Secrets: Secrets{
-			GitHubToken: "ghp_test",
 			Repos: []RepoSecret{
 				{Owner: "acme", Name: "myrepo", WebhookSecret: "supersecret"},
 			},

@@ -31,8 +31,7 @@ type RepoSecret struct {
 
 // Secrets holds all secrets loaded from the secrets YAML file
 type Secrets struct {
-	GitHubToken string       `yaml:"githubToken"`
-	Repos       []RepoSecret `yaml:"repos"`
+	Repos []RepoSecret `yaml:"repos"`
 }
 
 // Config is the fully-loaded service configuration combining AppConfig and Secrets
@@ -113,10 +112,6 @@ func LoadConfig(configPath, secretsPath string) (*Config, error) {
 
 // ValidateConfig validates that required secrets are present
 func ValidateConfig(cfg *Config) error {
-	if cfg.Secrets.GitHubToken == "" {
-		return fmt.Errorf("required secret missing: githubToken must be set in secrets file")
-	}
-
 	// Build a lookup of repo secrets for validation
 	secretsByRepo := make(map[string]string)
 	for _, rs := range cfg.Secrets.Repos {

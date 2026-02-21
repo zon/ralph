@@ -30,7 +30,6 @@ repos:
 `
 
 const validSecrets = `
-githubToken: ghp_testtoken123
 repos:
   - owner: acme
     name: my-service
@@ -81,7 +80,6 @@ func TestLoadSecrets(t *testing.T) {
 		s, err := LoadSecrets(path)
 		require.NoError(t, err)
 
-		assert.Equal(t, "ghp_testtoken123", s.GitHubToken)
 		require.Len(t, s.Repos, 2)
 		assert.Equal(t, "acme", s.Repos[0].Owner)
 		assert.Equal(t, "my-service", s.Repos[0].Name)
@@ -115,7 +113,6 @@ func TestLoadConfig(t *testing.T) {
 
 		assert.Equal(t, 8080, cfg.App.Port)
 		assert.Equal(t, "ralph-bot", cfg.App.RalphUsername)
-		assert.Equal(t, "ghp_testtoken123", cfg.Secrets.GitHubToken)
 		require.Len(t, cfg.App.Repos, 2)
 	})
 
@@ -131,7 +128,6 @@ func TestLoadConfig(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, 8080, cfg.App.Port)
-		assert.Equal(t, "ghp_testtoken123", cfg.Secrets.GitHubToken)
 	})
 
 	t.Run("CLI flags take precedence over env vars", func(t *testing.T) {
@@ -191,7 +187,6 @@ func TestValidateConfig(t *testing.T) {
 				},
 			},
 			Secrets: Secrets{
-				GitHubToken: "ghp_testtoken",
 				Repos: []RepoSecret{
 					{Owner: "acme", Name: "my-service", WebhookSecret: "webhook-secret-1"},
 				},
@@ -200,26 +195,6 @@ func TestValidateConfig(t *testing.T) {
 
 		err := ValidateConfig(cfg)
 		require.NoError(t, err)
-	})
-
-	t.Run("error when githubToken is missing", func(t *testing.T) {
-		cfg := &Config{
-			App: AppConfig{
-				Repos: []RepoConfig{
-					{Owner: "acme", Name: "my-service"},
-				},
-			},
-			Secrets: Secrets{
-				GitHubToken: "",
-				Repos: []RepoSecret{
-					{Owner: "acme", Name: "my-service", WebhookSecret: "secret"},
-				},
-			},
-		}
-
-		err := ValidateConfig(cfg)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "githubToken")
 	})
 
 	t.Run("error when repo has no webhook secret", func(t *testing.T) {
@@ -231,7 +206,6 @@ func TestValidateConfig(t *testing.T) {
 				},
 			},
 			Secrets: Secrets{
-				GitHubToken: "ghp_token",
 				Repos: []RepoSecret{
 					{Owner: "acme", Name: "my-service", WebhookSecret: "secret"},
 					// other-service has no secret entry
@@ -249,9 +223,7 @@ func TestValidateConfig(t *testing.T) {
 			App: AppConfig{
 				Port: 8080,
 			},
-			Secrets: Secrets{
-				GitHubToken: "ghp_token",
-			},
+			Secrets: Secrets{},
 		}
 
 		err := ValidateConfig(cfg)

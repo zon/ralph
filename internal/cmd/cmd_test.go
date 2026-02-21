@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zon/ralph/internal/webhook"
+	"gopkg.in/yaml.v3"
 )
 
 func TestLocalFlagValidation(t *testing.T) {
@@ -825,5 +826,138 @@ func TestBuildWebhookAppConfig(t *testing.T) {
 		assert.Equal(t, 7070, cfg.Port)
 		assert.Equal(t, "from-file", cfg.RalphUsername)
 		assert.Equal(t, "default-model", cfg.Model)
+	})
+}
+
+// TestBuildWebhookSecrets tests the pure secret generation logic for the webhook-secret command
+func TestBuildWebhookSecrets(t *testing.T) {
+	// deterministicGenerator returns predictable secrets for testing
+	counter := 0
+	deterministicGenerator := func() (string, error) {
+		counter++
+		return fmt.Sprintf("test-secret-%d", counter), nil
+	}
+
+	t.Run("generates a secret for each repo", func(t *testing.T) {
+		counter = 0
+		appCfg := &webhook.AppConfig{
+			Repos: []webhook.RepoConfig{
+				{Owner: "acme", Name: "repo-a", ClonePath: "/repos/repo-a"},
+				{Owner: "acme", Name: "repo-b", ClonePath: "/repos/repo-b"},
+			},
+		}
+
+		secrets, err := buildWebhookSecrets(appCfg, deterministicGenerator)
+		require.NoError(t, err)
+
+		require.Len(t, secrets.Repos, 2)
+		assert.Equal(t, "acme", secrets.Repos[0].Owner)
+		assert.Equal(t, "repo-a", secrets.Repos[0].Name)
+		assert.Equal(t, "test-secret-1", secrets.Repos[0].WebhookSecret)
+		assert.Equal(t, "acme", secrets.Repos[1].Owner)
+		assert.Equal(t, "repo-b", secrets.Repos[1].Name)
+		assert.Equal(t, "test-secret-2", secrets.Repos[1].WebhookSecret)
+	})
+
+	t.Run("returns empty repos list when no repos configured", func(t *testing.T) {
+		counter = 0
+		appCfg := &webhook.AppConfig{
+			Repos: []webhook.RepoConfig{},
+		}
+
+		secrets, err := buildWebhookSecrets(appCfg, deterministicGenerator)
+		require.NoError(t, err)
+
+		assert.Empty(t, secrets.Repos)
+	})
+
+	t.Run("propagates secret generation errors", func(t *testing.T) {
+		failingGenerator := func() (string, error) {
+			return "", fmt.Errorf("entropy exhausted")
+		}
+
+		appCfg := &webhook.AppConfig{
+			Repos: []webhook.RepoConfig{
+				{Owner: "acme", Name: "repo-a"},
+			},
+		}
+
+		_, err := buildWebhookSecrets(appCfg, failingGenerator)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "entropy exhausted")
+	})
+
+	t.Run("generates unique secrets per repo", func(t *testing.T) {
+		// Use real generateWebhookSecret to verify uniqueness
+		appCfg := &webhook.AppConfig{
+			Repos: []webhook.RepoConfig{
+				{Owner: "acme", Name: "repo-a"},
+				{Owner: "acme", Name: "repo-b"},
+				{Owner: "acme", Name: "repo-c"},
+			},
+		}
+
+		secrets, err := buildWebhookSecrets(appCfg, generateWebhookSecret)
+		require.NoError(t, err)
+
+		require.Len(t, secrets.Repos, 3)
+
+		// All secrets should be non-empty and unique
+		secretSet := make(map[string]bool)
+		for _, rs := range secrets.Repos {
+			assert.NotEmpty(t, rs.WebhookSecret)
+			assert.False(t, secretSet[rs.WebhookSecret], "duplicate secret generated")
+			secretSet[rs.WebhookSecret] = true
+		}
+	})
+
+	t.Run("serializes secrets to valid YAML", func(t *testing.T) {
+		counter = 0
+		appCfg := &webhook.AppConfig{
+			Repos: []webhook.RepoConfig{
+				{Owner: "myowner", Name: "myrepo", ClonePath: "/repos/myrepo"},
+			},
+		}
+
+		secrets, err := buildWebhookSecrets(appCfg, deterministicGenerator)
+		require.NoError(t, err)
+
+		// Verify that the secrets can be marshaled and unmarshaled as YAML
+		secretsBytes, err := yaml.Marshal(secrets)
+		require.NoError(t, err)
+
+		var roundTripped webhook.Secrets
+		require.NoError(t, yaml.Unmarshal(secretsBytes, &roundTripped))
+
+		require.Len(t, roundTripped.Repos, 1)
+		assert.Equal(t, "myowner", roundTripped.Repos[0].Owner)
+		assert.Equal(t, "myrepo", roundTripped.Repos[0].Name)
+		assert.Equal(t, "test-secret-1", roundTripped.Repos[0].WebhookSecret)
+	})
+}
+
+// TestGenerateWebhookSecret tests that webhook secrets are cryptographically random
+func TestGenerateWebhookSecret(t *testing.T) {
+	t.Run("generates a non-empty secret", func(t *testing.T) {
+		secret, err := generateWebhookSecret()
+		require.NoError(t, err)
+		assert.NotEmpty(t, secret)
+	})
+
+	t.Run("generates at least 32 characters", func(t *testing.T) {
+		secret, err := generateWebhookSecret()
+		require.NoError(t, err)
+		// 32 bytes base64-encoded is at least 43 characters (raw URL encoding)
+		assert.GreaterOrEqual(t, len(secret), 32)
+	})
+
+	t.Run("generates unique secrets on repeated calls", func(t *testing.T) {
+		secrets := make(map[string]bool)
+		for i := 0; i < 10; i++ {
+			secret, err := generateWebhookSecret()
+			require.NoError(t, err)
+			assert.False(t, secrets[secret], "duplicate secret generated on iteration %d", i)
+			secrets[secret] = true
+		}
 	})
 }
