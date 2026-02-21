@@ -248,8 +248,15 @@ git clone -b "$GIT_BRANCH" "$GIT_REPO_URL" /workspace/repo
 cd /workspace/repo
 
 if [ "$PROJECT_BRANCH" != "$GIT_BRANCH" ]; then
-  echo "Creating and checking out project branch: $PROJECT_BRANCH"
-  git checkout -b "$PROJECT_BRANCH"
+  echo "Fetching remote branches..."
+  git fetch origin
+  if git ls-remote --exit-code --heads origin "$PROJECT_BRANCH" > /dev/null 2>&1; then
+    echo "Checking out existing remote branch: $PROJECT_BRANCH"
+    git checkout "$PROJECT_BRANCH"
+  else
+    echo "Creating and checking out new branch: $PROJECT_BRANCH"
+    git checkout -b "$PROJECT_BRANCH"
+  fi
 fi
 
 echo "Writing project file to: $PROJECT_PATH"

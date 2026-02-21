@@ -22,11 +22,11 @@ import (
 // 1. Validate project file exists
 // 2. If remote mode: Generate and submit Argo Workflow, then exit
 // 3. Run build commands once before starting iterations
-// 4. Extract branch name from project file basename
-// 5. Create and checkout new branch
-// 6. Run iteration loop (develop + commit until complete)
-// 7. Generate PR summary using AI
-// 8. Push branch to origin
+// 4. Validate current branch is in sync with remote
+// 5. Extract branch name from project file basename
+// 6. If PROJECT_BRANCH != current branch: fetch, then checkout remote branch or create new one
+// 7. Run iteration loop (develop + commit + push until complete)
+// 8. Generate PR summary using AI
 // 9. Create GitHub pull request
 // 10. Display PR URL on success
 func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
@@ -88,16 +88,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		return fmt.Errorf("not a git repository, please run 'git init' or run ralph from within a git repository")
 	}
 
-	// Check for detached HEAD state
-	isDetached, err := git.IsDetachedHead(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to check HEAD state: %w", err)
-	}
-	if isDetached {
-		return fmt.Errorf("repository is in detached HEAD state, please checkout a branch first")
-	}
-
-	// Get current branch for potential rollback
+	// Get current branch
 	currentBranch, err := git.GetCurrentBranch(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get current branch: %w", err)
@@ -105,33 +96,24 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 
 	logger.Verbosef("Current branch: %s", currentBranch)
 
-	// Check if we're already on the target branch
-	if currentBranch == branchName {
-		logger.Verbosef("Already on branch '%s'", branchName)
-	} else {
-		// Check if branch exists but is not currently active
-		if git.BranchExists(ctx, branchName) {
-			return fmt.Errorf("branch '%s' already exists but is not currently active, please delete the branch or switch to it manually before running", branchName)
-		}
-
-		logger.Verbosef("Creating branch: %s", branchName)
-		if err := git.CreateBranch(ctx, branchName); err != nil {
-			return fmt.Errorf("failed to create branch: %w", err)
-		}
-
-		if err := git.CheckoutBranch(ctx, branchName); err != nil {
-			return fmt.Errorf("failed to checkout branch: %w", err)
-		}
-
-		logger.Successf("Created branch: %s", branchName)
+	// Validate current branch is in sync with remote
+	logger.Verbosef("Checking branch '%s' is in sync with remote...", currentBranch)
+	if err := git.IsBranchSyncedWithRemote(ctx, currentBranch); err != nil {
+		return err
 	}
 
-	// Register cleanup to return to original branch on failure
-	if cleanupRegistrar != nil {
-		cleanupRegistrar(func() {
-			logger.Verbosef("Returning to original branch: %s", currentBranch)
-			_ = git.CheckoutBranch(ctx, currentBranch)
-		})
+	// Switch to project branch if different from current
+	if currentBranch != branchName {
+		// Fetch so remote-tracking refs are up to date
+		if err := git.Fetch(ctx); err != nil {
+			logger.Verbosef("Could not fetch from remote (continuing anyway): %v", err)
+		}
+
+		if err := git.CheckoutOrCreateBranch(ctx, branchName); err != nil {
+			return fmt.Errorf("failed to checkout branch: %w", err)
+		}
+	} else {
+		logger.Verbosef("Already on branch '%s'", branchName)
 	}
 
 	// Run iteration loop
@@ -171,10 +153,13 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 			return fmt.Errorf("failed to delete project file: %w", err)
 		}
 
-		// Commit the deletion
+		// Commit and push the deletion
 		commitMsg := fmt.Sprintf("Remove project file %s", filepath.Base(absProjectFile))
 		if err := git.Commit(ctx, commitMsg); err != nil {
 			return fmt.Errorf("failed to commit project file deletion: %w", err)
+		}
+		if err := git.PushCurrentBranch(ctx); err != nil {
+			return fmt.Errorf("failed to push project file deletion: %w", err)
 		}
 
 		logger.Verbosef("Deleted and committed removal of project file: %s", filepath.Base(absProjectFile))
@@ -185,15 +170,6 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	if ctx.IsVerbose() {
 		logger.Verbosef("PR Summary:\n%s", prSummary)
 	}
-
-	// Push branch to origin
-	logger.Verbosef("Pushing branch '%s' to origin...", branchName)
-	remoteURL, err := git.PushBranch(ctx, branchName)
-	if err != nil {
-		return fmt.Errorf("failed to push branch: %w", err)
-	}
-
-	logger.Verbosef("Remote URL: %s", remoteURL)
 
 	// Check if gh CLI is available and authenticated
 	if !github.IsGHInstalled(ctx) {

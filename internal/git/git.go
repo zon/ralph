@@ -89,72 +89,56 @@ func GetCurrentBranch(ctx *context.Context) (string, error) {
 	return branch, nil
 }
 
-// BranchExists checks if a git branch exists (local or remote)
-func BranchExists(ctx *context.Context, name string) bool {
-	if ctx.IsDryRun() {
-		logger.Infof("[DRY-RUN] Would check if branch '%s' exists", name)
-		return false
-	}
-
-	// Check local branches
-	cmd := exec.Command("git", "rev-parse", "--verify", "--quiet", name)
-	if err := cmd.Run(); err == nil {
-		if ctx.IsVerbose() {
-			logger.Infof("Branch '%s' exists locally", name)
-		}
-		return true
-	}
-
-	// Check remote branches
-	cmd = exec.Command("git", "rev-parse", "--verify", "--quiet", "origin/"+name)
-	if err := cmd.Run(); err == nil {
-		if ctx.IsVerbose() {
-			logger.Infof("Branch '%s' exists remotely", name)
-		}
-		return true
-	}
-
-	if ctx.IsVerbose() {
-		logger.Infof("Branch '%s' does not exist", name)
-	}
-
-	return false
-}
-
-// RemoteBranchExists checks if a branch exists on the remote
+// RemoteBranchExists checks if a branch exists on the remote using the already-fetched
+// remote-tracking ref. Call Fetch first to ensure refs are up to date.
 func RemoteBranchExists(ctx *context.Context, name string) bool {
 	if ctx.IsDryRun() {
 		logger.Infof("[DRY-RUN] Would check if branch '%s' exists on remote", name)
 		return false
 	}
 
-	// Use git ls-remote to check if branch exists on remote
-	// This works even if we haven't fetched recently
-	cmd := exec.Command("git", "ls-remote", "--heads", "origin", name)
+	cmd := exec.Command("git", "rev-parse", "--verify", "--quiet", "origin/"+name)
+	if err := cmd.Run(); err == nil {
+		if ctx.IsVerbose() {
+			logger.Infof("Branch '%s' exists on remote", name)
+		}
+		return true
+	}
+
+	if ctx.IsVerbose() {
+		logger.Infof("Branch '%s' does not exist on remote", name)
+	}
+
+	return false
+}
+
+// CheckoutOrCreateBranch checks out the named branch if it exists on the remote
+// (after a prior Fetch), otherwise creates and checks out a new local branch.
+func CheckoutOrCreateBranch(ctx *context.Context, name string) error {
+	if ctx.IsDryRun() {
+		logger.Infof("[DRY-RUN] Would checkout or create branch: %s", name)
+		return nil
+	}
+
+	if RemoteBranchExists(ctx, name) {
+		logger.Verbosef("Checking out existing remote branch: %s", name)
+		if err := CheckoutBranch(ctx, name); err != nil {
+			return err
+		}
+		logger.Successf("Checked out remote branch: %s", name)
+		return nil
+	}
+
+	logger.Verbosef("Creating new branch: %s", name)
+	cmd := exec.Command("git", "checkout", "-b", name)
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &out
-
 	if err := cmd.Run(); err != nil {
-		if ctx.IsVerbose() {
-			logger.Infof("Failed to check remote branch '%s': %v", name, err)
-		}
-		return false
+		return fmt.Errorf("failed to create branch '%s': %w (output: %s)", name, err, out.String())
 	}
-
-	// If output is empty, branch doesn't exist on remote
-	output := strings.TrimSpace(out.String())
-	exists := output != ""
-
-	if ctx.IsVerbose() {
-		if exists {
-			logger.Infof("Branch '%s' exists on remote", name)
-		} else {
-			logger.Infof("Branch '%s' does not exist on remote", name)
-		}
-	}
-
-	return exists
+	logger.Successf("Created branch: %s", name)
+	return nil
 }
 
 // IsBranchSyncedWithRemote checks if the local branch is in sync with its remote counterpart.
@@ -198,23 +182,27 @@ func IsBranchSyncedWithRemote(ctx *context.Context, branch string) error {
 	return nil
 }
 
-// CreateBranch creates a new git branch
-func CreateBranch(ctx *context.Context, name string) error {
+// Fetch fetches from the remote, updating remote-tracking refs.
+// Errors are non-fatal and are logged at verbose level only.
+func Fetch(ctx *context.Context) error {
 	if ctx.IsDryRun() {
-		logger.Infof("[DRY-RUN] Would create branch: %s", name)
+		logger.Info("[DRY-RUN] Would fetch from remote")
 		return nil
 	}
 
-	cmd := exec.Command("git", "branch", name)
+	cmd := exec.Command("git", "fetch", "origin")
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &out
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to create branch '%s': %w (output: %s)", name, err, out.String())
+		if ctx.IsVerbose() {
+			logger.Infof("Failed to fetch from remote: %v (output: %s)", err, out.String())
+		}
+		return fmt.Errorf("failed to fetch from remote: %w", err)
 	}
 
-	logger.Verbosef("Created branch: %s", name)
+	logger.Verbosef("Fetched from remote")
 	return nil
 }
 
