@@ -255,11 +255,11 @@ echo "Writing parameter files..."
 mkdir -p /workspace/repo/.ralph
 
 if [ -n "$CONFIG_YAML" ]; then
-  printf '%s' "$CONFIG_YAML" > /workspace/repo/.ralph/config.yaml
+  printf '%%s' "$CONFIG_YAML" > /workspace/repo/.ralph/config.yaml
 fi
 
 if [ -n "$INSTRUCTIONS_MD" ]; then
-  printf '%s' "$INSTRUCTIONS_MD" > /workspace/repo/.ralph/instructions.md
+  printf '%%s' "$INSTRUCTIONS_MD" > /workspace/repo/.ralph/instructions.md
 fi
 
 echo "Running ralph..."

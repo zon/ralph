@@ -54,6 +54,6 @@ container-build: ## Build container image
 	echo "Building container $$IMAGE..."; \
 	podman build -t "$$IMAGE" -f Containerfile .
 
-.PHONY: container-push
-container-push: ## Push container image to registry
-	@./scripts/push-default-image.sh
+.PHONY: push
+push: ## Push container image to registry
+	@./scripts/push-image.sh

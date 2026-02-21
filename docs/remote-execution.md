@@ -201,7 +201,7 @@ export RALPH_IMAGE_REPOSITORY=myregistry.io/myuser/ralph
 export RALPH_IMAGE_TAG=v1.0.0
 
 # Build and push
-./scripts/push-default-image.sh
+./scripts/push-image.sh
 ```
 
 The script:
