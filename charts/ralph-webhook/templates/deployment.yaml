@@ -43,8 +43,8 @@ spec:
             {{- toYaml .Values.resources | nindent 12 }}
       volumes:
         - name: webhook-config
-          secret:
-            secretName: webhook-config
+          configMap:
+            name: webhook-config
         - name: webhook-secrets
           secret:
             secretName: webhook-secrets

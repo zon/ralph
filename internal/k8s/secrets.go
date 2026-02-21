@@ -113,6 +113,65 @@ func CreateOrUpdateSecret(ctx context.Context, name, namespace, kubeContext stri
 	return nil
 }
 
+// CreateOrUpdateConfigMap creates or updates a Kubernetes ConfigMap
+func CreateOrUpdateConfigMap(ctx context.Context, name, namespace, kubeContext string, data map[string]string) error {
+	// Check if kubectl is available
+	if _, err := exec.LookPath("kubectl"); err != nil {
+		return fmt.Errorf("kubectl not found in PATH - please install kubectl")
+	}
+
+	// Use default namespace if not specified
+	if namespace == "" {
+		namespace = "default"
+	}
+
+	// Build kubectl command args
+	args := []string{"create", "configmap", name}
+
+	// Add data as literal values
+	for key, value := range data {
+		args = append(args, fmt.Sprintf("--from-literal=%s=%s", key, value))
+	}
+
+	// Add namespace
+	args = append(args, "-n", namespace)
+
+	// Add context if specified
+	if kubeContext != "" {
+		args = append(args, "--context", kubeContext)
+	}
+
+	// Add dry-run and output to generate YAML, then apply to handle create/update
+	args = append(args, "--dry-run=client", "-o", "yaml")
+
+	// Generate the configmap YAML
+	cmd := exec.CommandContext(ctx, "kubectl", args...)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to generate configmap YAML: %w (stderr: %s)", err, stderr.String())
+	}
+
+	// Apply the configmap (this handles both create and update)
+	applyArgs := []string{"apply", "-f", "-"}
+	if kubeContext != "" {
+		applyArgs = append(applyArgs, "--context", kubeContext)
+	}
+
+	applyCmd := exec.CommandContext(ctx, "kubectl", applyArgs...)
+	applyCmd.Stdin = &stdout
+	var applyStderr bytes.Buffer
+	applyCmd.Stderr = &applyStderr
+
+	if err := applyCmd.Run(); err != nil {
+		return fmt.Errorf("failed to apply configmap: %w (stderr: %s)", err, applyStderr.String())
+	}
+
+	return nil
+}
+
 // GetCurrentContext gets the current Kubernetes context
 func GetCurrentContext(ctx context.Context) (string, error) {
 	cmd := exec.CommandContext(ctx, "kubectl", "config", "current-context")

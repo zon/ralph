@@ -17,8 +17,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// webhookConfigSecretName is the name of the Kubernetes secret for the webhook app config
-const webhookConfigSecretName = "webhook-config"
+// webhookConfigMapName is the name of the Kubernetes ConfigMap for the webhook app config
+const webhookConfigMapName = "webhook-config"
 
 // webhookSecretsSecretName is the name of the Kubernetes secret for the webhook secrets
 const webhookSecretsSecretName = "webhook-secrets"
@@ -113,7 +113,7 @@ func buildWebhookAppConfig(partialConfig *webhook.AppConfig, repoName, repoOwner
 func (c *ConfigWebhookConfigCmd) Run() error {
 	ctx := context.Background()
 
-	fmt.Println("Provisioning webhook-config secret...")
+	fmt.Println("Provisioning webhook-config configmap...")
 	fmt.Println()
 
 	// Determine Kubernetes context (namespace defaults to ralph-webhook via struct tag)
@@ -179,20 +179,20 @@ func (c *ConfigWebhookConfigCmd) Run() error {
 	fmt.Printf("AppConfig YAML:\n%s\n", cfgYAML)
 
 	if c.DryRun {
-		fmt.Printf("Dry run: would write secret '%s' in namespace '%s' (context: %s)\n", webhookConfigSecretName, namespace, kubeContext)
+		fmt.Printf("Dry run: would write configmap '%s' in namespace '%s' (context: %s)\n", webhookConfigMapName, namespace, kubeContext)
 		return nil
 	}
 
-	// Write to Kubernetes secret
-	secretData := map[string]string{
+	// Write to Kubernetes ConfigMap
+	configMapData := map[string]string{
 		"config.yaml": cfgYAML,
 	}
 
-	if err := k8s.CreateOrUpdateSecret(ctx, webhookConfigSecretName, namespace, kubeContext, secretData); err != nil {
-		return fmt.Errorf("failed to create/update secret '%s': %w", webhookConfigSecretName, err)
+	if err := k8s.CreateOrUpdateConfigMap(ctx, webhookConfigMapName, namespace, kubeContext, configMapData); err != nil {
+		return fmt.Errorf("failed to create/update configmap '%s': %w", webhookConfigMapName, err)
 	}
 
-	fmt.Printf("Secret '%s' created/updated in namespace '%s'\n", webhookConfigSecretName, namespace)
+	fmt.Printf("ConfigMap '%s' created/updated in namespace '%s'\n", webhookConfigMapName, namespace)
 	return nil
 }
 
@@ -205,12 +205,12 @@ func generateWebhookSecret() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(b), nil
 }
 
-// readWebhookConfigFromK8s reads the webhook-config secret from Kubernetes and returns
+// readWebhookConfigFromK8s reads the webhook-config ConfigMap from Kubernetes and returns
 // the AppConfig it contains.
 func readWebhookConfigFromK8s(ctx context.Context, namespace, kubeContext string) (*webhook.AppConfig, error) {
-	// kubectl get secret webhook-config -n <ns> --context <ctx> -o jsonpath='{.data.config\.yaml}'
+	// kubectl get configmap webhook-config -n <ns> --context <ctx> -o jsonpath='{.data.config\.yaml}'
 	args := []string{
-		"get", "secret", webhookConfigSecretName,
+		"get", "configmap", webhookConfigMapName,
 		"-n", namespace,
 		"-o", `jsonpath={.data.config\.yaml}`,
 	}
@@ -224,24 +224,19 @@ func readWebhookConfigFromK8s(ctx context.Context, namespace, kubeContext string
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("failed to read secret '%s' from namespace '%s': %w (stderr: %s)",
-			webhookConfigSecretName, namespace, err, stderr.String())
+		return nil, fmt.Errorf("failed to read configmap '%s' from namespace '%s': %w (stderr: %s)",
+			webhookConfigMapName, namespace, err, stderr.String())
 	}
 
-	// The value is base64-encoded by Kubernetes
-	encoded := strings.TrimSpace(stdout.String())
-	if encoded == "" {
-		return nil, fmt.Errorf("secret '%s' exists but config.yaml key is empty", webhookConfigSecretName)
-	}
-
-	decoded, err := base64.StdEncoding.DecodeString(encoded)
-	if err != nil {
-		return nil, fmt.Errorf("failed to base64-decode config.yaml from secret: %w", err)
+	// ConfigMap data values are stored as plain text (not base64-encoded like Secrets)
+	raw := strings.TrimSpace(stdout.String())
+	if raw == "" {
+		return nil, fmt.Errorf("configmap '%s' exists but config.yaml key is empty", webhookConfigMapName)
 	}
 
 	var appCfg webhook.AppConfig
-	if err := yaml.Unmarshal(decoded, &appCfg); err != nil {
-		return nil, fmt.Errorf("failed to parse AppConfig YAML from secret: %w", err)
+	if err := yaml.Unmarshal([]byte(raw), &appCfg); err != nil {
+		return nil, fmt.Errorf("failed to parse AppConfig YAML from configmap: %w", err)
 	}
 
 	return &appCfg, nil
@@ -360,11 +355,11 @@ func (c *ConfigWebhookSecretCmd) Run() error {
 
 	namespace := c.Namespace
 
-	// Read repo list from webhook-config secret
-	fmt.Printf("Reading repo list from secret '%s' in namespace '%s'...\n", webhookConfigSecretName, namespace)
+	// Read repo list from webhook-config ConfigMap
+	fmt.Printf("Reading repo list from configmap '%s' in namespace '%s'...\n", webhookConfigMapName, namespace)
 	appCfg, err := readWebhookConfigFromK8s(ctx, namespace, kubeContext)
 	if err != nil {
-		return fmt.Errorf("failed to read webhook-config: %w\n\nRun 'ralph config webhook-config' first to create the webhook-config secret.", err)
+		return fmt.Errorf("failed to read webhook-config: %w\n\nRun 'ralph config webhook-config' first to create the webhook-config configmap.", err)
 	}
 
 	if len(appCfg.Repos) == 0 {
