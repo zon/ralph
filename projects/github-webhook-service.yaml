@@ -1,0 +1,83 @@
+name: github-webhook-service
+description: GitHub webhook service that responds to PR comments by running the AI agent
+
+requirements:
+  - category: webhook-server
+    description: HTTP server using Gin that receives and validates GitHub webhook events
+    items:
+      - Service is written in Go using the Gin framework
+      - Service listens for incoming HTTP requests on a configurable port
+      - Requests are authenticated using GitHub webhook secret signature (HMAC-SHA256 of request body)
+      - Requests with invalid or missing signatures are rejected with 401
+      - Service handles pull_request_review_comment and pull_request_review events
+      - Service ignores issue_comment events entirely
+      - Unrecognized event types are ignored gracefully with 200
+    passing: false
+
+  - category: event-filtering
+    description: Only process relevant PR comments
+    items:
+      - Service checks that the PR was opened by ralph (configurable ralph username)
+      - Service checks that the comment was NOT posted by ralph
+      - Events that fail these checks are acknowledged with 200 but not processed
+    passing: false
+
+  - category: configuration
+    description: Config and secrets loaded from separate YAML files
+    items:
+      - App config is loaded from a config YAML file (port, ralph username, repos list, model)
+      - Secrets are loaded from a separate secrets YAML file (GitHub token, per-repo webhook secrets)
+      - Each repo entry in config has owner, name, and local clone path
+      - Each repo entry in secrets has its webhook secret for request validation
+      - Config and secrets file paths are specified via environment variables or CLI flags
+      - Service fails to start with a clear error if required secrets are missing
+    passing: false
+
+  - category: branch-checkout
+    description: Checkout the PR branch when a qualifying comment arrives
+    items:
+      - Service extracts the PR branch name and repo info from the webhook payload
+      - Service clones the repo if not already present at the configured local path
+      - Service fetches and checks out the PR branch
+      - If the branch is already checked out, it resets to the remote ref
+    passing: false
+
+  - category: prompt-construction
+    description: Build a prompt for the AI agent from available context
+    items:
+      - Prompt includes the full text of the triggering comment
+      - Prompt includes the last known version of the ralph project file recovered from git log (the commit that deleted it)
+      - Prompt includes the git log of commits on the PR branch since it diverged from the base branch
+      - Prompt instructs the agent to answer any questions raised in the comment
+      - Prompt instructs the agent to write code if the comment requests it
+      - Prompt instructs the agent to commit and push any code changes with a descriptive message
+      - Prompt instructs the agent to post a GitHub PR comment with a summary of what was done using the gh CLI
+    passing: false
+
+  - category: agent-execution
+    description: Run the AI agent with the constructed prompt
+    items:
+      - Service invokes opencode with the configured model and constructed prompt
+      - Agent runs with the PR branch repo directory as its working directory
+      - Agent stdout and stderr are logged
+      - If the agent exits with an error, a failure comment is posted on the PR via gh CLI
+    passing: false
+
+  - category: dev-environment
+    description: Hot-reload development environment using Air
+    items:
+      - Service directory contains an Air config (.air.toml) for hot reload during development
+      - Air watches Go source files and rebuilds on change
+      - README or comments document how to run the service locally with Air
+    passing: false
+
+  - category: container
+    description: Containerfile and push script for the webhook service
+    items:
+      - Service has its own Containerfile at services/github-webhook/Containerfile
+      - Containerfile builds a minimal Go binary image with gh CLI installed
+      - Push script at services/github-webhook/push.sh builds and pushes the image to ghcr.io
+      - Push script reads image repository and tag from environment variables with sensible defaults
+      - Push script authenticates to GitHub Container Registry using gh auth token
+      - Push script tags the image as both versioned and latest
+    passing: false

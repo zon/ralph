@@ -6,6 +6,8 @@
 
 ## Testing and Execution
 
+**IMPORTANT**: Before writing any tests, read [docs/testing.md](docs/testing.md) to understand patterns, conventions, and the webhook service integration testing strategy.
+
 **DO NOT:**
 - Run ralph commands without the `--dry-run` flag for testing
 
