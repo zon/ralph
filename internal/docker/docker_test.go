@@ -97,7 +97,7 @@ func TestDockerfileUsesMultiStageBuilds(t *testing.T) {
 // TestPushScriptExists verifies that the push script exists
 func TestPushScriptExists(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
-	scriptPath := filepath.Join(projectRoot, "scripts", "push-default-image.sh")
+	scriptPath := filepath.Join(projectRoot, "scripts", "push-image.sh")
 
 	if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
 		t.Fatalf("Push script does not exist at %s", scriptPath)
@@ -107,7 +107,7 @@ func TestPushScriptExists(t *testing.T) {
 // TestPushScriptIsExecutable verifies that the push script has execute permissions
 func TestPushScriptIsExecutable(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
-	scriptPath := filepath.Join(projectRoot, "scripts", "push-default-image.sh")
+	scriptPath := filepath.Join(projectRoot, "scripts", "push-image.sh")
 
 	info, err := os.Stat(scriptPath)
 	if err != nil {
@@ -123,7 +123,7 @@ func TestPushScriptIsExecutable(t *testing.T) {
 // TestPushScriptContentsValid verifies the push script contains required components
 func TestPushScriptContentsValid(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
-	scriptPath := filepath.Join(projectRoot, "scripts", "push-default-image.sh")
+	scriptPath := filepath.Join(projectRoot, "scripts", "push-image.sh")
 
 	content, err := os.ReadFile(scriptPath)
 	if err != nil {
@@ -156,7 +156,7 @@ func TestPushScriptContentsValid(t *testing.T) {
 // TestPushScriptUsesEnvironmentVariables verifies script supports configuration via env vars
 func TestPushScriptUsesEnvironmentVariables(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
-	scriptPath := filepath.Join(projectRoot, "scripts", "push-default-image.sh")
+	scriptPath := filepath.Join(projectRoot, "scripts", "push-image.sh")
 
 	content, err := os.ReadFile(scriptPath)
 	if err != nil {
@@ -190,7 +190,7 @@ func TestPushScriptUsesEnvironmentVariables(t *testing.T) {
 // TestDefaultImageMatchesWorkflowDefault verifies the default image matches workflow default
 func TestDefaultImageMatchesWorkflowDefault(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
-	scriptPath := filepath.Join(projectRoot, "scripts", "push-default-image.sh")
+	scriptPath := filepath.Join(projectRoot, "scripts", "push-image.sh")
 
 	content, err := os.ReadFile(scriptPath)
 	if err != nil {

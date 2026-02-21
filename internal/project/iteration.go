@@ -1,6 +1,7 @@
 package project
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -11,6 +12,9 @@ import (
 	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/requirement"
 )
+
+// ErrNoChanges is returned by CommitChanges when there are no staged changes to commit
+var ErrNoChanges = errors.New("no changes to commit")
 
 // RunIterationLoop runs multiple development iterations until completion or max iterations
 // Each iteration:
@@ -46,8 +50,11 @@ func RunIterationLoop(ctx *context.Context, cleanupRegistrar func(func())) (int,
 		// Commit changes after iteration
 		logger.Verbosef("Committing changes from iteration %d...", i)
 		if err := CommitChanges(ctx, i); err != nil {
-			// If there are no changes, it's not fatal - continue to next iteration
-			logger.Verbosef("Commit failed (may be no changes): %v", err)
+			if errors.Is(err, ErrNoChanges) {
+				logger.Verbosef("No changes to commit after iteration %d", i)
+			} else {
+				return iterationCount, fmt.Errorf("iteration %d commit failed: %w", i, err)
+			}
 		} else {
 			logger.Verbosef("Committed changes from iteration %d", i)
 		}
@@ -103,6 +110,21 @@ func CommitChanges(ctx *context.Context, iteration int) error {
 		return nil
 	}
 
+	// Read and remove report.md before staging so it is not included in the commit
+	reportPath := "report.md"
+	commitMsg, err := os.ReadFile(reportPath)
+	if err != nil {
+		// If report.md doesn't exist, fall back to iteration-based message
+		logger.Warningf("Failed to read report.md: %v, using fallback message", err)
+		commitMsg = []byte(fmt.Sprintf("Development iteration %d", iteration))
+	} else {
+		if err := os.Remove(reportPath); err != nil {
+			logger.Warningf("Failed to remove report.md: %v", err)
+		} else if ctx.IsVerbose() {
+			logger.Verbose("Removed report.md")
+		}
+	}
+
 	// Stage all changes
 	if err := git.StageAll(ctx); err != nil {
 		return fmt.Errorf("failed to stage changes: %w", err)
@@ -110,16 +132,7 @@ func CommitChanges(ctx *context.Context, iteration int) error {
 
 	// Check if there are any staged changes to commit
 	if !git.HasStagedChanges(ctx) {
-		return fmt.Errorf("no changes to commit")
-	}
-
-	// Read commit message from report.md
-	reportPath := "report.md"
-	commitMsg, err := os.ReadFile(reportPath)
-	if err != nil {
-		// If report.md doesn't exist, fall back to iteration-based message
-		logger.Warningf("Failed to read report.md: %v, using fallback message", err)
-		commitMsg = []byte(fmt.Sprintf("Development iteration %d", iteration))
+		return ErrNoChanges
 	}
 
 	// Clean up and validate commit message
@@ -137,23 +150,19 @@ func CommitChanges(ctx *context.Context, iteration int) error {
 		logger.Infof("Committed with message: %s", message)
 	}
 
-	// Push after commit if running in workflow execution mode
-	// (commits are pushed incrementally so they appear in the final PR)
-	if ctx.IsWorkflowExecution() {
-		logger.Verbose("Workflow execution: pushing commit to origin...")
-		if err := git.PushCurrentBranch(ctx); err != nil {
-			return fmt.Errorf("failed to push commit: %w", err)
-		}
-		logger.Verbose("Pushed commit to origin")
+	// Pull remote changes before pushing to handle resumed workflows where
+	// the remote branch has advanced since we last pushed
+	logger.Verbose("Pulling remote changes before push...")
+	if err := git.PullRebase(ctx); err != nil {
+		return fmt.Errorf("failed to pull before push: %w", err)
 	}
 
-	// Remove report.md after successful commit
-	if err := os.Remove(reportPath); err != nil {
-		// Log warning but don't fail the commit if cleanup fails
-		logger.Warningf("Failed to remove report.md: %v", err)
-	} else if ctx.IsVerbose() {
-		logger.Verbose("Removed report.md")
+	// Push commit to origin
+	logger.Verbose("Pushing commit to origin...")
+	if err := git.PushCurrentBranch(ctx); err != nil {
+		return fmt.Errorf("failed to push commit: %w", err)
 	}
+	logger.Verbose("Pushed commit to origin")
 
 	return nil
 }

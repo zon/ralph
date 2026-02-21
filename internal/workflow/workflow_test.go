@@ -476,7 +476,7 @@ requirements:
 	template := templates[0].(map[string]interface{})
 	container := template["container"].(map[string]interface{})
 
-	expectedImage := fmt.Sprintf("ghcr.io/zon/ralph:%s", DefaultContainerVersion)
+	expectedImage := fmt.Sprintf("ghcr.io/zon/ralph:%s", DefaultContainerVersion())
 	if container["image"] != expectedImage {
 		t.Errorf("container.image = %v, want %v", container["image"], expectedImage)
 	}
@@ -493,25 +493,25 @@ func TestBuildExecutionScript(t *testing.T) {
 			name:            "no flags",
 			dryRun:          false,
 			verbose:         false,
-			expectedCommand: "ralph \"$PROJECT_PATH\" --no-notify",
+			expectedCommand: "ralph \"$PROJECT_PATH\" --local --no-notify",
 		},
 		{
 			name:            "dry-run only",
 			dryRun:          true,
 			verbose:         false,
-			expectedCommand: "ralph \"$PROJECT_PATH\" --dry-run --no-notify",
+			expectedCommand: "ralph \"$PROJECT_PATH\" --local --dry-run --no-notify",
 		},
 		{
 			name:            "verbose only",
 			dryRun:          false,
 			verbose:         true,
-			expectedCommand: "ralph \"$PROJECT_PATH\" --verbose --no-notify",
+			expectedCommand: "ralph \"$PROJECT_PATH\" --local --verbose --no-notify",
 		},
 		{
 			name:            "both flags",
 			dryRun:          true,
 			verbose:         true,
-			expectedCommand: "ralph \"$PROJECT_PATH\" --dry-run --verbose --no-notify",
+			expectedCommand: "ralph \"$PROJECT_PATH\" --local --dry-run --verbose --no-notify",
 		},
 	}
 

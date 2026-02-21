@@ -11,11 +11,15 @@ import (
 	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/k8s"
+	"github.com/zon/ralph/internal/version"
 	"gopkg.in/yaml.v3"
 )
 
-// DefaultContainerVersion is the default container image tag (set via ldflags during build)
-var DefaultContainerVersion = "latest"
+// DefaultContainerVersion returns the default container image tag read from the embedded VERSION file.
+// Kept as a function for use in tests.
+func DefaultContainerVersion() string {
+	return version.Version()
+}
 
 // GenerateWorkflow generates an Argo Workflow YAML for remote execution.
 // cloneBranch is the branch the container will clone (current local branch).
@@ -89,7 +93,7 @@ func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL,
 
 	// Determine image repository and tag
 	imageRepo := "ghcr.io/zon/ralph"
-	imageTag := DefaultContainerVersion
+	imageTag := DefaultContainerVersion()
 	if ralphConfig.Workflow.Image.Repository != "" {
 		imageRepo = ralphConfig.Workflow.Image.Repository
 	}
@@ -200,7 +204,8 @@ func buildMainTemplate(image, repoURL, cloneBranch, projectBranch string, cfg *c
 // buildExecutionScript builds the shell script that runs in the container
 func buildExecutionScript(dryRun, verbose bool, gitUserName, gitUserEmail string, cfg *config.RalphConfig) string {
 	// Build ralph command with flags
-	ralphCmd := "ralph \"$PROJECT_PATH\""
+	// Always pass --local so the container executes directly instead of submitting another workflow
+	ralphCmd := "ralph \"$PROJECT_PATH\" --local"
 	if dryRun {
 		ralphCmd += " --dry-run"
 	}
@@ -243,8 +248,15 @@ git clone -b "$GIT_BRANCH" "$GIT_REPO_URL" /workspace/repo
 cd /workspace/repo
 
 if [ "$PROJECT_BRANCH" != "$GIT_BRANCH" ]; then
-  echo "Creating and checking out project branch: $PROJECT_BRANCH"
-  git checkout -b "$PROJECT_BRANCH"
+  echo "Fetching remote branches..."
+  git fetch origin
+  if git ls-remote --exit-code --heads origin "$PROJECT_BRANCH" > /dev/null 2>&1; then
+    echo "Checking out existing remote branch: $PROJECT_BRANCH"
+    git checkout "$PROJECT_BRANCH"
+  else
+    echo "Creating and checking out new branch: $PROJECT_BRANCH"
+    git checkout -b "$PROJECT_BRANCH"
+  fi
 fi
 
 echo "Writing project file to: $PROJECT_PATH"
@@ -255,11 +267,11 @@ echo "Writing parameter files..."
 mkdir -p /workspace/repo/.ralph
 
 if [ -n "$CONFIG_YAML" ]; then
-  echo "$CONFIG_YAML" > /workspace/repo/.ralph/config.yaml
+  printf '%%s' "$CONFIG_YAML" > /workspace/repo/.ralph/config.yaml
 fi
 
 if [ -n "$INSTRUCTIONS_MD" ]; then
-  echo "$INSTRUCTIONS_MD" > /workspace/repo/.ralph/instructions.md
+  printf '%%s' "$INSTRUCTIONS_MD" > /workspace/repo/.ralph/instructions.md
 fi
 
 echo "Running ralph..."

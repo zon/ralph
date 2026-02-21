@@ -230,67 +230,32 @@ func TestGetCurrentBranch_DetachedHead(t *testing.T) {
 	}
 }
 
-func TestBranchExists(t *testing.T) {
-	tempDir := setupTestRepo(t)
-	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
-	os.Chdir(tempDir)
+func TestFetch_DryRun(t *testing.T) {
+	ctx := testutil.NewContext()
 
-	ctx := testutil.NewContext(testutil.WithDryRun(false))
-
-	// Check for current branch (should exist)
-	currentBranch, _ := GetCurrentBranch(ctx)
-	if !BranchExists(ctx, currentBranch) {
-		t.Errorf("Expected current branch '%s' to exist", currentBranch)
-	}
-
-	// Check for non-existent branch
-	if BranchExists(ctx, "non-existent-branch") {
-		t.Error("Expected non-existent branch to return false")
+	if err := Fetch(ctx); err != nil {
+		t.Fatalf("Fetch in dry-run failed: %v", err)
 	}
 }
 
-func TestBranchExists_DryRun(t *testing.T) {
+func TestRemoteBranchExists_DryRun(t *testing.T) {
 	ctx := testutil.NewContext()
 
-	// In dry-run mode, should always return false
-	exists := BranchExists(ctx, "any-branch")
+	exists := RemoteBranchExists(ctx, "any-branch")
 	if exists {
-		t.Error("Expected dry-run BranchExists to return false")
+		t.Error("Expected dry-run RemoteBranchExists to return false")
 	}
 }
 
-func TestCreateBranch(t *testing.T) {
-	tempDir := setupTestRepo(t)
-	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
-	os.Chdir(tempDir)
-
-	ctx := testutil.NewContext(testutil.WithDryRun(false))
-
-	branchName := "test-feature-branch"
-
-	// Create the branch
-	if err := CreateBranch(ctx, branchName); err != nil {
-		t.Fatalf("CreateBranch failed: %v", err)
-	}
-
-	// Verify it exists
-	if !BranchExists(ctx, branchName) {
-		t.Errorf("Branch '%s' was not created", branchName)
-	}
-}
-
-func TestCreateBranch_DryRun(t *testing.T) {
+func TestCheckoutOrCreateBranch_DryRun(t *testing.T) {
 	ctx := testutil.NewContext()
 
-	// Should not return an error in dry-run mode
-	if err := CreateBranch(ctx, "test-branch"); err != nil {
-		t.Fatalf("CreateBranch in dry-run failed: %v", err)
+	if err := CheckoutOrCreateBranch(ctx, "new-branch"); err != nil {
+		t.Fatalf("CheckoutOrCreateBranch in dry-run failed: %v", err)
 	}
 }
 
-func TestCheckoutBranch(t *testing.T) {
+func TestCheckoutOrCreateBranch_CreateNew(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	originalDir, _ := os.Getwd()
 	defer os.Chdir(originalDir)
@@ -298,19 +263,12 @@ func TestCheckoutBranch(t *testing.T) {
 
 	ctx := testutil.NewContext(testutil.WithDryRun(false))
 
-	branchName := "checkout-test-branch"
+	branchName := "brand-new-branch"
 
-	// Create the branch first
-	if err := CreateBranch(ctx, branchName); err != nil {
-		t.Fatalf("CreateBranch failed: %v", err)
+	if err := CheckoutOrCreateBranch(ctx, branchName); err != nil {
+		t.Fatalf("CheckoutOrCreateBranch failed: %v", err)
 	}
 
-	// Checkout the branch
-	if err := CheckoutBranch(ctx, branchName); err != nil {
-		t.Fatalf("CheckoutBranch failed: %v", err)
-	}
-
-	// Verify we're on the new branch
 	currentBranch, err := GetCurrentBranch(ctx)
 	if err != nil {
 		t.Fatalf("GetCurrentBranch failed: %v", err)
@@ -324,31 +282,8 @@ func TestCheckoutBranch(t *testing.T) {
 func TestCheckoutBranch_DryRun(t *testing.T) {
 	ctx := testutil.NewContext()
 
-	// Should not return an error in dry-run mode
 	if err := CheckoutBranch(ctx, "any-branch"); err != nil {
 		t.Fatalf("CheckoutBranch in dry-run failed: %v", err)
-	}
-}
-
-func TestCreateBranch_AlreadyExists(t *testing.T) {
-	tempDir := setupTestRepo(t)
-	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
-	os.Chdir(tempDir)
-
-	ctx := testutil.NewContext(testutil.WithDryRun(false))
-
-	branchName := "duplicate-branch"
-
-	// Create the branch
-	if err := CreateBranch(ctx, branchName); err != nil {
-		t.Fatalf("First CreateBranch failed: %v", err)
-	}
-
-	// Try to create it again (should fail)
-	err := CreateBranch(ctx, branchName)
-	if err == nil {
-		t.Error("Expected CreateBranch to fail for existing branch")
 	}
 }
 
@@ -407,13 +342,10 @@ func TestGetCommitLog_SinceBranch(t *testing.T) {
 	// Get the current branch to use as base
 	baseBranch, _ := GetCurrentBranch(ctx)
 
-	// Create a new branch
+	// Create and checkout a new branch
 	testBranch := "feature-branch"
-	if err := CreateBranch(ctx, testBranch); err != nil {
+	if err := CheckoutOrCreateBranch(ctx, testBranch); err != nil {
 		t.Fatalf("Failed to create branch: %v", err)
-	}
-	if err := CheckoutBranch(ctx, testBranch); err != nil {
-		t.Fatalf("Failed to checkout branch: %v", err)
 	}
 
 	// Create commits on the new branch
@@ -501,13 +433,10 @@ func TestGetDiffSince(t *testing.T) {
 	// Get the current branch to use as base
 	baseBranch, _ := GetCurrentBranch(ctx)
 
-	// Create a new branch
+	// Create and checkout a new branch
 	testBranch := "diff-test-branch"
-	if err := CreateBranch(ctx, testBranch); err != nil {
+	if err := CheckoutOrCreateBranch(ctx, testBranch); err != nil {
 		t.Fatalf("Failed to create branch: %v", err)
-	}
-	if err := CheckoutBranch(ctx, testBranch); err != nil {
-		t.Fatalf("Failed to checkout branch: %v", err)
 	}
 
 	// Make a change

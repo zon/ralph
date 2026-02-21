@@ -1,5 +1,5 @@
 # Read version from VERSION file
-VERSION := $(shell cat VERSION)
+VERSION := $(shell cat internal/version/VERSION)
 BUILD_DATE := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
@@ -10,8 +10,8 @@ MAIN_PATH := ./cmd/ralph
 WEBHOOK_MAIN_PATH := ./cmd/github-webhook
 INSTALL_PATH := $(GOPATH)/bin
 
-# ldflags to inject version information
-LDFLAGS := -X main.Version=$(VERSION) -X main.Date=$(BUILD_DATE) -X github.com/zon/ralph/internal/workflow.DefaultContainerVersion=$(VERSION)
+# ldflags to inject build-time information
+LDFLAGS := -X main.Date=$(BUILD_DATE)
 
 .PHONY: help
 help: ## Show this help message
@@ -62,6 +62,6 @@ container-build: ## Build container image
 	echo "Building container $$IMAGE..."; \
 	podman build -t "$$IMAGE" -f Containerfile .
 
-.PHONY: container-push
-container-push: ## Push container image to registry
-	@./scripts/push-default-image.sh
+.PHONY: push
+push: ## Push container image to registry
+	@./scripts/push-image.sh

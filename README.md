@@ -60,8 +60,8 @@ ralph my-feature.yaml
 # Single iteration (no branch/commit/PR)
 ralph my-feature.yaml --once
 
-# Remote execution on Kubernetes
-ralph my-feature.yaml --remote --watch
+# Remote execution on Kubernetes (default, with monitoring)
+ralph my-feature.yaml --watch
 ```
 
 See [docs/projects.md](docs/projects.md) for how to write project files.

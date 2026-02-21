@@ -73,7 +73,7 @@ requirements:
 
 **Single iteration mode** (`--once`): Runs one iteration without branching/PR, useful for local testing.
 
-**Remote execution mode** (`--remote`): Executes the workflow on Kubernetes using Argo Workflows. See [remote-execution.md](remote-execution.md) for details.
+**Remote execution mode** (default): Executes the workflow on Kubernetes using Argo Workflows. Use `--local` to run on this machine instead. See [remote-execution.md](remote-execution.md) for details.
 
 ## Examples
 
