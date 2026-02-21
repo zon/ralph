@@ -16,8 +16,10 @@ import (
 	"github.com/zon/ralph/internal/notify"
 	"github.com/zon/ralph/internal/project"
 	"github.com/zon/ralph/internal/requirement"
+	"github.com/zon/ralph/internal/webhook"
 	"github.com/zon/ralph/internal/workflow"
 	"golang.org/x/term"
+	"gopkg.in/yaml.v3"
 )
 
 // Cmd defines the command-line arguments and execution context
@@ -62,9 +64,26 @@ type RunCmd struct {
 
 // ConfigCmd defines the config subcommand group
 type ConfigCmd struct {
-	Git      ConfigGitCmd      `cmd:"" help:"Configure git credentials for remote execution"`
-	Github   ConfigGithubCmd   `cmd:"" help:"Configure GitHub credentials for remote execution"`
-	Opencode ConfigOpencodeCmd `cmd:"" help:"Configure OpenCode credentials for remote execution"`
+	Git           ConfigGitCmd           `cmd:"" help:"Configure git credentials for remote execution"`
+	Github        ConfigGithubCmd        `cmd:"" help:"Configure GitHub credentials for remote execution"`
+	Opencode      ConfigOpencodeCmd      `cmd:"" help:"Configure OpenCode credentials for remote execution"`
+	WebhookConfig ConfigWebhookConfigCmd `cmd:"webhook-config" help:"Provision webhook-config secret into Kubernetes"`
+	WebhookSecret ConfigWebhookSecretCmd `cmd:"webhook-secret" help:"Provision webhook-secrets secret into Kubernetes"`
+}
+
+// ConfigWebhookConfigCmd provisions the webhook-config Kubernetes secret
+type ConfigWebhookConfigCmd struct {
+	Context   string `help:"Kubernetes context to use (defaults to current context)"`
+	Namespace string `help:"Kubernetes namespace to use" default:"ralph-webhook"`
+	Config    string `help:"Path to a partial AppConfig YAML file to use as a starting point" type:"path" optional:""`
+	DryRun    bool   `help:"Simulate execution without making changes" default:"false"`
+}
+
+// ConfigWebhookSecretCmd provisions the webhook-secrets Kubernetes secret
+type ConfigWebhookSecretCmd struct {
+	Context   string `help:"Kubernetes context to use (defaults to current context)"`
+	Namespace string `help:"Kubernetes namespace to use" default:"ralph-webhook"`
+	DryRun    bool   `help:"Simulate execution without making changes" default:"false"`
 }
 
 // loadContextAndNamespace loads the Kubernetes context and namespace with the following priority:
@@ -566,6 +585,167 @@ func (r *RunCmd) Run() error {
 	}
 	// Execute full orchestration mode
 	return project.Execute(ctx, r.cleanupRegistrar)
+}
+
+// webhookConfigSecretName is the name of the Kubernetes secret for the webhook app config
+const webhookConfigSecretName = "webhook-config"
+
+// webhookSecretsSecretName is the name of the Kubernetes secret for the webhook secrets
+const webhookSecretsSecretName = "webhook-secrets"
+
+// WebhookConfigResult holds the result of building an AppConfig for dry-run inspection
+type WebhookConfigResult struct {
+	AppConfig webhook.AppConfig
+	YAML      string
+}
+
+// buildWebhookAppConfig builds an AppConfig with defaults filled in.
+// partialConfig is an optional starting point (may be nil).
+// repoName and repoOwner are the detected GitHub repo details.
+// model is the AI model from .ralph/config.yaml.
+// ralphUsername is the authenticated gh CLI user.
+func buildWebhookAppConfig(partialConfig *webhook.AppConfig, repoName, repoOwner, model, ralphUsername string) webhook.AppConfig {
+	var cfg webhook.AppConfig
+
+	// Start with partial config if provided
+	if partialConfig != nil {
+		cfg = *partialConfig
+	}
+
+	// Fill in port default
+	if cfg.Port == 0 {
+		cfg.Port = 8080
+	}
+
+	// Fill in model from .ralph/config.yaml if not set
+	if cfg.Model == "" {
+		cfg.Model = model
+	}
+
+	// Fill in ralphUsername from gh CLI if not set
+	if cfg.RalphUsername == "" {
+		cfg.RalphUsername = ralphUsername
+	}
+
+	// Auto-add repo if detected and not already present
+	if repoName != "" && repoOwner != "" {
+		found := false
+		for _, r := range cfg.Repos {
+			if r.Owner == repoOwner && r.Name == repoName {
+				found = true
+				break
+			}
+		}
+		if !found {
+			cfg.Repos = append(cfg.Repos, webhook.RepoConfig{
+				Owner:     repoOwner,
+				Name:      repoName,
+				ClonePath: fmt.Sprintf("/repos/%s", repoName),
+			})
+		} else {
+			// Fill in clonePath default for existing entries
+			for i, r := range cfg.Repos {
+				if r.Owner == repoOwner && r.Name == repoName && r.ClonePath == "" {
+					cfg.Repos[i].ClonePath = fmt.Sprintf("/repos/%s", repoName)
+				}
+			}
+		}
+	}
+
+	return cfg
+}
+
+// Run executes the config webhook-config command
+func (c *ConfigWebhookConfigCmd) Run() error {
+	ctx := context.Background()
+
+	fmt.Println("Provisioning webhook-config secret...")
+	fmt.Println()
+
+	// Determine Kubernetes context (namespace defaults to ralph-webhook via struct tag)
+	var kubeContext string
+	if c.Context != "" {
+		kubeContext = c.Context
+	} else {
+		currentCtx, err := k8s.GetCurrentContext(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to get current Kubernetes context: %w", err)
+		}
+		kubeContext = currentCtx
+	}
+
+	namespace := c.Namespace
+
+	// Load optional partial config
+	var partialConfig *webhook.AppConfig
+	if c.Config != "" {
+		loaded, err := webhook.LoadAppConfig(c.Config)
+		if err != nil {
+			return fmt.Errorf("failed to load partial config: %w", err)
+		}
+		partialConfig = loaded
+	}
+
+	// Auto-detect repo from git remote
+	repoName, repoOwner, err := k8s.GetGitHubRepo(ctx)
+	if err != nil {
+		logger.Warningf("Failed to detect GitHub repository: %v (skipping repo auto-detection)", err)
+		repoName = ""
+		repoOwner = ""
+	}
+
+	// Load model from .ralph/config.yaml
+	model := ""
+	ralphConfig, err := config.LoadConfig()
+	if err != nil {
+		logger.Warningf("Failed to load .ralph/config.yaml: %v", err)
+	} else if ralphConfig != nil {
+		model = ralphConfig.Model
+	}
+
+	// Get authenticated gh CLI user for ralphUsername default
+	ralphUsername := ""
+	ghUserCmd := exec.CommandContext(ctx, "gh", "api", "user", "--jq", ".login")
+	if out, err := ghUserCmd.Output(); err == nil {
+		ralphUsername = strings.TrimSpace(string(out))
+	} else {
+		logger.Warningf("Failed to get GitHub username from gh CLI: %v", err)
+	}
+
+	// Build AppConfig with defaults filled in
+	appCfg := buildWebhookAppConfig(partialConfig, repoName, repoOwner, model, ralphUsername)
+
+	// Serialize to YAML
+	cfgBytes, err := yaml.Marshal(appCfg)
+	if err != nil {
+		return fmt.Errorf("failed to serialize AppConfig to YAML: %w", err)
+	}
+
+	cfgYAML := string(cfgBytes)
+	fmt.Printf("AppConfig YAML:\n%s\n", cfgYAML)
+
+	if c.DryRun {
+		fmt.Printf("Dry run: would write secret '%s' in namespace '%s' (context: %s)\n", webhookConfigSecretName, namespace, kubeContext)
+		return nil
+	}
+
+	// Write to Kubernetes secret
+	secretData := map[string]string{
+		"config.yaml": cfgYAML,
+	}
+
+	if err := k8s.CreateOrUpdateSecret(ctx, webhookConfigSecretName, namespace, kubeContext, secretData); err != nil {
+		return fmt.Errorf("failed to create/update secret '%s': %w", webhookConfigSecretName, err)
+	}
+
+	fmt.Printf("Secret '%s' created/updated in namespace '%s'\n", webhookConfigSecretName, namespace)
+	return nil
+}
+
+// Run executes the config webhook-secret command
+func (c *ConfigWebhookSecretCmd) Run() error {
+	// Placeholder: implement in webhook-secret requirement
+	return fmt.Errorf("webhook-secret command not yet implemented")
 }
 
 // removeAnthropicOAuthFromLocal removes Anthropic OAuth credentials from local auth.json

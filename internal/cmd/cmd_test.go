@@ -2,10 +2,15 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/alecthomas/kong"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/zon/ralph/internal/webhook"
 )
 
 func TestLocalFlagValidation(t *testing.T) {
@@ -598,4 +603,227 @@ func TestConfigOpencodeFlags(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestConfigWebhookConfigFlagParsing tests flag parsing for the webhook-config command
+func TestConfigWebhookConfigFlagParsing(t *testing.T) {
+	tests := []struct {
+		name              string
+		args              []string
+		expectedContext   string
+		expectedNamespace string
+		expectedDryRun    bool
+		wantErr           bool
+	}{
+		{
+			name:              "defaults to ralph-webhook namespace",
+			args:              []string{"config", "webhook-config"},
+			expectedContext:   "",
+			expectedNamespace: "ralph-webhook",
+			expectedDryRun:    false,
+		},
+		{
+			name:              "custom context",
+			args:              []string{"config", "webhook-config", "--context", "my-cluster"},
+			expectedContext:   "my-cluster",
+			expectedNamespace: "ralph-webhook",
+			expectedDryRun:    false,
+		},
+		{
+			name:              "custom namespace overrides default",
+			args:              []string{"config", "webhook-config", "--namespace", "my-ns"},
+			expectedContext:   "",
+			expectedNamespace: "my-ns",
+			expectedDryRun:    false,
+		},
+		{
+			name:              "dry-run flag",
+			args:              []string{"config", "webhook-config", "--dry-run"},
+			expectedContext:   "",
+			expectedNamespace: "ralph-webhook",
+			expectedDryRun:    true,
+		},
+		{
+			name:              "all flags",
+			args:              []string{"config", "webhook-config", "--context", "ctx", "--namespace", "ns", "--dry-run"},
+			expectedContext:   "ctx",
+			expectedNamespace: "ns",
+			expectedDryRun:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := &Cmd{}
+			parser, err := kong.New(cmd,
+				kong.Name("ralph"),
+				kong.Exit(func(int) {}),
+			)
+			require.NoError(t, err)
+
+			_, err = parser.Parse(tt.args)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.expectedContext, cmd.Config.WebhookConfig.Context)
+			assert.Equal(t, tt.expectedNamespace, cmd.Config.WebhookConfig.Namespace)
+			assert.Equal(t, tt.expectedDryRun, cmd.Config.WebhookConfig.DryRun)
+		})
+	}
+}
+
+// TestConfigWebhookSecretFlagParsing tests flag parsing for the webhook-secret command
+func TestConfigWebhookSecretFlagParsing(t *testing.T) {
+	tests := []struct {
+		name              string
+		args              []string
+		expectedContext   string
+		expectedNamespace string
+		expectedDryRun    bool
+	}{
+		{
+			name:              "defaults to ralph-webhook namespace",
+			args:              []string{"config", "webhook-secret"},
+			expectedContext:   "",
+			expectedNamespace: "ralph-webhook",
+			expectedDryRun:    false,
+		},
+		{
+			name:              "custom context and namespace",
+			args:              []string{"config", "webhook-secret", "--context", "prod", "--namespace", "prod-webhook"},
+			expectedContext:   "prod",
+			expectedNamespace: "prod-webhook",
+			expectedDryRun:    false,
+		},
+		{
+			name:              "dry-run flag",
+			args:              []string{"config", "webhook-secret", "--dry-run"},
+			expectedContext:   "",
+			expectedNamespace: "ralph-webhook",
+			expectedDryRun:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := &Cmd{}
+			parser, err := kong.New(cmd,
+				kong.Name("ralph"),
+				kong.Exit(func(int) {}),
+			)
+			require.NoError(t, err)
+
+			_, err = parser.Parse(tt.args)
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.expectedContext, cmd.Config.WebhookSecret.Context)
+			assert.Equal(t, tt.expectedNamespace, cmd.Config.WebhookSecret.Namespace)
+			assert.Equal(t, tt.expectedDryRun, cmd.Config.WebhookSecret.DryRun)
+		})
+	}
+}
+
+// TestBuildWebhookAppConfig tests the pure default-filling logic
+func TestBuildWebhookAppConfig(t *testing.T) {
+	t.Run("fills all defaults when starting from nil", func(t *testing.T) {
+		cfg := buildWebhookAppConfig(nil, "my-repo", "my-owner", "anthropic/claude-sonnet-4-6", "ralph-bot")
+
+		assert.Equal(t, 8080, cfg.Port)
+		assert.Equal(t, "anthropic/claude-sonnet-4-6", cfg.Model)
+		assert.Equal(t, "ralph-bot", cfg.RalphUsername)
+		require.Len(t, cfg.Repos, 1)
+		assert.Equal(t, "my-owner", cfg.Repos[0].Owner)
+		assert.Equal(t, "my-repo", cfg.Repos[0].Name)
+		assert.Equal(t, "/repos/my-repo", cfg.Repos[0].ClonePath)
+	})
+
+	t.Run("clonePath defaults to /repos/<repo-name>", func(t *testing.T) {
+		cfg := buildWebhookAppConfig(nil, "special-repo", "owner-x", "", "")
+
+		require.Len(t, cfg.Repos, 1)
+		assert.Equal(t, "/repos/special-repo", cfg.Repos[0].ClonePath)
+	})
+
+	t.Run("does not override existing port", func(t *testing.T) {
+		partial := &webhook.AppConfig{Port: 9090}
+		cfg := buildWebhookAppConfig(partial, "repo", "owner", "model", "user")
+
+		assert.Equal(t, 9090, cfg.Port)
+	})
+
+	t.Run("does not override existing model", func(t *testing.T) {
+		partial := &webhook.AppConfig{Model: "my-custom-model"}
+		cfg := buildWebhookAppConfig(partial, "repo", "owner", "default-model", "user")
+
+		assert.Equal(t, "my-custom-model", cfg.Model)
+	})
+
+	t.Run("does not override existing ralphUsername", func(t *testing.T) {
+		partial := &webhook.AppConfig{RalphUsername: "custom-user"}
+		cfg := buildWebhookAppConfig(partial, "repo", "owner", "model", "detected-user")
+
+		assert.Equal(t, "custom-user", cfg.RalphUsername)
+	})
+
+	t.Run("does not duplicate existing repo", func(t *testing.T) {
+		partial := &webhook.AppConfig{
+			Repos: []webhook.RepoConfig{
+				{Owner: "my-owner", Name: "my-repo", ClonePath: "/custom/path"},
+			},
+		}
+		cfg := buildWebhookAppConfig(partial, "my-repo", "my-owner", "model", "user")
+
+		require.Len(t, cfg.Repos, 1)
+		assert.Equal(t, "/custom/path", cfg.Repos[0].ClonePath)
+	})
+
+	t.Run("adds detected repo alongside existing repos", func(t *testing.T) {
+		partial := &webhook.AppConfig{
+			Repos: []webhook.RepoConfig{
+				{Owner: "owner-a", Name: "repo-a", ClonePath: "/repos/repo-a"},
+			},
+		}
+		cfg := buildWebhookAppConfig(partial, "repo-b", "owner-b", "model", "user")
+
+		require.Len(t, cfg.Repos, 2)
+		assert.Equal(t, "repo-a", cfg.Repos[0].Name)
+		assert.Equal(t, "repo-b", cfg.Repos[1].Name)
+	})
+
+	t.Run("skips repo detection when repoName is empty", func(t *testing.T) {
+		cfg := buildWebhookAppConfig(nil, "", "", "model", "user")
+
+		assert.Empty(t, cfg.Repos)
+	})
+
+	t.Run("existing repo without clonePath gets default filled", func(t *testing.T) {
+		partial := &webhook.AppConfig{
+			Repos: []webhook.RepoConfig{
+				{Owner: "my-owner", Name: "my-repo"},
+			},
+		}
+		cfg := buildWebhookAppConfig(partial, "my-repo", "my-owner", "model", "user")
+
+		require.Len(t, cfg.Repos, 1)
+		assert.Equal(t, "/repos/my-repo", cfg.Repos[0].ClonePath)
+	})
+
+	t.Run("loads from partial config file", func(t *testing.T) {
+		dir := t.TempDir()
+		partialYAML := "ralphUsername: from-file\nport: 7070\n"
+		path := filepath.Join(dir, "partial.yaml")
+		require.NoError(t, os.WriteFile(path, []byte(partialYAML), 0644))
+
+		loaded, err := webhook.LoadAppConfig(path)
+		require.NoError(t, err)
+
+		cfg := buildWebhookAppConfig(loaded, "my-repo", "my-owner", "default-model", "detected-user")
+
+		assert.Equal(t, 7070, cfg.Port)
+		assert.Equal(t, "from-file", cfg.RalphUsername)
+		assert.Equal(t, "default-model", cfg.Model)
+	})
 }

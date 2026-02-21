@@ -48,7 +48,7 @@ requirements:
     items:
       - ConfigWebhookConfigCmd and ConfigWebhookSecretCmd added to ConfigCmd in internal/cmd/cmd.go
       - Both commands accept --context and --namespace flags (defaulting to ralph-webhook namespace)
-    passing: false
+    passing: true
 
   - category: backend
     description: webhook-config command
@@ -58,7 +58,7 @@ requirements:
       - ralphUsername defaults to the authenticated gh CLI user (gh api user --jq .login)
       - Serializes AppConfig as YAML and writes it to a Kubernetes secret named "webhook-config" in the target namespace
       - Accepts an optional --config flag to load a partial AppConfig YAML file as a starting point
-    passing: false
+    passing: true
 
   - category: backend
     description: webhook-secret command
