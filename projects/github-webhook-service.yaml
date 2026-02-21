@@ -51,7 +51,7 @@ requirements:
       - The workflow container clones the repo, checks out the PR branch, checks whether all requirements in the project file are passing, removes the project file, commits the deletion, pushes, and merges the PR via gh CLI
       - If requirements are not all passing the workflow exits without making changes
       - The merge command does not wait for the workflow to complete
-    passing: false
+    passing: true
 
   - category: workflow-invocation
     description: Invoke ralph workflows in response to PR events

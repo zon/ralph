@@ -567,6 +567,360 @@ func TestSanitizeName(t *testing.T) {
 	}
 }
 
+func TestGenerateMergeWorkflow(t *testing.T) {
+	// Create a temporary directory for test files
+	tmpDir := t.TempDir()
+
+	// Create a test project file with all requirements passing
+	projectContent := `name: test-project
+description: Test project
+requirements:
+  - category: test
+    description: Test requirement
+    items:
+      - Test item 1
+    passing: true
+`
+	projectFile := filepath.Join(tmpDir, "project.yaml")
+	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
+		t.Fatalf("Failed to create test project file: %v", err)
+	}
+
+	// Create .ralph directory with config
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	if err := os.MkdirAll(ralphDir, 0755); err != nil {
+		t.Fatalf("Failed to create .ralph directory: %v", err)
+	}
+
+	configContent := `workflow:
+  image:
+    repository: my-registry/ralph
+    tag: v2.0.0
+`
+	configFile := filepath.Join(ralphDir, "config.yaml")
+	if err := os.WriteFile(configFile, []byte(configContent), 0644); err != nil {
+		t.Fatalf("Failed to create config file: %v", err)
+	}
+
+	// Change to temp directory
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+	defer os.Chdir(origDir)
+
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("Failed to change to temp directory: %v", err)
+	}
+
+	// Generate merge workflow
+	repoURL := "git@github.com:test/repo.git"
+	cloneBranch := "main"
+	prBranch := "ralph/test-project"
+	relProjectPath := "project.yaml"
+
+	workflowYAML, err := GenerateMergeWorkflowWithGitInfo(projectFile, repoURL, cloneBranch, prBranch, relProjectPath)
+	if err != nil {
+		t.Fatalf("GenerateMergeWorkflowWithGitInfo failed: %v", err)
+	}
+
+	// Parse the generated YAML
+	var wf map[string]interface{}
+	if err := yaml.Unmarshal([]byte(workflowYAML), &wf); err != nil {
+		t.Fatalf("Failed to parse generated workflow YAML: %v", err)
+	}
+
+	// Verify basic structure
+	if wf["apiVersion"] != "argoproj.io/v1alpha1" {
+		t.Errorf("apiVersion = %v, want argoproj.io/v1alpha1", wf["apiVersion"])
+	}
+	if wf["kind"] != "Workflow" {
+		t.Errorf("kind = %v, want Workflow", wf["kind"])
+	}
+
+	// Verify metadata
+	metadata, ok := wf["metadata"].(map[string]interface{})
+	if !ok {
+		t.Fatal("metadata is not a map")
+	}
+	if metadata["generateName"] != "ralph-merge-" {
+		t.Errorf("generateName = %v, want ralph-merge-", metadata["generateName"])
+	}
+
+	// Verify spec
+	spec, ok := wf["spec"].(map[string]interface{})
+	if !ok {
+		t.Fatal("spec is not a map")
+	}
+	if spec["entrypoint"] != "ralph-merger" {
+		t.Errorf("entrypoint = %v, want ralph-merger", spec["entrypoint"])
+	}
+
+	// Verify TTL strategy
+	ttlStrategy, ok := spec["ttlStrategy"].(map[string]interface{})
+	if !ok {
+		t.Fatal("ttlStrategy is not a map")
+	}
+	if ttlStrategy["secondsAfterCompletion"] != 86400 {
+		t.Errorf("ttlStrategy.secondsAfterCompletion = %v, want 86400", ttlStrategy["secondsAfterCompletion"])
+	}
+
+	// Verify podGC
+	podGC, ok := spec["podGC"].(map[string]interface{})
+	if !ok {
+		t.Fatal("podGC is not a map")
+	}
+	if podGC["strategy"] != "OnWorkflowCompletion" {
+		t.Errorf("podGC.strategy = %v, want OnWorkflowCompletion", podGC["strategy"])
+	}
+
+	// Verify arguments / parameters
+	arguments, ok := spec["arguments"].(map[string]interface{})
+	if !ok {
+		t.Fatal("arguments is not a map")
+	}
+	params, ok := arguments["parameters"].([]interface{})
+	if !ok {
+		t.Fatal("parameters is not a list")
+	}
+
+	hasProjectFile := false
+	hasProjectPath := false
+	for _, p := range params {
+		pm, ok := p.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if pm["name"] == "project-file" {
+			hasProjectFile = true
+			if !strings.Contains(pm["value"].(string), "test-project") {
+				t.Error("project-file parameter does not contain project content")
+			}
+		}
+		if pm["name"] == "project-path" {
+			hasProjectPath = true
+			if pm["value"] != "project.yaml" {
+				t.Errorf("project-path = %v, want project.yaml", pm["value"])
+			}
+		}
+	}
+	if !hasProjectFile {
+		t.Error("project-file parameter not found")
+	}
+	if !hasProjectPath {
+		t.Error("project-path parameter not found")
+	}
+
+	// Verify template
+	templates, ok := spec["templates"].([]interface{})
+	if !ok || len(templates) == 0 {
+		t.Fatal("templates is empty or not a list")
+	}
+	tmpl, ok := templates[0].(map[string]interface{})
+	if !ok {
+		t.Fatal("template is not a map")
+	}
+	if tmpl["name"] != "ralph-merger" {
+		t.Errorf("template name = %v, want ralph-merger", tmpl["name"])
+	}
+
+	// Verify container
+	container, ok := tmpl["container"].(map[string]interface{})
+	if !ok {
+		t.Fatal("container is not a map")
+	}
+	if container["image"] != "my-registry/ralph:v2.0.0" {
+		t.Errorf("container.image = %v, want my-registry/ralph:v2.0.0", container["image"])
+	}
+
+	// Verify environment variables contain PR_BRANCH
+	env, ok := container["env"].([]interface{})
+	if !ok {
+		t.Fatal("env is not a list")
+	}
+
+	hasPRBranch := false
+	hasGitRepoURL := false
+	hasGitBranch := false
+	for _, e := range env {
+		em, ok := e.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if em["name"] == "PR_BRANCH" {
+			hasPRBranch = true
+			if em["value"] != prBranch {
+				t.Errorf("PR_BRANCH = %v, want %v", em["value"], prBranch)
+			}
+		}
+		if em["name"] == "GIT_REPO_URL" {
+			hasGitRepoURL = true
+		}
+		if em["name"] == "GIT_BRANCH" {
+			hasGitBranch = true
+			if em["value"] != cloneBranch {
+				t.Errorf("GIT_BRANCH = %v, want %v", em["value"], cloneBranch)
+			}
+		}
+	}
+	if !hasPRBranch {
+		t.Error("PR_BRANCH environment variable not found")
+	}
+	if !hasGitRepoURL {
+		t.Error("GIT_REPO_URL environment variable not found")
+	}
+	if !hasGitBranch {
+		t.Error("GIT_BRANCH environment variable not found")
+	}
+
+	// Verify volumes contain git-credentials and github-credentials
+	volumes, ok := tmpl["volumes"].([]interface{})
+	if !ok {
+		t.Fatal("volumes is not a list")
+	}
+	hasGitVol := false
+	hasGithubVol := false
+	for _, v := range volumes {
+		vm, ok := v.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if vm["name"] == "git-credentials" {
+			hasGitVol = true
+		}
+		if vm["name"] == "github-credentials" {
+			hasGithubVol = true
+		}
+	}
+	if !hasGitVol {
+		t.Error("git-credentials volume not found")
+	}
+	if !hasGithubVol {
+		t.Error("github-credentials volume not found")
+	}
+}
+
+func TestBuildMergeScript(t *testing.T) {
+	tests := []struct {
+		name             string
+		gitUserName      string
+		gitUserEmail     string
+		expectStrings    []string
+		notExpectStrings []string
+	}{
+		{
+			name:         "default user",
+			gitUserName:  "Ralph Bot",
+			gitUserEmail: "ralph@example.com",
+			expectStrings: []string{
+				"#!/bin/sh",
+				"set -e",
+				"git clone",
+				"GIT_REPO_URL",
+				"GIT_BRANCH",
+				"PR_BRANCH",
+				"ssh-privatekey",
+				"GITHUB_TOKEN",
+				"passing: false",
+				"rm \"$PROJECT_PATH\"",
+				"git add -A",
+				"git commit",
+				"git push",
+				"gh pr merge",
+				"--merge",
+				"--delete-branch",
+				"Ralph Bot",
+				"ralph@example.com",
+			},
+		},
+		{
+			name:         "custom user",
+			gitUserName:  "My Bot",
+			gitUserEmail: "mybot@myorg.com",
+			expectStrings: []string{
+				"My Bot",
+				"mybot@myorg.com",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			script := buildMergeScript(tt.gitUserName, tt.gitUserEmail)
+			for _, s := range tt.expectStrings {
+				if !strings.Contains(script, s) {
+					t.Errorf("merge script does not contain expected element: %q", s)
+				}
+			}
+			for _, s := range tt.notExpectStrings {
+				if strings.Contains(script, s) {
+					t.Errorf("merge script unexpectedly contains: %q", s)
+				}
+			}
+		})
+	}
+}
+
+func TestGenerateMergeWorkflow_DefaultImage(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	projectContent := `name: test-project
+description: Test project
+requirements:
+  - category: test
+    description: Test requirement
+    items:
+      - Test item 1
+    passing: true
+`
+	projectFile := filepath.Join(tmpDir, "project.yaml")
+	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
+		t.Fatalf("Failed to create test project file: %v", err)
+	}
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	if err := os.MkdirAll(ralphDir, 0755); err != nil {
+		t.Fatalf("Failed to create .ralph directory: %v", err)
+	}
+
+	// Minimal config with no image settings
+	configContent := "maxIterations: 5\n"
+	configFile := filepath.Join(ralphDir, "config.yaml")
+	if err := os.WriteFile(configFile, []byte(configContent), 0644); err != nil {
+		t.Fatalf("Failed to create config file: %v", err)
+	}
+
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+	defer os.Chdir(origDir)
+
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("Failed to change to temp directory: %v", err)
+	}
+
+	workflowYAML, err := GenerateMergeWorkflowWithGitInfo(projectFile, "git@github.com:test/repo.git", "main", "ralph/test", "project.yaml")
+	if err != nil {
+		t.Fatalf("GenerateMergeWorkflowWithGitInfo failed: %v", err)
+	}
+
+	var wf map[string]interface{}
+	if err := yaml.Unmarshal([]byte(workflowYAML), &wf); err != nil {
+		t.Fatalf("Failed to parse generated workflow YAML: %v", err)
+	}
+
+	spec := wf["spec"].(map[string]interface{})
+	templates := spec["templates"].([]interface{})
+	tmpl := templates[0].(map[string]interface{})
+	container := tmpl["container"].(map[string]interface{})
+
+	expectedImage := fmt.Sprintf("ghcr.io/zon/ralph:%s", DefaultContainerVersion)
+	if container["image"] != expectedImage {
+		t.Errorf("container.image = %v, want %v", container["image"], expectedImage)
+	}
+}
+
 func TestSubmitWorkflow_ArgoNotInstalled(t *testing.T) {
 	// This test verifies error handling when argo CLI is not installed
 	ctx := &execcontext.Context{}
