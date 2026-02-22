@@ -4,8 +4,11 @@ import (
 	"context"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"io"
+	"net/http"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -46,18 +49,78 @@ func GenerateAppJWT(appID string, privateKeyPEM []byte) (string, error) {
 
 // GetInstallationID retrieves the installation ID for a GitHub App in a specific repository
 func GetInstallationID(ctx context.Context, jwtToken, owner, repo string) (int64, error) {
-	// This would make a GitHub API call to GET /repos/{owner}/{repo}/installation
-	// For now, we'll return a placeholder implementation
-	// TODO: Implement actual GitHub API call
-	return 0, fmt.Errorf("GetInstallationID not implemented")
+	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/installation", owner, repo)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", jwtToken))
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("User-Agent", "ralph")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return 0, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return 0, fmt.Errorf("GitHub API returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var result struct {
+		ID int64 `json:"id"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return 0, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return result.ID, nil
 }
 
 // GetInstallationToken retrieves an installation access token for a GitHub App
 func GetInstallationToken(ctx context.Context, jwtToken string, installationID int64) (string, error) {
-	// This would make a GitHub API call to POST /app/installations/{id}/access_tokens
-	// For now, we'll return a placeholder implementation
-	// TODO: Implement actual GitHub API call
-	return "", fmt.Errorf("GetInstallationToken not implemented")
+	url := fmt.Sprintf("https://api.github.com/app/installations/%d/access_tokens", installationID)
+
+	req, err := http.NewRequestWithContext(ctx, "POST", url, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", jwtToken))
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("User-Agent", "ralph")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("GitHub API returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var result struct {
+		Token string `json:"token"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	if result.Token == "" {
+		return "", fmt.Errorf("installation token is empty in response")
+	}
+
+	return result.Token, nil
 }
 
 // parsePrivateKey parses a PEM-encoded RSA private key

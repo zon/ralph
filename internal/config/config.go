@@ -53,7 +53,7 @@ type ImageConfig struct {
 
 // GitUserConfig represents git user configuration
 type GitUserConfig struct {
-	Name  string `yaml:"name,omitempty"`  // GitHub username / git committer name (default: zralphen)
+	Name  string `yaml:"name,omitempty"` // GitHub username / git committer name (default: zralphen)
 	Email string `yaml:"email,omitempty"`
 }
 

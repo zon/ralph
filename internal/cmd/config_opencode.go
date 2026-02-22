@@ -130,4 +130,3 @@ func removeAnthropicOAuthFromLocal(authFilePath, authContent string) error {
 
 	return nil
 }
-

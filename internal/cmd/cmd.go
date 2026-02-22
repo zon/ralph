@@ -18,9 +18,10 @@ import (
 // Cmd defines the command-line arguments and execution context
 type Cmd struct {
 	// Subcommands
-	Run    RunCmd    `cmd:"" default:"withargs" help:"Execute ralph with a project file (default command)"`
-	Merge  MergeCmd  `cmd:"" help:"Submit an Argo workflow to merge a completed PR"`
-	Config ConfigCmd `cmd:"" help:"Configure credentials for remote execution"`
+	Run         RunCmd         `cmd:"" default:"withargs" help:"Execute ralph with a project file (default command)"`
+	Merge       MergeCmd       `cmd:"" help:"Submit an Argo workflow to merge a completed PR"`
+	Config      ConfigCmd      `cmd:"" help:"Configure credentials for remote execution"`
+	GithubToken GithubTokenCmd `cmd:"github-token" help:"Generate a GitHub App installation token"`
 
 	version          string       `kong:"-"`
 	date             string       `kong:"-"`
@@ -34,6 +35,13 @@ type ConfigCmd struct {
 	Opencode      ConfigOpencodeCmd      `cmd:"" help:"Configure OpenCode credentials for remote execution"`
 	WebhookConfig ConfigWebhookConfigCmd `cmd:"webhook-config" help:"Provision webhook-config secret into Kubernetes"`
 	WebhookSecret ConfigWebhookSecretCmd `cmd:"webhook-secret" help:"Provision webhook-secrets secret into Kubernetes"`
+}
+
+// GithubTokenCmd generates a GitHub App installation token
+type GithubTokenCmd struct {
+	Owner      string `help:"Repository owner (default: autodetected from git remote)" short:"o"`
+	Repo       string `help:"Repository name (default: autodetected from git remote)" short:"r"`
+	SecretsDir string `help:"Directory containing GitHub App credentials (default: /secrets/github)" default:"/secrets/github"`
 }
 
 // MergeCmd is the command for submitting a merge workflow for a completed PR
@@ -182,4 +190,3 @@ func (r *RunCmd) Run() error {
 	// Execute full orchestration mode
 	return project.Execute(ctx, r.cleanupRegistrar)
 }
-

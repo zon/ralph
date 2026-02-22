@@ -18,7 +18,7 @@ requirements:
       - Repo owner and name are autodetected from git remote if not provided as flags
       - Command prints the installation token to stdout and exits
       - Command registered in internal/cmd/cmd.go
-    passing: false
+    passing: true
 
   - category: backend
     description: Updated ralph config github command
@@ -58,4 +58,4 @@ requirements:
       - internal/github/app_test.go tests GenerateAppJWT with a generated RSA test key and verifies JWT claims — no network calls
       - internal/cmd/github_token_test.go tests flag parsing and default values
       - All existing tests pass after the credential infrastructure changes
-    passing: false
+    passing: true
