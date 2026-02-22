@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/k8s"
 	"golang.org/x/term"
@@ -42,15 +43,7 @@ func (c *ConfigGithubCmd) Run() error {
 		return fmt.Errorf("failed to detect GitHub repository: %w", err)
 	}
 
-	// Prompt for GitHub App ID
-	fmt.Print("Enter your Ralph GitHub App ID: ")
-	var appID string
-	fmt.Scanln(&appID)
-	appID = strings.TrimSpace(appID)
-	if appID == "" {
-		return fmt.Errorf("GitHub App ID cannot be empty")
-	}
-	fmt.Println()
+	appID := config.DefaultAppID
 
 	// Check if the app is installed on the current repo
 	fmt.Println("Checking if GitHub App is installed on the repository...")

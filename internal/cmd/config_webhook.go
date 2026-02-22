@@ -109,7 +109,7 @@ func buildWebhookAppConfig(ctx context.Context, partialConfig *webhook.AppConfig
 
 	// Set the ralph bot user if not already configured
 	if cfg.RalphUser == "" {
-		cfg.RalphUser = "zalphen[bot]"
+		cfg.RalphUser = config.DefaultAppName + "[bot]"
 	}
 
 	// Auto-add repo if detected and not already present

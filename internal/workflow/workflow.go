@@ -215,6 +215,9 @@ func buildExecutionScript(dryRun, verbose bool, cfg *config.RalphConfig) string 
 	// Always disable notifications when running in workflow container
 	ralphCmd += " --no-notify"
 
+	appBotName := config.DefaultAppName + "[bot]"
+	appBotEmail := config.DefaultAppName + "[bot]@users.noreply.github.com"
+
 	script := fmt.Sprintf(`#!/bin/sh
 set -e
 
@@ -229,8 +232,8 @@ mkdir -p ~/.local/share/opencode
 cp /secrets/opencode/auth.json ~/.local/share/opencode/auth.json
 
 echo "Configuring git user..."
-git config --global user.name "zalphen[bot]"
-git config --global user.email "zalphen[bot]@users.noreply.github.com"
+git config --global user.name "%s"
+git config --global user.email "%s"
 
 echo "Cloning repository: $GIT_REPO_URL"
 git clone -b "$GIT_BRANCH" "$GIT_REPO_URL" /workspace/repo
@@ -270,7 +273,7 @@ echo "Running ralph..."
 %s
 
 echo "Execution complete!"
-`, ralphCmd)
+`, appBotName, appBotEmail, ralphCmd)
 	return script
 }
 
@@ -718,6 +721,9 @@ func buildMergeTemplate(image, repoURL, cloneBranch, prBranch string, cfg *confi
 
 // buildMergeScript builds the shell script that checks requirements and merges the PR
 func buildMergeScript() string {
+	appBotName := config.DefaultAppName + "[bot]"
+	appBotEmail := config.DefaultAppName + "[bot]@users.noreply.github.com"
+
 	script := fmt.Sprintf(`#!/bin/sh
 set -e
 
@@ -728,8 +734,8 @@ echo "Configuring git for HTTPS authentication..."
 git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
 
 echo "Configuring git user..."
-git config --global user.name "zalphen[bot]"
-git config --global user.email "zalphen[bot]@users.noreply.github.com"
+git config --global user.name "%s"
+git config --global user.email "%s"
 
 echo "Cloning repository: $GIT_REPO_URL"
 git clone -b "$GIT_BRANCH" "$GIT_REPO_URL" /workspace/repo
@@ -771,7 +777,7 @@ echo "Merging PR via gh CLI..."
 gh pr merge "$PR_BRANCH" --merge --delete-branch
 
 echo "Merge complete!"
-`)
+`, appBotName, appBotEmail)
 	return script
 }
 

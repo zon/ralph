@@ -10,6 +10,7 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/webhook"
 	"gopkg.in/yaml.v3"
 )
@@ -149,7 +150,7 @@ func TestBuildWebhookAppConfig(t *testing.T) {
 
 		assert.Equal(t, 8080, cfg.Port)
 		assert.Equal(t, "anthropic/claude-sonnet-4-6", cfg.Model)
-		assert.Equal(t, "zalphen[bot]", cfg.RalphUser)
+		assert.Equal(t, config.DefaultAppName+"[bot]", cfg.RalphUser)
 		require.Len(t, cfg.Repos, 1)
 		assert.Equal(t, "my-owner", cfg.Repos[0].Owner)
 		assert.Equal(t, "my-repo", cfg.Repos[0].Name)
@@ -249,10 +250,10 @@ func TestBuildWebhookAppConfig(t *testing.T) {
 		assert.Empty(t, cfg.Repos[0].AllowedUsers)
 	})
 
-	t.Run("sets RalphUser to zalphen[bot] by default", func(t *testing.T) {
+	t.Run("sets RalphUser to DefaultAppName[bot] by default", func(t *testing.T) {
 		cfg := buildWebhookAppConfig(ctx, nil, "my-repo", "my-owner", "model", "", noopFetcher)
 
-		assert.Equal(t, "zalphen[bot]", cfg.RalphUser)
+		assert.Equal(t, config.DefaultAppName+"[bot]", cfg.RalphUser)
 	})
 
 	t.Run("does not override existing RalphUser", func(t *testing.T) {
@@ -262,10 +263,10 @@ func TestBuildWebhookAppConfig(t *testing.T) {
 		assert.Equal(t, "existing-bot", cfg.RalphUser)
 	})
 
-	t.Run("always sets RalphUser to zalphen[bot] when empty", func(t *testing.T) {
+	t.Run("always sets RalphUser to DefaultAppName[bot] when empty", func(t *testing.T) {
 		cfg := buildWebhookAppConfig(ctx, nil, "my-repo", "my-owner", "model", "", noopFetcher)
 
-		assert.Equal(t, "zalphen[bot]", cfg.RalphUser)
+		assert.Equal(t, config.DefaultAppName+"[bot]", cfg.RalphUser)
 	})
 }
 

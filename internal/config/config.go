@@ -45,6 +45,17 @@ type Service struct {
 	Timeout int      `yaml:"timeout,omitempty"` // Optional, health check timeout in seconds (default: 30)
 }
 
+const (
+	DefaultAppName = "zalphen"
+	DefaultAppID   = "2924254"
+)
+
+// AppInfo holds the GitHub App identity
+type AppInfo struct {
+	Name string `yaml:"name,omitempty"`
+	ID   string `yaml:"id,omitempty"`
+}
+
 // ImageConfig represents container image configuration
 type ImageConfig struct {
 	Repository string `yaml:"repository,omitempty"`
@@ -83,6 +94,7 @@ type RalphConfig struct {
 	Builds        []Build        `yaml:"builds,omitempty"`
 	Services      []Service      `yaml:"services,omitempty"`
 	Workflow      WorkflowConfig `yaml:"workflow,omitempty"`
+	App           AppInfo        `yaml:"app,omitempty"`
 	Instructions  string         `yaml:"-"` // Not persisted in YAML, loaded from .ralph/instructions.md
 }
 
@@ -142,6 +154,12 @@ func applyDefaults(config *RalphConfig) {
 	}
 	if config.Model == "" {
 		config.Model = "deepseek/deepseek-chat"
+	}
+	if config.App.Name == "" {
+		config.App.Name = DefaultAppName
+	}
+	if config.App.ID == "" {
+		config.App.ID = DefaultAppID
 	}
 
 	for i := range config.Services {
