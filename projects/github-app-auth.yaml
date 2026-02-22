@@ -9,7 +9,7 @@ requirements:
       - internal/github/app.go provides GetInstallationID(ctx, jwtToken, owner, repo string) (int64, error) calling GET /repos/{owner}/{repo}/installation
       - internal/github/app.go provides GetInstallationToken(ctx, jwtToken string, installationID int64) (string, error) calling POST /app/installations/{id}/access_tokens
       - golang-jwt/jwt/v5 added to go.mod for RS256 JWT signing
-    passing: false
+    passing: true
 
   - category: backend
     description: ralph github-token subcommand
