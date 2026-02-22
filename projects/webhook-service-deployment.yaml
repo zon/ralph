@@ -77,3 +77,4 @@ requirements:
       - Tests for secret generation and serialization in webhook-secret command
     passing: true
 
+
