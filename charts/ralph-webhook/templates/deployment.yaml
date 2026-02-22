@@ -28,6 +28,10 @@ spec:
               containerPort: {{ .Values.service.port }}
               protocol: TCP
           command: ["ralph-webhook"]
+          args:
+            {{- if .Values.verbose }}
+            - "--verbose"
+            {{- end }}
           env:
             - name: WEBHOOK_CONFIG
               value: /etc/webhook/config/config.yaml

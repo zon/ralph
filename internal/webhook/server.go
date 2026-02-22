@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/zon/ralph/internal/logger"
 )
 
 // EventHandler is called when a webhook event passes all filters.
@@ -75,10 +76,13 @@ func (s *Server) handleWebhook(c *gin.Context) {
 		return
 	}
 
+	logger.Verbosef("received webhook for %s/%s", owner, repoName)
+
 	// Look up the webhook secret for this repository.
 	secret := s.config.WebhookSecretForRepo(owner, repoName)
 	if secret == "" {
 		// Repository not configured – reject.
+		logger.Verbosef("ignoring event: repo %s/%s not configured", owner, repoName)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "repository not configured"})
 		return
 	}
@@ -86,6 +90,7 @@ func (s *Server) handleWebhook(c *gin.Context) {
 	// Validate the HMAC-SHA256 signature.
 	sig := c.GetHeader("X-Hub-Signature-256")
 	if !validateSignature(body, secret, sig) {
+		logger.Verbosef("rejected request: invalid signature for %s/%s", owner, repoName)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid signature"})
 		return
 	}
@@ -94,6 +99,7 @@ func (s *Server) handleWebhook(c *gin.Context) {
 
 	// issue_comment events are explicitly ignored.
 	if eventType == "issue_comment" {
+		logger.Verbosef("ignoring issue_comment event for %s/%s", owner, repoName)
 		c.Status(http.StatusOK)
 		return
 	}
@@ -112,9 +118,11 @@ func (s *Server) handleWebhook(c *gin.Context) {
 		commenter, _ := nestedString(payload, "comment", "user", "login")
 		// Only process events from allowed users.
 		if repo != nil && !repo.IsUserAllowed(commenter) {
+			logger.Verbosef("ignoring pull_request_review_comment: user %q not in allowlist for %s/%s", commenter, owner, repoName)
 			c.Status(http.StatusOK)
 			return
 		}
+		logger.Verbosef("dispatching pull_request_review_comment for %s/%s (user: %s)", owner, repoName, commenter)
 		if s.handler != nil {
 			s.handler(eventType, owner, repoName, payload)
 		}
@@ -124,15 +132,18 @@ func (s *Server) handleWebhook(c *gin.Context) {
 		// Only process reviews where state == "approved".
 		state, _ := nestedString(payload, "review", "state")
 		if strings.ToLower(state) != "approved" {
+			logger.Verbosef("ignoring pull_request_review: state is %q (not approved) for %s/%s", state, owner, repoName)
 			c.Status(http.StatusOK)
 			return
 		}
 		reviewer, _ := nestedString(payload, "review", "user", "login")
 		// Only process reviews from allowed users.
 		if repo != nil && !repo.IsUserAllowed(reviewer) {
+			logger.Verbosef("ignoring pull_request_review: user %q not in allowlist for %s/%s", reviewer, owner, repoName)
 			c.Status(http.StatusOK)
 			return
 		}
+		logger.Verbosef("dispatching pull_request_review (approved) for %s/%s (reviewer: %s)", owner, repoName, reviewer)
 		if s.handler != nil {
 			s.handler(eventType, owner, repoName, payload)
 		}
@@ -140,6 +151,7 @@ func (s *Server) handleWebhook(c *gin.Context) {
 
 	default:
 		// Unrecognised event types are ignored gracefully.
+		logger.Verbosef("ignoring unrecognised event type %q for %s/%s", eventType, owner, repoName)
 		c.Status(http.StatusOK)
 	}
 }

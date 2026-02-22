@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/zon/ralph/internal/logger"
 )
 
 // InvokeResult captures what an invoker would have done, used in dry-run mode.
@@ -79,6 +81,7 @@ func (inv *Invoker) InvokeRalphRun(projectFile, commentBody string) error {
 	}
 
 	args := []string{projectFile, "--instructions", instructionsFile, "--remote", "--no-notify"}
+	logger.Verbosef("invoking: ralph run %s", strings.Join(args, " "))
 	cmd := exec.Command("ralph", args...)
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start ralph run: %w", err)
@@ -103,6 +106,7 @@ func (inv *Invoker) InvokeRalphMerge(projectFile, prBranch string) error {
 		return nil
 	}
 
+	logger.Verbosef("invoking: ralph merge %s %s", projectFile, prBranch)
 	cmd := exec.Command("ralph", "merge", projectFile, prBranch)
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start ralph merge: %w", err)
