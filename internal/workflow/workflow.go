@@ -239,6 +239,9 @@ echo "Cloning repository: $GIT_REPO_URL"
 git clone -b "$GIT_BRANCH" "$GIT_REPO_URL" /workspace/repo
 cd /workspace/repo
 
+echo "Fetching base branch: $BASE_BRANCH"
+git fetch origin "$BASE_BRANCH":"$BASE_BRANCH" 2>/dev/null || git fetch origin "$BASE_BRANCH" 2>/dev/null || true
+
 if [ "$PROJECT_BRANCH" != "$GIT_BRANCH" ]; then
   echo "Fetching remote branches..."
   git fetch origin
@@ -308,6 +311,10 @@ func buildEnvVars(repoURL, cloneBranch, projectBranch string, cfg *config.RalphC
 		{
 			"name":  "RALPH_WORKFLOW_EXECUTION",
 			"value": "true",
+		},
+		{
+			"name":  "BASE_BRANCH",
+			"value": cfg.BaseBranch,
 		},
 	}
 

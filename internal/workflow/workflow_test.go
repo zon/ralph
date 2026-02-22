@@ -255,6 +255,7 @@ requirements:
 	hasProjectBranch := false
 	hasProjectFileEnv := false
 	hasCustomEnv := false
+	hasBaseBranch := false
 	for _, envVar := range env {
 		envMap, ok := envVar.(map[string]interface{})
 		if !ok {
@@ -281,6 +282,9 @@ requirements:
 		if envMap["name"] == "MY_VAR" && envMap["value"] == "my-value" {
 			hasCustomEnv = true
 		}
+		if envMap["name"] == "BASE_BRANCH" {
+			hasBaseBranch = true
+		}
 	}
 
 	if !hasGitRepoURL {
@@ -297,6 +301,9 @@ requirements:
 	}
 	if !hasCustomEnv {
 		t.Error("Custom environment variable MY_VAR not found")
+	}
+	if !hasBaseBranch {
+		t.Error("BASE_BRANCH environment variable not found")
 	}
 
 	// Verify volume mounts
@@ -531,6 +538,7 @@ func TestBuildExecutionScript(t *testing.T) {
 				"GIT_REPO_URL",
 				"GIT_BRANCH",
 				"PROJECT_BRANCH",
+				"BASE_BRANCH",
 				"mkdir -p ~/.ssh",
 				"ssh-privatekey",
 				"GITHUB_TOKEN",
@@ -915,7 +923,7 @@ requirements:
 	tmpl := templates[0].(map[string]interface{})
 	container := tmpl["container"].(map[string]interface{})
 
-	expectedImage := fmt.Sprintf("ghcr.io/zon/ralph:%s", DefaultContainerVersion)
+	expectedImage := fmt.Sprintf("ghcr.io/zon/ralph:%s", DefaultContainerVersion())
 	if container["image"] != expectedImage {
 		t.Errorf("container.image = %v, want %v", container["image"], expectedImage)
 	}

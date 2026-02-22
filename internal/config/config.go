@@ -86,7 +86,7 @@ type WorkflowConfig struct {
 type RalphConfig struct {
 	MaxIterations int            `yaml:"maxIterations,omitempty"`
 	BaseBranch    string         `yaml:"baseBranch,omitempty"`
-	Model         string         `yaml:"model,omitempty"` // AI model to use for coding and PR summary (default: anthropic/claude-sonnet-4-5)
+	Model         string         `yaml:"model,omitempty"` // AI model to use for coding and PR summary (default: deepseek/deepseek-chat)
 	Builds        []Build        `yaml:"builds,omitempty"`
 	Services      []Service      `yaml:"services,omitempty"`
 	Workflow      WorkflowConfig `yaml:"workflow,omitempty"`
@@ -148,7 +148,7 @@ func applyDefaults(config *RalphConfig) {
 		config.BaseBranch = "main"
 	}
 	if config.Model == "" {
-		config.Model = "anthropic/claude-sonnet-4-5"
+		config.Model = "deepseek/deepseek-chat"
 	}
 	if config.Workflow.GitUser.Name == "" {
 		config.Workflow.GitUser.Name = "zralphen"
