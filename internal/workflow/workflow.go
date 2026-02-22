@@ -189,7 +189,7 @@ func buildMainTemplate(image, repoURL, cloneBranch, projectBranch string, cfg *c
 				"-c",
 			},
 			"args": []string{
-				buildExecutionScript(dryRun, verbose, cfg.Workflow.GitUser.Name, cfg.Workflow.GitUser.Email, cfg),
+				buildExecutionScript(dryRun, verbose, cfg),
 			},
 			"env":          buildEnvVars(repoURL, cloneBranch, projectBranch, cfg),
 			"volumeMounts": buildVolumeMounts(cfg),
@@ -202,7 +202,7 @@ func buildMainTemplate(image, repoURL, cloneBranch, projectBranch string, cfg *c
 }
 
 // buildExecutionScript builds the shell script that runs in the container
-func buildExecutionScript(dryRun, verbose bool, gitUserName, gitUserEmail string, cfg *config.RalphConfig) string {
+func buildExecutionScript(dryRun, verbose bool, cfg *config.RalphConfig) string {
 	// Build ralph command with flags
 	// Always pass --local so the container executes directly instead of submitting another workflow
 	ralphCmd := "ralph \"$PROJECT_PATH\" --local"
@@ -218,22 +218,19 @@ func buildExecutionScript(dryRun, verbose bool, gitUserName, gitUserEmail string
 	script := fmt.Sprintf(`#!/bin/sh
 set -e
 
-echo "Setting up git credentials..."
-mkdir -p ~/.ssh
-cp /secrets/git/ssh-privatekey ~/.ssh/id_ed25519
-chmod 600 ~/.ssh/id_ed25519
-ssh-keyscan github.com >> ~/.ssh/known_hosts
+echo "Setting up GitHub App token..."
+export GITHUB_TOKEN=$(ralph github-token)
 
-echo "Setting up GitHub token..."
-export GITHUB_TOKEN=$(cat /secrets/github/token)
+echo "Configuring git for HTTPS authentication..."
+git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
 
 echo "Setting up OpenCode credentials..."
 mkdir -p ~/.local/share/opencode
 cp /secrets/opencode/auth.json ~/.local/share/opencode/auth.json
 
 echo "Configuring git user..."
-git config --global user.name "%s"
-git config --global user.email "%s"
+git config --global user.name "zalphen[bot]"
+git config --global user.email "zalphen[bot]@users.noreply.github.com"
 
 echo "Cloning repository: $GIT_REPO_URL"
 git clone -b "$GIT_BRANCH" "$GIT_REPO_URL" /workspace/repo
@@ -273,7 +270,7 @@ echo "Running ralph..."
 %s
 
 echo "Execution complete!"
-`, gitUserName, gitUserEmail, ralphCmd)
+`, ralphCmd)
 	return script
 }
 
@@ -332,11 +329,6 @@ func buildEnvVars(repoURL, cloneBranch, projectBranch string, cfg *config.RalphC
 // buildVolumeMounts builds volume mounts for secrets and configMaps
 func buildVolumeMounts(cfg *config.RalphConfig) []map[string]interface{} {
 	mounts := []map[string]interface{}{
-		{
-			"name":      "git-credentials",
-			"mountPath": "/secrets/git",
-			"readOnly":  true,
-		},
 		{
 			"name":      "github-credentials",
 			"mountPath": "/secrets/github",
@@ -411,12 +403,6 @@ func buildVolumeMounts(cfg *config.RalphConfig) []map[string]interface{} {
 // buildVolumes builds volumes for secrets and configMaps
 func buildVolumes(cfg *config.RalphConfig) []map[string]interface{} {
 	volumes := []map[string]interface{}{
-		{
-			"name": "git-credentials",
-			"secret": map[string]interface{}{
-				"secretName": k8s.GitSecretName,
-			},
-		},
 		{
 			"name": "github-credentials",
 			"secret": map[string]interface{}{
@@ -652,9 +638,6 @@ func GenerateMergeWorkflowWithGitInfo(projectFile, repoURL, cloneBranch, prBranc
 	}
 	image := fmt.Sprintf("%s:%s", imageRepo, imageTag)
 
-	gitUserName := ralphConfig.Workflow.GitUser.Name
-	gitUserEmail := ralphConfig.Workflow.GitUser.Email
-
 	// Build workflow parameters
 	params := []map[string]interface{}{
 		{"name": "project-file", "value": string(projectContent)},
@@ -681,7 +664,7 @@ func GenerateMergeWorkflowWithGitInfo(projectFile, repoURL, cloneBranch, prBranc
 				"parameters": params,
 			},
 			"templates": []interface{}{
-				buildMergeTemplate(image, repoURL, cloneBranch, prBranch, gitUserName, gitUserEmail, ralphConfig),
+				buildMergeTemplate(image, repoURL, cloneBranch, prBranch, ralphConfig),
 			},
 		},
 	}
@@ -696,7 +679,7 @@ func GenerateMergeWorkflowWithGitInfo(projectFile, repoURL, cloneBranch, prBranc
 }
 
 // buildMergeTemplate builds the merge execution template
-func buildMergeTemplate(image, repoURL, cloneBranch, prBranch, gitUserName, gitUserEmail string, cfg *config.RalphConfig) map[string]interface{} {
+func buildMergeTemplate(image, repoURL, cloneBranch, prBranch string, cfg *config.RalphConfig) map[string]interface{} {
 	template := map[string]interface{}{
 		"name": "ralph-merger",
 		"container": map[string]interface{}{
@@ -706,7 +689,7 @@ func buildMergeTemplate(image, repoURL, cloneBranch, prBranch, gitUserName, gitU
 				"-c",
 			},
 			"args": []string{
-				buildMergeScript(gitUserName, gitUserEmail),
+				buildMergeScript(),
 			},
 			"env": []map[string]interface{}{
 				{"name": "GIT_REPO_URL", "value": repoURL},
@@ -716,18 +699,11 @@ func buildMergeTemplate(image, repoURL, cloneBranch, prBranch, gitUserName, gitU
 				{"name": "PROJECT_PATH", "value": "{{workflow.parameters.project-path}}"},
 			},
 			"volumeMounts": []map[string]interface{}{
-				{"name": "git-credentials", "mountPath": "/secrets/git", "readOnly": true},
 				{"name": "github-credentials", "mountPath": "/secrets/github", "readOnly": true},
 			},
 			"workingDir": "/workspace",
 		},
 		"volumes": []map[string]interface{}{
-			{
-				"name": "git-credentials",
-				"secret": map[string]interface{}{
-					"secretName": k8s.GitSecretName,
-				},
-			},
 			{
 				"name": "github-credentials",
 				"secret": map[string]interface{}{
@@ -741,22 +717,19 @@ func buildMergeTemplate(image, repoURL, cloneBranch, prBranch, gitUserName, gitU
 }
 
 // buildMergeScript builds the shell script that checks requirements and merges the PR
-func buildMergeScript(gitUserName, gitUserEmail string) string {
+func buildMergeScript() string {
 	script := fmt.Sprintf(`#!/bin/sh
 set -e
 
-echo "Setting up git credentials..."
-mkdir -p ~/.ssh
-cp /secrets/git/ssh-privatekey ~/.ssh/id_ed25519
-chmod 600 ~/.ssh/id_ed25519
-ssh-keyscan github.com >> ~/.ssh/known_hosts
+echo "Setting up GitHub App token..."
+export GITHUB_TOKEN=$(ralph github-token)
 
-echo "Setting up GitHub token..."
-export GITHUB_TOKEN=$(cat /secrets/github/token)
+echo "Configuring git for HTTPS authentication..."
+git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
 
 echo "Configuring git user..."
-git config --global user.name "%s"
-git config --global user.email "%s"
+git config --global user.name "zalphen[bot]"
+git config --global user.email "zalphen[bot]@users.noreply.github.com"
 
 echo "Cloning repository: $GIT_REPO_URL"
 git clone -b "$GIT_BRANCH" "$GIT_REPO_URL" /workspace/repo
@@ -798,7 +771,7 @@ echo "Merging PR via gh CLI..."
 gh pr merge "$PR_BRANCH" --merge --delete-branch
 
 echo "Merge complete!"
-`, gitUserName, gitUserEmail)
+`)
 	return script
 }
 

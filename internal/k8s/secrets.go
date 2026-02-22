@@ -14,9 +14,7 @@ import (
 )
 
 const (
-	// GitSecretName is the name of the Kubernetes secret for git credentials
-	GitSecretName = "git-credentials"
-	// GitHubSecretName is the name of the Kubernetes secret for GitHub token
+	// GitHubSecretName is the name of the Kubernetes secret for GitHub App credentials
 	GitHubSecretName = "github-credentials"
 	// OpenCodeSecretName is the name of the Kubernetes secret for OpenCode credentials
 	OpenCodeSecretName = "opencode-credentials"

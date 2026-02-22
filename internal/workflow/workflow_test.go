@@ -312,7 +312,6 @@ requirements:
 		t.Fatal("volumeMounts is not a list")
 	}
 
-	hasGitMount := false
 	hasGithubMount := false
 	hasOpencodeMount := false
 	hasConfigMapMount := false
@@ -321,9 +320,6 @@ requirements:
 		mountMap, ok := mount.(map[string]interface{})
 		if !ok {
 			continue
-		}
-		if mountMap["name"] == "git-credentials" && mountMap["mountPath"] == "/secrets/git" {
-			hasGitMount = true
 		}
 		if mountMap["name"] == "github-credentials" && mountMap["mountPath"] == "/secrets/github" {
 			hasGithubMount = true
@@ -339,9 +335,6 @@ requirements:
 		}
 	}
 
-	if !hasGitMount {
-		t.Error("git-credentials volume mount not found")
-	}
 	if !hasGithubMount {
 		t.Error("github-credentials volume mount not found")
 	}
@@ -361,7 +354,6 @@ requirements:
 		t.Fatal("volumes is not a list")
 	}
 
-	hasGitVolume := false
 	hasGithubVolume := false
 	hasOpencodeVolume := false
 	hasConfigMapVolume := false
@@ -370,9 +362,6 @@ requirements:
 		volMap, ok := vol.(map[string]interface{})
 		if !ok {
 			continue
-		}
-		if volMap["name"] == "git-credentials" {
-			hasGitVolume = true
 		}
 		if volMap["name"] == "github-credentials" {
 			hasGithubVolume = true
@@ -388,9 +377,6 @@ requirements:
 		}
 	}
 
-	if !hasGitVolume {
-		t.Error("git-credentials volume not found")
-	}
 	if !hasGithubVolume {
 		t.Error("github-credentials volume not found")
 	}
@@ -528,7 +514,7 @@ func TestBuildExecutionScript(t *testing.T) {
 			cfg := &config.RalphConfig{
 				Workflow: config.WorkflowConfig{},
 			}
-			script := buildExecutionScript(tt.dryRun, tt.verbose, "Ralph Bot", "ralph@example.com", cfg)
+			script := buildExecutionScript(tt.dryRun, tt.verbose, cfg)
 
 			// Verify script contains key elements
 			expectedElements := []string{
@@ -539,9 +525,10 @@ func TestBuildExecutionScript(t *testing.T) {
 				"GIT_BRANCH",
 				"PROJECT_BRANCH",
 				"BASE_BRANCH",
-				"mkdir -p ~/.ssh",
-				"ssh-privatekey",
-				"GITHUB_TOKEN",
+				"ralph github-token",
+				"x-access-token:${GITHUB_TOKEN}@github.com",
+				"zalphen[bot]",
+				"zalphen[bot]@users.noreply.github.com",
 				"auth.json",
 				tt.expectedCommand,
 			}
@@ -786,22 +773,15 @@ requirements:
 	if !ok {
 		t.Fatal("volumes is not a list")
 	}
-	hasGitVol := false
 	hasGithubVol := false
 	for _, v := range volumes {
 		vm, ok := v.(map[string]interface{})
 		if !ok {
 			continue
 		}
-		if vm["name"] == "git-credentials" {
-			hasGitVol = true
-		}
 		if vm["name"] == "github-credentials" {
 			hasGithubVol = true
 		}
-	}
-	if !hasGitVol {
-		t.Error("git-credentials volume not found")
 	}
 	if !hasGithubVol {
 		t.Error("github-credentials volume not found")
@@ -811,15 +791,11 @@ requirements:
 func TestBuildMergeScript(t *testing.T) {
 	tests := []struct {
 		name             string
-		gitUserName      string
-		gitUserEmail     string
 		expectStrings    []string
 		notExpectStrings []string
 	}{
 		{
-			name:         "default user",
-			gitUserName:  "Ralph Bot",
-			gitUserEmail: "ralph@example.com",
+			name: "merge script",
 			expectStrings: []string{
 				"#!/bin/sh",
 				"set -e",
@@ -827,8 +803,10 @@ func TestBuildMergeScript(t *testing.T) {
 				"GIT_REPO_URL",
 				"GIT_BRANCH",
 				"PR_BRANCH",
-				"ssh-privatekey",
-				"GITHUB_TOKEN",
+				"ralph github-token",
+				"x-access-token:${GITHUB_TOKEN}@github.com",
+				"zalphen[bot]",
+				"zalphen[bot]@users.noreply.github.com",
 				"passing: false",
 				"rm \"$PROJECT_PATH\"",
 				"git add -A",
@@ -837,24 +815,18 @@ func TestBuildMergeScript(t *testing.T) {
 				"gh pr merge",
 				"--merge",
 				"--delete-branch",
-				"Ralph Bot",
-				"ralph@example.com",
 			},
-		},
-		{
-			name:         "custom user",
-			gitUserName:  "My Bot",
-			gitUserEmail: "mybot@myorg.com",
-			expectStrings: []string{
-				"My Bot",
-				"mybot@myorg.com",
+			notExpectStrings: []string{
+				"mkdir -p ~/.ssh",
+				"ssh-privatekey",
+				"ssh-keyscan",
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			script := buildMergeScript(tt.gitUserName, tt.gitUserEmail)
+			script := buildMergeScript()
 			for _, s := range tt.expectStrings {
 				if !strings.Contains(script, s) {
 					t.Errorf("merge script does not contain expected element: %q", s)

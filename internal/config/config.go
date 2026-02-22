@@ -51,12 +51,6 @@ type ImageConfig struct {
 	Tag        string `yaml:"tag,omitempty"`
 }
 
-// GitUserConfig represents git user configuration
-type GitUserConfig struct {
-	Name  string `yaml:"name,omitempty"` // GitHub username / git committer name (default: zralphen)
-	Email string `yaml:"email,omitempty"`
-}
-
 // ConfigMapMount represents a ConfigMap to mount with destination info
 type ConfigMapMount struct {
 	Name     string `yaml:"name"`               // Name of the ConfigMap
@@ -79,7 +73,6 @@ type WorkflowConfig struct {
 	Env        map[string]string `yaml:"env,omitempty"`
 	Context    string            `yaml:"context,omitempty"`
 	Namespace  string            `yaml:"namespace,omitempty"`
-	GitUser    GitUserConfig     `yaml:"gitUser,omitempty"`
 }
 
 // RalphConfig represents the .ralph/config.yaml structure
@@ -150,12 +143,7 @@ func applyDefaults(config *RalphConfig) {
 	if config.Model == "" {
 		config.Model = "deepseek/deepseek-chat"
 	}
-	if config.Workflow.GitUser.Name == "" {
-		config.Workflow.GitUser.Name = "zralphen"
-	}
-	if config.Workflow.GitUser.Email == "" {
-		config.Workflow.GitUser.Email = "no-reply-ralph@haralovich.org"
-	}
+
 	for i := range config.Services {
 		if config.Services[i].Timeout == 0 {
 			config.Services[i].Timeout = 30

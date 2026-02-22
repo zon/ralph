@@ -30,7 +30,7 @@ requirements:
       - Command validates credentials by generating a test installation token before saving
       - Command stores app-id and private-key in the github-credentials Kubernetes secret
       - No zralphen user switching — app credentials are not tied to any user account
-    passing: false
+    passing: true
 
   - category: backend
     description: Workflow scripts use GitHub App token
@@ -40,7 +40,7 @@ requirements:
       - SSH setup block (mkdir ~/.ssh, cp private key, chmod, ssh-keyscan) removed from both scripts
       - git-credentials volume and volumeMount removed from workflow template
       - Git committer identity hardcoded to zalphen[bot] / zalphen[bot]@users.noreply.github.com in workflow scripts
-    passing: false
+    passing: true
 
   - category: backend
     description: Remove SSH credential infrastructure
@@ -50,7 +50,7 @@ requirements:
       - GitSecretName constant removed from internal/k8s/secrets.go
       - GitUserConfig struct and GitUser field removed from WorkflowConfig in internal/config/config.go
       - applyDefaults no longer sets GitUser.Name or GitUser.Email
-    passing: false
+    passing: true
 
   - category: testing
     description: Unit tests

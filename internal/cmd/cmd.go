@@ -30,7 +30,6 @@ type Cmd struct {
 
 // ConfigCmd defines the config subcommand group
 type ConfigCmd struct {
-	Git           ConfigGitCmd           `cmd:"" help:"Configure git credentials for remote execution"`
 	Github        ConfigGithubCmd        `cmd:"" help:"Configure GitHub credentials for remote execution"`
 	Opencode      ConfigOpencodeCmd      `cmd:"" help:"Configure OpenCode credentials for remote execution"`
 	WebhookConfig ConfigWebhookConfigCmd `cmd:"webhook-config" help:"Provision webhook-config secret into Kubernetes"`

@@ -108,8 +108,8 @@ func buildWebhookAppConfig(ctx context.Context, partialConfig *webhook.AppConfig
 	}
 
 	// Set the ralph bot user if not already configured
-	if cfg.RalphUser == "" && githubUser != "" {
-		cfg.RalphUser = githubUser
+	if cfg.RalphUser == "" {
+		cfg.RalphUser = "zalphen[bot]"
 	}
 
 	// Auto-add repo if detected and not already present
@@ -183,19 +183,17 @@ func (c *ConfigWebhookConfigCmd) Run() error {
 		repoOwner = ""
 	}
 
-	// Load model and githubUser from .ralph/config.yaml
+	// Load model from .ralph/config.yaml
 	model := ""
-	githubUser := ""
 	ralphConfig, err := config.LoadConfig()
 	if err != nil {
 		logger.Warningf("Failed to load .ralph/config.yaml: %v", err)
 	} else if ralphConfig != nil {
 		model = ralphConfig.Model
-		githubUser = ralphConfig.Workflow.GitUser.Name
 	}
 
 	// Build AppConfig with defaults filled in
-	appCfg := buildWebhookAppConfig(ctx, partialConfig, repoName, repoOwner, model, githubUser, collaboratorsFetcher)
+	appCfg := buildWebhookAppConfig(ctx, partialConfig, repoName, repoOwner, model, "", collaboratorsFetcher)
 
 	// Serialize to YAML
 	cfgBytes, err := yaml.Marshal(appCfg)
