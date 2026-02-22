@@ -14,6 +14,8 @@ type Context struct {
 	Watch         bool
 	Notes         []string // Runtime notes to pass to the agent
 	Instructions  string   // Path to an instructions file that overrides the default instructions
+	Repo          string   // owner/repo override (e.g., "zon/ralph"); skips local git remote detection
+	Branch        string   // Branch override; skips local git GetCurrentBranch + sync check
 }
 
 // IsDryRun returns true if running in dry-run mode

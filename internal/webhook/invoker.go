@@ -80,7 +80,7 @@ func (inv *Invoker) HandleEvent() EventHandler {
 		switch eventType {
 		case "issue_comment", "pull_request_review_comment":
 			commentBody, _ := nestedString(payload, "comment", "body")
-			_ = inv.InvokeRalphRun(projectFile, commentBody)
+			_ = inv.InvokeRalphRun(projectFile, repoOwner, repoName, prBranch, commentBody)
 
 		case "pull_request_review":
 			state, _ := nestedString(payload, "review", "state")
@@ -88,23 +88,24 @@ func (inv *Invoker) HandleEvent() EventHandler {
 				_ = inv.InvokeRalphMerge(projectFile, prBranch)
 			} else {
 				commentBody, _ := nestedString(payload, "review", "body")
-				_ = inv.InvokeRalphRun(projectFile, commentBody)
+				_ = inv.InvokeRalphRun(projectFile, repoOwner, repoName, prBranch, commentBody)
 			}
 		}
 	}
 }
 
 // InvokeRalphRun constructs a webhook-specific instructions file and invokes
-// `ralph run <projectFile> --instructions <file> --no-notify`.
+// `ralph run <projectFile> --repo <owner/repo> --branch <branch> --instructions <file> --no-notify`.
 // The instructions file is written to a temporary directory; it is the
 // caller's responsibility to clean it up (the process is detached).
-func (inv *Invoker) InvokeRalphRun(projectFile, commentBody string) error {
+func (inv *Invoker) InvokeRalphRun(projectFile, repoOwner, repoName, branch, commentBody string) error {
 	instructions := inv.buildInstructions(commentBody)
+	repo := repoOwner + "/" + repoName
 
 	if inv.dryRun {
 		inv.LastInvoke = &InvokeResult{
 			Command:             "run",
-			Args:                []string{projectFile, "--instructions", "<temp>", "--no-notify"},
+			Args:                []string{projectFile, "--repo", repo, "--branch", branch, "--instructions", "<temp>", "--no-notify"},
 			InstructionsContent: instructions,
 		}
 		return nil
@@ -121,7 +122,7 @@ func (inv *Invoker) InvokeRalphRun(projectFile, commentBody string) error {
 		return fmt.Errorf("failed to write instructions file: %w", err)
 	}
 
-	args := []string{projectFile, "--instructions", instructionsFile, "--no-notify"}
+	args := []string{projectFile, "--repo", repo, "--branch", branch, "--instructions", instructionsFile, "--no-notify"}
 	logger.Verbosef("invoking: ralph run %s", strings.Join(args, " "))
 	cmd := exec.Command("ralph", args...)
 	runDetached(cmd, "ralph run "+projectFile, func() { _ = os.RemoveAll(tmpDir) })

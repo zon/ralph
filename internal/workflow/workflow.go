@@ -25,26 +25,38 @@ func DefaultContainerVersion() string {
 // GenerateWorkflow generates an Argo Workflow YAML for remote execution.
 // cloneBranch is the branch the container will clone (current local branch).
 // projectBranch is the branch the container will create and work on (derived from the project file name).
+// If ctx.Repo is set (owner/repo format) the remote URL is constructed directly from it, skipping local
+// git commands. If the project file path is absolute and ctx.Repo is set, it is used as-is (callers
+// that bypass local git must pass a relative path).
 func GenerateWorkflow(ctx *execcontext.Context, projectName, cloneBranch, projectBranch string, dryRun, verbose bool) (string, error) {
-	// Get git remote URL, converting to HTTPS for use in the workflow container
-	rawRemoteURL, err := getRemoteURL()
-	if err != nil {
-		return "", fmt.Errorf("failed to get remote URL: %w", err)
+	// Determine remote URL: use ctx.Repo override if provided, otherwise detect from local git
+	var remoteURL string
+	if ctx.Repo != "" {
+		remoteURL = "https://github.com/" + ctx.Repo + ".git"
+	} else {
+		rawRemoteURL, err := getRemoteURL()
+		if err != nil {
+			return "", fmt.Errorf("failed to get remote URL: %w", err)
+		}
+		remoteURL = toHTTPSURL(rawRemoteURL)
 	}
-	remoteURL := toHTTPSURL(rawRemoteURL)
 
 	// Use the project file path as-is if it's already relative; otherwise compute
 	// it relative to the repo root so the workflow container can resolve it after cloning.
 	relProjectPath := ctx.ProjectFile
 	if filepath.IsAbs(relProjectPath) {
-		repoRoot, err := getRepoRoot()
-		if err != nil {
-			return "", fmt.Errorf("failed to get repository root: %w", err)
+		if ctx.Repo == "" {
+			repoRoot, err := getRepoRoot()
+			if err != nil {
+				return "", fmt.Errorf("failed to get repository root: %w", err)
+			}
+			var err2 error
+			relProjectPath, err2 = filepath.Rel(repoRoot, relProjectPath)
+			if err2 != nil {
+				return "", fmt.Errorf("failed to calculate relative project path: %w", err2)
+			}
 		}
-		relProjectPath, err = filepath.Rel(repoRoot, relProjectPath)
-		if err != nil {
-			return "", fmt.Errorf("failed to calculate relative project path: %w", err)
-		}
+		// When ctx.Repo is set, the caller is responsible for passing a relative project path.
 	}
 
 	return GenerateWorkflowWithGitInfo(ctx, projectName, remoteURL, cloneBranch, projectBranch, relProjectPath, dryRun, verbose)

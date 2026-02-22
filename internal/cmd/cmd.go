@@ -65,6 +65,8 @@ type RunCmd struct {
 	Watch         bool   `help:"Watch workflow execution (only applicable without --local)" default:"false"`
 	ShowVersion   bool   `help:"Show version information" short:"v" name:"version"`
 	Instructions  string `help:"Path to an instructions file that overrides the default agent instructions" type:"path" optional:""`
+	Repo          string `help:"Repository in owner/repo format, e.g. zon/ralph (overrides git remote detection)" optional:""`
+	Branch        string `help:"Branch to use as the clone branch (overrides git current branch detection)" optional:""`
 
 	version          string       `kong:"-"`
 	date             string       `kong:"-"`
@@ -173,6 +175,8 @@ func (r *RunCmd) Run() error {
 		Local:         r.Local,
 		Watch:         r.Watch,
 		Instructions:  r.Instructions,
+		Repo:          r.Repo,
+		Branch:        r.Branch,
 	}
 
 	if r.Once {

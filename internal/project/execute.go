@@ -214,21 +214,24 @@ func executeRemote(ctx *context.Context, absProjectFile string) error {
 
 	projectName := strings.TrimSuffix(filepath.Base(absProjectFile), filepath.Ext(absProjectFile))
 
-	// Check if we're in a git repository
-	if !git.IsGitRepository(ctx) {
-		return fmt.Errorf("not in a git repository - remote execution requires git")
-	}
-
-	// Get current branch
-	currentBranch, err := git.GetCurrentBranch(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get current branch: %w", err)
-	}
-
-	// Ensure the current branch is in sync with its remote before submitting the workflow
-	logger.Verbosef("Checking branch '%s' is in sync with remote...", currentBranch)
-	if err := git.IsBranchSyncedWithRemote(ctx, currentBranch); err != nil {
-		return err
+	// Determine clone branch: use the override if provided, otherwise detect from local git
+	var currentBranch string
+	if ctx.Branch != "" {
+		currentBranch = ctx.Branch
+	} else {
+		if !git.IsGitRepository(ctx) {
+			return fmt.Errorf("not in a git repository - remote execution requires git")
+		}
+		var err error
+		currentBranch, err = git.GetCurrentBranch(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to get current branch: %w", err)
+		}
+		// Only check sync when branch is detected locally (not when pre-supplied by caller)
+		logger.Verbosef("Checking branch '%s' is in sync with remote...", currentBranch)
+		if err := git.IsBranchSyncedWithRemote(ctx, currentBranch); err != nil {
+			return err
+		}
 	}
 
 	projectBranch := extractBranchName(absProjectFile)

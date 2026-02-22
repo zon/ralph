@@ -86,7 +86,7 @@ func TestProjectFileFromBranch(t *testing.T) {
 
 func TestInvoker_InvokeRalphRun_DryRun(t *testing.T) {
 	inv := NewInvoker(true, "")
-	err := inv.InvokeRalphRun("projects/my-feature.yaml", "please fix the tests")
+	err := inv.InvokeRalphRun("projects/my-feature.yaml", "acme", "myrepo", "ralph/my-feature", "please fix the tests")
 	require.NoError(t, err)
 
 	require.NotNil(t, inv.LastInvoke)
@@ -94,6 +94,10 @@ func TestInvoker_InvokeRalphRun_DryRun(t *testing.T) {
 	assert.Contains(t, inv.LastInvoke.InstructionsContent, "please fix the tests",
 		"instructions content should include the comment body")
 	assert.Equal(t, "projects/my-feature.yaml", inv.LastInvoke.Args[0])
+	assert.Contains(t, inv.LastInvoke.Args, "--repo")
+	assert.Contains(t, inv.LastInvoke.Args, "acme/myrepo")
+	assert.Contains(t, inv.LastInvoke.Args, "--branch")
+	assert.Contains(t, inv.LastInvoke.Args, "ralph/my-feature")
 	assert.Contains(t, inv.LastInvoke.Args, "--no-notify")
 	assert.Contains(t, inv.LastInvoke.Args, "--instructions")
 }
@@ -132,6 +136,10 @@ func TestHandleEvent_CommentEvent_InvokesRalphRun(t *testing.T) {
 	require.NotNil(t, inv.LastInvoke, "invoker should have been called")
 	assert.Equal(t, "run", inv.LastInvoke.Command)
 	assert.Equal(t, "projects/my-feature.yaml", inv.LastInvoke.Args[0])
+	assert.Contains(t, inv.LastInvoke.Args, "--repo")
+	assert.Contains(t, inv.LastInvoke.Args, "acme/myrepo")
+	assert.Contains(t, inv.LastInvoke.Args, "--branch")
+	assert.Contains(t, inv.LastInvoke.Args, "ralph/my-feature")
 	assert.Contains(t, inv.LastInvoke.InstructionsContent, "please add a unit test")
 }
 
@@ -161,6 +169,10 @@ func TestHandleEvent_IssueCommentEvent_InvokesRalphRun(t *testing.T) {
 	require.NotNil(t, inv.LastInvoke, "invoker should have been called for issue_comment")
 	assert.Equal(t, "run", inv.LastInvoke.Command)
 	assert.Equal(t, "projects/my-feature.yaml", inv.LastInvoke.Args[0])
+	assert.Contains(t, inv.LastInvoke.Args, "--repo")
+	assert.Contains(t, inv.LastInvoke.Args, "acme/myrepo")
+	assert.Contains(t, inv.LastInvoke.Args, "--branch")
+	assert.Contains(t, inv.LastInvoke.Args, "ralph/my-feature")
 	assert.Contains(t, inv.LastInvoke.InstructionsContent, "please fix the tests")
 }
 
@@ -204,6 +216,10 @@ func TestHandleEvent_ReviewCommentEvent_InvokesRalphRun(t *testing.T) {
 	require.NotNil(t, inv.LastInvoke, "invoker should have been called for commented review")
 	assert.Equal(t, "run", inv.LastInvoke.Command)
 	assert.Equal(t, "projects/my-feature.yaml", inv.LastInvoke.Args[0])
+	assert.Contains(t, inv.LastInvoke.Args, "--repo")
+	assert.Contains(t, inv.LastInvoke.Args, "acme/myrepo")
+	assert.Contains(t, inv.LastInvoke.Args, "--branch")
+	assert.Contains(t, inv.LastInvoke.Args, "ralph/my-feature")
 	assert.Contains(t, inv.LastInvoke.InstructionsContent, "please add error handling here")
 }
 
@@ -256,6 +272,8 @@ func TestServer_CommentEvent_TriggersRalphRun(t *testing.T) {
 	assert.Equal(t, 200, w.Code)
 	require.NotNil(t, inv.LastInvoke)
 	assert.Equal(t, "run", inv.LastInvoke.Command)
+	assert.Contains(t, inv.LastInvoke.Args, "acme/myrepo")
+	assert.Contains(t, inv.LastInvoke.Args, "ralph/my-project")
 	assert.Contains(t, inv.LastInvoke.InstructionsContent, "please refactor this")
 }
 
@@ -285,6 +303,8 @@ func TestServer_IssueCommentEvent_TriggersRalphRun(t *testing.T) {
 	assert.Equal(t, 200, w.Code)
 	require.NotNil(t, inv.LastInvoke)
 	assert.Equal(t, "run", inv.LastInvoke.Command)
+	assert.Contains(t, inv.LastInvoke.Args, "acme/myrepo")
+	assert.Contains(t, inv.LastInvoke.Args, "ralph/my-project")
 	assert.Contains(t, inv.LastInvoke.InstructionsContent, "please update the docs")
 }
 
@@ -309,6 +329,8 @@ func TestServer_ReviewCommentEvent_TriggersRalphRun(t *testing.T) {
 	assert.Equal(t, 200, w.Code)
 	require.NotNil(t, inv.LastInvoke)
 	assert.Equal(t, "run", inv.LastInvoke.Command)
+	assert.Contains(t, inv.LastInvoke.Args, "acme/myrepo")
+	assert.Contains(t, inv.LastInvoke.Args, "ralph/my-project")
 	assert.Contains(t, inv.LastInvoke.InstructionsContent, "please simplify this function")
 }
 
