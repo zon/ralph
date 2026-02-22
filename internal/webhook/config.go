@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/zon/ralph/internal/config"
 	"gopkg.in/yaml.v3"
 )
 
@@ -18,10 +19,12 @@ type RepoConfig struct {
 
 // AppConfig is the application configuration loaded from a YAML file
 type AppConfig struct {
-	Port      int          `yaml:"port"`
-	Repos     []RepoConfig `yaml:"repos"`
-	Model     string       `yaml:"model"`
-	RalphUser string       `yaml:"ralphUser"` // GitHub username of the ralph bot user; always ignored regardless of per-repo ignoredUsers
+	Port                    int          `yaml:"port"`
+	Repos                   []RepoConfig `yaml:"repos"`
+	Model                   string       `yaml:"model"`
+	RalphUser               string       `yaml:"ralphUser"`               // GitHub username of the ralph bot user; always ignored regardless of per-repo ignoredUsers
+	CommentInstructionsFile string       `yaml:"commentInstructionsFile"` // Path to a markdown file overriding the default comment-reply instructions
+	CommentInstructions     string       `yaml:"-"`                       // Loaded from CommentInstructionsFile; falls back to the embedded default
 }
 
 // RepoSecret holds the webhook secret for a single repository
@@ -52,6 +55,16 @@ func LoadAppConfig(path string) (*AppConfig, error) {
 	var cfg AppConfig
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to parse app config YAML: %w", err)
+	}
+
+	if cfg.CommentInstructionsFile != "" {
+		instrData, err := os.ReadFile(cfg.CommentInstructionsFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read commentInstructionsFile %s: %w", cfg.CommentInstructionsFile, err)
+		}
+		cfg.CommentInstructions = string(instrData)
+	} else {
+		cfg.CommentInstructions = config.DefaultCommentInstructions
 	}
 
 	return &cfg, nil

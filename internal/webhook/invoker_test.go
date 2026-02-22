@@ -13,20 +13,31 @@ import (
 // ──────────────────────────────────────────────────────────────────────────────
 
 func TestBuildInstructions_ContainsCommentBody(t *testing.T) {
+	inv := NewInvoker(true, "")
 	comment := "please fix the failing test in foo_test.go"
-	result := buildInstructions(comment)
+	result := inv.buildInstructions(comment)
 	assert.Contains(t, result, comment, "instructions should include the original comment text")
 }
 
 func TestBuildInstructions_ContainsRequiredDirectives(t *testing.T) {
-	result := buildInstructions("do something")
+	inv := NewInvoker(true, "")
+	result := inv.buildInstructions("do something")
 	assert.Contains(t, result, "commit and push", "instructions must direct agent to commit and push")
 	assert.Contains(t, result, "GitHub PR comment", "instructions must direct agent to post a PR comment")
 }
 
 func TestBuildInstructions_ContainsAnswerDirective(t *testing.T) {
-	result := buildInstructions("What does this function do?")
+	inv := NewInvoker(true, "")
+	result := inv.buildInstructions("What does this function do?")
 	assert.Contains(t, result, "answer", "instructions should direct the agent to answer questions")
+}
+
+func TestBuildInstructions_CustomInstructions(t *testing.T) {
+	custom := "Custom header\n\nComment: {{.CommentBody}}\n\nDo the thing."
+	inv := NewInvoker(true, custom)
+	result := inv.buildInstructions("my comment")
+	assert.Contains(t, result, "Custom header")
+	assert.Contains(t, result, "my comment")
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -74,7 +85,7 @@ func TestProjectFileFromBranch(t *testing.T) {
 // ──────────────────────────────────────────────────────────────────────────────
 
 func TestInvoker_InvokeRalphRun_DryRun(t *testing.T) {
-	inv := NewInvoker(true)
+	inv := NewInvoker(true, "")
 	err := inv.InvokeRalphRun("projects/my-feature.yaml", "please fix the tests")
 	require.NoError(t, err)
 
@@ -89,7 +100,7 @@ func TestInvoker_InvokeRalphRun_DryRun(t *testing.T) {
 }
 
 func TestInvoker_InvokeRalphMerge_DryRun(t *testing.T) {
-	inv := NewInvoker(true)
+	inv := NewInvoker(true, "")
 	err := inv.InvokeRalphMerge("projects/my-feature.yaml", "ralph/my-feature")
 	require.NoError(t, err)
 
@@ -105,7 +116,7 @@ func TestInvoker_InvokeRalphMerge_DryRun(t *testing.T) {
 // ──────────────────────────────────────────────────────────────────────────────
 
 func TestHandleEvent_CommentEvent_InvokesRalphRun(t *testing.T) {
-	inv := NewInvoker(true)
+	inv := NewInvoker(true, "")
 	handler := inv.HandleEvent()
 	payload := map[string]interface{}{
 		"pull_request": map[string]interface{}{
@@ -126,7 +137,7 @@ func TestHandleEvent_CommentEvent_InvokesRalphRun(t *testing.T) {
 }
 
 func TestHandleEvent_IssueCommentEvent_InvokesRalphRun(t *testing.T) {
-	inv := NewInvoker(true)
+	inv := NewInvoker(true, "")
 	handler := inv.HandleEvent()
 	// issue_comment payloads use issue.pull_request.url for PR detection and
 	// pull_request.head.ref for the branch (when included by the sender).
@@ -155,7 +166,7 @@ func TestHandleEvent_IssueCommentEvent_InvokesRalphRun(t *testing.T) {
 }
 
 func TestHandleEvent_ApprovalEvent_InvokesRalphMerge(t *testing.T) {
-	inv := NewInvoker(true)
+	inv := NewInvoker(true, "")
 	handler := inv.HandleEvent()
 	payload := map[string]interface{}{
 		"pull_request": map[string]interface{}{
@@ -176,7 +187,7 @@ func TestHandleEvent_ApprovalEvent_InvokesRalphMerge(t *testing.T) {
 }
 
 func TestHandleEvent_ReviewCommentEvent_InvokesRalphRun(t *testing.T) {
-	inv := NewInvoker(true)
+	inv := NewInvoker(true, "")
 	handler := inv.HandleEvent()
 	payload := map[string]interface{}{
 		"pull_request": map[string]interface{}{
@@ -198,7 +209,7 @@ func TestHandleEvent_ReviewCommentEvent_InvokesRalphRun(t *testing.T) {
 }
 
 func TestHandleEvent_CommentEvent_InstructionsIncludeDirectives(t *testing.T) {
-	inv := NewInvoker(true)
+	inv := NewInvoker(true, "")
 	handler := inv.HandleEvent()
 
 	commentText := "Can you explain what this function does?"
@@ -227,7 +238,7 @@ func TestHandleEvent_CommentEvent_InstructionsIncludeDirectives(t *testing.T) {
 // ──────────────────────────────────────────────────────────────────────────────
 
 func TestServer_CommentEvent_TriggersRalphRun(t *testing.T) {
-	inv := NewInvoker(true)
+	inv := NewInvoker(true, "")
 	cfg := testConfig()
 	s := NewServer(cfg, inv.HandleEvent())
 
@@ -250,7 +261,7 @@ func TestServer_CommentEvent_TriggersRalphRun(t *testing.T) {
 }
 
 func TestServer_IssueCommentEvent_TriggersRalphRun(t *testing.T) {
-	inv := NewInvoker(true)
+	inv := NewInvoker(true, "")
 	cfg := testConfig()
 	s := NewServer(cfg, inv.HandleEvent())
 
@@ -279,7 +290,7 @@ func TestServer_IssueCommentEvent_TriggersRalphRun(t *testing.T) {
 }
 
 func TestServer_ReviewCommentEvent_TriggersRalphRun(t *testing.T) {
-	inv := NewInvoker(true)
+	inv := NewInvoker(true, "")
 	cfg := testConfig()
 	s := NewServer(cfg, inv.HandleEvent())
 
@@ -303,7 +314,7 @@ func TestServer_ReviewCommentEvent_TriggersRalphRun(t *testing.T) {
 }
 
 func TestServer_ReviewCommentEvent_EmptyBody_NoInvoke(t *testing.T) {
-	inv := NewInvoker(true)
+	inv := NewInvoker(true, "")
 	cfg := testConfig()
 	s := NewServer(cfg, inv.HandleEvent())
 
@@ -325,7 +336,7 @@ func TestServer_ReviewCommentEvent_EmptyBody_NoInvoke(t *testing.T) {
 }
 
 func TestServer_ApprovalEvent_TriggersRalphMerge(t *testing.T) {
-	inv := NewInvoker(true)
+	inv := NewInvoker(true, "")
 	cfg := testConfig()
 	s := NewServer(cfg, inv.HandleEvent())
 

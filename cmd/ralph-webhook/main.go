@@ -25,7 +25,7 @@ func (c *CLI) Run() error {
 
 	// Wire up the invoker as the event handler so that comment events trigger
 	// `ralph run` and approval events trigger `ralph merge`.
-	inv := webhook.NewInvoker(false)
+	inv := webhook.NewInvoker(false, cfg.App.CommentInstructions)
 	handler := inv.HandleEvent()
 
 	s := webhook.NewServer(cfg, handler)

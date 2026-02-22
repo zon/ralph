@@ -1,12 +1,15 @@
 package webhook
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"text/template"
 
+	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/logger"
 )
 
@@ -25,14 +28,20 @@ type InvokeResult struct {
 // In dry-run mode no external process is started; instead the call is
 // recorded in LastInvoke so tests can assert on it.
 type Invoker struct {
-	dryRun     bool
-	LastInvoke *InvokeResult
+	dryRun              bool
+	commentInstructions string // template text; {{.CommentBody}} is replaced with the comment
+	LastInvoke          *InvokeResult
 }
 
 // NewInvoker creates an Invoker. When dryRun is true the invoker records what
 // it would have done instead of running real commands.
-func NewInvoker(dryRun bool) *Invoker {
-	return &Invoker{dryRun: dryRun}
+// commentInstructions is the template used to build per-comment instruction files;
+// pass an empty string to use the embedded default.
+func NewInvoker(dryRun bool, commentInstructions string) *Invoker {
+	if commentInstructions == "" {
+		commentInstructions = config.DefaultCommentInstructions
+	}
+	return &Invoker{dryRun: dryRun, commentInstructions: commentInstructions}
 }
 
 // HandleEvent returns an EventHandler that invokes the appropriate ralph
@@ -64,7 +73,7 @@ func (inv *Invoker) HandleEvent() EventHandler {
 // The instructions file is written to a temporary directory; it is the
 // caller's responsibility to clean it up (the process is detached).
 func (inv *Invoker) InvokeRalphRun(projectFile, commentBody string) error {
-	instructions := buildInstructions(commentBody)
+	instructions := inv.buildInstructions(commentBody)
 
 	if inv.dryRun {
 		inv.LastInvoke = &InvokeResult{
@@ -126,26 +135,18 @@ func (inv *Invoker) InvokeRalphMerge(projectFile, prBranch string) error {
 	return nil
 }
 
-// buildInstructions constructs the content of the webhook-specific instructions
-// file for a comment event.
-func buildInstructions(commentBody string) string {
-	return fmt.Sprintf(`# Webhook Instructions
-
-You have been triggered by a GitHub pull request comment. The comment text is:
-
----
-%s
----
-
-Your task:
-1. Read the comment carefully.
-2. If the comment asks a question, answer it by posting a GitHub PR comment.
-3. If the comment requests code changes, implement them, then commit and push the changes.
-4. After completing your work, post a GitHub PR comment summarising what you did.
-
-When posting PR comments use the gh CLI:
-  gh pr comment <number> --body "<your summary>"
-`, commentBody)
+// buildInstructions renders the comment instructions template with the given comment body.
+func (inv *Invoker) buildInstructions(commentBody string) string {
+	tmpl, err := template.New("comment").Parse(inv.commentInstructions)
+	if err != nil {
+		// Fallback: return the raw template with the comment appended.
+		return inv.commentInstructions + "\n\n" + commentBody
+	}
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, struct{ CommentBody string }{commentBody}); err != nil {
+		return inv.commentInstructions + "\n\n" + commentBody
+	}
+	return buf.String()
 }
 
 // projectFileFromBranch derives the project file path from the PR head branch name.
