@@ -54,6 +54,13 @@ RUN curl -fsSL https://bun.sh/install | bash \
 RUN bun install -g opencode-ai \
     && ln -s ${BUN_INSTALL}/bin/opencode /usr/local/bin/opencode
 
+# Install Argo Workflows CLI
+ENV ARGO_VERSION=v4.0.1
+RUN curl -sLO "https://github.com/argoproj/argo-workflows/releases/download/${ARGO_VERSION}/argo-linux-amd64.gz" \
+    && gunzip argo-linux-amd64.gz \
+    && chmod +x argo-linux-amd64 \
+    && mv argo-linux-amd64 /usr/local/bin/argo
+
 # Note: Playwright and all browsers are pre-installed in the base image
 
 # Copy ralph binary from builder
