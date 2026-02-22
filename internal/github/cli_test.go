@@ -62,7 +62,7 @@ func TestParseGitHubRemoteURL(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			name, owner, err := parseGitHubRemoteURL(tc.remoteURL)
+			name, owner, err := ParseGitHubRemoteURL(tc.remoteURL)
 			if tc.wantErr {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tc.errContains)

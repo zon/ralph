@@ -10,6 +10,7 @@ import (
 
 	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
+	githubpkg "github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/k8s"
 	"github.com/zon/ralph/internal/version"
 	"gopkg.in/yaml.v3"
@@ -25,11 +26,12 @@ func DefaultContainerVersion() string {
 // cloneBranch is the branch the container will clone (current local branch).
 // projectBranch is the branch the container will create and work on (derived from the project file name).
 func GenerateWorkflow(ctx *execcontext.Context, projectName, cloneBranch, projectBranch string, dryRun, verbose bool) (string, error) {
-	// Get git remote URL
-	remoteURL, err := getRemoteURL()
+	// Get git remote URL, converting to HTTPS for use in the workflow container
+	rawRemoteURL, err := getRemoteURL()
 	if err != nil {
 		return "", fmt.Errorf("failed to get remote URL: %w", err)
 	}
+	remoteURL := toHTTPSURL(rawRemoteURL)
 
 	// Get git repository root
 	repoRoot, err := getRepoRoot()
@@ -91,6 +93,12 @@ func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL,
 		params["instructions-md"] = string(instructionsData)
 	}
 
+	// Parse owner and repo name from the URL
+	repoName, repoOwner, err := githubpkg.ParseGitHubRemoteURL(repoURL)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse repository from URL: %w", err)
+	}
+
 	// Determine image repository and tag
 	imageRepo := "ghcr.io/zon/ralph"
 	imageTag := DefaultContainerVersion()
@@ -112,6 +120,8 @@ func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL,
 		"spec": buildWorkflowSpec(
 			image,
 			repoURL,
+			repoOwner,
+			repoName,
 			cloneBranch,
 			projectBranch,
 			params,
@@ -131,7 +141,7 @@ func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL,
 }
 
 // buildWorkflowSpec constructs the workflow spec
-func buildWorkflowSpec(image, repoURL, cloneBranch, projectBranch string, params map[string]string, cfg *config.RalphConfig, dryRun, verbose bool) map[string]interface{} {
+func buildWorkflowSpec(image, repoURL, repoOwner, repoName, cloneBranch, projectBranch string, params map[string]string, cfg *config.RalphConfig, dryRun, verbose bool) map[string]interface{} {
 	spec := map[string]interface{}{
 		"entrypoint": "ralph-executor",
 		// TTL to auto-delete after 1 day
@@ -147,7 +157,7 @@ func buildWorkflowSpec(image, repoURL, cloneBranch, projectBranch string, params
 			"parameters": buildParameters(params),
 		},
 		"templates": []interface{}{
-			buildMainTemplate(image, repoURL, cloneBranch, projectBranch, cfg, dryRun, verbose),
+			buildMainTemplate(image, repoURL, repoOwner, repoName, cloneBranch, projectBranch, cfg, dryRun, verbose),
 		},
 	}
 
@@ -179,7 +189,7 @@ func buildParameters(params map[string]string) []map[string]interface{} {
 }
 
 // buildMainTemplate builds the main execution template
-func buildMainTemplate(image, repoURL, cloneBranch, projectBranch string, cfg *config.RalphConfig, dryRun, verbose bool) map[string]interface{} {
+func buildMainTemplate(image, repoURL, repoOwner, repoName, cloneBranch, projectBranch string, cfg *config.RalphConfig, dryRun, verbose bool) map[string]interface{} {
 	template := map[string]interface{}{
 		"name": "ralph-executor",
 		"container": map[string]interface{}{
@@ -191,7 +201,7 @@ func buildMainTemplate(image, repoURL, cloneBranch, projectBranch string, cfg *c
 			"args": []string{
 				buildExecutionScript(dryRun, verbose, cfg),
 			},
-			"env":          buildEnvVars(repoURL, cloneBranch, projectBranch, cfg),
+			"env":          buildEnvVars(repoURL, repoOwner, repoName, cloneBranch, projectBranch, cfg),
 			"volumeMounts": buildVolumeMounts(cfg),
 			"workingDir":   "/workspace",
 		},
@@ -222,7 +232,7 @@ func buildExecutionScript(dryRun, verbose bool, cfg *config.RalphConfig) string 
 set -e
 
 echo "Setting up GitHub App token..."
-export GITHUB_TOKEN=$(ralph github-token)
+export GITHUB_TOKEN=$(ralph github-token --owner "$GITHUB_REPO_OWNER" --repo "$GITHUB_REPO_NAME")
 
 echo "Configuring git for HTTPS authentication..."
 git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
@@ -256,7 +266,7 @@ fi
 
 echo "Writing project file to: $PROJECT_PATH"
 mkdir -p "$(dirname "$PROJECT_PATH")"
-echo "$PROJECT_FILE" > "$PROJECT_PATH"
+printf '%%s' "$PROJECT_FILE" > "$PROJECT_PATH"
 
 echo "Writing parameter files..."
 mkdir -p /workspace/repo/.ralph
@@ -278,11 +288,19 @@ echo "Execution complete!"
 }
 
 // buildEnvVars builds environment variables for the container
-func buildEnvVars(repoURL, cloneBranch, projectBranch string, cfg *config.RalphConfig) []map[string]interface{} {
+func buildEnvVars(repoURL, repoOwner, repoName, cloneBranch, projectBranch string, cfg *config.RalphConfig) []map[string]interface{} {
 	envVars := []map[string]interface{}{
 		{
 			"name":  "GIT_REPO_URL",
 			"value": repoURL,
+		},
+		{
+			"name":  "GITHUB_REPO_OWNER",
+			"value": repoOwner,
+		},
+		{
+			"name":  "GITHUB_REPO_NAME",
+			"value": repoName,
 		},
 		{
 			"name":  "GIT_BRANCH",
@@ -503,7 +521,7 @@ func getCurrentBranch() (string, error) {
 	return strings.TrimSpace(string(output)), nil
 }
 
-// getRemoteURL gets the git remote URL
+// getRemoteURL gets the git remote URL.
 func getRemoteURL() (string, error) {
 	cmd := exec.Command("git", "config", "--get", "remote.origin.url")
 	output, err := cmd.Output()
@@ -511,6 +529,16 @@ func getRemoteURL() (string, error) {
 		return "", fmt.Errorf("failed to get remote URL: %w", err)
 	}
 	return strings.TrimSpace(string(output)), nil
+}
+
+// toHTTPSURL converts a GitHub SSH remote URL to HTTPS.
+// SSH format: git@github.com:owner/repo.git -> https://github.com/owner/repo.git
+// HTTPS URLs are returned unchanged.
+func toHTTPSURL(remoteURL string) string {
+	if strings.HasPrefix(remoteURL, "git@github.com:") {
+		return "https://github.com/" + strings.TrimPrefix(remoteURL, "git@github.com:")
+	}
+	return remoteURL
 }
 
 // getRepoRoot gets the git repository root directory
@@ -582,11 +610,12 @@ func SubmitWorkflow(ctx *execcontext.Context, workflowYAML string, ralphConfig *
 // It clones the repo, checks out prBranch, verifies all requirements pass,
 // removes the project file, commits and pushes, then merges the PR via gh CLI.
 func GenerateMergeWorkflow(projectFile, prBranch string) (string, error) {
-	// Get git remote URL
-	remoteURL, err := getRemoteURL()
+	// Get git remote URL, converting to HTTPS for use in the workflow container
+	rawRemoteURL, err := getRemoteURL()
 	if err != nil {
 		return "", fmt.Errorf("failed to get remote URL: %w", err)
 	}
+	remoteURL := toHTTPSURL(rawRemoteURL)
 
 	// Get current branch (base branch to clone from)
 	currentBranch, err := getCurrentBranch()
@@ -630,6 +659,12 @@ func GenerateMergeWorkflowWithGitInfo(projectFile, repoURL, cloneBranch, prBranc
 		return "", fmt.Errorf("failed to read project file: %w", err)
 	}
 
+	// Parse owner and repo name from the URL
+	repoName, repoOwner, err := githubpkg.ParseGitHubRemoteURL(repoURL)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse repository from URL: %w", err)
+	}
+
 	// Determine image repository and tag
 	imageRepo := "ghcr.io/zon/ralph"
 	imageTag := DefaultContainerVersion()
@@ -667,7 +702,7 @@ func GenerateMergeWorkflowWithGitInfo(projectFile, repoURL, cloneBranch, prBranc
 				"parameters": params,
 			},
 			"templates": []interface{}{
-				buildMergeTemplate(image, repoURL, cloneBranch, prBranch, ralphConfig),
+				buildMergeTemplate(image, repoURL, repoOwner, repoName, cloneBranch, prBranch, ralphConfig),
 			},
 		},
 	}
@@ -682,7 +717,7 @@ func GenerateMergeWorkflowWithGitInfo(projectFile, repoURL, cloneBranch, prBranc
 }
 
 // buildMergeTemplate builds the merge execution template
-func buildMergeTemplate(image, repoURL, cloneBranch, prBranch string, cfg *config.RalphConfig) map[string]interface{} {
+func buildMergeTemplate(image, repoURL, repoOwner, repoName, cloneBranch, prBranch string, cfg *config.RalphConfig) map[string]interface{} {
 	template := map[string]interface{}{
 		"name": "ralph-merger",
 		"container": map[string]interface{}{
@@ -696,6 +731,8 @@ func buildMergeTemplate(image, repoURL, cloneBranch, prBranch string, cfg *confi
 			},
 			"env": []map[string]interface{}{
 				{"name": "GIT_REPO_URL", "value": repoURL},
+				{"name": "GITHUB_REPO_OWNER", "value": repoOwner},
+				{"name": "GITHUB_REPO_NAME", "value": repoName},
 				{"name": "GIT_BRANCH", "value": cloneBranch},
 				{"name": "PR_BRANCH", "value": prBranch},
 				{"name": "PROJECT_FILE", "value": "{{workflow.parameters.project-file}}"},
@@ -728,7 +765,7 @@ func buildMergeScript() string {
 set -e
 
 echo "Setting up GitHub App token..."
-export GITHUB_TOKEN=$(ralph github-token)
+export GITHUB_TOKEN=$(ralph github-token --owner "$GITHUB_REPO_OWNER" --repo "$GITHUB_REPO_NAME")
 
 echo "Configuring git for HTTPS authentication..."
 git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
@@ -747,7 +784,7 @@ git checkout "$PR_BRANCH"
 
 echo "Writing project file to: $PROJECT_PATH"
 mkdir -p "$(dirname "$PROJECT_PATH")"
-echo "$PROJECT_FILE" > "$PROJECT_PATH"
+printf '%%s' "$PROJECT_FILE" > "$PROJECT_PATH"
 
 echo "Checking requirement status..."
 PASSING=$(ralph --once "$PROJECT_PATH" --dry-run 2>&1 | grep -c "passing: true" || true)
