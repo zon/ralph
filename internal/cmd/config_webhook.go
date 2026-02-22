@@ -24,7 +24,7 @@ const webhookConfigMapName = "webhook-config"
 const webhookSecretsSecretName = "webhook-secrets"
 
 // webhookIngressHostname is the default ingress hostname used to match webhooks on GitHub
-const webhookIngressHostname = "ralph.wurbs.chat"
+const webhookIngressHostname = "ralph.haralovich.org"
 
 // ConfigWebhookConfigCmd provisions the webhook-config Kubernetes secret
 type ConfigWebhookConfigCmd struct {

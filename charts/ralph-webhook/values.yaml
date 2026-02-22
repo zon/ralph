@@ -3,7 +3,7 @@ namespace: ralph-webhook
 replicaCount: 1
 
 image:
-  repository: ghcr.io/zon/ralph-webhook
+  repository: ghcr.io/zon/ralph
   tag: latest
   pullPolicy: IfNotPresent
 
@@ -16,7 +16,7 @@ ingress:
   className: public
   clusterIssuer: lets-encrypt
   annotations: {}
-  hostname: ralph.wurbs.chat
+  hostname: ralph.haralovich.org
   path: /
   pathType: Prefix
 

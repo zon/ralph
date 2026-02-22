@@ -220,7 +220,7 @@ func buildExecutionScript(dryRun, verbose bool, gitUserName, gitUserEmail string
 		gitUserName = "Ralph Bot"
 	}
 	if gitUserEmail == "" {
-		gitUserEmail = "ralph@ralph-bot.local"
+		gitUserEmail = "ralph@haralovich.org"
 	}
 
 	script := fmt.Sprintf(`#!/bin/sh
@@ -660,7 +660,7 @@ func GenerateMergeWorkflowWithGitInfo(projectFile, repoURL, cloneBranch, prBranc
 	}
 	gitUserEmail := ralphConfig.Workflow.GitUser.Email
 	if gitUserEmail == "" {
-		gitUserEmail = "ralph@ralph-bot.local"
+		gitUserEmail = "ralph@haralovich.org"
 	}
 
 	// Build workflow parameters
