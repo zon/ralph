@@ -117,16 +117,72 @@ func TestHandleWebhook_UnknownRepo_Returns401(t *testing.T) {
 // Event type filtering tests
 // ──────────────────────────────────────────────────────────────────────────────
 
-func TestHandleWebhook_IssueComment_Ignored200(t *testing.T) {
+func TestHandleWebhook_IssueComment_NonPR_Ignored200(t *testing.T) {
 	var called bool
 	s := NewServer(testConfig(), func(_ string, _, _ string, _ map[string]interface{}) {
 		called = true
 	})
-	body := buildPayload("acme", "myrepo", nil)
+	// No "issue.pull_request" field → plain issue comment, should be ignored.
+	body := buildPayload("acme", "myrepo", map[string]interface{}{
+		"issue":   map[string]interface{}{"number": 1},
+		"comment": map[string]interface{}{"user": map[string]interface{}{"login": "human-user"}},
+	})
 	sig := sign(body, "supersecret")
 	w := postWebhook(t, s, "issue_comment", body, sig)
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.False(t, called, "handler should not be called for issue_comment events")
+	assert.False(t, called, "handler should not be called for issue_comment events on plain issues")
+}
+
+func TestHandleWebhook_IssueComment_OnPR_HandlerCalled(t *testing.T) {
+	var receivedEvent string
+	s := NewServer(testConfig(), func(eventType string, _, _ string, _ map[string]interface{}) {
+		receivedEvent = eventType
+	})
+	body := buildPayload("acme", "myrepo", map[string]interface{}{
+		"issue": map[string]interface{}{
+			"number":       42,
+			"pull_request": map[string]interface{}{"url": "https://api.github.com/repos/acme/myrepo/pulls/42"},
+		},
+		"comment": map[string]interface{}{"user": map[string]interface{}{"login": "human-user"}},
+	})
+	sig := sign(body, "supersecret")
+	w := postWebhook(t, s, "issue_comment", body, sig)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "issue_comment", receivedEvent)
+}
+
+func TestHandleWebhook_IssueComment_OnPR_UserNotInAllowedList_Ignored200(t *testing.T) {
+	var called bool
+	s := NewServer(testConfigWithAllowedUsers([]string{"alice", "bob"}), func(_ string, _, _ string, _ map[string]interface{}) {
+		called = true
+	})
+	body := buildPayload("acme", "myrepo", map[string]interface{}{
+		"issue": map[string]interface{}{
+			"pull_request": map[string]interface{}{"url": "https://api.github.com/repos/acme/myrepo/pulls/1"},
+		},
+		"comment": map[string]interface{}{"user": map[string]interface{}{"login": "charlie"}},
+	})
+	sig := sign(body, "supersecret")
+	w := postWebhook(t, s, "issue_comment", body, sig)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.False(t, called, "handler should not be called when commenter is not in allowed list")
+}
+
+func TestHandleWebhook_IssueComment_OnPR_RalphUserIgnored200(t *testing.T) {
+	var called bool
+	s := NewServer(testConfigWithRalphUser("zralphen"), func(_ string, _, _ string, _ map[string]interface{}) {
+		called = true
+	})
+	body := buildPayload("acme", "myrepo", map[string]interface{}{
+		"issue": map[string]interface{}{
+			"pull_request": map[string]interface{}{"url": "https://api.github.com/repos/acme/myrepo/pulls/1"},
+		},
+		"comment": map[string]interface{}{"user": map[string]interface{}{"login": "zralphen"}},
+	})
+	sig := sign(body, "supersecret")
+	w := postWebhook(t, s, "issue_comment", body, sig)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.False(t, called, "handler should not be called when commenter is the ralph user")
 }
 
 func TestHandleWebhook_UnrecognisedEvent_Ignored200(t *testing.T) {

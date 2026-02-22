@@ -97,13 +97,6 @@ func (s *Server) handleWebhook(c *gin.Context) {
 
 	eventType := c.GetHeader("X-GitHub-Event")
 
-	// issue_comment events are explicitly ignored.
-	if eventType == "issue_comment" {
-		logger.Verbosef("ignoring issue_comment event for %s/%s", owner, repoName)
-		c.Status(http.StatusOK)
-		return
-	}
-
 	// Parse the full payload for event-type-specific filtering.
 	var payload map[string]interface{}
 	if err := json.Unmarshal(body, &payload); err != nil {
@@ -114,6 +107,32 @@ func (s *Server) handleWebhook(c *gin.Context) {
 	repo := s.config.RepoByFullName(owner, repoName)
 
 	switch eventType {
+	case "issue_comment":
+		// Only process issue_comment events that are on a pull request.
+		// GitHub includes an "issue.pull_request" field when the comment is on a PR.
+		_, isPR := nestedString(payload, "issue", "pull_request", "url")
+		if !isPR {
+			logger.Verbosef("ignoring issue_comment event on non-PR issue for %s/%s", owner, repoName)
+			c.Status(http.StatusOK)
+			return
+		}
+		commenter, _ := nestedString(payload, "comment", "user", "login")
+		if s.config.IsUserIgnored(repo, commenter) {
+			logger.Verbosef("ignoring issue_comment: user %q is in ignored-users list for %s/%s", commenter, owner, repoName)
+			c.Status(http.StatusOK)
+			return
+		}
+		if repo != nil && !repo.IsUserAllowed(commenter) {
+			logger.Verbosef("ignoring issue_comment: user %q not in allowlist for %s/%s", commenter, owner, repoName)
+			c.Status(http.StatusOK)
+			return
+		}
+		logger.Verbosef("dispatching issue_comment (on PR) for %s/%s (user: %s)", owner, repoName, commenter)
+		if s.handler != nil {
+			s.handler(eventType, owner, repoName, payload)
+		}
+		c.Status(http.StatusOK)
+
 	case "pull_request_review_comment":
 		commenter, _ := nestedString(payload, "comment", "user", "login")
 		// Ignore events from ignored users.
