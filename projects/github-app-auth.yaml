@@ -1,0 +1,61 @@
+name: github-app-auth
+description: Replace SSH key + PAT secrets with GitHub App authentication for workflow credentials
+
+requirements:
+  - category: backend
+    description: GitHub App JWT and token generation
+    items:
+      - internal/github/app.go provides GenerateAppJWT(appID string, privateKeyPEM []byte) (string, error) using RS256 signing
+      - internal/github/app.go provides GetInstallationID(ctx, jwtToken, owner, repo string) (int64, error) calling GET /repos/{owner}/{repo}/installation
+      - internal/github/app.go provides GetInstallationToken(ctx, jwtToken string, installationID int64) (string, error) calling POST /app/installations/{id}/access_tokens
+      - golang-jwt/jwt/v5 added to go.mod for RS256 JWT signing
+    passing: false
+
+  - category: backend
+    description: ralph github-token subcommand
+    items:
+      - ralph github-token command reads app-id and private-key from a configurable secrets directory (default /secrets/github)
+      - Repo owner and name are autodetected from git remote if not provided as flags
+      - Command prints the installation token to stdout and exits
+      - Command registered in internal/cmd/cmd.go
+    passing: false
+
+  - category: backend
+    description: Updated ralph config github command
+    items:
+      - Command prompts for the Ralph GitHub App ID
+      - Command checks if the app is installed on the current repo via the GitHub API
+      - If not installed, command prints the installation URL and waits for the user to press Enter before rechecking
+      - Command prompts for the path to the private key .pem file and reads it
+      - Command validates credentials by generating a test installation token before saving
+      - Command stores app-id and private-key in the github-credentials Kubernetes secret
+      - No zralphen user switching — app credentials are not tied to any user account
+    passing: false
+
+  - category: backend
+    description: Workflow scripts use GitHub App token
+    items:
+      - buildExecutionScript and buildMergeScript in internal/workflow/workflow.go replace the static token read with export GITHUB_TOKEN=$(ralph github-token)
+      - Workflow scripts configure git to use the token for HTTPS via url rewrite (git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf)
+      - SSH setup block (mkdir ~/.ssh, cp private key, chmod, ssh-keyscan) removed from both scripts
+      - git-credentials volume and volumeMount removed from workflow template
+      - Git committer identity hardcoded to zalphen[bot] / zalphen[bot]@users.noreply.github.com in workflow scripts
+    passing: false
+
+  - category: backend
+    description: Remove SSH credential infrastructure
+    items:
+      - ralph config git command and its test file deleted
+      - Git field removed from ConfigCmd in internal/cmd/cmd.go
+      - GitSecretName constant removed from internal/k8s/secrets.go
+      - GitUserConfig struct and GitUser field removed from WorkflowConfig in internal/config/config.go
+      - applyDefaults no longer sets GitUser.Name or GitUser.Email
+    passing: false
+
+  - category: testing
+    description: Unit tests
+    items:
+      - internal/github/app_test.go tests GenerateAppJWT with a generated RSA test key and verifies JWT claims — no network calls
+      - internal/cmd/github_token_test.go tests flag parsing and default values
+      - All existing tests pass after the credential infrastructure changes
+    passing: false
