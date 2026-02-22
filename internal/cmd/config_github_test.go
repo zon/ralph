@@ -1,12 +1,21 @@
 package cmd
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/alecthomas/kong"
 )
 
 func TestConfigGithubCommand(t *testing.T) {
+	// Create a temporary file for testing
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test-key.pem")
+	if err := os.WriteFile(tmpFile, []byte("test private key"), 0644); err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+
 	tests := []struct {
 		name    string
 		args    []string
@@ -14,22 +23,22 @@ func TestConfigGithubCommand(t *testing.T) {
 	}{
 		{
 			name:    "config github parses successfully",
-			args:    []string{"config", "github"},
+			args:    []string{"config", "github", tmpFile},
 			wantErr: false,
 		},
 		{
 			name:    "config github with context",
-			args:    []string{"config", "github", "--context", "my-cluster"},
+			args:    []string{"config", "github", tmpFile, "--context", "my-cluster"},
 			wantErr: false,
 		},
 		{
 			name:    "config github with namespace",
-			args:    []string{"config", "github", "--namespace", "my-namespace"},
+			args:    []string{"config", "github", tmpFile, "--namespace", "my-namespace"},
 			wantErr: false,
 		},
 		{
 			name:    "config github with both context and namespace",
-			args:    []string{"config", "github", "--context", "my-cluster", "--namespace", "my-namespace"},
+			args:    []string{"config", "github", tmpFile, "--context", "my-cluster", "--namespace", "my-namespace"},
 			wantErr: false,
 		},
 	}
@@ -54,6 +63,13 @@ func TestConfigGithubCommand(t *testing.T) {
 }
 
 func TestConfigGithubFlags(t *testing.T) {
+	// Create a temporary file for testing
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test-key.pem")
+	if err := os.WriteFile(tmpFile, []byte("test private key"), 0644); err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+
 	tests := []struct {
 		name              string
 		args              []string
@@ -62,25 +78,25 @@ func TestConfigGithubFlags(t *testing.T) {
 	}{
 		{
 			name:              "default values",
-			args:              []string{"config", "github"},
+			args:              []string{"config", "github", tmpFile},
 			expectedContext:   "",
 			expectedNamespace: "",
 		},
 		{
 			name:              "with context",
-			args:              []string{"config", "github", "--context", "test-context"},
+			args:              []string{"config", "github", tmpFile, "--context", "test-context"},
 			expectedContext:   "test-context",
 			expectedNamespace: "",
 		},
 		{
 			name:              "with namespace",
-			args:              []string{"config", "github", "--namespace", "test-namespace"},
+			args:              []string{"config", "github", tmpFile, "--namespace", "test-namespace"},
 			expectedContext:   "",
 			expectedNamespace: "test-namespace",
 		},
 		{
 			name:              "with both",
-			args:              []string{"config", "github", "--context", "test-context", "--namespace", "test-namespace"},
+			args:              []string{"config", "github", tmpFile, "--context", "test-context", "--namespace", "test-namespace"},
 			expectedContext:   "test-context",
 			expectedNamespace: "test-namespace",
 		},
