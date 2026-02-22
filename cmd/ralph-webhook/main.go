@@ -23,12 +23,7 @@ func (c *CLI) Run() error {
 		return err
 	}
 
-	// Wire up the invoker as the event handler so that comment events trigger
-	// `ralph run` and approval events trigger `ralph merge`.
-	inv := webhook.NewInvoker(false, cfg.App.CommentInstructions)
-	handler := inv.HandleEvent()
-
-	s := webhook.NewServer(cfg, handler)
+	s := webhook.NewServer(cfg)
 	logger.Infof("starting ralph-webhook service on port %d", cfg.App.Port)
 	return s.Run()
 }

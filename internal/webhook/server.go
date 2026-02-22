@@ -14,31 +14,21 @@ import (
 	"github.com/zon/ralph/internal/logger"
 )
 
-// EventHandler is called when a webhook event passes all filters.
-// eventType is the X-GitHub-Event header value.
-// repoOwner and repoName identify the repository the event belongs to.
-// payload is the parsed JSON payload.
-type EventHandler func(eventType string, repoOwner, repoName string, payload map[string]interface{})
-
 // Server is the GitHub webhook HTTP server.
 type Server struct {
-	config  *Config
-	handler EventHandler
-	router  *gin.Engine
+	config *Config
+	router *gin.Engine
 }
 
-// NewServer creates a new webhook Server with the given configuration and event handler.
-// The handler is called for events that pass all validation and filtering checks.
-// Pass a nil handler if no processing is needed (useful for testing).
-func NewServer(cfg *Config, handler EventHandler) *Server {
+// NewServer creates a new webhook Server with the given configuration.
+func NewServer(cfg *Config) *Server {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	router.Use(gin.Recovery())
 
 	s := &Server{
-		config:  cfg,
-		handler: handler,
-		router:  router,
+		config: cfg,
+		router: router,
 	}
 
 	router.POST("/webhook", s.handleWebhook)
@@ -60,6 +50,7 @@ func (s *Server) Run() error {
 }
 
 // handleWebhook is the main Gin handler for POST /webhook.
+// It runs the full pipeline: receive → validate → filter → event → workflow → submit.
 func (s *Server) handleWebhook(c *gin.Context) {
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
@@ -67,27 +58,27 @@ func (s *Server) handleWebhook(c *gin.Context) {
 		return
 	}
 
-	// Identify the repository from the payload before we can look up the
-	// per-repo webhook secret. We parse just enough to get owner/name.
-	owner, repoName, err := extractRepoFromPayload(body)
-	if err != nil || owner == "" || repoName == "" {
-		// Cannot identify repository – reject with 400.
+	var payload GithubPayload
+	if err := json.Unmarshal(body, &payload); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid JSON payload"})
+		return
+	}
+
+	owner, repoName := payload.RepoOwner(), payload.RepoName()
+	if owner == "" || repoName == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "unable to identify repository from payload"})
 		return
 	}
 
 	logger.Verbosef("received webhook for %s/%s", owner, repoName)
 
-	// Look up the webhook secret for this repository.
 	secret := s.config.WebhookSecretForRepo(owner, repoName)
 	if secret == "" {
-		// Repository not configured – reject.
 		logger.Verbosef("ignoring event: repo %s/%s not configured", owner, repoName)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "repository not configured"})
 		return
 	}
 
-	// Validate the HMAC-SHA256 signature.
 	sig := c.GetHeader("X-Hub-Signature-256")
 	if !validateSignature(body, secret, sig) {
 		logger.Verbosef("rejected request: invalid signature for %s/%s", owner, repoName)
@@ -96,119 +87,48 @@ func (s *Server) handleWebhook(c *gin.Context) {
 	}
 
 	eventType := c.GetHeader("X-GitHub-Event")
+	msg := payload.Review.Body
+	if msg == "" {
+		msg = payload.Comment.Body
+	}
+	logger.Verbosef("incoming %s (%s) for %s/%s PR#%d branch=%s body=%q", eventType, payload.Action, owner, repoName, payload.PullRequest.Number, payload.PullRequest.Head.Ref, msg)
 
-	// Parse the full payload for event-type-specific filtering.
-	var payload map[string]interface{}
-	if err := json.Unmarshal(body, &payload); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid JSON payload"})
+	if !payload.IsAcceptable(eventType, s.config) {
+		logger.Verbosef("ignoring %s event for %s/%s", eventType, owner, repoName)
+		c.Status(http.StatusOK)
 		return
 	}
 
-	action, _ := nestedString(payload, "action")
-	branch, _ := nestedString(payload, "pull_request", "head", "ref")
-	prNumber := ""
-	if n, ok := payload["pull_request"].(map[string]interface{}); ok {
-		if num, ok := n["number"].(float64); ok {
-			prNumber = fmt.Sprintf("%d", int(num))
-		}
+	event := payload.ToEvent(eventType)
+	logger.Verbosef("dispatching %s for %s/%s", eventType, owner, repoName)
+
+	result, err := event.ToWorkflow(s.config)
+	if err != nil {
+		logger.Verbosef("failed to generate workflow for %s/%s: %v", owner, repoName, err)
+		c.Status(http.StatusOK)
+		return
 	}
-	reviewBody, _ := nestedString(payload, "review", "body")
-	commentBody, _ := nestedString(payload, "comment", "body")
-	msg := reviewBody
-	if msg == "" {
-		msg = commentBody
-	}
-	logger.Verbosef("incoming %s (%s) for %s/%s PR#%s branch=%s body=%q", eventType, action, owner, repoName, prNumber, branch, msg)
 
-	repo := s.config.RepoByFullName(owner, repoName)
+	go submitWorkflow(result, owner, repoName)
+	c.Status(http.StatusOK)
+}
 
-	switch eventType {
-	case "issue_comment":
-		// Only process issue_comment events that are on a pull request.
-		// GitHub includes an "issue.pull_request" field when the comment is on a PR.
-		_, isPR := nestedString(payload, "issue", "pull_request", "url")
-		if !isPR {
-			logger.Verbosef("ignoring issue_comment event on non-PR issue for %s/%s", owner, repoName)
-			c.Status(http.StatusOK)
+// submitWorkflow submits a WorkflowResult asynchronously.
+func submitWorkflow(result *WorkflowResult, owner, repoName string) {
+	if result.Run != nil {
+		name, err := result.Run.Submit()
+		if err != nil {
+			logger.Verbosef("failed to submit run workflow for %s/%s: %v", owner, repoName, err)
 			return
 		}
-		commenter, _ := nestedString(payload, "comment", "user", "login")
-		if s.config.IsUserIgnored(repo, commenter) {
-			logger.Verbosef("ignoring issue_comment: user %q is in ignored-users list for %s/%s", commenter, owner, repoName)
-			c.Status(http.StatusOK)
+		logger.Verbosef("submitted run workflow %s for %s/%s", name, owner, repoName)
+	} else if result.Merge != nil {
+		name, err := result.Merge.Submit()
+		if err != nil {
+			logger.Verbosef("failed to submit merge workflow for %s/%s: %v", owner, repoName, err)
 			return
 		}
-		if repo != nil && !repo.IsUserAllowed(commenter) {
-			logger.Verbosef("ignoring issue_comment: user %q not in allowlist for %s/%s", commenter, owner, repoName)
-			c.Status(http.StatusOK)
-			return
-		}
-		logger.Verbosef("dispatching issue_comment (on PR) for %s/%s (user: %s)", owner, repoName, commenter)
-		if s.handler != nil {
-			s.handler(eventType, owner, repoName, payload)
-		}
-		c.Status(http.StatusOK)
-
-	case "pull_request_review_comment":
-		commenter, _ := nestedString(payload, "comment", "user", "login")
-		// Ignore events from ignored users.
-		if s.config.IsUserIgnored(repo, commenter) {
-			logger.Verbosef("ignoring pull_request_review_comment: user %q is in ignored-users list for %s/%s", commenter, owner, repoName)
-			c.Status(http.StatusOK)
-			return
-		}
-		// Only process events from allowed users.
-		if repo != nil && !repo.IsUserAllowed(commenter) {
-			logger.Verbosef("ignoring pull_request_review_comment: user %q not in allowlist for %s/%s", commenter, owner, repoName)
-			c.Status(http.StatusOK)
-			return
-		}
-		logger.Verbosef("dispatching pull_request_review_comment for %s/%s (user: %s)", owner, repoName, commenter)
-		if s.handler != nil {
-			s.handler(eventType, owner, repoName, payload)
-		}
-		c.Status(http.StatusOK)
-
-	case "pull_request_review":
-		state, _ := nestedString(payload, "review", "state")
-		reviewer, _ := nestedString(payload, "review", "user", "login")
-		// Ignore events from ignored users.
-		if s.config.IsUserIgnored(repo, reviewer) {
-			logger.Verbosef("ignoring pull_request_review: user %q is in ignored-users list for %s/%s", reviewer, owner, repoName)
-			c.Status(http.StatusOK)
-			return
-		}
-		// Only process reviews from allowed users.
-		if repo != nil && !repo.IsUserAllowed(reviewer) {
-			logger.Verbosef("ignoring pull_request_review: user %q not in allowlist for %s/%s", reviewer, owner, repoName)
-			c.Status(http.StatusOK)
-			return
-		}
-		switch strings.ToLower(state) {
-		case "approved":
-			logger.Verbosef("dispatching pull_request_review (approved) for %s/%s (reviewer: %s)", owner, repoName, reviewer)
-			if s.handler != nil {
-				s.handler(eventType, owner, repoName, payload)
-			}
-		case "commented":
-			reviewBody, _ := nestedString(payload, "review", "body")
-			if reviewBody == "" {
-				logger.Verbosef("ignoring pull_request_review (commented, empty body) for %s/%s", owner, repoName)
-			} else {
-				logger.Verbosef("dispatching pull_request_review (commented) for %s/%s (reviewer: %s)", owner, repoName, reviewer)
-				if s.handler != nil {
-					s.handler(eventType, owner, repoName, payload)
-				}
-			}
-		default:
-			logger.Verbosef("ignoring pull_request_review: state is %q for %s/%s", state, owner, repoName)
-		}
-		c.Status(http.StatusOK)
-
-	default:
-		// Unrecognised event types are ignored gracefully.
-		logger.Verbosef("ignoring unrecognised event type %q for %s/%s", eventType, owner, repoName)
-		c.Status(http.StatusOK)
+		logger.Verbosef("submitted merge workflow %s for %s/%s", name, owner, repoName)
 	}
 }
 
@@ -229,36 +149,4 @@ func validateSignature(body []byte, secret, signature string) bool {
 	expected := hex.EncodeToString(mac.Sum(nil))
 
 	return hmac.Equal([]byte(expected), []byte(sigHex))
-}
-
-// extractRepoFromPayload parses just enough of the JSON payload to return the
-// repository owner and name.
-func extractRepoFromPayload(body []byte) (owner, name string, err error) {
-	var partial struct {
-		Repository struct {
-			Name  string `json:"name"`
-			Owner struct {
-				Login string `json:"login"`
-			} `json:"owner"`
-		} `json:"repository"`
-	}
-	if err := json.Unmarshal(body, &partial); err != nil {
-		return "", "", err
-	}
-	return partial.Repository.Owner.Login, partial.Repository.Name, nil
-}
-
-// nestedString is a helper that walks a map hierarchy using keys and returns the
-// final string value. Returns "" if any key is missing or the final value is not a string.
-func nestedString(m map[string]interface{}, keys ...string) (string, bool) {
-	var current interface{} = m
-	for _, k := range keys {
-		mp, ok := current.(map[string]interface{})
-		if !ok {
-			return "", false
-		}
-		current = mp[k]
-	}
-	s, ok := current.(string)
-	return s, ok
 }
