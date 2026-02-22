@@ -13,6 +13,32 @@ import (
 	"github.com/zon/ralph/internal/logger"
 )
 
+// runDetached starts cmd, waits for it to finish in a goroutine, and logs any
+// error together with the combined stdout+stderr output.  The label is used in
+// log messages to identify which command failed.
+func runDetached(cmd *exec.Cmd, label string, cleanup func()) {
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+
+	if err := cmd.Start(); err != nil {
+		logger.Verbosef("failed to start %s: %v", label, err)
+		if cleanup != nil {
+			cleanup()
+		}
+		return
+	}
+
+	go func() {
+		if err := cmd.Wait(); err != nil {
+			logger.Verbosef("%s failed: %v\n%s", label, err, out.String())
+		}
+		if cleanup != nil {
+			cleanup()
+		}
+	}()
+}
+
 // InvokeResult captures what an invoker would have done, used in dry-run mode.
 type InvokeResult struct {
 	// Command is the ralph subcommand that would have been run ("run" or "merge").
@@ -69,7 +95,7 @@ func (inv *Invoker) HandleEvent() EventHandler {
 }
 
 // InvokeRalphRun constructs a webhook-specific instructions file and invokes
-// `ralph run <projectFile> --instructions <file> --remote --no-notify`.
+// `ralph run <projectFile> --instructions <file> --no-notify`.
 // The instructions file is written to a temporary directory; it is the
 // caller's responsibility to clean it up (the process is detached).
 func (inv *Invoker) InvokeRalphRun(projectFile, commentBody string) error {
@@ -78,7 +104,7 @@ func (inv *Invoker) InvokeRalphRun(projectFile, commentBody string) error {
 	if inv.dryRun {
 		inv.LastInvoke = &InvokeResult{
 			Command:             "run",
-			Args:                []string{projectFile, "--instructions", "<temp>", "--remote", "--no-notify"},
+			Args:                []string{projectFile, "--instructions", "<temp>", "--no-notify"},
 			InstructionsContent: instructions,
 		}
 		return nil
@@ -95,19 +121,10 @@ func (inv *Invoker) InvokeRalphRun(projectFile, commentBody string) error {
 		return fmt.Errorf("failed to write instructions file: %w", err)
 	}
 
-	args := []string{projectFile, "--instructions", instructionsFile, "--remote", "--no-notify"}
+	args := []string{projectFile, "--instructions", instructionsFile, "--no-notify"}
 	logger.Verbosef("invoking: ralph run %s", strings.Join(args, " "))
 	cmd := exec.Command("ralph", args...)
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("failed to start ralph run: %w", err)
-	}
-
-	// Detach: we do not wait for completion.
-	go func() {
-		_ = cmd.Wait()
-		_ = os.RemoveAll(tmpDir)
-	}()
-
+	runDetached(cmd, "ralph run "+projectFile, func() { _ = os.RemoveAll(tmpDir) })
 	return nil
 }
 
@@ -123,15 +140,7 @@ func (inv *Invoker) InvokeRalphMerge(projectFile, prBranch string) error {
 
 	logger.Verbosef("invoking: ralph merge %s %s", projectFile, prBranch)
 	cmd := exec.Command("ralph", "merge", projectFile, prBranch)
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("failed to start ralph merge: %w", err)
-	}
-
-	// Detach: we do not wait for completion.
-	go func() {
-		_ = cmd.Wait()
-	}()
-
+	runDetached(cmd, "ralph merge "+projectFile, nil)
 	return nil
 }
 

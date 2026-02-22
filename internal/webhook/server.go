@@ -104,6 +104,22 @@ func (s *Server) handleWebhook(c *gin.Context) {
 		return
 	}
 
+	action, _ := nestedString(payload, "action")
+	branch, _ := nestedString(payload, "pull_request", "head", "ref")
+	prNumber := ""
+	if n, ok := payload["pull_request"].(map[string]interface{}); ok {
+		if num, ok := n["number"].(float64); ok {
+			prNumber = fmt.Sprintf("%d", int(num))
+		}
+	}
+	reviewBody, _ := nestedString(payload, "review", "body")
+	commentBody, _ := nestedString(payload, "comment", "body")
+	msg := reviewBody
+	if msg == "" {
+		msg = commentBody
+	}
+	logger.Verbosef("incoming %s (%s) for %s/%s PR#%s branch=%s body=%q", eventType, action, owner, repoName, prNumber, branch, msg)
+
 	repo := s.config.RepoByFullName(owner, repoName)
 
 	switch eventType {

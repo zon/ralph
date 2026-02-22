@@ -94,7 +94,7 @@ func TestInvoker_InvokeRalphRun_DryRun(t *testing.T) {
 	assert.Contains(t, inv.LastInvoke.InstructionsContent, "please fix the tests",
 		"instructions content should include the comment body")
 	assert.Equal(t, "projects/my-feature.yaml", inv.LastInvoke.Args[0])
-	assert.Contains(t, inv.LastInvoke.Args, "--remote")
+	assert.NotContains(t, inv.LastInvoke.Args, "--remote")
 	assert.Contains(t, inv.LastInvoke.Args, "--no-notify")
 	assert.Contains(t, inv.LastInvoke.Args, "--instructions")
 }
