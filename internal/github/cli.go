@@ -23,6 +23,24 @@ func IsGHCLIAvailable(ctx context.Context) bool {
 	return true
 }
 
+// GetGHToken returns the current gh CLI session token via `gh auth token`.
+func GetGHToken(ctx context.Context) (string, error) {
+	cmd := exec.CommandContext(ctx, "gh", "auth", "token")
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("failed to get gh token: %w (stderr: %s)", err, stderr.String())
+	}
+
+	token := strings.TrimSpace(stdout.String())
+	if token == "" {
+		return "", fmt.Errorf("gh auth token returned empty token")
+	}
+	return token, nil
+}
+
 // GetAuthenticatedUser returns the login of the currently authenticated gh user.
 func GetAuthenticatedUser(ctx context.Context) (string, error) {
 	cmd := exec.CommandContext(ctx, "gh", "api", "user", "--jq", ".login")
