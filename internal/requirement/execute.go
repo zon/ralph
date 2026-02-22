@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/zon/ralph/internal/ai"
 	"github.com/zon/ralph/internal/config"
@@ -124,12 +125,24 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	}
 	logger.Verbose("AI agent execution completed")
 
-	// Stage project file after agent completes
-	logger.Verbose("Staging project file...")
-	if err := git.StageFile(ctx, absProjectFile); err != nil {
-		logger.Verbosef("Failed to stage project file: %v", err)
-	} else {
-		logger.Verbose("Project file staged")
+	// Normalize project file: strip excess trailing newlines added by the agent
+	if data, err := os.ReadFile(absProjectFile); err == nil {
+		normalized := []byte(strings.TrimRight(string(data), "\n") + "\n")
+		if len(normalized) != len(data) {
+			if writeErr := os.WriteFile(absProjectFile, normalized, 0644); writeErr != nil {
+				logger.Verbosef("Failed to normalize project file: %v", writeErr)
+			}
+		}
+	}
+
+	// Stage project file after agent completes, only if it has changes
+	if git.HasFileChanges(ctx, absProjectFile) {
+		logger.Verbose("Staging project file...")
+		if err := git.StageFile(ctx, absProjectFile); err != nil {
+			logger.Verbosef("Failed to stage project file: %v", err)
+		} else {
+			logger.Verbose("Project file staged")
+		}
 	}
 
 	logger.Verbose("Single iteration completed successfully")

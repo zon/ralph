@@ -451,6 +451,19 @@ func StageAll(ctx *context.Context) error {
 	return nil
 }
 
+// HasFileChanges checks if a specific file has unstaged changes (i.e. differs from the index)
+func HasFileChanges(ctx *context.Context, filePath string) bool {
+	if ctx.IsDryRun() {
+		logger.Infof("[DRY-RUN] Would check for changes in file: %s", filePath)
+		return true
+	}
+
+	// git diff --quiet -- <file>: exit 0 = no changes, exit 1 = has changes
+	cmd := exec.Command("git", "diff", "--quiet", "--", filePath)
+	err := cmd.Run()
+	return err != nil
+}
+
 // HasStagedChanges checks if there are any staged changes ready to commit
 func HasStagedChanges(ctx *context.Context) bool {
 	if ctx.IsDryRun() {
