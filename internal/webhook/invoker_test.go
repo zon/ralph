@@ -125,6 +125,35 @@ func TestHandleEvent_CommentEvent_InvokesRalphRun(t *testing.T) {
 	assert.Contains(t, inv.LastInvoke.InstructionsContent, "please add a unit test")
 }
 
+func TestHandleEvent_IssueCommentEvent_InvokesRalphRun(t *testing.T) {
+	inv := NewInvoker(true)
+	handler := inv.HandleEvent()
+	// issue_comment payloads use issue.pull_request.url for PR detection and
+	// pull_request.head.ref for the branch (when included by the sender).
+	payload := map[string]interface{}{
+		"issue": map[string]interface{}{
+			"number": 42,
+			"pull_request": map[string]interface{}{
+				"url": "https://api.github.com/repos/acme/myrepo/pulls/42",
+			},
+		},
+		"pull_request": map[string]interface{}{
+			"head": map[string]interface{}{"ref": "ralph/my-feature"},
+		},
+		"comment": map[string]interface{}{
+			"body": "please fix the tests",
+			"user": map[string]interface{}{"login": "human-user"},
+		},
+	}
+
+	handler("issue_comment", "acme", "myrepo", payload)
+
+	require.NotNil(t, inv.LastInvoke, "invoker should have been called for issue_comment")
+	assert.Equal(t, "run", inv.LastInvoke.Command)
+	assert.Equal(t, "projects/my-feature.yaml", inv.LastInvoke.Args[0])
+	assert.Contains(t, inv.LastInvoke.InstructionsContent, "please fix the tests")
+}
+
 func TestHandleEvent_ApprovalEvent_InvokesRalphMerge(t *testing.T) {
 	inv := NewInvoker(true)
 	handler := inv.HandleEvent()
@@ -144,6 +173,28 @@ func TestHandleEvent_ApprovalEvent_InvokesRalphMerge(t *testing.T) {
 	assert.Equal(t, "merge", inv.LastInvoke.Command)
 	assert.Equal(t, "projects/my-feature.yaml", inv.LastInvoke.Args[0])
 	assert.Equal(t, "ralph/my-feature", inv.LastInvoke.Args[1])
+}
+
+func TestHandleEvent_ReviewCommentEvent_InvokesRalphRun(t *testing.T) {
+	inv := NewInvoker(true)
+	handler := inv.HandleEvent()
+	payload := map[string]interface{}{
+		"pull_request": map[string]interface{}{
+			"head": map[string]interface{}{"ref": "ralph/my-feature"},
+		},
+		"review": map[string]interface{}{
+			"state": "commented",
+			"body":  "please add error handling here",
+			"user":  map[string]interface{}{"login": "human-reviewer"},
+		},
+	}
+
+	handler("pull_request_review", "acme", "myrepo", payload)
+
+	require.NotNil(t, inv.LastInvoke, "invoker should have been called for commented review")
+	assert.Equal(t, "run", inv.LastInvoke.Command)
+	assert.Equal(t, "projects/my-feature.yaml", inv.LastInvoke.Args[0])
+	assert.Contains(t, inv.LastInvoke.InstructionsContent, "please add error handling here")
 }
 
 func TestHandleEvent_CommentEvent_InstructionsIncludeDirectives(t *testing.T) {
@@ -196,6 +247,81 @@ func TestServer_CommentEvent_TriggersRalphRun(t *testing.T) {
 	require.NotNil(t, inv.LastInvoke)
 	assert.Equal(t, "run", inv.LastInvoke.Command)
 	assert.Contains(t, inv.LastInvoke.InstructionsContent, "please refactor this")
+}
+
+func TestServer_IssueCommentEvent_TriggersRalphRun(t *testing.T) {
+	inv := NewInvoker(true)
+	cfg := testConfig()
+	s := NewServer(cfg, inv.HandleEvent())
+
+	body := buildPayload("acme", "myrepo", map[string]interface{}{
+		"issue": map[string]interface{}{
+			"number": 42,
+			"pull_request": map[string]interface{}{
+				"url": "https://api.github.com/repos/acme/myrepo/pulls/42",
+			},
+		},
+		"pull_request": map[string]interface{}{
+			"head": map[string]interface{}{"ref": "ralph/my-project"},
+		},
+		"comment": map[string]interface{}{
+			"body": "please update the docs",
+			"user": map[string]interface{}{"login": "human-dev"},
+		},
+	})
+	sig := sign(body, "supersecret")
+	w := postWebhook(t, s, "issue_comment", body, sig)
+
+	assert.Equal(t, 200, w.Code)
+	require.NotNil(t, inv.LastInvoke)
+	assert.Equal(t, "run", inv.LastInvoke.Command)
+	assert.Contains(t, inv.LastInvoke.InstructionsContent, "please update the docs")
+}
+
+func TestServer_ReviewCommentEvent_TriggersRalphRun(t *testing.T) {
+	inv := NewInvoker(true)
+	cfg := testConfig()
+	s := NewServer(cfg, inv.HandleEvent())
+
+	body := buildPayload("acme", "myrepo", map[string]interface{}{
+		"pull_request": map[string]interface{}{
+			"head": map[string]interface{}{"ref": "ralph/my-project"},
+		},
+		"review": map[string]interface{}{
+			"state": "commented",
+			"body":  "please simplify this function",
+			"user":  map[string]interface{}{"login": "human-reviewer"},
+		},
+	})
+	sig := sign(body, "supersecret")
+	w := postWebhook(t, s, "pull_request_review", body, sig)
+
+	assert.Equal(t, 200, w.Code)
+	require.NotNil(t, inv.LastInvoke)
+	assert.Equal(t, "run", inv.LastInvoke.Command)
+	assert.Contains(t, inv.LastInvoke.InstructionsContent, "please simplify this function")
+}
+
+func TestServer_ReviewCommentEvent_EmptyBody_NoInvoke(t *testing.T) {
+	inv := NewInvoker(true)
+	cfg := testConfig()
+	s := NewServer(cfg, inv.HandleEvent())
+
+	body := buildPayload("acme", "myrepo", map[string]interface{}{
+		"pull_request": map[string]interface{}{
+			"head": map[string]interface{}{"ref": "ralph/my-project"},
+		},
+		"review": map[string]interface{}{
+			"state": "commented",
+			"body":  "",
+			"user":  map[string]interface{}{"login": "human-reviewer"},
+		},
+	})
+	sig := sign(body, "supersecret")
+	w := postWebhook(t, s, "pull_request_review", body, sig)
+
+	assert.Equal(t, 200, w.Code)
+	assert.Nil(t, inv.LastInvoke, "invoker should not be called for empty review body")
 }
 
 func TestServer_ApprovalEvent_TriggersRalphMerge(t *testing.T) {

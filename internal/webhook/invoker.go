@@ -43,12 +43,18 @@ func (inv *Invoker) HandleEvent() EventHandler {
 		projectFile := projectFileFromBranch(prBranch)
 
 		switch eventType {
-		case "pull_request_review_comment":
+		case "issue_comment", "pull_request_review_comment":
 			commentBody, _ := nestedString(payload, "comment", "body")
 			_ = inv.InvokeRalphRun(projectFile, commentBody)
 
 		case "pull_request_review":
-			_ = inv.InvokeRalphMerge(projectFile, prBranch)
+			state, _ := nestedString(payload, "review", "state")
+			if strings.ToLower(state) == "approved" {
+				_ = inv.InvokeRalphMerge(projectFile, prBranch)
+			} else {
+				commentBody, _ := nestedString(payload, "review", "body")
+				_ = inv.InvokeRalphRun(projectFile, commentBody)
+			}
 		}
 	}
 }

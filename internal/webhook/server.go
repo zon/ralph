@@ -154,13 +154,7 @@ func (s *Server) handleWebhook(c *gin.Context) {
 		c.Status(http.StatusOK)
 
 	case "pull_request_review":
-		// Only process reviews where state == "approved".
 		state, _ := nestedString(payload, "review", "state")
-		if strings.ToLower(state) != "approved" {
-			logger.Verbosef("ignoring pull_request_review: state is %q (not approved) for %s/%s", state, owner, repoName)
-			c.Status(http.StatusOK)
-			return
-		}
 		reviewer, _ := nestedString(payload, "review", "user", "login")
 		// Ignore events from ignored users.
 		if s.config.IsUserIgnored(repo, reviewer) {
@@ -174,9 +168,24 @@ func (s *Server) handleWebhook(c *gin.Context) {
 			c.Status(http.StatusOK)
 			return
 		}
-		logger.Verbosef("dispatching pull_request_review (approved) for %s/%s (reviewer: %s)", owner, repoName, reviewer)
-		if s.handler != nil {
-			s.handler(eventType, owner, repoName, payload)
+		switch strings.ToLower(state) {
+		case "approved":
+			logger.Verbosef("dispatching pull_request_review (approved) for %s/%s (reviewer: %s)", owner, repoName, reviewer)
+			if s.handler != nil {
+				s.handler(eventType, owner, repoName, payload)
+			}
+		case "commented":
+			reviewBody, _ := nestedString(payload, "review", "body")
+			if reviewBody == "" {
+				logger.Verbosef("ignoring pull_request_review (commented, empty body) for %s/%s", owner, repoName)
+			} else {
+				logger.Verbosef("dispatching pull_request_review (commented) for %s/%s (reviewer: %s)", owner, repoName, reviewer)
+				if s.handler != nil {
+					s.handler(eventType, owner, repoName, payload)
+				}
+			}
+		default:
+			logger.Verbosef("ignoring pull_request_review: state is %q for %s/%s", state, owner, repoName)
 		}
 		c.Status(http.StatusOK)
 

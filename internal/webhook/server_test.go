@@ -247,8 +247,10 @@ func TestHandleWebhook_PullRequestReview_ApprovedStateCaseInsensitive_HandlerCal
 	assert.Equal(t, "pull_request_review", receivedEvent)
 }
 
-func TestHandleWebhook_PullRequestReview_NonApprovedState_Ignored200(t *testing.T) {
-	states := []string{"changes_requested", "commented", "dismissed", ""}
+func TestHandleWebhook_PullRequestReview_NonActionableState_Ignored200(t *testing.T) {
+	// changes_requested, dismissed, and unknown states are always ignored.
+	// "commented" with an empty body is also ignored.
+	states := []string{"changes_requested", "dismissed", ""}
 	for _, state := range states {
 		t.Run(fmt.Sprintf("state=%q", state), func(t *testing.T) {
 			var called bool
@@ -256,7 +258,7 @@ func TestHandleWebhook_PullRequestReview_NonApprovedState_Ignored200(t *testing.
 				called = true
 			})
 			body := buildPayload("acme", "myrepo", map[string]interface{}{
-				"review": map[string]interface{}{"state": state},
+				"review": map[string]interface{}{"state": state, "user": map[string]interface{}{"login": "human-user"}},
 			})
 			sig := sign(body, "supersecret")
 			w := postWebhook(t, s, "pull_request_review", body, sig)
@@ -264,6 +266,34 @@ func TestHandleWebhook_PullRequestReview_NonApprovedState_Ignored200(t *testing.
 			assert.False(t, called, "handler must not be called for state %q", state)
 		})
 	}
+}
+
+func TestHandleWebhook_PullRequestReview_CommentedEmptyBody_Ignored200(t *testing.T) {
+	var called bool
+	s := NewServer(testConfig(), func(_ string, _, _ string, _ map[string]interface{}) {
+		called = true
+	})
+	body := buildPayload("acme", "myrepo", map[string]interface{}{
+		"review": map[string]interface{}{"state": "commented", "body": "", "user": map[string]interface{}{"login": "human-user"}},
+	})
+	sig := sign(body, "supersecret")
+	w := postWebhook(t, s, "pull_request_review", body, sig)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.False(t, called, "handler must not be called for commented review with empty body")
+}
+
+func TestHandleWebhook_PullRequestReview_CommentedWithBody_HandlerCalled(t *testing.T) {
+	var called bool
+	s := NewServer(testConfig(), func(_ string, _, _ string, _ map[string]interface{}) {
+		called = true
+	})
+	body := buildPayload("acme", "myrepo", map[string]interface{}{
+		"review": map[string]interface{}{"state": "commented", "body": "please fix this", "user": map[string]interface{}{"login": "human-user"}},
+	})
+	sig := sign(body, "supersecret")
+	w := postWebhook(t, s, "pull_request_review", body, sig)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.True(t, called, "handler must be called for commented review with non-empty body")
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
