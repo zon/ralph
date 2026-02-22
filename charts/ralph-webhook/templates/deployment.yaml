@@ -21,7 +21,7 @@ spec:
       serviceAccountName: {{ .Values.serviceAccount.name }}
       containers:
         - name: ralph-webhook
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: http
