@@ -53,12 +53,41 @@ type WebhookSecretsResult struct {
 	YAML    string
 }
 
+// collaboratorsFetcher is a function that fetches repo collaborator logins.
+// It is a variable so tests can substitute a fake implementation.
+var collaboratorsFetcher = fetchRepoCollaborators
+
+// fetchRepoCollaborators uses the gh CLI to list all collaborators for the given repo.
+// It returns the list of login names, or an error.
+func fetchRepoCollaborators(ctx context.Context, owner, repo string) ([]string, error) {
+	cmd := exec.CommandContext(ctx, "gh", "api",
+		fmt.Sprintf("repos/%s/%s/collaborators", owner, repo),
+		"--jq", ".[].login",
+	)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("failed to list collaborators for %s/%s: %w (stderr: %s)",
+			owner, repo, err, stderr.String())
+	}
+
+	var logins []string
+	for _, line := range strings.Split(strings.TrimSpace(stdout.String()), "\n") {
+		if line = strings.TrimSpace(line); line != "" {
+			logins = append(logins, line)
+		}
+	}
+	return logins, nil
+}
+
 // buildWebhookAppConfig builds an AppConfig with defaults filled in.
 // partialConfig is an optional starting point (may be nil).
 // repoName and repoOwner are the detected GitHub repo details.
 // model is the AI model from .ralph/config.yaml.
-// ralphUsername is the authenticated gh CLI user.
-func buildWebhookAppConfig(partialConfig *webhook.AppConfig, repoName, repoOwner, model, ralphUsername string) webhook.AppConfig {
+// fetcher is the function used to look up repo collaborators (injectable for tests).
+func buildWebhookAppConfig(ctx context.Context, partialConfig *webhook.AppConfig, repoName, repoOwner, model string, fetcher func(context.Context, string, string) ([]string, error)) webhook.AppConfig {
 	var cfg webhook.AppConfig
 
 	// Start with partial config if provided
@@ -76,11 +105,6 @@ func buildWebhookAppConfig(partialConfig *webhook.AppConfig, repoName, repoOwner
 		cfg.Model = model
 	}
 
-	// Fill in ralphUsername from gh CLI if not set
-	if cfg.RalphUsername == "" {
-		cfg.RalphUsername = ralphUsername
-	}
-
 	// Auto-add repo if detected and not already present
 	if repoName != "" && repoOwner != "" {
 		found := false
@@ -92,18 +116,23 @@ func buildWebhookAppConfig(partialConfig *webhook.AppConfig, repoName, repoOwner
 		}
 		if !found {
 			cfg.Repos = append(cfg.Repos, webhook.RepoConfig{
-				Owner:     repoOwner,
-				Name:      repoName,
-				ClonePath: fmt.Sprintf("/repos/%s", repoName),
+				Owner: repoOwner,
+				Name:  repoName,
 			})
-		} else {
-			// Fill in clonePath default for existing entries
-			for i, r := range cfg.Repos {
-				if r.Owner == repoOwner && r.Name == repoName && r.ClonePath == "" {
-					cfg.Repos[i].ClonePath = fmt.Sprintf("/repos/%s", repoName)
-				}
-			}
 		}
+	}
+
+	// Populate AllowedUsers for repos that don't already have them configured.
+	for i, r := range cfg.Repos {
+		if len(r.AllowedUsers) > 0 {
+			continue
+		}
+		users, err := fetcher(ctx, r.Owner, r.Name)
+		if err != nil {
+			logger.Warningf("Failed to fetch collaborators for %s/%s: %v (skipping AllowedUsers)", r.Owner, r.Name, err)
+			continue
+		}
+		cfg.Repos[i].AllowedUsers = users
 	}
 
 	return cfg
@@ -157,17 +186,8 @@ func (c *ConfigWebhookConfigCmd) Run() error {
 		model = ralphConfig.Model
 	}
 
-	// Get authenticated gh CLI user for ralphUsername default
-	ralphUsername := ""
-	ghUserCmd := exec.CommandContext(ctx, "gh", "api", "user", "--jq", ".login")
-	if out, err := ghUserCmd.Output(); err == nil {
-		ralphUsername = strings.TrimSpace(string(out))
-	} else {
-		logger.Warningf("Failed to get GitHub username from gh CLI: %v", err)
-	}
-
 	// Build AppConfig with defaults filled in
-	appCfg := buildWebhookAppConfig(partialConfig, repoName, repoOwner, model, ralphUsername)
+	appCfg := buildWebhookAppConfig(ctx, partialConfig, repoName, repoOwner, model, collaboratorsFetcher)
 
 	// Serialize to YAML
 	cfgBytes, err := yaml.Marshal(appCfg)

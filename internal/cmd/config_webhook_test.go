@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,6 +13,11 @@ import (
 	"github.com/zon/ralph/internal/webhook"
 	"gopkg.in/yaml.v3"
 )
+
+// noopFetcher is a collaborators fetcher that always returns an empty list.
+func noopFetcher(_ context.Context, _, _ string) ([]string, error) {
+	return nil, nil
+}
 
 // TestConfigWebhookConfigFlagParsing tests flag parsing for the webhook-config command
 func TestConfigWebhookConfigFlagParsing(t *testing.T) {
@@ -136,65 +142,50 @@ func TestConfigWebhookSecretFlagParsing(t *testing.T) {
 
 // TestBuildWebhookAppConfig tests the pure default-filling logic
 func TestBuildWebhookAppConfig(t *testing.T) {
+	ctx := context.Background()
+
 	t.Run("fills all defaults when starting from nil", func(t *testing.T) {
-		cfg := buildWebhookAppConfig(nil, "my-repo", "my-owner", "anthropic/claude-sonnet-4-6", "ralph-bot")
+		cfg := buildWebhookAppConfig(ctx, nil, "my-repo", "my-owner", "anthropic/claude-sonnet-4-6", noopFetcher)
 
 		assert.Equal(t, 8080, cfg.Port)
 		assert.Equal(t, "anthropic/claude-sonnet-4-6", cfg.Model)
-		assert.Equal(t, "ralph-bot", cfg.RalphUsername)
 		require.Len(t, cfg.Repos, 1)
 		assert.Equal(t, "my-owner", cfg.Repos[0].Owner)
 		assert.Equal(t, "my-repo", cfg.Repos[0].Name)
-		assert.Equal(t, "/repos/my-repo", cfg.Repos[0].ClonePath)
-	})
-
-	t.Run("clonePath defaults to /repos/<repo-name>", func(t *testing.T) {
-		cfg := buildWebhookAppConfig(nil, "special-repo", "owner-x", "", "")
-
-		require.Len(t, cfg.Repos, 1)
-		assert.Equal(t, "/repos/special-repo", cfg.Repos[0].ClonePath)
 	})
 
 	t.Run("does not override existing port", func(t *testing.T) {
 		partial := &webhook.AppConfig{Port: 9090}
-		cfg := buildWebhookAppConfig(partial, "repo", "owner", "model", "user")
+		cfg := buildWebhookAppConfig(ctx, partial, "repo", "owner", "model", noopFetcher)
 
 		assert.Equal(t, 9090, cfg.Port)
 	})
 
 	t.Run("does not override existing model", func(t *testing.T) {
 		partial := &webhook.AppConfig{Model: "my-custom-model"}
-		cfg := buildWebhookAppConfig(partial, "repo", "owner", "default-model", "user")
+		cfg := buildWebhookAppConfig(ctx, partial, "repo", "owner", "default-model", noopFetcher)
 
 		assert.Equal(t, "my-custom-model", cfg.Model)
-	})
-
-	t.Run("does not override existing ralphUsername", func(t *testing.T) {
-		partial := &webhook.AppConfig{RalphUsername: "custom-user"}
-		cfg := buildWebhookAppConfig(partial, "repo", "owner", "model", "detected-user")
-
-		assert.Equal(t, "custom-user", cfg.RalphUsername)
 	})
 
 	t.Run("does not duplicate existing repo", func(t *testing.T) {
 		partial := &webhook.AppConfig{
 			Repos: []webhook.RepoConfig{
-				{Owner: "my-owner", Name: "my-repo", ClonePath: "/custom/path"},
+				{Owner: "my-owner", Name: "my-repo"},
 			},
 		}
-		cfg := buildWebhookAppConfig(partial, "my-repo", "my-owner", "model", "user")
+		cfg := buildWebhookAppConfig(ctx, partial, "my-repo", "my-owner", "model", noopFetcher)
 
 		require.Len(t, cfg.Repos, 1)
-		assert.Equal(t, "/custom/path", cfg.Repos[0].ClonePath)
 	})
 
 	t.Run("adds detected repo alongside existing repos", func(t *testing.T) {
 		partial := &webhook.AppConfig{
 			Repos: []webhook.RepoConfig{
-				{Owner: "owner-a", Name: "repo-a", ClonePath: "/repos/repo-a"},
+				{Owner: "owner-a", Name: "repo-a"},
 			},
 		}
-		cfg := buildWebhookAppConfig(partial, "repo-b", "owner-b", "model", "user")
+		cfg := buildWebhookAppConfig(ctx, partial, "repo-b", "owner-b", "model", noopFetcher)
 
 		require.Len(t, cfg.Repos, 2)
 		assert.Equal(t, "repo-a", cfg.Repos[0].Name)
@@ -202,37 +193,59 @@ func TestBuildWebhookAppConfig(t *testing.T) {
 	})
 
 	t.Run("skips repo detection when repoName is empty", func(t *testing.T) {
-		cfg := buildWebhookAppConfig(nil, "", "", "model", "user")
+		cfg := buildWebhookAppConfig(ctx, nil, "", "", "model", noopFetcher)
 
 		assert.Empty(t, cfg.Repos)
 	})
 
-	t.Run("existing repo without clonePath gets default filled", func(t *testing.T) {
-		partial := &webhook.AppConfig{
-			Repos: []webhook.RepoConfig{
-				{Owner: "my-owner", Name: "my-repo"},
-			},
-		}
-		cfg := buildWebhookAppConfig(partial, "my-repo", "my-owner", "model", "user")
-
-		require.Len(t, cfg.Repos, 1)
-		assert.Equal(t, "/repos/my-repo", cfg.Repos[0].ClonePath)
-	})
-
 	t.Run("loads from partial config file", func(t *testing.T) {
 		dir := t.TempDir()
-		partialYAML := "ralphUsername: from-file\nport: 7070\n"
+		partialYAML := "port: 7070\n"
 		path := filepath.Join(dir, "partial.yaml")
 		require.NoError(t, os.WriteFile(path, []byte(partialYAML), 0644))
 
 		loaded, err := webhook.LoadAppConfig(path)
 		require.NoError(t, err)
 
-		cfg := buildWebhookAppConfig(loaded, "my-repo", "my-owner", "default-model", "detected-user")
+		cfg := buildWebhookAppConfig(ctx, loaded, "my-repo", "my-owner", "default-model", noopFetcher)
 
 		assert.Equal(t, 7070, cfg.Port)
-		assert.Equal(t, "from-file", cfg.RalphUsername)
 		assert.Equal(t, "default-model", cfg.Model)
+	})
+
+	t.Run("populates AllowedUsers from fetcher", func(t *testing.T) {
+		fetcher := func(_ context.Context, owner, repo string) ([]string, error) {
+			return []string{"alice", "bob"}, nil
+		}
+		cfg := buildWebhookAppConfig(ctx, nil, "my-repo", "my-owner", "model", fetcher)
+
+		require.Len(t, cfg.Repos, 1)
+		assert.Equal(t, []string{"alice", "bob"}, cfg.Repos[0].AllowedUsers)
+	})
+
+	t.Run("does not override existing AllowedUsers", func(t *testing.T) {
+		partial := &webhook.AppConfig{
+			Repos: []webhook.RepoConfig{
+				{Owner: "my-owner", Name: "my-repo", AllowedUsers: []string{"existing-user"}},
+			},
+		}
+		fetcher := func(_ context.Context, owner, repo string) ([]string, error) {
+			return []string{"alice", "bob"}, nil
+		}
+		cfg := buildWebhookAppConfig(ctx, partial, "my-repo", "my-owner", "model", fetcher)
+
+		require.Len(t, cfg.Repos, 1)
+		assert.Equal(t, []string{"existing-user"}, cfg.Repos[0].AllowedUsers)
+	})
+
+	t.Run("skips AllowedUsers when fetcher returns error", func(t *testing.T) {
+		fetcher := func(_ context.Context, owner, repo string) ([]string, error) {
+			return nil, fmt.Errorf("API error")
+		}
+		cfg := buildWebhookAppConfig(ctx, nil, "my-repo", "my-owner", "model", fetcher)
+
+		require.Len(t, cfg.Repos, 1)
+		assert.Empty(t, cfg.Repos[0].AllowedUsers)
 	})
 }
 
@@ -249,8 +262,8 @@ func TestBuildWebhookSecrets(t *testing.T) {
 		counter = 0
 		appCfg := &webhook.AppConfig{
 			Repos: []webhook.RepoConfig{
-				{Owner: "acme", Name: "repo-a", ClonePath: "/repos/repo-a"},
-				{Owner: "acme", Name: "repo-b", ClonePath: "/repos/repo-b"},
+				{Owner: "acme", Name: "repo-a"},
+				{Owner: "acme", Name: "repo-b"},
 			},
 		}
 
@@ -322,7 +335,7 @@ func TestBuildWebhookSecrets(t *testing.T) {
 		counter = 0
 		appCfg := &webhook.AppConfig{
 			Repos: []webhook.RepoConfig{
-				{Owner: "myowner", Name: "myrepo", ClonePath: "/repos/myrepo"},
+				{Owner: "myowner", Name: "myrepo"},
 			},
 		}
 

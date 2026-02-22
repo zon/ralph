@@ -18,15 +18,12 @@ func writeFile(t *testing.T, dir, name, content string) string {
 
 const validAppConfig = `
 port: 8080
-ralphUsername: ralph-bot
 model: anthropic/claude-sonnet-4-6
 repos:
   - owner: acme
     name: my-service
-    clonePath: /repos/my-service
   - owner: acme
     name: another-service
-    clonePath: /repos/another-service
 `
 
 const validSecrets = `
@@ -48,12 +45,10 @@ func TestLoadAppConfig(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, 8080, cfg.Port)
-		assert.Equal(t, "ralph-bot", cfg.RalphUsername)
 		assert.Equal(t, "anthropic/claude-sonnet-4-6", cfg.Model)
 		require.Len(t, cfg.Repos, 2)
 		assert.Equal(t, "acme", cfg.Repos[0].Owner)
 		assert.Equal(t, "my-service", cfg.Repos[0].Name)
-		assert.Equal(t, "/repos/my-service", cfg.Repos[0].ClonePath)
 	})
 
 	t.Run("error on missing file", func(t *testing.T) {
@@ -112,7 +107,6 @@ func TestLoadConfig(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, 8080, cfg.App.Port)
-		assert.Equal(t, "ralph-bot", cfg.App.RalphUsername)
 		require.Len(t, cfg.App.Repos, 2)
 	})
 
@@ -180,10 +174,9 @@ func TestValidateConfig(t *testing.T) {
 	t.Run("valid config passes", func(t *testing.T) {
 		cfg := &Config{
 			App: AppConfig{
-				Port:          8080,
-				RalphUsername: "ralph-bot",
+				Port: 8080,
 				Repos: []RepoConfig{
-					{Owner: "acme", Name: "my-service", ClonePath: "/repos/my-service"},
+					{Owner: "acme", Name: "my-service"},
 				},
 			},
 			Secrets: Secrets{
@@ -252,12 +245,36 @@ func TestWebhookSecretForRepo(t *testing.T) {
 	})
 }
 
+func TestIsUserAllowed(t *testing.T) {
+	tests := []struct {
+		name         string
+		allowedUsers []string
+		username     string
+		want         bool
+	}{
+		{"empty list allows all", nil, "anyone", true},
+		{"empty list allows all (empty slice)", []string{}, "anyone", true},
+		{"user in list is allowed", []string{"alice", "bob"}, "alice", true},
+		{"user not in list is denied", []string{"alice", "bob"}, "charlie", false},
+		{"comparison is case-insensitive", []string{"Alice"}, "alice", true},
+		{"comparison is case-insensitive (upper)", []string{"alice"}, "ALICE", true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := &RepoConfig{AllowedUsers: tc.allowedUsers}
+			got := repo.IsUserAllowed(tc.username)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
 func TestRepoByFullName(t *testing.T) {
 	cfg := &Config{
 		App: AppConfig{
 			Repos: []RepoConfig{
-				{Owner: "acme", Name: "my-service", ClonePath: "/repos/my-service"},
-				{Owner: "acme", Name: "other", ClonePath: "/repos/other"},
+				{Owner: "acme", Name: "my-service"},
+				{Owner: "acme", Name: "other"},
 			},
 		},
 	}
@@ -265,7 +282,6 @@ func TestRepoByFullName(t *testing.T) {
 	t.Run("returns repo for known owner/name", func(t *testing.T) {
 		repo := cfg.RepoByFullName("acme", "my-service")
 		require.NotNil(t, repo)
-		assert.Equal(t, "/repos/my-service", repo.ClonePath)
 	})
 
 	t.Run("returns nil for unknown repo", func(t *testing.T) {

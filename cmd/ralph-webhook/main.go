@@ -26,7 +26,7 @@ func main() {
 	// Wire up the invoker as the event handler so that comment events trigger
 	// `ralph run` and approval events trigger `ralph merge`.
 	inv := webhook.NewInvoker(false)
-	handler := inv.HandleEvent(cfg)
+	handler := inv.HandleEvent()
 
 	s := webhook.NewServer(cfg, handler)
 	log.Printf("starting ralph-webhook service on port %d", cfg.App.Port)

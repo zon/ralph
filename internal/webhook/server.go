@@ -105,19 +105,13 @@ func (s *Server) handleWebhook(c *gin.Context) {
 		return
 	}
 
-	ralphUsername := s.config.App.RalphUsername
+	repo := s.config.RepoByFullName(owner, repoName)
 
 	switch eventType {
 	case "pull_request_review_comment":
-		// Only process events on PRs opened by ralph.
-		prAuthor, _ := nestedString(payload, "pull_request", "user", "login")
-		if !strings.EqualFold(prAuthor, ralphUsername) {
-			c.Status(http.StatusOK)
-			return
-		}
-		// Ignore events posted by ralph.
 		commenter, _ := nestedString(payload, "comment", "user", "login")
-		if strings.EqualFold(commenter, ralphUsername) {
+		// Only process events from allowed users.
+		if repo != nil && !repo.IsUserAllowed(commenter) {
 			c.Status(http.StatusOK)
 			return
 		}
@@ -133,15 +127,9 @@ func (s *Server) handleWebhook(c *gin.Context) {
 			c.Status(http.StatusOK)
 			return
 		}
-		// Only process events on PRs opened by ralph.
-		prAuthor, _ := nestedString(payload, "pull_request", "user", "login")
-		if !strings.EqualFold(prAuthor, ralphUsername) {
-			c.Status(http.StatusOK)
-			return
-		}
-		// Ignore reviews posted by ralph.
 		reviewer, _ := nestedString(payload, "review", "user", "login")
-		if strings.EqualFold(reviewer, ralphUsername) {
+		// Only process reviews from allowed users.
+		if repo != nil && !repo.IsUserAllowed(reviewer) {
 			c.Status(http.StatusOK)
 			return
 		}

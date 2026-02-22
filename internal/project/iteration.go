@@ -27,12 +27,7 @@ var ErrNoChanges = errors.New("no changes to commit")
 func RunIterationLoop(ctx *context.Context, cleanupRegistrar func(func())) (int, error) {
 	logger.Verbosef("Starting iteration loop (max: %d)", ctx.MaxIterations)
 
-	// Load initial project state to track requirement completions
-	previousProject, err := config.LoadProject(ctx.ProjectFile)
-	if err != nil {
-		return 0, fmt.Errorf("failed to load initial project state: %w", err)
-	}
-
+	var previousProject *config.Project
 	iterationCount := 0
 
 	for i := 1; i <= ctx.MaxIterations; i++ {
@@ -40,6 +35,15 @@ func RunIterationLoop(ctx *context.Context, cleanupRegistrar func(func())) (int,
 
 		logger.Verbose("")
 		logger.Verbosef("=== Iteration %d/%d ===", i, ctx.MaxIterations)
+
+		// Load project state before this iteration to track which requirements were already passing
+		if previousProject == nil {
+			var err error
+			previousProject, err = config.LoadProject(ctx.ProjectFile)
+			if err != nil {
+				return 0, fmt.Errorf("failed to load initial project state: %w", err)
+			}
+		}
 
 		// Run single development iteration
 		logger.Verbose("Running development iteration...")

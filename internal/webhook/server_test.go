@@ -19,10 +19,9 @@ import (
 func testConfig() *Config {
 	return &Config{
 		App: AppConfig{
-			Port:          8080,
-			RalphUsername: "ralph-bot",
+			Port: 8080,
 			Repos: []RepoConfig{
-				{Owner: "acme", Name: "myrepo", ClonePath: "/repos/myrepo"},
+				{Owner: "acme", Name: "myrepo"},
 			},
 		},
 		Secrets: Secrets{
@@ -143,88 +142,8 @@ func TestHandleWebhook_UnrecognisedEvent_Ignored200(t *testing.T) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Event filtering: PR author and event poster checks
+// Event filtering tests
 // ──────────────────────────────────────────────────────────────────────────────
-
-func TestHandleWebhook_ReviewComment_PRNotOpenedByRalph_Ignored200(t *testing.T) {
-	var called bool
-	s := NewServer(testConfig(), func(_ string, _, _ string, _ map[string]interface{}) {
-		called = true
-	})
-	// PR opened by a human, not ralph-bot
-	body := buildPayload("acme", "myrepo", map[string]interface{}{
-		"pull_request": map[string]interface{}{"user": map[string]interface{}{"login": "human-developer"}},
-		"comment":      map[string]interface{}{"user": map[string]interface{}{"login": "another-user"}},
-	})
-	sig := sign(body, "supersecret")
-	w := postWebhook(t, s, "pull_request_review_comment", body, sig)
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.False(t, called, "handler should not be called when PR was not opened by ralph")
-}
-
-func TestHandleWebhook_ReviewComment_PostedByRalph_Ignored200(t *testing.T) {
-	var called bool
-	s := NewServer(testConfig(), func(_ string, _, _ string, _ map[string]interface{}) {
-		called = true
-	})
-	// PR opened by ralph-bot but comment also posted by ralph-bot
-	body := buildPayload("acme", "myrepo", map[string]interface{}{
-		"pull_request": map[string]interface{}{"user": map[string]interface{}{"login": "ralph-bot"}},
-		"comment":      map[string]interface{}{"user": map[string]interface{}{"login": "ralph-bot"}},
-	})
-	sig := sign(body, "supersecret")
-	w := postWebhook(t, s, "pull_request_review_comment", body, sig)
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.False(t, called, "handler should not be called when comment was posted by ralph")
-}
-
-func TestHandleWebhook_ReviewComment_RalphPRCaseInsensitive_HandlerCalled(t *testing.T) {
-	var called bool
-	s := NewServer(testConfig(), func(_ string, _, _ string, _ map[string]interface{}) {
-		called = true
-	})
-	// PR opened by ralph-bot (different case) and comment from a human
-	body := buildPayload("acme", "myrepo", map[string]interface{}{
-		"pull_request": map[string]interface{}{"user": map[string]interface{}{"login": "Ralph-Bot"}},
-		"comment":      map[string]interface{}{"user": map[string]interface{}{"login": "human-reviewer"}},
-	})
-	sig := sign(body, "supersecret")
-	w := postWebhook(t, s, "pull_request_review_comment", body, sig)
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.True(t, called, "handler should be called when PR author matches ralph (case-insensitive)")
-}
-
-func TestHandleWebhook_PullRequestReview_PRNotOpenedByRalph_Ignored200(t *testing.T) {
-	var called bool
-	s := NewServer(testConfig(), func(_ string, _, _ string, _ map[string]interface{}) {
-		called = true
-	})
-	// PR opened by human, not ralph-bot
-	body := buildPayload("acme", "myrepo", map[string]interface{}{
-		"pull_request": map[string]interface{}{"user": map[string]interface{}{"login": "human-developer"}},
-		"review":       map[string]interface{}{"state": "approved", "user": map[string]interface{}{"login": "another-reviewer"}},
-	})
-	sig := sign(body, "supersecret")
-	w := postWebhook(t, s, "pull_request_review", body, sig)
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.False(t, called, "handler should not be called when PR was not opened by ralph")
-}
-
-func TestHandleWebhook_PullRequestReview_ReviewPostedByRalph_Ignored200(t *testing.T) {
-	var called bool
-	s := NewServer(testConfig(), func(_ string, _, _ string, _ map[string]interface{}) {
-		called = true
-	})
-	// PR opened by ralph-bot but review also posted by ralph-bot
-	body := buildPayload("acme", "myrepo", map[string]interface{}{
-		"pull_request": map[string]interface{}{"user": map[string]interface{}{"login": "ralph-bot"}},
-		"review":       map[string]interface{}{"state": "approved", "user": map[string]interface{}{"login": "ralph-bot"}},
-	})
-	sig := sign(body, "supersecret")
-	w := postWebhook(t, s, "pull_request_review", body, sig)
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.False(t, called, "handler should not be called when review was posted by ralph")
-}
 
 func TestHandleWebhook_PullRequestReviewComment_HandlerCalled(t *testing.T) {
 	var receivedEvent string
@@ -232,8 +151,7 @@ func TestHandleWebhook_PullRequestReviewComment_HandlerCalled(t *testing.T) {
 		receivedEvent = eventType
 	})
 	body := buildPayload("acme", "myrepo", map[string]interface{}{
-		"pull_request": map[string]interface{}{"user": map[string]interface{}{"login": "ralph-bot"}},
-		"comment":      map[string]interface{}{"user": map[string]interface{}{"login": "human-user"}},
+		"comment": map[string]interface{}{"user": map[string]interface{}{"login": "human-user"}},
 	})
 	sig := sign(body, "supersecret")
 	w := postWebhook(t, s, "pull_request_review_comment", body, sig)
@@ -251,8 +169,7 @@ func TestHandleWebhook_PullRequestReview_ApprovedState_HandlerCalled(t *testing.
 		receivedEvent = eventType
 	})
 	body := buildPayload("acme", "myrepo", map[string]interface{}{
-		"pull_request": map[string]interface{}{"user": map[string]interface{}{"login": "ralph-bot"}},
-		"review":       map[string]interface{}{"state": "approved", "user": map[string]interface{}{"login": "human-user"}},
+		"review": map[string]interface{}{"state": "approved", "user": map[string]interface{}{"login": "human-user"}},
 	})
 	sig := sign(body, "supersecret")
 	w := postWebhook(t, s, "pull_request_review", body, sig)
@@ -266,8 +183,7 @@ func TestHandleWebhook_PullRequestReview_ApprovedStateCaseInsensitive_HandlerCal
 		receivedEvent = eventType
 	})
 	body := buildPayload("acme", "myrepo", map[string]interface{}{
-		"pull_request": map[string]interface{}{"user": map[string]interface{}{"login": "ralph-bot"}},
-		"review":       map[string]interface{}{"state": "APPROVED", "user": map[string]interface{}{"login": "human-user"}},
+		"review": map[string]interface{}{"state": "APPROVED", "user": map[string]interface{}{"login": "human-user"}},
 	})
 	sig := sign(body, "supersecret")
 	w := postWebhook(t, s, "pull_request_review", body, sig)
@@ -304,7 +220,6 @@ func TestHandleWebhook_HandlerReceivesPayload(t *testing.T) {
 		receivedPayload = payload
 	})
 	body := buildPayload("acme", "myrepo", map[string]interface{}{
-		"pull_request": map[string]interface{}{"user": map[string]interface{}{"login": "ralph-bot"}},
 		"comment": map[string]interface{}{
 			"body": "please fix the tests",
 			"user": map[string]interface{}{"login": "human-user"},
@@ -423,6 +338,101 @@ func TestNestedString(t *testing.T) {
 			assert.Equal(t, tc.want, got)
 		})
 	}
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// AllowedUsers filtering tests
+// ──────────────────────────────────────────────────────────────────────────────
+
+// testConfigWithAllowedUsers builds a Config with an AllowedUsers list on the repo.
+func testConfigWithAllowedUsers(users []string) *Config {
+	cfg := testConfig()
+	cfg.App.Repos[0].AllowedUsers = users
+	return cfg
+}
+
+func TestHandleWebhook_ReviewComment_UserNotInAllowedList_Ignored200(t *testing.T) {
+	var called bool
+	s := NewServer(testConfigWithAllowedUsers([]string{"alice", "bob"}), func(_ string, _, _ string, _ map[string]interface{}) {
+		called = true
+	})
+	body := buildPayload("acme", "myrepo", map[string]interface{}{
+		"comment": map[string]interface{}{"user": map[string]interface{}{"login": "charlie"}},
+	})
+	sig := sign(body, "supersecret")
+	w := postWebhook(t, s, "pull_request_review_comment", body, sig)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.False(t, called, "handler should not be called when commenter is not in allowed list")
+}
+
+func TestHandleWebhook_ReviewComment_UserInAllowedList_HandlerCalled(t *testing.T) {
+	var called bool
+	s := NewServer(testConfigWithAllowedUsers([]string{"alice", "bob"}), func(_ string, _, _ string, _ map[string]interface{}) {
+		called = true
+	})
+	body := buildPayload("acme", "myrepo", map[string]interface{}{
+		"comment": map[string]interface{}{"user": map[string]interface{}{"login": "alice"}},
+	})
+	sig := sign(body, "supersecret")
+	w := postWebhook(t, s, "pull_request_review_comment", body, sig)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.True(t, called, "handler should be called when commenter is in allowed list")
+}
+
+func TestHandleWebhook_ReviewComment_AllowedUsersCaseInsensitive_HandlerCalled(t *testing.T) {
+	var called bool
+	s := NewServer(testConfigWithAllowedUsers([]string{"Alice"}), func(_ string, _, _ string, _ map[string]interface{}) {
+		called = true
+	})
+	body := buildPayload("acme", "myrepo", map[string]interface{}{
+		"comment": map[string]interface{}{"user": map[string]interface{}{"login": "alice"}},
+	})
+	sig := sign(body, "supersecret")
+	w := postWebhook(t, s, "pull_request_review_comment", body, sig)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.True(t, called, "AllowedUsers check should be case-insensitive")
+}
+
+func TestHandleWebhook_ReviewComment_EmptyAllowedUsers_AllowsAll(t *testing.T) {
+	var called bool
+	s := NewServer(testConfigWithAllowedUsers(nil), func(_ string, _, _ string, _ map[string]interface{}) {
+		called = true
+	})
+	body := buildPayload("acme", "myrepo", map[string]interface{}{
+		"comment": map[string]interface{}{"user": map[string]interface{}{"login": "anyone"}},
+	})
+	sig := sign(body, "supersecret")
+	w := postWebhook(t, s, "pull_request_review_comment", body, sig)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.True(t, called, "when AllowedUsers is empty all users should be allowed")
+}
+
+func TestHandleWebhook_PullRequestReview_ReviewerNotInAllowedList_Ignored200(t *testing.T) {
+	var called bool
+	s := NewServer(testConfigWithAllowedUsers([]string{"alice", "bob"}), func(_ string, _, _ string, _ map[string]interface{}) {
+		called = true
+	})
+	body := buildPayload("acme", "myrepo", map[string]interface{}{
+		"review": map[string]interface{}{"state": "approved", "user": map[string]interface{}{"login": "charlie"}},
+	})
+	sig := sign(body, "supersecret")
+	w := postWebhook(t, s, "pull_request_review", body, sig)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.False(t, called, "handler should not be called when reviewer is not in allowed list")
+}
+
+func TestHandleWebhook_PullRequestReview_ReviewerInAllowedList_HandlerCalled(t *testing.T) {
+	var called bool
+	s := NewServer(testConfigWithAllowedUsers([]string{"alice", "bob"}), func(_ string, _, _ string, _ map[string]interface{}) {
+		called = true
+	})
+	body := buildPayload("acme", "myrepo", map[string]interface{}{
+		"review": map[string]interface{}{"state": "approved", "user": map[string]interface{}{"login": "bob"}},
+	})
+	sig := sign(body, "supersecret")
+	w := postWebhook(t, s, "pull_request_review", body, sig)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.True(t, called, "handler should be called when reviewer is in allowed list")
 }
 
 // ──────────────────────────────────────────────────────────────────────────────

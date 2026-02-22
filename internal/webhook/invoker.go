@@ -35,18 +35,10 @@ func NewInvoker(dryRun bool) *Invoker {
 
 // HandleEvent returns an EventHandler that invokes the appropriate ralph
 // command in response to a webhook event.
-// cfg is the full service configuration; the repoOwner and repoName passed
-// to the returned function identify which configured repository the event
-// came from so the correct ClonePath can be resolved.
-func (inv *Invoker) HandleEvent(cfg *Config) EventHandler {
+func (inv *Invoker) HandleEvent() EventHandler {
 	return func(eventType string, repoOwner, repoName string, payload map[string]interface{}) {
-		repo := cfg.RepoByFullName(repoOwner, repoName)
-		if repo == nil {
-			return
-		}
-
 		prBranch, _ := nestedString(payload, "pull_request", "head", "ref")
-		projectFile := projectFileFromBranch(repo.ClonePath, prBranch)
+		projectFile := projectFileFromBranch(prBranch)
 
 		switch eventType {
 		case "pull_request_review_comment":
@@ -146,19 +138,18 @@ When posting PR comments use the gh CLI:
 `, commentBody)
 }
 
-// projectFileFromBranch derives the project file path from the repository clone
-// path and the PR head branch name.
+// projectFileFromBranch derives the project file path from the PR head branch name.
 //
-// Convention: branch "ralph/<project-name>" → "<clonePath>/projects/<project-name>.yaml"
+// Convention: branch "ralph/<project-name>" → "projects/<project-name>.yaml"
 //
 // If the branch does not follow the ralph/ prefix convention the full branch
 // name (with slashes replaced by dashes) is used as the project name.
-func projectFileFromBranch(clonePath, branch string) string {
+func projectFileFromBranch(branch string) string {
 	projectName := branch
 	if strings.HasPrefix(branch, "ralph/") {
 		projectName = strings.TrimPrefix(branch, "ralph/")
 	} else {
 		projectName = strings.ReplaceAll(branch, "/", "-")
 	}
-	return filepath.Join(clonePath, "projects", projectName+".yaml")
+	return filepath.Join("projects", projectName+".yaml")
 }

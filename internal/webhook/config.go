@@ -3,23 +3,23 @@ package webhook
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
 
 // RepoConfig represents a single repository entry in the app config
 type RepoConfig struct {
-	Owner     string `yaml:"owner"`
-	Name      string `yaml:"name"`
-	ClonePath string `yaml:"clonePath"`
+	Owner        string   `yaml:"owner"`
+	Name         string   `yaml:"name"`
+	AllowedUsers []string `yaml:"allowedUsers"`
 }
 
 // AppConfig is the application configuration loaded from a YAML file
 type AppConfig struct {
-	Port          int          `yaml:"port"`
-	RalphUsername string       `yaml:"ralphUsername"`
-	Repos         []RepoConfig `yaml:"repos"`
-	Model         string       `yaml:"model"`
+	Port  int          `yaml:"port"`
+	Repos []RepoConfig `yaml:"repos"`
+	Model string       `yaml:"model"`
 }
 
 // RepoSecret holds the webhook secret for a single repository
@@ -152,6 +152,21 @@ func (c *Config) RepoByFullName(owner, name string) *RepoConfig {
 		}
 	}
 	return nil
+}
+
+// IsUserAllowed reports whether the given username is permitted to interact with
+// this repository. If AllowedUsers is empty, all users are allowed.
+// Comparison is case-insensitive to match GitHub's behaviour.
+func (r *RepoConfig) IsUserAllowed(username string) bool {
+	if len(r.AllowedUsers) == 0 {
+		return true
+	}
+	for _, u := range r.AllowedUsers {
+		if strings.EqualFold(u, username) {
+			return true
+		}
+	}
+	return false
 }
 
 func repoKey(owner, name string) string {

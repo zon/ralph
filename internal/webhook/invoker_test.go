@@ -35,40 +35,35 @@ func TestBuildInstructions_ContainsAnswerDirective(t *testing.T) {
 
 func TestProjectFileFromBranch(t *testing.T) {
 	tests := []struct {
-		name      string
-		clonePath string
-		branch    string
-		want      string
+		name   string
+		branch string
+		want   string
 	}{
 		{
-			name:      "ralph-prefixed branch",
-			clonePath: "/repos/myrepo",
-			branch:    "ralph/my-feature",
-			want:      "/repos/myrepo/projects/my-feature.yaml",
+			name:   "ralph-prefixed branch",
+			branch: "ralph/my-feature",
+			want:   "projects/my-feature.yaml",
 		},
 		{
-			name:      "ralph-prefixed branch with dashes",
-			clonePath: "/repos/myrepo",
-			branch:    "ralph/github-webhook-service",
-			want:      "/repos/myrepo/projects/github-webhook-service.yaml",
+			name:   "ralph-prefixed branch with dashes",
+			branch: "ralph/github-webhook-service",
+			want:   "projects/github-webhook-service.yaml",
 		},
 		{
-			name:      "non-ralph branch falls back to full name",
-			clonePath: "/repos/myrepo",
-			branch:    "feature/something",
-			want:      "/repos/myrepo/projects/feature-something.yaml",
+			name:   "non-ralph branch falls back to full name",
+			branch: "feature/something",
+			want:   "projects/feature-something.yaml",
 		},
 		{
-			name:      "empty branch",
-			clonePath: "/repos/myrepo",
-			branch:    "",
-			want:      "/repos/myrepo/projects/.yaml",
+			name:   "empty branch",
+			branch: "",
+			want:   "projects/.yaml",
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := projectFileFromBranch(tc.clonePath, tc.branch)
+			got := projectFileFromBranch(tc.branch)
 			assert.Equal(t, tc.want, got)
 		})
 	}
@@ -80,14 +75,14 @@ func TestProjectFileFromBranch(t *testing.T) {
 
 func TestInvoker_InvokeRalphRun_DryRun(t *testing.T) {
 	inv := NewInvoker(true)
-	err := inv.InvokeRalphRun("/repos/myrepo/projects/my-feature.yaml", "please fix the tests")
+	err := inv.InvokeRalphRun("projects/my-feature.yaml", "please fix the tests")
 	require.NoError(t, err)
 
 	require.NotNil(t, inv.LastInvoke)
 	assert.Equal(t, "run", inv.LastInvoke.Command)
 	assert.Contains(t, inv.LastInvoke.InstructionsContent, "please fix the tests",
 		"instructions content should include the comment body")
-	assert.Equal(t, "/repos/myrepo/projects/my-feature.yaml", inv.LastInvoke.Args[0])
+	assert.Equal(t, "projects/my-feature.yaml", inv.LastInvoke.Args[0])
 	assert.Contains(t, inv.LastInvoke.Args, "--remote")
 	assert.Contains(t, inv.LastInvoke.Args, "--no-notify")
 	assert.Contains(t, inv.LastInvoke.Args, "--instructions")
@@ -95,12 +90,12 @@ func TestInvoker_InvokeRalphRun_DryRun(t *testing.T) {
 
 func TestInvoker_InvokeRalphMerge_DryRun(t *testing.T) {
 	inv := NewInvoker(true)
-	err := inv.InvokeRalphMerge("/repos/myrepo/projects/my-feature.yaml", "ralph/my-feature")
+	err := inv.InvokeRalphMerge("projects/my-feature.yaml", "ralph/my-feature")
 	require.NoError(t, err)
 
 	require.NotNil(t, inv.LastInvoke)
 	assert.Equal(t, "merge", inv.LastInvoke.Command)
-	assert.Equal(t, "/repos/myrepo/projects/my-feature.yaml", inv.LastInvoke.Args[0])
+	assert.Equal(t, "projects/my-feature.yaml", inv.LastInvoke.Args[0])
 	assert.Equal(t, "ralph/my-feature", inv.LastInvoke.Args[1])
 	assert.Empty(t, inv.LastInvoke.InstructionsContent)
 }
@@ -109,34 +104,12 @@ func TestInvoker_InvokeRalphMerge_DryRun(t *testing.T) {
 // HandleEvent tests (end-to-end with dry-run invoker + server)
 // ──────────────────────────────────────────────────────────────────────────────
 
-// testConfigWithClonePath returns a Config that includes a ClonePath for the
-// acme/myrepo repository, suitable for HandleEvent tests.
-func testConfigWithClonePath() *Config {
-	return &Config{
-		App: AppConfig{
-			Port:          8080,
-			RalphUsername: "ralph-bot",
-			Repos: []RepoConfig{
-				{Owner: "acme", Name: "myrepo", ClonePath: "/repos/myrepo"},
-			},
-		},
-		Secrets: Secrets{
-			Repos: []RepoSecret{
-				{Owner: "acme", Name: "myrepo", WebhookSecret: "supersecret"},
-			},
-		},
-	}
-}
-
 func TestHandleEvent_CommentEvent_InvokesRalphRun(t *testing.T) {
 	inv := NewInvoker(true)
-	cfg := testConfigWithClonePath()
-
-	handler := inv.HandleEvent(cfg)
+	handler := inv.HandleEvent()
 	payload := map[string]interface{}{
 		"pull_request": map[string]interface{}{
 			"head": map[string]interface{}{"ref": "ralph/my-feature"},
-			"user": map[string]interface{}{"login": "ralph-bot"},
 		},
 		"comment": map[string]interface{}{
 			"body": "please add a unit test",
@@ -148,19 +121,16 @@ func TestHandleEvent_CommentEvent_InvokesRalphRun(t *testing.T) {
 
 	require.NotNil(t, inv.LastInvoke, "invoker should have been called")
 	assert.Equal(t, "run", inv.LastInvoke.Command)
-	assert.Equal(t, "/repos/myrepo/projects/my-feature.yaml", inv.LastInvoke.Args[0])
+	assert.Equal(t, "projects/my-feature.yaml", inv.LastInvoke.Args[0])
 	assert.Contains(t, inv.LastInvoke.InstructionsContent, "please add a unit test")
 }
 
 func TestHandleEvent_ApprovalEvent_InvokesRalphMerge(t *testing.T) {
 	inv := NewInvoker(true)
-	cfg := testConfigWithClonePath()
-
-	handler := inv.HandleEvent(cfg)
+	handler := inv.HandleEvent()
 	payload := map[string]interface{}{
 		"pull_request": map[string]interface{}{
 			"head": map[string]interface{}{"ref": "ralph/my-feature"},
-			"user": map[string]interface{}{"login": "ralph-bot"},
 		},
 		"review": map[string]interface{}{
 			"state": "approved",
@@ -172,31 +142,13 @@ func TestHandleEvent_ApprovalEvent_InvokesRalphMerge(t *testing.T) {
 
 	require.NotNil(t, inv.LastInvoke, "invoker should have been called")
 	assert.Equal(t, "merge", inv.LastInvoke.Command)
-	assert.Equal(t, "/repos/myrepo/projects/my-feature.yaml", inv.LastInvoke.Args[0])
+	assert.Equal(t, "projects/my-feature.yaml", inv.LastInvoke.Args[0])
 	assert.Equal(t, "ralph/my-feature", inv.LastInvoke.Args[1])
-}
-
-func TestHandleEvent_UnknownRepo_NoInvocation(t *testing.T) {
-	inv := NewInvoker(true)
-	cfg := testConfigWithClonePath()
-
-	handler := inv.HandleEvent(cfg)
-	payload := map[string]interface{}{
-		"pull_request": map[string]interface{}{
-			"head": map[string]interface{}{"ref": "ralph/my-feature"},
-		},
-	}
-
-	// Unknown owner/repo – should be a no-op.
-	handler("pull_request_review_comment", "unknown-org", "unknown-repo", payload)
-
-	assert.Nil(t, inv.LastInvoke, "invoker must not be called for unknown repos")
 }
 
 func TestHandleEvent_CommentEvent_InstructionsIncludeDirectives(t *testing.T) {
 	inv := NewInvoker(true)
-	cfg := testConfigWithClonePath()
-	handler := inv.HandleEvent(cfg)
+	handler := inv.HandleEvent()
 
 	commentText := "Can you explain what this function does?"
 	payload := map[string]interface{}{
@@ -225,12 +177,11 @@ func TestHandleEvent_CommentEvent_InstructionsIncludeDirectives(t *testing.T) {
 
 func TestServer_CommentEvent_TriggersRalphRun(t *testing.T) {
 	inv := NewInvoker(true)
-	cfg := testConfigWithClonePath()
-	s := NewServer(cfg, inv.HandleEvent(cfg))
+	cfg := testConfig()
+	s := NewServer(cfg, inv.HandleEvent())
 
 	body := buildPayload("acme", "myrepo", map[string]interface{}{
 		"pull_request": map[string]interface{}{
-			"user": map[string]interface{}{"login": "ralph-bot"},
 			"head": map[string]interface{}{"ref": "ralph/my-project"},
 		},
 		"comment": map[string]interface{}{
@@ -249,12 +200,11 @@ func TestServer_CommentEvent_TriggersRalphRun(t *testing.T) {
 
 func TestServer_ApprovalEvent_TriggersRalphMerge(t *testing.T) {
 	inv := NewInvoker(true)
-	cfg := testConfigWithClonePath()
-	s := NewServer(cfg, inv.HandleEvent(cfg))
+	cfg := testConfig()
+	s := NewServer(cfg, inv.HandleEvent())
 
 	body := buildPayload("acme", "myrepo", map[string]interface{}{
 		"pull_request": map[string]interface{}{
-			"user": map[string]interface{}{"login": "ralph-bot"},
 			"head": map[string]interface{}{"ref": "ralph/my-project"},
 		},
 		"review": map[string]interface{}{

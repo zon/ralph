@@ -20,15 +20,16 @@ import (
 // Execute runs the full orchestration workflow
 // Steps:
 // 1. Validate project file exists
-// 2. If remote mode: Generate and submit Argo Workflow, then exit
+// 2. If remote mode: load project, generate and submit Argo Workflow, then exit
 // 3. Run build commands once before starting iterations
 // 4. Validate current branch is in sync with remote
 // 5. Extract branch name from project file basename
 // 6. If PROJECT_BRANCH != current branch: fetch, then checkout remote branch or create new one
 // 7. Run iteration loop (develop + commit + push until complete)
-// 8. Generate PR summary using AI
-// 9. Create GitHub pull request
-// 10. Display PR URL on success
+// 8. Load project file for PR title/notification
+// 9. Generate PR summary using AI
+// 10. Create GitHub pull request
+// 11. Display PR URL on success
 func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	// Enable verbose logging if requested
 	if ctx.IsVerbose() {
@@ -49,19 +50,9 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		return fmt.Errorf("project file not found: %s", absProjectFile)
 	}
 
-	logger.Verbosef("Loading project file: %s", absProjectFile)
-
-	// Load and validate project
-	project, err := config.LoadProject(absProjectFile)
-	if err != nil {
-		return fmt.Errorf("failed to load project: %w", err)
-	}
-
-	logger.Verbosef("Loaded project: %s", project.Name)
-
 	// Handle remote execution mode
 	if ctx.IsRemote() {
-		return executeRemote(ctx, project)
+		return executeRemote(ctx, absProjectFile)
 	}
 
 	// Extract branch name from project file basename
@@ -127,8 +118,8 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 
 	iterCount, err := RunIterationLoop(ctx, cleanupRegistrar)
 	if err != nil {
-		// Send failure notification
-		notify.Error(project.Name, ctx.ShouldNotify())
+		projectName := strings.TrimSuffix(filepath.Base(absProjectFile), filepath.Ext(absProjectFile))
+		notify.Error(projectName, ctx.ShouldNotify())
 		return fmt.Errorf("iteration loop failed: %w", err)
 	}
 
@@ -142,8 +133,8 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	}
 	logger.Verbose("PR summary generated")
 
-	// Check if project is complete
-	project, err = config.LoadProject(absProjectFile)
+	// Load project for PR title and notification
+	project, err := config.LoadProject(absProjectFile)
 	if err != nil {
 		return fmt.Errorf("failed to reload project after iteration loop: %w", err)
 	}
@@ -224,8 +215,15 @@ func extractBranchName(projectFile string) string {
 }
 
 // executeRemote handles remote execution via Argo Workflows
-func executeRemote(ctx *context.Context, project *config.Project) error {
+func executeRemote(ctx *context.Context, absProjectFile string) error {
 	logger.Verbose("Remote execution mode enabled")
+
+	// Load project to get the name for workflow generation
+	project, err := config.LoadProject(absProjectFile)
+	if err != nil {
+		return fmt.Errorf("failed to load project: %w", err)
+	}
+	logger.Verbosef("Loaded project: %s", project.Name)
 
 	// Check if we're in a git repository
 	if !git.IsGitRepository(ctx) {
@@ -244,11 +242,6 @@ func executeRemote(ctx *context.Context, project *config.Project) error {
 		return err
 	}
 
-	// Extract project branch name from project file
-	absProjectFile, err := filepath.Abs(ctx.ProjectFile)
-	if err != nil {
-		return fmt.Errorf("failed to resolve project file path: %w", err)
-	}
 	projectBranch := extractBranchName(absProjectFile)
 
 	// Load configuration
