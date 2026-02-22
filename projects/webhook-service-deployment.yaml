@@ -76,7 +76,3 @@ requirements:
       - Tests for default-filling logic in webhook-config command
       - Tests for secret generation and serialization in webhook-secret command
     passing: true
-
-
-
-
