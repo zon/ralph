@@ -215,14 +215,6 @@ func buildExecutionScript(dryRun, verbose bool, gitUserName, gitUserEmail string
 	// Always disable notifications when running in workflow container
 	ralphCmd += " --no-notify"
 
-	// Use default git user if not provided
-	if gitUserName == "" {
-		gitUserName = "Ralph Bot"
-	}
-	if gitUserEmail == "" {
-		gitUserEmail = "no-reply-ralph@haralovich.org"
-	}
-
 	script := fmt.Sprintf(`#!/bin/sh
 set -e
 
@@ -653,15 +645,8 @@ func GenerateMergeWorkflowWithGitInfo(projectFile, repoURL, cloneBranch, prBranc
 	}
 	image := fmt.Sprintf("%s:%s", imageRepo, imageTag)
 
-	// Use default git user if not provided
 	gitUserName := ralphConfig.Workflow.GitUser.Name
-	if gitUserName == "" {
-		gitUserName = "Ralph Bot"
-	}
 	gitUserEmail := ralphConfig.Workflow.GitUser.Email
-	if gitUserEmail == "" {
-		gitUserEmail = "no-reply-ralph@haralovich.org"
-	}
 
 	// Build workflow parameters
 	params := []map[string]interface{}{

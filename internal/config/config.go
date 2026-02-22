@@ -53,7 +53,7 @@ type ImageConfig struct {
 
 // GitUserConfig represents git user configuration
 type GitUserConfig struct {
-	Name  string `yaml:"name,omitempty"`
+	Name  string `yaml:"name,omitempty"`  // GitHub username / git committer name (default: zralphen)
 	Email string `yaml:"email,omitempty"`
 }
 
@@ -73,13 +73,13 @@ type SecretMount struct {
 
 // WorkflowConfig represents Argo Workflow configuration options
 type WorkflowConfig struct {
-	Image      ImageConfig         `yaml:"image,omitempty"`
-	ConfigMaps []ConfigMapMount    `yaml:"configMaps,omitempty"`
-	Secrets    []SecretMount       `yaml:"secrets,omitempty"`
-	Env        map[string]string   `yaml:"env,omitempty"`
-	Context    string              `yaml:"context,omitempty"`
-	Namespace  string              `yaml:"namespace,omitempty"`
-	GitUser    GitUserConfig       `yaml:"gitUser,omitempty"`
+	Image      ImageConfig       `yaml:"image,omitempty"`
+	ConfigMaps []ConfigMapMount  `yaml:"configMaps,omitempty"`
+	Secrets    []SecretMount     `yaml:"secrets,omitempty"`
+	Env        map[string]string `yaml:"env,omitempty"`
+	Context    string            `yaml:"context,omitempty"`
+	Namespace  string            `yaml:"namespace,omitempty"`
+	GitUser    GitUserConfig     `yaml:"gitUser,omitempty"`
 }
 
 // RalphConfig represents the .ralph/config.yaml structure
@@ -139,6 +139,30 @@ func SaveProject(path string, p *Project) error {
 	return nil
 }
 
+// applyDefaults fills in zero-value fields with their default values.
+func applyDefaults(config *RalphConfig) {
+	if config.MaxIterations == 0 {
+		config.MaxIterations = 10
+	}
+	if config.BaseBranch == "" {
+		config.BaseBranch = "main"
+	}
+	if config.Model == "" {
+		config.Model = "anthropic/claude-sonnet-4-5"
+	}
+	if config.Workflow.GitUser.Name == "" {
+		config.Workflow.GitUser.Name = "zralphen"
+	}
+	if config.Workflow.GitUser.Email == "" {
+		config.Workflow.GitUser.Email = "no-reply-ralph@haralovich.org"
+	}
+	for i := range config.Services {
+		if config.Services[i].Timeout == 0 {
+			config.Services[i].Timeout = 30
+		}
+	}
+}
+
 // LoadConfig loads .ralph/config.yaml from the current working directory
 // Returns default config if file doesn't exist (not an error)
 func LoadConfig() (*RalphConfig, error) {
@@ -150,16 +174,7 @@ func LoadConfig() (*RalphConfig, error) {
 	configPath := filepath.Join(cwd, ".ralph", "config.yaml")
 	var config RalphConfig
 
-	// If config file doesn't exist, use defaults
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		config = RalphConfig{
-			MaxIterations: 10,
-			BaseBranch:    "main",
-			Model:         "anthropic/claude-sonnet-4-5",
-			Services:      []Service{},
-		}
-	} else {
-		// Load config file
+	if _, err := os.Stat(configPath); !os.IsNotExist(err) {
 		data, err := os.ReadFile(configPath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read config file: %w", err)
@@ -168,24 +183,9 @@ func LoadConfig() (*RalphConfig, error) {
 		if err := yaml.Unmarshal(data, &config); err != nil {
 			return nil, fmt.Errorf("failed to parse config YAML: %w", err)
 		}
-
-		// Apply defaults for missing values
-		if config.MaxIterations == 0 {
-			config.MaxIterations = 10
-		}
-		if config.BaseBranch == "" {
-			config.BaseBranch = "main"
-		}
-		if config.Model == "" {
-			config.Model = "anthropic/claude-sonnet-4-5"
-		}
-		// Apply default timeout for services
-		for i := range config.Services {
-			if config.Services[i].Timeout == 0 {
-				config.Services[i].Timeout = 30
-			}
-		}
 	}
+
+	applyDefaults(&config)
 
 	// Load instructions from .ralph/instructions.md or use default
 	instructionsPath := filepath.Join(cwd, ".ralph", "instructions.md")

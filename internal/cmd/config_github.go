@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/k8s"
 	"github.com/zon/ralph/internal/logger"
 	"golang.org/x/term"
@@ -33,7 +34,7 @@ func (c *ConfigGithubCmd) Run() error {
 	fmt.Println()
 
 	// Get the current repository name from git remote
-	repoName, repoOwner, err := k8s.GetGitHubRepo(ctx)
+	repoName, repoOwner, err := github.GetRepo(ctx)
 	if err != nil {
 		logger.Warningf("Failed to detect GitHub repository: %v", err)
 		repoName = "repo"

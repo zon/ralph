@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/zon/ralph/internal/config"
+	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/k8s"
 	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/webhook"
@@ -86,8 +87,9 @@ func fetchRepoCollaborators(ctx context.Context, owner, repo string) ([]string, 
 // partialConfig is an optional starting point (may be nil).
 // repoName and repoOwner are the detected GitHub repo details.
 // model is the AI model from .ralph/config.yaml.
+// githubUser is the GitHub username from .ralph/config.yaml set as RalphUser.
 // fetcher is the function used to look up repo collaborators (injectable for tests).
-func buildWebhookAppConfig(ctx context.Context, partialConfig *webhook.AppConfig, repoName, repoOwner, model string, fetcher func(context.Context, string, string) ([]string, error)) webhook.AppConfig {
+func buildWebhookAppConfig(ctx context.Context, partialConfig *webhook.AppConfig, repoName, repoOwner, model, githubUser string, fetcher func(context.Context, string, string) ([]string, error)) webhook.AppConfig {
 	var cfg webhook.AppConfig
 
 	// Start with partial config if provided
@@ -103,6 +105,11 @@ func buildWebhookAppConfig(ctx context.Context, partialConfig *webhook.AppConfig
 	// Fill in model from .ralph/config.yaml if not set
 	if cfg.Model == "" {
 		cfg.Model = model
+	}
+
+	// Set the ralph bot user if not already configured
+	if cfg.RalphUser == "" && githubUser != "" {
+		cfg.RalphUser = githubUser
 	}
 
 	// Auto-add repo if detected and not already present
@@ -124,15 +131,14 @@ func buildWebhookAppConfig(ctx context.Context, partialConfig *webhook.AppConfig
 
 	// Populate AllowedUsers for repos that don't already have them configured.
 	for i, r := range cfg.Repos {
-		if len(r.AllowedUsers) > 0 {
-			continue
+		if len(r.AllowedUsers) == 0 {
+			users, err := fetcher(ctx, r.Owner, r.Name)
+			if err != nil {
+				logger.Warningf("Failed to fetch collaborators for %s/%s: %v (skipping AllowedUsers)", r.Owner, r.Name, err)
+			} else {
+				cfg.Repos[i].AllowedUsers = users
+			}
 		}
-		users, err := fetcher(ctx, r.Owner, r.Name)
-		if err != nil {
-			logger.Warningf("Failed to fetch collaborators for %s/%s: %v (skipping AllowedUsers)", r.Owner, r.Name, err)
-			continue
-		}
-		cfg.Repos[i].AllowedUsers = users
 	}
 
 	return cfg
@@ -170,24 +176,26 @@ func (c *ConfigWebhookConfigCmd) Run() error {
 	}
 
 	// Auto-detect repo from git remote
-	repoName, repoOwner, err := k8s.GetGitHubRepo(ctx)
+	repoName, repoOwner, err := github.GetRepo(ctx)
 	if err != nil {
 		logger.Warningf("Failed to detect GitHub repository: %v (skipping repo auto-detection)", err)
 		repoName = ""
 		repoOwner = ""
 	}
 
-	// Load model from .ralph/config.yaml
+	// Load model and githubUser from .ralph/config.yaml
 	model := ""
+	githubUser := ""
 	ralphConfig, err := config.LoadConfig()
 	if err != nil {
 		logger.Warningf("Failed to load .ralph/config.yaml: %v", err)
 	} else if ralphConfig != nil {
 		model = ralphConfig.Model
+		githubUser = ralphConfig.Workflow.GitUser.Name
 	}
 
 	// Build AppConfig with defaults filled in
-	appCfg := buildWebhookAppConfig(ctx, partialConfig, repoName, repoOwner, model, collaboratorsFetcher)
+	appCfg := buildWebhookAppConfig(ctx, partialConfig, repoName, repoOwner, model, githubUser, collaboratorsFetcher)
 
 	// Serialize to YAML
 	cfgBytes, err := yaml.Marshal(appCfg)

@@ -2,11 +2,15 @@ package cmd
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 
+	"github.com/zon/ralph/internal/config"
+	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/k8s"
 	"github.com/zon/ralph/internal/logger"
 )
@@ -32,8 +36,17 @@ func (c *ConfigGitCmd) Run() error {
 
 	fmt.Println()
 
+	ralphConfig, err := config.LoadConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	githubUser := ralphConfig.Workflow.GitUser.Name
+
+	logger.Verbosef("GitHub user: %s", githubUser)
+
 	// Get the current repository name from git remote
-	repoName, _, err := k8s.GetGitHubRepo(ctx)
+	repoName, _, err := github.GetRepo(ctx)
 	if err != nil {
 		logger.Warningf("Failed to detect GitHub repository: %v", err)
 		repoName = "repo"
@@ -43,41 +56,13 @@ func (c *ConfigGitCmd) Run() error {
 	keyTitle := fmt.Sprintf("ralph-%s", repoName)
 
 	// Check if gh CLI is available
-	ghAvailable := k8s.IsGHCLIAvailable(ctx)
+	ghAvailable := github.IsGHCLIAvailable(ctx)
 	if ghAvailable {
 		fmt.Println("GitHub CLI detected - will attempt automatic key management")
 	} else {
 		fmt.Println("GitHub CLI not found - will provide manual instructions")
 	}
 	fmt.Println()
-
-	// If gh CLI is available, check for existing key and offer to delete it
-	if ghAvailable {
-		existingKeyID, err := k8s.FindGitHubSSHKey(ctx, keyTitle)
-		if err != nil {
-			logger.Warningf("Failed to check for existing SSH key: %v", err)
-		} else if existingKeyID != "" {
-			fmt.Printf("Found existing SSH key '%s' on GitHub\n", keyTitle)
-			fmt.Print("Do you want to delete it and create a new one? (y/N): ")
-
-			reader := bufio.NewReader(os.Stdin)
-			response, err := reader.ReadString('\n')
-			if err != nil {
-				return fmt.Errorf("failed to read response: %w", err)
-			}
-
-			response = strings.TrimSpace(strings.ToLower(response))
-			if response == "y" || response == "yes" {
-				fmt.Printf("Deleting existing SSH key '%s' from GitHub...\n", keyTitle)
-				if err := k8s.DeleteGitHubSSHKey(ctx, existingKeyID); err != nil {
-					logger.Warningf("Failed to delete existing key: %v (continuing anyway)", err)
-				} else {
-					fmt.Println("✓ Existing SSH key deleted")
-				}
-			}
-			fmt.Println()
-		}
-	}
 
 	fmt.Println("Generating SSH key pair...")
 
@@ -104,25 +89,72 @@ func (c *ConfigGitCmd) Run() error {
 	fmt.Printf("✓ Secret '%s' created/updated successfully\n", k8s.GitSecretName)
 	fmt.Println()
 
-	// If gh CLI is available, automatically add the key to GitHub
+	// If gh CLI is available, manage SSH key on GitHub
 	if ghAvailable {
-		fmt.Printf("Adding SSH key '%s' to GitHub...\n", keyTitle)
-		if err := k8s.AddGitHubSSHKey(ctx, publicKey, keyTitle); err != nil {
-			logger.Warningf("Failed to add SSH key to GitHub: %v", err)
-			fmt.Println()
-			fmt.Println("⚠ Automatic key addition failed. Please add manually:")
-			fmt.Println()
-			printManualSSHKeyInstructions(publicKey, keyTitle, namespace)
-		} else {
-			fmt.Printf("✓ SSH key '%s' added to GitHub successfully\n", keyTitle)
-			fmt.Println()
-			fmt.Printf("Configuration complete! The secret '%s' is ready for use in namespace '%s'.\n", k8s.GitSecretName, namespace)
+		if err := manageGitHubSSHKey(ctx, publicKey, keyTitle, githubUser, namespace); err != nil {
+			return fmt.Errorf("failed to manage SSH key on GitHub: %w", err)
 		}
 	} else {
 		// No gh CLI - provide manual instructions
 		printManualSSHKeyInstructions(publicKey, keyTitle, namespace)
 	}
 
+	return nil
+}
+
+// manageGitHubSSHKey switches to targetUser, optionally deletes an existing key,
+// adds the new public key, then restores the original authenticated user.
+func manageGitHubSSHKey(ctx context.Context, publicKey, keyTitle, targetUser, namespace string) error {
+	originalUser, err := github.GetAuthenticatedUser(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to determine current GitHub user: %w", err)
+	}
+
+	if !strings.EqualFold(originalUser, targetUser) {
+		if err := github.SwitchUser(ctx, targetUser); err != nil {
+			return err
+		}
+		defer func() {
+			if switchErr := github.SwitchUser(ctx, originalUser); switchErr != nil {
+				fmt.Fprintf(os.Stderr, "warning: failed to restore GitHub user to %q: %v\n", originalUser, switchErr)
+			}
+		}()
+	}
+
+	// Check for existing key and offer to delete it
+	existingKeyID, err := github.FindSSHKey(ctx, keyTitle)
+	if err != nil {
+		return fmt.Errorf("failed to check for existing SSH key: %w", err)
+	} else if existingKeyID != "" {
+		fmt.Printf("Found existing SSH key '%s' on GitHub\n", keyTitle)
+		fmt.Print("Do you want to delete it and create a new one? (y/N): ")
+
+		reader := bufio.NewReader(os.Stdin)
+		response, _ := reader.ReadString('\n')
+		response = strings.TrimSpace(strings.ToLower(response))
+		if response == "y" || response == "yes" {
+			fmt.Printf("Deleting existing SSH key '%s' from GitHub...\n", keyTitle)
+			if err := github.DeleteSSHKey(ctx, existingKeyID); err != nil {
+				logger.Warningf("Failed to delete existing key: %v (continuing anyway)", err)
+			} else {
+				fmt.Println("✓ Existing SSH key deleted")
+			}
+		}
+		fmt.Println()
+	}
+
+	fmt.Printf("Adding SSH key '%s' to GitHub user '%s'...\n", keyTitle, targetUser)
+	cmd := exec.CommandContext(ctx, "gh", "ssh-key", "add", "-", "-t", keyTitle)
+	cmd.Stdin = strings.NewReader(publicKey)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to add SSH key: %w (stderr: %s)", err, stderr.String())
+	}
+
+	fmt.Printf("✓ SSH key '%s' added to GitHub successfully\n", keyTitle)
+	fmt.Println()
+	fmt.Printf("Configuration complete! The secret '%s' is ready for use in namespace '%s'.\n", k8s.GitSecretName, namespace)
 	return nil
 }
 

@@ -269,6 +269,33 @@ func TestIsUserAllowed(t *testing.T) {
 	}
 }
 
+func TestIsUserIgnored(t *testing.T) {
+	tests := []struct {
+		name         string
+		ralphUser    string
+		ignoredUsers []string
+		username     string
+		want         bool
+	}{
+		{"no ralph user and empty list ignores no one", "", nil, "anyone", false},
+		{"ralph user is always ignored", "zralphen", nil, "zralphen", true},
+		{"ralph user is ignored regardless of per-repo list", "zralphen", []string{"other-bot"}, "zralphen", true},
+		{"ralph user comparison is case-insensitive", "Zralphen", nil, "zralphen", true},
+		{"ralph user comparison is case-insensitive (upper)", "zralphen", nil, "ZRALPHEN", true},
+		{"user in per-repo list is ignored", "", []string{"zralphen", "bot"}, "zralphen", true},
+		{"user not in ralph user or list is not ignored", "zralphen", nil, "alice", false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := &Config{App: AppConfig{RalphUser: tc.ralphUser}}
+			repo := &RepoConfig{IgnoredUsers: tc.ignoredUsers}
+			got := cfg.IsUserIgnored(repo, tc.username)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
 func TestRepoByFullName(t *testing.T) {
 	cfg := &Config{
 		App: AppConfig{

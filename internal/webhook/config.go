@@ -13,13 +13,15 @@ type RepoConfig struct {
 	Owner        string   `yaml:"owner"`
 	Name         string   `yaml:"name"`
 	AllowedUsers []string `yaml:"allowedUsers"`
+	IgnoredUsers []string `yaml:"ignoredUsers"` // Messages from these users are always ignored (e.g. the bot user)
 }
 
 // AppConfig is the application configuration loaded from a YAML file
 type AppConfig struct {
-	Port  int          `yaml:"port"`
-	Repos []RepoConfig `yaml:"repos"`
-	Model string       `yaml:"model"`
+	Port      int          `yaml:"port"`
+	Repos     []RepoConfig `yaml:"repos"`
+	Model     string       `yaml:"model"`
+	RalphUser string       `yaml:"ralphUser"` // GitHub username of the ralph bot user; always ignored regardless of per-repo ignoredUsers
 }
 
 // RepoSecret holds the webhook secret for a single repository
@@ -162,6 +164,25 @@ func (r *RepoConfig) IsUserAllowed(username string) bool {
 		return true
 	}
 	for _, u := range r.AllowedUsers {
+		if strings.EqualFold(u, username) {
+			return true
+		}
+	}
+	return false
+}
+
+// IsUserIgnored reports whether the given username should be ignored for the given repo.
+// A user is ignored if they match the global RalphUser or appear in the repo's IgnoredUsers list.
+// Events from ignored users are always silently dropped regardless of AllowedUsers.
+// Comparison is case-insensitive to match GitHub's behaviour.
+func (c *Config) IsUserIgnored(repo *RepoConfig, username string) bool {
+	if strings.EqualFold(c.App.RalphUser, username) {
+		return true
+	}
+	if repo == nil {
+		return false
+	}
+	for _, u := range repo.IgnoredUsers {
 		if strings.EqualFold(u, username) {
 			return true
 		}

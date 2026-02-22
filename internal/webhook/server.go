@@ -116,6 +116,12 @@ func (s *Server) handleWebhook(c *gin.Context) {
 	switch eventType {
 	case "pull_request_review_comment":
 		commenter, _ := nestedString(payload, "comment", "user", "login")
+		// Ignore events from ignored users.
+		if s.config.IsUserIgnored(repo, commenter) {
+			logger.Verbosef("ignoring pull_request_review_comment: user %q is in ignored-users list for %s/%s", commenter, owner, repoName)
+			c.Status(http.StatusOK)
+			return
+		}
 		// Only process events from allowed users.
 		if repo != nil && !repo.IsUserAllowed(commenter) {
 			logger.Verbosef("ignoring pull_request_review_comment: user %q not in allowlist for %s/%s", commenter, owner, repoName)
@@ -137,6 +143,12 @@ func (s *Server) handleWebhook(c *gin.Context) {
 			return
 		}
 		reviewer, _ := nestedString(payload, "review", "user", "login")
+		// Ignore events from ignored users.
+		if s.config.IsUserIgnored(repo, reviewer) {
+			logger.Verbosef("ignoring pull_request_review: user %q is in ignored-users list for %s/%s", reviewer, owner, repoName)
+			c.Status(http.StatusOK)
+			return
+		}
 		// Only process reviews from allowed users.
 		if repo != nil && !repo.IsUserAllowed(reviewer) {
 			logger.Verbosef("ignoring pull_request_review: user %q not in allowlist for %s/%s", reviewer, owner, repoName)

@@ -436,6 +436,77 @@ func TestHandleWebhook_PullRequestReview_ReviewerInAllowedList_HandlerCalled(t *
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
+// IgnoredUsers filtering tests
+// ──────────────────────────────────────────────────────────────────────────────
+
+// testConfigWithRalphUser builds a Config with RalphUser set.
+func testConfigWithRalphUser(ralphUser string) *Config {
+	cfg := testConfig()
+	cfg.App.RalphUser = ralphUser
+	return cfg
+}
+
+func TestHandleWebhook_ReviewComment_RalphUserIgnored200(t *testing.T) {
+	var called bool
+	s := NewServer(testConfigWithRalphUser("zralphen"), func(_ string, _, _ string, _ map[string]interface{}) {
+		called = true
+	})
+	body := buildPayload("acme", "myrepo", map[string]interface{}{
+		"comment": map[string]interface{}{"user": map[string]interface{}{"login": "zralphen"}},
+	})
+	sig := sign(body, "supersecret")
+	w := postWebhook(t, s, "pull_request_review_comment", body, sig)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.False(t, called, "handler should not be called when commenter is the ralph user")
+}
+
+func TestHandleWebhook_ReviewComment_RalphUserCaseInsensitive_Ignored200(t *testing.T) {
+	var called bool
+	s := NewServer(testConfigWithRalphUser("Zralphen"), func(_ string, _, _ string, _ map[string]interface{}) {
+		called = true
+	})
+	body := buildPayload("acme", "myrepo", map[string]interface{}{
+		"comment": map[string]interface{}{"user": map[string]interface{}{"login": "zralphen"}},
+	})
+	sig := sign(body, "supersecret")
+	w := postWebhook(t, s, "pull_request_review_comment", body, sig)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.False(t, called, "RalphUser check should be case-insensitive")
+}
+
+func TestHandleWebhook_ReviewComment_RalphUserTakesPrecedenceOverAllowedUser(t *testing.T) {
+	// The ralph user in both AllowedUsers and RalphUser should still be ignored.
+	var called bool
+	cfg := testConfig()
+	cfg.App.RalphUser = "zralphen"
+	cfg.App.Repos[0].AllowedUsers = []string{"zralphen", "alice"}
+	s := NewServer(cfg, func(_ string, _, _ string, _ map[string]interface{}) {
+		called = true
+	})
+	body := buildPayload("acme", "myrepo", map[string]interface{}{
+		"comment": map[string]interface{}{"user": map[string]interface{}{"login": "zralphen"}},
+	})
+	sig := sign(body, "supersecret")
+	w := postWebhook(t, s, "pull_request_review_comment", body, sig)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.False(t, called, "ralph user should be dropped even if also in allowed list")
+}
+
+func TestHandleWebhook_PullRequestReview_RalphUserIgnored200(t *testing.T) {
+	var called bool
+	s := NewServer(testConfigWithRalphUser("zralphen"), func(_ string, _, _ string, _ map[string]interface{}) {
+		called = true
+	})
+	body := buildPayload("acme", "myrepo", map[string]interface{}{
+		"review": map[string]interface{}{"state": "approved", "user": map[string]interface{}{"login": "zralphen"}},
+	})
+	sig := sign(body, "supersecret")
+	w := postWebhook(t, s, "pull_request_review", body, sig)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.False(t, called, "handler should not be called when reviewer is the ralph user")
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
 // NewServer / port configuration
 // ──────────────────────────────────────────────────────────────────────────────
 
