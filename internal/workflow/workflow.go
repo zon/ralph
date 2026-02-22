@@ -33,22 +33,18 @@ func GenerateWorkflow(ctx *execcontext.Context, projectName, cloneBranch, projec
 	}
 	remoteURL := toHTTPSURL(rawRemoteURL)
 
-	// Get git repository root
-	repoRoot, err := getRepoRoot()
-	if err != nil {
-		return "", fmt.Errorf("failed to get repository root: %w", err)
-	}
-
-	// Get absolute path to project file
-	absProjectFile, err := filepath.Abs(ctx.ProjectFile)
-	if err != nil {
-		return "", fmt.Errorf("failed to resolve project file path: %w", err)
-	}
-
-	// Calculate relative path from repo root
-	relProjectPath, err := filepath.Rel(repoRoot, absProjectFile)
-	if err != nil {
-		return "", fmt.Errorf("failed to calculate relative project path: %w", err)
+	// Use the project file path as-is if it's already relative; otherwise compute
+	// it relative to the repo root so the workflow container can resolve it after cloning.
+	relProjectPath := ctx.ProjectFile
+	if filepath.IsAbs(relProjectPath) {
+		repoRoot, err := getRepoRoot()
+		if err != nil {
+			return "", fmt.Errorf("failed to get repository root: %w", err)
+		}
+		relProjectPath, err = filepath.Rel(repoRoot, relProjectPath)
+		if err != nil {
+			return "", fmt.Errorf("failed to calculate relative project path: %w", err)
+		}
 	}
 
 	return GenerateWorkflowWithGitInfo(ctx, projectName, remoteURL, cloneBranch, projectBranch, relProjectPath, dryRun, verbose)

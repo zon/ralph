@@ -2,7 +2,6 @@ package project
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -40,19 +39,14 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		logger.Verbose("=== DRY-RUN MODE: No changes will be made ===")
 	}
 
-	// Validate project file exists
+	// Handle Argo Workflow submission (default when not running with --local).
+	if !ctx.IsLocal() {
+		return executeRemote(ctx, ctx.ProjectFile)
+	}
+
 	absProjectFile, err := filepath.Abs(ctx.ProjectFile)
 	if err != nil {
 		return fmt.Errorf("failed to resolve project file path: %w", err)
-	}
-
-	if _, err := os.Stat(absProjectFile); os.IsNotExist(err) {
-		return fmt.Errorf("project file not found: %s", absProjectFile)
-	}
-
-	// Handle Argo Workflow submission (default when not running with --local)
-	if !ctx.IsLocal() {
-		return executeRemote(ctx, absProjectFile)
 	}
 
 	// Extract branch name from project file basename
