@@ -63,12 +63,6 @@ func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL,
 		return "", fmt.Errorf("failed to load config: %w", err)
 	}
 
-	// Read project file content
-	projectContent, err := os.ReadFile(ctx.ProjectFile)
-	if err != nil {
-		return "", fmt.Errorf("failed to read project file: %w", err)
-	}
-
 	// Get current working directory
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -77,7 +71,6 @@ func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL,
 
 	// Build workflow parameters
 	params := map[string]string{
-		"project-file": string(projectContent),
 		"project-path": relProjectPath,
 	}
 
@@ -167,7 +160,7 @@ func buildWorkflowSpec(image, repoURL, repoOwner, repoName, cloneBranch, project
 // buildParameters builds workflow parameters from the params map
 func buildParameters(params map[string]string) []map[string]interface{} {
 	// Define required and optional parameters
-	allParams := []string{"project-file", "project-path", "config-yaml", "instructions-md"}
+	allParams := []string{"project-path", "config-yaml", "instructions-md"}
 	var parameters []map[string]interface{}
 
 	for _, name := range allParams {
@@ -264,10 +257,6 @@ if [ "$PROJECT_BRANCH" != "$GIT_BRANCH" ]; then
   fi
 fi
 
-echo "Writing project file to: $PROJECT_PATH"
-mkdir -p "$(dirname "$PROJECT_PATH")"
-printf '%%s' "$PROJECT_FILE" > "$PROJECT_PATH"
-
 echo "Writing parameter files..."
 mkdir -p /workspace/repo/.ralph
 
@@ -309,10 +298,6 @@ func buildEnvVars(repoURL, repoOwner, repoName, cloneBranch, projectBranch strin
 		{
 			"name":  "PROJECT_BRANCH",
 			"value": projectBranch,
-		},
-		{
-			"name":  "PROJECT_FILE",
-			"value": "{{workflow.parameters.project-file}}",
 		},
 		{
 			"name":  "PROJECT_PATH",
@@ -653,12 +638,6 @@ func GenerateMergeWorkflowWithGitInfo(projectFile, repoURL, cloneBranch, prBranc
 		return "", fmt.Errorf("failed to load config: %w", err)
 	}
 
-	// Read project file content
-	projectContent, err := os.ReadFile(projectFile)
-	if err != nil {
-		return "", fmt.Errorf("failed to read project file: %w", err)
-	}
-
 	// Parse owner and repo name from the URL
 	repoName, repoOwner, err := githubpkg.ParseGitHubRemoteURL(repoURL)
 	if err != nil {
@@ -678,7 +657,6 @@ func GenerateMergeWorkflowWithGitInfo(projectFile, repoURL, cloneBranch, prBranc
 
 	// Build workflow parameters
 	params := []map[string]interface{}{
-		{"name": "project-file", "value": string(projectContent)},
 		{"name": "project-path", "value": relProjectPath},
 	}
 
@@ -735,7 +713,6 @@ func buildMergeTemplate(image, repoURL, repoOwner, repoName, cloneBranch, prBran
 				{"name": "GITHUB_REPO_NAME", "value": repoName},
 				{"name": "GIT_BRANCH", "value": cloneBranch},
 				{"name": "PR_BRANCH", "value": prBranch},
-				{"name": "PROJECT_FILE", "value": "{{workflow.parameters.project-file}}"},
 				{"name": "PROJECT_PATH", "value": "{{workflow.parameters.project-path}}"},
 			},
 			"volumeMounts": []map[string]interface{}{
@@ -781,10 +758,6 @@ cd /workspace/repo
 echo "Checking out PR branch: $PR_BRANCH"
 git fetch origin "$PR_BRANCH"
 git checkout "$PR_BRANCH"
-
-echo "Writing project file to: $PROJECT_PATH"
-mkdir -p "$(dirname "$PROJECT_PATH")"
-printf '%%s' "$PROJECT_FILE" > "$PROJECT_PATH"
 
 echo "Checking requirement status..."
 PASSING=$(ralph --once "$PROJECT_PATH" --dry-run 2>&1 | grep -c "passing: true" || true)

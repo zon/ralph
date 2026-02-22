@@ -50,8 +50,8 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		return fmt.Errorf("project file not found: %s", absProjectFile)
 	}
 
-	// Handle remote execution mode
-	if ctx.IsRemote() {
+	// Handle Argo Workflow submission (default when not running with --local)
+	if !ctx.IsLocal() {
 		return executeRemote(ctx, absProjectFile)
 	}
 
@@ -216,14 +216,9 @@ func extractBranchName(projectFile string) string {
 
 // executeRemote handles remote execution via Argo Workflows
 func executeRemote(ctx *context.Context, absProjectFile string) error {
-	logger.Verbose("Remote execution mode enabled")
+	logger.Verbose("Submitting Argo Workflow...")
 
-	// Load project to get the name for workflow generation
-	project, err := config.LoadProject(absProjectFile)
-	if err != nil {
-		return fmt.Errorf("failed to load project: %w", err)
-	}
-	logger.Verbosef("Loaded project: %s", project.Name)
+	projectName := strings.TrimSuffix(filepath.Base(absProjectFile), filepath.Ext(absProjectFile))
 
 	// Check if we're in a git repository
 	if !git.IsGitRepository(ctx) {
@@ -252,12 +247,12 @@ func executeRemote(ctx *context.Context, absProjectFile string) error {
 
 	// Generate workflow YAML - clone from current branch; workflow will create project branch inside container
 	logger.Verbose("Generating Argo Workflow YAML...")
-	workflowYAML, err := workflow.GenerateWorkflow(ctx, project.Name, currentBranch, projectBranch, ctx.IsDryRun(), ctx.IsVerbose())
+	workflowYAML, err := workflow.GenerateWorkflow(ctx, projectName, currentBranch, projectBranch, ctx.IsDryRun(), ctx.IsVerbose())
 	if err != nil {
 		return fmt.Errorf("failed to generate workflow: %w", err)
 	}
 
-	// Note: When --dry-run is used with --remote, we submit a real workflow
+	// Note: When --dry-run is used without --local, we submit a real workflow
 	// but the ralph command inside the workflow will run with --dry-run flag
 	if ctx.IsVerbose() {
 		logger.Verbosef("Generated workflow YAML:\n%s", workflowYAML)

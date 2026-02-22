@@ -227,7 +227,7 @@ Your custom image should include:
 
 ## How It Works
 
-When you run ralph in remote mode (the default), here's what happens:
+When you run ralph without `--local` (the default), here's what happens:
 
 ### 1. Workflow Generation
 
@@ -407,9 +407,9 @@ ralph my-feature.yaml --watch
 
 ## Limitations
 
-- Remote execution is incompatible with `--once` flag (use `--local --once` instead)
+- Argo Workflow submission is incompatible with `--once` flag (use `--local --once` instead)
 - The `--watch` flag is not applicable with `--local` flag
-- Notifications are disabled in remote mode without `--watch`
+- Notifications are disabled without `--local` or `--watch`
 - Workflow cleanup happens after 1 day (not configurable)
 
 ## Further Reading

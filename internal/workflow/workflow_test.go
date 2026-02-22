@@ -165,8 +165,7 @@ requirements:
 		t.Fatal("parameters is not a list")
 	}
 
-	// Verify project-file parameter exists
-	hasProjectFile := false
+	// Verify parameters exist
 	hasProjectPath := false
 	hasConfigYaml := false
 	hasInstructionsMd := false
@@ -174,12 +173,6 @@ requirements:
 		paramMap, ok := param.(map[string]interface{})
 		if !ok {
 			continue
-		}
-		if paramMap["name"] == "project-file" {
-			hasProjectFile = true
-			if !strings.Contains(paramMap["value"].(string), "test-project") {
-				t.Error("project-file parameter does not contain project content")
-			}
 		}
 		if paramMap["name"] == "project-path" {
 			hasProjectPath = true
@@ -195,9 +188,6 @@ requirements:
 		}
 	}
 
-	if !hasProjectFile {
-		t.Error("project-file parameter not found")
-	}
 	if !hasProjectPath {
 		t.Error("project-path parameter not found")
 	}
@@ -253,7 +243,6 @@ requirements:
 	hasGitRepoURL := false
 	hasGitBranch := false
 	hasProjectBranch := false
-	hasProjectFileEnv := false
 	hasCustomEnv := false
 	hasBaseBranch := false
 	for _, envVar := range env {
@@ -276,9 +265,6 @@ requirements:
 				t.Errorf("PROJECT_BRANCH = %v, want %v", envMap["value"], projectBranch)
 			}
 		}
-		if envMap["name"] == "PROJECT_FILE" {
-			hasProjectFileEnv = true
-		}
 		if envMap["name"] == "MY_VAR" && envMap["value"] == "my-value" {
 			hasCustomEnv = true
 		}
@@ -295,9 +281,6 @@ requirements:
 	}
 	if !hasProjectBranch {
 		t.Error("PROJECT_BRANCH environment variable not found")
-	}
-	if !hasProjectFileEnv {
-		t.Error("PROJECT_FILE environment variable not found")
 	}
 	if !hasCustomEnv {
 		t.Error("Custom environment variable MY_VAR not found")
@@ -679,18 +662,11 @@ requirements:
 		t.Fatal("parameters is not a list")
 	}
 
-	hasProjectFile := false
 	hasProjectPath := false
 	for _, p := range params {
 		pm, ok := p.(map[string]interface{})
 		if !ok {
 			continue
-		}
-		if pm["name"] == "project-file" {
-			hasProjectFile = true
-			if !strings.Contains(pm["value"].(string), "test-project") {
-				t.Error("project-file parameter does not contain project content")
-			}
 		}
 		if pm["name"] == "project-path" {
 			hasProjectPath = true
@@ -698,9 +674,6 @@ requirements:
 				t.Errorf("project-path = %v, want project.yaml", pm["value"])
 			}
 		}
-	}
-	if !hasProjectFile {
-		t.Error("project-file parameter not found")
 	}
 	if !hasProjectPath {
 		t.Error("project-path parameter not found")

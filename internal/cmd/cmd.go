@@ -170,7 +170,7 @@ func (r *RunCmd) Run() error {
 		Verbose:       r.Verbose,
 		NoNotify:      r.NoNotify,
 		NoServices:    r.NoServices,
-		Remote:        !r.Local,
+		Local:         r.Local,
 		Watch:         r.Watch,
 		Instructions:  r.Instructions,
 	}
