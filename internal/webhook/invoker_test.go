@@ -93,24 +93,18 @@ func TestInvoker_InvokeRalphRun_DryRun(t *testing.T) {
 	assert.Equal(t, "run", inv.LastInvoke.Command)
 	assert.Contains(t, inv.LastInvoke.InstructionsContent, "please fix the tests",
 		"instructions content should include the comment body")
-	assert.Equal(t, "projects/my-feature.yaml", inv.LastInvoke.Args[0])
-	assert.Contains(t, inv.LastInvoke.Args, "--repo")
-	assert.Contains(t, inv.LastInvoke.Args, "acme/myrepo")
-	assert.Contains(t, inv.LastInvoke.Args, "--branch")
-	assert.Contains(t, inv.LastInvoke.Args, "ralph/my-feature")
-	assert.Contains(t, inv.LastInvoke.Args, "--no-notify")
-	assert.Contains(t, inv.LastInvoke.Args, "--instructions")
+	assert.NotEmpty(t, inv.LastInvoke.WorkflowYAML, "dry-run should produce workflow YAML")
+	assert.Contains(t, inv.LastInvoke.WorkflowYAML, "acme", "workflow YAML should reference the repo owner")
+	assert.Contains(t, inv.LastInvoke.WorkflowYAML, "myrepo", "workflow YAML should reference the repo name")
 }
 
 func TestInvoker_InvokeRalphMerge_DryRun(t *testing.T) {
 	inv := NewInvoker(true, "")
-	err := inv.InvokeRalphMerge("projects/my-feature.yaml", "ralph/my-feature")
+	err := inv.InvokeRalphMerge("projects/my-feature.yaml", "acme", "myrepo", "ralph/my-feature")
 	require.NoError(t, err)
 
 	require.NotNil(t, inv.LastInvoke)
 	assert.Equal(t, "merge", inv.LastInvoke.Command)
-	assert.Equal(t, "projects/my-feature.yaml", inv.LastInvoke.Args[0])
-	assert.Equal(t, "ralph/my-feature", inv.LastInvoke.Args[1])
 	assert.Empty(t, inv.LastInvoke.InstructionsContent)
 }
 
@@ -135,11 +129,9 @@ func TestHandleEvent_CommentEvent_InvokesRalphRun(t *testing.T) {
 
 	require.NotNil(t, inv.LastInvoke, "invoker should have been called")
 	assert.Equal(t, "run", inv.LastInvoke.Command)
-	assert.Equal(t, "projects/my-feature.yaml", inv.LastInvoke.Args[0])
-	assert.Contains(t, inv.LastInvoke.Args, "--repo")
-	assert.Contains(t, inv.LastInvoke.Args, "acme/myrepo")
-	assert.Contains(t, inv.LastInvoke.Args, "--branch")
-	assert.Contains(t, inv.LastInvoke.Args, "ralph/my-feature")
+	assert.Contains(t, inv.LastInvoke.WorkflowYAML, "acme")
+	assert.Contains(t, inv.LastInvoke.WorkflowYAML, "myrepo")
+	assert.Contains(t, inv.LastInvoke.WorkflowYAML, "ralph/my-feature")
 	assert.Contains(t, inv.LastInvoke.InstructionsContent, "please add a unit test")
 }
 
@@ -168,11 +160,9 @@ func TestHandleEvent_IssueCommentEvent_InvokesRalphRun(t *testing.T) {
 
 	require.NotNil(t, inv.LastInvoke, "invoker should have been called for issue_comment")
 	assert.Equal(t, "run", inv.LastInvoke.Command)
-	assert.Equal(t, "projects/my-feature.yaml", inv.LastInvoke.Args[0])
-	assert.Contains(t, inv.LastInvoke.Args, "--repo")
-	assert.Contains(t, inv.LastInvoke.Args, "acme/myrepo")
-	assert.Contains(t, inv.LastInvoke.Args, "--branch")
-	assert.Contains(t, inv.LastInvoke.Args, "ralph/my-feature")
+	assert.Contains(t, inv.LastInvoke.WorkflowYAML, "acme")
+	assert.Contains(t, inv.LastInvoke.WorkflowYAML, "myrepo")
+	assert.Contains(t, inv.LastInvoke.WorkflowYAML, "ralph/my-feature")
 	assert.Contains(t, inv.LastInvoke.InstructionsContent, "please fix the tests")
 }
 
@@ -193,8 +183,6 @@ func TestHandleEvent_ApprovalEvent_InvokesRalphMerge(t *testing.T) {
 
 	require.NotNil(t, inv.LastInvoke, "invoker should have been called")
 	assert.Equal(t, "merge", inv.LastInvoke.Command)
-	assert.Equal(t, "projects/my-feature.yaml", inv.LastInvoke.Args[0])
-	assert.Equal(t, "ralph/my-feature", inv.LastInvoke.Args[1])
 }
 
 func TestHandleEvent_ReviewCommentEvent_InvokesRalphRun(t *testing.T) {
@@ -215,11 +203,9 @@ func TestHandleEvent_ReviewCommentEvent_InvokesRalphRun(t *testing.T) {
 
 	require.NotNil(t, inv.LastInvoke, "invoker should have been called for commented review")
 	assert.Equal(t, "run", inv.LastInvoke.Command)
-	assert.Equal(t, "projects/my-feature.yaml", inv.LastInvoke.Args[0])
-	assert.Contains(t, inv.LastInvoke.Args, "--repo")
-	assert.Contains(t, inv.LastInvoke.Args, "acme/myrepo")
-	assert.Contains(t, inv.LastInvoke.Args, "--branch")
-	assert.Contains(t, inv.LastInvoke.Args, "ralph/my-feature")
+	assert.Contains(t, inv.LastInvoke.WorkflowYAML, "acme")
+	assert.Contains(t, inv.LastInvoke.WorkflowYAML, "myrepo")
+	assert.Contains(t, inv.LastInvoke.WorkflowYAML, "ralph/my-feature")
 	assert.Contains(t, inv.LastInvoke.InstructionsContent, "please add error handling here")
 }
 
@@ -272,8 +258,9 @@ func TestServer_CommentEvent_TriggersRalphRun(t *testing.T) {
 	assert.Equal(t, 200, w.Code)
 	require.NotNil(t, inv.LastInvoke)
 	assert.Equal(t, "run", inv.LastInvoke.Command)
-	assert.Contains(t, inv.LastInvoke.Args, "acme/myrepo")
-	assert.Contains(t, inv.LastInvoke.Args, "ralph/my-project")
+	assert.Contains(t, inv.LastInvoke.WorkflowYAML, "acme")
+	assert.Contains(t, inv.LastInvoke.WorkflowYAML, "myrepo")
+	assert.Contains(t, inv.LastInvoke.WorkflowYAML, "ralph/my-project")
 	assert.Contains(t, inv.LastInvoke.InstructionsContent, "please refactor this")
 }
 
@@ -303,8 +290,9 @@ func TestServer_IssueCommentEvent_TriggersRalphRun(t *testing.T) {
 	assert.Equal(t, 200, w.Code)
 	require.NotNil(t, inv.LastInvoke)
 	assert.Equal(t, "run", inv.LastInvoke.Command)
-	assert.Contains(t, inv.LastInvoke.Args, "acme/myrepo")
-	assert.Contains(t, inv.LastInvoke.Args, "ralph/my-project")
+	assert.Contains(t, inv.LastInvoke.WorkflowYAML, "acme")
+	assert.Contains(t, inv.LastInvoke.WorkflowYAML, "myrepo")
+	assert.Contains(t, inv.LastInvoke.WorkflowYAML, "ralph/my-project")
 	assert.Contains(t, inv.LastInvoke.InstructionsContent, "please update the docs")
 }
 
@@ -329,8 +317,9 @@ func TestServer_ReviewCommentEvent_TriggersRalphRun(t *testing.T) {
 	assert.Equal(t, 200, w.Code)
 	require.NotNil(t, inv.LastInvoke)
 	assert.Equal(t, "run", inv.LastInvoke.Command)
-	assert.Contains(t, inv.LastInvoke.Args, "acme/myrepo")
-	assert.Contains(t, inv.LastInvoke.Args, "ralph/my-project")
+	assert.Contains(t, inv.LastInvoke.WorkflowYAML, "acme")
+	assert.Contains(t, inv.LastInvoke.WorkflowYAML, "myrepo")
+	assert.Contains(t, inv.LastInvoke.WorkflowYAML, "ralph/my-project")
 	assert.Contains(t, inv.LastInvoke.InstructionsContent, "please simplify this function")
 }
 
@@ -376,5 +365,4 @@ func TestServer_ApprovalEvent_TriggersRalphMerge(t *testing.T) {
 	assert.Equal(t, 200, w.Code)
 	require.NotNil(t, inv.LastInvoke)
 	assert.Equal(t, "merge", inv.LastInvoke.Command)
-	assert.Equal(t, "ralph/my-project", inv.LastInvoke.Args[1])
 }

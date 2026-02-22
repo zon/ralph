@@ -2,56 +2,29 @@ package webhook
 
 import (
 	"bytes"
-	"fmt"
-	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"text/template"
 
 	"github.com/zon/ralph/internal/config"
+	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/logger"
+	"github.com/zon/ralph/internal/workflow"
 )
-
-// runDetached starts cmd, waits for it to finish in a goroutine, and logs any
-// error together with the combined stdout+stderr output.  The label is used in
-// log messages to identify which command failed.
-func runDetached(cmd *exec.Cmd, label string, cleanup func()) {
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &out
-
-	if err := cmd.Start(); err != nil {
-		logger.Verbosef("failed to start %s: %v", label, err)
-		if cleanup != nil {
-			cleanup()
-		}
-		return
-	}
-
-	go func() {
-		if err := cmd.Wait(); err != nil {
-			logger.Verbosef("%s failed: %v\n%s", label, err, out.String())
-		}
-		if cleanup != nil {
-			cleanup()
-		}
-	}()
-}
 
 // InvokeResult captures what an invoker would have done, used in dry-run mode.
 type InvokeResult struct {
 	// Command is the ralph subcommand that would have been run ("run" or "merge").
 	Command string
-	// Args are the arguments that would have been passed to ralph.
-	Args []string
-	// InstructionsContent is the content that would have been written to the
-	// instructions file (only set for "run" invocations).
+	// WorkflowYAML is the generated Argo Workflow YAML (only set in dry-run mode).
+	WorkflowYAML string
+	// InstructionsContent is the rendered instructions passed to the workflow
+	// (only set for "run" invocations).
 	InstructionsContent string
 }
 
-// Invoker executes ralph CLI commands in response to webhook events.
-// In dry-run mode no external process is started; instead the call is
+// Invoker submits Argo Workflows in response to webhook events.
+// In dry-run mode no workflow is submitted; instead the call is
 // recorded in LastInvoke so tests can assert on it.
 type Invoker struct {
 	dryRun              bool
@@ -60,7 +33,7 @@ type Invoker struct {
 }
 
 // NewInvoker creates an Invoker. When dryRun is true the invoker records what
-// it would have done instead of running real commands.
+// it would have done instead of submitting real workflows.
 // commentInstructions is the template used to build per-comment instruction files;
 // pass an empty string to use the embedded default.
 func NewInvoker(dryRun bool, commentInstructions string) *Invoker {
@@ -70,8 +43,8 @@ func NewInvoker(dryRun bool, commentInstructions string) *Invoker {
 	return &Invoker{dryRun: dryRun, commentInstructions: commentInstructions}
 }
 
-// HandleEvent returns an EventHandler that invokes the appropriate ralph
-// command in response to a webhook event.
+// HandleEvent returns an EventHandler that submits the appropriate Argo Workflow
+// in response to a webhook event.
 func (inv *Invoker) HandleEvent() EventHandler {
 	return func(eventType string, repoOwner, repoName string, payload map[string]interface{}) {
 		prBranch, _ := nestedString(payload, "pull_request", "head", "ref")
@@ -85,7 +58,7 @@ func (inv *Invoker) HandleEvent() EventHandler {
 		case "pull_request_review":
 			state, _ := nestedString(payload, "review", "state")
 			if strings.ToLower(state) == "approved" {
-				_ = inv.InvokeRalphMerge(projectFile, prBranch)
+				_ = inv.InvokeRalphMerge(projectFile, repoOwner, repoName, prBranch)
 			} else {
 				commentBody, _ := nestedString(payload, "review", "body")
 				_ = inv.InvokeRalphRun(projectFile, repoOwner, repoName, prBranch, commentBody)
@@ -94,54 +67,77 @@ func (inv *Invoker) HandleEvent() EventHandler {
 	}
 }
 
-// InvokeRalphRun constructs a webhook-specific instructions file and invokes
-// `ralph run <projectFile> --repo <owner/repo> --branch <branch> --instructions <file> --no-notify`.
-// The instructions file is written to a temporary directory; it is the
-// caller's responsibility to clean it up (the process is detached).
+// InvokeRalphRun generates and submits an Argo Workflow for a run operation.
+// The comment body is rendered through the comment instructions template and
+// passed directly as the workflow's instructions-md parameter.
 func (inv *Invoker) InvokeRalphRun(projectFile, repoOwner, repoName, branch, commentBody string) error {
 	instructions := inv.buildInstructions(commentBody)
 	repo := repoOwner + "/" + repoName
+	repoURL := "https://github.com/" + repo + ".git"
+	projectName := strings.TrimSuffix(filepath.Base(projectFile), filepath.Ext(projectFile))
+
+	ctx := &execcontext.Context{
+		ProjectFile:    projectFile,
+		Repo:           repo,
+		NoNotify:       true,
+		InstructionsMD: instructions,
+	}
 
 	if inv.dryRun {
+		wf, _ := workflow.GenerateWorkflowWithGitInfo(ctx, projectName, repoURL, branch, branch, projectFile, false, false)
+		var workflowYAML string
+		if wf != nil {
+			workflowYAML, _ = wf.Render()
+		}
 		inv.LastInvoke = &InvokeResult{
 			Command:             "run",
-			Args:                []string{projectFile, "--repo", repo, "--branch", branch, "--instructions", "<temp>", "--no-notify"},
+			WorkflowYAML:        workflowYAML,
 			InstructionsContent: instructions,
 		}
 		return nil
 	}
 
-	// Write instructions to a temp file.
-	tmpDir, err := os.MkdirTemp("", "ralph-webhook-*")
-	if err != nil {
-		return fmt.Errorf("failed to create temp dir for instructions: %w", err)
-	}
-
-	instructionsFile := filepath.Join(tmpDir, "instructions.md")
-	if err := os.WriteFile(instructionsFile, []byte(instructions), 0600); err != nil {
-		return fmt.Errorf("failed to write instructions file: %w", err)
-	}
-
-	args := []string{projectFile, "--repo", repo, "--branch", branch, "--instructions", instructionsFile, "--no-notify"}
-	logger.Verbosef("invoking: ralph run %s", strings.Join(args, " "))
-	cmd := exec.Command("ralph", args...)
-	runDetached(cmd, "ralph run "+projectFile, func() { _ = os.RemoveAll(tmpDir) })
+	go func() {
+		wf, err := workflow.GenerateWorkflowWithGitInfo(ctx, projectName, repoURL, branch, branch, projectFile, false, false)
+		if err != nil {
+			logger.Verbosef("InvokeRalphRun: failed to generate workflow for %s: %v", projectFile, err)
+			return
+		}
+		name, err := wf.Submit()
+		if err != nil {
+			logger.Verbosef("InvokeRalphRun: failed to submit workflow for %s: %v", projectFile, err)
+			return
+		}
+		logger.Verbosef("InvokeRalphRun: submitted workflow %s for %s", name, projectFile)
+	}()
 	return nil
 }
 
-// InvokeRalphMerge invokes `ralph merge <projectFile> <prBranch>`.
-func (inv *Invoker) InvokeRalphMerge(projectFile, prBranch string) error {
+// InvokeRalphMerge generates and submits an Argo Workflow for a merge operation.
+func (inv *Invoker) InvokeRalphMerge(projectFile, repoOwner, repoName, prBranch string) error {
 	if inv.dryRun {
 		inv.LastInvoke = &InvokeResult{
 			Command: "merge",
-			Args:    []string{projectFile, prBranch},
 		}
 		return nil
 	}
 
-	logger.Verbosef("invoking: ralph merge %s %s", projectFile, prBranch)
-	cmd := exec.Command("ralph", "merge", projectFile, prBranch)
-	runDetached(cmd, "ralph merge "+projectFile, nil)
+	repo := repoOwner + "/" + repoName
+	repoURL := "https://github.com/" + repo + ".git"
+
+	go func() {
+		mw, err := workflow.GenerateMergeWorkflowWithGitInfo(repoURL, prBranch, prBranch, projectFile)
+		if err != nil {
+			logger.Verbosef("InvokeRalphMerge: failed to generate workflow for %s: %v", projectFile, err)
+			return
+		}
+		name, err := mw.Submit()
+		if err != nil {
+			logger.Verbosef("InvokeRalphMerge: failed to submit workflow for %s: %v", projectFile, err)
+			return
+		}
+		logger.Verbosef("InvokeRalphMerge: submitted workflow %s for %s", name, projectFile)
+	}()
 	return nil
 }
 

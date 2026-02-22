@@ -236,15 +236,9 @@ func executeRemote(ctx *context.Context, absProjectFile string) error {
 
 	projectBranch := extractBranchName(absProjectFile)
 
-	// Load configuration
-	ralphConfig, err := config.LoadConfig()
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
-	}
-
-	// Generate workflow YAML - clone from current branch; workflow will create project branch inside container
-	logger.Verbose("Generating Argo Workflow YAML...")
-	workflowYAML, err := workflow.GenerateWorkflow(ctx, projectName, currentBranch, projectBranch, ctx.IsDryRun(), ctx.IsVerbose())
+	// Generate workflow - clone from current branch; workflow will create project branch inside container
+	logger.Verbose("Generating Argo Workflow...")
+	wf, err := workflow.GenerateWorkflow(ctx, projectName, currentBranch, projectBranch, ctx.IsDryRun(), ctx.IsVerbose())
 	if err != nil {
 		return fmt.Errorf("failed to generate workflow: %w", err)
 	}
@@ -252,11 +246,12 @@ func executeRemote(ctx *context.Context, absProjectFile string) error {
 	// Note: When --dry-run is used without --local, we submit a real workflow
 	// but the ralph command inside the workflow will run with --dry-run flag
 	if ctx.IsVerbose() {
+		workflowYAML, _ := wf.Render()
 		logger.Verbosef("Generated workflow YAML:\n%s", workflowYAML)
 	}
 
 	// Submit workflow
-	workflowName, err := workflow.SubmitWorkflow(ctx, workflowYAML, ralphConfig)
+	workflowName, err := wf.Submit()
 	if err != nil {
 		return fmt.Errorf("failed to submit workflow: %w", err)
 	}
@@ -264,8 +259,7 @@ func executeRemote(ctx *context.Context, absProjectFile string) error {
 	logger.Successf("Workflow submitted: %s", workflowName)
 
 	if !ctx.ShouldWatch() {
-		// Determine namespace for the log command
-		namespace := ralphConfig.Workflow.Namespace
+		namespace := wf.RalphConfig.Workflow.Namespace
 		if namespace == "" {
 			namespace = "default"
 		}

@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/notify"
@@ -96,14 +95,8 @@ func (m *MergeCmd) Run() error {
 		return fmt.Errorf("PR branch name required (see --help)")
 	}
 
-	// Load ralph config for workflow submission
-	ralphConfig, err := config.LoadConfig()
-	if err != nil {
-		return fmt.Errorf("failed to load ralph config: %w", err)
-	}
-
 	// Generate the merge workflow
-	workflowYAML, err := workflow.GenerateMergeWorkflow(m.ProjectFile, m.Branch)
+	mw, err := workflow.GenerateMergeWorkflow(m.ProjectFile, m.Branch)
 	if err != nil {
 		return fmt.Errorf("failed to generate merge workflow: %w", err)
 	}
@@ -111,18 +104,14 @@ func (m *MergeCmd) Run() error {
 	if m.DryRun {
 		logger.Infof("Dry run: would submit merge workflow for branch %s", m.Branch)
 		if m.Verbose {
+			workflowYAML, _ := mw.Render()
 			fmt.Println(workflowYAML)
 		}
 		return nil
 	}
 
 	// Submit the workflow (does not wait for completion)
-	ctx := &execcontext.Context{
-		ProjectFile: m.ProjectFile,
-		DryRun:      m.DryRun,
-		Verbose:     m.Verbose,
-	}
-	workflowName, err := workflow.SubmitWorkflow(ctx, workflowYAML, ralphConfig)
+	workflowName, err := mw.Submit()
 	if err != nil {
 		return fmt.Errorf("failed to submit merge workflow: %w", err)
 	}
