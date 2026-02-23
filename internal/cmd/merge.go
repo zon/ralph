@@ -4,8 +4,11 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 
+	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/logger"
+	"github.com/zon/ralph/internal/project"
 	"github.com/zon/ralph/internal/workflow"
 )
 
@@ -53,6 +56,42 @@ func (m *MergeCmd) Run() error {
 
 // runLocal merges the PR locally using the gh CLI
 func (m *MergeCmd) runLocal() error {
+	// Create context for project operations
+	ctx := &context.Context{
+		DryRun:  m.DryRun,
+		Verbose: m.Verbose,
+	}
+
+	// Scan the projects/ directory for complete projects
+	projectsDir := "projects"
+	if _, err := os.Stat(projectsDir); os.IsNotExist(err) {
+		// projects directory doesn't exist, proceed with merge
+		logger.Verbose("Projects directory not found, skipping complete project cleanup")
+	} else {
+		completeProjects, err := project.FindCompleteProjects(projectsDir)
+		if err != nil {
+			return fmt.Errorf("failed to scan for complete projects: %w", err)
+		}
+
+		if len(completeProjects) > 0 {
+			logger.Infof("Found %d complete project(s) to clean up", len(completeProjects))
+			for _, file := range completeProjects {
+				relPath, err := filepath.Rel(".", file)
+				if err != nil {
+					relPath = file
+				}
+				logger.Infof("  - %s", relPath)
+			}
+
+			// Remove and commit complete project files
+			if err := project.RemoveAndCommit(ctx, completeProjects); err != nil {
+				return fmt.Errorf("failed to remove complete projects: %w", err)
+			}
+		} else {
+			logger.Verbose("No complete projects found")
+		}
+	}
+
 	if m.DryRun {
 		logger.Infof("Dry run: would merge PR #%s and delete branch %s", m.PR, m.Branch)
 		return nil
