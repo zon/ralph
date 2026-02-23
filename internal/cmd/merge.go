@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/zon/ralph/internal/context"
+	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/project"
 	"github.com/zon/ralph/internal/workflow"
@@ -86,6 +87,11 @@ func (m *MergeCmd) runLocal() error {
 			// Remove and commit complete project files
 			if err := project.RemoveAndCommit(ctx, completeProjects); err != nil {
 				return fmt.Errorf("failed to remove complete projects: %w", err)
+			}
+
+			// Push the removal commit so it is included in the merge
+			if err := git.PushCurrentBranch(ctx); err != nil {
+				return fmt.Errorf("failed to push after removing complete projects: %w", err)
 			}
 		} else {
 			logger.Verbose("No complete projects found")
