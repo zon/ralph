@@ -18,6 +18,7 @@ func NewContext(opts ...ContextOption) *context.Context {
 		Verbose:       false,
 		NoNotify:      true,
 		NoServices:    false,
+		Local:         true,
 	}
 
 	for _, opt := range opts {

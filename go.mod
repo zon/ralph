@@ -11,6 +11,8 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 )
 
+require github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
+
 require (
 	git.sr.ht/~jackmordaunt/go-toast v1.1.2 // indirect
 	github.com/bytedance/sonic v1.14.0 // indirect

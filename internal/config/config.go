@@ -12,6 +12,13 @@ import (
 //go:embed default-instructions.md
 var defaultInstructions string
 
+//go:embed comment-instructions.md
+var DefaultCommentInstructions string
+
+//go:embed merge-instructions.md
+var DefaultMergeInstructions string
+
+
 // Project represents a project YAML file with requirements
 type Project struct {
 	Name         string        `yaml:"name"`
@@ -45,16 +52,21 @@ type Service struct {
 	Timeout int      `yaml:"timeout,omitempty"` // Optional, health check timeout in seconds (default: 30)
 }
 
+const (
+	DefaultAppName = "zalphen"
+	DefaultAppID   = "2924254"
+)
+
+// AppInfo holds the GitHub App identity
+type AppInfo struct {
+	Name string `yaml:"name,omitempty"`
+	ID   string `yaml:"id,omitempty"`
+}
+
 // ImageConfig represents container image configuration
 type ImageConfig struct {
 	Repository string `yaml:"repository,omitempty"`
 	Tag        string `yaml:"tag,omitempty"`
-}
-
-// GitUserConfig represents git user configuration
-type GitUserConfig struct {
-	Name  string `yaml:"name,omitempty"`
-	Email string `yaml:"email,omitempty"`
 }
 
 // ConfigMapMount represents a ConfigMap to mount with destination info
@@ -73,24 +85,26 @@ type SecretMount struct {
 
 // WorkflowConfig represents Argo Workflow configuration options
 type WorkflowConfig struct {
-	Image      ImageConfig         `yaml:"image,omitempty"`
-	ConfigMaps []ConfigMapMount    `yaml:"configMaps,omitempty"`
-	Secrets    []SecretMount       `yaml:"secrets,omitempty"`
-	Env        map[string]string   `yaml:"env,omitempty"`
-	Context    string              `yaml:"context,omitempty"`
-	Namespace  string              `yaml:"namespace,omitempty"`
-	GitUser    GitUserConfig       `yaml:"gitUser,omitempty"`
+	Image      ImageConfig       `yaml:"image,omitempty"`
+	ConfigMaps []ConfigMapMount  `yaml:"configMaps,omitempty"`
+	Secrets    []SecretMount     `yaml:"secrets,omitempty"`
+	Env        map[string]string `yaml:"env,omitempty"`
+	Context    string            `yaml:"context,omitempty"`
+	Namespace  string            `yaml:"namespace,omitempty"`
 }
 
 // RalphConfig represents the .ralph/config.yaml structure
 type RalphConfig struct {
 	MaxIterations int            `yaml:"maxIterations,omitempty"`
 	BaseBranch    string         `yaml:"baseBranch,omitempty"`
-	Model         string         `yaml:"model,omitempty"` // AI model to use for coding and PR summary (default: anthropic/claude-sonnet-4-5)
+	Model         string         `yaml:"model,omitempty"` // AI model to use for coding and PR summary (default: deepseek/deepseek-chat)
 	Builds        []Build        `yaml:"builds,omitempty"`
 	Services      []Service      `yaml:"services,omitempty"`
 	Workflow      WorkflowConfig `yaml:"workflow,omitempty"`
-	Instructions  string         `yaml:"-"` // Not persisted in YAML, loaded from .ralph/instructions.md
+	App           AppInfo        `yaml:"app,omitempty"`
+	Instructions        string `yaml:"-"` // Not persisted in YAML, loaded from .ralph/instructions.md
+	CommentInstructions string `yaml:"-"` // Not persisted in YAML, loaded from .ralph/comment-instructions.md
+	MergeInstructions   string `yaml:"-"` // Not persisted in YAML, loaded from .ralph/merge-instructions.md
 }
 
 // LoadProject loads and validates a project YAML file
@@ -139,6 +153,31 @@ func SaveProject(path string, p *Project) error {
 	return nil
 }
 
+// applyDefaults fills in zero-value fields with their default values.
+func applyDefaults(config *RalphConfig) {
+	if config.MaxIterations == 0 {
+		config.MaxIterations = 10
+	}
+	if config.BaseBranch == "" {
+		config.BaseBranch = "main"
+	}
+	if config.Model == "" {
+		config.Model = "deepseek/deepseek-chat"
+	}
+	if config.App.Name == "" {
+		config.App.Name = DefaultAppName
+	}
+	if config.App.ID == "" {
+		config.App.ID = DefaultAppID
+	}
+
+	for i := range config.Services {
+		if config.Services[i].Timeout == 0 {
+			config.Services[i].Timeout = 30
+		}
+	}
+}
+
 // LoadConfig loads .ralph/config.yaml from the current working directory
 // Returns default config if file doesn't exist (not an error)
 func LoadConfig() (*RalphConfig, error) {
@@ -150,16 +189,7 @@ func LoadConfig() (*RalphConfig, error) {
 	configPath := filepath.Join(cwd, ".ralph", "config.yaml")
 	var config RalphConfig
 
-	// If config file doesn't exist, use defaults
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		config = RalphConfig{
-			MaxIterations: 10,
-			BaseBranch:    "main",
-			Model:         "anthropic/claude-sonnet-4-5",
-			Services:      []Service{},
-		}
-	} else {
-		// Load config file
+	if _, err := os.Stat(configPath); !os.IsNotExist(err) {
 		data, err := os.ReadFile(configPath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read config file: %w", err)
@@ -168,24 +198,9 @@ func LoadConfig() (*RalphConfig, error) {
 		if err := yaml.Unmarshal(data, &config); err != nil {
 			return nil, fmt.Errorf("failed to parse config YAML: %w", err)
 		}
-
-		// Apply defaults for missing values
-		if config.MaxIterations == 0 {
-			config.MaxIterations = 10
-		}
-		if config.BaseBranch == "" {
-			config.BaseBranch = "main"
-		}
-		if config.Model == "" {
-			config.Model = "anthropic/claude-sonnet-4-5"
-		}
-		// Apply default timeout for services
-		for i := range config.Services {
-			if config.Services[i].Timeout == 0 {
-				config.Services[i].Timeout = 30
-			}
-		}
 	}
+
+	applyDefaults(&config)
 
 	// Load instructions from .ralph/instructions.md or use default
 	instructionsPath := filepath.Join(cwd, ".ralph", "instructions.md")
@@ -193,6 +208,22 @@ func LoadConfig() (*RalphConfig, error) {
 		config.Instructions = string(instructionsData)
 	} else {
 		config.Instructions = defaultInstructions
+	}
+
+	// Load comment instructions from .ralph/comment-instructions.md or use default
+	commentInstructionsPath := filepath.Join(cwd, ".ralph", "comment-instructions.md")
+	if data, err := os.ReadFile(commentInstructionsPath); err == nil {
+		config.CommentInstructions = string(data)
+	} else {
+		config.CommentInstructions = DefaultCommentInstructions
+	}
+
+	// Load merge instructions from .ralph/merge-instructions.md or use default
+	mergeInstructionsPath := filepath.Join(cwd, ".ralph", "merge-instructions.md")
+	if data, err := os.ReadFile(mergeInstructionsPath); err == nil {
+		config.MergeInstructions = string(data)
+	} else {
+		config.MergeInstructions = DefaultMergeInstructions
 	}
 
 	return &config, nil

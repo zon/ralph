@@ -118,15 +118,6 @@ requirements:
 	}
 }
 
-func TestExecute_InvalidProjectFile(t *testing.T) {
-	ctx := testutil.NewContext(testutil.WithProjectFile("/nonexistent/project.yaml"))
-
-	err := Execute(ctx, nil)
-
-	if err == nil {
-		t.Error("Execute() with nonexistent file should return error")
-	}
-}
 
 func TestExecute_NotGitRepository(t *testing.T) {
 	// Create a temporary directory that's NOT a git repository

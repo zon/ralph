@@ -10,10 +10,13 @@ type Context struct {
 	Verbose       bool
 	NoNotify      bool
 	NoServices    bool
-	Remote        bool
+	Local         bool
 	Watch         bool
 	Notes         []string // Runtime notes to pass to the agent
-	Instructions  string   // Path to an instructions file that overrides the default instructions
+	Instructions   string // Path to an instructions file that overrides the default instructions
+	InstructionsMD string // Inline instructions content; overrides .ralph/instructions.md when set
+	Repo           string // owner/repo override (e.g., "zon/ralph"); skips local git remote detection
+	Branch         string // Branch override; skips local git GetCurrentBranch + sync check
 }
 
 // IsDryRun returns true if running in dry-run mode
@@ -28,8 +31,8 @@ func (c *Context) IsVerbose() bool {
 
 // ShouldNotify returns true if notifications should be sent
 func (c *Context) ShouldNotify() bool {
-	// Disable notifications if remote mode is enabled without watch
-	if c.Remote && !c.Watch {
+	// Disable notifications if submitting a remote workflow without watching
+	if !c.Local && !c.Watch {
 		return false
 	}
 	return !c.NoNotify
@@ -40,9 +43,9 @@ func (c *Context) ShouldStartServices() bool {
 	return !c.NoServices
 }
 
-// IsRemote returns true if running in remote execution mode
-func (c *Context) IsRemote() bool {
-	return c.Remote
+// IsLocal returns true if running locally instead of submitting to Argo Workflows
+func (c *Context) IsLocal() bool {
+	return c.Local
 }
 
 // ShouldWatch returns true if workflow execution should be watched

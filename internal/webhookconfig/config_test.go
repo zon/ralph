@@ -1,4 +1,4 @@
-package webhook
+package webhookconfig
 
 import (
 	"os"
@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zon/ralph/internal/config"
 )
 
 func writeFile(t *testing.T, dir, name, content string) string {
@@ -18,19 +19,16 @@ func writeFile(t *testing.T, dir, name, content string) string {
 
 const validAppConfig = `
 port: 8080
-ralphUsername: ralph-bot
-model: anthropic/claude-sonnet-4-6
 repos:
   - owner: acme
     name: my-service
-    clonePath: /repos/my-service
+    namespace: ns-a
   - owner: acme
     name: another-service
-    clonePath: /repos/another-service
+    namespace: ns-b
 `
 
 const validSecrets = `
-githubToken: ghp_testtoken123
 repos:
   - owner: acme
     name: my-service
@@ -49,12 +47,9 @@ func TestLoadAppConfig(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, 8080, cfg.Port)
-		assert.Equal(t, "ralph-bot", cfg.RalphUsername)
-		assert.Equal(t, "anthropic/claude-sonnet-4-6", cfg.Model)
 		require.Len(t, cfg.Repos, 2)
 		assert.Equal(t, "acme", cfg.Repos[0].Owner)
 		assert.Equal(t, "my-service", cfg.Repos[0].Name)
-		assert.Equal(t, "/repos/my-service", cfg.Repos[0].ClonePath)
 	})
 
 	t.Run("error on missing file", func(t *testing.T) {
@@ -71,6 +66,66 @@ func TestLoadAppConfig(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to parse app config YAML")
 	})
+
+	t.Run("defaults to embedded comment instructions", func(t *testing.T) {
+		dir := t.TempDir()
+		path := writeFile(t, dir, "config.yaml", validAppConfig)
+
+		cfg, err := LoadAppConfig(path)
+		require.NoError(t, err)
+		assert.Equal(t, config.DefaultCommentInstructions, cfg.CommentInstructions)
+	})
+
+	t.Run("defaults to embedded merge instructions", func(t *testing.T) {
+		dir := t.TempDir()
+		path := writeFile(t, dir, "config.yaml", validAppConfig)
+
+		cfg, err := LoadAppConfig(path)
+		require.NoError(t, err)
+		assert.Equal(t, config.DefaultMergeInstructions, cfg.MergeInstructions)
+	})
+
+	t.Run("loads comment instructions from file", func(t *testing.T) {
+		dir := t.TempDir()
+		instrPath := writeFile(t, dir, "comment.md", "# Custom comment instructions")
+		yaml := "port: 8080\ncommentInstructionsFile: " + instrPath + "\n"
+		path := writeFile(t, dir, "config.yaml", yaml)
+
+		cfg, err := LoadAppConfig(path)
+		require.NoError(t, err)
+		assert.Equal(t, "# Custom comment instructions", cfg.CommentInstructions)
+	})
+
+	t.Run("loads merge instructions from file", func(t *testing.T) {
+		dir := t.TempDir()
+		instrPath := writeFile(t, dir, "merge.md", "# Custom merge instructions")
+		yaml := "port: 8080\nmergeInstructionsFile: " + instrPath + "\n"
+		path := writeFile(t, dir, "config.yaml", yaml)
+
+		cfg, err := LoadAppConfig(path)
+		require.NoError(t, err)
+		assert.Equal(t, "# Custom merge instructions", cfg.MergeInstructions)
+	})
+
+	t.Run("error on missing comment instructions file", func(t *testing.T) {
+		dir := t.TempDir()
+		yaml := "port: 8080\ncommentInstructionsFile: /nonexistent/comment.md\n"
+		path := writeFile(t, dir, "config.yaml", yaml)
+
+		_, err := LoadAppConfig(path)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to read commentInstructionsFile")
+	})
+
+	t.Run("error on missing merge instructions file", func(t *testing.T) {
+		dir := t.TempDir()
+		yaml := "port: 8080\nmergeInstructionsFile: /nonexistent/merge.md\n"
+		path := writeFile(t, dir, "config.yaml", yaml)
+
+		_, err := LoadAppConfig(path)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to read mergeInstructionsFile")
+	})
 }
 
 func TestLoadSecrets(t *testing.T) {
@@ -81,7 +136,6 @@ func TestLoadSecrets(t *testing.T) {
 		s, err := LoadSecrets(path)
 		require.NoError(t, err)
 
-		assert.Equal(t, "ghp_testtoken123", s.GitHubToken)
 		require.Len(t, s.Repos, 2)
 		assert.Equal(t, "acme", s.Repos[0].Owner)
 		assert.Equal(t, "my-service", s.Repos[0].Name)
@@ -114,8 +168,6 @@ func TestLoadConfig(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, 8080, cfg.App.Port)
-		assert.Equal(t, "ralph-bot", cfg.App.RalphUsername)
-		assert.Equal(t, "ghp_testtoken123", cfg.Secrets.GitHubToken)
 		require.Len(t, cfg.App.Repos, 2)
 	})
 
@@ -131,7 +183,6 @@ func TestLoadConfig(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, 8080, cfg.App.Port)
-		assert.Equal(t, "ghp_testtoken123", cfg.Secrets.GitHubToken)
 	})
 
 	t.Run("CLI flags take precedence over env vars", func(t *testing.T) {
@@ -184,14 +235,12 @@ func TestValidateConfig(t *testing.T) {
 	t.Run("valid config passes", func(t *testing.T) {
 		cfg := &Config{
 			App: AppConfig{
-				Port:          8080,
-				RalphUsername: "ralph-bot",
+				Port: 8080,
 				Repos: []RepoConfig{
-					{Owner: "acme", Name: "my-service", ClonePath: "/repos/my-service"},
+					{Owner: "acme", Name: "my-service", Namespace: "team-ns"},
 				},
 			},
 			Secrets: Secrets{
-				GitHubToken: "ghp_testtoken",
 				Repos: []RepoSecret{
 					{Owner: "acme", Name: "my-service", WebhookSecret: "webhook-secret-1"},
 				},
@@ -202,7 +251,7 @@ func TestValidateConfig(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("error when githubToken is missing", func(t *testing.T) {
+	t.Run("error when repo has no namespace", func(t *testing.T) {
 		cfg := &Config{
 			App: AppConfig{
 				Repos: []RepoConfig{
@@ -210,7 +259,6 @@ func TestValidateConfig(t *testing.T) {
 				},
 			},
 			Secrets: Secrets{
-				GitHubToken: "",
 				Repos: []RepoSecret{
 					{Owner: "acme", Name: "my-service", WebhookSecret: "secret"},
 				},
@@ -219,19 +267,19 @@ func TestValidateConfig(t *testing.T) {
 
 		err := ValidateConfig(cfg)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "githubToken")
+		assert.Contains(t, err.Error(), "namespace is required")
+		assert.Contains(t, err.Error(), "acme/my-service")
 	})
 
 	t.Run("error when repo has no webhook secret", func(t *testing.T) {
 		cfg := &Config{
 			App: AppConfig{
 				Repos: []RepoConfig{
-					{Owner: "acme", Name: "my-service"},
-					{Owner: "acme", Name: "other-service"},
+					{Owner: "acme", Name: "my-service", Namespace: "ns-a"},
+					{Owner: "acme", Name: "other-service", Namespace: "ns-b"},
 				},
 			},
 			Secrets: Secrets{
-				GitHubToken: "ghp_token",
 				Repos: []RepoSecret{
 					{Owner: "acme", Name: "my-service", WebhookSecret: "secret"},
 					// other-service has no secret entry
@@ -249,9 +297,7 @@ func TestValidateConfig(t *testing.T) {
 			App: AppConfig{
 				Port: 8080,
 			},
-			Secrets: Secrets{
-				GitHubToken: "ghp_token",
-			},
+			Secrets: Secrets{},
 		}
 
 		err := ValidateConfig(cfg)
@@ -280,12 +326,83 @@ func TestWebhookSecretForRepo(t *testing.T) {
 	})
 }
 
+func TestIsUserAllowed(t *testing.T) {
+	tests := []struct {
+		name         string
+		allowedUsers []string
+		username     string
+		want         bool
+	}{
+		{"empty list allows all", nil, "anyone", true},
+		{"empty list allows all (empty slice)", []string{}, "anyone", true},
+		{"user in list is allowed", []string{"alice", "bob"}, "alice", true},
+		{"user not in list is denied", []string{"alice", "bob"}, "charlie", false},
+		{"comparison is case-insensitive", []string{"Alice"}, "alice", true},
+		{"comparison is case-insensitive (upper)", []string{"alice"}, "ALICE", true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := &RepoConfig{AllowedUsers: tc.allowedUsers}
+			got := repo.IsUserAllowed(tc.username)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
+func TestIsUserIgnored(t *testing.T) {
+	tests := []struct {
+		name         string
+		ralphUser    string
+		ignoredUsers []string
+		username     string
+		want         bool
+	}{
+		{"no ralph user and empty list ignores no one", "", nil, "anyone", false},
+		{"ralph user is always ignored", "zralphen", nil, "zralphen", true},
+		{"ralph user is ignored regardless of per-repo list", "zralphen", []string{"other-bot"}, "zralphen", true},
+		{"ralph user comparison is case-insensitive", "Zralphen", nil, "zralphen", true},
+		{"ralph user comparison is case-insensitive (upper)", "zralphen", nil, "ZRALPHEN", true},
+		{"user in per-repo list is ignored", "", []string{"zralphen", "bot"}, "zralphen", true},
+		{"user not in ralph user or list is not ignored", "zralphen", nil, "alice", false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := &Config{App: AppConfig{RalphUser: tc.ralphUser}}
+			repo := &RepoConfig{IgnoredUsers: tc.ignoredUsers}
+			got := cfg.IsUserIgnored(repo, tc.username)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
+func TestRepoConfig_Namespace(t *testing.T) {
+	const configWithNamespace = `
+port: 8080
+repos:
+  - owner: acme
+    name: my-service
+    namespace: team-ns
+  - owner: acme
+    name: another-service
+`
+	dir := t.TempDir()
+	path := writeFile(t, dir, "config.yaml", configWithNamespace)
+
+	cfg, err := LoadAppConfig(path)
+	require.NoError(t, err)
+
+	assert.Equal(t, "team-ns", cfg.Repos[0].Namespace)
+	assert.Equal(t, "", cfg.Repos[1].Namespace)
+}
+
 func TestRepoByFullName(t *testing.T) {
 	cfg := &Config{
 		App: AppConfig{
 			Repos: []RepoConfig{
-				{Owner: "acme", Name: "my-service", ClonePath: "/repos/my-service"},
-				{Owner: "acme", Name: "other", ClonePath: "/repos/other"},
+				{Owner: "acme", Name: "my-service"},
+				{Owner: "acme", Name: "other"},
 			},
 		},
 	}
@@ -293,7 +410,6 @@ func TestRepoByFullName(t *testing.T) {
 	t.Run("returns repo for known owner/name", func(t *testing.T) {
 		repo := cfg.RepoByFullName("acme", "my-service")
 		require.NotNil(t, repo)
-		assert.Equal(t, "/repos/my-service", repo.ClonePath)
 	})
 
 	t.Run("returns nil for unknown repo", func(t *testing.T) {

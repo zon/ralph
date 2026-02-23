@@ -1,0 +1,86 @@
+package webhook
+
+import (
+	"path/filepath"
+	"strings"
+
+	"github.com/zon/ralph/internal/webhookconfig"
+	"github.com/zon/ralph/internal/workflow"
+)
+
+// Event represents a filtered GitHub webhook event — either a comment or a review.
+// Use IsComment and IsReview to distinguish them.
+type Event struct {
+	Body      string // Comment or review body text
+	Approved  bool   // True only for approved pull_request_review events
+	PRBranch  string // Head branch of the pull request
+	RepoOwner string
+	RepoName  string
+	PRNumber  string
+	Author    string // GitHub login of the commenter or reviewer
+}
+
+// IsComment reports whether the event is a comment (not an approval).
+func (e Event) IsComment() bool {
+	return !e.Approved
+}
+
+// IsReview reports whether the event is an approved pull request review.
+func (e Event) IsReview() bool {
+	return e.Approved
+}
+
+// WorkflowResult holds the output of ToWorkflow. Exactly one of Run or Merge is non-nil.
+type WorkflowResult struct {
+	Run       *workflow.Workflow
+	Merge     *workflow.MergeWorkflow
+	Namespace string // Kubernetes namespace for workflow submission, from RepoConfig
+}
+
+// ToWorkflow converts the event into an Argo Workflow.
+// Comment events produce a Run workflow that calls `ralph comment`.
+// Approval events produce a MergeWorkflow that calls `ralph merge --local`.
+func (e Event) ToWorkflow(cfg *webhookconfig.Config) (*WorkflowResult, error) {
+	projectFile := projectFileFromBranch(e.PRBranch)
+	repoURL := "https://github.com/" + e.RepoOwner + "/" + e.RepoName + ".git"
+
+	namespace := ""
+	if repo := cfg.RepoByFullName(e.RepoOwner, e.RepoName); repo != nil {
+		namespace = repo.Namespace
+	}
+
+	if e.Approved {
+		mw, err := workflow.GenerateMergeWorkflowWithGitInfo(repoURL, e.PRBranch, e.PRBranch)
+		if err != nil {
+			return nil, err
+		}
+		mw.PRNumber = e.PRNumber
+		return &WorkflowResult{Merge: mw, Namespace: namespace}, nil
+	}
+
+	projectName := strings.TrimSuffix(filepath.Base(projectFile), filepath.Ext(projectFile))
+	wf, err := workflow.GenerateCommentWorkflowWithGitInfo(
+		projectName, repoURL, e.PRBranch, e.PRBranch, projectFile,
+		e.Body, e.PRNumber,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &WorkflowResult{Run: wf, Namespace: namespace}, nil
+}
+
+// projectFileFromBranch derives the project file path from the PR head branch name.
+//
+// Convention: branch "ralph/<project-name>" → "projects/<project-name>.yaml"
+//
+// If the branch does not follow the ralph/ prefix convention the full branch
+// name (with slashes replaced by dashes) is used as the project name.
+func projectFileFromBranch(branch string) string {
+	projectName := branch
+	if strings.HasPrefix(branch, "ralph/") {
+		projectName = strings.TrimPrefix(branch, "ralph/")
+	} else {
+		projectName = strings.ReplaceAll(branch, "/", "-")
+	}
+	return filepath.Join("projects", projectName+".yaml")
+}

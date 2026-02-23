@@ -52,11 +52,6 @@ func TestSecretNames(t *testing.T) {
 		expected string
 	}{
 		{
-			name:     "git secret name",
-			constant: GitSecretName,
-			expected: "git-credentials",
-		},
-		{
 			name:     "github secret name",
 			constant: GitHubSecretName,
 			expected: "github-credentials",

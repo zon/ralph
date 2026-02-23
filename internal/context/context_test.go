@@ -6,47 +6,47 @@ func TestShouldNotify(t *testing.T) {
 	tests := []struct {
 		name         string
 		noNotify     bool
-		remote       bool
+		local        bool
 		watch        bool
 		expectNotify bool
 		description  string
 	}{
 		{
-			name:         "default settings should notify",
+			name:         "default settings should not notify (remote workflow without watch)",
 			noNotify:     false,
-			remote:       false,
+			local:        false,
+			watch:        false,
+			expectNotify: false,
+			description:  "remote workflow without watch should not notify",
+		},
+		{
+			name:         "local mode notifies by default",
+			noNotify:     false,
+			local:        true,
 			watch:        false,
 			expectNotify: true,
-			description:  "normal mode with notifications enabled",
+			description:  "local mode with notifications enabled",
 		},
 		{
 			name:         "no-notify flag disables notifications",
 			noNotify:     true,
-			remote:       false,
+			local:        true,
 			watch:        false,
 			expectNotify: false,
 			description:  "user explicitly disabled notifications",
 		},
 		{
-			name:         "remote mode without watch disables notifications",
+			name:         "remote workflow with watch enables notifications",
 			noNotify:     false,
-			remote:       true,
-			watch:        false,
-			expectNotify: false,
-			description:  "remote execution without watching should not notify",
-		},
-		{
-			name:         "remote mode with watch enables notifications",
-			noNotify:     false,
-			remote:       true,
+			local:        false,
 			watch:        true,
 			expectNotify: true,
-			description:  "remote execution with watch should notify",
+			description:  "remote workflow with watch should notify",
 		},
 		{
 			name:         "remote with watch but no-notify flag disables notifications",
 			noNotify:     true,
-			remote:       true,
+			local:        false,
 			watch:        true,
 			expectNotify: false,
 			description:  "explicit no-notify flag overrides watch",
@@ -57,7 +57,7 @@ func TestShouldNotify(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := &Context{
 				NoNotify: tt.noNotify,
-				Remote:   tt.remote,
+				Local:    tt.local,
 				Watch:    tt.watch,
 			}
 
@@ -70,30 +70,30 @@ func TestShouldNotify(t *testing.T) {
 	}
 }
 
-func TestIsRemote(t *testing.T) {
+func TestIsLocal(t *testing.T) {
 	tests := []struct {
-		name   string
-		remote bool
+		name  string
+		local bool
 	}{
 		{
-			name:   "remote mode enabled",
-			remote: true,
+			name:  "local mode enabled",
+			local: true,
 		},
 		{
-			name:   "remote mode disabled",
-			remote: false,
+			name:  "local mode disabled",
+			local: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := &Context{
-				Remote: tt.remote,
+				Local: tt.local,
 			}
 
-			result := ctx.IsRemote()
-			if result != tt.remote {
-				t.Errorf("expected IsRemote()=%v, got %v", tt.remote, result)
+			result := ctx.IsLocal()
+			if result != tt.local {
+				t.Errorf("expected IsLocal()=%v, got %v", tt.local, result)
 			}
 		})
 	}

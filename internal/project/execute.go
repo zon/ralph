@@ -2,7 +2,6 @@ package project
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -20,15 +19,16 @@ import (
 // Execute runs the full orchestration workflow
 // Steps:
 // 1. Validate project file exists
-// 2. If remote mode: Generate and submit Argo Workflow, then exit
+// 2. If remote mode: load project, generate and submit Argo Workflow, then exit
 // 3. Run build commands once before starting iterations
 // 4. Validate current branch is in sync with remote
 // 5. Extract branch name from project file basename
 // 6. If PROJECT_BRANCH != current branch: fetch, then checkout remote branch or create new one
 // 7. Run iteration loop (develop + commit + push until complete)
-// 8. Generate PR summary using AI
-// 9. Create GitHub pull request
-// 10. Display PR URL on success
+// 8. Load project file for PR title/notification
+// 9. Generate PR summary using AI
+// 10. Create GitHub pull request
+// 11. Display PR URL on success
 func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	// Enable verbose logging if requested
 	if ctx.IsVerbose() {
@@ -39,29 +39,14 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		logger.Verbose("=== DRY-RUN MODE: No changes will be made ===")
 	}
 
-	// Validate project file exists
+	// Handle Argo Workflow submission (default when not running with --local).
+	if !ctx.IsLocal() {
+		return executeRemote(ctx, ctx.ProjectFile)
+	}
+
 	absProjectFile, err := filepath.Abs(ctx.ProjectFile)
 	if err != nil {
 		return fmt.Errorf("failed to resolve project file path: %w", err)
-	}
-
-	if _, err := os.Stat(absProjectFile); os.IsNotExist(err) {
-		return fmt.Errorf("project file not found: %s", absProjectFile)
-	}
-
-	logger.Verbosef("Loading project file: %s", absProjectFile)
-
-	// Load and validate project
-	project, err := config.LoadProject(absProjectFile)
-	if err != nil {
-		return fmt.Errorf("failed to load project: %w", err)
-	}
-
-	logger.Verbosef("Loaded project: %s", project.Name)
-
-	// Handle remote execution mode
-	if ctx.IsRemote() {
-		return executeRemote(ctx, project)
 	}
 
 	// Extract branch name from project file basename
@@ -127,8 +112,8 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 
 	iterCount, err := RunIterationLoop(ctx, cleanupRegistrar)
 	if err != nil {
-		// Send failure notification
-		notify.Error(project.Name, ctx.ShouldNotify())
+		projectName := strings.TrimSuffix(filepath.Base(absProjectFile), filepath.Ext(absProjectFile))
+		notify.Error(projectName, ctx.ShouldNotify())
 		return fmt.Errorf("iteration loop failed: %w", err)
 	}
 
@@ -142,35 +127,10 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	}
 	logger.Verbose("PR summary generated")
 
-	// Check if project is complete
-	project, err = config.LoadProject(absProjectFile)
+	// Load project for PR title and notification
+	project, err := config.LoadProject(absProjectFile)
 	if err != nil {
 		return fmt.Errorf("failed to reload project after iteration loop: %w", err)
-	}
-
-	allComplete, _, _ := config.CheckCompletion(project)
-
-	// If project is complete, delete the project file and commit that change
-	if allComplete {
-		logger.Verbose("Project complete - deleting project file before creating PR")
-
-		// Delete the project file
-		if err := git.DeleteFile(ctx, absProjectFile); err != nil {
-			return fmt.Errorf("failed to delete project file: %w", err)
-		}
-
-		// Commit and push the deletion
-		commitMsg := fmt.Sprintf("Remove project file %s", filepath.Base(absProjectFile))
-		if err := git.Commit(ctx, commitMsg); err != nil {
-			return fmt.Errorf("failed to commit project file deletion: %w", err)
-		}
-		if err := git.PushCurrentBranch(ctx); err != nil {
-			return fmt.Errorf("failed to push project file deletion: %w", err)
-		}
-
-		logger.Verbosef("Deleted and committed removal of project file: %s", filepath.Base(absProjectFile))
-	} else {
-		logger.Verbose("Project not complete - keeping project file")
 	}
 
 	if ctx.IsVerbose() {
@@ -249,54 +209,49 @@ func extractBranchName(projectFile string) string {
 }
 
 // executeRemote handles remote execution via Argo Workflows
-func executeRemote(ctx *context.Context, project *config.Project) error {
-	logger.Verbose("Remote execution mode enabled")
+func executeRemote(ctx *context.Context, absProjectFile string) error {
+	logger.Verbose("Submitting Argo Workflow...")
 
-	// Check if we're in a git repository
-	if !git.IsGitRepository(ctx) {
-		return fmt.Errorf("not in a git repository - remote execution requires git")
+	projectName := strings.TrimSuffix(filepath.Base(absProjectFile), filepath.Ext(absProjectFile))
+
+	// Determine clone branch: use the override if provided, otherwise detect from local git
+	var currentBranch string
+	if ctx.Branch != "" {
+		currentBranch = ctx.Branch
+	} else {
+		if !git.IsGitRepository(ctx) {
+			return fmt.Errorf("not in a git repository - remote execution requires git")
+		}
+		var err error
+		currentBranch, err = git.GetCurrentBranch(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to get current branch: %w", err)
+		}
+		// Only check sync when branch is detected locally (not when pre-supplied by caller)
+		logger.Verbosef("Checking branch '%s' is in sync with remote...", currentBranch)
+		if err := git.IsBranchSyncedWithRemote(ctx, currentBranch); err != nil {
+			return err
+		}
 	}
 
-	// Get current branch
-	currentBranch, err := git.GetCurrentBranch(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get current branch: %w", err)
-	}
-
-	// Ensure the current branch is in sync with its remote before submitting the workflow
-	logger.Verbosef("Checking branch '%s' is in sync with remote...", currentBranch)
-	if err := git.IsBranchSyncedWithRemote(ctx, currentBranch); err != nil {
-		return err
-	}
-
-	// Extract project branch name from project file
-	absProjectFile, err := filepath.Abs(ctx.ProjectFile)
-	if err != nil {
-		return fmt.Errorf("failed to resolve project file path: %w", err)
-	}
 	projectBranch := extractBranchName(absProjectFile)
 
-	// Load configuration
-	ralphConfig, err := config.LoadConfig()
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
-	}
-
-	// Generate workflow YAML - clone from current branch; workflow will create project branch inside container
-	logger.Verbose("Generating Argo Workflow YAML...")
-	workflowYAML, err := workflow.GenerateWorkflow(ctx, project.Name, currentBranch, projectBranch, ctx.IsDryRun(), ctx.IsVerbose())
+	// Generate workflow - clone from current branch; workflow will create project branch inside container
+	logger.Verbose("Generating Argo Workflow...")
+	wf, err := workflow.GenerateWorkflow(ctx, projectName, currentBranch, projectBranch, ctx.IsDryRun(), ctx.IsVerbose())
 	if err != nil {
 		return fmt.Errorf("failed to generate workflow: %w", err)
 	}
 
-	// Note: When --dry-run is used with --remote, we submit a real workflow
+	// Note: When --dry-run is used without --local, we submit a real workflow
 	// but the ralph command inside the workflow will run with --dry-run flag
 	if ctx.IsVerbose() {
+		workflowYAML, _ := wf.Render()
 		logger.Verbosef("Generated workflow YAML:\n%s", workflowYAML)
 	}
 
 	// Submit workflow
-	workflowName, err := workflow.SubmitWorkflow(ctx, workflowYAML, ralphConfig)
+	workflowName, err := wf.Submit(wf.RalphConfig.Workflow.Namespace)
 	if err != nil {
 		return fmt.Errorf("failed to submit workflow: %w", err)
 	}
@@ -304,12 +259,7 @@ func executeRemote(ctx *context.Context, project *config.Project) error {
 	logger.Successf("Workflow submitted: %s", workflowName)
 
 	if !ctx.ShouldWatch() {
-		// Determine namespace for the log command
-		namespace := ralphConfig.Workflow.Namespace
-		if namespace == "" {
-			namespace = "default"
-		}
-		logger.Infof("To watch logs, run: argo logs -n %s -f %s", namespace, workflowName)
+		logger.Infof("To watch logs, run: argo logs -n %s -f %s", wf.RalphConfig.Workflow.Namespace, workflowName)
 	}
 
 	return nil

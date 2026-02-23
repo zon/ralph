@@ -1,25 +1,32 @@
-package webhook
+package webhookconfig
 
 import (
 	"fmt"
 	"os"
+	"strings"
 
+	"github.com/zon/ralph/internal/config"
 	"gopkg.in/yaml.v3"
 )
 
 // RepoConfig represents a single repository entry in the app config
 type RepoConfig struct {
-	Owner     string `yaml:"owner"`
-	Name      string `yaml:"name"`
-	ClonePath string `yaml:"clonePath"`
+	Owner        string   `yaml:"owner"`
+	Name         string   `yaml:"name"`
+	Namespace    string   `yaml:"namespace"`    // Kubernetes namespace for Argo Workflow submission; required
+	AllowedUsers []string `yaml:"allowedUsers"`
+	IgnoredUsers []string `yaml:"ignoredUsers"` // Messages from these users are always ignored (e.g. the bot user)
 }
 
 // AppConfig is the application configuration loaded from a YAML file
 type AppConfig struct {
-	Port          int          `yaml:"port"`
-	RalphUsername string       `yaml:"ralphUsername"`
-	Repos         []RepoConfig `yaml:"repos"`
-	Model         string       `yaml:"model"`
+	Port                    int          `yaml:"port"`
+	Repos                   []RepoConfig `yaml:"repos"`
+	RalphUser               string       `yaml:"ralphUser"`               // GitHub username of the ralph bot user; always ignored regardless of per-repo ignoredUsers
+	CommentInstructionsFile string       `yaml:"commentInstructionsFile"` // Path to a markdown file overriding the default comment-reply instructions
+	CommentInstructions     string       `yaml:"-"`                       // Loaded from CommentInstructionsFile; falls back to the embedded default
+	MergeInstructionsFile   string       `yaml:"mergeInstructionsFile"`   // Path to a markdown file overriding the default merge instructions
+	MergeInstructions       string       `yaml:"-"`                       // Loaded from MergeInstructionsFile; falls back to the embedded default
 }
 
 // RepoSecret holds the webhook secret for a single repository
@@ -31,8 +38,7 @@ type RepoSecret struct {
 
 // Secrets holds all secrets loaded from the secrets YAML file
 type Secrets struct {
-	GitHubToken string       `yaml:"githubToken"`
-	Repos       []RepoSecret `yaml:"repos"`
+	Repos []RepoSecret `yaml:"repos"`
 }
 
 // Config is the fully-loaded service configuration combining AppConfig and Secrets
@@ -51,6 +57,26 @@ func LoadAppConfig(path string) (*AppConfig, error) {
 	var cfg AppConfig
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to parse app config YAML: %w", err)
+	}
+
+	if cfg.CommentInstructionsFile != "" {
+		instrData, err := os.ReadFile(cfg.CommentInstructionsFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read commentInstructionsFile %s: %w", cfg.CommentInstructionsFile, err)
+		}
+		cfg.CommentInstructions = string(instrData)
+	} else {
+		cfg.CommentInstructions = config.DefaultCommentInstructions
+	}
+
+	if cfg.MergeInstructionsFile != "" {
+		instrData, err := os.ReadFile(cfg.MergeInstructionsFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read mergeInstructionsFile %s: %w", cfg.MergeInstructionsFile, err)
+		}
+		cfg.MergeInstructions = string(instrData)
+	} else {
+		cfg.MergeInstructions = config.DefaultMergeInstructions
 	}
 
 	return &cfg, nil
@@ -113,10 +139,6 @@ func LoadConfig(configPath, secretsPath string) (*Config, error) {
 
 // ValidateConfig validates that required secrets are present
 func ValidateConfig(cfg *Config) error {
-	if cfg.Secrets.GitHubToken == "" {
-		return fmt.Errorf("required secret missing: githubToken must be set in secrets file")
-	}
-
 	// Build a lookup of repo secrets for validation
 	secretsByRepo := make(map[string]string)
 	for _, rs := range cfg.Secrets.Repos {
@@ -124,8 +146,11 @@ func ValidateConfig(cfg *Config) error {
 		secretsByRepo[key] = rs.WebhookSecret
 	}
 
-	// Every repo in config must have a webhook secret
+	// Every repo in config must have a namespace and a webhook secret
 	for _, repo := range cfg.App.Repos {
+		if repo.Namespace == "" {
+			return fmt.Errorf("namespace is required for repo %s/%s", repo.Owner, repo.Name)
+		}
 		key := repoKey(repo.Owner, repo.Name)
 		if secretsByRepo[key] == "" {
 			return fmt.Errorf("required secret missing: no webhook secret configured for repo %s/%s", repo.Owner, repo.Name)
@@ -157,6 +182,40 @@ func (c *Config) RepoByFullName(owner, name string) *RepoConfig {
 		}
 	}
 	return nil
+}
+
+// IsUserAllowed reports whether the given username is permitted to interact with
+// this repository. If AllowedUsers is empty, all users are allowed.
+// Comparison is case-insensitive to match GitHub's behaviour.
+func (r *RepoConfig) IsUserAllowed(username string) bool {
+	if len(r.AllowedUsers) == 0 {
+		return true
+	}
+	for _, u := range r.AllowedUsers {
+		if strings.EqualFold(u, username) {
+			return true
+		}
+	}
+	return false
+}
+
+// IsUserIgnored reports whether the given username should be ignored for the given repo.
+// A user is ignored if they match the global RalphUser or appear in the repo's IgnoredUsers list.
+// Events from ignored users are always silently dropped regardless of AllowedUsers.
+// Comparison is case-insensitive to match GitHub's behaviour.
+func (c *Config) IsUserIgnored(repo *RepoConfig, username string) bool {
+	if strings.EqualFold(c.App.RalphUser, username) {
+		return true
+	}
+	if repo == nil {
+		return false
+	}
+	for _, u := range repo.IgnoredUsers {
+		if strings.EqualFold(u, username) {
+			return true
+		}
+	}
+	return false
 }
 
 func repoKey(owner, name string) string {

@@ -12,3 +12,11 @@
 - Run ralph commands without the `--dry-run` flag for testing
 
 Always use `--dry-run` when testing ralph functionality to avoid unintended side effects.
+
+## Versioning
+
+When bumping the version, update **both** files together:
+- `internal/version/VERSION`
+- `charts/ralph-webhook/Chart.yaml` (`appVersion` and `version`)
+
+Always do a **patch bump** on the chart `version` field alongside any `appVersion` change.
