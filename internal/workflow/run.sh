@@ -37,4 +37,6 @@ fi
 echo "Running ralph..."
 ralph "$PROJECT_PATH" --local{{.DryRunFlag}}{{.VerboseFlag}} --no-notify
 
+opencode stats
+
 echo "Execution complete!"

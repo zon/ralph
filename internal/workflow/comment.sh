@@ -37,4 +37,6 @@ fi
 echo "Running ralph comment..."
 ralph comment "$COMMENT_BODY" --repo "$GITHUB_REPO_OWNER/$GITHUB_REPO_NAME" --branch "$PROJECT_BRANCH" --pr "$PR_NUMBER"{{.DryRunFlag}}{{.VerboseFlag}} --no-notify
 
+opencode stats
+
 echo "Execution complete!"
