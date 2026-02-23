@@ -80,7 +80,37 @@ func CreatePR(ctx *context.Context, title, body, base, head string) (string, err
 	cmd.Stderr = &errOut
 
 	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("failed to create PR: %w (output: %s, stderr: %s)", err, out.String(), errOut.String())
+		// Check if a PR already exists for this branch
+		errStr := errOut.String()
+		if strings.Contains(errStr, "a pull request for branch") && strings.Contains(errStr, "already exists") {
+			// Extract the existing PR URL from stderr
+			existingURL := ""
+			for _, line := range strings.Split(errStr, "\n") {
+				trimmed := strings.TrimSpace(line)
+				if strings.HasPrefix(trimmed, "http") {
+					existingURL = trimmed
+					break
+				}
+			}
+			if existingURL == "" {
+				return "", fmt.Errorf("failed to create PR: %w (output: %s, stderr: %s)", err, out.String(), errStr)
+			}
+			// Update the existing PR
+			editCmd := exec.Command("gh", "pr", "edit", existingURL,
+				"--title", title,
+				"--body", body,
+			)
+			var editOut bytes.Buffer
+			var editErrOut bytes.Buffer
+			editCmd.Stdout = &editOut
+			editCmd.Stderr = &editErrOut
+			if editErr := editCmd.Run(); editErr != nil {
+				return "", fmt.Errorf("failed to update existing PR: %w (output: %s, stderr: %s)", editErr, editOut.String(), editErrOut.String())
+			}
+			logger.Verbosef("Updated existing PR: %s", existingURL)
+			return existingURL, nil
+		}
+		return "", fmt.Errorf("failed to create PR: %w (output: %s, stderr: %s)", err, out.String(), errStr)
 	}
 
 	// Parse PR URL from output
