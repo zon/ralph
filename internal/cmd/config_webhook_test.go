@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zon/ralph/internal/config"
-	"github.com/zon/ralph/internal/webhook"
+	"github.com/zon/ralph/internal/webhookconfig"
 	"gopkg.in/yaml.v3"
 )
 
@@ -154,9 +154,9 @@ func TestBuildWebhookAppConfig(t *testing.T) {
 	})
 
 	t.Run("preserves base repos when no updates", func(t *testing.T) {
-		base := &webhook.AppConfig{
+		base := &webhookconfig.AppConfig{
 			Port: 9090,
-			Repos: []webhook.RepoConfig{
+			Repos: []webhookconfig.RepoConfig{
 				{Owner: "my-owner", Name: "my-repo", Namespace: "my-ns"},
 			},
 		}
@@ -168,14 +168,14 @@ func TestBuildWebhookAppConfig(t *testing.T) {
 	})
 
 	t.Run("updates replace matching base repos by owner/name", func(t *testing.T) {
-		base := &webhook.AppConfig{
-			Repos: []webhook.RepoConfig{
+		base := &webhookconfig.AppConfig{
+			Repos: []webhookconfig.RepoConfig{
 				{Owner: "acme", Name: "repo-a", Namespace: "old-ns", AllowedUsers: []string{"alice"}},
 				{Owner: "acme", Name: "repo-b", Namespace: "ns-b"},
 			},
 		}
-		updates := &webhook.AppConfig{
-			Repos: []webhook.RepoConfig{
+		updates := &webhookconfig.AppConfig{
+			Repos: []webhookconfig.RepoConfig{
 				{Owner: "acme", Name: "repo-a", Namespace: "new-ns"},
 			},
 		}
@@ -187,13 +187,13 @@ func TestBuildWebhookAppConfig(t *testing.T) {
 	})
 
 	t.Run("updates add new repos not in base", func(t *testing.T) {
-		base := &webhook.AppConfig{
-			Repos: []webhook.RepoConfig{
+		base := &webhookconfig.AppConfig{
+			Repos: []webhookconfig.RepoConfig{
 				{Owner: "acme", Name: "repo-a", Namespace: "ns-a"},
 			},
 		}
-		updates := &webhook.AppConfig{
-			Repos: []webhook.RepoConfig{
+		updates := &webhookconfig.AppConfig{
+			Repos: []webhookconfig.RepoConfig{
 				{Owner: "acme", Name: "repo-b", Namespace: "ns-b"},
 			},
 		}
@@ -205,8 +205,8 @@ func TestBuildWebhookAppConfig(t *testing.T) {
 	})
 
 	t.Run("updates override port from base", func(t *testing.T) {
-		base := &webhook.AppConfig{Port: 8080}
-		updates := &webhook.AppConfig{Port: 9090}
+		base := &webhookconfig.AppConfig{Port: 8080}
+		updates := &webhookconfig.AppConfig{Port: 9090}
 		cfg := buildWebhookAppConfig(ctx, base, updates, "", "", "", noopFetcher)
 
 		assert.Equal(t, 9090, cfg.Port)
@@ -222,8 +222,8 @@ func TestBuildWebhookAppConfig(t *testing.T) {
 	})
 
 	t.Run("auto-detected repo replaces existing entry", func(t *testing.T) {
-		base := &webhook.AppConfig{
-			Repos: []webhook.RepoConfig{
+		base := &webhookconfig.AppConfig{
+			Repos: []webhookconfig.RepoConfig{
 				{Owner: "my-owner", Name: "my-repo", Namespace: "old-ns"},
 			},
 		}
@@ -234,8 +234,8 @@ func TestBuildWebhookAppConfig(t *testing.T) {
 	})
 
 	t.Run("auto-detected repo adds alongside existing repos", func(t *testing.T) {
-		base := &webhook.AppConfig{
-			Repos: []webhook.RepoConfig{
+		base := &webhookconfig.AppConfig{
+			Repos: []webhookconfig.RepoConfig{
 				{Owner: "owner-a", Name: "repo-a", Namespace: "ns-a"},
 			},
 		}
@@ -253,7 +253,7 @@ func TestBuildWebhookAppConfig(t *testing.T) {
 		path := filepath.Join(dir, "partial.yaml")
 		require.NoError(t, os.WriteFile(path, []byte(partialYAML), 0644))
 
-		loaded, err := webhook.LoadAppConfig(path)
+		loaded, err := webhookconfig.LoadAppConfig(path)
 		require.NoError(t, err)
 
 		cfg := buildWebhookAppConfig(ctx, nil, loaded, "", "", "", noopFetcher)
@@ -272,8 +272,8 @@ func TestBuildWebhookAppConfig(t *testing.T) {
 	})
 
 	t.Run("does not override existing AllowedUsers from base", func(t *testing.T) {
-		base := &webhook.AppConfig{
-			Repos: []webhook.RepoConfig{
+		base := &webhookconfig.AppConfig{
+			Repos: []webhookconfig.RepoConfig{
 				{Owner: "my-owner", Name: "my-repo", Namespace: "my-ns", AllowedUsers: []string{"existing-user"}},
 			},
 		}
@@ -303,15 +303,15 @@ func TestBuildWebhookAppConfig(t *testing.T) {
 	})
 
 	t.Run("updates override base RalphUser", func(t *testing.T) {
-		base := &webhook.AppConfig{RalphUser: "base-bot"}
-		updates := &webhook.AppConfig{RalphUser: "new-bot"}
+		base := &webhookconfig.AppConfig{RalphUser: "base-bot"}
+		updates := &webhookconfig.AppConfig{RalphUser: "new-bot"}
 		cfg := buildWebhookAppConfig(ctx, base, updates, "", "", "", noopFetcher)
 
 		assert.Equal(t, "new-bot", cfg.RalphUser)
 	})
 
 	t.Run("base RalphUser preserved when updates has none", func(t *testing.T) {
-		base := &webhook.AppConfig{RalphUser: "existing-bot"}
+		base := &webhookconfig.AppConfig{RalphUser: "existing-bot"}
 		cfg := buildWebhookAppConfig(ctx, base, nil, "", "", "", noopFetcher)
 
 		assert.Equal(t, "existing-bot", cfg.RalphUser)
@@ -329,8 +329,8 @@ func TestBuildWebhookSecrets(t *testing.T) {
 
 	t.Run("generates a secret for each repo", func(t *testing.T) {
 		counter = 0
-		appCfg := &webhook.AppConfig{
-			Repos: []webhook.RepoConfig{
+		appCfg := &webhookconfig.AppConfig{
+			Repos: []webhookconfig.RepoConfig{
 				{Owner: "acme", Name: "repo-a"},
 				{Owner: "acme", Name: "repo-b"},
 			},
@@ -350,8 +350,8 @@ func TestBuildWebhookSecrets(t *testing.T) {
 
 	t.Run("returns empty repos list when no repos configured", func(t *testing.T) {
 		counter = 0
-		appCfg := &webhook.AppConfig{
-			Repos: []webhook.RepoConfig{},
+		appCfg := &webhookconfig.AppConfig{
+			Repos: []webhookconfig.RepoConfig{},
 		}
 
 		secrets, err := buildWebhookSecrets(appCfg, deterministicGenerator)
@@ -365,8 +365,8 @@ func TestBuildWebhookSecrets(t *testing.T) {
 			return "", fmt.Errorf("entropy exhausted")
 		}
 
-		appCfg := &webhook.AppConfig{
-			Repos: []webhook.RepoConfig{
+		appCfg := &webhookconfig.AppConfig{
+			Repos: []webhookconfig.RepoConfig{
 				{Owner: "acme", Name: "repo-a"},
 			},
 		}
@@ -378,8 +378,8 @@ func TestBuildWebhookSecrets(t *testing.T) {
 
 	t.Run("generates unique secrets per repo", func(t *testing.T) {
 		// Use real generateWebhookSecret to verify uniqueness
-		appCfg := &webhook.AppConfig{
-			Repos: []webhook.RepoConfig{
+		appCfg := &webhookconfig.AppConfig{
+			Repos: []webhookconfig.RepoConfig{
 				{Owner: "acme", Name: "repo-a"},
 				{Owner: "acme", Name: "repo-b"},
 				{Owner: "acme", Name: "repo-c"},
@@ -402,8 +402,8 @@ func TestBuildWebhookSecrets(t *testing.T) {
 
 	t.Run("serializes secrets to valid YAML", func(t *testing.T) {
 		counter = 0
-		appCfg := &webhook.AppConfig{
-			Repos: []webhook.RepoConfig{
+		appCfg := &webhookconfig.AppConfig{
+			Repos: []webhookconfig.RepoConfig{
 				{Owner: "myowner", Name: "myrepo"},
 			},
 		}
@@ -415,7 +415,7 @@ func TestBuildWebhookSecrets(t *testing.T) {
 		secretsBytes, err := yaml.Marshal(secrets)
 		require.NoError(t, err)
 
-		var roundTripped webhook.Secrets
+		var roundTripped webhookconfig.Secrets
 		require.NoError(t, yaml.Unmarshal(secretsBytes, &roundTripped))
 
 		require.Len(t, roundTripped.Repos, 1)

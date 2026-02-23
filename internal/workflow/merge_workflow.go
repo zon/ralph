@@ -22,6 +22,8 @@ type MergeWorkflow struct {
 	PRBranch string
 	// ProjectPath is the relative path to the project YAML file inside the repo.
 	ProjectPath string
+	// Instructions is the rendered merge instructions (may be empty).
+	Instructions string
 	// Watch controls whether argo submit is called with --watch.
 	Watch bool
 	// RalphConfig supplies workflow-level configuration.

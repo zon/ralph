@@ -11,19 +11,20 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/zon/ralph/internal/webhookconfig"
 )
 
 // testConfig builds a minimal Config suitable for server tests.
-func testConfig() *Config {
-	return &Config{
-		App: AppConfig{
+func testConfig() *webhookconfig.Config {
+	return &webhookconfig.Config{
+		App: webhookconfig.AppConfig{
 			Port: 8080,
-			Repos: []RepoConfig{
+			Repos: []webhookconfig.RepoConfig{
 				{Owner: "acme", Name: "myrepo"},
 			},
 		},
-		Secrets: Secrets{
-			Repos: []RepoSecret{
+		Secrets: webhookconfig.Secrets{
+			Repos: []webhookconfig.RepoSecret{
 				{Owner: "acme", Name: "myrepo", WebhookSecret: "supersecret"},
 			},
 		},

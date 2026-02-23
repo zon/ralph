@@ -12,8 +12,6 @@ import (
 //go:embed default-instructions.md
 var defaultInstructions string
 
-//go:embed comment-instructions.md
-var DefaultCommentInstructions string
 
 // Project represents a project YAML file with requirements
 type Project struct {

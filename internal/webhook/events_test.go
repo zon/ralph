@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	internalconfig "github.com/zon/ralph/internal/config"
+	"github.com/zon/ralph/internal/webhookconfig"
 )
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -37,20 +37,53 @@ func TestProjectFileFromBranch(t *testing.T) {
 
 func TestRenderInstructions_SubstitutesCommentBody(t *testing.T) {
 	tmpl := "Comment: {{.CommentBody}}"
-	result := renderInstructions(tmpl, "please fix this")
+	result := renderInstructions(tmpl, Event{Body: "please fix this"})
 	assert.Equal(t, "Comment: please fix this", result)
 }
 
+func TestRenderInstructions_SubstitutesPRDetails(t *testing.T) {
+	tmpl := "{{.RepoOwner}}/{{.RepoName}} #{{.PRNumber}} branch={{.PRBranch}}"
+	result := renderInstructions(tmpl, Event{
+		RepoOwner: "acme",
+		RepoName:  "myrepo",
+		PRNumber:  "42",
+		PRBranch:  "ralph/my-feature",
+	})
+	assert.Equal(t, "acme/myrepo #42 branch=ralph/my-feature", result)
+}
+
 func TestRenderInstructions_DefaultTemplate_ContainsRequiredDirectives(t *testing.T) {
-	result := renderInstructions(internalconfig.DefaultCommentInstructions, "do something")
+	result := renderInstructions(webhookconfig.DefaultCommentInstructions, Event{
+		Body:      "do something",
+		PRNumber:  "7",
+		PRBranch:  "ralph/test",
+		RepoOwner: "acme",
+		RepoName:  "myrepo",
+	})
 	assert.Contains(t, result, "do something")
 	assert.Contains(t, result, "commit and push")
 	assert.Contains(t, result, "GitHub PR comment")
+	assert.Contains(t, result, "acme/myrepo")
+	assert.Contains(t, result, "#7")
+	assert.Contains(t, result, "ralph/test")
 }
 
 func TestRenderInstructions_InvalidTemplate_FallsBackToConcat(t *testing.T) {
-	result := renderInstructions("{{.Invalid", "my comment")
+	result := renderInstructions("{{.Invalid", Event{Body: "my comment"})
 	assert.Contains(t, result, "my comment")
+}
+
+func TestRenderInstructions_DefaultMergeTemplate_ContainsRequiredDirectives(t *testing.T) {
+	result := renderInstructions(webhookconfig.DefaultMergeInstructions, Event{
+		PRNumber:  "12",
+		PRBranch:  "ralph/my-feature",
+		RepoOwner: "acme",
+		RepoName:  "myrepo",
+	})
+	assert.Contains(t, result, "acme/myrepo")
+	assert.Contains(t, result, "#12")
+	assert.Contains(t, result, "ralph/my-feature")
+	assert.Contains(t, result, "merge")
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -76,9 +109,9 @@ func workflowTestDir(t *testing.T) {
 func TestToWorkflow_CommentEvent_ReturnsRunWorkflow(t *testing.T) {
 	workflowTestDir(t)
 
-	cfg := &Config{
-		App: AppConfig{
-			CommentInstructions: internalconfig.DefaultCommentInstructions,
+	cfg := &webhookconfig.Config{
+		App: webhookconfig.AppConfig{
+			CommentInstructions: webhookconfig.DefaultCommentInstructions,
 		},
 	}
 	e := Event{
@@ -101,10 +134,14 @@ func TestToWorkflow_CommentEvent_ReturnsRunWorkflow(t *testing.T) {
 func TestToWorkflow_ApprovalEvent_ReturnsMergeWorkflow(t *testing.T) {
 	workflowTestDir(t)
 
-	cfg := &Config{App: AppConfig{CommentInstructions: internalconfig.DefaultCommentInstructions}}
+	cfg := &webhookconfig.Config{App: webhookconfig.AppConfig{
+		CommentInstructions: webhookconfig.DefaultCommentInstructions,
+		MergeInstructions:   webhookconfig.DefaultMergeInstructions,
+	}}
 	e := Event{
 		Approved:  true,
 		PRBranch:  "ralph/my-feature",
+		PRNumber:  "99",
 		RepoOwner: "acme",
 		RepoName:  "myrepo",
 	}
@@ -116,12 +153,15 @@ func TestToWorkflow_ApprovalEvent_ReturnsMergeWorkflow(t *testing.T) {
 	assert.Equal(t, "acme", result.Merge.RepoOwner)
 	assert.Equal(t, "myrepo", result.Merge.RepoName)
 	assert.Equal(t, "ralph/my-feature", result.Merge.PRBranch)
+	assert.Contains(t, result.Merge.Instructions, "acme/myrepo")
+	assert.Contains(t, result.Merge.Instructions, "#99")
+	assert.Contains(t, result.Merge.Instructions, "ralph/my-feature")
 }
 
 func TestToWorkflow_RunWorkflow_RendersToYAML(t *testing.T) {
 	workflowTestDir(t)
 
-	cfg := &Config{App: AppConfig{CommentInstructions: internalconfig.DefaultCommentInstructions}}
+	cfg := &webhookconfig.Config{App: webhookconfig.AppConfig{CommentInstructions: webhookconfig.DefaultCommentInstructions}}
 	e := Event{
 		Body:      "fix the bug",
 		PRBranch:  "ralph/my-feature",
@@ -143,10 +183,10 @@ func TestToWorkflow_RunWorkflow_RendersToYAML(t *testing.T) {
 func TestToWorkflow_NamespacePropagated(t *testing.T) {
 	workflowTestDir(t)
 
-	cfg := &Config{
-		App: AppConfig{
-			CommentInstructions: internalconfig.DefaultCommentInstructions,
-			Repos: []RepoConfig{
+	cfg := &webhookconfig.Config{
+		App: webhookconfig.AppConfig{
+			CommentInstructions: webhookconfig.DefaultCommentInstructions,
+			Repos: []webhookconfig.RepoConfig{
 				{Owner: "acme", Name: "myrepo", Namespace: "team-ns"},
 			},
 		},
@@ -166,10 +206,10 @@ func TestToWorkflow_NamespacePropagated(t *testing.T) {
 func TestToWorkflow_Namespace_EmptyWhenNotConfigured(t *testing.T) {
 	workflowTestDir(t)
 
-	cfg := &Config{
-		App: AppConfig{
-			CommentInstructions: internalconfig.DefaultCommentInstructions,
-			Repos: []RepoConfig{
+	cfg := &webhookconfig.Config{
+		App: webhookconfig.AppConfig{
+			CommentInstructions: webhookconfig.DefaultCommentInstructions,
+			Repos: []webhookconfig.RepoConfig{
 				{Owner: "acme", Name: "myrepo"},
 			},
 		},
@@ -189,7 +229,7 @@ func TestToWorkflow_Namespace_EmptyWhenNotConfigured(t *testing.T) {
 func TestToWorkflow_MergeWorkflow_RendersToYAML(t *testing.T) {
 	workflowTestDir(t)
 
-	cfg := &Config{App: AppConfig{CommentInstructions: internalconfig.DefaultCommentInstructions}}
+	cfg := &webhookconfig.Config{App: webhookconfig.AppConfig{CommentInstructions: webhookconfig.DefaultCommentInstructions}}
 	e := Event{
 		Approved:  true,
 		PRBranch:  "ralph/my-feature",

@@ -3,6 +3,8 @@ package webhook
 import (
 	"fmt"
 	"strings"
+
+	"github.com/zon/ralph/internal/webhookconfig"
 )
 
 // GithubPayload is the subset of a GitHub webhook JSON payload that the server needs.
@@ -54,7 +56,7 @@ func (p GithubPayload) RepoName() string {
 // event type, applying user ignore/allowlist rules from cfg.
 // Returns false for unrecognised event types, non-PR issue comments, empty
 // review bodies, and non-approved/non-commented review states.
-func (p GithubPayload) IsAcceptable(eventType string, cfg *Config) bool {
+func (p GithubPayload) IsAcceptable(eventType string, cfg *webhookconfig.Config) bool {
 	repo := cfg.RepoByFullName(p.RepoOwner(), p.RepoName())
 
 	switch eventType {

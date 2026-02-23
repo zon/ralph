@@ -7,6 +7,7 @@ import (
 	"text/template"
 
 	execcontext "github.com/zon/ralph/internal/context"
+	"github.com/zon/ralph/internal/webhookconfig"
 	"github.com/zon/ralph/internal/workflow"
 )
 
@@ -42,7 +43,7 @@ type WorkflowResult struct {
 // ToWorkflow converts the event into an Argo Workflow.
 // cfg supplies the comment instructions template for run (comment) events;
 // it is unused for approval (merge) events.
-func (e Event) ToWorkflow(cfg *Config) (*WorkflowResult, error) {
+func (e Event) ToWorkflow(cfg *webhookconfig.Config) (*WorkflowResult, error) {
 	projectFile := projectFileFromBranch(e.PRBranch)
 	repoURL := "https://github.com/" + e.RepoOwner + "/" + e.RepoName + ".git"
 
@@ -56,10 +57,11 @@ func (e Event) ToWorkflow(cfg *Config) (*WorkflowResult, error) {
 		if err != nil {
 			return nil, err
 		}
+		mw.Instructions = renderInstructions(cfg.App.MergeInstructions, e)
 		return &WorkflowResult{Merge: mw, Namespace: namespace}, nil
 	}
 
-	instructions := renderInstructions(cfg.App.CommentInstructions, e.Body)
+	instructions := renderInstructions(cfg.App.CommentInstructions, e)
 	projectName := strings.TrimSuffix(filepath.Base(projectFile), filepath.Ext(projectFile))
 	ctx := &execcontext.Context{
 		ProjectFile:    projectFile,
@@ -74,15 +76,28 @@ func (e Event) ToWorkflow(cfg *Config) (*WorkflowResult, error) {
 	return &WorkflowResult{Run: wf, Namespace: namespace}, nil
 }
 
-// renderInstructions renders the comment instructions template with the given comment body.
-func renderInstructions(tmplText, commentBody string) string {
+// renderInstructions renders the comment instructions template with event context.
+func renderInstructions(tmplText string, e Event) string {
 	tmpl, err := template.New("comment").Parse(tmplText)
 	if err != nil {
-		return tmplText + "\n\n" + commentBody
+		return tmplText + "\n\n" + e.Body
+	}
+	data := struct {
+		CommentBody string
+		PRNumber    string
+		PRBranch    string
+		RepoOwner   string
+		RepoName    string
+	}{
+		CommentBody: e.Body,
+		PRNumber:    e.PRNumber,
+		PRBranch:    e.PRBranch,
+		RepoOwner:   e.RepoOwner,
+		RepoName:    e.RepoName,
 	}
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, struct{ CommentBody string }{commentBody}); err != nil {
-		return tmplText + "\n\n" + commentBody
+	if err := tmpl.Execute(&buf, data); err != nil {
+		return tmplText + "\n\n" + e.Body
 	}
 	return buf.String()
 }

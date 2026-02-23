@@ -14,7 +14,7 @@ import (
 	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/k8s"
 	"github.com/zon/ralph/internal/logger"
-	"github.com/zon/ralph/internal/webhook"
+	"github.com/zon/ralph/internal/webhookconfig"
 	"gopkg.in/yaml.v3"
 )
 
@@ -44,13 +44,13 @@ type ConfigWebhookSecretCmd struct {
 
 // WebhookConfigResult holds the result of building an AppConfig for dry-run inspection
 type WebhookConfigResult struct {
-	AppConfig webhook.AppConfig
+	AppConfig webhookconfig.AppConfig
 	YAML      string
 }
 
 // WebhookSecretsResult holds the result of building Secrets for dry-run inspection
 type WebhookSecretsResult struct {
-	Secrets webhook.Secrets
+	Secrets webhookconfig.Secrets
 	YAML    string
 }
 
@@ -85,7 +85,7 @@ func fetchRepoCollaborators(ctx context.Context, owner, repo string) ([]string, 
 
 // mergeRepo upserts a RepoConfig into the repos slice, replacing any existing entry
 // with the same owner/name. Returns the updated slice.
-func mergeRepo(repos []webhook.RepoConfig, incoming webhook.RepoConfig) []webhook.RepoConfig {
+func mergeRepo(repos []webhookconfig.RepoConfig, incoming webhookconfig.RepoConfig) []webhookconfig.RepoConfig {
 	for i, r := range repos {
 		if r.Owner == incoming.Owner && r.Name == incoming.Name {
 			repos[i] = incoming
@@ -102,8 +102,8 @@ func mergeRepo(repos []webhook.RepoConfig, incoming webhook.RepoConfig) []webhoo
 // repoOwner, repoName, and repoNamespace are the auto-detected repo details; if non-empty,
 // this repo is upserted last (so it can be updated without a --config file).
 // fetcher is the function used to look up repo collaborators (injectable for tests).
-func buildWebhookAppConfig(ctx context.Context, base, updates *webhook.AppConfig, repoOwner, repoName, repoNamespace string, fetcher func(context.Context, string, string) ([]string, error)) webhook.AppConfig {
-	var cfg webhook.AppConfig
+func buildWebhookAppConfig(ctx context.Context, base, updates *webhookconfig.AppConfig, repoOwner, repoName, repoNamespace string, fetcher func(context.Context, string, string) ([]string, error)) webhookconfig.AppConfig {
+	var cfg webhookconfig.AppConfig
 
 	// Start from base (existing configmap contents)
 	if base != nil {
@@ -138,7 +138,7 @@ func buildWebhookAppConfig(ctx context.Context, base, updates *webhook.AppConfig
 
 	// Upsert auto-detected repo
 	if repoOwner != "" && repoName != "" {
-		cfg.Repos = mergeRepo(cfg.Repos, webhook.RepoConfig{
+		cfg.Repos = mergeRepo(cfg.Repos, webhookconfig.RepoConfig{
 			Owner:     repoOwner,
 			Name:      repoName,
 			Namespace: repoNamespace,
@@ -182,7 +182,7 @@ func (c *ConfigWebhookConfigCmd) Run() error {
 	namespace := c.Namespace
 
 	// Read existing configmap as the base (ignore error if it doesn't exist yet)
-	var base *webhook.AppConfig
+	var base *webhookconfig.AppConfig
 	if existing, err := readWebhookConfigFromK8s(ctx, namespace, kubeContext); err != nil {
 		logger.Warningf("Could not read existing configmap '%s': %v (starting from scratch)", webhookConfigMapName, err)
 	} else {
@@ -190,9 +190,9 @@ func (c *ConfigWebhookConfigCmd) Run() error {
 	}
 
 	// Load optional updates from --config flag
-	var updates *webhook.AppConfig
+	var updates *webhookconfig.AppConfig
 	if c.Config != "" {
-		loaded, err := webhook.LoadAppConfig(c.Config)
+		loaded, err := webhookconfig.LoadAppConfig(c.Config)
 		if err != nil {
 			return fmt.Errorf("failed to load partial config: %w", err)
 		}
@@ -258,7 +258,7 @@ func generateWebhookSecret() (string, error) {
 
 // readWebhookConfigFromK8s reads the webhook-config ConfigMap from Kubernetes and returns
 // the AppConfig it contains.
-func readWebhookConfigFromK8s(ctx context.Context, namespace, kubeContext string) (*webhook.AppConfig, error) {
+func readWebhookConfigFromK8s(ctx context.Context, namespace, kubeContext string) (*webhookconfig.AppConfig, error) {
 	// kubectl get configmap webhook-config -n <ns> --context <ctx> -o jsonpath='{.data.config\.yaml}'
 	args := []string{
 		"get", "configmap", webhookConfigMapName,
@@ -285,7 +285,7 @@ func readWebhookConfigFromK8s(ctx context.Context, namespace, kubeContext string
 		return nil, fmt.Errorf("configmap '%s' exists but config.yaml key is empty", webhookConfigMapName)
 	}
 
-	var appCfg webhook.AppConfig
+	var appCfg webhookconfig.AppConfig
 	if err := yaml.Unmarshal([]byte(raw), &appCfg); err != nil {
 		return nil, fmt.Errorf("failed to parse AppConfig YAML from configmap: %w", err)
 	}
@@ -367,15 +367,15 @@ func registerGitHubWebhook(ctx context.Context, owner, repo, webhookURL, secret 
 // buildWebhookSecrets generates cryptographically random webhook secrets for each repo
 // in the provided AppConfig. It uses the provided secretGenerator function to allow
 // testing with predictable values.
-func buildWebhookSecrets(appCfg *webhook.AppConfig, secretGenerator func() (string, error)) (*webhook.Secrets, error) {
-	secrets := &webhook.Secrets{}
+func buildWebhookSecrets(appCfg *webhookconfig.AppConfig, secretGenerator func() (string, error)) (*webhookconfig.Secrets, error) {
+	secrets := &webhookconfig.Secrets{}
 
 	for _, repo := range appCfg.Repos {
 		secret, err := secretGenerator()
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate secret for %s/%s: %w", repo.Owner, repo.Name, err)
 		}
-		secrets.Repos = append(secrets.Repos, webhook.RepoSecret{
+		secrets.Repos = append(secrets.Repos, webhookconfig.RepoSecret{
 			Owner:         repo.Owner,
 			Name:          repo.Name,
 			WebhookSecret: secret,

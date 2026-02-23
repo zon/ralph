@@ -12,16 +12,17 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/zon/ralph/internal/logger"
+	"github.com/zon/ralph/internal/webhookconfig"
 )
 
 // Server is the GitHub webhook HTTP server.
 type Server struct {
-	config *Config
+	config *webhookconfig.Config
 	router *gin.Engine
 }
 
 // NewServer creates a new webhook Server with the given configuration.
-func NewServer(cfg *Config) *Server {
+func NewServer(cfg *webhookconfig.Config) *Server {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	router.Use(gin.Recovery())

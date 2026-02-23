@@ -1,6 +1,13 @@
 # Comment Instructions
 
-You have been triggered by a GitHub pull request comment. The comment text is:
+You have been triggered by a GitHub pull request comment.
+
+Pull request details:
+- Repository: {{.RepoOwner}}/{{.RepoName}}
+- PR number: #{{.PRNumber}}
+- Branch: {{.PRBranch}}
+
+The comment text is:
 
 ---
 {{.CommentBody}}
@@ -13,4 +20,4 @@ Your task:
 4. After completing your work, post a GitHub PR comment summarising what you did.
 
 When posting PR comments use the gh CLI:
-  gh pr comment <number> --body "<your summary>"
+  gh pr comment {{.PRNumber}} --body "<your summary>"

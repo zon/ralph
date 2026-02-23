@@ -1,13 +1,19 @@
-package webhook
+package webhookconfig
 
 import (
+	_ "embed"
 	"fmt"
 	"os"
 	"strings"
 
-	"github.com/zon/ralph/internal/config"
 	"gopkg.in/yaml.v3"
 )
+
+//go:embed comment-instructions.md
+var DefaultCommentInstructions string
+
+//go:embed merge-instructions.md
+var DefaultMergeInstructions string
 
 // RepoConfig represents a single repository entry in the app config
 type RepoConfig struct {
@@ -25,6 +31,8 @@ type AppConfig struct {
 	RalphUser               string       `yaml:"ralphUser"`               // GitHub username of the ralph bot user; always ignored regardless of per-repo ignoredUsers
 	CommentInstructionsFile string       `yaml:"commentInstructionsFile"` // Path to a markdown file overriding the default comment-reply instructions
 	CommentInstructions     string       `yaml:"-"`                       // Loaded from CommentInstructionsFile; falls back to the embedded default
+	MergeInstructionsFile   string       `yaml:"mergeInstructionsFile"`   // Path to a markdown file overriding the default merge instructions
+	MergeInstructions       string       `yaml:"-"`                       // Loaded from MergeInstructionsFile; falls back to the embedded default
 }
 
 // RepoSecret holds the webhook secret for a single repository
@@ -64,7 +72,17 @@ func LoadAppConfig(path string) (*AppConfig, error) {
 		}
 		cfg.CommentInstructions = string(instrData)
 	} else {
-		cfg.CommentInstructions = config.DefaultCommentInstructions
+		cfg.CommentInstructions = DefaultCommentInstructions
+	}
+
+	if cfg.MergeInstructionsFile != "" {
+		instrData, err := os.ReadFile(cfg.MergeInstructionsFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read mergeInstructionsFile %s: %w", cfg.MergeInstructionsFile, err)
+		}
+		cfg.MergeInstructions = string(instrData)
+	} else {
+		cfg.MergeInstructions = DefaultMergeInstructions
 	}
 
 	return &cfg, nil

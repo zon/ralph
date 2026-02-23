@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/zon/ralph/internal/webhookconfig"
 )
 
 // minimalPayload builds a GithubPayload for acme/myrepo with the given overrides.
@@ -176,10 +177,10 @@ func TestToEvent_NoPRNumber_EmptyString(t *testing.T) {
 // ──────────────────────────────────────────────────────────────────────────────
 
 // openConfig returns a Config with no allowlist restrictions.
-func openConfig() *Config {
-	return &Config{
-		App: AppConfig{
-			Repos: []RepoConfig{
+func openConfig() *webhookconfig.Config {
+	return &webhookconfig.Config{
+		App: webhookconfig.AppConfig{
+			Repos: []webhookconfig.RepoConfig{
 				{Owner: "acme", Name: "myrepo"},
 			},
 		},
@@ -187,7 +188,7 @@ func openConfig() *Config {
 }
 
 // configWithAllowedUsers returns a Config with an AllowedUsers list on acme/myrepo.
-func configWithAllowedUsers(users []string) *Config {
+func configWithAllowedUsers(users []string) *webhookconfig.Config {
 	cfg := openConfig()
 	cfg.App.Repos[0].AllowedUsers = users
 	return cfg

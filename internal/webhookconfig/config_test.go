@@ -1,4 +1,4 @@
-package webhook
+package webhookconfig
 
 import (
 	"os"
@@ -64,6 +64,66 @@ func TestLoadAppConfig(t *testing.T) {
 		_, err := LoadAppConfig(path)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to parse app config YAML")
+	})
+
+	t.Run("defaults to embedded comment instructions", func(t *testing.T) {
+		dir := t.TempDir()
+		path := writeFile(t, dir, "config.yaml", validAppConfig)
+
+		cfg, err := LoadAppConfig(path)
+		require.NoError(t, err)
+		assert.Equal(t, DefaultCommentInstructions, cfg.CommentInstructions)
+	})
+
+	t.Run("defaults to embedded merge instructions", func(t *testing.T) {
+		dir := t.TempDir()
+		path := writeFile(t, dir, "config.yaml", validAppConfig)
+
+		cfg, err := LoadAppConfig(path)
+		require.NoError(t, err)
+		assert.Equal(t, DefaultMergeInstructions, cfg.MergeInstructions)
+	})
+
+	t.Run("loads comment instructions from file", func(t *testing.T) {
+		dir := t.TempDir()
+		instrPath := writeFile(t, dir, "comment.md", "# Custom comment instructions")
+		yaml := "port: 8080\ncommentInstructionsFile: " + instrPath + "\n"
+		path := writeFile(t, dir, "config.yaml", yaml)
+
+		cfg, err := LoadAppConfig(path)
+		require.NoError(t, err)
+		assert.Equal(t, "# Custom comment instructions", cfg.CommentInstructions)
+	})
+
+	t.Run("loads merge instructions from file", func(t *testing.T) {
+		dir := t.TempDir()
+		instrPath := writeFile(t, dir, "merge.md", "# Custom merge instructions")
+		yaml := "port: 8080\nmergeInstructionsFile: " + instrPath + "\n"
+		path := writeFile(t, dir, "config.yaml", yaml)
+
+		cfg, err := LoadAppConfig(path)
+		require.NoError(t, err)
+		assert.Equal(t, "# Custom merge instructions", cfg.MergeInstructions)
+	})
+
+	t.Run("error on missing comment instructions file", func(t *testing.T) {
+		dir := t.TempDir()
+		yaml := "port: 8080\ncommentInstructionsFile: /nonexistent/comment.md\n"
+		path := writeFile(t, dir, "config.yaml", yaml)
+
+		_, err := LoadAppConfig(path)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to read commentInstructionsFile")
+	})
+
+	t.Run("error on missing merge instructions file", func(t *testing.T) {
+		dir := t.TempDir()
+		yaml := "port: 8080\nmergeInstructionsFile: /nonexistent/merge.md\n"
+		path := writeFile(t, dir, "config.yaml", yaml)
+
+		_, err := LoadAppConfig(path)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to read mergeInstructionsFile")
 	})
 }
 

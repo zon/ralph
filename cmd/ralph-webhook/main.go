@@ -7,6 +7,7 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/webhook"
+	"github.com/zon/ralph/internal/webhookconfig"
 )
 
 type CLI struct {
@@ -18,7 +19,7 @@ type CLI struct {
 func (c *CLI) Run() error {
 	logger.SetVerbose(c.Verbose)
 
-	cfg, err := webhook.LoadConfig(c.Config, c.Secrets)
+	cfg, err := webhookconfig.LoadConfig(c.Config, c.Secrets)
 	if err != nil {
 		return err
 	}
