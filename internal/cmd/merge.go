@@ -103,13 +103,13 @@ func (m *MergeCmd) runLocal() error {
 		return nil
 	}
 
-	cmd := exec.Command("gh", "pr", "merge", m.PR, "--merge", "--delete-branch")
+	cmd := exec.Command("gh", "pr", "merge", m.PR, "--merge", "--delete-branch", "--auto")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to merge PR #%s: %w", m.PR, err)
 	}
 
-	logger.Successf("Merged PR #%s and deleted branch %s", m.PR, m.Branch)
+	logger.Successf("Auto-merge enabled for PR #%s (will delete branch %s when merged)", m.PR, m.Branch)
 	return nil
 }
