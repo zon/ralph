@@ -22,7 +22,6 @@ func BuildDevelopPrompt(ctx *context.Context, projectFile string) (string, error
 	builder.WriteString("## Project Information\n")
 	builder.WriteString("\n")
 	builder.WriteString("You are an AI coding agent working on this project.\n")
-	builder.WriteString("Your task is to implement requirements from the project file below.\n")
 	builder.WriteString("\n")
 
 	// Include any runtime notes from context

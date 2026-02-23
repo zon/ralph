@@ -122,6 +122,7 @@ func submitWorkflow(result *WorkflowResult, owner, repoName string) {
 			return
 		}
 		logger.Verbosef("submitted run workflow %s for %s/%s", name, owner, repoName)
+		logger.Verbosef("To watch logs, run: argo logs -n %s -f %s", result.Namespace, name)
 	} else if result.Merge != nil {
 		name, err := result.Merge.Submit(result.Namespace)
 		if err != nil {
@@ -129,6 +130,7 @@ func submitWorkflow(result *WorkflowResult, owner, repoName string) {
 			return
 		}
 		logger.Verbosef("submitted merge workflow %s for %s/%s", name, owner, repoName)
+		logger.Verbosef("To watch logs, run: argo logs -n %s -f %s", result.Namespace, name)
 	}
 }
 
