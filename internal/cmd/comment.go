@@ -21,8 +21,9 @@ type CommentCmd struct {
 	Repo    string `help:"Repository in owner/repo format, e.g. zon/ralph" required:""`
 	Branch  string `help:"PR branch name" required:""`
 	PR      string `help:"Pull request number" required:""`
-	DryRun  bool   `help:"Simulate execution without making changes" default:"false"`
-	Verbose bool   `help:"Enable verbose logging" default:"false"`
+	DryRun   bool `help:"Simulate execution without making changes" default:"false"`
+	Verbose  bool `help:"Enable verbose logging" default:"false"`
+	NoNotify bool `help:"Disable desktop notifications" default:"false" hidden:""`
 
 	cleanupRegistrar func(func()) `kong:"-"`
 }
@@ -62,7 +63,7 @@ func (c *CommentCmd) Run() error {
 		ProjectFile: projectFile,
 		DryRun:      c.DryRun,
 		Verbose:     c.Verbose,
-		NoNotify:    true,
+		NoNotify:    c.NoNotify,
 	}
 
 	// Start services
