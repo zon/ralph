@@ -31,7 +31,7 @@ type Cmd struct {
 type ConfigCmd struct {
 	Github        ConfigGithubCmd        `cmd:"" help:"Configure GitHub credentials for remote execution"`
 	Opencode      ConfigOpencodeCmd      `cmd:"" help:"Configure OpenCode credentials for remote execution"`
-	WebhookConfig ConfigWebhookConfigCmd `cmd:"webhook-config" help:"Provision webhook-config secret into Kubernetes"`
+	WebhookConfig ConfigWebhookConfigCmd `cmd:"" name:"webhook" help:"Provision webhook-config secret into Kubernetes"`
 	WebhookSecret ConfigWebhookSecretCmd `cmd:"webhook-secret" help:"Provision webhook-secrets secret into Kubernetes"`
 }
 
@@ -111,7 +111,7 @@ func (m *MergeCmd) Run() error {
 	}
 
 	// Submit the workflow (does not wait for completion)
-	workflowName, err := mw.Submit()
+	workflowName, err := mw.Submit(mw.RalphConfig.Workflow.Namespace)
 	if err != nil {
 		return fmt.Errorf("failed to submit merge workflow: %w", err)
 	}

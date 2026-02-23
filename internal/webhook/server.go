@@ -116,14 +116,14 @@ func (s *Server) handleWebhook(c *gin.Context) {
 // submitWorkflow submits a WorkflowResult asynchronously.
 func submitWorkflow(result *WorkflowResult, owner, repoName string) {
 	if result.Run != nil {
-		name, err := result.Run.Submit()
+		name, err := result.Run.Submit(result.Namespace)
 		if err != nil {
 			logger.Verbosef("failed to submit run workflow for %s/%s: %v", owner, repoName, err)
 			return
 		}
 		logger.Verbosef("submitted run workflow %s for %s/%s", name, owner, repoName)
 	} else if result.Merge != nil {
-		name, err := result.Merge.Submit()
+		name, err := result.Merge.Submit(result.Namespace)
 		if err != nil {
 			logger.Verbosef("failed to submit merge workflow for %s/%s: %v", owner, repoName, err)
 			return

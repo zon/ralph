@@ -13,6 +13,7 @@ import (
 type RepoConfig struct {
 	Owner        string   `yaml:"owner"`
 	Name         string   `yaml:"name"`
+	Namespace    string   `yaml:"namespace"`    // Kubernetes namespace for Argo Workflow submission; required
 	AllowedUsers []string `yaml:"allowedUsers"`
 	IgnoredUsers []string `yaml:"ignoredUsers"` // Messages from these users are always ignored (e.g. the bot user)
 }
@@ -21,7 +22,6 @@ type RepoConfig struct {
 type AppConfig struct {
 	Port                    int          `yaml:"port"`
 	Repos                   []RepoConfig `yaml:"repos"`
-	Model                   string       `yaml:"model"`
 	RalphUser               string       `yaml:"ralphUser"`               // GitHub username of the ralph bot user; always ignored regardless of per-repo ignoredUsers
 	CommentInstructionsFile string       `yaml:"commentInstructionsFile"` // Path to a markdown file overriding the default comment-reply instructions
 	CommentInstructions     string       `yaml:"-"`                       // Loaded from CommentInstructionsFile; falls back to the embedded default
@@ -134,8 +134,11 @@ func ValidateConfig(cfg *Config) error {
 		secretsByRepo[key] = rs.WebhookSecret
 	}
 
-	// Every repo in config must have a webhook secret
+	// Every repo in config must have a namespace and a webhook secret
 	for _, repo := range cfg.App.Repos {
+		if repo.Namespace == "" {
+			return fmt.Errorf("namespace is required for repo %s/%s", repo.Owner, repo.Name)
+		}
 		key := repoKey(repo.Owner, repo.Name)
 		if secretsByRepo[key] == "" {
 			return fmt.Errorf("required secret missing: no webhook secret configured for repo %s/%s", repo.Owner, repo.Name)

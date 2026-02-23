@@ -34,8 +34,9 @@ func (e Event) IsReview() bool {
 
 // WorkflowResult holds the output of ToWorkflow. Exactly one of Run or Merge is non-nil.
 type WorkflowResult struct {
-	Run   *workflow.Workflow
-	Merge *workflow.MergeWorkflow
+	Run       *workflow.Workflow
+	Merge     *workflow.MergeWorkflow
+	Namespace string // Kubernetes namespace for workflow submission, from RepoConfig
 }
 
 // ToWorkflow converts the event into an Argo Workflow.
@@ -45,12 +46,17 @@ func (e Event) ToWorkflow(cfg *Config) (*WorkflowResult, error) {
 	projectFile := projectFileFromBranch(e.PRBranch)
 	repoURL := "https://github.com/" + e.RepoOwner + "/" + e.RepoName + ".git"
 
+	namespace := ""
+	if repo := cfg.RepoByFullName(e.RepoOwner, e.RepoName); repo != nil {
+		namespace = repo.Namespace
+	}
+
 	if e.Approved {
 		mw, err := workflow.GenerateMergeWorkflowWithGitInfo(repoURL, e.PRBranch, e.PRBranch, projectFile)
 		if err != nil {
 			return nil, err
 		}
-		return &WorkflowResult{Merge: mw}, nil
+		return &WorkflowResult{Merge: mw, Namespace: namespace}, nil
 	}
 
 	instructions := renderInstructions(cfg.App.CommentInstructions, e.Body)
@@ -65,7 +71,7 @@ func (e Event) ToWorkflow(cfg *Config) (*WorkflowResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &WorkflowResult{Run: wf}, nil
+	return &WorkflowResult{Run: wf, Namespace: namespace}, nil
 }
 
 // renderInstructions renders the comment instructions template with the given comment body.

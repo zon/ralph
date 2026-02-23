@@ -74,12 +74,13 @@ func (w *Workflow) Render() (string, error) {
 }
 
 // Submit renders and submits this Workflow to Argo, returning the workflow name.
-func (w *Workflow) Submit() (string, error) {
+// namespace is required and determines the Kubernetes namespace for the workflow.
+func (w *Workflow) Submit(namespace string) (string, error) {
 	workflowYAML, err := w.Render()
 	if err != nil {
 		return "", err
 	}
-	return submitYAML(workflowYAML, w.RalphConfig, w.Watch)
+	return submitYAML(workflowYAML, w.RalphConfig, w.Watch, namespace)
 }
 
 func (w *Workflow) buildMainTemplate() map[string]interface{} {

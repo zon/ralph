@@ -20,7 +20,7 @@ func noopFetcher(_ context.Context, _, _ string) ([]string, error) {
 	return nil, nil
 }
 
-// TestConfigWebhookConfigFlagParsing tests flag parsing for the webhook-config command
+// TestConfigWebhookConfigFlagParsing tests flag parsing for the webhook command
 func TestConfigWebhookConfigFlagParsing(t *testing.T) {
 	tests := []struct {
 		name              string
@@ -32,35 +32,35 @@ func TestConfigWebhookConfigFlagParsing(t *testing.T) {
 	}{
 		{
 			name:              "defaults to ralph-webhook namespace",
-			args:              []string{"config", "webhook-config"},
+			args:              []string{"config", "webhook"},
 			expectedContext:   "",
 			expectedNamespace: "ralph-webhook",
 			expectedDryRun:    false,
 		},
 		{
 			name:              "custom context",
-			args:              []string{"config", "webhook-config", "--context", "my-cluster"},
+			args:              []string{"config", "webhook", "--context", "my-cluster"},
 			expectedContext:   "my-cluster",
 			expectedNamespace: "ralph-webhook",
 			expectedDryRun:    false,
 		},
 		{
 			name:              "custom namespace overrides default",
-			args:              []string{"config", "webhook-config", "--namespace", "my-ns"},
+			args:              []string{"config", "webhook", "--namespace", "my-ns"},
 			expectedContext:   "",
 			expectedNamespace: "my-ns",
 			expectedDryRun:    false,
 		},
 		{
 			name:              "dry-run flag",
-			args:              []string{"config", "webhook-config", "--dry-run"},
+			args:              []string{"config", "webhook", "--dry-run"},
 			expectedContext:   "",
 			expectedNamespace: "ralph-webhook",
 			expectedDryRun:    true,
 		},
 		{
 			name:              "all flags",
-			args:              []string{"config", "webhook-config", "--context", "ctx", "--namespace", "ns", "--dry-run"},
+			args:              []string{"config", "webhook", "--context", "ctx", "--namespace", "ns", "--dry-run"},
 			expectedContext:   "ctx",
 			expectedNamespace: "ns",
 			expectedDryRun:    true,
@@ -145,62 +145,109 @@ func TestConfigWebhookSecretFlagParsing(t *testing.T) {
 func TestBuildWebhookAppConfig(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("fills all defaults when starting from nil", func(t *testing.T) {
-		cfg := buildWebhookAppConfig(ctx, nil, "my-repo", "my-owner", "anthropic/claude-sonnet-4-6", "", noopFetcher)
+	t.Run("fills all defaults from nil base and nil updates", func(t *testing.T) {
+		cfg := buildWebhookAppConfig(ctx, nil, nil, "", "", "", noopFetcher)
 
 		assert.Equal(t, 8080, cfg.Port)
-		assert.Equal(t, "anthropic/claude-sonnet-4-6", cfg.Model)
 		assert.Equal(t, config.DefaultAppName+"[bot]", cfg.RalphUser)
-		require.Len(t, cfg.Repos, 1)
-		assert.Equal(t, "my-owner", cfg.Repos[0].Owner)
-		assert.Equal(t, "my-repo", cfg.Repos[0].Name)
+		assert.Empty(t, cfg.Repos)
 	})
 
-	t.Run("does not override existing port", func(t *testing.T) {
-		partial := &webhook.AppConfig{Port: 9090}
-		cfg := buildWebhookAppConfig(ctx, partial, "repo", "owner", "model", "", noopFetcher)
+	t.Run("preserves base repos when no updates", func(t *testing.T) {
+		base := &webhook.AppConfig{
+			Port: 9090,
+			Repos: []webhook.RepoConfig{
+				{Owner: "my-owner", Name: "my-repo", Namespace: "my-ns"},
+			},
+		}
+		cfg := buildWebhookAppConfig(ctx, base, nil, "", "", "", noopFetcher)
 
 		assert.Equal(t, 9090, cfg.Port)
-	})
-
-	t.Run("does not override existing model", func(t *testing.T) {
-		partial := &webhook.AppConfig{Model: "my-custom-model"}
-		cfg := buildWebhookAppConfig(ctx, partial, "repo", "owner", "default-model", "", noopFetcher)
-
-		assert.Equal(t, "my-custom-model", cfg.Model)
-	})
-
-	t.Run("does not duplicate existing repo", func(t *testing.T) {
-		partial := &webhook.AppConfig{
-			Repos: []webhook.RepoConfig{
-				{Owner: "my-owner", Name: "my-repo"},
-			},
-		}
-		cfg := buildWebhookAppConfig(ctx, partial, "my-repo", "my-owner", "model", "", noopFetcher)
-
 		require.Len(t, cfg.Repos, 1)
+		assert.Equal(t, "my-ns", cfg.Repos[0].Namespace)
 	})
 
-	t.Run("adds detected repo alongside existing repos", func(t *testing.T) {
-		partial := &webhook.AppConfig{
+	t.Run("updates replace matching base repos by owner/name", func(t *testing.T) {
+		base := &webhook.AppConfig{
 			Repos: []webhook.RepoConfig{
-				{Owner: "owner-a", Name: "repo-a"},
+				{Owner: "acme", Name: "repo-a", Namespace: "old-ns", AllowedUsers: []string{"alice"}},
+				{Owner: "acme", Name: "repo-b", Namespace: "ns-b"},
 			},
 		}
-		cfg := buildWebhookAppConfig(ctx, partial, "repo-b", "owner-b", "model", "", noopFetcher)
+		updates := &webhook.AppConfig{
+			Repos: []webhook.RepoConfig{
+				{Owner: "acme", Name: "repo-a", Namespace: "new-ns"},
+			},
+		}
+		cfg := buildWebhookAppConfig(ctx, base, updates, "", "", "", noopFetcher)
+
+		require.Len(t, cfg.Repos, 2)
+		assert.Equal(t, "new-ns", cfg.Repos[0].Namespace)
+		assert.Equal(t, "ns-b", cfg.Repos[1].Namespace)
+	})
+
+	t.Run("updates add new repos not in base", func(t *testing.T) {
+		base := &webhook.AppConfig{
+			Repos: []webhook.RepoConfig{
+				{Owner: "acme", Name: "repo-a", Namespace: "ns-a"},
+			},
+		}
+		updates := &webhook.AppConfig{
+			Repos: []webhook.RepoConfig{
+				{Owner: "acme", Name: "repo-b", Namespace: "ns-b"},
+			},
+		}
+		cfg := buildWebhookAppConfig(ctx, base, updates, "", "", "", noopFetcher)
 
 		require.Len(t, cfg.Repos, 2)
 		assert.Equal(t, "repo-a", cfg.Repos[0].Name)
 		assert.Equal(t, "repo-b", cfg.Repos[1].Name)
 	})
 
-	t.Run("skips repo detection when repoName is empty", func(t *testing.T) {
-		cfg := buildWebhookAppConfig(ctx, nil, "", "", "model", "zralphen", noopFetcher)
+	t.Run("updates override port from base", func(t *testing.T) {
+		base := &webhook.AppConfig{Port: 8080}
+		updates := &webhook.AppConfig{Port: 9090}
+		cfg := buildWebhookAppConfig(ctx, base, updates, "", "", "", noopFetcher)
 
-		assert.Empty(t, cfg.Repos)
+		assert.Equal(t, 9090, cfg.Port)
 	})
 
-	t.Run("loads from partial config file", func(t *testing.T) {
+	t.Run("auto-detected repo upserts into result", func(t *testing.T) {
+		cfg := buildWebhookAppConfig(ctx, nil, nil, "my-owner", "my-repo", "my-ns", noopFetcher)
+
+		require.Len(t, cfg.Repos, 1)
+		assert.Equal(t, "my-owner", cfg.Repos[0].Owner)
+		assert.Equal(t, "my-repo", cfg.Repos[0].Name)
+		assert.Equal(t, "my-ns", cfg.Repos[0].Namespace)
+	})
+
+	t.Run("auto-detected repo replaces existing entry", func(t *testing.T) {
+		base := &webhook.AppConfig{
+			Repos: []webhook.RepoConfig{
+				{Owner: "my-owner", Name: "my-repo", Namespace: "old-ns"},
+			},
+		}
+		cfg := buildWebhookAppConfig(ctx, base, nil, "my-owner", "my-repo", "new-ns", noopFetcher)
+
+		require.Len(t, cfg.Repos, 1)
+		assert.Equal(t, "new-ns", cfg.Repos[0].Namespace)
+	})
+
+	t.Run("auto-detected repo adds alongside existing repos", func(t *testing.T) {
+		base := &webhook.AppConfig{
+			Repos: []webhook.RepoConfig{
+				{Owner: "owner-a", Name: "repo-a", Namespace: "ns-a"},
+			},
+		}
+		cfg := buildWebhookAppConfig(ctx, base, nil, "owner-b", "repo-b", "ns-b", noopFetcher)
+
+		require.Len(t, cfg.Repos, 2)
+		assert.Equal(t, "repo-a", cfg.Repos[0].Name)
+		assert.Equal(t, "repo-b", cfg.Repos[1].Name)
+		assert.Equal(t, "ns-b", cfg.Repos[1].Namespace)
+	})
+
+	t.Run("loads from updates config file", func(t *testing.T) {
 		dir := t.TempDir()
 		partialYAML := "port: 7070\n"
 		path := filepath.Join(dir, "partial.yaml")
@@ -209,32 +256,31 @@ func TestBuildWebhookAppConfig(t *testing.T) {
 		loaded, err := webhook.LoadAppConfig(path)
 		require.NoError(t, err)
 
-		cfg := buildWebhookAppConfig(ctx, loaded, "my-repo", "my-owner", "default-model", "zralphen", noopFetcher)
+		cfg := buildWebhookAppConfig(ctx, nil, loaded, "", "", "", noopFetcher)
 
 		assert.Equal(t, 7070, cfg.Port)
-		assert.Equal(t, "default-model", cfg.Model)
 	})
 
 	t.Run("populates AllowedUsers from fetcher", func(t *testing.T) {
 		fetcher := func(_ context.Context, owner, repo string) ([]string, error) {
 			return []string{"alice", "bob"}, nil
 		}
-		cfg := buildWebhookAppConfig(ctx, nil, "my-repo", "my-owner", "model", "zralphen", fetcher)
+		cfg := buildWebhookAppConfig(ctx, nil, nil, "my-owner", "my-repo", "my-ns", fetcher)
 
 		require.Len(t, cfg.Repos, 1)
 		assert.Equal(t, []string{"alice", "bob"}, cfg.Repos[0].AllowedUsers)
 	})
 
-	t.Run("does not override existing AllowedUsers", func(t *testing.T) {
-		partial := &webhook.AppConfig{
+	t.Run("does not override existing AllowedUsers from base", func(t *testing.T) {
+		base := &webhook.AppConfig{
 			Repos: []webhook.RepoConfig{
-				{Owner: "my-owner", Name: "my-repo", AllowedUsers: []string{"existing-user"}},
+				{Owner: "my-owner", Name: "my-repo", Namespace: "my-ns", AllowedUsers: []string{"existing-user"}},
 			},
 		}
 		fetcher := func(_ context.Context, owner, repo string) ([]string, error) {
 			return []string{"alice", "bob"}, nil
 		}
-		cfg := buildWebhookAppConfig(ctx, partial, "my-repo", "my-owner", "model", "zralphen", fetcher)
+		cfg := buildWebhookAppConfig(ctx, base, nil, "", "", "", fetcher)
 
 		require.Len(t, cfg.Repos, 1)
 		assert.Equal(t, []string{"existing-user"}, cfg.Repos[0].AllowedUsers)
@@ -244,29 +290,31 @@ func TestBuildWebhookAppConfig(t *testing.T) {
 		fetcher := func(_ context.Context, owner, repo string) ([]string, error) {
 			return nil, fmt.Errorf("API error")
 		}
-		cfg := buildWebhookAppConfig(ctx, nil, "my-repo", "my-owner", "model", "", fetcher)
+		cfg := buildWebhookAppConfig(ctx, nil, nil, "my-owner", "my-repo", "my-ns", fetcher)
 
 		require.Len(t, cfg.Repos, 1)
 		assert.Empty(t, cfg.Repos[0].AllowedUsers)
 	})
 
 	t.Run("sets RalphUser to DefaultAppName[bot] by default", func(t *testing.T) {
-		cfg := buildWebhookAppConfig(ctx, nil, "my-repo", "my-owner", "model", "", noopFetcher)
+		cfg := buildWebhookAppConfig(ctx, nil, nil, "", "", "", noopFetcher)
 
 		assert.Equal(t, config.DefaultAppName+"[bot]", cfg.RalphUser)
 	})
 
-	t.Run("does not override existing RalphUser", func(t *testing.T) {
-		partial := &webhook.AppConfig{RalphUser: "existing-bot"}
-		cfg := buildWebhookAppConfig(ctx, partial, "my-repo", "my-owner", "model", "", noopFetcher)
+	t.Run("updates override base RalphUser", func(t *testing.T) {
+		base := &webhook.AppConfig{RalphUser: "base-bot"}
+		updates := &webhook.AppConfig{RalphUser: "new-bot"}
+		cfg := buildWebhookAppConfig(ctx, base, updates, "", "", "", noopFetcher)
+
+		assert.Equal(t, "new-bot", cfg.RalphUser)
+	})
+
+	t.Run("base RalphUser preserved when updates has none", func(t *testing.T) {
+		base := &webhook.AppConfig{RalphUser: "existing-bot"}
+		cfg := buildWebhookAppConfig(ctx, base, nil, "", "", "", noopFetcher)
 
 		assert.Equal(t, "existing-bot", cfg.RalphUser)
-	})
-
-	t.Run("always sets RalphUser to DefaultAppName[bot] when empty", func(t *testing.T) {
-		cfg := buildWebhookAppConfig(ctx, nil, "my-repo", "my-owner", "model", "", noopFetcher)
-
-		assert.Equal(t, config.DefaultAppName+"[bot]", cfg.RalphUser)
 	})
 }
 

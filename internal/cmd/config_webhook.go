@@ -83,18 +83,47 @@ func fetchRepoCollaborators(ctx context.Context, owner, repo string) ([]string, 
 	return logins, nil
 }
 
-// buildWebhookAppConfig builds an AppConfig with defaults filled in.
-// partialConfig is an optional starting point (may be nil).
-// repoName and repoOwner are the detected GitHub repo details.
-// model is the AI model from .ralph/config.yaml.
-// githubUser is the GitHub username from .ralph/config.yaml set as RalphUser.
+// mergeRepo upserts a RepoConfig into the repos slice, replacing any existing entry
+// with the same owner/name. Returns the updated slice.
+func mergeRepo(repos []webhook.RepoConfig, incoming webhook.RepoConfig) []webhook.RepoConfig {
+	for i, r := range repos {
+		if r.Owner == incoming.Owner && r.Name == incoming.Name {
+			repos[i] = incoming
+			return repos
+		}
+	}
+	return append(repos, incoming)
+}
+
+// buildWebhookAppConfig builds an AppConfig by layering updates onto a base config.
+// base is the existing config (e.g. read from the k8s configmap); may be nil.
+// updates is an optional set of changes to apply on top (e.g. from --config flag); may be nil.
+// Repos in updates replace matching repos in base (by owner/name); new repos are appended.
+// repoOwner, repoName, and repoNamespace are the auto-detected repo details; if non-empty,
+// this repo is upserted last (so it can be updated without a --config file).
 // fetcher is the function used to look up repo collaborators (injectable for tests).
-func buildWebhookAppConfig(ctx context.Context, partialConfig *webhook.AppConfig, repoName, repoOwner, model, githubUser string, fetcher func(context.Context, string, string) ([]string, error)) webhook.AppConfig {
+func buildWebhookAppConfig(ctx context.Context, base, updates *webhook.AppConfig, repoOwner, repoName, repoNamespace string, fetcher func(context.Context, string, string) ([]string, error)) webhook.AppConfig {
 	var cfg webhook.AppConfig
 
-	// Start with partial config if provided
-	if partialConfig != nil {
-		cfg = *partialConfig
+	// Start from base (existing configmap contents)
+	if base != nil {
+		cfg = *base
+	}
+
+	// Apply updates on top: scalar fields and repo upserts
+	if updates != nil {
+		if updates.Port != 0 {
+			cfg.Port = updates.Port
+		}
+		if updates.RalphUser != "" {
+			cfg.RalphUser = updates.RalphUser
+		}
+		if updates.CommentInstructionsFile != "" {
+			cfg.CommentInstructionsFile = updates.CommentInstructionsFile
+		}
+		for _, r := range updates.Repos {
+			cfg.Repos = mergeRepo(cfg.Repos, r)
+		}
 	}
 
 	// Fill in port default
@@ -102,31 +131,18 @@ func buildWebhookAppConfig(ctx context.Context, partialConfig *webhook.AppConfig
 		cfg.Port = 8080
 	}
 
-	// Fill in model from .ralph/config.yaml if not set
-	if cfg.Model == "" {
-		cfg.Model = model
-	}
-
 	// Set the ralph bot user if not already configured
 	if cfg.RalphUser == "" {
 		cfg.RalphUser = config.DefaultAppName + "[bot]"
 	}
 
-	// Auto-add repo if detected and not already present
-	if repoName != "" && repoOwner != "" {
-		found := false
-		for _, r := range cfg.Repos {
-			if r.Owner == repoOwner && r.Name == repoName {
-				found = true
-				break
-			}
-		}
-		if !found {
-			cfg.Repos = append(cfg.Repos, webhook.RepoConfig{
-				Owner: repoOwner,
-				Name:  repoName,
-			})
-		}
+	// Upsert auto-detected repo
+	if repoOwner != "" && repoName != "" {
+		cfg.Repos = mergeRepo(cfg.Repos, webhook.RepoConfig{
+			Owner:     repoOwner,
+			Name:      repoName,
+			Namespace: repoNamespace,
+		})
 	}
 
 	// Populate AllowedUsers for repos that don't already have them configured.
@@ -144,7 +160,7 @@ func buildWebhookAppConfig(ctx context.Context, partialConfig *webhook.AppConfig
 	return cfg
 }
 
-// Run executes the config webhook-config command
+// Run executes the config webhook command
 func (c *ConfigWebhookConfigCmd) Run() error {
 	ctx := context.Background()
 
@@ -165,17 +181,25 @@ func (c *ConfigWebhookConfigCmd) Run() error {
 
 	namespace := c.Namespace
 
-	// Load optional partial config
-	var partialConfig *webhook.AppConfig
+	// Read existing configmap as the base (ignore error if it doesn't exist yet)
+	var base *webhook.AppConfig
+	if existing, err := readWebhookConfigFromK8s(ctx, namespace, kubeContext); err != nil {
+		logger.Warningf("Could not read existing configmap '%s': %v (starting from scratch)", webhookConfigMapName, err)
+	} else {
+		base = existing
+	}
+
+	// Load optional updates from --config flag
+	var updates *webhook.AppConfig
 	if c.Config != "" {
 		loaded, err := webhook.LoadAppConfig(c.Config)
 		if err != nil {
 			return fmt.Errorf("failed to load partial config: %w", err)
 		}
-		partialConfig = loaded
+		updates = loaded
 	}
 
-	// Auto-detect repo from git remote
+	// Auto-detect repo and namespace from the working directory
 	repoName, repoOwner, err := github.GetRepo(ctx)
 	if err != nil {
 		logger.Warningf("Failed to detect GitHub repository: %v (skipping repo auto-detection)", err)
@@ -183,17 +207,18 @@ func (c *ConfigWebhookConfigCmd) Run() error {
 		repoOwner = ""
 	}
 
-	// Load model from .ralph/config.yaml
-	model := ""
-	ralphConfig, err := config.LoadConfig()
-	if err != nil {
-		logger.Warningf("Failed to load .ralph/config.yaml: %v", err)
-	} else if ralphConfig != nil {
-		model = ralphConfig.Model
+	var repoNamespace string
+	if repoOwner != "" && repoName != "" {
+		ralphCfg, err := config.LoadConfig()
+		if err != nil {
+			logger.Warningf("Failed to load .ralph/config.yaml: %v (namespace will be empty)", err)
+		} else {
+			repoNamespace = ralphCfg.Workflow.Namespace
+		}
 	}
 
-	// Build AppConfig with defaults filled in
-	appCfg := buildWebhookAppConfig(ctx, partialConfig, repoName, repoOwner, model, "", collaboratorsFetcher)
+	// Build AppConfig by merging base → updates → auto-detected repo
+	appCfg := buildWebhookAppConfig(ctx, base, updates, repoOwner, repoName, repoNamespace, collaboratorsFetcher)
 
 	// Serialize to YAML
 	cfgBytes, err := yaml.Marshal(appCfg)

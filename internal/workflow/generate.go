@@ -168,14 +168,9 @@ func resolveImage(cfg *config.RalphConfig) string {
 
 // submitYAML submits a raw YAML string to Argo and returns the workflow name.
 // This is the shared implementation used by Workflow.Submit and MergeWorkflow.Submit.
-func submitYAML(workflowYAML string, ralphConfig *config.RalphConfig, watch bool) (string, error) {
+func submitYAML(workflowYAML string, ralphConfig *config.RalphConfig, watch bool, namespace string) (string, error) {
 	if _, err := exec.LookPath("argo"); err != nil {
 		return "", fmt.Errorf("argo CLI not found - please install Argo CLI to use remote execution: https://github.com/argoproj/argo-workflows/releases")
-	}
-
-	namespace := ralphConfig.Workflow.Namespace
-	if namespace == "" {
-		namespace = "default"
 	}
 
 	args := []string{"submit", "-", "-n", namespace}

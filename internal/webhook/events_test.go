@@ -140,6 +140,52 @@ func TestToWorkflow_RunWorkflow_RendersToYAML(t *testing.T) {
 	assert.Contains(t, yaml, "ralph/my-feature")
 }
 
+func TestToWorkflow_NamespacePropagated(t *testing.T) {
+	workflowTestDir(t)
+
+	cfg := &Config{
+		App: AppConfig{
+			CommentInstructions: internalconfig.DefaultCommentInstructions,
+			Repos: []RepoConfig{
+				{Owner: "acme", Name: "myrepo", Namespace: "team-ns"},
+			},
+		},
+	}
+	e := Event{
+		Body:      "fix something",
+		PRBranch:  "ralph/my-feature",
+		RepoOwner: "acme",
+		RepoName:  "myrepo",
+	}
+
+	result, err := e.ToWorkflow(cfg)
+	require.NoError(t, err)
+	assert.Equal(t, "team-ns", result.Namespace)
+}
+
+func TestToWorkflow_Namespace_EmptyWhenNotConfigured(t *testing.T) {
+	workflowTestDir(t)
+
+	cfg := &Config{
+		App: AppConfig{
+			CommentInstructions: internalconfig.DefaultCommentInstructions,
+			Repos: []RepoConfig{
+				{Owner: "acme", Name: "myrepo"},
+			},
+		},
+	}
+	e := Event{
+		Body:      "fix something",
+		PRBranch:  "ralph/my-feature",
+		RepoOwner: "acme",
+		RepoName:  "myrepo",
+	}
+
+	result, err := e.ToWorkflow(cfg)
+	require.NoError(t, err)
+	assert.Equal(t, "", result.Namespace)
+}
+
 func TestToWorkflow_MergeWorkflow_RendersToYAML(t *testing.T) {
 	workflowTestDir(t)
 

@@ -627,7 +627,7 @@ func TestSubmitWorkflow_ArgoNotInstalled(t *testing.T) {
 	defer os.Setenv("PATH", origPath)
 	os.Setenv("PATH", "")
 
-	_, err := wf.Submit()
+	_, err := wf.Submit("test-namespace")
 	if err == nil {
 		t.Error("Expected error when argo CLI is not installed, got nil")
 	}

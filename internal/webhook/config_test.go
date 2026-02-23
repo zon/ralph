@@ -18,12 +18,13 @@ func writeFile(t *testing.T, dir, name, content string) string {
 
 const validAppConfig = `
 port: 8080
-model: anthropic/claude-sonnet-4-6
 repos:
   - owner: acme
     name: my-service
+    namespace: ns-a
   - owner: acme
     name: another-service
+    namespace: ns-b
 `
 
 const validSecrets = `
@@ -45,7 +46,6 @@ func TestLoadAppConfig(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, 8080, cfg.Port)
-		assert.Equal(t, "anthropic/claude-sonnet-4-6", cfg.Model)
 		require.Len(t, cfg.Repos, 2)
 		assert.Equal(t, "acme", cfg.Repos[0].Owner)
 		assert.Equal(t, "my-service", cfg.Repos[0].Name)
@@ -176,7 +176,7 @@ func TestValidateConfig(t *testing.T) {
 			App: AppConfig{
 				Port: 8080,
 				Repos: []RepoConfig{
-					{Owner: "acme", Name: "my-service"},
+					{Owner: "acme", Name: "my-service", Namespace: "team-ns"},
 				},
 			},
 			Secrets: Secrets{
@@ -190,12 +190,32 @@ func TestValidateConfig(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("error when repo has no webhook secret", func(t *testing.T) {
+	t.Run("error when repo has no namespace", func(t *testing.T) {
 		cfg := &Config{
 			App: AppConfig{
 				Repos: []RepoConfig{
 					{Owner: "acme", Name: "my-service"},
-					{Owner: "acme", Name: "other-service"},
+				},
+			},
+			Secrets: Secrets{
+				Repos: []RepoSecret{
+					{Owner: "acme", Name: "my-service", WebhookSecret: "secret"},
+				},
+			},
+		}
+
+		err := ValidateConfig(cfg)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "namespace is required")
+		assert.Contains(t, err.Error(), "acme/my-service")
+	})
+
+	t.Run("error when repo has no webhook secret", func(t *testing.T) {
+		cfg := &Config{
+			App: AppConfig{
+				Repos: []RepoConfig{
+					{Owner: "acme", Name: "my-service", Namespace: "ns-a"},
+					{Owner: "acme", Name: "other-service", Namespace: "ns-b"},
 				},
 			},
 			Secrets: Secrets{
@@ -294,6 +314,26 @@ func TestIsUserIgnored(t *testing.T) {
 			assert.Equal(t, tc.want, got)
 		})
 	}
+}
+
+func TestRepoConfig_Namespace(t *testing.T) {
+	const configWithNamespace = `
+port: 8080
+repos:
+  - owner: acme
+    name: my-service
+    namespace: team-ns
+  - owner: acme
+    name: another-service
+`
+	dir := t.TempDir()
+	path := writeFile(t, dir, "config.yaml", configWithNamespace)
+
+	cfg, err := LoadAppConfig(path)
+	require.NoError(t, err)
+
+	assert.Equal(t, "team-ns", cfg.Repos[0].Namespace)
+	assert.Equal(t, "", cfg.Repos[1].Namespace)
 }
 
 func TestRepoByFullName(t *testing.T) {

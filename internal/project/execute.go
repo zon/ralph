@@ -251,7 +251,7 @@ func executeRemote(ctx *context.Context, absProjectFile string) error {
 	}
 
 	// Submit workflow
-	workflowName, err := wf.Submit()
+	workflowName, err := wf.Submit(wf.RalphConfig.Workflow.Namespace)
 	if err != nil {
 		return fmt.Errorf("failed to submit workflow: %w", err)
 	}
@@ -259,11 +259,7 @@ func executeRemote(ctx *context.Context, absProjectFile string) error {
 	logger.Successf("Workflow submitted: %s", workflowName)
 
 	if !ctx.ShouldWatch() {
-		namespace := wf.RalphConfig.Workflow.Namespace
-		if namespace == "" {
-			namespace = "default"
-		}
-		logger.Infof("To watch logs, run: argo logs -n %s -f %s", namespace, workflowName)
+		logger.Infof("To watch logs, run: argo logs -n %s -f %s", wf.RalphConfig.Workflow.Namespace, workflowName)
 	}
 
 	return nil
