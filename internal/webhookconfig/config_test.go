@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zon/ralph/internal/config"
 )
 
 func writeFile(t *testing.T, dir, name, content string) string {
@@ -72,7 +73,7 @@ func TestLoadAppConfig(t *testing.T) {
 
 		cfg, err := LoadAppConfig(path)
 		require.NoError(t, err)
-		assert.Equal(t, DefaultCommentInstructions, cfg.CommentInstructions)
+		assert.Equal(t, config.DefaultCommentInstructions, cfg.CommentInstructions)
 	})
 
 	t.Run("defaults to embedded merge instructions", func(t *testing.T) {
@@ -81,7 +82,7 @@ func TestLoadAppConfig(t *testing.T) {
 
 		cfg, err := LoadAppConfig(path)
 		require.NoError(t, err)
-		assert.Equal(t, DefaultMergeInstructions, cfg.MergeInstructions)
+		assert.Equal(t, config.DefaultMergeInstructions, cfg.MergeInstructions)
 	})
 
 	t.Run("loads comment instructions from file", func(t *testing.T) {

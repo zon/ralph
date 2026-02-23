@@ -97,8 +97,36 @@ func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL,
 	}, nil
 }
 
+// GenerateCommentWorkflowWithGitInfo builds a Workflow for a comment-triggered event.
+// The container script will call `ralph comment` with the provided body and PR number.
+func GenerateCommentWorkflowWithGitInfo(projectName, repoURL, cloneBranch, projectBranch, relProjectPath, commentBody, prNumber string) (*Workflow, error) {
+	ralphConfig, err := config.LoadConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load config: %w", err)
+	}
+
+	repoName, repoOwner, err := githubpkg.ParseGitHubRemoteURL(repoURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse repository from URL: %w", err)
+	}
+
+	return &Workflow{
+		ProjectName:   projectName,
+		RepoURL:       repoURL,
+		RepoOwner:     repoOwner,
+		RepoName:      repoName,
+		CloneBranch:   cloneBranch,
+		ProjectBranch: projectBranch,
+		ProjectPath:   relProjectPath,
+		CommentBody:   commentBody,
+		PRNumber:      prNumber,
+		Watch:         false,
+		RalphConfig:   ralphConfig,
+	}, nil
+}
+
 // GenerateMergeWorkflow builds a MergeWorkflow, detecting git info from the local repository.
-func GenerateMergeWorkflow(projectFile, prBranch string) (*MergeWorkflow, error) {
+func GenerateMergeWorkflow(prBranch string) (*MergeWorkflow, error) {
 	rawRemoteURL, err := getRemoteURL()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get remote URL: %w", err)
@@ -110,27 +138,12 @@ func GenerateMergeWorkflow(projectFile, prBranch string) (*MergeWorkflow, error)
 		return nil, fmt.Errorf("failed to get current branch: %w", err)
 	}
 
-	repoRoot, err := getRepoRoot()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get repository root: %w", err)
-	}
-
-	absProjectFile, err := filepath.Abs(projectFile)
-	if err != nil {
-		return nil, fmt.Errorf("failed to resolve project file path: %w", err)
-	}
-
-	relProjectPath, err := filepath.Rel(repoRoot, absProjectFile)
-	if err != nil {
-		return nil, fmt.Errorf("failed to calculate relative project path: %w", err)
-	}
-
-	return GenerateMergeWorkflowWithGitInfo(remoteURL, currentBranch, prBranch, relProjectPath)
+	return GenerateMergeWorkflowWithGitInfo(remoteURL, currentBranch, prBranch)
 }
 
 // GenerateMergeWorkflowWithGitInfo builds a MergeWorkflow with provided git information.
 // This allows for easier testing by accepting git info as parameters.
-func GenerateMergeWorkflowWithGitInfo(repoURL, cloneBranch, prBranch, relProjectPath string) (*MergeWorkflow, error) {
+func GenerateMergeWorkflowWithGitInfo(repoURL, cloneBranch, prBranch string) (*MergeWorkflow, error) {
 	ralphConfig, err := config.LoadConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)
@@ -147,7 +160,6 @@ func GenerateMergeWorkflowWithGitInfo(repoURL, cloneBranch, prBranch, relProject
 		RepoName:    repoName,
 		CloneBranch: cloneBranch,
 		PRBranch:    prBranch,
-		ProjectPath: relProjectPath,
 		Watch:       false,
 		RalphConfig: ralphConfig,
 	}, nil

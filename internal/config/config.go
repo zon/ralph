@@ -12,6 +12,12 @@ import (
 //go:embed default-instructions.md
 var defaultInstructions string
 
+//go:embed comment-instructions.md
+var DefaultCommentInstructions string
+
+//go:embed merge-instructions.md
+var DefaultMergeInstructions string
+
 
 // Project represents a project YAML file with requirements
 type Project struct {
@@ -96,7 +102,9 @@ type RalphConfig struct {
 	Services      []Service      `yaml:"services,omitempty"`
 	Workflow      WorkflowConfig `yaml:"workflow,omitempty"`
 	App           AppInfo        `yaml:"app,omitempty"`
-	Instructions  string         `yaml:"-"` // Not persisted in YAML, loaded from .ralph/instructions.md
+	Instructions        string `yaml:"-"` // Not persisted in YAML, loaded from .ralph/instructions.md
+	CommentInstructions string `yaml:"-"` // Not persisted in YAML, loaded from .ralph/comment-instructions.md
+	MergeInstructions   string `yaml:"-"` // Not persisted in YAML, loaded from .ralph/merge-instructions.md
 }
 
 // LoadProject loads and validates a project YAML file
@@ -200,6 +208,22 @@ func LoadConfig() (*RalphConfig, error) {
 		config.Instructions = string(instructionsData)
 	} else {
 		config.Instructions = defaultInstructions
+	}
+
+	// Load comment instructions from .ralph/comment-instructions.md or use default
+	commentInstructionsPath := filepath.Join(cwd, ".ralph", "comment-instructions.md")
+	if data, err := os.ReadFile(commentInstructionsPath); err == nil {
+		config.CommentInstructions = string(data)
+	} else {
+		config.CommentInstructions = DefaultCommentInstructions
+	}
+
+	// Load merge instructions from .ralph/merge-instructions.md or use default
+	mergeInstructionsPath := filepath.Join(cwd, ".ralph", "merge-instructions.md")
+	if data, err := os.ReadFile(mergeInstructionsPath); err == nil {
+		config.MergeInstructions = string(data)
+	} else {
+		config.MergeInstructions = DefaultMergeInstructions
 	}
 
 	return &config, nil

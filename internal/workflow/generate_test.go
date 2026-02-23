@@ -409,7 +409,7 @@ requirements:
 	cloneBranch := "main"
 	prBranch := "ralph/test-project"
 
-	mw, err := GenerateMergeWorkflowWithGitInfo(repoURL, cloneBranch, prBranch, "project.yaml")
+	mw, err := GenerateMergeWorkflowWithGitInfo(repoURL, cloneBranch, prBranch)
 	if err != nil {
 		t.Fatalf("GenerateMergeWorkflowWithGitInfo failed: %v", err)
 	}
@@ -460,32 +460,6 @@ requirements:
 	}
 	if podGC["strategy"] != "OnWorkflowCompletion" {
 		t.Errorf("podGC.strategy = %v, want OnWorkflowCompletion", podGC["strategy"])
-	}
-
-	arguments, ok := spec["arguments"].(map[string]interface{})
-	if !ok {
-		t.Fatal("arguments is not a map")
-	}
-	params, ok := arguments["parameters"].([]interface{})
-	if !ok {
-		t.Fatal("parameters is not a list")
-	}
-
-	hasProjectPath := false
-	for _, p := range params {
-		pm, ok := p.(map[string]interface{})
-		if !ok {
-			continue
-		}
-		if pm["name"] == "project-path" {
-			hasProjectPath = true
-			if pm["value"] != "project.yaml" {
-				t.Errorf("project-path = %v, want project.yaml", pm["value"])
-			}
-		}
-	}
-	if !hasProjectPath {
-		t.Error("project-path parameter not found")
 	}
 
 	templates, ok := spec["templates"].([]interface{})
@@ -595,7 +569,7 @@ requirements:
 		t.Fatalf("Failed to change to temp directory: %v", err)
 	}
 
-	mw, err := GenerateMergeWorkflowWithGitInfo("git@github.com:test/repo.git", "main", "ralph/test", "project.yaml")
+	mw, err := GenerateMergeWorkflowWithGitInfo("git@github.com:test/repo.git", "main", "ralph/test")
 	if err != nil {
 		t.Fatalf("GenerateMergeWorkflowWithGitInfo failed: %v", err)
 	}

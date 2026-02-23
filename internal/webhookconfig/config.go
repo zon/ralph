@@ -1,19 +1,13 @@
 package webhookconfig
 
 import (
-	_ "embed"
 	"fmt"
 	"os"
 	"strings"
 
+	"github.com/zon/ralph/internal/config"
 	"gopkg.in/yaml.v3"
 )
-
-//go:embed comment-instructions.md
-var DefaultCommentInstructions string
-
-//go:embed merge-instructions.md
-var DefaultMergeInstructions string
 
 // RepoConfig represents a single repository entry in the app config
 type RepoConfig struct {
@@ -72,7 +66,7 @@ func LoadAppConfig(path string) (*AppConfig, error) {
 		}
 		cfg.CommentInstructions = string(instrData)
 	} else {
-		cfg.CommentInstructions = DefaultCommentInstructions
+		cfg.CommentInstructions = config.DefaultCommentInstructions
 	}
 
 	if cfg.MergeInstructionsFile != "" {
@@ -82,7 +76,7 @@ func LoadAppConfig(path string) (*AppConfig, error) {
 		}
 		cfg.MergeInstructions = string(instrData)
 	} else {
-		cfg.MergeInstructions = DefaultMergeInstructions
+		cfg.MergeInstructions = config.DefaultMergeInstructions
 	}
 
 	return &cfg, nil

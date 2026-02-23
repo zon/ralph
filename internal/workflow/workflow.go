@@ -25,6 +25,11 @@ type Workflow struct {
 	ProjectPath string
 	// Instructions is the contents of the instructions file to inject into the container (may be empty).
 	Instructions string
+	// CommentBody is the raw PR comment body for comment-triggered workflows.
+	// When set, the container script calls `ralph comment` instead of `ralph run`.
+	CommentBody string
+	// PRNumber is the pull request number, used with CommentBody for ralph comment invocations.
+	PRNumber string
 	// DryRun controls whether the ralph command inside the container runs with --dry-run.
 	DryRun bool
 	// Verbose controls whether the ralph command inside the container runs with --verbose.
@@ -40,6 +45,8 @@ func (w *Workflow) Render() (string, error) {
 	params := map[string]string{
 		"project-path":    w.ProjectPath,
 		"instructions-md": w.Instructions,
+		"comment-body":    w.CommentBody,
+		"pr-number":       w.PRNumber,
 	}
 
 	wf := map[string]interface{}{
@@ -83,13 +90,21 @@ func (w *Workflow) Submit(namespace string) (string, error) {
 	return submitYAML(workflowYAML, w.RalphConfig, w.Watch, namespace)
 }
 
+// buildScript returns the appropriate shell script for this workflow type.
+func (w *Workflow) buildScript() string {
+	if w.CommentBody != "" {
+		return buildCommentScript(w.DryRun, w.Verbose)
+	}
+	return buildRunScript(w.DryRun, w.Verbose, w.RalphConfig)
+}
+
 func (w *Workflow) buildMainTemplate() map[string]interface{} {
 	return map[string]interface{}{
 		"name": "ralph-executor",
 		"container": map[string]interface{}{
 			"image":        resolveImage(w.RalphConfig),
 			"command":      []string{"/bin/sh", "-c"},
-			"args":         []string{buildExecutionScript(w.DryRun, w.Verbose, w.RalphConfig)},
+			"args":         []string{w.buildScript()},
 			"env":          w.buildEnvVars(),
 			"volumeMounts": buildVolumeMounts(w.RalphConfig),
 			"workingDir":   "/workspace",
@@ -107,6 +122,8 @@ func (w *Workflow) buildEnvVars() []map[string]interface{} {
 		{"name": "PROJECT_BRANCH", "value": w.ProjectBranch},
 		{"name": "PROJECT_PATH", "value": "{{workflow.parameters.project-path}}"},
 		{"name": "INSTRUCTIONS_MD", "value": "{{workflow.parameters.instructions-md}}"},
+		{"name": "COMMENT_BODY", "value": "{{workflow.parameters.comment-body}}"},
+		{"name": "PR_NUMBER", "value": "{{workflow.parameters.pr-number}}"},
 		{"name": "RALPH_WORKFLOW_EXECUTION", "value": "true"},
 		{"name": "BASE_BRANCH", "value": w.RalphConfig.BaseBranch},
 	}

@@ -1,12 +1,9 @@
 package webhook
 
 import (
-	"bytes"
 	"path/filepath"
 	"strings"
-	"text/template"
 
-	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/webhookconfig"
 	"github.com/zon/ralph/internal/workflow"
 )
@@ -41,8 +38,8 @@ type WorkflowResult struct {
 }
 
 // ToWorkflow converts the event into an Argo Workflow.
-// cfg supplies the comment instructions template for run (comment) events;
-// it is unused for approval (merge) events.
+// Comment events produce a Run workflow that calls `ralph comment`.
+// Approval events produce a MergeWorkflow that calls `ralph merge --local`.
 func (e Event) ToWorkflow(cfg *webhookconfig.Config) (*WorkflowResult, error) {
 	projectFile := projectFileFromBranch(e.PRBranch)
 	repoURL := "https://github.com/" + e.RepoOwner + "/" + e.RepoName + ".git"
@@ -53,53 +50,23 @@ func (e Event) ToWorkflow(cfg *webhookconfig.Config) (*WorkflowResult, error) {
 	}
 
 	if e.Approved {
-		mw, err := workflow.GenerateMergeWorkflowWithGitInfo(repoURL, e.PRBranch, e.PRBranch, projectFile)
+		mw, err := workflow.GenerateMergeWorkflowWithGitInfo(repoURL, e.PRBranch, e.PRBranch)
 		if err != nil {
 			return nil, err
 		}
-		mw.Instructions = renderInstructions(cfg.App.MergeInstructions, e)
+		mw.PRNumber = e.PRNumber
 		return &WorkflowResult{Merge: mw, Namespace: namespace}, nil
 	}
 
-	instructions := renderInstructions(cfg.App.CommentInstructions, e)
 	projectName := strings.TrimSuffix(filepath.Base(projectFile), filepath.Ext(projectFile))
-	ctx := &execcontext.Context{
-		ProjectFile:    projectFile,
-		Repo:           e.RepoOwner + "/" + e.RepoName,
-		NoNotify:       true,
-		InstructionsMD: instructions,
-	}
-	wf, err := workflow.GenerateWorkflowWithGitInfo(ctx, projectName, repoURL, e.PRBranch, e.PRBranch, projectFile, false, false)
+	wf, err := workflow.GenerateCommentWorkflowWithGitInfo(
+		projectName, repoURL, e.PRBranch, e.PRBranch, projectFile,
+		e.Body, e.PRNumber,
+	)
 	if err != nil {
 		return nil, err
 	}
 	return &WorkflowResult{Run: wf, Namespace: namespace}, nil
-}
-
-// renderInstructions renders the comment instructions template with event context.
-func renderInstructions(tmplText string, e Event) string {
-	tmpl, err := template.New("comment").Parse(tmplText)
-	if err != nil {
-		return tmplText + "\n\n" + e.Body
-	}
-	data := struct {
-		CommentBody string
-		PRNumber    string
-		PRBranch    string
-		RepoOwner   string
-		RepoName    string
-	}{
-		CommentBody: e.Body,
-		PRNumber:    e.PRNumber,
-		PRBranch:    e.PRBranch,
-		RepoOwner:   e.RepoOwner,
-		RepoName:    e.RepoName,
-	}
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, data); err != nil {
-		return tmplText + "\n\n" + e.Body
-	}
-	return buf.String()
 }
 
 // projectFileFromBranch derives the project file path from the PR head branch name.
@@ -117,4 +84,3 @@ func projectFileFromBranch(branch string) string {
 	}
 	return filepath.Join("projects", projectName+".yaml")
 }
-

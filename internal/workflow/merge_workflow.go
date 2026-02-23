@@ -20,10 +20,8 @@ type MergeWorkflow struct {
 	CloneBranch string
 	// PRBranch is the PR branch to merge.
 	PRBranch string
-	// ProjectPath is the relative path to the project YAML file inside the repo.
-	ProjectPath string
-	// Instructions is the rendered merge instructions (may be empty).
-	Instructions string
+	// PRNumber is the pull request number, passed to ralph merge --local.
+	PRNumber string
 	// Watch controls whether argo submit is called with --watch.
 	Watch bool
 	// RalphConfig supplies workflow-level configuration.
@@ -46,11 +44,6 @@ func (m *MergeWorkflow) Render() (string, error) {
 			"podGC": map[string]interface{}{
 				"strategy":            "OnWorkflowCompletion",
 				"deleteDelayDuration": "10m",
-			},
-			"arguments": map[string]interface{}{
-				"parameters": []map[string]interface{}{
-					{"name": "project-path", "value": m.ProjectPath},
-				},
 			},
 			"templates": []interface{}{
 				m.buildMergeTemplate(),
@@ -88,7 +81,7 @@ func (m *MergeWorkflow) buildMergeTemplate() map[string]interface{} {
 				{"name": "GITHUB_REPO_NAME", "value": m.RepoName},
 				{"name": "GIT_BRANCH", "value": m.CloneBranch},
 				{"name": "PR_BRANCH", "value": m.PRBranch},
-				{"name": "PROJECT_PATH", "value": "{{workflow.parameters.project-path}}"},
+				{"name": "PR_NUMBER", "value": m.PRNumber},
 			},
 			"volumeMounts": []map[string]interface{}{
 				{"name": "github-credentials", "mountPath": "/secrets/github", "readOnly": true},
