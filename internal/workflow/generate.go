@@ -64,20 +64,16 @@ func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL,
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
-	var configYAML string
 	cwd, err := os.Getwd()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get working directory: %w", err)
 	}
-	if data, err := os.ReadFile(filepath.Join(cwd, ".ralph", "config.yaml")); err == nil {
-		configYAML = string(data)
-	}
 
-	var instructionsMD string
+	var instructions string
 	if ctx.InstructionsMD != "" {
-		instructionsMD = ctx.InstructionsMD
+		instructions = ctx.InstructionsMD
 	} else if data, err := os.ReadFile(filepath.Join(cwd, ".ralph", "instructions.md")); err == nil {
-		instructionsMD = string(data)
+		instructions = string(data)
 	}
 
 	repoName, repoOwner, err := githubpkg.ParseGitHubRemoteURL(repoURL)
@@ -85,7 +81,20 @@ func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL,
 		return nil, fmt.Errorf("failed to parse repository from URL: %w", err)
 	}
 
-	return newWorkflow(projectName, repoURL, repoOwner, repoName, cloneBranch, projectBranch, relProjectPath, instructionsMD, configYAML, ralphConfig, dryRun, verbose, ctx.ShouldWatch()), nil
+	return &Workflow{
+		ProjectName:   projectName,
+		RepoURL:       repoURL,
+		RepoOwner:     repoOwner,
+		RepoName:      repoName,
+		CloneBranch:   cloneBranch,
+		ProjectBranch: projectBranch,
+		ProjectPath:   relProjectPath,
+		Instructions:  instructions,
+		DryRun:        dryRun,
+		Verbose:       verbose,
+		Watch:         ctx.ShouldWatch(),
+		RalphConfig:   ralphConfig,
+	}, nil
 }
 
 // GenerateMergeWorkflow builds a MergeWorkflow, detecting git info from the local repository.
@@ -132,43 +141,16 @@ func GenerateMergeWorkflowWithGitInfo(repoURL, cloneBranch, prBranch, relProject
 		return nil, fmt.Errorf("failed to parse repository from URL: %w", err)
 	}
 
-	return newMergeWorkflow(repoURL, repoOwner, repoName, cloneBranch, prBranch, relProjectPath, ralphConfig, false), nil
-}
-
-// newWorkflow constructs a Workflow from the provided inputs, resolving image from config.
-func newWorkflow(projectName, repoURL, repoOwner, repoName, cloneBranch, projectBranch, relProjectPath string, instructionsMD, configYAML string, ralphConfig *config.RalphConfig, dryRun, verbose, watch bool) *Workflow {
-	return &Workflow{
-		ProjectName:    projectName,
-		Image:          resolveImage(ralphConfig),
-		RepoURL:        repoURL,
-		RepoOwner:      repoOwner,
-		RepoName:       repoName,
-		CloneBranch:    cloneBranch,
-		ProjectBranch:  projectBranch,
-		ProjectPath:    relProjectPath,
-		ConfigYAML:     configYAML,
-		InstructionsMD: instructionsMD,
-		BaseBranch:     ralphConfig.BaseBranch,
-		DryRun:         dryRun,
-		Verbose:        verbose,
-		Watch:          watch,
-		RalphConfig:    ralphConfig,
-	}
-}
-
-// newMergeWorkflow constructs a MergeWorkflow from the provided inputs.
-func newMergeWorkflow(repoURL, repoOwner, repoName, cloneBranch, prBranch, relProjectPath string, ralphConfig *config.RalphConfig, watch bool) *MergeWorkflow {
 	return &MergeWorkflow{
-		Image:       resolveImage(ralphConfig),
 		RepoURL:     repoURL,
 		RepoOwner:   repoOwner,
 		RepoName:    repoName,
 		CloneBranch: cloneBranch,
 		PRBranch:    prBranch,
 		ProjectPath: relProjectPath,
-		Watch:       watch,
+		Watch:       false,
 		RalphConfig: ralphConfig,
-	}
+	}, nil
 }
 
 // resolveImage returns the container image string from config, falling back to the default.

@@ -10,8 +10,6 @@ import (
 
 // MergeWorkflow holds all inputs required to generate and submit an Argo Workflow for a ralph merge.
 type MergeWorkflow struct {
-	// Image is the container image to run.
-	Image string
 	// RepoURL is the HTTPS URL of the git repository.
 	RepoURL string
 	// RepoOwner is the GitHub organisation or user.
@@ -78,7 +76,7 @@ func (m *MergeWorkflow) buildMergeTemplate() map[string]interface{} {
 	return map[string]interface{}{
 		"name": "ralph-merger",
 		"container": map[string]interface{}{
-			"image":   m.Image,
+			"image":   resolveImage(m.RalphConfig),
 			"command": []string{"/bin/sh", "-c"},
 			"args":    []string{buildMergeScript()},
 			"env": []map[string]interface{}{

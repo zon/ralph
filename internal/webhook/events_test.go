@@ -92,7 +92,7 @@ func TestToWorkflow_CommentEvent_ReturnsRunWorkflow(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, result.Run)
 	assert.Nil(t, result.Merge)
-	assert.Contains(t, result.Run.InstructionsMD, "please add a test")
+	assert.Contains(t, result.Run.Instructions, "please add a test")
 	assert.Equal(t, "acme", result.Run.RepoOwner)
 	assert.Equal(t, "myrepo", result.Run.RepoName)
 	assert.Equal(t, "ralph/my-feature", result.Run.CloneBranch)

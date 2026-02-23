@@ -265,7 +265,6 @@ After completion:
 The generated workflow includes these parameters:
 
 - `project-file`: Your project YAML file content
-- `config-yaml`: Your `.ralph/config.yaml` (if it exists)
 - `instructions-md`: Your `.ralph/instructions.md` (if it exists)
 
 These are embedded into the workflow and written to the container filesystem at runtime.

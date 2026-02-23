@@ -140,7 +140,7 @@ requirements:
 		t.Fatal("parameters is not a list")
 	}
 
-	hasProjectPath, hasConfigYaml, hasInstructionsMd := false, false, false
+	hasProjectPath, hasInstructionsMd := false, false
 	for _, param := range parameters {
 		paramMap, ok := param.(map[string]interface{})
 		if !ok {
@@ -152,18 +152,12 @@ requirements:
 				t.Errorf("project-path = %v, want project.yaml", paramMap["value"])
 			}
 		}
-		if paramMap["name"] == "config-yaml" {
-			hasConfigYaml = true
-		}
 		if paramMap["name"] == "instructions-md" {
 			hasInstructionsMd = true
 		}
 	}
 	if !hasProjectPath {
 		t.Error("project-path parameter not found")
-	}
-	if !hasConfigYaml {
-		t.Error("config-yaml parameter not found")
 	}
 	if !hasInstructionsMd {
 		t.Error("instructions-md parameter not found")

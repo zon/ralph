@@ -11,8 +11,6 @@ import (
 type Workflow struct {
 	// ProjectName is used in the workflow's generateName field (e.g. "my-feature").
 	ProjectName string
-	// Image is the container image to run (e.g. "ghcr.io/zon/ralph:v1.2.3").
-	Image string
 	// RepoURL is the HTTPS URL of the git repository (e.g. "https://github.com/owner/repo.git").
 	RepoURL string
 	// RepoOwner is the GitHub organisation or user (e.g. "zon").
@@ -25,12 +23,8 @@ type Workflow struct {
 	ProjectBranch string
 	// ProjectPath is the relative path to the project YAML file inside the repo.
 	ProjectPath string
-	// ConfigYAML is the contents of .ralph/config.yaml to inject into the container (may be empty).
-	ConfigYAML string
-	// InstructionsMD is the contents of the instructions file to inject into the container (may be empty).
-	InstructionsMD string
-	// BaseBranch is the base branch name, passed to the container as BASE_BRANCH.
-	BaseBranch string
+	// Instructions is the contents of the instructions file to inject into the container (may be empty).
+	Instructions string
 	// DryRun controls whether the ralph command inside the container runs with --dry-run.
 	DryRun bool
 	// Verbose controls whether the ralph command inside the container runs with --verbose.
@@ -45,8 +39,7 @@ type Workflow struct {
 func (w *Workflow) Render() (string, error) {
 	params := map[string]string{
 		"project-path":    w.ProjectPath,
-		"config-yaml":     w.ConfigYAML,
-		"instructions-md": w.InstructionsMD,
+		"instructions-md": w.Instructions,
 	}
 
 	wf := map[string]interface{}{
@@ -93,7 +86,7 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 	return map[string]interface{}{
 		"name": "ralph-executor",
 		"container": map[string]interface{}{
-			"image":        w.Image,
+			"image":        resolveImage(w.RalphConfig),
 			"command":      []string{"/bin/sh", "-c"},
 			"args":         []string{buildExecutionScript(w.DryRun, w.Verbose, w.RalphConfig)},
 			"env":          w.buildEnvVars(),
@@ -112,10 +105,9 @@ func (w *Workflow) buildEnvVars() []map[string]interface{} {
 		{"name": "GIT_BRANCH", "value": w.CloneBranch},
 		{"name": "PROJECT_BRANCH", "value": w.ProjectBranch},
 		{"name": "PROJECT_PATH", "value": "{{workflow.parameters.project-path}}"},
-		{"name": "CONFIG_YAML", "value": "{{workflow.parameters.config-yaml}}"},
 		{"name": "INSTRUCTIONS_MD", "value": "{{workflow.parameters.instructions-md}}"},
 		{"name": "RALPH_WORKFLOW_EXECUTION", "value": "true"},
-		{"name": "BASE_BRANCH", "value": w.BaseBranch},
+		{"name": "BASE_BRANCH", "value": w.RalphConfig.BaseBranch},
 	}
 
 	for key, value := range w.RalphConfig.Workflow.Env {

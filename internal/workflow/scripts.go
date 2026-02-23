@@ -11,7 +11,7 @@ import (
 
 // buildParameters builds workflow parameters from the params map
 func buildParameters(params map[string]string) []map[string]interface{} {
-	allParams := []string{"project-path", "config-yaml", "instructions-md"}
+	allParams := []string{"project-path", "instructions-md"}
 	var parameters []map[string]interface{}
 	for _, name := range allParams {
 		param := map[string]interface{}{"name": name}
@@ -77,10 +77,6 @@ fi
 
 echo "Writing parameter files..."
 mkdir -p /workspace/repo/.ralph
-
-if [ -n "$CONFIG_YAML" ]; then
-  printf '%%s' "$CONFIG_YAML" > /workspace/repo/.ralph/config.yaml
-fi
 
 if [ -n "$INSTRUCTIONS_MD" ]; then
   printf '%%s' "$INSTRUCTIONS_MD" > /workspace/repo/.ralph/instructions.md
