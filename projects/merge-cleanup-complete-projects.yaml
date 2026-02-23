@@ -12,7 +12,7 @@ requirements:
   - category: backend
     description: Remove complete projects and commit
     items:
-      - internal/project/complete.go provides RemoveAndCommit(ctx *context.Context, files []string) error that deletes the given project files, stages the deletions, and commits with message "chore: remove complete project files"
+      - 'internal/project/complete.go provides RemoveAndCommit(ctx *context.Context, files []string) error that deletes the given project files, stages the deletions, and commits with message "chore: remove complete project files"'
       - If the files slice is empty the function is a no-op and returns nil
     passing: false
 
