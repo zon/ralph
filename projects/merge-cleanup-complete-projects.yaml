@@ -7,14 +7,14 @@ requirements:
     items:
       - internal/project/complete.go provides FindCompleteProjects(dir string) ([]string, error) that scans a directory for project YAML files where all requirements have passing true
       - A project file with zero requirements is not considered complete
-    passing: false
+    passing: true
 
   - category: backend
     description: Remove complete projects and commit
     items:
       - 'internal/project/complete.go provides RemoveAndCommit(ctx *context.Context, files []string) error that deletes the given project files, stages the deletions, and commits with message "chore: remove complete project files"'
       - If the files slice is empty the function is a no-op and returns nil
-    passing: false
+    passing: true
 
   - category: backend
     description: Integrate cleanup into ralph merge --local
@@ -22,5 +22,4 @@ requirements:
       - MergeCmd.runLocal scans the projects/ directory relative to the working directory for complete projects before merging
       - Complete project files are removed and committed (using RemoveAndCommit) before the gh pr merge call
       - If no complete projects are found the merge proceeds without a commit
-    passing: false
-
+    passing: true
