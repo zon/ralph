@@ -25,4 +25,4 @@ requirements:
       - internal/version/VERSION is bumped to the next minor version (e.g. 2.3.x -> 2.4.0)
       - charts/ralph-webhook/Chart.yaml appVersion matches the new VERSION
       - charts/ralph-webhook/Chart.yaml version receives a patch bump alongside the appVersion change
-    passing: false
+    passing: true
