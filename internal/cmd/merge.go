@@ -1,10 +1,14 @@
 package cmd
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
@@ -93,6 +97,13 @@ func (m *MergeCmd) runLocal() error {
 			if err := git.PushCurrentBranch(ctx); err != nil {
 				return fmt.Errorf("failed to push after removing complete projects: %w", err)
 			}
+
+			// Wait for GitHub to recognize the push before merging
+			if !m.DryRun {
+				if err := waitForGitHubHead(m.PR); err != nil {
+					return fmt.Errorf("failed waiting for GitHub to sync push: %w", err)
+				}
+			}
 		} else {
 			logger.Verbose("No complete projects found")
 		}
@@ -112,4 +123,51 @@ func (m *MergeCmd) runLocal() error {
 
 	logger.Successf("Auto-merge enabled for PR #%s (will delete branch %s when merged)", m.PR, m.Branch)
 	return nil
+}
+
+// waitForGitHubHead polls until GitHub's view of the PR head SHA matches the local HEAD.
+// This prevents "Head branch is out of date" errors when merging immediately after a push.
+func waitForGitHubHead(pr string) error {
+	// Get local HEAD SHA
+	var localOut bytes.Buffer
+	localCmd := exec.Command("git", "rev-parse", "HEAD")
+	localCmd.Stdout = &localOut
+	localCmd.Stderr = &localOut
+	if err := localCmd.Run(); err != nil {
+		return fmt.Errorf("failed to get local HEAD: %w", err)
+	}
+	localSHA := strings.TrimSpace(localOut.String())
+
+	const maxAttempts = 20
+	const pollInterval = 3 * time.Second
+
+	for i := range maxAttempts {
+		var ghOut bytes.Buffer
+		ghCmd := exec.Command("gh", "pr", "view", pr, "--json", "headRefOid")
+		ghCmd.Stdout = &ghOut
+		ghCmd.Stderr = &ghOut
+		if err := ghCmd.Run(); err != nil {
+			return fmt.Errorf("failed to query PR head: %w (output: %s)", err, ghOut.String())
+		}
+
+		var result struct {
+			HeadRefOid string `json:"headRefOid"`
+		}
+		if err := json.Unmarshal(ghOut.Bytes(), &result); err != nil {
+			return fmt.Errorf("failed to parse PR head response: %w", err)
+		}
+
+		if strings.HasPrefix(result.HeadRefOid, localSHA) || strings.HasPrefix(localSHA, result.HeadRefOid) {
+			logger.Verbosef("GitHub head SHA matches local HEAD (%s)", localSHA[:8])
+			return nil
+		}
+
+		if i < maxAttempts-1 {
+			logger.Verbosef("Waiting for GitHub to sync push (attempt %d/%d, local=%s, remote=%s)...",
+				i+1, maxAttempts, localSHA[:8], result.HeadRefOid[:8])
+			time.Sleep(pollInterval)
+		}
+	}
+
+	return fmt.Errorf("timed out waiting for GitHub to sync push (local HEAD: %s)", localSHA[:8])
 }
