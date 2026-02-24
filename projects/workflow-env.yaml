@@ -1,0 +1,20 @@
+name: workflow-env
+description: Allow setting environment variables for workflows in ralph config
+
+requirements:
+  - category: workflow-env
+    description: Workflow env vars configurable in .ralph/config.yaml
+    items:
+      - The workflow section of .ralph/config.yaml accepts an env map of key-value string pairs
+      - Environment variables defined in workflow.env are set in the Argo Workflow when running with --remote
+      - Existing workflow configuration (namespace, configMaps, secrets) is unaffected
+    passing: false
+
+  - category: workflow-symlinks
+    description: configMaps and secrets only create symlinks when explicitly opted in
+    items:
+      - Each configMap and secret entry in .ralph/config.yaml accepts an optional link boolean property
+      - When link is true, a symlink is created in the workspace pointing to the mounted file or directory
+      - When link is absent or false, no symlink is created
+      - Existing entries without link behave the same as before (no symlink, no error)
+    passing: false
