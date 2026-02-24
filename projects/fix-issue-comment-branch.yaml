@@ -1,0 +1,32 @@
+name: fix-issue-comment-branch
+description: Fix issue_comment webhooks submitting workflows with empty branch
+
+requirements:
+  - category: github api
+    description: PR branch lookup
+    items:
+      - A function exists to fetch a pull request's head branch from the GitHub API given owner, repo, and PR number
+      - The function uses the same HTTP client pattern as GetInstallationID in internal/github/app.go
+    passing: false
+
+  - category: provisioning
+    description: github-credentials secret provisioned into ralph-webhook namespace
+    items:
+      - ralph config webhook-secret provisions a github-credentials secret (app-id and private-key) into the webhook namespace using the same process as ralph config github
+    passing: false
+
+  - category: helm
+    description: github-credentials secret mounted into the webhook pod
+    items:
+      - The ralph-webhook Helm chart mounts the github-credentials secret as a volume into the webhook container
+    passing: false
+
+  - category: webhook
+    description: Branch resolved for issue_comment events
+    items:
+      - The GithubPayload Issue struct includes a Number field parsed from the JSON issue.number field
+      - The webhook server reads app-id and private-key from the mounted github-credentials volume and generates an installation token to authenticate GitHub API calls
+      - When handling an issue_comment event where the top-level pull_request field is absent (empty branch), the webhook server fetches the PR branch via the GitHub API using the issue number
+      - The resolved branch is used when forming the workflow, so it is non-empty
+      - If the GitHub API call fails, the webhook returns 200 and logs the error without submitting a workflow
+    passing: false
