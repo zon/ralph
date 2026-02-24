@@ -274,6 +274,8 @@ func startAllServices(services []config.Service, dryRun bool) ([]*Process, error
 			cmdStr := fmt.Sprintf("%s %s", svc.Command, joinArgs(svc.Args))
 			return nil, fmt.Errorf("health check failed for service %s (command: %s): %w", svc.Name, cmdStr, err)
 		}
+
+		logger.Infof("Service %s is ready", svc.Name)
 	}
 
 	return processes, nil
@@ -358,6 +360,5 @@ func WaitForHealth(p *Process, timeout time.Duration, dryRun bool) error {
 		return fmt.Errorf("service %s is not running", p.Name)
 	}
 
-	logger.Verbosef("Service %s is running", p.Name)
 	return nil
 }
