@@ -1,6 +1,7 @@
 package prompt
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -174,7 +175,7 @@ func TestBuildDevelopPrompt_MissingProjectFile(t *testing.T) {
 
 func TestBuildServiceFixPrompt(t *testing.T) {
 	ctx := testutil.NewContext()
-	ctx.AddNote("# Service Startup Failed\n\nfailed to start service test-service: connection refused\n\nFix this service.")
+	svcErr := fmt.Errorf("failed to start service test-service: connection refused")
 
 	svc := config.Service{
 		Name:    "test-service",
@@ -182,17 +183,14 @@ func TestBuildServiceFixPrompt(t *testing.T) {
 		Args:    []string{"--port", "8080"},
 		Port:    8080,
 	}
-	prompt := BuildServiceFixPrompt(ctx, svc)
+	prompt := BuildServiceFixPrompt(ctx, svc, svcErr)
 
-	// Verify failure note is present
+	// Verify error message is present
 	if !strings.Contains(prompt, "Service Startup Failed") {
 		t.Error("Prompt does not contain service failure header")
 	}
 	if !strings.Contains(prompt, "failed to start service test-service") {
 		t.Error("Prompt does not contain service failure details")
-	}
-	if !strings.Contains(prompt, "Fix this service.") {
-		t.Error("Prompt does not contain fix instruction")
 	}
 
 	// Verify service details are present
@@ -213,21 +211,23 @@ func TestBuildServiceFixPrompt(t *testing.T) {
 	if strings.Contains(prompt, "## Recent Git History") {
 		t.Error("Service fix prompt should not contain git history")
 	}
-	if strings.Contains(prompt, "## Instructions") {
-		t.Error("Service fix prompt should not contain development instructions")
+
+	// Verify fix-service instructions are present
+	if !strings.Contains(prompt, "report.md") {
+		t.Error("Service fix prompt should contain report.md instruction")
 	}
 }
 
 func TestBuildServiceFixPrompt_NoPort(t *testing.T) {
 	ctx := testutil.NewContext()
-	ctx.AddNote("# Service Startup Failed\n\nfailed to start service worker: exit status 1\n\nFix this service.")
+	svcErr := fmt.Errorf("failed to start service worker: exit status 1")
 
 	svc := config.Service{
 		Name:    "worker",
 		Command: "worker",
 		Args:    []string{"--config", "worker.yaml"},
 	}
-	prompt := BuildServiceFixPrompt(ctx, svc)
+	prompt := BuildServiceFixPrompt(ctx, svc, svcErr)
 
 	if !strings.Contains(prompt, "worker --config worker.yaml") {
 		t.Error("Prompt does not contain start command")

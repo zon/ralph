@@ -84,10 +84,8 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		if failedSvc, err := svcMgr.Start(ralphConfig.Services, ctx.IsDryRun()); err != nil {
 			logger.Warningf("Service startup failed: %v", err)
 
-			// Build a minimal prompt focused only on fixing the failed service
-			note := fmt.Sprintf("# Service Startup Failed\n\n%s\n\nFix this service.", err.Error())
-			ctx.AddNote(note)
-			fixPrompt := prompt.BuildServiceFixPrompt(ctx, failedSvc)
+			// Build a prompt focused only on fixing the failed service
+			fixPrompt := prompt.BuildServiceFixPrompt(ctx, failedSvc, err)
 
 			if agentErr := ai.RunAgent(ctx, fixPrompt); agentErr != nil {
 				return fmt.Errorf("agent execution failed while fixing service: %w", agentErr)

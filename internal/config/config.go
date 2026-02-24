@@ -18,6 +18,9 @@ var DefaultCommentInstructions string
 //go:embed merge-instructions.md
 var DefaultMergeInstructions string
 
+//go:embed fix-service-instructions.md
+var DefaultFixServiceInstructions string
+
 
 // Project represents a project YAML file with requirements
 type Project struct {

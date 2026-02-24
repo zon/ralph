@@ -1,9 +1,11 @@
 package prompt
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"strings"
+	"text/template"
 
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
@@ -11,28 +13,34 @@ import (
 	"github.com/zon/ralph/internal/logger"
 )
 
-// BuildServiceFixPrompt creates a minimal prompt focused solely on fixing a failed service.
-// It omits the project file, git history, and development instructions.
-func BuildServiceFixPrompt(ctx *context.Context, svc config.Service) string {
-	var builder strings.Builder
-
-	for _, note := range ctx.Notes {
-		builder.WriteString(note)
-		builder.WriteString("\n")
-	}
-
-	builder.WriteString("\n## Service Details\n\n")
+// BuildServiceFixPrompt creates a prompt focused solely on fixing a failed service.
+func BuildServiceFixPrompt(ctx *context.Context, svc config.Service, svcErr error) string {
 	cmd := svc.Command
 	if len(svc.Args) > 0 {
 		cmd = fmt.Sprintf("%s %s", svc.Command, strings.Join(svc.Args, " "))
 	}
-	builder.WriteString(fmt.Sprintf("- **Name:** %s\n", svc.Name))
-	builder.WriteString(fmt.Sprintf("- **Start command:** `%s`\n", cmd))
-	if svc.Port > 0 {
-		builder.WriteString(fmt.Sprintf("- **Health check:** port %d must be accepting connections\n", svc.Port))
+
+	data := struct {
+		Notes       []string
+		ServiceName string
+		ServiceCmd  string
+		ServicePort int
+		Error       string
+	}{
+		Notes:       ctx.Notes,
+		ServiceName: svc.Name,
+		ServiceCmd:  cmd,
+		ServicePort: svc.Port,
+		Error:       svcErr.Error(),
 	}
 
-	return builder.String()
+	tmpl := template.Must(template.New("fix-service").Parse(config.DefaultFixServiceInstructions))
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		logger.Warningf("Failed to execute fix-service template: %v", err)
+		return ""
+	}
+	return buf.String()
 }
 
 // BuildDevelopPrompt creates a prompt for the AI agent to work on project requirements
