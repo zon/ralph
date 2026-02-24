@@ -269,8 +269,10 @@ func executeRemote(ctx *context.Context, absProjectFile string) error {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
+			notify.Error(projectName, ctx.ShouldNotify() && !ctx.IsDryRun())
 			return fmt.Errorf("argo logs failed: %w", err)
 		}
+		notify.Success(projectName, ctx.ShouldNotify() && !ctx.IsDryRun())
 	} else {
 		logger.Infof("To follow logs, run: argo logs -n %s -f %s", wf.RalphConfig.Workflow.Namespace, workflowName)
 	}
