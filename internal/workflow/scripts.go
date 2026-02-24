@@ -197,7 +197,33 @@ func buildVolumes(cfg *config.RalphConfig) []map[string]interface{} {
 
 // sanitizeName sanitizes a name for use as a Kubernetes volume/resource name.
 func sanitizeName(name string) string {
+	// Replace common special characters with hyphens
 	sanitized := strings.ReplaceAll(name, "_", "-")
 	sanitized = strings.ReplaceAll(sanitized, ".", "-")
-	return strings.ToLower(sanitized)
+	sanitized = strings.ReplaceAll(sanitized, "/", "-")
+	sanitized = strings.ToLower(sanitized)
+
+	// Remove any other non-alphanumeric characters except hyphens
+	var result strings.Builder
+	for _, r := range sanitized {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+			result.WriteRune(r)
+		} else {
+			result.WriteRune('-')
+		}
+	}
+
+	// Remove leading/trailing hyphens and ensure not empty
+	sanitized = result.String()
+	sanitized = strings.Trim(sanitized, "-")
+	if sanitized == "" {
+		return "default"
+	}
+
+	// Ensure it starts with a letter
+	if len(sanitized) > 0 && sanitized[0] >= '0' && sanitized[0] <= '9' {
+		sanitized = "branch-" + sanitized
+	}
+
+	return sanitized
 }

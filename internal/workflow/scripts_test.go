@@ -184,6 +184,14 @@ func TestSanitizeName(t *testing.T) {
 		{"my.config", "my-config"},
 		{"MyConfig", "myconfig"},
 		{"my_config.map", "my-config-map"},
+		{"my/config", "my-config"},
+		{"my/branch.name", "my-branch-name"},
+		{"MY_BRANCH", "my-branch"},
+		{"feature/123-add-thing", "feature-123-add-thing"},
+		{"feature@special!", "feature-special"},
+		{"123-branch", "branch-123-branch"},
+		{"---test---", "test"},
+		{"", "default"},
 	}
 
 	for _, tt := range tests {
