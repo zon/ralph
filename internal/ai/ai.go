@@ -78,7 +78,7 @@ func GeneratePRSummary(ctx *context.Context, projectFile string, iterations int)
 	baseBranch := ralphConfig.BaseBranch
 
 	// Get commit log since base branch
-	commitLog, err := git.GetCommitLog(ctx, baseBranch)
+	commitLog, err := git.GetCommitLog(ctx, baseBranch, 0)
 	if err != nil {
 		logger.Verbosef("Failed to get commit log: %v", err)
 		commitLog = "(Unable to retrieve commit log)"

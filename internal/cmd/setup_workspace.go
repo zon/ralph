@@ -67,5 +67,8 @@ func (s *SetupWorkspaceCmd) link(cwd, destFile, destDir string) error {
 	}
 
 	fmt.Printf("Linking %s -> %s\n", linkPath, src)
-	return os.Symlink(src, linkPath)
+	if err := os.Symlink(src, linkPath); err != nil {
+		return fmt.Errorf("failed to create symlink %s -> %s: %w", linkPath, src, err)
+	}
+	return nil
 }

@@ -358,8 +358,8 @@ func PushCurrentBranch(ctx *context.Context) error {
 
 // GetCommitLog retrieves commit log formatted exactly like the reference implementation.
 // Returns a single string with commits formatted as "%h: %B" (hash: full message).
-// Gets all commits since base..HEAD.
-func GetCommitLog(ctx *context.Context, base string) (string, error) {
+// Gets all commits since base..HEAD. If limit > 0, only the most recent limit commits are returned.
+func GetCommitLog(ctx *context.Context, base string, limit int) (string, error) {
 	if ctx.IsDryRun() {
 		logger.Infof("[DRY-RUN] Would get commits since '%s'", base)
 		return "abc123: dry-run commit 1 - feature implementation\ndef456: dry-run commit 2 - bug fix\nghi789: dry-run commit 3 - tests", nil
@@ -367,7 +367,11 @@ func GetCommitLog(ctx *context.Context, base string) (string, error) {
 
 	// Use git log with format matching reference: %h: %B (hash: full message body)
 	logRange := fmt.Sprintf("%s..HEAD", base)
-	cmd := exec.Command("git", "log", logRange, "--format=%h: %B")
+	args := []string{"log", logRange, "--format=%h: %B"}
+	if limit > 0 {
+		args = append(args, fmt.Sprintf("--max-count=%d", limit))
+	}
+	cmd := exec.Command("git", args...)
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &out

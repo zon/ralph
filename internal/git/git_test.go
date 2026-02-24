@@ -369,7 +369,7 @@ func TestGetCommitLog_SinceBranch(t *testing.T) {
 	}
 
 	// Get commits since base branch
-	commitLog, err := GetCommitLog(ctx, baseBranch)
+	commitLog, err := GetCommitLog(ctx, baseBranch, 0)
 	if err != nil {
 		t.Fatalf("GetCommitLog failed: %v", err)
 	}
@@ -388,7 +388,7 @@ func TestGetCommitLog_SinceBranch(t *testing.T) {
 func TestGetCommitLog_DryRun(t *testing.T) {
 	ctx := testutil.NewContext()
 
-	commitLog, err := GetCommitLog(ctx, "main")
+	commitLog, err := GetCommitLog(ctx, "main", 0)
 	if err != nil {
 		t.Fatalf("GetCommitLog in dry-run failed: %v", err)
 	}
@@ -412,7 +412,7 @@ func TestGetCommitLog_EmptyRange(t *testing.T) {
 	ctx := testutil.NewContext(testutil.WithDryRun(false))
 
 	// Get commits since HEAD (should be empty)
-	commitLog, err := GetCommitLog(ctx, "HEAD")
+	commitLog, err := GetCommitLog(ctx, "HEAD", 0)
 	if err != nil {
 		t.Fatalf("GetCommitLog failed: %v", err)
 	}
@@ -604,7 +604,7 @@ func TestCommitChanges(t *testing.T) {
 	}
 
 	// Verify commit was created by checking log (HEAD~1 is the parent commit)
-	commitLog, err := GetCommitLog(ctx, "HEAD~1")
+	commitLog, err := GetCommitLog(ctx, "HEAD~1", 0)
 	if err != nil {
 		t.Fatalf("Failed to get commit log: %v", err)
 	}
@@ -662,7 +662,7 @@ func TestCommitChanges_MultipleFiles(t *testing.T) {
 	}
 
 	// Verify commit was created (HEAD~1 is the parent commit)
-	commitLog, err := GetCommitLog(ctx, "HEAD~1")
+	commitLog, err := GetCommitLog(ctx, "HEAD~1", 0)
 	if err != nil {
 		t.Fatalf("Failed to get commit log: %v", err)
 	}

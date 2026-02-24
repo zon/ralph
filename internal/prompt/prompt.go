@@ -46,7 +46,7 @@ func BuildDevelopPrompt(ctx *context.Context, projectFile string) (string, error
 		logger.Warningf("Failed to get current branch: %v", err)
 	} else if currentBranch != ralphConfig.BaseBranch {
 		// Show all commits in this branch (since base branch)
-		commitLog, err := git.GetCommitLog(ctx, ralphConfig.BaseBranch)
+		commitLog, err := git.GetCommitLog(ctx, ralphConfig.BaseBranch, 10)
 		if err != nil {
 			logger.Warningf("Failed to get branch commits: %v", err)
 		} else if commitLog != "" {
