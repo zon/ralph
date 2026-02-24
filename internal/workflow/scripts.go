@@ -102,11 +102,11 @@ func buildVolumeMounts(cfg *config.RalphConfig) []map[string]interface{} {
 			"readOnly": true,
 		}
 		if cm.DestFile != "" {
-			mount["mountPath"] = cm.DestFile
+			mount["mountPath"] = "/workspace/" + cm.DestFile
 			mount["subPath"] = filepath.Base(cm.DestFile)
 			mount["name"] = fmt.Sprintf("%s-%d", sanitizeName(cm.Name), i)
 		} else if cm.DestDir != "" {
-			mount["mountPath"] = cm.DestDir
+			mount["mountPath"] = "/workspace/" + cm.DestDir
 		} else {
 			mount["mountPath"] = fmt.Sprintf("/configmaps/%s", cm.Name)
 		}
@@ -119,11 +119,11 @@ func buildVolumeMounts(cfg *config.RalphConfig) []map[string]interface{} {
 			"readOnly": true,
 		}
 		if secret.DestFile != "" {
-			mount["mountPath"] = secret.DestFile
+			mount["mountPath"] = "/workspace/" + secret.DestFile
 			mount["subPath"] = filepath.Base(secret.DestFile)
 			mount["name"] = fmt.Sprintf("%s-%d", sanitizeName(secret.Name), i)
 		} else if secret.DestDir != "" {
-			mount["mountPath"] = secret.DestDir
+			mount["mountPath"] = "/workspace/" + secret.DestDir
 		} else {
 			mount["mountPath"] = fmt.Sprintf("/secrets/%s", secret.Name)
 		}

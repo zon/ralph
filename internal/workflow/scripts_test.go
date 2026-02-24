@@ -174,6 +174,40 @@ func TestBuildMergeScript(t *testing.T) {
 	}
 }
 
+func TestBuildVolumeMounts_WorkspacePrefix(t *testing.T) {
+	cfg := &config.RalphConfig{
+		Workflow: config.WorkflowConfig{
+			ConfigMaps: []config.ConfigMapMount{
+				{Name: "my-config", DestFile: "config/main.yaml"},
+				{Name: "my-config-dir", DestDir: "config/extra"},
+			},
+			Secrets: []config.SecretMount{
+				{Name: "my-secret", DestFile: "config/secrets.yaml"},
+				{Name: "my-secret-dir", DestDir: "config/auth"},
+			},
+		},
+	}
+
+	mounts := buildVolumeMounts(cfg)
+
+	expected := map[string]string{
+		"my-config-0":   "/workspace/config/main.yaml",
+		"my-config-dir": "/workspace/config/extra",
+		"my-secret-1":   "/workspace/config/secrets.yaml",
+		"my-secret-dir": "/workspace/config/auth",
+	}
+
+	for _, mount := range mounts {
+		name, _ := mount["name"].(string)
+		mountPath, _ := mount["mountPath"].(string)
+		if want, ok := expected[name]; ok {
+			if mountPath != want {
+				t.Errorf("mount %q: mountPath = %q, want %q", name, mountPath, want)
+			}
+		}
+	}
+}
+
 func TestSanitizeName(t *testing.T) {
 	tests := []struct {
 		input    string
