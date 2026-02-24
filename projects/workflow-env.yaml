@@ -6,7 +6,7 @@ requirements:
     description: Workflow env vars configurable in .ralph/config.yaml
     items:
       - The workflow section of .ralph/config.yaml accepts an env map of key-value string pairs
-      - Environment variables defined in workflow.env are set in the Argo Workflow when running with --remote
+      - Environment variables defined in workflow.env are set in the Argo Workflow when submitting remotely (default mode, without --local)
       - Existing workflow configuration (namespace, configMaps, secrets) is unaffected
     passing: false
 
@@ -17,4 +17,12 @@ requirements:
       - When link is true, a symlink is created in the workspace pointing to the mounted file or directory
       - When link is absent or false, no symlink is created
       - Existing entries without link behave the same as before (no symlink, no error)
+    passing: false
+
+  - category: version
+    description: Minor version bump
+    items:
+      - internal/version/VERSION is bumped to the next minor version (e.g. 2.3.x -> 2.4.0)
+      - charts/ralph-webhook/Chart.yaml appVersion matches the new VERSION
+      - charts/ralph-webhook/Chart.yaml version receives a patch bump alongside the appVersion change
     passing: false
