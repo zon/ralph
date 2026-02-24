@@ -8,18 +8,18 @@ requirements:
       - The Workflow.Render() method includes a synchronization.mutex block in the workflow spec
       - The mutex name is the ProjectBranch sanitized to be a valid Kubernetes name (lowercase, hyphens only, no special chars, e.g. "ralph-my-feature")
       - The synchronization block is added to the top-level workflow spec (not per-template)
-    passing: false
+    passing: true
 
   - category: backend
     description: Add mutex to generated Argo merge workflow spec
     items:
       - The MergeWorkflow type also includes the same synchronization.mutex block
       - The mutex name is the sanitized ProjectBranch, same as for regular workflows
-    passing: false
+    passing: true
 
   - category: release
     description: Bump app version
     items:
       - internal/version/VERSION is updated to 2.3.0
       - charts/ralph-webhook/Chart.yaml appVersion is updated to 2.3.0 and version is bumped to 0.2.25
-    passing: false
+    passing: true

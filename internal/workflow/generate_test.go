@@ -303,6 +303,23 @@ requirements:
 	if !hasSecretVolume {
 		t.Error("User-specified secret volume not found")
 	}
+
+	synchronization, ok := spec["synchronization"].(map[string]interface{})
+	if !ok {
+		t.Fatal("synchronization is not a map")
+	}
+	mutex, ok := synchronization["mutex"].(map[string]interface{})
+	if !ok {
+		t.Fatal("mutex is not a map")
+	}
+	mutexName, ok := mutex["name"].(string)
+	if !ok {
+		t.Fatal("mutex name is not a string")
+	}
+	expectedMutexName := "test-project"
+	if mutexName != expectedMutexName {
+		t.Errorf("mutex name = %v, want %v", mutexName, expectedMutexName)
+	}
 }
 
 func TestGenerateWorkflow_DefaultImage(t *testing.T) {
@@ -534,6 +551,23 @@ requirements:
 	}
 	if !hasGithubVol {
 		t.Error("github-credentials volume not found")
+	}
+
+	synchronization, ok := spec["synchronization"].(map[string]interface{})
+	if !ok {
+		t.Fatal("synchronization is not a map")
+	}
+	mutex, ok := synchronization["mutex"].(map[string]interface{})
+	if !ok {
+		t.Fatal("mutex is not a map")
+	}
+	mutexName, ok := mutex["name"].(string)
+	if !ok {
+		t.Fatal("mutex name is not a string")
+	}
+	expectedMutexName := "ralph-test-project"
+	if mutexName != expectedMutexName {
+		t.Errorf("mutex name = %v, want %v", mutexName, expectedMutexName)
 	}
 }
 

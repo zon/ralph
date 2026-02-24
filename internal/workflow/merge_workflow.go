@@ -43,6 +43,11 @@ func (m *MergeWorkflow) Render() (string, error) {
 				"strategy":            "OnWorkflowCompletion",
 				"deleteDelayDuration": "10m",
 			},
+			"synchronization": map[string]interface{}{
+				"mutex": map[string]interface{}{
+					"name": sanitizeName(m.PRBranch),
+				},
+			},
 			"templates": []interface{}{
 				m.buildMergeTemplate(),
 			},
