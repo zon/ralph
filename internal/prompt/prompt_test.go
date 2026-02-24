@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/testutil"
 )
 
@@ -171,54 +172,68 @@ func TestBuildDevelopPrompt_MissingProjectFile(t *testing.T) {
 	}
 }
 
-func TestBuildDevelopPrompt_WithNote(t *testing.T) {
-	// Create a temporary project file
-	tmpDir := t.TempDir()
-	projectFile := filepath.Join(tmpDir, "test-project.yaml")
-	projectContent := `name: Test Project
-description: A test project
-requirements:
-  - category: Feature
-    description: Implement feature X
-    passing: false
-`
-	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
-		t.Fatalf("Failed to create test project file: %v", err)
-	}
-
-	// Change to temp directory
-	oldWd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get working directory: %v", err)
-	}
-	defer os.Chdir(oldWd)
-	os.Chdir(tmpDir)
-
-	// Create context with a note
+func TestBuildServiceFixPrompt(t *testing.T) {
 	ctx := testutil.NewContext()
-	ctx.AddNote("# Service Startup Failed\n\nfailed to start service test-service: connection refused\n\nServices are required. Fix this before proceeding.")
+	ctx.AddNote("# Service Startup Failed\n\nfailed to start service test-service: connection refused\n\nFix this service.")
 
-	prompt, err := BuildDevelopPrompt(ctx, projectFile)
-	if err != nil {
-		t.Fatalf("BuildDevelopPrompt failed: %v", err)
+	svc := config.Service{
+		Name:    "test-service",
+		Command: "myapp",
+		Args:    []string{"--port", "8080"},
+		Port:    8080,
 	}
+	prompt := BuildServiceFixPrompt(ctx, svc)
 
-	// Verify prompt contains the system notes section
-	if !strings.Contains(prompt, "## System Notes") {
-		t.Error("Prompt missing 'System Notes' section when context has notes")
-	}
-
-	// Verify note content is included
+	// Verify failure note is present
 	if !strings.Contains(prompt, "Service Startup Failed") {
-		t.Error("Prompt does not contain note content")
+		t.Error("Prompt does not contain service failure header")
 	}
-
 	if !strings.Contains(prompt, "failed to start service test-service") {
-		t.Error("Prompt does not contain service failure details from note")
+		t.Error("Prompt does not contain service failure details")
+	}
+	if !strings.Contains(prompt, "Fix this service.") {
+		t.Error("Prompt does not contain fix instruction")
 	}
 
-	if !strings.Contains(prompt, "Services are required. Fix this before proceeding.") {
-		t.Error("Prompt does not contain service requirement message from note")
+	// Verify service details are present
+	if !strings.Contains(prompt, "test-service") {
+		t.Error("Prompt does not contain service name")
+	}
+	if !strings.Contains(prompt, "myapp --port 8080") {
+		t.Error("Prompt does not contain start command")
+	}
+	if !strings.Contains(prompt, "port 8080") {
+		t.Error("Prompt does not contain health check port")
+	}
+
+	// Verify full dev prompt sections are absent
+	if strings.Contains(prompt, "## Project Requirements") {
+		t.Error("Service fix prompt should not contain project requirements")
+	}
+	if strings.Contains(prompt, "## Recent Git History") {
+		t.Error("Service fix prompt should not contain git history")
+	}
+	if strings.Contains(prompt, "## Instructions") {
+		t.Error("Service fix prompt should not contain development instructions")
+	}
+}
+
+func TestBuildServiceFixPrompt_NoPort(t *testing.T) {
+	ctx := testutil.NewContext()
+	ctx.AddNote("# Service Startup Failed\n\nfailed to start service worker: exit status 1\n\nFix this service.")
+
+	svc := config.Service{
+		Name:    "worker",
+		Command: "worker",
+		Args:    []string{"--config", "worker.yaml"},
+	}
+	prompt := BuildServiceFixPrompt(ctx, svc)
+
+	if !strings.Contains(prompt, "worker --config worker.yaml") {
+		t.Error("Prompt does not contain start command")
+	}
+	if strings.Contains(prompt, "Health check") {
+		t.Error("Prompt should not contain health check when no port configured")
 	}
 }
 

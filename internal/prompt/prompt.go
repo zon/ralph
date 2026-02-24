@@ -11,6 +11,30 @@ import (
 	"github.com/zon/ralph/internal/logger"
 )
 
+// BuildServiceFixPrompt creates a minimal prompt focused solely on fixing a failed service.
+// It omits the project file, git history, and development instructions.
+func BuildServiceFixPrompt(ctx *context.Context, svc config.Service) string {
+	var builder strings.Builder
+
+	for _, note := range ctx.Notes {
+		builder.WriteString(note)
+		builder.WriteString("\n")
+	}
+
+	builder.WriteString("\n## Service Details\n\n")
+	cmd := svc.Command
+	if len(svc.Args) > 0 {
+		cmd = fmt.Sprintf("%s %s", svc.Command, strings.Join(svc.Args, " "))
+	}
+	builder.WriteString(fmt.Sprintf("- **Name:** %s\n", svc.Name))
+	builder.WriteString(fmt.Sprintf("- **Start command:** `%s`\n", cmd))
+	if svc.Port > 0 {
+		builder.WriteString(fmt.Sprintf("- **Health check:** port %d must be accepting connections\n", svc.Port))
+	}
+
+	return builder.String()
+}
+
 // BuildDevelopPrompt creates a prompt for the AI agent to work on project requirements
 // It includes recent git history, project requirements, and development instructions
 func BuildDevelopPrompt(ctx *context.Context, projectFile string) (string, error) {

@@ -74,20 +74,21 @@ func NewManager() *Manager {
 	}
 }
 
-// Start starts all configured services and tracks them
-func (m *Manager) Start(services []config.Service, dryRun bool) error {
+// Start starts all configured services and tracks them.
+// On failure, it returns the failing service alongside the error.
+func (m *Manager) Start(services []config.Service, dryRun bool) (config.Service, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	// Start all services
-	processes, err := startAllServices(services, dryRun)
+	processes, failedSvc, err := startAllServices(services, dryRun)
 	if err != nil {
-		return err
+		return failedSvc, err
 	}
 
 	// Track the started processes
 	m.processes = processes
-	return nil
+	return config.Service{}, nil
 }
 
 // Stop stops all tracked services and clears the process list
@@ -251,7 +252,7 @@ func containsSpace(s string) bool {
 
 // startAllServices starts all services and waits for them to become healthy
 // Returns a slice of started processes and any error encountered
-func startAllServices(services []config.Service, dryRun bool) ([]*Process, error) {
+func startAllServices(services []config.Service, dryRun bool) ([]*Process, config.Service, error) {
 	processes := []*Process{}
 
 	for _, svc := range services {
@@ -260,7 +261,7 @@ func startAllServices(services []config.Service, dryRun bool) ([]*Process, error
 		if err != nil {
 			// If a service fails to start, stop all previously started services
 			stopAllServices(processes)
-			return nil, fmt.Errorf("failed to start service %s: %w", svc.Name, err)
+			return nil, svc, fmt.Errorf("failed to start service %s: %w", svc.Name, err)
 		}
 		processes = append(processes, proc)
 
@@ -271,14 +272,13 @@ func startAllServices(services []config.Service, dryRun bool) ([]*Process, error
 		if err := WaitForHealth(proc, timeout, dryRun); err != nil {
 			// If health check fails, stop all services
 			stopAllServices(processes)
-			cmdStr := fmt.Sprintf("%s %s", svc.Command, joinArgs(svc.Args))
-			return nil, fmt.Errorf("health check failed for service %s (command: %s): %w", svc.Name, cmdStr, err)
+			return nil, svc, fmt.Errorf("health check failed for service %s: %w", svc.Name, err)
 		}
 
 		logger.Infof("Service %s is ready", svc.Name)
 	}
 
-	return processes, nil
+	return processes, config.Service{}, nil
 }
 
 // stopAllServices stops all services in reverse order

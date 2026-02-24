@@ -142,7 +142,7 @@ func TestStartAllServicesDryRun(t *testing.T) {
 		},
 	}
 
-	processes, err := startAllServices(services, true)
+	processes, _, err := startAllServices(services, true)
 	if err != nil {
 		t.Fatalf("startAllServices in dry-run mode failed: %v", err)
 	}
@@ -272,7 +272,7 @@ func TestManagerStartStop(t *testing.T) {
 	}
 
 	// Start services
-	err := mgr.Start(services, false)
+	_, err := mgr.Start(services, false)
 	if err != nil {
 		t.Fatalf("Manager.Start failed: %v", err)
 	}
@@ -307,7 +307,7 @@ func TestManagerMultipleStops(t *testing.T) {
 	}
 
 	// Start service
-	err := mgr.Start(services, false)
+	_, err := mgr.Start(services, false)
 	if err != nil {
 		t.Fatalf("Manager.Start failed: %v", err)
 	}
@@ -351,7 +351,7 @@ func TestManagerDryRun(t *testing.T) {
 	}
 
 	// Start in dry-run mode
-	err := mgr.Start(services, true)
+	_, err := mgr.Start(services, true)
 	if err != nil {
 		t.Fatalf("Manager.Start in dry-run failed: %v", err)
 	}

@@ -70,7 +70,7 @@ func (c *CommentCmd) Run() error {
 	svcMgr := services.NewManager()
 	if len(cfg.Services) > 0 {
 		logger.Verbosef("Starting %d service(s)...", len(cfg.Services))
-		if err := svcMgr.Start(cfg.Services, c.DryRun); err != nil {
+		if _, err := svcMgr.Start(cfg.Services, c.DryRun); err != nil {
 			logger.Verbosef("Service startup failed: %v", err)
 		} else {
 			if c.cleanupRegistrar != nil {
