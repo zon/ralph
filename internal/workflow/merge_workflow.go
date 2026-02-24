@@ -22,8 +22,6 @@ type MergeWorkflow struct {
 	PRBranch string
 	// PRNumber is the pull request number, passed to ralph merge --local.
 	PRNumber string
-	// Watch controls whether argo submit is called with --watch.
-	Watch bool
 	// RalphConfig supplies workflow-level configuration.
 	RalphConfig *config.RalphConfig
 }
@@ -65,7 +63,7 @@ func (m *MergeWorkflow) Submit(namespace string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return submitYAML(workflowYAML, m.RalphConfig, m.Watch, namespace)
+	return submitYAML(workflowYAML, m.RalphConfig, namespace)
 }
 
 func (m *MergeWorkflow) buildMergeTemplate() map[string]interface{} {

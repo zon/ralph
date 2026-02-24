@@ -11,7 +11,7 @@ type Context struct {
 	NoNotify      bool
 	NoServices    bool
 	Local         bool
-	Watch         bool
+	Follow        bool
 	Notes         []string // Runtime notes to pass to the agent
 	Instructions   string // Path to an instructions file that overrides the default instructions
 	InstructionsMD string // Inline instructions content; overrides .ralph/instructions.md when set
@@ -31,8 +31,8 @@ func (c *Context) IsVerbose() bool {
 
 // ShouldNotify returns true if notifications should be sent
 func (c *Context) ShouldNotify() bool {
-	// Disable notifications if submitting a remote workflow without watching
-	if !c.Local && !c.Watch {
+	// Disable notifications if submitting a remote workflow without following
+	if !c.Local && !c.Follow {
 		return false
 	}
 	return !c.NoNotify
@@ -48,9 +48,9 @@ func (c *Context) IsLocal() bool {
 	return c.Local
 }
 
-// ShouldWatch returns true if workflow execution should be watched
-func (c *Context) ShouldWatch() bool {
-	return c.Watch
+// ShouldFollow returns true if workflow logs should be followed after submission
+func (c *Context) ShouldFollow() bool {
+	return c.Follow
 }
 
 // IsWorkflowExecution returns true if running inside a workflow container

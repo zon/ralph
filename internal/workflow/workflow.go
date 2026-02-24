@@ -34,8 +34,6 @@ type Workflow struct {
 	DryRun bool
 	// Verbose controls whether the ralph command inside the container runs with --verbose.
 	Verbose bool
-	// Watch controls whether argo submit is called with --watch.
-	Watch bool
 	// RalphConfig supplies workflow-level configuration (image overrides, secrets, configmaps, env).
 	RalphConfig *config.RalphConfig
 }
@@ -87,7 +85,7 @@ func (w *Workflow) Submit(namespace string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return submitYAML(workflowYAML, w.RalphConfig, w.Watch, namespace)
+	return submitYAML(workflowYAML, w.RalphConfig, namespace)
 }
 
 // buildScript returns the appropriate shell script for this workflow type.

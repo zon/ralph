@@ -23,7 +23,7 @@ type RunCmd struct {
 	NoServices    bool   `help:"Skip service startup" default:"false"`
 	Verbose       bool   `help:"Enable verbose logging" default:"false"`
 	Local         bool   `help:"Run on this machine instead of in Argo Workflows" default:"false"`
-	Watch         bool   `help:"Watch workflow execution (only applicable without --local)" default:"false"`
+	Follow        bool   `help:"Follow workflow logs after submission (only applicable without --local)" short:"f" default:"false"`
 	ShowVersion   bool   `help:"Show version information" short:"v" name:"version"`
 
 	version          string       `kong:"-"`
@@ -56,8 +56,8 @@ func (r *RunCmd) Run() error {
 	}
 
 	// Validate flag combinations
-	if r.Watch && r.Local {
-		return fmt.Errorf("--watch flag is not applicable with --local flag")
+	if r.Follow && r.Local {
+		return fmt.Errorf("--follow flag is not applicable with --local flag")
 	}
 
 	if r.Local && r.Once {
@@ -73,7 +73,7 @@ func (r *RunCmd) Run() error {
 		NoNotify:      r.NoNotify,
 		NoServices:    r.NoServices,
 		Local:         r.Local,
-		Watch:         r.Watch,
+		Follow:        r.Follow,
 	}
 
 	if r.Once {

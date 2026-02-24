@@ -2,6 +2,8 @@ package project
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -258,8 +260,19 @@ func executeRemote(ctx *context.Context, absProjectFile string) error {
 
 	logger.Successf("Workflow submitted: %s", workflowName)
 
-	if !ctx.ShouldWatch() {
-		logger.Infof("To watch logs, run: argo logs -n %s -f %s", wf.RalphConfig.Workflow.Namespace, workflowName)
+	if ctx.ShouldFollow() {
+		args := []string{"logs", "-n", wf.RalphConfig.Workflow.Namespace, "-f", workflowName}
+		if wf.RalphConfig.Workflow.Context != "" {
+			args = append(args, "--context", wf.RalphConfig.Workflow.Context)
+		}
+		cmd := exec.Command("argo", args...)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("argo logs failed: %w", err)
+		}
+	} else {
+		logger.Infof("To follow logs, run: argo logs -n %s -f %s", wf.RalphConfig.Workflow.Namespace, workflowName)
 	}
 
 	return nil

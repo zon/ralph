@@ -7,23 +7,23 @@ func TestShouldNotify(t *testing.T) {
 		name         string
 		noNotify     bool
 		local        bool
-		watch        bool
+		follow       bool
 		expectNotify bool
 		description  string
 	}{
 		{
-			name:         "default settings should not notify (remote workflow without watch)",
+			name:         "default settings should not notify (remote workflow without follow)",
 			noNotify:     false,
 			local:        false,
-			watch:        false,
+			follow:       false,
 			expectNotify: false,
-			description:  "remote workflow without watch should not notify",
+			description:  "remote workflow without follow should not notify",
 		},
 		{
 			name:         "local mode notifies by default",
 			noNotify:     false,
 			local:        true,
-			watch:        false,
+			follow:       false,
 			expectNotify: true,
 			description:  "local mode with notifications enabled",
 		},
@@ -31,25 +31,25 @@ func TestShouldNotify(t *testing.T) {
 			name:         "no-notify flag disables notifications",
 			noNotify:     true,
 			local:        true,
-			watch:        false,
+			follow:       false,
 			expectNotify: false,
 			description:  "user explicitly disabled notifications",
 		},
 		{
-			name:         "remote workflow with watch enables notifications",
+			name:         "remote workflow with follow enables notifications",
 			noNotify:     false,
 			local:        false,
-			watch:        true,
+			follow:       true,
 			expectNotify: true,
-			description:  "remote workflow with watch should notify",
+			description:  "remote workflow with follow should notify",
 		},
 		{
-			name:         "remote with watch but no-notify flag disables notifications",
+			name:         "remote with follow but no-notify flag disables notifications",
 			noNotify:     true,
 			local:        false,
-			watch:        true,
+			follow:       true,
 			expectNotify: false,
-			description:  "explicit no-notify flag overrides watch",
+			description:  "explicit no-notify flag overrides follow",
 		},
 	}
 
@@ -58,7 +58,7 @@ func TestShouldNotify(t *testing.T) {
 			ctx := &Context{
 				NoNotify: tt.noNotify,
 				Local:    tt.local,
-				Watch:    tt.watch,
+				Follow:   tt.follow,
 			}
 
 			result := ctx.ShouldNotify()
@@ -99,30 +99,30 @@ func TestIsLocal(t *testing.T) {
 	}
 }
 
-func TestShouldWatch(t *testing.T) {
+func TestShouldFollow(t *testing.T) {
 	tests := []struct {
-		name  string
-		watch bool
+		name   string
+		follow bool
 	}{
 		{
-			name:  "watch mode enabled",
-			watch: true,
+			name:   "follow mode enabled",
+			follow: true,
 		},
 		{
-			name:  "watch mode disabled",
-			watch: false,
+			name:   "follow mode disabled",
+			follow: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := &Context{
-				Watch: tt.watch,
+				Follow: tt.follow,
 			}
 
-			result := ctx.ShouldWatch()
-			if result != tt.watch {
-				t.Errorf("expected ShouldWatch()=%v, got %v", tt.watch, result)
+			result := ctx.ShouldFollow()
+			if result != tt.follow {
+				t.Errorf("expected ShouldFollow()=%v, got %v", tt.follow, result)
 			}
 		})
 	}

@@ -15,10 +15,10 @@ func TestLocalFlagValidation(t *testing.T) {
 		errorMsg    string
 	}{
 		{
-			name:        "watch with local should fail",
-			args:        []string{"run", "--watch", "--local", "test.yaml"},
+			name:        "follow with local should fail",
+			args:        []string{"run", "--follow", "--local", "test.yaml"},
 			expectError: true,
-			errorMsg:    "--watch flag is not applicable with --local flag",
+			errorMsg:    "--follow flag is not applicable with --local flag",
 		},
 		{
 			name:        "local with once should fail",
@@ -32,8 +32,8 @@ func TestLocalFlagValidation(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name:        "watch without local should succeed validation",
-			args:        []string{"run", "--watch", "test.yaml"},
+			name:        "follow without local should succeed validation",
+			args:        []string{"run", "--follow", "test.yaml"},
 			expectError: false,
 		},
 		{
@@ -47,10 +47,10 @@ func TestLocalFlagValidation(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name:        "default command - watch with local should fail",
-			args:        []string{"--watch", "--local", "test.yaml"},
+			name:        "default command - follow with local should fail",
+			args:        []string{"--follow", "--local", "test.yaml"},
 			expectError: true,
-			errorMsg:    "--watch flag is not applicable with --local flag",
+			errorMsg:    "--follow flag is not applicable with --local flag",
 		},
 		{
 			name:        "default command - local with once should fail",
@@ -89,8 +89,8 @@ func TestLocalFlagValidation(t *testing.T) {
 				cmd.Run.ProjectFile = "test.yaml"
 			}
 
-			// Test watch + local validation
-			if cmd.Run.Watch && cmd.Run.Local {
+			// Test follow + local validation
+			if cmd.Run.Follow && cmd.Run.Local {
 				err = validateRunFlags(&cmd.Run)
 				if !tt.expectError {
 					t.Errorf("expected no error, got: %v", err)
@@ -131,7 +131,7 @@ func TestFlagParsing(t *testing.T) {
 		name           string
 		args           []string
 		expectLocal    bool
-		expectWatch    bool
+		expectFollow    bool
 		expectOnce     bool
 		expectNoNotify bool
 	}{
@@ -139,28 +139,28 @@ func TestFlagParsing(t *testing.T) {
 			name:        "local flag sets Local to true",
 			args:        []string{"run", "--local", "test.yaml"},
 			expectLocal: true,
-			expectWatch: false,
+			expectFollow: false,
 			expectOnce:  false,
 		},
 		{
-			name:        "watch flag sets Watch to true",
-			args:        []string{"run", "--watch", "test.yaml"},
-			expectLocal: false,
-			expectWatch: true,
-			expectOnce:  false,
+			name:         "follow flag sets Follow to true",
+			args:         []string{"run", "--follow", "test.yaml"},
+			expectLocal:  false,
+			expectFollow: true,
+			expectOnce:   false,
 		},
 		{
 			name:        "once flag sets Once to true",
 			args:        []string{"run", "--once", "test.yaml"},
 			expectLocal: false,
-			expectWatch: false,
+			expectFollow: false,
 			expectOnce:  true,
 		},
 		{
 			name:           "no-notify flag sets NoNotify to true",
 			args:           []string{"run", "--no-notify", "test.yaml"},
 			expectLocal:    false,
-			expectWatch:    false,
+			expectFollow:    false,
 			expectOnce:     false,
 			expectNoNotify: true,
 		},
@@ -168,22 +168,22 @@ func TestFlagParsing(t *testing.T) {
 			name:        "default values",
 			args:        []string{"run", "test.yaml"},
 			expectLocal: false,
-			expectWatch: false,
+			expectFollow: false,
 			expectOnce:  false,
 		},
 		{
 			name:        "default command - local flag sets Local to true",
 			args:        []string{"--local", "test.yaml"},
 			expectLocal: true,
-			expectWatch: false,
+			expectFollow: false,
 			expectOnce:  false,
 		},
 		{
-			name:        "default command - watch flag sets Watch to true",
-			args:        []string{"--watch", "test.yaml"},
-			expectLocal: false,
-			expectWatch: true,
-			expectOnce:  false,
+			name:         "default command - follow flag sets Follow to true",
+			args:         []string{"--follow", "test.yaml"},
+			expectLocal:  false,
+			expectFollow: true,
+			expectOnce:   false,
 		},
 	}
 
@@ -206,8 +206,8 @@ func TestFlagParsing(t *testing.T) {
 			if cmd.Run.Local != tt.expectLocal {
 				t.Errorf("expected Local=%v, got %v", tt.expectLocal, cmd.Run.Local)
 			}
-			if cmd.Run.Watch != tt.expectWatch {
-				t.Errorf("expected Watch=%v, got %v", tt.expectWatch, cmd.Run.Watch)
+			if cmd.Run.Follow != tt.expectFollow {
+				t.Errorf("expected Follow=%v, got %v", tt.expectFollow, cmd.Run.Follow)
 			}
 			if cmd.Run.Once != tt.expectOnce {
 				t.Errorf("expected Once=%v, got %v", tt.expectOnce, cmd.Run.Once)
@@ -221,8 +221,8 @@ func TestFlagParsing(t *testing.T) {
 
 // validateRunFlags extracts the validation logic for testing
 func validateRunFlags(r *RunCmd) error {
-	if r.Watch && r.Local {
-		return fmt.Errorf("--watch flag is not applicable with --local flag")
+	if r.Follow && r.Local {
+		return fmt.Errorf("--follow flag is not applicable with --local flag")
 	}
 	if r.Local && r.Once {
 		return fmt.Errorf("--local flag is incompatible with --once flag")

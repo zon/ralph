@@ -92,7 +92,6 @@ func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL,
 		Instructions:  instructions,
 		DryRun:        dryRun,
 		Verbose:       verbose,
-		Watch:         ctx.ShouldWatch(),
 		RalphConfig:   ralphConfig,
 	}, nil
 }
@@ -120,7 +119,6 @@ func GenerateCommentWorkflowWithGitInfo(projectName, repoURL, cloneBranch, proje
 		ProjectPath:   relProjectPath,
 		CommentBody:   commentBody,
 		PRNumber:      prNumber,
-		Watch:         false,
 		RalphConfig:   ralphConfig,
 	}, nil
 }
@@ -160,7 +158,6 @@ func GenerateMergeWorkflowWithGitInfo(repoURL, cloneBranch, prBranch string) (*M
 		RepoName:    repoName,
 		CloneBranch: cloneBranch,
 		PRBranch:    prBranch,
-		Watch:       false,
 		RalphConfig: ralphConfig,
 	}, nil
 }
@@ -180,7 +177,7 @@ func resolveImage(cfg *config.RalphConfig) string {
 
 // submitYAML submits a raw YAML string to Argo and returns the workflow name.
 // This is the shared implementation used by Workflow.Submit and MergeWorkflow.Submit.
-func submitYAML(workflowYAML string, ralphConfig *config.RalphConfig, watch bool, namespace string) (string, error) {
+func submitYAML(workflowYAML string, ralphConfig *config.RalphConfig, namespace string) (string, error) {
 	if _, err := exec.LookPath("argo"); err != nil {
 		return "", fmt.Errorf("argo CLI not found - please install Argo CLI to use remote execution: https://github.com/argoproj/argo-workflows/releases")
 	}
@@ -188,9 +185,6 @@ func submitYAML(workflowYAML string, ralphConfig *config.RalphConfig, watch bool
 	args := []string{"submit", "-", "-n", namespace}
 	if ralphConfig.Workflow.Context != "" {
 		args = append(args, "--context", ralphConfig.Workflow.Context)
-	}
-	if watch {
-		args = append(args, "--watch")
 	}
 
 	cmd := exec.CommandContext(context.Background(), "argo", args...)
