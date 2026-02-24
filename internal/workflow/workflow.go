@@ -63,8 +63,10 @@ func (w *Workflow) Render() (string, error) {
 				"deleteDelayDuration": "10m",
 			},
 			"synchronization": map[string]interface{}{
-				"mutex": map[string]interface{}{
-					"name": sanitizeName(w.ProjectBranch),
+				"mutexes": []interface{}{
+					map[string]interface{}{
+						"name": sanitizeName(w.ProjectBranch),
+					},
 				},
 			},
 			"arguments": map[string]interface{}{

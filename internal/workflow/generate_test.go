@@ -308,7 +308,14 @@ requirements:
 	if !ok {
 		t.Fatal("synchronization is not a map")
 	}
-	mutex, ok := synchronization["mutex"].(map[string]interface{})
+	mutexes, ok := synchronization["mutexes"].([]interface{})
+	if !ok {
+		t.Fatal("mutexes is not a slice")
+	}
+	if len(mutexes) == 0 {
+		t.Fatal("mutexes slice is empty")
+	}
+	mutex, ok := mutexes[0].(map[string]interface{})
 	if !ok {
 		t.Fatal("mutex is not a map")
 	}
@@ -557,7 +564,14 @@ requirements:
 	if !ok {
 		t.Fatal("synchronization is not a map")
 	}
-	mutex, ok := synchronization["mutex"].(map[string]interface{})
+	mutexes, ok := synchronization["mutexes"].([]interface{})
+	if !ok {
+		t.Fatal("mutexes is not a slice")
+	}
+	if len(mutexes) == 0 {
+		t.Fatal("mutexes slice is empty")
+	}
+	mutex, ok := mutexes[0].(map[string]interface{})
 	if !ok {
 		t.Fatal("mutex is not a map")
 	}
