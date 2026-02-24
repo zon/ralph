@@ -21,7 +21,6 @@ var DefaultMergeInstructions string
 //go:embed fix-service-instructions.md
 var DefaultFixServiceInstructions string
 
-
 // Project represents a project YAML file with requirements
 type Project struct {
 	Name         string        `yaml:"name"`
@@ -77,6 +76,7 @@ type ConfigMapMount struct {
 	Name     string `yaml:"name"`               // Name of the ConfigMap
 	DestFile string `yaml:"destFile,omitempty"` // Destination file path (if mounting a single file)
 	DestDir  string `yaml:"destDir,omitempty"`  // Destination directory (if mounting entire ConfigMap)
+	Link     bool   `yaml:"link,omitempty"`     // Whether to create a symlink in workspace (default: false)
 }
 
 // SecretMount represents a Secret to mount with destination info
@@ -84,6 +84,7 @@ type SecretMount struct {
 	Name     string `yaml:"name"`               // Name of the Secret
 	DestFile string `yaml:"destFile,omitempty"` // Destination file path (if mounting a single file)
 	DestDir  string `yaml:"destDir,omitempty"`  // Destination directory (if mounting entire Secret)
+	Link     bool   `yaml:"link,omitempty"`     // Whether to create a symlink in workspace (default: false)
 }
 
 // WorkflowConfig represents Argo Workflow configuration options
@@ -98,16 +99,16 @@ type WorkflowConfig struct {
 
 // RalphConfig represents the .ralph/config.yaml structure
 type RalphConfig struct {
-	MaxIterations int            `yaml:"maxIterations,omitempty"`
-	BaseBranch    string         `yaml:"baseBranch,omitempty"`
-	Model         string         `yaml:"model,omitempty"` // AI model to use for coding and PR summary (default: deepseek/deepseek-chat)
-	Builds        []Build        `yaml:"builds,omitempty"`
-	Services      []Service      `yaml:"services,omitempty"`
-	Workflow      WorkflowConfig `yaml:"workflow,omitempty"`
-	App           AppInfo        `yaml:"app,omitempty"`
-	Instructions        string `yaml:"-"` // Not persisted in YAML, loaded from .ralph/instructions.md
-	CommentInstructions string `yaml:"-"` // Not persisted in YAML, loaded from .ralph/comment-instructions.md
-	MergeInstructions   string `yaml:"-"` // Not persisted in YAML, loaded from .ralph/merge-instructions.md
+	MaxIterations       int            `yaml:"maxIterations,omitempty"`
+	BaseBranch          string         `yaml:"baseBranch,omitempty"`
+	Model               string         `yaml:"model,omitempty"` // AI model to use for coding and PR summary (default: deepseek/deepseek-chat)
+	Builds              []Build        `yaml:"builds,omitempty"`
+	Services            []Service      `yaml:"services,omitempty"`
+	Workflow            WorkflowConfig `yaml:"workflow,omitempty"`
+	App                 AppInfo        `yaml:"app,omitempty"`
+	Instructions        string         `yaml:"-"` // Not persisted in YAML, loaded from .ralph/instructions.md
+	CommentInstructions string         `yaml:"-"` // Not persisted in YAML, loaded from .ralph/comment-instructions.md
+	MergeInstructions   string         `yaml:"-"` // Not persisted in YAML, loaded from .ralph/merge-instructions.md
 }
 
 // LoadProject loads and validates a project YAML file

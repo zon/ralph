@@ -26,14 +26,18 @@ func (s *SetupWorkspaceCmd) Run() error {
 	}
 
 	for _, cm := range cfg.Workflow.ConfigMaps {
-		if err := s.link(cwd, cm.DestFile, cm.DestDir); err != nil {
-			return err
+		if cm.Link {
+			if err := s.link(cwd, cm.DestFile, cm.DestDir); err != nil {
+				return err
+			}
 		}
 	}
 
 	for _, secret := range cfg.Workflow.Secrets {
-		if err := s.link(cwd, secret.DestFile, secret.DestDir); err != nil {
-			return err
+		if secret.Link {
+			if err := s.link(cwd, secret.DestFile, secret.DestDir); err != nil {
+				return err
+			}
 		}
 	}
 
