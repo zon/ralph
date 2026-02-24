@@ -14,6 +14,7 @@ git config --global user.email "{{.BotEmail}}"
 echo "Cloning repository: $GIT_REPO_URL"
 git clone -b "$GIT_BRANCH" "$GIT_REPO_URL" /workspace/repo
 cd /workspace/repo
+ralph setup-workspace
 
 echo "Checking out PR branch: $PR_BRANCH"
 git fetch origin "$PR_BRANCH"

@@ -3,11 +3,12 @@ package cmd
 // Cmd defines the command-line arguments and execution context
 type Cmd struct {
 	// Subcommands
-	Run         RunCmd         `cmd:"" default:"withargs" help:"Execute ralph with a project file (default command)"`
-	Comment     CommentCmd     `cmd:"" help:"Run a comment-triggered development iteration"`
-	Merge       MergeCmd       `cmd:"" help:"Submit an Argo workflow to merge a completed PR"`
-	Config      ConfigCmd      `cmd:"" help:"Configure credentials for remote execution"`
-	GithubToken GithubTokenCmd `cmd:"github-token" help:"Generate a GitHub App installation token"`
+	Run             RunCmd             `cmd:"" default:"withargs" help:"Execute ralph with a project file (default command)"`
+	Comment         CommentCmd         `cmd:"" help:"Run a comment-triggered development iteration"`
+	Merge           MergeCmd           `cmd:"" help:"Submit an Argo workflow to merge a completed PR"`
+	Config          ConfigCmd          `cmd:"" help:"Configure credentials for remote execution"`
+	GithubToken     GithubTokenCmd     `cmd:"github-token" help:"Generate a GitHub App installation token"`
+	SetupWorkspace  SetupWorkspaceCmd  `cmd:"setup-workspace" help:"Create symlinks for mounted config files into the working directory"`
 
 	version          string       `kong:"-"`
 	date             string       `kong:"-"`
