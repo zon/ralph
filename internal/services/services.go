@@ -140,8 +140,6 @@ func startService(svc config.Service, dryRun bool) (*Process, error) {
 		return nil, fmt.Errorf("failed to start service %s (command: %s): %w", svc.Name, cmdStr, err)
 	}
 
-	logger.Verbosef("Started service: %s (PID: %d)", svc.Name, cmd.Process.Pid)
-
 	return &Process{
 		Name:    svc.Name,
 		Service: svc,
@@ -169,8 +167,6 @@ func (p *Process) StopWithTimeout(timeout time.Duration) error {
 		return fmt.Errorf("no process to stop for service: %s", p.Name)
 	}
 
-	logger.Verbosef("Stopping service: %s (PID: %d)", p.Name, p.PID)
-
 	// Send SIGTERM for graceful shutdown
 	if err := p.Cmd.Process.Signal(syscall.SIGTERM); err != nil {
 		// Process may have already exited
@@ -187,7 +183,7 @@ func (p *Process) StopWithTimeout(timeout time.Duration) error {
 	select {
 	case <-done:
 		// Process exited gracefully
-		logger.Verbosef("Stopped service: %s", p.Name)
+		logger.Infof("Service %s stopped", p.Name)
 		return nil
 	case <-time.After(timeout):
 		// Timeout reached, force kill
@@ -198,7 +194,7 @@ func (p *Process) StopWithTimeout(timeout time.Duration) error {
 		}
 		// Wait for kill to complete
 		<-done
-		logger.Verbosef("Forcefully stopped service: %s", p.Name)
+		logger.Infof("Service %s stopped", p.Name)
 		return nil
 	}
 }
@@ -289,17 +285,19 @@ func stopAllServices(processes []*Process) {
 		return
 	}
 
-	logger.Verbosef("Stopping %d service(s)...", len(processes))
-
 	// Stop services in reverse order (LIFO - last started, first stopped)
 	for i := len(processes) - 1; i >= 0; i-- {
-		if err := processes[i].Stop(); err != nil {
-			logger.Errorf("Error stopping service %s: %v", processes[i].Name, err)
+		p := processes[i]
+		if err := p.Stop(); err != nil {
+			logger.Warningf("Error stopping service %s: %v", p.Name, err)
 			// Continue stopping other services even if one fails
 		}
+		if p.Service.Port > 0 {
+			if err := WaitForPortRelease(p.Service.Port, 5*time.Second); err != nil {
+				logger.Warningf("Port %d may still be in use after stopping %s: %v", p.Service.Port, p.Name, err)
+			}
+		}
 	}
-
-	logger.Verbosef("All services stopped")
 }
 
 // CheckPort checks if a TCP port is open and accepting connections
@@ -320,13 +318,10 @@ func WaitForPort(port int, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
 	interval := 500 * time.Millisecond
 
-	logger.Verbosef("Waiting for port %d to be ready...", port)
-
 	for time.Now().Before(deadline) {
 		conn, err := net.DialTimeout("tcp", address, 1*time.Second)
 		if err == nil {
 			conn.Close()
-			logger.Verbosef("Port %d is ready", port)
 			return nil
 		}
 
@@ -335,6 +330,22 @@ func WaitForPort(port int, timeout time.Duration) error {
 	}
 
 	return fmt.Errorf("timeout waiting for port %d to become available", port)
+}
+
+// WaitForPortRelease waits for a TCP port to stop accepting connections
+// Returns nil when the port is released, error if timeout is reached
+func WaitForPortRelease(port int, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	interval := 500 * time.Millisecond
+
+	for time.Now().Before(deadline) {
+		if !CheckPort(port) {
+			return nil
+		}
+		time.Sleep(interval)
+	}
+
+	return fmt.Errorf("timeout waiting for port %d to be released", port)
 }
 
 // WaitForHealth waits for a service to become healthy

@@ -79,8 +79,6 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 
 	// Start services if not disabled
 	if ctx.ShouldStartServices() && len(ralphConfig.Services) > 0 {
-		logger.Verbosef("Starting %d service(s)...", len(ralphConfig.Services))
-
 		if failedSvc, err := svcMgr.Start(ralphConfig.Services, ctx.IsDryRun()); err != nil {
 			logger.Warningf("Service startup failed: %v", err)
 
@@ -101,16 +99,8 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 			}
 
 			// Ensure services are stopped when this function exits (success or error)
-			defer func() {
-				logger.Verbose("Stopping services after requirement run...")
-				svcMgr.Stop()
-				logger.Verbose("Services stopped")
-			}()
-
-			logger.Verbose("All services started and healthy")
+			defer svcMgr.Stop()
 		}
-	} else if len(ralphConfig.Services) > 0 {
-		logger.Verbose("Skipping service startup (--no-services flag)")
 	}
 
 	// Generate development prompt
