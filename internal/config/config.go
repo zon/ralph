@@ -50,7 +50,7 @@ type Build struct {
 type Service struct {
 	Name    string   `yaml:"name"`
 	Command string   `yaml:"command"`
-	Args    []string `yaml:"ctx,omitempty"`
+	Args    []string `yaml:"args,omitempty"`
 	Port    int      `yaml:"port,omitempty"`    // Optional, for health checking
 	Timeout int      `yaml:"timeout,omitempty"` // Optional, health check timeout in seconds (default: 30)
 	WorkDir string   `yaml:"workDir,omitempty"` // Optional, working directory for the command
