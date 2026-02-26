@@ -1,6 +1,7 @@
 package services
 
 import (
+	"bytes"
 	"fmt"
 	"net"
 	"os"
@@ -58,6 +59,7 @@ type Process struct {
 	Service config.Service
 	Cmd     *exec.Cmd
 	PID     int
+	logFile *os.File // {service}.log in the repo root, capturing output during startup
 }
 
 // Manager manages a collection of running services
@@ -126,9 +128,16 @@ func startService(svc config.Service, dryRun bool) (*Process, error) {
 	// Create the command
 	cmd := exec.Command(svc.Command, svc.Args...)
 
-	// Redirect stdout/stderr to discard output
-	cmd.Stdout = nil
-	cmd.Stderr = nil
+	// Open {service}.log in the current working directory to capture output
+	// during startup so we can display it if the service fails to become healthy
+	logPath := fmt.Sprintf("%s.log", svc.Name)
+	logFile, err := os.Create(logPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create log file for service %s: %w", svc.Name, err)
+	}
+
+	cmd.Stdout = logFile
+	cmd.Stderr = logFile
 
 	// Start the process in a new process group
 	cmd.SysProcAttr = &syscall.SysProcAttr{
@@ -137,6 +146,8 @@ func startService(svc config.Service, dryRun bool) (*Process, error) {
 
 	// Start the service
 	if err := cmd.Start(); err != nil {
+		logFile.Close()
+		os.Remove(logPath)
 		return nil, fmt.Errorf("failed to start service %s (command: %s): %w", svc.Name, cmdStr, err)
 	}
 
@@ -145,6 +156,7 @@ func startService(svc config.Service, dryRun bool) (*Process, error) {
 		Service: svc,
 		Cmd:     cmd,
 		PID:     cmd.Process.Pid,
+		logFile: logFile,
 	}, nil
 }
 
@@ -246,6 +258,45 @@ func containsSpace(s string) bool {
 	return false
 }
 
+// logServiceOutput logs the contents of the service's log file, if any
+func logServiceOutput(p *Process) {
+	if p.logFile == nil {
+		return
+	}
+	if _, err := p.logFile.Seek(0, 0); err != nil {
+		return
+	}
+	var buf bytes.Buffer
+	if _, err := buf.ReadFrom(p.logFile); err != nil || buf.Len() == 0 {
+		return
+	}
+	logger.Infof("Service %s output:\n%s", p.Name, buf.String())
+}
+
+// closeLogFile closes the log file handle without removing the file,
+// so the agent can still read it after the service is healthy
+func closeLogFile(p *Process) {
+	if p.logFile != nil {
+		p.logFile.Close()
+		p.logFile = nil
+	}
+}
+
+// cleanupOutput closes and removes the service log file
+func cleanupOutput(p *Process) {
+	if p.logFile != nil {
+		name := p.logFile.Name()
+		p.logFile.Close()
+		os.Remove(name)
+		p.logFile = nil
+	}
+}
+
+// LogFileName returns the log file path for a service name
+func LogFileName(serviceName string) string {
+	return fmt.Sprintf("%s.log", serviceName)
+}
+
 // startAllServices starts all services and waits for them to become healthy
 // Returns a slice of started processes and any error encountered
 func startAllServices(services []config.Service, dryRun bool) ([]*Process, config.Service, error) {
@@ -266,11 +317,15 @@ func startAllServices(services []config.Service, dryRun bool) ([]*Process, confi
 
 		// Wait for health check
 		if err := WaitForHealth(proc, timeout, dryRun); err != nil {
-			// If health check fails, stop all services
+			// Log any output the service produced before stopping everything
+			logServiceOutput(proc)
+			cleanupOutput(proc)
 			stopAllServices(processes)
 			return nil, svc, fmt.Errorf("health check failed for service %s: %w", svc.Name, err)
 		}
 
+		// Service is healthy — close the file handle; the log file stays on disk for the agent
+		closeLogFile(proc)
 		logger.Infof("Service %s is ready", svc.Name)
 	}
 

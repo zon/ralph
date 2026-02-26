@@ -1,3 +1,30 @@
+# Development Agent Context
+
+## Project Information
+
+You are an AI coding agent working on this project.
+{{if .Notes}}
+## System Notes
+
+{{range .Notes}}{{.}}
+
+{{end}}
+{{- end}}
+{{- if .CommitLog}}
+## Recent Git History
+
+{{.CommitLog}}
+{{end -}}
+## Project Requirements
+
+{{.ProjectContent}}
+{{if .Services}}
+## Services
+
+Read these logs to diagnose service issues:
+{{range .Services}}- `{{.Name}}.log`
+{{end}}
+{{end -}}
 ## Instructions
 
 1. Review the requirements in the project file above

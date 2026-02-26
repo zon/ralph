@@ -32,6 +32,7 @@ go.work
 Thumbs.db
 
 report.md
+*.log
 
 # Secrets
 .ralph/secrets.yaml

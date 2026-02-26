@@ -118,6 +118,14 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	}
 	logger.Verbose("AI agent execution completed")
 
+	// Remove service log files now that the iteration is complete
+	for _, svc := range ralphConfig.Services {
+		logPath := services.LogFileName(svc.Name)
+		if err := os.Remove(logPath); err == nil {
+			logger.Verbosef("Removed service log: %s", logPath)
+		}
+	}
+
 	// Normalize project file: strip excess trailing newlines added by the agent
 	if data, err := os.ReadFile(absProjectFile); err == nil {
 		normalized := []byte(strings.TrimRight(string(data), "\n") + "\n")

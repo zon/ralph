@@ -2,11 +2,20 @@ package services
 
 import (
 	"net"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/zon/ralph/internal/config"
 )
+
+// cleanupLogs removes any service log files created during a test
+func cleanupLogs(t *testing.T, services []config.Service) {
+	t.Helper()
+	for _, svc := range services {
+		os.Remove(LogFileName(svc.Name))
+	}
+}
 
 func TestCheckPort(t *testing.T) {
 	// Start a listener on a random port
@@ -165,6 +174,7 @@ func TestGracefulShutdown(t *testing.T) {
 		Command: "sleep",
 		Args:    []string{"30"},
 	}
+	t.Cleanup(func() { cleanupLogs(t, []config.Service{svc}) })
 
 	proc, err := startService(svc, false)
 	if err != nil {
@@ -197,6 +207,7 @@ func TestForceKillAfterTimeout(t *testing.T) {
 		Command: "sh",
 		Args:    []string{"-c", "trap '' TERM; sleep 30"},
 	}
+	t.Cleanup(func() { cleanupLogs(t, []config.Service{svc}) })
 
 	proc, err := startService(svc, false)
 	if err != nil {
@@ -228,6 +239,7 @@ func TestStopAllServicesOrder(t *testing.T) {
 		{Name: "service2", Command: "sleep", Args: []string{"30"}},
 		{Name: "service3", Command: "sleep", Args: []string{"30"}},
 	}
+	t.Cleanup(func() { cleanupLogs(t, services) })
 
 	processes := []*Process{}
 	for _, svc := range services {
@@ -270,6 +282,7 @@ func TestManagerStartStop(t *testing.T) {
 		{Name: "service1", Command: "sleep", Args: []string{"30"}},
 		{Name: "service2", Command: "sleep", Args: []string{"30"}},
 	}
+	t.Cleanup(func() { cleanupLogs(t, services) })
 
 	// Start services
 	_, err := mgr.Start(services, false)
@@ -305,6 +318,7 @@ func TestManagerMultipleStops(t *testing.T) {
 	services := []config.Service{
 		{Name: "service1", Command: "sleep", Args: []string{"30"}},
 	}
+	t.Cleanup(func() { cleanupLogs(t, services) })
 
 	// Start service
 	_, err := mgr.Start(services, false)
