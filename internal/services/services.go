@@ -38,6 +38,11 @@ func RunBuilds(builds []config.Build, dryRun bool) error {
 		// Create the command
 		cmd := exec.Command(build.Command, build.Args...)
 
+		// Set working directory if specified
+		if build.WorkDir != "" {
+			cmd.Dir = build.WorkDir
+		}
+
 		// Connect stdout/stderr to show build output
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
@@ -127,6 +132,11 @@ func startService(svc config.Service, dryRun bool) (*Process, error) {
 
 	// Create the command
 	cmd := exec.Command(svc.Command, svc.Args...)
+
+	// Set working directory if specified
+	if svc.WorkDir != "" {
+		cmd.Dir = svc.WorkDir
+	}
 
 	// Open {service}.log in the current working directory to capture output
 	// during startup so we can display it if the service fails to become healthy

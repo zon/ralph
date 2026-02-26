@@ -43,6 +43,7 @@ type Build struct {
 	Name    string   `yaml:"name"`
 	Command string   `yaml:"command"`
 	Args    []string `yaml:"args,omitempty"`
+	WorkDir string   `yaml:"workDir,omitempty"` // Optional, working directory for the command
 }
 
 // Service represents a service to be started/stopped
@@ -52,6 +53,7 @@ type Service struct {
 	Args    []string `yaml:"ctx,omitempty"`
 	Port    int      `yaml:"port,omitempty"`    // Optional, for health checking
 	Timeout int      `yaml:"timeout,omitempty"` // Optional, health check timeout in seconds (default: 30)
+	WorkDir string   `yaml:"workDir,omitempty"` // Optional, working directory for the command
 }
 
 const (

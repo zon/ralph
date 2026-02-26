@@ -363,6 +363,107 @@ requirements:
 	}
 }
 
+func TestLoadConfig_WithWorkDir(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "ralph-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	if err := os.Mkdir(ralphDir, 0755); err != nil {
+		t.Fatalf("Failed to create .ralph dir: %v", err)
+	}
+
+	configContent := `builds:
+  - name: compile
+    command: make
+    args: [build]
+    workDir: /tmp/myapp
+services:
+  - name: api
+    command: ./api
+    workDir: /tmp/myapp/bin
+    port: 8080
+`
+	configPath := filepath.Join(ralphDir, "config.yaml")
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("Failed to write config file: %v", err)
+	}
+
+	originalWd, _ := os.Getwd()
+	defer os.Chdir(originalWd)
+	os.Chdir(tmpDir)
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig() unexpected error: %v", err)
+	}
+
+	if len(cfg.Builds) != 1 {
+		t.Fatalf("Builds length = %d, want 1", len(cfg.Builds))
+	}
+	if cfg.Builds[0].WorkDir != "/tmp/myapp" {
+		t.Errorf("Build[0].WorkDir = %q, want /tmp/myapp", cfg.Builds[0].WorkDir)
+	}
+
+	if len(cfg.Services) != 1 {
+		t.Fatalf("Services length = %d, want 1", len(cfg.Services))
+	}
+	if cfg.Services[0].WorkDir != "/tmp/myapp/bin" {
+		t.Errorf("Service[0].WorkDir = %q, want /tmp/myapp/bin", cfg.Services[0].WorkDir)
+	}
+}
+
+func TestLoadConfig_WorkDirOmitted(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "ralph-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	if err := os.Mkdir(ralphDir, 0755); err != nil {
+		t.Fatalf("Failed to create .ralph dir: %v", err)
+	}
+
+	configContent := `builds:
+  - name: compile
+    command: make
+services:
+  - name: api
+    command: ./api
+    port: 8080
+`
+	configPath := filepath.Join(ralphDir, "config.yaml")
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("Failed to write config file: %v", err)
+	}
+
+	originalWd, _ := os.Getwd()
+	defer os.Chdir(originalWd)
+	os.Chdir(tmpDir)
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig() unexpected error: %v", err)
+	}
+
+	if len(cfg.Builds) != 1 {
+		t.Fatalf("Builds length = %d, want 1", len(cfg.Builds))
+	}
+	if cfg.Builds[0].WorkDir != "" {
+		t.Errorf("Build[0].WorkDir = %q, want empty string", cfg.Builds[0].WorkDir)
+	}
+
+	if len(cfg.Services) != 1 {
+		t.Fatalf("Services length = %d, want 1", len(cfg.Services))
+	}
+	if cfg.Services[0].WorkDir != "" {
+		t.Errorf("Service[0].WorkDir = %q, want empty string", cfg.Services[0].WorkDir)
+	}
+}
+
 func TestSaveProject(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "ralph-test-*")
 	if err != nil {

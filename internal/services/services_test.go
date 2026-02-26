@@ -341,6 +341,63 @@ func TestManagerMultipleStops(t *testing.T) {
 	}
 }
 
+func TestStartServiceDryRunWithWorkDir(t *testing.T) {
+	svc := config.Service{
+		Name:    "test-service",
+		Command: "echo",
+		Args:    []string{"hello"},
+		WorkDir: "/tmp",
+	}
+
+	proc, err := startService(svc, true)
+	if err != nil {
+		t.Fatalf("startService with WorkDir in dry-run mode failed: %v", err)
+	}
+
+	if proc.PID != -1 {
+		t.Errorf("Expected PID = -1 for dry-run, got %d", proc.PID)
+	}
+}
+
+func TestStartServiceWorkDir(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	svc := config.Service{
+		Name:    "pwd-service",
+		Command: "sh",
+		Args:    []string{"-c", "echo hello"},
+		WorkDir: tmpDir,
+	}
+	t.Cleanup(func() { cleanupLogs(t, []config.Service{svc}) })
+
+	proc, err := startService(svc, false)
+	if err != nil {
+		t.Fatalf("startService with WorkDir failed: %v", err)
+	}
+	defer proc.Stop()
+
+	if proc.Cmd.Dir != tmpDir {
+		t.Errorf("Cmd.Dir = %q, want %q", proc.Cmd.Dir, tmpDir)
+	}
+}
+
+func TestRunBuildsDryRunWithWorkDir(t *testing.T) {
+	builds := []config.Build{
+		{
+			Name:    "build-with-workdir",
+			Command: "make",
+			Args:    []string{"build"},
+			WorkDir: "/tmp",
+		},
+	}
+
+	// dry-run should succeed without executing
+	err := RunBuilds(builds, true)
+	if err != nil {
+		t.Errorf("RunBuilds with WorkDir in dry-run failed: %v", err)
+	}
+}
+
 func TestManagerStopBeforeStart(t *testing.T) {
 	mgr := NewManager()
 
