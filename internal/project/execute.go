@@ -22,7 +22,7 @@ import (
 // Steps:
 // 1. Validate project file exists
 // 2. If remote mode: load project, generate and submit Argo Workflow, then exit
-// 3. Run build commands once before starting iterations
+// 3. Run before commands once before starting iterations
 // 4. Validate current branch is in sync with remote
 // 5. Extract branch name from project file basename
 // 6. If PROJECT_BRANCH != current branch: fetch, then checkout remote branch or create new one
@@ -63,10 +63,10 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 
 	baseBranch := ralphConfig.BaseBranch
 
-	// Run build commands before starting iteration loop
-	if len(ralphConfig.Builds) > 0 {
-		if err := services.RunBuilds(ralphConfig.Builds, ctx.IsDryRun()); err != nil {
-			return fmt.Errorf("failed to run builds: %w", err)
+	// Run before commands before starting iteration loop
+	if len(ralphConfig.Before) > 0 {
+		if err := services.RunBefore(ralphConfig.Before, ctx.IsDryRun()); err != nil {
+			return fmt.Errorf("failed to run before commands: %w", err)
 		}
 	}
 

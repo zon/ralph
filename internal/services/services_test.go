@@ -381,10 +381,10 @@ func TestStartServiceWorkDir(t *testing.T) {
 	}
 }
 
-func TestRunBuildsDryRunWithWorkDir(t *testing.T) {
-	builds := []config.Build{
+func TestRunBeforeDryRunWithWorkDir(t *testing.T) {
+	cmds := []config.Before{
 		{
-			Name:    "build-with-workdir",
+			Name:    "before-with-workdir",
 			Command: "make",
 			Args:    []string{"build"},
 			WorkDir: "/tmp",
@@ -392,9 +392,9 @@ func TestRunBuildsDryRunWithWorkDir(t *testing.T) {
 	}
 
 	// dry-run should succeed without executing
-	err := RunBuilds(builds, true)
+	err := RunBefore(cmds, true)
 	if err != nil {
-		t.Errorf("RunBuilds with WorkDir in dry-run failed: %v", err)
+		t.Errorf("RunBefore with WorkDir in dry-run failed: %v", err)
 	}
 }
 

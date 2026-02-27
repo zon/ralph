@@ -38,8 +38,8 @@ type Requirement struct {
 	Passing     bool     `yaml:"passing"`
 }
 
-// Build represents a build command to run before starting services
-type Build struct {
+// Before represents a command to run before starting services
+type Before struct {
 	Name    string   `yaml:"name"`
 	Command string   `yaml:"command"`
 	Args    []string `yaml:"args,omitempty"`
@@ -104,7 +104,7 @@ type RalphConfig struct {
 	MaxIterations       int            `yaml:"maxIterations,omitempty"`
 	BaseBranch          string         `yaml:"baseBranch,omitempty"`
 	Model               string         `yaml:"model,omitempty"` // AI model to use for coding and PR summary (default: deepseek/deepseek-chat)
-	Builds              []Build        `yaml:"builds,omitempty"`
+	Before              []Before       `yaml:"before,omitempty"`
 	Services            []Service      `yaml:"services,omitempty"`
 	Workflow            WorkflowConfig `yaml:"workflow,omitempty"`
 	App                 AppInfo        `yaml:"app,omitempty"`

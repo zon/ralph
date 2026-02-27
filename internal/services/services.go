@@ -15,44 +15,44 @@ import (
 	"github.com/zon/ralph/internal/logger"
 )
 
-// RunBuilds executes build commands sequentially before starting services
-// Build commands are run with connected output and expected to exit
-func RunBuilds(builds []config.Build, dryRun bool) error {
-	if len(builds) == 0 {
+// RunBefore executes commands sequentially before starting services
+// Commands are run with connected output and expected to exit
+func RunBefore(cmds []config.Before, dryRun bool) error {
+	if len(cmds) == 0 {
 		return nil
 	}
 
-	logger.Verbosef("Running %d build command(s)...", len(builds))
+	logger.Verbosef("Running %d before command(s)...", len(cmds))
 
-	for _, build := range builds {
-		cmdStr := fmt.Sprintf("%s %s", build.Command, strings.Join(build.Args, " "))
+	for _, cmd := range cmds {
+		cmdStr := fmt.Sprintf("%s %s", cmd.Command, strings.Join(cmd.Args, " "))
 
 		if dryRun {
-			logger.Infof("Would run build: %s with command: %s", build.Name, cmdStr)
+			logger.Infof("Would run before: %s with command: %s", cmd.Name, cmdStr)
 			continue
 		}
 
-		logger.Infof("Running build: %s", build.Name)
+		logger.Infof("Running before: %s", cmd.Name)
 		logger.Verbosef("Command: %s", cmdStr)
 
 		// Create the command
-		cmd := exec.Command(build.Command, build.Args...)
+		c := exec.Command(cmd.Command, cmd.Args...)
 
 		// Set working directory if specified
-		if build.WorkDir != "" {
-			cmd.Dir = build.WorkDir
+		if cmd.WorkDir != "" {
+			c.Dir = cmd.WorkDir
 		}
 
-		// Connect stdout/stderr to show build output
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
+		// Connect stdout/stderr to show output
+		c.Stdout = os.Stdout
+		c.Stderr = os.Stderr
 
-		// Run the build command and wait for it to complete
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("build %s failed: %w", build.Name, err)
+		// Run the command and wait for it to complete
+		if err := c.Run(); err != nil {
+			return fmt.Errorf("before %s failed: %w", cmd.Name, err)
 		}
 
-		logger.Successf("Build %s completed successfully", build.Name)
+		logger.Successf("Before %s completed successfully", cmd.Name)
 	}
 
 	return nil

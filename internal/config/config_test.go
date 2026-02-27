@@ -375,7 +375,7 @@ func TestLoadConfig_WithWorkDir(t *testing.T) {
 		t.Fatalf("Failed to create .ralph dir: %v", err)
 	}
 
-	configContent := `builds:
+	configContent := `before:
   - name: compile
     command: make
     args: [build]
@@ -400,11 +400,11 @@ services:
 		t.Fatalf("LoadConfig() unexpected error: %v", err)
 	}
 
-	if len(cfg.Builds) != 1 {
-		t.Fatalf("Builds length = %d, want 1", len(cfg.Builds))
+	if len(cfg.Before) != 1 {
+		t.Fatalf("Before length = %d, want 1", len(cfg.Before))
 	}
-	if cfg.Builds[0].WorkDir != "/tmp/myapp" {
-		t.Errorf("Build[0].WorkDir = %q, want /tmp/myapp", cfg.Builds[0].WorkDir)
+	if cfg.Before[0].WorkDir != "/tmp/myapp" {
+		t.Errorf("Before[0].WorkDir = %q, want /tmp/myapp", cfg.Before[0].WorkDir)
 	}
 
 	if len(cfg.Services) != 1 {
@@ -427,7 +427,7 @@ func TestLoadConfig_WorkDirOmitted(t *testing.T) {
 		t.Fatalf("Failed to create .ralph dir: %v", err)
 	}
 
-	configContent := `builds:
+	configContent := `before:
   - name: compile
     command: make
 services:
@@ -449,11 +449,11 @@ services:
 		t.Fatalf("LoadConfig() unexpected error: %v", err)
 	}
 
-	if len(cfg.Builds) != 1 {
-		t.Fatalf("Builds length = %d, want 1", len(cfg.Builds))
+	if len(cfg.Before) != 1 {
+		t.Fatalf("Before length = %d, want 1", len(cfg.Before))
 	}
-	if cfg.Builds[0].WorkDir != "" {
-		t.Errorf("Build[0].WorkDir = %q, want empty string", cfg.Builds[0].WorkDir)
+	if cfg.Before[0].WorkDir != "" {
+		t.Errorf("Before[0].WorkDir = %q, want empty string", cfg.Before[0].WorkDir)
 	}
 
 	if len(cfg.Services) != 1 {

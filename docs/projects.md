@@ -64,12 +64,33 @@ requirements:
 ## Ralph Workflow
 
 1. Creates branch `ralph/<project-name>`
-2. Starts services from `.ralph/config.yaml`
-3. For each requirement where `passing: false`:
+2. Runs `before` commands from `.ralph/config.yaml` (compilation, codegen, setup, etc.)
+3. Starts services from `.ralph/config.yaml`
+4. For each requirement where `passing: false`:
    - AI implements and validates
    - Updates status in report.md
-4. Commits changes and creates PR
-5. Stops services
+5. Commits changes and creates PR
+6. Stops services
+
+## Before Commands
+
+The `before` key in `.ralph/config.yaml` defines commands that run once before services start and before the iteration loop begins.
+
+```yaml
+before:
+  - name: compile
+    command: go
+    args: [build, -o, bin/app, ./cmd/app]
+    workDir: /path/to/project  # optional
+
+  - name: generate
+    command: make
+    args: [generate]
+```
+
+- Commands run sequentially and must exit successfully before ralph proceeds
+- Each entry requires `name` and `command`; `args` and `workDir` are optional
+- Useful for compilation, code generation, dependency installation, database migrations, etc.
 
 **Single iteration mode** (`--once`): Runs one iteration without branching/PR, useful for local testing.
 

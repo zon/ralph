@@ -14,9 +14,9 @@ baseBranch: main
 #   opencode config set model anthropic/claude-3-5-sonnet-20241022
 #   opencode config set model openai/gpt-4
 
-# Build commands to run once at the start of a project
-# These are executed before starting services and before the iteration loop
-builds:
+# Commands to run once before starting services and the iteration loop
+# Useful for compilation, code generation, dependency setup, or any other preparation
+before:
   # Example: Compile the application
   - name: compile-app
     command: go
@@ -60,10 +60,10 @@ services:
     args: [run, dev:frontend]
     port: 8080
 # Notes:
-# Build Commands:
-# - Build commands are executed once at the start of a project (not per iteration)
+# Before Commands:
+# - Before commands are executed once at the start of a project (not per iteration)
 # - They run sequentially and must complete successfully before proceeding
-# - Useful for compilation, code generation, or other setup tasks
+# - Useful for compilation, code generation, dependency setup, or other preparation
 #
 # Services:
 # - Services are started in order before AI agent execution
