@@ -34,7 +34,6 @@ func RunAgent(ctx *context.Context, prompt string) error {
 
 	cmd := exec.Command("opencode", "run", "--model", ralphConfig.Model, prompt)
 	cmd.Env = append(os.Environ(), "FORCE_COLOR=1")
-	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
@@ -126,7 +125,6 @@ func GeneratePRSummary(ctx *context.Context, projectFile string, iterations int)
 	// Run opencode with the configured model, let it write the file
 	cmd := exec.Command("opencode", "run", "--model", ralphConfig.Model, prompt)
 	cmd.Env = append(os.Environ(), "FORCE_COLOR=1")
-	cmd.Stdin = os.Stdin
 	if ctx.IsVerbose() {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
