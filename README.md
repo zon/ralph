@@ -12,7 +12,7 @@ Ralph orchestrates AI coding agents to automate development workflows, from bran
 - 🚀 Service management (start/stop dev services)
 - 🔍 Dry-run mode to preview actions
 - 🎯 YAML-based project definitions
-- ☁️ Remote execution via Argo Workflows on Kubernetes
+- 🐙 Remote execution via Argo Workflows on Kubernetes
 
 ## Example
 

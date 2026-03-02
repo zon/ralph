@@ -17,7 +17,7 @@ requirements:
     passing: false                # false = needs work, true = complete
 ```
 
-A project can have multiple requirements across different categories. Ralph processes each requirement where `passing: false`, in order.
+A project can have multiple requirements across different categories. Ralph reads all requirements where `passing: false` and picks the highest priority to work on.
 
 ## Naming Projects
 
@@ -31,23 +31,20 @@ Name your project file to match: `user-authentication.yaml`.
 
 ## Writing Good Requirements
 
-Requirements describe **what should be accomplished**, not how to accomplish it.
-
-**Focus on outcomes:**
+Requirements describe **what should happen** and may define high-level interfaces, but should not include low-level implementation detail.
 
 ✅ Good:
 - Users can log in with email and password
 - Invalid credentials are rejected with error messages
 - Session tokens expire after 24 hours
+- `POST /auth/login` accepts `{ email, password }` and returns a JWT
 
 ❌ Bad:
-- Create login API endpoint
 - Add password validation function
 - Implement JWT expiration middleware
+- Use bcrypt with cost factor 12
 
 **Guidelines:**
-- Write from the user or system perspective ("Users can...", "System validates...")
+- Write from the user, client, or developer perspective — user interfaces, network interfaces, and high-level APIs
 - Be specific about expected behavior
 - Break complex work into multiple requirements
-- Order items logically when dependent
-- Start small — one requirement per run until you trust the workflow
