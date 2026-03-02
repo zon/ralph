@@ -2,19 +2,51 @@
 
 I made a Ralph.
 
-Ralph orchestrates AI coding agents to automate development workflows from branch creation through pull request submission.
-
-See [docs/projects.md](docs/projects.md) for writing project files.
+Ralph orchestrates AI coding agents to automate development workflows, from branch creation through pull request submission.
 
 ## Features
 
-- 🤖 AI-driven development with OpenCode CLI
+- 🤖 AI-driven development with OpenCode
 - 🔄 Iterative workflows until requirements pass
 - 🌿 Automated git operations (branch, commit, push, PR)
 - 🚀 Service management (start/stop dev services)
 - 🔍 Dry-run mode to preview actions
 - 🎯 YAML-based project definitions
 - ☁️ Remote execution via Argo Workflows on Kubernetes
+
+## Example
+
+Define your project with requirements:
+
+```yaml
+name: user-authentication
+description: Add user authentication
+
+requirements:
+  - category: backend
+    description: Authentication API
+    items:
+      - Users can register with email and password
+      - Users can log in with valid credentials
+      - JWT tokens are issued on successful authentication
+    passing: false
+
+  - category: frontend
+    description: Authentication UI
+    items:
+      - Users can access login and registration forms
+      - Login redirects to dashboard on success
+      - Invalid credentials show error messages
+    passing: false
+```
+
+Run it locally:
+
+```bash
+ralph user-authentication.yaml --local
+```
+
+Ralph will create a branch, implement each requirement using an AI agent, and open a pull request when all requirements pass.
 
 ## Installation
 
@@ -32,6 +64,7 @@ go install github.com/zon/ralph/cmd/ralph@latest
 ```
 
 Ensure `$GOPATH/bin` is in your PATH:
+
 ```bash
 export PATH=$PATH:$(go env GOPATH)/bin
 ```
@@ -42,97 +75,13 @@ export PATH=$PATH:$(go env GOPATH)/bin
 gh auth login
 ```
 
-See [GitHub CLI authentication](https://cli.github.com/manual/gh_auth_login)
-
 ### 4. Configure OpenCode
 
 See [OpenCode authentication docs](https://opencode.ai/docs/cli/#auth) for setup instructions.
 
-## Usage
+## More
 
-```bash
-# Preview workflow
-ralph my-feature.yaml --dry-run
-
-# Full workflow: branch → iterate → commit → PR
-ralph my-feature.yaml
-
-# Single iteration (no branch/commit/PR)
-ralph my-feature.yaml --once
-
-# Remote execution on Kubernetes (default, with monitoring)
-ralph my-feature.yaml --watch
-```
-
-See [docs/projects.md](docs/projects.md) for how to write project files.
-
-See [docs/remote-execution.md](docs/remote-execution.md) for remote execution with Argo Workflows.
-
-## GitHub Webhook Service
-
-The `ralph-webhook` binary listens for GitHub webhook events and triggers ralph workflows in response.
-
-### Running locally with hot reload
-
-Install [Air](https://github.com/air-verse/air) for live reloading during development:
-
-```bash
-go install github.com/air-verse/air@latest
-```
-
-Start the webhook service with hot reload from the repository root:
-
-```bash
-air -c cmd/ralph-webhook/.air.toml
-```
-
-Air watches `cmd/ralph-webhook/` and `internal/webhook/` for Go source file changes and automatically rebuilds and restarts the service.
-
-Set the required environment variables or use CLI flags before starting:
-
-```bash
-export WEBHOOK_CONFIG=/path/to/config.yaml
-export WEBHOOK_SECRETS=/path/to/secrets.yaml
-air -c cmd/ralph-webhook/.air.toml
-```
-
-## Configuration
-
-### Ralph Config (`.ralph/config.yaml`)
-
-Optional project-specific settings:
-
-```yaml
-maxIterations: 10  # Max iterations before stopping
-baseBranch: main   # Base branch for PRs
-
-# Optional: Services to manage
-services:
-  - name: database
-    command: podman
-    args: [compose, up, -d, db]
-    port: 5432  # For health checking
-    
-  - name: api-server
-    command: npm
-    args: [run, dev]
-    port: 3000
-
-# Optional: Workflow settings for remote execution
-workflow:
-  image:
-    repository: ghcr.io/zon/ralph
-    tag: latest
-  context: my-cluster
-  namespace: argo
-```
-
-**Note:** LLM configuration (model, API keys) is managed by OpenCode, not Ralph.
-
-See [docs/remote-execution.md](docs/remote-execution.md) for full workflow configuration options.
-
-### Custom Development Instructions (`.ralph/instructions.md`)
-
-Create `.ralph/instructions.md` to guide the AI. Ralph includes this file in the AI prompt automatically. If not present, [default instructions](internal/config/default-instructions.md) are used.
-
-**Note:** The default instructions include important instructions for requirement management and reporting. Edit carefully to preserve this functionality.
+- [CLI reference](docs/cli.md)
+- [Writing projects](docs/projects.md)
+- [Remote execution workflows](docs/workflows.md)
+- [Configuration reference](docs/config.md)
