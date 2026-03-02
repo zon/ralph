@@ -48,3 +48,5 @@ Requirements describe **what should happen** and may define high-level interface
 - Write from the user, client, or developer perspective — user interfaces, network interfaces, and high-level APIs
 - Be specific about expected behavior
 - Break complex work into multiple requirements
+
+**Do not include** items ralph handles automatically — it runs tests and fixes failures on its own. Items like "all existing tests pass" or "no regressions" are redundant.
