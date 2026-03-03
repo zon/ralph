@@ -15,11 +15,16 @@ import (
 
 // configureAuth refreshes the GitHub App token and configures git HTTPS auth.
 // Called before every network git operation when running inside a workflow container.
+// Uses the GITHUB_REPO_OWNER / GITHUB_REPO_NAME env vars injected by the workflow so
+// that the correct installation is looked up even when the process CWD is not the
+// target repository (e.g. when ralph is invoked via `go run` from a different dir).
 func configureAuth(ctx *context.Context) error {
 	if !ctx.IsWorkflowExecution() {
 		return nil
 	}
-	return github.ConfigureGitAuth(gocontext.Background(), "", "", github.DefaultSecretsDir)
+	owner := os.Getenv("GITHUB_REPO_OWNER")
+	repo := os.Getenv("GITHUB_REPO_NAME")
+	return github.ConfigureGitAuth(gocontext.Background(), owner, repo, github.DefaultSecretsDir)
 }
 
 // IsGitRepository checks if the current directory is inside a git repository
