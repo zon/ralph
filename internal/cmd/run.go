@@ -24,6 +24,7 @@ type RunCmd struct {
 	Verbose       bool   `help:"Enable verbose logging" default:"false"`
 	Local         bool   `help:"Run on this machine instead of in Argo Workflows" default:"false"`
 	Follow        bool   `help:"Follow workflow logs after submission (only applicable without --local)" short:"f" default:"false"`
+	Debug         string `help:"Checkout the given ralph repo branch in the workflow container and invoke ralph via 'go run' instead of the built binary" name:"debug" optional:""`
 	ShowVersion   bool   `help:"Show version information" short:"v" name:"version"`
 
 	version          string       `kong:"-"`
@@ -68,6 +69,10 @@ func (r *RunCmd) Run() error {
 		return fmt.Errorf("--local flag is incompatible with --once flag")
 	}
 
+	if r.Debug != "" && r.Local {
+		return fmt.Errorf("--debug flag is not applicable with --local flag")
+	}
+
 	// Create execution context
 	ctx := &execcontext.Context{
 		ProjectFile:   r.ProjectFile,
@@ -78,6 +83,7 @@ func (r *RunCmd) Run() error {
 		NoServices:    r.NoServices,
 		Local:         r.Local,
 		Follow:        r.Follow,
+		DebugBranch:   r.Debug,
 	}
 
 	if r.Once {
