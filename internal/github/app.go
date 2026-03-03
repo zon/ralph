@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -159,7 +160,7 @@ func ConfigureGitAuth(ctx context.Context, owner, repo, secretsDir string) error
 	if err != nil {
 		return fmt.Errorf("failed to read app ID from %s: %w", appIDPath, err)
 	}
-	appID := string(appIDBytes)
+	appID := strings.TrimSpace(string(appIDBytes))
 	if appID == "" {
 		return fmt.Errorf("app ID is empty in %s", appIDPath)
 	}
