@@ -18,25 +18,25 @@ func TestBuildRunScript(t *testing.T) {
 			name:            "no flags",
 			dryRun:          false,
 			verbose:         false,
-			expectedCommand: `$RALPH_CMD "$PROJECT_PATH" --local --no-notify`,
+			expectedCommand: `ralph "$PROJECT_PATH" --local --no-notify`,
 		},
 		{
 			name:            "dry-run only",
 			dryRun:          true,
 			verbose:         false,
-			expectedCommand: `$RALPH_CMD "$PROJECT_PATH" --local --dry-run --no-notify`,
+			expectedCommand: `ralph "$PROJECT_PATH" --local --dry-run --no-notify`,
 		},
 		{
 			name:            "verbose only",
 			dryRun:          false,
 			verbose:         true,
-			expectedCommand: `$RALPH_CMD "$PROJECT_PATH" --local --verbose --no-notify`,
+			expectedCommand: `ralph "$PROJECT_PATH" --local --verbose --no-notify`,
 		},
 		{
 			name:            "both flags",
 			dryRun:          true,
 			verbose:         true,
-			expectedCommand: `$RALPH_CMD "$PROJECT_PATH" --local --dry-run --verbose --no-notify`,
+			expectedCommand: `ralph "$PROJECT_PATH" --local --dry-run --verbose --no-notify`,
 		},
 	}
 
@@ -55,7 +55,7 @@ func TestBuildRunScript(t *testing.T) {
 				"GIT_BRANCH",
 				"PROJECT_BRANCH",
 				"BASE_BRANCH",
-				`$RALPH_CMD set-github-token`,
+				`ralph set-github-token`,
 				config.DefaultAppName + "[bot]",
 				config.DefaultAppName + "[bot]@users.noreply.github.com",
 				"auth.json",
@@ -79,9 +79,9 @@ func TestBuildRunScript_DebugBranch(t *testing.T) {
 
 	expectedElements := []string{
 		"git clone -b \"my-debug-branch\" https://github.com/zon/ralph.git /workspace/ralph",
-		"RALPH_CMD=\"go run /workspace/ralph/cmd/ralph/main.go\"",
-		`$RALPH_CMD set-github-token`,
-		`$RALPH_CMD "$PROJECT_PATH" --local --no-notify`,
+		"ralph() { (cd /workspace/ralph && go run ./cmd/ralph/main.go \"$@\"); }",
+		`ralph set-github-token`,
+		`ralph "$PROJECT_PATH" --local --no-notify`,
 	}
 	for _, element := range expectedElements {
 		if !strings.Contains(script, element) {
@@ -89,9 +89,9 @@ func TestBuildRunScript_DebugBranch(t *testing.T) {
 		}
 	}
 
-	// non-debug elements must NOT appear when debug branch is set
-	if strings.Contains(script, "RALPH_CMD=\"ralph\"") {
-		t.Errorf("run script (debug branch) should not set RALPH_CMD to the ralph binary")
+	// non-debug path must NOT appear when debug branch is set
+	if strings.Contains(script, "command ralph") {
+		t.Errorf("run script (debug branch) should not use 'command ralph' fallback")
 	}
 }
 

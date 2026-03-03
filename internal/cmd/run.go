@@ -15,7 +15,7 @@ import (
 // RunCmd is the default command for executing ralph
 type RunCmd struct {
 	WorkingDir    string `help:"Working directory to run ralph in" type:"path" short:"C"`
-	ProjectFile   string `arg:"" optional:"" help:"Path to project YAML file" type:"path"`
+	ProjectFile   string `arg:"" optional:"" help:"Path to project YAML file"`
 	Once          bool   `help:"Single development iteration mode" default:"false"`
 	MaxIterations int    `help:"Maximum number of development iterations (not applicable with --once)" default:"10"`
 	DryRun        bool   `help:"Simulate execution without making changes" default:"false"`
@@ -55,6 +55,13 @@ func (r *RunCmd) Run() error {
 	if r.ProjectFile == "" {
 		return fmt.Errorf("project file required (see --help)")
 	}
+
+	// Resolve the project file path relative to the (possibly changed) working directory.
+	absProjectFile, err := filepath.Abs(r.ProjectFile)
+	if err != nil {
+		return fmt.Errorf("failed to resolve project file path: %w", err)
+	}
+	r.ProjectFile = absProjectFile
 
 	if _, err := os.Stat(r.ProjectFile); os.IsNotExist(err) {
 		return fmt.Errorf("project file not found: %s", r.ProjectFile)
