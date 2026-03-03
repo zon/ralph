@@ -18,25 +18,25 @@ func TestBuildRunScript(t *testing.T) {
 			name:            "no flags",
 			dryRun:          false,
 			verbose:         false,
-			expectedCommand: `ralph "$PROJECT_PATH" --local --no-notify`,
+			expectedCommand: `ralph_run "$PROJECT_PATH" --local --no-notify`,
 		},
 		{
 			name:            "dry-run only",
 			dryRun:          true,
 			verbose:         false,
-			expectedCommand: `ralph "$PROJECT_PATH" --local --dry-run --no-notify`,
+			expectedCommand: `ralph_run "$PROJECT_PATH" --local --dry-run --no-notify`,
 		},
 		{
 			name:            "verbose only",
 			dryRun:          false,
 			verbose:         true,
-			expectedCommand: `ralph "$PROJECT_PATH" --local --verbose --no-notify`,
+			expectedCommand: `ralph_run "$PROJECT_PATH" --local --verbose --no-notify`,
 		},
 		{
 			name:            "both flags",
 			dryRun:          true,
 			verbose:         true,
-			expectedCommand: `ralph "$PROJECT_PATH" --local --dry-run --verbose --no-notify`,
+			expectedCommand: `ralph_run "$PROJECT_PATH" --local --dry-run --verbose --no-notify`,
 		},
 	}
 
@@ -79,9 +79,9 @@ func TestBuildRunScript_DebugBranch(t *testing.T) {
 
 	expectedElements := []string{
 		"git clone -b \"my-debug-branch\" https://github.com/zon/ralph.git /workspace/ralph",
-		"ralph() { (cd /workspace/ralph && go run ./cmd/ralph/main.go \"$@\"); }",
+		"go run ./cmd/ralph/main.go",
 		`ralph set-github-token`,
-		`ralph "$PROJECT_PATH" --local --no-notify`,
+		`ralph_run "$PROJECT_PATH" --local --no-notify`,
 	}
 	for _, element := range expectedElements {
 		if !strings.Contains(script, element) {
