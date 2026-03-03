@@ -18,25 +18,25 @@ func TestBuildRunScript(t *testing.T) {
 			name:            "no flags",
 			dryRun:          false,
 			verbose:         false,
-			expectedCommand: `ralph "$PROJECT_PATH" --local --no-notify`,
+			expectedCommand: `ralph_run "$PROJECT_PATH" --local --no-notify`,
 		},
 		{
 			name:            "dry-run only",
 			dryRun:          true,
 			verbose:         false,
-			expectedCommand: `ralph "$PROJECT_PATH" --local --dry-run --no-notify`,
+			expectedCommand: `ralph_run "$PROJECT_PATH" --local --dry-run --no-notify`,
 		},
 		{
 			name:            "verbose only",
 			dryRun:          false,
 			verbose:         true,
-			expectedCommand: `ralph "$PROJECT_PATH" --local --verbose --no-notify`,
+			expectedCommand: `ralph_run "$PROJECT_PATH" --local --verbose --no-notify`,
 		},
 		{
 			name:            "both flags",
 			dryRun:          true,
 			verbose:         true,
-			expectedCommand: `ralph "$PROJECT_PATH" --local --dry-run --verbose --no-notify`,
+			expectedCommand: `ralph_run "$PROJECT_PATH" --local --dry-run --verbose --no-notify`,
 		},
 	}
 
@@ -45,7 +45,7 @@ func TestBuildRunScript(t *testing.T) {
 			cfg := &config.RalphConfig{
 				Workflow: config.WorkflowConfig{},
 			}
-			script := buildRunScript(tt.dryRun, tt.verbose, cfg)
+			script := buildRunScript(tt.dryRun, tt.verbose, "", cfg)
 
 			expectedElements := []string{
 				"#!/bin/sh",
@@ -55,7 +55,7 @@ func TestBuildRunScript(t *testing.T) {
 				"GIT_BRANCH",
 				"PROJECT_BRANCH",
 				"BASE_BRANCH",
-				"ralph set-github-token",
+				`ralph set-github-token`,
 				config.DefaultAppName + "[bot]",
 				config.DefaultAppName + "[bot]@users.noreply.github.com",
 				"auth.json",
@@ -68,6 +68,30 @@ func TestBuildRunScript(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestBuildRunScript_DebugBranch(t *testing.T) {
+	cfg := &config.RalphConfig{
+		Workflow: config.WorkflowConfig{},
+	}
+	script := buildRunScript(false, false, "my-debug-branch", cfg)
+
+	expectedElements := []string{
+		"git clone -b \"my-debug-branch\" https://github.com/zon/ralph.git /workspace/ralph",
+		"go run ./cmd/ralph/main.go",
+		`ralph set-github-token`,
+		`ralph_run "$PROJECT_PATH" --local --no-notify`,
+	}
+	for _, element := range expectedElements {
+		if !strings.Contains(script, element) {
+			t.Errorf("run script (debug branch) does not contain expected element: %s", element)
+		}
+	}
+
+	// non-debug path must NOT appear when debug branch is set
+	if strings.Contains(script, "command ralph") {
+		t.Errorf("run script (debug branch) should not use 'command ralph' fallback")
 	}
 }
 

@@ -1,6 +1,16 @@
 #!/bin/sh
 set -e
 
+{{- if .DebugBranch}}
+echo "Debug mode: cloning ralph branch '{{.DebugBranch}}' to /workspace/ralph..."
+git clone -b "{{.DebugBranch}}" https://github.com/zon/ralph.git /workspace/ralph
+ralph() { _ralph_cwd="$(pwd)" && (cd /workspace/ralph && go run ./cmd/ralph/main.go "$@") ; }
+ralph_run() { _ralph_cwd="$(pwd)" && (cd /workspace/ralph && go run ./cmd/ralph/main.go -C "$_ralph_cwd" "$@") ; }
+{{- else}}
+ralph() { command ralph "$@"; }
+ralph_run() { ralph "$@"; }
+{{- end}}
+
 echo "Setting up GitHub App token and configuring git authentication..."
 ralph set-github-token --owner "$GITHUB_REPO_OWNER" --repo "$GITHUB_REPO_NAME"
 
@@ -33,7 +43,7 @@ if [ "$PROJECT_BRANCH" != "$GIT_BRANCH" ]; then
 fi
 
 echo "Running ralph..."
-ralph "$PROJECT_PATH" --local{{.DryRunFlag}}{{.VerboseFlag}} --no-notify
+ralph_run "$PROJECT_PATH" --local{{.DryRunFlag}}{{.VerboseFlag}} --no-notify
 
 opencode stats
 

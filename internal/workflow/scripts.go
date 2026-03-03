@@ -27,9 +27,10 @@ type scriptData struct {
 	BotEmail    string
 	DryRunFlag  string // empty or " --dry-run"
 	VerboseFlag string // empty or " --verbose"
+	DebugBranch string // empty or the ralph repo branch to use for go run mode
 }
 
-func newScriptData(dryRun, verbose bool) scriptData {
+func newScriptData(dryRun, verbose bool, debugBranch string) scriptData {
 	dryRunFlag := ""
 	if dryRun {
 		dryRunFlag = " --dry-run"
@@ -43,6 +44,7 @@ func newScriptData(dryRun, verbose bool) scriptData {
 		BotEmail:    config.DefaultAppName + "[bot]@users.noreply.github.com",
 		DryRunFlag:  dryRunFlag,
 		VerboseFlag: verboseFlag,
+		DebugBranch: debugBranch,
 	}
 }
 
@@ -75,18 +77,18 @@ func buildParameters(params map[string]string) []map[string]interface{} {
 }
 
 // buildRunScript returns the rendered run.sh script for a regular development workflow.
-func buildRunScript(dryRun, verbose bool, _ *config.RalphConfig) string {
-	return renderScript(runScript, newScriptData(dryRun, verbose))
+func buildRunScript(dryRun, verbose bool, debugBranch string, _ *config.RalphConfig) string {
+	return renderScript(runScript, newScriptData(dryRun, verbose, debugBranch))
 }
 
 // buildCommentScript returns the rendered comment.sh script for a comment-triggered workflow.
 func buildCommentScript(dryRun, verbose bool) string {
-	return renderScript(commentScript, newScriptData(dryRun, verbose))
+	return renderScript(commentScript, newScriptData(dryRun, verbose, ""))
 }
 
 // buildMergeScript returns the rendered merge.sh script for a merge workflow.
 func buildMergeScript() string {
-	return renderScript(mergeScript, newScriptData(false, false))
+	return renderScript(mergeScript, newScriptData(false, false, ""))
 }
 
 // buildVolumeMounts builds volume mounts for secrets and configMaps

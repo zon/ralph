@@ -4,19 +4,20 @@ import "os"
 
 // Context holds the execution context for ralph commands
 type Context struct {
-	ProjectFile   string
-	MaxIterations int
-	DryRun        bool
-	Verbose       bool
-	NoNotify      bool
-	NoServices    bool
-	Local         bool
-	Follow        bool
-	Notes         []string // Runtime notes to pass to the agent
-	Instructions   string // Path to an instructions file that overrides the default instructions
-	InstructionsMD string // Inline instructions content; overrides .ralph/instructions.md when set
-	Repo           string // owner/repo override (e.g., "zon/ralph"); skips local git remote detection
-	Branch         string // Branch override; skips local git GetCurrentBranch + sync check
+	ProjectFile    string
+	MaxIterations  int
+	DryRun         bool
+	Verbose        bool
+	NoNotify       bool
+	NoServices     bool
+	Local          bool
+	Follow         bool
+	Notes          []string // Runtime notes to pass to the agent
+	Instructions   string   // Path to an instructions file that overrides the default instructions
+	InstructionsMD string   // Inline instructions content; overrides .ralph/instructions.md when set
+	Repo           string   // owner/repo override (e.g., "zon/ralph"); skips local git remote detection
+	Branch         string   // Branch override; skips local git GetCurrentBranch + sync check
+	DebugBranch    string   // When set, workflows checkout this ralph repo branch and invoke ralph via `go run`
 }
 
 // IsDryRun returns true if running in dry-run mode

@@ -34,6 +34,9 @@ type Workflow struct {
 	DryRun bool
 	// Verbose controls whether the ralph command inside the container runs with --verbose.
 	Verbose bool
+	// DebugBranch, when non-empty, causes the workflow to checkout that branch of the ralph repo
+	// into /workspace/ralph and invoke ralph via `go run` instead of the built binary.
+	DebugBranch string
 	// RalphConfig supplies workflow-level configuration (image overrides, secrets, configmaps, env).
 	RalphConfig *config.RalphConfig
 }
@@ -100,7 +103,7 @@ func (w *Workflow) buildScript() string {
 	if w.CommentBody != "" {
 		return buildCommentScript(w.DryRun, w.Verbose)
 	}
-	return buildRunScript(w.DryRun, w.Verbose, w.RalphConfig)
+	return buildRunScript(w.DryRun, w.Verbose, w.DebugBranch, w.RalphConfig)
 }
 
 func (w *Workflow) buildMainTemplate() map[string]interface{} {

@@ -15,7 +15,7 @@ import (
 // RunCmd is the default command for executing ralph
 type RunCmd struct {
 	WorkingDir    string `help:"Working directory to run ralph in" type:"path" short:"C"`
-	ProjectFile   string `arg:"" optional:"" help:"Path to project YAML file" type:"path"`
+	ProjectFile   string `arg:"" optional:"" help:"Path to project YAML file"`
 	Once          bool   `help:"Single development iteration mode" default:"false"`
 	MaxIterations int    `help:"Maximum number of development iterations (not applicable with --once)" default:"10"`
 	DryRun        bool   `help:"Simulate execution without making changes" default:"false"`
@@ -24,6 +24,7 @@ type RunCmd struct {
 	Verbose       bool   `help:"Enable verbose logging" default:"false"`
 	Local         bool   `help:"Run on this machine instead of in Argo Workflows" default:"false"`
 	Follow        bool   `help:"Follow workflow logs after submission (only applicable without --local)" short:"f" default:"false"`
+	Debug         string `help:"Checkout the given ralph repo branch in the workflow container and invoke ralph via 'go run' instead of the built binary" name:"debug" optional:""`
 	ShowVersion   bool   `help:"Show version information" short:"v" name:"version"`
 
 	version          string       `kong:"-"`
@@ -55,6 +56,13 @@ func (r *RunCmd) Run() error {
 		return fmt.Errorf("project file required (see --help)")
 	}
 
+	// Resolve the project file path relative to the (possibly changed) working directory.
+	absProjectFile, err := filepath.Abs(r.ProjectFile)
+	if err != nil {
+		return fmt.Errorf("failed to resolve project file path: %w", err)
+	}
+	r.ProjectFile = absProjectFile
+
 	if _, err := os.Stat(r.ProjectFile); os.IsNotExist(err) {
 		return fmt.Errorf("project file not found: %s", r.ProjectFile)
 	}
@@ -68,6 +76,10 @@ func (r *RunCmd) Run() error {
 		return fmt.Errorf("--local flag is incompatible with --once flag")
 	}
 
+	if r.Debug != "" && r.Local {
+		return fmt.Errorf("--debug flag is not applicable with --local flag")
+	}
+
 	// Create execution context
 	ctx := &execcontext.Context{
 		ProjectFile:   r.ProjectFile,
@@ -78,6 +90,7 @@ func (r *RunCmd) Run() error {
 		NoServices:    r.NoServices,
 		Local:         r.Local,
 		Follow:        r.Follow,
+		DebugBranch:   r.Debug,
 	}
 
 	if r.Once {
