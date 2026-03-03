@@ -2,14 +2,25 @@ package git
 
 import (
 	"bytes"
+	gocontext "context"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
 
 	"github.com/zon/ralph/internal/context"
+	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/logger"
 )
+
+// configureAuth refreshes the GitHub App token and configures git HTTPS auth.
+// Called before every network git operation when running inside a workflow container.
+func configureAuth(ctx *context.Context) error {
+	if !ctx.IsWorkflowExecution() {
+		return nil
+	}
+	return github.ConfigureGitAuth(gocontext.Background(), "", "", github.DefaultSecretsDir)
+}
 
 // IsGitRepository checks if the current directory is inside a git repository
 func IsGitRepository(ctx *context.Context) bool {
@@ -190,6 +201,10 @@ func Fetch(ctx *context.Context) error {
 		return nil
 	}
 
+	if err := configureAuth(ctx); err != nil {
+		return fmt.Errorf("failed to configure git auth: %w", err)
+	}
+
 	cmd := exec.Command("git", "fetch", "origin")
 	var out bytes.Buffer
 	cmd.Stdout = &out
@@ -219,6 +234,10 @@ func PullRebase(ctx *context.Context) error {
 	if ctx.IsDryRun() {
 		logger.Info("[DRY-RUN] Would pull --rebase from remote")
 		return nil
+	}
+
+	if err := configureAuth(ctx); err != nil {
+		return fmt.Errorf("failed to configure git auth: %w", err)
 	}
 
 	branch, err := GetCurrentBranch(ctx)
@@ -292,6 +311,10 @@ func PushBranch(ctx *context.Context, branch string) (string, error) {
 		return "https://github.com/dry-run/repo", nil
 	}
 
+	if err := configureAuth(ctx); err != nil {
+		return "", fmt.Errorf("failed to configure git auth: %w", err)
+	}
+
 	// Check if there are commits to push
 	if !HasCommits(ctx) {
 		return "", fmt.Errorf("no commits to push on branch '%s'", branch)
@@ -333,6 +356,10 @@ func PushCurrentBranch(ctx *context.Context) error {
 	if ctx.IsDryRun() {
 		logger.Info("[DRY-RUN] Would push current branch to origin")
 		return nil
+	}
+
+	if err := configureAuth(ctx); err != nil {
+		return fmt.Errorf("failed to configure git auth: %w", err)
 	}
 
 	// Get current branch

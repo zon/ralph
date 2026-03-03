@@ -1,11 +1,8 @@
 #!/bin/sh
 set -e
 
-echo "Setting up GitHub App token..."
-export GITHUB_TOKEN=$(ralph github-token --owner "$GITHUB_REPO_OWNER" --repo "$GITHUB_REPO_NAME")
-
-echo "Configuring git for HTTPS authentication..."
-git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
+echo "Setting up GitHub App token and configuring git authentication..."
+ralph set-github-token --owner "$GITHUB_REPO_OWNER" --repo "$GITHUB_REPO_NAME"
 
 echo "Setting up OpenCode credentials..."
 mkdir -p ~/.local/share/opencode

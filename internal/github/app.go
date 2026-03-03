@@ -9,6 +9,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -121,6 +124,79 @@ func GetInstallationToken(ctx context.Context, jwtToken string, installationID i
 	}
 
 	return result.Token, nil
+}
+
+// DefaultSecretsDir is the default directory for GitHub App credentials in containers.
+const DefaultSecretsDir = "/secrets/github"
+
+// ConfigureGitAuth fetches a GitHub App installation token from secretsDir and
+// configures git globally to authenticate HTTPS requests with it.
+// owner and repo are used to look up the installation; if either is empty they
+// are autodetected from the git remote.
+func ConfigureGitAuth(ctx context.Context, owner, repo, secretsDir string) error {
+	if owner == "" || repo == "" {
+		detectedOwner, detectedRepo, err := GetRepo(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to autodetect repository from git remote: %w", err)
+		}
+		if owner == "" {
+			owner = detectedOwner
+		}
+		if repo == "" {
+			repo = detectedRepo
+		}
+	}
+
+	if owner == "" {
+		return fmt.Errorf("repository owner is required (use --owner flag or ensure git remote is configured)")
+	}
+	if repo == "" {
+		return fmt.Errorf("repository name is required (use --repo flag or ensure git remote is configured)")
+	}
+
+	appIDPath := filepath.Join(secretsDir, "app-id")
+	appIDBytes, err := os.ReadFile(appIDPath)
+	if err != nil {
+		return fmt.Errorf("failed to read app ID from %s: %w", appIDPath, err)
+	}
+	appID := string(appIDBytes)
+	if appID == "" {
+		return fmt.Errorf("app ID is empty in %s", appIDPath)
+	}
+
+	privateKeyPath := filepath.Join(secretsDir, "private-key")
+	privateKeyBytes, err := os.ReadFile(privateKeyPath)
+	if err != nil {
+		return fmt.Errorf("failed to read private key from %s: %w", privateKeyPath, err)
+	}
+	if len(privateKeyBytes) == 0 {
+		return fmt.Errorf("private key is empty in %s", privateKeyPath)
+	}
+
+	jwtToken, err := GenerateAppJWT(appID, privateKeyBytes)
+	if err != nil {
+		return fmt.Errorf("failed to generate JWT: %w", err)
+	}
+
+	installationID, err := GetInstallationID(ctx, jwtToken, owner, repo)
+	if err != nil {
+		return fmt.Errorf("failed to get installation ID: %w", err)
+	}
+
+	installationToken, err := GetInstallationToken(ctx, jwtToken, installationID)
+	if err != nil {
+		return fmt.Errorf("failed to get installation token: %w", err)
+	}
+
+	insteadOfKey := "url.https://x-access-token:" + installationToken + "@github.com/.insteadOf"
+	cmd := exec.CommandContext(ctx, "git", "config", "--global", insteadOfKey, "https://github.com/")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to configure git HTTPS authentication: %w", err)
+	}
+
+	return nil
 }
 
 // parsePrivateKey parses a PEM-encoded RSA private key
