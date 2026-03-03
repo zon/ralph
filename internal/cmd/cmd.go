@@ -7,8 +7,8 @@ type Cmd struct {
 	Comment        CommentCmd        `cmd:"" help:"Run a comment-triggered development iteration"`
 	Merge          MergeCmd          `cmd:"" help:"Submit an Argo workflow to merge a completed PR"`
 	Config         ConfigCmd         `cmd:"" help:"Configure credentials for remote execution"`
-	GithubToken    GithubTokenCmd    `cmd:"set-github-token" help:"Generate a GitHub App installation token and configure git HTTPS authentication"`
-	SetupWorkspace SetupWorkspaceCmd `cmd:"setup-workspace" help:"Create symlinks for mounted config files into the working directory"`
+	SetGithubToken GithubTokenCmd    `cmd:"" help:"Generate a GitHub App installation token and configure git HTTPS authentication"`
+	SetupWorkspace SetupWorkspaceCmd `cmd:"" help:"Create symlinks for mounted config files into the working directory"`
 
 	version          string       `kong:"-"`
 	date             string       `kong:"-"`
@@ -20,7 +20,7 @@ type ConfigCmd struct {
 	Github        ConfigGithubCmd        `cmd:"" help:"Configure GitHub credentials for remote execution"`
 	Opencode      ConfigOpencodeCmd      `cmd:"" help:"Configure OpenCode credentials for remote execution"`
 	WebhookConfig ConfigWebhookConfigCmd `cmd:"" name:"webhook" help:"Provision webhook-config secret into Kubernetes"`
-	WebhookSecret ConfigWebhookSecretCmd `cmd:"webhook-secret" help:"Provision webhook-secrets secret into Kubernetes"`
+	WebhookSecret ConfigWebhookSecretCmd `cmd:"" help:"Provision webhook-secrets secret into Kubernetes"`
 }
 
 // GithubTokenCmd generates a GitHub App installation token
