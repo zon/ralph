@@ -55,6 +55,10 @@ func (r *RunCmd) Run() error {
 		return fmt.Errorf("project file required (see --help)")
 	}
 
+	if _, err := os.Stat(r.ProjectFile); os.IsNotExist(err) {
+		return fmt.Errorf("project file not found: %s", r.ProjectFile)
+	}
+
 	// Validate flag combinations
 	if r.Follow && r.Local {
 		return fmt.Errorf("--follow flag is not applicable with --local flag")

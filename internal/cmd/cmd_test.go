@@ -2,9 +2,13 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/alecthomas/kong"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestLocalFlagValidation(t *testing.T) {
@@ -131,16 +135,16 @@ func TestFlagParsing(t *testing.T) {
 		name           string
 		args           []string
 		expectLocal    bool
-		expectFollow    bool
+		expectFollow   bool
 		expectOnce     bool
 		expectNoNotify bool
 	}{
 		{
-			name:        "local flag sets Local to true",
-			args:        []string{"run", "--local", "test.yaml"},
-			expectLocal: true,
+			name:         "local flag sets Local to true",
+			args:         []string{"run", "--local", "test.yaml"},
+			expectLocal:  true,
 			expectFollow: false,
-			expectOnce:  false,
+			expectOnce:   false,
 		},
 		{
 			name:         "follow flag sets Follow to true",
@@ -150,33 +154,33 @@ func TestFlagParsing(t *testing.T) {
 			expectOnce:   false,
 		},
 		{
-			name:        "once flag sets Once to true",
-			args:        []string{"run", "--once", "test.yaml"},
-			expectLocal: false,
+			name:         "once flag sets Once to true",
+			args:         []string{"run", "--once", "test.yaml"},
+			expectLocal:  false,
 			expectFollow: false,
-			expectOnce:  true,
+			expectOnce:   true,
 		},
 		{
 			name:           "no-notify flag sets NoNotify to true",
 			args:           []string{"run", "--no-notify", "test.yaml"},
 			expectLocal:    false,
-			expectFollow:    false,
+			expectFollow:   false,
 			expectOnce:     false,
 			expectNoNotify: true,
 		},
 		{
-			name:        "default values",
-			args:        []string{"run", "test.yaml"},
-			expectLocal: false,
+			name:         "default values",
+			args:         []string{"run", "test.yaml"},
+			expectLocal:  false,
 			expectFollow: false,
-			expectOnce:  false,
+			expectOnce:   false,
 		},
 		{
-			name:        "default command - local flag sets Local to true",
-			args:        []string{"--local", "test.yaml"},
-			expectLocal: true,
+			name:         "default command - local flag sets Local to true",
+			args:         []string{"--local", "test.yaml"},
+			expectLocal:  true,
 			expectFollow: false,
-			expectOnce:  false,
+			expectOnce:   false,
 		},
 		{
 			name:         "default command - follow flag sets Follow to true",
@@ -230,15 +234,45 @@ func validateRunFlags(r *RunCmd) error {
 	return nil
 }
 
+func TestRunCmdProjectFileValidation(t *testing.T) {
+	t.Run("missing project file returns error", func(t *testing.T) {
+		r := &RunCmd{ProjectFile: ""}
+		err := r.Run()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "project file required")
+	})
+
+	t.Run("nonexistent project file returns error", func(t *testing.T) {
+		r := &RunCmd{ProjectFile: "/nonexistent/path/project.yaml"}
+		err := r.Run()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "project file not found")
+	})
+
+	t.Run("existing project file passes file validation", func(t *testing.T) {
+		dir := t.TempDir()
+		f := filepath.Join(dir, "project.yaml")
+		require.NoError(t, os.WriteFile(f, []byte("name: test\n"), 0644))
+
+		r := &RunCmd{ProjectFile: f}
+		err := r.Run()
+		// Error is expected (project execution will fail without full setup),
+		// but it should NOT be a "project file not found" error.
+		if err != nil {
+			assert.NotContains(t, err.Error(), "project file not found")
+		}
+	})
+}
+
 func TestCommentCmdFlagParsing(t *testing.T) {
 	tests := []struct {
-		name         string
-		args         []string
-		expectedBody string
-		expectedRepo string
+		name           string
+		args           []string
+		expectedBody   string
+		expectedRepo   string
 		expectedBranch string
-		expectedPR   string
-		wantParseErr bool
+		expectedPR     string
+		wantParseErr   bool
 	}{
 		{
 			name:           "basic comment command",
