@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/zon/ralph/internal/config"
@@ -15,6 +16,55 @@ import (
 
 // ErrNoChanges is returned by CommitChanges when there are no staged changes to commit
 var ErrNoChanges = errors.New("no changes to commit")
+
+// ErrMaxIterationsReached is returned when max iterations are reached but requirements are still failing
+var ErrMaxIterationsReached = errors.New("max iteration limit reached")
+
+// ErrBlocked is returned when blocked.md is detected in the repository
+var ErrBlocked = errors.New("blocked.md detected")
+
+// ErrFatalOpenCodeError is returned when opencode outputs a fatal error (e.g., account/billing issues)
+var ErrFatalOpenCodeError = errors.New("fatal opencode error")
+
+var fatalOpenCodePatterns = []string{
+	"Insufficient Balance",
+	"insufficient balance",
+	"billing",
+	"account",
+	"payment required",
+	"quota exceeded",
+}
+
+func isFatalOpenCodeError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	for _, pattern := range fatalOpenCodePatterns {
+		if strings.Contains(errStr, pattern) {
+			return true
+		}
+	}
+	return false
+}
+
+// isBlocked checks if blocked.md exists in the repository root
+func isBlocked(ctx *context.Context) (bool, error) {
+	repoRoot, err := git.FindRepoRoot(ctx)
+	if err != nil {
+		return false, fmt.Errorf("failed to find repo root: %w", err)
+	}
+
+	blockedPath := filepath.Join(repoRoot, "blocked.md")
+	_, err = os.Stat(blockedPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to check for blocked.md: %w", err)
+	}
+	return true, nil
+}
 
 // RunIterationLoop runs multiple development iterations until completion or max iterations
 // Each iteration:
@@ -36,6 +86,13 @@ func RunIterationLoop(ctx *context.Context, cleanupRegistrar func(func())) (int,
 		logger.Verbose("")
 		logger.Verbosef("=== Iteration %d/%d ===", i, ctx.MaxIterations)
 
+		// Check for blocked.md from repo root
+		if blocked, err := isBlocked(ctx); err != nil {
+			return iterationCount, fmt.Errorf("failed to check for blocked.md: %w", err)
+		} else if blocked {
+			return iterationCount, ErrBlocked
+		}
+
 		// Load project state before this iteration to track which requirements were already passing
 		if previousProject == nil {
 			var err error
@@ -48,6 +105,9 @@ func RunIterationLoop(ctx *context.Context, cleanupRegistrar func(func())) (int,
 		// Run single development iteration
 		logger.Verbose("Running development iteration...")
 		if err := requirement.Execute(ctx, cleanupRegistrar); err != nil {
+			if isFatalOpenCodeError(err) {
+				return iterationCount, fmt.Errorf("%w: %v", ErrFatalOpenCodeError, err)
+			}
 			return iterationCount, fmt.Errorf("iteration %d failed: %w", i, err)
 		}
 
@@ -103,6 +163,18 @@ func RunIterationLoop(ctx *context.Context, cleanupRegistrar func(func())) (int,
 	}
 
 	logger.Verbosef("Iteration loop completed after %d iteration(s)", iterationCount)
+
+	// Check if we reached max iterations without completing requirements
+	if !ctx.IsDryRun() {
+		currentProject, err := config.LoadProject(ctx.ProjectFile)
+		if err != nil {
+			return iterationCount, fmt.Errorf("failed to load project state: %w", err)
+		}
+		allComplete, _, failingCount := config.CheckCompletion(currentProject)
+		if !allComplete {
+			return iterationCount, fmt.Errorf("%w: %d requirements still failing", ErrMaxIterationsReached, failingCount)
+		}
+	}
 
 	return iterationCount, nil
 }

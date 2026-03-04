@@ -197,6 +197,16 @@ func ConfigureGitAuth(ctx context.Context, owner, repo, secretsDir string) error
 		return fmt.Errorf("failed to configure git HTTPS authentication: %w", err)
 	}
 
+	// Also authenticate the gh CLI with the same installation token so that
+	// gh commands (e.g. gh pr create) work inside the container.
+	loginCmd := exec.CommandContext(ctx, "gh", "auth", "login", "--with-token")
+	loginCmd.Stdin = strings.NewReader(installationToken)
+	loginCmd.Stdout = os.Stdout
+	loginCmd.Stderr = os.Stderr
+	if err := loginCmd.Run(); err != nil {
+		return fmt.Errorf("failed to authenticate gh CLI: %w", err)
+	}
+
 	return nil
 }
 

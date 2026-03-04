@@ -48,6 +48,33 @@ func IsGitRepository(ctx *context.Context) bool {
 	return true
 }
 
+// FindRepoRoot returns the root directory of the git repository
+func FindRepoRoot(ctx *context.Context) (string, error) {
+	if ctx.IsDryRun() {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return "", fmt.Errorf("failed to get current working directory: %w", err)
+		}
+		return cwd, nil
+	}
+
+	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("failed to find repo root: %w (output: %s)", err, out.String())
+	}
+
+	repoRoot := strings.TrimSpace(out.String())
+	if repoRoot == "" {
+		return "", fmt.Errorf("failed to determine repo root")
+	}
+
+	return repoRoot, nil
+}
+
 // IsDetachedHead checks if the repository is in a detached HEAD state
 func IsDetachedHead(ctx *context.Context) (bool, error) {
 	if ctx.IsDryRun() {
