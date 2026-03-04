@@ -1,6 +1,9 @@
 package context
 
-import "os"
+import (
+	"os"
+	"strings"
+)
 
 // Context holds the execution context for ralph commands
 type Context struct {
@@ -58,6 +61,19 @@ func (c *Context) ShouldFollow() bool {
 // This is detected via the RALPH_WORKFLOW_EXECUTION environment variable
 func (c *Context) IsWorkflowExecution() bool {
 	return os.Getenv("RALPH_WORKFLOW_EXECUTION") == "true"
+}
+
+// RepoOwnerAndName splits the Repo field ("owner/repo") into its two parts.
+// Returns empty strings if Repo is not set or not in the expected format.
+func (c *Context) RepoOwnerAndName() (owner, name string) {
+	if c.Repo == "" {
+		return "", ""
+	}
+	parts := strings.SplitN(c.Repo, "/", 2)
+	if len(parts) != 2 {
+		return "", ""
+	}
+	return parts[0], parts[1]
 }
 
 // AddNote adds a runtime note to be passed to the agent
