@@ -63,17 +63,18 @@ func (c *Context) IsWorkflowExecution() bool {
 	return os.Getenv("RALPH_WORKFLOW_EXECUTION") == "true"
 }
 
-// RepoOwnerAndName splits the Repo field ("owner/repo") into its two parts.
-// Returns empty strings if Repo is not set or not in the expected format.
+// RepoOwnerAndName returns the owner and repository name.
+// It uses ctx.Repo ("owner/repo") when set, otherwise falls back to the
+// GITHUB_REPO_OWNER and GITHUB_REPO_NAME environment variables injected by
+// the workflow container.
 func (c *Context) RepoOwnerAndName() (owner, name string) {
-	if c.Repo == "" {
-		return "", ""
+	if c.Repo != "" {
+		parts := strings.SplitN(c.Repo, "/", 2)
+		if len(parts) == 2 {
+			return parts[0], parts[1]
+		}
 	}
-	parts := strings.SplitN(c.Repo, "/", 2)
-	if len(parts) != 2 {
-		return "", ""
-	}
-	return parts[0], parts[1]
+	return os.Getenv("GITHUB_REPO_OWNER"), os.Getenv("GITHUB_REPO_NAME")
 }
 
 // AddNote adds a runtime note to be passed to the agent
