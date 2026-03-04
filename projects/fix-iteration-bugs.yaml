@@ -1,0 +1,33 @@
+name: fix-iteration-bugs
+description: Fix MaxIterations config override and blocked.md path resolution, bump to 3.1.1
+
+requirements:
+  - category: config
+    description: MaxIterations respects config.yaml
+    items:
+      - When maxIterations is set in .ralph/config.yaml, it is used as the iteration limit instead of the CLI default
+      - The CLI flag --max-iterations still takes precedence over the config file value when explicitly provided
+    passing: false
+
+  - category: iteration
+    description: MaxIterations stops the loop
+    items:
+      - When the iteration count reaches MaxIterations and requirements are still failing, RunIterationLoop returns an error instead of silently completing
+      - The error message indicates the max iteration limit was reached
+    passing: false
+
+  - category: iteration
+    description: blocked.md stops iteration regardless of location
+    items:
+      - When the agent writes blocked.md anywhere in the repository, the next iteration detects it and stops
+      - blocked.md is searched from the repo root, not just the project file directory
+      - When blocked.md is detected, an error is returned and no pull request is created
+    passing: false
+
+  - category: versioning
+    description: Patch version bump to 3.1.1
+    items:
+      - internal/version/VERSION is updated to 3.1.1
+      - charts/ralph-webhook/Chart.yaml appVersion is updated to 3.1.1
+      - charts/ralph-webhook/Chart.yaml version is patch bumped to 0.2.47
+    passing: false
