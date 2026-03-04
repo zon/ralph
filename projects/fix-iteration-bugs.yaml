@@ -24,6 +24,13 @@ requirements:
       - When blocked.md is detected, an error is returned and no pull request is created
     passing: false
 
+  - category: iteration
+    description: Fatal opencode errors break the iteration loop
+    items:
+      - When opencode outputs a fatal error such as "Insufficient Balance" (or similar account/billing errors), the iteration loop stops immediately instead of retrying
+      - The error message from opencode is surfaced to the user
+    passing: false
+
   - category: versioning
     description: Patch version bump to 3.1.1
     items:
