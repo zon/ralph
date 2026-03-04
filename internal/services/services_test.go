@@ -447,3 +447,33 @@ func TestManagerDryRun(t *testing.T) {
 		t.Errorf("Expected 0 processes after stop, got %d", processCount)
 	}
 }
+
+func TestRunBeforeFailingOptional(t *testing.T) {
+	cmds := []config.Before{
+		{
+			Name:     "failing-optional",
+			Command:  "false",
+			Optional: true,
+		},
+	}
+
+	err := RunBefore(cmds, false)
+	if err != nil {
+		t.Errorf("RunBefore with failing optional command should return nil, got: %v", err)
+	}
+}
+
+func TestRunBeforeFailingNonOptional(t *testing.T) {
+	cmds := []config.Before{
+		{
+			Name:     "failing-required",
+			Command:  "false",
+			Optional: false,
+		},
+	}
+
+	err := RunBefore(cmds, false)
+	if err == nil {
+		t.Error("RunBefore with failing non-optional command should return error, got nil")
+	}
+}

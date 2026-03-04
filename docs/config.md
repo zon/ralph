@@ -43,8 +43,9 @@ workflow:
 
 `before` defines commands that run once before services start and before the iteration loop begins.
 
-- Commands run sequentially and must exit successfully before ralph proceeds
-- Each entry requires `name` and `command`; `args` and `workDir` are optional
+- Commands run sequentially and must exit successfully before ralph proceeds (unless marked optional)
+- Each entry requires `name` and `command`; `args`, `workDir`, and `optional` are optional
+- Set `optional: true` to allow a command to fail without aborting the run (a warning is logged instead)
 - Useful for compilation, code generation, dependency installation, database migrations
 
 ## Services

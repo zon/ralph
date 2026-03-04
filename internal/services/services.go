@@ -49,6 +49,10 @@ func RunBefore(cmds []config.Before, dryRun bool) error {
 
 		// Run the command and wait for it to complete
 		if err := c.Run(); err != nil {
+			if cmd.Optional {
+				logger.Warningf("Optional before %s failed: %v", cmd.Name, err)
+				continue
+			}
 			return fmt.Errorf("before %s failed: %w", cmd.Name, err)
 		}
 

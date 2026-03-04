@@ -40,10 +40,11 @@ type Requirement struct {
 
 // Before represents a command to run before starting services
 type Before struct {
-	Name    string   `yaml:"name"`
-	Command string   `yaml:"command"`
-	Args    []string `yaml:"args,omitempty"`
-	WorkDir string   `yaml:"workDir,omitempty"` // Optional, working directory for the command
+	Name     string   `yaml:"name"`
+	Command  string   `yaml:"command"`
+	Args     []string `yaml:"args,omitempty"`
+	WorkDir  string   `yaml:"workDir,omitempty"`
+	Optional bool     `yaml:"optional,omitempty"`
 }
 
 // Service represents a service to be started/stopped
