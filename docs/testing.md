@@ -32,13 +32,24 @@ go test -tags e2e -timeout 15m ./tests/e2e/...
 |---|---|---|
 | `RALPH_E2E_REPO` | `owner/repo` of the test repository | `zon/ralph-mock` |
 | `RALPH_E2E_BRANCH` | Branch the workflow container will clone | `main` |
-| `RALPH_E2E_DEBUG_BRANCH` | Ralph source branch to use inside the container via `go run` — set to the branch under test | `main` |
-| `RALPH_E2E_NAMESPACE` | Argo Workflows Kubernetes namespace | `ralph` |
+| `RALPH_E2E_DEBUG_BRANCH` | Ralph source branch to use inside the container via `go run` | current git branch |
+| `RALPH_E2E_NAMESPACE` | Argo Workflows Kubernetes namespace | `ralph-mock` |
 | `RALPH_E2E_TIMEOUT` | Per-workflow poll timeout (Go duration, e.g. `"10m"`) | `10m` |
+
+### Preflight test
+
+`TestNamespacePreflight` runs first and verifies that all resources required by the other E2E tests are present in the namespace before any workflow is submitted. It checks:
+
+- Kubernetes secrets: `github-credentials`, `opencode-credentials`
+- Files in the test repository: `test-data/e2e-noop-run.yaml`
+
+Failure messages include the exact command needed to fix the missing resource.
 
 ### Test project files
 
-Use `test-data/e2e-noop-run.yaml` as the standard test project file. All of its requirements are pre-marked `passing: true`, so the iteration loop exits immediately without invoking the AI. This makes E2E tests fast and deterministic.
+Use `test-data/e2e-noop-run.yaml` as the standard test project file. All of its requirements are pre-marked `passing: true`, so the iteration loop exits immediately without invoking the AI.
+
+> **Note:** Because all requirements are already passing, the AI makes no commits. This means `gh pr create` will fail if the branch has no new commits relative to `main`. This is a known limitation — the remote workflow test requires at least one commit on the branch to succeed.
 
 ### Cleanup
 
