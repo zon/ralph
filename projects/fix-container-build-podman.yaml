@@ -1,0 +1,15 @@
+name: fix-container-build-podman
+description: Replace Docker-based container build workflow with Podman
+
+requirements:
+  - category: ci
+    description: Container build workflow uses Podman instead of Docker actions
+    items:
+      - The workflow does not use any docker/* GitHub Actions (docker/setup-buildx-action, docker/login-action, docker/metadata-action, docker/build-push-action)
+      - The workflow logs in to ghcr.io using the podman CLI with GITHUB_TOKEN
+      - The workflow builds the image using podman build with -f Containerfile
+      - The workflow pushes the image using the podman CLI
+      - The image is tagged with both latest and the short commit SHA
+      - The workflow still triggers on push to main
+      - The workflow still declares packages write permission so GITHUB_TOKEN can push to ghcr.io
+    passing: false
