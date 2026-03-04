@@ -1,7 +1,0 @@
-name: e2e-noop-run
-description: E2E test project — all requirements pre-completed, no AI invocation needed
-requirements:
-  - id: noop
-    category: e2e
-    description: No-op requirement (always passing)
-    passing: true

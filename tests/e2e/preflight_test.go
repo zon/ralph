@@ -67,8 +67,8 @@ func TestNamespacePreflight(t *testing.T) {
 				if err != nil || trimmed == "" || strings.Contains(trimmed, "Not Found") {
 					assert.Fail(t,
 						fmt.Sprintf("file %q not found in repo %q", path, cfg.Repo),
-						"Push it with:\n  gh api repos/%s/contents/%s --method PUT --field message='add e2e test data' --field content=$(base64 -w0 %s)",
-						cfg.Repo, path, path,
+						"Push it with:\n  gh api repos/%s/contents/%s --method PUT --field message='add e2e test data' --field content=$(base64 -w0 <local-copy>)",
+						cfg.Repo, path,
 					)
 				}
 			})

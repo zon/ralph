@@ -47,7 +47,7 @@ Failure messages include the exact command needed to fix the missing resource.
 
 ### Test project files
 
-Use `test-data/e2e-noop-run.yaml` as the standard test project file. All of its requirements are pre-marked `passing: true`, so the iteration loop exits immediately without invoking the AI.
+The standard test project file is `test-data/e2e-noop-run.yaml`, which lives in the `zon/ralph-mock` repository (not in this repo). All of its requirements are pre-marked `passing: true`, so the iteration loop exits immediately without invoking the AI.
 
 > **Note:** Because all requirements are already passing, the AI makes no commits. This means `gh pr create` will fail if the branch has no new commits relative to `main`. This is a known limitation — the remote workflow test requires at least one commit on the branch to succeed.
 
