@@ -243,6 +243,13 @@ func findPR(repo, branch string) (string, error) {
 func cleanupBranchAndPR(t *testing.T, repo, branch string) {
 	t.Helper()
 
+	// Delete the remote branch (best-effort; may already be gone if PR was merged).
+	exec.Command("gh", "api",
+		"--method", "DELETE",
+		"-H", "Accept: application/vnd.github+json",
+		fmt.Sprintf("/repos/%s/git/refs/heads/%s", repo, branch),
+	).Run()
+
 	// Close any open PRs.
 	out, err := exec.Command(
 		"gh", "pr", "list",
@@ -253,19 +260,10 @@ func cleanupBranchAndPR(t *testing.T, repo, branch string) {
 	).Output()
 	if err == nil {
 		for _, num := range strings.Fields(string(out)) {
-			if closeErr := exec.Command("gh", "pr", "close", num, "--repo", repo, "--delete-branch").Run(); closeErr != nil {
+			if closeErr := exec.Command("gh", "pr", "close", num, "--repo", repo).Run(); closeErr != nil {
 				t.Logf("cleanup: could not close PR %s: %v", num, closeErr)
 			}
 		}
-	}
-
-	// Delete the remote branch (best-effort).
-	if delErr := exec.Command("gh", "api",
-		"--method", "DELETE",
-		"-H", "Accept: application/vnd.github+json",
-		fmt.Sprintf("/repos/%s/git/refs/heads/%s", repo, branch),
-	).Run(); delErr != nil {
-		t.Logf("cleanup: could not delete remote branch %s: %v", branch, delErr)
 	}
 }
 
