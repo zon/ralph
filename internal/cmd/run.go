@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/notify"
 	"github.com/zon/ralph/internal/project"
@@ -17,7 +18,7 @@ type RunCmd struct {
 	WorkingDir    string `help:"Working directory to run ralph in" type:"path" short:"C"`
 	ProjectFile   string `arg:"" optional:"" help:"Path to project YAML file"`
 	Once          bool   `help:"Single development iteration mode" default:"false"`
-	MaxIterations int    `help:"Maximum number of development iterations (not applicable with --once)" default:"10"`
+	MaxIterations int    `help:"Maximum number of development iterations (not applicable with --once)" default:"0"`
 	DryRun        bool   `help:"Simulate execution without making changes" default:"false"`
 	NoNotify      bool   `help:"Disable desktop notifications" default:"false"`
 	NoServices    bool   `help:"Skip service startup" default:"false"`
@@ -80,10 +81,25 @@ func (r *RunCmd) Run() error {
 		return fmt.Errorf("--debug flag is not applicable with --local flag")
 	}
 
+	// Load config to get MaxIterations (if not explicitly provided via CLI)
+	ralphConfig, err := config.LoadConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	// CLI flag takes precedence over config file; if neither set, use default (10)
+	maxIterations := r.MaxIterations
+	if maxIterations == 0 {
+		maxIterations = ralphConfig.MaxIterations
+	}
+	if maxIterations == 0 {
+		maxIterations = 10
+	}
+
 	// Create execution context
 	ctx := &execcontext.Context{
 		ProjectFile:   r.ProjectFile,
-		MaxIterations: r.MaxIterations,
+		MaxIterations: maxIterations,
 		DryRun:        r.DryRun,
 		Verbose:       r.Verbose,
 		NoNotify:      r.NoNotify,
