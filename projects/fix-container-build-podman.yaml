@@ -12,4 +12,4 @@ requirements:
       - The image is tagged with both latest and the short commit SHA
       - The workflow still triggers on push to main
       - The workflow still declares packages write permission so GITHUB_TOKEN can push to ghcr.io
-    passing: false
+    passing: true
