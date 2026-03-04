@@ -1,6 +1,7 @@
 package git
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -330,6 +331,193 @@ func TestPushBranch_DryRun(t *testing.T) {
 // 3. Network access
 // These are integration tests that should be run in a CI/CD environment
 // with proper repository setup.
+
+func TestIsWorkflowPermissionError(t *testing.T) {
+	tests := []struct {
+		name     string
+		output   string
+		expected bool
+	}{
+		{
+			name:     "GitHub App workflow rejection message",
+			output:   "! [remote rejected] ci-container-build -> ci-container-build (refusing to allow a GitHub App to create or update workflow `.github/workflows/container-build.yaml` without `workflows` permission)\nerror: failed to push some refs",
+			expected: true,
+		},
+		{
+			name:     "contains only the permission fragment",
+			output:   "without `workflows` permission",
+			expected: true,
+		},
+		{
+			name:     "regular push failure",
+			output:   "error: failed to push some refs to 'https://github.com/foo/bar.git'",
+			expected: false,
+		},
+		{
+			name:     "empty output",
+			output:   "",
+			expected: false,
+		},
+		{
+			name:     "unrelated rejection",
+			output:   "! [remote rejected] main -> main (pre-receive hook declined)",
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isWorkflowPermissionError(tt.output)
+			if result != tt.expected {
+				t.Errorf("isWorkflowPermissionError(%q) = %v, want %v", tt.output, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestPushBranch_WorkflowPermissionError(t *testing.T) {
+	// Set up a local bare remote that rejects pushes with the GitHub workflow
+	// permission message, so we can exercise the error-detection path without
+	// a real GitHub connection.
+	remoteDir := t.TempDir()
+	cmd := exec.Command("git", "init", "--bare")
+	cmd.Dir = remoteDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to init bare repo: %v", err)
+	}
+
+	// Write a pre-receive hook that mimics GitHub's workflow-permission rejection.
+	hookContent := "#!/bin/sh\necho 'refusing to allow a GitHub App to create or update workflow `.github/workflows/test.yaml` without `workflows` permission' >&2\nexit 1\n"
+	hookPath := filepath.Join(remoteDir, "hooks", "pre-receive")
+	if err := os.WriteFile(hookPath, []byte(hookContent), 0755); err != nil {
+		t.Fatalf("failed to write hook: %v", err)
+	}
+
+	// Clone the bare remote into a working copy.
+	workDir := t.TempDir()
+	cmd = exec.Command("git", "clone", remoteDir, workDir)
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to clone: %v", err)
+	}
+
+	// Configure identity so commits work.
+	for _, args := range [][]string{
+		{"config", "--local", "user.email", "test@example.com"},
+		{"config", "--local", "user.name", "Test User"},
+	} {
+		c := exec.Command("git", args...)
+		c.Dir = workDir
+		if err := c.Run(); err != nil {
+			t.Fatalf("git %v failed: %v", args, err)
+		}
+	}
+
+	// Create a commit so there is something to push.
+	wfDir := filepath.Join(workDir, ".github", "workflows")
+	if err := os.MkdirAll(wfDir, 0755); err != nil {
+		t.Fatalf("failed to create workflow dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(wfDir, "test.yaml"), []byte("name: test\n"), 0644); err != nil {
+		t.Fatalf("failed to write workflow file: %v", err)
+	}
+	for _, args := range [][]string{
+		{"add", "."},
+		{"commit", "-m", "Add workflow file"},
+	} {
+		c := exec.Command("git", args...)
+		c.Dir = workDir
+		if err := c.Run(); err != nil {
+			t.Fatalf("git %v failed: %v", args, err)
+		}
+	}
+
+	originalDir, _ := os.Getwd()
+	defer os.Chdir(originalDir)
+	if err := os.Chdir(workDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+
+	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	branch, err := GetCurrentBranch(ctx)
+	if err != nil {
+		t.Fatalf("GetCurrentBranch failed: %v", err)
+	}
+
+	_, pushErr := PushBranch(ctx, branch)
+	if pushErr == nil {
+		t.Fatal("expected PushBranch to return an error, got nil")
+	}
+	if !errors.Is(pushErr, ErrWorkflowPermission) {
+		t.Errorf("expected ErrWorkflowPermission, got: %v", pushErr)
+	}
+}
+
+func TestPushCurrentBranch_WorkflowPermissionError(t *testing.T) {
+	// Same setup as TestPushBranch_WorkflowPermissionError but exercises
+	// PushCurrentBranch.
+	remoteDir := t.TempDir()
+	cmd := exec.Command("git", "init", "--bare")
+	cmd.Dir = remoteDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to init bare repo: %v", err)
+	}
+
+	hookContent := "#!/bin/sh\necho 'refusing to allow a GitHub App to create or update workflow `.github/workflows/test.yaml` without `workflows` permission' >&2\nexit 1\n"
+	hookPath := filepath.Join(remoteDir, "hooks", "pre-receive")
+	if err := os.WriteFile(hookPath, []byte(hookContent), 0755); err != nil {
+		t.Fatalf("failed to write hook: %v", err)
+	}
+
+	workDir := t.TempDir()
+	cmd = exec.Command("git", "clone", remoteDir, workDir)
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to clone: %v", err)
+	}
+
+	for _, args := range [][]string{
+		{"config", "--local", "user.email", "test@example.com"},
+		{"config", "--local", "user.name", "Test User"},
+	} {
+		c := exec.Command("git", args...)
+		c.Dir = workDir
+		if err := c.Run(); err != nil {
+			t.Fatalf("git %v failed: %v", args, err)
+		}
+	}
+
+	wfDir := filepath.Join(workDir, ".github", "workflows")
+	if err := os.MkdirAll(wfDir, 0755); err != nil {
+		t.Fatalf("failed to create workflow dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(wfDir, "test.yaml"), []byte("name: test\n"), 0644); err != nil {
+		t.Fatalf("failed to write workflow file: %v", err)
+	}
+	for _, args := range [][]string{
+		{"add", "."},
+		{"commit", "-m", "Add workflow file"},
+	} {
+		c := exec.Command("git", args...)
+		c.Dir = workDir
+		if err := c.Run(); err != nil {
+			t.Fatalf("git %v failed: %v", args, err)
+		}
+	}
+
+	originalDir, _ := os.Getwd()
+	defer os.Chdir(originalDir)
+	if err := os.Chdir(workDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+
+	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	pushErr := PushCurrentBranch(ctx)
+	if pushErr == nil {
+		t.Fatal("expected PushCurrentBranch to return an error, got nil")
+	}
+	if !errors.Is(pushErr, ErrWorkflowPermission) {
+		t.Errorf("expected ErrWorkflowPermission, got: %v", pushErr)
+	}
+}
 
 func TestGetCommitLog_SinceBranch(t *testing.T) {
 	tempDir := setupTestRepo(t)

@@ -3,6 +3,7 @@ package git
 import (
 	"bytes"
 	gocontext "context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -12,6 +13,19 @@ import (
 	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/logger"
 )
+
+// ErrWorkflowPermission is returned when a push is rejected because the GitHub App
+// token lacks the `workflows` permission required to create or update files under
+// .github/workflows/. Retrying will not help — the token must be granted the
+// permission before the push can succeed.
+var ErrWorkflowPermission = errors.New("push rejected: GitHub App token requires `workflows` permission to push workflow files")
+
+// isWorkflowPermissionError checks whether git push output contains the GitHub
+// rejection message for missing `workflows` App permission.
+func isWorkflowPermissionError(output string) bool {
+	return strings.Contains(output, "refusing to allow a GitHub App to create or update workflow") ||
+		strings.Contains(output, "without `workflows` permission")
+}
 
 // configureAuth refreshes the GitHub App token and configures git HTTPS auth.
 // Called before every network git operation when running inside a workflow container.
@@ -358,6 +372,9 @@ func PushBranch(ctx *context.Context, branch string) (string, error) {
 	cmd.Stderr = &out
 
 	if err := cmd.Run(); err != nil {
+		if isWorkflowPermissionError(out.String()) {
+			return "", fmt.Errorf("%w (output: %s)", ErrWorkflowPermission, out.String())
+		}
 		return "", fmt.Errorf("failed to push branch '%s': %w (output: %s)", branch, err, out.String())
 	}
 
@@ -406,6 +423,9 @@ func PushCurrentBranch(ctx *context.Context) error {
 	cmd.Stderr = &out
 
 	if err := cmd.Run(); err != nil {
+		if isWorkflowPermissionError(out.String()) {
+			return fmt.Errorf("%w (output: %s)", ErrWorkflowPermission, out.String())
+		}
 		return fmt.Errorf("failed to push branch '%s': %w (output: %s)", branch, err, out.String())
 	}
 

@@ -14,6 +14,10 @@ import (
 	"github.com/zon/ralph/internal/requirement"
 )
 
+// ErrFatalPushError is returned when a push fails with a permanent error that
+// cannot be resolved by retrying (e.g. missing GitHub App permissions).
+var ErrFatalPushError = errors.New("fatal push error")
+
 // ErrNoChanges is returned by CommitChanges when there are no staged changes to commit
 var ErrNoChanges = errors.New("no changes to commit")
 
@@ -116,6 +120,8 @@ func RunIterationLoop(ctx *context.Context, cleanupRegistrar func(func())) (int,
 		if err := CommitChanges(ctx, i); err != nil {
 			if errors.Is(err, ErrNoChanges) {
 				logger.Verbosef("No changes to commit after iteration %d", i)
+			} else if errors.Is(err, ErrFatalPushError) {
+				return iterationCount, err
 			} else {
 				return iterationCount, fmt.Errorf("iteration %d commit failed: %w", i, err)
 			}
@@ -236,6 +242,9 @@ func CommitChanges(ctx *context.Context, iteration int) error {
 	// Push commit to origin
 	logger.Verbose("Pushing commit to origin...")
 	if err := git.PushCurrentBranch(ctx); err != nil {
+		if errors.Is(err, git.ErrWorkflowPermission) {
+			return fmt.Errorf("%w: %v", ErrFatalPushError, err)
+		}
 		return fmt.Errorf("failed to push commit: %w", err)
 	}
 	logger.Verbose("Pushed commit to origin")
