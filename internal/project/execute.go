@@ -1,6 +1,7 @@
 package project
 
 import (
+	gocontext "context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -137,6 +138,16 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 
 	if ctx.IsVerbose() {
 		logger.Verbosef("PR Summary:\n%s", prSummary)
+	}
+
+	// Refresh GitHub credentials immediately before creating the PR.
+	// Installation tokens expire after 1 hour, so a long-running agent job may
+	// have started with a valid token that is now stale. Re-running ConfigureGitAuth
+	// here fetches a fresh token and re-authenticates both git and gh CLI.
+	if ctx.IsWorkflowExecution() {
+		if err := github.ConfigureGitAuth(gocontext.Background(), "", "", github.DefaultSecretsDir); err != nil {
+			return fmt.Errorf("failed to refresh GitHub credentials before PR creation: %w", err)
+		}
 	}
 
 	// Check if gh CLI is available and authenticated
