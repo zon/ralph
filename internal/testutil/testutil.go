@@ -89,7 +89,7 @@ func WithInstructions(instructions string) ContextOption {
 
 // E2EConfig holds configuration for end-to-end tests resolved from environment variables.
 type E2EConfig struct {
-	// Repo is the owner/repo of the dedicated test repository (e.g. "zon/ralph-test").
+	// Repo is the owner/repo of the dedicated test repository (e.g. "zon/ralph-mock").
 	Repo string
 	// Branch is the branch the workflow container will clone (typically "main").
 	Branch string
@@ -106,17 +106,17 @@ type E2EConfig struct {
 //
 // Environment variables:
 //
-//	RALPH_E2E_REPO          owner/repo of the test repository (required)
+//	RALPH_E2E_REPO          owner/repo of the test repository (default: "zon/ralph-mock")
 //	RALPH_E2E_BRANCH        branch to clone in the container (default: "main")
 //	RALPH_E2E_DEBUG_BRANCH  ralph source branch for go run mode (default: "main")
-//	RALPH_E2E_NAMESPACE     Argo namespace (default: "ralph")
+//	RALPH_E2E_NAMESPACE     Argo namespace (default: "ralph-mock")
 //	RALPH_E2E_TIMEOUT       per-workflow poll timeout as a Go duration (default: "10m")
 func NewE2EConfig(t *testing.T) *E2EConfig {
 	t.Helper()
 
 	repo := os.Getenv("RALPH_E2E_REPO")
 	if repo == "" {
-		t.Fatal("RALPH_E2E_REPO is required for E2E tests (e.g. \"zon/ralph-test\")")
+		repo = "zon/ralph-mock"
 	}
 
 	branch := os.Getenv("RALPH_E2E_BRANCH")
@@ -131,7 +131,7 @@ func NewE2EConfig(t *testing.T) *E2EConfig {
 
 	namespace := os.Getenv("RALPH_E2E_NAMESPACE")
 	if namespace == "" {
-		namespace = "ralph"
+		namespace = "ralph-mock"
 	}
 
 	timeout := 10 * time.Minute

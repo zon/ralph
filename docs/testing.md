@@ -30,7 +30,7 @@ go test -tags e2e -timeout 15m ./tests/e2e/...
 
 | Variable | Description | Default |
 |---|---|---|
-| `RALPH_E2E_REPO` | `owner/repo` of the test repository (e.g. `"zon/ralph-test"`) | **required** |
+| `RALPH_E2E_REPO` | `owner/repo` of the test repository | `zon/ralph-mock` |
 | `RALPH_E2E_BRANCH` | Branch the workflow container will clone | `main` |
 | `RALPH_E2E_DEBUG_BRANCH` | Ralph source branch to use inside the container via `go run` — set to the branch under test | `main` |
 | `RALPH_E2E_NAMESPACE` | Argo Workflows Kubernetes namespace | `ralph` |
