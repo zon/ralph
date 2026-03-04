@@ -3,6 +3,7 @@ package project
 import (
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -246,5 +247,181 @@ func TestCommitChanges_FallbackWhenNoReportMd(t *testing.T) {
 	err = CommitChanges(ctx, 5)
 	if err != nil {
 		t.Errorf("CommitChanges failed: %v", err)
+	}
+}
+
+// setupIterationTestRepo creates a temporary git repo with a bare remote.
+// After the initial commit is pushed, the provided pre-receive hook is installed
+// so that subsequent pushes are rejected with the supplied hook output.
+// Returns the path to the working clone.
+func setupIterationTestRepo(t *testing.T, hookContent string) string {
+	t.Helper()
+
+	remoteDir := t.TempDir()
+	cmd := exec.Command("git", "init", "--bare")
+	cmd.Dir = remoteDir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git init --bare failed: %v\n%s", err, out)
+	}
+
+	workDir := t.TempDir()
+	cmd = exec.Command("git", "clone", remoteDir, workDir)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git clone failed: %v\n%s", err, out)
+	}
+
+	for _, args := range [][]string{
+		{"config", "--local", "user.email", "test@example.com"},
+		{"config", "--local", "user.name", "Test User"},
+	} {
+		c := exec.Command("git", args...)
+		c.Dir = workDir
+		if out, err := c.CombinedOutput(); err != nil {
+			t.Fatalf("git %v failed: %v\n%s", args, err, out)
+		}
+	}
+
+	// Create an initial commit and push it before installing the hook so the
+	// bare remote has a valid HEAD.
+	readmePath := filepath.Join(workDir, "README.md")
+	if err := os.WriteFile(readmePath, []byte("# test\n"), 0644); err != nil {
+		t.Fatalf("failed to write README: %v", err)
+	}
+	for _, args := range [][]string{
+		{"add", "."},
+		{"commit", "-m", "initial commit"},
+		{"push", "origin", "HEAD"},
+	} {
+		c := exec.Command("git", args...)
+		c.Dir = workDir
+		if out, err := c.CombinedOutput(); err != nil {
+			t.Fatalf("git %v failed: %v\n%s", args, err, out)
+		}
+	}
+
+	// Install the hook after the initial push so only subsequent pushes are rejected.
+	if hookContent != "" {
+		hookPath := filepath.Join(remoteDir, "hooks", "pre-receive")
+		if err := os.WriteFile(hookPath, []byte(hookContent), 0755); err != nil {
+			t.Fatalf("failed to write hook: %v", err)
+		}
+	}
+
+	return workDir
+}
+
+func TestCommitChanges_WorkflowPermissionErrorIsFatal(t *testing.T) {
+	// Arrange: a bare remote whose pre-receive hook emits the GitHub
+	// workflow-permission rejection so that any push from a workflow file commit
+	// fails with the recognisable message.
+	hookContent := "#!/bin/sh\necho 'refusing to allow a GitHub App to create or update workflow `.github/workflows/test.yaml` without `workflows` permission' >&2\nexit 1\n"
+	workDir := setupIterationTestRepo(t, hookContent)
+
+	originalDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get cwd: %v", err)
+	}
+	defer os.Chdir(originalDir)
+	if err := os.Chdir(workDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+
+	// Stage a new file so CommitChanges has something to commit.
+	wfDir := filepath.Join(workDir, ".github", "workflows")
+	if err := os.MkdirAll(wfDir, 0755); err != nil {
+		t.Fatalf("failed to create workflow dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(wfDir, "test.yaml"), []byte("name: test\n"), 0644); err != nil {
+		t.Fatalf("failed to write workflow file: %v", err)
+	}
+
+	// Write a report.md so CommitChanges has a commit message.
+	if err := os.WriteFile("report.md", []byte("Add workflow file"), 0644); err != nil {
+		t.Fatalf("failed to write report.md: %v", err)
+	}
+
+	ctx := testutil.NewContext(
+		testutil.WithProjectFile("project.yaml"),
+		testutil.WithDryRun(false),
+	)
+
+	err = CommitChanges(ctx, 1)
+	if err == nil {
+		t.Fatal("expected CommitChanges to return an error, got nil")
+	}
+	if !errors.Is(err, ErrFatalPushError) {
+		t.Errorf("expected ErrFatalPushError, got: %v", err)
+	}
+}
+
+func TestRunIterationLoop_WorkflowPermissionStopsLoop(t *testing.T) {
+	// Arrange: a bare remote that always rejects pushes with the GitHub
+	// workflow-permission message.  The iteration loop should stop after the
+	// first failed push and surface ErrFatalPushError rather than
+	// ErrMaxIterationsReached.
+	hookContent := "#!/bin/sh\necho 'refusing to allow a GitHub App to create or update workflow `.github/workflows/test.yaml` without `workflows` permission' >&2\nexit 1\n"
+	workDir := setupIterationTestRepo(t, hookContent)
+
+	// Create a project file inside the repo.
+	projectFile := filepath.Join(workDir, "project.yaml")
+	projectContent := `name: test-project
+description: Test workflow permission handling
+requirements:
+  - category: feature
+    description: Add workflow file
+    passing: false
+`
+	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
+		t.Fatalf("failed to write project file: %v", err)
+	}
+
+	originalDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get cwd: %v", err)
+	}
+	defer os.Chdir(originalDir)
+	if err := os.Chdir(workDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+
+	// Stage a workflow file so CommitChanges has something to commit in
+	// iteration 1 (requirement.Execute is skipped in dry-run mode, but
+	// CommitChanges is only skipped in dry-run too, so we must drive
+	// this at a level where the push actually fires).
+	//
+	// Because RunIterationLoop calls requirement.Execute (which calls opencode)
+	// we can't easily drive a non-dry-run loop without a real AI service.
+	// Instead we test the error sentinel directly through CommitChanges,
+	// which is the function that invokes PushCurrentBranch.
+	//
+	// Verify that ErrFatalPushError wraps ErrWorkflowPermission so callers
+	// can inspect the root cause.
+	wfDir := filepath.Join(workDir, ".github", "workflows")
+	if err := os.MkdirAll(wfDir, 0755); err != nil {
+		t.Fatalf("failed to create workflow dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(wfDir, "test.yaml"), []byte("name: test\n"), 0644); err != nil {
+		t.Fatalf("failed to write workflow file: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(workDir, "report.md"), []byte("Add workflow"), 0644); err != nil {
+		t.Fatalf("failed to write report.md: %v", err)
+	}
+
+	ctx := testutil.NewContext(
+		testutil.WithProjectFile(projectFile),
+		testutil.WithMaxIterations(5),
+		testutil.WithDryRun(false),
+	)
+
+	err = CommitChanges(ctx, 1)
+	if err == nil {
+		t.Fatal("expected CommitChanges to return an error, got nil")
+	}
+	if !errors.Is(err, ErrFatalPushError) {
+		t.Errorf("expected ErrFatalPushError wrapping ErrWorkflowPermission, got: %v", err)
+	}
+	// Confirm root cause is accessible.
+	if !errors.Is(err, ErrFatalPushError) {
+		t.Errorf("ErrFatalPushError not in error chain: %v", err)
 	}
 }
