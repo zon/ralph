@@ -1,0 +1,15 @@
+name: ci-container-build
+description: Add a GitHub Actions workflow that builds and pushes the container image on pushes to main
+
+requirements:
+  - category: ci
+    description: GitHub Actions workflow builds and pushes the container image on push to main
+    items:
+      - A workflow file exists at .github/workflows/container-build.yaml
+      - The workflow triggers on push to the main branch
+      - The workflow builds the image from the Containerfile at the repo root
+      - The workflow pushes the image to ghcr.io using the repository name as the image name
+      - The image is tagged with both `latest` and the short commit SHA
+      - The workflow uses GITHUB_TOKEN for authenticating to ghcr.io (no external secrets required)
+      - The workflow declares packages write permission so GITHUB_TOKEN can push to ghcr.io
+    passing: false
