@@ -83,7 +83,7 @@ func TestRun_RemoteWorkflow(t *testing.T) {
 	t.Logf("Submitted workflow: %s", workflowName)
 
 	// Register cleanup: delete the test branch and close the PR regardless of outcome.
-	branch := "ralph/" + projectBranch
+	branch := projectBranch
 	t.Cleanup(func() {
 		cleanupBranchAndPR(t, cfg.Repo, branch)
 	})
