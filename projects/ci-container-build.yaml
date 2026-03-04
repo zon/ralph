@@ -12,4 +12,4 @@ requirements:
       - The image is tagged with both `latest` and the short commit SHA
       - The workflow uses GITHUB_TOKEN for authenticating to ghcr.io (no external secrets required)
       - The workflow declares packages write permission so GITHUB_TOKEN can push to ghcr.io
-    passing: false
+    passing: true
