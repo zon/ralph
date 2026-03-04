@@ -12,7 +12,7 @@
 //	RALPH_E2E_REPO          owner/repo of the test repository (default: "zon/ralph-mock")
 //	RALPH_E2E_BRANCH        branch to clone inside the workflow container (default: "main")
 //	RALPH_E2E_DEBUG_BRANCH  ralph source branch to use via `go run` inside the container
-//	                        (e.g. your current feature branch — defaults to "main")
+//	                        (defaults to the current local git branch)
 //	RALPH_E2E_NAMESPACE     Argo namespace (default: "ralph-mock")
 //	RALPH_E2E_TIMEOUT       per-workflow poll timeout as a Go duration (default: "10m")
 package e2e
@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"testing"
 	"time"
 )
@@ -57,7 +58,12 @@ func resolveConfig(t *testing.T) *E2EConfig {
 
 	debugBranch := os.Getenv("RALPH_E2E_DEBUG_BRANCH")
 	if debugBranch == "" {
-		debugBranch = "main"
+		out, err := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD").Output()
+		if err == nil && len(out) > 0 {
+			debugBranch = strings.TrimSpace(string(out))
+		} else {
+			debugBranch = "main"
+		}
 	}
 
 	namespace := os.Getenv("RALPH_E2E_NAMESPACE")
