@@ -15,4 +15,4 @@ requirements:
       - The workflow still declares packages write permission
       - The podman login and podman build/push steps are removed
       - The short commit SHA tag is removed
-    passing: false
+    passing: true
