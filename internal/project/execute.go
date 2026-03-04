@@ -145,7 +145,8 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	// have started with a valid token that is now stale. Re-running ConfigureGitAuth
 	// here fetches a fresh token and re-authenticates both git and gh CLI.
 	if ctx.IsWorkflowExecution() {
-		if err := github.ConfigureGitAuth(gocontext.Background(), "", "", github.DefaultSecretsDir); err != nil {
+		owner, repoName := ctx.RepoOwnerAndName()
+		if err := github.ConfigureGitAuth(gocontext.Background(), owner, repoName, github.DefaultSecretsDir); err != nil {
 			return fmt.Errorf("failed to refresh GitHub credentials before PR creation: %w", err)
 		}
 	}
