@@ -1,5 +1,5 @@
 name: fix-iteration-bugs
-description: Fix MaxIterations config override and blocked.md path resolution, bump to 3.1.1
+description: Fix MaxIterations config override and blocked.md path resolution, bump to 3.1.2
 
 requirements:
   - category: config
@@ -32,9 +32,9 @@ requirements:
     passing: true
 
   - category: versioning
-    description: Patch version bump to 3.1.1
+    description: Patch version bump to 3.1.2
     items:
-      - internal/version/VERSION is updated to 3.1.1
-      - charts/ralph-webhook/Chart.yaml appVersion is updated to 3.1.1
-      - charts/ralph-webhook/Chart.yaml version is patch bumped to 0.2.47
+      - internal/version/VERSION is updated to 3.1.2
+      - charts/ralph-webhook/Chart.yaml appVersion is updated to 3.1.2
+      - charts/ralph-webhook/Chart.yaml version is patch bumped to 0.2.48
     passing: true
