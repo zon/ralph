@@ -43,24 +43,68 @@ func TestContainerBuildWorkflow(t *testing.T) {
 	steps, ok := buildJob["steps"].([]interface{})
 	require.True(t, ok, "build job should have steps")
 
+	stepUses := make(map[string]string)
 	stepNames := make([]string, len(steps))
+	stepRun := make([]string, len(steps))
 	for i, s := range steps {
 		step := s.(map[string]interface{})
+		stepName := ""
 		if name, ok := step["name"].(string); ok {
 			stepNames[i] = name
+			stepName = name
+		}
+		if uses, ok := step["uses"].(string); ok {
+			stepUses[stepName] = uses
+		}
+		if run, ok := step["run"].(string); ok {
+			stepRun[i] = run
 		}
 	}
 
+	for uses := range stepUses {
+		require.NotContains(t, uses, "docker/", "workflow should not use docker/* actions")
+		require.NotContains(t, uses, "docker/setup-buildx-action", "workflow should not use docker/setup-buildx-action")
+		require.NotContains(t, uses, "docker/login-action", "workflow should not use docker/login-action")
+		require.NotContains(t, uses, "docker/metadata-action", "workflow should not use docker/metadata-action")
+		require.NotContains(t, uses, "docker/build-push-action", "workflow should not use docker/build-push-action")
+	}
+
 	foundLogin := false
-	foundBuildPush := false
-	for _, name := range stepNames {
-		if name == "Login to Container Registry" {
-			foundLogin = true
-		}
-		if name == "Build and push" {
-			foundBuildPush = true
+	foundBuild := false
+	foundPush := false
+	for _, run := range stepRun {
+		if run != "" {
+			if contains(run, "podman login") {
+				foundLogin = true
+			}
+			if contains(run, "podman build") {
+				foundBuild = true
+			}
+			if contains(run, "podman push") {
+				foundPush = true
+			}
 		}
 	}
-	require.True(t, foundLogin, "workflow should have login step")
-	require.True(t, foundBuildPush, "workflow should have build and push step")
+	require.True(t, foundLogin, "workflow should use podman login CLI command")
+	require.True(t, foundBuild, "workflow should use podman build CLI command")
+	require.True(t, foundPush, "workflow should use podman push CLI command")
+
+	hasLatestTag := false
+	hasShaTag := false
+	for _, run := range stepRun {
+		if run != "" {
+			if contains(run, "latest") {
+				hasLatestTag = true
+			}
+			if contains(run, "GITHUB_SHA") || contains(run, "SHORT_SHA") {
+				hasShaTag = true
+			}
+		}
+	}
+	require.True(t, hasLatestTag, "workflow should tag image with latest")
+	require.True(t, hasShaTag, "workflow should tag image with short commit SHA")
+}
+
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > 0 && (s[:len(substr)] == substr || contains(s[1:], substr)))
 }
