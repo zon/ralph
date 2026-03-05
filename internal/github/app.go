@@ -130,10 +130,44 @@ func GetInstallationToken(ctx context.Context, jwtToken string, installationID i
 // DefaultSecretsDir is the default directory for GitHub App credentials in containers.
 const DefaultSecretsDir = "/secrets/github"
 
+// cleanupStaleTokenRewrites removes any existing x-access-token insteadOf rewrites
+// for github.com from the global git config. This prevents stale expired tokens
+// from interfering when a fresh token is set: git picks an arbitrary match when
+// multiple insteadOf rules rewrite the same URL, so old entries must be purged.
+func cleanupStaleTokenRewrites(ctx context.Context) {
+	// List all global git config entries and find token-bearing insteadOf keys.
+	cmd := exec.CommandContext(ctx, "git", "config", "--global", "--list")
+	out, err := cmd.Output()
+	if err != nil {
+		// Not fatal — if we can't list, we simply skip cleanup.
+		return
+	}
+
+	for _, line := range strings.Split(string(out), "\n") {
+		// Lines look like: url.https://x-access-token:TOKEN@github.com/.insteadof=https://github.com/
+		lower := strings.ToLower(line)
+		if !strings.HasPrefix(lower, "url.https://x-access-token:") || !strings.Contains(lower, "github.com") {
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		// The key is everything before the first '='.
+		key := parts[0]
+		// Unset the key; ignore errors (key may already be gone).
+		exec.CommandContext(ctx, "git", "config", "--global", "--unset-all", key).Run() //nolint:errcheck
+	}
+}
+
 // ConfigureGitAuth fetches a GitHub App installation token from secretsDir and
 // configures git globally to authenticate HTTPS requests with it.
 // owner and repo are used to look up the installation; if either is empty they
 // are autodetected from the git remote.
+//
+// Any previously set x-access-token insteadOf rewrites for github.com are
+// removed before the new entry is written. This prevents stale (expired) tokens
+// from being chosen by git when multiple rewrites match the same URL.
 func ConfigureGitAuth(ctx context.Context, owner, repo, secretsDir string) error {
 	if owner == "" || repo == "" {
 		detectedOwner, detectedRepo, err := GetRepo(ctx)
@@ -188,6 +222,10 @@ func ConfigureGitAuth(ctx context.Context, owner, repo, secretsDir string) error
 	if err != nil {
 		return fmt.Errorf("failed to get installation token: %w", err)
 	}
+
+	// Remove stale token rewrites before writing the fresh one so that git
+	// never holds multiple competing insteadOf rules for https://github.com/.
+	cleanupStaleTokenRewrites(ctx)
 
 	insteadOfKey := "url.https://x-access-token:" + installationToken + "@github.com/.insteadOf"
 	cmd := exec.CommandContext(ctx, "git", "config", "--global", insteadOfKey, "https://github.com/")

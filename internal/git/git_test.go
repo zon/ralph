@@ -325,12 +325,143 @@ func TestPushBranch_DryRun(t *testing.T) {
 	}
 }
 
-// Note: We skip real push tests as they require:
-// 1. A remote repository configured
-// 2. Authentication/credentials set up
-// 3. Network access
-// These are integration tests that should be run in a CI/CD environment
-// with proper repository setup.
+// setupBareRemoteRepo creates a temporary bare remote and a clone of it,
+// configures git identity, makes an initial commit, pushes it, and returns
+// (workDir, remoteDir). The caller must chdir into workDir before calling any
+// git functions that rely on the working directory.
+func setupBareRemoteRepo(t *testing.T) (workDir, remoteDir string) {
+	t.Helper()
+
+	remoteDir = t.TempDir()
+	cmd := exec.Command("git", "init", "--bare")
+	cmd.Dir = remoteDir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git init --bare failed: %v\n%s", err, out)
+	}
+
+	workDir = t.TempDir()
+	cmd = exec.Command("git", "clone", remoteDir, workDir)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git clone failed: %v\n%s", err, out)
+	}
+
+	for _, args := range [][]string{
+		{"config", "--local", "user.email", "test@example.com"},
+		{"config", "--local", "user.name", "Test User"},
+	} {
+		c := exec.Command("git", args...)
+		c.Dir = workDir
+		if out, err := c.CombinedOutput(); err != nil {
+			t.Fatalf("git %v failed: %v\n%s", args, err, out)
+		}
+	}
+
+	// Create and push an initial commit so HEAD exists on the remote.
+	if err := os.WriteFile(filepath.Join(workDir, "README.md"), []byte("# test\n"), 0644); err != nil {
+		t.Fatalf("failed to create README: %v", err)
+	}
+	for _, args := range [][]string{
+		{"add", "."},
+		{"commit", "-m", "initial commit"},
+		{"push", "origin", "HEAD"},
+	} {
+		c := exec.Command("git", args...)
+		c.Dir = workDir
+		if out, err := c.CombinedOutput(); err != nil {
+			t.Fatalf("git %v failed: %v\n%s", args, err, out)
+		}
+	}
+
+	return workDir, remoteDir
+}
+
+// TestPushBranch_HappyPath verifies that PushBranch succeeds against a local
+// bare remote. This is the happy-path integration test: no network access or
+// GitHub credentials are needed because the remote is a local file-system path.
+func TestPushBranch_HappyPath(t *testing.T) {
+	workDir, _ := setupBareRemoteRepo(t)
+
+	// Create a new feature branch with a commit to push.
+	branchName := "feature/push-test"
+	for _, args := range [][]string{
+		{"checkout", "-b", branchName},
+	} {
+		c := exec.Command("git", args...)
+		c.Dir = workDir
+		if out, err := c.CombinedOutput(); err != nil {
+			t.Fatalf("git %v failed: %v\n%s", args, err, out)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(workDir, "feature.txt"), []byte("feature\n"), 0644); err != nil {
+		t.Fatalf("failed to create feature file: %v", err)
+	}
+	for _, args := range [][]string{
+		{"add", "."},
+		{"commit", "-m", "add feature"},
+	} {
+		c := exec.Command("git", args...)
+		c.Dir = workDir
+		if out, err := c.CombinedOutput(); err != nil {
+			t.Fatalf("git %v failed: %v\n%s", args, err, out)
+		}
+	}
+
+	originalDir, _ := os.Getwd()
+	defer os.Chdir(originalDir)
+	if err := os.Chdir(workDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+
+	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	remoteURL, err := PushBranch(ctx, branchName)
+	if err != nil {
+		t.Fatalf("PushBranch failed: %v", err)
+	}
+	if remoteURL == "" {
+		t.Error("PushBranch returned an empty remote URL")
+	}
+}
+
+// TestPushCurrentBranch_HappyPath verifies that PushCurrentBranch succeeds
+// against a local bare remote.
+func TestPushCurrentBranch_HappyPath(t *testing.T) {
+	workDir, _ := setupBareRemoteRepo(t)
+
+	branchName := "feature/push-current-test"
+	for _, args := range [][]string{
+		{"checkout", "-b", branchName},
+	} {
+		c := exec.Command("git", args...)
+		c.Dir = workDir
+		if out, err := c.CombinedOutput(); err != nil {
+			t.Fatalf("git %v failed: %v\n%s", args, err, out)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(workDir, "current.txt"), []byte("current\n"), 0644); err != nil {
+		t.Fatalf("failed to create file: %v", err)
+	}
+	for _, args := range [][]string{
+		{"add", "."},
+		{"commit", "-m", "add current"},
+	} {
+		c := exec.Command("git", args...)
+		c.Dir = workDir
+		if out, err := c.CombinedOutput(); err != nil {
+			t.Fatalf("git %v failed: %v\n%s", args, err, out)
+		}
+	}
+
+	originalDir, _ := os.Getwd()
+	defer os.Chdir(originalDir)
+	if err := os.Chdir(workDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+
+	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	if err := PushCurrentBranch(ctx); err != nil {
+		t.Fatalf("PushCurrentBranch failed: %v", err)
+	}
+}
 
 func TestIsWorkflowPermissionError(t *testing.T) {
 	tests := []struct {
