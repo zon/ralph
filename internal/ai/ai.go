@@ -83,25 +83,47 @@ func GeneratePRSummary(ctx *context.Context, projectFile string, iterations int)
 		commitLog = "(Unable to retrieve commit log)"
 	}
 
-	// Create temp directory and file for agent to write to
+	// Create temp file for agent to write to
+	tmpFile, err := createTempSummaryFile()
+	if err != nil {
+		return "", err
+	}
+	defer os.Remove(tmpFile)
+
+	// Build prompt and run opencode
+	prompt := buildPRSummaryPrompt(project.Description, projectStatus, baseBranch, commitLog, tmpFile)
+
+	if ctx.IsVerbose() {
+		logger.Verbose(prompt)
+	}
+
+	// Run opencode and read result
+	summary, err := runOpenCodeAndReadResult(ctx, ralphConfig.Model, prompt, tmpFile)
+	if err != nil {
+		return "", err
+	}
+
+	return summary, nil
+}
+
+// createTempSummaryFile creates a temporary file for the PR summary
+func createTempSummaryFile() (string, error) {
 	tmpDir := "tmp"
 	if err := os.MkdirAll(tmpDir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create tmp directory: %w", err)
 	}
 
 	tmpFile := filepath.Join(tmpDir, fmt.Sprintf("pr-summary-%d.txt", os.Getpid()))
-	defer os.Remove(tmpFile) // Clean up temp file when done
+	return tmpFile, nil
+}
 
-	// Get absolute path for the temp file
-	absPath, err := filepath.Abs(tmpFile)
-	if err != nil {
-		return "", fmt.Errorf("failed to get absolute path: %w", err)
-	}
+// buildPRSummaryPrompt constructs the prompt for generating PR summary
+func buildPRSummaryPrompt(projectDesc, projectStatus, baseBranch, commitLog, outputFile string) string {
+	absPath, _ := filepath.Abs(outputFile)
 
-	// Build prompt matching ralph.sh - agent writes to file instead of outputting
 	var builder strings.Builder
 	builder.WriteString("Write a concise PR description (3-5 paragraphs max) for the changes made in this branch.\n\n")
-	builder.WriteString(fmt.Sprintf("Project: %s\n", project.Description))
+	builder.WriteString(fmt.Sprintf("Project: %s\n", projectDesc))
 	builder.WriteString(fmt.Sprintf("Status: %s\n\n", projectStatus))
 	builder.WriteString("## Commit Log\n")
 	builder.WriteString(commitLog)
@@ -116,14 +138,12 @@ func GeneratePRSummary(ctx *context.Context, projectFile string, iterations int)
 	builder.WriteString("Be concise and focus on what matters for code review.\n\n")
 	builder.WriteString(fmt.Sprintf("Write your summary to the file: %s\n", absPath))
 
-	prompt := builder.String()
+	return builder.String()
+}
 
-	if ctx.IsVerbose() {
-		logger.Verbose(prompt)
-	}
-
-	// Run opencode with the configured model, let it write the file
-	cmd := exec.Command("opencode", "run", "--model", ralphConfig.Model, prompt)
+// runOpenCodeAndReadResult runs opencode with the given prompt and reads the result from the output file
+func runOpenCodeAndReadResult(ctx *context.Context, model, prompt, outputFile string) (string, error) {
+	cmd := exec.Command("opencode", "run", "--model", model, prompt)
 	cmd.Env = append(os.Environ(), "FORCE_COLOR=1")
 	if ctx.IsVerbose() {
 		cmd.Stdout = os.Stdout
@@ -135,7 +155,7 @@ func GeneratePRSummary(ctx *context.Context, projectFile string, iterations int)
 	}
 
 	// Read the summary from the file the agent wrote
-	summaryBytes, err := os.ReadFile(tmpFile)
+	summaryBytes, err := os.ReadFile(outputFile)
 	if err != nil {
 		return "", fmt.Errorf("failed to read summary file: %w", err)
 	}
