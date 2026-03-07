@@ -9,7 +9,7 @@ requirements:
       - A test verifies applyDefaults sets App.Name to "zalphen" and App.ID to "2924254" when the app fields are empty
       - A test verifies applyDefaults sets each service's Timeout to 30 when it is zero
       - A test verifies applyDefaults does not overwrite non-zero values for MaxIterations, BaseBranch, Model, App.Name, App.ID, or service Timeout
-    passing: false
+    passing: true
 
   - category: testing
     description: Custom instruction file loading
@@ -17,7 +17,7 @@ requirements:
       - A test verifies LoadConfig loads comment instructions from .ralph/comment-instructions.md when the file exists
       - A test verifies LoadConfig loads merge instructions from .ralph/merge-instructions.md when the file exists
       - A test verifies LoadConfig uses the embedded default instructions when the custom instruction files do not exist
-    passing: false
+    passing: true
 
   - category: testing
     description: LoadConfig error paths
@@ -25,4 +25,4 @@ requirements:
       - A test verifies LoadConfig returns an error when the config YAML file contains invalid YAML syntax
       - A test verifies LoadProject returns an error when the project file cannot be read (e.g. path does not exist)
       - A test verifies SaveProject can write to a valid path and the result round-trips through LoadProject
-    passing: false
+    passing: true
