@@ -34,7 +34,9 @@ func TestIsAcceptable_IssueComment_NonPR_ReturnsFalse(t *testing.T) {
 func TestIsAcceptable_IssueComment_OnPR_ReturnsTrue(t *testing.T) {
 	p := minimalPayload("acme", "myrepo")
 	p.Comment.User.Login = "alice"
-	p.Issue.PullRequest = &struct{ URL string `json:"url"` }{URL: "https://example.com"}
+	p.Issue.PullRequest = &struct {
+		URL string `json:"url"`
+	}{URL: "https://example.com"}
 	assert.True(t, p.IsAcceptable("issue_comment", openConfig()))
 }
 
@@ -101,6 +103,62 @@ func TestIsAcceptable_ReviewApprovedCaseInsensitive_ReturnsTrue(t *testing.T) {
 	p.Review.State = "APPROVED"
 	p.Review.User.Login = "alice"
 	assert.True(t, p.IsAcceptable("pull_request_review", openConfig()))
+}
+
+func TestIsAcceptable_IssueComment_IgnoredRalphUser_ReturnsFalse(t *testing.T) {
+	p := minimalPayload("acme", "myrepo")
+	p.Comment.User.Login = "bot"
+	p.Issue.PullRequest = &struct {
+		URL string `json:"url"`
+	}{URL: "https://example.com"}
+	cfg := openConfig()
+	cfg.App.RalphUser = "bot"
+	assert.False(t, p.IsAcceptable("issue_comment", cfg))
+}
+
+func TestIsAcceptable_IssueComment_UserNotInAllowedList_ReturnsFalse(t *testing.T) {
+	p := minimalPayload("acme", "myrepo")
+	p.Comment.User.Login = "charlie"
+	p.Issue.PullRequest = &struct {
+		URL string `json:"url"`
+	}{URL: "https://example.com"}
+	cfg := configWithAllowedUsers([]string{"alice", "bob"})
+	assert.False(t, p.IsAcceptable("issue_comment", cfg))
+}
+
+func TestIsAcceptable_IssueComment_EmptyAllowedList_ReturnsTrue(t *testing.T) {
+	p := minimalPayload("acme", "myrepo")
+	p.Comment.User.Login = "charlie"
+	p.Issue.PullRequest = &struct {
+		URL string `json:"url"`
+	}{URL: "https://example.com"}
+	cfg := configWithAllowedUsers([]string{})
+	assert.True(t, p.IsAcceptable("issue_comment", cfg))
+}
+
+func TestIsAcceptable_ReviewApproved_IgnoredRalphUser_ReturnsFalse(t *testing.T) {
+	p := minimalPayload("acme", "myrepo")
+	p.Review.State = "approved"
+	p.Review.User.Login = "bot"
+	cfg := openConfig()
+	cfg.App.RalphUser = "bot"
+	assert.False(t, p.IsAcceptable("pull_request_review", cfg))
+}
+
+func TestIsAcceptable_ReviewApproved_UserNotInAllowedList_ReturnsFalse(t *testing.T) {
+	p := minimalPayload("acme", "myrepo")
+	p.Review.State = "approved"
+	p.Review.User.Login = "charlie"
+	cfg := configWithAllowedUsers([]string{"alice", "bob"})
+	assert.False(t, p.IsAcceptable("pull_request_review", cfg))
+}
+
+func TestIsAcceptable_ReviewApproved_EmptyAllowedList_ReturnsTrue(t *testing.T) {
+	p := minimalPayload("acme", "myrepo")
+	p.Review.State = "approved"
+	p.Review.User.Login = "charlie"
+	cfg := configWithAllowedUsers([]string{})
+	assert.True(t, p.IsAcceptable("pull_request_review", cfg))
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -170,6 +228,36 @@ func TestToEvent_NoPRNumber_EmptyString(t *testing.T) {
 	// PullRequest.Number is zero
 	e := p.ToEvent("pull_request_review_comment")
 	assert.Equal(t, "", e.PRNumber)
+}
+
+func TestToEvent_UnknownEventType_ReturnsEmptyEvent(t *testing.T) {
+	p := minimalPayload("acme", "myrepo")
+	p.Comment.Body = "test"
+	p.Review.State = "approved"
+	p.Review.User.Login = "alice"
+	p.PullRequest.Number = 42
+
+	e := p.ToEvent("push")
+
+	assert.Equal(t, "", e.Body)
+	assert.Equal(t, "", e.Author)
+	assert.Equal(t, "", e.PRNumber)
+	assert.Equal(t, "", e.PRBranch)
+	assert.Equal(t, "", e.RepoOwner)
+	assert.Equal(t, "", e.RepoName)
+	assert.False(t, e.Approved)
+}
+
+func TestToEvent_ReviewChangesRequested_ApprovedFalse(t *testing.T) {
+	p := minimalPayload("acme", "myrepo")
+	p.Review.State = "changes_requested"
+	p.Review.User.Login = "carol"
+	p.PullRequest.Head.Ref = "ralph/my-feature"
+
+	e := p.ToEvent("pull_request_review")
+
+	assert.False(t, e.Approved)
+	assert.Equal(t, "carol", e.Author)
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
