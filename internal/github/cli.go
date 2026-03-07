@@ -80,10 +80,14 @@ func FindSSHKey(ctx context.Context, title string) (string, error) {
 		return "", fmt.Errorf("failed to list SSH keys: %w (stderr: %s)", err, stderr.String())
 	}
 
+	return parseSSHKeyListOutput(stdout.String(), title)
+}
+
+func parseSSHKeyListOutput(output string, title string) (string, error) {
 	// Parse output to find key with matching title.
 	// Format: "TITLE KEY_TYPE KEY_DATA CREATED_DATE KEY_ID TYPE"
 	// Example: "ralph-myrepo ssh-ed25519 AAAAC3... 2025-02-15T12:00:00Z 123456789 authentication"
-	lines := strings.Split(stdout.String(), "\n")
+	lines := strings.Split(output, "\n")
 	for _, line := range lines {
 		if strings.HasPrefix(line, "warning:") || strings.TrimSpace(line) == "" {
 			continue
