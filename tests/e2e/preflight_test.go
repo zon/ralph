@@ -21,7 +21,8 @@ import (
 //   - opencode-credentials — OpenCode auth.json for AI calls
 //
 // Required files in the test GitHub repository:
-//   - test-data/e2e-noop-run.yaml — pre-completed project file used by E2E workflows
+//   - test-data/e2e-noop-run.yaml  — pre-completed project file used by E2E workflows
+//   - test-data/e2e-resume-run.yaml — pre-completed project file for TestRun_ResumesExistingBranch
 func TestNamespacePreflight(t *testing.T) {
 	cfg := resolveConfig(t)
 
@@ -52,6 +53,7 @@ func TestNamespacePreflight(t *testing.T) {
 	t.Run("repo_files", func(t *testing.T) {
 		requiredFiles := []string{
 			"test-data/e2e-noop-run.yaml",
+			"test-data/e2e-resume-run.yaml",
 		}
 
 		for _, path := range requiredFiles {
