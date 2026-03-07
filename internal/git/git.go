@@ -594,6 +594,30 @@ func Commit(ctx *context.Context, message string) error {
 	return nil
 }
 
+// CommitAllowEmpty creates a git commit even when there are no staged changes.
+// Used when the AI ran but produced no file changes (e.g. all requirements already passing).
+func CommitAllowEmpty(ctx *context.Context, message string) error {
+	if ctx.IsDryRun() {
+		logger.Infof("[DRY-RUN] Would commit (allow-empty) with message: %s", message)
+		return nil
+	}
+
+	cmd := exec.Command("git", "commit", "--allow-empty", "-m", message)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to commit (allow-empty): %w (output: %s)", err, out.String())
+	}
+
+	if ctx.IsVerbose() {
+		logger.Infof("Committed (allow-empty): %s", message)
+	}
+
+	return nil
+}
+
 // CommitChanges stages all changes and commits them with a descriptive message
 // It generates the commit message based on changed files
 // Returns error if there are no changes to commit
