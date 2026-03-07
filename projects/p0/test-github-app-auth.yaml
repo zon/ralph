@@ -9,7 +9,7 @@ requirements:
       - A test verifies GetInstallationID returns an error when the API responds with a non-200 status code, and the error message includes the status code and response body
       - A test verifies GetInstallationID returns an error when the response body contains invalid JSON
       - A test verifies GetInstallationID sends the correct Authorization header (Bearer + JWT), Accept header, and User-Agent header
-    passing: false
+    passing: true
 
   - category: testing
     description: GetInstallationToken tests using httptest
@@ -18,4 +18,4 @@ requirements:
       - A test verifies GetInstallationToken returns an error when the API responds with a non-201 status code
       - A test verifies GetInstallationToken returns an error when the response body contains an empty token string
       - A test verifies GetInstallationToken returns an error when the response body contains invalid JSON
-    passing: false
+    passing: true
