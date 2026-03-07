@@ -349,8 +349,10 @@ func HasCommits(ctx *context.Context) bool {
 	return true
 }
 
-// PushBranch pushes the specified branch to origin and returns the remote URL
-func PushBranch(ctx *context.Context, branch string) (string, error) {
+// Push pushes the current branch or a specified branch to origin.
+// If branch is empty, the current branch is pushed.
+// Returns the remote URL on success.
+func Push(ctx *context.Context, branch string) (string, error) {
 	if ctx.IsDryRun() {
 		logger.Infof("[DRY-RUN] Would push branch '%s' to origin", branch)
 		return "https://github.com/dry-run/repo", nil
@@ -360,13 +362,23 @@ func PushBranch(ctx *context.Context, branch string) (string, error) {
 		return "", fmt.Errorf("failed to configure git auth: %w", err)
 	}
 
+	// Determine branch to push
+	branchToPush := branch
+	if branchToPush == "" {
+		var err error
+		branchToPush, err = GetCurrentBranch(ctx)
+		if err != nil {
+			return "", fmt.Errorf("failed to get current branch: %w", err)
+		}
+	}
+
 	// Check if there are commits to push
 	if !HasCommits(ctx) {
-		return "", fmt.Errorf("no commits to push on branch '%s'", branch)
+		return "", fmt.Errorf("no commits to push on branch '%s'", branchToPush)
 	}
 
 	// Push the branch with --set-upstream
-	cmd := exec.Command("git", "push", "--set-upstream", "origin", branch)
+	cmd := exec.Command("git", "push", "--set-upstream", "origin", branchToPush)
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &out
@@ -375,10 +387,10 @@ func PushBranch(ctx *context.Context, branch string) (string, error) {
 		if isWorkflowPermissionError(out.String()) {
 			return "", fmt.Errorf("%w (output: %s)", ErrWorkflowPermission, out.String())
 		}
-		return "", fmt.Errorf("failed to push branch '%s': %w (output: %s)", branch, err, out.String())
+		return "", fmt.Errorf("failed to push branch '%s': %w (output: %s)", branchToPush, err, out.String())
 	}
 
-	logger.Verbosef("Pushed branch '%s' to origin", branch)
+	logger.Verbosef("Pushed branch '%s' to origin", branchToPush)
 
 	// Get the remote URL
 	cmd = exec.Command("git", "config", "--get", "remote.origin.url")
@@ -398,40 +410,17 @@ func PushBranch(ctx *context.Context, branch string) (string, error) {
 	return remoteURL, nil
 }
 
+// PushBranch pushes the specified branch to origin and returns the remote URL
+// Deprecated: Use Push instead
+func PushBranch(ctx *context.Context, branch string) (string, error) {
+	return Push(ctx, branch)
+}
+
 // PushCurrentBranch pushes the current branch to origin
-// This is a simpler version of PushBranch that doesn't require branch name or return URL
+// Deprecated: Use Push instead
 func PushCurrentBranch(ctx *context.Context) error {
-	if ctx.IsDryRun() {
-		logger.Info("[DRY-RUN] Would push current branch to origin")
-		return nil
-	}
-
-	if err := configureAuth(ctx); err != nil {
-		return fmt.Errorf("failed to configure git auth: %w", err)
-	}
-
-	// Get current branch
-	branch, err := GetCurrentBranch(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get current branch: %w", err)
-	}
-
-	// Push the branch
-	cmd := exec.Command("git", "push", "--set-upstream", "origin", branch)
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &out
-
-	if err := cmd.Run(); err != nil {
-		if isWorkflowPermissionError(out.String()) {
-			return fmt.Errorf("%w (output: %s)", ErrWorkflowPermission, out.String())
-		}
-		return fmt.Errorf("failed to push branch '%s': %w (output: %s)", branch, err, out.String())
-	}
-
-	logger.Verbosef("Pushed branch '%s' to origin", branch)
-
-	return nil
+	_, err := Push(ctx, "")
+	return err
 }
 
 // GetCommitLog retrieves commit log formatted exactly like the reference implementation.

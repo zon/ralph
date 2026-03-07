@@ -13,13 +13,13 @@ import (
 var defaultInstructions string
 
 //go:embed comment-instructions.md
-var DefaultCommentInstructions string
+var defaultCommentInstructions string
 
 //go:embed merge-instructions.md
-var DefaultMergeInstructions string
+var defaultMergeInstructions string
 
 //go:embed fix-service-instructions.md
-var DefaultFixServiceInstructions string
+var defaultFixServiceInstructions string
 
 // Project represents a project YAML file with requirements
 type Project struct {
@@ -112,6 +112,18 @@ type RalphConfig struct {
 	Instructions        string         `yaml:"-"` // Not persisted in YAML, loaded from .ralph/instructions.md
 	CommentInstructions string         `yaml:"-"` // Not persisted in YAML, loaded from .ralph/comment-instructions.md
 	MergeInstructions   string         `yaml:"-"` // Not persisted in YAML, loaded from .ralph/merge-instructions.md
+}
+
+func (c *RalphConfig) DefaultCommentInstructions() string {
+	return defaultCommentInstructions
+}
+
+func (c *RalphConfig) DefaultMergeInstructions() string {
+	return defaultMergeInstructions
+}
+
+func (c *RalphConfig) DefaultFixServiceInstructions() string {
+	return defaultFixServiceInstructions
 }
 
 // LoadProject loads and validates a project YAML file
@@ -222,7 +234,7 @@ func LoadConfig() (*RalphConfig, error) {
 	if data, err := os.ReadFile(commentInstructionsPath); err == nil {
 		config.CommentInstructions = string(data)
 	} else {
-		config.CommentInstructions = DefaultCommentInstructions
+		config.CommentInstructions = defaultCommentInstructions
 	}
 
 	// Load merge instructions from .ralph/merge-instructions.md or use default
@@ -230,7 +242,7 @@ func LoadConfig() (*RalphConfig, error) {
 	if data, err := os.ReadFile(mergeInstructionsPath); err == nil {
 		config.MergeInstructions = string(data)
 	} else {
-		config.MergeInstructions = DefaultMergeInstructions
+		config.MergeInstructions = defaultMergeInstructions
 	}
 
 	return &config, nil

@@ -158,12 +158,8 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	}
 
 	// Check if gh CLI is available and authenticated
-	if !github.IsGHInstalled(ctx) {
-		return fmt.Errorf("gh CLI is not installed, please install it to create pull requests")
-	}
-
-	if !github.IsAuthenticated(ctx) {
-		return fmt.Errorf("gh CLI is not authenticated, please run 'gh auth login'")
+	if !github.IsGHReady(ctx) {
+		return fmt.Errorf("gh CLI is not ready, please install and authenticate with 'gh auth login'")
 	}
 
 	// Create GitHub pull request

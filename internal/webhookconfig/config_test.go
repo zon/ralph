@@ -73,7 +73,7 @@ func TestLoadAppConfig(t *testing.T) {
 
 		cfg, err := LoadAppConfig(path)
 		require.NoError(t, err)
-		assert.Equal(t, config.DefaultCommentInstructions, cfg.CommentInstructions)
+		assert.Equal(t, (&config.RalphConfig{}).DefaultCommentInstructions(), cfg.CommentInstructions)
 	})
 
 	t.Run("defaults to embedded merge instructions", func(t *testing.T) {
@@ -82,7 +82,7 @@ func TestLoadAppConfig(t *testing.T) {
 
 		cfg, err := LoadAppConfig(path)
 		require.NoError(t, err)
-		assert.Equal(t, config.DefaultMergeInstructions, cfg.MergeInstructions)
+		assert.Equal(t, (&config.RalphConfig{}).DefaultMergeInstructions(), cfg.MergeInstructions)
 	})
 
 	t.Run("loads comment instructions from file", func(t *testing.T) {
