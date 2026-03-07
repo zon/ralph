@@ -703,3 +703,366 @@ baseBranch: main
 		t.Errorf("Workflow.Namespace = %s, want empty string", config.Workflow.Namespace)
 	}
 }
+
+func TestApplyDefaults_Model(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "ralph-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	if err := os.Mkdir(ralphDir, 0755); err != nil {
+		t.Fatalf("Failed to create .ralph dir: %v", err)
+	}
+
+	configContent := `model: ""
+`
+	configPath := filepath.Join(ralphDir, "config.yaml")
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("Failed to write config file: %v", err)
+	}
+
+	originalWd, _ := os.Getwd()
+	defer os.Chdir(originalWd)
+	os.Chdir(tmpDir)
+
+	config, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig() unexpected error: %v", err)
+	}
+
+	if config.Model != "deepseek/deepseek-chat" {
+		t.Errorf("Model = %q, want %q", config.Model, "deepseek/deepseek-chat")
+	}
+}
+
+func TestApplyDefaults_AppFields(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "ralph-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	if err := os.Mkdir(ralphDir, 0755); err != nil {
+		t.Fatalf("Failed to create .ralph dir: %v", err)
+	}
+
+	configContent := `app:
+  name: ""
+  id: ""
+`
+	configPath := filepath.Join(ralphDir, "config.yaml")
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("Failed to write config file: %v", err)
+	}
+
+	originalWd, _ := os.Getwd()
+	defer os.Chdir(originalWd)
+	os.Chdir(tmpDir)
+
+	config, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig() unexpected error: %v", err)
+	}
+
+	if config.App.Name != "zalphen" {
+		t.Errorf("App.Name = %q, want %q", config.App.Name, "zalphen")
+	}
+	if config.App.ID != "2924254" {
+		t.Errorf("App.ID = %q, want %q", config.App.ID, "2924254")
+	}
+}
+
+func TestApplyDefaults_ServiceTimeout(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "ralph-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	if err := os.Mkdir(ralphDir, 0755); err != nil {
+		t.Fatalf("Failed to create .ralph dir: %v", err)
+	}
+
+	configContent := `services:
+  - name: svc1
+    command: echo
+    timeout: 0
+  - name: svc2
+    command: echo
+`
+	configPath := filepath.Join(ralphDir, "config.yaml")
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("Failed to write config file: %v", err)
+	}
+
+	originalWd, _ := os.Getwd()
+	defer os.Chdir(originalWd)
+	os.Chdir(tmpDir)
+
+	config, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig() unexpected error: %v", err)
+	}
+
+	if len(config.Services) != 2 {
+		t.Fatalf("Services length = %d, want 2", len(config.Services))
+	}
+	if config.Services[0].Timeout != 30 {
+		t.Errorf("Services[0].Timeout = %d, want 30", config.Services[0].Timeout)
+	}
+	if config.Services[1].Timeout != 30 {
+		t.Errorf("Services[1].Timeout = %d, want 30", config.Services[1].Timeout)
+	}
+}
+
+func TestApplyDefaults_DoesNotOverwriteNonZeroValues(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "ralph-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	if err := os.Mkdir(ralphDir, 0755); err != nil {
+		t.Fatalf("Failed to create .ralph dir: %v", err)
+	}
+
+	configContent := `maxIterations: 5
+baseBranch: develop
+model: anthropic/claude-3-sonnet
+app:
+  name: my-app
+  id: 1234567
+services:
+  - name: svc1
+    command: echo
+    timeout: 60
+`
+	configPath := filepath.Join(ralphDir, "config.yaml")
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("Failed to write config file: %v", err)
+	}
+
+	originalWd, _ := os.Getwd()
+	defer os.Chdir(originalWd)
+	os.Chdir(tmpDir)
+
+	config, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig() unexpected error: %v", err)
+	}
+
+	if config.MaxIterations != 5 {
+		t.Errorf("MaxIterations = %d, want 5", config.MaxIterations)
+	}
+	if config.BaseBranch != "develop" {
+		t.Errorf("BaseBranch = %q, want develop", config.BaseBranch)
+	}
+	if config.Model != "anthropic/claude-3-sonnet" {
+		t.Errorf("Model = %q, want anthropic/claude-3-sonnet", config.Model)
+	}
+	if config.App.Name != "my-app" {
+		t.Errorf("App.Name = %q, want my-app", config.App.Name)
+	}
+	if config.App.ID != "1234567" {
+		t.Errorf("App.ID = %q, want 1234567", config.App.ID)
+	}
+	if config.Services[0].Timeout != 60 {
+		t.Errorf("Services[0].Timeout = %d, want 60", config.Services[0].Timeout)
+	}
+}
+
+func TestLoadConfig_CommentInstructionsFromFile(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "ralph-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	if err := os.Mkdir(ralphDir, 0755); err != nil {
+		t.Fatalf("Failed to create .ralph dir: %v", err)
+	}
+
+	configContent := `maxIterations: 3
+`
+	configPath := filepath.Join(ralphDir, "config.yaml")
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("Failed to write config file: %v", err)
+	}
+
+	customCommentInstructions := "Custom comment instructions for PR comments"
+	commentInstructionsPath := filepath.Join(ralphDir, "comment-instructions.md")
+	if err := os.WriteFile(commentInstructionsPath, []byte(customCommentInstructions), 0644); err != nil {
+		t.Fatalf("Failed to write comment instructions file: %v", err)
+	}
+
+	originalWd, _ := os.Getwd()
+	defer os.Chdir(originalWd)
+	os.Chdir(tmpDir)
+
+	config, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig() unexpected error: %v", err)
+	}
+
+	if config.CommentInstructions != customCommentInstructions {
+		t.Errorf("CommentInstructions = %q, want %q", config.CommentInstructions, customCommentInstructions)
+	}
+}
+
+func TestLoadConfig_MergeInstructionsFromFile(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "ralph-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	if err := os.Mkdir(ralphDir, 0755); err != nil {
+		t.Fatalf("Failed to create .ralph dir: %v", err)
+	}
+
+	configContent := `maxIterations: 3
+`
+	configPath := filepath.Join(ralphDir, "config.yaml")
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("Failed to write config file: %v", err)
+	}
+
+	customMergeInstructions := "Custom merge instructions for PR merging"
+	mergeInstructionsPath := filepath.Join(ralphDir, "merge-instructions.md")
+	if err := os.WriteFile(mergeInstructionsPath, []byte(customMergeInstructions), 0644); err != nil {
+		t.Fatalf("Failed to write merge instructions file: %v", err)
+	}
+
+	originalWd, _ := os.Getwd()
+	defer os.Chdir(originalWd)
+	os.Chdir(tmpDir)
+
+	config, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig() unexpected error: %v", err)
+	}
+
+	if config.MergeInstructions != customMergeInstructions {
+		t.Errorf("MergeInstructions = %q, want %q", config.MergeInstructions, customMergeInstructions)
+	}
+}
+
+func TestLoadConfig_DefaultInstructionsWhenFilesNotExist(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "ralph-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	if err := os.Mkdir(ralphDir, 0755); err != nil {
+		t.Fatalf("Failed to create .ralph dir: %v", err)
+	}
+
+	configContent := `maxIterations: 3
+`
+	configPath := filepath.Join(ralphDir, "config.yaml")
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("Failed to write config file: %v", err)
+	}
+
+	originalWd, _ := os.Getwd()
+	defer os.Chdir(originalWd)
+	os.Chdir(tmpDir)
+
+	config, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig() unexpected error: %v", err)
+	}
+
+	if config.CommentInstructions == "" {
+		t.Error("CommentInstructions is empty, expected default instructions")
+	}
+	if config.MergeInstructions == "" {
+		t.Error("MergeInstructions is empty, expected default instructions")
+	}
+	if config.Instructions == "" {
+		t.Error("Instructions is empty, expected default instructions")
+	}
+}
+
+func TestLoadConfig_InvalidYAML(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "ralph-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	if err := os.Mkdir(ralphDir, 0755); err != nil {
+		t.Fatalf("Failed to create .ralph dir: %v", err)
+	}
+
+	invalidYAML := `maxIterations: [this is not valid yaml
+  - broken
+`
+	configPath := filepath.Join(ralphDir, "config.yaml")
+	if err := os.WriteFile(configPath, []byte(invalidYAML), 0644); err != nil {
+		t.Fatalf("Failed to write config file: %v", err)
+	}
+
+	originalWd, _ := os.Getwd()
+	defer os.Chdir(originalWd)
+	os.Chdir(tmpDir)
+
+	_, err = LoadConfig()
+	if err == nil {
+		t.Error("LoadConfig() expected error for invalid YAML, got nil")
+	}
+}
+
+func TestLoadProject_FileNotFound(t *testing.T) {
+	_, err := LoadProject("/nonexistent/path/project.yaml")
+	if err == nil {
+		t.Error("LoadProject() expected error for nonexistent file, got nil")
+	}
+}
+
+func TestSaveProjectRoundTrip(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "ralph-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	project := &Project{
+		Name:        "round-trip-test",
+		Description: "Testing save and load round trip",
+		Requirements: []Requirement{
+			{ID: "req1", Name: "Requirement 1", Passing: true},
+			{ID: "req2", Name: "Requirement 2", Passing: false},
+		},
+	}
+
+	projectPath := filepath.Join(tmpDir, "roundtrip.yaml")
+	err = SaveProject(projectPath, project)
+	if err != nil {
+		t.Fatalf("SaveProject() unexpected error: %v", err)
+	}
+
+	loaded, err := LoadProject(projectPath)
+	if err != nil {
+		t.Fatalf("LoadProject() after save unexpected error: %v", err)
+	}
+	if loaded.Name != project.Name {
+		t.Errorf("Loaded project name = %s, want %s", loaded.Name, project.Name)
+	}
+	if loaded.Description != project.Description {
+		t.Errorf("Loaded project description = %s, want %s", loaded.Description, project.Description)
+	}
+	if len(loaded.Requirements) != len(project.Requirements) {
+		t.Errorf("Loaded requirements length = %d, want %d", len(loaded.Requirements), len(project.Requirements))
+	}
+}
