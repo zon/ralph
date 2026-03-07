@@ -477,3 +477,130 @@ func TestRunBeforeFailingNonOptional(t *testing.T) {
 		t.Error("RunBefore with failing non-optional command should return error, got nil")
 	}
 }
+
+func TestRunBeforeSequentialExecution(t *testing.T) {
+	cmds := []config.Before{
+		{
+			Name:    "first",
+			Command: "sh",
+			Args:    []string{"-c", "echo first"},
+		},
+		{
+			Name:    "second",
+			Command: "sh",
+			Args:    []string{"-c", "echo second"},
+		},
+		{
+			Name:    "third",
+			Command: "sh",
+			Args:    []string{"-c", "echo third"},
+		},
+	}
+
+	err := RunBefore(cmds, false)
+	if err != nil {
+		t.Errorf("RunBefore with successful commands should return nil, got: %v", err)
+	}
+}
+
+func TestRunBeforeWithWorkDir(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	cmds := []config.Before{
+		{
+			Name:    "pwd-check",
+			Command: "sh",
+			Args:    []string{"-c", "pwd"},
+			WorkDir: tmpDir,
+		},
+	}
+
+	err := RunBefore(cmds, false)
+	if err != nil {
+		t.Errorf("RunBefore with WorkDir failed: %v", err)
+	}
+}
+
+func TestWaitForHealthProcessRunningNoPort(t *testing.T) {
+	svc := config.Service{
+		Name:    "health-test",
+		Command: "sleep",
+		Args:    []string{"30"},
+		Port:    0, // No port - process liveness check
+	}
+	t.Cleanup(func() { cleanupLogs(t, []config.Service{svc}) })
+
+	proc, err := startService(svc, false)
+	if err != nil {
+		t.Fatalf("Failed to start service: %v", err)
+	}
+	defer proc.Stop()
+
+	err = WaitForHealth(proc, 5*time.Second, false)
+	if err != nil {
+		t.Errorf("WaitForHealth should return nil when process is running and no port configured, got: %v", err)
+	}
+}
+
+func TestWaitForHealthProcessExitsBeforeCheck(t *testing.T) {
+	svc := config.Service{
+		Name:    "short-lived",
+		Command: "sh",
+		Args:    []string{"-c", "exit 0"},
+		Port:    0,
+	}
+	t.Cleanup(func() { cleanupLogs(t, []config.Service{svc}) })
+
+	proc, err := startService(svc, false)
+	if err != nil {
+		t.Fatalf("Failed to start service: %v", err)
+	}
+
+	proc.Cmd.Wait()
+
+	err = WaitForHealth(proc, 5*time.Second, false)
+	if err == nil {
+		t.Error("WaitForHealth should return error when process exits before health check passes")
+	}
+}
+
+func TestStartAllServicesRollbackOnStartFailure(t *testing.T) {
+	services := []config.Service{
+		{Name: "rb-start-svc1", Command: "sleep", Args: []string{"30"}, Port: 17777},
+		{Name: "rb-start-svc2", Command: "nonexistent-xyz", Args: []string{}},
+	}
+	t.Cleanup(func() { cleanupLogs(t, services) })
+
+	_, _, err := startAllServices(services, false)
+	if err == nil {
+		t.Fatal("startAllServices should have failed but didn't")
+	}
+
+	time.Sleep(600 * time.Millisecond)
+
+	if CheckPort(17777) {
+		t.Error("Port 17777 should have been released as part of rollback but it's still in use")
+	}
+}
+
+func TestStartAllServicesRollbackOnHealthCheckFailure(t *testing.T) {
+	services := []config.Service{
+		{Name: "rb-health-svc1", Command: "sleep", Args: []string{"30"}, Port: 17788},
+		{Name: "rb-health-svc2", Command: "sleep", Args: []string{"30"}, Port: 17787},
+	}
+	t.Cleanup(func() { cleanupLogs(t, services) })
+
+	_, _, err := startAllServices(services, false)
+	if err == nil {
+		t.Fatal("startAllServices should have failed health check but didn't")
+	}
+
+	time.Sleep(600 * time.Millisecond)
+
+	if CheckPort(17788) {
+		t.Error("Port 17788 should have been released as part of rollback but it's still in use")
+	}
+	if CheckPort(17787) {
+		t.Error("Port 17787 should have been released as part of rollback but it's still in use")
+	}
+}
