@@ -181,21 +181,17 @@ func TestMergeCmdRunLocalFindCompleteProjectsError(t *testing.T) {
 	require.NoError(t, os.Chdir(tmpDir))
 
 	require.NoError(t, initGitRepo(tmpDir))
+
+	dummyFile := filepath.Join(tmpDir, "dummy.txt")
+	require.NoError(t, os.WriteFile(dummyFile, []byte("dummy"), 0644))
+	require.NoError(t, gitAdd(dummyFile))
 	require.NoError(t, gitCommit("Initial commit"))
 
-	completeProject := filepath.Join(tmpDir, "complete-project.yaml")
-	content := `name: complete-project
-description: A complete project
-requirements:
-  - category: backend
-    description: Feature 1
-    items:
-      - Item 1
-    passing: true`
-	require.NoError(t, os.WriteFile(completeProject, []byte(content), 0644))
+	projectsDir := filepath.Join(tmpDir, "projects")
+	require.NoError(t, os.MkdirAll(projectsDir, 0755))
 
-	projectsFile := filepath.Join(tmpDir, "projects")
-	require.NoError(t, os.WriteFile(projectsFile, []byte("not a dir"), 0644))
+	brokenSymlink := filepath.Join(projectsDir, "broken")
+	require.NoError(t, os.Symlink("/nonexistent/path", brokenSymlink))
 
 	cmd := &MergeCmd{
 		Branch: "test-branch",
@@ -244,7 +240,7 @@ requirements:
 	err = cmd.Run()
 	os.Chmod(completeProject, 0644)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to remove complete projects")
+	assert.Contains(t, err.Error(), "failed to push after removing complete projects")
 }
 
 func TestWaitForGitHubHeadMatchesLocalSHA(t *testing.T) {
@@ -255,6 +251,10 @@ func TestWaitForGitHubHeadMatchesLocalSHA(t *testing.T) {
 	require.NoError(t, os.Chdir(tmpDir))
 
 	require.NoError(t, initGitRepo(tmpDir))
+
+	dummyFile := filepath.Join(tmpDir, "dummy.txt")
+	require.NoError(t, os.WriteFile(dummyFile, []byte("dummy"), 0644))
+	require.NoError(t, gitAdd(dummyFile))
 	require.NoError(t, gitCommit("Initial commit"))
 
 	localOut := &bytes.Buffer{}
@@ -285,6 +285,10 @@ func TestWaitForGitHubHeadTimeout(t *testing.T) {
 	require.NoError(t, os.Chdir(tmpDir))
 
 	require.NoError(t, initGitRepo(tmpDir))
+
+	dummyFile := filepath.Join(tmpDir, "dummy.txt")
+	require.NoError(t, os.WriteFile(dummyFile, []byte("dummy"), 0644))
+	require.NoError(t, gitAdd(dummyFile))
 	require.NoError(t, gitCommit("Initial commit"))
 
 	ghScript := `#!/bin/bash
@@ -307,10 +311,14 @@ func TestWaitForGitHubHeadGhCommandFails(t *testing.T) {
 	require.NoError(t, os.Chdir(tmpDir))
 
 	require.NoError(t, initGitRepo(tmpDir))
+
+	dummyFile := filepath.Join(tmpDir, "dummy.txt")
+	require.NoError(t, os.WriteFile(dummyFile, []byte("dummy"), 0644))
+	require.NoError(t, gitAdd(dummyFile))
 	require.NoError(t, gitCommit("Initial commit"))
 
 	ghScript := `#!/bin/bash
-exit 1
+	exit 1
 `
 	scriptPath := filepath.Join(tmpDir, "gh")
 	require.NoError(t, os.WriteFile(scriptPath, []byte(ghScript), 0755))
@@ -329,6 +337,10 @@ func TestWaitForGitHubHeadParseError(t *testing.T) {
 	require.NoError(t, os.Chdir(tmpDir))
 
 	require.NoError(t, initGitRepo(tmpDir))
+
+	dummyFile := filepath.Join(tmpDir, "dummy.txt")
+	require.NoError(t, os.WriteFile(dummyFile, []byte("dummy"), 0644))
+	require.NoError(t, gitAdd(dummyFile))
 	require.NoError(t, gitCommit("Initial commit"))
 
 	ghScript := `#!/bin/bash
@@ -352,6 +364,10 @@ func TestMergeCmdRunLocalDryRunWithNoProjectsDirectory(t *testing.T) {
 	require.NoError(t, os.Chdir(tmpDir))
 
 	require.NoError(t, initGitRepo(tmpDir))
+
+	dummyFile := filepath.Join(tmpDir, "dummy.txt")
+	require.NoError(t, os.WriteFile(dummyFile, []byte("dummy"), 0644))
+	require.NoError(t, gitAdd(dummyFile))
 	require.NoError(t, gitCommit("Initial commit"))
 
 	cmd := &MergeCmd{
