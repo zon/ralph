@@ -8,10 +8,10 @@ requirements:
       - GenerateSSHKeyPair is no longer in internal/k8s since it is a crypto utility, not a Kubernetes operation
       - It lives in a package that reflects its purpose (e.g. internal/crypto or internal/ssh)
       - All callers import from the new location
-    passing: false
+    passing: true
 
   - category: cmd
     description: Test-only types are not exported from cmd
     items:
       - WebhookConfigResult and WebhookSecretsResult in internal/cmd/config_webhook.go are either unexported or moved to a test file, since they are only used in tests
-    passing: false
+    passing: true
