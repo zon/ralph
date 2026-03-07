@@ -9,7 +9,7 @@ requirements:
       - A test verifies CommitChanges uses a fallback message containing the iteration number when report.md does not exist
       - A test verifies CommitChanges creates an allow-empty commit when there are no staged changes
       - A test verifies CommitChanges returns ErrFatalPushError when the push is rejected due to a workflow permission error
-    passing: false
+    passing: true
 
   - category: testing
     description: RunIterationLoop completion detection
@@ -17,11 +17,11 @@ requirements:
       - A test verifies RunIterationLoop exits early and returns nil when all requirements become passing before reaching max iterations
       - A test verifies RunIterationLoop returns ErrMaxIterationsReached when requirements are still failing after max iterations
       - A test verifies RunIterationLoop returns ErrBlocked when blocked.md exists in the repository root
-    passing: false
+    passing: true
 
   - category: testing
     description: isFatalOpenCodeError pattern matching
     items:
       - A test verifies isFatalOpenCodeError returns true for errors containing "Insufficient Balance", "billing", "payment required", or "quota exceeded"
       - A test verifies isFatalOpenCodeError returns false for nil errors and errors without fatal patterns
-    passing: false
+    passing: true
