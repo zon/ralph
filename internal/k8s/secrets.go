@@ -3,14 +3,9 @@ package k8s
 import (
 	"bytes"
 	"context"
-	"crypto/ed25519"
-	"crypto/rand"
-	"encoding/pem"
 	"fmt"
 	"os/exec"
 	"strings"
-
-	"golang.org/x/crypto/ssh"
 )
 
 const (
@@ -19,38 +14,6 @@ const (
 	// OpenCodeSecretName is the name of the Kubernetes secret for OpenCode credentials
 	OpenCodeSecretName = "opencode-credentials"
 )
-
-// GenerateSSHKeyPair generates an Ed25519 SSH key pair
-// Returns: privateKeyPEM, publicKeyOpenSSH, error
-func GenerateSSHKeyPair() (string, string, error) {
-	// Generate Ed25519 key pair
-	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
-	if err != nil {
-		return "", "", fmt.Errorf("failed to generate key pair: %w", err)
-	}
-
-	// Convert private key to PEM format
-	privKeyBytes, err := ssh.MarshalPrivateKey(privKey, "")
-	if err != nil {
-		return "", "", fmt.Errorf("failed to marshal private key: %w", err)
-	}
-
-	privKeyPEM := pem.EncodeToMemory(privKeyBytes)
-	if privKeyPEM == nil {
-		return "", "", fmt.Errorf("failed to encode private key to PEM")
-	}
-
-	// Convert public key to OpenSSH format
-	sshPubKey, err := ssh.NewPublicKey(pubKey)
-	if err != nil {
-		return "", "", fmt.Errorf("failed to create SSH public key: %w", err)
-	}
-
-	pubKeyOpenSSH := string(ssh.MarshalAuthorizedKey(sshPubKey))
-	pubKeyOpenSSH = strings.TrimSpace(pubKeyOpenSSH)
-
-	return string(privKeyPEM), pubKeyOpenSSH, nil
-}
 
 // buildSecretArgs builds the kubectl create secret generic command arguments
 func buildSecretArgs(name, namespace, kubeContext string, data map[string]string) []string {
