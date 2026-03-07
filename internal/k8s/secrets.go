@@ -52,6 +52,70 @@ func GenerateSSHKeyPair() (string, string, error) {
 	return string(privKeyPEM), pubKeyOpenSSH, nil
 }
 
+// buildSecretArgs builds the kubectl create secret generic command arguments
+func buildSecretArgs(name, namespace, kubeContext string, data map[string]string) []string {
+	if namespace == "" {
+		namespace = "default"
+	}
+
+	args := []string{"create", "secret", "generic", name}
+
+	for key, value := range data {
+		args = append(args, fmt.Sprintf("--from-literal=%s=%s", key, value))
+	}
+
+	args = append(args, "-n", namespace)
+
+	if kubeContext != "" {
+		args = append(args, "--context", kubeContext)
+	}
+
+	args = append(args, "--dry-run=client", "-o", "yaml")
+
+	return args
+}
+
+// buildSecretApplyArgs builds the kubectl apply command arguments
+func buildSecretApplyArgs(kubeContext string) []string {
+	args := []string{"apply", "-f", "-"}
+	if kubeContext != "" {
+		args = append(args, "--context", kubeContext)
+	}
+	return args
+}
+
+// buildConfigMapArgs builds the kubectl create configmap command arguments
+func buildConfigMapArgs(name, namespace, kubeContext string, data map[string]string) []string {
+	if namespace == "" {
+		namespace = "default"
+	}
+
+	args := []string{"create", "configmap", name}
+
+	for key, value := range data {
+		args = append(args, fmt.Sprintf("--from-literal=%s=%s", key, value))
+	}
+
+	args = append(args, "-n", namespace)
+
+	if kubeContext != "" {
+		args = append(args, "--context", kubeContext)
+	}
+
+	args = append(args, "--dry-run=client", "-o", "yaml")
+
+	return args
+}
+
+// buildConfigMapApplyArgs builds the kubectl apply command arguments for ConfigMap
+func buildConfigMapApplyArgs(kubeContext string) []string {
+	args := []string{"apply", "-f", "-"}
+	if kubeContext != "" {
+		args = append(args, "--context", kubeContext)
+	}
+	return args
+}
+
 // CreateOrUpdateSecret creates or updates a Kubernetes secret
 func CreateOrUpdateSecret(ctx context.Context, name, namespace, kubeContext string, data map[string]string) error {
 	// Check if kubectl is available
@@ -59,32 +123,8 @@ func CreateOrUpdateSecret(ctx context.Context, name, namespace, kubeContext stri
 		return fmt.Errorf("kubectl not found in PATH - please install kubectl")
 	}
 
-	// Use default namespace if not specified
-	if namespace == "" {
-		namespace = "default"
-	}
-
-	// Build kubectl command args
-	args := []string{"create", "secret", "generic", name}
-
-	// Add data as literal values
-	for key, value := range data {
-		args = append(args, fmt.Sprintf("--from-literal=%s=%s", key, value))
-	}
-
-	// Add namespace
-	args = append(args, "-n", namespace)
-
-	// Add context if specified
-	if kubeContext != "" {
-		args = append(args, "--context", kubeContext)
-	}
-
-	// Add dry-run and output to generate YAML, then apply to handle create/update
-	args = append(args, "--dry-run=client", "-o", "yaml")
-
 	// Generate the secret YAML
-	cmd := exec.CommandContext(ctx, "kubectl", args...)
+	cmd := exec.CommandContext(ctx, "kubectl", buildSecretArgs(name, namespace, kubeContext, data)...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -94,12 +134,7 @@ func CreateOrUpdateSecret(ctx context.Context, name, namespace, kubeContext stri
 	}
 
 	// Apply the secret (this handles both create and update)
-	applyArgs := []string{"apply", "-f", "-"}
-	if kubeContext != "" {
-		applyArgs = append(applyArgs, "--context", kubeContext)
-	}
-
-	applyCmd := exec.CommandContext(ctx, "kubectl", applyArgs...)
+	applyCmd := exec.CommandContext(ctx, "kubectl", buildSecretApplyArgs(kubeContext)...)
 	applyCmd.Stdin = &stdout
 	var applyStderr bytes.Buffer
 	applyCmd.Stderr = &applyStderr
@@ -118,32 +153,8 @@ func CreateOrUpdateConfigMap(ctx context.Context, name, namespace, kubeContext s
 		return fmt.Errorf("kubectl not found in PATH - please install kubectl")
 	}
 
-	// Use default namespace if not specified
-	if namespace == "" {
-		namespace = "default"
-	}
-
-	// Build kubectl command args
-	args := []string{"create", "configmap", name}
-
-	// Add data as literal values
-	for key, value := range data {
-		args = append(args, fmt.Sprintf("--from-literal=%s=%s", key, value))
-	}
-
-	// Add namespace
-	args = append(args, "-n", namespace)
-
-	// Add context if specified
-	if kubeContext != "" {
-		args = append(args, "--context", kubeContext)
-	}
-
-	// Add dry-run and output to generate YAML, then apply to handle create/update
-	args = append(args, "--dry-run=client", "-o", "yaml")
-
 	// Generate the configmap YAML
-	cmd := exec.CommandContext(ctx, "kubectl", args...)
+	cmd := exec.CommandContext(ctx, "kubectl", buildConfigMapArgs(name, namespace, kubeContext, data)...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -153,12 +164,7 @@ func CreateOrUpdateConfigMap(ctx context.Context, name, namespace, kubeContext s
 	}
 
 	// Apply the configmap (this handles both create and update)
-	applyArgs := []string{"apply", "-f", "-"}
-	if kubeContext != "" {
-		applyArgs = append(applyArgs, "--context", kubeContext)
-	}
-
-	applyCmd := exec.CommandContext(ctx, "kubectl", applyArgs...)
+	applyCmd := exec.CommandContext(ctx, "kubectl", buildConfigMapApplyArgs(kubeContext)...)
 	applyCmd.Stdin = &stdout
 	var applyStderr bytes.Buffer
 	applyCmd.Stderr = &applyStderr
