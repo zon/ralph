@@ -172,6 +172,72 @@ func TestRun_ResumesExistingBranch(t *testing.T) {
 	t.Logf("PR created: %s", prURL)
 }
 
+// TestRun_AICompletesSingleIteration verifies the core development loop: the AI
+// agent is invoked on a project with one failing requirement, makes the required
+// change (adds a file), marks the requirement passing: true in the project YAML,
+// and the iteration loop exits after that single iteration.
+//
+// This is the only E2E test that actually exercises the AI iteration path.
+// All other tests use pre-passing noop projects and never call the AI.
+//
+// Exercises end-to-end:
+//   - iteration loop invokes the AI agent (requirement is not pre-passing)
+//   - AI modifies the project file (sets passing: true)
+//   - iteration loop detects completion and exits
+//   - commit + push of AI changes
+//   - gh pr create: PR visible on GitHub
+//
+// Prerequisites: test-data/e2e-ai-iteration.yaml must exist in cfg.Repo
+// (checked by TestNamespacePreflight).
+func TestRun_AICompletesSingleIteration(t *testing.T) {
+	cfg := resolveConfig(t)
+
+	branch := "e2e-ai-iteration"
+
+	ctx := &context.Context{
+		Repo:        cfg.Repo,
+		Branch:      cfg.Branch,
+		DebugBranch: cfg.DebugBranch,
+		Verbose:     true,
+		NoNotify:    true,
+		NoServices:  true,
+	}
+
+	t.Log("Generating Argo Workflow...")
+	wf, err := workflow.GenerateWorkflowWithGitInfo(
+		ctx,
+		"e2e-ai-iteration",
+		"https://github.com/"+cfg.Repo+".git",
+		cfg.Branch,
+		branch,
+		"test-data/e2e-ai-iteration.yaml",
+		false,
+		true,
+	)
+	require.NoError(t, err, "GenerateWorkflowWithGitInfo failed")
+
+	workflowName, err := wf.Submit(cfg.Namespace)
+	require.NoError(t, err, "workflow submission failed")
+	t.Logf("Submitted workflow: %s", workflowName)
+
+	t.Cleanup(func() { cleanupBranchAndPR(t, cfg.Repo, branch) })
+
+	t.Logf("Waiting for workflow %s to complete (timeout: %s)...", workflowName, cfg.Timeout)
+	require.NoError(t, pollWorkflowCompletion(t, workflowName, cfg.Namespace, cfg.Timeout),
+		"workflow did not complete — AI may have failed or timed out")
+
+	// Verify a PR was created, proving the iteration loop exited cleanly after
+	// the AI marked the requirement as passing.
+	prURL, err := findPR(cfg.Repo, branch)
+	require.NoError(t, err, "could not find PR for branch %s", branch)
+	assert.NotEmpty(t, prURL, "expected a PR — AI iteration did not complete or PR was not created")
+	t.Logf("PR created: %s", prURL)
+
+	title, err := getPRTitle(cfg.Repo, branch)
+	require.NoError(t, err)
+	assert.Equal(t, aiIterationProjectDescription, title, "PR title should match project description")
+}
+
 // TestRun_MaxIterationsExhausted is a placeholder for a test that verifies the
 // workflow fails gracefully when the AI cannot satisfy all requirements within
 // the configured iteration limit.
@@ -296,6 +362,10 @@ func TestPush_StaleTokenCleanup(t *testing.T) {
 // noopProjectDescription is the description field in test-data/e2e-noop-run.yaml
 // in cfg.Repo. It is also the expected PR title when a noop workflow runs.
 const noopProjectDescription = "E2E test project — all requirements pre-completed"
+
+// aiIterationProjectDescription is the description field in
+// test-data/e2e-ai-iteration.yaml in cfg.Repo. Must match exactly.
+const aiIterationProjectDescription = "E2E test — single AI iteration adds a greeting file"
 
 // noopProjectYAML returns a project YAML where all requirements are already
 // passing: true. The iteration loop exits after the first check without calling

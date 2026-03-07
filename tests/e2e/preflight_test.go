@@ -54,6 +54,7 @@ func TestNamespacePreflight(t *testing.T) {
 		requiredFiles := []string{
 			"test-data/e2e-noop-run.yaml",
 			"test-data/e2e-resume-run.yaml",
+			"test-data/e2e-ai-iteration.yaml",
 		}
 
 		for _, path := range requiredFiles {
