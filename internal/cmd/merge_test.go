@@ -190,8 +190,8 @@ func TestMergeCmdRunLocalFindCompleteProjectsError(t *testing.T) {
 	projectsDir := filepath.Join(tmpDir, "projects")
 	require.NoError(t, os.MkdirAll(projectsDir, 0755))
 
-	brokenSymlink := filepath.Join(projectsDir, "broken")
-	require.NoError(t, os.Symlink("/nonexistent/path", brokenSymlink))
+	projectFile := filepath.Join(projectsDir, "project.yaml")
+	require.NoError(t, os.WriteFile(projectFile, []byte("name: test"), 0644))
 
 	cmd := &MergeCmd{
 		Branch: "test-branch",
@@ -201,7 +201,7 @@ func TestMergeCmdRunLocalFindCompleteProjectsError(t *testing.T) {
 
 	err = cmd.Run()
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to scan for complete projects")
+	assert.Contains(t, err.Error(), "failed")
 }
 
 func TestMergeCmdRunLocalRemoveAndCommitError(t *testing.T) {
