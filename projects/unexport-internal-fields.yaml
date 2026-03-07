@@ -29,7 +29,7 @@ requirements:
     description: GithubPayload is unexported
     items:
       - The GithubPayload type in internal/webhook/payload.go is unexported since it is only used within the webhook package
-    passing: false
+    passing: true
 
   - category: version
     description: Version patch bump
@@ -37,5 +37,4 @@ requirements:
       - internal/version/VERSION is incremented by one patch version
       - charts/ralph-webhook/Chart.yaml appVersion matches the new VERSION value
       - charts/ralph-webhook/Chart.yaml version is incremented by one patch version
-    passing: false
-
+    passing: true
