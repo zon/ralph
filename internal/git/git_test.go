@@ -164,7 +164,6 @@ func TestIsDetachedHead_DryRun(t *testing.T) {
 
 func TestGetCurrentBranch(t *testing.T) {
 	tempDir := setupTestRepo(t)
-	defer os.Chdir(tempDir) // Ensure we're in the test repo
 	originalDir, _ := os.Getwd()
 	defer os.Chdir(originalDir)
 	os.Chdir(tempDir)
@@ -1003,5 +1002,530 @@ func TestCommitChanges_DryRun(t *testing.T) {
 	err := CommitChanges(ctx)
 	if err != nil {
 		t.Errorf("CommitChanges in dry-run should not error, got: %v", err)
+	}
+}
+
+func TestFindRepoRoot(t *testing.T) {
+	tempDir := setupTestRepo(t)
+	originalDir, _ := os.Getwd()
+	defer os.Chdir(originalDir)
+	os.Chdir(tempDir)
+
+	ctx := testutil.NewContext(testutil.WithDryRun(false))
+
+	root, err := FindRepoRoot(ctx)
+	if err != nil {
+		t.Fatalf("FindRepoRoot failed: %v", err)
+	}
+
+	if root != tempDir {
+		t.Errorf("Expected repo root to be %q, got %q", tempDir, root)
+	}
+}
+
+func TestFindRepoRoot_DryRun(t *testing.T) {
+	originalDir, _ := os.Getwd()
+	defer os.Chdir(originalDir)
+
+	tempDir := t.TempDir()
+	if err := os.Chdir(tempDir); err != nil {
+		t.Fatalf("Failed to chdir: %v", err)
+	}
+
+	ctx := testutil.NewContext()
+
+	root, err := FindRepoRoot(ctx)
+	if err != nil {
+		t.Fatalf("FindRepoRoot in dry-run failed: %v", err)
+	}
+
+	if root != tempDir {
+		t.Errorf("Expected dry-run to return cwd %q, got %q", tempDir, root)
+	}
+}
+
+func TestFindRepoRoot_NotARepo(t *testing.T) {
+	tempDir := t.TempDir()
+	originalDir, _ := os.Getwd()
+	defer os.Chdir(originalDir)
+	os.Chdir(tempDir)
+
+	ctx := testutil.NewContext(testutil.WithDryRun(false))
+
+	_, err := FindRepoRoot(ctx)
+	if err == nil {
+		t.Error("Expected error when FindRepoRoot is called outside a git repository")
+	}
+}
+
+func TestIsBranchSyncedWithRemote_Synced(t *testing.T) {
+	workDir, _ := setupBareRemoteRepo(t)
+
+	branchName := "synced-branch"
+	for _, args := range [][]string{
+		{"checkout", "-b", branchName},
+	} {
+		c := exec.Command("git", args...)
+		c.Dir = workDir
+		if out, err := c.CombinedOutput(); err != nil {
+			t.Fatalf("git %v failed: %v\n%s", args, err, out)
+		}
+	}
+
+	if err := os.WriteFile(filepath.Join(workDir, "test.txt"), []byte("test\n"), 0644); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+	for _, args := range [][]string{
+		{"add", "."},
+		{"commit", "-m", "add test file"},
+		{"push", "origin", branchName},
+	} {
+		c := exec.Command("git", args...)
+		c.Dir = workDir
+		if out, err := c.CombinedOutput(); err != nil {
+			t.Fatalf("git %v failed: %v\n%s", args, err, out)
+		}
+	}
+
+	originalDir, _ := os.Getwd()
+	defer os.Chdir(originalDir)
+	if err := os.Chdir(workDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+
+	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	if err := IsBranchSyncedWithRemote(ctx, branchName); err != nil {
+		t.Errorf("IsBranchSyncedWithRemote failed for synced branch: %v", err)
+	}
+}
+
+func TestIsBranchSyncedWithRemote_Behind(t *testing.T) {
+	remoteDir := t.TempDir()
+	cmd := exec.Command("git", "init", "--bare")
+	cmd.Dir = remoteDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to init bare repo: %v", err)
+	}
+
+	workDir1 := t.TempDir()
+	cmd = exec.Command("git", "clone", remoteDir, workDir1)
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to clone: %v", err)
+	}
+
+	for _, args := range [][]string{
+		{"config", "--local", "user.email", "test@example.com"},
+		{"config", "--local", "user.name", "Test User"},
+	} {
+		c := exec.Command("git", args...)
+		c.Dir = workDir1
+		if out, err := c.CombinedOutput(); err != nil {
+			t.Fatalf("git %v failed: %v\n%s", args, err, out)
+		}
+	}
+
+	branchName := "behind-branch"
+	for _, args := range [][]string{
+		{"checkout", "-b", branchName},
+	} {
+		c := exec.Command("git", args...)
+		c.Dir = workDir1
+		if out, err := c.CombinedOutput(); err != nil {
+			t.Fatalf("git %v failed: %v\n%s", args, err, out)
+		}
+	}
+
+	if err := os.WriteFile(filepath.Join(workDir1, "test.txt"), []byte("test\n"), 0644); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+	for _, args := range [][]string{
+		{"add", "."},
+		{"commit", "-m", "add test file"},
+		{"push", "origin", branchName},
+	} {
+		c := exec.Command("git", args...)
+		c.Dir = workDir1
+		if out, err := c.CombinedOutput(); err != nil {
+			t.Fatalf("git %v failed: %v\n%s", args, err, out)
+		}
+	}
+
+	workDir2 := t.TempDir()
+	cmd = exec.Command("git", "clone", remoteDir, workDir2)
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to clone: %v", err)
+	}
+
+	for _, args := range [][]string{
+		{"config", "--local", "user.email", "test2@example.com"},
+		{"config", "--local", "user.name", "Test User 2"},
+	} {
+		c := exec.Command("git", args...)
+		c.Dir = workDir2
+		if out, err := c.CombinedOutput(); err != nil {
+			t.Fatalf("git %v failed: %v\n%s", args, err, out)
+		}
+	}
+
+	cmd = exec.Command("git", "checkout", branchName)
+	cmd.Dir = workDir2
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to checkout branch: %v", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(workDir2, "test2.txt"), []byte("test2\n"), 0644); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+	for _, args := range [][]string{
+		{"add", "."},
+		{"commit", "-m", "add test2 file"},
+		{"push", "origin", branchName},
+	} {
+		c := exec.Command("git", args...)
+		c.Dir = workDir2
+		if out, err := c.CombinedOutput(); err != nil {
+			t.Fatalf("git %v failed: %v\n%s", args, err, out)
+		}
+	}
+
+	originalDir, _ := os.Getwd()
+	defer os.Chdir(originalDir)
+	if err := os.Chdir(workDir1); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+
+	cmd = exec.Command("git", "fetch", "origin")
+	cmd.Dir = workDir1
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to fetch: %v", err)
+	}
+
+	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	err := IsBranchSyncedWithRemote(ctx, branchName)
+	if err == nil {
+		t.Error("Expected error when local branch is behind remote")
+	}
+}
+
+func TestIsBranchSyncedWithRemote_DryRun(t *testing.T) {
+	ctx := testutil.NewContext()
+
+	if err := IsBranchSyncedWithRemote(ctx, "any-branch"); err != nil {
+		t.Errorf("IsBranchSyncedWithRemote in dry-run failed: %v", err)
+	}
+}
+
+func TestPullRebase_WithNewCommits(t *testing.T) {
+	remoteDir := t.TempDir()
+	cmd := exec.Command("git", "init", "--bare")
+	cmd.Dir = remoteDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to init bare repo: %v", err)
+	}
+
+	workDir1 := t.TempDir()
+	cmd = exec.Command("git", "clone", remoteDir, workDir1)
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to clone: %v", err)
+	}
+
+	for _, args := range [][]string{
+		{"config", "--local", "user.email", "test@example.com"},
+		{"config", "--local", "user.name", "Test User"},
+	} {
+		c := exec.Command("git", args...)
+		c.Dir = workDir1
+		if out, err := c.CombinedOutput(); err != nil {
+			t.Fatalf("git %v failed: %v\n%s", args, err, out)
+		}
+	}
+
+	branchName := "pull-test-branch"
+	for _, args := range [][]string{
+		{"checkout", "-b", branchName},
+	} {
+		c := exec.Command("git", args...)
+		c.Dir = workDir1
+		if out, err := c.CombinedOutput(); err != nil {
+			t.Fatalf("git %v failed: %v\n%s", args, err, out)
+		}
+	}
+
+	if err := os.WriteFile(filepath.Join(workDir1, "test.txt"), []byte("test\n"), 0644); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+	for _, args := range [][]string{
+		{"add", "."},
+		{"commit", "-m", "add test file"},
+		{"push", "origin", branchName},
+	} {
+		c := exec.Command("git", args...)
+		c.Dir = workDir1
+		if out, err := c.CombinedOutput(); err != nil {
+			t.Fatalf("git %v failed: %v\n%s", args, err, out)
+		}
+	}
+
+	workDir2 := t.TempDir()
+	cmd = exec.Command("git", "clone", remoteDir, workDir2)
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to clone: %v", err)
+	}
+
+	for _, args := range [][]string{
+		{"config", "--local", "user.email", "test2@example.com"},
+		{"config", "--local", "user.name", "Test User 2"},
+	} {
+		c := exec.Command("git", args...)
+		c.Dir = workDir2
+		if out, err := c.CombinedOutput(); err != nil {
+			t.Fatalf("git %v failed: %v\n%s", args, err, out)
+		}
+	}
+
+	cmd = exec.Command("git", "checkout", branchName)
+	cmd.Dir = workDir2
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to checkout branch: %v", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(workDir2, "test2.txt"), []byte("test2\n"), 0644); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+	for _, args := range [][]string{
+		{"add", "."},
+		{"commit", "-m", "add test2 file"},
+		{"push", "origin", branchName},
+	} {
+		c := exec.Command("git", args...)
+		c.Dir = workDir2
+		if out, err := c.CombinedOutput(); err != nil {
+			t.Fatalf("git %v failed: %v\n%s", args, err, out)
+		}
+	}
+
+	originalDir, _ := os.Getwd()
+	defer os.Chdir(originalDir)
+	if err := os.Chdir(workDir1); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+
+	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	if err := PullRebase(ctx); err != nil {
+		t.Fatalf("PullRebase failed: %v", err)
+	}
+}
+
+func TestPullRebase_DryRun(t *testing.T) {
+	ctx := testutil.NewContext()
+
+	if err := PullRebase(ctx); err != nil {
+		t.Errorf("PullRebase in dry-run failed: %v", err)
+	}
+}
+
+func TestDeleteFile(t *testing.T) {
+	tempDir := setupTestRepo(t)
+	originalDir, _ := os.Getwd()
+	defer os.Chdir(originalDir)
+	os.Chdir(tempDir)
+
+	testFile := filepath.Join(tempDir, "to-delete.txt")
+	if err := os.WriteFile(testFile, []byte("content"), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	cmd := exec.Command("git", "add", "to-delete.txt")
+	cmd.Dir = tempDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to stage file: %v", err)
+	}
+
+	cmd = exec.Command("git", "commit", "-m", "add file to delete")
+	cmd.Dir = tempDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to commit: %v", err)
+	}
+
+	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	if err := DeleteFile(ctx, testFile); err != nil {
+		t.Fatalf("DeleteFile failed: %v", err)
+	}
+
+	if _, err := os.Stat(testFile); err == nil {
+		t.Error("Expected file to be deleted")
+	}
+
+	cmd = exec.Command("git", "status", "--porcelain")
+	cmd.Dir = tempDir
+	output, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("Failed to run git status: %v", err)
+	}
+
+	statusOutput := string(output)
+	if !contains(statusOutput, "D") {
+		t.Errorf("Expected deletion to be staged (D), got: %s", statusOutput)
+	}
+}
+
+func TestDeleteFile_NonExistent(t *testing.T) {
+	tempDir := setupTestRepo(t)
+	originalDir, _ := os.Getwd()
+	defer os.Chdir(originalDir)
+	os.Chdir(tempDir)
+
+	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	err := DeleteFile(ctx, filepath.Join(tempDir, "nonexistent.txt"))
+	if err == nil {
+		t.Error("Expected error when deleting non-existent file")
+	}
+}
+
+func TestDeleteFile_DryRun(t *testing.T) {
+	tempDir := setupTestRepo(t)
+	originalDir, _ := os.Getwd()
+	defer os.Chdir(originalDir)
+	os.Chdir(tempDir)
+
+	testFile := filepath.Join(tempDir, "to-delete-dryrun.txt")
+	if err := os.WriteFile(testFile, []byte("content"), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	ctx := testutil.NewContext()
+	if err := DeleteFile(ctx, testFile); err != nil {
+		t.Errorf("DeleteFile in dry-run failed: %v", err)
+	}
+
+	if _, err := os.Stat(testFile); os.IsNotExist(err) {
+		t.Error("File should NOT be deleted in dry-run mode")
+	}
+}
+
+func TestCheckoutOrCreateBranch_ExistingRemoteBranch(t *testing.T) {
+	// Save original directory FIRST, before any temp dir operations
+	originalDir, _ := os.Getwd()
+	defer os.Chdir(originalDir)
+
+	remoteDir := t.TempDir()
+	cmd := exec.Command("git", "init", "--bare")
+	cmd.Dir = remoteDir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git init --bare failed: %v\n%s", err, out)
+	}
+
+	workDir := t.TempDir()
+	cmd = exec.Command("git", "clone", remoteDir, workDir)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git clone failed: %v\n%s", err, out)
+	}
+
+	for _, args := range [][]string{
+		{"config", "--local", "user.email", "test@example.com"},
+		{"config", "--local", "user.name", "Test User"},
+	} {
+		c := exec.Command("git", args...)
+		c.Dir = workDir
+		if out, err := c.CombinedOutput(); err != nil {
+			t.Fatalf("git %v failed: %v\n%s", args, err, out)
+		}
+	}
+
+	if err := os.WriteFile(filepath.Join(workDir, "README.md"), []byte("# test\n"), 0644); err != nil {
+		t.Fatalf("failed to create README: %v", err)
+	}
+	for _, args := range [][]string{
+		{"add", "."},
+		{"commit", "-m", "initial commit"},
+		{"push", "origin", "HEAD"},
+	} {
+		c := exec.Command("git", args...)
+		c.Dir = workDir
+		if out, err := c.CombinedOutput(); err != nil {
+			t.Fatalf("git %v failed: %v\n%s", args, err, out)
+		}
+	}
+
+	branchName := "existing-remote-branch"
+	for _, args := range [][]string{
+		{"checkout", "-b", branchName},
+	} {
+		c := exec.Command("git", args...)
+		c.Dir = workDir
+		if out, err := c.CombinedOutput(); err != nil {
+			t.Fatalf("git %v failed: %v\n%s", args, err, out)
+		}
+	}
+
+	if err := os.WriteFile(filepath.Join(workDir, "test.txt"), []byte("test\n"), 0644); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+	for _, args := range [][]string{
+		{"add", "."},
+		{"commit", "-m", "add test file"},
+		{"push", "origin", branchName},
+	} {
+		c := exec.Command("git", args...)
+		c.Dir = workDir
+		if out, err := c.CombinedOutput(); err != nil {
+			t.Fatalf("git %v failed: %v\n%s", args, err, out)
+		}
+	}
+
+	workDir2 := t.TempDir()
+	t.Logf("About to clone from %s to %s", remoteDir, workDir2)
+	cwd, _ := os.Getwd()
+	t.Logf("Current working directory: %s", cwd)
+	cmd = exec.Command("git", "clone", remoteDir, workDir2)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("failed to clone: %v\n%s", err, out)
+	}
+
+	for _, args := range [][]string{
+		{"config", "--local", "user.email", "test2@example.com"},
+		{"config", "--local", "user.name", "Test User 2"},
+	} {
+		c := exec.Command("git", args...)
+		c.Dir = workDir2
+		if out, err := c.CombinedOutput(); err != nil {
+			t.Fatalf("git %v failed: %v\n%s", args, err, out)
+		}
+	}
+
+	if err := os.Chdir(workDir2); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+
+	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	if err := CheckoutOrCreateBranch(ctx, branchName); err != nil {
+		t.Fatalf("CheckoutOrCreateBranch failed: %v", err)
+	}
+
+	currentBranch, err := GetCurrentBranch(ctx)
+	if err != nil {
+		t.Fatalf("GetCurrentBranch failed: %v", err)
+	}
+
+	if currentBranch != branchName {
+		t.Errorf("Expected current branch to be %q, got %q", branchName, currentBranch)
+	}
+
+	cmd = exec.Command("git", "rev-parse", "HEAD")
+	cmd.Dir = workDir2
+	localHash, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("failed to get local hash: %v", err)
+	}
+
+	cmd = exec.Command("git", "rev-parse", "origin/"+branchName)
+	cmd.Dir = workDir2
+	remoteHash, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("failed to get remote hash: %v", err)
+	}
+
+	if string(localHash) != string(remoteHash) {
+		t.Error("Local branch should be at same commit as remote branch after checkout")
 	}
 }
