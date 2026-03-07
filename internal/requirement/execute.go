@@ -44,13 +44,8 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	}
 
 	// Check if blocked.md exists from a previous blocked run
-	blockedPath := filepath.Join(filepath.Dir(absProjectFile), "blocked.md")
-	if _, err := os.Stat(blockedPath); err == nil {
-		blockedContent, readErr := os.ReadFile(blockedPath)
-		if readErr != nil {
-			return fmt.Errorf("agent is blocked (blocked.md exists but could not read): %w", readErr)
-		}
-		return fmt.Errorf("agent is blocked:\n%s", string(blockedContent))
+	if err := checkBlockedFile(absProjectFile); err != nil {
+		return err
 	}
 
 	logger.Verbosef("Loading project file: %s", absProjectFile)
@@ -74,7 +69,51 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	// Create service manager for this requirement run
+	// Handle service startup and failure recovery
+	if err := handleServiceStartup(ctx, cleanupRegistrar, ralphConfig); err != nil {
+		return err
+	}
+
+	// Generate development prompt
+	logger.Verbose("Generating development prompt...")
+	devPrompt, err := prompt.BuildDevelopPrompt(ctx, absProjectFile)
+	if err != nil {
+		return fmt.Errorf("failed to build prompt: %w", err)
+	}
+	logger.Verbose("Development prompt generated")
+
+	// Run AI agent with prompt
+	logger.Verbose("Running AI agent...")
+	if err := ai.RunAgent(ctx, devPrompt); err != nil {
+		return fmt.Errorf("agent execution failed: %w", err)
+	}
+	logger.Verbose("AI agent execution completed")
+
+	// Post-agent cleanup
+	if err := performPostAgentCleanup(ctx, absProjectFile, ralphConfig.Services); err != nil {
+		return err
+	}
+
+	logger.Verbose("Single iteration completed successfully")
+
+	return nil
+}
+
+// checkBlockedFile checks if blocked.md exists and returns an error if it does
+func checkBlockedFile(absProjectFile string) error {
+	blockedPath := filepath.Join(filepath.Dir(absProjectFile), "blocked.md")
+	if _, err := os.Stat(blockedPath); err == nil {
+		blockedContent, readErr := os.ReadFile(blockedPath)
+		if readErr != nil {
+			return fmt.Errorf("agent is blocked (blocked.md exists but could not read): %w", readErr)
+		}
+		return fmt.Errorf("agent is blocked:\n%s", string(blockedContent))
+	}
+	return nil
+}
+
+// handleServiceStartup starts services if not disabled, and handles failure recovery
+func handleServiceStartup(ctx *context.Context, cleanupRegistrar func(func()), ralphConfig *config.RalphConfig) error {
 	svcMgr := services.NewManager()
 
 	// Start services if not disabled
@@ -102,24 +141,13 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 			defer svcMgr.Stop()
 		}
 	}
+	return nil
+}
 
-	// Generate development prompt
-	logger.Verbose("Generating development prompt...")
-	devPrompt, err := prompt.BuildDevelopPrompt(ctx, absProjectFile)
-	if err != nil {
-		return fmt.Errorf("failed to build prompt: %w", err)
-	}
-	logger.Verbose("Development prompt generated")
-
-	// Run AI agent with prompt
-	logger.Verbose("Running AI agent...")
-	if err := ai.RunAgent(ctx, devPrompt); err != nil {
-		return fmt.Errorf("agent execution failed: %w", err)
-	}
-	logger.Verbose("AI agent execution completed")
-
+// performPostAgentCleanup removes service logs, normalizes project file, and stages it
+func performPostAgentCleanup(ctx *context.Context, absProjectFile string, servicesList []config.Service) error {
 	// Remove service log files now that the iteration is complete
-	for _, svc := range ralphConfig.Services {
+	for _, svc := range servicesList {
 		logPath := services.LogFileName(svc.Name)
 		if err := os.Remove(logPath); err == nil {
 			logger.Verbosef("Removed service log: %s", logPath)
@@ -145,8 +173,5 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 			logger.Verbose("Project file staged")
 		}
 	}
-
-	logger.Verbose("Single iteration completed successfully")
-
 	return nil
 }

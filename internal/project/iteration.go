@@ -106,61 +106,24 @@ func RunIterationLoop(ctx *context.Context, cleanupRegistrar func(func())) (int,
 			}
 		}
 
-		// Run single development iteration
-		logger.Verbose("Running development iteration...")
-		if err := requirement.Execute(ctx, cleanupRegistrar); err != nil {
-			if isFatalOpenCodeError(err) {
-				return iterationCount, fmt.Errorf("%w: %v", ErrFatalOpenCodeError, err)
-			}
-			return iterationCount, fmt.Errorf("iteration %d failed: %w", i, err)
+		// Run single iteration: execute, commit, check completion
+		if err := runSingleIteration(ctx, cleanupRegistrar, previousProject, i); err != nil {
+			return iterationCount, err
 		}
 
-		// Commit changes after iteration
-		logger.Verbosef("Committing changes from iteration %d...", i)
-		if err := CommitChanges(ctx, i); err != nil {
-			if errors.Is(err, ErrNoChanges) {
-				logger.Verbosef("No changes to commit after iteration %d", i)
-			} else if errors.Is(err, ErrFatalPushError) {
-				return iterationCount, err
-			} else {
-				return iterationCount, fmt.Errorf("iteration %d commit failed: %w", i, err)
-			}
-		} else {
-			logger.Verbosef("Committed changes from iteration %d", i)
-		}
-
-		// Load and check project completion status
+		// Update previous state for next iteration
 		currentProject, err := config.LoadProject(ctx.ProjectFile())
 		if err != nil {
-			return iterationCount, fmt.Errorf("failed to reload project after iteration %d: %w", i, err)
+			return iterationCount, fmt.Errorf("failed to load project after iteration %d: %w", i, err)
 		}
+		previousProject = currentProject
 
-		allComplete, passingCount, failingCount := config.CheckCompletion(currentProject)
-		logger.Verbosef("Status after iteration %d: %d passing, %d failing", i, passingCount, failingCount)
-
-		// Check for newly completed requirements and show them immediately after AI completes
-		for idx, req := range currentProject.Requirements {
-			if req.Passing && !previousProject.Requirements[idx].Passing {
-				// This requirement just passed
-				description := req.Description
-				if description == "" {
-					description = req.Name
-				}
-				if description == "" {
-					description = req.Category
-				}
-				logger.Successf("Requirement complete: %s", description)
-			}
-		}
-
-		// Stop if all requirements are passing
+		// Check if all requirements are complete
+		allComplete, _, _ := config.CheckCompletion(currentProject)
 		if allComplete {
 			logger.Success("All requirements complete")
 			break
 		}
-
-		// Update previous state for next iteration
-		previousProject = currentProject
 
 		// Continue to next iteration if not at max
 		if i < ctx.MaxIterations() {
@@ -185,6 +148,67 @@ func RunIterationLoop(ctx *context.Context, cleanupRegistrar func(func())) (int,
 	return iterationCount, nil
 }
 
+// runSingleIteration executes one iteration: runs requirement.Execute, commits changes, and reports completion
+func runSingleIteration(ctx *context.Context, cleanupRegistrar func(func()), previousProject *config.Project, iteration int) error {
+	// Run single development iteration
+	logger.Verbose("Running development iteration...")
+	if err := requirement.Execute(ctx, cleanupRegistrar); err != nil {
+		if isFatalOpenCodeError(err) {
+			return fmt.Errorf("%w: %v", ErrFatalOpenCodeError, err)
+		}
+		return fmt.Errorf("iteration %d failed: %w", iteration, err)
+	}
+
+	// Commit changes after iteration
+	logger.Verbosef("Committing changes from iteration %d...", iteration)
+	if err := CommitChanges(ctx, iteration); err != nil {
+		if errors.Is(err, ErrNoChanges) {
+			logger.Verbosef("No changes to commit after iteration %d", iteration)
+		} else if errors.Is(err, ErrFatalPushError) {
+			return err
+		} else {
+			return fmt.Errorf("iteration %d commit failed: %w", iteration, err)
+		}
+	} else {
+		logger.Verbosef("Committed changes from iteration %d", iteration)
+	}
+
+	// Load and check project completion status
+	currentProject, err := config.LoadProject(ctx.ProjectFile())
+	if err != nil {
+		return fmt.Errorf("failed to reload project after iteration %d: %w", iteration, err)
+	}
+
+	allComplete, passingCount, failingCount := config.CheckCompletion(currentProject)
+	logger.Verbosef("Status after iteration %d: %d passing, %d failing", iteration, passingCount, failingCount)
+
+	// Report newly passing requirements
+	reportNewlyPassingRequirements(previousProject, currentProject)
+
+	// Stop if all requirements are passing
+	if allComplete {
+		logger.Success("All requirements complete")
+	}
+
+	return nil
+}
+
+// reportNewlyPassingRequirements logs any requirements that just became passing
+func reportNewlyPassingRequirements(previousProject, currentProject *config.Project) {
+	for idx, req := range currentProject.Requirements {
+		if req.Passing && !previousProject.Requirements[idx].Passing {
+			description := req.Description
+			if description == "" {
+				description = req.Name
+			}
+			if description == "" {
+				description = req.Category
+			}
+			logger.Successf("Requirement complete: %s", description)
+		}
+	}
+}
+
 // CommitChanges stages all changes and commits them using report.md as the commit message
 func CommitChanges(ctx *context.Context, iteration int) error {
 	if ctx.IsDryRun() {
@@ -192,35 +216,48 @@ func CommitChanges(ctx *context.Context, iteration int) error {
 		return nil
 	}
 
-	// Read and remove report.md before staging so it is not included in the commit
-	reportPath := "report.md"
-	commitMsg, err := os.ReadFile(reportPath)
-	if err != nil {
-		// If report.md doesn't exist, fall back to iteration-based message
-		logger.Warningf("Failed to read report.md: %v, using fallback message", err)
-		commitMsg = []byte(fmt.Sprintf("Development iteration %d", iteration))
-	} else {
-		if err := os.Remove(reportPath); err != nil {
-			logger.Warningf("Failed to remove report.md: %v", err)
-		} else if ctx.IsVerbose() {
-			logger.Verbose("Removed report.md")
-		}
-	}
+	// Read commit message from report.md
+	commitMsg := getCommitMessage(iteration)
 
 	// Stage all changes
 	if err := git.StageAll(ctx); err != nil {
 		return fmt.Errorf("failed to stage changes: %w", err)
 	}
 
-	// Clean up and validate commit message
+	// Commit staged changes
+	if err := performCommit(ctx, commitMsg, iteration); err != nil {
+		return err
+	}
+
+	// Pull and push
+	if err := pullAndPush(ctx); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// getCommitMessage reads report.md or falls back to iteration-based message
+func getCommitMessage(iteration int) []byte {
+	reportPath := "report.md"
+	commitMsg, err := os.ReadFile(reportPath)
+	if err != nil {
+		logger.Warningf("Failed to read report.md: %v, using fallback message", err)
+		return []byte(fmt.Sprintf("Development iteration %d", iteration))
+	}
+	if err := os.Remove(reportPath); err != nil {
+		logger.Warningf("Failed to remove report.md: %v", err)
+	}
+	return commitMsg
+}
+
+// performCommit commits the staged changes
+func performCommit(ctx *context.Context, commitMsg []byte, iteration int) error {
 	message := strings.TrimSpace(string(commitMsg))
 	if message == "" {
 		message = fmt.Sprintf("Development iteration %d", iteration)
 	}
 
-	// Commit staged changes. If the AI ran but made no file changes (e.g. all
-	// requirements were already passing), use --allow-empty so the branch still
-	// gets a commit and gh pr create can succeed.
 	if git.HasStagedChanges(ctx) {
 		if err := git.Commit(ctx, message); err != nil {
 			return fmt.Errorf("failed to commit: %w", err)
@@ -235,15 +272,16 @@ func CommitChanges(ctx *context.Context, iteration int) error {
 	if ctx.IsVerbose() {
 		logger.Infof("Committed with message: %s", message)
 	}
+	return nil
+}
 
-	// Pull remote changes before pushing to handle resumed workflows where
-	// the remote branch has advanced since we last pushed
+// pullAndPush pulls remote changes and pushes the current branch
+func pullAndPush(ctx *context.Context) error {
 	logger.Verbose("Pulling remote changes before push...")
 	if err := git.PullRebase(ctx); err != nil {
 		return fmt.Errorf("failed to pull before push: %w", err)
 	}
 
-	// Push commit to origin
 	logger.Verbose("Pushing commit to origin...")
 	if err := git.PushCurrentBranch(ctx); err != nil {
 		if errors.Is(err, git.ErrWorkflowPermission) {
