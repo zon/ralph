@@ -212,20 +212,24 @@ func CommitChanges(ctx *context.Context, iteration int) error {
 		return fmt.Errorf("failed to stage changes: %w", err)
 	}
 
-	// Check if there are any staged changes to commit
-	if !git.HasStagedChanges(ctx) {
-		return ErrNoChanges
-	}
-
 	// Clean up and validate commit message
 	message := strings.TrimSpace(string(commitMsg))
 	if message == "" {
 		message = fmt.Sprintf("Development iteration %d", iteration)
 	}
 
-	// Commit the staged changes
-	if err := git.Commit(ctx, message); err != nil {
-		return fmt.Errorf("failed to commit: %w", err)
+	// Commit staged changes. If the AI ran but made no file changes (e.g. all
+	// requirements were already passing), use --allow-empty so the branch still
+	// gets a commit and gh pr create can succeed.
+	if git.HasStagedChanges(ctx) {
+		if err := git.Commit(ctx, message); err != nil {
+			return fmt.Errorf("failed to commit: %w", err)
+		}
+	} else {
+		logger.Verbosef("No file changes after iteration %d; creating empty commit", iteration)
+		if err := git.CommitAllowEmpty(ctx, message); err != nil {
+			return fmt.Errorf("failed to commit: %w", err)
+		}
 	}
 
 	if ctx.IsVerbose() {
