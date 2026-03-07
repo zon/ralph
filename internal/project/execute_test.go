@@ -81,6 +81,74 @@ func TestExtractBranchName(t *testing.T) {
 	}
 }
 
+func TestSanitizeBranchName(t *testing.T) {
+	tests := []struct {
+		name         string
+		projectName  string
+		expectedName string
+	}{
+		{
+			name:         "simple name",
+			projectName:  "fix-pagination",
+			expectedName: "fix-pagination",
+		},
+		{
+			name:         "spaces in name",
+			projectName:  "my cool feature",
+			expectedName: "my-cool-feature",
+		},
+		{
+			name:         "uppercase letters",
+			projectName:  "MyFeature",
+			expectedName: "myfeature",
+		},
+		{
+			name:         "underscores",
+			projectName:  "my_feature_branch",
+			expectedName: "my-feature-branch",
+		},
+		{
+			name:         "special characters",
+			projectName:  "my@feature!",
+			expectedName: "myfeature",
+		},
+		{
+			name:         "multiple dots",
+			projectName:  "my.feature.name",
+			expectedName: "my-feature-name",
+		},
+		{
+			name:         "leading/trailing hyphens",
+			projectName:  "-my-feature-",
+			expectedName: "my-feature",
+		},
+		{
+			name:         "consecutive hyphens",
+			projectName:  "my--feature",
+			expectedName: "my-feature",
+		},
+		{
+			name:         "subdirectory file name different from YAML name",
+			projectName:  "fix-pagination",
+			expectedName: "fix-pagination",
+		},
+		{
+			name:         "directory name should not matter",
+			projectName:  "fix-pagination",
+			expectedName: "fix-pagination",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := sanitizeBranchName(tt.projectName)
+			if got != tt.expectedName {
+				t.Errorf("sanitizeBranchName() = %v, want %v", got, tt.expectedName)
+			}
+		})
+	}
+}
+
 func TestExecute_DryRun(t *testing.T) {
 	// Create a temporary project file for testing
 	tmpDir := t.TempDir()
@@ -234,6 +302,66 @@ requirements:
 
 	if err != nil {
 		t.Errorf("Execute() should respect MaxIterations from context: %v", err)
+	}
+}
+
+func TestExecute_SubdirectoryProjectFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	subDir := filepath.Join(tmpDir, "projects", "p2")
+	if err := os.MkdirAll(subDir, 0755); err != nil {
+		t.Fatalf("Failed to create subdirectory: %v", err)
+	}
+
+	projectFile := filepath.Join(subDir, "fix-pagination.yaml")
+
+	projectContent := `name: fix-pagination
+description: A test project in subdirectory
+requirements:
+  - description: Test requirement
+    passing: false
+`
+
+	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
+		t.Fatalf("Failed to create test project file: %v", err)
+	}
+
+	ctx := testutil.NewContext(
+		testutil.WithProjectFile(projectFile),
+		testutil.WithDryRun(true),
+	)
+
+	err := Execute(ctx, nil)
+
+	if err != nil {
+		t.Errorf("Execute() should succeed with subdirectory project file: %v", err)
+	}
+}
+
+func TestExecute_FileNameDifferentFromYamlName(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	projectFile := filepath.Join(tmpDir, "some-other-file.yaml")
+
+	projectContent := `name: fix-pagination
+description: A test project where file name differs from YAML name
+requirements:
+  - description: Test requirement
+    passing: false
+`
+
+	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
+		t.Fatalf("Failed to create test project file: %v", err)
+	}
+
+	ctx := testutil.NewContext(
+		testutil.WithProjectFile(projectFile),
+		testutil.WithDryRun(true),
+	)
+
+	err := Execute(ctx, nil)
+
+	if err != nil {
+		t.Errorf("Execute() should use YAML name field, not file name: %v", err)
 	}
 }
 
