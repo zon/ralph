@@ -657,3 +657,279 @@ func TestSubmitWorkflow_ArgoNotInstalled(t *testing.T) {
 		t.Errorf("Error message should mention argo CLI not found, got: %v", err)
 	}
 }
+
+func TestExtractWorkflowName(t *testing.T) {
+	tests := []struct {
+		name     string
+		output   string
+		expected string
+	}{
+		{
+			name:     "parses workflow name from Name field",
+			output:   "Name: ralph-test-abc123\nNamespace: default\nStatus: Succeeded",
+			expected: "ralph-test-abc123",
+		},
+		{
+			name:     "returns empty string when Name field not present",
+			output:   "Namespace: default\nStatus: Succeeded\nWorkflow submitted successfully",
+			expected: "",
+		},
+		{
+			name:     "handles multi-line output and extracts from correct line",
+			output:   "Workflow submitted successfully\nName: ralph-feature-xyz789\nNamespace: default\nStatus: Running",
+			expected: "ralph-feature-xyz789",
+		},
+		{
+			name:     "handles Name field with extra whitespace",
+			output:   "Name:    ralph-test-spaces\nStatus: Succeeded",
+			expected: "ralph-test-spaces",
+		},
+		{
+			name:     "returns empty string for empty output",
+			output:   "",
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := extractWorkflowName(tt.output)
+			if result != tt.expected {
+				t.Errorf("extractWorkflowName(%q) = %q, want %q", tt.output, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestWorkflowRender_CommentScriptBranching(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	if err := os.MkdirAll(ralphDir, 0755); err != nil {
+		t.Fatalf("Failed to create .ralph directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("maxIterations: 5\n"), 0644); err != nil {
+		t.Fatalf("Failed to create config file: %v", err)
+	}
+
+	commentBody := "Please review this PR"
+	prNumber := "123"
+
+	wf := &Workflow{
+		ProjectName:   "test-project",
+		RepoURL:       "https://github.com/owner/repo.git",
+		RepoOwner:     "owner",
+		RepoName:      "repo",
+		CloneBranch:   "main",
+		ProjectBranch: "feature-branch",
+		ProjectPath:   "project.yaml",
+		CommentBody:   commentBody,
+		PRNumber:      prNumber,
+		RalphConfig:   &config.RalphConfig{},
+	}
+
+	workflowYAML, err := wf.Render()
+	if err != nil {
+		t.Fatalf("Render failed: %v", err)
+	}
+
+	if !strings.Contains(workflowYAML, commentBody) {
+		t.Errorf("Rendered YAML should contain comment body %q", commentBody)
+	}
+	if !strings.Contains(workflowYAML, prNumber) {
+		t.Errorf("Rendered YAML should contain PR number %q", prNumber)
+	}
+
+	var wfData map[string]interface{}
+	if err := yaml.Unmarshal([]byte(workflowYAML), &wfData); err != nil {
+		t.Fatalf("Failed to parse workflow YAML: %v", err)
+	}
+
+	spec := wfData["spec"].(map[string]interface{})
+	templates := spec["templates"].([]interface{})
+	tmpl := templates[0].(map[string]interface{})
+	container := tmpl["container"].(map[string]interface{})
+
+	args := container["args"].([]interface{})
+	script := args[0].(string)
+
+	if !strings.Contains(script, "ralph comment") {
+		t.Error("Script should contain 'ralph comment' for comment-triggered workflow")
+	}
+}
+
+func TestWorkflowRender_RunScriptBranching(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	if err := os.MkdirAll(ralphDir, 0755); err != nil {
+		t.Fatalf("Failed to create .ralph directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("maxIterations: 5\n"), 0644); err != nil {
+		t.Fatalf("Failed to create config file: %v", err)
+	}
+
+	wf := &Workflow{
+		ProjectName:   "test-project",
+		RepoURL:       "https://github.com/owner/repo.git",
+		RepoOwner:     "owner",
+		RepoName:      "repo",
+		CloneBranch:   "main",
+		ProjectBranch: "feature-branch",
+		ProjectPath:   "project.yaml",
+		CommentBody:   "",
+		PRNumber:      "",
+		RalphConfig:   &config.RalphConfig{},
+	}
+
+	workflowYAML, err := wf.Render()
+	if err != nil {
+		t.Fatalf("Render failed: %v", err)
+	}
+
+	var wfData map[string]interface{}
+	if err := yaml.Unmarshal([]byte(workflowYAML), &wfData); err != nil {
+		t.Fatalf("Failed to parse workflow YAML: %v", err)
+	}
+
+	spec := wfData["spec"].(map[string]interface{})
+	templates := spec["templates"].([]interface{})
+	tmpl := templates[0].(map[string]interface{})
+	container := tmpl["container"].(map[string]interface{})
+
+	args := container["args"].([]interface{})
+	script := args[0].(string)
+
+	if !strings.Contains(script, "ralph run") && !strings.Contains(script, "ralph_run") {
+		t.Error("Script should contain 'ralph run' for regular workflow")
+	}
+	if strings.Contains(script, "ralph comment") {
+		t.Error("Script should NOT contain 'ralph comment' when CommentBody is empty")
+	}
+}
+
+func TestMergeWorkflowRender_EnvVarCoverage(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	if err := os.MkdirAll(ralphDir, 0755); err != nil {
+		t.Fatalf("Failed to create .ralph directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("maxIterations: 5\n"), 0644); err != nil {
+		t.Fatalf("Failed to create config file: %v", err)
+	}
+
+	repoOwner := "test-owner"
+	repoName := "test-repo"
+	prNumber := "456"
+
+	mw := &MergeWorkflow{
+		RepoURL:     "https://github.com/test-owner/test-repo.git",
+		RepoOwner:   repoOwner,
+		RepoName:    repoName,
+		CloneBranch: "main",
+		PRBranch:    "feature-branch",
+		PRNumber:    prNumber,
+		RalphConfig: &config.RalphConfig{},
+	}
+
+	workflowYAML, err := mw.Render()
+	if err != nil {
+		t.Fatalf("Render failed: %v", err)
+	}
+
+	var wfData map[string]interface{}
+	if err := yaml.Unmarshal([]byte(workflowYAML), &wfData); err != nil {
+		t.Fatalf("Failed to parse workflow YAML: %v", err)
+	}
+
+	spec := wfData["spec"].(map[string]interface{})
+	templates := spec["templates"].([]interface{})
+	tmpl := templates[0].(map[string]interface{})
+	container := tmpl["container"].(map[string]interface{})
+
+	env := container["env"].([]interface{})
+
+	hasRepoOwner, hasRepoName, hasPRNumber := false, false, false
+	for _, e := range env {
+		em := e.(map[string]interface{})
+		switch em["name"] {
+		case "GITHUB_REPO_OWNER":
+			hasRepoOwner = true
+			if em["value"] != repoOwner {
+				t.Errorf("GITHUB_REPO_OWNER = %v, want %v", em["value"], repoOwner)
+			}
+		case "GITHUB_REPO_NAME":
+			hasRepoName = true
+			if em["value"] != repoName {
+				t.Errorf("GITHUB_REPO_NAME = %v, want %v", em["value"], repoName)
+			}
+		case "PR_NUMBER":
+			hasPRNumber = true
+			if em["value"] != prNumber {
+				t.Errorf("PR_NUMBER = %v, want %v", em["value"], prNumber)
+			}
+		}
+	}
+	if !hasRepoOwner {
+		t.Error("GITHUB_REPO_OWNER environment variable not found")
+	}
+	if !hasRepoName {
+		t.Error("GITHUB_REPO_NAME environment variable not found")
+	}
+	if !hasPRNumber {
+		t.Error("PR_NUMBER environment variable not found")
+	}
+}
+
+func TestMergeWorkflowRender_GitHubCredentialsVolumeMount(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	if err := os.MkdirAll(ralphDir, 0755); err != nil {
+		t.Fatalf("Failed to create .ralph directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("maxIterations: 5\n"), 0644); err != nil {
+		t.Fatalf("Failed to create config file: %v", err)
+	}
+
+	mw := &MergeWorkflow{
+		RepoURL:     "https://github.com/test-owner/test-repo.git",
+		RepoOwner:   "test-owner",
+		RepoName:    "test-repo",
+		CloneBranch: "main",
+		PRBranch:    "feature-branch",
+		RalphConfig: &config.RalphConfig{},
+	}
+
+	workflowYAML, err := mw.Render()
+	if err != nil {
+		t.Fatalf("Render failed: %v", err)
+	}
+
+	var wfData map[string]interface{}
+	if err := yaml.Unmarshal([]byte(workflowYAML), &wfData); err != nil {
+		t.Fatalf("Failed to parse workflow YAML: %v", err)
+	}
+
+	spec := wfData["spec"].(map[string]interface{})
+	templates := spec["templates"].([]interface{})
+	tmpl := templates[0].(map[string]interface{})
+	container := tmpl["container"].(map[string]interface{})
+
+	volumeMounts := container["volumeMounts"].([]interface{})
+
+	hasGithubMount := false
+	for _, m := range volumeMounts {
+		mount := m.(map[string]interface{})
+		if mount["name"] == "github-credentials" && mount["mountPath"] == "/secrets/github" {
+			hasGithubMount = true
+			if mount["readOnly"] != true {
+				t.Error("github-credentials volume mount should have readOnly set to true")
+			}
+		}
+	}
+	if !hasGithubMount {
+		t.Error("github-credentials volume mount at /secrets/github not found")
+	}
+}
