@@ -34,7 +34,7 @@ func BuildServiceFixPrompt(ctx *context.Context, svc config.Service, svcErr erro
 		Error:       svcErr.Error(),
 	}
 
-	tmpl := template.Must(template.New("fix-service").Parse(config.DefaultFixServiceInstructions))
+	tmpl := template.Must(template.New("fix-service").Parse((&config.RalphConfig{}).DefaultFixServiceInstructions()))
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, data); err != nil {
 		logger.Warningf("Failed to execute fix-service template: %v", err)

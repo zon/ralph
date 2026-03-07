@@ -10,26 +10,44 @@ import (
 	"github.com/zon/ralph/internal/logger"
 )
 
-// IsGHInstalled checks if the gh CLI is installed
-func IsGHInstalled(ctx *context.Context) bool {
+// IsGHReady checks if the gh CLI is installed and the user is authenticated.
+// This consolidates IsGHInstalled and IsGHCLIAvailable into a single function
+// with a consistent signature.
+func IsGHReady(ctx *context.Context) bool {
 	if ctx.IsDryRun() {
-		logger.Info("[DRY-RUN] Would check if gh CLI is installed")
+		logger.Info("[DRY-RUN] Would check if gh CLI is ready")
 		return true
 	}
 
+	// Check if gh is installed
 	cmd := exec.Command("gh", "--version")
-	err := cmd.Run()
-	installed := err == nil
-
-	if ctx.IsVerbose() {
-		if installed {
-			logger.Info("gh CLI is installed")
-		} else {
+	if err := cmd.Run(); err != nil {
+		if ctx.IsVerbose() {
 			logger.Info("gh CLI is not installed")
 		}
+		return false
 	}
 
-	return installed
+	// Check if authenticated
+	cmd = exec.Command("gh", "auth", "status")
+	if err := cmd.Run(); err != nil {
+		if ctx.IsVerbose() {
+			logger.Info("gh CLI is not authenticated")
+		}
+		return false
+	}
+
+	if ctx.IsVerbose() {
+		logger.Info("gh CLI is installed and authenticated")
+	}
+
+	return true
+}
+
+// IsGHInstalled checks if the gh CLI is installed
+// Deprecated: Use IsGHReady instead
+func IsGHInstalled(ctx *context.Context) bool {
+	return IsGHReady(ctx)
 }
 
 // IsAuthenticated checks if the user is authenticated with GitHub via gh CLI

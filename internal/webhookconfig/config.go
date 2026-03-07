@@ -13,7 +13,7 @@ import (
 type RepoConfig struct {
 	Owner        string   `yaml:"owner"`
 	Name         string   `yaml:"name"`
-	Namespace    string   `yaml:"namespace"`    // Kubernetes namespace for Argo Workflow submission; required
+	Namespace    string   `yaml:"namespace"` // Kubernetes namespace for Argo Workflow submission; required
 	AllowedUsers []string `yaml:"allowedUsers"`
 	IgnoredUsers []string `yaml:"ignoredUsers"` // Messages from these users are always ignored (e.g. the bot user)
 }
@@ -66,7 +66,7 @@ func LoadAppConfig(path string) (*AppConfig, error) {
 		}
 		cfg.CommentInstructions = string(instrData)
 	} else {
-		cfg.CommentInstructions = config.DefaultCommentInstructions
+		cfg.CommentInstructions = (&config.RalphConfig{}).DefaultCommentInstructions()
 	}
 
 	if cfg.MergeInstructionsFile != "" {
@@ -76,7 +76,7 @@ func LoadAppConfig(path string) (*AppConfig, error) {
 		}
 		cfg.MergeInstructions = string(instrData)
 	} else {
-		cfg.MergeInstructions = config.DefaultMergeInstructions
+		cfg.MergeInstructions = (&config.RalphConfig{}).DefaultMergeInstructions()
 	}
 
 	return &cfg, nil

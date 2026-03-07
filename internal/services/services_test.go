@@ -28,8 +28,8 @@ func TestCheckPort(t *testing.T) {
 	port := listener.Addr().(*net.TCPAddr).Port
 
 	// Port should be available
-	if !CheckPort(port) {
-		t.Errorf("CheckPort(%d) = false, want true", port)
+	if !checkPort(port) {
+		t.Errorf("checkPort(%d) = false, want true", port)
 	}
 
 	// Close listener
@@ -39,8 +39,8 @@ func TestCheckPort(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Port should not be available anymore
-	if CheckPort(port) {
-		t.Errorf("CheckPort(%d) = true after close, want false", port)
+	if checkPort(port) {
+		t.Errorf("checkPort(%d) = true after close, want false", port)
 	}
 }
 
@@ -66,18 +66,18 @@ func TestWaitForPort(t *testing.T) {
 	}()
 
 	// Wait for port to become available
-	err = WaitForPort(port, 3*time.Second)
+	err = waitForPort(port, 3*time.Second)
 	if err != nil {
-		t.Errorf("WaitForPort failed: %v", err)
+		t.Errorf("waitForPort failed: %v", err)
 	}
 }
 
 func TestWaitForPortTimeout(t *testing.T) {
 	// Try to wait for a port that will never open
 	// Use a high port number that's unlikely to be in use
-	err := WaitForPort(54321, 1*time.Second)
+	err := waitForPort(54321, 1*time.Second)
 	if err == nil {
-		t.Error("WaitForPort should have timed out but didn't")
+		t.Error("waitForPort should have timed out but didn't")
 	}
 }
 
@@ -578,7 +578,7 @@ func TestStartAllServicesRollbackOnStartFailure(t *testing.T) {
 
 	time.Sleep(600 * time.Millisecond)
 
-	if CheckPort(17777) {
+	if checkPort(17777) {
 		t.Error("Port 17777 should have been released as part of rollback but it's still in use")
 	}
 }
@@ -597,10 +597,10 @@ func TestStartAllServicesRollbackOnHealthCheckFailure(t *testing.T) {
 
 	time.Sleep(600 * time.Millisecond)
 
-	if CheckPort(17788) {
+	if checkPort(17788) {
 		t.Error("Port 17788 should have been released as part of rollback but it's still in use")
 	}
-	if CheckPort(17787) {
+	if checkPort(17787) {
 		t.Error("Port 17787 should have been released as part of rollback but it's still in use")
 	}
 }

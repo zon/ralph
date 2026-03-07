@@ -367,15 +367,15 @@ func stopAllServices(processes []*Process) {
 			// Continue stopping other services even if one fails
 		}
 		if p.service.Port > 0 {
-			if err := WaitForPortRelease(p.service.Port, 5*time.Second); err != nil {
+			if err := waitForPortRelease(p.service.Port, 5*time.Second); err != nil {
 				logger.Warningf("Port %d may still be in use after stopping %s: %v", p.service.Port, p.Name, err)
 			}
 		}
 	}
 }
 
-// CheckPort checks if a TCP port is open and accepting connections
-func CheckPort(port int) bool {
+// checkPort checks if a TCP port is open and accepting connections
+func checkPort(port int) bool {
 	address := fmt.Sprintf("localhost:%d", port)
 	conn, err := net.DialTimeout("tcp", address, 1*time.Second)
 	if err != nil {
@@ -385,9 +385,9 @@ func CheckPort(port int) bool {
 	return true
 }
 
-// WaitForPort waits for a TCP port to become available with a timeout
+// waitForPort waits for a TCP port to become available with a timeout
 // Returns nil if port becomes available, error if timeout is reached
-func WaitForPort(port int, timeout time.Duration) error {
+func waitForPort(port int, timeout time.Duration) error {
 	address := fmt.Sprintf("localhost:%d", port)
 	deadline := time.Now().Add(timeout)
 	interval := 500 * time.Millisecond
@@ -406,14 +406,14 @@ func WaitForPort(port int, timeout time.Duration) error {
 	return fmt.Errorf("timeout waiting for port %d to become available", port)
 }
 
-// WaitForPortRelease waits for a TCP port to stop accepting connections
+// waitForPortRelease waits for a TCP port to stop accepting connections
 // Returns nil when the port is released, error if timeout is reached
-func WaitForPortRelease(port int, timeout time.Duration) error {
+func waitForPortRelease(port int, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
 	interval := 500 * time.Millisecond
 
 	for time.Now().Before(deadline) {
-		if !CheckPort(port) {
+		if !checkPort(port) {
 			return nil
 		}
 		time.Sleep(interval)
@@ -437,7 +437,7 @@ func WaitForHealth(p *Process, timeout time.Duration, dryRun bool) error {
 
 	// If service has a port, wait for it
 	if p.service.Port > 0 {
-		return WaitForPort(p.service.Port, timeout)
+		return waitForPort(p.service.Port, timeout)
 	}
 
 	// For services without ports, just verify the process is still running
