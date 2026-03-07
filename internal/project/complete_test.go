@@ -167,6 +167,116 @@ func TestFindCompleteProjects_NonExistentDir(t *testing.T) {
 	}
 }
 
+func TestFindCompleteProjects_RecursiveScanning(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	subDir1 := filepath.Join(tmpDir, "sub1")
+	subDir2 := filepath.Join(tmpDir, "sub2")
+	subDir3 := filepath.Join(tmpDir, "sub1", "nested")
+	if err := os.MkdirAll(subDir1, 0755); err != nil {
+		t.Fatalf("failed to create subdirectory: %v", err)
+	}
+	if err := os.MkdirAll(subDir2, 0755); err != nil {
+		t.Fatalf("failed to create subdirectory: %v", err)
+	}
+	if err := os.MkdirAll(subDir3, 0755); err != nil {
+		t.Fatalf("failed to create nested subdirectory: %v", err)
+	}
+
+	tests := []struct {
+		name     string
+		path     string
+		content  string
+		expected bool
+	}{
+		{
+			name: "complete-project.yaml",
+			path: tmpDir,
+			content: `name: complete-project
+description: A complete project at root
+requirements:
+  - category: backend
+    description: Feature 1
+    items:
+      - Item 1
+    passing: true`,
+			expected: true,
+		},
+		{
+			name:     "incomplete-project.yaml",
+			path:     subDir1,
+			content:  "name: incomplete\nrequirements:\n  - category: foo\n    passing: false",
+			expected: false,
+		},
+		{
+			name: "complete-in-subdir.yaml",
+			path: subDir1,
+			content: `name: complete-in-subdir
+requirements:
+  - category: backend
+    description: Feature 1
+    passing: true`,
+			expected: true,
+		},
+		{
+			name: "complete-in-another-subdir.yaml",
+			path: subDir2,
+			content: `name: complete-in-another-subdir
+requirements:
+  - category: backend
+    description: Feature 1
+    passing: true`,
+			expected: true,
+		},
+		{
+			name: "complete-in-nested.yaml",
+			path: subDir3,
+			content: `name: complete-in-nested
+requirements:
+  - category: backend
+    description: Feature 1
+    passing: true`,
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		filePath := filepath.Join(tt.path, tt.name)
+		if err := os.WriteFile(filePath, []byte(tt.content), 0644); err != nil {
+			t.Fatalf("failed to write test file %s: %v", tt.name, err)
+		}
+	}
+
+	completeProjects, err := FindCompleteProjects(tmpDir)
+	if err != nil {
+		t.Fatalf("FindCompleteProjects() error = %v", err)
+	}
+
+	expectedFiles := []string{
+		filepath.Join(tmpDir, "complete-project.yaml"),
+		filepath.Join(subDir1, "complete-in-subdir.yaml"),
+		filepath.Join(subDir2, "complete-in-another-subdir.yaml"),
+		filepath.Join(subDir3, "complete-in-nested.yaml"),
+	}
+
+	if len(completeProjects) != len(expectedFiles) {
+		t.Errorf("FindCompleteProjects() returned %d files, want %d", len(completeProjects), len(expectedFiles))
+	}
+
+	for _, expectedFile := range expectedFiles {
+		found := false
+		for _, actualFile := range completeProjects {
+			if actualFile == expectedFile {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("FindCompleteProjects() missing expected file: %s", expectedFile)
+		}
+	}
+}
+
 func TestFindCompleteProjects_InvalidYAML(t *testing.T) {
 	tmpDir := t.TempDir()
 
