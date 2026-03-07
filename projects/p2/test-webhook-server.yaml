@@ -8,7 +8,7 @@ requirements:
       - A test verifies handleWebhook returns 200 when the payload is valid and signed correctly but IsAcceptable returns false (event is filtered out)
       - A test verifies handleWebhook returns 400 when the payload JSON has an empty repository owner or name
       - A test verifies handleWebhook returns 200 when IsAcceptable is true but ToWorkflow returns an error
-    passing: false
+    passing: true
 
   - category: testing
     description: validateSignature tests
@@ -17,4 +17,4 @@ requirements:
       - A test verifies validateSignature returns false when the signature is missing
       - A test verifies validateSignature returns false when the signature uses the wrong prefix (e.g. sha1=)
       - A test verifies validateSignature returns false when the body has been tampered with
-    passing: false
+    passing: true
