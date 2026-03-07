@@ -54,6 +54,21 @@ func TestExtractBranchName(t *testing.T) {
 			projectFile:  "/path/to/-my-feature-.yaml",
 			expectedName: "my-feature",
 		},
+		{
+			name:         "nested directories",
+			projectFile:  "/path/to/nested/dirs/my-feature.yaml",
+			expectedName: "my-feature",
+		},
+		{
+			name:         "yml extension",
+			projectFile:  "/path/to/my-feature.yml",
+			expectedName: "my-feature",
+		},
+		{
+			name:         "consecutive hyphens",
+			projectFile:  "/path/to/my--feature.yaml",
+			expectedName: "my-feature",
+		},
 	}
 
 	for _, tt := range tests {
@@ -118,7 +133,6 @@ requirements:
 	}
 }
 
-
 func TestExecute_NotGitRepository(t *testing.T) {
 	// Create a temporary directory that's NOT a git repository
 	tmpDir := t.TempDir()
@@ -149,6 +163,77 @@ requirements:
 	// even when not in an actual git repository.
 	if err != nil {
 		t.Errorf("Execute() should succeed in dry-run mode even when not in a git repo, got error: %v", err)
+	}
+}
+
+func TestExecute_NonExistentProjectFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	projectFile := filepath.Join(tmpDir, "non-existent.yaml")
+
+	ctx := testutil.NewContext(
+		testutil.WithProjectFile(projectFile),
+		testutil.WithDryRun(true),
+	)
+
+	err := Execute(ctx, nil)
+
+	if err == nil {
+		t.Error("Execute() expected error when project file does not exist, got nil")
+	}
+}
+
+func TestExecute_LocalDryRun_CreatesBranchFromProjectFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	projectFile := filepath.Join(tmpDir, "my-test-project.yaml")
+
+	projectContent := `name: My Test Project
+description: A test project
+requirements:
+  - description: Test requirement
+    passing: false
+`
+
+	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
+		t.Fatalf("Failed to create test project file: %v", err)
+	}
+
+	ctx := testutil.NewContext(
+		testutil.WithProjectFile(projectFile),
+		testutil.WithDryRun(true),
+	)
+
+	err := Execute(ctx, nil)
+
+	if err != nil {
+		t.Errorf("Execute() in local dry-run mode should complete without error: %v", err)
+	}
+}
+
+func TestExecute_LocalDryRun_RespectsMaxIterations(t *testing.T) {
+	tmpDir := t.TempDir()
+	projectFile := filepath.Join(tmpDir, "test-project.yaml")
+
+	projectContent := `name: Test Project
+description: A test project
+requirements:
+  - description: Test requirement
+    passing: false
+`
+
+	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
+		t.Fatalf("Failed to create test project file: %v", err)
+	}
+
+	ctx := testutil.NewContext(
+		testutil.WithProjectFile(projectFile),
+		testutil.WithDryRun(true),
+		testutil.WithMaxIterations(3),
+	)
+
+	err := Execute(ctx, nil)
+
+	if err != nil {
+		t.Errorf("Execute() should respect MaxIterations from context: %v", err)
 	}
 }
 

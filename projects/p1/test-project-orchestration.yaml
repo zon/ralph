@@ -8,18 +8,18 @@ requirements:
       - A test verifies extractBranchName converts a project file path with nested directories to a branch name derived only from the basename
       - A test verifies extractBranchName strips the .yml extension the same as .yaml
       - A test verifies extractBranchName collapses consecutive hyphens into a single hyphen
-    passing: false
+    passing: true
 
   - category: testing
     description: Execute dry-run coverage
     items:
       - A test verifies Execute in dry-run mode completes without error and does not invoke git, gh, or opencode
       - A test verifies Execute returns an error when the project file path does not exist
-    passing: false
+    passing: true
 
   - category: testing
     description: Execute local mode with real git
     items:
       - A test verifies Execute in local dry-run mode creates a branch named after the project file
       - A test verifies Execute in local dry-run mode loads config and respects MaxIterations from the context
-    passing: false
+    passing: true
