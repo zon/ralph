@@ -6,25 +6,25 @@ requirements:
     description: config package exports only what callers need
     items:
       - Default instruction strings (DefaultCommentInstructions, DefaultMergeInstructions, DefaultFixServiceInstructions) in internal/config are unexported and accessed through the loaded RalphConfig instead
-    passing: false
+    passing: true
 
   - category: git
     description: git package API is consolidated
     items:
       - PushBranch and PushCurrentBranch in internal/git/git.go are consolidated into a single push function
-    passing: false
+    passing: true
 
   - category: github
     description: github package API is consolidated
     items:
       - IsGHInstalled and IsGHCLIAvailable in internal/github are consolidated into a single function with a consistent signature
-    passing: false
+    passing: true
 
   - category: services
     description: services package exports only what callers need
     items:
       - CheckPort, WaitForPort, and WaitForPortRelease in internal/services/services.go are unexported since they are only used within the package
-    passing: false
+    passing: true
 
   - category: version
     description: Version patch bump
@@ -32,4 +32,4 @@ requirements:
       - internal/version/VERSION is incremented by one patch version
       - charts/ralph-webhook/Chart.yaml appVersion matches the new VERSION value
       - charts/ralph-webhook/Chart.yaml version is incremented by one patch version
-    passing: false
+    passing: true
