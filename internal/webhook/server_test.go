@@ -112,6 +112,53 @@ func TestHandleWebhook_WrongPrefixSignature_Returns401(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
+func TestHandleWebhook_FilteredEvent_Returns200(t *testing.T) {
+	s := NewServer(testConfig())
+	body := buildPayload("acme", "myrepo", nil)
+	sig := sign(body, "supersecret")
+	w := postWebhook(t, s, "unknown_event_type", body, sig)
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestHandleWebhook_EmptyRepoOwner_Returns400(t *testing.T) {
+	s := NewServer(testConfig())
+	body := buildPayload("", "myrepo", nil)
+	sig := sign(body, "supersecret")
+	w := postWebhook(t, s, "pull_request_review_comment", body, sig)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestHandleWebhook_EmptyRepoName_Returns400(t *testing.T) {
+	s := NewServer(testConfig())
+	body := buildPayload("acme", "", nil)
+	sig := sign(body, "supersecret")
+	w := postWebhook(t, s, "pull_request_review_comment", body, sig)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestHandleWebhook_ToWorkflowError_Returns200(t *testing.T) {
+	s := NewServer(testConfig())
+	payload := map[string]interface{}{
+		"repository": map[string]interface{}{
+			"name": "myrepo",
+			"owner": map[string]interface{}{
+				"login": "acme",
+			},
+		},
+		"comment": map[string]interface{}{
+			"body": "hello",
+			"user": map[string]interface{}{"login": "testuser"},
+		},
+		"issue": map[string]interface{}{
+			"pull_request": map[string]interface{}{},
+		},
+	}
+	body, _ := json.Marshal(payload)
+	sig := sign(body, "supersecret")
+	w := postWebhook(t, s, "issue_comment", body, sig)
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
 // ──────────────────────────────────────────────────────────────────────────────
 // validateSignature unit tests
 // ──────────────────────────────────────────────────────────────────────────────
