@@ -1,5 +1,9 @@
 # Agent Instructions
 
+## Coding Standard
+
+**IMPORTANT**: Before writing any code, read the [coding standard](https://raw.githubusercontent.com/zon/code/refs/heads/main/README.md) to understand the conventions and best practices that must be followed.
+
 ## Writing Project Files
 
 **IMPORTANT**: Before writing any project files, read [docs/projects.md](docs/projects.md) to understand the proper format and best practices.
