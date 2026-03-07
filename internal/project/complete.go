@@ -22,22 +22,24 @@ func FindCompleteProjects(dir string) ([]string, error) {
 		return nil, fmt.Errorf("directory does not exist: %s", dir)
 	}
 
-	// Find all YAML files in the directory
-	pattern := filepath.Join(dir, "*.yaml")
-	yamlFiles, err := filepath.Glob(pattern)
+	// Find all YAML files recursively in the directory tree
+	var allFiles []string
+	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		ext := filepath.Ext(path)
+		if ext == ".yaml" || ext == ".yml" {
+			allFiles = append(allFiles, path)
+		}
+		return nil
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to find YAML files: %w", err)
+		return nil, fmt.Errorf("failed to walk directory: %w", err)
 	}
-
-	// Also find .yml files
-	pattern = filepath.Join(dir, "*.yml")
-	ymlFiles, err := filepath.Glob(pattern)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find YML files: %w", err)
-	}
-
-	// Combine both lists
-	allFiles := append(yamlFiles, ymlFiles...)
 
 	// Check each file
 	for _, file := range allFiles {
