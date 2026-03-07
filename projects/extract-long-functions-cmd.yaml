@@ -1,0 +1,46 @@
+name: extract-long-functions-cmd
+description: Break up long cmd and service functions into single-responsibility helpers
+
+requirements:
+  - category: cmd
+    description: cmd/run.go RunCmd.Run is concise with single-responsibility helpers
+    items:
+      - RunCmd.Run in internal/cmd/run.go delegates to helpers so no function exceeds ~30 lines
+      - Input validation and flag-combination checks live in their own helper
+    passing: false
+
+  - category: cmd
+    description: cmd/config_webhook.go functions are concise with single-responsibility helpers
+    items:
+      - ConfigWebhookConfigCmd.Run in internal/cmd/config_webhook.go delegates to helpers so no function exceeds ~30 lines
+      - ConfigWebhookSecretCmd.Run in internal/cmd/config_webhook.go delegates to helpers so no function exceeds ~30 lines
+    passing: false
+
+  - category: cmd
+    description: Other long cmd functions are concise with single-responsibility helpers
+    items:
+      - ConfigGithubCmd.Run in internal/cmd/config_github.go delegates to helpers so no function exceeds ~30 lines
+      - ConfigOpencodeCmd.Run in internal/cmd/config_opencode.go delegates to helpers so no function exceeds ~30 lines
+      - loadContextAndNamespace in internal/cmd/context.go delegates to helpers so no function exceeds ~30 lines
+      - MergeCmd.runLocal in internal/cmd/merge.go delegates to helpers so no function exceeds ~30 lines
+    passing: false
+
+  - category: github
+    description: github package functions are concise with single-responsibility helpers
+    items:
+      - CreatePR in internal/github/github.go delegates to helpers so no function exceeds ~30 lines
+      - The "PR already exists" fallback path lives in its own helper
+      - ConfigureGitAuth in internal/github/app.go delegates to helpers so no function exceeds ~30 lines
+    passing: false
+
+  - category: webhook
+    description: webhook/server.go handleWebhook is concise with single-responsibility helpers
+    items:
+      - handleWebhook in internal/webhook/server.go delegates to helpers so no function exceeds ~30 lines
+    passing: false
+
+  - category: services
+    description: services/services.go functions are concise with single-responsibility helpers
+    items:
+      - startService in internal/services/services.go delegates to helpers so no function exceeds ~30 lines
+    passing: false
