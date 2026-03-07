@@ -62,10 +62,9 @@ func (m *MergeCmd) Run() error {
 // runLocal merges the PR locally using the gh CLI
 func (m *MergeCmd) runLocal() error {
 	// Create context for project operations
-	ctx := &context.Context{
-		DryRun:  m.DryRun,
-		Verbose: m.Verbose,
-	}
+	ctx := &context.Context{}
+	ctx.SetDryRun(m.DryRun)
+	ctx.SetVerbose(m.Verbose)
 
 	// Scan the projects/ directory for complete projects
 	projectsDir := "projects"

@@ -65,9 +65,9 @@ func RunBefore(cmds []config.Before, dryRun bool) error {
 // Process represents a running service process
 type Process struct {
 	Name    string
-	Service config.Service
-	Cmd     *exec.Cmd
-	PID     int
+	service config.Service
+	cmd     *exec.Cmd
+	pid     int
 	logFile *os.File // {service}.log in the repo root, capturing output during startup
 }
 
@@ -129,8 +129,8 @@ func startService(svc config.Service, dryRun bool) (*Process, error) {
 		logger.Infof("Would start service: %s with command: %s", svc.Name, cmdStr)
 		return &Process{
 			Name:    svc.Name,
-			Service: svc,
-			PID:     -1, // Sentinel value for dry-run
+			service: svc,
+			pid:     -1, // Sentinel value for dry-run
 		}, nil
 	}
 
@@ -167,9 +167,9 @@ func startService(svc config.Service, dryRun bool) (*Process, error) {
 
 	return &Process{
 		Name:    svc.Name,
-		Service: svc,
-		Cmd:     cmd,
-		PID:     cmd.Process.Pid,
+		service: svc,
+		cmd:     cmd,
+		pid:     cmd.Process.Pid,
 		logFile: logFile,
 	}, nil
 }
@@ -183,18 +183,18 @@ func (p *Process) Stop() error {
 // StopWithTimeout gracefully stops a service process with a custom timeout
 // It sends SIGTERM, waits up to timeout for graceful shutdown, then sends SIGKILL if still running
 func (p *Process) StopWithTimeout(timeout time.Duration) error {
-	if p.PID == -1 {
+	if p.pid == -1 {
 		// Dry-run sentinel - nothing to stop
 		logger.Infof("Would stop service: %s", p.Name)
 		return nil
 	}
 
-	if p.Cmd == nil || p.Cmd.Process == nil {
+	if p.cmd == nil || p.cmd.Process == nil {
 		return fmt.Errorf("no process to stop for service: %s", p.Name)
 	}
 
 	// Send SIGTERM for graceful shutdown
-	if err := p.Cmd.Process.Signal(syscall.SIGTERM); err != nil {
+	if err := p.cmd.Process.Signal(syscall.SIGTERM); err != nil {
 		// Process may have already exited
 		logger.Warningf("Failed to send SIGTERM to %s: %v", p.Name, err)
 		return nil // Not necessarily an error if process already exited
@@ -203,7 +203,7 @@ func (p *Process) StopWithTimeout(timeout time.Duration) error {
 	// Wait for process to exit with timeout
 	done := make(chan error, 1)
 	go func() {
-		done <- p.Cmd.Wait()
+		done <- p.cmd.Wait()
 	}()
 
 	select {
@@ -214,7 +214,7 @@ func (p *Process) StopWithTimeout(timeout time.Duration) error {
 	case <-time.After(timeout):
 		// Timeout reached, force kill
 		logger.Warningf("Service %s did not stop gracefully, sending SIGKILL", p.Name)
-		if err := p.Cmd.Process.Kill(); err != nil {
+		if err := p.cmd.Process.Kill(); err != nil {
 			logger.Errorf("Failed to kill service %s: %v", p.Name, err)
 			return fmt.Errorf("failed to kill service %s: %w", p.Name, err)
 		}
@@ -227,18 +227,23 @@ func (p *Process) StopWithTimeout(timeout time.Duration) error {
 
 // IsRunning checks if the process is still running
 func (p *Process) IsRunning() bool {
-	if p.PID == -1 {
+	if p.pid == -1 {
 		// Dry-run sentinel
 		return false
 	}
 
-	if p.Cmd == nil || p.Cmd.Process == nil {
+	if p.cmd == nil || p.cmd.Process == nil {
 		return false
 	}
 
 	// Check if process still exists
-	err := p.Cmd.Process.Signal(syscall.Signal(0))
+	err := p.cmd.Process.Signal(syscall.Signal(0))
 	return err == nil
+}
+
+// isDryRun returns true if this is a dry-run process sentinel
+func (p *Process) isDryRun() bool {
+	return p.pid == -1
 }
 
 // joinArgs joins command arguments into a string for display
@@ -361,9 +366,9 @@ func stopAllServices(processes []*Process) {
 			logger.Warningf("Error stopping service %s: %v", p.Name, err)
 			// Continue stopping other services even if one fails
 		}
-		if p.Service.Port > 0 {
-			if err := WaitForPortRelease(p.Service.Port, 5*time.Second); err != nil {
-				logger.Warningf("Port %d may still be in use after stopping %s: %v", p.Service.Port, p.Name, err)
+		if p.service.Port > 0 {
+			if err := WaitForPortRelease(p.service.Port, 5*time.Second); err != nil {
+				logger.Warningf("Port %d may still be in use after stopping %s: %v", p.service.Port, p.Name, err)
 			}
 		}
 	}
@@ -422,8 +427,8 @@ func WaitForPortRelease(port int, timeout time.Duration) error {
 // For services without ports, it just verifies the process is running
 func WaitForHealth(p *Process, timeout time.Duration, dryRun bool) error {
 	if dryRun {
-		if p.Service.Port > 0 {
-			logger.Infof("Would wait for port %d (service: %s)", p.Service.Port, p.Name)
+		if p.service.Port > 0 {
+			logger.Infof("Would wait for port %d (service: %s)", p.service.Port, p.Name)
 		} else {
 			logger.Infof("Would verify process is running (service: %s)", p.Name)
 		}
@@ -431,8 +436,8 @@ func WaitForHealth(p *Process, timeout time.Duration, dryRun bool) error {
 	}
 
 	// If service has a port, wait for it
-	if p.Service.Port > 0 {
-		return WaitForPort(p.Service.Port, timeout)
+	if p.service.Port > 0 {
+		return WaitForPort(p.service.Port, timeout)
 	}
 
 	// For services without ports, just verify the process is still running

@@ -27,7 +27,7 @@ func BuildServiceFixPrompt(ctx *context.Context, svc config.Service, svcErr erro
 		ServicePort int
 		Error       string
 	}{
-		Notes:       ctx.Notes,
+		Notes:       ctx.Notes(),
 		ServiceName: svc.Name,
 		ServiceCmd:  cmd,
 		ServicePort: svc.Port,
@@ -57,10 +57,10 @@ func BuildDevelopPrompt(ctx *context.Context, projectFile string) (string, error
 	}
 
 	promptTmpl := ralphConfig.Instructions
-	if ctx.Instructions != "" {
-		instructionsData, err := os.ReadFile(ctx.Instructions)
+	if ctx.Instructions() != "" {
+		instructionsData, err := os.ReadFile(ctx.Instructions())
 		if err != nil {
-			return "", fmt.Errorf("failed to read instructions file %s: %w", ctx.Instructions, err)
+			return "", fmt.Errorf("failed to read instructions file %s: %w", ctx.Instructions(), err)
 		}
 		promptTmpl = string(instructionsData)
 	}
@@ -83,7 +83,7 @@ func BuildDevelopPrompt(ctx *context.Context, projectFile string) (string, error
 		ProjectContent string
 		Services       []config.Service
 	}{
-		Notes:          ctx.Notes,
+		Notes:          ctx.Notes(),
 		CommitLog:      commitLog,
 		ProjectContent: strings.TrimRight(string(projectContent), "\n"),
 		Services:       ralphConfig.Services,

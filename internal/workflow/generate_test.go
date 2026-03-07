@@ -68,7 +68,8 @@ requirements:
 		t.Fatalf("Failed to create .git directory: %v", err)
 	}
 
-	ctx := &execcontext.Context{ProjectFile: projectFile}
+	ctx := &execcontext.Context{}
+	ctx.SetProjectFile(projectFile)
 	repoURL := "git@github.com:test/repo.git"
 	cloneBranch := "main"
 	projectBranch := "test-project"
@@ -365,7 +366,8 @@ requirements:
 		t.Fatalf("Failed to create .git directory: %v", err)
 	}
 
-	ctx := &execcontext.Context{ProjectFile: filepath.Join(tmpDir, "project.yaml")}
+	ctx := &execcontext.Context{}
+	ctx.SetProjectFile(filepath.Join(tmpDir, "project.yaml"))
 	wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", "git@github.com:test/repo.git", "main", "test-project", "project.yaml", false, false)
 	if err != nil {
 		t.Fatalf("GenerateWorkflowWithGitInfo failed: %v", err)
@@ -433,7 +435,7 @@ requirements:
 	cloneBranch := "main"
 	prBranch := "ralph/test-project"
 
-	mw, err := GenerateMergeWorkflowWithGitInfo(repoURL, cloneBranch, prBranch)
+	mw, err := GenerateMergeWorkflowWithGitInfo(repoURL, cloneBranch, prBranch, "")
 	if err != nil {
 		t.Fatalf("GenerateMergeWorkflowWithGitInfo failed: %v", err)
 	}
@@ -617,7 +619,7 @@ requirements:
 		t.Fatalf("Failed to change to temp directory: %v", err)
 	}
 
-	mw, err := GenerateMergeWorkflowWithGitInfo("git@github.com:test/repo.git", "main", "ralph/test")
+	mw, err := GenerateMergeWorkflowWithGitInfo("git@github.com:test/repo.git", "main", "ralph/test", "")
 	if err != nil {
 		t.Fatalf("GenerateMergeWorkflowWithGitInfo failed: %v", err)
 	}

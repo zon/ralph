@@ -28,8 +28,8 @@ func DefaultContainerVersion() string {
 // that bypass local git must pass a relative path).
 func GenerateWorkflow(ctx *execcontext.Context, projectName, cloneBranch, projectBranch string, dryRun, verbose bool) (*Workflow, error) {
 	var remoteURL string
-	if ctx.Repo != "" {
-		remoteURL = "https://github.com/" + ctx.Repo + ".git"
+	if ctx.Repo() != "" {
+		remoteURL = "https://github.com/" + ctx.Repo() + ".git"
 	} else {
 		rawRemoteURL, err := getRemoteURL()
 		if err != nil {
@@ -38,9 +38,9 @@ func GenerateWorkflow(ctx *execcontext.Context, projectName, cloneBranch, projec
 		remoteURL = toHTTPSURL(rawRemoteURL)
 	}
 
-	relProjectPath := ctx.ProjectFile
+	relProjectPath := ctx.ProjectFile()
 	if filepath.IsAbs(relProjectPath) {
-		if ctx.Repo == "" {
+		if ctx.Repo() == "" {
 			repoRoot, err := getRepoRoot()
 			if err != nil {
 				return nil, fmt.Errorf("failed to get repository root: %w", err)
@@ -70,8 +70,8 @@ func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL,
 	}
 
 	var instructions string
-	if ctx.InstructionsMD != "" {
-		instructions = ctx.InstructionsMD
+	if ctx.InstructionsMD() != "" {
+		instructions = ctx.InstructionsMD()
 	} else if data, err := os.ReadFile(filepath.Join(cwd, ".ralph", "instructions.md")); err == nil {
 		instructions = string(data)
 	}
@@ -92,7 +92,7 @@ func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL,
 		Instructions:  instructions,
 		DryRun:        dryRun,
 		Verbose:       verbose,
-		DebugBranch:   ctx.DebugBranch,
+		DebugBranch:   ctx.DebugBranch(),
 		RalphConfig:   ralphConfig,
 	}, nil
 }
@@ -137,12 +137,12 @@ func GenerateMergeWorkflow(prBranch string) (*MergeWorkflow, error) {
 		return nil, fmt.Errorf("failed to get current branch: %w", err)
 	}
 
-	return GenerateMergeWorkflowWithGitInfo(remoteURL, currentBranch, prBranch)
+	return GenerateMergeWorkflowWithGitInfo(remoteURL, currentBranch, prBranch, "")
 }
 
 // GenerateMergeWorkflowWithGitInfo builds a MergeWorkflow with provided git information.
 // This allows for easier testing by accepting git info as parameters.
-func GenerateMergeWorkflowWithGitInfo(repoURL, cloneBranch, prBranch string) (*MergeWorkflow, error) {
+func GenerateMergeWorkflowWithGitInfo(repoURL, cloneBranch, prBranch, prNumber string) (*MergeWorkflow, error) {
 	ralphConfig, err := config.LoadConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)
@@ -159,6 +159,7 @@ func GenerateMergeWorkflowWithGitInfo(repoURL, cloneBranch, prBranch string) (*M
 		RepoName:    repoName,
 		CloneBranch: cloneBranch,
 		PRBranch:    prBranch,
+		PRNumber:    prNumber,
 		RalphConfig: ralphConfig,
 	}, nil
 }

@@ -17,15 +17,11 @@ import (
 //
 // Use options to customize specific fields as needed.
 func NewContext(opts ...ContextOption) *context.Context {
-	ctx := &context.Context{
-		ProjectFile:   "",
-		MaxIterations: 10,
-		DryRun:        true,
-		Verbose:       false,
-		NoNotify:      true,
-		NoServices:    false,
-		Local:         true,
-	}
+	ctx := &context.Context{}
+	ctx.SetDryRun(true)
+	ctx.SetNoNotify(true)
+	ctx.SetLocal(true)
+	ctx.SetMaxIterations(10)
 
 	for _, opt := range opts {
 		opt(ctx)
@@ -40,28 +36,28 @@ type ContextOption func(*context.Context)
 // WithProjectFile sets the project file path
 func WithProjectFile(path string) ContextOption {
 	return func(ctx *context.Context) {
-		ctx.ProjectFile = path
+		ctx.SetProjectFile(path)
 	}
 }
 
 // WithMaxIterations sets the maximum iterations
 func WithMaxIterations(max int) ContextOption {
 	return func(ctx *context.Context) {
-		ctx.MaxIterations = max
+		ctx.SetMaxIterations(max)
 	}
 }
 
 // WithDryRun sets the dry-run flag
 func WithDryRun(dryRun bool) ContextOption {
 	return func(ctx *context.Context) {
-		ctx.DryRun = dryRun
+		ctx.SetDryRun(dryRun)
 	}
 }
 
 // WithVerbose sets the verbose flag
 func WithVerbose(verbose bool) ContextOption {
 	return func(ctx *context.Context) {
-		ctx.Verbose = verbose
+		ctx.SetVerbose(verbose)
 	}
 }
 
@@ -69,21 +65,21 @@ func WithVerbose(verbose bool) ContextOption {
 // Note: Tests should always use NoNotify: true (the default)
 func WithNoNotify(noNotify bool) ContextOption {
 	return func(ctx *context.Context) {
-		ctx.NoNotify = noNotify
+		ctx.SetNoNotify(noNotify)
 	}
 }
 
 // WithNoServices sets the no-services flag
 func WithNoServices(noServices bool) ContextOption {
 	return func(ctx *context.Context) {
-		ctx.NoServices = noServices
+		ctx.SetNoServices(noServices)
 	}
 }
 
 // WithInstructions sets the instructions file path
 func WithInstructions(instructions string) ContextOption {
 	return func(ctx *context.Context) {
-		ctx.Instructions = instructions
+		ctx.SetInstructions(instructions)
 	}
 }
 
@@ -163,16 +159,15 @@ func NewE2EContext(t *testing.T, opts ...ContextOption) (*context.Context, *E2EC
 
 	cfg := NewE2EConfig(t)
 
-	ctx := &context.Context{
-		Repo:        cfg.Repo,
-		Branch:      cfg.Branch,
-		DebugBranch: cfg.DebugBranch,
-		DryRun:      false,
-		Local:       false,
-		Verbose:     true,
-		NoNotify:    true,
-		NoServices:  true,
-	}
+	ctx := &context.Context{}
+	ctx.SetRepo(cfg.Repo)
+	ctx.SetBranch(cfg.Branch)
+	ctx.SetDebugBranch(cfg.DebugBranch)
+	ctx.SetDryRun(false)
+	ctx.SetLocal(false)
+	ctx.SetVerbose(true)
+	ctx.SetNoNotify(true)
+	ctx.SetNoServices(true)
 
 	for _, opt := range opts {
 		opt(ctx)

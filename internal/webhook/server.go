@@ -59,7 +59,7 @@ func (s *Server) handleWebhook(c *gin.Context) {
 		return
 	}
 
-	var payload GithubPayload
+	var payload githubPayload
 	if err := json.Unmarshal(body, &payload); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid JSON payload"})
 		return

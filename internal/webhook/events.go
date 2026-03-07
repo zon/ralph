@@ -50,11 +50,10 @@ func (e Event) ToWorkflow(cfg *webhookconfig.Config) (*WorkflowResult, error) {
 	}
 
 	if e.Approved {
-		mw, err := workflow.GenerateMergeWorkflowWithGitInfo(repoURL, e.PRBranch, e.PRBranch)
+		mw, err := workflow.GenerateMergeWorkflowWithGitInfo(repoURL, e.PRBranch, e.PRBranch, e.PRNumber)
 		if err != nil {
 			return nil, err
 		}
-		mw.PRNumber = e.PRNumber
 		return &WorkflowResult{Merge: mw, Namespace: namespace}, nil
 	}
 

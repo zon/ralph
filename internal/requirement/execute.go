@@ -34,7 +34,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	}
 
 	// Validate project file exists
-	absProjectFile, err := filepath.Abs(ctx.ProjectFile)
+	absProjectFile, err := filepath.Abs(ctx.ProjectFile())
 	if err != nil {
 		return fmt.Errorf("failed to resolve project file path: %w", err)
 	}

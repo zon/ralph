@@ -44,10 +44,10 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 
 	// Handle Argo Workflow submission (default when not running with --local).
 	if !ctx.IsLocal() {
-		return executeRemote(ctx, ctx.ProjectFile)
+		return executeRemote(ctx, ctx.ProjectFile())
 	}
 
-	absProjectFile, err := filepath.Abs(ctx.ProjectFile)
+	absProjectFile, err := filepath.Abs(ctx.ProjectFile())
 	if err != nil {
 		return fmt.Errorf("failed to resolve project file path: %w", err)
 	}
@@ -249,8 +249,8 @@ func executeRemote(ctx *context.Context, absProjectFile string) error {
 
 	// Determine clone branch: use the override if provided, otherwise detect from local git
 	var currentBranch string
-	if ctx.Branch != "" {
-		currentBranch = ctx.Branch
+	if ctx.Branch() != "" {
+		currentBranch = ctx.Branch()
 	} else {
 		if !git.IsGitRepository(ctx) {
 			return fmt.Errorf("not a git repository - remote execution requires git")

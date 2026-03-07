@@ -79,16 +79,16 @@ func isBlocked(ctx *context.Context) (bool, error) {
 //
 // Returns the final iteration count and any error encountered
 func RunIterationLoop(ctx *context.Context, cleanupRegistrar func(func())) (int, error) {
-	logger.Verbosef("Starting iteration loop (max: %d)", ctx.MaxIterations)
+	logger.Verbosef("Starting iteration loop (max: %d)", ctx.MaxIterations())
 
 	var previousProject *config.Project
 	iterationCount := 0
 
-	for i := 1; i <= ctx.MaxIterations; i++ {
+	for i := 1; i <= ctx.MaxIterations(); i++ {
 		iterationCount = i
 
 		logger.Verbose("")
-		logger.Verbosef("=== Iteration %d/%d ===", i, ctx.MaxIterations)
+		logger.Verbosef("=== Iteration %d/%d ===", i, ctx.MaxIterations())
 
 		// Check for blocked.md from repo root
 		if blocked, err := isBlocked(ctx); err != nil {
@@ -100,7 +100,7 @@ func RunIterationLoop(ctx *context.Context, cleanupRegistrar func(func())) (int,
 		// Load project state before this iteration to track which requirements were already passing
 		if previousProject == nil {
 			var err error
-			previousProject, err = config.LoadProject(ctx.ProjectFile)
+			previousProject, err = config.LoadProject(ctx.ProjectFile())
 			if err != nil {
 				return 0, fmt.Errorf("failed to load initial project state: %w", err)
 			}
@@ -130,7 +130,7 @@ func RunIterationLoop(ctx *context.Context, cleanupRegistrar func(func())) (int,
 		}
 
 		// Load and check project completion status
-		currentProject, err := config.LoadProject(ctx.ProjectFile)
+		currentProject, err := config.LoadProject(ctx.ProjectFile())
 		if err != nil {
 			return iterationCount, fmt.Errorf("failed to reload project after iteration %d: %w", i, err)
 		}
@@ -163,7 +163,7 @@ func RunIterationLoop(ctx *context.Context, cleanupRegistrar func(func())) (int,
 		previousProject = currentProject
 
 		// Continue to next iteration if not at max
-		if i < ctx.MaxIterations {
+		if i < ctx.MaxIterations() {
 			logger.Verbose("Requirements not complete, continuing to next iteration...")
 		}
 	}
@@ -172,7 +172,7 @@ func RunIterationLoop(ctx *context.Context, cleanupRegistrar func(func())) (int,
 
 	// Check if we reached max iterations without completing requirements
 	if !ctx.IsDryRun() {
-		currentProject, err := config.LoadProject(ctx.ProjectFile)
+		currentProject, err := config.LoadProject(ctx.ProjectFile())
 		if err != nil {
 			return iterationCount, fmt.Errorf("failed to load project state: %w", err)
 		}
