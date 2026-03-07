@@ -17,3 +17,11 @@ requirements:
       - buildVolumes in internal/workflow/scripts.go has no more than 2 levels of nesting
       - The duplicated ConfigMap/Secret loop logic in both functions is shared via a common helper
     passing: false
+
+  - category: version
+    description: Version patch bump
+    items:
+      - internal/version/VERSION is incremented by one patch version
+      - charts/ralph-webhook/Chart.yaml appVersion matches the new VERSION value
+      - charts/ralph-webhook/Chart.yaml version is incremented by one patch version
+    passing: false

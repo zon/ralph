@@ -36,3 +36,11 @@ requirements:
       - Prompt construction lives in its own helper
       - Running opencode and reading the result file lives in its own helper
     passing: false
+
+  - category: version
+    description: Version patch bump
+    items:
+      - internal/version/VERSION is incremented by one patch version
+      - charts/ralph-webhook/Chart.yaml appVersion matches the new VERSION value
+      - charts/ralph-webhook/Chart.yaml version is incremented by one patch version
+    passing: false

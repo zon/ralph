@@ -44,3 +44,11 @@ requirements:
     items:
       - startService in internal/services/services.go delegates to helpers so no function exceeds ~30 lines
     passing: false
+
+  - category: version
+    description: Version patch bump
+    items:
+      - internal/version/VERSION is incremented by one patch version
+      - charts/ralph-webhook/Chart.yaml appVersion matches the new VERSION value
+      - charts/ralph-webhook/Chart.yaml version is incremented by one patch version
+    passing: false
