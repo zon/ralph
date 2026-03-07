@@ -2,6 +2,7 @@ package project
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -21,8 +22,18 @@ func TestExtractBranchName(t *testing.T) {
 		},
 		{
 			name:         "yml extension",
-			projectFile:  "/path/to/another-feature.yaml",
+			projectFile:  "/path/to/another-feature.yml",
 			expectedName: "another-feature",
+		},
+		{
+			name:         "nested directories",
+			projectFile:  "/path/to/nested/directories/my-project.yaml",
+			expectedName: "my-project",
+		},
+		{
+			name:         "consecutive hyphens",
+			projectFile:  "/path/to/my--feature---project.yaml",
+			expectedName: "my-feature-project",
 		},
 		{
 			name:         "spaces in name",
@@ -118,7 +129,6 @@ requirements:
 	}
 }
 
-
 func TestExecute_NotGitRepository(t *testing.T) {
 	// Create a temporary directory that's NOT a git repository
 	tmpDir := t.TempDir()
@@ -149,6 +159,92 @@ requirements:
 	// even when not in an actual git repository.
 	if err != nil {
 		t.Errorf("Execute() should succeed in dry-run mode even when not in a git repo, got error: %v", err)
+	}
+}
+
+func TestExecute_NonExistentProjectFile(t *testing.T) {
+	ctx := testutil.NewContext(
+		testutil.WithProjectFile("/non/existent/path/project.yaml"),
+		testutil.WithDryRun(false),
+		testutil.WithVerbose(true),
+	)
+
+	err := Execute(ctx, nil)
+
+	if err == nil {
+		t.Error("Execute() expected error for non-existent project file, got nil")
+	}
+}
+
+func TestExecute_LocalDryRunCreatesBranch(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	projectFile := filepath.Join(tmpDir, "my-test-project.yaml")
+	projectContent := `name: Test Project
+description: A test project
+requirements:
+  - description: Test requirement
+    passing: false
+`
+	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
+		t.Fatalf("Failed to create test project file: %v", err)
+	}
+
+	originalDir, _ := os.Getwd()
+	defer os.Chdir(originalDir)
+	os.Chdir(tmpDir)
+
+	exec.Command("git", "init").Run()
+	exec.Command("git", "config", "user.email", "test@test.com").Run()
+	exec.Command("git", "config", "user.name", "Test").Run()
+	exec.Command("git", "commit", "--allow-empty", "-m", "Initial commit").Run()
+
+	ctx := testutil.NewContext(
+		testutil.WithProjectFile(projectFile),
+		testutil.WithDryRun(true),
+		testutil.WithLocal(true),
+	)
+
+	err := Execute(ctx, nil)
+	if err != nil {
+		t.Errorf("Execute() failed: %v", err)
+	}
+}
+
+func TestExecute_LocalDryRunRespectsMaxIterations(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	projectFile := filepath.Join(tmpDir, "max-iter-test.yaml")
+	projectContent := `name: Test Project
+description: A test project
+requirements:
+  - description: Test requirement
+    passing: false
+`
+	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
+		t.Fatalf("Failed to create test project file: %v", err)
+	}
+
+	originalDir, _ := os.Getwd()
+	defer os.Chdir(originalDir)
+	os.Chdir(tmpDir)
+
+	exec.Command("git", "init").Run()
+	exec.Command("git", "config", "user.email", "test@test.com").Run()
+	exec.Command("git", "config", "user.name", "Test").Run()
+	exec.Command("git", "commit", "--allow-empty", "-m", "Initial commit").Run()
+
+	maxIterations := 3
+	ctx := testutil.NewContext(
+		testutil.WithProjectFile(projectFile),
+		testutil.WithDryRun(true),
+		testutil.WithLocal(true),
+		testutil.WithMaxIterations(maxIterations),
+	)
+
+	err := Execute(ctx, nil)
+	if err != nil {
+		t.Errorf("Execute() failed: %v", err)
 	}
 }
 
