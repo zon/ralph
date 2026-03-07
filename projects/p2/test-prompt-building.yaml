@@ -7,14 +7,14 @@ requirements:
     items:
       - A test verifies BuildDevelopPrompt includes a "System Notes" section in the output when the context has one or more notes added via AddNote
       - A test verifies BuildDevelopPrompt does not include a "System Notes" section when the context has no notes
-    passing: false
+    passing: true
 
   - category: testing
     description: BuildDevelopPrompt commit log behavior
     items:
       - A test verifies BuildDevelopPrompt includes recent commit history in the prompt when the current branch differs from the base branch
       - A test verifies BuildDevelopPrompt omits commit history when the current branch equals the base branch (nothing to diff)
-    passing: false
+    passing: true
 
   - category: testing
     description: BuildServiceFixPrompt completeness
@@ -22,4 +22,4 @@ requirements:
       - A test verifies BuildServiceFixPrompt includes the service name, command, error message, and an instruction to write report.md in its output
       - A test verifies BuildServiceFixPrompt includes port and health check information when the service has a port configured
       - A test verifies BuildServiceFixPrompt omits health check information when the service has no port
-    passing: false
+    passing: true
