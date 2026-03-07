@@ -1,0 +1,26 @@
+name: test-services-lifecycle
+description: Add tests for service lifecycle management in internal/services/services.go
+
+requirements:
+  - category: testing
+    description: RunBefore real execution tests
+    items:
+      - A test verifies RunBefore executes commands sequentially and returns nil when all succeed
+      - A test verifies RunBefore sets the command working directory to the WorkDir field when it is non-empty
+      - A test verifies RunBefore stops and returns an error on the first non-optional command that fails
+      - A test verifies RunBefore continues past an optional command that fails
+    passing: false
+
+  - category: testing
+    description: WaitForHealth real execution tests
+    items:
+      - A test verifies WaitForHealth returns nil when a real process is running and has no port configured (process liveness check)
+      - A test verifies WaitForHealth returns an error when the process exits before the health check passes
+    passing: false
+
+  - category: testing
+    description: startAllServices failure rollback tests
+    items:
+      - A test verifies startAllServices stops all previously started services when one service fails to start
+      - A test verifies startAllServices stops all previously started services when a health check fails
+    passing: false

@@ -1,0 +1,42 @@
+name: test-git-operations
+description: Add tests for untested git operations in internal/git/git.go
+
+requirements:
+  - category: testing
+    description: FindRepoRoot tests
+    items:
+      - A test verifies FindRepoRoot returns the repository root directory when called inside a real temporary git repository
+      - A test verifies FindRepoRoot returns the current working directory in dry-run mode
+      - A test verifies FindRepoRoot returns an error when called outside a git repository in non-dry-run mode
+    passing: false
+
+  - category: testing
+    description: IsBranchSyncedWithRemote tests
+    items:
+      - A test verifies IsBranchSyncedWithRemote returns nil when the local and remote branch point to the same commit
+      - A test verifies IsBranchSyncedWithRemote returns an error when the local branch is behind the remote
+      - A test verifies IsBranchSyncedWithRemote returns nil in dry-run mode
+      - Tests use a local bare remote repository
+    passing: false
+
+  - category: testing
+    description: PullRebase tests
+    items:
+      - A test verifies PullRebase succeeds when the remote has new commits
+      - A test verifies PullRebase returns nil in dry-run mode
+    passing: false
+
+  - category: testing
+    description: DeleteFile tests
+    items:
+      - A test verifies DeleteFile removes a tracked file from the working tree and stages the deletion
+      - A test verifies DeleteFile returns an error for a file that does not exist
+      - A test verifies DeleteFile returns nil in dry-run mode
+    passing: false
+
+  - category: testing
+    description: CheckoutOrCreateBranch with existing remote branch
+    items:
+      - A test verifies CheckoutOrCreateBranch checks out an existing remote branch rather than creating a new one when the branch already exists on the remote
+      - The test uses a local bare remote repository with the branch pre-created
+    passing: false

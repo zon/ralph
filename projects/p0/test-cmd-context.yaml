@@ -1,0 +1,21 @@
+name: test-cmd-context
+description: Add tests for loadContextAndNamespace in internal/cmd/context.go
+
+requirements:
+  - category: testing
+    description: Context resolution priority tests
+    items:
+      - A test verifies that the flagContext parameter takes highest priority over config and kubectl for the returned kubeContext
+      - A test verifies that when flagContext is empty, the context from .ralph/config.yaml workflow.context is used
+      - A test verifies that when both flagContext and config context are empty, the function falls back to kubectl current-context
+      - A test verifies that when kubectl current-context fails and no flag or config context is set, an error is returned
+    passing: false
+
+  - category: testing
+    description: Namespace resolution priority tests
+    items:
+      - A test verifies that the flagNamespace parameter takes highest priority over config and kubectl for the returned namespace
+      - A test verifies that when flagNamespace is empty, the namespace from .ralph/config.yaml workflow.namespace is used
+      - A test verifies that when both flagNamespace and config namespace are empty, the function falls back to the kubectl context namespace
+      - A test verifies that when kubectl namespace lookup returns empty, the function defaults to "default"
+    passing: false
