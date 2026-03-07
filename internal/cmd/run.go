@@ -97,21 +97,20 @@ func (r *RunCmd) Run() error {
 	}
 
 	// Create execution context
-	ctx := &execcontext.Context{
-		ProjectFile:   r.ProjectFile,
-		MaxIterations: maxIterations,
-		DryRun:        r.DryRun,
-		Verbose:       r.Verbose,
-		NoNotify:      r.NoNotify,
-		NoServices:    r.NoServices,
-		Local:         r.Local,
-		Follow:        r.Follow,
-		DebugBranch:   r.Debug,
-	}
+	ctx := &execcontext.Context{}
+	ctx.SetProjectFile(r.ProjectFile)
+	ctx.SetMaxIterations(maxIterations)
+	ctx.SetDryRun(r.DryRun)
+	ctx.SetVerbose(r.Verbose)
+	ctx.SetNoNotify(r.NoNotify)
+	ctx.SetNoServices(r.NoServices)
+	ctx.SetLocal(r.Local)
+	ctx.SetFollow(r.Follow)
+	ctx.SetDebugBranch(r.Debug)
 
 	if r.Once {
 		// Execute single iteration mode
-		projectName := strings.TrimSuffix(filepath.Base(ctx.ProjectFile), filepath.Ext(ctx.ProjectFile))
+		projectName := strings.TrimSuffix(filepath.Base(ctx.ProjectFile()), filepath.Ext(ctx.ProjectFile()))
 		if err := requirement.Execute(ctx, r.cleanupRegistrar); err != nil {
 			notify.Error(projectName, ctx.ShouldNotify() && !ctx.IsDryRun())
 			return err

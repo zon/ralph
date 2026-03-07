@@ -85,12 +85,12 @@ func TestWaitForHealthDryRun(t *testing.T) {
 	// Create a mock process with port
 	proc := &Process{
 		Name: "test-service",
-		Service: config.Service{
+		service: config.Service{
 			Name:    "test-service",
 			Command: "echo",
 			Port:    8080,
 		},
-		PID: -1, // Dry-run sentinel
+		pid: -1, // Dry-run sentinel
 	}
 
 	// Should succeed without actually checking port
@@ -100,7 +100,7 @@ func TestWaitForHealthDryRun(t *testing.T) {
 	}
 
 	// Test without port
-	proc.Service.Port = 0
+	proc.service.Port = 0
 	err = WaitForHealth(proc, 1*time.Second, true)
 	if err != nil {
 		t.Errorf("WaitForHealth in dry-run mode (no port) failed: %v", err)
@@ -120,8 +120,8 @@ func TestStartServiceDryRun(t *testing.T) {
 		t.Fatalf("startService in dry-run mode failed: %v", err)
 	}
 
-	if proc.PID != -1 {
-		t.Errorf("Expected PID = -1 for dry-run, got %d", proc.PID)
+	if !proc.isDryRun() {
+		t.Errorf("Expected isDryRun() = true for dry-run, got false")
 	}
 
 	if proc.Name != "test-service" {
@@ -161,8 +161,8 @@ func TestStartAllServicesDryRun(t *testing.T) {
 	}
 
 	for i, proc := range processes {
-		if proc.PID != -1 {
-			t.Errorf("Process %d: Expected PID = -1 for dry-run, got %d", i, proc.PID)
+		if !proc.isDryRun() {
+			t.Errorf("Process %d: Expected isDryRun() = true for dry-run, got false", i)
 		}
 	}
 }
@@ -354,8 +354,8 @@ func TestStartServiceDryRunWithWorkDir(t *testing.T) {
 		t.Fatalf("startService with WorkDir in dry-run mode failed: %v", err)
 	}
 
-	if proc.PID != -1 {
-		t.Errorf("Expected PID = -1 for dry-run, got %d", proc.PID)
+	if !proc.isDryRun() {
+		t.Errorf("Expected isDryRun() = true for dry-run, got false")
 	}
 }
 
@@ -376,8 +376,8 @@ func TestStartServiceWorkDir(t *testing.T) {
 	}
 	defer proc.Stop()
 
-	if proc.Cmd.Dir != tmpDir {
-		t.Errorf("Cmd.Dir = %q, want %q", proc.Cmd.Dir, tmpDir)
+	if proc.cmd.Dir != tmpDir {
+		t.Errorf("cmd.Dir = %q, want %q", proc.cmd.Dir, tmpDir)
 	}
 }
 
@@ -556,7 +556,7 @@ func TestWaitForHealthProcessExitsBeforeCheck(t *testing.T) {
 		t.Fatalf("Failed to start service: %v", err)
 	}
 
-	proc.Cmd.Wait()
+	proc.cmd.Wait()
 
 	err = WaitForHealth(proc, 5*time.Second, false)
 	if err == nil {

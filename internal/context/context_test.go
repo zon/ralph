@@ -55,11 +55,10 @@ func TestShouldNotify(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := &Context{
-				NoNotify: tt.noNotify,
-				Local:    tt.local,
-				Follow:   tt.follow,
-			}
+			ctx := &Context{}
+			ctx.SetNoNotify(tt.noNotify)
+			ctx.SetLocal(tt.local)
+			ctx.SetFollow(tt.follow)
 
 			result := ctx.ShouldNotify()
 			if result != tt.expectNotify {
@@ -87,9 +86,8 @@ func TestIsLocal(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := &Context{
-				Local: tt.local,
-			}
+			ctx := &Context{}
+			ctx.SetLocal(tt.local)
 
 			result := ctx.IsLocal()
 			if result != tt.local {
@@ -116,9 +114,8 @@ func TestShouldFollow(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := &Context{
-				Follow: tt.follow,
-			}
+			ctx := &Context{}
+			ctx.SetFollow(tt.follow)
 
 			result := ctx.ShouldFollow()
 			if result != tt.follow {
@@ -141,20 +138,20 @@ func TestAddNote(t *testing.T) {
 	if !ctx.HasNotes() {
 		t.Error("Context should have notes after adding one")
 	}
-	if len(ctx.Notes) != 1 {
-		t.Errorf("Expected 1 note, got %d", len(ctx.Notes))
+	if len(ctx.Notes()) != 1 {
+		t.Errorf("Expected 1 note, got %d", len(ctx.Notes()))
 	}
-	if ctx.Notes[0] != "First note" {
-		t.Errorf("Expected note 'First note', got '%s'", ctx.Notes[0])
+	if ctx.Notes()[0] != "First note" {
+		t.Errorf("Expected note 'First note', got '%s'", ctx.Notes()[0])
 	}
 
 	// Add second note
 	ctx.AddNote("Second note")
-	if len(ctx.Notes) != 2 {
-		t.Errorf("Expected 2 notes, got %d", len(ctx.Notes))
+	if len(ctx.Notes()) != 2 {
+		t.Errorf("Expected 2 notes, got %d", len(ctx.Notes()))
 	}
-	if ctx.Notes[1] != "Second note" {
-		t.Errorf("Expected note 'Second note', got '%s'", ctx.Notes[1])
+	if ctx.Notes()[1] != "Second note" {
+		t.Errorf("Expected note 'Second note', got '%s'", ctx.Notes()[1])
 	}
 }
 
@@ -188,8 +185,9 @@ func TestHasNotes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := &Context{
-				Notes: tt.notes,
+			ctx := &Context{}
+			for _, note := range tt.notes {
+				ctx.AddNote(note)
 			}
 
 			result := ctx.HasNotes()

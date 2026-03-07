@@ -308,10 +308,9 @@ invalid yaml syntax here`
 }
 
 func TestRemoveAndCommit_EmptyFiles(t *testing.T) {
-	ctx := &context.Context{
-		DryRun:  true,
-		Verbose: false,
-	}
+	ctx := &context.Context{}
+	ctx.SetDryRun(true)
+	ctx.SetVerbose(false)
 
 	err := RemoveAndCommit(ctx, []string{})
 	if err != nil {
@@ -337,10 +336,9 @@ requirements:
 		t.Fatalf("failed to write test file: %v", err)
 	}
 
-	ctx := &context.Context{
-		DryRun:  true,
-		Verbose: false,
-	}
+	ctx := &context.Context{}
+	ctx.SetDryRun(true)
+	ctx.SetVerbose(false)
 
 	err := RemoveAndCommit(ctx, []string{testFile})
 	if err != nil {
@@ -354,10 +352,9 @@ requirements:
 }
 
 func TestRemoveAndCommit_NonExistentFile(t *testing.T) {
-	ctx := &context.Context{
-		DryRun:  false,
-		Verbose: false,
-	}
+	ctx := &context.Context{}
+	ctx.SetDryRun(false)
+	ctx.SetVerbose(false)
 
 	// Try to remove a non-existent file
 	err := RemoveAndCommit(ctx, []string{"/non/existent/file.yaml"})

@@ -433,7 +433,7 @@ requirements:
 	cloneBranch := "main"
 	prBranch := "ralph/test-project"
 
-	mw, err := GenerateMergeWorkflowWithGitInfo(repoURL, cloneBranch, prBranch)
+	mw, err := GenerateMergeWorkflowWithGitInfo(repoURL, cloneBranch, prBranch, "")
 	if err != nil {
 		t.Fatalf("GenerateMergeWorkflowWithGitInfo failed: %v", err)
 	}
@@ -617,7 +617,7 @@ requirements:
 		t.Fatalf("Failed to change to temp directory: %v", err)
 	}
 
-	mw, err := GenerateMergeWorkflowWithGitInfo("git@github.com:test/repo.git", "main", "ralph/test")
+	mw, err := GenerateMergeWorkflowWithGitInfo("git@github.com:test/repo.git", "main", "ralph/test", "")
 	if err != nil {
 		t.Fatalf("GenerateMergeWorkflowWithGitInfo failed: %v", err)
 	}
