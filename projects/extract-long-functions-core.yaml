@@ -9,7 +9,7 @@ requirements:
       - Git state validation (checking repo, branch, sync status) lives in its own helper
       - Branch switching logic lives in its own helper
       - PR creation (generating summary, refreshing credentials, calling GitHub, notifying) lives in its own helper
-    passing: false
+    passing: true
 
   - category: requirement
     description: requirement/execute.go Execute is concise with single-responsibility helpers
@@ -18,7 +18,7 @@ requirements:
       - Blocked-file detection lives in its own helper
       - Service startup and failure-recovery logic lives in its own helper
       - Post-agent cleanup (log removal, project file normalization, staging) lives in its own helper
-    passing: false
+    passing: true
 
   - category: project
     description: project/iteration.go functions are concise with single-responsibility helpers
@@ -27,7 +27,7 @@ requirements:
       - A single iteration (execute, commit, check completion) lives in its own helper
       - Reporting newly passing requirements lives in its own helper
       - CommitChanges in internal/project/iteration.go delegates to helpers so no function exceeds ~30 lines
-    passing: false
+    passing: true
 
   - category: ai
     description: ai/ai.go GeneratePRSummary is concise with single-responsibility helpers
@@ -35,7 +35,7 @@ requirements:
       - GeneratePRSummary in internal/ai/ai.go delegates to helpers so no function exceeds ~30 lines
       - Prompt construction lives in its own helper
       - Running opencode and reading the result file lives in its own helper
-    passing: false
+    passing: true
 
   - category: version
     description: Version patch bump
@@ -43,4 +43,4 @@ requirements:
       - internal/version/VERSION is incremented by one patch version
       - charts/ralph-webhook/Chart.yaml appVersion matches the new VERSION value
       - charts/ralph-webhook/Chart.yaml version is incremented by one patch version
-    passing: false
+    passing: true
