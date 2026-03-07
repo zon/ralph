@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/zon/ralph/internal/testutil"
@@ -423,5 +424,155 @@ requirements:
 	// Confirm root cause is accessible.
 	if !errors.Is(err, ErrFatalPushError) {
 		t.Errorf("ErrFatalPushError not in error chain: %v", err)
+	}
+}
+
+func TestCommitChanges_ReadsReportMdAndCommits(t *testing.T) {
+	workDir := setupIterationTestRepo(t, "")
+
+	originalDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get cwd: %v", err)
+	}
+	defer os.Chdir(originalDir)
+	if err := os.Chdir(workDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+
+	if err := os.WriteFile("feature.go", []byte("package main\n"), 0644); err != nil {
+		t.Fatalf("failed to write feature.go: %v", err)
+	}
+	if err := os.WriteFile("report.md", []byte("Add new feature"), 0644); err != nil {
+		t.Fatalf("failed to write report.md: %v", err)
+	}
+
+	ctx := testutil.NewContext(
+		testutil.WithProjectFile("project.yaml"),
+		testutil.WithDryRun(false),
+	)
+
+	err = CommitChanges(ctx, 1)
+	if err != nil {
+		t.Fatalf("CommitChanges failed: %v", err)
+	}
+
+	if _, err := os.Stat("report.md"); err == nil {
+		t.Error("report.md should have been removed after commit")
+	}
+
+	cmd := exec.Command("git", "log", "-1", "--format=%B")
+	cmd.Dir = workDir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git log failed: %v", err)
+	}
+	msg := strings.TrimSpace(string(out))
+	if msg != "Add new feature" {
+		t.Errorf("expected commit message 'Add new feature', got %q", msg)
+	}
+}
+
+func TestCommitChanges_FallbackMessageWithIterationNumber(t *testing.T) {
+	workDir := setupIterationTestRepo(t, "")
+
+	originalDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get cwd: %v", err)
+	}
+	defer os.Chdir(originalDir)
+	if err := os.Chdir(workDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+
+	if err := os.WriteFile("feature.go", []byte("package main\n"), 0644); err != nil {
+		t.Fatalf("failed to write feature.go: %v", err)
+	}
+
+	ctx := testutil.NewContext(
+		testutil.WithProjectFile("project.yaml"),
+		testutil.WithDryRun(false),
+	)
+
+	err = CommitChanges(ctx, 42)
+	if err != nil {
+		t.Fatalf("CommitChanges failed: %v", err)
+	}
+
+	cmd := exec.Command("git", "log", "-1", "--format=%B")
+	cmd.Dir = workDir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git log failed: %v", err)
+	}
+	msg := strings.TrimSpace(string(out))
+	if !strings.Contains(msg, "42") {
+		t.Errorf("expected commit message to contain '42', got %q", msg)
+	}
+}
+
+func TestCommitChanges_AllowEmptyCommitWhenNoStagedChanges(t *testing.T) {
+	workDir := setupIterationTestRepo(t, "")
+
+	originalDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get cwd: %v", err)
+	}
+	defer os.Chdir(originalDir)
+	if err := os.Chdir(workDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+
+	if err := os.WriteFile("report.md", []byte("No changes made"), 0644); err != nil {
+		t.Fatalf("failed to write report.md: %v", err)
+	}
+
+	ctx := testutil.NewContext(
+		testutil.WithProjectFile("project.yaml"),
+		testutil.WithDryRun(false),
+	)
+
+	err = CommitChanges(ctx, 1)
+	if err != nil {
+		t.Fatalf("CommitChanges failed: %v", err)
+	}
+
+	cmd := exec.Command("git", "log", "-1", "--format=%B")
+	cmd.Dir = workDir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git log failed: %v", err)
+	}
+	msg := strings.TrimSpace(string(out))
+	if msg != "No changes made" {
+		t.Errorf("expected commit message 'No changes made', got %q", msg)
+	}
+}
+
+func TestRunIterationLoop_ExitsEarlyWhenAllRequirementsPass(t *testing.T) {
+	tmpDir := t.TempDir()
+	projectFile := filepath.Join(tmpDir, "test-project.yaml")
+	projectContent := `name: test-project
+description: Test project
+requirements:
+  - category: feature
+    description: Add feature
+    passing: true
+`
+	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
+		t.Fatalf("Failed to create test project file: %v", err)
+	}
+
+	ctx := testutil.NewContext(
+		testutil.WithProjectFile(projectFile),
+		testutil.WithMaxIterations(10),
+		testutil.WithDryRun(true),
+	)
+
+	iterations, err := RunIterationLoop(ctx, nil)
+	if err != nil {
+		t.Errorf("RunIterationLoop should not error when requirements are already passing: %v", err)
+	}
+	if iterations != 1 {
+		t.Errorf("Expected 1 iteration (early exit), got %d", iterations)
 	}
 }
