@@ -42,18 +42,6 @@ type ConfigWebhookSecretCmd struct {
 	DryRun    bool   `help:"Simulate execution without making changes" default:"false"`
 }
 
-// WebhookConfigResult holds the result of building an AppConfig for dry-run inspection
-type WebhookConfigResult struct {
-	AppConfig webhookconfig.AppConfig
-	YAML      string
-}
-
-// WebhookSecretsResult holds the result of building Secrets for dry-run inspection
-type WebhookSecretsResult struct {
-	Secrets webhookconfig.Secrets
-	YAML    string
-}
-
 // collaboratorsFetcher is a function that fetches repo collaborator logins.
 // It is a variable so tests can substitute a fake implementation.
 var collaboratorsFetcher = fetchRepoCollaborators
