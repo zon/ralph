@@ -421,3 +421,138 @@ requirements:
 		t.Error("Prompt should not contain 'System Notes' section when context has no notes")
 	}
 }
+
+func TestBuildDevelopPrompt_WithNote(t *testing.T) {
+	// Create a temporary project file
+	tmpDir := t.TempDir()
+	projectFile := filepath.Join(tmpDir, "test-project.yaml")
+	projectContent := `name: Test Project
+requirements:
+  - description: Feature 1
+    passing: false
+`
+	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
+		t.Fatalf("Failed to create test project file: %v", err)
+	}
+
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+	defer os.Chdir(oldWd)
+	os.Chdir(tmpDir)
+
+	// Create context with notes added via AddNote
+	ctx := testutil.NewContext()
+	ctx.AddNote("This is a test note for the agent")
+	ctx.AddNote("Another note with important information")
+
+	prompt, err := BuildDevelopPrompt(ctx, projectFile)
+	if err != nil {
+		t.Fatalf("BuildDevelopPrompt failed: %v", err)
+	}
+
+	// Verify prompt contains System Notes section when context has notes
+	if !strings.Contains(prompt, "## System Notes") {
+		t.Error("Prompt should contain 'System Notes' section when context has notes")
+	}
+
+	// Verify the notes are included in the output
+	if !strings.Contains(prompt, "This is a test note for the agent") {
+		t.Error("Prompt should contain the first note")
+	}
+	if !strings.Contains(prompt, "Another note with important information") {
+		t.Error("Prompt should contain the second note")
+	}
+}
+
+func TestBuildDevelopPrompt_CommitLogWhenBranchDiffers(t *testing.T) {
+	// Create a temporary project file
+	tmpDir := t.TempDir()
+	projectFile := filepath.Join(tmpDir, "test-project.yaml")
+	projectContent := `name: Test Project
+requirements:
+  - description: Feature 1
+    passing: false
+`
+	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
+		t.Fatalf("Failed to create test project file: %v", err)
+	}
+
+	// Create .ralph/config.yaml with baseBranch different from dry-run-branch
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	if err := os.MkdirAll(ralphDir, 0755); err != nil {
+		t.Fatalf("Failed to create .ralph directory: %v", err)
+	}
+	configContent := "baseBranch: main\n"
+	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte(configContent), 0644); err != nil {
+		t.Fatalf("Failed to create config file: %v", err)
+	}
+
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+	defer os.Chdir(oldWd)
+	os.Chdir(tmpDir)
+
+	// In dry-run mode, current branch = "dry-run-branch"
+	// BaseBranch = "main" (different), so commit history should be included
+	ctx := testutil.NewContext()
+
+	prompt, err := BuildDevelopPrompt(ctx, projectFile)
+	if err != nil {
+		t.Fatalf("BuildDevelopPrompt failed: %v", err)
+	}
+
+	// Verify prompt contains Recent Git History section when branches differ
+	if !strings.Contains(prompt, "## Recent Git History") {
+		t.Error("Prompt should contain 'Recent Git History' section when current branch differs from base branch")
+	}
+}
+
+func TestBuildDevelopPrompt_NoCommitLogWhenBranchMatches(t *testing.T) {
+	// Create a temporary project file
+	tmpDir := t.TempDir()
+	projectFile := filepath.Join(tmpDir, "test-project.yaml")
+	projectContent := `name: Test Project
+requirements:
+  - description: Feature 1
+    passing: false
+`
+	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
+		t.Fatalf("Failed to create test project file: %v", err)
+	}
+
+	// Create .ralph/config.yaml with baseBranch equal to dry-run-branch
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	if err := os.MkdirAll(ralphDir, 0755); err != nil {
+		t.Fatalf("Failed to create .ralph directory: %v", err)
+	}
+	// dry-run-branch is what GetCurrentBranch returns in dry-run mode
+	configContent := "baseBranch: dry-run-branch\n"
+	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte(configContent), 0644); err != nil {
+		t.Fatalf("Failed to create config file: %v", err)
+	}
+
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+	defer os.Chdir(oldWd)
+	os.Chdir(tmpDir)
+
+	// In dry-run mode, current branch = "dry-run-branch"
+	// BaseBranch = "dry-run-branch" (same), so commit history should NOT be included
+	ctx := testutil.NewContext()
+
+	prompt, err := BuildDevelopPrompt(ctx, projectFile)
+	if err != nil {
+		t.Fatalf("BuildDevelopPrompt failed: %v", err)
+	}
+
+	// Verify prompt does NOT contain Recent Git History section when branches match
+	if strings.Contains(prompt, "## Recent Git History") {
+		t.Error("Prompt should NOT contain 'Recent Git History' section when current branch equals base branch")
+	}
+}
