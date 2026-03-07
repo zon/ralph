@@ -12,10 +12,7 @@
 
 **IMPORTANT**: Before writing any tests, read [docs/testing.md](docs/testing.md) to understand patterns, conventions, and the webhook service integration testing strategy.
 
-**DO NOT:**
-- Run ralph commands without the `--dry-run` flag for testing
-
-Always use `--dry-run` when testing ralph functionality to avoid unintended side effects.
+**WARNING**: Be careful when executing ralph with the `--local` flag, as it will apply changes to the local environment.
 
 ## Versioning
 
