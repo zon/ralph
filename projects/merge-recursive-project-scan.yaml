@@ -1,0 +1,27 @@
+name: merge-recursive-project-scan
+description: Update merge command to recursively scan ./projects directory tree for complete projects to remove
+
+requirements:
+  - category: project-discovery
+    description: FindCompleteProjects scans the full directory tree
+    items:
+      - FindCompleteProjects walks the entire directory tree under the given dir, not just the top level
+      - YAML files in subdirectories (e.g. projects/p0/, projects/p1/, projects/p2/) are discovered and evaluated
+      - All existing behavior for files at the top level is preserved
+    passing: false
+
+  - category: testing
+    description: Unit tests cover recursive scanning
+    items:
+      - Tests verify that complete project files nested in subdirectories are returned by FindCompleteProjects
+      - Tests verify that incomplete project files in subdirectories are not returned
+      - Existing tests continue to pass
+    passing: false
+
+  - category: versioning
+    description: Patch version bump in both version files
+    items:
+      - internal/version/VERSION is bumped from 3.2.1 to 3.2.2
+      - charts/ralph-webhook/Chart.yaml appVersion is bumped from 3.2.1 to 3.2.2
+      - charts/ralph-webhook/Chart.yaml version is bumped from 0.2.52 to 0.2.53
+    passing: false
