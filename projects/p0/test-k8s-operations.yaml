@@ -9,7 +9,7 @@ requirements:
       - A test verifies CreateOrUpdateSecret includes the --context flag in both the create and apply commands when a kubeContext is provided
       - A test verifies CreateOrUpdateSecret uses "default" as the namespace when an empty namespace is passed
       - Tests do not invoke kubectl; they validate the argument construction logic
-    passing: false
+    passing: true
 
   - category: testing
     description: CreateOrUpdateConfigMap argument construction tests
@@ -17,4 +17,4 @@ requirements:
       - A test verifies CreateOrUpdateConfigMap builds the correct kubectl create configmap command args including --from-literal flags for each data entry
       - A test verifies CreateOrUpdateConfigMap includes the --context flag when a kubeContext is provided
       - A test verifies CreateOrUpdateConfigMap uses "default" as the namespace when an empty namespace is passed
-    passing: false
+    passing: true
