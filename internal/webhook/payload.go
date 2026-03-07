@@ -7,8 +7,8 @@ import (
 	"github.com/zon/ralph/internal/webhookconfig"
 )
 
-// GithubPayload is the subset of a GitHub webhook JSON payload that the server needs.
-type GithubPayload struct {
+// githubPayload is the subset of a GitHub webhook JSON payload that the server needs.
+type githubPayload struct {
 	Action string `json:"action"`
 	Issue  struct {
 		PullRequest *struct {
@@ -43,12 +43,12 @@ type GithubPayload struct {
 }
 
 // RepoOwner returns the repository owner login.
-func (p GithubPayload) RepoOwner() string {
+func (p githubPayload) RepoOwner() string {
 	return p.Repository.Owner.Login
 }
 
 // RepoName returns the repository name.
-func (p GithubPayload) RepoName() string {
+func (p githubPayload) RepoName() string {
 	return p.Repository.Name
 }
 
@@ -56,7 +56,7 @@ func (p GithubPayload) RepoName() string {
 // event type, applying user ignore/allowlist rules from cfg.
 // Returns false for unrecognised event types, non-PR issue comments, empty
 // review bodies, and non-approved/non-commented review states.
-func (p GithubPayload) IsAcceptable(eventType string, cfg *webhookconfig.Config) bool {
+func (p githubPayload) IsAcceptable(eventType string, cfg *webhookconfig.Config) bool {
 	repo := cfg.RepoByFullName(p.RepoOwner(), p.RepoName())
 
 	switch eventType {
@@ -90,7 +90,7 @@ func (p GithubPayload) IsAcceptable(eventType string, cfg *webhookconfig.Config)
 
 // ToEvent converts the payload into an Event for the given event type.
 // Call IsAcceptable first to ensure the payload is valid.
-func (p GithubPayload) ToEvent(eventType string) Event {
+func (p githubPayload) ToEvent(eventType string) Event {
 	prNumber := ""
 	if p.PullRequest.Number != 0 {
 		prNumber = fmt.Sprintf("%d", p.PullRequest.Number)

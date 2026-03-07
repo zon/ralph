@@ -7,9 +7,9 @@ import (
 	"github.com/zon/ralph/internal/webhookconfig"
 )
 
-// minimalPayload builds a GithubPayload for acme/myrepo with the given overrides.
-func minimalPayload(owner, repo string) GithubPayload {
-	var p GithubPayload
+// minimalPayload builds a githubPayload for acme/myrepo with the given overrides.
+func minimalPayload(owner, repo string) githubPayload {
+	var p githubPayload
 	p.Repository.Owner.Login = owner
 	p.Repository.Name = repo
 	return p

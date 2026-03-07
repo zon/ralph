@@ -6,28 +6,30 @@ func TestNewContext(t *testing.T) {
 	ctx := NewContext()
 
 	// Verify safe defaults
-	if ctx.MaxIterations != 10 {
-		t.Errorf("Expected MaxIterations=10, got %d", ctx.MaxIterations)
+	if ctx.MaxIterations() != 10 {
+		t.Errorf("Expected MaxIterations=10, got %d", ctx.MaxIterations())
 	}
 
-	if !ctx.DryRun {
-		t.Error("Expected DryRun=true by default")
+	if !ctx.IsDryRun() {
+		t.Error("Expected IsDryRun()=true by default")
 	}
 
-	if ctx.Verbose {
-		t.Error("Expected Verbose=false by default")
+	if ctx.IsVerbose() {
+		t.Error("Expected IsVerbose()=false by default")
 	}
 
-	if !ctx.NoNotify {
-		t.Error("Expected NoNotify=true by default (critical for tests)")
+	// NoNotify=true means ShouldNotify returns false
+	if ctx.ShouldNotify() {
+		t.Error("Expected ShouldNotify()=false when NoNotify=true")
 	}
 
-	if ctx.NoServices {
-		t.Error("Expected NoServices=false by default")
+	// NoServices=false (default) means ShouldStartServices returns true
+	if !ctx.ShouldStartServices() {
+		t.Error("Expected ShouldStartServices()=true when NoServices=false")
 	}
 
-	if ctx.ProjectFile != "" {
-		t.Errorf("Expected ProjectFile='', got '%s'", ctx.ProjectFile)
+	if ctx.ProjectFile() != "" {
+		t.Errorf("Expected ProjectFile='', got '%s'", ctx.ProjectFile())
 	}
 }
 
@@ -39,25 +41,25 @@ func TestNewContext_WithOptions(t *testing.T) {
 		WithVerbose(true),
 	)
 
-	if ctx.ProjectFile != "/path/to/project.yaml" {
-		t.Errorf("Expected ProjectFile='/path/to/project.yaml', got '%s'", ctx.ProjectFile)
+	if ctx.ProjectFile() != "/path/to/project.yaml" {
+		t.Errorf("Expected ProjectFile='/path/to/project.yaml', got '%s'", ctx.ProjectFile())
 	}
 
-	if ctx.MaxIterations != 5 {
-		t.Errorf("Expected MaxIterations=5, got %d", ctx.MaxIterations)
+	if ctx.MaxIterations() != 5 {
+		t.Errorf("Expected MaxIterations=5, got %d", ctx.MaxIterations())
 	}
 
-	if ctx.DryRun {
-		t.Error("Expected DryRun=false")
+	if ctx.IsDryRun() {
+		t.Error("Expected IsDryRun()=false")
 	}
 
-	if !ctx.Verbose {
-		t.Error("Expected Verbose=true")
+	if !ctx.IsVerbose() {
+		t.Error("Expected IsVerbose()=true")
 	}
 
-	// NoNotify should still be true (safe default preserved)
-	if !ctx.NoNotify {
-		t.Error("Expected NoNotify=true (safe default)")
+	// NoNotify is still true from default, so ShouldNotify is false
+	if ctx.ShouldNotify() {
+		t.Error("Expected ShouldNotify()=false (default NoNotify=true)")
 	}
 }
 
@@ -69,15 +71,16 @@ func TestNewContext_MultipleOptions(t *testing.T) {
 		WithNoServices(true),
 	)
 
-	if ctx.DryRun {
-		t.Error("Expected DryRun=false")
+	if ctx.IsDryRun() {
+		t.Error("Expected IsDryRun()=false")
 	}
 
-	if ctx.MaxIterations != 20 {
-		t.Errorf("Expected MaxIterations=20, got %d", ctx.MaxIterations)
+	if ctx.MaxIterations() != 20 {
+		t.Errorf("Expected MaxIterations=20, got %d", ctx.MaxIterations())
 	}
 
-	if !ctx.NoServices {
-		t.Error("Expected NoServices=true")
+	// WithNoServices(true), noServices becomes true, so ShouldStartServices returns false
+	if ctx.ShouldStartServices() {
+		t.Error("Expected ShouldStartServices()=false when NoServices=true")
 	}
 }

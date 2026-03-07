@@ -9,24 +9,24 @@ requirements:
       - All fields on the MergeWorkflow struct in internal/workflow/merge_workflow.go are unexported
       - External callers that previously set fields directly (e.g. webhook/events.go setting PRNumber) pass values through constructor parameters instead
       - The Render and Submit methods continue to work via the unexported fields
-    passing: false
+    passing: true
 
   - category: services
     description: Process struct hides implementation details
     items:
       - The Cmd, PID, and Service fields on Process in internal/services/services.go are unexported
       - Only Name is exported on Process; callers use Stop() and IsRunning() for control
-    passing: false
+    passing: true
 
   - category: context
     description: Context struct uses a consistent access pattern
     items:
       - The Context struct in internal/context/context.go either uses unexported fields with getter methods, or exported fields without getter methods — not both
       - All callers are updated to use whichever pattern is chosen
-    passing: false
+    passing: true
 
   - category: webhook
     description: GithubPayload is unexported
     items:
       - The GithubPayload type in internal/webhook/payload.go is unexported since it is only used within the webhook package
-    passing: false
+    passing: true
