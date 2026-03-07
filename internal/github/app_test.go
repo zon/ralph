@@ -5,8 +5,11 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"strings"
@@ -293,4 +296,234 @@ func TestCleanupStaleTokenRewrites_Empty(t *testing.T) {
 			t.Error("user.name was unexpectedly removed")
 		}
 	})
+}
+
+func TestGetInstallationID_ReturnsIDOn200(t *testing.T) {
+	expectedID := int64(12345678)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]int64{"id": expectedID})
+	}))
+	defer server.Close()
+
+	serverURL := strings.TrimPrefix(server.URL, "http://")
+
+	oldTransport := http.DefaultTransport
+	http.DefaultTransport = &rewriteTransport{old: oldTransport, serverURL: serverURL}
+	defer func() { http.DefaultTransport = oldTransport }()
+
+	ctx := context.Background()
+	id, err := GetInstallationID(ctx, "test-jwt", "owner", "repo")
+
+	if err != nil {
+		t.Fatalf("GetInstallationID returned error: %v", err)
+	}
+	if id != expectedID {
+		t.Errorf("expected ID %d, got %d", expectedID, id)
+	}
+}
+
+func TestGetInstallationID_ReturnsErrorOnNon200(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		w.Write([]byte("Forbidden access"))
+	}))
+	defer server.Close()
+
+	serverURL := strings.TrimPrefix(server.URL, "http://")
+
+	oldTransport := http.DefaultTransport
+	http.DefaultTransport = &rewriteTransport{old: oldTransport, serverURL: serverURL}
+	defer func() { http.DefaultTransport = oldTransport }()
+
+	ctx := context.Background()
+	_, err := GetInstallationID(ctx, "test-jwt", "owner", "repo")
+
+	if err == nil {
+		t.Fatal("expected error for non-200 status, got nil")
+	}
+	errStr := err.Error()
+	if !strings.Contains(errStr, "403") {
+		t.Errorf("error should contain status code 403, got: %s", errStr)
+	}
+	if !strings.Contains(errStr, "Forbidden access") {
+		t.Errorf("error should contain response body, got: %s", errStr)
+	}
+}
+
+func TestGetInstallationID_ReturnsErrorOnInvalidJSON(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("not valid json"))
+	}))
+	defer server.Close()
+
+	serverURL := strings.TrimPrefix(server.URL, "http://")
+
+	oldTransport := http.DefaultTransport
+	http.DefaultTransport = &rewriteTransport{old: oldTransport, serverURL: serverURL}
+	defer func() { http.DefaultTransport = oldTransport }()
+
+	ctx := context.Background()
+	_, err := GetInstallationID(ctx, "test-jwt", "owner", "repo")
+
+	if err == nil {
+		t.Fatal("expected error for invalid JSON, got nil")
+	}
+}
+
+func TestGetInstallationID_SendsCorrectHeaders(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		auth := r.Header.Get("Authorization")
+		accept := r.Header.Get("Accept")
+		userAgent := r.Header.Get("User-Agent")
+
+		if !strings.HasPrefix(auth, "Bearer ") {
+			t.Errorf("Authorization header should start with 'Bearer ', got: %s", auth)
+		}
+		if accept != "application/vnd.github+json" {
+			t.Errorf("Accept header should be 'application/vnd.github+json', got: %s", accept)
+		}
+		if userAgent != "ralph" {
+			t.Errorf("User-Agent header should be 'ralph', got: %s", userAgent)
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]int64{"id": 12345})
+	}))
+	defer server.Close()
+
+	serverURL := strings.TrimPrefix(server.URL, "http://")
+
+	oldTransport := http.DefaultTransport
+	http.DefaultTransport = &rewriteTransport{old: oldTransport, serverURL: serverURL}
+	defer func() { http.DefaultTransport = oldTransport }()
+
+	ctx := context.Background()
+	_, err := GetInstallationID(ctx, "test-jwt-token", "owner", "repo")
+
+	if err != nil {
+		t.Fatalf("GetInstallationID returned error: %v", err)
+	}
+}
+
+func TestGetInstallationToken_ReturnsTokenOn201(t *testing.T) {
+	expectedToken := "gho_xxxxxxxxxxxx"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(map[string]string{"token": expectedToken})
+	}))
+	defer server.Close()
+
+	serverURL := strings.TrimPrefix(server.URL, "http://")
+
+	oldTransport := http.DefaultTransport
+	http.DefaultTransport = &rewriteTransport{old: oldTransport, serverURL: serverURL}
+	defer func() { http.DefaultTransport = oldTransport }()
+
+	ctx := context.Background()
+	token, err := GetInstallationToken(ctx, "test-jwt", 12345678)
+
+	if err != nil {
+		t.Fatalf("GetInstallationToken returned error: %v", err)
+	}
+	if token != expectedToken {
+		t.Errorf("expected token %q, got %q", expectedToken, token)
+	}
+}
+
+func TestGetInstallationToken_ReturnsErrorOnNon201(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Bad Request"))
+	}))
+	defer server.Close()
+
+	serverURL := strings.TrimPrefix(server.URL, "http://")
+
+	oldTransport := http.DefaultTransport
+	http.DefaultTransport = &rewriteTransport{old: oldTransport, serverURL: serverURL}
+	defer func() { http.DefaultTransport = oldTransport }()
+
+	ctx := context.Background()
+	_, err := GetInstallationToken(ctx, "test-jwt", 12345678)
+
+	if err == nil {
+		t.Fatal("expected error for non-201 status, got nil")
+	}
+	errStr := err.Error()
+	if !strings.Contains(errStr, "400") {
+		t.Errorf("error should contain status code 400, got: %s", errStr)
+	}
+}
+
+func TestGetInstallationToken_ReturnsErrorOnEmptyToken(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(map[string]string{"token": ""})
+	}))
+	defer server.Close()
+
+	serverURL := strings.TrimPrefix(server.URL, "http://")
+
+	oldTransport := http.DefaultTransport
+	http.DefaultTransport = &rewriteTransport{old: oldTransport, serverURL: serverURL}
+	defer func() { http.DefaultTransport = oldTransport }()
+
+	ctx := context.Background()
+	_, err := GetInstallationToken(ctx, "test-jwt", 12345678)
+
+	if err == nil {
+		t.Fatal("expected error for empty token, got nil")
+	}
+	errStr := err.Error()
+	if !strings.Contains(errStr, "empty") {
+		t.Errorf("error should mention empty token, got: %s", errStr)
+	}
+}
+
+func TestGetInstallationToken_ReturnsErrorOnInvalidJSON(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+		w.Write([]byte("not valid json"))
+	}))
+	defer server.Close()
+
+	serverURL := strings.TrimPrefix(server.URL, "http://")
+
+	oldTransport := http.DefaultTransport
+	http.DefaultTransport = &rewriteTransport{old: oldTransport, serverURL: serverURL}
+	defer func() { http.DefaultTransport = oldTransport }()
+
+	ctx := context.Background()
+	_, err := GetInstallationToken(ctx, "test-jwt", 12345678)
+
+	if err == nil {
+		t.Fatal("expected error for invalid JSON, got nil")
+	}
+}
+
+type rewriteTransport struct {
+	old       http.RoundTripper
+	serverURL string
+}
+
+func (rt *rewriteTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if req.URL.Host == "api.github.com" {
+		req = cloneRequest(req)
+		req.URL.Scheme = "http"
+		req.URL.Host = rt.serverURL
+		req.URL.Path = strings.Replace(req.URL.Path, "api.github.com", "", 1)
+		req.URL.RawPath = ""
+	}
+	return rt.old.RoundTrip(req)
+}
+
+func cloneRequest(req *http.Request) *http.Request {
+	newReq := *req
+	newReq.Header = make(http.Header, len(req.Header))
+	for k, v := range req.Header {
+		newReq.Header[k] = v
+	}
+	return &newReq
 }
