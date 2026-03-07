@@ -1,6 +1,7 @@
 package github
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/zon/ralph/internal/testutil"
@@ -56,16 +57,29 @@ func TestIsAuthenticated(t *testing.T) {
 
 func TestCreatePR(t *testing.T) {
 	tests := []struct {
-		name    string
-		dryRun  bool
-		title   string
-		body    string
-		base    string
-		head    string
-		wantErr bool
+		name        string
+		dryRun      bool
+		title       string
+		body        string
+		base        string
+		head        string
+		wantErr     bool
+		wantURL     string
+		checkDryRun bool
 	}{
 		{
-			name:    "dry-run mode returns URL",
+			name:        "dry-run mode returns URL containing dry-run",
+			dryRun:      true,
+			title:       "Test PR",
+			body:        "Test body",
+			base:        "main",
+			head:        "feature-branch",
+			wantErr:     false,
+			wantURL:     "dry-run",
+			checkDryRun: true,
+		},
+		{
+			name:    "dry-run mode does not invoke gh CLI",
 			dryRun:  true,
 			title:   "Test PR",
 			body:    "Test body",
@@ -88,6 +102,9 @@ func TestCreatePR(t *testing.T) {
 			}
 			if tt.dryRun && url == "" {
 				t.Error("CreatePR() in dry-run mode should return URL")
+			}
+			if tt.checkDryRun && !strings.Contains(url, tt.wantURL) {
+				t.Errorf("CreatePR() URL = %v, want it to contain %v", url, tt.wantURL)
 			}
 		})
 	}
@@ -117,6 +134,12 @@ func TestTruncate(t *testing.T) {
 			input:  "hello world this is a long string",
 			maxLen: 10,
 			want:   "hello worl...",
+		},
+		{
+			name:   "empty string",
+			input:  "",
+			maxLen: 10,
+			want:   "",
 		},
 	}
 
