@@ -52,8 +52,14 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		return fmt.Errorf("failed to resolve project file path: %w", err)
 	}
 
-	// Extract branch name from project file basename
-	branchName := extractBranchName(absProjectFile)
+	// Load project file to get the name field for branch naming
+	project, err := config.LoadProject(absProjectFile)
+	if err != nil {
+		return fmt.Errorf("failed to load project file: %w", err)
+	}
+
+	// Extract branch name from project name field
+	branchName := sanitizeBranchName(project.Name)
 	logger.Verbosef("Branch name: %s", branchName)
 
 	// Load configuration
@@ -131,7 +137,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	logger.Verbose("PR summary generated")
 
 	// Load project for PR title and notification
-	project, err := config.LoadProject(absProjectFile)
+	project, err = config.LoadProject(absProjectFile)
 	if err != nil {
 		return fmt.Errorf("failed to reload project after iteration loop: %w", err)
 	}
@@ -180,15 +186,9 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	return nil
 }
 
-// extractBranchName extracts a branch name from a project file path
-// Removes the file extension and sanitizes for git branch naming
-func extractBranchName(projectFile string) string {
-	// Get the base filename without directory
-	basename := filepath.Base(projectFile)
-
-	// Remove file extension
-	name := strings.TrimSuffix(basename, filepath.Ext(basename))
-
+// sanitizeBranchName sanitizes a project name for use as a git branch name
+// Takes a project name string (e.g., from YAML name field) and sanitizes it for git branch naming
+func sanitizeBranchName(name string) string {
 	// Sanitize for git branch naming:
 	// - Replace spaces, underscores, and dots with hyphens
 	// - Convert to lowercase
@@ -222,11 +222,30 @@ func extractBranchName(projectFile string) string {
 	return finalName
 }
 
+// extractBranchName extracts a branch name from a project file path
+// Removes the file extension and sanitizes for git branch naming
+func extractBranchName(projectFile string) string {
+	// Get the base filename without directory
+	basename := filepath.Base(projectFile)
+
+	// Remove file extension
+	name := strings.TrimSuffix(basename, filepath.Ext(basename))
+
+	return sanitizeBranchName(name)
+}
+
 // executeRemote handles remote execution via Argo Workflows
 func executeRemote(ctx *context.Context, absProjectFile string) error {
 	logger.Verbose("Submitting Argo Workflow...")
 
-	projectName := strings.TrimSuffix(filepath.Base(absProjectFile), filepath.Ext(absProjectFile))
+	// Load project file to get the name field for branch naming
+	project, err := config.LoadProject(absProjectFile)
+	if err != nil {
+		return fmt.Errorf("failed to load project file: %w", err)
+	}
+
+	projectName := project.Name
+	projectBranch := sanitizeBranchName(project.Name)
 
 	// Determine clone branch: use the override if provided, otherwise detect from local git
 	var currentBranch string
@@ -234,9 +253,8 @@ func executeRemote(ctx *context.Context, absProjectFile string) error {
 		currentBranch = ctx.Branch
 	} else {
 		if !git.IsGitRepository(ctx) {
-			return fmt.Errorf("not in a git repository - remote execution requires git")
+			return fmt.Errorf("not a git repository - remote execution requires git")
 		}
-		var err error
 		currentBranch, err = git.GetCurrentBranch(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to get current branch: %w", err)
@@ -247,8 +265,6 @@ func executeRemote(ctx *context.Context, absProjectFile string) error {
 			return err
 		}
 	}
-
-	projectBranch := extractBranchName(absProjectFile)
 
 	// Generate workflow - clone from current branch; workflow will create project branch inside container
 	logger.Verbose("Generating Argo Workflow...")
