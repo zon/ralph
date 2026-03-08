@@ -74,20 +74,53 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		return err
 	}
 
-	// Generate development prompt
-	logger.Verbose("Generating development prompt...")
-	devPrompt, err := prompt.BuildDevelopPrompt(ctx, absProjectFile)
-	if err != nil {
-		return fmt.Errorf("failed to build prompt: %w", err)
-	}
-	logger.Verbose("Development prompt generated")
+	if ctx.IsDryRun() || ctx.IsLocal() {
+		logger.Verbose("Skipping pick and develop phases in dry-run/local mode")
+	} else {
+		// Generate pick prompt and run picker agent
+		logger.Verbose("Generating pick prompt...")
+		pickPrompt, err := prompt.BuildPickPrompt(ctx, absProjectFile)
+		if err != nil {
+			return fmt.Errorf("failed to build pick prompt: %w", err)
+		}
+		logger.Verbose("Pick prompt generated")
 
-	// Run AI agent with prompt
-	logger.Verbose("Running AI agent...")
-	if err := ai.RunAgent(ctx, devPrompt); err != nil {
-		return fmt.Errorf("agent execution failed: %w", err)
+		logger.Verbose("Running picker agent...")
+		if err := ai.RunAgent(ctx, pickPrompt); err != nil {
+			return fmt.Errorf("picker agent execution failed: %w", err)
+		}
+		logger.Verbose("Picker agent execution completed")
+
+		// Read the selected requirement from picked-requirement.yaml
+		pickedReqPath := filepath.Join(filepath.Dir(absProjectFile), "picked-requirement.yaml")
+		pickedReqData, err := os.ReadFile(pickedReqPath)
+		if err != nil {
+			return fmt.Errorf("failed to read picked requirement: %w", err)
+		}
+		selectedRequirement := string(pickedReqData)
+
+		// Clean up picked-requirement.yaml
+		if err := os.Remove(pickedReqPath); err != nil {
+			logger.Verbosef("Failed to remove picked-requirement.yaml: %v", err)
+		} else {
+			logger.Verbose("Cleaned up picked-requirement.yaml")
+		}
+
+		// Generate development prompt with selected requirement
+		logger.Verbose("Generating development prompt...")
+		devPrompt, err := prompt.BuildDevelopPrompt(ctx, absProjectFile, selectedRequirement)
+		if err != nil {
+			return fmt.Errorf("failed to build prompt: %w", err)
+		}
+		logger.Verbose("Development prompt generated")
+
+		// Run AI agent with prompt
+		logger.Verbose("Running AI agent...")
+		if err := ai.RunAgent(ctx, devPrompt); err != nil {
+			return fmt.Errorf("agent execution failed: %w", err)
+		}
+		logger.Verbose("AI agent execution completed")
 	}
-	logger.Verbose("AI agent execution completed")
 
 	// Post-agent cleanup
 	if err := performPostAgentCleanup(ctx, absProjectFile, ralphConfig.Services); err != nil {
