@@ -34,14 +34,13 @@ func TestRun_NewProject(t *testing.T) {
 
 	branch := "e2e-noop-run"
 
-	ctx := &context.Context{
-		Repo:        cfg.Repo,
-		Branch:      cfg.Branch,
-		DebugBranch: cfg.DebugBranch,
-		Verbose:     true,
-		NoNotify:    true,
-		NoServices:  true,
-	}
+	ctx := &context.Context{}
+	ctx.SetRepo(cfg.Repo)
+	ctx.SetBranch(cfg.Branch)
+	ctx.SetDebugBranch(cfg.DebugBranch)
+	ctx.SetVerbose(true)
+	ctx.SetNoNotify(true)
+	ctx.SetNoServices(true)
 
 	t.Log("Generating Argo Workflow...")
 	wf, err := workflow.GenerateWorkflowWithGitInfo(
@@ -87,14 +86,13 @@ func TestRun_NewProject(t *testing.T) {
 func TestRun_DryRunWorkflow(t *testing.T) {
 	cfg := resolveConfig(t)
 
-	ctx := &context.Context{
-		Repo:        cfg.Repo,
-		Branch:      cfg.Branch,
-		DebugBranch: cfg.DebugBranch,
-		Verbose:     true,
-		NoNotify:    true,
-		NoServices:  true,
-	}
+	ctx := &context.Context{}
+	ctx.SetRepo(cfg.Repo)
+	ctx.SetBranch(cfg.Branch)
+	ctx.SetDebugBranch(cfg.DebugBranch)
+	ctx.SetVerbose(true)
+	ctx.SetNoNotify(true)
+	ctx.SetNoServices(true)
 
 	wf, err := workflow.GenerateWorkflowWithGitInfo(
 		ctx,
@@ -138,14 +136,13 @@ func TestRun_ResumesExistingBranch(t *testing.T) {
 	createRemoteBranch(t, cfg.Repo, branch, sha)
 	t.Cleanup(func() { cleanupBranchAndPR(t, cfg.Repo, branch) })
 
-	ctx := &context.Context{
-		Repo:        cfg.Repo,
-		Branch:      cfg.Branch,
-		DebugBranch: cfg.DebugBranch,
-		Verbose:     true,
-		NoNotify:    true,
-		NoServices:  true,
-	}
+	ctx := &context.Context{}
+	ctx.SetRepo(cfg.Repo)
+	ctx.SetBranch(cfg.Branch)
+	ctx.SetDebugBranch(cfg.DebugBranch)
+	ctx.SetVerbose(true)
+	ctx.SetNoNotify(true)
+	ctx.SetNoServices(true)
 
 	wf, err := workflow.GenerateWorkflowWithGitInfo(
 		ctx,
@@ -194,14 +191,13 @@ func TestRun_AICompletesSingleIteration(t *testing.T) {
 
 	branch := "e2e-ai-iteration"
 
-	ctx := &context.Context{
-		Repo:        cfg.Repo,
-		Branch:      cfg.Branch,
-		DebugBranch: cfg.DebugBranch,
-		Verbose:     true,
-		NoNotify:    true,
-		NoServices:  true,
-	}
+	ctx := &context.Context{}
+	ctx.SetRepo(cfg.Repo)
+	ctx.SetBranch(cfg.Branch)
+	ctx.SetDebugBranch(cfg.DebugBranch)
+	ctx.SetVerbose(true)
+	ctx.SetNoNotify(true)
+	ctx.SetNoServices(true)
 
 	t.Log("Generating Argo Workflow...")
 	wf, err := workflow.GenerateWorkflowWithGitInfo(
@@ -270,15 +266,14 @@ func TestExecute_LocalWithRealGit(t *testing.T) {
 	gitExec(t, repoDir, "add", ".")
 	gitExec(t, repoDir, "commit", "-m", "add e2e project file")
 
-	ctx := &context.Context{
-		ProjectFile:   projectFile,
-		MaxIterations: 3,
-		DryRun:        true, // suppress push and PR creation; real git reads still work
-		Local:         true,
-		Verbose:       true,
-		NoNotify:      true,
-		NoServices:    true,
-	}
+	ctx := &context.Context{}
+	ctx.SetProjectFile(projectFile)
+	ctx.SetMaxIterations(3)
+	ctx.SetDryRun(true) // suppress push and PR creation; real git reads still work
+	ctx.SetLocal(true)
+	ctx.SetVerbose(true)
+	ctx.SetNoNotify(true)
+	ctx.SetNoServices(true)
 
 	// Change cwd so config.LoadConfig() finds the (absent) .ralph/config.yaml —
 	// it falls back to defaults, which is fine.

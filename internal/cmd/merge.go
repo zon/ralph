@@ -24,8 +24,12 @@ type MergeCmd struct {
 	Verbose bool   `help:"Enable verbose logging" default:"false"`
 	Local   bool   `help:"Run merge locally instead of submitting an Argo workflow" default:"false"`
 	PR      string `help:"Pull request number" required:""`
+	Repo    string `help:"GitHub repository (owner/repo); defaults to repo detected from git remote" default:""`
 
 	cleanupRegistrar func(func()) `kong:"-"`
+	// ghMerger is called to merge the PR; defaults to the real gh CLI implementation.
+	// Tests inject a fake to avoid invoking gh.
+	ghMerger func(pr, repo string) error `kong:"-"`
 }
 
 // Run executes the merge command (implements kong.Run interface)
@@ -113,14 +117,51 @@ func (m *MergeCmd) runLocal() error {
 		return nil
 	}
 
-	cmd := exec.Command("gh", "pr", "merge", m.PR, "--merge", "--delete-branch", "--auto")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to merge PR #%s: %w", m.PR, err)
+	merger := m.ghMerger
+	if merger == nil {
+		merger = ghMerge
+	}
+	return merger(m.PR, m.Repo)
+}
+
+// ghMerge is the default implementation that calls the gh CLI to merge a PR.
+// It first attempts to enable auto-merge; if GitHub rejects that because the PR is
+// already in a "clean" (immediately mergeable) state, it falls back to a direct merge.
+func ghMerge(pr, repo string) error {
+	autoArgs := []string{"pr", "merge", pr, "--merge", "--delete-branch", "--auto"}
+	if repo != "" {
+		autoArgs = append(autoArgs, "--repo", repo)
+	}
+	var autoOut bytes.Buffer
+	autoCmd := exec.Command("gh", autoArgs...)
+	autoCmd.Stdout = os.Stdout
+	autoCmd.Stderr = &autoOut
+	if err := autoCmd.Run(); err != nil {
+		// GitHub rejects enablePullRequestAutoMerge when the PR is already in a "clean"
+		// state (all checks passed, ready to merge). In that case, merge immediately
+		// without --auto instead.
+		if strings.Contains(autoOut.String(), "clean status") {
+			logger.Verbosef("PR #%s is already mergeable, merging immediately", pr)
+			immediateArgs := []string{"pr", "merge", pr, "--merge", "--delete-branch"}
+			if repo != "" {
+				immediateArgs = append(immediateArgs, "--repo", repo)
+			}
+			var immediateOut bytes.Buffer
+			immediateCmd := exec.Command("gh", immediateArgs...)
+			immediateCmd.Stdout = os.Stdout
+			immediateCmd.Stderr = &immediateOut
+			if err := immediateCmd.Run(); err != nil {
+				fmt.Fprint(os.Stderr, immediateOut.String())
+				return fmt.Errorf("failed to merge PR #%s: %w", pr, err)
+			}
+			logger.Successf("Merged PR #%s", pr)
+			return nil
+		}
+		fmt.Fprint(os.Stderr, autoOut.String())
+		return fmt.Errorf("failed to merge PR #%s: %w", pr, err)
 	}
 
-	logger.Successf("Auto-merge enabled for PR #%s (will delete branch %s when merged)", m.PR, m.Branch)
+	logger.Successf("Auto-merge enabled for PR #%s", pr)
 	return nil
 }
 
