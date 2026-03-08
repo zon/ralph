@@ -32,6 +32,7 @@ go.work
 Thumbs.db
 
 report.md
+picked-requirement.yaml
 *.log
 
 # Secrets
