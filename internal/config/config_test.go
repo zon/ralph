@@ -160,17 +160,9 @@ func TestUpdateRequirementStatus(t *testing.T) {
 }
 
 func TestLoadConfig_Defaults(t *testing.T) {
-	// Create a temporary directory without config
-	tmpDir, err := os.MkdirTemp("", "ralph-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
-	// Change to temp directory
-	originalWd, _ := os.Getwd()
-	defer os.Chdir(originalWd)
-	os.Chdir(tmpDir)
+	t.Chdir(tmpDir)
 
 	config, err := LoadConfig()
 	if err != nil {
@@ -195,12 +187,9 @@ func TestLoadConfig_Defaults(t *testing.T) {
 }
 
 func TestLoadConfig_FromFile(t *testing.T) {
-	// Create a temporary directory with config
-	tmpDir, err := os.MkdirTemp("", "ralph-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
+
+	t.Chdir(tmpDir)
 
 	// Create .ralph directory
 	ralphDir := filepath.Join(tmpDir, ".ralph")
@@ -230,9 +219,7 @@ services:
 	}
 
 	// Change to temp directory
-	originalWd, _ := os.Getwd()
-	defer os.Chdir(originalWd)
-	os.Chdir(tmpDir)
+	t.Chdir(tmpDir)
 
 	config, err := LoadConfig()
 	if err != nil {
@@ -257,12 +244,7 @@ services:
 }
 
 func TestLoadProject(t *testing.T) {
-	// Create a temporary project file
-	tmpDir, err := os.MkdirTemp("", "ralph-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	projectContent := `name: test-project
 description: A test project
@@ -296,11 +278,7 @@ requirements:
 }
 
 func TestLoadProjectWithItems(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "ralph-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	// Project file matching ../slow-choice/projects/*.yaml format
 	projectContent := `name: test-with-items
@@ -364,11 +342,7 @@ requirements:
 }
 
 func TestLoadConfig_WithWorkDir(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "ralph-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	ralphDir := filepath.Join(tmpDir, ".ralph")
 	if err := os.Mkdir(ralphDir, 0755); err != nil {
@@ -391,9 +365,7 @@ services:
 		t.Fatalf("Failed to write config file: %v", err)
 	}
 
-	originalWd, _ := os.Getwd()
-	defer os.Chdir(originalWd)
-	os.Chdir(tmpDir)
+	t.Chdir(tmpDir)
 
 	cfg, err := LoadConfig()
 	if err != nil {
@@ -416,11 +388,7 @@ services:
 }
 
 func TestLoadConfig_WorkDirOmitted(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "ralph-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	ralphDir := filepath.Join(tmpDir, ".ralph")
 	if err := os.Mkdir(ralphDir, 0755); err != nil {
@@ -440,9 +408,7 @@ services:
 		t.Fatalf("Failed to write config file: %v", err)
 	}
 
-	originalWd, _ := os.Getwd()
-	defer os.Chdir(originalWd)
-	os.Chdir(tmpDir)
+	t.Chdir(tmpDir)
 
 	cfg, err := LoadConfig()
 	if err != nil {
@@ -465,11 +431,7 @@ services:
 }
 
 func TestSaveProject(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "ralph-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	project := &Project{
 		Name:        "test-project",
@@ -480,7 +442,7 @@ func TestSaveProject(t *testing.T) {
 	}
 
 	projectPath := filepath.Join(tmpDir, "project.yaml")
-	err = SaveProject(projectPath, project)
+	err := SaveProject(projectPath, project)
 	if err != nil {
 		t.Errorf("SaveProject() unexpected error: %v", err)
 	}
@@ -501,20 +463,13 @@ func TestSaveProject(t *testing.T) {
 }
 
 func TestLoadConfig_WithWorkflowConfig(t *testing.T) {
-	// Create a temporary directory with workflow config
-	tmpDir, err := os.MkdirTemp("", "ralph-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
-	// Create .ralph directory
 	ralphDir := filepath.Join(tmpDir, ".ralph")
 	if err := os.Mkdir(ralphDir, 0755); err != nil {
 		t.Fatalf("Failed to create .ralph dir: %v", err)
 	}
 
-	// Write config file with workflow settings
 	configContent := `maxIterations: 5
 baseBranch: main
 workflow:
@@ -538,10 +493,7 @@ workflow:
 		t.Fatalf("Failed to write config file: %v", err)
 	}
 
-	// Change to temp directory
-	originalWd, _ := os.Getwd()
-	defer os.Chdir(originalWd)
-	os.Chdir(tmpDir)
+	t.Chdir(tmpDir)
 
 	config, err := LoadConfig()
 	if err != nil {
@@ -599,34 +551,24 @@ workflow:
 }
 
 func TestLoadConfig_WithPartialWorkflowConfig(t *testing.T) {
-	// Create a temporary directory with minimal workflow config
-	tmpDir, err := os.MkdirTemp("", "ralph-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
-	// Create .ralph directory
 	ralphDir := filepath.Join(tmpDir, ".ralph")
 	if err := os.Mkdir(ralphDir, 0755); err != nil {
 		t.Fatalf("Failed to create .ralph dir: %v", err)
 	}
 
-	// Write config file with only image repository
 	configContent := `workflow:
   image:
     repository: my-registry/ralph
   context: dev-cluster
-`
+ `
 	configPath := filepath.Join(ralphDir, "config.yaml")
 	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
 		t.Fatalf("Failed to write config file: %v", err)
 	}
 
-	// Change to temp directory
-	originalWd, _ := os.Getwd()
-	defer os.Chdir(originalWd)
-	os.Chdir(tmpDir)
+	t.Chdir(tmpDir)
 
 	config, err := LoadConfig()
 	if err != nil {
@@ -657,32 +599,22 @@ func TestLoadConfig_WithPartialWorkflowConfig(t *testing.T) {
 }
 
 func TestLoadConfig_WithoutWorkflowConfig(t *testing.T) {
-	// Create a temporary directory with config but no workflow section
-	tmpDir, err := os.MkdirTemp("", "ralph-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
-	// Create .ralph directory
 	ralphDir := filepath.Join(tmpDir, ".ralph")
 	if err := os.Mkdir(ralphDir, 0755); err != nil {
 		t.Fatalf("Failed to create .ralph dir: %v", err)
 	}
 
-	// Write config file without workflow section
 	configContent := `maxIterations: 3
 baseBranch: main
-`
+ `
 	configPath := filepath.Join(ralphDir, "config.yaml")
 	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
 		t.Fatalf("Failed to write config file: %v", err)
 	}
 
-	// Change to temp directory
-	originalWd, _ := os.Getwd()
-	defer os.Chdir(originalWd)
-	os.Chdir(tmpDir)
+	t.Chdir(tmpDir)
 
 	config, err := LoadConfig()
 	if err != nil {
@@ -705,11 +637,7 @@ baseBranch: main
 }
 
 func TestApplyDefaults_Model(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "ralph-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	ralphDir := filepath.Join(tmpDir, ".ralph")
 	if err := os.Mkdir(ralphDir, 0755); err != nil {
@@ -717,15 +645,13 @@ func TestApplyDefaults_Model(t *testing.T) {
 	}
 
 	configContent := `model: ""
-`
+ `
 	configPath := filepath.Join(ralphDir, "config.yaml")
 	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
 		t.Fatalf("Failed to write config file: %v", err)
 	}
 
-	originalWd, _ := os.Getwd()
-	defer os.Chdir(originalWd)
-	os.Chdir(tmpDir)
+	t.Chdir(tmpDir)
 
 	config, err := LoadConfig()
 	if err != nil {
@@ -738,11 +664,7 @@ func TestApplyDefaults_Model(t *testing.T) {
 }
 
 func TestApplyDefaults_AppFields(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "ralph-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	ralphDir := filepath.Join(tmpDir, ".ralph")
 	if err := os.Mkdir(ralphDir, 0755); err != nil {
@@ -752,15 +674,13 @@ func TestApplyDefaults_AppFields(t *testing.T) {
 	configContent := `app:
   name: ""
   id: ""
-`
+ `
 	configPath := filepath.Join(ralphDir, "config.yaml")
 	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
 		t.Fatalf("Failed to write config file: %v", err)
 	}
 
-	originalWd, _ := os.Getwd()
-	defer os.Chdir(originalWd)
-	os.Chdir(tmpDir)
+	t.Chdir(tmpDir)
 
 	config, err := LoadConfig()
 	if err != nil {
@@ -776,11 +696,7 @@ func TestApplyDefaults_AppFields(t *testing.T) {
 }
 
 func TestApplyDefaults_ServiceTimeout(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "ralph-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	ralphDir := filepath.Join(tmpDir, ".ralph")
 	if err := os.Mkdir(ralphDir, 0755); err != nil {
@@ -793,15 +709,13 @@ func TestApplyDefaults_ServiceTimeout(t *testing.T) {
     timeout: 0
   - name: svc2
     command: echo
-`
+ `
 	configPath := filepath.Join(ralphDir, "config.yaml")
 	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
 		t.Fatalf("Failed to write config file: %v", err)
 	}
 
-	originalWd, _ := os.Getwd()
-	defer os.Chdir(originalWd)
-	os.Chdir(tmpDir)
+	t.Chdir(tmpDir)
 
 	config, err := LoadConfig()
 	if err != nil {
@@ -820,11 +734,7 @@ func TestApplyDefaults_ServiceTimeout(t *testing.T) {
 }
 
 func TestApplyDefaults_DoesNotOverwriteNonZeroValues(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "ralph-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	ralphDir := filepath.Join(tmpDir, ".ralph")
 	if err := os.Mkdir(ralphDir, 0755); err != nil {
@@ -841,15 +751,13 @@ services:
   - name: svc1
     command: echo
     timeout: 60
-`
+ `
 	configPath := filepath.Join(ralphDir, "config.yaml")
 	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
 		t.Fatalf("Failed to write config file: %v", err)
 	}
 
-	originalWd, _ := os.Getwd()
-	defer os.Chdir(originalWd)
-	os.Chdir(tmpDir)
+	t.Chdir(tmpDir)
 
 	config, err := LoadConfig()
 	if err != nil {
@@ -877,11 +785,7 @@ services:
 }
 
 func TestLoadConfig_CommentInstructionsFromFile(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "ralph-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	ralphDir := filepath.Join(tmpDir, ".ralph")
 	if err := os.Mkdir(ralphDir, 0755); err != nil {
@@ -889,7 +793,7 @@ func TestLoadConfig_CommentInstructionsFromFile(t *testing.T) {
 	}
 
 	configContent := `maxIterations: 3
-`
+ `
 	configPath := filepath.Join(ralphDir, "config.yaml")
 	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
 		t.Fatalf("Failed to write config file: %v", err)
@@ -901,9 +805,7 @@ func TestLoadConfig_CommentInstructionsFromFile(t *testing.T) {
 		t.Fatalf("Failed to write comment instructions file: %v", err)
 	}
 
-	originalWd, _ := os.Getwd()
-	defer os.Chdir(originalWd)
-	os.Chdir(tmpDir)
+	t.Chdir(tmpDir)
 
 	config, err := LoadConfig()
 	if err != nil {
@@ -916,11 +818,7 @@ func TestLoadConfig_CommentInstructionsFromFile(t *testing.T) {
 }
 
 func TestLoadConfig_MergeInstructionsFromFile(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "ralph-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	ralphDir := filepath.Join(tmpDir, ".ralph")
 	if err := os.Mkdir(ralphDir, 0755); err != nil {
@@ -940,9 +838,7 @@ func TestLoadConfig_MergeInstructionsFromFile(t *testing.T) {
 		t.Fatalf("Failed to write merge instructions file: %v", err)
 	}
 
-	originalWd, _ := os.Getwd()
-	defer os.Chdir(originalWd)
-	os.Chdir(tmpDir)
+	t.Chdir(tmpDir)
 
 	config, err := LoadConfig()
 	if err != nil {
@@ -955,11 +851,7 @@ func TestLoadConfig_MergeInstructionsFromFile(t *testing.T) {
 }
 
 func TestLoadConfig_DefaultInstructionsWhenFilesNotExist(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "ralph-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	ralphDir := filepath.Join(tmpDir, ".ralph")
 	if err := os.Mkdir(ralphDir, 0755); err != nil {
@@ -967,15 +859,13 @@ func TestLoadConfig_DefaultInstructionsWhenFilesNotExist(t *testing.T) {
 	}
 
 	configContent := `maxIterations: 3
-`
+ `
 	configPath := filepath.Join(ralphDir, "config.yaml")
 	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
 		t.Fatalf("Failed to write config file: %v", err)
 	}
 
-	originalWd, _ := os.Getwd()
-	defer os.Chdir(originalWd)
-	os.Chdir(tmpDir)
+	t.Chdir(tmpDir)
 
 	config, err := LoadConfig()
 	if err != nil {
@@ -994,11 +884,7 @@ func TestLoadConfig_DefaultInstructionsWhenFilesNotExist(t *testing.T) {
 }
 
 func TestLoadConfig_InvalidYAML(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "ralph-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	ralphDir := filepath.Join(tmpDir, ".ralph")
 	if err := os.Mkdir(ralphDir, 0755); err != nil {
@@ -1007,17 +893,15 @@ func TestLoadConfig_InvalidYAML(t *testing.T) {
 
 	invalidYAML := `maxIterations: [this is not valid yaml
   - broken
-`
+ `
 	configPath := filepath.Join(ralphDir, "config.yaml")
 	if err := os.WriteFile(configPath, []byte(invalidYAML), 0644); err != nil {
 		t.Fatalf("Failed to write config file: %v", err)
 	}
 
-	originalWd, _ := os.Getwd()
-	defer os.Chdir(originalWd)
-	os.Chdir(tmpDir)
+	t.Chdir(tmpDir)
 
-	_, err = LoadConfig()
+	_, err := LoadConfig()
 	if err == nil {
 		t.Error("LoadConfig() expected error for invalid YAML, got nil")
 	}
@@ -1031,11 +915,7 @@ func TestLoadProject_FileNotFound(t *testing.T) {
 }
 
 func TestSaveProjectRoundTrip(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "ralph-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	project := &Project{
 		Name:        "round-trip-test",
@@ -1047,7 +927,7 @@ func TestSaveProjectRoundTrip(t *testing.T) {
 	}
 
 	projectPath := filepath.Join(tmpDir, "roundtrip.yaml")
-	err = SaveProject(projectPath, project)
+	err := SaveProject(projectPath, project)
 	if err != nil {
 		t.Fatalf("SaveProject() unexpected error: %v", err)
 	}

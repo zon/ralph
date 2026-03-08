@@ -18,6 +18,8 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+var httpClient *http.Client
+
 // GenerateAppJWT generates a JWT for GitHub App authentication using RS256 signing
 func GenerateAppJWT(appID string, privateKeyPEM []byte) (string, error) {
 	if appID == "" {
@@ -64,7 +66,10 @@ func GetInstallationID(ctx context.Context, jwtToken, owner, repo string) (int64
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("User-Agent", "ralph")
 
-	client := &http.Client{}
+	client := httpClient
+	if client == nil {
+		client = &http.Client{}
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return 0, fmt.Errorf("failed to make request: %w", err)
@@ -100,7 +105,10 @@ func GetInstallationToken(ctx context.Context, jwtToken string, installationID i
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("User-Agent", "ralph")
 
-	client := &http.Client{}
+	client := httpClient
+	if client == nil {
+		client = &http.Client{}
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("failed to make request: %w", err)

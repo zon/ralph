@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/zon/ralph/internal/context"
+	"github.com/zon/ralph/internal/testutil"
 )
 
 func TestFindCompleteProjects(t *testing.T) {
@@ -308,9 +308,7 @@ invalid yaml syntax here`
 }
 
 func TestRemoveAndCommit_EmptyFiles(t *testing.T) {
-	ctx := &context.Context{}
-	ctx.SetDryRun(true)
-	ctx.SetVerbose(false)
+	ctx := testutil.NewContext()
 
 	err := RemoveAndCommit(ctx, []string{})
 	if err != nil {
@@ -336,9 +334,7 @@ requirements:
 		t.Fatalf("failed to write test file: %v", err)
 	}
 
-	ctx := &context.Context{}
-	ctx.SetDryRun(true)
-	ctx.SetVerbose(false)
+	ctx := testutil.NewContext()
 
 	err := RemoveAndCommit(ctx, []string{testFile})
 	if err != nil {
@@ -352,9 +348,7 @@ requirements:
 }
 
 func TestRemoveAndCommit_NonExistentFile(t *testing.T) {
-	ctx := &context.Context{}
-	ctx.SetDryRun(false)
-	ctx.SetVerbose(false)
+	ctx := testutil.NewContext(testutil.WithDryRun(false))
 
 	// Try to remove a non-existent file
 	err := RemoveAndCommit(ctx, []string{"/non/existent/file.yaml"})

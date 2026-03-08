@@ -225,7 +225,7 @@ func TestGetCurrentBranch_DetachedHead(t *testing.T) {
 	}
 
 	expectedMsg := "detached HEAD state"
-	if err != nil && !contains(err.Error(), expectedMsg) {
+	if err != nil && !testutil.Contains(err.Error(), expectedMsg) {
 		t.Errorf("Expected error containing '%s', got: %v", expectedMsg, err)
 	}
 }
@@ -474,7 +474,7 @@ func TestIsWorkflowPermissionError(t *testing.T) {
 			expected: true,
 		},
 		{
-			name:     "contains only the permission fragment",
+			name:     "testutil.Contains only the permission fragment",
 			output:   "without `workflows` permission",
 			expected: true,
 		},
@@ -693,12 +693,12 @@ func TestGetCommitLog_SinceBranch(t *testing.T) {
 	}
 
 	// Should contain our feature commits
-	if !contains(commitLog, "Feature commit") {
+	if !testutil.Contains(commitLog, "Feature commit") {
 		t.Errorf("Expected commit log to contain 'Feature commit', got: %s", commitLog)
 	}
 
 	// Should have both commits
-	if !contains(commitLog, "Feature commit 1") || !contains(commitLog, "Feature commit 2") {
+	if !testutil.Contains(commitLog, "Feature commit 1") || !testutil.Contains(commitLog, "Feature commit 2") {
 		t.Errorf("Expected both feature commits in log, got: %s", commitLog)
 	}
 }
@@ -716,7 +716,7 @@ func TestGetCommitLog_DryRun(t *testing.T) {
 	}
 
 	// Should contain dry-run format with colons
-	if !contains(commitLog, ":") {
+	if !testutil.Contains(commitLog, ":") {
 		t.Error("Expected dry-run commit log to contain ':' separator")
 	}
 }
@@ -782,11 +782,11 @@ func TestGetDiffSince(t *testing.T) {
 	}
 
 	// Diff should contain the new file
-	if !contains(diff, "changed.txt") {
+	if !testutil.Contains(diff, "changed.txt") {
 		t.Error("Expected diff to contain 'changed.txt'")
 	}
 
-	if !contains(diff, "new content") {
+	if !testutil.Contains(diff, "new content") {
 		t.Error("Expected diff to contain 'new content'")
 	}
 }
@@ -823,20 +823,6 @@ func TestGetDiffSince_NoDiff(t *testing.T) {
 	}
 }
 
-// Helper function to check if a string contains a substring
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && containsHelper(s, substr))
-}
-
-func containsHelper(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
-}
-
 func TestStageFile(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	originalDir, _ := os.Getwd()
@@ -866,12 +852,12 @@ func TestStageFile(t *testing.T) {
 	}
 
 	statusOutput := string(output)
-	if !contains(statusOutput, "newfile.txt") {
+	if !testutil.Contains(statusOutput, "newfile.txt") {
 		t.Errorf("Expected newfile.txt to be staged, git status output: %s", statusOutput)
 	}
 
 	// Check for 'A' (added) flag
-	if !contains(statusOutput, "A") {
+	if !testutil.Contains(statusOutput, "A") {
 		t.Errorf("Expected file to be marked as Added in git status, got: %s", statusOutput)
 	}
 }
@@ -932,7 +918,7 @@ func TestCommitChanges(t *testing.T) {
 	}
 
 	// Check that the commit message mentions the file
-	if !contains(commitLog, "new-file.txt") {
+	if !testutil.Contains(commitLog, "new-file.txt") {
 		t.Logf("Commit message: %s", commitLog)
 	}
 }
@@ -952,7 +938,7 @@ func TestCommitChanges_NoChanges(t *testing.T) {
 	}
 
 	expectedMsg := "no changes to commit"
-	if err != nil && !contains(err.Error(), expectedMsg) {
+	if err != nil && !testutil.Contains(err.Error(), expectedMsg) {
 		t.Errorf("Expected error containing '%s', got: %v", expectedMsg, err)
 	}
 }
@@ -1364,7 +1350,7 @@ func TestDeleteFile(t *testing.T) {
 	}
 
 	statusOutput := string(output)
-	if !contains(statusOutput, "D") {
+	if !testutil.Contains(statusOutput, "D") {
 		t.Errorf("Expected deletion to be staged (D), got: %s", statusOutput)
 	}
 }

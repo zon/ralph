@@ -308,9 +308,9 @@ func TestGetInstallationID_ReturnsIDOn200(t *testing.T) {
 
 	serverURL := strings.TrimPrefix(server.URL, "http://")
 
-	oldTransport := http.DefaultTransport
-	http.DefaultTransport = &rewriteTransport{old: oldTransport, serverURL: serverURL}
-	defer func() { http.DefaultTransport = oldTransport }()
+	oldClient := httpClient
+	httpClient = &http.Client{Transport: &rewriteTransport{old: http.DefaultTransport, serverURL: serverURL}}
+	defer func() { httpClient = oldClient }()
 
 	ctx := context.Background()
 	id, err := GetInstallationID(ctx, "test-jwt", "owner", "repo")
@@ -332,9 +332,9 @@ func TestGetInstallationID_ReturnsErrorOnNon200(t *testing.T) {
 
 	serverURL := strings.TrimPrefix(server.URL, "http://")
 
-	oldTransport := http.DefaultTransport
-	http.DefaultTransport = &rewriteTransport{old: oldTransport, serverURL: serverURL}
-	defer func() { http.DefaultTransport = oldTransport }()
+	oldClient := httpClient
+	httpClient = &http.Client{Transport: &rewriteTransport{old: http.DefaultTransport, serverURL: serverURL}}
+	defer func() { httpClient = oldClient }()
 
 	ctx := context.Background()
 	_, err := GetInstallationID(ctx, "test-jwt", "owner", "repo")
@@ -360,9 +360,9 @@ func TestGetInstallationID_ReturnsErrorOnInvalidJSON(t *testing.T) {
 
 	serverURL := strings.TrimPrefix(server.URL, "http://")
 
-	oldTransport := http.DefaultTransport
-	http.DefaultTransport = &rewriteTransport{old: oldTransport, serverURL: serverURL}
-	defer func() { http.DefaultTransport = oldTransport }()
+	oldClient := httpClient
+	httpClient = &http.Client{Transport: &rewriteTransport{old: http.DefaultTransport, serverURL: serverURL}}
+	defer func() { httpClient = oldClient }()
 
 	ctx := context.Background()
 	_, err := GetInstallationID(ctx, "test-jwt", "owner", "repo")
@@ -395,9 +395,9 @@ func TestGetInstallationID_SendsCorrectHeaders(t *testing.T) {
 
 	serverURL := strings.TrimPrefix(server.URL, "http://")
 
-	oldTransport := http.DefaultTransport
-	http.DefaultTransport = &rewriteTransport{old: oldTransport, serverURL: serverURL}
-	defer func() { http.DefaultTransport = oldTransport }()
+	oldClient := httpClient
+	httpClient = &http.Client{Transport: &rewriteTransport{old: http.DefaultTransport, serverURL: serverURL}}
+	defer func() { httpClient = oldClient }()
 
 	ctx := context.Background()
 	_, err := GetInstallationID(ctx, "test-jwt-token", "owner", "repo")
@@ -417,9 +417,9 @@ func TestGetInstallationToken_ReturnsTokenOn201(t *testing.T) {
 
 	serverURL := strings.TrimPrefix(server.URL, "http://")
 
-	oldTransport := http.DefaultTransport
-	http.DefaultTransport = &rewriteTransport{old: oldTransport, serverURL: serverURL}
-	defer func() { http.DefaultTransport = oldTransport }()
+	oldClient := httpClient
+	httpClient = &http.Client{Transport: &rewriteTransport{old: http.DefaultTransport, serverURL: serverURL}}
+	defer func() { httpClient = oldClient }()
 
 	ctx := context.Background()
 	token, err := GetInstallationToken(ctx, "test-jwt", 12345678)
@@ -441,9 +441,9 @@ func TestGetInstallationToken_ReturnsErrorOnNon201(t *testing.T) {
 
 	serverURL := strings.TrimPrefix(server.URL, "http://")
 
-	oldTransport := http.DefaultTransport
-	http.DefaultTransport = &rewriteTransport{old: oldTransport, serverURL: serverURL}
-	defer func() { http.DefaultTransport = oldTransport }()
+	oldClient := httpClient
+	httpClient = &http.Client{Transport: &rewriteTransport{old: http.DefaultTransport, serverURL: serverURL}}
+	defer func() { httpClient = oldClient }()
 
 	ctx := context.Background()
 	_, err := GetInstallationToken(ctx, "test-jwt", 12345678)
@@ -466,9 +466,9 @@ func TestGetInstallationToken_ReturnsErrorOnEmptyToken(t *testing.T) {
 
 	serverURL := strings.TrimPrefix(server.URL, "http://")
 
-	oldTransport := http.DefaultTransport
-	http.DefaultTransport = &rewriteTransport{old: oldTransport, serverURL: serverURL}
-	defer func() { http.DefaultTransport = oldTransport }()
+	oldClient := httpClient
+	httpClient = &http.Client{Transport: &rewriteTransport{old: http.DefaultTransport, serverURL: serverURL}}
+	defer func() { httpClient = oldClient }()
 
 	ctx := context.Background()
 	_, err := GetInstallationToken(ctx, "test-jwt", 12345678)
@@ -491,9 +491,9 @@ func TestGetInstallationToken_ReturnsErrorOnInvalidJSON(t *testing.T) {
 
 	serverURL := strings.TrimPrefix(server.URL, "http://")
 
-	oldTransport := http.DefaultTransport
-	http.DefaultTransport = &rewriteTransport{old: oldTransport, serverURL: serverURL}
-	defer func() { http.DefaultTransport = oldTransport }()
+	oldClient := httpClient
+	httpClient = &http.Client{Transport: &rewriteTransport{old: http.DefaultTransport, serverURL: serverURL}}
+	defer func() { httpClient = oldClient }()
 
 	ctx := context.Background()
 	_, err := GetInstallationToken(ctx, "test-jwt", 12345678)

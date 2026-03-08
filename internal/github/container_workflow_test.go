@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/zon/ralph/internal/testutil"
 	"gopkg.in/yaml.v3"
 )
 
@@ -99,13 +100,13 @@ func TestContainerBuildWorkflow(t *testing.T) {
 	foundPodmanPush := false
 	for _, run := range stepRun {
 		if run != "" {
-			if contains(run, "podman login") {
+			if testutil.Contains(run, "podman login") {
 				foundPodmanLogin = true
 			}
-			if contains(run, "podman build") {
+			if testutil.Contains(run, "podman build") {
 				foundPodmanBuild = true
 			}
-			if contains(run, "podman push") {
+			if testutil.Contains(run, "podman push") {
 				foundPodmanPush = true
 			}
 		}
@@ -136,13 +137,13 @@ func TestContainerBuildWorkflow(t *testing.T) {
 
 			require.NotEmpty(t, tagStrings, "build-push-action should have tags")
 			for _, tagStr := range tagStrings {
-				if contains(tagStr, "latest") {
+				if testutil.Contains(tagStr, "latest") {
 					hasLatestTag = true
 				}
-				if contains(tagStr, "steps.version.outputs.VERSION") {
+				if testutil.Contains(tagStr, "steps.version.outputs.VERSION") {
 					hasVersionTag = true
 				}
-				if contains(tagStr, "GITHUB_SHA") || contains(tagStr, "SHORT_SHA") {
+				if testutil.Contains(tagStr, "GITHUB_SHA") || testutil.Contains(tagStr, "SHORT_SHA") {
 					hasShaTag = true
 				}
 			}
@@ -151,8 +152,4 @@ func TestContainerBuildWorkflow(t *testing.T) {
 	require.True(t, hasLatestTag, "workflow should tag image with latest")
 	require.True(t, hasVersionTag, "workflow should tag image with version from VERSION file (3.2.0)")
 	require.False(t, hasShaTag, "workflow should NOT tag image with short commit SHA")
-}
-
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > 0 && (s[:len(substr)] == substr || contains(s[1:], substr)))
 }

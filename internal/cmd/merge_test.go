@@ -271,7 +271,7 @@ echo '%s'
 `, string(prJSON))
 	scriptPath := filepath.Join(tmpDir, "gh")
 	require.NoError(t, os.WriteFile(scriptPath, []byte(ghScript), 0755))
-	os.Setenv("PATH", tmpDir+":"+os.Getenv("PATH"))
+	t.Setenv("PATH", tmpDir+":"+os.Getenv("PATH"))
 
 	err = waitForGitHubHead("1")
 	require.NoError(t, err)
@@ -296,7 +296,7 @@ echo '{"headRefOid": "different12345678901234567890123456789012"}'
 `
 	scriptPath := filepath.Join(tmpDir, "gh")
 	require.NoError(t, os.WriteFile(scriptPath, []byte(ghScript), 0755))
-	os.Setenv("PATH", tmpDir+":"+os.Getenv("PATH"))
+	t.Setenv("PATH", tmpDir+":"+os.Getenv("PATH"))
 
 	err = waitForGitHubHead("1")
 	require.Error(t, err)
@@ -322,7 +322,7 @@ func TestWaitForGitHubHeadGhCommandFails(t *testing.T) {
 `
 	scriptPath := filepath.Join(tmpDir, "gh")
 	require.NoError(t, os.WriteFile(scriptPath, []byte(ghScript), 0755))
-	os.Setenv("PATH", tmpDir+":"+os.Getenv("PATH"))
+	t.Setenv("PATH", tmpDir+":"+os.Getenv("PATH"))
 
 	err = waitForGitHubHead("1")
 	require.Error(t, err)
@@ -348,7 +348,7 @@ echo 'invalid json'
 `
 	scriptPath := filepath.Join(tmpDir, "gh")
 	require.NoError(t, os.WriteFile(scriptPath, []byte(ghScript), 0755))
-	os.Setenv("PATH", tmpDir+":"+os.Getenv("PATH"))
+	t.Setenv("PATH", tmpDir+":"+os.Getenv("PATH"))
 
 	err = waitForGitHubHead("1")
 	require.Error(t, err)
