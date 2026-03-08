@@ -1,6 +1,10 @@
 package context
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
 
 func TestShouldNotify(t *testing.T) {
 	tests := []struct {
@@ -61,10 +65,7 @@ func TestShouldNotify(t *testing.T) {
 			ctx.SetFollow(tt.follow)
 
 			result := ctx.ShouldNotify()
-			if result != tt.expectNotify {
-				t.Errorf("%s: expected ShouldNotify()=%v, got %v",
-					tt.description, tt.expectNotify, result)
-			}
+			assert.Equal(t, tt.expectNotify, result, tt.description)
 		})
 	}
 }
@@ -90,9 +91,7 @@ func TestIsLocal(t *testing.T) {
 			ctx.SetLocal(tt.local)
 
 			result := ctx.IsLocal()
-			if result != tt.local {
-				t.Errorf("expected IsLocal()=%v, got %v", tt.local, result)
-			}
+			assert.Equal(t, tt.local, result, "IsLocal should match the set value")
 		})
 	}
 }
@@ -118,9 +117,7 @@ func TestShouldFollow(t *testing.T) {
 			ctx.SetFollow(tt.follow)
 
 			result := ctx.ShouldFollow()
-			if result != tt.follow {
-				t.Errorf("expected ShouldFollow()=%v, got %v", tt.follow, result)
-			}
+			assert.Equal(t, tt.follow, result, "ShouldFollow should match the set value")
 		})
 	}
 }
@@ -128,31 +125,16 @@ func TestShouldFollow(t *testing.T) {
 func TestAddNote(t *testing.T) {
 	ctx := &Context{}
 
-	// Initially should have no notes
-	if ctx.HasNotes() {
-		t.Error("New context should not have notes")
-	}
+	assert.False(t, ctx.HasNotes(), "New context should not have notes")
 
-	// Add first note
 	ctx.AddNote("First note")
-	if !ctx.HasNotes() {
-		t.Error("Context should have notes after adding one")
-	}
-	if len(ctx.Notes()) != 1 {
-		t.Errorf("Expected 1 note, got %d", len(ctx.Notes()))
-	}
-	if ctx.Notes()[0] != "First note" {
-		t.Errorf("Expected note 'First note', got '%s'", ctx.Notes()[0])
-	}
+	assert.True(t, ctx.HasNotes(), "Context should have notes after adding one")
+	assert.Len(t, ctx.Notes(), 1, "Should have 1 note")
+	assert.Equal(t, "First note", ctx.Notes()[0], "First note should match")
 
-	// Add second note
 	ctx.AddNote("Second note")
-	if len(ctx.Notes()) != 2 {
-		t.Errorf("Expected 2 notes, got %d", len(ctx.Notes()))
-	}
-	if ctx.Notes()[1] != "Second note" {
-		t.Errorf("Expected note 'Second note', got '%s'", ctx.Notes()[1])
-	}
+	assert.Len(t, ctx.Notes(), 2, "Should have 2 notes")
+	assert.Equal(t, "Second note", ctx.Notes()[1], "Second note should match")
 }
 
 func TestHasNotes(t *testing.T) {
@@ -191,9 +173,7 @@ func TestHasNotes(t *testing.T) {
 			}
 
 			result := ctx.HasNotes()
-			if result != tt.expectHas {
-				t.Errorf("expected HasNotes()=%v, got %v", tt.expectHas, result)
-			}
+			assert.Equal(t, tt.expectHas, result, "HasNotes should match expected value")
 		})
 	}
 }

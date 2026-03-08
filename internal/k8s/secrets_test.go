@@ -3,6 +3,8 @@ package k8s
 import (
 	"slices"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestSecretNames(t *testing.T) {
@@ -25,9 +27,7 @@ func TestSecretNames(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.constant != tt.expected {
-				t.Errorf("expected %q, got %q", tt.expected, tt.constant)
-			}
+			assert.Equal(t, tt.expected, tt.constant, "Secret name should match expected value")
 		})
 	}
 }
@@ -102,42 +102,34 @@ func TestBuildSecretArgs(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			args := buildSecretArgs(tt.secretName, tt.namespace, tt.kubeContext, tt.data)
 
-			if args[0] != "create" || args[1] != "secret" || args[2] != "generic" || args[3] != tt.secretName {
-				t.Errorf("expected command starting with create secret generic %s, got: %v", tt.secretName, args[:4])
-			}
+			assert.Equal(t, "create", args[0], "First arg should be 'create'")
+			assert.Equal(t, "secret", args[1], "Second arg should be 'secret'")
+			assert.Equal(t, "generic", args[2], "Third arg should be 'generic'")
+			assert.Equal(t, tt.secretName, args[3], "Fourth arg should be secret name")
 
-			if args[len(args)-3] != "--dry-run=client" || args[len(args)-2] != "-o" || args[len(args)-1] != "yaml" {
-				t.Errorf("expected --dry-run=client -o yaml at end, got: %v", args[len(args)-3:])
-			}
+			assert.Equal(t, "--dry-run=client", args[len(args)-3], "Third to last arg should be --dry-run=client")
+			assert.Equal(t, "-o", args[len(args)-2], "Second to last arg should be -o")
+			assert.Equal(t, "yaml", args[len(args)-1], "Last arg should be yaml")
 
 			nsIdx := slices.Index(args, "-n")
-			if nsIdx == -1 || args[nsIdx+1] != tt.namespace {
-				if tt.namespace == "" && args[nsIdx+1] != "default" {
-					t.Errorf("expected namespace 'default', got: %v", args)
-				} else if tt.namespace != "" && args[nsIdx+1] != tt.namespace {
-					t.Errorf("expected namespace %q, got: %v", tt.namespace, args)
-				}
+			assert.NotEqual(t, -1, nsIdx, "Should have -n flag in args")
+			if tt.namespace == "" {
+				assert.Equal(t, "default", args[nsIdx+1], "Empty namespace should default to 'default'")
+			} else {
+				assert.Equal(t, tt.namespace, args[nsIdx+1], "Namespace should match")
 			}
 
 			for key, value := range tt.data {
 				expectedFlag := "--from-literal=" + key + "=" + value
-				if !slices.Contains(args, expectedFlag) {
-					t.Errorf("expected --from-literal=%s=%s in args, got: %v", key, value, args)
-				}
+				assert.True(t, slices.Contains(args, expectedFlag), "Should contain %s in args", expectedFlag)
 			}
 
 			if tt.expectContext {
-				if !slices.Contains(args, "--context") {
-					t.Error("expected --context flag in args")
-				}
+				assert.True(t, slices.Contains(args, "--context"), "Should contain --context flag")
 				ctxIdx := slices.Index(args, "--context")
-				if args[ctxIdx+1] != tt.kubeContext {
-					t.Errorf("expected context %q, got %q", tt.kubeContext, args[ctxIdx+1])
-				}
+				assert.Equal(t, tt.kubeContext, args[ctxIdx+1], "Context value should match")
 			} else {
-				if slices.Contains(args, "--context") {
-					t.Error("did not expect --context flag in args")
-				}
+				assert.False(t, slices.Contains(args, "--context"), "Should not contain --context flag")
 			}
 		})
 	}
@@ -168,20 +160,13 @@ func TestBuildSecretApplyArgs(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			args := buildSecretApplyArgs(tt.kubeContext)
 
-			if len(args) != len(tt.expectedArgs) {
-				t.Errorf("expected %d args, got %d: %v", len(tt.expectedArgs), len(args), args)
-			}
-
+			assert.Len(t, args, len(tt.expectedArgs), "Args length should match")
 			for i, expected := range tt.expectedArgs {
-				if args[i] != expected {
-					t.Errorf("arg %d: expected %q, got %q", i, expected, args[i])
-				}
+				assert.Equal(t, expected, args[i], "Arg %d should match", i)
 			}
 
 			if tt.expectContext {
-				if !slices.Contains(args, "--context") {
-					t.Error("expected --context flag in args")
-				}
+				assert.True(t, slices.Contains(args, "--context"), "Should contain --context flag")
 			}
 		})
 	}
@@ -234,46 +219,33 @@ func TestBuildConfigMapArgs(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			args := buildConfigMapArgs(tt.configMapName, tt.namespace, tt.kubeContext, tt.data)
 
-			if args[0] != "create" || args[1] != "configmap" || args[2] != tt.configMapName {
-				t.Errorf("expected command starting with create configmap %s, got: %v", tt.configMapName, args[:3])
-			}
+			assert.Equal(t, "create", args[0], "First arg should be 'create'")
+			assert.Equal(t, "configmap", args[1], "Second arg should be 'configmap'")
+			assert.Equal(t, tt.configMapName, args[2], "Third arg should be configmap name")
 
-			if args[len(args)-3] != "--dry-run=client" || args[len(args)-2] != "-o" || args[len(args)-1] != "yaml" {
-				t.Errorf("expected --dry-run=client -o yaml at end, got: %v", args[len(args)-3:])
-			}
+			assert.Equal(t, "--dry-run=client", args[len(args)-3], "Third to last arg should be --dry-run=client")
+			assert.Equal(t, "-o", args[len(args)-2], "Second to last arg should be -o")
+			assert.Equal(t, "yaml", args[len(args)-1], "Last arg should be yaml")
 
 			nsIdx := slices.Index(args, "-n")
-			if nsIdx == -1 {
-				t.Error("expected -n flag in args")
-			} else {
-				expectedNS := tt.namespace
-				if expectedNS == "" {
-					expectedNS = "default"
-				}
-				if args[nsIdx+1] != expectedNS {
-					t.Errorf("expected namespace %q, got %q", expectedNS, args[nsIdx+1])
-				}
+			assert.NotEqual(t, -1, nsIdx, "Should have -n flag in args")
+			expectedNS := tt.namespace
+			if expectedNS == "" {
+				expectedNS = "default"
 			}
+			assert.Equal(t, expectedNS, args[nsIdx+1], "Namespace should match")
 
 			for key, value := range tt.data {
 				expectedFlag := "--from-literal=" + key + "=" + value
-				if !slices.Contains(args, expectedFlag) {
-					t.Errorf("expected --from-literal=%s=%s in args, got: %v", key, value, args)
-				}
+				assert.True(t, slices.Contains(args, expectedFlag), "Should contain %s in args", expectedFlag)
 			}
 
 			if tt.expectContext {
-				if !slices.Contains(args, "--context") {
-					t.Error("expected --context flag in args")
-				}
+				assert.True(t, slices.Contains(args, "--context"), "Should contain --context flag")
 				ctxIdx := slices.Index(args, "--context")
-				if args[ctxIdx+1] != tt.kubeContext {
-					t.Errorf("expected context %q, got %q", tt.kubeContext, args[ctxIdx+1])
-				}
+				assert.Equal(t, tt.kubeContext, args[ctxIdx+1], "Context value should match")
 			} else {
-				if slices.Contains(args, "--context") {
-					t.Error("did not expect --context flag in args")
-				}
+				assert.False(t, slices.Contains(args, "--context"), "Should not contain --context flag")
 			}
 		})
 	}
@@ -304,20 +276,13 @@ func TestBuildConfigMapApplyArgs(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			args := buildConfigMapApplyArgs(tt.kubeContext)
 
-			if len(args) != len(tt.expectedArgs) {
-				t.Errorf("expected %d args, got %d: %v", len(tt.expectedArgs), len(args), args)
-			}
-
+			assert.Len(t, args, len(tt.expectedArgs), "Args length should match")
 			for i, expected := range tt.expectedArgs {
-				if args[i] != expected {
-					t.Errorf("arg %d: expected %q, got %q", i, expected, args[i])
-				}
+				assert.Equal(t, expected, args[i], "Arg %d should match", i)
 			}
 
 			if tt.expectContext {
-				if !slices.Contains(args, "--context") {
-					t.Error("expected --context flag in args")
-				}
+				assert.True(t, slices.Contains(args, "--context"), "Should contain --context flag")
 			}
 		})
 	}

@@ -23,15 +23,7 @@ func TestMergeCmdRunLocalWithCompleteProjects(t *testing.T) {
 	}
 
 	// Change to temp directory
-	originalDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("failed to get current directory: %v", err)
-	}
-	defer os.Chdir(originalDir)
-
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("failed to change to temp directory: %v", err)
-	}
+	t.Chdir(tmpDir)
 
 	// Create a complete project file
 	completeProject := filepath.Join(projectsDir, "complete-project.yaml")
@@ -135,10 +127,7 @@ func TestMergeCmdRunLocalDryRunWithCompleteProjects(t *testing.T) {
 	projectsDir := filepath.Join(tmpDir, "projects")
 	require.NoError(t, os.MkdirAll(projectsDir, 0755))
 
-	originalDir, err := os.Getwd()
-	require.NoError(t, err)
-	defer os.Chdir(originalDir)
-	require.NoError(t, os.Chdir(tmpDir))
+	t.Chdir(tmpDir)
 
 	completeProject := filepath.Join(projectsDir, "complete-project.yaml")
 	content := `name: complete-project
@@ -168,17 +157,14 @@ requirements:
 		Verbose: true,
 	}
 
-	err = cmd.Run()
+	err := cmd.Run()
 	require.NoError(t, err)
 }
 
 func TestMergeCmdRunLocalFindCompleteProjectsError(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	originalDir, err := os.Getwd()
-	require.NoError(t, err)
-	defer os.Chdir(originalDir)
-	require.NoError(t, os.Chdir(tmpDir))
+	t.Chdir(tmpDir)
 
 	require.NoError(t, initGitRepo(tmpDir))
 
@@ -199,7 +185,7 @@ func TestMergeCmdRunLocalFindCompleteProjectsError(t *testing.T) {
 		Local:  true,
 	}
 
-	err = cmd.Run()
+	err := cmd.Run()
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed")
 }
@@ -209,10 +195,7 @@ func TestMergeCmdRunLocalRemoveAndCommitError(t *testing.T) {
 	projectsDir := filepath.Join(tmpDir, "projects")
 	require.NoError(t, os.MkdirAll(projectsDir, 0755))
 
-	originalDir, err := os.Getwd()
-	require.NoError(t, err)
-	defer os.Chdir(originalDir)
-	require.NoError(t, os.Chdir(tmpDir))
+	t.Chdir(tmpDir)
 
 	completeProject := filepath.Join(projectsDir, "complete-project.yaml")
 	content := `name: complete-project
@@ -237,7 +220,7 @@ requirements:
 		Local:  true,
 	}
 
-	err = cmd.Run()
+	err := cmd.Run()
 	os.Chmod(completeProject, 0644)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to push after removing complete projects")
@@ -245,10 +228,7 @@ requirements:
 
 func TestWaitForGitHubHeadMatchesLocalSHA(t *testing.T) {
 	tmpDir := t.TempDir()
-	originalDir, err := os.Getwd()
-	require.NoError(t, err)
-	defer os.Chdir(originalDir)
-	require.NoError(t, os.Chdir(tmpDir))
+	t.Chdir(tmpDir)
 
 	require.NoError(t, initGitRepo(tmpDir))
 
@@ -271,18 +251,15 @@ echo '%s'
 `, string(prJSON))
 	scriptPath := filepath.Join(tmpDir, "gh")
 	require.NoError(t, os.WriteFile(scriptPath, []byte(ghScript), 0755))
-	os.Setenv("PATH", tmpDir+":"+os.Getenv("PATH"))
+	t.Setenv("PATH", tmpDir+":"+os.Getenv("PATH"))
 
-	err = waitForGitHubHead("1")
+	err := waitForGitHubHead("1")
 	require.NoError(t, err)
 }
 
 func TestWaitForGitHubHeadTimeout(t *testing.T) {
 	tmpDir := t.TempDir()
-	originalDir, err := os.Getwd()
-	require.NoError(t, err)
-	defer os.Chdir(originalDir)
-	require.NoError(t, os.Chdir(tmpDir))
+	t.Chdir(tmpDir)
 
 	require.NoError(t, initGitRepo(tmpDir))
 
@@ -296,19 +273,16 @@ echo '{"headRefOid": "different12345678901234567890123456789012"}'
 `
 	scriptPath := filepath.Join(tmpDir, "gh")
 	require.NoError(t, os.WriteFile(scriptPath, []byte(ghScript), 0755))
-	os.Setenv("PATH", tmpDir+":"+os.Getenv("PATH"))
+	t.Setenv("PATH", tmpDir+":"+os.Getenv("PATH"))
 
-	err = waitForGitHubHead("1")
+	err := waitForGitHubHead("1")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "timed out waiting for GitHub to sync push")
 }
 
 func TestWaitForGitHubHeadGhCommandFails(t *testing.T) {
 	tmpDir := t.TempDir()
-	originalDir, err := os.Getwd()
-	require.NoError(t, err)
-	defer os.Chdir(originalDir)
-	require.NoError(t, os.Chdir(tmpDir))
+	t.Chdir(tmpDir)
 
 	require.NoError(t, initGitRepo(tmpDir))
 
@@ -322,19 +296,16 @@ func TestWaitForGitHubHeadGhCommandFails(t *testing.T) {
 `
 	scriptPath := filepath.Join(tmpDir, "gh")
 	require.NoError(t, os.WriteFile(scriptPath, []byte(ghScript), 0755))
-	os.Setenv("PATH", tmpDir+":"+os.Getenv("PATH"))
+	t.Setenv("PATH", tmpDir+":"+os.Getenv("PATH"))
 
-	err = waitForGitHubHead("1")
+	err := waitForGitHubHead("1")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to query PR head")
 }
 
 func TestWaitForGitHubHeadParseError(t *testing.T) {
 	tmpDir := t.TempDir()
-	originalDir, err := os.Getwd()
-	require.NoError(t, err)
-	defer os.Chdir(originalDir)
-	require.NoError(t, os.Chdir(tmpDir))
+	t.Chdir(tmpDir)
 
 	require.NoError(t, initGitRepo(tmpDir))
 
@@ -348,9 +319,9 @@ echo 'invalid json'
 `
 	scriptPath := filepath.Join(tmpDir, "gh")
 	require.NoError(t, os.WriteFile(scriptPath, []byte(ghScript), 0755))
-	os.Setenv("PATH", tmpDir+":"+os.Getenv("PATH"))
+	t.Setenv("PATH", tmpDir+":"+os.Getenv("PATH"))
 
-	err = waitForGitHubHead("1")
+	err := waitForGitHubHead("1")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to parse PR head response")
 }
@@ -358,10 +329,7 @@ echo 'invalid json'
 func TestMergeCmdRunLocalDryRunWithNoProjectsDirectory(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	originalDir, err := os.Getwd()
-	require.NoError(t, err)
-	defer os.Chdir(originalDir)
-	require.NoError(t, os.Chdir(tmpDir))
+	t.Chdir(tmpDir)
 
 	require.NoError(t, initGitRepo(tmpDir))
 
@@ -377,7 +345,7 @@ func TestMergeCmdRunLocalDryRunWithNoProjectsDirectory(t *testing.T) {
 		Local:  true,
 	}
 
-	err = cmd.Run()
+	err := cmd.Run()
 	require.NoError(t, err)
 }
 
@@ -396,13 +364,10 @@ func TestGhMergeAutoMergeSuccess(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	originalDir, err := os.Getwd()
-	require.NoError(t, err)
-	defer os.Chdir(originalDir)
-	require.NoError(t, os.Chdir(tmpDir))
+	t.Chdir(tmpDir)
 	require.NoError(t, initGitRepo(tmpDir))
 
-	err = cmd.Run()
+	err := cmd.Run()
 	require.NoError(t, err)
 	assert.True(t, called, "ghMerger should have been called")
 }
@@ -443,10 +408,7 @@ func TestGhMergeCleanStatusFallback(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tmpDir := t.TempDir()
-			originalDir, err := os.Getwd()
-			require.NoError(t, err)
-			defer os.Chdir(originalDir)
-			require.NoError(t, os.Chdir(tmpDir))
+			t.Chdir(tmpDir)
 			require.NoError(t, initGitRepo(tmpDir))
 
 			cmd := &MergeCmd{
@@ -456,7 +418,7 @@ func TestGhMergeCleanStatusFallback(t *testing.T) {
 				ghMerger: tt.ghMerger,
 			}
 
-			err = cmd.Run()
+			err := cmd.Run()
 			if tt.wantErr {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.wantErrMsg)
@@ -503,10 +465,7 @@ func TestMergeCmdRunLocalDryRunWithNoCompleteProjects(t *testing.T) {
 	projectsDir := filepath.Join(tmpDir, "projects")
 	require.NoError(t, os.MkdirAll(projectsDir, 0755))
 
-	originalDir, err := os.Getwd()
-	require.NoError(t, err)
-	defer os.Chdir(originalDir)
-	require.NoError(t, os.Chdir(tmpDir))
+	t.Chdir(tmpDir)
 
 	incompleteProject := filepath.Join(projectsDir, "incomplete-project.yaml")
 	content := `name: incomplete-project
@@ -535,6 +494,6 @@ requirements:
 		Local:  true,
 	}
 
-	err = cmd.Run()
+	err := cmd.Run()
 	require.NoError(t, err)
 }

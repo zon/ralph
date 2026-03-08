@@ -24,6 +24,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // E2EConfig holds configuration resolved from environment variables.
@@ -74,9 +77,7 @@ func resolveConfig(t *testing.T) *E2EConfig {
 	timeout := 10 * time.Minute
 	if raw := os.Getenv("RALPH_E2E_TIMEOUT"); raw != "" {
 		d, err := time.ParseDuration(raw)
-		if err != nil {
-			t.Fatalf("invalid RALPH_E2E_TIMEOUT %q: %v", raw, err)
-		}
+		require.NoError(t, err, "invalid RALPH_E2E_TIMEOUT %q", raw)
 		timeout = d
 	}
 

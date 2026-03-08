@@ -1,36 +1,20 @@
 package testutil
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
 
 func TestNewContext(t *testing.T) {
 	ctx := NewContext()
 
-	// Verify safe defaults
-	if ctx.MaxIterations() != 10 {
-		t.Errorf("Expected MaxIterations=10, got %d", ctx.MaxIterations())
-	}
-
-	if !ctx.IsDryRun() {
-		t.Error("Expected IsDryRun()=true by default")
-	}
-
-	if ctx.IsVerbose() {
-		t.Error("Expected IsVerbose()=false by default")
-	}
-
-	// NoNotify=true means ShouldNotify returns false
-	if ctx.ShouldNotify() {
-		t.Error("Expected ShouldNotify()=false when NoNotify=true")
-	}
-
-	// NoServices=false (default) means ShouldStartServices returns true
-	if !ctx.ShouldStartServices() {
-		t.Error("Expected ShouldStartServices()=true when NoServices=false")
-	}
-
-	if ctx.ProjectFile() != "" {
-		t.Errorf("Expected ProjectFile='', got '%s'", ctx.ProjectFile())
-	}
+	assert.Equal(t, 10, ctx.MaxIterations(), "MaxIterations should be 10 by default")
+	assert.True(t, ctx.IsDryRun(), "IsDryRun should be true by default")
+	assert.False(t, ctx.IsVerbose(), "IsVerbose should be false by default")
+	assert.False(t, ctx.ShouldNotify(), "ShouldNotify should be false when NoNotify=true")
+	assert.True(t, ctx.ShouldStartServices(), "ShouldStartServices should be true when NoServices=false")
+	assert.Empty(t, ctx.ProjectFile(), "ProjectFile should be empty by default")
 }
 
 func TestNewContext_WithOptions(t *testing.T) {
@@ -41,46 +25,21 @@ func TestNewContext_WithOptions(t *testing.T) {
 		WithVerbose(true),
 	)
 
-	if ctx.ProjectFile() != "/path/to/project.yaml" {
-		t.Errorf("Expected ProjectFile='/path/to/project.yaml', got '%s'", ctx.ProjectFile())
-	}
-
-	if ctx.MaxIterations() != 5 {
-		t.Errorf("Expected MaxIterations=5, got %d", ctx.MaxIterations())
-	}
-
-	if ctx.IsDryRun() {
-		t.Error("Expected IsDryRun()=false")
-	}
-
-	if !ctx.IsVerbose() {
-		t.Error("Expected IsVerbose()=true")
-	}
-
-	// NoNotify is still true from default, so ShouldNotify is false
-	if ctx.ShouldNotify() {
-		t.Error("Expected ShouldNotify()=false (default NoNotify=true)")
-	}
+	assert.Equal(t, "/path/to/project.yaml", ctx.ProjectFile(), "ProjectFile should match")
+	assert.Equal(t, 5, ctx.MaxIterations(), "MaxIterations should be 5")
+	assert.False(t, ctx.IsDryRun(), "IsDryRun should be false")
+	assert.True(t, ctx.IsVerbose(), "IsVerbose should be true")
+	assert.False(t, ctx.ShouldNotify(), "ShouldNotify should be false (default NoNotify=true)")
 }
 
 func TestNewContext_MultipleOptions(t *testing.T) {
-	// Test that multiple options can be applied
 	ctx := NewContext(
 		WithDryRun(false),
 		WithMaxIterations(20),
 		WithNoServices(true),
 	)
 
-	if ctx.IsDryRun() {
-		t.Error("Expected IsDryRun()=false")
-	}
-
-	if ctx.MaxIterations() != 20 {
-		t.Errorf("Expected MaxIterations=20, got %d", ctx.MaxIterations())
-	}
-
-	// WithNoServices(true), noServices becomes true, so ShouldStartServices returns false
-	if ctx.ShouldStartServices() {
-		t.Error("Expected ShouldStartServices()=false when NoServices=true")
-	}
+	assert.False(t, ctx.IsDryRun(), "IsDryRun should be false")
+	assert.Equal(t, 20, ctx.MaxIterations(), "MaxIterations should be 20")
+	assert.False(t, ctx.ShouldStartServices(), "ShouldStartServices should be false when NoServices=true")
 }

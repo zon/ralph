@@ -6,15 +6,15 @@ import (
 	"testing"
 
 	"github.com/alecthomas/kong"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestConfigGithubCommand(t *testing.T) {
-	// Create a temporary file for testing
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "test-key.pem")
-	if err := os.WriteFile(tmpFile, []byte("test private key"), 0644); err != nil {
-		t.Fatalf("failed to create temp file: %v", err)
-	}
+	err := os.WriteFile(tmpFile, []byte("test private key"), 0644)
+	require.NoError(t, err, "failed to create temp file")
 
 	tests := []struct {
 		name    string
@@ -50,25 +50,23 @@ func TestConfigGithubCommand(t *testing.T) {
 				kong.Name("ralph"),
 				kong.Exit(func(int) {}),
 			)
-			if err != nil {
-				t.Fatalf("failed to create parser: %v", err)
-			}
+			require.NoError(t, err, "failed to create parser")
 
 			_, err = parser.Parse(tt.args)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Parse() error = %v, wantErr %v", err, tt.wantErr)
+			if tt.wantErr {
+				assert.Error(t, err, "Parse should return error")
+			} else {
+				require.NoError(t, err, "Parse should not return error")
 			}
 		})
 	}
 }
 
 func TestConfigGithubFlags(t *testing.T) {
-	// Create a temporary file for testing
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "test-key.pem")
-	if err := os.WriteFile(tmpFile, []byte("test private key"), 0644); err != nil {
-		t.Fatalf("failed to create temp file: %v", err)
-	}
+	err := os.WriteFile(tmpFile, []byte("test private key"), 0644)
+	require.NoError(t, err, "failed to create temp file")
 
 	tests := []struct {
 		name              string
@@ -109,21 +107,13 @@ func TestConfigGithubFlags(t *testing.T) {
 				kong.Name("ralph"),
 				kong.Exit(func(int) {}),
 			)
-			if err != nil {
-				t.Fatalf("failed to create parser: %v", err)
-			}
+			require.NoError(t, err, "failed to create parser")
 
 			_, err = parser.Parse(tt.args)
-			if err != nil {
-				t.Fatalf("failed to parse args: %v", err)
-			}
+			require.NoError(t, err, "failed to parse args")
 
-			if cmd.Config.Github.Context != tt.expectedContext {
-				t.Errorf("expected Context=%q, got %q", tt.expectedContext, cmd.Config.Github.Context)
-			}
-			if cmd.Config.Github.Namespace != tt.expectedNamespace {
-				t.Errorf("expected Namespace=%q, got %q", tt.expectedNamespace, cmd.Config.Github.Namespace)
-			}
+			assert.Equal(t, tt.expectedContext, cmd.Config.Github.Context, "Context should match")
+			assert.Equal(t, tt.expectedNamespace, cmd.Config.Github.Namespace, "Namespace should match")
 		})
 	}
 }

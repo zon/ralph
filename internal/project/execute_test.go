@@ -5,6 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/zon/ralph/internal/testutil"
 )
 
@@ -74,9 +77,7 @@ func TestExtractBranchName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := extractBranchName(tt.projectFile)
-			if got != tt.expectedName {
-				t.Errorf("extractBranchName() = %v, want %v", got, tt.expectedName)
-			}
+			assert.Equal(t, tt.expectedName, got, "extractBranchName should return expected value")
 		})
 	}
 }
@@ -142,15 +143,12 @@ func TestSanitizeBranchName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := sanitizeBranchName(tt.projectName)
-			if got != tt.expectedName {
-				t.Errorf("sanitizeBranchName() = %v, want %v", got, tt.expectedName)
-			}
+			assert.Equal(t, tt.expectedName, got, "sanitizeBranchName should return expected value")
 		})
 	}
 }
 
 func TestExecute_DryRun(t *testing.T) {
-	// Create a temporary project file for testing
 	tmpDir := t.TempDir()
 	projectFile := filepath.Join(tmpDir, "test-project.yaml")
 
@@ -163,9 +161,8 @@ requirements:
     passing: true
 `
 
-	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
-		t.Fatalf("Failed to create test project file: %v", err)
-	}
+	err := os.WriteFile(projectFile, []byte(projectContent), 0644)
+	require.NoError(t, err, "Failed to create test project file")
 
 	tests := []struct {
 		name          string
@@ -191,18 +188,16 @@ requirements:
 
 			err := Execute(ctx, nil)
 
-			if tt.wantErr && err == nil {
-				t.Error("Execute() expected error, got nil")
-			}
-			if !tt.wantErr && err != nil {
-				t.Errorf("Execute() unexpected error: %v", err)
+			if tt.wantErr {
+				assert.Error(t, err, "Execute should return error")
+			} else {
+				require.NoError(t, err, "Execute should not return error")
 			}
 		})
 	}
 }
 
 func TestExecute_NotGitRepository(t *testing.T) {
-	// Create a temporary directory that's NOT a git repository
 	tmpDir := t.TempDir()
 	projectFile := filepath.Join(tmpDir, "test-project.yaml")
 
@@ -213,25 +208,16 @@ requirements:
     passing: false
 `
 
-	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
-		t.Fatalf("Failed to create test project file: %v", err)
-	}
+	err := os.WriteFile(projectFile, []byte(projectContent), 0644)
+	require.NoError(t, err, "Failed to create test project file")
 
-	// Change to the temp directory
-	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
-	os.Chdir(tmpDir)
+	t.Chdir(tmpDir)
 
 	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
 
-	err := Execute(ctx, nil)
+	err = Execute(ctx, nil)
 
-	// In dry-run mode, IsGitRepository always returns true, so no error is expected.
-	// This test verifies that Execute completes successfully in dry-run mode
-	// even when not in an actual git repository.
-	if err != nil {
-		t.Errorf("Execute() should succeed in dry-run mode even when not in a git repo, got error: %v", err)
-	}
+	require.NoError(t, err, "Execute should succeed in dry-run mode even when not in a git repo")
 }
 
 func TestExecute_NonExistentProjectFile(t *testing.T) {
@@ -245,9 +231,7 @@ func TestExecute_NonExistentProjectFile(t *testing.T) {
 
 	err := Execute(ctx, nil)
 
-	if err == nil {
-		t.Error("Execute() expected error when project file does not exist, got nil")
-	}
+	assert.Error(t, err, "Execute should return error when project file does not exist")
 }
 
 func TestExecute_LocalDryRun_CreatesBranchFromProjectFile(t *testing.T) {
@@ -261,20 +245,17 @@ requirements:
     passing: false
 `
 
-	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
-		t.Fatalf("Failed to create test project file: %v", err)
-	}
+	err := os.WriteFile(projectFile, []byte(projectContent), 0644)
+	require.NoError(t, err, "Failed to create test project file")
 
 	ctx := testutil.NewContext(
 		testutil.WithProjectFile(projectFile),
 		testutil.WithDryRun(true),
 	)
 
-	err := Execute(ctx, nil)
+	err = Execute(ctx, nil)
 
-	if err != nil {
-		t.Errorf("Execute() in local dry-run mode should complete without error: %v", err)
-	}
+	require.NoError(t, err, "Execute in local dry-run mode should complete without error")
 }
 
 func TestExecute_LocalDryRun_RespectsMaxIterations(t *testing.T) {
@@ -288,9 +269,8 @@ requirements:
     passing: false
 `
 
-	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
-		t.Fatalf("Failed to create test project file: %v", err)
-	}
+	err := os.WriteFile(projectFile, []byte(projectContent), 0644)
+	require.NoError(t, err, "Failed to create test project file")
 
 	ctx := testutil.NewContext(
 		testutil.WithProjectFile(projectFile),
@@ -298,19 +278,16 @@ requirements:
 		testutil.WithMaxIterations(3),
 	)
 
-	err := Execute(ctx, nil)
+	err = Execute(ctx, nil)
 
-	if err != nil {
-		t.Errorf("Execute() should respect MaxIterations from context: %v", err)
-	}
+	require.NoError(t, err, "Execute should respect MaxIterations from context")
 }
 
 func TestExecute_SubdirectoryProjectFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	subDir := filepath.Join(tmpDir, "projects", "p2")
-	if err := os.MkdirAll(subDir, 0755); err != nil {
-		t.Fatalf("Failed to create subdirectory: %v", err)
-	}
+	err := os.MkdirAll(subDir, 0755)
+	require.NoError(t, err, "Failed to create subdirectory")
 
 	projectFile := filepath.Join(subDir, "fix-pagination.yaml")
 
@@ -321,20 +298,17 @@ requirements:
     passing: false
 `
 
-	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
-		t.Fatalf("Failed to create test project file: %v", err)
-	}
+	err = os.WriteFile(projectFile, []byte(projectContent), 0644)
+	require.NoError(t, err, "Failed to create test project file")
 
 	ctx := testutil.NewContext(
 		testutil.WithProjectFile(projectFile),
 		testutil.WithDryRun(true),
 	)
 
-	err := Execute(ctx, nil)
+	err = Execute(ctx, nil)
 
-	if err != nil {
-		t.Errorf("Execute() should succeed with subdirectory project file: %v", err)
-	}
+	require.NoError(t, err, "Execute should succeed with subdirectory project file")
 }
 
 func TestExecute_FileNameDifferentFromYamlName(t *testing.T) {
@@ -349,32 +323,15 @@ requirements:
     passing: false
 `
 
-	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
-		t.Fatalf("Failed to create test project file: %v", err)
-	}
+	err := os.WriteFile(projectFile, []byte(projectContent), 0644)
+	require.NoError(t, err, "Failed to create test project file")
 
 	ctx := testutil.NewContext(
 		testutil.WithProjectFile(projectFile),
 		testutil.WithDryRun(true),
 	)
 
-	err := Execute(ctx, nil)
+	err = Execute(ctx, nil)
 
-	if err != nil {
-		t.Errorf("Execute() should use YAML name field, not file name: %v", err)
-	}
-}
-
-// Helper function to check if a string contains a substring
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && containsHelper(s, substr))
-}
-
-func containsHelper(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
+	require.NoError(t, err, "Execute should use YAML name field, not file name")
 }

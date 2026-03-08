@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/alecthomas/kong"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestConfigOpencodeCommand(t *testing.T) {
@@ -41,13 +43,13 @@ func TestConfigOpencodeCommand(t *testing.T) {
 				kong.Name("ralph"),
 				kong.Exit(func(int) {}),
 			)
-			if err != nil {
-				t.Fatalf("failed to create parser: %v", err)
-			}
+			require.NoError(t, err, "failed to create parser")
 
 			_, err = parser.Parse(tt.args)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Parse() error = %v, wantErr %v", err, tt.wantErr)
+			if tt.wantErr {
+				assert.Error(t, err, "Parse should return error")
+			} else {
+				require.NoError(t, err, "Parse should not return error")
 			}
 		})
 	}
@@ -93,37 +95,20 @@ func TestConfigOpencodeFlags(t *testing.T) {
 				kong.Name("ralph"),
 				kong.Exit(func(int) {}),
 			)
-			if err != nil {
-				t.Fatalf("failed to create parser: %v", err)
-			}
+			require.NoError(t, err, "failed to create parser")
 
 			_, err = parser.Parse(tt.args)
-			if err != nil {
-				t.Fatalf("failed to parse args: %v", err)
-			}
+			require.NoError(t, err, "failed to parse args")
 
-			if cmd.Config.Opencode.Context != tt.expectedContext {
-				t.Errorf("expected Context=%q, got %q", tt.expectedContext, cmd.Config.Opencode.Context)
-			}
-			if cmd.Config.Opencode.Namespace != tt.expectedNamespace {
-				t.Errorf("expected Namespace=%q, got %q", tt.expectedNamespace, cmd.Config.Opencode.Namespace)
-			}
+			assert.Equal(t, tt.expectedContext, cmd.Config.Opencode.Context, "Context should match")
+			assert.Equal(t, tt.expectedNamespace, cmd.Config.Opencode.Namespace, "Namespace should match")
 		})
 	}
 }
 
 func TestConfigOpencodeNoLocalFileModification(t *testing.T) {
-	// This test verifies that the config opencode command doesn't have
-	// the removeAnthropicOAuthFromLocal function anymore
 	cmd := &ConfigOpencodeCmd{}
 
-	// Verify the Run method exists and has the correct signature
-	// by checking it can be assigned to a variable with the expected type
 	var runFunc func() error = cmd.Run
-	if runFunc == nil {
-		t.Error("ConfigOpencodeCmd.Run method not found")
-	}
-
-	// The test passes if we can assign it - this means the function
-	// signature is correct and the code compiles
+	assert.NotNil(t, runFunc, "ConfigOpencodeCmd.Run method should exist")
 }

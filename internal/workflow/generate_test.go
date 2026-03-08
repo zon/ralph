@@ -7,6 +7,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
 	"gopkg.in/yaml.v3"
@@ -56,14 +59,7 @@ requirements:
 		t.Fatalf("Failed to create instructions file: %v", err)
 	}
 
-	origDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get working directory: %v", err)
-	}
-	defer os.Chdir(origDir)
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("Failed to change to temp directory: %v", err)
-	}
+	t.Chdir(tmpDir)
 	if err := os.MkdirAll(filepath.Join(tmpDir, ".git"), 0755); err != nil {
 		t.Fatalf("Failed to create .git directory: %v", err)
 	}
@@ -76,70 +72,38 @@ requirements:
 	relProjectPath := "project.yaml"
 
 	wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", repoURL, cloneBranch, projectBranch, relProjectPath, false, false)
-	if err != nil {
-		t.Fatalf("GenerateWorkflowWithGitInfo failed: %v", err)
-	}
+	require.NoError(t, err, "GenerateWorkflowWithGitInfo failed")
 	workflowYAML, err := wf.Render()
-	if err != nil {
-		t.Fatalf("Render failed: %v", err)
-	}
+	require.NoError(t, err, "Render failed")
 
 	var workflow map[string]interface{}
-	if err := yaml.Unmarshal([]byte(workflowYAML), &workflow); err != nil {
-		t.Fatalf("Failed to parse generated workflow YAML: %v", err)
-	}
+	require.NoError(t, yaml.Unmarshal([]byte(workflowYAML), &workflow), "Failed to parse generated workflow YAML")
 
-	if workflow["apiVersion"] != "argoproj.io/v1alpha1" {
-		t.Errorf("apiVersion = %v, want argoproj.io/v1alpha1", workflow["apiVersion"])
-	}
-	if workflow["kind"] != "Workflow" {
-		t.Errorf("kind = %v, want Workflow", workflow["kind"])
-	}
+	assert.Equal(t, "argoproj.io/v1alpha1", workflow["apiVersion"])
+	assert.Equal(t, "Workflow", workflow["kind"])
 
 	metadata, ok := workflow["metadata"].(map[string]interface{})
-	if !ok {
-		t.Fatal("metadata is not a map")
-	}
+	require.True(t, ok, "metadata is not a map")
 	generateName, ok := metadata["generateName"].(string)
-	if !ok || !strings.HasPrefix(generateName, "ralph-test-project-") {
-		t.Errorf("generateName = %v, want prefix ralph-test-project-", generateName)
-	}
+	require.True(t, ok && strings.HasPrefix(generateName, "ralph-test-project-"), "generateName = %v, want prefix ralph-test-project-", generateName)
 
 	spec, ok := workflow["spec"].(map[string]interface{})
-	if !ok {
-		t.Fatal("spec is not a map")
-	}
-	if spec["entrypoint"] != "ralph-executor" {
-		t.Errorf("entrypoint = %v, want ralph-executor", spec["entrypoint"])
-	}
+	require.True(t, ok, "spec is not a map")
+	assert.Equal(t, "ralph-executor", spec["entrypoint"])
 
 	ttlStrategy, ok := spec["ttlStrategy"].(map[string]interface{})
-	if !ok {
-		t.Fatal("ttlStrategy is not a map")
-	}
-	if ttlStrategy["secondsAfterCompletion"] != 86400 {
-		t.Errorf("ttlStrategy.secondsAfterCompletion = %v, want 86400", ttlStrategy["secondsAfterCompletion"])
-	}
+	require.True(t, ok, "ttlStrategy is not a map")
+	assert.Equal(t, 86400, ttlStrategy["secondsAfterCompletion"])
 
 	podGC, ok := spec["podGC"].(map[string]interface{})
-	if !ok {
-		t.Fatal("podGC is not a map")
-	}
-	if podGC["strategy"] != "OnWorkflowCompletion" {
-		t.Errorf("podGC.strategy = %v, want OnWorkflowCompletion", podGC["strategy"])
-	}
-	if podGC["deleteDelayDuration"] != "10m" {
-		t.Errorf("podGC.deleteDelayDuration = %v, want 10m", podGC["deleteDelayDuration"])
-	}
+	require.True(t, ok, "podGC is not a map")
+	assert.Equal(t, "OnWorkflowCompletion", podGC["strategy"])
+	assert.Equal(t, "10m", podGC["deleteDelayDuration"])
 
 	arguments, ok := spec["arguments"].(map[string]interface{})
-	if !ok {
-		t.Fatal("arguments is not a map")
-	}
+	require.True(t, ok, "arguments is not a map")
 	parameters, ok := arguments["parameters"].([]interface{})
-	if !ok {
-		t.Fatal("parameters is not a list")
-	}
+	require.True(t, ok, "parameters is not a list")
 
 	hasProjectPath, hasInstructionsMd := false, false
 	for _, param := range parameters {
@@ -149,48 +113,28 @@ requirements:
 		}
 		if paramMap["name"] == "project-path" {
 			hasProjectPath = true
-			if paramMap["value"] != "project.yaml" {
-				t.Errorf("project-path = %v, want project.yaml", paramMap["value"])
-			}
+			assert.Equal(t, "project.yaml", paramMap["value"])
 		}
 		if paramMap["name"] == "instructions-md" {
 			hasInstructionsMd = true
 		}
 	}
-	if !hasProjectPath {
-		t.Error("project-path parameter not found")
-	}
-	if !hasInstructionsMd {
-		t.Error("instructions-md parameter not found")
-	}
+	assert.True(t, hasProjectPath, "project-path parameter not found")
+	assert.True(t, hasInstructionsMd, "instructions-md parameter not found")
 
 	templates, ok := spec["templates"].([]interface{})
-	if !ok || len(templates) == 0 {
-		t.Fatal("templates is empty or not a list")
-	}
+	require.True(t, ok && len(templates) > 0, "templates is empty or not a list")
 	tmpl, ok := templates[0].(map[string]interface{})
-	if !ok {
-		t.Fatal("template is not a map")
-	}
-	if tmpl["name"] != "ralph-executor" {
-		t.Errorf("template name = %v, want ralph-executor", tmpl["name"])
-	}
+	require.True(t, ok, "template is not a map")
+	assert.Equal(t, "ralph-executor", tmpl["name"])
 
 	container, ok := tmpl["container"].(map[string]interface{})
-	if !ok {
-		t.Fatal("container is not a map")
-	}
-	if container["image"] != "my-registry/ralph:v1.0.0" {
-		t.Errorf("container.image = %v, want my-registry/ralph:v1.0.0", container["image"])
-	}
-	if container["workingDir"] != "/workspace" {
-		t.Errorf("container.workingDir = %v, want /workspace", container["workingDir"])
-	}
+	require.True(t, ok, "container is not a map")
+	assert.Equal(t, "my-registry/ralph:v1.0.0", container["image"])
+	assert.Equal(t, "/workspace", container["workingDir"])
 
 	env, ok := container["env"].([]interface{})
-	if !ok {
-		t.Fatal("env is not a list")
-	}
+	require.True(t, ok, "env is not a list")
 
 	hasGitRepoURL, hasGitBranch, hasProjectBranch, hasCustomEnv, hasBaseBranch := false, false, false, false, false
 	for _, envVar := range env {
@@ -203,14 +147,10 @@ requirements:
 			hasGitRepoURL = true
 		case "GIT_BRANCH":
 			hasGitBranch = true
-			if envMap["value"] != cloneBranch {
-				t.Errorf("GIT_BRANCH = %v, want %v", envMap["value"], cloneBranch)
-			}
+			assert.Equal(t, cloneBranch, envMap["value"])
 		case "PROJECT_BRANCH":
 			hasProjectBranch = true
-			if envMap["value"] != projectBranch {
-				t.Errorf("PROJECT_BRANCH = %v, want %v", envMap["value"], projectBranch)
-			}
+			assert.Equal(t, projectBranch, envMap["value"])
 		case "MY_VAR":
 			if envMap["value"] == "my-value" {
 				hasCustomEnv = true
@@ -219,26 +159,14 @@ requirements:
 			hasBaseBranch = true
 		}
 	}
-	if !hasGitRepoURL {
-		t.Error("GIT_REPO_URL environment variable not found")
-	}
-	if !hasGitBranch {
-		t.Error("GIT_BRANCH environment variable not found")
-	}
-	if !hasProjectBranch {
-		t.Error("PROJECT_BRANCH environment variable not found")
-	}
-	if !hasCustomEnv {
-		t.Error("Custom environment variable MY_VAR not found")
-	}
-	if !hasBaseBranch {
-		t.Error("BASE_BRANCH environment variable not found")
-	}
+	assert.True(t, hasGitRepoURL, "GIT_REPO_URL environment variable not found")
+	assert.True(t, hasGitBranch, "GIT_BRANCH environment variable not found")
+	assert.True(t, hasProjectBranch, "PROJECT_BRANCH environment variable not found")
+	assert.True(t, hasCustomEnv, "Custom environment variable MY_VAR not found")
+	assert.True(t, hasBaseBranch, "BASE_BRANCH environment variable not found")
 
 	volumeMounts, ok := container["volumeMounts"].([]interface{})
-	if !ok {
-		t.Fatal("volumeMounts is not a list")
-	}
+	require.True(t, ok, "volumeMounts is not a list")
 
 	hasGithubMount, hasOpencodeMount, hasConfigMapMount, hasSecretMount := false, false, false, false
 	for _, mount := range volumeMounts {
@@ -257,23 +185,13 @@ requirements:
 			hasSecretMount = true
 		}
 	}
-	if !hasGithubMount {
-		t.Error("github-credentials volume mount not found")
-	}
-	if !hasOpencodeMount {
-		t.Error("opencode-credentials volume mount not found")
-	}
-	if !hasConfigMapMount {
-		t.Error("User-specified configMap mount not found")
-	}
-	if !hasSecretMount {
-		t.Error("User-specified secret mount not found")
-	}
+	assert.True(t, hasGithubMount, "github-credentials volume mount not found")
+	assert.True(t, hasOpencodeMount, "opencode-credentials volume mount not found")
+	assert.True(t, hasConfigMapMount, "User-specified configMap mount not found")
+	assert.True(t, hasSecretMount, "User-specified secret mount not found")
 
 	volumes, ok := tmpl["volumes"].([]interface{})
-	if !ok {
-		t.Fatal("volumes is not a list")
-	}
+	require.True(t, ok, "volumes is not a list")
 
 	hasGithubVolume, hasOpencodeVolume, hasConfigMapVolume, hasSecretVolume := false, false, false, false
 	for _, vol := range volumes {
@@ -292,42 +210,22 @@ requirements:
 			hasSecretVolume = true
 		}
 	}
-	if !hasGithubVolume {
-		t.Error("github-credentials volume not found")
-	}
-	if !hasOpencodeVolume {
-		t.Error("opencode-credentials volume not found")
-	}
-	if !hasConfigMapVolume {
-		t.Error("User-specified configMap volume not found")
-	}
-	if !hasSecretVolume {
-		t.Error("User-specified secret volume not found")
-	}
+	assert.True(t, hasGithubVolume, "github-credentials volume not found")
+	assert.True(t, hasOpencodeVolume, "opencode-credentials volume not found")
+	assert.True(t, hasConfigMapVolume, "User-specified configMap volume not found")
+	assert.True(t, hasSecretVolume, "User-specified secret volume not found")
 
 	synchronization, ok := spec["synchronization"].(map[string]interface{})
-	if !ok {
-		t.Fatal("synchronization is not a map")
-	}
+	require.True(t, ok, "synchronization is not a map")
 	mutexes, ok := synchronization["mutexes"].([]interface{})
-	if !ok {
-		t.Fatal("mutexes is not a slice")
-	}
-	if len(mutexes) == 0 {
-		t.Fatal("mutexes slice is empty")
-	}
+	require.True(t, ok, "mutexes is not a slice")
+	require.NotEmpty(t, mutexes, "mutexes slice is empty")
 	mutex, ok := mutexes[0].(map[string]interface{})
-	if !ok {
-		t.Fatal("mutex is not a map")
-	}
+	require.True(t, ok, "mutex is not a map")
 	mutexName, ok := mutex["name"].(string)
-	if !ok {
-		t.Fatal("mutex name is not a string")
-	}
+	require.True(t, ok, "mutex name is not a string")
 	expectedMutexName := "test-project"
-	if mutexName != expectedMutexName {
-		t.Errorf("mutex name = %v, want %v", mutexName, expectedMutexName)
-	}
+	assert.Equal(t, expectedMutexName, mutexName)
 }
 
 func TestGenerateWorkflow_DefaultImage(t *testing.T) {
@@ -354,14 +252,7 @@ requirements:
 		t.Fatalf("Failed to create config file: %v", err)
 	}
 
-	origDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get working directory: %v", err)
-	}
-	defer os.Chdir(origDir)
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("Failed to change to temp directory: %v", err)
-	}
+	t.Chdir(tmpDir)
 	if err := os.MkdirAll(filepath.Join(tmpDir, ".git"), 0755); err != nil {
 		t.Fatalf("Failed to create .git directory: %v", err)
 	}
@@ -369,18 +260,12 @@ requirements:
 	ctx := &execcontext.Context{}
 	ctx.SetProjectFile(filepath.Join(tmpDir, "project.yaml"))
 	wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", "git@github.com:test/repo.git", "main", "test-project", "project.yaml", false, false)
-	if err != nil {
-		t.Fatalf("GenerateWorkflowWithGitInfo failed: %v", err)
-	}
+	require.NoError(t, err, "GenerateWorkflowWithGitInfo failed")
 	workflowYAML, err := wf.Render()
-	if err != nil {
-		t.Fatalf("Render failed: %v", err)
-	}
+	require.NoError(t, err, "Render failed")
 
 	var workflow map[string]interface{}
-	if err := yaml.Unmarshal([]byte(workflowYAML), &workflow); err != nil {
-		t.Fatalf("Failed to parse generated workflow YAML: %v", err)
-	}
+	require.NoError(t, yaml.Unmarshal([]byte(workflowYAML), &workflow), "Failed to parse generated workflow YAML")
 
 	spec := workflow["spec"].(map[string]interface{})
 	templates := spec["templates"].([]interface{})
@@ -388,9 +273,7 @@ requirements:
 	container := tmpl["container"].(map[string]interface{})
 
 	expectedImage := fmt.Sprintf("ghcr.io/zon/ralph:%s", DefaultContainerVersion())
-	if container["image"] != expectedImage {
-		t.Errorf("container.image = %v, want %v", container["image"], expectedImage)
-	}
+	assert.Equal(t, expectedImage, container["image"])
 }
 
 func TestGenerateMergeWorkflow(t *testing.T) {
@@ -422,96 +305,51 @@ requirements:
 		t.Fatalf("Failed to create config file: %v", err)
 	}
 
-	origDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get working directory: %v", err)
-	}
-	defer os.Chdir(origDir)
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("Failed to change to temp directory: %v", err)
-	}
+	t.Chdir(tmpDir)
 
 	repoURL := "git@github.com:test/repo.git"
 	cloneBranch := "main"
 	prBranch := "ralph/test-project"
 
 	mw, err := GenerateMergeWorkflowWithGitInfo(repoURL, cloneBranch, prBranch, "")
-	if err != nil {
-		t.Fatalf("GenerateMergeWorkflowWithGitInfo failed: %v", err)
-	}
+	require.NoError(t, err, "GenerateMergeWorkflowWithGitInfo failed")
 	workflowYAML, err := mw.Render()
-	if err != nil {
-		t.Fatalf("Render failed: %v", err)
-	}
+	require.NoError(t, err, "Render failed")
 
 	var wf map[string]interface{}
-	if err := yaml.Unmarshal([]byte(workflowYAML), &wf); err != nil {
-		t.Fatalf("Failed to parse generated workflow YAML: %v", err)
-	}
+	require.NoError(t, yaml.Unmarshal([]byte(workflowYAML), &wf), "Failed to parse generated workflow YAML")
 
-	if wf["apiVersion"] != "argoproj.io/v1alpha1" {
-		t.Errorf("apiVersion = %v, want argoproj.io/v1alpha1", wf["apiVersion"])
-	}
-	if wf["kind"] != "Workflow" {
-		t.Errorf("kind = %v, want Workflow", wf["kind"])
-	}
+	assert.Equal(t, "argoproj.io/v1alpha1", wf["apiVersion"])
+	assert.Equal(t, "Workflow", wf["kind"])
 
 	metadata, ok := wf["metadata"].(map[string]interface{})
-	if !ok {
-		t.Fatal("metadata is not a map")
-	}
-	if metadata["generateName"] != "ralph-merge-" {
-		t.Errorf("generateName = %v, want ralph-merge-", metadata["generateName"])
-	}
+	require.True(t, ok, "metadata is not a map")
+	assert.Equal(t, "ralph-merge-", metadata["generateName"])
 
 	spec, ok := wf["spec"].(map[string]interface{})
-	if !ok {
-		t.Fatal("spec is not a map")
-	}
-	if spec["entrypoint"] != "ralph-merger" {
-		t.Errorf("entrypoint = %v, want ralph-merger", spec["entrypoint"])
-	}
+	require.True(t, ok, "spec is not a map")
+	assert.Equal(t, "ralph-merger", spec["entrypoint"])
 
 	ttlStrategy, ok := spec["ttlStrategy"].(map[string]interface{})
-	if !ok {
-		t.Fatal("ttlStrategy is not a map")
-	}
-	if ttlStrategy["secondsAfterCompletion"] != 86400 {
-		t.Errorf("ttlStrategy.secondsAfterCompletion = %v, want 86400", ttlStrategy["secondsAfterCompletion"])
-	}
+	require.True(t, ok, "ttlStrategy is not a map")
+	assert.Equal(t, 86400, ttlStrategy["secondsAfterCompletion"])
 
 	podGC, ok := spec["podGC"].(map[string]interface{})
-	if !ok {
-		t.Fatal("podGC is not a map")
-	}
-	if podGC["strategy"] != "OnWorkflowCompletion" {
-		t.Errorf("podGC.strategy = %v, want OnWorkflowCompletion", podGC["strategy"])
-	}
+	require.True(t, ok, "podGC is not a map")
+	assert.Equal(t, "OnWorkflowCompletion", podGC["strategy"])
 
 	templates, ok := spec["templates"].([]interface{})
-	if !ok || len(templates) == 0 {
-		t.Fatal("templates is empty or not a list")
-	}
+	require.True(t, ok && len(templates) > 0, "templates is empty or not a list")
 	tmpl, ok := templates[0].(map[string]interface{})
-	if !ok {
-		t.Fatal("template is not a map")
-	}
-	if tmpl["name"] != "ralph-merger" {
-		t.Errorf("template name = %v, want ralph-merger", tmpl["name"])
-	}
+	require.True(t, ok, "template is not a map")
+	assert.Equal(t, "ralph-merger", tmpl["name"])
 
 	container, ok := tmpl["container"].(map[string]interface{})
-	if !ok {
-		t.Fatal("container is not a map")
-	}
-	if container["image"] != "my-registry/ralph:v2.0.0" {
-		t.Errorf("container.image = %v, want my-registry/ralph:v2.0.0", container["image"])
-	}
+	require.True(t, ok, "container is not a map")
+	assert.Equal(t, "my-registry/ralph:v2.0.0", container["image"])
 
 	env, ok := container["env"].([]interface{})
-	if !ok {
-		t.Fatal("env is not a list")
-	}
+	require.True(t, ok, "env is not a list")
 
 	hasPRBranch, hasGitRepoURL, hasGitBranch := false, false, false
 	for _, e := range env {
@@ -522,32 +360,20 @@ requirements:
 		switch em["name"] {
 		case "PR_BRANCH":
 			hasPRBranch = true
-			if em["value"] != prBranch {
-				t.Errorf("PR_BRANCH = %v, want %v", em["value"], prBranch)
-			}
+			assert.Equal(t, prBranch, em["value"])
 		case "GIT_REPO_URL":
 			hasGitRepoURL = true
 		case "GIT_BRANCH":
 			hasGitBranch = true
-			if em["value"] != cloneBranch {
-				t.Errorf("GIT_BRANCH = %v, want %v", em["value"], cloneBranch)
-			}
+			assert.Equal(t, cloneBranch, em["value"])
 		}
 	}
-	if !hasPRBranch {
-		t.Error("PR_BRANCH environment variable not found")
-	}
-	if !hasGitRepoURL {
-		t.Error("GIT_REPO_URL environment variable not found")
-	}
-	if !hasGitBranch {
-		t.Error("GIT_BRANCH environment variable not found")
-	}
+	assert.True(t, hasPRBranch, "PR_BRANCH environment variable not found")
+	assert.True(t, hasGitRepoURL, "GIT_REPO_URL environment variable not found")
+	assert.True(t, hasGitBranch, "GIT_BRANCH environment variable not found")
 
 	volumes, ok := tmpl["volumes"].([]interface{})
-	if !ok {
-		t.Fatal("volumes is not a list")
-	}
+	require.True(t, ok, "volumes is not a list")
 	hasGithubVol := false
 	for _, v := range volumes {
 		vm, ok := v.(map[string]interface{})
@@ -558,33 +384,19 @@ requirements:
 			hasGithubVol = true
 		}
 	}
-	if !hasGithubVol {
-		t.Error("github-credentials volume not found")
-	}
+	assert.True(t, hasGithubVol, "github-credentials volume not found")
 
 	synchronization, ok := spec["synchronization"].(map[string]interface{})
-	if !ok {
-		t.Fatal("synchronization is not a map")
-	}
+	require.True(t, ok, "synchronization is not a map")
 	mutexes, ok := synchronization["mutexes"].([]interface{})
-	if !ok {
-		t.Fatal("mutexes is not a slice")
-	}
-	if len(mutexes) == 0 {
-		t.Fatal("mutexes slice is empty")
-	}
+	require.True(t, ok, "mutexes is not a slice")
+	require.NotEmpty(t, mutexes, "mutexes slice is empty")
 	mutex, ok := mutexes[0].(map[string]interface{})
-	if !ok {
-		t.Fatal("mutex is not a map")
-	}
+	require.True(t, ok, "mutex is not a map")
 	mutexName, ok := mutex["name"].(string)
-	if !ok {
-		t.Fatal("mutex name is not a string")
-	}
+	require.True(t, ok, "mutex name is not a string")
 	expectedMutexName := "ralph-test-project"
-	if mutexName != expectedMutexName {
-		t.Errorf("mutex name = %v, want %v", mutexName, expectedMutexName)
-	}
+	assert.Equal(t, expectedMutexName, mutexName)
 }
 
 func TestGenerateMergeWorkflow_DefaultImage(t *testing.T) {
@@ -610,28 +422,15 @@ requirements:
 		t.Fatalf("Failed to create config file: %v", err)
 	}
 
-	origDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get working directory: %v", err)
-	}
-	defer os.Chdir(origDir)
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("Failed to change to temp directory: %v", err)
-	}
+	t.Chdir(tmpDir)
 
 	mw, err := GenerateMergeWorkflowWithGitInfo("git@github.com:test/repo.git", "main", "ralph/test", "")
-	if err != nil {
-		t.Fatalf("GenerateMergeWorkflowWithGitInfo failed: %v", err)
-	}
+	require.NoError(t, err, "GenerateMergeWorkflowWithGitInfo failed")
 	workflowYAML, err := mw.Render()
-	if err != nil {
-		t.Fatalf("Render failed: %v", err)
-	}
+	require.NoError(t, err, "Render failed")
 
 	var wf map[string]interface{}
-	if err := yaml.Unmarshal([]byte(workflowYAML), &wf); err != nil {
-		t.Fatalf("Failed to parse generated workflow YAML: %v", err)
-	}
+	require.NoError(t, yaml.Unmarshal([]byte(workflowYAML), &wf), "Failed to parse generated workflow YAML")
 
 	spec := wf["spec"].(map[string]interface{})
 	templates := spec["templates"].([]interface{})
@@ -639,25 +438,17 @@ requirements:
 	container := tmpl["container"].(map[string]interface{})
 
 	expectedImage := fmt.Sprintf("ghcr.io/zon/ralph:%s", DefaultContainerVersion())
-	if container["image"] != expectedImage {
-		t.Errorf("container.image = %v, want %v", container["image"], expectedImage)
-	}
+	assert.Equal(t, expectedImage, container["image"])
 }
 
 func TestSubmitWorkflow_ArgoNotInstalled(t *testing.T) {
 	wf := &Workflow{RalphConfig: &config.RalphConfig{}}
 
-	origPath := os.Getenv("PATH")
-	defer os.Setenv("PATH", origPath)
-	os.Setenv("PATH", "")
+	t.Setenv("PATH", "")
 
 	_, err := wf.Submit("test-namespace")
-	if err == nil {
-		t.Error("Expected error when argo CLI is not installed, got nil")
-	}
-	if !strings.Contains(err.Error(), "argo CLI not found") {
-		t.Errorf("Error message should mention argo CLI not found, got: %v", err)
-	}
+	require.Error(t, err, "Expected error when argo CLI is not installed")
+	assert.True(t, strings.Contains(err.Error(), "argo CLI not found"), "Error message should mention argo CLI not found, got: %v", err)
 }
 
 func TestExtractWorkflowName(t *testing.T) {
@@ -696,9 +487,7 @@ func TestExtractWorkflowName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := extractWorkflowName(tt.output)
-			if result != tt.expected {
-				t.Errorf("extractWorkflowName(%q) = %q, want %q", tt.output, result, tt.expected)
-			}
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -731,21 +520,13 @@ func TestWorkflowRender_CommentScriptBranching(t *testing.T) {
 	}
 
 	workflowYAML, err := wf.Render()
-	if err != nil {
-		t.Fatalf("Render failed: %v", err)
-	}
+	require.NoError(t, err, "Render failed")
 
-	if !strings.Contains(workflowYAML, commentBody) {
-		t.Errorf("Rendered YAML should contain comment body %q", commentBody)
-	}
-	if !strings.Contains(workflowYAML, prNumber) {
-		t.Errorf("Rendered YAML should contain PR number %q", prNumber)
-	}
+	assert.True(t, strings.Contains(workflowYAML, commentBody), "Rendered YAML should contain comment body %q", commentBody)
+	assert.True(t, strings.Contains(workflowYAML, prNumber), "Rendered YAML should contain PR number %q", prNumber)
 
 	var wfData map[string]interface{}
-	if err := yaml.Unmarshal([]byte(workflowYAML), &wfData); err != nil {
-		t.Fatalf("Failed to parse workflow YAML: %v", err)
-	}
+	require.NoError(t, yaml.Unmarshal([]byte(workflowYAML), &wfData), "Failed to parse workflow YAML")
 
 	spec := wfData["spec"].(map[string]interface{})
 	templates := spec["templates"].([]interface{})
@@ -755,9 +536,7 @@ func TestWorkflowRender_CommentScriptBranching(t *testing.T) {
 	args := container["args"].([]interface{})
 	script := args[0].(string)
 
-	if !strings.Contains(script, "ralph comment") {
-		t.Error("Script should contain 'ralph comment' for comment-triggered workflow")
-	}
+	assert.True(t, strings.Contains(script, "ralph comment"), "Script should contain 'ralph comment' for comment-triggered workflow")
 }
 
 func TestWorkflowRender_RunScriptBranching(t *testing.T) {
@@ -785,14 +564,10 @@ func TestWorkflowRender_RunScriptBranching(t *testing.T) {
 	}
 
 	workflowYAML, err := wf.Render()
-	if err != nil {
-		t.Fatalf("Render failed: %v", err)
-	}
+	require.NoError(t, err, "Render failed")
 
 	var wfData map[string]interface{}
-	if err := yaml.Unmarshal([]byte(workflowYAML), &wfData); err != nil {
-		t.Fatalf("Failed to parse workflow YAML: %v", err)
-	}
+	require.NoError(t, yaml.Unmarshal([]byte(workflowYAML), &wfData), "Failed to parse workflow YAML")
 
 	spec := wfData["spec"].(map[string]interface{})
 	templates := spec["templates"].([]interface{})
@@ -802,12 +577,8 @@ func TestWorkflowRender_RunScriptBranching(t *testing.T) {
 	args := container["args"].([]interface{})
 	script := args[0].(string)
 
-	if !strings.Contains(script, "ralph run") && !strings.Contains(script, "ralph_run") {
-		t.Error("Script should contain 'ralph run' for regular workflow")
-	}
-	if strings.Contains(script, "ralph comment") {
-		t.Error("Script should NOT contain 'ralph comment' when CommentBody is empty")
-	}
+	assert.True(t, strings.Contains(script, "ralph run") || strings.Contains(script, "ralph_run"), "Script should contain 'ralph run' for regular workflow")
+	assert.False(t, strings.Contains(script, "ralph comment"), "Script should NOT contain 'ralph comment' when CommentBody is empty")
 }
 
 func TestMergeWorkflowRender_EnvVarCoverage(t *testing.T) {
@@ -836,14 +607,10 @@ func TestMergeWorkflowRender_EnvVarCoverage(t *testing.T) {
 	}
 
 	workflowYAML, err := mw.Render()
-	if err != nil {
-		t.Fatalf("Render failed: %v", err)
-	}
+	require.NoError(t, err, "Render failed")
 
 	var wfData map[string]interface{}
-	if err := yaml.Unmarshal([]byte(workflowYAML), &wfData); err != nil {
-		t.Fatalf("Failed to parse workflow YAML: %v", err)
-	}
+	require.NoError(t, yaml.Unmarshal([]byte(workflowYAML), &wfData), "Failed to parse workflow YAML")
 
 	spec := wfData["spec"].(map[string]interface{})
 	templates := spec["templates"].([]interface{})
@@ -858,30 +625,18 @@ func TestMergeWorkflowRender_EnvVarCoverage(t *testing.T) {
 		switch em["name"] {
 		case "GITHUB_REPO_OWNER":
 			hasRepoOwner = true
-			if em["value"] != repoOwner {
-				t.Errorf("GITHUB_REPO_OWNER = %v, want %v", em["value"], repoOwner)
-			}
+			assert.Equal(t, repoOwner, em["value"])
 		case "GITHUB_REPO_NAME":
 			hasRepoName = true
-			if em["value"] != repoName {
-				t.Errorf("GITHUB_REPO_NAME = %v, want %v", em["value"], repoName)
-			}
+			assert.Equal(t, repoName, em["value"])
 		case "PR_NUMBER":
 			hasPRNumber = true
-			if em["value"] != prNumber {
-				t.Errorf("PR_NUMBER = %v, want %v", em["value"], prNumber)
-			}
+			assert.Equal(t, prNumber, em["value"])
 		}
 	}
-	if !hasRepoOwner {
-		t.Error("GITHUB_REPO_OWNER environment variable not found")
-	}
-	if !hasRepoName {
-		t.Error("GITHUB_REPO_NAME environment variable not found")
-	}
-	if !hasPRNumber {
-		t.Error("PR_NUMBER environment variable not found")
-	}
+	assert.True(t, hasRepoOwner, "GITHUB_REPO_OWNER environment variable not found")
+	assert.True(t, hasRepoName, "GITHUB_REPO_NAME environment variable not found")
+	assert.True(t, hasPRNumber, "PR_NUMBER environment variable not found")
 }
 
 func TestMergeWorkflowRender_GitHubCredentialsVolumeMount(t *testing.T) {
@@ -905,14 +660,10 @@ func TestMergeWorkflowRender_GitHubCredentialsVolumeMount(t *testing.T) {
 	}
 
 	workflowYAML, err := mw.Render()
-	if err != nil {
-		t.Fatalf("Render failed: %v", err)
-	}
+	require.NoError(t, err, "Render failed")
 
 	var wfData map[string]interface{}
-	if err := yaml.Unmarshal([]byte(workflowYAML), &wfData); err != nil {
-		t.Fatalf("Failed to parse workflow YAML: %v", err)
-	}
+	require.NoError(t, yaml.Unmarshal([]byte(workflowYAML), &wfData), "Failed to parse workflow YAML")
 
 	spec := wfData["spec"].(map[string]interface{})
 	templates := spec["templates"].([]interface{})
@@ -926,12 +677,8 @@ func TestMergeWorkflowRender_GitHubCredentialsVolumeMount(t *testing.T) {
 		mount := m.(map[string]interface{})
 		if mount["name"] == "github-credentials" && mount["mountPath"] == "/secrets/github" {
 			hasGithubMount = true
-			if mount["readOnly"] != true {
-				t.Error("github-credentials volume mount should have readOnly set to true")
-			}
+			assert.Equal(t, true, mount["readOnly"], "github-credentials volume mount should have readOnly set to true")
 		}
 	}
-	if !hasGithubMount {
-		t.Error("github-credentials volume mount at /secrets/github not found")
-	}
+	assert.True(t, hasGithubMount, "github-credentials volume mount at /secrets/github not found")
 }
