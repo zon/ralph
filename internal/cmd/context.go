@@ -16,66 +16,70 @@ import (
 // 4. Default namespace ("default")
 // Returns: kubeContext, namespace, error
 func loadContextAndNamespace(ctx context.Context, flagContext, flagNamespace string) (string, string, error) {
-	// Try to load .ralph/config.yaml for defaults
+	ralphConfig := loadRalphConfig()
+
+	kubeContext, contextSource, err := determineKubeContext(ctx, flagContext, ralphConfig)
+	if err != nil {
+		return "", "", err
+	}
+
+	namespace := determineNamespace(ctx, flagNamespace, ralphConfig, kubeContext, contextSource)
+
+	return kubeContext, namespace, nil
+}
+
+func loadRalphConfig() *config.RalphConfig {
 	ralphConfig, err := config.LoadConfig()
 	if err != nil {
 		logger.Verbosef("Failed to load .ralph/config.yaml: %v (using kubectl config)", err)
+		return nil
 	}
+	return ralphConfig
+}
 
-	// Determine the Kubernetes context
-	var kubeContext string
-	var contextSource string
-
+func determineKubeContext(ctx context.Context, flagContext string, ralphConfig *config.RalphConfig) (string, string, error) {
 	if flagContext != "" {
-		// Command-line flag takes highest priority
-		kubeContext = flagContext
-		contextSource = "flag"
-		logger.Verbosef("Using Kubernetes context: %s", kubeContext)
-	} else if ralphConfig != nil && ralphConfig.Workflow.Context != "" {
-		// .ralph/config.yaml is second priority
-		kubeContext = ralphConfig.Workflow.Context
-		contextSource = ".ralph/config.yaml"
-		logger.Verbosef("Using context from .ralph/config.yaml: %s", kubeContext)
-	} else {
-		// Fall back to kubectl current context
-		currentCtx, err := k8s.GetCurrentContext(ctx)
-		if err != nil {
-			return "", "", fmt.Errorf("failed to get current Kubernetes context: %w\n\nMake sure kubectl is installed and configured.", err)
-		}
-		kubeContext = currentCtx
-		contextSource = "kubectl"
-		logger.Verbosef("Using current Kubernetes context: %s", kubeContext)
+		logger.Verbosef("Using Kubernetes context: %s", flagContext)
+		return flagContext, "flag", nil
 	}
 
-	// Determine the namespace
-	var namespace string
+	if ralphConfig != nil && ralphConfig.Workflow.Context != "" {
+		logger.Verbosef("Using context from .ralph/config.yaml: %s", ralphConfig.Workflow.Context)
+		return ralphConfig.Workflow.Context, ".ralph/config.yaml", nil
+	}
 
+	currentCtx, err := k8s.GetCurrentContext(ctx)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to get current Kubernetes context: %w\n\nMake sure kubectl is installed and configured.", err)
+	}
+	logger.Verbosef("Using current Kubernetes context: %s", currentCtx)
+	return currentCtx, "kubectl", nil
+}
+
+func determineNamespace(ctx context.Context, flagNamespace string, ralphConfig *config.RalphConfig, kubeContext, contextSource string) string {
 	if flagNamespace != "" {
-		// Command-line flag takes highest priority
-		namespace = flagNamespace
-		logger.Verbosef("Using namespace: %s", namespace)
-	} else if ralphConfig != nil && ralphConfig.Workflow.Namespace != "" {
-		// .ralph/config.yaml is second priority
-		namespace = ralphConfig.Workflow.Namespace
+		logger.Verbosef("Using namespace: %s", flagNamespace)
+		return flagNamespace
+	}
+
+	if ralphConfig != nil && ralphConfig.Workflow.Namespace != "" {
+		namespace := ralphConfig.Workflow.Namespace
 		if contextSource == ".ralph/config.yaml" {
 			logger.Verbosef("Using namespace from .ralph/config.yaml: %s", namespace)
 		} else {
 			logger.Verbosef("Using namespace from .ralph/config.yaml: %s (context from %s)", namespace, contextSource)
 		}
-	} else {
-		// Fall back to kubectl context namespace
-		ns, err := k8s.GetNamespaceForContext(ctx, kubeContext)
-		if err != nil {
-			logger.Verbosef("Failed to get namespace for context: %v", err)
-		}
-		if ns == "" {
-			namespace = "default"
-			logger.Verbosef("Using namespace: %s (default)", namespace)
-		} else {
-			namespace = ns
-			logger.Verbosef("Using namespace: %s (from kubectl context)", namespace)
-		}
+		return namespace
 	}
 
-	return kubeContext, namespace, nil
+	ns, err := k8s.GetNamespaceForContext(ctx, kubeContext)
+	if err != nil {
+		logger.Verbosef("Failed to get namespace for context: %v", err)
+	}
+	if ns == "" {
+		logger.Verbosef("Using namespace: %s (default)", "default")
+		return "default"
+	}
+	logger.Verbosef("Using namespace: %s (from kubectl context)", ns)
+	return ns
 }

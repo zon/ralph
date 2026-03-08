@@ -21,10 +21,8 @@ type ConfigGithubCmd struct {
 func (c *ConfigGithubCmd) Run() error {
 	ctx := context.Background()
 
-	fmt.Println("Configuring GitHub App credentials for Ralph remote execution...")
-	fmt.Println()
+	c.printHeader()
 
-	// Load context and namespace with priority: flags > .ralph/config.yaml > kubectl
 	kubeContext, namespace, err := loadContextAndNamespace(ctx, c.Context, c.Namespace)
 	if err != nil {
 		return err
@@ -32,40 +30,72 @@ func (c *ConfigGithubCmd) Run() error {
 
 	fmt.Println()
 
-	// Get the current repository name from git remote
-	repoName, repoOwner, err := github.GetRepo(ctx)
+	repoName, repoOwner, err := c.detectRepo(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to detect GitHub repository: %w", err)
+		return err
 	}
 
 	_ = repoName
 	_ = repoOwner
 
+	privateKeyBytes, err := c.readAndValidatePrivateKey()
+	if err != nil {
+		return err
+	}
+
+	if err := c.validateCredentials(ctx, repoOwner, repoName, privateKeyBytes); err != nil {
+		return err
+	}
+
 	appID := config.DefaultAppID
 
-	// Read private key
-	privateKeyBytes, err := os.ReadFile(c.PrivateKey)
-	if err != nil {
-		return fmt.Errorf("failed to read private key file: %w", err)
-	}
-	if len(privateKeyBytes) == 0 {
-		return fmt.Errorf("private key file is empty")
+	if err := c.createK8sSecret(ctx, kubeContext, namespace, appID, privateKeyBytes); err != nil {
+		return err
 	}
 
-	// Validate credentials by generating a test installation token
+	fmt.Println("Note: GitHub App credentials are not tied to any user account.")
+
+	return nil
+}
+
+func (c *ConfigGithubCmd) printHeader() {
+	fmt.Println("Configuring GitHub App credentials for Ralph remote execution...")
+	fmt.Println()
+}
+
+func (c *ConfigGithubCmd) detectRepo(ctx context.Context) (string, string, error) {
+	repoName, repoOwner, err := github.GetRepo(ctx)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to detect GitHub repository: %w", err)
+	}
+	return repoName, repoOwner, nil
+}
+
+func (c *ConfigGithubCmd) readAndValidatePrivateKey() ([]byte, error) {
+	privateKeyBytes, err := os.ReadFile(c.PrivateKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read private key file: %w", err)
+	}
+	if len(privateKeyBytes) == 0 {
+		return nil, fmt.Errorf("private key file is empty")
+	}
+	return privateKeyBytes, nil
+}
+
+func (c *ConfigGithubCmd) validateCredentials(ctx context.Context, repoOwner, repoName string, privateKeyBytes []byte) error {
 	fmt.Println("Validating credentials...")
+	appID := config.DefaultAppID
+
 	jwtToken, err := github.GenerateAppJWT(appID, privateKeyBytes)
 	if err != nil {
 		return fmt.Errorf("failed to generate JWT for validation: %w", err)
 	}
 
-	// Get installation ID
 	installationID, err := github.GetInstallationID(ctx, jwtToken, repoOwner, repoName)
 	if err != nil {
 		return fmt.Errorf("failed to get installation ID: %w", err)
 	}
 
-	// Get installation token (validate it works)
 	_, err = github.GetInstallationToken(ctx, jwtToken, installationID)
 	if err != nil {
 		return fmt.Errorf("failed to get installation token: %w", err)
@@ -73,8 +103,10 @@ func (c *ConfigGithubCmd) Run() error {
 
 	fmt.Println("✓ Credentials validated successfully")
 	fmt.Println()
+	return nil
+}
 
-	// Create or update the Kubernetes secret
+func (c *ConfigGithubCmd) createK8sSecret(ctx context.Context, kubeContext, namespace, appID string, privateKeyBytes []byte) error {
 	fmt.Printf("Creating/updating Kubernetes secret '%s'...\n", k8s.GitHubSecretName)
 
 	secretData := map[string]string{
@@ -91,7 +123,5 @@ func (c *ConfigGithubCmd) Run() error {
 
 	fmt.Printf("Configuration complete! The secret '%s' is ready for use in namespace '%s'.\n", k8s.GitHubSecretName, namespace)
 	fmt.Println()
-	fmt.Println("Note: GitHub App credentials are not tied to any user account.")
-
 	return nil
 }

@@ -53,15 +53,9 @@ func (s *Server) Run() error {
 // handleWebhook is the main Gin handler for POST /webhook.
 // It runs the full pipeline: receive → validate → filter → event → workflow → submit.
 func (s *Server) handleWebhook(c *gin.Context) {
-	body, err := io.ReadAll(c.Request.Body)
+	payload, body, err := s.readAndParsePayload(c)
 	if err != nil {
-		c.Status(http.StatusInternalServerError)
-		return
-	}
-
-	var payload githubPayload
-	if err := json.Unmarshal(body, &payload); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid JSON payload"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -112,6 +106,20 @@ func (s *Server) handleWebhook(c *gin.Context) {
 
 	go submitWorkflow(result, owner, repoName)
 	c.Status(http.StatusOK)
+}
+
+func (s *Server) readAndParsePayload(c *gin.Context) (*githubPayload, []byte, error) {
+	body, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to read request body")
+	}
+
+	var payload githubPayload
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return nil, nil, fmt.Errorf("invalid JSON payload")
+	}
+
+	return &payload, body, nil
 }
 
 // submitWorkflow submits a WorkflowResult asynchronously.
