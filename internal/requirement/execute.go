@@ -83,8 +83,9 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		logger.Verbose("Skipping pick and develop phases in dry-run/local mode")
 	} else {
 		// Generate pick prompt and run picker agent
+		pickedReqPath := filepath.Join(filepath.Dir(absProjectFile), "picked-requirement.yaml")
 		logger.Verbose("Generating pick prompt...")
-		pickPrompt, err := prompt.BuildPickPrompt(ctx, absProjectFile)
+		pickPrompt, err := prompt.BuildPickPrompt(ctx, absProjectFile, pickedReqPath)
 		if err != nil {
 			return fmt.Errorf("failed to build pick prompt: %w", err)
 		}
@@ -97,7 +98,6 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		logger.Verbose("Picker agent execution completed")
 
 		// Read the selected requirement from picked-requirement.yaml
-		pickedReqPath := filepath.Join(filepath.Dir(absProjectFile), "picked-requirement.yaml")
 		pickedReqData, err := os.ReadFile(pickedReqPath)
 		if err != nil {
 			return fmt.Errorf("failed to read picked requirement: %w", err)

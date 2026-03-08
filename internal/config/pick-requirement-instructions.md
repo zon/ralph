@@ -28,6 +28,6 @@ You are an AI coding agent working on this project.
    - Dependencies on other requirements
    - Logical ordering of features
    - Impact on the overall project
-5. Write the selected requirement's YAML to a file named `picked-requirement.yaml`
+5. Write the selected requirement's YAML to this exact path: `{{.PickedReqPath}}`
    - Include the full requirement content (category, description, items, etc.)
 6. Do NOT make any code changes - only write the requirement YAML file

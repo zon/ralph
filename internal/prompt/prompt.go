@@ -109,8 +109,9 @@ func BuildDevelopPrompt(ctx *context.Context, projectFile string, selectedRequir
 	return prompt, nil
 }
 
-// BuildPickPrompt creates a prompt for the AI agent to pick the highest-priority failing requirement
-func BuildPickPrompt(ctx *context.Context, projectFile string) (string, error) {
+// BuildPickPrompt creates a prompt for the AI agent to pick the highest-priority failing requirement.
+// pickedReqPath is the absolute path where the agent must write the selected requirement YAML.
+func BuildPickPrompt(ctx *context.Context, projectFile string, pickedReqPath string) (string, error) {
 	ralphConfig, err := config.LoadConfig()
 	if err != nil {
 		return "", fmt.Errorf("failed to load config: %w", err)
@@ -139,10 +140,12 @@ func BuildPickPrompt(ctx *context.Context, projectFile string) (string, error) {
 		Notes          []string
 		CommitLog      string
 		ProjectContent string
+		PickedReqPath  string
 	}{
 		Notes:          ctx.Notes(),
 		CommitLog:      commitLog,
 		ProjectContent: strings.TrimRight(string(projectContent), "\n"),
+		PickedReqPath:  pickedReqPath,
 	}
 
 	tmpl, err := template.New("pick-prompt").Parse(promptTmpl)

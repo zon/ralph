@@ -464,7 +464,8 @@ requirements:
 
 	ctx := testutil.NewContext()
 
-	prompt, err := BuildPickPrompt(ctx, projectFile)
+	pickedReqPath := filepath.Join(tmpDir, "picked-requirement.yaml")
+	prompt, err := BuildPickPrompt(ctx, projectFile, pickedReqPath)
 	require.NoError(t, err, "BuildPickPrompt failed")
 
 	// Verify prompt contains expected sections
@@ -486,14 +487,16 @@ requirements:
 	assert.True(t, strings.Contains(prompt, "Test Project"), "Prompt does not contain project name")
 	assert.True(t, strings.Contains(prompt, "Implement feature X"), "Prompt does not contain project requirements")
 
-	// Verify pick instructions are included
-	assert.True(t, strings.Contains(prompt, "picked-requirement.yaml"), "Prompt does not contain picked-requirement.yaml instruction")
+	// Verify the prompt contains the exact absolute path — this is the critical regression test:
+	// the AI must be told exactly where to write the file so it doesn't default to CWD when
+	// the project file lives in a subdirectory (e.g. projects/foo.yaml vs repo root).
+	assert.True(t, strings.Contains(prompt, pickedReqPath), "Prompt must contain the absolute path of picked-requirement.yaml so the AI writes it to the correct location, got:\n%s", prompt)
 }
 
 func TestBuildPickPrompt_MissingProjectFile(t *testing.T) {
 	ctx := testutil.NewContext()
 
-	_, err := BuildPickPrompt(ctx, "/nonexistent/project.yaml")
+	_, err := BuildPickPrompt(ctx, "/nonexistent/project.yaml", "/tmp/picked-requirement.yaml")
 	require.Error(t, err, "Expected error for missing project file")
 	assert.Contains(t, err.Error(), "failed to read project file")
 }
@@ -515,7 +518,8 @@ requirements:
 	ctx := testutil.NewContext()
 	ctx.AddNote("This is a test note for the picker agent")
 
-	prompt, err := BuildPickPrompt(ctx, projectFile)
+	pickedReqPath := filepath.Join(tmpDir, "picked-requirement.yaml")
+	prompt, err := BuildPickPrompt(ctx, projectFile, pickedReqPath)
 	require.NoError(t, err, "BuildPickPrompt failed")
 
 	// Verify prompt contains System Notes section when context has notes
@@ -539,7 +543,8 @@ requirements:
 
 	ctx := testutil.NewContext()
 
-	prompt, err := BuildPickPrompt(ctx, projectFile)
+	pickedReqPath := filepath.Join(tmpDir, "picked-requirement.yaml")
+	prompt, err := BuildPickPrompt(ctx, projectFile, pickedReqPath)
 	require.NoError(t, err, "BuildPickPrompt failed")
 
 	// Verify prompt does NOT contain system notes section when context has no notes
