@@ -223,7 +223,10 @@ func CommitChanges(ctx *context.Context, iteration int) error {
 	}
 
 	// Read commit message from report.md
-	commitMsg := getCommitMessage(iteration)
+	commitMsg, err := getCommitMessage(iteration)
+	if err != nil {
+		return fmt.Errorf("cannot commit without a descriptive changelog: %w", err)
+	}
 
 	// Stage all changes
 	if err := git.StageAll(ctx); err != nil {
@@ -259,25 +262,25 @@ func generateChangelogIfNeeded(ctx *context.Context) error {
 	return ai.GenerateChangelog(ctx)
 }
 
-// getCommitMessage reads report.md or falls back to iteration-based message
-func getCommitMessage(iteration int) []byte {
+// getCommitMessage reads report.md and returns it as the commit message.
+// Returns an error if report.md does not exist.
+func getCommitMessage(iteration int) ([]byte, error) {
 	reportPath := "report.md"
 	commitMsg, err := os.ReadFile(reportPath)
 	if err != nil {
-		logger.Warningf("Failed to read report.md: %v, using fallback message", err)
-		return []byte(fmt.Sprintf("Development iteration %d", iteration))
+		return nil, fmt.Errorf("report.md not found: %w", err)
 	}
 	if err := os.Remove(reportPath); err != nil {
 		logger.Warningf("Failed to remove report.md: %v", err)
 	}
-	return commitMsg
+	return commitMsg, nil
 }
 
 // performCommit commits the staged changes
 func performCommit(ctx *context.Context, commitMsg []byte, iteration int) error {
 	message := strings.TrimSpace(string(commitMsg))
 	if message == "" {
-		message = fmt.Sprintf("Development iteration %d", iteration)
+		return fmt.Errorf("empty commit message: cannot proceed without a descriptive message")
 	}
 
 	if git.HasStagedChanges(ctx) {

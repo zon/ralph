@@ -11,7 +11,7 @@ requirements:
       - When report.md is already present after the agent runs, no additional opencode call is made
       - When there are no uncommitted changes, no additional opencode call is made
       - There is no generic fallback commit message (e.g. "Development iteration N") — if a descriptive message cannot be generated, the commit should not proceed with a placeholder
-    passing: false
+    passing: true
 
   - category: version
     description: Patch version bump
