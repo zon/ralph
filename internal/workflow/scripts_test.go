@@ -1,8 +1,9 @@
 package workflow
 
 import (
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 
 	"github.com/zon/ralph/internal/config"
 )
@@ -63,9 +64,7 @@ func TestBuildRunScript(t *testing.T) {
 			}
 
 			for _, element := range expectedElements {
-				if !strings.Contains(script, element) {
-					t.Errorf("run script does not contain expected element: %s", element)
-				}
+				assert.Contains(t, script, element, "run script should contain expected element")
 			}
 		})
 	}
@@ -84,15 +83,10 @@ func TestBuildRunScript_DebugBranch(t *testing.T) {
 		`ralph_run "$PROJECT_PATH" --local --no-notify`,
 	}
 	for _, element := range expectedElements {
-		if !strings.Contains(script, element) {
-			t.Errorf("run script (debug branch) does not contain expected element: %s", element)
-		}
+		assert.Contains(t, script, element, "run script (debug branch) should contain expected element")
 	}
 
-	// non-debug path must NOT appear when debug branch is set
-	if strings.Contains(script, "command ralph") {
-		t.Errorf("run script (debug branch) should not use 'command ralph' fallback")
-	}
+	assert.NotContains(t, script, "command ralph", "run script (debug branch) should not use 'command ralph' fallback")
 }
 
 func TestBuildCommentScript(t *testing.T) {
@@ -137,9 +131,7 @@ func TestBuildCommentScript(t *testing.T) {
 			}
 
 			for _, element := range expectedElements {
-				if !strings.Contains(script, element) {
-					t.Errorf("comment script does not contain expected element: %s", element)
-				}
+				assert.Contains(t, script, element, "comment script should contain expected element")
 			}
 		})
 	}
@@ -182,14 +174,10 @@ func TestBuildMergeScript(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			script := buildMergeScript()
 			for _, s := range tt.expectStrings {
-				if !strings.Contains(script, s) {
-					t.Errorf("merge script does not contain expected element: %q", s)
-				}
+				assert.Contains(t, script, s, "merge script should contain expected element")
 			}
 			for _, s := range tt.notExpectStrings {
-				if strings.Contains(script, s) {
-					t.Errorf("merge script unexpectedly contains: %q", s)
-				}
+				assert.NotContains(t, script, s, "merge script should not contain unexpected element")
 			}
 		})
 	}
@@ -222,9 +210,7 @@ func TestBuildVolumeMounts_WorkspacePrefix(t *testing.T) {
 		name, _ := mount["name"].(string)
 		mountPath, _ := mount["mountPath"].(string)
 		if want, ok := expected[name]; ok {
-			if mountPath != want {
-				t.Errorf("mount %q: mountPath = %q, want %q", name, mountPath, want)
-			}
+			assert.Equal(t, want, mountPath, "mount %q should have correct mountPath", name)
 		}
 	}
 }
@@ -251,9 +237,7 @@ func TestSanitizeName(t *testing.T) {
 
 	for _, tt := range tests {
 		result := sanitizeName(tt.input)
-		if result != tt.expected {
-			t.Errorf("sanitizeName(%q) = %q, want %q", tt.input, result, tt.expected)
-		}
+		assert.Equal(t, tt.expected, result, "sanitizeName should return expected value")
 	}
 }
 
@@ -271,15 +255,9 @@ func TestBuildConfigMapVolumeMount(t *testing.T) {
 			destDir:  "",
 			index:    0,
 			check: func(t *testing.T, mount map[string]interface{}) {
-				if mount["name"] != "my-config-0" {
-					t.Errorf("name = %v, want my-config-0", mount["name"])
-				}
-				if mount["mountPath"] != "/workspace/config/main.yaml" {
-					t.Errorf("mountPath = %v, want /workspace/config/main.yaml", mount["mountPath"])
-				}
-				if mount["subPath"] != "main.yaml" {
-					t.Errorf("subPath = %v, want main.yaml", mount["subPath"])
-				}
+				assert.Equal(t, "my-config-0", mount["name"], "name should match")
+				assert.Equal(t, "/workspace/config/main.yaml", mount["mountPath"], "mountPath should match")
+				assert.Equal(t, "main.yaml", mount["subPath"], "subPath should match")
 			},
 		},
 		{
@@ -288,12 +266,8 @@ func TestBuildConfigMapVolumeMount(t *testing.T) {
 			destDir:  "config/extra",
 			index:    0,
 			check: func(t *testing.T, mount map[string]interface{}) {
-				if mount["name"] != "my-config" {
-					t.Errorf("name = %v, want my-config", mount["name"])
-				}
-				if mount["mountPath"] != "/workspace/config/extra" {
-					t.Errorf("mountPath = %v, want /workspace/config/extra", mount["mountPath"])
-				}
+				assert.Equal(t, "my-config", mount["name"], "name should match")
+				assert.Equal(t, "/workspace/config/extra", mount["mountPath"], "mountPath should match")
 			},
 		},
 		{
@@ -302,9 +276,7 @@ func TestBuildConfigMapVolumeMount(t *testing.T) {
 			destDir:  "",
 			index:    0,
 			check: func(t *testing.T, mount map[string]interface{}) {
-				if mount["mountPath"] != "/configmaps/my-config" {
-					t.Errorf("mountPath = %v, want /configmaps/my-config", mount["mountPath"])
-				}
+				assert.Equal(t, "/configmaps/my-config", mount["mountPath"], "mountPath should match")
 			},
 		},
 	}
@@ -319,57 +291,35 @@ func TestBuildConfigMapVolumeMount(t *testing.T) {
 
 func TestBuildSecretVolumeMount(t *testing.T) {
 	mount := buildSecretVolumeMount("my-secret", "secrets.yaml", "", 0)
-	if mount["name"] != "my-secret-0" {
-		t.Errorf("name = %v, want my-secret-0", mount["name"])
-	}
-	if mount["mountPath"] != "/workspace/secrets.yaml" {
-		t.Errorf("mountPath = %v, want /workspace/secrets.yaml", mount["mountPath"])
-	}
+	assert.Equal(t, "my-secret-0", mount["name"], "name should match")
+	assert.Equal(t, "/workspace/secrets.yaml", mount["mountPath"], "mountPath should match")
 }
 
 func TestBuildCredentialMounts(t *testing.T) {
 	mounts := buildCredentialMounts()
-	if len(mounts) != 2 {
-		t.Fatalf("expected 2 credential mounts, got %d", len(mounts))
-	}
-	if mounts[0]["name"] != "github-credentials" {
-		t.Errorf("first mount name = %v, want github-credentials", mounts[0]["name"])
-	}
-	if mounts[1]["name"] != "opencode-credentials" {
-		t.Errorf("second mount name = %v, want opencode-credentials", mounts[1]["name"])
-	}
+	assert.Len(t, mounts, 2, "should have 2 credential mounts")
+	assert.Equal(t, "github-credentials", mounts[0]["name"], "first mount name should match")
+	assert.Equal(t, "opencode-credentials", mounts[1]["name"], "second mount name should match")
 }
 
 func TestBuildCredentialVolumes(t *testing.T) {
 	volumes := buildCredentialVolumes()
-	if len(volumes) != 2 {
-		t.Fatalf("expected 2 credential volumes, got %d", len(volumes))
-	}
-	if volumes[0]["name"] != "github-credentials" {
-		t.Errorf("first volume name = %v, want github-credentials", volumes[0]["name"])
-	}
+	assert.Len(t, volumes, 2, "should have 2 credential volumes")
+	assert.Equal(t, "github-credentials", volumes[0]["name"], "first volume name should match")
 }
 
 func TestBuildConfigMapVolume(t *testing.T) {
 	vol := buildConfigMapVolume("my-config", "config/main.yaml", 0)
-	if vol["name"] != "my-config-0" {
-		t.Errorf("name = %v, want my-config-0", vol["name"])
-	}
+	assert.Equal(t, "my-config-0", vol["name"], "name should match")
 
 	vol = buildConfigMapVolume("my-config", "", 0)
-	if vol["name"] != "my-config" {
-		t.Errorf("name = %v, want my-config", vol["name"])
-	}
+	assert.Equal(t, "my-config", vol["name"], "name should match")
 }
 
 func TestBuildSecretVolume(t *testing.T) {
 	vol := buildSecretVolume("my-secret", "secrets.yaml", 0)
-	if vol["name"] != "my-secret-0" {
-		t.Errorf("name = %v, want my-secret-0", vol["name"])
-	}
+	assert.Equal(t, "my-secret-0", vol["name"], "name should match")
 
 	vol = buildSecretVolume("my-secret", "", 0)
-	if vol["name"] != "my-secret" {
-		t.Errorf("name = %v, want my-secret", vol["name"])
-	}
+	assert.Equal(t, "my-secret", vol["name"], "name should match")
 }

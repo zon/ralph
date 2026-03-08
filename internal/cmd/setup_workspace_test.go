@@ -5,42 +5,36 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/zon/ralph/internal/config"
 )
 
 func TestSetupWorkspaceCmd_LinkField(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create test directory structure
 	workspaceDir := filepath.Join(tmpDir, "workspace")
-	if err := os.MkdirAll(workspaceDir, 0755); err != nil {
-		t.Fatalf("Failed to create workspace directory: %v", err)
-	}
+	err := os.MkdirAll(workspaceDir, 0755)
+	require.NoError(t, err, "Failed to create workspace directory")
 
-	// Create source files that would be mounted
 	configMapDir := filepath.Join(workspaceDir, "configs")
-	if err := os.MkdirAll(configMapDir, 0755); err != nil {
-		t.Fatalf("Failed to create configMap directory: %v", err)
-	}
+	err = os.MkdirAll(configMapDir, 0755)
+	require.NoError(t, err, "Failed to create configMap directory")
 	configMapFile := filepath.Join(configMapDir, "app-config.yaml")
-	if err := os.WriteFile(configMapFile, []byte("config: value"), 0644); err != nil {
-		t.Fatalf("Failed to create configMap file: %v", err)
-	}
+	err = os.WriteFile(configMapFile, []byte("config: value"), 0644)
+	require.NoError(t, err, "Failed to create configMap file")
 
 	secretDir := filepath.Join(workspaceDir, "secrets")
-	if err := os.MkdirAll(secretDir, 0755); err != nil {
-		t.Fatalf("Failed to create secret directory: %v", err)
-	}
+	err = os.MkdirAll(secretDir, 0755)
+	require.NoError(t, err, "Failed to create secret directory")
 	secretFile := filepath.Join(secretDir, "api-key.txt")
-	if err := os.WriteFile(secretFile, []byte("secret-key"), 0644); err != nil {
-		t.Fatalf("Failed to create secret file: %v", err)
-	}
+	err = os.WriteFile(secretFile, []byte("secret-key"), 0644)
+	require.NoError(t, err, "Failed to create secret file")
 
-	// Create .ralph directory and config.yaml
 	ralphDir := filepath.Join(tmpDir, ".ralph")
-	if err := os.MkdirAll(ralphDir, 0755); err != nil {
-		t.Fatalf("Failed to create .ralph directory: %v", err)
-	}
+	err = os.MkdirAll(ralphDir, 0755)
+	require.NoError(t, err, "Failed to create .ralph directory")
 
 	configContent := `workflow:
   configMaps:
@@ -57,20 +51,15 @@ func TestSetupWorkspaceCmd_LinkField(t *testing.T) {
     - name: other-secret
       destFile: other-secret.txt
 `
-	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte(configContent), 0644); err != nil {
-		t.Fatalf("Failed to create config file: %v", err)
-	}
+	err = os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte(configContent), 0644)
+	require.NoError(t, err, "Failed to create config file")
 
-	// Change to test directory
 	t.Chdir(tmpDir)
 
-	// Run setup-workspace command
 	cmd := &SetupWorkspaceCmd{WorkspaceDir: workspaceDir}
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("SetupWorkspaceCmd.Run failed: %v", err)
-	}
+	err = cmd.Run()
+	require.NoError(t, err, "SetupWorkspaceCmd.Run should not fail")
 
-	// Check that symlinks were created only for entries with link: true
 	expectedSymlinks := []string{
 		filepath.Join(tmpDir, "configs"),
 		filepath.Join(tmpDir, "secrets"),
@@ -81,43 +70,30 @@ func TestSetupWorkspaceCmd_LinkField(t *testing.T) {
 	}
 
 	for _, symlink := range expectedSymlinks {
-		if _, err := os.Lstat(symlink); err != nil {
-			t.Errorf("Expected symlink %s to exist, got error: %v", symlink, err)
-		}
+		_, err := os.Lstat(symlink)
+		assert.NoError(t, err, "Expected symlink %s to exist", symlink)
 	}
 
 	for _, symlink := range unexpectedSymlinks {
-		if _, err := os.Lstat(symlink); err == nil {
-			t.Errorf("Expected symlink %s to not exist, but it does", symlink)
-		}
+		_, err := os.Lstat(symlink)
+		assert.Error(t, err, "Expected symlink %s to not exist", symlink)
 	}
 
-	// Verify the symlinks point to the correct locations
 	configsLink, err := os.Readlink(filepath.Join(tmpDir, "configs"))
-	if err != nil {
-		t.Errorf("Failed to read configs symlink: %v", err)
-	}
-	if configsLink != filepath.Join(workspaceDir, "configs") {
-		t.Errorf("configs symlink points to %s, expected %s", configsLink, filepath.Join(workspaceDir, "configs"))
-	}
+	require.NoError(t, err, "Failed to read configs symlink")
+	assert.Equal(t, filepath.Join(workspaceDir, "configs"), configsLink, "configs symlink should point to correct location")
 
 	secretsLink, err := os.Readlink(filepath.Join(tmpDir, "secrets"))
-	if err != nil {
-		t.Errorf("Failed to read secrets symlink: %v", err)
-	}
-	if secretsLink != filepath.Join(workspaceDir, "secrets") {
-		t.Errorf("secrets symlink points to %s, expected %s", secretsLink, filepath.Join(workspaceDir, "secrets"))
-	}
+	require.NoError(t, err, "Failed to read secrets symlink")
+	assert.Equal(t, filepath.Join(workspaceDir, "secrets"), secretsLink, "secrets symlink should point to correct location")
 }
 
 func TestSetupWorkspaceCmd_NoDestNoLink(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create .ralph directory and config.yaml with configMaps/secrets without destFile/destDir
 	ralphDir := filepath.Join(tmpDir, ".ralph")
-	if err := os.MkdirAll(ralphDir, 0755); err != nil {
-		t.Fatalf("Failed to create .ralph directory: %v", err)
-	}
+	err := os.MkdirAll(ralphDir, 0755)
+	require.NoError(t, err, "Failed to create .ralph directory")
 
 	configContent := `workflow:
   configMaps:
@@ -125,96 +101,67 @@ func TestSetupWorkspaceCmd_NoDestNoLink(t *testing.T) {
   secrets:
     - name: my-secret
 `
-	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte(configContent), 0644); err != nil {
-		t.Fatalf("Failed to create config file: %v", err)
-	}
+	err = os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte(configContent), 0644)
+	require.NoError(t, err, "Failed to create config file")
 
-	// Change to test directory
 	t.Chdir(tmpDir)
 
-	// Run setup-workspace command - should not error even though there's nothing to link
 	cmd := &SetupWorkspaceCmd{WorkspaceDir: "/workspace"}
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("SetupWorkspaceCmd.Run failed: %v", err)
-	}
+	err = cmd.Run()
+	require.NoError(t, err, "SetupWorkspaceCmd.Run should not fail")
 }
 
 func TestSetupWorkspaceCmd_LinkMethod(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create workspace directory structure
 	workspaceDir := filepath.Join(tmpDir, "workspace")
-	if err := os.MkdirAll(workspaceDir, 0755); err != nil {
-		t.Fatalf("Failed to create workspace directory: %v", err)
-	}
+	err := os.MkdirAll(workspaceDir, 0755)
+	require.NoError(t, err, "Failed to create workspace directory")
 
-	// Create source file in workspace
 	srcFile := filepath.Join(workspaceDir, "source.txt")
-	if err := os.WriteFile(srcFile, []byte("test content"), 0644); err != nil {
-		t.Fatalf("Failed to create source file: %v", err)
-	}
+	err = os.WriteFile(srcFile, []byte("test content"), 0644)
+	require.NoError(t, err, "Failed to create source file")
 
-	// Create destination directory (current working directory)
 	destDir := filepath.Join(tmpDir, "dest")
-	if err := os.MkdirAll(destDir, 0755); err != nil {
-		t.Fatalf("Failed to create destination directory: %v", err)
-	}
+	err = os.MkdirAll(destDir, 0755)
+	require.NoError(t, err, "Failed to create destination directory")
 
 	cmd := &SetupWorkspaceCmd{WorkspaceDir: workspaceDir}
 
-	// Test with destFile
-	if err := cmd.link(destDir, "source.txt", ""); err != nil {
-		t.Fatalf("link with destFile failed: %v", err)
-	}
+	err = cmd.link(destDir, "source.txt", "")
+	require.NoError(t, err, "link with destFile should not fail")
 
 	linkPath := filepath.Join(destDir, "source.txt")
-	if _, err := os.Lstat(linkPath); err != nil {
-		t.Errorf("Symlink not created: %v", err)
-	}
+	_, err = os.Lstat(linkPath)
+	assert.NoError(t, err, "Symlink should be created")
 
-	// Verify symlink points to correct location
 	target, err := os.Readlink(linkPath)
-	if err != nil {
-		t.Errorf("Failed to read symlink: %v", err)
-	}
-	if target != srcFile {
-		t.Errorf("Symlink points to %s, expected %s", target, srcFile)
-	}
+	require.NoError(t, err, "Failed to read symlink")
+	assert.Equal(t, srcFile, target, "Symlink should point to correct location")
 
-	// Clean up for next test
 	os.Remove(linkPath)
 
-	// Test with destDir (creates symlink named after the source file)
-	if err := cmd.link(destDir, "", "source.txt"); err != nil {
-		t.Fatalf("link with destDir failed: %v", err)
-	}
+	err = cmd.link(destDir, "", "source.txt")
+	require.NoError(t, err, "link with destDir should not fail")
 
 	linkPath = filepath.Join(destDir, "source.txt")
-	if _, err := os.Lstat(linkPath); err != nil {
-		t.Errorf("Symlink not created: %v", err)
-	}
+	_, err = os.Lstat(linkPath)
+	assert.NoError(t, err, "Symlink should be created")
 
-	// Test with neither destFile nor destDir (should do nothing)
-	if err := cmd.link(destDir, "", ""); err != nil {
-		t.Fatalf("link with no destination failed: %v", err)
-	}
+	err = cmd.link(destDir, "", "")
+	require.NoError(t, err, "link with no destination should not fail")
 
-	// Test with non-existent source (should error)
-	if err := cmd.link(destDir, "nonexistent.txt", ""); err == nil {
-		t.Error("Expected error for non-existent source, got nil")
-	}
+	err = cmd.link(destDir, "nonexistent.txt", "")
+	assert.Error(t, err, "Should return error for non-existent source")
 }
 
 func TestConfigMapMountAndSecretMountYAML(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create .ralph directory and config.yaml
 	ralphDir := filepath.Join(tmpDir, ".ralph")
-	if err := os.MkdirAll(ralphDir, 0755); err != nil {
-		t.Fatalf("Failed to create .ralph directory: %v", err)
-	}
+	err := os.MkdirAll(ralphDir, 0755)
+	require.NoError(t, err, "Failed to create .ralph directory")
 
-	// Test YAML marshaling/unmarshaling with link field
 	yamlContent := `workflow:
   configMaps:
     - name: config1
@@ -232,22 +179,15 @@ func TestConfigMapMountAndSecretMountYAML(t *testing.T) {
     - name: secret2
       destDir: secrets
 `
-	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte(yamlContent), 0644); err != nil {
-		t.Fatalf("Failed to create config file: %v", err)
-	}
+	err = os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte(yamlContent), 0644)
+	require.NoError(t, err, "Failed to create config file")
 
-	// Change to test directory
 	t.Chdir(tmpDir)
 
 	cfg, err := config.LoadConfig()
-	if err != nil {
-		t.Fatalf("Failed to load config: %v", err)
-	}
+	require.NoError(t, err, "Failed to load config")
 
-	// Verify configMaps
-	if len(cfg.Workflow.ConfigMaps) != 3 {
-		t.Fatalf("Expected 3 configMaps, got %d", len(cfg.Workflow.ConfigMaps))
-	}
+	assert.Len(t, cfg.Workflow.ConfigMaps, 3, "Should have 3 configMaps")
 
 	expectedConfigMaps := []struct {
 		name     string
@@ -256,30 +196,19 @@ func TestConfigMapMountAndSecretMountYAML(t *testing.T) {
 		link     bool
 	}{
 		{"config1", "config.yaml", "", true},
-		{"config2", "", "configs", false}, // link omitted, should default to false
+		{"config2", "", "configs", false},
 		{"config3", "other.yaml", "", false},
 	}
 
 	for i, expected := range expectedConfigMaps {
 		cm := cfg.Workflow.ConfigMaps[i]
-		if cm.Name != expected.name {
-			t.Errorf("ConfigMap[%d].Name = %s, want %s", i, cm.Name, expected.name)
-		}
-		if cm.DestFile != expected.destFile {
-			t.Errorf("ConfigMap[%d].DestFile = %s, want %s", i, cm.DestFile, expected.destFile)
-		}
-		if cm.DestDir != expected.destDir {
-			t.Errorf("ConfigMap[%d].DestDir = %s, want %s", i, cm.DestDir, expected.destDir)
-		}
-		if cm.Link != expected.link {
-			t.Errorf("ConfigMap[%d].Link = %v, want %v", i, cm.Link, expected.link)
-		}
+		assert.Equal(t, expected.name, cm.Name, "ConfigMap[%d].Name should match", i)
+		assert.Equal(t, expected.destFile, cm.DestFile, "ConfigMap[%d].DestFile should match", i)
+		assert.Equal(t, expected.destDir, cm.DestDir, "ConfigMap[%d].DestDir should match", i)
+		assert.Equal(t, expected.link, cm.Link, "ConfigMap[%d].Link should match", i)
 	}
 
-	// Verify secrets
-	if len(cfg.Workflow.Secrets) != 2 {
-		t.Fatalf("Expected 2 secrets, got %d", len(cfg.Workflow.Secrets))
-	}
+	assert.Len(t, cfg.Workflow.Secrets, 2, "Should have 2 secrets")
 
 	expectedSecrets := []struct {
 		name     string
@@ -288,22 +217,14 @@ func TestConfigMapMountAndSecretMountYAML(t *testing.T) {
 		link     bool
 	}{
 		{"secret1", "secret.txt", "", true},
-		{"secret2", "", "secrets", false}, // link omitted, should default to false
+		{"secret2", "", "secrets", false},
 	}
 
 	for i, expected := range expectedSecrets {
 		secret := cfg.Workflow.Secrets[i]
-		if secret.Name != expected.name {
-			t.Errorf("Secret[%d].Name = %s, want %s", i, secret.Name, expected.name)
-		}
-		if secret.DestFile != expected.destFile {
-			t.Errorf("Secret[%d].DestFile = %s, want %s", i, secret.DestFile, expected.destFile)
-		}
-		if secret.DestDir != expected.destDir {
-			t.Errorf("Secret[%d].DestDir = %s, want %s", i, secret.DestDir, expected.destDir)
-		}
-		if secret.Link != expected.link {
-			t.Errorf("Secret[%d].Link = %v, want %v", i, secret.Link, expected.link)
-		}
+		assert.Equal(t, expected.name, secret.Name, "Secret[%d].Name should match", i)
+		assert.Equal(t, expected.destFile, secret.DestFile, "Secret[%d].DestFile should match", i)
+		assert.Equal(t, expected.destDir, secret.DestDir, "Secret[%d].DestDir should match", i)
+		assert.Equal(t, expected.link, secret.Link, "Secret[%d].Link should match", i)
 	}
 }
