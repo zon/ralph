@@ -11,3 +11,9 @@ requirements:
       - When report.md is already present after the agent runs, no additional opencode call is made
       - When there are no uncommitted changes, no additional opencode call is made
     passing: false
+
+  - category: version
+    description: Patch version bump
+    items:
+      - Apply a semver patch bump to internal/version/VERSION and charts/ralph-webhook/Chart.yaml
+    passing: false

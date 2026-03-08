@@ -50,3 +50,16 @@ Requirements describe **what should happen** and may define high-level interface
 - Break complex work into multiple requirements
 
 **Do not include** items ralph handles automatically — it runs tests and fixes failures on its own. Items like "all existing tests pass" or "no regressions" are redundant.
+
+## Version Bumps
+
+When a project warrants a version bump, add a `version` requirement specifying the bump level — not the target version number. Ralph determines the current version and applies the bump itself.
+
+✅ Good:
+- Apply a semver patch bump to `internal/version/VERSION` and `charts/ralph-webhook/Chart.yaml`
+
+❌ Bad:
+- Bump version to 3.2.11
+- Set `appVersion` to "3.2.11" and `version` to "0.2.62"
+
+Use **patch** for bug fixes and small additions, **minor** for new features, and **major** for breaking changes.
