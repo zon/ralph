@@ -207,7 +207,6 @@ requirements:
 
 	ctx := testutil.NewContext(
 		testutil.WithProjectFile(projectFile),
-		testutil.WithDryRun(true),
 	)
 
 	err := Execute(ctx, nil)
@@ -233,7 +232,6 @@ requirements:
 
 	ctx := testutil.NewContext(
 		testutil.WithProjectFile(projectFile),
-		testutil.WithDryRun(true),
 	)
 
 	err := Execute(ctx, nil)
@@ -278,7 +276,6 @@ requirements:
 	ctx := testutil.NewContext(
 		testutil.WithProjectFile(projectFile),
 		testutil.WithNoServices(false),
-		testutil.WithDryRun(true),
 	)
 
 	err := Execute(ctx, nil)
@@ -323,10 +320,9 @@ requirements:
 	ctx := testutil.NewContext(
 		testutil.WithProjectFile(projectFile),
 		testutil.WithNoServices(false),
-		testutil.WithDryRun(true),
 	)
 
 	err := Execute(ctx, nil)
 
-	require.NoError(t, err, "Execute failed in dry-run mode")
+	require.NoError(t, err, "Execute failed")
 }

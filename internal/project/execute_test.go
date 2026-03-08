@@ -166,15 +166,13 @@ requirements:
 
 	tests := []struct {
 		name          string
-		dryRun        bool
 		maxIterations int
 		wantErr       bool
 	}{
 		{
-			name:          "dry-run mode",
-			dryRun:        true,
+			name:          "local mode without git repo",
 			maxIterations: 5,
-			wantErr:       false,
+			wantErr:       true,
 		},
 	}
 
@@ -183,7 +181,6 @@ requirements:
 			ctx := testutil.NewContext(
 				testutil.WithProjectFile(projectFile),
 				testutil.WithMaxIterations(tt.maxIterations),
-				testutil.WithDryRun(tt.dryRun),
 			)
 
 			err := Execute(ctx, nil)
@@ -217,7 +214,7 @@ requirements:
 
 	err = Execute(ctx, nil)
 
-	require.NoError(t, err, "Execute should succeed in dry-run mode even when not in a git repo")
+	require.Error(t, err, "Execute should fail when not in a git repository")
 }
 
 func TestExecute_NonExistentProjectFile(t *testing.T) {
@@ -226,7 +223,6 @@ func TestExecute_NonExistentProjectFile(t *testing.T) {
 
 	ctx := testutil.NewContext(
 		testutil.WithProjectFile(projectFile),
-		testutil.WithDryRun(true),
 	)
 
 	err := Execute(ctx, nil)
@@ -250,12 +246,11 @@ requirements:
 
 	ctx := testutil.NewContext(
 		testutil.WithProjectFile(projectFile),
-		testutil.WithDryRun(true),
 	)
 
 	err = Execute(ctx, nil)
 
-	require.NoError(t, err, "Execute in local dry-run mode should complete without error")
+	require.Error(t, err, "Execute should fail without git repo in local mode")
 }
 
 func TestExecute_LocalDryRun_RespectsMaxIterations(t *testing.T) {
@@ -274,13 +269,12 @@ requirements:
 
 	ctx := testutil.NewContext(
 		testutil.WithProjectFile(projectFile),
-		testutil.WithDryRun(true),
 		testutil.WithMaxIterations(3),
 	)
 
 	err = Execute(ctx, nil)
 
-	require.NoError(t, err, "Execute should respect MaxIterations from context")
+	require.Error(t, err, "Execute should fail without git repo in local mode")
 }
 
 func TestExecute_SubdirectoryProjectFile(t *testing.T) {
@@ -303,12 +297,11 @@ requirements:
 
 	ctx := testutil.NewContext(
 		testutil.WithProjectFile(projectFile),
-		testutil.WithDryRun(true),
 	)
 
 	err = Execute(ctx, nil)
 
-	require.NoError(t, err, "Execute should succeed with subdirectory project file")
+	require.Error(t, err, "Execute should fail without git repo")
 }
 
 func TestExecute_FileNameDifferentFromYamlName(t *testing.T) {
@@ -328,10 +321,9 @@ requirements:
 
 	ctx := testutil.NewContext(
 		testutil.WithProjectFile(projectFile),
-		testutil.WithDryRun(true),
 	)
 
 	err = Execute(ctx, nil)
 
-	require.NoError(t, err, "Execute should use YAML name field, not file name")
+	require.Error(t, err, "Execute should fail without git repo")
 }

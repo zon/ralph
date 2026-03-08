@@ -14,6 +14,10 @@ func Contains(s, substr string) bool {
 	return strings.Contains(s, substr)
 }
 
+func init() {
+	os.Unsetenv("RALPH_WORKFLOW_EXECUTION")
+}
+
 // NewContext creates a standard test context with safe defaults.
 // All tests should use this to ensure consistent configuration:
 // - NoNotify: true (prevents real desktop notifications)

@@ -85,7 +85,6 @@ func (m *MergeCmd) runLocal() error {
 
 func (m *MergeCmd) createExecutionContext() *context.Context {
 	ctx := &context.Context{}
-	ctx.SetDryRun(m.DryRun)
 	ctx.SetVerbose(m.Verbose)
 	return ctx
 }
@@ -116,15 +115,15 @@ func (m *MergeCmd) scanAndCleanupProjects(ctx *context.Context) error {
 		logger.Infof("  - %s", relPath)
 	}
 
-	if err := project.RemoveAndCommit(ctx, completeProjects); err != nil {
-		return fmt.Errorf("failed to remove complete projects: %w", err)
-	}
-
-	if err := git.PushCurrentBranch(ctx); err != nil {
-		return fmt.Errorf("failed to push after removing complete projects: %w", err)
-	}
-
 	if !m.DryRun {
+		if err := project.RemoveAndCommit(ctx, completeProjects); err != nil {
+			return fmt.Errorf("failed to remove complete projects: %w", err)
+		}
+
+		if err := git.PushCurrentBranch(ctx); err != nil {
+			return fmt.Errorf("failed to push after removing complete projects: %w", err)
+		}
+
 		if err := waitForGitHubHead(m.PR); err != nil {
 			return fmt.Errorf("failed waiting for GitHub to sync push: %w", err)
 		}

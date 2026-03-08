@@ -269,7 +269,6 @@ func TestExecute_LocalWithRealGit(t *testing.T) {
 	ctx := &context.Context{}
 	ctx.SetProjectFile(projectFile)
 	ctx.SetMaxIterations(3)
-	ctx.SetDryRun(true) // suppress push and PR creation; real git reads still work
 	ctx.SetLocal(true)
 	ctx.SetVerbose(true)
 	ctx.SetNoNotify(true)

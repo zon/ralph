@@ -15,7 +15,8 @@ import (
 )
 
 func TestRunIterationLoop_DryRun(t *testing.T) {
-	// Create a temporary project file
+	// This test verifies that in local mode (which skips AI), the iteration loop
+	// runs and attempts to commit. Without a git repo or report.md, it will fail.
 	tmpDir := t.TempDir()
 	projectFile := filepath.Join(tmpDir, "test-project.yaml")
 	projectContent := `name: test-project
@@ -34,12 +35,10 @@ requirements:
 
 	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
 
-	// Run iteration loop in dry-run mode
-	iterations, err := RunIterationLoop(ctx, nil)
-	require.NoError(t, err, "RunIterationLoop failed in dry-run")
-
-	// In dry-run mode, it should return max iterations
-	assert.Equal(t, 10, iterations)
+	// In local mode, AI is skipped but commit is attempted.
+	// This will fail because there's no git repo, which is expected.
+	_, err := RunIterationLoop(ctx, nil)
+	require.Error(t, err, "RunIterationLoop should fail without git repo in local mode")
 }
 
 func TestRunIterationLoop_ReturnsErrorWhenMaxIterationsReached(t *testing.T) {
@@ -67,7 +66,6 @@ requirements:
 	ctx := testutil.NewContext(
 		testutil.WithProjectFile(projectFile),
 		testutil.WithMaxIterations(1),
-		testutil.WithDryRun(false),
 	)
 
 	_, err := RunIterationLoop(ctx, nil)
@@ -76,13 +74,9 @@ requirements:
 }
 
 func TestRunIterationLoop_BlockedDetected(t *testing.T) {
-	tmpDir := t.TempDir()
-	t.Chdir(tmpDir)
-
-	// Create a minimal git repo
-	if err := os.MkdirAll(".git", 0755); err != nil {
-		t.Fatalf("Failed to create .git dir: %v", err)
-	}
+	// Set up a proper git repo
+	workDir := setupIterationTestRepo(t, "")
+	t.Chdir(workDir)
 
 	// Create project file
 	projectFile := "test-project.yaml"
@@ -165,24 +159,21 @@ func TestIsFatalOpenCodeError(t *testing.T) {
 }
 
 func TestCommitChanges_DryRun(t *testing.T) {
-	// Create a temporary project file
+	// Test that CommitChanges in local mode fails without a git repo
 	tmpDir := t.TempDir()
 	projectFile := filepath.Join(tmpDir, "test-project.yaml")
 
 	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
 
-	// In dry-run mode, should not error
+	// In local mode, CommitChanges will try to commit but fail without a git repo
 	err := CommitChanges(ctx, 1)
-	require.NoError(t, err, "CommitChanges failed in dry-run")
+	require.Error(t, err, "CommitChanges should fail without git repo")
 }
 
 func TestCommitChanges_UsesReportMd(t *testing.T) {
-	// This test verifies that CommitChanges reads from report.md
-	// We can't test actual git commits without a real git repo,
-	// but we can test the report.md reading logic
-
-	tmpDir := t.TempDir()
-	t.Chdir(tmpDir)
+	// This test verifies that CommitChanges reads from report.md and commits
+	workDir := setupIterationTestRepo(t, "")
+	t.Chdir(workDir)
 
 	// Create report.md with a commit message
 	reportContent := "Add new feature\n\nImplemented feature X with tests"
@@ -192,20 +183,19 @@ func TestCommitChanges_UsesReportMd(t *testing.T) {
 
 	ctx := testutil.NewContext(testutil.WithProjectFile("project.yaml"))
 
-	// In dry-run mode, this should read report.md (though not commit)
 	err := CommitChanges(ctx, 1)
 	require.NoError(t, err, "CommitChanges failed")
 
-	// In dry-run mode, report.md should still exist
+	// After commit, report.md should be removed
 	_, err = os.Stat("report.md")
-	require.NoError(t, err, "report.md should exist in dry-run mode")
+	assert.True(t, os.IsNotExist(err), "report.md should be removed after commit")
 }
 
 func TestCommitChanges_FailsWithoutReportMd(t *testing.T) {
 	workDir := setupIterationTestRepo(t, "")
 	t.Chdir(workDir)
 
-	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	ctx := testutil.NewContext()
 
 	err := CommitChanges(ctx, 5)
 	// No uncommitted changes and no report.md means there is nothing to commit
@@ -297,7 +287,6 @@ func TestCommitChanges_WorkflowPermissionErrorIsFatal(t *testing.T) {
 
 	ctx := testutil.NewContext(
 		testutil.WithProjectFile("project.yaml"),
-		testutil.WithDryRun(false),
 	)
 
 	err := CommitChanges(ctx, 1)
@@ -354,7 +343,6 @@ requirements:
 	ctx := testutil.NewContext(
 		testutil.WithProjectFile(projectFile),
 		testutil.WithMaxIterations(5),
-		testutil.WithDryRun(false),
 	)
 
 	err := CommitChanges(ctx, 1)
@@ -378,7 +366,6 @@ func TestCommitChanges_ReadsReportMdAndCommits(t *testing.T) {
 
 	ctx := testutil.NewContext(
 		testutil.WithProjectFile("project.yaml"),
-		testutil.WithDryRun(false),
 	)
 
 	err := CommitChanges(ctx, 1)
@@ -410,7 +397,6 @@ func TestCommitChanges_UsesProvidedReportMd(t *testing.T) {
 
 	ctx := testutil.NewContext(
 		testutil.WithProjectFile("project.yaml"),
-		testutil.WithDryRun(false),
 	)
 
 	err := CommitChanges(ctx, 42)
@@ -435,7 +421,6 @@ func TestCommitChanges_AllowEmptyCommitWhenNoStagedChanges(t *testing.T) {
 
 	ctx := testutil.NewContext(
 		testutil.WithProjectFile("project.yaml"),
-		testutil.WithDryRun(false),
 	)
 
 	err := CommitChanges(ctx, 1)
@@ -453,7 +438,7 @@ func TestGenerateChangelogIfNeeded_NoChanges(t *testing.T) {
 	workDir := setupIterationTestRepo(t, "")
 	t.Chdir(workDir)
 
-	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	ctx := testutil.NewContext()
 
 	// Clean repo — no uncommitted changes, no report.md.
 	// generateChangelogIfNeeded should return nil without doing anything.
@@ -469,7 +454,7 @@ func TestGenerateChangelogIfNeeded_ReportMdAlreadyPresent(t *testing.T) {
 	workDir := setupIterationTestRepo(t, "")
 	t.Chdir(workDir)
 
-	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	ctx := testutil.NewContext()
 
 	// Create uncommitted changes
 	if err := os.WriteFile(filepath.Join(workDir, "new.go"), []byte("package main\n"), 0644); err != nil {
@@ -503,8 +488,11 @@ func TestGenerateChangelogIfNeeded_DryRun(t *testing.T) {
 }
 
 func TestRunIterationLoop_ExitsEarlyWhenAllRequirementsPass(t *testing.T) {
-	tmpDir := t.TempDir()
-	projectFile := filepath.Join(tmpDir, "test-project.yaml")
+	// Set up a git repo for this test
+	workDir := setupIterationTestRepo(t, "")
+	t.Chdir(workDir)
+
+	projectFile := "test-project.yaml"
 	projectContent := `name: test-project
 description: Test project
 requirements:
@@ -516,10 +504,14 @@ requirements:
 		t.Fatalf("Failed to create test project file: %v", err)
 	}
 
+	// Create report.md so commit can succeed
+	if err := os.WriteFile("report.md", []byte("Initial commit"), 0644); err != nil {
+		t.Fatalf("Failed to create report.md: %v", err)
+	}
+
 	ctx := testutil.NewContext(
 		testutil.WithProjectFile(projectFile),
 		testutil.WithMaxIterations(10),
-		testutil.WithDryRun(true),
 	)
 
 	iterations, err := RunIterationLoop(ctx, nil)

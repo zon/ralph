@@ -2,6 +2,7 @@ package project
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -255,9 +256,28 @@ func TestRemoveAndCommit_EmptyFiles(t *testing.T) {
 }
 
 func TestRemoveAndCommit_DryRun(t *testing.T) {
-	tmpDir := t.TempDir()
+	// Set up a git repo for this test
+	workDir := t.TempDir()
+	t.Chdir(workDir)
 
-	testFile := filepath.Join(tmpDir, "test-project.yaml")
+	cmd := exec.Command("git", "init")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git init failed: %v\n%s", err, out)
+	}
+
+	remoteDir := t.TempDir()
+	cmd = exec.Command("git", "init", "--bare")
+	cmd.Dir = remoteDir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git init --bare failed: %v\n%s", err, out)
+	}
+
+	cmd = exec.Command("git", "remote", "add", "origin", remoteDir)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git remote add failed: %v\n%s", err, out)
+	}
+
+	testFile := "test-project.yaml"
 	content := `name: test-project
 description: Test project
 requirements:
@@ -270,17 +290,26 @@ requirements:
 	err := os.WriteFile(testFile, []byte(content), 0644)
 	require.NoError(t, err, "failed to write test file")
 
+	// Create an initial commit so we can commit the removal
+	initFile := "init.txt"
+	err = os.WriteFile(initFile, []byte("init"), 0644)
+	require.NoError(t, err, "failed to write init file")
+	cmd = exec.Command("git", "add", ".")
+	cmd.Run()
+	cmd = exec.Command("git", "commit", "-m", "initial")
+	cmd.Run()
+
 	ctx := testutil.NewContext()
 
 	err = RemoveAndCommit(ctx, []string{testFile})
-	require.NoError(t, err, "RemoveAndCommit in dry-run mode should not error")
+	require.NoError(t, err, "RemoveAndCommit should not error")
 
 	_, err = os.Stat(testFile)
-	assert.NoError(t, err, "File should still exist in dry-run mode")
+	assert.True(t, os.IsNotExist(err), "File should be removed")
 }
 
 func TestRemoveAndCommit_NonExistentFile(t *testing.T) {
-	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	ctx := testutil.NewContext()
 
 	err := RemoveAndCommit(ctx, []string{"/non/existent/file.yaml"})
 	assert.Error(t, err, "RemoveAndCommit should return error for non-existent file")

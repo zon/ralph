@@ -39,10 +39,6 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		logger.SetVerbose(true)
 	}
 
-	if ctx.IsDryRun() {
-		logger.Verbose("=== DRY-RUN MODE: No changes will be made ===")
-	}
-
 	// Handle Argo Workflow submission (default when not running with --local).
 	if !ctx.IsLocal() {
 		return executeRemote(ctx, ctx.ProjectFile())
@@ -307,13 +303,13 @@ func executeRemote(ctx *context.Context, absProjectFile string) error {
 
 	// Generate workflow - clone from current branch; workflow will create project branch inside container
 	logger.Verbose("Generating Argo Workflow...")
-	wf, err := workflow.GenerateWorkflow(ctx, projectName, currentBranch, projectBranch, ctx.IsDryRun(), ctx.IsVerbose())
+	wf, err := workflow.GenerateWorkflow(ctx, projectName, currentBranch, projectBranch, false, ctx.IsVerbose())
 	if err != nil {
 		return fmt.Errorf("failed to generate workflow: %w", err)
 	}
 
-	// Note: When --dry-run is used without --local, we submit a real workflow
-	// but the ralph command inside the workflow will run with --dry-run flag
+	// Note: When --local is used, we submit a workflow that runs ralph locally
+	// Inside a workflow container the process is already isolated (RALPH_WORKFLOW_EXECUTION=true)
 	if ctx.IsVerbose() {
 		workflowYAML, _ := wf.Render()
 		logger.Verbosef("Generated workflow YAML:\n%s", workflowYAML)
@@ -336,10 +332,10 @@ func executeRemote(ctx *context.Context, absProjectFile string) error {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
-			notify.Error(projectName, ctx.ShouldNotify() && !ctx.IsDryRun())
+			notify.Error(projectName, ctx.ShouldNotify())
 			return fmt.Errorf("argo logs failed: %w", err)
 		}
-		notify.Success(projectName, ctx.ShouldNotify() && !ctx.IsDryRun())
+		notify.Success(projectName, ctx.ShouldNotify())
 	} else {
 		logger.Infof("To follow logs, run: argo logs -n %s -f %s", wf.RalphConfig.Workflow.Namespace, workflowName)
 	}
