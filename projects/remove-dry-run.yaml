@@ -53,7 +53,7 @@ requirements:
       - The DryRun field is removed from the Workflow struct
       - The dryRun parameter is removed from GenerateWorkflow() and related functions
       - The DryRunFlag template variable is removed from run.sh and comment.sh
-    passing: false
+    passing: true
 
   - category: tests
     description: Update tests to remove dry run dependencies

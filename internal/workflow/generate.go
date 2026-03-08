@@ -26,7 +26,7 @@ func DefaultContainerVersion() string {
 // If ctx.Repo is set (owner/repo format) the remote URL is constructed directly from it, skipping local
 // git commands. If the project file path is absolute and ctx.Repo is set, it is used as-is (callers
 // that bypass local git must pass a relative path).
-func GenerateWorkflow(ctx *execcontext.Context, projectName, cloneBranch, projectBranch string, dryRun, verbose bool) (*Workflow, error) {
+func GenerateWorkflow(ctx *execcontext.Context, projectName, cloneBranch, projectBranch string, verbose bool) (*Workflow, error) {
 	var remoteURL string
 	if ctx.Repo() != "" {
 		remoteURL = "https://github.com/" + ctx.Repo() + ".git"
@@ -53,12 +53,12 @@ func GenerateWorkflow(ctx *execcontext.Context, projectName, cloneBranch, projec
 		}
 	}
 
-	return GenerateWorkflowWithGitInfo(ctx, projectName, remoteURL, cloneBranch, projectBranch, relProjectPath, dryRun, verbose)
+	return GenerateWorkflowWithGitInfo(ctx, projectName, remoteURL, cloneBranch, projectBranch, relProjectPath, verbose)
 }
 
 // GenerateWorkflowWithGitInfo builds a Workflow with provided git information.
 // This allows for easier testing by accepting git info as parameters.
-func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL, cloneBranch, projectBranch, relProjectPath string, dryRun, verbose bool) (*Workflow, error) {
+func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL, cloneBranch, projectBranch, relProjectPath string, verbose bool) (*Workflow, error) {
 	ralphConfig, err := config.LoadConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)
@@ -90,7 +90,6 @@ func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL,
 		ProjectBranch: projectBranch,
 		ProjectPath:   relProjectPath,
 		Instructions:  instructions,
-		DryRun:        dryRun,
 		Verbose:       verbose,
 		DebugBranch:   ctx.DebugBranch(),
 		RalphConfig:   ralphConfig,

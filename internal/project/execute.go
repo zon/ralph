@@ -303,7 +303,7 @@ func executeRemote(ctx *context.Context, absProjectFile string) error {
 
 	// Generate workflow - clone from current branch; workflow will create project branch inside container
 	logger.Verbose("Generating Argo Workflow...")
-	wf, err := workflow.GenerateWorkflow(ctx, projectName, currentBranch, projectBranch, false, ctx.IsVerbose())
+	wf, err := workflow.GenerateWorkflow(ctx, projectName, currentBranch, projectBranch, ctx.IsVerbose())
 	if err != nil {
 		return fmt.Errorf("failed to generate workflow: %w", err)
 	}
