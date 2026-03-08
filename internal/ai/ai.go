@@ -1,11 +1,13 @@
 package ai
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"text/template"
 
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
@@ -76,18 +78,24 @@ func GenerateChangelog(ctx *context.Context) error {
 	return nil
 }
 
+var changelogPromptTemplate = template.Must(template.New("changelog").Parse(`Inspect the current uncommitted git changes and write a concise changelog entry to 'report.md'.
+
+Steps:
+1. Run 'git diff HEAD' (or 'git diff --cached' for staged-only) to see what changed.
+2. Write a short, commit-message-style summary of the changes to 'report.md'.
+
+Format:
+- First line: imperative-mood summary (≤72 chars), e.g. "Add user authentication endpoint"
+- Optional blank line followed by bullet points for non-obvious details
+
+Keep it concise — this becomes the git commit message.
+Do NOT include code snippets or verbose explanations.
+`))
+
 // buildChangelogPrompt returns the prompt used to generate report.md from git diff output.
 func buildChangelogPrompt() string {
-	var b strings.Builder
-	b.WriteString("Inspect the current uncommitted git changes and write a concise changelog entry to 'report.md'.\n\n")
-	b.WriteString("Steps:\n")
-	b.WriteString("1. Run 'git diff HEAD' (or 'git diff --cached' for staged-only) to see what changed.\n")
-	b.WriteString("2. Write a short, commit-message-style summary of the changes to 'report.md'.\n\n")
-	b.WriteString("Format:\n")
-	b.WriteString("- First line: imperative-mood summary (≤72 chars), e.g. \"Add user authentication endpoint\"\n")
-	b.WriteString("- Optional blank line followed by bullet points for non-obvious details\n\n")
-	b.WriteString("Keep it concise — this becomes the git commit message.\n")
-	b.WriteString("Do NOT include code snippets or verbose explanations.\n")
+	var b bytes.Buffer
+	changelogPromptTemplate.Execute(&b, nil)
 	return b.String()
 }
 
@@ -164,27 +172,49 @@ func createTempSummaryFile() (string, error) {
 	return tmpFile, nil
 }
 
+type prSummaryData struct {
+	ProjectDesc   string
+	ProjectStatus string
+	BaseBranch    string
+	CommitLog     string
+	AbsPath       string
+}
+
+var prSummaryPromptTemplate = template.Must(template.New("prSummary").Parse(`Write a concise PR description (3-5 paragraphs max) for the changes made in this branch.
+
+Project: {{.ProjectDesc}}
+Status: {{.ProjectStatus}}
+
+## Commit Log
+{{.CommitLog}}
+
+Review the git commits from {{.BaseBranch}}..HEAD to understand what was changed.
+Use 'git log --format="%h: %B" {{.BaseBranch}}..HEAD' to see commit messages.
+Use 'git diff {{.BaseBranch}}..HEAD' to see the full changes.
+
+Summarize:
+1. What was implemented/changed
+2. Key technical decisions
+3. Any notable considerations or future work
+
+Be concise and focus on what matters for code review.
+
+Write your summary to the file: {{.AbsPath}}
+`))
+
 // buildPRSummaryPrompt constructs the prompt for generating PR summary
 func buildPRSummaryPrompt(projectDesc, projectStatus, baseBranch, commitLog, outputFile string) string {
 	absPath, _ := filepath.Abs(outputFile)
 
-	var builder strings.Builder
-	builder.WriteString("Write a concise PR description (3-5 paragraphs max) for the changes made in this branch.\n\n")
-	builder.WriteString(fmt.Sprintf("Project: %s\n", projectDesc))
-	builder.WriteString(fmt.Sprintf("Status: %s\n\n", projectStatus))
-	builder.WriteString("## Commit Log\n")
-	builder.WriteString(commitLog)
-	builder.WriteString("\n\n")
-	builder.WriteString(fmt.Sprintf("Review the git commits from %s..HEAD to understand what was changed.\n", baseBranch))
-	builder.WriteString(fmt.Sprintf("Use 'git log --format=\"%%h: %%B\" %s..HEAD' to see commit messages.\n", baseBranch))
-	builder.WriteString(fmt.Sprintf("Use 'git diff %s..HEAD' to see the full changes.\n\n", baseBranch))
-	builder.WriteString("Summarize:\n")
-	builder.WriteString("1. What was implemented/changed\n")
-	builder.WriteString("2. Key technical decisions\n")
-	builder.WriteString("3. Any notable considerations or future work\n\n")
-	builder.WriteString("Be concise and focus on what matters for code review.\n\n")
-	builder.WriteString(fmt.Sprintf("Write your summary to the file: %s\n", absPath))
-
+	var builder bytes.Buffer
+	data := prSummaryData{
+		ProjectDesc:   projectDesc,
+		ProjectStatus: projectStatus,
+		BaseBranch:    baseBranch,
+		CommitLog:     commitLog,
+		AbsPath:       absPath,
+	}
+	prSummaryPromptTemplate.Execute(&builder, data)
 	return builder.String()
 }
 
