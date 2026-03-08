@@ -13,7 +13,7 @@ requirements:
     description: Remove dry run state from context
     items:
       - The dryRun field, IsDryRun(), and SetDryRun() are removed from the Context type
-    passing: false
+    passing: true
 
   - category: ai
     description: Remove dry run guards from AI functions
@@ -62,7 +62,7 @@ requirements:
       - WithDryRun() option is removed from testutil
       - All _DryRun test functions are removed
       - Tests that relied on dry run stubs are updated to use real implementations or mocks
-    passing: false
+    passing: true
 
   - category: version
     description: Version bump
