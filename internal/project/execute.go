@@ -77,43 +77,9 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		}
 	}
 
-	// Validate git repository exists
-	if !git.IsGitRepository(ctx) {
-		return fmt.Errorf("not a git repository, please run 'git init' or run ralph from within a git repository")
-	}
-
-	// Get current branch
-	currentBranch, err := git.GetCurrentBranch(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get current branch: %w", err)
-	}
-
-	logger.Verbosef("Current branch: %s", currentBranch)
-
-	// Validate current branch is in sync with remote
-	// Skip this check when running inside a workflow container — the container may have
-	// created a fresh local branch that hasn't been pushed yet, and it will push after work is done.
-	if !ctx.IsWorkflowExecution() {
-		logger.Verbosef("Checking branch '%s' is in sync with remote...", currentBranch)
-		if err := git.IsBranchSyncedWithRemote(ctx, currentBranch); err != nil {
-			return err
-		}
-	} else {
-		logger.Verbosef("Skipping remote sync check (running in workflow container)")
-	}
-
-	// Switch to project branch if different from current
-	if currentBranch != branchName {
-		// Fetch so remote-tracking refs are up to date
-		if err := git.Fetch(ctx); err != nil {
-			logger.Verbosef("Could not fetch from remote (continuing anyway): %v", err)
-		}
-
-		if err := git.CheckoutOrCreateBranch(ctx, branchName); err != nil {
-			return fmt.Errorf("failed to checkout branch: %w", err)
-		}
-	} else {
-		logger.Verbosef("Already on branch '%s'", branchName)
+	// Validate git state and switch to project branch
+	if err := validateGitStateAndSwitchBranch(ctx, branchName); err != nil {
+		return err
 	}
 
 	// Run iteration loop
@@ -136,7 +102,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	}
 	logger.Verbose("PR summary generated")
 
-	// Load project for PR title and notification
+	// Reload project for PR title and notification
 	project, err = config.LoadProject(absProjectFile)
 	if err != nil {
 		return fmt.Errorf("failed to reload project after iteration loop: %w", err)
@@ -146,6 +112,82 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		logger.Verbosef("PR Summary:\n%s", prSummary)
 	}
 
+	// Create GitHub pull request
+	prURL, err := createPullRequest(ctx, project, branchName, baseBranch, prSummary)
+	if err != nil {
+		return err
+	}
+
+	logger.Successf("Pull request created: %s", prURL)
+
+	// Send success notification
+	notify.Success(project.Name, ctx.ShouldNotify())
+
+	return nil
+}
+
+// validateGitStateAndSwitchBranch validates git repository state and switches to the project branch
+func validateGitStateAndSwitchBranch(ctx *context.Context, branchName string) error {
+	// Validate git repository exists
+	if !git.IsGitRepository(ctx) {
+		return fmt.Errorf("not a git repository, please run 'git init' or run ralph from within a git repository")
+	}
+
+	// Get current branch
+	currentBranch, err := git.GetCurrentBranch(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get current branch: %w", err)
+	}
+
+	logger.Verbosef("Current branch: %s", currentBranch)
+
+	// Validate current branch is in sync with remote
+	if err := validateBranchSync(ctx, currentBranch); err != nil {
+		return err
+	}
+
+	// Switch to project branch if different from current
+	if currentBranch != branchName {
+		if err := switchToProjectBranch(ctx, branchName); err != nil {
+			return err
+		}
+	} else {
+		logger.Verbosef("Already on branch '%s'", branchName)
+	}
+
+	return nil
+}
+
+// validateBranchSync checks if the current branch is in sync with its remote tracking branch
+func validateBranchSync(ctx *context.Context, currentBranch string) error {
+	// Skip this check when running inside a workflow container — the container may have
+	// created a fresh local branch that hasn't been pushed yet, and it will push after work is done.
+	if !ctx.IsWorkflowExecution() {
+		logger.Verbosef("Checking branch '%s' is in sync with remote...", currentBranch)
+		if err := git.IsBranchSyncedWithRemote(ctx, currentBranch); err != nil {
+			return err
+		}
+	} else {
+		logger.Verbosef("Skipping remote sync check (running in workflow container)")
+	}
+	return nil
+}
+
+// switchToProjectBranch fetches from remote and checks out or creates the project branch
+func switchToProjectBranch(ctx *context.Context, branchName string) error {
+	// Fetch so remote-tracking refs are up to date
+	if err := git.Fetch(ctx); err != nil {
+		logger.Verbosef("Could not fetch from remote (continuing anyway): %v", err)
+	}
+
+	if err := git.CheckoutOrCreateBranch(ctx, branchName); err != nil {
+		return fmt.Errorf("failed to checkout branch: %w", err)
+	}
+	return nil
+}
+
+// createPullRequest creates a GitHub pull request with the given parameters
+func createPullRequest(ctx *context.Context, project *config.Project, branchName, baseBranch, prSummary string) (string, error) {
 	// Refresh GitHub credentials immediately before creating the PR.
 	// Installation tokens expire after 1 hour, so a long-running agent job may
 	// have started with a valid token that is now stale. Re-running ConfigureGitAuth
@@ -153,13 +195,13 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	if ctx.IsWorkflowExecution() {
 		owner, repoName := ctx.RepoOwnerAndName()
 		if err := github.ConfigureGitAuth(gocontext.Background(), owner, repoName, github.DefaultSecretsDir); err != nil {
-			return fmt.Errorf("failed to refresh GitHub credentials before PR creation: %w", err)
+			return "", fmt.Errorf("failed to refresh GitHub credentials before PR creation: %w", err)
 		}
 	}
 
 	// Check if gh CLI is available and authenticated
 	if !github.IsGHReady(ctx) {
-		return fmt.Errorf("gh CLI is not ready, please install and authenticate with 'gh auth login'")
+		return "", fmt.Errorf("gh CLI is not ready, please install and authenticate with 'gh auth login'")
 	}
 
 	// Create GitHub pull request
@@ -171,15 +213,10 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	logger.Verbose("Creating GitHub pull request...")
 	prURL, err := github.CreatePR(ctx, prTitle, prSummary, baseBranch, branchName)
 	if err != nil {
-		return fmt.Errorf("failed to create pull request: %w", err)
+		return "", fmt.Errorf("failed to create pull request: %w", err)
 	}
 
-	logger.Successf("Pull request created: %s", prURL)
-
-	// Send success notification
-	notify.Success(project.Name, ctx.ShouldNotify())
-
-	return nil
+	return prURL, nil
 }
 
 // sanitizeBranchName sanitizes a project name for use as a git branch name
