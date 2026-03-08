@@ -10,7 +10,7 @@ requirements:
       - Prompt includes the full project file content
       - Prompt instructs the agent to review commit history and the project file, select the highest-priority failing requirement, and write its YAML to a file named picked-requirement.yaml
       - A default pick template is embedded from internal/config/default-pick-instructions.md
-    passing: false
+    passing: true
 
   - category: prompt
     description: Update BuildDevelopPrompt to work with a single selected requirement
@@ -18,7 +18,7 @@ requirements:
       - BuildDevelopPrompt accepts an additional selectedRequirement string parameter (the YAML of the picked requirement)
       - The prompt includes the selected requirement YAML inline instead of the full project file content
       - The prompt includes a link/path to the full project file but does not require the agent to read it
-    passing: false
+    passing: true
 
   - category: execution
     description: Update requirement.Execute to run pick then develop
@@ -28,10 +28,10 @@ requirements:
       - Execute passes the requirement YAML string directly to BuildDevelopPrompt
       - Execute calls ai.RunAgent with the develop prompt
       - picked-requirement.yaml is cleaned up after use
-    passing: false
+    passing: true
 
   - category: version
     description: Bump version
     items:
       - Apply a semver patch bump to internal/version/VERSION and charts/ralph-webhook/Chart.yaml
-    passing: false
+    passing: true

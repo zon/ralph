@@ -21,6 +21,9 @@ var defaultMergeInstructions string
 //go:embed fix-service-instructions.md
 var defaultFixServiceInstructions string
 
+//go:embed default-pick-instructions.md
+var defaultPickInstructions string
+
 // Project represents a project YAML file with requirements
 type Project struct {
 	Name         string        `yaml:"name"`
@@ -124,6 +127,10 @@ func (c *RalphConfig) DefaultMergeInstructions() string {
 
 func (c *RalphConfig) DefaultFixServiceInstructions() string {
 	return defaultFixServiceInstructions
+}
+
+func (c *RalphConfig) DefaultPickInstructions() string {
+	return defaultPickInstructions
 }
 
 // LoadProject loads and validates a project YAML file

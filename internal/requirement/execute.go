@@ -74,9 +74,45 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		return err
 	}
 
-	// Generate development prompt
+	// In dry-run or local mode, skip the pick phase since AI doesn't actually run
+	// and won't create picked-requirement.yaml
+	var selectedRequirement string
+	if ctx.IsDryRun() || ctx.IsLocal() {
+		logger.Verbose("Skipping pick phase in dry-run/local mode")
+	} else {
+		// Generate pick prompt and run picker agent
+		logger.Verbose("Generating pick prompt...")
+		pickPrompt, err := prompt.BuildPickPrompt(ctx, absProjectFile)
+		if err != nil {
+			return fmt.Errorf("failed to build pick prompt: %w", err)
+		}
+		logger.Verbose("Pick prompt generated")
+
+		logger.Verbose("Running picker agent...")
+		if err := ai.RunAgent(ctx, pickPrompt); err != nil {
+			return fmt.Errorf("picker agent execution failed: %w", err)
+		}
+		logger.Verbose("Picker agent execution completed")
+
+		// Read the selected requirement from picked-requirement.yaml
+		pickedReqPath := filepath.Join(filepath.Dir(absProjectFile), "picked-requirement.yaml")
+		pickedReqData, err := os.ReadFile(pickedReqPath)
+		if err != nil {
+			return fmt.Errorf("failed to read picked requirement: %w", err)
+		}
+		selectedRequirement = string(pickedReqData)
+
+		// Clean up picked-requirement.yaml
+		if err := os.Remove(pickedReqPath); err != nil {
+			logger.Verbosef("Failed to remove picked-requirement.yaml: %v", err)
+		} else {
+			logger.Verbose("Cleaned up picked-requirement.yaml")
+		}
+	}
+
+	// Generate development prompt with selected requirement
 	logger.Verbose("Generating development prompt...")
-	devPrompt, err := prompt.BuildDevelopPrompt(ctx, absProjectFile)
+	devPrompt, err := prompt.BuildDevelopPrompt(ctx, absProjectFile, selectedRequirement)
 	if err != nil {
 		return fmt.Errorf("failed to build prompt: %w", err)
 	}

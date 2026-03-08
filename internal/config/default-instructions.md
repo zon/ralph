@@ -15,9 +15,17 @@ You are an AI coding agent working on this project.
 
 {{.CommitLog}}
 {{end -}}
+{{if .SelectedRequirement}}
+## Selected Requirement
+
+{{.SelectedRequirement}}
+
+The full project file is available at: `{{.ProjectFilePath}}`. You do NOT need to read it.
+{{else}}
 ## Project Requirements
 
 {{.ProjectContent}}
+{{end}}
 {{if .Services}}
 ## Services
 
