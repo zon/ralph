@@ -152,63 +152,88 @@ func buildWebhookAppConfig(ctx context.Context, base, updates *webhookconfig.App
 func (c *ConfigWebhookConfigCmd) Run() error {
 	ctx := context.Background()
 
-	fmt.Println("Provisioning webhook-config configmap...")
-	fmt.Println()
+	c.printProvisioningHeader()
 
-	// Determine Kubernetes context (namespace defaults to ralph-webhook via struct tag)
-	var kubeContext string
-	if c.Context != "" {
-		kubeContext = c.Context
-	} else {
-		currentCtx, err := k8s.GetCurrentContext(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to get current Kubernetes context: %w", err)
-		}
-		kubeContext = currentCtx
+	kubeContext, err := c.determineKubeContext(ctx)
+	if err != nil {
+		return err
 	}
 
 	namespace := c.Namespace
 
-	// Read existing configmap as the base (ignore error if it doesn't exist yet)
-	var base *webhookconfig.AppConfig
-	if existing, err := readWebhookConfigFromK8s(ctx, namespace, kubeContext); err != nil {
+	base := c.readExistingConfigmap(ctx, namespace, kubeContext)
+
+	updates := c.loadConfigUpdates()
+
+	repoName, repoOwner, repoNamespace := c.detectRepoAndNamespace(ctx)
+
+	appCfg := buildWebhookAppConfig(ctx, base, updates, repoOwner, repoName, repoNamespace, collaboratorsFetcher)
+
+	if err := c.writeConfigMap(ctx, kubeContext, namespace, appCfg); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *ConfigWebhookConfigCmd) printProvisioningHeader() {
+	fmt.Println("Provisioning webhook-config configmap...")
+	fmt.Println()
+}
+
+func (c *ConfigWebhookConfigCmd) determineKubeContext(ctx context.Context) (string, error) {
+	if c.Context != "" {
+		return c.Context, nil
+	}
+	currentCtx, err := k8s.GetCurrentContext(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to get current Kubernetes context: %w", err)
+	}
+	return currentCtx, nil
+}
+
+func (c *ConfigWebhookConfigCmd) readExistingConfigmap(ctx context.Context, namespace, kubeContext string) *webhookconfig.AppConfig {
+	existing, err := readWebhookConfigFromK8s(ctx, namespace, kubeContext)
+	if err != nil {
 		logger.Warningf("Could not read existing configmap '%s': %v (starting from scratch)", webhookConfigMapName, err)
-	} else {
-		base = existing
+		return nil
 	}
+	return existing
+}
 
-	// Load optional updates from --config flag
-	var updates *webhookconfig.AppConfig
-	if c.Config != "" {
-		loaded, err := webhookconfig.LoadAppConfig(c.Config)
-		if err != nil {
-			return fmt.Errorf("failed to load partial config: %w", err)
-		}
-		updates = loaded
+func (c *ConfigWebhookConfigCmd) loadConfigUpdates() *webhookconfig.AppConfig {
+	if c.Config == "" {
+		return nil
 	}
+	loaded, err := webhookconfig.LoadAppConfig(c.Config)
+	if err != nil {
+		logger.Warningf("Failed to load partial config: %v (ignoring)", err)
+		return nil
+	}
+	return loaded
+}
 
-	// Auto-detect repo and namespace from the working directory
+func (c *ConfigWebhookConfigCmd) detectRepoAndNamespace(ctx context.Context) (string, string, string) {
 	repoName, repoOwner, err := github.GetRepo(ctx)
 	if err != nil {
 		logger.Warningf("Failed to detect GitHub repository: %v (skipping repo auto-detection)", err)
-		repoName = ""
-		repoOwner = ""
+		return "", "", ""
 	}
 
-	var repoNamespace string
-	if repoOwner != "" && repoName != "" {
-		ralphCfg, err := config.LoadConfig()
-		if err != nil {
-			logger.Warningf("Failed to load .ralph/config.yaml: %v (namespace will be empty)", err)
-		} else {
-			repoNamespace = ralphCfg.Workflow.Namespace
-		}
+	if repoOwner == "" || repoName == "" {
+		return "", "", ""
 	}
 
-	// Build AppConfig by merging base → updates → auto-detected repo
-	appCfg := buildWebhookAppConfig(ctx, base, updates, repoOwner, repoName, repoNamespace, collaboratorsFetcher)
+	ralphCfg, err := config.LoadConfig()
+	if err != nil {
+		logger.Warningf("Failed to load .ralph/config.yaml: %v (namespace will be empty)", err)
+		return repoName, repoOwner, ""
+	}
 
-	// Serialize to YAML
+	return repoName, repoOwner, ralphCfg.Workflow.Namespace
+}
+
+func (c *ConfigWebhookConfigCmd) writeConfigMap(ctx context.Context, kubeContext, namespace string, appCfg webhookconfig.AppConfig) error {
 	cfgBytes, err := yaml.Marshal(appCfg)
 	if err != nil {
 		return fmt.Errorf("failed to serialize AppConfig to YAML: %w", err)
@@ -222,7 +247,6 @@ func (c *ConfigWebhookConfigCmd) Run() error {
 		return nil
 	}
 
-	// Write to Kubernetes ConfigMap
 	configMapData := map[string]string{
 		"config.yaml": cfgYAML,
 	}
@@ -377,43 +401,70 @@ func buildWebhookSecrets(appCfg *webhookconfig.AppConfig, secretGenerator func()
 func (c *ConfigWebhookSecretCmd) Run() error {
 	ctx := context.Background()
 
-	fmt.Println("Provisioning webhook-secrets secret...")
-	fmt.Println()
+	c.printSecretProvisioningHeader()
 
-	// Determine Kubernetes context (namespace defaults to ralph-webhook via struct tag)
-	var kubeContext string
-	if c.Context != "" {
-		kubeContext = c.Context
-	} else {
-		currentCtx, err := k8s.GetCurrentContext(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to get current Kubernetes context: %w", err)
-		}
-		kubeContext = currentCtx
+	kubeContext, err := c.determineKubeContextSecret(ctx)
+	if err != nil {
+		return err
 	}
 
 	namespace := c.Namespace
 
-	// Read repo list from webhook-config ConfigMap
+	appCfg, err := c.readRepoList(ctx, namespace, kubeContext)
+	if err != nil {
+		return err
+	}
+
+	if err := c.validateRepos(appCfg); err != nil {
+		return err
+	}
+
+	if err := c.generateAndWriteSecrets(ctx, kubeContext, namespace, appCfg); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *ConfigWebhookSecretCmd) printSecretProvisioningHeader() {
+	fmt.Println("Provisioning webhook-secrets secret...")
+	fmt.Println()
+}
+
+func (c *ConfigWebhookSecretCmd) determineKubeContextSecret(ctx context.Context) (string, error) {
+	if c.Context != "" {
+		return c.Context, nil
+	}
+	currentCtx, err := k8s.GetCurrentContext(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to get current Kubernetes context: %w", err)
+	}
+	return currentCtx, nil
+}
+
+func (c *ConfigWebhookSecretCmd) readRepoList(ctx context.Context, namespace, kubeContext string) (*webhookconfig.AppConfig, error) {
 	fmt.Printf("Reading repo list from configmap '%s' in namespace '%s'...\n", webhookConfigMapName, namespace)
 	appCfg, err := readWebhookConfigFromK8s(ctx, namespace, kubeContext)
 	if err != nil {
-		return fmt.Errorf("failed to read webhook-config: %w\n\nRun 'ralph config webhook-config' first to create the webhook-config configmap.", err)
+		return nil, fmt.Errorf("failed to read webhook-config: %w\n\nRun 'ralph config webhook-config' first to create the webhook-config configmap.", err)
 	}
+	return appCfg, nil
+}
 
+func (c *ConfigWebhookSecretCmd) validateRepos(appCfg *webhookconfig.AppConfig) error {
 	if len(appCfg.Repos) == 0 {
 		return fmt.Errorf("no repos found in webhook-config secret — add repos first via 'ralph config webhook-config'")
 	}
-
 	fmt.Printf("Found %d repo(s) in webhook-config\n\n", len(appCfg.Repos))
+	return nil
+}
 
-	// Generate webhook secrets for each repo
+func (c *ConfigWebhookSecretCmd) generateAndWriteSecrets(ctx context.Context, kubeContext, namespace string, appCfg *webhookconfig.AppConfig) error {
 	secrets, err := buildWebhookSecrets(appCfg, generateWebhookSecret)
 	if err != nil {
 		return fmt.Errorf("failed to generate webhook secrets: %w", err)
 	}
 
-	// Serialize to YAML
 	secretsBytes, err := yaml.Marshal(secrets)
 	if err != nil {
 		return fmt.Errorf("failed to serialize Secrets to YAML: %w", err)
@@ -430,7 +481,23 @@ func (c *ConfigWebhookSecretCmd) Run() error {
 		return nil
 	}
 
-	// Register webhooks on GitHub for each repo
+	if err := c.registerWebhooks(ctx, secrets); err != nil {
+		return err
+	}
+
+	secretData := map[string]string{
+		"secrets.yaml": secretsYAML,
+	}
+
+	if err := k8s.CreateOrUpdateSecret(ctx, webhookSecretsSecretName, namespace, kubeContext, secretData); err != nil {
+		return fmt.Errorf("failed to create/update secret '%s': %w", webhookSecretsSecretName, err)
+	}
+
+	fmt.Printf("Secret '%s' created/updated in namespace '%s'\n", webhookSecretsSecretName, namespace)
+	return nil
+}
+
+func (c *ConfigWebhookSecretCmd) registerWebhooks(ctx context.Context, secrets *webhookconfig.Secrets) error {
 	webhookURL := fmt.Sprintf("https://%s/webhook", webhookIngressHostname)
 	fmt.Printf("Registering webhooks at %s...\n", webhookURL)
 	for _, rs := range secrets.Repos {
@@ -443,16 +510,5 @@ func (c *ConfigWebhookSecretCmd) Run() error {
 		}
 	}
 	fmt.Println()
-
-	// Write to Kubernetes secret
-	secretData := map[string]string{
-		"secrets.yaml": secretsYAML,
-	}
-
-	if err := k8s.CreateOrUpdateSecret(ctx, webhookSecretsSecretName, namespace, kubeContext, secretData); err != nil {
-		return fmt.Errorf("failed to create/update secret '%s': %w", webhookSecretsSecretName, err)
-	}
-
-	fmt.Printf("Secret '%s' created/updated in namespace '%s'\n", webhookSecretsSecretName, namespace)
 	return nil
 }

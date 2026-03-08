@@ -18,10 +18,8 @@ type ConfigOpencodeCmd struct {
 func (c *ConfigOpencodeCmd) Run() error {
 	ctx := context.Background()
 
-	fmt.Println("Configuring OpenCode credentials for Ralph remote execution...")
-	fmt.Println()
+	c.printHeader()
 
-	// Load context and namespace with priority: flags > .ralph/config.yaml > kubectl
 	kubeContext, namespace, err := loadContextAndNamespace(ctx, c.Context, c.Namespace)
 	if err != nil {
 		return err
@@ -29,10 +27,27 @@ func (c *ConfigOpencodeCmd) Run() error {
 
 	fmt.Println()
 
-	// Read OpenCode auth.json from user's home directory
+	authFileContent, err := c.readOpenCodeCredentials()
+	if err != nil {
+		return err
+	}
+
+	if err := c.createK8sSecret(ctx, kubeContext, namespace, authFileContent); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *ConfigOpencodeCmd) printHeader() {
+	fmt.Println("Configuring OpenCode credentials for Ralph remote execution...")
+	fmt.Println()
+}
+
+func (c *ConfigOpencodeCmd) readOpenCodeCredentials() (string, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		return fmt.Errorf("failed to get user home directory: %w", err)
+		return "", fmt.Errorf("failed to get user home directory: %w", err)
 	}
 
 	authFilePath := fmt.Sprintf("%s/.local/share/opencode/auth.json", homeDir)
@@ -41,23 +56,25 @@ func (c *ConfigOpencodeCmd) Run() error {
 	authFileContent, err := os.ReadFile(authFilePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return fmt.Errorf("OpenCode auth.json not found at %s\n\nPlease ensure OpenCode is configured and the auth.json file exists.", authFilePath)
+			return "", fmt.Errorf("OpenCode auth.json not found at %s\n\nPlease ensure OpenCode is configured and the auth.json file exists.", authFilePath)
 		}
-		return fmt.Errorf("failed to read auth.json: %w", err)
+		return "", fmt.Errorf("failed to read auth.json: %w", err)
 	}
 
 	if len(authFileContent) == 0 {
-		return fmt.Errorf("auth.json is empty at %s", authFilePath)
+		return "", fmt.Errorf("auth.json is empty at %s", authFilePath)
 	}
 
 	fmt.Println("✓ OpenCode credentials read successfully")
 	fmt.Println()
+	return string(authFileContent), nil
+}
 
-	// Create or update the Kubernetes secret
+func (c *ConfigOpencodeCmd) createK8sSecret(ctx context.Context, kubeContext, namespace, authFileContent string) error {
 	fmt.Printf("Creating/updating Kubernetes secret '%s'...\n", k8s.OpenCodeSecretName)
 
 	secretData := map[string]string{
-		"auth.json": string(authFileContent),
+		"auth.json": authFileContent,
 	}
 
 	if err := k8s.CreateOrUpdateSecret(ctx, k8s.OpenCodeSecretName, namespace, kubeContext, secretData); err != nil {
@@ -68,6 +85,5 @@ func (c *ConfigOpencodeCmd) Run() error {
 	fmt.Println()
 
 	fmt.Printf("Configuration complete! The secret '%s' is ready for use in namespace '%s'.\n", k8s.OpenCodeSecretName, namespace)
-
 	return nil
 }

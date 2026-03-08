@@ -35,29 +35,64 @@ type RunCmd struct {
 
 // Run executes the run command (implements kong.Run interface)
 func (r *RunCmd) Run() error {
-	// Handle version flag
-	if r.ShowVersion {
-		if r.date != "unknown" {
-			fmt.Printf("ralph version %s (%s)\n", r.version, r.date)
-		} else {
-			fmt.Printf("ralph version %s\n", r.version)
-		}
+	if err := r.handleVersionFlag(); err != nil {
+		return err
+	}
+
+	if err := r.changeWorkingDirectory(); err != nil {
+		return err
+	}
+
+	if err := r.validateProjectFile(); err != nil {
+		return err
+	}
+
+	if err := r.validateFlagCombinations(); err != nil {
+		return err
+	}
+
+	ralphConfig, err := config.LoadConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	maxIterations := r.resolveMaxIterations(ralphConfig)
+
+	ctx := r.createExecutionContext(maxIterations)
+
+	if r.Once {
+		return r.executeOnceMode(ctx)
+	}
+	return project.Execute(ctx, r.cleanupRegistrar)
+}
+
+func (r *RunCmd) handleVersionFlag() error {
+	if !r.ShowVersion {
 		return nil
 	}
-
-	// Change working directory if specified
-	if r.WorkingDir != "" {
-		if err := os.Chdir(r.WorkingDir); err != nil {
-			return fmt.Errorf("failed to change to working directory %s: %w", r.WorkingDir, err)
-		}
+	if r.date != "unknown" {
+		fmt.Printf("ralph version %s (%s)\n", r.version, r.date)
+	} else {
+		fmt.Printf("ralph version %s\n", r.version)
 	}
+	return nil
+}
 
-	// Validate required fields
+func (r *RunCmd) changeWorkingDirectory() error {
+	if r.WorkingDir == "" {
+		return nil
+	}
+	if err := os.Chdir(r.WorkingDir); err != nil {
+		return fmt.Errorf("failed to change to working directory %s: %w", r.WorkingDir, err)
+	}
+	return nil
+}
+
+func (r *RunCmd) validateProjectFile() error {
 	if r.ProjectFile == "" {
 		return fmt.Errorf("project file required (see --help)")
 	}
 
-	// Resolve the project file path relative to the (possibly changed) working directory.
 	absProjectFile, err := filepath.Abs(r.ProjectFile)
 	if err != nil {
 		return fmt.Errorf("failed to resolve project file path: %w", err)
@@ -67,8 +102,10 @@ func (r *RunCmd) Run() error {
 	if _, err := os.Stat(r.ProjectFile); os.IsNotExist(err) {
 		return fmt.Errorf("project file not found: %s", r.ProjectFile)
 	}
+	return nil
+}
 
-	// Validate flag combinations
+func (r *RunCmd) validateFlagCombinations() error {
 	if r.Follow && r.Local {
 		return fmt.Errorf("--follow flag is not applicable with --local flag")
 	}
@@ -80,14 +117,10 @@ func (r *RunCmd) Run() error {
 	if r.Debug != "" && r.Local {
 		return fmt.Errorf("--debug flag is not applicable with --local flag")
 	}
+	return nil
+}
 
-	// Load config to get MaxIterations (if not explicitly provided via CLI)
-	ralphConfig, err := config.LoadConfig()
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
-	}
-
-	// CLI flag takes precedence over config file; if neither set, use default (10)
+func (r *RunCmd) resolveMaxIterations(ralphConfig *config.RalphConfig) int {
 	maxIterations := r.MaxIterations
 	if maxIterations == 0 {
 		maxIterations = ralphConfig.MaxIterations
@@ -95,8 +128,10 @@ func (r *RunCmd) Run() error {
 	if maxIterations == 0 {
 		maxIterations = 10
 	}
+	return maxIterations
+}
 
-	// Create execution context
+func (r *RunCmd) createExecutionContext(maxIterations int) *execcontext.Context {
 	ctx := &execcontext.Context{}
 	ctx.SetProjectFile(r.ProjectFile)
 	ctx.SetMaxIterations(maxIterations)
@@ -107,18 +142,16 @@ func (r *RunCmd) Run() error {
 	ctx.SetLocal(r.Local)
 	ctx.SetFollow(r.Follow)
 	ctx.SetDebugBranch(r.Debug)
+	return ctx
+}
 
-	if r.Once {
-		// Execute single iteration mode
-		projectName := strings.TrimSuffix(filepath.Base(ctx.ProjectFile()), filepath.Ext(ctx.ProjectFile()))
-		if err := requirement.Execute(ctx, r.cleanupRegistrar); err != nil {
-			notify.Error(projectName, ctx.ShouldNotify() && !ctx.IsDryRun())
-			return err
-		}
-
-		notify.Success(projectName, ctx.ShouldNotify() && !ctx.IsDryRun())
-		return nil
+func (r *RunCmd) executeOnceMode(ctx *execcontext.Context) error {
+	projectName := strings.TrimSuffix(filepath.Base(ctx.ProjectFile()), filepath.Ext(ctx.ProjectFile()))
+	if err := requirement.Execute(ctx, r.cleanupRegistrar); err != nil {
+		notify.Error(projectName, ctx.ShouldNotify() && !ctx.IsDryRun())
+		return err
 	}
-	// Execute full orchestration mode
-	return project.Execute(ctx, r.cleanupRegistrar)
+
+	notify.Success(projectName, ctx.ShouldNotify() && !ctx.IsDryRun())
+	return nil
 }

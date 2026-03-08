@@ -169,10 +169,37 @@ func cleanupStaleTokenRewrites(ctx context.Context) {
 // removed before the new entry is written. This prevents stale (expired) tokens
 // from being chosen by git when multiple rewrites match the same URL.
 func ConfigureGitAuth(ctx context.Context, owner, repo, secretsDir string) error {
+	owner, repo, err := resolveRepoDetails(ctx, owner, repo)
+	if err != nil {
+		return err
+	}
+
+	appID, privateKeyBytes, err := readAppCredentials(secretsDir)
+	if err != nil {
+		return err
+	}
+
+	installationToken, err := obtainInstallationToken(ctx, owner, repo, appID, privateKeyBytes)
+	if err != nil {
+		return err
+	}
+
+	if err := configureGitAuth(ctx, installationToken); err != nil {
+		return err
+	}
+
+	if err := authenticateGHCLI(ctx, installationToken); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func resolveRepoDetails(ctx context.Context, owner, repo string) (string, string, error) {
 	if owner == "" || repo == "" {
 		detectedOwner, detectedRepo, err := GetRepo(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to autodetect repository from git remote: %w", err)
+			return "", "", fmt.Errorf("failed to autodetect repository from git remote: %w", err)
 		}
 		if owner == "" {
 			owner = detectedOwner
@@ -183,48 +210,58 @@ func ConfigureGitAuth(ctx context.Context, owner, repo, secretsDir string) error
 	}
 
 	if owner == "" {
-		return fmt.Errorf("repository owner is required (use --owner flag or ensure git remote is configured)")
+		return "", "", fmt.Errorf("repository owner is required (use --owner flag or ensure git remote is configured)")
 	}
 	if repo == "" {
-		return fmt.Errorf("repository name is required (use --repo flag or ensure git remote is configured)")
+		return "", "", fmt.Errorf("repository name is required (use --repo flag or ensure git remote is configured)")
 	}
 
+	return owner, repo, nil
+}
+
+func readAppCredentials(secretsDir string) (string, []byte, error) {
 	appIDPath := filepath.Join(secretsDir, "app-id")
 	appIDBytes, err := os.ReadFile(appIDPath)
 	if err != nil {
-		return fmt.Errorf("failed to read app ID from %s: %w", appIDPath, err)
+		return "", nil, fmt.Errorf("failed to read app ID from %s: %w", appIDPath, err)
 	}
 	appID := strings.TrimSpace(string(appIDBytes))
 	if appID == "" {
-		return fmt.Errorf("app ID is empty in %s", appIDPath)
+		return "", nil, fmt.Errorf("app ID is empty in %s", appIDPath)
 	}
 
 	privateKeyPath := filepath.Join(secretsDir, "private-key")
 	privateKeyBytes, err := os.ReadFile(privateKeyPath)
 	if err != nil {
-		return fmt.Errorf("failed to read private key from %s: %w", privateKeyPath, err)
+		return "", nil, fmt.Errorf("failed to read private key from %s: %w", privateKeyPath, err)
 	}
 	if len(privateKeyBytes) == 0 {
-		return fmt.Errorf("private key is empty in %s", privateKeyPath)
+		return "", nil, fmt.Errorf("private key is empty in %s", privateKeyPath)
 	}
 
+	return appID, privateKeyBytes, nil
+}
+
+func obtainInstallationToken(ctx context.Context, owner, repo, appID string, privateKeyBytes []byte) (string, error) {
 	jwtToken, err := GenerateAppJWT(appID, privateKeyBytes)
 	if err != nil {
-		return fmt.Errorf("failed to generate JWT: %w", err)
+		return "", fmt.Errorf("failed to generate JWT: %w", err)
 	}
 
 	installationID, err := GetInstallationID(ctx, jwtToken, owner, repo)
 	if err != nil {
-		return fmt.Errorf("failed to get installation ID: %w", err)
+		return "", fmt.Errorf("failed to get installation ID: %w", err)
 	}
 
 	installationToken, err := GetInstallationToken(ctx, jwtToken, installationID)
 	if err != nil {
-		return fmt.Errorf("failed to get installation token: %w", err)
+		return "", fmt.Errorf("failed to get installation token: %w", err)
 	}
 
-	// Remove stale token rewrites before writing the fresh one so that git
-	// never holds multiple competing insteadOf rules for https://github.com/.
+	return installationToken, nil
+}
+
+func configureGitAuth(ctx context.Context, installationToken string) error {
 	cleanupStaleTokenRewrites(ctx)
 
 	insteadOfKey := "url.https://x-access-token:" + installationToken + "@github.com/.insteadOf"
@@ -234,9 +271,10 @@ func ConfigureGitAuth(ctx context.Context, owner, repo, secretsDir string) error
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to configure git HTTPS authentication: %w", err)
 	}
+	return nil
+}
 
-	// Also authenticate the gh CLI with the same installation token so that
-	// gh commands (e.g. gh pr create) work inside the container.
+func authenticateGHCLI(ctx context.Context, installationToken string) error {
 	loginCmd := exec.CommandContext(ctx, "gh", "auth", "login", "--with-token")
 	loginCmd.Stdin = strings.NewReader(installationToken)
 	loginCmd.Stdout = os.Stdout
@@ -244,7 +282,6 @@ func ConfigureGitAuth(ctx context.Context, owner, repo, secretsDir string) error
 	if err := loginCmd.Run(); err != nil {
 		return fmt.Errorf("failed to authenticate gh CLI: %w", err)
 	}
-
 	return nil
 }
 

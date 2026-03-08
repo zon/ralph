@@ -65,51 +65,10 @@ func (m *MergeCmd) Run() error {
 
 // runLocal merges the PR locally using the gh CLI
 func (m *MergeCmd) runLocal() error {
-	// Create context for project operations
-	ctx := &context.Context{}
-	ctx.SetDryRun(m.DryRun)
-	ctx.SetVerbose(m.Verbose)
+	ctx := m.createExecutionContext()
 
-	// Scan the projects/ directory for complete projects
-	projectsDir := "projects"
-	if _, err := os.Stat(projectsDir); os.IsNotExist(err) {
-		// projects directory doesn't exist, proceed with merge
-		logger.Verbose("Projects directory not found, skipping complete project cleanup")
-	} else {
-		completeProjects, err := project.FindCompleteProjects(projectsDir)
-		if err != nil {
-			return fmt.Errorf("failed to scan for complete projects: %w", err)
-		}
-
-		if len(completeProjects) > 0 {
-			logger.Infof("Found %d complete project(s) to clean up", len(completeProjects))
-			for _, file := range completeProjects {
-				relPath, err := filepath.Rel(".", file)
-				if err != nil {
-					relPath = file
-				}
-				logger.Infof("  - %s", relPath)
-			}
-
-			// Remove and commit complete project files
-			if err := project.RemoveAndCommit(ctx, completeProjects); err != nil {
-				return fmt.Errorf("failed to remove complete projects: %w", err)
-			}
-
-			// Push the removal commit so it is included in the merge
-			if err := git.PushCurrentBranch(ctx); err != nil {
-				return fmt.Errorf("failed to push after removing complete projects: %w", err)
-			}
-
-			// Wait for GitHub to recognize the push before merging
-			if !m.DryRun {
-				if err := waitForGitHubHead(m.PR); err != nil {
-					return fmt.Errorf("failed waiting for GitHub to sync push: %w", err)
-				}
-			}
-		} else {
-			logger.Verbose("No complete projects found")
-		}
+	if err := m.scanAndCleanupProjects(ctx); err != nil {
+		return err
 	}
 
 	if m.DryRun {
@@ -122,6 +81,56 @@ func (m *MergeCmd) runLocal() error {
 		merger = ghMerge
 	}
 	return merger(m.PR, m.Repo)
+}
+
+func (m *MergeCmd) createExecutionContext() *context.Context {
+	ctx := &context.Context{}
+	ctx.SetDryRun(m.DryRun)
+	ctx.SetVerbose(m.Verbose)
+	return ctx
+}
+
+func (m *MergeCmd) scanAndCleanupProjects(ctx *context.Context) error {
+	projectsDir := "projects"
+	if _, err := os.Stat(projectsDir); os.IsNotExist(err) {
+		logger.Verbose("Projects directory not found, skipping complete project cleanup")
+		return nil
+	}
+
+	completeProjects, err := project.FindCompleteProjects(projectsDir)
+	if err != nil {
+		return fmt.Errorf("failed to scan for complete projects: %w", err)
+	}
+
+	if len(completeProjects) == 0 {
+		logger.Verbose("No complete projects found")
+		return nil
+	}
+
+	logger.Infof("Found %d complete project(s) to clean up", len(completeProjects))
+	for _, file := range completeProjects {
+		relPath, err := filepath.Rel(".", file)
+		if err != nil {
+			relPath = file
+		}
+		logger.Infof("  - %s", relPath)
+	}
+
+	if err := project.RemoveAndCommit(ctx, completeProjects); err != nil {
+		return fmt.Errorf("failed to remove complete projects: %w", err)
+	}
+
+	if err := git.PushCurrentBranch(ctx); err != nil {
+		return fmt.Errorf("failed to push after removing complete projects: %w", err)
+	}
+
+	if !m.DryRun {
+		if err := waitForGitHubHead(m.PR); err != nil {
+			return fmt.Errorf("failed waiting for GitHub to sync push: %w", err)
+		}
+	}
+
+	return nil
 }
 
 // ghMerge is the default implementation that calls the gh CLI to merge a PR.

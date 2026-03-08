@@ -53,15 +53,9 @@ func (s *Server) Run() error {
 // handleWebhook is the main Gin handler for POST /webhook.
 // It runs the full pipeline: receive → validate → filter → event → workflow → submit.
 func (s *Server) handleWebhook(c *gin.Context) {
-	body, err := io.ReadAll(c.Request.Body)
+	payload, err := s.readAndParsePayload(c)
 	if err != nil {
-		c.Status(http.StatusInternalServerError)
-		return
-	}
-
-	var payload githubPayload
-	if err := json.Unmarshal(body, &payload); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid JSON payload"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -80,10 +74,7 @@ func (s *Server) handleWebhook(c *gin.Context) {
 		return
 	}
 
-	sig := c.GetHeader("X-Hub-Signature-256")
-	if !validateSignature(body, secret, sig) {
-		logger.Verbosef("rejected request: invalid signature for %s/%s", owner, repoName)
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid signature"})
+	if !s.validateSignature(c, payload, secret) {
 		return
 	}
 
@@ -112,6 +103,38 @@ func (s *Server) handleWebhook(c *gin.Context) {
 
 	go submitWorkflow(result, owner, repoName)
 	c.Status(http.StatusOK)
+}
+
+func (s *Server) readAndParsePayload(c *gin.Context) (*githubPayload, error) {
+	body, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read request body")
+	}
+
+	var payload githubPayload
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return nil, fmt.Errorf("invalid JSON payload")
+	}
+
+	return &payload, nil
+}
+
+func (s *Server) validateSignature(c *gin.Context, payload *githubPayload, secret string) bool {
+	sig := c.GetHeader("X-Hub-Signature-256")
+
+	body, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		c.Status(http.StatusInternalServerError)
+		return false
+	}
+
+	if !validateSignature([]byte(body), secret, sig) {
+		owner, repoName := payload.RepoOwner(), payload.RepoName()
+		logger.Verbosef("rejected request: invalid signature for %s/%s", owner, repoName)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid signature"})
+		return false
+	}
+	return true
 }
 
 // submitWorkflow submits a WorkflowResult asynchronously.

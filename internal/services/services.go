@@ -126,42 +126,43 @@ func startService(svc config.Service, dryRun bool) (*Process, error) {
 	cmdStr := fmt.Sprintf("%s %s", svc.Command, joinArgs(svc.Args))
 
 	if dryRun {
-		logger.Infof("Would start service: %s with command: %s", svc.Name, cmdStr)
-		return &Process{
-			Name:    svc.Name,
-			service: svc,
-			pid:     -1, // Sentinel value for dry-run
-		}, nil
+		return handleDryRun(svc, cmdStr), nil
 	}
 
-	// Create the command
+	return createAndStartProcess(svc, cmdStr)
+}
+
+func handleDryRun(svc config.Service, cmdStr string) *Process {
+	logger.Infof("Would start service: %s with command: %s", svc.Name, cmdStr)
+	return &Process{
+		Name:    svc.Name,
+		service: svc,
+		pid:     -1,
+	}
+}
+
+func createAndStartProcess(svc config.Service, cmdStr string) (*Process, error) {
 	cmd := exec.Command(svc.Command, svc.Args...)
 
-	// Set working directory if specified
 	if svc.WorkDir != "" {
 		cmd.Dir = svc.WorkDir
 	}
 
-	// Open {service}.log in the current working directory to capture output
-	// during startup so we can display it if the service fails to become healthy
-	logPath := fmt.Sprintf("%s.log", svc.Name)
-	logFile, err := os.Create(logPath)
+	logFile, err := openLogFile(svc)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create log file for service %s: %w", svc.Name, err)
+		return nil, err
 	}
 
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile
 
-	// Start the process in a new process group
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Setpgid: true,
 	}
 
-	// Start the service
 	if err := cmd.Start(); err != nil {
 		logFile.Close()
-		os.Remove(logPath)
+		os.Remove(logFile.Name())
 		return nil, fmt.Errorf("failed to start service %s (command: %s): %w", svc.Name, cmdStr, err)
 	}
 
@@ -172,6 +173,15 @@ func startService(svc config.Service, dryRun bool) (*Process, error) {
 		pid:     cmd.Process.Pid,
 		logFile: logFile,
 	}, nil
+}
+
+func openLogFile(svc config.Service) (*os.File, error) {
+	logPath := fmt.Sprintf("%s.log", svc.Name)
+	logFile, err := os.Create(logPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create log file for service %s: %w", svc.Name, err)
+	}
+	return logFile, nil
 }
 
 // Stop gracefully stops a service process
