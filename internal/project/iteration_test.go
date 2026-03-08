@@ -208,8 +208,8 @@ func TestCommitChanges_FailsWithoutReportMd(t *testing.T) {
 	ctx := testutil.NewContext(testutil.WithDryRun(false))
 
 	err := CommitChanges(ctx, 5)
-	require.Error(t, err, "CommitChanges should fail when report.md does not exist")
-	assert.Contains(t, err.Error(), "cannot commit without a descriptive changelog")
+	// No uncommitted changes and no report.md means there is nothing to commit
+	assert.ErrorIs(t, err, ErrNoChanges)
 }
 
 // setupIterationTestRepo creates a temporary git repo with a bare remote.

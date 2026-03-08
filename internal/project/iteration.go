@@ -217,6 +217,12 @@ func CommitChanges(ctx *context.Context, iteration int) error {
 		return nil
 	}
 
+	// If there are no uncommitted changes and no report.md, there is nothing to commit
+	_, reportErr := os.Stat("report.md")
+	if !git.HasUncommittedChanges(ctx) && os.IsNotExist(reportErr) {
+		return ErrNoChanges
+	}
+
 	// If there are uncommitted changes but no report.md, prompt opencode to write one
 	if err := generateChangelogIfNeeded(ctx); err != nil {
 		logger.Warningf("Failed to generate changelog: %v", err)
