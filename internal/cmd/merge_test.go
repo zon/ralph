@@ -190,6 +190,9 @@ func TestMergeCmdRunLocalFindCompleteProjectsError(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed")
 }
 
+// TestMergeCmdRunLocalRemoveAndCommitError verifies that when complete projects
+// are found and removed/committed but the subsequent push fails (no remote),
+// the error is wrapped with the "failed to push after removing complete projects" message.
 func TestMergeCmdRunLocalRemoveAndCommitError(t *testing.T) {
 	tmpDir := t.TempDir()
 	projectsDir := filepath.Join(tmpDir, "projects")
@@ -208,11 +211,11 @@ requirements:
     passing: true`
 	require.NoError(t, os.WriteFile(completeProject, []byte(content), 0644))
 
+	// Initialise a git repo with no remote configured so that the push after
+	// removing the complete project file fails deterministically.
 	require.NoError(t, initGitRepo(tmpDir))
 	require.NoError(t, gitAdd(completeProject))
 	require.NoError(t, gitCommit("Initial commit"))
-
-	os.Chmod(completeProject, 0000)
 
 	cmd := &MergeCmd{
 		Branch: "test-branch",
@@ -221,7 +224,6 @@ requirements:
 	}
 
 	err := cmd.Run()
-	os.Chmod(completeProject, 0644)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to push after removing complete projects")
 }

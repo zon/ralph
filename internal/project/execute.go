@@ -2,6 +2,7 @@ package project
 
 import (
 	gocontext "context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -115,6 +116,11 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	// Create GitHub pull request
 	prURL, err := createPullRequest(ctx, project, branchName, baseBranch, prSummary)
 	if err != nil {
+		if errors.Is(err, github.ErrNoCommitsBetweenBranches) {
+			logger.Verbose("No commits ahead of base branch — all requirements were already passing; skipping PR creation")
+			notify.Success(project.Name, ctx.ShouldNotify())
+			return nil
+		}
 		return err
 	}
 

@@ -2,6 +2,7 @@ package github
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -9,6 +10,12 @@ import (
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/logger"
 )
+
+// ErrNoCommitsBetweenBranches is returned when gh pr create fails because the
+// head branch has no commits ahead of the base branch. This is not an error in
+// the traditional sense — it means the work was already complete before this
+// run started, so there is nothing to open a PR for.
+var ErrNoCommitsBetweenBranches = errors.New("no commits between branches")
 
 // IsGHReady checks if the gh CLI is installed and the user is authenticated.
 // This consolidates IsGHInstalled and IsGHCLIAvailable into a single function
@@ -104,6 +111,12 @@ func CreatePR(ctx *context.Context, title, body, base, head string) (string, err
 }
 
 func handleExistingPR(ctx *context.Context, err error, errStr, outStr, title, body string) (string, error) {
+	// GitHub rejects the PR when the head branch has no commits ahead of base.
+	// Treat this as a sentinel so callers can decide how to proceed.
+	if strings.Contains(errStr, "No commits between") {
+		return "", ErrNoCommitsBetweenBranches
+	}
+
 	if !strings.Contains(errStr, "a pull request for branch") || !strings.Contains(errStr, "already exists") {
 		return "", fmt.Errorf("failed to create PR: %w (output: %s, stderr: %s)", err, outStr, errStr)
 	}
