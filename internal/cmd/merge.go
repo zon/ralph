@@ -65,15 +65,15 @@ func (m *MergeCmd) Run() error {
 
 // runLocal merges the PR locally using the gh CLI
 func (m *MergeCmd) runLocal() error {
+	if m.DryRun {
+		logger.Infof("Dry run: would merge PR #%s and delete branch %s", m.PR, m.Branch)
+		return nil
+	}
+
 	ctx := m.createExecutionContext()
 
 	if err := m.scanAndCleanupProjects(ctx); err != nil {
 		return err
-	}
-
-	if m.DryRun {
-		logger.Infof("Dry run: would merge PR #%s and delete branch %s", m.PR, m.Branch)
-		return nil
 	}
 
 	merger := m.ghMerger

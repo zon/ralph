@@ -205,10 +205,7 @@ requirements:
 		t.Fatalf("Failed to create test project file: %v", err)
 	}
 
-	ctx := testutil.NewContext(
-		testutil.WithProjectFile(projectFile),
-		testutil.WithDryRun(true),
-	)
+	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
 
 	err := Execute(ctx, nil)
 
@@ -231,10 +228,7 @@ requirements:
 		t.Fatalf("Failed to create test project file: %v", err)
 	}
 
-	ctx := testutil.NewContext(
-		testutil.WithProjectFile(projectFile),
-		testutil.WithDryRun(true),
-	)
+	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
 
 	err := Execute(ctx, nil)
 
@@ -278,55 +272,9 @@ requirements:
 	ctx := testutil.NewContext(
 		testutil.WithProjectFile(projectFile),
 		testutil.WithNoServices(false),
-		testutil.WithDryRun(true),
 	)
 
 	err := Execute(ctx, nil)
 
 	require.NoError(t, err, "Execute failed")
-}
-
-func TestExecute_StartsServicesDryRunMode(t *testing.T) {
-	tmpDir := t.TempDir()
-	projectFile := filepath.Join(tmpDir, "test-project.yaml")
-
-	projectYAML := `name: Test Project
-description: Test project
-requirements:
-  - id: req1
-    description: Test requirement
-    passing: false
-`
-
-	if err := os.WriteFile(projectFile, []byte(projectYAML), 0644); err != nil {
-		t.Fatalf("Failed to create test project file: %v", err)
-	}
-
-	ralphDir := filepath.Join(tmpDir, ".ralph")
-	if err := os.MkdirAll(ralphDir, 0755); err != nil {
-		t.Fatalf("Failed to create .ralph directory: %v", err)
-	}
-
-	configYAML := `services:
-  - name: test-service
-    command: echo
-    args:
-      - "test"
-`
-	configFile := filepath.Join(ralphDir, "config.yaml")
-	if err := os.WriteFile(configFile, []byte(configYAML), 0644); err != nil {
-		t.Fatalf("Failed to create config file: %v", err)
-	}
-
-	t.Chdir(tmpDir)
-
-	ctx := testutil.NewContext(
-		testutil.WithProjectFile(projectFile),
-		testutil.WithNoServices(false),
-		testutil.WithDryRun(true),
-	)
-
-	err := Execute(ctx, nil)
-
-	require.NoError(t, err, "Execute failed in dry-run mode")
 }

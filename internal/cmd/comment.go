@@ -21,7 +21,6 @@ type CommentCmd struct {
 	Repo     string `help:"Repository in owner/repo format, e.g. zon/ralph" required:""`
 	Branch   string `help:"PR branch name" required:""`
 	PR       string `help:"Pull request number" required:""`
-	DryRun   bool   `help:"Simulate execution without making changes" default:"false"`
 	Verbose  bool   `help:"Enable verbose logging" default:"false"`
 	NoNotify bool   `help:"Disable desktop notifications" default:"false" hidden:""`
 
@@ -32,10 +31,6 @@ type CommentCmd struct {
 func (c *CommentCmd) Run() error {
 	if c.Verbose {
 		logger.SetVerbose(true)
-	}
-
-	if c.DryRun {
-		logger.Verbose("=== DRY-RUN MODE: No changes will be made ===")
 	}
 
 	// Derive and validate project file

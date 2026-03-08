@@ -50,7 +50,6 @@ func TestRun_NewProject(t *testing.T) {
 		cfg.Branch,
 		branch,
 		"test-data/e2e-noop-run.yaml",
-		false,
 		true,
 	)
 	require.NoError(t, err, "GenerateWorkflowWithGitInfo failed")
@@ -78,39 +77,6 @@ func TestRun_NewProject(t *testing.T) {
 	title, err := getPRTitle(cfg.Repo, branch)
 	require.NoError(t, err)
 	assert.Equal(t, noopProjectDescription, title, "PR title should match project description")
-}
-
-// TestRun_DryRunWorkflow submits a real Argo Workflow with --dry-run inside the
-// container, so no git writes or PRs are produced. Validates workflow YAML,
-// container startup, and ralph binary invocation without side effects.
-func TestRun_DryRunWorkflow(t *testing.T) {
-	cfg := resolveConfig(t)
-
-	ctx := &context.Context{}
-	ctx.SetRepo(cfg.Repo)
-	ctx.SetBranch(cfg.Branch)
-	ctx.SetDebugBranch(cfg.DebugBranch)
-	ctx.SetVerbose(true)
-	ctx.SetNoNotify(true)
-	ctx.SetNoServices(true)
-
-	wf, err := workflow.GenerateWorkflowWithGitInfo(
-		ctx,
-		"e2e-dryrun",
-		"https://github.com/"+cfg.Repo+".git",
-		cfg.Branch,
-		"e2e-dryrun",
-		"test-data/e2e-noop-run.yaml",
-		true, // --dry-run inside container — no side effects
-		true,
-	)
-	require.NoError(t, err)
-
-	workflowName, err := wf.Submit(cfg.Namespace)
-	require.NoError(t, err, "workflow submission failed")
-	t.Logf("Submitted dry-run workflow: %s", workflowName)
-
-	require.NoError(t, pollWorkflowCompletion(t, workflowName, cfg.Namespace, cfg.Timeout))
 }
 
 // TestRun_ResumesExistingBranch verifies that when the project branch already
@@ -151,7 +117,6 @@ func TestRun_ResumesExistingBranch(t *testing.T) {
 		cfg.Branch,
 		branch,
 		"test-data/e2e-resume-run.yaml",
-		false,
 		true,
 	)
 	require.NoError(t, err)
@@ -207,7 +172,6 @@ func TestRun_AICompletesSingleIteration(t *testing.T) {
 		cfg.Branch,
 		branch,
 		"test-data/e2e-ai-iteration.yaml",
-		false,
 		true,
 	)
 	require.NoError(t, err, "GenerateWorkflowWithGitInfo failed")
