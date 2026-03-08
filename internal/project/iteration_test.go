@@ -8,6 +8,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/zon/ralph/internal/testutil"
 )
 
@@ -33,14 +36,10 @@ requirements:
 
 	// Run iteration loop in dry-run mode
 	iterations, err := RunIterationLoop(ctx, nil)
-	if err != nil {
-		t.Errorf("RunIterationLoop failed in dry-run: %v", err)
-	}
+	require.NoError(t, err, "RunIterationLoop failed in dry-run")
 
 	// In dry-run mode, it should return max iterations
-	if iterations != 10 {
-		t.Errorf("Expected 10 iterations, got %d", iterations)
-	}
+	assert.Equal(t, 10, iterations)
 }
 
 func TestRunIterationLoop_ReturnsErrorWhenMaxIterationsReached(t *testing.T) {
@@ -64,15 +63,9 @@ requirements:
 	)
 
 	iterations, err := RunIterationLoop(ctx, nil)
-	if err == nil {
-		t.Error("Expected error when max iterations reached but requirements still failing")
-	}
-	if !errors.Is(err, ErrMaxIterationsReached) {
-		t.Errorf("Expected ErrMaxIterationsReached, got: %v", err)
-	}
-	if iterations != 2 {
-		t.Errorf("Expected 2 iterations, got %d", iterations)
-	}
+	require.Error(t, err, "Expected error when max iterations reached but requirements still failing")
+	assert.True(t, errors.Is(err, ErrMaxIterationsReached), "Expected ErrMaxIterationsReached, got: %v", err)
+	assert.Equal(t, 2, iterations)
 }
 
 func TestRunIterationLoop_BlockedDetected(t *testing.T) {
@@ -109,12 +102,8 @@ requirements:
 	)
 
 	_, err := RunIterationLoop(ctx, nil)
-	if err == nil {
-		t.Error("Expected error when blocked.md is detected")
-	}
-	if !errors.Is(err, ErrBlocked) {
-		t.Errorf("Expected ErrBlocked, got: %v", err)
-	}
+	require.Error(t, err, "Expected error when blocked.md is detected")
+	assert.True(t, errors.Is(err, ErrBlocked), "Expected ErrBlocked, got: %v", err)
 }
 
 func TestIsFatalOpenCodeError(t *testing.T) {
@@ -163,9 +152,7 @@ func TestIsFatalOpenCodeError(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := isFatalOpenCodeError(tt.err)
-			if result != tt.expected {
-				t.Errorf("isFatalOpenCodeError(%v) = %v, expected %v", tt.err, result, tt.expected)
-			}
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -179,9 +166,7 @@ func TestCommitChanges_DryRun(t *testing.T) {
 
 	// In dry-run mode, should not error
 	err := CommitChanges(ctx, 1)
-	if err != nil {
-		t.Errorf("CommitChanges failed in dry-run: %v", err)
-	}
+	require.NoError(t, err, "CommitChanges failed in dry-run")
 }
 
 func TestCommitChanges_UsesReportMd(t *testing.T) {
@@ -202,14 +187,11 @@ func TestCommitChanges_UsesReportMd(t *testing.T) {
 
 	// In dry-run mode, this should read report.md (though not commit)
 	err := CommitChanges(ctx, 1)
-	if err != nil {
-		t.Errorf("CommitChanges failed: %v", err)
-	}
+	require.NoError(t, err, "CommitChanges failed")
 
 	// In dry-run mode, report.md should still exist
-	if _, err := os.Stat("report.md"); err != nil {
-		t.Errorf("report.md should exist in dry-run mode: %v", err)
-	}
+	_, err = os.Stat("report.md")
+	require.NoError(t, err, "report.md should exist in dry-run mode")
 }
 
 func TestCommitChanges_FallbackWhenNoReportMd(t *testing.T) {
@@ -222,9 +204,7 @@ func TestCommitChanges_FallbackWhenNoReportMd(t *testing.T) {
 
 	// Should use fallback message when report.md doesn't exist
 	err := CommitChanges(ctx, 5)
-	if err != nil {
-		t.Errorf("CommitChanges failed: %v", err)
-	}
+	require.NoError(t, err, "CommitChanges failed")
 }
 
 // setupIterationTestRepo creates a temporary git repo with a bare remote.
@@ -316,12 +296,8 @@ func TestCommitChanges_WorkflowPermissionErrorIsFatal(t *testing.T) {
 	)
 
 	err := CommitChanges(ctx, 1)
-	if err == nil {
-		t.Fatal("expected CommitChanges to return an error, got nil")
-	}
-	if !errors.Is(err, ErrFatalPushError) {
-		t.Errorf("expected ErrFatalPushError, got: %v", err)
-	}
+	require.Error(t, err, "expected CommitChanges to return an error, got nil")
+	assert.True(t, errors.Is(err, ErrFatalPushError), "expected ErrFatalPushError, got: %v", err)
 }
 
 func TestRunIterationLoop_WorkflowPermissionStopsLoop(t *testing.T) {
@@ -377,16 +353,10 @@ requirements:
 	)
 
 	err := CommitChanges(ctx, 1)
-	if err == nil {
-		t.Fatal("expected CommitChanges to return an error, got nil")
-	}
-	if !errors.Is(err, ErrFatalPushError) {
-		t.Errorf("expected ErrFatalPushError wrapping ErrWorkflowPermission, got: %v", err)
-	}
+	require.Error(t, err, "expected CommitChanges to return an error, got nil")
+	assert.True(t, errors.Is(err, ErrFatalPushError), "expected ErrFatalPushError wrapping ErrWorkflowPermission, got: %v", err)
 	// Confirm root cause is accessible.
-	if !errors.Is(err, ErrFatalPushError) {
-		t.Errorf("ErrFatalPushError not in error chain: %v", err)
-	}
+	assert.True(t, errors.Is(err, ErrFatalPushError), "ErrFatalPushError not in error chain: %v", err)
 }
 
 func TestCommitChanges_ReadsReportMdAndCommits(t *testing.T) {
@@ -407,24 +377,17 @@ func TestCommitChanges_ReadsReportMdAndCommits(t *testing.T) {
 	)
 
 	err := CommitChanges(ctx, 1)
-	if err != nil {
-		t.Fatalf("CommitChanges failed: %v", err)
-	}
+	require.NoError(t, err, "CommitChanges failed")
 
-	if _, err := os.Stat("report.md"); err == nil {
-		t.Error("report.md should have been removed after commit")
-	}
+	_, err = os.Stat("report.md")
+	assert.True(t, os.IsNotExist(err), "report.md should have been removed after commit")
 
 	cmd := exec.Command("git", "log", "-1", "--format=%B")
 	cmd.Dir = workDir
 	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("git log failed: %v", err)
-	}
+	require.NoError(t, err, "git log failed")
 	msg := strings.TrimSpace(string(out))
-	if msg != "Add new feature" {
-		t.Errorf("expected commit message 'Add new feature', got %q", msg)
-	}
+	assert.Equal(t, "Add new feature", msg)
 }
 
 func TestCommitChanges_FallbackMessageWithIterationNumber(t *testing.T) {
@@ -442,20 +405,14 @@ func TestCommitChanges_FallbackMessageWithIterationNumber(t *testing.T) {
 	)
 
 	err := CommitChanges(ctx, 42)
-	if err != nil {
-		t.Fatalf("CommitChanges failed: %v", err)
-	}
+	require.NoError(t, err, "CommitChanges failed")
 
 	cmd := exec.Command("git", "log", "-1", "--format=%B")
 	cmd.Dir = workDir
 	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("git log failed: %v", err)
-	}
+	require.NoError(t, err, "git log failed")
 	msg := strings.TrimSpace(string(out))
-	if !strings.Contains(msg, "42") {
-		t.Errorf("expected commit message to contain '42', got %q", msg)
-	}
+	assert.True(t, strings.Contains(msg, "42"), "expected commit message to contain '42', got %q", msg)
 }
 
 func TestCommitChanges_AllowEmptyCommitWhenNoStagedChanges(t *testing.T) {
@@ -473,20 +430,14 @@ func TestCommitChanges_AllowEmptyCommitWhenNoStagedChanges(t *testing.T) {
 	)
 
 	err := CommitChanges(ctx, 1)
-	if err != nil {
-		t.Fatalf("CommitChanges failed: %v", err)
-	}
+	require.NoError(t, err, "CommitChanges failed")
 
 	cmd := exec.Command("git", "log", "-1", "--format=%B")
 	cmd.Dir = workDir
 	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("git log failed: %v", err)
-	}
+	require.NoError(t, err, "git log failed")
 	msg := strings.TrimSpace(string(out))
-	if msg != "No changes made" {
-		t.Errorf("expected commit message 'No changes made', got %q", msg)
-	}
+	assert.Equal(t, "No changes made", msg)
 }
 
 func TestRunIterationLoop_ExitsEarlyWhenAllRequirementsPass(t *testing.T) {
@@ -510,10 +461,6 @@ requirements:
 	)
 
 	iterations, err := RunIterationLoop(ctx, nil)
-	if err != nil {
-		t.Errorf("RunIterationLoop should not error when requirements are already passing: %v", err)
-	}
-	if iterations != 1 {
-		t.Errorf("Expected 1 iteration (early exit), got %d", iterations)
-	}
+	require.NoError(t, err, "RunIterationLoop should not error when requirements are already passing")
+	assert.Equal(t, 1, iterations)
 }

@@ -5,6 +5,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestValidateProject(t *testing.T) {
@@ -61,8 +64,10 @@ func TestValidateProject(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateProject(tt.project)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ValidateProject() error = %v, wantErr %v", err, tt.wantErr)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
 			}
 		})
 	}
@@ -121,15 +126,9 @@ func TestCheckCompletion(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			complete, passing, failing := CheckCompletion(tt.project)
-			if complete != tt.wantComplete {
-				t.Errorf("CheckCompletion() complete = %v, want %v", complete, tt.wantComplete)
-			}
-			if passing != tt.wantPassing {
-				t.Errorf("CheckCompletion() passing = %v, want %v", passing, tt.wantPassing)
-			}
-			if failing != tt.wantFailing {
-				t.Errorf("CheckCompletion() failing = %v, want %v", failing, tt.wantFailing)
-			}
+			assert.Equal(t, tt.wantComplete, complete)
+			assert.Equal(t, tt.wantPassing, passing)
+			assert.Equal(t, tt.wantFailing, failing)
 		})
 	}
 }
@@ -145,18 +144,12 @@ func TestUpdateRequirementStatus(t *testing.T) {
 
 	// Update existing requirement
 	err := UpdateRequirementStatus(project, "req1", true)
-	if err != nil {
-		t.Errorf("UpdateRequirementStatus() unexpected error: %v", err)
-	}
-	if !project.Requirements[0].Passing {
-		t.Error("UpdateRequirementStatus() did not update status")
-	}
+	require.NoError(t, err, "UpdateRequirementStatus() unexpected error")
+	assert.True(t, project.Requirements[0].Passing, "UpdateRequirementStatus() did not update status")
 
 	// Try to update non-existent requirement
 	err = UpdateRequirementStatus(project, "req999", true)
-	if err == nil {
-		t.Error("UpdateRequirementStatus() expected error for non-existent requirement")
-	}
+	require.Error(t, err, "UpdateRequirementStatus() expected error for non-existent requirement")
 }
 
 func TestLoadConfig_Defaults(t *testing.T) {
@@ -165,25 +158,13 @@ func TestLoadConfig_Defaults(t *testing.T) {
 	t.Chdir(tmpDir)
 
 	config, err := LoadConfig()
-	if err != nil {
-		t.Errorf("LoadConfig() unexpected error: %v", err)
-	}
+	require.NoError(t, err, "LoadConfig() unexpected error")
 
-	if config.MaxIterations != 10 {
-		t.Errorf("LoadConfig() MaxIterations = %d, want 10", config.MaxIterations)
-	}
-	if config.BaseBranch != "main" {
-		t.Errorf("LoadConfig() BaseBranch = %s, want main", config.BaseBranch)
-	}
-	if len(config.Services) != 0 {
-		t.Errorf("LoadConfig() Services length = %d, want 0", len(config.Services))
-	}
-	if config.Instructions == "" {
-		t.Error("LoadConfig() Instructions is empty, expected default instructions")
-	}
-	if !strings.Contains(config.Instructions, "## Instructions") {
-		t.Error("LoadConfig() Instructions missing expected header")
-	}
+	assert.Equal(t, 10, config.MaxIterations)
+	assert.Equal(t, "main", config.BaseBranch)
+	assert.Empty(t, config.Services)
+	assert.NotEmpty(t, config.Instructions, "LoadConfig() Instructions is empty, expected default instructions")
+	assert.True(t, strings.Contains(config.Instructions, "## Instructions"), "LoadConfig() Instructions missing expected header")
 }
 
 func TestLoadConfig_FromFile(t *testing.T) {
@@ -191,11 +172,8 @@ func TestLoadConfig_FromFile(t *testing.T) {
 
 	t.Chdir(tmpDir)
 
-	// Create .ralph directory
 	ralphDir := filepath.Join(tmpDir, ".ralph")
-	if err := os.Mkdir(ralphDir, 0755); err != nil {
-		t.Fatalf("Failed to create .ralph dir: %v", err)
-	}
+	require.NoError(t, os.Mkdir(ralphDir, 0755))
 
 	// Write config file
 	configContent := `maxIterations: 5
@@ -207,40 +185,24 @@ services:
     port: 8080
 `
 	configPath := filepath.Join(ralphDir, "config.yaml")
-	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
-		t.Fatalf("Failed to write config file: %v", err)
-	}
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
 
 	// Write custom instructions file
 	instructionsContent := "Custom instructions for testing"
 	instructionsPath := filepath.Join(ralphDir, "instructions.md")
-	if err := os.WriteFile(instructionsPath, []byte(instructionsContent), 0644); err != nil {
-		t.Fatalf("Failed to write instructions file: %v", err)
-	}
+	require.NoError(t, os.WriteFile(instructionsPath, []byte(instructionsContent), 0644))
 
 	// Change to temp directory
 	t.Chdir(tmpDir)
 
 	config, err := LoadConfig()
-	if err != nil {
-		t.Errorf("LoadConfig() unexpected error: %v", err)
-	}
+	require.NoError(t, err, "LoadConfig() unexpected error")
 
-	if config.MaxIterations != 5 {
-		t.Errorf("LoadConfig() MaxIterations = %d, want 5", config.MaxIterations)
-	}
-	if config.BaseBranch != "develop" {
-		t.Errorf("LoadConfig() BaseBranch = %s, want develop", config.BaseBranch)
-	}
-	if len(config.Services) != 1 {
-		t.Errorf("LoadConfig() Services length = %d, want 1", len(config.Services))
-	}
-	if len(config.Services) > 0 && config.Services[0].Name != "test-service" {
-		t.Errorf("LoadConfig() Service name = %s, want test-service", config.Services[0].Name)
-	}
-	if config.Instructions != instructionsContent {
-		t.Errorf("LoadConfig() Instructions = %s, want %s", config.Instructions, instructionsContent)
-	}
+	assert.Equal(t, 5, config.MaxIterations)
+	assert.Equal(t, "develop", config.BaseBranch)
+	assert.Len(t, config.Services, 1)
+	assert.Equal(t, "test-service", config.Services[0].Name)
+	assert.Equal(t, instructionsContent, config.Instructions)
 }
 
 func TestLoadProject(t *testing.T) {
@@ -257,24 +219,14 @@ requirements:
     passing: true
 `
 	projectPath := filepath.Join(tmpDir, "test.yaml")
-	if err := os.WriteFile(projectPath, []byte(projectContent), 0644); err != nil {
-		t.Fatalf("Failed to write project file: %v", err)
-	}
+	require.NoError(t, os.WriteFile(projectPath, []byte(projectContent), 0644))
 
 	project, err := LoadProject(projectPath)
-	if err != nil {
-		t.Errorf("LoadProject() unexpected error: %v", err)
-	}
+	require.NoError(t, err, "LoadProject() unexpected error")
 
-	if project.Name != "test-project" {
-		t.Errorf("LoadProject() Name = %s, want test-project", project.Name)
-	}
-	if project.Description != "A test project" {
-		t.Errorf("LoadProject() Description = %s, want 'A test project'", project.Description)
-	}
-	if len(project.Requirements) != 2 {
-		t.Errorf("LoadProject() Requirements length = %d, want 2", len(project.Requirements))
-	}
+	assert.Equal(t, "test-project", project.Name)
+	assert.Equal(t, "A test project", project.Description)
+	assert.Len(t, project.Requirements, 2)
 }
 
 func TestLoadProjectWithItems(t *testing.T) {
@@ -300,54 +252,32 @@ requirements:
     passing: false
 `
 	projectPath := filepath.Join(tmpDir, "test-items.yaml")
-	if err := os.WriteFile(projectPath, []byte(projectContent), 0644); err != nil {
-		t.Fatalf("Failed to write project file: %v", err)
-	}
+	require.NoError(t, os.WriteFile(projectPath, []byte(projectContent), 0644))
 
 	project, err := LoadProject(projectPath)
-	if err != nil {
-		t.Errorf("LoadProject() unexpected error: %v", err)
-	}
+	require.NoError(t, err, "LoadProject() unexpected error")
 
-	if project.Name != "test-with-items" {
-		t.Errorf("LoadProject() Name = %s, want test-with-items", project.Name)
-	}
-	if len(project.Requirements) != 2 {
-		t.Fatalf("LoadProject() Requirements length = %d, want 2", len(project.Requirements))
-	}
+	assert.Equal(t, "test-with-items", project.Name)
+	require.Len(t, project.Requirements, 2)
 
 	// Check first requirement
 	req1 := project.Requirements[0]
-	if req1.Category != "backend" {
-		t.Errorf("Requirement[0] Category = %s, want backend", req1.Category)
-	}
-	if req1.Description != "User Authentication" {
-		t.Errorf("Requirement[0] Description = %s, want 'User Authentication'", req1.Description)
-	}
-	if len(req1.Items) != 3 {
-		t.Errorf("Requirement[0] Items length = %d, want 3", len(req1.Items))
-	}
-	if len(req1.Items) > 0 && req1.Items[0] != "User model with credentials" {
-		t.Errorf("Requirement[0] Items[0] = %s, want 'User model with credentials'", req1.Items[0])
-	}
+	assert.Equal(t, "backend", req1.Category)
+	assert.Equal(t, "User Authentication", req1.Description)
+	require.Len(t, req1.Items, 3)
+	assert.Equal(t, "User model with credentials", req1.Items[0])
 
 	// Check second requirement
 	req2 := project.Requirements[1]
-	if req2.Category != "testing" {
-		t.Errorf("Requirement[1] Category = %s, want testing", req2.Category)
-	}
-	if len(req2.Items) != 2 {
-		t.Errorf("Requirement[1] Items length = %d, want 2", len(req2.Items))
-	}
+	assert.Equal(t, "testing", req2.Category)
+	assert.Len(t, req2.Items, 2)
 }
 
 func TestLoadConfig_WithWorkDir(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	ralphDir := filepath.Join(tmpDir, ".ralph")
-	if err := os.Mkdir(ralphDir, 0755); err != nil {
-		t.Fatalf("Failed to create .ralph dir: %v", err)
-	}
+	require.NoError(t, os.Mkdir(ralphDir, 0755))
 
 	configContent := `before:
   - name: compile
@@ -361,39 +291,25 @@ services:
     port: 8080
 `
 	configPath := filepath.Join(ralphDir, "config.yaml")
-	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
-		t.Fatalf("Failed to write config file: %v", err)
-	}
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
 
 	t.Chdir(tmpDir)
 
 	cfg, err := LoadConfig()
-	if err != nil {
-		t.Fatalf("LoadConfig() unexpected error: %v", err)
-	}
+	require.NoError(t, err, "LoadConfig() unexpected error")
 
-	if len(cfg.Before) != 1 {
-		t.Fatalf("Before length = %d, want 1", len(cfg.Before))
-	}
-	if cfg.Before[0].WorkDir != "/tmp/myapp" {
-		t.Errorf("Before[0].WorkDir = %q, want /tmp/myapp", cfg.Before[0].WorkDir)
-	}
+	require.Len(t, cfg.Before, 1)
+	assert.Equal(t, "/tmp/myapp", cfg.Before[0].WorkDir)
 
-	if len(cfg.Services) != 1 {
-		t.Fatalf("Services length = %d, want 1", len(cfg.Services))
-	}
-	if cfg.Services[0].WorkDir != "/tmp/myapp/bin" {
-		t.Errorf("Service[0].WorkDir = %q, want /tmp/myapp/bin", cfg.Services[0].WorkDir)
-	}
+	require.Len(t, cfg.Services, 1)
+	assert.Equal(t, "/tmp/myapp/bin", cfg.Services[0].WorkDir)
 }
 
 func TestLoadConfig_WorkDirOmitted(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	ralphDir := filepath.Join(tmpDir, ".ralph")
-	if err := os.Mkdir(ralphDir, 0755); err != nil {
-		t.Fatalf("Failed to create .ralph dir: %v", err)
-	}
+	require.NoError(t, os.Mkdir(ralphDir, 0755))
 
 	configContent := `before:
   - name: compile
@@ -404,30 +320,18 @@ services:
     port: 8080
 `
 	configPath := filepath.Join(ralphDir, "config.yaml")
-	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
-		t.Fatalf("Failed to write config file: %v", err)
-	}
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
 
 	t.Chdir(tmpDir)
 
 	cfg, err := LoadConfig()
-	if err != nil {
-		t.Fatalf("LoadConfig() unexpected error: %v", err)
-	}
+	require.NoError(t, err, "LoadConfig() unexpected error")
 
-	if len(cfg.Before) != 1 {
-		t.Fatalf("Before length = %d, want 1", len(cfg.Before))
-	}
-	if cfg.Before[0].WorkDir != "" {
-		t.Errorf("Before[0].WorkDir = %q, want empty string", cfg.Before[0].WorkDir)
-	}
+	require.Len(t, cfg.Before, 1)
+	assert.Equal(t, "", cfg.Before[0].WorkDir)
 
-	if len(cfg.Services) != 1 {
-		t.Fatalf("Services length = %d, want 1", len(cfg.Services))
-	}
-	if cfg.Services[0].WorkDir != "" {
-		t.Errorf("Service[0].WorkDir = %q, want empty string", cfg.Services[0].WorkDir)
-	}
+	require.Len(t, cfg.Services, 1)
+	assert.Equal(t, "", cfg.Services[0].WorkDir)
 }
 
 func TestSaveProject(t *testing.T) {
@@ -442,33 +346,23 @@ func TestSaveProject(t *testing.T) {
 	}
 
 	projectPath := filepath.Join(tmpDir, "project.yaml")
-	err := SaveProject(projectPath, project)
-	if err != nil {
-		t.Errorf("SaveProject() unexpected error: %v", err)
-	}
+	require.NoError(t, SaveProject(projectPath, project), "SaveProject() unexpected error")
 
 	// Verify file was created
-	if _, err := os.Stat(projectPath); os.IsNotExist(err) {
-		t.Error("SaveProject() did not create file")
-	}
+	_, err := os.Stat(projectPath)
+	require.NoError(t, err, "SaveProject() did not create file")
 
 	// Load it back and verify
 	loaded, err := LoadProject(projectPath)
-	if err != nil {
-		t.Errorf("LoadProject() after save unexpected error: %v", err)
-	}
-	if loaded.Name != project.Name {
-		t.Errorf("Loaded project name = %s, want %s", loaded.Name, project.Name)
-	}
+	require.NoError(t, err, "LoadProject() after save unexpected error")
+	assert.Equal(t, project.Name, loaded.Name)
 }
 
 func TestLoadConfig_WithWorkflowConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	ralphDir := filepath.Join(tmpDir, ".ralph")
-	if err := os.Mkdir(ralphDir, 0755); err != nil {
-		t.Fatalf("Failed to create .ralph dir: %v", err)
-	}
+	require.NoError(t, os.Mkdir(ralphDir, 0755))
 
 	configContent := `maxIterations: 5
 baseBranch: main
@@ -489,219 +383,137 @@ workflow:
   namespace: ralph-workflows
 `
 	configPath := filepath.Join(ralphDir, "config.yaml")
-	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
-		t.Fatalf("Failed to write config file: %v", err)
-	}
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
 
 	t.Chdir(tmpDir)
 
 	config, err := LoadConfig()
-	if err != nil {
-		t.Errorf("LoadConfig() unexpected error: %v", err)
-	}
+	require.NoError(t, err, "LoadConfig() unexpected error")
 
 	// Verify workflow image config
-	if config.Workflow.Image.Repository != "ghcr.io/example/ralph-runner" {
-		t.Errorf("Workflow.Image.Repository = %s, want ghcr.io/example/ralph-runner", config.Workflow.Image.Repository)
-	}
-	if config.Workflow.Image.Tag != "v1.0.0" {
-		t.Errorf("Workflow.Image.Tag = %s, want v1.0.0", config.Workflow.Image.Tag)
-	}
+	assert.Equal(t, "ghcr.io/example/ralph-runner", config.Workflow.Image.Repository)
+	assert.Equal(t, "v1.0.0", config.Workflow.Image.Tag)
 
 	// Verify configMaps
-	if len(config.Workflow.ConfigMaps) != 2 {
-		t.Errorf("Workflow.ConfigMaps length = %d, want 2", len(config.Workflow.ConfigMaps))
-	}
-	if len(config.Workflow.ConfigMaps) > 0 && config.Workflow.ConfigMaps[0].Name != "app-config" {
-		t.Errorf("Workflow.ConfigMaps[0].Name = %s, want app-config", config.Workflow.ConfigMaps[0].Name)
-	}
-	if len(config.Workflow.ConfigMaps) > 1 && config.Workflow.ConfigMaps[1].Name != "shared-data" {
-		t.Errorf("Workflow.ConfigMaps[1].Name = %s, want shared-data", config.Workflow.ConfigMaps[1].Name)
-	}
+	require.Len(t, config.Workflow.ConfigMaps, 2)
+	assert.Equal(t, "app-config", config.Workflow.ConfigMaps[0].Name)
+	assert.Equal(t, "shared-data", config.Workflow.ConfigMaps[1].Name)
 
 	// Verify secrets
-	if len(config.Workflow.Secrets) != 2 {
-		t.Errorf("Workflow.Secrets length = %d, want 2", len(config.Workflow.Secrets))
-	}
-	if len(config.Workflow.Secrets) > 0 && config.Workflow.Secrets[0].Name != "api-keys" {
-		t.Errorf("Workflow.Secrets[0].Name = %s, want api-keys", config.Workflow.Secrets[0].Name)
-	}
-	if len(config.Workflow.Secrets) > 1 && config.Workflow.Secrets[1].Name != "database-creds" {
-		t.Errorf("Workflow.Secrets[1].Name = %s, want database-creds", config.Workflow.Secrets[1].Name)
-	}
+	require.Len(t, config.Workflow.Secrets, 2)
+	assert.Equal(t, "api-keys", config.Workflow.Secrets[0].Name)
+	assert.Equal(t, "database-creds", config.Workflow.Secrets[1].Name)
 
 	// Verify environment variables
-	if len(config.Workflow.Env) != 2 {
-		t.Errorf("Workflow.Env length = %d, want 2", len(config.Workflow.Env))
-	}
-	if config.Workflow.Env["LOG_LEVEL"] != "debug" {
-		t.Errorf("Workflow.Env[LOG_LEVEL] = %s, want debug", config.Workflow.Env["LOG_LEVEL"])
-	}
-	if config.Workflow.Env["APP_ENV"] != "production" {
-		t.Errorf("Workflow.Env[APP_ENV] = %s, want production", config.Workflow.Env["APP_ENV"])
-	}
+	require.Len(t, config.Workflow.Env, 2)
+	assert.Equal(t, "debug", config.Workflow.Env["LOG_LEVEL"])
+	assert.Equal(t, "production", config.Workflow.Env["APP_ENV"])
 
 	// Verify Kubernetes context and namespace
-	if config.Workflow.Context != "my-k8s-cluster" {
-		t.Errorf("Workflow.Context = %s, want my-k8s-cluster", config.Workflow.Context)
-	}
-	if config.Workflow.Namespace != "ralph-workflows" {
-		t.Errorf("Workflow.Namespace = %s, want ralph-workflows", config.Workflow.Namespace)
-	}
+	assert.Equal(t, "my-k8s-cluster", config.Workflow.Context)
+	assert.Equal(t, "ralph-workflows", config.Workflow.Namespace)
 }
 
 func TestLoadConfig_WithPartialWorkflowConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	ralphDir := filepath.Join(tmpDir, ".ralph")
-	if err := os.Mkdir(ralphDir, 0755); err != nil {
-		t.Fatalf("Failed to create .ralph dir: %v", err)
-	}
+	require.NoError(t, os.Mkdir(ralphDir, 0755))
 
 	configContent := `workflow:
   image:
     repository: my-registry/ralph
   context: dev-cluster
- `
+  `
 	configPath := filepath.Join(ralphDir, "config.yaml")
-	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
-		t.Fatalf("Failed to write config file: %v", err)
-	}
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
 
 	t.Chdir(tmpDir)
 
 	config, err := LoadConfig()
-	if err != nil {
-		t.Errorf("LoadConfig() unexpected error: %v", err)
-	}
+	require.NoError(t, err, "LoadConfig() unexpected error")
 
 	// Verify partial config loads correctly
-	if config.Workflow.Image.Repository != "my-registry/ralph" {
-		t.Errorf("Workflow.Image.Repository = %s, want my-registry/ralph", config.Workflow.Image.Repository)
-	}
-	if config.Workflow.Image.Tag != "" {
-		t.Errorf("Workflow.Image.Tag = %s, want empty string", config.Workflow.Image.Tag)
-	}
-	if config.Workflow.Context != "dev-cluster" {
-		t.Errorf("Workflow.Context = %s, want dev-cluster", config.Workflow.Context)
-	}
+	assert.Equal(t, "my-registry/ralph", config.Workflow.Image.Repository)
+	assert.Equal(t, "", config.Workflow.Image.Tag)
+	assert.Equal(t, "dev-cluster", config.Workflow.Context)
 
 	// Verify optional fields are empty/nil
-	if len(config.Workflow.ConfigMaps) != 0 {
-		t.Errorf("Workflow.ConfigMaps length = %d, want 0", len(config.Workflow.ConfigMaps))
-	}
-	if len(config.Workflow.Secrets) != 0 {
-		t.Errorf("Workflow.Secrets length = %d, want 0", len(config.Workflow.Secrets))
-	}
-	if len(config.Workflow.Env) != 0 {
-		t.Errorf("Workflow.Env length = %d, want 0", len(config.Workflow.Env))
-	}
+	assert.Len(t, config.Workflow.ConfigMaps, 0)
+	assert.Len(t, config.Workflow.Secrets, 0)
+	assert.Len(t, config.Workflow.Env, 0)
 }
 
 func TestLoadConfig_WithoutWorkflowConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	ralphDir := filepath.Join(tmpDir, ".ralph")
-	if err := os.Mkdir(ralphDir, 0755); err != nil {
-		t.Fatalf("Failed to create .ralph dir: %v", err)
-	}
+	require.NoError(t, os.Mkdir(ralphDir, 0755))
 
 	configContent := `maxIterations: 3
 baseBranch: main
  `
 	configPath := filepath.Join(ralphDir, "config.yaml")
-	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
-		t.Fatalf("Failed to write config file: %v", err)
-	}
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
 
 	t.Chdir(tmpDir)
 
 	config, err := LoadConfig()
-	if err != nil {
-		t.Errorf("LoadConfig() unexpected error: %v", err)
-	}
+	require.NoError(t, err, "LoadConfig() unexpected error")
 
 	// Verify workflow config exists but is empty
-	if config.Workflow.Image.Repository != "" {
-		t.Errorf("Workflow.Image.Repository = %s, want empty string", config.Workflow.Image.Repository)
-	}
-	if config.Workflow.Image.Tag != "" {
-		t.Errorf("Workflow.Image.Tag = %s, want empty string", config.Workflow.Image.Tag)
-	}
-	if config.Workflow.Context != "" {
-		t.Errorf("Workflow.Context = %s, want empty string", config.Workflow.Context)
-	}
-	if config.Workflow.Namespace != "" {
-		t.Errorf("Workflow.Namespace = %s, want empty string", config.Workflow.Namespace)
-	}
+	assert.Equal(t, "", config.Workflow.Image.Repository)
+	assert.Equal(t, "", config.Workflow.Image.Tag)
+	assert.Equal(t, "", config.Workflow.Context)
+	assert.Equal(t, "", config.Workflow.Namespace)
 }
 
 func TestApplyDefaults_Model(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	ralphDir := filepath.Join(tmpDir, ".ralph")
-	if err := os.Mkdir(ralphDir, 0755); err != nil {
-		t.Fatalf("Failed to create .ralph dir: %v", err)
-	}
+	require.NoError(t, os.Mkdir(ralphDir, 0755))
 
 	configContent := `model: ""
  `
 	configPath := filepath.Join(ralphDir, "config.yaml")
-	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
-		t.Fatalf("Failed to write config file: %v", err)
-	}
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
 
 	t.Chdir(tmpDir)
 
 	config, err := LoadConfig()
-	if err != nil {
-		t.Fatalf("LoadConfig() unexpected error: %v", err)
-	}
+	require.NoError(t, err, "LoadConfig() unexpected error")
 
-	if config.Model != "deepseek/deepseek-chat" {
-		t.Errorf("Model = %q, want %q", config.Model, "deepseek/deepseek-chat")
-	}
+	assert.Equal(t, "deepseek/deepseek-chat", config.Model)
 }
 
 func TestApplyDefaults_AppFields(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	ralphDir := filepath.Join(tmpDir, ".ralph")
-	if err := os.Mkdir(ralphDir, 0755); err != nil {
-		t.Fatalf("Failed to create .ralph dir: %v", err)
-	}
+	require.NoError(t, os.Mkdir(ralphDir, 0755))
 
 	configContent := `app:
   name: ""
   id: ""
  `
 	configPath := filepath.Join(ralphDir, "config.yaml")
-	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
-		t.Fatalf("Failed to write config file: %v", err)
-	}
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
 
 	t.Chdir(tmpDir)
 
 	config, err := LoadConfig()
-	if err != nil {
-		t.Fatalf("LoadConfig() unexpected error: %v", err)
-	}
+	require.NoError(t, err, "LoadConfig() unexpected error")
 
-	if config.App.Name != "zalphen" {
-		t.Errorf("App.Name = %q, want %q", config.App.Name, "zalphen")
-	}
-	if config.App.ID != "2924254" {
-		t.Errorf("App.ID = %q, want %q", config.App.ID, "2924254")
-	}
+	assert.Equal(t, "zalphen", config.App.Name)
+	assert.Equal(t, "2924254", config.App.ID)
 }
 
 func TestApplyDefaults_ServiceTimeout(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	ralphDir := filepath.Join(tmpDir, ".ralph")
-	if err := os.Mkdir(ralphDir, 0755); err != nil {
-		t.Fatalf("Failed to create .ralph dir: %v", err)
-	}
+	require.NoError(t, os.Mkdir(ralphDir, 0755))
 
 	configContent := `services:
   - name: svc1
@@ -711,35 +523,23 @@ func TestApplyDefaults_ServiceTimeout(t *testing.T) {
     command: echo
  `
 	configPath := filepath.Join(ralphDir, "config.yaml")
-	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
-		t.Fatalf("Failed to write config file: %v", err)
-	}
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
 
 	t.Chdir(tmpDir)
 
 	config, err := LoadConfig()
-	if err != nil {
-		t.Fatalf("LoadConfig() unexpected error: %v", err)
-	}
+	require.NoError(t, err, "LoadConfig() unexpected error")
 
-	if len(config.Services) != 2 {
-		t.Fatalf("Services length = %d, want 2", len(config.Services))
-	}
-	if config.Services[0].Timeout != 30 {
-		t.Errorf("Services[0].Timeout = %d, want 30", config.Services[0].Timeout)
-	}
-	if config.Services[1].Timeout != 30 {
-		t.Errorf("Services[1].Timeout = %d, want 30", config.Services[1].Timeout)
-	}
+	require.Len(t, config.Services, 2)
+	assert.Equal(t, 30, config.Services[0].Timeout)
+	assert.Equal(t, 30, config.Services[1].Timeout)
 }
 
 func TestApplyDefaults_DoesNotOverwriteNonZeroValues(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	ralphDir := filepath.Join(tmpDir, ".ralph")
-	if err := os.Mkdir(ralphDir, 0755); err != nil {
-		t.Fatalf("Failed to create .ralph dir: %v", err)
-	}
+	require.NoError(t, os.Mkdir(ralphDir, 0755))
 
 	configContent := `maxIterations: 5
 baseBranch: develop
@@ -753,165 +553,109 @@ services:
     timeout: 60
  `
 	configPath := filepath.Join(ralphDir, "config.yaml")
-	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
-		t.Fatalf("Failed to write config file: %v", err)
-	}
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
 
 	t.Chdir(tmpDir)
 
 	config, err := LoadConfig()
-	if err != nil {
-		t.Fatalf("LoadConfig() unexpected error: %v", err)
-	}
+	require.NoError(t, err, "LoadConfig() unexpected error")
 
-	if config.MaxIterations != 5 {
-		t.Errorf("MaxIterations = %d, want 5", config.MaxIterations)
-	}
-	if config.BaseBranch != "develop" {
-		t.Errorf("BaseBranch = %q, want develop", config.BaseBranch)
-	}
-	if config.Model != "anthropic/claude-3-sonnet" {
-		t.Errorf("Model = %q, want anthropic/claude-3-sonnet", config.Model)
-	}
-	if config.App.Name != "my-app" {
-		t.Errorf("App.Name = %q, want my-app", config.App.Name)
-	}
-	if config.App.ID != "1234567" {
-		t.Errorf("App.ID = %q, want 1234567", config.App.ID)
-	}
-	if config.Services[0].Timeout != 60 {
-		t.Errorf("Services[0].Timeout = %d, want 60", config.Services[0].Timeout)
-	}
+	assert.Equal(t, 5, config.MaxIterations)
+	assert.Equal(t, "develop", config.BaseBranch)
+	assert.Equal(t, "anthropic/claude-3-sonnet", config.Model)
+	assert.Equal(t, "my-app", config.App.Name)
+	assert.Equal(t, "1234567", config.App.ID)
+	assert.Equal(t, 60, config.Services[0].Timeout)
 }
 
 func TestLoadConfig_CommentInstructionsFromFile(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	ralphDir := filepath.Join(tmpDir, ".ralph")
-	if err := os.Mkdir(ralphDir, 0755); err != nil {
-		t.Fatalf("Failed to create .ralph dir: %v", err)
-	}
+	require.NoError(t, os.Mkdir(ralphDir, 0755))
 
 	configContent := `maxIterations: 3
  `
 	configPath := filepath.Join(ralphDir, "config.yaml")
-	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
-		t.Fatalf("Failed to write config file: %v", err)
-	}
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
 
 	customCommentInstructions := "Custom comment instructions for PR comments"
 	commentInstructionsPath := filepath.Join(ralphDir, "comment-instructions.md")
-	if err := os.WriteFile(commentInstructionsPath, []byte(customCommentInstructions), 0644); err != nil {
-		t.Fatalf("Failed to write comment instructions file: %v", err)
-	}
+	require.NoError(t, os.WriteFile(commentInstructionsPath, []byte(customCommentInstructions), 0644))
 
 	t.Chdir(tmpDir)
 
 	config, err := LoadConfig()
-	if err != nil {
-		t.Fatalf("LoadConfig() unexpected error: %v", err)
-	}
+	require.NoError(t, err, "LoadConfig() unexpected error")
 
-	if config.CommentInstructions != customCommentInstructions {
-		t.Errorf("CommentInstructions = %q, want %q", config.CommentInstructions, customCommentInstructions)
-	}
+	assert.Equal(t, customCommentInstructions, config.CommentInstructions)
 }
 
 func TestLoadConfig_MergeInstructionsFromFile(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	ralphDir := filepath.Join(tmpDir, ".ralph")
-	if err := os.Mkdir(ralphDir, 0755); err != nil {
-		t.Fatalf("Failed to create .ralph dir: %v", err)
-	}
+	require.NoError(t, os.Mkdir(ralphDir, 0755))
 
 	configContent := `maxIterations: 3
 `
 	configPath := filepath.Join(ralphDir, "config.yaml")
-	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
-		t.Fatalf("Failed to write config file: %v", err)
-	}
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
 
 	customMergeInstructions := "Custom merge instructions for PR merging"
 	mergeInstructionsPath := filepath.Join(ralphDir, "merge-instructions.md")
-	if err := os.WriteFile(mergeInstructionsPath, []byte(customMergeInstructions), 0644); err != nil {
-		t.Fatalf("Failed to write merge instructions file: %v", err)
-	}
+	require.NoError(t, os.WriteFile(mergeInstructionsPath, []byte(customMergeInstructions), 0644))
 
 	t.Chdir(tmpDir)
 
 	config, err := LoadConfig()
-	if err != nil {
-		t.Fatalf("LoadConfig() unexpected error: %v", err)
-	}
+	require.NoError(t, err, "LoadConfig() unexpected error")
 
-	if config.MergeInstructions != customMergeInstructions {
-		t.Errorf("MergeInstructions = %q, want %q", config.MergeInstructions, customMergeInstructions)
-	}
+	assert.Equal(t, customMergeInstructions, config.MergeInstructions)
 }
 
 func TestLoadConfig_DefaultInstructionsWhenFilesNotExist(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	ralphDir := filepath.Join(tmpDir, ".ralph")
-	if err := os.Mkdir(ralphDir, 0755); err != nil {
-		t.Fatalf("Failed to create .ralph dir: %v", err)
-	}
+	require.NoError(t, os.Mkdir(ralphDir, 0755))
 
 	configContent := `maxIterations: 3
  `
 	configPath := filepath.Join(ralphDir, "config.yaml")
-	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
-		t.Fatalf("Failed to write config file: %v", err)
-	}
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
 
 	t.Chdir(tmpDir)
 
 	config, err := LoadConfig()
-	if err != nil {
-		t.Fatalf("LoadConfig() unexpected error: %v", err)
-	}
+	require.NoError(t, err, "LoadConfig() unexpected error")
 
-	if config.CommentInstructions == "" {
-		t.Error("CommentInstructions is empty, expected default instructions")
-	}
-	if config.MergeInstructions == "" {
-		t.Error("MergeInstructions is empty, expected default instructions")
-	}
-	if config.Instructions == "" {
-		t.Error("Instructions is empty, expected default instructions")
-	}
+	assert.NotEmpty(t, config.CommentInstructions, "CommentInstructions is empty, expected default instructions")
+	assert.NotEmpty(t, config.MergeInstructions, "MergeInstructions is empty, expected default instructions")
+	assert.NotEmpty(t, config.Instructions, "Instructions is empty, expected default instructions")
 }
 
 func TestLoadConfig_InvalidYAML(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	ralphDir := filepath.Join(tmpDir, ".ralph")
-	if err := os.Mkdir(ralphDir, 0755); err != nil {
-		t.Fatalf("Failed to create .ralph dir: %v", err)
-	}
+	require.NoError(t, os.Mkdir(ralphDir, 0755))
 
 	invalidYAML := `maxIterations: [this is not valid yaml
   - broken
  `
 	configPath := filepath.Join(ralphDir, "config.yaml")
-	if err := os.WriteFile(configPath, []byte(invalidYAML), 0644); err != nil {
-		t.Fatalf("Failed to write config file: %v", err)
-	}
+	require.NoError(t, os.WriteFile(configPath, []byte(invalidYAML), 0644))
 
 	t.Chdir(tmpDir)
 
 	_, err := LoadConfig()
-	if err == nil {
-		t.Error("LoadConfig() expected error for invalid YAML, got nil")
-	}
+	require.Error(t, err, "LoadConfig() expected error for invalid YAML")
 }
 
 func TestLoadProject_FileNotFound(t *testing.T) {
 	_, err := LoadProject("/nonexistent/path/project.yaml")
-	if err == nil {
-		t.Error("LoadProject() expected error for nonexistent file, got nil")
-	}
+	require.Error(t, err, "LoadProject() expected error for nonexistent file")
 }
 
 func TestSaveProjectRoundTrip(t *testing.T) {
@@ -927,22 +671,11 @@ func TestSaveProjectRoundTrip(t *testing.T) {
 	}
 
 	projectPath := filepath.Join(tmpDir, "roundtrip.yaml")
-	err := SaveProject(projectPath, project)
-	if err != nil {
-		t.Fatalf("SaveProject() unexpected error: %v", err)
-	}
+	require.NoError(t, SaveProject(projectPath, project), "SaveProject() unexpected error")
 
 	loaded, err := LoadProject(projectPath)
-	if err != nil {
-		t.Fatalf("LoadProject() after save unexpected error: %v", err)
-	}
-	if loaded.Name != project.Name {
-		t.Errorf("Loaded project name = %s, want %s", loaded.Name, project.Name)
-	}
-	if loaded.Description != project.Description {
-		t.Errorf("Loaded project description = %s, want %s", loaded.Description, project.Description)
-	}
-	if len(loaded.Requirements) != len(project.Requirements) {
-		t.Errorf("Loaded requirements length = %d, want %d", len(loaded.Requirements), len(project.Requirements))
-	}
+	require.NoError(t, err, "LoadProject() after save unexpected error")
+	assert.Equal(t, project.Name, loaded.Name)
+	assert.Equal(t, project.Description, loaded.Description)
+	assert.Len(t, loaded.Requirements, len(project.Requirements))
 }

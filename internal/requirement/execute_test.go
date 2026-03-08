@@ -6,6 +6,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/zon/ralph/internal/testutil"
 )
 
@@ -30,9 +33,7 @@ requirements:
 	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile)) // dry-run, no verbose, no notify, no services
 	err := Execute(ctx, nil)
 
-	if err != nil {
-		t.Errorf("Execute failed in dry-run mode: %v", err)
-	}
+	require.NoError(t, err, "Execute failed in dry-run mode")
 }
 
 func TestExecute_InvalidProjectFile(t *testing.T) {
@@ -40,9 +41,7 @@ func TestExecute_InvalidProjectFile(t *testing.T) {
 
 	// Test with non-existent file
 	err := Execute(ctx, nil)
-	if err == nil {
-		t.Error("Expected error for non-existent project file, got nil")
-	}
+	require.Error(t, err, "Expected error for non-existent project file")
 }
 
 func TestExecute_InvalidYAML(t *testing.T) {
@@ -63,9 +62,7 @@ requirements:
 	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
 	err := Execute(ctx, nil)
 
-	if err == nil {
-		t.Error("Expected error for invalid YAML, got nil")
-	}
+	require.Error(t, err, "Expected error for invalid YAML")
 }
 
 func TestExecute_EmptyRequirements(t *testing.T) {
@@ -85,9 +82,7 @@ requirements: []
 	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
 	err := Execute(ctx, nil)
 
-	if err == nil {
-		t.Error("Expected error for project with no requirements, got nil")
-	}
+	require.Error(t, err, "Expected error for project with no requirements")
 }
 
 func TestExecute_BlockedMDExists(t *testing.T) {
@@ -115,13 +110,9 @@ requirements:
 	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
 	err := Execute(ctx, nil)
 
-	if err == nil {
-		t.Error("Expected error when blocked.md exists, got nil")
-	}
+	require.Error(t, err, "Expected error when blocked.md exists")
 
-	if err != nil && !strings.Contains(err.Error(), "blocked") {
-		t.Errorf("Expected error message to mention 'blocked', got: %v", err)
-	}
+	assert.True(t, strings.Contains(err.Error(), "blocked"), "Expected error message to mention 'blocked', got: %v", err)
 }
 
 func TestExecute_BlockedMDContents(t *testing.T) {
@@ -149,13 +140,9 @@ requirements:
 	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
 	err := Execute(ctx, nil)
 
-	if err == nil {
-		t.Error("Expected error when blocked.md exists, got nil")
-	}
+	require.Error(t, err, "Expected error when blocked.md exists")
 
-	if err != nil && !strings.Contains(err.Error(), blockedContent) {
-		t.Errorf("Expected error message to contain blocked.md contents, got: %v", err)
-	}
+	assert.True(t, strings.Contains(err.Error(), blockedContent), "Expected error message to contain blocked.md contents, got: %v", err)
 }
 
 func TestExecute_NoBlockedMD(t *testing.T) {
@@ -177,9 +164,7 @@ requirements:
 	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
 	err := Execute(ctx, nil)
 
-	if err != nil {
-		t.Errorf("Execute failed without blocked.md: %v", err)
-	}
+	require.NoError(t, err, "Execute failed without blocked.md")
 }
 
 func TestExecute_NormalizeTrailingNewlines(t *testing.T) {
@@ -195,22 +180,13 @@ func TestExecute_NormalizeTrailingNewlines(t *testing.T) {
 	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
 	err := Execute(ctx, nil)
 
-	if err != nil {
-		t.Errorf("Execute failed: %v", err)
-	}
+	require.NoError(t, err, "Execute failed")
 
 	content, err := os.ReadFile(projectFile)
-	if err != nil {
-		t.Fatalf("Failed to read project file: %v", err)
-	}
+	require.NoError(t, err, "Failed to read project file")
 
-	if !strings.HasSuffix(string(content), "\n") {
-		t.Error("Expected file to end with a newline")
-	}
-
-	if strings.HasSuffix(string(content), "\n\n") {
-		t.Error("Expected file to have exactly one trailing newline, found excess")
-	}
+	assert.True(t, strings.HasSuffix(string(content), "\n"), "Expected file to end with a newline")
+	assert.False(t, strings.HasSuffix(string(content), "\n\n"), "Expected file to have exactly one trailing newline, found excess")
 }
 
 func TestExecute_StagesFileWithChanges(t *testing.T) {
@@ -236,9 +212,7 @@ requirements:
 
 	err := Execute(ctx, nil)
 
-	if err != nil {
-		t.Errorf("Execute failed: %v", err)
-	}
+	require.NoError(t, err, "Execute failed")
 }
 
 func TestExecute_DoesNotStageFileWithoutChanges(t *testing.T) {
@@ -264,9 +238,7 @@ requirements:
 
 	err := Execute(ctx, nil)
 
-	if err != nil {
-		t.Errorf("Execute failed: %v", err)
-	}
+	require.NoError(t, err, "Execute failed")
 }
 
 func TestExecute_StartsServices(t *testing.T) {
@@ -311,9 +283,7 @@ requirements:
 
 	err := Execute(ctx, nil)
 
-	if err != nil {
-		t.Errorf("Execute failed: %v", err)
-	}
+	require.NoError(t, err, "Execute failed")
 }
 
 func TestExecute_StartsServicesDryRunMode(t *testing.T) {
@@ -358,7 +328,5 @@ requirements:
 
 	err := Execute(ctx, nil)
 
-	if err != nil {
-		t.Errorf("Execute failed in dry-run mode: %v", err)
-	}
+	require.NoError(t, err, "Execute failed in dry-run mode")
 }

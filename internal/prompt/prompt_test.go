@@ -7,6 +7,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/testutil"
 )
@@ -35,9 +38,7 @@ requirements:
 	ctx := testutil.NewContext()
 
 	prompt, err := BuildDevelopPrompt(ctx, projectFile)
-	if err != nil {
-		t.Fatalf("BuildDevelopPrompt failed: %v", err)
-	}
+	require.NoError(t, err, "BuildDevelopPrompt failed")
 
 	// Verify prompt contains expected sections
 	expectedSections := []string{
@@ -48,31 +49,21 @@ requirements:
 	}
 
 	for _, section := range expectedSections {
-		if !strings.Contains(prompt, section) {
-			t.Errorf("Prompt missing expected section: %s", section)
-		}
+		assert.True(t, strings.Contains(prompt, section), "Prompt missing expected section: %s", section)
 	}
 
 	// In dry-run mode, GetCurrentBranch returns "dry-run-branch" (not "main"),
 	// so Recent Git History section will be included with dummy commits.
 	// This is expected behavior for dry-run mode.
-	if !strings.Contains(prompt, "## Recent Git History") {
-		t.Error("Prompt should contain 'Recent Git History' section in dry-run mode")
-	}
+	assert.True(t, strings.Contains(prompt, "## Recent Git History"), "Prompt should contain 'Recent Git History' section in dry-run mode")
 
 	// Verify project content is included
-	if !strings.Contains(prompt, "Test Project") {
-		t.Error("Prompt does not contain project name")
-	}
+	assert.True(t, strings.Contains(prompt, "Test Project"), "Prompt does not contain project name")
 
-	if !strings.Contains(prompt, "Implement feature X") {
-		t.Error("Prompt does not contain project requirements")
-	}
+	assert.True(t, strings.Contains(prompt, "Implement feature X"), "Prompt does not contain project requirements")
 
 	// Verify default instructions are included (since no .ralph/instructions.md exists)
-	if !strings.Contains(prompt, "ONLY WORK ON ONE REQUIREMENT") {
-		t.Error("Prompt does not contain default instructions")
-	}
+	assert.True(t, strings.Contains(prompt, "ONLY WORK ON ONE REQUIREMENT"), "Prompt does not contain default instructions")
 }
 
 func TestBuildDevelopPrompt_WithCustomInstructions(t *testing.T) {
@@ -106,19 +97,13 @@ requirements:
 	ctx := testutil.NewContext()
 
 	prompt, err := BuildDevelopPrompt(ctx, projectFile)
-	if err != nil {
-		t.Fatalf("BuildDevelopPrompt failed: %v", err)
-	}
+	require.NoError(t, err, "BuildDevelopPrompt failed")
 
 	// Verify custom instructions are included
-	if !strings.Contains(prompt, customInstructions) {
-		t.Error("Prompt does not contain custom instructions")
-	}
+	assert.True(t, strings.Contains(prompt, customInstructions), "Prompt does not contain custom instructions")
 
 	// Verify default instructions are NOT included
-	if strings.Contains(prompt, "ONLY WORK ON ONE REQUIREMENT") {
-		t.Error("Prompt should not contain default instructions when custom file exists")
-	}
+	assert.False(t, strings.Contains(prompt, "ONLY WORK ON ONE REQUIREMENT"), "Prompt should not contain default instructions when custom file exists")
 }
 
 func TestBuildDevelopPrompt_DryRun(t *testing.T) {
@@ -140,28 +125,20 @@ requirements:
 	ctx := testutil.NewContext()
 
 	prompt, err := BuildDevelopPrompt(ctx, projectFile)
-	if err != nil {
-		t.Fatalf("BuildDevelopPrompt in dry-run failed: %v", err)
-	}
+	require.NoError(t, err, "BuildDevelopPrompt in dry-run failed")
 
 	// In dry-run mode, the prompt should still be built (not a dummy value)
 	// Verify it contains expected sections
-	if !strings.Contains(prompt, "Development Agent Context") {
-		t.Error("Prompt should contain 'Development Agent Context' header even in dry-run")
-	}
+	assert.True(t, strings.Contains(prompt, "Development Agent Context"), "Prompt should contain 'Development Agent Context' header even in dry-run")
 
-	if !strings.Contains(prompt, "Test Project") {
-		t.Error("Prompt should contain project name even in dry-run")
-	}
+	assert.True(t, strings.Contains(prompt, "Test Project"), "Prompt should contain project name even in dry-run")
 }
 
 func TestBuildDevelopPrompt_MissingProjectFile(t *testing.T) {
 	ctx := testutil.NewContext()
 
 	_, err := BuildDevelopPrompt(ctx, "/nonexistent/project.yaml")
-	if err == nil {
-		t.Error("Expected error for missing project file, got nil")
-	}
+	require.Error(t, err, "Expected error for missing project file")
 }
 
 func TestBuildServiceFixPrompt(t *testing.T) {
@@ -177,36 +154,20 @@ func TestBuildServiceFixPrompt(t *testing.T) {
 	prompt := BuildServiceFixPrompt(ctx, svc, svcErr)
 
 	// Verify error message is present
-	if !strings.Contains(prompt, "Service Startup Failed") {
-		t.Error("Prompt does not contain service failure header")
-	}
-	if !strings.Contains(prompt, "failed to start service test-service") {
-		t.Error("Prompt does not contain service failure details")
-	}
+	assert.True(t, strings.Contains(prompt, "Service Startup Failed"), "Prompt does not contain service failure header")
+	assert.True(t, strings.Contains(prompt, "failed to start service test-service"), "Prompt does not contain service failure details")
 
 	// Verify service details are present
-	if !strings.Contains(prompt, "test-service") {
-		t.Error("Prompt does not contain service name")
-	}
-	if !strings.Contains(prompt, "myapp --port 8080") {
-		t.Error("Prompt does not contain start command")
-	}
-	if !strings.Contains(prompt, "port 8080") {
-		t.Error("Prompt does not contain health check port")
-	}
+	assert.True(t, strings.Contains(prompt, "test-service"), "Prompt does not contain service name")
+	assert.True(t, strings.Contains(prompt, "myapp --port 8080"), "Prompt does not contain start command")
+	assert.True(t, strings.Contains(prompt, "port 8080"), "Prompt does not contain health check port")
 
 	// Verify full dev prompt sections are absent
-	if strings.Contains(prompt, "## Project Requirements") {
-		t.Error("Service fix prompt should not contain project requirements")
-	}
-	if strings.Contains(prompt, "## Recent Git History") {
-		t.Error("Service fix prompt should not contain git history")
-	}
+	assert.False(t, strings.Contains(prompt, "## Project Requirements"), "Service fix prompt should not contain project requirements")
+	assert.False(t, strings.Contains(prompt, "## Recent Git History"), "Service fix prompt should not contain git history")
 
 	// Verify fix-service instructions are present
-	if !strings.Contains(prompt, "report.md") {
-		t.Error("Service fix prompt should contain report.md instruction")
-	}
+	assert.True(t, strings.Contains(prompt, "report.md"), "Service fix prompt should contain report.md instruction")
 }
 
 func TestBuildServiceFixPrompt_NoPort(t *testing.T) {
@@ -220,12 +181,8 @@ func TestBuildServiceFixPrompt_NoPort(t *testing.T) {
 	}
 	prompt := BuildServiceFixPrompt(ctx, svc, svcErr)
 
-	if !strings.Contains(prompt, "worker --config worker.yaml") {
-		t.Error("Prompt does not contain start command")
-	}
-	if strings.Contains(prompt, "Health check") {
-		t.Error("Prompt should not contain health check when no port configured")
-	}
+	assert.True(t, strings.Contains(prompt, "worker --config worker.yaml"), "Prompt does not contain start command")
+	assert.False(t, strings.Contains(prompt, "Health check"), "Prompt should not contain health check when no port configured")
 }
 
 func TestBuildDevelopPrompt_WithInstructionsFlag(t *testing.T) {
@@ -273,19 +230,13 @@ requirements:
 			ctx := testutil.NewContext(testutil.WithInstructions(instructionsFile))
 
 			prompt, err := BuildDevelopPrompt(ctx, projectFile)
-			if err != nil {
-				t.Fatalf("BuildDevelopPrompt failed: %v", err)
-			}
+			require.NoError(t, err, "BuildDevelopPrompt failed")
 
 			for _, want := range tt.wantContains {
-				if !strings.Contains(prompt, want) {
-					t.Errorf("Prompt missing expected content %q", want)
-				}
+				assert.True(t, strings.Contains(prompt, want), "Prompt missing expected content %q", want)
 			}
 			for _, notWant := range tt.wantNotContains {
-				if strings.Contains(prompt, notWant) {
-					t.Errorf("Prompt should not contain %q", notWant)
-				}
+				assert.False(t, strings.Contains(prompt, notWant), "Prompt should not contain %q", notWant)
 			}
 		})
 	}
@@ -326,16 +277,10 @@ requirements:
 	ctx := testutil.NewContext(testutil.WithInstructions(instructionsFile))
 
 	prompt, err := BuildDevelopPrompt(ctx, projectFile)
-	if err != nil {
-		t.Fatalf("BuildDevelopPrompt failed: %v", err)
-	}
+	require.NoError(t, err, "BuildDevelopPrompt failed")
 
-	if !strings.Contains(prompt, overrideInstructions) {
-		t.Errorf("Prompt should contain --instructions file content, got:\n%s", prompt)
-	}
-	if strings.Contains(prompt, ralphInstructions) {
-		t.Errorf("Prompt should NOT contain .ralph/instructions.md content when --instructions flag is set")
-	}
+	assert.True(t, strings.Contains(prompt, overrideInstructions), "Prompt should contain --instructions file content, got:\n%s", prompt)
+	assert.False(t, strings.Contains(prompt, ralphInstructions), "Prompt should NOT contain .ralph/instructions.md content when --instructions flag is set")
 }
 
 func TestBuildDevelopPrompt_InstructionsFlagMissingFile(t *testing.T) {
@@ -356,12 +301,8 @@ requirements:
 	ctx := testutil.NewContext(testutil.WithInstructions("/nonexistent/instructions.md"))
 
 	_, err := BuildDevelopPrompt(ctx, projectFile)
-	if err == nil {
-		t.Error("Expected error when instructions file does not exist, got nil")
-	}
-	if !strings.Contains(err.Error(), "failed to read instructions file") {
-		t.Errorf("Expected 'failed to read instructions file' error, got: %v", err)
-	}
+	require.Error(t, err, "Expected error when instructions file does not exist")
+	assert.True(t, strings.Contains(err.Error(), "failed to read instructions file"), "Expected 'failed to read instructions file' error, got: %v", err)
 }
 
 func TestBuildDevelopPrompt_WithoutNote(t *testing.T) {
@@ -383,14 +324,10 @@ requirements:
 	ctx := testutil.NewContext()
 
 	prompt, err := BuildDevelopPrompt(ctx, projectFile)
-	if err != nil {
-		t.Fatalf("BuildDevelopPrompt failed: %v", err)
-	}
+	require.NoError(t, err, "BuildDevelopPrompt failed")
 
 	// Verify prompt does NOT contain system notes section when context has no notes
-	if strings.Contains(prompt, "## System Notes") {
-		t.Error("Prompt should not contain 'System Notes' section when context has no notes")
-	}
+	assert.False(t, strings.Contains(prompt, "## System Notes"), "Prompt should not contain 'System Notes' section when context has no notes")
 }
 
 func TestBuildDevelopPrompt_WithNote(t *testing.T) {
@@ -414,22 +351,14 @@ requirements:
 	ctx.AddNote("Another note with important information")
 
 	prompt, err := BuildDevelopPrompt(ctx, projectFile)
-	if err != nil {
-		t.Fatalf("BuildDevelopPrompt failed: %v", err)
-	}
+	require.NoError(t, err, "BuildDevelopPrompt failed")
 
 	// Verify prompt contains System Notes section when context has notes
-	if !strings.Contains(prompt, "## System Notes") {
-		t.Error("Prompt should contain 'System Notes' section when context has notes")
-	}
+	assert.True(t, strings.Contains(prompt, "## System Notes"), "Prompt should contain 'System Notes' section when context has notes")
 
 	// Verify the notes are included in the output
-	if !strings.Contains(prompt, "This is a test note for the agent") {
-		t.Error("Prompt should contain the first note")
-	}
-	if !strings.Contains(prompt, "Another note with important information") {
-		t.Error("Prompt should contain the second note")
-	}
+	assert.True(t, strings.Contains(prompt, "This is a test note for the agent"), "Prompt should contain the first note")
+	assert.True(t, strings.Contains(prompt, "Another note with important information"), "Prompt should contain the second note")
 }
 
 func TestBuildDevelopPrompt_CommitLogWhenBranchDiffers(t *testing.T) {
@@ -462,14 +391,10 @@ requirements:
 	ctx := testutil.NewContext()
 
 	prompt, err := BuildDevelopPrompt(ctx, projectFile)
-	if err != nil {
-		t.Fatalf("BuildDevelopPrompt failed: %v", err)
-	}
+	require.NoError(t, err, "BuildDevelopPrompt failed")
 
 	// Verify prompt contains Recent Git History section when branches differ
-	if !strings.Contains(prompt, "## Recent Git History") {
-		t.Error("Prompt should contain 'Recent Git History' section when current branch differs from base branch")
-	}
+	assert.True(t, strings.Contains(prompt, "## Recent Git History"), "Prompt should contain 'Recent Git History' section when current branch differs from base branch")
 }
 
 func TestBuildDevelopPrompt_NoCommitLogWhenBranchMatches(t *testing.T) {
@@ -503,12 +428,8 @@ requirements:
 	ctx := testutil.NewContext()
 
 	prompt, err := BuildDevelopPrompt(ctx, projectFile)
-	if err != nil {
-		t.Fatalf("BuildDevelopPrompt failed: %v", err)
-	}
+	require.NoError(t, err, "BuildDevelopPrompt failed")
 
 	// Verify prompt does NOT contain Recent Git History section when branches match
-	if strings.Contains(prompt, "## Recent Git History") {
-		t.Error("Prompt should NOT contain 'Recent Git History' section when current branch equals base branch")
-	}
+	assert.False(t, strings.Contains(prompt, "## Recent Git History"), "Prompt should NOT contain 'Recent Git History' section when current branch equals base branch")
 }
