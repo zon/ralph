@@ -25,7 +25,7 @@ requirements:
     description: Remove dry run guards from git functions
     items:
       - All dry run stub returns are removed from git functions
-    passing: false
+    passing: true
 
   - category: github
     description: Remove dry run guards from GitHub functions

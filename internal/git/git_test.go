@@ -64,7 +64,7 @@ func TestIsGitRepository(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	t.Chdir(tempDir)
 
-	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	ctx := testutil.NewContext()
 
 	// Should be true inside a git repository
 	assert.True(t, IsGitRepository(ctx), "Expected IsGitRepository to return true inside a git repo")
@@ -74,24 +74,17 @@ func TestIsGitRepository_NotRepo(t *testing.T) {
 	tempDir := t.TempDir()
 	t.Chdir(tempDir)
 
-	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	ctx := testutil.NewContext()
 
 	// Should be false outside a git repository
 	assert.False(t, IsGitRepository(ctx), "Expected IsGitRepository to return false outside a git repo")
-}
-
-func TestIsGitRepository_DryRun(t *testing.T) {
-	ctx := testutil.NewContext()
-
-	// Should always return true in dry-run mode
-	assert.True(t, IsGitRepository(ctx), "Expected IsGitRepository to return true in dry-run mode")
 }
 
 func TestIsDetachedHead(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	t.Chdir(tempDir)
 
-	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	ctx := testutil.NewContext()
 
 	// Should not be detached on a normal branch
 	isDetached, err := IsDetachedHead(ctx)
@@ -104,7 +97,7 @@ func TestIsDetachedHead_Detached(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	t.Chdir(tempDir)
 
-	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	ctx := testutil.NewContext()
 
 	// Get the commit hash to checkout
 	cmd := exec.Command("git", "rev-parse", "HEAD")
@@ -129,21 +122,11 @@ func TestIsDetachedHead_Detached(t *testing.T) {
 	assert.True(t, isDetached, "Expected IsDetachedHead to return true in detached HEAD state")
 }
 
-func TestIsDetachedHead_DryRun(t *testing.T) {
-	ctx := testutil.NewContext()
-
-	// Should always return false in dry-run mode
-	isDetached, err := IsDetachedHead(ctx)
-	require.NoError(t, err, "IsDetachedHead in dry-run failed")
-
-	assert.False(t, isDetached, "Expected IsDetachedHead to return false in dry-run mode")
-}
-
 func TestGetCurrentBranch(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	t.Chdir(tempDir)
 
-	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	ctx := testutil.NewContext()
 
 	branch, err := GetCurrentBranch(ctx)
 	require.NoError(t, err, "GetCurrentBranch failed")
@@ -152,20 +135,11 @@ func TestGetCurrentBranch(t *testing.T) {
 	assert.True(t, branch == "master" || branch == "main", "Expected branch to be 'master' or 'main', got '%s'", branch)
 }
 
-func TestGetCurrentBranch_DryRun(t *testing.T) {
-	ctx := testutil.NewContext()
-
-	branch, err := GetCurrentBranch(ctx)
-	require.NoError(t, err, "GetCurrentBranch in dry-run failed")
-
-	assert.Equal(t, "dry-run-branch", branch)
-}
-
 func TestGetCurrentBranch_DetachedHead(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	t.Chdir(tempDir)
 
-	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	ctx := testutil.NewContext()
 
 	// Get the commit hash to checkout
 	cmd := exec.Command("git", "rev-parse", "HEAD")
@@ -191,30 +165,11 @@ func TestGetCurrentBranch_DetachedHead(t *testing.T) {
 	assert.True(t, testutil.Contains(err.Error(), expectedMsg), "Expected error containing '%s', got: %v", expectedMsg, err)
 }
 
-func TestFetch_DryRun(t *testing.T) {
-	ctx := testutil.NewContext()
-
-	require.NoError(t, Fetch(ctx), "Fetch in dry-run failed")
-}
-
-func TestRemoteBranchExists_DryRun(t *testing.T) {
-	ctx := testutil.NewContext()
-
-	exists := RemoteBranchExists(ctx, "any-branch")
-	assert.False(t, exists, "Expected dry-run RemoteBranchExists to return false")
-}
-
-func TestCheckoutOrCreateBranch_DryRun(t *testing.T) {
-	ctx := testutil.NewContext()
-
-	require.NoError(t, CheckoutOrCreateBranch(ctx, "new-branch"), "CheckoutOrCreateBranch in dry-run failed")
-}
-
 func TestCheckoutOrCreateBranch_CreateNew(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	t.Chdir(tempDir)
 
-	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	ctx := testutil.NewContext()
 
 	branchName := "brand-new-branch"
 
@@ -226,37 +181,14 @@ func TestCheckoutOrCreateBranch_CreateNew(t *testing.T) {
 	assert.Equal(t, branchName, currentBranch)
 }
 
-func TestCheckoutBranch_DryRun(t *testing.T) {
-	ctx := testutil.NewContext()
-
-	require.NoError(t, CheckoutBranch(ctx, "any-branch"), "CheckoutBranch in dry-run failed")
-}
-
 func TestHasCommits(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	t.Chdir(tempDir)
 
-	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	ctx := testutil.NewContext()
 
 	// Should have commits (setupTestRepo creates an initial commit)
 	assert.True(t, HasCommits(ctx), "Expected HasCommits to return true for repo with commits")
-}
-
-func TestHasCommits_DryRun(t *testing.T) {
-	ctx := testutil.NewContext()
-
-	// In dry-run mode, should always return true
-	assert.True(t, HasCommits(ctx), "Expected HasCommits to return true in dry-run mode")
-}
-
-func TestPushBranch_DryRun(t *testing.T) {
-	ctx := testutil.NewContext()
-
-	// Should not return an error in dry-run mode
-	url, err := PushBranch(ctx, "test-branch")
-	require.NoError(t, err, "PushBranch in dry-run failed")
-
-	assert.NotEmpty(t, url, "Expected PushBranch to return a URL in dry-run mode")
 }
 
 // setupBareRemoteRepo creates a temporary bare remote and a clone of it,
@@ -342,7 +274,7 @@ func TestPushBranch_HappyPath(t *testing.T) {
 
 	t.Chdir(workDir)
 
-	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	ctx := testutil.NewContext()
 	remoteURL, err := PushBranch(ctx, branchName)
 	require.NoError(t, err, "PushBranch failed")
 	assert.NotEmpty(t, remoteURL, "PushBranch returned an empty remote URL")
@@ -379,7 +311,7 @@ func TestPushCurrentBranch_HappyPath(t *testing.T) {
 
 	t.Chdir(workDir)
 
-	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	ctx := testutil.NewContext()
 	require.NoError(t, PullRebase(ctx), "PullRebase failed")
 }
 
@@ -482,7 +414,7 @@ func TestPushBranch_WorkflowPermissionError(t *testing.T) {
 
 	t.Chdir(workDir)
 
-	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	ctx := testutil.NewContext()
 	branch, err := GetCurrentBranch(ctx)
 	if err != nil {
 		t.Fatalf("GetCurrentBranch failed: %v", err)
@@ -546,7 +478,7 @@ func TestPushCurrentBranch_WorkflowPermissionError(t *testing.T) {
 
 	t.Chdir(workDir)
 
-	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	ctx := testutil.NewContext()
 	pushErr := PushCurrentBranch(ctx)
 	require.Error(t, pushErr, "expected PushCurrentBranch to return an error, got nil")
 	assert.True(t, errors.Is(pushErr, ErrWorkflowPermission), "expected ErrWorkflowPermission, got: %v", pushErr)
@@ -556,7 +488,7 @@ func TestGetCommitLog_SinceBranch(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	t.Chdir(tempDir)
 
-	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	ctx := testutil.NewContext()
 
 	// Get the current branch to use as base
 	baseBranch, _ := GetCurrentBranch(ctx)
@@ -598,23 +530,11 @@ func TestGetCommitLog_SinceBranch(t *testing.T) {
 	assert.True(t, testutil.Contains(commitLog, "Feature commit 1") && testutil.Contains(commitLog, "Feature commit 2"), "Expected both feature commits in log, got: %s", commitLog)
 }
 
-func TestGetCommitLog_DryRun(t *testing.T) {
-	ctx := testutil.NewContext()
-
-	commitLog, err := GetCommitLog(ctx, "main", 0)
-	require.NoError(t, err, "GetCommitLog in dry-run failed")
-
-	assert.NotEmpty(t, commitLog, "Expected dry-run commit log to be non-empty")
-
-	// Should contain dry-run format with colons
-	assert.True(t, testutil.Contains(commitLog, ":"), "Expected dry-run commit log to contain ':' separator")
-}
-
 func TestGetCommitLog_EmptyRange(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	t.Chdir(tempDir)
 
-	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	ctx := testutil.NewContext()
 
 	// Get commits since HEAD (should be empty)
 	commitLog, err := GetCommitLog(ctx, "HEAD", 0)
@@ -627,7 +547,7 @@ func TestGetDiffSince(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	t.Chdir(tempDir)
 
-	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	ctx := testutil.NewContext()
 
 	// Get the current branch to use as base
 	baseBranch, _ := GetCurrentBranch(ctx)
@@ -666,20 +586,11 @@ func TestGetDiffSince(t *testing.T) {
 	assert.True(t, testutil.Contains(diff, "new content"), "Expected diff to contain 'new content'")
 }
 
-func TestGetDiffSince_DryRun(t *testing.T) {
-	ctx := testutil.NewContext()
-
-	diff, err := GetDiffSince(ctx, "main")
-	require.NoError(t, err, "GetDiffSince in dry-run failed")
-
-	assert.NotEmpty(t, diff, "Expected dry-run diff to be non-empty")
-}
-
 func TestGetDiffSince_NoDiff(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	t.Chdir(tempDir)
 
-	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	ctx := testutil.NewContext()
 
 	// Get diff since HEAD (should be empty)
 	diff, err := GetDiffSince(ctx, "HEAD")
@@ -692,7 +603,7 @@ func TestStageFile(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	t.Chdir(tempDir)
 
-	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	ctx := testutil.NewContext()
 
 	// Create a new file
 	testFile := filepath.Join(tempDir, "newfile.txt")
@@ -717,19 +628,11 @@ func TestStageFile(t *testing.T) {
 	assert.True(t, testutil.Contains(statusOutput, "A"), "Expected file to be marked as Added in git status, got: %s", statusOutput)
 }
 
-func TestStageFile_DryRun(t *testing.T) {
-	ctx := testutil.NewContext()
-
-	// Should not return error in dry-run mode, even for non-existent file
-	err := StageFile(ctx, "/tmp/nonexistent.txt")
-	require.NoError(t, err, "StageFile in dry-run should not fail")
-}
-
 func TestStageFile_NonExistent(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	t.Chdir(tempDir)
 
-	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	ctx := testutil.NewContext()
 
 	// Try to stage a non-existent file
 	err := StageFile(ctx, filepath.Join(tempDir, "nonexistent.txt"))
@@ -740,7 +643,7 @@ func TestCommitChanges(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	t.Chdir(tempDir)
 
-	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	ctx := testutil.NewContext()
 
 	// Create a new file to commit
 	testFile := filepath.Join(tempDir, "new-file.txt")
@@ -768,7 +671,7 @@ func TestCommitChanges_NoChanges(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	t.Chdir(tempDir)
 
-	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	ctx := testutil.NewContext()
 
 	// Try to commit with no changes
 	err := CommitChanges(ctx)
@@ -782,7 +685,7 @@ func TestCommitChanges_MultipleFiles(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	t.Chdir(tempDir)
 
-	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	ctx := testutil.NewContext()
 
 	// Create multiple files
 	for i := 1; i <= 5; i++ {
@@ -808,34 +711,14 @@ func TestCommitChanges_MultipleFiles(t *testing.T) {
 	}
 }
 
-func TestCommitChanges_DryRun(t *testing.T) {
-	ctx := testutil.NewContext()
-
-	// Should not error in dry-run mode
-	err := CommitChanges(ctx)
-	require.NoError(t, err, "CommitChanges in dry-run should not error")
-}
-
 func TestFindRepoRoot(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	t.Chdir(tempDir)
 
-	ctx := testutil.NewContext(testutil.WithDryRun(false))
-
-	root, err := FindRepoRoot(ctx)
-	require.NoError(t, err, "FindRepoRoot failed")
-
-	assert.Equal(t, tempDir, root)
-}
-
-func TestFindRepoRoot_DryRun(t *testing.T) {
-	tempDir := t.TempDir()
-	t.Chdir(tempDir)
-
 	ctx := testutil.NewContext()
 
 	root, err := FindRepoRoot(ctx)
-	require.NoError(t, err, "FindRepoRoot in dry-run failed")
+	require.NoError(t, err, "FindRepoRoot failed")
 
 	assert.Equal(t, tempDir, root)
 }
@@ -844,7 +727,7 @@ func TestFindRepoRoot_NotARepo(t *testing.T) {
 	tempDir := t.TempDir()
 	t.Chdir(tempDir)
 
-	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	ctx := testutil.NewContext()
 
 	_, err := FindRepoRoot(ctx)
 	require.Error(t, err, "Expected error when FindRepoRoot is called outside a git repository")
@@ -881,7 +764,7 @@ func TestIsBranchSyncedWithRemote_Synced(t *testing.T) {
 
 	t.Chdir(workDir)
 
-	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	ctx := testutil.NewContext()
 	require.NoError(t, IsBranchSyncedWithRemote(ctx, branchName), "IsBranchSyncedWithRemote failed for synced branch")
 }
 
@@ -982,15 +865,9 @@ func TestIsBranchSyncedWithRemote_Behind(t *testing.T) {
 		t.Fatalf("failed to fetch: %v", err)
 	}
 
-	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	ctx := testutil.NewContext()
 	err := IsBranchSyncedWithRemote(ctx, branchName)
 	require.Error(t, err, "Expected error when local branch is behind remote")
-}
-
-func TestIsBranchSyncedWithRemote_DryRun(t *testing.T) {
-	ctx := testutil.NewContext()
-
-	require.NoError(t, IsBranchSyncedWithRemote(ctx, "any-branch"), "IsBranchSyncedWithRemote in dry-run failed")
 }
 
 func TestPullRebase_WithNewCommits(t *testing.T) {
@@ -1084,16 +961,10 @@ func TestPullRebase_WithNewCommits(t *testing.T) {
 
 	t.Chdir(workDir1)
 
-	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	ctx := testutil.NewContext()
 	if err := PullRebase(ctx); err != nil {
 		t.Fatalf("PullRebase failed: %v", err)
 	}
-}
-
-func TestPullRebase_DryRun(t *testing.T) {
-	ctx := testutil.NewContext()
-
-	require.NoError(t, PullRebase(ctx), "PullRebase in dry-run failed")
 }
 
 func TestDeleteFile(t *testing.T) {
@@ -1117,7 +988,7 @@ func TestDeleteFile(t *testing.T) {
 		t.Fatalf("Failed to commit: %v", err)
 	}
 
-	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	ctx := testutil.NewContext()
 	if err := DeleteFile(ctx, testFile); err != nil {
 		t.Fatalf("DeleteFile failed: %v", err)
 	}
@@ -1138,25 +1009,9 @@ func TestDeleteFile_NonExistent(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	t.Chdir(tempDir)
 
-	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	ctx := testutil.NewContext()
 	err := DeleteFile(ctx, filepath.Join(tempDir, "nonexistent.txt"))
 	require.Error(t, err, "Expected error when deleting non-existent file")
-}
-
-func TestDeleteFile_DryRun(t *testing.T) {
-	tempDir := setupTestRepo(t)
-	t.Chdir(tempDir)
-
-	testFile := filepath.Join(tempDir, "to-delete-dryrun.txt")
-	if err := os.WriteFile(testFile, []byte("content"), 0644); err != nil {
-		t.Fatalf("Failed to create test file: %v", err)
-	}
-
-	ctx := testutil.NewContext()
-	require.NoError(t, DeleteFile(ctx, testFile), "DeleteFile in dry-run failed")
-
-	_, err := os.Stat(testFile)
-	assert.False(t, os.IsNotExist(err), "File should NOT be deleted in dry-run mode")
 }
 
 func TestCheckoutOrCreateBranch_ExistingRemoteBranch(t *testing.T) {
@@ -1247,7 +1102,7 @@ func TestCheckoutOrCreateBranch_ExistingRemoteBranch(t *testing.T) {
 
 	t.Chdir(workDir2)
 
-	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	ctx := testutil.NewContext()
 	require.NoError(t, CheckoutOrCreateBranch(ctx, branchName), "CheckoutOrCreateBranch failed")
 
 	currentBranch, err := GetCurrentBranch(ctx)
@@ -1353,7 +1208,7 @@ func TestHasUncommittedChanges_CleanRepo(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	t.Chdir(tempDir)
 
-	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	ctx := testutil.NewContext()
 
 	assert.False(t, HasUncommittedChanges(ctx), "Expected no uncommitted changes in a clean repo")
 }
@@ -1362,7 +1217,7 @@ func TestHasUncommittedChanges_UnstagedChange(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	t.Chdir(tempDir)
 
-	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	ctx := testutil.NewContext()
 
 	// Modify an existing tracked file without staging it
 	if err := os.WriteFile(filepath.Join(tempDir, "README.md"), []byte("modified\n"), 0644); err != nil {
@@ -1376,7 +1231,7 @@ func TestHasUncommittedChanges_StagedChange(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	t.Chdir(tempDir)
 
-	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	ctx := testutil.NewContext()
 
 	// Write and stage a new file
 	newFile := filepath.Join(tempDir, "new.txt")
@@ -1391,11 +1246,4 @@ func TestHasUncommittedChanges_StagedChange(t *testing.T) {
 	}
 
 	assert.True(t, HasUncommittedChanges(ctx), "Expected uncommitted changes after staging a new file")
-}
-
-func TestHasUncommittedChanges_DryRun(t *testing.T) {
-	ctx := testutil.NewContext() // dry-run by default
-
-	// Dry-run always reports true (safe default — assume there might be changes)
-	assert.True(t, HasUncommittedChanges(ctx), "Expected HasUncommittedChanges to return true in dry-run mode")
 }
