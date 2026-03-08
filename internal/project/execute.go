@@ -73,7 +73,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 
 	// Run before commands before starting iteration loop
 	if len(ralphConfig.Before) > 0 {
-		if err := services.RunBefore(ralphConfig.Before, ctx.IsDryRun()); err != nil {
+		if err := services.RunBefore(ralphConfig.Before); err != nil {
 			return fmt.Errorf("failed to run before commands: %w", err)
 		}
 	}

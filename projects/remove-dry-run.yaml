@@ -39,7 +39,7 @@ requirements:
       - The dryRun parameter is removed from RunBefore() and Manager.Start()
       - The sentinel process (pid -1) and handleDryRun() are removed
       - WaitForHealth() no longer has a dry run short-circuit
-    passing: false
+    passing: true
 
   - category: execution
     description: Remove dry run from project and requirement execution

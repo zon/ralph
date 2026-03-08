@@ -61,14 +61,13 @@ func (c *CommentCmd) Run() error {
 
 	ctx := &execcontext.Context{}
 	ctx.SetProjectFile(projectFile)
-	ctx.SetDryRun(c.DryRun)
 	ctx.SetVerbose(c.Verbose)
 	ctx.SetNoNotify(c.NoNotify)
 
 	// Start services
 	svcMgr := services.NewManager()
 	if len(cfg.Services) > 0 {
-		if _, err := svcMgr.Start(cfg.Services, c.DryRun); err == nil {
+		if _, err := svcMgr.Start(cfg.Services); err == nil {
 			if c.cleanupRegistrar != nil {
 				c.cleanupRegistrar(func() { svcMgr.Stop() })
 			}
