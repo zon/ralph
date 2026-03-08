@@ -30,12 +30,7 @@ requirements:
 	}
 
 	// Change to temp directory to avoid needing actual git repo
-	oldWd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get working directory: %v", err)
-	}
-	defer os.Chdir(oldWd)
-	os.Chdir(tmpDir)
+	t.Chdir(tmpDir)
 
 	ctx := testutil.NewContext()
 
@@ -85,15 +80,16 @@ func TestBuildDevelopPrompt_WithCustomInstructions(t *testing.T) {
 	tmpDir := t.TempDir()
 	projectFile := filepath.Join(tmpDir, "test-project.yaml")
 	projectContent := `name: Test Project
+description: A test project
 requirements:
-  - description: Feature 1
+  - category: Feature
+    description: Implement feature X
     passing: false
 `
 	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
 		t.Fatalf("Failed to create test project file: %v", err)
 	}
 
-	// Create .ralph directory and custom instructions
 	ralphDir := filepath.Join(tmpDir, ".ralph")
 	if err := os.MkdirAll(ralphDir, 0755); err != nil {
 		t.Fatalf("Failed to create .ralph directory: %v", err)
@@ -105,12 +101,7 @@ requirements:
 		t.Fatalf("Failed to create instructions file: %v", err)
 	}
 
-	oldWd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get working directory: %v", err)
-	}
-	defer os.Chdir(oldWd)
-	os.Chdir(tmpDir)
+	t.Chdir(tmpDir)
 
 	ctx := testutil.NewContext()
 
@@ -277,12 +268,7 @@ requirements:
 				t.Fatalf("Failed to create instructions file: %v", err)
 			}
 
-			oldWd, err := os.Getwd()
-			if err != nil {
-				t.Fatalf("Failed to get working directory: %v", err)
-			}
-			defer os.Chdir(oldWd)
-			os.Chdir(tmpDir)
+			t.Chdir(tmpDir)
 
 			ctx := testutil.NewContext(testutil.WithInstructions(instructionsFile))
 
@@ -335,12 +321,7 @@ requirements:
 		t.Fatalf("Failed to create override instructions file: %v", err)
 	}
 
-	oldWd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get working directory: %v", err)
-	}
-	defer os.Chdir(oldWd)
-	os.Chdir(tmpDir)
+	t.Chdir(tmpDir)
 
 	ctx := testutil.NewContext(testutil.WithInstructions(instructionsFile))
 
@@ -369,17 +350,12 @@ requirements:
 		t.Fatalf("Failed to create test project file: %v", err)
 	}
 
-	oldWd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get working directory: %v", err)
-	}
-	defer os.Chdir(oldWd)
-	os.Chdir(tmpDir)
+	t.Chdir(tmpDir)
 
 	// Point to a non-existent file
 	ctx := testutil.NewContext(testutil.WithInstructions("/nonexistent/instructions.md"))
 
-	_, err = BuildDevelopPrompt(ctx, projectFile)
+	_, err := BuildDevelopPrompt(ctx, projectFile)
 	if err == nil {
 		t.Error("Expected error when instructions file does not exist, got nil")
 	}
@@ -401,12 +377,7 @@ requirements:
 		t.Fatalf("Failed to create test project file: %v", err)
 	}
 
-	oldWd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get working directory: %v", err)
-	}
-	defer os.Chdir(oldWd)
-	os.Chdir(tmpDir)
+	t.Chdir(tmpDir)
 
 	// Create context without notes
 	ctx := testutil.NewContext()
@@ -435,12 +406,7 @@ requirements:
 		t.Fatalf("Failed to create test project file: %v", err)
 	}
 
-	oldWd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get working directory: %v", err)
-	}
-	defer os.Chdir(oldWd)
-	os.Chdir(tmpDir)
+	t.Chdir(tmpDir)
 
 	// Create context with notes added via AddNote
 	ctx := testutil.NewContext()
@@ -489,12 +455,7 @@ requirements:
 		t.Fatalf("Failed to create config file: %v", err)
 	}
 
-	oldWd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get working directory: %v", err)
-	}
-	defer os.Chdir(oldWd)
-	os.Chdir(tmpDir)
+	t.Chdir(tmpDir)
 
 	// In dry-run mode, current branch = "dry-run-branch"
 	// BaseBranch = "main" (different), so commit history should be included
@@ -535,12 +496,7 @@ requirements:
 		t.Fatalf("Failed to create config file: %v", err)
 	}
 
-	oldWd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get working directory: %v", err)
-	}
-	defer os.Chdir(oldWd)
-	os.Chdir(tmpDir)
+	t.Chdir(tmpDir)
 
 	// In dry-run mode, current branch = "dry-run-branch"
 	// BaseBranch = "dry-run-branch" (same), so commit history should NOT be included

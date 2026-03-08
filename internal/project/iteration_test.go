@@ -77,15 +77,7 @@ requirements:
 
 func TestRunIterationLoop_BlockedDetected(t *testing.T) {
 	tmpDir := t.TempDir()
-	originalDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get working directory: %v", err)
-	}
-	defer os.Chdir(originalDir)
-
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("Failed to change to temp directory: %v", err)
-	}
+	t.Chdir(tmpDir)
 
 	// Create a minimal git repo
 	if err := os.MkdirAll(".git", 0755); err != nil {
@@ -116,7 +108,7 @@ requirements:
 		testutil.WithMaxIterations(5),
 	)
 
-	_, err = RunIterationLoop(ctx, nil)
+	_, err := RunIterationLoop(ctx, nil)
 	if err == nil {
 		t.Error("Expected error when blocked.md is detected")
 	}
@@ -198,15 +190,7 @@ func TestCommitChanges_UsesReportMd(t *testing.T) {
 	// but we can test the report.md reading logic
 
 	tmpDir := t.TempDir()
-	originalDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get working directory: %v", err)
-	}
-	defer os.Chdir(originalDir)
-
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("Failed to change to temp directory: %v", err)
-	}
+	t.Chdir(tmpDir)
 
 	// Create report.md with a commit message
 	reportContent := "Add new feature\n\nImplemented feature X with tests"
@@ -217,7 +201,7 @@ func TestCommitChanges_UsesReportMd(t *testing.T) {
 	ctx := testutil.NewContext(testutil.WithProjectFile("project.yaml"))
 
 	// In dry-run mode, this should read report.md (though not commit)
-	err = CommitChanges(ctx, 1)
+	err := CommitChanges(ctx, 1)
 	if err != nil {
 		t.Errorf("CommitChanges failed: %v", err)
 	}
@@ -230,22 +214,14 @@ func TestCommitChanges_UsesReportMd(t *testing.T) {
 
 func TestCommitChanges_FallbackWhenNoReportMd(t *testing.T) {
 	tmpDir := t.TempDir()
-	originalDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get working directory: %v", err)
-	}
-	defer os.Chdir(originalDir)
-
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("Failed to change to temp directory: %v", err)
-	}
+	t.Chdir(tmpDir)
 
 	// Don't create report.md - should fall back to iteration-based message
 
 	ctx := testutil.NewContext(testutil.WithProjectFile("project.yaml"))
 
 	// Should use fallback message when report.md doesn't exist
-	err = CommitChanges(ctx, 5)
+	err := CommitChanges(ctx, 5)
 	if err != nil {
 		t.Errorf("CommitChanges failed: %v", err)
 	}
@@ -318,14 +294,7 @@ func TestCommitChanges_WorkflowPermissionErrorIsFatal(t *testing.T) {
 	hookContent := "#!/bin/sh\necho 'refusing to allow a GitHub App to create or update workflow `.github/workflows/test.yaml` without `workflows` permission' >&2\nexit 1\n"
 	workDir := setupIterationTestRepo(t, hookContent)
 
-	originalDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("failed to get cwd: %v", err)
-	}
-	defer os.Chdir(originalDir)
-	if err := os.Chdir(workDir); err != nil {
-		t.Fatalf("failed to chdir: %v", err)
-	}
+	t.Chdir(workDir)
 
 	// Stage a new file so CommitChanges has something to commit.
 	wfDir := filepath.Join(workDir, ".github", "workflows")
@@ -346,7 +315,7 @@ func TestCommitChanges_WorkflowPermissionErrorIsFatal(t *testing.T) {
 		testutil.WithDryRun(false),
 	)
 
-	err = CommitChanges(ctx, 1)
+	err := CommitChanges(ctx, 1)
 	if err == nil {
 		t.Fatal("expected CommitChanges to return an error, got nil")
 	}
@@ -376,14 +345,7 @@ requirements:
 		t.Fatalf("failed to write project file: %v", err)
 	}
 
-	originalDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("failed to get cwd: %v", err)
-	}
-	defer os.Chdir(originalDir)
-	if err := os.Chdir(workDir); err != nil {
-		t.Fatalf("failed to chdir: %v", err)
-	}
+	t.Chdir(workDir)
 
 	// Stage a workflow file so CommitChanges has something to commit in
 	// iteration 1 (requirement.Execute is skipped in dry-run mode, but
@@ -414,7 +376,7 @@ requirements:
 		testutil.WithDryRun(false),
 	)
 
-	err = CommitChanges(ctx, 1)
+	err := CommitChanges(ctx, 1)
 	if err == nil {
 		t.Fatal("expected CommitChanges to return an error, got nil")
 	}
@@ -430,14 +392,7 @@ requirements:
 func TestCommitChanges_ReadsReportMdAndCommits(t *testing.T) {
 	workDir := setupIterationTestRepo(t, "")
 
-	originalDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("failed to get cwd: %v", err)
-	}
-	defer os.Chdir(originalDir)
-	if err := os.Chdir(workDir); err != nil {
-		t.Fatalf("failed to chdir: %v", err)
-	}
+	t.Chdir(workDir)
 
 	if err := os.WriteFile("feature.go", []byte("package main\n"), 0644); err != nil {
 		t.Fatalf("failed to write feature.go: %v", err)
@@ -451,7 +406,7 @@ func TestCommitChanges_ReadsReportMdAndCommits(t *testing.T) {
 		testutil.WithDryRun(false),
 	)
 
-	err = CommitChanges(ctx, 1)
+	err := CommitChanges(ctx, 1)
 	if err != nil {
 		t.Fatalf("CommitChanges failed: %v", err)
 	}
@@ -475,14 +430,7 @@ func TestCommitChanges_ReadsReportMdAndCommits(t *testing.T) {
 func TestCommitChanges_FallbackMessageWithIterationNumber(t *testing.T) {
 	workDir := setupIterationTestRepo(t, "")
 
-	originalDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("failed to get cwd: %v", err)
-	}
-	defer os.Chdir(originalDir)
-	if err := os.Chdir(workDir); err != nil {
-		t.Fatalf("failed to chdir: %v", err)
-	}
+	t.Chdir(workDir)
 
 	if err := os.WriteFile("feature.go", []byte("package main\n"), 0644); err != nil {
 		t.Fatalf("failed to write feature.go: %v", err)
@@ -493,7 +441,7 @@ func TestCommitChanges_FallbackMessageWithIterationNumber(t *testing.T) {
 		testutil.WithDryRun(false),
 	)
 
-	err = CommitChanges(ctx, 42)
+	err := CommitChanges(ctx, 1)
 	if err != nil {
 		t.Fatalf("CommitChanges failed: %v", err)
 	}
@@ -513,14 +461,7 @@ func TestCommitChanges_FallbackMessageWithIterationNumber(t *testing.T) {
 func TestCommitChanges_AllowEmptyCommitWhenNoStagedChanges(t *testing.T) {
 	workDir := setupIterationTestRepo(t, "")
 
-	originalDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("failed to get cwd: %v", err)
-	}
-	defer os.Chdir(originalDir)
-	if err := os.Chdir(workDir); err != nil {
-		t.Fatalf("failed to chdir: %v", err)
-	}
+	t.Chdir(workDir)
 
 	if err := os.WriteFile("report.md", []byte("No changes made"), 0644); err != nil {
 		t.Fatalf("failed to write report.md: %v", err)
@@ -531,7 +472,7 @@ func TestCommitChanges_AllowEmptyCommitWhenNoStagedChanges(t *testing.T) {
 		testutil.WithDryRun(false),
 	)
 
-	err = CommitChanges(ctx, 1)
+	err := CommitChanges(ctx, 1)
 	if err != nil {
 		t.Fatalf("CommitChanges failed: %v", err)
 	}

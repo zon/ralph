@@ -62,14 +62,7 @@ func TestSetupWorkspaceCmd_LinkField(t *testing.T) {
 	}
 
 	// Change to test directory
-	origDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get working directory: %v", err)
-	}
-	defer os.Chdir(origDir)
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("Failed to change to temp directory: %v", err)
-	}
+	t.Chdir(tmpDir)
 
 	// Run setup-workspace command
 	cmd := &SetupWorkspaceCmd{WorkspaceDir: workspaceDir}
@@ -137,14 +130,7 @@ func TestSetupWorkspaceCmd_NoDestNoLink(t *testing.T) {
 	}
 
 	// Change to test directory
-	origDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get working directory: %v", err)
-	}
-	defer os.Chdir(origDir)
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("Failed to change to temp directory: %v", err)
-	}
+	t.Chdir(tmpDir)
 
 	// Run setup-workspace command - should not error even though there's nothing to link
 	cmd := &SetupWorkspaceCmd{WorkspaceDir: "/workspace"}
@@ -251,14 +237,7 @@ func TestConfigMapMountAndSecretMountYAML(t *testing.T) {
 	}
 
 	// Change to test directory
-	origDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get working directory: %v", err)
-	}
-	defer os.Chdir(origDir)
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("Failed to change to temp directory: %v", err)
-	}
+	t.Chdir(tmpDir)
 
 	cfg, err := config.LoadConfig()
 	if err != nil {

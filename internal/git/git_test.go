@@ -59,9 +59,7 @@ func setupTestRepo(t *testing.T) string {
 
 func TestIsGitRepository(t *testing.T) {
 	tempDir := setupTestRepo(t)
-	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
-	os.Chdir(tempDir)
+	t.Chdir(tempDir)
 
 	ctx := testutil.NewContext(testutil.WithDryRun(false))
 
@@ -73,9 +71,7 @@ func TestIsGitRepository(t *testing.T) {
 
 func TestIsGitRepository_NotRepo(t *testing.T) {
 	tempDir := t.TempDir()
-	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
-	os.Chdir(tempDir)
+	t.Chdir(tempDir)
 
 	ctx := testutil.NewContext(testutil.WithDryRun(false))
 
@@ -96,9 +92,7 @@ func TestIsGitRepository_DryRun(t *testing.T) {
 
 func TestIsDetachedHead(t *testing.T) {
 	tempDir := setupTestRepo(t)
-	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
-	os.Chdir(tempDir)
+	t.Chdir(tempDir)
 
 	ctx := testutil.NewContext(testutil.WithDryRun(false))
 
@@ -115,9 +109,7 @@ func TestIsDetachedHead(t *testing.T) {
 
 func TestIsDetachedHead_Detached(t *testing.T) {
 	tempDir := setupTestRepo(t)
-	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
-	os.Chdir(tempDir)
+	t.Chdir(tempDir)
 
 	ctx := testutil.NewContext(testutil.WithDryRun(false))
 
@@ -164,9 +156,7 @@ func TestIsDetachedHead_DryRun(t *testing.T) {
 
 func TestGetCurrentBranch(t *testing.T) {
 	tempDir := setupTestRepo(t)
-	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
-	os.Chdir(tempDir)
+	t.Chdir(tempDir)
 
 	ctx := testutil.NewContext(testutil.WithDryRun(false))
 
@@ -196,9 +186,7 @@ func TestGetCurrentBranch_DryRun(t *testing.T) {
 
 func TestGetCurrentBranch_DetachedHead(t *testing.T) {
 	tempDir := setupTestRepo(t)
-	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
-	os.Chdir(tempDir)
+	t.Chdir(tempDir)
 
 	ctx := testutil.NewContext(testutil.WithDryRun(false))
 
@@ -257,9 +245,7 @@ func TestCheckoutOrCreateBranch_DryRun(t *testing.T) {
 
 func TestCheckoutOrCreateBranch_CreateNew(t *testing.T) {
 	tempDir := setupTestRepo(t)
-	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
-	os.Chdir(tempDir)
+	t.Chdir(tempDir)
 
 	ctx := testutil.NewContext(testutil.WithDryRun(false))
 
@@ -289,9 +275,7 @@ func TestCheckoutBranch_DryRun(t *testing.T) {
 
 func TestHasCommits(t *testing.T) {
 	tempDir := setupTestRepo(t)
-	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
-	os.Chdir(tempDir)
+	t.Chdir(tempDir)
 
 	ctx := testutil.NewContext(testutil.WithDryRun(false))
 
@@ -405,11 +389,7 @@ func TestPushBranch_HappyPath(t *testing.T) {
 		}
 	}
 
-	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
-	if err := os.Chdir(workDir); err != nil {
-		t.Fatalf("failed to chdir: %v", err)
-	}
+	t.Chdir(workDir)
 
 	ctx := testutil.NewContext(testutil.WithDryRun(false))
 	remoteURL, err := PushBranch(ctx, branchName)
@@ -450,11 +430,7 @@ func TestPushCurrentBranch_HappyPath(t *testing.T) {
 		}
 	}
 
-	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
-	if err := os.Chdir(workDir); err != nil {
-		t.Fatalf("failed to chdir: %v", err)
-	}
+	t.Chdir(workDir)
 
 	ctx := testutil.NewContext(testutil.WithDryRun(false))
 	if err := PushCurrentBranch(ctx); err != nil {
@@ -561,11 +537,7 @@ func TestPushBranch_WorkflowPermissionError(t *testing.T) {
 		}
 	}
 
-	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
-	if err := os.Chdir(workDir); err != nil {
-		t.Fatalf("failed to chdir: %v", err)
-	}
+	t.Chdir(workDir)
 
 	ctx := testutil.NewContext(testutil.WithDryRun(false))
 	branch, err := GetCurrentBranch(ctx)
@@ -633,11 +605,7 @@ func TestPushCurrentBranch_WorkflowPermissionError(t *testing.T) {
 		}
 	}
 
-	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
-	if err := os.Chdir(workDir); err != nil {
-		t.Fatalf("failed to chdir: %v", err)
-	}
+	t.Chdir(workDir)
 
 	ctx := testutil.NewContext(testutil.WithDryRun(false))
 	pushErr := PushCurrentBranch(ctx)
@@ -651,9 +619,7 @@ func TestPushCurrentBranch_WorkflowPermissionError(t *testing.T) {
 
 func TestGetCommitLog_SinceBranch(t *testing.T) {
 	tempDir := setupTestRepo(t)
-	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
-	os.Chdir(tempDir)
+	t.Chdir(tempDir)
 
 	ctx := testutil.NewContext(testutil.WithDryRun(false))
 
@@ -723,9 +689,7 @@ func TestGetCommitLog_DryRun(t *testing.T) {
 
 func TestGetCommitLog_EmptyRange(t *testing.T) {
 	tempDir := setupTestRepo(t)
-	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
-	os.Chdir(tempDir)
+	t.Chdir(tempDir)
 
 	ctx := testutil.NewContext(testutil.WithDryRun(false))
 
@@ -742,9 +706,7 @@ func TestGetCommitLog_EmptyRange(t *testing.T) {
 
 func TestGetDiffSince(t *testing.T) {
 	tempDir := setupTestRepo(t)
-	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
-	os.Chdir(tempDir)
+	t.Chdir(tempDir)
 
 	ctx := testutil.NewContext(testutil.WithDryRun(false))
 
@@ -806,9 +768,7 @@ func TestGetDiffSince_DryRun(t *testing.T) {
 
 func TestGetDiffSince_NoDiff(t *testing.T) {
 	tempDir := setupTestRepo(t)
-	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
-	os.Chdir(tempDir)
+	t.Chdir(tempDir)
 
 	ctx := testutil.NewContext(testutil.WithDryRun(false))
 
@@ -825,9 +785,7 @@ func TestGetDiffSince_NoDiff(t *testing.T) {
 
 func TestStageFile(t *testing.T) {
 	tempDir := setupTestRepo(t)
-	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
-	os.Chdir(tempDir)
+	t.Chdir(tempDir)
 
 	ctx := testutil.NewContext(testutil.WithDryRun(false))
 
@@ -874,9 +832,7 @@ func TestStageFile_DryRun(t *testing.T) {
 
 func TestStageFile_NonExistent(t *testing.T) {
 	tempDir := setupTestRepo(t)
-	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
-	os.Chdir(tempDir)
+	t.Chdir(tempDir)
 
 	ctx := testutil.NewContext(testutil.WithDryRun(false))
 
@@ -889,9 +845,7 @@ func TestStageFile_NonExistent(t *testing.T) {
 
 func TestCommitChanges(t *testing.T) {
 	tempDir := setupTestRepo(t)
-	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
-	os.Chdir(tempDir)
+	t.Chdir(tempDir)
 
 	ctx := testutil.NewContext(testutil.WithDryRun(false))
 
@@ -925,9 +879,7 @@ func TestCommitChanges(t *testing.T) {
 
 func TestCommitChanges_NoChanges(t *testing.T) {
 	tempDir := setupTestRepo(t)
-	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
-	os.Chdir(tempDir)
+	t.Chdir(tempDir)
 
 	ctx := testutil.NewContext(testutil.WithDryRun(false))
 
@@ -945,9 +897,7 @@ func TestCommitChanges_NoChanges(t *testing.T) {
 
 func TestCommitChanges_MultipleFiles(t *testing.T) {
 	tempDir := setupTestRepo(t)
-	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
-	os.Chdir(tempDir)
+	t.Chdir(tempDir)
 
 	ctx := testutil.NewContext(testutil.WithDryRun(false))
 
@@ -993,9 +943,7 @@ func TestCommitChanges_DryRun(t *testing.T) {
 
 func TestFindRepoRoot(t *testing.T) {
 	tempDir := setupTestRepo(t)
-	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
-	os.Chdir(tempDir)
+	t.Chdir(tempDir)
 
 	ctx := testutil.NewContext(testutil.WithDryRun(false))
 
@@ -1010,13 +958,8 @@ func TestFindRepoRoot(t *testing.T) {
 }
 
 func TestFindRepoRoot_DryRun(t *testing.T) {
-	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
-
 	tempDir := t.TempDir()
-	if err := os.Chdir(tempDir); err != nil {
-		t.Fatalf("Failed to chdir: %v", err)
-	}
+	t.Chdir(tempDir)
 
 	ctx := testutil.NewContext()
 
@@ -1032,9 +975,7 @@ func TestFindRepoRoot_DryRun(t *testing.T) {
 
 func TestFindRepoRoot_NotARepo(t *testing.T) {
 	tempDir := t.TempDir()
-	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
-	os.Chdir(tempDir)
+	t.Chdir(tempDir)
 
 	ctx := testutil.NewContext(testutil.WithDryRun(false))
 
@@ -1073,11 +1014,7 @@ func TestIsBranchSyncedWithRemote_Synced(t *testing.T) {
 		}
 	}
 
-	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
-	if err := os.Chdir(workDir); err != nil {
-		t.Fatalf("failed to chdir: %v", err)
-	}
+	t.Chdir(workDir)
 
 	ctx := testutil.NewContext(testutil.WithDryRun(false))
 	if err := IsBranchSyncedWithRemote(ctx, branchName); err != nil {
@@ -1174,11 +1111,7 @@ func TestIsBranchSyncedWithRemote_Behind(t *testing.T) {
 		}
 	}
 
-	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
-	if err := os.Chdir(workDir1); err != nil {
-		t.Fatalf("failed to chdir: %v", err)
-	}
+	t.Chdir(workDir1)
 
 	cmd = exec.Command("git", "fetch", "origin")
 	cmd.Dir = workDir1
@@ -1290,11 +1223,7 @@ func TestPullRebase_WithNewCommits(t *testing.T) {
 		}
 	}
 
-	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
-	if err := os.Chdir(workDir1); err != nil {
-		t.Fatalf("failed to chdir: %v", err)
-	}
+	t.Chdir(workDir1)
 
 	ctx := testutil.NewContext(testutil.WithDryRun(false))
 	if err := PullRebase(ctx); err != nil {
@@ -1312,9 +1241,7 @@ func TestPullRebase_DryRun(t *testing.T) {
 
 func TestDeleteFile(t *testing.T) {
 	tempDir := setupTestRepo(t)
-	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
-	os.Chdir(tempDir)
+	t.Chdir(tempDir)
 
 	testFile := filepath.Join(tempDir, "to-delete.txt")
 	if err := os.WriteFile(testFile, []byte("content"), 0644); err != nil {
@@ -1357,9 +1284,7 @@ func TestDeleteFile(t *testing.T) {
 
 func TestDeleteFile_NonExistent(t *testing.T) {
 	tempDir := setupTestRepo(t)
-	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
-	os.Chdir(tempDir)
+	t.Chdir(tempDir)
 
 	ctx := testutil.NewContext(testutil.WithDryRun(false))
 	err := DeleteFile(ctx, filepath.Join(tempDir, "nonexistent.txt"))
@@ -1370,9 +1295,7 @@ func TestDeleteFile_NonExistent(t *testing.T) {
 
 func TestDeleteFile_DryRun(t *testing.T) {
 	tempDir := setupTestRepo(t)
-	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
-	os.Chdir(tempDir)
+	t.Chdir(tempDir)
 
 	testFile := filepath.Join(tempDir, "to-delete-dryrun.txt")
 	if err := os.WriteFile(testFile, []byte("content"), 0644); err != nil {
@@ -1390,10 +1313,6 @@ func TestDeleteFile_DryRun(t *testing.T) {
 }
 
 func TestCheckoutOrCreateBranch_ExistingRemoteBranch(t *testing.T) {
-	// Save original directory FIRST, before any temp dir operations
-	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
-
 	remoteDir := t.TempDir()
 	cmd := exec.Command("git", "init", "--bare")
 	cmd.Dir = remoteDir
@@ -1479,9 +1398,7 @@ func TestCheckoutOrCreateBranch_ExistingRemoteBranch(t *testing.T) {
 		}
 	}
 
-	if err := os.Chdir(workDir2); err != nil {
-		t.Fatalf("failed to chdir: %v", err)
-	}
+	t.Chdir(workDir2)
 
 	ctx := testutil.NewContext(testutil.WithDryRun(false))
 	if err := CheckoutOrCreateBranch(ctx, branchName); err != nil {

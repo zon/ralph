@@ -277,9 +277,7 @@ func TestExecute_LocalWithRealGit(t *testing.T) {
 
 	// Change cwd so config.LoadConfig() finds the (absent) .ralph/config.yaml —
 	// it falls back to defaults, which is fine.
-	originalDir, _ := os.Getwd()
-	require.NoError(t, os.Chdir(repoDir))
-	t.Cleanup(func() { os.Chdir(originalDir) })
+	t.Chdir(repoDir)
 
 	err := project.Execute(ctx, nil)
 	require.NoError(t, err)
@@ -323,9 +321,7 @@ func TestPush_StaleTokenCleanup(t *testing.T) {
 	gitExec(t, repoDir, "commit", "-m", "add push-test file")
 
 	// Change cwd to the repo so git commands operate on the right repository.
-	originalDir, _ := os.Getwd()
-	require.NoError(t, os.Chdir(repoDir))
-	t.Cleanup(func() { os.Chdir(originalDir) })
+	t.Chdir(repoDir)
 
 	// Call git.PushBranch via the project/git package using the internal API.
 	// Because RALPH_WORKFLOW_EXECUTION is not set, configureAuth is a no-op and

@@ -56,14 +56,7 @@ requirements:
 		t.Fatalf("Failed to create instructions file: %v", err)
 	}
 
-	origDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get working directory: %v", err)
-	}
-	defer os.Chdir(origDir)
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("Failed to change to temp directory: %v", err)
-	}
+	t.Chdir(tmpDir)
 	if err := os.MkdirAll(filepath.Join(tmpDir, ".git"), 0755); err != nil {
 		t.Fatalf("Failed to create .git directory: %v", err)
 	}
@@ -354,14 +347,7 @@ requirements:
 		t.Fatalf("Failed to create config file: %v", err)
 	}
 
-	origDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get working directory: %v", err)
-	}
-	defer os.Chdir(origDir)
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("Failed to change to temp directory: %v", err)
-	}
+	t.Chdir(tmpDir)
 	if err := os.MkdirAll(filepath.Join(tmpDir, ".git"), 0755); err != nil {
 		t.Fatalf("Failed to create .git directory: %v", err)
 	}
@@ -422,14 +408,7 @@ requirements:
 		t.Fatalf("Failed to create config file: %v", err)
 	}
 
-	origDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get working directory: %v", err)
-	}
-	defer os.Chdir(origDir)
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("Failed to change to temp directory: %v", err)
-	}
+	t.Chdir(tmpDir)
 
 	repoURL := "git@github.com:test/repo.git"
 	cloneBranch := "main"
@@ -610,14 +589,7 @@ requirements:
 		t.Fatalf("Failed to create config file: %v", err)
 	}
 
-	origDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get working directory: %v", err)
-	}
-	defer os.Chdir(origDir)
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("Failed to change to temp directory: %v", err)
-	}
+	t.Chdir(tmpDir)
 
 	mw, err := GenerateMergeWorkflowWithGitInfo("git@github.com:test/repo.git", "main", "ralph/test", "")
 	if err != nil {

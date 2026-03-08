@@ -138,11 +138,7 @@ exit 1
 			ctx := context.Background()
 
 			dir := t.TempDir()
-			origDir, err := os.Getwd()
-			require.NoError(t, err)
-			t.Cleanup(func() {
-				os.Chdir(origDir)
-			})
+			t.Chdir(dir)
 
 			kubectlPath := mockKubectl(dir, tt.kubeContext, tt.kubeNamespace, tt.kubeContextError)
 			t.Setenv("PATH", filepath.Dir(kubectlPath)+":"+os.Getenv("PATH"))
@@ -180,13 +176,10 @@ exit 1
 					}
 				}
 			}
-			err = os.WriteFile(kubeconfigPath, []byte(kubeconfigContent), 0644)
+			err := os.WriteFile(kubeconfigPath, []byte(kubeconfigContent), 0644)
 			require.NoError(t, err)
 
 			t.Setenv("KUBECONFIG", kubeconfigPath)
-
-			err = os.Chdir(dir)
-			require.NoError(t, err)
 
 			kubeContext, namespace, err := loadContextAndNamespace(ctx, tt.flagContext, tt.flagNamespace)
 

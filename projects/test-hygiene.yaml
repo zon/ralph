@@ -26,7 +26,7 @@ requirements:
     description: Tests use t.Chdir() instead of os.Chdir with defer
     items:
       - All test files that use os.Chdir with a deferred restore are migrated to t.Chdir()
-    passing: false
+    passing: true
 
   - category: assertions
     description: Tests use testify assert/require for all assertions

@@ -217,10 +217,7 @@ requirements:
 		t.Fatalf("Failed to create test project file: %v", err)
 	}
 
-	// Change to the temp directory
-	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
-	os.Chdir(tmpDir)
+	t.Chdir(tmpDir)
 
 	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
 

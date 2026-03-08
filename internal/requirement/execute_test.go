@@ -301,15 +301,7 @@ requirements:
 		t.Fatalf("Failed to create config file: %v", err)
 	}
 
-	origDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get current directory: %v", err)
-	}
-	defer os.Chdir(origDir)
-
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("Failed to change to temp directory: %v", err)
-	}
+	t.Chdir(tmpDir)
 
 	ctx := testutil.NewContext(
 		testutil.WithProjectFile(projectFile),
@@ -317,7 +309,7 @@ requirements:
 		testutil.WithDryRun(true),
 	)
 
-	err = Execute(ctx, nil)
+	err := Execute(ctx, nil)
 
 	if err != nil {
 		t.Errorf("Execute failed: %v", err)
@@ -356,15 +348,7 @@ requirements:
 		t.Fatalf("Failed to create config file: %v", err)
 	}
 
-	origDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get current directory: %v", err)
-	}
-	defer os.Chdir(origDir)
-
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("Failed to change to temp directory: %v", err)
-	}
+	t.Chdir(tmpDir)
 
 	ctx := testutil.NewContext(
 		testutil.WithProjectFile(projectFile),
@@ -372,7 +356,7 @@ requirements:
 		testutil.WithDryRun(true),
 	)
 
-	err = Execute(ctx, nil)
+	err := Execute(ctx, nil)
 
 	if err != nil {
 		t.Errorf("Execute failed in dry-run mode: %v", err)
