@@ -8,7 +8,7 @@ requirements:
       - generateCommitMessage in internal/git/git.go has no more than 2 levels of nesting
       - categorizeFiles in internal/git/git.go has no more than 2 levels of nesting
       - Per-file categorization logic lives in a helper like categorizeFile
-    passing: false
+    passing: true
 
   - category: workflow
     description: workflow/scripts.go nested and duplicated functions are flattened
@@ -16,7 +16,7 @@ requirements:
       - buildVolumeMounts in internal/workflow/scripts.go has no more than 2 levels of nesting
       - buildVolumes in internal/workflow/scripts.go has no more than 2 levels of nesting
       - The duplicated ConfigMap/Secret loop logic in both functions is shared via a common helper
-    passing: false
+    passing: true
 
   - category: version
     description: Version patch bump
@@ -24,4 +24,4 @@ requirements:
       - internal/version/VERSION is incremented by one patch version
       - charts/ralph-webhook/Chart.yaml appVersion matches the new VERSION value
       - charts/ralph-webhook/Chart.yaml version is incremented by one patch version
-    passing: false
+    passing: true
