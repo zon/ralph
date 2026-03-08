@@ -86,14 +86,6 @@ func RemoveAndCommit(ctx *context.Context, files []string) error {
 		return nil
 	}
 
-	if ctx.IsDryRun() {
-		logger.Info("[DRY-RUN] Would remove complete project files and commit")
-		for _, file := range files {
-			logger.Infof("[DRY-RUN] Would remove: %s", file)
-		}
-		return nil
-	}
-
 	// Delete each file
 	for _, file := range files {
 		if err := os.Remove(file); err != nil {

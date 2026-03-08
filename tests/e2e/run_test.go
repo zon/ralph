@@ -250,10 +250,11 @@ func TestRun_MaxIterationsExhausted(t *testing.T) {
 	t.Skip("requires --max-iterations in workflow generation and a stuck project file in ralph-mock")
 }
 
-// TestExecute_LocalWithRealGit runs project.Execute in --local mode against a
-// real temporary git repository (no Argo, no GitHub). This validates the full
-// local execution path — branch creation, iteration loop, commit — using real
-// git but without any network calls (DryRun: true suppresses push and PR creation).
+// TestExecute_LocalWithRealGit runs the iteration loop against a real temporary
+// git repository (no Argo, no GitHub). This validates the local execution path —
+// iteration loop exit — using real git but without any network calls.
+// The noop project (all requirements already passing) ensures the loop exits
+// immediately without invoking the AI.
 func TestExecute_LocalWithRealGit(t *testing.T) {
 	// Bootstrap a real git repo in a temp dir with a bare remote.
 	repoDir, _ := bootstrapGitRepo(t)
@@ -269,7 +270,6 @@ func TestExecute_LocalWithRealGit(t *testing.T) {
 	ctx := &context.Context{}
 	ctx.SetProjectFile(projectFile)
 	ctx.SetMaxIterations(3)
-	ctx.SetDryRun(true) // suppress push and PR creation; real git reads still work
 	ctx.SetLocal(true)
 	ctx.SetVerbose(true)
 	ctx.SetNoNotify(true)
@@ -279,8 +279,11 @@ func TestExecute_LocalWithRealGit(t *testing.T) {
 	// it falls back to defaults, which is fine.
 	t.Chdir(repoDir)
 
-	err := project.Execute(ctx, nil)
+	// Run the iteration loop directly: all requirements are already passing so
+	// the loop exits after the first iteration without invoking the AI or pushing.
+	iterCount, err := project.RunIterationLoop(ctx, nil)
 	require.NoError(t, err)
+	assert.Equal(t, 1, iterCount)
 }
 
 // TestPush_StaleTokenCleanup verifies that a push succeeds even when the global

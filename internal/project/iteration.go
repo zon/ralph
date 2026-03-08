@@ -135,15 +135,13 @@ func RunIterationLoop(ctx *context.Context, cleanupRegistrar func(func())) (int,
 	logger.Verbosef("Iteration loop completed after %d iteration(s)", iterationCount)
 
 	// Check if we reached max iterations without completing requirements
-	if !ctx.IsDryRun() {
-		currentProject, err := config.LoadProject(ctx.ProjectFile())
-		if err != nil {
-			return iterationCount, fmt.Errorf("failed to load project state: %w", err)
-		}
-		allComplete, _, failingCount := config.CheckCompletion(currentProject)
-		if !allComplete {
-			return iterationCount, fmt.Errorf("%w: %d requirements still failing", ErrMaxIterationsReached, failingCount)
-		}
+	currentProject, err := config.LoadProject(ctx.ProjectFile())
+	if err != nil {
+		return iterationCount, fmt.Errorf("failed to load project state: %w", err)
+	}
+	allComplete, _, failingCount := config.CheckCompletion(currentProject)
+	if !allComplete {
+		return iterationCount, fmt.Errorf("%w: %d requirements still failing", ErrMaxIterationsReached, failingCount)
 	}
 
 	return iterationCount, nil
@@ -212,11 +210,6 @@ func reportNewlyPassingRequirements(previousProject, currentProject *config.Proj
 
 // CommitChanges stages all changes and commits them using report.md as the commit message
 func CommitChanges(ctx *context.Context, iteration int) error {
-	if ctx.IsDryRun() {
-		logger.Infof("[DRY-RUN] Would commit changes from iteration %d", iteration)
-		return nil
-	}
-
 	// If there are no uncommitted changes and no report.md, there is nothing to commit
 	_, reportErr := os.Stat("report.md")
 	if !git.HasUncommittedChanges(ctx) && os.IsNotExist(reportErr) {

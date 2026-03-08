@@ -85,7 +85,6 @@ func (m *MergeCmd) runLocal() error {
 
 func (m *MergeCmd) createExecutionContext() *context.Context {
 	ctx := &context.Context{}
-	ctx.SetDryRun(m.DryRun)
 	ctx.SetVerbose(m.Verbose)
 	return ctx
 }
