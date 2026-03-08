@@ -33,7 +33,7 @@ requirements:
     items:
       - All test files that use plain if-checks for assertions are migrated to testify assert or require
       - No test mixes plain if-checks with testify in the same file
-    passing: false
+    passing: true
 
   - category: helpers
     description: Duplicate test helpers are consolidated
