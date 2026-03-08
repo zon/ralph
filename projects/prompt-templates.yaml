@@ -8,7 +8,7 @@ requirements:
       - buildChangelogPrompt in internal/ai/ai.go uses a text/template instead of 9 consecutive WriteString calls on a strings.Builder
       - buildPRSummaryPrompt in internal/ai/ai.go uses a text/template instead of 15 consecutive WriteString calls on a strings.Builder; dynamic values (projectDesc, projectStatus, baseBranch, commitLog, absPath) are passed as template data
       - The strings import is removed from ai.go if it is no longer needed after the refactor
-    passing: false
+    passing: true
   - category: version
     description: Bump version
     items:
