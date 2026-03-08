@@ -29,10 +29,6 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		logger.SetVerbose(true)
 	}
 
-	if ctx.IsDryRun() {
-		logger.Verbose("=== DRY-RUN MODE: No changes will be made ===")
-	}
-
 	// Validate project file exists
 	absProjectFile, err := filepath.Abs(ctx.ProjectFile())
 	if err != nil {

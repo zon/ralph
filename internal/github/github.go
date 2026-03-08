@@ -21,11 +21,6 @@ var ErrNoCommitsBetweenBranches = errors.New("no commits between branches")
 // This consolidates IsGHInstalled and IsGHCLIAvailable into a single function
 // with a consistent signature.
 func IsGHReady(ctx *context.Context) bool {
-	if ctx.IsDryRun() {
-		logger.Info("[DRY-RUN] Would check if gh CLI is ready")
-		return true
-	}
-
 	// Check if gh is installed
 	cmd := exec.Command("gh", "--version")
 	if err := cmd.Run(); err != nil {
@@ -59,11 +54,6 @@ func IsGHInstalled(ctx *context.Context) bool {
 
 // IsAuthenticated checks if the user is authenticated with GitHub via gh CLI
 func IsAuthenticated(ctx *context.Context) bool {
-	if ctx.IsDryRun() {
-		logger.Info("[DRY-RUN] Would check if gh CLI is authenticated")
-		return true
-	}
-
 	cmd := exec.Command("gh", "auth", "status")
 	err := cmd.Run()
 	authenticated := err == nil
@@ -82,15 +72,6 @@ func IsAuthenticated(ctx *context.Context) bool {
 // CreatePR creates a GitHub pull request using gh CLI
 // Returns the PR URL on success
 func CreatePR(ctx *context.Context, title, body, base, head string) (string, error) {
-	if ctx.IsDryRun() {
-		logger.Info("[DRY-RUN] Would create PR:")
-		logger.Infof("[DRY-RUN] Title: %s", title)
-		logger.Infof("[DRY-RUN] Base: %s", base)
-		logger.Infof("[DRY-RUN] Head: %s", head)
-		logger.Infof("[DRY-RUN] Body: %s", truncate(body, 200))
-		return "https://github.com/dry-run/repo/pull/123", nil
-	}
-
 	cmd := exec.Command("gh", "pr", "create",
 		"--title", title,
 		"--body", body,

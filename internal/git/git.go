@@ -42,11 +42,6 @@ func configureAuth(ctx *context.Context) error {
 
 // IsGitRepository checks if the current directory is inside a git repository
 func IsGitRepository(ctx *context.Context) bool {
-	if ctx.IsDryRun() {
-		logger.Info("[DRY-RUN] Would check if directory is a git repository")
-		return true
-	}
-
 	cmd := exec.Command("git", "rev-parse", "--git-dir")
 	if err := cmd.Run(); err != nil {
 		if ctx.IsVerbose() {
@@ -63,14 +58,6 @@ func IsGitRepository(ctx *context.Context) bool {
 
 // FindRepoRoot returns the root directory of the git repository
 func FindRepoRoot(ctx *context.Context) (string, error) {
-	if ctx.IsDryRun() {
-		cwd, err := os.Getwd()
-		if err != nil {
-			return "", fmt.Errorf("failed to get current working directory: %w", err)
-		}
-		return cwd, nil
-	}
-
 	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
 	var out bytes.Buffer
 	cmd.Stdout = &out
@@ -90,11 +77,6 @@ func FindRepoRoot(ctx *context.Context) (string, error) {
 
 // IsDetachedHead checks if the repository is in a detached HEAD state
 func IsDetachedHead(ctx *context.Context) (bool, error) {
-	if ctx.IsDryRun() {
-		logger.Info("[DRY-RUN] Would check for detached HEAD state")
-		return false, nil
-	}
-
 	cmd := exec.Command("git", "symbolic-ref", "-q", "HEAD")
 	err := cmd.Run()
 
@@ -116,10 +98,6 @@ func IsDetachedHead(ctx *context.Context) (bool, error) {
 // GetCurrentBranch returns the name of the current git branch
 // Returns error if in detached HEAD state
 func GetCurrentBranch(ctx *context.Context) (string, error) {
-	if ctx.IsDryRun() {
-		logger.Info("[DRY-RUN] Would get current git branch")
-		return "dry-run-branch", nil
-	}
 
 	cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
 	var out bytes.Buffer
@@ -148,10 +126,6 @@ func GetCurrentBranch(ctx *context.Context) (string, error) {
 // RemoteBranchExists checks if a branch exists on the remote using the already-fetched
 // remote-tracking ref. Call Fetch first to ensure refs are up to date.
 func RemoteBranchExists(ctx *context.Context, name string) bool {
-	if ctx.IsDryRun() {
-		logger.Infof("[DRY-RUN] Would check if branch '%s' exists on remote", name)
-		return false
-	}
 
 	cmd := exec.Command("git", "rev-parse", "--verify", "--quiet", "origin/"+name)
 	if err := cmd.Run(); err == nil {
@@ -171,10 +145,6 @@ func RemoteBranchExists(ctx *context.Context, name string) bool {
 // CheckoutOrCreateBranch checks out the named branch if it exists on the remote
 // (after a prior Fetch), otherwise creates and checks out a new local branch.
 func CheckoutOrCreateBranch(ctx *context.Context, name string) error {
-	if ctx.IsDryRun() {
-		logger.Infof("[DRY-RUN] Would checkout or create branch: %s", name)
-		return nil
-	}
 
 	if RemoteBranchExists(ctx, name) {
 		logger.Verbosef("Checking out existing remote branch: %s", name)
@@ -200,10 +170,6 @@ func CheckoutOrCreateBranch(ctx *context.Context, name string) error {
 // IsBranchSyncedWithRemote checks if the local branch is in sync with its remote counterpart.
 // Returns an error if the remote branch doesn't exist or the local branch is ahead/behind.
 func IsBranchSyncedWithRemote(ctx *context.Context, branch string) error {
-	if ctx.IsDryRun() {
-		logger.Infof("[DRY-RUN] Would check if branch '%s' is synced with remote", branch)
-		return nil
-	}
 
 	// Check that the remote branch exists
 	remoteRef := fmt.Sprintf("origin/%s", branch)
@@ -241,10 +207,6 @@ func IsBranchSyncedWithRemote(ctx *context.Context, branch string) error {
 // Fetch fetches from the remote, updating remote-tracking refs.
 // Errors are non-fatal and are logged at verbose level only.
 func Fetch(ctx *context.Context) error {
-	if ctx.IsDryRun() {
-		logger.Info("[DRY-RUN] Would fetch from remote")
-		return nil
-	}
 
 	if err := configureAuth(ctx); err != nil {
 		return fmt.Errorf("failed to configure git auth: %w", err)
@@ -276,10 +238,6 @@ func remoteBranchExists(branch string) bool {
 // This should be called before pushing to handle cases where the remote
 // branch has advanced (e.g. from a previous run or another pod).
 func PullRebase(ctx *context.Context) error {
-	if ctx.IsDryRun() {
-		logger.Info("[DRY-RUN] Would pull --rebase from remote")
-		return nil
-	}
 
 	if err := configureAuth(ctx); err != nil {
 		return fmt.Errorf("failed to configure git auth: %w", err)
@@ -310,10 +268,6 @@ func PullRebase(ctx *context.Context) error {
 
 // CheckoutBranch switches to the specified git branch
 func CheckoutBranch(ctx *context.Context, name string) error {
-	if ctx.IsDryRun() {
-		logger.Infof("[DRY-RUN] Would checkout branch: %s", name)
-		return nil
-	}
 
 	cmd := exec.Command("git", "checkout", name)
 	var out bytes.Buffer
@@ -330,10 +284,6 @@ func CheckoutBranch(ctx *context.Context, name string) error {
 
 // HasCommits checks if the current branch has any commits
 func HasCommits(ctx *context.Context) bool {
-	if ctx.IsDryRun() {
-		logger.Info("[DRY-RUN] Would check if branch has commits")
-		return true
-	}
 
 	cmd := exec.Command("git", "rev-parse", "--verify", "HEAD")
 	if err := cmd.Run(); err != nil {
@@ -353,10 +303,6 @@ func HasCommits(ctx *context.Context) bool {
 // If branch is empty, the current branch is pushed.
 // Returns the remote URL on success.
 func Push(ctx *context.Context, branch string) (string, error) {
-	if ctx.IsDryRun() {
-		logger.Infof("[DRY-RUN] Would push branch '%s' to origin", branch)
-		return "https://github.com/dry-run/repo", nil
-	}
 
 	if err := configureAuth(ctx); err != nil {
 		return "", fmt.Errorf("failed to configure git auth: %w", err)
@@ -427,10 +373,6 @@ func PushCurrentBranch(ctx *context.Context) error {
 // Returns a single string with commits formatted as "%h: %B" (hash: full message).
 // Gets all commits since base..HEAD. If limit > 0, only the most recent limit commits are returned.
 func GetCommitLog(ctx *context.Context, base string, limit int) (string, error) {
-	if ctx.IsDryRun() {
-		logger.Infof("[DRY-RUN] Would get commits since '%s'", base)
-		return "abc123: dry-run commit 1 - feature implementation\ndef456: dry-run commit 2 - bug fix\nghi789: dry-run commit 3 - tests", nil
-	}
 
 	// Use git log with format matching reference: %h: %B (hash: full message body)
 	logRange := fmt.Sprintf("%s..HEAD", base)
@@ -453,10 +395,6 @@ func GetCommitLog(ctx *context.Context, base string, limit int) (string, error) 
 
 // GetDiffSince returns the diff between the base branch and HEAD
 func GetDiffSince(ctx *context.Context, base string) (string, error) {
-	if ctx.IsDryRun() {
-		logger.Infof("[DRY-RUN] Would get diff since '%s'", base)
-		return "dry-run diff output:\n+added line\n-removed line", nil
-	}
 
 	// Use git diff to get changes between base and HEAD
 	cmd := exec.Command("git", "diff", fmt.Sprintf("%s..HEAD", base))
@@ -478,10 +416,6 @@ func GetDiffSince(ctx *context.Context, base string) (string, error) {
 
 // StageFile stages a specific file using git add
 func StageFile(ctx *context.Context, filePath string) error {
-	if ctx.IsDryRun() {
-		logger.Infof("[DRY-RUN] Would stage file: %s", filePath)
-		return nil
-	}
 
 	cmd := exec.Command("git", "add", filePath)
 	var out bytes.Buffer
@@ -501,10 +435,6 @@ func StageFile(ctx *context.Context, filePath string) error {
 
 // StageAll stages all changes using git add -A
 func StageAll(ctx *context.Context) error {
-	if ctx.IsDryRun() {
-		logger.Info("[DRY-RUN] Would stage all changes (git add -A)")
-		return nil
-	}
 
 	cmd := exec.Command("git", "add", "-A")
 	var out bytes.Buffer
@@ -524,10 +454,6 @@ func StageAll(ctx *context.Context) error {
 
 // HasFileChanges checks if a specific file has unstaged changes (i.e. differs from the index)
 func HasFileChanges(ctx *context.Context, filePath string) bool {
-	if ctx.IsDryRun() {
-		logger.Infof("[DRY-RUN] Would check for changes in file: %s", filePath)
-		return true
-	}
 
 	// git diff --quiet -- <file>: exit 0 = no changes, exit 1 = has changes
 	cmd := exec.Command("git", "diff", "--quiet", "--", filePath)
@@ -537,10 +463,6 @@ func HasFileChanges(ctx *context.Context, filePath string) bool {
 
 // HasStagedChanges checks if there are any staged changes ready to commit
 func HasStagedChanges(ctx *context.Context) bool {
-	if ctx.IsDryRun() {
-		logger.Info("[DRY-RUN] Would check for staged changes")
-		return true
-	}
 
 	// Use git diff --cached --quiet to check for staged changes
 	// Exit code 0 = no staged changes, exit code 1 = has staged changes
@@ -563,10 +485,6 @@ func HasStagedChanges(ctx *context.Context) bool {
 // HasUncommittedChanges reports whether there are any uncommitted changes in the
 // working tree or index (i.e. staged or unstaged modifications, additions, or deletions).
 func HasUncommittedChanges(ctx *context.Context) bool {
-	if ctx.IsDryRun() {
-		logger.Info("[DRY-RUN] Would check for uncommitted changes")
-		return true
-	}
 
 	// git status --porcelain: empty output = clean, non-empty = dirty
 	cmd := exec.Command("git", "status", "--porcelain")
@@ -583,10 +501,6 @@ func HasUncommittedChanges(ctx *context.Context) bool {
 
 // Commit creates a git commit with the specified message
 func Commit(ctx *context.Context, message string) error {
-	if ctx.IsDryRun() {
-		logger.Infof("[DRY-RUN] Would commit with message: %s", message)
-		return nil
-	}
 
 	cmd := exec.Command("git", "commit", "-m", message)
 	var out bytes.Buffer
@@ -607,10 +521,6 @@ func Commit(ctx *context.Context, message string) error {
 // CommitAllowEmpty creates a git commit even when there are no staged changes.
 // Used when the AI ran but produced no file changes (e.g. all requirements already passing).
 func CommitAllowEmpty(ctx *context.Context, message string) error {
-	if ctx.IsDryRun() {
-		logger.Infof("[DRY-RUN] Would commit (allow-empty) with message: %s", message)
-		return nil
-	}
 
 	cmd := exec.Command("git", "commit", "--allow-empty", "-m", message)
 	var out bytes.Buffer
@@ -632,10 +542,6 @@ func CommitAllowEmpty(ctx *context.Context, message string) error {
 // It generates the commit message based on changed files
 // Returns error if there are no changes to commit
 func CommitChanges(ctx *context.Context) error {
-	if ctx.IsDryRun() {
-		logger.Info("[DRY-RUN] Would stage and commit all changes with generated message")
-		return nil
-	}
 
 	// Stage all changes
 	if err := StageAll(ctx); err != nil {
@@ -740,10 +646,6 @@ func categorizeFiles(files []string) map[string]int {
 
 // DeleteFile removes a file from the filesystem and stages the deletion
 func DeleteFile(ctx *context.Context, filePath string) error {
-	if ctx.IsDryRun() {
-		logger.Infof("[DRY-RUN] Would delete file: %s", filePath)
-		return nil
-	}
 
 	// Remove the file from filesystem
 	if err := os.Remove(filePath); err != nil {
