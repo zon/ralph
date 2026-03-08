@@ -3,7 +3,11 @@
 ## Project Information
 
 You are an AI coding agent working on this project.
-{{if .Notes}}
+
+## Project Requirements
+
+{{.ProjectContent}}
+{{- if .Notes}}
 ## System Notes
 
 {{range .Notes}}{{.}}
@@ -15,9 +19,6 @@ You are an AI coding agent working on this project.
 
 {{.CommitLog}}
 {{end -}}
-## Project Requirements
-
-{{.ProjectContent}}
 ## Instructions
 
 1. Review the requirements in the project file above
@@ -30,4 +31,3 @@ You are an AI coding agent working on this project.
 5. Write the selected requirement's YAML to a file named `picked-requirement.yaml`
    - Include the full requirement content (category, description, items, etc.)
 6. Do NOT make any code changes - only write the requirement YAML file
-7. When complete, write a concise report in 'report.md' explaining which requirement was selected and why

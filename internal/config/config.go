@@ -9,7 +9,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-//go:embed default-instructions.md
+//go:embed development-instructions.md
 var defaultInstructions string
 
 //go:embed comment-instructions.md
@@ -21,7 +21,7 @@ var defaultMergeInstructions string
 //go:embed fix-service-instructions.md
 var defaultFixServiceInstructions string
 
-//go:embed default-pick-instructions.md
+//go:embed pick-requirement-instructions.md
 var defaultPickInstructions string
 
 // Project represents a project YAML file with requirements
