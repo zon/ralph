@@ -37,14 +37,18 @@ requirements:
 
 	ctx := testutil.NewContext()
 
-	prompt, err := BuildDevelopPrompt(ctx, projectFile)
+	selectedReq := `- category: Feature
+  description: Implement feature X
+  passing: false`
+
+	prompt, err := BuildDevelopPrompt(ctx, projectFile, selectedReq)
 	require.NoError(t, err, "BuildDevelopPrompt failed")
 
 	// Verify prompt contains expected sections
 	expectedSections := []string{
 		"# Development Agent Context",
 		"## Project Information",
-		"## Project Requirements",
+		"## Selected Requirement",
 		"## Instructions",
 	}
 
@@ -57,13 +61,11 @@ requirements:
 	// This is expected behavior for dry-run mode.
 	assert.True(t, strings.Contains(prompt, "## Recent Git History"), "Prompt should contain 'Recent Git History' section in dry-run mode")
 
-	// Verify project content is included
-	assert.True(t, strings.Contains(prompt, "Test Project"), "Prompt does not contain project name")
-
-	assert.True(t, strings.Contains(prompt, "Implement feature X"), "Prompt does not contain project requirements")
+	// Verify selected requirement is included
+	assert.True(t, strings.Contains(prompt, "Implement feature X"), "Prompt does not contain selected requirement")
 
 	// Verify default instructions are included (since no .ralph/instructions.md exists)
-	assert.True(t, strings.Contains(prompt, "ONLY WORK ON ONE REQUIREMENT"), "Prompt does not contain default instructions")
+	assert.True(t, strings.Contains(prompt, "Implement the selected requirement"), "Prompt does not contain default instructions")
 }
 
 func TestBuildDevelopPrompt_WithCustomInstructions(t *testing.T) {
@@ -96,14 +98,13 @@ requirements:
 
 	ctx := testutil.NewContext()
 
-	prompt, err := BuildDevelopPrompt(ctx, projectFile)
+	selectedReq := "- category: Feature\n  description: Implement feature X\n  passing: false"
+
+	prompt, err := BuildDevelopPrompt(ctx, projectFile, selectedReq)
 	require.NoError(t, err, "BuildDevelopPrompt failed")
 
 	// Verify custom instructions are included
 	assert.True(t, strings.Contains(prompt, customInstructions), "Prompt does not contain custom instructions")
-
-	// Verify default instructions are NOT included
-	assert.False(t, strings.Contains(prompt, "ONLY WORK ON ONE REQUIREMENT"), "Prompt should not contain default instructions when custom file exists")
 }
 
 func TestBuildDevelopPrompt_DryRun(t *testing.T) {
@@ -124,20 +125,22 @@ requirements:
 
 	ctx := testutil.NewContext()
 
-	prompt, err := BuildDevelopPrompt(ctx, projectFile)
+	selectedReq := "- description: Test requirement\n  passing: false"
+
+	prompt, err := BuildDevelopPrompt(ctx, projectFile, selectedReq)
 	require.NoError(t, err, "BuildDevelopPrompt in dry-run failed")
 
 	// In dry-run mode, the prompt should still be built (not a dummy value)
 	// Verify it contains expected sections
 	assert.True(t, strings.Contains(prompt, "Development Agent Context"), "Prompt should contain 'Development Agent Context' header even in dry-run")
 
-	assert.True(t, strings.Contains(prompt, "Test Project"), "Prompt should contain project name even in dry-run")
+	assert.True(t, strings.Contains(prompt, "Test requirement"), "Prompt should contain selected requirement even in dry-run")
 }
 
 func TestBuildDevelopPrompt_MissingProjectFile(t *testing.T) {
 	ctx := testutil.NewContext()
 
-	_, err := BuildDevelopPrompt(ctx, "/nonexistent/project.yaml")
+	_, err := BuildDevelopPrompt(ctx, "/nonexistent/project.yaml", "some requirement")
 	require.Error(t, err, "Expected error for missing project file")
 }
 
@@ -229,7 +232,8 @@ requirements:
 
 			ctx := testutil.NewContext(testutil.WithInstructions(instructionsFile))
 
-			prompt, err := BuildDevelopPrompt(ctx, projectFile)
+			selectedReq := "- description: Feature 1\n  passing: false"
+			prompt, err := BuildDevelopPrompt(ctx, projectFile, selectedReq)
 			require.NoError(t, err, "BuildDevelopPrompt failed")
 
 			for _, want := range tt.wantContains {
@@ -276,7 +280,8 @@ requirements:
 
 	ctx := testutil.NewContext(testutil.WithInstructions(instructionsFile))
 
-	prompt, err := BuildDevelopPrompt(ctx, projectFile)
+	selectedReq := "- description: Feature 1\n  passing: false"
+	prompt, err := BuildDevelopPrompt(ctx, projectFile, selectedReq)
 	require.NoError(t, err, "BuildDevelopPrompt failed")
 
 	assert.True(t, strings.Contains(prompt, overrideInstructions), "Prompt should contain --instructions file content, got:\n%s", prompt)
@@ -300,7 +305,7 @@ requirements:
 	// Point to a non-existent file
 	ctx := testutil.NewContext(testutil.WithInstructions("/nonexistent/instructions.md"))
 
-	_, err := BuildDevelopPrompt(ctx, projectFile)
+	_, err := BuildDevelopPrompt(ctx, projectFile, "- description: Feature 1\n  passing: false")
 	require.Error(t, err, "Expected error when instructions file does not exist")
 	assert.True(t, strings.Contains(err.Error(), "failed to read instructions file"), "Expected 'failed to read instructions file' error, got: %v", err)
 }
@@ -323,7 +328,8 @@ requirements:
 	// Create context without notes
 	ctx := testutil.NewContext()
 
-	prompt, err := BuildDevelopPrompt(ctx, projectFile)
+	selectedReq := "- description: Feature 1\n  passing: false"
+	prompt, err := BuildDevelopPrompt(ctx, projectFile, selectedReq)
 	require.NoError(t, err, "BuildDevelopPrompt failed")
 
 	// Verify prompt does NOT contain system notes section when context has no notes
@@ -350,7 +356,8 @@ requirements:
 	ctx.AddNote("This is a test note for the agent")
 	ctx.AddNote("Another note with important information")
 
-	prompt, err := BuildDevelopPrompt(ctx, projectFile)
+	selectedReq := "- description: Feature 1\n  passing: false"
+	prompt, err := BuildDevelopPrompt(ctx, projectFile, selectedReq)
 	require.NoError(t, err, "BuildDevelopPrompt failed")
 
 	// Verify prompt contains System Notes section when context has notes
@@ -390,7 +397,8 @@ requirements:
 	// BaseBranch = "main" (different), so commit history should be included
 	ctx := testutil.NewContext()
 
-	prompt, err := BuildDevelopPrompt(ctx, projectFile)
+	selectedReq := "- description: Feature 1\n  passing: false"
+	prompt, err := BuildDevelopPrompt(ctx, projectFile, selectedReq)
 	require.NoError(t, err, "BuildDevelopPrompt failed")
 
 	// Verify prompt contains Recent Git History section when branches differ
@@ -427,7 +435,8 @@ requirements:
 	// BaseBranch = "dry-run-branch" (same), so commit history should NOT be included
 	ctx := testutil.NewContext()
 
-	prompt, err := BuildDevelopPrompt(ctx, projectFile)
+	selectedReq := "- description: Feature 1\n  passing: false"
+	prompt, err := BuildDevelopPrompt(ctx, projectFile, selectedReq)
 	require.NoError(t, err, "BuildDevelopPrompt failed")
 
 	// Verify prompt does NOT contain Recent Git History section when branches match
@@ -572,36 +581,5 @@ requirements:
 	assert.True(t, strings.Contains(prompt, projectFile), "Prompt does not contain project file path")
 
 	// Verify instructions are still included
-	assert.True(t, strings.Contains(prompt, "ONLY WORK ON ONE REQUIREMENT"), "Prompt does not contain instructions")
-}
-
-func TestBuildDevelopPrompt_WithoutSelectedRequirement(t *testing.T) {
-	tmpDir := t.TempDir()
-	projectFile := filepath.Join(tmpDir, "test-project.yaml")
-	projectContent := `name: Test Project
-description: A test project
-requirements:
-  - category: Feature
-    description: Implement feature X
-    passing: false
-`
-	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
-		t.Fatalf("Failed to create test project file: %v", err)
-	}
-
-	t.Chdir(tmpDir)
-
-	ctx := testutil.NewContext()
-
-	// Call without selectedRequirement (empty variadic)
-	prompt, err := BuildDevelopPrompt(ctx, projectFile)
-	require.NoError(t, err, "BuildDevelopPrompt without selectedRequirement failed")
-
-	// Verify full project content is included
-	assert.True(t, strings.Contains(prompt, "Test Project"), "Prompt does not contain project name")
-	assert.True(t, strings.Contains(prompt, "Implement feature X"), "Prompt does not contain project requirements")
-
-	// Verify project file path is NOT included when there's no selected requirement
-	// (it should only be included when there's a selected requirement)
-	assert.False(t, strings.Contains(prompt, "Project file:"), "Prompt should not contain project file path when no selected requirement")
+	assert.True(t, strings.Contains(prompt, "Implement the selected requirement"), "Prompt does not contain instructions")
 }

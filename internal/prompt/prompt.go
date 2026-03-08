@@ -43,11 +43,9 @@ func BuildServiceFixPrompt(ctx *context.Context, svc config.Service, svcErr erro
 	return buf.String()
 }
 
-// BuildDevelopPrompt creates a prompt for the AI agent to work on project requirements
-// It includes recent git history, project requirements, and development instructions
-// If selectedRequirement is provided (non-empty), it includes that requirement inline
-// instead of the full project file content, and includes a link to the project file
-func BuildDevelopPrompt(ctx *context.Context, projectFile string, selectedRequirement ...string) (string, error) {
+// BuildDevelopPrompt creates a prompt for the AI agent to implement a selected requirement.
+// It includes the selected requirement, recent git history, and development instructions.
+func BuildDevelopPrompt(ctx *context.Context, projectFile string, selectedRequirement string) (string, error) {
 	ralphConfig, err := config.LoadConfig()
 	if err != nil {
 		return "", fmt.Errorf("failed to load config: %w", err)
@@ -79,11 +77,6 @@ func BuildDevelopPrompt(ctx *context.Context, projectFile string, selectedRequir
 		}
 	}
 
-	var selectedReq string
-	if len(selectedRequirement) > 0 {
-		selectedReq = selectedRequirement[0]
-	}
-
 	data := struct {
 		Notes               []string
 		CommitLog           string
@@ -95,7 +88,7 @@ func BuildDevelopPrompt(ctx *context.Context, projectFile string, selectedRequir
 		Notes:               ctx.Notes(),
 		CommitLog:           commitLog,
 		ProjectContent:      strings.TrimRight(string(projectContent), "\n"),
-		SelectedRequirement: selectedReq,
+		SelectedRequirement: selectedRequirement,
 		ProjectFilePath:     projectFile,
 		Services:            ralphConfig.Services,
 	}
