@@ -19,7 +19,7 @@ requirements:
     description: Remove dry run guards from AI functions
     items:
       - RunAgent(), GenerateChangelog(), and GeneratePRSummary() no longer short-circuit based on dry run
-    passing: false
+    passing: true
 
   - category: git
     description: Remove dry run guards from git functions
