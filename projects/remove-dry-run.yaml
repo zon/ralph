@@ -7,7 +7,7 @@ requirements:
     items:
       - The --dry-run flag is removed from the run command
       - The CLI documentation no longer references --dry-run
-    passing: false
+    passing: true
 
   - category: context
     description: Remove dry run state from context
