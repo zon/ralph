@@ -1,0 +1,71 @@
+name: remove-dry-run
+description: Remove the dry run feature
+
+requirements:
+  - category: cli
+    description: Remove --dry-run flag
+    items:
+      - The --dry-run flag is removed from the run command
+      - The CLI documentation no longer references --dry-run
+    passing: false
+
+  - category: context
+    description: Remove dry run state from context
+    items:
+      - The dryRun field, IsDryRun(), and SetDryRun() are removed from the Context type
+    passing: false
+
+  - category: ai
+    description: Remove dry run guards from AI functions
+    items:
+      - RunAgent(), GenerateChangelog(), and GeneratePRSummary() no longer short-circuit based on dry run
+    passing: false
+
+  - category: git
+    description: Remove dry run guards from git functions
+    items:
+      - All dry run stub returns are removed from git functions
+    passing: false
+
+  - category: github
+    description: Remove dry run guards from GitHub functions
+    items:
+      - IsGHReady(), IsAuthenticated(), and CreatePR() no longer return stubs based on dry run
+    passing: false
+
+  - category: services
+    description: Remove dry run from service management
+    items:
+      - The dryRun parameter is removed from RunBefore() and Manager.Start()
+      - The sentinel process (pid -1) and handleDryRun() are removed
+      - WaitForHealth() no longer has a dry run short-circuit
+    passing: false
+
+  - category: execution
+    description: Remove dry run from project and requirement execution
+    items:
+      - Dry run banners, guards, and skipped phases are removed from project/execute.go, project/iteration.go, project/complete.go, and requirement/execute.go
+    passing: false
+
+  - category: workflow
+    description: Remove dry run from workflow generation
+    items:
+      - The DryRun field is removed from the Workflow struct
+      - The dryRun parameter is removed from GenerateWorkflow() and related functions
+      - The DryRunFlag template variable is removed from run.sh and comment.sh
+    passing: false
+
+  - category: tests
+    description: Update tests to remove dry run dependencies
+    items:
+      - NewContext() in testutil no longer sets dry run to true by default
+      - WithDryRun() option is removed from testutil
+      - All _DryRun test functions are removed
+      - Tests that relied on dry run stubs are updated to use real implementations or mocks
+    passing: false
+
+  - category: version
+    description: Version bump
+    items:
+      - Apply a semver major bump to internal/version/VERSION and charts/ralph-webhook/Chart.yaml
+    passing: false
