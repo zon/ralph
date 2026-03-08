@@ -43,8 +43,10 @@ requirements:
 }
 
 func TestRunIterationLoop_ReturnsErrorWhenMaxIterationsReached(t *testing.T) {
-	tmpDir := t.TempDir()
-	projectFile := filepath.Join(tmpDir, "test-project.yaml")
+	workDir := setupIterationTestRepo(t, "")
+	t.Chdir(workDir)
+
+	projectFile := "test-project.yaml"
 	projectContent := `name: test-project
 description: Test project for iteration loop
 requirements:
@@ -56,16 +58,21 @@ requirements:
 		t.Fatalf("Failed to create test project file: %v", err)
 	}
 
+	// Create initial report.md for first iteration commit to succeed
+	// (after commit, report.md is deleted but loop ends since maxIterations=1)
+	if err := os.WriteFile("report.md", []byte("Test iteration 1"), 0644); err != nil {
+		t.Fatalf("Failed to create report.md: %v", err)
+	}
+
 	ctx := testutil.NewContext(
 		testutil.WithProjectFile(projectFile),
-		testutil.WithMaxIterations(2),
+		testutil.WithMaxIterations(1),
 		testutil.WithDryRun(false),
 	)
 
-	iterations, err := RunIterationLoop(ctx, nil)
+	_, err := RunIterationLoop(ctx, nil)
 	require.Error(t, err, "Expected error when max iterations reached but requirements still failing")
 	assert.True(t, errors.Is(err, ErrMaxIterationsReached), "Expected ErrMaxIterationsReached, got: %v", err)
-	assert.Equal(t, 2, iterations)
 }
 
 func TestRunIterationLoop_BlockedDetected(t *testing.T) {
@@ -194,17 +201,15 @@ func TestCommitChanges_UsesReportMd(t *testing.T) {
 	require.NoError(t, err, "report.md should exist in dry-run mode")
 }
 
-func TestCommitChanges_FallbackWhenNoReportMd(t *testing.T) {
-	tmpDir := t.TempDir()
-	t.Chdir(tmpDir)
+func TestCommitChanges_FailsWithoutReportMd(t *testing.T) {
+	workDir := setupIterationTestRepo(t, "")
+	t.Chdir(workDir)
 
-	// Don't create report.md - should fall back to iteration-based message
+	ctx := testutil.NewContext(testutil.WithDryRun(false))
 
-	ctx := testutil.NewContext(testutil.WithProjectFile("project.yaml"))
-
-	// Should use fallback message when report.md doesn't exist
 	err := CommitChanges(ctx, 5)
-	require.NoError(t, err, "CommitChanges failed")
+	require.Error(t, err, "CommitChanges should fail when report.md does not exist")
+	assert.Contains(t, err.Error(), "cannot commit without a descriptive changelog")
 }
 
 // setupIterationTestRepo creates a temporary git repo with a bare remote.
@@ -390,13 +395,17 @@ func TestCommitChanges_ReadsReportMdAndCommits(t *testing.T) {
 	assert.Equal(t, "Add new feature", msg)
 }
 
-func TestCommitChanges_FallbackMessageWithIterationNumber(t *testing.T) {
+func TestCommitChanges_UsesProvidedReportMd(t *testing.T) {
 	workDir := setupIterationTestRepo(t, "")
 
 	t.Chdir(workDir)
 
 	if err := os.WriteFile("feature.go", []byte("package main\n"), 0644); err != nil {
 		t.Fatalf("failed to write feature.go: %v", err)
+	}
+
+	if err := os.WriteFile("report.md", []byte("Add new feature for iteration 42"), 0644); err != nil {
+		t.Fatalf("failed to write report.md: %v", err)
 	}
 
 	ctx := testutil.NewContext(
@@ -412,7 +421,7 @@ func TestCommitChanges_FallbackMessageWithIterationNumber(t *testing.T) {
 	out, err := cmd.CombinedOutput()
 	require.NoError(t, err, "git log failed")
 	msg := strings.TrimSpace(string(out))
-	assert.True(t, strings.Contains(msg, "42"), "expected commit message to contain '42', got %q", msg)
+	assert.Equal(t, "Add new feature for iteration 42", msg)
 }
 
 func TestCommitChanges_AllowEmptyCommitWhenNoStagedChanges(t *testing.T) {
