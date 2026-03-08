@@ -44,6 +44,53 @@ func RunAgent(ctx *context.Context, prompt string) error {
 	return nil
 }
 
+// GenerateChangelog prompts opencode to inspect the current git diff and write a
+// concise commit-message-style changelog entry to report.md.  It is called when an
+// iteration leaves uncommitted changes but the agent did not produce report.md itself.
+func GenerateChangelog(ctx *context.Context) error {
+	if ctx.IsDryRun() {
+		logger.Info("[DRY-RUN] Would generate changelog via opencode")
+		return nil
+	}
+
+	ralphConfig, err := config.LoadConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	prompt := buildChangelogPrompt()
+
+	if ctx.IsVerbose() {
+		logger.Verbose(prompt)
+	}
+
+	cmd := exec.Command("opencode", "run", "--model", ralphConfig.Model, prompt)
+	cmd.Env = append(os.Environ(), "FORCE_COLOR=1")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("opencode changelog generation failed: %w", err)
+	}
+
+	return nil
+}
+
+// buildChangelogPrompt returns the prompt used to generate report.md from git diff output.
+func buildChangelogPrompt() string {
+	var b strings.Builder
+	b.WriteString("Inspect the current uncommitted git changes and write a concise changelog entry to 'report.md'.\n\n")
+	b.WriteString("Steps:\n")
+	b.WriteString("1. Run 'git diff HEAD' (or 'git diff --cached' for staged-only) to see what changed.\n")
+	b.WriteString("2. Write a short, commit-message-style summary of the changes to 'report.md'.\n\n")
+	b.WriteString("Format:\n")
+	b.WriteString("- First line: imperative-mood summary (≤72 chars), e.g. \"Add user authentication endpoint\"\n")
+	b.WriteString("- Optional blank line followed by bullet points for non-obvious details\n\n")
+	b.WriteString("Keep it concise — this becomes the git commit message.\n")
+	b.WriteString("Do NOT include code snippets or verbose explanations.\n")
+	return b.String()
+}
+
 // GeneratePRSummary generates a pull request summary using AI
 // It includes project description, status, commits, and diff
 // This matches ralph.sh's approach: agent writes to a file, we read it back

@@ -30,3 +30,18 @@ func TestGeneratePRSummaryNoProject(t *testing.T) {
 	_, err := GeneratePRSummary(ctx, "nonexistent.yaml", 1)
 	assert.Error(t, err, "GeneratePRSummary should fail with nonexistent project file")
 }
+
+func TestGenerateChangelogDryRun(t *testing.T) {
+	ctx := testutil.NewContext()
+
+	err := GenerateChangelog(ctx)
+	require.NoError(t, err, "GenerateChangelog in dry-run mode should not fail")
+}
+
+func TestBuildChangelogPrompt(t *testing.T) {
+	prompt := buildChangelogPrompt()
+
+	assert.NotEmpty(t, prompt, "changelog prompt should not be empty")
+	assert.Contains(t, prompt, "report.md", "prompt should reference report.md")
+	assert.Contains(t, prompt, "git diff", "prompt should instruct inspecting git diff")
+}

@@ -1,0 +1,13 @@
+name: changelog-on-uncommitted-changes
+description: Prompt opencode to create a changelog when an iteration has uncommitted changes but no report.md
+
+requirements:
+  - category: changelog
+    description: Changelog prompt on uncommitted changes without report.md
+    items:
+      - After the AI agent runs, if there are uncommitted changes (staged or unstaged) but no report.md exists, ralph invokes opencode with a prompt asking it to write a concise changelog entry to report.md summarising the changes
+      - The changelog prompt instructs opencode to inspect the git diff of uncommitted changes and produce a short commit-message-style summary
+      - The resulting report.md is then used as the commit message as normal
+      - When report.md is already present after the agent runs, no additional opencode call is made
+      - When there are no uncommitted changes, no additional opencode call is made
+    passing: false

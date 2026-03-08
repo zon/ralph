@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/zon/ralph/internal/ai"
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
@@ -216,6 +217,11 @@ func CommitChanges(ctx *context.Context, iteration int) error {
 		return nil
 	}
 
+	// If there are uncommitted changes but no report.md, prompt opencode to write one
+	if err := generateChangelogIfNeeded(ctx); err != nil {
+		logger.Warningf("Failed to generate changelog: %v", err)
+	}
+
 	// Read commit message from report.md
 	commitMsg := getCommitMessage(iteration)
 
@@ -235,6 +241,22 @@ func CommitChanges(ctx *context.Context, iteration int) error {
 	}
 
 	return nil
+}
+
+// generateChangelogIfNeeded calls opencode to write report.md when the working tree
+// has uncommitted changes but the agent did not produce a report.md itself.
+func generateChangelogIfNeeded(ctx *context.Context) error {
+	if !git.HasUncommittedChanges(ctx) {
+		return nil
+	}
+
+	if _, err := os.Stat("report.md"); err == nil {
+		// report.md already exists; nothing to do
+		return nil
+	}
+
+	logger.Verbose("Uncommitted changes detected without report.md; generating changelog...")
+	return ai.GenerateChangelog(ctx)
 }
 
 // getCommitMessage reads report.md or falls back to iteration-based message

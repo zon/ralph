@@ -440,6 +440,59 @@ func TestCommitChanges_AllowEmptyCommitWhenNoStagedChanges(t *testing.T) {
 	assert.Equal(t, "No changes made", msg)
 }
 
+func TestGenerateChangelogIfNeeded_NoChanges(t *testing.T) {
+	workDir := setupIterationTestRepo(t, "")
+	t.Chdir(workDir)
+
+	ctx := testutil.NewContext(testutil.WithDryRun(false))
+
+	// Clean repo — no uncommitted changes, no report.md.
+	// generateChangelogIfNeeded should return nil without doing anything.
+	err := generateChangelogIfNeeded(ctx)
+	require.NoError(t, err, "generateChangelogIfNeeded should succeed when tree is clean")
+
+	// report.md must not have been created
+	_, statErr := os.Stat("report.md")
+	assert.True(t, os.IsNotExist(statErr), "report.md should not be created when there are no changes")
+}
+
+func TestGenerateChangelogIfNeeded_ReportMdAlreadyPresent(t *testing.T) {
+	workDir := setupIterationTestRepo(t, "")
+	t.Chdir(workDir)
+
+	ctx := testutil.NewContext(testutil.WithDryRun(false))
+
+	// Create uncommitted changes
+	if err := os.WriteFile(filepath.Join(workDir, "new.go"), []byte("package main\n"), 0644); err != nil {
+		t.Fatalf("failed to write new.go: %v", err)
+	}
+
+	// report.md is already present — opencode must not be called
+	originalReport := "Existing changelog entry"
+	if err := os.WriteFile("report.md", []byte(originalReport), 0644); err != nil {
+		t.Fatalf("failed to write report.md: %v", err)
+	}
+
+	err := generateChangelogIfNeeded(ctx)
+	require.NoError(t, err, "generateChangelogIfNeeded should succeed when report.md already exists")
+
+	// report.md should be unchanged
+	content, readErr := os.ReadFile("report.md")
+	require.NoError(t, readErr)
+	assert.Equal(t, originalReport, string(content), "report.md should not be overwritten when already present")
+}
+
+func TestGenerateChangelogIfNeeded_DryRun(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Chdir(tmpDir)
+
+	// dry-run ctx — HasUncommittedChanges returns true, but GenerateChangelog is a no-op
+	ctx := testutil.NewContext() // dry-run by default
+
+	err := generateChangelogIfNeeded(ctx)
+	require.NoError(t, err, "generateChangelogIfNeeded in dry-run mode should not fail")
+}
+
 func TestRunIterationLoop_ExitsEarlyWhenAllRequirementsPass(t *testing.T) {
 	tmpDir := t.TempDir()
 	projectFile := filepath.Join(tmpDir, "test-project.yaml")

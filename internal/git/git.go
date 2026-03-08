@@ -560,6 +560,27 @@ func HasStagedChanges(ctx *context.Context) bool {
 	return hasStagedChanges
 }
 
+// HasUncommittedChanges reports whether there are any uncommitted changes in the
+// working tree or index (i.e. staged or unstaged modifications, additions, or deletions).
+func HasUncommittedChanges(ctx *context.Context) bool {
+	if ctx.IsDryRun() {
+		logger.Info("[DRY-RUN] Would check for uncommitted changes")
+		return true
+	}
+
+	// git status --porcelain: empty output = clean, non-empty = dirty
+	cmd := exec.Command("git", "status", "--porcelain")
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+
+	if err := cmd.Run(); err != nil {
+		return false
+	}
+
+	return strings.TrimSpace(out.String()) != ""
+}
+
 // Commit creates a git commit with the specified message
 func Commit(ctx *context.Context, message string) error {
 	if ctx.IsDryRun() {

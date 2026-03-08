@@ -1348,3 +1348,54 @@ func TestSummarizeCommitMessage(t *testing.T) {
 	result = summarizeCommitMessage(multiCategory, 2)
 	assert.Equal(t, "Update 2 files across project", result)
 }
+
+func TestHasUncommittedChanges_CleanRepo(t *testing.T) {
+	tempDir := setupTestRepo(t)
+	t.Chdir(tempDir)
+
+	ctx := testutil.NewContext(testutil.WithDryRun(false))
+
+	assert.False(t, HasUncommittedChanges(ctx), "Expected no uncommitted changes in a clean repo")
+}
+
+func TestHasUncommittedChanges_UnstagedChange(t *testing.T) {
+	tempDir := setupTestRepo(t)
+	t.Chdir(tempDir)
+
+	ctx := testutil.NewContext(testutil.WithDryRun(false))
+
+	// Modify an existing tracked file without staging it
+	if err := os.WriteFile(filepath.Join(tempDir, "README.md"), []byte("modified\n"), 0644); err != nil {
+		t.Fatalf("Failed to modify file: %v", err)
+	}
+
+	assert.True(t, HasUncommittedChanges(ctx), "Expected uncommitted changes after modifying a tracked file")
+}
+
+func TestHasUncommittedChanges_StagedChange(t *testing.T) {
+	tempDir := setupTestRepo(t)
+	t.Chdir(tempDir)
+
+	ctx := testutil.NewContext(testutil.WithDryRun(false))
+
+	// Write and stage a new file
+	newFile := filepath.Join(tempDir, "new.txt")
+	if err := os.WriteFile(newFile, []byte("hello\n"), 0644); err != nil {
+		t.Fatalf("Failed to create file: %v", err)
+	}
+
+	cmd := exec.Command("git", "add", newFile)
+	cmd.Dir = tempDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to stage file: %v", err)
+	}
+
+	assert.True(t, HasUncommittedChanges(ctx), "Expected uncommitted changes after staging a new file")
+}
+
+func TestHasUncommittedChanges_DryRun(t *testing.T) {
+	ctx := testutil.NewContext() // dry-run by default
+
+	// Dry-run always reports true (safe default — assume there might be changes)
+	assert.True(t, HasUncommittedChanges(ctx), "Expected HasUncommittedChanges to return true in dry-run mode")
+}
