@@ -256,3 +256,120 @@ func TestSanitizeName(t *testing.T) {
 		}
 	}
 }
+
+func TestBuildConfigMapVolumeMount(t *testing.T) {
+	tests := []struct {
+		name     string
+		destFile string
+		destDir  string
+		index    int
+		check    func(t *testing.T, mount map[string]interface{})
+	}{
+		{
+			name:     "my-config",
+			destFile: "config/main.yaml",
+			destDir:  "",
+			index:    0,
+			check: func(t *testing.T, mount map[string]interface{}) {
+				if mount["name"] != "my-config-0" {
+					t.Errorf("name = %v, want my-config-0", mount["name"])
+				}
+				if mount["mountPath"] != "/workspace/config/main.yaml" {
+					t.Errorf("mountPath = %v, want /workspace/config/main.yaml", mount["mountPath"])
+				}
+				if mount["subPath"] != "main.yaml" {
+					t.Errorf("subPath = %v, want main.yaml", mount["subPath"])
+				}
+			},
+		},
+		{
+			name:     "my-config",
+			destFile: "",
+			destDir:  "config/extra",
+			index:    0,
+			check: func(t *testing.T, mount map[string]interface{}) {
+				if mount["name"] != "my-config" {
+					t.Errorf("name = %v, want my-config", mount["name"])
+				}
+				if mount["mountPath"] != "/workspace/config/extra" {
+					t.Errorf("mountPath = %v, want /workspace/config/extra", mount["mountPath"])
+				}
+			},
+		},
+		{
+			name:     "my-config",
+			destFile: "",
+			destDir:  "",
+			index:    0,
+			check: func(t *testing.T, mount map[string]interface{}) {
+				if mount["mountPath"] != "/configmaps/my-config" {
+					t.Errorf("mountPath = %v, want /configmaps/my-config", mount["mountPath"])
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mount := buildConfigMapVolumeMount(tt.name, tt.destFile, tt.destDir, tt.index)
+			tt.check(t, mount)
+		})
+	}
+}
+
+func TestBuildSecretVolumeMount(t *testing.T) {
+	mount := buildSecretVolumeMount("my-secret", "secrets.yaml", "", 0)
+	if mount["name"] != "my-secret-0" {
+		t.Errorf("name = %v, want my-secret-0", mount["name"])
+	}
+	if mount["mountPath"] != "/workspace/secrets.yaml" {
+		t.Errorf("mountPath = %v, want /workspace/secrets.yaml", mount["mountPath"])
+	}
+}
+
+func TestBuildCredentialMounts(t *testing.T) {
+	mounts := buildCredentialMounts()
+	if len(mounts) != 2 {
+		t.Fatalf("expected 2 credential mounts, got %d", len(mounts))
+	}
+	if mounts[0]["name"] != "github-credentials" {
+		t.Errorf("first mount name = %v, want github-credentials", mounts[0]["name"])
+	}
+	if mounts[1]["name"] != "opencode-credentials" {
+		t.Errorf("second mount name = %v, want opencode-credentials", mounts[1]["name"])
+	}
+}
+
+func TestBuildCredentialVolumes(t *testing.T) {
+	volumes := buildCredentialVolumes()
+	if len(volumes) != 2 {
+		t.Fatalf("expected 2 credential volumes, got %d", len(volumes))
+	}
+	if volumes[0]["name"] != "github-credentials" {
+		t.Errorf("first volume name = %v, want github-credentials", volumes[0]["name"])
+	}
+}
+
+func TestBuildConfigMapVolume(t *testing.T) {
+	vol := buildConfigMapVolume("my-config", "config/main.yaml", 0)
+	if vol["name"] != "my-config-0" {
+		t.Errorf("name = %v, want my-config-0", vol["name"])
+	}
+
+	vol = buildConfigMapVolume("my-config", "", 0)
+	if vol["name"] != "my-config" {
+		t.Errorf("name = %v, want my-config", vol["name"])
+	}
+}
+
+func TestBuildSecretVolume(t *testing.T) {
+	vol := buildSecretVolume("my-secret", "secrets.yaml", 0)
+	if vol["name"] != "my-secret-0" {
+		t.Errorf("name = %v, want my-secret-0", vol["name"])
+	}
+
+	vol = buildSecretVolume("my-secret", "", 0)
+	if vol["name"] != "my-secret" {
+		t.Errorf("name = %v, want my-secret", vol["name"])
+	}
+}

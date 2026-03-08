@@ -91,53 +91,82 @@ func buildMergeScript() string {
 	return renderScript(mergeScript, newScriptData(false, false, ""))
 }
 
-// buildVolumeMounts builds volume mounts for secrets and configMaps
-func buildVolumeMounts(cfg *config.RalphConfig) []map[string]interface{} {
-	mounts := []map[string]interface{}{
-		{"name": "github-credentials", "mountPath": "/secrets/github", "readOnly": true},
-		{"name": "opencode-credentials", "mountPath": "/secrets/opencode", "readOnly": true},
+func buildConfigMapVolumeMount(name string, destFile, destDir string, index int) map[string]interface{} {
+	mount := map[string]interface{}{
+		"name":     sanitizeName(name),
+		"readOnly": true,
 	}
-
-	for i, cm := range cfg.Workflow.ConfigMaps {
-		mount := map[string]interface{}{
-			"name":     sanitizeName(cm.Name),
-			"readOnly": true,
-		}
-		if cm.DestFile != "" {
-			mount["mountPath"] = "/workspace/" + cm.DestFile
-			mount["subPath"] = filepath.Base(cm.DestFile)
-			mount["name"] = fmt.Sprintf("%s-%d", sanitizeName(cm.Name), i)
-		} else if cm.DestDir != "" {
-			mount["mountPath"] = "/workspace/" + cm.DestDir
-		} else {
-			mount["mountPath"] = fmt.Sprintf("/configmaps/%s", cm.Name)
-		}
-		mounts = append(mounts, mount)
+	if destFile != "" {
+		mount["mountPath"] = "/workspace/" + destFile
+		mount["subPath"] = filepath.Base(destFile)
+		mount["name"] = fmt.Sprintf("%s-%d", sanitizeName(name), index)
+	} else if destDir != "" {
+		mount["mountPath"] = "/workspace/" + destDir
+	} else {
+		mount["mountPath"] = fmt.Sprintf("/configmaps/%s", name)
 	}
-
-	for i, secret := range cfg.Workflow.Secrets {
-		mount := map[string]interface{}{
-			"name":     sanitizeName(secret.Name),
-			"readOnly": true,
-		}
-		if secret.DestFile != "" {
-			mount["mountPath"] = "/workspace/" + secret.DestFile
-			mount["subPath"] = filepath.Base(secret.DestFile)
-			mount["name"] = fmt.Sprintf("%s-%d", sanitizeName(secret.Name), i)
-		} else if secret.DestDir != "" {
-			mount["mountPath"] = "/workspace/" + secret.DestDir
-		} else {
-			mount["mountPath"] = fmt.Sprintf("/secrets/%s", secret.Name)
-		}
-		mounts = append(mounts, mount)
-	}
-
-	return mounts
+	return mount
 }
 
-// buildVolumes builds volumes for secrets and configMaps
-func buildVolumes(cfg *config.RalphConfig) []map[string]interface{} {
-	volumes := []map[string]interface{}{
+func buildSecretVolumeMount(name string, destFile, destDir string, index int) map[string]interface{} {
+	mount := map[string]interface{}{
+		"name":     sanitizeName(name),
+		"readOnly": true,
+	}
+	if destFile != "" {
+		mount["mountPath"] = "/workspace/" + destFile
+		mount["subPath"] = filepath.Base(destFile)
+		mount["name"] = fmt.Sprintf("%s-%d", sanitizeName(name), index)
+	} else if destDir != "" {
+		mount["mountPath"] = "/workspace/" + destDir
+	} else {
+		mount["mountPath"] = fmt.Sprintf("/secrets/%s", name)
+	}
+	return mount
+}
+
+func buildConfigMapVolume(name string, destFile string, index int) map[string]interface{} {
+	volumeName := sanitizeName(name)
+	if destFile != "" {
+		volumeName = fmt.Sprintf("%s-%d", sanitizeName(name), index)
+		return map[string]interface{}{
+			"name": volumeName,
+			"configMap": map[string]interface{}{
+				"name": name,
+				"items": []map[string]interface{}{
+					{"key": filepath.Base(destFile), "path": filepath.Base(destFile)},
+				},
+			},
+		}
+	}
+	return map[string]interface{}{
+		"name":      volumeName,
+		"configMap": map[string]interface{}{"name": name},
+	}
+}
+
+func buildSecretVolume(name string, destFile string, index int) map[string]interface{} {
+	volumeName := sanitizeName(name)
+	if destFile != "" {
+		volumeName = fmt.Sprintf("%s-%d", sanitizeName(name), index)
+		return map[string]interface{}{
+			"name": volumeName,
+			"secret": map[string]interface{}{
+				"secretName": name,
+				"items": []map[string]interface{}{
+					{"key": filepath.Base(destFile), "path": filepath.Base(destFile)},
+				},
+			},
+		}
+	}
+	return map[string]interface{}{
+		"name":   volumeName,
+		"secret": map[string]interface{}{"secretName": name},
+	}
+}
+
+func buildCredentialVolumes() []map[string]interface{} {
+	return []map[string]interface{}{
 		{
 			"name": "github-credentials",
 			"secret": map[string]interface{}{
@@ -151,47 +180,38 @@ func buildVolumes(cfg *config.RalphConfig) []map[string]interface{} {
 			},
 		},
 	}
+}
+
+func buildCredentialMounts() []map[string]interface{} {
+	return []map[string]interface{}{
+		{"name": "github-credentials", "mountPath": "/secrets/github", "readOnly": true},
+		{"name": "opencode-credentials", "mountPath": "/secrets/opencode", "readOnly": true},
+	}
+}
+
+func buildVolumeMounts(cfg *config.RalphConfig) []map[string]interface{} {
+	mounts := buildCredentialMounts()
 
 	for i, cm := range cfg.Workflow.ConfigMaps {
-		volumeName := sanitizeName(cm.Name)
-		if cm.DestFile != "" {
-			volumeName = fmt.Sprintf("%s-%d", sanitizeName(cm.Name), i)
-			volumes = append(volumes, map[string]interface{}{
-				"name": volumeName,
-				"configMap": map[string]interface{}{
-					"name": cm.Name,
-					"items": []map[string]interface{}{
-						{"key": filepath.Base(cm.DestFile), "path": filepath.Base(cm.DestFile)},
-					},
-				},
-			})
-		} else {
-			volumes = append(volumes, map[string]interface{}{
-				"name":      volumeName,
-				"configMap": map[string]interface{}{"name": cm.Name},
-			})
-		}
+		mounts = append(mounts, buildConfigMapVolumeMount(cm.Name, cm.DestFile, cm.DestDir, i))
 	}
 
 	for i, secret := range cfg.Workflow.Secrets {
-		volumeName := sanitizeName(secret.Name)
-		if secret.DestFile != "" {
-			volumeName = fmt.Sprintf("%s-%d", sanitizeName(secret.Name), i)
-			volumes = append(volumes, map[string]interface{}{
-				"name": volumeName,
-				"secret": map[string]interface{}{
-					"secretName": secret.Name,
-					"items": []map[string]interface{}{
-						{"key": filepath.Base(secret.DestFile), "path": filepath.Base(secret.DestFile)},
-					},
-				},
-			})
-		} else {
-			volumes = append(volumes, map[string]interface{}{
-				"name":   volumeName,
-				"secret": map[string]interface{}{"secretName": secret.Name},
-			})
-		}
+		mounts = append(mounts, buildSecretVolumeMount(secret.Name, secret.DestFile, secret.DestDir, i))
+	}
+
+	return mounts
+}
+
+func buildVolumes(cfg *config.RalphConfig) []map[string]interface{} {
+	volumes := buildCredentialVolumes()
+
+	for i, cm := range cfg.Workflow.ConfigMaps {
+		volumes = append(volumes, buildConfigMapVolume(cm.Name, cm.DestFile, i))
+	}
+
+	for i, secret := range cfg.Workflow.Secrets {
+		volumes = append(volumes, buildSecretVolume(secret.Name, secret.DestFile, i))
 	}
 
 	return volumes

@@ -645,7 +645,6 @@ func CommitChanges(ctx *context.Context) error {
 
 // generateCommitMessage creates a descriptive commit message from changed files
 func generateCommitMessage(ctx *context.Context) (string, error) {
-	// Get list of staged files
 	cmd := exec.Command("git", "diff", "--cached", "--name-only")
 	var out bytes.Buffer
 	cmd.Stdout = &out
@@ -667,23 +666,43 @@ func generateCommitMessage(ctx *context.Context) (string, error) {
 		logger.Infof("Generating commit message for %d file(s)", fileCount)
 	}
 
-	// Generate message based on files changed
-	if fileCount == 1 {
-		return fmt.Sprintf("Update %s", files[0]), nil
-	} else if fileCount <= 3 {
-		// List all files if 2-3 files
-		return fmt.Sprintf("Update %s", strings.Join(files, ", ")), nil
-	} else {
-		// For many files, use a summary
-		// Try to categorize by directory or file type
-		categories := categorizeFiles(files)
-		if len(categories) == 1 {
-			for category := range categories {
-				return fmt.Sprintf("Update %s files (%d files)", category, fileCount), nil
-			}
-		}
-		return fmt.Sprintf("Update %d files across project", fileCount), nil
+	return buildCommitMessage(files, fileCount), nil
+}
+
+func buildCommitMessage(files []string, fileCount int) string {
+	switch {
+	case fileCount == 1:
+		return fmt.Sprintf("Update %s", files[0])
+	case fileCount <= 3:
+		return fmt.Sprintf("Update %s", strings.Join(files, ", "))
+	default:
+		return summarizeCommitMessage(files, fileCount)
 	}
+}
+
+func summarizeCommitMessage(files []string, fileCount int) string {
+	categories := categorizeFiles(files)
+	if len(categories) == 1 {
+		for category := range categories {
+			return fmt.Sprintf("Update %s files (%d files)", category, fileCount)
+		}
+	}
+	return fmt.Sprintf("Update %d files across project", fileCount)
+}
+
+// categorizeFile categorizes a single file by directory or extension
+func categorizeFile(file string) string {
+	if strings.Contains(file, "/") {
+		parts := strings.Split(file, "/")
+		if len(parts) > 1 {
+			return parts[0]
+		}
+	}
+	if strings.Contains(file, ".") {
+		parts := strings.Split(file, ".")
+		return parts[len(parts)-1]
+	}
+	return "root"
 }
 
 // categorizeFiles groups files by directory or type
@@ -691,23 +710,8 @@ func categorizeFiles(files []string) map[string]int {
 	categories := make(map[string]int)
 
 	for _, file := range files {
-		// Try to extract directory or file type
-		if strings.Contains(file, "/") {
-			parts := strings.Split(file, "/")
-			if len(parts) > 1 {
-				dir := parts[0]
-				categories[dir]++
-			}
-		} else {
-			// Root level files - categorize by extension
-			if strings.Contains(file, ".") {
-				parts := strings.Split(file, ".")
-				ext := parts[len(parts)-1]
-				categories[ext]++
-			} else {
-				categories["root"]++
-			}
-		}
+		category := categorizeFile(file)
+		categories[category]++
 	}
 
 	return categories

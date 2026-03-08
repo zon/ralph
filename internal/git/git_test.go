@@ -1529,3 +1529,94 @@ func TestCheckoutOrCreateBranch_ExistingRemoteBranch(t *testing.T) {
 		t.Error("Local branch should be at same commit as remote branch after checkout")
 	}
 }
+
+func TestCategorizeFile(t *testing.T) {
+	tests := []struct {
+		file     string
+		expected string
+	}{
+		{"path/to/file.go", "path"},
+		{"another/path/file.ts", "another"},
+		{"other/file.py", "other"},
+		{"file.go", "go"},
+		{"script.py", "py"},
+		{"noextension", "root"},
+		{"path/to/multiple.dots.tar.gz", "path"},
+		{"just/a/folder/", "just"},
+	}
+
+	for _, tt := range tests {
+		result := categorizeFile(tt.file)
+		if result != tt.expected {
+			t.Errorf("categorizeFile(%q) = %q, want %q", tt.file, result, tt.expected)
+		}
+	}
+}
+
+func TestCategorizeFiles(t *testing.T) {
+	files := []string{
+		"path/to/file.go",
+		"path/to/another.ts",
+		"other/file.py",
+		"file.go",
+		"noextension",
+	}
+
+	categories := categorizeFiles(files)
+
+	expected := map[string]int{
+		"path":  2,
+		"other": 1,
+		"go":    1,
+		"root":  1,
+	}
+
+	for category, count := range expected {
+		if categories[category] != count {
+			t.Errorf("categorizeFiles[%q] = %d, want %d", category, categories[category], count)
+		}
+	}
+}
+
+func TestBuildCommitMessage(t *testing.T) {
+	tests := []struct {
+		files     []string
+		fileCount int
+		expected  string
+	}{
+		{[]string{"file.go"}, 1, "Update file.go"},
+		{[]string{"file1.go", "file2.ts"}, 2, "Update file1.go, file2.ts"},
+		{[]string{"a.go", "b.ts", "c.py"}, 3, "Update a.go, b.ts, c.py"},
+		{[]string{"a.go", "b.ts", "c.py", "d.rb"}, 4, "Update 4 files across project"},
+	}
+
+	for _, tt := range tests {
+		result := buildCommitMessage(tt.files, tt.fileCount)
+		if result != tt.expected {
+			t.Errorf("buildCommitMessage(%v, %d) = %q, want %q", tt.files, tt.fileCount, result, tt.expected)
+		}
+	}
+}
+
+func TestBuildCommitMessage_SingleCategory(t *testing.T) {
+	files := []string{"path/to/file1.go", "path/to/file2.go", "path/to/file3.go"}
+	result := buildCommitMessage(files, 4)
+	expected := "Update path files (4 files)"
+	if result != expected {
+		t.Errorf("buildCommitMessage with single category = %q, want %q", result, expected)
+	}
+}
+
+func TestSummarizeCommitMessage(t *testing.T) {
+	singleCategory := []string{"dir/file1.go", "dir/file2.go"}
+	result := summarizeCommitMessage(singleCategory, 2)
+	if result != "Update dir files (2 files)" {
+		t.Errorf("summarizeCommitMessage(single category) = %q, want %q", result, "Update dir files (2 files)")
+	}
+
+	multiCategory := []string{"dir1/file.go", "dir2/file.go"}
+	result = summarizeCommitMessage(multiCategory, 2)
+	if result != "Update 2 files across project" {
+		t.Errorf("summarizeCommitMessage(multi category) = %q, want %q", result, "Update 2 files across project")
+	}
+}
