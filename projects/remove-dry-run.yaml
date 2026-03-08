@@ -31,7 +31,7 @@ requirements:
     description: Remove dry run guards from GitHub functions
     items:
       - IsGHReady(), IsAuthenticated(), and CreatePR() no longer return stubs based on dry run
-    passing: false
+    passing: true
 
   - category: services
     description: Remove dry run from service management
