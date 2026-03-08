@@ -441,7 +441,7 @@ func TestCommitChanges_FallbackMessageWithIterationNumber(t *testing.T) {
 		testutil.WithDryRun(false),
 	)
 
-	err := CommitChanges(ctx, 1)
+	err := CommitChanges(ctx, 42)
 	if err != nil {
 		t.Fatalf("CommitChanges failed: %v", err)
 	}
