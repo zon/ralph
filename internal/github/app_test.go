@@ -17,16 +17,14 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGenerateAppJWT(t *testing.T) {
-	// Generate a test RSA key
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatalf("failed to generate test RSA key: %v", err)
-	}
+	require.NoError(t, err, "failed to generate test RSA key")
 
-	// Encode private key to PEM format
 	privateKeyPEM := pem.EncodeToMemory(&pem.Block{
 		Type:  "RSA PRIVATE KEY",
 		Bytes: x509.MarshalPKCS1PrivateKey(privateKey),
@@ -34,118 +32,67 @@ func TestGenerateAppJWT(t *testing.T) {
 
 	appID := "12345"
 
-	// Test JWT generation
 	token, err := GenerateAppJWT(appID, privateKeyPEM)
-	if err != nil {
-		t.Fatalf("GenerateAppJWT failed: %v", err)
-	}
+	require.NoError(t, err, "GenerateAppJWT should not fail")
+	assert.NotEmpty(t, token, "GenerateAppJWT should return non-empty token")
 
-	if token == "" {
-		t.Fatal("GenerateAppJWT returned empty token")
-	}
-
-	// Parse and verify the JWT
 	parsedToken, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
-		// Verify the signing method
 		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 		return &privateKey.PublicKey, nil
 	})
 
-	if err != nil {
-		t.Fatalf("failed to parse generated JWT: %v", err)
-	}
+	require.NoError(t, err, "failed to parse generated JWT")
+	assert.True(t, parsedToken.Valid, "generated JWT should be valid")
 
-	if !parsedToken.Valid {
-		t.Fatal("generated JWT is not valid")
-	}
-
-	// Verify claims
 	claims, ok := parsedToken.Claims.(jwt.MapClaims)
-	if !ok {
-		t.Fatal("failed to parse JWT claims")
-	}
+	require.True(t, ok, "failed to parse JWT claims")
 
-	// Check issuer
 	issuer, ok := claims["iss"].(string)
-	if !ok || issuer != appID {
-		t.Errorf("expected issuer %q, got %q", appID, issuer)
-	}
+	require.True(t, ok, "JWT should have iss claim")
+	assert.Equal(t, appID, issuer, "issuer should match appID")
 
-	// Check issued at time is recent
-	if iat, ok := claims["iat"].(float64); ok {
-		iatTime := time.Unix(int64(iat), 0)
-		if time.Since(iatTime) > time.Minute {
-			t.Errorf("JWT issued at time is too old: %v", iatTime)
-		}
-	} else {
-		t.Error("JWT missing iat claim")
-	}
+	iat, ok := claims["iat"].(float64)
+	require.True(t, ok, "JWT should have iat claim")
+	iatTime := time.Unix(int64(iat), 0)
+	assert.WithinDuration(t, time.Now(), iatTime, time.Minute, "JWT issued at time should be recent")
 
-	// Check expiration time (should be 10 minutes from issued at)
-	if exp, ok := claims["exp"].(float64); ok {
-		expTime := time.Unix(int64(exp), 0)
-		if iat, ok := claims["iat"].(float64); ok {
-			iatTime := time.Unix(int64(iat), 0)
-			expectedExp := iatTime.Add(10 * time.Minute)
-			if expTime.Sub(expectedExp).Abs() > time.Second {
-				t.Errorf("JWT expiration time mismatch: expected ~%v, got %v", expectedExp, expTime)
-			}
-		}
-	} else {
-		t.Error("JWT missing exp claim")
-	}
+	exp, ok := claims["exp"].(float64)
+	require.True(t, ok, "JWT should have exp claim")
+	expTime := time.Unix(int64(exp), 0)
+	iatTime = time.Unix(int64(iat), 0)
+	expectedExp := iatTime.Add(10 * time.Minute)
+	assert.WithinDuration(t, expectedExp, expTime, time.Second, "JWT expiration should be 10 minutes from iat")
 }
 
 func TestGenerateAppJWT_InvalidKey(t *testing.T) {
-	// Test with invalid PEM data
 	invalidPEM := []byte("not a valid PEM")
 	_, err := GenerateAppJWT("12345", invalidPEM)
-	if err == nil {
-		t.Error("expected error for invalid PEM, got nil")
-	}
+	assert.Error(t, err, "should return error for invalid PEM")
 
-	// Test with empty key
 	_, err = GenerateAppJWT("12345", []byte{})
-	if err == nil {
-		t.Error("expected error for empty key, got nil")
-	}
+	assert.Error(t, err, "should return error for empty key")
 
-	// Test with empty app ID
 	_, err = GenerateAppJWT("", []byte("test"))
-	if err == nil {
-		t.Error("expected error for empty app ID, got nil")
-	}
+	assert.Error(t, err, "should return error for empty app ID")
 }
 
 func TestParsePrivateKey(t *testing.T) {
-	// Generate a test RSA key
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatalf("failed to generate test RSA key: %v", err)
-	}
+	require.NoError(t, err, "failed to generate test RSA key")
 
-	// Test PKCS1 format
 	privateKeyPEM := pem.EncodeToMemory(&pem.Block{
 		Type:  "RSA PRIVATE KEY",
 		Bytes: x509.MarshalPKCS1PrivateKey(privateKey),
 	})
 
 	parsedKey, err := parsePrivateKey(privateKeyPEM)
-	if err != nil {
-		t.Fatalf("parsePrivateKey failed for PKCS1: %v", err)
-	}
+	require.NoError(t, err, "parsePrivateKey should not fail for PKCS1")
+	assert.Zero(t, parsedKey.D.Cmp(privateKey.D), "parsed PKCS1 key should match original")
 
-	if parsedKey.D.Cmp(privateKey.D) != 0 {
-		t.Error("parsed PKCS1 key does not match original")
-	}
-
-	// Test PKCS8 format (GenerateAppJWT should handle this through parsePrivateKey)
 	privateKeyPKCS8, err := x509.MarshalPKCS8PrivateKey(privateKey)
-	if err != nil {
-		t.Fatalf("failed to marshal PKCS8 key: %v", err)
-	}
+	require.NoError(t, err, "failed to marshal PKCS8 key")
 
 	privateKeyPEM8 := pem.EncodeToMemory(&pem.Block{
 		Type:  "PRIVATE KEY",
@@ -153,48 +100,32 @@ func TestParsePrivateKey(t *testing.T) {
 	})
 
 	parsedKey8, err := parsePrivateKey(privateKeyPEM8)
-	if err != nil {
-		t.Fatalf("parsePrivateKey failed for PKCS8: %v", err)
-	}
+	require.NoError(t, err, "parsePrivateKey should not fail for PKCS8")
+	assert.Zero(t, parsedKey8.D.Cmp(privateKey.D), "parsed PKCS8 key should match original")
 
-	if parsedKey8.D.Cmp(privateKey.D) != 0 {
-		t.Error("parsed PKCS8 key does not match original")
-	}
-
-	// Test invalid PEM
 	_, err = parsePrivateKey([]byte("invalid"))
-	if err == nil {
-		t.Error("expected error for invalid PEM, got nil")
-	}
+	assert.Error(t, err, "should return error for invalid PEM")
 
-	// Test non-RSA key (would need to generate an ECDSA key, but we'll test error path)
 	nonRSAPEM := pem.EncodeToMemory(&pem.Block{
 		Type:  "PRIVATE KEY",
 		Bytes: []byte("not a valid private key"),
 	})
 	_, err = parsePrivateKey(nonRSAPEM)
-	if err == nil {
-		t.Error("expected error for non-RSA key, got nil")
-	}
+	assert.Error(t, err, "should return error for non-RSA key")
 }
 
-// withIsolatedGitHome runs f with HOME pointing to a fresh temp directory so
-// that git config --global operates on an isolated ~/.gitconfig and does not
-// touch or read the developer's real git configuration.
 func withIsolatedGitHome(t *testing.T, f func()) {
 	t.Helper()
 
 	fakeHome := t.TempDir()
 	origHome := os.Getenv("HOME")
-	if err := os.Setenv("HOME", fakeHome); err != nil {
-		t.Fatalf("failed to set HOME: %v", err)
-	}
-	t.Cleanup(func() { os.Setenv("HOME", origHome) })
+	t.Setenv("HOME", fakeHome)
 
 	f()
+
+	os.Setenv("HOME", origHome)
 }
 
-// gitConfigGlobal runs "git config --global <args>" with the current HOME.
 func gitConfigGlobal(t *testing.T, args ...string) {
 	t.Helper()
 	cmd := exec.Command("git", append([]string{"config", "--global"}, args...)...)
@@ -203,12 +134,10 @@ func gitConfigGlobal(t *testing.T, args ...string) {
 	}
 }
 
-// gitListGlobal returns all "key=value" lines from git config --global --list.
 func gitListGlobal(t *testing.T) []string {
 	t.Helper()
 	out, err := exec.Command("git", "config", "--global", "--list").Output()
 	if err != nil {
-		// An empty config returns exit code 1; treat as empty.
 		return nil
 	}
 	var lines []string
@@ -220,15 +149,10 @@ func gitListGlobal(t *testing.T) []string {
 	return lines
 }
 
-// TestCleanupStaleTokenRewrites verifies that cleanupStaleTokenRewrites removes
-// all x-access-token insteadOf entries for github.com from the global git config
-// while leaving unrelated entries untouched.
 func TestCleanupStaleTokenRewrites(t *testing.T) {
 	withIsolatedGitHome(t, func() {
 		ctx := context.Background()
 
-		// Seed the isolated global config with two stale token entries and one
-		// unrelated insteadOf rule that must survive cleanup.
 		gitConfigGlobal(t,
 			"url.https://x-access-token:old-token-1@github.com/.insteadOf",
 			"https://github.com/",
@@ -237,7 +161,6 @@ func TestCleanupStaleTokenRewrites(t *testing.T) {
 			"url.https://x-access-token:old-token-2@github.com/.insteadOf",
 			"https://github.com/",
 		)
-		// Unrelated entry — should not be removed.
 		gitConfigGlobal(t, "user.email", "test@example.com")
 
 		before := gitListGlobal(t)
@@ -247,9 +170,7 @@ func TestCleanupStaleTokenRewrites(t *testing.T) {
 				tokenEntries++
 			}
 		}
-		if tokenEntries != 2 {
-			t.Fatalf("expected 2 stale token entries before cleanup, got %d: %v", tokenEntries, before)
-		}
+		assert.Equal(t, 2, tokenEntries, "should have 2 stale token entries before cleanup")
 
 		cleanupStaleTokenRewrites(ctx)
 
@@ -261,28 +182,22 @@ func TestCleanupStaleTokenRewrites(t *testing.T) {
 			}
 		}
 
-		// Unrelated entry must still be present.
 		found := false
 		for _, l := range after {
 			if l == "user.email=test@example.com" {
 				found = true
 			}
 		}
-		if !found {
-			t.Error("unrelated git config entry was incorrectly removed by cleanupStaleTokenRewrites")
-		}
+		assert.True(t, found, "unrelated git config entry should remain")
 	})
 }
 
-// TestCleanupStaleTokenRewrites_Empty verifies that cleanupStaleTokenRewrites is
-// a no-op when the global git config contains no token rewrites.
 func TestCleanupStaleTokenRewrites_Empty(t *testing.T) {
 	withIsolatedGitHome(t, func() {
 		ctx := context.Background()
 
 		gitConfigGlobal(t, "user.name", "Test User")
 
-		// Should not panic or error.
 		cleanupStaleTokenRewrites(ctx)
 
 		after := gitListGlobal(t)
@@ -292,9 +207,7 @@ func TestCleanupStaleTokenRewrites_Empty(t *testing.T) {
 				found = true
 			}
 		}
-		if !found {
-			t.Error("user.name was unexpectedly removed")
-		}
+		assert.True(t, found, "user.name should remain")
 	})
 }
 
@@ -315,12 +228,8 @@ func TestGetInstallationID_ReturnsIDOn200(t *testing.T) {
 	ctx := context.Background()
 	id, err := GetInstallationID(ctx, "test-jwt", "owner", "repo")
 
-	if err != nil {
-		t.Fatalf("GetInstallationID returned error: %v", err)
-	}
-	if id != expectedID {
-		t.Errorf("expected ID %d, got %d", expectedID, id)
-	}
+	require.NoError(t, err, "GetInstallationID should not return error")
+	assert.Equal(t, expectedID, id, "returned ID should match expected")
 }
 
 func TestGetInstallationID_ReturnsErrorOnNon200(t *testing.T) {
@@ -339,16 +248,10 @@ func TestGetInstallationID_ReturnsErrorOnNon200(t *testing.T) {
 	ctx := context.Background()
 	_, err := GetInstallationID(ctx, "test-jwt", "owner", "repo")
 
-	if err == nil {
-		t.Fatal("expected error for non-200 status, got nil")
-	}
+	assert.Error(t, err, "should return error for non-200 status")
 	errStr := err.Error()
-	if !strings.Contains(errStr, "403") {
-		t.Errorf("error should contain status code 403, got: %s", errStr)
-	}
-	if !strings.Contains(errStr, "Forbidden access") {
-		t.Errorf("error should contain response body, got: %s", errStr)
-	}
+	assert.Contains(t, errStr, "403", "error should contain 403 status code")
+	assert.Contains(t, errStr, "Forbidden access", "error should contain response body")
 }
 
 func TestGetInstallationID_ReturnsErrorOnInvalidJSON(t *testing.T) {
@@ -367,9 +270,7 @@ func TestGetInstallationID_ReturnsErrorOnInvalidJSON(t *testing.T) {
 	ctx := context.Background()
 	_, err := GetInstallationID(ctx, "test-jwt", "owner", "repo")
 
-	if err == nil {
-		t.Fatal("expected error for invalid JSON, got nil")
-	}
+	assert.Error(t, err, "should return error for invalid JSON")
 }
 
 func TestGetInstallationID_SendsCorrectHeaders(t *testing.T) {
@@ -378,15 +279,9 @@ func TestGetInstallationID_SendsCorrectHeaders(t *testing.T) {
 		accept := r.Header.Get("Accept")
 		userAgent := r.Header.Get("User-Agent")
 
-		if !strings.HasPrefix(auth, "Bearer ") {
-			t.Errorf("Authorization header should start with 'Bearer ', got: %s", auth)
-		}
-		if accept != "application/vnd.github+json" {
-			t.Errorf("Accept header should be 'application/vnd.github+json', got: %s", accept)
-		}
-		if userAgent != "ralph" {
-			t.Errorf("User-Agent header should be 'ralph', got: %s", userAgent)
-		}
+		assert.True(t, strings.HasPrefix(auth, "Bearer "), "Authorization should start with 'Bearer '")
+		assert.Equal(t, "application/vnd.github+json", accept, "Accept header should match")
+		assert.Equal(t, "ralph", userAgent, "User-Agent header should match")
 
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]int64{"id": 12345})
@@ -402,9 +297,7 @@ func TestGetInstallationID_SendsCorrectHeaders(t *testing.T) {
 	ctx := context.Background()
 	_, err := GetInstallationID(ctx, "test-jwt-token", "owner", "repo")
 
-	if err != nil {
-		t.Fatalf("GetInstallationID returned error: %v", err)
-	}
+	require.NoError(t, err, "GetInstallationID should not return error")
 }
 
 func TestGetInstallationToken_ReturnsTokenOn201(t *testing.T) {
@@ -424,12 +317,8 @@ func TestGetInstallationToken_ReturnsTokenOn201(t *testing.T) {
 	ctx := context.Background()
 	token, err := GetInstallationToken(ctx, "test-jwt", 12345678)
 
-	if err != nil {
-		t.Fatalf("GetInstallationToken returned error: %v", err)
-	}
-	if token != expectedToken {
-		t.Errorf("expected token %q, got %q", expectedToken, token)
-	}
+	require.NoError(t, err, "GetInstallationToken should not return error")
+	assert.Equal(t, expectedToken, token, "returned token should match expected")
 }
 
 func TestGetInstallationToken_ReturnsErrorOnNon201(t *testing.T) {
@@ -448,13 +337,9 @@ func TestGetInstallationToken_ReturnsErrorOnNon201(t *testing.T) {
 	ctx := context.Background()
 	_, err := GetInstallationToken(ctx, "test-jwt", 12345678)
 
-	if err == nil {
-		t.Fatal("expected error for non-201 status, got nil")
-	}
+	assert.Error(t, err, "should return error for non-201 status")
 	errStr := err.Error()
-	if !strings.Contains(errStr, "400") {
-		t.Errorf("error should contain status code 400, got: %s", errStr)
-	}
+	assert.Contains(t, errStr, "400", "error should contain 400 status code")
 }
 
 func TestGetInstallationToken_ReturnsErrorOnEmptyToken(t *testing.T) {
@@ -473,13 +358,9 @@ func TestGetInstallationToken_ReturnsErrorOnEmptyToken(t *testing.T) {
 	ctx := context.Background()
 	_, err := GetInstallationToken(ctx, "test-jwt", 12345678)
 
-	if err == nil {
-		t.Fatal("expected error for empty token, got nil")
-	}
+	assert.Error(t, err, "should return error for empty token")
 	errStr := err.Error()
-	if !strings.Contains(errStr, "empty") {
-		t.Errorf("error should mention empty token, got: %s", errStr)
-	}
+	assert.Contains(t, errStr, "empty", "error should mention empty token")
 }
 
 func TestGetInstallationToken_ReturnsErrorOnInvalidJSON(t *testing.T) {
@@ -498,9 +379,7 @@ func TestGetInstallationToken_ReturnsErrorOnInvalidJSON(t *testing.T) {
 	ctx := context.Background()
 	_, err := GetInstallationToken(ctx, "test-jwt", 12345678)
 
-	if err == nil {
-		t.Fatal("expected error for invalid JSON, got nil")
-	}
+	assert.Error(t, err, "should return error for invalid JSON")
 }
 
 type rewriteTransport struct {

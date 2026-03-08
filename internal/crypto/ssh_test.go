@@ -3,78 +3,48 @@ package crypto
 import (
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGenerateSSHKeyPair(t *testing.T) {
 	privateKey, publicKey, err := GenerateSSHKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateSSHKeyPair() failed: %v", err)
-	}
+	require.NoError(t, err, "GenerateSSHKeyPair() should not fail")
 
-	if !strings.Contains(privateKey, "BEGIN") || !strings.Contains(privateKey, "PRIVATE KEY") {
-		t.Errorf("Private key doesn't appear to be in PEM format")
-	}
-
-	if !strings.HasPrefix(publicKey, "ssh-") {
-		t.Errorf("Public key doesn't appear to be in OpenSSH format, got: %s", publicKey)
-	}
-
-	if len(privateKey) == 0 {
-		t.Error("Private key is empty")
-	}
-
-	if len(publicKey) == 0 {
-		t.Error("Public key is empty")
-	}
+	assert.True(t, strings.Contains(privateKey, "BEGIN"), "Private key should contain 'BEGIN'")
+	assert.True(t, strings.Contains(privateKey, "PRIVATE KEY"), "Private key should contain 'PRIVATE KEY'")
+	assert.True(t, strings.HasPrefix(publicKey, "ssh-"), "Public key should start with 'ssh-'")
+	assert.NotEmpty(t, privateKey, "Private key should not be empty")
+	assert.NotEmpty(t, publicKey, "Public key should not be empty")
 
 	privateKey2, publicKey2, err := GenerateSSHKeyPair()
-	if err != nil {
-		t.Fatalf("Second GenerateSSHKeyPair() failed: %v", err)
-	}
+	require.NoError(t, err, "Second GenerateSSHKeyPair() should not fail")
 
-	if privateKey == privateKey2 {
-		t.Error("Generated same private key twice - should be random")
-	}
-
-	if publicKey == publicKey2 {
-		t.Error("Generated same public key twice - should be random")
-	}
+	assert.NotEqual(t, privateKey, privateKey2, "Private keys should be unique")
+	assert.NotEqual(t, publicKey, publicKey2, "Public keys should be unique")
 }
 
 func TestSSHKeyFormat(t *testing.T) {
 	privateKey, publicKey, err := GenerateSSHKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateSSHKeyPair() failed: %v", err)
-	}
+	require.NoError(t, err, "GenerateSSHKeyPair() should not fail")
 
-	if !strings.Contains(privateKey, "-----BEGIN") {
-		t.Error("Private key missing BEGIN marker")
-	}
-	if !strings.Contains(privateKey, "-----END") {
-		t.Error("Private key missing END marker")
-	}
+	assert.Contains(t, privateKey, "-----BEGIN", "Private key should contain BEGIN marker")
+	assert.Contains(t, privateKey, "-----END", "Private key should contain END marker")
 
 	parts := strings.Fields(publicKey)
-	if len(parts) < 2 {
-		t.Errorf("Public key should have at least 2 parts (type and key), got %d parts", len(parts))
-	}
+	assert.GreaterOrEqual(t, len(parts), 2, "Public key should have at least 2 parts")
 
 	keyType := parts[0]
-	if !strings.HasPrefix(keyType, "ssh-") {
-		t.Errorf("Public key type should start with 'ssh-', got %q", keyType)
-	}
+	assert.True(t, strings.HasPrefix(keyType, "ssh-"), "Public key type should start with 'ssh-'")
 
 	if len(parts) > 1 {
 		keyPart := parts[1]
-		if len(keyPart) == 0 {
-			t.Error("Public key data part is empty")
-		}
+		assert.NotEmpty(t, keyPart, "Public key data part should not be empty")
 		for _, ch := range keyPart {
-			if !((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') ||
-				(ch >= '0' && ch <= '9') || ch == '+' || ch == '/' || ch == '=') {
-				t.Errorf("Public key contains invalid base64 character: %c", ch)
-				break
-			}
+			assert.True(t, (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') ||
+				(ch >= '0' && ch <= '9') || ch == '+' || ch == '/' || ch == '=',
+				"Public key should contain valid base64 characters")
 		}
 	}
 }

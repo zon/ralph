@@ -5,32 +5,28 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-// TestDockerfileExists verifies that the Containerfile exists in the project root
 func TestDockerfileExists(t *testing.T) {
-	// Get project root (go up from internal/docker to root)
 	projectRoot := filepath.Join("..", "..")
 	containerfilePath := filepath.Join(projectRoot, "Containerfile")
 
-	if _, err := os.Stat(containerfilePath); os.IsNotExist(err) {
-		t.Fatalf("Containerfile does not exist at %s", containerfilePath)
-	}
+	_, err := os.Stat(containerfilePath)
+	require.NoError(t, err, "Containerfile should exist at %s", containerfilePath)
 }
 
-// TestDockerfileContainsRequiredComponents verifies Containerfile includes all required dependencies
 func TestDockerfileContainsRequiredComponents(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
 	containerfilePath := filepath.Join(projectRoot, "Containerfile")
 
 	content, err := os.ReadFile(containerfilePath)
-	if err != nil {
-		t.Fatalf("Failed to read Containerfile: %v", err)
-	}
+	require.NoError(t, err, "Should be able to read Containerfile")
 
 	dockerfile := string(content)
 
-	// Required components
 	requiredComponents := []struct {
 		name        string
 		searchTerms []string
@@ -65,74 +61,52 @@ func TestDockerfileContainsRequiredComponents(t *testing.T) {
 				break
 			}
 		}
-		if !found {
-			t.Errorf("Containerfile is missing required component: %s", component.name)
-		}
+		assert.True(t, found, "Containerfile should contain required component: %s", component.name)
 	}
 }
 
-// TestDockerfileUsesMultiStageBuilds verifies Containerfile uses multi-stage builds
 func TestDockerfileUsesMultiStageBuilds(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
 	containerfilePath := filepath.Join(projectRoot, "Containerfile")
 
 	content, err := os.ReadFile(containerfilePath)
-	if err != nil {
-		t.Fatalf("Failed to read Containerfile: %v", err)
-	}
+	require.NoError(t, err, "Should be able to read Containerfile")
 
 	dockerfile := string(content)
 
-	// Check for multi-stage build pattern (FROM ... AS ...)
-	if !strings.Contains(dockerfile, "AS builder") && !strings.Contains(dockerfile, "AS build") {
-		t.Error("Containerfile should use multi-stage builds for efficient image size")
-	}
-
-	// Check for COPY --from pattern
-	if !strings.Contains(dockerfile, "COPY --from=") {
-		t.Error("Containerfile should copy artifacts from build stage")
-	}
+	assert.True(t, strings.Contains(dockerfile, "AS builder") || strings.Contains(dockerfile, "AS build"),
+		"Containerfile should use multi-stage builds")
+	assert.Contains(t, dockerfile, "COPY --from=", "Containerfile should copy artifacts from build stage")
 }
 
-// TestPushScriptExists verifies that the push script exists
 func TestPushScriptExists(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
 	scriptPath := filepath.Join(projectRoot, "scripts", "push-image.sh")
 
-	if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
-		t.Fatalf("Push script does not exist at %s", scriptPath)
-	}
+	_, err := os.Stat(scriptPath)
+	require.NoError(t, err, "Push script should exist at %s", scriptPath)
 }
 
-// TestPushScriptIsExecutable verifies that the push script has execute permissions
 func TestPushScriptIsExecutable(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
 	scriptPath := filepath.Join(projectRoot, "scripts", "push-image.sh")
 
 	info, err := os.Stat(scriptPath)
-	if err != nil {
-		t.Fatalf("Failed to stat push script: %v", err)
-	}
+	require.NoError(t, err, "Should be able to stat push script")
 
 	mode := info.Mode()
-	if mode&0111 == 0 {
-		t.Error("Push script is not executable (missing execute permission)")
-	}
+	assert.NotZero(t, mode&0111, "Push script should be executable")
 }
 
-// TestPushScriptContentsValid verifies the push script contains required components
 func TestPushScriptContentsValid(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
 	scriptPath := filepath.Join(projectRoot, "scripts", "push-image.sh")
 
 	content, err := os.ReadFile(scriptPath)
-	if err != nil {
-		t.Fatalf("Failed to read push script: %v", err)
-	}
+	require.NoError(t, err, "Should be able to read push script")
 
 	script := string(content)
 
-	// Required script components
 	requiredElements := []struct {
 		name    string
 		pattern string
@@ -147,61 +121,41 @@ func TestPushScriptContentsValid(t *testing.T) {
 	}
 
 	for _, element := range requiredElements {
-		if !strings.Contains(script, element.pattern) {
-			t.Errorf("Push script is missing required element: %s (pattern: %s)", element.name, element.pattern)
-		}
+		assert.Contains(t, script, element.pattern, "Push script should contain: %s", element.name)
 	}
 }
 
-// TestPushScriptUsesEnvironmentVariables verifies script supports configuration via env vars
 func TestPushScriptUsesEnvironmentVariables(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
 	scriptPath := filepath.Join(projectRoot, "scripts", "push-image.sh")
 
 	content, err := os.ReadFile(scriptPath)
-	if err != nil {
-		t.Fatalf("Failed to read push script: %v", err)
-	}
+	require.NoError(t, err, "Should be able to read push script")
 
 	script := string(content)
 
-	// Check for environment variable usage with defaults
 	envVarPatterns := []string{
 		"RALPH_IMAGE_REPOSITORY",
 		"RALPH_IMAGE_TAG",
 	}
 
 	for _, pattern := range envVarPatterns {
-		if !strings.Contains(script, pattern) {
-			t.Errorf("Push script should support %s environment variable", pattern)
-		}
+		assert.Contains(t, script, pattern, "Push script should support %s environment variable", pattern)
 	}
 
-	// Check for default values
-	if !strings.Contains(script, "ghcr.io/zon/ralph") {
-		t.Error("Push script should have default repository")
-	}
-
-	if !strings.Contains(script, "latest") {
-		t.Error("Push script should have default tag")
-	}
+	assert.Contains(t, script, "ghcr.io/zon/ralph", "Push script should have default repository")
+	assert.Contains(t, script, "latest", "Push script should have default tag")
 }
 
-// TestDefaultImageMatchesWorkflowDefault verifies the default image matches workflow default
 func TestDefaultImageMatchesWorkflowDefault(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
 	scriptPath := filepath.Join(projectRoot, "scripts", "push-image.sh")
 
 	content, err := os.ReadFile(scriptPath)
-	if err != nil {
-		t.Fatalf("Failed to read push script: %v", err)
-	}
+	require.NoError(t, err, "Should be able to read push script")
 
 	script := string(content)
 
-	// The default repository should match what's defined in workflow.go
 	expectedRepo := "ghcr.io/zon/ralph"
-	if !strings.Contains(script, expectedRepo) {
-		t.Errorf("Script default repository should be %s to match workflow default", expectedRepo)
-	}
+	assert.Contains(t, script, expectedRepo, "Script default repository should be %s", expectedRepo)
 }

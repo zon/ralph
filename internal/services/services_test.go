@@ -6,10 +6,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/zon/ralph/internal/config"
 )
 
-// cleanupLogs removes any service log files created during a test
 func cleanupLogs(t *testing.T, services []config.Service) {
 	t.Helper()
 	for _, svc := range services {
@@ -18,42 +20,27 @@ func cleanupLogs(t *testing.T, services []config.Service) {
 }
 
 func TestCheckPort(t *testing.T) {
-	// Start a listener on a random port
 	listener, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		t.Fatalf("Failed to start listener: %v", err)
-	}
+	require.NoError(t, err, "Failed to start listener")
 	defer listener.Close()
 
 	port := listener.Addr().(*net.TCPAddr).Port
 
-	// Port should be available
-	if !checkPort(port) {
-		t.Errorf("checkPort(%d) = false, want true", port)
-	}
+	assert.True(t, checkPort(port), "checkPort should return true for available port")
 
-	// Close listener
 	listener.Close()
 
-	// Give it a moment to fully close
 	time.Sleep(100 * time.Millisecond)
 
-	// Port should not be available anymore
-	if checkPort(port) {
-		t.Errorf("checkPort(%d) = true after close, want false", port)
-	}
+	assert.False(t, checkPort(port), "checkPort should return false after port is closed")
 }
 
 func TestWaitForPort(t *testing.T) {
-	// Start a listener on a random port after a delay
 	listener, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		t.Fatalf("Failed to start listener: %v", err)
-	}
+	require.NoError(t, err, "Failed to start listener")
 	port := listener.Addr().(*net.TCPAddr).Port
 	listener.Close()
 
-	// Start listener after 500ms
 	go func() {
 		time.Sleep(500 * time.Millisecond)
 		l, err := net.Listen("tcp", listener.Addr().String())
@@ -62,27 +49,19 @@ func TestWaitForPort(t *testing.T) {
 			return
 		}
 		defer l.Close()
-		time.Sleep(2 * time.Second) // Keep it open
+		time.Sleep(2 * time.Second)
 	}()
 
-	// Wait for port to become available
 	err = waitForPort(port, 3*time.Second)
-	if err != nil {
-		t.Errorf("waitForPort failed: %v", err)
-	}
+	require.NoError(t, err, "waitForPort should succeed")
 }
 
 func TestWaitForPortTimeout(t *testing.T) {
-	// Try to wait for a port that will never open
-	// Use a high port number that's unlikely to be in use
 	err := waitForPort(54321, 1*time.Second)
-	if err == nil {
-		t.Error("waitForPort should have timed out but didn't")
-	}
+	assert.Error(t, err, "waitForPort should timeout")
 }
 
 func TestWaitForHealthDryRun(t *testing.T) {
-	// Create a mock process with port
 	proc := &Process{
 		Name: "test-service",
 		service: config.Service{
@@ -90,21 +69,15 @@ func TestWaitForHealthDryRun(t *testing.T) {
 			Command: "echo",
 			Port:    8080,
 		},
-		pid: -1, // Dry-run sentinel
+		pid: -1,
 	}
 
-	// Should succeed without actually checking port
 	err := WaitForHealth(proc, 1*time.Second, true)
-	if err != nil {
-		t.Errorf("WaitForHealth in dry-run mode failed: %v", err)
-	}
+	require.NoError(t, err, "WaitForHealth in dry-run mode should not fail")
 
-	// Test without port
 	proc.service.Port = 0
 	err = WaitForHealth(proc, 1*time.Second, true)
-	if err != nil {
-		t.Errorf("WaitForHealth in dry-run mode (no port) failed: %v", err)
-	}
+	require.NoError(t, err, "WaitForHealth in dry-run mode without port should not fail")
 }
 
 func TestStartServiceDryRun(t *testing.T) {
@@ -116,17 +89,10 @@ func TestStartServiceDryRun(t *testing.T) {
 	}
 
 	proc, err := startService(svc, true)
-	if err != nil {
-		t.Fatalf("startService in dry-run mode failed: %v", err)
-	}
+	require.NoError(t, err, "startService in dry-run mode should not fail")
 
-	if !proc.isDryRun() {
-		t.Errorf("Expected isDryRun() = true for dry-run, got false")
-	}
-
-	if proc.Name != "test-service" {
-		t.Errorf("Expected Name = test-service, got %s", proc.Name)
-	}
+	assert.True(t, proc.isDryRun(), "isDryRun should be true")
+	assert.Equal(t, "test-service", proc.Name, "Name should match")
 }
 
 func TestStartAllServicesDryRun(t *testing.T) {
@@ -147,28 +113,19 @@ func TestStartAllServicesDryRun(t *testing.T) {
 			Name:    "service3",
 			Command: "echo",
 			Args:    []string{"service3"},
-			// No port - process check only
 		},
 	}
 
 	processes, _, err := startAllServices(services, true)
-	if err != nil {
-		t.Fatalf("startAllServices in dry-run mode failed: %v", err)
-	}
+	require.NoError(t, err, "startAllServices in dry-run mode should not fail")
 
-	if len(processes) != 3 {
-		t.Errorf("Expected 3 processes, got %d", len(processes))
-	}
-
+	assert.Len(t, processes, 3, "Should have 3 processes")
 	for i, proc := range processes {
-		if !proc.isDryRun() {
-			t.Errorf("Process %d: Expected isDryRun() = true for dry-run, got false", i)
-		}
+		assert.True(t, proc.isDryRun(), "Process %d should be in dry-run mode", i)
 	}
 }
 
 func TestGracefulShutdown(t *testing.T) {
-	// Start a long-running process that responds to SIGTERM
 	svc := config.Service{
 		Name:    "sleep-service",
 		Command: "sleep",
@@ -177,31 +134,18 @@ func TestGracefulShutdown(t *testing.T) {
 	t.Cleanup(func() { cleanupLogs(t, []config.Service{svc}) })
 
 	proc, err := startService(svc, false)
-	if err != nil {
-		t.Fatalf("Failed to start service: %v", err)
-	}
+	require.NoError(t, err, "Failed to start service")
 
-	// Verify process is running
-	if !proc.IsRunning() {
-		t.Fatal("Process should be running")
-	}
+	assert.True(t, proc.IsRunning(), "Process should be running")
 
-	// Stop the process gracefully
 	err = proc.Stop()
-	if err != nil {
-		t.Errorf("Stop failed: %v", err)
-	}
+	require.NoError(t, err, "Stop should not fail")
 
-	// Verify process is no longer running
 	time.Sleep(100 * time.Millisecond)
-	if proc.IsRunning() {
-		t.Error("Process should have stopped")
-	}
+	assert.False(t, proc.IsRunning(), "Process should have stopped")
 }
 
 func TestForceKillAfterTimeout(t *testing.T) {
-	// Start a process that ignores SIGTERM (trap in shell)
-	// This simulates a process that doesn't gracefully shut down
 	svc := config.Service{
 		Name:    "stubborn-service",
 		Command: "sh",
@@ -210,30 +154,18 @@ func TestForceKillAfterTimeout(t *testing.T) {
 	t.Cleanup(func() { cleanupLogs(t, []config.Service{svc}) })
 
 	proc, err := startService(svc, false)
-	if err != nil {
-		t.Fatalf("Failed to start service: %v", err)
-	}
+	require.NoError(t, err, "Failed to start service")
 
-	// Verify process is running
-	if !proc.IsRunning() {
-		t.Fatal("Process should be running")
-	}
+	assert.True(t, proc.IsRunning(), "Process should be running")
 
-	// Stop with a short timeout - should trigger SIGKILL
 	err = proc.StopWithTimeout(500 * time.Millisecond)
-	if err != nil {
-		t.Errorf("StopWithTimeout failed: %v", err)
-	}
+	require.NoError(t, err, "StopWithTimeout should not fail")
 
-	// Verify process was killed
 	time.Sleep(100 * time.Millisecond)
-	if proc.IsRunning() {
-		t.Error("Process should have been killed")
-	}
+	assert.False(t, proc.IsRunning(), "Process should have been killed")
 }
 
 func TestStopAllServicesOrder(t *testing.T) {
-	// Start multiple services
 	services := []config.Service{
 		{Name: "service1", Command: "sleep", Args: []string{"30"}},
 		{Name: "service2", Command: "sleep", Args: []string{"30"}},
@@ -244,35 +176,26 @@ func TestStopAllServicesOrder(t *testing.T) {
 	processes := []*Process{}
 	for _, svc := range services {
 		proc, err := startService(svc, false)
-		if err != nil {
-			t.Fatalf("Failed to start service %s: %v", svc.Name, err)
-		}
+		require.NoError(t, err, "Failed to start service %s", svc.Name)
 		processes = append(processes, proc)
 	}
 
-	// Verify all are running
 	for _, proc := range processes {
-		if !proc.IsRunning() {
-			t.Errorf("Service %s should be running", proc.Name)
-		}
+		assert.True(t, proc.IsRunning(), "Service %s should be running", proc.Name)
 	}
 
-	// Stop all services
 	stopAllServices(processes)
 
-	// Verify all are stopped
 	time.Sleep(200 * time.Millisecond)
 	for _, proc := range processes {
-		if proc.IsRunning() {
-			t.Errorf("Service %s should have stopped", proc.Name)
-		}
+		assert.False(t, proc.IsRunning(), "Service %s should have stopped", proc.Name)
 	}
 }
 
 func TestStopAllServicesEmpty(t *testing.T) {
-	// Should handle empty slice gracefully
-	stopAllServices([]*Process{})
-	// If we get here without panic, test passes
+	assert.NotPanics(t, func() {
+		stopAllServices([]*Process{})
+	}, "stopAllServices should handle empty slice")
 }
 
 func TestManagerStartStop(t *testing.T) {
@@ -284,32 +207,22 @@ func TestManagerStartStop(t *testing.T) {
 	}
 	t.Cleanup(func() { cleanupLogs(t, services) })
 
-	// Start services
 	_, err := mgr.Start(services, false)
-	if err != nil {
-		t.Fatalf("Manager.Start failed: %v", err)
-	}
+	require.NoError(t, err, "Manager.Start should not fail")
 
-	// Verify processes are tracked
 	mgr.mu.Lock()
 	processCount := len(mgr.processes)
 	mgr.mu.Unlock()
 
-	if processCount != 2 {
-		t.Errorf("Expected 2 processes, got %d", processCount)
-	}
+	assert.Equal(t, 2, processCount, "Should have 2 processes")
 
-	// Stop services
 	mgr.Stop()
 
-	// Verify process list is cleared
 	mgr.mu.Lock()
 	processCount = len(mgr.processes)
 	mgr.mu.Unlock()
 
-	if processCount != 0 {
-		t.Errorf("Expected 0 processes after stop, got %d", processCount)
-	}
+	assert.Equal(t, 0, processCount, "Should have 0 processes after stop")
 }
 
 func TestManagerMultipleStops(t *testing.T) {
@@ -320,25 +233,18 @@ func TestManagerMultipleStops(t *testing.T) {
 	}
 	t.Cleanup(func() { cleanupLogs(t, services) })
 
-	// Start service
 	_, err := mgr.Start(services, false)
-	if err != nil {
-		t.Fatalf("Manager.Start failed: %v", err)
-	}
+	require.NoError(t, err, "Manager.Start should not fail")
 
-	// Stop multiple times - should be safe
 	mgr.Stop()
 	mgr.Stop()
 	mgr.Stop()
 
-	// Verify process list is still empty
 	mgr.mu.Lock()
 	processCount := len(mgr.processes)
 	mgr.mu.Unlock()
 
-	if processCount != 0 {
-		t.Errorf("Expected 0 processes after multiple stops, got %d", processCount)
-	}
+	assert.Equal(t, 0, processCount, "Should have 0 processes after multiple stops")
 }
 
 func TestStartServiceDryRunWithWorkDir(t *testing.T) {
@@ -350,13 +256,9 @@ func TestStartServiceDryRunWithWorkDir(t *testing.T) {
 	}
 
 	proc, err := startService(svc, true)
-	if err != nil {
-		t.Fatalf("startService with WorkDir in dry-run mode failed: %v", err)
-	}
+	require.NoError(t, err, "startService with WorkDir in dry-run mode should not fail")
 
-	if !proc.isDryRun() {
-		t.Errorf("Expected isDryRun() = true for dry-run, got false")
-	}
+	assert.True(t, proc.isDryRun(), "isDryRun should be true")
 }
 
 func TestStartServiceWorkDir(t *testing.T) {
@@ -371,14 +273,10 @@ func TestStartServiceWorkDir(t *testing.T) {
 	t.Cleanup(func() { cleanupLogs(t, []config.Service{svc}) })
 
 	proc, err := startService(svc, false)
-	if err != nil {
-		t.Fatalf("startService with WorkDir failed: %v", err)
-	}
+	require.NoError(t, err, "startService with WorkDir should not fail")
 	defer proc.Stop()
 
-	if proc.cmd.Dir != tmpDir {
-		t.Errorf("cmd.Dir = %q, want %q", proc.cmd.Dir, tmpDir)
-	}
+	assert.Equal(t, tmpDir, proc.cmd.Dir, "cmd.Dir should match WorkDir")
 }
 
 func TestRunBeforeDryRunWithWorkDir(t *testing.T) {
@@ -391,27 +289,20 @@ func TestRunBeforeDryRunWithWorkDir(t *testing.T) {
 		},
 	}
 
-	// dry-run should succeed without executing
 	err := RunBefore(cmds, true)
-	if err != nil {
-		t.Errorf("RunBefore with WorkDir in dry-run failed: %v", err)
-	}
+	require.NoError(t, err, "RunBefore with WorkDir in dry-run should not fail")
 }
 
 func TestManagerStopBeforeStart(t *testing.T) {
 	mgr := NewManager()
 
-	// Stop before starting - should be safe
 	mgr.Stop()
 
-	// Verify no panic occurred
 	mgr.mu.Lock()
 	processCount := len(mgr.processes)
 	mgr.mu.Unlock()
 
-	if processCount != 0 {
-		t.Errorf("Expected 0 processes, got %d", processCount)
-	}
+	assert.Equal(t, 0, processCount, "Should have 0 processes")
 }
 
 func TestManagerDryRun(t *testing.T) {
@@ -421,31 +312,22 @@ func TestManagerDryRun(t *testing.T) {
 		{Name: "service1", Command: "echo", Args: []string{"test"}, Port: 8080},
 	}
 
-	// Start in dry-run mode
 	_, err := mgr.Start(services, true)
-	if err != nil {
-		t.Fatalf("Manager.Start in dry-run failed: %v", err)
-	}
+	require.NoError(t, err, "Manager.Start in dry-run should not fail")
 
-	// Verify process is tracked
 	mgr.mu.Lock()
 	processCount := len(mgr.processes)
 	mgr.mu.Unlock()
 
-	if processCount != 1 {
-		t.Errorf("Expected 1 process in dry-run, got %d", processCount)
-	}
+	assert.Equal(t, 1, processCount, "Should have 1 process in dry-run")
 
-	// Stop should work in dry-run too
 	mgr.Stop()
 
 	mgr.mu.Lock()
 	processCount = len(mgr.processes)
 	mgr.mu.Unlock()
 
-	if processCount != 0 {
-		t.Errorf("Expected 0 processes after stop, got %d", processCount)
-	}
+	assert.Equal(t, 0, processCount, "Should have 0 processes after stop")
 }
 
 func TestRunBeforeFailingOptional(t *testing.T) {
@@ -458,9 +340,7 @@ func TestRunBeforeFailingOptional(t *testing.T) {
 	}
 
 	err := RunBefore(cmds, false)
-	if err != nil {
-		t.Errorf("RunBefore with failing optional command should return nil, got: %v", err)
-	}
+	require.NoError(t, err, "RunBefore with failing optional command should return nil")
 }
 
 func TestRunBeforeFailingNonOptional(t *testing.T) {
@@ -473,9 +353,7 @@ func TestRunBeforeFailingNonOptional(t *testing.T) {
 	}
 
 	err := RunBefore(cmds, false)
-	if err == nil {
-		t.Error("RunBefore with failing non-optional command should return error, got nil")
-	}
+	assert.Error(t, err, "RunBefore with failing non-optional command should return error")
 }
 
 func TestRunBeforeSequentialExecution(t *testing.T) {
@@ -498,9 +376,7 @@ func TestRunBeforeSequentialExecution(t *testing.T) {
 	}
 
 	err := RunBefore(cmds, false)
-	if err != nil {
-		t.Errorf("RunBefore with successful commands should return nil, got: %v", err)
-	}
+	require.NoError(t, err, "RunBefore with successful commands should return nil")
 }
 
 func TestRunBeforeWithWorkDir(t *testing.T) {
@@ -516,9 +392,7 @@ func TestRunBeforeWithWorkDir(t *testing.T) {
 	}
 
 	err := RunBefore(cmds, false)
-	if err != nil {
-		t.Errorf("RunBefore with WorkDir failed: %v", err)
-	}
+	require.NoError(t, err, "RunBefore with WorkDir should not fail")
 }
 
 func TestWaitForHealthProcessRunningNoPort(t *testing.T) {
@@ -526,20 +400,16 @@ func TestWaitForHealthProcessRunningNoPort(t *testing.T) {
 		Name:    "health-test",
 		Command: "sleep",
 		Args:    []string{"30"},
-		Port:    0, // No port - process liveness check
+		Port:    0,
 	}
 	t.Cleanup(func() { cleanupLogs(t, []config.Service{svc}) })
 
 	proc, err := startService(svc, false)
-	if err != nil {
-		t.Fatalf("Failed to start service: %v", err)
-	}
+	require.NoError(t, err, "Failed to start service")
 	defer proc.Stop()
 
 	err = WaitForHealth(proc, 5*time.Second, false)
-	if err != nil {
-		t.Errorf("WaitForHealth should return nil when process is running and no port configured, got: %v", err)
-	}
+	require.NoError(t, err, "WaitForHealth should return nil when process is running")
 }
 
 func TestWaitForHealthProcessExitsBeforeCheck(t *testing.T) {
@@ -552,16 +422,12 @@ func TestWaitForHealthProcessExitsBeforeCheck(t *testing.T) {
 	t.Cleanup(func() { cleanupLogs(t, []config.Service{svc}) })
 
 	proc, err := startService(svc, false)
-	if err != nil {
-		t.Fatalf("Failed to start service: %v", err)
-	}
+	require.NoError(t, err, "Failed to start service")
 
 	proc.cmd.Wait()
 
 	err = WaitForHealth(proc, 5*time.Second, false)
-	if err == nil {
-		t.Error("WaitForHealth should return error when process exits before health check passes")
-	}
+	assert.Error(t, err, "WaitForHealth should return error when process exits")
 }
 
 func TestStartAllServicesRollbackOnStartFailure(t *testing.T) {
@@ -572,15 +438,11 @@ func TestStartAllServicesRollbackOnStartFailure(t *testing.T) {
 	t.Cleanup(func() { cleanupLogs(t, services) })
 
 	_, _, err := startAllServices(services, false)
-	if err == nil {
-		t.Fatal("startAllServices should have failed but didn't")
-	}
+	assert.Error(t, err, "startAllServices should fail")
 
 	time.Sleep(600 * time.Millisecond)
 
-	if checkPort(17777) {
-		t.Error("Port 17777 should have been released as part of rollback but it's still in use")
-	}
+	assert.False(t, checkPort(17777), "Port should be released after rollback")
 }
 
 func TestStartAllServicesRollbackOnHealthCheckFailure(t *testing.T) {
@@ -591,16 +453,10 @@ func TestStartAllServicesRollbackOnHealthCheckFailure(t *testing.T) {
 	t.Cleanup(func() { cleanupLogs(t, services) })
 
 	_, _, err := startAllServices(services, false)
-	if err == nil {
-		t.Fatal("startAllServices should have failed health check but didn't")
-	}
+	assert.Error(t, err, "startAllServices should fail health check")
 
 	time.Sleep(600 * time.Millisecond)
 
-	if checkPort(17788) {
-		t.Error("Port 17788 should have been released as part of rollback but it's still in use")
-	}
-	if checkPort(17787) {
-		t.Error("Port 17787 should have been released as part of rollback but it's still in use")
-	}
+	assert.False(t, checkPort(17788), "Port 17788 should be released after rollback")
+	assert.False(t, checkPort(17787), "Port 17787 should be released after rollback")
 }

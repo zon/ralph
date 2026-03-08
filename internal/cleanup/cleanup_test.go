@@ -2,16 +2,14 @@ package cleanup
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestNewManager(t *testing.T) {
 	m := NewManager()
-	if m == nil {
-		t.Fatal("NewManager returned nil")
-	}
-	if m.cleanupFn == nil {
-		t.Error("cleanupFn slice should be initialized")
-	}
+	assert.NotNil(t, m, "NewManager should return non-nil manager")
+	assert.NotNil(t, m.cleanupFn, "cleanupFn slice should be initialized")
 }
 
 func TestRegisterCleanup(t *testing.T) {
@@ -24,15 +22,12 @@ func TestRegisterCleanup(t *testing.T) {
 
 	m.Cleanup()
 
-	if !cleanupCalled {
-		t.Error("Cleanup function should have been called")
-	}
+	assert.True(t, cleanupCalled, "Cleanup function should have been called")
 }
 
 func TestMultipleCleanupFunctions(t *testing.T) {
 	m := NewManager()
 
-	// Track call order
 	var callOrder []int
 	m.RegisterCleanup(func() {
 		callOrder = append(callOrder, 1)
@@ -46,13 +41,8 @@ func TestMultipleCleanupFunctions(t *testing.T) {
 
 	m.Cleanup()
 
-	// Cleanup functions should be called in reverse order
-	if len(callOrder) != 3 {
-		t.Errorf("Expected 3 cleanup calls, got %d", len(callOrder))
-	}
-	if callOrder[0] != 3 || callOrder[1] != 2 || callOrder[2] != 1 {
-		t.Errorf("Expected cleanup order [3, 2, 1], got %v", callOrder)
-	}
+	assert.Len(t, callOrder, 3, "Expected 3 cleanup calls")
+	assert.Equal(t, []int{3, 2, 1}, callOrder, "Cleanup functions should be called in reverse order")
 }
 
 func TestCleanupIdempotent(t *testing.T) {
@@ -63,20 +53,15 @@ func TestCleanupIdempotent(t *testing.T) {
 		cleanupCount++
 	})
 
-	// Call cleanup multiple times
 	m.Cleanup()
 	m.Cleanup()
 	m.Cleanup()
 
-	// Should only be called once (cleanup clears the functions)
-	if cleanupCount != 1 {
-		t.Errorf("Expected cleanup to be called once, got %d", cleanupCount)
-	}
+	assert.Equal(t, 1, cleanupCount, "Cleanup should only be called once")
 }
 
 func TestCleanupEmptyManager(t *testing.T) {
 	m := NewManager()
 
-	// Should not panic when cleaning up empty manager
 	m.Cleanup()
 }

@@ -2,6 +2,8 @@ package notify
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestSuccess(t *testing.T) {
@@ -27,17 +29,11 @@ func TestSuccess(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			defer func() {
-				if r := recover(); r != nil {
-					if !tt.wantPanic {
-						t.Errorf("Success() panicked unexpectedly: %v", r)
-					}
-				}
-			}()
-
-			// Should not panic or return error
-			// NOTE: Tests should never use enabled=true to avoid real desktop notifications
-			Success(tt.projectName, tt.enabled)
+			if tt.wantPanic {
+				assert.Panics(t, func() { Success(tt.projectName, tt.enabled) }, "Success should panic")
+			} else {
+				assert.NotPanics(t, func() { Success(tt.projectName, tt.enabled) }, "Success should not panic")
+			}
 		})
 	}
 }
@@ -65,26 +61,18 @@ func TestError(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			defer func() {
-				if r := recover(); r != nil {
-					if !tt.wantPanic {
-						t.Errorf("Error() panicked unexpectedly: %v", r)
-					}
-				}
-			}()
-
-			// Should not panic or return error
-			// NOTE: Tests should never use enabled=true to avoid real desktop notifications
-			Error(tt.projectName, tt.enabled)
+			if tt.wantPanic {
+				assert.Panics(t, func() { Error(tt.projectName, tt.enabled) }, "Error should panic")
+			} else {
+				assert.NotPanics(t, func() { Error(tt.projectName, tt.enabled) }, "Error should not panic")
+			}
 		})
 	}
 }
 
 func TestNotificationsDisabled(t *testing.T) {
-	// Test that when notifications are disabled, no error occurs
-	// This is important for graceful degradation
-	Success("test-project", false)
-	Error("test-project", false)
-
-	// If we got here without panicking, the test passed
+	assert.NotPanics(t, func() {
+		Success("test-project", false)
+		Error("test-project", false)
+	}, "Should not panic when notifications are disabled")
 }

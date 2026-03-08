@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestRenderInstructions(t *testing.T) {
@@ -55,9 +57,7 @@ func TestRenderInstructions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := renderInstructions(tt.tmplText, tt.repo, tt.branch, tt.body, tt.pr)
-			if result != tt.expectedOutput {
-				t.Errorf("expected %q, got %q", tt.expectedOutput, result)
-			}
+			assert.Equal(t, tt.expectedOutput, result, "renderInstructions should return expected output")
 		})
 	}
 }
@@ -88,9 +88,7 @@ func TestProjectFileFromBranch(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := projectFileFromBranch(tt.branch)
-			if result != tt.expected {
-				t.Errorf("expected %q, got %q", tt.expected, result)
-			}
+			assert.Equal(t, tt.expected, result, "projectFileFromBranch should return expected output")
 		})
 	}
 }

@@ -1,8 +1,10 @@
 package github
 
 import (
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/zon/ralph/internal/testutil"
 )
@@ -25,7 +27,6 @@ func TestIsGHInstalled(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := testutil.NewContext()
-			// Just ensure it doesn't panic
 			_ = IsGHInstalled(ctx)
 		})
 	}
@@ -49,7 +50,6 @@ func TestIsAuthenticated(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := testutil.NewContext()
-			// Just ensure it doesn't panic
 			_ = IsAuthenticated(ctx)
 		})
 	}
@@ -94,17 +94,16 @@ func TestCreatePR(t *testing.T) {
 			ctx := testutil.NewContext()
 			url, err := CreatePR(ctx, tt.title, tt.body, tt.base, tt.head)
 
-			if tt.wantErr && err == nil {
-				t.Error("CreatePR() expected error, got nil")
+			if tt.wantErr {
+				assert.Error(t, err, "CreatePR should return error")
+			} else {
+				require.NoError(t, err, "CreatePR should not return error")
 			}
-			if !tt.wantErr && err != nil {
-				t.Errorf("CreatePR() unexpected error: %v", err)
+			if tt.dryRun {
+				assert.NotEmpty(t, url, "CreatePR in dry-run mode should return URL")
 			}
-			if tt.dryRun && url == "" {
-				t.Error("CreatePR() in dry-run mode should return URL")
-			}
-			if tt.checkDryRun && !strings.Contains(url, tt.wantURL) {
-				t.Errorf("CreatePR() URL = %v, want it to contain %v", url, tt.wantURL)
+			if tt.checkDryRun {
+				assert.Contains(t, url, tt.wantURL, "CreatePR URL should contain dry-run")
 			}
 		})
 	}
@@ -146,9 +145,7 @@ func TestTruncate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := truncate(tt.input, tt.maxLen)
-			if got != tt.want {
-				t.Errorf("truncate() = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.want, got, "truncate should return expected value")
 		})
 	}
 }

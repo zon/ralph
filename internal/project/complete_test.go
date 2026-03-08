@@ -5,13 +5,15 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/zon/ralph/internal/testutil"
 )
 
 func TestFindCompleteProjects(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create test project files
 	tests := []struct {
 		name     string
 		content  string
@@ -94,56 +96,24 @@ requirements:
 		},
 	}
 
-	// Write test files
 	for _, tt := range tests {
 		filePath := filepath.Join(tmpDir, tt.name)
-		if err := os.WriteFile(filePath, []byte(tt.content), 0644); err != nil {
-			t.Fatalf("failed to write test file %s: %v", tt.name, err)
-		}
+		err := os.WriteFile(filePath, []byte(tt.content), 0644)
+		require.NoError(t, err, "failed to write test file %s", tt.name)
 	}
 
-	// Test FindCompleteProjects
 	completeProjects, err := FindCompleteProjects(tmpDir)
-	if err != nil {
-		t.Fatalf("FindCompleteProjects() error = %v", err)
-	}
+	require.NoError(t, err, "FindCompleteProjects should not error")
 
-	// Verify results
 	expectedFiles := []string{
 		filepath.Join(tmpDir, "complete-project.yaml"),
 		filepath.Join(tmpDir, "mixed-yaml-extension.yml"),
 	}
 
-	if len(completeProjects) != len(expectedFiles) {
-		t.Errorf("FindCompleteProjects() returned %d files, want %d", len(completeProjects), len(expectedFiles))
-	}
+	assert.Len(t, completeProjects, len(expectedFiles), "FindCompleteProjects should return correct number of files")
 
-	// Check that all expected files are present
 	for _, expectedFile := range expectedFiles {
-		found := false
-		for _, actualFile := range completeProjects {
-			if actualFile == expectedFile {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Errorf("FindCompleteProjects() missing expected file: %s", expectedFile)
-		}
-	}
-
-	// Check that no unexpected files are present
-	for _, actualFile := range completeProjects {
-		found := false
-		for _, expectedFile := range expectedFiles {
-			if actualFile == expectedFile {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Errorf("FindCompleteProjects() returned unexpected file: %s", actualFile)
-		}
+		assert.Contains(t, completeProjects, expectedFile, "FindCompleteProjects should contain expected file")
 	}
 }
 
@@ -151,20 +121,14 @@ func TestFindCompleteProjects_EmptyDir(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	completeProjects, err := FindCompleteProjects(tmpDir)
-	if err != nil {
-		t.Fatalf("FindCompleteProjects() error = %v", err)
-	}
+	require.NoError(t, err, "FindCompleteProjects should not error")
 
-	if len(completeProjects) != 0 {
-		t.Errorf("FindCompleteProjects() returned %d files, want 0", len(completeProjects))
-	}
+	assert.Empty(t, completeProjects, "FindCompleteProjects should return empty list for empty directory")
 }
 
 func TestFindCompleteProjects_NonExistentDir(t *testing.T) {
 	_, err := FindCompleteProjects("/non/existent/directory")
-	if err == nil {
-		t.Error("FindCompleteProjects() expected error for non-existent directory")
-	}
+	assert.Error(t, err, "FindCompleteProjects should error for non-existent directory")
 }
 
 func TestFindCompleteProjects_RecursiveScanning(t *testing.T) {
@@ -173,15 +137,12 @@ func TestFindCompleteProjects_RecursiveScanning(t *testing.T) {
 	subDir1 := filepath.Join(tmpDir, "sub1")
 	subDir2 := filepath.Join(tmpDir, "sub2")
 	subDir3 := filepath.Join(tmpDir, "sub1", "nested")
-	if err := os.MkdirAll(subDir1, 0755); err != nil {
-		t.Fatalf("failed to create subdirectory: %v", err)
-	}
-	if err := os.MkdirAll(subDir2, 0755); err != nil {
-		t.Fatalf("failed to create subdirectory: %v", err)
-	}
-	if err := os.MkdirAll(subDir3, 0755); err != nil {
-		t.Fatalf("failed to create nested subdirectory: %v", err)
-	}
+	err := os.MkdirAll(subDir1, 0755)
+	require.NoError(t, err, "failed to create subdirectory")
+	err = os.MkdirAll(subDir2, 0755)
+	require.NoError(t, err, "failed to create subdirectory")
+	err = os.MkdirAll(subDir3, 0755)
+	require.NoError(t, err, "failed to create nested subdirectory")
 
 	tests := []struct {
 		name     string
@@ -242,15 +203,12 @@ requirements:
 
 	for _, tt := range tests {
 		filePath := filepath.Join(tt.path, tt.name)
-		if err := os.WriteFile(filePath, []byte(tt.content), 0644); err != nil {
-			t.Fatalf("failed to write test file %s: %v", tt.name, err)
-		}
+		err := os.WriteFile(filePath, []byte(tt.content), 0644)
+		require.NoError(t, err, "failed to write test file %s", tt.name)
 	}
 
 	completeProjects, err := FindCompleteProjects(tmpDir)
-	if err != nil {
-		t.Fatalf("FindCompleteProjects() error = %v", err)
-	}
+	require.NoError(t, err, "FindCompleteProjects should not error")
 
 	expectedFiles := []string{
 		filepath.Join(tmpDir, "complete-project.yaml"),
@@ -259,28 +217,16 @@ requirements:
 		filepath.Join(subDir3, "complete-in-nested.yaml"),
 	}
 
-	if len(completeProjects) != len(expectedFiles) {
-		t.Errorf("FindCompleteProjects() returned %d files, want %d", len(completeProjects), len(expectedFiles))
-	}
+	assert.Len(t, completeProjects, len(expectedFiles), "FindCompleteProjects should return correct number of files")
 
 	for _, expectedFile := range expectedFiles {
-		found := false
-		for _, actualFile := range completeProjects {
-			if actualFile == expectedFile {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Errorf("FindCompleteProjects() missing expected file: %s", expectedFile)
-		}
+		assert.Contains(t, completeProjects, expectedFile, "FindCompleteProjects should contain expected file")
 	}
 }
 
 func TestFindCompleteProjects_InvalidYAML(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create invalid YAML file
 	invalidContent := `name: invalid-project
 description: Invalid YAML
 requirements:
@@ -292,34 +238,25 @@ requirements:
 invalid yaml syntax here`
 
 	filePath := filepath.Join(tmpDir, "invalid.yaml")
-	if err := os.WriteFile(filePath, []byte(invalidContent), 0644); err != nil {
-		t.Fatalf("failed to write invalid test file: %v", err)
-	}
+	err := os.WriteFile(filePath, []byte(invalidContent), 0644)
+	require.NoError(t, err, "failed to write invalid test file")
 
-	// Should skip invalid files and return empty list
 	completeProjects, err := FindCompleteProjects(tmpDir)
-	if err != nil {
-		t.Fatalf("FindCompleteProjects() error = %v", err)
-	}
+	require.NoError(t, err, "FindCompleteProjects should not error")
 
-	if len(completeProjects) != 0 {
-		t.Errorf("FindCompleteProjects() returned %d files for invalid YAML, want 0", len(completeProjects))
-	}
+	assert.Empty(t, completeProjects, "FindCompleteProjects should return empty list for invalid YAML")
 }
 
 func TestRemoveAndCommit_EmptyFiles(t *testing.T) {
 	ctx := testutil.NewContext()
 
 	err := RemoveAndCommit(ctx, []string{})
-	if err != nil {
-		t.Errorf("RemoveAndCommit() with empty files should return nil, got error: %v", err)
-	}
+	require.NoError(t, err, "RemoveAndCommit with empty files should not error")
 }
 
 func TestRemoveAndCommit_DryRun(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create a test file
 	testFile := filepath.Join(tmpDir, "test-project.yaml")
 	content := `name: test-project
 description: Test project
@@ -330,29 +267,21 @@ requirements:
       - Item 1
     passing: true`
 
-	if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
-		t.Fatalf("failed to write test file: %v", err)
-	}
+	err := os.WriteFile(testFile, []byte(content), 0644)
+	require.NoError(t, err, "failed to write test file")
 
 	ctx := testutil.NewContext()
 
-	err := RemoveAndCommit(ctx, []string{testFile})
-	if err != nil {
-		t.Errorf("RemoveAndCommit() in dry-run mode should not error, got: %v", err)
-	}
+	err = RemoveAndCommit(ctx, []string{testFile})
+	require.NoError(t, err, "RemoveAndCommit in dry-run mode should not error")
 
-	// File should still exist in dry-run mode
-	if _, err := os.Stat(testFile); os.IsNotExist(err) {
-		t.Error("RemoveAndCommit() in dry-run mode should not delete files")
-	}
+	_, err = os.Stat(testFile)
+	assert.NoError(t, err, "File should still exist in dry-run mode")
 }
 
 func TestRemoveAndCommit_NonExistentFile(t *testing.T) {
 	ctx := testutil.NewContext(testutil.WithDryRun(false))
 
-	// Try to remove a non-existent file
 	err := RemoveAndCommit(ctx, []string{"/non/existent/file.yaml"})
-	if err == nil {
-		t.Error("RemoveAndCommit() should return error for non-existent file")
-	}
+	assert.Error(t, err, "RemoveAndCommit should return error for non-existent file")
 }
