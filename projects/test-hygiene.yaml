@@ -7,20 +7,20 @@ requirements:
     items:
       - All 14 tests in internal/config/config_test.go that use os.MkdirTemp + defer os.RemoveAll are migrated to t.TempDir()
       - No test file in the project uses os.MkdirTemp; t.TempDir() is used everywhere
-    passing: false
+    passing: true
 
   - category: environment
     description: Tests use t.Setenv() instead of os.Setenv
     items:
       - internal/cmd/merge_test.go uses t.Setenv instead of os.Setenv for PATH manipulation
       - No test file in the project uses os.Setenv without cleanup; t.Setenv is used everywhere
-    passing: false
+    passing: true
 
   - category: global state
     description: Tests do not mutate shared global state
     items:
       - internal/github/app_test.go uses a local http.Client with a custom transport instead of mutating http.DefaultTransport
-    passing: false
+    passing: true
 
   - category: chdir
     description: Tests use t.Chdir() instead of os.Chdir with defer
@@ -39,13 +39,13 @@ requirements:
     description: Duplicate test helpers are consolidated
     items:
       - The contains helper function duplicated across 3 test files is extracted to internal/testutil and imported from there
-    passing: false
+    passing: true
 
   - category: consistency
     description: Tests use testutil.NewContext() consistently
     items:
       - internal/project/complete_test.go uses testutil.NewContext() instead of constructing context.Context directly
-    passing: false
+    passing: true
 
   - category: version
     description: Version patch bump
@@ -53,4 +53,4 @@ requirements:
       - internal/version/VERSION is incremented by one patch version
       - charts/ralph-webhook/Chart.yaml appVersion matches the new VERSION value
       - charts/ralph-webhook/Chart.yaml version is incremented by one patch version
-    passing: false
+    passing: true
