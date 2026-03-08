@@ -17,13 +17,7 @@ import (
 
 // RunAgent executes an AI agent with the given prompt using OpenCode CLI
 // OpenCode manages its own configuration for API keys and models
-// In dry-run mode, it logs what would be executed without actually calling OpenCode
 func RunAgent(ctx *context.Context, prompt string) error {
-	if ctx.IsDryRun() {
-		logger.Verbose(prompt)
-		return nil
-	}
-
 	if ctx.IsVerbose() {
 		logger.Verbose(prompt)
 	}
@@ -50,11 +44,6 @@ func RunAgent(ctx *context.Context, prompt string) error {
 // concise commit-message-style changelog entry to report.md.  It is called when an
 // iteration leaves uncommitted changes but the agent did not produce report.md itself.
 func GenerateChangelog(ctx *context.Context) error {
-	if ctx.IsDryRun() {
-		logger.Info("[DRY-RUN] Would generate changelog via opencode")
-		return nil
-	}
-
 	ralphConfig, err := config.LoadConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
@@ -103,11 +92,6 @@ func buildChangelogPrompt() string {
 // It includes project description, status, commits, and diff
 // This matches ralph.sh's approach: agent writes to a file, we read it back
 func GeneratePRSummary(ctx *context.Context, projectFile string, iterations int) (string, error) {
-	if ctx.IsDryRun() {
-		logger.Info("[DRY-RUN] Would generate PR summary")
-		return "dry-run-pr-summary", nil
-	}
-
 	// Load project file
 	project, err := config.LoadProject(projectFile)
 	if err != nil {

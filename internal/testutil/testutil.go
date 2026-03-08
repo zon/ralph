@@ -24,7 +24,6 @@ func Contains(s, substr string) bool {
 // Use options to customize specific fields as needed.
 func NewContext(opts ...ContextOption) *context.Context {
 	ctx := &context.Context{}
-	ctx.SetDryRun(true)
 	ctx.SetNoNotify(true)
 	ctx.SetLocal(true)
 	ctx.SetMaxIterations(10)
@@ -50,13 +49,6 @@ func WithProjectFile(path string) ContextOption {
 func WithMaxIterations(max int) ContextOption {
 	return func(ctx *context.Context) {
 		ctx.SetMaxIterations(max)
-	}
-}
-
-// WithDryRun sets the dry-run flag
-func WithDryRun(dryRun bool) ContextOption {
-	return func(ctx *context.Context) {
-		ctx.SetDryRun(dryRun)
 	}
 }
 
@@ -169,7 +161,6 @@ func NewE2EContext(t *testing.T, opts ...ContextOption) (*context.Context, *E2EC
 	ctx.SetRepo(cfg.Repo)
 	ctx.SetBranch(cfg.Branch)
 	ctx.SetDebugBranch(cfg.DebugBranch)
-	ctx.SetDryRun(false)
 	ctx.SetLocal(false)
 	ctx.SetVerbose(true)
 	ctx.SetNoNotify(true)

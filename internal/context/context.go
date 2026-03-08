@@ -9,7 +9,6 @@ import (
 type Context struct {
 	projectFile    string
 	maxIterations  int
-	dryRun         bool
 	verbose        bool
 	noNotify       bool
 	noServices     bool
@@ -21,11 +20,6 @@ type Context struct {
 	repo           string   // owner/repo override (e.g., "zon/ralph"); skips local git remote detection
 	branch         string   // Branch override; skips local git GetCurrentBranch + sync check
 	debugBranch    string   // When set, workflows checkout this ralph repo branch and invoke ralph via `go run`
-}
-
-// IsDryRun returns true if running in dry-run mode
-func (c *Context) IsDryRun() bool {
-	return c.dryRun
 }
 
 // IsVerbose returns true if verbose logging is enabled
@@ -88,10 +82,6 @@ func (c *Context) AddNote(note string) {
 // HasNotes returns true if there are any notes
 func (c *Context) HasNotes() bool {
 	return len(c.notes) > 0
-}
-
-func (c *Context) SetDryRun(dryRun bool) {
-	c.dryRun = dryRun
 }
 
 func (c *Context) SetVerbose(verbose bool) {

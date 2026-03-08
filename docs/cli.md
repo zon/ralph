@@ -32,7 +32,6 @@ For each requirement:
 
 | Flag | Description |
 |------|-------------|
-| `--dry-run` | Preview actions without executing |
 | `--once` | Run one iteration without branching or PR |
 | `--local` | Run on this machine instead of submitting remotely |
 | `--watch` | Submit remotely and monitor progress |

@@ -17,7 +17,7 @@ import (
 
 // RunBefore executes commands sequentially before starting services
 // Commands are run with connected output and expected to exit
-func RunBefore(cmds []config.Before, dryRun bool) error {
+func RunBefore(cmds []config.Before) error {
 	if len(cmds) == 0 {
 		return nil
 	}
@@ -27,27 +27,18 @@ func RunBefore(cmds []config.Before, dryRun bool) error {
 	for _, cmd := range cmds {
 		cmdStr := fmt.Sprintf("%s %s", cmd.Command, strings.Join(cmd.Args, " "))
 
-		if dryRun {
-			logger.Infof("Would run before: %s with command: %s", cmd.Name, cmdStr)
-			continue
-		}
-
 		logger.Infof("Running before: %s", cmd.Name)
 		logger.Verbosef("Command: %s", cmdStr)
 
-		// Create the command
 		c := exec.Command(cmd.Command, cmd.Args...)
 
-		// Set working directory if specified
 		if cmd.WorkDir != "" {
 			c.Dir = cmd.WorkDir
 		}
 
-		// Connect stdout/stderr to show output
 		c.Stdout = os.Stdout
 		c.Stderr = os.Stderr
 
-		// Run the command and wait for it to complete
 		if err := c.Run(); err != nil {
 			if cmd.Optional {
 				logger.Warningf("Optional before %s failed: %v", cmd.Name, err)
@@ -87,17 +78,15 @@ func NewManager() *Manager {
 
 // Start starts all configured services and tracks them.
 // On failure, it returns the failing service alongside the error.
-func (m *Manager) Start(services []config.Service, dryRun bool) (config.Service, error) {
+func (m *Manager) Start(services []config.Service) (config.Service, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	// Start all services
-	processes, failedSvc, err := startAllServices(services, dryRun)
+	processes, failedSvc, err := startAllServices(services)
 	if err != nil {
 		return failedSvc, err
 	}
 
-	// Track the started processes
 	m.processes = processes
 	return config.Service{}, nil
 }
@@ -121,24 +110,9 @@ func (m *Manager) Stop() {
 }
 
 // startService starts a service and returns a Process handle
-// In dry-run mode, it logs what would be done without executing
-func startService(svc config.Service, dryRun bool) (*Process, error) {
+func startService(svc config.Service) (*Process, error) {
 	cmdStr := fmt.Sprintf("%s %s", svc.Command, joinArgs(svc.Args))
-
-	if dryRun {
-		return handleDryRun(svc, cmdStr), nil
-	}
-
 	return createAndStartProcess(svc, cmdStr)
-}
-
-func handleDryRun(svc config.Service, cmdStr string) *Process {
-	logger.Infof("Would start service: %s with command: %s", svc.Name, cmdStr)
-	return &Process{
-		Name:    svc.Name,
-		service: svc,
-		pid:     -1,
-	}
 }
 
 func createAndStartProcess(svc config.Service, cmdStr string) (*Process, error) {
@@ -193,24 +167,15 @@ func (p *Process) Stop() error {
 // StopWithTimeout gracefully stops a service process with a custom timeout
 // It sends SIGTERM, waits up to timeout for graceful shutdown, then sends SIGKILL if still running
 func (p *Process) StopWithTimeout(timeout time.Duration) error {
-	if p.pid == -1 {
-		// Dry-run sentinel - nothing to stop
-		logger.Infof("Would stop service: %s", p.Name)
-		return nil
-	}
-
 	if p.cmd == nil || p.cmd.Process == nil {
 		return fmt.Errorf("no process to stop for service: %s", p.Name)
 	}
 
-	// Send SIGTERM for graceful shutdown
 	if err := p.cmd.Process.Signal(syscall.SIGTERM); err != nil {
-		// Process may have already exited
 		logger.Warningf("Failed to send SIGTERM to %s: %v", p.Name, err)
-		return nil // Not necessarily an error if process already exited
+		return nil
 	}
 
-	// Wait for process to exit with timeout
 	done := make(chan error, 1)
 	go func() {
 		done <- p.cmd.Wait()
@@ -218,17 +183,14 @@ func (p *Process) StopWithTimeout(timeout time.Duration) error {
 
 	select {
 	case <-done:
-		// Process exited gracefully
 		logger.Infof("Service %s stopped", p.Name)
 		return nil
 	case <-time.After(timeout):
-		// Timeout reached, force kill
 		logger.Warningf("Service %s did not stop gracefully, sending SIGKILL", p.Name)
 		if err := p.cmd.Process.Kill(); err != nil {
 			logger.Errorf("Failed to kill service %s: %v", p.Name, err)
 			return fmt.Errorf("failed to kill service %s: %w", p.Name, err)
 		}
-		// Wait for kill to complete
 		<-done
 		logger.Infof("Service %s stopped", p.Name)
 		return nil
@@ -237,23 +199,12 @@ func (p *Process) StopWithTimeout(timeout time.Duration) error {
 
 // IsRunning checks if the process is still running
 func (p *Process) IsRunning() bool {
-	if p.pid == -1 {
-		// Dry-run sentinel
-		return false
-	}
-
 	if p.cmd == nil || p.cmd.Process == nil {
 		return false
 	}
 
-	// Check if process still exists
 	err := p.cmd.Process.Signal(syscall.Signal(0))
 	return err == nil
-}
-
-// isDryRun returns true if this is a dry-run process sentinel
-func (p *Process) isDryRun() bool {
-	return p.pid == -1
 }
 
 // joinArgs joins command arguments into a string for display
@@ -328,32 +279,26 @@ func LogFileName(serviceName string) string {
 
 // startAllServices starts all services and waits for them to become healthy
 // Returns a slice of started processes and any error encountered
-func startAllServices(services []config.Service, dryRun bool) ([]*Process, config.Service, error) {
+func startAllServices(services []config.Service) ([]*Process, config.Service, error) {
 	processes := []*Process{}
 
 	for _, svc := range services {
-		// Start the service
-		proc, err := startService(svc, dryRun)
+		proc, err := startService(svc)
 		if err != nil {
-			// If a service fails to start, stop all previously started services
 			stopAllServices(processes)
 			return nil, svc, fmt.Errorf("failed to start service %s: %w", svc.Name, err)
 		}
 		processes = append(processes, proc)
 
-		// Use service-specific timeout (default applied by config package)
 		timeout := time.Duration(svc.Timeout) * time.Second
 
-		// Wait for health check
-		if err := WaitForHealth(proc, timeout, dryRun); err != nil {
-			// Log any output the service produced before stopping everything
+		if err := WaitForHealth(proc, timeout); err != nil {
 			logServiceOutput(proc)
 			cleanupOutput(proc)
 			stopAllServices(processes)
 			return nil, svc, fmt.Errorf("health check failed for service %s: %w", svc.Name, err)
 		}
 
-		// Service is healthy — close the file handle; the log file stays on disk for the agent
 		closeLogFile(proc)
 		logger.Infof("Service %s is ready", svc.Name)
 	}
@@ -435,22 +380,11 @@ func waitForPortRelease(port int, timeout time.Duration) error {
 // WaitForHealth waits for a service to become healthy
 // For services with ports, it checks port availability
 // For services without ports, it just verifies the process is running
-func WaitForHealth(p *Process, timeout time.Duration, dryRun bool) error {
-	if dryRun {
-		if p.service.Port > 0 {
-			logger.Infof("Would wait for port %d (service: %s)", p.service.Port, p.Name)
-		} else {
-			logger.Infof("Would verify process is running (service: %s)", p.Name)
-		}
-		return nil
-	}
-
-	// If service has a port, wait for it
+func WaitForHealth(p *Process, timeout time.Duration) error {
 	if p.service.Port > 0 {
 		return waitForPort(p.service.Port, timeout)
 	}
 
-	// For services without ports, just verify the process is still running
 	if !p.IsRunning() {
 		return fmt.Errorf("service %s is not running", p.Name)
 	}

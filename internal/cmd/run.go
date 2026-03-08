@@ -19,7 +19,6 @@ type RunCmd struct {
 	ProjectFile   string `arg:"" optional:"" help:"Path to project YAML file"`
 	Once          bool   `help:"Single development iteration mode" default:"false"`
 	MaxIterations int    `help:"Maximum number of development iterations (not applicable with --once)" default:"0"`
-	DryRun        bool   `help:"Simulate execution without making changes" default:"false"`
 	NoNotify      bool   `help:"Disable desktop notifications" default:"false"`
 	NoServices    bool   `help:"Skip service startup" default:"false"`
 	Verbose       bool   `help:"Enable verbose logging" default:"false"`
@@ -135,7 +134,6 @@ func (r *RunCmd) createExecutionContext(maxIterations int) *execcontext.Context 
 	ctx := &execcontext.Context{}
 	ctx.SetProjectFile(r.ProjectFile)
 	ctx.SetMaxIterations(maxIterations)
-	ctx.SetDryRun(r.DryRun)
 	ctx.SetVerbose(r.Verbose)
 	ctx.SetNoNotify(r.NoNotify)
 	ctx.SetNoServices(r.NoServices)
@@ -148,10 +146,10 @@ func (r *RunCmd) createExecutionContext(maxIterations int) *execcontext.Context 
 func (r *RunCmd) executeOnceMode(ctx *execcontext.Context) error {
 	projectName := strings.TrimSuffix(filepath.Base(ctx.ProjectFile()), filepath.Ext(ctx.ProjectFile()))
 	if err := requirement.Execute(ctx, r.cleanupRegistrar); err != nil {
-		notify.Error(projectName, ctx.ShouldNotify() && !ctx.IsDryRun())
+		notify.Error(projectName, ctx.ShouldNotify())
 		return err
 	}
 
-	notify.Success(projectName, ctx.ShouldNotify() && !ctx.IsDryRun())
+	notify.Success(projectName, ctx.ShouldNotify())
 	return nil
 }

@@ -7,31 +7,31 @@ requirements:
     items:
       - The --dry-run flag is removed from the run command
       - The CLI documentation no longer references --dry-run
-    passing: false
+    passing: true
 
   - category: context
     description: Remove dry run state from context
     items:
       - The dryRun field, IsDryRun(), and SetDryRun() are removed from the Context type
-    passing: false
+    passing: true
 
   - category: ai
     description: Remove dry run guards from AI functions
     items:
       - RunAgent(), GenerateChangelog(), and GeneratePRSummary() no longer short-circuit based on dry run
-    passing: false
+    passing: true
 
   - category: git
     description: Remove dry run guards from git functions
     items:
       - All dry run stub returns are removed from git functions
-    passing: false
+    passing: true
 
   - category: github
     description: Remove dry run guards from GitHub functions
     items:
       - IsGHReady(), IsAuthenticated(), and CreatePR() no longer return stubs based on dry run
-    passing: false
+    passing: true
 
   - category: services
     description: Remove dry run from service management
@@ -39,7 +39,7 @@ requirements:
       - The dryRun parameter is removed from RunBefore() and Manager.Start()
       - The sentinel process (pid -1) and handleDryRun() are removed
       - WaitForHealth() no longer has a dry run short-circuit
-    passing: false
+    passing: true
 
   - category: execution
     description: Remove dry run from project and requirement execution
@@ -62,7 +62,7 @@ requirements:
       - WithDryRun() option is removed from testutil
       - All _DryRun test functions are removed
       - Tests that relied on dry run stubs are updated to use real implementations or mocks
-    passing: false
+    passing: true
 
   - category: version
     description: Version bump
