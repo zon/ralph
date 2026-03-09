@@ -441,3 +441,59 @@ func TestMaxIterationsFlagParsing(t *testing.T) {
 		})
 	}
 }
+
+func TestBaseFlagParsing(t *testing.T) {
+	tests := []struct {
+		name         string
+		args         []string
+		expectedBase string
+	}{
+		{
+			name:         "default value is empty when not provided",
+			args:         []string{"run", "test.yaml"},
+			expectedBase: "",
+		},
+		{
+			name:         "explicit --base value is parsed correctly",
+			args:         []string{"run", "--base", "develop", "test.yaml"},
+			expectedBase: "develop",
+		},
+		{
+			name:         "explicit -B short form is parsed correctly",
+			args:         []string{"run", "-B", "main", "test.yaml"},
+			expectedBase: "main",
+		},
+		{
+			name:         "default command with explicit --base value",
+			args:         []string{"--base", "feature-branch", "test.yaml"},
+			expectedBase: "feature-branch",
+		},
+		{
+			name:         "default command with explicit -B value",
+			args:         []string{"-B", "release-branch", "test.yaml"},
+			expectedBase: "release-branch",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := &Cmd{}
+			parser, err := kong.New(cmd,
+				kong.Name("ralph"),
+				kong.Exit(func(int) {}),
+			)
+			if err != nil {
+				t.Fatalf("failed to create parser: %v", err)
+			}
+
+			_, err = parser.Parse(tt.args)
+			if err != nil {
+				t.Fatalf("failed to parse args: %v", err)
+			}
+
+			if cmd.Run.Base != tt.expectedBase {
+				t.Errorf("expected Base=%q, got %q", tt.expectedBase, cmd.Run.Base)
+			}
+		})
+	}
+}

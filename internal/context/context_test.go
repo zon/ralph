@@ -177,3 +177,48 @@ func TestHasNotes(t *testing.T) {
 		})
 	}
 }
+
+func TestBaseBranch(t *testing.T) {
+	tests := []struct {
+		name          string
+		baseBranch    string
+		expectDefault bool
+	}{
+		{
+			name:          "default empty base branch",
+			baseBranch:    "",
+			expectDefault: true,
+		},
+		{
+			name:          "custom base branch",
+			baseBranch:    "develop",
+			expectDefault: false,
+		},
+		{
+			name:          "main branch",
+			baseBranch:    "main",
+			expectDefault: false,
+		},
+		{
+			name:          "feature branch",
+			baseBranch:    "feature/my-feature",
+			expectDefault: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := &Context{}
+			ctx.SetBaseBranch(tt.baseBranch)
+
+			result := ctx.BaseBranch()
+			assert.Equal(t, tt.baseBranch, result, "BaseBranch should match the set value")
+
+			if tt.expectDefault {
+				assert.Empty(t, result, "Default base branch should be empty")
+			} else {
+				assert.NotEmpty(t, result, "Custom base branch should not be empty")
+			}
+		})
+	}
+}

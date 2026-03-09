@@ -66,6 +66,9 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	}
 
 	baseBranch := ralphConfig.BaseBranch
+	if ctx.BaseBranch() != "" {
+		baseBranch = ctx.BaseBranch()
+	}
 
 	// Run before commands before starting iteration loop
 	if len(ralphConfig.Before) > 0 {
