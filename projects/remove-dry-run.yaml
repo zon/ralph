@@ -3,11 +3,15 @@ description: Remove the dry run feature
 
 requirements:
   - category: cli
-    description: Remove --dry-run flag
+    description: Remove --dry-run flag from all commands
     items:
       - The --dry-run flag is removed from the run command
-      - The CLI documentation no longer references --dry-run
-    passing: true
+      - The DryRun field and --dry-run flag are removed from MergeCmd in internal/cmd/merge.go
+      - Dry run guards are removed from Run(), runLocal(), and scanAndCleanupProjects() in internal/cmd/merge.go
+      - The DryRun field and --dry-run flag are removed from ConfigWebhookConfigCmd and ConfigWebhookSecretCmd in internal/cmd/config_webhook.go
+      - Dry run guards are removed from the write configmap and write secret paths in internal/cmd/config_webhook.go
+      - The CLI documentation no longer references --dry-run for any command
+    passing: false
 
   - category: context
     description: Remove dry run state from context
@@ -60,9 +64,13 @@ requirements:
     items:
       - NewContext() in testutil no longer sets dry run to true by default
       - WithDryRun() option is removed from testutil
-      - All _DryRun test functions are removed
+      - Test functions that test dry run behavior (TestMergeCmdRunLocalDryRun*) are removed
+      - Test functions that are valid but misnamed (TestExecute_DryRun, TestGenerateChangelogIfNeeded_DryRun, TestBuildDevelopPrompt_DryRun) are renamed to reflect what they actually test
       - Tests that relied on dry run stubs are updated to use real implementations or mocks
-    passing: true
+      - Stale "dry-run" references in comments and test function names are removed from internal/requirement/execute_test.go, internal/project/iteration_test.go, and internal/prompt/prompt_test.go
+      - The doc comment in internal/testutil/testutil.go no longer references a DryRun field
+      - The log message in internal/requirement/execute.go no longer references "dry-run"
+    passing: false
 
   - category: version
     description: Version bump
