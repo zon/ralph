@@ -254,33 +254,8 @@ func TestRemoveAndCommit_EmptyFiles(t *testing.T) {
 	require.NoError(t, err, "RemoveAndCommit with empty files should not error")
 }
 
-func TestRemoveAndCommit_DryRun(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	testFile := filepath.Join(tmpDir, "test-project.yaml")
-	content := `name: test-project
-description: Test project
-requirements:
-  - category: backend
-    description: Feature 1
-    items:
-      - Item 1
-    passing: true`
-
-	err := os.WriteFile(testFile, []byte(content), 0644)
-	require.NoError(t, err, "failed to write test file")
-
-	ctx := testutil.NewContext()
-
-	err = RemoveAndCommit(ctx, []string{testFile})
-	require.NoError(t, err, "RemoveAndCommit in dry-run mode should not error")
-
-	_, err = os.Stat(testFile)
-	assert.NoError(t, err, "File should still exist in dry-run mode")
-}
-
 func TestRemoveAndCommit_NonExistentFile(t *testing.T) {
-	ctx := testutil.NewContext(testutil.WithDryRun(false))
+	ctx := testutil.NewContext()
 
 	err := RemoveAndCommit(ctx, []string{"/non/existent/file.yaml"})
 	assert.Error(t, err, "RemoveAndCommit should return error for non-existent file")

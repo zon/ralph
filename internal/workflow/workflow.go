@@ -30,8 +30,6 @@ type Workflow struct {
 	CommentBody string
 	// PRNumber is the pull request number, used with CommentBody for ralph comment invocations.
 	PRNumber string
-	// DryRun controls whether the ralph command inside the container runs with --dry-run.
-	DryRun bool
 	// Verbose controls whether the ralph command inside the container runs with --verbose.
 	Verbose bool
 	// DebugBranch, when non-empty, causes the workflow to checkout that branch of the ralph repo
@@ -101,9 +99,9 @@ func (w *Workflow) Submit(namespace string) (string, error) {
 // buildScript returns the appropriate shell script for this workflow type.
 func (w *Workflow) buildScript() string {
 	if w.CommentBody != "" {
-		return buildCommentScript(w.DryRun, w.Verbose)
+		return buildCommentScript(w.Verbose)
 	}
-	return buildRunScript(w.DryRun, w.Verbose, w.DebugBranch, w.RalphConfig)
+	return buildRunScript(w.Verbose, w.DebugBranch, w.RalphConfig)
 }
 
 func (w *Workflow) buildMainTemplate() map[string]interface{} {

@@ -70,11 +70,11 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		return err
 	}
 
-	// Skip the AI pick/develop phases in dry-run mode or when running locally
-	// outside of a workflow container. Inside a workflow container the process
-	// is already isolated (RALPH_WORKFLOW_EXECUTION=true), so the AI should run
-	// even when --local was passed to bypass branch-sync checks.
-	skipAI := ctx.IsDryRun() || (ctx.IsLocal() && !ctx.IsWorkflowExecution())
+	// Skip the AI pick/develop phases when running locally outside of a workflow
+	// container. Inside a workflow container the process is already isolated
+	// (RALPH_WORKFLOW_EXECUTION=true), so the AI should run even when --local
+	// was passed to bypass branch-sync checks.
+	skipAI := ctx.IsLocal() && !ctx.IsWorkflowExecution()
 	if skipAI {
 		logger.Verbose("Skipping pick and develop phases in dry-run/local mode")
 	} else {

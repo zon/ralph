@@ -11,33 +11,18 @@ import (
 func TestBuildRunScript(t *testing.T) {
 	tests := []struct {
 		name            string
-		dryRun          bool
 		verbose         bool
 		expectedCommand string
 	}{
 		{
 			name:            "no flags",
-			dryRun:          false,
 			verbose:         false,
 			expectedCommand: `ralph_run "$PROJECT_PATH" --local --no-notify`,
 		},
 		{
-			name:            "dry-run only",
-			dryRun:          true,
-			verbose:         false,
-			expectedCommand: `ralph_run "$PROJECT_PATH" --local --dry-run --no-notify`,
-		},
-		{
-			name:            "verbose only",
-			dryRun:          false,
+			name:            "verbose",
 			verbose:         true,
 			expectedCommand: `ralph_run "$PROJECT_PATH" --local --verbose --no-notify`,
-		},
-		{
-			name:            "both flags",
-			dryRun:          true,
-			verbose:         true,
-			expectedCommand: `ralph_run "$PROJECT_PATH" --local --dry-run --verbose --no-notify`,
 		},
 	}
 
@@ -46,7 +31,7 @@ func TestBuildRunScript(t *testing.T) {
 			cfg := &config.RalphConfig{
 				Workflow: config.WorkflowConfig{},
 			}
-			script := buildRunScript(tt.dryRun, tt.verbose, "", cfg)
+			script := buildRunScript(tt.verbose, "", cfg)
 
 			expectedElements := []string{
 				"#!/bin/sh",
@@ -74,7 +59,7 @@ func TestBuildRunScript_DebugBranch(t *testing.T) {
 	cfg := &config.RalphConfig{
 		Workflow: config.WorkflowConfig{},
 	}
-	script := buildRunScript(false, false, "my-debug-branch", cfg)
+	script := buildRunScript(false, "my-debug-branch", cfg)
 
 	expectedElements := []string{
 		"git clone -b \"my-debug-branch\" https://github.com/zon/ralph.git /workspace/ralph",
@@ -92,27 +77,24 @@ func TestBuildRunScript_DebugBranch(t *testing.T) {
 func TestBuildCommentScript(t *testing.T) {
 	tests := []struct {
 		name            string
-		dryRun          bool
 		verbose         bool
 		expectedCommand string
 	}{
 		{
 			name:            "no flags",
-			dryRun:          false,
 			verbose:         false,
 			expectedCommand: `ralph comment "$COMMENT_BODY" --repo "$GITHUB_REPO_OWNER/$GITHUB_REPO_NAME" --branch "$PROJECT_BRANCH" --pr "$PR_NUMBER" --no-notify`,
 		},
 		{
-			name:            "dry-run",
-			dryRun:          true,
-			verbose:         false,
-			expectedCommand: `ralph comment "$COMMENT_BODY" --repo "$GITHUB_REPO_OWNER/$GITHUB_REPO_NAME" --branch "$PROJECT_BRANCH" --pr "$PR_NUMBER" --dry-run --no-notify`,
+			name:            "verbose",
+			verbose:         true,
+			expectedCommand: `ralph comment "$COMMENT_BODY" --repo "$GITHUB_REPO_OWNER/$GITHUB_REPO_NAME" --branch "$PROJECT_BRANCH" --pr "$PR_NUMBER" --verbose --no-notify`,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			script := buildCommentScript(tt.dryRun, tt.verbose)
+			script := buildCommentScript(tt.verbose)
 
 			expectedElements := []string{
 				"#!/bin/sh",

@@ -43,7 +43,7 @@ if [ "$PROJECT_BRANCH" != "$GIT_BRANCH" ]; then
 fi
 
 echo "Running ralph..."
-ralph_run "$PROJECT_PATH" --local{{.DryRunFlag}}{{.VerboseFlag}} --no-notify
+ralph_run "$PROJECT_PATH" --local{{.VerboseFlag}} --no-notify
 
 opencode stats
 
