@@ -37,6 +37,8 @@ type Workflow struct {
 	DebugBranch string
 	// RalphConfig supplies workflow-level configuration (image overrides, secrets, configmaps, env).
 	RalphConfig *config.RalphConfig
+	// BaseBranch overrides the base branch for PR creation (overrides RalphConfig.BaseBranch when set).
+	BaseBranch string
 }
 
 // Render produces the Argo Workflow YAML string for this Workflow.
@@ -120,6 +122,11 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 }
 
 func (w *Workflow) buildEnvVars() []map[string]interface{} {
+	baseBranch := w.BaseBranch
+	if baseBranch == "" {
+		baseBranch = w.RalphConfig.BaseBranch
+	}
+
 	envVars := []map[string]interface{}{
 		{"name": "GIT_REPO_URL", "value": w.RepoURL},
 		{"name": "GITHUB_REPO_OWNER", "value": w.RepoOwner},
@@ -131,7 +138,7 @@ func (w *Workflow) buildEnvVars() []map[string]interface{} {
 		{"name": "COMMENT_BODY", "value": "{{workflow.parameters.comment-body}}"},
 		{"name": "PR_NUMBER", "value": "{{workflow.parameters.pr-number}}"},
 		{"name": "RALPH_WORKFLOW_EXECUTION", "value": "true"},
-		{"name": "BASE_BRANCH", "value": w.RalphConfig.BaseBranch},
+		{"name": "BASE_BRANCH", "value": baseBranch},
 	}
 
 	for key, value := range w.RalphConfig.Workflow.Env {

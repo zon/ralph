@@ -20,6 +20,7 @@ type Context struct {
 	repo           string   // owner/repo override (e.g., "zon/ralph"); skips local git remote detection
 	branch         string   // Branch override; skips local git GetCurrentBranch + sync check
 	debugBranch    string   // When set, workflows checkout this ralph repo branch and invoke ralph via `go run`
+	baseBranch     string   // Base branch override; overrides baseBranch from .ralph/config.yaml for PR creation
 }
 
 // IsVerbose returns true if verbose logging is enabled
@@ -132,6 +133,10 @@ func (c *Context) SetDebugBranch(debugBranch string) {
 	c.debugBranch = debugBranch
 }
 
+func (c *Context) SetBaseBranch(baseBranch string) {
+	c.baseBranch = baseBranch
+}
+
 func (c *Context) Repo() string {
 	return c.repo
 }
@@ -142,6 +147,10 @@ func (c *Context) Branch() string {
 
 func (c *Context) DebugBranch() string {
 	return c.debugBranch
+}
+
+func (c *Context) BaseBranch() string {
+	return c.baseBranch
 }
 
 func (c *Context) ProjectFile() string {
