@@ -20,7 +20,6 @@ import (
 // MergeCmd is the command for merging a completed PR
 type MergeCmd struct {
 	Branch  string `arg:"" help:"PR branch name to merge"`
-	DryRun  bool   `help:"Simulate execution without making changes" default:"false"`
 	Verbose bool   `help:"Enable verbose logging" default:"false"`
 	Local   bool   `help:"Run merge locally instead of submitting an Argo workflow" default:"false"`
 	PR      string `help:"Pull request number" required:""`
@@ -44,15 +43,6 @@ func (m *MergeCmd) Run() error {
 		return fmt.Errorf("failed to generate merge workflow: %w", err)
 	}
 
-	if m.DryRun {
-		logger.Infof("Dry run: would submit merge workflow for branch %s", m.Branch)
-		if m.Verbose {
-			workflowYAML, _ := mw.Render()
-			fmt.Println(workflowYAML)
-		}
-		return nil
-	}
-
 	// Submit the workflow (does not wait for completion)
 	workflowName, err := mw.Submit(mw.RalphConfig.Workflow.Namespace)
 	if err != nil {
@@ -65,11 +55,6 @@ func (m *MergeCmd) Run() error {
 
 // runLocal merges the PR locally using the gh CLI
 func (m *MergeCmd) runLocal() error {
-	if m.DryRun {
-		logger.Infof("Dry run: would merge PR #%s and delete branch %s", m.PR, m.Branch)
-		return nil
-	}
-
 	ctx := m.createExecutionContext()
 
 	if err := m.scanAndCleanupProjects(ctx); err != nil {
@@ -123,10 +108,8 @@ func (m *MergeCmd) scanAndCleanupProjects(ctx *context.Context) error {
 		return fmt.Errorf("failed to push after removing complete projects: %w", err)
 	}
 
-	if !m.DryRun {
-		if err := waitForGitHubHead(m.PR); err != nil {
-			return fmt.Errorf("failed waiting for GitHub to sync push: %w", err)
-		}
+	if err := waitForGitHubHead(m.PR); err != nil {
+		return fmt.Errorf("failed waiting for GitHub to sync push: %w", err)
 	}
 
 	return nil

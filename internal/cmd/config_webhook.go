@@ -32,14 +32,12 @@ type ConfigWebhookConfigCmd struct {
 	Context   string `help:"Kubernetes context to use (defaults to current context)"`
 	Namespace string `help:"Kubernetes namespace to use" default:"ralph-webhook"`
 	Config    string `help:"Path to a partial AppConfig YAML file to use as a starting point" type:"path" optional:""`
-	DryRun    bool   `help:"Simulate execution without making changes" default:"false"`
 }
 
 // ConfigWebhookSecretCmd provisions the webhook-secrets Kubernetes secret
 type ConfigWebhookSecretCmd struct {
 	Context   string `help:"Kubernetes context to use (defaults to current context)"`
 	Namespace string `help:"Kubernetes namespace to use" default:"ralph-webhook"`
-	DryRun    bool   `help:"Simulate execution without making changes" default:"false"`
 }
 
 // collaboratorsFetcher is a function that fetches repo collaborator logins.
@@ -241,11 +239,6 @@ func (c *ConfigWebhookConfigCmd) writeConfigMap(ctx context.Context, kubeContext
 
 	cfgYAML := string(cfgBytes)
 	fmt.Printf("AppConfig YAML:\n%s\n", cfgYAML)
-
-	if c.DryRun {
-		fmt.Printf("Dry run: would write configmap '%s' in namespace '%s' (context: %s)\n", webhookConfigMapName, namespace, kubeContext)
-		return nil
-	}
 
 	configMapData := map[string]string{
 		"config.yaml": cfgYAML,
@@ -472,14 +465,6 @@ func (c *ConfigWebhookSecretCmd) generateAndWriteSecrets(ctx context.Context, ku
 
 	secretsYAML := string(secretsBytes)
 	fmt.Printf("Generated webhook secrets for %d repo(s)\n\n", len(secrets.Repos))
-
-	if c.DryRun {
-		fmt.Printf("Dry run: would write secret '%s' in namespace '%s' (context: %s)\n", webhookSecretsSecretName, namespace, kubeContext)
-		for _, rs := range secrets.Repos {
-			fmt.Printf("  - %s/%s: (secret generated, not shown in dry-run)\n", rs.Owner, rs.Name)
-		}
-		return nil
-	}
 
 	if err := c.registerWebhooks(ctx, secrets); err != nil {
 		return err

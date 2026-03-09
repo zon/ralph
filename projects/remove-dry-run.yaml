@@ -11,7 +11,7 @@ requirements:
       - The DryRun field and --dry-run flag are removed from ConfigWebhookConfigCmd and ConfigWebhookSecretCmd in internal/cmd/config_webhook.go
       - Dry run guards are removed from the write configmap and write secret paths in internal/cmd/config_webhook.go
       - The CLI documentation no longer references --dry-run for any command
-    passing: false
+    passing: true
 
   - category: context
     description: Remove dry run state from context
