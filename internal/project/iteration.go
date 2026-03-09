@@ -287,10 +287,11 @@ func performCommit(ctx *context.Context, commitMsg []byte, iteration int) error 
 			return fmt.Errorf("failed to commit: %w", err)
 		}
 	} else {
-		logger.Verbosef("No file changes after iteration %d; creating empty commit", iteration)
-		if err := git.CommitAllowEmpty(ctx, message); err != nil {
-			return fmt.Errorf("failed to commit: %w", err)
+		logger.Verbosef("No file changes after iteration %d; skipping empty commit", iteration)
+		if err := os.Remove("report.md"); err != nil && !os.IsNotExist(err) {
+			logger.Warningf("Failed to remove report.md: %v", err)
 		}
+		return ErrNoChanges
 	}
 
 	if ctx.IsVerbose() {

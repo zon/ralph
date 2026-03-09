@@ -403,14 +403,31 @@ func TestCommitChanges_AllowEmptyCommitWhenNoStagedChanges(t *testing.T) {
 	ctx := testutil.NewContext(testutil.WithProjectFile("project.yaml"))
 
 	err := CommitChanges(ctx, 1)
-	require.NoError(t, err, "CommitChanges failed")
+	require.Error(t, err, "CommitChanges should fail when no staged changes")
+	assert.True(t, errors.Is(err, ErrNoChanges), "error should be ErrNoChanges")
 
-	cmd := exec.Command("git", "log", "-1", "--format=%B")
-	cmd.Dir = workDir
-	out, err := cmd.CombinedOutput()
-	require.NoError(t, err, "git log failed")
-	msg := strings.TrimSpace(string(out))
-	assert.Equal(t, "No changes made", msg)
+	_, statErr := os.Stat("report.md")
+	assert.True(t, os.IsNotExist(statErr), "report.md should be deleted")
+}
+
+func TestPerformCommit_NoStagedChangesDeletesReportMd(t *testing.T) {
+	workDir := setupIterationTestRepo(t, "")
+
+	t.Chdir(workDir)
+
+	if err := os.WriteFile("report.md", []byte("Test commit message"), 0644); err != nil {
+		t.Fatalf("failed to write report.md: %v", err)
+	}
+
+	ctx := testutil.NewContext(testutil.WithProjectFile("project.yaml"))
+
+	commitMsg := []byte("Test commit message")
+	err := performCommit(ctx, commitMsg, 1)
+	require.Error(t, err, "performCommit should fail when no staged changes")
+	assert.True(t, errors.Is(err, ErrNoChanges), "error should be ErrNoChanges")
+
+	_, statErr := os.Stat("report.md")
+	assert.True(t, os.IsNotExist(statErr), "report.md should be deleted")
 }
 
 func TestGenerateChangelogIfNeeded_NoChanges(t *testing.T) {
