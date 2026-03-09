@@ -148,7 +148,7 @@ func NewE2EConfig(t *testing.T) *E2EConfig {
 
 // NewE2EContext creates an execution context suitable for E2E tests. It resolves
 // configuration from environment variables via NewE2EConfig and returns a context
-// with DryRun disabled, Local disabled (remote workflow submission), and the
+// with Local disabled (remote workflow submission), and the
 // test repository and branch overrides populated.
 //
 // opts may be used to override individual fields after the E2E defaults are applied.

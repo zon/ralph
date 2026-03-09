@@ -122,45 +122,6 @@ func gitCommit(message string) error {
 	return cmd.Run()
 }
 
-func TestMergeCmdRunLocalDryRunWithCompleteProjects(t *testing.T) {
-	tmpDir := t.TempDir()
-	projectsDir := filepath.Join(tmpDir, "projects")
-	require.NoError(t, os.MkdirAll(projectsDir, 0755))
-
-	t.Chdir(tmpDir)
-
-	completeProject := filepath.Join(projectsDir, "complete-project.yaml")
-	content := `name: complete-project
-description: A complete project
-requirements:
-  - category: backend
-    description: Feature 1
-    items:
-      - Item 1
-    passing: true
-  - category: backend
-    description: Feature 2
-    items:
-      - Item 2
-    passing: true`
-	require.NoError(t, os.WriteFile(completeProject, []byte(content), 0644))
-
-	require.NoError(t, initGitRepo(tmpDir))
-	require.NoError(t, gitAdd(completeProject))
-	require.NoError(t, gitCommit("Initial commit"))
-
-	cmd := &MergeCmd{
-		Branch:  "test-branch",
-		PR:      "1",
-		DryRun:  true,
-		Local:   true,
-		Verbose: true,
-	}
-
-	err := cmd.Run()
-	require.NoError(t, err)
-}
-
 func TestMergeCmdRunLocalFindCompleteProjectsError(t *testing.T) {
 	tmpDir := t.TempDir()
 
@@ -328,7 +289,7 @@ echo 'invalid json'
 	assert.Contains(t, err.Error(), "failed to parse PR head response")
 }
 
-func TestMergeCmdRunLocalDryRunWithNoProjectsDirectory(t *testing.T) {
+func TestMergeCmdRunLocalWithNoProjectsDirectory(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	t.Chdir(tmpDir)
@@ -343,8 +304,10 @@ func TestMergeCmdRunLocalDryRunWithNoProjectsDirectory(t *testing.T) {
 	cmd := &MergeCmd{
 		Branch: "test-branch",
 		PR:     "1",
-		DryRun: true,
 		Local:  true,
+		ghMerger: func(pr, repo string) error {
+			return nil
+		},
 	}
 
 	err := cmd.Run()
@@ -357,7 +320,6 @@ func TestGhMergeAutoMergeSuccess(t *testing.T) {
 		Branch: "test-branch",
 		PR:     "42",
 		Local:  true,
-		DryRun: false,
 		ghMerger: func(pr, repo string) error {
 			called = true
 			assert.Equal(t, "42", pr)
@@ -462,7 +424,7 @@ func TestGhMergeDirectFunction(t *testing.T) {
 	}
 }
 
-func TestMergeCmdRunLocalDryRunWithNoCompleteProjects(t *testing.T) {
+func TestMergeCmdRunLocalWithNoCompleteProjects(t *testing.T) {
 	tmpDir := t.TempDir()
 	projectsDir := filepath.Join(tmpDir, "projects")
 	require.NoError(t, os.MkdirAll(projectsDir, 0755))
@@ -492,8 +454,10 @@ requirements:
 	cmd := &MergeCmd{
 		Branch: "test-branch",
 		PR:     "1",
-		DryRun: true,
 		Local:  true,
+		ghMerger: func(pr, repo string) error {
+			return nil
+		},
 	}
 
 	err := cmd.Run()

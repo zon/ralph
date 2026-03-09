@@ -56,10 +56,8 @@ requirements:
 		assert.True(t, strings.Contains(prompt, section), "Prompt missing expected section: %s", section)
 	}
 
-	// In dry-run mode, GetCurrentBranch returns "dry-run-branch" (not "main"),
-	// so Recent Git History section will be included with dummy commits.
-	// This is expected behavior for dry-run mode.
-	assert.True(t, strings.Contains(prompt, "## Recent Git History"), "Prompt should contain 'Recent Git History' section in dry-run mode")
+	// Without a git repo, GetCurrentBranch fails and no commit history is included
+	assert.False(t, strings.Contains(prompt, "## Recent Git History"), "Prompt should NOT contain 'Recent Git History' section without a git repo")
 
 	// Verify selected requirement is included
 	assert.True(t, strings.Contains(prompt, "Implement feature X"), "Prompt does not contain selected requirement")
@@ -107,13 +105,12 @@ requirements:
 	assert.True(t, strings.Contains(prompt, customInstructions), "Prompt does not contain custom instructions")
 }
 
-func TestBuildDevelopPrompt_DryRun(t *testing.T) {
-	// Create a temporary project file for dry-run testing
+func TestBuildDevelopPrompt_NoGitRepo(t *testing.T) {
 	tmpDir := t.TempDir()
 	projectFile := filepath.Join(tmpDir, "test-project.yaml")
 
 	projectContent := `name: Test Project
-description: A test project in dry-run mode
+description: A test project
 requirements:
   - description: Test requirement
     passing: false
@@ -128,13 +125,10 @@ requirements:
 	selectedReq := "- description: Test requirement\n  passing: false"
 
 	prompt, err := BuildDevelopPrompt(ctx, projectFile, selectedReq)
-	require.NoError(t, err, "BuildDevelopPrompt in dry-run failed")
+	require.NoError(t, err, "BuildDevelopPrompt failed")
 
-	// In dry-run mode, the prompt should still be built (not a dummy value)
-	// Verify it contains expected sections
-	assert.True(t, strings.Contains(prompt, "Development Agent Context"), "Prompt should contain 'Development Agent Context' header even in dry-run")
-
-	assert.True(t, strings.Contains(prompt, "Test requirement"), "Prompt should contain selected requirement even in dry-run")
+	assert.True(t, strings.Contains(prompt, "Development Agent Context"), "Prompt should contain 'Development Agent Context' header")
+	assert.True(t, strings.Contains(prompt, "Test requirement"), "Prompt should contain selected requirement")
 }
 
 func TestBuildDevelopPrompt_MissingProjectFile(t *testing.T) {
@@ -381,7 +375,7 @@ requirements:
 		t.Fatalf("Failed to create test project file: %v", err)
 	}
 
-	// Create .ralph/config.yaml with baseBranch different from dry-run-branch
+	// Create .ralph/config.yaml with a baseBranch
 	ralphDir := filepath.Join(tmpDir, ".ralph")
 	if err := os.MkdirAll(ralphDir, 0755); err != nil {
 		t.Fatalf("Failed to create .ralph directory: %v", err)
@@ -393,16 +387,16 @@ requirements:
 
 	t.Chdir(tmpDir)
 
-	// In dry-run mode, current branch = "dry-run-branch"
-	// BaseBranch = "main" (different), so commit history should be included
+	// Without a git repo, GetCurrentBranch fails and no commit history is included
+	// regardless of baseBranch setting
 	ctx := testutil.NewContext()
 
 	selectedReq := "- description: Feature 1\n  passing: false"
 	prompt, err := BuildDevelopPrompt(ctx, projectFile, selectedReq)
 	require.NoError(t, err, "BuildDevelopPrompt failed")
 
-	// Verify prompt contains Recent Git History section when branches differ
-	assert.True(t, strings.Contains(prompt, "## Recent Git History"), "Prompt should contain 'Recent Git History' section when current branch differs from base branch")
+	// Verify prompt does NOT contain Recent Git History section when there's no git repo
+	assert.False(t, strings.Contains(prompt, "## Recent Git History"), "Prompt should NOT contain 'Recent Git History' section without a git repo")
 }
 
 func TestBuildDevelopPrompt_NoCommitLogWhenBranchMatches(t *testing.T) {
@@ -418,28 +412,26 @@ requirements:
 		t.Fatalf("Failed to create test project file: %v", err)
 	}
 
-	// Create .ralph/config.yaml with baseBranch equal to dry-run-branch
+	// Create .ralph/config.yaml with a baseBranch
 	ralphDir := filepath.Join(tmpDir, ".ralph")
 	if err := os.MkdirAll(ralphDir, 0755); err != nil {
 		t.Fatalf("Failed to create .ralph directory: %v", err)
 	}
-	// dry-run-branch is what GetCurrentBranch returns in dry-run mode
-	configContent := "baseBranch: dry-run-branch\n"
+	configContent := "baseBranch: main\n"
 	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte(configContent), 0644); err != nil {
 		t.Fatalf("Failed to create config file: %v", err)
 	}
 
 	t.Chdir(tmpDir)
 
-	// In dry-run mode, current branch = "dry-run-branch"
-	// BaseBranch = "dry-run-branch" (same), so commit history should NOT be included
+	// Without a git repo, GetCurrentBranch fails and no commit history is included
 	ctx := testutil.NewContext()
 
 	selectedReq := "- description: Feature 1\n  passing: false"
 	prompt, err := BuildDevelopPrompt(ctx, projectFile, selectedReq)
 	require.NoError(t, err, "BuildDevelopPrompt failed")
 
-	// Verify prompt does NOT contain Recent Git History section when branches match
+	// Verify prompt does NOT contain Recent Git History section
 	assert.False(t, strings.Contains(prompt, "## Recent Git History"), "Prompt should NOT contain 'Recent Git History' section when current branch equals base branch")
 }
 
@@ -480,8 +472,8 @@ requirements:
 		assert.True(t, strings.Contains(prompt, section), "Prompt missing expected section: %s", section)
 	}
 
-	// In dry-run mode, commit log should be included
-	assert.True(t, strings.Contains(prompt, "## Recent Git History"), "Prompt should contain 'Recent Git History' section in dry-run mode")
+	// Without a git repo, GetCurrentBranch fails and no commit history is included
+	assert.False(t, strings.Contains(prompt, "## Recent Git History"), "Prompt should NOT contain 'Recent Git History' section without a git repo")
 
 	// Verify project content is included
 	assert.True(t, strings.Contains(prompt, "Test Project"), "Prompt does not contain project name")

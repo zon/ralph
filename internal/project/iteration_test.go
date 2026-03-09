@@ -15,8 +15,10 @@ import (
 )
 
 func TestRunIterationLoop_AllPassingExitsAfterOneIteration(t *testing.T) {
+	t.Setenv("RALPH_MOCK_AI", "true")
+
 	// With all requirements already passing, the loop should exit after 1 iteration
-	// without invoking AI (Local: true skips AI). CommitChanges returns ErrNoChanges
+	// without invoking AI (when using mock AI). CommitChanges returns ErrNoChanges
 	// (no report.md, no uncommitted changes), which the loop treats as a non-error.
 	workDir := setupIterationTestRepo(t, "")
 	t.Chdir(workDir)
@@ -57,6 +59,8 @@ requirements:
 }
 
 func TestRunIterationLoop_ReturnsErrorWhenMaxIterationsReached(t *testing.T) {
+	t.Setenv("RALPH_MOCK_AI", "true")
+
 	workDir := setupIterationTestRepo(t, "")
 	t.Chdir(workDir)
 
@@ -307,15 +311,9 @@ requirements:
 
 	t.Chdir(workDir)
 
-	// Stage a workflow file so CommitChanges has something to commit in
-	// iteration 1 (requirement.Execute is skipped in dry-run mode, but
-	// CommitChanges is only skipped in dry-run too, so we must drive
-	// this at a level where the push actually fires).
-	//
-	// Because RunIterationLoop calls requirement.Execute (which calls opencode)
-	// we can't easily drive a non-dry-run loop without a real AI service.
-	// Instead we test the error sentinel directly through CommitChanges,
-	// which is the function that invokes PushCurrentBranch.
+	// Stage a workflow file so CommitChanges has something to commit in iteration 1.
+	// We test the error sentinel directly through CommitChanges rather than
+	// through the full iteration loop, which is the function that invokes PushCurrentBranch.
 	//
 	// Verify that ErrFatalPushError wraps ErrWorkflowPermission so callers
 	// can inspect the root cause.
@@ -457,18 +455,22 @@ func TestGenerateChangelogIfNeeded_ReportMdAlreadyPresent(t *testing.T) {
 	assert.Equal(t, originalReport, string(content), "report.md should not be overwritten when already present")
 }
 
-func TestGenerateChangelogIfNeeded_DryRun(t *testing.T) {
+func TestGenerateChangelogIfNeeded_WithUncommittedChanges(t *testing.T) {
+	t.Setenv("RALPH_MOCK_AI", "true")
+
 	tmpDir := t.TempDir()
 	t.Chdir(tmpDir)
 
-	// dry-run ctx — HasUncommittedChanges returns true, but GenerateChangelog is a no-op
-	ctx := testutil.NewContext() // dry-run by default
+	// Mock AI should write report.md when there are uncommitted changes
+	ctx := testutil.NewContext()
 
 	err := generateChangelogIfNeeded(ctx)
-	require.NoError(t, err, "generateChangelogIfNeeded in dry-run mode should not fail")
+	require.NoError(t, err, "generateChangelogIfNeeded should not fail with mock AI")
 }
 
 func TestRunIterationLoop_ExitsEarlyWhenAllRequirementsPass(t *testing.T) {
+	t.Setenv("RALPH_MOCK_AI", "true")
+
 	workDir := setupIterationTestRepo(t, "")
 	t.Chdir(workDir)
 

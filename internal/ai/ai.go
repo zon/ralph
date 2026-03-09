@@ -15,9 +15,15 @@ import (
 	"github.com/zon/ralph/internal/logger"
 )
 
+const mockAIEnv = "RALPH_MOCK_AI"
+
 // RunAgent executes an AI agent with the given prompt using OpenCode CLI
 // OpenCode manages its own configuration for API keys and models
 func RunAgent(ctx *context.Context, prompt string) error {
+	if os.Getenv(mockAIEnv) == "true" {
+		return runMockAgent(ctx, prompt)
+	}
+
 	if ctx.IsVerbose() {
 		logger.Verbose(prompt)
 	}
@@ -227,4 +233,35 @@ func runOpenCodeAndReadResult(ctx *context.Context, model, prompt, outputFile st
 	}
 
 	return summary, nil
+}
+
+// runMockAgent simulates AI execution for testing purposes.
+// It parses the prompt to determine what file to write and creates mock output files.
+func runMockAgent(ctx *context.Context, prompt string) error {
+	promptLower := strings.ToLower(prompt)
+
+	if strings.Contains(promptLower, "picked-requirement") {
+		absProjectFile := ctx.ProjectFile()
+		if absProjectFile == "" {
+			return fmt.Errorf("mock AI requires project file to be set")
+		}
+
+		pickedReqPath := filepath.Join(filepath.Dir(absProjectFile), "picked-requirement.yaml")
+		mockReqContent := `- description: Mock requirement
+  passing: false
+`
+		if err := os.WriteFile(pickedReqPath, []byte(mockReqContent), 0644); err != nil {
+			return fmt.Errorf("mock AI failed to write picked-requirement.yaml: %w", err)
+		}
+		logger.Verbosef("Mock AI wrote picked-requirement.yaml")
+	}
+
+	if strings.Contains(promptLower, "report.md") {
+		if err := os.WriteFile("report.md", []byte("Mock: test commit\n"), 0644); err != nil {
+			return fmt.Errorf("mock AI failed to write report.md: %w", err)
+		}
+		logger.Verbosef("Mock AI wrote report.md")
+	}
+
+	return nil
 }

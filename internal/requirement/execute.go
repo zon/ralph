@@ -70,58 +70,49 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		return err
 	}
 
-	// Skip the AI pick/develop phases when running locally outside of a workflow
-	// container. Inside a workflow container the process is already isolated
-	// (RALPH_WORKFLOW_EXECUTION=true), so the AI should run even when --local
-	// was passed to bypass branch-sync checks.
-	skipAI := ctx.IsLocal() && !ctx.IsWorkflowExecution()
-	if skipAI {
-		logger.Verbose("Skipping pick and develop phases in dry-run/local mode")
-	} else {
-		// Generate pick prompt and run picker agent
-		pickedReqPath := filepath.Join(filepath.Dir(absProjectFile), "picked-requirement.yaml")
-		logger.Verbose("Generating pick prompt...")
-		pickPrompt, err := prompt.BuildPickPrompt(ctx, absProjectFile, pickedReqPath)
-		if err != nil {
-			return fmt.Errorf("failed to build pick prompt: %w", err)
-		}
-		logger.Verbose("Pick prompt generated")
-
-		logger.Verbose("Running picker agent...")
-		if err := ai.RunAgent(ctx, pickPrompt); err != nil {
-			return fmt.Errorf("picker agent execution failed: %w", err)
-		}
-		logger.Verbose("Picker agent execution completed")
-
-		// Read the selected requirement from picked-requirement.yaml
-		pickedReqData, err := os.ReadFile(pickedReqPath)
-		if err != nil {
-			return fmt.Errorf("failed to read picked requirement: %w", err)
-		}
-		selectedRequirement := string(pickedReqData)
-
-		// Clean up picked-requirement.yaml
-		if err := os.Remove(pickedReqPath); err != nil {
-			logger.Verbosef("Failed to remove picked-requirement.yaml: %v", err)
-		} else {
-			logger.Verbose("Cleaned up picked-requirement.yaml")
-		}
-
-		// Generate development prompt with selected requirement
-		logger.Verbose("Generating development prompt...")
-		devPrompt, err := prompt.BuildDevelopPrompt(ctx, absProjectFile, selectedRequirement)
-		if err != nil {
-			return fmt.Errorf("failed to build prompt: %w", err)
-		}
-		logger.Verbose("Development prompt generated")
-
-		// Run AI agent with prompt
-		logger.Verbose("Running AI agent...")
-		if err := ai.RunAgent(ctx, devPrompt); err != nil {
-			return fmt.Errorf("agent execution failed: %w", err)
-		}
-		logger.Verbose("AI agent execution completed")
+	// Generate pick prompt and run picker agent
+	pickedReqPath := filepath.Join(filepath.Dir(absProjectFile), "picked-requirement.yaml")
+	logger.Verbose("Generating pick prompt...")
+	pickPrompt, err := prompt.BuildPickPrompt(ctx, absProjectFile, pickedReqPath)
+	if err != nil {
+		return fmt.Errorf("failed to build pick prompt: %w", err)
 	}
+	logger.Verbose("Pick prompt generated")
+
+	logger.Verbose("Running picker agent...")
+	if err := ai.RunAgent(ctx, pickPrompt); err != nil {
+		return fmt.Errorf("picker agent execution failed: %w", err)
+	}
+	logger.Verbose("Picker agent execution completed")
+
+	// Read the selected requirement from picked-requirement.yaml
+	pickedReqData, err := os.ReadFile(pickedReqPath)
+	if err != nil {
+		return fmt.Errorf("failed to read picked requirement: %w", err)
+	}
+	selectedRequirement := string(pickedReqData)
+
+	// Clean up picked-requirement.yaml
+	if err := os.Remove(pickedReqPath); err != nil {
+		logger.Verbosef("Failed to remove picked-requirement.yaml: %v", err)
+	} else {
+		logger.Verbose("Cleaned up picked-requirement.yaml")
+	}
+
+	// Generate development prompt with selected requirement
+	logger.Verbose("Generating development prompt...")
+	devPrompt, err := prompt.BuildDevelopPrompt(ctx, absProjectFile, selectedRequirement)
+	if err != nil {
+		return fmt.Errorf("failed to build prompt: %w", err)
+	}
+	logger.Verbose("Development prompt generated")
+
+	// Run AI agent with prompt
+	logger.Verbose("Running AI agent...")
+	if err := ai.RunAgent(ctx, devPrompt); err != nil {
+		return fmt.Errorf("agent execution failed: %w", err)
+	}
+	logger.Verbose("AI agent execution completed")
 
 	// Post-agent cleanup
 	if err := performPostAgentCleanup(ctx, absProjectFile, ralphConfig.Services); err != nil {

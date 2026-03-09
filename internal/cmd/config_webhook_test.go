@@ -27,7 +27,6 @@ func TestConfigWebhookConfigFlagParsing(t *testing.T) {
 		args              []string
 		expectedContext   string
 		expectedNamespace string
-		expectedDryRun    bool
 		wantErr           bool
 	}{
 		{
@@ -35,35 +34,18 @@ func TestConfigWebhookConfigFlagParsing(t *testing.T) {
 			args:              []string{"config", "webhook"},
 			expectedContext:   "",
 			expectedNamespace: "ralph-webhook",
-			expectedDryRun:    false,
 		},
 		{
 			name:              "custom context",
 			args:              []string{"config", "webhook", "--context", "my-cluster"},
 			expectedContext:   "my-cluster",
 			expectedNamespace: "ralph-webhook",
-			expectedDryRun:    false,
 		},
 		{
 			name:              "custom namespace overrides default",
 			args:              []string{"config", "webhook", "--namespace", "my-ns"},
 			expectedContext:   "",
 			expectedNamespace: "my-ns",
-			expectedDryRun:    false,
-		},
-		{
-			name:              "dry-run flag",
-			args:              []string{"config", "webhook", "--dry-run"},
-			expectedContext:   "",
-			expectedNamespace: "ralph-webhook",
-			expectedDryRun:    true,
-		},
-		{
-			name:              "all flags",
-			args:              []string{"config", "webhook", "--context", "ctx", "--namespace", "ns", "--dry-run"},
-			expectedContext:   "ctx",
-			expectedNamespace: "ns",
-			expectedDryRun:    true,
 		},
 	}
 
@@ -85,7 +67,6 @@ func TestConfigWebhookConfigFlagParsing(t *testing.T) {
 
 			assert.Equal(t, tt.expectedContext, cmd.Config.WebhookConfig.Context)
 			assert.Equal(t, tt.expectedNamespace, cmd.Config.WebhookConfig.Namespace)
-			assert.Equal(t, tt.expectedDryRun, cmd.Config.WebhookConfig.DryRun)
 		})
 	}
 }
@@ -97,28 +78,18 @@ func TestConfigWebhookSecretFlagParsing(t *testing.T) {
 		args              []string
 		expectedContext   string
 		expectedNamespace string
-		expectedDryRun    bool
 	}{
 		{
 			name:              "defaults to ralph-webhook namespace",
 			args:              []string{"config", "webhook-secret"},
 			expectedContext:   "",
 			expectedNamespace: "ralph-webhook",
-			expectedDryRun:    false,
 		},
 		{
 			name:              "custom context and namespace",
 			args:              []string{"config", "webhook-secret", "--context", "prod", "--namespace", "prod-webhook"},
 			expectedContext:   "prod",
 			expectedNamespace: "prod-webhook",
-			expectedDryRun:    false,
-		},
-		{
-			name:              "dry-run flag",
-			args:              []string{"config", "webhook-secret", "--dry-run"},
-			expectedContext:   "",
-			expectedNamespace: "ralph-webhook",
-			expectedDryRun:    true,
 		},
 	}
 
@@ -136,7 +107,6 @@ func TestConfigWebhookSecretFlagParsing(t *testing.T) {
 
 			assert.Equal(t, tt.expectedContext, cmd.Config.WebhookSecret.Context)
 			assert.Equal(t, tt.expectedNamespace, cmd.Config.WebhookSecret.Namespace)
-			assert.Equal(t, tt.expectedDryRun, cmd.Config.WebhookSecret.DryRun)
 		})
 	}
 }

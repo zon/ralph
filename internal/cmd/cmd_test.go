@@ -342,7 +342,6 @@ func TestMergeCmdFlagParsing(t *testing.T) {
 		name            string
 		args            []string
 		expectedBranch  string
-		expectedDryRun  bool
 		expectedVerbose bool
 		wantParseErr    bool
 	}{
@@ -350,28 +349,12 @@ func TestMergeCmdFlagParsing(t *testing.T) {
 			name:            "basic merge command",
 			args:            []string{"merge", "ralph/my-feature", "--pr", "42"},
 			expectedBranch:  "ralph/my-feature",
-			expectedDryRun:  false,
-			expectedVerbose: false,
-		},
-		{
-			name:            "merge with dry-run flag",
-			args:            []string{"merge", "ralph/my-feature", "--pr", "42", "--dry-run"},
-			expectedBranch:  "ralph/my-feature",
-			expectedDryRun:  true,
 			expectedVerbose: false,
 		},
 		{
 			name:            "merge with verbose flag",
 			args:            []string{"merge", "ralph/my-feature", "--pr", "42", "--verbose"},
 			expectedBranch:  "ralph/my-feature",
-			expectedDryRun:  false,
-			expectedVerbose: true,
-		},
-		{
-			name:            "merge with both flags",
-			args:            []string{"merge", "ralph/my-feature", "--pr", "42", "--dry-run", "--verbose"},
-			expectedBranch:  "ralph/my-feature",
-			expectedDryRun:  true,
 			expectedVerbose: true,
 		},
 		{
@@ -405,9 +388,6 @@ func TestMergeCmdFlagParsing(t *testing.T) {
 
 			if cmd.Merge.Branch != tt.expectedBranch {
 				t.Errorf("expected Branch=%q, got %q", tt.expectedBranch, cmd.Merge.Branch)
-			}
-			if cmd.Merge.DryRun != tt.expectedDryRun {
-				t.Errorf("expected DryRun=%v, got %v", tt.expectedDryRun, cmd.Merge.DryRun)
 			}
 			if cmd.Merge.Verbose != tt.expectedVerbose {
 				t.Errorf("expected Verbose=%v, got %v", tt.expectedVerbose, cmd.Merge.Verbose)
