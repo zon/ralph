@@ -12,7 +12,9 @@ import (
 	"github.com/zon/ralph/internal/testutil"
 )
 
-func TestExecute_DryRun(t *testing.T) {
+func TestExecute_ValidProject(t *testing.T) {
+	t.Setenv("RALPH_MOCK_AI", "true")
+
 	// Create a temporary test project file
 	tmpDir := t.TempDir()
 	projectFile := filepath.Join(tmpDir, "test-project.yaml")
@@ -29,11 +31,11 @@ requirements:
 		t.Fatalf("Failed to create test project file: %v", err)
 	}
 
-	// Execute in dry-run mode (should not fail)
-	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile)) // dry-run, no verbose, no notify, no services
+	// Execute with valid project (should not fail)
+	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
 	err := Execute(ctx, nil)
 
-	require.NoError(t, err, "Execute failed in dry-run mode")
+	require.NoError(t, err, "Execute failed with valid project")
 }
 
 func TestExecute_InvalidProjectFile(t *testing.T) {
@@ -146,6 +148,8 @@ requirements:
 }
 
 func TestExecute_NoBlockedMD(t *testing.T) {
+	t.Setenv("RALPH_MOCK_AI", "true")
+
 	tmpDir := t.TempDir()
 	projectFile := filepath.Join(tmpDir, "test-project.yaml")
 
@@ -168,6 +172,8 @@ requirements:
 }
 
 func TestExecute_NormalizeTrailingNewlines(t *testing.T) {
+	t.Setenv("RALPH_MOCK_AI", "true")
+
 	tmpDir := t.TempDir()
 	projectFile := filepath.Join(tmpDir, "test-project.yaml")
 
@@ -190,6 +196,8 @@ func TestExecute_NormalizeTrailingNewlines(t *testing.T) {
 }
 
 func TestExecute_StagesFileWithChanges(t *testing.T) {
+	t.Setenv("RALPH_MOCK_AI", "true")
+
 	tmpDir := t.TempDir()
 	projectFile := filepath.Join(tmpDir, "test-project.yaml")
 
@@ -213,6 +221,8 @@ requirements:
 }
 
 func TestExecute_DoesNotStageFileWithoutChanges(t *testing.T) {
+	t.Setenv("RALPH_MOCK_AI", "true")
+
 	tmpDir := t.TempDir()
 	projectFile := filepath.Join(tmpDir, "test-project.yaml")
 
@@ -236,6 +246,8 @@ requirements:
 }
 
 func TestExecute_StartsServices(t *testing.T) {
+	t.Setenv("RALPH_MOCK_AI", "true")
+
 	tmpDir := t.TempDir()
 	projectFile := filepath.Join(tmpDir, "test-project.yaml")
 

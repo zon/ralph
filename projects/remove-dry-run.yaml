@@ -49,7 +49,7 @@ requirements:
     description: Remove dry run from project and requirement execution
     items:
       - Dry run banners, guards, and skipped phases are removed from project/execute.go, project/iteration.go, project/complete.go, and requirement/execute.go
-    passing: false
+    passing: true
 
   - category: workflow
     description: Remove dry run from workflow generation
