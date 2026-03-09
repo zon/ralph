@@ -105,13 +105,12 @@ requirements:
 	assert.True(t, strings.Contains(prompt, customInstructions), "Prompt does not contain custom instructions")
 }
 
-func TestBuildDevelopPrompt_DryRun(t *testing.T) {
-	// Create a temporary project file for dry-run testing
+func TestBuildDevelopPrompt_NoGitRepo(t *testing.T) {
 	tmpDir := t.TempDir()
 	projectFile := filepath.Join(tmpDir, "test-project.yaml")
 
 	projectContent := `name: Test Project
-description: A test project in dry-run mode
+description: A test project
 requirements:
   - description: Test requirement
     passing: false
@@ -126,13 +125,10 @@ requirements:
 	selectedReq := "- description: Test requirement\n  passing: false"
 
 	prompt, err := BuildDevelopPrompt(ctx, projectFile, selectedReq)
-	require.NoError(t, err, "BuildDevelopPrompt in dry-run failed")
+	require.NoError(t, err, "BuildDevelopPrompt failed")
 
-	// In dry-run mode, the prompt should still be built (not a dummy value)
-	// Verify it contains expected sections
-	assert.True(t, strings.Contains(prompt, "Development Agent Context"), "Prompt should contain 'Development Agent Context' header even in dry-run")
-
-	assert.True(t, strings.Contains(prompt, "Test requirement"), "Prompt should contain selected requirement even in dry-run")
+	assert.True(t, strings.Contains(prompt, "Development Agent Context"), "Prompt should contain 'Development Agent Context' header")
+	assert.True(t, strings.Contains(prompt, "Test requirement"), "Prompt should contain selected requirement")
 }
 
 func TestBuildDevelopPrompt_MissingProjectFile(t *testing.T) {

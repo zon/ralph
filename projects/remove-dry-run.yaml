@@ -57,7 +57,7 @@ requirements:
       - The DryRun field is removed from the Workflow struct
       - The dryRun parameter is removed from GenerateWorkflow() and related functions
       - The DryRunFlag template variable is removed from run.sh and comment.sh
-    passing: false
+    passing: true
 
   - category: tests
     description: Update tests to remove dry run dependencies
@@ -70,10 +70,10 @@ requirements:
       - Stale "dry-run" references in comments and test function names are removed from internal/requirement/execute_test.go, internal/project/iteration_test.go, and internal/prompt/prompt_test.go
       - The doc comment in internal/testutil/testutil.go no longer references a DryRun field
       - The log message in internal/requirement/execute.go no longer references "dry-run"
-    passing: false
+    passing: true
 
   - category: version
     description: Version bump
     items:
       - Apply a semver major bump to internal/version/VERSION and charts/ralph-webhook/Chart.yaml
-    passing: false
+    passing: true

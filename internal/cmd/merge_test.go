@@ -289,7 +289,7 @@ echo 'invalid json'
 	assert.Contains(t, err.Error(), "failed to parse PR head response")
 }
 
-func TestMergeCmdRunLocalDryRunWithNoProjectsDirectory(t *testing.T) {
+func TestMergeCmdRunLocalWithNoProjectsDirectory(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	t.Chdir(tmpDir)
@@ -424,7 +424,7 @@ func TestGhMergeDirectFunction(t *testing.T) {
 	}
 }
 
-func TestMergeCmdRunLocalDryRunWithNoCompleteProjects(t *testing.T) {
+func TestMergeCmdRunLocalWithNoCompleteProjects(t *testing.T) {
 	tmpDir := t.TempDir()
 	projectsDir := filepath.Join(tmpDir, "projects")
 	require.NoError(t, os.MkdirAll(projectsDir, 0755))
