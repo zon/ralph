@@ -123,6 +123,17 @@ exit 1
 			expectedNamespace: "default",
 		},
 		{
+			name:              "defaults to 'config' namespace when config file exists but no namespace set",
+			flagContext:       "",
+			flagNamespace:     "",
+			configContext:     "config-context",
+			configNamespace:   "",
+			kubeContext:       "kubectl-context",
+			kubeNamespace:     "kubectl-namespace",
+			expectedContext:   "config-context",
+			expectedNamespace: "config",
+		},
+		{
 			name:             "kubectl context error returns error when no flag or config context",
 			flagContext:      "",
 			flagNamespace:    "",
@@ -193,4 +204,44 @@ exit 1
 			assert.Equal(t, tt.expectedNamespace, namespace)
 		})
 	}
+}
+
+func TestLoadContextAndNamespace_UpwardSearch(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+
+	// Create .ralph/config.yaml in the root dir
+	ralphDir := filepath.Join(dir, ".ralph")
+	err := os.MkdirAll(ralphDir, 0755)
+	require.NoError(t, err)
+
+	configContent := "workflow:\n  namespace: parent-ns\n"
+	err = os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte(configContent), 0644)
+	require.NoError(t, err)
+
+	// Create a subdirectory and change into it
+	subDir := filepath.Join(dir, "subdir", "subsubdir")
+	err = os.MkdirAll(subDir, 0755)
+	require.NoError(t, err)
+	t.Chdir(subDir)
+
+	// Set up a basic kubeconfig so determineKubeContext doesn't fail
+	kubeconfigPath := filepath.Join(dir, "kubeconfig")
+	kubeconfigContent := `apiVersion: v1
+kind: Config
+current-context: test-ctx
+contexts:
+- name: test-ctx
+  context:
+    namespace: default
+`
+	err = os.WriteFile(kubeconfigPath, []byte(kubeconfigContent), 0644)
+	require.NoError(t, err)
+	t.Setenv("KUBECONFIG", kubeconfigPath)
+
+	kubeContext, namespace, err := loadContextAndNamespace(ctx, "", "")
+
+	require.NoError(t, err)
+	assert.Equal(t, "test-ctx", kubeContext)
+	assert.Equal(t, "parent-ns", namespace)
 }
