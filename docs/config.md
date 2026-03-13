@@ -79,6 +79,7 @@ Store credentials as Kubernetes Secrets for remote execution. See [Workflows](wo
 ralph config git        # SSH key for git operations
 ralph config github     # GitHub personal access token
 ralph config opencode   # OpenCode AI provider tokens
+ralph config pulumi     # Pulumi access token
 ```
 
 ## Custom Instructions

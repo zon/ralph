@@ -22,7 +22,7 @@ requirements:
     items:
       - Update `docs/config.md` to document Pulumi credential configuration
       - Update `docs/cli.md` to include the `ralph config pulumi` command
-    passing: false
+    passing: true
 
   - category: versioning
     description: Apply a semver patch bump
