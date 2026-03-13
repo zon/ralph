@@ -7,7 +7,7 @@ requirements:
     items:
       - Pulumi CLI is installed in the runtime stage of the Containerfile
       - Pulumi binary is available in the system PATH
-    passing: false
+    passing: true
 
   - category: backend
     description: Pulumi Cloud configuration and credentials

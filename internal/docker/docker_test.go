@@ -51,6 +51,10 @@ func TestDockerfileContainsRequiredComponents(t *testing.T) {
 			name:        "Git",
 			searchTerms: []string{"git"},
 		},
+		{
+			name:        "Pulumi",
+			searchTerms: []string{"pulumi"},
+		},
 	}
 
 	for _, component := range requiredComponents {
