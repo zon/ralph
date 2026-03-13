@@ -12,11 +12,12 @@ import (
 // loadContextAndNamespace loads the Kubernetes context and namespace with the following priority:
 // 1. Command-line flags (if provided)
 // 2. .ralph/config.yaml (workflow.context and workflow.namespace)
-// 3. kubectl configuration (current context and context namespace)
-// 4. Default namespace ("default")
+// 3. "config" namespace (if .ralph/config.yaml is found)
+// 4. kubectl configuration (current context and context namespace)
+// 5. Default namespace ("default")
 // Returns: kubeContext, namespace, error
 func loadContextAndNamespace(ctx context.Context, flagContext, flagNamespace string) (string, string, error) {
-	ralphConfig := loadRalphConfig()
+	ralphConfig, _ := config.LoadConfig()
 
 	kubeContext, contextSource, err := determineKubeContext(ctx, flagContext, ralphConfig)
 	if err != nil {
@@ -26,15 +27,6 @@ func loadContextAndNamespace(ctx context.Context, flagContext, flagNamespace str
 	namespace := determineNamespace(ctx, flagNamespace, ralphConfig, kubeContext, contextSource)
 
 	return kubeContext, namespace, nil
-}
-
-func loadRalphConfig() *config.RalphConfig {
-	ralphConfig, err := config.LoadConfig()
-	if err != nil {
-		logger.Verbosef("Failed to load .ralph/config.yaml: %v (using kubectl config)", err)
-		return nil
-	}
-	return ralphConfig
 }
 
 func determineKubeContext(ctx context.Context, flagContext string, ralphConfig *config.RalphConfig) (string, string, error) {
@@ -70,6 +62,11 @@ func determineNamespace(ctx context.Context, flagNamespace string, ralphConfig *
 			logger.Verbosef("Using namespace from .ralph/config.yaml: %s (context from %s)", namespace, contextSource)
 		}
 		return namespace
+	}
+
+	if ralphConfig != nil && ralphConfig.ConfigPath != "" {
+		logger.Verbosef("Using default namespace: %s (config found)", "config")
+		return "config"
 	}
 
 	ns, err := k8s.GetNamespaceForContext(ctx, kubeContext)

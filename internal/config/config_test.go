@@ -679,3 +679,31 @@ func TestSaveProjectRoundTrip(t *testing.T) {
 	assert.Equal(t, project.Description, loaded.Description)
 	assert.Len(t, loaded.Requirements, len(project.Requirements))
 }
+
+func TestFindConfigDir(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create .ralph directory
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	err := os.MkdirAll(ralphDir, 0755)
+	require.NoError(t, err)
+
+	// Test finding from the same directory
+	found, err := FindConfigDir(tmpDir)
+	require.NoError(t, err)
+	assert.Equal(t, ralphDir, found)
+
+	// Test finding from a subdirectory
+	subDir := filepath.Join(tmpDir, "a", "b", "c")
+	err = os.MkdirAll(subDir, 0755)
+	require.NoError(t, err)
+
+	found, err = FindConfigDir(subDir)
+	require.NoError(t, err)
+	assert.Equal(t, ralphDir, found)
+
+	// Test not finding it
+	otherDir := t.TempDir()
+	_, err = FindConfigDir(otherDir)
+	assert.ErrorIs(t, err, os.ErrNotExist)
+}

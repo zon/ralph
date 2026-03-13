@@ -68,3 +68,18 @@ Use `--context` and `--namespace` to target a specific cluster:
 ```bash
 ralph config git --context production --namespace argo
 ```
+
+### ralph config pulumi
+
+```bash
+ralph config pulumi
+```
+
+Prompts for a Pulumi access token and stores it as a Kubernetes Secret. The token is required for remote execution with Pulumi-based workflows.
+
+You can provide the token as an argument, via the `PULUMI_ACCESS_TOKEN` environment variable, or enter it interactively when prompted:
+
+```bash
+ralph config pulumi <your-token>
+ralph config pulumi --context production --namespace argo
+```
