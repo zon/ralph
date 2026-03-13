@@ -25,7 +25,7 @@ requirements:
     passing: false
 
   - category: versioning
-    description: Apply a semver patch bump
+    description: Apply a semver minor bump
     items:
-      - Apply a semver patch bump to `internal/version/VERSION` and `charts/ralph-webhook/Chart.yaml`
+      - Apply a semver minor bump to `internal/version/VERSION` and `charts/ralph-webhook/Chart.yaml`
     passing: false
