@@ -136,7 +136,7 @@ requirements:
 	env, ok := container["env"].([]interface{})
 	require.True(t, ok, "env is not a list")
 
-	hasGitRepoURL, hasGitBranch, hasProjectBranch, hasCustomEnv, hasBaseBranch := false, false, false, false, false
+	hasGitRepoURL, hasGitBranch, hasProjectBranch, hasCustomEnv, hasBaseBranch, hasPulumiToken := false, false, false, false, false, false
 	for _, envVar := range env {
 		envMap, ok := envVar.(map[string]interface{})
 		if !ok {
@@ -157,6 +157,15 @@ requirements:
 			}
 		case "BASE_BRANCH":
 			hasBaseBranch = true
+		case "PULUMI_ACCESS_TOKEN":
+			hasPulumiToken = true
+			valueFrom, ok := envMap["valueFrom"].(map[string]interface{})
+			require.True(t, ok, "PULUMI_ACCESS_TOKEN should have valueFrom")
+			secretKeyRef, ok := valueFrom["secretKeyRef"].(map[string]interface{})
+			require.True(t, ok, "PULUMI_ACCESS_TOKEN should have secretKeyRef")
+			assert.Equal(t, "pulumi-credentials", secretKeyRef["name"])
+			assert.Equal(t, "PULUMI_ACCESS_TOKEN", secretKeyRef["key"])
+			assert.Equal(t, true, secretKeyRef["optional"])
 		}
 	}
 	assert.True(t, hasGitRepoURL, "GIT_REPO_URL environment variable not found")
@@ -164,11 +173,12 @@ requirements:
 	assert.True(t, hasProjectBranch, "PROJECT_BRANCH environment variable not found")
 	assert.True(t, hasCustomEnv, "Custom environment variable MY_VAR not found")
 	assert.True(t, hasBaseBranch, "BASE_BRANCH environment variable not found")
+	assert.True(t, hasPulumiToken, "PULUMI_ACCESS_TOKEN environment variable not found")
 
 	volumeMounts, ok := container["volumeMounts"].([]interface{})
 	require.True(t, ok, "volumeMounts is not a list")
 
-	hasGithubMount, hasOpencodeMount, hasConfigMapMount, hasSecretMount := false, false, false, false
+	hasGithubMount, hasOpencodeMount, hasPulumiMount, hasConfigMapMount, hasSecretMount := false, false, false, false, false
 	for _, mount := range volumeMounts {
 		mountMap, ok := mount.(map[string]interface{})
 		if !ok {
@@ -179,6 +189,8 @@ requirements:
 			hasGithubMount = true
 		case mountMap["name"] == "opencode-credentials" && mountMap["mountPath"] == "/secrets/opencode":
 			hasOpencodeMount = true
+		case mountMap["name"] == "pulumi-credentials" && mountMap["mountPath"] == "/secrets/pulumi":
+			hasPulumiMount = true
 		case mountMap["name"] == "my-config" && mountMap["mountPath"] == "/configmaps/my-config":
 			hasConfigMapMount = true
 		case mountMap["name"] == "my-secret" && mountMap["mountPath"] == "/secrets/my-secret":
@@ -187,13 +199,14 @@ requirements:
 	}
 	assert.True(t, hasGithubMount, "github-credentials volume mount not found")
 	assert.True(t, hasOpencodeMount, "opencode-credentials volume mount not found")
+	assert.True(t, hasPulumiMount, "pulumi-credentials volume mount not found")
 	assert.True(t, hasConfigMapMount, "User-specified configMap mount not found")
 	assert.True(t, hasSecretMount, "User-specified secret mount not found")
 
 	volumes, ok := tmpl["volumes"].([]interface{})
 	require.True(t, ok, "volumes is not a list")
 
-	hasGithubVolume, hasOpencodeVolume, hasConfigMapVolume, hasSecretVolume := false, false, false, false
+	hasGithubVolume, hasOpencodeVolume, hasPulumiVolume, hasConfigMapVolume, hasSecretVolume := false, false, false, false, false
 	for _, vol := range volumes {
 		volMap, ok := vol.(map[string]interface{})
 		if !ok {
@@ -204,6 +217,11 @@ requirements:
 			hasGithubVolume = true
 		case "opencode-credentials":
 			hasOpencodeVolume = true
+		case "pulumi-credentials":
+			hasPulumiVolume = true
+			secret, ok := volMap["secret"].(map[string]interface{})
+			require.True(t, ok, "pulumi-credentials volume should have secret map")
+			assert.Equal(t, true, secret["optional"])
 		case "my-config":
 			hasConfigMapVolume = true
 		case "my-secret":
@@ -212,6 +230,7 @@ requirements:
 	}
 	assert.True(t, hasGithubVolume, "github-credentials volume not found")
 	assert.True(t, hasOpencodeVolume, "opencode-credentials volume not found")
+	assert.True(t, hasPulumiVolume, "pulumi-credentials volume not found")
 	assert.True(t, hasConfigMapVolume, "User-specified configMap volume not found")
 	assert.True(t, hasSecretVolume, "User-specified secret volume not found")
 

@@ -291,6 +291,11 @@ func TestBuildCredentialVolumes(t *testing.T) {
 	assert.Equal(t, "github-credentials", volumes[0]["name"], "first volume name should match")
 	assert.Equal(t, "opencode-credentials", volumes[1]["name"], "second volume name should match")
 	assert.Equal(t, "pulumi-credentials", volumes[2]["name"], "third volume name should match")
+
+	// Verify Pulumi secret is optional
+	pulumiVol, ok := volumes[2]["secret"].(map[string]interface{})
+	assert.True(t, ok, "pulumi volume should have secret map")
+	assert.Equal(t, true, pulumiVol["optional"], "pulumi secret should be optional")
 }
 
 func TestBuildConfigMapVolume(t *testing.T) {

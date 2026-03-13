@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/zon/ralph/internal/config"
+	"github.com/zon/ralph/internal/k8s"
 	"gopkg.in/yaml.v3"
 )
 
@@ -139,6 +140,24 @@ func (w *Workflow) buildEnvVars() []map[string]interface{} {
 		{"name": "PR_NUMBER", "value": "{{workflow.parameters.pr-number}}"},
 		{"name": "RALPH_WORKFLOW_EXECUTION", "value": "true"},
 		{"name": "BASE_BRANCH", "value": baseBranch},
+	}
+
+	hasPulumiToken := false
+	if w.RalphConfig.Workflow.Env != nil {
+		_, hasPulumiToken = w.RalphConfig.Workflow.Env["PULUMI_ACCESS_TOKEN"]
+	}
+
+	if !hasPulumiToken {
+		envVars = append(envVars, map[string]interface{}{
+			"name": "PULUMI_ACCESS_TOKEN",
+			"valueFrom": map[string]interface{}{
+				"secretKeyRef": map[string]interface{}{
+					"name":     k8s.PulumiSecretName,
+					"key":      "PULUMI_ACCESS_TOKEN",
+					"optional": true,
+				},
+			},
+		})
 	}
 
 	for key, value := range w.RalphConfig.Workflow.Env {

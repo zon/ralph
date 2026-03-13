@@ -177,6 +177,7 @@ func buildCredentialVolumes() []map[string]interface{} {
 			"name": "pulumi-credentials",
 			"secret": map[string]interface{}{
 				"secretName": k8s.PulumiSecretName,
+				"optional":   true,
 			},
 		},
 	}
