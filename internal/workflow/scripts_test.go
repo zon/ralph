@@ -279,15 +279,18 @@ func TestBuildSecretVolumeMount(t *testing.T) {
 
 func TestBuildCredentialMounts(t *testing.T) {
 	mounts := buildCredentialMounts()
-	assert.Len(t, mounts, 2, "should have 2 credential mounts")
+	assert.Len(t, mounts, 3, "should have 3 credential mounts")
 	assert.Equal(t, "github-credentials", mounts[0]["name"], "first mount name should match")
 	assert.Equal(t, "opencode-credentials", mounts[1]["name"], "second mount name should match")
+	assert.Equal(t, "pulumi-credentials", mounts[2]["name"], "third mount name should match")
 }
 
 func TestBuildCredentialVolumes(t *testing.T) {
 	volumes := buildCredentialVolumes()
-	assert.Len(t, volumes, 2, "should have 2 credential volumes")
+	assert.Len(t, volumes, 3, "should have 3 credential volumes")
 	assert.Equal(t, "github-credentials", volumes[0]["name"], "first volume name should match")
+	assert.Equal(t, "opencode-credentials", volumes[1]["name"], "second volume name should match")
+	assert.Equal(t, "pulumi-credentials", volumes[2]["name"], "third volume name should match")
 }
 
 func TestBuildConfigMapVolume(t *testing.T) {

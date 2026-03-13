@@ -15,7 +15,7 @@ requirements:
       - Add `PULUMI_ACCESS_TOKEN` support to Ralph's Kubernetes secret management
       - Update `ralph config` to include a `pulumi` subcommand for setting the access token
       - Update Argo Workflow generation to mount Pulumi credentials into the execution container
-    passing: false
+    passing: true
 
   - category: documentation
     description: Update documentation for Pulumi support

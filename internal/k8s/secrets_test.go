@@ -23,6 +23,11 @@ func TestSecretNames(t *testing.T) {
 			constant: OpenCodeSecretName,
 			expected: "opencode-credentials",
 		},
+		{
+			name:     "pulumi secret name",
+			constant: PulumiSecretName,
+			expected: "pulumi-credentials",
+		},
 	}
 
 	for _, tt := range tests {

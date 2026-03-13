@@ -173,6 +173,12 @@ func buildCredentialVolumes() []map[string]interface{} {
 				"secretName": k8s.OpenCodeSecretName,
 			},
 		},
+		{
+			"name": "pulumi-credentials",
+			"secret": map[string]interface{}{
+				"secretName": k8s.PulumiSecretName,
+			},
+		},
 	}
 }
 
@@ -180,6 +186,7 @@ func buildCredentialMounts() []map[string]interface{} {
 	return []map[string]interface{}{
 		{"name": "github-credentials", "mountPath": "/secrets/github", "readOnly": true},
 		{"name": "opencode-credentials", "mountPath": "/secrets/opencode", "readOnly": true},
+		{"name": "pulumi-credentials", "mountPath": "/secrets/pulumi", "readOnly": true},
 	}
 }
 

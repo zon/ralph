@@ -13,6 +13,8 @@ const (
 	GitHubSecretName = "github-credentials"
 	// OpenCodeSecretName is the name of the Kubernetes secret for OpenCode credentials
 	OpenCodeSecretName = "opencode-credentials"
+	// PulumiSecretName is the name of the Kubernetes secret for Pulumi credentials
+	PulumiSecretName = "pulumi-credentials"
 )
 
 // buildSecretArgs builds the kubectl create secret generic command arguments

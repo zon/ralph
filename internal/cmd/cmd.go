@@ -19,6 +19,7 @@ type Cmd struct {
 type ConfigCmd struct {
 	Github        ConfigGithubCmd        `cmd:"" help:"Configure GitHub credentials for remote execution"`
 	Opencode      ConfigOpencodeCmd      `cmd:"" help:"Configure OpenCode credentials for remote execution"`
+	Pulumi        ConfigPulumiCmd        `cmd:"" help:"Configure Pulumi credentials for remote execution"`
 	WebhookConfig ConfigWebhookConfigCmd `cmd:"" name:"webhook" help:"Provision webhook-config secret into Kubernetes"`
 	WebhookSecret ConfigWebhookSecretCmd `cmd:"" help:"Provision webhook-secrets secret into Kubernetes"`
 }
