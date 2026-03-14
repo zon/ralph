@@ -24,7 +24,7 @@ type WorkflowCmd struct {
 	BaseBranch  string `help:"Base branch for PR creation (default: detected dynamically)" name:"base" short:"B"`
 	BotName     string `help:"Git user name for commits" default:"ralph[bot]"`
 	BotEmail    string `help:"Git user email for commits" default:"ralph[bot]@users.noreply.github.com"`
-	DebugBranch string `help:"Ralph branch to use for debug mode (clones ralph from this branch and runs via go run)" name:"debug-branch" optional:""`
+	DebugBranch string `help:"Ralph branch to use for debug mode (clones ralph from this branch and runs via go run)" name:"debug" optional:""`
 	Verbose     bool   `help:"Enable verbose logging" default:"false"`
 	NoServices  bool   `help:"Skip service startup" default:"false"`
 	Local       bool   `help:"Run locally instead of in workflow container" default:"false"`

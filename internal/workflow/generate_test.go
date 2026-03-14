@@ -132,11 +132,13 @@ requirements:
 	require.True(t, ok, "container is not a map")
 	assert.Equal(t, "my-registry/ralph:v1.0.0", container["image"])
 	assert.Equal(t, "/workspace", container["workingDir"])
+	assert.Equal(t, []interface{}{"ralph"}, container["command"])
+	assert.Equal(t, []interface{}{"workflow", "--no-services"}, container["args"])
 
 	env, ok := container["env"].([]interface{})
 	require.True(t, ok, "env is not a list")
 
-	hasGitRepoURL, hasGitBranch, hasProjectBranch, hasCustomEnv, hasBaseBranch, hasPulumiToken := false, false, false, false, false, false
+	hasGitRepoURL, hasGitBranch, hasProjectBranch, hasCustomEnv, hasBaseBranch, hasPulumiToken, hasDebugBranch, hasVerbose := false, false, false, false, false, false, false, false
 	for _, envVar := range env {
 		envMap, ok := envVar.(map[string]interface{})
 		if !ok {
@@ -157,6 +159,10 @@ requirements:
 			}
 		case "BASE_BRANCH":
 			hasBaseBranch = true
+		case "RALPH_DEBUG_BRANCH":
+			hasDebugBranch = true
+		case "RALPH_VERBOSE":
+			hasVerbose = true
 		case "PULUMI_ACCESS_TOKEN":
 			hasPulumiToken = true
 			valueFrom, ok := envMap["valueFrom"].(map[string]interface{})
@@ -174,6 +180,8 @@ requirements:
 	assert.True(t, hasCustomEnv, "Custom environment variable MY_VAR not found")
 	assert.True(t, hasBaseBranch, "BASE_BRANCH environment variable not found")
 	assert.True(t, hasPulumiToken, "PULUMI_ACCESS_TOKEN environment variable not found")
+	assert.True(t, hasDebugBranch, "RALPH_DEBUG_BRANCH environment variable not found")
+	assert.True(t, hasVerbose, "RALPH_VERBOSE environment variable not found")
 
 	volumeMounts, ok := container["volumeMounts"].([]interface{})
 	require.True(t, ok, "volumeMounts is not a list")
@@ -593,11 +601,66 @@ func TestWorkflowRender_RunScriptBranching(t *testing.T) {
 	tmpl := templates[0].(map[string]interface{})
 	container := tmpl["container"].(map[string]interface{})
 
+	command := container["command"].([]interface{})
+	args := container["args"].([]interface{})
+
+	assert.Equal(t, "ralph", command[0], "Command should be 'ralph' for regular workflow")
+	assert.Equal(t, "workflow", args[0], "First arg should be 'workflow' for regular workflow")
+}
+
+func TestWorkflowRender_DebugBranch(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	if err := os.MkdirAll(ralphDir, 0755); err != nil {
+		t.Fatalf("Failed to create .ralph directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("maxIterations: 5\n"), 0644); err != nil {
+		t.Fatalf("Failed to create config file: %v", err)
+	}
+
+	debugBranch := "feat/debug-mode"
+	wf := &Workflow{
+		ProjectName:   "test-project",
+		RepoURL:       "https://github.com/owner/repo.git",
+		RepoOwner:     "owner",
+		RepoName:      "repo",
+		CloneBranch:   "main",
+		ProjectBranch: "feature-branch",
+		ProjectPath:   "project.yaml",
+		DebugBranch:   debugBranch,
+		RalphConfig:   &config.RalphConfig{},
+	}
+
+	workflowYAML, err := wf.Render()
+	require.NoError(t, err, "Render failed")
+
+	var wfData map[string]interface{}
+	require.NoError(t, yaml.Unmarshal([]byte(workflowYAML), &wfData), "Failed to parse workflow YAML")
+
+	spec := wfData["spec"].(map[string]interface{})
+	templates := spec["templates"].([]interface{})
+	tmpl := templates[0].(map[string]interface{})
+	container := tmpl["container"].(map[string]interface{})
+
+	command := container["command"].([]interface{})
 	args := container["args"].([]interface{})
 	script := args[0].(string)
 
-	assert.True(t, strings.Contains(script, "ralph workflow"), "Script should contain 'ralph workflow' for regular workflow")
-	assert.False(t, strings.Contains(script, "ralph comment"), "Script should NOT contain 'ralph comment' when CommentBody is empty")
+	assert.Equal(t, "/bin/sh", command[0])
+	assert.True(t, strings.Contains(script, debugBranch), "Script should contain debug branch name")
+	assert.True(t, strings.Contains(script, "git clone -b"), "Script should contain git clone command")
+
+	env := container["env"].([]interface{})
+	foundDebugBranch := false
+	for _, e := range env {
+		envVar := e.(map[string]interface{})
+		if envVar["name"] == "RALPH_DEBUG_BRANCH" {
+			assert.Equal(t, debugBranch, envVar["value"])
+			foundDebugBranch = true
+		}
+	}
+	assert.True(t, foundDebugBranch, "RALPH_DEBUG_BRANCH environment variable not found")
 }
 
 func TestMergeWorkflowRender_EnvVarCoverage(t *testing.T) {

@@ -12,8 +12,8 @@ import (
 	"github.com/zon/ralph/internal/k8s"
 )
 
-//go:embed workflow.sh
-var runScript string
+//go:embed debug.sh
+var debugScript string
 
 //go:embed comment.sh
 var commentScript string
@@ -70,9 +70,9 @@ func buildParameters(params map[string]string) []map[string]interface{} {
 	return parameters
 }
 
-// buildRunScript returns the rendered workflow.sh script for a regular development workflow.
-func buildRunScript(verbose bool, debugBranch string, _ *config.RalphConfig) string {
-	return renderScript(runScript, newScriptData(verbose, debugBranch))
+// buildDebugScript returns the rendered debug.sh script for a debug development workflow.
+func buildDebugScript(verbose bool, debugBranch string, _ *config.RalphConfig) string {
+	return renderScript(debugScript, newScriptData(verbose, debugBranch))
 }
 
 // buildCommentScript returns the rendered comment.sh script for a comment-triggered workflow.

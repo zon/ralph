@@ -113,16 +113,30 @@ func (w *Workflow) buildScript() string {
 	if w.CommentBody != "" {
 		return buildCommentScript(w.Verbose)
 	}
-	return buildRunScript(w.Verbose, w.DebugBranch, w.RalphConfig)
+	return buildDebugScript(w.Verbose, w.DebugBranch, w.RalphConfig)
 }
 
 func (w *Workflow) buildMainTemplate() map[string]interface{} {
+	var command []string
+	var args []string
+
+	if w.DebugBranch != "" || w.CommentBody != "" {
+		command = []string{"/bin/sh", "-c"}
+		args = []string{w.buildScript()}
+	} else {
+		command = []string{"ralph"}
+		args = []string{"workflow", "--no-services"}
+		if w.Verbose {
+			args = append(args, "--verbose")
+		}
+	}
+
 	return map[string]interface{}{
 		"name": "ralph-executor",
 		"container": map[string]interface{}{
 			"image":        resolveImage(w.RalphConfig),
-			"command":      []string{"/bin/sh", "-c"},
-			"args":         []string{w.buildScript()},
+			"command":      command,
+			"args":         args,
 			"env":          w.buildEnvVars(),
 			"volumeMounts": buildVolumeMounts(w.RalphConfig),
 			"workingDir":   "/workspace",
@@ -144,6 +158,8 @@ func (w *Workflow) buildEnvVars() []map[string]interface{} {
 		{"name": "PR_NUMBER", "value": "{{workflow.parameters.pr-number}}"},
 		{"name": "RALPH_WORKFLOW_EXECUTION", "value": "true"},
 		{"name": "BASE_BRANCH", "value": "{{workflow.parameters.base-branch}}"},
+		{"name": "RALPH_DEBUG_BRANCH", "value": w.DebugBranch},
+		{"name": "RALPH_VERBOSE", "value": fmt.Sprintf("%t", w.Verbose)},
 	}
 
 	hasPulumiToken := false

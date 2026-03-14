@@ -8,7 +8,7 @@ import (
 	"github.com/zon/ralph/internal/config"
 )
 
-func TestBuildRunScript(t *testing.T) {
+func TestBuildDebugScript(t *testing.T) {
 	tests := []struct {
 		name            string
 		verbose         bool
@@ -31,7 +31,7 @@ func TestBuildRunScript(t *testing.T) {
 			cfg := &config.RalphConfig{
 				Workflow: config.WorkflowConfig{},
 			}
-			script := buildRunScript(tt.verbose, "", cfg)
+			script := buildDebugScript(tt.verbose, "main", cfg)
 
 			expectedElements := []string{
 				"#!/bin/sh",
@@ -43,17 +43,17 @@ func TestBuildRunScript(t *testing.T) {
 			}
 
 			for _, element := range expectedElements {
-				assert.Contains(t, script, element, "run script should contain expected element")
+				assert.Contains(t, script, element, "debug script should contain expected element")
 			}
 		})
 	}
 }
 
-func TestBuildRunScript_DebugBranch(t *testing.T) {
+func TestBuildDebugScript_DebugBranch(t *testing.T) {
 	cfg := &config.RalphConfig{
 		Workflow: config.WorkflowConfig{},
 	}
-	script := buildRunScript(false, "my-debug-branch", cfg)
+	script := buildDebugScript(false, "my-debug-branch", cfg)
 
 	expectedElements := []string{
 		"git clone -b \"my-debug-branch\" https://github.com/zon/ralph.git /workspace/ralph",
@@ -62,10 +62,10 @@ func TestBuildRunScript_DebugBranch(t *testing.T) {
 		"opencode stats",
 	}
 	for _, element := range expectedElements {
-		assert.Contains(t, script, element, "run script (debug branch) should contain expected element")
+		assert.Contains(t, script, element, "debug script (debug branch) should contain expected element")
 	}
 
-	assert.NotContains(t, script, "command ralph", "run script (debug branch) should not use 'command ralph' fallback")
+	assert.NotContains(t, script, "command ralph", "debug script (debug branch) should not use 'command ralph' fallback")
 }
 
 func TestBuildCommentScript(t *testing.T) {
