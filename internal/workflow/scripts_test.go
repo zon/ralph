@@ -12,16 +12,31 @@ func TestBuildDebugScript(t *testing.T) {
 	tests := []struct {
 		name            string
 		verbose         bool
+		noServices      bool
 		expectedCommand string
 	}{
 		{
 			name:            "no flags",
 			verbose:         false,
+			noServices:      false,
+			expectedCommand: `ralph workflow`,
+		},
+		{
+			name:            "no services",
+			verbose:         false,
+			noServices:      true,
 			expectedCommand: `ralph workflow --no-services`,
 		},
 		{
 			name:            "verbose",
 			verbose:         true,
+			noServices:      false,
+			expectedCommand: `ralph workflow --verbose`,
+		},
+		{
+			name:            "verbose and no services",
+			verbose:         true,
+			noServices:      true,
 			expectedCommand: `ralph workflow --verbose --no-services`,
 		},
 	}
@@ -31,7 +46,7 @@ func TestBuildDebugScript(t *testing.T) {
 			cfg := &config.RalphConfig{
 				Workflow: config.WorkflowConfig{},
 			}
-			script := buildDebugScript(tt.verbose, "main", cfg)
+			script := buildDebugScript(tt.verbose, tt.noServices, "main", cfg)
 
 			expectedElements := []string{
 				"#!/bin/sh",
@@ -53,7 +68,7 @@ func TestBuildDebugScript_DebugBranch(t *testing.T) {
 	cfg := &config.RalphConfig{
 		Workflow: config.WorkflowConfig{},
 	}
-	script := buildDebugScript(false, "my-debug-branch", cfg)
+	script := buildDebugScript(false, false, "my-debug-branch", cfg)
 
 	expectedElements := []string{
 		"git clone -b \"my-debug-branch\" https://github.com/zon/ralph.git /workspace/ralph",
@@ -88,7 +103,7 @@ func TestBuildCommentScript(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			script := buildCommentScript(tt.verbose)
+			script := buildCommentScript(tt.verbose, false)
 
 			expectedElements := []string{
 				"#!/bin/sh",

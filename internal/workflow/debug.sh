@@ -14,7 +14,7 @@ chmod +x /usr/local/bin/ralph
 {{- end}}
 
 echo "Running ralph workflow..."
-ralph workflow{{.VerboseFlag}} --no-services
+ralph workflow{{.VerboseFlag}}{{.NoServicesFlag}}
 
 opencode stats
 

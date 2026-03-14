@@ -58,8 +58,11 @@ func (w *WorkflowCmd) resolveFromEnvVars() {
 	if w.DebugBranch == "" {
 		w.DebugBranch = os.Getenv("RALPH_DEBUG_BRANCH")
 	}
-	if w.Verbose {
+	if !w.Verbose {
 		w.Verbose = os.Getenv("RALPH_VERBOSE") == "true"
+	}
+	if !w.NoServices {
+		w.NoServices = os.Getenv("RALPH_NO_SERVICES") == "true"
 	}
 }
 

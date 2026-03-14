@@ -142,7 +142,7 @@ func handleServiceStartup(ctx *context.Context, cleanupRegistrar func(func()), r
 	svcMgr := services.NewManager()
 
 	// Start services if not disabled
-	if ctx.ShouldStartServices() && len(ralphConfig.Services) > 0 {
+	if !ctx.NoServices() && len(ralphConfig.Services) > 0 {
 		if failedSvc, err := svcMgr.Start(ralphConfig.Services); err != nil {
 			logger.Warningf("Service startup failed: %v", err)
 

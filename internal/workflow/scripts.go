@@ -23,22 +23,28 @@ var mergeScript string
 
 // scriptData holds the template variables injected into each .sh file.
 type scriptData struct {
-	BotName     string
-	BotEmail    string
-	VerboseFlag string // empty or " --verbose"
-	DebugBranch string // empty or the ralph repo branch to use for go run mode
+	BotName        string
+	BotEmail       string
+	VerboseFlag    string // empty or " --verbose"
+	NoServicesFlag string // empty or " --no-services"
+	DebugBranch    string // empty or the ralph repo branch to use for go run mode
 }
 
-func newScriptData(verbose bool, debugBranch string) scriptData {
+func newScriptData(verbose bool, noServices bool, debugBranch string) scriptData {
 	verboseFlag := ""
 	if verbose {
 		verboseFlag = " --verbose"
 	}
+	noServicesFlag := ""
+	if noServices {
+		noServicesFlag = " --no-services"
+	}
 	return scriptData{
-		BotName:     config.DefaultAppName + "[bot]",
-		BotEmail:    config.DefaultAppName + "[bot]@users.noreply.github.com",
-		VerboseFlag: verboseFlag,
-		DebugBranch: debugBranch,
+		BotName:        config.DefaultAppName + "[bot]",
+		BotEmail:       config.DefaultAppName + "[bot]@users.noreply.github.com",
+		VerboseFlag:    verboseFlag,
+		NoServicesFlag: noServicesFlag,
+		DebugBranch:    debugBranch,
 	}
 }
 
@@ -71,18 +77,18 @@ func buildParameters(params map[string]string) []map[string]interface{} {
 }
 
 // buildDebugScript returns the rendered debug.sh script for a debug development workflow.
-func buildDebugScript(verbose bool, debugBranch string, _ *config.RalphConfig) string {
-	return renderScript(debugScript, newScriptData(verbose, debugBranch))
+func buildDebugScript(verbose bool, noServices bool, debugBranch string, _ *config.RalphConfig) string {
+	return renderScript(debugScript, newScriptData(verbose, noServices, debugBranch))
 }
 
 // buildCommentScript returns the rendered comment.sh script for a comment-triggered workflow.
-func buildCommentScript(verbose bool) string {
-	return renderScript(commentScript, newScriptData(verbose, ""))
+func buildCommentScript(verbose bool, noServices bool) string {
+	return renderScript(commentScript, newScriptData(verbose, noServices, ""))
 }
 
 // buildMergeScript returns the rendered merge.sh script for a merge workflow.
 func buildMergeScript() string {
-	return renderScript(mergeScript, newScriptData(false, ""))
+	return renderScript(mergeScript, newScriptData(false, false, ""))
 }
 
 func buildConfigMapVolumeMount(name string, destFile, destDir string, index int) map[string]interface{} {

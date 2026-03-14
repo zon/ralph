@@ -40,6 +40,8 @@ type Workflow struct {
 	RalphConfig *config.RalphConfig
 	// BaseBranch overrides the base branch for PR creation (overrides RalphConfig.DefaultBranch when set).
 	BaseBranch string
+	// NoServices controls whether the ralph command inside the container runs with --no-services.
+	NoServices bool
 }
 
 // Render produces the Argo Workflow YAML string for this Workflow.
@@ -111,9 +113,9 @@ func (w *Workflow) getEffectiveBaseBranch() string {
 // buildScript returns the appropriate shell script for this workflow type.
 func (w *Workflow) buildScript() string {
 	if w.CommentBody != "" {
-		return buildCommentScript(w.Verbose)
+		return buildCommentScript(w.Verbose, w.NoServices)
 	}
-	return buildDebugScript(w.Verbose, w.DebugBranch, w.RalphConfig)
+	return buildDebugScript(w.Verbose, w.NoServices, w.DebugBranch, w.RalphConfig)
 }
 
 func (w *Workflow) buildMainTemplate() map[string]interface{} {
@@ -125,7 +127,10 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 		args = []string{w.buildScript()}
 	} else {
 		command = []string{"ralph"}
-		args = []string{"workflow", "--no-services"}
+		args = []string{"workflow"}
+		if w.NoServices {
+			args = append(args, "--no-services")
+		}
 		if w.Verbose {
 			args = append(args, "--verbose")
 		}
@@ -160,6 +165,7 @@ func (w *Workflow) buildEnvVars() []map[string]interface{} {
 		{"name": "BASE_BRANCH", "value": "{{workflow.parameters.base-branch}}"},
 		{"name": "RALPH_DEBUG_BRANCH", "value": w.DebugBranch},
 		{"name": "RALPH_VERBOSE", "value": fmt.Sprintf("%t", w.Verbose)},
+		{"name": "RALPH_NO_SERVICES", "value": fmt.Sprintf("%t", w.NoServices)},
 	}
 
 	hasPulumiToken := false

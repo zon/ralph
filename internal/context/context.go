@@ -37,9 +37,9 @@ func (c *Context) ShouldNotify() bool {
 	return !c.noNotify
 }
 
-// ShouldStartServices returns true if services should be started
-func (c *Context) ShouldStartServices() bool {
-	return !c.noServices
+// NoServices returns true if services should be skipped
+func (c *Context) NoServices() bool {
+	return c.noServices
 }
 
 // IsLocal returns true if running locally instead of submitting to Argo Workflows

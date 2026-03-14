@@ -66,6 +66,7 @@ requirements:
 
 	ctx := &execcontext.Context{}
 	ctx.SetProjectFile(projectFile)
+	ctx.SetNoServices(true)
 	repoURL := "git@github.com:test/repo.git"
 	cloneBranch := "main"
 	projectBranch := "test-project"
@@ -138,7 +139,7 @@ requirements:
 	env, ok := container["env"].([]interface{})
 	require.True(t, ok, "env is not a list")
 
-	hasGitRepoURL, hasGitBranch, hasProjectBranch, hasCustomEnv, hasBaseBranch, hasPulumiToken, hasDebugBranch, hasVerbose := false, false, false, false, false, false, false, false
+	hasGitRepoURL, hasGitBranch, hasProjectBranch, hasCustomEnv, hasBaseBranch, hasPulumiToken, hasDebugBranch, hasVerbose, hasNoServices := false, false, false, false, false, false, false, false, false
 	for _, envVar := range env {
 		envMap, ok := envVar.(map[string]interface{})
 		if !ok {
@@ -163,6 +164,8 @@ requirements:
 			hasDebugBranch = true
 		case "RALPH_VERBOSE":
 			hasVerbose = true
+		case "RALPH_NO_SERVICES":
+			hasNoServices = true
 		case "PULUMI_ACCESS_TOKEN":
 			hasPulumiToken = true
 			valueFrom, ok := envMap["valueFrom"].(map[string]interface{})
@@ -182,6 +185,7 @@ requirements:
 	assert.True(t, hasPulumiToken, "PULUMI_ACCESS_TOKEN environment variable not found")
 	assert.True(t, hasDebugBranch, "RALPH_DEBUG_BRANCH environment variable not found")
 	assert.True(t, hasVerbose, "RALPH_VERBOSE environment variable not found")
+	assert.True(t, hasNoServices, "RALPH_NO_SERVICES environment variable not found")
 
 	volumeMounts, ok := container["volumeMounts"].([]interface{})
 	require.True(t, ok, "volumeMounts is not a list")

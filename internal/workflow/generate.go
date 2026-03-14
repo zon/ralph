@@ -94,6 +94,7 @@ func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL,
 		DebugBranch:   ctx.DebugBranch(),
 		BaseBranch:    ctx.BaseBranch(),
 		RalphConfig:   ralphConfig,
+		NoServices:    ctx.NoServices(),
 	}, nil
 }
 
