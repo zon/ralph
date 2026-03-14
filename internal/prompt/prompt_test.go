@@ -14,6 +14,15 @@ import (
 	"github.com/zon/ralph/internal/testutil"
 )
 
+func getTestModel(t *testing.T) string {
+	t.Helper()
+	repoConfig, err := config.LoadConfig()
+	if err != nil {
+		t.Fatalf("failed to load repo config: %v", err)
+	}
+	return repoConfig.Model
+}
+
 func TestBuildDevelopPrompt(t *testing.T) {
 	// Create a temporary project file
 	tmpDir := t.TempDir()
@@ -30,6 +39,14 @@ requirements:
 `
 	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
 		t.Fatalf("Failed to create test project file: %v", err)
+	}
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	if err := os.MkdirAll(ralphDir, 0755); err != nil {
+		t.Fatalf("Failed to create .ralph directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("model: "+getTestModel(t)+"\n"), 0644); err != nil {
+		t.Fatalf("Failed to create .ralph/config.yaml: %v", err)
 	}
 
 	// Change to temp directory to avoid needing actual git repo
@@ -216,6 +233,14 @@ requirements:
 				t.Fatalf("Failed to create test project file: %v", err)
 			}
 
+			ralphDir := filepath.Join(tmpDir, ".ralph")
+			if err := os.MkdirAll(ralphDir, 0755); err != nil {
+				t.Fatalf("Failed to create .ralph directory: %v", err)
+			}
+			if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("model: "+getTestModel(t)+"\n"), 0644); err != nil {
+				t.Fatalf("Failed to create .ralph/config.yaml: %v", err)
+			}
+
 			// Write the instructions file
 			instructionsFile := filepath.Join(tmpDir, "webhook-instructions.md")
 			if err := os.WriteFile(instructionsFile, []byte(tt.instructionsContent), 0644); err != nil {
@@ -294,6 +319,14 @@ requirements:
 		t.Fatalf("Failed to create test project file: %v", err)
 	}
 
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	if err := os.MkdirAll(ralphDir, 0755); err != nil {
+		t.Fatalf("Failed to create .ralph directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("model: "+getTestModel(t)+"\n"), 0644); err != nil {
+		t.Fatalf("Failed to create .ralph/config.yaml: %v", err)
+	}
+
 	t.Chdir(tmpDir)
 
 	// Point to a non-existent file
@@ -315,6 +348,14 @@ requirements:
 `
 	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
 		t.Fatalf("Failed to create test project file: %v", err)
+	}
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	if err := os.MkdirAll(ralphDir, 0755); err != nil {
+		t.Fatalf("Failed to create .ralph directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("model: "+getTestModel(t)+"\n"), 0644); err != nil {
+		t.Fatalf("Failed to create .ralph/config.yaml: %v", err)
 	}
 
 	t.Chdir(tmpDir)
@@ -341,6 +382,14 @@ requirements:
 `
 	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
 		t.Fatalf("Failed to create test project file: %v", err)
+	}
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	if err := os.MkdirAll(ralphDir, 0755); err != nil {
+		t.Fatalf("Failed to create .ralph directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("model: "+getTestModel(t)+"\n"), 0644); err != nil {
+		t.Fatalf("Failed to create .ralph/config.yaml: %v", err)
 	}
 
 	t.Chdir(tmpDir)
@@ -452,6 +501,14 @@ requirements:
 		t.Fatalf("Failed to create test project file: %v", err)
 	}
 
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	if err := os.MkdirAll(ralphDir, 0755); err != nil {
+		t.Fatalf("Failed to create .ralph directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("model: "+getTestModel(t)+"\n"), 0644); err != nil {
+		t.Fatalf("Failed to create .ralph/config.yaml: %v", err)
+	}
+
 	t.Chdir(tmpDir)
 
 	ctx := testutil.NewContext()
@@ -505,6 +562,14 @@ requirements:
 		t.Fatalf("Failed to create test project file: %v", err)
 	}
 
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	if err := os.MkdirAll(ralphDir, 0755); err != nil {
+		t.Fatalf("Failed to create .ralph directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("model: "+getTestModel(t)+"\n"), 0644); err != nil {
+		t.Fatalf("Failed to create .ralph/config.yaml: %v", err)
+	}
+
 	t.Chdir(tmpDir)
 
 	ctx := testutil.NewContext()
@@ -529,6 +594,14 @@ requirements:
 `
 	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
 		t.Fatalf("Failed to create test project file: %v", err)
+	}
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	if err := os.MkdirAll(ralphDir, 0755); err != nil {
+		t.Fatalf("Failed to create .ralph directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("model: "+getTestModel(t)+"\n"), 0644); err != nil {
+		t.Fatalf("Failed to create .ralph/config.yaml: %v", err)
 	}
 
 	t.Chdir(tmpDir)
@@ -558,6 +631,14 @@ requirements:
 `
 	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
 		t.Fatalf("Failed to create test project file: %v", err)
+	}
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	if err := os.MkdirAll(ralphDir, 0755); err != nil {
+		t.Fatalf("Failed to create .ralph directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("model: "+getTestModel(t)+"\n"), 0644); err != nil {
+		t.Fatalf("Failed to create .ralph/config.yaml: %v", err)
 	}
 
 	t.Chdir(tmpDir)

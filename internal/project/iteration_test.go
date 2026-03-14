@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/testutil"
 )
 
@@ -252,6 +253,32 @@ func setupIterationTestRepo(t *testing.T, hookContent string) string {
 		hookPath := filepath.Join(remoteDir, "hooks", "pre-receive")
 		if err := os.WriteFile(hookPath, []byte(hookContent), 0755); err != nil {
 			t.Fatalf("failed to write hook: %v", err)
+		}
+	}
+
+	// Create .ralph directory with config.yaml
+	ralphDir := filepath.Join(workDir, ".ralph")
+	if err := os.MkdirAll(ralphDir, 0755); err != nil {
+		t.Fatalf("failed to create .ralph directory: %v", err)
+	}
+	repoConfig, err := config.LoadConfig()
+	if err != nil {
+		t.Fatalf("failed to load repo config: %v", err)
+	}
+	configContent := "model: " + repoConfig.Model + "\n"
+	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte(configContent), 0644); err != nil {
+		t.Fatalf("failed to create .ralph/config.yaml: %v", err)
+	}
+
+	// Add and commit .ralph directory so it's tracked in the test repo
+	for _, args := range [][]string{
+		{"add", ".ralph"},
+		{"commit", "-m", "add ralph config"},
+	} {
+		c := exec.Command("git", args...)
+		c.Dir = workDir
+		if out, err := c.CombinedOutput(); err != nil {
+			t.Fatalf("git %v failed: %v\n%s", args, err, out)
 		}
 	}
 
