@@ -33,7 +33,7 @@ requirements:
     items:
       - Apply a semver major bump to `internal/version/VERSION` and `charts/ralph-webhook/Chart.yaml` (appVersion)
       - Apply a semver patch bump to the helm chart `version` field in `charts/ralph-webhook/Chart.yaml`
-    passing: false
+    passing: true
 
   - category: cleanup
     description: Update internal components and tests
