@@ -56,7 +56,7 @@ func (r *RunCmd) Run() error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	maxIterations := r.resolveMaxIterations(ralphConfig)
+	maxIterations := resolveMaxIterations(ralphConfig, r.MaxIterations)
 
 	ctx := r.createExecutionContext(maxIterations)
 
@@ -118,17 +118,6 @@ func (r *RunCmd) validateFlagCombinations() error {
 		return fmt.Errorf("--debug flag is not applicable with --local flag")
 	}
 	return nil
-}
-
-func (r *RunCmd) resolveMaxIterations(ralphConfig *config.RalphConfig) int {
-	maxIterations := r.MaxIterations
-	if maxIterations == 0 {
-		maxIterations = ralphConfig.MaxIterations
-	}
-	if maxIterations == 0 {
-		maxIterations = 10
-	}
-	return maxIterations
 }
 
 func (r *RunCmd) createExecutionContext(maxIterations int) *execcontext.Context {

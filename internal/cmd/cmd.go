@@ -1,5 +1,7 @@
 package cmd
 
+import "github.com/zon/ralph/internal/config"
+
 // Cmd defines the command-line arguments and execution context
 type Cmd struct {
 	// Subcommands
@@ -47,4 +49,12 @@ func (c *Cmd) SetCleanupRegistrar(cleanupRegistrar func(func())) {
 	c.Comment.cleanupRegistrar = cleanupRegistrar
 	c.Merge.cleanupRegistrar = cleanupRegistrar
 	c.Workflow.cleanupRegistrar = cleanupRegistrar
+}
+
+// resolveMaxIterations returns flagMaxIterations if non-zero, otherwise returns RalphConfig.MaxIterations
+func resolveMaxIterations(ralphConfig *config.RalphConfig, flagMaxIterations int) int {
+	if flagMaxIterations != 0 {
+		return flagMaxIterations
+	}
+	return ralphConfig.MaxIterations
 }

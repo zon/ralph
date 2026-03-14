@@ -290,13 +290,7 @@ Focus on accepting the correct changes from both branches. If there are test fai
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
-	maxIterations := w.MaxIterations
-	if maxIterations == 0 && ralphConfig != nil {
-		maxIterations = ralphConfig.MaxIterations
-	}
-	if maxIterations == 0 {
-		maxIterations = 10
-	}
+	maxIterations := resolveMaxIterations(ralphConfig, w.MaxIterations)
 	ctx.SetMaxIterations(maxIterations)
 	ctx.SetWorkflowExecution(true)
 
@@ -329,13 +323,7 @@ func (w *WorkflowCmd) runRalph() error {
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
-	maxIterations := w.MaxIterations
-	if maxIterations == 0 && ralphConfig != nil {
-		maxIterations = ralphConfig.MaxIterations
-	}
-	if maxIterations == 0 {
-		maxIterations = 10
-	}
+	maxIterations := resolveMaxIterations(ralphConfig, w.MaxIterations)
 
 	ctx := createExecutionContext()
 	ctx.SetProjectFile(projectPath)
