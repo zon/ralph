@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/k8s"
 )
 
@@ -20,7 +21,12 @@ func (c *ConfigOpencodeCmd) Run() error {
 
 	c.printHeader()
 
-	kubeContext, namespace, err := loadContextAndNamespace(ctx, c.Context, c.Namespace)
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	k8sCtx, err := resolveKubeContext(ctx, cfg, c.Context, c.Namespace)
 	if err != nil {
 		return err
 	}
@@ -32,7 +38,7 @@ func (c *ConfigOpencodeCmd) Run() error {
 		return err
 	}
 
-	if err := c.createK8sSecret(ctx, kubeContext, namespace, authFileContent); err != nil {
+	if err := c.createK8sSecret(ctx, k8sCtx.Name, k8sCtx.Namespace, authFileContent); err != nil {
 		return err
 	}
 

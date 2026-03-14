@@ -8,6 +8,12 @@ import (
 	"strings"
 )
 
+// Context represents a Kubernetes context
+type Context struct {
+	Name      string
+	Namespace string
+}
+
 const (
 	// GitHubSecretName is the name of the Kubernetes secret for GitHub App credentials
 	GitHubSecretName = "github-credentials"
@@ -142,33 +148,33 @@ func CreateOrUpdateConfigMap(ctx context.Context, name, namespace, kubeContext s
 }
 
 // GetCurrentContext gets the current Kubernetes context
-func GetCurrentContext(ctx context.Context) (string, error) {
+func GetCurrentContext(ctx context.Context) (Context, error) {
 	cmd := exec.CommandContext(ctx, "kubectl", "config", "current-context")
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("failed to get current context: %w (stderr: %s)", err, stderr.String())
+		return Context{}, fmt.Errorf("failed to get current context: %w (stderr: %s)", err, stderr.String())
 	}
 
-	return strings.TrimSpace(stdout.String()), nil
-}
+	name := strings.TrimSpace(stdout.String())
 
-// GetNamespaceForContext gets the namespace for a given context
-// Returns empty string if no namespace is configured (will use "default")
-func GetNamespaceForContext(ctx context.Context, kubeContext string) (string, error) {
-	args := []string{"config", "view", "-o", fmt.Sprintf("jsonpath='{.contexts[?(@.name==\"%s\")].context.namespace}'", kubeContext)}
-	cmd := exec.CommandContext(ctx, "kubectl", args...)
-	var stdout, stderr bytes.Buffer
+	// Get the namespace for the current context
+	args := []string{"config", "view", "-o", fmt.Sprintf("jsonpath='{.contexts[?(@.name==\"%s\")].context.namespace}'", name)}
+	cmd = exec.CommandContext(ctx, "kubectl", args...)
+	stdout.Reset()
+	stderr.Reset()
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
-	if err := cmd.Run(); err != nil {
-		// It's ok if this fails - we'll use default namespace
-		return "", nil
+	var namespace string
+	if err := cmd.Run(); err == nil {
+		namespace = strings.Trim(strings.TrimSpace(stdout.String()), "'")
 	}
 
-	namespace := strings.Trim(strings.TrimSpace(stdout.String()), "'")
-	return namespace, nil
+	return Context{
+		Name:      name,
+		Namespace: namespace,
+	}, nil
 }

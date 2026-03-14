@@ -157,6 +157,9 @@ func TestLoadConfig_Defaults(t *testing.T) {
 
 	t.Chdir(tmpDir)
 
+	// Create .ralph directory to satisfy new LoadConfig requirement
+	require.NoError(t, os.Mkdir(filepath.Join(tmpDir, ".ralph"), 0755))
+
 	config, err := LoadConfig()
 	require.NoError(t, err, "LoadConfig() unexpected error")
 

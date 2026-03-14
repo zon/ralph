@@ -23,7 +23,12 @@ func (c *ConfigGithubCmd) Run() error {
 
 	c.printHeader()
 
-	kubeContext, namespace, err := loadContextAndNamespace(ctx, c.Context, c.Namespace)
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	k8sCtx, err := resolveKubeContext(ctx, cfg, c.Context, c.Namespace)
 	if err != nil {
 		return err
 	}
@@ -49,7 +54,7 @@ func (c *ConfigGithubCmd) Run() error {
 
 	appID := config.DefaultAppID
 
-	if err := c.createK8sSecret(ctx, kubeContext, namespace, appID, privateKeyBytes); err != nil {
+	if err := c.createK8sSecret(ctx, k8sCtx.Name, k8sCtx.Namespace, appID, privateKeyBytes); err != nil {
 		return err
 	}
 

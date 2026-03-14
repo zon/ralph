@@ -286,7 +286,10 @@ Focus on accepting the correct changes from both branches. If there are test fai
 	ctx.SetNoServices(w.NoServices)
 	ctx.SetInstructions(instructionsFile)
 
-	ralphConfig, _ := config.LoadConfig()
+	ralphConfig, err := config.LoadConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
 	maxIterations := w.MaxIterations
 	if maxIterations == 0 && ralphConfig != nil {
 		maxIterations = ralphConfig.MaxIterations
@@ -322,7 +325,10 @@ func (w *WorkflowCmd) runRalph() error {
 		projectPath = filepath.Join("/workspace/repo", projectPath)
 	}
 
-	ralphConfig, _ := config.LoadConfig()
+	ralphConfig, err := config.LoadConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
 	maxIterations := w.MaxIterations
 	if maxIterations == 0 && ralphConfig != nil {
 		maxIterations = ralphConfig.MaxIterations

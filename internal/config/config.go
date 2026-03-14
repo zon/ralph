@@ -223,52 +223,47 @@ func FindConfigDir(startDir string) (string, error) {
 }
 
 // LoadConfig searches upwards for a .ralph directory and loads config.yaml from it.
-// Returns default config if no .ralph/config.yaml is found (not an error).
 func LoadConfig() (*RalphConfig, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get working directory: %w", err)
 	}
 
-	var config RalphConfig
 	configDir, err := FindConfigDir(cwd)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find .ralph directory: %w", err)
+	}
 
-	if err == nil {
-		configPath := filepath.Join(configDir, "config.yaml")
-		if data, err := os.ReadFile(configPath); err == nil {
-			if err := yaml.Unmarshal(data, &config); err != nil {
-				return nil, fmt.Errorf("failed to parse config YAML: %w", err)
-			}
-			config.ConfigPath = configPath
+	var config RalphConfig
+	configPath := filepath.Join(configDir, "config.yaml")
+	if data, err := os.ReadFile(configPath); err == nil {
+		if err := yaml.Unmarshal(data, &config); err != nil {
+			return nil, fmt.Errorf("failed to parse config YAML: %w", err)
 		}
+		config.ConfigPath = configPath
+	}
 
-		// Load instructions from .ralph/instructions.md or use default
-		instructionsPath := filepath.Join(configDir, "instructions.md")
-		if instructionsData, err := os.ReadFile(instructionsPath); err == nil {
-			config.Instructions = string(instructionsData)
-		} else {
-			config.Instructions = defaultInstructions
-		}
-
-		// Load comment instructions from .ralph/comment-instructions.md or use default
-		commentInstructionsPath := filepath.Join(configDir, "comment-instructions.md")
-		if data, err := os.ReadFile(commentInstructionsPath); err == nil {
-			config.CommentInstructions = string(data)
-		} else {
-			config.CommentInstructions = defaultCommentInstructions
-		}
-
-		// Load merge instructions from .ralph/merge-instructions.md or use default
-		mergeInstructionsPath := filepath.Join(configDir, "merge-instructions.md")
-		if data, err := os.ReadFile(mergeInstructionsPath); err == nil {
-			config.MergeInstructions = string(data)
-		} else {
-			config.MergeInstructions = defaultMergeInstructions
-		}
+	// Load instructions from .ralph/instructions.md or use default
+	instructionsPath := filepath.Join(configDir, "instructions.md")
+	if instructionsData, err := os.ReadFile(instructionsPath); err == nil {
+		config.Instructions = string(instructionsData)
 	} else {
-		// No .ralph directory found, use defaults for instructions
 		config.Instructions = defaultInstructions
+	}
+
+	// Load comment instructions from .ralph/comment-instructions.md or use default
+	commentInstructionsPath := filepath.Join(configDir, "comment-instructions.md")
+	if data, err := os.ReadFile(commentInstructionsPath); err == nil {
+		config.CommentInstructions = string(data)
+	} else {
 		config.CommentInstructions = defaultCommentInstructions
+	}
+
+	// Load merge instructions from .ralph/merge-instructions.md or use default
+	mergeInstructionsPath := filepath.Join(configDir, "merge-instructions.md")
+	if data, err := os.ReadFile(mergeInstructionsPath); err == nil {
+		config.MergeInstructions = string(data)
+	} else {
 		config.MergeInstructions = defaultMergeInstructions
 	}
 
