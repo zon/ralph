@@ -273,8 +273,8 @@ func (w *WorkflowCmd) resolveConflictsWithAI(baseBranch string) error {
 Steps:
 1. Run 'git merge %s' to see the conflicts
 2. Examine the conflicting files and resolve each conflict
-3. After resolving, run 'git add <resolved-files>' and 'git commit'
-4. Write a brief summary of the merge to 'report.md'
+3. Run tests to ensure the merged code is correct
+4. After resolving and verifying with tests, run 'git add <resolved-files>' and 'git commit'
 
 Focus on accepting the correct changes from both branches. If there are test failures after resolving, fix them.
 `, baseBranch, w.Branch, baseBranch)
@@ -307,10 +307,6 @@ Focus on accepting the correct changes from both branches. If there are test fai
 	// Use project.Execute to resolve conflicts and complete the project.
 	// We ignore the error here as we'll check the file state and commit manually below.
 	_ = project.Execute(ctx, w.cleanupRegistrar)
-
-	if _, err := os.Stat("/workspace/repo/report.md"); err == nil {
-		logger.Info("AI generated merge summary")
-	}
 
 	if git.HasStagedChanges(ctx) {
 		logger.Info("AI did not commit the merge - committing now...")
