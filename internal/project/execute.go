@@ -21,25 +21,12 @@ import (
 )
 
 // Execute runs the full orchestration workflow
-// Steps:
-// 1. Validate project file exists
-// 2. If remote mode: load project, generate and submit Argo Workflow, then exit
-// 3. Run before commands once before starting iterations
-// 4. Validate current branch is in sync with remote
-// 5. Extract branch name from project file basename
-// 6. If PROJECT_BRANCH != current branch: fetch, then checkout remote branch or create new one
-// 7. Run iteration loop (develop + commit + push until complete)
-// 8. Load project file for PR title/notification
-// 9. Generate PR summary using AI
-// 10. Create GitHub pull request
-// 11. Display PR URL on success
 func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	// Enable verbose logging if requested
 	if ctx.IsVerbose() {
 		logger.SetVerbose(true)
 	}
 
-	// Handle Argo Workflow submission (default when not running with --local).
 	if !ctx.IsLocal() {
 		return executeRemote(ctx, ctx.ProjectFile())
 	}
@@ -49,13 +36,11 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		return fmt.Errorf("failed to resolve project file path: %w", err)
 	}
 
-	// Load project file to get the name field for branch naming
 	project, err := config.LoadProject(absProjectFile)
 	if err != nil {
 		return fmt.Errorf("failed to load project file: %w", err)
 	}
 
-	// Extract branch name from project name field
 	branchName := sanitizeBranchName(project.Name)
 	logger.Verbosef("Branch name: %s", branchName)
 
@@ -65,31 +50,23 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	// Get current branch before switching to project branch for dynamic base branch detection
 	currentBranch, err := git.GetCurrentBranch(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get current branch: %w", err)
 	}
 
-	// Determine base branch dynamically:
-	// - If --base flag is provided, use it
-	// - If --base is NOT provided and current branch != project branch, use current branch
-	// - If --base is NOT provided and current branch == project branch, use defaultBranch from config
 	baseBranch := resolveBaseBranch(ctx.BaseBranch(), currentBranch, branchName, ralphConfig.DefaultBranch)
 
-	// Run before commands before starting iteration loop
 	if len(ralphConfig.Before) > 0 {
 		if err := services.RunBefore(ralphConfig.Before); err != nil {
 			return fmt.Errorf("failed to run before commands: %w", err)
 		}
 	}
 
-	// Validate git state and switch to project branch
 	if err := validateGitStateAndSwitchBranch(ctx, branchName); err != nil {
 		return err
 	}
 
-	// Run iteration loop
 	logger.Verbosef("Starting iteration loop (max: %d)", ctx.MaxIterations)
 
 	iterCount, err := RunIterationLoop(ctx, cleanupRegistrar)
@@ -101,7 +78,6 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 
 	logger.Verbosef("Iteration loop completed after %d iteration(s)", iterCount)
 
-	// Generate PR summary using AI (before potentially deleting the project file)
 	logger.Verbose("Generating PR summary...")
 	prSummary, err := ai.GeneratePRSummary(ctx, absProjectFile, iterCount, baseBranch)
 	if err != nil {
@@ -109,7 +85,6 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	}
 	logger.Verbose("PR summary generated")
 
-	// Reload project for PR title and notification
 	project, err = config.LoadProject(absProjectFile)
 	if err != nil {
 		return fmt.Errorf("failed to reload project after iteration loop: %w", err)
@@ -119,7 +94,6 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		logger.Verbosef("PR Summary:\n%s", prSummary)
 	}
 
-	// Create GitHub pull request
 	prURL, err := createPullRequest(ctx, project, branchName, baseBranch, prSummary)
 	if err != nil {
 		if errors.Is(err, github.ErrNoCommitsBetweenBranches) {
@@ -132,16 +106,11 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 
 	logger.Successf("Pull request created: %s", prURL)
 
-	// Send success notification
 	notify.Success(project.Name, ctx.ShouldNotify())
 
 	return nil
 }
 
-// resolveBaseBranch determines the base branch based on the dynamic detection logic:
-// - If baseFlag is provided (non-empty), use it
-// - If baseFlag is NOT provided and currentBranch != projectBranch, use currentBranch
-// - If baseFlag is NOT provided and currentBranch == projectBranch, use defaultBranch
 func resolveBaseBranch(baseFlag, currentBranch, projectBranch, defaultBranch string) string {
 	if baseFlag != "" {
 		return baseFlag
@@ -154,9 +123,7 @@ func resolveBaseBranch(baseFlag, currentBranch, projectBranch, defaultBranch str
 	return defaultBranch
 }
 
-// validateGitStateAndSwitchBranch validates git repository state and switches to the project branch
 func validateGitStateAndSwitchBranch(ctx *context.Context, branchName string) error {
-	// Get current branch
 	currentBranch, err := git.GetCurrentBranch(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get current branch: %w", err)
@@ -164,12 +131,10 @@ func validateGitStateAndSwitchBranch(ctx *context.Context, branchName string) er
 
 	logger.Verbosef("Current branch: %s", currentBranch)
 
-	// Validate current branch is in sync with remote
 	if err := validateBranchSync(ctx, currentBranch); err != nil {
 		return err
 	}
 
-	// Switch to project branch if different from current
 	if currentBranch != branchName {
 		if err := switchToProjectBranch(ctx, branchName); err != nil {
 			return err
@@ -181,7 +146,6 @@ func validateGitStateAndSwitchBranch(ctx *context.Context, branchName string) er
 	return nil
 }
 
-// validateBranchSync checks if the current branch is in sync with its remote tracking branch
 func validateBranchSync(ctx *context.Context, currentBranch string) error {
 	// Skip this check when running inside a workflow container — the container may have
 	// created a fresh local branch that hasn't been pushed yet, and it will push after work is done.
@@ -196,9 +160,7 @@ func validateBranchSync(ctx *context.Context, currentBranch string) error {
 	return nil
 }
 
-// switchToProjectBranch fetches from remote and checks out or creates the project branch
 func switchToProjectBranch(ctx *context.Context, branchName string) error {
-	// Fetch so remote-tracking refs are up to date
 	if err := git.Fetch(ctx); err != nil {
 		logger.Verbosef("Could not fetch from remote (continuing anyway): %v", err)
 	}
@@ -209,7 +171,6 @@ func switchToProjectBranch(ctx *context.Context, branchName string) error {
 	return nil
 }
 
-// createPullRequest creates a GitHub pull request with the given parameters
 func createPullRequest(ctx *context.Context, project *config.Project, branchName, baseBranch, prSummary string) (string, error) {
 	// Refresh GitHub credentials immediately before creating the PR.
 	// Installation tokens expire after 1 hour, so a long-running agent job may
@@ -222,12 +183,10 @@ func createPullRequest(ctx *context.Context, project *config.Project, branchName
 		}
 	}
 
-	// Check if gh CLI is available and authenticated
 	if !github.IsGHReady(ctx) {
 		return "", fmt.Errorf("gh CLI is not ready, please install and authenticate with 'gh auth login'")
 	}
 
-	// Create GitHub pull request
 	prTitle := project.Description
 	if prTitle == "" {
 		prTitle = project.Name
@@ -242,19 +201,12 @@ func createPullRequest(ctx *context.Context, project *config.Project, branchName
 	return prURL, nil
 }
 
-// sanitizeBranchName sanitizes a project name for use as a git branch name
-// Takes a project name string (e.g., from YAML name field) and sanitizes it for git branch naming
 func sanitizeBranchName(name string) string {
-	// Sanitize for git branch naming:
-	// - Replace spaces, underscores, and dots with hyphens
-	// - Convert to lowercase
-	// - Remove special characters except hyphens
 	name = strings.ToLower(name)
 	name = strings.ReplaceAll(name, " ", "-")
 	name = strings.ReplaceAll(name, "_", "-")
 	name = strings.ReplaceAll(name, ".", "-")
 
-	// Remove any characters that aren't alphanumeric or hyphens
 	var result strings.Builder
 	for _, ch := range name {
 		if (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '-' {
@@ -262,15 +214,12 @@ func sanitizeBranchName(name string) string {
 		}
 	}
 
-	// Remove leading/trailing hyphens and collapse multiple hyphens
 	finalName := strings.Trim(result.String(), "-")
 
-	// Collapse multiple consecutive hyphens into one
 	for strings.Contains(finalName, "--") {
 		finalName = strings.ReplaceAll(finalName, "--", "-")
 	}
 
-	// Ensure we have a valid name
 	if finalName == "" {
 		finalName = "unnamed-project"
 	}
@@ -278,23 +227,17 @@ func sanitizeBranchName(name string) string {
 	return finalName
 }
 
-// extractBranchName extracts a branch name from a project file path
-// Removes the file extension and sanitizes for git branch naming
 func extractBranchName(projectFile string) string {
-	// Get the base filename without directory
 	basename := filepath.Base(projectFile)
 
-	// Remove file extension
 	name := strings.TrimSuffix(basename, filepath.Ext(basename))
 
 	return sanitizeBranchName(name)
 }
 
-// executeRemote handles remote execution via Argo Workflows
 func executeRemote(ctx *context.Context, absProjectFile string) error {
 	logger.Verbose("Submitting Argo Workflow...")
 
-	// Load project file to get the name field for branch naming
 	project, err := config.LoadProject(absProjectFile)
 	if err != nil {
 		return fmt.Errorf("failed to load project file: %w", err)
@@ -303,7 +246,12 @@ func executeRemote(ctx *context.Context, absProjectFile string) error {
 	projectName := project.Name
 	projectBranch := sanitizeBranchName(project.Name)
 
-	// Determine clone branch: use the override if provided, otherwise detect from local git
+	// Load configuration to get default branch
+	ralphConfig, err := config.LoadConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
 	var currentBranch string
 	if ctx.Branch() != "" {
 		currentBranch = ctx.Branch()
@@ -319,7 +267,10 @@ func executeRemote(ctx *context.Context, absProjectFile string) error {
 		}
 	}
 
-	// Generate workflow - clone from current branch; workflow will create project branch inside container
+	// Resolve base branch and set it in context before generating workflow
+	baseBranch := resolveBaseBranch(ctx.BaseBranch(), currentBranch, projectBranch, ralphConfig.DefaultBranch)
+	ctx.SetBaseBranch(baseBranch)
+
 	logger.Verbose("Generating Argo Workflow...")
 	wf, err := workflow.GenerateWorkflow(ctx, projectName, currentBranch, projectBranch, ctx.IsVerbose())
 	if err != nil {
@@ -331,7 +282,6 @@ func executeRemote(ctx *context.Context, absProjectFile string) error {
 		logger.Verbosef("Generated workflow YAML:\n%s", workflowYAML)
 	}
 
-	// Submit workflow
 	workflowName, err := wf.Submit(wf.RalphConfig.Workflow.Namespace)
 	if err != nil {
 		return fmt.Errorf("failed to submit workflow: %w", err)

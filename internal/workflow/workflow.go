@@ -132,11 +132,6 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 }
 
 func (w *Workflow) buildEnvVars() []map[string]interface{} {
-	baseBranchOverride := "false"
-	if w.BaseBranch != "" {
-		baseBranchOverride = "true"
-	}
-
 	envVars := []map[string]interface{}{
 		{"name": "GIT_REPO_URL", "value": w.RepoURL},
 		{"name": "GITHUB_REPO_OWNER", "value": w.RepoOwner},
@@ -149,7 +144,6 @@ func (w *Workflow) buildEnvVars() []map[string]interface{} {
 		{"name": "PR_NUMBER", "value": "{{workflow.parameters.pr-number}}"},
 		{"name": "RALPH_WORKFLOW_EXECUTION", "value": "true"},
 		{"name": "BASE_BRANCH", "value": "{{workflow.parameters.base-branch}}"},
-		{"name": "BASE_BRANCH_OVERRIDE", "value": baseBranchOverride},
 	}
 
 	hasPulumiToken := false
