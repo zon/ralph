@@ -187,7 +187,7 @@ func (c *ConfigWebhookConfigCmd) determineKubeContext(ctx context.Context) (stri
 	if err != nil {
 		return "", fmt.Errorf("failed to get current Kubernetes context: %w", err)
 	}
-	return currentCtx, nil
+	return currentCtx.Name, nil
 }
 
 func (c *ConfigWebhookConfigCmd) readExistingConfigmap(ctx context.Context, namespace, kubeContext string) *webhookconfig.AppConfig {
@@ -432,7 +432,7 @@ func (c *ConfigWebhookSecretCmd) determineKubeContextSecret(ctx context.Context)
 	if err != nil {
 		return "", fmt.Errorf("failed to get current Kubernetes context: %w", err)
 	}
-	return currentCtx, nil
+	return currentCtx.Name, nil
 }
 
 func (c *ConfigWebhookSecretCmd) readRepoList(ctx context.Context, namespace, kubeContext string) (*webhookconfig.AppConfig, error) {
