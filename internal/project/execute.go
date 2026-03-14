@@ -65,7 +65,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	baseBranch := ralphConfig.BaseBranch
+	baseBranch := ralphConfig.DefaultBranch
 	if ctx.BaseBranch() != "" {
 		baseBranch = ctx.BaseBranch()
 	}

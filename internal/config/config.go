@@ -106,7 +106,7 @@ type WorkflowConfig struct {
 // RalphConfig represents the .ralph/config.yaml structure
 type RalphConfig struct {
 	MaxIterations       int            `yaml:"maxIterations,omitempty"`
-	BaseBranch          string         `yaml:"baseBranch,omitempty"`
+	DefaultBranch       string         `yaml:"defaultBranch,omitempty"`
 	Model               string         `yaml:"model,omitempty"` // AI model to use for coding and PR summary (default: deepseek/deepseek-chat)
 	Before              []Before       `yaml:"before,omitempty"`
 	Services            []Service      `yaml:"services,omitempty"`
@@ -185,8 +185,8 @@ func applyDefaults(config *RalphConfig) {
 	if config.MaxIterations == 0 {
 		config.MaxIterations = 10
 	}
-	if config.BaseBranch == "" {
-		config.BaseBranch = "main"
+	if config.DefaultBranch == "" {
+		config.DefaultBranch = "main"
 	}
 	if config.Model == "" {
 		config.Model = "deepseek/deepseek-chat"

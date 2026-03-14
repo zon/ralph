@@ -375,12 +375,12 @@ requirements:
 		t.Fatalf("Failed to create test project file: %v", err)
 	}
 
-	// Create .ralph/config.yaml with a baseBranch
+	// Create .ralph/config.yaml with a defaultBranch
 	ralphDir := filepath.Join(tmpDir, ".ralph")
 	if err := os.MkdirAll(ralphDir, 0755); err != nil {
 		t.Fatalf("Failed to create .ralph directory: %v", err)
 	}
-	configContent := "baseBranch: main\n"
+	configContent := "defaultBranch: main\n"
 	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte(configContent), 0644); err != nil {
 		t.Fatalf("Failed to create config file: %v", err)
 	}
@@ -388,7 +388,7 @@ requirements:
 	t.Chdir(tmpDir)
 
 	// Without a git repo, GetCurrentBranch fails and no commit history is included
-	// regardless of baseBranch setting
+	// regardless of defaultBranch setting
 	ctx := testutil.NewContext()
 
 	selectedReq := "- description: Feature 1\n  passing: false"
@@ -412,12 +412,12 @@ requirements:
 		t.Fatalf("Failed to create test project file: %v", err)
 	}
 
-	// Create .ralph/config.yaml with a baseBranch
+	// Create .ralph/config.yaml with a defaultBranch
 	ralphDir := filepath.Join(tmpDir, ".ralph")
 	if err := os.MkdirAll(ralphDir, 0755); err != nil {
 		t.Fatalf("Failed to create .ralph directory: %v", err)
 	}
-	configContent := "baseBranch: main\n"
+	configContent := "defaultBranch: main\n"
 	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte(configContent), 0644); err != nil {
 		t.Fatalf("Failed to create config file: %v", err)
 	}

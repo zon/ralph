@@ -25,7 +25,7 @@ type RunCmd struct {
 	Local         bool   `help:"Run on this machine instead of in Argo Workflows" default:"false"`
 	Follow        bool   `help:"Follow workflow logs after submission (only applicable without --local)" short:"f" default:"false"`
 	Debug         string `help:"Checkout the given ralph repo branch in the workflow container and invoke ralph via 'go run' instead of the built binary" name:"debug" optional:""`
-	Base          string `help:"Override the base branch for PR creation (default: uses baseBranch from .ralph/config.yaml)" name:"base" optional:"" short:"B"`
+	Base          string `help:"Override the base branch for PR creation (default: uses defaultBranch from .ralph/config.yaml or detects from current branch)" name:"base" optional:"" short:"B"`
 	ShowVersion   bool   `help:"Show version information" short:"v" name:"version"`
 
 	version          string       `kong:"-"`

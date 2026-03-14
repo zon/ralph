@@ -724,7 +724,7 @@ requirements:
 		t.Fatalf("Failed to create .ralph directory: %v", err)
 	}
 
-	configContent := `baseBranch: config-base-branch
+	configContent := `defaultBranch: config-base-branch
 workflow:
   namespace: my-namespace
 `

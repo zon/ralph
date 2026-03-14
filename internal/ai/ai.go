@@ -119,7 +119,7 @@ func GeneratePRSummary(ctx *context.Context, projectFile string, iterations int)
 	if err != nil {
 		return "", fmt.Errorf("failed to load config: %w", err)
 	}
-	baseBranch := ralphConfig.BaseBranch
+	baseBranch := ralphConfig.DefaultBranch
 
 	// Get commit log since base branch
 	commitLog, err := git.GetCommitLog(ctx, baseBranch, 0)

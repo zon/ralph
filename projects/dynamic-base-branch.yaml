@@ -8,7 +8,7 @@ requirements:
       - Remove `baseBranch` from `RalphConfig` struct and YAML tags
       - Add `defaultBranch` to `RalphConfig` struct and YAML tags (defaulting to "main")
       - Retain `--base` / `-B` flag in `ralph run` as an explicit override for the detected base branch
-    passing: false
+    passing: true
 
   - category: logic
     description: Implement dynamic base branch detection

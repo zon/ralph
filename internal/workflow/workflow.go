@@ -38,7 +38,7 @@ type Workflow struct {
 	DebugBranch string
 	// RalphConfig supplies workflow-level configuration (image overrides, secrets, configmaps, env).
 	RalphConfig *config.RalphConfig
-	// BaseBranch overrides the base branch for PR creation (overrides RalphConfig.BaseBranch when set).
+	// BaseBranch overrides the base branch for PR creation (overrides RalphConfig.DefaultBranch when set).
 	BaseBranch string
 }
 
@@ -125,7 +125,7 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 func (w *Workflow) buildEnvVars() []map[string]interface{} {
 	baseBranch := w.BaseBranch
 	if baseBranch == "" {
-		baseBranch = w.RalphConfig.BaseBranch
+		baseBranch = w.RalphConfig.DefaultBranch
 	}
 
 	envVars := []map[string]interface{}{
