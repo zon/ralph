@@ -758,6 +758,23 @@ workflow:
 	require.NoError(t, yaml.Unmarshal([]byte(workflowYAML), &workflow), "Failed to parse generated workflow YAML")
 
 	spec := workflow["spec"].(map[string]interface{})
+
+	arguments := spec["arguments"].(map[string]interface{})
+	params := arguments["parameters"].([]interface{})
+
+	var baseBranchParamValue string
+	var hasBaseBranchParam bool
+	for _, p := range params {
+		paramMap := p.(map[string]interface{})
+		if paramMap["name"] == "base-branch" {
+			hasBaseBranchParam = true
+			baseBranchParamValue = paramMap["value"].(string)
+			break
+		}
+	}
+	assert.True(t, hasBaseBranchParam, "base-branch parameter should exist")
+	assert.Equal(t, "override-branch", baseBranchParamValue, "base-branch parameter should be override-branch")
+
 	templates := spec["templates"].([]interface{})
 	tmpl := templates[0].(map[string]interface{})
 	container := tmpl["container"].(map[string]interface{})
@@ -773,5 +790,78 @@ workflow:
 		}
 	}
 
-	assert.Equal(t, "override-branch", baseBranchValue, "BASE_BRANCH env var should be overridden")
+	assert.Equal(t, "{{workflow.parameters.base-branch}}", baseBranchValue, "BASE_BRANCH env var should reference workflow parameter")
+}
+
+func TestBaseBranchDefault(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	projectContent := `name: test-project
+description: Test project
+requirements:
+  - category: test
+    description: Test requirement
+    items:
+      - Test item 1
+    passing: false
+`
+	projectFile := filepath.Join(tmpDir, "project.yaml")
+	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
+		t.Fatalf("Failed to create test project file: %v", err)
+	}
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	if err := os.MkdirAll(ralphDir, 0755); err != nil {
+		t.Fatalf("Failed to create .ralph directory: %v", err)
+	}
+
+	configContent := `defaultBranch: main
+workflow:
+  namespace: my-namespace
+`
+	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte(configContent), 0644); err != nil {
+		t.Fatalf("Failed to create config file: %v", err)
+	}
+
+	t.Chdir(tmpDir)
+	if err := os.MkdirAll(filepath.Join(tmpDir, ".git"), 0755); err != nil {
+		t.Fatalf("Failed to create .git directory: %v", err)
+	}
+
+	ctx := &execcontext.Context{}
+	ctx.SetProjectFile(projectFile)
+
+	repoURL := "git@github.com:test/repo.git"
+	cloneBranch := "main"
+	projectBranch := "test-project"
+	relProjectPath := "project.yaml"
+
+	wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", repoURL, cloneBranch, projectBranch, relProjectPath, false)
+	require.NoError(t, err, "GenerateWorkflowWithGitInfo failed")
+
+	assert.Equal(t, "", wf.BaseBranch, "BaseBranch should be empty when not set")
+
+	workflowYAML, err := wf.Render()
+	require.NoError(t, err, "Render failed")
+
+	var workflow map[string]interface{}
+	require.NoError(t, yaml.Unmarshal([]byte(workflowYAML), &workflow), "Failed to parse generated workflow YAML")
+
+	spec := workflow["spec"].(map[string]interface{})
+
+	arguments := spec["arguments"].(map[string]interface{})
+	params := arguments["parameters"].([]interface{})
+
+	var baseBranchParamValue string
+	var hasBaseBranchParam bool
+	for _, p := range params {
+		paramMap := p.(map[string]interface{})
+		if paramMap["name"] == "base-branch" {
+			hasBaseBranchParam = true
+			baseBranchParamValue = paramMap["value"].(string)
+			break
+		}
+	}
+	assert.True(t, hasBaseBranchParam, "base-branch parameter should exist")
+	assert.Equal(t, "main", baseBranchParamValue, "base-branch parameter should default to config defaultBranch")
 }

@@ -56,7 +56,7 @@ func renderScript(tmplText string, data scriptData) string {
 
 // buildParameters builds workflow parameters from the params map
 func buildParameters(params map[string]string) []map[string]interface{} {
-	allParams := []string{"project-path", "instructions-md", "comment-body", "pr-number"}
+	allParams := []string{"project-path", "instructions-md", "comment-body", "pr-number", "base-branch"}
 	var parameters []map[string]interface{}
 	for _, name := range allParams {
 		param := map[string]interface{}{"name": name}

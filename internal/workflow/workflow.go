@@ -49,6 +49,7 @@ func (w *Workflow) Render() (string, error) {
 		"instructions-md": w.Instructions,
 		"comment-body":    w.CommentBody,
 		"pr-number":       w.PRNumber,
+		"base-branch":     w.getEffectiveBaseBranch(),
 	}
 
 	wf := map[string]interface{}{
@@ -99,6 +100,14 @@ func (w *Workflow) Submit(namespace string) (string, error) {
 	return submitYAML(workflowYAML, w.RalphConfig, namespace)
 }
 
+// getEffectiveBaseBranch returns the effective base branch for the workflow parameter.
+func (w *Workflow) getEffectiveBaseBranch() string {
+	if w.BaseBranch != "" {
+		return w.BaseBranch
+	}
+	return w.RalphConfig.DefaultBranch
+}
+
 // buildScript returns the appropriate shell script for this workflow type.
 func (w *Workflow) buildScript() string {
 	if w.CommentBody != "" {
@@ -123,11 +132,6 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 }
 
 func (w *Workflow) buildEnvVars() []map[string]interface{} {
-	baseBranch := w.BaseBranch
-	if baseBranch == "" {
-		baseBranch = w.RalphConfig.DefaultBranch
-	}
-
 	baseBranchOverride := "false"
 	if w.BaseBranch != "" {
 		baseBranchOverride = "true"
@@ -144,7 +148,7 @@ func (w *Workflow) buildEnvVars() []map[string]interface{} {
 		{"name": "COMMENT_BODY", "value": "{{workflow.parameters.comment-body}}"},
 		{"name": "PR_NUMBER", "value": "{{workflow.parameters.pr-number}}"},
 		{"name": "RALPH_WORKFLOW_EXECUTION", "value": "true"},
-		{"name": "BASE_BRANCH", "value": baseBranch},
+		{"name": "BASE_BRANCH", "value": "{{workflow.parameters.base-branch}}"},
 		{"name": "BASE_BRANCH_OVERRIDE", "value": baseBranchOverride},
 	}
 

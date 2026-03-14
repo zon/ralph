@@ -26,7 +26,7 @@ requirements:
       - Compare project branch with detected base branch to check for missing changes
       - If project branch is behind base branch, trigger a specialized AI iteration to merge base branch
       - AI must resolve any merge conflicts, verify with tests, and commit (push is handled by the caller)
-    passing: false
+    passing: true
 
   - category: versioning
     description: Apply version bumps for breaking configuration changes
