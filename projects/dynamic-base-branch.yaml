@@ -1,0 +1,46 @@
+name: dynamic-base-branch
+description: Implement dynamic base branch detection and automatic base branch merging
+
+requirements:
+  - category: configuration
+    description: Update configuration properties
+    items:
+      - Remove `baseBranch` from `RalphConfig` struct and YAML tags
+      - Add `defaultBranch` to `RalphConfig` struct and YAML tags (defaulting to "main")
+      - Retain `--base` / `-B` flag in `ralph run` as an explicit override for the detected base branch
+    passing: false
+
+  - category: logic
+    description: Implement dynamic base branch detection
+    items:
+      - Detect current branch before switching to project branch
+      - If `--base` flag is provided, use it as the base branch
+      - If `--base` is NOT provided and current branch is NOT the project branch, set current branch as the base branch
+      - If `--base` is NOT provided and current branch IS the project branch, set base branch to `defaultBranch` from config
+    passing: false
+
+  - category: workflow
+    description: Implement automatic merging and workflow inputs
+    items:
+      - Update Argo Workflow definition to expect `base-branch` as a formal input parameter
+      - Compare project branch with detected base branch to check for missing changes
+      - If project branch is behind base branch, trigger a specialized AI iteration to merge base branch
+      - AI must resolve any merge conflicts, verify with tests, and commit (push is handled by the caller)
+    passing: false
+
+  - category: versioning
+    description: Apply version bumps for breaking configuration changes
+    items:
+      - Apply a semver major bump to `internal/version/VERSION` and `charts/ralph-webhook/Chart.yaml` (appVersion)
+      - Apply a semver patch bump to the helm chart `version` field in `charts/ralph-webhook/Chart.yaml`
+    passing: false
+
+  - category: cleanup
+    description: Update internal components and tests
+    items:
+      - Update AI PR summary generation to use the dynamically detected/overridden base branch
+      - Update git log summaries to compare the project branch against the detected base branch
+      - Update GitHub PR creation to use the dynamically detected/overridden base branch
+      - Update Argo Workflow generation and `run.sh` to handle dynamic base branch logic, flag overrides, and mandatory base branch input
+      - Update all existing tests to reflect the removal of `baseBranch` and addition of `defaultBranch`
+    passing: false
