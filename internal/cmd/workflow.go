@@ -31,7 +31,6 @@ type WorkflowCmd struct {
 	DebugBranch    string `help:"Ralph branch to use for debug mode (clones ralph from this branch and runs via go run)" name:"debug" optional:""`
 	Verbose        bool   `help:"Enable verbose logging" default:"false"`
 	NoServices     bool   `help:"Skip service startup" default:"false"`
-	Local          bool   `help:"Run locally instead of in workflow container" default:"false"`
 	InstructionsMD string `help:"Inline instructions content" name:"instructions-md" optional:""`
 	MaxIterations  int    `help:"Maximum number of iterations" name:"max-iterations" default:"0"`
 
@@ -45,7 +44,37 @@ func (w *WorkflowCmd) Run() error {
 		return fmt.Errorf("repo URL, branch, and project path are required (use flags or set environment variables)")
 	}
 
-	return w.runLocally()
+	logger.Info("Executing workflow inside container...")
+
+	ctx := createExecutionContext()
+	ctx.SetVerbose(w.Verbose)
+	ctx.SetNoServices(w.NoServices)
+
+	if err := w.setupGitHubAuth(); err != nil {
+		return fmt.Errorf("failed to setup GitHub auth: %w", err)
+	}
+
+	if err := w.setupOpenCodeCredentials(); err != nil {
+		return fmt.Errorf("failed to setup OpenCode credentials: %w", err)
+	}
+
+	w.configureGitUser(ctx)
+
+	if err := w.cloneAndSetupRepo(ctx); err != nil {
+		return fmt.Errorf("failed to clone and setup repo: %w", err)
+	}
+
+	if err := w.syncBaseBranch(ctx); err != nil {
+		return fmt.Errorf("failed to sync base branch: %w", err)
+	}
+
+	if err := w.runProject(); err != nil {
+		return fmt.Errorf("failed to run project: %w", err)
+	}
+
+	w.displayStats()
+
+	return nil
 }
 
 func (w *WorkflowCmd) resolveFromEnvVars() {
@@ -78,40 +107,6 @@ func (w *WorkflowCmd) resolveFromEnvVars() {
 			_, _ = fmt.Sscanf(val, "%d", &w.MaxIterations)
 		}
 	}
-}
-
-func (w *WorkflowCmd) runLocally() error {
-	logger.Info("Running workflow in local mode...")
-
-	ctx := createExecutionContext()
-	ctx.SetVerbose(w.Verbose)
-	ctx.SetNoServices(w.NoServices)
-
-	if err := w.setupGitHubAuth(); err != nil {
-		return fmt.Errorf("failed to setup GitHub auth: %w", err)
-	}
-
-	if err := w.setupOpenCodeCredentials(); err != nil {
-		return fmt.Errorf("failed to setup OpenCode credentials: %w", err)
-	}
-
-	w.configureGitUser(ctx)
-
-	if err := w.cloneAndSetupRepo(ctx); err != nil {
-		return fmt.Errorf("failed to clone and setup repo: %w", err)
-	}
-
-	if err := w.syncBaseBranch(ctx); err != nil {
-		return fmt.Errorf("failed to sync base branch: %w", err)
-	}
-
-	if err := w.runRalph(); err != nil {
-		return fmt.Errorf("failed to run ralph: %w", err)
-	}
-
-	w.displayStats()
-
-	return nil
 }
 
 func (w *WorkflowCmd) setupGitHubAuth() error {
@@ -317,8 +312,8 @@ Focus on accepting the correct changes from both branches. If there are test fai
 	return nil
 }
 
-func (w *WorkflowCmd) runRalph() error {
-	logger.Info("Running ralph...")
+func (w *WorkflowCmd) runProject() error {
+	logger.Info("Running project...")
 
 	projectPath := w.ProjectPath
 	if !filepath.IsAbs(projectPath) {
