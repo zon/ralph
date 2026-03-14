@@ -57,7 +57,9 @@ func BuildDevelopPrompt(ctx *context.Context, projectFile string, selectedRequir
 	}
 
 	promptTmpl := ralphConfig.Instructions
-	if ctx.Instructions() != "" {
+	if ctx.InstructionsMD() != "" {
+		promptTmpl = ctx.InstructionsMD()
+	} else if ctx.Instructions() != "" {
 		instructionsData, err := os.ReadFile(ctx.Instructions())
 		if err != nil {
 			return "", fmt.Errorf("failed to read instructions file %s: %w", ctx.Instructions(), err)

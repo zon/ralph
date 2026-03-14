@@ -9,7 +9,9 @@ import (
 	"strings"
 
 	"github.com/zon/ralph/internal/config"
+	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/github"
+	"github.com/zon/ralph/internal/project"
 )
 
 const (
@@ -18,16 +20,18 @@ const (
 )
 
 type WorkflowCmd struct {
-	RepoURL     string `help:"Git repository URL to clone" optional:""`
-	Branch      string `help:"Branch to clone or create" optional:""`
-	ProjectPath string `help:"Path to project YAML file within the repository" optional:""`
-	BaseBranch  string `help:"Base branch for PR creation (default: detected dynamically)" name:"base" short:"B"`
-	BotName     string `help:"Git user name for commits" default:"ralph[bot]"`
-	BotEmail    string `help:"Git user email for commits" default:"ralph[bot]@users.noreply.github.com"`
-	DebugBranch string `help:"Ralph branch to use for debug mode (clones ralph from this branch and runs via go run)" name:"debug" optional:""`
-	Verbose     bool   `help:"Enable verbose logging" default:"false"`
-	NoServices  bool   `help:"Skip service startup" default:"false"`
-	Local       bool   `help:"Run locally instead of in workflow container" default:"false"`
+	RepoURL        string `help:"Git repository URL to clone" optional:""`
+	Branch         string `help:"Branch to clone or create" optional:""`
+	ProjectPath    string `help:"Path to project YAML file within the repository" optional:""`
+	BaseBranch     string `help:"Base branch for PR creation (default: detected dynamically)" name:"base" short:"B"`
+	BotName        string `help:"Git user name for commits" default:"ralph[bot]"`
+	BotEmail       string `help:"Git user email for commits" default:"ralph[bot]@users.noreply.github.com"`
+	DebugBranch    string `help:"Ralph branch to use for debug mode (clones ralph from this branch and runs via go run)" name:"debug" optional:""`
+	Verbose        bool   `help:"Enable verbose logging" default:"false"`
+	NoServices     bool   `help:"Skip service startup" default:"false"`
+	Local          bool   `help:"Run locally instead of in workflow container" default:"false"`
+	InstructionsMD string `help:"Inline instructions content" name:"instructions-md" optional:""`
+	MaxIterations  int    `help:"Maximum number of iterations" name:"max-iterations" default:"0"`
 
 	cleanupRegistrar func(func()) `kong:"-"`
 }
@@ -63,6 +67,14 @@ func (w *WorkflowCmd) resolveFromEnvVars() {
 	}
 	if !w.NoServices {
 		w.NoServices = os.Getenv("RALPH_NO_SERVICES") == "true"
+	}
+	if w.InstructionsMD == "" {
+		w.InstructionsMD = os.Getenv("INSTRUCTIONS_MD")
+	}
+	if w.MaxIterations == 0 {
+		if val := os.Getenv("RALPH_MAX_ITERATIONS"); val != "" {
+			fmt.Sscanf(val, "%d", &w.MaxIterations)
+		}
 	}
 }
 
@@ -156,17 +168,12 @@ func (w *WorkflowCmd) cloneAndSetupRepo() error {
 		}
 	}
 
-	origDir, _ := os.Getwd()
-	defer os.Chdir(origDir)
-
 	if err := os.Chdir(workDir); err != nil {
 		return fmt.Errorf("failed to change to work dir: %w", err)
 	}
 
-	cmd := exec.Command("ralph", "setup-workspace")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
+	setupCmd := &SetupWorkspaceCmd{WorkspaceDir: "/workspace"}
+	if err := setupCmd.Run(); err != nil {
 		return fmt.Errorf("failed to setup workspace: %w", err)
 	}
 
@@ -267,21 +274,34 @@ Focus on accepting the correct changes from both branches. If there are test fai
 		return fmt.Errorf("failed to write merge instructions: %w", err)
 	}
 
-	verboseFlag := ""
-	if w.Verbose {
-		verboseFlag = " --verbose"
-	}
-
 	projectPath := w.ProjectPath
 	if !filepath.IsAbs(projectPath) {
 		projectPath = filepath.Join("/workspace/repo", projectPath)
 	}
 
-	cmd := exec.Command("sh", "-c", fmt.Sprintf("ralph %s --local --no-notify%s", projectPath, verboseFlag))
-	cmd.Dir = "/workspace/repo"
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Run()
+	ctx := &execcontext.Context{}
+	ctx.SetProjectFile(projectPath)
+	ctx.SetLocal(true)
+	ctx.SetNoNotify(true)
+	ctx.SetVerbose(w.Verbose)
+	ctx.SetNoServices(w.NoServices)
+	ctx.SetInstructions(instructionsFile)
+
+	ralphConfig, _ := config.LoadConfig()
+	maxIterations := w.MaxIterations
+	if maxIterations == 0 && ralphConfig != nil {
+		maxIterations = ralphConfig.MaxIterations
+	}
+	if maxIterations == 0 {
+		maxIterations = 10
+	}
+	ctx.SetMaxIterations(maxIterations)
+
+	os.Setenv("RALPH_WORKFLOW_EXECUTION", "true")
+
+	// Use project.Execute to resolve conflicts and complete the project.
+	// We ignore the error here as we'll check the file state and commit manually below.
+	_ = project.Execute(ctx, w.cleanupRegistrar)
 
 	if _, err := os.Stat("/workspace/repo/report.md"); err == nil {
 		fmt.Println("AI generated merge summary")
@@ -299,40 +319,34 @@ Focus on accepting the correct changes from both branches. If there are test fai
 func (w *WorkflowCmd) runRalph() error {
 	fmt.Println("Running ralph...")
 
-	verboseFlag := ""
-	if w.Verbose {
-		verboseFlag = " --verbose"
-	}
-
 	projectPath := w.ProjectPath
 	if !filepath.IsAbs(projectPath) {
 		projectPath = filepath.Join("/workspace/repo", projectPath)
 	}
 
-	noServicesFlag := ""
-	if w.NoServices {
-		noServicesFlag = " --no-services"
+	ralphConfig, _ := config.LoadConfig()
+	maxIterations := w.MaxIterations
+	if maxIterations == 0 && ralphConfig != nil {
+		maxIterations = ralphConfig.MaxIterations
+	}
+	if maxIterations == 0 {
+		maxIterations = 10
 	}
 
-	debugFlag := ""
-	if w.DebugBranch != "" {
-		debugFlag = " --debug " + w.DebugBranch
-	}
+	ctx := &execcontext.Context{}
+	ctx.SetProjectFile(projectPath)
+	ctx.SetMaxIterations(maxIterations)
+	ctx.SetLocal(true)
+	ctx.SetNoNotify(true)
+	ctx.SetVerbose(w.Verbose)
+	ctx.SetNoServices(w.NoServices)
+	ctx.SetInstructionsMD(w.InstructionsMD)
+	ctx.SetDebugBranch(w.DebugBranch)
+	ctx.SetBaseBranch(w.BaseBranch)
 
-	baseFlag := ""
-	if w.BaseBranch != "" {
-		baseFlag = " --base " + w.BaseBranch
-	}
+	os.Setenv("RALPH_WORKFLOW_EXECUTION", "true")
 
-	args := fmt.Sprintf("ralph %s --local --no-notify%s%s%s%s", projectPath, verboseFlag, noServicesFlag, debugFlag, baseFlag)
-
-	ralphCmd := exec.Command("sh", "-c", args)
-	ralphCmd.Dir = "/workspace/repo"
-	ralphCmd.Stdout = os.Stdout
-	ralphCmd.Stderr = os.Stderr
-	ralphCmd.Env = append(os.Environ(), "RALPH_WORKFLOW_EXECUTION=true")
-
-	if err := ralphCmd.Run(); err != nil {
+	if err := project.Execute(ctx, w.cleanupRegistrar); err != nil {
 		return fmt.Errorf("ralph execution failed: %w", err)
 	}
 
