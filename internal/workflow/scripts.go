@@ -12,7 +12,7 @@ import (
 	"github.com/zon/ralph/internal/k8s"
 )
 
-//go:embed run.sh
+//go:embed workflow.sh
 var runScript string
 
 //go:embed comment.sh

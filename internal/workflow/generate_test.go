@@ -596,7 +596,7 @@ func TestWorkflowRender_RunScriptBranching(t *testing.T) {
 	args := container["args"].([]interface{})
 	script := args[0].(string)
 
-	assert.True(t, strings.Contains(script, "ralph run") || strings.Contains(script, "ralph_run"), "Script should contain 'ralph run' for regular workflow")
+	assert.True(t, strings.Contains(script, "ralph workflow"), "Script should contain 'ralph workflow' for regular workflow")
 	assert.False(t, strings.Contains(script, "ralph comment"), "Script should NOT contain 'ralph comment' when CommentBody is empty")
 }
 

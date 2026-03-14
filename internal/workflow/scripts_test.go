@@ -17,12 +17,12 @@ func TestBuildRunScript(t *testing.T) {
 		{
 			name:            "no flags",
 			verbose:         false,
-			expectedCommand: `ralph_run "$PROJECT_PATH" --local --no-notify`,
+			expectedCommand: `ralph workflow --no-notify --no-services`,
 		},
 		{
 			name:            "verbose",
 			verbose:         true,
-			expectedCommand: `ralph_run "$PROJECT_PATH" --local --verbose --no-notify`,
+			expectedCommand: `ralph workflow --verbose --no-notify --no-services`,
 		},
 	}
 
@@ -36,15 +36,9 @@ func TestBuildRunScript(t *testing.T) {
 			expectedElements := []string{
 				"#!/bin/sh",
 				"set -e",
-				"git clone",
-				"GIT_REPO_URL",
-				"GIT_BRANCH",
-				"PROJECT_BRANCH",
-				"BASE_BRANCH",
-				`ralph set-github-token`,
-				config.DefaultAppName + "[bot]",
-				config.DefaultAppName + "[bot]@users.noreply.github.com",
-				"auth.json",
+				"ralph workflow",
+				"opencode stats",
+				"Execution complete",
 				tt.expectedCommand,
 			}
 
@@ -64,8 +58,8 @@ func TestBuildRunScript_DebugBranch(t *testing.T) {
 	expectedElements := []string{
 		"git clone -b \"my-debug-branch\" https://github.com/zon/ralph.git /workspace/ralph",
 		"go run ./cmd/ralph/main.go",
-		`ralph set-github-token`,
-		`ralph_run "$PROJECT_PATH" --local --no-notify`,
+		"ralph workflow",
+		"opencode stats",
 	}
 	for _, element := range expectedElements {
 		assert.Contains(t, script, element, "run script (debug branch) should contain expected element")

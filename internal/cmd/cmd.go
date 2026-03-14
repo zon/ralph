@@ -9,6 +9,7 @@ type Cmd struct {
 	Config         ConfigCmd         `cmd:"" help:"Configure credentials for remote execution"`
 	SetGithubToken GithubTokenCmd    `cmd:"" help:"Generate a GitHub App installation token and configure git HTTPS authentication"`
 	SetupWorkspace SetupWorkspaceCmd `cmd:"" help:"Create symlinks for mounted config files into the working directory"`
+	Workflow       WorkflowCmd       `cmd:"" help:"Run ralph workflow in a container (replaces run.sh)"`
 
 	version          string       `kong:"-"`
 	date             string       `kong:"-"`
@@ -45,4 +46,5 @@ func (c *Cmd) SetCleanupRegistrar(cleanupRegistrar func(func())) {
 	c.Run.cleanupRegistrar = cleanupRegistrar
 	c.Comment.cleanupRegistrar = cleanupRegistrar
 	c.Merge.cleanupRegistrar = cleanupRegistrar
+	c.Workflow.cleanupRegistrar = cleanupRegistrar
 }

@@ -9,7 +9,7 @@ requirements:
       - Add `defaultBranch` to `RalphConfig` struct and YAML tags (defaulting to "main")
       - Retain `--base` / `-B` flag in `ralph run` as an explicit override for the detected base branch
       - Add CLI flags to `ralph workflow` for bot configuration (name, email) and repository details
-    passing: false
+    passing: true
 
   - category: logic
     description: Implement dynamic base branch detection
@@ -18,7 +18,7 @@ requirements:
       - If `--base` flag is provided, use it as the base branch
       - If `--base` is NOT provided and current branch is NOT the project branch, set current branch as the base branch
       - If `--base` is NOT provided and current branch IS the project branch, set base branch to `defaultBranch` from config
-    passing: false
+    passing: true
 
   - category: subcommand
     description: Implement `ralph workflow` command to replace `run.sh`
@@ -34,7 +34,7 @@ requirements:
       - Integrate AI-driven merge conflict resolution if the initial merge fails, using a specialized instruction set
       - Execute the core `ralph run` logic on the specified project path within the prepared workspace
       - Display OpenCode statistics upon successful completion of the workflow
-    passing: false
+    passing: true
 
   - category: workflow
     description: Integrate `ralph workflow` into Argo Workflows
@@ -42,14 +42,14 @@ requirements:
       - Update Argo Workflow templates to use the `ralph workflow` command instead of `run.sh`
       - Pass necessary inputs (repo URL, branch, project path) and secrets to the command
       - Ensure the workflow correctly handles the `base-branch` input parameter
-    passing: false
+    passing: true
 
   - category: versioning
     description: Apply version bumps for breaking configuration changes
     items:
       - Apply a semver major bump to `internal/version/VERSION` and `charts/ralph-webhook/Chart.yaml` (appVersion)
       - Apply a semver patch bump to the helm chart `version` field in `charts/ralph-webhook/Chart.yaml`
-    passing: false
+    passing: true
 
   - category: cleanup
     description: Update internal components and tests
@@ -60,4 +60,4 @@ requirements:
       - Replace `internal/workflow/run.sh` script with the new `ralph workflow` command in all workflow generators
       - Delete the `internal/workflow/run.sh` file and any associated dead code
       - Update all existing tests to reflect the removal of `baseBranch` and addition of `defaultBranch`
-    passing: false
+    passing: true
