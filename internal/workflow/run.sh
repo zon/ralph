@@ -27,6 +27,16 @@ git clone -b "$GIT_BRANCH" "$GIT_REPO_URL" /workspace/repo
 cd /workspace/repo
 ralph setup-workspace
 
+echo "Determining base branch dynamically..."
+if [ "$BASE_BRANCH_OVERRIDE" = "true" ]; then
+  echo "Using explicit --base flag: $BASE_BRANCH"
+elif [ "$GIT_BRANCH" != "$PROJECT_BRANCH" ]; then
+  BASE_BRANCH="$GIT_BRANCH"
+  echo "Current branch ($GIT_BRANCH) != project branch ($PROJECT_BRANCH), using current branch as base: $BASE_BRANCH"
+else
+  echo "Current branch ($GIT_BRANCH) == project branch ($PROJECT_BRANCH), using default branch: $BASE_BRANCH"
+fi
+
 echo "Fetching base branch: $BASE_BRANCH"
 git fetch origin "$BASE_BRANCH":"$BASE_BRANCH" 2>/dev/null || git fetch origin "$BASE_BRANCH" 2>/dev/null || true
 

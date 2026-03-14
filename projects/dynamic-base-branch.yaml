@@ -17,7 +17,7 @@ requirements:
       - If `--base` flag is provided, use it as the base branch
       - If `--base` is NOT provided and current branch is NOT the project branch, set current branch as the base branch
       - If `--base` is NOT provided and current branch IS the project branch, set base branch to `defaultBranch` from config
-    passing: false
+    passing: true
 
   - category: workflow
     description: Implement automatic merging and workflow inputs

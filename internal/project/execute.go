@@ -65,10 +65,17 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	baseBranch := ralphConfig.DefaultBranch
-	if ctx.BaseBranch() != "" {
-		baseBranch = ctx.BaseBranch()
+	// Get current branch before switching to project branch for dynamic base branch detection
+	currentBranch, err := getCurrentBranchForBaseDetection(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get current branch: %w", err)
 	}
+
+	// Determine base branch dynamically:
+	// - If --base flag is provided, use it
+	// - If --base is NOT provided and current branch != project branch, use current branch
+	// - If --base is NOT provided and current branch == project branch, use defaultBranch from config
+	baseBranch := resolveBaseBranch(ctx.BaseBranch(), currentBranch, branchName, ralphConfig.DefaultBranch)
 
 	// Run before commands before starting iteration loop
 	if len(ralphConfig.Before) > 0 {
@@ -129,6 +136,37 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	notify.Success(project.Name, ctx.ShouldNotify())
 
 	return nil
+}
+
+// getCurrentBranchForBaseDetection gets the current branch before any switching occurs.
+// Returns empty string if not in a git repository or in detached HEAD state.
+func getCurrentBranchForBaseDetection(ctx *context.Context) (string, error) {
+	if !git.IsGitRepository(ctx) {
+		return "", nil
+	}
+
+	branch, err := git.GetCurrentBranch(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	return branch, nil
+}
+
+// resolveBaseBranch determines the base branch based on the dynamic detection logic:
+// - If baseFlag is provided (non-empty), use it
+// - If baseFlag is NOT provided and currentBranch != projectBranch, use currentBranch
+// - If baseFlag is NOT provided and currentBranch == projectBranch, use defaultBranch
+func resolveBaseBranch(baseFlag, currentBranch, projectBranch, defaultBranch string) string {
+	if baseFlag != "" {
+		return baseFlag
+	}
+
+	if currentBranch != "" && currentBranch != projectBranch {
+		return currentBranch
+	}
+
+	return defaultBranch
 }
 
 // validateGitStateAndSwitchBranch validates git repository state and switches to the project branch
