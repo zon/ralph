@@ -70,7 +70,7 @@ func buildParameters(params map[string]string) []map[string]interface{} {
 	return parameters
 }
 
-// buildRunScript returns the rendered run.sh script for a regular development workflow.
+// buildRunScript returns the rendered workflow.sh script for a regular development workflow.
 func buildRunScript(verbose bool, debugBranch string, _ *config.RalphConfig) string {
 	return renderScript(runScript, newScriptData(verbose, debugBranch))
 }

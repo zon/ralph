@@ -10,7 +10,7 @@ ralph() { command ralph "$@"; }
 {{- end}}
 
 echo "Running ralph workflow..."
-ralph workflow{{.VerboseFlag}} --no-notify --no-services
+ralph workflow{{.VerboseFlag}} --no-services
 
 opencode stats
 

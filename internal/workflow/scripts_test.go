@@ -17,12 +17,12 @@ func TestBuildRunScript(t *testing.T) {
 		{
 			name:            "no flags",
 			verbose:         false,
-			expectedCommand: `ralph workflow --no-notify --no-services`,
+			expectedCommand: `ralph workflow --no-services`,
 		},
 		{
 			name:            "verbose",
 			verbose:         true,
-			expectedCommand: `ralph workflow --verbose --no-notify --no-services`,
+			expectedCommand: `ralph workflow --verbose --no-services`,
 		},
 	}
 
@@ -77,12 +77,12 @@ func TestBuildCommentScript(t *testing.T) {
 		{
 			name:            "no flags",
 			verbose:         false,
-			expectedCommand: `ralph comment "$COMMENT_BODY" --repo "$GITHUB_REPO_OWNER/$GITHUB_REPO_NAME" --branch "$PROJECT_BRANCH" --pr "$PR_NUMBER" --no-notify`,
+			expectedCommand: `ralph comment "$COMMENT_BODY" --repo "$GITHUB_REPO_OWNER/$GITHUB_REPO_NAME" --branch "$PROJECT_BRANCH" --pr "$PR_NUMBER"`,
 		},
 		{
 			name:            "verbose",
 			verbose:         true,
-			expectedCommand: `ralph comment "$COMMENT_BODY" --repo "$GITHUB_REPO_OWNER/$GITHUB_REPO_NAME" --branch "$PROJECT_BRANCH" --pr "$PR_NUMBER" --verbose --no-notify`,
+			expectedCommand: `ralph comment "$COMMENT_BODY" --repo "$GITHUB_REPO_OWNER/$GITHUB_REPO_NAME" --branch "$PROJECT_BRANCH" --pr "$PR_NUMBER" --verbose`,
 		},
 	}
 

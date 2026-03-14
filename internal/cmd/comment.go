@@ -17,12 +17,11 @@ import (
 
 // CommentCmd is the command for running a comment-triggered development iteration
 type CommentCmd struct {
-	Body     string `arg:"" help:"Comment body text"`
-	Repo     string `help:"Repository in owner/repo format, e.g. zon/ralph" required:""`
-	Branch   string `help:"PR branch name" required:""`
-	PR       string `help:"Pull request number" required:""`
-	Verbose  bool   `help:"Enable verbose logging" default:"false"`
-	NoNotify bool   `help:"Disable desktop notifications" default:"false" hidden:""`
+	Body    string `arg:"" help:"Comment body text"`
+	Repo    string `help:"Repository in owner/repo format, e.g. zon/ralph" required:""`
+	Branch  string `help:"PR branch name" required:""`
+	PR      string `help:"Pull request number" required:""`
+	Verbose bool   `help:"Enable verbose logging" default:"false"`
 
 	cleanupRegistrar func(func()) `kong:"-"`
 }
@@ -57,7 +56,7 @@ func (c *CommentCmd) Run() error {
 	ctx := &execcontext.Context{}
 	ctx.SetProjectFile(projectFile)
 	ctx.SetVerbose(c.Verbose)
-	ctx.SetNoNotify(c.NoNotify)
+	ctx.SetNoNotify(true)
 
 	// Start services
 	svcMgr := services.NewManager()

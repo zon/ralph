@@ -81,11 +81,11 @@ func TestRun_NewProject(t *testing.T) {
 
 // TestRun_ResumesExistingBranch verifies that when the project branch already
 // exists on the remote, the container checks it out rather than creating a new
-// one. This exercises the `git checkout $PROJECT_BRANCH` path in run.sh as
+// one. This exercises the `git checkout $PROJECT_BRANCH` path in the workflow as
 // opposed to `git checkout -b $PROJECT_BRANCH`.
 //
 // Exercises end-to-end:
-//   - run.sh detects an existing remote branch and checks it out (not -b)
+//   - the workflow detects an existing remote branch and checks it out (not -b)
 //   - ralph --local runs on the pre-existing branch, iteration loop exits immediately
 //   - gh pr create: PR created from the existing branch
 //
@@ -96,7 +96,7 @@ func TestRun_ResumesExistingBranch(t *testing.T) {
 
 	branch := "e2e-resume-run"
 
-	// Pre-create the project branch on GitHub so run.sh takes the checkout
+	// Pre-create the project branch on GitHub so the workflow takes the checkout
 	// (not create) path. Point it at the current HEAD of the base branch.
 	sha := getRemoteBranchSHA(t, cfg.Repo, cfg.Branch)
 	createRemoteBranch(t, cfg.Repo, branch, sha)
@@ -203,12 +203,12 @@ func TestRun_AICompletesSingleIteration(t *testing.T) {
 // the configured iteration limit.
 //
 // Skipped because it requires two things not yet in place:
-//  1. A --max-iterations flag threaded through workflow generation into run.sh
+//  1. A --max-iterations flag threaded through workflow generation
 //     (currently the container always uses .ralph/config.yaml maxIterations).
 //  2. A test-data/e2e-stuck-run.yaml in cfg.Repo with requirements the AI
 //     cannot satisfy in a single iteration, so exhaustion is deterministic.
 //
-// To enable: add --max-iterations to Workflow and run.sh template, create the
+// To enable: add --max-iterations to Workflow, create the
 // stuck project file, and remove the t.Skip.
 func TestRun_MaxIterationsExhausted(t *testing.T) {
 	t.Skip("requires --max-iterations in workflow generation and a stuck project file in ralph-mock")

@@ -26,7 +26,6 @@ type WorkflowCmd struct {
 	BotEmail    string `help:"Git user email for commits" default:"ralph[bot]@users.noreply.github.com"`
 	DebugBranch string `help:"Ralph branch to use for debug mode (clones ralph from this branch and runs via go run)" name:"debug-branch" optional:""`
 	Verbose     bool   `help:"Enable verbose logging" default:"false"`
-	NoNotify    bool   `help:"Disable desktop notifications" default:"true"`
 	NoServices  bool   `help:"Skip service startup" default:"false"`
 	Local       bool   `help:"Run locally instead of in workflow container" default:"false"`
 
@@ -275,7 +274,7 @@ Focus on accepting the correct changes from both branches. If there are test fai
 		projectPath = filepath.Join("/workspace/repo", projectPath)
 	}
 
-	cmd := exec.Command("ralph", projectPath, "--local", "--no-notify"+verboseFlag)
+	cmd := exec.Command("sh", "-c", fmt.Sprintf("ralph %s --local --no-notify%s", projectPath, verboseFlag))
 	cmd.Dir = "/workspace/repo"
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -307,11 +306,6 @@ func (w *WorkflowCmd) runRalph() error {
 		projectPath = filepath.Join("/workspace/repo", projectPath)
 	}
 
-	noNotifyFlag := ""
-	if w.NoNotify {
-		noNotifyFlag = " --no-notify"
-	}
-
 	noServicesFlag := ""
 	if w.NoServices {
 		noServicesFlag = " --no-services"
@@ -327,7 +321,7 @@ func (w *WorkflowCmd) runRalph() error {
 		baseFlag = " --base " + w.BaseBranch
 	}
 
-	args := fmt.Sprintf("ralph %s --local%s%s%s%s%s", projectPath, verboseFlag, noNotifyFlag, noServicesFlag, debugFlag, baseFlag)
+	args := fmt.Sprintf("ralph %s --local --no-notify%s%s%s%s", projectPath, verboseFlag, noServicesFlag, debugFlag, baseFlag)
 
 	ralphCmd := exec.Command("sh", "-c", args)
 	ralphCmd.Dir = "/workspace/repo"

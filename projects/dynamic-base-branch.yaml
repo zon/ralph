@@ -21,10 +21,10 @@ requirements:
     passing: true
 
   - category: subcommand
-    description: Implement `ralph workflow` command to replace `run.sh`
+    description: Implement `ralph workflow` command
     items:
-      - Create a `workflow` subcommand for the `ralph` CLI that encapsulates the logic currently in `internal/workflow/run.sh`
-      - Support `--debug-branch` flag to allow Ralph to clone and run itself from a specific branch (replaces `run.sh` debug mode)
+      - Create a `workflow` subcommand for the `ralph` CLI
+      - Support `--debug-branch` flag to allow Ralph to clone and run itself from a specific branch
       - Implement automated GitHub authentication using the GitHub App token (equivalent to `ralph set-github-token`)
       - Configure Git user identity (name/email) within the workflow environment
       - Provision OpenCode credentials by copying from secret volumes to the expected local share path
@@ -39,7 +39,7 @@ requirements:
   - category: workflow
     description: Integrate `ralph workflow` into Argo Workflows
     items:
-      - Update Argo Workflow templates to use the `ralph workflow` command instead of `run.sh`
+      - Update Argo Workflow templates to use the `ralph workflow` command
       - Pass necessary inputs (repo URL, branch, project path) and secrets to the command
       - Ensure the workflow correctly handles the `base-branch` input parameter
     passing: true
@@ -57,7 +57,6 @@ requirements:
       - Update AI PR summary generation to use the dynamically detected/overridden base branch
       - Update git log summaries to compare the project branch against the detected base branch
       - Update GitHub PR creation to use the dynamically detected/overridden base branch
-      - Replace `internal/workflow/run.sh` script with the new `ralph workflow` command in all workflow generators
-      - Delete the `internal/workflow/run.sh` file and any associated dead code
+      - Use the `ralph workflow` command in all workflow generators
       - Update all existing tests to reflect the removal of `baseBranch` and addition of `defaultBranch`
     passing: true
