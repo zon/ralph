@@ -139,10 +139,10 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 }
 
 // getCurrentBranchForBaseDetection gets the current branch before any switching occurs.
-// Returns empty string if not in a git repository or in detached HEAD state.
+// Returns an error if not in a git repository or in detached HEAD state.
 func getCurrentBranchForBaseDetection(ctx *context.Context) (string, error) {
 	if !git.IsGitRepository(ctx) {
-		return "", nil
+		return "", fmt.Errorf("not a git repository, cannot determine base branch")
 	}
 
 	branch, err := git.GetCurrentBranch(ctx)
