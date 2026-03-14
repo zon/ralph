@@ -11,7 +11,7 @@ import (
 func TestGeneratePRSummaryNoProject(t *testing.T) {
 	ctx := testutil.NewContext()
 
-	_, err := GeneratePRSummary(ctx, "nonexistent.yaml", 1)
+	_, err := GeneratePRSummary(ctx, "nonexistent.yaml", 1, "main")
 	assert.Error(t, err, "GeneratePRSummary should fail with nonexistent project file")
 }
 

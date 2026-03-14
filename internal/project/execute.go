@@ -103,7 +103,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 
 	// Generate PR summary using AI (before potentially deleting the project file)
 	logger.Verbose("Generating PR summary...")
-	prSummary, err := ai.GeneratePRSummary(ctx, absProjectFile, iterCount)
+	prSummary, err := ai.GeneratePRSummary(ctx, absProjectFile, iterCount, baseBranch)
 	if err != nil {
 		return fmt.Errorf("failed to generate PR summary: %w", err)
 	}
