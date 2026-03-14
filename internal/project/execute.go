@@ -66,7 +66,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	}
 
 	// Get current branch before switching to project branch for dynamic base branch detection
-	currentBranch, err := getCurrentBranchForBaseDetection(ctx)
+	currentBranch, err := git.GetCurrentBranch(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get current branch: %w", err)
 	}
@@ -138,21 +138,6 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	return nil
 }
 
-// getCurrentBranchForBaseDetection gets the current branch before any switching occurs.
-// Returns an error if not in a git repository or in detached HEAD state.
-func getCurrentBranchForBaseDetection(ctx *context.Context) (string, error) {
-	if !git.IsGitRepository(ctx) {
-		return "", fmt.Errorf("not a git repository, cannot determine base branch")
-	}
-
-	branch, err := git.GetCurrentBranch(ctx)
-	if err != nil {
-		return "", err
-	}
-
-	return branch, nil
-}
-
 // resolveBaseBranch determines the base branch based on the dynamic detection logic:
 // - If baseFlag is provided (non-empty), use it
 // - If baseFlag is NOT provided and currentBranch != projectBranch, use currentBranch
@@ -162,7 +147,7 @@ func resolveBaseBranch(baseFlag, currentBranch, projectBranch, defaultBranch str
 		return baseFlag
 	}
 
-	if currentBranch != "" && currentBranch != projectBranch {
+	if currentBranch != projectBranch {
 		return currentBranch
 	}
 
@@ -171,11 +156,6 @@ func resolveBaseBranch(baseFlag, currentBranch, projectBranch, defaultBranch str
 
 // validateGitStateAndSwitchBranch validates git repository state and switches to the project branch
 func validateGitStateAndSwitchBranch(ctx *context.Context, branchName string) error {
-	// Validate git repository exists
-	if !git.IsGitRepository(ctx) {
-		return fmt.Errorf("not a git repository, please run 'git init' or run ralph from within a git repository")
-	}
-
 	// Get current branch
 	currentBranch, err := git.GetCurrentBranch(ctx)
 	if err != nil {
@@ -328,9 +308,6 @@ func executeRemote(ctx *context.Context, absProjectFile string) error {
 	if ctx.Branch() != "" {
 		currentBranch = ctx.Branch()
 	} else {
-		if !git.IsGitRepository(ctx) {
-			return fmt.Errorf("not a git repository - remote execution requires git")
-		}
 		currentBranch, err = git.GetCurrentBranch(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to get current branch: %w", err)

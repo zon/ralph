@@ -190,14 +190,7 @@ func TestResolveBaseBranch(t *testing.T) {
 			defaultBranch: "main",
 			expectedBase:  "main",
 		},
-		{
-			name:          "no base flag - empty current branch - use default branch",
-			baseFlag:      "",
-			currentBranch: "",
-			projectBranch: "my-feature",
-			defaultBranch: "main",
-			expectedBase:  "main",
-		},
+
 		{
 			name:          "base flag provided even when on project branch",
 			baseFlag:      "release-branch",
