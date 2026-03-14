@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/zon/ralph/internal/config"
-	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/project"
 )
@@ -279,7 +278,7 @@ Focus on accepting the correct changes from both branches. If there are test fai
 		projectPath = filepath.Join("/workspace/repo", projectPath)
 	}
 
-	ctx := &execcontext.Context{}
+	ctx := createExecutionContext()
 	ctx.SetProjectFile(projectPath)
 	ctx.SetLocal(true)
 	ctx.SetNoNotify(true)
@@ -296,8 +295,7 @@ Focus on accepting the correct changes from both branches. If there are test fai
 		maxIterations = 10
 	}
 	ctx.SetMaxIterations(maxIterations)
-
-	os.Setenv("RALPH_WORKFLOW_EXECUTION", "true")
+	ctx.SetWorkflowExecution(true)
 
 	// Use project.Execute to resolve conflicts and complete the project.
 	// We ignore the error here as we'll check the file state and commit manually below.
@@ -333,7 +331,7 @@ func (w *WorkflowCmd) runRalph() error {
 		maxIterations = 10
 	}
 
-	ctx := &execcontext.Context{}
+	ctx := createExecutionContext()
 	ctx.SetProjectFile(projectPath)
 	ctx.SetMaxIterations(maxIterations)
 	ctx.SetLocal(true)
@@ -343,8 +341,7 @@ func (w *WorkflowCmd) runRalph() error {
 	ctx.SetInstructionsMD(w.InstructionsMD)
 	ctx.SetDebugBranch(w.DebugBranch)
 	ctx.SetBaseBranch(w.BaseBranch)
-
-	os.Setenv("RALPH_WORKFLOW_EXECUTION", "true")
+	ctx.SetWorkflowExecution(true)
 
 	if err := project.Execute(ctx, w.cleanupRegistrar); err != nil {
 		return fmt.Errorf("ralph execution failed: %w", err)

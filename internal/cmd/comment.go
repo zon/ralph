@@ -10,7 +10,6 @@ import (
 
 	"github.com/zon/ralph/internal/ai"
 	"github.com/zon/ralph/internal/config"
-	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/services"
 )
@@ -54,7 +53,7 @@ func (c *CommentCmd) Run() error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	ctx := &execcontext.Context{}
+	ctx := createExecutionContext()
 	ctx.SetProjectFile(projectFile)
 	ctx.SetVerbose(c.Verbose)
 	ctx.SetNoNotify(true)

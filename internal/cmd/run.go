@@ -132,7 +132,7 @@ func (r *RunCmd) resolveMaxIterations(ralphConfig *config.RalphConfig) int {
 }
 
 func (r *RunCmd) createExecutionContext(maxIterations int) *execcontext.Context {
-	ctx := &execcontext.Context{}
+	ctx := createExecutionContext()
 	ctx.SetProjectFile(r.ProjectFile)
 	ctx.SetMaxIterations(maxIterations)
 	ctx.SetVerbose(r.Verbose)

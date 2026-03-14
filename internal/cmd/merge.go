@@ -69,7 +69,7 @@ func (m *MergeCmd) runLocal() error {
 }
 
 func (m *MergeCmd) createExecutionContext() *context.Context {
-	ctx := &context.Context{}
+	ctx := createExecutionContext()
 	ctx.SetVerbose(m.Verbose)
 	return ctx
 }

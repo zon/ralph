@@ -122,6 +122,32 @@ func TestShouldFollow(t *testing.T) {
 	}
 }
 
+func TestIsWorkflowExecution(t *testing.T) {
+	tests := []struct {
+		name              string
+		workflowExecution bool
+	}{
+		{
+			name:              "workflow execution enabled",
+			workflowExecution: true,
+		},
+		{
+			name:              "workflow execution disabled",
+			workflowExecution: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := &Context{}
+			ctx.SetWorkflowExecution(tt.workflowExecution)
+
+			result := ctx.IsWorkflowExecution()
+			assert.Equal(t, tt.workflowExecution, result, "IsWorkflowExecution should match the set value")
+		})
+	}
+}
+
 func TestAddNote(t *testing.T) {
 	ctx := &Context{}
 
@@ -219,6 +245,58 @@ func TestBaseBranch(t *testing.T) {
 			} else {
 				assert.NotEmpty(t, result, "Custom base branch should not be empty")
 			}
+		})
+	}
+}
+
+func TestRepoOwnerAndName(t *testing.T) {
+	tests := []struct {
+		name        string
+		repo        string
+		repoOwner   string
+		repoName    string
+		expectOwner string
+		expectName  string
+	}{
+		{
+			name:        "SetRepo populates owner and name",
+			repo:        "owner/repo",
+			expectOwner: "owner",
+			expectName:  "repo",
+		},
+		{
+			name:        "SetRepoOwner and SetRepoName populate fields",
+			repoOwner:   "field-owner",
+			repoName:    "field-repo",
+			expectOwner: "field-owner",
+			expectName:  "field-repo",
+		},
+		{
+			name:        "SetRepo overrides previous SetRepoOwner/Name",
+			repoOwner:   "old-owner",
+			repoName:    "old-repo",
+			repo:        "new-owner/new-repo",
+			expectOwner: "new-owner",
+			expectName:  "new-repo",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := &Context{}
+			if tt.repoOwner != "" {
+				ctx.SetRepoOwner(tt.repoOwner)
+			}
+			if tt.repoName != "" {
+				ctx.SetRepoName(tt.repoName)
+			}
+			if tt.repo != "" {
+				ctx.SetRepo(tt.repo)
+			}
+
+			owner, name := ctx.RepoOwnerAndName()
+			assert.Equal(t, tt.expectOwner, owner)
+			assert.Equal(t, tt.expectName, name)
 		})
 	}
 }
