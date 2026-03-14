@@ -8,9 +8,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zon/ralph/internal/config"
 )
 
-func TestLoadContextAndNamespace(t *testing.T) {
+func TestResolveKubeContext(t *testing.T) {
 	mockKubectl := func(dir, kubeContext, kubeNamespace string, causeError bool) string {
 		ns := kubeNamespace
 		script := `#!/bin/bash
@@ -142,6 +143,10 @@ exit 1
 			kubeContextError: true,
 			expectError:      true,
 		},
+		{
+			name:        "error when .ralph directory is missing",
+			expectError: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -154,20 +159,22 @@ exit 1
 			kubectlPath := mockKubectl(dir, tt.kubeContext, tt.kubeNamespace, tt.kubeContextError)
 			t.Setenv("PATH", filepath.Dir(kubectlPath)+":"+os.Getenv("PATH"))
 
-			if tt.configContext != "" || tt.configNamespace != "" {
+			if tt.name != "error when .ralph directory is missing" {
 				ralphDir := filepath.Join(dir, ".ralph")
 				err := os.MkdirAll(ralphDir, 0755)
 				require.NoError(t, err)
 
-				configContent := "workflow:\n"
-				if tt.configContext != "" {
-					configContent += "  context: " + tt.configContext + "\n"
+				if tt.configContext != "" || tt.configNamespace != "" {
+					configContent := "workflow:\n"
+					if tt.configContext != "" {
+						configContent += "  context: " + tt.configContext + "\n"
+					}
+					if tt.configNamespace != "" {
+						configContent += "  namespace: " + tt.configNamespace + "\n"
+					}
+					err = os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte(configContent), 0644)
+					require.NoError(t, err)
 				}
-				if tt.configNamespace != "" {
-					configContent += "  namespace: " + tt.configNamespace + "\n"
-				}
-				err = os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte(configContent), 0644)
-				require.NoError(t, err)
 			}
 
 			kubeconfigPath := filepath.Join(dir, "kubeconfig")
@@ -192,21 +199,30 @@ exit 1
 
 			t.Setenv("KUBECONFIG", kubeconfigPath)
 
-			kubeContext, namespace, err := loadContextAndNamespace(ctx, tt.flagContext, tt.flagNamespace)
+			cfg, err := config.LoadConfig()
+			if err != nil && !tt.expectError {
+				require.NoError(t, err)
+			}
 
 			if tt.expectError {
+				if err != nil {
+					require.Error(t, err)
+					return
+				}
+				_, err = resolveKubeContext(ctx, cfg, tt.flagContext, tt.flagNamespace)
 				require.Error(t, err)
 				return
 			}
 
+			k8sCtx, err := resolveKubeContext(ctx, cfg, tt.flagContext, tt.flagNamespace)
 			require.NoError(t, err)
-			assert.Equal(t, tt.expectedContext, kubeContext)
-			assert.Equal(t, tt.expectedNamespace, namespace)
+			assert.Equal(t, tt.expectedContext, k8sCtx.Name)
+			assert.Equal(t, tt.expectedNamespace, k8sCtx.Namespace)
 		})
 	}
 }
 
-func TestLoadContextAndNamespace_UpwardSearch(t *testing.T) {
+func TestResolveKubeContext_UpwardSearch(t *testing.T) {
 	ctx := context.Background()
 	dir := t.TempDir()
 
@@ -225,7 +241,7 @@ func TestLoadContextAndNamespace_UpwardSearch(t *testing.T) {
 	require.NoError(t, err)
 	t.Chdir(subDir)
 
-	// Set up a basic kubeconfig so determineKubeContext doesn't fail
+	// Set up a basic kubeconfig so resolveKubeContext doesn't fail
 	kubeconfigPath := filepath.Join(dir, "kubeconfig")
 	kubeconfigContent := `apiVersion: v1
 kind: Config
@@ -239,9 +255,12 @@ contexts:
 	require.NoError(t, err)
 	t.Setenv("KUBECONFIG", kubeconfigPath)
 
-	kubeContext, namespace, err := loadContextAndNamespace(ctx, "", "")
+	cfg, err := config.LoadConfig()
+	require.NoError(t, err)
+
+	k8sCtx, err := resolveKubeContext(ctx, cfg, "", "")
 
 	require.NoError(t, err)
-	assert.Equal(t, "test-ctx", kubeContext)
-	assert.Equal(t, "parent-ns", namespace)
+	assert.Equal(t, "test-ctx", k8sCtx.Name)
+	assert.Equal(t, "parent-ns", k8sCtx.Namespace)
 }

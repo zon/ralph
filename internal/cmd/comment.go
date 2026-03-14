@@ -10,19 +10,18 @@ import (
 
 	"github.com/zon/ralph/internal/ai"
 	"github.com/zon/ralph/internal/config"
-	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/services"
 )
 
 // CommentCmd is the command for running a comment-triggered development iteration
 type CommentCmd struct {
-	Body     string `arg:"" help:"Comment body text"`
-	Repo     string `help:"Repository in owner/repo format, e.g. zon/ralph" required:""`
-	Branch   string `help:"PR branch name" required:""`
-	PR       string `help:"Pull request number" required:""`
-	Verbose  bool   `help:"Enable verbose logging" default:"false"`
-	NoNotify bool   `help:"Disable desktop notifications" default:"false" hidden:""`
+	Body       string `arg:"" help:"Comment body text"`
+	Repo       string `help:"Repository in owner/repo format, e.g. zon/ralph" required:""`
+	Branch     string `help:"PR branch name" required:""`
+	PR         string `help:"Pull request number" required:""`
+	Verbose    bool   `help:"Enable verbose logging" default:"false"`
+	NoServices bool   `help:"Skip service startup" default:"false"`
 
 	cleanupRegistrar func(func()) `kong:"-"`
 }
@@ -54,14 +53,15 @@ func (c *CommentCmd) Run() error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	ctx := &execcontext.Context{}
+	ctx := createExecutionContext()
 	ctx.SetProjectFile(projectFile)
 	ctx.SetVerbose(c.Verbose)
-	ctx.SetNoNotify(c.NoNotify)
+	ctx.SetNoNotify(true)
+	ctx.SetNoServices(c.NoServices)
 
 	// Start services
 	svcMgr := services.NewManager()
-	if len(cfg.Services) > 0 {
+	if !c.NoServices && len(cfg.Services) > 0 {
 		if _, err := svcMgr.Start(cfg.Services); err == nil {
 			if c.cleanupRegistrar != nil {
 				c.cleanupRegistrar(func() { svcMgr.Stop() })

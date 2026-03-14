@@ -57,7 +57,9 @@ func BuildDevelopPrompt(ctx *context.Context, projectFile string, selectedRequir
 	}
 
 	promptTmpl := ralphConfig.Instructions
-	if ctx.Instructions() != "" {
+	if ctx.InstructionsMD() != "" {
+		promptTmpl = ctx.InstructionsMD()
+	} else if ctx.Instructions() != "" {
 		instructionsData, err := os.ReadFile(ctx.Instructions())
 		if err != nil {
 			return "", fmt.Errorf("failed to read instructions file %s: %w", ctx.Instructions(), err)
@@ -69,8 +71,8 @@ func BuildDevelopPrompt(ctx *context.Context, projectFile string, selectedRequir
 	currentBranch, err := git.GetCurrentBranch(ctx)
 	if err != nil {
 		logger.Warningf("Failed to get current branch: %v", err)
-	} else if currentBranch != ralphConfig.BaseBranch {
-		if log, err := git.GetCommitLog(ctx, ralphConfig.BaseBranch, 10); err != nil {
+	} else if currentBranch != ralphConfig.DefaultBranch {
+		if log, err := git.GetCommitLog(ctx, ralphConfig.DefaultBranch, 10); err != nil {
 			logger.Warningf("Failed to get branch commits: %v", err)
 		} else {
 			commitLog = log
@@ -128,8 +130,8 @@ func BuildPickPrompt(ctx *context.Context, projectFile string, pickedReqPath str
 	currentBranch, err := git.GetCurrentBranch(ctx)
 	if err != nil {
 		logger.Warningf("Failed to get current branch: %v", err)
-	} else if currentBranch != ralphConfig.BaseBranch {
-		if log, err := git.GetCommitLog(ctx, ralphConfig.BaseBranch, 10); err != nil {
+	} else if currentBranch != ralphConfig.DefaultBranch {
+		if log, err := git.GetCommitLog(ctx, ralphConfig.DefaultBranch, 10); err != nil {
 			logger.Warningf("Failed to get branch commits: %v", err)
 		} else {
 			commitLog = log

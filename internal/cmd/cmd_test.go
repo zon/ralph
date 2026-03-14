@@ -51,6 +51,12 @@ func TestLocalFlagValidation(t *testing.T) {
 			expectError: false,
 		},
 		{
+			name:        "debug with local should fail",
+			args:        []string{"run", "--debug", "my-branch", "--local", "test.yaml"},
+			expectError: true,
+			errorMsg:    "--debug flag is not applicable with --local flag",
+		},
+		{
 			name:        "default command - follow with local should fail",
 			args:        []string{"--follow", "--local", "test.yaml"},
 			expectError: true,
@@ -119,6 +125,19 @@ func TestLocalFlagValidation(t *testing.T) {
 				return
 			}
 
+			// Test local + debug validation
+			if cmd.Run.Local && cmd.Run.Debug != "" {
+				err = validateRunFlags(&cmd.Run)
+				if !tt.expectError {
+					t.Errorf("expected no error, got: %v", err)
+				} else if err == nil {
+					t.Error("expected error but got none")
+				} else if err.Error() != tt.errorMsg {
+					t.Errorf("expected error %q, got %q", tt.errorMsg, err.Error())
+				}
+				return
+			}
+
 			// Should pass validation
 			err = validateRunFlags(&cmd.Run)
 			if tt.expectError && err == nil {
@@ -132,12 +151,13 @@ func TestLocalFlagValidation(t *testing.T) {
 
 func TestFlagParsing(t *testing.T) {
 	tests := []struct {
-		name           string
-		args           []string
-		expectLocal    bool
-		expectFollow   bool
-		expectOnce     bool
-		expectNoNotify bool
+		name              string
+		args              []string
+		expectLocal       bool
+		expectFollow      bool
+		expectOnce        bool
+		expectNoNotify    bool
+		expectDebugBranch string
 	}{
 		{
 			name:         "local flag sets Local to true",
@@ -159,6 +179,11 @@ func TestFlagParsing(t *testing.T) {
 			expectLocal:  false,
 			expectFollow: false,
 			expectOnce:   true,
+		},
+		{
+			name:              "debug flag sets DebugBranch",
+			args:              []string{"run", "--debug", "fix-bug", "test.yaml"},
+			expectDebugBranch: "fix-bug",
 		},
 		{
 			name:           "no-notify flag sets NoNotify to true",
@@ -219,6 +244,9 @@ func TestFlagParsing(t *testing.T) {
 			if cmd.Run.NoNotify != tt.expectNoNotify {
 				t.Errorf("expected NoNotify=%v, got %v", tt.expectNoNotify, cmd.Run.NoNotify)
 			}
+			if cmd.Run.Debug != tt.expectDebugBranch {
+				t.Errorf("expected DebugBranch=%q, got %q", tt.expectDebugBranch, cmd.Run.Debug)
+			}
 		})
 	}
 }
@@ -230,6 +258,9 @@ func validateRunFlags(r *RunCmd) error {
 	}
 	if r.Local && r.Once {
 		return fmt.Errorf("--local flag is incompatible with --once flag")
+	}
+	if r.Debug != "" && r.Local {
+		return fmt.Errorf("--debug flag is not applicable with --local flag")
 	}
 	return nil
 }

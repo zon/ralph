@@ -38,8 +38,12 @@ type Workflow struct {
 	DebugBranch string
 	// RalphConfig supplies workflow-level configuration (image overrides, secrets, configmaps, env).
 	RalphConfig *config.RalphConfig
-	// BaseBranch overrides the base branch for PR creation (overrides RalphConfig.BaseBranch when set).
+	// BaseBranch overrides the base branch for PR creation (overrides RalphConfig.DefaultBranch when set).
 	BaseBranch string
+	// NoServices controls whether the ralph command inside the container runs with --no-services.
+	NoServices bool
+	// MaxIterations is the maximum number of development iterations.
+	MaxIterations int
 }
 
 // Render produces the Argo Workflow YAML string for this Workflow.
@@ -49,6 +53,7 @@ func (w *Workflow) Render() (string, error) {
 		"instructions-md": w.Instructions,
 		"comment-body":    w.CommentBody,
 		"pr-number":       w.PRNumber,
+		"base-branch":     w.getEffectiveBaseBranch(),
 	}
 
 	wf := map[string]interface{}{
@@ -99,21 +104,46 @@ func (w *Workflow) Submit(namespace string) (string, error) {
 	return submitYAML(workflowYAML, w.RalphConfig, namespace)
 }
 
+// getEffectiveBaseBranch returns the effective base branch for the workflow parameter.
+func (w *Workflow) getEffectiveBaseBranch() string {
+	if w.BaseBranch != "" {
+		return w.BaseBranch
+	}
+	return w.RalphConfig.DefaultBranch
+}
+
 // buildScript returns the appropriate shell script for this workflow type.
 func (w *Workflow) buildScript() string {
 	if w.CommentBody != "" {
-		return buildCommentScript(w.Verbose)
+		return buildCommentScript(w.Verbose, w.NoServices)
 	}
-	return buildRunScript(w.Verbose, w.DebugBranch, w.RalphConfig)
+	return buildDebugScript(w.Verbose, w.NoServices, w.DebugBranch, w.RalphConfig)
 }
 
 func (w *Workflow) buildMainTemplate() map[string]interface{} {
+	var command []string
+	var args []string
+
+	if w.DebugBranch != "" || w.CommentBody != "" {
+		command = []string{"/bin/sh", "-c"}
+		args = []string{w.buildScript()}
+	} else {
+		command = []string{"ralph"}
+		args = []string{"workflow"}
+		if w.NoServices {
+			args = append(args, "--no-services")
+		}
+		if w.Verbose {
+			args = append(args, "--verbose")
+		}
+	}
+
 	return map[string]interface{}{
 		"name": "ralph-executor",
 		"container": map[string]interface{}{
 			"image":        resolveImage(w.RalphConfig),
-			"command":      []string{"/bin/sh", "-c"},
-			"args":         []string{w.buildScript()},
+			"command":      command,
+			"args":         args,
 			"env":          w.buildEnvVars(),
 			"volumeMounts": buildVolumeMounts(w.RalphConfig),
 			"workingDir":   "/workspace",
@@ -123,11 +153,6 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 }
 
 func (w *Workflow) buildEnvVars() []map[string]interface{} {
-	baseBranch := w.BaseBranch
-	if baseBranch == "" {
-		baseBranch = w.RalphConfig.BaseBranch
-	}
-
 	envVars := []map[string]interface{}{
 		{"name": "GIT_REPO_URL", "value": w.RepoURL},
 		{"name": "GITHUB_REPO_OWNER", "value": w.RepoOwner},
@@ -139,7 +164,11 @@ func (w *Workflow) buildEnvVars() []map[string]interface{} {
 		{"name": "COMMENT_BODY", "value": "{{workflow.parameters.comment-body}}"},
 		{"name": "PR_NUMBER", "value": "{{workflow.parameters.pr-number}}"},
 		{"name": "RALPH_WORKFLOW_EXECUTION", "value": "true"},
-		{"name": "BASE_BRANCH", "value": baseBranch},
+		{"name": "BASE_BRANCH", "value": "{{workflow.parameters.base-branch}}"},
+		{"name": "RALPH_DEBUG_BRANCH", "value": w.DebugBranch},
+		{"name": "RALPH_VERBOSE", "value": fmt.Sprintf("%t", w.Verbose)},
+		{"name": "RALPH_NO_SERVICES", "value": fmt.Sprintf("%t", w.NoServices)},
+		{"name": "RALPH_MAX_ITERATIONS", "value": fmt.Sprintf("%d", w.MaxIterations)},
 	}
 
 	hasPulumiToken := false

@@ -157,11 +157,14 @@ func TestLoadConfig_Defaults(t *testing.T) {
 
 	t.Chdir(tmpDir)
 
+	// Create .ralph directory to satisfy new LoadConfig requirement
+	require.NoError(t, os.Mkdir(filepath.Join(tmpDir, ".ralph"), 0755))
+
 	config, err := LoadConfig()
 	require.NoError(t, err, "LoadConfig() unexpected error")
 
 	assert.Equal(t, 10, config.MaxIterations)
-	assert.Equal(t, "main", config.BaseBranch)
+	assert.Equal(t, "main", config.DefaultBranch)
 	assert.Empty(t, config.Services)
 	assert.NotEmpty(t, config.Instructions, "LoadConfig() Instructions is empty, expected default instructions")
 	assert.True(t, strings.Contains(config.Instructions, "## Instructions"), "LoadConfig() Instructions missing expected header")
@@ -177,7 +180,7 @@ func TestLoadConfig_FromFile(t *testing.T) {
 
 	// Write config file
 	configContent := `maxIterations: 5
-baseBranch: develop
+defaultBranch: develop
 services:
   - name: test-service
     command: echo
@@ -199,7 +202,7 @@ services:
 	require.NoError(t, err, "LoadConfig() unexpected error")
 
 	assert.Equal(t, 5, config.MaxIterations)
-	assert.Equal(t, "develop", config.BaseBranch)
+	assert.Equal(t, "develop", config.DefaultBranch)
 	assert.Len(t, config.Services, 1)
 	assert.Equal(t, "test-service", config.Services[0].Name)
 	assert.Equal(t, instructionsContent, config.Instructions)
@@ -365,7 +368,7 @@ func TestLoadConfig_WithWorkflowConfig(t *testing.T) {
 	require.NoError(t, os.Mkdir(ralphDir, 0755))
 
 	configContent := `maxIterations: 5
-baseBranch: main
+defaultBranch: main
 workflow:
   image:
     repository: ghcr.io/example/ralph-runner
@@ -451,7 +454,7 @@ func TestLoadConfig_WithoutWorkflowConfig(t *testing.T) {
 	require.NoError(t, os.Mkdir(ralphDir, 0755))
 
 	configContent := `maxIterations: 3
-baseBranch: main
+defaultBranch: main
  `
 	configPath := filepath.Join(ralphDir, "config.yaml")
 	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
@@ -542,7 +545,7 @@ func TestApplyDefaults_DoesNotOverwriteNonZeroValues(t *testing.T) {
 	require.NoError(t, os.Mkdir(ralphDir, 0755))
 
 	configContent := `maxIterations: 5
-baseBranch: develop
+defaultBranch: develop
 model: anthropic/claude-3-sonnet
 app:
   name: my-app
@@ -561,7 +564,7 @@ services:
 	require.NoError(t, err, "LoadConfig() unexpected error")
 
 	assert.Equal(t, 5, config.MaxIterations)
-	assert.Equal(t, "develop", config.BaseBranch)
+	assert.Equal(t, "develop", config.DefaultBranch)
 	assert.Equal(t, "anthropic/claude-3-sonnet", config.Model)
 	assert.Equal(t, "my-app", config.App.Name)
 	assert.Equal(t, "1234567", config.App.ID)

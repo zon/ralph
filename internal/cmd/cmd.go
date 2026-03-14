@@ -1,5 +1,7 @@
 package cmd
 
+import "github.com/zon/ralph/internal/config"
+
 // Cmd defines the command-line arguments and execution context
 type Cmd struct {
 	// Subcommands
@@ -9,6 +11,7 @@ type Cmd struct {
 	Config         ConfigCmd         `cmd:"" help:"Configure credentials for remote execution"`
 	SetGithubToken GithubTokenCmd    `cmd:"" help:"Generate a GitHub App installation token and configure git HTTPS authentication"`
 	SetupWorkspace SetupWorkspaceCmd `cmd:"" help:"Create symlinks for mounted config files into the working directory"`
+	Workflow       WorkflowCmd       `cmd:"" help:"Run ralph workflow in a container"`
 
 	version          string       `kong:"-"`
 	date             string       `kong:"-"`
@@ -45,4 +48,13 @@ func (c *Cmd) SetCleanupRegistrar(cleanupRegistrar func(func())) {
 	c.Run.cleanupRegistrar = cleanupRegistrar
 	c.Comment.cleanupRegistrar = cleanupRegistrar
 	c.Merge.cleanupRegistrar = cleanupRegistrar
+	c.Workflow.cleanupRegistrar = cleanupRegistrar
+}
+
+// resolveMaxIterations returns flagMaxIterations if non-zero, otherwise returns RalphConfig.MaxIterations
+func resolveMaxIterations(ralphConfig *config.RalphConfig, flagMaxIterations int) int {
+	if flagMaxIterations != 0 {
+		return flagMaxIterations
+	}
+	return ralphConfig.MaxIterations
 }

@@ -12,7 +12,7 @@ func TestNewContext(t *testing.T) {
 	assert.Equal(t, 10, ctx.MaxIterations(), "MaxIterations should be 10 by default")
 	assert.False(t, ctx.IsVerbose(), "IsVerbose should be false by default")
 	assert.False(t, ctx.ShouldNotify(), "ShouldNotify should be false when NoNotify=true")
-	assert.True(t, ctx.ShouldStartServices(), "ShouldStartServices should be true when NoServices=false")
+	assert.False(t, ctx.NoServices(), "NoServices should be false when NoServices=false")
 	assert.Empty(t, ctx.ProjectFile(), "ProjectFile should be empty by default")
 }
 
@@ -36,5 +36,5 @@ func TestNewContext_MultipleOptions(t *testing.T) {
 	)
 
 	assert.Equal(t, 20, ctx.MaxIterations(), "MaxIterations should be 20")
-	assert.False(t, ctx.ShouldStartServices(), "ShouldStartServices should be false when NoServices=true")
+	assert.True(t, ctx.NoServices(), "NoServices should be true when NoServices=true")
 }

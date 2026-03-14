@@ -25,7 +25,7 @@ type RunCmd struct {
 	Local         bool   `help:"Run on this machine instead of in Argo Workflows" default:"false"`
 	Follow        bool   `help:"Follow workflow logs after submission (only applicable without --local)" short:"f" default:"false"`
 	Debug         string `help:"Checkout the given ralph repo branch in the workflow container and invoke ralph via 'go run' instead of the built binary" name:"debug" optional:""`
-	Base          string `help:"Override the base branch for PR creation (default: uses baseBranch from .ralph/config.yaml)" name:"base" optional:"" short:"B"`
+	Base          string `help:"Override the base branch for PR creation (default: detects from current branch)" name:"base" optional:"" short:"B"`
 	ShowVersion   bool   `help:"Show version information" short:"v" name:"version"`
 
 	version          string       `kong:"-"`
@@ -56,7 +56,7 @@ func (r *RunCmd) Run() error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	maxIterations := r.resolveMaxIterations(ralphConfig)
+	maxIterations := resolveMaxIterations(ralphConfig, r.MaxIterations)
 
 	ctx := r.createExecutionContext(maxIterations)
 
@@ -120,19 +120,8 @@ func (r *RunCmd) validateFlagCombinations() error {
 	return nil
 }
 
-func (r *RunCmd) resolveMaxIterations(ralphConfig *config.RalphConfig) int {
-	maxIterations := r.MaxIterations
-	if maxIterations == 0 {
-		maxIterations = ralphConfig.MaxIterations
-	}
-	if maxIterations == 0 {
-		maxIterations = 10
-	}
-	return maxIterations
-}
-
 func (r *RunCmd) createExecutionContext(maxIterations int) *execcontext.Context {
-	ctx := &execcontext.Context{}
+	ctx := createExecutionContext()
 	ctx.SetProjectFile(r.ProjectFile)
 	ctx.SetMaxIterations(maxIterations)
 	ctx.SetVerbose(r.Verbose)

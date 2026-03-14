@@ -1,26 +1,27 @@
 package context
 
 import (
-	"os"
 	"strings"
 )
 
 // Context holds the execution context for ralph commands
 type Context struct {
-	projectFile    string
-	maxIterations  int
-	verbose        bool
-	noNotify       bool
-	noServices     bool
-	local          bool
-	follow         bool
-	notes          []string // Runtime notes to pass to the agent
-	instructions   string   // Path to an instructions file that overrides the default instructions
-	instructionsMD string   // Inline instructions content; overrides .ralph/instructions.md when set
-	repo           string   // owner/repo override (e.g., "zon/ralph"); skips local git remote detection
-	branch         string   // Branch override; skips local git GetCurrentBranch + sync check
-	debugBranch    string   // When set, workflows checkout this ralph repo branch and invoke ralph via `go run`
-	baseBranch     string   // Base branch override; overrides baseBranch from .ralph/config.yaml for PR creation
+	projectFile       string
+	maxIterations     int
+	verbose           bool
+	noNotify          bool
+	noServices        bool
+	local             bool
+	follow            bool
+	workflowExecution bool
+	repoOwner         string
+	repoName          string
+	notes             []string // Runtime notes to pass to the agent
+	instructions      string   // Path to an instructions file that overrides the default instructions
+	instructionsMD    string   // Inline instructions content; overrides .ralph/instructions.md when set
+	branch            string   // Branch override; skips local git GetCurrentBranch + sync check
+	debugBranch       string   // When set, workflows checkout this ralph repo branch and invoke ralph via `go run`
+	baseBranch        string   // Base branch override; overrides baseBranch from .ralph/config.yaml for PR creation
 }
 
 // IsVerbose returns true if verbose logging is enabled
@@ -37,9 +38,9 @@ func (c *Context) ShouldNotify() bool {
 	return !c.noNotify
 }
 
-// ShouldStartServices returns true if services should be started
-func (c *Context) ShouldStartServices() bool {
-	return !c.noServices
+// NoServices returns true if services should be skipped
+func (c *Context) NoServices() bool {
+	return c.noServices
 }
 
 // IsLocal returns true if running locally instead of submitting to Argo Workflows
@@ -53,23 +54,18 @@ func (c *Context) ShouldFollow() bool {
 }
 
 // IsWorkflowExecution returns true if running inside a workflow container
-// This is detected via the RALPH_WORKFLOW_EXECUTION environment variable
 func (c *Context) IsWorkflowExecution() bool {
-	return os.Getenv("RALPH_WORKFLOW_EXECUTION") == "true"
+	return c.workflowExecution
+}
+
+// SetWorkflowExecution sets whether the context is for a workflow execution
+func (c *Context) SetWorkflowExecution(workflowExecution bool) {
+	c.workflowExecution = workflowExecution
 }
 
 // RepoOwnerAndName returns the owner and repository name.
-// It uses ctx.repo ("owner/repo") when set, otherwise falls back to the
-// GITHUB_REPO_OWNER and GITHUB_REPO_NAME environment variables injected by
-// the workflow container.
 func (c *Context) RepoOwnerAndName() (owner, name string) {
-	if c.repo != "" {
-		parts := strings.SplitN(c.repo, "/", 2)
-		if len(parts) == 2 {
-			return parts[0], parts[1]
-		}
-	}
-	return os.Getenv("GITHUB_REPO_OWNER"), os.Getenv("GITHUB_REPO_NAME")
+	return c.repoOwner, c.repoName
 }
 
 // AddNote adds a runtime note to be passed to the agent
@@ -121,8 +117,13 @@ func (c *Context) SetInstructionsMD(instructionsMD string) {
 	c.instructionsMD = instructionsMD
 }
 
+// SetRepo sets the repository using an "owner/repo" string.
 func (c *Context) SetRepo(repo string) {
-	c.repo = repo
+	parts := strings.SplitN(repo, "/", 2)
+	if len(parts) == 2 {
+		c.repoOwner = parts[0]
+		c.repoName = parts[1]
+	}
 }
 
 func (c *Context) SetBranch(branch string) {
@@ -137,8 +138,20 @@ func (c *Context) SetBaseBranch(baseBranch string) {
 	c.baseBranch = baseBranch
 }
 
+func (c *Context) SetRepoOwner(owner string) {
+	c.repoOwner = owner
+}
+
+func (c *Context) SetRepoName(name string) {
+	c.repoName = name
+}
+
+// Repo returns the repository in "owner/repo" format.
 func (c *Context) Repo() string {
-	return c.repo
+	if c.repoOwner == "" || c.repoName == "" {
+		return ""
+	}
+	return c.repoOwner + "/" + c.repoName
 }
 
 func (c *Context) Branch() string {

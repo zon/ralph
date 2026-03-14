@@ -8,21 +8,36 @@ import (
 	"github.com/zon/ralph/internal/config"
 )
 
-func TestBuildRunScript(t *testing.T) {
+func TestBuildDebugScript(t *testing.T) {
 	tests := []struct {
 		name            string
 		verbose         bool
+		noServices      bool
 		expectedCommand string
 	}{
 		{
 			name:            "no flags",
 			verbose:         false,
-			expectedCommand: `ralph_run "$PROJECT_PATH" --local --no-notify`,
+			noServices:      false,
+			expectedCommand: `ralph workflow`,
+		},
+		{
+			name:            "no services",
+			verbose:         false,
+			noServices:      true,
+			expectedCommand: `ralph workflow --no-services`,
 		},
 		{
 			name:            "verbose",
 			verbose:         true,
-			expectedCommand: `ralph_run "$PROJECT_PATH" --local --verbose --no-notify`,
+			noServices:      false,
+			expectedCommand: `ralph workflow --verbose`,
+		},
+		{
+			name:            "verbose and no services",
+			verbose:         true,
+			noServices:      true,
+			expectedCommand: `ralph workflow --verbose --no-services`,
 		},
 	}
 
@@ -31,47 +46,39 @@ func TestBuildRunScript(t *testing.T) {
 			cfg := &config.RalphConfig{
 				Workflow: config.WorkflowConfig{},
 			}
-			script := buildRunScript(tt.verbose, "", cfg)
+			script := buildDebugScript(tt.verbose, tt.noServices, "main", cfg)
 
 			expectedElements := []string{
 				"#!/bin/sh",
 				"set -e",
-				"git clone",
-				"GIT_REPO_URL",
-				"GIT_BRANCH",
-				"PROJECT_BRANCH",
-				"BASE_BRANCH",
-				`ralph set-github-token`,
-				config.DefaultAppName + "[bot]",
-				config.DefaultAppName + "[bot]@users.noreply.github.com",
-				"auth.json",
+				"ralph workflow",
+				"Execution complete",
 				tt.expectedCommand,
 			}
 
 			for _, element := range expectedElements {
-				assert.Contains(t, script, element, "run script should contain expected element")
+				assert.Contains(t, script, element, "debug script should contain expected element")
 			}
 		})
 	}
 }
 
-func TestBuildRunScript_DebugBranch(t *testing.T) {
+func TestBuildDebugScript_DebugBranch(t *testing.T) {
 	cfg := &config.RalphConfig{
 		Workflow: config.WorkflowConfig{},
 	}
-	script := buildRunScript(false, "my-debug-branch", cfg)
+	script := buildDebugScript(false, false, "my-debug-branch", cfg)
 
 	expectedElements := []string{
 		"git clone -b \"my-debug-branch\" https://github.com/zon/ralph.git /workspace/ralph",
 		"go run ./cmd/ralph/main.go",
-		`ralph set-github-token`,
-		`ralph_run "$PROJECT_PATH" --local --no-notify`,
+		"ralph workflow",
 	}
 	for _, element := range expectedElements {
-		assert.Contains(t, script, element, "run script (debug branch) should contain expected element")
+		assert.Contains(t, script, element, "debug script (debug branch) should contain expected element")
 	}
 
-	assert.NotContains(t, script, "command ralph", "run script (debug branch) should not use 'command ralph' fallback")
+	assert.NotContains(t, script, "command ralph", "debug script (debug branch) should not use 'command ralph' fallback")
 }
 
 func TestBuildCommentScript(t *testing.T) {
@@ -83,18 +90,18 @@ func TestBuildCommentScript(t *testing.T) {
 		{
 			name:            "no flags",
 			verbose:         false,
-			expectedCommand: `ralph comment "$COMMENT_BODY" --repo "$GITHUB_REPO_OWNER/$GITHUB_REPO_NAME" --branch "$PROJECT_BRANCH" --pr "$PR_NUMBER" --no-notify`,
+			expectedCommand: `ralph comment "$COMMENT_BODY" --repo "$GITHUB_REPO_OWNER/$GITHUB_REPO_NAME" --branch "$PROJECT_BRANCH" --pr "$PR_NUMBER"`,
 		},
 		{
 			name:            "verbose",
 			verbose:         true,
-			expectedCommand: `ralph comment "$COMMENT_BODY" --repo "$GITHUB_REPO_OWNER/$GITHUB_REPO_NAME" --branch "$PROJECT_BRANCH" --pr "$PR_NUMBER" --verbose --no-notify`,
+			expectedCommand: `ralph comment "$COMMENT_BODY" --repo "$GITHUB_REPO_OWNER/$GITHUB_REPO_NAME" --branch "$PROJECT_BRANCH" --pr "$PR_NUMBER" --verbose`,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			script := buildCommentScript(tt.verbose)
+			script := buildCommentScript(tt.verbose, false)
 
 			expectedElements := []string{
 				"#!/bin/sh",
@@ -109,6 +116,7 @@ func TestBuildCommentScript(t *testing.T) {
 				"ralph comment",
 				"COMMENT_BODY",
 				"PR_NUMBER",
+				"opencode stats",
 				tt.expectedCommand,
 			}
 
