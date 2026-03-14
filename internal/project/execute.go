@@ -65,10 +65,17 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	baseBranch := ralphConfig.BaseBranch
-	if ctx.BaseBranch() != "" {
-		baseBranch = ctx.BaseBranch()
+	// Get current branch before switching to project branch for dynamic base branch detection
+	currentBranch, err := git.GetCurrentBranch(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get current branch: %w", err)
 	}
+
+	// Determine base branch dynamically:
+	// - If --base flag is provided, use it
+	// - If --base is NOT provided and current branch != project branch, use current branch
+	// - If --base is NOT provided and current branch == project branch, use defaultBranch from config
+	baseBranch := resolveBaseBranch(ctx.BaseBranch(), currentBranch, branchName, ralphConfig.DefaultBranch)
 
 	// Run before commands before starting iteration loop
 	if len(ralphConfig.Before) > 0 {
@@ -96,7 +103,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 
 	// Generate PR summary using AI (before potentially deleting the project file)
 	logger.Verbose("Generating PR summary...")
-	prSummary, err := ai.GeneratePRSummary(ctx, absProjectFile, iterCount)
+	prSummary, err := ai.GeneratePRSummary(ctx, absProjectFile, iterCount, baseBranch)
 	if err != nil {
 		return fmt.Errorf("failed to generate PR summary: %w", err)
 	}
@@ -131,13 +138,24 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	return nil
 }
 
-// validateGitStateAndSwitchBranch validates git repository state and switches to the project branch
-func validateGitStateAndSwitchBranch(ctx *context.Context, branchName string) error {
-	// Validate git repository exists
-	if !git.IsGitRepository(ctx) {
-		return fmt.Errorf("not a git repository, please run 'git init' or run ralph from within a git repository")
+// resolveBaseBranch determines the base branch based on the dynamic detection logic:
+// - If baseFlag is provided (non-empty), use it
+// - If baseFlag is NOT provided and currentBranch != projectBranch, use currentBranch
+// - If baseFlag is NOT provided and currentBranch == projectBranch, use defaultBranch
+func resolveBaseBranch(baseFlag, currentBranch, projectBranch, defaultBranch string) string {
+	if baseFlag != "" {
+		return baseFlag
 	}
 
+	if currentBranch != projectBranch {
+		return currentBranch
+	}
+
+	return defaultBranch
+}
+
+// validateGitStateAndSwitchBranch validates git repository state and switches to the project branch
+func validateGitStateAndSwitchBranch(ctx *context.Context, branchName string) error {
 	// Get current branch
 	currentBranch, err := git.GetCurrentBranch(ctx)
 	if err != nil {
@@ -290,9 +308,6 @@ func executeRemote(ctx *context.Context, absProjectFile string) error {
 	if ctx.Branch() != "" {
 		currentBranch = ctx.Branch()
 	} else {
-		if !git.IsGitRepository(ctx) {
-			return fmt.Errorf("not a git repository - remote execution requires git")
-		}
 		currentBranch, err = git.GetCurrentBranch(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to get current branch: %w", err)

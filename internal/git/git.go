@@ -11,7 +11,6 @@ import (
 
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/github"
-	"github.com/zon/ralph/internal/logger"
 )
 
 // ErrWorkflowPermission is returned when a push is rejected because the GitHub App
@@ -43,17 +42,7 @@ func configureAuth(ctx *context.Context) error {
 // IsGitRepository checks if the current directory is inside a git repository
 func IsGitRepository(ctx *context.Context) bool {
 	cmd := exec.Command("git", "rev-parse", "--git-dir")
-	if err := cmd.Run(); err != nil {
-		if ctx.IsVerbose() {
-			logger.Info("Not a git repository")
-		}
-		return false
-	}
-
-	if ctx.IsVerbose() {
-		logger.Info("Git repository detected")
-	}
-	return true
+	return cmd.Run() == nil
 }
 
 // FindRepoRoot returns the root directory of the git repository
@@ -84,14 +73,6 @@ func IsDetachedHead(ctx *context.Context) (bool, error) {
 	// Exit code 1 = detached HEAD
 	isDetached := err != nil
 
-	if ctx.IsVerbose() {
-		if isDetached {
-			logger.Info("Repository is in detached HEAD state")
-		} else {
-			logger.Info("Repository is on a branch (not detached)")
-		}
-	}
-
 	return isDetached, nil
 }
 
@@ -118,8 +99,6 @@ func GetCurrentBranch(ctx *context.Context) (string, error) {
 		return "", fmt.Errorf("repository is in detached HEAD state, please checkout a branch first")
 	}
 
-	logger.Verbosef("Current branch: %s", branch)
-
 	return branch, nil
 }
 
@@ -128,18 +107,7 @@ func GetCurrentBranch(ctx *context.Context) (string, error) {
 func RemoteBranchExists(ctx *context.Context, name string) bool {
 
 	cmd := exec.Command("git", "rev-parse", "--verify", "--quiet", "origin/"+name)
-	if err := cmd.Run(); err == nil {
-		if ctx.IsVerbose() {
-			logger.Infof("Branch '%s' exists on remote", name)
-		}
-		return true
-	}
-
-	if ctx.IsVerbose() {
-		logger.Infof("Branch '%s' does not exist on remote", name)
-	}
-
-	return false
+	return cmd.Run() == nil
 }
 
 // CheckoutOrCreateBranch checks out the named branch if it exists on the remote
@@ -147,15 +115,12 @@ func RemoteBranchExists(ctx *context.Context, name string) bool {
 func CheckoutOrCreateBranch(ctx *context.Context, name string) error {
 
 	if RemoteBranchExists(ctx, name) {
-		logger.Verbosef("Checking out existing remote branch: %s", name)
 		if err := CheckoutBranch(ctx, name); err != nil {
 			return err
 		}
-		logger.Successf("Checked out remote branch: %s", name)
 		return nil
 	}
 
-	logger.Verbosef("Creating new branch: %s", name)
 	cmd := exec.Command("git", "checkout", "-b", name)
 	var out bytes.Buffer
 	cmd.Stdout = &out
@@ -163,7 +128,6 @@ func CheckoutOrCreateBranch(ctx *context.Context, name string) error {
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to create branch '%s': %w (output: %s)", name, err, out.String())
 	}
-	logger.Successf("Created branch: %s", name)
 	return nil
 }
 
@@ -200,12 +164,10 @@ func IsBranchSyncedWithRemote(ctx *context.Context, branch string) error {
 		return fmt.Errorf("branch '%s' is not in sync with remote - please push your changes before running remotely", branch)
 	}
 
-	logger.Verbosef("Branch '%s' is in sync with remote", branch)
 	return nil
 }
 
 // Fetch fetches from the remote, updating remote-tracking refs.
-// Errors are non-fatal and are logged at verbose level only.
 func Fetch(ctx *context.Context) error {
 
 	if err := configureAuth(ctx); err != nil {
@@ -218,13 +180,9 @@ func Fetch(ctx *context.Context) error {
 	cmd.Stderr = &out
 
 	if err := cmd.Run(); err != nil {
-		if ctx.IsVerbose() {
-			logger.Infof("Failed to fetch from remote: %v (output: %s)", err, out.String())
-		}
 		return fmt.Errorf("failed to fetch from remote: %w", err)
 	}
 
-	logger.Verbosef("Fetched from remote")
 	return nil
 }
 
@@ -249,7 +207,6 @@ func PullRebase(ctx *context.Context) error {
 	}
 
 	if !remoteBranchExists(branch) {
-		logger.Verbosef("Remote branch %q does not exist yet, skipping pull --rebase", branch)
 		return nil
 	}
 
@@ -262,7 +219,6 @@ func PullRebase(ctx *context.Context) error {
 		return fmt.Errorf("failed to pull --rebase: %w (output: %s)", err, out.String())
 	}
 
-	logger.Verbosef("Pulled and rebased from remote")
 	return nil
 }
 
@@ -278,7 +234,6 @@ func CheckoutBranch(ctx *context.Context, name string) error {
 		return fmt.Errorf("failed to checkout branch '%s': %w (output: %s)", name, err, out.String())
 	}
 
-	logger.Verbosef("Checked out branch: %s", name)
 	return nil
 }
 
@@ -286,17 +241,7 @@ func CheckoutBranch(ctx *context.Context, name string) error {
 func HasCommits(ctx *context.Context) bool {
 
 	cmd := exec.Command("git", "rev-parse", "--verify", "HEAD")
-	if err := cmd.Run(); err != nil {
-		if ctx.IsVerbose() {
-			logger.Info("No commits found on current branch")
-		}
-		return false
-	}
-
-	if ctx.IsVerbose() {
-		logger.Info("Branch has commits")
-	}
-	return true
+	return cmd.Run() == nil
 }
 
 // Push pushes the current branch or a specified branch to origin.
@@ -336,8 +281,6 @@ func Push(ctx *context.Context, branch string) (string, error) {
 		return "", fmt.Errorf("failed to push branch '%s': %w (output: %s)", branchToPush, err, out.String())
 	}
 
-	logger.Verbosef("Pushed branch '%s' to origin", branchToPush)
-
 	// Get the remote URL
 	cmd = exec.Command("git", "config", "--get", "remote.origin.url")
 	var urlOut bytes.Buffer
@@ -349,9 +292,6 @@ func Push(ctx *context.Context, branch string) (string, error) {
 	}
 
 	remoteURL := strings.TrimSpace(urlOut.String())
-	if ctx.IsVerbose() {
-		logger.Infof("Remote URL: %s", remoteURL)
-	}
 
 	return remoteURL, nil
 }
@@ -407,9 +347,6 @@ func GetDiffSince(ctx *context.Context, base string) (string, error) {
 	}
 
 	diff := out.String()
-	if ctx.IsVerbose() {
-		logger.Infof("Retrieved diff since '%s' (%d bytes)", base, len(diff))
-	}
 
 	return diff, nil
 }
@@ -426,10 +363,6 @@ func StageFile(ctx *context.Context, filePath string) error {
 		return fmt.Errorf("failed to stage file '%s': %w (output: %s)", filePath, err, out.String())
 	}
 
-	if ctx.IsVerbose() {
-		logger.Infof("Staged file: %s", filePath)
-	}
-
 	return nil
 }
 
@@ -443,10 +376,6 @@ func StageAll(ctx *context.Context) error {
 
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to stage all changes: %w (output: %s)", err, out.String())
-	}
-
-	if ctx.IsVerbose() {
-		logger.Info("Staged all changes")
 	}
 
 	return nil
@@ -469,17 +398,7 @@ func HasStagedChanges(ctx *context.Context) bool {
 	cmd := exec.Command("git", "diff", "--cached", "--quiet")
 	err := cmd.Run()
 
-	hasStagedChanges := err != nil // Non-zero exit = has changes
-
-	if ctx.IsVerbose() {
-		if hasStagedChanges {
-			logger.Info("Staged changes detected")
-		} else {
-			logger.Info("No staged changes found")
-		}
-	}
-
-	return hasStagedChanges
+	return err != nil // Non-zero exit = has changes
 }
 
 // HasUncommittedChanges reports whether there are any uncommitted changes in the
@@ -511,10 +430,6 @@ func Commit(ctx *context.Context, message string) error {
 		return fmt.Errorf("failed to commit: %w (output: %s)", err, out.String())
 	}
 
-	if ctx.IsVerbose() {
-		logger.Infof("Committed: %s", message)
-	}
-
 	return nil
 }
 
@@ -529,10 +444,6 @@ func CommitAllowEmpty(ctx *context.Context, message string) error {
 
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to commit (allow-empty): %w (output: %s)", err, out.String())
-	}
-
-	if ctx.IsVerbose() {
-		logger.Infof("Committed (allow-empty): %s", message)
 	}
 
 	return nil
@@ -557,7 +468,6 @@ func CommitChanges(ctx *context.Context) error {
 	message, err := generateCommitMessage(ctx)
 	if err != nil {
 		// Fallback to generic message if generation fails
-		logger.Warningf("Failed to generate commit message: %v, using fallback", err)
 		message = "Update project files"
 	}
 
@@ -566,7 +476,6 @@ func CommitChanges(ctx *context.Context) error {
 		return fmt.Errorf("failed to commit: %w", err)
 	}
 
-	logger.Successf("Changes committed: %s", message)
 	return nil
 }
 
@@ -588,10 +497,6 @@ func generateCommitMessage(ctx *context.Context) (string, error) {
 
 	files := strings.Split(stagedFiles, "\n")
 	fileCount := len(files)
-
-	if ctx.IsVerbose() {
-		logger.Infof("Generating commit message for %d file(s)", fileCount)
-	}
 
 	return buildCommitMessage(files, fileCount), nil
 }
@@ -652,10 +557,6 @@ func DeleteFile(ctx *context.Context, filePath string) error {
 		return fmt.Errorf("failed to delete file '%s': %w", filePath, err)
 	}
 
-	if ctx.IsVerbose() {
-		logger.Infof("Deleted file: %s", filePath)
-	}
-
 	// Stage the deletion
 	cmd := exec.Command("git", "rm", filePath)
 	var out bytes.Buffer
@@ -664,10 +565,6 @@ func DeleteFile(ctx *context.Context, filePath string) error {
 
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to stage deletion of '%s': %w (output: %s)", filePath, err, out.String())
-	}
-
-	if ctx.IsVerbose() {
-		logger.Infof("Staged deletion: %s", filePath)
 	}
 
 	return nil

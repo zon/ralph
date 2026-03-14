@@ -4,8 +4,8 @@
 # Maximum number of development iterations before stopping
 maxIterations: 10
 
-# Base branch for pull requests
-baseBranch: main
+# Default branch for pull requests
+defaultBranch: main
 
 # LLM configuration is now managed by OpenCode
 # Configure your LLM provider/model with: opencode config set model provider/model

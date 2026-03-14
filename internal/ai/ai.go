@@ -97,7 +97,7 @@ func buildChangelogPrompt() string {
 // GeneratePRSummary generates a pull request summary using AI
 // It includes project description, status, commits, and diff
 // This matches ralph.sh's approach: agent writes to a file, we read it back
-func GeneratePRSummary(ctx *context.Context, projectFile string, iterations int) (string, error) {
+func GeneratePRSummary(ctx *context.Context, projectFile string, iterations int, baseBranch string) (string, error) {
 	// Load project file
 	project, err := config.LoadProject(projectFile)
 	if err != nil {
@@ -114,13 +114,13 @@ func GeneratePRSummary(ctx *context.Context, projectFile string, iterations int)
 		projectStatus = "⚠️ Incomplete"
 	}
 
-	// Get base branch
+	// Load config for the AI model
 	ralphConfig, err := config.LoadConfig()
 	if err != nil {
 		return "", fmt.Errorf("failed to load config: %w", err)
 	}
-	baseBranch := ralphConfig.BaseBranch
 
+	// Use the dynamically detected/overridden base branch
 	// Get commit log since base branch
 	commitLog, err := git.GetCommitLog(ctx, baseBranch, 0)
 	if err != nil {
