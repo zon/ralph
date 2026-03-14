@@ -52,7 +52,6 @@ func TestBuildDebugScript(t *testing.T) {
 				"#!/bin/sh",
 				"set -e",
 				"ralph workflow",
-				"opencode stats",
 				"Execution complete",
 				tt.expectedCommand,
 			}
@@ -74,7 +73,6 @@ func TestBuildDebugScript_DebugBranch(t *testing.T) {
 		"git clone -b \"my-debug-branch\" https://github.com/zon/ralph.git /workspace/ralph",
 		"go run ./cmd/ralph/main.go",
 		"ralph workflow",
-		"opencode stats",
 	}
 	for _, element := range expectedElements {
 		assert.Contains(t, script, element, "debug script (debug branch) should contain expected element")
@@ -118,6 +116,7 @@ func TestBuildCommentScript(t *testing.T) {
 				"ralph comment",
 				"COMMENT_BODY",
 				"PR_NUMBER",
+				"opencode stats",
 				tt.expectedCommand,
 			}
 
