@@ -146,6 +146,13 @@ func (c *Context) SetRepoName(name string) {
 	c.repoName = name
 }
 
+func (c *Context) RepoURL() string {
+	if c.repoOwner == "" || c.repoName == "" {
+		return ""
+	}
+	return "https://github.com/" + c.repoOwner + "/" + c.repoName + ".git"
+}
+
 // Repo returns the repository in "owner/repo" format.
 func (c *Context) Repo() string {
 	if c.repoOwner == "" || c.repoName == "" {

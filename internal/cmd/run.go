@@ -8,6 +8,7 @@ import (
 
 	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
+	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/notify"
 	"github.com/zon/ralph/internal/project"
 	"github.com/zon/ralph/internal/requirement"
@@ -60,10 +61,37 @@ func (r *RunCmd) Run() error {
 
 	ctx := r.createExecutionContext(maxIterations)
 
+	// Resolve and set base branch in context
+	projectData, err := config.LoadProject(r.ProjectFile)
+	if err != nil {
+		return fmt.Errorf("failed to load project: %w", err)
+	}
+
+	currentBranch, err := git.GetCurrentBranch(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get current branch: %w", err)
+	}
+
+	projectBranch := project.SanitizeBranchName(projectData.Name)
+	baseBranch := resolveBaseBranch(r.Base, currentBranch, projectBranch, ralphConfig.DefaultBranch)
+	ctx.SetBaseBranch(baseBranch)
+
 	if r.Once {
 		return r.executeOnceMode(ctx)
 	}
 	return project.Execute(ctx, r.cleanupRegistrar)
+}
+
+func resolveBaseBranch(baseFlag, currentBranch, projectBranch, defaultBranch string) string {
+	if baseFlag != "" {
+		return baseFlag
+	}
+
+	if currentBranch != projectBranch {
+		return currentBranch
+	}
+
+	return defaultBranch
 }
 
 func (r *RunCmd) handleVersionFlag() error {

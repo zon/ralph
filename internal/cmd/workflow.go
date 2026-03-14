@@ -22,10 +22,10 @@ const (
 )
 
 type WorkflowCmd struct {
-	RepoURL        string `help:"Git repository URL to clone" optional:""`
-	Branch         string `help:"Branch to clone or create" optional:""`
-	ProjectPath    string `help:"Path to project YAML file within the repository" optional:""`
-	BaseBranch     string `help:"Base branch for PR creation (default: detected dynamically)" name:"base" short:"B"`
+	Repo           string `arg:"" help:"GitHub repository (owner/repo)" required:""`
+	ProjectPath    string `arg:"" help:"Path to project YAML file within the repository" required:""`
+	ProjectBranch  string `help:"Branch to clone or create" name:"project-branch" required:""`
+	BaseBranch     string `help:"Base branch for PR creation" name:"base" short:"B" required:""`
 	BotName        string `help:"Git user name for commits" default:"ralph[bot]"`
 	BotEmail       string `help:"Git user email for commits" default:"ralph[bot]@users.noreply.github.com"`
 	DebugBranch    string `help:"Ralph branch to use for debug mode (clones ralph from this branch and runs via go run)" name:"debug" optional:""`
@@ -38,19 +38,20 @@ type WorkflowCmd struct {
 }
 
 func (w *WorkflowCmd) Run() error {
-	w.resolveFromEnvVars()
-
-	if w.RepoURL == "" || w.Branch == "" || w.ProjectPath == "" {
-		return fmt.Errorf("repo URL, branch, and project path are required (use flags or set environment variables)")
-	}
-
-	logger.Info("Executing workflow inside container...")
-
 	ctx := createExecutionContext()
 	ctx.SetVerbose(w.Verbose)
 	ctx.SetNoServices(w.NoServices)
+	ctx.SetRepo(w.Repo)
+	ctx.SetBranch(w.ProjectBranch)
+	ctx.SetBaseBranch(w.BaseBranch)
+	ctx.SetProjectFile(w.ProjectPath)
+	ctx.SetInstructionsMD(w.InstructionsMD)
+	ctx.SetDebugBranch(w.DebugBranch)
+	ctx.SetMaxIterations(w.MaxIterations)
 
-	if err := w.setupGitHubAuth(); err != nil {
+	logger.Info("Executing workflow inside container...")
+
+	if err := w.setupGitHubAuth(ctx); err != nil {
 		return fmt.Errorf("failed to setup GitHub auth: %w", err)
 	}
 
@@ -68,7 +69,7 @@ func (w *WorkflowCmd) Run() error {
 		return fmt.Errorf("failed to sync base branch: %w", err)
 	}
 
-	if err := w.runProject(); err != nil {
+	if err := w.runProject(ctx); err != nil {
 		return fmt.Errorf("failed to run project: %w", err)
 	}
 
@@ -77,42 +78,10 @@ func (w *WorkflowCmd) Run() error {
 	return nil
 }
 
-func (w *WorkflowCmd) resolveFromEnvVars() {
-	if w.RepoURL == "" {
-		w.RepoURL = os.Getenv("GIT_REPO_URL")
-	}
-	if w.Branch == "" {
-		w.Branch = os.Getenv("PROJECT_BRANCH")
-	}
-	if w.BaseBranch == "" {
-		w.BaseBranch = os.Getenv("BASE_BRANCH")
-	}
-	if w.ProjectPath == "" {
-		w.ProjectPath = os.Getenv("PROJECT_PATH")
-	}
-	if w.DebugBranch == "" {
-		w.DebugBranch = os.Getenv("RALPH_DEBUG_BRANCH")
-	}
-	if !w.Verbose {
-		w.Verbose = os.Getenv("RALPH_VERBOSE") == "true"
-	}
-	if !w.NoServices {
-		w.NoServices = os.Getenv("RALPH_NO_SERVICES") == "true"
-	}
-	if w.InstructionsMD == "" {
-		w.InstructionsMD = os.Getenv("INSTRUCTIONS_MD")
-	}
-	if w.MaxIterations == 0 {
-		if val := os.Getenv("RALPH_MAX_ITERATIONS"); val != "" {
-			_, _ = fmt.Sscanf(val, "%d", &w.MaxIterations)
-		}
-	}
-}
-
-func (w *WorkflowCmd) setupGitHubAuth() error {
-	owner, repo := w.parseOwnerRepo()
+func (w *WorkflowCmd) setupGitHubAuth(ctx *context.Context) error {
+	owner, repo := w.parseOwnerRepo(ctx.Repo())
 	if owner == "" || repo == "" {
-		return fmt.Errorf("failed to parse owner/repo from URL: %s", w.RepoURL)
+		return fmt.Errorf("failed to parse owner/repo: %s", ctx.Repo())
 	}
 
 	logger.Info("Setting up GitHub App token and configuring git authentication...")
@@ -152,7 +121,7 @@ func (w *WorkflowCmd) configureGitUser(ctx *context.Context) {
 }
 
 func (w *WorkflowCmd) cloneAndSetupRepo(ctx *context.Context) error {
-	logger.Infof("Cloning repository: %s", w.RepoURL)
+	logger.Infof("Cloning repository: %s", ctx.RepoURL())
 
 	workDir := "/workspace/repo"
 	if err := os.MkdirAll(filepath.Dir(workDir), 0755); err != nil {
@@ -163,8 +132,8 @@ func (w *WorkflowCmd) cloneAndSetupRepo(ctx *context.Context) error {
 		os.RemoveAll(workDir)
 	}
 
-	if err := git.Clone(ctx, w.RepoURL, w.Branch, workDir); err != nil {
-		if err := git.Clone(ctx, w.RepoURL, "", workDir); err != nil {
+	if err := git.Clone(ctx, ctx.RepoURL(), ctx.Branch(), workDir); err != nil {
+		if err := git.Clone(ctx, ctx.RepoURL(), "", workDir); err != nil {
 			return fmt.Errorf("failed to clone repository: %w", err)
 		}
 	}
@@ -182,30 +151,14 @@ func (w *WorkflowCmd) cloneAndSetupRepo(ctx *context.Context) error {
 }
 
 func (w *WorkflowCmd) syncBaseBranch(ctx *context.Context) error {
-	ralphConfig, err := config.LoadConfig()
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
-	}
+	logger.Infof("Base branch: %s", ctx.BaseBranch())
 
-	baseBranch := w.BaseBranch
-	if baseBranch == "" {
-		currentBranch, err := git.GetCurrentBranch(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to get current branch: %w", err)
-		}
-		projectBranch := w.Branch
-
-		baseBranch = resolveBaseBranchForWorkflow(currentBranch, projectBranch, ralphConfig.DefaultBranch)
-	}
-
-	logger.Infof("Base branch: %s", baseBranch)
-
-	if err := w.fetchBaseBranch(ctx, baseBranch); err != nil {
+	if err := w.fetchBaseBranch(ctx); err != nil {
 		logger.Warningf("failed to fetch base branch: %v", err)
 		return nil
 	}
 
-	needsMerge, err := w.checkIfMergeNeeded(ctx, baseBranch)
+	needsMerge, err := w.checkIfMergeNeeded(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to check if merge needed: %w", err)
 	}
@@ -216,20 +169,17 @@ func (w *WorkflowCmd) syncBaseBranch(ctx *context.Context) error {
 	}
 
 	logger.Info("Project branch is behind base branch, attempting merge...")
-	return w.mergeBaseBranch(ctx, baseBranch)
+	return w.mergeBaseBranch(ctx)
 }
 
-func (w *WorkflowCmd) fetchBaseBranch(ctx *context.Context, baseBranch string) error {
+func (w *WorkflowCmd) fetchBaseBranch(ctx *context.Context) error {
+	baseBranch := ctx.BaseBranch()
 	logger.Infof("Fetching base branch: %s", baseBranch)
-	// fetch with custom refspec
-	cmd := exec.Command("git", "fetch", "origin", baseBranch+":"+baseBranch)
-	_ = cmd.Run()
-	cmd = exec.Command("git", "fetch", "origin", baseBranch)
-	_ = cmd.Run()
-	return nil
+	return exec.Command("git", "fetch", "origin", baseBranch).Run()
 }
 
-func (w *WorkflowCmd) checkIfMergeNeeded(ctx *context.Context, baseBranch string) (bool, error) {
+func (w *WorkflowCmd) checkIfMergeNeeded(ctx *context.Context) (bool, error) {
+	baseBranch := ctx.BaseBranch()
 	if _, err := git.RevParse(ctx, "--verify", baseBranch); err != nil {
 		return false, nil
 	}
@@ -247,19 +197,21 @@ func (w *WorkflowCmd) checkIfMergeNeeded(ctx *context.Context, baseBranch string
 	return mergeBase != baseCommit, nil
 }
 
-func (w *WorkflowCmd) mergeBaseBranch(ctx *context.Context, baseBranch string) error {
+func (w *WorkflowCmd) mergeBaseBranch(ctx *context.Context) error {
+	baseBranch := ctx.BaseBranch()
 	if err := git.Merge(ctx, baseBranch); err != nil {
 		logger.Info("Merge had conflicts - resolving with AI...")
 		_ = git.AbortMerge(ctx)
 
-		return w.resolveConflictsWithAI(baseBranch)
+		return w.resolveConflictsWithAI(ctx)
 	}
 
 	logger.Info("Merge successful (fast-forward or no conflicts)")
 	return nil
 }
 
-func (w *WorkflowCmd) resolveConflictsWithAI(baseBranch string) error {
+func (w *WorkflowCmd) resolveConflictsWithAI(ctx *context.Context) error {
+	baseBranch := ctx.BaseBranch()
 	logger.Info("Running AI to resolve merge conflicts...")
 
 	instructionsFile := "/tmp/merge-instructions.md"
@@ -272,50 +224,45 @@ Steps:
 4. After resolving and verifying with tests, run 'git add <resolved-files>' and 'git commit'
 
 Focus on accepting the correct changes from both branches. If there are test failures after resolving, fix them.
-`, baseBranch, w.Branch, baseBranch)
+`, baseBranch, ctx.Branch(), baseBranch)
 
 	if err := os.WriteFile(instructionsFile, []byte(instructions), 0644); err != nil {
 		return fmt.Errorf("failed to write merge instructions: %w", err)
 	}
 
-	projectPath := w.ProjectPath
+	projectPath := ctx.ProjectFile()
 	if !filepath.IsAbs(projectPath) {
 		projectPath = filepath.Join("/workspace/repo", projectPath)
 	}
 
-	ctx := createExecutionContext()
 	ctx.SetProjectFile(projectPath)
 	ctx.SetLocal(true)
 	ctx.SetNoNotify(true)
-	ctx.SetVerbose(w.Verbose)
-	ctx.SetNoServices(w.NoServices)
 	ctx.SetInstructions(instructionsFile)
 
 	ralphConfig, err := config.LoadConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
-	maxIterations := resolveMaxIterations(ralphConfig, w.MaxIterations)
+	maxIterations := resolveMaxIterations(ralphConfig, ctx.MaxIterations())
 	ctx.SetMaxIterations(maxIterations)
 	ctx.SetWorkflowExecution(true)
 
-	// Use project.Execute to resolve conflicts and complete the project.
-	// We ignore the error here as we'll check the file state and commit manually below.
 	_ = project.Execute(ctx, w.cleanupRegistrar)
 
 	if git.HasStagedChanges(ctx) {
 		logger.Info("AI did not commit the merge - committing now...")
 		_ = git.StageAll(ctx)
-		_ = git.Commit(ctx, fmt.Sprintf("Merge %s into %s", baseBranch, w.Branch))
+		_ = git.Commit(ctx, fmt.Sprintf("Merge %s into %s", baseBranch, ctx.Branch()))
 	}
 
 	return nil
 }
 
-func (w *WorkflowCmd) runProject() error {
+func (w *WorkflowCmd) runProject(ctx *context.Context) error {
 	logger.Info("Running project...")
 
-	projectPath := w.ProjectPath
+	projectPath := ctx.ProjectFile()
 	if !filepath.IsAbs(projectPath) {
 		projectPath = filepath.Join("/workspace/repo", projectPath)
 	}
@@ -324,18 +271,13 @@ func (w *WorkflowCmd) runProject() error {
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
-	maxIterations := resolveMaxIterations(ralphConfig, w.MaxIterations)
+	maxIterations := resolveMaxIterations(ralphConfig, ctx.MaxIterations())
 
-	ctx := createExecutionContext()
 	ctx.SetProjectFile(projectPath)
 	ctx.SetMaxIterations(maxIterations)
 	ctx.SetLocal(true)
 	ctx.SetNoNotify(true)
-	ctx.SetVerbose(w.Verbose)
-	ctx.SetNoServices(w.NoServices)
-	ctx.SetInstructionsMD(w.InstructionsMD)
-	ctx.SetDebugBranch(w.DebugBranch)
-	ctx.SetBaseBranch(w.BaseBranch)
+
 	ctx.SetWorkflowExecution(true)
 
 	if err := project.Execute(ctx, w.cleanupRegistrar); err != nil {
@@ -353,22 +295,10 @@ func (w *WorkflowCmd) displayStats() {
 	cmd.Run()
 }
 
-func (w *WorkflowCmd) parseOwnerRepo() (string, string) {
-	parts := strings.TrimPrefix(w.RepoURL, "https://github.com/")
-	parts = strings.TrimSuffix(parts, ".git")
-	parts = strings.TrimSuffix(parts, "/")
-
-	if strings.Contains(parts, "/") {
-		split := strings.SplitN(parts, "/", 2)
+func (w *WorkflowCmd) parseOwnerRepo(repo string) (string, string) {
+	if strings.Contains(repo, "/") {
+		split := strings.SplitN(repo, "/", 2)
 		return split[0], split[1]
 	}
-
 	return "", ""
-}
-
-func resolveBaseBranchForWorkflow(currentBranch, projectBranch, defaultBranch string) string {
-	if currentBranch != projectBranch {
-		return currentBranch
-	}
-	return defaultBranch
 }

@@ -41,7 +41,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		return fmt.Errorf("failed to load project file: %w", err)
 	}
 
-	branchName := sanitizeBranchName(project.Name)
+	branchName := SanitizeBranchName(project.Name)
 	logger.Verbosef("Branch name: %s", branchName)
 
 	// Load configuration
@@ -50,12 +50,11 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	currentBranch, err := git.GetCurrentBranch(ctx)
-	if err != nil {
+	if _, err = git.GetCurrentBranch(ctx); err != nil {
 		return fmt.Errorf("failed to get current branch: %w", err)
 	}
 
-	baseBranch := resolveBaseBranch(ctx.BaseBranch(), currentBranch, branchName, ralphConfig.DefaultBranch)
+	baseBranch := ctx.BaseBranch()
 
 	if len(ralphConfig.Before) > 0 {
 		if err := services.RunBefore(ralphConfig.Before); err != nil {
@@ -109,18 +108,6 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	notify.Success(project.Name, ctx.ShouldNotify())
 
 	return nil
-}
-
-func resolveBaseBranch(baseFlag, currentBranch, projectBranch, defaultBranch string) string {
-	if baseFlag != "" {
-		return baseFlag
-	}
-
-	if currentBranch != projectBranch {
-		return currentBranch
-	}
-
-	return defaultBranch
 }
 
 func validateGitStateAndSwitchBranch(ctx *context.Context, branchName string) error {
@@ -201,7 +188,7 @@ func createPullRequest(ctx *context.Context, project *config.Project, branchName
 	return prURL, nil
 }
 
-func sanitizeBranchName(name string) string {
+func SanitizeBranchName(name string) string {
 	name = strings.ToLower(name)
 	name = strings.ReplaceAll(name, " ", "-")
 	name = strings.ReplaceAll(name, "_", "-")
@@ -227,12 +214,12 @@ func sanitizeBranchName(name string) string {
 	return finalName
 }
 
-func extractBranchName(projectFile string) string {
+func ExtractBranchName(projectFile string) string {
 	basename := filepath.Base(projectFile)
 
 	name := strings.TrimSuffix(basename, filepath.Ext(basename))
 
-	return sanitizeBranchName(name)
+	return SanitizeBranchName(name)
 }
 
 func executeRemote(ctx *context.Context, absProjectFile string) error {
@@ -244,11 +231,10 @@ func executeRemote(ctx *context.Context, absProjectFile string) error {
 	}
 
 	projectName := project.Name
-	projectBranch := sanitizeBranchName(project.Name)
+	projectBranch := SanitizeBranchName(project.Name)
 
 	// Load configuration to get default branch
-	ralphConfig, err := config.LoadConfig()
-	if err != nil {
+	if _, err = config.LoadConfig(); err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
@@ -266,10 +252,6 @@ func executeRemote(ctx *context.Context, absProjectFile string) error {
 			return err
 		}
 	}
-
-	// Resolve base branch and set it in context before generating workflow
-	baseBranch := resolveBaseBranch(ctx.BaseBranch(), currentBranch, projectBranch, ralphConfig.DefaultBranch)
-	ctx.SetBaseBranch(baseBranch)
 
 	logger.Verbose("Generating Argo Workflow...")
 	wf, err := workflow.GenerateWorkflow(ctx, projectName, currentBranch, projectBranch, ctx.IsVerbose())
