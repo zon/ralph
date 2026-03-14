@@ -3,12 +3,13 @@ description: Implement dynamic base branch detection and automatic base branch m
 
 requirements:
   - category: configuration
-    description: Update configuration properties
+    description: Update configuration properties and CLI flags
     items:
       - Remove `baseBranch` from `RalphConfig` struct and YAML tags
       - Add `defaultBranch` to `RalphConfig` struct and YAML tags (defaulting to "main")
       - Retain `--base` / `-B` flag in `ralph run` as an explicit override for the detected base branch
-    passing: true
+      - Add CLI flags to `ralph workflow` for bot configuration (name, email) and repository details
+    passing: false
 
   - category: logic
     description: Implement dynamic base branch detection
@@ -17,23 +18,38 @@ requirements:
       - If `--base` flag is provided, use it as the base branch
       - If `--base` is NOT provided and current branch is NOT the project branch, set current branch as the base branch
       - If `--base` is NOT provided and current branch IS the project branch, set base branch to `defaultBranch` from config
-    passing: true
+    passing: false
+
+  - category: subcommand
+    description: Implement `ralph workflow` command to replace `run.sh`
+    items:
+      - Create a `workflow` subcommand for the `ralph` CLI that encapsulates the logic currently in `internal/workflow/run.sh`
+      - Support `--debug-branch` flag to allow Ralph to clone and run itself from a specific branch (replaces `run.sh` debug mode)
+      - Implement automated GitHub authentication using the GitHub App token (equivalent to `ralph set-github-token`)
+      - Configure Git user identity (name/email) within the workflow environment
+      - Provision OpenCode credentials by copying from secret volumes to the expected local share path
+      - Handle cloning of the target repository and management of the project branch (checkout existing or create new)
+      - Execute `ralph setup-workspace` after cloning to prepare the repository for Ralph
+      - "Implement base branch synchronization: fetch the base branch and merge it into the project branch if it's behind"
+      - Integrate AI-driven merge conflict resolution if the initial merge fails, using a specialized instruction set
+      - Execute the core `ralph run` logic on the specified project path within the prepared workspace
+      - Display OpenCode statistics upon successful completion of the workflow
+    passing: false
 
   - category: workflow
-    description: Implement automatic merging and workflow inputs
+    description: Integrate `ralph workflow` into Argo Workflows
     items:
-      - Update Argo Workflow definition to expect `base-branch` as a formal input parameter
-      - Compare project branch with detected base branch to check for missing changes
-      - If project branch is behind base branch, trigger a specialized AI iteration to merge base branch
-      - AI must resolve any merge conflicts, verify with tests, and commit (push is handled by the caller)
-    passing: true
+      - Update Argo Workflow templates to use the `ralph workflow` command instead of `run.sh`
+      - Pass necessary inputs (repo URL, branch, project path) and secrets to the command
+      - Ensure the workflow correctly handles the `base-branch` input parameter
+    passing: false
 
   - category: versioning
     description: Apply version bumps for breaking configuration changes
     items:
       - Apply a semver major bump to `internal/version/VERSION` and `charts/ralph-webhook/Chart.yaml` (appVersion)
       - Apply a semver patch bump to the helm chart `version` field in `charts/ralph-webhook/Chart.yaml`
-    passing: true
+    passing: false
 
   - category: cleanup
     description: Update internal components and tests
@@ -41,6 +57,7 @@ requirements:
       - Update AI PR summary generation to use the dynamically detected/overridden base branch
       - Update git log summaries to compare the project branch against the detected base branch
       - Update GitHub PR creation to use the dynamically detected/overridden base branch
-      - Update Argo Workflow generation and `run.sh` to handle dynamic base branch logic, flag overrides, and mandatory base branch input
+      - Replace `internal/workflow/run.sh` script with the new `ralph workflow` command in all workflow generators
+      - Delete the `internal/workflow/run.sh` file and any associated dead code
       - Update all existing tests to reflect the removal of `baseBranch` and addition of `defaultBranch`
-    passing: true
+    passing: false
