@@ -5,12 +5,11 @@ import (
 )
 
 type WorkflowOptions struct {
-	ImageRepository string
-	ImageTag        string
+	Image           Image
 	ConfigMaps      []config.ConfigMapMount
 	Secrets         []config.SecretMount
 	Env             map[string]string
 	DefaultBranch   string
-	WorkflowContext string
+	KubeContext string
 	Namespace       string
 }

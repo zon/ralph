@@ -3,30 +3,25 @@ package workflow
 import (
 	"fmt"
 
+	githubpkg "github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/k8s"
 	"gopkg.in/yaml.v3"
 )
 
 // MergeWorkflow holds all inputs required to generate and submit an Argo Workflow for a ralph merge.
 type MergeWorkflow struct {
-	// RepoURL is the HTTPS URL of the git repository.
-	RepoURL string
-	// RepoOwner is the GitHub organisation or user.
-	RepoOwner string
-	// RepoName is the repository name.
-	RepoName string
+	// Repo is the GitHub repository.
+	Repo githubpkg.Repo
 	// CloneBranch is the branch the container clones initially (typically the base branch).
 	CloneBranch string
 	// PRBranch is the PR branch to merge.
 	PRBranch string
 	// PRNumber is the pull request number, passed to ralph merge --local.
 	PRNumber string
-	// ImageRepository is the container image repository.
-	ImageRepository string
-	// ImageTag is the container image tag.
-	ImageTag string
-	// WorkflowContext is the Argo workflow context label.
-	WorkflowContext string
+	// Image is the container image for the workflow.
+	Image Image
+	// KubeContext is the Argo workflow context label.
+	KubeContext string
 	// Namespace is the Kubernetes namespace for workflow submission.
 	Namespace string
 }
@@ -79,20 +74,20 @@ func (m *MergeWorkflow) Submit(namespace string) (string, error) {
 	if namespace == "" {
 		namespace = m.Namespace
 	}
-	return submitYAML(workflowYAML, m.WorkflowContext, namespace)
+	return submitYAML(workflowYAML, m.KubeContext, namespace)
 }
 
 func (m *MergeWorkflow) buildMergeTemplate() map[string]interface{} {
 	return map[string]interface{}{
 		"name": "ralph-merger",
 		"container": map[string]interface{}{
-			"image":   resolveImage(m.ImageRepository, m.ImageTag),
+			"image":   resolveImage(m.Image.Repository, m.Image.Tag),
 			"command": []string{"/bin/sh", "-c"},
 			"args":    []string{buildMergeScript()},
 			"env": []map[string]interface{}{
-				{"name": "GIT_REPO_URL", "value": m.RepoURL},
-				{"name": "GITHUB_REPO_OWNER", "value": m.RepoOwner},
-				{"name": "GITHUB_REPO_NAME", "value": m.RepoName},
+				{"name": "GIT_REPO_URL", "value": m.Repo.CloneURL()},
+				{"name": "GITHUB_REPO_OWNER", "value": m.Repo.Owner},
+				{"name": "GITHUB_REPO_NAME", "value": m.Repo.Name},
 				{"name": "GIT_BRANCH", "value": m.CloneBranch},
 				{"name": "PR_BRANCH", "value": m.PRBranch},
 				{"name": "PR_NUMBER", "value": m.PRNumber},

@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	execcontext "github.com/zon/ralph/internal/context"
+	githubpkg "github.com/zon/ralph/internal/github"
 	"gopkg.in/yaml.v3"
 )
 
@@ -342,8 +343,7 @@ requirements:
 	prBranch := "ralph/test-project"
 
 	mw, err := GenerateMergeWorkflowWithGitInfo(repoURL, cloneBranch, prBranch, "", WorkflowOptions{
-		ImageRepository: "my-registry/ralph",
-		ImageTag:        "v2.0.0",
+		Image: MakeImage("my-registry/ralph", "v2.0.0"),
 	})
 	require.NoError(t, err, "GenerateMergeWorkflowWithGitInfo failed")
 	workflowYAML, err := mw.Render()
@@ -541,9 +541,7 @@ func TestWorkflowRender_CommentScriptBranching(t *testing.T) {
 
 	wf := &Workflow{
 		ProjectName:   "test-project",
-		RepoURL:       "https://github.com/owner/repo.git",
-		RepoOwner:     "owner",
-		RepoName:      "repo",
+		Repo:          githubpkg.MakeRepo("owner", "repo"),
 		CloneBranch:   "main",
 		ProjectBranch: "feature-branch",
 		ProjectPath:   "project.yaml",
@@ -584,9 +582,7 @@ func TestWorkflowRender_RunScriptBranching(t *testing.T) {
 
 	wf := &Workflow{
 		ProjectName:   "test-project",
-		RepoURL:       "https://github.com/owner/repo.git",
-		RepoOwner:     "owner",
-		RepoName:      "repo",
+		Repo:          githubpkg.MakeRepo("owner", "repo"),
 		CloneBranch:   "main",
 		ProjectBranch: "feature-branch",
 		ProjectPath:   "project.yaml",
@@ -626,9 +622,7 @@ func TestWorkflowRender_DebugBranch(t *testing.T) {
 	debugBranch := "feat/debug-mode"
 	wf := &Workflow{
 		ProjectName:   "test-project",
-		RepoURL:       "https://github.com/owner/repo.git",
-		RepoOwner:     "owner",
-		RepoName:      "repo",
+		Repo:          githubpkg.MakeRepo("owner", "repo"),
 		CloneBranch:   "main",
 		ProjectBranch: "feature-branch",
 		ProjectPath:   "project.yaml",
@@ -682,9 +676,7 @@ func TestMergeWorkflowRender_EnvVarCoverage(t *testing.T) {
 	prNumber := "456"
 
 	mw := &MergeWorkflow{
-		RepoURL:     "https://github.com/test-owner/test-repo.git",
-		RepoOwner:   repoOwner,
-		RepoName:    repoName,
+		Repo:        githubpkg.MakeRepo(repoOwner, repoName),
 		CloneBranch: "main",
 		PRBranch:    "feature-branch",
 		PRNumber:    prNumber,
@@ -735,9 +727,7 @@ func TestMergeWorkflowRender_GitHubCredentialsVolumeMount(t *testing.T) {
 	}
 
 	mw := &MergeWorkflow{
-		RepoURL:     "https://github.com/test-owner/test-repo.git",
-		RepoOwner:   "test-owner",
-		RepoName:    "test-repo",
+		Repo:        githubpkg.MakeRepo("test-owner", "test-repo"),
 		CloneBranch: "main",
 		PRBranch:    "feature-branch",
 	}

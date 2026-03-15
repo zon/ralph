@@ -11,8 +11,8 @@ func TestParseGitHubRemoteURL(t *testing.T) {
 	tests := []struct {
 		name        string
 		remoteURL   string
-		wantName    string
 		wantOwner   string
+		wantName    string
 		wantErr     bool
 		errContains string
 	}{
@@ -74,15 +74,15 @@ func TestParseGitHubRemoteURL(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			name, owner, err := ParseGitHubRemoteURL(tc.remoteURL)
+			repo, err := ParseGitHubRemoteURL(tc.remoteURL)
 			if tc.wantErr {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tc.errContains)
 				return
 			}
 			require.NoError(t, err)
-			assert.Equal(t, tc.wantName, name)
-			assert.Equal(t, tc.wantOwner, owner)
+			assert.Equal(t, tc.wantOwner, repo.Owner)
+			assert.Equal(t, tc.wantName, repo.Name)
 		})
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/zon/ralph/internal/config"
+	githubpkg "github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/k8s"
 	"gopkg.in/yaml.v3"
 )
@@ -12,12 +13,8 @@ import (
 type Workflow struct {
 	// ProjectName is used in the workflow's generateName field (e.g. "my-feature").
 	ProjectName string
-	// RepoURL is the HTTPS URL of the git repository (e.g. "https://github.com/owner/repo.git").
-	RepoURL string
-	// RepoOwner is the GitHub organisation or user (e.g. "zon").
-	RepoOwner string
-	// RepoName is the repository name (e.g. "ralph").
-	RepoName string
+	// Repo is the GitHub repository.
+	Repo githubpkg.Repo
 	// CloneBranch is the branch the container clones initially (typically the base/current branch).
 	CloneBranch string
 	// ProjectBranch is the branch the container creates/checks-out to do its work.
@@ -36,10 +33,8 @@ type Workflow struct {
 	// DebugBranch, when non-empty, causes the workflow to checkout that branch of the ralph repo
 	// into /workspace/ralph and invoke ralph via `go run` instead of the built binary.
 	DebugBranch string
-	// ImageRepository is the container image repository.
-	ImageRepository string
-	// ImageTag is the container image tag.
-	ImageTag string
+	// Image is the container image for the workflow.
+	Image Image
 	// ConfigMaps are the ConfigMaps to mount into the container.
 	ConfigMaps []config.ConfigMapMount
 	// Secrets are the Secrets to mount into the container.
@@ -48,8 +43,8 @@ type Workflow struct {
 	Env map[string]string
 	// DefaultBranch is the default branch for PR creation.
 	DefaultBranch string
-	// WorkflowContext is the Argo workflow context label.
-	WorkflowContext string
+	// KubeContext is the Argo workflow context label.
+	KubeContext string
 	// Namespace is the Kubernetes namespace for workflow submission.
 	Namespace string
 	// BaseBranch overrides the default branch for PR creation (overrides DefaultBranch when set).
@@ -119,7 +114,7 @@ func (w *Workflow) Submit(namespace string) (string, error) {
 	if namespace == "" {
 		namespace = w.Namespace
 	}
-	return submitYAML(workflowYAML, w.WorkflowContext, namespace)
+	return submitYAML(workflowYAML, w.KubeContext, namespace)
 }
 
 // getEffectiveBaseBranch returns the effective base branch for the workflow parameter.
@@ -151,7 +146,7 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 			"workflow",
 			"--project-branch", w.ProjectBranch,
 			"--base", w.getEffectiveBaseBranch(),
-			w.RepoOwner + "/" + w.RepoName,
+			w.Repo.Owner + "/" + w.Repo.Name,
 			"{{workflow.parameters.project-path}}",
 		}
 		if w.NoServices {
@@ -165,7 +160,7 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 	return map[string]interface{}{
 		"name": "ralph-executor",
 		"container": map[string]interface{}{
-			"image":        resolveImage(w.ImageRepository, w.ImageTag),
+			"image":        resolveImage(w.Image.Repository, w.Image.Tag),
 			"command":      command,
 			"args":         args,
 			"env":          w.buildEnvVars(),
@@ -178,9 +173,9 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 
 func (w *Workflow) buildEnvVars() []map[string]interface{} {
 	envVars := []map[string]interface{}{
-		{"name": "GIT_REPO_URL", "value": w.RepoURL},
-		{"name": "GITHUB_REPO_OWNER", "value": w.RepoOwner},
-		{"name": "GITHUB_REPO_NAME", "value": w.RepoName},
+		{"name": "GIT_REPO_URL", "value": w.Repo.CloneURL()},
+		{"name": "GITHUB_REPO_OWNER", "value": w.Repo.Owner},
+		{"name": "GITHUB_REPO_NAME", "value": w.Repo.Name},
 		{"name": "GIT_BRANCH", "value": w.CloneBranch},
 		{"name": "PROJECT_BRANCH", "value": w.ProjectBranch},
 		{"name": "PROJECT_PATH", "value": "{{workflow.parameters.project-path}}"},

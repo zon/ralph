@@ -273,8 +273,8 @@ func executeRemote(ctx *context.Context, absProjectFile string) error {
 
 	if ctx.ShouldFollow() {
 		args := []string{"logs", "-n", wf.Namespace, "-f", workflowName}
-		if wf.WorkflowContext != "" {
-			args = append(args, "--context", wf.WorkflowContext)
+		if wf.KubeContext != "" {
+			args = append(args, "--context", wf.KubeContext)
 		}
 		cmd := exec.Command("argo", args...)
 		cmd.Stdout = os.Stdout
