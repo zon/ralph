@@ -51,6 +51,16 @@ Requirements describe **what should happen** and may define high-level interface
 
 **Do not include** items ralph handles automatically — it runs tests and fixes failures on its own. Items like "all existing tests pass" or "no regressions" are redundant.
 
+## Validating Projects
+
+After writing a project file, validate it with:
+
+```sh
+ralph validate <project-file>
+```
+
+Fix any reported errors before proceeding.
+
 ## Version Bumps
 
 When a project warrants a version bump, add a `version` requirement specifying the bump level — not the target version number. Ralph determines the current version and applies the bump itself.
