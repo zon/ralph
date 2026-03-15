@@ -95,7 +95,7 @@ func Push(auth *AuthConfig, branch string) (string, error) {
 	}
 
 	// Check if there are commits to push
-	if !HasCommits() {
+	if !hasCommits() {
 		return "", fmt.Errorf("no commits to push on branch '%s'", branchToPush)
 	}
 

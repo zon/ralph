@@ -69,23 +69,6 @@ func HasUncommittedChanges() bool {
 	return strings.TrimSpace(out.String()) != ""
 }
 
-// GetDiffSince returns the diff between the base branch and HEAD
-func GetDiffSince(base string) (string, error) {
-	// Use git diff to get changes between base and HEAD
-	cmd := exec.Command("git", "diff", fmt.Sprintf("%s..HEAD", base))
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &out
-
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("failed to get diff since '%s': %w (output: %s)", base, err, out.String())
-	}
-
-	diff := out.String()
-
-	return diff, nil
-}
-
 // Commit creates a git commit with the specified message
 func Commit(message string) error {
 	cmd := exec.Command("git", "commit", "-m", message)
@@ -100,25 +83,10 @@ func Commit(message string) error {
 	return nil
 }
 
-// CommitAllowEmpty creates a git commit even when there are no staged changes.
-// Used when the AI ran but produced no file changes (e.g. all requirements already passing).
-func CommitAllowEmpty(message string) error {
-	cmd := exec.Command("git", "commit", "--allow-empty", "-m", message)
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &out
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to commit (allow-empty): %w (output: %s)", err, out.String())
-	}
-
-	return nil
-}
-
-// CommitChanges stages all changes and commits them with a descriptive message
+// commitChanges stages all changes and commits them with a descriptive message
 // It generates the commit message based on changed files
 // Returns error if there are no changes to commit
-func CommitChanges() error {
+func commitChanges() error {
 	// Stage all changes
 	if err := StageAll(); err != nil {
 		return fmt.Errorf("failed to stage changes: %w", err)

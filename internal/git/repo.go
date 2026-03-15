@@ -7,8 +7,8 @@ import (
 	"strings"
 )
 
-// IsGitRepository checks if the current directory is inside a git repository
-func IsGitRepository() bool {
+// isGitRepository checks if the current directory is inside a git repository
+func isGitRepository() bool {
 	cmd := exec.Command("git", "rev-parse", "--git-dir")
 	return cmd.Run() == nil
 }
@@ -32,8 +32,8 @@ func FindRepoRoot() (string, error) {
 	return repoRoot, nil
 }
 
-// IsDetachedHead checks if the repository is in a detached HEAD state
-func IsDetachedHead() (bool, error) {
+// isDetachedHead checks if the repository is in a detached HEAD state
+func isDetachedHead() (bool, error) {
 	cmd := exec.Command("git", "symbolic-ref", "-q", "HEAD")
 	err := cmd.Run()
 

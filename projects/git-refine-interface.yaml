@@ -14,7 +14,7 @@ requirements:
       - CommitAllowEmpty is removed or made unexported — it has no callers outside the package
       - CommitChanges is removed or made unexported — it has no callers outside the package
       - DeleteFile is removed or made unexported — it has no callers outside the package
-    passing: false
+    passing: true
 
   - category: push
     description: Resolve the push deprecation — migrate callers to Push and remove the deprecated functions

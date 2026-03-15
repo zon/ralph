@@ -49,8 +49,8 @@ func TestCommitChanges(t *testing.T) {
 	}
 
 	// Commit the changes
-	err := CommitChanges()
-	require.NoError(t, err, "CommitChanges failed")
+	err := commitChanges()
+	require.NoError(t, err, "commitChanges failed")
 
 	// Verify commit was created by checking log
 	commitLog, err := GetCommitLog("HEAD~1", 1)
@@ -65,7 +65,7 @@ func TestCommitChanges_NoChanges(t *testing.T) {
 	t.Chdir(tempDir)
 
 	// Try to commit with no changes
-	err := CommitChanges()
+	err := commitChanges()
 	require.Error(t, err, "Expected error when committing with no changes")
 	assert.Contains(t, err.Error(), "no changes to commit")
 }
@@ -144,7 +144,7 @@ func TestDeleteFile(t *testing.T) {
 	err = Commit("add file to delete")
 	require.NoError(t, err)
 
-	if err := DeleteFile("to-delete.txt"); err != nil {
+	if err := deleteFile("to-delete.txt"); err != nil {
 		t.Fatalf("DeleteFile failed: %v", err)
 	}
 

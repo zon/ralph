@@ -7,8 +7,8 @@ import (
 	"os/exec"
 )
 
-// DeleteFile removes a file from the filesystem and stages the deletion
-func DeleteFile(filePath string) error {
+// deleteFile removes a file from the filesystem and stages the deletion
+func deleteFile(filePath string) error {
 	// Remove the file from filesystem
 	if err := os.Remove(filePath); err != nil {
 		return fmt.Errorf("failed to delete file '%s': %w", filePath, err)

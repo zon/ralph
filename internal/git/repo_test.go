@@ -12,7 +12,7 @@ func TestIsGitRepository(t *testing.T) {
 	t.Chdir(tempDir)
 
 	// Should be true inside a git repository
-	assert.True(t, IsGitRepository(), "Expected IsGitRepository to return true inside a git repo")
+	assert.True(t, isGitRepository(), "Expected isGitRepository to return true inside a git repo")
 }
 
 func TestIsGitRepository_NotRepo(t *testing.T) {
@@ -20,7 +20,7 @@ func TestIsGitRepository_NotRepo(t *testing.T) {
 	t.Chdir(tempDir)
 
 	// Should be false outside a git repository
-	assert.False(t, IsGitRepository(), "Expected IsGitRepository to return false outside a git repo")
+	assert.False(t, isGitRepository(), "Expected isGitRepository to return false outside a git repo")
 }
 
 func TestIsDetachedHead(t *testing.T) {
@@ -28,10 +28,10 @@ func TestIsDetachedHead(t *testing.T) {
 	t.Chdir(tempDir)
 
 	// Should not be detached on a normal branch
-	isDetached, err := IsDetachedHead()
-	require.NoError(t, err, "IsDetachedHead failed")
+	isDetached, err := isDetachedHead()
+	require.NoError(t, err, "isDetachedHead failed")
 
-	assert.False(t, isDetached, "Expected IsDetachedHead to return false on a branch")
+	assert.False(t, isDetached, "Expected isDetachedHead to return false on a branch")
 }
 
 func TestFindRepoRoot(t *testing.T) {

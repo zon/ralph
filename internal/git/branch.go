@@ -32,18 +32,11 @@ func GetCurrentBranch() (string, error) {
 	return branch, nil
 }
 
-// RemoteBranchExists checks if a branch exists on the remote using the already-fetched
-// remote-tracking ref. Call Fetch first to ensure refs are up to date.
-func RemoteBranchExists(name string) bool {
-	cmd := exec.Command("git", "rev-parse", "--verify", "--quiet", "origin/"+name)
-	return cmd.Run() == nil
-}
-
 // CheckoutOrCreateBranch checks out the named branch if it exists on the remote
 // (after a prior Fetch), otherwise creates and checks out a new local branch.
 func CheckoutOrCreateBranch(name string) error {
-	if RemoteBranchExists(name) {
-		if err := CheckoutBranch(name); err != nil {
+	if remoteBranchExists(name) {
+		if err := checkoutBranch(name); err != nil {
 			return err
 		}
 		return nil
@@ -59,8 +52,8 @@ func CheckoutOrCreateBranch(name string) error {
 	return nil
 }
 
-// CheckoutBranch switches to the specified git branch
-func CheckoutBranch(name string) error {
+// checkoutBranch switches to the specified git branch
+func checkoutBranch(name string) error {
 	cmd := exec.Command("git", "checkout", name)
 	var out bytes.Buffer
 	cmd.Stdout = &out
@@ -73,8 +66,8 @@ func CheckoutBranch(name string) error {
 	return nil
 }
 
-// HasCommits checks if the current branch has any commits
-func HasCommits() bool {
+// hasCommits checks if the current branch has any commits
+func hasCommits() bool {
 	cmd := exec.Command("git", "rev-parse", "--verify", "HEAD")
 	return cmd.Run() == nil
 }

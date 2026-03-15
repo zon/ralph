@@ -67,7 +67,7 @@ func TestHasCommits(t *testing.T) {
 	t.Chdir(tempDir)
 
 	// Should have commits (setupTestRepo creates an initial commit)
-	assert.True(t, HasCommits(), "Expected HasCommits to return true for repo with commits")
+	assert.True(t, hasCommits(), "Expected hasCommits to return true for repo with commits")
 }
 
 func TestCheckoutOrCreateBranch_ExistingRemoteBranch(t *testing.T) {
