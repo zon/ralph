@@ -81,13 +81,6 @@ func WithInstructions(instructions string) ContextOption {
 	}
 }
 
-// WithWorkflowExecution sets the workflow execution flag
-func WithWorkflowExecution(execution bool) ContextOption {
-	return func(ctx *context.Context) {
-		ctx.SetWorkflowExecution(execution)
-	}
-}
-
 // E2EConfig holds configuration for end-to-end tests resolved from environment variables.
 type E2EConfig struct {
 	// Repo is the owner/repo of the dedicated test repository (e.g. "zon/ralph-mock").

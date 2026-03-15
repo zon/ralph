@@ -8,7 +8,7 @@ requirements:
       - Delete `ExtractBranchName` in `internal/project/execute.go` and its test in `internal/project/execute_test.go`
       - Delete `GenerateSSHKeyPair` in `internal/crypto/ssh.go` and its test in `internal/crypto/ssh_test.go`
       - Delete `WithWorkflowExecution` in `internal/testutil/testutil.go`
-    passing: false
+    passing: true
 
   - category: version
     description: Version bump
