@@ -67,12 +67,17 @@ func BuildDevelopPrompt(ctx *context.Context, projectFile string, selectedRequir
 		promptTmpl = string(instructionsData)
 	}
 
+	baseBranch := ralphConfig.DefaultBranch
+	if ctx.BaseBranch() != "" {
+		baseBranch = ctx.BaseBranch()
+	}
+
 	var commitLog string
 	currentBranch, err := git.GetCurrentBranch()
 	if err != nil {
 		logger.Warningf("Failed to get current branch: %v", err)
-	} else if currentBranch != ralphConfig.DefaultBranch {
-		if log, err := git.GetCommitLog(ralphConfig.DefaultBranch, 10); err != nil {
+	} else if currentBranch != baseBranch {
+		if log, err := git.GetCommitLog(baseBranch, 10); err != nil {
 			logger.Warningf("Failed to get branch commits: %v", err)
 		} else {
 			commitLog = log
@@ -126,12 +131,17 @@ func BuildPickPrompt(ctx *context.Context, projectFile string, pickedReqPath str
 
 	promptTmpl := ralphConfig.DefaultPickInstructions()
 
+	baseBranch := ralphConfig.DefaultBranch
+	if ctx.BaseBranch() != "" {
+		baseBranch = ctx.BaseBranch()
+	}
+
 	var commitLog string
 	currentBranch, err := git.GetCurrentBranch()
 	if err != nil {
 		logger.Warningf("Failed to get current branch: %v", err)
-	} else if currentBranch != ralphConfig.DefaultBranch {
-		if log, err := git.GetCommitLog(ralphConfig.DefaultBranch, 10); err != nil {
+	} else if currentBranch != baseBranch {
+		if log, err := git.GetCommitLog(baseBranch, 10); err != nil {
 			logger.Warningf("Failed to get branch commits: %v", err)
 		} else {
 			commitLog = log
