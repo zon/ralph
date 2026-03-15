@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
@@ -15,6 +14,7 @@ import (
 	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/project"
 )
+
 
 const (
 	DefaultSecretsDir         = "/secrets/github"
@@ -48,6 +48,8 @@ func (w *WorkflowCmd) Run() error {
 	ctx.SetInstructionsMD(w.InstructionsMD)
 	ctx.SetDebugBranch(w.DebugBranch)
 	ctx.SetMaxIterations(w.MaxIterations)
+	ctx.SetBotName(w.BotName)
+	ctx.SetBotEmail(w.BotEmail)
 
 	logger.Info("Executing workflow inside container...")
 
@@ -79,7 +81,7 @@ func (w *WorkflowCmd) Run() error {
 }
 
 func (w *WorkflowCmd) setupGitHubAuth(ctx *context.Context) error {
-	owner, repo := w.parseOwnerRepo(ctx.Repo())
+	owner, repo := ctx.RepoOwnerAndName()
 	if owner == "" || repo == "" {
 		return fmt.Errorf("failed to parse owner/repo: %s", ctx.Repo())
 	}
@@ -116,8 +118,8 @@ func (w *WorkflowCmd) setupOpenCodeCredentials() error {
 
 func (w *WorkflowCmd) configureGitUser(ctx *context.Context) {
 	logger.Info("Configuring git user...")
-	_ = git.Config(ctx, true, "user.name", w.BotName)
-	_ = git.Config(ctx, true, "user.email", w.BotEmail)
+	_ = git.Config(ctx, true, "user.name", ctx.BotName())
+	_ = git.Config(ctx, true, "user.email", ctx.BotEmail())
 }
 
 func (w *WorkflowCmd) cloneAndSetupRepo(ctx *context.Context) error {
@@ -295,10 +297,3 @@ func (w *WorkflowCmd) displayStats() {
 	cmd.Run()
 }
 
-func (w *WorkflowCmd) parseOwnerRepo(repo string) (string, string) {
-	if strings.Contains(repo, "/") {
-		split := strings.SplitN(repo, "/", 2)
-		return split[0], split[1]
-	}
-	return "", ""
-}

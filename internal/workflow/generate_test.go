@@ -134,7 +134,7 @@ requirements:
 	assert.Equal(t, "my-registry/ralph:v1.0.0", container["image"])
 	assert.Equal(t, "/workspace", container["workingDir"])
 	assert.Equal(t, []interface{}{"ralph"}, container["command"])
-	assert.Equal(t, []interface{}{"workflow", "--no-services"}, container["args"])
+	assert.Equal(t, []interface{}{"workflow", "--project-branch", projectBranch, "--base", "main", "test/repo", "{{workflow.parameters.project-path}}", "--no-services"}, container["args"])
 
 	env, ok := container["env"].([]interface{})
 	require.True(t, ok, "env is not a list")

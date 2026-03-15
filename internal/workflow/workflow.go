@@ -129,7 +129,13 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 		args = []string{w.buildScript()}
 	} else {
 		command = []string{"ralph"}
-		args = []string{"workflow"}
+		args = []string{
+			"workflow",
+			"--project-branch", w.ProjectBranch,
+			"--base", w.getEffectiveBaseBranch(),
+			w.RepoOwner + "/" + w.RepoName,
+			"{{workflow.parameters.project-path}}",
+		}
 		if w.NoServices {
 			args = append(args, "--no-services")
 		}

@@ -22,6 +22,8 @@ type Context struct {
 	branch            string   // Branch override; skips local git GetCurrentBranch + sync check
 	debugBranch       string   // When set, workflows checkout this ralph repo branch and invoke ralph via `go run`
 	baseBranch        string   // Base branch override; overrides baseBranch from .ralph/config.yaml for PR creation
+	botName           string   // Git user name for automated commits
+	botEmail          string   // Git user email for automated commits
 }
 
 // IsVerbose returns true if verbose logging is enabled
@@ -138,6 +140,14 @@ func (c *Context) SetBaseBranch(baseBranch string) {
 	c.baseBranch = baseBranch
 }
 
+func (c *Context) SetBotName(botName string) {
+	c.botName = botName
+}
+
+func (c *Context) SetBotEmail(botEmail string) {
+	c.botEmail = botEmail
+}
+
 func (c *Context) SetRepoOwner(owner string) {
 	c.repoOwner = owner
 }
@@ -171,6 +181,14 @@ func (c *Context) DebugBranch() string {
 
 func (c *Context) BaseBranch() string {
 	return c.baseBranch
+}
+
+func (c *Context) BotName() string {
+	return c.botName
+}
+
+func (c *Context) BotEmail() string {
+	return c.botEmail
 }
 
 func (c *Context) ProjectFile() string {
