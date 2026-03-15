@@ -1,0 +1,41 @@
+name: git-refine-interface
+description: Tighten the git package interface — remove dead exports, make internals private, resolve push deprecation
+
+requirements:
+  - category: cleanup
+    description: Remove or unexport symbols with no external callers
+    items:
+      - IsGitRepository is removed or made unexported — it has no callers outside the package
+      - IsDetachedHead is removed or made unexported — it has no callers outside the package
+      - RemoteBranchExists is removed or made unexported — it has no callers outside the package
+      - CheckoutBranch is made unexported (checkoutBranch) — it is only called internally by CheckoutOrCreateBranch
+      - HasCommits is removed or made unexported — it has no callers outside the package
+      - GetDiffSince is removed or made unexported — it has no callers outside the package
+      - CommitAllowEmpty is removed or made unexported — it has no callers outside the package
+      - CommitChanges is removed or made unexported — it has no callers outside the package
+      - DeleteFile is removed or made unexported — it has no callers outside the package
+    passing: false
+
+  - category: push
+    description: Resolve the push deprecation — migrate callers to Push and remove the deprecated functions
+    items:
+      - All callers of PushCurrentBranch are migrated to Push with the current branch name passed explicitly
+      - PushBranch and PushCurrentBranch are removed
+      - Push is the single exported push function
+    passing: false
+
+  - category: context
+    description: Remove *context.Context from the git package — replace with explicit parameters or AuthConfig
+    items:
+      - An AuthConfig struct is defined in the git package with Owner string and Repo string fields
+      - Fetch, PullRebase, and Push accept *AuthConfig instead of *context.Context — when AuthConfig is nil auth configuration is skipped, when non-nil github.ConfigureGitAuth is called with Owner and Repo
+      - All other git functions drop their *context.Context parameter entirely — they do not use it
+      - Callers that previously passed ctx to Fetch, PullRebase, or Push construct &git.AuthConfig{Owner, Repo} from ctx.RepoOwnerAndName() when ctx.IsWorkflowExecution() is true, or pass nil otherwise
+      - The git package no longer imports internal/context
+    passing: false
+
+  - category: version
+    description: Version bump
+    items:
+      - Apply a semver patch bump to internal/version/VERSION and charts/ralph-webhook/Chart.yaml
+    passing: false
