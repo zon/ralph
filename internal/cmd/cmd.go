@@ -12,6 +12,7 @@ type Cmd struct {
 	SetGithubToken GithubTokenCmd    `cmd:"" help:"Generate a GitHub App installation token and configure git HTTPS authentication"`
 	SetupWorkspace SetupWorkspaceCmd `cmd:"" help:"Create symlinks for mounted config files into the working directory"`
 	Workflow       WorkflowCmd       `cmd:"" help:"Run ralph workflow in a container"`
+	Validate       ValidateCmd       `cmd:"" help:"Validate a project YAML file"`
 
 	version          string       `kong:"-"`
 	date             string       `kong:"-"`
