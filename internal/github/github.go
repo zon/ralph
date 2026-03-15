@@ -35,9 +35,53 @@ func IsReady() bool {
 	return true
 }
 
-// CreatePR creates a GitHub pull request using gh CLI
-// Returns the PR URL on success
+// FindExistingPR checks if an open PR already exists for the given head branch.
+// Returns the PR URL if found, or empty string if no PR exists.
+func FindExistingPR(head string) (string, error) {
+	cmd := exec.Command("gh", "pr", "list",
+		"--head", head,
+		"--state", "open",
+		"--json", "url",
+		"--limit", "1",
+	)
+
+	var out bytes.Buffer
+	cmd.Stdout = &out
+
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("failed to check for existing PRs: %w", err)
+	}
+
+	output := out.String()
+	if !strings.Contains(output, "url") {
+		return "", nil
+	}
+
+	lines := strings.Split(output, "\n")
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "http") {
+			return trimmed, nil
+		}
+	}
+
+	return "", nil
+}
+
+// CreatePR creates a GitHub pull request using gh CLI.
+// First checks if an open PR already exists for the branch.
+// If found, updates the existing PR's title and body (preserving base branch).
+// If not found, creates a new PR.
 func CreatePR(title, body, base, head string) (string, error) {
+	existingPR, err := FindExistingPR(head)
+	if err != nil {
+		return "", err
+	}
+
+	if existingPR != "" {
+		return updateExistingPR(existingPR, title, body)
+	}
+
 	cmd := exec.Command("gh", "pr", "create",
 		"--title", title,
 		"--body", body,
@@ -50,8 +94,8 @@ func CreatePR(title, body, base, head string) (string, error) {
 	cmd.Stdout = &out
 	cmd.Stderr = &errOut
 
-	if err := cmd.Run(); err != nil {
-		return handleExistingPR(err, errOut.String(), out.String(), title, body)
+	if createErr := cmd.Run(); createErr != nil {
+		return handleExistingPR(createErr, errOut.String(), out.String(), title, body)
 	}
 
 	return parsePRURL(out.String())
