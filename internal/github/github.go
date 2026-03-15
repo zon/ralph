@@ -46,29 +46,6 @@ func IsGHReady(ctx *context.Context) bool {
 	return true
 }
 
-// IsGHInstalled checks if the gh CLI is installed
-// Deprecated: Use IsGHReady instead
-func IsGHInstalled(ctx *context.Context) bool {
-	return IsGHReady(ctx)
-}
-
-// IsAuthenticated checks if the user is authenticated with GitHub via gh CLI
-func IsAuthenticated(ctx *context.Context) bool {
-	cmd := exec.Command("gh", "auth", "status")
-	err := cmd.Run()
-	authenticated := err == nil
-
-	if ctx.IsVerbose() {
-		if authenticated {
-			logger.Info("gh CLI is authenticated")
-		} else {
-			logger.Info("gh CLI is not authenticated")
-		}
-	}
-
-	return authenticated
-}
-
 // CreatePR creates a GitHub pull request using gh CLI
 // Returns the PR URL on success
 func CreatePR(ctx *context.Context, title, body, base, head string) (string, error) {
@@ -153,12 +130,4 @@ func parsePRURL(output string) (string, error) {
 
 	logger.Verbosef("Created PR: %s", prURL)
 	return prURL, nil
-}
-
-// truncate truncates a string to maxLen characters with ellipsis
-func truncate(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	return s[:maxLen] + "..."
 }

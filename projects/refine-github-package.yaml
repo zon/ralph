@@ -10,7 +10,7 @@ requirements:
       - IsGHCLIAvailable is removed (duplicate of IsReady, unused externally and internally)
       - GetGHToken, GetAuthenticatedUser, SwitchUser, FindSSHKey, and DeleteSSHKey are removed (exported but unused anywhere in the codebase)
       - truncate is removed (unused in production code)
-    passing: false
+    passing: true
 
   - category: api
     description: Rename and clean up exported function signatures
