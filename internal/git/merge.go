@@ -5,12 +5,10 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
-
-	"github.com/zon/ralph/internal/context"
 )
 
 // Merge merges a branch into the current branch
-func Merge(ctx *context.Context, branch string) error {
+func Merge(branch string) error {
 	cmd := exec.Command("git", "merge", branch, "--no-edit")
 	var out bytes.Buffer
 	cmd.Stdout = &out
@@ -23,7 +21,7 @@ func Merge(ctx *context.Context, branch string) error {
 }
 
 // AbortMerge aborts an in-progress merge
-func AbortMerge(ctx *context.Context) error {
+func AbortMerge() error {
 	cmd := exec.Command("git", "merge", "--abort")
 	var out bytes.Buffer
 	cmd.Stdout = &out
@@ -36,7 +34,7 @@ func AbortMerge(ctx *context.Context) error {
 }
 
 // MergeBase returns the merge base of two commits
-func MergeBase(ctx *context.Context, a, b string) (string, error) {
+func MergeBase(a, b string) (string, error) {
 	cmd := exec.Command("git", "merge-base", a, b)
 	var out bytes.Buffer
 	cmd.Stdout = &out

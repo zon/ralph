@@ -32,7 +32,7 @@ requirements:
       - All other git functions drop their *context.Context parameter entirely — they do not use it
       - Callers that previously passed ctx to Fetch, PullRebase, or Push construct &git.AuthConfig{Owner, Repo} from ctx.RepoOwnerAndName() when ctx.IsWorkflowExecution() is true, or pass nil otherwise
       - The git package no longer imports internal/context
-    passing: false
+    passing: true
 
   - category: version
     description: Version bump

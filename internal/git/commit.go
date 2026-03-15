@@ -5,12 +5,10 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
-
-	"github.com/zon/ralph/internal/context"
 )
 
 // StageFile stages a specific file using git add
-func StageFile(ctx *context.Context, filePath string) error {
+func StageFile(filePath string) error {
 	cmd := exec.Command("git", "add", filePath)
 	var out bytes.Buffer
 	cmd.Stdout = &out
@@ -24,7 +22,7 @@ func StageFile(ctx *context.Context, filePath string) error {
 }
 
 // StageAll stages all changes using git add -A
-func StageAll(ctx *context.Context) error {
+func StageAll() error {
 	cmd := exec.Command("git", "add", "-A")
 	var out bytes.Buffer
 	cmd.Stdout = &out
@@ -38,7 +36,7 @@ func StageAll(ctx *context.Context) error {
 }
 
 // HasFileChanges checks if a specific file has unstaged changes (i.e. differs from the index)
-func HasFileChanges(ctx *context.Context, filePath string) bool {
+func HasFileChanges(filePath string) bool {
 	// git diff --quiet -- <file>: exit 0 = no changes, exit 1 = has changes
 	cmd := exec.Command("git", "diff", "--quiet", "--", filePath)
 	err := cmd.Run()
@@ -46,7 +44,7 @@ func HasFileChanges(ctx *context.Context, filePath string) bool {
 }
 
 // HasStagedChanges checks if there are any staged changes ready to commit
-func HasStagedChanges(ctx *context.Context) bool {
+func HasStagedChanges() bool {
 	// Use git diff --cached --quiet to check for staged changes
 	// Exit code 0 = no staged changes, exit code 1 = has staged changes
 	cmd := exec.Command("git", "diff", "--cached", "--quiet")
@@ -57,7 +55,7 @@ func HasStagedChanges(ctx *context.Context) bool {
 
 // HasUncommittedChanges reports whether there are any uncommitted changes in the
 // working tree or index (i.e. staged or unstaged modifications, additions, or deletions).
-func HasUncommittedChanges(ctx *context.Context) bool {
+func HasUncommittedChanges() bool {
 	// git status --porcelain: empty output = clean, non-empty = dirty
 	cmd := exec.Command("git", "status", "--porcelain")
 	var out bytes.Buffer
@@ -72,7 +70,7 @@ func HasUncommittedChanges(ctx *context.Context) bool {
 }
 
 // GetDiffSince returns the diff between the base branch and HEAD
-func GetDiffSince(ctx *context.Context, base string) (string, error) {
+func GetDiffSince(base string) (string, error) {
 	// Use git diff to get changes between base and HEAD
 	cmd := exec.Command("git", "diff", fmt.Sprintf("%s..HEAD", base))
 	var out bytes.Buffer
@@ -89,7 +87,7 @@ func GetDiffSince(ctx *context.Context, base string) (string, error) {
 }
 
 // Commit creates a git commit with the specified message
-func Commit(ctx *context.Context, message string) error {
+func Commit(message string) error {
 	cmd := exec.Command("git", "commit", "-m", message)
 	var out bytes.Buffer
 	cmd.Stdout = &out
@@ -104,7 +102,7 @@ func Commit(ctx *context.Context, message string) error {
 
 // CommitAllowEmpty creates a git commit even when there are no staged changes.
 // Used when the AI ran but produced no file changes (e.g. all requirements already passing).
-func CommitAllowEmpty(ctx *context.Context, message string) error {
+func CommitAllowEmpty(message string) error {
 	cmd := exec.Command("git", "commit", "--allow-empty", "-m", message)
 	var out bytes.Buffer
 	cmd.Stdout = &out
@@ -120,26 +118,26 @@ func CommitAllowEmpty(ctx *context.Context, message string) error {
 // CommitChanges stages all changes and commits them with a descriptive message
 // It generates the commit message based on changed files
 // Returns error if there are no changes to commit
-func CommitChanges(ctx *context.Context) error {
+func CommitChanges() error {
 	// Stage all changes
-	if err := StageAll(ctx); err != nil {
+	if err := StageAll(); err != nil {
 		return fmt.Errorf("failed to stage changes: %w", err)
 	}
 
 	// Check if there are any staged changes
-	if !HasStagedChanges(ctx) {
+	if !HasStagedChanges() {
 		return fmt.Errorf("no changes to commit")
 	}
 
 	// Get list of changed files to generate commit message
-	message, err := generateCommitMessage(ctx)
+	message, err := generateCommitMessage()
 	if err != nil {
 		// Fallback to generic message if generation fails
 		message = "Update project files"
 	}
 
 	// Commit the staged changes
-	if err := Commit(ctx, message); err != nil {
+	if err := Commit(message); err != nil {
 		return fmt.Errorf("failed to commit: %w", err)
 	}
 
@@ -147,7 +145,7 @@ func CommitChanges(ctx *context.Context) error {
 }
 
 // generateCommitMessage creates a descriptive commit message from changed files
-func generateCommitMessage(ctx *context.Context) (string, error) {
+func generateCommitMessage() (string, error) {
 	cmd := exec.Command("git", "diff", "--cached", "--name-only")
 	var out bytes.Buffer
 	cmd.Stdout = &out
@@ -219,7 +217,7 @@ func categorizeFiles(files []string) map[string]int {
 // GetCommitLog retrieves commit log formatted exactly like the reference implementation.
 // Returns a single string with commits formatted as "%h: %B" (hash: full message).
 // Gets all commits since base..HEAD. If limit > 0, only the most recent limit commits are returned.
-func GetCommitLog(ctx *context.Context, base string, limit int) (string, error) {
+func GetCommitLog(base string, limit int) (string, error) {
 	// Use git log with format matching reference: %h: %B (hash: full message body)
 	logRange := fmt.Sprintf("%s..HEAD", base)
 	args := []string{"log", logRange, "--format=%h: %B"}

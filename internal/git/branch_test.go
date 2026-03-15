@@ -7,17 +7,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/zon/ralph/internal/testutil"
 )
 
 func TestGetCurrentBranch(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	t.Chdir(tempDir)
 
-	ctx := testutil.NewContext()
-
-	branch, err := GetCurrentBranch(ctx)
+	branch, err := GetCurrentBranch()
 	require.NoError(t, err, "GetCurrentBranch failed")
 
 	// Default branch should be 'master' or 'main'
@@ -27,8 +23,6 @@ func TestGetCurrentBranch(t *testing.T) {
 func TestGetCurrentBranch_DetachedHead(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	t.Chdir(tempDir)
-
-	ctx := testutil.NewContext()
 
 	// Get the commit hash to checkout
 	cmd := exec.Command("git", "rev-parse", "HEAD")
@@ -47,7 +41,7 @@ func TestGetCurrentBranch_DetachedHead(t *testing.T) {
 	}
 
 	// GetCurrentBranch should return error for detached HEAD
-	_, err = GetCurrentBranch(ctx)
+	_, err = GetCurrentBranch()
 	require.Error(t, err, "Expected GetCurrentBranch to return error in detached HEAD state")
 
 	expectedMsg := "detached HEAD state"
@@ -58,13 +52,11 @@ func TestCheckoutOrCreateBranch_CreateNew(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	t.Chdir(tempDir)
 
-	ctx := testutil.NewContext()
-
 	branchName := "brand-new-branch"
 
-	require.NoError(t, CheckoutOrCreateBranch(ctx, branchName), "CheckoutOrCreateBranch failed")
+	require.NoError(t, CheckoutOrCreateBranch(branchName), "CheckoutOrCreateBranch failed")
 
-	currentBranch, err := GetCurrentBranch(ctx)
+	currentBranch, err := GetCurrentBranch()
 	require.NoError(t, err, "GetCurrentBranch failed")
 
 	assert.Equal(t, branchName, currentBranch)
@@ -74,10 +66,8 @@ func TestHasCommits(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	t.Chdir(tempDir)
 
-	ctx := testutil.NewContext()
-
 	// Should have commits (setupTestRepo creates an initial commit)
-	assert.True(t, HasCommits(ctx), "Expected HasCommits to return true for repo with commits")
+	assert.True(t, HasCommits(), "Expected HasCommits to return true for repo with commits")
 }
 
 func TestCheckoutOrCreateBranch_ExistingRemoteBranch(t *testing.T) {
@@ -119,10 +109,9 @@ func TestCheckoutOrCreateBranch_ExistingRemoteBranch(t *testing.T) {
 	}
 
 	t.Chdir(workDir2)
-	ctx := testutil.NewContext()
-	require.NoError(t, CheckoutOrCreateBranch(ctx, branchName), "CheckoutOrCreateBranch failed")
+	require.NoError(t, CheckoutOrCreateBranch(branchName), "CheckoutOrCreateBranch failed")
 
-	currentBranch, err := GetCurrentBranch(ctx)
+	currentBranch, err := GetCurrentBranch()
 	require.NoError(t, err, "GetCurrentBranch failed")
 	assert.Equal(t, branchName, currentBranch)
 }
@@ -138,6 +127,5 @@ func TestIsBranchSyncedWithRemote_Synced(t *testing.T) {
 	_ = exec.Command("git", "commit", "-m", "add test file").Run()
 	_ = exec.Command("git", "push", "origin", branchName).Run()
 
-	ctx := testutil.NewContext()
-	require.NoError(t, IsBranchSyncedWithRemote(ctx, branchName), "IsBranchSyncedWithRemote failed for synced branch")
+	require.NoError(t, IsBranchSyncedWithRemote(branchName), "IsBranchSyncedWithRemote failed for synced branch")
 }

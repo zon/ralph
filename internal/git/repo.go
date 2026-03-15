@@ -5,18 +5,16 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
-
-	"github.com/zon/ralph/internal/context"
 )
 
 // IsGitRepository checks if the current directory is inside a git repository
-func IsGitRepository(ctx *context.Context) bool {
+func IsGitRepository() bool {
 	cmd := exec.Command("git", "rev-parse", "--git-dir")
 	return cmd.Run() == nil
 }
 
 // FindRepoRoot returns the root directory of the git repository
-func FindRepoRoot(ctx *context.Context) (string, error) {
+func FindRepoRoot() (string, error) {
 	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
 	var out bytes.Buffer
 	cmd.Stdout = &out
@@ -35,7 +33,7 @@ func FindRepoRoot(ctx *context.Context) (string, error) {
 }
 
 // IsDetachedHead checks if the repository is in a detached HEAD state
-func IsDetachedHead(ctx *context.Context) (bool, error) {
+func IsDetachedHead() (bool, error) {
 	cmd := exec.Command("git", "symbolic-ref", "-q", "HEAD")
 	err := cmd.Run()
 
@@ -47,7 +45,7 @@ func IsDetachedHead(ctx *context.Context) (bool, error) {
 }
 
 // RevParse executes git rev-parse with the given arguments
-func RevParse(ctx *context.Context, args ...string) (string, error) {
+func RevParse(args ...string) (string, error) {
 	fullArgs := append([]string{"rev-parse"}, args...)
 	cmd := exec.Command("git", fullArgs...)
 	var out bytes.Buffer

@@ -67,7 +67,7 @@ func (r *RunCmd) Run() error {
 		return fmt.Errorf("failed to load project: %w", err)
 	}
 
-	currentBranch, err := git.GetCurrentBranch(ctx)
+	currentBranch, err := git.GetCurrentBranch()
 	if err != nil {
 		return fmt.Errorf("failed to get current branch: %w", err)
 	}

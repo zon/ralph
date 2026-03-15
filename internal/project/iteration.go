@@ -55,7 +55,7 @@ func isFatalOpenCodeError(err error) bool {
 
 // isBlocked checks if blocked.md exists in the repository root
 func isBlocked(ctx *context.Context) (bool, error) {
-	repoRoot, err := git.FindRepoRoot(ctx)
+	repoRoot, err := git.FindRepoRoot()
 	if err != nil {
 		return false, fmt.Errorf("failed to find repo root: %w", err)
 	}
@@ -212,7 +212,7 @@ func reportNewlyPassingRequirements(previousProject, currentProject *config.Proj
 func CommitChanges(ctx *context.Context, iteration int) error {
 	// If there are no uncommitted changes and no report.md, there is nothing to commit
 	_, reportErr := os.Stat("report.md")
-	if !git.HasUncommittedChanges(ctx) && os.IsNotExist(reportErr) {
+	if !git.HasUncommittedChanges() && os.IsNotExist(reportErr) {
 		return ErrNoChanges
 	}
 
@@ -228,7 +228,7 @@ func CommitChanges(ctx *context.Context, iteration int) error {
 	}
 
 	// Stage all changes
-	if err := git.StageAll(ctx); err != nil {
+	if err := git.StageAll(); err != nil {
 		return fmt.Errorf("failed to stage changes: %w", err)
 	}
 
@@ -248,7 +248,7 @@ func CommitChanges(ctx *context.Context, iteration int) error {
 // generateChangelogIfNeeded calls opencode to write report.md when the working tree
 // has uncommitted changes but the agent did not produce a report.md itself.
 func generateChangelogIfNeeded(ctx *context.Context) error {
-	if !git.HasUncommittedChanges(ctx) {
+	if !git.HasUncommittedChanges() {
 		return nil
 	}
 
@@ -282,8 +282,8 @@ func performCommit(ctx *context.Context, commitMsg []byte, iteration int) error 
 		return fmt.Errorf("empty commit message: cannot proceed without a descriptive message")
 	}
 
-	if git.HasStagedChanges(ctx) {
-		if err := git.Commit(ctx, message); err != nil {
+	if git.HasStagedChanges() {
+		if err := git.Commit(message); err != nil {
 			return fmt.Errorf("failed to commit: %w", err)
 		}
 	} else {
@@ -302,13 +302,19 @@ func performCommit(ctx *context.Context, commitMsg []byte, iteration int) error 
 
 // pullAndPush pulls remote changes and pushes the current branch
 func pullAndPush(ctx *context.Context) error {
+	var auth *git.AuthConfig
+	if ctx.IsWorkflowExecution() {
+		owner, repo := ctx.RepoOwnerAndName()
+		auth = &git.AuthConfig{Owner: owner, Repo: repo}
+	}
+
 	logger.Verbose("Pulling remote changes before push...")
-	if err := git.PullRebase(ctx); err != nil {
+	if err := git.PullRebase(auth); err != nil {
 		return fmt.Errorf("failed to pull before push: %w", err)
 	}
 
 	logger.Verbose("Pushing commit to origin...")
-	if err := git.PushCurrentBranch(ctx); err != nil {
+	if err := git.PushCurrentBranch(auth); err != nil {
 		if errors.Is(err, git.ErrWorkflowPermission) {
 			return fmt.Errorf("%w: %v", ErrFatalPushError, err)
 		}

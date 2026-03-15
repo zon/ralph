@@ -104,7 +104,13 @@ func (m *MergeCmd) scanAndCleanupProjects(ctx *context.Context) error {
 		return fmt.Errorf("failed to remove complete projects: %w", err)
 	}
 
-	if err := git.PushCurrentBranch(ctx); err != nil {
+	var auth *git.AuthConfig
+	if ctx.IsWorkflowExecution() {
+		owner, repo := ctx.RepoOwnerAndName()
+		auth = &git.AuthConfig{Owner: owner, Repo: repo}
+	}
+
+	if err := git.PushCurrentBranch(auth); err != nil {
 		return fmt.Errorf("failed to push after removing complete projects: %w", err)
 	}
 
