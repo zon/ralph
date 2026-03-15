@@ -26,8 +26,8 @@ type WorkflowCmd struct {
 	ProjectPath    string `arg:"" help:"Path to project YAML file within the repository" required:""`
 	ProjectBranch  string `help:"Branch to clone or create" name:"project-branch" required:""`
 	BaseBranch     string `help:"Base branch for PR creation" name:"base" short:"B" required:""`
-	BotName        string `help:"Git user name for commits" default:"ralph[bot]"`
-	BotEmail       string `help:"Git user email for commits" default:"ralph[bot]@users.noreply.github.com"`
+	BotName        string `help:"Git user name for commits" default:"zalphen[bot]"`
+	BotEmail       string `help:"Git user email for commits" default:"zalphen[bot]@users.noreply.github.com"`
 	DebugBranch    string `help:"Ralph branch to use for debug mode (clones ralph from this branch and runs via go run)" name:"debug" optional:""`
 	Verbose        bool   `help:"Enable verbose logging" default:"false"`
 	NoServices     bool   `help:"Skip service startup" default:"false"`
