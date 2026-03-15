@@ -313,8 +313,13 @@ func pullAndPush(ctx *context.Context) error {
 		return fmt.Errorf("failed to pull before push: %w", err)
 	}
 
+	branch, err := git.GetCurrentBranch()
+	if err != nil {
+		return fmt.Errorf("failed to get current branch: %w", err)
+	}
+
 	logger.Verbose("Pushing commit to origin...")
-	if err := git.PushCurrentBranch(auth); err != nil {
+	if _, err := git.Push(auth, branch); err != nil {
 		if errors.Is(err, git.ErrWorkflowPermission) {
 			return fmt.Errorf("%w: %v", ErrFatalPushError, err)
 		}

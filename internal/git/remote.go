@@ -127,19 +127,6 @@ func Push(auth *AuthConfig, branch string) (string, error) {
 	return remoteURL, nil
 }
 
-// PushBranch pushes the specified branch to origin and returns the remote URL
-// Deprecated: Use Push instead
-func PushBranch(auth *AuthConfig, branch string) (string, error) {
-	return Push(auth, branch)
-}
-
-// PushCurrentBranch pushes the current branch to origin
-// Deprecated: Use Push instead
-func PushCurrentBranch(auth *AuthConfig) error {
-	_, err := Push(auth, "")
-	return err
-}
-
 // Clone clones a repository into a directory
 func Clone(url, branch, dir string) error {
 	args := []string{"clone"}

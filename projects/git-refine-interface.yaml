@@ -22,7 +22,7 @@ requirements:
       - All callers of PushCurrentBranch are migrated to Push with the current branch name passed explicitly
       - PushBranch and PushCurrentBranch are removed
       - Push is the single exported push function
-    passing: false
+    passing: true
 
   - category: context
     description: Remove *context.Context from the git package — replace with explicit parameters or AuthConfig
