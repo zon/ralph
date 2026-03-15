@@ -133,7 +133,10 @@ func (w *WorkflowCmd) cloneAndSetupRepo(ctx *context.Context) error {
 		os.RemoveAll(workDir)
 	}
 
-	if err := git.Clone(ctx.RepoURL(), ctx.Branch(), workDir); err != nil {
+	// Use GIT_BRANCH env var for cloning (set by the workflow template to the
+	// original local branch), not ctx.Branch() which holds the project branch.
+	cloneBranch := os.Getenv("GIT_BRANCH")
+	if err := git.Clone(ctx.RepoURL(), cloneBranch, workDir); err != nil {
 		if err := git.Clone(ctx.RepoURL(), "", workDir); err != nil {
 			return fmt.Errorf("failed to clone repository: %w", err)
 		}
