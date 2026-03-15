@@ -77,61 +77,61 @@ func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL,
 		instructions = string(data)
 	}
 
-	repo, err := githubpkg.ParseGitHubRemoteURL(repoURL)
+	repo, err := githubpkg.ParseRemoteURL(repoURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse repository from URL: %w", err)
 	}
 
 	workflowOptions := WorkflowOptions{
-		Image:           MakeImage(ralphConfig.Workflow.Image.Repository, ralphConfig.Workflow.Image.Tag),
-		ConfigMaps:      ralphConfig.Workflow.ConfigMaps,
-		Secrets:         ralphConfig.Workflow.Secrets,
-		Env:             ralphConfig.Workflow.Env,
-		DefaultBranch:   ralphConfig.DefaultBranch,
-		KubeContext: ralphConfig.Workflow.Context,
-		Namespace:       ralphConfig.Workflow.Namespace,
+		Image:         MakeImage(ralphConfig.Workflow.Image.Repository, ralphConfig.Workflow.Image.Tag),
+		ConfigMaps:    ralphConfig.Workflow.ConfigMaps,
+		Secrets:       ralphConfig.Workflow.Secrets,
+		Env:           ralphConfig.Workflow.Env,
+		DefaultBranch: ralphConfig.DefaultBranch,
+		KubeContext:   ralphConfig.Workflow.Context,
+		Namespace:     ralphConfig.Workflow.Namespace,
 	}
 
 	return &Workflow{
-		ProjectName:     projectName,
-		Repo:            repo,
-		CloneBranch:     cloneBranch,
-		ProjectBranch:   projectBranch,
-		ProjectPath:     relProjectPath,
-		Instructions:    instructions,
-		Verbose:         verbose,
-		DebugBranch:     ctx.DebugBranch(),
-		BaseBranch:      ctx.BaseBranch(),
-		Image:           workflowOptions.Image,
-		ConfigMaps:      workflowOptions.ConfigMaps,
-		Secrets:         workflowOptions.Secrets,
-		Env:             workflowOptions.Env,
-		DefaultBranch:   workflowOptions.DefaultBranch,
-		KubeContext: workflowOptions.KubeContext,
-		Namespace:       workflowOptions.Namespace,
-		NoServices:      ctx.NoServices(),
-		MaxIterations:   ctx.MaxIterations(),
+		ProjectName:   projectName,
+		Repo:          repo,
+		CloneBranch:   cloneBranch,
+		ProjectBranch: projectBranch,
+		ProjectPath:   relProjectPath,
+		Instructions:  instructions,
+		Verbose:       verbose,
+		DebugBranch:   ctx.DebugBranch(),
+		BaseBranch:    ctx.BaseBranch(),
+		Image:         workflowOptions.Image,
+		ConfigMaps:    workflowOptions.ConfigMaps,
+		Secrets:       workflowOptions.Secrets,
+		Env:           workflowOptions.Env,
+		DefaultBranch: workflowOptions.DefaultBranch,
+		KubeContext:   workflowOptions.KubeContext,
+		Namespace:     workflowOptions.Namespace,
+		NoServices:    ctx.NoServices(),
+		MaxIterations: ctx.MaxIterations(),
 	}, nil
 }
 
 // GenerateCommentWorkflowWithGitInfo builds a Workflow for a comment-triggered event.
 // The container script will call `ralph comment` with the provided body and PR number.
 func GenerateCommentWorkflowWithGitInfo(projectName, repoURL, cloneBranch, projectBranch, relProjectPath, commentBody, prNumber string, opts WorkflowOptions) (*Workflow, error) {
-	repo, err := githubpkg.ParseGitHubRemoteURL(repoURL)
+	repo, err := githubpkg.ParseRemoteURL(repoURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse repository from URL: %w", err)
 	}
 
 	return &Workflow{
-		ProjectName:     projectName,
-		Repo:            repo,
-		CloneBranch:     cloneBranch,
-		ProjectBranch:   projectBranch,
-		ProjectPath:     relProjectPath,
-		CommentBody:     commentBody,
-		PRNumber:        prNumber,
-		Image:           opts.Image,
-		KubeContext: opts.KubeContext,
+		ProjectName:   projectName,
+		Repo:          repo,
+		CloneBranch:   cloneBranch,
+		ProjectBranch: projectBranch,
+		ProjectPath:   relProjectPath,
+		CommentBody:   commentBody,
+		PRNumber:      prNumber,
+		Image:         opts.Image,
+		KubeContext:   opts.KubeContext,
 	}, nil
 }
 
@@ -154,9 +154,9 @@ func GenerateMergeWorkflow(prBranch string) (*MergeWorkflow, error) {
 	}
 
 	opts := WorkflowOptions{
-		Image:           MakeImage(ralphConfig.Workflow.Image.Repository, ralphConfig.Workflow.Image.Tag),
+		Image:       MakeImage(ralphConfig.Workflow.Image.Repository, ralphConfig.Workflow.Image.Tag),
 		KubeContext: ralphConfig.Workflow.Context,
-		Namespace:       ralphConfig.Workflow.Namespace,
+		Namespace:   ralphConfig.Workflow.Namespace,
 	}
 
 	return GenerateMergeWorkflowWithGitInfo(remoteURL, currentBranch, prBranch, "", opts)
@@ -165,19 +165,19 @@ func GenerateMergeWorkflow(prBranch string) (*MergeWorkflow, error) {
 // GenerateMergeWorkflowWithGitInfo builds a MergeWorkflow with provided git information.
 // This allows for easier testing by accepting git info as parameters.
 func GenerateMergeWorkflowWithGitInfo(repoURL, cloneBranch, prBranch, prNumber string, opts WorkflowOptions) (*MergeWorkflow, error) {
-	repo, err := githubpkg.ParseGitHubRemoteURL(repoURL)
+	repo, err := githubpkg.ParseRemoteURL(repoURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse repository from URL: %w", err)
 	}
 
 	return &MergeWorkflow{
-		Repo:            repo,
-		CloneBranch:     cloneBranch,
-		PRBranch:        prBranch,
-		PRNumber:        prNumber,
-		Image:           opts.Image,
+		Repo:        repo,
+		CloneBranch: cloneBranch,
+		PRBranch:    prBranch,
+		PRNumber:    prNumber,
+		Image:       opts.Image,
 		KubeContext: opts.KubeContext,
-		Namespace:       opts.Namespace,
+		Namespace:   opts.Namespace,
 	}, nil
 }
 

@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestParseGitHubRemoteURL(t *testing.T) {
+func TestParseRemoteURL(t *testing.T) {
 	tests := []struct {
 		name        string
 		remoteURL   string
@@ -74,7 +74,7 @@ func TestParseGitHubRemoteURL(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			repo, err := ParseGitHubRemoteURL(tc.remoteURL)
+			repo, err := ParseRemoteURL(tc.remoteURL)
 			if tc.wantErr {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tc.errContains)
@@ -83,71 +83,6 @@ func TestParseGitHubRemoteURL(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, tc.wantOwner, repo.Owner)
 			assert.Equal(t, tc.wantName, repo.Name)
-		})
-	}
-}
-
-func TestParseSSHKeyListOutput(t *testing.T) {
-	tests := []struct {
-		name        string
-		output      string
-		title       string
-		wantKeyID   string
-		wantErr     bool
-		errContains string
-	}{
-		{
-			name:      "returns key ID when title matches",
-			output:    `ralph-myrepo ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAbCdEfGhIjKlMnOpQrStUvWxYz123456789 2025-02-15T12:00:00Z 1234567890 authentication`,
-			title:     "ralph-myrepo",
-			wantKeyID: "1234567890",
-		},
-		{
-			name:      "returns empty string when no title matches",
-			output:    `other-key ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAbCdEfGhIjKlMnOpQrStUvWxYz123456789 2025-02-15T12:00:00Z 1234567890 authentication`,
-			title:     "ralph-myrepo",
-			wantKeyID: "",
-		},
-		{
-			name: "skips warning lines",
-			output: `warning: could not read SSH keys
-ralph-myrepo ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAbCdEfGhIjKlMnOpQrStUvWxYz123456789 2025-02-15T12:00:00Z 1234567890 authentication`,
-			title:     "ralph-myrepo",
-			wantKeyID: "1234567890",
-		},
-		{
-			name: "skips empty lines",
-			output: `
-ralph-myrepo ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAbCdEfGhIjKlMnOpQrStUvWxYz123456789 2025-02-15T12:00:00Z 1234567890 authentication`,
-			title:     "ralph-myrepo",
-			wantKeyID: "1234567890",
-		},
-		{
-			name: "skips whitespace-only lines",
-			output: `   
-ralph-myrepo ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAbCdEfGhIjKlMnOpQrStUvWxYz123456789 2025-02-15T12:00:00Z 1234567890 authentication`,
-			title:     "ralph-myrepo",
-			wantKeyID: "1234567890",
-		},
-		{
-			name: "skips lines with fewer than 5 fields",
-			output: `not-enough-fields
-ralph-myrepo ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAbCdEfGhIjKlMnOpQrStUvWxYz123456789 2025-02-15T12:00:00Z 1234567890 authentication`,
-			title:     "ralph-myrepo",
-			wantKeyID: "1234567890",
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			keyID, err := parseSSHKeyListOutput(tc.output, tc.title)
-			if tc.wantErr {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), tc.errContains)
-				return
-			}
-			require.NoError(t, err)
-			assert.Equal(t, tc.wantKeyID, keyID)
 		})
 	}
 }
