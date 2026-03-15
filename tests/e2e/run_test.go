@@ -59,7 +59,7 @@ func TestRun_NewProject(t *testing.T) {
 	t.Logf("Workflow YAML:\n%s", yamlBytes)
 
 	t.Log("Submitting workflow to Argo...")
-	workflowName, err := wf.Submit(cfg.Namespace)
+	workflowName, err := wf.Submit()
 	require.NoError(t, err, "workflow submission failed")
 	t.Logf("Submitted workflow: %s", workflowName)
 
@@ -121,7 +121,7 @@ func TestRun_ResumesExistingBranch(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	workflowName, err := wf.Submit(cfg.Namespace)
+	workflowName, err := wf.Submit()
 	require.NoError(t, err, "workflow submission failed")
 	t.Logf("Submitted workflow: %s", workflowName)
 
@@ -176,7 +176,7 @@ func TestRun_AICompletesSingleIteration(t *testing.T) {
 	)
 	require.NoError(t, err, "GenerateWorkflowWithGitInfo failed")
 
-	workflowName, err := wf.Submit(cfg.Namespace)
+	workflowName, err := wf.Submit()
 	require.NoError(t, err, "workflow submission failed")
 	t.Logf("Submitted workflow: %s", workflowName)
 

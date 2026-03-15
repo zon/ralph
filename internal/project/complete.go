@@ -96,14 +96,14 @@ func RemoveAndCommit(ctx *context.Context, files []string) error {
 
 	// Stage the deletions
 	for _, file := range files {
-		if err := git.StageFile(ctx, file); err != nil {
+		if err := git.StageFile(file); err != nil {
 			return fmt.Errorf("failed to stage deleted file %s: %w", file, err)
 		}
 	}
 
 	// Create commit
 	commitMessage := "chore: remove complete project files"
-	if err := git.Commit(ctx, commitMessage); err != nil {
+	if err := git.Commit(commitMessage); err != nil {
 		return fmt.Errorf("failed to commit deleted files: %w", err)
 	}
 

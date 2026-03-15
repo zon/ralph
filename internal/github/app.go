@@ -205,15 +205,15 @@ func ConfigureGitAuth(ctx context.Context, owner, repo, secretsDir string) error
 
 func resolveRepoDetails(ctx context.Context, owner, repo string) (string, string, error) {
 	if owner == "" || repo == "" {
-		detectedOwner, detectedRepo, err := GetRepo(ctx)
+		detected, err := GetRepo(ctx)
 		if err != nil {
 			return "", "", fmt.Errorf("failed to autodetect repository from git remote: %w", err)
 		}
 		if owner == "" {
-			owner = detectedOwner
+			owner = detected.Owner
 		}
 		if repo == "" {
-			repo = detectedRepo
+			repo = detected.Name
 		}
 	}
 

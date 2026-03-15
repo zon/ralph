@@ -50,7 +50,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	if _, err = git.GetCurrentBranch(ctx); err != nil {
+	if _, err = git.GetCurrentBranch(); err != nil {
 		return fmt.Errorf("failed to get current branch: %w", err)
 	}
 
@@ -111,7 +111,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 }
 
 func validateGitStateAndSwitchBranch(ctx *context.Context, branchName string) error {
-	currentBranch, err := git.GetCurrentBranch(ctx)
+	currentBranch, err := git.GetCurrentBranch()
 	if err != nil {
 		return fmt.Errorf("failed to get current branch: %w", err)
 	}
@@ -138,7 +138,7 @@ func validateBranchSync(ctx *context.Context, currentBranch string) error {
 	// created a fresh local branch that hasn't been pushed yet, and it will push after work is done.
 	if !ctx.IsWorkflowExecution() {
 		logger.Verbosef("Checking branch '%s' is in sync with remote...", currentBranch)
-		if err := git.IsBranchSyncedWithRemote(ctx, currentBranch); err != nil {
+		if err := git.IsBranchSyncedWithRemote(currentBranch); err != nil {
 			return err
 		}
 	} else {
@@ -148,11 +148,17 @@ func validateBranchSync(ctx *context.Context, currentBranch string) error {
 }
 
 func switchToProjectBranch(ctx *context.Context, branchName string) error {
-	if err := git.Fetch(ctx); err != nil {
+	var auth *git.AuthConfig
+	if ctx.IsWorkflowExecution() {
+		owner, repo := ctx.RepoOwnerAndName()
+		auth = &git.AuthConfig{Owner: owner, Repo: repo}
+	}
+
+	if err := git.Fetch(auth); err != nil {
 		logger.Verbosef("Could not fetch from remote (continuing anyway): %v", err)
 	}
 
-	if err := git.CheckoutOrCreateBranch(ctx, branchName); err != nil {
+	if err := git.CheckoutOrCreateBranch(branchName); err != nil {
 		return fmt.Errorf("failed to checkout branch: %w", err)
 	}
 	return nil
@@ -242,13 +248,13 @@ func executeRemote(ctx *context.Context, absProjectFile string) error {
 	if ctx.Branch() != "" {
 		currentBranch = ctx.Branch()
 	} else {
-		currentBranch, err = git.GetCurrentBranch(ctx)
+		currentBranch, err = git.GetCurrentBranch()
 		if err != nil {
 			return fmt.Errorf("failed to get current branch: %w", err)
 		}
 		// Only check sync when branch is detected locally (not when pre-supplied by caller)
 		logger.Verbosef("Checking branch '%s' is in sync with remote...", currentBranch)
-		if err := git.IsBranchSyncedWithRemote(ctx, currentBranch); err != nil {
+		if err := git.IsBranchSyncedWithRemote(currentBranch); err != nil {
 			return err
 		}
 	}
@@ -264,7 +270,7 @@ func executeRemote(ctx *context.Context, absProjectFile string) error {
 		logger.Verbosef("Generated workflow YAML:\n%s", workflowYAML)
 	}
 
-	workflowName, err := wf.Submit(wf.RalphConfig.Workflow.Namespace)
+	workflowName, err := wf.Submit()
 	if err != nil {
 		return fmt.Errorf("failed to submit workflow: %w", err)
 	}
@@ -272,9 +278,9 @@ func executeRemote(ctx *context.Context, absProjectFile string) error {
 	logger.Successf("Workflow submitted: %s", workflowName)
 
 	if ctx.ShouldFollow() {
-		args := []string{"logs", "-n", wf.RalphConfig.Workflow.Namespace, "-f", workflowName}
-		if wf.RalphConfig.Workflow.Context != "" {
-			args = append(args, "--context", wf.RalphConfig.Workflow.Context)
+		args := []string{"logs", "-n", wf.Namespace, "-f", workflowName}
+		if wf.KubeContext != "" {
+			args = append(args, "--context", wf.KubeContext)
 		}
 		cmd := exec.Command("argo", args...)
 		cmd.Stdout = os.Stdout
@@ -285,7 +291,7 @@ func executeRemote(ctx *context.Context, absProjectFile string) error {
 		}
 		notify.Success(projectName, ctx.ShouldNotify())
 	} else {
-		logger.Infof("To follow logs, run: argo logs -n %s -f %s", wf.RalphConfig.Workflow.Namespace, workflowName)
+		logger.Infof("To follow logs, run: argo logs -n %s -f %s", wf.Namespace, workflowName)
 	}
 
 	return nil
