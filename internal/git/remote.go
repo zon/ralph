@@ -2,15 +2,19 @@ package git
 
 import (
 	"bytes"
-	gocontext "context"
+	"context"
 	"errors"
 	"fmt"
 	"os/exec"
 	"strings"
 
-	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/github"
 )
+
+type AuthConfig struct {
+	Owner string
+	Repo  string
+}
 
 // ErrWorkflowPermission is returned when a push is rejected because the GitHub App
 // token lacks the `workflows` permission required to create or update files under
@@ -26,8 +30,8 @@ func isWorkflowPermissionError(output string) bool {
 }
 
 // Fetch fetches from the remote, updating remote-tracking refs.
-func Fetch(ctx *context.Context) error {
-	if err := configureAuth(ctx); err != nil {
+func Fetch(auth *AuthConfig) error {
+	if err := configureAuth(auth); err != nil {
 		return fmt.Errorf("failed to configure git auth: %w", err)
 	}
 
@@ -46,12 +50,12 @@ func Fetch(ctx *context.Context) error {
 // PullRebase pulls remote changes using rebase to avoid merge commits.
 // This should be called before pushing to handle cases where the remote
 // branch has advanced (e.g. from a previous run or another pod).
-func PullRebase(ctx *context.Context) error {
-	if err := configureAuth(ctx); err != nil {
+func PullRebase(auth *AuthConfig) error {
+	if err := configureAuth(auth); err != nil {
 		return fmt.Errorf("failed to configure git auth: %w", err)
 	}
 
-	branch, err := GetCurrentBranch(ctx)
+	branch, err := GetCurrentBranch()
 	if err != nil {
 		return fmt.Errorf("failed to get current branch for pull: %w", err)
 	}
@@ -75,8 +79,8 @@ func PullRebase(ctx *context.Context) error {
 // Push pushes the current branch or a specified branch to origin.
 // If branch is empty, the current branch is pushed.
 // Returns the remote URL on success.
-func Push(ctx *context.Context, branch string) (string, error) {
-	if err := configureAuth(ctx); err != nil {
+func Push(auth *AuthConfig, branch string) (string, error) {
+	if err := configureAuth(auth); err != nil {
 		return "", fmt.Errorf("failed to configure git auth: %w", err)
 	}
 
@@ -84,14 +88,14 @@ func Push(ctx *context.Context, branch string) (string, error) {
 	branchToPush := branch
 	if branchToPush == "" {
 		var err error
-		branchToPush, err = GetCurrentBranch(ctx)
+		branchToPush, err = GetCurrentBranch()
 		if err != nil {
 			return "", fmt.Errorf("failed to get current branch: %w", err)
 		}
 	}
 
 	// Check if there are commits to push
-	if !HasCommits(ctx) {
+	if !hasCommits() {
 		return "", fmt.Errorf("no commits to push on branch '%s'", branchToPush)
 	}
 
@@ -123,21 +127,8 @@ func Push(ctx *context.Context, branch string) (string, error) {
 	return remoteURL, nil
 }
 
-// PushBranch pushes the specified branch to origin and returns the remote URL
-// Deprecated: Use Push instead
-func PushBranch(ctx *context.Context, branch string) (string, error) {
-	return Push(ctx, branch)
-}
-
-// PushCurrentBranch pushes the current branch to origin
-// Deprecated: Use Push instead
-func PushCurrentBranch(ctx *context.Context) error {
-	_, err := Push(ctx, "")
-	return err
-}
-
 // Clone clones a repository into a directory
-func Clone(ctx *context.Context, url, branch, dir string) error {
+func Clone(url, branch, dir string) error {
 	args := []string{"clone"}
 	if branch != "" {
 		args = append(args, "-b", branch)
@@ -156,10 +147,9 @@ func Clone(ctx *context.Context, url, branch, dir string) error {
 }
 
 // configureAuth refreshes the GitHub App token and configures git HTTPS auth.
-func configureAuth(ctx *context.Context) error {
-	if !ctx.IsWorkflowExecution() {
+func configureAuth(auth *AuthConfig) error {
+	if auth == nil {
 		return nil
 	}
-	owner, repo := ctx.RepoOwnerAndName()
-	return github.ConfigureGitAuth(gocontext.Background(), owner, repo, github.DefaultSecretsDir)
+	return github.ConfigureGitAuth(context.Background(), auth.Owner, auth.Repo, github.DefaultSecretsDir)
 }

@@ -122,7 +122,7 @@ func GeneratePRSummary(ctx *context.Context, projectFile string, iterations int,
 
 	// Use the dynamically detected/overridden base branch
 	// Get commit log since base branch
-	commitLog, err := git.GetCommitLog(ctx, baseBranch, 0)
+	commitLog, err := git.GetCommitLog(baseBranch, 0)
 	if err != nil {
 		logger.Verbosef("Failed to get commit log: %v", err)
 		commitLog = "(Unable to retrieve commit log)"

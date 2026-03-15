@@ -7,15 +7,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/zon/ralph/internal/testutil"
 )
 
 func TestStageFile(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	t.Chdir(tempDir)
-
-	ctx := testutil.NewContext()
 
 	// Create a new file
 	testFile := filepath.Join(tempDir, "newfile.txt")
@@ -24,11 +20,11 @@ func TestStageFile(t *testing.T) {
 	}
 
 	// Stage the file
-	err := StageFile(ctx, "newfile.txt")
+	err := StageFile("newfile.txt")
 	require.NoError(t, err, "StageFile failed")
 
 	// Verify the file is staged by checking git status
-	status, err := RevParse(ctx, "--verify", ":newfile.txt")
+	status, err := RevParse("--verify", ":newfile.txt")
 	require.NoError(t, err, "Failed to verify staged file")
 	assert.NotEmpty(t, status)
 }
@@ -37,18 +33,14 @@ func TestStageFile_NonExistent(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	t.Chdir(tempDir)
 
-	ctx := testutil.NewContext()
-
 	// Try to stage a non-existent file
-	err := StageFile(ctx, "nonexistent.txt")
+	err := StageFile("nonexistent.txt")
 	require.Error(t, err, "Expected error when staging non-existent file")
 }
 
 func TestCommitChanges(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	t.Chdir(tempDir)
-
-	ctx := testutil.NewContext()
 
 	// Create a new file to commit
 	testFile := filepath.Join(tempDir, "new-file.txt")
@@ -57,11 +49,11 @@ func TestCommitChanges(t *testing.T) {
 	}
 
 	// Commit the changes
-	err := CommitChanges(ctx)
-	require.NoError(t, err, "CommitChanges failed")
+	err := commitChanges()
+	require.NoError(t, err, "commitChanges failed")
 
 	// Verify commit was created by checking log
-	commitLog, err := GetCommitLog(ctx, "HEAD~1", 1)
+	commitLog, err := GetCommitLog("HEAD~1", 1)
 	require.NoError(t, err, "Failed to get commit log")
 
 	assert.NotEmpty(t, commitLog, "Expected at least 1 commit after CommitChanges")
@@ -72,10 +64,8 @@ func TestCommitChanges_NoChanges(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	t.Chdir(tempDir)
 
-	ctx := testutil.NewContext()
-
 	// Try to commit with no changes
-	err := CommitChanges(ctx)
+	err := commitChanges()
 	require.Error(t, err, "Expected error when committing with no changes")
 	assert.Contains(t, err.Error(), "no changes to commit")
 }
@@ -149,13 +139,12 @@ func TestDeleteFile(t *testing.T) {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	ctx := testutil.NewContext()
-	err := StageFile(ctx, "to-delete.txt")
+	err := StageFile("to-delete.txt")
 	require.NoError(t, err)
-	err = Commit(ctx, "add file to delete")
+	err = Commit("add file to delete")
 	require.NoError(t, err)
 
-	if err := DeleteFile(ctx, "to-delete.txt"); err != nil {
+	if err := deleteFile("to-delete.txt"); err != nil {
 		t.Fatalf("DeleteFile failed: %v", err)
 	}
 
@@ -167,13 +156,11 @@ func TestHasUncommittedChanges(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	t.Chdir(tempDir)
 
-	ctx := testutil.NewContext()
-
-	assert.False(t, HasUncommittedChanges(ctx))
+	assert.False(t, HasUncommittedChanges())
 
 	// Unstaged change
 	if err := os.WriteFile(filepath.Join(tempDir, "README.md"), []byte("modified\n"), 0644); err != nil {
 		t.Fatalf("Failed to modify file: %v", err)
 	}
-	assert.True(t, HasUncommittedChanges(ctx))
+	assert.True(t, HasUncommittedChanges())
 }

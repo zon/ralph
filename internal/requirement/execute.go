@@ -190,9 +190,9 @@ func performPostAgentCleanup(ctx *context.Context, absProjectFile string, servic
 	}
 
 	// Stage project file after agent completes, only if it has changes
-	if git.HasFileChanges(ctx, absProjectFile) {
+	if git.HasFileChanges(absProjectFile) {
 		logger.Verbose("Staging project file...")
-		if err := git.StageFile(ctx, absProjectFile); err != nil {
+		if err := git.StageFile(absProjectFile); err != nil {
 			logger.Verbosef("Failed to stage project file: %v", err)
 		} else {
 			logger.Verbose("Project file staged")

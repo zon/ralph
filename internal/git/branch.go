@@ -5,13 +5,11 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
-
-	"github.com/zon/ralph/internal/context"
 )
 
 // GetCurrentBranch returns the name of the current git branch
 // Returns error if in detached HEAD state
-func GetCurrentBranch(ctx *context.Context) (string, error) {
+func GetCurrentBranch() (string, error) {
 	cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
 	var out bytes.Buffer
 	cmd.Stdout = &out
@@ -34,18 +32,11 @@ func GetCurrentBranch(ctx *context.Context) (string, error) {
 	return branch, nil
 }
 
-// RemoteBranchExists checks if a branch exists on the remote using the already-fetched
-// remote-tracking ref. Call Fetch first to ensure refs are up to date.
-func RemoteBranchExists(ctx *context.Context, name string) bool {
-	cmd := exec.Command("git", "rev-parse", "--verify", "--quiet", "origin/"+name)
-	return cmd.Run() == nil
-}
-
 // CheckoutOrCreateBranch checks out the named branch if it exists on the remote
 // (after a prior Fetch), otherwise creates and checks out a new local branch.
-func CheckoutOrCreateBranch(ctx *context.Context, name string) error {
-	if RemoteBranchExists(ctx, name) {
-		if err := CheckoutBranch(ctx, name); err != nil {
+func CheckoutOrCreateBranch(name string) error {
+	if remoteBranchExists(name) {
+		if err := checkoutBranch(name); err != nil {
 			return err
 		}
 		return nil
@@ -61,8 +52,8 @@ func CheckoutOrCreateBranch(ctx *context.Context, name string) error {
 	return nil
 }
 
-// CheckoutBranch switches to the specified git branch
-func CheckoutBranch(ctx *context.Context, name string) error {
+// checkoutBranch switches to the specified git branch
+func checkoutBranch(name string) error {
 	cmd := exec.Command("git", "checkout", name)
 	var out bytes.Buffer
 	cmd.Stdout = &out
@@ -75,15 +66,15 @@ func CheckoutBranch(ctx *context.Context, name string) error {
 	return nil
 }
 
-// HasCommits checks if the current branch has any commits
-func HasCommits(ctx *context.Context) bool {
+// hasCommits checks if the current branch has any commits
+func hasCommits() bool {
 	cmd := exec.Command("git", "rev-parse", "--verify", "HEAD")
 	return cmd.Run() == nil
 }
 
 // IsBranchSyncedWithRemote checks if the local branch is in sync with its remote counterpart.
 // Returns an error if the remote branch doesn't exist or the local branch is ahead/behind.
-func IsBranchSyncedWithRemote(ctx *context.Context, branch string) error {
+func IsBranchSyncedWithRemote(branch string) error {
 	// Check that the remote branch exists
 	remoteRef := fmt.Sprintf("origin/%s", branch)
 	cmd := exec.Command("git", "rev-parse", "--verify", remoteRef)

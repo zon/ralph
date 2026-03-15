@@ -4,12 +4,10 @@ import (
 	"bytes"
 	"fmt"
 	"os/exec"
-
-	"github.com/zon/ralph/internal/context"
 )
 
 // Config sets a git configuration value globally or locally
-func Config(ctx *context.Context, global bool, key, value string) error {
+func Config(global bool, key, value string) error {
 	args := []string{"config"}
 	if global {
 		args = append(args, "--global")

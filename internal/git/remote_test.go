@@ -9,8 +9,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/zon/ralph/internal/testutil"
 )
 
 // TestPush_HappyPath verifies that Push succeeds against a local
@@ -22,17 +20,16 @@ func TestPush_HappyPath(t *testing.T) {
 
 	// Create a new feature branch with a commit to push.
 	branchName := "feature/push-test"
-	require.NoError(t, CheckoutOrCreateBranch(testutil.NewContext(), branchName))
+	require.NoError(t, CheckoutOrCreateBranch(branchName))
 
 	if err := os.WriteFile(filepath.Join(workDir, "feature.txt"), []byte("feature\n"), 0644); err != nil {
 		t.Fatalf("failed to create feature file: %v", err)
 	}
 
-	ctx := testutil.NewContext()
-	require.NoError(t, StageAll(ctx))
-	require.NoError(t, Commit(ctx, "add feature"))
+	require.NoError(t, StageAll())
+	require.NoError(t, Commit("add feature"))
 
-	remoteURL, err := Push(ctx, branchName)
+	remoteURL, err := Push(nil, branchName)
 	require.NoError(t, err, "Push failed")
 	assert.NotEmpty(t, remoteURL, "Push returned an empty remote URL")
 }
@@ -84,7 +81,6 @@ func TestPush_WorkflowPermissionError(t *testing.T) {
 	require.NoError(t, exec.Command("git", "clone", remoteDir, workDir).Run())
 
 	t.Chdir(workDir)
-	ctx := testutil.NewContext()
 
 	// Configure identity
 	_ = exec.Command("git", "config", "--local", "user.email", "test@example.com").Run()
@@ -95,11 +91,11 @@ func TestPush_WorkflowPermissionError(t *testing.T) {
 	require.NoError(t, os.MkdirAll(wfDir, 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(wfDir, "test.yaml"), []byte("name: test\n"), 0644))
 
-	require.NoError(t, StageAll(ctx))
-	require.NoError(t, Commit(ctx, "Add workflow file"))
+	require.NoError(t, StageAll())
+	require.NoError(t, Commit("Add workflow file"))
 
-	branch, _ := GetCurrentBranch(ctx)
-	_, pushErr := Push(ctx, branch)
+	branch, _ := GetCurrentBranch()
+	_, pushErr := Push(nil, branch)
 	require.Error(t, pushErr)
 	assert.True(t, errors.Is(pushErr, ErrWorkflowPermission))
 }
@@ -136,8 +132,7 @@ func TestPullRebase_WithNewCommits(t *testing.T) {
 
 	// Back to workDir1 and pull rebase
 	t.Chdir(workDir1)
-	ctx := testutil.NewContext()
-	require.NoError(t, PullRebase(ctx))
+	require.NoError(t, PullRebase(nil))
 }
 
 func TestClone(t *testing.T) {
@@ -155,8 +150,7 @@ func TestClone(t *testing.T) {
 	_ = exec.Command("git", "-C", workDir, "push", "origin", "HEAD").Run()
 
 	cloneDir := t.TempDir()
-	ctx := testutil.NewContext()
-	err := Clone(ctx, remoteDir, "", cloneDir)
+	err := Clone(remoteDir, "", cloneDir)
 	require.NoError(t, err)
 
 	_, err = os.Stat(filepath.Join(cloneDir, ".git"))

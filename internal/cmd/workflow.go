@@ -15,7 +15,6 @@ import (
 	"github.com/zon/ralph/internal/project"
 )
 
-
 const (
 	DefaultSecretsDir         = "/secrets/github"
 	DefaultOpenCodeSecretsDir = "/secrets/opencode"
@@ -118,8 +117,8 @@ func (w *WorkflowCmd) setupOpenCodeCredentials() error {
 
 func (w *WorkflowCmd) configureGitUser(ctx *context.Context) {
 	logger.Info("Configuring git user...")
-	_ = git.Config(ctx, true, "user.name", ctx.BotName())
-	_ = git.Config(ctx, true, "user.email", ctx.BotEmail())
+	_ = git.Config(true, "user.name", ctx.BotName())
+	_ = git.Config(true, "user.email", ctx.BotEmail())
 }
 
 func (w *WorkflowCmd) cloneAndSetupRepo(ctx *context.Context) error {
@@ -134,8 +133,8 @@ func (w *WorkflowCmd) cloneAndSetupRepo(ctx *context.Context) error {
 		os.RemoveAll(workDir)
 	}
 
-	if err := git.Clone(ctx, ctx.RepoURL(), ctx.Branch(), workDir); err != nil {
-		if err := git.Clone(ctx, ctx.RepoURL(), "", workDir); err != nil {
+	if err := git.Clone(ctx.RepoURL(), ctx.Branch(), workDir); err != nil {
+		if err := git.Clone(ctx.RepoURL(), "", workDir); err != nil {
 			return fmt.Errorf("failed to clone repository: %w", err)
 		}
 	}
@@ -182,16 +181,16 @@ func (w *WorkflowCmd) fetchBaseBranch(ctx *context.Context) error {
 
 func (w *WorkflowCmd) checkIfMergeNeeded(ctx *context.Context) (bool, error) {
 	baseBranch := ctx.BaseBranch()
-	if _, err := git.RevParse(ctx, "--verify", baseBranch); err != nil {
+	if _, err := git.RevParse("--verify", baseBranch); err != nil {
 		return false, nil
 	}
 
-	mergeBase, err := git.MergeBase(ctx, "HEAD", baseBranch)
+	mergeBase, err := git.MergeBase("HEAD", baseBranch)
 	if err != nil {
 		return false, err
 	}
 
-	baseCommit, err := git.RevParse(ctx, baseBranch)
+	baseCommit, err := git.RevParse(baseBranch)
 	if err != nil {
 		return false, err
 	}
@@ -201,9 +200,9 @@ func (w *WorkflowCmd) checkIfMergeNeeded(ctx *context.Context) (bool, error) {
 
 func (w *WorkflowCmd) mergeBaseBranch(ctx *context.Context) error {
 	baseBranch := ctx.BaseBranch()
-	if err := git.Merge(ctx, baseBranch); err != nil {
+	if err := git.Merge(baseBranch); err != nil {
 		logger.Info("Merge had conflicts - resolving with AI...")
-		_ = git.AbortMerge(ctx)
+		_ = git.AbortMerge()
 
 		return w.resolveConflictsWithAI(ctx)
 	}
@@ -252,10 +251,10 @@ Focus on accepting the correct changes from both branches. If there are test fai
 
 	_ = project.Execute(ctx, w.cleanupRegistrar)
 
-	if git.HasStagedChanges(ctx) {
+	if git.HasStagedChanges() {
 		logger.Info("AI did not commit the merge - committing now...")
-		_ = git.StageAll(ctx)
-		_ = git.Commit(ctx, fmt.Sprintf("Merge %s into %s", baseBranch, ctx.Branch()))
+		_ = git.StageAll()
+		_ = git.Commit(fmt.Sprintf("Merge %s into %s", baseBranch, ctx.Branch()))
 	}
 
 	return nil
@@ -296,4 +295,3 @@ func (w *WorkflowCmd) displayStats() {
 	cmd.Stderr = os.Stderr
 	cmd.Run()
 }
-
