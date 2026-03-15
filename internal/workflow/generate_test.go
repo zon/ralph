@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
+	githubpkg "github.com/zon/ralph/internal/github"
 	"gopkg.in/yaml.v3"
 )
 
@@ -342,7 +342,9 @@ requirements:
 	cloneBranch := "main"
 	prBranch := "ralph/test-project"
 
-	mw, err := GenerateMergeWorkflowWithGitInfo(repoURL, cloneBranch, prBranch, "")
+	mw, err := GenerateMergeWorkflowWithGitInfo(repoURL, cloneBranch, prBranch, "", WorkflowOptions{
+		Image: MakeImage("my-registry/ralph", "v2.0.0"),
+	})
 	require.NoError(t, err, "GenerateMergeWorkflowWithGitInfo failed")
 	workflowYAML, err := mw.Render()
 	require.NoError(t, err, "Render failed")
@@ -455,7 +457,7 @@ requirements:
 
 	t.Chdir(tmpDir)
 
-	mw, err := GenerateMergeWorkflowWithGitInfo("git@github.com:test/repo.git", "main", "ralph/test", "")
+	mw, err := GenerateMergeWorkflowWithGitInfo("git@github.com:test/repo.git", "main", "ralph/test", "", WorkflowOptions{})
 	require.NoError(t, err, "GenerateMergeWorkflowWithGitInfo failed")
 	workflowYAML, err := mw.Render()
 	require.NoError(t, err, "Render failed")
@@ -473,11 +475,11 @@ requirements:
 }
 
 func TestSubmitWorkflow_ArgoNotInstalled(t *testing.T) {
-	wf := &Workflow{RalphConfig: &config.RalphConfig{}}
+	wf := &Workflow{}
 
 	t.Setenv("PATH", "")
 
-	_, err := wf.Submit("test-namespace")
+	_, err := wf.Submit()
 	require.Error(t, err, "Expected error when argo CLI is not installed")
 	assert.True(t, strings.Contains(err.Error(), "argo CLI not found"), "Error message should mention argo CLI not found, got: %v", err)
 }
@@ -539,15 +541,12 @@ func TestWorkflowRender_CommentScriptBranching(t *testing.T) {
 
 	wf := &Workflow{
 		ProjectName:   "test-project",
-		RepoURL:       "https://github.com/owner/repo.git",
-		RepoOwner:     "owner",
-		RepoName:      "repo",
+		Repo:          githubpkg.MakeRepo("owner", "repo"),
 		CloneBranch:   "main",
 		ProjectBranch: "feature-branch",
 		ProjectPath:   "project.yaml",
 		CommentBody:   commentBody,
 		PRNumber:      prNumber,
-		RalphConfig:   &config.RalphConfig{},
 	}
 
 	workflowYAML, err := wf.Render()
@@ -583,15 +582,12 @@ func TestWorkflowRender_RunScriptBranching(t *testing.T) {
 
 	wf := &Workflow{
 		ProjectName:   "test-project",
-		RepoURL:       "https://github.com/owner/repo.git",
-		RepoOwner:     "owner",
-		RepoName:      "repo",
+		Repo:          githubpkg.MakeRepo("owner", "repo"),
 		CloneBranch:   "main",
 		ProjectBranch: "feature-branch",
 		ProjectPath:   "project.yaml",
 		CommentBody:   "",
 		PRNumber:      "",
-		RalphConfig:   &config.RalphConfig{},
 	}
 
 	workflowYAML, err := wf.Render()
@@ -626,14 +622,11 @@ func TestWorkflowRender_DebugBranch(t *testing.T) {
 	debugBranch := "feat/debug-mode"
 	wf := &Workflow{
 		ProjectName:   "test-project",
-		RepoURL:       "https://github.com/owner/repo.git",
-		RepoOwner:     "owner",
-		RepoName:      "repo",
+		Repo:          githubpkg.MakeRepo("owner", "repo"),
 		CloneBranch:   "main",
 		ProjectBranch: "feature-branch",
 		ProjectPath:   "project.yaml",
 		DebugBranch:   debugBranch,
-		RalphConfig:   &config.RalphConfig{},
 	}
 
 	workflowYAML, err := wf.Render()
@@ -683,13 +676,10 @@ func TestMergeWorkflowRender_EnvVarCoverage(t *testing.T) {
 	prNumber := "456"
 
 	mw := &MergeWorkflow{
-		RepoURL:     "https://github.com/test-owner/test-repo.git",
-		RepoOwner:   repoOwner,
-		RepoName:    repoName,
+		Repo:        githubpkg.MakeRepo(repoOwner, repoName),
 		CloneBranch: "main",
 		PRBranch:    "feature-branch",
 		PRNumber:    prNumber,
-		RalphConfig: &config.RalphConfig{},
 	}
 
 	workflowYAML, err := mw.Render()
@@ -737,12 +727,9 @@ func TestMergeWorkflowRender_GitHubCredentialsVolumeMount(t *testing.T) {
 	}
 
 	mw := &MergeWorkflow{
-		RepoURL:     "https://github.com/test-owner/test-repo.git",
-		RepoOwner:   "test-owner",
-		RepoName:    "test-repo",
+		Repo:        githubpkg.MakeRepo("test-owner", "test-repo"),
 		CloneBranch: "main",
 		PRBranch:    "feature-branch",
-		RalphConfig: &config.RalphConfig{},
 	}
 
 	workflowYAML, err := mw.Render()

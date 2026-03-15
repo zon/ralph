@@ -71,8 +71,8 @@ func TestToWorkflow_CommentEvent_ReturnsRunWorkflow(t *testing.T) {
 	assert.Nil(t, result.Merge)
 	assert.Equal(t, "please add a test", result.Run.CommentBody)
 	assert.Equal(t, "5", result.Run.PRNumber)
-	assert.Equal(t, "acme", result.Run.RepoOwner)
-	assert.Equal(t, "myrepo", result.Run.RepoName)
+	assert.Equal(t, "acme", result.Run.Repo.Owner)
+	assert.Equal(t, "myrepo", result.Run.Repo.Name)
 	assert.Equal(t, "ralph/my-feature", result.Run.CloneBranch)
 }
 
@@ -92,8 +92,8 @@ func TestToWorkflow_ApprovalEvent_ReturnsMergeWorkflow(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, result.Merge)
 	assert.Nil(t, result.Run)
-	assert.Equal(t, "acme", result.Merge.RepoOwner)
-	assert.Equal(t, "myrepo", result.Merge.RepoName)
+	assert.Equal(t, "acme", result.Merge.Repo.Owner)
+	assert.Equal(t, "myrepo", result.Merge.Repo.Name)
 	assert.Equal(t, "ralph/my-feature", result.Merge.PRBranch)
 	assert.Equal(t, "99", result.Merge.PRNumber)
 }

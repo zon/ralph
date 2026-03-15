@@ -23,6 +23,16 @@ func TestCreatePR(t *testing.T) {
 	_, _ = CreatePR(ctx, "Test PR", "Test body", "main", "feature-branch")
 }
 
+func TestMakeRepo(t *testing.T) {
+	repo := MakeRepo("zon", "ralph")
+	assert.Equal(t, "zon", repo.Owner)
+	assert.Equal(t, "ralph", repo.Name)
+}
+
+func TestCloneURL(t *testing.T) {
+	assert.Equal(t, "https://github.com/zon/ralph.git", CloneURL("zon", "ralph"))
+}
+
 func TestTruncate(t *testing.T) {
 	tests := []struct {
 		name   string

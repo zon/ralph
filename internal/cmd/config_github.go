@@ -35,20 +35,17 @@ func (c *ConfigGithubCmd) Run() error {
 
 	fmt.Println()
 
-	repoName, repoOwner, err := c.detectRepo(ctx)
+	repo, err := c.detectRepo(ctx)
 	if err != nil {
 		return err
 	}
-
-	_ = repoName
-	_ = repoOwner
 
 	privateKeyBytes, err := c.readAndValidatePrivateKey()
 	if err != nil {
 		return err
 	}
 
-	if err := c.validateCredentials(ctx, repoOwner, repoName, privateKeyBytes); err != nil {
+	if err := c.validateCredentials(ctx, repo.Owner, repo.Name, privateKeyBytes); err != nil {
 		return err
 	}
 
@@ -68,12 +65,12 @@ func (c *ConfigGithubCmd) printHeader() {
 	fmt.Println()
 }
 
-func (c *ConfigGithubCmd) detectRepo(ctx context.Context) (string, string, error) {
-	repoName, repoOwner, err := github.GetRepo(ctx)
+func (c *ConfigGithubCmd) detectRepo(ctx context.Context) (github.Repo, error) {
+	repo, err := github.GetRepo(ctx)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to detect GitHub repository: %w", err)
+		return github.Repo{}, fmt.Errorf("failed to detect GitHub repository: %w", err)
 	}
-	return repoName, repoOwner, nil
+	return repo, nil
 }
 
 func (c *ConfigGithubCmd) readAndValidatePrivateKey() ([]byte, error) {

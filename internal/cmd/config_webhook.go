@@ -212,23 +212,23 @@ func (c *ConfigWebhookConfigCmd) loadConfigUpdates() *webhookconfig.AppConfig {
 }
 
 func (c *ConfigWebhookConfigCmd) detectRepoAndNamespace(ctx context.Context) (string, string, string) {
-	repoName, repoOwner, err := github.GetRepo(ctx)
+	repo, err := github.GetRepo(ctx)
 	if err != nil {
 		logger.Warningf("Failed to detect GitHub repository: %v (skipping repo auto-detection)", err)
 		return "", "", ""
 	}
 
-	if repoOwner == "" || repoName == "" {
+	if repo.Owner == "" || repo.Name == "" {
 		return "", "", ""
 	}
 
 	ralphCfg, err := config.LoadConfig()
 	if err != nil {
 		logger.Warningf("Failed to load .ralph/config.yaml: %v (namespace will be empty)", err)
-		return repoName, repoOwner, ""
+		return repo.Name, repo.Owner, ""
 	}
 
-	return repoName, repoOwner, ralphCfg.Workflow.Namespace
+	return repo.Name, repo.Owner, ralphCfg.Workflow.Namespace
 }
 
 func (c *ConfigWebhookConfigCmd) writeConfigMap(ctx context.Context, kubeContext, namespace string, appCfg webhookconfig.AppConfig) error {

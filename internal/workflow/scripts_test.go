@@ -43,10 +43,7 @@ func TestBuildDebugScript(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg := &config.RalphConfig{
-				Workflow: config.WorkflowConfig{},
-			}
-			script := buildDebugScript(tt.verbose, tt.noServices, "main", cfg)
+			script := buildDebugScript(tt.verbose, tt.noServices, "main")
 
 			expectedElements := []string{
 				"#!/bin/sh",
@@ -64,10 +61,7 @@ func TestBuildDebugScript(t *testing.T) {
 }
 
 func TestBuildDebugScript_DebugBranch(t *testing.T) {
-	cfg := &config.RalphConfig{
-		Workflow: config.WorkflowConfig{},
-	}
-	script := buildDebugScript(false, false, "my-debug-branch", cfg)
+	script := buildDebugScript(false, false, "my-debug-branch")
 
 	expectedElements := []string{
 		"git clone -b \"my-debug-branch\" https://github.com/zon/ralph.git /workspace/ralph",
@@ -174,20 +168,16 @@ func TestBuildMergeScript(t *testing.T) {
 }
 
 func TestBuildVolumeMounts_WorkspacePrefix(t *testing.T) {
-	cfg := &config.RalphConfig{
-		Workflow: config.WorkflowConfig{
-			ConfigMaps: []config.ConfigMapMount{
-				{Name: "my-config", DestFile: "config/main.yaml"},
-				{Name: "my-config-dir", DestDir: "config/extra"},
-			},
-			Secrets: []config.SecretMount{
-				{Name: "my-secret", DestFile: "config/secrets.yaml"},
-				{Name: "my-secret-dir", DestDir: "config/auth"},
-			},
-		},
+	configMaps := []config.ConfigMapMount{
+		{Name: "my-config", DestFile: "config/main.yaml"},
+		{Name: "my-config-dir", DestDir: "config/extra"},
+	}
+	secrets := []config.SecretMount{
+		{Name: "my-secret", DestFile: "config/secrets.yaml"},
+		{Name: "my-secret-dir", DestDir: "config/auth"},
 	}
 
-	mounts := buildVolumeMounts(cfg)
+	mounts := buildVolumeMounts(configMaps, secrets)
 
 	expected := map[string]string{
 		"my-config-0":   "/workspace/config/main.yaml",

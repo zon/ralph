@@ -44,7 +44,7 @@ func (m *MergeCmd) Run() error {
 	}
 
 	// Submit the workflow (does not wait for completion)
-	workflowName, err := mw.Submit(mw.RalphConfig.Workflow.Namespace)
+	workflowName, err := mw.Submit()
 	if err != nil {
 		return fmt.Errorf("failed to submit merge workflow: %w", err)
 	}

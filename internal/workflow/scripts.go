@@ -77,7 +77,7 @@ func buildParameters(params map[string]string) []map[string]interface{} {
 }
 
 // buildDebugScript returns the rendered debug.sh script for a debug development workflow.
-func buildDebugScript(verbose bool, noServices bool, debugBranch string, _ *config.RalphConfig) string {
+func buildDebugScript(verbose bool, noServices bool, debugBranch string) string {
 	return renderScript(debugScript, newScriptData(verbose, noServices, debugBranch))
 }
 
@@ -197,28 +197,28 @@ func buildCredentialMounts() []map[string]interface{} {
 	}
 }
 
-func buildVolumeMounts(cfg *config.RalphConfig) []map[string]interface{} {
+func buildVolumeMounts(configMaps []config.ConfigMapMount, secrets []config.SecretMount) []map[string]interface{} {
 	mounts := buildCredentialMounts()
 
-	for i, cm := range cfg.Workflow.ConfigMaps {
+	for i, cm := range configMaps {
 		mounts = append(mounts, buildConfigMapVolumeMount(cm.Name, cm.DestFile, cm.DestDir, i))
 	}
 
-	for i, secret := range cfg.Workflow.Secrets {
+	for i, secret := range secrets {
 		mounts = append(mounts, buildSecretVolumeMount(secret.Name, secret.DestFile, secret.DestDir, i))
 	}
 
 	return mounts
 }
 
-func buildVolumes(cfg *config.RalphConfig) []map[string]interface{} {
+func buildVolumes(configMaps []config.ConfigMapMount, secrets []config.SecretMount) []map[string]interface{} {
 	volumes := buildCredentialVolumes()
 
-	for i, cm := range cfg.Workflow.ConfigMaps {
+	for i, cm := range configMaps {
 		volumes = append(volumes, buildConfigMapVolume(cm.Name, cm.DestFile, i))
 	}
 
-	for i, secret := range cfg.Workflow.Secrets {
+	for i, secret := range secrets {
 		volumes = append(volumes, buildSecretVolume(secret.Name, secret.DestFile, i))
 	}
 
