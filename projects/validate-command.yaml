@@ -22,5 +22,5 @@ requirements:
   - category: version
     description: Version bump
     items:
-      - Apply a semver patch bump to internal/version/VERSION and charts/ralph-webhook/Chart.yaml
+      - Apply a semver minor bump to internal/version/VERSION (5.0.3 → 5.1.0) and a patch bump to charts/ralph-webhook/Chart.yaml version (1.0.7 → 1.0.8), also updating appVersion to 5.1.0
     passing: false
