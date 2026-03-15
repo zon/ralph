@@ -412,6 +412,12 @@ func TestGhMergeDirectFunction(t *testing.T) {
 			autoErr:   "GraphQL: Pull request Pull request is in clean status (enablePullRequestAutoMerge)",
 			wantErr:   false, // immediate merge would also be mocked; tested via ghMerger injection
 		},
+		{
+			name:      "protected branch rules not configured leads to immediate merge attempt",
+			autoFails: true,
+			autoErr:   "GraphQL: Pull request Protected branch rules not configured for this branch (enablePullRequestAutoMerge)",
+			wantErr:   false, // immediate merge would also be mocked; tested via ghMerger injection
+		},
 	}
 
 	for _, tt := range tests {

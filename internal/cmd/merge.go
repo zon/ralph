@@ -140,9 +140,10 @@ func ghMerge(pr, repo string) error {
 	autoCmd.Stderr = &autoOut
 	if err := autoCmd.Run(); err != nil {
 		// GitHub rejects enablePullRequestAutoMerge when the PR is already in a "clean"
-		// state (all checks passed, ready to merge). In that case, merge immediately
-		// without --auto instead.
-		if strings.Contains(autoOut.String(), "clean status") {
+		// state (all checks passed, ready to merge), or when branch protection rules don't
+		// have auto-merge configured. In either case, merge immediately without --auto.
+		autoErrStr := autoOut.String()
+		if strings.Contains(autoErrStr, "clean status") || strings.Contains(autoErrStr, "Protected branch rules not configured") {
 			logger.Verbosef("PR #%s is already mergeable, merging immediately", pr)
 			immediateArgs := []string{"pr", "merge", pr, "--merge", "--delete-branch"}
 			if repo != "" {
