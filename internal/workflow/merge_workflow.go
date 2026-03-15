@@ -64,17 +64,12 @@ func (m *MergeWorkflow) Render() (string, error) {
 }
 
 // Submit renders and submits this MergeWorkflow to Argo, returning the workflow name.
-// namespace is required and determines the Kubernetes namespace for the workflow.
-func (m *MergeWorkflow) Submit(namespace string) (string, error) {
+func (m *MergeWorkflow) Submit() (string, error) {
 	workflowYAML, err := m.Render()
 	if err != nil {
 		return "", err
 	}
-	// Use the namespace parameter if provided, otherwise use the Workflow's Namespace field
-	if namespace == "" {
-		namespace = m.Namespace
-	}
-	return submitYAML(workflowYAML, m.KubeContext, namespace)
+	return submitYAML(workflowYAML, m.KubeContext, m.Namespace)
 }
 
 func (m *MergeWorkflow) buildMergeTemplate() map[string]interface{} {

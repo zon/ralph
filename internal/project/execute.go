@@ -264,7 +264,7 @@ func executeRemote(ctx *context.Context, absProjectFile string) error {
 		logger.Verbosef("Generated workflow YAML:\n%s", workflowYAML)
 	}
 
-	workflowName, err := wf.Submit(wf.Namespace)
+	workflowName, err := wf.Submit()
 	if err != nil {
 		return fmt.Errorf("failed to submit workflow: %w", err)
 	}

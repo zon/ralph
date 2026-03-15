@@ -104,17 +104,12 @@ func (w *Workflow) Render() (string, error) {
 }
 
 // Submit renders and submits this Workflow to Argo, returning the workflow name.
-// namespace is required and determines the Kubernetes namespace for the workflow.
-func (w *Workflow) Submit(namespace string) (string, error) {
+func (w *Workflow) Submit() (string, error) {
 	workflowYAML, err := w.Render()
 	if err != nil {
 		return "", err
 	}
-	// Use the namespace parameter if provided, otherwise use the Workflow's Namespace field
-	if namespace == "" {
-		namespace = w.Namespace
-	}
-	return submitYAML(workflowYAML, w.KubeContext, namespace)
+	return submitYAML(workflowYAML, w.KubeContext, w.Namespace)
 }
 
 // getEffectiveBaseBranch returns the effective base branch for the workflow parameter.

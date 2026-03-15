@@ -479,7 +479,7 @@ func TestSubmitWorkflow_ArgoNotInstalled(t *testing.T) {
 
 	t.Setenv("PATH", "")
 
-	_, err := wf.Submit("test-namespace")
+	_, err := wf.Submit()
 	require.Error(t, err, "Expected error when argo CLI is not installed")
 	assert.True(t, strings.Contains(err.Error(), "argo CLI not found"), "Error message should mention argo CLI not found, got: %v", err)
 }
