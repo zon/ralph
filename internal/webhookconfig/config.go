@@ -27,6 +27,9 @@ type AppConfig struct {
 	CommentInstructions     string       `yaml:"-"`                       // Loaded from CommentInstructionsFile; falls back to the embedded default
 	MergeInstructionsFile   string       `yaml:"mergeInstructionsFile"`   // Path to a markdown file overriding the default merge instructions
 	MergeInstructions       string       `yaml:"-"`                       // Loaded from MergeInstructionsFile; falls back to the embedded default
+	ImageRepository         string       `yaml:"imageRepository"`         // Container image repository for workflow
+	ImageTag                string       `yaml:"imageTag"`                // Container image tag for workflow
+	WorkflowContext         string       `yaml:"workflowContext"`         // Argo workflow context label
 }
 
 // RepoSecret holds the webhook secret for a single repository
@@ -66,7 +69,7 @@ func LoadAppConfig(path string) (*AppConfig, error) {
 		}
 		cfg.CommentInstructions = string(instrData)
 	} else {
-		cfg.CommentInstructions = (&config.RalphConfig{}).DefaultCommentInstructions()
+		cfg.CommentInstructions = config.DefaultCommentInstructions()
 	}
 
 	if cfg.MergeInstructionsFile != "" {
@@ -76,7 +79,7 @@ func LoadAppConfig(path string) (*AppConfig, error) {
 		}
 		cfg.MergeInstructions = string(instrData)
 	} else {
-		cfg.MergeInstructions = (&config.RalphConfig{}).DefaultMergeInstructions()
+		cfg.MergeInstructions = config.DefaultMergeInstructions()
 	}
 
 	return &cfg, nil

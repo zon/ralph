@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/webhookconfig"
 	"github.com/zon/ralph/internal/workflow"
 )
@@ -42,15 +43,20 @@ type WorkflowResult struct {
 // Approval events produce a MergeWorkflow that calls `ralph merge --local`.
 func (e Event) ToWorkflow(cfg *webhookconfig.Config) (*WorkflowResult, error) {
 	projectFile := projectFileFromBranch(e.PRBranch)
-	repoURL := "https://github.com/" + e.RepoOwner + "/" + e.RepoName + ".git"
+	repoURL := github.CloneURL(e.RepoOwner, e.RepoName)
 
 	namespace := ""
 	if repo := cfg.RepoByFullName(e.RepoOwner, e.RepoName); repo != nil {
 		namespace = repo.Namespace
 	}
 
+	workflowOpts := workflow.WorkflowOptions{
+		Image:           workflow.MakeImage(cfg.App.ImageRepository, cfg.App.ImageTag),
+		KubeContext: cfg.App.WorkflowContext,
+	}
+
 	if e.Approved {
-		mw, err := workflow.GenerateMergeWorkflowWithGitInfo(repoURL, e.PRBranch, e.PRBranch, e.PRNumber)
+		mw, err := workflow.GenerateMergeWorkflowWithGitInfo(repoURL, e.PRBranch, e.PRBranch, e.PRNumber, workflowOpts)
 		if err != nil {
 			return nil, err
 		}
@@ -60,7 +66,7 @@ func (e Event) ToWorkflow(cfg *webhookconfig.Config) (*WorkflowResult, error) {
 	projectName := strings.TrimSuffix(filepath.Base(projectFile), filepath.Ext(projectFile))
 	wf, err := workflow.GenerateCommentWorkflowWithGitInfo(
 		projectName, repoURL, e.PRBranch, e.PRBranch, projectFile,
-		e.Body, e.PRNumber,
+		e.Body, e.PRNumber, workflowOpts,
 	)
 	if err != nil {
 		return nil, err

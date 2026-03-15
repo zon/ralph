@@ -13,7 +13,7 @@ requirements:
       - submitYAML accepts (workflowYAML, workflowContext, namespace string) instead of *config.RalphConfig
       - All Workflow and MergeWorkflow methods (Render, Submit, buildMainTemplate, buildEnvVars, getEffectiveBaseBranch, buildScript) are updated to use the new flat fields
       - The workflow package no longer imports or references config.RalphConfig anywhere
-    passing: false
+    passing: true
 
   - category: generate
     description: Add WorkflowOptions; keep config.LoadConfig() in the ralph-app path only
@@ -23,7 +23,7 @@ requirements:
       - GenerateCommentWorkflowWithGitInfo accepts a WorkflowOptions parameter instead of calling config.LoadConfig() internally
       - GenerateMergeWorkflowWithGitInfo accepts a WorkflowOptions parameter instead of calling config.LoadConfig() internally
       - config.LoadConfig() is never called from the webhook path
-    passing: false
+    passing: true
 
   - category: webhook-config
     description: Give the webhook its own workflow configuration; remove all RalphConfig usage
@@ -33,14 +33,14 @@ requirements:
       - The default instructions strings (comment and merge) are exposed as package-level functions in the config package — DefaultCommentInstructions() string and DefaultMergeInstructions() string — separate from the RalphConfig methods
       - LoadAppConfig calls config.DefaultCommentInstructions() and config.DefaultMergeInstructions() instead of (&config.RalphConfig{}).DefaultCommentInstructions()
       - The webhookconfig package no longer references config.RalphConfig anywhere
-    passing: false
+    passing: true
 
   - category: webhook-events
     description: Wire webhook config into WorkflowOptions; no RalphConfig in webhook
     items:
       - Event.ToWorkflow in webhook/events.go builds a workflow.WorkflowOptions using cfg.App.ImageRepository, cfg.App.ImageTag, and cfg.App.WorkflowContext, then passes it to GenerateCommentWorkflowWithGitInfo and GenerateMergeWorkflowWithGitInfo
       - The webhook package does not reference config.RalphConfig anywhere
-    passing: false
+    passing: true
 
   - category: testing
     description: Update tests to use the new struct shape; no RalphConfig in webhook or workflow tests
@@ -49,10 +49,10 @@ requirements:
       - No test in the workflow or webhook packages references config.RalphConfig
       - TestGenerateMergeWorkflow and TestGenerateMergeWorkflow_DefaultImage pass a WorkflowOptions to GenerateMergeWorkflowWithGitInfo instead of relying on config.yaml being loaded
       - Tests for webhookconfig cover the new ImageRepository, ImageTag, and WorkflowContext fields
-    passing: false
+    passing: true
 
   - category: version
     description: Version bump
     items:
       - Apply a semver minor bump to internal/version/VERSION and a patch bump to charts/ralph-webhook/Chart.yaml version, updating appVersion to match
-    passing: false
+    passing: true

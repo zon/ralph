@@ -125,7 +125,7 @@ func (s *Server) readAndParsePayload(c *gin.Context) (*githubPayload, []byte, er
 // submitWorkflow submits a WorkflowResult asynchronously.
 func submitWorkflow(result *WorkflowResult, owner, repoName string) {
 	if result.Run != nil {
-		name, err := result.Run.Submit(result.Namespace)
+		name, err := result.Run.Submit()
 		if err != nil {
 			logger.Verbosef("failed to submit run workflow for %s/%s: %v", owner, repoName, err)
 			return
@@ -133,7 +133,7 @@ func submitWorkflow(result *WorkflowResult, owner, repoName string) {
 		logger.Verbosef("submitted run workflow %s for %s/%s", name, owner, repoName)
 		logger.Verbosef("To watch logs, run: argo logs -n %s -f %s", result.Namespace, name)
 	} else if result.Merge != nil {
-		name, err := result.Merge.Submit(result.Namespace)
+		name, err := result.Merge.Submit()
 		if err != nil {
 			logger.Verbosef("failed to submit merge workflow for %s/%s: %v", owner, repoName, err)
 			return

@@ -120,30 +120,29 @@ func DeleteSSHKey(ctx context.Context, keyID string) error {
 	return nil
 }
 
-// GetRepo extracts the repository name and owner from git remote origin.
-// Returns: repoName, repoOwner, error
-func GetRepo(ctx context.Context) (string, string, error) {
+// GetRepo extracts the repository owner and name from git remote origin.
+func GetRepo(ctx context.Context) (Repo, error) {
 	cmd := exec.CommandContext(ctx, "git", "config", "--get", "remote.origin.url")
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		return "", "", fmt.Errorf("failed to get remote.origin.url: %w (stderr: %s)", err, stderr.String())
+		return Repo{}, fmt.Errorf("failed to get remote.origin.url: %w (stderr: %s)", err, stderr.String())
 	}
 
 	return ParseGitHubRemoteURL(strings.TrimSpace(stdout.String()))
 }
 
-// ParseGitHubRemoteURL parses a GitHub remote URL and returns the repo name and owner.
+// ParseGitHubRemoteURL parses a GitHub remote URL and returns the repository.
 // Supported formats:
 //
 //	git@github.com:owner/repo.git
 //	https://github.com/owner/repo.git
 //	https://github.com/owner/repo
-func ParseGitHubRemoteURL(remoteURL string) (string, string, error) {
+func ParseGitHubRemoteURL(remoteURL string) (Repo, error) {
 	if remoteURL == "" {
-		return "", "", fmt.Errorf("remote.origin.url is empty")
+		return Repo{}, fmt.Errorf("remote.origin.url is empty")
 	}
 
 	var repoPath string
@@ -156,15 +155,15 @@ func ParseGitHubRemoteURL(remoteURL string) (string, string, error) {
 			repoPath = parts[1]
 		}
 	} else {
-		return "", "", fmt.Errorf("not a GitHub repository URL: %s", remoteURL)
+		return Repo{}, fmt.Errorf("not a GitHub repository URL: %s", remoteURL)
 	}
 
 	repoPath = strings.TrimSuffix(repoPath, ".git")
 
 	parts := strings.Split(repoPath, "/")
 	if len(parts) < 2 {
-		return "", "", fmt.Errorf("invalid repository path: %s", repoPath)
+		return Repo{}, fmt.Errorf("invalid repository path: %s", repoPath)
 	}
 
-	return parts[1], parts[0], nil
+	return MakeRepo(parts[0], parts[1]), nil
 }
