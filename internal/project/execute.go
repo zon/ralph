@@ -220,14 +220,6 @@ func SanitizeBranchName(name string) string {
 	return finalName
 }
 
-func ExtractBranchName(projectFile string) string {
-	basename := filepath.Base(projectFile)
-
-	name := strings.TrimSuffix(basename, filepath.Ext(basename))
-
-	return SanitizeBranchName(name)
-}
-
 func executeRemote(ctx *context.Context, absProjectFile string) error {
 	logger.Verbose("Submitting Argo Workflow...")
 
