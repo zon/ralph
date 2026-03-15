@@ -1,0 +1,17 @@
+name: remove-dead-code
+description: Remove dead code that is defined but never called in production
+
+requirements:
+  - category: cleanup
+    description: Remove unused functions
+    items:
+      - Delete `ExtractBranchName` in `internal/project/execute.go` and its test in `internal/project/execute_test.go`
+      - Delete `GenerateSSHKeyPair` in `internal/crypto/ssh.go` and its test in `internal/crypto/ssh_test.go`
+      - Delete `WithWorkflowExecution` in `internal/testutil/testutil.go`
+    passing: false
+
+  - category: version
+    description: Version bump
+    items:
+      - Apply a semver patch bump to `internal/version/VERSION` and `charts/ralph-webhook/Chart.yaml`
+    passing: false
