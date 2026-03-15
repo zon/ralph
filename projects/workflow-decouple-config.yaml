@@ -1,0 +1,58 @@
+name: workflow-decouple-config
+description: RalphConfig is ralph-app only; decouple workflow structs and webhook from it
+
+requirements:
+  - category: workflow
+    description: Replace RalphConfig field with explicit render properties
+    items:
+      - Workflow struct replaces RalphConfig *config.RalphConfig with the flat fields it needs to render — ImageRepository string, ImageTag string, ConfigMaps []config.ConfigMapMount, Secrets []config.SecretMount, Env map[string]string, DefaultBranch string, WorkflowContext string
+      - MergeWorkflow struct replaces RalphConfig *config.RalphConfig with ImageRepository string, ImageTag string, WorkflowContext string
+      - resolveImage accepts (imageRepository, imageTag string) instead of *config.RalphConfig
+      - buildVolumeMounts and buildVolumes accept (configMaps []config.ConfigMapMount, secrets []config.SecretMount) instead of *config.RalphConfig
+      - buildDebugScript drops its unused *config.RalphConfig parameter
+      - submitYAML accepts (workflowYAML, workflowContext, namespace string) instead of *config.RalphConfig
+      - All Workflow and MergeWorkflow methods (Render, Submit, buildMainTemplate, buildEnvVars, getEffectiveBaseBranch, buildScript) are updated to use the new flat fields
+      - The workflow package no longer imports or references config.RalphConfig anywhere
+    passing: false
+
+  - category: generate
+    description: Add WorkflowOptions; keep config.LoadConfig() in the ralph-app path only
+    items:
+      - A WorkflowOptions struct is defined in the workflow package with fields ImageRepository string, ImageTag string, ConfigMaps []config.ConfigMapMount, Secrets []config.SecretMount, Env map[string]string, DefaultBranch string, WorkflowContext string
+      - GenerateWorkflowWithGitInfo (called by the ralph app) still calls config.LoadConfig() and maps the result into WorkflowOptions to populate the new Workflow fields
+      - GenerateCommentWorkflowWithGitInfo accepts a WorkflowOptions parameter instead of calling config.LoadConfig() internally
+      - GenerateMergeWorkflowWithGitInfo accepts a WorkflowOptions parameter instead of calling config.LoadConfig() internally
+      - config.LoadConfig() is never called from the webhook path
+    passing: false
+
+  - category: webhook-config
+    description: Give the webhook its own workflow configuration; remove all RalphConfig usage
+    items:
+      - AppConfig in webhookconfig gains ImageRepository string, ImageTag string, and WorkflowContext string fields with their yaml tags
+      - LoadAppConfig reads these fields from the YAML file
+      - The default instructions strings (comment and merge) are exposed as package-level functions in the config package — DefaultCommentInstructions() string and DefaultMergeInstructions() string — separate from the RalphConfig methods
+      - LoadAppConfig calls config.DefaultCommentInstructions() and config.DefaultMergeInstructions() instead of (&config.RalphConfig{}).DefaultCommentInstructions()
+      - The webhookconfig package no longer references config.RalphConfig anywhere
+    passing: false
+
+  - category: webhook-events
+    description: Wire webhook config into WorkflowOptions; no RalphConfig in webhook
+    items:
+      - Event.ToWorkflow in webhook/events.go builds a workflow.WorkflowOptions using cfg.App.ImageRepository, cfg.App.ImageTag, and cfg.App.WorkflowContext, then passes it to GenerateCommentWorkflowWithGitInfo and GenerateMergeWorkflowWithGitInfo
+      - The webhook package does not reference config.RalphConfig anywhere
+    passing: false
+
+  - category: testing
+    description: Update tests to use the new struct shape; no RalphConfig in webhook or workflow tests
+    items:
+      - All tests that construct Workflow or MergeWorkflow with a RalphConfig field switch to setting the new flat fields directly (ImageRepository, ImageTag, etc.)
+      - No test in the workflow or webhook packages references config.RalphConfig
+      - TestGenerateMergeWorkflow and TestGenerateMergeWorkflow_DefaultImage pass a WorkflowOptions to GenerateMergeWorkflowWithGitInfo instead of relying on config.yaml being loaded
+      - Tests for webhookconfig cover the new ImageRepository, ImageTag, and WorkflowContext fields
+    passing: false
+
+  - category: version
+    description: Version bump
+    items:
+      - Apply a semver minor bump to internal/version/VERSION and a patch bump to charts/ralph-webhook/Chart.yaml version, updating appVersion to match
+    passing: false
