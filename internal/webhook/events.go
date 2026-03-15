@@ -49,8 +49,14 @@ func (e Event) ToWorkflow(cfg *webhookconfig.Config) (*WorkflowResult, error) {
 		namespace = repo.Namespace
 	}
 
+	workflowOpts := workflow.WorkflowOptions{
+		ImageRepository: cfg.App.ImageRepository,
+		ImageTag:        cfg.App.ImageTag,
+		WorkflowContext: cfg.App.WorkflowContext,
+	}
+
 	if e.Approved {
-		mw, err := workflow.GenerateMergeWorkflowWithGitInfo(repoURL, e.PRBranch, e.PRBranch, e.PRNumber)
+		mw, err := workflow.GenerateMergeWorkflowWithGitInfo(repoURL, e.PRBranch, e.PRBranch, e.PRNumber, workflowOpts)
 		if err != nil {
 			return nil, err
 		}
@@ -60,7 +66,7 @@ func (e Event) ToWorkflow(cfg *webhookconfig.Config) (*WorkflowResult, error) {
 	projectName := strings.TrimSuffix(filepath.Base(projectFile), filepath.Ext(projectFile))
 	wf, err := workflow.GenerateCommentWorkflowWithGitInfo(
 		projectName, repoURL, e.PRBranch, e.PRBranch, projectFile,
-		e.Body, e.PRNumber,
+		e.Body, e.PRNumber, workflowOpts,
 	)
 	if err != nil {
 		return nil, err

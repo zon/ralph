@@ -3,7 +3,6 @@ package workflow
 import (
 	"fmt"
 
-	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/k8s"
 	"gopkg.in/yaml.v3"
 )
@@ -22,8 +21,14 @@ type MergeWorkflow struct {
 	PRBranch string
 	// PRNumber is the pull request number, passed to ralph merge --local.
 	PRNumber string
-	// RalphConfig supplies workflow-level configuration.
-	RalphConfig *config.RalphConfig
+	// ImageRepository is the container image repository.
+	ImageRepository string
+	// ImageTag is the container image tag.
+	ImageTag string
+	// WorkflowContext is the Argo workflow context label.
+	WorkflowContext string
+	// Namespace is the Kubernetes namespace for workflow submission.
+	Namespace string
 }
 
 // Render produces the Argo Workflow YAML string for this MergeWorkflow.
@@ -70,14 +75,18 @@ func (m *MergeWorkflow) Submit(namespace string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return submitYAML(workflowYAML, m.RalphConfig, namespace)
+	// Use the namespace parameter if provided, otherwise use the Workflow's Namespace field
+	if namespace == "" {
+		namespace = m.Namespace
+	}
+	return submitYAML(workflowYAML, m.WorkflowContext, namespace)
 }
 
 func (m *MergeWorkflow) buildMergeTemplate() map[string]interface{} {
 	return map[string]interface{}{
 		"name": "ralph-merger",
 		"container": map[string]interface{}{
-			"image":   resolveImage(m.RalphConfig),
+			"image":   resolveImage(m.ImageRepository, m.ImageTag),
 			"command": []string{"/bin/sh", "-c"},
 			"args":    []string{buildMergeScript()},
 			"env": []map[string]interface{}{

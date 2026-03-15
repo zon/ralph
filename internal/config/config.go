@@ -119,10 +119,18 @@ type RalphConfig struct {
 }
 
 func (c *RalphConfig) DefaultCommentInstructions() string {
-	return defaultCommentInstructions
+	return DefaultCommentInstructions()
 }
 
 func (c *RalphConfig) DefaultMergeInstructions() string {
+	return DefaultMergeInstructions()
+}
+
+func DefaultCommentInstructions() string {
+	return defaultCommentInstructions
+}
+
+func DefaultMergeInstructions() string {
 	return defaultMergeInstructions
 }
 

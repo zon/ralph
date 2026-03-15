@@ -36,9 +36,23 @@ type Workflow struct {
 	// DebugBranch, when non-empty, causes the workflow to checkout that branch of the ralph repo
 	// into /workspace/ralph and invoke ralph via `go run` instead of the built binary.
 	DebugBranch string
-	// RalphConfig supplies workflow-level configuration (image overrides, secrets, configmaps, env).
-	RalphConfig *config.RalphConfig
-	// BaseBranch overrides the base branch for PR creation (overrides RalphConfig.DefaultBranch when set).
+	// ImageRepository is the container image repository.
+	ImageRepository string
+	// ImageTag is the container image tag.
+	ImageTag string
+	// ConfigMaps are the ConfigMaps to mount into the container.
+	ConfigMaps []config.ConfigMapMount
+	// Secrets are the Secrets to mount into the container.
+	Secrets []config.SecretMount
+	// Env is the environment variables to set in the container.
+	Env map[string]string
+	// DefaultBranch is the default branch for PR creation.
+	DefaultBranch string
+	// WorkflowContext is the Argo workflow context label.
+	WorkflowContext string
+	// Namespace is the Kubernetes namespace for workflow submission.
+	Namespace string
+	// BaseBranch overrides the default branch for PR creation (overrides DefaultBranch when set).
 	BaseBranch string
 	// NoServices controls whether the ralph command inside the container runs with --no-services.
 	NoServices bool
@@ -101,7 +115,11 @@ func (w *Workflow) Submit(namespace string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return submitYAML(workflowYAML, w.RalphConfig, namespace)
+	// Use the namespace parameter if provided, otherwise use the Workflow's Namespace field
+	if namespace == "" {
+		namespace = w.Namespace
+	}
+	return submitYAML(workflowYAML, w.WorkflowContext, namespace)
 }
 
 // getEffectiveBaseBranch returns the effective base branch for the workflow parameter.
@@ -109,7 +127,7 @@ func (w *Workflow) getEffectiveBaseBranch() string {
 	if w.BaseBranch != "" {
 		return w.BaseBranch
 	}
-	return w.RalphConfig.DefaultBranch
+	return w.DefaultBranch
 }
 
 // buildScript returns the appropriate shell script for this workflow type.
@@ -117,7 +135,7 @@ func (w *Workflow) buildScript() string {
 	if w.CommentBody != "" {
 		return buildCommentScript(w.Verbose, w.NoServices)
 	}
-	return buildDebugScript(w.Verbose, w.NoServices, w.DebugBranch, w.RalphConfig)
+	return buildDebugScript(w.Verbose, w.NoServices, w.DebugBranch)
 }
 
 func (w *Workflow) buildMainTemplate() map[string]interface{} {
@@ -147,14 +165,14 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 	return map[string]interface{}{
 		"name": "ralph-executor",
 		"container": map[string]interface{}{
-			"image":        resolveImage(w.RalphConfig),
+			"image":        resolveImage(w.ImageRepository, w.ImageTag),
 			"command":      command,
 			"args":         args,
 			"env":          w.buildEnvVars(),
-			"volumeMounts": buildVolumeMounts(w.RalphConfig),
+			"volumeMounts": buildVolumeMounts(w.ConfigMaps, w.Secrets),
 			"workingDir":   "/workspace",
 		},
-		"volumes": buildVolumes(w.RalphConfig),
+		"volumes": buildVolumes(w.ConfigMaps, w.Secrets),
 	}
 }
 
@@ -178,8 +196,8 @@ func (w *Workflow) buildEnvVars() []map[string]interface{} {
 	}
 
 	hasPulumiToken := false
-	if w.RalphConfig.Workflow.Env != nil {
-		_, hasPulumiToken = w.RalphConfig.Workflow.Env["PULUMI_ACCESS_TOKEN"]
+	if w.Env != nil {
+		_, hasPulumiToken = w.Env["PULUMI_ACCESS_TOKEN"]
 	}
 
 	if !hasPulumiToken {
@@ -195,7 +213,7 @@ func (w *Workflow) buildEnvVars() []map[string]interface{} {
 		})
 	}
 
-	for key, value := range w.RalphConfig.Workflow.Env {
+	for key, value := range w.Env {
 		envVars = append(envVars, map[string]interface{}{
 			"name":  key,
 			"value": value,

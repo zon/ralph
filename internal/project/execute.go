@@ -264,7 +264,7 @@ func executeRemote(ctx *context.Context, absProjectFile string) error {
 		logger.Verbosef("Generated workflow YAML:\n%s", workflowYAML)
 	}
 
-	workflowName, err := wf.Submit(wf.RalphConfig.Workflow.Namespace)
+	workflowName, err := wf.Submit(wf.Namespace)
 	if err != nil {
 		return fmt.Errorf("failed to submit workflow: %w", err)
 	}
@@ -272,9 +272,9 @@ func executeRemote(ctx *context.Context, absProjectFile string) error {
 	logger.Successf("Workflow submitted: %s", workflowName)
 
 	if ctx.ShouldFollow() {
-		args := []string{"logs", "-n", wf.RalphConfig.Workflow.Namespace, "-f", workflowName}
-		if wf.RalphConfig.Workflow.Context != "" {
-			args = append(args, "--context", wf.RalphConfig.Workflow.Context)
+		args := []string{"logs", "-n", wf.Namespace, "-f", workflowName}
+		if wf.WorkflowContext != "" {
+			args = append(args, "--context", wf.WorkflowContext)
 		}
 		cmd := exec.Command("argo", args...)
 		cmd.Stdout = os.Stdout
@@ -285,7 +285,7 @@ func executeRemote(ctx *context.Context, absProjectFile string) error {
 		}
 		notify.Success(projectName, ctx.ShouldNotify())
 	} else {
-		logger.Infof("To follow logs, run: argo logs -n %s -f %s", wf.RalphConfig.Workflow.Namespace, workflowName)
+		logger.Infof("To follow logs, run: argo logs -n %s -f %s", wf.Namespace, workflowName)
 	}
 
 	return nil

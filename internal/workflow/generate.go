@@ -81,53 +81,73 @@ func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL,
 		return nil, fmt.Errorf("failed to parse repository from URL: %w", err)
 	}
 
+	workflowOptions := WorkflowOptions{
+		ImageRepository: ralphConfig.Workflow.Image.Repository,
+		ImageTag:        ralphConfig.Workflow.Image.Tag,
+		ConfigMaps:      ralphConfig.Workflow.ConfigMaps,
+		Secrets:         ralphConfig.Workflow.Secrets,
+		Env:             ralphConfig.Workflow.Env,
+		DefaultBranch:   ralphConfig.DefaultBranch,
+		WorkflowContext: ralphConfig.Workflow.Context,
+		Namespace:       ralphConfig.Workflow.Namespace,
+	}
+
 	return &Workflow{
-		ProjectName:   projectName,
-		RepoURL:       repoURL,
-		RepoOwner:     repoOwner,
-		RepoName:      repoName,
-		CloneBranch:   cloneBranch,
-		ProjectBranch: projectBranch,
-		ProjectPath:   relProjectPath,
-		Instructions:  instructions,
-		Verbose:       verbose,
-		DebugBranch:   ctx.DebugBranch(),
-		BaseBranch:    ctx.BaseBranch(),
-		RalphConfig:   ralphConfig,
-		NoServices:    ctx.NoServices(),
-		MaxIterations: ctx.MaxIterations(),
+		ProjectName:     projectName,
+		RepoURL:         repoURL,
+		RepoOwner:       repoOwner,
+		RepoName:        repoName,
+		CloneBranch:     cloneBranch,
+		ProjectBranch:   projectBranch,
+		ProjectPath:     relProjectPath,
+		Instructions:    instructions,
+		Verbose:         verbose,
+		DebugBranch:     ctx.DebugBranch(),
+		BaseBranch:      ctx.BaseBranch(),
+		ImageRepository: workflowOptions.ImageRepository,
+		ImageTag:        workflowOptions.ImageTag,
+		ConfigMaps:      workflowOptions.ConfigMaps,
+		Secrets:         workflowOptions.Secrets,
+		Env:             workflowOptions.Env,
+		DefaultBranch:   workflowOptions.DefaultBranch,
+		WorkflowContext: workflowOptions.WorkflowContext,
+		Namespace:       workflowOptions.Namespace,
+		NoServices:      ctx.NoServices(),
+		MaxIterations:   ctx.MaxIterations(),
 	}, nil
 }
 
 // GenerateCommentWorkflowWithGitInfo builds a Workflow for a comment-triggered event.
 // The container script will call `ralph comment` with the provided body and PR number.
-func GenerateCommentWorkflowWithGitInfo(projectName, repoURL, cloneBranch, projectBranch, relProjectPath, commentBody, prNumber string) (*Workflow, error) {
-	ralphConfig, err := config.LoadConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load config: %w", err)
-	}
-
+func GenerateCommentWorkflowWithGitInfo(projectName, repoURL, cloneBranch, projectBranch, relProjectPath, commentBody, prNumber string, opts WorkflowOptions) (*Workflow, error) {
 	repoName, repoOwner, err := githubpkg.ParseGitHubRemoteURL(repoURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse repository from URL: %w", err)
 	}
 
 	return &Workflow{
-		ProjectName:   projectName,
-		RepoURL:       repoURL,
-		RepoOwner:     repoOwner,
-		RepoName:      repoName,
-		CloneBranch:   cloneBranch,
-		ProjectBranch: projectBranch,
-		ProjectPath:   relProjectPath,
-		CommentBody:   commentBody,
-		PRNumber:      prNumber,
-		RalphConfig:   ralphConfig,
+		ProjectName:     projectName,
+		RepoURL:         repoURL,
+		RepoOwner:       repoOwner,
+		RepoName:        repoName,
+		CloneBranch:     cloneBranch,
+		ProjectBranch:   projectBranch,
+		ProjectPath:     relProjectPath,
+		CommentBody:     commentBody,
+		PRNumber:        prNumber,
+		ImageRepository: opts.ImageRepository,
+		ImageTag:        opts.ImageTag,
+		WorkflowContext: opts.WorkflowContext,
 	}, nil
 }
 
 // GenerateMergeWorkflow builds a MergeWorkflow, detecting git info from the local repository.
 func GenerateMergeWorkflow(prBranch string) (*MergeWorkflow, error) {
+	ralphConfig, err := config.LoadConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load config: %w", err)
+	}
+
 	rawRemoteURL, err := getRemoteURL()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get remote URL: %w", err)
@@ -139,56 +159,61 @@ func GenerateMergeWorkflow(prBranch string) (*MergeWorkflow, error) {
 		return nil, fmt.Errorf("failed to get current branch: %w", err)
 	}
 
-	return GenerateMergeWorkflowWithGitInfo(remoteURL, currentBranch, prBranch, "")
+	opts := WorkflowOptions{
+		ImageRepository: ralphConfig.Workflow.Image.Repository,
+		ImageTag:        ralphConfig.Workflow.Image.Tag,
+		WorkflowContext: ralphConfig.Workflow.Context,
+		Namespace:       ralphConfig.Workflow.Namespace,
+	}
+
+	return GenerateMergeWorkflowWithGitInfo(remoteURL, currentBranch, prBranch, "", opts)
 }
 
 // GenerateMergeWorkflowWithGitInfo builds a MergeWorkflow with provided git information.
 // This allows for easier testing by accepting git info as parameters.
-func GenerateMergeWorkflowWithGitInfo(repoURL, cloneBranch, prBranch, prNumber string) (*MergeWorkflow, error) {
-	ralphConfig, err := config.LoadConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load config: %w", err)
-	}
-
+func GenerateMergeWorkflowWithGitInfo(repoURL, cloneBranch, prBranch, prNumber string, opts WorkflowOptions) (*MergeWorkflow, error) {
 	repoName, repoOwner, err := githubpkg.ParseGitHubRemoteURL(repoURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse repository from URL: %w", err)
 	}
 
 	return &MergeWorkflow{
-		RepoURL:     repoURL,
-		RepoOwner:   repoOwner,
-		RepoName:    repoName,
-		CloneBranch: cloneBranch,
-		PRBranch:    prBranch,
-		PRNumber:    prNumber,
-		RalphConfig: ralphConfig,
+		RepoURL:         repoURL,
+		RepoOwner:       repoOwner,
+		RepoName:        repoName,
+		CloneBranch:     cloneBranch,
+		PRBranch:        prBranch,
+		PRNumber:        prNumber,
+		ImageRepository: opts.ImageRepository,
+		ImageTag:        opts.ImageTag,
+		WorkflowContext: opts.WorkflowContext,
+		Namespace:       opts.Namespace,
 	}, nil
 }
 
 // resolveImage returns the container image string from config, falling back to the default.
-func resolveImage(cfg *config.RalphConfig) string {
+func resolveImage(imageRepository, imageTag string) string {
 	imageRepo := "ghcr.io/zon/ralph"
-	imageTag := DefaultContainerVersion()
-	if cfg.Workflow.Image.Repository != "" {
-		imageRepo = cfg.Workflow.Image.Repository
+	imageVersion := DefaultContainerVersion()
+	if imageRepository != "" {
+		imageRepo = imageRepository
 	}
-	if cfg.Workflow.Image.Tag != "" {
-		imageTag = cfg.Workflow.Image.Tag
+	if imageTag != "" {
+		imageVersion = imageTag
 	}
-	return fmt.Sprintf("%s:%s", imageRepo, imageTag)
+	return fmt.Sprintf("%s:%s", imageRepo, imageVersion)
 }
 
 // submitYAML submits a raw YAML string to Argo and returns the workflow name.
 // This is the shared implementation used by Workflow.Submit and MergeWorkflow.Submit.
-func submitYAML(workflowYAML string, ralphConfig *config.RalphConfig, namespace string) (string, error) {
+func submitYAML(workflowYAML string, workflowContext string, namespace string) (string, error) {
 	if _, err := exec.LookPath("argo"); err != nil {
 		return "", fmt.Errorf("argo CLI not found - please install Argo CLI to use remote execution: https://github.com/argoproj/argo-workflows/releases")
 	}
 
 	args := []string{"submit", "-", "-n", namespace}
-	if ralphConfig.Workflow.Context != "" {
-		args = append(args, "--context", ralphConfig.Workflow.Context)
+	if workflowContext != "" {
+		args = append(args, "--context", workflowContext)
 	}
 
 	cmd := exec.CommandContext(context.Background(), "argo", args...)
