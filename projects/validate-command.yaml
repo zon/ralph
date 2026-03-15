@@ -10,17 +10,17 @@ requirements:
       - The command reads and unmarshals the project YAML file
       - On success, the command prints a confirmation message including the project name and requirement count
       - On failure, the command prints a descriptive error message and exits with a non-zero code
-    passing: false
+    passing: true
 
   - category: testing
     description: Unit tests for the validate command
     items:
       - Table-driven tests cover valid project file, missing name field, missing requirements, invalid YAML syntax, and file not found
       - Tests follow the existing patterns in internal/cmd/
-    passing: false
+    passing: true
 
   - category: version
     description: Version bump
     items:
       - Apply a semver minor bump to internal/version/VERSION (5.0.3 → 5.1.0) and a patch bump to charts/ralph-webhook/Chart.yaml version (1.0.7 → 1.0.8), also updating appVersion to 5.1.0
-    passing: false
+    passing: true
