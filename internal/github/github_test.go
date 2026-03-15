@@ -4,13 +4,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
-	"github.com/zon/ralph/internal/testutil"
 )
 
 func TestCreatePR(t *testing.T) {
-	ctx := testutil.NewContext()
-	_, _ = CreatePR(ctx, "Test PR", "Test body", "main", "feature-branch")
+	_, _ = CreatePR("Test PR", "Test body", "main", "feature-branch")
 }
 
 func TestMakeRepo(t *testing.T) {

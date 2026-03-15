@@ -20,7 +20,7 @@ requirements:
       - IsReady does not accept a context parameter
       - CreatePR does not accept a context parameter
       - All callers are updated accordingly
-    passing: false
+    passing: true
 
   - category: version
     description: Version bump

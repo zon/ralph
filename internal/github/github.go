@@ -7,7 +7,6 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/logger"
 )
 
@@ -17,30 +16,20 @@ import (
 // run started, so there is nothing to open a PR for.
 var ErrNoCommitsBetweenBranches = errors.New("no commits between branches")
 
-// IsGHReady checks if the gh CLI is installed and the user is authenticated.
+// IsReady checks if the gh CLI is installed and the user is authenticated.
 // This consolidates IsGHInstalled and IsGHCLIAvailable into a single function
 // with a consistent signature.
-func IsGHReady(ctx *context.Context) bool {
+func IsReady() bool {
 	// Check if gh is installed
 	cmd := exec.Command("gh", "--version")
 	if err := cmd.Run(); err != nil {
-		if ctx.IsVerbose() {
-			logger.Info("gh CLI is not installed")
-		}
 		return false
 	}
 
 	// Check if authenticated
 	cmd = exec.Command("gh", "auth", "status")
 	if err := cmd.Run(); err != nil {
-		if ctx.IsVerbose() {
-			logger.Info("gh CLI is not authenticated")
-		}
 		return false
-	}
-
-	if ctx.IsVerbose() {
-		logger.Info("gh CLI is installed and authenticated")
 	}
 
 	return true
@@ -48,7 +37,7 @@ func IsGHReady(ctx *context.Context) bool {
 
 // CreatePR creates a GitHub pull request using gh CLI
 // Returns the PR URL on success
-func CreatePR(ctx *context.Context, title, body, base, head string) (string, error) {
+func CreatePR(title, body, base, head string) (string, error) {
 	cmd := exec.Command("gh", "pr", "create",
 		"--title", title,
 		"--body", body,
@@ -62,13 +51,13 @@ func CreatePR(ctx *context.Context, title, body, base, head string) (string, err
 	cmd.Stderr = &errOut
 
 	if err := cmd.Run(); err != nil {
-		return handleExistingPR(ctx, err, errOut.String(), out.String(), title, body)
+		return handleExistingPR(err, errOut.String(), out.String(), title, body)
 	}
 
 	return parsePRURL(out.String())
 }
 
-func handleExistingPR(ctx *context.Context, err error, errStr, outStr, title, body string) (string, error) {
+func handleExistingPR(err error, errStr, outStr, title, body string) (string, error) {
 	// GitHub rejects the PR when the head branch has no commits ahead of base.
 	// Treat this as a sentinel so callers can decide how to proceed.
 	if strings.Contains(errStr, "No commits between") {
@@ -84,7 +73,7 @@ func handleExistingPR(ctx *context.Context, err error, errStr, outStr, title, bo
 		return "", fmt.Errorf("failed to create PR: %w (output: %s, stderr: %s)", err, outStr, errStr)
 	}
 
-	return updateExistingPR(ctx, existingURL, title, body)
+	return updateExistingPR(existingURL, title, body)
 }
 
 func extractExistingPRURL(errStr string) string {
@@ -97,7 +86,7 @@ func extractExistingPRURL(errStr string) string {
 	return ""
 }
 
-func updateExistingPR(ctx *context.Context, prURL, title, body string) (string, error) {
+func updateExistingPR(prURL, title, body string) (string, error) {
 	editCmd := exec.Command("gh", "pr", "edit", prURL,
 		"--title", title,
 		"--body", body,

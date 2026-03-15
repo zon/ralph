@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestParseGitHubRemoteURL(t *testing.T) {
+func TestParseRemoteURL(t *testing.T) {
 	tests := []struct {
 		name        string
 		remoteURL   string
@@ -74,7 +74,7 @@ func TestParseGitHubRemoteURL(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			repo, err := ParseGitHubRemoteURL(tc.remoteURL)
+			repo, err := ParseRemoteURL(tc.remoteURL)
 			if tc.wantErr {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tc.errContains)

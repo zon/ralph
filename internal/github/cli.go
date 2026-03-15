@@ -19,16 +19,16 @@ func GetRepo(ctx context.Context) (Repo, error) {
 		return Repo{}, fmt.Errorf("failed to get remote.origin.url: %w (stderr: %s)", err, stderr.String())
 	}
 
-	return ParseGitHubRemoteURL(strings.TrimSpace(stdout.String()))
+	return ParseRemoteURL(strings.TrimSpace(stdout.String()))
 }
 
-// ParseGitHubRemoteURL parses a GitHub remote URL and returns the repository.
+// ParseRemoteURL parses a GitHub remote URL and returns the repository.
 // Supported formats:
 //
 //	git@github.com:owner/repo.git
 //	https://github.com/owner/repo.git
 //	https://github.com/owner/repo
-func ParseGitHubRemoteURL(remoteURL string) (Repo, error) {
+func ParseRemoteURL(remoteURL string) (Repo, error) {
 	if remoteURL == "" {
 		return Repo{}, fmt.Errorf("remote.origin.url is empty")
 	}
