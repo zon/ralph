@@ -176,7 +176,7 @@ func createPullRequest(ctx *context.Context, project *config.Project, branchName
 		}
 	}
 
-	if !github.IsGHReady(ctx) {
+	if !github.IsReady() {
 		return "", fmt.Errorf("gh CLI is not ready, please install and authenticate with 'gh auth login'")
 	}
 
@@ -186,7 +186,7 @@ func createPullRequest(ctx *context.Context, project *config.Project, branchName
 	}
 
 	logger.Verbose("Creating GitHub pull request...")
-	prURL, err := github.CreatePR(ctx, prTitle, prSummary, baseBranch, branchName)
+	prURL, err := github.CreatePR(prTitle, prSummary, baseBranch, branchName)
 	if err != nil {
 		return "", fmt.Errorf("failed to create pull request: %w", err)
 	}
