@@ -1,0 +1,29 @@
+name: refine-github-package
+description: Refine the internal github package API
+
+requirements:
+  - category: cleanup
+    description: Remove unused and deprecated exported functions
+    items:
+      - IsGHInstalled is removed (deprecated wrapper for IsReady)
+      - IsAuthenticated is removed (redundant with IsReady, unused externally and internally)
+      - IsGHCLIAvailable is removed (duplicate of IsReady, unused externally and internally)
+      - GetGHToken, GetAuthenticatedUser, SwitchUser, FindSSHKey, and DeleteSSHKey are removed (exported but unused anywhere in the codebase)
+      - truncate is removed (unused in production code)
+    passing: false
+
+  - category: api
+    description: Rename and clean up exported function signatures
+    items:
+      - IsGHReady is renamed to IsReady
+      - ParseGitHubRemoteURL is renamed to ParseRemoteURL
+      - IsReady does not accept a context parameter
+      - CreatePR does not accept a context parameter
+      - All callers are updated accordingly
+    passing: false
+
+  - category: version
+    description: Version bump
+    items:
+      - Apply a semver patch bump to internal/version/VERSION and charts/ralph-webhook/Chart.yaml
+    passing: false
