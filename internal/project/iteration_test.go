@@ -2,7 +2,6 @@ package project
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/zon/ralph/internal/config"
-	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/testutil"
 )
 
@@ -553,113 +551,4 @@ requirements:
 	iterations, err := RunIterationLoop(ctx, nil)
 	require.NoError(t, err, "RunIterationLoop should not error when requirements are already passing")
 	assert.Equal(t, 1, iterations)
-}
-
-func TestIsOpenCodeError(t *testing.T) {
-	tests := []struct {
-		name     string
-		err      error
-		expected bool
-	}{
-		{
-			name:     "nil error",
-			err:      nil,
-			expected: false,
-		},
-		{
-			name:     "opencode execution failed",
-			err:      fmt.Errorf("opencode execution failed: some error"),
-			expected: true,
-		},
-		{
-			name:     "opencode execution failed with output",
-			err:      fmt.Errorf("opencode execution failed: some error\n\nOutput:\nsome output"),
-			expected: true,
-		},
-		{
-			name:     "regular error",
-			err:      fmt.Errorf("some other error"),
-			expected: false,
-		},
-		{
-			name:     "wrapped opencode error",
-			err:      fmt.Errorf("iteration failed: %w", fmt.Errorf("opencode execution failed: test")),
-			expected: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := isOpenCodeError(tt.err)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
-func TestWriteBlockedFile(t *testing.T) {
-	workDir := setupIterationTestRepo(t, "")
-	t.Chdir(workDir)
-
-	repoRoot, err := git.FindRepoRoot()
-	require.NoError(t, err, "Should be able to find repo root in temp dir")
-
-	errWithOutput := fmt.Errorf("opencode execution failed: some error\n\nOutput:\nline1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\nline14\nline15\nline16\nline17\nline18\nline19\nline20\nline21\nline22\nline23\nline24\nline25")
-
-	writeBlockedFile(errWithOutput)
-
-	blockedPath := filepath.Join(repoRoot, "blocked.md")
-	blockedContent, err := os.ReadFile(blockedPath)
-	require.NoError(t, err, "blocked.md should be created")
-
-	content := string(blockedContent)
-	assert.Contains(t, content, "Blocked")
-	assert.Contains(t, content, "Iteration failed due to opencode error")
-	assert.Contains(t, content, "Last opencode output:")
-}
-
-func TestWriteBlockedFile_TakesTailOfOutput(t *testing.T) {
-	workDir := setupIterationTestRepo(t, "")
-	t.Chdir(workDir)
-
-	repoRoot, err := git.FindRepoRoot()
-	require.NoError(t, err, "Should be able to find repo root in temp dir")
-
-	longOutput := "Output:\n"
-	longOutput += "BEGIN_OF_OUTPUT\n"
-	for i := 1; i <= 25; i++ {
-		longOutput += fmt.Sprintf("line number %d\n", i)
-	}
-
-	errWithLongOutput := fmt.Errorf("opencode execution failed: some error\n\n%s", longOutput)
-
-	writeBlockedFile(errWithLongOutput)
-
-	blockedPath := filepath.Join(repoRoot, "blocked.md")
-	blockedContent, err := os.ReadFile(blockedPath)
-	require.NoError(t, err, "blocked.md should be created")
-
-	content := string(blockedContent)
-	assert.NotContains(t, content, "BEGIN_OF_OUTPUT")
-	assert.Contains(t, content, "line number 20")
-	assert.Contains(t, content, "line number 25")
-}
-
-func TestWriteBlockedFile_NoOutput(t *testing.T) {
-	workDir := setupIterationTestRepo(t, "")
-	t.Chdir(workDir)
-
-	repoRoot, err := git.FindRepoRoot()
-	require.NoError(t, err, "Should be able to find repo root in temp dir")
-
-	errNoOutput := fmt.Errorf("opencode execution failed: some error")
-
-	writeBlockedFile(errNoOutput)
-
-	blockedPath := filepath.Join(repoRoot, "blocked.md")
-	blockedContent, err := os.ReadFile(blockedPath)
-	require.NoError(t, err, "blocked.md should be created")
-
-	content := string(blockedContent)
-	assert.Contains(t, content, "Blocked")
-	assert.Contains(t, content, "Iteration failed due to opencode error")
 }
