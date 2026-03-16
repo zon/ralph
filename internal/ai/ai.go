@@ -3,6 +3,7 @@ package ai
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -44,48 +45,44 @@ func RunAgent(ctx *context.Context, prompt string) error {
 	cmd := exec.Command("opencode", "run", "--model", model, prompt)
 	cmd.Env = append(os.Environ(), "FORCE_COLOR=1")
 
-	outputBuf := &captureWriter{}
-	cmd.Stdout = outputBuf
-	cmd.Stderr = outputBuf
+	ring := &ringWriter{n: 10}
+	cmd.Stdout = io.MultiWriter(os.Stdout, ring)
+	cmd.Stderr = io.MultiWriter(os.Stderr, ring)
 
 	if err := cmd.Run(); err != nil {
-		tail := outputBuf.tail(10)
-		lineCount := len(outputBuf.lines)
-		if lineCount > 10 {
-			lineCount = 10
-		}
-		return fmt.Errorf("opencode execution failed: %w\n\nLast %d lines of output:\n%s", err, lineCount, tail)
+		return fmt.Errorf("opencode execution failed: %w\n\nLast 10 lines of output:\n%s", err, ring.tail())
 	}
 
 	return nil
 }
 
-type captureWriter struct {
+// ringWriter captures the last n lines written to it.
+type ringWriter struct {
+	n    int
 	lines []string
+	buf  string // partial line not yet terminated
 }
 
-func (cw *captureWriter) Write(p []byte) (n int, err error) {
-	os.Stdout.Write(p)
-	os.Stderr.Write(p)
-
-	lines := strings.Split(string(p), "\n")
-	for _, line := range lines {
-		if line != "" {
-			cw.lines = append(cw.lines, line)
+func (r *ringWriter) Write(p []byte) (int, error) {
+	s := r.buf + string(p)
+	parts := strings.Split(s, "\n")
+	// last element is either "" (if s ended with \n) or a partial line
+	r.buf = parts[len(parts)-1]
+	for _, line := range parts[:len(parts)-1] {
+		r.lines = append(r.lines, line)
+		if len(r.lines) > r.n {
+			r.lines = r.lines[1:]
 		}
 	}
 	return len(p), nil
 }
 
-func (cw *captureWriter) tail(n int) string {
-	if len(cw.lines) == 0 {
-		return ""
+func (r *ringWriter) tail() string {
+	lines := r.lines
+	if r.buf != "" {
+		lines = append(lines, r.buf)
 	}
-	start := 0
-	if len(cw.lines) > n {
-		start = len(cw.lines) - n
-	}
-	return strings.Join(cw.lines[start:], "\n")
+	return strings.Join(lines, "\n")
 }
 
 // GenerateChangelog prompts opencode to inspect the current git diff and write a
