@@ -1,9 +1,12 @@
 package ai
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/zon/ralph/internal/testutil"
 )
@@ -57,4 +60,86 @@ func TestBuildPRSummaryPrompt(t *testing.T) {
 	assert.Contains(t, prompt, "main..HEAD", "prompt should reference base branch")
 	assert.Contains(t, prompt, "abc123: Initial commit", "prompt should include commit log")
 	assert.Contains(t, prompt, "/tmp/pr-summary.txt", "prompt should include output file path")
+}
+
+func TestCaptureWriterTail(t *testing.T) {
+	tests := []struct {
+		name     string
+		lines    []string
+		n        int
+		expected string
+	}{
+		{
+			name:     "empty",
+			lines:    []string{},
+			n:        10,
+			expected: "",
+		},
+		{
+			name:     "fewer than n lines",
+			lines:    []string{"line1", "line2", "line3"},
+			n:        10,
+			expected: "line1\nline2\nline3",
+		},
+		{
+			name:     "more than n lines",
+			lines:    []string{"line1", "line2", "line3", "line4", "line5", "line6", "line7", "line8", "line9", "line10", "line11", "line12"},
+			n:        10,
+			expected: "line3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12",
+		},
+		{
+			name:     "exactly n lines",
+			lines:    []string{"line1", "line2", "line3"},
+			n:        3,
+			expected: "line1\nline2\nline3",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cw := &captureWriter{lines: tt.lines}
+			result := cw.tail(tt.n)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestRunAgentErrorIncludesTail(t *testing.T) {
+	tmpDir := t.TempDir()
+	scriptPath := filepath.Join(tmpDir, "fake-opencode.sh")
+
+	scriptContent := `#!/bin/bash
+echo "line 1 output"
+echo "line 2 output"
+echo "line 3 output"
+echo "line 4 output"
+echo "line 5 output"
+echo "line 6 output"
+echo "line 7 output"
+echo "line 8 output"
+echo "line 9 output"
+echo "line 10 output"
+echo "line 11 output"
+echo "line 12 output"
+exit 1
+`
+	err := os.WriteFile(scriptPath, []byte(scriptContent), 0755)
+	require.NoError(t, err)
+
+	opencodePath := filepath.Join(tmpDir, "opencode")
+	err = os.Symlink(scriptPath, opencodePath)
+	require.NoError(t, err)
+
+	origPath := os.Getenv("PATH")
+	t.Setenv("PATH", tmpDir+":"+origPath)
+	t.Setenv("RALPH_MOCK_AI", "")
+
+	ctx := testutil.NewContext()
+	err = RunAgent(ctx, "test prompt")
+
+	require.Error(t, err, "RunAgent should return error when opencode fails")
+	assert.Contains(t, err.Error(), "opencode execution failed")
+	assert.Contains(t, err.Error(), "line 3")
+	assert.Contains(t, err.Error(), "line 12")
+	assert.NotContains(t, err.Error(), "line 2 output", "Should not include lines before last 10")
 }

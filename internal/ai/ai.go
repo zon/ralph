@@ -43,14 +43,49 @@ func RunAgent(ctx *context.Context, prompt string) error {
 
 	cmd := exec.Command("opencode", "run", "--model", model, prompt)
 	cmd.Env = append(os.Environ(), "FORCE_COLOR=1")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+
+	outputBuf := &captureWriter{}
+	cmd.Stdout = outputBuf
+	cmd.Stderr = outputBuf
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("opencode execution failed: %w", err)
+		tail := outputBuf.tail(10)
+		lineCount := len(outputBuf.lines)
+		if lineCount > 10 {
+			lineCount = 10
+		}
+		return fmt.Errorf("opencode execution failed: %w\n\nLast %d lines of output:\n%s", err, lineCount, tail)
 	}
 
 	return nil
+}
+
+type captureWriter struct {
+	lines []string
+}
+
+func (cw *captureWriter) Write(p []byte) (n int, err error) {
+	os.Stdout.Write(p)
+	os.Stderr.Write(p)
+
+	lines := strings.Split(string(p), "\n")
+	for _, line := range lines {
+		if line != "" {
+			cw.lines = append(cw.lines, line)
+		}
+	}
+	return len(p), nil
+}
+
+func (cw *captureWriter) tail(n int) string {
+	if len(cw.lines) == 0 {
+		return ""
+	}
+	start := 0
+	if len(cw.lines) > n {
+		start = len(cw.lines) - n
+	}
+	return strings.Join(cw.lines[start:], "\n")
 }
 
 // GenerateChangelog prompts opencode to inspect the current git diff and write a
@@ -229,6 +264,10 @@ func runOpenCodeAndReadResult(ctx *context.Context, model, prompt, outputFile st
 // runMockAgent simulates AI execution for testing purposes.
 // It parses the prompt to determine what file to write and creates mock output files.
 func runMockAgent(ctx *context.Context, prompt string) error {
+	if os.Getenv("RALPH_MOCK_AI_FAIL") == "true" {
+		return fmt.Errorf("opencode execution failed: mock AI failure\n\nline 9 output\nline 10 output\nline 11 output\nline 12 output")
+	}
+
 	promptLower := strings.ToLower(prompt)
 
 	if strings.Contains(promptLower, "picked-requirement") {
