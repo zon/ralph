@@ -12,4 +12,4 @@ requirements:
     description: Bump version
     items:
       - Apply a semver patch bump to internal/version/VERSION and charts/ralph-webhook/Chart.yaml
-    passing: false
+    passing: true
