@@ -53,6 +53,43 @@ func isFatalOpenCodeError(err error) bool {
 	return false
 }
 
+func isOpenCodeError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), "opencode execution failed")
+}
+
+func writeBlockedFile(err error) {
+	errStr := err.Error()
+	outputStart := strings.Index(errStr, "Output:\n")
+	var outputTail string
+	if outputStart != -1 {
+		output := errStr[outputStart+len("Output:\n"):]
+		lines := strings.Split(output, "\n")
+		if len(lines) > 20 {
+			outputTail = strings.Join(lines[len(lines)-20:], "\n")
+		} else {
+			outputTail = output
+		}
+	}
+
+	blockedContent := fmt.Sprintf("# Blocked\n\nIteration failed due to opencode error.\n\nLast opencode output:\n```\n%s\n```\n", outputTail)
+
+	repoRoot, findErr := git.FindRepoRoot()
+	if findErr != nil {
+		logger.Warningf("Failed to find repo root for blocked.md: %v", findErr)
+		return
+	}
+
+	blockedPath := filepath.Join(repoRoot, "blocked.md")
+	if writeErr := os.WriteFile(blockedPath, []byte(blockedContent), 0644); writeErr != nil {
+		logger.Warningf("Failed to write blocked.md: %v", writeErr)
+	} else {
+		logger.Verbosef("Wrote blocked.md to %s", blockedPath)
+	}
+}
+
 // isBlocked checks if blocked.md exists in the repository root
 func isBlocked(ctx *context.Context) (bool, error) {
 	repoRoot, err := git.FindRepoRoot()
@@ -154,6 +191,9 @@ func runSingleIteration(ctx *context.Context, cleanupRegistrar func(func()), pre
 	if err := requirement.Execute(ctx, cleanupRegistrar); err != nil {
 		if isFatalOpenCodeError(err) {
 			return fmt.Errorf("%w: %v", ErrFatalOpenCodeError, err)
+		}
+		if isOpenCodeError(err) {
+			writeBlockedFile(err)
 		}
 		return fmt.Errorf("iteration %d failed: %w", iteration, err)
 	}

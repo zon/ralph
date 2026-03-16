@@ -41,13 +41,18 @@ func RunAgent(ctx *context.Context, prompt string) error {
 
 	model := resolveModel(ctx)
 
+	var output bytes.Buffer
 	cmd := exec.Command("opencode", "run", "--model", model, prompt)
 	cmd.Env = append(os.Environ(), "FORCE_COLOR=1")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = &output
+	cmd.Stderr = &output
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("opencode execution failed: %w", err)
+		return fmt.Errorf("opencode execution failed: %w\n\nOutput:\n%s", err, output.String())
+	}
+
+	if ctx.IsVerbose() {
+		logger.Verbose(output.String())
 	}
 
 	return nil

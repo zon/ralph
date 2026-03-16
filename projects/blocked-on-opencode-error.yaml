@@ -7,7 +7,7 @@ requirements:
     items:
       - When ralph iterates requirements and opencode exits with a non-zero status, ralph writes a `blocked.md` file in the working directory
       - The `blocked.md` file states that the last iteration failed and includes a relevant tail of the last opencode output to aid debugging
-    passing: false
+    passing: true
 
   - category: version
     description: Version bump
