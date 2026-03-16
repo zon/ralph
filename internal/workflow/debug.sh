@@ -14,6 +14,6 @@ chmod +x /usr/local/bin/ralph
 {{- end}}
 
 echo "Running ralph workflow..."
-ralph workflow{{.VerboseFlag}}{{.NoServicesFlag}}
+ralph workflow{{.VerboseFlag}}{{.NoServicesFlag}}{{.ModelFlag}}
 
 echo "Execution complete!"

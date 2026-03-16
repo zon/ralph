@@ -111,6 +111,7 @@ func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL,
 		Namespace:     workflowOptions.Namespace,
 		NoServices:    ctx.NoServices(),
 		MaxIterations: ctx.MaxIterations(),
+		Model:         ctx.Model(),
 	}, nil
 }
 

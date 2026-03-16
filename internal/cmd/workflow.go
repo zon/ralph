@@ -32,6 +32,7 @@ type WorkflowCmd struct {
 	NoServices     bool   `help:"Skip service startup" default:"false"`
 	InstructionsMD string `help:"Inline instructions content" name:"instructions-md" optional:""`
 	MaxIterations  int    `help:"Maximum number of iterations" name:"max-iterations" default:"0"`
+	Model          string `help:"Override the AI model from config" name:"model" optional:""`
 
 	cleanupRegistrar func(func()) `kong:"-"`
 }
@@ -49,6 +50,7 @@ func (w *WorkflowCmd) Run() error {
 	ctx.SetMaxIterations(w.MaxIterations)
 	ctx.SetBotName(w.BotName)
 	ctx.SetBotEmail(w.BotEmail)
+	ctx.SetModel(w.Model)
 
 	logger.Info("Executing workflow inside container...")
 
