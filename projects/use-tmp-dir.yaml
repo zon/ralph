@@ -7,7 +7,7 @@ requirements:
     items:
       - Ralph and ralph tests must not write to `/tmp`; use `./tmp` (relative to the working directory) instead
       - The repo's `.gitignore` should include `tmp/` so these directories are not tracked
-    passing: false
+    passing: true
 
   - category: version
     description: Version bump

@@ -545,7 +545,7 @@ requirements:
 func TestBuildPickPrompt_MissingProjectFile(t *testing.T) {
 	ctx := testutil.NewContext()
 
-	_, err := BuildPickPrompt(ctx, "/nonexistent/project.yaml", "/tmp/picked-requirement.yaml")
+	_, err := BuildPickPrompt(ctx, "/nonexistent/project.yaml", "./tmp/picked-requirement.yaml")
 	require.Error(t, err, "Expected error for missing project file")
 	assert.Contains(t, err.Error(), "failed to read project file")
 }
