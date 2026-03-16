@@ -3,14 +3,15 @@ description: Write blocked.md when opencode exits non-zero during requirement it
 
 requirements:
   - category: feature
-    description: Write blocked.md when opencode exits non-zero during requirement iteration
+    description: ai.RunAgent relays opencode output and includes tail in errors; internal/requirement writes blocked.md on failure
     items:
-      - When ralph iterates requirements and opencode exits with a non-zero status, ralph writes a `blocked.md` file in the working directory
-      - The `blocked.md` file states that the last iteration failed and includes a relevant tail of the last opencode output to aid debugging
-    passing: true
+      - ai.RunAgent always relays opencode's stdout and stderr to the terminal in real-time; there is no verbose mode
+      - When opencode exits with a non-zero status, the error returned by ai.RunAgent includes the last 10 lines of opencode's stdout and stderr
+      - Calls to ai.RunAgent in internal/requirement detect opencode exit errors and write a blocked.md file in the working directory using the error content
+    passing: false
 
   - category: version
     description: Version bump
     items:
-      - Apply a semver minor bump to `internal/version/VERSION` and the `appVersion` field in `charts/ralph-webhook/Chart.yaml`; apply a patch bump to the chart `version` field
-    passing: true
+      - Apply a semver patch bump to `internal/version/VERSION` and the `appVersion` field in `charts/ralph-webhook/Chart.yaml`; apply a patch bump to the chart `version` field
+    passing: false
