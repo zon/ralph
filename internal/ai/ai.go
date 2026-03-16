@@ -44,13 +44,14 @@ func RunAgent(ctx *context.Context, prompt string) error {
 	cmd := exec.Command("opencode", "run", "--model", model, prompt)
 	cmd.Env = append(os.Environ(), "FORCE_COLOR=1")
 
-	outputBuf := &captureWriter{}
-	cmd.Stdout = outputBuf
-	cmd.Stderr = outputBuf
+	stdoutBuf := &captureWriter{out: os.Stdout}
+	stderrBuf := &captureWriter{out: os.Stderr}
+	cmd.Stdout = stdoutBuf
+	cmd.Stderr = stderrBuf
 
 	if err := cmd.Run(); err != nil {
-		tail := outputBuf.tail(10)
-		lineCount := len(outputBuf.lines)
+		tail := combineTails(stdoutBuf, stderrBuf, 10)
+		lineCount := len(stdoutBuf.lines) + len(stderrBuf.lines)
 		if lineCount > 10 {
 			lineCount = 10
 		}
@@ -61,12 +62,14 @@ func RunAgent(ctx *context.Context, prompt string) error {
 }
 
 type captureWriter struct {
+	out   *os.File
 	lines []string
 }
 
 func (cw *captureWriter) Write(p []byte) (n int, err error) {
-	os.Stdout.Write(p)
-	os.Stderr.Write(p)
+	if cw.out != nil {
+		cw.out.Write(p)
+	}
 
 	lines := strings.Split(string(p), "\n")
 	for _, line := range lines {
@@ -86,6 +89,20 @@ func (cw *captureWriter) tail(n int) string {
 		start = len(cw.lines) - n
 	}
 	return strings.Join(cw.lines[start:], "\n")
+}
+
+func combineTails(stdoutBuf, stderrBuf *captureWriter, n int) string {
+	var allLines []string
+	allLines = append(allLines, stdoutBuf.lines...)
+	allLines = append(allLines, stderrBuf.lines...)
+	if len(allLines) == 0 {
+		return ""
+	}
+	start := 0
+	if len(allLines) > n {
+		start = len(allLines) - n
+	}
+	return strings.Join(allLines[start:], "\n")
 }
 
 // GenerateChangelog prompts opencode to inspect the current git diff and write a
