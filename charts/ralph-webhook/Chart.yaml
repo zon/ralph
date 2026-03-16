@@ -3,4 +3,4 @@ name: ralph-webhook
 description: Helm chart for the ralph-webhook service with RBAC and ingress support
 type: application
 version: 1.0.17
-appVersion: "5.2.6"
+appVersion: "5.2.0"
