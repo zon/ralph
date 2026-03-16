@@ -29,6 +29,8 @@ The `name` field becomes the branch name: `ralph/<name>`. Use lowercase, hyphen-
 
 Name your project file to match: `user-authentication.yaml`.
 
+Project files are stored in the `./projects` directory of the repo.
+
 ## Writing Good Requirements
 
 Requirements describe **what should happen** and may define high-level interfaces, but should not include low-level implementation detail.
