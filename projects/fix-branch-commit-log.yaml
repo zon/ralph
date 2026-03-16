@@ -9,10 +9,10 @@ requirements:
       - When the repo was cloned with a project branch (not the base branch), `git log <base>..HEAD` fails with "unknown revision or path not in the working tree" because no local `<base>` branch exists
       - Fix `fetchBaseBranch` to use `git fetch origin <base>:<base>` so a local tracking branch is created after fetching
       - If the fetch with refspec fails (e.g. already on that branch), fall back to a plain `git fetch origin <base>` to avoid an error
-    passing: false
+    passing: true
 
   - category: version
     description: Version bump
     items:
       - Apply a semver patch bump to `internal/version/VERSION` and `charts/ralph-webhook/Chart.yaml`
-    passing: false
+    passing: true
