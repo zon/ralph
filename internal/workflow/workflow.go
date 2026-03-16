@@ -53,6 +53,8 @@ type Workflow struct {
 	NoServices bool
 	// MaxIterations is the maximum number of development iterations.
 	MaxIterations int
+	// Model overrides the AI model from config.
+	Model string
 }
 
 // Render produces the Argo Workflow YAML string for this Workflow.
@@ -123,9 +125,9 @@ func (w *Workflow) getEffectiveBaseBranch() string {
 // buildScript returns the appropriate shell script for this workflow type.
 func (w *Workflow) buildScript() string {
 	if w.CommentBody != "" {
-		return buildCommentScript(w.Verbose, w.NoServices)
+		return buildCommentScript(w.Verbose, w.NoServices, w.Model)
 	}
-	return buildDebugScript(w.Verbose, w.NoServices, w.DebugBranch)
+	return buildDebugScript(w.Verbose, w.NoServices, w.DebugBranch, w.Model)
 }
 
 func (w *Workflow) buildMainTemplate() map[string]interface{} {
@@ -149,6 +151,9 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 		}
 		if w.Verbose {
 			args = append(args, "--verbose")
+		}
+		if w.Model != "" {
+			args = append(args, "--model", w.Model)
 		}
 	}
 

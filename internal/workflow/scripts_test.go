@@ -13,37 +13,49 @@ func TestBuildDebugScript(t *testing.T) {
 		name            string
 		verbose         bool
 		noServices      bool
+		model           string
 		expectedCommand string
 	}{
 		{
 			name:            "no flags",
 			verbose:         false,
 			noServices:      false,
+			model:           "",
 			expectedCommand: `ralph workflow`,
 		},
 		{
 			name:            "no services",
 			verbose:         false,
 			noServices:      true,
+			model:           "",
 			expectedCommand: `ralph workflow --no-services`,
 		},
 		{
 			name:            "verbose",
 			verbose:         true,
 			noServices:      false,
+			model:           "",
 			expectedCommand: `ralph workflow --verbose`,
 		},
 		{
 			name:            "verbose and no services",
 			verbose:         true,
 			noServices:      true,
+			model:           "",
 			expectedCommand: `ralph workflow --verbose --no-services`,
+		},
+		{
+			name:            "with model",
+			verbose:         false,
+			noServices:      false,
+			model:           "anthropic/claude-3-sonnet",
+			expectedCommand: `ralph workflow --model anthropic/claude-3-sonnet`,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			script := buildDebugScript(tt.verbose, tt.noServices, "main")
+			script := buildDebugScript(tt.verbose, tt.noServices, "main", tt.model)
 
 			expectedElements := []string{
 				"#!/bin/sh",
@@ -61,7 +73,7 @@ func TestBuildDebugScript(t *testing.T) {
 }
 
 func TestBuildDebugScript_DebugBranch(t *testing.T) {
-	script := buildDebugScript(false, false, "my-debug-branch")
+	script := buildDebugScript(false, false, "my-debug-branch", "")
 
 	expectedElements := []string{
 		"git clone -b \"my-debug-branch\" https://github.com/zon/ralph.git /workspace/ralph",
@@ -79,23 +91,32 @@ func TestBuildCommentScript(t *testing.T) {
 	tests := []struct {
 		name            string
 		verbose         bool
+		model           string
 		expectedCommand string
 	}{
 		{
 			name:            "no flags",
 			verbose:         false,
+			model:           "",
 			expectedCommand: `ralph comment "$COMMENT_BODY" --repo "$GITHUB_REPO_OWNER/$GITHUB_REPO_NAME" --branch "$PROJECT_BRANCH" --pr "$PR_NUMBER"`,
 		},
 		{
 			name:            "verbose",
 			verbose:         true,
+			model:           "",
 			expectedCommand: `ralph comment "$COMMENT_BODY" --repo "$GITHUB_REPO_OWNER/$GITHUB_REPO_NAME" --branch "$PROJECT_BRANCH" --pr "$PR_NUMBER" --verbose`,
+		},
+		{
+			name:            "with model",
+			verbose:         false,
+			model:           "anthropic/claude-3-sonnet",
+			expectedCommand: `ralph comment "$COMMENT_BODY" --repo "$GITHUB_REPO_OWNER/$GITHUB_REPO_NAME" --branch "$PROJECT_BRANCH" --pr "$PR_NUMBER" --model anthropic/claude-3-sonnet`,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			script := buildCommentScript(tt.verbose, false)
+			script := buildCommentScript(tt.verbose, false, tt.model)
 
 			expectedElements := []string{
 				"#!/bin/sh",

@@ -24,6 +24,7 @@ type Context struct {
 	baseBranch        string   // Base branch override; overrides baseBranch from .ralph/config.yaml for PR creation
 	botName           string   // Git user name for automated commits
 	botEmail          string   // Git user email for automated commits
+	model             string   // Model override; overrides model from .ralph/config.yaml
 }
 
 // IsVerbose returns true if verbose logging is enabled
@@ -209,4 +210,12 @@ func (c *Context) Instructions() string {
 
 func (c *Context) Notes() []string {
 	return c.notes
+}
+
+func (c *Context) SetModel(model string) {
+	c.model = model
+}
+
+func (c *Context) Model() string {
+	return c.model
 }

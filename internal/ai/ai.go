@@ -17,6 +17,17 @@ import (
 
 const mockAIEnv = "RALPH_MOCK_AI"
 
+func resolveModel(ctx *context.Context) string {
+	if ctx.Model() != "" {
+		return ctx.Model()
+	}
+	ralphConfig, err := config.LoadConfig()
+	if err != nil {
+		return "deepseek/deepseek-chat"
+	}
+	return ralphConfig.Model
+}
+
 // RunAgent executes an AI agent with the given prompt using OpenCode CLI
 // OpenCode manages its own configuration for API keys and models
 func RunAgent(ctx *context.Context, prompt string) error {
@@ -28,13 +39,9 @@ func RunAgent(ctx *context.Context, prompt string) error {
 		logger.Verbose(prompt)
 	}
 
-	// Load config to get model
-	ralphConfig, err := config.LoadConfig()
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
-	}
+	model := resolveModel(ctx)
 
-	cmd := exec.Command("opencode", "run", "--model", ralphConfig.Model, prompt)
+	cmd := exec.Command("opencode", "run", "--model", model, prompt)
 	cmd.Env = append(os.Environ(), "FORCE_COLOR=1")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -50,18 +57,14 @@ func RunAgent(ctx *context.Context, prompt string) error {
 // concise commit-message-style changelog entry to report.md.  It is called when an
 // iteration leaves uncommitted changes but the agent did not produce report.md itself.
 func GenerateChangelog(ctx *context.Context) error {
-	ralphConfig, err := config.LoadConfig()
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
-	}
-
 	prompt := buildChangelogPrompt()
 
 	if ctx.IsVerbose() {
 		logger.Verbose(prompt)
 	}
 
-	cmd := exec.Command("opencode", "run", "--model", ralphConfig.Model, prompt)
+	model := resolveModel(ctx)
+	cmd := exec.Command("opencode", "run", "--model", model, prompt)
 	cmd.Env = append(os.Environ(), "FORCE_COLOR=1")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -98,13 +101,11 @@ func buildChangelogPrompt() string {
 // It includes project description, status, commits, and diff
 // This matches ralph.sh's approach: agent writes to a file, we read it back
 func GeneratePRSummary(ctx *context.Context, projectFile string, iterations int, baseBranch string) (string, error) {
-	// Load project file
 	project, err := config.LoadProject(projectFile)
 	if err != nil {
 		return "", fmt.Errorf("failed to load project: %w", err)
 	}
 
-	// Get completion status
 	allComplete, _, _ := config.CheckCompletion(project)
 
 	var projectStatus string
@@ -114,36 +115,26 @@ func GeneratePRSummary(ctx *context.Context, projectFile string, iterations int,
 		projectStatus = "⚠️ Incomplete"
 	}
 
-	// Load config for the AI model
-	ralphConfig, err := config.LoadConfig()
-	if err != nil {
-		return "", fmt.Errorf("failed to load config: %w", err)
-	}
-
-	// Use the dynamically detected/overridden base branch
-	// Get commit log since base branch
 	commitLog, err := git.GetCommitLog(baseBranch, 0)
 	if err != nil {
 		logger.Verbosef("Failed to get commit log: %v", err)
 		commitLog = "(Unable to retrieve commit log)"
 	}
 
-	// Create temp file for agent to write to
 	tmpFile, err := createTempSummaryFile()
 	if err != nil {
 		return "", err
 	}
 	defer os.Remove(tmpFile)
 
-	// Build prompt and run opencode
 	prompt := buildPRSummaryPrompt(project.Description, projectStatus, baseBranch, commitLog, tmpFile)
 
 	if ctx.IsVerbose() {
 		logger.Verbose(prompt)
 	}
 
-	// Run opencode and read result
-	summary, err := runOpenCodeAndReadResult(ctx, ralphConfig.Model, prompt, tmpFile)
+	model := resolveModel(ctx)
+	summary, err := runOpenCodeAndReadResult(ctx, model, prompt, tmpFile)
 	if err != nil {
 		return "", err
 	}
