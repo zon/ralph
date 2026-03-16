@@ -3,6 +3,7 @@ package ai
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -44,65 +45,44 @@ func RunAgent(ctx *context.Context, prompt string) error {
 	cmd := exec.Command("opencode", "run", "--model", model, prompt)
 	cmd.Env = append(os.Environ(), "FORCE_COLOR=1")
 
-	stdoutBuf := &captureWriter{out: os.Stdout}
-	stderrBuf := &captureWriter{out: os.Stderr}
-	cmd.Stdout = stdoutBuf
-	cmd.Stderr = stderrBuf
+	ring := &ringWriter{n: 10}
+	cmd.Stdout = io.MultiWriter(os.Stdout, ring)
+	cmd.Stderr = io.MultiWriter(os.Stderr, ring)
 
 	if err := cmd.Run(); err != nil {
-		tail := combineTails(stdoutBuf, stderrBuf, 10)
-		lineCount := len(stdoutBuf.lines) + len(stderrBuf.lines)
-		if lineCount > 10 {
-			lineCount = 10
-		}
-		return fmt.Errorf("opencode execution failed: %w\n\nLast %d lines of output:\n%s", err, lineCount, tail)
+		return fmt.Errorf("opencode execution failed: %w\n\nLast 10 lines of output:\n%s", err, ring.tail())
 	}
 
 	return nil
 }
 
-type captureWriter struct {
-	out   *os.File
+// ringWriter captures the last n lines written to it.
+type ringWriter struct {
+	n    int
 	lines []string
+	buf  string // partial line not yet terminated
 }
 
-func (cw *captureWriter) Write(p []byte) (n int, err error) {
-	if cw.out != nil {
-		cw.out.Write(p)
-	}
-
-	lines := strings.Split(string(p), "\n")
-	for _, line := range lines {
-		if line != "" {
-			cw.lines = append(cw.lines, line)
+func (r *ringWriter) Write(p []byte) (int, error) {
+	s := r.buf + string(p)
+	parts := strings.Split(s, "\n")
+	// last element is either "" (if s ended with \n) or a partial line
+	r.buf = parts[len(parts)-1]
+	for _, line := range parts[:len(parts)-1] {
+		r.lines = append(r.lines, line)
+		if len(r.lines) > r.n {
+			r.lines = r.lines[1:]
 		}
 	}
 	return len(p), nil
 }
 
-func (cw *captureWriter) tail(n int) string {
-	if len(cw.lines) == 0 {
-		return ""
+func (r *ringWriter) tail() string {
+	lines := r.lines
+	if r.buf != "" {
+		lines = append(lines, r.buf)
 	}
-	start := 0
-	if len(cw.lines) > n {
-		start = len(cw.lines) - n
-	}
-	return strings.Join(cw.lines[start:], "\n")
-}
-
-func combineTails(stdoutBuf, stderrBuf *captureWriter, n int) string {
-	var allLines []string
-	allLines = append(allLines, stdoutBuf.lines...)
-	allLines = append(allLines, stderrBuf.lines...)
-	if len(allLines) == 0 {
-		return ""
-	}
-	start := 0
-	if len(allLines) > n {
-		start = len(allLines) - n
-	}
-	return strings.Join(allLines[start:], "\n")
+	return strings.Join(lines, "\n")
 }
 
 // GenerateChangelog prompts opencode to inspect the current git diff and write a
