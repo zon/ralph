@@ -81,6 +81,9 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 
 	logger.Verbose("Running picker agent...")
 	if err := ai.RunAgent(ctx, pickPrompt); err != nil {
+		if writeBlockedMD(absProjectFile, err) == nil {
+			return fmt.Errorf("picker agent execution failed: %w", err)
+		}
 		return fmt.Errorf("picker agent execution failed: %w", err)
 	}
 	logger.Verbose("Picker agent execution completed")
@@ -110,6 +113,9 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	// Run AI agent with prompt
 	logger.Verbose("Running AI agent...")
 	if err := ai.RunAgent(ctx, devPrompt); err != nil {
+		if writeBlockedMD(absProjectFile, err) == nil {
+			logger.Verbosef("Wrote blocked.md due to agent failure")
+		}
 		return fmt.Errorf("agent execution failed: %w", err)
 	}
 	logger.Verbose("AI agent execution completed")
@@ -135,6 +141,12 @@ func checkBlockedFile(absProjectFile string) error {
 		return fmt.Errorf("agent is blocked:\n%s", string(blockedContent))
 	}
 	return nil
+}
+
+func writeBlockedMD(absProjectFile string, err error) error {
+	blockedPath := filepath.Join(filepath.Dir(absProjectFile), "blocked.md")
+	content := fmt.Sprintf("# Blocked\n\nError: %s\n", err.Error())
+	return os.WriteFile(blockedPath, []byte(content), 0644)
 }
 
 // handleServiceStartup starts services if not disabled, and handles failure recovery

@@ -8,7 +8,7 @@ requirements:
       - ai.RunAgent always relays opencode's stdout and stderr to the terminal in real-time; there is no verbose mode
       - When opencode exits with a non-zero status, the error returned by ai.RunAgent includes the last 10 lines of opencode's stdout and stderr
       - Calls to ai.RunAgent in internal/requirement detect opencode exit errors and write a blocked.md file in the working directory using the error content
-    passing: false
+    passing: true
 
   - category: version
     description: Version bump

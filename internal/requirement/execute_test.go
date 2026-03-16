@@ -290,3 +290,35 @@ requirements:
 
 	require.NoError(t, err, "Execute failed")
 }
+
+func TestExecute_WritesBlockedOnAgentFailure(t *testing.T) {
+	t.Setenv("RALPH_MOCK_AI", "true")
+	t.Setenv("RALPH_MOCK_AI_FAIL", "true")
+
+	tmpDir := t.TempDir()
+	projectFile := filepath.Join(tmpDir, "test-project.yaml")
+
+	projectYAML := `name: Test Project
+description: Test project
+requirements:
+  - id: req1
+    description: Test requirement
+    passing: false
+`
+
+	if err := os.WriteFile(projectFile, []byte(projectYAML), 0644); err != nil {
+		t.Fatalf("Failed to create test project file: %v", err)
+	}
+
+	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
+	err := Execute(ctx, nil)
+
+	require.Error(t, err, "Execute should fail when agent fails")
+
+	blockedPath := filepath.Join(tmpDir, "blocked.md")
+	blockedContent, err := os.ReadFile(blockedPath)
+	require.NoError(t, err, "blocked.md should be created")
+
+	assert.True(t, strings.Contains(string(blockedContent), "Blocked"), "blocked.md should contain 'Blocked' header")
+	assert.True(t, strings.Contains(string(blockedContent), "opencode execution failed"), "blocked.md should contain error message")
+}
