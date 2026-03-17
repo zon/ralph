@@ -17,7 +17,7 @@ requirements:
       - "Zero-values for core types are useful or clearly handled by constructors"
       - "Complex nested if-else chains are refactored into guard clauses to minimize indentation"
       - "`defer` is used immediately following resource acquisition (files, locks, network)"
-    passing: false
+    passing: true
 
   - category: error-handling
     description: Improve error reporting and context
@@ -25,10 +25,10 @@ requirements:
       - "All library errors include descriptive context via wrapping (e.g., `fmt.Errorf`)"
       - "Panic is removed from operational code paths and reserved for non-recoverable internal state errors"
       - "Error strings are lowercase and do not end in punctuation, following standard library conventions"
-    passing: false
+    passing: true
 
   - category: versioning
     description: Apply version bump for structural improvements
     items:
       - "Apply a semver patch bump to internal/version/VERSION and charts/ralph-webhook/Chart.yaml"
-    passing: false
+    passing: true

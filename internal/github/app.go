@@ -78,7 +78,7 @@ func GetInstallationID(ctx context.Context, jwtToken, owner, repo string) (int64
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return 0, fmt.Errorf("GitHub API returned status %d: %s", resp.StatusCode, string(body))
+		return 0, fmt.Errorf("github API returned status %d: %s", resp.StatusCode, string(body))
 	}
 
 	var result struct {
@@ -117,7 +117,7 @@ func GetInstallationToken(ctx context.Context, jwtToken string, installationID i
 
 	if resp.StatusCode != http.StatusCreated {
 		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("GitHub API returned status %d: %s", resp.StatusCode, string(body))
+		return "", fmt.Errorf("github API returned status %d: %s", resp.StatusCode, string(body))
 	}
 
 	var result struct {
