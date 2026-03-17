@@ -181,7 +181,13 @@ func (w *WorkflowCmd) syncBaseBranch(ctx *context.Context) error {
 func (w *WorkflowCmd) fetchBaseBranch(ctx *context.Context) error {
 	baseBranch := ctx.BaseBranch()
 	logger.Infof("Fetching base branch: %s", baseBranch)
-	return exec.Command("git", "fetch", "origin", baseBranch).Run()
+
+	cmd := exec.Command("git", "fetch", "origin", baseBranch+":"+baseBranch)
+	if err := cmd.Run(); err != nil {
+		logger.Infof("Fetch with refspec failed, falling back to plain fetch: %v", err)
+		return exec.Command("git", "fetch", "origin", baseBranch).Run()
+	}
+	return nil
 }
 
 func (w *WorkflowCmd) checkIfMergeNeeded(ctx *context.Context) (bool, error) {
