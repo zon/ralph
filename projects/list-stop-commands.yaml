@@ -16,4 +16,4 @@ requirements:
     description: Version bump for new features
     items:
       - Apply a semver minor bump to `internal/version/VERSION` and a semver patch bump to the `version` field in `charts/ralph-webhook/Chart.yaml`; also update `appVersion` in `charts/ralph-webhook/Chart.yaml` to match the new app version
-    passing: false
+    passing: true
