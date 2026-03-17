@@ -10,7 +10,7 @@ requirements:
       - "`ralph stop` requires a positional workflow name argument"
       - "Both commands accept an optional `--context` flag that is passed to argo as `--context`"
       - "Both commands resolve the namespace using the same priority as other ralph commands: `.ralph/config.yaml` workflow.namespace, then kubectl current context namespace, then `default`"
-    passing: false
+    passing: true
 
   - category: version
     description: Version bump for new features
