@@ -8,7 +8,7 @@ requirements:
       - "Exported names use the package structure to avoid repetition (e.g., `ai.Agent` instead of `ai.AIAgent`)"
       - "Interface names follow the '-er' suffix convention where appropriate (e.g., `Registrar`, `Writer`)"
       - "Getters for unexported fields omit the 'Get' prefix (e.g., `Config.Model()` instead of `Config.GetModel()`)"
-    passing: false
+    passing: true
 
   - category: idiomatic-code
     description: Implement idiomatic allocation and control flow

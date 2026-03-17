@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/zon/ralph/internal/cleanup"
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/logger"
@@ -25,7 +26,7 @@ type MergeCmd struct {
 	PR      string `help:"Pull request number" required:""`
 	Repo    string `help:"GitHub repository (owner/repo); defaults to repo detected from git remote" default:""`
 
-	cleanupRegistrar func(func()) `kong:"-"`
+	cleanupRegistrar cleanup.Registrar `kong:"-"`
 	// ghMerger is called to merge the PR; defaults to the real gh CLI implementation.
 	// Tests inject a fake to avoid invoking gh.
 	ghMerger func(pr, repo string) error `kong:"-"`

@@ -9,6 +9,7 @@ import (
 	"text/template"
 
 	"github.com/zon/ralph/internal/ai"
+	"github.com/zon/ralph/internal/cleanup"
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/services"
@@ -23,7 +24,7 @@ type CommentCmd struct {
 	Verbose    bool   `help:"Enable verbose logging" default:"false"`
 	NoServices bool   `help:"Skip service startup" default:"false"`
 
-	cleanupRegistrar func(func()) `kong:"-"`
+	cleanupRegistrar cleanup.Registrar `kong:"-"`
 }
 
 // Run executes the comment command (implements kong.Run interface)
@@ -64,7 +65,7 @@ func (c *CommentCmd) Run() error {
 	if !c.NoServices && len(cfg.Services) > 0 {
 		if _, err := svcMgr.Start(cfg.Services); err == nil {
 			if c.cleanupRegistrar != nil {
-				c.cleanupRegistrar(func() { svcMgr.Stop() })
+				c.cleanupRegistrar.RegisterCleanup(func() { svcMgr.Stop() })
 			}
 			defer svcMgr.Stop()
 		}

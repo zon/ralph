@@ -1,6 +1,9 @@
 package cmd
 
-import "github.com/zon/ralph/internal/config"
+import (
+	"github.com/zon/ralph/internal/cleanup"
+	"github.com/zon/ralph/internal/config"
+)
 
 // Cmd defines the command-line arguments and execution context
 type Cmd struct {
@@ -16,9 +19,9 @@ type Cmd struct {
 	List           ListCmd           `cmd:"" help:"List Argo workflows"`
 	Stop           StopCmd           `cmd:"" help:"Stop an Argo workflow"`
 
-	version          string       `kong:"-"`
-	date             string       `kong:"-"`
-	cleanupRegistrar func(func()) `kong:"-"`
+	version          string            `kong:"-"`
+	date             string            `kong:"-"`
+	cleanupRegistrar cleanup.Registrar `kong:"-"`
 }
 
 // ConfigCmd defines the config subcommand group
@@ -45,8 +48,8 @@ func (c *Cmd) SetVersion(version, date string) {
 	c.Run.date = date
 }
 
-// SetCleanupRegistrar sets the cleanup registrar function
-func (c *Cmd) SetCleanupRegistrar(cleanupRegistrar func(func())) {
+// SetCleanupRegistrar sets the cleanup registrar
+func (c *Cmd) SetCleanupRegistrar(cleanupRegistrar cleanup.Registrar) {
 	c.cleanupRegistrar = cleanupRegistrar
 	c.Run.cleanupRegistrar = cleanupRegistrar
 	c.Comment.cleanupRegistrar = cleanupRegistrar

@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"github.com/zon/ralph/internal/cleanup"
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
@@ -34,7 +35,7 @@ type WorkflowCmd struct {
 	MaxIterations  int    `help:"Maximum number of iterations" name:"max-iterations" default:"0"`
 	Model          string `help:"Override the AI model from config" name:"model" optional:""`
 
-	cleanupRegistrar func(func()) `kong:"-"`
+	cleanupRegistrar cleanup.Registrar `kong:"-"`
 }
 
 func (w *WorkflowCmd) Run() error {

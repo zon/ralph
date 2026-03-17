@@ -14,6 +14,12 @@ type Manager struct {
 	cleanupFn []func()
 }
 
+// Registrar defines an interface for registering cleanup functions.
+// Following Effective Go conventions, interface names use the '-er' suffix.
+type Registrar interface {
+	RegisterCleanup(func())
+}
+
 // NewManager creates a new cleanup manager
 func NewManager() *Manager {
 	return &Manager{

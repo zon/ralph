@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/zon/ralph/internal/ai"
+	"github.com/zon/ralph/internal/cleanup"
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
@@ -21,7 +22,7 @@ import (
 )
 
 // Execute runs the full orchestration workflow
-func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
+func Execute(ctx *context.Context, cleanupRegistrar cleanup.Registrar) error {
 	// Enable verbose logging if requested
 	if ctx.IsVerbose() {
 		logger.SetVerbose(true)

@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/zon/ralph/internal/cleanup"
 	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
@@ -30,9 +31,9 @@ type RunCmd struct {
 	Model         string `help:"Override the AI model from config" name:"model" optional:""`
 	ShowVersion   bool   `help:"Show version information" short:"v" name:"version"`
 
-	version          string       `kong:"-"`
-	date             string       `kong:"-"`
-	cleanupRegistrar func(func()) `kong:"-"`
+	version          string            `kong:"-"`
+	date             string            `kong:"-"`
+	cleanupRegistrar cleanup.Registrar `kong:"-"`
 }
 
 // Run executes the run command (implements kong.Run interface)

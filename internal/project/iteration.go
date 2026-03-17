@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/zon/ralph/internal/ai"
+	"github.com/zon/ralph/internal/cleanup"
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
@@ -79,7 +80,7 @@ func isBlocked(ctx *context.Context) (bool, error) {
 // 4. Stops when all requirements pass OR max iterations reached
 //
 // Returns the final iteration count and any error encountered
-func RunIterationLoop(ctx *context.Context, cleanupRegistrar func(func())) (int, error) {
+func RunIterationLoop(ctx *context.Context, cleanupRegistrar cleanup.Registrar) (int, error) {
 	logger.Verbosef("Starting iteration loop (max: %d)", ctx.MaxIterations())
 
 	var previousProject *config.Project
@@ -148,7 +149,7 @@ func RunIterationLoop(ctx *context.Context, cleanupRegistrar func(func())) (int,
 }
 
 // runSingleIteration executes one iteration: runs requirement.Execute, commits changes, and reports completion
-func runSingleIteration(ctx *context.Context, cleanupRegistrar func(func()), previousProject *config.Project, iteration int) error {
+func runSingleIteration(ctx *context.Context, cleanupRegistrar cleanup.Registrar, previousProject *config.Project, iteration int) error {
 	// Run single development iteration
 	logger.Verbose("Running development iteration...")
 	if err := requirement.Execute(ctx, cleanupRegistrar); err != nil {

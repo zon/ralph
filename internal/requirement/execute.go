@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/zon/ralph/internal/ai"
+	"github.com/zon/ralph/internal/cleanup"
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
@@ -23,7 +24,7 @@ import (
 // 4. Runs the AI agent with the prompt
 // 5. Stages the project file after completion
 // Note: Build commands should be run once at the project level, not per iteration
-func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
+func Execute(ctx *context.Context, cleanupRegistrar cleanup.Registrar) error {
 	// Enable verbose logging if requested
 	if ctx.IsVerbose() {
 		logger.SetVerbose(true)
@@ -150,7 +151,7 @@ func writeBlockedMD(absProjectFile string, err error) error {
 }
 
 // handleServiceStartup starts services if not disabled, and handles failure recovery
-func handleServiceStartup(ctx *context.Context, cleanupRegistrar func(func()), ralphConfig *config.RalphConfig) error {
+func handleServiceStartup(ctx *context.Context, cleanupRegistrar cleanup.Registrar, ralphConfig *config.RalphConfig) error {
 	svcMgr := services.NewManager()
 
 	// Start services if not disabled
@@ -169,7 +170,7 @@ func handleServiceStartup(ctx *context.Context, cleanupRegistrar func(func()), r
 			// Services started successfully
 			// Register cleanup handler for signal interrupts (SIGINT/SIGTERM)
 			if cleanupRegistrar != nil {
-				cleanupRegistrar(func() {
+				cleanupRegistrar.RegisterCleanup(func() {
 					svcMgr.Stop()
 				})
 			}

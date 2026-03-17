@@ -65,3 +65,8 @@ func TestCleanupEmptyManager(t *testing.T) {
 
 	m.Cleanup()
 }
+
+func TestManagerImplementsRegistrar(t *testing.T) {
+	m := NewManager()
+	var _ Registrar = m
+}
