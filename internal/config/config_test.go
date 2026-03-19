@@ -508,7 +508,7 @@ func TestApplyDefaults_AppFields(t *testing.T) {
 	config, err := LoadConfig()
 	require.NoError(t, err, "LoadConfig() unexpected error")
 
-	assert.Equal(t, "zalphen", config.App.Name)
+	assert.Equal(t, "ralph-zon", config.App.Name)
 	assert.Equal(t, "2924254", config.App.ID)
 }
 

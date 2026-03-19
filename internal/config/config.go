@@ -61,7 +61,7 @@ type Service struct {
 }
 
 const (
-	DefaultAppName = "zalphen"
+	DefaultAppName = "ralph-zon"
 	DefaultAppID   = "2924254"
 )
 
