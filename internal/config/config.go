@@ -62,7 +62,7 @@ type Service struct {
 
 const (
 	DefaultAppName = "ralph-zon"
-	DefaultAppID   = "2924254"
+	DefaultAppID   = "2966665"
 )
 
 // AppInfo holds the GitHub App identity
