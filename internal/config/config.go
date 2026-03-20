@@ -101,6 +101,7 @@ type WorkflowConfig struct {
 	Env        map[string]string `yaml:"env,omitempty"`
 	Context    string            `yaml:"context,omitempty"`
 	Namespace  string            `yaml:"namespace,omitempty"`
+	Labels     map[string]string `yaml:"labels,omitempty"`
 }
 
 // RalphConfig represents the .ralph/config.yaml structure

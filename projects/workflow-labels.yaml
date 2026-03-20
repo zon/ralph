@@ -8,11 +8,11 @@ requirements:
       - The ralph config schema accepts an optional `workflow.labels` map of string key/value pairs
       - Labels defined under `workflow.labels` are applied to every workflow pod that ralph creates
       - The feature is documented alongside other `workflow` config options
-    passing: false
+    passing: true
 
   - category: version
     description: version bump
     items:
       - Apply a semver minor bump to the ralph app version
       - Apply a semver patch bump to the ralph Helm chart version
-    passing: false
+    passing: true

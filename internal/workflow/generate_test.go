@@ -660,6 +660,50 @@ func TestWorkflowRender_DebugBranch(t *testing.T) {
 	assert.True(t, foundDebugBranch, "RALPH_DEBUG_BRANCH environment variable not found")
 }
 
+func TestWorkflowRender_WithLabels(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	if err := os.MkdirAll(ralphDir, 0755); err != nil {
+		t.Fatalf("Failed to create .ralph directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("maxIterations: 5\n"), 0644); err != nil {
+		t.Fatalf("Failed to create config file: %v", err)
+	}
+
+	labels := map[string]string{
+		"environment":            "production",
+		"team":                   "platform",
+		"app.kubernetes.io/name": "ralph",
+	}
+
+	wf := &Workflow{
+		ProjectName:   "test-project",
+		Repo:          githubpkg.MakeRepo("owner", "repo"),
+		CloneBranch:   "main",
+		ProjectBranch: "feature-branch",
+		ProjectPath:   "project.yaml",
+		Labels:        labels,
+	}
+
+	workflowYAML, err := wf.Render()
+	require.NoError(t, err, "Render failed")
+
+	var wfData map[string]interface{}
+	require.NoError(t, yaml.Unmarshal([]byte(workflowYAML), &wfData), "Failed to parse workflow YAML")
+
+	spec := wfData["spec"].(map[string]interface{})
+	templates := spec["templates"].([]interface{})
+	tmpl := templates[0].(map[string]interface{})
+
+	podMetadata := tmpl["podMetadata"].(map[string]interface{})
+	podLabels := podMetadata["labels"].(map[string]interface{})
+
+	assert.Equal(t, "production", podLabels["environment"])
+	assert.Equal(t, "platform", podLabels["team"])
+	assert.Equal(t, "ralph", podLabels["app.kubernetes.io/name"])
+}
+
 func TestMergeWorkflowRender_EnvVarCoverage(t *testing.T) {
 	tmpDir := t.TempDir()
 
