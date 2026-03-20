@@ -25,6 +25,7 @@ type Context struct {
 	botName           string   // Git user name for automated commits
 	botEmail          string   // Git user email for automated commits
 	model             string   // Model override; overrides model from .ralph/config.yaml
+	kubeContext       string   // Kubernetes context override; overrides workflow.context from .ralph/config.yaml
 }
 
 // IsVerbose returns true if verbose logging is enabled
@@ -218,4 +219,12 @@ func (c *Context) SetModel(model string) {
 
 func (c *Context) Model() string {
 	return c.model
+}
+
+func (c *Context) SetKubeContext(kubeContext string) {
+	c.kubeContext = kubeContext
+}
+
+func (c *Context) KubeContext() string {
+	return c.kubeContext
 }

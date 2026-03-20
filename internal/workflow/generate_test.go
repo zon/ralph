@@ -963,3 +963,60 @@ workflow:
 	assert.True(t, hasBaseBranchParam, "base-branch parameter should exist")
 	assert.Equal(t, "main", baseBranchParamValue, "base-branch parameter should default to config defaultBranch")
 }
+
+func TestKubeContextOverride(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	projectContent := `name: test-project
+description: Test project
+requirements:
+  - category: test
+    description: Test requirement
+    items:
+      - Test item 1
+    passing: false
+`
+	projectFile := filepath.Join(tmpDir, "project.yaml")
+	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
+		t.Fatalf("Failed to create test project file: %v", err)
+	}
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	if err := os.MkdirAll(ralphDir, 0755); err != nil {
+		t.Fatalf("Failed to create .ralph directory: %v", err)
+	}
+
+	configContent := `workflow:
+  context: config-context
+  namespace: my-namespace
+`
+	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte(configContent), 0644); err != nil {
+		t.Fatalf("Failed to create config file: %v", err)
+	}
+
+	t.Chdir(tmpDir)
+	if err := os.MkdirAll(filepath.Join(tmpDir, ".git"), 0755); err != nil {
+		t.Fatalf("Failed to create .git directory: %v", err)
+	}
+
+	t.Run("context override takes precedence over config", func(t *testing.T) {
+		ctx := &execcontext.Context{}
+		ctx.SetProjectFile(projectFile)
+		ctx.SetKubeContext("override-context")
+
+		wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", "git@github.com:test/repo.git", "main", "test-project", "project.yaml", false)
+		require.NoError(t, err, "GenerateWorkflowWithGitInfo failed")
+
+		assert.Equal(t, "override-context", wf.KubeContext, "KubeContext should be set from context override")
+	})
+
+	t.Run("falls back to config when context override is empty", func(t *testing.T) {
+		ctx := &execcontext.Context{}
+		ctx.SetProjectFile(projectFile)
+
+		wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", "git@github.com:test/repo.git", "main", "test-project", "project.yaml", false)
+		require.NoError(t, err, "GenerateWorkflowWithGitInfo failed")
+
+		assert.Equal(t, "config-context", wf.KubeContext, "KubeContext should fall back to config")
+	})
+}

@@ -88,9 +88,13 @@ func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL,
 		Secrets:       ralphConfig.Workflow.Secrets,
 		Env:           ralphConfig.Workflow.Env,
 		DefaultBranch: ralphConfig.DefaultBranch,
-		KubeContext:   ralphConfig.Workflow.Context,
 		Namespace:     ralphConfig.Workflow.Namespace,
 		Labels:        ralphConfig.Workflow.Labels,
+	}
+
+	kubeContext := ctx.KubeContext()
+	if kubeContext == "" {
+		kubeContext = ralphConfig.Workflow.Context
 	}
 
 	return &Workflow{
@@ -108,7 +112,7 @@ func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL,
 		Secrets:       workflowOptions.Secrets,
 		Env:           workflowOptions.Env,
 		DefaultBranch: workflowOptions.DefaultBranch,
-		KubeContext:   workflowOptions.KubeContext,
+		KubeContext:   kubeContext,
 		Namespace:     workflowOptions.Namespace,
 		NoServices:    ctx.NoServices(),
 		MaxIterations: ctx.MaxIterations(),
