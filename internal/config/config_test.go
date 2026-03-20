@@ -447,6 +447,32 @@ func TestLoadConfig_WithPartialWorkflowConfig(t *testing.T) {
 	assert.Len(t, config.Workflow.Env, 0)
 }
 
+func TestLoadConfig_WithWorkflowLabels(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	require.NoError(t, os.Mkdir(ralphDir, 0755))
+
+	configContent := `workflow:
+  labels:
+    environment: production
+    team: platform
+    app.kubernetes.io/name: ralph
+`
+	configPath := filepath.Join(ralphDir, "config.yaml")
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
+
+	t.Chdir(tmpDir)
+
+	config, err := LoadConfig()
+	require.NoError(t, err, "LoadConfig() unexpected error")
+
+	require.Len(t, config.Workflow.Labels, 3)
+	assert.Equal(t, "production", config.Workflow.Labels["environment"])
+	assert.Equal(t, "platform", config.Workflow.Labels["team"])
+	assert.Equal(t, "ralph", config.Workflow.Labels["app.kubernetes.io/name"])
+}
+
 func TestLoadConfig_WithoutWorkflowConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 

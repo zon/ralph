@@ -90,6 +90,7 @@ func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL,
 		DefaultBranch: ralphConfig.DefaultBranch,
 		KubeContext:   ralphConfig.Workflow.Context,
 		Namespace:     ralphConfig.Workflow.Namespace,
+		Labels:        ralphConfig.Workflow.Labels,
 	}
 
 	return &Workflow{
@@ -112,6 +113,7 @@ func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL,
 		NoServices:    ctx.NoServices(),
 		MaxIterations: ctx.MaxIterations(),
 		Model:         ctx.Model(),
+		Labels:        workflowOptions.Labels,
 	}, nil
 }
 

@@ -35,6 +35,9 @@ workflow:
       mountPath: /secrets
   env:                         # environment variables (optional)
     DEBUG: "true"
+  labels:                      # Kubernetes labels for workflow pods (optional)
+    environment: production
+    team: platform
 ```
 
 **Note:** API keys are managed by OpenCode, not Ralph. Configure them with `opencode auth`.
@@ -70,6 +73,7 @@ workflow:
 | `configMaps` | Additional ConfigMaps to mount |
 | `secrets` | Additional Secrets to mount |
 | `env` | Environment variables to set in the container |
+| `labels` | Kubernetes labels to apply to workflow pods |
 
 ### Remote Credentials
 

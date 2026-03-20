@@ -55,6 +55,8 @@ type Workflow struct {
 	MaxIterations int
 	// Model overrides the AI model from config.
 	Model string
+	// Labels are the Kubernetes labels to apply to the workflow pod.
+	Labels map[string]string
 }
 
 // Render produces the Argo Workflow YAML string for this Workflow.
@@ -157,7 +159,7 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 		}
 	}
 
-	return map[string]interface{}{
+	template := map[string]interface{}{
 		"name": "ralph-executor",
 		"container": map[string]interface{}{
 			"image":        resolveImage(w.Image.Repository, w.Image.Tag),
@@ -169,6 +171,14 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 		},
 		"volumes": buildVolumes(w.ConfigMaps, w.Secrets),
 	}
+
+	if len(w.Labels) > 0 {
+		template["podMetadata"] = map[string]interface{}{
+			"labels": w.Labels,
+		}
+	}
+
+	return template
 }
 
 func (w *Workflow) buildEnvVars() []map[string]interface{} {
