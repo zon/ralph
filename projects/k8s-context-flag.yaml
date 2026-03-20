@@ -9,18 +9,18 @@ requirements:
       - "`ralph list` accepts a `--context` flag (already present) consistent with run and stop"
       - "`ralph stop` accepts a `--context` flag (already present) consistent with run and list"
       - "When `--context` is provided to `ralph run`, it takes precedence over `workflow.context` in `.ralph/config.yaml`"
-    passing: false
+    passing: true
 
   - category: wiring
     description: Thread the context override through the execution context and workflow generation
     items:
       - "`internal/context.Context` carries a `kubeContext` override field with getter and setter"
       - "`GenerateWorkflowWithGitInfo` uses `ctx.KubeContext()` when non-empty, falling back to `ralphConfig.Workflow.Context`"
-    passing: false
+    passing: true
 
   - category: versioning
     description: Apply version bump for the new feature
     items:
       - "Apply a semver minor bump to internal/version/VERSION and the appVersion field in charts/ralph-webhook/Chart.yaml"
       - "Apply a semver patch bump to the version field in charts/ralph-webhook/Chart.yaml"
-    passing: false
+    passing: true

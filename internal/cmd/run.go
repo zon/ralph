@@ -28,6 +28,7 @@ type RunCmd struct {
 	Debug         string `help:"Checkout the given ralph repo branch in the workflow container and invoke ralph via 'go run' instead of the built binary" name:"debug" optional:""`
 	Base          string `help:"Override the base branch for PR creation (default: detects from current branch)" name:"base" optional:"" short:"B"`
 	Model         string `help:"Override the AI model from config" name:"model" optional:""`
+	Context       string `help:"Kubernetes context to use" name:"context" optional:""`
 	ShowVersion   bool   `help:"Show version information" short:"v" name:"version"`
 
 	version          string       `kong:"-"`
@@ -161,6 +162,7 @@ func (r *RunCmd) createExecutionContext(maxIterations int) *execcontext.Context 
 	ctx.SetDebugBranch(r.Debug)
 	ctx.SetBaseBranch(r.Base)
 	ctx.SetModel(r.Model)
+	ctx.SetKubeContext(r.Context)
 	return ctx
 }
 

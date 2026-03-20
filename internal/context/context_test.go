@@ -300,3 +300,43 @@ func TestRepoOwnerAndName(t *testing.T) {
 		})
 	}
 }
+
+func TestKubeContext(t *testing.T) {
+	tests := []struct {
+		name          string
+		kubeContext   string
+		expectDefault bool
+	}{
+		{
+			name:          "default empty kube context",
+			kubeContext:   "",
+			expectDefault: true,
+		},
+		{
+			name:          "custom kube context",
+			kubeContext:   "my-cluster-context",
+			expectDefault: false,
+		},
+		{
+			name:          "minikube context",
+			kubeContext:   "minikube",
+			expectDefault: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := &Context{}
+			ctx.SetKubeContext(tt.kubeContext)
+
+			result := ctx.KubeContext()
+			assert.Equal(t, tt.kubeContext, result, "KubeContext should match the set value")
+
+			if tt.expectDefault {
+				assert.Empty(t, result, "Default kube context should be empty")
+			} else {
+				assert.NotEmpty(t, result, "Custom kube context should not be empty")
+			}
+		})
+	}
+}
