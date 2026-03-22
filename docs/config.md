@@ -42,6 +42,27 @@ workflow:
 
 **Note:** API keys are managed by OpenCode, not Ralph. Configure them with `opencode auth`.
 
+## Review
+
+`review` configures the `ralph review` command. It defines the standards or guidelines for the AI to review the codebase against.
+
+```yaml
+review:
+  model: google/gemini-2.5-pro  # optional: AI model override (falls back to root 'model')
+  items:
+    - text: "All functions must have unit tests."
+    - file: docs/coding-standards.md
+    - url: https://example.com/style-guide
+```
+
+Each item requires exactly one source:
+
+| Field | Description |
+|-------|-------------|
+| `text` | Inline string content |
+| `file` | Path to a file relative to the repo root |
+| `url` | HTTP URL returning plain text |
+
 ## Before
 
 `before` defines commands that run once before services start and before the iteration loop begins.

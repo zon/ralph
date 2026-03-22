@@ -37,6 +37,33 @@ For each requirement:
 | `--watch` | Submit remotely and monitor progress |
 | `--no-services` | Skip service management |
 
+## ralph review
+
+The `review` command runs an AI-driven code review against standards defined in `.ralph/config.yaml`.
+
+```bash
+ralph review
+```
+
+### Review Steps
+
+1. Creates branch `ralph/review-YYYY-MM-DD`
+2. Iterates over each review item from config
+3. AI reviews the codebase against the item's content
+4. Commits any changes to the project file
+5. Creates a pull request with an AI-generated summary
+
+### Flags
+
+| Flag | Description |
+|------|-------------|
+| `-p, --project` | Path to output project YAML file (default: `projects/review-YYYY-MM-DD.yaml`) |
+| `-m, --model` | Override AI model from config |
+| `-B, --base` | Override base branch for PR creation |
+| `--local` | Run on this machine instead of submitting remotely |
+| `--verbose` | Enable verbose logging |
+| `--context` | Kubernetes context to use |
+
 ## Other Commands
 
 ### ralph config git
