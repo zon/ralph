@@ -43,6 +43,18 @@ func HasFileChanges(filePath string) bool {
 	return err != nil
 }
 
+// IsFileModifiedOrNew returns true if the given file has uncommitted modifications
+// or is an untracked new file. Works for both tracked and untracked files.
+func IsFileModifiedOrNew(path string) bool {
+	cmd := exec.Command("git", "status", "--porcelain", "--", path)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	if err := cmd.Run(); err != nil {
+		return false
+	}
+	return strings.TrimSpace(out.String()) != ""
+}
+
 // HasStagedChanges checks if there are any staged changes ready to commit
 func HasStagedChanges() bool {
 	// Use git diff --cached --quiet to check for staged changes
