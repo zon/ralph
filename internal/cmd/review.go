@@ -113,14 +113,14 @@ func (r *ReviewCmd) Run() error {
 		}
 	}
 
-	if err := r.printStats(); err != nil {
-		logger.Verbosef("Failed to print stats: %v", err)
-	}
-
 	if projectChanged {
 		if err := r.submitPR(ctx, absProjectFile, reviewName, baseBranch); err != nil {
 			logger.Warningf("Failed to create pull request: %v", err)
 		}
+	}
+
+	if err := r.printStats(); err != nil {
+		logger.Verbosef("Failed to print stats: %v", err)
 	}
 
 	return nil
