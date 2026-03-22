@@ -535,7 +535,7 @@ func TestApplyDefaults_AppFields(t *testing.T) {
 	require.NoError(t, err, "LoadConfig() unexpected error")
 
 	assert.Equal(t, "ralph-zon", config.App.Name)
-	assert.Equal(t, "2924254", config.App.ID)
+	assert.Equal(t, "2966665", config.App.ID)
 }
 
 func TestApplyDefaults_ServiceTimeout(t *testing.T) {
@@ -735,4 +735,172 @@ func TestFindConfigDir(t *testing.T) {
 	otherDir := t.TempDir()
 	_, err = FindConfigDir(otherDir)
 	assert.ErrorIs(t, err, os.ErrNotExist)
+}
+
+func TestValidateReviewConfig(t *testing.T) {
+	tests := []struct {
+		name    string
+		config  *ReviewConfig
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name: "valid config with text item",
+			config: &ReviewConfig{
+				Model: "google/gemini-2.5-pro",
+				Items: []ReviewItem{
+					{Text: "camel case vars"},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid config with file item",
+			config: &ReviewConfig{
+				Items: []ReviewItem{
+					{File: "docs/standards/deep-modules.md"},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid config with url item",
+			config: &ReviewConfig{
+				Items: []ReviewItem{
+					{URL: "https://raw.githubusercontent.com/zon/code/refs/heads/main/README.md"},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid config with multiple items",
+			config: &ReviewConfig{
+				Model: "google/gemini-2.5-pro",
+				Items: []ReviewItem{
+					{Text: "camel case vars"},
+					{File: "docs/standards/deep-modules.md"},
+					{URL: "https://raw.githubusercontent.com/zon/code/refs/heads/main/README.md"},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "empty items list",
+			config: &ReviewConfig{
+				Items: []ReviewItem{},
+			},
+			wantErr: true,
+			errMsg:  "review must have at least one item",
+		},
+		{
+			name: "item with no source",
+			config: &ReviewConfig{
+				Items: []ReviewItem{
+					{},
+				},
+			},
+			wantErr: true,
+			errMsg:  "review item 0 must have one of text, file, or url set",
+		},
+		{
+			name: "item with multiple sources",
+			config: &ReviewConfig{
+				Items: []ReviewItem{
+					{Text: "some text", File: "somefile.md"},
+				},
+			},
+			wantErr: true,
+			errMsg:  "review item 0 must have exactly one of text, file, or url set",
+		},
+		{
+			name: "item with all three sources",
+			config: &ReviewConfig{
+				Items: []ReviewItem{
+					{Text: "some text", File: "somefile.md", URL: "https://example.com"},
+				},
+			},
+			wantErr: true,
+			errMsg:  "review item 0 must have exactly one of text, file, or url set",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateReviewConfig(tt.config)
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errMsg)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestLoadConfig_WithReviewConfig(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	require.NoError(t, os.Mkdir(ralphDir, 0755))
+
+	configContent := `review:
+  model: google/gemini-2.5-pro
+  items:
+  - text: camel case vars
+  - file: docs/standards/deep-modules.md
+  - url: https://raw.githubusercontent.com/zon/code/refs/heads/main/README.md
+`
+	configPath := filepath.Join(ralphDir, "config.yaml")
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
+
+	t.Chdir(tmpDir)
+
+	config, err := LoadConfig()
+	require.NoError(t, err, "LoadConfig() unexpected error")
+
+	assert.Equal(t, "google/gemini-2.5-pro", config.Review.Model)
+	require.Len(t, config.Review.Items, 3)
+	assert.Equal(t, "camel case vars", config.Review.Items[0].Text)
+	assert.Equal(t, "docs/standards/deep-modules.md", config.Review.Items[1].File)
+	assert.Equal(t, "https://raw.githubusercontent.com/zon/code/refs/heads/main/README.md", config.Review.Items[2].URL)
+}
+
+func TestLoadConfig_InvalidReviewConfig(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	require.NoError(t, os.Mkdir(ralphDir, 0755))
+
+	configContent := `review:
+  items:
+  - text: some text
+    file: somefile.md
+`
+	configPath := filepath.Join(ralphDir, "config.yaml")
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
+
+	t.Chdir(tmpDir)
+
+	_, err := LoadConfig()
+	require.Error(t, err, "LoadConfig() expected error for invalid review config")
+	assert.Contains(t, err.Error(), "invalid review config")
+}
+
+func TestLoadConfig_ReviewConfigEmptyItems(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	require.NoError(t, os.Mkdir(ralphDir, 0755))
+
+	configContent := `review:
+  items: []
+`
+	configPath := filepath.Join(ralphDir, "config.yaml")
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
+
+	t.Chdir(tmpDir)
+
+	_, err := LoadConfig()
+	require.Error(t, err, "LoadConfig() expected error for empty review items")
+	assert.Contains(t, err.Error(), "review must have at least one item")
 }

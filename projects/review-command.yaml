@@ -17,7 +17,7 @@ requirements:
           - text: camel case vars
           - file: docs/standards/deep-modules.md
           - url: https://raw.githubusercontent.com/zon/code/refs/heads/main/README.md
-    passing: false
+    passing: true
 
   - category: command
     description: Add ralph review subcommand
@@ -27,7 +27,7 @@ requirements:
 
       - "ralph review accepts an optional --model flag to override the AI model, taking precedence over ReviewConfig.Model and the main ralph model"
       - "ralph review accepts a --local flag (defaults to false) to run on the local machine instead of submitting to Argo Workflows"
-    passing: false
+    passing: true
 
   - category: prompt
     description: Build and execute a review prompt for each ReviewConfig entry
@@ -38,7 +38,7 @@ requirements:
       - "Template fields: .ConfigContent (content of this item), .Project (absolute path to output project YAML), .RalphProjectDoc (content of docs/projects.md fetched from https://raw.githubusercontent.com/zon/ralph/refs/heads/main/docs/projects.md at runtime)"
       - "Prompt preamble: you are a software architect reviewing source code. does the code meet these standards?"
       - "Prompt epilogue: instructs the agent to create or edit the ralph project at .Project with any issues found, and includes .RalphProjectDoc as authoring instructions"
-    passing: false
+    passing: true
 
   - category: version
     description: Version bump

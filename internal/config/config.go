@@ -104,6 +104,19 @@ type WorkflowConfig struct {
 	Labels     map[string]string `yaml:"labels,omitempty"`
 }
 
+// ReviewItem represents a single review item with exactly one source (Text, File, or URL)
+type ReviewItem struct {
+	Text string `yaml:"text,omitempty"` // Inline string content
+	File string `yaml:"file,omitempty"` // Path relative to repo root, read at runtime
+	URL  string `yaml:"url,omitempty"`  // HTTP URL fetched at runtime, expects plain text response
+}
+
+// ReviewConfig represents the review configuration section
+type ReviewConfig struct {
+	Model string       `yaml:"model,omitempty"` // AI model to use for review
+	Items []ReviewItem `yaml:"items"`           // Required list of review items
+}
+
 // RalphConfig represents the .ralph/config.yaml structure
 type RalphConfig struct {
 	MaxIterations       int            `yaml:"maxIterations,omitempty"`
@@ -113,6 +126,7 @@ type RalphConfig struct {
 	Services            []Service      `yaml:"services,omitempty"`
 	Workflow            WorkflowConfig `yaml:"workflow,omitempty"`
 	App                 AppInfo        `yaml:"app,omitempty"`
+	Review              ReviewConfig   `yaml:"review,omitempty"`
 	ConfigPath          string         `yaml:"-"` // Path to the loaded config file
 	Instructions        string         `yaml:"-"` // Not persisted in YAML, loaded from .ralph/instructions.md
 	CommentInstructions string         `yaml:"-"` // Not persisted in YAML, loaded from .ralph/comment-instructions.md
@@ -170,6 +184,35 @@ func ValidateProject(p *Project) error {
 
 	if len(p.Requirements) == 0 {
 		return fmt.Errorf("project must have at least one requirement")
+	}
+
+	return nil
+}
+
+// ValidateReviewConfig validates the review configuration
+func ValidateReviewConfig(r *ReviewConfig) error {
+	if len(r.Items) == 0 {
+		return fmt.Errorf("review must have at least one item")
+	}
+
+	for i, item := range r.Items {
+		count := 0
+		if item.Text != "" {
+			count++
+		}
+		if item.File != "" {
+			count++
+		}
+		if item.URL != "" {
+			count++
+		}
+
+		if count == 0 {
+			return fmt.Errorf("review item %d must have one of text, file, or url set", i)
+		}
+		if count > 1 {
+			return fmt.Errorf("review item %d must have exactly one of text, file, or url set", i)
+		}
 	}
 
 	return nil
@@ -277,6 +320,12 @@ func LoadConfig() (*RalphConfig, error) {
 	}
 
 	applyDefaults(&config)
+
+	if config.Review.Items != nil || config.Review.Model != "" {
+		if err := ValidateReviewConfig(&config.Review); err != nil {
+			return nil, fmt.Errorf("invalid review config: %w", err)
+		}
+	}
 
 	return &config, nil
 }
