@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -9,27 +10,36 @@ import (
 	"path/filepath"
 	"strings"
 	"text/template"
+	"time"
 
 	"github.com/zon/ralph/internal/ai"
 	"github.com/zon/ralph/internal/config"
+	execcontext "github.com/zon/ralph/internal/context"
+	"github.com/zon/ralph/internal/git"
+	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/logger"
 )
 
-const (
-	defaultProjectFile = "projects/review.yaml"
-	ralphProjectDocURL = "https://raw.githubusercontent.com/zon/ralph/refs/heads/main/docs/projects.md"
-)
+const ralphProjectDocURL = "https://raw.githubusercontent.com/zon/ralph/refs/heads/main/docs/projects.md"
 
 type ReviewCmd struct {
-	ProjectFile string `help:"Path to output project YAML file" name:"project" short:"p" default:"projects/review.yaml"`
+	ProjectFile string `help:"Path to output project YAML file" name:"project" short:"p"`
 	Model       string `help:"Override the AI model from config" name:"model" optional:""`
+	Base        string `help:"Override the base branch for PR creation" name:"base" optional:"" short:"B"`
 	Local       bool   `help:"Run on this machine instead of submitting to Argo Workflows" default:"false"`
 	Verbose     bool   `help:"Enable verbose logging" default:"false"`
+	Context     string `help:"Kubernetes context to use" name:"context" optional:""`
 }
 
 func (r *ReviewCmd) Run() error {
 	if r.Verbose {
 		logger.SetVerbose(true)
+	}
+
+	reviewName := "review-" + time.Now().Format("2006-01-02")
+
+	if r.ProjectFile == "" {
+		r.ProjectFile = "projects/" + reviewName + ".yaml"
 	}
 
 	absProjectFile, err := filepath.Abs(r.ProjectFile)
@@ -64,6 +74,17 @@ func (r *ReviewCmd) Run() error {
 	ctx.SetVerbose(r.Verbose)
 	ctx.SetModel(model)
 	ctx.SetLocal(r.Local)
+	ctx.SetKubeContext(r.Context)
+
+	// Resolve base branch using the same logic as ralph run
+	startingBranch, err := git.GetCurrentBranch()
+	if err != nil {
+		return fmt.Errorf("failed to get current branch: %w", err)
+	}
+	baseBranch := resolveBaseBranch(r.Base, startingBranch, reviewName, ralphConfig.DefaultBranch)
+	ctx.SetBaseBranch(baseBranch)
+
+	projectChanged := false
 
 	for i, item := range ralphConfig.Review.Items {
 		content, err := r.loadItemContent(item)
@@ -71,7 +92,7 @@ func (r *ReviewCmd) Run() error {
 			return fmt.Errorf("failed to load review item %d: %w", i, err)
 		}
 
-		prompt := r.buildPrompt(content, absProjectFile, projectDoc)
+		prompt := r.buildPrompt(content, absProjectFile, projectDoc, reviewName)
 
 		if r.Verbose {
 			logger.Verbose(prompt)
@@ -81,8 +102,91 @@ func (r *ReviewCmd) Run() error {
 		if err := ai.RunAgent(ctx, prompt); err != nil {
 			return fmt.Errorf("review item %d failed: %w", i, err)
 		}
+
+		// Check if project file was created or edited after this iteration
+		if git.IsFileModifiedOrNew(absProjectFile) {
+			if err := r.commitProjectFile(ctx, absProjectFile, reviewName); err != nil {
+				return fmt.Errorf("failed to commit review findings after item %d: %w", i+1, err)
+			}
+			projectChanged = true
+		}
 	}
 
+	if projectChanged {
+		if err := r.submitPR(ctx, absProjectFile, reviewName, baseBranch); err != nil {
+			logger.Warningf("Failed to create pull request: %v", err)
+		}
+	}
+
+	return nil
+}
+
+func (r *ReviewCmd) commitProjectFile(ctx *execcontext.Context, absProjectFile, reviewName string) error {
+	var auth *git.AuthConfig
+	if ctx.IsWorkflowExecution() {
+		owner, repo := ctx.RepoOwnerAndName()
+		auth = &git.AuthConfig{Owner: owner, Repo: repo}
+	}
+
+	// Switch to review branch if not already on it
+	currentBranch, err := git.GetCurrentBranch()
+	if err != nil {
+		return fmt.Errorf("failed to get current branch: %w", err)
+	}
+	if currentBranch != reviewName {
+		if err := git.Fetch(auth); err != nil {
+			logger.Verbosef("Could not fetch from remote (continuing anyway): %v", err)
+		}
+		if err := git.CheckoutOrCreateBranch(reviewName); err != nil {
+			return fmt.Errorf("failed to checkout review branch: %w", err)
+		}
+	}
+
+	// Stage the project file
+	if err := git.StageFile(absProjectFile); err != nil {
+		return fmt.Errorf("failed to stage project file: %w", err)
+	}
+
+	// Commit
+	commitMsg := fmt.Sprintf("review: update %s findings", reviewName)
+	if err := git.Commit(commitMsg); err != nil {
+		return fmt.Errorf("failed to commit review findings: %w", err)
+	}
+
+	// Pull rebase then push
+	if err := git.PullRebase(auth); err != nil {
+		logger.Verbosef("Pull rebase failed (continuing): %v", err)
+	}
+	if _, err := git.Push(auth, reviewName); err != nil {
+		return fmt.Errorf("failed to push review branch: %w", err)
+	}
+
+	return nil
+}
+
+func (r *ReviewCmd) submitPR(ctx *execcontext.Context, absProjectFile, reviewName, baseBranch string) error {
+	if !github.IsReady() {
+		return fmt.Errorf("gh CLI is not ready, please install and authenticate with 'gh auth login'")
+	}
+
+	title := reviewName
+	proj, err := config.LoadProject(absProjectFile)
+	if err == nil && proj.Description != "" {
+		title = proj.Description
+	}
+
+	body := fmt.Sprintf("AI code review findings for `%s`.", reviewName)
+
+	prURL, err := github.CreatePR(title, body, baseBranch, reviewName)
+	if err != nil {
+		if errors.Is(err, github.ErrNoCommitsBetweenBranches) {
+			logger.Verbose("No commits ahead of base branch — skipping PR creation")
+			return nil
+		}
+		return fmt.Errorf("failed to create pull request: %w", err)
+	}
+
+	logger.Successf("Pull request created: %s", prURL)
 	return nil
 }
 
@@ -130,6 +234,7 @@ type reviewPromptData struct {
 	ConfigContent   string
 	Project         string
 	RalphProjectDoc string
+	ReviewName      string
 }
 
 var reviewPromptTemplate = template.Must(template.New("review").Parse(`You are a software architect reviewing source code. Does the code meet these standards?
@@ -139,16 +244,18 @@ var reviewPromptTemplate = template.Must(template.New("review").Parse(`You are a
 
 ## Instructions
 Create or edit the ralph project at {{.Project}} with any issues found.
+Set the project name field to "{{.ReviewName}}".
 
 {{.RalphProjectDoc}}
 `))
 
-func (r *ReviewCmd) buildPrompt(content, projectPath, projectDoc string) string {
+func (r *ReviewCmd) buildPrompt(content, projectPath, projectDoc, reviewName string) string {
 	var buf bytes.Buffer
 	data := reviewPromptData{
 		ConfigContent:   content,
 		Project:         projectPath,
 		RalphProjectDoc: projectDoc,
+		ReviewName:      reviewName,
 	}
 	reviewPromptTemplate.Execute(&buf, data)
 	return buf.String()

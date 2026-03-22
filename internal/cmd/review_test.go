@@ -133,10 +133,11 @@ func TestReviewLoadItemContent_FileNotFound(t *testing.T) {
 
 func TestReviewBuildPrompt(t *testing.T) {
 	r := &ReviewCmd{}
-	prompt := r.buildPrompt("test content", "/path/to/project.yaml", "project doc content")
+	prompt := r.buildPrompt("test content", "/path/to/project.yaml", "project doc content", "review-2026-03-22")
 
 	assert.Contains(t, prompt, "You are a software architect reviewing source code")
 	assert.Contains(t, prompt, "test content")
 	assert.Contains(t, prompt, "/path/to/project.yaml")
 	assert.Contains(t, prompt, "project doc content")
+	assert.Contains(t, prompt, "review-2026-03-22")
 }
