@@ -66,8 +66,12 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	}
 
 	// Handle service startup and failure recovery
-	if err := handleServiceStartup(ctx, cleanupRegistrar, ralphConfig); err != nil {
+	svcMgr, err := handleServiceStartup(ctx, cleanupRegistrar, ralphConfig)
+	if err != nil {
 		return err
+	}
+	if svcMgr != nil {
+		defer svcMgr.Stop()
 	}
 
 	// Generate pick prompt and run picker agent
@@ -149,8 +153,10 @@ func writeBlockedMD(absProjectFile string, err error) error {
 	return os.WriteFile(blockedPath, []byte(content), 0644)
 }
 
-// handleServiceStartup starts services if not disabled, and handles failure recovery
-func handleServiceStartup(ctx *context.Context, cleanupRegistrar func(func()), ralphConfig *config.RalphConfig) error {
+// handleServiceStartup starts services if not disabled, and handles failure recovery.
+// Returns the service manager if services were started successfully (caller must stop it),
+// or nil if services were not started or a failure was handled.
+func handleServiceStartup(ctx *context.Context, cleanupRegistrar func(func()), ralphConfig *config.RalphConfig) (*services.Manager, error) {
 	svcMgr := services.NewManager()
 
 	// Start services if not disabled
@@ -162,23 +168,21 @@ func handleServiceStartup(ctx *context.Context, cleanupRegistrar func(func()), r
 			fixPrompt := prompt.BuildServiceFixPrompt(ctx, failedSvc, err)
 
 			if agentErr := ai.RunAgent(ctx, fixPrompt); agentErr != nil {
-				return fmt.Errorf("agent execution failed while fixing service: %w", agentErr)
+				return nil, fmt.Errorf("agent execution failed while fixing service: %w", agentErr)
 			}
-			return nil
-		} else {
-			// Services started successfully
-			// Register cleanup handler for signal interrupts (SIGINT/SIGTERM)
-			if cleanupRegistrar != nil {
-				cleanupRegistrar(func() {
-					svcMgr.Stop()
-				})
-			}
-
-			// Ensure services are stopped when this function exits (success or error)
-			defer svcMgr.Stop()
+			return nil, nil
 		}
+
+		// Services started successfully
+		// Register cleanup handler for signal interrupts (SIGINT/SIGTERM)
+		if cleanupRegistrar != nil {
+			cleanupRegistrar(func() {
+				svcMgr.Stop()
+			})
+		}
+		return svcMgr, nil
 	}
-	return nil
+	return nil, nil
 }
 
 // performPostAgentCleanup removes service logs, normalizes project file, and stages it
