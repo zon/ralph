@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"text/template"
@@ -112,6 +113,10 @@ func (r *ReviewCmd) Run() error {
 		}
 	}
 
+	if err := r.printStats(); err != nil {
+		logger.Verbosef("Failed to print stats: %v", err)
+	}
+
 	if projectChanged {
 		if err := r.submitPR(ctx, absProjectFile, reviewName, baseBranch); err != nil {
 			logger.Warningf("Failed to create pull request: %v", err)
@@ -119,6 +124,13 @@ func (r *ReviewCmd) Run() error {
 	}
 
 	return nil
+}
+
+func (r *ReviewCmd) printStats() error {
+	cmd := exec.Command("opencode", "stats")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }
 
 func (r *ReviewCmd) commitProjectFile(ctx *execcontext.Context, absProjectFile, reviewName string) error {
@@ -176,6 +188,13 @@ func (r *ReviewCmd) submitPR(ctx *execcontext.Context, absProjectFile, reviewNam
 	}
 
 	body := fmt.Sprintf("AI code review findings for `%s`.", reviewName)
+
+	generatedBody, err := ai.GenerateReviewPRBody(ctx, absProjectFile)
+	if err != nil {
+		logger.Verbosef("Failed to generate PR body with AI: %v", err)
+	} else {
+		body = generatedBody
+	}
 
 	prURL, err := github.CreatePR(title, body, baseBranch, reviewName)
 	if err != nil {

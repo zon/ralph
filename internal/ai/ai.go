@@ -58,9 +58,9 @@ func RunAgent(ctx *context.Context, prompt string) error {
 
 // ringWriter captures the last n lines written to it.
 type ringWriter struct {
-	n    int
+	n     int
 	lines []string
-	buf  string // partial line not yet terminated
+	buf   string // partial line not yet terminated
 }
 
 func (r *ringWriter) Write(p []byte) (int, error) {
@@ -256,6 +256,86 @@ func runOpenCodeAndReadResult(ctx *context.Context, model, prompt, outputFile st
 	}
 
 	return summary, nil
+}
+
+// GenerateReviewPRBody generates a PR body for review findings using AI
+// It reads the review project file and writes a concise summary of recommended changes
+func GenerateReviewPRBody(ctx *context.Context, projectFile string) (string, error) {
+	project, err := config.LoadProject(projectFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to load project: %w", err)
+	}
+
+	var requirementSummaries []string
+	for _, req := range project.Requirements {
+		status := "❌ Not passing"
+		if req.Passing {
+			status = "✅ Passing"
+		}
+		summary := fmt.Sprintf("- **%s**: %s (%s)", req.Category, req.Description, status)
+		requirementSummaries = append(requirementSummaries, summary)
+	}
+
+	tmpFile, err := createTempSummaryFile()
+	if err != nil {
+		return "", err
+	}
+	defer os.Remove(tmpFile)
+
+	prompt := buildReviewPRBodyPrompt(project.Name, project.Description, requirementSummaries, tmpFile)
+
+	if ctx.IsVerbose() {
+		logger.Verbose(prompt)
+	}
+
+	model := resolveModel(ctx)
+	summary, err := runOpenCodeAndReadResult(ctx, model, prompt, tmpFile)
+	if err != nil {
+		return "", err
+	}
+
+	return summary, nil
+}
+
+type reviewPRBodyData struct {
+	ProjectName        string
+	ProjectDescription string
+	Requirements       []string
+	AbsPath            string
+}
+
+var reviewPRBodyPromptTemplate = template.Must(template.New("reviewPRBody").Parse(`Write a concise PR description (2-4 paragraphs max) for this code review.
+
+Review Name: {{.ProjectName}}
+{{if .ProjectDescription}}
+Description: {{.ProjectDescription}}
+{{end}}
+
+## Findings Summary
+{{range .Requirements}}
+{{.}}
+{{end}}
+
+Review the requirements above and write a summary that:
+1. Lists the key findings from the review
+2. Highlights any critical issues that need attention
+3. Notes what's working well
+
+Write your summary to the file: {{.AbsPath}}
+`))
+
+func buildReviewPRBodyPrompt(projectName, projectDesc string, requirements []string, outputFile string) string {
+	absPath, _ := filepath.Abs(outputFile)
+
+	var builder bytes.Buffer
+	data := reviewPRBodyData{
+		ProjectName:        projectName,
+		ProjectDescription: projectDesc,
+		Requirements:       requirements,
+		AbsPath:            absPath,
+	}
+	reviewPRBodyPromptTemplate.Execute(&builder, data)
+	return builder.String()
 }
 
 // runMockAgent simulates AI execution for testing purposes.
