@@ -53,6 +53,8 @@ func (r *ReviewCmd) Run() error {
 		return fmt.Errorf("failed to create project directory: %w", err)
 	}
 
+	overviewPath := filepath.Join(projectDir, reviewName+"-overview.yaml")
+
 	ralphConfig, err := config.LoadConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
@@ -77,7 +79,6 @@ func (r *ReviewCmd) Run() error {
 	ctx.SetLocal(r.Local)
 	ctx.SetKubeContext(r.Context)
 
-	// Resolve base branch using the same logic as ralph run
 	startingBranch, err := git.GetCurrentBranch()
 	if err != nil {
 		return fmt.Errorf("failed to get current branch: %w", err)
@@ -87,29 +88,41 @@ func (r *ReviewCmd) Run() error {
 
 	projectChanged := false
 
-	for i, item := range ralphConfig.Review.Items {
-		content, err := r.loadItemContent(item)
+	overview, err := r.runPhase1(ctx, overviewPath, absProjectFile, reviewName)
+	if err != nil {
+		logger.Verbosef("Phase 1 failed, falling back to single-phase: %v", err)
+		overview = nil
+	}
+
+	if overview != nil {
+		projectChanged, err = r.runPhase2(ctx, overview, absProjectFile, projectDoc, reviewName, ralphConfig)
 		if err != nil {
-			return fmt.Errorf("failed to load review item %d: %w", i, err)
+			return fmt.Errorf("phase 2 failed: %w", err)
 		}
-
-		prompt := r.buildPrompt(content, absProjectFile, projectDoc, reviewName)
-
-		if r.Verbose {
-			logger.Verbose(prompt)
-		}
-
-		logger.Verbosef("Running review item %d/%d...", i+1, len(ralphConfig.Review.Items))
-		if err := ai.RunAgent(ctx, prompt); err != nil {
-			return fmt.Errorf("review item %d failed: %w", i, err)
-		}
-
-		// Check if project file was created or edited after this iteration
-		if git.IsFileModifiedOrNew(absProjectFile) {
-			if err := r.commitProjectFile(ctx, absProjectFile, reviewName); err != nil {
-				return fmt.Errorf("failed to commit review findings after item %d: %w", i+1, err)
+	} else {
+		for i, item := range ralphConfig.Review.Items {
+			content, err := r.loadItemContent(item)
+			if err != nil {
+				return fmt.Errorf("failed to load review item %d: %w", i, err)
 			}
-			projectChanged = true
+
+			prompt := r.buildPrompt(content, absProjectFile, projectDoc, reviewName)
+
+			if r.Verbose {
+				logger.Verbose(prompt)
+			}
+
+			logger.Verbosef("Running review item %d/%d...", i+1, len(ralphConfig.Review.Items))
+			if err := ai.RunAgent(ctx, prompt); err != nil {
+				return fmt.Errorf("review item %d failed: %w", i, err)
+			}
+
+			if git.IsFileModifiedOrNew(absProjectFile) {
+				if err := r.commitProjectFile(ctx, absProjectFile, reviewName); err != nil {
+					return fmt.Errorf("failed to commit review findings after item %d: %w", i+1, err)
+				}
+				projectChanged = true
+			}
 		}
 	}
 
@@ -291,4 +304,57 @@ func fetchRalphProjectDoc() (string, error) {
 		return "", err
 	}
 	return strings.TrimSpace(string(data)), nil
+}
+
+func (r *ReviewCmd) runPhase1(ctx *execcontext.Context, overviewPath, projectPath, reviewName string) (*Overview, error) {
+	prompt := buildOverviewPrompt(overviewPath)
+
+	if r.Verbose {
+		logger.Verbose(prompt)
+	}
+
+	logger.Verbose("Running phase 1: generating code overview...")
+	if err := ai.RunAgent(ctx, prompt); err != nil {
+		return nil, fmt.Errorf("phase 1 failed: %w", err)
+	}
+
+	overview, err := loadOverview(overviewPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load overview: %w", err)
+	}
+
+	return overview, nil
+}
+
+func (r *ReviewCmd) runPhase2(ctx *execcontext.Context, overview *Overview, projectPath, projectDoc, reviewName string, ralphConfig *config.RalphConfig) (bool, error) {
+	projectChanged := false
+
+	for _, component := range overview.Components {
+		for i, item := range ralphConfig.Review.Items {
+			content, err := r.loadItemContent(item)
+			if err != nil {
+				return projectChanged, fmt.Errorf("failed to load review item %d: %w", i, err)
+			}
+
+			prompt := buildComponentPrompt(content, projectPath, projectDoc, reviewName, component)
+
+			if r.Verbose {
+				logger.Verbose(prompt)
+			}
+
+			logger.Verbosef("Running component %s, review item %d/%d...", component.Name, i+1, len(ralphConfig.Review.Items))
+			if err := ai.RunAgent(ctx, prompt); err != nil {
+				return projectChanged, fmt.Errorf("component %s, item %d failed: %w", component.Name, i, err)
+			}
+
+			if git.IsFileModifiedOrNew(projectPath) {
+				if err := r.commitProjectFile(ctx, projectPath, reviewName); err != nil {
+					return projectChanged, fmt.Errorf("failed to commit after component %s, item %d: %w", component.Name, i+1, err)
+				}
+				projectChanged = true
+			}
+		}
+	}
+
+	return projectChanged, nil
 }
