@@ -93,40 +93,12 @@ func (r *ReviewCmd) Run() error {
 
 	overview, err := r.runOverview(ctx, overviewPath, absProjectFile, reviewName)
 	if err != nil {
-		logger.Verbosef("Overview step failed, falling back to single-phase: %v", err)
-		overview = nil
+		return fmt.Errorf("overview step failed: %w", err)
 	}
 
-	if overview != nil {
-		projectChanged, err = r.runReview(ctx, overview, absProjectFile, projectDoc, reviewName, ralphConfig)
-		if err != nil {
-			return fmt.Errorf("review step failed: %w", err)
-		}
-	} else {
-		for i, item := range ralphConfig.Review.Items {
-			content, err := r.loadItemContent(item)
-			if err != nil {
-				return fmt.Errorf("failed to load review item %d: %w", i, err)
-			}
-
-			prompt := r.buildPrompt(content, absProjectFile, projectDoc, reviewName)
-
-			if r.Verbose {
-				logger.Verbose(prompt)
-			}
-
-			logger.Verbosef("Running review item %d/%d...", i+1, len(ralphConfig.Review.Items))
-			if err := ai.RunAgent(ctx, prompt); err != nil {
-				return fmt.Errorf("review item %d failed: %w", i, err)
-			}
-
-			if git.IsFileModifiedOrNew(absProjectFile) {
-				if err := r.commitProjectFile(ctx, absProjectFile, reviewName); err != nil {
-					return fmt.Errorf("failed to commit review findings after item %d: %w", i+1, err)
-				}
-				projectChanged = true
-			}
-		}
+	projectChanged, err = r.runReview(ctx, overview, absProjectFile, projectDoc, reviewName, ralphConfig)
+	if err != nil {
+		return fmt.Errorf("review step failed: %w", err)
 	}
 
 	if projectChanged {
