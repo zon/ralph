@@ -153,7 +153,7 @@ func GeneratePRSummary(ctx *context.Context, projectFile string, iterations int,
 		commitLog = "(Unable to retrieve commit log)"
 	}
 
-	tmpFile, err := createTempSummaryFile()
+	tmpFile, err := git.TmpPath("pr-summary.txt")
 	if err != nil {
 		return "", err
 	}
@@ -174,16 +174,6 @@ func GeneratePRSummary(ctx *context.Context, projectFile string, iterations int,
 	return summary, nil
 }
 
-// createTempSummaryFile creates a temporary file for the PR summary
-func createTempSummaryFile() (string, error) {
-	tmpDir := "tmp"
-	if err := os.MkdirAll(tmpDir, 0755); err != nil {
-		return "", fmt.Errorf("failed to create tmp directory: %w", err)
-	}
-
-	tmpFile := filepath.Join(tmpDir, fmt.Sprintf("pr-summary-%d.txt", os.Getpid()))
-	return tmpFile, nil
-}
 
 type prSummaryData struct {
 	ProjectDesc   string
@@ -276,7 +266,7 @@ func GenerateReviewPRBody(ctx *context.Context, projectFile string) (string, err
 		requirementSummaries = append(requirementSummaries, summary)
 	}
 
-	tmpFile, err := createTempSummaryFile()
+	tmpFile, err := git.TmpPath("pr-body.txt")
 	if err != nil {
 		return "", err
 	}
