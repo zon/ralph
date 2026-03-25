@@ -216,3 +216,26 @@ func GetCommitLog(base string, limit int) (string, error) {
 	output := strings.TrimSpace(out.String())
 	return output, nil
 }
+
+// BranchLogContainsPrefix reports whether any commit on branch (relative to base) has a
+// commit message that contains the given prefix string. Returns false (not an error) when
+// the branch does not yet exist or has no commits relative to base.
+func BranchLogContainsPrefix(base, branch, prefix string) (bool, error) {
+	logRange := fmt.Sprintf("%s..%s", base, branch)
+	cmd := exec.Command("git", "log", logRange, "--format=%s")
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+
+	if err := cmd.Run(); err != nil {
+		// Branch may not exist yet; treat as no matching commits.
+		return false, nil
+	}
+
+	for _, line := range strings.Split(out.String(), "\n") {
+		if strings.Contains(line, prefix) {
+			return true, nil
+		}
+	}
+	return false, nil
+}

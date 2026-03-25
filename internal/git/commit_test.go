@@ -164,3 +164,96 @@ func TestHasUncommittedChanges(t *testing.T) {
 	}
 	assert.True(t, HasUncommittedChanges())
 }
+
+func TestBranchLogContainsPrefix(t *testing.T) {
+	tempDir := setupTestRepo(t)
+	t.Chdir(tempDir)
+
+	// Get the base commit (initial commit on main/master)
+	base, err := GetCurrentBranch()
+	require.NoError(t, err)
+
+	// Create a feature branch
+	err = CheckoutOrCreateBranch("review-2026-03-25")
+	require.NoError(t, err)
+
+	// Add a commit with a known prefix
+	err = os.WriteFile(filepath.Join(tempDir, "file1.txt"), []byte("content1"), 0644)
+	require.NoError(t, err)
+	err = StageFile("file1.txt")
+	require.NoError(t, err)
+	err = Commit("internal-git-0 Found missing error handling in commit flow")
+	require.NoError(t, err)
+
+	// Add another commit with a different prefix
+	err = os.WriteFile(filepath.Join(tempDir, "file2.txt"), []byte("content2"), 0644)
+	require.NoError(t, err)
+	err = StageFile("file2.txt")
+	require.NoError(t, err)
+	err = Commit("internal-api-1 API docs need updating")
+	require.NoError(t, err)
+
+	tests := []struct {
+		name     string
+		prefix   string
+		expected bool
+	}{
+		{
+			name:     "prefix present in history",
+			prefix:   "internal-git-0",
+			expected: true,
+		},
+		{
+			name:     "different prefix present",
+			prefix:   "internal-api-1",
+			expected: true,
+		},
+		{
+			name:     "prefix not in history",
+			prefix:   "internal-git-1",
+			expected: false,
+		},
+		{
+			name:     "prefix with different component",
+			prefix:   "cmd-0",
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			found, err := BranchLogContainsPrefix(base, "review-2026-03-25", tt.prefix)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, found)
+		})
+	}
+}
+
+func TestBranchLogContainsPrefix_NonExistentBranch(t *testing.T) {
+	tempDir := setupTestRepo(t)
+	t.Chdir(tempDir)
+
+	base, err := GetCurrentBranch()
+	require.NoError(t, err)
+
+	// Non-existent branch should return false without error
+	found, err := BranchLogContainsPrefix(base, "non-existent-branch", "some-prefix")
+	require.NoError(t, err)
+	assert.False(t, found)
+}
+
+func TestBranchLogContainsPrefix_EmptyBranch(t *testing.T) {
+	tempDir := setupTestRepo(t)
+	t.Chdir(tempDir)
+
+	base, err := GetCurrentBranch()
+	require.NoError(t, err)
+
+	// Branch with no commits ahead of base should return false
+	err = CheckoutOrCreateBranch("empty-branch")
+	require.NoError(t, err)
+
+	found, err := BranchLogContainsPrefix(base, "empty-branch", "some-prefix")
+	require.NoError(t, err)
+	assert.False(t, found)
+}

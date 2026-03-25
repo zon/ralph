@@ -58,6 +58,7 @@ type componentPromptData struct {
 	ComponentName    string
 	ComponentPath    string
 	ComponentSummary string
+	SummaryPath      string
 }
 
 var componentPromptTemplate = template.Must(template.New("component").Parse(`You are a software architect reviewing source code. Does the code meet these standards?
@@ -73,10 +74,12 @@ This component: {{.ComponentSummary}}
 Create or edit the ralph project at {{.Project}} with any issues found.
 Set the project name field to "{{.ReviewName}}".
 
+After completing your review, write a brief one-sentence summary of your recommendations to {{.SummaryPath}}.
+
 {{.RalphProjectDoc}}
 `))
 
-func buildComponentPrompt(content, projectPath, projectDoc, reviewName string, component OverviewComponent) string {
+func buildComponentPrompt(content, projectPath, projectDoc, reviewName string, component OverviewComponent, summaryPath string) string {
 	var buf bytes.Buffer
 	data := componentPromptData{
 		ConfigContent:    content,
@@ -86,6 +89,7 @@ func buildComponentPrompt(content, projectPath, projectDoc, reviewName string, c
 		ComponentName:    component.Name,
 		ComponentPath:    component.Path,
 		ComponentSummary: component.Summary,
+		SummaryPath:      summaryPath,
 	}
 	componentPromptTemplate.Execute(&buf, data)
 	return buf.String()
