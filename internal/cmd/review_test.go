@@ -141,3 +141,46 @@ func TestReviewBuildPrompt(t *testing.T) {
 	assert.Contains(t, prompt, "project doc content")
 	assert.Contains(t, prompt, "review-2026-03-22")
 }
+
+func TestReviewBuildCommitMessage(t *testing.T) {
+	tests := []struct {
+		name         string
+		component    string
+		itemIndex    int
+		summaryPath  string
+		summary      string
+		wantContains string
+	}{
+		{
+			name:         "commit message with summary",
+			component:    "internal-git",
+			itemIndex:    0,
+			summaryPath:  "tmp/summary.txt",
+			summary:      "Added validation for commit message format",
+			wantContains: "review: internal-git-0 Added validation for commit message format",
+		},
+		{
+			name:         "commit message without summary file",
+			component:    "internal-api",
+			itemIndex:    1,
+			summaryPath:  "/nonexistent/summary.txt",
+			summary:      "",
+			wantContains: "review: internal-api-1",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.summary != "" {
+				tmpDir := t.TempDir()
+				tt.summaryPath = filepath.Join(tmpDir, "summary.txt")
+				require.NoError(t, os.WriteFile(tt.summaryPath, []byte(tt.summary), 0644))
+			}
+
+			r := &ReviewCmd{}
+			msg := r.buildCommitMessage(tt.component, tt.itemIndex, tt.summaryPath)
+
+			assert.Equal(t, tt.wantContains, msg)
+		})
+	}
+}
