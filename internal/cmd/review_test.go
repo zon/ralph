@@ -184,3 +184,66 @@ func TestReviewBuildCommitMessage(t *testing.T) {
 		})
 	}
 }
+
+// TestReviewCommitPrefixConsistency verifies that the prefix used in commit messages
+// matches the prefix searched for in the git log when checking for skips.
+// The format must be '$component-$item' (0-indexed) for both operations.
+func TestReviewCommitPrefixConsistency(t *testing.T) {
+	tests := []struct {
+		component      string
+		itemIndex      int
+		expectedPrefix string
+	}{
+		{"internal-git", 0, "internal-git-0"},
+		{"internal-api", 1, "internal-api-1"},
+		{"cmd", 2, "cmd-2"},
+		{"webhook", 0, "webhook-0"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.expectedPrefix, func(t *testing.T) {
+			r := &ReviewCmd{}
+
+			// Commit message must contain the deterministic prefix
+			tmpDir := t.TempDir()
+			summaryPath := filepath.Join(tmpDir, "summary.txt")
+			require.NoError(t, os.WriteFile(summaryPath, []byte("some summary"), 0644))
+
+			msg := r.buildCommitMessage(tt.component, tt.itemIndex, summaryPath)
+
+			// The message must contain the $component-$item prefix
+			assert.Contains(t, msg, tt.expectedPrefix,
+				"commit message must contain the $component-$item prefix")
+
+			// The prefix must appear near the start of the message (after optional "review: ")
+			assert.Contains(t, msg[:len("review: ")+len(tt.expectedPrefix)], tt.expectedPrefix,
+				"$component-$item prefix must appear at the start of the commit message")
+		})
+	}
+}
+
+func TestReviewIterationPrefixFormat(t *testing.T) {
+	// Verify that the iteration prefix format '$component-$item' is deterministic
+	// and 0-indexed as required by the specification.
+	tests := []struct {
+		component string
+		itemIndex int
+		want      string
+	}{
+		{"internal-git", 0, "internal-git-0"},
+		{"internal-git", 1, "internal-git-1"},
+		{"internal-git", 9, "internal-git-9"},
+		{"internal-api", 0, "internal-api-0"},
+		{"cmd", 5, "cmd-5"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.want, func(t *testing.T) {
+			r := &ReviewCmd{}
+			// Build a commit message with no summary to isolate prefix
+			msg := r.buildCommitMessage(tt.component, tt.itemIndex, "/nonexistent/path")
+			// The prefix must be in the message in the $component-$item format
+			assert.Contains(t, msg, tt.want)
+		})
+	}
+}

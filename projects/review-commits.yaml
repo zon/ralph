@@ -10,7 +10,7 @@ requirements:
       - "$item should be the 0-indexed position of the review item from the configuration"
       - "The review process must search branch commit logs for these prefixes before starting each iteration"
       - "If a matching '$component-$item' prefix is found in history, that specific iteration must be skipped"
-    passing: false
+    passing: true
 
   - category: ai
     description: Enhance AI prompts to capture brief review summaries for commit messages

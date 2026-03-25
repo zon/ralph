@@ -96,7 +96,7 @@ func (r *ReviewCmd) Run() error {
 		return fmt.Errorf("overview step failed: %w", err)
 	}
 
-	projectChanged, err = r.runReview(ctx, overview, absProjectFile, projectDoc, reviewName, ralphConfig)
+	projectChanged, err = r.runReview(ctx, overview, absProjectFile, projectDoc, reviewName, baseBranch, ralphConfig)
 	if err != nil {
 		return fmt.Errorf("review step failed: %w", err)
 	}
@@ -315,11 +315,22 @@ func (r *ReviewCmd) runOverview(ctx *execcontext.Context, overviewPath, projectP
 	return overview, nil
 }
 
-func (r *ReviewCmd) runReview(ctx *execcontext.Context, overview *Overview, projectPath, projectDoc, reviewName string, ralphConfig *config.RalphConfig) (bool, error) {
+func (r *ReviewCmd) runReview(ctx *execcontext.Context, overview *Overview, projectPath, projectDoc, reviewName, baseBranch string, ralphConfig *config.RalphConfig) (bool, error) {
 	projectChanged := false
 
 	for _, component := range overview.Components {
 		for i, item := range ralphConfig.Review.Items {
+			iterPrefix := fmt.Sprintf("%s-%d", component.Name, i)
+
+			alreadyDone, err := git.BranchLogContainsPrefix(baseBranch, reviewName, iterPrefix)
+			if err != nil {
+				logger.Verbosef("Could not check commit log for prefix %s (continuing): %v", iterPrefix, err)
+			}
+			if alreadyDone {
+				logger.Verbosef("Skipping component %s, item %d — prefix %s already in commit history", component.Name, i, iterPrefix)
+				continue
+			}
+
 			content, err := r.loadItemContent(item)
 			if err != nil {
 				return projectChanged, fmt.Errorf("failed to load review item %d: %w", i, err)
