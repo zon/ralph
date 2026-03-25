@@ -88,16 +88,16 @@ func (r *ReviewCmd) Run() error {
 
 	projectChanged := false
 
-	overview, err := r.runPhase1(ctx, overviewPath, absProjectFile, reviewName)
+	overview, err := r.runOverview(ctx, overviewPath, absProjectFile, reviewName)
 	if err != nil {
-		logger.Verbosef("Phase 1 failed, falling back to single-phase: %v", err)
+		logger.Verbosef("Overview step failed, falling back to single-phase: %v", err)
 		overview = nil
 	}
 
 	if overview != nil {
-		projectChanged, err = r.runPhase2(ctx, overview, absProjectFile, projectDoc, reviewName, ralphConfig)
+		projectChanged, err = r.runReview(ctx, overview, absProjectFile, projectDoc, reviewName, ralphConfig)
 		if err != nil {
-			return fmt.Errorf("phase 2 failed: %w", err)
+			return fmt.Errorf("review step failed: %w", err)
 		}
 	} else {
 		for i, item := range ralphConfig.Review.Items {
@@ -306,16 +306,16 @@ func fetchRalphProjectDoc() (string, error) {
 	return strings.TrimSpace(string(data)), nil
 }
 
-func (r *ReviewCmd) runPhase1(ctx *execcontext.Context, overviewPath, projectPath, reviewName string) (*Overview, error) {
+func (r *ReviewCmd) runOverview(ctx *execcontext.Context, overviewPath, projectPath, reviewName string) (*Overview, error) {
 	prompt := buildOverviewPrompt(overviewPath)
 
 	if r.Verbose {
 		logger.Verbose(prompt)
 	}
 
-	logger.Verbose("Running phase 1: generating code overview...")
+	logger.Verbose("Running overview step: generating code overview...")
 	if err := ai.RunAgent(ctx, prompt); err != nil {
-		return nil, fmt.Errorf("phase 1 failed: %w", err)
+		return nil, fmt.Errorf("overview step failed: %w", err)
 	}
 
 	overview, err := loadOverview(overviewPath)
@@ -326,7 +326,7 @@ func (r *ReviewCmd) runPhase1(ctx *execcontext.Context, overviewPath, projectPat
 	return overview, nil
 }
 
-func (r *ReviewCmd) runPhase2(ctx *execcontext.Context, overview *Overview, projectPath, projectDoc, reviewName string, ralphConfig *config.RalphConfig) (bool, error) {
+func (r *ReviewCmd) runReview(ctx *execcontext.Context, overview *Overview, projectPath, projectDoc, reviewName string, ralphConfig *config.RalphConfig) (bool, error) {
 	projectChanged := false
 
 	for _, component := range overview.Components {
