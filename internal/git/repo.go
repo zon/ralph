@@ -3,7 +3,9 @@ package git
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
@@ -30,6 +32,24 @@ func FindRepoRoot() (string, error) {
 	}
 
 	return repoRoot, nil
+}
+
+// TmpPath returns a path under the repo root's tmp/ directory for the given filename,
+// inserting the current PID before the extension (e.g. "foo.yaml" → "tmp/foo-<pid>.yaml").
+// The tmp/ directory is created if it does not exist.
+func TmpPath(name string) (string, error) {
+	root, err := FindRepoRoot()
+	if err != nil {
+		return "", err
+	}
+	tmpDir := filepath.Join(root, "tmp")
+	if err := os.MkdirAll(tmpDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create tmp directory: %w", err)
+	}
+	ext := filepath.Ext(name)
+	base := strings.TrimSuffix(name, ext)
+	pidName := fmt.Sprintf("%s-%d%s", base, os.Getpid(), ext)
+	return filepath.Join(tmpDir, pidName), nil
 }
 
 // isDetachedHead checks if the repository is in a detached HEAD state

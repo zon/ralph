@@ -53,7 +53,10 @@ func (r *ReviewCmd) Run() error {
 		return fmt.Errorf("failed to create project directory: %w", err)
 	}
 
-	overviewPath := filepath.Join(projectDir, reviewName+"-overview.yaml")
+	overviewPath, err := git.TmpPath("overview.yaml")
+	if err != nil {
+		return fmt.Errorf("failed to resolve overview path: %w", err)
+	}
 
 	ralphConfig, err := config.LoadConfig()
 	if err != nil {
@@ -319,6 +322,7 @@ func (r *ReviewCmd) runOverview(ctx *execcontext.Context, overviewPath, projectP
 	}
 
 	overview, err := loadOverview(overviewPath)
+	os.Remove(overviewPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load overview: %w", err)
 	}
