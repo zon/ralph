@@ -9,10 +9,10 @@ requirements:
       - "Update loadOverview to parse JSON instead of YAML"
       - "Update the prompt template to request JSON output with a .json file extension"
       - "The overview file path passed to the agent must use a .json extension"
-    passing: false
+    passing: true
 
   - category: release
     description: Version bump for the bug fix
     items:
       - "Apply a semver patch bump to internal/version/VERSION and charts/ralph-webhook/Chart.yaml"
-    passing: false
+    passing: true
