@@ -54,7 +54,7 @@ func (r *ReviewCmd) Run() error {
 		return fmt.Errorf("failed to create project directory: %w", err)
 	}
 
-	overviewPath, err := git.TmpPath("overview.yaml")
+	overviewPath, err := git.TmpPath("overview.json")
 	if err != nil {
 		return fmt.Errorf("failed to resolve overview path: %w", err)
 	}

@@ -2,21 +2,20 @@ package cmd
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"text/template"
-
-	"gopkg.in/yaml.v3"
 )
 
 type OverviewComponent struct {
-	Name    string `yaml:"name"`
-	Path    string `yaml:"path"`
-	Summary string `yaml:"summary"`
+	Name    string `json:"name"`
+	Path    string `json:"path"`
+	Summary string `json:"summary"`
 }
 
 type Overview struct {
-	Components []OverviewComponent `yaml:"components"`
+	Components []OverviewComponent `json:"components"`
 }
 
 func loadOverview(path string) (*Overview, error) {
@@ -26,8 +25,8 @@ func loadOverview(path string) (*Overview, error) {
 	}
 
 	var overview Overview
-	if err := yaml.Unmarshal(data, &overview); err != nil {
-		return nil, fmt.Errorf("failed to parse overview YAML: %w", err)
+	if err := json.Unmarshal(data, &overview); err != nil {
+		return nil, fmt.Errorf("failed to parse overview JSON: %w", err)
 	}
 
 	return &overview, nil
@@ -39,7 +38,7 @@ type overviewPromptData struct {
 
 var overviewPromptTemplate = template.Must(template.New("overview").Parse(`Explore the codebase and identify the major code components (packages, modules, or logical groupings).
 For each component, provide its name, path relative to the repository root, and a one-sentence description of what it does.
-Write the overview to {{.OverviewPath}} in YAML format with a top-level "components" list.
+Write the overview to {{.OverviewPath}} in JSON format with a top-level "components" list.
 Each component entry should have "name", "path", and "summary" fields.
 `))
 
