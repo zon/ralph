@@ -142,6 +142,18 @@ func TestReviewBuildPrompt(t *testing.T) {
 	assert.Contains(t, prompt, "review-2026-03-22")
 }
 
+func TestEmbeddedReviewInstructions(t *testing.T) {
+	if reviewInstructions == "" {
+		t.Error("reviewInstructions should not be empty")
+	}
+	if !contains(reviewInstructions, "{{.ConfigContent}}") {
+		t.Error("reviewInstructions should contain ConfigContent template variable")
+	}
+	if !contains(reviewInstructions, "{{.ReviewName}}") {
+		t.Error("reviewInstructions should contain ReviewName template variable")
+	}
+}
+
 func TestReviewBuildCommitMessage(t *testing.T) {
 	tests := []struct {
 		name         string
