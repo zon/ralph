@@ -6,7 +6,15 @@ import (
 	"fmt"
 	"os"
 	"text/template"
+
+	_ "embed"
 )
+
+//go:embed overview-instructions.md
+var overviewInstructions string
+
+//go:embed component-review-instructions.md
+var componentReviewInstructions string
 
 type OverviewComponent struct {
 	Name    string `json:"name"`
@@ -36,11 +44,7 @@ type overviewPromptData struct {
 	OverviewPath string
 }
 
-var overviewPromptTemplate = template.Must(template.New("overview").Parse(`Explore the codebase and identify the major code components (packages, modules, or logical groupings).
-For each component, provide its name, path relative to the repository root, and a one-sentence description of what it does.
-Write the overview to {{.OverviewPath}} in JSON format with a top-level "components" list.
-Each component entry should have "name", "path", and "summary" fields.
-`))
+var overviewPromptTemplate = template.Must(template.New("overview").Parse(overviewInstructions))
 
 func buildOverviewPrompt(overviewPath string) string {
 	var buf bytes.Buffer
@@ -60,24 +64,7 @@ type componentPromptData struct {
 	SummaryPath      string
 }
 
-var componentPromptTemplate = template.Must(template.New("component").Parse(`You are a software architect reviewing source code. Does the code meet these standards?
-
-## Review Content
-{{.ConfigContent}}
-
-## Component Context
-Focus your review on the component named "{{.ComponentName}}" located at {{.ComponentPath}}.
-This component: {{.ComponentSummary}}
-
-## Instructions
-Create or edit the ralph project at {{.Project}} with any issues found.
-Set the project name field to "{{.ReviewName}}".
-Only add requirements that are NOT met. Do not add requirements that are already passing.
-
-After completing your review, write a brief one-sentence summary of your recommendations to {{.SummaryPath}}.
-
-{{.RalphProjectDoc}}
-`))
+var componentPromptTemplate = template.Must(template.New("component").Parse(componentReviewInstructions))
 
 func buildComponentPrompt(content, projectPath, projectDoc, reviewName string, component OverviewComponent, summaryPath string) string {
 	var buf bytes.Buffer

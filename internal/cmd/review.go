@@ -20,7 +20,12 @@ import (
 	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/workflow"
+
+	_ "embed"
 )
+
+//go:embed review-instructions.md
+var reviewInstructions string
 
 const ralphProjectDocURL = "https://raw.githubusercontent.com/zon/ralph/refs/heads/main/docs/projects.md"
 
@@ -289,17 +294,7 @@ type reviewPromptData struct {
 	ReviewName      string
 }
 
-var reviewPromptTemplate = template.Must(template.New("review").Parse(`You are a software architect reviewing source code. Does the code meet these standards?
-
-## Review Content
-{{.ConfigContent}}
-
-## Instructions
-Create or edit the ralph project at {{.Project}} with any issues found.
-Set the project name field to "{{.ReviewName}}".
-
-{{.RalphProjectDoc}}
-`))
+var reviewPromptTemplate = template.Must(template.New("review").Parse(reviewInstructions))
 
 func (r *ReviewCmd) buildPrompt(content, projectPath, projectDoc, reviewName string) string {
 	var buf bytes.Buffer

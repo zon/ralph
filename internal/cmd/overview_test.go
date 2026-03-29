@@ -6,6 +6,27 @@ import (
 	"testing"
 )
 
+func TestEmbeddedOverviewInstructions(t *testing.T) {
+	if overviewInstructions == "" {
+		t.Error("overviewInstructions should not be empty")
+	}
+	if !contains(overviewInstructions, "{{.OverviewPath}}") {
+		t.Error("overviewInstructions should contain OverviewPath template variable")
+	}
+}
+
+func TestEmbeddedComponentReviewInstructions(t *testing.T) {
+	if componentReviewInstructions == "" {
+		t.Error("componentReviewInstructions should not be empty")
+	}
+	if !contains(componentReviewInstructions, "{{.ComponentName}}") {
+		t.Error("componentReviewInstructions should contain ComponentName template variable")
+	}
+	if !contains(componentReviewInstructions, "{{.ConfigContent}}") {
+		t.Error("componentReviewInstructions should contain ConfigContent template variable")
+	}
+}
+
 func TestBuildOverviewPrompt(t *testing.T) {
 	tests := []struct {
 		name         string
