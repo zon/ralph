@@ -696,7 +696,7 @@ func TestWorkflowRender_WithLabels(t *testing.T) {
 	templates := spec["templates"].([]interface{})
 	tmpl := templates[0].(map[string]interface{})
 
-	podMetadata := tmpl["podMetadata"].(map[string]interface{})
+	podMetadata := tmpl["metadata"].(map[string]interface{})
 	podLabels := podMetadata["labels"].(map[string]interface{})
 
 	assert.Equal(t, "production", podLabels["environment"])

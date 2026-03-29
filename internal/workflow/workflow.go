@@ -173,7 +173,7 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 	}
 
 	if len(w.Labels) > 0 {
-		template["podMetadata"] = map[string]interface{}{
+		template["metadata"] = map[string]interface{}{
 			"labels": w.Labels,
 		}
 	}
