@@ -142,6 +142,7 @@ func (r *ReviewCmd) submitToArgo(ctx *execcontext.Context, cloneBranch string) e
 	}
 
 	logger.Successf("Review workflow submitted: %s", workflowName)
+	logger.Infof("To follow logs, run: argo logs -n %s %s -f", wf.Namespace, workflowName)
 	return nil
 }
 

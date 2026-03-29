@@ -283,7 +283,7 @@ func executeRemote(ctx *context.Context, absProjectFile string) error {
 		}
 		notify.Success(projectName, ctx.ShouldNotify())
 	} else {
-		logger.Infof("To follow logs, run: argo logs -n %s -f %s", wf.Namespace, workflowName)
+		logger.Infof("To follow logs, run: argo logs -n %s %s -f", wf.Namespace, workflowName)
 	}
 
 	return nil
