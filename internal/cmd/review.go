@@ -96,7 +96,7 @@ func (r *ReviewCmd) Run() error {
 		return fmt.Errorf("overview step failed: %w", err)
 	}
 
-	projectChanged, err = r.runReview(ctx, overview, absProjectFile, projectDoc, reviewName, ralphConfig)
+	projectChanged, err = r.runReview(ctx, overview, absProjectFile, projectDoc, reviewName, baseBranch, ralphConfig)
 	if err != nil {
 		return fmt.Errorf("review step failed: %w", err)
 	}
@@ -121,14 +121,13 @@ func (r *ReviewCmd) printStats() error {
 	return cmd.Run()
 }
 
-func (r *ReviewCmd) commitProjectFile(ctx *execcontext.Context, absProjectFile, reviewName string) error {
+func (r *ReviewCmd) commitProjectFile(ctx *execcontext.Context, absProjectFile, reviewName, componentName string, itemIndex int, summaryPath string) error {
 	var auth *git.AuthConfig
 	if ctx.IsWorkflowExecution() {
 		owner, repo := ctx.RepoOwnerAndName()
 		auth = &git.AuthConfig{Owner: owner, Repo: repo}
 	}
 
-	// Switch to review branch if not already on it
 	currentBranch, err := git.GetCurrentBranch()
 	if err != nil {
 		return fmt.Errorf("failed to get current branch: %w", err)
@@ -142,18 +141,15 @@ func (r *ReviewCmd) commitProjectFile(ctx *execcontext.Context, absProjectFile, 
 		}
 	}
 
-	// Stage the project file
 	if err := git.StageFile(absProjectFile); err != nil {
 		return fmt.Errorf("failed to stage project file: %w", err)
 	}
 
-	// Commit
-	commitMsg := fmt.Sprintf("review: update %s findings", reviewName)
+	commitMsg := r.buildCommitMessage(componentName, itemIndex, summaryPath)
 	if err := git.Commit(commitMsg); err != nil {
 		return fmt.Errorf("failed to commit review findings: %w", err)
 	}
 
-	// Pull rebase then push
 	if err := git.PullRebase(auth); err != nil {
 		logger.Verbosef("Pull rebase failed (continuing): %v", err)
 	}
@@ -162,6 +158,23 @@ func (r *ReviewCmd) commitProjectFile(ctx *execcontext.Context, absProjectFile, 
 	}
 
 	return nil
+}
+
+func (r *ReviewCmd) buildCommitMessage(componentName string, itemIndex int, summaryPath string) string {
+	prefix := fmt.Sprintf("%s-%d", componentName, itemIndex)
+
+	data, err := os.ReadFile(summaryPath)
+	if err != nil {
+		logger.Verbosef("Failed to read summary file: %v", err)
+		return fmt.Sprintf("review: %s", prefix)
+	}
+
+	summary := strings.TrimSpace(string(data))
+	if summary == "" {
+		return fmt.Sprintf("review: %s", prefix)
+	}
+
+	return fmt.Sprintf("review: %s %s", prefix, summary)
 }
 
 func (r *ReviewCmd) submitPR(ctx *execcontext.Context, absProjectFile, reviewName, baseBranch string) error {
@@ -302,17 +315,33 @@ func (r *ReviewCmd) runOverview(ctx *execcontext.Context, overviewPath, projectP
 	return overview, nil
 }
 
-func (r *ReviewCmd) runReview(ctx *execcontext.Context, overview *Overview, projectPath, projectDoc, reviewName string, ralphConfig *config.RalphConfig) (bool, error) {
+func (r *ReviewCmd) runReview(ctx *execcontext.Context, overview *Overview, projectPath, projectDoc, reviewName, baseBranch string, ralphConfig *config.RalphConfig) (bool, error) {
 	projectChanged := false
 
 	for _, component := range overview.Components {
 		for i, item := range ralphConfig.Review.Items {
+			iterPrefix := fmt.Sprintf("%s-%d", component.Name, i)
+
+			alreadyDone, err := git.BranchLogContainsPrefix(baseBranch, reviewName, iterPrefix)
+			if err != nil {
+				logger.Verbosef("Could not check commit log for prefix %s (continuing): %v", iterPrefix, err)
+			}
+			if alreadyDone {
+				logger.Verbosef("Skipping component %s, item %d — prefix %s already in commit history", component.Name, i, iterPrefix)
+				continue
+			}
+
 			content, err := r.loadItemContent(item)
 			if err != nil {
 				return projectChanged, fmt.Errorf("failed to load review item %d: %w", i, err)
 			}
 
-			prompt := buildComponentPrompt(content, projectPath, projectDoc, reviewName, component)
+			summaryPath, err := git.TmpPath(fmt.Sprintf("summary-%s-%d.txt", component.Name, i))
+			if err != nil {
+				return projectChanged, fmt.Errorf("failed to resolve summary path: %w", err)
+			}
+
+			prompt := buildComponentPrompt(content, projectPath, projectDoc, reviewName, component, summaryPath)
 
 			if r.Verbose {
 				logger.Verbose(prompt)
@@ -324,11 +353,13 @@ func (r *ReviewCmd) runReview(ctx *execcontext.Context, overview *Overview, proj
 			}
 
 			if git.IsFileModifiedOrNew(projectPath) {
-				if err := r.commitProjectFile(ctx, projectPath, reviewName); err != nil {
+				if err := r.commitProjectFile(ctx, projectPath, reviewName, component.Name, i, summaryPath); err != nil {
 					return projectChanged, fmt.Errorf("failed to commit after component %s, item %d: %w", component.Name, i+1, err)
 				}
 				projectChanged = true
 			}
+
+			os.Remove(summaryPath)
 		}
 	}
 

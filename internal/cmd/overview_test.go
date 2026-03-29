@@ -47,6 +47,7 @@ func TestBuildComponentPrompt(t *testing.T) {
 		projectDoc   string
 		reviewName   string
 		component    OverviewComponent
+		summaryPath  string
 		wantContains []string
 	}{
 		{
@@ -60,13 +61,14 @@ func TestBuildComponentPrompt(t *testing.T) {
 				Path:    "internal/auth",
 				Summary: "Handles authentication and authorization",
 			},
-			wantContains: []string{"auth", "internal/auth", "Handles authentication and authorization", "projects/review.yaml", "review-2024-01-01", "Check for security issues"},
+			summaryPath:  "tmp/summary-auth-0.txt",
+			wantContains: []string{"auth", "internal/auth", "Handles authentication and authorization", "projects/review.yaml", "review-2024-01-01", "Check for security issues", "tmp/summary-auth-0.txt"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			prompt := buildComponentPrompt(tt.content, tt.projectPath, tt.projectDoc, tt.reviewName, tt.component)
+			prompt := buildComponentPrompt(tt.content, tt.projectPath, tt.projectDoc, tt.reviewName, tt.component, tt.summaryPath)
 			for _, want := range tt.wantContains {
 				if !contains(prompt, want) {
 					t.Errorf("buildComponentPrompt() = %q, want it to contain %q", prompt, want)
