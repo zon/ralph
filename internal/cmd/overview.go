@@ -72,6 +72,7 @@ This component: {{.ComponentSummary}}
 ## Instructions
 Create or edit the ralph project at {{.Project}} with any issues found.
 Set the project name field to "{{.ReviewName}}".
+Only add requirements that are NOT met. Do not add requirements that are already passing.
 
 After completing your review, write a brief one-sentence summary of your recommendations to {{.SummaryPath}}.
 
