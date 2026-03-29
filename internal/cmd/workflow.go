@@ -22,8 +22,8 @@ const (
 
 type WorkflowCmd struct {
 	Repo           string `arg:"" help:"GitHub repository (owner/repo)" required:""`
-	ProjectPath    string `arg:"" help:"Path to project YAML file within the repository" required:""`
-	ProjectBranch  string `help:"Branch to clone or create" name:"project-branch" required:""`
+	ProjectPath    string `arg:"" help:"Path to project YAML file within the repository" optional:""`
+	ProjectBranch  string `help:"Branch to clone or create" name:"project-branch" optional:""`
 	BaseBranch     string `help:"Base branch for PR creation" name:"base" short:"B" required:""`
 	BotName        string `help:"Git user name for commits" default:"ralph-zon[bot]"`
 	BotEmail       string `help:"Git user email for commits" default:"ralph-zon[bot]@users.noreply.github.com"`
@@ -33,11 +33,16 @@ type WorkflowCmd struct {
 	InstructionsMD string `help:"Inline instructions content" name:"instructions-md" optional:""`
 	MaxIterations  int    `help:"Maximum number of iterations" name:"max-iterations" default:"0"`
 	Model          string `help:"Override the AI model from config" name:"model" optional:""`
+	Review         bool   `help:"Run review mode instead of a project" name:"review" default:"false"`
 
 	cleanupRegistrar func(func()) `kong:"-"`
 }
 
 func (w *WorkflowCmd) Run() error {
+	if !w.Review && w.ProjectPath == "" {
+		return fmt.Errorf("project path is required")
+	}
+
 	ctx := createExecutionContext()
 	ctx.SetVerbose(w.Verbose)
 	ctx.SetNoServices(w.NoServices)
@@ -68,12 +73,18 @@ func (w *WorkflowCmd) Run() error {
 		return fmt.Errorf("failed to clone and setup repo: %w", err)
 	}
 
-	if err := w.syncBaseBranch(ctx); err != nil {
-		return fmt.Errorf("failed to sync base branch: %w", err)
-	}
+	if w.Review {
+		if err := w.runReview(ctx); err != nil {
+			return fmt.Errorf("failed to run review: %w", err)
+		}
+	} else {
+		if err := w.syncBaseBranch(ctx); err != nil {
+			return fmt.Errorf("failed to sync base branch: %w", err)
+		}
 
-	if err := w.runProject(ctx); err != nil {
-		return fmt.Errorf("failed to run project: %w", err)
+		if err := w.runProject(ctx); err != nil {
+			return fmt.Errorf("failed to run project: %w", err)
+		}
 	}
 
 	w.displayStats()
@@ -301,6 +312,17 @@ func (w *WorkflowCmd) runProject(ctx *context.Context) error {
 	}
 
 	return nil
+}
+
+func (w *WorkflowCmd) runReview(ctx *context.Context) error {
+	logger.Info("Running review...")
+	reviewCmd := &ReviewCmd{
+		Local:   true,
+		Verbose: w.Verbose,
+		Model:   w.Model,
+		Base:    ctx.BaseBranch(),
+	}
+	return reviewCmd.Run()
 }
 
 func (w *WorkflowCmd) displayStats() {

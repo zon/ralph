@@ -19,6 +19,7 @@ import (
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/logger"
+	"github.com/zon/ralph/internal/workflow"
 )
 
 const ralphProjectDocURL = "https://raw.githubusercontent.com/zon/ralph/refs/heads/main/docs/projects.md"
@@ -89,6 +90,10 @@ func (r *ReviewCmd) Run() error {
 	baseBranch := resolveBaseBranch(r.Base, startingBranch, reviewName, ralphConfig.DefaultBranch)
 	ctx.SetBaseBranch(baseBranch)
 
+	if !r.Local {
+		return r.submitToArgo(ctx, startingBranch)
+	}
+
 	projectChanged := false
 
 	overview, err := r.runOverview(ctx, overviewPath, absProjectFile, reviewName)
@@ -111,6 +116,32 @@ func (r *ReviewCmd) Run() error {
 		logger.Verbosef("Failed to print stats: %v", err)
 	}
 
+	return nil
+}
+
+func (r *ReviewCmd) submitToArgo(ctx *execcontext.Context, cloneBranch string) error {
+	logger.Verbose("Submitting review Argo Workflow...")
+
+	if err := git.IsBranchSyncedWithRemote(cloneBranch); err != nil {
+		return err
+	}
+
+	wf, err := workflow.GenerateReviewWorkflow(ctx, cloneBranch)
+	if err != nil {
+		return fmt.Errorf("failed to generate review workflow: %w", err)
+	}
+
+	if ctx.IsVerbose() {
+		workflowYAML, _ := wf.Render()
+		logger.Verbosef("Generated workflow YAML:\n%s", workflowYAML)
+	}
+
+	workflowName, err := wf.Submit()
+	if err != nil {
+		return fmt.Errorf("failed to submit review workflow: %w", err)
+	}
+
+	logger.Successf("Review workflow submitted: %s", workflowName)
 	return nil
 }
 

@@ -57,6 +57,8 @@ type Workflow struct {
 	Model string
 	// Labels are the Kubernetes labels to apply to the workflow pod.
 	Labels map[string]string
+	// Review indicates this is a review workflow (runs ralph review --local in the container).
+	Review bool
 }
 
 // Render produces the Argo Workflow YAML string for this Workflow.
@@ -139,6 +141,20 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 	if w.DebugBranch != "" || w.CommentBody != "" {
 		command = []string{"/bin/sh", "-c"}
 		args = []string{w.buildScript()}
+	} else if w.Review {
+		command = []string{"ralph"}
+		args = []string{
+			"workflow",
+			"--review",
+			"--base", w.getEffectiveBaseBranch(),
+			w.Repo.Owner + "/" + w.Repo.Name,
+		}
+		if w.Verbose {
+			args = append(args, "--verbose")
+		}
+		if w.Model != "" {
+			args = append(args, "--model", w.Model)
+		}
 	} else {
 		command = []string{"ralph"}
 		args = []string{

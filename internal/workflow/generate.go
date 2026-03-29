@@ -142,6 +142,49 @@ func GenerateCommentWorkflowWithGitInfo(projectName, repoURL, cloneBranch, proje
 	}, nil
 }
 
+// GenerateReviewWorkflow builds a Workflow for a review execution.
+// cloneBranch is the branch the container will clone (typically the current local branch).
+func GenerateReviewWorkflow(ctx *execcontext.Context, cloneBranch string) (*Workflow, error) {
+	rawRemoteURL, err := getRemoteURL()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get remote URL: %w", err)
+	}
+	remoteURL := toHTTPSURL(rawRemoteURL)
+
+	ralphConfig, err := config.LoadConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load config: %w", err)
+	}
+
+	repo, err := githubpkg.ParseRemoteURL(remoteURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse repository from URL: %w", err)
+	}
+
+	kubeContext := ctx.KubeContext()
+	if kubeContext == "" {
+		kubeContext = ralphConfig.Workflow.Context
+	}
+
+	return &Workflow{
+		ProjectName:   "review",
+		ProjectBranch: "review",
+		Review:        true,
+		Repo:          repo,
+		CloneBranch:   cloneBranch,
+		BaseBranch:    ctx.BaseBranch(),
+		Verbose:       ctx.IsVerbose(),
+		Model:         ctx.Model(),
+		Image:         MakeImage(ralphConfig.Workflow.Image.Repository, ralphConfig.Workflow.Image.Tag),
+		ConfigMaps:    ralphConfig.Workflow.ConfigMaps,
+		Secrets:       ralphConfig.Workflow.Secrets,
+		Env:           ralphConfig.Workflow.Env,
+		KubeContext:   kubeContext,
+		Namespace:     ralphConfig.Workflow.Namespace,
+		Labels:        ralphConfig.Workflow.Labels,
+	}, nil
+}
+
 // GenerateMergeWorkflow builds a MergeWorkflow, detecting git info from the local repository.
 func GenerateMergeWorkflow(prBranch string) (*MergeWorkflow, error) {
 	ralphConfig, err := config.LoadConfig()
