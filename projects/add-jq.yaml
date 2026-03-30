@@ -6,11 +6,11 @@ requirements:
     description: Install jq in the ralph container image
     items:
       - jq is installed and available in the ralph container runtime image
-    passing: false
+    passing: true
 
   - category: version
     description: Bump version for new container dependency
     items:
       - Apply a semver minor bump to the app version in internal/version/VERSION and charts/ralph-webhook/Chart.yaml appVersion
       - Apply a semver patch bump to charts/ralph-webhook/Chart.yaml version
-    passing: false
+    passing: true
