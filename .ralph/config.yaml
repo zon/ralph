@@ -1,6 +1,6 @@
 workflow:
   namespace: ralph
-model: minimax/MiniMax-M2.5
+model: deepseek/deepseek-reasoner
 review:
   items:
     - url: https://raw.githubusercontent.com/zon/code/main/review/go/formatting.md
