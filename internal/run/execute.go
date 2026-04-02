@@ -93,7 +93,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		logger.Verbosef("PR Summary:\n%s", prSummary)
 	}
 
-	prURL, err := createPullRequest(ctx, project, branchName, baseBranch, prSummary)
+	prURL, err := CreatePullRequest(ctx, project, branchName, baseBranch, prSummary)
 	if err != nil {
 		if errors.Is(err, github.ErrNoCommitsBetweenBranches) {
 			logger.Verbose("No commits ahead of base branch — all requirements were already passing; skipping PR creation")
@@ -164,7 +164,7 @@ func switchToProjectBranch(ctx *context.Context, branchName string) error {
 	return nil
 }
 
-func createPullRequest(ctx *context.Context, project *projectpkg.Project, branchName, baseBranch, prSummary string) (string, error) {
+func CreatePullRequest(ctx *context.Context, project *projectpkg.Project, branchName, baseBranch, prSummary string) (string, error) {
 	// Refresh GitHub credentials immediately before creating the PR.
 	// Installation tokens expire after 1 hour, so a long-running agent job may
 	// have started with a valid token that is now stale. Re-running ConfigureGitAuth

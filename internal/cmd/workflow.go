@@ -277,12 +277,6 @@ Focus on accepting the correct changes from both branches. If there are test fai
 
 	_ = run.Execute(ctx, w.cleanupRegistrar)
 
-	if git.HasStagedChanges() {
-		logger.Info("AI did not commit the merge - committing now...")
-		_ = git.StageAll()
-		_ = git.Commit(fmt.Sprintf("Merge %s into %s", baseBranch, ctx.Branch()))
-	}
-
 	return nil
 }
 
