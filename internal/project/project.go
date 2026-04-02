@@ -2,8 +2,8 @@ package project
 
 import (
 	"fmt"
-	"os"
 
+	"github.com/zon/ralph/internal/file"
 	"gopkg.in/yaml.v3"
 )
 
@@ -26,7 +26,7 @@ type Requirement struct {
 
 // LoadProject loads and validates a project YAML file
 func LoadProject(path string) (*Project, error) {
-	data, err := os.ReadFile(path)
+	data, err := file.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read project file: %w", err)
 	}
@@ -63,7 +63,7 @@ func SaveProject(path string, p *Project) error {
 		return fmt.Errorf("failed to marshal project: %w", err)
 	}
 
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	if err := file.WriteFile(path, data, 0644); err != nil {
 		return fmt.Errorf("failed to write project file: %w", err)
 	}
 

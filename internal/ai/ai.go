@@ -117,6 +117,7 @@ func runOpenCodeAndReadResult(ctx *context.Context, model, prompt, outputFile st
 // It parses the prompt to determine what file to write and creates mock output files.
 func runMockAgent(ctx *context.Context, prompt string) error {
 	if os.Getenv("RALPH_MOCK_AI_FAIL") == "true" {
+		logger.Verbosef("Mock AI failing as requested")
 		return fmt.Errorf("opencode execution failed: mock AI failure\n\nline 9 output\nline 10 output\nline 11 output\nline 12 output")
 	}
 

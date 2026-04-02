@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/run"
 	"github.com/zon/ralph/internal/testutil"
 )
@@ -295,6 +296,8 @@ requirements:
 func TestExecute_WritesBlockedOnAgentFailure(t *testing.T) {
 	t.Setenv("RALPH_MOCK_AI", "true")
 	t.Setenv("RALPH_MOCK_AI_FAIL", "true")
+	t.Setenv("RALPH_WORKFLOW_EXECUTION", "true")
+	logger.SetVerbose(true)
 
 	tmpDir := t.TempDir()
 	projectFile := filepath.Join(tmpDir, "test-project.yaml")

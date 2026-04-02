@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"text/template"
 
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
+	"github.com/zon/ralph/internal/file"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/project"
@@ -44,7 +44,7 @@ func GeneratePRSummary(ctx *context.Context, projectFile string, iterations int,
 	if err != nil {
 		return "", err
 	}
-	defer os.Remove(tmpFile)
+	defer file.Remove(tmpFile)
 
 	prompt := buildPRSummaryPrompt(proj.Description, projectStatus, baseBranch, commitLog, tmpFile)
 
@@ -93,7 +93,7 @@ Write your summary to the file: {{.AbsPath}}
 
 // buildPRSummaryPrompt constructs the prompt for generating PR summary
 func buildPRSummaryPrompt(projectDesc, projectStatus, baseBranch, commitLog, outputFile string) string {
-	absPath, _ := filepath.Abs(outputFile)
+	absPath, _ := file.Abs(outputFile)
 
 	var builder bytes.Buffer
 	data := prSummaryData{
@@ -121,7 +121,7 @@ func runOpenCodeAndReadResult(ctx *context.Context, model, prompt, outputFile st
 	}
 
 	// Read the summary from the file the agent wrote
-	summaryBytes, err := os.ReadFile(outputFile)
+	summaryBytes, err := file.ReadFile(outputFile)
 	if err != nil {
 		return "", fmt.Errorf("failed to read summary file: %w", err)
 	}
@@ -152,7 +152,7 @@ func GenerateChangelog(ctx *context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer os.Remove(tmpFile)
+	defer file.Remove(tmpFile)
 
 	prompt := buildChangelogPrompt(tmpFile)
 
@@ -167,7 +167,7 @@ func GenerateChangelog(ctx *context.Context) error {
 	}
 
 	// The agent writes to the file we gave it; we need to move that to report.md
-	if err := os.Rename(tmpFile, "report.md"); err != nil {
+	if err := file.Rename(tmpFile, "report.md"); err != nil {
 		return fmt.Errorf("failed to rename changelog to report.md: %w", err)
 	}
 
@@ -190,7 +190,7 @@ Write the changelog entry to the file: {{.}}
 Do not include any extra commentary, just the changelog entry.`))
 
 func buildChangelogPrompt(outputFile string) string {
-	absPath, _ := filepath.Abs(outputFile)
+	absPath, _ := file.Abs(outputFile)
 	var b bytes.Buffer
 	changelogPromptTemplate.Execute(&b, absPath)
 	return b.String()
@@ -218,7 +218,7 @@ func GenerateReviewPRBody(ctx *context.Context, projectFile string) (string, err
 	if err != nil {
 		return "", err
 	}
-	defer os.Remove(tmpFile)
+	defer file.Remove(tmpFile)
 
 	prompt := buildReviewPRBodyPrompt(proj.Name, proj.Description, requirementSummaries, tmpFile)
 
@@ -263,7 +263,7 @@ Write your summary to the file: {{.AbsPath}}
 `))
 
 func buildReviewPRBodyPrompt(projectName, projectDesc string, requirements []string, outputFile string) string {
-	absPath, _ := filepath.Abs(outputFile)
+	absPath, _ := file.Abs(outputFile)
 
 	var builder bytes.Buffer
 	data := reviewPRBodyData{
