@@ -126,3 +126,10 @@ requirements:
       - Add validation method to ensure internal consistency (e.g., local vs follow)
       - Consider moving environment variable initialization into context package via factory function
     passing: false
+  - category: context-management
+    description: Separate domain logic from implementation details in context management
+    items:
+      - Extract notification rule (ShouldNotify) to pure function
+      - Extract repository parsing logic (SetRepo) to pure function
+      - Ensure context methods delegate to pure functions
+    passing: false
