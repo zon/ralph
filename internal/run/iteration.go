@@ -70,7 +70,7 @@ func isBlocked(ctx *context.Context) (bool, error) {
 
 // RunIterationLoop runs multiple development iterations until completion or max iterations
 // Each iteration:
-// 1. Runs a single development iteration (requirement.Execute)
+// 1. Runs a single development iteration (ExecuteDevelopmentIteration)
 // 2. Commits the changes
 // 3. Checks project completion status
 // 4. Stops when all requirements pass OR max iterations reached
@@ -144,7 +144,7 @@ func RunIterationLoop(ctx *context.Context, cleanupRegistrar func(func())) (int,
 	return iterationCount, nil
 }
 
-// runSingleIteration executes one iteration: runs requirement.Execute, commits changes, and reports completion
+// runSingleIteration executes one iteration: runs ExecuteDevelopmentIteration, commits changes, and reports completion
 func runSingleIteration(ctx *context.Context, cleanupRegistrar func(func()), previousProject *projectpkg.Project, iteration int) error {
 	// Run single development iteration
 	logger.Verbose("Running development iteration...")

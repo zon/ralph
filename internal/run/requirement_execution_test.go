@@ -1,4 +1,4 @@
-package requirement
+package run
 
 import (
 	"os"
@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/zon/ralph/internal/run"
 	"github.com/zon/ralph/internal/testutil"
 )
 
@@ -25,7 +24,7 @@ description: Test project for requirement execution
 requirements:
   - id: req1
     description: Test requirement
-    passing: false
+    passing: true
 `
 
 	if err := os.WriteFile(projectFile, []byte(projectYAML), 0644); err != nil {
@@ -34,7 +33,7 @@ requirements:
 
 	// Execute with valid project (should not fail)
 	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
-	err := run.Execute(ctx, nil)
+	err := Execute(ctx, nil)
 
 	require.NoError(t, err, "Execute failed with valid project")
 }
@@ -43,7 +42,7 @@ func TestExecute_InvalidProjectFile(t *testing.T) {
 	ctx := testutil.NewContext(testutil.WithProjectFile("/nonexistent/project.yaml"))
 
 	// Test with non-existent file
-	err := run.Execute(ctx, nil)
+	err := Execute(ctx, nil)
 	require.Error(t, err, "Expected error for non-existent project file")
 }
 
@@ -63,7 +62,7 @@ requirements:
 	}
 
 	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
-	err := run.Execute(ctx, nil)
+	err := Execute(ctx, nil)
 
 	require.Error(t, err, "Expected error for invalid YAML")
 }
@@ -83,7 +82,7 @@ requirements: []
 	}
 
 	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
-	err := run.Execute(ctx, nil)
+	err := Execute(ctx, nil)
 
 	require.Error(t, err, "Expected error for project with no requirements")
 }
@@ -111,7 +110,7 @@ requirements:
 	}
 
 	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
-	err := run.Execute(ctx, nil)
+	err := Execute(ctx, nil)
 
 	require.Error(t, err, "Expected error when blocked.md exists")
 
@@ -141,7 +140,7 @@ requirements:
 	}
 
 	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
-	err := run.Execute(ctx, nil)
+	err := Execute(ctx, nil)
 
 	require.Error(t, err, "Expected error when blocked.md exists")
 
@@ -159,7 +158,7 @@ description: Test project
 requirements:
   - id: req1
     description: Test requirement
-    passing: false
+    passing: true
 `
 
 	if err := os.WriteFile(projectFile, []byte(projectYAML), 0644); err != nil {
@@ -167,7 +166,7 @@ requirements:
 	}
 
 	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
-	err := run.Execute(ctx, nil)
+	err := Execute(ctx, nil)
 
 	require.NoError(t, err, "Execute failed without blocked.md")
 }
@@ -178,14 +177,14 @@ func TestExecute_NormalizeTrailingNewlines(t *testing.T) {
 	tmpDir := t.TempDir()
 	projectFile := filepath.Join(tmpDir, "test-project.yaml")
 
-	projectYAMLWithExcessNewlines := "name: Test Project\ndescription: Test project\nrequirements:\n  - id: req1\n    description: Test requirement\n    passing: false\n\n\n\n"
+	projectYAMLWithExcessNewlines := "name: Test Project\ndescription: Test project\nrequirements:\n  - id: req1\n    description: Test requirement\n    passing: true\n\n\n\n"
 
 	if err := os.WriteFile(projectFile, []byte(projectYAMLWithExcessNewlines), 0644); err != nil {
 		t.Fatalf("Failed to create test project file: %v", err)
 	}
 
 	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
-	err := run.Execute(ctx, nil)
+	err := Execute(ctx, nil)
 
 	require.NoError(t, err, "Execute failed")
 
@@ -207,7 +206,7 @@ description: Test project
 requirements:
   - id: req1
     description: Test requirement
-    passing: false
+    passing: true
 `
 
 	if err := os.WriteFile(projectFile, []byte(projectYAML), 0644); err != nil {
@@ -216,7 +215,7 @@ requirements:
 
 	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
 
-	err := run.Execute(ctx, nil)
+	err := Execute(ctx, nil)
 
 	require.NoError(t, err, "Execute failed")
 }
@@ -232,7 +231,7 @@ description: Test project
 requirements:
   - id: req1
     description: Test requirement
-    passing: false
+    passing: true
 `
 
 	if err := os.WriteFile(projectFile, []byte(projectYAML), 0644); err != nil {
@@ -241,7 +240,7 @@ requirements:
 
 	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
 
-	err := run.Execute(ctx, nil)
+	err := Execute(ctx, nil)
 
 	require.NoError(t, err, "Execute failed")
 }
@@ -257,7 +256,7 @@ description: Test project
 requirements:
   - id: req1
     description: Test requirement
-    passing: false
+    passing: true
 `
 
 	if err := os.WriteFile(projectFile, []byte(projectYAML), 0644); err != nil {
@@ -287,7 +286,7 @@ requirements:
 		testutil.WithNoServices(false),
 	)
 
-	err := run.Execute(ctx, nil)
+	err := Execute(ctx, nil)
 
 	require.NoError(t, err, "Execute failed")
 }
@@ -312,7 +311,7 @@ requirements:
 	}
 
 	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
-	err := run.Execute(ctx, nil)
+	err := Execute(ctx, nil)
 
 	require.Error(t, err, "Execute should fail when agent fails")
 
