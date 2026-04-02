@@ -69,6 +69,21 @@ func isBlocked(ctx *context.Context) (bool, error) {
 	return true, nil
 }
 
+// iterateWhile loops while worker returns continue=true, up to max iterations.
+// worker receives iteration number and returns (continue, error).
+func iterateWhile(max int, worker func(iteration int) (bool, error)) (int, error) {
+	for i := 1; i <= max; i++ {
+		continueLoop, err := worker(i)
+		if err != nil {
+			return i, err
+		}
+		if !continueLoop {
+			return i, nil
+		}
+	}
+	return max, nil
+}
+
 // RunIterationLoop runs multiple development iterations until completion or max iterations
 // Each iteration:
 // 1. Runs a single development iteration (requirement.Execute)
@@ -236,7 +251,7 @@ func CommitChanges(ctx *context.Context, iteration int) error {
 	}
 
 	// Pull and push
-	if err := pullAndPush(ctx); err != nil {
+	if err := PullAndPush(ctx); err != nil {
 		return err
 	}
 
@@ -299,7 +314,7 @@ func performCommit(ctx *context.Context, commitMsg []byte, iteration int) error 
 }
 
 // pullAndPush pulls remote changes and pushes the current branch
-func pullAndPush(ctx *context.Context) error {
+func PullAndPush(ctx *context.Context) error {
 	var auth *git.AuthConfig
 	if ctx.IsWorkflowExecution() {
 		owner, repo := ctx.RepoOwnerAndName()

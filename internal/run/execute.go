@@ -62,7 +62,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		}
 	}
 
-	if err := validateGitStateAndSwitchBranch(ctx, branchName); err != nil {
+	if err := ValidateGitStateAndSwitchBranch(ctx, branchName); err != nil {
 		return err
 	}
 
@@ -93,7 +93,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		logger.Verbosef("PR Summary:\n%s", prSummary)
 	}
 
-	prURL, err := createPullRequest(ctx, proj, branchName, baseBranch, prSummary)
+	prURL, err := CreatePullRequest(ctx, proj, branchName, baseBranch, prSummary)
 	if err != nil {
 		if errors.Is(err, github.ErrNoCommitsBetweenBranches) {
 			logger.Verbose("No commits ahead of base branch — all requirements were already passing; skipping PR creation")
@@ -110,7 +110,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	return nil
 }
 
-func validateGitStateAndSwitchBranch(ctx *context.Context, branchName string) error {
+func ValidateGitStateAndSwitchBranch(ctx *context.Context, branchName string) error {
 	currentBranch, err := git.GetCurrentBranch()
 	if err != nil {
 		return fmt.Errorf("failed to get current branch: %w", err)
@@ -123,7 +123,7 @@ func validateGitStateAndSwitchBranch(ctx *context.Context, branchName string) er
 	}
 
 	if currentBranch != branchName {
-		if err := switchToProjectBranch(ctx, branchName); err != nil {
+		if err := SwitchToProjectBranch(ctx, branchName); err != nil {
 			return err
 		}
 	} else {
@@ -147,7 +147,7 @@ func validateBranchSync(ctx *context.Context, currentBranch string) error {
 	return nil
 }
 
-func switchToProjectBranch(ctx *context.Context, branchName string) error {
+func SwitchToProjectBranch(ctx *context.Context, branchName string) error {
 	var auth *git.AuthConfig
 	if ctx.IsWorkflowExecution() {
 		owner, repo := ctx.RepoOwnerAndName()
@@ -164,7 +164,7 @@ func switchToProjectBranch(ctx *context.Context, branchName string) error {
 	return nil
 }
 
-func createPullRequest(ctx *context.Context, proj *project.Project, branchName, baseBranch, prSummary string) (string, error) {
+func CreatePullRequest(ctx *context.Context, proj *project.Project, branchName, baseBranch, prSummary string) (string, error) {
 	// Refresh GitHub credentials immediately before creating the PR.
 	// Installation tokens expire after 1 hour, so a long-running agent job may
 	// have started with a valid token that is now stale. Re-running ConfigureGitAuth
