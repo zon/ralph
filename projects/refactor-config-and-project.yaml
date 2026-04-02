@@ -31,7 +31,7 @@ requirements:
       - Domain logic functions in internal/project package should not directly call low-level OS functions (os, filepath, exec); use internal abstractions
       - External command execution (argo, git, gh) should be encapsulated in dedicated packages, not called directly from orchestration logic
       - File system operations should be delegated to a file utility layer, not performed directly in domain logic
-    passing: false
+    passing: true
   - category: requirement-management
     description: Align requirement management component with its purpose
     items:

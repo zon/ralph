@@ -146,6 +146,18 @@ func Clone(url, branch, dir string) error {
 	return nil
 }
 
+// GetRemoteURL returns the URL of the remote origin.
+func GetRemoteURL() (string, error) {
+	cmd := exec.Command("git", "config", "--get", "remote.origin.url")
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("failed to get remote URL: %w (output: %s)", err, out.String())
+	}
+	return strings.TrimSpace(out.String()), nil
+}
+
 // configureAuth refreshes the GitHub App token and configures git HTTPS auth.
 func configureAuth(auth *AuthConfig) error {
 	if auth == nil {

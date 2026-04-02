@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/zon/ralph/internal/argo"
 	execcontext "github.com/zon/ralph/internal/context"
 	githubpkg "github.com/zon/ralph/internal/github"
 	"gopkg.in/yaml.v3"
@@ -519,7 +520,7 @@ func TestExtractWorkflowName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := extractWorkflowName(tt.output)
+			result := argo.ExtractWorkflowName(tt.output)
 			assert.Equal(t, tt.expected, result)
 		})
 	}

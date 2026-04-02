@@ -3,6 +3,7 @@ package workflow
 import (
 	"fmt"
 
+	"github.com/zon/ralph/internal/argo"
 	githubpkg "github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/k8s"
 	"gopkg.in/yaml.v3"
@@ -69,7 +70,7 @@ func (m *MergeWorkflow) Submit() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return submitYAML(workflowYAML, m.KubeContext, m.Namespace)
+	return argo.SubmitYAML(workflowYAML, m.KubeContext, m.Namespace)
 }
 
 func (m *MergeWorkflow) buildMergeTemplate() map[string]interface{} {

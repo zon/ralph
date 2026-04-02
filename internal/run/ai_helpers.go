@@ -3,14 +3,12 @@ package run
 import (
 	"bytes"
 	"fmt"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"strings"
 	"text/template"
 
+	"github.com/zon/ralph/internal/ai"
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
+	"github.com/zon/ralph/internal/fileutil"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/logger"
 	projectpkg "github.com/zon/ralph/internal/project"
@@ -44,7 +42,7 @@ func GeneratePRSummary(ctx *context.Context, projectFile string, iterations int,
 	if err != nil {
 		return "", err
 	}
-	defer os.Remove(tmpFile)
+	defer fileutil.Remove(tmpFile)
 
 	prompt := buildPRSummaryPrompt(proj.Description, projectStatus, baseBranch, commitLog, tmpFile)
 
@@ -53,7 +51,7 @@ func GeneratePRSummary(ctx *context.Context, projectFile string, iterations int,
 	}
 
 	model := resolveModel(ctx)
-	summary, err := runOpenCodeAndReadResult(ctx, model, prompt, tmpFile)
+	summary, err := ai.RunOpenCodeAndReadResult(ctx, model, prompt, tmpFile)
 	if err != nil {
 		return "", err
 	}
@@ -93,7 +91,7 @@ Write your summary to the file: {{.AbsPath}}
 
 // buildPRSummaryPrompt constructs the prompt for generating PR summary
 func buildPRSummaryPrompt(projectDesc, projectStatus, baseBranch, commitLog, outputFile string) string {
-	absPath, _ := filepath.Abs(outputFile)
+	absPath, _ := fileutil.Abs(outputFile)
 
 	var builder bytes.Buffer
 	data := prSummaryData{
@@ -105,33 +103,6 @@ func buildPRSummaryPrompt(projectDesc, projectStatus, baseBranch, commitLog, out
 	}
 	prSummaryPromptTemplate.Execute(&builder, data)
 	return builder.String()
-}
-
-// runOpenCodeAndReadResult runs opencode with the given prompt and reads the result from the output file
-func runOpenCodeAndReadResult(ctx *context.Context, model, prompt, outputFile string) (string, error) {
-	cmd := exec.Command("opencode", "run", "--model", model, prompt)
-	cmd.Env = append(os.Environ(), "FORCE_COLOR=1")
-	if ctx.IsVerbose() {
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-	}
-
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("opencode execution failed: %w", err)
-	}
-
-	// Read the summary from the file the agent wrote
-	summaryBytes, err := os.ReadFile(outputFile)
-	if err != nil {
-		return "", fmt.Errorf("failed to read summary file: %w", err)
-	}
-
-	summary := strings.TrimSpace(string(summaryBytes))
-	if summary == "" {
-		return "", fmt.Errorf("summary file is empty")
-	}
-
-	return summary, nil
 }
 
 func resolveModel(ctx *context.Context) string {
@@ -152,7 +123,7 @@ func GenerateChangelog(ctx *context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer os.Remove(tmpFile)
+	defer fileutil.Remove(tmpFile)
 
 	prompt := buildChangelogPrompt(tmpFile)
 
@@ -161,13 +132,13 @@ func GenerateChangelog(ctx *context.Context) error {
 	}
 
 	model := resolveModel(ctx)
-	_, err = runOpenCodeAndReadResult(ctx, model, prompt, tmpFile)
+	_, err = ai.RunOpenCodeAndReadResult(ctx, model, prompt, tmpFile)
 	if err != nil {
 		return err
 	}
 
 	// The agent writes to the file we gave it; we need to move that to report.md
-	if err := os.Rename(tmpFile, "report.md"); err != nil {
+	if err := fileutil.Rename(tmpFile, "report.md"); err != nil {
 		return fmt.Errorf("failed to rename changelog to report.md: %w", err)
 	}
 
@@ -190,7 +161,7 @@ Write the changelog entry to the file: {{.}}
 Do not include any extra commentary, just the changelog entry.`))
 
 func buildChangelogPrompt(outputFile string) string {
-	absPath, _ := filepath.Abs(outputFile)
+	absPath, _ := fileutil.Abs(outputFile)
 	var b bytes.Buffer
 	changelogPromptTemplate.Execute(&b, absPath)
 	return b.String()
@@ -218,7 +189,7 @@ func GenerateReviewPRBody(ctx *context.Context, projectFile string) (string, err
 	if err != nil {
 		return "", err
 	}
-	defer os.Remove(tmpFile)
+	defer fileutil.Remove(tmpFile)
 
 	prompt := buildReviewPRBodyPrompt(proj.Name, proj.Description, requirementSummaries, tmpFile)
 
@@ -227,7 +198,7 @@ func GenerateReviewPRBody(ctx *context.Context, projectFile string) (string, err
 	}
 
 	model := resolveModel(ctx)
-	summary, err := runOpenCodeAndReadResult(ctx, model, prompt, tmpFile)
+	summary, err := ai.RunOpenCodeAndReadResult(ctx, model, prompt, tmpFile)
 	if err != nil {
 		return "", err
 	}
@@ -263,7 +234,7 @@ Write your summary to the file: {{.AbsPath}}
 `))
 
 func buildReviewPRBodyPrompt(projectName, projectDesc string, requirements []string, outputFile string) string {
-	absPath, _ := filepath.Abs(outputFile)
+	absPath, _ := fileutil.Abs(outputFile)
 
 	var builder bytes.Buffer
 	data := reviewPRBodyData{

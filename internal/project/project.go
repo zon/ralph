@@ -2,9 +2,10 @@ package project
 
 import (
 	"fmt"
-	"os"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/zon/ralph/internal/fileutil"
 )
 
 // Project represents a project YAML file with requirements
@@ -24,23 +25,42 @@ type Requirement struct {
 	Passing     bool     `yaml:"passing"`
 }
 
+// readProjectFile reads the project file at the given path.
+func readProjectFile(path string) ([]byte, error) {
+	return fileutil.ReadFile(path)
+}
+
+// parseProjectYAML unmarshals YAML data into a Project.
+func parseProjectYAML(data []byte) (*Project, error) {
+	var project Project
+	if err := yaml.Unmarshal(data, &project); err != nil {
+		return nil, err
+	}
+	return &project, nil
+}
+
+// writeProjectFile writes the project data to the given path.
+func writeProjectFile(path string, data []byte) error {
+	return fileutil.WriteFile(path, data, 0644)
+}
+
 // LoadProject loads and validates a project YAML file
 func LoadProject(path string) (*Project, error) {
-	data, err := os.ReadFile(path)
+	data, err := readProjectFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read project file: %w", err)
 	}
 
-	var project Project
-	if err := yaml.Unmarshal(data, &project); err != nil {
+	project, err := parseProjectYAML(data)
+	if err != nil {
 		return nil, fmt.Errorf("failed to parse project YAML: %w", err)
 	}
 
-	if err := ValidateProject(&project); err != nil {
+	if err := ValidateProject(project); err != nil {
 		return nil, err
 	}
 
-	return &project, nil
+	return project, nil
 }
 
 // ValidateProject validates a project structure
@@ -63,7 +83,7 @@ func SaveProject(path string, p *Project) error {
 		return fmt.Errorf("failed to marshal project: %w", err)
 	}
 
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	if err := writeProjectFile(path, data); err != nil {
 		return fmt.Errorf("failed to write project file: %w", err)
 	}
 

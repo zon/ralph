@@ -11,6 +11,7 @@ import (
 
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
+	"github.com/zon/ralph/internal/fileutil"
 	"github.com/zon/ralph/internal/logger"
 )
 
@@ -83,8 +84,8 @@ func (r *ringWriter) tail() string {
 	return strings.Join(lines, "\n")
 }
 
-// runOpenCodeAndReadResult runs opencode with the given prompt and reads the result from the output file
-func runOpenCodeAndReadResult(ctx *context.Context, model, prompt, outputFile string) (string, error) {
+// RunOpenCodeAndReadResult runs opencode with the given prompt and reads the result from the output file.
+func RunOpenCodeAndReadResult(ctx *context.Context, model, prompt, outputFile string) (string, error) {
 	cmd := exec.Command("opencode", "run", "--model", model, prompt)
 	cmd.Env = append(os.Environ(), "FORCE_COLOR=1")
 	if ctx.IsVerbose() {
@@ -97,7 +98,7 @@ func runOpenCodeAndReadResult(ctx *context.Context, model, prompt, outputFile st
 	}
 
 	// Read the summary from the file the agent wrote
-	summaryBytes, err := os.ReadFile(outputFile)
+	summaryBytes, err := fileutil.ReadFile(outputFile)
 	if err != nil {
 		return "", fmt.Errorf("failed to read summary file: %w", err)
 	}
