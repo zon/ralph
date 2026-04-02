@@ -35,4 +35,4 @@ requirements:
     items:
       - Apply a semver minor bump to internal/version/VERSION and the appVersion field in charts/ralph-webhook/Chart.yaml
       - Apply a semver patch bump to the version field in charts/ralph-webhook/Chart.yaml
-    passing: false
+    passing: true
