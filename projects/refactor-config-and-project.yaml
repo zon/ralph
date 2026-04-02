@@ -9,7 +9,7 @@ requirements:
       - Move Project, Requirement structs to internal/project package
       - Ensure config package only handles Ralph configuration loading and validation
       - Update all callers to use the new package
-    passing: false
+    passing: true
   - category: configuration
     description: Separate domain logic from implementation details in configuration loading
     items:
