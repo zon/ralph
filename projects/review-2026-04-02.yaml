@@ -68,3 +68,9 @@ requirements:
       - GitHub integration functions should not directly call low-level OS functions (exec, http); use internal abstractions
       - GitHub integration functions should be concise and focus on orchestrating GitHub workflows
     passing: false
+  - category: kubernetes-integration
+    description: Extend Kubernetes integration module to support read operations and eliminate direct kubectl calls
+    items:
+      - Add GetConfigMap and GetSecret functions to internal/k8s package
+      - Replace direct kubectl calls in config_webhook.go with internal/k8s package functions
+    passing: false
