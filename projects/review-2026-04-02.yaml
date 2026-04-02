@@ -28,3 +28,10 @@ requirements:
       - LoadConfig should delegate file I/O to lower-level functions, keeping domain logic orchestration clear
       - Domain logic functions (applyDefaults, ValidateReviewConfig) should remain pure and testable
     passing: false
+  - category: ai-integration
+    description: Consolidate all opencode CLI interactions through the AI module
+    items:
+      - Move opencode stats execution from internal/cmd/workflow.go and internal/cmd/review.go to internal/ai package
+      - Add a public function like DisplayStats(ctx) that handles stats display
+      - Update callers to use the new function
+    passing: false
