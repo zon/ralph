@@ -56,3 +56,9 @@ requirements:
       - Extract common git command execution pattern into a helper function (e.g., runGit) to reduce duplication
       - Ensure domain logic functions delegate low-level git command execution to the helper
     passing: false
+  - category: github-integration
+    description: Consolidate GitHub URL parsing logic and eliminate duplication
+    items:
+      - Replace toHTTPSURL calls in internal/workflow/generate.go with github.ParseRemoteURL and github.CloneURL
+      - Consider replacing getRemoteURL with github.GetRepo where appropriate
+    passing: false
