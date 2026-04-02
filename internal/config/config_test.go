@@ -905,3 +905,44 @@ func TestLoadConfig_ReviewConfigEmptyItems(t *testing.T) {
 	require.Error(t, err, "LoadConfig() expected error for empty review items")
 	assert.Contains(t, err.Error(), "review must have at least one item")
 }
+
+func TestParseConfigYAML(t *testing.T) {
+	validYAML := `maxIterations: 5
+defaultBranch: develop
+model: anthropic/claude-3-sonnet
+`
+	cfg, err := parseConfigYAML([]byte(validYAML), "/test/config.yaml")
+	require.NoError(t, err, "parseConfigYAML() unexpected error")
+	assert.Equal(t, 5, cfg.MaxIterations)
+	assert.Equal(t, "develop", cfg.DefaultBranch)
+	assert.Equal(t, "anthropic/claude-3-sonnet", cfg.Model)
+	assert.Equal(t, "/test/config.yaml", cfg.ConfigPath)
+
+	invalidYAML := `maxIterations: [invalid`
+	_, err = parseConfigYAML([]byte(invalidYAML), "")
+	require.Error(t, err, "parseConfigYAML() expected error for invalid YAML")
+}
+
+func TestLoadOptionalFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	filePath := filepath.Join(tmpDir, "test.txt")
+	content := "hello world"
+	require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))
+
+	// File exists
+	loaded, err := loadOptionalFile(filePath)
+	require.NoError(t, err)
+	assert.Equal(t, content, loaded)
+
+	// File does not exist
+	nonexistent := filepath.Join(tmpDir, "nonexistent.txt")
+	loaded, err = loadOptionalFile(nonexistent)
+	require.NoError(t, err)
+	assert.Equal(t, "", loaded)
+
+	// Directory instead of file (should error)
+	dirPath := filepath.Join(tmpDir, "subdir")
+	require.NoError(t, os.Mkdir(dirPath, 0755))
+	_, err = loadOptionalFile(dirPath)
+	require.Error(t, err)
+}

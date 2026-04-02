@@ -24,6 +24,34 @@ var defaultFixServiceInstructions string
 //go:embed pick-requirement-instructions.md
 var defaultPickInstructions string
 
+// readConfigFile reads the configuration file at the given path.
+func readConfigFile(path string) ([]byte, error) {
+	return os.ReadFile(path)
+}
+
+// parseConfigYAML unmarshals YAML data into a RalphConfig and sets ConfigPath.
+func parseConfigYAML(data []byte, configPath string) (*RalphConfig, error) {
+	var config RalphConfig
+	if err := yaml.Unmarshal(data, &config); err != nil {
+		return nil, err
+	}
+	config.ConfigPath = configPath
+	return &config, nil
+}
+
+// loadOptionalFile reads a file if it exists, returning empty string if not found.
+// Returns an error for any other failure.
+func loadOptionalFile(path string) (string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", nil
+		}
+		return "", err
+	}
+	return string(data), nil
+}
+
 // Before represents a command to run before starting services
 type Before struct {
 	Name     string   `yaml:"name"`
@@ -225,33 +253,43 @@ func LoadConfig() (*RalphConfig, error) {
 
 	var config RalphConfig
 	configPath := filepath.Join(configDir, "config.yaml")
-	if data, err := os.ReadFile(configPath); err == nil {
-		if err := yaml.Unmarshal(data, &config); err != nil {
+	data, err := readConfigFile(configPath)
+	if err == nil {
+		cfg, err := parseConfigYAML(data, configPath)
+		if err != nil {
 			return nil, fmt.Errorf("failed to parse config YAML: %w", err)
 		}
-		config.ConfigPath = configPath
+		config = *cfg
+	} else if !os.IsNotExist(err) {
+		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
 	// Load instructions from .ralph/instructions.md or use default
 	instructionsPath := filepath.Join(configDir, "instructions.md")
-	if instructionsData, err := os.ReadFile(instructionsPath); err == nil {
-		config.Instructions = string(instructionsData)
+	if instructions, err := loadOptionalFile(instructionsPath); err != nil {
+		return nil, fmt.Errorf("failed to read instructions file: %w", err)
+	} else if instructions != "" {
+		config.Instructions = instructions
 	} else {
 		config.Instructions = defaultInstructions
 	}
 
 	// Load comment instructions from .ralph/comment-instructions.md or use default
 	commentInstructionsPath := filepath.Join(configDir, "comment-instructions.md")
-	if data, err := os.ReadFile(commentInstructionsPath); err == nil {
-		config.CommentInstructions = string(data)
+	if commentInstructions, err := loadOptionalFile(commentInstructionsPath); err != nil {
+		return nil, fmt.Errorf("failed to read comment instructions file: %w", err)
+	} else if commentInstructions != "" {
+		config.CommentInstructions = commentInstructions
 	} else {
 		config.CommentInstructions = defaultCommentInstructions
 	}
 
 	// Load merge instructions from .ralph/merge-instructions.md or use default
 	mergeInstructionsPath := filepath.Join(configDir, "merge-instructions.md")
-	if data, err := os.ReadFile(mergeInstructionsPath); err == nil {
-		config.MergeInstructions = string(data)
+	if mergeInstructions, err := loadOptionalFile(mergeInstructionsPath); err != nil {
+		return nil, fmt.Errorf("failed to read merge instructions file: %w", err)
+	} else if mergeInstructions != "" {
+		config.MergeInstructions = mergeInstructions
 	} else {
 		config.MergeInstructions = defaultMergeInstructions
 	}
