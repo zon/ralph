@@ -1,0 +1,33 @@
+name: refactor-ai-and-prompts
+description: Consolidate AI integration and refactor prompt construction into deep, focused modules
+
+requirements:
+  - category: ai-integration
+    description: Consolidate all opencode CLI interactions through the AI module
+    items:
+      - Move opencode stats execution from internal/cmd/workflow.go and internal/cmd/review.go to internal/ai package
+      - Add a public function like DisplayStats(ctx) that handles stats display
+      - Update callers to use the new function
+    passing: false
+  - category: ai-integration
+    description: Separate domain logic from implementation details in AI integration
+    items:
+      - AI functions should delegate low-level operations (exec, file I/O, template rendering) to dedicated abstractions
+      - Move prompt template building to internal/prompt package
+      - Introduce AI executor interface to encapsulate opencode CLI interactions
+      - Keep domain logic concise and focused on orchestrating AI workflows
+    passing: false
+  - category: prompt-management
+    description: Refactor prompt module to eliminate duplication and ensure consistent error handling
+    items:
+      - Extract common prompt building steps (load config, read project file, get commit log, base branch) into private helper functions
+      - Ensure all prompt building functions return errors for template failures
+      - Update callers to handle errors appropriately
+    passing: false
+  - category: prompt-management
+    description: Separate domain logic from implementation details in prompt construction
+    items:
+      - Extract template parsing and execution to a private helper function
+      - Remove logging statements from prompt building functions
+      - Ensure prompt building functions only orchestrate domain steps (gather configuration, project content, git history, select template, render via helper)
+    passing: false
