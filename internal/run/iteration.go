@@ -95,19 +95,16 @@ func RunIterationLoop(ctx *context.Context, cleanupRegistrar func(func())) (int,
 	logger.Verbosef("Starting iteration loop (max: %d)", ctx.MaxIterations())
 
 	var previousProject *project.Project
-	iterationCount := 0
 
-	for i := 1; i <= ctx.MaxIterations(); i++ {
-		iterationCount = i
-
+	worker := func(iteration int) (bool, error) {
 		logger.Verbose("")
-		logger.Verbosef("=== Iteration %d/%d ===", i, ctx.MaxIterations())
+		logger.Verbosef("=== Iteration %d/%d ===", iteration, ctx.MaxIterations())
 
 		// Check for blocked.md from repo root
 		if blocked, err := isBlocked(ctx); err != nil {
-			return iterationCount, fmt.Errorf("failed to check for blocked.md: %w", err)
+			return false, fmt.Errorf("failed to check for blocked.md: %w", err)
 		} else if blocked {
-			return iterationCount, ErrBlocked
+			return false, ErrBlocked
 		}
 
 		// Load project state before this iteration to track which requirements were already passing
@@ -115,19 +112,19 @@ func RunIterationLoop(ctx *context.Context, cleanupRegistrar func(func())) (int,
 			var err error
 			previousProject, err = project.LoadProject(ctx.ProjectFile())
 			if err != nil {
-				return 0, fmt.Errorf("failed to load initial project state: %w", err)
+				return false, fmt.Errorf("failed to load initial project state: %w", err)
 			}
 		}
 
 		// Run single iteration: execute, commit, check completion
-		if err := runSingleIteration(ctx, cleanupRegistrar, previousProject, i); err != nil {
-			return iterationCount, err
+		if err := runSingleIteration(ctx, cleanupRegistrar, previousProject, iteration); err != nil {
+			return false, err
 		}
 
 		// Update previous state for next iteration
 		currentProject, err := project.LoadProject(ctx.ProjectFile())
 		if err != nil {
-			return iterationCount, fmt.Errorf("failed to load project after iteration %d: %w", i, err)
+			return false, fmt.Errorf("failed to load project after iteration %d: %w", iteration, err)
 		}
 		previousProject = currentProject
 
@@ -135,13 +132,19 @@ func RunIterationLoop(ctx *context.Context, cleanupRegistrar func(func())) (int,
 		allComplete, _, _ := project.CheckCompletion(currentProject)
 		if allComplete {
 			logger.Success("All requirements complete")
-			break
+			return false, nil
 		}
 
 		// Continue to next iteration if not at max
-		if i < ctx.MaxIterations() {
+		if iteration < ctx.MaxIterations() {
 			logger.Verbose("Requirements not complete, continuing to next iteration...")
 		}
+		return true, nil
+	}
+
+	iterationCount, err := iterateWhile(ctx.MaxIterations(), worker)
+	if err != nil {
+		return iterationCount, err
 	}
 
 	logger.Verbosef("Iteration loop completed after %d iteration(s)", iterationCount)
