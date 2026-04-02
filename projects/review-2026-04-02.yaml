@@ -21,3 +21,10 @@ requirements:
       - Ensure config package only handles Ralph configuration loading and validation
       - Update all callers to use the new package
     passing: false
+  - category: configuration
+    description: Separate domain logic from implementation details in configuration loading
+    items:
+      - Configuration loading should separate file I/O and YAML parsing from domain logic (defaults, validation)
+      - LoadConfig should delegate file I/O to lower-level functions, keeping domain logic orchestration clear
+      - Domain logic functions (applyDefaults, ValidateReviewConfig) should remain pure and testable
+    passing: false
