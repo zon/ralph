@@ -9,7 +9,7 @@ requirements:
       - Move Project, Requirement structs to internal/project package
       - Ensure config package only handles Ralph configuration loading and validation
       - Update all callers to use the new package
-    passing: false
+    passing: true
   - category: configuration
     description: Separate domain logic from implementation details in configuration loading
     items:
@@ -38,7 +38,7 @@ requirements:
       - Move iteration execution (Execute function) from internal/requirement to internal/project package
       - Update all callers to use the new location
       - Consider renaming internal/requirement package to reflect its purpose (or remove if empty)
-    passing: false
+    passing: true
   - category: version
     description: Apply version bump for this release
     items:
@@ -51,4 +51,4 @@ requirements:
       - The internal/project package contains only project data types and operations (Project, Requirement structs; LoadProject, SaveProject, ValidateProject, CheckCompletion, UpdateRequirementStatus)
       - "The import cycle between ai and project is resolved: ai imports project for data without cycling through execution logic"
       - All callers (cmd/run.go, cmd/comment.go, cmd/validate.go, cmd/review.go, ai/ai.go) are updated to use run or project as appropriate
-    passing: false
+    passing: true
