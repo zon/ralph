@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/alecthomas/kong"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zon/ralph/internal/config"
@@ -265,4 +266,77 @@ func TestPrintDetectedComponents(t *testing.T) {
 	overview := &Overview{}
 	r.printDetectedComponents(overview)
 	// No panic expected
+}
+
+func TestShuffleComponents(t *testing.T) {
+	components := []OverviewComponent{
+		{Name: "comp1", Path: "path1", Summary: "summary1"},
+		{Name: "comp2", Path: "path2", Summary: "summary2"},
+		{Name: "comp3", Path: "path3", Summary: "summary3"},
+	}
+	seed := int64(12345)
+	shuffled := shuffleComponents(components, seed)
+	require.Len(t, shuffled, len(components))
+	// Ensure all elements present
+	for _, c := range components {
+		found := false
+		for _, s := range shuffled {
+			if c.Name == s.Name && c.Path == s.Path && c.Summary == s.Summary {
+				found = true
+				break
+			}
+		}
+		assert.True(t, found, "component %s missing", c.Name)
+	}
+	// Deterministic: same seed produces same order
+	shuffled2 := shuffleComponents(components, seed)
+	assert.Equal(t, shuffled, shuffled2)
+	// Different seed produces different order (likely)
+	shuffled3 := shuffleComponents(components, seed+1)
+	// At least one position differs (not guaranteed but very likely)
+	assert.NotEqual(t, shuffled, shuffled3)
+}
+
+func TestShuffleItemsWithIndices(t *testing.T) {
+	items := []config.ReviewItem{
+		{Text: "item1"},
+		{Text: "item2"},
+		{Text: "item3"},
+	}
+	seed := int64(54321)
+	shuffled := shuffleItemsWithIndices(items, seed)
+	require.Len(t, shuffled, len(items))
+	// Check indices are preserved
+	for _, pair := range shuffled {
+		originalIdx := pair.idx
+		assert.Equal(t, items[originalIdx].Text, pair.item.Text)
+		// Ensure each original index appears exactly once
+		found := false
+		for _, p := range shuffled {
+			if p.idx == originalIdx {
+				found = true
+				break
+			}
+		}
+		assert.True(t, found)
+	}
+	// Deterministic
+	shuffled2 := shuffleItemsWithIndices(items, seed)
+	assert.Equal(t, shuffled, shuffled2)
+	// Different seed likely different order
+	shuffled3 := shuffleItemsWithIndices(items, seed+1)
+	assert.NotEqual(t, shuffled, shuffled3)
+}
+
+func TestReviewSeedFlag(t *testing.T) {
+	// Test that the seed flag is parsed correctly
+	cmd := &Cmd{}
+	parser, err := kong.New(cmd,
+		kong.Name("ralph"),
+		kong.Exit(func(int) {}),
+	)
+	require.NoError(t, err)
+	_, err = parser.Parse([]string{"review", "--seed", "42"})
+	require.NoError(t, err)
+	assert.Equal(t, int64(42), cmd.Review.Seed)
 }

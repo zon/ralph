@@ -28,7 +28,7 @@ requirements:
       - A --seed flag (int64) is added to the review command with default value 0 meaning random
       - When seed is 0, a random seed is generated from the current time and printed to stdout so the run can be reproduced
       - Before the review loop begins, both the components slice and the review items slice are shuffled using the seed
-    passing: false
+    passing: true
 
   - category: version
     description: Apply version bumps for this feature release
