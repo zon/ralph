@@ -39,3 +39,16 @@ requirements:
       - Update all callers to use the new location
       - Consider renaming internal/requirement package to reflect its purpose (or remove if empty)
     passing: false
+  - category: version
+    description: Apply version bump for this release
+    items:
+      - Apply a semver patch bump to internal/version/VERSION and charts/ralph-webhook/Chart.yaml
+    passing: false
+  - category: run-module
+    description: Introduce internal/run package to hold project execution domain logic
+    items:
+      - A new internal/run package exists containing all execution logic currently in internal/project (Execute, RunIterationLoop, ExecuteDevelopmentIteration, CommitChanges, GeneratePRSummary, GenerateChangelog, FindCompleteProjects, RemoveAndCommit)
+      - The internal/project package contains only project data types and operations (Project, Requirement structs; LoadProject, SaveProject, ValidateProject, CheckCompletion, UpdateRequirementStatus)
+      - "The import cycle between ai and project is resolved: ai imports project for data without cycling through execution logic"
+      - All callers (cmd/run.go, cmd/comment.go, cmd/validate.go, cmd/review.go, ai/ai.go) are updated to use run or project as appropriate
+    passing: false
