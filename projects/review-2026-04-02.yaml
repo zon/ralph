@@ -114,3 +114,8 @@ requirements:
       - Ensure domain logic functions delegate low-level file path manipulation to the shared helper
       - Update all callers (internal/project/execute.go, internal/cmd/run.go, internal/webhook/events.go) to use the helper
     passing: false
+  - category: logging
+    description: Consolidate logging usage and replace fmt.Print statements with logger functions where appropriate
+    items:
+      - Replace fmt.Print statements in command handlers with logger.Info, logger.Success, logger.Warning, or logger.Error where appropriate, keeping user prompts separate
+    passing: false
