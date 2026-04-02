@@ -6,21 +6,21 @@ requirements:
     description: Print detected components after the overview step
     items:
       - After runOverview completes, ralph review prints each detected component's name, path, and summary to stdout
-    passing: false
+    passing: true
 
   - category: output
     description: Print an iteration header at the start of each component/item pair
     items:
       - At the start of each (component, item) iteration, ralph review prints the component name and a one-line label identifying the review item
       - The label is derived from the item source — the base filename for file items, the last path segment for URL items, or the first line (truncated) for inline text items
-    passing: false
+    passing: true
 
   - category: loop-control
     description: Exit the review loop after the first project finding
     items:
       - The review loop exits immediately after the first project file modification is committed
       - A PR is submitted as soon as the first finding is committed; remaining iterations are skipped
-    passing: false
+    passing: true
 
   - category: shuffle
     description: Shuffle components and review items before iteration
@@ -28,11 +28,11 @@ requirements:
       - A --seed flag (int64) is added to the review command with default value 0 meaning random
       - When seed is 0, a random seed is generated from the current time and printed to stdout so the run can be reproduced
       - Before the review loop begins, both the components slice and the review items slice are shuffled using the seed
-    passing: false
+    passing: true
 
   - category: version
     description: Apply version bumps for this feature release
     items:
       - Apply a semver minor bump to internal/version/VERSION and the appVersion field in charts/ralph-webhook/Chart.yaml
       - Apply a semver patch bump to the version field in charts/ralph-webhook/Chart.yaml
-    passing: false
+    passing: true

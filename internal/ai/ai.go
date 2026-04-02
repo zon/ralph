@@ -2,6 +2,7 @@ package ai
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -173,7 +174,6 @@ func GeneratePRSummary(ctx *context.Context, projectFile string, iterations int,
 
 	return summary, nil
 }
-
 
 type prSummaryData struct {
 	ProjectDesc   string
@@ -358,6 +358,59 @@ func runMockAgent(ctx *context.Context, prompt string) error {
 			return fmt.Errorf("mock AI failed to write report.md: %w", err)
 		}
 		logger.Verbosef("Mock AI wrote report.md")
+	}
+
+	if strings.Contains(promptLower, "overview") {
+		// Find the JSON file path in the prompt
+		var jsonPath string
+		words := strings.Fields(prompt)
+		for _, word := range words {
+			if strings.HasSuffix(word, ".json") {
+				jsonPath = word
+				break
+			}
+		}
+		if jsonPath == "" {
+			// fallback to a default path
+			jsonPath = "overview.json"
+		}
+		overview := struct {
+			Components []struct {
+				Name    string `json:"name"`
+				Path    string `json:"path"`
+				Summary string `json:"summary"`
+			} `json:"components"`
+		}{
+			Components: []struct {
+				Name    string `json:"name"`
+				Path    string `json:"path"`
+				Summary string `json:"summary"`
+			}{
+				{Name: "mock-component", Path: "internal/mock", Summary: "Mock component for testing"},
+			},
+		}
+		data, err := json.Marshal(overview)
+		if err != nil {
+			return fmt.Errorf("mock AI failed to marshal overview: %w", err)
+		}
+		if err := os.WriteFile(jsonPath, data, 0644); err != nil {
+			return fmt.Errorf("mock AI failed to write overview JSON: %w", err)
+		}
+		logger.Verbosef("Mock AI wrote overview JSON to %s", jsonPath)
+	}
+
+	// Modify project file to simulate a finding (for testing loop exit)
+	absProjectFile := ctx.ProjectFile()
+	if absProjectFile != "" {
+		f, err := os.OpenFile(absProjectFile, os.O_APPEND|os.O_WRONLY, 0644)
+		if err == nil {
+			defer f.Close()
+			if _, err := f.WriteString("\n# mock modification"); err != nil {
+				logger.Verbosef("Mock AI failed to append to project file: %v", err)
+			} else {
+				logger.Verbosef("Mock AI appended to project file: %s", absProjectFile)
+			}
+		}
 	}
 
 	return nil

@@ -5,9 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strings"
 	"text/template"
@@ -29,6 +32,39 @@ var reviewInstructions string
 
 const ralphProjectDocURL = "https://raw.githubusercontent.com/zon/ralph/refs/heads/main/docs/projects.md"
 
+type itemWithIndex struct {
+	item config.ReviewItem
+	idx  int
+}
+
+func shuffleComponents(components []OverviewComponent, seed int64) []OverviewComponent {
+	if len(components) == 0 {
+		return components
+	}
+	rng := rand.New(rand.NewSource(seed))
+	shuffled := make([]OverviewComponent, len(components))
+	copy(shuffled, components)
+	rng.Shuffle(len(shuffled), func(i, j int) {
+		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
+	})
+	return shuffled
+}
+
+func shuffleItemsWithIndices(items []config.ReviewItem, seed int64) []itemWithIndex {
+	if len(items) == 0 {
+		return []itemWithIndex{}
+	}
+	rng := rand.New(rand.NewSource(seed))
+	withIdx := make([]itemWithIndex, len(items))
+	for i, item := range items {
+		withIdx[i] = itemWithIndex{item: item, idx: i}
+	}
+	rng.Shuffle(len(withIdx), func(i, j int) {
+		withIdx[i], withIdx[j] = withIdx[j], withIdx[i]
+	})
+	return withIdx
+}
+
 type ReviewCmd struct {
 	ProjectFile string `help:"Path to output project YAML file" name:"project" short:"p"`
 	Model       string `help:"Override the AI model from config" name:"model" optional:""`
@@ -36,6 +72,8 @@ type ReviewCmd struct {
 	Local       bool   `help:"Run on this machine instead of submitting to Argo Workflows" default:"false"`
 	Verbose     bool   `help:"Enable verbose logging" default:"false"`
 	Context     string `help:"Kubernetes context to use" name:"context" optional:""`
+	Seed        int64  `help:"Random seed for shuffling components and review items (0 = random)" default:"0"`
+	prSubmitted bool   // tracks whether a PR has already been submitted in this run
 }
 
 func (r *ReviewCmd) Run() error {
@@ -111,7 +149,7 @@ func (r *ReviewCmd) Run() error {
 		return fmt.Errorf("review step failed: %w", err)
 	}
 
-	if projectChanged {
+	if projectChanged && !r.prSubmitted {
 		if err := r.submitPR(ctx, absProjectFile, reviewName, baseBranch); err != nil {
 			logger.Warningf("Failed to create pull request: %v", err)
 		}
@@ -287,6 +325,27 @@ func (r *ReviewCmd) loadItemContent(item config.ReviewItem) (string, error) {
 	}
 }
 
+func (r *ReviewCmd) itemLabel(item config.ReviewItem) string {
+	switch {
+	case item.Text != "":
+		firstLine := strings.SplitN(item.Text, "\n", 2)[0]
+		if len(firstLine) > 80 {
+			firstLine = firstLine[:77] + "..."
+		}
+		return firstLine
+	case item.File != "":
+		return filepath.Base(item.File)
+	case item.URL != "":
+		u, err := url.Parse(item.URL)
+		if err == nil && u.Path != "" {
+			return path.Base(u.Path)
+		}
+		return path.Base(item.URL)
+	default:
+		return ""
+	}
+}
+
 type reviewPromptData struct {
 	ConfigContent   string
 	Project         string
@@ -334,10 +393,11 @@ func (r *ReviewCmd) runOverview(ctx *execcontext.Context, overviewPath, projectP
 	}
 
 	overview, err := loadOverview(overviewPath)
-	os.Remove(overviewPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load overview: %w", err)
 	}
+	r.printDetectedComponents(overview)
+	os.Remove(overviewPath)
 
 	return overview, nil
 }
@@ -345,8 +405,22 @@ func (r *ReviewCmd) runOverview(ctx *execcontext.Context, overviewPath, projectP
 func (r *ReviewCmd) runReview(ctx *execcontext.Context, overview *Overview, projectPath, projectDoc, reviewName, baseBranch string, ralphConfig *config.RalphConfig) (bool, error) {
 	projectChanged := false
 
+	seed := r.Seed
+	if seed == 0 {
+		seed = time.Now().UnixNano()
+		logger.Infof("Using random seed: %d", seed)
+	}
+
+	// Shuffle components
+	overview.Components = shuffleComponents(overview.Components, seed)
+
+	// Shuffle review items with original indices
+	itemsWithIdx := shuffleItemsWithIndices(ralphConfig.Review.Items, seed)
+
 	for _, component := range overview.Components {
-		for i, item := range ralphConfig.Review.Items {
+		for _, pair := range itemsWithIdx {
+			item := pair.item
+			i := pair.idx
 			iterPrefix := fmt.Sprintf("%s-%d", component.Name, i)
 
 			alreadyDone, err := git.BranchLogContainsPrefix(baseBranch, reviewName, iterPrefix)
@@ -357,6 +431,9 @@ func (r *ReviewCmd) runReview(ctx *execcontext.Context, overview *Overview, proj
 				logger.Verbosef("Skipping component %s, item %d — prefix %s already in commit history", component.Name, i, iterPrefix)
 				continue
 			}
+
+			label := r.itemLabel(item)
+			logger.Infof("Component: %s, item: %s", component.Name, label)
 
 			content, err := r.loadItemContent(item)
 			if err != nil {
@@ -374,7 +451,7 @@ func (r *ReviewCmd) runReview(ctx *execcontext.Context, overview *Overview, proj
 				logger.Verbose(prompt)
 			}
 
-			logger.Verbosef("Running component %s, review item %d/%d...", component.Name, i+1, len(ralphConfig.Review.Items))
+			logger.Verbosef("Running component %s, review item %d/%d...", component.Name, i+1, len(itemsWithIdx))
 			if err := ai.RunAgent(ctx, prompt); err != nil {
 				return projectChanged, fmt.Errorf("component %s, item %d failed: %w", component.Name, i, err)
 			}
@@ -384,6 +461,13 @@ func (r *ReviewCmd) runReview(ctx *execcontext.Context, overview *Overview, proj
 					return projectChanged, fmt.Errorf("failed to commit after component %s, item %d: %w", component.Name, i+1, err)
 				}
 				projectChanged = true
+				os.Remove(summaryPath)
+				// Submit PR immediately after first finding
+				if err := r.submitPR(ctx, projectPath, reviewName, baseBranch); err != nil {
+					logger.Warningf("Failed to create pull request: %v", err)
+				}
+				r.prSubmitted = true
+				return projectChanged, nil
 			}
 
 			os.Remove(summaryPath)
@@ -391,4 +475,10 @@ func (r *ReviewCmd) runReview(ctx *execcontext.Context, overview *Overview, proj
 	}
 
 	return projectChanged, nil
+}
+
+func (r *ReviewCmd) printDetectedComponents(overview *Overview) {
+	for _, comp := range overview.Components {
+		logger.Infof("Component: %s (%s) - %s", comp.Name, comp.Path, comp.Summary)
+	}
 }

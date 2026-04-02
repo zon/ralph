@@ -22,7 +22,7 @@ func TestVersion_ReturnsValidSemver(t *testing.T) {
 	require.NoError(t, err, "Version should be a valid semver in format X.Y.Z")
 
 	assert.Equal(t, 5, major, "Major version should be 5")
-	assert.Equal(t, 9, minor, "Minor version should be 9")
+	assert.Equal(t, 10, minor, "Minor version should be 10")
 	assert.Equal(t, 0, patch, "Patch version should be 0")
 }
 
@@ -36,5 +36,5 @@ func TestVersion_PatchBumpApplied(t *testing.T) {
 	_, err := fmt.Sscanf(versionStr, "%d.%d.%d", &major, &minor, &patch)
 	require.NoError(t, err, "Version should be parseable")
 
-	assert.Equal(t, "5.9.0", versionStr, "Version should be bumped to 5.9.0")
+	assert.Equal(t, "5.10.0", versionStr, "Version should be bumped to 5.10.0")
 }
