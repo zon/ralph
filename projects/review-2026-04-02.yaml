@@ -180,3 +180,9 @@ requirements:
       - Service management functions should not directly call low-level OS functions (os/exec, net, syscall, os); use internal abstractions
       - Service management functions should be concise and focus on orchestrating service lifecycle workflows
     passing: false
+  - category: testing-utilities
+    description: Ensure test utilities module is deep and focused
+    items:
+      - Remove trivial wrapper function Contains from internal/testutil; callers should use strings.Contains directly
+      - Move GitHub API mocking transport (rewriteTransport) from internal/github/app_test.go to internal/testutil to centralize test utilities
+    passing: false
