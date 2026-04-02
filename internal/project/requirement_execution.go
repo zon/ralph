@@ -1,4 +1,4 @@
-package requirement
+package project
 
 import (
 	"fmt"
@@ -15,7 +15,7 @@ import (
 	"github.com/zon/ralph/internal/services"
 )
 
-// Execute runs a single development iteration
+// ExecuteDevelopmentIteration runs a single development iteration
 // It performs the following steps:
 // 1. Validates and loads the project file
 // 2. Starts configured services (unless disabled)
@@ -23,7 +23,7 @@ import (
 // 4. Runs the AI agent with the prompt
 // 5. Stages the project file after completion
 // Note: Build commands should be run once at the project level, not per iteration
-func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
+func ExecuteDevelopmentIteration(ctx *context.Context, cleanupRegistrar func(func())) error {
 	// Enable verbose logging if requested
 	if ctx.IsVerbose() {
 		logger.SetVerbose(true)
@@ -47,16 +47,16 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	logger.Verbosef("Loading project file: %s", absProjectFile)
 
 	// Load and validate project
-	project, err := config.LoadProject(absProjectFile)
+	proj, err := LoadProject(absProjectFile)
 	if err != nil {
 		return fmt.Errorf("failed to load project: %w", err)
 	}
-	if project.Description != "" && ctx.IsVerbose() {
-		logger.Verbosef("Description: %s", project.Description)
+	if proj.Description != "" && ctx.IsVerbose() {
+		logger.Verbosef("Description: %s", proj.Description)
 	}
 
 	// Show project status
-	allComplete, passingCount, failingCount := config.CheckCompletion(project)
+	allComplete, passingCount, failingCount := CheckCompletion(proj)
 	logger.Verbosef("Requirements: %d passing, %d failing (complete: %v)", passingCount, failingCount, allComplete)
 
 	// Load configuration

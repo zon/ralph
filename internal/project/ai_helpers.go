@@ -1,0 +1,276 @@
+package project
+
+import (
+	"bytes"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"text/template"
+
+	"github.com/zon/ralph/internal/config"
+	"github.com/zon/ralph/internal/context"
+	"github.com/zon/ralph/internal/git"
+	"github.com/zon/ralph/internal/logger"
+)
+
+// GeneratePRSummary generates a pull request summary using AI
+// It includes project description, status, commits, and diff
+// This matches ralph.sh's approach: agent writes to a file, we read it back
+func GeneratePRSummary(ctx *context.Context, projectFile string, iterations int, baseBranch string) (string, error) {
+	proj, err := LoadProject(projectFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to load project: %w", err)
+	}
+
+	allComplete, _, _ := CheckCompletion(proj)
+
+	var projectStatus string
+	if allComplete {
+		projectStatus = "✅ Complete"
+	} else {
+		projectStatus = "⚠️ Incomplete"
+	}
+
+	commitLog, err := git.GetCommitLog(baseBranch, 0)
+	if err != nil {
+		logger.Verbosef("Failed to get commit log: %v", err)
+		commitLog = "(Unable to retrieve commit log)"
+	}
+
+	tmpFile, err := git.TmpPath("pr-summary.txt")
+	if err != nil {
+		return "", err
+	}
+	defer os.Remove(tmpFile)
+
+	prompt := buildPRSummaryPrompt(proj.Description, projectStatus, baseBranch, commitLog, tmpFile)
+
+	if ctx.IsVerbose() {
+		logger.Verbose(prompt)
+	}
+
+	model := resolveModel(ctx)
+	summary, err := runOpenCodeAndReadResult(ctx, model, prompt, tmpFile)
+	if err != nil {
+		return "", err
+	}
+
+	return summary, nil
+}
+
+type prSummaryData struct {
+	ProjectDesc   string
+	ProjectStatus string
+	BaseBranch    string
+	CommitLog     string
+	AbsPath       string
+}
+
+var prSummaryPromptTemplate = template.Must(template.New("prSummary").Parse(`Write a concise PR description (3-5 paragraphs max) for the changes made in this branch.
+
+Project: {{.ProjectDesc}}
+Status: {{.ProjectStatus}}
+
+## Commit Log
+{{.CommitLog}}
+
+Review the git commits from {{.BaseBranch}}..HEAD to understand what was changed.
+Use 'git log --format="%h: %B" {{.BaseBranch}}..HEAD' to see commit messages.
+Use 'git diff {{.BaseBranch}}..HEAD' to see the full changes.
+
+Summarize:
+1. What was implemented/changed
+2. Key technical decisions
+3. Any notable considerations or future work
+
+Be concise and focus on what matters for code review.
+
+Write your summary to the file: {{.AbsPath}}
+`))
+
+// buildPRSummaryPrompt constructs the prompt for generating PR summary
+func buildPRSummaryPrompt(projectDesc, projectStatus, baseBranch, commitLog, outputFile string) string {
+	absPath, _ := filepath.Abs(outputFile)
+
+	var builder bytes.Buffer
+	data := prSummaryData{
+		ProjectDesc:   projectDesc,
+		ProjectStatus: projectStatus,
+		BaseBranch:    baseBranch,
+		CommitLog:     commitLog,
+		AbsPath:       absPath,
+	}
+	prSummaryPromptTemplate.Execute(&builder, data)
+	return builder.String()
+}
+
+// runOpenCodeAndReadResult runs opencode with the given prompt and reads the result from the output file
+func runOpenCodeAndReadResult(ctx *context.Context, model, prompt, outputFile string) (string, error) {
+	cmd := exec.Command("opencode", "run", "--model", model, prompt)
+	cmd.Env = append(os.Environ(), "FORCE_COLOR=1")
+	if ctx.IsVerbose() {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+	}
+
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("opencode execution failed: %w", err)
+	}
+
+	// Read the summary from the file the agent wrote
+	summaryBytes, err := os.ReadFile(outputFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to read summary file: %w", err)
+	}
+
+	summary := strings.TrimSpace(string(summaryBytes))
+	if summary == "" {
+		return "", fmt.Errorf("summary file is empty")
+	}
+
+	return summary, nil
+}
+
+func resolveModel(ctx *context.Context) string {
+	if ctx.Model() != "" {
+		return ctx.Model()
+	}
+	ralphConfig, err := config.LoadConfig()
+	if err != nil {
+		return "deepseek/deepseek-chat"
+	}
+	return ralphConfig.Model
+}
+
+// GenerateChangelog prompts opencode to inspect the current git diff and write a
+// descriptive changelog to report.md.
+func GenerateChangelog(ctx *context.Context) error {
+	tmpFile, err := git.TmpPath("changelog.txt")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmpFile)
+
+	prompt := buildChangelogPrompt(tmpFile)
+
+	if ctx.IsVerbose() {
+		logger.Verbose(prompt)
+	}
+
+	model := resolveModel(ctx)
+	_, err = runOpenCodeAndReadResult(ctx, model, prompt, tmpFile)
+	if err != nil {
+		return err
+	}
+
+	// The agent writes to the file we gave it; we need to move that to report.md
+	if err := os.Rename(tmpFile, "report.md"); err != nil {
+		return fmt.Errorf("failed to rename changelog to report.md: %w", err)
+	}
+
+	return nil
+}
+
+var changelogPromptTemplate = template.Must(template.New("changelog").Parse(`Write a concise changelog entry for the changes currently staged in git.
+
+You are an AI agent that writes changelogs. Review the git diff (staged changes) and write a single changelog entry describing what changed.
+
+Focus on:
+• What was added, removed, or modified
+• Why the changes were made (if apparent from the diff)
+• Any notable implementation details
+
+Write in the style of a conventional changelog entry, beginning with a verb in past tense (e.g., "Fixed", "Added", "Changed").
+
+Write the changelog entry to the file: {{.}}
+
+Do not include any extra commentary, just the changelog entry.`))
+
+func buildChangelogPrompt(outputFile string) string {
+	absPath, _ := filepath.Abs(outputFile)
+	var b bytes.Buffer
+	changelogPromptTemplate.Execute(&b, absPath)
+	return b.String()
+}
+
+// GenerateReviewPRBody generates a PR body for review findings using AI
+// It reads the review project file and writes a concise summary of recommended changes
+func GenerateReviewPRBody(ctx *context.Context, projectFile string) (string, error) {
+	proj, err := LoadProject(projectFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to load project: %w", err)
+	}
+
+	var requirementSummaries []string
+	for _, req := range proj.Requirements {
+		status := "❌ Not passing"
+		if req.Passing {
+			status = "✅ Passing"
+		}
+		summary := fmt.Sprintf("- **%s**: %s (%s)", req.Category, req.Description, status)
+		requirementSummaries = append(requirementSummaries, summary)
+	}
+
+	tmpFile, err := git.TmpPath("pr-body.txt")
+	if err != nil {
+		return "", err
+	}
+	defer os.Remove(tmpFile)
+
+	prompt := buildReviewPRBodyPrompt(proj.Name, proj.Description, requirementSummaries, tmpFile)
+
+	if ctx.IsVerbose() {
+		logger.Verbose(prompt)
+	}
+
+	model := resolveModel(ctx)
+	summary, err := runOpenCodeAndReadResult(ctx, model, prompt, tmpFile)
+	if err != nil {
+		return "", err
+	}
+
+	return summary, nil
+}
+
+type reviewPRBodyData struct {
+	ProjectName        string
+	ProjectDescription string
+	Requirements       []string
+	AbsPath            string
+}
+
+var reviewPRBodyPromptTemplate = template.Must(template.New("reviewPRBody").Parse(`Write a concise PR description (2-4 paragraphs max) for this code review.
+
+Review Name: {{.ProjectName}}
+{{if .ProjectDescription}}
+Description: {{.ProjectDescription}}
+{{end}}
+
+## Findings Summary
+{{range .Requirements}}
+{{.}}
+{{end}}
+
+Review the requirements above and write a summary that:
+1. Lists the key findings from the review
+2. Highlights any critical issues that need attention
+3. Notes what's working well
+
+Write your summary to the file: {{.AbsPath}}
+`))
+
+func buildReviewPRBodyPrompt(projectName, projectDesc string, requirements []string, outputFile string) string {
+	absPath, _ := filepath.Abs(outputFile)
+
+	var builder bytes.Buffer
+	data := reviewPRBodyData{
+		ProjectName:        projectName,
+		ProjectDescription: projectDesc,
+		Requirements:       requirements,
+		AbsPath:            absPath,
+	}
+	reviewPRBodyPromptTemplate.Execute(&builder, data)
+	return builder.String()
+}

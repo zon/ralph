@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/logger"
@@ -43,7 +42,7 @@ func FindCompleteProjects(dir string) ([]string, error) {
 
 	// Check each file
 	for _, file := range allFiles {
-		project, err := config.LoadProject(file)
+		project, err := LoadProject(file)
 		if err != nil {
 			// Skip files that can't be loaded as valid projects
 			continue
@@ -65,7 +64,7 @@ func FindCompleteProjects(dir string) ([]string, error) {
 
 // isProjectComplete checks if a project has all requirements passing.
 // A project with zero requirements is not considered complete.
-func isProjectComplete(project *config.Project) bool {
+func isProjectComplete(project *Project) bool {
 	if len(project.Requirements) == 0 {
 		return false
 	}

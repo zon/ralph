@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/zon/ralph/internal/ai"
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
@@ -36,7 +35,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		return fmt.Errorf("failed to resolve project file path: %w", err)
 	}
 
-	project, err := config.LoadProject(absProjectFile)
+	project, err := LoadProject(absProjectFile)
 	if err != nil {
 		return fmt.Errorf("failed to load project file: %w", err)
 	}
@@ -78,13 +77,13 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	logger.Verbosef("Iteration loop completed after %d iteration(s)", iterCount)
 
 	logger.Verbose("Generating PR summary...")
-	prSummary, err := ai.GeneratePRSummary(ctx, absProjectFile, iterCount, baseBranch)
+	prSummary, err := GeneratePRSummary(ctx, absProjectFile, iterCount, baseBranch)
 	if err != nil {
 		return fmt.Errorf("failed to generate PR summary: %w", err)
 	}
 	logger.Verbose("PR summary generated")
 
-	project, err = config.LoadProject(absProjectFile)
+	project, err = LoadProject(absProjectFile)
 	if err != nil {
 		return fmt.Errorf("failed to reload project after iteration loop: %w", err)
 	}
@@ -164,7 +163,7 @@ func switchToProjectBranch(ctx *context.Context, branchName string) error {
 	return nil
 }
 
-func createPullRequest(ctx *context.Context, project *config.Project, branchName, baseBranch, prSummary string) (string, error) {
+func createPullRequest(ctx *context.Context, project *Project, branchName, baseBranch, prSummary string) (string, error) {
 	// Refresh GitHub credentials immediately before creating the PR.
 	// Installation tokens expire after 1 hour, so a long-running agent job may
 	// have started with a valid token that is now stale. Re-running ConfigureGitAuth
@@ -223,7 +222,7 @@ func SanitizeBranchName(name string) string {
 func executeRemote(ctx *context.Context, absProjectFile string) error {
 	logger.Verbose("Submitting Argo Workflow...")
 
-	project, err := config.LoadProject(absProjectFile)
+	project, err := LoadProject(absProjectFile)
 	if err != nil {
 		return fmt.Errorf("failed to load project file: %w", err)
 	}

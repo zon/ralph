@@ -16,12 +16,12 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/zon/ralph/internal/ai"
 	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/logger"
+	"github.com/zon/ralph/internal/project"
 	"github.com/zon/ralph/internal/workflow"
 
 	_ "embed"
@@ -258,14 +258,14 @@ func (r *ReviewCmd) submitPR(ctx *execcontext.Context, absProjectFile, reviewNam
 	}
 
 	title := reviewName
-	proj, err := config.LoadProject(absProjectFile)
+	proj, err := project.LoadProject(absProjectFile)
 	if err == nil && proj.Description != "" {
 		title = proj.Description
 	}
 
 	body := fmt.Sprintf("AI code review findings for `%s`.", reviewName)
 
-	generatedBody, err := ai.GenerateReviewPRBody(ctx, absProjectFile)
+	generatedBody, err := project.GenerateReviewPRBody(ctx, absProjectFile)
 	if err != nil {
 		logger.Verbosef("Failed to generate PR body with AI: %v", err)
 	} else {
