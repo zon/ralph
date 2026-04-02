@@ -1,5 +1,5 @@
 name: review-2026-04-02
-description: Review of Command Layer component for deep modules
+description: Review of Command Layer and Configuration Management components for deep modules
 
 requirements:
   - category: command-layer
@@ -12,4 +12,12 @@ requirements:
     items:
       - Command handlers should not directly call low-level OS functions (os, filepath, exec); use internal abstractions
       - Command handlers should be concise and focus on orchestrating domain workflows
+    passing: false
+  - category: configuration
+    description: Separate project management logic from configuration loading
+    items:
+      - Move LoadProject, ValidateProject, SaveProject, CheckCompletion, UpdateRequirementStatus functions to internal/project package
+      - Move Project, Requirement structs to internal/project package
+      - Ensure config package only handles Ralph configuration loading and validation
+      - Update all callers to use the new package
     passing: false
