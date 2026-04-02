@@ -144,8 +144,10 @@ requirements:
     description: Implement Docker utilities as a deep module with a simple public interface
     items:
       - Extract Docker image building and pushing logic into internal/docker package
+      - Extract authentication logic for GitHub Container Registry into internal/registry package
       - Provide a simple public interface for building and pushing images
-      - Update scripts and workflows to use the new package
+      - Update scripts and workflows to use the new packages
+      - Update Makefile container-build target to use the same building logic, eliminating duplication
     passing: false
   - category: prompt-management
     description: Refactor prompt module to eliminate duplication and ensure consistent error handling
