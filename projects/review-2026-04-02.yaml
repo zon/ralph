@@ -35,3 +35,11 @@ requirements:
       - Add a public function like DisplayStats(ctx) that handles stats display
       - Update callers to use the new function
     passing: false
+  - category: ai-integration
+    description: Separate domain logic from implementation details in AI integration
+    items:
+      - AI functions should delegate low-level operations (exec, file I/O, template rendering) to dedicated abstractions
+      - Move prompt template building to internal/prompt package
+      - Introduce AI executor interface to encapsulate opencode CLI interactions
+      - Keep domain logic concise and focused on orchestrating AI workflows
+    passing: false
