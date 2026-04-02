@@ -147,3 +147,10 @@ requirements:
       - Provide a simple public interface for building and pushing images
       - Update scripts and workflows to use the new package
     passing: false
+  - category: prompt-management
+    description: Refactor prompt module to eliminate duplication and ensure consistent error handling
+    items:
+      - Extract common prompt building steps (load config, read project file, get commit log, base branch) into private helper functions
+      - Ensure all prompt building functions return errors for template failures
+      - Update callers to handle errors appropriately
+    passing: false
