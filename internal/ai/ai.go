@@ -399,5 +399,19 @@ func runMockAgent(ctx *context.Context, prompt string) error {
 		logger.Verbosef("Mock AI wrote overview JSON to %s", jsonPath)
 	}
 
+	// Modify project file to simulate a finding (for testing loop exit)
+	absProjectFile := ctx.ProjectFile()
+	if absProjectFile != "" {
+		f, err := os.OpenFile(absProjectFile, os.O_APPEND|os.O_WRONLY, 0644)
+		if err == nil {
+			defer f.Close()
+			if _, err := f.WriteString("\n# mock modification"); err != nil {
+				logger.Verbosef("Mock AI failed to append to project file: %v", err)
+			} else {
+				logger.Verbosef("Mock AI appended to project file: %s", absProjectFile)
+			}
+		}
+	}
+
 	return nil
 }

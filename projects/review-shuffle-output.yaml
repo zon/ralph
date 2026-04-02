@@ -20,7 +20,7 @@ requirements:
     items:
       - The review loop exits immediately after the first project file modification is committed
       - A PR is submitted as soon as the first finding is committed; remaining iterations are skipped
-    passing: false
+    passing: true
 
   - category: shuffle
     description: Shuffle components and review items before iteration

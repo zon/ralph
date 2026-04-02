@@ -73,6 +73,7 @@ type ReviewCmd struct {
 	Verbose     bool   `help:"Enable verbose logging" default:"false"`
 	Context     string `help:"Kubernetes context to use" name:"context" optional:""`
 	Seed        int64  `help:"Random seed for shuffling components and review items (0 = random)" default:"0"`
+	prSubmitted bool   // tracks whether a PR has already been submitted in this run
 }
 
 func (r *ReviewCmd) Run() error {
@@ -148,7 +149,7 @@ func (r *ReviewCmd) Run() error {
 		return fmt.Errorf("review step failed: %w", err)
 	}
 
-	if projectChanged {
+	if projectChanged && !r.prSubmitted {
 		if err := r.submitPR(ctx, absProjectFile, reviewName, baseBranch); err != nil {
 			logger.Warningf("Failed to create pull request: %v", err)
 		}
@@ -460,6 +461,13 @@ func (r *ReviewCmd) runReview(ctx *execcontext.Context, overview *Overview, proj
 					return projectChanged, fmt.Errorf("failed to commit after component %s, item %d: %w", component.Name, i+1, err)
 				}
 				projectChanged = true
+				os.Remove(summaryPath)
+				// Submit PR immediately after first finding
+				if err := r.submitPR(ctx, projectPath, reviewName, baseBranch); err != nil {
+					logger.Warningf("Failed to create pull request: %v", err)
+				}
+				r.prSubmitted = true
+				return projectChanged, nil
 			}
 
 			os.Remove(summaryPath)

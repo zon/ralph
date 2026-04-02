@@ -2,13 +2,16 @@ package cmd
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/alecthomas/kong"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zon/ralph/internal/config"
+	"github.com/zon/ralph/internal/testutil"
 )
 
 func TestReviewResolveModel(t *testing.T) {
@@ -434,4 +437,93 @@ func TestReviewSeedFlag(t *testing.T) {
 	_, err = parser.Parse([]string{"review", "--seed", "42"})
 	require.NoError(t, err)
 	assert.Equal(t, int64(42), cmd.Review.Seed)
+}
+
+func TestReviewLoopExitsAfterFirstCommit(t *testing.T) {
+	t.Setenv("RALPH_MOCK_AI", "true")
+	tmpDir := t.TempDir()
+	t.Chdir(tmpDir)
+
+	// Create a bare remote repository
+	remoteDir := filepath.Join(tmpDir, "remote.git")
+	require.NoError(t, exec.Command("git", "init", "--bare", remoteDir).Run())
+
+	// Initialize git repo with origin
+	require.NoError(t, exec.Command("git", "init").Run())
+	require.NoError(t, exec.Command("git", "config", "user.email", "test@example.com").Run())
+	require.NoError(t, exec.Command("git", "config", "user.name", "Test User").Run())
+	require.NoError(t, exec.Command("git", "remote", "add", "origin", remoteDir).Run())
+	// Rename branch to main
+	require.NoError(t, exec.Command("git", "branch", "-M", "main").Run())
+
+	// Create .ralph/config.yaml with two review items
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	require.NoError(t, os.Mkdir(ralphDir, 0755))
+	configContent := `model: deepseek/deepseek-chat
+review:
+  items:
+  - text: first review item
+  - text: second review item
+`
+	configPath := filepath.Join(ralphDir, "config.yaml")
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
+
+	// Create a project YAML file
+	projectFile := filepath.Join(tmpDir, "project.yaml")
+	projectYAML := `name: test-review
+description: Test project for loop exit
+requirements:
+  - category: test
+    description: dummy requirement
+    passing: false
+`
+	require.NoError(t, os.WriteFile(projectFile, []byte(projectYAML), 0644))
+	// Commit the project file to have a base state
+	require.NoError(t, exec.Command("git", "add", ".").Run())
+	require.NoError(t, exec.Command("git", "commit", "-m", "initial commit").Run())
+	// Push to origin to establish remote branch
+	require.NoError(t, exec.Command("git", "push", "-u", "origin", "main").Run())
+
+	// Load config
+	cfg, err := config.LoadConfig()
+	require.NoError(t, err)
+
+	// Create overview with one component
+	overview := &Overview{
+		Components: []OverviewComponent{
+			{Name: "mock-component", Path: "internal/mock", Summary: "Mock component"},
+		},
+	}
+
+	// Create ReviewCmd
+	r := &ReviewCmd{
+		Local:   true,
+		Verbose: false,
+		Seed:    12345,
+	}
+	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
+	ctx.SetLocal(true)
+
+	// Run review
+	projectChanged, err := r.runReview(ctx, overview, projectFile, "", "review-test", "main", cfg)
+	require.NoError(t, err)
+	assert.True(t, projectChanged, "project should have been changed")
+
+	// Verify that only one commit was made (the initial commit + the review commit)
+	cmd := exec.Command("git", "log", "--oneline")
+	out, err := cmd.Output()
+	require.NoError(t, err)
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	// Expect 2 commits: initial commit and review commit
+	assert.Len(t, lines, 2, "should have exactly two commits (initial + review)")
+
+	// Verify that the review commit prefix matches the first component/item
+	// The commit message should contain "mock-component-0"
+	cmd = exec.Command("git", "log", "-1", "--pretty=%B")
+	out, err = cmd.Output()
+	require.NoError(t, err)
+	commitMsg := strings.TrimSpace(string(out))
+	assert.Contains(t, commitMsg, "mock-component-0", "commit should be for first item only")
+	// Ensure second item prefix not present (no commit for second item)
+	assert.NotContains(t, commitMsg, "mock-component-1")
 }
