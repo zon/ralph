@@ -1,22 +1,15 @@
 name: review-2026-04-02
-description: Review of Ralph CLI component for deep modules
+description: Review of Ralph Webhook Service component for domain logic and deep modules
 
 requirements:
-  - category: cli
-    description: Improve CLI flag consistency and reduce duplication
-    items:
-      - Extract common flags (Local, Verbose, Context) into shared structs
-      - Ensure consistent help text for common flags across subcommands
-    passing: false
-  - category: domain-logic
-    description: Separate domain logic from implementation details in CLI command handlers
-    items:
-      - Command handlers should contain only domain logic, delegating implementation details to abstractions
-      - Introduce interfaces for infrastructure (file I/O, git operations, HTTP calls) and inject them
-      - Refactor command handlers to depend on abstractions, not concrete implementations
-    passing: false
   - category: webhook
     description: Reduce exported surface area of webhook package to improve module depth
     items:
       - Unexport Event and WorkflowResult types as they are not used outside the package
+    passing: false
+  - category: domain-logic
+    description: Separate HTTP infrastructure concerns from domain logic in webhook handler
+    items:
+      - Extract webhook signature validation and request parsing into a dedicated function
+      - Refactor handler to focus on domain steps (receive event, filter, convert to workflow, submit)
     passing: false
