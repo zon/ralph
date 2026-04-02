@@ -5,7 +5,7 @@ requirements:
   - category: overview-prompt
     description: Update the overview prompt to discover both code modules and apps
     items:
-      - The overview prompt asks the AI to identify both code modules (packages, libraries, logical groupings) and apps (executables, services, entry points) separately
+      - The overview prompt asks the AI to identify both code modules (packages, libraries, logical groupings) and apps (executables, services, entry points) separately, excluding documentation and planning files
       - The overview JSON schema includes a top-level "modules" list and a top-level "apps" list, each with name, path, and summary fields
       - The overview output prints both lists with clear headers
     passing: false
