@@ -643,3 +643,104 @@ func TestLoadConfig_ReviewConfigEmptyItems(t *testing.T) {
 	require.Error(t, err, "LoadConfig() expected error for empty review items")
 	assert.Contains(t, err.Error(), "review must have at least one item")
 }
+
+func TestLoadConfigFromPath(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	t.Run("missing file returns empty config", func(t *testing.T) {
+		config, err := loadConfigFromPath(filepath.Join(tmpDir, "nonexistent.yaml"))
+		require.NoError(t, err)
+		require.NotNil(t, config)
+		assert.Equal(t, "", config.ConfigPath)
+		assert.Equal(t, 0, config.MaxIterations)
+	})
+
+	t.Run("valid YAML returns parsed config", func(t *testing.T) {
+		configPath := filepath.Join(tmpDir, "config.yaml")
+		content := `maxIterations: 5
+defaultBranch: develop
+model: anthropic/claude-3-sonnet`
+		require.NoError(t, os.WriteFile(configPath, []byte(content), 0644))
+
+		config, err := loadConfigFromPath(configPath)
+		require.NoError(t, err)
+		require.NotNil(t, config)
+		assert.Equal(t, configPath, config.ConfigPath)
+		assert.Equal(t, 5, config.MaxIterations)
+		assert.Equal(t, "develop", config.DefaultBranch)
+		assert.Equal(t, "anthropic/claude-3-sonnet", config.Model)
+	})
+
+	t.Run("invalid YAML returns error", func(t *testing.T) {
+		configPath := filepath.Join(tmpDir, "invalid.yaml")
+		content := `maxIterations: [invalid`
+		require.NoError(t, os.WriteFile(configPath, []byte(content), 0644))
+
+		config, err := loadConfigFromPath(configPath)
+		require.Error(t, err)
+		assert.Nil(t, config)
+		assert.Contains(t, err.Error(), "failed to parse config YAML")
+	})
+
+	t.Run("file exists but unreadable returns error", func(t *testing.T) {
+		if os.Getuid() == 0 {
+			t.Skip("skipping permission test when running as root")
+		}
+		configPath := filepath.Join(tmpDir, "unreadable.yaml")
+		require.NoError(t, os.WriteFile(configPath, []byte("maxIterations: 1"), 0000))
+		defer os.Chmod(configPath, 0644)
+
+		config, err := loadConfigFromPath(configPath)
+		require.Error(t, err)
+		assert.Nil(t, config)
+		assert.Contains(t, err.Error(), "failed to read config file")
+	})
+}
+
+func TestLoadInstructions(t *testing.T) {
+	t.Run("all files missing uses defaults", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		configDir := filepath.Join(tmpDir, ".ralph")
+		require.NoError(t, os.Mkdir(configDir, 0755))
+
+		instructions, commentInstructions, mergeInstructions := loadInstructions(configDir)
+		assert.Contains(t, instructions, "## Instructions")
+		assert.Contains(t, commentInstructions, "# Comment Instructions")
+		assert.Contains(t, mergeInstructions, "# Merge Instructions")
+	})
+
+	t.Run("custom instructions loaded from files", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		configDir := filepath.Join(tmpDir, ".ralph")
+		require.NoError(t, os.Mkdir(configDir, 0755))
+
+		customInstructions := "Custom instructions"
+		customComment := "Custom comment instructions"
+		customMerge := "Custom merge instructions"
+
+		require.NoError(t, os.WriteFile(filepath.Join(configDir, "instructions.md"), []byte(customInstructions), 0644))
+		require.NoError(t, os.WriteFile(filepath.Join(configDir, "comment-instructions.md"), []byte(customComment), 0644))
+		require.NoError(t, os.WriteFile(filepath.Join(configDir, "merge-instructions.md"), []byte(customMerge), 0644))
+
+		instructions, commentInstructions, mergeInstructions := loadInstructions(configDir)
+		assert.Equal(t, customInstructions, instructions)
+		assert.Equal(t, customComment, commentInstructions)
+		assert.Equal(t, customMerge, mergeInstructions)
+	})
+
+	t.Run("mixed presence uses defaults for missing files", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		configDir := filepath.Join(tmpDir, ".ralph")
+		require.NoError(t, os.Mkdir(configDir, 0755))
+
+		customInstructions := "Custom instructions"
+		require.NoError(t, os.WriteFile(filepath.Join(configDir, "instructions.md"), []byte(customInstructions), 0644))
+		// comment-instructions.md missing
+		// merge-instructions.md missing
+
+		instructions, commentInstructions, mergeInstructions := loadInstructions(configDir)
+		assert.Equal(t, customInstructions, instructions)
+		assert.Contains(t, commentInstructions, "# Comment Instructions")
+		assert.Contains(t, mergeInstructions, "# Merge Instructions")
+	})
+}
