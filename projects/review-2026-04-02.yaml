@@ -74,3 +74,8 @@ requirements:
       - Add GetConfigMap and GetSecret functions to internal/k8s package
       - Replace direct kubectl calls in config_webhook.go with internal/k8s package functions
     passing: false
+  - category: webhook-server
+    description: Unexport internal types that are not part of the public interface
+    items:
+      - Make Event and WorkflowResult types internal (lowercase)
+    passing: false
