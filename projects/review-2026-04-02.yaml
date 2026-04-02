@@ -201,3 +201,9 @@ requirements:
       - Make ConfigMap and Secret names configurable via values
       - Add support for additional deployment configurations (probes, security contexts, pod annotations)
     passing: false
+  - category: e2e-tests
+    description: Improve depth of e2e test module by extracting common helpers
+    items:
+      - Move gitExec, bootstrapGitRepo, and other shared helpers to a dedicated helpers.go file
+      - Ensure configuration resolution is consistent across test files
+    passing: false
