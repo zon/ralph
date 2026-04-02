@@ -161,3 +161,10 @@ requirements:
       - Remove logging statements from prompt building functions
       - Ensure prompt building functions only orchestrate domain steps (gather configuration, project content, git history, select template, render via helper)
     passing: false
+  - category: requirement-management
+    description: Align requirement management component with its purpose
+    items:
+      - Move iteration execution (Execute function) from internal/requirement to internal/project package
+      - Update all callers to use the new location
+      - Consider renaming internal/requirement package to reflect its purpose (or remove if empty)
+    passing: false
