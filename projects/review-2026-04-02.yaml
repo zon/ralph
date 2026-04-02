@@ -7,3 +7,9 @@ requirements:
     items:
       - Extract config_webhook.go logic into internal/provisioning package
     passing: false
+  - category: command-layer
+    description: Ensure command handlers separate domain logic from infrastructure
+    items:
+      - Command handlers should not directly call low-level OS functions (os, filepath, exec); use internal abstractions
+      - Command handlers should be concise and focus on orchestrating domain workflows
+    passing: false
