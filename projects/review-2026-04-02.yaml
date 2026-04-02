@@ -79,3 +79,10 @@ requirements:
     items:
       - Make Event and WorkflowResult types internal (lowercase)
     passing: false
+  - category: webhook-server
+    description: Separate domain logic from implementation details in HTTP handler
+    items:
+      - Move logging statements to a decorator or middleware
+      - Encapsulate goroutine submission behind an async executor interface
+      - Ensure HTTP handler contains only domain logic calls, delegating implementation details to lower-level functions
+    passing: false
