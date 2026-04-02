@@ -43,3 +43,10 @@ requirements:
       - Introduce AI executor interface to encapsulate opencode CLI interactions
       - Keep domain logic concise and focused on orchestrating AI workflows
     passing: false
+  - category: git-operations
+    description: Consolidate git operations and eliminate duplication
+    items:
+      - Add exported function RemoteURL() to internal/git package
+      - Update internal/workflow/git.go and internal/workflow/generate.go to use internal/git package functions
+      - Remove duplicate git command implementations
+    passing: false
