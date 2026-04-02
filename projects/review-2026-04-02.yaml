@@ -62,3 +62,9 @@ requirements:
       - Replace toHTTPSURL calls in internal/workflow/generate.go with github.ParseRemoteURL and github.CloneURL
       - Consider replacing getRemoteURL with github.GetRepo where appropriate
     passing: false
+  - category: github-integration
+    description: Ensure GitHub integration separates domain logic from infrastructure
+    items:
+      - GitHub integration functions should not directly call low-level OS functions (exec, http); use internal abstractions
+      - GitHub integration functions should be concise and focus on orchestrating GitHub workflows
+    passing: false
