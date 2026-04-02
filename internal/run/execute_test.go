@@ -1,11 +1,15 @@
 package run
 
 import (
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
+	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/testutil"
 )
 
@@ -84,4 +88,203 @@ func TestExecute_NonExistentProjectFile(t *testing.T) {
 	err := Execute(ctx, nil)
 
 	assert.Error(t, err, "Execute should return error when project file does not exist")
+}
+
+func TestExecute_ValidProject(t *testing.T) {
+	t.Setenv("RALPH_MOCK_AI", "true")
+
+	tmpDir := t.TempDir()
+	projectFile := filepath.Join(tmpDir, "test-project.yaml")
+
+	projectYAML := `name: Test Project
+description: Test project for requirement execution
+requirements:
+  - id: req1
+    description: Test requirement
+    passing: false
+`
+
+	require.NoError(t, os.WriteFile(projectFile, []byte(projectYAML), 0644))
+
+	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
+	err := Execute(ctx, nil)
+
+	require.NoError(t, err, "Execute failed with valid project")
+}
+
+func TestExecute_InvalidYAML(t *testing.T) {
+	tmpDir := t.TempDir()
+	projectFile := filepath.Join(tmpDir, "invalid.yaml")
+
+	invalidYAML := `name: Test
+description: [invalid yaml structure
+requirements:
+  - not properly formatted
+`
+
+	require.NoError(t, os.WriteFile(projectFile, []byte(invalidYAML), 0644))
+
+	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
+	err := Execute(ctx, nil)
+
+	require.Error(t, err, "Expected error for invalid YAML")
+}
+
+func TestExecute_EmptyRequirements(t *testing.T) {
+	tmpDir := t.TempDir()
+	projectFile := filepath.Join(tmpDir, "empty-reqs.yaml")
+
+	emptyReqsYAML := `name: Test Project
+description: Project with no requirements
+requirements: []
+`
+
+	require.NoError(t, os.WriteFile(projectFile, []byte(emptyReqsYAML), 0644))
+
+	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
+	err := Execute(ctx, nil)
+
+	require.Error(t, err, "Expected error for project with no requirements")
+}
+
+func TestExecute_BlockedMDExists(t *testing.T) {
+	tmpDir := t.TempDir()
+	projectFile := filepath.Join(tmpDir, "test-project.yaml")
+
+	projectYAML := `name: Test Project
+description: Test project
+requirements:
+  - id: req1
+    description: Test requirement
+    passing: false
+`
+
+	require.NoError(t, os.WriteFile(projectFile, []byte(projectYAML), 0644))
+
+	blockedPath := filepath.Join(tmpDir, "blocked.md")
+	require.NoError(t, os.WriteFile(blockedPath, []byte("Agent is blocked due to previous error"), 0644))
+
+	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
+	err := Execute(ctx, nil)
+
+	require.Error(t, err, "Expected error when blocked.md exists")
+	assert.Contains(t, err.Error(), "blocked")
+}
+
+func TestExecute_BlockedMDContents(t *testing.T) {
+	tmpDir := t.TempDir()
+	projectFile := filepath.Join(tmpDir, "test-project.yaml")
+
+	projectYAML := `name: Test Project
+description: Test project
+requirements:
+  - id: req1
+    description: Test requirement
+    passing: false
+`
+
+	require.NoError(t, os.WriteFile(projectFile, []byte(projectYAML), 0644))
+
+	blockedContent := "This is the blocked reason from blocked.md"
+	blockedPath := filepath.Join(tmpDir, "blocked.md")
+	require.NoError(t, os.WriteFile(blockedPath, []byte(blockedContent), 0644))
+
+	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
+	err := Execute(ctx, nil)
+
+	require.Error(t, err, "Expected error when blocked.md exists")
+	assert.Contains(t, err.Error(), blockedContent)
+}
+
+func TestExecute_NormalizeTrailingNewlines(t *testing.T) {
+	t.Setenv("RALPH_MOCK_AI", "true")
+
+	tmpDir := t.TempDir()
+	projectFile := filepath.Join(tmpDir, "test-project.yaml")
+
+	projectYAMLWithExcessNewlines := "name: Test Project\ndescription: Test project\nrequirements:\n  - id: req1\n    description: Test requirement\n    passing: false\n\n\n\n"
+
+	require.NoError(t, os.WriteFile(projectFile, []byte(projectYAMLWithExcessNewlines), 0644))
+
+	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
+	err := Execute(ctx, nil)
+
+	require.NoError(t, err, "Execute failed")
+
+	content, err := os.ReadFile(projectFile)
+	require.NoError(t, err)
+
+	assert.True(t, strings.HasSuffix(string(content), "\n"), "Expected file to end with a newline")
+	assert.False(t, strings.HasSuffix(string(content), "\n\n"), "Expected file to have exactly one trailing newline")
+}
+
+func TestExecute_StartsServices(t *testing.T) {
+	t.Setenv("RALPH_MOCK_AI", "true")
+
+	tmpDir := t.TempDir()
+	projectFile := filepath.Join(tmpDir, "test-project.yaml")
+
+	projectYAML := `name: Test Project
+description: Test project
+requirements:
+  - id: req1
+    description: Test requirement
+    passing: false
+`
+
+	require.NoError(t, os.WriteFile(projectFile, []byte(projectYAML), 0644))
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	require.NoError(t, os.MkdirAll(ralphDir, 0755))
+
+	configYAML := `services:
+  - name: test-service
+    command: echo
+    args:
+      - "test"
+`
+	require.NoError(t, os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte(configYAML), 0644))
+
+	t.Chdir(tmpDir)
+
+	ctx := testutil.NewContext(
+		testutil.WithProjectFile(projectFile),
+		testutil.WithNoServices(false),
+	)
+
+	err := Execute(ctx, nil)
+
+	require.NoError(t, err, "Execute failed")
+}
+
+func TestExecute_WritesBlockedOnAgentFailure(t *testing.T) {
+	t.Setenv("RALPH_MOCK_AI", "true")
+	t.Setenv("RALPH_MOCK_AI_FAIL", "true")
+	t.Setenv("RALPH_WORKFLOW_EXECUTION", "true")
+	logger.SetVerbose(true)
+
+	tmpDir := t.TempDir()
+	projectFile := filepath.Join(tmpDir, "test-project.yaml")
+
+	projectYAML := `name: Test Project
+description: Test project
+requirements:
+  - id: req1
+    description: Test requirement
+    passing: false
+`
+
+	require.NoError(t, os.WriteFile(projectFile, []byte(projectYAML), 0644))
+
+	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
+	err := Execute(ctx, nil)
+
+	require.Error(t, err, "Execute should fail when agent fails")
+
+	blockedPath := filepath.Join(tmpDir, "blocked.md")
+	blockedContent, err := os.ReadFile(blockedPath)
+	require.NoError(t, err, "blocked.md should be created")
+
+	assert.Contains(t, string(blockedContent), "Blocked")
+	assert.Contains(t, string(blockedContent), "opencode execution failed")
 }
