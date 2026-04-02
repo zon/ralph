@@ -154,3 +154,10 @@ requirements:
       - Ensure all prompt building functions return errors for template failures
       - Update callers to handle errors appropriately
     passing: false
+  - category: prompt-management
+    description: Separate domain logic from implementation details in prompt construction
+    items:
+      - Extract template parsing and execution to a private helper function
+      - Remove logging statements from prompt building functions
+      - Ensure prompt building functions only orchestrate domain steps (gather configuration, project content, git history, select template, render via helper)
+    passing: false
