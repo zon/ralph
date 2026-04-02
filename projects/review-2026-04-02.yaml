@@ -1,0 +1,10 @@
+name: review-2026-04-02
+description: Review of Ralph CLI component for deep modules
+
+requirements:
+  - category: cli
+    description: Improve CLI flag consistency and reduce duplication
+    items:
+      - Extract common flags (Local, Verbose, Context) into shared structs
+      - Ensure consistent help text for common flags across subcommands
+    passing: false
