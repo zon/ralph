@@ -174,3 +174,9 @@ requirements:
       - Unexport WaitForHealth function as it's only used internally
       - Make Process.Name field private if not needed externally
     passing: false
+  - category: service-management
+    description: Separate domain logic from implementation details in service management component
+    items:
+      - Service management functions should not directly call low-level OS functions (os/exec, net, syscall, os); use internal abstractions
+      - Service management functions should be concise and focus on orchestrating service lifecycle workflows
+    passing: false
