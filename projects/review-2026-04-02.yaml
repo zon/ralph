@@ -207,3 +207,10 @@ requirements:
       - Move gitExec, bootstrapGitRepo, and other shared helpers to a dedicated helpers.go file
       - Ensure configuration resolution is consistent across test files
     passing: false
+  - category: testing-isolation
+    description: Ensure unit and integration tests follow isolation principles and separate domain logic from implementation details
+    items:
+      - Unit and integration tests must not invoke external tools (git, gh, opencode, etc.) directly; external dependencies should support dry-run mode
+      - Test helpers should encapsulate external tool interactions, allowing mocks
+      - Test domain logic should be separate from implementation details (e.g., using table-driven tests with clear inputs/outputs)
+    passing: false
