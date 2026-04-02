@@ -259,3 +259,10 @@ func TestReviewIterationPrefixFormat(t *testing.T) {
 		})
 	}
 }
+
+func TestPrintDetectedComponents(t *testing.T) {
+	r := &ReviewCmd{}
+	overview := &Overview{}
+	r.printDetectedComponents(overview)
+	// No panic expected
+}

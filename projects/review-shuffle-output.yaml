@@ -6,7 +6,7 @@ requirements:
     description: Print detected components after the overview step
     items:
       - After runOverview completes, ralph review prints each detected component's name, path, and summary to stdout
-    passing: false
+    passing: true
 
   - category: output
     description: Print an iteration header at the start of each component/item pair

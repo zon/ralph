@@ -334,10 +334,11 @@ func (r *ReviewCmd) runOverview(ctx *execcontext.Context, overviewPath, projectP
 	}
 
 	overview, err := loadOverview(overviewPath)
-	os.Remove(overviewPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load overview: %w", err)
 	}
+	r.printDetectedComponents(overview)
+	os.Remove(overviewPath)
 
 	return overview, nil
 }
@@ -391,4 +392,10 @@ func (r *ReviewCmd) runReview(ctx *execcontext.Context, overview *Overview, proj
 	}
 
 	return projectChanged, nil
+}
+
+func (r *ReviewCmd) printDetectedComponents(overview *Overview) {
+	for _, comp := range overview.Components {
+		logger.Infof("Component: %s (%s) - %s", comp.Name, comp.Path, comp.Summary)
+	}
 }
