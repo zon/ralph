@@ -100,3 +100,10 @@ requirements:
       - Consider generalizing iteration loop pattern to eliminate duplication between runReview and RunIterationLoop
       - Ensure project.Execute commits changes in merge conflict resolution mode, eliminating duplicate commit logic in workflow.go
     passing: false
+  - category: project-execution
+    description: Separate domain logic from implementation details in project execution component
+    items:
+      - Domain logic functions in internal/project package should not directly call low-level OS functions (os, filepath, exec); use internal abstractions
+      - External command execution (argo, git, gh) should be encapsulated in dedicated packages, not called directly from orchestration logic
+      - File system operations should be delegated to a file utility layer, not performed directly in domain logic
+    passing: false
