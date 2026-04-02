@@ -8,3 +8,10 @@ requirements:
       - Extract common flags (Local, Verbose, Context) into shared structs
       - Ensure consistent help text for common flags across subcommands
     passing: false
+  - category: domain-logic
+    description: Separate domain logic from implementation details in CLI command handlers
+    items:
+      - Command handlers should contain only domain logic, delegating implementation details to abstractions
+      - Introduce interfaces for infrastructure (file I/O, git operations, HTTP calls) and inject them
+      - Refactor command handlers to depend on abstractions, not concrete implementations
+    passing: false
