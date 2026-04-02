@@ -1,15 +1,9 @@
 name: review-2026-04-02
-description: Review of Ralph Webhook Service component for domain logic and deep modules
+description: Review of Command Layer component for deep modules
 
 requirements:
-  - category: webhook
-    description: Reduce exported surface area of webhook package to improve module depth
+  - category: command-layer
+    description: Move webhook provisioning logic to dedicated internal package
     items:
-      - Unexport Event and WorkflowResult types as they are not used outside the package
-    passing: false
-  - category: domain-logic
-    description: Separate HTTP infrastructure concerns from domain logic in webhook handler
-    items:
-      - Extract webhook signature validation and request parsing into a dedicated function
-      - Refactor handler to focus on domain steps (receive event, filter, convert to workflow, submit)
+      - Extract config_webhook.go logic into internal/provisioning package
     passing: false
