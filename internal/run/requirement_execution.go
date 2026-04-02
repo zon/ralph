@@ -1,4 +1,4 @@
-package project
+package run
 
 import (
 	"fmt"
@@ -11,6 +11,7 @@ import (
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/logger"
+	projectpkg "github.com/zon/ralph/internal/project"
 	"github.com/zon/ralph/internal/prompt"
 	"github.com/zon/ralph/internal/services"
 )
@@ -47,7 +48,7 @@ func ExecuteDevelopmentIteration(ctx *context.Context, cleanupRegistrar func(fun
 	logger.Verbosef("Loading project file: %s", absProjectFile)
 
 	// Load and validate project
-	proj, err := LoadProject(absProjectFile)
+	proj, err := projectpkg.LoadProject(absProjectFile)
 	if err != nil {
 		return fmt.Errorf("failed to load project: %w", err)
 	}
@@ -56,7 +57,7 @@ func ExecuteDevelopmentIteration(ctx *context.Context, cleanupRegistrar func(fun
 	}
 
 	// Show project status
-	allComplete, passingCount, failingCount := CheckCompletion(proj)
+	allComplete, passingCount, failingCount := projectpkg.CheckCompletion(proj)
 	logger.Verbosef("Requirements: %d passing, %d failing (complete: %v)", passingCount, failingCount, allComplete)
 
 	// Load configuration

@@ -12,7 +12,7 @@ import (
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/logger"
-	"github.com/zon/ralph/internal/project"
+	"github.com/zon/ralph/internal/run"
 )
 
 const (
@@ -275,7 +275,7 @@ Focus on accepting the correct changes from both branches. If there are test fai
 	ctx.SetMaxIterations(maxIterations)
 	ctx.SetWorkflowExecution(true)
 
-	_ = project.Execute(ctx, w.cleanupRegistrar)
+	_ = run.Execute(ctx, w.cleanupRegistrar)
 
 	if git.HasStagedChanges() {
 		logger.Info("AI did not commit the merge - committing now...")
@@ -307,7 +307,7 @@ func (w *WorkflowCmd) runProject(ctx *context.Context) error {
 
 	ctx.SetWorkflowExecution(true)
 
-	if err := project.Execute(ctx, w.cleanupRegistrar); err != nil {
+	if err := run.Execute(ctx, w.cleanupRegistrar); err != nil {
 		return fmt.Errorf("ralph execution failed: %w", err)
 	}
 

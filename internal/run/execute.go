@@ -1,4 +1,4 @@
-package project
+package run
 
 import (
 	gocontext "context"
@@ -15,6 +15,7 @@ import (
 	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/notify"
+	projectpkg "github.com/zon/ralph/internal/project"
 	"github.com/zon/ralph/internal/services"
 	"github.com/zon/ralph/internal/workflow"
 )
@@ -35,7 +36,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		return fmt.Errorf("failed to resolve project file path: %w", err)
 	}
 
-	project, err := LoadProject(absProjectFile)
+	project, err := projectpkg.LoadProject(absProjectFile)
 	if err != nil {
 		return fmt.Errorf("failed to load project file: %w", err)
 	}
@@ -83,7 +84,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	}
 	logger.Verbose("PR summary generated")
 
-	project, err = LoadProject(absProjectFile)
+	project, err = projectpkg.LoadProject(absProjectFile)
 	if err != nil {
 		return fmt.Errorf("failed to reload project after iteration loop: %w", err)
 	}
@@ -163,7 +164,7 @@ func switchToProjectBranch(ctx *context.Context, branchName string) error {
 	return nil
 }
 
-func createPullRequest(ctx *context.Context, project *Project, branchName, baseBranch, prSummary string) (string, error) {
+func createPullRequest(ctx *context.Context, project *projectpkg.Project, branchName, baseBranch, prSummary string) (string, error) {
 	// Refresh GitHub credentials immediately before creating the PR.
 	// Installation tokens expire after 1 hour, so a long-running agent job may
 	// have started with a valid token that is now stale. Re-running ConfigureGitAuth
@@ -222,7 +223,7 @@ func SanitizeBranchName(name string) string {
 func executeRemote(ctx *context.Context, absProjectFile string) error {
 	logger.Verbose("Submitting Argo Workflow...")
 
-	project, err := LoadProject(absProjectFile)
+	project, err := projectpkg.LoadProject(absProjectFile)
 	if err != nil {
 		return fmt.Errorf("failed to load project file: %w", err)
 	}

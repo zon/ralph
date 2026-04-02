@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/zon/ralph/internal/run"
 	"github.com/zon/ralph/internal/testutil"
 )
 
@@ -33,7 +34,7 @@ requirements:
 
 	// Execute with valid project (should not fail)
 	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
-	err := Execute(ctx, nil)
+	err := run.Execute(ctx, nil)
 
 	require.NoError(t, err, "Execute failed with valid project")
 }
@@ -42,7 +43,7 @@ func TestExecute_InvalidProjectFile(t *testing.T) {
 	ctx := testutil.NewContext(testutil.WithProjectFile("/nonexistent/project.yaml"))
 
 	// Test with non-existent file
-	err := Execute(ctx, nil)
+	err := run.Execute(ctx, nil)
 	require.Error(t, err, "Expected error for non-existent project file")
 }
 
@@ -62,7 +63,7 @@ requirements:
 	}
 
 	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
-	err := Execute(ctx, nil)
+	err := run.Execute(ctx, nil)
 
 	require.Error(t, err, "Expected error for invalid YAML")
 }
@@ -82,7 +83,7 @@ requirements: []
 	}
 
 	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
-	err := Execute(ctx, nil)
+	err := run.Execute(ctx, nil)
 
 	require.Error(t, err, "Expected error for project with no requirements")
 }
@@ -110,7 +111,7 @@ requirements:
 	}
 
 	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
-	err := Execute(ctx, nil)
+	err := run.Execute(ctx, nil)
 
 	require.Error(t, err, "Expected error when blocked.md exists")
 
@@ -140,7 +141,7 @@ requirements:
 	}
 
 	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
-	err := Execute(ctx, nil)
+	err := run.Execute(ctx, nil)
 
 	require.Error(t, err, "Expected error when blocked.md exists")
 
@@ -166,7 +167,7 @@ requirements:
 	}
 
 	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
-	err := Execute(ctx, nil)
+	err := run.Execute(ctx, nil)
 
 	require.NoError(t, err, "Execute failed without blocked.md")
 }
@@ -184,7 +185,7 @@ func TestExecute_NormalizeTrailingNewlines(t *testing.T) {
 	}
 
 	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
-	err := Execute(ctx, nil)
+	err := run.Execute(ctx, nil)
 
 	require.NoError(t, err, "Execute failed")
 
@@ -215,7 +216,7 @@ requirements:
 
 	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
 
-	err := Execute(ctx, nil)
+	err := run.Execute(ctx, nil)
 
 	require.NoError(t, err, "Execute failed")
 }
@@ -240,7 +241,7 @@ requirements:
 
 	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
 
-	err := Execute(ctx, nil)
+	err := run.Execute(ctx, nil)
 
 	require.NoError(t, err, "Execute failed")
 }
@@ -286,7 +287,7 @@ requirements:
 		testutil.WithNoServices(false),
 	)
 
-	err := Execute(ctx, nil)
+	err := run.Execute(ctx, nil)
 
 	require.NoError(t, err, "Execute failed")
 }
@@ -311,7 +312,7 @@ requirements:
 	}
 
 	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
-	err := Execute(ctx, nil)
+	err := run.Execute(ctx, nil)
 
 	require.Error(t, err, "Execute should fail when agent fails")
 
