@@ -2,12 +2,13 @@ package run
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/zon/ralph/internal/ai"
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
-	"github.com/zon/ralph/internal/file"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/project"
@@ -30,12 +31,12 @@ func ExecuteDevelopmentIteration(ctx *context.Context, cleanupRegistrar func(fun
 	}
 
 	// Validate project file exists
-	absProjectFile, err := file.Abs(ctx.ProjectFile())
+	absProjectFile, err := filepath.Abs(ctx.ProjectFile())
 	if err != nil {
 		return fmt.Errorf("failed to resolve project file path: %w", err)
 	}
 
-	if _, err := file.Stat(absProjectFile); file.IsNotExist(err) {
+	if _, err := os.Stat(absProjectFile); os.IsNotExist(err) {
 		return fmt.Errorf("project file not found: %s", absProjectFile)
 	}
 
@@ -75,7 +76,7 @@ func ExecuteDevelopmentIteration(ctx *context.Context, cleanupRegistrar func(fun
 	}
 
 	// Generate pick prompt and run picker agent
-	pickedReqPath := file.Join(file.Dir(absProjectFile), "picked-requirement.yaml")
+	pickedReqPath := filepath.Join(filepath.Dir(absProjectFile), "picked-requirement.yaml")
 	logger.Verbose("Generating pick prompt...")
 	pickPrompt, err := prompt.BuildPickPrompt(ctx, absProjectFile, pickedReqPath)
 	if err != nil {
@@ -95,14 +96,14 @@ func ExecuteDevelopmentIteration(ctx *context.Context, cleanupRegistrar func(fun
 	logger.Verbose("Picker agent execution completed")
 
 	// Read the selected requirement from picked-requirement.yaml
-	pickedReqData, err := file.ReadFile(pickedReqPath)
+	pickedReqData, err := os.ReadFile(pickedReqPath)
 	if err != nil {
 		return fmt.Errorf("failed to read picked requirement: %w", err)
 	}
 	selectedRequirement := string(pickedReqData)
 
 	// Clean up picked-requirement.yaml
-	if err := file.Remove(pickedReqPath); err != nil {
+	if err := os.Remove(pickedReqPath); err != nil {
 		logger.Verbosef("Failed to remove picked-requirement.yaml: %v", err)
 	} else {
 		logger.Verbose("Cleaned up picked-requirement.yaml")
@@ -140,9 +141,9 @@ func ExecuteDevelopmentIteration(ctx *context.Context, cleanupRegistrar func(fun
 
 // checkBlockedFile checks if blocked.md exists and returns an error if it does
 func checkBlockedFile(absProjectFile string) error {
-	blockedPath := file.Join(file.Dir(absProjectFile), "blocked.md")
-	if _, err := file.Stat(blockedPath); err == nil {
-		blockedContent, readErr := file.ReadFile(blockedPath)
+	blockedPath := filepath.Join(filepath.Dir(absProjectFile), "blocked.md")
+	if _, err := os.Stat(blockedPath); err == nil {
+		blockedContent, readErr := os.ReadFile(blockedPath)
 		if readErr != nil {
 			return fmt.Errorf("agent is blocked (blocked.md exists but could not read): %w", readErr)
 		}
@@ -152,9 +153,9 @@ func checkBlockedFile(absProjectFile string) error {
 }
 
 func writeBlockedMD(absProjectFile string, err error) error {
-	blockedPath := file.Join(file.Dir(absProjectFile), "blocked.md")
+	blockedPath := filepath.Join(filepath.Dir(absProjectFile), "blocked.md")
 	content := fmt.Sprintf("# Blocked\n\nError: %s\n", err.Error())
-	return file.WriteFile(blockedPath, []byte(content), 0644)
+	return os.WriteFile(blockedPath, []byte(content), 0644)
 }
 
 // handleServiceStartup starts services if not disabled, and handles failure recovery.
@@ -194,16 +195,16 @@ func performPostAgentCleanup(ctx *context.Context, absProjectFile string, servic
 	// Remove service log files now that the iteration is complete
 	for _, svc := range servicesList {
 		logPath := services.LogFileName(svc.Name)
-		if err := file.Remove(logPath); err == nil {
+		if err := os.Remove(logPath); err == nil {
 			logger.Verbosef("Removed service log: %s", logPath)
 		}
 	}
 
 	// Normalize project file: strip excess trailing newlines added by the agent
-	if data, err := file.ReadFile(absProjectFile); err == nil {
+	if data, err := os.ReadFile(absProjectFile); err == nil {
 		normalized := []byte(strings.TrimRight(string(data), "\n") + "\n")
 		if len(normalized) != len(data) {
-			if writeErr := file.WriteFile(absProjectFile, normalized, 0644); writeErr != nil {
+			if writeErr := os.WriteFile(absProjectFile, normalized, 0644); writeErr != nil {
 				logger.Verbosef("Failed to normalize project file: %v", writeErr)
 			}
 		}

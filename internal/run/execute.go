@@ -4,11 +4,11 @@ import (
 	gocontext "context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
-	"github.com/zon/ralph/internal/file"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/logger"
@@ -29,7 +29,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		return executeRemote(ctx, ctx.ProjectFile())
 	}
 
-	absProjectFile, err := file.Abs(ctx.ProjectFile())
+	absProjectFile, err := filepath.Abs(ctx.ProjectFile())
 	if err != nil {
 		return fmt.Errorf("failed to resolve project file path: %w", err)
 	}
@@ -68,7 +68,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 
 	iterCount, err := RunIterationLoop(ctx, cleanupRegistrar)
 	if err != nil {
-		projectName := strings.TrimSuffix(file.Base(absProjectFile), file.Ext(absProjectFile))
+		projectName := strings.TrimSuffix(filepath.Base(absProjectFile), filepath.Ext(absProjectFile))
 		notify.Error(projectName, ctx.ShouldNotify())
 		return fmt.Errorf("iteration loop failed: %w", err)
 	}
