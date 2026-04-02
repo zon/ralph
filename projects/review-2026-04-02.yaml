@@ -86,3 +86,9 @@ requirements:
       - Encapsulate goroutine submission behind an async executor interface
       - Ensure HTTP handler contains only domain logic calls, delegating implementation details to lower-level functions
     passing: false
+  - category: workflow-generation
+    description: Improve encapsulation of Workflow and MergeWorkflow structs
+    items:
+      - Make fields private and provide getters for needed fields (Namespace, KubeContext)
+      - Ensure factory functions set internal fields via options pattern
+    passing: false
