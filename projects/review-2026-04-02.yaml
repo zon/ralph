@@ -133,3 +133,10 @@ requirements:
       - Extract repository parsing logic (SetRepo) to pure function
       - Ensure context methods delegate to pure functions
     passing: false
+  - category: cleanup-management
+    description: Separate domain logic from implementation details in signal handling
+    items:
+      - Signal handlers should not directly call low-level OS functions (os/signal, fmt, os.Exit); use internal abstractions
+      - Signal handling should delegate low-level OS operations to dedicated abstractions
+      - Signal handling function should contain only domain logic calls, delegating implementation details to lower-level functions
+    passing: false
