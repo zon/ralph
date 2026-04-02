@@ -168,3 +168,9 @@ requirements:
       - Update all callers to use the new location
       - Consider renaming internal/requirement package to reflect its purpose (or remove if empty)
     passing: false
+  - category: service-management
+    description: Ensure service management module has a narrow public interface
+    items:
+      - Unexport WaitForHealth function as it's only used internally
+      - Make Process.Name field private if not needed externally
+    passing: false
