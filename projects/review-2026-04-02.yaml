@@ -140,3 +140,10 @@ requirements:
       - Signal handling should delegate low-level OS operations to dedicated abstractions
       - Signal handling function should contain only domain logic calls, delegating implementation details to lower-level functions
     passing: false
+  - category: docker-utilities
+    description: Implement Docker utilities as a deep module with a simple public interface
+    items:
+      - Extract Docker image building and pushing logic into internal/docker package
+      - Provide a simple public interface for building and pushing images
+      - Update scripts and workflows to use the new package
+    passing: false
