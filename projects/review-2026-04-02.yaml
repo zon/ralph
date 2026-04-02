@@ -15,3 +15,8 @@ requirements:
       - Introduce interfaces for infrastructure (file I/O, git operations, HTTP calls) and inject them
       - Refactor command handlers to depend on abstractions, not concrete implementations
     passing: false
+  - category: webhook
+    description: Reduce exported surface area of webhook package to improve module depth
+    items:
+      - Unexport Event and WorkflowResult types as they are not used outside the package
+    passing: false
