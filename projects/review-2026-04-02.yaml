@@ -119,3 +119,10 @@ requirements:
     items:
       - Replace fmt.Print statements in command handlers with logger.Info, logger.Success, logger.Warning, or logger.Error where appropriate, keeping user prompts separate
     passing: false
+  - category: context-management
+    description: Improve context module depth by grouping related fields and narrowing public interface
+    items:
+      - Group related fields (e.g., execution settings, repository settings) into substructures to reduce surface area
+      - Add validation method to ensure internal consistency (e.g., local vs follow)
+      - Consider moving environment variable initialization into context package via factory function
+    passing: false
