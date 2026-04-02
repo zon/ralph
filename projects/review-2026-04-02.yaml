@@ -50,3 +50,9 @@ requirements:
       - Update internal/workflow/git.go and internal/workflow/generate.go to use internal/git package functions
       - Remove duplicate git command implementations
     passing: false
+  - category: git-operations
+    description: Separate git command execution boilerplate from domain logic
+    items:
+      - Extract common git command execution pattern into a helper function (e.g., runGit) to reduce duplication
+      - Ensure domain logic functions delegate low-level git command execution to the helper
+    passing: false
