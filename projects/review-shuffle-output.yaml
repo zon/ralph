@@ -13,7 +13,7 @@ requirements:
     items:
       - At the start of each (component, item) iteration, ralph review prints the component name and a one-line label identifying the review item
       - The label is derived from the item source — the base filename for file items, the last path segment for URL items, or the first line (truncated) for inline text items
-    passing: false
+    passing: true
 
   - category: loop-control
     description: Exit the review loop after the first project finding

@@ -328,6 +328,101 @@ func TestShuffleItemsWithIndices(t *testing.T) {
 	assert.NotEqual(t, shuffled, shuffled3)
 }
 
+func TestItemLabel(t *testing.T) {
+	r := &ReviewCmd{}
+
+	tests := []struct {
+		name     string
+		item     config.ReviewItem
+		expected string
+	}{
+		{
+			name: "text item with newline",
+			item: config.ReviewItem{
+				Text: "First line\nSecond line",
+			},
+			expected: "First line",
+		},
+		{
+			name: "text item without newline",
+			item: config.ReviewItem{
+				Text: "Single line",
+			},
+			expected: "Single line",
+		},
+		{
+			name: "text item truncation",
+			item: config.ReviewItem{
+				Text: "A very long line that exceeds eighty characters should be truncated with ellipsis at the end",
+			},
+			expected: "A very long line that exceeds eighty characters should be truncated with elli...",
+		},
+		{
+			name: "file item",
+			item: config.ReviewItem{
+				File: "/path/to/file.go",
+			},
+			expected: "file.go",
+		},
+		{
+			name: "file item with relative path",
+			item: config.ReviewItem{
+				File: "./docs/README.md",
+			},
+			expected: "README.md",
+		},
+		{
+			name: "URL item",
+			item: config.ReviewItem{
+				URL: "https://example.com/path/to/resource",
+			},
+			expected: "resource",
+		},
+		{
+			name: "URL item with query",
+			item: config.ReviewItem{
+				URL: "https://example.com/api/v1/users?id=123",
+			},
+			expected: "users",
+		},
+		{
+			name: "URL item with fragment",
+			item: config.ReviewItem{
+				URL: "https://example.com/docs#section",
+			},
+			expected: "docs",
+		},
+		{
+			name: "URL item with trailing slash",
+			item: config.ReviewItem{
+				URL: "https://example.com/folder/",
+			},
+			expected: "folder",
+		},
+		{
+			name: "URL item with empty path",
+			item: config.ReviewItem{
+				URL: "https://example.com",
+			},
+			expected: "example.com",
+		},
+		{
+			name: "URL item with root path",
+			item: config.ReviewItem{
+				URL: "https://example.com/",
+			},
+			expected: "/",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			label := r.itemLabel(tt.item)
+			assert.Equal(t, tt.expected, label)
+		})
+	}
+}
+
 func TestReviewSeedFlag(t *testing.T) {
 	// Test that the seed flag is parsed correctly
 	cmd := &Cmd{}

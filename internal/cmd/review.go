@@ -7,8 +7,10 @@ import (
 	"io"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strings"
 	"text/template"
@@ -322,6 +324,27 @@ func (r *ReviewCmd) loadItemContent(item config.ReviewItem) (string, error) {
 	}
 }
 
+func (r *ReviewCmd) itemLabel(item config.ReviewItem) string {
+	switch {
+	case item.Text != "":
+		firstLine := strings.SplitN(item.Text, "\n", 2)[0]
+		if len(firstLine) > 80 {
+			firstLine = firstLine[:77] + "..."
+		}
+		return firstLine
+	case item.File != "":
+		return filepath.Base(item.File)
+	case item.URL != "":
+		u, err := url.Parse(item.URL)
+		if err == nil && u.Path != "" {
+			return path.Base(u.Path)
+		}
+		return path.Base(item.URL)
+	default:
+		return ""
+	}
+}
+
 type reviewPromptData struct {
 	ConfigContent   string
 	Project         string
@@ -407,6 +430,9 @@ func (r *ReviewCmd) runReview(ctx *execcontext.Context, overview *Overview, proj
 				logger.Verbosef("Skipping component %s, item %d — prefix %s already in commit history", component.Name, i, iterPrefix)
 				continue
 			}
+
+			label := r.itemLabel(item)
+			logger.Infof("Component: %s, item: %s", component.Name, label)
 
 			content, err := r.loadItemContent(item)
 			if err != nil {
