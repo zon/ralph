@@ -1,4 +1,4 @@
-package project
+package run
 
 import (
 	"bytes"
@@ -13,18 +13,19 @@ import (
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/logger"
+	"github.com/zon/ralph/internal/project"
 )
 
 // GeneratePRSummary generates a pull request summary using AI
 // It includes project description, status, commits, and diff
 // This matches ralph.sh's approach: agent writes to a file, we read it back
 func GeneratePRSummary(ctx *context.Context, projectFile string, iterations int, baseBranch string) (string, error) {
-	proj, err := LoadProject(projectFile)
+	proj, err := project.LoadProject(projectFile)
 	if err != nil {
 		return "", fmt.Errorf("failed to load project: %w", err)
 	}
 
-	allComplete, _, _ := CheckCompletion(proj)
+	allComplete, _, _ := project.CheckCompletion(proj)
 
 	var projectStatus string
 	if allComplete {
@@ -198,7 +199,7 @@ func buildChangelogPrompt(outputFile string) string {
 // GenerateReviewPRBody generates a PR body for review findings using AI
 // It reads the review project file and writes a concise summary of recommended changes
 func GenerateReviewPRBody(ctx *context.Context, projectFile string) (string, error) {
-	proj, err := LoadProject(projectFile)
+	proj, err := project.LoadProject(projectFile)
 	if err != nil {
 		return "", fmt.Errorf("failed to load project: %w", err)
 	}

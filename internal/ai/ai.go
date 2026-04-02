@@ -1,7 +1,6 @@
 package ai
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,15 +8,16 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"text/template"
 
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
-	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/logger"
+	"github.com/zon/ralph/internal/project"
 )
 
 const mockAIEnv = "RALPH_MOCK_AI"
+
+var _ = project.Project{}
 
 func resolveModel(ctx *context.Context) string {
 	if ctx.Model() != "" {

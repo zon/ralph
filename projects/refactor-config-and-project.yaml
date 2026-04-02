@@ -51,4 +51,4 @@ requirements:
       - The internal/project package contains only project data types and operations (Project, Requirement structs; LoadProject, SaveProject, ValidateProject, CheckCompletion, UpdateRequirementStatus)
       - "The import cycle between ai and project is resolved: ai imports project for data without cycling through execution logic"
       - All callers (cmd/run.go, cmd/comment.go, cmd/validate.go, cmd/review.go, ai/ai.go) are updated to use run or project as appropriate
-    passing: false
+    passing: true

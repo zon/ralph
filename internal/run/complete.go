@@ -1,4 +1,4 @@
-package project
+package run
 
 import (
 	"fmt"
@@ -8,6 +8,7 @@ import (
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/logger"
+	"github.com/zon/ralph/internal/project"
 )
 
 // FindCompleteProjects scans a directory for project YAML files where all requirements have passing true.
@@ -42,7 +43,7 @@ func FindCompleteProjects(dir string) ([]string, error) {
 
 	// Check each file
 	for _, file := range allFiles {
-		project, err := LoadProject(file)
+		project, err := project.LoadProject(file)
 		if err != nil {
 			// Skip files that can't be loaded as valid projects
 			continue
@@ -64,7 +65,7 @@ func FindCompleteProjects(dir string) ([]string, error) {
 
 // isProjectComplete checks if a project has all requirements passing.
 // A project with zero requirements is not considered complete.
-func isProjectComplete(project *Project) bool {
+func isProjectComplete(project *project.Project) bool {
 	if len(project.Requirements) == 0 {
 		return false
 	}

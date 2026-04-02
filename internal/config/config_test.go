@@ -8,19 +8,20 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zon/ralph/internal/project"
 )
 
 func TestValidateProject(t *testing.T) {
 	tests := []struct {
 		name    string
-		project *Project
+		project *project.Project
 		wantErr bool
 	}{
 		{
 			name: "valid project",
-			project: &Project{
+			project: &project.Project{
 				Name: "test-project",
-				Requirements: []Requirement{
+				Requirements: []project.Requirement{
 					{ID: "req1", Passing: false},
 				},
 			},
@@ -28,9 +29,9 @@ func TestValidateProject(t *testing.T) {
 		},
 		{
 			name: "valid project with items",
-			project: &Project{
+			project: &project.Project{
 				Name: "test-project",
-				Requirements: []Requirement{
+				Requirements: []project.Requirement{
 					{
 						Category:    "backend",
 						Description: "Test requirement",
@@ -43,9 +44,9 @@ func TestValidateProject(t *testing.T) {
 		},
 		{
 			name: "missing name",
-			project: &Project{
+			project: &project.Project{
 				Name: "",
-				Requirements: []Requirement{
+				Requirements: []project.Requirement{
 					{ID: "req1", Passing: false},
 				},
 			},
@@ -53,9 +54,9 @@ func TestValidateProject(t *testing.T) {
 		},
 		{
 			name: "no requirements",
-			project: &Project{
+			project: &project.Project{
 				Name:         "test-project",
-				Requirements: []Requirement{},
+				Requirements: []project.Requirement{},
 			},
 			wantErr: true,
 		},
@@ -63,7 +64,7 @@ func TestValidateProject(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateProject(tt.project)
+			err := project.ValidateProject(tt.project)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
@@ -76,16 +77,16 @@ func TestValidateProject(t *testing.T) {
 func TestCheckCompletion(t *testing.T) {
 	tests := []struct {
 		name         string
-		project      *Project
+		project      *project.Project
 		wantComplete bool
 		wantPassing  int
 		wantFailing  int
 	}{
 		{
 			name: "all passing",
-			project: &Project{
+			project: &project.Project{
 				Name: "test",
-				Requirements: []Requirement{
+				Requirements: []project.Requirement{
 					{Passing: true},
 					{Passing: true},
 				},
@@ -96,9 +97,9 @@ func TestCheckCompletion(t *testing.T) {
 		},
 		{
 			name: "mixed status",
-			project: &Project{
+			project: &project.Project{
 				Name: "test",
-				Requirements: []Requirement{
+				Requirements: []project.Requirement{
 					{Passing: true},
 					{Passing: false},
 					{Passing: true},
@@ -110,9 +111,9 @@ func TestCheckCompletion(t *testing.T) {
 		},
 		{
 			name: "all failing",
-			project: &Project{
+			project: &project.Project{
 				Name: "test",
-				Requirements: []Requirement{
+				Requirements: []project.Requirement{
 					{Passing: false},
 					{Passing: false},
 				},
@@ -125,7 +126,7 @@ func TestCheckCompletion(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			complete, passing, failing := CheckCompletion(tt.project)
+			complete, passing, failing := project.CheckCompletion(tt.project)
 			assert.Equal(t, tt.wantComplete, complete)
 			assert.Equal(t, tt.wantPassing, passing)
 			assert.Equal(t, tt.wantFailing, failing)
@@ -134,22 +135,22 @@ func TestCheckCompletion(t *testing.T) {
 }
 
 func TestUpdateRequirementStatus(t *testing.T) {
-	project := &Project{
+	proj := &project.Project{
 		Name: "test",
-		Requirements: []Requirement{
+		Requirements: []project.Requirement{
 			{ID: "req1", Passing: false},
 			{ID: "req2", Passing: false},
 		},
 	}
 
 	// Update existing requirement
-	err := UpdateRequirementStatus(project, "req1", true)
-	require.NoError(t, err, "UpdateRequirementStatus() unexpected error")
-	assert.True(t, project.Requirements[0].Passing, "UpdateRequirementStatus() did not update status")
+	err := project.UpdateRequirementStatus(proj, "req1", true)
+	require.NoError(t, err, "project.UpdateRequirementStatus() unexpected error")
+	assert.True(t, proj.Requirements[0].Passing, "project.UpdateRequirementStatus() did not update status")
 
 	// Try to update non-existent requirement
-	err = UpdateRequirementStatus(project, "req999", true)
-	require.Error(t, err, "UpdateRequirementStatus() expected error for non-existent requirement")
+	err = project.UpdateRequirementStatus(proj, "req999", true)
+	require.Error(t, err, "project.UpdateRequirementStatus() expected error for non-existent requirement")
 }
 
 func TestLoadConfig_Defaults(t *testing.T) {
@@ -224,8 +225,8 @@ requirements:
 	projectPath := filepath.Join(tmpDir, "test.yaml")
 	require.NoError(t, os.WriteFile(projectPath, []byte(projectContent), 0644))
 
-	project, err := LoadProject(projectPath)
-	require.NoError(t, err, "LoadProject() unexpected error")
+	project, err := project.LoadProject(projectPath)
+	require.NoError(t, err, "project.LoadProject() unexpected error")
 
 	assert.Equal(t, "test-project", project.Name)
 	assert.Equal(t, "A test project", project.Description)
@@ -235,7 +236,7 @@ requirements:
 func TestLoadProjectWithItems(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Project file matching ../slow-choice/projects/*.yaml format
+	// project.Project file matching ../slow-choice/projects/*.yaml format
 	projectContent := `name: test-with-items
 description: Test project with items
 
@@ -257,8 +258,8 @@ requirements:
 	projectPath := filepath.Join(tmpDir, "test-items.yaml")
 	require.NoError(t, os.WriteFile(projectPath, []byte(projectContent), 0644))
 
-	project, err := LoadProject(projectPath)
-	require.NoError(t, err, "LoadProject() unexpected error")
+	project, err := project.LoadProject(projectPath)
+	require.NoError(t, err, "project.LoadProject() unexpected error")
 
 	assert.Equal(t, "test-with-items", project.Name)
 	require.Len(t, project.Requirements, 2)
@@ -340,25 +341,25 @@ services:
 func TestSaveProject(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	project := &Project{
+	proj := &project.Project{
 		Name:        "test-project",
 		Description: "Test description",
-		Requirements: []Requirement{
-			{ID: "req1", Name: "Requirement 1", Passing: true},
+		Requirements: []project.Requirement{
+			{ID: "req1", Name: "project.Requirement 1", Passing: true},
 		},
 	}
 
 	projectPath := filepath.Join(tmpDir, "project.yaml")
-	require.NoError(t, SaveProject(projectPath, project), "SaveProject() unexpected error")
+	require.NoError(t, project.SaveProject(projectPath, proj), "project.SaveProject() unexpected error")
 
 	// Verify file was created
 	_, err := os.Stat(projectPath)
-	require.NoError(t, err, "SaveProject() did not create file")
+	require.NoError(t, err, "project.SaveProject() did not create file")
 
 	// Load it back and verify
-	loaded, err := LoadProject(projectPath)
-	require.NoError(t, err, "LoadProject() after save unexpected error")
-	assert.Equal(t, project.Name, loaded.Name)
+	loaded, err := project.LoadProject(projectPath)
+	require.NoError(t, err, "project.LoadProject() after save unexpected error")
+	assert.Equal(t, proj.Name, loaded.Name)
 }
 
 func TestLoadConfig_WithWorkflowConfig(t *testing.T) {
@@ -683,30 +684,30 @@ func TestLoadConfig_InvalidYAML(t *testing.T) {
 }
 
 func TestLoadProject_FileNotFound(t *testing.T) {
-	_, err := LoadProject("/nonexistent/path/project.yaml")
-	require.Error(t, err, "LoadProject() expected error for nonexistent file")
+	_, err := project.LoadProject("/nonexistent/path/project.yaml")
+	require.Error(t, err, "project.LoadProject() expected error for nonexistent file")
 }
 
 func TestSaveProjectRoundTrip(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	project := &Project{
+	proj := &project.Project{
 		Name:        "round-trip-test",
 		Description: "Testing save and load round trip",
-		Requirements: []Requirement{
-			{ID: "req1", Name: "Requirement 1", Passing: true},
-			{ID: "req2", Name: "Requirement 2", Passing: false},
+		Requirements: []project.Requirement{
+			{ID: "req1", Name: "project.Requirement 1", Passing: true},
+			{ID: "req2", Name: "project.Requirement 2", Passing: false},
 		},
 	}
 
 	projectPath := filepath.Join(tmpDir, "roundtrip.yaml")
-	require.NoError(t, SaveProject(projectPath, project), "SaveProject() unexpected error")
+	require.NoError(t, project.SaveProject(projectPath, proj), "project.SaveProject() unexpected error")
 
-	loaded, err := LoadProject(projectPath)
-	require.NoError(t, err, "LoadProject() after save unexpected error")
-	assert.Equal(t, project.Name, loaded.Name)
-	assert.Equal(t, project.Description, loaded.Description)
-	assert.Len(t, loaded.Requirements, len(project.Requirements))
+	loaded, err := project.LoadProject(projectPath)
+	require.NoError(t, err, "project.LoadProject() after save unexpected error")
+	assert.Equal(t, proj.Name, loaded.Name)
+	assert.Equal(t, proj.Description, loaded.Description)
+	assert.Len(t, loaded.Requirements, len(proj.Requirements))
 }
 
 func TestFindConfigDir(t *testing.T) {

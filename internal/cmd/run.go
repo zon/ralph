@@ -11,6 +11,7 @@ import (
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/notify"
 	"github.com/zon/ralph/internal/project"
+	"github.com/zon/ralph/internal/run"
 )
 
 // RunCmd is the default command for executing ralph
@@ -73,14 +74,14 @@ func (r *RunCmd) Run() error {
 		return fmt.Errorf("failed to get current branch: %w", err)
 	}
 
-	projectBranch := project.SanitizeBranchName(projectData.Name)
+	projectBranch := run.SanitizeBranchName(projectData.Name)
 	baseBranch := resolveBaseBranch(r.Base, currentBranch, projectBranch, ralphConfig.DefaultBranch)
 	ctx.SetBaseBranch(baseBranch)
 
 	if r.Once {
 		return r.executeOnceMode(ctx)
 	}
-	return project.Execute(ctx, r.cleanupRegistrar)
+	return run.Execute(ctx, r.cleanupRegistrar)
 }
 
 func resolveBaseBranch(baseFlag, currentBranch, projectBranch, defaultBranch string) string {
@@ -167,7 +168,7 @@ func (r *RunCmd) createExecutionContext(maxIterations int) *execcontext.Context 
 
 func (r *RunCmd) executeOnceMode(ctx *execcontext.Context) error {
 	projectName := strings.TrimSuffix(filepath.Base(ctx.ProjectFile()), filepath.Ext(ctx.ProjectFile()))
-	if err := project.ExecuteDevelopmentIteration(ctx, r.cleanupRegistrar); err != nil {
+	if err := run.ExecuteDevelopmentIteration(ctx, r.cleanupRegistrar); err != nil {
 		notify.Error(projectName, ctx.ShouldNotify())
 		return err
 	}
