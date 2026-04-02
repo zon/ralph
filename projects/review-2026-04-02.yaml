@@ -92,3 +92,11 @@ requirements:
       - Make fields private and provide getters for needed fields (Namespace, KubeContext)
       - Ensure factory functions set internal fields via options pattern
     passing: false
+  - category: project-execution
+    description: Consolidate duplicate commit/push and PR creation logic in review.go with project execution module
+    items:
+      - Refactor commitProjectFile to use project.CommitChanges or a shared helper function
+      - Refactor submitPR to use project.createPullRequest (make it public) or a shared helper
+      - Consider generalizing iteration loop pattern to eliminate duplication between runReview and RunIterationLoop
+      - Ensure project.Execute commits changes in merge conflict resolution mode, eliminating duplicate commit logic in workflow.go
+    passing: false
