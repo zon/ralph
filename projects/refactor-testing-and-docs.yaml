@@ -1,0 +1,36 @@
+name: refactor-testing-and-docs
+description: Deepen test utilities, improve e2e test organization, enforce test isolation, and add documentation entry point
+
+requirements:
+  - category: testing-utilities
+    description: Ensure test utilities module is deep and focused
+    items:
+      - Remove trivial wrapper function Contains from internal/testutil; callers should use strings.Contains directly
+      - Move GitHub API mocking transport (rewriteTransport) from internal/github/app_test.go to internal/testutil to centralize test utilities
+    passing: false
+  - category: e2e-tests
+    description: Improve depth of e2e test module by extracting common helpers
+    items:
+      - Move gitExec, bootstrapGitRepo, and other shared helpers to a dedicated helpers.go file
+      - Ensure configuration resolution is consistent across test files
+    passing: false
+  - category: testing-isolation
+    description: Ensure unit and integration tests follow isolation principles and separate domain logic from implementation details
+    items:
+      - Unit and integration tests must not invoke external tools (git, gh, opencode, etc.) directly; external dependencies should support dry-run mode
+      - Test helpers should encapsulate external tool interactions, allowing mocks
+      - Test domain logic should be separate from implementation details (e.g., using table-driven tests with clear inputs/outputs)
+    passing: false
+  - category: documentation
+    description: Ensure documentation module is a deep module with a simple entry point
+    items:
+      - Add index.md to docs/ that provides a navigation overview linking to all documentation topics
+      - Ensure index.md serves as the primary entry point for documentation, hiding the complexity of separate files
+    passing: false
+  - category: helm-charts
+    description: Ensure Helm chart for ralph-webhook is a deep module with a narrow public interface
+    items:
+      - Add ConfigMap and Secret templates to encapsulate configuration dependencies
+      - Make ConfigMap and Secret names configurable via values
+      - Add support for additional deployment configurations (probes, security contexts, pod annotations)
+    passing: false
