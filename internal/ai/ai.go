@@ -158,18 +158,30 @@ func runMockAgent(ctx *context.Context, prompt string) error {
 			jsonPath = "overview.json"
 		}
 		overview := struct {
-			Components []struct {
+			Modules []struct {
 				Name    string `json:"name"`
 				Path    string `json:"path"`
 				Summary string `json:"summary"`
-			} `json:"components"`
+			} `json:"modules"`
+			Apps []struct {
+				Name    string `json:"name"`
+				Path    string `json:"path"`
+				Summary string `json:"summary"`
+			} `json:"apps"`
 		}{
-			Components: []struct {
+			Modules: []struct {
 				Name    string `json:"name"`
 				Path    string `json:"path"`
 				Summary string `json:"summary"`
 			}{
-				{Name: "mock-component", Path: "internal/mock", Summary: "Mock component for testing"},
+				{Name: "mock-module", Path: "internal/mock", Summary: "Mock module for testing"},
+			},
+			Apps: []struct {
+				Name    string `json:"name"`
+				Path    string `json:"path"`
+				Summary string `json:"summary"`
+			}{
+				{Name: "mock-app", Path: "cmd/mock", Summary: "Mock app for testing"},
 			},
 		}
 		data, err := json.Marshal(overview)
@@ -182,16 +194,37 @@ func runMockAgent(ctx *context.Context, prompt string) error {
 		logger.Verbosef("Mock AI wrote overview JSON to %s", jsonPath)
 	}
 
-	// Modify project file to simulate a finding (for testing loop exit)
-	absProjectFile := ctx.ProjectFile()
-	if absProjectFile != "" {
-		f, err := os.OpenFile(absProjectFile, os.O_APPEND|os.O_WRONLY, 0644)
-		if err == nil {
-			defer f.Close()
-			if _, err := f.WriteString("\n# mock modification"); err != nil {
-				logger.Verbosef("Mock AI failed to append to project file: %v", err)
-			} else {
-				logger.Verbosef("Mock AI appended to project file: %s", absProjectFile)
+	// Check if prompt instructs to write to projects/ directory
+	if strings.Contains(promptLower, "projects/") {
+		// Create projects directory if it doesn't exist
+		if err := os.MkdirAll("projects", 0755); err != nil {
+			return fmt.Errorf("mock AI failed to create projects directory: %w", err)
+		}
+		// Write a mock project file
+		mockProjectContent := `name: mock-review
+description: Mock project for testing
+requirements:
+  - category: test
+    description: Mock requirement
+    passing: true
+`
+		projectPath := filepath.Join("projects", "mock-review.yaml")
+		if err := os.WriteFile(projectPath, []byte(mockProjectContent), 0644); err != nil {
+			return fmt.Errorf("mock AI failed to write project file: %w", err)
+		}
+		logger.Verbosef("Mock AI wrote project file to %s", projectPath)
+	} else {
+		// Modify project file to simulate a finding (for testing loop exit)
+		absProjectFile := ctx.ProjectFile()
+		if absProjectFile != "" {
+			f, err := os.OpenFile(absProjectFile, os.O_APPEND|os.O_WRONLY, 0644)
+			if err == nil {
+				defer f.Close()
+				if _, err := f.WriteString("\n# mock modification"); err != nil {
+					logger.Verbosef("Mock AI failed to append to project file: %v", err)
+				} else {
+					logger.Verbosef("Mock AI appended to project file: %s", absProjectFile)
+				}
 			}
 		}
 	}

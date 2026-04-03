@@ -68,7 +68,6 @@ func shuffleItemsWithIndices(items []config.ReviewItem, seed int64) []itemWithIn
 }
 
 type ReviewCmd struct {
-	ProjectFile string `help:"Path to output project YAML file" name:"project" short:"p"`
 	Model       string `help:"Override the AI model from config" name:"model" optional:""`
 	Base        string `help:"Override the base branch for PR creation" name:"base" optional:"" short:"B"`
 	Local       bool   `help:"Run on this machine instead of submitting to Argo Workflows" default:"false"`
@@ -83,20 +82,8 @@ func (r *ReviewCmd) Run() error {
 		logger.SetVerbose(true)
 	}
 
-	reviewName := "review-" + time.Now().Format("2006-01-02")
-
-	if r.ProjectFile == "" {
-		r.ProjectFile = "projects/" + reviewName + ".yaml"
-	}
-
-	absProjectFile, err := filepath.Abs(r.ProjectFile)
-	if err != nil {
-		return fmt.Errorf("failed to resolve project file path: %w", err)
-	}
-
-	projectDir := filepath.Dir(absProjectFile)
-	if err := os.MkdirAll(projectDir, 0755); err != nil {
-		return fmt.Errorf("failed to create project directory: %w", err)
+	if err := os.MkdirAll("projects", 0755); err != nil {
+		return fmt.Errorf("failed to create projects directory: %w", err)
 	}
 
 	overviewPath, err := git.TmpPath("overview.json")
@@ -122,7 +109,6 @@ func (r *ReviewCmd) Run() error {
 	model := r.resolveModel(ralphConfig)
 
 	ctx := createExecutionContext()
-	ctx.SetProjectFile(absProjectFile)
 	ctx.SetVerbose(r.Verbose)
 	ctx.SetModel(model)
 	ctx.SetLocal(r.Local)
@@ -132,26 +118,36 @@ func (r *ReviewCmd) Run() error {
 	if err != nil {
 		return fmt.Errorf("failed to get current branch: %w", err)
 	}
-	baseBranch := resolveBaseBranch(r.Base, startingBranch, reviewName, ralphConfig.DefaultBranch)
-	ctx.SetBaseBranch(baseBranch)
 
 	if !r.Local {
 		return r.submitToArgo(ctx, startingBranch)
 	}
 
-	projectChanged := false
+	reviewName := ""
 
-	overview, err := r.runOverview(ctx, overviewPath, absProjectFile, reviewName)
+	overview, err := r.runOverview(ctx, overviewPath, "", "")
 	if err != nil {
 		return fmt.Errorf("overview step failed: %w", err)
 	}
 
-	projectChanged, err = r.runReview(ctx, overview, absProjectFile, projectDoc, reviewName, baseBranch, ralphConfig)
+	projectChanged, detectedProjectFile, err := r.runReview(ctx, overview, projectDoc, &reviewName, ralphConfig)
 	if err != nil {
 		return fmt.Errorf("review step failed: %w", err)
 	}
 
 	if projectChanged && !r.prSubmitted {
+		absProjectFile, err := filepath.Abs(detectedProjectFile)
+		if err != nil {
+			return fmt.Errorf("failed to resolve project file path: %w", err)
+		}
+
+		if reviewName == "" {
+			reviewName = strings.TrimSuffix(filepath.Base(detectedProjectFile), filepath.Ext(detectedProjectFile))
+		}
+
+		baseBranch := resolveBaseBranch(r.Base, startingBranch, reviewName, ralphConfig.DefaultBranch)
+		ctx.SetBaseBranch(baseBranch)
+
 		if err := r.submitPR(ctx, absProjectFile, reviewName, baseBranch); err != nil {
 			logger.Warningf("Failed to create pull request: %v", err)
 		}
@@ -356,7 +352,7 @@ func fetchRalphProjectDoc() (string, error) {
 	return strings.TrimSpace(string(data)), nil
 }
 
-func (r *ReviewCmd) runOverview(ctx *execcontext.Context, overviewPath, projectPath, reviewName string) (*Overview, error) {
+func (r *ReviewCmd) runOverview(ctx *execcontext.Context, overviewPath, projectDoc, reviewName string) (*Overview, error) {
 	prompt := buildOverviewPrompt(overviewPath)
 
 	if r.Verbose {
@@ -378,8 +374,9 @@ func (r *ReviewCmd) runOverview(ctx *execcontext.Context, overviewPath, projectP
 	return overview, nil
 }
 
-func (r *ReviewCmd) runReview(ctx *execcontext.Context, overview *Overview, projectPath, projectDoc, reviewName, baseBranch string, ralphConfig *config.RalphConfig) (bool, error) {
+func (r *ReviewCmd) runReview(ctx *execcontext.Context, overview *Overview, projectDoc string, reviewName *string, ralphConfig *config.RalphConfig) (bool, string, error) {
 	projectChanged := false
+	detectedProjectFile := ""
 
 	seed := r.Seed
 	if seed == 0 {
@@ -387,41 +384,32 @@ func (r *ReviewCmd) runReview(ctx *execcontext.Context, overview *Overview, proj
 		logger.Infof("Using random seed: %d", seed)
 	}
 
-	// Shuffle components
-	overview.Components = shuffleComponents(overview.Components, seed)
+	// Combine modules and apps for review
+	allComponents := overview.AllComponents()
+	shuffledComponents := shuffleComponents(allComponents, seed)
 
 	// Shuffle review items with original indices
 	itemsWithIdx := shuffleItemsWithIndices(ralphConfig.Review.Items, seed)
 
-	for _, component := range overview.Components {
+	for _, component := range shuffledComponents {
 		for _, pair := range itemsWithIdx {
 			item := pair.item
 			i := pair.idx
-			iterPrefix := fmt.Sprintf("%s-%d", component.Name, i)
-
-			alreadyDone, err := git.BranchLogContainsPrefix(baseBranch, reviewName, iterPrefix)
-			if err != nil {
-				logger.Verbosef("Could not check commit log for prefix %s (continuing): %v", iterPrefix, err)
-			}
-			if alreadyDone {
-				logger.Verbosef("Skipping component %s, item %d — prefix %s already in commit history", component.Name, i, iterPrefix)
-				continue
-			}
 
 			label := r.itemLabel(item)
 			logger.Infof("Component: %s, item: %s", component.Name, label)
 
 			content, err := r.loadItemContent(item)
 			if err != nil {
-				return projectChanged, fmt.Errorf("failed to load review item %d: %w", i, err)
+				return projectChanged, detectedProjectFile, fmt.Errorf("failed to load review item %d: %w", i, err)
 			}
 
 			summaryPath, err := git.TmpPath(fmt.Sprintf("summary-%s-%d.txt", component.Name, i))
 			if err != nil {
-				return projectChanged, fmt.Errorf("failed to resolve summary path: %w", err)
+				return projectChanged, detectedProjectFile, fmt.Errorf("failed to resolve summary path: %w", err)
 			}
 
-			prompt := buildComponentPrompt(content, projectPath, projectDoc, reviewName, component, summaryPath)
+			prompt := buildComponentPrompt(content, projectDoc, component, summaryPath)
 
 			if r.Verbose {
 				logger.Verbose(prompt)
@@ -429,32 +417,44 @@ func (r *ReviewCmd) runReview(ctx *execcontext.Context, overview *Overview, proj
 
 			logger.Verbosef("Running component %s, review item %d/%d...", component.Name, i+1, len(itemsWithIdx))
 			if err := ai.RunAgent(ctx, prompt); err != nil {
-				return projectChanged, fmt.Errorf("component %s, item %d failed: %w", component.Name, i, err)
+				return projectChanged, detectedProjectFile, fmt.Errorf("component %s, item %d failed: %w", component.Name, i, err)
 			}
 
-			if git.IsFileModifiedOrNew(projectPath) {
-				if err := r.commitProjectFile(ctx, projectPath, reviewName, component.Name, i, summaryPath); err != nil {
-					return projectChanged, fmt.Errorf("failed to commit after component %s, item %d: %w", component.Name, i+1, err)
+			detectedProjectFile, err = git.DetectModifiedProjectFile("projects")
+			if err != nil {
+				logger.Verbosef("Failed to detect project file: %v", err)
+			}
+
+			if detectedProjectFile != "" {
+				*reviewName = strings.TrimSuffix(filepath.Base(detectedProjectFile), filepath.Ext(detectedProjectFile))
+
+				if err := r.commitProjectFile(ctx, detectedProjectFile, *reviewName, component.Name, i, summaryPath); err != nil {
+					return projectChanged, detectedProjectFile, fmt.Errorf("failed to commit after component %s, item %d: %w", component.Name, i+1, err)
 				}
 				projectChanged = true
 				os.Remove(summaryPath)
-				// Submit PR immediately after first finding
-				if err := r.submitPR(ctx, projectPath, reviewName, baseBranch); err != nil {
-					logger.Warningf("Failed to create pull request: %v", err)
-				}
 				r.prSubmitted = true
-				return projectChanged, nil
+				return projectChanged, detectedProjectFile, nil
 			}
 
 			os.Remove(summaryPath)
 		}
 	}
 
-	return projectChanged, nil
+	return projectChanged, detectedProjectFile, nil
 }
 
 func (r *ReviewCmd) printDetectedComponents(overview *Overview) {
-	for _, comp := range overview.Components {
-		logger.Infof("Component: %s (%s) - %s", comp.Name, comp.Path, comp.Summary)
+	if len(overview.Modules) > 0 {
+		logger.Infof("Modules (%d):", len(overview.Modules))
+		for _, mod := range overview.Modules {
+			logger.Infof("  - %s (%s) - %s", mod.Name, mod.Path, mod.Summary)
+		}
+	}
+	if len(overview.Apps) > 0 {
+		logger.Infof("Apps (%d):", len(overview.Apps))
+		for _, app := range overview.Apps {
+			logger.Infof("  - %s (%s) - %s", app.Name, app.Path, app.Summary)
+		}
 	}
 }

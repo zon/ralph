@@ -488,9 +488,9 @@ requirements:
 	cfg, err := config.LoadConfig()
 	require.NoError(t, err)
 
-	// Create overview with one component
+	// Create overview with one module
 	overview := &Overview{
-		Components: []OverviewComponent{
+		Modules: []OverviewComponent{
 			{Name: "mock-component", Path: "internal/mock", Summary: "Mock component"},
 		},
 	}
@@ -505,9 +505,11 @@ requirements:
 	ctx.SetLocal(true)
 
 	// Run review
-	projectChanged, err := r.runReview(ctx, overview, projectFile, "", "review-test", "main", cfg)
+	reviewName := "review-test"
+	projectChanged, detectedFile, err := r.runReview(ctx, overview, "", &reviewName, cfg)
 	require.NoError(t, err)
 	assert.True(t, projectChanged, "project should have been changed")
+	assert.NotEmpty(t, detectedFile, "detected project file should not be empty")
 
 	// Verify that only one commit was made (the initial commit + the review commit)
 	cmd := exec.Command("git", "log", "--oneline")

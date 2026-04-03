@@ -23,7 +23,15 @@ type OverviewComponent struct {
 }
 
 type Overview struct {
-	Components []OverviewComponent `json:"components"`
+	Modules []OverviewComponent `json:"modules"`
+	Apps    []OverviewComponent `json:"apps"`
+}
+
+func (o *Overview) AllComponents() []OverviewComponent {
+	result := make([]OverviewComponent, 0, len(o.Modules)+len(o.Apps))
+	result = append(result, o.Modules...)
+	result = append(result, o.Apps...)
+	return result
 }
 
 func loadOverview(path string) (*Overview, error) {
@@ -55,9 +63,7 @@ func buildOverviewPrompt(overviewPath string) string {
 
 type componentPromptData struct {
 	ConfigContent    string
-	Project          string
 	RalphProjectDoc  string
-	ReviewName       string
 	ComponentName    string
 	ComponentPath    string
 	ComponentSummary string
@@ -66,13 +72,11 @@ type componentPromptData struct {
 
 var componentPromptTemplate = template.Must(template.New("component").Parse(componentReviewInstructions))
 
-func buildComponentPrompt(content, projectPath, projectDoc, reviewName string, component OverviewComponent, summaryPath string) string {
+func buildComponentPrompt(content, projectDoc string, component OverviewComponent, summaryPath string) string {
 	var buf bytes.Buffer
 	data := componentPromptData{
 		ConfigContent:    content,
-		Project:          projectPath,
 		RalphProjectDoc:  projectDoc,
-		ReviewName:       reviewName,
 		ComponentName:    component.Name,
 		ComponentPath:    component.Path,
 		ComponentSummary: component.Summary,

@@ -44,9 +44,14 @@ func TestBuildOverviewPrompt(t *testing.T) {
 			wantContains: "JSON format",
 		},
 		{
-			name:         "prompt contains components field",
+			name:         "prompt contains modules field",
 			overviewPath: "overview.json",
-			wantContains: "components",
+			wantContains: "modules",
+		},
+		{
+			name:         "prompt contains apps field",
+			overviewPath: "overview.json",
+			wantContains: "apps",
 		},
 	}
 
@@ -64,32 +69,28 @@ func TestBuildComponentPrompt(t *testing.T) {
 	tests := []struct {
 		name         string
 		content      string
-		projectPath  string
 		projectDoc   string
-		reviewName   string
 		component    OverviewComponent
 		summaryPath  string
 		wantContains []string
 	}{
 		{
-			name:        "prompt contains component name",
-			content:     "Check for security issues",
-			projectPath: "projects/review.yaml",
-			projectDoc:  "Project documentation",
-			reviewName:  "review-2024-01-01",
+			name:       "prompt contains component name",
+			content:    "Check for security issues",
+			projectDoc: "Project documentation",
 			component: OverviewComponent{
 				Name:    "auth",
 				Path:    "internal/auth",
 				Summary: "Handles authentication and authorization",
 			},
 			summaryPath:  "tmp/summary-auth-0.txt",
-			wantContains: []string{"auth", "internal/auth", "Handles authentication and authorization", "projects/review.yaml", "review-2024-01-01", "Check for security issues", "tmp/summary-auth-0.txt"},
+			wantContains: []string{"auth", "internal/auth", "Handles authentication and authorization", "Check for security issues", "tmp/summary-auth-0.txt", "projects/"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			prompt := buildComponentPrompt(tt.content, tt.projectPath, tt.projectDoc, tt.reviewName, tt.component, tt.summaryPath)
+			prompt := buildComponentPrompt(tt.content, tt.projectDoc, tt.component, tt.summaryPath)
 			for _, want := range tt.wantContains {
 				if !contains(prompt, want) {
 					t.Errorf("buildComponentPrompt() = %q, want it to contain %q", prompt, want)
@@ -101,14 +102,15 @@ func TestBuildComponentPrompt(t *testing.T) {
 
 func TestLoadOverview_Valid(t *testing.T) {
 	tests := []struct {
-		name           string
-		jsonContent    string
-		wantComponents int
+		name        string
+		jsonContent string
+		wantModules int
+		wantApps    int
 	}{
 		{
-			name: "parses valid JSON with components",
+			name: "parses valid JSON with modules and apps",
 			jsonContent: `{
-  "components": [
+  "modules": [
     {
       "name": "auth",
       "path": "internal/auth",
@@ -119,27 +121,53 @@ func TestLoadOverview_Valid(t *testing.T) {
       "path": "internal/api",
       "summary": "REST API handlers"
     }
+  ],
+  "apps": [
+    {
+      "name": "ralph",
+      "path": "cmd/ralph",
+      "summary": "Main CLI entry point"
+    }
   ]
 }`,
-			wantComponents: 2,
+			wantModules: 2,
+			wantApps:    1,
 		},
 		{
-			name: "parses JSON with single component",
+			name: "parses JSON with only modules",
 			jsonContent: `{
-  "components": [
+  "modules": [
     {
       "name": "core",
       "path": "internal/core",
       "summary": "Core business logic"
     }
-  ]
+  ],
+  "apps": []
 }`,
-			wantComponents: 1,
+			wantModules: 1,
+			wantApps:    0,
 		},
 		{
-			name:           "parses empty components list",
-			jsonContent:    `{"components": []}`,
-			wantComponents: 0,
+			name: "parses JSON with only apps",
+			jsonContent: `{
+  "modules": [],
+  "apps": [
+    {
+      "name": "worker",
+      "path": "cmd/worker",
+      "summary": "Background worker"
+    }
+  ]
+}`,
+			wantModules: 0,
+			wantApps:    1,
+		},
+		{
+			name:        "parses empty modules and apps lists",
+			jsonContent: `{"modules": [], "apps": []}`,
+			wantModules: 0,
+			wantApps:    0,
 		},
 	}
 
@@ -156,8 +184,11 @@ func TestLoadOverview_Valid(t *testing.T) {
 				t.Fatalf("loadOverview() error = %v", err)
 			}
 
-			if len(overview.Components) != tt.wantComponents {
-				t.Errorf("got %d components, want %d", len(overview.Components), tt.wantComponents)
+			if len(overview.Modules) != tt.wantModules {
+				t.Errorf("got %d modules, want %d", len(overview.Modules), tt.wantModules)
+			}
+			if len(overview.Apps) != tt.wantApps {
+				t.Errorf("got %d apps, want %d", len(overview.Apps), tt.wantApps)
 			}
 		})
 	}
@@ -188,14 +219,15 @@ func TestLoadOverview_Missing(t *testing.T) {
 
 func TestLoadOverview_WithColons(t *testing.T) {
 	tests := []struct {
-		name           string
-		jsonContent    string
-		wantComponents int
+		name        string
+		jsonContent string
+		wantModules int
+		wantApps    int
 	}{
 		{
 			name: "parses JSON with colons in summary",
 			jsonContent: `{
-  "components": [
+  "modules": [
     {
       "name": "http",
       "path": "internal/http",
@@ -206,22 +238,26 @@ func TestLoadOverview_WithColons(t *testing.T) {
       "path": "internal/config",
       "summary": "Loads config from: env vars, files, and remote sources"
     }
-  ]
+  ],
+  "apps": []
 }`,
-			wantComponents: 2,
+			wantModules: 2,
+			wantApps:    0,
 		},
 		{
 			name: "parses JSON with URLs in summary",
 			jsonContent: `{
-  "components": [
+  "modules": [
     {
       "name": "api",
       "path": "internal/api",
       "summary": "Provides REST API at https://api.example.com/v1"
     }
-  ]
+  ],
+  "apps": []
 }`,
-			wantComponents: 1,
+			wantModules: 1,
+			wantApps:    0,
 		},
 	}
 
@@ -238,8 +274,80 @@ func TestLoadOverview_WithColons(t *testing.T) {
 				t.Fatalf("loadOverview() error = %v", err)
 			}
 
-			if len(overview.Components) != tt.wantComponents {
-				t.Errorf("got %d components, want %d", len(overview.Components), tt.wantComponents)
+			if len(overview.Modules) != tt.wantModules {
+				t.Errorf("got %d modules, want %d", len(overview.Modules), tt.wantModules)
+			}
+			if len(overview.Apps) != tt.wantApps {
+				t.Errorf("got %d apps, want %d", len(overview.Apps), tt.wantApps)
+			}
+		})
+	}
+}
+
+func TestAllComponents(t *testing.T) {
+	tests := []struct {
+		name           string
+		modules        []OverviewComponent
+		apps           []OverviewComponent
+		wantTotal      int
+		wantFirstIsMod bool
+	}{
+		{
+			name: "combines modules and apps",
+			modules: []OverviewComponent{
+				{Name: "mod1", Path: "internal/mod1", Summary: "Module 1"},
+			},
+			apps: []OverviewComponent{
+				{Name: "app1", Path: "cmd/app1", Summary: "App 1"},
+			},
+			wantTotal:      2,
+			wantFirstIsMod: true,
+		},
+		{
+			name:           "empty modules and apps",
+			modules:        []OverviewComponent{},
+			apps:           []OverviewComponent{},
+			wantTotal:      0,
+			wantFirstIsMod: true,
+		},
+		{
+			name: "modules only",
+			modules: []OverviewComponent{
+				{Name: "mod1", Path: "internal/mod1", Summary: "Module 1"},
+				{Name: "mod2", Path: "internal/mod2", Summary: "Module 2"},
+			},
+			apps:           []OverviewComponent{},
+			wantTotal:      2,
+			wantFirstIsMod: true,
+		},
+		{
+			name:    "apps only",
+			modules: []OverviewComponent{},
+			apps: []OverviewComponent{
+				{Name: "app1", Path: "cmd/app1", Summary: "App 1"},
+			},
+			wantTotal:      1,
+			wantFirstIsMod: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			overview := &Overview{
+				Modules: tt.modules,
+				Apps:    tt.apps,
+			}
+			all := overview.AllComponents()
+			if len(all) != tt.wantTotal {
+				t.Errorf("AllComponents() returned %d components, want %d", len(all), tt.wantTotal)
+			}
+			if tt.wantTotal > 0 {
+				if tt.wantFirstIsMod && all[0].Name != "mod1" {
+					t.Errorf("first component should be from modules, got %s", all[0].Name)
+				}
+				if !tt.wantFirstIsMod && all[0].Name != "app1" {
+					t.Errorf("first component should be from apps, got %s", all[0].Name)
+				}
 			}
 		})
 	}
