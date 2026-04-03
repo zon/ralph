@@ -9,7 +9,7 @@ This component: {{.ComponentSummary}}
 
 ## Instructions
 Choose a descriptive, lowercase, hyphen-separated project name that reflects the specific work (e.g., "fix-ai-error-handling", "add-user-authentication").
-Write the ralph project YAML directly to projects/<name>.yaml (e.g., projects/fix-ai-error-handling.yaml).
+If there are unmet requirements, write the ralph project YAML directly to projects/<name>.yaml (e.g., projects/fix-ai-error-handling.yaml).
 Set the project name field to your chosen name.
 Only add requirements that are NOT met. Do not add requirements that are already passing.
 
