@@ -181,7 +181,26 @@ func ExecuteDevelopmentIteration(ctx *context.Context, cleanupRegistrar func(fun
 	// Generate pick prompt and run picker agent
 	pickedReqPath := filepath.Join(filepath.Dir(absProjectFile), "picked-requirement.yaml")
 	logger.Verbose("Generating pick prompt...")
-	pickPrompt, err := prompt.BuildPickPrompt(ctx, absProjectFile, pickedReqPath)
+
+	projectContent, err := marshalProjectToString(proj)
+	if err != nil {
+		return fmt.Errorf("failed to serialize project: %w", err)
+	}
+
+	commitLog, err := getCommitLogForPrompt(ctx, ralphConfig.DefaultBranch)
+	if err != nil {
+		logger.Verbosef("Failed to get commit log: %v", err)
+		commitLog = ""
+	}
+
+	pickPromptData := prompt.PickPromptData{
+		Notes:          ctx.Notes(),
+		CommitLog:      commitLog,
+		ProjectContent: projectContent,
+		PickedReqPath:  pickedReqPath,
+	}
+
+	pickPrompt, err := prompt.BuildPickPrompt(pickPromptData)
 	if err != nil {
 		return fmt.Errorf("failed to build pick prompt: %w", err)
 	}
@@ -214,7 +233,18 @@ func ExecuteDevelopmentIteration(ctx *context.Context, cleanupRegistrar func(fun
 
 	// Generate development prompt with selected requirement
 	logger.Verbose("Generating development prompt...")
-	devPrompt, err := prompt.BuildDevelopPrompt(ctx, absProjectFile, selectedRequirement)
+
+	devPromptData := prompt.DevelopPromptData{
+		Notes:               ctx.Notes(),
+		CommitLog:           commitLog,
+		ProjectContent:      projectContent,
+		SelectedRequirement: selectedRequirement,
+		ProjectFilePath:     absProjectFile,
+		Services:            ralphConfig.Services,
+		Instructions:        ralphConfig.Instructions,
+	}
+
+	devPrompt, err := prompt.BuildDevelopPrompt(devPromptData)
 	if err != nil {
 		return fmt.Errorf("failed to build prompt: %w", err)
 	}
@@ -272,8 +302,10 @@ func handleServiceStartup(ctx *context.Context, cleanupRegistrar func(func()), r
 		if failedSvc, err := svcMgr.Start(ralphConfig.Services); err != nil {
 			logger.Warningf("Service startup failed: %v", err)
 
-			// Build a prompt focused only on fixing the failed service
-			fixPrompt := prompt.BuildServiceFixPrompt(ctx, failedSvc, err)
+			fixPrompt, promptErr := prompt.BuildFixServicePrompt(ctx, failedSvc, err)
+			if promptErr != nil {
+				return nil, fmt.Errorf("failed to build fix service prompt: %w", promptErr)
+			}
 
 			if agentErr := ai.RunAgent(ctx, fixPrompt); agentErr != nil {
 				return nil, fmt.Errorf("agent execution failed while fixing service: %w", agentErr)
@@ -323,4 +355,30 @@ func performPostAgentCleanup(ctx *context.Context, absProjectFile string, servic
 		}
 	}
 	return nil
+}
+
+func marshalProjectToString(proj *Project) (string, error) {
+	data, err := yaml.Marshal(proj)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal project: %w", err)
+	}
+	return string(data), nil
+}
+
+func getCommitLogForPrompt(ctx *context.Context, defaultBranch string) (string, error) {
+	baseBranch := defaultBranch
+	if ctx.BaseBranch() != "" {
+		baseBranch = ctx.BaseBranch()
+	}
+
+	currentBranch, err := git.GetCurrentBranch()
+	if err != nil {
+		return "", err
+	}
+
+	if currentBranch == baseBranch {
+		return "", nil
+	}
+
+	return git.GetCommitLog(baseBranch, 10)
 }

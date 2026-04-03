@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
@@ -188,10 +187,7 @@ func (r *ReviewCmd) submitToArgo(ctx *execcontext.Context, cloneBranch string) e
 }
 
 func (r *ReviewCmd) printStats() error {
-	cmd := exec.Command("opencode", "stats")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	return ai.DisplayStats()
 }
 
 func (r *ReviewCmd) commitProjectFile(ctx *execcontext.Context, absProjectFile, reviewName, componentName string, itemIndex int, summaryPath string) error {

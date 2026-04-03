@@ -1,6 +1,8 @@
 package ai
 
 import (
+	"bytes"
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -91,4 +93,75 @@ exit 1
 	assert.Contains(t, err.Error(), "line 3")
 	assert.Contains(t, err.Error(), "line 12")
 	assert.NotContains(t, err.Error(), "line 2 output", "Should not include lines before last 10")
+}
+
+func TestDisplayStats(t *testing.T) {
+	tmpDir := t.TempDir()
+	scriptPath := filepath.Join(tmpDir, "fake-opencode.sh")
+
+	scriptContent := `#!/bin/bash
+echo "stats output line 1"
+echo "stats output line 2"
+exit 0
+`
+	err := os.WriteFile(scriptPath, []byte(scriptContent), 0755)
+	require.NoError(t, err)
+
+	opencodePath := filepath.Join(tmpDir, "opencode")
+	err = os.Symlink(scriptPath, opencodePath)
+	require.NoError(t, err)
+
+	origPath := os.Getenv("PATH")
+	t.Setenv("PATH", tmpDir+":"+origPath)
+
+	err = DisplayStats()
+	require.NoError(t, err)
+}
+
+func TestRunCommand(t *testing.T) {
+	tmpDir := t.TempDir()
+	scriptPath := filepath.Join(tmpDir, "fake-opencode.sh")
+
+	scriptContent := `#!/bin/bash
+echo "run output: $@"
+exit 0
+`
+	err := os.WriteFile(scriptPath, []byte(scriptContent), 0755)
+	require.NoError(t, err)
+
+	opencodePath := filepath.Join(tmpDir, "opencode")
+	err = os.Symlink(scriptPath, opencodePath)
+	require.NoError(t, err)
+
+	origPath := os.Getenv("PATH")
+	t.Setenv("PATH", tmpDir+":"+origPath)
+
+	var stdout, stderr bytes.Buffer
+	err = RunCommand(context.Background(), "test-model", "test-prompt", &stdout, &stderr)
+	require.NoError(t, err)
+	assert.Contains(t, stdout.String(), "run output: run --model test-model test-prompt")
+}
+
+func TestRunCommandFailure(t *testing.T) {
+	tmpDir := t.TempDir()
+	scriptPath := filepath.Join(tmpDir, "fake-opencode.sh")
+
+	scriptContent := `#!/bin/bash
+echo "error output" >&2
+exit 1
+`
+	err := os.WriteFile(scriptPath, []byte(scriptContent), 0755)
+	require.NoError(t, err)
+
+	opencodePath := filepath.Join(tmpDir, "opencode")
+	err = os.Symlink(scriptPath, opencodePath)
+	require.NoError(t, err)
+
+	origPath := os.Getenv("PATH")
+	t.Setenv("PATH", tmpDir+":"+origPath)
+
+	var stdout, stderr bytes.Buffer
+	err = RunCommand(context.Background(), "test-model", "test-prompt", &stdout, &stderr)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "opencode command failed")
 }

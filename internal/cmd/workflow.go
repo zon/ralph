@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"github.com/zon/ralph/internal/ai"
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
@@ -321,8 +322,5 @@ func (w *WorkflowCmd) runReview(ctx *context.Context) error {
 
 func (w *WorkflowCmd) displayStats() {
 	logger.Info("Displaying OpenCode statistics...")
-	cmd := exec.Command("opencode", "stats")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Run()
+	ai.DisplayStats()
 }

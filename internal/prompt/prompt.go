@@ -3,30 +3,57 @@ package prompt
 import (
 	"bytes"
 	"fmt"
-	"os"
 	"strings"
 	"text/template"
 
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
-	"github.com/zon/ralph/internal/git"
-	"github.com/zon/ralph/internal/logger"
 )
 
-// BuildServiceFixPrompt creates a prompt focused solely on fixing a failed service.
-func BuildServiceFixPrompt(ctx *context.Context, svc config.Service, svcErr error) string {
+type FixServicePromptData struct {
+	Notes       []string
+	ServiceName string
+	ServiceCmd  string
+	ServicePort int
+	Error       string
+}
+
+type DevelopPromptData struct {
+	Notes               []string
+	CommitLog           string
+	ProjectContent      string
+	SelectedRequirement string
+	ProjectFilePath     string
+	Services            []config.Service
+	Instructions        string
+}
+
+type PickPromptData struct {
+	Notes          []string
+	CommitLog      string
+	ProjectContent string
+	PickedReqPath  string
+}
+
+func executeTemplate(templateContent string, data interface{}) (string, error) {
+	tmpl, err := template.New("prompt").Parse(templateContent)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse template: %w", err)
+	}
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		return "", fmt.Errorf("failed to execute template: %w", err)
+	}
+	return buf.String(), nil
+}
+
+func BuildFixServicePrompt(ctx *context.Context, svc config.Service, svcErr error) (string, error) {
 	cmd := svc.Command
 	if len(svc.Args) > 0 {
 		cmd = fmt.Sprintf("%s %s", svc.Command, strings.Join(svc.Args, " "))
 	}
 
-	data := struct {
-		Notes       []string
-		ServiceName string
-		ServiceCmd  string
-		ServicePort int
-		Error       string
-	}{
+	data := FixServicePromptData{
 		Notes:       ctx.Notes(),
 		ServiceName: svc.Name,
 		ServiceCmd:  cmd,
@@ -34,57 +61,11 @@ func BuildServiceFixPrompt(ctx *context.Context, svc config.Service, svcErr erro
 		Error:       svcErr.Error(),
 	}
 
-	tmpl := template.Must(template.New("fix-service").Parse((&config.RalphConfig{}).DefaultFixServiceInstructions()))
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, data); err != nil {
-		logger.Warningf("Failed to execute fix-service template: %v", err)
-		return ""
-	}
-	return buf.String()
+	return executeTemplate(config.DefaultFixServiceInstructions(), data)
 }
 
-// BuildDevelopPrompt creates a prompt for the AI agent to implement a selected requirement.
-// It includes the selected requirement, recent git history, and development instructions.
-func BuildDevelopPrompt(ctx *context.Context, projectFile string, selectedRequirement string) (string, error) {
-	ralphConfig, err := config.LoadConfig()
-	if err != nil {
-		return "", fmt.Errorf("failed to load config: %w", err)
-	}
-
-	projectContent, err := os.ReadFile(projectFile)
-	if err != nil {
-		return "", fmt.Errorf("failed to read project file: %w", err)
-	}
-
-	promptTmpl := ralphConfig.Instructions
-	if ctx.InstructionsMD() != "" {
-		promptTmpl = ctx.InstructionsMD()
-	} else if ctx.Instructions() != "" {
-		instructionsData, err := os.ReadFile(ctx.Instructions())
-		if err != nil {
-			return "", fmt.Errorf("failed to read instructions file %s: %w", ctx.Instructions(), err)
-		}
-		promptTmpl = string(instructionsData)
-	}
-
-	baseBranch := ralphConfig.DefaultBranch
-	if ctx.BaseBranch() != "" {
-		baseBranch = ctx.BaseBranch()
-	}
-
-	var commitLog string
-	currentBranch, err := git.GetCurrentBranch()
-	if err != nil {
-		logger.Warningf("Failed to get current branch: %v", err)
-	} else if currentBranch != baseBranch {
-		if log, err := git.GetCommitLog(baseBranch, 10); err != nil {
-			logger.Warningf("Failed to get branch commits: %v", err)
-		} else {
-			commitLog = log
-		}
-	}
-
-	data := struct {
+func BuildDevelopPrompt(data DevelopPromptData) (string, error) {
+	tmplData := struct {
 		Notes               []string
 		CommitLog           string
 		ProjectContent      string
@@ -92,86 +73,29 @@ func BuildDevelopPrompt(ctx *context.Context, projectFile string, selectedRequir
 		ProjectFilePath     string
 		Services            []config.Service
 	}{
-		Notes:               ctx.Notes(),
-		CommitLog:           commitLog,
-		ProjectContent:      strings.TrimRight(string(projectContent), "\n"),
-		SelectedRequirement: selectedRequirement,
-		ProjectFilePath:     projectFile,
-		Services:            ralphConfig.Services,
+		Notes:               data.Notes,
+		CommitLog:           data.CommitLog,
+		ProjectContent:      strings.TrimRight(data.ProjectContent, "\n"),
+		SelectedRequirement: data.SelectedRequirement,
+		ProjectFilePath:     data.ProjectFilePath,
+		Services:            data.Services,
 	}
 
-	tmpl, err := template.New("develop-prompt").Parse(promptTmpl)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse prompt template: %w", err)
-	}
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, data); err != nil {
-		return "", fmt.Errorf("failed to render prompt: %w", err)
-	}
-
-	prompt := buf.String()
-	if ctx.IsVerbose() {
-		logger.Infof("Generated prompt (%d bytes)", len(prompt))
-	}
-	return prompt, nil
+	return executeTemplate(data.Instructions, tmplData)
 }
 
-// BuildPickPrompt creates a prompt for the AI agent to pick the highest-priority failing requirement.
-// pickedReqPath is the absolute path where the agent must write the selected requirement YAML.
-func BuildPickPrompt(ctx *context.Context, projectFile string, pickedReqPath string) (string, error) {
-	ralphConfig, err := config.LoadConfig()
-	if err != nil {
-		return "", fmt.Errorf("failed to load config: %w", err)
-	}
-
-	projectContent, err := os.ReadFile(projectFile)
-	if err != nil {
-		return "", fmt.Errorf("failed to read project file: %w", err)
-	}
-
-	promptTmpl := ralphConfig.DefaultPickInstructions()
-
-	baseBranch := ralphConfig.DefaultBranch
-	if ctx.BaseBranch() != "" {
-		baseBranch = ctx.BaseBranch()
-	}
-
-	var commitLog string
-	currentBranch, err := git.GetCurrentBranch()
-	if err != nil {
-		logger.Warningf("Failed to get current branch: %v", err)
-	} else if currentBranch != baseBranch {
-		if log, err := git.GetCommitLog(baseBranch, 10); err != nil {
-			logger.Warningf("Failed to get branch commits: %v", err)
-		} else {
-			commitLog = log
-		}
-	}
-
-	data := struct {
+func BuildPickPrompt(data PickPromptData) (string, error) {
+	tmplData := struct {
 		Notes          []string
 		CommitLog      string
 		ProjectContent string
 		PickedReqPath  string
 	}{
-		Notes:          ctx.Notes(),
-		CommitLog:      commitLog,
-		ProjectContent: strings.TrimRight(string(projectContent), "\n"),
-		PickedReqPath:  pickedReqPath,
+		Notes:          data.Notes,
+		CommitLog:      data.CommitLog,
+		ProjectContent: strings.TrimRight(data.ProjectContent, "\n"),
+		PickedReqPath:  data.PickedReqPath,
 	}
 
-	tmpl, err := template.New("pick-prompt").Parse(promptTmpl)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse pick prompt template: %w", err)
-	}
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, data); err != nil {
-		return "", fmt.Errorf("failed to render pick prompt: %w", err)
-	}
-
-	prompt := buf.String()
-	if ctx.IsVerbose() {
-		logger.Infof("Generated pick prompt (%d bytes)", len(prompt))
-	}
-	return prompt, nil
+	return executeTemplate(config.DefaultPickInstructions(), tmplData)
 }

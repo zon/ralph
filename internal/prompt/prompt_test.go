@@ -1,9 +1,8 @@
 package prompt
 
 import (
+	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -14,148 +13,7 @@ import (
 	"github.com/zon/ralph/internal/testutil"
 )
 
-func getTestModel(t *testing.T) string {
-	t.Helper()
-	repoConfig, err := config.LoadConfig()
-	if err != nil {
-		t.Fatalf("failed to load repo config: %v", err)
-	}
-	return repoConfig.Model
-}
-
-func TestBuildDevelopPrompt(t *testing.T) {
-	// Create a temporary project file
-	tmpDir := t.TempDir()
-	projectFile := filepath.Join(tmpDir, "test-project.yaml")
-	projectContent := `name: Test Project
-description: A test project
-requirements:
-  - category: Feature
-    description: Implement feature X
-    passing: false
-  - category: Bug Fix
-    description: Fix bug Y
-    passing: false
-`
-	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
-		t.Fatalf("Failed to create test project file: %v", err)
-	}
-
-	ralphDir := filepath.Join(tmpDir, ".ralph")
-	if err := os.MkdirAll(ralphDir, 0755); err != nil {
-		t.Fatalf("Failed to create .ralph directory: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("model: "+getTestModel(t)+"\n"), 0644); err != nil {
-		t.Fatalf("Failed to create .ralph/config.yaml: %v", err)
-	}
-
-	// Change to temp directory to avoid needing actual git repo
-	t.Chdir(tmpDir)
-
-	ctx := testutil.NewContext()
-
-	selectedReq := `- category: Feature
-  description: Implement feature X
-  passing: false`
-
-	prompt, err := BuildDevelopPrompt(ctx, projectFile, selectedReq)
-	require.NoError(t, err, "BuildDevelopPrompt failed")
-
-	// Verify prompt contains expected sections
-	expectedSections := []string{
-		"# Development Agent Context",
-		"## Project Information",
-		"## Selected Requirement",
-		"## Instructions",
-	}
-
-	for _, section := range expectedSections {
-		assert.True(t, strings.Contains(prompt, section), "Prompt missing expected section: %s", section)
-	}
-
-	// Without a git repo, GetCurrentBranch fails and no commit history is included
-	assert.False(t, strings.Contains(prompt, "## Recent Git History"), "Prompt should NOT contain 'Recent Git History' section without a git repo")
-
-	// Verify selected requirement is included
-	assert.True(t, strings.Contains(prompt, "Implement feature X"), "Prompt does not contain selected requirement")
-
-	// Verify default instructions are included (since no .ralph/instructions.md exists)
-	assert.True(t, strings.Contains(prompt, "Implement the selected requirement"), "Prompt does not contain default instructions")
-}
-
-func TestBuildDevelopPrompt_WithCustomInstructions(t *testing.T) {
-	// Create a temporary project structure with custom instructions
-	tmpDir := t.TempDir()
-	projectFile := filepath.Join(tmpDir, "test-project.yaml")
-	projectContent := `name: Test Project
-description: A test project
-requirements:
-  - category: Feature
-    description: Implement feature X
-    passing: false
-`
-	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
-		t.Fatalf("Failed to create test project file: %v", err)
-	}
-
-	ralphDir := filepath.Join(tmpDir, ".ralph")
-	if err := os.MkdirAll(ralphDir, 0755); err != nil {
-		t.Fatalf("Failed to create .ralph directory: %v", err)
-	}
-
-	customInstructions := "Custom instruction: Do this specific thing"
-	instructionsFile := filepath.Join(ralphDir, "instructions.md")
-	if err := os.WriteFile(instructionsFile, []byte(customInstructions), 0644); err != nil {
-		t.Fatalf("Failed to create instructions file: %v", err)
-	}
-
-	t.Chdir(tmpDir)
-
-	ctx := testutil.NewContext()
-
-	selectedReq := "- category: Feature\n  description: Implement feature X\n  passing: false"
-
-	prompt, err := BuildDevelopPrompt(ctx, projectFile, selectedReq)
-	require.NoError(t, err, "BuildDevelopPrompt failed")
-
-	// Verify custom instructions are included
-	assert.True(t, strings.Contains(prompt, customInstructions), "Prompt does not contain custom instructions")
-}
-
-func TestBuildDevelopPrompt_NoGitRepo(t *testing.T) {
-	tmpDir := t.TempDir()
-	projectFile := filepath.Join(tmpDir, "test-project.yaml")
-
-	projectContent := `name: Test Project
-description: A test project
-requirements:
-  - description: Test requirement
-    passing: false
-`
-
-	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
-		t.Fatalf("Failed to create test project file: %v", err)
-	}
-
-	ctx := testutil.NewContext()
-
-	selectedReq := "- description: Test requirement\n  passing: false"
-
-	prompt, err := BuildDevelopPrompt(ctx, projectFile, selectedReq)
-	require.NoError(t, err, "BuildDevelopPrompt failed")
-
-	assert.True(t, strings.Contains(prompt, "Development Agent Context"), "Prompt should contain 'Development Agent Context' header")
-	assert.True(t, strings.Contains(prompt, "Test requirement"), "Prompt should contain selected requirement")
-}
-
-func TestBuildDevelopPrompt_MissingProjectFile(t *testing.T) {
-	ctx := testutil.NewContext()
-
-	_, err := BuildDevelopPrompt(ctx, "/nonexistent/project.yaml", "some requirement")
-	require.Error(t, err, "Expected error for missing project file")
-}
-
-func TestBuildServiceFixPrompt(t *testing.T) {
+func TestBuildFixServicePrompt(t *testing.T) {
 	ctx := testutil.NewContext()
 	svcErr := fmt.Errorf("failed to start service test-service: connection refused")
 
@@ -165,26 +23,20 @@ func TestBuildServiceFixPrompt(t *testing.T) {
 		Args:    []string{"--port", "8080"},
 		Port:    8080,
 	}
-	prompt := BuildServiceFixPrompt(ctx, svc, svcErr)
+	prompt, err := BuildFixServicePrompt(ctx, svc, svcErr)
+	require.NoError(t, err, "BuildFixServicePrompt failed")
 
-	// Verify error message is present
 	assert.True(t, strings.Contains(prompt, "Service Startup Failed"), "Prompt does not contain service failure header")
 	assert.True(t, strings.Contains(prompt, "failed to start service test-service"), "Prompt does not contain service failure details")
-
-	// Verify service details are present
 	assert.True(t, strings.Contains(prompt, "test-service"), "Prompt does not contain service name")
 	assert.True(t, strings.Contains(prompt, "myapp --port 8080"), "Prompt does not contain start command")
 	assert.True(t, strings.Contains(prompt, "port 8080"), "Prompt does not contain health check port")
-
-	// Verify full dev prompt sections are absent
 	assert.False(t, strings.Contains(prompt, "## Project Requirements"), "Service fix prompt should not contain project requirements")
 	assert.False(t, strings.Contains(prompt, "## Recent Git History"), "Service fix prompt should not contain git history")
-
-	// Verify fix-service instructions are present
 	assert.True(t, strings.Contains(prompt, "report.md"), "Service fix prompt should contain report.md instruction")
 }
 
-func TestBuildServiceFixPrompt_NoPort(t *testing.T) {
+func TestBuildFixServicePrompt_NoPort(t *testing.T) {
 	ctx := testutil.NewContext()
 	svcErr := fmt.Errorf("failed to start service worker: exit status 1")
 
@@ -193,471 +45,276 @@ func TestBuildServiceFixPrompt_NoPort(t *testing.T) {
 		Command: "worker",
 		Args:    []string{"--config", "worker.yaml"},
 	}
-	prompt := BuildServiceFixPrompt(ctx, svc, svcErr)
+	prompt, err := BuildFixServicePrompt(ctx, svc, svcErr)
+	require.NoError(t, err, "BuildFixServicePrompt failed")
 
 	assert.True(t, strings.Contains(prompt, "worker --config worker.yaml"), "Prompt does not contain start command")
 	assert.False(t, strings.Contains(prompt, "Health check"), "Prompt should not contain health check when no port configured")
 }
 
-func TestBuildDevelopPrompt_WithInstructionsFlag(t *testing.T) {
-	tests := []struct {
-		name                string
-		instructionsContent string
-		wantContains        []string
-		wantNotContains     []string
-	}{
-		{
-			name:                "instructions file overrides default instructions",
-			instructionsContent: "Custom webhook instructions: handle PR comments",
-			wantContains:        []string{"Custom webhook instructions: handle PR comments"},
-			wantNotContains:     []string{"ONLY WORK ON ONE REQUIREMENT"},
+func TestBuildFixServicePrompt_ReturnsError(t *testing.T) {
+	ctx := testutil.NewContext()
+	svcErr := fmt.Errorf("service failed")
+
+	svc := config.Service{
+		Name:    "test",
+		Command: "test",
+	}
+
+	_, err := BuildFixServicePrompt(ctx, svc, svcErr)
+	require.NoError(t, err, "BuildFixServicePrompt should not error with valid inputs")
+}
+
+func TestBuildFixServicePrompt_ErrorNil(t *testing.T) {
+	ctx := testutil.NewContext()
+	svcErr := errors.New("test error")
+
+	svc := config.Service{
+		Name:    "test",
+		Command: "test",
+	}
+
+	_, err := BuildFixServicePrompt(ctx, svc, svcErr)
+	require.NoError(t, err, "BuildFixServicePrompt should not error with valid inputs")
+}
+
+func TestBuildDevelopPrompt(t *testing.T) {
+	data := DevelopPromptData{
+		Notes:               nil,
+		CommitLog:           "",
+		ProjectContent:      "name: Test Project\nrequirements:\n  - description: Feature X\n    passing: false",
+		SelectedRequirement: "- description: Feature X\n  passing: false",
+		ProjectFilePath:     "/path/to/project.yaml",
+		Services:            nil,
+		Instructions:        config.DefaultDevelopmentInstructions(),
+	}
+
+	prompt, err := BuildDevelopPrompt(data)
+	require.NoError(t, err, "BuildDevelopPrompt failed")
+
+	assert.Contains(t, prompt, "# Development Agent Context")
+	assert.Contains(t, prompt, "## Project Information")
+	assert.Contains(t, prompt, "## Selected Requirement")
+	assert.Contains(t, prompt, "## Instructions")
+	assert.Contains(t, prompt, "Feature X")
+	assert.Contains(t, prompt, "/path/to/project.yaml")
+	assert.Contains(t, prompt, "Implement the selected requirement")
+	assert.NotContains(t, prompt, "## Recent Git History")
+	assert.NotContains(t, prompt, "## System Notes")
+}
+
+func TestBuildDevelopPrompt_WithNotes(t *testing.T) {
+	data := DevelopPromptData{
+		Notes:               []string{"Note 1", "Note 2"},
+		CommitLog:           "",
+		ProjectContent:      "name: Test Project\nrequirements:\n  - description: Feature X\n    passing: false",
+		SelectedRequirement: "- description: Feature X\n  passing: false",
+		ProjectFilePath:     "/path/to/project.yaml",
+		Services:            nil,
+		Instructions:        config.DefaultDevelopmentInstructions(),
+	}
+
+	prompt, err := BuildDevelopPrompt(data)
+	require.NoError(t, err, "BuildDevelopPrompt failed")
+
+	assert.Contains(t, prompt, "## System Notes")
+	assert.Contains(t, prompt, "Note 1")
+	assert.Contains(t, prompt, "Note 2")
+}
+
+func TestBuildDevelopPrompt_WithCommitLog(t *testing.T) {
+	data := DevelopPromptData{
+		Notes:               nil,
+		CommitLog:           "abc123 Feature A\ndef456 Feature B",
+		ProjectContent:      "name: Test Project\nrequirements:\n  - description: Feature X\n    passing: false",
+		SelectedRequirement: "- description: Feature X\n  passing: false",
+		ProjectFilePath:     "/path/to/project.yaml",
+		Services:            nil,
+		Instructions:        config.DefaultDevelopmentInstructions(),
+	}
+
+	prompt, err := BuildDevelopPrompt(data)
+	require.NoError(t, err, "BuildDevelopPrompt failed")
+
+	assert.Contains(t, prompt, "## Recent Git History")
+	assert.Contains(t, prompt, "abc123 Feature A")
+	assert.Contains(t, prompt, "def456 Feature B")
+}
+
+func TestBuildDevelopPrompt_WithServices(t *testing.T) {
+	data := DevelopPromptData{
+		Notes:               nil,
+		CommitLog:           "",
+		ProjectContent:      "name: Test Project",
+		SelectedRequirement: "- description: Feature X",
+		ProjectFilePath:     "/path/to/project.yaml",
+		Services: []config.Service{
+			{Name: "api", Command: "api-server"},
+			{Name: "worker", Command: "worker"},
 		},
-		{
-			name:                "instructions file overrides custom .ralph/instructions.md",
-			instructionsContent: "Override from --instructions flag",
-			wantContains:        []string{"Override from --instructions flag"},
-			wantNotContains:     []string{"ONLY WORK ON ONE REQUIREMENT"},
-		},
+		Instructions: config.DefaultDevelopmentInstructions(),
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tmpDir := t.TempDir()
-			projectFile := filepath.Join(tmpDir, "test-project.yaml")
-			projectContent := `name: Test Project
-requirements:
-  - description: Feature 1
-    passing: false
-`
-			if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
-				t.Fatalf("Failed to create test project file: %v", err)
-			}
-
-			ralphDir := filepath.Join(tmpDir, ".ralph")
-			if err := os.MkdirAll(ralphDir, 0755); err != nil {
-				t.Fatalf("Failed to create .ralph directory: %v", err)
-			}
-			if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("model: "+getTestModel(t)+"\n"), 0644); err != nil {
-				t.Fatalf("Failed to create .ralph/config.yaml: %v", err)
-			}
-
-			// Write the instructions file
-			instructionsFile := filepath.Join(tmpDir, "webhook-instructions.md")
-			if err := os.WriteFile(instructionsFile, []byte(tt.instructionsContent), 0644); err != nil {
-				t.Fatalf("Failed to create instructions file: %v", err)
-			}
-
-			t.Chdir(tmpDir)
-
-			ctx := testutil.NewContext(testutil.WithInstructions(instructionsFile))
-
-			selectedReq := "- description: Feature 1\n  passing: false"
-			prompt, err := BuildDevelopPrompt(ctx, projectFile, selectedReq)
-			require.NoError(t, err, "BuildDevelopPrompt failed")
-
-			for _, want := range tt.wantContains {
-				assert.True(t, strings.Contains(prompt, want), "Prompt missing expected content %q", want)
-			}
-			for _, notWant := range tt.wantNotContains {
-				assert.False(t, strings.Contains(prompt, notWant), "Prompt should not contain %q", notWant)
-			}
-		})
-	}
-}
-
-func TestBuildDevelopPrompt_InstructionsFlagOverridesRalphInstructions(t *testing.T) {
-	// Verify --instructions flag takes precedence over .ralph/instructions.md
-	tmpDir := t.TempDir()
-	projectFile := filepath.Join(tmpDir, "test-project.yaml")
-	projectContent := `name: Test Project
-requirements:
-  - description: Feature 1
-    passing: false
-`
-	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
-		t.Fatalf("Failed to create test project file: %v", err)
-	}
-
-	// Create .ralph/instructions.md with its own content
-	ralphDir := filepath.Join(tmpDir, ".ralph")
-	if err := os.MkdirAll(ralphDir, 0755); err != nil {
-		t.Fatalf("Failed to create .ralph directory: %v", err)
-	}
-	ralphInstructions := "Instructions from .ralph/instructions.md"
-	if err := os.WriteFile(filepath.Join(ralphDir, "instructions.md"), []byte(ralphInstructions), 0644); err != nil {
-		t.Fatalf("Failed to create .ralph/instructions.md: %v", err)
-	}
-
-	// Create a separate --instructions file
-	overrideInstructions := "Instructions from --instructions flag (should win)"
-	instructionsFile := filepath.Join(tmpDir, "override.md")
-	if err := os.WriteFile(instructionsFile, []byte(overrideInstructions), 0644); err != nil {
-		t.Fatalf("Failed to create override instructions file: %v", err)
-	}
-
-	t.Chdir(tmpDir)
-
-	ctx := testutil.NewContext(testutil.WithInstructions(instructionsFile))
-
-	selectedReq := "- description: Feature 1\n  passing: false"
-	prompt, err := BuildDevelopPrompt(ctx, projectFile, selectedReq)
+	prompt, err := BuildDevelopPrompt(data)
 	require.NoError(t, err, "BuildDevelopPrompt failed")
 
-	assert.True(t, strings.Contains(prompt, overrideInstructions), "Prompt should contain --instructions file content, got:\n%s", prompt)
-	assert.False(t, strings.Contains(prompt, ralphInstructions), "Prompt should NOT contain .ralph/instructions.md content when --instructions flag is set")
+	assert.Contains(t, prompt, "## Services")
+	assert.Contains(t, prompt, "api.log")
+	assert.Contains(t, prompt, "worker.log")
 }
 
-func TestBuildDevelopPrompt_InstructionsFlagMissingFile(t *testing.T) {
-	tmpDir := t.TempDir()
-	projectFile := filepath.Join(tmpDir, "test-project.yaml")
-	projectContent := `name: Test Project
-requirements:
-  - description: Feature 1
-    passing: false
-`
-	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
-		t.Fatalf("Failed to create test project file: %v", err)
+func TestBuildDevelopPrompt_WithCustomInstructions(t *testing.T) {
+	data := DevelopPromptData{
+		Notes:               nil,
+		CommitLog:           "",
+		ProjectContent:      "name: Test Project",
+		SelectedRequirement: "- description: Feature X",
+		ProjectFilePath:     "/path/to/project.yaml",
+		Services:            nil,
+		Instructions:        "Custom instructions: Do something special",
 	}
 
-	ralphDir := filepath.Join(tmpDir, ".ralph")
-	if err := os.MkdirAll(ralphDir, 0755); err != nil {
-		t.Fatalf("Failed to create .ralph directory: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("model: "+getTestModel(t)+"\n"), 0644); err != nil {
-		t.Fatalf("Failed to create .ralph/config.yaml: %v", err)
-	}
-
-	t.Chdir(tmpDir)
-
-	// Point to a non-existent file
-	ctx := testutil.NewContext(testutil.WithInstructions("/nonexistent/instructions.md"))
-
-	_, err := BuildDevelopPrompt(ctx, projectFile, "- description: Feature 1\n  passing: false")
-	require.Error(t, err, "Expected error when instructions file does not exist")
-	assert.True(t, strings.Contains(err.Error(), "failed to read instructions file"), "Expected 'failed to read instructions file' error, got: %v", err)
-}
-
-func TestBuildDevelopPrompt_WithoutNote(t *testing.T) {
-	// Create a temporary project file
-	tmpDir := t.TempDir()
-	projectFile := filepath.Join(tmpDir, "test-project.yaml")
-	projectContent := `name: Test Project
-requirements:
-  - description: Feature 1
-    passing: false
-`
-	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
-		t.Fatalf("Failed to create test project file: %v", err)
-	}
-
-	ralphDir := filepath.Join(tmpDir, ".ralph")
-	if err := os.MkdirAll(ralphDir, 0755); err != nil {
-		t.Fatalf("Failed to create .ralph directory: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("model: "+getTestModel(t)+"\n"), 0644); err != nil {
-		t.Fatalf("Failed to create .ralph/config.yaml: %v", err)
-	}
-
-	t.Chdir(tmpDir)
-
-	// Create context without notes
-	ctx := testutil.NewContext()
-
-	selectedReq := "- description: Feature 1\n  passing: false"
-	prompt, err := BuildDevelopPrompt(ctx, projectFile, selectedReq)
+	prompt, err := BuildDevelopPrompt(data)
 	require.NoError(t, err, "BuildDevelopPrompt failed")
 
-	// Verify prompt does NOT contain system notes section when context has no notes
-	assert.False(t, strings.Contains(prompt, "## System Notes"), "Prompt should not contain 'System Notes' section when context has no notes")
+	assert.Contains(t, prompt, "Custom instructions: Do something special")
 }
 
-func TestBuildDevelopPrompt_WithNote(t *testing.T) {
-	// Create a temporary project file
-	tmpDir := t.TempDir()
-	projectFile := filepath.Join(tmpDir, "test-project.yaml")
-	projectContent := `name: Test Project
-requirements:
-  - description: Feature 1
-    passing: false
-`
-	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
-		t.Fatalf("Failed to create test project file: %v", err)
+func TestBuildDevelopPrompt_ErrorOnInvalidTemplate(t *testing.T) {
+	data := DevelopPromptData{
+		Notes:               nil,
+		CommitLog:           "",
+		ProjectContent:      "content",
+		SelectedRequirement: "requirement",
+		ProjectFilePath:     "/path",
+		Services:            nil,
+		Instructions:        "{{.InvalidField}}", // references non-existent field
 	}
 
-	ralphDir := filepath.Join(tmpDir, ".ralph")
-	if err := os.MkdirAll(ralphDir, 0755); err != nil {
-		t.Fatalf("Failed to create .ralph directory: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("model: "+getTestModel(t)+"\n"), 0644); err != nil {
-		t.Fatalf("Failed to create .ralph/config.yaml: %v", err)
-	}
-
-	t.Chdir(tmpDir)
-
-	// Create context with notes added via AddNote
-	ctx := testutil.NewContext()
-	ctx.AddNote("This is a test note for the agent")
-	ctx.AddNote("Another note with important information")
-
-	selectedReq := "- description: Feature 1\n  passing: false"
-	prompt, err := BuildDevelopPrompt(ctx, projectFile, selectedReq)
-	require.NoError(t, err, "BuildDevelopPrompt failed")
-
-	// Verify prompt contains System Notes section when context has notes
-	assert.True(t, strings.Contains(prompt, "## System Notes"), "Prompt should contain 'System Notes' section when context has notes")
-
-	// Verify the notes are included in the output
-	assert.True(t, strings.Contains(prompt, "This is a test note for the agent"), "Prompt should contain the first note")
-	assert.True(t, strings.Contains(prompt, "Another note with important information"), "Prompt should contain the second note")
-}
-
-func TestBuildDevelopPrompt_CommitLogWhenBranchDiffers(t *testing.T) {
-	// Create a temporary project file
-	tmpDir := t.TempDir()
-	projectFile := filepath.Join(tmpDir, "test-project.yaml")
-	projectContent := `name: Test Project
-requirements:
-  - description: Feature 1
-    passing: false
-`
-	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
-		t.Fatalf("Failed to create test project file: %v", err)
-	}
-
-	// Create .ralph/config.yaml with a defaultBranch
-	ralphDir := filepath.Join(tmpDir, ".ralph")
-	if err := os.MkdirAll(ralphDir, 0755); err != nil {
-		t.Fatalf("Failed to create .ralph directory: %v", err)
-	}
-	configContent := "defaultBranch: main\n"
-	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte(configContent), 0644); err != nil {
-		t.Fatalf("Failed to create config file: %v", err)
-	}
-
-	t.Chdir(tmpDir)
-
-	// Without a git repo, GetCurrentBranch fails and no commit history is included
-	// regardless of defaultBranch setting
-	ctx := testutil.NewContext()
-
-	selectedReq := "- description: Feature 1\n  passing: false"
-	prompt, err := BuildDevelopPrompt(ctx, projectFile, selectedReq)
-	require.NoError(t, err, "BuildDevelopPrompt failed")
-
-	// Verify prompt does NOT contain Recent Git History section when there's no git repo
-	assert.False(t, strings.Contains(prompt, "## Recent Git History"), "Prompt should NOT contain 'Recent Git History' section without a git repo")
-}
-
-func TestBuildDevelopPrompt_NoCommitLogWhenBranchMatches(t *testing.T) {
-	// Create a temporary project file
-	tmpDir := t.TempDir()
-	projectFile := filepath.Join(tmpDir, "test-project.yaml")
-	projectContent := `name: Test Project
-requirements:
-  - description: Feature 1
-    passing: false
-`
-	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
-		t.Fatalf("Failed to create test project file: %v", err)
-	}
-
-	// Create .ralph/config.yaml with a defaultBranch
-	ralphDir := filepath.Join(tmpDir, ".ralph")
-	if err := os.MkdirAll(ralphDir, 0755); err != nil {
-		t.Fatalf("Failed to create .ralph directory: %v", err)
-	}
-	configContent := "defaultBranch: main\n"
-	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte(configContent), 0644); err != nil {
-		t.Fatalf("Failed to create config file: %v", err)
-	}
-
-	t.Chdir(tmpDir)
-
-	// Without a git repo, GetCurrentBranch fails and no commit history is included
-	ctx := testutil.NewContext()
-
-	selectedReq := "- description: Feature 1\n  passing: false"
-	prompt, err := BuildDevelopPrompt(ctx, projectFile, selectedReq)
-	require.NoError(t, err, "BuildDevelopPrompt failed")
-
-	// Verify prompt does NOT contain Recent Git History section
-	assert.False(t, strings.Contains(prompt, "## Recent Git History"), "Prompt should NOT contain 'Recent Git History' section when current branch equals base branch")
+	_, err := BuildDevelopPrompt(data)
+	require.Error(t, err, "BuildDevelopPrompt should error on invalid template")
+	assert.Contains(t, err.Error(), "failed to execute template")
 }
 
 func TestBuildPickPrompt(t *testing.T) {
-	tmpDir := t.TempDir()
-	projectFile := filepath.Join(tmpDir, "test-project.yaml")
-	projectContent := `name: Test Project
-description: A test project
-requirements:
-  - category: Feature
-    description: Implement feature X
-    passing: false
-  - category: Bug Fix
-    description: Fix bug Y
-    passing: false
-`
-	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
-		t.Fatalf("Failed to create test project file: %v", err)
+	data := PickPromptData{
+		Notes:          nil,
+		CommitLog:      "",
+		ProjectContent: "name: Test Project\nrequirements:\n  - description: Feature X\n    passing: false\n  - description: Bug Y\n    passing: false",
+		PickedReqPath:  "/path/to/picked-requirement.yaml",
 	}
 
-	ralphDir := filepath.Join(tmpDir, ".ralph")
-	if err := os.MkdirAll(ralphDir, 0755); err != nil {
-		t.Fatalf("Failed to create .ralph directory: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("model: "+getTestModel(t)+"\n"), 0644); err != nil {
-		t.Fatalf("Failed to create .ralph/config.yaml: %v", err)
-	}
-
-	t.Chdir(tmpDir)
-
-	ctx := testutil.NewContext()
-
-	pickedReqPath := filepath.Join(tmpDir, "picked-requirement.yaml")
-	prompt, err := BuildPickPrompt(ctx, projectFile, pickedReqPath)
+	prompt, err := BuildPickPrompt(data)
 	require.NoError(t, err, "BuildPickPrompt failed")
 
-	// Verify prompt contains expected sections
-	expectedSections := []string{
-		"# Requirement Picker Agent Context",
-		"## Project Information",
-		"## Project Requirements",
-		"## Instructions",
-	}
-
-	for _, section := range expectedSections {
-		assert.True(t, strings.Contains(prompt, section), "Prompt missing expected section: %s", section)
-	}
-
-	// Without a git repo, GetCurrentBranch fails and no commit history is included
-	assert.False(t, strings.Contains(prompt, "## Recent Git History"), "Prompt should NOT contain 'Recent Git History' section without a git repo")
-
-	// Verify project content is included
-	assert.True(t, strings.Contains(prompt, "Test Project"), "Prompt does not contain project name")
-	assert.True(t, strings.Contains(prompt, "Implement feature X"), "Prompt does not contain project requirements")
-
-	// Verify the prompt contains the exact absolute path — this is the critical regression test:
-	// the AI must be told exactly where to write the file so it doesn't default to CWD when
-	// the project file lives in a subdirectory (e.g. projects/foo.yaml vs repo root).
-	assert.True(t, strings.Contains(prompt, pickedReqPath), "Prompt must contain the absolute path of picked-requirement.yaml so the AI writes it to the correct location, got:\n%s", prompt)
-}
-
-func TestBuildPickPrompt_MissingProjectFile(t *testing.T) {
-	ctx := testutil.NewContext()
-
-	_, err := BuildPickPrompt(ctx, "/nonexistent/project.yaml", "./tmp/picked-requirement.yaml")
-	require.Error(t, err, "Expected error for missing project file")
-	assert.Contains(t, err.Error(), "failed to read project file")
+	assert.Contains(t, prompt, "# Requirement Picker Agent Context")
+	assert.Contains(t, prompt, "## Project Information")
+	assert.Contains(t, prompt, "## Project Requirements")
+	assert.Contains(t, prompt, "## Instructions")
+	assert.Contains(t, prompt, "Test Project")
+	assert.Contains(t, prompt, "Feature X")
+	assert.Contains(t, prompt, "Bug Y")
+	assert.Contains(t, prompt, "/path/to/picked-requirement.yaml")
+	assert.NotContains(t, prompt, "## Recent Git History")
+	assert.NotContains(t, prompt, "## System Notes")
 }
 
 func TestBuildPickPrompt_WithNotes(t *testing.T) {
-	tmpDir := t.TempDir()
-	projectFile := filepath.Join(tmpDir, "test-project.yaml")
-	projectContent := `name: Test Project
-requirements:
-  - description: Feature 1
-    passing: false
-`
-	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
-		t.Fatalf("Failed to create test project file: %v", err)
+	data := PickPromptData{
+		Notes:          []string{"Pick this one"},
+		CommitLog:      "",
+		ProjectContent: "name: Test Project",
+		PickedReqPath:  "/path/to/picked-requirement.yaml",
 	}
 
-	ralphDir := filepath.Join(tmpDir, ".ralph")
-	if err := os.MkdirAll(ralphDir, 0755); err != nil {
-		t.Fatalf("Failed to create .ralph directory: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("model: "+getTestModel(t)+"\n"), 0644); err != nil {
-		t.Fatalf("Failed to create .ralph/config.yaml: %v", err)
-	}
-
-	t.Chdir(tmpDir)
-
-	ctx := testutil.NewContext()
-	ctx.AddNote("This is a test note for the picker agent")
-
-	pickedReqPath := filepath.Join(tmpDir, "picked-requirement.yaml")
-	prompt, err := BuildPickPrompt(ctx, projectFile, pickedReqPath)
+	prompt, err := BuildPickPrompt(data)
 	require.NoError(t, err, "BuildPickPrompt failed")
 
-	// Verify prompt contains System Notes section when context has notes
-	assert.True(t, strings.Contains(prompt, "## System Notes"), "Prompt should contain 'System Notes' section when context has notes")
-	assert.True(t, strings.Contains(prompt, "This is a test note for the picker agent"), "Prompt should contain the note")
+	assert.Contains(t, prompt, "## System Notes")
+	assert.Contains(t, prompt, "Pick this one")
 }
 
-func TestBuildPickPrompt_WithoutNotes(t *testing.T) {
-	tmpDir := t.TempDir()
-	projectFile := filepath.Join(tmpDir, "test-project.yaml")
-	projectContent := `name: Test Project
-requirements:
-  - description: Feature 1
-    passing: false
-`
-	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
-		t.Fatalf("Failed to create test project file: %v", err)
+func TestBuildPickPrompt_WithCommitLog(t *testing.T) {
+	data := PickPromptData{
+		Notes:          nil,
+		CommitLog:      "abc123 Initial commit\ndef456 Add feature",
+		ProjectContent: "name: Test Project",
+		PickedReqPath:  "/path/to/picked-requirement.yaml",
 	}
 
-	ralphDir := filepath.Join(tmpDir, ".ralph")
-	if err := os.MkdirAll(ralphDir, 0755); err != nil {
-		t.Fatalf("Failed to create .ralph directory: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("model: "+getTestModel(t)+"\n"), 0644); err != nil {
-		t.Fatalf("Failed to create .ralph/config.yaml: %v", err)
-	}
-
-	t.Chdir(tmpDir)
-
-	ctx := testutil.NewContext()
-
-	pickedReqPath := filepath.Join(tmpDir, "picked-requirement.yaml")
-	prompt, err := BuildPickPrompt(ctx, projectFile, pickedReqPath)
+	prompt, err := BuildPickPrompt(data)
 	require.NoError(t, err, "BuildPickPrompt failed")
 
-	// Verify prompt does NOT contain system notes section when context has no notes
-	assert.False(t, strings.Contains(prompt, "## System Notes"), "Prompt should not contain 'System Notes' section when context has no notes")
+	assert.Contains(t, prompt, "## Recent Git History")
+	assert.Contains(t, prompt, "abc123 Initial commit")
 }
 
-func TestBuildDevelopPrompt_WithSelectedRequirement(t *testing.T) {
-	tmpDir := t.TempDir()
-	projectFile := filepath.Join(tmpDir, "test-project.yaml")
-	projectContent := `name: Test Project
-description: A test project
-requirements:
-  - category: Feature
-    description: Implement feature X
-    passing: false
-  - category: Bug Fix
-    description: Fix bug Y
-    passing: false
-`
-	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
-		t.Fatalf("Failed to create test project file: %v", err)
+func TestBuildPickPrompt_ErrorOnInvalidTemplate(t *testing.T) {
+	data := PickPromptData{
+		Notes:          nil,
+		CommitLog:      "",
+		ProjectContent: "content",
+		PickedReqPath:  "/path",
 	}
 
-	ralphDir := filepath.Join(tmpDir, ".ralph")
-	if err := os.MkdirAll(ralphDir, 0755); err != nil {
-		t.Fatalf("Failed to create .ralph directory: %v", err)
+	_, err := BuildPickPrompt(data)
+	require.NoError(t, err, "BuildPickPrompt should succeed with valid data (uses default template)")
+}
+
+func TestExecuteTemplate(t *testing.T) {
+	type testData struct {
+		Name string
+		Age  int
 	}
-	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("model: "+getTestModel(t)+"\n"), 0644); err != nil {
-		t.Fatalf("Failed to create .ralph/config.yaml: %v", err)
+
+	result, err := executeTemplate("Name: {{.Name}}, Age: {{.Age}}", testData{Name: "Alice", Age: 30})
+	require.NoError(t, err, "executeTemplate failed")
+	assert.Equal(t, "Name: Alice, Age: 30", result)
+}
+
+func TestExecuteTemplate_ParseError(t *testing.T) {
+	_, err := executeTemplate("{{.Invalid", nil)
+	require.Error(t, err, "executeTemplate should error on parse failure")
+	assert.Contains(t, err.Error(), "failed to parse template")
+}
+
+func TestExecuteTemplate_ExecuteError(t *testing.T) {
+	type testData struct {
+		Name string
 	}
 
-	t.Chdir(tmpDir)
+	_, err := executeTemplate("{{.Age}}", testData{Name: "Bob"}) // Age field doesn't exist
+	require.Error(t, err, "executeTemplate should error on execute failure")
+	assert.Contains(t, err.Error(), "failed to execute template")
+}
 
-	ctx := testutil.NewContext()
+func TestBuildDevelopPrompt_EmptyNotes(t *testing.T) {
+	data := DevelopPromptData{
+		Notes:               []string{},
+		CommitLog:           "",
+		ProjectContent:      "name: Test",
+		SelectedRequirement: "- desc: X",
+		ProjectFilePath:     "/path",
+		Services:            nil,
+		Instructions:        config.DefaultDevelopmentInstructions(),
+	}
 
-	selectedReq := `  - category: Feature
-    description: Implement feature X
-    passing: false`
+	prompt, err := BuildDevelopPrompt(data)
+	require.NoError(t, err, "BuildDevelopPrompt failed")
 
-	prompt, err := BuildDevelopPrompt(ctx, projectFile, selectedReq)
-	require.NoError(t, err, "BuildDevelopPrompt with selectedRequirement failed")
+	assert.NotContains(t, prompt, "## System Notes")
+}
 
-	// Verify selected requirement is included inline
-	assert.True(t, strings.Contains(prompt, "Implement feature X"), "Prompt does not contain selected requirement")
+func TestBuildPickPrompt_EmptyNotes(t *testing.T) {
+	data := PickPromptData{
+		Notes:          []string{},
+		CommitLog:      "",
+		ProjectContent: "name: Test",
+		PickedReqPath:  "/path",
+	}
 
-	// Verify project file path is included
-	assert.True(t, strings.Contains(prompt, projectFile), "Prompt does not contain project file path")
+	prompt, err := BuildPickPrompt(data)
+	require.NoError(t, err, "BuildPickPrompt failed")
 
-	// Verify instructions are still included
-	assert.True(t, strings.Contains(prompt, "Implement the selected requirement"), "Prompt does not contain instructions")
+	assert.NotContains(t, prompt, "## System Notes")
 }

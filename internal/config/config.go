@@ -132,11 +132,15 @@ func DefaultMergeInstructions() string {
 	return defaultMergeInstructions
 }
 
-func (c *RalphConfig) DefaultFixServiceInstructions() string {
+func DefaultDevelopmentInstructions() string {
+	return defaultInstructions
+}
+
+func DefaultFixServiceInstructions() string {
 	return defaultFixServiceInstructions
 }
 
-func (c *RalphConfig) DefaultPickInstructions() string {
+func DefaultPickInstructions() string {
 	return defaultPickInstructions
 }
 
