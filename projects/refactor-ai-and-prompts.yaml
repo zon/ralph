@@ -25,4 +25,4 @@ requirements:
       - Extract template parsing and execution into a private helper function shared by all builders
       - Remove logging from prompt building functions
       - All prompt building functions return errors rather than logging warnings on failure
-    passing: false
+    passing: true
