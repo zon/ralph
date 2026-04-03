@@ -488,9 +488,9 @@ requirements:
 	cfg, err := config.LoadConfig()
 	require.NoError(t, err)
 
-	// Create overview with one component
+	// Create overview with one module
 	overview := &Overview{
-		Components: []OverviewComponent{
+		Modules: []OverviewComponent{
 			{Name: "mock-component", Path: "internal/mock", Summary: "Mock component"},
 		},
 	}

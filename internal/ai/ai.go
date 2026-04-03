@@ -158,18 +158,30 @@ func runMockAgent(ctx *context.Context, prompt string) error {
 			jsonPath = "overview.json"
 		}
 		overview := struct {
-			Components []struct {
+			Modules []struct {
 				Name    string `json:"name"`
 				Path    string `json:"path"`
 				Summary string `json:"summary"`
-			} `json:"components"`
+			} `json:"modules"`
+			Apps []struct {
+				Name    string `json:"name"`
+				Path    string `json:"path"`
+				Summary string `json:"summary"`
+			} `json:"apps"`
 		}{
-			Components: []struct {
+			Modules: []struct {
 				Name    string `json:"name"`
 				Path    string `json:"path"`
 				Summary string `json:"summary"`
 			}{
-				{Name: "mock-component", Path: "internal/mock", Summary: "Mock component for testing"},
+				{Name: "mock-module", Path: "internal/mock", Summary: "Mock module for testing"},
+			},
+			Apps: []struct {
+				Name    string `json:"name"`
+				Path    string `json:"path"`
+				Summary string `json:"summary"`
+			}{
+				{Name: "mock-app", Path: "cmd/mock", Summary: "Mock app for testing"},
 			},
 		}
 		data, err := json.Marshal(overview)

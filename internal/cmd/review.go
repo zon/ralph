@@ -384,13 +384,14 @@ func (r *ReviewCmd) runReview(ctx *execcontext.Context, overview *Overview, proj
 		logger.Infof("Using random seed: %d", seed)
 	}
 
-	// Shuffle components
-	overview.Components = shuffleComponents(overview.Components, seed)
+	// Combine modules and apps for review
+	allComponents := overview.AllComponents()
+	shuffledComponents := shuffleComponents(allComponents, seed)
 
 	// Shuffle review items with original indices
 	itemsWithIdx := shuffleItemsWithIndices(ralphConfig.Review.Items, seed)
 
-	for _, component := range overview.Components {
+	for _, component := range shuffledComponents {
 		for _, pair := range itemsWithIdx {
 			item := pair.item
 			i := pair.idx
@@ -444,7 +445,16 @@ func (r *ReviewCmd) runReview(ctx *execcontext.Context, overview *Overview, proj
 }
 
 func (r *ReviewCmd) printDetectedComponents(overview *Overview) {
-	for _, comp := range overview.Components {
-		logger.Infof("Component: %s (%s) - %s", comp.Name, comp.Path, comp.Summary)
+	if len(overview.Modules) > 0 {
+		logger.Infof("Modules (%d):", len(overview.Modules))
+		for _, mod := range overview.Modules {
+			logger.Infof("  - %s (%s) - %s", mod.Name, mod.Path, mod.Summary)
+		}
+	}
+	if len(overview.Apps) > 0 {
+		logger.Infof("Apps (%d):", len(overview.Apps))
+		for _, app := range overview.Apps {
+			logger.Infof("  - %s (%s) - %s", app.Name, app.Path, app.Summary)
+		}
 	}
 }

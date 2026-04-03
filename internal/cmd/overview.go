@@ -23,7 +23,15 @@ type OverviewComponent struct {
 }
 
 type Overview struct {
-	Components []OverviewComponent `json:"components"`
+	Modules []OverviewComponent `json:"modules"`
+	Apps    []OverviewComponent `json:"apps"`
+}
+
+func (o *Overview) AllComponents() []OverviewComponent {
+	result := make([]OverviewComponent, 0, len(o.Modules)+len(o.Apps))
+	result = append(result, o.Modules...)
+	result = append(result, o.Apps...)
+	return result
 }
 
 func loadOverview(path string) (*Overview, error) {
