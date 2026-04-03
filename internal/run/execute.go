@@ -76,7 +76,16 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	logger.Verbosef("Iteration loop completed after %d iteration(s)", iterCount)
 
 	logger.Verbose("Generating PR summary...")
-	prSummary, err := GeneratePRSummary(ctx, absProjectFile, iterCount, baseBranch)
+
+	commitLog, err := git.GetCommitLog(baseBranch, 100)
+	if err != nil {
+		return fmt.Errorf("failed to get commit log: %w", err)
+	}
+
+	allComplete, passingCount, failingCount := project.CheckCompletion(proj)
+	projectStatus := fmt.Sprintf("%d passing, %d failing (complete: %v)", passingCount, failingCount, allComplete)
+
+	prSummary, err := GeneratePRSummary(ctx, proj, projectStatus, baseBranch, commitLog)
 	if err != nil {
 		return fmt.Errorf("failed to generate PR summary: %w", err)
 	}

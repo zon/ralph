@@ -223,16 +223,25 @@ func (r *ReviewCmd) buildCommitMessage(componentName string, itemIndex int, summ
 func (r *ReviewCmd) submitPR(ctx *execcontext.Context, absProjectFile, reviewName, baseBranch string) error {
 	title := reviewName
 	proj, err := project.LoadProject(absProjectFile)
-	if err == nil && proj.Description != "" {
-		title = proj.Description
-	} else if err != nil {
+	if err != nil {
 		// If project cannot be loaded, create a minimal project for PR creation
 		proj = &project.Project{Name: reviewName, Description: title}
 	}
 
+	var requirementSummaries []string
+	for _, req := range proj.Requirements {
+		reqSummary := req.Description
+		if reqSummary == "" {
+			reqSummary = req.Name
+		}
+		if reqSummary != "" {
+			requirementSummaries = append(requirementSummaries, reqSummary)
+		}
+	}
+
 	body := fmt.Sprintf("AI code review findings for `%s`.", reviewName)
 
-	generatedBody, err := run.GenerateReviewPRBody(ctx, absProjectFile)
+	generatedBody, err := run.GenerateReviewPRBody(ctx, proj, requirementSummaries)
 	if err != nil {
 		logger.Verbosef("Failed to generate PR body with AI: %v", err)
 	} else {

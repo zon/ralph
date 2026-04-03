@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/zon/ralph/internal/logger"
+	"github.com/zon/ralph/internal/project"
 	"github.com/zon/ralph/internal/testutil"
 )
 
@@ -133,7 +134,7 @@ func TestExecute_ValidProject(t *testing.T) {
 	require.NoError(t, os.WriteFile("test-project.yaml", []byte(projectYAML), 0644))
 
 	ctx := testutil.NewContext(testutil.WithProjectFile("test-project.yaml"))
-	err := ExecuteDevelopmentIteration(ctx, nil)
+	err := project.ExecuteDevelopmentIteration(ctx, nil)
 
 	require.NoError(t, err)
 }
@@ -146,7 +147,7 @@ func TestExecute_BlockedMDExists(t *testing.T) {
 	require.NoError(t, os.WriteFile("blocked.md", []byte("Agent is blocked due to previous error"), 0644))
 
 	ctx := testutil.NewContext(testutil.WithProjectFile("test-project.yaml"))
-	err := ExecuteDevelopmentIteration(ctx, nil)
+	err := project.ExecuteDevelopmentIteration(ctx, nil)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "blocked")
@@ -161,7 +162,7 @@ func TestExecute_BlockedMDContents(t *testing.T) {
 	require.NoError(t, os.WriteFile("blocked.md", []byte(blockedContent), 0644))
 
 	ctx := testutil.NewContext(testutil.WithProjectFile("test-project.yaml"))
-	err := ExecuteDevelopmentIteration(ctx, nil)
+	err := project.ExecuteDevelopmentIteration(ctx, nil)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), blockedContent)
@@ -176,7 +177,7 @@ func TestExecute_NoBlockedMD(t *testing.T) {
 	require.NoError(t, os.WriteFile("test-project.yaml", []byte(projectYAML), 0644))
 
 	ctx := testutil.NewContext(testutil.WithProjectFile("test-project.yaml"))
-	err := ExecuteDevelopmentIteration(ctx, nil)
+	err := project.ExecuteDevelopmentIteration(ctx, nil)
 
 	require.NoError(t, err)
 }
@@ -191,7 +192,7 @@ func TestExecute_NormalizeTrailingNewlines(t *testing.T) {
 	require.NoError(t, os.WriteFile("test-project.yaml", []byte(withExcessNewlines), 0644))
 
 	ctx := testutil.NewContext(testutil.WithProjectFile("test-project.yaml"))
-	err := ExecuteDevelopmentIteration(ctx, nil)
+	err := project.ExecuteDevelopmentIteration(ctx, nil)
 	require.NoError(t, err)
 
 	content, err := os.ReadFile("test-project.yaml")
@@ -219,7 +220,7 @@ func TestExecute_StagesFileWithChanges(t *testing.T) {
 	}
 
 	ctx := testutil.NewContext(testutil.WithProjectFile("test-project.yaml"))
-	err := ExecuteDevelopmentIteration(ctx, nil)
+	err := project.ExecuteDevelopmentIteration(ctx, nil)
 	require.NoError(t, err)
 
 	// Normalization should have changed and staged the file.
@@ -242,7 +243,7 @@ func TestExecute_DoesNotStageFileWithoutChanges(t *testing.T) {
 	require.NoError(t, os.WriteFile("test-project.yaml", []byte(projectYAML), 0644))
 
 	ctx := testutil.NewContext(testutil.WithProjectFile("test-project.yaml"))
-	err := ExecuteDevelopmentIteration(ctx, nil)
+	err := project.ExecuteDevelopmentIteration(ctx, nil)
 	require.NoError(t, err)
 
 	cmd := exec.Command("git", "diff", "--staged", "--name-only")
@@ -270,7 +271,7 @@ func TestExecute_StartsServices(t *testing.T) {
 		testutil.WithProjectFile("test-project.yaml"),
 		testutil.WithNoServices(false),
 	)
-	err = ExecuteDevelopmentIteration(ctx, nil)
+	err = project.ExecuteDevelopmentIteration(ctx, nil)
 
 	require.NoError(t, err)
 }
@@ -286,7 +287,7 @@ func TestExecute_WritesBlockedOnAgentFailure(t *testing.T) {
 	require.NoError(t, os.WriteFile("test-project.yaml", []byte(projectYAML), 0644))
 
 	ctx := testutil.NewContext(testutil.WithProjectFile("test-project.yaml"))
-	err := ExecuteDevelopmentIteration(ctx, nil)
+	err := project.ExecuteDevelopmentIteration(ctx, nil)
 
 	require.Error(t, err)
 

@@ -168,7 +168,7 @@ func (r *RunCmd) createExecutionContext(maxIterations int) *execcontext.Context 
 
 func (r *RunCmd) executeOnceMode(ctx *execcontext.Context) error {
 	projectName := strings.TrimSuffix(filepath.Base(ctx.ProjectFile()), filepath.Ext(ctx.ProjectFile()))
-	if err := run.ExecuteDevelopmentIteration(ctx, r.cleanupRegistrar); err != nil {
+	if err := project.ExecuteDevelopmentIteration(ctx, r.cleanupRegistrar); err != nil {
 		notify.Error(projectName, ctx.ShouldNotify())
 		return err
 	}

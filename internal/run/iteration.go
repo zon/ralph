@@ -166,7 +166,7 @@ func RunIterationLoop(ctx *context.Context, cleanupRegistrar func(func())) (int,
 func runSingleIteration(ctx *context.Context, cleanupRegistrar func(func()), previousProject *project.Project, iteration int) error {
 	// Run single development iteration
 	logger.Verbose("Running development iteration...")
-	if err := ExecuteDevelopmentIteration(ctx, cleanupRegistrar); err != nil {
+	if err := project.ExecuteDevelopmentIteration(ctx, cleanupRegistrar); err != nil {
 		if isFatalOpenCodeError(err) {
 			return fmt.Errorf("%w: %v", ErrFatalOpenCodeError, err)
 		}

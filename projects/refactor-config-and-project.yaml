@@ -38,7 +38,7 @@ requirements:
       - Move iteration execution (Execute function) from internal/requirement to internal/project package
       - Update all callers to use the new location
       - Consider renaming internal/requirement package to reflect its purpose (or remove if empty)
-    passing: false
+    passing: true
   - category: version
     description: Apply version bump for this release
     items:
