@@ -2,10 +2,10 @@ package run
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
+	"io/fs"
 
 	"github.com/zon/ralph/internal/context"
+	"github.com/zon/ralph/internal/fileutil"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/project"
@@ -18,20 +18,20 @@ func FindCompleteProjects(dir string) ([]string, error) {
 	var completeProjects []string
 
 	// Check if directory exists
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
+	if _, err := fileutil.Stat(dir); fileutil.IsNotExist(err) {
 		return nil, fmt.Errorf("directory does not exist: %s", dir)
 	}
 
 	// Find all YAML files recursively in the directory tree
 	var allFiles []string
-	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+	err := fileutil.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if d.IsDir() {
 			return nil
 		}
-		ext := filepath.Ext(path)
+		ext := fileutil.Ext(path)
 		if ext == ".yaml" || ext == ".yml" {
 			allFiles = append(allFiles, path)
 		}
@@ -51,7 +51,7 @@ func FindCompleteProjects(dir string) ([]string, error) {
 
 		// Check if project is complete
 		if isProjectComplete(project) {
-			absPath, err := filepath.Abs(filePath)
+			absPath, err := fileutil.Abs(filePath)
 			if err != nil {
 				// Skip files with path resolution errors
 				continue
@@ -88,7 +88,7 @@ func RemoveAndCommit(ctx *context.Context, files []string) error {
 
 	// Delete each file
 	for _, filePath := range files {
-		if err := os.Remove(filePath); err != nil {
+		if err := fileutil.Remove(filePath); err != nil {
 			return fmt.Errorf("failed to remove project file %s: %w", filePath, err)
 		}
 		logger.Infof("Removed complete project file: %s", filePath)

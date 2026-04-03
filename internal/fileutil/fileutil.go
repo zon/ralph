@@ -1,0 +1,142 @@
+package fileutil
+
+import (
+	"io/fs"
+	"os"
+	"path/filepath"
+)
+
+// FileSystem provides an interface for file system operations.
+type FileSystem interface {
+	ReadFile(name string) ([]byte, error)
+	WriteFile(name string, data []byte, perm fs.FileMode) error
+	Stat(name string) (fs.FileInfo, error)
+	Join(elem ...string) string
+	Abs(path string) (string, error)
+	Base(path string) string
+	Ext(path string) string
+	WalkDir(root string, fn fs.WalkDirFunc) error
+	Remove(name string) error
+	Rename(oldpath, newpath string) error // Added
+}
+
+// OSFileSystem implements FileSystem using the os and filepath packages.
+type OSFileSystem struct{}
+
+// ReadFile reads the named file and returns the contents.
+func (OSFileSystem) ReadFile(name string) ([]byte, error) {
+	return os.ReadFile(name)
+}
+
+// WriteFile writes data to the named file.
+func (OSFileSystem) WriteFile(name string, data []byte, perm fs.FileMode) error {
+	return os.WriteFile(name, data, perm)
+}
+
+// Stat returns a FileInfo describing the named file.
+func (OSFileSystem) Stat(name string) (fs.FileInfo, error) {
+	return os.Stat(name)
+}
+
+// Join joins any number of path elements into a single path.
+func (OSFileSystem) Join(elem ...string) string {
+	return filepath.Join(elem...)
+}
+
+// Abs returns an absolute representation of path.
+func (OSFileSystem) Abs(path string) (string, error) {
+	return filepath.Abs(path)
+}
+
+// Base returns the last element of path.
+func (OSFileSystem) Base(path string) string {
+	return filepath.Base(path)
+}
+
+// Ext returns the file name extension used by path.
+func (OSFileSystem) Ext(path string) string {
+	return filepath.Ext(path)
+}
+
+// WalkDir walks the file tree rooted at root, calling fn for each file or directory in the tree,
+// including root. All errors that arise visiting files and directories are filtered by fn.
+func (OSFileSystem) WalkDir(root string, fn fs.WalkDirFunc) error {
+	return filepath.WalkDir(root, fn)
+}
+
+// Remove removes the named file or (empty) directory.
+func (OSFileSystem) Remove(name string) error {
+	return os.Remove(name)
+}
+
+// Rename renames (moves) a file or directory.
+func (OSFileSystem) Rename(oldpath, newpath string) error {
+	return os.Rename(oldpath, newpath)
+}
+
+// DefaultFS is the default file system implementation using os and filepath.
+var DefaultFS FileSystem = OSFileSystem{}
+
+// ReadFile reads the named file and returns the contents.
+func ReadFile(name string) ([]byte, error) {
+	return DefaultFS.ReadFile(name)
+}
+
+// WriteFile writes data to the named file.
+func WriteFile(name string, data []byte, perm fs.FileMode) error {
+	return DefaultFS.WriteFile(name, data, perm)
+}
+
+// Stat returns a FileInfo describing the named file.
+func Stat(name string) (fs.FileInfo, error) {
+	return DefaultFS.Stat(name)
+}
+
+// Join joins any number of path elements into a single path.
+func Join(elem ...string) string {
+	return DefaultFS.Join(elem...)
+}
+
+// Abs returns an absolute representation of path.
+func Abs(path string) (string, error) {
+	return DefaultFS.Abs(path)
+}
+
+// Base returns the last element of path.
+func Base(path string) string {
+	return DefaultFS.Base(path)
+}
+
+// Ext returns the file name extension used by path.
+func Ext(path string) string {
+	return DefaultFS.Ext(path)
+}
+
+// WalkDir walks the file tree rooted at root, calling fn for each file or directory in the tree,
+// including root. All errors that arise visiting files and directories are filtered by fn.
+func WalkDir(root string, fn fs.WalkDirFunc) error {
+	return DefaultFS.WalkDir(root, fn)
+}
+
+// Remove removes the named file or (empty) directory.
+func Remove(name string) error {
+	return DefaultFS.Remove(name)
+}
+
+// Rename renames (moves) a file or directory.
+func Rename(oldpath, newpath string) error {
+	return DefaultFS.Rename(oldpath, newpath)
+}
+
+// MkdirAll creates a directory named path, along with any necessary parents, and returns nil,
+// or else returns an error. The permission bits perm are used for all directories that MkdirAll creates.
+// If path is already a directory, MkdirAll does nothing and returns nil.
+func MkdirAll(path string, perm fs.FileMode) error {
+	return os.MkdirAll(path, perm)
+}
+
+// IsNotExist returns a boolean indicating whether the error is known to report
+// that a file or directory does not exist.
+func IsNotExist(err error) bool {
+	return os.IsNotExist(err)
+}

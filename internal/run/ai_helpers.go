@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"text/template"
 
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
+	"github.com/zon/ralph/internal/fileutil"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/project"
@@ -19,32 +19,7 @@ import (
 // GeneratePRSummary generates a pull request summary using AI
 // It includes project description, status, commits, and diff
 // This matches ralph.sh's approach: agent writes to a file, we read it back
-func GeneratePRSummary(ctx *context.Context, projectFile string, iterations int, baseBranch string) (string, error) {
-	proj, err := project.LoadProject(projectFile)
-	if err != nil {
-		return "", fmt.Errorf("failed to load project: %w", err)
-	}
-
-	allComplete, _, _ := project.CheckCompletion(proj)
-
-	var projectStatus string
-	if allComplete {
-		projectStatus = "✅ Complete"
-	} else {
-		projectStatus = "⚠️ Incomplete"
-	}
-
-	commitLog, err := git.GetCommitLog(baseBranch, 0)
-	if err != nil {
-		logger.Verbosef("Failed to get commit log: %v", err)
-		commitLog = "(Unable to retrieve commit log)"
-	}
-
-	tmpFile, err := git.TmpPath("pr-summary.txt")
-	if err != nil {
-		return "", err
-	}
-	defer os.Remove(tmpFile)
+	defer fileutil.Remove(tmpFile)
 
 	prompt := buildPRSummaryPrompt(proj.Description, projectStatus, baseBranch, commitLog, tmpFile)
 
@@ -92,8 +67,7 @@ Write your summary to the file: {{.AbsPath}}
 `))
 
 // buildPRSummaryPrompt constructs the prompt for generating PR summary
-func buildPRSummaryPrompt(projectDesc, projectStatus, baseBranch, commitLog, outputFile string) string {
-	absPath, _ := filepath.Abs(outputFile)
+	absPath, _ := fileutil.Abs(outputFile)
 
 	var builder bytes.Buffer
 	data := prSummaryData{
@@ -121,7 +95,7 @@ func runOpenCodeAndReadResult(ctx *context.Context, model, prompt, outputFile st
 	}
 
 	// Read the summary from the file the agent wrote
-	summaryBytes, err := os.ReadFile(outputFile)
+	summaryBytes, err := fileutil.ReadFile(outputFile)
 	if err != nil {
 		return "", fmt.Errorf("failed to read summary file: %w", err)
 	}
@@ -147,12 +121,7 @@ func resolveModel(ctx *context.Context) string {
 
 // GenerateChangelog prompts opencode to inspect the current git diff and write a
 // descriptive changelog to report.md.
-func GenerateChangelog(ctx *context.Context) error {
-	tmpFile, err := git.TmpPath("changelog.txt")
-	if err != nil {
-		return err
-	}
-	defer os.Remove(tmpFile)
+	defer fileutil.Remove(tmpFile)
 
 	prompt := buildChangelogPrompt(tmpFile)
 
@@ -167,7 +136,7 @@ func GenerateChangelog(ctx *context.Context) error {
 	}
 
 	// The agent writes to the file we gave it; we need to move that to report.md
-	if err := os.Rename(tmpFile, "report.md"); err != nil {
+	if err := fileutil.Rename(tmpFile, "report.md"); err != nil {
 		return fmt.Errorf("failed to rename changelog to report.md: %w", err)
 	}
 
@@ -190,7 +159,7 @@ Write the changelog entry to the file: {{.}}
 Do not include any extra commentary, just the changelog entry.`))
 
 func buildChangelogPrompt(outputFile string) string {
-	absPath, _ := filepath.Abs(outputFile)
+	absPath, _ := fileutil.Abs(outputFile)
 	var b bytes.Buffer
 	changelogPromptTemplate.Execute(&b, absPath)
 	return b.String()
@@ -198,27 +167,7 @@ func buildChangelogPrompt(outputFile string) string {
 
 // GenerateReviewPRBody generates a PR body for review findings using AI
 // It reads the review project file and writes a concise summary of recommended changes
-func GenerateReviewPRBody(ctx *context.Context, projectFile string) (string, error) {
-	proj, err := project.LoadProject(projectFile)
-	if err != nil {
-		return "", fmt.Errorf("failed to load project: %w", err)
-	}
-
-	var requirementSummaries []string
-	for _, req := range proj.Requirements {
-		status := "❌ Not passing"
-		if req.Passing {
-			status = "✅ Passing"
-		}
-		summary := fmt.Sprintf("- **%s**: %s (%s)", req.Category, req.Description, status)
-		requirementSummaries = append(requirementSummaries, summary)
-	}
-
-	tmpFile, err := git.TmpPath("pr-body.txt")
-	if err != nil {
-		return "", err
-	}
-	defer os.Remove(tmpFile)
+	defer fileutil.Remove(tmpFile)
 
 	prompt := buildReviewPRBodyPrompt(proj.Name, proj.Description, requirementSummaries, tmpFile)
 
@@ -263,7 +212,7 @@ Write your summary to the file: {{.AbsPath}}
 `))
 
 func buildReviewPRBodyPrompt(projectName, projectDesc string, requirements []string, outputFile string) string {
-	absPath, _ := filepath.Abs(outputFile)
+	absPath, _ := fileutil.Abs(outputFile)
 
 	var builder bytes.Buffer
 	data := reviewPRBodyData{

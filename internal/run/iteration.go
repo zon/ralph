@@ -3,11 +3,10 @@ package run
 import (
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/zon/ralph/internal/context"
+	"github.com/zon/ralph/internal/fileutil"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/project"
@@ -58,10 +57,10 @@ func isBlocked(ctx *context.Context) (bool, error) {
 		return false, fmt.Errorf("failed to find repo root: %w", err)
 	}
 
-	blockedPath := filepath.Join(repoRoot, "blocked.md")
-	_, err = os.Stat(blockedPath)
+	blockedPath := fileutil.Join(repoRoot, "blocked.md")
+	_, err = fileutil.Stat(blockedPath)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if fileutil.IsNotExist(err) {
 			return false, nil
 		}
 		return false, fmt.Errorf("failed to check for blocked.md: %w", err)
@@ -227,8 +226,8 @@ func reportNewlyPassingRequirements(previousProject, currentProject *project.Pro
 // CommitChanges stages all changes and commits them using report.md as the commit message
 func CommitChanges(ctx *context.Context, iteration int) error {
 	// If there are no uncommitted changes and no report.md, there is nothing to commit
-	_, reportErr := os.Stat("report.md")
-	if !git.HasUncommittedChanges() && os.IsNotExist(reportErr) {
+	_, reportErr := fileutil.Stat("report.md")
+	if !git.HasUncommittedChanges() && fileutil.IsNotExist(reportErr) {
 		return ErrNoChanges
 	}
 
@@ -268,7 +267,7 @@ func generateChangelogIfNeeded(ctx *context.Context) error {
 		return nil
 	}
 
-	if _, err := os.Stat("report.md"); err == nil {
+	if _, err := fileutil.Stat("report.md"); err == nil {
 		// report.md already exists; nothing to do
 		return nil
 	}
@@ -281,11 +280,11 @@ func generateChangelogIfNeeded(ctx *context.Context) error {
 // Returns an error if report.md does not exist.
 func getCommitMessage(iteration int) ([]byte, error) {
 	reportPath := "report.md"
-	commitMsg, err := os.ReadFile(reportPath)
+	commitMsg, err := fileutil.ReadFile(reportPath)
 	if err != nil {
 		return nil, fmt.Errorf("report.md not found: %w", err)
 	}
-	if err := os.Remove(reportPath); err != nil {
+	if err := fileutil.Remove(reportPath); err != nil {
 		logger.Warningf("Failed to remove report.md: %v", err)
 	}
 	return commitMsg, nil
@@ -304,7 +303,7 @@ func performCommit(ctx *context.Context, commitMsg []byte, iteration int) error 
 		}
 	} else {
 		logger.Verbosef("No file changes after iteration %d; skipping empty commit", iteration)
-		if err := os.Remove("report.md"); err != nil && !os.IsNotExist(err) {
+		if err := fileutil.Remove("report.md"); err != nil && !fileutil.IsNotExist(err) {
 			logger.Warningf("Failed to remove report.md: %v", err)
 		}
 		return ErrNoChanges
