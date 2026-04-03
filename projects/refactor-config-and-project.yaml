@@ -43,7 +43,7 @@ requirements:
     description: Apply version bump for this release
     items:
       - Apply a semver patch bump to internal/version/VERSION and charts/ralph-webhook/Chart.yaml
-    passing: false
+    passing: true
   - category: run-module
     description: Introduce internal/run package to hold project execution domain logic
     items:
