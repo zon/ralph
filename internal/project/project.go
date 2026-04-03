@@ -1,10 +1,12 @@
-package requirement
+package project
 
 import (
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 
 	"github.com/zon/ralph/internal/ai"
 	"github.com/zon/ralph/internal/config"
@@ -15,7 +17,109 @@ import (
 	"github.com/zon/ralph/internal/services"
 )
 
-// Execute runs a single development iteration
+// Project represents a project YAML file with requirements
+type Project struct {
+	Name         string        `yaml:"name"`
+	Description  string        `yaml:"description,omitempty"`
+	Requirements []Requirement `yaml:"requirements"`
+}
+
+// Requirement represents a single requirement in a project
+type Requirement struct {
+	ID          string   `yaml:"id,omitempty"`
+	Category    string   `yaml:"category,omitempty"`
+	Name        string   `yaml:"name,omitempty"`
+	Description string   `yaml:"description,omitempty"`
+	Items       []string `yaml:"items,omitempty"`
+	Passing     bool     `yaml:"passing"`
+}
+
+// LoadProject loads and validates a project YAML file
+func LoadProject(path string) (*Project, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read project file: %w", err)
+	}
+
+	var project Project
+	if err := yaml.Unmarshal(data, &project); err != nil {
+		return nil, fmt.Errorf("failed to parse project YAML: %w", err)
+	}
+
+	if err := ValidateProject(&project); err != nil {
+		return nil, err
+	}
+
+	return &project, nil
+}
+
+// ValidateProject validates a project structure
+func ValidateProject(p *Project) error {
+	if p.Name == "" {
+		return fmt.Errorf("project name is required")
+	}
+
+	if len(p.Requirements) == 0 {
+		return fmt.Errorf("project must have at least one requirement")
+	}
+
+	return nil
+}
+
+// SaveProject saves a project to a YAML file
+func SaveProject(path string, p *Project) error {
+	data, err := yaml.Marshal(p)
+	if err != nil {
+		return fmt.Errorf("failed to marshal project: %w", err)
+	}
+
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return fmt.Errorf("failed to write project file: %w", err)
+	}
+
+	return nil
+}
+
+// CheckCompletion checks project completion status
+// Returns: allComplete, passingCount, failingCount
+func CheckCompletion(p *Project) (bool, int, int) {
+	passingCount := 0
+	failingCount := 0
+
+	for _, req := range p.Requirements {
+		if req.Passing {
+			passingCount++
+		} else {
+			failingCount++
+		}
+	}
+
+	allComplete := failingCount == 0
+
+	return allComplete, passingCount, failingCount
+}
+
+// UpdateRequirementStatus updates the passing status of a specific requirement
+func UpdateRequirementStatus(p *Project, reqID string, passing bool) error {
+	found := false
+
+	for i := range p.Requirements {
+		// Match by ID if provided, otherwise match by index
+		if p.Requirements[i].ID == reqID {
+			p.Requirements[i].Passing = passing
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("requirement not found: %s", reqID)
+	}
+
+	return nil
+}
+
+// ExecuteDevelopmentIteration runs a single development iteration
 // It performs the following steps:
 // 1. Validates and loads the project file
 // 2. Starts configured services (unless disabled)
@@ -23,7 +127,7 @@ import (
 // 4. Runs the AI agent with the prompt
 // 5. Stages the project file after completion
 // Note: Build commands should be run once at the project level, not per iteration
-func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
+func ExecuteDevelopmentIteration(ctx *context.Context, cleanupRegistrar func(func())) error {
 	// Enable verbose logging if requested
 	if ctx.IsVerbose() {
 		logger.SetVerbose(true)
@@ -47,16 +151,16 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	logger.Verbosef("Loading project file: %s", absProjectFile)
 
 	// Load and validate project
-	project, err := config.LoadProject(absProjectFile)
+	proj, err := LoadProject(absProjectFile)
 	if err != nil {
 		return fmt.Errorf("failed to load project: %w", err)
 	}
-	if project.Description != "" && ctx.IsVerbose() {
-		logger.Verbosef("Description: %s", project.Description)
+	if proj.Description != "" && ctx.IsVerbose() {
+		logger.Verbosef("Description: %s", proj.Description)
 	}
 
 	// Show project status
-	allComplete, passingCount, failingCount := config.CheckCompletion(project)
+	allComplete, passingCount, failingCount := CheckCompletion(proj)
 	logger.Verbosef("Requirements: %d passing, %d failing (complete: %v)", passingCount, failingCount, allComplete)
 
 	// Load configuration
@@ -86,8 +190,10 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	logger.Verbose("Running picker agent...")
 	if err := ai.RunAgent(ctx, pickPrompt); err != nil {
 		if writeBlockedMD(absProjectFile, err) == nil {
+			logger.Verbosef("Wrote blocked.md due to picker agent failure")
 			return fmt.Errorf("picker agent execution failed: %w", err)
 		}
+		logger.Verbosef("Failed to write blocked.md: %v", err)
 		return fmt.Errorf("picker agent execution failed: %w", err)
 	}
 	logger.Verbose("Picker agent execution completed")
@@ -119,6 +225,8 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	if err := ai.RunAgent(ctx, devPrompt); err != nil {
 		if writeBlockedMD(absProjectFile, err) == nil {
 			logger.Verbosef("Wrote blocked.md due to agent failure")
+		} else {
+			logger.Verbosef("Failed to write blocked.md: %v", err)
 		}
 		return fmt.Errorf("agent execution failed: %w", err)
 	}

@@ -1,21 +1,19 @@
-package project
+package run
 
 import (
 	gocontext "context"
 	"errors"
 	"fmt"
-	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
-	"github.com/zon/ralph/internal/ai"
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/notify"
+	"github.com/zon/ralph/internal/project"
 	"github.com/zon/ralph/internal/services"
 	"github.com/zon/ralph/internal/workflow"
 )
@@ -36,12 +34,12 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		return fmt.Errorf("failed to resolve project file path: %w", err)
 	}
 
-	project, err := config.LoadProject(absProjectFile)
+	proj, err := project.LoadProject(absProjectFile)
 	if err != nil {
 		return fmt.Errorf("failed to load project file: %w", err)
 	}
 
-	branchName := SanitizeBranchName(project.Name)
+	branchName := SanitizeBranchName(proj.Name)
 	logger.Verbosef("Branch name: %s", branchName)
 
 	// Load configuration
@@ -62,7 +60,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		}
 	}
 
-	if err := validateGitStateAndSwitchBranch(ctx, branchName); err != nil {
+	if err := ValidateGitStateAndSwitchBranch(ctx, branchName); err != nil {
 		return err
 	}
 
@@ -78,13 +76,22 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 	logger.Verbosef("Iteration loop completed after %d iteration(s)", iterCount)
 
 	logger.Verbose("Generating PR summary...")
-	prSummary, err := ai.GeneratePRSummary(ctx, absProjectFile, iterCount, baseBranch)
+
+	commitLog, err := git.GetCommitLog(baseBranch, 100)
+	if err != nil {
+		return fmt.Errorf("failed to get commit log: %w", err)
+	}
+
+	allComplete, passingCount, failingCount := project.CheckCompletion(proj)
+	projectStatus := fmt.Sprintf("%d passing, %d failing (complete: %v)", passingCount, failingCount, allComplete)
+
+	prSummary, err := GeneratePRSummary(ctx, proj, projectStatus, baseBranch, commitLog)
 	if err != nil {
 		return fmt.Errorf("failed to generate PR summary: %w", err)
 	}
 	logger.Verbose("PR summary generated")
 
-	project, err = config.LoadProject(absProjectFile)
+	proj, err = project.LoadProject(absProjectFile)
 	if err != nil {
 		return fmt.Errorf("failed to reload project after iteration loop: %w", err)
 	}
@@ -93,11 +100,11 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		logger.Verbosef("PR Summary:\n%s", prSummary)
 	}
 
-	prURL, err := createPullRequest(ctx, project, branchName, baseBranch, prSummary)
+	prURL, err := CreatePullRequest(ctx, proj, branchName, baseBranch, prSummary)
 	if err != nil {
 		if errors.Is(err, github.ErrNoCommitsBetweenBranches) {
 			logger.Verbose("No commits ahead of base branch — all requirements were already passing; skipping PR creation")
-			notify.Success(project.Name, ctx.ShouldNotify())
+			notify.Success(proj.Name, ctx.ShouldNotify())
 			return nil
 		}
 		return err
@@ -105,12 +112,12 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 
 	logger.Successf("Pull request created: %s", prURL)
 
-	notify.Success(project.Name, ctx.ShouldNotify())
+	notify.Success(proj.Name, ctx.ShouldNotify())
 
 	return nil
 }
 
-func validateGitStateAndSwitchBranch(ctx *context.Context, branchName string) error {
+func ValidateGitStateAndSwitchBranch(ctx *context.Context, branchName string) error {
 	currentBranch, err := git.GetCurrentBranch()
 	if err != nil {
 		return fmt.Errorf("failed to get current branch: %w", err)
@@ -123,7 +130,7 @@ func validateGitStateAndSwitchBranch(ctx *context.Context, branchName string) er
 	}
 
 	if currentBranch != branchName {
-		if err := switchToProjectBranch(ctx, branchName); err != nil {
+		if err := SwitchToProjectBranch(ctx, branchName); err != nil {
 			return err
 		}
 	} else {
@@ -147,7 +154,7 @@ func validateBranchSync(ctx *context.Context, currentBranch string) error {
 	return nil
 }
 
-func switchToProjectBranch(ctx *context.Context, branchName string) error {
+func SwitchToProjectBranch(ctx *context.Context, branchName string) error {
 	var auth *git.AuthConfig
 	if ctx.IsWorkflowExecution() {
 		owner, repo := ctx.RepoOwnerAndName()
@@ -164,7 +171,7 @@ func switchToProjectBranch(ctx *context.Context, branchName string) error {
 	return nil
 }
 
-func createPullRequest(ctx *context.Context, project *config.Project, branchName, baseBranch, prSummary string) (string, error) {
+func CreatePullRequest(ctx *context.Context, proj *project.Project, branchName, baseBranch, prSummary string) (string, error) {
 	// Refresh GitHub credentials immediately before creating the PR.
 	// Installation tokens expire after 1 hour, so a long-running agent job may
 	// have started with a valid token that is now stale. Re-running ConfigureGitAuth
@@ -180,9 +187,9 @@ func createPullRequest(ctx *context.Context, project *config.Project, branchName
 		return "", fmt.Errorf("gh CLI is not ready, please install and authenticate with 'gh auth login'")
 	}
 
-	prTitle := project.Description
+	prTitle := proj.Description
 	if prTitle == "" {
-		prTitle = project.Name
+		prTitle = proj.Name
 	}
 
 	logger.Verbose("Creating GitHub pull request...")
@@ -223,13 +230,13 @@ func SanitizeBranchName(name string) string {
 func executeRemote(ctx *context.Context, absProjectFile string) error {
 	logger.Verbose("Submitting Argo Workflow...")
 
-	project, err := config.LoadProject(absProjectFile)
+	proj, err := project.LoadProject(absProjectFile)
 	if err != nil {
 		return fmt.Errorf("failed to load project file: %w", err)
 	}
 
-	projectName := project.Name
-	projectBranch := SanitizeBranchName(project.Name)
+	projectName := proj.Name
+	projectBranch := SanitizeBranchName(proj.Name)
 
 	// Load configuration to get default branch
 	if _, err = config.LoadConfig(); err != nil {
@@ -270,14 +277,7 @@ func executeRemote(ctx *context.Context, absProjectFile string) error {
 	logger.Successf("Workflow submitted: %s", workflowName)
 
 	if ctx.ShouldFollow() {
-		args := []string{"logs", "-n", wf.Namespace, "-f", workflowName}
-		if wf.KubeContext != "" {
-			args = append(args, "--context", wf.KubeContext)
-		}
-		cmd := exec.Command("argo", args...)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
+		if err := workflow.FollowLogs(wf.Namespace, workflowName, wf.KubeContext); err != nil {
 			notify.Error(projectName, ctx.ShouldNotify())
 			return fmt.Errorf("argo logs failed: %w", err)
 		}

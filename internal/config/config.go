@@ -24,23 +24,6 @@ var defaultFixServiceInstructions string
 //go:embed pick-requirement-instructions.md
 var defaultPickInstructions string
 
-// Project represents a project YAML file with requirements
-type Project struct {
-	Name         string        `yaml:"name"`
-	Description  string        `yaml:"description,omitempty"`
-	Requirements []Requirement `yaml:"requirements"`
-}
-
-// Requirement represents a single requirement in a project
-type Requirement struct {
-	ID          string   `yaml:"id,omitempty"`
-	Category    string   `yaml:"category,omitempty"`
-	Name        string   `yaml:"name,omitempty"`
-	Description string   `yaml:"description,omitempty"`
-	Items       []string `yaml:"items,omitempty"`
-	Passing     bool     `yaml:"passing"`
-}
-
 // Before represents a command to run before starting services
 type Before struct {
 	Name     string   `yaml:"name"`
@@ -157,38 +140,6 @@ func (c *RalphConfig) DefaultPickInstructions() string {
 	return defaultPickInstructions
 }
 
-// LoadProject loads and validates a project YAML file
-func LoadProject(path string) (*Project, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read project file: %w", err)
-	}
-
-	var project Project
-	if err := yaml.Unmarshal(data, &project); err != nil {
-		return nil, fmt.Errorf("failed to parse project YAML: %w", err)
-	}
-
-	if err := ValidateProject(&project); err != nil {
-		return nil, err
-	}
-
-	return &project, nil
-}
-
-// ValidateProject validates a project structure
-func ValidateProject(p *Project) error {
-	if p.Name == "" {
-		return fmt.Errorf("project name is required")
-	}
-
-	if len(p.Requirements) == 0 {
-		return fmt.Errorf("project must have at least one requirement")
-	}
-
-	return nil
-}
-
 // ValidateReviewConfig validates the review configuration
 func ValidateReviewConfig(r *ReviewConfig) error {
 	if len(r.Items) == 0 {
@@ -213,20 +164,6 @@ func ValidateReviewConfig(r *ReviewConfig) error {
 		if count > 1 {
 			return fmt.Errorf("review item %d must have exactly one of text, file, or url set", i)
 		}
-	}
-
-	return nil
-}
-
-// SaveProject saves a project to a YAML file
-func SaveProject(path string, p *Project) error {
-	data, err := yaml.Marshal(p)
-	if err != nil {
-		return fmt.Errorf("failed to marshal project: %w", err)
-	}
-
-	if err := os.WriteFile(path, data, 0644); err != nil {
-		return fmt.Errorf("failed to write project file: %w", err)
 	}
 
 	return nil
@@ -274,6 +211,56 @@ func FindConfigDir(startDir string) (string, error) {
 	}
 }
 
+// loadConfigFromPath reads and parses the config file at the given path.
+// If the file does not exist, it returns an empty config and nil error.
+// If the file exists but cannot be read or parsed, it returns an error.
+func loadConfigFromPath(configPath string) (*RalphConfig, error) {
+	var config RalphConfig
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// Missing config file is allowed (use zero values)
+			return &config, nil
+		}
+		return nil, fmt.Errorf("failed to read config file: %w", err)
+	}
+	if err := yaml.Unmarshal(data, &config); err != nil {
+		return nil, fmt.Errorf("failed to parse config YAML: %w", err)
+	}
+	config.ConfigPath = configPath
+	return &config, nil
+}
+
+// loadInstructions loads the instruction files from the config directory.
+// If a file does not exist, the corresponding default instructions are used.
+func loadInstructions(configDir string) (instructions, commentInstructions, mergeInstructions string) {
+	// Load instructions from .ralph/instructions.md or use default
+	instructionsPath := filepath.Join(configDir, "instructions.md")
+	if instructionsData, err := os.ReadFile(instructionsPath); err == nil {
+		instructions = string(instructionsData)
+	} else {
+		instructions = defaultInstructions
+	}
+
+	// Load comment instructions from .ralph/comment-instructions.md or use default
+	commentInstructionsPath := filepath.Join(configDir, "comment-instructions.md")
+	if data, err := os.ReadFile(commentInstructionsPath); err == nil {
+		commentInstructions = string(data)
+	} else {
+		commentInstructions = defaultCommentInstructions
+	}
+
+	// Load merge instructions from .ralph/merge-instructions.md or use default
+	mergeInstructionsPath := filepath.Join(configDir, "merge-instructions.md")
+	if data, err := os.ReadFile(mergeInstructionsPath); err == nil {
+		mergeInstructions = string(data)
+	} else {
+		mergeInstructions = defaultMergeInstructions
+	}
+
+	return
+}
+
 // LoadConfig searches upwards for a .ralph directory and loads config.yaml from it.
 func LoadConfig() (*RalphConfig, error) {
 	cwd, err := os.Getwd()
@@ -286,40 +273,17 @@ func LoadConfig() (*RalphConfig, error) {
 		return nil, fmt.Errorf("failed to find .ralph directory: %w", err)
 	}
 
-	var config RalphConfig
-	configPath := filepath.Join(configDir, "config.yaml")
-	if data, err := os.ReadFile(configPath); err == nil {
-		if err := yaml.Unmarshal(data, &config); err != nil {
-			return nil, fmt.Errorf("failed to parse config YAML: %w", err)
-		}
-		config.ConfigPath = configPath
+	config, err := loadConfigFromPath(filepath.Join(configDir, "config.yaml"))
+	if err != nil {
+		return nil, err
 	}
 
-	// Load instructions from .ralph/instructions.md or use default
-	instructionsPath := filepath.Join(configDir, "instructions.md")
-	if instructionsData, err := os.ReadFile(instructionsPath); err == nil {
-		config.Instructions = string(instructionsData)
-	} else {
-		config.Instructions = defaultInstructions
-	}
+	instructions, commentInstructions, mergeInstructions := loadInstructions(configDir)
+	config.Instructions = instructions
+	config.CommentInstructions = commentInstructions
+	config.MergeInstructions = mergeInstructions
 
-	// Load comment instructions from .ralph/comment-instructions.md or use default
-	commentInstructionsPath := filepath.Join(configDir, "comment-instructions.md")
-	if data, err := os.ReadFile(commentInstructionsPath); err == nil {
-		config.CommentInstructions = string(data)
-	} else {
-		config.CommentInstructions = defaultCommentInstructions
-	}
-
-	// Load merge instructions from .ralph/merge-instructions.md or use default
-	mergeInstructionsPath := filepath.Join(configDir, "merge-instructions.md")
-	if data, err := os.ReadFile(mergeInstructionsPath); err == nil {
-		config.MergeInstructions = string(data)
-	} else {
-		config.MergeInstructions = defaultMergeInstructions
-	}
-
-	applyDefaults(&config)
+	applyDefaults(config)
 
 	if config.Review.Items != nil || config.Review.Model != "" {
 		if err := ValidateReviewConfig(&config.Review); err != nil {
@@ -327,44 +291,5 @@ func LoadConfig() (*RalphConfig, error) {
 		}
 	}
 
-	return &config, nil
-}
-
-// CheckCompletion checks project completion status
-// Returns: allComplete, passingCount, failingCount
-func CheckCompletion(p *Project) (bool, int, int) {
-	passingCount := 0
-	failingCount := 0
-
-	for _, req := range p.Requirements {
-		if req.Passing {
-			passingCount++
-		} else {
-			failingCount++
-		}
-	}
-
-	allComplete := failingCount == 0
-
-	return allComplete, passingCount, failingCount
-}
-
-// UpdateRequirementStatus updates the passing status of a specific requirement
-func UpdateRequirementStatus(p *Project, reqID string, passing bool) error {
-	found := false
-
-	for i := range p.Requirements {
-		// Match by ID if provided, otherwise match by index
-		if p.Requirements[i].ID == reqID {
-			p.Requirements[i].Passing = passing
-			found = true
-			break
-		}
-	}
-
-	if !found {
-		return fmt.Errorf("requirement not found: %s", reqID)
-	}
-
-	return nil
+	return config, nil
 }

@@ -1,11 +1,13 @@
 package context
 
 import (
+	"context"
 	"strings"
 )
 
 // Context holds the execution context for ralph commands
 type Context struct {
+	goCtx             context.Context // Embedded standard context
 	projectFile       string
 	maxIterations     int
 	verbose           bool
@@ -26,6 +28,25 @@ type Context struct {
 	botEmail          string   // Git user email for automated commits
 	model             string   // Model override; overrides model from .ralph/config.yaml
 	kubeContext       string   // Kubernetes context override; overrides workflow.context from .ralph/config.yaml
+}
+
+// NewContext creates a new Context with a background standard context.
+func NewContext() *Context {
+	return &Context{
+		goCtx: context.Background(),
+	}
+}
+
+// GoContext returns the underlying standard context.Context.
+func (c *Context) GoContext() context.Context {
+	return c.goCtx
+}
+
+// WithGoContext returns a new Context with the provided standard context.Context.
+func (c *Context) WithGoContext(goCtx context.Context) *Context {
+	newCtx := *c
+	newCtx.goCtx = goCtx
+	return &newCtx
 }
 
 // IsVerbose returns true if verbose logging is enabled

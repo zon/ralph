@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/project"
+	"github.com/zon/ralph/internal/run"
 	"github.com/zon/ralph/internal/workflow"
 )
 
@@ -245,7 +246,7 @@ func TestExecute_LocalWithRealGit(t *testing.T) {
 
 	// Run the iteration loop directly: all requirements are already passing so
 	// the loop exits after the first iteration without invoking the AI or pushing.
-	iterCount, err := project.RunIterationLoop(ctx, nil)
+	iterCount, err := run.RunIterationLoop(ctx, nil)
 	require.NoError(t, err)
 	assert.Equal(t, 1, iterCount)
 }

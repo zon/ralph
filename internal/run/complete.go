@@ -1,14 +1,15 @@
-package project
+package run
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 
-	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/logger"
+	"github.com/zon/ralph/internal/project"
 )
 
 // FindCompleteProjects scans a directory for project YAML files where all requirements have passing true.
@@ -24,7 +25,7 @@ func FindCompleteProjects(dir string) ([]string, error) {
 
 	// Find all YAML files recursively in the directory tree
 	var allFiles []string
-	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -42,8 +43,8 @@ func FindCompleteProjects(dir string) ([]string, error) {
 	}
 
 	// Check each file
-	for _, file := range allFiles {
-		project, err := config.LoadProject(file)
+	for _, filePath := range allFiles {
+		project, err := project.LoadProject(filePath)
 		if err != nil {
 			// Skip files that can't be loaded as valid projects
 			continue
@@ -51,7 +52,7 @@ func FindCompleteProjects(dir string) ([]string, error) {
 
 		// Check if project is complete
 		if isProjectComplete(project) {
-			absPath, err := filepath.Abs(file)
+			absPath, err := filepath.Abs(filePath)
 			if err != nil {
 				// Skip files with path resolution errors
 				continue
@@ -65,7 +66,7 @@ func FindCompleteProjects(dir string) ([]string, error) {
 
 // isProjectComplete checks if a project has all requirements passing.
 // A project with zero requirements is not considered complete.
-func isProjectComplete(project *config.Project) bool {
+func isProjectComplete(project *project.Project) bool {
 	if len(project.Requirements) == 0 {
 		return false
 	}
@@ -87,17 +88,17 @@ func RemoveAndCommit(ctx *context.Context, files []string) error {
 	}
 
 	// Delete each file
-	for _, file := range files {
-		if err := os.Remove(file); err != nil {
-			return fmt.Errorf("failed to remove project file %s: %w", file, err)
+	for _, filePath := range files {
+		if err := os.Remove(filePath); err != nil {
+			return fmt.Errorf("failed to remove project file %s: %w", filePath, err)
 		}
-		logger.Infof("Removed complete project file: %s", file)
+		logger.Infof("Removed complete project file: %s", filePath)
 	}
 
 	// Stage the deletions
-	for _, file := range files {
-		if err := git.StageFile(file); err != nil {
-			return fmt.Errorf("failed to stage deleted file %s: %w", file, err)
+	for _, filePath := range files {
+		if err := git.StageFile(filePath); err != nil {
+			return fmt.Errorf("failed to stage deleted file %s: %w", filePath, err)
 		}
 	}
 

@@ -22,6 +22,8 @@ import (
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/logger"
+	"github.com/zon/ralph/internal/project"
+	"github.com/zon/ralph/internal/run"
 	"github.com/zon/ralph/internal/workflow"
 
 	_ "embed"
@@ -197,42 +199,8 @@ func (r *ReviewCmd) printStats() error {
 }
 
 func (r *ReviewCmd) commitProjectFile(ctx *execcontext.Context, absProjectFile, reviewName, componentName string, itemIndex int, summaryPath string) error {
-	var auth *git.AuthConfig
-	if ctx.IsWorkflowExecution() {
-		owner, repo := ctx.RepoOwnerAndName()
-		auth = &git.AuthConfig{Owner: owner, Repo: repo}
-	}
-
-	currentBranch, err := git.GetCurrentBranch()
-	if err != nil {
-		return fmt.Errorf("failed to get current branch: %w", err)
-	}
-	if currentBranch != reviewName {
-		if err := git.Fetch(auth); err != nil {
-			logger.Verbosef("Could not fetch from remote (continuing anyway): %v", err)
-		}
-		if err := git.CheckoutOrCreateBranch(reviewName); err != nil {
-			return fmt.Errorf("failed to checkout review branch: %w", err)
-		}
-	}
-
-	if err := git.StageFile(absProjectFile); err != nil {
-		return fmt.Errorf("failed to stage project file: %w", err)
-	}
-
 	commitMsg := r.buildCommitMessage(componentName, itemIndex, summaryPath)
-	if err := git.Commit(commitMsg); err != nil {
-		return fmt.Errorf("failed to commit review findings: %w", err)
-	}
-
-	if err := git.PullRebase(auth); err != nil {
-		logger.Verbosef("Pull rebase failed (continuing): %v", err)
-	}
-	if _, err := git.Push(auth, reviewName); err != nil {
-		return fmt.Errorf("failed to push review branch: %w", err)
-	}
-
-	return nil
+	return run.CommitFileAndPush(ctx, absProjectFile, reviewName, commitMsg)
 }
 
 func (r *ReviewCmd) buildCommitMessage(componentName string, itemIndex int, summaryPath string) string {
@@ -253,26 +221,34 @@ func (r *ReviewCmd) buildCommitMessage(componentName string, itemIndex int, summ
 }
 
 func (r *ReviewCmd) submitPR(ctx *execcontext.Context, absProjectFile, reviewName, baseBranch string) error {
-	if !github.IsReady() {
-		return fmt.Errorf("gh CLI is not ready, please install and authenticate with 'gh auth login'")
+	title := reviewName
+	proj, err := project.LoadProject(absProjectFile)
+	if err != nil {
+		// If project cannot be loaded, create a minimal project for PR creation
+		proj = &project.Project{Name: reviewName, Description: title}
 	}
 
-	title := reviewName
-	proj, err := config.LoadProject(absProjectFile)
-	if err == nil && proj.Description != "" {
-		title = proj.Description
+	var requirementSummaries []string
+	for _, req := range proj.Requirements {
+		reqSummary := req.Description
+		if reqSummary == "" {
+			reqSummary = req.Name
+		}
+		if reqSummary != "" {
+			requirementSummaries = append(requirementSummaries, reqSummary)
+		}
 	}
 
 	body := fmt.Sprintf("AI code review findings for `%s`.", reviewName)
 
-	generatedBody, err := ai.GenerateReviewPRBody(ctx, absProjectFile)
+	generatedBody, err := run.GenerateReviewPRBody(ctx, proj, requirementSummaries)
 	if err != nil {
 		logger.Verbosef("Failed to generate PR body with AI: %v", err)
 	} else {
 		body = generatedBody
 	}
 
-	prURL, err := github.CreatePR(title, body, baseBranch, reviewName)
+	prURL, err := run.CreatePullRequest(ctx, proj, reviewName, baseBranch, body)
 	if err != nil {
 		if errors.Is(err, github.ErrNoCommitsBetweenBranches) {
 			logger.Verbose("No commits ahead of base branch — skipping PR creation")

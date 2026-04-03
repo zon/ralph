@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/zon/ralph/internal/config"
+	"github.com/zon/ralph/internal/project"
 )
 
 type ValidateCmd struct {
@@ -11,7 +11,7 @@ type ValidateCmd struct {
 }
 
 func (v *ValidateCmd) Run() error {
-	projectData, err := config.LoadProject(v.ProjectFile)
+	projectData, err := project.LoadProject(v.ProjectFile)
 	if err != nil {
 		return err
 	}

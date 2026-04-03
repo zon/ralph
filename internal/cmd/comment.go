@@ -11,6 +11,7 @@ import (
 	"github.com/zon/ralph/internal/ai"
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/logger"
+	"github.com/zon/ralph/internal/project"
 	"github.com/zon/ralph/internal/services"
 )
 
@@ -43,7 +44,7 @@ func (c *CommentCmd) Run() error {
 	}
 
 	// Load project
-	if _, err := config.LoadProject(absProjectFile); err != nil {
+	if _, err := project.LoadProject(absProjectFile); err != nil {
 		return fmt.Errorf("failed to load project: %w", err)
 	}
 

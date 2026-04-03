@@ -1,4 +1,4 @@
-package project
+package run
 
 import (
 	"errors"
@@ -7,12 +7,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/zon/ralph/internal/ai"
-	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/logger"
-	"github.com/zon/ralph/internal/requirement"
+	"github.com/zon/ralph/internal/project"
 )
 
 // ErrFatalPushError is returned when a push fails with a permanent error that
@@ -71,6 +69,21 @@ func isBlocked(ctx *context.Context) (bool, error) {
 	return true, nil
 }
 
+// iterateWhile loops while worker returns continue=true, up to max iterations.
+// worker receives iteration number and returns (continue, error).
+func iterateWhile(max int, worker func(iteration int) (bool, error)) (int, error) {
+	for i := 1; i <= max; i++ {
+		continueLoop, err := worker(i)
+		if err != nil {
+			return i, err
+		}
+		if !continueLoop {
+			return i, nil
+		}
+	}
+	return max, nil
+}
+
 // RunIterationLoop runs multiple development iterations until completion or max iterations
 // Each iteration:
 // 1. Runs a single development iteration (requirement.Execute)
@@ -82,64 +95,67 @@ func isBlocked(ctx *context.Context) (bool, error) {
 func RunIterationLoop(ctx *context.Context, cleanupRegistrar func(func())) (int, error) {
 	logger.Verbosef("Starting iteration loop (max: %d)", ctx.MaxIterations())
 
-	var previousProject *config.Project
-	iterationCount := 0
+	var previousProject *project.Project
 
-	for i := 1; i <= ctx.MaxIterations(); i++ {
-		iterationCount = i
-
+	worker := func(iteration int) (bool, error) {
 		logger.Verbose("")
-		logger.Verbosef("=== Iteration %d/%d ===", i, ctx.MaxIterations())
+		logger.Verbosef("=== Iteration %d/%d ===", iteration, ctx.MaxIterations())
 
 		// Check for blocked.md from repo root
 		if blocked, err := isBlocked(ctx); err != nil {
-			return iterationCount, fmt.Errorf("failed to check for blocked.md: %w", err)
+			return false, fmt.Errorf("failed to check for blocked.md: %w", err)
 		} else if blocked {
-			return iterationCount, ErrBlocked
+			return false, ErrBlocked
 		}
 
 		// Load project state before this iteration to track which requirements were already passing
 		if previousProject == nil {
 			var err error
-			previousProject, err = config.LoadProject(ctx.ProjectFile())
+			previousProject, err = project.LoadProject(ctx.ProjectFile())
 			if err != nil {
-				return 0, fmt.Errorf("failed to load initial project state: %w", err)
+				return false, fmt.Errorf("failed to load initial project state: %w", err)
 			}
 		}
 
 		// Run single iteration: execute, commit, check completion
-		if err := runSingleIteration(ctx, cleanupRegistrar, previousProject, i); err != nil {
-			return iterationCount, err
+		if err := runSingleIteration(ctx, cleanupRegistrar, previousProject, iteration); err != nil {
+			return false, err
 		}
 
 		// Update previous state for next iteration
-		currentProject, err := config.LoadProject(ctx.ProjectFile())
+		currentProject, err := project.LoadProject(ctx.ProjectFile())
 		if err != nil {
-			return iterationCount, fmt.Errorf("failed to load project after iteration %d: %w", i, err)
+			return false, fmt.Errorf("failed to load project after iteration %d: %w", iteration, err)
 		}
 		previousProject = currentProject
 
 		// Check if all requirements are complete
-		allComplete, _, _ := config.CheckCompletion(currentProject)
+		allComplete, _, _ := project.CheckCompletion(currentProject)
 		if allComplete {
 			logger.Success("All requirements complete")
-			break
+			return false, nil
 		}
 
 		// Continue to next iteration if not at max
-		if i < ctx.MaxIterations() {
+		if iteration < ctx.MaxIterations() {
 			logger.Verbose("Requirements not complete, continuing to next iteration...")
 		}
+		return true, nil
+	}
+
+	iterationCount, err := iterateWhile(ctx.MaxIterations(), worker)
+	if err != nil {
+		return iterationCount, err
 	}
 
 	logger.Verbosef("Iteration loop completed after %d iteration(s)", iterationCount)
 
 	// Check if we reached max iterations without completing requirements
-	currentProject, err := config.LoadProject(ctx.ProjectFile())
+	currentProject, err := project.LoadProject(ctx.ProjectFile())
 	if err != nil {
 		return iterationCount, fmt.Errorf("failed to load project state: %w", err)
 	}
-	allComplete, _, failingCount := config.CheckCompletion(currentProject)
+	allComplete, _, failingCount := project.CheckCompletion(currentProject)
 	if !allComplete {
 		return iterationCount, fmt.Errorf("%w: %d requirements still failing", ErrMaxIterationsReached, failingCount)
 	}
@@ -148,10 +164,10 @@ func RunIterationLoop(ctx *context.Context, cleanupRegistrar func(func())) (int,
 }
 
 // runSingleIteration executes one iteration: runs requirement.Execute, commits changes, and reports completion
-func runSingleIteration(ctx *context.Context, cleanupRegistrar func(func()), previousProject *config.Project, iteration int) error {
+func runSingleIteration(ctx *context.Context, cleanupRegistrar func(func()), previousProject *project.Project, iteration int) error {
 	// Run single development iteration
 	logger.Verbose("Running development iteration...")
-	if err := requirement.Execute(ctx, cleanupRegistrar); err != nil {
+	if err := project.ExecuteDevelopmentIteration(ctx, cleanupRegistrar); err != nil {
 		if isFatalOpenCodeError(err) {
 			return fmt.Errorf("%w: %v", ErrFatalOpenCodeError, err)
 		}
@@ -173,12 +189,12 @@ func runSingleIteration(ctx *context.Context, cleanupRegistrar func(func()), pre
 	}
 
 	// Load and check project completion status
-	currentProject, err := config.LoadProject(ctx.ProjectFile())
+	currentProject, err := project.LoadProject(ctx.ProjectFile())
 	if err != nil {
 		return fmt.Errorf("failed to reload project after iteration %d: %w", iteration, err)
 	}
 
-	allComplete, passingCount, failingCount := config.CheckCompletion(currentProject)
+	allComplete, passingCount, failingCount := project.CheckCompletion(currentProject)
 	logger.Verbosef("Status after iteration %d: %d passing, %d failing", iteration, passingCount, failingCount)
 
 	// Report newly passing requirements
@@ -193,7 +209,7 @@ func runSingleIteration(ctx *context.Context, cleanupRegistrar func(func()), pre
 }
 
 // reportNewlyPassingRequirements logs any requirements that just became passing
-func reportNewlyPassingRequirements(previousProject, currentProject *config.Project) {
+func reportNewlyPassingRequirements(previousProject, currentProject *project.Project) {
 	for idx, req := range currentProject.Requirements {
 		if req.Passing && !previousProject.Requirements[idx].Passing {
 			description := req.Description
@@ -238,7 +254,7 @@ func CommitChanges(ctx *context.Context, iteration int) error {
 	}
 
 	// Pull and push
-	if err := pullAndPush(ctx); err != nil {
+	if err := PullAndPush(ctx); err != nil {
 		return err
 	}
 
@@ -258,7 +274,7 @@ func generateChangelogIfNeeded(ctx *context.Context) error {
 	}
 
 	logger.Verbose("Uncommitted changes detected without report.md; generating changelog...")
-	return ai.GenerateChangelog(ctx)
+	return GenerateChangelog(ctx)
 }
 
 // getCommitMessage reads report.md and returns it as the commit message.
@@ -301,7 +317,7 @@ func performCommit(ctx *context.Context, commitMsg []byte, iteration int) error 
 }
 
 // pullAndPush pulls remote changes and pushes the current branch
-func pullAndPush(ctx *context.Context) error {
+func PullAndPush(ctx *context.Context) error {
 	var auth *git.AuthConfig
 	if ctx.IsWorkflowExecution() {
 		owner, repo := ctx.RepoOwnerAndName()
