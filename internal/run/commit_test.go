@@ -1,10 +1,10 @@
 package run
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/zon/ralph/internal/fileutil"
 	"github.com/zon/ralph/internal/testutil"
 )
 
@@ -21,7 +21,7 @@ func TestCommitFileAndPush(t *testing.T) {
 	commitMsg := "Add test file"
 
 	// Write a test file
-	err := fileutil.WriteFile(filePath, []byte("test content"), 0644)
+	err := os.WriteFile(filePath, []byte("test content"), 0644)
 	require.NoError(t, err)
 
 	// Call CommitFileAndPush

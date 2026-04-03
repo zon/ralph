@@ -1,12 +1,13 @@
 package run
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/zon/ralph/internal/fileutil"
 	"github.com/zon/ralph/internal/testutil"
 )
 
@@ -96,8 +97,8 @@ requirements:
 	}
 
 	for _, tt := range tests {
-		filePath := fileutil.Join(tmpDir, tt.name)
-		err := fileutil.WriteFile(filePath, []byte(tt.content), 0644)
+		filePath := filepath.Join(tmpDir, tt.name)
+		err := os.WriteFile(filePath, []byte(tt.content), 0644)
 		require.NoError(t, err, "failed to write test file %s", tt.name)
 	}
 
@@ -105,8 +106,8 @@ requirements:
 	require.NoError(t, err, "FindCompleteProjects should not error")
 
 	expectedFiles := []string{
-		fileutil.Join(tmpDir, "complete-project.yaml"),
-		fileutil.Join(tmpDir, "mixed-yaml-extension.yml"),
+		filepath.Join(tmpDir, "complete-project.yaml"),
+		filepath.Join(tmpDir, "mixed-yaml-extension.yml"),
 	}
 
 	assert.Len(t, completeProjects, len(expectedFiles), "FindCompleteProjects should return correct number of files")
@@ -133,14 +134,14 @@ func TestFindCompleteProjects_NonExistentDir(t *testing.T) {
 func TestFindCompleteProjects_RecursiveScanning(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	subDir1 := fileutil.Join(tmpDir, "sub1")
-	subDir2 := fileutil.Join(tmpDir, "sub2")
-	subDir3 := fileutil.Join(tmpDir, "sub1", "nested")
-	err := fileutil.MkdirAll(subDir1, 0755)
+	subDir1 := filepath.Join(tmpDir, "sub1")
+	subDir2 := filepath.Join(tmpDir, "sub2")
+	subDir3 := filepath.Join(tmpDir, "sub1", "nested")
+	err := os.MkdirAll(subDir1, 0755)
 	require.NoError(t, err, "failed to create subdirectory")
-	err = fileutil.MkdirAll(subDir2, 0755)
+	err = os.MkdirAll(subDir2, 0755)
 	require.NoError(t, err, "failed to create subdirectory")
-	err = fileutil.MkdirAll(subDir3, 0755)
+	err = os.MkdirAll(subDir3, 0755)
 	require.NoError(t, err, "failed to create nested subdirectory")
 
 	tests := []struct {
@@ -201,8 +202,8 @@ requirements:
 	}
 
 	for _, tt := range tests {
-		filePath := fileutil.Join(tt.path, tt.name)
-		err := fileutil.WriteFile(filePath, []byte(tt.content), 0644)
+		filePath := filepath.Join(tt.path, tt.name)
+		err := os.WriteFile(filePath, []byte(tt.content), 0644)
 		require.NoError(t, err, "failed to write test file %s", tt.name)
 	}
 
@@ -210,10 +211,10 @@ requirements:
 	require.NoError(t, err, "FindCompleteProjects should not error")
 
 	expectedFiles := []string{
-		fileutil.Join(tmpDir, "complete-project.yaml"),
-		fileutil.Join(subDir1, "complete-in-subdir.yaml"),
-		fileutil.Join(subDir2, "complete-in-another-subdir.yaml"),
-		fileutil.Join(subDir3, "complete-in-nested.yaml"),
+		filepath.Join(tmpDir, "complete-project.yaml"),
+		filepath.Join(subDir1, "complete-in-subdir.yaml"),
+		filepath.Join(subDir2, "complete-in-another-subdir.yaml"),
+		filepath.Join(subDir3, "complete-in-nested.yaml"),
 	}
 
 	assert.Len(t, completeProjects, len(expectedFiles), "FindCompleteProjects should return correct number of files")
@@ -236,8 +237,8 @@ requirements:
     passing: true
 invalid yaml syntax here`
 
-	filePath := fileutil.Join(tmpDir, "invalid.yaml")
-	err := fileutil.WriteFile(filePath, []byte(invalidContent), 0644)
+	filePath := filepath.Join(tmpDir, "invalid.yaml")
+	err := os.WriteFile(filePath, []byte(invalidContent), 0644)
 	require.NoError(t, err, "failed to write invalid test file")
 
 	completeProjects, err := FindCompleteProjects(tmpDir)

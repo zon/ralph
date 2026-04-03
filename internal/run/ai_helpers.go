@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"text/template"
 
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
-	"github.com/zon/ralph/internal/fileutil"
 	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/opencode"
 	"github.com/zon/ralph/internal/project"
@@ -20,11 +20,13 @@ import (
 // It includes project description, status, commits, and diff
 // This matches ralph.sh's approach: agent writes to a file, we read it back
 func GeneratePRSummary(ctx *context.Context, proj *project.Project, projectStatus, baseBranch, commitLog string) (summary string, err error) {
-	tmpFile, err := fileutil.TempFile("pr-summary-", ".md")
+	f, err := os.CreateTemp("pr-summary-", ".md")
 	if err != nil {
 		return "", fmt.Errorf("failed to create temporary PR summary file: %w", err)
 	}
-	defer fileutil.Remove(tmpFile)
+	f.Close()
+	tmpFile := f.Name()
+	defer os.Remove(tmpFile)
 
 	prompt := buildPRSummaryPrompt(proj.Description, projectStatus, baseBranch, commitLog, tmpFile)
 
@@ -73,7 +75,7 @@ Write your summary to the file: {{.AbsPath}}
 
 // buildPRSummaryPrompt constructs the prompt for generating PR summary
 func buildPRSummaryPrompt(projectDesc, projectStatus, baseBranch, commitLog, outputFile string) string {
-	absPath, _ := fileutil.Abs(outputFile)
+	absPath, _ := filepath.Abs(outputFile)
 
 	var builder bytes.Buffer
 	data := prSummaryData{
@@ -100,7 +102,7 @@ func runOpenCodeAndReadResult(ctx *context.Context, model, prompt, outputFile st
 	}
 
 	// Read the summary from the file the agent wrote
-	summaryBytes, err := fileutil.ReadFile(outputFile)
+	summaryBytes, err := os.ReadFile(outputFile)
 	if err != nil {
 		return "", fmt.Errorf("failed to read summary file: %w", err)
 	}
@@ -127,11 +129,13 @@ func resolveModel(ctx *context.Context) string {
 // GenerateChangelog prompts opencode to inspect the current git diff and write a
 // descriptive changelog to report.md.
 func GenerateChangelog(ctx *context.Context) (err error) {
-	tmpFile, err := fileutil.TempFile("changelog-", ".md")
+	f, err := os.CreateTemp("changelog-", ".md")
 	if err != nil {
 		return fmt.Errorf("failed to create temporary changelog file: %w", err)
 	}
-	defer fileutil.Remove(tmpFile)
+	f.Close()
+	tmpFile := f.Name()
+	defer os.Remove(tmpFile)
 
 	prompt := buildChangelogPrompt(tmpFile)
 
@@ -146,7 +150,7 @@ func GenerateChangelog(ctx *context.Context) (err error) {
 	}
 
 	// The agent writes to the file we gave it; we need to move that to report.md
-	if err = fileutil.Rename(tmpFile, "report.md"); err != nil {
+	if err = os.Rename(tmpFile, "report.md"); err != nil {
 		return fmt.Errorf("failed to rename changelog to report.md: %w", err)
 	}
 
@@ -169,7 +173,7 @@ Write the changelog entry to the file: {{.}}
 Do not include any extra commentary, just the changelog entry.`))
 
 func buildChangelogPrompt(outputFile string) string {
-	absPath, _ := fileutil.Abs(outputFile)
+	absPath, _ := filepath.Abs(outputFile)
 	var b bytes.Buffer
 	changelogPromptTemplate.Execute(&b, absPath)
 	return b.String()
@@ -178,11 +182,13 @@ func buildChangelogPrompt(outputFile string) string {
 // GenerateReviewPRBody generates a PR body for review findings using AI
 // It reads the review project file and writes a concise summary of recommended changes
 func GenerateReviewPRBody(ctx *context.Context, proj *project.Project, requirementSummaries []string) (summary string, err error) {
-	tmpFile, err := fileutil.TempFile("review-pr-body-", ".md")
+	f, err := os.CreateTemp("review-pr-body-", ".md")
 	if err != nil {
 		return "", fmt.Errorf("failed to create temporary review PR body file: %w", err)
 	}
-	defer fileutil.Remove(tmpFile)
+	f.Close()
+	tmpFile := f.Name()
+	defer os.Remove(tmpFile)
 
 	prompt := buildReviewPRBodyPrompt(proj.Name, proj.Description, requirementSummaries, tmpFile)
 
@@ -227,7 +233,7 @@ Write your summary to the file: {{.AbsPath}}
 `))
 
 func buildReviewPRBodyPrompt(projectName, projectDesc string, requirements []string, outputFile string) string {
-	absPath, _ := fileutil.Abs(outputFile)
+	absPath, _ := filepath.Abs(outputFile)
 
 	var builder bytes.Buffer
 	data := reviewPRBodyData{

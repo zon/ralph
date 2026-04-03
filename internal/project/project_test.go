@@ -1,12 +1,12 @@
 package project
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/zon/ralph/internal/fileutil"
 )
 
 func TestValidateProject(t *testing.T) {
@@ -164,8 +164,8 @@ requirements:
     name: Second requirement
     passing: true
 `
-	projectPath := fileutil.Join(tmpDir, "test.yaml")
-	require.NoError(t, fileutil.WriteFile(projectPath, []byte(projectContent), 0644))
+	projectPath := filepath.Join(tmpDir, "test.yaml")
+	require.NoError(t, os.WriteFile(projectPath, []byte(projectContent), 0644))
 
 	project, err := LoadProject(projectPath)
 	require.NoError(t, err, "LoadProject() unexpected error")
@@ -197,8 +197,8 @@ requirements:
       - Integration tests
     passing: false
 `
-	projectPath := fileutil.Join(tmpDir, "test-items.yaml")
-	require.NoError(t, fileutil.WriteFile(projectPath, []byte(projectContent), 0644))
+	projectPath := filepath.Join(tmpDir, "test-items.yaml")
+	require.NoError(t, os.WriteFile(projectPath, []byte(projectContent), 0644))
 
 	project, err := LoadProject(projectPath)
 	require.NoError(t, err, "LoadProject() unexpected error")
@@ -230,11 +230,11 @@ func TestSaveProject(t *testing.T) {
 		},
 	}
 
-	projectPath := fileutil.Join(tmpDir, "project.yaml")
+	projectPath := filepath.Join(tmpDir, "project.yaml")
 	require.NoError(t, SaveProject(projectPath, proj), "SaveProject() unexpected error")
 
 	// Verify file was created
-	_, err := fileutil.Stat(projectPath)
+	_, err := os.Stat(projectPath)
 	require.NoError(t, err, "SaveProject() did not create file")
 
 	// Load it back and verify
@@ -260,7 +260,7 @@ func TestSaveProjectRoundTrip(t *testing.T) {
 		},
 	}
 
-	projectPath := fileutil.Join(tmpDir, "roundtrip.yaml")
+	projectPath := filepath.Join(tmpDir, "roundtrip.yaml")
 	require.NoError(t, SaveProject(projectPath, proj), "SaveProject() unexpected error")
 	loaded, err := LoadProject(projectPath)
 	require.NoError(t, err, "LoadProject() after save unexpected error")
