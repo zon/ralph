@@ -1,6 +1,7 @@
 package ai
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,13 +11,61 @@ import (
 	"strings"
 
 	"github.com/zon/ralph/internal/config"
-	"github.com/zon/ralph/internal/context"
+	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/logger"
 )
 
 const mockAIEnv = "RALPH_MOCK_AI"
 
-func resolveModel(ctx *context.Context) string {
+func runOpenCodeCommand(ctx context.Context, args []string, stdoutWriter, stderrWriter io.Writer) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	cmd := exec.CommandContext(ctx, "opencode", args...)
+	cmd.Env = append(os.Environ(), "FORCE_COLOR=1")
+
+	if stdoutWriter != nil {
+		cmd.Stdout = stdoutWriter
+	} else {
+		cmd.Stdout = os.Stdout
+	}
+	if stderrWriter != nil {
+		cmd.Stderr = stderrWriter
+	} else {
+		cmd.Stderr = os.Stderr
+	}
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("opencode command failed: %w", err)
+	}
+	return nil
+}
+
+func RunCommand(ctx context.Context, model, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+	args := []string{"run", "--model", model, prompt}
+	return runOpenCodeCommand(ctx, args, stdoutWriter, stderrWriter)
+}
+
+func DisplayStats() error {
+	return runOpenCodeCommand(context.Background(), []string{"stats"}, os.Stdout, os.Stderr)
+}
+
+func runOpenCodeCommandWithRing(ctx context.Context, args []string, ring *ringWriter) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	cmd := exec.CommandContext(ctx, "opencode", args...)
+	cmd.Env = append(os.Environ(), "FORCE_COLOR=1")
+	cmd.Stdout = io.MultiWriter(os.Stdout, ring)
+	cmd.Stderr = io.MultiWriter(os.Stderr, ring)
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("opencode execution failed: %w\n\nLast 10 lines of output:\n%s", err, ring.tail())
+	}
+	return nil
+}
+
+func resolveModel(ctx *execcontext.Context) string {
 	if ctx.Model() != "" {
 		return ctx.Model()
 	}
@@ -29,7 +78,7 @@ func resolveModel(ctx *context.Context) string {
 
 // RunAgent executes an AI agent with the given prompt using OpenCode CLI
 // OpenCode manages its own configuration for API keys and models
-func RunAgent(ctx *context.Context, prompt string) error {
+func RunAgent(ctx *execcontext.Context, prompt string) error {
 	if os.Getenv(mockAIEnv) == "true" {
 		return runMockAgent(ctx, prompt)
 	}
@@ -40,15 +89,10 @@ func RunAgent(ctx *context.Context, prompt string) error {
 
 	model := resolveModel(ctx)
 
-	cmd := exec.Command("opencode", "run", "--model", model, prompt)
-	cmd.Env = append(os.Environ(), "FORCE_COLOR=1")
-
 	ring := &ringWriter{n: 10}
-	cmd.Stdout = io.MultiWriter(os.Stdout, ring)
-	cmd.Stderr = io.MultiWriter(os.Stderr, ring)
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("opencode execution failed: %w\n\nLast 10 lines of output:\n%s", err, ring.tail())
+	args := []string{"run", "--model", model, prompt}
+	if err := runOpenCodeCommandWithRing(ctx.GoContext(), args, ring); err != nil {
+		return err
 	}
 
 	return nil
@@ -84,19 +128,18 @@ func (r *ringWriter) tail() string {
 }
 
 // runOpenCodeAndReadResult runs opencode with the given prompt and reads the result from the output file
-func runOpenCodeAndReadResult(ctx *context.Context, model, prompt, outputFile string) (string, error) {
-	cmd := exec.Command("opencode", "run", "--model", model, prompt)
-	cmd.Env = append(os.Environ(), "FORCE_COLOR=1")
+func runOpenCodeAndReadResult(ctx *execcontext.Context, model, prompt, outputFile string) (string, error) {
+	var stdoutWriter, stderrWriter io.Writer
 	if ctx.IsVerbose() {
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
+		stdoutWriter = os.Stdout
+		stderrWriter = os.Stderr
 	}
 
-	if err := cmd.Run(); err != nil {
+	args := []string{"run", "--model", model, prompt}
+	if err := runOpenCodeCommand(ctx.GoContext(), args, stdoutWriter, stderrWriter); err != nil {
 		return "", fmt.Errorf("opencode execution failed: %w", err)
 	}
 
-	// Read the summary from the file the agent wrote
 	summaryBytes, err := os.ReadFile(outputFile)
 	if err != nil {
 		return "", fmt.Errorf("failed to read summary file: %w", err)
@@ -112,7 +155,7 @@ func runOpenCodeAndReadResult(ctx *context.Context, model, prompt, outputFile st
 
 // runMockAgent simulates AI execution for testing purposes.
 // It parses the prompt to determine what file to write and creates mock output files.
-func runMockAgent(ctx *context.Context, prompt string) error {
+func runMockAgent(ctx *execcontext.Context, prompt string) error {
 	if os.Getenv("RALPH_MOCK_AI_FAIL") == "true" {
 		logger.Verbosef("Mock AI failing as requested")
 		return fmt.Errorf("opencode execution failed: mock AI failure\n\nline 9 output\nline 10 output\nline 11 output\nline 12 output")

@@ -9,10 +9,10 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/zon/ralph/internal/ai"
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/logger"
-	"github.com/zon/ralph/internal/opencode"
 	"github.com/zon/ralph/internal/project"
 )
 
@@ -97,7 +97,7 @@ func runOpenCodeAndReadResult(ctx *context.Context, model, prompt, outputFile st
 		stderrWriter = os.Stderr
 	}
 
-	if err := opencode.RunCommand(ctx.GoContext(), model, prompt, stdoutWriter, stderrWriter); err != nil {
+	if err := ai.RunCommand(ctx.GoContext(), model, prompt, stdoutWriter, stderrWriter); err != nil {
 		return "", fmt.Errorf("opencode execution failed: %w", err)
 	}
 
