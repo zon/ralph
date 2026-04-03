@@ -1,6 +1,6 @@
 workflow:
   namespace: ralph
-model: deepseek/deepseek-reasoner
+model: minimax/MiniMax-M2.7
 review:
   items:
     - url: https://raw.githubusercontent.com/zon/code/main/review/architecture/deep-modules.md
