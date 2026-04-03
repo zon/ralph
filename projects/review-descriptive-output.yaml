@@ -17,7 +17,7 @@ requirements:
       - After the AI runs, ralph detects which file was modified or created under the projects/ directory
       - The detected project file's base name (without extension) is used as the Git branch name
       - The --project flag is removed from the review command
-    passing: false
+    passing: true
 
   - category: version
     description: Apply a semver patch bump to internal/version/VERSION and charts/ralph-webhook/Chart.yaml
