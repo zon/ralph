@@ -2,9 +2,7 @@ package run
 
 import (
 	"errors"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -12,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/zon/ralph/internal/config"
+	"github.com/zon/ralph/internal/fileutil"
 	"github.com/zon/ralph/internal/testutil"
 )
 
@@ -32,7 +31,7 @@ requirements:
     description: Add feature
     passing: true
 `
-	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
+	if err := fileutil.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
 		t.Fatalf("Failed to create test project file: %v", err)
 	}
 
@@ -73,13 +72,13 @@ requirements:
     description: Add feature
     passing: false
 `
-	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
+	if err := fileutil.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
 		t.Fatalf("Failed to create test project file: %v", err)
 	}
 
 	// Create initial report.md for first iteration commit to succeed
 	// (after commit, report.md is deleted but loop ends since maxIterations=1)
-	if err := os.WriteFile("report.md", []byte("Test iteration 1"), 0644); err != nil {
+	if err := fileutil.WriteFile("report.md", []byte("Test iteration 1"), 0644); err != nil {
 		t.Fatalf("Failed to create report.md: %v", err)
 	}
 
@@ -106,13 +105,13 @@ requirements:
     description: Add feature
     passing: false
 `
-	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
+	if err := fileutil.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
 		t.Fatalf("Failed to create test project file: %v", err)
 	}
 
 	// Create blocked.md in repo root
 	blockedContent := "Agent is blocked due to some issue"
-	if err := os.WriteFile("blocked.md", []byte(blockedContent), 0644); err != nil {
+	if err := fileutil.WriteFile("blocked.md", []byte(blockedContent), 0644); err != nil {
 		t.Fatalf("Failed to create blocked.md: %v", err)
 	}
 
@@ -232,8 +231,8 @@ func setupIterationTestRepo(t *testing.T, hookContent string) string {
 
 	// Create an initial commit and push it before installing the hook so the
 	// bare remote has a valid HEAD.
-	readmePath := filepath.Join(workDir, "README.md")
-	if err := os.WriteFile(readmePath, []byte("# test\n"), 0644); err != nil {
+	readmePath := fileutil.Join(workDir, "README.md")
+	if err := fileutil.WriteFile(readmePath, []byte("# test\n"), 0644); err != nil {
 		t.Fatalf("failed to write README: %v", err)
 	}
 	for _, args := range [][]string{
@@ -250,15 +249,15 @@ func setupIterationTestRepo(t *testing.T, hookContent string) string {
 
 	// Install the hook after the initial push so only subsequent pushes are rejected.
 	if hookContent != "" {
-		hookPath := filepath.Join(remoteDir, "hooks", "pre-receive")
-		if err := os.WriteFile(hookPath, []byte(hookContent), 0755); err != nil {
+		hookPath := fileutil.Join(remoteDir, "hooks", "pre-receive")
+		if err := fileutil.WriteFile(hookPath, []byte(hookContent), 0755); err != nil {
 			t.Fatalf("failed to write hook: %v", err)
 		}
 	}
 
 	// Create .ralph directory with config.yaml
-	ralphDir := filepath.Join(workDir, ".ralph")
-	if err := os.MkdirAll(ralphDir, 0755); err != nil {
+	ralphDir := fileutil.Join(workDir, ".ralph")
+	if err := fileutil.MkdirAll(ralphDir, 0755); err != nil {
 		t.Fatalf("failed to create .ralph directory: %v", err)
 	}
 	repoConfig, err := config.LoadConfig()
@@ -266,7 +265,7 @@ func setupIterationTestRepo(t *testing.T, hookContent string) string {
 		t.Fatalf("failed to load repo config: %v", err)
 	}
 	configContent := "model: " + repoConfig.Model + "\n"
-	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte(configContent), 0644); err != nil {
+	if err := fileutil.WriteFile(fileutil.Join(ralphDir, "config.yaml"), []byte(configContent), 0644); err != nil {
 		t.Fatalf("failed to create .ralph/config.yaml: %v", err)
 	}
 
@@ -295,16 +294,16 @@ func TestCommitChanges_WorkflowPermissionErrorIsFatal(t *testing.T) {
 	t.Chdir(workDir)
 
 	// Stage a new file so CommitChanges has something to commit.
-	wfDir := filepath.Join(workDir, ".github", "workflows")
-	if err := os.MkdirAll(wfDir, 0755); err != nil {
+	wfDir := fileutil.Join(workDir, ".github", "workflows")
+	if err := fileutil.MkdirAll(wfDir, 0755); err != nil {
 		t.Fatalf("failed to create workflow dir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(wfDir, "test.yaml"), []byte("name: test\n"), 0644); err != nil {
+	if err := fileutil.WriteFile(fileutil.Join(wfDir, "test.yaml"), []byte("name: test\n"), 0644); err != nil {
 		t.Fatalf("failed to write workflow file: %v", err)
 	}
 
 	// Write a report.md so CommitChanges has a commit message.
-	if err := os.WriteFile("report.md", []byte("Add workflow file"), 0644); err != nil {
+	if err := fileutil.WriteFile("report.md", []byte("Add workflow file"), 0644); err != nil {
 		t.Fatalf("failed to write report.md: %v", err)
 	}
 
@@ -324,7 +323,7 @@ func TestRunIterationLoop_WorkflowPermissionStopsLoop(t *testing.T) {
 	workDir := setupIterationTestRepo(t, hookContent)
 
 	// Create a project file inside the repo.
-	projectFile := filepath.Join(workDir, "project.yaml")
+	projectFile := fileutil.Join(workDir, "project.yaml")
 	projectContent := `name: test-project
 description: Test workflow permission handling
 requirements:
@@ -332,7 +331,7 @@ requirements:
     description: Add workflow file
     passing: false
 `
-	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
+	if err := fileutil.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
 		t.Fatalf("failed to write project file: %v", err)
 	}
 
@@ -344,14 +343,14 @@ requirements:
 	//
 	// Verify that ErrFatalPushError wraps ErrWorkflowPermission so callers
 	// can inspect the root cause.
-	wfDir := filepath.Join(workDir, ".github", "workflows")
-	if err := os.MkdirAll(wfDir, 0755); err != nil {
+	wfDir := fileutil.Join(workDir, ".github", "workflows")
+	if err := fileutil.MkdirAll(wfDir, 0755); err != nil {
 		t.Fatalf("failed to create workflow dir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(wfDir, "test.yaml"), []byte("name: test\n"), 0644); err != nil {
+	if err := fileutil.WriteFile(fileutil.Join(wfDir, "test.yaml"), []byte("name: test\n"), 0644); err != nil {
 		t.Fatalf("failed to write workflow file: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(workDir, "report.md"), []byte("Add workflow"), 0644); err != nil {
+	if err := fileutil.WriteFile(fileutil.Join(workDir, "report.md"), []byte("Add workflow"), 0644); err != nil {
 		t.Fatalf("failed to write report.md: %v", err)
 	}
 
@@ -369,10 +368,10 @@ func TestCommitChanges_ReadsReportMdAndCommits(t *testing.T) {
 
 	t.Chdir(workDir)
 
-	if err := os.WriteFile("feature.go", []byte("package main\n"), 0644); err != nil {
+	if err := fileutil.WriteFile("feature.go", []byte("package main\n"), 0644); err != nil {
 		t.Fatalf("failed to write feature.go: %v", err)
 	}
-	if err := os.WriteFile("report.md", []byte("Add new feature"), 0644); err != nil {
+	if err := fileutil.WriteFile("report.md", []byte("Add new feature"), 0644); err != nil {
 		t.Fatalf("failed to write report.md: %v", err)
 	}
 
@@ -381,8 +380,8 @@ func TestCommitChanges_ReadsReportMdAndCommits(t *testing.T) {
 	err := CommitChanges(ctx, 1)
 	require.NoError(t, err, "CommitChanges failed")
 
-	_, err = os.Stat("report.md")
-	assert.True(t, os.IsNotExist(err), "report.md should have been removed after commit")
+	_, err = fileutil.Stat("report.md")
+	assert.True(t, fileutil.IsNotExist(err), "report.md should have been removed after commit")
 
 	cmd := exec.Command("git", "log", "-1", "--format=%B")
 	cmd.Dir = workDir
@@ -397,11 +396,11 @@ func TestCommitChanges_UsesProvidedReportMd(t *testing.T) {
 
 	t.Chdir(workDir)
 
-	if err := os.WriteFile("feature.go", []byte("package main\n"), 0644); err != nil {
+	if err := fileutil.WriteFile("feature.go", []byte("package main\n"), 0644); err != nil {
 		t.Fatalf("failed to write feature.go: %v", err)
 	}
 
-	if err := os.WriteFile("report.md", []byte("Add new feature for iteration 42"), 0644); err != nil {
+	if err := fileutil.WriteFile("report.md", []byte("Add new feature for iteration 42"), 0644); err != nil {
 		t.Fatalf("failed to write report.md: %v", err)
 	}
 
@@ -423,7 +422,7 @@ func TestCommitChanges_AllowEmptyCommitWhenNoStagedChanges(t *testing.T) {
 
 	t.Chdir(workDir)
 
-	if err := os.WriteFile("report.md", []byte("No changes made"), 0644); err != nil {
+	if err := fileutil.WriteFile("report.md", []byte("No changes made"), 0644); err != nil {
 		t.Fatalf("failed to write report.md: %v", err)
 	}
 
@@ -433,8 +432,8 @@ func TestCommitChanges_AllowEmptyCommitWhenNoStagedChanges(t *testing.T) {
 	require.Error(t, err, "CommitChanges should fail when no staged changes")
 	assert.True(t, errors.Is(err, ErrNoChanges), "error should be ErrNoChanges")
 
-	_, statErr := os.Stat("report.md")
-	assert.True(t, os.IsNotExist(statErr), "report.md should be deleted")
+	_, statErr := fileutil.Stat("report.md")
+	assert.True(t, fileutil.IsNotExist(statErr), "report.md should be deleted")
 }
 
 func TestPerformCommit_NoStagedChangesDeletesReportMd(t *testing.T) {
@@ -442,7 +441,7 @@ func TestPerformCommit_NoStagedChangesDeletesReportMd(t *testing.T) {
 
 	t.Chdir(workDir)
 
-	if err := os.WriteFile("report.md", []byte("Test commit message"), 0644); err != nil {
+	if err := fileutil.WriteFile("report.md", []byte("Test commit message"), 0644); err != nil {
 		t.Fatalf("failed to write report.md: %v", err)
 	}
 
@@ -453,8 +452,8 @@ func TestPerformCommit_NoStagedChangesDeletesReportMd(t *testing.T) {
 	require.Error(t, err, "performCommit should fail when no staged changes")
 	assert.True(t, errors.Is(err, ErrNoChanges), "error should be ErrNoChanges")
 
-	_, statErr := os.Stat("report.md")
-	assert.True(t, os.IsNotExist(statErr), "report.md should be deleted")
+	_, statErr := fileutil.Stat("report.md")
+	assert.True(t, fileutil.IsNotExist(statErr), "report.md should be deleted")
 }
 
 func TestGenerateChangelogIfNeeded_NoChanges(t *testing.T) {
@@ -469,8 +468,8 @@ func TestGenerateChangelogIfNeeded_NoChanges(t *testing.T) {
 	require.NoError(t, err, "generateChangelogIfNeeded should succeed when tree is clean")
 
 	// report.md must not have been created
-	_, statErr := os.Stat("report.md")
-	assert.True(t, os.IsNotExist(statErr), "report.md should not be created when there are no changes")
+	_, statErr := fileutil.Stat("report.md")
+	assert.True(t, fileutil.IsNotExist(statErr), "report.md should not be created when there are no changes")
 }
 
 func TestGenerateChangelogIfNeeded_ReportMdAlreadyPresent(t *testing.T) {
@@ -480,13 +479,13 @@ func TestGenerateChangelogIfNeeded_ReportMdAlreadyPresent(t *testing.T) {
 	ctx := testutil.NewContext()
 
 	// Create uncommitted changes
-	if err := os.WriteFile(filepath.Join(workDir, "new.go"), []byte("package main\n"), 0644); err != nil {
+	if err := fileutil.WriteFile(fileutil.Join(workDir, "new.go"), []byte("package main\n"), 0644); err != nil {
 		t.Fatalf("failed to write new.go: %v", err)
 	}
 
 	// report.md is already present — opencode must not be called
 	originalReport := "Existing changelog entry"
-	if err := os.WriteFile("report.md", []byte(originalReport), 0644); err != nil {
+	if err := fileutil.WriteFile("report.md", []byte(originalReport), 0644); err != nil {
 		t.Fatalf("failed to write report.md: %v", err)
 	}
 
@@ -494,7 +493,7 @@ func TestGenerateChangelogIfNeeded_ReportMdAlreadyPresent(t *testing.T) {
 	require.NoError(t, err, "generateChangelogIfNeeded should succeed when report.md already exists")
 
 	// report.md should be unchanged
-	content, readErr := os.ReadFile("report.md")
+	content, readErr := fileutil.ReadFile("report.md")
 	require.NoError(t, readErr)
 	assert.Equal(t, originalReport, string(content), "report.md should not be overwritten when already present")
 }
@@ -526,7 +525,7 @@ requirements:
     description: Add feature
     passing: true
 `
-	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
+	if err := fileutil.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
 		t.Fatalf("Failed to create test project file: %v", err)
 	}
 

@@ -1,7 +1,6 @@
 package fileutil
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"

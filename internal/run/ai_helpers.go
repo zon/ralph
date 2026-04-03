@@ -3,22 +3,27 @@ package run
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
-	"os/exec"
 	"strings"
 	"text/template"
 
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/fileutil"
-	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/logger"
+	"github.com/zon/ralph/internal/opencode"
 	"github.com/zon/ralph/internal/project"
 )
 
 // GeneratePRSummary generates a pull request summary using AI
 // It includes project description, status, commits, and diff
 // This matches ralph.sh's approach: agent writes to a file, we read it back
+func GeneratePRSummary(ctx *context.Context, proj *project.Project, projectStatus, baseBranch, commitLog string) (summary string, err error) {
+	tmpFile, err := fileutil.TempFile("pr-summary-", ".md")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temporary PR summary file: %w", err)
+	}
 	defer fileutil.Remove(tmpFile)
 
 	prompt := buildPRSummaryPrompt(proj.Description, projectStatus, baseBranch, commitLog, tmpFile)
@@ -28,7 +33,7 @@ import (
 	}
 
 	model := resolveModel(ctx)
-	summary, err := runOpenCodeAndReadResult(ctx, model, prompt, tmpFile)
+	summary, err = runOpenCodeAndReadResult(ctx, model, prompt, tmpFile)
 	if err != nil {
 		return "", err
 	}
@@ -67,6 +72,7 @@ Write your summary to the file: {{.AbsPath}}
 `))
 
 // buildPRSummaryPrompt constructs the prompt for generating PR summary
+func buildPRSummaryPrompt(projectDesc, projectStatus, baseBranch, commitLog, outputFile string) string {
 	absPath, _ := fileutil.Abs(outputFile)
 
 	var builder bytes.Buffer
@@ -83,14 +89,13 @@ Write your summary to the file: {{.AbsPath}}
 
 // runOpenCodeAndReadResult runs opencode with the given prompt and reads the result from the output file
 func runOpenCodeAndReadResult(ctx *context.Context, model, prompt, outputFile string) (string, error) {
-	cmd := exec.Command("opencode", "run", "--model", model, prompt)
-	cmd.Env = append(os.Environ(), "FORCE_COLOR=1")
+	var stdoutWriter, stderrWriter io.Writer
 	if ctx.IsVerbose() {
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
+		stdoutWriter = os.Stdout
+		stderrWriter = os.Stderr
 	}
 
-	if err := cmd.Run(); err != nil {
+	if err := opencode.RunCommand(ctx.GoContext(), model, prompt, stdoutWriter, stderrWriter); err != nil {
 		return "", fmt.Errorf("opencode execution failed: %w", err)
 	}
 
@@ -121,6 +126,11 @@ func resolveModel(ctx *context.Context) string {
 
 // GenerateChangelog prompts opencode to inspect the current git diff and write a
 // descriptive changelog to report.md.
+func GenerateChangelog(ctx *context.Context) (err error) {
+	tmpFile, err := fileutil.TempFile("changelog-", ".md")
+	if err != nil {
+		return fmt.Errorf("failed to create temporary changelog file: %w", err)
+	}
 	defer fileutil.Remove(tmpFile)
 
 	prompt := buildChangelogPrompt(tmpFile)
@@ -136,7 +146,7 @@ func resolveModel(ctx *context.Context) string {
 	}
 
 	// The agent writes to the file we gave it; we need to move that to report.md
-	if err := fileutil.Rename(tmpFile, "report.md"); err != nil {
+	if err = fileutil.Rename(tmpFile, "report.md"); err != nil {
 		return fmt.Errorf("failed to rename changelog to report.md: %w", err)
 	}
 
@@ -167,6 +177,11 @@ func buildChangelogPrompt(outputFile string) string {
 
 // GenerateReviewPRBody generates a PR body for review findings using AI
 // It reads the review project file and writes a concise summary of recommended changes
+func GenerateReviewPRBody(ctx *context.Context, proj *project.Project, requirementSummaries []string) (summary string, err error) {
+	tmpFile, err := fileutil.TempFile("review-pr-body-", ".md")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temporary review PR body file: %w", err)
+	}
 	defer fileutil.Remove(tmpFile)
 
 	prompt := buildReviewPRBodyPrompt(proj.Name, proj.Description, requirementSummaries, tmpFile)
@@ -176,7 +191,7 @@ func buildChangelogPrompt(outputFile string) string {
 	}
 
 	model := resolveModel(ctx)
-	summary, err := runOpenCodeAndReadResult(ctx, model, prompt, tmpFile)
+	summary, err = runOpenCodeAndReadResult(ctx, model, prompt, tmpFile)
 	if err != nil {
 		return "", err
 	}
