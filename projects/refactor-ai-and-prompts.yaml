@@ -1,33 +1,28 @@
 name: refactor-ai-and-prompts
-description: Consolidate AI integration and refactor prompt construction into deep, focused modules
+description: Consolidate opencode interactions into internal/ai and make internal/prompt a pure rendering module
 
 requirements:
   - category: ai-integration
-    description: Consolidate all opencode CLI interactions through the AI module
+    description: Merge internal/opencode into internal/ai
     items:
-      - Move opencode stats execution from internal/cmd/workflow.go and internal/cmd/review.go to internal/ai package
-      - Add a public function like DisplayStats(ctx) that handles stats display
-      - Update callers to use the new function
+      - Delete the internal/opencode package
+      - Move RunCommand logic into internal/ai, using it as the base for RunAgent and other exec calls
+      - Remove duplicated exec.Command("opencode", ...) calls within internal/ai in favour of the consolidated helper
+      - Update any callers that imported internal/opencode directly
     passing: false
   - category: ai-integration
-    description: Separate domain logic from implementation details in AI integration
+    description: Consolidate all opencode CLI interactions through internal/ai
     items:
-      - AI functions should delegate low-level operations (exec, file I/O, template rendering) to dedicated abstractions
-      - Move prompt template building to internal/prompt package
-      - Introduce AI executor interface to encapsulate opencode CLI interactions
-      - Keep domain logic concise and focused on orchestrating AI workflows
+      - Add a public DisplayStats function to internal/ai that runs opencode stats
+      - Remove direct exec.Command("opencode", ...) calls from internal/cmd/workflow.go and internal/cmd/review.go
+      - Update callers to use ai.DisplayStats
     passing: false
   - category: prompt-management
-    description: Refactor prompt module to eliminate duplication and ensure consistent error handling
+    description: Make internal/prompt a pure rendering implementation module
     items:
-      - Extract common prompt building steps (load config, read project file, get commit log, base branch) into private helper functions
-      - Ensure all prompt building functions return errors for template failures
-      - Update callers to handle errors appropriately
-    passing: false
-  - category: prompt-management
-    description: Separate domain logic from implementation details in prompt construction
-    items:
-      - Extract template parsing and execution to a private helper function
-      - Remove logging statements from prompt building functions
-      - Ensure prompt building functions only orchestrate domain steps (gather configuration, project content, git history, select template, render via helper)
+      - Prompt building functions accept fully-resolved data structs and return rendered strings
+      - Remove config loading, git calls, and branch resolution from internal/prompt — callers are responsible for gathering this data
+      - Extract template parsing and execution into a private helper function shared by all builders
+      - Remove logging from prompt building functions
+      - All prompt building functions return errors rather than logging warnings on failure
     passing: false
