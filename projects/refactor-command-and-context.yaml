@@ -10,7 +10,7 @@ requirements:
       - ConfigWebhookConfigCmd and ConfigWebhookSecretCmd in internal/cmd contain only orchestration logic and delegate all domain work to internal/provisioning
       - collaboratorsFetcher package-level variable is removed from internal/cmd
       - Tests for BuildWebhookAppConfig, BuildWebhookSecrets, and GenerateWebhookSecret move to internal/provisioning
-    passing: false
+    passing: true
   - category: command-layer
     description: Ensure command handlers separate domain logic from infrastructure
     items:
