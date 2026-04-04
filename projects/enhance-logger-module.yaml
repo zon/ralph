@@ -27,4 +27,4 @@ requirements:
       - Replace fmt.Printf at internal/cmd/config_webhook.go:168 with logger.Warningf call
       - Replace fmt.Printf at internal/cmd/config_webhook.go:170 with logger.Success call
       - Remove fmt.Printf at internal/cmd/config_webhook.go:173 or use logger.Info
-    passing: false
+    passing: true
