@@ -7,7 +7,7 @@ requirements:
     items:
       - internal/prompt exports BuildPRSummaryPrompt, BuildChangelogPrompt, and BuildReviewPRBodyPrompt
       - No prompt templates or prompt builder functions exist outside of internal/prompt
-    passing: false
+    passing: true
 
   - category: version
     description: Apply a semver patch bump to internal/version/VERSION and charts/ralph-webhook/Chart.yaml
@@ -21,4 +21,4 @@ requirements:
       - BuildPRSummaryPrompt output contains the project description, base branch, and output file path
       - BuildChangelogPrompt output contains the output file path
       - BuildReviewPRBodyPrompt output contains the project name and each requirement summary
-    passing: false
+    passing: true

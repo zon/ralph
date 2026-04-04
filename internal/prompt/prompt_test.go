@@ -3,6 +3,7 @@ package prompt
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -317,4 +318,96 @@ func TestBuildPickPrompt_EmptyNotes(t *testing.T) {
 	require.NoError(t, err, "BuildPickPrompt failed")
 
 	assert.NotContains(t, prompt, "## System Notes")
+}
+
+func TestBuildPRSummaryPrompt(t *testing.T) {
+	prompt, err := BuildPRSummaryPrompt(
+		"Test Project",
+		"✅ Complete",
+		"main",
+		"abc123: Initial commit\ndef456: Add feature\n",
+		"/tmp/pr-summary.txt",
+	)
+
+	require.NoError(t, err, "BuildPRSummaryPrompt failed")
+	assert.NotEmpty(t, prompt, "PR summary prompt should not be empty")
+	assert.Contains(t, prompt, "Test Project", "prompt should include project description")
+	assert.Contains(t, prompt, "✅ Complete", "prompt should include project status")
+	assert.Contains(t, prompt, "main..HEAD", "prompt should reference base branch")
+	assert.Contains(t, prompt, "abc123: Initial commit", "prompt should include commit log")
+	assert.Contains(t, prompt, "/tmp/pr-summary.txt", "prompt should include output file path")
+}
+
+func TestBuildPRSummaryPrompt_AbsolutePath(t *testing.T) {
+	prompt, err := BuildPRSummaryPrompt(
+		"My Project",
+		"status",
+		"develop",
+		"commit log",
+		"relative/path.txt",
+	)
+
+	require.NoError(t, err, "BuildPRSummaryPrompt failed")
+	absPath, _ := filepath.Abs("relative/path.txt")
+	assert.Contains(t, prompt, absPath, "prompt should contain absolute path")
+}
+
+func TestBuildChangelogPrompt(t *testing.T) {
+	prompt, err := BuildChangelogPrompt("/tmp/report.md")
+
+	require.NoError(t, err, "BuildChangelogPrompt failed")
+	assert.NotEmpty(t, prompt, "changelog prompt should not be empty")
+	assert.Contains(t, prompt, "report.md", "prompt should reference report.md")
+	assert.Contains(t, prompt, "git diff", "prompt should instruct inspecting git diff")
+}
+
+func TestBuildChangelogPrompt_AbsolutePath(t *testing.T) {
+	prompt, err := BuildChangelogPrompt("changelog.txt")
+
+	require.NoError(t, err, "BuildChangelogPrompt failed")
+	absPath, _ := filepath.Abs("changelog.txt")
+	assert.Contains(t, prompt, absPath, "prompt should contain absolute path")
+}
+
+func TestBuildReviewPRBodyPrompt(t *testing.T) {
+	prompt, err := BuildReviewPRBodyPrompt(
+		"review-2026-03-22",
+		"Code review for authentication",
+		[]string{"- **security**: JWT validation (✅ Passing)", "- **style**: naming conventions (❌ Not passing)"},
+		"/tmp/pr-body.txt",
+	)
+
+	require.NoError(t, err, "BuildReviewPRBodyPrompt failed")
+	assert.NotEmpty(t, prompt, "PR body prompt should not be empty")
+	assert.Contains(t, prompt, "review-2026-03-22", "prompt should include review name")
+	assert.Contains(t, prompt, "Code review for authentication", "prompt should include description")
+	assert.Contains(t, prompt, "JWT validation", "prompt should include requirement details")
+	assert.Contains(t, prompt, "/tmp/pr-body.txt", "prompt should include output file path")
+}
+
+func TestBuildReviewPRBodyPrompt_NoDescription(t *testing.T) {
+	prompt, err := BuildReviewPRBodyPrompt(
+		"review-2026-03-22",
+		"",
+		[]string{"- **security**: JWT validation (✅ Passing)"},
+		"/tmp/pr-body.txt",
+	)
+
+	require.NoError(t, err, "BuildReviewPRBodyPrompt failed")
+	assert.NotEmpty(t, prompt, "PR body prompt should not be empty")
+	assert.Contains(t, prompt, "review-2026-03-22", "prompt should include review name")
+	assert.NotContains(t, prompt, "Description:", "prompt should not include empty description")
+}
+
+func TestBuildReviewPRBodyPrompt_AbsolutePath(t *testing.T) {
+	prompt, err := BuildReviewPRBodyPrompt(
+		"review",
+		"description",
+		[]string{"req1", "req2"},
+		"relative/path.txt",
+	)
+
+	require.NoError(t, err, "BuildReviewPRBodyPrompt failed")
+	absPath, _ := filepath.Abs("relative/path.txt")
+	assert.Contains(t, prompt, absPath, "prompt should contain absolute path")
 }
