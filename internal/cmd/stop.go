@@ -3,9 +3,8 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
-	"os/exec"
 
+	"github.com/zon/ralph/internal/argo"
 	"github.com/zon/ralph/internal/config"
 )
 
@@ -27,19 +26,8 @@ func (s *StopCmd) Run() error {
 		return err
 	}
 
-	args := []string{"stop", "-n", k8sCtx.Namespace}
-	if k8sCtx.Name != "" {
-		args = append(args, "--context", k8sCtx.Name)
-	}
-	args = append(args, s.WorkflowName)
-
-	cmd := exec.Command("argo", args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to stop workflow: %w", err)
-	}
-
-	return nil
+	return argo.StopWorkflow(argo.K8sContext{
+		Name:      k8sCtx.Name,
+		Namespace: k8sCtx.Namespace,
+	}, s.WorkflowName)
 }

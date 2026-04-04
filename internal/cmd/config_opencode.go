@@ -7,6 +7,7 @@ import (
 
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/k8s"
+	"github.com/zon/ralph/internal/logger"
 )
 
 // ConfigOpencodeCmd configures OpenCode credentials for Argo Workflows
@@ -31,8 +32,6 @@ func (c *ConfigOpencodeCmd) Run() error {
 		return err
 	}
 
-	fmt.Println()
-
 	authFileContent, err := c.readOpenCodeCredentials()
 	if err != nil {
 		return err
@@ -46,8 +45,7 @@ func (c *ConfigOpencodeCmd) Run() error {
 }
 
 func (c *ConfigOpencodeCmd) printHeader() {
-	fmt.Println("Configuring OpenCode credentials for Ralph remote execution...")
-	fmt.Println()
+	logger.Info("Configuring OpenCode credentials for Ralph remote execution...")
 }
 
 func (c *ConfigOpencodeCmd) readOpenCodeCredentials() (string, error) {
@@ -57,7 +55,7 @@ func (c *ConfigOpencodeCmd) readOpenCodeCredentials() (string, error) {
 	}
 
 	authFilePath := fmt.Sprintf("%s/.local/share/opencode/auth.json", homeDir)
-	fmt.Printf("Reading OpenCode credentials from: %s\n", authFilePath)
+	logger.Infof("Reading OpenCode credentials from: %s", authFilePath)
 
 	authFileContent, err := os.ReadFile(authFilePath)
 	if err != nil {
@@ -71,13 +69,12 @@ func (c *ConfigOpencodeCmd) readOpenCodeCredentials() (string, error) {
 		return "", fmt.Errorf("auth.json is empty at %s", authFilePath)
 	}
 
-	fmt.Println("✓ OpenCode credentials read successfully")
-	fmt.Println()
+	logger.Success("OpenCode credentials read successfully")
 	return string(authFileContent), nil
 }
 
 func (c *ConfigOpencodeCmd) createK8sSecret(ctx context.Context, kubeContext, namespace, authFileContent string) error {
-	fmt.Printf("Creating/updating Kubernetes secret '%s'...\n", k8s.OpenCodeSecretName)
+	logger.Infof("Creating/updating Kubernetes secret '%s'...", k8s.OpenCodeSecretName)
 
 	secretData := map[string]string{
 		"auth.json": authFileContent,
@@ -87,9 +84,8 @@ func (c *ConfigOpencodeCmd) createK8sSecret(ctx context.Context, kubeContext, na
 		return fmt.Errorf("failed to create/update secret: %w", err)
 	}
 
-	fmt.Printf("✓ Secret '%s' created/updated successfully\n", k8s.OpenCodeSecretName)
-	fmt.Println()
+	logger.Successf("Secret '%s' created/updated successfully", k8s.OpenCodeSecretName)
 
-	fmt.Printf("Configuration complete! The secret '%s' is ready for use in namespace '%s'.\n", k8s.OpenCodeSecretName, namespace)
+	logger.Infof("Configuration complete! The secret '%s' is ready for use in namespace '%s'.", k8s.OpenCodeSecretName, namespace)
 	return nil
 }

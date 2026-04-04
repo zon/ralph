@@ -3,9 +3,8 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
-	"os/exec"
 
+	"github.com/zon/ralph/internal/argo"
 	"github.com/zon/ralph/internal/config"
 )
 
@@ -26,18 +25,8 @@ func (l *ListCmd) Run() error {
 		return err
 	}
 
-	args := []string{"list", "-n", k8sCtx.Namespace}
-	if k8sCtx.Name != "" {
-		args = append(args, "--context", k8sCtx.Name)
-	}
-
-	cmd := exec.Command("argo", args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to list workflows: %w", err)
-	}
-
-	return nil
+	return argo.ListWorkflows(argo.K8sContext{
+		Name:      k8sCtx.Name,
+		Namespace: k8sCtx.Namespace,
+	})
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/k8s"
+	"github.com/zon/ralph/internal/logger"
 )
 
 // ConfigGithubCmd configures GitHub credentials for Argo Workflows
@@ -33,8 +34,6 @@ func (c *ConfigGithubCmd) Run() error {
 		return err
 	}
 
-	fmt.Println()
-
 	repo, err := c.detectRepo(ctx)
 	if err != nil {
 		return err
@@ -55,14 +54,13 @@ func (c *ConfigGithubCmd) Run() error {
 		return err
 	}
 
-	fmt.Println("Note: GitHub App credentials are not tied to any user account.")
+	logger.Info("Note: GitHub App credentials are not tied to any user account.")
 
 	return nil
 }
 
 func (c *ConfigGithubCmd) printHeader() {
-	fmt.Println("Configuring GitHub App credentials for Ralph remote execution...")
-	fmt.Println()
+	logger.Info("Configuring GitHub App credentials for Ralph remote execution...")
 }
 
 func (c *ConfigGithubCmd) detectRepo(ctx context.Context) (github.Repo, error) {
@@ -85,7 +83,7 @@ func (c *ConfigGithubCmd) readAndValidatePrivateKey() ([]byte, error) {
 }
 
 func (c *ConfigGithubCmd) validateCredentials(ctx context.Context, repoOwner, repoName string, privateKeyBytes []byte) error {
-	fmt.Println("Validating credentials...")
+	logger.Info("Validating credentials...")
 	appID := config.DefaultAppID
 
 	jwtToken, err := github.GenerateAppJWT(appID, privateKeyBytes)
@@ -103,13 +101,12 @@ func (c *ConfigGithubCmd) validateCredentials(ctx context.Context, repoOwner, re
 		return fmt.Errorf("failed to get installation token: %w", err)
 	}
 
-	fmt.Println("✓ Credentials validated successfully")
-	fmt.Println()
+	logger.Success("Credentials validated successfully")
 	return nil
 }
 
 func (c *ConfigGithubCmd) createK8sSecret(ctx context.Context, kubeContext, namespace, appID string, privateKeyBytes []byte) error {
-	fmt.Printf("Creating/updating Kubernetes secret '%s'...\n", k8s.GitHubSecretName)
+	logger.Infof("Creating/updating Kubernetes secret '%s'...", k8s.GitHubSecretName)
 
 	secretData := map[string]string{
 		"app-id":      appID,
@@ -120,10 +117,8 @@ func (c *ConfigGithubCmd) createK8sSecret(ctx context.Context, kubeContext, name
 		return fmt.Errorf("failed to create/update secret: %w", err)
 	}
 
-	fmt.Printf("✓ Secret '%s' created/updated successfully\n", k8s.GitHubSecretName)
-	fmt.Println()
+	logger.Successf("Secret '%s' created/updated successfully", k8s.GitHubSecretName)
 
-	fmt.Printf("Configuration complete! The secret '%s' is ready for use in namespace '%s'.\n", k8s.GitHubSecretName, namespace)
-	fmt.Println()
+	logger.Infof("Configuration complete! The secret '%s' is ready for use in namespace '%s'.", k8s.GitHubSecretName, namespace)
 	return nil
 }

@@ -1,23 +1,26 @@
 package cleanup
 
 import (
-	"fmt"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
+
+	"github.com/zon/ralph/internal/logger"
 )
 
 // Manager manages cleanup operations for graceful shutdown
 type Manager struct {
 	mu        sync.Mutex
 	cleanupFn []func()
+	exitFn    func(int)
 }
 
 // NewManager creates a new cleanup manager
 func NewManager() *Manager {
 	return &Manager{
 		cleanupFn: make([]func(), 0),
+		exitFn:    os.Exit,
 	}
 }
 
@@ -46,11 +49,13 @@ func (m *Manager) SetupSignalHandlers() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
-	go func() {
-		sig := <-sigChan
-		fmt.Printf("\nReceived signal: %v\n", sig)
-		fmt.Println("Cleaning up...")
-		m.Cleanup()
-		os.Exit(0)
-	}()
+	go m.handleSignal(sigChan)
+}
+
+func (m *Manager) handleSignal(sigChan <-chan os.Signal) {
+	sig := <-sigChan
+	logger.Infof("Received signal: %v", sig)
+	logger.Info("Cleaning up...")
+	m.Cleanup()
+	m.exitFn(0)
 }

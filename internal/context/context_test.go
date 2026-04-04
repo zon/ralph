@@ -1,6 +1,7 @@
 package context
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -336,6 +337,127 @@ func TestKubeContext(t *testing.T) {
 				assert.Empty(t, result, "Default kube context should be empty")
 			} else {
 				assert.NotEmpty(t, result, "Custom kube context should not be empty")
+			}
+		})
+	}
+}
+
+func TestNewContextFromEnv(t *testing.T) {
+	envVars := map[string]string{
+		"RALPH_WORKFLOW_EXECUTION": "true",
+		"GITHUB_REPO_OWNER":        "test-owner",
+		"GITHUB_REPO_NAME":         "test-repo",
+		"PROJECT_PATH":             "/path/to/project.yaml",
+		"PROJECT_BRANCH":           "feature/test",
+		"BASE_BRANCH":              "main",
+		"RALPH_VERBOSE":            "true",
+		"RALPH_NO_SERVICES":        "true",
+		"RALPH_DEBUG_BRANCH":       "debug-branch",
+		"INSTRUCTIONS_MD":          "# Test Instructions",
+		"RALPH_MAX_ITERATIONS":     "42",
+	}
+
+	for key, val := range envVars {
+		os.Setenv(key, val)
+		defer os.Unsetenv(key)
+	}
+
+	ctx := NewContextFromEnv()
+
+	assert.True(t, ctx.IsWorkflowExecution(), "workflowExecution should be true")
+	owner, name := ctx.RepoOwnerAndName()
+	assert.Equal(t, "test-owner", owner, "repo owner should match")
+	assert.Equal(t, "test-repo", name, "repo name should match")
+	assert.Equal(t, "/path/to/project.yaml", ctx.ProjectFile(), "project file should match")
+	assert.Equal(t, "feature/test", ctx.Branch(), "branch should match")
+	assert.Equal(t, "main", ctx.BaseBranch(), "base branch should match")
+	assert.True(t, ctx.IsVerbose(), "verbose should be true")
+	assert.True(t, ctx.NoServices(), "noServices should be true")
+	assert.Equal(t, "debug-branch", ctx.DebugBranch(), "debug branch should match")
+	assert.Equal(t, "# Test Instructions", ctx.InstructionsMD(), "instructionsMD should match")
+	assert.Equal(t, 42, ctx.MaxIterations(), "maxIterations should match")
+}
+
+func TestNewContextFromEnvEmpty(t *testing.T) {
+	envVars := []string{
+		"RALPH_WORKFLOW_EXECUTION",
+		"GITHUB_REPO_OWNER",
+		"GITHUB_REPO_NAME",
+		"PROJECT_PATH",
+		"PROJECT_BRANCH",
+		"BASE_BRANCH",
+		"RALPH_VERBOSE",
+		"RALPH_NO_SERVICES",
+		"RALPH_DEBUG_BRANCH",
+		"INSTRUCTIONS_MD",
+		"RALPH_MAX_ITERATIONS",
+	}
+
+	for _, key := range envVars {
+		os.Unsetenv(key)
+	}
+
+	ctx := NewContextFromEnv()
+
+	assert.False(t, ctx.IsWorkflowExecution(), "workflowExecution should be false by default")
+	owner, name := ctx.RepoOwnerAndName()
+	assert.Empty(t, owner, "repo owner should be empty")
+	assert.Empty(t, name, "repo name should be empty")
+	assert.Empty(t, ctx.ProjectFile(), "project file should be empty")
+	assert.Empty(t, ctx.Branch(), "branch should be empty")
+	assert.Empty(t, ctx.BaseBranch(), "base branch should be empty")
+	assert.False(t, ctx.IsVerbose(), "verbose should be false")
+	assert.False(t, ctx.NoServices(), "noServices should be false")
+	assert.Empty(t, ctx.DebugBranch(), "debug branch should be empty")
+	assert.Empty(t, ctx.InstructionsMD(), "instructionsMD should be empty")
+	assert.Equal(t, 0, ctx.MaxIterations(), "maxIterations should be 0 by default")
+}
+
+func TestValidate(t *testing.T) {
+	tests := []struct {
+		name         string
+		workflowExec bool
+		local        bool
+		expectError  bool
+	}{
+		{
+			name:         "both false is valid",
+			workflowExec: false,
+			local:        false,
+			expectError:  false,
+		},
+		{
+			name:         "workflowExecution true, local false is valid",
+			workflowExec: true,
+			local:        false,
+			expectError:  false,
+		},
+		{
+			name:         "workflowExecution false, local true is valid",
+			workflowExec: false,
+			local:        true,
+			expectError:  false,
+		},
+		{
+			name:         "both true is invalid",
+			workflowExec: true,
+			local:        true,
+			expectError:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := &Context{}
+			ctx.SetWorkflowExecution(tt.workflowExec)
+			ctx.SetLocal(tt.local)
+
+			err := ctx.Validate()
+			if tt.expectError {
+				assert.Error(t, err, "Validate should return error when both workflowExecution and local are true")
+				assert.Contains(t, err.Error(), "workflowExecution and local cannot both be true")
+			} else {
+				assert.NoError(t, err, "Validate should not return error")
 			}
 		})
 	}

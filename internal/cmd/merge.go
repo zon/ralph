@@ -1,17 +1,15 @@
 package cmd
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
+	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/run"
 	"github.com/zon/ralph/internal/workflow"
@@ -63,7 +61,7 @@ func (m *MergeCmd) runLocal() error {
 
 	merger := m.ghMerger
 	if merger == nil {
-		merger = ghMerge
+		merger = github.MergePR
 	}
 	return merger(m.PR, m.Repo)
 }
@@ -126,88 +124,31 @@ func (m *MergeCmd) scanAndCleanupProjects(ctx *context.Context) error {
 	return nil
 }
 
-// ghMerge is the default implementation that calls the gh CLI to merge a PR.
-// It first attempts to enable auto-merge; if GitHub rejects that because the PR is
-// already in a "clean" (immediately mergeable) state, it falls back to a direct merge.
-func ghMerge(pr, repo string) error {
-	autoArgs := []string{"pr", "merge", pr, "--merge", "--delete-branch", "--auto"}
-	if repo != "" {
-		autoArgs = append(autoArgs, "--repo", repo)
-	}
-	var autoOut bytes.Buffer
-	autoCmd := exec.Command("gh", autoArgs...)
-	autoCmd.Stdout = os.Stdout
-	autoCmd.Stderr = &autoOut
-	if err := autoCmd.Run(); err != nil {
-		// GitHub rejects enablePullRequestAutoMerge when the PR is already in a "clean"
-		// state (all checks passed, ready to merge), or when branch protection rules don't
-		// have auto-merge configured. In either case, merge immediately without --auto.
-		autoErrStr := autoOut.String()
-		if strings.Contains(autoErrStr, "clean status") || strings.Contains(autoErrStr, "Protected branch rules not configured") {
-			logger.Verbosef("PR #%s is already mergeable, merging immediately", pr)
-			immediateArgs := []string{"pr", "merge", pr, "--merge", "--delete-branch"}
-			if repo != "" {
-				immediateArgs = append(immediateArgs, "--repo", repo)
-			}
-			var immediateOut bytes.Buffer
-			immediateCmd := exec.Command("gh", immediateArgs...)
-			immediateCmd.Stdout = os.Stdout
-			immediateCmd.Stderr = &immediateOut
-			if err := immediateCmd.Run(); err != nil {
-				fmt.Fprint(os.Stderr, immediateOut.String())
-				return fmt.Errorf("failed to merge PR #%s: %w", pr, err)
-			}
-			logger.Successf("Merged PR #%s", pr)
-			return nil
-		}
-		fmt.Fprint(os.Stderr, autoOut.String())
-		return fmt.Errorf("failed to merge PR #%s: %w", pr, err)
-	}
-
-	logger.Successf("Auto-merge enabled for PR #%s", pr)
-	return nil
-}
-
 // waitForGitHubHead polls until GitHub's view of the PR head SHA matches the local HEAD.
 // This prevents "Head branch is out of date" errors when merging immediately after a push.
 func waitForGitHubHead(pr string) error {
-	// Get local HEAD SHA
-	var localOut bytes.Buffer
-	localCmd := exec.Command("git", "rev-parse", "HEAD")
-	localCmd.Stdout = &localOut
-	localCmd.Stderr = &localOut
-	if err := localCmd.Run(); err != nil {
+	localSHA, err := git.RevParse("HEAD")
+	if err != nil {
 		return fmt.Errorf("failed to get local HEAD: %w", err)
 	}
-	localSHA := strings.TrimSpace(localOut.String())
 
 	const maxAttempts = 20
 	const pollInterval = 3 * time.Second
 
 	for i := range maxAttempts {
-		var ghOut bytes.Buffer
-		ghCmd := exec.Command("gh", "pr", "view", pr, "--json", "headRefOid")
-		ghCmd.Stdout = &ghOut
-		ghCmd.Stderr = &ghOut
-		if err := ghCmd.Run(); err != nil {
-			return fmt.Errorf("failed to query PR head: %w (output: %s)", err, ghOut.String())
+		headRefOid, err := github.GetPRHeadRefOid(pr)
+		if err != nil {
+			return fmt.Errorf("failed to query PR head: %w", err)
 		}
 
-		var result struct {
-			HeadRefOid string `json:"headRefOid"`
-		}
-		if err := json.Unmarshal(ghOut.Bytes(), &result); err != nil {
-			return fmt.Errorf("failed to parse PR head response: %w", err)
-		}
-
-		if strings.HasPrefix(result.HeadRefOid, localSHA) || strings.HasPrefix(localSHA, result.HeadRefOid) {
+		if strings.HasPrefix(headRefOid, localSHA) || strings.HasPrefix(localSHA, headRefOid) {
 			logger.Verbosef("GitHub head SHA matches local HEAD (%s)", localSHA[:8])
 			return nil
 		}
 
 		if i < maxAttempts-1 {
 			logger.Verbosef("Waiting for GitHub to sync push (attempt %d/%d, local=%s, remote=%s)...",
-				i+1, maxAttempts, localSHA[:8], result.HeadRefOid[:8])
+				i+1, maxAttempts, localSHA[:8], headRefOid[:8])
 			time.Sleep(pollInterval)
 		}
 	}
