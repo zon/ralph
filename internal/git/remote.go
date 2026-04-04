@@ -58,6 +58,15 @@ func PullRebase(auth *AuthConfig) error {
 	return nil
 }
 
+// RemoteURL returns the URL of the origin remote.
+func RemoteURL() (string, error) {
+	remoteURL, err := runGit("config", "--get", "remote.origin.url")
+	if err != nil {
+		return "", fmt.Errorf("failed to get remote URL: %w", err)
+	}
+	return remoteURL, nil
+}
+
 // Push pushes the current branch or a specified branch to origin.
 func Push(auth *AuthConfig, branch string) (string, error) {
 	if err := configureAuth(auth); err != nil {
@@ -85,12 +94,7 @@ func Push(auth *AuthConfig, branch string) (string, error) {
 		return "", fmt.Errorf("failed to push branch '%s': %w", branchToPush, err)
 	}
 
-	remoteURL, err := runGit("config", "--get", "remote.origin.url")
-	if err != nil {
-		return "", fmt.Errorf("failed to get remote URL: %w", err)
-	}
-
-	return strings.TrimSpace(remoteURL), nil
+	return RemoteURL()
 }
 
 // Clone clones a repository into a directory

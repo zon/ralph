@@ -10,7 +10,7 @@ requirements:
       - Remove getRemoteURL, getRepoRoot, getCurrentBranch from internal/workflow/git.go
       - Update internal/workflow/generate.go to call git.RemoteURL(), git.FindRepoRoot(), git.GetCurrentBranch() directly
       - Do not remove toHTTPSURL from internal/workflow/git.go (addressed in github-integration requirements)
-    passing: false
+    passing: true
   - category: git-operations
     description: Separate git command execution boilerplate from domain logic
     items:

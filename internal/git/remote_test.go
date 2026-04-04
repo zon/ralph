@@ -156,3 +156,28 @@ func TestClone(t *testing.T) {
 	_, err = os.Stat(filepath.Join(cloneDir, ".git"))
 	assert.NoError(t, err)
 }
+
+func TestRemoteURL(t *testing.T) {
+	t.Run("returns remote URL from config", func(t *testing.T) {
+		workDir, remoteDir := setupBareRemoteRepo(t)
+		t.Chdir(workDir)
+
+		remoteURL, err := RemoteURL()
+		require.NoError(t, err)
+		assert.Equal(t, remoteDir, remoteURL)
+	})
+
+	t.Run("returns error when no remote origin", func(t *testing.T) {
+		tempDir := t.TempDir()
+		origDir, _ := os.Getwd()
+		defer os.Chdir(origDir)
+		os.Chdir(tempDir)
+
+		cmd := exec.Command("git", "init")
+		require.NoError(t, cmd.Run())
+
+		_, err := RemoteURL()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to get remote URL")
+	})
+}

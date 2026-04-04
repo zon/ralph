@@ -10,6 +10,7 @@ import (
 
 	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
+	"github.com/zon/ralph/internal/git"
 	githubpkg "github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/version"
 )
@@ -32,7 +33,7 @@ func GenerateWorkflow(ctx *execcontext.Context, projectName, cloneBranch, projec
 		owner, name := ctx.RepoOwnerAndName()
 		remoteURL = githubpkg.CloneURL(owner, name)
 	} else {
-		rawRemoteURL, err := getRemoteURL()
+		rawRemoteURL, err := git.RemoteURL()
 		if err != nil {
 			return nil, fmt.Errorf("failed to get remote URL: %w", err)
 		}
@@ -42,7 +43,7 @@ func GenerateWorkflow(ctx *execcontext.Context, projectName, cloneBranch, projec
 	relProjectPath := ctx.ProjectFile()
 	if filepath.IsAbs(relProjectPath) {
 		if ctx.Repo() == "" {
-			repoRoot, err := getRepoRoot()
+			repoRoot, err := git.FindRepoRoot()
 			if err != nil {
 				return nil, fmt.Errorf("failed to get repository root: %w", err)
 			}
@@ -145,7 +146,7 @@ func GenerateCommentWorkflowWithGitInfo(projectName, repoURL, cloneBranch, proje
 // GenerateReviewWorkflow builds a Workflow for a review execution.
 // cloneBranch is the branch the container will clone (typically the current local branch).
 func GenerateReviewWorkflow(ctx *execcontext.Context, cloneBranch string) (*Workflow, error) {
-	rawRemoteURL, err := getRemoteURL()
+	rawRemoteURL, err := git.RemoteURL()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get remote URL: %w", err)
 	}
@@ -192,13 +193,13 @@ func GenerateMergeWorkflow(prBranch string) (*MergeWorkflow, error) {
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
-	rawRemoteURL, err := getRemoteURL()
+	rawRemoteURL, err := git.RemoteURL()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get remote URL: %w", err)
 	}
 	remoteURL := toHTTPSURL(rawRemoteURL)
 
-	currentBranch, err := getCurrentBranch()
+	currentBranch, err := git.GetCurrentBranch()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get current branch: %w", err)
 	}
