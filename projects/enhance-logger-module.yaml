@@ -17,7 +17,7 @@ requirements:
       - Add Logger.Success(msg string) and Logger.Successf(format string, ctx ...interface{}) methods to internal/logger/logger.go
       - Add Logger.Verbose(msg string) and Logger.Verbosef(format string, ctx ...interface{}) methods to internal/logger/logger.go
       - Add Logger.SetVerbose(bool) method to internal/logger/logger.go
-    passing: false
+    passing: true
   - category: backend
     description: Replace fmt.Printf calls with logger calls in config_webhook.go
     items:
