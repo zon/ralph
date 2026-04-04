@@ -1,9 +1,7 @@
 package git
 
 import (
-	"bytes"
 	"fmt"
-	"os/exec"
 )
 
 // Config sets a git configuration value globally or locally
@@ -14,13 +12,9 @@ func Config(global bool, key, value string) error {
 	}
 	args = append(args, key, value)
 
-	cmd := exec.Command("git", args...)
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &out
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to set git config %s=%s: %w (output: %s)", key, value, err, out.String())
+	_, err := runGit(args...)
+	if err != nil {
+		return fmt.Errorf("failed to set git config %s=%s: %w", key, value, err)
 	}
 	return nil
 }

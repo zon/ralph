@@ -1,32 +1,25 @@
 package git
 
 import (
-	"bytes"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 )
 
 // isGitRepository checks if the current directory is inside a git repository
 func isGitRepository() bool {
-	cmd := exec.Command("git", "rev-parse", "--git-dir")
-	return cmd.Run() == nil
+	_, err := runGit("rev-parse", "--git-dir")
+	return err == nil
 }
 
 // FindRepoRoot returns the root directory of the git repository
 func FindRepoRoot() (string, error) {
-	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &out
-
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("failed to find repo root: %w (output: %s)", err, out.String())
+	repoRoot, err := runGit("rev-parse", "--show-toplevel")
+	if err != nil {
+		return "", fmt.Errorf("failed to find repo root: %w", err)
 	}
 
-	repoRoot := strings.TrimSpace(out.String())
 	if repoRoot == "" {
 		return "", fmt.Errorf("failed to determine repo root")
 	}
@@ -54,26 +47,16 @@ func TmpPath(name string) (string, error) {
 
 // isDetachedHead checks if the repository is in a detached HEAD state
 func isDetachedHead() (bool, error) {
-	cmd := exec.Command("git", "symbolic-ref", "-q", "HEAD")
-	err := cmd.Run()
-
-	// Exit code 0 = on a branch (not detached)
-	// Exit code 1 = detached HEAD
-	isDetached := err != nil
-
-	return isDetached, nil
+	_, err := runGit("symbolic-ref", "-q", "HEAD")
+	return err != nil, nil
 }
 
 // RevParse executes git rev-parse with the given arguments
 func RevParse(args ...string) (string, error) {
 	fullArgs := append([]string{"rev-parse"}, args...)
-	cmd := exec.Command("git", fullArgs...)
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &out
-
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("rev-parse failed: %w (output: %s)", err, out.String())
+	out, err := runGit(fullArgs...)
+	if err != nil {
+		return "", fmt.Errorf("rev-parse failed: %w", err)
 	}
-	return strings.TrimSpace(out.String()), nil
+	return strings.TrimSpace(out), nil
 }

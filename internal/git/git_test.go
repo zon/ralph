@@ -4,8 +4,50 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
+
+func TestRunGit(t *testing.T) {
+	t.Run("successful git command returns output and no error", func(t *testing.T) {
+		tempDir := setupTestRepo(t)
+		t.Chdir(tempDir)
+
+		output, err := runGit("rev-parse", "--show-toplevel")
+		if err != nil {
+			t.Fatalf("runGit returned error unexpectedly: %v", err)
+		}
+		if output == "" {
+			t.Error("expected non-empty output")
+		}
+	})
+
+	t.Run("failed git command returns output and error", func(t *testing.T) {
+		tempDir := setupTestRepo(t)
+		t.Chdir(tempDir)
+
+		output, err := runGit("rev-parse", "nonexistent-ref")
+		if err == nil {
+			t.Fatal("expected error for nonexistent ref")
+		}
+		if output == "" {
+			t.Error("expected non-empty output on error")
+		}
+	})
+
+	t.Run("output is trimmed", func(t *testing.T) {
+		tempDir := setupTestRepo(t)
+		t.Chdir(tempDir)
+
+		output, err := runGit("rev-parse", "--show-toplevel")
+		if err != nil {
+			t.Fatalf("runGit returned error: %v", err)
+		}
+		if output != strings.TrimSpace(output) {
+			t.Error("expected output to be trimmed")
+		}
+	})
+}
 
 func TestDetectModifiedProjectFile(t *testing.T) {
 	t.Run("returns empty when no project files exist", func(t *testing.T) {

@@ -18,7 +18,7 @@ requirements:
       - Refactor all functions in internal/git that follow the exec/Buffer/Run boilerplate to delegate to runGit — including branch.go, commit.go, merge.go, remote.go, repo.go, config.go, and file.go
       - For boolean exit-code-only functions (hasCommits, remoteBranchExists, isGitRepository, isDetachedHead), use runGit and treat err == nil as true
       - Push() in remote.go must still detect isWorkflowPermissionError on failure; ensure runGit returns the output string even when returning an error so Push can inspect it, or handle Push separately with a lower-level call
-    passing: false
+    passing: true
   - category: github-integration
     description: Consolidate GitHub URL parsing logic and eliminate duplication
     items:
