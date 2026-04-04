@@ -5,8 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-
-	"github.com/zon/ralph/internal/github"
 )
 
 type AuthConfig struct {
@@ -21,7 +19,17 @@ func isWorkflowPermissionError(output string) bool {
 		strings.Contains(output, "without `workflows` permission")
 }
 
-// Fetch fetches from the remote, updating remote-tracking refs.
+type GitAuthConfigurator interface {
+	ConfigureGitAuth(ctx context.Context, owner, repo, secretsDir string) error
+	DefaultSecretsDir() string
+}
+
+var authConfigurator GitAuthConfigurator
+
+func SetAuthConfigurator(ac GitAuthConfigurator) {
+	authConfigurator = ac
+}
+
 func Fetch(auth *AuthConfig) error {
 	if err := configureAuth(auth); err != nil {
 		return fmt.Errorf("failed to configure git auth: %w", err)
@@ -35,7 +43,6 @@ func Fetch(auth *AuthConfig) error {
 	return nil
 }
 
-// PullRebase pulls remote changes using rebase to avoid merge commits.
 func PullRebase(auth *AuthConfig) error {
 	if err := configureAuth(auth); err != nil {
 		return fmt.Errorf("failed to configure git auth: %w", err)
@@ -58,7 +65,6 @@ func PullRebase(auth *AuthConfig) error {
 	return nil
 }
 
-// RemoteURL returns the URL of the origin remote.
 func RemoteURL() (string, error) {
 	remoteURL, err := runGit("config", "--get", "remote.origin.url")
 	if err != nil {
@@ -67,7 +73,6 @@ func RemoteURL() (string, error) {
 	return remoteURL, nil
 }
 
-// Push pushes the current branch or a specified branch to origin.
 func Push(auth *AuthConfig, branch string) (string, error) {
 	if err := configureAuth(auth); err != nil {
 		return "", fmt.Errorf("failed to configure git auth: %w", err)
@@ -97,7 +102,6 @@ func Push(auth *AuthConfig, branch string) (string, error) {
 	return RemoteURL()
 }
 
-// Clone clones a repository into a directory
 func Clone(url, branch, dir string) error {
 	args := []string{"clone"}
 	if branch != "" {
@@ -112,10 +116,9 @@ func Clone(url, branch, dir string) error {
 	return nil
 }
 
-// configureAuth refreshes the GitHub App token and configures git HTTPS auth.
 func configureAuth(auth *AuthConfig) error {
-	if auth == nil {
+	if auth == nil || authConfigurator == nil {
 		return nil
 	}
-	return github.ConfigureGitAuth(context.Background(), auth.Owner, auth.Repo, github.DefaultSecretsDir)
+	return authConfigurator.ConfigureGitAuth(context.Background(), auth.Owner, auth.Repo, authConfigurator.DefaultSecretsDir())
 }

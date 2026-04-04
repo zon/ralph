@@ -33,7 +33,7 @@ requirements:
       - Update private configureGitAuth in internal/github/app.go to use git.Config() instead of exec.CommandContext for setting the insteadOf git config key
       - Add git.ConfigList() and git.ConfigUnset(key) to internal/git/config.go; update cleanupStaleTokenRewrites in app.go to use them instead of inline exec
       - Leave authenticateGHCLI, IsReady, FindExistingPR, CreatePR, and other gh CLI wrappers unchanged — they are the infrastructure layer and exec calls there are appropriate
-    passing: false
+    passing: true
   - category: version
     description: Apply version bump
     items:

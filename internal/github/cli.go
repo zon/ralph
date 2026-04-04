@@ -1,25 +1,21 @@
 package github
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"os/exec"
 	"strings"
+
+	"github.com/zon/ralph/internal/git"
 )
 
 // GetRepo extracts the repository owner and name from git remote origin.
 func GetRepo(ctx context.Context) (Repo, error) {
-	cmd := exec.CommandContext(ctx, "git", "config", "--get", "remote.origin.url")
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		return Repo{}, fmt.Errorf("failed to get remote.origin.url: %w (stderr: %s)", err, stderr.String())
+	remoteURL, err := git.RemoteURL()
+	if err != nil {
+		return Repo{}, fmt.Errorf("failed to get remote.origin.url: %w", err)
 	}
 
-	return ParseRemoteURL(strings.TrimSpace(stdout.String()))
+	return ParseRemoteURL(remoteURL)
 }
 
 // ParseRemoteURL parses a GitHub remote URL and returns the repository.

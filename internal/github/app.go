@@ -16,7 +16,23 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+
+	"github.com/zon/ralph/internal/git"
 )
+
+func init() {
+	git.SetAuthConfigurator(&gitAuthConfigurator{})
+}
+
+type gitAuthConfigurator struct{}
+
+func (g *gitAuthConfigurator) ConfigureGitAuth(ctx context.Context, owner, repo, secretsDir string) error {
+	return ConfigureGitAuth(ctx, owner, repo, secretsDir)
+}
+
+func (g *gitAuthConfigurator) DefaultSecretsDir() string {
+	return DefaultSecretsDir
+}
 
 var httpClient *http.Client
 
@@ -143,16 +159,12 @@ const DefaultSecretsDir = "/secrets/github"
 // from interfering when a fresh token is set: git picks an arbitrary match when
 // multiple insteadOf rules rewrite the same URL, so old entries must be purged.
 func cleanupStaleTokenRewrites(ctx context.Context) {
-	// List all global git config entries and find token-bearing insteadOf keys.
-	cmd := exec.CommandContext(ctx, "git", "config", "--global", "--list")
-	out, err := cmd.Output()
+	out, err := git.ConfigList(true)
 	if err != nil {
-		// Not fatal — if we can't list, we simply skip cleanup.
 		return
 	}
 
-	for _, line := range strings.Split(string(out), "\n") {
-		// Lines look like: url.https://x-access-token:TOKEN@github.com/.insteadof=https://github.com/
+	for _, line := range strings.Split(out, "\n") {
 		lower := strings.ToLower(line)
 		if !strings.HasPrefix(lower, "url.https://x-access-token:") || !strings.Contains(lower, "github.com") {
 			continue
@@ -161,10 +173,8 @@ func cleanupStaleTokenRewrites(ctx context.Context) {
 		if len(parts) != 2 {
 			continue
 		}
-		// The key is everything before the first '='.
 		key := parts[0]
-		// Unset the key; ignore errors (key may already be gone).
-		exec.CommandContext(ctx, "git", "config", "--global", "--unset-all", key).Run() //nolint:errcheck
+		git.ConfigUnset(true, key)
 	}
 }
 
@@ -273,10 +283,7 @@ func configureGitAuth(ctx context.Context, installationToken string) error {
 	cleanupStaleTokenRewrites(ctx)
 
 	insteadOfKey := "url.https://x-access-token:" + installationToken + "@github.com/.insteadOf"
-	cmd := exec.CommandContext(ctx, "git", "config", "--global", insteadOfKey, "https://github.com/")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
+	if err := git.Config(true, insteadOfKey, "https://github.com/"); err != nil {
 		return fmt.Errorf("failed to configure git HTTPS authentication: %w", err)
 	}
 	return nil
