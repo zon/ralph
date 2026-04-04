@@ -2,16 +2,6 @@ name: simplify-review-command
 description: Simplify ralph review to loop over items directly, remove overview command
 
 requirements:
-  - category: remove-overview
-    description: Delete the overview command and all related code
-    items:
-      - Delete internal/cmd/overview.go
-      - Delete internal/cmd/overview_test.go
-      - Delete internal/cmd/overview-instructions.md
-      - Delete internal/cmd/component-review-instructions.md
-      - Remove the Overview field of type OverviewCmd from the Cmd struct in internal/cmd/cmd.go
-    passing: false
-
   - category: rewrite-review
     description: Rewrite review.go to loop over items directly without the overview phase
     items:
@@ -23,6 +13,16 @@ requirements:
       - Rewrite Run() on ReviewCmd in internal/cmd/review.go to call the new runReview() after setup, then submit a PR only if runReview returns a non-empty branchName that differs from startingBranch
       - Add runReview(ctx, ralphConfig, projectDoc) (branchName, detectedProjectFile string, err error) method to ReviewCmd in internal/cmd/review.go; it shuffles items, loops over all of them, runs the AI with buildItemPrompt() for each, detects ./projects changes via git.DetectModifiedProjectFile("projects") after each agent call, commits and pushes each detected change with run.CommitFileAndPush(), sets branchName from the first detected project file name (sans extension) and reuses it for all subsequent commits
       - Add buildItemPrompt(content string) string method to ReviewCmd in internal/cmd/review.go that executes a template with a struct containing only ItemContent string
+    passing: false
+
+  - category: remove-overview
+    description: Delete the overview command and all related code; review.go must be rewritten first to remove dependencies
+    items:
+      - Delete internal/cmd/overview.go
+      - Delete internal/cmd/overview_test.go
+      - Delete internal/cmd/overview-instructions.md
+      - Delete internal/cmd/component-review-instructions.md
+      - Remove the Overview field of type OverviewCmd from the Cmd struct in internal/cmd/cmd.go
     passing: false
 
   - category: prompt-template
