@@ -5,37 +5,41 @@ requirements:
   - category: command-layer
     description: Move webhook provisioning logic to dedicated internal package
     items:
-      - Extract config_webhook.go logic into internal/provisioning package
+      - internal/provisioning package exposes BuildWebhookAppConfig, BuildWebhookSecrets, GenerateWebhookSecret, FetchRepoCollaborators, ReadWebhookConfigFromK8s, and RegisterGitHubWebhook
+      - Webhook resource name constants (configmap name, secret name, ingress hostname) are defined in internal/provisioning
+      - ConfigWebhookConfigCmd and ConfigWebhookSecretCmd in internal/cmd contain only orchestration logic and delegate all domain work to internal/provisioning
+      - collaboratorsFetcher package-level variable is removed from internal/cmd
+      - Tests for BuildWebhookAppConfig, BuildWebhookSecrets, and GenerateWebhookSecret move to internal/provisioning
     passing: false
   - category: command-layer
     description: Ensure command handlers separate domain logic from infrastructure
     items:
-      - Command handlers should not directly call low-level OS functions (os, filepath, exec); use internal abstractions
-      - Command handlers should be concise and focus on orchestrating domain workflows
+      - list.go and stop.go delegate argo CLI operations to a new internal/argo package
+      - merge.go uses internal/git.RevParse instead of exec.Command("git", "rev-parse", "HEAD")
+      - merge.go uses internal/github functions instead of direct exec.Command("gh", ...) for PR merge operations
+      - workflow.go workspace preparation (clone directory setup, os.Chdir) is extracted from the command handler and delegated to an internal abstraction
+      - workflow.go OpenCode auth file setup is extracted from the command handler and delegated to an internal abstraction
+      - run.go does not call os.Chdir directly
     passing: false
   - category: context-management
-    description: Improve context module depth by grouping related fields and narrowing public interface
+    description: Improve context initialization and internal consistency
     items:
-      - Group related fields (e.g., execution settings, repository settings) into substructures to reduce surface area
-      - Add validation method to ensure internal consistency (e.g., local vs follow)
-      - Consider moving environment variable initialization into context package via factory function
-    passing: false
-  - category: context-management
-    description: Separate domain logic from implementation details in context management
-    items:
-      - Extract notification rule (ShouldNotify) to pure function
-      - Extract repository parsing logic (SetRepo) to pure function
-      - Ensure context methods delegate to pure functions
+      - internal/context provides NewContextFromEnv() *Context that reads all environment variables for context initialization
+      - exec_context.go in internal/cmd delegates to NewContextFromEnv() instead of calling individual setters
+      - Context.Validate() returns an error if workflowExecution and local are both true
     passing: false
   - category: cleanup-management
     description: Separate domain logic from implementation details in signal handling
     items:
-      - Signal handlers should not directly call low-level OS functions (os/signal, fmt, os.Exit); use internal abstractions
-      - Signal handling should delegate low-level OS operations to dedicated abstractions
-      - Signal handling function should contain only domain logic calls, delegating implementation details to lower-level functions
+      - SetupSignalHandlers uses logger instead of fmt.Printf/fmt.Println
+      - Manager holds an injectable exitFn func(int) field (defaulting to os.Exit) used by the signal handler
+      - The signal handler goroutine (cleanup invocation and exit) is covered by tests
     passing: false
   - category: logging
     description: Consolidate logging usage and replace fmt.Print statements with logger functions where appropriate
     items:
-      - Replace fmt.Print statements in command handlers with logger.Info, logger.Success, logger.Warning, or logger.Error where appropriate, keeping user prompts separate
+      - Status, progress, and result messages in config_github.go, config_opencode.go, config_pulumi.go, setup_workspace.go, and validate.go use logger.Info, logger.Infof, logger.Success, or logger.Successf instead of fmt.Print
+      - Blank fmt.Println() spacing calls are removed
+      - The interactive stdin prompt in config_pulumi.go that reads the token from stdin remains as fmt.Print
+      - Version output in run.go remains as fmt.Printf
     passing: false
