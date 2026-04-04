@@ -1,0 +1,24 @@
+name: consolidate-prompt-module
+description: Consolidate all prompt building into internal/prompt
+
+requirements:
+  - category: architecture
+    description: internal/prompt is the single source of all prompt construction
+    items:
+      - internal/prompt exports BuildPRSummaryPrompt, BuildChangelogPrompt, and BuildReviewPRBodyPrompt
+      - No prompt templates or prompt builder functions exist outside of internal/prompt
+    passing: false
+
+  - category: version
+    description: Apply a semver patch bump to internal/version/VERSION and charts/ralph-webhook/Chart.yaml
+    items:
+      - Apply a semver patch bump to internal/version/VERSION and charts/ralph-webhook/Chart.yaml
+    passing: false
+
+  - category: testing
+    description: Tests for the new prompt builders in internal/prompt
+    items:
+      - BuildPRSummaryPrompt output contains the project description, base branch, and output file path
+      - BuildChangelogPrompt output contains the output file path
+      - BuildReviewPRBodyPrompt output contains the project name and each requirement summary
+    passing: false
