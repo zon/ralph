@@ -2,13 +2,24 @@ package prompt
 
 import (
 	"bytes"
+	_ "embed"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"text/template"
 
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
 )
+
+//go:embed pr-summary-instructions.md
+var prSummaryInstructions string
+
+//go:embed changelog-instructions.md
+var changelogInstructions string
+
+//go:embed review-pr-body-instructions.md
+var reviewPRBodyInstructions string
 
 type FixServicePromptData struct {
 	Notes       []string
@@ -98,4 +109,64 @@ func BuildPickPrompt(data PickPromptData) (string, error) {
 	}
 
 	return executeTemplate(config.DefaultPickInstructions(), tmplData)
+}
+
+type PRSummaryPromptData struct {
+	ProjectDesc   string
+	ProjectStatus string
+	BaseBranch    string
+	CommitLog     string
+	AbsPath       string
+}
+
+func BuildPRSummaryPrompt(projectDesc, projectStatus, baseBranch, commitLog, outputFile string) (string, error) {
+	absPath, err := filepath.Abs(outputFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path: %w", err)
+	}
+
+	data := PRSummaryPromptData{
+		ProjectDesc:   projectDesc,
+		ProjectStatus: projectStatus,
+		BaseBranch:    baseBranch,
+		CommitLog:     commitLog,
+		AbsPath:       absPath,
+	}
+	return executeTemplate(prSummaryInstructions, data)
+}
+
+type ChangelogPromptData struct {
+	OutputFile string
+}
+
+func BuildChangelogPrompt(outputFile string) (string, error) {
+	absPath, err := filepath.Abs(outputFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path: %w", err)
+	}
+
+	data := ChangelogPromptData{OutputFile: absPath}
+	return executeTemplate(changelogInstructions, data)
+}
+
+type ReviewPRBodyPromptData struct {
+	ProjectName        string
+	ProjectDescription string
+	Requirements       []string
+	AbsPath            string
+}
+
+func BuildReviewPRBodyPrompt(projectName, projectDesc string, requirements []string, outputFile string) (string, error) {
+	absPath, err := filepath.Abs(outputFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path: %w", err)
+	}
+
+	data := ReviewPRBodyPromptData{
+		ProjectName:        projectName,
+		ProjectDescription: projectDesc,
+		Requirements:       requirements,
+		AbsPath:            absPath,
+	}
+	return executeTemplate(reviewPRBodyInstructions, data)
 }

@@ -1,13 +1,10 @@
 package run
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
-	"text/template"
 
 	"github.com/zon/ralph/internal/ai"
 	"github.com/zon/ralph/internal/config"
@@ -15,6 +12,7 @@ import (
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/project"
+	"github.com/zon/ralph/internal/prompt"
 )
 
 // createTempFile creates a temp file under the repo's tmp/ directory so that
@@ -39,65 +37,22 @@ func GeneratePRSummary(ctx *context.Context, proj *project.Project, projectStatu
 	tmpFile := f.Name()
 	defer os.Remove(tmpFile)
 
-	prompt := buildPRSummaryPrompt(proj.Description, projectStatus, baseBranch, commitLog, tmpFile)
+	prPrompt, err := prompt.BuildPRSummaryPrompt(proj.Description, projectStatus, baseBranch, commitLog, tmpFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to build PR summary prompt: %w", err)
+	}
 
 	if ctx.IsVerbose() {
-		logger.Verbose(prompt)
+		logger.Verbose(prPrompt)
 	}
 
 	model := resolveModel(ctx)
-	summary, err = runOpenCodeAndReadResult(ctx, model, prompt, tmpFile)
+	summary, err = runOpenCodeAndReadResult(ctx, model, prPrompt, tmpFile)
 	if err != nil {
 		return "", err
 	}
 
 	return summary, nil
-}
-
-type prSummaryData struct {
-	ProjectDesc   string
-	ProjectStatus string
-	BaseBranch    string
-	CommitLog     string
-	AbsPath       string
-}
-
-var prSummaryPromptTemplate = template.Must(template.New("prSummary").Parse(`Write a concise PR description (3-5 paragraphs max) for the changes made in this branch.
-
-Project: {{.ProjectDesc}}
-Status: {{.ProjectStatus}}
-
-## Commit Log
-{{.CommitLog}}
-
-Review the git commits from {{.BaseBranch}}..HEAD to understand what was changed.
-Use 'git log --format="%h: %B" {{.BaseBranch}}..HEAD' to see commit messages.
-Use 'git diff {{.BaseBranch}}..HEAD' to see the full changes.
-
-Summarize:
-1. What was implemented/changed
-2. Key technical decisions
-3. Any notable considerations or future work
-
-Be concise and focus on what matters for code review.
-
-Write your summary to the file: {{.AbsPath}}
-`))
-
-// buildPRSummaryPrompt constructs the prompt for generating PR summary
-func buildPRSummaryPrompt(projectDesc, projectStatus, baseBranch, commitLog, outputFile string) string {
-	absPath, _ := filepath.Abs(outputFile)
-
-	var builder bytes.Buffer
-	data := prSummaryData{
-		ProjectDesc:   projectDesc,
-		ProjectStatus: projectStatus,
-		BaseBranch:    baseBranch,
-		CommitLog:     commitLog,
-		AbsPath:       absPath,
-	}
-	prSummaryPromptTemplate.Execute(&builder, data)
-	return builder.String()
 }
 
 // runOpenCodeAndReadResult runs opencode with the given prompt and reads the result from the output file
@@ -148,14 +103,17 @@ func GenerateChangelog(ctx *context.Context) (err error) {
 	tmpFile := f.Name()
 	defer os.Remove(tmpFile)
 
-	prompt := buildChangelogPrompt(tmpFile)
+	changelogPrompt, err := prompt.BuildChangelogPrompt(tmpFile)
+	if err != nil {
+		return fmt.Errorf("failed to build changelog prompt: %w", err)
+	}
 
 	if ctx.IsVerbose() {
-		logger.Verbose(prompt)
+		logger.Verbose(changelogPrompt)
 	}
 
 	model := resolveModel(ctx)
-	_, err = runOpenCodeAndReadResult(ctx, model, prompt, tmpFile)
+	_, err = runOpenCodeAndReadResult(ctx, model, changelogPrompt, tmpFile)
 	if err != nil {
 		return err
 	}
@@ -166,28 +124,6 @@ func GenerateChangelog(ctx *context.Context) (err error) {
 	}
 
 	return nil
-}
-
-var changelogPromptTemplate = template.Must(template.New("changelog").Parse(`Write a concise changelog entry for the changes currently staged in git.
-
-You are an AI agent that writes changelogs. Review the git diff (staged changes) and write a single changelog entry describing what changed.
-
-Focus on:
-• What was added, removed, or modified
-• Why the changes were made (if apparent from the diff)
-• Any notable implementation details
-
-Write in the style of a conventional changelog entry, beginning with a verb in past tense (e.g., "Fixed", "Added", "Changed").
-
-Write the changelog entry to the file: {{.}}
-
-Do not include any extra commentary, just the changelog entry.`))
-
-func buildChangelogPrompt(outputFile string) string {
-	absPath, _ := filepath.Abs(outputFile)
-	var b bytes.Buffer
-	changelogPromptTemplate.Execute(&b, absPath)
-	return b.String()
 }
 
 // GenerateReviewPRBody generates a PR body for review findings using AI
@@ -201,58 +137,20 @@ func GenerateReviewPRBody(ctx *context.Context, proj *project.Project, requireme
 	tmpFile := f.Name()
 	defer os.Remove(tmpFile)
 
-	prompt := buildReviewPRBodyPrompt(proj.Name, proj.Description, requirementSummaries, tmpFile)
+	reviewPrompt, err := prompt.BuildReviewPRBodyPrompt(proj.Name, proj.Description, requirementSummaries, tmpFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to build review PR body prompt: %w", err)
+	}
 
 	if ctx.IsVerbose() {
-		logger.Verbose(prompt)
+		logger.Verbose(reviewPrompt)
 	}
 
 	model := resolveModel(ctx)
-	summary, err = runOpenCodeAndReadResult(ctx, model, prompt, tmpFile)
+	summary, err = runOpenCodeAndReadResult(ctx, model, reviewPrompt, tmpFile)
 	if err != nil {
 		return "", err
 	}
 
 	return summary, nil
-}
-
-type reviewPRBodyData struct {
-	ProjectName        string
-	ProjectDescription string
-	Requirements       []string
-	AbsPath            string
-}
-
-var reviewPRBodyPromptTemplate = template.Must(template.New("reviewPRBody").Parse(`Write a concise PR description (2-4 paragraphs max) for this code review.
-
-Review Name: {{.ProjectName}}
-{{if .ProjectDescription}}
-Description: {{.ProjectDescription}}
-{{end}}
-
-## Findings Summary
-{{range .Requirements}}
-{{.}}
-{{end}}
-
-Review the requirements above and write a summary that:
-1. Lists the key findings from the review
-2. Highlights any critical issues that need attention
-3. Notes what's working well
-
-Write your summary to the file: {{.AbsPath}}
-`))
-
-func buildReviewPRBodyPrompt(projectName, projectDesc string, requirements []string, outputFile string) string {
-	absPath, _ := filepath.Abs(outputFile)
-
-	var builder bytes.Buffer
-	data := reviewPRBodyData{
-		ProjectName:        projectName,
-		ProjectDescription: projectDesc,
-		Requirements:       requirements,
-		AbsPath:            absPath,
-	}
-	reviewPRBodyPromptTemplate.Execute(&builder, data)
-	return builder.String()
 }
