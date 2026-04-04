@@ -24,33 +24,19 @@ func deleteFile(filePath string) error {
 // DetectModifiedProjectFile finds the first modified or new YAML file in the projects directory.
 // Returns the absolute path to the modified project file, or empty string if none found.
 func DetectModifiedProjectFile(projectsDir string) (string, error) {
-	files, err := DetectAllModifiedProjectFiles(projectsDir)
-	if err != nil {
-		return "", err
-	}
-	if len(files) > 0 {
-		return files[0], nil
-	}
-	return "", nil
-}
-
-// DetectAllModifiedProjectFiles finds all modified or new YAML files in the projects directory.
-// Returns a list of absolute paths to modified project files, or an empty list if none found.
-func DetectAllModifiedProjectFiles(projectsDir string) ([]string, error) {
 	absProjectsDir, err := filepath.Abs(projectsDir)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve projects directory: %w", err)
+		return "", fmt.Errorf("failed to resolve projects directory: %w", err)
 	}
 
 	entries, err := os.ReadDir(absProjectsDir)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return []string{}, nil
+			return "", nil
 		}
-		return nil, fmt.Errorf("failed to read projects directory: %w", err)
+		return "", fmt.Errorf("failed to read projects directory: %w", err)
 	}
 
-	var modifiedFiles []string
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
@@ -61,9 +47,9 @@ func DetectAllModifiedProjectFiles(projectsDir string) ([]string, error) {
 		}
 		filePath := filepath.Join(absProjectsDir, name)
 		if IsFileModifiedOrNew(filePath) {
-			modifiedFiles = append(modifiedFiles, filePath)
+			return filePath, nil
 		}
 	}
 
-	return modifiedFiles, nil
+	return "", nil
 }

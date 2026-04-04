@@ -31,9 +31,6 @@ import (
 //go:embed review-instructions.md
 var reviewInstructions string
 
-//go:embed synthesis-instructions.md
-var synthesisInstructions string
-
 const ralphProjectDocURL = "https://raw.githubusercontent.com/zon/ralph/refs/heads/main/docs/projects.md"
 
 type itemWithIndex struct {
@@ -326,19 +323,6 @@ type reviewPromptData struct {
 
 var reviewPromptTemplate = template.Must(template.New("review").Parse(reviewInstructions))
 
-type synthesisPromptData struct {
-	SummaryPath string
-}
-
-var synthesisPromptTemplate = template.Must(template.New("synthesis").Parse(synthesisInstructions))
-
-func buildSynthesisPrompt(summaryPath string) string {
-	var buf bytes.Buffer
-	data := synthesisPromptData{SummaryPath: summaryPath}
-	synthesisPromptTemplate.Execute(&buf, data)
-	return buf.String()
-}
-
 func (r *ReviewCmd) buildPrompt(content, projectPath, projectDoc, reviewName string) string {
 	var buf bytes.Buffer
 	data := reviewPromptData{
@@ -389,7 +373,6 @@ func (r *ReviewCmd) runOverview(ctx *execcontext.Context, overviewPath, projectD
 func (r *ReviewCmd) runReview(ctx *execcontext.Context, overview *Overview, projectDoc string, reviewName *string, ralphConfig *config.RalphConfig) (bool, string, error) {
 	projectChanged := false
 	detectedProjectFile := ""
-	var detectedProjectFiles []string
 
 	seed := r.Seed
 	if seed == 0 {
@@ -397,8 +380,11 @@ func (r *ReviewCmd) runReview(ctx *execcontext.Context, overview *Overview, proj
 		logger.Infof("Using random seed: %d", seed)
 	}
 
+	// Combine modules and apps for review
 	allComponents := overview.AllComponents()
 	shuffledComponents := shuffleComponents(allComponents, seed)
+
+	// Shuffle review items with original indices
 	itemsWithIdx := shuffleItemsWithIndices(ralphConfig.Review.Items, seed)
 
 	for _, component := range shuffledComponents {
@@ -430,87 +416,28 @@ func (r *ReviewCmd) runReview(ctx *execcontext.Context, overview *Overview, proj
 				return projectChanged, detectedProjectFile, fmt.Errorf("component %s, item %d failed: %w", component.Name, i, err)
 			}
 
-			newProjectFiles, err := git.DetectAllModifiedProjectFiles("projects")
+			detectedProjectFile, err = git.DetectModifiedProjectFile("projects")
 			if err != nil {
-				logger.Verbosef("Failed to detect project files: %v", err)
+				logger.Verbosef("Failed to detect project file: %v", err)
 			}
 
-			for _, pf := range newProjectFiles {
-				if !containsProjectFile(detectedProjectFiles, pf) {
-					detectedProjectFiles = append(detectedProjectFiles, pf)
-				}
-			}
+			if detectedProjectFile != "" {
+				*reviewName = strings.TrimSuffix(filepath.Base(detectedProjectFile), filepath.Ext(detectedProjectFile))
 
-			if len(detectedProjectFiles) > 0 && !r.prSubmitted {
-				firstProject := detectedProjectFiles[0]
-				*reviewName = strings.TrimSuffix(filepath.Base(firstProject), filepath.Ext(firstProject))
-
-				if err := r.commitProjectFile(ctx, firstProject, *reviewName, component.Name, i, summaryPath); err != nil {
+				if err := r.commitProjectFile(ctx, detectedProjectFile, *reviewName, component.Name, i, summaryPath); err != nil {
 					return projectChanged, detectedProjectFile, fmt.Errorf("failed to commit after component %s, item %d: %w", component.Name, i+1, err)
 				}
 				projectChanged = true
 				os.Remove(summaryPath)
 				r.prSubmitted = true
-				return projectChanged, firstProject, nil
+				return projectChanged, detectedProjectFile, nil
 			}
 
 			os.Remove(summaryPath)
 		}
 	}
 
-	if len(detectedProjectFiles) > 1 && !r.prSubmitted {
-		synthesizedProject, err := r.runSynthesis(ctx, detectedProjectFiles)
-		if err != nil {
-			logger.Verbosef("Synthesis failed: %v", err)
-		}
-		if synthesizedProject != "" {
-			*reviewName = strings.TrimSuffix(filepath.Base(synthesizedProject), filepath.Ext(synthesizedProject))
-			projectChanged = true
-			detectedProjectFile = synthesizedProject
-		}
-	}
-
 	return projectChanged, detectedProjectFile, nil
-}
-
-func containsProjectFile(files []string, target string) bool {
-	for _, f := range files {
-		if f == target {
-			return true
-		}
-	}
-	return false
-}
-
-func (r *ReviewCmd) runSynthesis(ctx *execcontext.Context, projectFiles []string) (string, error) {
-	summaryPath, err := git.TmpPath("synthesis-summary.txt")
-	if err != nil {
-		return "", fmt.Errorf("failed to resolve synthesis summary path: %w", err)
-	}
-
-	prompt := buildSynthesisPrompt(summaryPath)
-
-	if r.Verbose {
-		logger.Verbose(prompt)
-	}
-
-	logger.Verbose("Running cross-component synthesis...")
-	if err := ai.RunAgent(ctx, prompt); err != nil {
-		return "", fmt.Errorf("synthesis failed: %w", err)
-	}
-
-	synthesizedFiles, err := git.DetectAllModifiedProjectFiles("projects")
-	if err != nil {
-		logger.Verbosef("Failed to detect project files after synthesis: %v", err)
-	}
-
-	var synthesizedProject string
-	if len(synthesizedFiles) > 0 {
-		synthesizedProject = synthesizedFiles[0]
-	}
-
-	os.Remove(summaryPath)
-	return synthesizedProject, nil
 }
 
 func (r *ReviewCmd) printDetectedComponents(overview *Overview) {
