@@ -8,12 +8,14 @@ requirements:
       - Update component-review-instructions.md to instruct the AI to read the actual source files in the component before writing requirements
       - Require the review agent to name exact files, functions, and interfaces in each requirement item rather than describing behavior generically
       - Add an example in the prompt showing the expected output style (e.g., "Add exported function Foo() to internal/bar/baz.go" vs "Consolidate bar operations")
+      - Add an explicit override note in component-review-instructions.md to ignore docs/writing-requirements.md; review-generated requirements must name exact files, functions, and interfaces
     passing: false
   - category: project-doc
-    description: Clarify specificity expectations for refactoring projects
+    description: Move Writing Good Requirements out of docs/projects.md
     items:
-      - Update docs/projects.md to distinguish feature requirements (behavioral/interface-level) from refactoring requirements (implementation-specific)
-      - Move the current "Bad" examples to a note that they apply to feature work; add refactoring-appropriate "Good" examples with exact function names and file paths
+      - Remove the "Writing Good Requirements" section from docs/projects.md
+      - Create docs/writing-requirements.md with the moved content
+      - Add an explicit note in component-review-instructions.md to ignore docs/writing-requirements.md
     passing: false
   - category: cross-component-synthesis
     description: Detect refactoring themes that span multiple components
