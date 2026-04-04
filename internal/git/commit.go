@@ -1,97 +1,68 @@
 package git
 
 import (
-	"bytes"
 	"fmt"
-	"os/exec"
 	"strings"
 )
 
 // StageFile stages a specific file using git add
 func StageFile(filePath string) error {
-	cmd := exec.Command("git", "add", filePath)
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &out
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to stage file '%s': %w (output: %s)", filePath, err, out.String())
+	_, err := runGit("add", filePath)
+	if err != nil {
+		return fmt.Errorf("failed to stage file '%s': %w", filePath, err)
 	}
-
 	return nil
 }
 
 // StageAll stages all changes using git add -A
 func StageAll() error {
-	cmd := exec.Command("git", "add", "-A")
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &out
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to stage all changes: %w (output: %s)", err, out.String())
+	_, err := runGit("add", "-A")
+	if err != nil {
+		return fmt.Errorf("failed to stage all changes: %w", err)
 	}
-
 	return nil
 }
 
 // HasFileChanges checks if a specific file has unstaged changes (i.e. differs from the index)
 func HasFileChanges(filePath string) bool {
 	// git diff --quiet -- <file>: exit 0 = no changes, exit 1 = has changes
-	cmd := exec.Command("git", "diff", "--quiet", "--", filePath)
-	err := cmd.Run()
+	_, err := runGit("diff", "--quiet", "--", filePath)
 	return err != nil
 }
 
 // IsFileModifiedOrNew returns true if the given file has uncommitted modifications
 // or is an untracked new file. Works for both tracked and untracked files.
 func IsFileModifiedOrNew(path string) bool {
-	cmd := exec.Command("git", "status", "--porcelain", "--", path)
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	if err := cmd.Run(); err != nil {
+	out, err := runGit("status", "--porcelain", "--", path)
+	if err != nil {
 		return false
 	}
-	return strings.TrimSpace(out.String()) != ""
+	return strings.TrimSpace(out) != ""
 }
 
 // HasStagedChanges checks if there are any staged changes ready to commit
 func HasStagedChanges() bool {
-	// Use git diff --cached --quiet to check for staged changes
-	// Exit code 0 = no staged changes, exit code 1 = has staged changes
-	cmd := exec.Command("git", "diff", "--cached", "--quiet")
-	err := cmd.Run()
-
-	return err != nil // Non-zero exit = has changes
+	// git diff --cached --quiet: exit 0 = no staged changes, exit 1 = has staged changes
+	_, err := runGit("diff", "--cached", "--quiet")
+	return err != nil
 }
 
 // HasUncommittedChanges reports whether there are any uncommitted changes in the
 // working tree or index (i.e. staged or unstaged modifications, additions, or deletions).
 func HasUncommittedChanges() bool {
-	// git status --porcelain: empty output = clean, non-empty = dirty
-	cmd := exec.Command("git", "status", "--porcelain")
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &out
-
-	if err := cmd.Run(); err != nil {
+	out, err := runGit("status", "--porcelain")
+	if err != nil {
 		return false
 	}
-
-	return strings.TrimSpace(out.String()) != ""
+	return strings.TrimSpace(out) != ""
 }
 
 // Commit creates a git commit with the specified message
 func Commit(message string) error {
-	cmd := exec.Command("git", "commit", "-m", message)
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &out
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to commit: %w (output: %s)", err, out.String())
+	_, err := runGit("commit", "-m", message)
+	if err != nil {
+		return fmt.Errorf("failed to commit: %w", err)
 	}
-
 	return nil
 }
 
@@ -99,24 +70,19 @@ func Commit(message string) error {
 // It generates the commit message based on changed files
 // Returns error if there are no changes to commit
 func commitChanges() error {
-	// Stage all changes
 	if err := StageAll(); err != nil {
 		return fmt.Errorf("failed to stage changes: %w", err)
 	}
 
-	// Check if there are any staged changes
 	if !HasStagedChanges() {
 		return fmt.Errorf("no changes to commit")
 	}
 
-	// Get list of changed files to generate commit message
 	message, err := generateCommitMessage()
 	if err != nil {
-		// Fallback to generic message if generation fails
 		message = "Update project files"
 	}
 
-	// Commit the staged changes
 	if err := Commit(message); err != nil {
 		return fmt.Errorf("failed to commit: %w", err)
 	}
@@ -126,16 +92,11 @@ func commitChanges() error {
 
 // generateCommitMessage creates a descriptive commit message from changed files
 func generateCommitMessage() (string, error) {
-	cmd := exec.Command("git", "diff", "--cached", "--name-only")
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &out
-
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("failed to get staged files: %w (output: %s)", err, out.String())
+	stagedFiles, err := runGit("diff", "--cached", "--name-only")
+	if err != nil {
+		return "", fmt.Errorf("failed to get staged files: %w", err)
 	}
 
-	stagedFiles := strings.TrimSpace(out.String())
 	if stagedFiles == "" {
 		return "Update files", nil
 	}
@@ -198,22 +159,15 @@ func categorizeFiles(files []string) map[string]int {
 // Returns a single string with commits formatted as "%h: %B" (hash: full message).
 // Gets all commits since base..HEAD. If limit > 0, only the most recent limit commits are returned.
 func GetCommitLog(base string, limit int) (string, error) {
-	// Use git log with format matching reference: %h: %B (hash: full message body)
 	logRange := fmt.Sprintf("%s..HEAD", base)
 	args := []string{"log", logRange, "--format=%h: %B"}
 	if limit > 0 {
 		args = append(args, fmt.Sprintf("--max-count=%d", limit))
 	}
-	cmd := exec.Command("git", args...)
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &out
-
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("failed to get commit log: %w (output: %s)", err, out.String())
+	output, err := runGit(args...)
+	if err != nil {
+		return "", fmt.Errorf("failed to get commit log: %w", err)
 	}
-
-	output := strings.TrimSpace(out.String())
 	return output, nil
 }
 
@@ -222,17 +176,12 @@ func GetCommitLog(base string, limit int) (string, error) {
 // the branch does not yet exist or has no commits relative to base.
 func BranchLogContainsPrefix(base, branch, prefix string) (bool, error) {
 	logRange := fmt.Sprintf("%s..%s", base, branch)
-	cmd := exec.Command("git", "log", logRange, "--format=%s")
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &out
-
-	if err := cmd.Run(); err != nil {
-		// Branch may not exist yet; treat as no matching commits.
+	output, err := runGit("log", logRange, "--format=%s")
+	if err != nil {
 		return false, nil
 	}
 
-	for _, line := range strings.Split(out.String(), "\n") {
+	for _, line := range strings.Split(output, "\n") {
 		if strings.Contains(line, prefix) {
 			return true, nil
 		}
