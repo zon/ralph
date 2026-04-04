@@ -9,7 +9,7 @@ requirements:
       - Require the review agent to name exact files, functions, and interfaces in each requirement item rather than describing behavior generically
       - Add an example in the prompt showing the expected output style (e.g., "Add exported function Foo() to internal/bar/baz.go" vs "Consolidate bar operations")
       - Add an explicit override note in component-review-instructions.md to ignore docs/writing-requirements.md; review-generated requirements must name exact files, functions, and interfaces
-    passing: false
+    passing: true
   - category: project-doc
     description: Move Writing Good Requirements out of docs/projects.md
     items:
