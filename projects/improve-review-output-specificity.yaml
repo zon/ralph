@@ -17,13 +17,6 @@ requirements:
       - Create docs/writing-requirements.md with the moved content
       - Add an explicit note in component-review-instructions.md to ignore docs/writing-requirements.md
     passing: false
-  - category: cross-component-synthesis
-    description: Detect refactoring themes that span multiple components
-    items:
-      - After all per-component reviews complete, run a synthesis agent that reads all project files written in this review run
-      - The synthesis agent identifies requirements that share a common refactoring theme (e.g., "remove inline exec", "consolidate URL parsing") and consolidates them into a single cross-component project
-      - If the synthesis agent consolidates findings into a new project, it deletes the per-component project files that were merged
-    passing: false
   - category: version
     description: Apply version bump
     items:
