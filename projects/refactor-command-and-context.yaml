@@ -42,4 +42,4 @@ requirements:
       - Blank fmt.Println() spacing calls are removed
       - The interactive stdin prompt in config_pulumi.go that reads the token from stdin remains as fmt.Print
       - Version output in run.go remains as fmt.Printf
-    passing: false
+    passing: true

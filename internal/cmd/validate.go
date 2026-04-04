@@ -1,8 +1,7 @@
 package cmd
 
 import (
-	"fmt"
-
+	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/project"
 )
 
@@ -16,6 +15,6 @@ func (v *ValidateCmd) Run() error {
 		return err
 	}
 
-	fmt.Printf("Project '%s' is valid (%d requirements)\n", projectData.Name, len(projectData.Requirements))
+	logger.Infof("Project '%s' is valid (%d requirements)", projectData.Name, len(projectData.Requirements))
 	return nil
 }
