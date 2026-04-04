@@ -1,0 +1,13 @@
+name: consolidate-argo-modules
+description: Consolidate split Argo operations into deep module
+
+requirements:
+  - category: refactoring
+    description: Consolidate Argo CLI operations currently split between internal/argo and internal/workflow
+    items:
+      - Move workflow/argo.go FollowLogs function to internal/argo/argo.go
+      - Move workflow/generate.go submitYAML function to internal/argo/argo.go
+      - Move workflow/generate.go extractWorkflowName function to internal/argo/argo.go
+      - Update all import references from workflow to argo where applicable
+      - Remove internal/workflow/argo.go after consolidation
+    passing: false
