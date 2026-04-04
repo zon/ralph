@@ -7,6 +7,7 @@ import (
 
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/k8s"
+	"github.com/zon/ralph/internal/logger"
 )
 
 // ConfigPulumiCmd configures Pulumi credentials for Argo Workflows
@@ -32,8 +33,6 @@ func (c *ConfigPulumiCmd) Run() error {
 		return err
 	}
 
-	fmt.Println()
-
 	token := c.Token
 	if token == "" {
 		token, err = c.promptForToken()
@@ -50,18 +49,16 @@ func (c *ConfigPulumiCmd) Run() error {
 }
 
 func (c *ConfigPulumiCmd) printHeader() {
-	fmt.Println("Configuring Pulumi credentials for Ralph remote execution...")
-	fmt.Println()
+	logger.Info("Configuring Pulumi credentials for Ralph remote execution...")
 }
 
 func (c *ConfigPulumiCmd) promptForToken() (string, error) {
-	fmt.Println("Enter your Pulumi access token.")
-	fmt.Println("You can get a token from: https://app.pulumi.com/account/tokens")
-	fmt.Println()
+	logger.Info("Enter your Pulumi access token.")
+	logger.Info("You can get a token from: https://app.pulumi.com/account/tokens")
 
 	token := os.Getenv("PULUMI_ACCESS_TOKEN")
 	if token != "" {
-		fmt.Println("Using PULUMI_ACCESS_TOKEN from environment")
+		logger.Info("Using PULUMI_ACCESS_TOKEN from environment")
 		return token, nil
 	}
 
@@ -76,7 +73,7 @@ func (c *ConfigPulumiCmd) promptForToken() (string, error) {
 }
 
 func (c *ConfigPulumiCmd) createK8sSecret(ctx context.Context, kubeContext, namespace, token string) error {
-	fmt.Printf("Creating/updating Kubernetes secret '%s'...\n", k8s.PulumiSecretName)
+	logger.Infof("Creating/updating Kubernetes secret '%s'...", k8s.PulumiSecretName)
 
 	secretData := map[string]string{
 		"PULUMI_ACCESS_TOKEN": token,
@@ -86,9 +83,8 @@ func (c *ConfigPulumiCmd) createK8sSecret(ctx context.Context, kubeContext, name
 		return fmt.Errorf("failed to create/update secret: %w", err)
 	}
 
-	fmt.Printf("✓ Secret '%s' created/updated successfully\n", k8s.PulumiSecretName)
-	fmt.Println()
+	logger.Successf("Secret '%s' created/updated successfully", k8s.PulumiSecretName)
 
-	fmt.Printf("Configuration complete! The secret '%s' is ready for use in namespace '%s'.\n", k8s.PulumiSecretName, namespace)
+	logger.Infof("Configuration complete! The secret '%s' is ready for use in namespace '%s'.", k8s.PulumiSecretName, namespace)
 	return nil
 }

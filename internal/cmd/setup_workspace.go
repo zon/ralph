@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/zon/ralph/internal/config"
+	"github.com/zon/ralph/internal/logger"
 )
 
 // SetupWorkspaceCmd symlinks mounted config files/dirs into the working directory
@@ -70,7 +71,7 @@ func (s *SetupWorkspaceCmd) link(cwd, destFile, destDir string) error {
 		return nil
 	}
 
-	fmt.Printf("Linking %s -> %s\n", linkPath, src)
+	logger.Infof("Linking %s -> %s", linkPath, src)
 	if err := os.Symlink(src, linkPath); err != nil {
 		return fmt.Errorf("failed to create symlink %s -> %s: %w", linkPath, src, err)
 	}
