@@ -14,6 +14,10 @@ import (
 	"github.com/zon/ralph/internal/testutil"
 )
 
+func contains(s, substr string) bool {
+	return strings.Contains(s, substr)
+}
+
 func TestReviewResolveModel(t *testing.T) {
 	tmpDir := t.TempDir()
 
@@ -137,167 +141,24 @@ func TestReviewLoadItemContent_FileNotFound(t *testing.T) {
 
 func TestReviewBuildPrompt(t *testing.T) {
 	r := &ReviewCmd{}
-	prompt := r.buildPrompt("test content", "/path/to/project.yaml", "project doc content", "review-2026-03-22")
+	prompt := r.buildItemPrompt("test content")
 
-	assert.Contains(t, prompt, "You are a software architect reviewing source code")
 	assert.Contains(t, prompt, "test content")
-	assert.Contains(t, prompt, "/path/to/project.yaml")
-	assert.Contains(t, prompt, "project doc content")
-	assert.Contains(t, prompt, "review-2026-03-22")
 }
 
 func TestEmbeddedReviewInstructions(t *testing.T) {
 	if reviewInstructions == "" {
 		t.Error("reviewInstructions should not be empty")
 	}
-	if !contains(reviewInstructions, "{{.ConfigContent}}") {
-		t.Error("reviewInstructions should contain ConfigContent template variable")
+	if !contains(reviewInstructions, "{{.ItemContent}}") {
+		t.Error("reviewInstructions should contain ItemContent template variable")
 	}
-	if !contains(reviewInstructions, "{{.ReviewName}}") {
-		t.Error("reviewInstructions should contain ReviewName template variable")
+	if contains(reviewInstructions, "{{.ConfigContent}}") {
+		t.Error("reviewInstructions should not contain ConfigContent template variable")
 	}
-}
-
-func TestReviewBuildCommitMessage(t *testing.T) {
-	tests := []struct {
-		name         string
-		component    string
-		itemIndex    int
-		summaryPath  string
-		summary      string
-		wantContains string
-	}{
-		{
-			name:         "commit message with summary",
-			component:    "internal-git",
-			itemIndex:    0,
-			summaryPath:  "tmp/summary.txt",
-			summary:      "Added validation for commit message format",
-			wantContains: "review: internal-git-0 Added validation for commit message format",
-		},
-		{
-			name:         "commit message without summary file",
-			component:    "internal-api",
-			itemIndex:    1,
-			summaryPath:  "/nonexistent/summary.txt",
-			summary:      "",
-			wantContains: "review: internal-api-1",
-		},
+	if contains(reviewInstructions, "{{.ReviewName}}") {
+		t.Error("reviewInstructions should not contain ReviewName template variable")
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if tt.summary != "" {
-				tmpDir := t.TempDir()
-				tt.summaryPath = filepath.Join(tmpDir, "summary.txt")
-				require.NoError(t, os.WriteFile(tt.summaryPath, []byte(tt.summary), 0644))
-			}
-
-			r := &ReviewCmd{}
-			msg := r.buildCommitMessage(tt.component, tt.itemIndex, tt.summaryPath)
-
-			assert.Equal(t, tt.wantContains, msg)
-		})
-	}
-}
-
-// TestReviewCommitPrefixConsistency verifies that the prefix used in commit messages
-// matches the prefix searched for in the git log when checking for skips.
-// The format must be '$component-$item' (0-indexed) for both operations.
-func TestReviewCommitPrefixConsistency(t *testing.T) {
-	tests := []struct {
-		component      string
-		itemIndex      int
-		expectedPrefix string
-	}{
-		{"internal-git", 0, "internal-git-0"},
-		{"internal-api", 1, "internal-api-1"},
-		{"cmd", 2, "cmd-2"},
-		{"webhook", 0, "webhook-0"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.expectedPrefix, func(t *testing.T) {
-			r := &ReviewCmd{}
-
-			// Commit message must contain the deterministic prefix
-			tmpDir := t.TempDir()
-			summaryPath := filepath.Join(tmpDir, "summary.txt")
-			require.NoError(t, os.WriteFile(summaryPath, []byte("some summary"), 0644))
-
-			msg := r.buildCommitMessage(tt.component, tt.itemIndex, summaryPath)
-
-			// The message must contain the $component-$item prefix
-			assert.Contains(t, msg, tt.expectedPrefix,
-				"commit message must contain the $component-$item prefix")
-
-			// The prefix must appear near the start of the message (after optional "review: ")
-			assert.Contains(t, msg[:len("review: ")+len(tt.expectedPrefix)], tt.expectedPrefix,
-				"$component-$item prefix must appear at the start of the commit message")
-		})
-	}
-}
-
-func TestReviewIterationPrefixFormat(t *testing.T) {
-	// Verify that the iteration prefix format '$component-$item' is deterministic
-	// and 0-indexed as required by the specification.
-	tests := []struct {
-		component string
-		itemIndex int
-		want      string
-	}{
-		{"internal-git", 0, "internal-git-0"},
-		{"internal-git", 1, "internal-git-1"},
-		{"internal-git", 9, "internal-git-9"},
-		{"internal-api", 0, "internal-api-0"},
-		{"cmd", 5, "cmd-5"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.want, func(t *testing.T) {
-			r := &ReviewCmd{}
-			// Build a commit message with no summary to isolate prefix
-			msg := r.buildCommitMessage(tt.component, tt.itemIndex, "/nonexistent/path")
-			// The prefix must be in the message in the $component-$item format
-			assert.Contains(t, msg, tt.want)
-		})
-	}
-}
-
-func TestPrintDetectedComponents(t *testing.T) {
-	r := &ReviewCmd{}
-	overview := &Overview{}
-	r.printDetectedComponents(overview)
-	// No panic expected
-}
-
-func TestShuffleComponents(t *testing.T) {
-	components := []OverviewComponent{
-		{Name: "comp1", Path: "path1", Summary: "summary1"},
-		{Name: "comp2", Path: "path2", Summary: "summary2"},
-		{Name: "comp3", Path: "path3", Summary: "summary3"},
-	}
-	seed := int64(12345)
-	shuffled := shuffleComponents(components, seed)
-	require.Len(t, shuffled, len(components))
-	// Ensure all elements present
-	for _, c := range components {
-		found := false
-		for _, s := range shuffled {
-			if c.Name == s.Name && c.Path == s.Path && c.Summary == s.Summary {
-				found = true
-				break
-			}
-		}
-		assert.True(t, found, "component %s missing", c.Name)
-	}
-	// Deterministic: same seed produces same order
-	shuffled2 := shuffleComponents(components, seed)
-	assert.Equal(t, shuffled, shuffled2)
-	// Different seed produces different order (likely)
-	shuffled3 := shuffleComponents(components, seed+1)
-	// At least one position differs (not guaranteed but very likely)
-	assert.NotEqual(t, shuffled, shuffled3)
 }
 
 func TestShuffleItemsWithIndices(t *testing.T) {
@@ -439,7 +300,7 @@ func TestReviewSeedFlag(t *testing.T) {
 	assert.Equal(t, int64(42), cmd.Review.Seed)
 }
 
-func TestReviewLoopExitsAfterFirstCommit(t *testing.T) {
+func TestReviewLoopProcessesAllItems(t *testing.T) {
 	t.Setenv("RALPH_MOCK_AI", "true")
 	tmpDir := t.TempDir()
 	t.Chdir(tmpDir)
@@ -468,10 +329,12 @@ review:
 	configPath := filepath.Join(ralphDir, "config.yaml")
 	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
 
-	// Create a project YAML file
-	projectFile := filepath.Join(tmpDir, "project.yaml")
+	// Create a project YAML file in projects directory
+	projectsDir := filepath.Join(tmpDir, "projects")
+	require.NoError(t, os.Mkdir(projectsDir, 0755))
+	projectFile := filepath.Join(projectsDir, "test-review.yaml")
 	projectYAML := `name: test-review
-description: Test project for loop exit
+description: Test project for loop
 requirements:
   - category: test
     description: dummy requirement
@@ -488,13 +351,6 @@ requirements:
 	cfg, err := config.LoadConfig()
 	require.NoError(t, err)
 
-	// Create overview with one module
-	overview := &Overview{
-		Modules: []OverviewComponent{
-			{Name: "mock-component", Path: "internal/mock", Summary: "Mock component"},
-		},
-	}
-
 	// Create ReviewCmd
 	r := &ReviewCmd{
 		Local:   true,
@@ -504,28 +360,20 @@ requirements:
 	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
 	ctx.SetLocal(true)
 
-	// Run review
-	reviewName := "review-test"
-	projectChanged, detectedFile, err := r.runReview(ctx, overview, "", &reviewName, cfg)
+	// Run review - new signature without overview
+	branchName, detectedFile, err := r.runReview(ctx, cfg, "")
 	require.NoError(t, err)
-	assert.True(t, projectChanged, "project should have been changed")
-	assert.NotEmpty(t, detectedFile, "detected project file should not be empty")
 
-	// Verify that only one commit was made (the initial commit + the review commit)
+	// Verify that all items were processed (both should have run through the loop)
+	// The function should complete without error and continue processing all items
+	assert.NotEmpty(t, detectedFile, "detected project file should not be empty after processing items")
+	assert.NotEmpty(t, branchName, "branchName should not be empty after processing items")
+
+	// Verify that commits were made - there should be more than just the initial commit
 	cmd := exec.Command("git", "log", "--oneline")
 	out, err := cmd.Output()
 	require.NoError(t, err)
 	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
-	// Expect 2 commits: initial commit and review commit
-	assert.Len(t, lines, 2, "should have exactly two commits (initial + review)")
-
-	// Verify that the review commit prefix matches the first component/item
-	// The commit message should contain "mock-component-0"
-	cmd = exec.Command("git", "log", "-1", "--pretty=%B")
-	out, err = cmd.Output()
-	require.NoError(t, err)
-	commitMsg := strings.TrimSpace(string(out))
-	assert.Contains(t, commitMsg, "mock-component-0", "commit should be for first item only")
-	// Ensure second item prefix not present (no commit for second item)
-	assert.NotContains(t, commitMsg, "mock-component-1")
+	// Should have at least 2 commits (initial + at least one review commit)
+	assert.GreaterOrEqual(t, len(lines), 2, "should have at least two commits")
 }

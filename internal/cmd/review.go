@@ -38,19 +38,6 @@ type itemWithIndex struct {
 	idx  int
 }
 
-func shuffleComponents(components []OverviewComponent, seed int64) []OverviewComponent {
-	if len(components) == 0 {
-		return components
-	}
-	rng := rand.New(rand.NewSource(seed))
-	shuffled := make([]OverviewComponent, len(components))
-	copy(shuffled, components)
-	rng.Shuffle(len(shuffled), func(i, j int) {
-		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
-	})
-	return shuffled
-}
-
 func shuffleItemsWithIndices(items []config.ReviewItem, seed int64) []itemWithIndex {
 	if len(items) == 0 {
 		return []itemWithIndex{}
@@ -72,8 +59,8 @@ type ReviewCmd struct {
 	Local       bool   `help:"Run on this machine instead of submitting to Argo Workflows" default:"false"`
 	Verbose     bool   `help:"Enable verbose logging" default:"false"`
 	Context     string `help:"Kubernetes context to use" name:"context" optional:""`
-	Seed        int64  `help:"Random seed for shuffling components and review items (0 = random)" default:"0"`
-	prSubmitted bool   // tracks whether a PR has already been submitted in this run
+	Seed        int64  `help:"Random seed for shuffling review items (0 = random)" default:"0"`
+	prSubmitted bool
 }
 
 func (r *ReviewCmd) Run() error {
@@ -83,11 +70,6 @@ func (r *ReviewCmd) Run() error {
 
 	if err := os.MkdirAll("projects", 0755); err != nil {
 		return fmt.Errorf("failed to create projects directory: %w", err)
-	}
-
-	overviewPath, err := git.TmpPath("overview.json")
-	if err != nil {
-		return fmt.Errorf("failed to resolve overview path: %w", err)
 	}
 
 	ralphConfig, err := config.LoadConfig()
@@ -122,32 +104,21 @@ func (r *ReviewCmd) Run() error {
 		return r.submitToArgo(ctx, startingBranch)
 	}
 
-	reviewName := ""
-
-	overview, err := r.runOverview(ctx, overviewPath, "", "")
-	if err != nil {
-		return fmt.Errorf("overview step failed: %w", err)
-	}
-
-	projectChanged, detectedProjectFile, err := r.runReview(ctx, overview, projectDoc, &reviewName, ralphConfig)
+	branchName, detectedProjectFile, err := r.runReview(ctx, ralphConfig, projectDoc)
 	if err != nil {
 		return fmt.Errorf("review step failed: %w", err)
 	}
 
-	if projectChanged && !r.prSubmitted {
+	if branchName != "" && branchName != startingBranch {
 		absProjectFile, err := filepath.Abs(detectedProjectFile)
 		if err != nil {
 			return fmt.Errorf("failed to resolve project file path: %w", err)
 		}
 
-		if reviewName == "" {
-			reviewName = strings.TrimSuffix(filepath.Base(detectedProjectFile), filepath.Ext(detectedProjectFile))
-		}
-
-		baseBranch := resolveBaseBranch(r.Base, startingBranch, reviewName, ralphConfig.DefaultBranch)
+		baseBranch := resolveBaseBranch(r.Base, startingBranch, branchName, ralphConfig.DefaultBranch)
 		ctx.SetBaseBranch(baseBranch)
 
-		if err := r.submitPR(ctx, absProjectFile, reviewName, baseBranch); err != nil {
+		if err := r.submitPR(ctx, absProjectFile, branchName, baseBranch); err != nil {
 			logger.Warningf("Failed to create pull request: %v", err)
 		} else {
 			r.prSubmitted = true
@@ -159,6 +130,73 @@ func (r *ReviewCmd) Run() error {
 	}
 
 	return nil
+}
+
+func (r *ReviewCmd) runReview(ctx *execcontext.Context, ralphConfig *config.RalphConfig, projectDoc string) (branchName, detectedProjectFile string, err error) {
+	seed := r.Seed
+	if seed == 0 {
+		seed = time.Now().UnixNano()
+		logger.Infof("Using random seed: %d", seed)
+	}
+
+	itemsWithIdx := shuffleItemsWithIndices(ralphConfig.Review.Items, seed)
+
+	for _, pair := range itemsWithIdx {
+		item := pair.item
+		i := pair.idx
+
+		label := r.itemLabel(item)
+		logger.Infof("Item: %s", label)
+
+		content, err := r.loadItemContent(item)
+		if err != nil {
+			return branchName, detectedProjectFile, fmt.Errorf("failed to load review item %d: %w", i, err)
+		}
+
+		summaryPath, err := git.TmpPath(fmt.Sprintf("summary-%d.txt", i))
+		if err != nil {
+			return branchName, detectedProjectFile, fmt.Errorf("failed to resolve summary path: %w", err)
+		}
+
+		prompt := r.buildItemPrompt(content)
+
+		if r.Verbose {
+			logger.Verbose(prompt)
+		}
+
+		logger.Verbosef("Running review item %d/%d...", i+1, len(itemsWithIdx))
+		if err := ai.RunAgent(ctx, prompt); err != nil {
+			return branchName, detectedProjectFile, fmt.Errorf("review item %d failed: %w", i, err)
+		}
+
+		detectedProjectFile, err = git.DetectModifiedProjectFile("projects")
+		if err != nil {
+			logger.Verbosef("Failed to detect project file: %v", err)
+		}
+
+		if detectedProjectFile != "" {
+			if branchName == "" {
+				branchName = strings.TrimSuffix(filepath.Base(detectedProjectFile), filepath.Ext(detectedProjectFile))
+			}
+
+			commitMsg := r.buildCommitMessage(i, summaryPath)
+			if err := run.CommitFileAndPush(ctx, detectedProjectFile, branchName, commitMsg); err != nil {
+				return branchName, detectedProjectFile, fmt.Errorf("failed to commit after item %d: %w", i+1, err)
+			}
+			os.Remove(summaryPath)
+		}
+	}
+
+	return branchName, detectedProjectFile, nil
+}
+
+func (r *ReviewCmd) buildItemPrompt(content string) string {
+	var buf bytes.Buffer
+	data := struct {
+		ItemContent string
+	}{content}
+	reviewPromptTemplate.Execute(&buf, data)
+	return buf.String()
 }
 
 func (r *ReviewCmd) submitToArgo(ctx *execcontext.Context, cloneBranch string) error {
@@ -192,13 +230,8 @@ func (r *ReviewCmd) printStats() error {
 	return ai.DisplayStats()
 }
 
-func (r *ReviewCmd) commitProjectFile(ctx *execcontext.Context, absProjectFile, reviewName, componentName string, itemIndex int, summaryPath string) error {
-	commitMsg := r.buildCommitMessage(componentName, itemIndex, summaryPath)
-	return run.CommitFileAndPush(ctx, absProjectFile, reviewName, commitMsg)
-}
-
-func (r *ReviewCmd) buildCommitMessage(componentName string, itemIndex int, summaryPath string) string {
-	prefix := fmt.Sprintf("%s-%d", componentName, itemIndex)
+func (r *ReviewCmd) buildCommitMessage(itemIndex int, summaryPath string) string {
+	prefix := fmt.Sprintf("item-%d", itemIndex)
 
 	data, err := os.ReadFile(summaryPath)
 	if err != nil {
@@ -218,7 +251,6 @@ func (r *ReviewCmd) submitPR(ctx *execcontext.Context, absProjectFile, reviewNam
 	title := reviewName
 	proj, err := project.LoadProject(absProjectFile)
 	if err != nil {
-		// If project cannot be loaded, create a minimal project for PR creation
 		proj = &project.Project{Name: reviewName, Description: title}
 	}
 
@@ -316,27 +348,6 @@ func (r *ReviewCmd) itemLabel(item config.ReviewItem) string {
 	}
 }
 
-type reviewPromptData struct {
-	ConfigContent   string
-	Project         string
-	RalphProjectDoc string
-	ReviewName      string
-}
-
-var reviewPromptTemplate = template.Must(template.New("review").Parse(reviewInstructions))
-
-func (r *ReviewCmd) buildPrompt(content, projectPath, projectDoc, reviewName string) string {
-	var buf bytes.Buffer
-	data := reviewPromptData{
-		ConfigContent:   content,
-		Project:         projectPath,
-		RalphProjectDoc: projectDoc,
-		ReviewName:      reviewName,
-	}
-	reviewPromptTemplate.Execute(&buf, data)
-	return buf.String()
-}
-
 func fetchRalphProjectDoc() (string, error) {
 	resp, err := http.Get(ralphProjectDocURL)
 	if err != nil {
@@ -350,108 +361,4 @@ func fetchRalphProjectDoc() (string, error) {
 	return strings.TrimSpace(string(data)), nil
 }
 
-func (r *ReviewCmd) runOverview(ctx *execcontext.Context, overviewPath, projectDoc, reviewName string) (*Overview, error) {
-	prompt := buildOverviewPrompt(overviewPath)
-
-	if r.Verbose {
-		logger.Verbose(prompt)
-	}
-
-	logger.Verbose("Running overview step: generating code overview...")
-	if err := ai.RunAgent(ctx, prompt); err != nil {
-		return nil, fmt.Errorf("overview step failed: %w", err)
-	}
-
-	overview, err := loadOverview(overviewPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load overview: %w", err)
-	}
-	r.printDetectedComponents(overview)
-	os.Remove(overviewPath)
-
-	return overview, nil
-}
-
-func (r *ReviewCmd) runReview(ctx *execcontext.Context, overview *Overview, projectDoc string, reviewName *string, ralphConfig *config.RalphConfig) (bool, string, error) {
-	projectChanged := false
-	detectedProjectFile := ""
-
-	seed := r.Seed
-	if seed == 0 {
-		seed = time.Now().UnixNano()
-		logger.Infof("Using random seed: %d", seed)
-	}
-
-	// Combine modules and apps for review
-	allComponents := overview.AllComponents()
-	shuffledComponents := shuffleComponents(allComponents, seed)
-
-	// Shuffle review items with original indices
-	itemsWithIdx := shuffleItemsWithIndices(ralphConfig.Review.Items, seed)
-
-	for _, component := range shuffledComponents {
-		for _, pair := range itemsWithIdx {
-			item := pair.item
-			i := pair.idx
-
-			label := r.itemLabel(item)
-			logger.Infof("Component: %s, item: %s", component.Name, label)
-
-			content, err := r.loadItemContent(item)
-			if err != nil {
-				return projectChanged, detectedProjectFile, fmt.Errorf("failed to load review item %d: %w", i, err)
-			}
-
-			summaryPath, err := git.TmpPath(fmt.Sprintf("summary-%s-%d.txt", component.Name, i))
-			if err != nil {
-				return projectChanged, detectedProjectFile, fmt.Errorf("failed to resolve summary path: %w", err)
-			}
-
-			prompt := buildComponentPrompt(content, projectDoc, component, summaryPath)
-
-			if r.Verbose {
-				logger.Verbose(prompt)
-			}
-
-			logger.Verbosef("Running component %s, review item %d/%d...", component.Name, i+1, len(itemsWithIdx))
-			if err := ai.RunAgent(ctx, prompt); err != nil {
-				return projectChanged, detectedProjectFile, fmt.Errorf("component %s, item %d failed: %w", component.Name, i, err)
-			}
-
-			detectedProjectFile, err = git.DetectModifiedProjectFile("projects")
-			if err != nil {
-				logger.Verbosef("Failed to detect project file: %v", err)
-			}
-
-			if detectedProjectFile != "" {
-				*reviewName = strings.TrimSuffix(filepath.Base(detectedProjectFile), filepath.Ext(detectedProjectFile))
-
-				if err := r.commitProjectFile(ctx, detectedProjectFile, *reviewName, component.Name, i, summaryPath); err != nil {
-					return projectChanged, detectedProjectFile, fmt.Errorf("failed to commit after component %s, item %d: %w", component.Name, i+1, err)
-				}
-				projectChanged = true
-				os.Remove(summaryPath)
-				return projectChanged, detectedProjectFile, nil
-			}
-
-			os.Remove(summaryPath)
-		}
-	}
-
-	return projectChanged, detectedProjectFile, nil
-}
-
-func (r *ReviewCmd) printDetectedComponents(overview *Overview) {
-	if len(overview.Modules) > 0 {
-		logger.Infof("Modules (%d):", len(overview.Modules))
-		for _, mod := range overview.Modules {
-			logger.Infof("  - %s (%s) - %s", mod.Name, mod.Path, mod.Summary)
-		}
-	}
-	if len(overview.Apps) > 0 {
-		logger.Infof("Apps (%d):", len(overview.Apps))
-		for _, app := range overview.Apps {
-			logger.Infof("  - %s (%s) - %s", app.Name, app.Path, app.Summary)
-		}
-	}
-}
+var reviewPromptTemplate = template.Must(template.New("review").Parse(reviewInstructions))
