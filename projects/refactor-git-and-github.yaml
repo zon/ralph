@@ -5,25 +5,32 @@ requirements:
   - category: git-operations
     description: Consolidate git operations and eliminate duplication
     items:
-      - Add exported function RemoteURL() to internal/git package
-      - Update internal/workflow/git.go and internal/workflow/generate.go to use internal/git package functions
-      - Remove duplicate git command implementations
+      - Add exported function RemoteURL() to internal/git package (runs git config --get remote.origin.url)
+      - Update Push() in internal/git/remote.go to use RemoteURL() instead of inlining the same command
+      - Remove getRemoteURL, getRepoRoot, getCurrentBranch from internal/workflow/git.go
+      - Update internal/workflow/generate.go to call git.RemoteURL(), git.FindRepoRoot(), git.GetCurrentBranch() directly
+      - Do not remove toHTTPSURL from internal/workflow/git.go (addressed in github-integration requirements)
     passing: false
   - category: git-operations
     description: Separate git command execution boilerplate from domain logic
     items:
-      - Extract common git command execution pattern into a helper function (e.g., runGit) to reduce duplication
-      - Ensure domain logic functions delegate low-level git command execution to the helper
+      - Add unexported helper runGit(args ...string) (string, error) to internal/git/git.go that runs git with the given args, captures combined stdout+stderr, and returns trimmed output and a wrapped error (including output) on failure
+      - Refactor all functions in internal/git that follow the exec/Buffer/Run boilerplate to delegate to runGit — including branch.go, commit.go, merge.go, remote.go, repo.go, config.go, and file.go
+      - For boolean exit-code-only functions (hasCommits, remoteBranchExists, isGitRepository, isDetachedHead), use runGit and treat err == nil as true
+      - Push() in remote.go must still detect isWorkflowPermissionError on failure; ensure runGit returns the output string even when returning an error so Push can inspect it, or handle Push separately with a lower-level call
     passing: false
   - category: github-integration
     description: Consolidate GitHub URL parsing logic and eliminate duplication
     items:
-      - Replace toHTTPSURL calls in internal/workflow/generate.go with github.ParseRemoteURL and github.CloneURL
-      - Consider replacing getRemoteURL with github.GetRepo where appropriate
+      - In GenerateWorkflow, GenerateReviewWorkflow, and GenerateMergeWorkflow in internal/workflow/generate.go, replace the getRemoteURL + toHTTPSURL pattern with github.GetRepo(context.Background()) to detect the repo from local git; use repo.CloneURL() where an HTTPS URL string is needed
+      - Delete toHTTPSURL from internal/workflow/git.go once it has no remaining callers
+      - Leave GenerateWorkflowWithGitInfo, GenerateCommentWorkflowWithGitInfo, and GenerateMergeWorkflowWithGitInfo unchanged — they are test entry points that accept git info directly
     passing: false
   - category: github-integration
     description: Ensure GitHub integration separates domain logic from infrastructure
     items:
-      - GitHub integration functions should not directly call low-level OS functions (exec, http); use internal abstractions
-      - GitHub integration functions should be concise and focus on orchestrating GitHub workflows
+      - Update GetRepo in internal/github/cli.go to use git.RemoteURL() (added in git-operations requirements) instead of inline exec for git config
+      - Update private configureGitAuth in internal/github/app.go to use git.Config() instead of exec.CommandContext for setting the insteadOf git config key
+      - Add git.ConfigList() and git.ConfigUnset(key) to internal/git/config.go; update cleanupStaleTokenRewrites in app.go to use them instead of inline exec
+      - Leave authenticateGHCLI, IsReady, FindExistingPR, CreatePR, and other gh CLI wrappers unchanged — they are the infrastructure layer and exec calls there are appropriate
     passing: false
