@@ -31,6 +31,18 @@ func TestEmbeddedComponentReviewInstructions(t *testing.T) {
 	if !contains(componentReviewInstructions, "{{.ConfigContent}}") {
 		t.Error("componentReviewInstructions should contain ConfigContent template variable")
 	}
+	if !contains(componentReviewInstructions, "docs/writing-requirements.md") {
+		t.Error("componentReviewInstructions should explicitly ignore docs/writing-requirements.md")
+	}
+	if !contains(componentReviewInstructions, "exact files, functions, and interfaces") {
+		t.Error("componentReviewInstructions should require naming exact files, functions, and interfaces")
+	}
+	if !contains(componentReviewInstructions, "read the actual source files") {
+		t.Error("componentReviewInstructions should instruct to read actual source files before writing requirements")
+	}
+	if !contains(componentReviewInstructions, "Add exported function Foo() to internal/bar/baz.go") {
+		t.Error("componentReviewInstructions should contain an example of good requirement style")
+	}
 }
 
 func TestBuildOverviewPrompt(t *testing.T) {
