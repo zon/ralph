@@ -4,6 +4,12 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/alecthomas/kong"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/zon/ralph/internal/config"
+	"gopkg.in/yaml.v3"
 )
 
 func TestEmbeddedOverviewInstructions(t *testing.T) {
@@ -349,6 +355,194 @@ func TestAllComponents(t *testing.T) {
 					t.Errorf("first component should be from apps, got %s", all[0].Name)
 				}
 			}
+		})
+	}
+}
+
+func TestOverviewYAMLMarshaling(t *testing.T) {
+	tests := []struct {
+		name        string
+		overview    Overview
+		wantModules bool
+		wantApps    bool
+	}{
+		{
+			name: "populated overview with modules and apps",
+			overview: Overview{
+				Modules: []OverviewComponent{
+					{Name: "auth", Path: "internal/auth", Summary: "Authentication module"},
+					{Name: "api", Path: "internal/api", Summary: "REST API"},
+				},
+				Apps: []OverviewComponent{
+					{Name: "cli", Path: "cmd/cli", Summary: "CLI entry point"},
+				},
+			},
+			wantModules: true,
+			wantApps:    true,
+		},
+		{
+			name: "empty overview",
+			overview: Overview{
+				Modules: []OverviewComponent{},
+				Apps:    []OverviewComponent{},
+			},
+			wantModules: true,
+			wantApps:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output, err := yaml.Marshal(&tt.overview)
+			require.NoError(t, err)
+
+			if tt.wantModules {
+				assert.Contains(t, string(output), "modules:")
+			}
+			if tt.wantApps {
+				assert.Contains(t, string(output), "apps:")
+			}
+
+			var parsed Overview
+			err = yaml.Unmarshal(output, &parsed)
+			require.NoError(t, err)
+
+			assert.Equal(t, len(tt.overview.Modules), len(parsed.Modules))
+			assert.Equal(t, len(tt.overview.Apps), len(parsed.Apps))
+		})
+	}
+}
+
+func TestOverviewResolveModel(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	require.NoError(t, os.Mkdir(ralphDir, 0755))
+
+	configContent := `model: deepseek/deepseek-chat
+review:
+  model: google/gemini-2.5-pro
+  items:
+  - text: test review
+`
+	configPath := filepath.Join(ralphDir, "config.yaml")
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
+
+	t.Chdir(tmpDir)
+
+	cfg, err := config.LoadConfig()
+	require.NoError(t, err)
+
+	o := &OverviewCmd{
+		Model: "",
+	}
+
+	model := o.resolveModel(cfg)
+	assert.Equal(t, "google/gemini-2.5-pro", model)
+}
+
+func TestOverviewResolveModel_WithFlagOverride(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	require.NoError(t, os.Mkdir(ralphDir, 0755))
+
+	configContent := `model: deepseek/deepseek-chat
+review:
+  model: google/gemini-2.5-pro
+  items:
+  - text: test review
+`
+	configPath := filepath.Join(ralphDir, "config.yaml")
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
+
+	t.Chdir(tmpDir)
+
+	cfg, err := config.LoadConfig()
+	require.NoError(t, err)
+
+	o := &OverviewCmd{
+		Model: "anthropic/claude-3-sonnet",
+	}
+
+	model := o.resolveModel(cfg)
+	assert.Equal(t, "anthropic/claude-3-sonnet", model)
+}
+
+func TestOverviewResolveModel_FallbackToMainModel(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	require.NoError(t, os.Mkdir(ralphDir, 0755))
+
+	configContent := `model: deepseek/deepseek-chat
+review:
+  items:
+  - text: test review
+`
+	configPath := filepath.Join(ralphDir, "config.yaml")
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
+
+	t.Chdir(tmpDir)
+
+	cfg, err := config.LoadConfig()
+	require.NoError(t, err)
+
+	o := &OverviewCmd{
+		Model: "",
+	}
+
+	model := o.resolveModel(cfg)
+	assert.Equal(t, "deepseek/deepseek-chat", model)
+}
+
+func TestOverviewCmdFlagParsing(t *testing.T) {
+	tests := []struct {
+		name            string
+		args            []string
+		expectedModel   string
+		expectedVerbose bool
+	}{
+		{
+			name:            "overview with model flag",
+			args:            []string{"overview", "--model", "anthropic/claude-3-sonnet"},
+			expectedModel:   "anthropic/claude-3-sonnet",
+			expectedVerbose: false,
+		},
+		{
+			name:            "overview with verbose flag",
+			args:            []string{"overview", "--verbose"},
+			expectedModel:   "",
+			expectedVerbose: true,
+		},
+		{
+			name:            "overview with both flags",
+			args:            []string{"overview", "--model", "google/gemini-2.5-pro", "--verbose"},
+			expectedModel:   "google/gemini-2.5-pro",
+			expectedVerbose: true,
+		},
+		{
+			name:            "overview without flags",
+			args:            []string{"overview"},
+			expectedModel:   "",
+			expectedVerbose: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := &Cmd{}
+			parser, err := kong.New(cmd,
+				kong.Name("ralph"),
+				kong.Exit(func(int) {}),
+			)
+			require.NoError(t, err)
+
+			_, err = parser.Parse(tt.args)
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.expectedModel, cmd.Overview.Model)
+			assert.Equal(t, tt.expectedVerbose, cmd.Overview.Verbose)
 		})
 	}
 }

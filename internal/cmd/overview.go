@@ -7,6 +7,12 @@ import (
 	"os"
 	"text/template"
 
+	"github.com/zon/ralph/internal/ai"
+	"github.com/zon/ralph/internal/config"
+	"github.com/zon/ralph/internal/git"
+	"github.com/zon/ralph/internal/logger"
+	"gopkg.in/yaml.v3"
+
 	_ "embed"
 )
 
@@ -17,14 +23,14 @@ var overviewInstructions string
 var componentReviewInstructions string
 
 type OverviewComponent struct {
-	Name    string `json:"name"`
-	Path    string `json:"path"`
-	Summary string `json:"summary"`
+	Name    string `json:"name" yaml:"name"`
+	Path    string `json:"path" yaml:"path"`
+	Summary string `json:"summary" yaml:"summary"`
 }
 
 type Overview struct {
-	Modules []OverviewComponent `json:"modules"`
-	Apps    []OverviewComponent `json:"apps"`
+	Modules []OverviewComponent `json:"modules" yaml:"modules"`
+	Apps    []OverviewComponent `json:"apps" yaml:"apps"`
 }
 
 func (o *Overview) AllComponents() []OverviewComponent {
@@ -84,4 +90,75 @@ func buildComponentPrompt(content, projectDoc string, component OverviewComponen
 	}
 	componentPromptTemplate.Execute(&buf, data)
 	return buf.String()
+}
+
+type OverviewCmd struct {
+	Model   string `help:"Override the AI model from config" name:"model" optional:""`
+	Verbose bool   `help:"Enable verbose logging" default:"false"`
+}
+
+func (o *OverviewCmd) Run() error {
+	if o.Verbose {
+		logger.SetVerbose(true)
+	}
+
+	if err := os.MkdirAll("projects", 0755); err != nil {
+		return fmt.Errorf("failed to create projects directory: %w", err)
+	}
+
+	overviewPath, err := git.TmpPath("overview.json")
+	if err != nil {
+		return fmt.Errorf("failed to resolve overview path: %w", err)
+	}
+
+	ralphConfig, err := config.LoadConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	model := o.resolveModel(ralphConfig)
+
+	ctx := createExecutionContext()
+	ctx.SetVerbose(o.Verbose)
+	ctx.SetModel(model)
+	ctx.SetLocal(true)
+
+	prompt := buildOverviewPrompt(overviewPath)
+
+	if o.Verbose {
+		logger.Verbose(prompt)
+	}
+
+	logger.Verbose("Running overview step: generating code overview...")
+	if err := ai.RunAgent(ctx, prompt); err != nil {
+		os.Remove(overviewPath)
+		return fmt.Errorf("overview step failed: %w", err)
+	}
+
+	overview, err := loadOverview(overviewPath)
+	if err != nil {
+		os.Remove(overviewPath)
+		return fmt.Errorf("failed to load overview: %w", err)
+	}
+
+	os.Remove(overviewPath)
+
+	output, err := yaml.Marshal(overview)
+	if err != nil {
+		return fmt.Errorf("failed to marshal overview to YAML: %w", err)
+	}
+
+	fmt.Print(string(output))
+
+	return nil
+}
+
+func (o *OverviewCmd) resolveModel(ralphConfig *config.RalphConfig) string {
+	if o.Model != "" {
+		return o.Model
+	}
+	if ralphConfig.Review.Model != "" {
+		return ralphConfig.Review.Model
+	}
+	return ralphConfig.Model
 }
