@@ -1,0 +1,35 @@
+name: overview-command
+description: Add a standalone ralph overview command that outputs codebase overview data in YAML format
+
+requirements:
+  - category: yaml-tags
+    description: Ensure Overview types can be marshaled to YAML
+    items:
+      - Add yaml struct tags to OverviewComponent and Overview in internal/cmd/overview.go so gopkg.in/yaml.v3 marshals fields with canonical names
+    passing: false
+  - category: overview-cmd
+    description: Implement the overview subcommand
+    items:
+      - ralph overview runs the overview phase from ralph review and prints the result as YAML to stdout
+      - ralph overview accepts --model and --verbose flags
+      - ralph overview runs the agent locally without requiring a Kubernetes context
+      - The command cleans up its temporary overview.json file on exit, including error paths
+    passing: false
+  - category: cmd-registration
+    description: Wire the new command into the CLI
+    items:
+      - ralph overview is available as a top-level subcommand alongside ralph review
+    passing: false
+  - category: tests
+    description: Unit test the new command logic
+    items:
+      - Model resolution is tested — flag value overrides config, empty flag falls back to config model
+      - YAML marshaling is tested against a populated Overview and an empty Overview
+      - Flag parsing is tested to confirm --model and --verbose are accepted and bound correctly
+    passing: false
+  - category: version
+    description: Apply version bump
+    items:
+      - Apply a semver minor bump to internal/version/VERSION and appVersion in charts/ralph-webhook/Chart.yaml
+      - Apply a semver patch bump to version in charts/ralph-webhook/Chart.yaml
+    passing: false
