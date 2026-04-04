@@ -193,7 +193,6 @@ func (w *WorkflowCmd) resolveConflictsWithAI(ctx *context.Context) error {
 	baseBranch := ctx.BaseBranch()
 	logger.Info("Running AI to resolve merge conflicts...")
 
-	instructionsFile := "./tmp/merge-instructions.md"
 	instructions := fmt.Sprintf(`You need to resolve merge conflicts between the base branch (%s) and the current branch (%s).
 
 Steps:
@@ -205,8 +204,9 @@ Steps:
 Focus on accepting the correct changes from both branches. If there are test failures after resolving, fix them.
 `, baseBranch, ctx.Branch(), baseBranch)
 
-	if err := os.MkdirAll("./tmp", 0755); err != nil {
-		return fmt.Errorf("failed to create tmp directory: %w", err)
+	instructionsFile, err := git.TmpPath("merge-instructions.md")
+	if err != nil {
+		return fmt.Errorf("failed to get tmp path for merge instructions: %w", err)
 	}
 
 	if err := os.WriteFile(instructionsFile, []byte(instructions), 0644); err != nil {
