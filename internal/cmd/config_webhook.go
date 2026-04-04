@@ -154,22 +154,21 @@ func (c *ConfigWebhookSecretCmd) generateAndWriteSecrets(ctx context.Context, ku
 		return fmt.Errorf("failed to create/update secret '%s': %w", provisioning.WebhookSecretsSecretName, err)
 	}
 
-	fmt.Printf("Secret '%s' created/updated in namespace '%s'\n", provisioning.WebhookSecretsSecretName, namespace)
+	logger.Successf("Secret '%s' created/updated in namespace '%s'", provisioning.WebhookSecretsSecretName, namespace)
 	return nil
 }
 
 func (c *ConfigWebhookSecretCmd) registerWebhooks(ctx context.Context, secrets *webhookconfig.Secrets) error {
 	webhookURL := fmt.Sprintf("https://%s/webhook", provisioning.WebhookIngressHostname)
-	fmt.Printf("Registering webhooks at %s...\n", webhookURL)
+	logger.Infof("Registering webhooks at %s...", webhookURL)
 	for _, rs := range secrets.Repos {
-		fmt.Printf("  Registering webhook for %s/%s...\n", rs.Owner, rs.Name)
+		logger.Infof("Registering webhook for %s/%s...", rs.Owner, rs.Name)
 		if err := provisioning.RegisterGitHubWebhook(ctx, rs.Owner, rs.Name, webhookURL, rs.WebhookSecret); err != nil {
 			logger.Warningf("Failed to register webhook for %s/%s: %v", rs.Owner, rs.Name, err)
-			fmt.Printf("  ⚠ Failed to register webhook for %s/%s: %v\n", rs.Owner, rs.Name, err)
 		} else {
-			fmt.Printf("  ✓ Webhook registered for %s/%s\n", rs.Owner, rs.Name)
+			logger.Successf("Webhook registered for %s/%s", rs.Owner, rs.Name)
 		}
 	}
-	fmt.Println()
+	logger.Info("")
 	return nil
 }
