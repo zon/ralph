@@ -27,7 +27,7 @@ requirements:
       - internal/context provides NewContextFromEnv() *Context that reads all environment variables for context initialization
       - exec_context.go in internal/cmd delegates to NewContextFromEnv() instead of calling individual setters
       - Context.Validate() returns an error if workflowExecution and local are both true
-    passing: false
+    passing: true
   - category: cleanup-management
     description: Separate domain logic from implementation details in signal handling
     items:

@@ -2,6 +2,8 @@ package context
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"strings"
 )
 
@@ -248,4 +250,54 @@ func (c *Context) SetKubeContext(kubeContext string) {
 
 func (c *Context) KubeContext() string {
 	return c.kubeContext
+}
+
+func NewContextFromEnv() *Context {
+	ctx := NewContext()
+
+	if os.Getenv("RALPH_WORKFLOW_EXECUTION") == "true" {
+		ctx.SetWorkflowExecution(true)
+	}
+
+	ctx.SetRepoOwner(os.Getenv("GITHUB_REPO_OWNER"))
+	ctx.SetRepoName(os.Getenv("GITHUB_REPO_NAME"))
+
+	if val := os.Getenv("PROJECT_PATH"); val != "" {
+		ctx.SetProjectFile(val)
+	}
+	if val := os.Getenv("PROJECT_BRANCH"); val != "" {
+		ctx.SetBranch(val)
+	}
+	if val := os.Getenv("BASE_BRANCH"); val != "" {
+		ctx.SetBaseBranch(val)
+	}
+
+	if os.Getenv("RALPH_VERBOSE") == "true" {
+		ctx.SetVerbose(true)
+	}
+	if os.Getenv("RALPH_NO_SERVICES") == "true" {
+		ctx.SetNoServices(true)
+	}
+	if val := os.Getenv("RALPH_DEBUG_BRANCH"); val != "" {
+		ctx.SetDebugBranch(val)
+	}
+	if val := os.Getenv("INSTRUCTIONS_MD"); val != "" {
+		ctx.SetInstructionsMD(val)
+	}
+
+	if val := os.Getenv("RALPH_MAX_ITERATIONS"); val != "" {
+		var max int
+		if _, err := fmt.Sscanf(val, "%d", &max); err == nil {
+			ctx.SetMaxIterations(max)
+		}
+	}
+
+	return ctx
+}
+
+func (c *Context) Validate() error {
+	if c.workflowExecution && c.local {
+		return fmt.Errorf("invalid context: workflowExecution and local cannot both be true")
+	}
+	return nil
 }
