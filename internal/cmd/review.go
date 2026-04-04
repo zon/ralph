@@ -149,6 +149,8 @@ func (r *ReviewCmd) Run() error {
 
 		if err := r.submitPR(ctx, absProjectFile, reviewName, baseBranch); err != nil {
 			logger.Warningf("Failed to create pull request: %v", err)
+		} else {
+			r.prSubmitted = true
 		}
 	}
 
@@ -429,7 +431,6 @@ func (r *ReviewCmd) runReview(ctx *execcontext.Context, overview *Overview, proj
 				}
 				projectChanged = true
 				os.Remove(summaryPath)
-				r.prSubmitted = true
 				return projectChanged, detectedProjectFile, nil
 			}
 
