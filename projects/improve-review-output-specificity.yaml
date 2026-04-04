@@ -13,7 +13,7 @@ requirements:
   - category: project-doc
     description: Move Writing Good Requirements out of docs/projects.md
     items:
-      - Remove the "Writing Good Requirements" section from docs/projects.md
+      - Remove the "Writing Good Requirements" section from docs/projects.md and add a link to docs/writing-requirements.md in its place
       - Create docs/writing-requirements.md with the moved content
       - Add an explicit note in component-review-instructions.md to ignore docs/writing-requirements.md
     passing: false
