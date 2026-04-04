@@ -13,7 +13,7 @@ requirements:
     description: Apply a semver patch bump to internal/version/VERSION and charts/ralph-webhook/Chart.yaml
     items:
       - Apply a semver patch bump to internal/version/VERSION and charts/ralph-webhook/Chart.yaml
-    passing: false
+    passing: true
 
   - category: testing
     description: Tests for the new prompt builders in internal/prompt
