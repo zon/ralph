@@ -398,6 +398,92 @@ func TestAllComponents(t *testing.T) {
 	}
 }
 
+func TestEmbeddedSynthesisInstructions(t *testing.T) {
+	if synthesisInstructions == "" {
+		t.Error("synthesisInstructions should not be empty")
+	}
+	if !contains(synthesisInstructions, "{{.SummaryPath}}") {
+		t.Error("synthesisInstructions should contain SummaryPath template variable")
+	}
+	if !contains(synthesisInstructions, "Project Files to Analyze") {
+		t.Error("synthesisInstructions should contain instruction to analyze project files")
+	}
+	if !contains(synthesisInstructions, "cross-component") {
+		t.Error("synthesisInstructions should mention cross-component themes")
+	}
+}
+
+func TestBuildSynthesisPrompt(t *testing.T) {
+	tests := []struct {
+		name         string
+		summaryPath  string
+		wantContains string
+	}{
+		{
+			name:         "prompt contains summary path",
+			summaryPath:  "/tmp/synthesis-summary.txt",
+			wantContains: "/tmp/synthesis-summary.txt",
+		},
+		{
+			name:         "prompt contains project analysis instruction",
+			summaryPath:  "tmp/summary.txt",
+			wantContains: "projects/",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			prompt := buildSynthesisPrompt(tt.summaryPath)
+			if !contains(prompt, tt.wantContains) {
+				t.Errorf("buildSynthesisPrompt() = %q, want it to contain %q", prompt, tt.wantContains)
+			}
+		})
+	}
+}
+
+func TestContainsProjectFile(t *testing.T) {
+	tests := []struct {
+		name         string
+		files        []string
+		target       string
+		wantContains bool
+	}{
+		{
+			name:         "empty list",
+			files:        []string{},
+			target:       "projects/test.yaml",
+			wantContains: false,
+		},
+		{
+			name:         "file not in list",
+			files:        []string{"projects/a.yaml", "projects/b.yaml"},
+			target:       "projects/c.yaml",
+			wantContains: false,
+		},
+		{
+			name:         "file in list",
+			files:        []string{"projects/a.yaml", "projects/b.yaml"},
+			target:       "projects/b.yaml",
+			wantContains: true,
+		},
+		{
+			name:         "single file match",
+			files:        []string{"projects/test.yaml"},
+			target:       "projects/test.yaml",
+			wantContains: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := containsProjectFile(tt.files, tt.target)
+			if result != tt.wantContains {
+				t.Errorf("containsProjectFile(%v, %q) = %v, want %v", tt.files, tt.target, result, tt.wantContains)
+			}
+		})
+	}
+}
+
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsHelper(s, substr))
 }
