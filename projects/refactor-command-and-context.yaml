@@ -20,7 +20,7 @@ requirements:
       - workflow.go workspace preparation (clone directory setup, os.Chdir) is extracted from the command handler and delegated to an internal abstraction
       - workflow.go OpenCode auth file setup is extracted from the command handler and delegated to an internal abstraction
       - run.go does not call os.Chdir directly
-    passing: false
+    passing: true
   - category: context-management
     description: Improve context initialization and internal consistency
     items:

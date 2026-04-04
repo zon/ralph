@@ -12,6 +12,7 @@ import (
 	"github.com/zon/ralph/internal/notify"
 	"github.com/zon/ralph/internal/project"
 	"github.com/zon/ralph/internal/run"
+	"github.com/zon/ralph/internal/workspace"
 )
 
 // RunCmd is the default command for executing ralph
@@ -112,10 +113,7 @@ func (r *RunCmd) changeWorkingDirectory() error {
 	if r.WorkingDir == "" {
 		return nil
 	}
-	if err := os.Chdir(r.WorkingDir); err != nil {
-		return fmt.Errorf("failed to change to working directory %s: %w", r.WorkingDir, err)
-	}
-	return nil
+	return workspace.Chdir(r.WorkingDir)
 }
 
 func (r *RunCmd) validateProjectFile() error {

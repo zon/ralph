@@ -14,11 +14,11 @@ import (
 	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/run"
+	"github.com/zon/ralph/internal/workspace"
 )
 
 const (
-	DefaultSecretsDir         = "/secrets/github"
-	DefaultOpenCodeSecretsDir = "/secrets/opencode"
+	DefaultSecretsDir = "/secrets/github"
 )
 
 type WorkflowCmd struct {
@@ -64,7 +64,7 @@ func (w *WorkflowCmd) Run() error {
 		return fmt.Errorf("failed to setup GitHub auth: %w", err)
 	}
 
-	if err := w.setupOpenCodeCredentials(); err != nil {
+	if err := workspace.SetupOpenCodeCredentials(); err != nil {
 		return fmt.Errorf("failed to setup OpenCode credentials: %w", err)
 	}
 
@@ -103,32 +103,6 @@ func (w *WorkflowCmd) setupGitHubAuth(ctx *context.Context) error {
 	return github.ConfigureGitAuth(gocontext.Background(), owner, repo, DefaultSecretsDir)
 }
 
-func (w *WorkflowCmd) setupOpenCodeCredentials() error {
-	logger.Info("Setting up OpenCode credentials...")
-
-	openCodeDir := filepath.Join(os.Getenv("HOME"), ".local", "share", "opencode")
-	if err := os.MkdirAll(openCodeDir, 0755); err != nil {
-		return fmt.Errorf("failed to create OpenCode directory: %w", err)
-	}
-
-	authFile := filepath.Join(DefaultOpenCodeSecretsDir, "auth.json")
-	if _, err := os.Stat(authFile); err == nil {
-		destPath := filepath.Join(openCodeDir, "auth.json")
-		data, err := os.ReadFile(authFile)
-		if err != nil {
-			return fmt.Errorf("failed to read auth file: %w", err)
-		}
-		if err := os.WriteFile(destPath, data, 0644); err != nil {
-			return fmt.Errorf("failed to write auth file: %w", err)
-		}
-		logger.Infof("Copied OpenCode credentials to %s", destPath)
-	} else if !os.IsNotExist(err) {
-		return fmt.Errorf("failed to check auth file: %w", err)
-	}
-
-	return nil
-}
-
 func (w *WorkflowCmd) configureGitUser(ctx *context.Context) {
 	logger.Info("Configuring git user...")
 	_ = git.Config(true, "user.name", ctx.BotName())
@@ -136,31 +110,12 @@ func (w *WorkflowCmd) configureGitUser(ctx *context.Context) {
 }
 
 func (w *WorkflowCmd) cloneAndSetupRepo(ctx *context.Context) error {
-	logger.Infof("Cloning repository: %s", ctx.RepoURL())
-
-	workDir := "/workspace/repo"
-	if err := os.MkdirAll(filepath.Dir(workDir), 0755); err != nil {
-		return fmt.Errorf("failed to create work dir: %w", err)
-	}
-
-	if _, err := os.Stat(workDir); err == nil {
-		os.RemoveAll(workDir)
-	}
-
-	// Use GIT_BRANCH env var for cloning (set by the workflow template to the
-	// original local branch), not ctx.Branch() which holds the project branch.
 	cloneBranch := os.Getenv("GIT_BRANCH")
-	if err := git.Clone(ctx.RepoURL(), cloneBranch, workDir); err != nil {
-		if err := git.Clone(ctx.RepoURL(), "", workDir); err != nil {
-			return fmt.Errorf("failed to clone repository: %w", err)
-		}
+	if err := workspace.PrepareWorkspace(ctx.RepoURL(), cloneBranch, workspace.DefaultWorkDir); err != nil {
+		return err
 	}
 
-	if err := os.Chdir(workDir); err != nil {
-		return fmt.Errorf("failed to change to work dir: %w", err)
-	}
-
-	setupCmd := &SetupWorkspaceCmd{WorkspaceDir: "/workspace"}
+	setupCmd := &SetupWorkspaceCmd{WorkspaceDir: workspace.DefaultWorkspaceDir}
 	if err := setupCmd.Run(); err != nil {
 		return fmt.Errorf("failed to setup workspace: %w", err)
 	}
