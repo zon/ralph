@@ -34,7 +34,7 @@ requirements:
       - SetupSignalHandlers uses logger instead of fmt.Printf/fmt.Println
       - Manager holds an injectable exitFn func(int) field (defaulting to os.Exit) used by the signal handler
       - The signal handler goroutine (cleanup invocation and exit) is covered by tests
-    passing: false
+    passing: true
   - category: logging
     description: Consolidate logging usage and replace fmt.Print statements with logger functions where appropriate
     items:
