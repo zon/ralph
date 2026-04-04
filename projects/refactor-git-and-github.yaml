@@ -25,7 +25,7 @@ requirements:
       - In GenerateWorkflow, GenerateReviewWorkflow, and GenerateMergeWorkflow in internal/workflow/generate.go, replace the getRemoteURL + toHTTPSURL pattern with github.GetRepo(context.Background()) to detect the repo from local git; use repo.CloneURL() where an HTTPS URL string is needed
       - Delete toHTTPSURL from internal/workflow/git.go once it has no remaining callers
       - Leave GenerateWorkflowWithGitInfo, GenerateCommentWorkflowWithGitInfo, and GenerateMergeWorkflowWithGitInfo unchanged — they are test entry points that accept git info directly
-    passing: false
+    passing: true
   - category: github-integration
     description: Ensure GitHub integration separates domain logic from infrastructure
     items:

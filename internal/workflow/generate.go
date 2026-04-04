@@ -33,11 +33,11 @@ func GenerateWorkflow(ctx *execcontext.Context, projectName, cloneBranch, projec
 		owner, name := ctx.RepoOwnerAndName()
 		remoteURL = githubpkg.CloneURL(owner, name)
 	} else {
-		rawRemoteURL, err := git.RemoteURL()
+		repo, err := githubpkg.GetRepo(ctx.GoContext())
 		if err != nil {
-			return nil, fmt.Errorf("failed to get remote URL: %w", err)
+			return nil, fmt.Errorf("failed to get repository: %w", err)
 		}
-		remoteURL = toHTTPSURL(rawRemoteURL)
+		remoteURL = repo.CloneURL()
 	}
 
 	relProjectPath := ctx.ProjectFile()
@@ -146,20 +146,14 @@ func GenerateCommentWorkflowWithGitInfo(projectName, repoURL, cloneBranch, proje
 // GenerateReviewWorkflow builds a Workflow for a review execution.
 // cloneBranch is the branch the container will clone (typically the current local branch).
 func GenerateReviewWorkflow(ctx *execcontext.Context, cloneBranch string) (*Workflow, error) {
-	rawRemoteURL, err := git.RemoteURL()
+	repo, err := githubpkg.GetRepo(ctx.GoContext())
 	if err != nil {
-		return nil, fmt.Errorf("failed to get remote URL: %w", err)
+		return nil, fmt.Errorf("failed to get repository: %w", err)
 	}
-	remoteURL := toHTTPSURL(rawRemoteURL)
 
 	ralphConfig, err := config.LoadConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)
-	}
-
-	repo, err := githubpkg.ParseRemoteURL(remoteURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse repository from URL: %w", err)
 	}
 
 	kubeContext := ctx.KubeContext()
@@ -193,11 +187,10 @@ func GenerateMergeWorkflow(prBranch string) (*MergeWorkflow, error) {
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
-	rawRemoteURL, err := git.RemoteURL()
+	repo, err := githubpkg.GetRepo(context.Background())
 	if err != nil {
-		return nil, fmt.Errorf("failed to get remote URL: %w", err)
+		return nil, fmt.Errorf("failed to get repository: %w", err)
 	}
-	remoteURL := toHTTPSURL(rawRemoteURL)
 
 	currentBranch, err := git.GetCurrentBranch()
 	if err != nil {
@@ -210,7 +203,7 @@ func GenerateMergeWorkflow(prBranch string) (*MergeWorkflow, error) {
 		Namespace:   ralphConfig.Workflow.Namespace,
 	}
 
-	return GenerateMergeWorkflowWithGitInfo(remoteURL, currentBranch, prBranch, "", opts)
+	return GenerateMergeWorkflowWithGitInfo(repo.CloneURL(), currentBranch, prBranch, "", opts)
 }
 
 // GenerateMergeWorkflowWithGitInfo builds a MergeWorkflow with provided git information.
