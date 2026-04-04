@@ -1,0 +1,10 @@
+name: workspace-deep-module-cleanup
+description: Improve workspace component to meet deep module standards
+
+requirements:
+  - category: backend
+    description: Remove shallow Chdir wrapper function from internal/workspace/workspace.go
+    items:
+      - Remove exported Chdir() function at workspace.go:68-73 as it provides no meaningful encapsulation beyond os.Chdir error wrapping
+      - Update callers in internal/cmd/run.go:116 to use os.Chdir directly
+    passing: false
