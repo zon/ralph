@@ -1,0 +1,11 @@
+name: refactor-logger-package-level-functions
+description: Refactor logger package-level functions to use Logger struct
+
+requirements:
+  - category: backend
+    description: Refactor package-level logging functions to delegate to Logger struct for proper domain logic separation
+    items:
+      - Replace global verboseEnabled variable with Logger.verbose field usage in Info, Infof, Success, Successf, Warning, Warningf, Error, Errorf, Verbose, Verbosef functions in internal/logger/logger.go
+      - Make Info, Infof, Success, Successf, Warning, Warningf, Error, Errorf, Verbose, Verbosef functions in internal/logger/logger.go delegate to a Logger instance instead of using hardcoded color packages
+      - Remove global color variables (infoColor, successColor, warningColor, errorColor, verboseColor) and package-level verboseEnabled from internal/logger/logger.go
+    passing: false
