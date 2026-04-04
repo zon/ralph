@@ -35,16 +35,35 @@ Project files are stored in the `./projects` directory of the repo.
 
 Requirements describe **what should happen** and may define high-level interfaces, but should not include low-level implementation detail.
 
-✅ Good:
+**Feature requirements** describe behavior at the interface level — user-facing features, API contracts, and user interactions.
+
+**Refactoring requirements** describe implementation-specific changes — code reorganization, symbol renaming, file restructuring, and similar technical updates.
+
+### Feature Requirements
+
+✅ Good (feature work):
 - Users can log in with email and password
 - Invalid credentials are rejected with error messages
 - Session tokens expire after 24 hours
 - `POST /auth/login` accepts `{ email, password }` and returns a JWT
 
-❌ Bad:
-- Add password validation function
-- Implement JWT expiration middleware
-- Use bcrypt with cost factor 12
+> ⚠️ **Note:** The following examples are *not* good for feature work. They apply to implementation-level refactoring:
+> - ❌ Bad: Add password validation function
+> - ❌ Bad: Implement JWT expiration middleware
+> - ❌ Bad: Use bcrypt with cost factor 12
+
+### Refactoring Requirements
+
+✅ Good (refactoring work):
+- Add exported function `ValidateToken()` to `internal/auth/jwt.go`
+- Rename method `GetUser()` to `GetUserByID()` in `internal/users/repository.go:45`
+- Move `parseURL()` from `internal/http/client.go` to `internal/url/parser.go`
+- Remove inline exec from `cmd/shell/shell.go:78`; extract to `internal/exec/executor.go`
+
+❌ Bad (refactoring work):
+- Consolidate authentication logic
+- Improve error handling in auth module
+- Refactor URL parsing across the codebase
 
 **Guidelines:**
 - Write from the user, client, or developer perspective — user interfaces, network interfaces, and high-level APIs
