@@ -16,3 +16,7 @@ Only add requirements that are NOT met. Do not add requirements that are already
 After completing your review, write a brief one-sentence summary of your recommendations to {{.SummaryPath}}.
 
 {{.RalphProjectDoc}}
+
+## Important
+
+Ignore `docs/writing-requirements.md`. Requirements must name exact files, functions, and interfaces — not describe behavior generically.

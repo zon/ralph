@@ -31,6 +31,12 @@ func TestEmbeddedComponentReviewInstructions(t *testing.T) {
 	if !contains(componentReviewInstructions, "{{.ConfigContent}}") {
 		t.Error("componentReviewInstructions should contain ConfigContent template variable")
 	}
+	if !contains(componentReviewInstructions, "docs/writing-requirements.md") {
+		t.Error("componentReviewInstructions should explicitly ignore docs/writing-requirements.md")
+	}
+	if !contains(componentReviewInstructions, "exact files, functions, and interfaces") {
+		t.Error("componentReviewInstructions should require naming exact files, functions, and interfaces")
+	}
 }
 
 func TestBuildOverviewPrompt(t *testing.T) {
