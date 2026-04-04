@@ -8,7 +8,7 @@ requirements:
       - Update component-review-instructions.md to instruct the AI to read the actual source files in the component before writing requirements
       - Require the review agent to name exact files, functions, and interfaces in each requirement item rather than describing behavior generically
       - Add an example in the prompt showing the expected output style (e.g., "Add exported function Foo() to internal/bar/baz.go" vs "Consolidate bar operations")
-    passing: false
+    passing: true
   - category: project-doc
     description: Clarify specificity expectations for refactoring projects
     items:

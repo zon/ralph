@@ -27,6 +27,51 @@ func TestEmbeddedComponentReviewInstructions(t *testing.T) {
 	}
 }
 
+func TestComponentReviewInstructionsSpecificity(t *testing.T) {
+	if componentReviewInstructions == "" {
+		t.Error("componentReviewInstructions should not be empty")
+	}
+
+	if !contains(componentReviewInstructions, "read the actual source files") {
+		t.Error("componentReviewInstructions should instruct to read source files before writing requirements")
+	}
+
+	if !contains(componentReviewInstructions, "exact file path") {
+		t.Error("componentReviewInstructions should require naming exact file paths")
+	}
+
+	if !contains(componentReviewInstructions, "exact function") && !contains(componentReviewInstructions, "function, interface") {
+		t.Error("componentReviewInstructions should require naming exact functions or interfaces")
+	}
+
+	if !contains(componentReviewInstructions, "Bad:") {
+		t.Error("componentReviewInstructions should contain Bad example")
+	}
+
+	if !contains(componentReviewInstructions, "Good:") {
+		t.Error("componentReviewInstructions should contain Good example")
+	}
+
+	goodExamples := []string{
+		"internal/auth/login.go",
+		"ValidateToken()",
+	}
+	for _, example := range goodExamples {
+		if !contains(componentReviewInstructions, example) {
+			t.Errorf("componentReviewInstructions should contain Good example with %q", example)
+		}
+	}
+
+	badExamples := []string{
+		"Consolidate",
+	}
+	for _, example := range badExamples {
+		if !contains(componentReviewInstructions, example) {
+			t.Errorf("componentReviewInstructions should contain Bad example with %q", example)
+		}
+	}
+}
+
 func TestBuildOverviewPrompt(t *testing.T) {
 	tests := []struct {
 		name         string
