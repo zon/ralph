@@ -1,0 +1,25 @@
+name: deepen-workflow-module
+description: Make internal/workflow module deeper by introducing dependency injection for config
+
+requirements:
+  - category: architecture
+    description: Refactor internal/workflow/generate.go to accept config as parameter
+    items:
+      - Modify GenerateWorkflowWithGitInfo to accept RalphConfig as parameter instead of calling LoadConfig()
+      - Modify GenerateReviewWorkflow to accept RalphConfig as parameter
+      - Modify GenerateMergeWorkflow to accept RalphConfig as parameter
+      - Update all callers to pass config from their context
+    passing: false
+
+  - category: refactoring
+    description: Update workflow module callers to inject dependencies
+    items:
+      - Update internal/cmd/workflow.go to pass config to workflow generation functions
+      - Ensure all workflow generation goes through dependency-injected paths
+    passing: false
+
+  - category: version
+    description: Bump version
+    items:
+      - Apply a semver patch bump to internal/version/VERSION and charts/ralph-webhook/Chart.yaml
+    passing: false
