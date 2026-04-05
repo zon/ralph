@@ -1,0 +1,36 @@
+name: separate-domain-from-infrastructure
+description: Refactor to clearly separate domain logic from infrastructure implementation details
+
+requirements:
+  - category: refactoring
+    description: Extract file I/O from ExecuteDevelopmentIterationWithSetup
+    items:
+      - Move picked-requirement.yaml file operations to a dedicated fs package
+      - Create IoOperations struct or functions that handle all file operations
+      - Update project.go to delegate file I/O rather than performing it directly
+    passing: false
+
+  - category: refactoring
+    description: Extract performPostAgentCleanup concerns
+    items:
+      - Move service log cleanup to services package
+      - Move project file normalization to project fs helper
+      - Move git staging to git package
+      - Keep domain logic focused on orchestration, not implementation
+    passing: false
+
+  - category: refactoring
+    description: Refactor webhook handler to use clearer delegation
+    items:
+      - Extract HTTP payload reading to a separate HTTP middleware or handler function
+      - Create a domain-level WebhookHandler that receives pre-validated, parsed payload
+      - Keep handleWebhook as thin HTTP adapter, not domain logic carrier
+    passing: false
+
+  - category: documentation
+    description: Document domain vs infrastructure separation patterns
+    items:
+      - Add comments to domain functions explaining what they represent
+      - Ensure each function in project.go can be mapped to a domain concept
+      - Mark any remaining mixed-concern functions with TODO comments
+    passing: false
