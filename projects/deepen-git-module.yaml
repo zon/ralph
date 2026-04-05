@@ -8,7 +8,7 @@ requirements:
       - Document all current public functions and their git CLI equivalents
       - Identify workflows that callers currently coordinate manually
       - Determine which operations are good candidates for higher-level abstractions
-    passing: false
+    passing: true
 
   - category: refactoring
     description: Add higher-level git operations
@@ -17,7 +17,7 @@ requirements:
       - Create SyncBranch(branch) that handles fetch, rebase, and push verification
       - Create CommitWithVerification(message) that validates commit was created
       - Create AtomicCommitWithFiles(message, files[]) that stages, verifies, and commits in one call
-    passing: false
+    passing: true
 
   - category: refactoring
     description: Update callers to use new deep operations
@@ -25,10 +25,10 @@ requirements:
       - Update run/execute.go to use new git module operations where applicable
       - Remove duplicated git coordination logic from callers
       - Ensure all existing tests pass after refactoring
-    passing: false
+    passing: true
 
   - category: version
     description: Bump version
     items:
       - Apply a semver patch bump to internal/version/VERSION and charts/ralph-webhook/Chart.yaml
-    passing: false
+    passing: true
