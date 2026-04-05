@@ -1,0 +1,53 @@
+name: deep-modules-review
+description: Address deep module violations found during architecture review
+
+requirements:
+  - category: refactoring
+    description: "internal/project/project.go: `handleServiceStartup` (line 303) is service management logic that belongs in the services package, not project. Move this function to services/ and update callers in project.go to use `services.NewManager().StartWithCleanup()`."
+    items:
+      - Extract `handleServiceStartup` to `services.StartWithCleanup(ctx, cleanupRegistrar, ralphConfig)` or similar
+      - Update `PrepareIteration` in project.go to call the services package instead
+    passing: false
+
+  - category: refactoring
+    description: "internal/project/project.go: `performPostAgentCleanup` (line 335) mixes three distinct responsibilities: removing service logs, normalizing project file, and staging git changes. Split into separate functions in their respective packages."
+    items:
+      - Move service log cleanup to `services.CleanupLogs(servicesList)` in services package
+      - Move project file normalization to `project.NormalizeFile(path)` in project package
+      - Keep git staging in git package via `git.StageFileIfChanged(absProjectFile)` (consider adding this to git package if not exists)
+    passing: false
+
+  - category: refactoring
+    description: "internal/project/project.go: `checkBlockedFile` (line 282) and `writeBlockedMD` (line 294) are blocking/agent-control logic that does not belong in a project model package. Create a new `internal/blocker/` package with `Check()` and `Write()` functions."
+    items:
+      - Create `internal/blocker/blocker.go` with `IsBlocked(projectDir) (bool, error)` and `WriteBlocked(projectDir, err error)`
+      - Update callers in project.go to use the new blocker package
+    passing: false
+
+  - category: refactoring
+    description: "internal/project/project.go: `getCommitLogForPrompt` (line 374) is git operations logic that belongs in the git package. Move this function to git/commit.go or git/repo.go."
+    items:
+      - Extract to `git.GetCommitLogForPrompt(ctx, defaultBranch)` in git package
+      - Update `PrepareIteration` in project.go to call `git.GetCommitLogForPrompt(ctx, defaultBranch)`
+    passing: false
+
+  - category: refactoring
+    description: "internal/run/execute.go: `SanitizeBranchName` (line 232) is a string transformation utility with no git-specific logic. It should be in the git package as `git.SanitizeBranchName` or in a utility package."
+    items:
+      - Move `SanitizeBranchName` to `internal/git/branch.go` as `git.SanitizeBranchName`
+      - Update all callers (run/execute.go, cmd/run.go) to use `git.SanitizeBranchName`
+    passing: false
+
+  - category: refactoring
+    description: "internal/git/file.go: `DetectModifiedProjectFile` (line 26) is project-specific logic that does not belong in the git package. Git should only handle git operations, not project file detection."
+    items:
+      - Move `DetectModifiedProjectFile` to `internal/project/detect.go` as `project.DetectModifiedFile(projectsDir)`
+      - Update any callers to use `project.DetectModifiedFile` instead
+    passing: false
+
+  - category: refactoring
+    description: "internal/run/execute.go: `CreatePullRequest` (line 202) contains GitHub credential refresh logic (`github.ConfigureGitAuth`) that could be encapsulated in the github package rather than the run package."
+    items:
+      - Consider adding `github.RefreshAuthIfNeeded(ctx)` in github package to encapsulate the credential refresh logic
+      - Simplify `CreatePullRequest` to delegate auth refresh to the github package
+    passing: false
