@@ -13,6 +13,7 @@ import (
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/logger"
+	"github.com/zon/ralph/internal/project"
 	"github.com/zon/ralph/internal/run"
 	"github.com/zon/ralph/internal/workspace"
 )
@@ -231,7 +232,27 @@ Focus on accepting the correct changes from both branches. If there are test fai
 	ctx.SetMaxIterations(maxIterations)
 	ctx.SetWorkflowExecution(true)
 
-	_ = run.Execute(ctx, w.cleanupRegistrar)
+	proj, err := project.LoadProject(projectPath)
+	if err != nil {
+		return fmt.Errorf("failed to load project: %w", err)
+	}
+
+	currentBranch, err := git.GetCurrentBranch()
+	if err != nil {
+		return fmt.Errorf("failed to get current branch: %w", err)
+	}
+
+	projectBranch := run.SanitizeBranchName(proj.Name)
+	setup := &run.ExecutionSetup{
+		ProjectFile:   projectPath,
+		Project:       proj,
+		Config:        ralphConfig,
+		BranchName:    projectBranch,
+		CurrentBranch: currentBranch,
+		BaseBranch:    ctx.BaseBranch(),
+	}
+
+	_ = run.Execute(ctx, w.cleanupRegistrar, setup)
 
 	return nil
 }
@@ -257,7 +278,27 @@ func (w *WorkflowCmd) runProject(ctx *context.Context) error {
 
 	ctx.SetWorkflowExecution(true)
 
-	if err := run.Execute(ctx, w.cleanupRegistrar); err != nil {
+	proj, err := project.LoadProject(projectPath)
+	if err != nil {
+		return fmt.Errorf("failed to load project: %w", err)
+	}
+
+	currentBranch, err := git.GetCurrentBranch()
+	if err != nil {
+		return fmt.Errorf("failed to get current branch: %w", err)
+	}
+
+	projectBranch := run.SanitizeBranchName(proj.Name)
+	setup := &run.ExecutionSetup{
+		ProjectFile:   projectPath,
+		Project:       proj,
+		Config:        ralphConfig,
+		BranchName:    projectBranch,
+		CurrentBranch: currentBranch,
+		BaseBranch:    ctx.BaseBranch(),
+	}
+
+	if err := run.Execute(ctx, w.cleanupRegistrar, setup); err != nil {
 		return fmt.Errorf("ralph execution failed: %w", err)
 	}
 

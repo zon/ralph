@@ -87,9 +87,9 @@ func TestExecute_NonExistentProjectFile(t *testing.T) {
 
 	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
 
-	err := Execute(ctx, nil)
-
-	assert.Error(t, err, "Execute should return error when project file does not exist")
+	setup, err := PrepareExecution(ctx)
+	assert.Error(t, err, "PrepareExecution should return error when project file does not exist")
+	assert.Nil(t, setup)
 }
 
 func TestExecute_InvalidYAML(t *testing.T) {
@@ -99,9 +99,10 @@ func TestExecute_InvalidYAML(t *testing.T) {
 	require.NoError(t, os.WriteFile(projectFile, []byte(invalidYAML), 0644))
 
 	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
-	err := Execute(ctx, nil)
+	setup, err := PrepareExecution(ctx)
 
 	require.Error(t, err)
+	assert.Nil(t, setup)
 }
 
 func TestExecute_EmptyRequirements(t *testing.T) {
@@ -111,9 +112,10 @@ func TestExecute_EmptyRequirements(t *testing.T) {
 	require.NoError(t, os.WriteFile(projectFile, []byte(emptyReqsYAML), 0644))
 
 	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
-	err := Execute(ctx, nil)
+	setup, err := PrepareExecution(ctx)
 
 	require.Error(t, err)
+	assert.Nil(t, setup)
 }
 
 // projectYAML is a minimal valid project used across development iteration tests.
