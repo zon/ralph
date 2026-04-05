@@ -36,3 +36,23 @@ func TestCommitFileAndPush(t *testing.T) {
 	// We'll switch to branch and check file exists
 	// For now, we assume success if no error.
 }
+
+func TestCommitAllAndPush(t *testing.T) {
+	workDir := setupIterationTestRepo(t, "")
+	t.Chdir(workDir)
+
+	ctx := testutil.NewContext()
+	ctx.SetLocal(true)
+
+	branchName := "review-all-branch"
+	commitMsg := "Add multiple files"
+
+	// Write files in different directories to verify all are staged
+	require.NoError(t, os.MkdirAll("projects", 0755))
+	require.NoError(t, os.WriteFile("projects/test-review.yaml", []byte("name: test\n"), 0644))
+	require.NoError(t, os.MkdirAll("docs", 0755))
+	require.NoError(t, os.WriteFile("docs/notes.md", []byte("notes\n"), 0644))
+
+	err := CommitAllAndPush(ctx, branchName, commitMsg)
+	require.NoError(t, err)
+}

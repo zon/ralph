@@ -195,18 +195,19 @@ func (r *ReviewCmd) runReview(ctx *execcontext.Context, ralphConfig *config.Ralp
 			return branchName, detectedProjectFile, fmt.Errorf("review item %d failed: %w", i, err)
 		}
 
-		detectedProjectFile, err = git.DetectModifiedProjectFile("projects")
+		currentProjectFile, err := git.DetectModifiedProjectFile("projects")
 		if err != nil {
 			logger.Verbosef("Failed to detect project file: %v", err)
 		}
 
-		if detectedProjectFile != "" {
-			if branchName == "" {
-				branchName = strings.TrimSuffix(filepath.Base(detectedProjectFile), filepath.Ext(detectedProjectFile))
-			}
+		if currentProjectFile != "" && branchName == "" {
+			branchName = strings.TrimSuffix(filepath.Base(currentProjectFile), filepath.Ext(currentProjectFile))
+			detectedProjectFile = currentProjectFile
+		}
 
+		if branchName != "" && git.HasUncommittedChanges() {
 			commitMsg := r.buildCommitMessage(i, summaryPath)
-			if err := run.CommitFileAndPush(ctx, detectedProjectFile, branchName, commitMsg); err != nil {
+			if err := run.CommitAllAndPush(ctx, branchName, commitMsg); err != nil {
 				return branchName, detectedProjectFile, fmt.Errorf("failed to commit after item %d: %w", i+1, err)
 			}
 			os.Remove(summaryPath)

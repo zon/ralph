@@ -55,3 +55,26 @@ func CommitFileAndPush(ctx *context.Context, filePath, branchName, commitMsg str
 
 	return nil
 }
+
+// CommitAllAndPush stages all changes in the working tree, commits with the given message,
+// switches to the specified branch if not already on it, and pushes the commit.
+// If the branch does not exist, it will be created.
+func CommitAllAndPush(ctx *context.Context, branchName, commitMsg string) error {
+	if _, err := switchToBranchIfNeeded(ctx, branchName); err != nil {
+		return err
+	}
+
+	if err := git.StageAll(); err != nil {
+		return fmt.Errorf("failed to stage all changes: %w", err)
+	}
+
+	if err := git.Commit(commitMsg); err != nil {
+		return fmt.Errorf("failed to commit review findings: %w", err)
+	}
+
+	if err := PullAndPush(ctx); err != nil {
+		return fmt.Errorf("failed to push changes: %w", err)
+	}
+
+	return nil
+}
