@@ -19,58 +19,72 @@ import (
 	"github.com/zon/ralph/internal/workflow"
 )
 
-// Execute runs the full orchestration workflow
-func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
-	// Enable verbose logging if requested
-	if ctx.IsVerbose() {
-		logger.SetVerbose(true)
-	}
+type ExecutionSetup struct {
+	ProjectFile   string
+	Project       *project.Project
+	Config        *config.RalphConfig
+	BranchName    string
+	CurrentBranch string
+	BaseBranch    string
+}
 
-	if !ctx.IsLocal() {
-		return executeRemote(ctx, ctx.ProjectFile())
-	}
-
+func PrepareExecution(ctx *context.Context) (*ExecutionSetup, error) {
 	absProjectFile, err := filepath.Abs(ctx.ProjectFile())
 	if err != nil {
-		return fmt.Errorf("failed to resolve project file path: %w", err)
+		return nil, fmt.Errorf("failed to resolve project file path: %w", err)
 	}
 
 	proj, err := project.LoadProject(absProjectFile)
 	if err != nil {
-		return fmt.Errorf("failed to load project file: %w", err)
+		return nil, fmt.Errorf("failed to load project file: %w", err)
 	}
 
 	branchName := SanitizeBranchName(proj.Name)
 	logger.Verbosef("Branch name: %s", branchName)
 
-	// Load configuration
 	ralphConfig, err := config.LoadConfig()
 	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
+		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
-	if _, err = git.GetCurrentBranch(); err != nil {
-		return fmt.Errorf("failed to get current branch: %w", err)
+	currentBranch, err := git.GetCurrentBranch()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current branch: %w", err)
 	}
 
 	baseBranch := ctx.BaseBranch()
-
-	if len(ralphConfig.Before) > 0 {
-		if err := services.RunBefore(ralphConfig.Before); err != nil {
-			return fmt.Errorf("failed to run before commands: %w", err)
-		}
+	if baseBranch == "" {
+		baseBranch = ralphConfig.DefaultBranch
 	}
 
-	if err := ValidateGitStateAndSwitchBranch(ctx, branchName); err != nil {
+	return &ExecutionSetup{
+		ProjectFile:   absProjectFile,
+		Project:       proj,
+		Config:        ralphConfig,
+		BranchName:    branchName,
+		CurrentBranch: currentBranch,
+		BaseBranch:    baseBranch,
+	}, nil
+}
+
+func Execute(ctx *context.Context, cleanupRegistrar func(func()), setup *ExecutionSetup) error {
+	if !ctx.IsLocal() {
+		return executeRemote(ctx, setup.ProjectFile)
+	}
+
+	if err := infrastructureRunBeforeCommands(setup.Config); err != nil {
+		return err
+	}
+
+	if err := ValidateGitStateAndSwitchBranch(ctx, setup.BranchName); err != nil {
 		return err
 	}
 
 	logger.Verbosef("Starting iteration loop (max: %d)", ctx.MaxIterations)
 
-	iterCount, err := RunIterationLoop(ctx, cleanupRegistrar)
+	iterCount, err := RunIterationLoop(ctx, cleanupRegistrar, setup.Project)
 	if err != nil {
-		projectName := strings.TrimSuffix(filepath.Base(absProjectFile), filepath.Ext(absProjectFile))
-		notify.Error(projectName, ctx.ShouldNotify())
+		notify.Error(setup.Project.Name, ctx.ShouldNotify())
 		return fmt.Errorf("iteration loop failed: %w", err)
 	}
 
@@ -78,21 +92,21 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 
 	logger.Verbose("Generating PR summary...")
 
-	commitLog, err := git.GetCommitLog(baseBranch, 100)
+	commitLog, err := infrastructureGetCommitLog(setup.BaseBranch, 100)
 	if err != nil {
 		return fmt.Errorf("failed to get commit log: %w", err)
 	}
 
-	allComplete, passingCount, failingCount := project.CheckCompletion(proj)
+	allComplete, passingCount, failingCount := project.CheckCompletion(setup.Project)
 	projectStatus := fmt.Sprintf("%d passing, %d failing (complete: %v)", passingCount, failingCount, allComplete)
 
-	prSummary, err := GeneratePRSummary(ctx, proj, projectStatus, baseBranch, commitLog)
+	prSummary, err := GeneratePRSummary(ctx, setup.Project, projectStatus, setup.BaseBranch, commitLog)
 	if err != nil {
 		return fmt.Errorf("failed to generate PR summary: %w", err)
 	}
 	logger.Verbose("PR summary generated")
 
-	proj, err = project.LoadProject(absProjectFile)
+	setup.Project, err = project.LoadProject(setup.ProjectFile)
 	if err != nil {
 		return fmt.Errorf("failed to reload project after iteration loop: %w", err)
 	}
@@ -101,11 +115,11 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 		logger.Verbosef("PR Summary:\n%s", prSummary)
 	}
 
-	prURL, err := CreatePullRequest(ctx, proj, branchName, baseBranch, prSummary)
+	prURL, err := CreatePullRequest(ctx, setup.Project, setup.BranchName, setup.BaseBranch, prSummary)
 	if err != nil {
 		if errors.Is(err, github.ErrNoCommitsBetweenBranches) {
 			logger.Verbose("No commits ahead of base branch — all requirements were already passing; skipping PR creation")
-			notify.Success(proj.Name, ctx.ShouldNotify())
+			notify.Success(setup.Project.Name, ctx.ShouldNotify())
 			return nil
 		}
 		return err
@@ -113,9 +127,22 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func())) error {
 
 	logger.Successf("Pull request created: %s", prURL)
 
-	notify.Success(proj.Name, ctx.ShouldNotify())
+	notify.Success(setup.Project.Name, ctx.ShouldNotify())
 
 	return nil
+}
+
+func infrastructureRunBeforeCommands(cfg *config.RalphConfig) error {
+	if len(cfg.Before) > 0 {
+		if err := services.RunBefore(cfg.Before); err != nil {
+			return fmt.Errorf("failed to run before commands: %w", err)
+		}
+	}
+	return nil
+}
+
+func infrastructureGetCommitLog(baseBranch string, n int) (string, error) {
+	return git.GetCommitLog(baseBranch, n)
 }
 
 func ValidateGitStateAndSwitchBranch(ctx *context.Context, branchName string) error {

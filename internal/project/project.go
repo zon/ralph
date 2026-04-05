@@ -22,6 +22,7 @@ type Project struct {
 	Name         string        `yaml:"name"`
 	Description  string        `yaml:"description,omitempty"`
 	Requirements []Requirement `yaml:"requirements"`
+	Path         string        `yaml:"-"`
 }
 
 // Requirement represents a single requirement in a project
@@ -41,16 +42,17 @@ func LoadProject(path string) (*Project, error) {
 		return nil, fmt.Errorf("failed to read project file: %w", err)
 	}
 
-	var project Project
-	if err := yaml.Unmarshal(data, &project); err != nil {
+	var proj Project
+	if err := yaml.Unmarshal(data, &proj); err != nil {
 		return nil, fmt.Errorf("failed to parse project YAML: %w", err)
 	}
 
-	if err := ValidateProject(&project); err != nil {
+	if err := ValidateProject(&proj); err != nil {
 		return nil, err
 	}
 
-	return &project, nil
+	proj.Path = path
+	return &proj, nil
 }
 
 // ValidateProject validates a project structure
@@ -119,72 +121,51 @@ func UpdateRequirementStatus(p *Project, reqID string, passing bool) error {
 	return nil
 }
 
-// ExecuteDevelopmentIteration runs a single development iteration
-// It performs the following steps:
-// 1. Validates and loads the project file
-// 2. Starts configured services (unless disabled)
-// 3. Generates a development prompt with context
-// 4. Runs the AI agent with the prompt
-// 5. Stages the project file after completion
-// Note: Build commands should be run once at the project level, not per iteration
-func ExecuteDevelopmentIteration(ctx *context.Context, cleanupRegistrar func(func())) error {
-	// Enable verbose logging if requested
+type IterationSetup struct {
+	Project       *Project
+	Config        *config.RalphConfig
+	PickedReqPath string
+	CommitLog     string
+	ServiceMgr    *services.Manager
+}
+
+func PrepareIteration(ctx *context.Context, cleanupRegistrar func(func())) (*IterationSetup, error) {
 	if ctx.IsVerbose() {
 		logger.SetVerbose(true)
 	}
 
-	// Validate project file exists
 	absProjectFile, err := filepath.Abs(ctx.ProjectFile())
 	if err != nil {
-		return fmt.Errorf("failed to resolve project file path: %w", err)
+		return nil, fmt.Errorf("failed to resolve project file path: %w", err)
 	}
 
 	if _, err := os.Stat(absProjectFile); os.IsNotExist(err) {
-		return fmt.Errorf("project file not found: %s", absProjectFile)
+		return nil, fmt.Errorf("project file not found: %s", absProjectFile)
 	}
 
-	// Check if blocked.md exists from a previous blocked run
 	if err := checkBlockedFile(absProjectFile); err != nil {
-		return err
+		return nil, err
 	}
 
-	logger.Verbosef("Loading project file: %s", absProjectFile)
-
-	// Load and validate project
 	proj, err := LoadProject(absProjectFile)
 	if err != nil {
-		return fmt.Errorf("failed to load project: %w", err)
+		return nil, fmt.Errorf("failed to load project: %w", err)
 	}
 	if proj.Description != "" && ctx.IsVerbose() {
 		logger.Verbosef("Description: %s", proj.Description)
 	}
 
-	// Show project status
 	allComplete, passingCount, failingCount := CheckCompletion(proj)
 	logger.Verbosef("Requirements: %d passing, %d failing (complete: %v)", passingCount, failingCount, allComplete)
 
-	// Load configuration
 	ralphConfig, err := config.LoadConfig()
 	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
+		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
-	// Handle service startup and failure recovery
 	svcMgr, err := handleServiceStartup(ctx, cleanupRegistrar, ralphConfig)
 	if err != nil {
-		return err
-	}
-	if svcMgr != nil {
-		defer svcMgr.Stop()
-	}
-
-	// Generate pick prompt and run picker agent
-	pickedReqPath := filepath.Join(filepath.Dir(absProjectFile), "picked-requirement.yaml")
-	logger.Verbose("Generating pick prompt...")
-
-	projectContent, err := marshalProjectToString(proj)
-	if err != nil {
-		return fmt.Errorf("failed to serialize project: %w", err)
+		return nil, err
 	}
 
 	commitLog, err := getCommitLogForPrompt(ctx, ralphConfig.DefaultBranch)
@@ -193,11 +174,41 @@ func ExecuteDevelopmentIteration(ctx *context.Context, cleanupRegistrar func(fun
 		commitLog = ""
 	}
 
+	return &IterationSetup{
+		Project:       proj,
+		Config:        ralphConfig,
+		PickedReqPath: filepath.Join(filepath.Dir(absProjectFile), "picked-requirement.yaml"),
+		CommitLog:     commitLog,
+		ServiceMgr:    svcMgr,
+	}, nil
+}
+
+func ExecuteDevelopmentIteration(ctx *context.Context, cleanupRegistrar func(func()) /* DEPRECATED: Use ExecuteDevelopmentIterationWithSetup */) error {
+	setup, err := PrepareIteration(ctx, cleanupRegistrar)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if setup.ServiceMgr != nil {
+			setup.ServiceMgr.Stop()
+		}
+	}()
+	return ExecuteDevelopmentIterationWithSetup(ctx, setup)
+}
+
+func ExecuteDevelopmentIterationWithSetup(ctx *context.Context, setup *IterationSetup) error {
+	logger.Verbosef("Loading project file: %s", setup.Project.Path)
+
+	projectContent, err := marshalProjectToString(setup.Project)
+	if err != nil {
+		return fmt.Errorf("failed to serialize project: %w", err)
+	}
+
 	pickPromptData := prompt.PickPromptData{
 		Notes:          ctx.Notes(),
-		CommitLog:      commitLog,
+		CommitLog:      setup.CommitLog,
 		ProjectContent: projectContent,
-		PickedReqPath:  pickedReqPath,
+		PickedReqPath:  setup.PickedReqPath,
 	}
 
 	pickPrompt, err := prompt.BuildPickPrompt(pickPromptData)
@@ -208,7 +219,7 @@ func ExecuteDevelopmentIteration(ctx *context.Context, cleanupRegistrar func(fun
 
 	logger.Verbose("Running picker agent...")
 	if err := ai.RunAgent(ctx, pickPrompt); err != nil {
-		if writeBlockedMD(absProjectFile, err) == nil {
+		if writeBlockedMD(setup.Project.Path, err) == nil {
 			logger.Verbosef("Wrote blocked.md due to picker agent failure")
 			return fmt.Errorf("picker agent execution failed: %w", err)
 		}
@@ -217,31 +228,28 @@ func ExecuteDevelopmentIteration(ctx *context.Context, cleanupRegistrar func(fun
 	}
 	logger.Verbose("Picker agent execution completed")
 
-	// Read the selected requirement from picked-requirement.yaml
-	pickedReqData, err := os.ReadFile(pickedReqPath)
+	pickedReqData, err := os.ReadFile(setup.PickedReqPath)
 	if err != nil {
 		return fmt.Errorf("failed to read picked requirement: %w", err)
 	}
 	selectedRequirement := string(pickedReqData)
 
-	// Clean up picked-requirement.yaml
-	if err := os.Remove(pickedReqPath); err != nil {
+	if err := os.Remove(setup.PickedReqPath); err != nil {
 		logger.Verbosef("Failed to remove picked-requirement.yaml: %v", err)
 	} else {
 		logger.Verbose("Cleaned up picked-requirement.yaml")
 	}
 
-	// Generate development prompt with selected requirement
 	logger.Verbose("Generating development prompt...")
 
 	devPromptData := prompt.DevelopPromptData{
 		Notes:               ctx.Notes(),
-		CommitLog:           commitLog,
+		CommitLog:           setup.CommitLog,
 		ProjectContent:      projectContent,
 		SelectedRequirement: selectedRequirement,
-		ProjectFilePath:     absProjectFile,
-		Services:            ralphConfig.Services,
-		Instructions:        ralphConfig.Instructions,
+		ProjectFilePath:     setup.Project.Path,
+		Services:            setup.Config.Services,
+		Instructions:        setup.Config.Instructions,
 	}
 
 	devPrompt, err := prompt.BuildDevelopPrompt(devPromptData)
@@ -250,10 +258,9 @@ func ExecuteDevelopmentIteration(ctx *context.Context, cleanupRegistrar func(fun
 	}
 	logger.Verbose("Development prompt generated")
 
-	// Run AI agent with prompt
 	logger.Verbose("Running AI agent...")
 	if err := ai.RunAgent(ctx, devPrompt); err != nil {
-		if writeBlockedMD(absProjectFile, err) == nil {
+		if writeBlockedMD(setup.Project.Path, err) == nil {
 			logger.Verbosef("Wrote blocked.md due to agent failure")
 		} else {
 			logger.Verbosef("Failed to write blocked.md: %v", err)
@@ -262,8 +269,7 @@ func ExecuteDevelopmentIteration(ctx *context.Context, cleanupRegistrar func(fun
 	}
 	logger.Verbose("AI agent execution completed")
 
-	// Post-agent cleanup
-	if err := performPostAgentCleanup(ctx, absProjectFile, ralphConfig.Services); err != nil {
+	if err := performPostAgentCleanup(ctx, setup.Project.Path, setup.Config.Services); err != nil {
 		return err
 	}
 

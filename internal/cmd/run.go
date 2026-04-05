@@ -64,7 +64,6 @@ func (r *RunCmd) Run() error {
 
 	ctx := r.createExecutionContext(maxIterations)
 
-	// Resolve and set base branch in context
 	projectData, err := project.LoadProject(r.ProjectFile)
 	if err != nil {
 		return fmt.Errorf("failed to load project: %w", err)
@@ -82,7 +81,17 @@ func (r *RunCmd) Run() error {
 	if r.Once {
 		return r.executeOnceMode(ctx)
 	}
-	return run.Execute(ctx, r.cleanupRegistrar)
+
+	setup := &run.ExecutionSetup{
+		ProjectFile:   r.ProjectFile,
+		Project:       projectData,
+		Config:        ralphConfig,
+		BranchName:    projectBranch,
+		CurrentBranch: currentBranch,
+		BaseBranch:    baseBranch,
+	}
+
+	return run.Execute(ctx, r.cleanupRegistrar, setup)
 }
 
 func resolveBaseBranch(baseFlag, currentBranch, projectBranch, defaultBranch string) string {
@@ -133,19 +142,35 @@ func (r *RunCmd) validateProjectFile() error {
 	return nil
 }
 
-func (r *RunCmd) validateFlagCombinations() error {
-	if r.Follow && r.Local {
+type RunFlags struct {
+	Follow bool
+	Local  bool
+	Once   bool
+	Debug  string
+}
+
+func (f RunFlags) Validate() error {
+	if f.Follow && f.Local {
 		return fmt.Errorf("--follow flag is not applicable with --local flag")
 	}
 
-	if r.Local && r.Once {
+	if f.Local && f.Once {
 		return fmt.Errorf("--local flag is incompatible with --once flag")
 	}
 
-	if r.Debug != "" && r.Local {
+	if f.Debug != "" && f.Local {
 		return fmt.Errorf("--debug flag is not applicable with --local flag")
 	}
 	return nil
+}
+
+func (r *RunCmd) validateFlagCombinations() error {
+	return RunFlags{
+		Follow: r.Follow,
+		Local:  r.Local,
+		Once:   r.Once,
+		Debug:  r.Debug,
+	}.Validate()
 }
 
 func (r *RunCmd) createExecutionContext(maxIterations int) *execcontext.Context {

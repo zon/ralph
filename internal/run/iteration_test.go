@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/zon/ralph/internal/config"
+	"github.com/zon/ralph/internal/project"
 	"github.com/zon/ralph/internal/testutil"
 )
 
@@ -54,7 +55,10 @@ requirements:
 		testutil.WithMaxIterations(10),
 	)
 
-	iterations, err := RunIterationLoop(ctx, nil)
+	proj, err := project.LoadProject(projectFile)
+	require.NoError(t, err)
+
+	iterations, err := RunIterationLoop(ctx, nil, proj)
 	require.NoError(t, err, "RunIterationLoop should not error when requirements are already passing")
 	assert.Equal(t, 1, iterations)
 }
@@ -88,7 +92,10 @@ requirements:
 		testutil.WithMaxIterations(1),
 	)
 
-	_, err := RunIterationLoop(ctx, nil)
+	proj, err := project.LoadProject(projectFile)
+	require.NoError(t, err)
+
+	_, err = RunIterationLoop(ctx, nil, proj)
 	require.Error(t, err, "Expected error when max iterations reached but requirements still failing")
 	assert.True(t, errors.Is(err, ErrMaxIterationsReached), "Expected ErrMaxIterationsReached, got: %v", err)
 }
@@ -121,7 +128,10 @@ requirements:
 		testutil.WithMaxIterations(5),
 	)
 
-	_, err := RunIterationLoop(ctx, nil)
+	proj, err := project.LoadProject(projectFile)
+	require.NoError(t, err)
+
+	_, err = RunIterationLoop(ctx, nil, proj)
 	require.Error(t, err, "Expected error when blocked.md is detected")
 	assert.True(t, errors.Is(err, ErrBlocked), "Expected ErrBlocked, got: %v", err)
 }
@@ -548,7 +558,10 @@ requirements:
 		testutil.WithMaxIterations(10),
 	)
 
-	iterations, err := RunIterationLoop(ctx, nil)
+	proj, err := project.LoadProject(projectFile)
+	require.NoError(t, err)
+
+	iterations, err := RunIterationLoop(ctx, nil, proj)
 	require.NoError(t, err, "RunIterationLoop should not error when requirements are already passing")
 	assert.Equal(t, 1, iterations)
 }
