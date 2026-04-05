@@ -1,0 +1,25 @@
+name: refactor-domain-functions
+description: Refactor domain functions to remove implementation details and simplify flow control
+
+requirements:
+  - category: domain-function-cleanup
+    description: Extract infrastructure code from handleWebhook into pure domain functions
+    items:
+      - Move payload reading and HMAC validation out of handleWebhook
+      - Make handleWebhook a pure domain orchestrator
+    passing: false
+
+  - category: domain-function-cleanup
+    description: Extract validation from CLI command Run methods into helper functions
+    items:
+      - Move flag validation and setup code out of RunCmd.Run into dedicated functions
+      - Extract setup code from CommentCmd.Run
+      - Simplify ReviewCmd.Run by extracting helper functions
+    passing: false
+
+  - category: domain-function-cleanup
+    description: Ensure all domain functions have simple flow control
+    items:
+      - Functions should call lower-level functions to express domain requirements
+      - No conditional logic that implements business rules should be in domain functions
+    passing: false
