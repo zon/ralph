@@ -4,4 +4,4 @@ model: minimax/MiniMax-M2.7
 review:
   items:
     - url: https://raw.githubusercontent.com/zon/code/main/review/architecture/deep-modules.md
-    - url: https://raw.githubusercontent.com/zon/code/main/review/architecture/domain-logic.md
+    - url: https://raw.githubusercontent.com/zon/code/main/review/architecture/domain-functions.md
