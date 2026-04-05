@@ -1,0 +1,19 @@
+name: review-follow-flag
+description: Add --follow flag to ralph review command
+
+requirements:
+  - category: feature
+    description: Add --follow flag to ReviewCmd that works identically to the flag on RunCmd
+    items:
+      - Add a Follow bool field to ReviewCmd in internal/cmd/review.go with the same help text, short flag (-f), and default as RunCmd.Follow
+      - Pass ctx.SetFollow(r.Follow) in ReviewCmd.Run() alongside the other ctx.Set* calls
+      - In submitToArgo, after wf.Submit() succeeds, follow logs with workflow.FollowLogs when ctx.ShouldFollow() is true (matching the pattern in internal/run/execute.go), otherwise print the existing argo logs hint
+      - Add tests for the new --follow flag behaviour in the review command tests
+    passing: false
+
+  - category: version
+    description: Bump version to reflect the new feature
+    items:
+      - Apply a semver minor bump to internal/version/VERSION and the appVersion field in charts/ralph-webhook/Chart.yaml
+      - Apply a semver patch bump to the version field in charts/ralph-webhook/Chart.yaml
+    passing: false
