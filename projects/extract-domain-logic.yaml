@@ -1,0 +1,44 @@
+name: extract-domain-logic
+description: Separate domain logic from infrastructure by introducing proper dependency injection and interfaces
+
+requirements:
+  - category: architecture
+    description: Introduce dependency injection for command handlers
+    items:
+      - Refactor internal/cmd/run.go to receive config, project, and git as dependencies instead of calling Load/Get functions directly
+      - Create interfaces for ConfigLoader, ProjectLoader, GitOperations to enable testing
+      - Move all infrastructure calls out of Run() method - it should only orchestrate
+    passing: false
+
+  - category: architecture
+    description: Extract infrastructure calls from project domain
+    items:
+      - Refactor internal/project/project.go PrepareIteration() to receive Config and Git interfaces
+      - Remove direct calls to config.LoadConfig() from domain functions
+      - Remove direct calls to git.GetCommitLog() from domain functions
+      - Create IterationSetup struct that receives all infrastructure dependencies
+    passing: false
+
+  - category: architecture
+    description: Refactor internal/run/execute.go to use injected dependencies
+    items:
+      - Remove direct config.LoadConfig() calls from Execute() and PrepareExecution()
+      - Remove direct git.GetCurrentBranch() calls - receive as parameter or from context
+      - Move infrastructure-specific logic to infrastructure layer
+      - Ensure domain functions only contain business logic
+    passing: false
+
+  - category: refactoring
+    description: Add interface abstractions for external tools
+    items:
+      - Create GitHuber interface for github.CreatePR, github.ConfigureGitAuth
+      - Create Argoer interface for argo.Submit, argo.FollowLogs
+      - Create AIRunner interface for ai.RunAgent
+      - Replace exec.Command calls with interface implementations
+    passing: false
+
+  - category: version
+    description: Bump version
+    items:
+      - Apply a semver patch bump to internal/version/VERSION and charts/ralph-webhook/Chart.yaml
+    passing: false
