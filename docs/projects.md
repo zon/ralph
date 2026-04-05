@@ -31,6 +31,8 @@ Name your project file to match: `user-authentication.yaml`.
 
 Project files are stored in the `./projects` directory of the repo.
 
+## Writing Requirements
+
 See [Writing Good Requirements](writing-requirements.md) for guidance on writing effective requirements.
 
 ## Validating Projects
