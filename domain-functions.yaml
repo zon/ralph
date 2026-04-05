@@ -1,0 +1,51 @@
+- file: internal/run/iteration.go
+  functions:
+    - RunIterationLoop
+    - runSingleIteration
+    - CommitChanges
+    - reportNewlyPassingRequirements
+
+- file: internal/run/execute.go
+  functions:
+    - Execute
+    - PrepareExecution
+    - CreatePullRequest
+    - SanitizeBranchName
+    - ValidateGitStateAndSwitchBranch
+    - SwitchToProjectBranch
+
+- file: internal/project/project.go
+  functions:
+    - LoadProject
+    - ValidateProject
+    - SaveProject
+    - CheckCompletion
+    - UpdateRequirementStatus
+    - PrepareIteration
+    - ExecuteDevelopmentIteration
+    - ExecuteDevelopmentIterationWithSetup
+
+- file: internal/cmd/review.go
+  functions:
+    - Run
+    - runReview
+    - submitToArgo
+    - submitPR
+    - resolveModel
+    - loadItemContent
+    - shuffleItemsWithIndices
+
+- file: internal/cmd/run.go
+  functions:
+    - Run
+    - executeOnceMode
+
+- file: internal/webhook/events.go
+  functions:
+    - Event.ToWorkflow
+    - projectFileFromBranch
+
+- file: internal/run/commit.go
+  functions:
+    - CommitFileAndPush
+    - CommitAllAndPush
