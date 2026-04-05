@@ -11,3 +11,10 @@ requirements:
       - Update all import references from workflow to argo where applicable
       - Remove internal/workflow/argo.go after consolidation
     passing: false
+
+  - category: version
+    description: Bump version to reflect the refactoring changes
+    items:
+      - Apply a semver patch bump to internal/version/VERSION and the appVersion field in charts/ralph-webhook/Chart.yaml
+      - Apply a semver patch bump to the version field in charts/ralph-webhook/Chart.yaml
+    passing: false
