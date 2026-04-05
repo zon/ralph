@@ -3,6 +3,7 @@ package workflow
 import (
 	"fmt"
 
+	"github.com/zon/ralph/internal/argo"
 	"github.com/zon/ralph/internal/config"
 	githubpkg "github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/k8s"
@@ -115,7 +116,7 @@ func (w *Workflow) Submit() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return submitYAML(workflowYAML, w.KubeContext, w.Namespace)
+	return argo.SubmitYAML(workflowYAML, w.KubeContext, w.Namespace)
 }
 
 // getEffectiveBaseBranch returns the effective base branch for the workflow parameter.
