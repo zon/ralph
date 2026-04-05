@@ -9,7 +9,7 @@ requirements:
       - Pass ctx.SetFollow(r.Follow) in ReviewCmd.Run() alongside the other ctx.Set* calls
       - In submitToArgo, after wf.Submit() succeeds, follow logs with workflow.FollowLogs when ctx.ShouldFollow() is true (matching the pattern in internal/run/execute.go), otherwise print the existing argo logs hint
       - Add tests for the new --follow flag behaviour in the review command tests
-    passing: false
+    passing: true
 
   - category: version
     description: Bump version to reflect the new feature

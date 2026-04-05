@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/zon/ralph/internal/ai"
+	"github.com/zon/ralph/internal/argo"
 	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
@@ -60,12 +61,36 @@ type ReviewCmd struct {
 	Verbose     bool   `help:"Enable verbose logging" default:"false"`
 	Context     string `help:"Kubernetes context to use" name:"context" optional:""`
 	Seed        int64  `help:"Random seed for shuffling review items (0 = random)" default:"0"`
+	Follow      bool   `help:"Follow workflow logs after submission (only applicable without --local)" short:"f" default:"false"`
 	prSubmitted bool
+}
+
+type ReviewFlags struct {
+	Follow bool
+	Local  bool
+}
+
+func (f ReviewFlags) Validate() error {
+	if f.Follow && f.Local {
+		return fmt.Errorf("--follow flag is not applicable with --local flag")
+	}
+	return nil
+}
+
+func (r *ReviewCmd) validateFlagCombinations() error {
+	return ReviewFlags{
+		Follow: r.Follow,
+		Local:  r.Local,
+	}.Validate()
 }
 
 func (r *ReviewCmd) Run() error {
 	if r.Verbose {
 		logger.SetVerbose(true)
+	}
+
+	if err := r.validateFlagCombinations(); err != nil {
+		return err
 	}
 
 	if err := os.MkdirAll("projects", 0755); err != nil {
@@ -93,6 +118,7 @@ func (r *ReviewCmd) Run() error {
 	ctx.SetVerbose(r.Verbose)
 	ctx.SetModel(model)
 	ctx.SetLocal(r.Local)
+	ctx.SetFollow(r.Follow)
 	ctx.SetKubeContext(r.Context)
 
 	startingBranch, err := git.GetCurrentBranch()
@@ -222,7 +248,14 @@ func (r *ReviewCmd) submitToArgo(ctx *execcontext.Context, cloneBranch string) e
 	}
 
 	logger.Successf("Review workflow submitted: %s", workflowName)
-	logger.Infof("To follow logs, run: argo logs -n %s %s -f", wf.Namespace, workflowName)
+
+	if ctx.ShouldFollow() {
+		if err := argo.FollowLogs(wf.Namespace, workflowName, wf.KubeContext); err != nil {
+			return fmt.Errorf("argo logs failed: %w", err)
+		}
+	} else {
+		logger.Infof("To follow logs, run: argo logs -n %s %s -f", wf.Namespace, workflowName)
+	}
 	return nil
 }
 
