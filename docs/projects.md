@@ -45,13 +45,20 @@ Fix any reported errors before proceeding.
 
 ## Version Bumps
 
-When a project warrants a version bump, add a `version` requirement specifying the bump level — not the target version number. Ralph determines the current version and applies the bump itself.
+If the repo uses versioning, every project must include a `version` requirement. Specify the bump level — not the target version number. Ralph determines the current version and applies the bump itself.
+
+Each versioned resource is bumped independently based on how its own interface changes:
+
+- **patch** — bug fixes, refactoring, small internal changes with no new user-facing behavior
+- **minor** — new features or capabilities added in a backwards-compatible way
+- **major** — breaking changes to the API, CLI, or behavior
+
+For example, a new CLI flag is a minor bump to the app version, but only a patch bump to the Helm chart if the chart's own interface (values, templates) didn't change. If the chart gained a new configurable value, that's a minor bump to the chart as well.
 
 ✅ Good:
+- Apply a semver minor bump to `internal/version/VERSION` and a patch bump to `charts/ralph-webhook/Chart.yaml`
 - Apply a semver patch bump to `internal/version/VERSION` and `charts/ralph-webhook/Chart.yaml`
 
 ❌ Bad:
 - Bump version to 3.2.11
 - Set `appVersion` to "3.2.11" and `version` to "0.2.62"
-
-Use **patch** for bug fixes and small additions, **minor** for new features, and **major** for breaking changes.
