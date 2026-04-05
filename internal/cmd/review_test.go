@@ -300,6 +300,49 @@ func TestReviewSeedFlag(t *testing.T) {
 	assert.Equal(t, int64(42), cmd.Review.Seed)
 }
 
+func TestReviewFollowFlag(t *testing.T) {
+	cmd := &Cmd{}
+	parser, err := kong.New(cmd,
+		kong.Name("ralph"),
+		kong.Exit(func(int) {}),
+	)
+	require.NoError(t, err)
+	_, err = parser.Parse([]string{"review", "--follow"})
+	require.NoError(t, err)
+	assert.True(t, cmd.Review.Follow)
+}
+
+func TestReviewFollowFlagShort(t *testing.T) {
+	cmd := &Cmd{}
+	parser, err := kong.New(cmd,
+		kong.Name("ralph"),
+		kong.Exit(func(int) {}),
+	)
+	require.NoError(t, err)
+	_, err = parser.Parse([]string{"review", "-f"})
+	require.NoError(t, err)
+	assert.True(t, cmd.Review.Follow)
+}
+
+func TestReviewFollowWithLocalFlag(t *testing.T) {
+	r := &ReviewCmd{
+		Follow: true,
+		Local:  true,
+	}
+	err := r.validateFlagCombinations()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "--follow flag is not applicable with --local flag")
+}
+
+func TestReviewFollowWithoutLocalFlag(t *testing.T) {
+	r := &ReviewCmd{
+		Follow: true,
+		Local:  false,
+	}
+	err := r.validateFlagCombinations()
+	require.NoError(t, err)
+}
+
 func TestReviewLoopProcessesAllItems(t *testing.T) {
 	t.Setenv("RALPH_MOCK_AI", "true")
 	tmpDir := t.TempDir()

@@ -1,6 +1,7 @@
 package version
 
 import (
+	_ "embed"
 	"fmt"
 	"strings"
 	"testing"
@@ -8,6 +9,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+//go:embed VERSION
+var versionSource string
 
 func TestVersion_ReturnsValidSemver(t *testing.T) {
 	versionStr := Version()
@@ -20,14 +24,18 @@ func TestVersion_ReturnsValidSemver(t *testing.T) {
 	var major, minor, patch int
 	_, err := fmt.Sscanf(versionStr, "%d.%d.%d", &major, &minor, &patch)
 	require.NoError(t, err, "Version should be a valid semver in format X.Y.Z")
+}
 
-	assert.Equal(t, 5, major, "Major version should be 5")
-	assert.Equal(t, 12, minor, "Minor version should be 12")
-	assert.Equal(t, 0, patch, "Patch version should be 0")
+func TestVersion_MatchesSourceFile(t *testing.T) {
+	versionStr := Version()
+	expectedVersion := strings.TrimSpace(versionSource)
+
+	assert.Equal(t, expectedVersion, versionStr, "Version should match the VERSION file")
 }
 
 func TestVersion_PatchBumpApplied(t *testing.T) {
 	versionStr := Version()
+	expectedVersion := strings.TrimSpace(versionSource)
 
 	parts := strings.Split(versionStr, ".")
 	require.Len(t, parts, 3, "Version should have 3 parts")
@@ -36,5 +44,5 @@ func TestVersion_PatchBumpApplied(t *testing.T) {
 	_, err := fmt.Sscanf(versionStr, "%d.%d.%d", &major, &minor, &patch)
 	require.NoError(t, err, "Version should be parseable")
 
-	assert.Equal(t, "5.12.0", versionStr, "Version should be bumped to 5.12.0")
+	assert.Equal(t, expectedVersion, versionStr, "Version should match the VERSION file")
 }
