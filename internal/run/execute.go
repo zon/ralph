@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/zon/ralph/internal/argo"
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
@@ -277,7 +278,7 @@ func executeRemote(ctx *context.Context, absProjectFile string) error {
 	logger.Successf("Workflow submitted: %s", workflowName)
 
 	if ctx.ShouldFollow() {
-		if err := workflow.FollowLogs(wf.Namespace, workflowName, wf.KubeContext); err != nil {
+		if err := argo.FollowLogs(wf.Namespace, workflowName, wf.KubeContext); err != nil {
 			notify.Error(projectName, ctx.ShouldNotify())
 			return fmt.Errorf("argo logs failed: %w", err)
 		}
