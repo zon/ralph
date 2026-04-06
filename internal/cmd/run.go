@@ -74,7 +74,7 @@ func (r *RunCmd) Run() error {
 		return fmt.Errorf("failed to get current branch: %w", err)
 	}
 
-	projectBranch := run.SanitizeBranchName(projectData.Name)
+	projectBranch := git.SanitizeBranchName(projectData.Name)
 	baseBranch := resolveBaseBranch(r.Base, currentBranch, projectBranch, ralphConfig.DefaultBranch)
 	ctx.SetBaseBranch(baseBranch)
 

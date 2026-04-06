@@ -9,7 +9,7 @@ requirements:
       - Move PullAndPush from internal/run/iteration.go to internal/git — it is a pure git pull-rebase and push with no run-domain logic
       - Move CommitFileAndPush and CommitAllAndPush from internal/run/commit.go to internal/git — they are general-purpose git helpers used by cmd/review.go, not run-specific logic
       - Delete internal/run/commit.go after moving its contents; update all callers in cmd/review.go and anywhere else that imports these from run
-    passing: false
+    passing: true
 
   - category: project package
     description: Move project lifecycle functions from internal/run into internal/project

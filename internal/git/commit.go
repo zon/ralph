@@ -188,3 +188,67 @@ func BranchLogContainsPrefix(base, branch, prefix string) (bool, error) {
 	}
 	return false, nil
 }
+
+func SwitchToBranchIfNeeded(auth *AuthConfig, branchName string) error {
+	currentBranch, err := GetCurrentBranch()
+	if err != nil {
+		return fmt.Errorf("failed to get current branch: %w", err)
+	}
+	if currentBranch != branchName {
+		_ = Fetch(auth)
+		if err := CheckoutOrCreateBranch(branchName); err != nil {
+			return fmt.Errorf("failed to checkout review branch: %w", err)
+		}
+	}
+	return nil
+}
+
+func CommitFileAndPush(auth *AuthConfig, filePath, branchName, commitMsg string) error {
+	if err := SwitchToBranchIfNeeded(auth, branchName); err != nil {
+		return err
+	}
+
+	if err := StageFile(filePath); err != nil {
+		return fmt.Errorf("failed to stage project file: %w", err)
+	}
+
+	if err := Commit(commitMsg); err != nil {
+		return fmt.Errorf("failed to commit review findings: %w", err)
+	}
+
+	isWorkflow := auth != nil
+	var owner, repo string
+	if auth != nil {
+		owner, repo = auth.Owner, auth.Repo
+	}
+	if err := PullAndPush(isWorkflow, owner, repo); err != nil {
+		return fmt.Errorf("failed to push changes: %w", err)
+	}
+
+	return nil
+}
+
+func CommitAllAndPush(auth *AuthConfig, branchName, commitMsg string) error {
+	if err := SwitchToBranchIfNeeded(auth, branchName); err != nil {
+		return err
+	}
+
+	if err := StageAll(); err != nil {
+		return fmt.Errorf("failed to stage all changes: %w", err)
+	}
+
+	if err := Commit(commitMsg); err != nil {
+		return fmt.Errorf("failed to commit review findings: %w", err)
+	}
+
+	isWorkflow := auth != nil
+	var owner, repo string
+	if auth != nil {
+		owner, repo = auth.Owner, auth.Repo
+	}
+	if err := PullAndPush(isWorkflow, owner, repo); err != nil {
+		return fmt.Errorf("failed to push changes: %w", err)
+	}
+
+	return nil
+}

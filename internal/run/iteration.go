@@ -307,24 +307,14 @@ func performCommit(ctx *context.Context, commitMsg []byte, iteration int) error 
 
 // pullAndPush pulls remote changes and pushes the current branch
 func PullAndPush(ctx *context.Context) error {
-	var auth *git.AuthConfig
-	if ctx.IsWorkflowExecution() {
-		owner, repo := ctx.RepoOwnerAndName()
-		auth = &git.AuthConfig{Owner: owner, Repo: repo}
+	isWorkflow := ctx.IsWorkflowExecution()
+	var owner, repo string
+	if isWorkflow {
+		owner, repo = ctx.RepoOwnerAndName()
 	}
 
 	logger.Verbose("Pulling remote changes before push...")
-	if err := git.PullRebase(auth); err != nil {
-		return fmt.Errorf("failed to pull before push: %w", err)
-	}
-
-	branch, err := git.GetCurrentBranch()
-	if err != nil {
-		return fmt.Errorf("failed to get current branch: %w", err)
-	}
-
-	logger.Verbose("Pushing commit to origin...")
-	if _, err := git.Push(auth, branch); err != nil {
+	if err := git.PullAndPush(isWorkflow, owner, repo); err != nil {
 		if errors.Is(err, git.ErrWorkflowPermission) {
 			return fmt.Errorf("%w: %v", ErrFatalPushError, err)
 		}

@@ -242,7 +242,7 @@ Focus on accepting the correct changes from both branches. If there are test fai
 		return fmt.Errorf("failed to get current branch: %w", err)
 	}
 
-	projectBranch := run.SanitizeBranchName(proj.Name)
+	projectBranch := git.SanitizeBranchName(proj.Name)
 	setup := &run.ExecutionSetup{
 		ProjectFile:   projectPath,
 		Project:       proj,
@@ -288,7 +288,7 @@ func (w *WorkflowCmd) runProject(ctx *context.Context) error {
 		return fmt.Errorf("failed to get current branch: %w", err)
 	}
 
-	projectBranch := run.SanitizeBranchName(proj.Name)
+	projectBranch := git.SanitizeBranchName(proj.Name)
 	setup := &run.ExecutionSetup{
 		ProjectFile:   projectPath,
 		Project:       proj,

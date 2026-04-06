@@ -122,3 +122,27 @@ func configureAuth(auth *AuthConfig) error {
 	}
 	return authConfigurator.ConfigureGitAuth(context.Background(), auth.Owner, auth.Repo, authConfigurator.DefaultSecretsDir())
 }
+
+var ErrFatalPushError = errors.New("fatal push error")
+
+func PullAndPush(isWorkflow bool, owner, repo string) error {
+	var auth *AuthConfig
+	if isWorkflow {
+		auth = &AuthConfig{Owner: owner, Repo: repo}
+	}
+
+	if err := PullRebase(auth); err != nil {
+		return fmt.Errorf("failed to pull before push: %w", err)
+	}
+
+	branch, err := GetCurrentBranch()
+	if err != nil {
+		return fmt.Errorf("failed to get current branch: %w", err)
+	}
+
+	if _, err := Push(auth, branch); err != nil {
+		return err
+	}
+
+	return nil
+}
