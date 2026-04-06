@@ -342,6 +342,46 @@ func TestKubeContext(t *testing.T) {
 	}
 }
 
+func TestFilter(t *testing.T) {
+	tests := []struct {
+		name          string
+		filter        string
+		expectDefault bool
+	}{
+		{
+			name:          "default empty filter",
+			filter:        "",
+			expectDefault: true,
+		},
+		{
+			name:          "custom filter",
+			filter:        "my-filter-string",
+			expectDefault: false,
+		},
+		{
+			name:          "filter with special characters",
+			filter:        "filter-with-dashes_and_underscores",
+			expectDefault: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := &Context{}
+			ctx.SetFilter(tt.filter)
+
+			result := ctx.Filter()
+			assert.Equal(t, tt.filter, result, "Filter should match the set value")
+
+			if tt.expectDefault {
+				assert.Empty(t, result, "Default filter should be empty")
+			} else {
+				assert.NotEmpty(t, result, "Custom filter should not be empty")
+			}
+		})
+	}
+}
+
 func TestNewContextFromEnv(t *testing.T) {
 	envVars := map[string]string{
 		"RALPH_WORKFLOW_EXECUTION": "true",

@@ -192,6 +192,217 @@ func TestShuffleItemsWithIndices(t *testing.T) {
 	assert.NotEqual(t, shuffled, shuffled3)
 }
 
+func TestFilterItems_EmptyFilter(t *testing.T) {
+	items := []config.ReviewItem{
+		{Text: "item1"},
+		{Text: "item2"},
+		{Text: "item3"},
+	}
+	filtered := filterItems(items, "")
+	assert.Len(t, filtered, 3)
+	assert.Equal(t, items, filtered)
+}
+
+func TestFilterItems_SubstringMatch(t *testing.T) {
+	items := []config.ReviewItem{
+		{Text: "first review item"},
+		{Text: "second review item"},
+		{Text: "third item"},
+	}
+	filtered := filterItems(items, "review")
+	assert.Len(t, filtered, 2)
+	assert.Equal(t, "first review item", filtered[0].Text)
+	assert.Equal(t, "second review item", filtered[1].Text)
+}
+
+func TestFilterItems_CaseInsensitive(t *testing.T) {
+	items := []config.ReviewItem{
+		{Text: "First Review Item"},
+		{Text: "SECOND REVIEW ITEM"},
+		{Text: "third item"},
+	}
+	filtered := filterItems(items, "review")
+	assert.Len(t, filtered, 2)
+	filteredUpper := filterItems(items, "REVIEW")
+	assert.Len(t, filteredUpper, 2)
+}
+
+func TestFilterItems_FileMatch(t *testing.T) {
+	items := []config.ReviewItem{
+		{File: "src/main.go"},
+		{File: "src/test.go"},
+		{File: "docs/README.md"},
+	}
+	filtered := filterItems(items, "main")
+	assert.Len(t, filtered, 1)
+	assert.Equal(t, "src/main.go", filtered[0].File)
+}
+
+func TestFilterItems_URLMatch(t *testing.T) {
+	items := []config.ReviewItem{
+		{URL: "https://example.com/api/users"},
+		{URL: "https://example.com/api/posts"},
+		{URL: "https://other.com/page"},
+	}
+	filtered := filterItems(items, "example.com/api")
+	assert.Len(t, filtered, 2)
+}
+
+func TestFilterItems_NoMatch(t *testing.T) {
+	items := []config.ReviewItem{
+		{Text: "first review item"},
+		{Text: "second review item"},
+		{Text: "third item"},
+	}
+	filtered := filterItems(items, "nonexistent")
+	assert.Len(t, filtered, 0)
+}
+
+func TestFilterItems_CombinedFields(t *testing.T) {
+	items := []config.ReviewItem{
+		{Text: "contains foo in text"},
+		{File: "bar.txt"},
+		{URL: "https://example.com/baz"},
+	}
+	filtered := filterItems(items, "foo")
+	assert.Len(t, filtered, 1)
+	assert.Equal(t, "contains foo in text", filtered[0].Text)
+
+	filtered = filterItems(items, "bar")
+	assert.Len(t, filtered, 1)
+	assert.Equal(t, "bar.txt", filtered[0].File)
+
+	filtered = filterItems(items, "example")
+	assert.Len(t, filtered, 1)
+	assert.Equal(t, "https://example.com/baz", filtered[0].URL)
+}
+
+func TestFilterItems_AllFieldsMatch(t *testing.T) {
+	items := []config.ReviewItem{
+		{Text: "prefix_match_suffix"},
+		{File: "path_prefix_match_suffix/file.go"},
+		{URL: "https://site.com/path_prefix_match_suffix"},
+	}
+	filtered := filterItems(items, "prefix_match_suffix")
+	assert.Len(t, filtered, 3)
+}
+
+func TestReviewFilterNoMatchError(t *testing.T) {
+	t.Setenv("RALPH_MOCK_AI", "true")
+	tmpDir := t.TempDir()
+	t.Chdir(tmpDir)
+
+	remoteDir := filepath.Join(tmpDir, "remote.git")
+	require.NoError(t, exec.Command("git", "init", "--bare", remoteDir).Run())
+
+	require.NoError(t, exec.Command("git", "init").Run())
+	require.NoError(t, exec.Command("git", "config", "user.email", "test@example.com").Run())
+	require.NoError(t, exec.Command("git", "config", "user.name", "Test User").Run())
+	require.NoError(t, exec.Command("git", "remote", "add", "origin", remoteDir).Run())
+	require.NoError(t, exec.Command("git", "branch", "-M", "main").Run())
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	require.NoError(t, os.Mkdir(ralphDir, 0755))
+	configContent := `model: deepseek/deepseek-chat
+review:
+  items:
+  - text: first review item
+  - text: second review item
+`
+	configPath := filepath.Join(ralphDir, "config.yaml")
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
+
+	projectsDir := filepath.Join(tmpDir, "projects")
+	require.NoError(t, os.Mkdir(projectsDir, 0755))
+	projectFile := filepath.Join(projectsDir, "test-review.yaml")
+	projectYAML := `name: test-review
+description: Test project for filter
+requirements:
+  - category: test
+    description: dummy requirement
+    passing: false
+`
+	require.NoError(t, os.WriteFile(projectFile, []byte(projectYAML), 0644))
+	require.NoError(t, exec.Command("git", "add", ".").Run())
+	require.NoError(t, exec.Command("git", "commit", "-m", "initial commit").Run())
+	require.NoError(t, exec.Command("git", "push", "-u", "origin", "main").Run())
+
+	cfg, err := config.LoadConfig()
+	require.NoError(t, err)
+
+	r := &ReviewCmd{
+		Local:   true,
+		Verbose: false,
+		Seed:    12345,
+		Filter:  "nonexistent_filter_string",
+	}
+	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
+	ctx.SetLocal(true)
+
+	_, _, err = r.runReview(ctx, cfg, "")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "nonexistent_filter_string")
+	assert.Contains(t, err.Error(), "no review items match filter")
+}
+
+func TestReviewFilterWithMatch(t *testing.T) {
+	t.Setenv("RALPH_MOCK_AI", "true")
+	tmpDir := t.TempDir()
+	t.Chdir(tmpDir)
+
+	remoteDir := filepath.Join(tmpDir, "remote.git")
+	require.NoError(t, exec.Command("git", "init", "--bare", remoteDir).Run())
+
+	require.NoError(t, exec.Command("git", "init").Run())
+	require.NoError(t, exec.Command("git", "config", "user.email", "test@example.com").Run())
+	require.NoError(t, exec.Command("git", "config", "user.name", "Test User").Run())
+	require.NoError(t, exec.Command("git", "remote", "add", "origin", remoteDir).Run())
+	require.NoError(t, exec.Command("git", "branch", "-M", "main").Run())
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	require.NoError(t, os.Mkdir(ralphDir, 0755))
+	configContent := `model: deepseek/deepseek-chat
+review:
+  items:
+  - text: first review item
+  - text: second review item
+`
+	configPath := filepath.Join(ralphDir, "config.yaml")
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
+
+	projectsDir := filepath.Join(tmpDir, "projects")
+	require.NoError(t, os.Mkdir(projectsDir, 0755))
+	projectFile := filepath.Join(projectsDir, "test-review.yaml")
+	projectYAML := `name: test-review
+description: Test project for filter
+requirements:
+  - category: test
+    description: dummy requirement
+    passing: false
+`
+	require.NoError(t, os.WriteFile(projectFile, []byte(projectYAML), 0644))
+	require.NoError(t, exec.Command("git", "add", ".").Run())
+	require.NoError(t, exec.Command("git", "commit", "-m", "initial commit").Run())
+	require.NoError(t, exec.Command("git", "push", "-u", "origin", "main").Run())
+
+	cfg, err := config.LoadConfig()
+	require.NoError(t, err)
+
+	r := &ReviewCmd{
+		Local:   true,
+		Verbose: false,
+		Seed:    12345,
+		Filter:  "first",
+	}
+	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
+	ctx.SetLocal(true)
+
+	branchName, detectedFile, err := r.runReview(ctx, cfg, "")
+	require.NoError(t, err)
+	assert.NotEmpty(t, detectedFile)
+	assert.NotEmpty(t, branchName)
+}
+
 func TestItemLabel(t *testing.T) {
 	r := &ReviewCmd{}
 
@@ -322,6 +533,30 @@ func TestReviewFollowFlagShort(t *testing.T) {
 	_, err = parser.Parse([]string{"review", "-f"})
 	require.NoError(t, err)
 	assert.True(t, cmd.Review.Follow)
+}
+
+func TestReviewFilterFlag(t *testing.T) {
+	cmd := &Cmd{}
+	parser, err := kong.New(cmd,
+		kong.Name("ralph"),
+		kong.Exit(func(int) {}),
+	)
+	require.NoError(t, err)
+	_, err = parser.Parse([]string{"review", "--filter", "myfilter"})
+	require.NoError(t, err)
+	assert.Equal(t, "myfilter", cmd.Review.Filter)
+}
+
+func TestReviewFilterFlagShort(t *testing.T) {
+	cmd := &Cmd{}
+	parser, err := kong.New(cmd,
+		kong.Name("ralph"),
+		kong.Exit(func(int) {}),
+	)
+	require.NoError(t, err)
+	_, err = parser.Parse([]string{"review", "--filter", "substring"})
+	require.NoError(t, err)
+	assert.Equal(t, "substring", cmd.Review.Filter)
 }
 
 func TestReviewFollowWithLocalFlag(t *testing.T) {

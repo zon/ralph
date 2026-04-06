@@ -53,6 +53,22 @@ func shuffleItemsWithIndices(items []config.ReviewItem, seed int64) []itemWithIn
 	return withIdx
 }
 
+func filterItems(items []config.ReviewItem, filter string) []config.ReviewItem {
+	if filter == "" {
+		return items
+	}
+	filterLower := strings.ToLower(filter)
+	var filtered []config.ReviewItem
+	for _, item := range items {
+		if strings.Contains(strings.ToLower(item.Text), filterLower) ||
+			strings.Contains(strings.ToLower(item.File), filterLower) ||
+			strings.Contains(strings.ToLower(item.URL), filterLower) {
+			filtered = append(filtered, item)
+		}
+	}
+	return filtered
+}
+
 type ReviewCmd struct {
 	Model       string `help:"Override the AI model from config" name:"model" optional:""`
 	Base        string `help:"Override the base branch for PR creation" name:"base" optional:"" short:"B"`
@@ -61,6 +77,7 @@ type ReviewCmd struct {
 	Context     string `help:"Kubernetes context to use" name:"context" optional:""`
 	Seed        int64  `help:"Random seed for shuffling review items (0 = random)" default:"0"`
 	Follow      bool   `help:"Follow workflow logs after submission (only applicable without --local)" short:"f" default:"false"`
+	Filter      string `help:"Only run review items whose text, file, or url property contains this string" name:"filter" optional:""`
 	prSubmitted bool
 }
 
@@ -119,6 +136,7 @@ func (r *ReviewCmd) Run() error {
 	ctx.SetLocal(r.Local)
 	ctx.SetFollow(r.Follow)
 	ctx.SetKubeContext(r.Context)
+	ctx.SetFilter(r.Filter)
 
 	startingBranch, err := git.GetCurrentBranch()
 	if err != nil {
@@ -164,7 +182,15 @@ func (r *ReviewCmd) runReview(ctx *execcontext.Context, ralphConfig *config.Ralp
 		logger.Infof("Using random seed: %d", seed)
 	}
 
-	itemsWithIdx := shuffleItemsWithIndices(ralphConfig.Review.Items, seed)
+	items := ralphConfig.Review.Items
+	if r.Filter != "" {
+		items = filterItems(items, r.Filter)
+		if len(items) == 0 {
+			return "", "", fmt.Errorf("no review items match filter %q", r.Filter)
+		}
+	}
+
+	itemsWithIdx := shuffleItemsWithIndices(items, seed)
 
 	for _, pair := range itemsWithIdx {
 		item := pair.item
