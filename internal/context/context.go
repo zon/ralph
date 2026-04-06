@@ -30,6 +30,7 @@ type Context struct {
 	botEmail          string   // Git user email for automated commits
 	model             string   // Model override; overrides model from .ralph/config.yaml
 	kubeContext       string   // Kubernetes context override; overrides workflow.context from .ralph/config.yaml
+	filter            string   // Filter string for reviewing specific items
 }
 
 // NewContext creates a new Context with a background standard context.
@@ -250,6 +251,14 @@ func (c *Context) SetKubeContext(kubeContext string) {
 
 func (c *Context) KubeContext() string {
 	return c.kubeContext
+}
+
+func (c *Context) SetFilter(filter string) {
+	c.filter = filter
+}
+
+func (c *Context) Filter() string {
+	return c.filter
 }
 
 func NewContextFromEnv() *Context {

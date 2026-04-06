@@ -168,6 +168,7 @@ func GenerateReviewWorkflow(ctx *execcontext.Context, cloneBranch string) (*Work
 		BaseBranch:    ctx.BaseBranch(),
 		Verbose:       ctx.IsVerbose(),
 		Model:         ctx.Model(),
+		Filter:        ctx.Filter(),
 		Image:         MakeImage(ralphConfig.Workflow.Image.Repository, ralphConfig.Workflow.Image.Tag),
 		ConfigMaps:    ralphConfig.Workflow.ConfigMaps,
 		Secrets:       ralphConfig.Workflow.Secrets,

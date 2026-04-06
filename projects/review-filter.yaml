@@ -18,14 +18,14 @@ requirements:
       - Add SetFilter/Filter methods to internal/context/context.go
       - In ReviewCmd.Run(), call ctx.SetFilter(r.Filter) before submitting to Argo
       - In buildMainTemplate(), append "--filter", w.Filter to the review args when w.Filter is non-empty
-    passing: false
+    passing: true
 
   - category: tests
     description: Test filter behavior
     items:
       - Add unit tests for the filter logic covering exact match, substring match, case-insensitive match, no-match error, and empty filter (all items pass)
       - Tests must use an isolated repo (not the ralph repo itself)
-    passing: false
+    passing: true
 
   - category: version
     description: Bump version

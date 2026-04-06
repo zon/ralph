@@ -56,6 +56,8 @@ type Workflow struct {
 	MaxIterations int
 	// Model overrides the AI model from config.
 	Model string
+	// Filter is a string to filter review items by text, file, or URL.
+	Filter string
 	// Labels are the Kubernetes labels to apply to the workflow pod.
 	Labels map[string]string
 	// Review indicates this is a review workflow (runs ralph review --local in the container).
@@ -155,6 +157,9 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 		}
 		if w.Model != "" {
 			args = append(args, "--model", w.Model)
+		}
+		if w.Filter != "" {
+			args = append(args, "--filter", w.Filter)
 		}
 	} else {
 		command = []string{"ralph"}

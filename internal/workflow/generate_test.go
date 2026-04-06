@@ -974,8 +974,97 @@ requirements:
 		ctx.SetProjectFile(projectFile)
 
 		wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", "git@github.com:test/repo.git", "main", "test-project", "project.yaml", false)
-		require.NoError(t, err, "GenerateWorkflowWithGitInfo failed")
+		require.NoError(t, err)
 
 		assert.Equal(t, "config-context", wf.KubeContext, "KubeContext should fall back to config")
 	})
+}
+
+func TestWorkflowRender_ReviewWithFilter(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	if err := os.MkdirAll(ralphDir, 0755); err != nil {
+		t.Fatalf("Failed to create .ralph directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("maxIterations: 5\n"), 0644); err != nil {
+		t.Fatalf("Failed to create config file: %v", err)
+	}
+
+	wf := &Workflow{
+		ProjectName:   "review",
+		ProjectBranch: "review",
+		Review:        true,
+		Repo:          githubpkg.MakeRepo("owner", "repo"),
+		CloneBranch:   "main",
+		Filter:        "my-test-filter",
+	}
+
+	workflowYAML, err := wf.Render()
+	require.NoError(t, err, "Render failed")
+
+	var workflow map[string]interface{}
+	require.NoError(t, yaml.Unmarshal([]byte(workflowYAML), &workflow), "Failed to parse generated workflow YAML")
+
+	spec := workflow["spec"].(map[string]interface{})
+	templates := spec["templates"].([]interface{})
+	tmpl := templates[0].(map[string]interface{})
+	container := tmpl["container"].(map[string]interface{})
+
+	args := container["args"].([]interface{})
+	argsStr := make([]string, len(args))
+	for i, a := range args {
+		argsStr[i] = a.(string)
+	}
+
+	assert.Contains(t, argsStr, "--filter", "Args should contain --filter when Filter is set")
+	filterIdx := -1
+	for i, arg := range argsStr {
+		if arg == "--filter" {
+			filterIdx = i
+			break
+		}
+	}
+	assert.NotEqual(t, -1, filterIdx, "Should find --filter in args")
+	assert.Equal(t, "my-test-filter", argsStr[filterIdx+1], "Filter value should follow --filter")
+}
+
+func TestWorkflowRender_ReviewWithoutFilter(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	if err := os.MkdirAll(ralphDir, 0755); err != nil {
+		t.Fatalf("Failed to create .ralph directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("maxIterations: 5\n"), 0644); err != nil {
+		t.Fatalf("Failed to create config file: %v", err)
+	}
+
+	wf := &Workflow{
+		ProjectName:   "review",
+		ProjectBranch: "review",
+		Review:        true,
+		Repo:          githubpkg.MakeRepo("owner", "repo"),
+		CloneBranch:   "main",
+		Filter:        "",
+	}
+
+	workflowYAML, err := wf.Render()
+	require.NoError(t, err, "Render failed")
+
+	var workflow map[string]interface{}
+	require.NoError(t, yaml.Unmarshal([]byte(workflowYAML), &workflow), "Failed to parse generated workflow YAML")
+
+	spec := workflow["spec"].(map[string]interface{})
+	templates := spec["templates"].([]interface{})
+	tmpl := templates[0].(map[string]interface{})
+	container := tmpl["container"].(map[string]interface{})
+
+	args := container["args"].([]interface{})
+	argsStr := make([]string, len(args))
+	for i, a := range args {
+		argsStr[i] = a.(string)
+	}
+
+	assert.NotContains(t, argsStr, "--filter", "Args should not contain --filter when Filter is empty")
 }

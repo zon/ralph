@@ -136,6 +136,7 @@ func (r *ReviewCmd) Run() error {
 	ctx.SetLocal(r.Local)
 	ctx.SetFollow(r.Follow)
 	ctx.SetKubeContext(r.Context)
+	ctx.SetFilter(r.Filter)
 
 	startingBranch, err := git.GetCurrentBranch()
 	if err != nil {
