@@ -1,0 +1,27 @@
+name: domain-function-cleanup
+description: Refactor domain functions to meet architectural standards
+
+requirements:
+  - category: implementation-details-in-domain-functions
+    description: Extract implementation details from domain functions
+    items:
+      - "internal/cmd/review.go:fetchRalphProjectDoc performs HTTP fetching directly; extract HTTP logic into a separate httpClient component"
+      - "internal/cmd/review.go:loadItemContent contains HTTP client logic in a switch statement; extract URL fetching into a dedicated function"
+      - "internal/cmd/workflow.go:fetchBaseBranch uses exec.Command directly; extract git operations into the git package"
+      - "internal/cmd/workflow.go:resolveConflictsWithAI writes instructions to temp file; extract file I/O into a dedicated function or use a pipe pattern instead"
+
+  - category: hardcoded-constants
+    description: Move hardcoded constants to configuration
+    items:
+      - "internal/cmd/merge.go:waitForGitHubHead has hardcoded polling constants (maxAttempts=20, pollInterval=3s); extract to configurable values or constants in the github package"
+
+  - category: deep-flow-control
+    description: Simplify deeply nested flow control
+    items:
+      - "internal/cmd/review.go:runReview has deeply nested conditionals at lines 195-244; extract the item processing loop body into a separate function"
+      - "internal/cmd/merge.go:scanAndCleanupProjects has deeply nested logic with multiple error handling paths; break into smaller functions with clear responsibilities"
+
+  - category: command-handler-complexity
+    description: Simplify command handlers that orchestrate too much
+    items:
+      - "internal/cmd/review.go:Run() performs flag validation, directory creation, config loading, doc fetching, and branching in one function; extract these into smaller functions with clear domain boundaries"
