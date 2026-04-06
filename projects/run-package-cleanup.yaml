@@ -27,7 +27,7 @@ requirements:
       - Keep generateChangelogIfNeeded and getCommitMessage in internal/run; the caller in runSingleIteration generates the message then passes it to git.CommitChanges
       - Remove the duplicate ErrFatalPushError from internal/run/iteration.go; use git.ErrFatalPushError instead
       - Move ErrNoChanges to internal/git alongside CommitChanges
-    passing: false
+    passing: true
 
   - category: cleanup
     description: internal/run contains only domain logic after the moves
