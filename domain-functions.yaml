@@ -18,9 +18,4 @@
     name: CommitChanges
   - file: internal/run/iteration.go
     name: reportNewlyPassingRequirements
-  - file: internal/ai/ai.go
-    name: GeneratePRSummary
-  - file: internal/ai/ai.go
-    name: GenerateChangelog
-  - file: internal/ai/ai.go
-    name: GenerateReviewPRBody
+
