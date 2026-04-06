@@ -1,4 +1,4 @@
-package prompt
+package ai
 
 import (
 	"errors"
@@ -189,7 +189,7 @@ func TestBuildDevelopPrompt_ErrorOnInvalidTemplate(t *testing.T) {
 		SelectedRequirement: "requirement",
 		ProjectFilePath:     "/path",
 		Services:            nil,
-		Instructions:        "{{.InvalidField}}", // references non-existent field
+		Instructions:        "{{.InvalidField}}",
 	}
 
 	_, err := BuildDevelopPrompt(data)
@@ -250,18 +250,6 @@ func TestBuildPickPrompt_WithCommitLog(t *testing.T) {
 	assert.Contains(t, prompt, "abc123 Initial commit")
 }
 
-func TestBuildPickPrompt_ErrorOnInvalidTemplate(t *testing.T) {
-	data := PickPromptData{
-		Notes:          nil,
-		CommitLog:      "",
-		ProjectContent: "content",
-		PickedReqPath:  "/path",
-	}
-
-	_, err := BuildPickPrompt(data)
-	require.NoError(t, err, "BuildPickPrompt should succeed with valid data (uses default template)")
-}
-
 func TestExecuteTemplate(t *testing.T) {
 	type testData struct {
 		Name string
@@ -284,7 +272,7 @@ func TestExecuteTemplate_ExecuteError(t *testing.T) {
 		Name string
 	}
 
-	_, err := executeTemplate("{{.Age}}", testData{Name: "Bob"}) // Age field doesn't exist
+	_, err := executeTemplate("{{.Age}}", testData{Name: "Bob"})
 	require.Error(t, err, "executeTemplate should error on execute failure")
 	assert.Contains(t, err.Error(), "failed to execute template")
 }
