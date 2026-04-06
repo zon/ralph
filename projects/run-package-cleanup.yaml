@@ -9,7 +9,7 @@ requirements:
       - Move SwitchToProjectBranch to internal/git/branch.go
       - Move validateBranchSync (private helper) alongside them, keeping it unexported
       - Update all callers in internal/run to reference the new locations
-    passing: false
+    passing: true
 
   - category: github
     description: Move CreatePullRequest to internal/github

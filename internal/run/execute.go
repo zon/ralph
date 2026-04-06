@@ -76,7 +76,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func()), setup *Executi
 		return err
 	}
 
-	if err := ValidateGitStateAndSwitchBranch(ctx, setup.BranchName); err != nil {
+	if err := git.ValidateGitStateAndSwitchBranch(ctx, setup.BranchName); err != nil {
 		return err
 	}
 
@@ -143,60 +143,6 @@ func infrastructureRunBeforeCommands(cfg *config.RalphConfig) error {
 
 func infrastructureGetCommitLog(baseBranch string, n int) (string, error) {
 	return git.GetCommitLog(baseBranch, n)
-}
-
-func ValidateGitStateAndSwitchBranch(ctx *context.Context, branchName string) error {
-	currentBranch, err := git.GetCurrentBranch()
-	if err != nil {
-		return fmt.Errorf("failed to get current branch: %w", err)
-	}
-
-	logger.Verbosef("Current branch: %s", currentBranch)
-
-	if err := validateBranchSync(ctx, currentBranch); err != nil {
-		return err
-	}
-
-	if currentBranch != branchName {
-		if err := SwitchToProjectBranch(ctx, branchName); err != nil {
-			return err
-		}
-	} else {
-		logger.Verbosef("Already on branch '%s'", branchName)
-	}
-
-	return nil
-}
-
-func validateBranchSync(ctx *context.Context, currentBranch string) error {
-	// Skip this check when running inside a workflow container — the container may have
-	// created a fresh local branch that hasn't been pushed yet, and it will push after work is done.
-	if !ctx.IsWorkflowExecution() {
-		logger.Verbosef("Checking branch '%s' is in sync with remote...", currentBranch)
-		if err := git.IsBranchSyncedWithRemote(currentBranch); err != nil {
-			return err
-		}
-	} else {
-		logger.Verbosef("Skipping remote sync check (running in workflow container)")
-	}
-	return nil
-}
-
-func SwitchToProjectBranch(ctx *context.Context, branchName string) error {
-	var auth *git.AuthConfig
-	if ctx.IsWorkflowExecution() {
-		owner, repo := ctx.RepoOwnerAndName()
-		auth = &git.AuthConfig{Owner: owner, Repo: repo}
-	}
-
-	if err := git.Fetch(auth); err != nil {
-		logger.Verbosef("Could not fetch from remote (continuing anyway): %v", err)
-	}
-
-	if err := git.CheckoutOrCreateBranch(branchName); err != nil {
-		return fmt.Errorf("failed to checkout branch: %w", err)
-	}
-	return nil
 }
 
 func CreatePullRequest(ctx *context.Context, proj *project.Project, branchName, baseBranch, prSummary string) (string, error) {
