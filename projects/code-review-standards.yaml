@@ -1,0 +1,13 @@
+name: code-review-standards
+description: Address domain function standards violations
+
+requirements:
+  - category: domain function cleanliness
+    description: Fix violations of domain function standards in ralph codebase
+    items:
+      - "internal/cmd/review.go:runReview` contains deep branching with error handling, path resolution, file detection, and string manipulation that should be delegated to lower-level functions. The loop body (lines 195-245) mixes domain logic (iterating review items) with infrastructure concerns (filepath.Abs, git.DetectModifiedProjectFile, git.CommitAllAndPush). Extract path resolution and project file detection into a helper function, and extract commit logic into another."
+      - "internal/run/iteration.go:runSingleIteration` has deep nesting at lines 160-196 with nested if-else blocks handling commit logic, file deletion, and error handling. This complex branching should be delegated to a lower-level named function like `commitIterationChanges` that handles the commit workflow."
+      - "internal/cmd/comment.go:renderInstructions` (lines 89-118) performs template parsing and string splitting that are implementation details. Consider extracting the repoOwner/repoName parsing into a `parseRepo` helper, and template execution into a `executeTemplate` helper, or move template rendering to a response helper if this is truly an output formatting concern."
+      - "internal/cmd/merge.go:waitForGitHubHead` (lines 129-156) is a polling loop with complex control flow (maxAttempts iterations, sleep intervals, string prefix comparison) that belongs in a lower-level infrastructure helper, not as a top-level domain function."
+      - "internal/cmd/workflow.go:resolveConflictsWithAI` (lines 194-259) builds a string of instructions inline (lines 198-207) and writes to a file. The instruction string construction is an implementation detail that should be delegated to a helper like `buildMergeInstructions`."
+      - "internal/cmd/config_github.go:readAndValidatePrivateKey` (line 74-83) and `internal/cmd/config_opencode.go:readOpenCodeCredentials` (lines 51-73) read files and validate content — these parsing/validation details should be in request helpers rather than domain functions."
