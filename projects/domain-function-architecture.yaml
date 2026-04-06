@@ -1,0 +1,24 @@
+name: domain-function-architecture
+description: Refactor domain functions to meet architecture standards
+
+requirements:
+  - category: domain-function-refactoring
+    description: Refactor domain functions to meet architecture standards
+    items:
+      - "internal/cmd/run.go:RunCmd.Run: This command entry point violates single responsibility - it handles version flag, directory changing, project file validation, flag validation, config loading, branch resolution, and execution mode selection all in one function. Extract flag validation into validateFlags(), config loading into loadConfig(), and branch resolution into resolveExecutionBranch()"
+      - "internal/run/execute.go:Execute: This function mixes infrastructure concerns (infrastructureRunBeforeCommands) with domain logic (iteration loop, PR summary generation). Extract infrastructureRunBeforeCommands call and the remote vs local decision into separate functions"
+      - "internal/run/iteration.go:runSingleIteration: This function has deeply nested flow control with 3+ levels of if-else chains. The blocked.md check, changelog generation, commit logic, and completion checking should be extracted into separate functions with shallow flow control"
+      - "internal/cmd/workflow.go:WorkflowCmd.Run: This function orchestrates GitHub auth, OpenCode credentials, git user config, repo cloning, branch sync, and project/review execution - too many responsibilities. Extract setupGitHubAuth, setupOpenCodeCredentials, configureGitUser into separate domain-level orchestrator"
+      - "internal/cmd/review.go:ReviewCmd.runReview: The loop over review items contains deeply nested logic for loading content, running agents, detecting project files, and committing. Extract item processing into a separate function with shallow flow control"
+      - "internal/cmd/review.go:loadItemContent: This function contains implementation details (HTTP GET, file reading) that should be abstracted. Create an ItemContentLoader interface and implementations to hide these details"
+      - "internal/cmd/workflow.go:fetchBaseBranch: Uses exec.Command directly for git fetch - this is infrastructure that should be hidden behind the git package abstraction"
+      - "internal/run/execute.go:infrastructureRunBeforeCommands: Named with 'infrastructure' prefix indicates it shouldn't be a domain function. Extract to infrastructure layer"
+      - "internal/run/execute.go:PrepareExecution: This function loads project files and resolves branch names - infrastructure concerns that shouldn't be listed as a domain function"
+      - "internal/cmd/workflow.go:checkIfMergeNeeded: Uses git.RevParse and git.MergeBase directly - implementation details that leak into workflow orchestration"
+      - "internal/cmd/merge.go:waitForGitHubHead: Polling implementation with time.Sleep - should be extracted to a reusable retry utility"
+      - "internal/cmd/merge.go:scanAndCleanupProjects: Contains file system traversal (os.Stat), project finding, and git operations all mixed together. Extract file system operations from domain logic"
+      - "internal/cmd/review.go:buildItemPrompt: Uses bytes.Buffer and template execution directly - implementation details that should be abstracted"
+      - "internal/cmd/workflow.go:resolveConflictsWithAI: Creates files on disk, sets multiple context fields, and runs execution - this function does too much and should be split"
+      - "internal/cmd/config_github.go:ConfigGithubCmd.Run: Contains credential reading, validation, and K8s secret creation all in one flow - should be refactored to have clearer separation"
+      - "internal/cmd/config_webhook.go:ConfigWebhookSecretCmd.Run: Has similar issues with mixed concerns (reading repo list, validation, secret generation, webhook registration)"
+      - "domain-functions.yaml: Functions like PrepareExecution, infrastructureRunBeforeCommands, fetchBaseBranch are listed as domain functions but are actually infrastructure - domain-functions.yaml needs to be updated to only include true domain functions"
