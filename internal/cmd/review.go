@@ -207,7 +207,12 @@ func (r *ReviewCmd) runReview(ctx *execcontext.Context, ralphConfig *config.Ralp
 
 		if branchName != "" && git.HasUncommittedChanges() {
 			commitMsg := r.buildCommitMessage(i, summaryPath)
-			if err := run.CommitAllAndPush(ctx, branchName, commitMsg); err != nil {
+			var auth *git.AuthConfig
+			if ctx.IsWorkflowExecution() {
+				owner, repo := ctx.RepoOwnerAndName()
+				auth = &git.AuthConfig{Owner: owner, Repo: repo}
+			}
+			if err := git.CommitAllAndPush(auth, branchName, commitMsg); err != nil {
 				return branchName, detectedProjectFile, fmt.Errorf("failed to commit after item %d: %w", i+1, err)
 			}
 			os.Remove(summaryPath)

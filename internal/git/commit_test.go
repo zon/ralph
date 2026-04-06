@@ -257,3 +257,77 @@ func TestBranchLogContainsPrefix_EmptyBranch(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, found)
 }
+
+func TestSwitchToBranchIfNeeded(t *testing.T) {
+	workDir, _ := setupBareRemoteRepo(t)
+	t.Chdir(workDir)
+
+	branchName := "review-branch"
+
+	err := SwitchToBranchIfNeeded(nil, branchName)
+	require.NoError(t, err, "SwitchToBranchIfNeeded failed")
+
+	currentBranch, err := GetCurrentBranch()
+	require.NoError(t, err, "GetCurrentBranch failed")
+	assert.Equal(t, branchName, currentBranch)
+}
+
+func TestSwitchToBranchIfNeeded_AlreadyOnBranch(t *testing.T) {
+	workDir, _ := setupBareRemoteRepo(t)
+	t.Chdir(workDir)
+
+	branchName, err := GetCurrentBranch()
+	require.NoError(t, err, "GetCurrentBranch failed")
+
+	err = SwitchToBranchIfNeeded(nil, branchName)
+	require.NoError(t, err, "SwitchToBranchIfNeeded should succeed when already on branch")
+}
+
+func TestCommitFileAndPush(t *testing.T) {
+	workDir, _ := setupBareRemoteRepo(t)
+	t.Chdir(workDir)
+
+	branchName := "review-branch"
+	filePath := "test.txt"
+	commitMsg := "Add test file"
+
+	err := os.WriteFile(filepath.Join(workDir, filePath), []byte("test content"), 0644)
+	require.NoError(t, err)
+
+	err = CommitFileAndPush(nil, filePath, branchName, commitMsg)
+	require.NoError(t, err, "CommitFileAndPush failed")
+
+	currentBranch, err := GetCurrentBranch()
+	require.NoError(t, err)
+	assert.Equal(t, branchName, currentBranch)
+
+	hasChanges := HasUncommittedChanges()
+	assert.False(t, hasChanges, "Should not have uncommitted changes after commit")
+}
+
+func TestCommitAllAndPush(t *testing.T) {
+	workDir, _ := setupBareRemoteRepo(t)
+	t.Chdir(workDir)
+
+	branchName := "review-all-branch"
+	commitMsg := "Add multiple files"
+
+	err := os.MkdirAll(filepath.Join(workDir, "projects"), 0755)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(workDir, "projects", "test.yaml"), []byte("name: test\n"), 0644)
+	require.NoError(t, err)
+	err = os.MkdirAll(filepath.Join(workDir, "docs"), 0755)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(workDir, "docs", "notes.md"), []byte("notes\n"), 0644)
+	require.NoError(t, err)
+
+	err = CommitAllAndPush(nil, branchName, commitMsg)
+	require.NoError(t, err, "CommitAllAndPush failed")
+
+	currentBranch, err := GetCurrentBranch()
+	require.NoError(t, err)
+	assert.Equal(t, branchName, currentBranch)
+
+	hasChanges := HasUncommittedChanges()
+	assert.False(t, hasChanges, "Should not have uncommitted changes after commit")
+}

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"strings"
 
 	"github.com/zon/ralph/internal/argo"
 	"github.com/zon/ralph/internal/config"
@@ -39,7 +38,7 @@ func PrepareExecution(ctx *context.Context) (*ExecutionSetup, error) {
 		return nil, fmt.Errorf("failed to load project file: %w", err)
 	}
 
-	branchName := SanitizeBranchName(proj.Name)
+	branchName := git.SanitizeBranchName(proj.Name)
 	logger.Verbosef("Branch name: %s", branchName)
 
 	ralphConfig, err := config.LoadConfig()
@@ -229,32 +228,6 @@ func CreatePullRequest(ctx *context.Context, proj *project.Project, branchName, 
 	return prURL, nil
 }
 
-func SanitizeBranchName(name string) string {
-	name = strings.ToLower(name)
-	name = strings.ReplaceAll(name, " ", "-")
-	name = strings.ReplaceAll(name, "_", "-")
-	name = strings.ReplaceAll(name, ".", "-")
-
-	var result strings.Builder
-	for _, ch := range name {
-		if (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '-' {
-			result.WriteRune(ch)
-		}
-	}
-
-	finalName := strings.Trim(result.String(), "-")
-
-	for strings.Contains(finalName, "--") {
-		finalName = strings.ReplaceAll(finalName, "--", "-")
-	}
-
-	if finalName == "" {
-		finalName = "unnamed-project"
-	}
-
-	return finalName
-}
-
 func executeRemote(ctx *context.Context, absProjectFile string) error {
 	logger.Verbose("Submitting Argo Workflow...")
 
@@ -264,7 +237,7 @@ func executeRemote(ctx *context.Context, absProjectFile string) error {
 	}
 
 	projectName := proj.Name
-	projectBranch := SanitizeBranchName(proj.Name)
+	projectBranch := git.SanitizeBranchName(proj.Name)
 
 	// Load configuration to get default branch
 	if _, err = config.LoadConfig(); err != nil {

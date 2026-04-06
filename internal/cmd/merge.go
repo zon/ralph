@@ -11,7 +11,7 @@ import (
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/logger"
-	"github.com/zon/ralph/internal/run"
+	"github.com/zon/ralph/internal/project"
 	"github.com/zon/ralph/internal/workflow"
 )
 
@@ -79,7 +79,7 @@ func (m *MergeCmd) scanAndCleanupProjects(ctx *context.Context) error {
 		return nil
 	}
 
-	completeProjects, err := run.FindCompleteProjects(projectsDir)
+	completeProjects, err := project.FindCompleteProjects(projectsDir)
 	if err != nil {
 		return fmt.Errorf("failed to scan for complete projects: %w", err)
 	}
@@ -98,7 +98,7 @@ func (m *MergeCmd) scanAndCleanupProjects(ctx *context.Context) error {
 		logger.Infof("  - %s", relPath)
 	}
 
-	if err := run.RemoveAndCommit(ctx, completeProjects); err != nil {
+	if err := project.RemoveAndCommit(ctx, completeProjects); err != nil {
 		return fmt.Errorf("failed to remove complete projects: %w", err)
 	}
 

@@ -87,3 +87,29 @@ func remoteBranchExists(branch string) bool {
 	_, err := runGit("ls-remote", "--exit-code", "--heads", "origin", branch)
 	return err == nil
 }
+
+func SanitizeBranchName(name string) string {
+	name = strings.ToLower(name)
+	name = strings.ReplaceAll(name, " ", "-")
+	name = strings.ReplaceAll(name, "_", "-")
+	name = strings.ReplaceAll(name, ".", "-")
+
+	var result strings.Builder
+	for _, ch := range name {
+		if (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '-' {
+			result.WriteRune(ch)
+		}
+	}
+
+	finalName := strings.Trim(result.String(), "-")
+
+	for strings.Contains(finalName, "--") {
+		finalName = strings.ReplaceAll(finalName, "--", "-")
+	}
+
+	if finalName == "" {
+		finalName = "unnamed-project"
+	}
+
+	return finalName
+}
