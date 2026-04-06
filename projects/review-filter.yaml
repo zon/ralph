@@ -8,7 +8,7 @@ requirements:
       - Add a Filter string field to ReviewCmd with help text "Only run review items whose text, file, or url property contains this string"
       - In runReview(), before shuffling, filter ralphConfig.Review.Items to only those where item.Text, item.File, or item.URL contains the Filter string (case-insensitive substring match); if Filter is empty, include all items
       - Return an error from Run() if --filter is set but no items match after filtering, with a message indicating the filter value that matched nothing
-    passing: false
+    passing: true
 
   - category: workflow
     description: Pass --filter through to Argo workflow
