@@ -16,7 +16,7 @@ requirements:
     items:
       - Move FindCompleteProjects, isProjectComplete, and RemoveAndCommit from internal/run/complete.go to internal/project — they scan and manage project files, which is project-domain logic, not run-domain logic
       - Delete internal/run/complete.go after moving its contents; update all callers in cmd/merge.go
-    passing: false
+    passing: true
 
   - category: version
     description: Bump version for internal refactoring

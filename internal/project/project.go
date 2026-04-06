@@ -2,6 +2,7 @@ package project
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -387,4 +388,88 @@ func getCommitLogForPrompt(ctx *context.Context, defaultBranch string) (string, 
 	}
 
 	return git.GetCommitLog(baseBranch, 10)
+}
+
+func FindCompleteProjects(dir string) ([]string, error) {
+	var completeProjects []string
+
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		return nil, fmt.Errorf("directory does not exist: %s", dir)
+	}
+
+	var allFiles []string
+	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		ext := filepath.Ext(path)
+		if ext == ".yaml" || ext == ".yml" {
+			allFiles = append(allFiles, path)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to walk directory: %w", err)
+	}
+
+	for _, filePath := range allFiles {
+		proj, err := LoadProject(filePath)
+		if err != nil {
+			continue
+		}
+
+		if IsProjectComplete(proj) {
+			absPath, err := filepath.Abs(filePath)
+			if err != nil {
+				continue
+			}
+			completeProjects = append(completeProjects, absPath)
+		}
+	}
+
+	return completeProjects, nil
+}
+
+func IsProjectComplete(proj *Project) bool {
+	if len(proj.Requirements) == 0 {
+		return false
+	}
+
+	for _, req := range proj.Requirements {
+		if !req.Passing {
+			return false
+		}
+	}
+
+	return true
+}
+
+func RemoveAndCommit(ctx *context.Context, files []string) error {
+	if len(files) == 0 {
+		return nil
+	}
+
+	for _, filePath := range files {
+		if err := os.Remove(filePath); err != nil {
+			return fmt.Errorf("failed to remove project file %s: %w", filePath, err)
+		}
+		logger.Infof("Removed complete project file: %s", filePath)
+	}
+
+	for _, filePath := range files {
+		if err := git.StageFile(filePath); err != nil {
+			return fmt.Errorf("failed to stage deleted file %s: %w", filePath, err)
+		}
+	}
+
+	commitMessage := "chore: remove complete project files"
+	if err := git.Commit(commitMessage); err != nil {
+		return fmt.Errorf("failed to commit deleted files: %w", err)
+	}
+
+	logger.Successf("Committed removal of %d complete project file(s)", len(files))
+	return nil
 }
