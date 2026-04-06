@@ -23,7 +23,6 @@ import (
 	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/project"
-	"github.com/zon/ralph/internal/run"
 	"github.com/zon/ralph/internal/workflow"
 
 	_ "embed"
@@ -313,7 +312,7 @@ func (r *ReviewCmd) submitPR(ctx *execcontext.Context, absProjectFile, reviewNam
 		body = generatedBody
 	}
 
-	prURL, err := run.CreatePullRequest(ctx, proj, reviewName, baseBranch, body)
+	prURL, err := github.CreatePullRequest(ctx, proj, reviewName, baseBranch, body)
 	if err != nil {
 		if errors.Is(err, github.ErrNoCommitsBetweenBranches) {
 			logger.Verbose("No commits ahead of base branch — skipping PR creation")

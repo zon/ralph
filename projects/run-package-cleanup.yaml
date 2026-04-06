@@ -16,7 +16,7 @@ requirements:
     items:
       - Move CreatePullRequest to internal/github (cli.go or a new pr.go file)
       - Update all callers in internal/run to reference the new location
-    passing: false
+    passing: true
 
   - category: commit
     description: Move CommitChanges to internal/git by separating message generation from git operations

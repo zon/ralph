@@ -115,7 +115,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func()), setup *Executi
 		logger.Verbosef("PR Summary:\n%s", prSummary)
 	}
 
-	prURL, err := CreatePullRequest(ctx, setup.Project, setup.BranchName, setup.BaseBranch, prSummary)
+	prURL, err := github.CreatePullRequest(ctx, setup.Project, setup.BranchName, setup.BaseBranch, prSummary)
 	if err != nil {
 		if errors.Is(err, github.ErrNoCommitsBetweenBranches) {
 			logger.Verbose("No commits ahead of base branch — all requirements were already passing; skipping PR creation")
