@@ -4,7 +4,7 @@ You are a software architect reviewing source code. Does the code meet the stand
 {{.ItemContent}}
 
 ## Instructions
-Create or edit a ralph project in projects/<name>.yaml if any standards are not met.
+Create or edit a ralph project in projects/<name>.yaml if any standards are not met. Create a separate requirement item for each issue found.
 
 Ignore docs/writing-requirements.md. Instead, write requirements in a code-review style: each requirement item must describe the specific problem found in the code and explain concretely how to fix it. Include file paths and function names where relevant.
 
