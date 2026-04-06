@@ -1,0 +1,36 @@
+- feature: ralph run
+  functions:
+  - file: internal/run/execute.go
+    name: PrepareExecution
+  - file: internal/run/execute.go
+    name: Execute
+  - file: internal/run/execute.go
+    name: ValidateGitStateAndSwitchBranch
+  - file: internal/run/execute.go
+    name: SwitchToProjectBranch
+  - file: internal/run/execute.go
+    name: CreatePullRequest
+  - file: internal/run/iteration.go
+    name: RunIterationLoop
+  - file: internal/run/iteration.go
+    name: runSingleIteration
+  - file: internal/run/iteration.go
+    name: CommitChanges
+  - file: internal/run/iteration.go
+    name: PullAndPush
+  - file: internal/run/iteration.go
+    name: reportNewlyPassingRequirements
+  - file: internal/run/commit.go
+    name: CommitFileAndPush
+  - file: internal/run/commit.go
+    name: CommitAllAndPush
+  - file: internal/run/complete.go
+    name: FindCompleteProjects
+  - file: internal/run/complete.go
+    name: RemoveAndCommit
+  - file: internal/run/ai_helpers.go
+    name: GeneratePRSummary
+  - file: internal/run/ai_helpers.go
+    name: GenerateChangelog
+  - file: internal/run/ai_helpers.go
+    name: GenerateReviewPRBody
