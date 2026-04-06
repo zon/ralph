@@ -36,6 +36,7 @@ type WorkflowCmd struct {
 	MaxIterations  int    `help:"Maximum number of iterations" name:"max-iterations" default:"0"`
 	Model          string `help:"Override the AI model from config" name:"model" optional:""`
 	Review         bool   `help:"Run review mode instead of a project" name:"review" default:"false"`
+	Filter         string `help:"Only run review items whose text, file, or url property contains this string" name:"filter" optional:""`
 
 	cleanupRegistrar func(func()) `kong:"-"`
 }
@@ -312,6 +313,7 @@ func (w *WorkflowCmd) runReview(ctx *context.Context) error {
 		Verbose: w.Verbose,
 		Model:   w.Model,
 		Base:    ctx.BaseBranch(),
+		Filter:  w.Filter,
 	}
 	return reviewCmd.Run()
 }
