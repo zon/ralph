@@ -1,68 +1,182 @@
 package ai
 
 import (
-	"context"
+	"bytes"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
+	"text/template"
 
 	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
+	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/logger"
+	"github.com/zon/ralph/internal/opencode"
 )
 
 const mockAIEnv = "RALPH_MOCK_AI"
 
-func runOpenCodeCommand(ctx context.Context, args []string, stdoutWriter, stderrWriter io.Writer) error {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	cmd := exec.CommandContext(ctx, "opencode", args...)
-	cmd.Env = append(os.Environ(), "FORCE_COLOR=1")
+//go:embed pr-summary-instructions.md
+var prSummaryInstructions string
 
-	if stdoutWriter != nil {
-		cmd.Stdout = stdoutWriter
-	} else {
-		cmd.Stdout = os.Stdout
-	}
-	if stderrWriter != nil {
-		cmd.Stderr = stderrWriter
-	} else {
-		cmd.Stderr = os.Stderr
-	}
+//go:embed changelog-instructions.md
+var changelogInstructions string
 
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("opencode command failed: %w", err)
-	}
-	return nil
+//go:embed review-pr-body-instructions.md
+var reviewPRBodyInstructions string
+
+type FixServicePromptData struct {
+	Notes       []string
+	ServiceName string
+	ServiceCmd  string
+	ServicePort int
+	Error       string
 }
 
-func RunCommand(ctx context.Context, model, prompt string, stdoutWriter, stderrWriter io.Writer) error {
-	args := []string{"run", "--model", model, prompt}
-	return runOpenCodeCommand(ctx, args, stdoutWriter, stderrWriter)
+type DevelopPromptData struct {
+	Notes               []string
+	CommitLog           string
+	ProjectContent      string
+	SelectedRequirement string
+	ProjectFilePath     string
+	Services            []config.Service
+	Instructions        string
 }
 
-func DisplayStats() error {
-	return runOpenCodeCommand(context.Background(), []string{"stats"}, os.Stdout, os.Stderr)
+type PickPromptData struct {
+	Notes          []string
+	CommitLog      string
+	ProjectContent string
+	PickedReqPath  string
 }
 
-func runOpenCodeCommandWithRing(ctx context.Context, args []string, ring *ringWriter) error {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	cmd := exec.CommandContext(ctx, "opencode", args...)
-	cmd.Env = append(os.Environ(), "FORCE_COLOR=1")
-	cmd.Stdout = io.MultiWriter(os.Stdout, ring)
-	cmd.Stderr = io.MultiWriter(os.Stderr, ring)
+type PRSummaryPromptData struct {
+	ProjectDesc   string
+	ProjectStatus string
+	BaseBranch    string
+	CommitLog     string
+	AbsPath       string
+}
 
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("opencode execution failed: %w\n\nLast 10 lines of output:\n%s", err, ring.tail())
+type ChangelogPromptData struct {
+	OutputFile string
+}
+
+type ReviewPRBodyPromptData struct {
+	ProjectName        string
+	ProjectDescription string
+	Requirements       []string
+	AbsPath            string
+}
+
+func executeTemplate(templateContent string, data interface{}) (string, error) {
+	tmpl, err := template.New("prompt").Parse(templateContent)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse template: %w", err)
 	}
-	return nil
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		return "", fmt.Errorf("failed to execute template: %w", err)
+	}
+	return buf.String(), nil
+}
+
+func BuildFixServicePrompt(ctx *execcontext.Context, svc config.Service, svcErr error) (string, error) {
+	cmd := svc.Command
+	if len(svc.Args) > 0 {
+		cmd = fmt.Sprintf("%s %s", svc.Command, strings.Join(svc.Args, " "))
+	}
+
+	data := FixServicePromptData{
+		Notes:       ctx.Notes(),
+		ServiceName: svc.Name,
+		ServiceCmd:  cmd,
+		ServicePort: svc.Port,
+		Error:       svcErr.Error(),
+	}
+
+	return executeTemplate(config.DefaultFixServiceInstructions(), data)
+}
+
+func BuildDevelopPrompt(data DevelopPromptData) (string, error) {
+	tmplData := struct {
+		Notes               []string
+		CommitLog           string
+		ProjectContent      string
+		SelectedRequirement string
+		ProjectFilePath     string
+		Services            []config.Service
+	}{
+		Notes:               data.Notes,
+		CommitLog:           data.CommitLog,
+		ProjectContent:      strings.TrimRight(data.ProjectContent, "\n"),
+		SelectedRequirement: data.SelectedRequirement,
+		ProjectFilePath:     data.ProjectFilePath,
+		Services:            data.Services,
+	}
+
+	return executeTemplate(data.Instructions, tmplData)
+}
+
+func BuildPickPrompt(data PickPromptData) (string, error) {
+	tmplData := struct {
+		Notes          []string
+		CommitLog      string
+		ProjectContent string
+		PickedReqPath  string
+	}{
+		Notes:          data.Notes,
+		CommitLog:      data.CommitLog,
+		ProjectContent: strings.TrimRight(data.ProjectContent, "\n"),
+		PickedReqPath:  data.PickedReqPath,
+	}
+
+	return executeTemplate(config.DefaultPickInstructions(), tmplData)
+}
+
+func BuildPRSummaryPrompt(projectDesc, projectStatus, baseBranch, commitLog, outputFile string) (string, error) {
+	absPath, err := filepath.Abs(outputFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path: %w", err)
+	}
+
+	data := PRSummaryPromptData{
+		ProjectDesc:   projectDesc,
+		ProjectStatus: projectStatus,
+		BaseBranch:    baseBranch,
+		CommitLog:     commitLog,
+		AbsPath:       absPath,
+	}
+	return executeTemplate(prSummaryInstructions, data)
+}
+
+func BuildChangelogPrompt(outputFile string) (string, error) {
+	absPath, err := filepath.Abs(outputFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path: %w", err)
+	}
+
+	data := ChangelogPromptData{OutputFile: absPath}
+	return executeTemplate(changelogInstructions, data)
+}
+
+func BuildReviewPRBodyPrompt(projectName, projectDesc string, requirements []string, outputFile string) (string, error) {
+	absPath, err := filepath.Abs(outputFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path: %w", err)
+	}
+
+	data := ReviewPRBodyPromptData{
+		ProjectName:        projectName,
+		ProjectDescription: projectDesc,
+		Requirements:       requirements,
+		AbsPath:            absPath,
+	}
+	return executeTemplate(reviewPRBodyInstructions, data)
 }
 
 func resolveModel(ctx *execcontext.Context) string {
@@ -89,42 +203,22 @@ func RunAgent(ctx *execcontext.Context, prompt string) error {
 
 	model := resolveModel(ctx)
 
-	ring := &ringWriter{n: 10}
-	args := []string{"run", "--model", model, prompt}
-	if err := runOpenCodeCommandWithRing(ctx.GoContext(), args, ring); err != nil {
+	ring := opencode.NewRingWriter(10)
+	if err := opencode.RunAgentWithRing(ctx.GoContext(), model, prompt, ring); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-// ringWriter captures the last n lines written to it.
-type ringWriter struct {
-	n     int
-	lines []string
-	buf   string // partial line not yet terminated
-}
-
-func (r *ringWriter) Write(p []byte) (int, error) {
-	s := r.buf + string(p)
-	parts := strings.Split(s, "\n")
-	// last element is either "" (if s ended with \n) or a partial line
-	r.buf = parts[len(parts)-1]
-	for _, line := range parts[:len(parts)-1] {
-		r.lines = append(r.lines, line)
-		if len(r.lines) > r.n {
-			r.lines = r.lines[1:]
-		}
+// createTempFile creates a temp file under the repo's tmp/ directory so that
+// workflow agents, which lack access to /tmp, can read and write it.
+func createTempFile(name string) (*os.File, error) {
+	path, err := git.TmpPath(name)
+	if err != nil {
+		return nil, err
 	}
-	return len(p), nil
-}
-
-func (r *ringWriter) tail() string {
-	lines := r.lines
-	if r.buf != "" {
-		lines = append(lines, r.buf)
-	}
-	return strings.Join(lines, "\n")
+	return os.Create(path)
 }
 
 // runOpenCodeAndReadResult runs opencode with the given prompt and reads the result from the output file
@@ -135,8 +229,7 @@ func runOpenCodeAndReadResult(ctx *execcontext.Context, model, prompt, outputFil
 		stderrWriter = os.Stderr
 	}
 
-	args := []string{"run", "--model", model, prompt}
-	if err := runOpenCodeCommand(ctx.GoContext(), args, stdoutWriter, stderrWriter); err != nil {
+	if err := opencode.RunCommand(ctx.GoContext(), model, prompt, stdoutWriter, stderrWriter); err != nil {
 		return "", fmt.Errorf("opencode execution failed: %w", err)
 	}
 
@@ -151,6 +244,103 @@ func runOpenCodeAndReadResult(ctx *execcontext.Context, model, prompt, outputFil
 	}
 
 	return summary, nil
+}
+
+// GeneratePRSummary generates a pull request summary using AI
+// It includes project description, status, commits, and diff
+// This matches ralph.sh's approach: agent writes to a file, we read it back
+func GeneratePRSummary(ctx *execcontext.Context, projectDesc, projectStatus, baseBranch, commitLog string) (summary string, err error) {
+	f, err := createTempFile("pr-summary.md")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temporary PR summary file: %w", err)
+	}
+	f.Close()
+	tmpFile := f.Name()
+	defer os.Remove(tmpFile)
+
+	prPrompt, err := BuildPRSummaryPrompt(projectDesc, projectStatus, baseBranch, commitLog, tmpFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to build PR summary prompt: %w", err)
+	}
+
+	if ctx.IsVerbose() {
+		logger.Verbose(prPrompt)
+	}
+
+	model := resolveModel(ctx)
+	summary, err = runOpenCodeAndReadResult(ctx, model, prPrompt, tmpFile)
+	if err != nil {
+		return "", err
+	}
+
+	return summary, nil
+}
+
+// GenerateChangelog prompts opencode to inspect the current git diff and write a
+// descriptive changelog to report.md.
+func GenerateChangelog(ctx *execcontext.Context) (err error) {
+	f, err := createTempFile("changelog.md")
+	if err != nil {
+		return fmt.Errorf("failed to create temporary changelog file: %w", err)
+	}
+	f.Close()
+	tmpFile := f.Name()
+	defer os.Remove(tmpFile)
+
+	changelogPrompt, err := BuildChangelogPrompt(tmpFile)
+	if err != nil {
+		return fmt.Errorf("failed to build changelog prompt: %w", err)
+	}
+
+	if ctx.IsVerbose() {
+		logger.Verbose(changelogPrompt)
+	}
+
+	model := resolveModel(ctx)
+	_, err = runOpenCodeAndReadResult(ctx, model, changelogPrompt, tmpFile)
+	if err != nil {
+		return err
+	}
+
+	if err = os.Rename(tmpFile, "report.md"); err != nil {
+		return fmt.Errorf("failed to rename changelog to report.md: %w", err)
+	}
+
+	return nil
+}
+
+// GenerateReviewPRBody generates a PR body for review findings using AI
+// It reads the review project file and writes a concise summary of recommended changes
+func GenerateReviewPRBody(ctx *execcontext.Context, projectName, projectDesc string, requirementSummaries []string) (summary string, err error) {
+	f, err := createTempFile("review-pr-body.md")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temporary review PR body file: %w", err)
+	}
+	f.Close()
+	tmpFile := f.Name()
+	defer os.Remove(tmpFile)
+
+	reviewPrompt, err := BuildReviewPRBodyPrompt(projectName, projectDesc, requirementSummaries, tmpFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to build review PR body prompt: %w", err)
+	}
+
+	if ctx.IsVerbose() {
+		logger.Verbose(reviewPrompt)
+	}
+
+	model := resolveModel(ctx)
+	summary, err = runOpenCodeAndReadResult(ctx, model, reviewPrompt, tmpFile)
+	if err != nil {
+		return "", err
+	}
+
+	return summary, nil
+}
+
+// DisplayStats shows OpenCode usage statistics
+func DisplayStats() error {
+	return opencode.DisplayStats()
 }
 
 // runMockAgent simulates AI execution for testing purposes.
@@ -187,7 +377,6 @@ func runMockAgent(ctx *execcontext.Context, prompt string) error {
 	}
 
 	if strings.Contains(promptLower, "overview") {
-		// Find the JSON file path in the prompt
 		var jsonPath string
 		words := strings.Fields(prompt)
 		for _, word := range words {
@@ -197,7 +386,6 @@ func runMockAgent(ctx *execcontext.Context, prompt string) error {
 			}
 		}
 		if jsonPath == "" {
-			// fallback to a default path
 			jsonPath = "overview.json"
 		}
 		overview := struct {
@@ -237,13 +425,10 @@ func runMockAgent(ctx *execcontext.Context, prompt string) error {
 		logger.Verbosef("Mock AI wrote overview JSON to %s", jsonPath)
 	}
 
-	// Check if prompt instructs to write to projects/ directory
 	if strings.Contains(promptLower, "projects/") {
-		// Create projects directory if it doesn't exist
 		if err := os.MkdirAll("projects", 0755); err != nil {
 			return fmt.Errorf("mock AI failed to create projects directory: %w", err)
 		}
-		// Write a mock project file
 		mockProjectContent := `name: mock-review
 description: Mock project for testing
 requirements:
@@ -257,7 +442,6 @@ requirements:
 		}
 		logger.Verbosef("Mock AI wrote project file to %s", projectPath)
 	} else {
-		// Modify project file to simulate a finding (for testing loop exit)
 		absProjectFile := ctx.ProjectFile()
 		if absProjectFile != "" {
 			f, err := os.OpenFile(absProjectFile, os.O_APPEND|os.O_WRONLY, 0644)

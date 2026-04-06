@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/zon/ralph/internal/ai"
 	"github.com/zon/ralph/internal/argo"
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
@@ -99,7 +100,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func()), setup *Executi
 	allComplete, passingCount, failingCount := project.CheckCompletion(setup.Project)
 	projectStatus := fmt.Sprintf("%d passing, %d failing (complete: %v)", passingCount, failingCount, allComplete)
 
-	prSummary, err := GeneratePRSummary(ctx, setup.Project, projectStatus, setup.BaseBranch, commitLog)
+	prSummary, err := ai.GeneratePRSummary(ctx, setup.Project.Description, projectStatus, setup.BaseBranch, commitLog)
 	if err != nil {
 		return fmt.Errorf("failed to generate PR summary: %w", err)
 	}

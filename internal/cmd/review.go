@@ -306,7 +306,7 @@ func (r *ReviewCmd) submitPR(ctx *execcontext.Context, absProjectFile, reviewNam
 
 	body := fmt.Sprintf("AI code review findings for `%s`.", reviewName)
 
-	generatedBody, err := run.GenerateReviewPRBody(ctx, proj, requirementSummaries)
+	generatedBody, err := ai.GenerateReviewPRBody(ctx, proj.Name, proj.Description, requirementSummaries)
 	if err != nil {
 		logger.Verbosef("Failed to generate PR body with AI: %v", err)
 	} else {

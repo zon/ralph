@@ -14,7 +14,6 @@ import (
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/logger"
-	"github.com/zon/ralph/internal/prompt"
 	"github.com/zon/ralph/internal/services"
 )
 
@@ -205,14 +204,14 @@ func ExecuteDevelopmentIterationWithSetup(ctx *context.Context, setup *Iteration
 		return fmt.Errorf("failed to serialize project: %w", err)
 	}
 
-	pickPromptData := prompt.PickPromptData{
+	pickPromptData := ai.PickPromptData{
 		Notes:          ctx.Notes(),
 		CommitLog:      setup.CommitLog,
 		ProjectContent: projectContent,
 		PickedReqPath:  setup.PickedReqPath,
 	}
 
-	pickPrompt, err := prompt.BuildPickPrompt(pickPromptData)
+	pickPrompt, err := ai.BuildPickPrompt(pickPromptData)
 	if err != nil {
 		return fmt.Errorf("failed to build pick prompt: %w", err)
 	}
@@ -243,7 +242,7 @@ func ExecuteDevelopmentIterationWithSetup(ctx *context.Context, setup *Iteration
 
 	logger.Verbose("Generating development prompt...")
 
-	devPromptData := prompt.DevelopPromptData{
+	devPromptData := ai.DevelopPromptData{
 		Notes:               ctx.Notes(),
 		CommitLog:           setup.CommitLog,
 		ProjectContent:      projectContent,
@@ -253,7 +252,7 @@ func ExecuteDevelopmentIterationWithSetup(ctx *context.Context, setup *Iteration
 		Instructions:        setup.Config.Instructions,
 	}
 
-	devPrompt, err := prompt.BuildDevelopPrompt(devPromptData)
+	devPrompt, err := ai.BuildDevelopPrompt(devPromptData)
 	if err != nil {
 		return fmt.Errorf("failed to build prompt: %w", err)
 	}
@@ -309,9 +308,9 @@ func handleServiceStartup(ctx *context.Context, cleanupRegistrar func(func()), r
 		if failedSvc, err := svcMgr.Start(ralphConfig.Services); err != nil {
 			logger.Warningf("Service startup failed: %v", err)
 
-			fixPrompt, promptErr := prompt.BuildFixServicePrompt(ctx, failedSvc, err)
-			if promptErr != nil {
-				return nil, fmt.Errorf("failed to build fix service prompt: %w", promptErr)
+			fixPrompt, buildErr := ai.BuildFixServicePrompt(ctx, failedSvc, err)
+			if buildErr != nil {
+				return nil, fmt.Errorf("failed to build fix service prompt: %w", buildErr)
 			}
 
 			if agentErr := ai.RunAgent(ctx, fixPrompt); agentErr != nil {

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/zon/ralph/internal/ai"
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/logger"
@@ -263,7 +264,7 @@ func generateChangelogIfNeeded(ctx *context.Context) error {
 	}
 
 	logger.Verbose("Uncommitted changes detected without report.md; generating changelog...")
-	return GenerateChangelog(ctx)
+	return ai.GenerateChangelog(ctx)
 }
 
 // getCommitMessage reads report.md and returns it as the commit message.
