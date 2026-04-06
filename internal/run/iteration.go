@@ -14,13 +14,6 @@ import (
 	"github.com/zon/ralph/internal/project"
 )
 
-// ErrFatalPushError is returned when a push fails with a permanent error that
-// cannot be resolved by retrying (e.g. missing GitHub App permissions).
-var ErrFatalPushError = errors.New("fatal push error")
-
-// ErrNoChanges is returned by CommitChanges when there are no staged changes to commit
-var ErrNoChanges = errors.New("no changes to commit")
-
 // ErrMaxIterationsReached is returned when max iterations are reached but requirements are still failing
 var ErrMaxIterationsReached = errors.New("max iteration limit reached")
 
@@ -164,18 +157,42 @@ func runSingleIteration(ctx *context.Context, cleanupRegistrar func(func()), pre
 		return fmt.Errorf("iteration %d failed: %w", iteration, err)
 	}
 
-	// Commit changes after iteration
-	logger.Verbosef("Committing changes from iteration %d...", iteration)
-	if err := CommitChanges(ctx, iteration); err != nil {
-		if errors.Is(err, ErrNoChanges) {
-			logger.Verbosef("No changes to commit after iteration %d", iteration)
-		} else if errors.Is(err, ErrFatalPushError) {
-			return err
-		} else {
-			return fmt.Errorf("iteration %d commit failed: %w", iteration, err)
-		}
+	// If there are no uncommitted changes and no report.md, there is nothing to commit
+	_, reportErr := os.Stat("report.md")
+	if !git.HasUncommittedChanges() && os.IsNotExist(reportErr) {
+		logger.Verbosef("No changes to commit after iteration %d", iteration)
 	} else {
-		logger.Verbosef("Committed changes from iteration %d", iteration)
+		// If there are uncommitted changes but no report.md, prompt opencode to write one
+		if err := generateChangelogIfNeeded(ctx); err != nil {
+			logger.Warningf("Failed to generate changelog: %v", err)
+		}
+
+		// Read commit message from report.md
+		commitMsg, err := getCommitMessage(iteration)
+		if err != nil {
+			return fmt.Errorf("cannot commit without a descriptive changelog: %w", err)
+		}
+
+		// Commit changes after iteration
+		logger.Verbosef("Committing changes from iteration %d...", iteration)
+		isWorkflow := ctx.IsWorkflowExecution()
+		var owner, repo string
+		if isWorkflow {
+			owner, repo = ctx.RepoOwnerAndName()
+		}
+
+		message := strings.TrimSpace(string(commitMsg))
+		if err := git.CommitChanges(isWorkflow, owner, repo, message); err != nil {
+			if errors.Is(err, git.ErrNoChanges) {
+				logger.Verbosef("No changes to commit after iteration %d", iteration)
+			} else if errors.Is(err, git.ErrFatalPushError) {
+				return err
+			} else {
+				return fmt.Errorf("iteration %d commit failed: %w", iteration, err)
+			}
+		} else {
+			logger.Verbosef("Committed changes from iteration %d", iteration)
+		}
 	}
 
 	// Load and check project completion status
@@ -214,43 +231,6 @@ func reportNewlyPassingRequirements(previousProject, currentProject *project.Pro
 	}
 }
 
-// CommitChanges stages all changes and commits them using report.md as the commit message
-func CommitChanges(ctx *context.Context, iteration int) error {
-	// If there are no uncommitted changes and no report.md, there is nothing to commit
-	_, reportErr := os.Stat("report.md")
-	if !git.HasUncommittedChanges() && os.IsNotExist(reportErr) {
-		return ErrNoChanges
-	}
-
-	// If there are uncommitted changes but no report.md, prompt opencode to write one
-	if err := generateChangelogIfNeeded(ctx); err != nil {
-		logger.Warningf("Failed to generate changelog: %v", err)
-	}
-
-	// Read commit message from report.md
-	commitMsg, err := getCommitMessage(iteration)
-	if err != nil {
-		return fmt.Errorf("cannot commit without a descriptive changelog: %w", err)
-	}
-
-	// Stage all changes
-	if err := git.StageAll(); err != nil {
-		return fmt.Errorf("failed to stage changes: %w", err)
-	}
-
-	// Commit staged changes
-	if err := performCommit(ctx, commitMsg, iteration); err != nil {
-		return err
-	}
-
-	// Pull and push
-	if err := PullAndPush(ctx); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // generateChangelogIfNeeded calls opencode to write report.md when the working tree
 // has uncommitted changes but the agent did not produce a report.md itself.
 func generateChangelogIfNeeded(ctx *context.Context) error {
@@ -279,49 +259,4 @@ func getCommitMessage(iteration int) ([]byte, error) {
 		logger.Warningf("Failed to remove report.md: %v", err)
 	}
 	return commitMsg, nil
-}
-
-// performCommit commits the staged changes
-func performCommit(ctx *context.Context, commitMsg []byte, iteration int) error {
-	message := strings.TrimSpace(string(commitMsg))
-	if message == "" {
-		return fmt.Errorf("empty commit message: cannot proceed without a descriptive message")
-	}
-
-	if git.HasStagedChanges() {
-		if err := git.Commit(message); err != nil {
-			return fmt.Errorf("failed to commit: %w", err)
-		}
-	} else {
-		logger.Verbosef("No file changes after iteration %d; skipping empty commit", iteration)
-		if err := os.Remove("report.md"); err != nil && !os.IsNotExist(err) {
-			logger.Warningf("Failed to remove report.md: %v", err)
-		}
-		return ErrNoChanges
-	}
-
-	if ctx.IsVerbose() {
-		logger.Infof("Committed with message: %s", message)
-	}
-	return nil
-}
-
-// pullAndPush pulls remote changes and pushes the current branch
-func PullAndPush(ctx *context.Context) error {
-	isWorkflow := ctx.IsWorkflowExecution()
-	var owner, repo string
-	if isWorkflow {
-		owner, repo = ctx.RepoOwnerAndName()
-	}
-
-	logger.Verbose("Pulling remote changes before push...")
-	if err := git.PullAndPush(isWorkflow, owner, repo); err != nil {
-		if errors.Is(err, git.ErrWorkflowPermission) {
-			return fmt.Errorf("%w: %v", ErrFatalPushError, err)
-		}
-		return fmt.Errorf("failed to push commit: %w", err)
-	}
-	logger.Verbose("Pushed commit to origin")
-
-	return nil
 }

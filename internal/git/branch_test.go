@@ -7,6 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/zon/ralph/internal/context"
 )
 
 func TestSanitizeBranchName(t *testing.T) {
@@ -189,4 +191,144 @@ func TestIsBranchSyncedWithRemote_Synced(t *testing.T) {
 	_ = exec.Command("git", "push", "origin", branchName).Run()
 
 	require.NoError(t, IsBranchSyncedWithRemote(branchName), "IsBranchSyncedWithRemote failed for synced branch")
+}
+
+func TestValidateGitStateAndSwitchBranch_AlreadyOnBranch(t *testing.T) {
+	workDir, _ := setupBareRemoteRepo(t)
+	t.Chdir(workDir)
+
+	ctx := context.NewContext()
+	ctx.SetLocal(true)
+
+	currentBranch, err := GetCurrentBranch()
+	require.NoError(t, err, "GetCurrentBranch failed")
+
+	err = ValidateGitStateAndSwitchBranch(ctx, currentBranch)
+	require.NoError(t, err, "ValidateGitStateAndSwitchBranch failed")
+
+	newBranch, err := GetCurrentBranch()
+	require.NoError(t, err, "GetCurrentBranch failed")
+	assert.Equal(t, currentBranch, newBranch, "Should stay on the same branch")
+}
+
+func TestValidateGitStateAndSwitchBranch_SwitchToNewBranch(t *testing.T) {
+	workDir, _ := setupBareRemoteRepo(t)
+	t.Chdir(workDir)
+
+	ctx := context.NewContext()
+	ctx.SetLocal(true)
+
+	currentBranch, err := GetCurrentBranch()
+	require.NoError(t, err, "GetCurrentBranch failed")
+
+	newBranchName := "my-feature-branch"
+	require.NotEqual(t, currentBranch, newBranchName, "Test setup error: branches should be different")
+
+	err = ValidateGitStateAndSwitchBranch(ctx, newBranchName)
+	require.NoError(t, err, "ValidateGitStateAndSwitchBranch failed")
+
+	newBranch, err := GetCurrentBranch()
+	require.NoError(t, err, "GetCurrentBranch failed")
+	assert.Equal(t, newBranchName, newBranch, "Should have switched to new branch")
+}
+
+func TestValidateGitStateAndSwitchBranch_WorkflowContext(t *testing.T) {
+	workDir, _ := setupBareRemoteRepo(t)
+	t.Chdir(workDir)
+
+	ctx := context.NewContext()
+	ctx.SetLocal(true)
+	ctx.SetWorkflowExecution(true)
+	ctx.SetRepoOwner("testowner")
+	ctx.SetRepoName("testrepo")
+
+	newBranchName := "workflow-test-branch"
+	err := ValidateGitStateAndSwitchBranch(ctx, newBranchName)
+	require.NoError(t, err, "ValidateGitStateAndSwitchBranch failed in workflow context")
+
+	newBranch, err := GetCurrentBranch()
+	require.NoError(t, err, "GetCurrentBranch failed")
+	assert.Equal(t, newBranchName, newBranch, "Should have switched to new branch in workflow context")
+}
+
+func TestSwitchToProjectBranch_CreatesNewBranch(t *testing.T) {
+	workDir, _ := setupBareRemoteRepo(t)
+	t.Chdir(workDir)
+
+	ctx := context.NewContext()
+	ctx.SetLocal(true)
+
+	branchName := "brand-new-branch"
+	err := SwitchToProjectBranch(ctx, branchName)
+	require.NoError(t, err, "SwitchToProjectBranch failed")
+
+	currentBranch, err := GetCurrentBranch()
+	require.NoError(t, err, "GetCurrentBranch failed")
+	assert.Equal(t, branchName, currentBranch, "Should be on the new branch")
+}
+
+func TestSwitchToProjectBranch_ExitingRemoteBranch(t *testing.T) {
+	remoteDir := t.TempDir()
+	cmd := exec.Command("git", "init", "--bare")
+	cmd.Dir = remoteDir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git init --bare failed: %v\n%s", err, out)
+	}
+
+	workDir := t.TempDir()
+	cmd = exec.Command("git", "clone", remoteDir, workDir)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git clone failed: %v\n%s", err, out)
+	}
+
+	for _, args := range [][]string{
+		{"config", "--local", "user.email", "test@example.com"},
+		{"config", "--local", "user.name", "Test User"},
+	} {
+		c := exec.Command("git", args...)
+		c.Dir = workDir
+		if out, err := c.CombinedOutput(); err != nil {
+			t.Fatalf("git %v failed: %v\n%s", args, err, out)
+		}
+	}
+
+	os.WriteFile(workDir+"/README.md", []byte("# test\n"), 0644)
+	for _, args := range [][]string{
+		{"add", "."},
+		{"commit", "-m", "initial commit"},
+		{"push", "origin", "HEAD"},
+	} {
+		c := exec.Command("git", args...)
+		c.Dir = workDir
+		if out, err := c.CombinedOutput(); err != nil {
+			t.Fatalf("git %v failed: %v\n%s", args, err, out)
+		}
+	}
+
+	branchName := "remote-branch"
+	_ = exec.Command("git", "-C", workDir, "checkout", "-b", branchName).Run()
+	os.WriteFile(workDir+"/test.txt", []byte("test\n"), 0644)
+	for _, args := range [][]string{
+		{"add", "."},
+		{"commit", "-m", "add test file"},
+		{"push", "origin", branchName},
+	} {
+		c := exec.Command("git", args...)
+		c.Dir = workDir
+		if out, err := c.CombinedOutput(); err != nil {
+			t.Fatalf("git %v failed: %v\n%s", args, err, out)
+		}
+	}
+
+	t.Chdir(workDir)
+
+	ctx := context.NewContext()
+	ctx.SetLocal(true)
+
+	err := SwitchToProjectBranch(ctx, branchName)
+	require.NoError(t, err, "SwitchToProjectBranch failed for existing remote branch")
+
+	currentBranch, err := GetCurrentBranch()
+	require.NoError(t, err, "GetCurrentBranch failed")
+	assert.Equal(t, branchName, currentBranch, "Should be on the remote branch")
 }

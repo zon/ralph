@@ -1,7 +1,6 @@
 package run
 
 import (
-	gocontext "context"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -76,7 +75,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func()), setup *Executi
 		return err
 	}
 
-	if err := ValidateGitStateAndSwitchBranch(ctx, setup.BranchName); err != nil {
+	if err := git.ValidateGitStateAndSwitchBranch(ctx, setup.BranchName); err != nil {
 		return err
 	}
 
@@ -115,7 +114,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func()), setup *Executi
 		logger.Verbosef("PR Summary:\n%s", prSummary)
 	}
 
-	prURL, err := CreatePullRequest(ctx, setup.Project, setup.BranchName, setup.BaseBranch, prSummary)
+	prURL, err := github.CreatePullRequest(ctx, setup.Project, setup.BranchName, setup.BaseBranch, prSummary)
 	if err != nil {
 		if errors.Is(err, github.ErrNoCommitsBetweenBranches) {
 			logger.Verbose("No commits ahead of base branch — all requirements were already passing; skipping PR creation")
@@ -143,90 +142,6 @@ func infrastructureRunBeforeCommands(cfg *config.RalphConfig) error {
 
 func infrastructureGetCommitLog(baseBranch string, n int) (string, error) {
 	return git.GetCommitLog(baseBranch, n)
-}
-
-func ValidateGitStateAndSwitchBranch(ctx *context.Context, branchName string) error {
-	currentBranch, err := git.GetCurrentBranch()
-	if err != nil {
-		return fmt.Errorf("failed to get current branch: %w", err)
-	}
-
-	logger.Verbosef("Current branch: %s", currentBranch)
-
-	if err := validateBranchSync(ctx, currentBranch); err != nil {
-		return err
-	}
-
-	if currentBranch != branchName {
-		if err := SwitchToProjectBranch(ctx, branchName); err != nil {
-			return err
-		}
-	} else {
-		logger.Verbosef("Already on branch '%s'", branchName)
-	}
-
-	return nil
-}
-
-func validateBranchSync(ctx *context.Context, currentBranch string) error {
-	// Skip this check when running inside a workflow container — the container may have
-	// created a fresh local branch that hasn't been pushed yet, and it will push after work is done.
-	if !ctx.IsWorkflowExecution() {
-		logger.Verbosef("Checking branch '%s' is in sync with remote...", currentBranch)
-		if err := git.IsBranchSyncedWithRemote(currentBranch); err != nil {
-			return err
-		}
-	} else {
-		logger.Verbosef("Skipping remote sync check (running in workflow container)")
-	}
-	return nil
-}
-
-func SwitchToProjectBranch(ctx *context.Context, branchName string) error {
-	var auth *git.AuthConfig
-	if ctx.IsWorkflowExecution() {
-		owner, repo := ctx.RepoOwnerAndName()
-		auth = &git.AuthConfig{Owner: owner, Repo: repo}
-	}
-
-	if err := git.Fetch(auth); err != nil {
-		logger.Verbosef("Could not fetch from remote (continuing anyway): %v", err)
-	}
-
-	if err := git.CheckoutOrCreateBranch(branchName); err != nil {
-		return fmt.Errorf("failed to checkout branch: %w", err)
-	}
-	return nil
-}
-
-func CreatePullRequest(ctx *context.Context, proj *project.Project, branchName, baseBranch, prSummary string) (string, error) {
-	// Refresh GitHub credentials immediately before creating the PR.
-	// Installation tokens expire after 1 hour, so a long-running agent job may
-	// have started with a valid token that is now stale. Re-running ConfigureGitAuth
-	// here fetches a fresh token and re-authenticates both git and gh CLI.
-	if ctx.IsWorkflowExecution() {
-		owner, repoName := ctx.RepoOwnerAndName()
-		if err := github.ConfigureGitAuth(gocontext.Background(), owner, repoName, github.DefaultSecretsDir); err != nil {
-			return "", fmt.Errorf("failed to refresh GitHub credentials before PR creation: %w", err)
-		}
-	}
-
-	if !github.IsReady() {
-		return "", fmt.Errorf("gh CLI is not ready, please install and authenticate with 'gh auth login'")
-	}
-
-	prTitle := proj.Description
-	if prTitle == "" {
-		prTitle = proj.Name
-	}
-
-	logger.Verbose("Creating GitHub pull request...")
-	prURL, err := github.CreatePR(prTitle, prSummary, baseBranch, branchName)
-	if err != nil {
-		return "", fmt.Errorf("failed to create pull request: %w", err)
-	}
-
-	return prURL, nil
 }
 
 func executeRemote(ctx *context.Context, absProjectFile string) error {

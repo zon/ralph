@@ -1,8 +1,11 @@
 package git
 
 import (
+	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -330,4 +333,79 @@ func TestCommitAllAndPush(t *testing.T) {
 
 	hasChanges := HasUncommittedChanges()
 	assert.False(t, hasChanges, "Should not have uncommitted changes after commit")
+}
+
+func TestPerformCommit_WithStagedChanges(t *testing.T) {
+	tempDir := setupTestRepo(t)
+	t.Chdir(tempDir)
+
+	testFile := filepath.Join(tempDir, "test.txt")
+	if err := os.WriteFile(testFile, []byte("test content"), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	require.NoError(t, StageFile("test.txt"))
+
+	err := performCommit("Add test file")
+	require.NoError(t, err, "performCommit failed")
+
+	hasStaged := HasStagedChanges()
+	assert.False(t, hasStaged, "Should have no staged changes after commit")
+}
+
+func TestPerformCommit_EmptyMessage(t *testing.T) {
+	tempDir := setupTestRepo(t)
+	t.Chdir(tempDir)
+
+	testFile := filepath.Join(tempDir, "test.txt")
+	if err := os.WriteFile(testFile, []byte("test content"), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	require.NoError(t, StageFile("test.txt"))
+
+	err := performCommit("")
+	require.Error(t, err, "performCommit should fail with empty message")
+	assert.Contains(t, err.Error(), "empty commit message")
+}
+
+func TestPerformCommit_NoStagedChanges(t *testing.T) {
+	tempDir := setupTestRepo(t)
+	t.Chdir(tempDir)
+
+	err := performCommit("Some commit message")
+	require.Error(t, err, "performCommit should fail with no staged changes")
+	assert.True(t, errors.Is(err, ErrNoChanges), "Expected ErrNoChanges, got: %v", err)
+}
+
+func TestCommitChanges_WithStagedChanges(t *testing.T) {
+	workDir, _ := setupBareRemoteRepo(t)
+	t.Chdir(workDir)
+
+	testFile := filepath.Join(workDir, "test.txt")
+	if err := os.WriteFile(testFile, []byte("test content"), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	err := CommitChanges(false, "", "", "Add test file")
+	require.NoError(t, err, "CommitChanges failed")
+
+	hasChanges := HasUncommittedChanges()
+	assert.False(t, hasChanges, "Should have no uncommitted changes after CommitChanges")
+
+	cmd := exec.Command("git", "log", "-1", "--format=%B")
+	cmd.Dir = workDir
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, "git log failed")
+	msg := strings.TrimSpace(string(out))
+	assert.Equal(t, "Add test file", msg)
+}
+
+func TestCommitChanges_NoStagedChanges(t *testing.T) {
+	workDir, _ := setupBareRemoteRepo(t)
+	t.Chdir(workDir)
+
+	err := CommitChanges(false, "", "", "Add test file")
+	require.Error(t, err, "CommitChanges should fail with no staged changes")
+	assert.True(t, errors.Is(err, ErrNoChanges), "Expected ErrNoChanges, got: %v", err)
 }

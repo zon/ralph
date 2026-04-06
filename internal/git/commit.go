@@ -1,9 +1,12 @@
 package git
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
+
+var ErrNoChanges = errors.New("no changes to commit")
 
 // StageFile stages a specific file using git add
 func StageFile(filePath string) error {
@@ -248,6 +251,39 @@ func CommitAllAndPush(auth *AuthConfig, branchName, commitMsg string) error {
 	}
 	if err := PullAndPush(isWorkflow, owner, repo); err != nil {
 		return fmt.Errorf("failed to push changes: %w", err)
+	}
+
+	return nil
+}
+
+func performCommit(message string) error {
+	message = strings.TrimSpace(message)
+	if message == "" {
+		return fmt.Errorf("empty commit message: cannot proceed without a descriptive message")
+	}
+
+	if !HasStagedChanges() {
+		return ErrNoChanges
+	}
+
+	if err := Commit(message); err != nil {
+		return fmt.Errorf("failed to commit: %w", err)
+	}
+
+	return nil
+}
+
+func CommitChanges(isWorkflow bool, owner, repo, message string) error {
+	if err := StageAll(); err != nil {
+		return fmt.Errorf("failed to stage changes: %w", err)
+	}
+
+	if err := performCommit(message); err != nil {
+		return err
+	}
+
+	if err := PullAndPush(isWorkflow, owner, repo); err != nil {
+		return err
 	}
 
 	return nil

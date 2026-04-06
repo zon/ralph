@@ -3,6 +3,9 @@ package git
 import (
 	"fmt"
 	"strings"
+
+	"github.com/zon/ralph/internal/context"
+	"github.com/zon/ralph/internal/logger"
 )
 
 // GetCurrentBranch returns the name of the current git branch
@@ -112,4 +115,56 @@ func SanitizeBranchName(name string) string {
 	}
 
 	return finalName
+}
+
+func ValidateGitStateAndSwitchBranch(ctx *context.Context, branchName string) error {
+	currentBranch, err := GetCurrentBranch()
+	if err != nil {
+		return fmt.Errorf("failed to get current branch: %w", err)
+	}
+
+	logger.Verbosef("Current branch: %s", currentBranch)
+
+	if err := validateBranchSync(ctx, currentBranch); err != nil {
+		return err
+	}
+
+	if currentBranch != branchName {
+		if err := SwitchToProjectBranch(ctx, branchName); err != nil {
+			return err
+		}
+	} else {
+		logger.Verbosef("Already on branch '%s'", branchName)
+	}
+
+	return nil
+}
+
+func validateBranchSync(ctx *context.Context, currentBranch string) error {
+	if !ctx.IsWorkflowExecution() {
+		logger.Verbosef("Checking branch '%s' is in sync with remote...", currentBranch)
+		if err := IsBranchSyncedWithRemote(currentBranch); err != nil {
+			return err
+		}
+	} else {
+		logger.Verbosef("Skipping remote sync check (running in workflow container)")
+	}
+	return nil
+}
+
+func SwitchToProjectBranch(ctx *context.Context, branchName string) error {
+	var auth *AuthConfig
+	if ctx.IsWorkflowExecution() {
+		owner, repo := ctx.RepoOwnerAndName()
+		auth = &AuthConfig{Owner: owner, Repo: repo}
+	}
+
+	if err := Fetch(auth); err != nil {
+		logger.Verbosef("Could not fetch from remote (continuing anyway): %v", err)
+	}
+
+	if err := CheckoutOrCreateBranch(branchName); err != nil {
+		return fmt.Errorf("failed to checkout branch: %w", err)
+	}
+	return nil
 }
