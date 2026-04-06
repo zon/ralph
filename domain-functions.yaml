@@ -4,18 +4,10 @@
     name: PrepareExecution
   - file: internal/run/execute.go
     name: Execute
-  - file: internal/run/execute.go
-    name: ValidateGitStateAndSwitchBranch
-  - file: internal/run/execute.go
-    name: SwitchToProjectBranch
-  - file: internal/run/execute.go
-    name: CreatePullRequest
   - file: internal/run/iteration.go
     name: RunIterationLoop
   - file: internal/run/iteration.go
     name: runSingleIteration
-  - file: internal/run/iteration.go
-    name: CommitChanges
   - file: internal/run/iteration.go
     name: reportNewlyPassingRequirements
 

@@ -1,7 +1,6 @@
 package run
 
 import (
-	gocontext "context"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -143,36 +142,6 @@ func infrastructureRunBeforeCommands(cfg *config.RalphConfig) error {
 
 func infrastructureGetCommitLog(baseBranch string, n int) (string, error) {
 	return git.GetCommitLog(baseBranch, n)
-}
-
-func CreatePullRequest(ctx *context.Context, proj *project.Project, branchName, baseBranch, prSummary string) (string, error) {
-	// Refresh GitHub credentials immediately before creating the PR.
-	// Installation tokens expire after 1 hour, so a long-running agent job may
-	// have started with a valid token that is now stale. Re-running ConfigureGitAuth
-	// here fetches a fresh token and re-authenticates both git and gh CLI.
-	if ctx.IsWorkflowExecution() {
-		owner, repoName := ctx.RepoOwnerAndName()
-		if err := github.ConfigureGitAuth(gocontext.Background(), owner, repoName, github.DefaultSecretsDir); err != nil {
-			return "", fmt.Errorf("failed to refresh GitHub credentials before PR creation: %w", err)
-		}
-	}
-
-	if !github.IsReady() {
-		return "", fmt.Errorf("gh CLI is not ready, please install and authenticate with 'gh auth login'")
-	}
-
-	prTitle := proj.Description
-	if prTitle == "" {
-		prTitle = proj.Name
-	}
-
-	logger.Verbose("Creating GitHub pull request...")
-	prURL, err := github.CreatePR(prTitle, prSummary, baseBranch, branchName)
-	if err != nil {
-		return "", fmt.Errorf("failed to create pull request: %w", err)
-	}
-
-	return prURL, nil
 }
 
 func executeRemote(ctx *context.Context, absProjectFile string) error {

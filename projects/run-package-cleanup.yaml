@@ -34,7 +34,7 @@ requirements:
     items:
       - internal/run/execute.go and internal/run/iteration.go no longer define or call any of the moved functions directly
       - Remove the four functions from domain-functions.yaml
-    passing: false
+    passing: true
 
   - category: version
     description: Bump version for internal refactor
