@@ -1,5 +1,7 @@
 - feature: ralph run
   functions:
+  - file: internal/cmd/run.go
+    name: RunCmd.Run
   - file: internal/run/execute.go
     name: PrepareExecution
   - file: internal/run/execute.go
@@ -11,3 +13,96 @@
   - file: internal/run/iteration.go
     name: reportNewlyPassingRequirements
 
+- feature: ralph comment
+  functions:
+  - file: internal/cmd/comment.go
+    name: CommentCmd.Run
+
+- feature: ralph merge
+  functions:
+  - file: internal/cmd/merge.go
+    name: MergeCmd.Run
+  - file: internal/cmd/merge.go
+    name: MergeCmd.runLocal
+  - file: internal/cmd/merge.go
+    name: MergeCmd.scanAndCleanupProjects
+
+- feature: ralph review
+  functions:
+  - file: internal/cmd/review.go
+    name: ReviewCmd.Run
+  - file: internal/cmd/review.go
+    name: ReviewCmd.runReview
+  - file: internal/cmd/review.go
+    name: ReviewCmd.submitToArgo
+  - file: internal/cmd/review.go
+    name: ReviewCmd.submitPR
+
+- feature: ralph workflow
+  functions:
+  - file: internal/cmd/workflow.go
+    name: WorkflowCmd.Run
+  - file: internal/cmd/workflow.go
+    name: WorkflowCmd.syncBaseBranch
+  - file: internal/cmd/workflow.go
+    name: WorkflowCmd.mergeBaseBranch
+  - file: internal/cmd/workflow.go
+    name: WorkflowCmd.resolveConflictsWithAI
+  - file: internal/cmd/workflow.go
+    name: WorkflowCmd.runProject
+  - file: internal/cmd/workflow.go
+    name: WorkflowCmd.runReview
+
+- feature: ralph validate
+  functions:
+  - file: internal/cmd/validate.go
+    name: ValidateCmd.Run
+
+- feature: ralph list
+  functions:
+  - file: internal/cmd/list.go
+    name: ListCmd.Run
+
+- feature: ralph stop
+  functions:
+  - file: internal/cmd/stop.go
+    name: StopCmd.Run
+
+- feature: ralph setup-workspace
+  functions:
+  - file: internal/cmd/setup_workspace.go
+    name: SetupWorkspaceCmd.Run
+
+- feature: ralph set-github-token
+  functions:
+  - file: internal/cmd/github_token.go
+    name: GithubTokenCmd.Run
+
+- feature: ralph config github
+  functions:
+  - file: internal/cmd/config_github.go
+    name: ConfigGithubCmd.Run
+
+- feature: ralph config opencode
+  functions:
+  - file: internal/cmd/config_opencode.go
+    name: ConfigOpencodeCmd.Run
+
+- feature: ralph config pulumi
+  functions:
+  - file: internal/cmd/config_pulumi.go
+    name: ConfigPulumiCmd.Run
+
+- feature: ralph config webhook
+  functions:
+  - file: internal/cmd/config_webhook.go
+    name: ConfigWebhookConfigCmd.Run
+
+- feature: ralph config webhook-secret
+  functions:
+  - file: internal/cmd/config_webhook.go
+    name: ConfigWebhookSecretCmd.Run
+  - file: internal/cmd/config_webhook.go
+    name: ConfigWebhookSecretCmd.generateAndWriteSecrets
+  - file: internal/cmd/config_webhook.go
+    name: ConfigWebhookSecretCmd.registerWebhooks
