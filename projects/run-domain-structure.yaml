@@ -23,4 +23,4 @@ requirements:
     items:
       - Apply a patch bump to internal/version/VERSION
       - Apply a patch bump to charts/ralph-webhook/Chart.yaml (both version and appVersion fields)
-    passing: false
+    passing: true
