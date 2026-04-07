@@ -60,15 +60,9 @@ func (c *CommentCmd) Run() error {
 	ctx.SetNoNotify(true)
 	ctx.SetNoServices(c.NoServices)
 
-	// Start services
-	svcMgr := services.NewManager()
-	if !c.NoServices && len(cfg.Services) > 0 {
-		if _, err := svcMgr.Start(cfg.Services); err == nil {
-			if c.cleanupRegistrar != nil {
-				c.cleanupRegistrar(func() { svcMgr.Stop() })
-			}
-			defer svcMgr.Stop()
-		}
+	cleanup := startServicesIfNeeded(c.NoServices, cfg.Services, c.cleanupRegistrar)
+	if cleanup != nil {
+		defer cleanup()
 	}
 
 	// Generate comment prompt from rendered instructions template
@@ -81,6 +75,23 @@ func (c *CommentCmd) Run() error {
 	}
 
 	return nil
+}
+
+func startServicesIfNeeded(noServices bool, serviceList []config.Service, cleanupRegistrar func(func())) func() {
+	if noServices || len(serviceList) == 0 {
+		return nil
+	}
+
+	svcMgr := services.NewManager()
+	if _, err := svcMgr.Start(serviceList); err != nil {
+		return nil
+	}
+
+	cleanup := func() { svcMgr.Stop() }
+	if cleanupRegistrar != nil {
+		cleanupRegistrar(cleanup)
+	}
+	return cleanup
 }
 
 // renderInstructions renders a Go template with PR event context.

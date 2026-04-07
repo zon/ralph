@@ -42,7 +42,7 @@ requirements:
     description: Extract service lifecycle management from CommentCmd.Run
     items:
       - "`internal/cmd/comment.go`: `CommentCmd.Run` (lines 31-84) contains inline service manager lifecycle code (lines 64-72) — creating a `services.NewManager()`, conditionally starting services, registering cleanup, and deferring stop. This infrastructure concern appears in the middle of the domain flow. Extract it into a helper (e.g., `startServicesIfNeeded`) that returns a cleanup function, keeping `CommentCmd.Run` focused on the domain sequence: derive project file, load project, load config, render instructions, run agent"
-    passing: false
+    passing: true
 
   - category: version
     description: Apply version bump
