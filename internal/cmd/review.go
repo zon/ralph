@@ -204,11 +204,6 @@ func (r *ReviewCmd) runReview(ctx *execcontext.Context, ralphConfig *config.Ralp
 			return branchName, detectedProjectFile, fmt.Errorf("failed to load review item %d: %w", i, err)
 		}
 
-		summaryPath, err := git.TmpPath(fmt.Sprintf("summary-%d.txt", i))
-		if err != nil {
-			return branchName, detectedProjectFile, fmt.Errorf("failed to resolve summary path: %w", err)
-		}
-
 		prompt := r.buildItemPrompt(content)
 
 		if r.Verbose {
@@ -231,20 +226,35 @@ func (r *ReviewCmd) runReview(ctx *execcontext.Context, ralphConfig *config.Ralp
 		}
 
 		if branchName != "" && git.HasUncommittedChanges() {
-			commitMsg := r.buildCommitMessage(i, summaryPath)
-			var auth *git.AuthConfig
-			if ctx.IsWorkflowExecution() {
-				owner, repo := ctx.RepoOwnerAndName()
-				auth = &git.AuthConfig{Owner: owner, Repo: repo}
-			}
-			if err := git.CommitAllAndPush(auth, branchName, commitMsg); err != nil {
+			if err := r.commitReviewItemChanges(ctx, branchName, i); err != nil {
 				return branchName, detectedProjectFile, fmt.Errorf("failed to commit after item %d: %w", i+1, err)
 			}
-			os.Remove(summaryPath)
 		}
 	}
 
 	return branchName, detectedProjectFile, nil
+}
+
+func (r *ReviewCmd) commitReviewItemChanges(ctx *execcontext.Context, branchName string, itemIndex int) error {
+	summaryPath, err := git.TmpPath(fmt.Sprintf("summary-%d.txt", itemIndex))
+	if err != nil {
+		return fmt.Errorf("failed to resolve summary path: %w", err)
+	}
+
+	commitMsg := r.buildCommitMessage(itemIndex, summaryPath)
+
+	var auth *git.AuthConfig
+	if ctx.IsWorkflowExecution() {
+		owner, repo := ctx.RepoOwnerAndName()
+		auth = &git.AuthConfig{Owner: owner, Repo: repo}
+	}
+
+	if err := git.CommitAllAndPush(auth, branchName, commitMsg); err != nil {
+		return err
+	}
+
+	os.Remove(summaryPath)
+	return nil
 }
 
 func (r *ReviewCmd) buildItemPrompt(content string) string {

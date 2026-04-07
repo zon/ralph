@@ -655,3 +655,64 @@ requirements:
 	// Should have at least 2 commits (initial + at least one review commit)
 	assert.GreaterOrEqual(t, len(lines), 2, "should have at least two commits")
 }
+
+func TestCommitReviewItemChanges_NoChangesNoSummary(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Chdir(tmpDir)
+
+	remoteDir := filepath.Join(tmpDir, "remote.git")
+	require.NoError(t, exec.Command("git", "init", "--bare", remoteDir).Run())
+
+	require.NoError(t, exec.Command("git", "init").Run())
+	require.NoError(t, exec.Command("git", "config", "user.email", "test@example.com").Run())
+	require.NoError(t, exec.Command("git", "config", "user.name", "Test User").Run())
+	require.NoError(t, exec.Command("git", "remote", "add", "origin", remoteDir).Run())
+	require.NoError(t, exec.Command("git", "branch", "-M", "main").Run())
+
+	require.NoError(t, os.WriteFile("test.txt", []byte("initial"), 0644))
+	require.NoError(t, exec.Command("git", "add", ".").Run())
+	require.NoError(t, exec.Command("git", "commit", "-m", "initial").Run())
+	require.NoError(t, exec.Command("git", "push", "-u", "origin", "main").Run())
+
+	r := &ReviewCmd{}
+	ctx := testutil.NewContext()
+
+	err := r.commitReviewItemChanges(ctx, "main", 0)
+	require.NoError(t, err, "commitReviewItemChanges should succeed when there are no changes")
+}
+
+func TestCommitReviewItemChanges_WithChangesAndSummary(t *testing.T) {
+	t.Setenv("RALPH_MOCK_AI", "true")
+
+	tmpDir := t.TempDir()
+	t.Chdir(tmpDir)
+
+	remoteDir := filepath.Join(tmpDir, "remote.git")
+	require.NoError(t, exec.Command("git", "init", "--bare", remoteDir).Run())
+
+	require.NoError(t, exec.Command("git", "init").Run())
+	require.NoError(t, exec.Command("git", "config", "user.email", "test@example.com").Run())
+	require.NoError(t, exec.Command("git", "config", "user.name", "Test User").Run())
+	require.NoError(t, exec.Command("git", "remote", "add", "origin", remoteDir).Run())
+	require.NoError(t, exec.Command("git", "branch", "-M", "main").Run())
+
+	require.NoError(t, os.WriteFile("test.txt", []byte("content"), 0644))
+	require.NoError(t, exec.Command("git", "add", ".").Run())
+	require.NoError(t, exec.Command("git", "commit", "-m", "initial").Run())
+	require.NoError(t, exec.Command("git", "push", "-u", "origin", "main").Run())
+
+	require.NoError(t, os.WriteFile("new.go", []byte("package main\n"), 0644))
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	require.NoError(t, os.Mkdir(ralphDir, 0755))
+	configContent := `model: deepseek/deepseek-chat
+`
+	configPath := filepath.Join(ralphDir, "config.yaml")
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
+
+	r := &ReviewCmd{}
+	ctx := testutil.NewContext()
+
+	err := r.commitReviewItemChanges(ctx, "main", 0)
+	require.NoError(t, err, "commitReviewItemChanges should succeed with changes present")
+}
