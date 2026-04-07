@@ -12,7 +12,7 @@ requirements:
     description: Remove reportNewlyPassingRequirements from domain-functions.yaml
     items:
       - "domain-functions.yaml: `reportNewlyPassingRequirements` in `internal/run/iteration.go` is listed as a domain function but it is a simple logging helper that iterates requirements and logs which ones newly pass. It does not encode domain rules or summarize a feature. Remove it from the `ralph run` feature entry in domain-functions.yaml"
-    passing: false
+    passing: true
 
   - category: iteration
     description: Extract implementation details from runSingleIteration

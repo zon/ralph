@@ -10,8 +10,6 @@
     name: RunIterationLoop
   - file: internal/run/iteration.go
     name: runSingleIteration
-  - file: internal/run/iteration.go
-    name: reportNewlyPassingRequirements
 
 - feature: ralph comment
   functions:
