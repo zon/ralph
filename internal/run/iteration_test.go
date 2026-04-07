@@ -277,6 +277,39 @@ requirements:
 	assert.Equal(t, 1, iterations)
 }
 
+func TestCommitIterationChanges_NoChangesNoReport(t *testing.T) {
+	workDir := setupIterationTestRepo(t, "")
+	t.Chdir(workDir)
+
+	ctx := testutil.NewContext()
+
+	err := commitIterationChanges(ctx, 1)
+	require.NoError(t, err, "commitIterationChanges should succeed when there are no changes and no report.md")
+}
+
+func TestCommitIterationChanges_WithReportMd(t *testing.T) {
+	t.Setenv("RALPH_MOCK_AI", "true")
+
+	workDir := setupIterationTestRepo(t, "")
+	t.Chdir(workDir)
+
+	if err := os.WriteFile("report.md", []byte("Test iteration 1"), 0644); err != nil {
+		t.Fatalf("Failed to create report.md: %v", err)
+	}
+
+	if err := os.WriteFile("new.go", []byte("package main\n"), 0644); err != nil {
+		t.Fatalf("Failed to create new.go: %v", err)
+	}
+
+	ctx := testutil.NewContext()
+
+	err := commitIterationChanges(ctx, 1)
+	require.NoError(t, err, "commitIterationChanges should succeed with report.md present")
+
+	_, statErr := os.Stat("report.md")
+	assert.True(t, os.IsNotExist(statErr), "report.md should be removed after commit")
+}
+
 func setupIterationTestRepo(t *testing.T, hookContent string) string {
 	t.Helper()
 
