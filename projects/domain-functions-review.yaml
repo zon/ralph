@@ -5,8 +5,8 @@ requirements:
   - category: domain-functions.yaml
     description: Add missing webhook service major feature to domain-functions.yaml
     items:
-      - "domain-functions.yaml: The webhook service (`ralph-webhook`) is a major user-facing feature — it receives GitHub webhook events, validates them, filters by user/repo rules, and dispatches Argo workflows — but is entirely absent from domain-functions.yaml. Add a new `webhook service` feature entry with the key domain functions: `Server.handleWebhook` (internal/webhook/server.go), `githubPayload.IsAcceptable` (internal/webhook/payload.go), `githubPayload.ToEvent` (internal/webhook/payload.go), and `Event.ToWorkflow` (internal/webhook/events.go)"
-    passing: false
+    - "domain-functions.yaml: The webhook service (`ralph-webhook`) is a major user-facing feature — it receives GitHub webhook events, validates them, filters by user/repo rules, and dispatches Argo workflows — but is entirely absent from domain-functions.yaml. Add a new `webhook service` feature entry with the key domain functions: `Server.handleWebhook` (internal/webhook/server.go), `githubPayload.IsAcceptable` (internal/webhook/payload.go), `githubPayload.ToEvent` (internal/webhook/payload.go), and `Event.ToWorkflow` (internal/webhook/events.go)"
+    passing: true
 
   - category: domain-functions.yaml
     description: Remove reportNewlyPassingRequirements from domain-functions.yaml
