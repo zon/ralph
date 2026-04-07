@@ -30,7 +30,7 @@ requirements:
     description: Extract raw git shell commands from WorkflowCmd.fetchBaseBranch
     items:
       - "`internal/cmd/workflow.go`: `WorkflowCmd.fetchBaseBranch` (lines 150-159) directly calls `exec.Command(\"git\", \"fetch\", ...)` bypassing the `internal/git` package. Move this logic into the `internal/git` package (e.g., `git.FetchBranch`) and call that from the domain function instead"
-    passing: false
+    passing: true
 
   - category: workflow
     description: Deduplicate setup boilerplate in WorkflowCmd.runProject and resolveConflictsWithAI
