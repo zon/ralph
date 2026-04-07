@@ -1,0 +1,19 @@
+- internal/run/execute.go Execute: Execute function contains infrastructure details (infrastructureRunBeforeCommands, ValidateGitStateAndSwitchBranch, infrastructureGetCommitLog, GitHub API calls) mixed with domain logic. Refactor to delegate infrastructure to helper functions with domain-named interfaces.
+
+- internal/run/execute.go PrepareExecution: PrepareExecution performs filepath.Abs, git operations, and config loading directly. These infrastructure concerns should be moved out so PrepareExecution only composes ExecutionSetup from already-resolved values.
+
+- internal/run/iteration.go runSingleIteration: runSingleIteration directly performs os.Stat, os.ReadFile, os.Remove, HasUncommittedChanges, CommitChanges. Extract into helper functions so runSingleIteration focuses on iteration flow.
+
+- internal/cmd/workflow.go ralph workflow: ralph workflow is infrastructure (containerized CI/CD execution), not a user-facing feature. Remove from domain-functions.yaml. Its methods (syncBaseBranch, mergeBaseBranch, resolveConflictsWithAI, runProject, runReview) are infrastructure helpers.
+
+- internal/cmd/review.go submitToArgo and submitPR: These are infrastructure (Argo workflow submission, GitHub API calls), not domain functions. Move to infrastructure helpers and simplify ReviewCmd.Run to orchestrate prepare context, run review items, create branch, delegate PR creation.
+
+- internal/cmd/merge.go scanAndCleanupProjects and waitForGitHubHead: scanAndCleanupProjects does file scanning and git push; waitForGitHubHead polls GitHub API. Extract as infrastructure helpers. MergeCmd.Run should only generate merge workflow, submit, and return.
+
+- internal/cmd/comment.go CommentCmd.Run: Directly starts services with NewManager and svcMgr.Start. Extract service startup into abstracted helper. CommentCmd.Run should focus on load project, create context, run agent with prompt.
+
+- domain-functions.yaml missing core domain functions: CheckCompletion and ExecuteDevelopmentIterationWithSetup are core domain functions not listed. Infrastructure functions like PrepareIteration are listed instead. Add CheckCompletion to ralph run feature.
+
+- domain-functions.yaml config subcommands: ralph config github, ralph config opencode, ralph config pulumi, ralph config webhook, ralph config webhook-secret are all subcommands of ralph config but listed as separate features. Group under single ralph config feature.
+
+- internal/cmd/workflow.go resolveConflictsWithAI: Builds AI prompt inline and calls run.Execute directly, mixing AI prompting with domain flow. Extract to helper that encapsulates AI interaction.
