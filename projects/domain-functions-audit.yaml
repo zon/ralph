@@ -1,0 +1,27 @@
+name: domain-functions-audit
+description: Audit and fix domain function architecture issues
+requirements:
+  - category: missing-domain-functions
+    description: Add missing domain functions to domain-functions.yaml
+    items:
+      - Add project.ExecuteDevelopmentIteration and project.ExecuteDevelopmentIterationWithSetup as domain functions for ralph run
+      - Add project.PrepareIteration as a domain function for ralph run
+      - Add webhook webhook event handling as a domain function (ralph-webhook feature)
+      - Add provisioning.BuildWebhookAppConfig and provisioning.BuildWebhookSecrets as domain functions for ralph-webhook
+  - category: mixed-domain-implementation
+    description: Refactor functions that mix domain logic with infrastructure
+    items:
+      - "internal/cmd/run.go: RunCmd.Run mixes flag handling, directory validation, config loading, and context creation - extract setup/validation into separate infrastructure functions"
+      - "internal/cmd/review.go: ReviewCmd.Run mixes flag validation, project dir creation, config loading, context creation - extract setup logic"
+      - "internal/cmd/workflow.go: WorkflowCmd.Run mixes context setup with git auth and OpenCode credential setup - these are infrastructure concerns"
+      - "internal/cmd/merge.go: MergeCmd.scanAndCleanupProjects mixes project scanning with git push and GitHub polling - separate domain vs infrastructure"
+      - "internal/cmd/config_github.go: ConfigGithubCmd.Run mixes Kubernetes secret creation with GitHub credential validation - infrastructure not domain"
+      - "internal/cmd/config_opencode.go: ConfigOpencodeCmd.Run mixes Kubernetes secret creation with credential reading - infrastructure not domain"
+      - "internal/cmd/config_pulumi.go: ConfigPulumiCmd.Run mixes token prompting and Kubernetes secret creation - infrastructure not domain"
+      - "internal/cmd/config_webhook.go: ConfigWebhookSecretCmd.Run mixes secret generation with webhook registration - infrastructure not domain"
+  - category: incomplete-features
+    description: Add missing major features to domain-functions.yaml
+    items:
+      - Add ralph-webhook as a major feature (webhook event handling)
+      - Consider adding a webhook provisioning feature separate from webhook server itself
+passing: false
