@@ -1,0 +1,17 @@
+name: code-review
+description: Code review findings for domain functions standards
+requirements:
+  - category: security
+    description: "internal/cmd/review.go:loadItemContent uses plain http.Get for item.URL; HTTP is insecure for production use; add comment explaining why HTTP is acceptable, or switch to https.DefaultClient"
+  - category: architecture
+    description: "internal/cmd/workflow.go:resolveConflictsWithAI is a domain function (AI conflict resolution) but calls run.Execute which is execution infrastructure; extract conflict resolution into a standalone domain function that doesn't depend on execute infrastructure"
+  - category: architecture
+    description: "internal/run/execute.go:Execute mixes domain logic (iteration loop, PR summary generation, PR creation) with infrastructure concerns (git validation, service startup); these should be separated - Execute should delegate to lower-level domain functions"
+  - category: architecture
+    description: "internal/run/iteration.go:runSingleIteration contains mixed domain and infrastructure logic (git operations, file handling, service cleanup); extract infrastructure operations into separate helper functions called by the domain logic"
+  - category: completeness
+    description: "domain-functions.yaml missing ralph comment feature; CommentCmd.Run in internal/cmd/comment.go is a domain function that should be indexed under a new feature entry"
+  - category: completeness
+    description: "domain-functions.yaml missing ConfigWebhookSecretCmd.registerWebhooks; this function is a domain function (registers webhooks for repos) but is not listed in the ralph config webhook-secret feature"
+  - category: naming
+    description: "internal/run/execute.go:infrastructureRunBeforeCommands and infrastructureGetCommitLog have misleading names suggesting they are domain functions when they are actually helper functions called by Execute; rename to clarify they are internal helpers"
