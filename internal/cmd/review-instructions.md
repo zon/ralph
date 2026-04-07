@@ -4,9 +4,9 @@ You are a software architect reviewing source code. Does the code meet the stand
 {{.ItemContent}}
 
 ## Instructions
-Create or edit a ralph project in projects/<name>.yaml if any standards are not met. Create a separate requirement item for each issue found.
+Create or edit a Ralph project in projects/<name>.yaml if any standards are not met. Follow [Ralph project documentation](https://raw.githubusercontent.com/zon/ralph/refs/heads/main/docs/projects.md). Create a separate requirement item for each issue found.
 
-Ignore docs/writing-requirements.md. Instead, write requirements in a code-review style: each requirement item must describe the specific problem found in the code and explain concretely how to fix it. Include file paths and function names where relevant.
+Ignore the typical guidelines for [writing good requirements](https://raw.githubusercontent.com/zon/ralph/refs/heads/main/docs/writing-requirements.md). Instead, write requirements in a code-review style: each requirement item must describe the specific problem found in the code and explain concretely how to fix it. Include file paths and function names where relevant.
 
 Example requirement items:
 - `internal/foo/bar.go`: `processItems` allocates a new slice on every call; pre-allocate with the known capacity before the loop
