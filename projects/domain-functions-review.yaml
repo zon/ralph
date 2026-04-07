@@ -36,7 +36,7 @@ requirements:
     description: Deduplicate setup boilerplate in WorkflowCmd.runProject and resolveConflictsWithAI
     items:
       - "`internal/cmd/workflow.go`: `WorkflowCmd.runProject` (lines 261-307) and `WorkflowCmd.resolveConflictsWithAI` (lines 194-259) share nearly identical boilerplate — both load config, resolve max iterations, set context flags, load the project, get the current branch, build an `ExecutionSetup` struct, and call `run.Execute`. Extract the shared setup into a helper (e.g., `WorkflowCmd.prepareAndExecute`) that accepts only the differing parameters (like the instructions file) and hides the repeated infrastructure assembly"
-    passing: false
+    passing: true
 
   - category: comment
     description: Extract service lifecycle management from CommentCmd.Run
