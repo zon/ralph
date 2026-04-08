@@ -4,7 +4,6 @@ import (
 	gocontext "context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 
 	"github.com/zon/ralph/internal/ai"
@@ -150,13 +149,7 @@ func (w *WorkflowCmd) syncBaseBranch(ctx *context.Context) error {
 func (w *WorkflowCmd) fetchBaseBranch(ctx *context.Context) error {
 	baseBranch := ctx.BaseBranch()
 	logger.Infof("Fetching base branch: %s", baseBranch)
-
-	cmd := exec.Command("git", "fetch", "origin", baseBranch+":"+baseBranch)
-	if err := cmd.Run(); err != nil {
-		logger.Infof("Fetch with refspec failed, falling back to plain fetch: %v", err)
-		return exec.Command("git", "fetch", "origin", baseBranch).Run()
-	}
-	return nil
+	return git.FetchBranch(baseBranch)
 }
 
 func (w *WorkflowCmd) checkIfMergeNeeded(ctx *context.Context) (bool, error) {
@@ -215,55 +208,25 @@ Focus on accepting the correct changes from both branches. If there are test fai
 		return fmt.Errorf("failed to write merge instructions: %w", err)
 	}
 
-	projectPath := ctx.ProjectFile()
-	if !filepath.IsAbs(projectPath) {
-		projectPath = filepath.Join("/workspace/repo", projectPath)
-	}
+	ctx.SetBaseBranch(baseBranch)
 
-	ctx.SetProjectFile(projectPath)
-	ctx.SetLocal(true)
-	ctx.SetNoNotify(true)
-	ctx.SetInstructions(instructionsFile)
-
-	ralphConfig, err := config.LoadConfig()
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
-	}
-	maxIterations := resolveMaxIterations(ralphConfig, ctx.MaxIterations())
-	ctx.SetMaxIterations(maxIterations)
-	ctx.SetWorkflowExecution(true)
-
-	proj, err := project.LoadProject(projectPath)
-	if err != nil {
-		return fmt.Errorf("failed to load project: %w", err)
-	}
-
-	currentBranch, err := git.GetCurrentBranch()
-	if err != nil {
-		return fmt.Errorf("failed to get current branch: %w", err)
-	}
-
-	projectBranch := git.SanitizeBranchName(proj.Name)
-	setup := &run.ExecutionSetup{
-		ProjectFile:   projectPath,
-		Project:       proj,
-		Config:        ralphConfig,
-		BranchName:    projectBranch,
-		CurrentBranch: currentBranch,
-		BaseBranch:    ctx.BaseBranch(),
-	}
-
-	_ = run.Execute(ctx, w.cleanupRegistrar, setup)
-
-	return nil
+	return w.prepareAndExecute(ctx, w.cleanupRegistrar, instructionsFile)
 }
 
 func (w *WorkflowCmd) runProject(ctx *context.Context) error {
 	logger.Info("Running project...")
 
+	return w.prepareAndExecute(ctx, w.cleanupRegistrar, "")
+}
+
+func (w *WorkflowCmd) prepareAndExecute(ctx *context.Context, cleanupRegistrar func(func()), instructionsFile string) error {
 	projectPath := ctx.ProjectFile()
 	if !filepath.IsAbs(projectPath) {
-		projectPath = filepath.Join("/workspace/repo", projectPath)
+		var err error
+		projectPath, err = filepath.Abs(projectPath)
+		if err != nil {
+			return fmt.Errorf("failed to resolve project file path: %w", err)
+		}
 	}
 
 	ralphConfig, err := config.LoadConfig()
@@ -276,8 +239,11 @@ func (w *WorkflowCmd) runProject(ctx *context.Context) error {
 	ctx.SetMaxIterations(maxIterations)
 	ctx.SetLocal(true)
 	ctx.SetNoNotify(true)
-
 	ctx.SetWorkflowExecution(true)
+
+	if instructionsFile != "" {
+		ctx.SetInstructions(instructionsFile)
+	}
 
 	proj, err := project.LoadProject(projectPath)
 	if err != nil {
@@ -299,7 +265,7 @@ func (w *WorkflowCmd) runProject(ctx *context.Context) error {
 		BaseBranch:    ctx.BaseBranch(),
 	}
 
-	if err := run.Execute(ctx, w.cleanupRegistrar, setup); err != nil {
+	if err := run.Execute(ctx, cleanupRegistrar, setup); err != nil {
 		return fmt.Errorf("ralph execution failed: %w", err)
 	}
 

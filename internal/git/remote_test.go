@@ -181,3 +181,45 @@ func TestRemoteURL(t *testing.T) {
 		assert.Contains(t, err.Error(), "failed to get remote URL")
 	})
 }
+
+func TestFetchBranch(t *testing.T) {
+	t.Run("fetches branch with refspec", func(t *testing.T) {
+		workDir, _ := setupBareRemoteRepo(t)
+		t.Chdir(workDir)
+
+		branchName := "fetch-test-branch"
+		require.NoError(t, CheckoutOrCreateBranch(branchName))
+
+		require.NoError(t, os.WriteFile(filepath.Join(workDir, "test.txt"), []byte("test\n"), 0644))
+		require.NoError(t, StageAll())
+		require.NoError(t, Commit("add test file"))
+		_, err := Push(nil, branchName)
+		require.NoError(t, err)
+
+		require.NoError(t, FetchBranch(branchName))
+
+		refs, err := runGit("rev-parse", "--verify", branchName)
+		require.NoError(t, err)
+		assert.NotEmpty(t, refs)
+	})
+
+	t.Run("falls back to plain fetch when refspec fails", func(t *testing.T) {
+		workDir, _ := setupBareRemoteRepo(t)
+		t.Chdir(workDir)
+
+		branchName := "fetch-fallback-branch"
+		require.NoError(t, CheckoutOrCreateBranch(branchName))
+
+		require.NoError(t, os.WriteFile(filepath.Join(workDir, "test.txt"), []byte("test\n"), 0644))
+		require.NoError(t, StageAll())
+		require.NoError(t, Commit("add test file"))
+		_, err := Push(nil, branchName)
+		require.NoError(t, err)
+
+		require.NoError(t, FetchBranch(branchName))
+
+		refs, err := runGit("rev-parse", "--verify", branchName)
+		require.NoError(t, err)
+		assert.NotEmpty(t, refs)
+	})
+}

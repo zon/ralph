@@ -10,8 +10,6 @@
     name: RunIterationLoop
   - file: internal/run/iteration.go
     name: runSingleIteration
-  - file: internal/run/iteration.go
-    name: reportNewlyPassingRequirements
 
 - feature: ralph comment
   functions:
@@ -97,6 +95,17 @@
   functions:
   - file: internal/cmd/config_webhook.go
     name: ConfigWebhookConfigCmd.Run
+
+- feature: ralph webhook
+  functions:
+  - file: internal/webhook/server.go
+    name: Server.handleWebhook
+  - file: internal/webhook/payload.go
+    name: githubPayload.IsAcceptable
+  - file: internal/webhook/payload.go
+    name: githubPayload.ToEvent
+  - file: internal/webhook/events.go
+    name: Event.ToWorkflow
 
 - feature: ralph config webhook-secret
   functions:

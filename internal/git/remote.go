@@ -4,7 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os/exec"
 	"strings"
+
+	"github.com/zon/ralph/internal/logger"
 )
 
 type AuthConfig struct {
@@ -137,12 +140,21 @@ func PullAndPush(isWorkflow bool, owner, repo string) error {
 
 	branch, err := GetCurrentBranch()
 	if err != nil {
-		return fmt.Errorf("failed to get current branch: %w", err)
+		return fmt.Errorf("failed to get current branch for push: %w", err)
 	}
 
 	if _, err := Push(auth, branch); err != nil {
 		return err
 	}
 
+	return nil
+}
+
+func FetchBranch(branch string) error {
+	cmd := exec.Command("git", "fetch", "origin", branch+":"+branch)
+	if err := cmd.Run(); err != nil {
+		logger.Infof("Fetch with refspec failed, falling back to plain fetch: %v", err)
+		return exec.Command("git", "fetch", "origin", branch).Run()
+	}
 	return nil
 }

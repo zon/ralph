@@ -157,42 +157,9 @@ func runSingleIteration(ctx *context.Context, cleanupRegistrar func(func()), pre
 		return fmt.Errorf("iteration %d failed: %w", iteration, err)
 	}
 
-	// If there are no uncommitted changes and no report.md, there is nothing to commit
-	_, reportErr := os.Stat("report.md")
-	if !git.HasUncommittedChanges() && os.IsNotExist(reportErr) {
-		logger.Verbosef("No changes to commit after iteration %d", iteration)
-	} else {
-		// If there are uncommitted changes but no report.md, prompt opencode to write one
-		if err := generateChangelogIfNeeded(ctx); err != nil {
-			logger.Warningf("Failed to generate changelog: %v", err)
-		}
-
-		// Read commit message from report.md
-		commitMsg, err := getCommitMessage(iteration)
-		if err != nil {
-			return fmt.Errorf("cannot commit without a descriptive changelog: %w", err)
-		}
-
-		// Commit changes after iteration
-		logger.Verbosef("Committing changes from iteration %d...", iteration)
-		isWorkflow := ctx.IsWorkflowExecution()
-		var owner, repo string
-		if isWorkflow {
-			owner, repo = ctx.RepoOwnerAndName()
-		}
-
-		message := strings.TrimSpace(string(commitMsg))
-		if err := git.CommitChanges(isWorkflow, owner, repo, message); err != nil {
-			if errors.Is(err, git.ErrNoChanges) {
-				logger.Verbosef("No changes to commit after iteration %d", iteration)
-			} else if errors.Is(err, git.ErrFatalPushError) {
-				return err
-			} else {
-				return fmt.Errorf("iteration %d commit failed: %w", iteration, err)
-			}
-		} else {
-			logger.Verbosef("Committed changes from iteration %d", iteration)
-		}
+	// Commit changes after iteration
+	if err := commitIterationChanges(ctx, iteration); err != nil {
+		return err
 	}
 
 	// Load and check project completion status
@@ -210,6 +177,48 @@ func runSingleIteration(ctx *context.Context, cleanupRegistrar func(func()), pre
 	// Stop if all requirements are passing
 	if allComplete {
 		logger.Success("All requirements complete")
+	}
+
+	return nil
+}
+
+// commitIterationChanges handles the commit workflow for an iteration.
+// It detects report.md, generates changelog if needed, reads the commit message,
+// and commits changes via git. Returns nil if there are no changes to commit.
+func commitIterationChanges(ctx *context.Context, iteration int) error {
+	_, reportErr := os.Stat("report.md")
+	if !git.HasUncommittedChanges() && os.IsNotExist(reportErr) {
+		logger.Verbosef("No changes to commit")
+		return nil
+	}
+
+	if err := generateChangelogIfNeeded(ctx); err != nil {
+		logger.Warningf("Failed to generate changelog: %v", err)
+	}
+
+	commitMsg, err := getCommitMessage(iteration)
+	if err != nil {
+		return fmt.Errorf("cannot commit without a descriptive changelog: %w", err)
+	}
+
+	logger.Verbosef("Committing changes from iteration %d...", iteration)
+	isWorkflow := ctx.IsWorkflowExecution()
+	var owner, repo string
+	if isWorkflow {
+		owner, repo = ctx.RepoOwnerAndName()
+	}
+
+	message := strings.TrimSpace(string(commitMsg))
+	if err := git.CommitChanges(isWorkflow, owner, repo, message); err != nil {
+		if errors.Is(err, git.ErrNoChanges) {
+			logger.Verbosef("No changes to commit after iteration %d", iteration)
+		} else if errors.Is(err, git.ErrFatalPushError) {
+			return err
+		} else {
+			return fmt.Errorf("iteration %d commit failed: %w", iteration, err)
+		}
+	} else {
+		logger.Verbosef("Committed changes from iteration %d", iteration)
 	}
 
 	return nil
