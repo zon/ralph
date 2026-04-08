@@ -39,7 +39,7 @@ requirements:
     items:
       - "Update the local execution path in `internal/cmd/architecture.go` to validate the generated file after `ai.RunAgent` succeeds. After the agent runs: call `architecture.Load(r.Output)` to read the file; if loading fails or `arch.Validate()` returns errors, build a fix prompt via `ai.BuildArchitectureFixPrompt(r.Output, errors)` and call `ai.RunAgent` again with the fix prompt; repeat up to 3 times total (initial generation + up to 2 fix attempts); if validation still fails after all attempts, return an error listing the remaining validation errors."
       - "After successful generation and validation, if `ctx.IsWorkflowExecution()` is true and `git.IsFileModifiedOrNew(r.Output)` is true: (1) call `git.CheckoutOrCreateBranch(\"architecture\")` to switch to the architecture branch; (2) call `git.StageFile(r.Output)` to stage the output file; (3) build an auth config from `ctx.RepoOwnerAndName()` and commit + push using `git.CommitAllAndPush(auth, \"architecture\", \"architecture: generate architecture.yaml\")`; (4) call `github.CreatePullRequest` with a title of `\"Update architecture.yaml\"` and an appropriate body; log the PR URL on success. If the file has not changed, log that no changes were detected and skip the PR."
-    passing: false
+    passing: true
 
   - category: workflow
     description: Add GenerateArchitectureWorkflow

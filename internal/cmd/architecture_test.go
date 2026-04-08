@@ -9,6 +9,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const validArchitectureYAML = `apps:
+  - name: test-app
+    description: A test application
+    main:
+      file: cmd/test-app/main.go
+      function: main
+    features:
+      - name: test-feature
+        description: A test feature
+        functions:
+          - file: internal/test/feature.go
+            name: TestFunction
+modules:
+  - path: internal/test
+    description: Test module
+    type: domain
+`
+
 func TestArchitectureCmdFlagParsing(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -103,6 +121,8 @@ func TestArchitectureCmd_Run(t *testing.T) {
 	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
 
 	outputPath := tmpDir + "/test-architecture.yaml"
+	require.NoError(t, os.WriteFile(outputPath, []byte(validArchitectureYAML), 0644))
+
 	r := &ArchitectureCmd{
 		Output:  outputPath,
 		Verbose: false,
@@ -126,6 +146,8 @@ func TestArchitectureCmd_Run_Verbose(t *testing.T) {
 	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
 
 	outputPath := tmpDir + "/test-architecture.yaml"
+	require.NoError(t, os.WriteFile(outputPath, []byte(validArchitectureYAML), 0644))
+
 	r := &ArchitectureCmd{
 		Output:  outputPath,
 		Verbose: true,
@@ -149,6 +171,8 @@ func TestArchitectureCmd_Run_ModelOverride(t *testing.T) {
 	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
 
 	outputPath := tmpDir + "/test-architecture.yaml"
+	require.NoError(t, os.WriteFile(outputPath, []byte(validArchitectureYAML), 0644))
+
 	r := &ArchitectureCmd{
 		Output:  outputPath,
 		Verbose: false,
@@ -160,6 +184,17 @@ func TestArchitectureCmd_Run_ModelOverride(t *testing.T) {
 }
 
 func TestArchitectureCmd_Run_PromptBuildError(t *testing.T) {
+	t.Setenv("RALPH_MOCK_AI", "true")
+	tmpDir := t.TempDir()
+	t.Chdir(tmpDir)
+
+	ralphDir := ".ralph"
+	require.NoError(t, os.MkdirAll(ralphDir, 0755))
+	configContent := `model: deepseek/deepseek-chat
+`
+	configPath := ralphDir + "/config.yaml"
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
+
 	r := &ArchitectureCmd{
 		Output:  "/invalid/path/that/will/fail/architecture.yaml",
 		Verbose: false,
@@ -167,6 +202,118 @@ func TestArchitectureCmd_Run_PromptBuildError(t *testing.T) {
 	}
 
 	err := r.Run()
-	require.Error(t, err, "ArchitectureCmd.Run should error when prompt build fails")
-	assert.Contains(t, err.Error(), "failed to build architecture prompt")
+	require.Error(t, err, "ArchitectureCmd.Run should error when validation fails for invalid path")
+	assert.Contains(t, err.Error(), "failed to load architecture file after 3 attempts")
+}
+
+func TestArchitectureCmd_ValidationLoop_FailsAfterMaxAttempts(t *testing.T) {
+	t.Setenv("RALPH_MOCK_AI", "true")
+	tmpDir := t.TempDir()
+	t.Chdir(tmpDir)
+
+	ralphDir := ".ralph"
+	require.NoError(t, os.MkdirAll(ralphDir, 0755))
+	configContent := `model: deepseek/deepseek-chat
+`
+	configPath := ralphDir + "/config.yaml"
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
+
+	outputPath := tmpDir + "/test-architecture.yaml"
+	invalidYAML := `apps:
+  - name: ""
+    description: ""
+    main:
+      file: ""
+      function: ""
+`
+	require.NoError(t, os.WriteFile(outputPath, []byte(invalidYAML), 0644))
+
+	r := &ArchitectureCmd{
+		Output:  outputPath,
+		Verbose: false,
+		Model:   "",
+	}
+
+	err := r.Run()
+	require.Error(t, err, "ArchitectureCmd.Run should error when validation fails after max attempts")
+	assert.Contains(t, err.Error(), "architecture validation failed after 3 attempts")
+}
+
+func TestArchitectureCmd_ValidationLoop_SuccessOnValidFile(t *testing.T) {
+	t.Setenv("RALPH_MOCK_AI", "true")
+	tmpDir := t.TempDir()
+	t.Chdir(tmpDir)
+
+	ralphDir := ".ralph"
+	require.NoError(t, os.MkdirAll(ralphDir, 0755))
+	configContent := `model: deepseek/deepseek-chat
+`
+	configPath := ralphDir + "/config.yaml"
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
+
+	outputPath := tmpDir + "/test-architecture.yaml"
+	require.NoError(t, os.WriteFile(outputPath, []byte(validArchitectureYAML), 0644))
+
+	r := &ArchitectureCmd{
+		Output:  outputPath,
+		Verbose: false,
+		Model:   "",
+	}
+
+	err := r.Run()
+	require.NoError(t, err, "ArchitectureCmd.Run should succeed with valid architecture file")
+}
+
+func TestArchitectureCmd_CommitAndPR_SkipsWhenNotWorkflowExecution(t *testing.T) {
+	t.Setenv("RALPH_MOCK_AI", "true")
+	t.Setenv("RALPH_WORKFLOW_EXECUTION", "")
+	tmpDir := t.TempDir()
+	t.Chdir(tmpDir)
+
+	ralphDir := ".ralph"
+	require.NoError(t, os.MkdirAll(ralphDir, 0755))
+	configContent := `model: deepseek/deepseek-chat
+`
+	configPath := ralphDir + "/config.yaml"
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
+
+	outputPath := tmpDir + "/test-architecture.yaml"
+	require.NoError(t, os.WriteFile(outputPath, []byte(validArchitectureYAML), 0644))
+
+	r := &ArchitectureCmd{
+		Output:  outputPath,
+		Verbose: false,
+		Model:   "",
+	}
+
+	err := r.Run()
+	require.NoError(t, err, "ArchitectureCmd.Run should succeed when not in workflow execution")
+}
+
+func TestArchitectureCmd_CommitAndPR_SkipsWhenFileNotModified(t *testing.T) {
+	t.Setenv("RALPH_MOCK_AI", "true")
+	t.Setenv("RALPH_WORKFLOW_EXECUTION", "true")
+	t.Setenv("GITHUB_REPO_OWNER", "test-owner")
+	t.Setenv("GITHUB_REPO_NAME", "test-repo")
+	tmpDir := t.TempDir()
+	t.Chdir(tmpDir)
+
+	ralphDir := ".ralph"
+	require.NoError(t, os.MkdirAll(ralphDir, 0755))
+	configContent := `model: deepseek/deepseek-chat
+`
+	configPath := ralphDir + "/config.yaml"
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
+
+	outputPath := tmpDir + "/test-architecture.yaml"
+	require.NoError(t, os.WriteFile(outputPath, []byte(validArchitectureYAML), 0644))
+
+	r := &ArchitectureCmd{
+		Output:  outputPath,
+		Verbose: false,
+		Model:   "",
+	}
+
+	err := r.Run()
+	require.NoError(t, err, "ArchitectureCmd.Run should succeed when file is not modified")
 }
