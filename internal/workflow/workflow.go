@@ -62,6 +62,10 @@ type Workflow struct {
 	Labels map[string]string
 	// Review indicates this is a review workflow (runs ralph review --local in the container).
 	Review bool
+	// Architecture indicates this is an architecture workflow (runs ralph architecture --local in the container).
+	Architecture bool
+	// ArchitectureOutput is the output path for architecture.yaml when Architecture is true.
+	ArchitectureOutput string
 }
 
 // Render produces the Argo Workflow YAML string for this Workflow.
@@ -160,6 +164,19 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 		}
 		if w.Filter != "" {
 			args = append(args, "--filter", w.Filter)
+		}
+	} else if w.Architecture {
+		command = []string{"ralph"}
+		args = []string{
+			"architecture",
+			"--local",
+			"--output", w.ArchitectureOutput,
+		}
+		if w.Verbose {
+			args = append(args, "--verbose")
+		}
+		if w.Model != "" {
+			args = append(args, "--model", w.Model)
 		}
 	} else {
 		command = []string{"ralph"}

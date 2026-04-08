@@ -224,6 +224,65 @@ func GenerateMergeWorkflowWithGitInfo(repoURL, cloneBranch, prBranch, prNumber s
 	}, nil
 }
 
+// GenerateArchitectureWorkflow builds a Workflow for generating architecture.yaml.
+// The workflow runs `ralph architecture --local --output <output>` inside the container.
+func GenerateArchitectureWorkflow(ctx *execcontext.Context, output string) (*Workflow, error) {
+	owner, name := ctx.RepoOwnerAndName()
+
+	ralphConfig, err := config.LoadConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load config: %w", err)
+	}
+
+	kubeContext := ctx.KubeContext()
+	if kubeContext == "" {
+		kubeContext = ralphConfig.Workflow.Context
+	}
+
+	return &Workflow{
+		ProjectName:        "architecture",
+		ProjectBranch:      "architecture",
+		Repo:               githubpkg.MakeRepo(owner, name),
+		CloneBranch:        ralphConfig.DefaultBranch,
+		ProjectPath:        "",
+		Instructions:       "",
+		Verbose:            ctx.IsVerbose(),
+		Model:              ctx.Model(),
+		Image:              MakeImage(ralphConfig.Workflow.Image.Repository, ralphConfig.Workflow.Image.Tag),
+		ConfigMaps:         ralphConfig.Workflow.ConfigMaps,
+		Secrets:            ralphConfig.Workflow.Secrets,
+		Env:                ralphConfig.Workflow.Env,
+		DefaultBranch:      ralphConfig.DefaultBranch,
+		KubeContext:        kubeContext,
+		Namespace:          ralphConfig.Workflow.Namespace,
+		Labels:             ralphConfig.Workflow.Labels,
+		Architecture:       true,
+		ArchitectureOutput: output,
+	}, nil
+}
+
+// GenerateArchitectureWorkflowWithGitInfo builds a Workflow with provided git information.
+// This allows for easier testing by accepting git info as parameters.
+func GenerateArchitectureWorkflowWithGitInfo(repoURL, cloneBranch, output string, opts WorkflowOptions) (*Workflow, error) {
+	repo, err := githubpkg.ParseRemoteURL(repoURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse repository from URL: %w", err)
+	}
+
+	return &Workflow{
+		ProjectName:        "architecture",
+		ProjectBranch:      "architecture",
+		Repo:               repo,
+		CloneBranch:        cloneBranch,
+		ProjectPath:        "",
+		Image:              opts.Image,
+		KubeContext:        opts.KubeContext,
+		Namespace:          opts.Namespace,
+		Architecture:       true,
+		ArchitectureOutput: output,
+	}, nil
+}
+
 // resolveImage returns the container image string from config, falling back to the default.
 func resolveImage(imageRepository, imageTag string) string {
 	imageRepo := "ghcr.io/zon/ralph"

@@ -45,7 +45,7 @@ requirements:
     description: Add GenerateArchitectureWorkflow
     items:
       - "Add `GenerateArchitectureWorkflow(output string) (*Workflow, error)` to the workflow package (following the pattern of existing workflow generators). The workflow should run `ralph architecture --local --output <output>` so that remote execution invokes the local path inside the workflow pod."
-    passing: false
+    passing: true
 
   - category: version
     description: Apply version bump
