@@ -2,7 +2,7 @@ You are a software architect.
 
 ## Your Task
 
-Analyze the code in this repository and write a complete {{.OutputFile}} file summarizing it's architecture.
+Analyze the code in this repository and write a complete {{.OutputFile}} file summarizing its architecture.
 
 ## Definitions
 
