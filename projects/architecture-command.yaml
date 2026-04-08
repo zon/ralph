@@ -32,10 +32,10 @@ requirements:
     items:
       - "Create `internal/cmd/architecture.go` with `ArchitectureCmd` struct (fields: `Output string` with default `architecture.yaml`, `Verbose bool`, `Model string`) and `Run() error` method. The Run method should: set verbose logging if requested; create an execution context via `createExecutionContext()` with verbose and model set; call `ai.BuildArchitecturePrompt(r.Output)` to get the prompt; call `ai.RunAgent(ctx, prompt)` to have the AI explore the repo and write the file; log a success message with the output path."
       - "Register the new command in `internal/cmd/cmd.go`: add `Architecture ArchitectureCmd` field with `cmd:\"\"` tag and help text `\"Generate an architecture.yaml file summarizing the repo structure\"`."
-    passing: false
+    passing: true
 
   - category: version
     description: Apply version bump
     items:
       - Apply a semver minor bump to `internal/version/VERSION` and a patch bump to `charts/ralph-webhook/Chart.yaml`
-    passing: false
+    passing: true
