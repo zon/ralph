@@ -29,6 +29,12 @@ var changelogInstructions string
 //go:embed review-pr-body-instructions.md
 var reviewPRBodyInstructions string
 
+//go:embed architecture-instructions.md
+var architectureInstructions string
+
+//go:embed architecture-fix-instructions.md
+var architectureFixInstructions string
+
 type FixServicePromptData struct {
 	Notes       []string
 	ServiceName string
@@ -71,6 +77,15 @@ type ReviewPRBodyPromptData struct {
 	ProjectDescription string
 	Requirements       []string
 	AbsPath            string
+}
+
+type ArchitecturePromptData struct {
+	OutputFile string
+}
+
+type ArchitectureFixPromptData struct {
+	OutputFile string
+	Errors     []string
 }
 
 func executeTemplate(templateContent string, data interface{}) (string, error) {
@@ -177,6 +192,26 @@ func BuildReviewPRBodyPrompt(projectName, projectDesc string, requirements []str
 		AbsPath:            absPath,
 	}
 	return executeTemplate(reviewPRBodyInstructions, data)
+}
+
+func BuildArchitecturePrompt(outputFile string) (string, error) {
+	absPath, err := filepath.Abs(outputFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path: %w", err)
+	}
+
+	data := ArchitecturePromptData{OutputFile: absPath}
+	return executeTemplate(architectureInstructions, data)
+}
+
+func BuildArchitectureFixPrompt(outputFile string, errors []string) (string, error) {
+	absPath, err := filepath.Abs(outputFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path: %w", err)
+	}
+
+	data := ArchitectureFixPromptData{OutputFile: absPath, Errors: errors}
+	return executeTemplate(architectureFixInstructions, data)
 }
 
 func resolveModel(ctx *execcontext.Context) string {

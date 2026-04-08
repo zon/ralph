@@ -718,6 +718,178 @@ func TestMergeWorkflowRender_EnvVarCoverage(t *testing.T) {
 	assert.True(t, hasPRNumber, "PR_NUMBER environment variable not found")
 }
 
+func TestGenerateArchitectureWorkflow(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	if err := os.MkdirAll(ralphDir, 0755); err != nil {
+		t.Fatalf("Failed to create .ralph directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("maxIterations: 5\n"), 0644); err != nil {
+		t.Fatalf("Failed to create config file: %v", err)
+	}
+
+	t.Chdir(tmpDir)
+	if err := os.MkdirAll(filepath.Join(tmpDir, ".git"), 0755); err != nil {
+		t.Fatalf("Failed to create .git directory: %v", err)
+	}
+
+	ctx := &execcontext.Context{}
+
+	wf, err := GenerateArchitectureWorkflow(ctx, "architecture.yaml")
+	require.NoError(t, err, "GenerateArchitectureWorkflow failed")
+	workflowYAML, err := wf.Render()
+	require.NoError(t, err, "Render failed")
+
+	var workflow map[string]interface{}
+	require.NoError(t, yaml.Unmarshal([]byte(workflowYAML), &workflow), "Failed to parse generated workflow YAML")
+
+	assert.Equal(t, "argoproj.io/v1alpha1", workflow["apiVersion"])
+	assert.Equal(t, "Workflow", workflow["kind"])
+
+	metadata, ok := workflow["metadata"].(map[string]interface{})
+	require.True(t, ok, "metadata is not a map")
+	generateName, ok := metadata["generateName"].(string)
+	require.True(t, ok && strings.HasPrefix(generateName, "ralph-architecture-"), "generateName = %v, want prefix ralph-architecture-", generateName)
+
+	spec, ok := workflow["spec"].(map[string]interface{})
+	require.True(t, ok, "spec is not a map")
+	assert.Equal(t, "ralph-executor", spec["entrypoint"])
+
+	ttlStrategy, ok := spec["ttlStrategy"].(map[string]interface{})
+	require.True(t, ok, "ttlStrategy is not a map")
+	assert.Equal(t, 86400, ttlStrategy["secondsAfterCompletion"])
+
+	templates, ok := spec["templates"].([]interface{})
+	require.True(t, ok && len(templates) > 0, "templates is empty or not a list")
+	tmpl, ok := templates[0].(map[string]interface{})
+	require.True(t, ok, "template is not a map")
+	assert.Equal(t, "ralph-executor", tmpl["name"])
+
+	container, ok := tmpl["container"].(map[string]interface{})
+	require.True(t, ok, "container is not a map")
+	assert.Equal(t, []interface{}{"ralph"}, container["command"])
+
+	args := container["args"].([]interface{})
+	assert.Equal(t, []interface{}{"architecture", "--local", "--output", "architecture.yaml"}, args)
+}
+
+func TestGenerateArchitectureWorkflow_RenderArgsWithVerbose(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	if err := os.MkdirAll(ralphDir, 0755); err != nil {
+		t.Fatalf("Failed to create .ralph directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("maxIterations: 5\n"), 0644); err != nil {
+		t.Fatalf("Failed to create config file: %v", err)
+	}
+
+	t.Chdir(tmpDir)
+	if err := os.MkdirAll(filepath.Join(tmpDir, ".git"), 0755); err != nil {
+		t.Fatalf("Failed to create .git directory: %v", err)
+	}
+
+	ctx := &execcontext.Context{}
+	ctx.SetVerbose(true)
+
+	wf, err := GenerateArchitectureWorkflow(ctx, "architecture.yaml")
+	require.NoError(t, err, "GenerateArchitectureWorkflow failed")
+	workflowYAML, err := wf.Render()
+	require.NoError(t, err, "Render failed")
+
+	var workflow map[string]interface{}
+	require.NoError(t, yaml.Unmarshal([]byte(workflowYAML), &workflow), "Failed to parse generated workflow YAML")
+
+	spec := workflow["spec"].(map[string]interface{})
+	templates := spec["templates"].([]interface{})
+	tmpl := templates[0].(map[string]interface{})
+	container := tmpl["container"].(map[string]interface{})
+
+	args := container["args"].([]interface{})
+	assert.Equal(t, []interface{}{"architecture", "--local", "--output", "architecture.yaml", "--verbose"}, args)
+}
+
+func TestGenerateArchitectureWorkflow_RenderArgsWithModel(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	if err := os.MkdirAll(ralphDir, 0755); err != nil {
+		t.Fatalf("Failed to create .ralph directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("maxIterations: 5\n"), 0644); err != nil {
+		t.Fatalf("Failed to create config file: %v", err)
+	}
+
+	t.Chdir(tmpDir)
+	if err := os.MkdirAll(filepath.Join(tmpDir, ".git"), 0755); err != nil {
+		t.Fatalf("Failed to create .git directory: %v", err)
+	}
+
+	ctx := &execcontext.Context{}
+	ctx.SetModel("claude-sonnet-4-20250514")
+
+	wf, err := GenerateArchitectureWorkflow(ctx, "architecture.yaml")
+	require.NoError(t, err, "GenerateArchitectureWorkflow failed")
+	workflowYAML, err := wf.Render()
+	require.NoError(t, err, "Render failed")
+
+	var workflow map[string]interface{}
+	require.NoError(t, yaml.Unmarshal([]byte(workflowYAML), &workflow), "Failed to parse generated workflow YAML")
+
+	spec := workflow["spec"].(map[string]interface{})
+	templates := spec["templates"].([]interface{})
+	tmpl := templates[0].(map[string]interface{})
+	container := tmpl["container"].(map[string]interface{})
+
+	args := container["args"].([]interface{})
+	assert.Equal(t, []interface{}{"architecture", "--local", "--output", "architecture.yaml", "--model", "claude-sonnet-4-20250514"}, args)
+}
+
+func TestGenerateArchitectureWorkflowWithGitInfo(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	if err := os.MkdirAll(ralphDir, 0755); err != nil {
+		t.Fatalf("Failed to create .ralph directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("maxIterations: 5\n"), 0644); err != nil {
+		t.Fatalf("Failed to create config file: %v", err)
+	}
+
+	wf, err := GenerateArchitectureWorkflowWithGitInfo("git@github.com:test/repo.git", "main", "architecture.yaml", WorkflowOptions{})
+	require.NoError(t, err, "GenerateArchitectureWorkflowWithGitInfo failed")
+	workflowYAML, err := wf.Render()
+	require.NoError(t, err, "Render failed")
+
+	var workflow map[string]interface{}
+	require.NoError(t, yaml.Unmarshal([]byte(workflowYAML), &workflow), "Failed to parse generated workflow YAML")
+
+	assert.Equal(t, "argoproj.io/v1alpha1", workflow["apiVersion"])
+	assert.Equal(t, "Workflow", workflow["kind"])
+
+	metadata, ok := workflow["metadata"].(map[string]interface{})
+	require.True(t, ok, "metadata is not a map")
+	generateName, ok := metadata["generateName"].(string)
+	require.True(t, ok && strings.HasPrefix(generateName, "ralph-architecture-"), "generateName = %v, want prefix ralph-architecture-", generateName)
+
+	spec, ok := workflow["spec"].(map[string]interface{})
+	require.True(t, ok, "spec is not a map")
+
+	templates, ok := spec["templates"].([]interface{})
+	require.True(t, ok && len(templates) > 0, "templates is empty or not a list")
+	tmpl, ok := templates[0].(map[string]interface{})
+	require.True(t, ok, "template is not a map")
+	assert.Equal(t, "ralph-executor", tmpl["name"])
+
+	container, ok := tmpl["container"].(map[string]interface{})
+	require.True(t, ok, "container is not a map")
+	assert.Equal(t, []interface{}{"ralph"}, container["command"])
+
+	args := container["args"].([]interface{})
+	assert.Equal(t, []interface{}{"architecture", "--local", "--output", "architecture.yaml"}, args)
+}
+
 func TestMergeWorkflowRender_GitHubCredentialsVolumeMount(t *testing.T) {
 	tmpDir := t.TempDir()
 
