@@ -1,24 +1,44 @@
-You are a software architect analyzing a repository to produce an architecture.yaml file.
+You are a software architect.
 
 ## Your Task
 
-Analyze the repository structure and write a complete architecture.yaml file summarizing the codebase.
+Analyze the code in this repository and write a complete {{.OutputFile}} file summarizing it's architecture.
 
 ## Definitions
 
-**Domain Function**: Business logic with no implementation details. Simple flow control that is readable and orchestrates other functions. Examples: `validateInput`, `processOrder`, `calculateTotal`.
+### Major Features
 
-**Major Feature**: A user-facing, domain-bounded capability covered by one or a small set of domain functions. Must be independently nameable. Examples: "Code Review", "Workflow Execution", "Project Management".
+A major feature is a user-facing capability that represents a distinct real-world concern the software addresses.
 
-**Module Types**:
+* User-facing scope: Something an end user would recognize as a distinct thing the app does — for example, "send a message", "manage users", "process payments", "handle authentication"
+* Bounded by domain, not infrastructure: It's defined by what the software does, not how — so "database access" or "HTTP routing" are not major features, but "message posting" or "channel management" are
+* Covered by one or a small set of domain functions: A major feature should have identifiable entry points (handlers, core logic loops, event handlers) that summarize its behavior at a high level
+* Independent enough to name: If you can describe it as a noun phrase a non-technical stakeholder would understand, it's likely a major feature
+
+### Domain Function
+
+Domain functions encode the real-world rules and processes the software solves — not the technical infrastructure needed to run it. They should contain no implementation details and have simple flow control. Readability is the highest priority for a domain function. It should be possible to quickly understand everything a repo does just by reviewing its domain functions.
+
+For example, a messaging app HTTP handler:
+
+func postMessage(ctx):
+  user = getUser(ctx)
+  message = parseMessage(ctx)
+  channel = getChannel(message.channelID)
+  upsertMessage(user, channel, message)
+  publishEvent(channel, message)
+  return message
+
+### Module Types
+
 - **domain**: Encapsulates business rules with no infrastructure concerns (no HTTP, database, git, CLI)
 - **implementation**: Infrastructure concerns like HTTP handlers, database access, git operations, CLI commands
 
 ## Instructions
 
-1. **Discover apps**: Find all application entrypoints under `cmd/` (each subdirectory is an app). For each app, find its `main` function and identify the major features it provides along with their domain functions.
+1. **Discover apps**: Find all application entrypoints. For each app, write a one-line description, find its main function, and identify the major features it provides along with their domain functions.
 
-2. **Discover modules**: Find all internal packages under `internal/`. Classify each as `domain` or `implementation` and write a one-line description.
+2. **Discover modules**: Find all software modules defined in the repo. Classify each as `domain` or `implementation` and write a one-line description.
 
 3. **Write architecture.yaml**: Write the complete architecture.yaml to `{{.OutputFile}}`
 
