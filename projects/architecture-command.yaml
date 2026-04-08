@@ -32,7 +32,7 @@ requirements:
     description: Add BuildArchitectureFixPrompt to the ai package
     items:
       - "Add `ArchitectureFixPromptData` struct (fields `OutputFile string`, `Errors []string`) and `BuildArchitectureFixPrompt(outputFile string, errors []string) (string, error)` to `internal/ai/ai.go`. Embed `architecture-fix-instructions.md` with `//go:embed architecture-fix-instructions.md` and execute it against the data. Create `internal/ai/architecture-fix-instructions.md`: instruct the AI that the architecture.yaml at `{{.OutputFile}}` has validation errors listed under `## Errors`, and it must fix each error and rewrite the file. Include `{{range .Errors}}- {{.}}{{end}}` in the template."
-    passing: false
+    passing: true
 
   - category: cmd
     description: Add validation loop and remote commit/PR to ArchitectureCmd local run

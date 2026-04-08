@@ -32,6 +32,9 @@ var reviewPRBodyInstructions string
 //go:embed architecture-instructions.md
 var architectureInstructions string
 
+//go:embed architecture-fix-instructions.md
+var architectureFixInstructions string
+
 type FixServicePromptData struct {
 	Notes       []string
 	ServiceName string
@@ -78,6 +81,11 @@ type ReviewPRBodyPromptData struct {
 
 type ArchitecturePromptData struct {
 	OutputFile string
+}
+
+type ArchitectureFixPromptData struct {
+	OutputFile string
+	Errors     []string
 }
 
 func executeTemplate(templateContent string, data interface{}) (string, error) {
@@ -194,6 +202,16 @@ func BuildArchitecturePrompt(outputFile string) (string, error) {
 
 	data := ArchitecturePromptData{OutputFile: absPath}
 	return executeTemplate(architectureInstructions, data)
+}
+
+func BuildArchitectureFixPrompt(outputFile string, errors []string) (string, error) {
+	absPath, err := filepath.Abs(outputFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path: %w", err)
+	}
+
+	data := ArchitectureFixPromptData{OutputFile: absPath, Errors: errors}
+	return executeTemplate(architectureFixInstructions, data)
 }
 
 func resolveModel(ctx *execcontext.Context) string {
