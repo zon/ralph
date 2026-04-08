@@ -399,3 +399,25 @@ func TestBuildReviewPRBodyPrompt_AbsolutePath(t *testing.T) {
 	absPath, _ := filepath.Abs("relative/path.txt")
 	assert.Contains(t, prompt, absPath, "prompt should contain absolute path")
 }
+
+func TestBuildArchitecturePrompt(t *testing.T) {
+	prompt, err := BuildArchitecturePrompt("/tmp/architecture.yaml")
+
+	require.NoError(t, err, "BuildArchitecturePrompt failed")
+	assert.NotEmpty(t, prompt, "architecture prompt should not be empty")
+	assert.Contains(t, prompt, "architecture.yaml", "prompt should reference architecture.yaml")
+	assert.Contains(t, prompt, "software architect", "prompt should describe architect role")
+	assert.Contains(t, prompt, "domain function", "prompt should define domain functions")
+	assert.Contains(t, prompt, "Major Feature", "prompt should define major features")
+	assert.Contains(t, prompt, "cmd/", "prompt should mention cmd/ for app discovery")
+	assert.Contains(t, prompt, "internal/", "prompt should mention internal/ for module discovery")
+	assert.Contains(t, prompt, "/tmp/architecture.yaml", "prompt should include output file path")
+}
+
+func TestBuildArchitecturePrompt_AbsolutePath(t *testing.T) {
+	prompt, err := BuildArchitecturePrompt("architecture.yaml")
+
+	require.NoError(t, err, "BuildArchitecturePrompt failed")
+	absPath, _ := filepath.Abs("architecture.yaml")
+	assert.Contains(t, prompt, absPath, "prompt should contain absolute path")
+}

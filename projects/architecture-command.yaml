@@ -6,13 +6,26 @@ requirements:
     description: Create the architecture instructions prompt template
     items:
       - "Create `internal/cmd/architecture-instructions.md` as a Go embed file. The prompt should instruct the AI to act as a software architect analyzing the repo. It must explain the architecture.yaml format (see below), define what a domain function is (business logic, no implementation details, simple flow control, readable), define major feature criteria (user-facing, domain-bounded, covered by one or a small set of domain functions, independently nameable), define module types (domain = encapsulates business rules with no infrastructure concerns; implementation = infrastructure concerns like HTTP, database, git, CLI). It must instruct the AI to: (1) discover all app entrypoints under cmd/ (each subdir is an app), for each app find its main function, identify major features and their domain functions; (2) discover all internal packages under internal/, classify each as domain or implementation and write a one-line description; (3) write the complete architecture.yaml to the path provided in the template variable {{.OutputFile}}. Include the full YAML format in the prompt as a reference example matching the structure: `apps` is a list where each entry has `name`, `description`, `main` (with `file` and `function` fields), and `features` (list of `name`, `description`, and `functions` list of `file`/`name` pairs); `modules` is a list where each entry has `path`, `description`, and `type`."
-    passing: false
+    passing: true
 
   - category: ai
     description: Add BuildArchitecturePrompt to the ai package
     items:
       - "Add `ArchitecturePromptData` struct and `BuildArchitecturePrompt(outputFile string) (string, error)` function to `internal/ai/ai.go`, following the same pattern as `BuildChangelogPrompt`. Embed `architecture-instructions.md` with `//go:embed architecture-instructions.md` and execute it against `ArchitecturePromptData{OutputFile: absPath}`."
-    passing: false
+    passing: true
+
+  - category: cmd
+    description: Implement ArchitectureCmd
+    items:
+      - "Create `internal/cmd/architecture.go` with `ArchitectureCmd` struct (fields: `Output string` with default `architecture.yaml`, `Verbose Bool`, `Model string`) and `Run() error` method. The Run method should: set verbose logging if requested; create an execution context via `createExecutionContext()` with verbose and model set; call `ai.BuildArchitecturePrompt(r.Output)` to get the prompt; call `ai.RunAgent(ctx, prompt)` to have the AI explore the repo and write the file; log a success message with the output path."
+      - "Register the new command in `internal/cmd/cmd.go`: add `Architecture ArchitectureCmd` field with `cmd:\"\"` tag and help text `\"Generate an architecture.yaml file summarizing the repo structure\"`."
+    passing: true
+
+  - category: version
+    description: Apply version bump
+    items:
+      - Apply a semver minor bump to `internal/version/VERSION` and a patch bump to `charts/ralph-webhook/Chart.yaml`
+    passing: true
 
   - category: cmd
     description: Implement ArchitectureCmd
