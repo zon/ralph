@@ -26,7 +26,7 @@ requirements:
     items:
       - "Create `internal/architecture/architecture.go` defining Go structs that match the architecture.yaml schema: `Architecture` (fields `Apps []App`, `Modules []Module`), `App` (fields `Name`, `Description`, `Main MainFunc`, `Features []Feature`), `MainFunc` (fields `File`, `Function`), `Feature` (fields `Name`, `Description`, `Functions []FuncRef`), `FuncRef` (fields `File`, `Name`), `Module` (fields `Path`, `Description`, `Type`). Add a `Validate() []string` method on `Architecture` that returns a list of human-readable error strings. Validation rules: every app must have a non-empty `Name`, `Description`, `Main.File`, and `Main.Function`; every app must have at least one feature; every feature must have a non-empty `Name` and `Description` and at least one function ref; every function ref must have a non-empty `File` and `Name`; every module must have a non-empty `Path`, `Description`, and `Type` (must be `domain` or `implementation`)."
       - "Add `Load(path string) (*Architecture, error)` to `internal/architecture/architecture.go` that reads a YAML file and unmarshals it into `*Architecture`."
-    passing: false
+    passing: true
 
   - category: ai
     description: Add BuildArchitectureFixPrompt to the ai package
