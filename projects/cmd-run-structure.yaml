@@ -3,8 +3,9 @@ description: Refactor ReviewCmd.Run to separate domain logic from infrastructure
 
 requirements:
   - category: structure
-    description: Separate infrastructure concerns from domain logic in ReviewCmd.Run
+    description: Separate infrastructure concerns from domain logic in Run methods
     items:
       - internal/cmd/review.go:98 - Run function calls infrastructure functions (logger.SetVerbose, os.MkdirAll, config.LoadConfig, fetchRalphProjectDoc, createExecutionContext, git.GetCurrentBranch, submitToArgo, submitPR, printStats) directly; extract these as injected dependencies or adapter calls to separate orchestration from infrastructure
       - internal/cmd/review.go:98 - Run function has mixed error handling and logging; simplify by delegating side effects to a caller or adapter layer
+      - internal/cmd/validate.go:12 - Run function calls infrastructure functions (project.LoadProject, logger.Infof) directly; extract file I/O and logging as injected dependencies or adapter calls to separate orchestration from infrastructure
     passing: false
