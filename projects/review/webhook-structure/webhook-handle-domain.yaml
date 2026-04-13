@@ -1,0 +1,11 @@
+name: webhook-handle-domain
+description: Refactor webhook handleWebhook to separate domain logic from infrastructure
+
+requirements:
+  - category: structure
+    description: Separate infrastructure concerns from domain logic in handleWebhook
+    items:
+      - internal/webhook/server.go:55-109 - handleWebhook mixes domain orchestration with infrastructure: HTTP semantics (c.JSON, c.GetHeader, c.Status), logging (logger.Verbosef), and goroutine management (go submitWorkflow). Per the domain functions standard, extract an adapter pattern where the HTTP layer parses the request and the domain handler receives pure domain data.
+      - internal/webhook/server.go:126-144 - submitWorkflow is called as a goroutine from handleWebhook; async behavior is infrastructure, not domain. Extract to the calling layer.
+      - internal/webhook/server.go:148-163 - validateSignature is security infrastructure that should be handled by the HTTP layer before domain logic executes.
+    passing: false
