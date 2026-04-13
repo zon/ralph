@@ -10,6 +10,7 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zon/ralph/internal/ai"
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/testutil"
 )
@@ -140,24 +141,22 @@ func TestReviewLoadItemContent_FileNotFound(t *testing.T) {
 }
 
 func TestReviewBuildPrompt(t *testing.T) {
-	r := &ReviewCmd{}
-	prompt := r.buildItemPrompt("test content")
-
+	prompt, err := ai.BuildReviewItemPrompt("test content")
+	require.NoError(t, err)
 	assert.Contains(t, prompt, "test content")
 }
 
 func TestEmbeddedReviewInstructions(t *testing.T) {
-	if reviewInstructions == "" {
-		t.Error("reviewInstructions should not be empty")
+	prompt, err := ai.BuildReviewItemPrompt("test content")
+	require.NoError(t, err)
+	if !strings.Contains(prompt, "test content") {
+		t.Error("prompt should contain the test content")
 	}
-	if !contains(reviewInstructions, "{{.ItemContent}}") {
-		t.Error("reviewInstructions should contain ItemContent template variable")
+	if strings.Contains(prompt, "{{.ConfigContent}}") {
+		t.Error("prompt should not contain ConfigContent template variable")
 	}
-	if contains(reviewInstructions, "{{.ConfigContent}}") {
-		t.Error("reviewInstructions should not contain ConfigContent template variable")
-	}
-	if contains(reviewInstructions, "{{.ReviewName}}") {
-		t.Error("reviewInstructions should not contain ReviewName template variable")
+	if strings.Contains(prompt, "{{.ReviewName}}") {
+		t.Error("prompt should not contain ReviewName template variable")
 	}
 }
 
@@ -285,6 +284,27 @@ func TestFilterItems_AllFieldsMatch(t *testing.T) {
 	}
 	filtered := filterItems(items, "prefix_match_suffix")
 	assert.Len(t, filtered, 3)
+}
+
+func TestFilterItems_LoopMatch(t *testing.T) {
+	items := []config.ReviewItem{
+		{Text: "regular item"},
+		{Loop: "domain-function"},
+		{Text: "another item", Loop: "domain-function"},
+	}
+	filtered := filterItems(items, "domain-function")
+	assert.Len(t, filtered, 2)
+	assert.Equal(t, "domain-function", filtered[0].Loop)
+	assert.Equal(t, "domain-function", filtered[1].Loop)
+}
+
+func TestFilterItems_LoopNoMatch(t *testing.T) {
+	items := []config.ReviewItem{
+		{Loop: "domain-function"},
+		{Loop: "other-loop"},
+	}
+	filtered := filterItems(items, "nonexistent")
+	assert.Len(t, filtered, 0)
 }
 
 func TestReviewFilterNoMatchError(t *testing.T) {
@@ -487,6 +507,21 @@ func TestItemLabel(t *testing.T) {
 				URL: "https://example.com/",
 			},
 			expected: "/",
+		},
+		{
+			name: "loop item with domain-function",
+			item: config.ReviewItem{
+				Loop: "domain-function",
+			},
+			expected: "loop:domain-function",
+		},
+		{
+			name: "loop item takes precedence over text",
+			item: config.ReviewItem{
+				Text: "Some text content",
+				Loop: "domain-function",
+			},
+			expected: "loop:domain-function",
 		},
 	}
 
