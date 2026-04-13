@@ -1,0 +1,11 @@
+name: run-iteration-structure
+description: Refactor iteration loop to separate domain logic from infrastructure
+
+requirements:
+  - category: structure
+    description: Separate infrastructure concerns from domain logic in iteration loop
+    items:
+      - internal/run/iteration.go:89 - RunIterationLoop directly calls infrastructure functions (logger.Verbosef, logger.Success, isBlocked, project.LoadProject, project.CheckCompletion) and has complex flow control mixed with logging; extract side effects to a caller or adapter layer to keep domain logic readable
+      - internal/run/iteration.go:150 - runSingleIteration directly calls infrastructure functions (logger.Verbose, project.ExecuteDevelopmentIteration, commitIterationChanges, project.LoadProject, project.CheckCompletion, reportNewlyPassingRequirements); extract these as injected dependencies or adapter calls
+      - internal/run/iteration.go:185 - commitIterationChanges directly calls infrastructure functions (os.Stat, git.HasUncommittedChanges, generateChangelogIfNeeded, getCommitMessage, git.CommitChanges) mixed with error handling and logging; delegate side effects to a caller or adapter layer
+    passing: false
