@@ -1,0 +1,10 @@
+name: run-structure
+description: Refactor Execute function to separate domain logic from infrastructure
+
+requirements:
+  - category: structure
+    description: Separate infrastructure concerns from domain logic in Execute function
+    items:
+      - internal/run/execute.go:69 - Execute function calls infrastructure functions (infrastructureRunBeforeCommands, notify.Error, notify.Success, logger.*, github.CreatePullRequest, ai.GeneratePRSummary) directly; extract these as injected dependencies or adapter calls to separate orchestration from infrastructure
+      - internal/run/execute.go:69 - Execute function has complex flow control with mixed error handling and logging; simplify by delegating side effects to a caller or adapter layer
+    passing: false
