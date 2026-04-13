@@ -95,6 +95,11 @@ type ReviewItemPromptData struct {
 	ItemContent string
 }
 
+type LoopItemPromptData struct {
+	FunctionName string
+	FunctionPath string
+}
+
 func executeTemplate(templateContent string, data interface{}) (string, error) {
 	tmpl, err := template.New("prompt").Parse(templateContent)
 	if err != nil {
@@ -214,6 +219,14 @@ func BuildArchitecturePrompt(outputFile string) (string, error) {
 func BuildReviewItemPrompt(content string) (string, error) {
 	data := ReviewItemPromptData{ItemContent: content}
 	return executeTemplate(reviewInstructions, data)
+}
+
+func BuildLoopItemPrompt(content, functionName, functionPath string) (string, error) {
+	data := LoopItemPromptData{
+		FunctionName: functionName,
+		FunctionPath: functionPath,
+	}
+	return executeTemplate(content, data)
 }
 
 func BuildArchitectureFixPrompt(outputFile string, errors []string) (string, error) {

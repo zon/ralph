@@ -25,7 +25,7 @@ requirements:
       - Add `BuildLoopItemPrompt(content, functionName, functionPath string) (string, error)` to `internal/ai/ai.go` that renders the content string as a Go template with `.FunctionName` and `.FunctionPath` variables
       - Loop item content is the full prompt template — do not wrap it in `review-instructions.md` as non-loop items do
       - Add tests in `internal/ai/` covering successful template rendering and malformed template error
-    passing: false
+    passing: true
 
   - category: cmd
     description: Update ralph review to execute loop items iteratively with per-iteration commits
