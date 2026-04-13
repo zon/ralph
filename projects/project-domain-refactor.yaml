@@ -1,0 +1,16 @@
+name: project-domain-refactor
+description: Refactor project package to separate domain logic from infrastructure
+
+requirements:
+  - category: structure
+    description: >
+      ExecuteDevelopmentIterationWithSetup mixes domain process with infrastructure concerns.
+      The function orchestrates AI agents, handles file I/O, and writes blocked.md files.
+      These implementation details should be extracted to allow the function to focus on
+      the domain process (pick requirement → develop → cleanup cycle).
+    items:
+      - internal/project/project.go - ExecuteDevelopmentIterationWithSetup (lines 199-279) calls ai.RunAgent, ai.BuildPickPrompt, ai.BuildDevelopPrompt; these AI infrastructure calls should be extracted to allow the function to express only the iteration workflow
+      - internal/project/project.go - ExecuteDevelopmentIterationWithSetup reads picked-requirement.yaml and removes the file; file I/O should be handled outside the domain function
+      - internal/project/project.go - ExecuteDevelopmentIterationWithSetup calls writeBlockedMD on failure; this infrastructure concern should not be in a domain function
+      - internal/project/project.go - performPostAgentCleanup (lines 335-364) calls git.HasFileChanges and git.StageFile; git staging is infrastructure, not domain logic
+    passing: false
