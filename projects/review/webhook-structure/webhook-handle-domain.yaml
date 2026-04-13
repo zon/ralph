@@ -9,4 +9,5 @@ requirements:
       - internal/webhook/server.go:126-144 - submitWorkflow is called as a goroutine from handleWebhook; async behavior is infrastructure, not domain. Extract to the calling layer.
       - internal/webhook/server.go:148-163 - validateSignature is security infrastructure that should be handled by the HTTP layer before domain logic executes.
       - internal/webhook/events.go:44-75 - ToWorkflow mixes infrastructure with domain logic: accesses cfg.App.* config fields (line 54-55), calls github.CloneURL (line 46), and directly invokes workflow.GenerateMergeWorkflowWithGitInfo/workflow.GenerateCommentWorkflowWithGitInfo (lines 59, 67-69). Per the domain functions standard, extract config resolution and workflow generation to an adapter layer so ToWorkflow receives pre-resolved dependencies.
+      - Clarification: The user requested review of "ToEvent in events.go" but ToEvent is in internal/webhook/payload.go:93, not events.go. ToEvent in payload.go is a clean domain function (pure data transformation). The problematic function is ToWorkflow in events.go:44, which is already noted above.
     passing: false
