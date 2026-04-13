@@ -1,0 +1,45 @@
+name: review-mixed-responsibilities
+description: Remove infrastructure concerns from Run domain function in internal/cmd/review
+
+requirements:
+  - category: structure
+    description: >
+      The Run function in internal/cmd/review.go violates the domain functions
+      standard by mixing infrastructure concerns (logging, filesystem operations,
+      and context construction) directly into domain logic. Each item below is a
+      distinct infrastructure concern that must be extracted so Run reads as a
+      pure sequence of domain steps.
+    items:
+      - >
+        Remove the os.MkdirAll call from Run (internal/cmd/review.go:107-109).
+        Creating a directory is a filesystem infrastructure concern and must not
+        appear inline in a domain function. Move it into a helper such as
+        ensureProjectsDir() or into the function that first writes to that
+        directory, so Run only describes what happens at the domain level.
+      - >
+        Remove all logger.* calls from Run (internal/cmd/review.go:100, 122-124,
+        160-163, 166-168). Logging is observability infrastructure and must not
+        appear inline in a domain function. Move log calls into the called
+        functions (e.g. runReview, submitPR, printStats) or into a thin
+        orchestration wrapper that sits outside Run.
+      - >
+        Extract the execution context construction from Run
+        (internal/cmd/review.go:128-134). The six ctx.Set* calls are
+        infrastructure-level wiring and obscure the domain flow. Replace them
+        with a single call to a constructor such as
+        createExecutionContext(r.Verbose, model, r.Local, r.Follow, r.Context,
+        r.Filter) that returns a fully-configured context, keeping Run free of
+        setup details.
+      - >
+        Remove the filepath.Abs call and its error handling from Run
+        (internal/cmd/review.go:151-154). Resolving an absolute path is a
+        filesystem infrastructure detail. Move it into submitPR so that Run
+        passes detectedProjectFile directly and submitPR is responsible for
+        resolving the path it needs.
+    passing: false
+
+  - category: version
+    description: Apply version bump for internal refactoring change.
+    items:
+      - Apply a semver patch bump to internal/version/VERSION and charts/ralph-webhook/Chart.yaml.
+    passing: false
