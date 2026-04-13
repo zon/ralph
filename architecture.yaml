@@ -1,0 +1,154 @@
+apps:
+  - name: ralph
+    description: AI-powered development orchestration CLI
+    main:
+      file: cmd/ralph/main.go
+      function: main
+    features:
+      - name: Project Execution
+        description: Orchestrates AI agents to fulfill project requirements iteratively
+        functions:
+          - file: internal/run/execute.go
+            name: Execute
+          - file: internal/run/iteration.go
+            name: RunIterationLoop
+          - file: internal/project/project.go
+            name: ExecuteDevelopmentIteration
+      - name: PR Comment Handling
+        description: Responds to PR comments by running AI agents
+        functions:
+          - file: internal/cmd/comment.go
+            name: Run
+      - name: PR Merge
+        description: Merges completed PRs and cleans up project files
+        functions:
+          - file: internal/cmd/merge.go
+            name: Run
+      - name: Code Review
+        description: AI-powered code review from configured prompts
+        functions:
+          - file: internal/cmd/review.go
+            name: Run
+      - name: Architecture Generation
+        description: Generates architecture.yaml documenting repo structure
+        functions:
+          - file: internal/cmd/architecture.go
+            name: Run
+      - name: Project Validation
+        description: Validates project YAML files
+        functions:
+          - file: internal/cmd/validate.go
+            name: Run
+          - file: internal/project/project.go
+            name: ValidateProject
+      - name: Workflow Management
+        description: Lists and stops Argo workflows
+        functions:
+          - file: internal/cmd/list.go
+            name: Run
+          - file: internal/cmd/stop.go
+            name: Run
+      - name: Credential Configuration
+        description: Configures secrets for remote execution in Kubernetes
+        functions:
+          - file: internal/cmd/config_github.go
+            name: Run
+          - file: internal/cmd/config_opencode.go
+            name: Run
+          - file: internal/cmd/config_pulumi.go
+            name: Run
+          - file: internal/cmd/config_webhook.go
+            name: Run
+  - name: ralph-webhook
+    description: GitHub webhook service that triggers ralph workflows
+    main:
+      file: cmd/ralph-webhook/main.go
+      function: main
+    features:
+      - name: Webhook Processing
+        description: Receives and validates GitHub webhook events
+        functions:
+          - file: internal/webhook/server.go
+            name: handleWebhook
+          - file: internal/webhook/events.go
+            name: ToWorkflow
+      - name: Workflow Triggering
+        description: Converts webhook events to Argo workflows
+        functions:
+          - file: internal/webhook/events.go
+            name: ToEvent
+          - file: internal/webhook/server.go
+            name: submitWorkflow
+modules:
+  - path: internal/ai
+    description: AI agent orchestration and prompt generation
+    type: implementation
+  - path: internal/architecture
+    description: Architecture file parsing and validation
+    type: implementation
+  - path: internal/argo
+    description: Argo Workflows integration via kubectl and argo CLI
+    type: implementation
+  - path: internal/cleanup
+    description: Graceful shutdown and cleanup on signals
+    type: implementation
+  - path: internal/cmd
+    description: Command-line subcommand implementations
+    type: implementation
+  - path: internal/config
+    description: Configuration file loading and management
+    type: implementation
+  - path: internal/context
+    description: Execution context and runtime configuration
+    type: implementation
+  - path: internal/docker
+    description: Docker container validation (test-only)
+    type: implementation
+  - path: internal/git
+    description: Git operations wrapper (clone, commit, push, branch)
+    type: implementation
+  - path: internal/github
+    description: GitHub API and CLI integration
+    type: implementation
+  - path: internal/k8s
+    description: Kubernetes operations via kubectl
+    type: implementation
+  - path: internal/logger
+    description: Structured logging with levels and colors
+    type: implementation
+  - path: internal/notify
+    description: Desktop notification system
+    type: implementation
+  - path: internal/opencode
+    description: OpenCode CLI wrapper for AI operations
+    type: implementation
+  - path: internal/project
+    description: Project file management and iteration execution
+    type: domain
+  - path: internal/provisioning
+    description: Webhook configuration provisioning to Kubernetes
+    type: implementation
+  - path: internal/run
+    description: Multi-iteration execution orchestration
+    type: domain
+  - path: internal/services
+    description: Service lifecycle management (start/stop/health)
+    type: implementation
+  - path: internal/testutil
+    description: Testing utilities and helpers
+    type: implementation
+  - path: internal/version
+    description: Version information management
+    type: implementation
+  - path: internal/webhook
+    description: GitHub webhook HTTP server
+    type: implementation
+  - path: internal/webhookconfig
+    description: Webhook service configuration loading
+    type: implementation
+  - path: internal/workflow
+    description: Argo workflow YAML generation and submission
+    type: implementation
+  - path: internal/workspace
+    description: Workspace setup and initialization
+    type: implementation

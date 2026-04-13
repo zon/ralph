@@ -35,6 +35,9 @@ var architectureInstructions string
 //go:embed architecture-fix-instructions.md
 var architectureFixInstructions string
 
+//go:embed review-instructions.md
+var reviewInstructions string
+
 type FixServicePromptData struct {
 	Notes       []string
 	ServiceName string
@@ -86,6 +89,10 @@ type ArchitecturePromptData struct {
 type ArchitectureFixPromptData struct {
 	OutputFile string
 	Errors     []string
+}
+
+type ReviewItemPromptData struct {
+	ItemContent string
 }
 
 func executeTemplate(templateContent string, data interface{}) (string, error) {
@@ -202,6 +209,11 @@ func BuildArchitecturePrompt(outputFile string) (string, error) {
 
 	data := ArchitecturePromptData{OutputFile: absPath}
 	return executeTemplate(architectureInstructions, data)
+}
+
+func BuildReviewItemPrompt(content string) (string, error) {
+	data := ReviewItemPromptData{ItemContent: content}
+	return executeTemplate(reviewInstructions, data)
 }
 
 func BuildArchitectureFixPrompt(outputFile string, errors []string) (string, error) {

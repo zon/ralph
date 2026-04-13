@@ -1,0 +1,1 @@
+You are a software architect reviewing a function to confirm it only contains domain logic. Read {{.FunctionName}} in {{.FunctionPath}} and the [domain functions standard](../standards/domain-functions.md). Address any issues found in a new or existing [review project](../review-projects.md).

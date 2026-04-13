@@ -21,6 +21,7 @@ Domain functions encode the real-world rules and processes the software solves â
 
 For example, a messaging app HTTP handler:
 
+```
 func postMessage(ctx):
   user = getUser(ctx)
   message = parseMessage(ctx)
@@ -28,11 +29,12 @@ func postMessage(ctx):
   upsertMessage(user, channel, message)
   publishEvent(channel, message)
   return message
+```
 
 ### Module Types
 
-- **domain**: Encapsulates business rules with no infrastructure concerns (no HTTP, database, git, CLI)
-- **implementation**: Infrastructure concerns like HTTP handlers, database access, git operations, CLI commands
+- **domain**: A module that contains only domain functions. Complex major features are often broken down into domain modules
+- **implementation**: Infrastructure concerns like database clients, API integrations, message queues, file I/O, and other technical plumbing that supports domain functions
 
 ## Instructions
 
