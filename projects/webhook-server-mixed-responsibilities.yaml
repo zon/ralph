@@ -40,6 +40,19 @@ requirements:
         inline in a domain function. Wrap the asynchronous dispatch in a named
         function such as dispatchWorkflow(result, owner, repoName) that owns the
         goroutine internally, so handleWebhook calls a plain named step.
+      - >
+        Remove all logger.Verbosef calls from submitWorkflow
+        (internal/webhook/server.go:130, 133, 134, 138, 141, 142). Logging is
+        observability infrastructure and must not appear inline in a domain function.
+        Move these calls into the Submit methods themselves or into a thin wrapper
+        that sits outside submitWorkflow.
+      - >
+        Remove the if/else if branch on result.Run vs result.Merge in submitWorkflow
+        (internal/webhook/server.go:127-143). Branching on which concrete sub-field
+        is populated is a structural dispatch detail, not domain logic. The WorkflowResult
+        type should expose a single Submit() method (or equivalent) that encapsulates
+        which workflow to run, so submitWorkflow calls a single named step with no
+        field-presence checks visible inline.
     passing: false
 
   - category: version
