@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -12,7 +11,6 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
-	"text/template"
 	"time"
 
 	"github.com/zon/ralph/internal/ai"
@@ -24,12 +22,7 @@ import (
 	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/project"
 	"github.com/zon/ralph/internal/workflow"
-
-	_ "embed"
 )
-
-//go:embed review-instructions.md
-var reviewInstructions string
 
 const ralphProjectDocURL = "https://raw.githubusercontent.com/zon/ralph/refs/heads/main/docs/projects.md"
 
@@ -204,7 +197,10 @@ func (r *ReviewCmd) runReview(ctx *execcontext.Context, ralphConfig *config.Ralp
 			return branchName, detectedProjectFile, fmt.Errorf("failed to load review item %d: %w", i, err)
 		}
 
-		prompt := r.buildItemPrompt(content)
+		prompt, err := ai.BuildReviewItemPrompt(content)
+		if err != nil {
+			return branchName, detectedProjectFile, fmt.Errorf("failed to build review prompt: %w", err)
+		}
 
 		if r.Verbose {
 			logger.Verbose(prompt)
@@ -255,15 +251,6 @@ func (r *ReviewCmd) commitReviewItemChanges(ctx *execcontext.Context, branchName
 
 	os.Remove(summaryPath)
 	return nil
-}
-
-func (r *ReviewCmd) buildItemPrompt(content string) string {
-	var buf bytes.Buffer
-	data := struct {
-		ItemContent string
-	}{content}
-	reviewPromptTemplate.Execute(&buf, data)
-	return buf.String()
 }
 
 func (r *ReviewCmd) submitToArgo(ctx *execcontext.Context, cloneBranch string) error {
@@ -435,4 +422,3 @@ func fetchRalphProjectDoc() (string, error) {
 	return strings.TrimSpace(string(data)), nil
 }
 
-var reviewPromptTemplate = template.Must(template.New("review").Parse(reviewInstructions))
