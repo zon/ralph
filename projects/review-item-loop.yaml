@@ -17,7 +17,7 @@ requirements:
       - Implement `ExpandLoop(loopType string, archPath string) ([]LoopIteration, error)` that dispatches on loop type
       - Implement `expandDomainFunctionLoop` that loads `architecture.yaml` via `internal/architecture`, iterates over all apps[].features[].functions, deduplicates by the composite key of both function name and file path, and returns an ordered slice of LoopIteration
       - Add unit tests in `internal/review/loop_test.go` covering deduplication (same name+file is one entry, same name with different file is two entries), empty architecture, and unknown loop type error
-    passing: false
+    passing: true
 
   - category: ai
     description: Add BuildLoopItemPrompt to internal/ai
