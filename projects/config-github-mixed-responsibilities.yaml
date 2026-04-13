@@ -1,0 +1,45 @@
+name: config-github-mixed-responsibilities
+description: Remove infrastructure concerns from Run domain function in internal/cmd/config_github.go
+
+requirements:
+  - category: structure
+    description: >
+      The Run function in internal/cmd/config_github.go violates the domain functions
+      standard by embedding observability infrastructure (logger calls) directly into
+      domain logic — both inline in Run itself and inside the helper methods it
+      delegates to. A domain function must read as a plain sequence of domain steps
+      with no implementation details.
+    items:
+      - >
+        Remove the logger.Info call from Run (internal/cmd/config_github.go:57).
+        Logging is observability infrastructure and must not appear inline in a
+        domain function. Move the log call into createK8sSecret or into a thin
+        orchestration wrapper that sits outside Run.
+      - >
+        Remove the logger.Info call from printHeader
+        (internal/cmd/config_github.go:63) and eliminate the printHeader method
+        entirely. A domain function must not call a helper whose sole purpose is to
+        emit a log line. Move the log call into Run's caller or into an
+        orchestration wrapper, and inline or delete printHeader.
+      - >
+        Remove the logger.Info and logger.Success calls from validateCredentials
+        (internal/cmd/config_github.go:86, 104). Logging is observability
+        infrastructure and must not appear inside a function called from the domain
+        function. Move the log calls into a thin orchestration wrapper that sits
+        outside Run, or into the github package functions being called
+        (github.GetInstallationID, github.GetInstallationToken), so that
+        validateCredentials reads as a pure sequence of domain steps.
+      - >
+        Remove the logger.Infof, logger.Successf, and logger.Infof calls from
+        createK8sSecret (internal/cmd/config_github.go:109, 120, 122). Logging is
+        observability infrastructure and must not appear inside a function called
+        from the domain function. Move the log calls into a thin orchestration
+        wrapper that sits outside Run, or into k8s.CreateOrUpdateSecret, so that
+        createK8sSecret reads as a pure sequence of domain steps.
+    passing: false
+
+  - category: version
+    description: Apply version bump for internal refactoring change.
+    items:
+      - Apply a semver patch bump to internal/version/VERSION and charts/ralph-webhook/Chart.yaml.
+    passing: false
