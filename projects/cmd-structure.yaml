@@ -15,3 +15,10 @@ requirements:
       - internal/cmd/merge.go:77 - scanAndCleanupProjects calls os.Stat directly to check for the projects directory; filesystem existence checks are infrastructure and should be abstracted behind an injected dependency or adapter
       - internal/cmd/merge.go:129-157 - waitForGitHubHead contains a polling loop with time.Sleep called from within the domain flow; infrastructure retry/polling mechanics should be extracted so the domain function expresses only the intent (wait for GitHub head to sync) without embedding the timing implementation
     passing: false
+  - category: structure
+    description: Separate infrastructure concerns from domain logic in ArchitectureCmd.Run
+    items:
+      - internal/cmd/architecture.go:22-51 - Run function calls infrastructure functions directly (logger.SetVerbose, createExecutionContext, ai.BuildArchitecturePrompt, ai.RunAgent, r.validateAndFix, r.commitAndCreatePR); extract these as injected dependencies or adapter calls to separate orchestration from infrastructure
+      - internal/cmd/architecture.go:53-92 - validateAndFix embeds AI prompt construction (ai.BuildArchitectureFixPrompt) and AI execution (ai.RunAgent) inside the validation loop; AI invocation is infrastructure and should be abstracted behind a validation adapter
+      - internal/cmd/architecture.go:94-138 - commitAndCreatePR performs git operations (git.CheckoutOrCreateBranch, git.StageFile, git.CommitAllAndPush) and GitHub API calls (github.CreatePullRequest) directly; these infrastructure concerns should be delegated to an adapter or caller layer
+    passing: false
