@@ -1,0 +1,11 @@
+name: webhook-submit-structure
+description: Refactor submitWorkflow to separate domain dispatch from infrastructure
+
+requirements:
+  - category: structure
+    description: Extract infrastructure concerns from submitWorkflow
+    items:
+      - internal/webhook/server.go:126-144 - submitWorkflow mixes domain dispatch (Run vs Merge branching) with infrastructure: logging (logger.Verbosef calls) and Argo submission (.Submit() which internally calls argo.SubmitYAML). Per the domain functions standard, logging and async/external invocation should be handled by the calling layer, not inside a domain function.
+      - internal/webhook/server.go:107 - The `go submitWorkflow(...)` goroutine is infrastructure (async scheduling); the domain function should be called synchronously and the async behavior should be managed by the HTTP adapter layer.
+      - internal/webhook/server.go:126-144 - submitWorkflow should return a result (e.g., workflow name and namespace) or error, letting the caller (infrastructure layer) decide how to log and whether to execute async.
+    passing: false
