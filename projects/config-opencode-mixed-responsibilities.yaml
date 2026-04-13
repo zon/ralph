@@ -1,0 +1,43 @@
+name: config-opencode-mixed-responsibilities
+description: Remove infrastructure concerns from Run domain function in internal/cmd/config_opencode.go
+
+requirements:
+  - category: structure
+    description: >
+      The Run function in internal/cmd/config_opencode.go violates the domain functions
+      standard by embedding observability infrastructure (logger calls) directly into
+      domain logic — both inline in Run itself and inside the helper methods it
+      delegates to. A domain function must read as a plain sequence of domain steps
+      with no implementation details.
+    items:
+      - >
+        Remove the printHeader method (internal/cmd/config_opencode.go:47-49) and its
+        call from Run (internal/cmd/config_opencode.go:23). A domain function must not
+        call a helper whose sole purpose is to emit a log line. Move the log call into
+        Run's caller or into an orchestration wrapper, and delete printHeader entirely.
+      - >
+        Remove the logger.Infof and logger.Success calls from readOpenCodeCredentials
+        (internal/cmd/config_opencode.go:58, 72). Logging is observability
+        infrastructure and must not appear inside a function called from the domain
+        function. Move the log calls into a thin orchestration wrapper that sits
+        outside Run, or into the underlying file-reading helpers, so that
+        readOpenCodeCredentials reads as a pure sequence of domain steps.
+      - >
+        Extract the auth file path construction out of readOpenCodeCredentials
+        (internal/cmd/config_opencode.go:57) into a named function such as
+        openCodeAuthFilePath() that returns the path. A domain function must not
+        contain inline fmt.Sprintf implementation details for building file paths.
+      - >
+        Remove the logger.Infof and logger.Successf calls from createK8sSecret
+        (internal/cmd/config_opencode.go:77, 87, 89). Logging is observability
+        infrastructure and must not appear inside a function called from the domain
+        function. Move the log calls into a thin orchestration wrapper that sits
+        outside Run, or into k8s.CreateOrUpdateSecret, so that createK8sSecret reads
+        as a pure sequence of domain steps.
+    passing: false
+
+  - category: version
+    description: Apply version bump for internal refactoring change.
+    items:
+      - Apply a semver patch bump to internal/version/VERSION and charts/ralph-webhook/Chart.yaml.
+    passing: false
