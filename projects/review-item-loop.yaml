@@ -34,7 +34,7 @@ requirements:
       - runLoopItem loads the item content via the existing loadItemContent (source type is unchanged), calls review.ExpandLoop, then for each iteration renders the prompt via ai.BuildLoopItemPrompt, calls ai.RunAgent, detects a modified project file, and commits changes if any are found
       - Extend `itemLabel` to return `loop:<type>` for loop items
       - Extend `filterItems` to match against `item.Loop`
-    passing: false
+    passing: true
 
   - category: config-yaml
     description: Add domain-function loop review item to .ralph/config.yaml

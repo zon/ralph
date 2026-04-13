@@ -21,6 +21,7 @@ import (
 	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/project"
+	"github.com/zon/ralph/internal/review"
 	"github.com/zon/ralph/internal/workflow"
 )
 
@@ -55,7 +56,8 @@ func filterItems(items []config.ReviewItem, filter string) []config.ReviewItem {
 	for _, item := range items {
 		if strings.Contains(strings.ToLower(item.Text), filterLower) ||
 			strings.Contains(strings.ToLower(item.File), filterLower) ||
-			strings.Contains(strings.ToLower(item.URL), filterLower) {
+			strings.Contains(strings.ToLower(item.URL), filterLower) ||
+			strings.Contains(strings.ToLower(item.Loop), filterLower) {
 			filtered = append(filtered, item)
 		}
 	}
@@ -192,6 +194,14 @@ func (r *ReviewCmd) runReview(ctx *execcontext.Context, ralphConfig *config.Ralp
 		label := r.itemLabel(item)
 		logger.Infof("Item: %s", label)
 
+		if item.Loop != "" {
+			branchName, detectedProjectFile, err = r.runLoopItem(ctx, item, i, branchName, detectedProjectFile)
+			if err != nil {
+				return branchName, detectedProjectFile, fmt.Errorf("failed to run loop item %d: %w", i, err)
+			}
+			continue
+		}
+
 		content, err := r.loadItemContent(item)
 		if err != nil {
 			return branchName, detectedProjectFile, fmt.Errorf("failed to load review item %d: %w", i, err)
@@ -251,6 +261,57 @@ func (r *ReviewCmd) commitReviewItemChanges(ctx *execcontext.Context, branchName
 
 	os.Remove(summaryPath)
 	return nil
+}
+
+func (r *ReviewCmd) runLoopItem(ctx *execcontext.Context, item config.ReviewItem, itemIndex int, branchName, detectedProjectFile string) (string, string, error) {
+	content, err := r.loadItemContent(item)
+	if err != nil {
+		return branchName, detectedProjectFile, fmt.Errorf("failed to load loop item content: %w", err)
+	}
+
+	iterations, err := review.ExpandLoop(item.Loop, "architecture.yaml")
+	if err != nil {
+		return branchName, detectedProjectFile, fmt.Errorf("failed to expand loop: %w", err)
+	}
+
+	logger.Verbosef("Loop item has %d iterations", len(iterations))
+
+	for iterationIdx, iteration := range iterations {
+		logger.Infof("Loop iteration %d/%d: %s (%s)", iterationIdx+1, len(iterations), iteration.FunctionName, iteration.FunctionPath)
+
+		prompt, err := ai.BuildLoopItemPrompt(content, iteration.FunctionName, iteration.FunctionPath)
+		if err != nil {
+			return branchName, detectedProjectFile, fmt.Errorf("failed to build loop prompt: %w", err)
+		}
+
+		if r.Verbose {
+			logger.Verbose(prompt)
+		}
+
+		logger.Verbosef("Running loop item %d iteration %d/%d...", itemIndex+1, iterationIdx+1, len(iterations))
+		if err := ai.RunAgent(ctx, prompt); err != nil {
+			return branchName, detectedProjectFile, fmt.Errorf("loop item %d iteration %d failed: %w", itemIndex, iterationIdx+1, err)
+		}
+
+		currentProjectFile, err := git.DetectModifiedProjectFile("projects")
+		if err != nil {
+			logger.Verbosef("Failed to detect project file: %v", err)
+		}
+
+		if currentProjectFile != "" && branchName == "" {
+			branchName = strings.TrimSuffix(filepath.Base(currentProjectFile), filepath.Ext(currentProjectFile))
+			detectedProjectFile = currentProjectFile
+		}
+
+		if branchName != "" && git.HasUncommittedChanges() {
+			combinedIndex := itemIndex*100 + iterationIdx
+			if err := r.commitReviewItemChanges(ctx, branchName, combinedIndex); err != nil {
+				return branchName, detectedProjectFile, fmt.Errorf("failed to commit after loop item %d iteration %d: %w", itemIndex+1, iterationIdx+1, err)
+			}
+		}
+	}
+
+	return branchName, detectedProjectFile, nil
 }
 
 func (r *ReviewCmd) submitToArgo(ctx *execcontext.Context, cloneBranch string) error {
@@ -389,6 +450,9 @@ func (r *ReviewCmd) loadItemContent(item config.ReviewItem) (string, error) {
 }
 
 func (r *ReviewCmd) itemLabel(item config.ReviewItem) string {
+	if item.Loop != "" {
+		return fmt.Sprintf("loop:%s", item.Loop)
+	}
 	switch {
 	case item.Text != "":
 		firstLine := strings.SplitN(item.Text, "\n", 2)[0]
@@ -421,4 +485,3 @@ func fetchRalphProjectDoc() (string, error) {
 	}
 	return strings.TrimSpace(string(data)), nil
 }
-
