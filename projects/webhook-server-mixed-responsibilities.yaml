@@ -1,0 +1,49 @@
+name: webhook-server-mixed-responsibilities
+description: Remove infrastructure concerns from handleWebhook domain function in internal/webhook/server.go
+
+requirements:
+  - category: structure
+    description: >
+      The handleWebhook function in internal/webhook/server.go violates the domain
+      functions standard by mixing infrastructure concerns directly into domain logic.
+      A domain function must read as a plain sequence of named domain steps with no
+      implementation details. Each item below is a distinct infrastructure concern
+      that must be extracted so handleWebhook reads as a pure sequence of domain steps.
+    items:
+      - >
+        Remove all logger.Verbosef calls from handleWebhook
+        (internal/webhook/server.go:68, 72, 79, 88, 92, 98, 102, 107-108). Logging
+        is observability infrastructure and must not appear inline in a domain function.
+        Move these calls into the functions they surround (e.g. submitWorkflow,
+        validateSignature, IsAcceptable, ToWorkflow) or into a thin orchestration
+        wrapper that sits outside handleWebhook.
+      - >
+        Remove the inline HTTP header extraction for the signature from handleWebhook
+        (internal/webhook/server.go:77). Reading c.GetHeader("X-Hub-Signature-256")
+        is an infrastructure detail. Extract it into a named helper such as
+        validateWebhookSignature(c, body, secret) that encapsulates both the header
+        read and the HMAC check, so the domain function calls a single named step
+        with no HTTP implementation details visible.
+      - >
+        Remove the inline HTTP header extraction and message construction for the
+        event type from handleWebhook (internal/webhook/server.go:84-89).
+        Reading c.GetHeader("X-GitHub-Event") and assembling msg from
+        payload.Review.Body / payload.Comment.Body are implementation details.
+        Extract the event-type read into the readAndParsePayload helper or a
+        dedicated parseEventContext helper so the domain function receives a
+        fully-populated value with no raw header access or field-selection logic
+        visible inline.
+      - >
+        Replace the go submitWorkflow(...) goroutine launch in handleWebhook
+        (internal/webhook/server.go:107) with a named domain step. Goroutine
+        management is a concurrency infrastructure concern and must not appear
+        inline in a domain function. Wrap the asynchronous dispatch in a named
+        function such as dispatchWorkflow(result, owner, repoName) that owns the
+        goroutine internally, so handleWebhook calls a plain named step.
+    passing: false
+
+  - category: version
+    description: Apply version bump for internal refactoring change.
+    items:
+      - Apply a semver patch bump to internal/version/VERSION and charts/ralph-webhook/Chart.yaml.
+    passing: false
