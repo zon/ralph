@@ -1,0 +1,38 @@
+name: config-pulumi-mixed-responsibilities
+description: Remove infrastructure concerns from Run domain function in internal/cmd/config_pulumi.go
+
+requirements:
+  - category: structure
+    description: >
+      The Run function in internal/cmd/config_pulumi.go violates the domain functions
+      standard by embedding observability infrastructure (logger calls) directly into
+      domain logic — both inline in Run itself and inside the helper methods it
+      delegates to. A domain function must read as a plain sequence of domain steps
+      with no implementation details.
+    items:
+      - >
+        Remove the printHeader call from Run (internal/cmd/config_pulumi.go:24) and
+        eliminate the printHeader method entirely (internal/cmd/config_pulumi.go:51-53).
+        A domain function must not call a helper whose sole purpose is to emit a log
+        line. Move the log call into Run's caller or into an orchestration wrapper, and
+        inline or delete printHeader.
+      - >
+        Remove the logger.Info calls from promptForToken
+        (internal/cmd/config_pulumi.go:56-57, 61). Logging is observability
+        infrastructure and must not appear inside a function called from the domain
+        function. Move the log calls into a thin orchestration wrapper that sits outside
+        Run so that promptForToken reads as a pure sequence of domain steps.
+      - >
+        Remove the logger.Infof and logger.Successf calls from createK8sSecret
+        (internal/cmd/config_pulumi.go:76, 86, 88). Logging is observability
+        infrastructure and must not appear inside a function called from the domain
+        function. Move the log calls into a thin orchestration wrapper that sits outside
+        Run, or into k8s.CreateOrUpdateSecret, so that createK8sSecret reads as a pure
+        sequence of domain steps.
+    passing: false
+
+  - category: version
+    description: Apply version bump for internal refactoring change.
+    items:
+      - Apply a semver patch bump to internal/version/VERSION and charts/ralph-webhook/Chart.yaml.
+    passing: false
