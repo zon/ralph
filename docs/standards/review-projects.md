@@ -8,12 +8,12 @@ Ignore the typical guidelines for [writing good requirements](https://raw.github
 
 Group review projects by **module and concern type**. Each project should address one concern type within one module.
 
-**Modules** correspond to Go packages (e.g. `internal/auth`, `internal/ai`).
-
 **Concern types:**
 - **Correctness** — missing validation, incorrect logic, error handling gaps, security issues
 - **Performance** — unnecessary allocations, redundant work, inefficient data structures
 - **Structure** — misplaced responsibilities, poor abstractions, naming, code organization
 - **Observability** — missing logging, incomplete metrics, insufficient error context
 
-For example: "auth correctness", "ai performance", "webhook structure". If issues in the same module span multiple concern types, create a separate project for each.
+Name the project after the module and concern. A project to address an auth module with mixed responsibility might be named `auth-mixed-responsibilities.yaml` for example.
+
+Complex or unrelated code changes should be in seperate requirements. Coding agents work on one requirement at a time. Focused requirements lets coding agents focus.
