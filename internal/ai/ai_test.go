@@ -12,7 +12,9 @@ func TestBuildLoopItemPrompt(t *testing.T) {
 		content := "Review {{.FunctionName}} in {{.FunctionPath}}"
 		result, err := BuildLoopItemPrompt(content, "DoThing", "internal/pkg/pkg.go")
 		require.NoError(t, err)
-		assert.Equal(t, "Review DoThing in internal/pkg/pkg.go", result)
+		assert.Contains(t, result, "Review DoThing in internal/pkg/pkg.go")
+		assert.Contains(t, result, "You are a software architect reviewing source code.")
+		assert.Contains(t, result, "Address any issues found")
 	})
 
 	t.Run("malformed template returns error", func(t *testing.T) {

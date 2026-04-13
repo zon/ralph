@@ -222,11 +222,15 @@ func BuildReviewItemPrompt(content string) (string, error) {
 }
 
 func BuildLoopItemPrompt(content, functionName, functionPath string) (string, error) {
-	data := LoopItemPromptData{
+	loopData := LoopItemPromptData{
 		FunctionName: functionName,
 		FunctionPath: functionPath,
 	}
-	return executeTemplate(content, data)
+	rendered, err := executeTemplate(content, loopData)
+	if err != nil {
+		return "", err
+	}
+	return executeTemplate(reviewInstructions, ReviewItemPromptData{ItemContent: rendered})
 }
 
 func BuildArchitectureFixPrompt(outputFile string, errors []string) (string, error) {
