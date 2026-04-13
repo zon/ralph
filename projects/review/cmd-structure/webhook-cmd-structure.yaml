@@ -1,0 +1,16 @@
+name: webhook-cmd-structure
+description: Refactor webhook cmd Run functions to separate domain logic from infrastructure
+
+requirements:
+  - category: structure
+    description: Separate infrastructure concerns from domain logic in ConfigWebhookConfigCmd.Run
+    items:
+      - internal/cmd/config_webhook.go:25-52 - Run() mixes domain orchestration with I/O operations (fmt.Println, logger.Warningf); per the domain functions standard, Run() should delegate all work to domain functions and contain no implementation details. Extract the orchestration logic into a domain function and move I/O to the calling context or a separate presenter layer.
+      - internal/cmd/config_webhook.go:75-93 - detectRepoAndNamespace() contains both domain logic (detecting repo info) and side effects (logger.Warningf calls); consider separating concerns or ensuring logger calls are made at the appropriate layer
+    passing: false
+  - category: structure
+    description: Separate infrastructure concerns from domain logic in ConfigWebhookSecretCmd.Run
+    items:
+      - internal/cmd/config_webhook.go:95-122 - Run() mixes domain orchestration with I/O (fmt.Println, logger.*); extract orchestration into a domain function and move I/O to the calling context or a separate presenter layer
+      - internal/cmd/config_webhook.go:161-174 - registerWebhooks() iterates over repos and calls logger.Infof/logger.Successf/logger.Warningf inline with domain logic; consider if logging should be moved to a separate layer
+    passing: false
