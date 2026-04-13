@@ -32,3 +32,10 @@ requirements:
     items:
       - internal/cmd/config_github.go:22-60 - Run function calls infrastructure functions directly (context.Background, config.LoadConfig, resolveKubeContext, c.detectRepo, c.readAndValidatePrivateKey, c.validateCredentials, c.createK8sSecret, logger.*); extract these as injected dependencies or adapter calls to separate orchestration from infrastructure
     passing: false
+  - category: structure
+    description: Separate infrastructure concerns from domain logic in ConfigOpencodeCmd.Run
+    items:
+      - internal/cmd/config_opencode.go:20-45 - Run calls printHeader() which logs infrastructure output; logging should be handled outside domain logic
+      - internal/cmd/config_opencode.go:20-45 - Run calls config.LoadConfig() which is infrastructure; config should be passed in or resolved before the domain function
+      - internal/cmd/config_opencode.go:20-45 - Run calls resolveKubeContext() which resolves Kubernetes context; this infrastructure concern should be handled before the domain function
+    passing: false
