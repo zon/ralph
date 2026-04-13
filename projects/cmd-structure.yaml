@@ -1,0 +1,10 @@
+name: cmd-structure
+description: Refactor CommentCmd.Run to separate domain logic from infrastructure
+
+requirements:
+  - category: structure
+    description: Separate infrastructure concerns from domain logic in CommentCmd.Run
+    items:
+      - internal/cmd/comment.go:31 - Run function calls infrastructure functions directly (logger.SetVerbose, os.Stat, config.LoadConfig, filepath.Abs, startServicesIfNeeded, ai.RunAgent); extract these as injected dependencies or adapter calls to separate orchestration from infrastructure
+      - internal/cmd/comment.go:57-66 - Context setup and service startup is embedded in Run; delegate side effects (logging config, service lifecycle) to a caller or adapter layer
+    passing: false
