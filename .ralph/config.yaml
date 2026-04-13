@@ -2,6 +2,7 @@ workflow:
   namespace: ralph
 model: minimax/MiniMax-M2.7
 review:
+  model: anthropic/claude-sonnet-4-6
   items:
     - url: https://raw.githubusercontent.com/zon/code/main/review/architecture/deep-modules.md
     - url: https://raw.githubusercontent.com/zon/code/main/review/architecture/domain-functions.md
