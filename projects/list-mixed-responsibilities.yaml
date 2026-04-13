@@ -1,0 +1,42 @@
+name: list-mixed-responsibilities
+description: Remove infrastructure concerns from Run domain function in internal/cmd/list.go
+
+requirements:
+  - category: structure
+    description: >
+      The Run function in internal/cmd/list.go violates the domain functions
+      standard by embedding infrastructure concerns directly in domain logic.
+      The same issues appear identically in internal/cmd/stop.go. Each item
+      below is a distinct infrastructure concern that must be extracted so Run
+      reads as a plain sequence of domain steps: load config, resolve context,
+      list workflows.
+    items:
+      - >
+        Remove the explicit context.Background() call from ListCmd.Run
+        (internal/cmd/list.go:16) and StopCmd.Run (internal/cmd/stop.go:17).
+        Creating a Go context is infrastructure plumbing and must not appear
+        inline in a domain function. Move context creation into resolveKubeContext
+        (internal/cmd/kube_context.go) so callers do not need to construct or
+        pass a context.Context at all.
+      - >
+        Remove the inline fmt.Errorf("failed to load config: %w", err) error
+        wrapping from ListCmd.Run (internal/cmd/list.go:20) and StopCmd.Run
+        (internal/cmd/stop.go:20). Error message formatting is infrastructure
+        detail. Move the wrapping inside config.LoadConfig so callers receive
+        an already-contextualised error and the domain function contains no
+        fmt.Errorf calls.
+      - >
+        Replace the manual argo.K8sContext{Name: k8sCtx.Name, Namespace:
+        k8sCtx.Namespace} struct construction in ListCmd.Run
+        (internal/cmd/list.go:28-31) and StopCmd.Run (internal/cmd/stop.go:29-32)
+        with a direct conversion. Either change argo.ListWorkflows and
+        argo.StopWorkflow to accept k8s.Context directly, or add a conversion
+        function (e.g. argo.ContextFrom(k8s.Context)) so the domain function
+        does not contain field-by-field mapping.
+    passing: false
+
+  - category: version
+    description: Apply version bump for internal refactoring change.
+    items:
+      - Apply a semver patch bump to internal/version/VERSION and charts/ralph-webhook/Chart.yaml.
+    passing: false
