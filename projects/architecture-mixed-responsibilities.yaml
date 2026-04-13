@@ -1,0 +1,41 @@
+name: architecture-mixed-responsibilities
+description: Remove infrastructure concerns from Run domain function in internal/cmd/architecture.go
+
+requirements:
+  - category: structure
+    description: >
+      The Run function in internal/cmd/architecture.go violates the domain functions
+      standard by mixing infrastructure concerns (verbose flag propagation, model
+      override wiring, and success logging) directly into domain logic. A domain
+      function must read as a plain sequence of named domain steps with no
+      implementation details. Each item below is a distinct infrastructure concern
+      that must be extracted so Run reads as a pure sequence of domain steps.
+    items:
+      - >
+        Remove the logger.SetVerbose(true) call from Run
+        (internal/cmd/architecture.go:23-25). Configuring the global logger is an
+        observability infrastructure concern and must not appear inline in a domain
+        function. Move this call into a shared infrastructure setup helper (e.g.
+        configureLogging or similar) that is invoked before Run, or into the
+        createExecutionContext helper so that all context initialisation is
+        centralised in one place outside the domain function.
+      - >
+        Remove the ctx.SetVerbose and ctx.SetModel calls from Run
+        (internal/cmd/architecture.go:28-29). Wiring CLI flag values into the
+        execution context is infrastructure initialisation, not domain logic. Move
+        these calls into createExecutionContext (or a thin wrapper around it) so
+        that Run receives a fully-configured context and contains no context-setup
+        details.
+      - >
+        Remove the logger.Successf call from Run
+        (internal/cmd/architecture.go:44). Emitting a success log message is an
+        observability infrastructure concern. Move the log call into the
+        commitAndCreatePR function or into a thin orchestration wrapper that sits
+        outside Run, keeping Run free of logging details.
+    passing: false
+
+  - category: version
+    description: Apply version bump for internal refactoring change.
+    items:
+      - Apply a semver patch bump to internal/version/VERSION and charts/ralph-webhook/Chart.yaml.
+    passing: false
