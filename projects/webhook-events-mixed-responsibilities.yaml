@@ -27,6 +27,14 @@ requirements:
         named helper such as workflowOptions(cfg *webhookconfig.Config)
         workflow.WorkflowOptions so that ToWorkflow calls a single named step
         with no struct literals or cfg field access visible inline.
+      - >
+        Extract the inline namespace resolution from ToWorkflow
+        (internal/webhook/events.go:48-51). The nil-check on cfg.RepoByFullName
+        and the conditional field extraction of repo.Namespace are
+        implementation details of config lookup, not domain logic. Extract it
+        into a named helper such as namespaceForRepo(cfg *webhookconfig.Config,
+        owner, name string) string so that ToWorkflow calls a single named step
+        with no cfg field access or nil-guard visible inline.
     passing: false
 
   - category: version
