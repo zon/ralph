@@ -1,0 +1,44 @@
+name: run-mixed-responsibilities
+description: Remove infrastructure concerns from Execute domain function in internal/run
+
+requirements:
+  - category: structure
+    description: >
+      The Execute function in internal/run/execute.go violates the domain functions
+      standard by mixing infrastructure concerns (logging, notification, string
+      formatting, and infrastructure-named wrappers) directly into domain logic.
+      Each item below is a distinct infrastructure concern that must be extracted
+      so Execute reads as a pure sequence of domain steps.
+    items:
+      - >
+        Remove all logger.* calls from Execute (internal/run/execute.go:82, 90, 92,
+        106, 113-115, 127). Logging is observability infrastructure and must not
+        appear inline in a domain function. Move log calls into the called functions
+        (e.g. RunIterationLoop, ai.GeneratePRSummary, github.CreatePullRequest) or
+        into a thin orchestration wrapper that sits outside Execute.
+      - >
+        Remove notify.Error and notify.Success calls from Execute
+        (internal/run/execute.go:86, 121, 129). Sending notifications is a
+        side-effect infrastructure concern. Extract notification into a wrapper
+        function that calls Execute and handles success/failure notification, keeping
+        Execute free of delivery-mechanism details.
+      - >
+        Replace the inline fmt.Sprintf that builds projectStatus
+        (internal/run/execute.go:99-100) with a call to a named function such as
+        project.FormatStatus(project) that encapsulates that formatting. A domain
+        function must not contain string-formatting implementation details for
+        constructing AI prompt inputs.
+      - >
+        Rename or eliminate the infrastructureRunBeforeCommands and
+        infrastructureGetCommitLog wrappers (internal/run/execute.go:134-145). The
+        "infrastructure" prefix signals that infrastructure logic is leaking into the
+        domain layer. Either give these steps domain-meaningful names that express
+        what they accomplish (e.g. prepareEnvironment, getCommitsSince) and inline
+        them naturally, or move the underlying calls out of Execute entirely.
+    passing: false
+
+  - category: version
+    description: Apply version bump for internal refactoring change.
+    items:
+      - Apply a semver patch bump to internal/version/VERSION and charts/ralph-webhook/Chart.yaml.
+    passing: false
