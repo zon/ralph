@@ -1,0 +1,36 @@
+name: webhook-events-mixed-responsibilities
+description: Remove infrastructure concerns from ToWorkflow domain function in internal/webhook/events.go
+
+requirements:
+  - category: structure
+    description: >
+      The ToWorkflow method in internal/webhook/events.go violates the domain
+      functions standard by embedding implementation details directly in the
+      function body. A domain function must read as a plain sequence of named
+      domain steps with no inline plumbing. Each item below is a distinct
+      implementation detail that must be extracted so ToWorkflow reads as a
+      pure sequence of named domain steps.
+    items:
+      - >
+        Extract the inline projectName derivation from ToWorkflow
+        (internal/webhook/events.go:66: strings.TrimSuffix(filepath.Base(projectFile),
+        filepath.Ext(projectFile))). String and path manipulation are
+        implementation details. Move this logic into projectFileFromBranch or a
+        new companion helper projectNameFromBranch(branch string) string so that
+        ToWorkflow obtains the project name through a single named call with no
+        path-manipulation expressions visible inline.
+      - >
+        Extract the WorkflowOptions assembly from ToWorkflow
+        (internal/webhook/events.go:53-56). Constructing a WorkflowOptions
+        struct by reaching into cfg.App fields and calling workflow.MakeImage
+        inline is infrastructure plumbing, not domain logic. Extract it into a
+        named helper such as workflowOptions(cfg *webhookconfig.Config)
+        workflow.WorkflowOptions so that ToWorkflow calls a single named step
+        with no struct literals or cfg field access visible inline.
+    passing: false
+
+  - category: version
+    description: Apply version bump for internal refactoring change.
+    items:
+      - Apply a semver patch bump to internal/version/VERSION and charts/ralph-webhook/Chart.yaml.
+    passing: false
