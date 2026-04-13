@@ -1,0 +1,53 @@
+name: comment-mixed-responsibilities
+description: Remove infrastructure concerns from Run domain function in internal/cmd/comment.go
+
+requirements:
+  - category: structure
+    description: >
+      The Run function in internal/cmd/comment.go violates the domain functions
+      standard by embedding infrastructure concerns (logger configuration, raw
+      filesystem operations, execution context assembly, service lifecycle, and
+      template rendering) directly into domain logic. Each item below is a
+      distinct infrastructure concern that must be extracted so Run reads as a
+      plain sequence of domain steps.
+    items:
+      - >
+        Remove the logger.SetVerbose call from Run (internal/cmd/comment.go:32-34).
+        Configuring observability infrastructure is not a domain step. Move the
+        verbose flag setup into a shared initialisation helper called before Run,
+        or into the createExecutionContext machinery, so Run never touches the
+        logger directly.
+      - >
+        Extract the filepath.Abs and os.Stat calls (internal/cmd/comment.go:38-44)
+        into a named function such as resolveProjectFile(branch string) (string, error)
+        that derives and validates the project file path. Raw filesystem I/O must not
+        appear inline in a domain function. Run should call the named function and
+        receive a validated absolute path.
+      - >
+        Replace the four sequential ctx.Set* calls (internal/cmd/comment.go:57-61)
+        with a single constructor or factory call such as
+        createExecutionContext(projectFile string, verbose bool, noServices bool) that
+        returns a fully configured context. Inline property assignment on an
+        infrastructure object is not a domain step and obscures the function's intent.
+      - >
+        Remove the startServicesIfNeeded call and its defer cleanup() pattern from Run
+        (internal/cmd/comment.go:63-66). Service lifecycle management is infrastructure
+        and must not appear inline in a domain function. Encapsulate startup and
+        deferred teardown inside a wrapper such as withServices(cfg, noServices,
+        cleanupRegistrar, func() error) that accepts Run's core logic as a callback,
+        or handle service lifecycle in the caller above Run.
+      - >
+        Replace the renderInstructions call (internal/cmd/comment.go:69) and the
+        logger.Verbose call immediately before ai.RunAgent (internal/cmd/comment.go:72)
+        with a single domain-meaningful call such as buildAgentPrompt(cfg, repo, branch,
+        body, pr string) string. Template rendering is a string-formatting
+        infrastructure detail. The logger.Verbose call is observability infrastructure.
+        Neither belongs inline in the domain function; both should be absorbed into the
+        helper or into ai.RunAgent itself.
+    passing: false
+
+  - category: version
+    description: Apply version bump for internal refactoring change.
+    items:
+      - Apply a semver patch bump to internal/version/VERSION and charts/ralph-webhook/Chart.yaml.
+    passing: false
