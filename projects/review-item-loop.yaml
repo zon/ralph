@@ -40,7 +40,7 @@ requirements:
     description: Add domain-function loop review item to .ralph/config.yaml
     items:
       - "Add a new review item to .ralph/config.yaml with file: docs/review/domain-function.md and loop: domain-function"
-    passing: false
+    passing: true
 
   - category: version
     description: Bump version for new feature

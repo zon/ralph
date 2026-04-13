@@ -5,3 +5,5 @@ review:
   items:
     - url: https://raw.githubusercontent.com/zon/code/main/review/architecture/deep-modules.md
     - url: https://raw.githubusercontent.com/zon/code/main/review/architecture/domain-functions.md
+    - file: docs/review/domain-function.md
+      loop: domain-function
