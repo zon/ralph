@@ -1,0 +1,31 @@
+name: merge-mixed-responsibilities
+description: Remove infrastructure concerns from Run domain function in internal/cmd/merge.go
+
+requirements:
+  - category: structure
+    description: >
+      The Run function in internal/cmd/merge.go violates the domain functions
+      standard by embedding infrastructure concerns directly into domain logic.
+      Each item below is a distinct infrastructure concern that must be extracted
+      so Run reads as a plain sequence of domain steps.
+    items:
+      - >
+        Remove the logger.Successf call from Run (internal/cmd/merge.go:50).
+        Logging is observability infrastructure and must not appear inline in a
+        domain function. Move the log call into workflow.Submit or into a thin
+        wrapper that sits outside Run, so Run never touches the logger directly.
+      - >
+        Collapse the two-step GenerateMergeWorkflow + mw.Submit() sequence
+        (internal/cmd/merge.go:39-48) into a single domain-meaningful call such as
+        workflow.SubmitMergeWorkflow(branch string) (string, error). Constructing
+        an intermediate workflow object and calling Submit on it is an infrastructure
+        implementation detail. The domain function should express the intent
+        (submit a merge workflow for the branch) in one named call, not expose the
+        generate-then-submit mechanics inline.
+    passing: false
+
+  - category: version
+    description: Apply version bump for internal refactoring change.
+    items:
+      - Apply a semver patch bump to internal/version/VERSION and charts/ralph-webhook/Chart.yaml.
+    passing: false
