@@ -1,0 +1,24 @@
+name: validate-mixed-responsibilities
+description: Remove infrastructure concerns from Run domain function in internal/cmd/validate.go
+
+requirements:
+  - category: structure
+    description: >
+      The Run function in internal/cmd/validate.go violates the domain functions
+      standard by embedding an observability infrastructure call (logger.Infof)
+      directly into domain logic. A domain function must read as a plain sequence
+      of domain steps with no implementation details.
+    items:
+      - >
+        Remove the logger.Infof call from Run (internal/cmd/validate.go:18).
+        Logging is observability infrastructure and must not appear inline in a
+        domain function. Move the log call into project.LoadProject or into a
+        thin orchestration wrapper that sits outside Run, so that Run reads as a
+        pure sequence of domain steps: load the project and return.
+    passing: false
+
+  - category: version
+    description: Apply version bump for internal refactoring change.
+    items:
+      - Apply a semver patch bump to internal/version/VERSION and charts/ralph-webhook/Chart.yaml.
+    passing: false
