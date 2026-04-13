@@ -47,4 +47,4 @@ requirements:
     items:
       - Apply a semver minor bump to `internal/version/VERSION`
       - Apply a semver patch bump to `charts/ralph-webhook/Chart.yaml` (both `version` and `appVersion`)
-    passing: false
+    passing: true
