@@ -37,6 +37,39 @@ requirements:
         them naturally, or move the underlying calls out of Execute entirely.
     passing: false
 
+  - category: structure
+    description: >
+      RunIterationLoop in internal/run/iteration.go violates the domain functions
+      standard by embedding observability infrastructure, opaque loop mechanics,
+      and duplicate project-state reads directly into domain logic. Each item
+      below is a distinct concern that must be extracted so RunIterationLoop reads
+      as a plain sequence of domain steps.
+    items:
+      - >
+        Remove all logger.* calls from RunIterationLoop
+        (internal/run/iteration.go:90, 95, 96, 120, 125, 135). Logging is
+        observability infrastructure and must not appear inline in a domain
+        function. Move log calls into the functions that are called from
+        RunIterationLoop (e.g. runSingleIteration, project.CheckCompletion) or
+        into a thin orchestration wrapper that sits outside RunIterationLoop.
+      - >
+        Replace the iterateWhile helper and its inline worker closure
+        (internal/run/iteration.go:68-79, 94-128) with a plain for-loop directly
+        in RunIterationLoop. The closure-based abstraction obscures the domain
+        flow and constitutes a non-trivial flow-control implementation detail
+        inside the domain function. A simple for loop with an explicit break
+        condition makes the iteration logic immediately readable.
+      - >
+        Eliminate the duplicate project.LoadProject and project.CheckCompletion
+        calls that occur both inside runSingleIteration
+        (internal/run/iteration.go:166-171) and again after the loop in
+        RunIterationLoop (internal/run/iteration.go:137-141). The post-loop
+        reload is redundant because runSingleIteration already loads and checks
+        completion. Refactor so the final project state is returned from
+        runSingleIteration (or a shared variable is updated in the loop) and
+        reused, removing the extra I/O and duplicate logic.
+    passing: false
+
   - category: version
     description: Apply version bump for internal refactoring change.
     items:
