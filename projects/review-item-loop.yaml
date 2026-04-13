@@ -8,7 +8,7 @@ requirements:
       - Add `loop` string field to `ReviewItem` struct in `internal/config/config.go`
       - loop is optional and independent of the source type — a loop item still requires exactly one of text, file, or url; existing validation for those fields is unchanged
       - Validate that when `loop` is set, its value is a known type; the only valid value is `domain-function`
-    passing: false
+    passing: true
 
   - category: review
     description: Add internal/review package with loop expansion logic

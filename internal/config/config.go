@@ -87,11 +87,18 @@ type WorkflowConfig struct {
 	Labels     map[string]string `yaml:"labels,omitempty"`
 }
 
+const LoopTypeDomainFunction = "domain-function"
+
+var validLoopTypes = map[string]bool{
+	LoopTypeDomainFunction: true,
+}
+
 // ReviewItem represents a single review item with exactly one source (Text, File, or URL)
 type ReviewItem struct {
 	Text string `yaml:"text,omitempty"` // Inline string content
 	File string `yaml:"file,omitempty"` // Path relative to repo root, read at runtime
 	URL  string `yaml:"url,omitempty"`  // HTTP URL fetched at runtime, expects plain text response
+	Loop string `yaml:"loop,omitempty"` // Optional loop type for iterative prompting
 }
 
 // ReviewConfig represents the review configuration section
@@ -167,6 +174,10 @@ func ValidateReviewConfig(r *ReviewConfig) error {
 		}
 		if count > 1 {
 			return fmt.Errorf("review item %d must have exactly one of text, file, or url set", i)
+		}
+
+		if item.Loop != "" && !validLoopTypes[item.Loop] {
+			return fmt.Errorf("review item %d has invalid loop type %q; valid types are: domain-function", i, item.Loop)
 		}
 	}
 

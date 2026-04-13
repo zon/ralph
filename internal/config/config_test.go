@@ -561,6 +561,52 @@ func TestValidateReviewConfig(t *testing.T) {
 			wantErr: true,
 			errMsg:  "review item 0 must have exactly one of text, file, or url set",
 		},
+		{
+			name: "valid item with domain-function loop",
+			config: &ReviewConfig{
+				Items: []ReviewItem{
+					{File: "docs/review/domain-function.md", Loop: "domain-function"},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid item with text and loop",
+			config: &ReviewConfig{
+				Items: []ReviewItem{
+					{Text: "Review functions", Loop: "domain-function"},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid item with url and loop",
+			config: &ReviewConfig{
+				Items: []ReviewItem{
+					{URL: "https://example.com/review.md", Loop: "domain-function"},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid loop type",
+			config: &ReviewConfig{
+				Items: []ReviewItem{
+					{Text: "some text", Loop: "unknown-type"},
+				},
+			},
+			wantErr: true,
+			errMsg:  `review item 0 has invalid loop type "unknown-type"; valid types are: domain-function`,
+		},
+		{
+			name: "item with empty loop is valid",
+			config: &ReviewConfig{
+				Items: []ReviewItem{
+					{Text: "some text", Loop: ""},
+				},
+			},
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {
