@@ -1,0 +1,96 @@
+name: config-webhook-mixed-responsibilities
+description: Remove infrastructure concerns from Run domain functions in internal/cmd/config_webhook.go
+
+requirements:
+  - category: structure
+    description: >
+      The Run function on ConfigWebhookConfigCmd (internal/cmd/config_webhook.go:25)
+      violates the domain functions standard by embedding output and observability
+      infrastructure directly into domain logic — both inline in Run itself and inside
+      the helper methods it delegates to. A domain function must read as a plain
+      sequence of domain steps with no implementation details.
+    items:
+      - >
+        Remove the fmt.Println calls from Run
+        (internal/cmd/config_webhook.go:28-29). Printing to stdout is output
+        infrastructure and must not appear inline in a domain function. Move the
+        output calls into a thin orchestration wrapper that sits outside Run.
+      - >
+        Remove the fmt.Printf call from Run (internal/cmd/config_webhook.go:50).
+        Printing to stdout is output infrastructure and must not appear inline in a
+        domain function. Move the output call into a thin orchestration wrapper that
+        sits outside Run.
+      - >
+        Remove the logger.Warningf call from readExistingConfigmap
+        (internal/cmd/config_webhook.go:57). Logging is observability infrastructure
+        and must not appear inside a function called from the domain function. Move
+        the log call into a thin orchestration wrapper that sits outside Run so that
+        readExistingConfigmap reads as a pure sequence of domain steps.
+      - >
+        Remove the logger.Warningf call from loadConfigUpdates
+        (internal/cmd/config_webhook.go:69). Logging is observability infrastructure
+        and must not appear inside a function called from the domain function. Move
+        the log call into a thin orchestration wrapper that sits outside Run so that
+        loadConfigUpdates reads as a pure sequence of domain steps.
+      - >
+        Remove the logger.Warningf calls from detectRepoAndNamespace
+        (internal/cmd/config_webhook.go:78, 88). Logging is observability
+        infrastructure and must not appear inside a function called from the domain
+        function. Move the log calls into a thin orchestration wrapper that sits
+        outside Run so that detectRepoAndNamespace reads as a pure sequence of domain
+        steps.
+    passing: false
+
+  - category: structure
+    description: >
+      The Run function on ConfigWebhookSecretCmd (internal/cmd/config_webhook.go:95)
+      violates the domain functions standard by embedding output and observability
+      infrastructure directly into domain logic — both inline in Run itself and inside
+      the helper methods it delegates to. A domain function must read as a plain
+      sequence of domain steps with no implementation details.
+    items:
+      - >
+        Remove the fmt.Println calls from Run
+        (internal/cmd/config_webhook.go:98-99). Printing to stdout is output
+        infrastructure and must not appear inline in a domain function. Move the
+        output calls into a thin orchestration wrapper that sits outside Run.
+      - >
+        Remove the fmt.Printf call from readRepoList
+        (internal/cmd/config_webhook.go:125). Printing to stdout is output
+        infrastructure and must not appear inside a function called from the domain
+        function. Move the output call into a thin orchestration wrapper that sits
+        outside Run so that readRepoList reads as a pure sequence of domain steps.
+      - >
+        Remove the fmt.Printf call from validateRepos
+        (internal/cmd/config_webhook.go:137). Printing to stdout is output
+        infrastructure and must not appear inside a function called from the domain
+        function. Move the output call into a thin orchestration wrapper that sits
+        outside Run so that validateRepos reads as a pure sequence of domain steps.
+      - >
+        Remove the fmt.Printf and logger.Successf calls from generateAndWriteSecrets
+        (internal/cmd/config_webhook.go:147, 157). Output and logging are
+        infrastructure concerns and must not appear inside a function called from the
+        domain function. Move these calls into a thin orchestration wrapper that sits
+        outside Run so that generateAndWriteSecrets reads as a pure sequence of
+        domain steps.
+      - >
+        Remove all logger.Infof, logger.Warningf, and logger.Successf calls from
+        registerWebhooks (internal/cmd/config_webhook.go:163, 165, 167, 169, 172).
+        Logging is observability infrastructure and must not appear inside a function
+        called from the domain function. Move the log calls into
+        provisioning.RegisterGitHubWebhook or into a thin orchestration wrapper that
+        sits outside Run so that registerWebhooks reads as a pure sequence of domain
+        steps.
+      - >
+        Replace the inline fmt.Sprintf that constructs webhookURL in registerWebhooks
+        (internal/cmd/config_webhook.go:162) with a call to a named function such as
+        provisioning.WebhookURL() that encapsulates the URL construction. A domain
+        function must not contain string-formatting implementation details for
+        building infrastructure URLs.
+    passing: false
+
+  - category: version
+    description: Apply version bump for internal refactoring change.
+    items:
+      - Apply a semver patch bump to internal/version/VERSION and charts/ralph-webhook/Chart.yaml.
+    passing: false
