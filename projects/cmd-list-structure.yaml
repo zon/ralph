@@ -1,0 +1,15 @@
+name: cmd-list-structure
+description: Refactor ListCmd.Run to separate domain logic from infrastructure
+
+requirements:
+  - category: structure
+    description: >
+      ListCmd.Run mixes domain workflow with infrastructure concerns. The function
+      should express only the orchestration logic (resolve context → list workflows),
+      while config loading and k8s context resolution are infrastructure that belongs
+      in adapter layers or injected dependencies.
+    items:
+      - internal/cmd/list.go:18 - Run calls config.LoadConfig() directly; config loading is infrastructure and should be injected or resolved at construction time
+      - internal/cmd/list.go:23 - Run calls resolveKubeContext() which performs k8s context resolution with logging and fallback logic; this infrastructure concern should be abstracted behind a k8s context provider
+      - internal/cmd/list.go:28 - Run calls argo.ListWorkflows which executes the argo CLI via exec.Command; external CLI invocation is infrastructure and should be behind an adapter
+    passing: false
