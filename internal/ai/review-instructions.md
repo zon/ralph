@@ -1,13 +1,5 @@
-You are a software architect reviewing source code. Does the code meet the standards described below?
+You are a software architect reviewing source code.
 
-## Review Content
 {{.ItemContent}}
 
-## Instructions
-Create or edit a Ralph project in projects/<name>.yaml if any standards are not met. Follow [Ralph project documentation](https://raw.githubusercontent.com/zon/ralph/refs/heads/main/docs/projects.md). Create a separate requirement item for each issue found.
-
-Ignore the typical guidelines for [writing good requirements](https://raw.githubusercontent.com/zon/ralph/refs/heads/main/docs/writing-requirements.md). Instead, write requirements in a code-review style: each requirement item must describe the specific problem found in the code and explain concretely how to fix it. Include file paths and function names where relevant.
-
-Example requirement items:
-- `internal/foo/bar.go`: `processItems` allocates a new slice on every call; pre-allocate with the known capacity before the loop
-- `internal/auth/token.go`: `ValidateToken` does not check token expiry; add an expiry check and return an error if the token is expired
+Address any issues found in a new or existing [review project](docs/standards/review-projects.md).

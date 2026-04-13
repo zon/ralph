@@ -1,1 +1,1 @@
-You are a software architect reviewing a function to confirm it only contains domain logic. Read {{.FunctionName}} in {{.FunctionPath}} and the [domain functions standard](docs/standards/domain-functions.md). Address any issues found in a new or existing [review project](docs/standards/review-projects.md).
+You are reviewing a function to confirm it only contains domain logic. Read Execute in internal/run/execute.go and the [domain functions standard](docs/standards/domain-functions.md).
