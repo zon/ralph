@@ -27,3 +27,8 @@ requirements:
       - internal/cmd/stop.go:19 - Run calls config.LoadConfig() directly; configuration loading is infrastructure and should be injected as a dependency
       - internal/cmd/stop.go:24 - resolveKubeContext is an infrastructure function that handles Kubernetes context resolution; this should be abstracted behind an adapter or injected dependency so the domain flow only expresses intent (stop workflow) without embedding setup logic
     passing: false
+  - category: structure
+    description: Separate infrastructure concerns from domain logic in ConfigGithubCmd.Run
+    items:
+      - internal/cmd/config_github.go:22-60 - Run function calls infrastructure functions directly (context.Background, config.LoadConfig, resolveKubeContext, c.detectRepo, c.readAndValidatePrivateKey, c.validateCredentials, c.createK8sSecret, logger.*); extract these as injected dependencies or adapter calls to separate orchestration from infrastructure
+    passing: false
