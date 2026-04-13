@@ -1,0 +1,43 @@
+name: project-mixed-responsibilities
+description: Remove infrastructure concerns from ExecuteDevelopmentIterationWithSetup in internal/project
+
+requirements:
+  - category: structure
+    description: >
+      ExecuteDevelopmentIterationWithSetup in internal/project/project.go violates the
+      domain functions standard by embedding logging, raw file I/O, and duplicated
+      error-handling side effects directly into domain logic. Each item below is a
+      distinct infrastructure concern that must be extracted so the function reads as
+      a plain sequence of domain steps.
+    items:
+      - >
+        Remove all logger.* calls from ExecuteDevelopmentIterationWithSetup
+        (internal/project/project.go:200, 218, 220, 229, 239, 240, 243, 259, 261,
+        270, 276). Logging is observability infrastructure and must not appear inline
+        in a domain function. Move log calls into the functions being called
+        (e.g. ai.RunAgent, ai.BuildPickPrompt, ai.BuildDevelopPrompt,
+        readAndClearPickedRequirement) or into a thin orchestration wrapper that
+        sits outside ExecuteDevelopmentIterationWithSetup.
+      - >
+        Extract the os.ReadFile and os.Remove calls for the picked-requirement file
+        (internal/project/project.go:231-241) into a named function such as
+        readAndClearPickedRequirement(path string) (string, error). These are
+        infrastructure I/O operations and must not appear inline in a domain function.
+        The domain function should call the named function and receive the selected
+        requirement string.
+      - >
+        Extract the duplicated ai.RunAgent + writeBlockedMD error-handling pattern
+        that appears twice in ExecuteDevelopmentIterationWithSetup
+        (internal/project/project.go:221-228 and 262-268) into a single helper such
+        as runAgentOrBlock(ctx, projectPath, prompt string) error. The inline
+        conditional branching on writeBlockedMD's return value is an infrastructure
+        side-effect concern that must not be repeated inside the domain function.
+        The domain function should call the helper directly for both the picker and
+        development agent steps.
+    passing: false
+
+  - category: version
+    description: Apply version bump for internal refactoring change.
+    items:
+      - Apply a semver patch bump to internal/version/VERSION and charts/ralph-webhook/Chart.yaml.
+    passing: false
