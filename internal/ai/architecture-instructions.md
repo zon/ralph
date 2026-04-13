@@ -21,6 +21,7 @@ Domain functions encode the real-world rules and processes the software solves â
 
 For example, a messaging app HTTP handler:
 
+```
 func postMessage(ctx):
   user = getUser(ctx)
   message = parseMessage(ctx)
@@ -28,6 +29,7 @@ func postMessage(ctx):
   upsertMessage(user, channel, message)
   publishEvent(channel, message)
   return message
+```
 
 ### Module Types
 
