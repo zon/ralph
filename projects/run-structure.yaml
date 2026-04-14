@@ -7,4 +7,4 @@ requirements:
     items:
       - internal/run/execute.go:69 - Execute function calls infrastructure functions (infrastructureRunBeforeCommands, notify.Error, notify.Success, logger.*, github.CreatePullRequest, ai.GeneratePRSummary) directly; extract these as injected dependencies or adapter calls to separate orchestration from infrastructure
       - internal/run/execute.go:69 - Execute function has complex flow control with mixed error handling and logging; simplify by delegating side effects to a caller or adapter layer
-    passing: false
+    passing: true

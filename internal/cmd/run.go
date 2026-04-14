@@ -91,7 +91,7 @@ func (r *RunCmd) Run() error {
 		BaseBranch:    baseBranch,
 	}
 
-	return run.Execute(ctx, r.cleanupRegistrar, setup)
+	return run.Execute(ctx, r.cleanupRegistrar, setup, nil)
 }
 
 func resolveBaseBranch(baseFlag, currentBranch, projectBranch, defaultBranch string) string {

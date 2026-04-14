@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/zon/ralph/internal/ai"
 	"github.com/zon/ralph/internal/argo"
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
@@ -14,7 +13,6 @@ import (
 	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/notify"
 	"github.com/zon/ralph/internal/project"
-	"github.com/zon/ralph/internal/services"
 	"github.com/zon/ralph/internal/workflow"
 )
 
@@ -66,12 +64,16 @@ func PrepareExecution(ctx *context.Context) (*ExecutionSetup, error) {
 	}, nil
 }
 
-func Execute(ctx *context.Context, cleanupRegistrar func(func()), setup *ExecutionSetup) error {
+func Execute(ctx *context.Context, cleanupRegistrar func(func()), setup *ExecutionSetup, adapter InfrastructureAdapter) error {
+	if adapter == nil {
+		adapter = &DefaultInfrastructureAdapter{}
+	}
+
 	if !ctx.IsLocal() {
 		return executeRemote(ctx, setup.ProjectFile)
 	}
 
-	if err := infrastructureRunBeforeCommands(setup.Config); err != nil {
+	if err := adapter.RunBeforeCommands(setup.Config); err != nil {
 		return err
 	}
 
@@ -79,19 +81,19 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func()), setup *Executi
 		return err
 	}
 
-	logger.Verbosef("Starting iteration loop (max: %d)", ctx.MaxIterations)
+	adapter.LogVerbose("Starting iteration loop (max: %d)", ctx.MaxIterations())
 
 	iterCount, err := RunIterationLoop(ctx, cleanupRegistrar, setup.Project)
 	if err != nil {
-		notify.Error(setup.Project.Name, ctx.ShouldNotify())
+		adapter.NotifyError(setup.Project.Name, ctx.ShouldNotify())
 		return fmt.Errorf("iteration loop failed: %w", err)
 	}
 
-	logger.Verbosef("Iteration loop completed after %d iteration(s)", iterCount)
+	adapter.LogVerbose("Iteration loop completed after %d iteration(s)", iterCount)
 
-	logger.Verbose("Generating PR summary...")
+	adapter.LogVerbose("Generating PR summary...")
 
-	commitLog, err := infrastructureGetCommitLog(setup.BaseBranch, 100)
+	commitLog, err := adapter.GetCommitLog(setup.BaseBranch, 100)
 	if err != nil {
 		return fmt.Errorf("failed to get commit log: %w", err)
 	}
@@ -99,11 +101,11 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func()), setup *Executi
 	allComplete, passingCount, failingCount := project.CheckCompletion(setup.Project)
 	projectStatus := fmt.Sprintf("%d passing, %d failing (complete: %v)", passingCount, failingCount, allComplete)
 
-	prSummary, err := ai.GeneratePRSummary(ctx, setup.Project.Description, projectStatus, setup.BaseBranch, commitLog)
+	prSummary, err := adapter.GeneratePRSummary(ctx, setup.Project.Description, projectStatus, setup.BaseBranch, commitLog)
 	if err != nil {
 		return fmt.Errorf("failed to generate PR summary: %w", err)
 	}
-	logger.Verbose("PR summary generated")
+	adapter.LogVerbose("PR summary generated")
 
 	setup.Project, err = project.LoadProject(setup.ProjectFile)
 	if err != nil {
@@ -111,37 +113,26 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func()), setup *Executi
 	}
 
 	if ctx.IsVerbose() {
-		logger.Verbosef("PR Summary:\n%s", prSummary)
+		adapter.LogVerboseFn(func() string {
+			return fmt.Sprintf("PR Summary:\n%s", prSummary)
+		})
 	}
 
-	prURL, err := github.CreatePullRequest(ctx, setup.Project, setup.BranchName, setup.BaseBranch, prSummary)
+	prURL, err := adapter.CreatePullRequest(ctx, setup.Project, setup.BranchName, setup.BaseBranch, prSummary)
 	if err != nil {
 		if errors.Is(err, github.ErrNoCommitsBetweenBranches) {
-			logger.Verbose("No commits ahead of base branch — all requirements were already passing; skipping PR creation")
-			notify.Success(setup.Project.Name, ctx.ShouldNotify())
+			adapter.LogVerbose("No commits ahead of base branch — all requirements were already passing; skipping PR creation")
+			adapter.NotifySuccess(setup.Project.Name, ctx.ShouldNotify())
 			return nil
 		}
 		return err
 	}
 
-	logger.Successf("Pull request created: %s", prURL)
+	adapter.LogSuccess("Pull request created: %s", prURL)
 
-	notify.Success(setup.Project.Name, ctx.ShouldNotify())
+	adapter.NotifySuccess(setup.Project.Name, ctx.ShouldNotify())
 
 	return nil
-}
-
-func infrastructureRunBeforeCommands(cfg *config.RalphConfig) error {
-	if len(cfg.Before) > 0 {
-		if err := services.RunBefore(cfg.Before); err != nil {
-			return fmt.Errorf("failed to run before commands: %w", err)
-		}
-	}
-	return nil
-}
-
-func infrastructureGetCommitLog(baseBranch string, n int) (string, error) {
-	return git.GetCommitLog(baseBranch, n)
 }
 
 func executeRemote(ctx *context.Context, absProjectFile string) error {
@@ -155,7 +146,6 @@ func executeRemote(ctx *context.Context, absProjectFile string) error {
 	projectName := proj.Name
 	projectBranch := git.SanitizeBranchName(proj.Name)
 
-	// Load configuration to get default branch
 	if _, err = config.LoadConfig(); err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
@@ -168,7 +158,6 @@ func executeRemote(ctx *context.Context, absProjectFile string) error {
 		if err != nil {
 			return fmt.Errorf("failed to get current branch: %w", err)
 		}
-		// Only check sync when branch is detected locally (not when pre-supplied by caller)
 		logger.Verbosef("Checking branch '%s' is in sync with remote...", currentBranch)
 		if err := git.IsBranchSyncedWithRemote(currentBranch); err != nil {
 			return err

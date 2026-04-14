@@ -265,7 +265,7 @@ func (w *WorkflowCmd) prepareAndExecute(ctx *context.Context, cleanupRegistrar f
 		BaseBranch:    ctx.BaseBranch(),
 	}
 
-	if err := run.Execute(ctx, cleanupRegistrar, setup); err != nil {
+	if err := run.Execute(ctx, cleanupRegistrar, setup, nil); err != nil {
 		return fmt.Errorf("ralph execution failed: %w", err)
 	}
 
