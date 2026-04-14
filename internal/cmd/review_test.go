@@ -39,7 +39,7 @@ review:
 	cfg, err := config.LoadConfig()
 	require.NoError(t, err)
 
-	r := &ReviewCmd{
+	r := &ReviewRunCmd{
 		Model: "",
 	}
 
@@ -67,7 +67,7 @@ review:
 	cfg, err := config.LoadConfig()
 	require.NoError(t, err)
 
-	r := &ReviewCmd{
+	r := &ReviewRunCmd{
 		Model: "anthropic/claude-3-sonnet",
 	}
 
@@ -94,7 +94,7 @@ review:
 	cfg, err := config.LoadConfig()
 	require.NoError(t, err)
 
-	r := &ReviewCmd{
+	r := &ReviewRunCmd{
 		Model: "",
 	}
 
@@ -103,7 +103,7 @@ review:
 }
 
 func TestReviewLoadItemContent_Text(t *testing.T) {
-	r := &ReviewCmd{}
+	r := &ReviewRunCmd{}
 	item := config.ReviewItem{
 		Text: "inline text content",
 	}
@@ -119,7 +119,7 @@ func TestReviewLoadItemContent_File(t *testing.T) {
 	testFile := filepath.Join(tmpDir, "test.md")
 	require.NoError(t, os.WriteFile(testFile, []byte("file content"), 0644))
 
-	r := &ReviewCmd{}
+	r := &ReviewRunCmd{}
 	item := config.ReviewItem{
 		File: testFile,
 	}
@@ -130,7 +130,7 @@ func TestReviewLoadItemContent_File(t *testing.T) {
 }
 
 func TestReviewLoadItemContent_FileNotFound(t *testing.T) {
-	r := &ReviewCmd{}
+	r := &ReviewRunCmd{}
 	item := config.ReviewItem{
 		File: "/nonexistent/file.md",
 	}
@@ -350,7 +350,7 @@ requirements:
 	cfg, err := config.LoadConfig()
 	require.NoError(t, err)
 
-	r := &ReviewCmd{
+	r := &ReviewRunCmd{
 		Local:   true,
 		Verbose: false,
 		Seed:    12345,
@@ -408,7 +408,7 @@ requirements:
 	cfg, err := config.LoadConfig()
 	require.NoError(t, err)
 
-	r := &ReviewCmd{
+	r := &ReviewRunCmd{
 		Local:   true,
 		Verbose: false,
 		Seed:    12345,
@@ -424,7 +424,7 @@ requirements:
 }
 
 func TestItemLabel(t *testing.T) {
-	r := &ReviewCmd{}
+	r := &ReviewRunCmd{}
 
 	tests := []struct {
 		name     string
@@ -543,7 +543,7 @@ func TestReviewSeedFlag(t *testing.T) {
 	require.NoError(t, err)
 	_, err = parser.Parse([]string{"review", "--seed", "42"})
 	require.NoError(t, err)
-	assert.Equal(t, int64(42), cmd.Review.Seed)
+	assert.Equal(t, int64(42), cmd.Review.Run.Seed)
 }
 
 func TestReviewFollowFlag(t *testing.T) {
@@ -555,7 +555,7 @@ func TestReviewFollowFlag(t *testing.T) {
 	require.NoError(t, err)
 	_, err = parser.Parse([]string{"review", "--follow"})
 	require.NoError(t, err)
-	assert.True(t, cmd.Review.Follow)
+	assert.True(t, cmd.Review.Run.Follow)
 }
 
 func TestReviewFollowFlagShort(t *testing.T) {
@@ -567,7 +567,7 @@ func TestReviewFollowFlagShort(t *testing.T) {
 	require.NoError(t, err)
 	_, err = parser.Parse([]string{"review", "-f"})
 	require.NoError(t, err)
-	assert.True(t, cmd.Review.Follow)
+	assert.True(t, cmd.Review.Run.Follow)
 }
 
 func TestReviewFilterFlag(t *testing.T) {
@@ -579,7 +579,7 @@ func TestReviewFilterFlag(t *testing.T) {
 	require.NoError(t, err)
 	_, err = parser.Parse([]string{"review", "--filter", "myfilter"})
 	require.NoError(t, err)
-	assert.Equal(t, "myfilter", cmd.Review.Filter)
+	assert.Equal(t, "myfilter", cmd.Review.Run.Filter)
 }
 
 func TestReviewFilterFlagShort(t *testing.T) {
@@ -591,7 +591,7 @@ func TestReviewFilterFlagShort(t *testing.T) {
 	require.NoError(t, err)
 	_, err = parser.Parse([]string{"review", "--filter", "substring"})
 	require.NoError(t, err)
-	assert.Equal(t, "substring", cmd.Review.Filter)
+	assert.Equal(t, "substring", cmd.Review.Run.Filter)
 }
 
 func TestReviewOneFlag(t *testing.T) {
@@ -603,7 +603,7 @@ func TestReviewOneFlag(t *testing.T) {
 	require.NoError(t, err)
 	_, err = parser.Parse([]string{"review", "--one"})
 	require.NoError(t, err)
-	assert.True(t, cmd.Review.One)
+	assert.True(t, cmd.Review.Run.One)
 }
 
 func TestReviewOneRunsSingleItem(t *testing.T) {
@@ -650,7 +650,7 @@ requirements:
 	cfg, err := config.LoadConfig()
 	require.NoError(t, err)
 
-	r := &ReviewCmd{
+	r := &ReviewRunCmd{
 		Local:   true,
 		Verbose: false,
 		Seed:    12345,
@@ -672,7 +672,7 @@ requirements:
 }
 
 func TestReviewFollowWithLocalFlag(t *testing.T) {
-	r := &ReviewCmd{
+	r := &ReviewRunCmd{
 		Follow: true,
 		Local:  true,
 	}
@@ -682,7 +682,7 @@ func TestReviewFollowWithLocalFlag(t *testing.T) {
 }
 
 func TestReviewFollowWithoutLocalFlag(t *testing.T) {
-	r := &ReviewCmd{
+	r := &ReviewRunCmd{
 		Follow: true,
 		Local:  false,
 	}
@@ -742,7 +742,7 @@ requirements:
 	require.NoError(t, err)
 
 	// Create ReviewCmd
-	r := &ReviewCmd{
+	r := &ReviewRunCmd{
 		Local:   true,
 		Verbose: false,
 		Seed:    12345,
@@ -786,7 +786,7 @@ func TestCommitReviewItemChanges_NoChangesNoSummary(t *testing.T) {
 	require.NoError(t, exec.Command("git", "commit", "-m", "initial").Run())
 	require.NoError(t, exec.Command("git", "push", "-u", "origin", "main").Run())
 
-	r := &ReviewCmd{}
+	r := &ReviewRunCmd{}
 	ctx := testutil.NewContext()
 
 	err := r.commitReviewItemChanges(ctx, "main", 0)
@@ -822,9 +822,69 @@ func TestCommitReviewItemChanges_WithChangesAndSummary(t *testing.T) {
 	configPath := filepath.Join(ralphDir, "config.yaml")
 	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
 
-	r := &ReviewCmd{}
+	r := &ReviewRunCmd{}
 	ctx := testutil.NewContext()
 
 	err := r.commitReviewItemChanges(ctx, "main", 0)
 	require.NoError(t, err, "commitReviewItemChanges should succeed with changes present")
+}
+
+func TestReviewRunSubcommandExplicit(t *testing.T) {
+	cmd := &Cmd{}
+	parser, err := kong.New(cmd,
+		kong.Name("ralph"),
+		kong.Exit(func(int) {}),
+	)
+	require.NoError(t, err)
+	_, err = parser.Parse([]string{"review", "run", "--seed", "42"})
+	require.NoError(t, err)
+	assert.Equal(t, int64(42), cmd.Review.Run.Seed)
+}
+
+func TestReviewRunSubcommandExplicitAllFlags(t *testing.T) {
+	cmd := &Cmd{}
+	parser, err := kong.New(cmd,
+		kong.Name("ralph"),
+		kong.Exit(func(int) {}),
+	)
+	require.NoError(t, err)
+	_, err = parser.Parse([]string{"review", "run", "--model", "gpt-4", "--base", "develop", "--local", "--verbose", "--seed", "123", "--filter", "test", "--one"})
+	require.NoError(t, err)
+	assert.Equal(t, "gpt-4", cmd.Review.Run.Model)
+	assert.Equal(t, "develop", cmd.Review.Run.Base)
+	assert.True(t, cmd.Review.Run.Local)
+	assert.True(t, cmd.Review.Run.Verbose)
+	assert.Equal(t, int64(123), cmd.Review.Run.Seed)
+	assert.Equal(t, "test", cmd.Review.Run.Filter)
+	assert.True(t, cmd.Review.Run.One)
+}
+
+func TestReviewDefaultSubcommandWithArgs(t *testing.T) {
+	cmd := &Cmd{}
+	parser, err := kong.New(cmd,
+		kong.Name("ralph"),
+		kong.Exit(func(int) {}),
+	)
+	require.NoError(t, err)
+	_, err = parser.Parse([]string{"review", "--seed", "99"})
+	require.NoError(t, err)
+	assert.Equal(t, int64(99), cmd.Review.Run.Seed)
+}
+
+func TestReviewDefaultSubcommandWithArgsAllFlags(t *testing.T) {
+	cmd := &Cmd{}
+	parser, err := kong.New(cmd,
+		kong.Name("ralph"),
+		kong.Exit(func(int) {}),
+	)
+	require.NoError(t, err)
+	_, err = parser.Parse([]string{"review", "--model", "claude", "--base", "main", "--local", "--verbose", "--seed", "456", "--filter", "filtertext", "--one"})
+	require.NoError(t, err)
+	assert.Equal(t, "claude", cmd.Review.Run.Model)
+	assert.Equal(t, "main", cmd.Review.Run.Base)
+	assert.True(t, cmd.Review.Run.Local)
+	assert.True(t, cmd.Review.Run.Verbose)
+	assert.Equal(t, int64(456), cmd.Review.Run.Seed)
+	assert.Equal(t, "filtertext", cmd.Review.Run.Filter)
+	assert.True(t, cmd.Review.Run.One)
 }

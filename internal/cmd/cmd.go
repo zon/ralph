@@ -16,7 +16,6 @@ type Cmd struct {
 	List           ListCmd           `cmd:"" help:"List Argo workflows"`
 	Stop           StopCmd           `cmd:"" help:"Stop an Argo workflow"`
 	Review         ReviewCmd         `cmd:"" help:"Run AI-powered code reviews from config prompts"`
-	Architecture   ArchitectureCmd   `cmd:"" help:"Generate an architecture.yaml file summarizing the repo structure"`
 
 	version          string       `kong:"-"`
 	date             string       `kong:"-"`

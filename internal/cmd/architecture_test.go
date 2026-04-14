@@ -37,36 +37,36 @@ func TestArchitectureCmdFlagParsing(t *testing.T) {
 		wantParseErr  bool
 	}{
 		{
-			name:          "default values",
-			args:          []string{"architecture"},
+			name:          "review architecture default values",
+			args:          []string{"review", "architecture"},
 			expectedOut:   "architecture.yaml",
 			expectedVerb:  false,
 			expectedModel: "",
 		},
 		{
-			name:          "custom output path",
-			args:          []string{"architecture", "--output", "custom.yaml"},
+			name:          "review architecture custom output path",
+			args:          []string{"review", "architecture", "--output", "custom.yaml"},
 			expectedOut:   "custom.yaml",
 			expectedVerb:  false,
 			expectedModel: "",
 		},
 		{
-			name:          "verbose flag",
-			args:          []string{"architecture", "--verbose"},
+			name:          "review architecture verbose flag",
+			args:          []string{"review", "architecture", "--verbose"},
 			expectedOut:   "architecture.yaml",
 			expectedVerb:  true,
 			expectedModel: "",
 		},
 		{
-			name:          "model override",
-			args:          []string{"architecture", "--model", "deepseek/deepseek-chat"},
+			name:          "review architecture model override",
+			args:          []string{"review", "architecture", "--model", "deepseek/deepseek-chat"},
 			expectedOut:   "architecture.yaml",
 			expectedVerb:  false,
 			expectedModel: "deepseek/deepseek-chat",
 		},
 		{
-			name:          "all flags",
-			args:          []string{"architecture", "--output", "out.yaml", "--verbose", "--model", "gpt-4"},
+			name:          "review architecture all flags",
+			args:          []string{"review", "architecture", "--output", "out.yaml", "--verbose", "--model", "gpt-4"},
 			expectedOut:   "out.yaml",
 			expectedVerb:  true,
 			expectedModel: "gpt-4",
@@ -95,14 +95,14 @@ func TestArchitectureCmdFlagParsing(t *testing.T) {
 				t.Fatalf("failed to parse args: %v", err)
 			}
 
-			if cmd.Architecture.Output != tt.expectedOut {
-				t.Errorf("expected Output=%q, got %q", tt.expectedOut, cmd.Architecture.Output)
+			if cmd.Review.Architecture.Output != tt.expectedOut {
+				t.Errorf("expected Output=%q, got %q", tt.expectedOut, cmd.Review.Architecture.Output)
 			}
-			if cmd.Architecture.Verbose != tt.expectedVerb {
-				t.Errorf("expected Verbose=%v, got %v", tt.expectedVerb, cmd.Architecture.Verbose)
+			if cmd.Review.Architecture.Verbose != tt.expectedVerb {
+				t.Errorf("expected Verbose=%v, got %v", tt.expectedVerb, cmd.Review.Architecture.Verbose)
 			}
-			if cmd.Architecture.Model != tt.expectedModel {
-				t.Errorf("expected Model=%q, got %q", tt.expectedModel, cmd.Architecture.Model)
+			if cmd.Review.Architecture.Model != tt.expectedModel {
+				t.Errorf("expected Model=%q, got %q", tt.expectedModel, cmd.Review.Architecture.Model)
 			}
 		})
 	}
