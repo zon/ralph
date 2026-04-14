@@ -274,7 +274,7 @@ func (w *WorkflowCmd) prepareAndExecute(ctx *context.Context, cleanupRegistrar f
 
 func (w *WorkflowCmd) runReview(ctx *context.Context) error {
 	logger.Info("Running review...")
-	reviewCmd := &ReviewCmd{
+	reviewCmd := &ReviewRunCmd{
 		Local:   true,
 		Verbose: w.Verbose,
 		Model:   w.Model,

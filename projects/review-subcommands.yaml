@@ -9,7 +9,7 @@ requirements:
       - "`ralph review` with no subcommand defaults to `ralph review run`, passing through any flags and arguments"
       - "`ralph review run` is implemented as `ReviewRunCmd` (renamed from `ReviewCmd`); the new `ReviewCmd` is a kong command group containing `Run ReviewRunCmd` with `default:\"withargs\"`"
       - "All existing tests in `internal/cmd/review_test.go` are updated to reference `ReviewRunCmd` instead of `ReviewCmd` where the type is used directly, and `cmd.Review.Run.*` instead of `cmd.Review.*` for field access in flag-parsing tests"
-    passing: false
+    passing: true
 
   - category: cli
     description: Move ralph architecture under ralph review

@@ -64,7 +64,7 @@ func filterItems(items []config.ReviewItem, filter string) []config.ReviewItem {
 	return filtered
 }
 
-type ReviewCmd struct {
+type ReviewRunCmd struct {
 	Model       string `help:"Override the AI model from config" name:"model" optional:""`
 	Base        string `help:"Override the base branch for PR creation" name:"base" optional:"" short:"B"`
 	Local       bool   `help:"Run on this machine instead of submitting to Argo Workflows" default:"false"`
@@ -75,6 +75,10 @@ type ReviewCmd struct {
 	Filter      string `help:"Only run review items whose text, file, or url property contains this string" name:"filter" optional:""`
 	One         bool   `help:"Randomly pick one review item and run only that one" name:"one" default:"false"`
 	prSubmitted bool
+}
+
+type ReviewCmd struct {
+	Run ReviewRunCmd `cmd:"" default:"withargs" help:"Run AI-powered code reviews from config prompts"`
 }
 
 type ReviewFlags struct {
@@ -89,14 +93,14 @@ func (f ReviewFlags) Validate() error {
 	return nil
 }
 
-func (r *ReviewCmd) validateFlagCombinations() error {
+func (r *ReviewRunCmd) validateFlagCombinations() error {
 	return ReviewFlags{
 		Follow: r.Follow,
 		Local:  r.Local,
 	}.Validate()
 }
 
-func (r *ReviewCmd) Run() error {
+func (r *ReviewRunCmd) Run() error {
 	if r.Verbose {
 		logger.SetVerbose(true)
 	}
@@ -171,7 +175,7 @@ func (r *ReviewCmd) Run() error {
 	return nil
 }
 
-func (r *ReviewCmd) runReview(ctx *execcontext.Context, ralphConfig *config.RalphConfig, projectDoc string) (branchName, detectedProjectFile string, err error) {
+func (r *ReviewRunCmd) runReview(ctx *execcontext.Context, ralphConfig *config.RalphConfig, projectDoc string) (branchName, detectedProjectFile string, err error) {
 	seed := r.Seed
 	if seed == 0 {
 		seed = time.Now().UnixNano()
@@ -242,7 +246,7 @@ func (r *ReviewCmd) runReview(ctx *execcontext.Context, ralphConfig *config.Ralp
 	return branchName, detectedProjectFile, nil
 }
 
-func (r *ReviewCmd) commitReviewItemChanges(ctx *execcontext.Context, branchName string, itemIndex int) error {
+func (r *ReviewRunCmd) commitReviewItemChanges(ctx *execcontext.Context, branchName string, itemIndex int) error {
 	summaryPath, err := git.TmpPath(fmt.Sprintf("summary-%d.txt", itemIndex))
 	if err != nil {
 		return fmt.Errorf("failed to resolve summary path: %w", err)
@@ -264,7 +268,7 @@ func (r *ReviewCmd) commitReviewItemChanges(ctx *execcontext.Context, branchName
 	return nil
 }
 
-func (r *ReviewCmd) runLoopItem(ctx *execcontext.Context, item config.ReviewItem, itemIndex int, branchName, detectedProjectFile string) (string, string, error) {
+func (r *ReviewRunCmd) runLoopItem(ctx *execcontext.Context, item config.ReviewItem, itemIndex int, branchName, detectedProjectFile string) (string, string, error) {
 	content, err := r.loadItemContent(item)
 	if err != nil {
 		return branchName, detectedProjectFile, fmt.Errorf("failed to load loop item content: %w", err)
@@ -315,7 +319,7 @@ func (r *ReviewCmd) runLoopItem(ctx *execcontext.Context, item config.ReviewItem
 	return branchName, detectedProjectFile, nil
 }
 
-func (r *ReviewCmd) submitToArgo(ctx *execcontext.Context, cloneBranch string) error {
+func (r *ReviewRunCmd) submitToArgo(ctx *execcontext.Context, cloneBranch string) error {
 	logger.Verbose("Submitting review Argo Workflow...")
 
 	if err := git.IsBranchSyncedWithRemote(cloneBranch); err != nil {
@@ -349,11 +353,11 @@ func (r *ReviewCmd) submitToArgo(ctx *execcontext.Context, cloneBranch string) e
 	return nil
 }
 
-func (r *ReviewCmd) printStats() error {
+func (r *ReviewRunCmd) printStats() error {
 	return ai.DisplayStats()
 }
 
-func (r *ReviewCmd) buildCommitMessage(itemIndex int, summaryPath string) string {
+func (r *ReviewRunCmd) buildCommitMessage(itemIndex int, summaryPath string) string {
 	prefix := fmt.Sprintf("item-%d", itemIndex)
 
 	data, err := os.ReadFile(summaryPath)
@@ -370,7 +374,7 @@ func (r *ReviewCmd) buildCommitMessage(itemIndex int, summaryPath string) string
 	return fmt.Sprintf("review: %s %s", prefix, summary)
 }
 
-func (r *ReviewCmd) submitPR(ctx *execcontext.Context, absProjectFile, reviewName, baseBranch string) error {
+func (r *ReviewRunCmd) submitPR(ctx *execcontext.Context, absProjectFile, reviewName, baseBranch string) error {
 	title := reviewName
 	proj, err := project.LoadProject(absProjectFile)
 	if err != nil {
@@ -410,7 +414,7 @@ func (r *ReviewCmd) submitPR(ctx *execcontext.Context, absProjectFile, reviewNam
 	return nil
 }
 
-func (r *ReviewCmd) resolveModel(ralphConfig *config.RalphConfig) string {
+func (r *ReviewRunCmd) resolveModel(ralphConfig *config.RalphConfig) string {
 	if r.Model != "" {
 		return r.Model
 	}
@@ -420,7 +424,7 @@ func (r *ReviewCmd) resolveModel(ralphConfig *config.RalphConfig) string {
 	return ralphConfig.Model
 }
 
-func (r *ReviewCmd) loadItemContent(item config.ReviewItem) (string, error) {
+func (r *ReviewRunCmd) loadItemContent(item config.ReviewItem) (string, error) {
 	switch {
 	case item.Text != "":
 		return item.Text, nil
@@ -450,7 +454,7 @@ func (r *ReviewCmd) loadItemContent(item config.ReviewItem) (string, error) {
 	}
 }
 
-func (r *ReviewCmd) itemLabel(item config.ReviewItem) string {
+func (r *ReviewRunCmd) itemLabel(item config.ReviewItem) string {
 	if item.Loop != "" {
 		return fmt.Sprintf("loop:%s", item.Loop)
 	}
