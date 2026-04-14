@@ -78,7 +78,8 @@ type ReviewRunCmd struct {
 }
 
 type ReviewCmd struct {
-	Run ReviewRunCmd `cmd:"" default:"withargs" help:"Run AI-powered code reviews from config prompts"`
+	Run          ReviewRunCmd    `cmd:"" default:"withargs" help:"Run AI-powered code reviews from config prompts"`
+	Architecture ArchitectureCmd `cmd:"" help:"Generate an architecture.yaml file summarizing the repo structure"`
 }
 
 type ReviewFlags struct {

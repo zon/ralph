@@ -17,7 +17,7 @@ requirements:
       - "`ralph review architecture` runs the same behavior as the current top-level `ralph architecture` command, accepting all existing flags (--output, --verbose, --model)"
       - "The top-level `ralph architecture` command and `ArchitectureCmd` are removed from `internal/cmd/cmd.go`; `ArchitectureCmd` is moved into the `ReviewCmd` group as `Architecture ArchitectureCmd`"
       - "`ralph architecture` no longer exists as a top-level command"
-    passing: false
+    passing: true
 
   - category: version
     description: Version bump
