@@ -594,6 +594,83 @@ func TestReviewFilterFlagShort(t *testing.T) {
 	assert.Equal(t, "substring", cmd.Review.Filter)
 }
 
+func TestReviewOneFlag(t *testing.T) {
+	cmd := &Cmd{}
+	parser, err := kong.New(cmd,
+		kong.Name("ralph"),
+		kong.Exit(func(int) {}),
+	)
+	require.NoError(t, err)
+	_, err = parser.Parse([]string{"review", "--one"})
+	require.NoError(t, err)
+	assert.True(t, cmd.Review.One)
+}
+
+func TestReviewOneRunsSingleItem(t *testing.T) {
+	t.Setenv("RALPH_MOCK_AI", "true")
+	tmpDir := t.TempDir()
+	t.Chdir(tmpDir)
+
+	remoteDir := filepath.Join(tmpDir, "remote.git")
+	require.NoError(t, exec.Command("git", "init", "--bare", remoteDir).Run())
+
+	require.NoError(t, exec.Command("git", "init").Run())
+	require.NoError(t, exec.Command("git", "config", "user.email", "test@example.com").Run())
+	require.NoError(t, exec.Command("git", "config", "user.name", "Test User").Run())
+	require.NoError(t, exec.Command("git", "remote", "add", "origin", remoteDir).Run())
+	require.NoError(t, exec.Command("git", "branch", "-M", "main").Run())
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	require.NoError(t, os.Mkdir(ralphDir, 0755))
+	configContent := `model: deepseek/deepseek-chat
+review:
+  items:
+  - text: first review item
+  - text: second review item
+  - text: third review item
+`
+	configPath := filepath.Join(ralphDir, "config.yaml")
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
+
+	projectsDir := filepath.Join(tmpDir, "projects")
+	require.NoError(t, os.Mkdir(projectsDir, 0755))
+	projectFile := filepath.Join(projectsDir, "test-review.yaml")
+	projectYAML := `name: test-review
+description: Test project for one flag
+requirements:
+  - category: test
+    description: dummy requirement
+    passing: false
+`
+	require.NoError(t, os.WriteFile(projectFile, []byte(projectYAML), 0644))
+	require.NoError(t, exec.Command("git", "add", ".").Run())
+	require.NoError(t, exec.Command("git", "commit", "-m", "initial commit").Run())
+	require.NoError(t, exec.Command("git", "push", "-u", "origin", "main").Run())
+
+	cfg, err := config.LoadConfig()
+	require.NoError(t, err)
+
+	r := &ReviewCmd{
+		Local:   true,
+		Verbose: false,
+		Seed:    12345,
+		One:     true,
+	}
+	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
+	ctx.SetLocal(true)
+
+	branchName, detectedFile, err := r.runReview(ctx, cfg, "")
+	require.NoError(t, err)
+	assert.NotEmpty(t, detectedFile)
+	assert.NotEmpty(t, branchName)
+
+	// Only one commit should have been made (initial + one review item)
+	out, err := exec.Command("git", "log", "--oneline").Output()
+	require.NoError(t, err)
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	assert.Equal(t, 2, len(lines), "should have exactly two commits: initial + one review item")
+}
+
 func TestReviewFollowWithLocalFlag(t *testing.T) {
 	r := &ReviewCmd{
 		Follow: true,

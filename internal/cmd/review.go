@@ -73,6 +73,7 @@ type ReviewCmd struct {
 	Seed        int64  `help:"Random seed for shuffling review items (0 = random)" default:"0"`
 	Follow      bool   `help:"Follow workflow logs after submission (only applicable without --local)" short:"f" default:"false"`
 	Filter      string `help:"Only run review items whose text, file, or url property contains this string" name:"filter" optional:""`
+	One         bool   `help:"Randomly pick one review item and run only that one" name:"one" default:"false"`
 	prSubmitted bool
 }
 
@@ -177,15 +178,15 @@ func (r *ReviewCmd) runReview(ctx *execcontext.Context, ralphConfig *config.Ralp
 		logger.Infof("Using random seed: %d", seed)
 	}
 
-	items := ralphConfig.Review.Items
-	if r.Filter != "" {
-		items = filterItems(items, r.Filter)
-		if len(items) == 0 {
-			return "", "", fmt.Errorf("no review items match filter %q", r.Filter)
-		}
+	items := filterItems(ralphConfig.Review.Items, r.Filter)
+	if r.Filter != "" && len(items) == 0 {
+		return "", "", fmt.Errorf("no review items match filter %q", r.Filter)
 	}
 
 	itemsWithIdx := shuffleItemsWithIndices(items, seed)
+	if r.One {
+		itemsWithIdx = itemsWithIdx[:1]
+	}
 
 	for _, pair := range itemsWithIdx {
 		item := pair.item
