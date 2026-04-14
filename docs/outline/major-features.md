@@ -22,6 +22,8 @@ Produce `outlines/major-features.md` at the root of the repo. The file must have
 
 <One or two sentence description of what the feature does and why it exists.>
 
+**User Interface:** <One sentence describing how users interact with this feature — e.g. CLI commands, HTTP endpoints, or GUI interactions.>
+
 - <Business logic bullet 1>
 - <Business logic bullet 2>
 - <Business logic bullet 3>
