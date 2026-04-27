@@ -25,12 +25,6 @@ func TestLocalFlagValidation(t *testing.T) {
 			errorMsg:    "--follow flag is not applicable with --local flag",
 		},
 		{
-			name:        "local with once should fail",
-			args:        []string{"run", "--local", "--once", "test.yaml"},
-			expectError: true,
-			errorMsg:    "--local flag is incompatible with --once flag",
-		},
-		{
 			name:        "local alone should succeed validation",
 			args:        []string{"run", "--local", "test.yaml"},
 			expectError: false,
@@ -38,11 +32,6 @@ func TestLocalFlagValidation(t *testing.T) {
 		{
 			name:        "follow without local should succeed validation",
 			args:        []string{"run", "--follow", "test.yaml"},
-			expectError: false,
-		},
-		{
-			name:        "once alone should succeed validation",
-			args:        []string{"run", "--once", "test.yaml"},
 			expectError: false,
 		},
 		{
@@ -56,7 +45,7 @@ func TestLocalFlagValidation(t *testing.T) {
 			expectError: true,
 			errorMsg:    "--debug flag is not applicable with --local flag",
 		},
-		{
+{
 			name:        "default command - follow with local should fail",
 			args:        []string{"--follow", "--local", "test.yaml"},
 			expectError: true,
@@ -112,19 +101,6 @@ func TestLocalFlagValidation(t *testing.T) {
 				return
 			}
 
-			// Test local + once validation
-			if cmd.Run.Local && cmd.Run.Once {
-				err = validateRunFlags(&cmd.Run)
-				if !tt.expectError {
-					t.Errorf("expected no error, got: %v", err)
-				} else if err == nil {
-					t.Error("expected error but got none")
-				} else if err.Error() != tt.errorMsg {
-					t.Errorf("expected error %q, got %q", tt.errorMsg, err.Error())
-				}
-				return
-			}
-
 			// Test local + debug validation
 			if cmd.Run.Local && cmd.Run.Debug != "" {
 				err = validateRunFlags(&cmd.Run)
@@ -155,7 +131,6 @@ func TestFlagParsing(t *testing.T) {
 		args              []string
 		expectLocal       bool
 		expectFollow      bool
-		expectOnce        bool
 		expectNoNotify    bool
 		expectDebugBranch string
 	}{
@@ -164,21 +139,12 @@ func TestFlagParsing(t *testing.T) {
 			args:         []string{"run", "--local", "test.yaml"},
 			expectLocal:  true,
 			expectFollow: false,
-			expectOnce:   false,
 		},
 		{
 			name:         "follow flag sets Follow to true",
 			args:         []string{"run", "--follow", "test.yaml"},
 			expectLocal:  false,
 			expectFollow: true,
-			expectOnce:   false,
-		},
-		{
-			name:         "once flag sets Once to true",
-			args:         []string{"run", "--once", "test.yaml"},
-			expectLocal:  false,
-			expectFollow: false,
-			expectOnce:   true,
 		},
 		{
 			name:              "debug flag sets DebugBranch",
@@ -190,7 +156,6 @@ func TestFlagParsing(t *testing.T) {
 			args:           []string{"run", "--no-notify", "test.yaml"},
 			expectLocal:    false,
 			expectFollow:   false,
-			expectOnce:     false,
 			expectNoNotify: true,
 		},
 		{
@@ -198,21 +163,18 @@ func TestFlagParsing(t *testing.T) {
 			args:         []string{"run", "test.yaml"},
 			expectLocal:  false,
 			expectFollow: false,
-			expectOnce:   false,
 		},
 		{
 			name:         "default command - local flag sets Local to true",
 			args:         []string{"--local", "test.yaml"},
 			expectLocal:  true,
 			expectFollow: false,
-			expectOnce:   false,
 		},
 		{
 			name:         "default command - follow flag sets Follow to true",
 			args:         []string{"--follow", "test.yaml"},
 			expectLocal:  false,
 			expectFollow: true,
-			expectOnce:   false,
 		},
 	}
 
@@ -238,9 +200,6 @@ func TestFlagParsing(t *testing.T) {
 			if cmd.Run.Follow != tt.expectFollow {
 				t.Errorf("expected Follow=%v, got %v", tt.expectFollow, cmd.Run.Follow)
 			}
-			if cmd.Run.Once != tt.expectOnce {
-				t.Errorf("expected Once=%v, got %v", tt.expectOnce, cmd.Run.Once)
-			}
 			if cmd.Run.NoNotify != tt.expectNoNotify {
 				t.Errorf("expected NoNotify=%v, got %v", tt.expectNoNotify, cmd.Run.NoNotify)
 			}
@@ -255,9 +214,6 @@ func TestFlagParsing(t *testing.T) {
 func validateRunFlags(r *RunCmd) error {
 	if r.Follow && r.Local {
 		return fmt.Errorf("--follow flag is not applicable with --local flag")
-	}
-	if r.Local && r.Once {
-		return fmt.Errorf("--local flag is incompatible with --once flag")
 	}
 	if r.Debug != "" && r.Local {
 		return fmt.Errorf("--debug flag is not applicable with --local flag")

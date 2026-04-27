@@ -4,12 +4,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
-	"github.com/zon/ralph/internal/notify"
 	"github.com/zon/ralph/internal/project"
 	"github.com/zon/ralph/internal/run"
 	"github.com/zon/ralph/internal/workspace"
@@ -19,8 +17,7 @@ import (
 type RunCmd struct {
 	WorkingDir    string `help:"Working directory to run ralph in" type:"path" short:"C"`
 	ProjectFile   string `arg:"" optional:"" help:"Path to project YAML file"`
-	Once          bool   `help:"Single development iteration mode" default:"false"`
-	MaxIterations int    `help:"Maximum number of development iterations (not applicable with --once)" default:"0"`
+	MaxIterations int    `help:"Maximum number of development iterations" default:"0"`
 	NoNotify      bool   `help:"Disable desktop notifications" default:"false"`
 	NoServices    bool   `help:"Skip service startup" default:"false"`
 	Verbose       bool   `help:"Enable verbose logging" default:"false"`
@@ -77,10 +74,6 @@ func (r *RunCmd) Run() error {
 	projectBranch := git.SanitizeBranchName(projectData.Name)
 	baseBranch := resolveBaseBranch(r.Base, currentBranch, projectBranch, ralphConfig.DefaultBranch)
 	ctx.SetBaseBranch(baseBranch)
-
-	if r.Once {
-		return r.executeOnceMode(ctx)
-	}
 
 	setup := &run.ExecutionSetup{
 		ProjectFile:   r.ProjectFile,
@@ -145,17 +138,12 @@ func (r *RunCmd) validateProjectFile() error {
 type RunFlags struct {
 	Follow bool
 	Local  bool
-	Once   bool
 	Debug  string
 }
 
 func (f RunFlags) Validate() error {
 	if f.Follow && f.Local {
 		return fmt.Errorf("--follow flag is not applicable with --local flag")
-	}
-
-	if f.Local && f.Once {
-		return fmt.Errorf("--local flag is incompatible with --once flag")
 	}
 
 	if f.Debug != "" && f.Local {
@@ -168,7 +156,6 @@ func (r *RunCmd) validateFlagCombinations() error {
 	return RunFlags{
 		Follow: r.Follow,
 		Local:  r.Local,
-		Once:   r.Once,
 		Debug:  r.Debug,
 	}.Validate()
 }
@@ -187,15 +174,4 @@ func (r *RunCmd) createExecutionContext(maxIterations int) *execcontext.Context 
 	ctx.SetModel(r.Model)
 	ctx.SetKubeContext(r.Context)
 	return ctx
-}
-
-func (r *RunCmd) executeOnceMode(ctx *execcontext.Context) error {
-	projectName := strings.TrimSuffix(filepath.Base(ctx.ProjectFile()), filepath.Ext(ctx.ProjectFile()))
-	if err := project.ExecuteDevelopmentIteration(ctx, r.cleanupRegistrar); err != nil {
-		notify.Error(projectName, ctx.ShouldNotify())
-		return err
-	}
-
-	notify.Success(projectName, ctx.ShouldNotify())
-	return nil
 }
