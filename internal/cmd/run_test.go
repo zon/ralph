@@ -84,7 +84,6 @@ func TestRunFlagsValidate(t *testing.T) {
 			name: "valid flags - local mode",
 			flags: RunFlags{
 				Local: true,
-				Once:  false,
 			},
 			wantErr: false,
 		},
@@ -104,15 +103,6 @@ func TestRunFlagsValidate(t *testing.T) {
 			},
 			wantErr:     true,
 			errContains: "--follow flag is not applicable with --local flag",
-		},
-		{
-			name: "invalid - local with once",
-			flags: RunFlags{
-				Local: true,
-				Once:  true,
-			},
-			wantErr:     true,
-			errContains: "--local flag is incompatible with --once flag",
 		},
 		{
 			name: "invalid - debug with local",
@@ -136,7 +126,6 @@ func TestRunFlagsValidate(t *testing.T) {
 			flags: RunFlags{
 				Follow: false,
 				Local:  false,
-				Once:   false,
 				Debug:  "",
 			},
 			wantErr: false,

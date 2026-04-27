@@ -9,16 +9,16 @@ requirements:
       - The `Once` field is removed from `RunCmd` and `RunFlags`
       - The `--local` / `--once` incompatibility check is removed
       - The `executeOnceMode` method and any code paths that branch on `Once` are removed
-    passing: false
+    passing: true
 
   - category: tests
     description: Remove all test coverage for the --once flag
     items:
       - All test cases referencing `--once` or `Once` are removed from cmd and run test files
-    passing: false
+    passing: true
 
   - category: versioning
     description: Version bump
     items:
       - Apply a semver major bump to internal/version/VERSION and a patch bump to charts/ralph-webhook/Chart.yaml
-    passing: false
+    passing: true
