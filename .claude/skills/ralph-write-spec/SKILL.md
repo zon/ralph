@@ -1,5 +1,5 @@
 ---
-name: write-spec
+name: ralph-write-spec
 description: Creates a spec document in /specs. Use when the user wants to write a spec, plan a feature spec, document behavior requirements, or add scenarios for a feature area.
 ---
 

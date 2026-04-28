@@ -1,5 +1,5 @@
 ---
-name: write-project
+name: ralph-write-project
 description: Creates and validates a ralph project YAML file that defines work for the ralph agent to execute. Use when the user wants to define a new project, write requirements for ralph, or translate a feature or fix request into a structured ralph project.
 ---
 
