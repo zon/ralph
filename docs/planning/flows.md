@@ -46,29 +46,7 @@ A flow should be short enough to read in one pass — typically under 20 lines. 
 
 ### Where Flows Live
 
-The `/flows` directory should be in the repo root. Flows are always organized by component unless the repo contains only one component.
-
-**Single component** — flat structure:
-
-```
-/flows
-├── checkout.md
-├── user-signup.md
-└── report-export.md
-```
-
-**Multiple components** — grouped by component:
-
-```
-/flows
-├── api/
-│   ├── checkout.md
-│   └── user-signup.md
-└── worker/
-    └── report-export.md
-```
-
-Each flow file lives at `/flows/<component>/<process>.md`, with one file per domain process.
+See [Directory Structure](./README.md#directory-structure) for how flows are organized.
 
 ### Flow File Format
 

@@ -4,32 +4,7 @@ Specs describe your system's behavior using structured requirements and scenario
 
 ### Structure
 
-The `/specs` directory should be in the repo root. Specs are always organized by component unless the repo contains only one component.
-
-**Single component** — flat structure:
-
-```
-/specs
-├── auth.md
-├── payments.md
-└── notifications.md
-```
-
-**Multiple components** — grouped by component:
-
-```
-/specs
-├── api/
-│   ├── auth.md
-│   └── payments.md
-└── frontend/
-    ├── auth.md
-    └── notifications.md
-```
-
-Each spec file lives at `/specs/<component>/<feature>.md`, with one file per feature area.
-
-A **feature** is a coherent slice of user-facing or system-facing behavior — something a user can do, or something the system does on their behalf. Good feature names describe what the system does (`auth`, `payments`, `notifications`), not how it does it (`jwt-handler`, `stripe-client`). If a feature grows too large to read comfortably, split it by sub-feature rather than by implementation detail.
+See [Directory Structure](./README.md#directory-structure) for how specs are organized.
 
 ### Spec Format
 
