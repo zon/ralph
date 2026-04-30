@@ -5,7 +5,7 @@ description: Creates a spec document in /specs. Use when the user wants to write
 
 # Write Spec
 
-Create a well-formed spec file in `./specs/` based on the user's description of the feature or behavior area.
+Create a well-formed spec file in `./specs/features/` based on the user's description of the feature or behavior area.
 
 ## Steps
 
@@ -18,12 +18,12 @@ Create a well-formed spec file in `./specs/` based on the user's description of 
 2. **Read the spec format docs** to refresh your understanding:
    - `docs/planning/specs.md`
 
-3. **Determine the file path.** Check the existing `specs/` structure to match its convention as described in `docs/planning/specs.md`.
+3. **Determine the file path.** Check the existing `specs/features/` structure to match its convention as described in `docs/planning/specs.md`.
 
 4. **Choose the rigor level** as described in `docs/planning/specs.md` (default to Lite).
 
 5. **Draft the spec** following the format and guidelines in `docs/planning/specs.md`.
 
-6. **Write the file** to `./specs/<component>/<feature>.md`.
+6. **Write the file** to `./specs/features/<component>/<feature>/spec.md`.
 
 7. **Report** the file path and a one-line summary of what the spec covers.
