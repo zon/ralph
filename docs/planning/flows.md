@@ -76,6 +76,14 @@ async function checkout(cart: Cart, user: User) {
 }
 ```
 
+### Helpers
+
+- **`createOrder(cart, user)`** — builds an order record from the cart contents and user identity
+- **`chargePayment(order)`** — attempts to collect payment for the order; returns whether it succeeded
+- **`cancelOrder(order)`** — marks the order as void so it is never fulfilled
+- **`sendConfirmationEmail(order, user)`** — notifies the user that their purchase was successful
+- **`sendDeclinedEmail(order, user)`** — notifies the user that their payment was not accepted
+
 ## Tests
 
 ```typescript
@@ -101,6 +109,18 @@ test("empty cart", () => {
     expect(result).toBe(CartError.Empty)
 })
 ```
+
+### Helpers
+
+- **`aUser()`** — returns a valid user in a default state suitable for checkout
+- **`aCart()`** — returns a cart builder; call `.withItems(...)` to populate it
+- **`anItem()`** — returns a purchasable item with a non-zero price
+- **`emptyCart()`** — returns a cart with no items
+- **`paymentWillDecline()`** — configures the test environment so the next payment attempt fails
+- **`ordersCreated()`** — returns the list of orders persisted during the test
+- **`emailsSent()`** — returns the list of emails sent during the test
+- **`confirmationEmail(order, user)`** — constructs the expected confirmation email value for assertion
+- **`declinedEmail(user)`** — constructs the expected declined-payment email value for assertion
 ````
 
 **Key elements:**
@@ -109,7 +129,9 @@ test("empty cart", () => {
 |---------|---------|
 | `## Purpose` | One sentence describing what the flow accomplishes |
 | `## Flow` | The idealized code — exhaustive but designed to minimize branches |
+| `## Flow > ### Helpers` | One line per helper called in the flow, describing its domain role |
 | `## Tests` | High-level test flows abstracting data setup, logic calls, and assertions |
+| `## Tests > ### Helpers` | One line per test helper, describing what domain state it sets up or asserts |
 
 ### Writing Tests
 
