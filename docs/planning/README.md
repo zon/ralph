@@ -5,17 +5,12 @@ The planning and development workflow followed by Ralph.
 ## Directory Structure
 
 ```
-/specs/
-├── features/
-│   └── <component>/
-│       └── <feature>/
-│           ├── spec.md
-│           └── flow.md
-└── modules/
-    └── <module>.md
+/specs/features/
+└── <component>/
+    └── <feature>/
+        ├── spec.md
+        └── flow.md
 ```
-
-### Features
 
 Specs and flows are co-located under `/specs/features`:
 
@@ -34,10 +29,6 @@ When the repo has a single component, omit the component directory:
 └── flow.md
 ```
 
-### Modules
-
-Module designs live under `/specs/modules/<module>.md`. A **module** is a deep implementation unit — a self-contained package or subsystem with a well-defined interface. Module docs describe internal structure, key invariants, and design rationale that isn't captured by feature specs or flows.
-
 ## Specs
 
 [Specs](./specs.md) describe system behavior using structured requirements and scenarios.
@@ -47,10 +38,6 @@ Module designs live under `/specs/modules/<module>.md`. A **module** is a deep i
 ### Flow
 
 [Flows](./flows.md) document idealized high level domain logic designs.
-
-### Modules
-
-[Modules](./modules.md) describe system architecture as a series of deep code modules.
 
 ## Projects
 
