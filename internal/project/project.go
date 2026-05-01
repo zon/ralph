@@ -21,6 +21,8 @@ import (
 type Project struct {
 	Name         string        `yaml:"name"`
 	Description  string        `yaml:"description,omitempty"`
+	Spec         string        `yaml:"spec,omitempty"`
+	Flow         string        `yaml:"flow,omitempty"`
 	Requirements []Requirement `yaml:"requirements"`
 	Path         string        `yaml:"-"`
 }
