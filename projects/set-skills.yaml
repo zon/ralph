@@ -10,7 +10,7 @@ requirements:
       - Running `ralph set skills` installs ralph-prefixed skills into the current repository; the default branch is `main`
       - Running `ralph set skills --branch v2` installs skills from the `v2` branch instead of `main`
       - Running `ralph set skills` outside a git repository returns an error and writes no files; see [flow setSkills](../specs/features/ralph/set-skills/flow.md)
-    passing: false
+    passing: true
 
   - description: Only ralph-prefixed skills are discovered from the source branch
     items:
@@ -18,7 +18,7 @@ requirements:
       - Only skills whose directory name has a `ralph-` prefix are selected for installation
       - Skills without the `ralph-` prefix are ignored
       - If the GitHub Contents API returns an error, the command returns an error and no files are written; see [flow discoverSkills](../specs/features/ralph/set-skills/flow.md)
-    passing: false
+    passing: true
 
   - description: Each discovered skill's SKILL.md is fetched and written atomically
     items:
@@ -26,23 +26,23 @@ requirements:
       - If any fetch fails, the command returns an error and no files are written (all-or-nothing); see [flow fetchAll](../specs/features/ralph/set-skills/flow.md)
       - On success, each skill's `SKILL.md` is written to `.claude/skills/<skill>/SKILL.md` in the target repository, creating the directory if needed
       - Existing ralph-prefixed skills with the same name are overwritten
-    passing: false
+    passing: true
 
   - description: File links in SKILL.md are rewritten before writing to the target repository
     items:
       - Relative links in `SKILL.md` (e.g. `docs/planning/specs.md`) are expanded to absolute `https://raw.githubusercontent.com/zon/ralph/refs/heads/<branch>/` URLs using the resolved branch
       - Absolute links already pointing to `https://raw.githubusercontent.com/zon/ralph/refs/heads/<old-branch>/...` have their branch segment replaced with the resolved branch
       - Absolute URLs pointing to any other host are written unchanged
-    passing: false
+    passing: true
 
   - description: Stale ralph-prefixed skills are removed; non-ralph skills are untouched
     items:
       - After installing discovered skills, any `.claude/skills/ralph-*` directory in the target repository that is not in the discovered set is deleted; see [flow removeStaleSkills](../specs/features/ralph/set-skills/flow.md)
       - Skills in the target repository whose directory name does not have a `ralph-` prefix are left unchanged
-    passing: false
+    passing: true
 
   - category: versioning
     description: Version bump
     items:
       - Apply a semver minor bump to internal/version/VERSION and a patch bump to charts/ralph-webhook/Chart.yaml
-    passing: false
+    passing: true

@@ -16,6 +16,7 @@ type Cmd struct {
 	List           ListCmd           `cmd:"" help:"List Argo workflows"`
 	Stop           StopCmd           `cmd:"" help:"Stop an Argo workflow"`
 	Review         ReviewCmd         `cmd:"" help:"Run AI-powered code reviews from config prompts"`
+	SetSkills      SetSkillsCmd      `cmd:"" help:"Install ralph skills into the current repository"`
 
 	version          string       `kong:"-"`
 	date             string       `kong:"-"`
