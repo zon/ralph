@@ -15,7 +15,7 @@ requirements:
   - description: What should happen
     items:
       - Specific behavioral outcome the coder must achieve
-      - Another outcome; see flow § <section> for target implementation shape
+      - Another outcome; see [flow functionName](../specs/features/<area>/<feature>/flow.md) for target implementation shape
     passing: false                # false = needs work, true = complete
 ```
 
@@ -31,7 +31,7 @@ Write each requirement as a set of specific behavioral outcomes. When the target
 
 - Copy key scenarios or constraints from the spec inline
 - Reference the flow's function signatures or module boundaries when the coder should follow them
-- Link to a specific section with `see flow § <FunctionName>` or `see spec § <Requirement Name>` when the full context is too long to inline
+- Link to a specific function with a relative link like `[flow functionName](../specs/features/<area>/<feature>/flow.md)` or `[test functionName](../specs/features/<area>/<feature>/flow.md)` when the full context is too long to inline; spec sections use GitHub-style anchors like `[spec Requirement Name](../specs/features/<area>/<feature>/spec.md#requirement-name)`
 
 Do not write architectural decisions into requirements (no package names, struct names, or implementation strategies). The agent decides how to structure code, guided by its instructions.
 
@@ -93,7 +93,7 @@ requirements:
     items:
       - GET /reports/:id/export returns a CSV file with correct headers and MIME type
       - Rows map one-to-one with report entries; all fields are included
-      - See flow § exportReport for target function shape
+      - See [flow exportReport](../specs/features/reports/csv-export/flow.md) for target function shape
     passing: false
 
   - description: Export fails gracefully for invalid or missing reports
