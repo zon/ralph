@@ -33,7 +33,7 @@ func TestBuildFixServicePrompt(t *testing.T) {
 	assert.True(t, strings.Contains(prompt, "myapp --port 8080"), "Prompt does not contain start command")
 	assert.True(t, strings.Contains(prompt, "port 8080"), "Prompt does not contain health check port")
 	assert.False(t, strings.Contains(prompt, "## Project Requirements"), "Service fix prompt should not contain project requirements")
-	assert.False(t, strings.Contains(prompt, "## Recent Git History"), "Service fix prompt should not contain git history")
+	assert.False(t, strings.Contains(prompt, "**Recent Git History:**"), "Service fix prompt should not contain git history")
 	assert.True(t, strings.Contains(prompt, "report.md"), "Service fix prompt should contain report.md instruction")
 }
 
@@ -93,15 +93,15 @@ func TestBuildDevelopPrompt(t *testing.T) {
 	prompt, err := BuildDevelopPrompt(data)
 	require.NoError(t, err, "BuildDevelopPrompt failed")
 
-	assert.Contains(t, prompt, "# Development Agent Context")
-	assert.Contains(t, prompt, "## Project Information")
-	assert.Contains(t, prompt, "## Selected Requirement")
+	assert.Contains(t, prompt, "# Development Agent")
+	assert.Contains(t, prompt, "## Context")
+	assert.Contains(t, prompt, "**Selected Requirement:**")
 	assert.Contains(t, prompt, "## Instructions")
 	assert.Contains(t, prompt, "Feature X")
 	assert.Contains(t, prompt, "/path/to/project.yaml")
 	assert.Contains(t, prompt, "Implement the selected requirement")
-	assert.NotContains(t, prompt, "## Recent Git History")
-	assert.NotContains(t, prompt, "## System Notes")
+	assert.NotContains(t, prompt, "**Recent Git History:**")
+	assert.NotContains(t, prompt, "**System Notes:**")
 }
 
 func TestBuildDevelopPrompt_WithNotes(t *testing.T) {
@@ -118,7 +118,7 @@ func TestBuildDevelopPrompt_WithNotes(t *testing.T) {
 	prompt, err := BuildDevelopPrompt(data)
 	require.NoError(t, err, "BuildDevelopPrompt failed")
 
-	assert.Contains(t, prompt, "## System Notes")
+	assert.Contains(t, prompt, "**System Notes:**")
 	assert.Contains(t, prompt, "Note 1")
 	assert.Contains(t, prompt, "Note 2")
 }
@@ -137,7 +137,7 @@ func TestBuildDevelopPrompt_WithCommitLog(t *testing.T) {
 	prompt, err := BuildDevelopPrompt(data)
 	require.NoError(t, err, "BuildDevelopPrompt failed")
 
-	assert.Contains(t, prompt, "## Recent Git History")
+	assert.Contains(t, prompt, "**Recent Git History:**")
 	assert.Contains(t, prompt, "abc123 Feature A")
 	assert.Contains(t, prompt, "def456 Feature B")
 }
@@ -159,7 +159,7 @@ func TestBuildDevelopPrompt_WithServices(t *testing.T) {
 	prompt, err := BuildDevelopPrompt(data)
 	require.NoError(t, err, "BuildDevelopPrompt failed")
 
-	assert.Contains(t, prompt, "## Services")
+	assert.Contains(t, prompt, "**Services**")
 	assert.Contains(t, prompt, "api.log")
 	assert.Contains(t, prompt, "worker.log")
 }
@@ -208,16 +208,16 @@ func TestBuildPickPrompt(t *testing.T) {
 	prompt, err := BuildPickPrompt(data)
 	require.NoError(t, err, "BuildPickPrompt failed")
 
-	assert.Contains(t, prompt, "# Requirement Picker Agent Context")
-	assert.Contains(t, prompt, "## Project Information")
-	assert.Contains(t, prompt, "## Project Requirements")
+	assert.Contains(t, prompt, "# Requirement Picker Agent")
+	assert.Contains(t, prompt, "## Context")
+	assert.Contains(t, prompt, "**Project Requirements:**")
 	assert.Contains(t, prompt, "## Instructions")
 	assert.Contains(t, prompt, "Test Project")
 	assert.Contains(t, prompt, "Feature X")
 	assert.Contains(t, prompt, "Bug Y")
 	assert.Contains(t, prompt, "/path/to/picked-requirement.yaml")
-	assert.NotContains(t, prompt, "## Recent Git History")
-	assert.NotContains(t, prompt, "## System Notes")
+	assert.NotContains(t, prompt, "**Recent Git History:**")
+	assert.NotContains(t, prompt, "**System Notes:**")
 }
 
 func TestBuildPickPrompt_WithNotes(t *testing.T) {
@@ -231,7 +231,7 @@ func TestBuildPickPrompt_WithNotes(t *testing.T) {
 	prompt, err := BuildPickPrompt(data)
 	require.NoError(t, err, "BuildPickPrompt failed")
 
-	assert.Contains(t, prompt, "## System Notes")
+	assert.Contains(t, prompt, "**System Notes:**")
 	assert.Contains(t, prompt, "Pick this one")
 }
 
@@ -246,7 +246,7 @@ func TestBuildPickPrompt_WithCommitLog(t *testing.T) {
 	prompt, err := BuildPickPrompt(data)
 	require.NoError(t, err, "BuildPickPrompt failed")
 
-	assert.Contains(t, prompt, "## Recent Git History")
+	assert.Contains(t, prompt, "**Recent Git History:**")
 	assert.Contains(t, prompt, "abc123 Initial commit")
 }
 
@@ -291,7 +291,7 @@ func TestBuildDevelopPrompt_EmptyNotes(t *testing.T) {
 	prompt, err := BuildDevelopPrompt(data)
 	require.NoError(t, err, "BuildDevelopPrompt failed")
 
-	assert.NotContains(t, prompt, "## System Notes")
+	assert.NotContains(t, prompt, "**System Notes:**")
 }
 
 func TestBuildPickPrompt_EmptyNotes(t *testing.T) {
@@ -305,7 +305,7 @@ func TestBuildPickPrompt_EmptyNotes(t *testing.T) {
 	prompt, err := BuildPickPrompt(data)
 	require.NoError(t, err, "BuildPickPrompt failed")
 
-	assert.NotContains(t, prompt, "## System Notes")
+	assert.NotContains(t, prompt, "**System Notes:**")
 }
 
 func TestBuildPRSummaryPrompt(t *testing.T) {
