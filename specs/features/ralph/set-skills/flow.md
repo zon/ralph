@@ -2,15 +2,15 @@
 
 ## Purpose
 
-Discover, fetch, and install ralph-prefixed skills from the ralph GitHub repository into the current git repository.
+Discover ralph skills from the source repository and install them into the target repository, removing stale ralph skills and preserving non-ralph skills.
 
 ## Flow
 
 ```go
 func setSkills(branch string) error {
-    repoRoot, err := findGitRoot()
+    repoRoot, err := git.FindRepoRoot()
     if err != nil {
-        return ErrNotInGitRepo
+        return err
     }
 
     skills, err := discoverSkills(branch)
@@ -18,110 +18,96 @@ func setSkills(branch string) error {
         return err
     }
 
-    contents, err := fetchAll(skills, branch)
+    contents, err := fetchSkillContents(skills, branch)
     if err != nil {
         return err
     }
 
-    installSkills(repoRoot, contents)
-    removeStaleSkills(repoRoot, skills)
-    return nil
+    rewritten := rewriteLinks(contents, branch)
+
+    if err := removeStaleSkills(repoRoot, skills); err != nil {
+        return err
+    }
+
+    return writeSkills(repoRoot, rewritten)
 }
 ```
 
 ### Helpers
 
-- **`findGitRoot()`** — locates the root directory of the current git repository
-- **`discoverSkills(branch)`** — queries GitHub for ralph-prefixed skills on the given branch
-- **`fetchAll(skills, branch)`** — fetches and rewrites each skill's content; returns an error if any fetch fails, leaving nothing written
-- **`installSkills(repoRoot, contents)`** — writes all skill files into the target repository
-- **`removeStaleSkills(repoRoot, skills)`** — deletes any installed ralph-prefixed skills not present in the current set
+- **`git.FindRepoRoot()`** — returns the root of the git repository containing the current working directory, or an error if not inside a git repository
+- **`discoverSkills(branch)`** — queries the GitHub Contents API for `.claude/skills` on `branch`; returns the names of entries with a `ralph-` prefix
+- **`fetchSkillContents(skills, branch)`** — fetches `SKILL.md` for each skill from the raw GitHub URL on `branch`; returns a map of skill name to raw content
+- **`rewriteLinks(contents, branch)`** — rewrites relative links in each `SKILL.md` to absolute raw GitHub URLs and normalizes existing ralph raw URLs to use `branch`
+- **`removeStaleSkills(repoRoot, skills)`** — deletes any `.claude/skills/ralph-*` directory in `repoRoot` whose name is not present in `skills`
+- **`writeSkills(repoRoot, contents)`** — writes each skill's `SKILL.md` to `.claude/skills/<skill>/SKILL.md` under `repoRoot`, creating directories as needed
 
 ## Tests
 
 ```go
-func TestSetSkills_Success(t *testing.T) {
-    inGitRepo()
-    skillsAvailable("ralph-write-spec", "ralph-write-flow")
+test("skills installed successfully", func(t *testing.T) {
+    repo := aRepo(t)
+    skillsAvailable(t, defaultBranch(), "ralph-write-spec", "ralph-write-flow")
+    require.NoError(t, setSkills(defaultBranch()))
+    assert.Equal(t, installedSkills(t, repo), []string{"ralph-write-flow", "ralph-write-spec"})
+})
 
-    err := setSkills("main")
+test("not in git repo returns error", func(t *testing.T) {
+    noRepo(t)
+    assert.Error(t, setSkills(defaultBranch()))
+})
 
-    assert.NoError(t, err)
-    assertSkillsInstalled(t, "ralph-write-spec", "ralph-write-flow")
-}
+test("discovery failure returns error without writing files", func(t *testing.T) {
+    repo := aRepo(t)
+    discoveryWillFail(t, defaultBranch())
+    assert.Error(t, setSkills(defaultBranch()))
+    assert.Empty(t, installedSkills(t, repo))
+})
 
-func TestSetSkills_NotInGitRepo(t *testing.T) {
-    notInGitRepo()
+test("fetch failure returns error without writing files", func(t *testing.T) {
+    repo := aRepo(t)
+    skillsAvailable(t, defaultBranch(), "ralph-write-spec")
+    fetchWillFail(t, "ralph-write-spec", defaultBranch())
+    assert.Error(t, setSkills(defaultBranch()))
+    assert.Empty(t, installedSkills(t, repo))
+})
 
-    err := setSkills("main")
+test("non-ralph skills excluded", func(t *testing.T) {
+    repo := aRepo(t)
+    skillsAvailable(t, defaultBranch(), "ralph-write-spec", "internal-tool")
+    require.NoError(t, setSkills(defaultBranch()))
+    assert.Equal(t, installedSkills(t, repo), []string{"ralph-write-spec"})
+})
 
-    assert.ErrorIs(t, err, ErrNotInGitRepo)
-    assertNoSkillsWritten(t)
-}
+test("stale ralph skills removed", func(t *testing.T) {
+    repo := aRepoWithSkill(t, "ralph-old-skill")
+    skillsAvailable(t, defaultBranch(), "ralph-write-spec")
+    require.NoError(t, setSkills(defaultBranch()))
+    assert.NotContains(t, installedSkills(t, repo), "ralph-old-skill")
+})
 
-func TestSetSkills_DiscoveryFailure(t *testing.T) {
-    inGitRepo()
-    discoveryWillFail()
+test("non-ralph skills preserved", func(t *testing.T) {
+    repo := aRepoWithSkill(t, "my-custom-skill")
+    skillsAvailable(t, defaultBranch(), "ralph-write-spec")
+    require.NoError(t, setSkills(defaultBranch()))
+    assert.Contains(t, installedSkills(t, repo), "my-custom-skill")
+})
 
-    err := setSkills("main")
-
-    assert.Error(t, err)
-    assertNoSkillsWritten(t)
-}
-
-func TestSetSkills_FetchFailure(t *testing.T) {
-    inGitRepo()
-    skillsAvailable("ralph-write-spec")
-    fetchWillFail("ralph-write-spec")
-
-    err := setSkills("main")
-
-    assert.Error(t, err)
-    assertNoSkillsWritten(t)
-}
-
-func TestSetSkills_BranchOverride(t *testing.T) {
-    inGitRepo()
-    skillsAvailableOnBranch("ralph-write-spec", "v2")
-
-    err := setSkills("v2")
-
-    assert.NoError(t, err)
-    assertSkillsInstalled(t, "ralph-write-spec")
-}
-
-func TestSetSkills_RemovesStaleSkills(t *testing.T) {
-    inGitRepo()
-    existingSkill("ralph-old-skill")
-    skillsAvailable("ralph-write-spec")
-
-    setSkills("main")
-
-    assertSkillsInstalled(t, "ralph-write-spec")
-    assertSkillRemoved(t, "ralph-old-skill")
-}
-
-func TestSetSkills_LeavesNonRalphSkillsUntouched(t *testing.T) {
-    inGitRepo()
-    existingSkill("my-custom-skill")
-    skillsAvailable("ralph-write-spec")
-
-    setSkills("main")
-
-    assertSkillPresent(t, "my-custom-skill")
-}
+test("branch override applies to discovery and fetch", func(t *testing.T) {
+    repo := aRepo(t)
+    skillsAvailable(t, "v2", "ralph-write-spec")
+    require.NoError(t, setSkills("v2"))
+    assert.Contains(t, installedSkills(t, repo), "ralph-write-spec")
+})
 ```
 
 ### Helpers
 
-- **`inGitRepo()`** — sets up the current directory as inside a git repository
-- **`notInGitRepo()`** — sets up the current directory as outside any git repository
-- **`skillsAvailable(names...)`** — configures the discovery API to return the given skills on the default branch
-- **`skillsAvailableOnBranch(name, branch)`** — configures the discovery API to return the skill on the specified branch
-- **`discoveryWillFail()`** — configures the discovery API to return an error
-- **`fetchWillFail(skill)`** — configures the fetch for the named skill to return an error
-- **`existingSkill(name)`** — places a skill directory in the target repository before the test runs
-- **`assertSkillsInstalled(t, names...)`** — asserts each named skill is present in the target repository
-- **`assertNoSkillsWritten(t)`** — asserts no skill files were written to the target repository
-- **`assertSkillRemoved(t, name)`** — asserts the named skill no longer exists in the target repository
-- **`assertSkillPresent(t, name)`** — asserts the named skill exists unchanged in the target repository
+- **`aRepo(t)`** — creates an isolated temporary git repository and sets it as the working directory for the test
+- **`aRepoWithSkill(t, name)`** — creates a repo with an existing skill directory at `.claude/skills/<name>/`
+- **`noRepo(t)`** — sets the working directory to a path outside any git repository
+- **`defaultBranch()`** — returns `"main"`
+- **`skillsAvailable(t, branch, names...)`** — configures the test environment so the GitHub Contents API returns the given skill names for `branch`
+- **`discoveryWillFail(t, branch)`** — configures the test environment so the GitHub Contents API returns an error for `branch`
+- **`fetchWillFail(t, skill, branch)`** — configures the test environment so fetching `SKILL.md` for `skill` on `branch` returns an error
+- **`installedSkills(t, repo)`** — returns the sorted list of directory names under `.claude/skills/` in `repo`
