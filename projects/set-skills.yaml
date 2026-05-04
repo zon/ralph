@@ -33,19 +33,19 @@ requirements:
       - Any `.claude/skills/ralph-*` directory in the target repository that is not present in the discovered skill list is deleted
       - Skills without a `ralph-` prefix in the target repository are left unchanged
       - If any skill's raw content URL is unreachable or returns an error, an error is returned and no files are written
-    passing: false
+    passing: true
 
   - description: Links inside fetched `SKILL.md` files are rewritten before writing
     items:
       - Relative links in a `SKILL.md` (e.g. `docs/planning/specs.md`) are expanded to absolute `https://raw.githubusercontent.com/zon/ralph/refs/heads/<branch>/` URLs using the resolved branch
       - Absolute links already pointing to `https://raw.githubusercontent.com/zon/ralph/refs/heads/` have their branch segment replaced with the resolved branch
       - Absolute links pointing to any other host are written as-is
-    passing: false
+    passing: true
 
   - description: Tests for the set-skills feature
     items:
       - Implement the tests from [flow ## Tests](../specs/features/ralph/set-skills/flow.md#tests) as written; each helper listed in `### Helpers` must be a real function encapsulating all infrastructure concerns
-    passing: false
+    passing: true
 
   - category: versioning
     description: Version bump
