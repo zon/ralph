@@ -23,7 +23,7 @@ requirements:
       - The system queries `https://api.github.com/repos/zon/ralph/contents/.claude/skills?ref=<branch>` to list available skills
       - Only skills whose directory name has a `ralph-` prefix are selected for installation; other entries are ignored
       - If the GitHub Contents API is unreachable or returns an error, an error is returned and no files are written
-    passing: false
+    passing: true
 
   - description: Skill files are fetched and written to the target repository
     items:
