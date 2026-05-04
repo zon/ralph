@@ -1,48 +1,54 @@
 name: set-skills
-description: Add ralph set skills command to install ralph skills into the current repository
+description: Add `ralph set skills` command to install ralph skills into a target repository
 
 spec: specs/features/ralph/set-skills/spec.md
 flow: specs/features/ralph/set-skills/flow.md
 
 requirements:
-  - description: ralph set skills command is available with a --branch flag
+  - description: "`ralph set skills` command is available with a `--branch` flag"
     items:
-      - Running `ralph set skills` installs ralph-prefixed skills into the current repository; the default branch is `main`
-      - Running `ralph set skills --branch v2` installs skills from the `v2` branch instead of `main`
-      - Running `ralph set skills` outside a git repository returns an error and writes no files; see [flow setSkills](../specs/features/ralph/set-skills/flow.md)
+      - Running `ralph set skills` invokes the set-skills feature with the default branch `main`
+      - Running `ralph set skills --branch v2` passes `v2` as the branch to all downstream operations
+      - See [flow setSkills](../specs/features/ralph/set-skills/flow.md) for the top-level function shape
     passing: false
 
-  - description: Only ralph-prefixed skills are discovered from the source branch
+  - description: Target repository is detected from the current working directory
     items:
-      - The command queries `https://api.github.com/repos/zon/ralph/contents/.claude/skills?ref=<branch>` to list available skills
-      - Only skills whose directory name has a `ralph-` prefix are selected for installation
-      - Skills without the `ralph-` prefix are ignored
-      - If the GitHub Contents API returns an error, the command returns an error and no files are written; see [flow discoverSkills](../specs/features/ralph/set-skills/flow.md)
+      - When the current working directory is inside a git repository, skills are installed at the root of that repository
+      - When the current working directory is not inside any git repository, an error is returned and no files are written
     passing: false
 
-  - description: Each discovered skill's SKILL.md is fetched and written atomically
+  - description: Skills are discovered from the ralph GitHub repository
     items:
-      - Each skill's content is fetched from `https://raw.githubusercontent.com/zon/ralph/refs/heads/<branch>/.claude/skills/<skill>/SKILL.md`
-      - If any fetch fails, the command returns an error and no files are written (all-or-nothing); see [flow fetchAll](../specs/features/ralph/set-skills/flow.md)
-      - On success, each skill's `SKILL.md` is written to `.claude/skills/<skill>/SKILL.md` in the target repository, creating the directory if needed
-      - Existing ralph-prefixed skills with the same name are overwritten
+      - The system queries `https://api.github.com/repos/zon/ralph/contents/.claude/skills?ref=<branch>` to list available skills
+      - Only skills whose directory name has a `ralph-` prefix are selected for installation; other entries are ignored
+      - If the GitHub Contents API is unreachable or returns an error, an error is returned and no files are written
     passing: false
 
-  - description: File links in SKILL.md are rewritten before writing to the target repository
+  - description: Skill files are fetched and written to the target repository
     items:
-      - Relative links in `SKILL.md` (e.g. `docs/planning/specs.md`) are expanded to absolute `https://raw.githubusercontent.com/zon/ralph/refs/heads/<branch>/` URLs using the resolved branch
-      - Absolute links already pointing to `https://raw.githubusercontent.com/zon/ralph/refs/heads/<old-branch>/...` have their branch segment replaced with the resolved branch
-      - Absolute URLs pointing to any other host are written unchanged
+      - Each discovered `ralph-`-prefixed skill's `SKILL.md` is fetched from `https://raw.githubusercontent.com/zon/ralph/refs/heads/<branch>/.claude/skills/<skill>/SKILL.md`
+      - If the target repository has no `.claude/skills/` directory, it is created before writing
+      - Skills that already exist in the target repository are overwritten with the fetched content
+      - Any `.claude/skills/ralph-*` directory in the target repository that is not present in the discovered skill list is deleted
+      - Skills without a `ralph-` prefix in the target repository are left unchanged
+      - If any skill's raw content URL is unreachable or returns an error, an error is returned and no files are written
     passing: false
 
-  - description: Stale ralph-prefixed skills are removed; non-ralph skills are untouched
+  - description: Links inside fetched `SKILL.md` files are rewritten before writing
     items:
-      - After installing discovered skills, any `.claude/skills/ralph-*` directory in the target repository that is not in the discovered set is deleted; see [flow removeStaleSkills](../specs/features/ralph/set-skills/flow.md)
-      - Skills in the target repository whose directory name does not have a `ralph-` prefix are left unchanged
+      - Relative links in a `SKILL.md` (e.g. `docs/planning/specs.md`) are expanded to absolute `https://raw.githubusercontent.com/zon/ralph/refs/heads/<branch>/` URLs using the resolved branch
+      - Absolute links already pointing to `https://raw.githubusercontent.com/zon/ralph/refs/heads/` have their branch segment replaced with the resolved branch
+      - Absolute links pointing to any other host are written as-is
+    passing: false
+
+  - description: Tests for the set-skills feature
+    items:
+      - Implement the tests from [flow ## Tests](../specs/features/ralph/set-skills/flow.md#tests) as written; each helper listed in `### Helpers` must be a real function encapsulating all infrastructure concerns
     passing: false
 
   - category: versioning
     description: Version bump
     items:
-      - Apply a semver minor bump to internal/version/VERSION and a patch bump to charts/ralph-webhook/Chart.yaml
+      - Apply a semver minor bump to the app version file and a semver patch bump to the chart version
     passing: false
