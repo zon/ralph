@@ -16,7 +16,7 @@ requirements:
     items:
       - When the current working directory is inside a git repository, skills are installed at the root of that repository
       - When the current working directory is not inside any git repository, an error is returned and no files are written
-    passing: false
+    passing: true
 
   - description: Skills are discovered from the ralph GitHub repository
     items:
