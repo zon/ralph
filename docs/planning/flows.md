@@ -2,7 +2,7 @@
 
 Flows are contracts on domain abstraction — idealized code that defines the function names, orchestration structure, and helper vocabulary the real implementation must preserve. A flow omits anything that would obscure the logic: no error wrapping, no debug code, no retries, no dependency injection boilerplate.
 
-Flow functions are implemented as written — same names, same signatures, same orchestration structure. The only permitted deviation is renaming calls to external resources to fit module structure (e.g. `fetchUser(id)` → `users.Fetch(id)`).
+Flow functions are implemented as written — same names, same signatures, same orchestration structure.
 
 ### Writing Flows
 
@@ -101,10 +101,20 @@ test("empty cart", () => {
 | Element | Purpose |
 |---------|---------|
 | `## Purpose` | One sentence describing what the flow accomplishes |
-| `## Flow` | The implementation contract — function names, signatures, and orchestration are fixed; only external resource calls may be renamed to fit module structure |
+| `## Flow` | The implementation contract — function names, signatures, and orchestration are fixed |
 | `## Flow > ### Helpers` | One line per helper called in the flow, describing its domain role |
 | `## Tests` | The test contract — test names, bodies, and helper vocabulary the implementation must match |
 | `## Tests > ### Helpers` | One line per test helper, describing what domain state it sets up or asserts |
+
+### Module Structure
+
+Flow functions and helper functions must live in separate modules. A module contains either orchestration or implementation detail — never both.
+
+A **flow module** contains only flow functions. It calls helpers by name but never defines them. Name it after the feature (`checkout`, `auth`).
+
+A **helper module** contains only implementation detail for one concern. Name it after that concern (`orders`, `payments`, `email`). Its interface is the vocabulary the flow uses; its internals are whatever that requires.
+
+Each module should be deep: a simple interface over hidden complexity. A module that mixes a flow function with helper implementations is wide — it exposes both the coordination logic and the construction detail at the same level, collapsing the interface that separates them.
 
 ### Where Flows Live
 
