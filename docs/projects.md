@@ -35,6 +35,12 @@ Write each requirement as a set of specific behavioral outcomes. When the target
 
 Do not write architectural decisions into requirements (no package names, struct names, or implementation strategies). The agent decides how to structure code, guided by its instructions.
 
+**When the flow has a `## Tests` section, include a requirement that links to it.** The agent does not see the flow document — it only sees requirements. Without an explicit link, the agent will write tests from scratch and will likely produce lower-level code that breaks the abstraction the flow defines. Add a requirement item like:
+
+```
+- Implement the tests from [flow ## Tests](../specs/features/<area>/<feature>/flow.md#tests) as written; each helper listed in `### Helpers` must be a real function encapsulating all infrastructure concerns
+```
+
 See [Writing Good Requirements](writing-requirements.md) for general guidance.
 
 ## Naming Projects
