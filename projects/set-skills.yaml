@@ -51,4 +51,4 @@ requirements:
     description: Version bump
     items:
       - Apply a semver minor bump to the app version file and a semver patch bump to the chart version
-    passing: false
+    passing: true
