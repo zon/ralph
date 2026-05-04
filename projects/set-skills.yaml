@@ -10,7 +10,7 @@ requirements:
       - Running `ralph set skills` invokes the set-skills feature with the default branch `main`
       - Running `ralph set skills --branch v2` passes `v2` as the branch to all downstream operations
       - See [flow setSkills](../specs/features/ralph/set-skills/flow.md) for the top-level function shape
-    passing: false
+    passing: true
 
   - description: Target repository is detected from the current working directory
     items:
