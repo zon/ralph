@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Define the format of ralph project YAML files and the rules for writing them.
+Define the format of ralph project YAML files and the rules for writing them, and specify that the documentation describing this format is written as a Claude Code and opencode skill.
 
 ## Requirements
 
@@ -85,6 +85,24 @@ A requirement MAY include a `scenarios` field containing a list of scenarios. Ea
 - GIVEN a requirement with no associated spec scenarios
 - WHEN the project is authored without a `scenarios` field on that requirement
 - THEN the requirement is valid and the field is simply absent
+
+### Requirement: Skill-Format Documentation
+
+The documentation describing the project file format MUST be written as a skill file compatible with Claude Code and opencode. The [Agent Skills | OpenCode](https://opencode.ai/docs/skills/) page defines the format reference.
+
+The skill file MUST begin with YAML frontmatter containing a `name` and `description` field. The body contains the documentation content in markdown.
+
+#### Scenario: Documentation loaded as a skill
+
+- GIVEN an agent that supports Claude Code or opencode skills
+- WHEN it loads the project documentation skill
+- THEN it can read the full project format and writing rules on demand
+
+#### Scenario: Frontmatter is valid
+
+- GIVEN the documentation skill file
+- WHEN the frontmatter is parsed
+- THEN `name` is a lowercase hyphen-separated identifier and `description` is a concise one-line summary
 
 ### Requirement: Requirement Flows
 
