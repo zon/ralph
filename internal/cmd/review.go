@@ -25,7 +25,7 @@ import (
 	"github.com/zon/ralph/internal/workflow"
 )
 
-const ralphProjectDocURL = "https://raw.githubusercontent.com/zon/ralph/refs/heads/main/docs/projects.md"
+const ralphProjectDocURL = "https://raw.githubusercontent.com/zon/ralph/refs/heads/main/docs/skills/ralph-write-project.md"
 
 type itemWithIndex struct {
 	item config.ReviewItem

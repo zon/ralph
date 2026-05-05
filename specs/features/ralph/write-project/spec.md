@@ -50,7 +50,7 @@ A project MAY include `spec` and `flow` fields containing relative paths to the 
 
 ### Requirement: Requirements
 
-A project MUST have a `requirements` field containing a list of one or more requirements. Each requirement MUST have `description`, `items`, and `passing` fields.
+A project MUST have a `requirements` field containing a list of one or more requirements. Each requirement MUST have `description` and `passing` fields, and MUST have at least one of `items`, `scenarios`, or `flows`.
 
 #### Scenario: Requirement with failing work
 
@@ -66,9 +66,21 @@ A project MUST have a `requirements` field containing a list of one or more requ
 
 #### Scenario: Requirement items
 
-- GIVEN a requirement that describes a behavioral outcome
+- GIVEN a requirement with work that falls outside the associated spec and flow
 - WHEN the author writes the `items` list
-- THEN each item is a specific, observable outcome the agent must achieve
+- THEN each item is a specific, observable outcome the agent must achieve, free of architecture decisions such as package names, struct names, or implementation strategies
+
+#### Scenario: Items omitted when scenarios or flows are present
+
+- GIVEN a requirement with `scenarios` or `flows` but no `items`
+- WHEN the project is validated
+- THEN the requirement is valid because at least one content field is present
+
+#### Scenario: No content fields
+
+- GIVEN a requirement with no `items`, `scenarios`, or `flows`
+- WHEN the project is validated
+- THEN an error is reported requiring at least one content field
 
 ### Requirement: Requirement Scenarios
 
@@ -85,6 +97,34 @@ A requirement MAY include a `scenarios` field containing a list of scenarios. Ea
 - GIVEN a requirement with no associated spec scenarios
 - WHEN the project is authored without a `scenarios` field on that requirement
 - THEN the requirement is valid and the field is simply absent
+
+### Requirement: Helper Requirements
+
+Each helper function defined in a flow document's `helpers` list MUST have a corresponding requirement in the project. The helper requirement MUST include a `flows` entry for the helper with `name` and optionally `module` and `description`, but MUST NOT include `code` or `helpers` on that flow. Scenarios from the spec that directly relate to the helper MUST be copied into the requirement. Items MUST be used to fill in any gaps not covered by scenarios or the flow.
+
+#### Scenario: Helper gets its own requirement
+
+- GIVEN a flow document that lists `buildCSV` as a helper of `ExportReport`
+- WHEN the author writes the project
+- THEN a separate requirement exists for `buildCSV` with a flow entry containing `name` and optionally `module` and `description`
+
+#### Scenario: Helper flow omits code and helpers
+
+- GIVEN a helper requirement with a `flows` entry
+- WHEN the author writes the flow
+- THEN the flow does not include `code` or `helpers` properties
+
+#### Scenario: Spec scenarios copied to helper requirement
+
+- GIVEN a spec scenario that directly describes the behavior of a helper function
+- WHEN the author writes the helper requirement
+- THEN that scenario is copied into the requirement's `scenarios` field
+
+#### Scenario: Items fill gaps for helper
+
+- GIVEN a helper requirement where the spec and flow do not fully describe the expected behavior
+- WHEN the author writes the helper requirement
+- THEN `items` are added to cover the remaining behavioral expectations
 
 ### Requirement: Skill-Format Documentation
 
@@ -106,9 +146,11 @@ The skill file MUST begin with YAML frontmatter containing a `name` and `descrip
 
 ### Requirement: Requirement Flows
 
-A requirement MAY include a `flows` field containing a list of flows. Each flow MUST have a `module`, `code`, and `helpers` field. Flows are optionally copied from the flow document when the project is based on one.
+A requirement MAY include a `flows` field containing a list of flows. Each flow MUST have a `name` field containing the method name. The `module`, `code`, `helpers`, and `description` fields are all optional. Flows are optionally copied from the flow document when the project is based on one.
 
-The `module` field defines where the flow should be written. The `code` field contains the flow code itself. The `helpers` field is a list of helper functions the flow requires, each with `name`, `module`, and `description` properties.
+The `name` field identifies the method. The `module` field defines where the flow should be written. The `code` field contains the flow code itself — including package names, function signatures, struct names, and implementation strategies. The `helpers` field is a list of helper functions the flow requires, each with `name`, `module`, and `description` properties. The `description` field provides a short summary of the flow's purpose.
+
+Flows are the correct place to specify architecture. Items must not contain architecture decisions; flows must.
 
 #### Scenario: Flows copied from flow document
 
