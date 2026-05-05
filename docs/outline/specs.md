@@ -8,7 +8,7 @@ Analyze the repository and write a `/specs` directory covering every component a
 
 ## Context
 
-Spec format, structure, organization patterns, and file sizing guidelines are defined in `docs/planning/specs.md`. Read it before doing anything else.
+Read [`docs/planning/specs.md`](docs/planning/specs.md) before writing any spec files.
 
 ## Instructions
 
@@ -28,10 +28,6 @@ Spec format, structure, organization patterns, and file sizing guidelines are de
    - Worker: list every trigger, queue, or scheduled event it handles
    - Read the relevant source files to understand behavior, inputs, outputs, and error conditions
 
-4. Group the surface into features and write one spec file per feature, following the structure and format from `docs/planning/specs.md`.
+4. Group the surface into features. For each feature, write a `spec.md` at `specs/features/<component>/<feature>/spec.md` following `docs/planning/specs.md`.
 
 5. List the files created, state which organization pattern was chosen and why, and note any areas where behavior was ambiguous or could not be fully inferred from the source.
-
-## Output
-
-A `/specs` directory at the repo root with one Markdown spec file per feature, organized and formatted according to `docs/planning/specs.md`.
