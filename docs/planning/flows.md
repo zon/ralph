@@ -34,6 +34,8 @@ Process a cart purchase and notify the user.
 
 ## Flow
 
+**Module:** `checkout`
+
 ```typescript
 async function checkout(cart: Cart, user: User) {
     if (cart.isEmpty()) return CartError.Empty
@@ -53,13 +55,15 @@ async function checkout(cart: Cart, user: User) {
 
 ### Helpers
 
-- **`createOrder(cart, user)`** — builds an order record from the cart contents and user identity
-- **`chargePayment(order)`** — attempts to collect payment for the order; returns whether it succeeded
-- **`cancelOrder(order)`** — marks the order as void so it is never fulfilled
-- **`sendConfirmationEmail(order, user)`** — notifies the user that their purchase was successful
-- **`sendDeclinedEmail(order, user)`** — notifies the user that their payment was not accepted
+- **`createOrder(cart, user)`** [`orders`] — builds an order record from the cart contents and user identity
+- **`chargePayment(order)`** [`payments`] — attempts to collect payment for the order; returns whether it succeeded
+- **`cancelOrder(order)`** [`orders`] — marks the order as void so it is never fulfilled
+- **`sendConfirmationEmail(order, user)`** [`email`] — notifies the user that their purchase was successful
+- **`sendDeclinedEmail(order, user)`** [`email`] — notifies the user that their payment was not accepted
 
 ## Tests
+
+**Module:** `checkout.test`
 
 ```typescript
 test("successful checkout", () => {
@@ -87,24 +91,26 @@ test("empty cart", () => {
 
 ### Helpers
 
-- **`aUser()`** — returns a valid user in a default state suitable for checkout
-- **`aCart()`** — returns a cart builder; call `.withItems(...)` to populate it
-- **`anItem()`** — returns a purchasable item with a non-zero price
-- **`emptyCart()`** — returns a cart with no items
-- **`paymentWillDecline()`** — configures the test environment so the next payment attempt fails
-- **`ordersCreated()`** — returns the list of orders persisted during the test
-- **`emailsSent()`** — returns the list of emails sent during the test
-- **`confirmationEmail(order, user)`** — constructs the expected confirmation email value for assertion
-- **`declinedEmail(user)`** — constructs the expected declined-payment email value for assertion
+- **`aUser()`** [`users.fixtures`] — returns a valid user in a default state suitable for checkout
+- **`aCart()`** [`cart.fixtures`] — returns a cart builder; call `.withItems(...)` to populate it
+- **`anItem()`** [`cart.fixtures`] — returns a purchasable item with a non-zero price
+- **`emptyCart()`** [`cart.fixtures`] — returns a cart with no items
+- **`paymentWillDecline()`** [`payments.fixtures`] — configures the test environment so the next payment attempt fails
+- **`ordersCreated()`** [`orders.fixtures`] — returns the list of orders persisted during the test
+- **`emailsSent()`** [`email.fixtures`] — returns the list of emails sent during the test
+- **`confirmationEmail(order, user)`** [`email.fixtures`] — constructs the expected confirmation email value for assertion
+- **`declinedEmail(user)`** [`email.fixtures`] — constructs the expected declined-payment email value for assertion
 ````
 
 | Element | Purpose |
 |---------|---------|
 | `## Purpose` | One sentence describing what the flow accomplishes |
 | `## Flow` | The implementation contract — function names, signatures, and orchestration are fixed |
-| `## Flow > ### Helpers` | One line per helper called in the flow, describing its domain role |
+| `## Flow > **Module**` | The module where the flow function is implemented |
+| `## Flow > ### Helpers` | One line per helper called in the flow, with its module in brackets and a description of its domain role |
 | `## Tests` | The test contract — test names, bodies, and helper vocabulary the implementation must match |
-| `## Tests > ### Helpers` | One line per test helper, describing what domain state it sets up or asserts |
+| `## Tests > **Module**` | The module where the tests are implemented |
+| `## Tests > ### Helpers` | One line per test helper, with its module in brackets and a description of what domain state it sets up or asserts |
 
 ### Module Structure
 
@@ -115,6 +121,12 @@ A **flow module** contains only flow functions. It calls helpers by name but nev
 A **helper module** contains only implementation detail for one concern. Name it after that concern (`orders`, `payments`, `email`). Its interface is the vocabulary the flow uses; its internals are whatever that requires.
 
 Each module should be deep: a simple interface over hidden complexity. A module that mixes a flow function with helper implementations is wide — it exposes both the coordination logic and the construction detail at the same level, collapsing the interface that separates them.
+
+Every flow document must declare its module assignments. The `**Module:**` line under `## Flow` names the flow module; the `**Module:**` line under `## Tests` names the test module. These are implementation contracts — the code must match.
+
+A flow function and its helpers must be in different modules. A test flow and its test helpers must be in different modules. Mixing them collapses the interface that separates orchestration from implementation.
+
+Test helpers that share a concern with a helper module belong in that module or a companion module with the same name (`payments` / `payments.fixtures`). A test helper that asserts on payment behavior belongs near `payments`, not in a generic test module.
 
 ### Where Flows Live
 

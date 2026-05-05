@@ -6,6 +6,8 @@ Discover ralph skills from the source repository and install them into the targe
 
 ## Flow
 
+**Module:** `cmd`
+
 ```go
 func setSkills(branch string) error {
     repoRoot, err := git.FindRepoRoot()
@@ -35,14 +37,16 @@ func setSkills(branch string) error {
 
 ### Helpers
 
-- **`git.FindRepoRoot()`** — returns the root of the git repository containing the current working directory, or an error if not inside a git repository
-- **`discoverSkills(branch)`** — queries the GitHub Contents API for `.claude/skills` on `branch`; returns the names of entries with a `ralph-` prefix
-- **`fetchSkillContents(skills, branch)`** — fetches `SKILL.md` for each skill from the raw GitHub URL on `branch`; returns a map of skill name to raw content
-- **`rewriteLinks(contents, branch)`** — rewrites relative links in each `SKILL.md` to absolute raw GitHub URLs and normalizes existing ralph raw URLs to use `branch`
-- **`removeStaleSkills(repoRoot, skills)`** — deletes any `.claude/skills/ralph-*` directory in `repoRoot` whose name is not present in `skills`
-- **`writeSkills(repoRoot, contents)`** — writes each skill's `SKILL.md` to `.claude/skills/<skill>/SKILL.md` under `repoRoot`, creating directories as needed
+- **`git.FindRepoRoot()`** [`git`] — returns the root of the git repository containing the current working directory, or an error if not inside a git repository
+- **`discoverSkills(branch)`** [`skills`] — queries the GitHub Contents API for `.claude/skills` on `branch`; returns the names of entries with a `ralph-` prefix
+- **`fetchSkillContents(skills, branch)`** [`skills`] — fetches `SKILL.md` for each skill from the raw GitHub URL on `branch`; returns a map of skill name to raw content
+- **`rewriteLinks(contents, branch)`** [`skills`] — rewrites relative links in each `SKILL.md` to absolute raw GitHub URLs and normalizes existing ralph raw URLs to use `branch`
+- **`removeStaleSkills(repoRoot, skills)`** [`skills`] — deletes any `.claude/skills/ralph-*` directory in `repoRoot` whose name is not present in `skills`
+- **`writeSkills(repoRoot, contents)`** [`skills`] — writes each skill's `SKILL.md` to `.claude/skills/<skill>/SKILL.md` under `repoRoot`, creating directories as needed
 
 ## Tests
+
+**Module:** `cmd`
 
 ```go
 test("skills installed successfully", func(t *testing.T) {
@@ -103,11 +107,11 @@ test("branch override applies to discovery and fetch", func(t *testing.T) {
 
 ### Helpers
 
-- **`aRepo(t)`** — creates an isolated temporary git repository and sets it as the working directory for the test
-- **`aRepoWithSkill(t, name)`** — creates a repo with an existing skill directory at `.claude/skills/<name>/`
-- **`noRepo(t)`** — sets the working directory to a path outside any git repository
-- **`defaultBranch()`** — returns `"main"`
-- **`skillsAvailable(t, branch, names...)`** — configures the test environment so the GitHub Contents API returns the given skill names for `branch`
-- **`discoveryWillFail(t, branch)`** — configures the test environment so the GitHub Contents API returns an error for `branch`
-- **`fetchWillFail(t, skill, branch)`** — configures the test environment so fetching `SKILL.md` for `skill` on `branch` returns an error
-- **`installedSkills(t, repo)`** — returns the sorted list of directory names under `.claude/skills/` in `repo`
+- **`aRepo(t)`** [`git`] — creates an isolated temporary git repository and sets it as the working directory for the test
+- **`aRepoWithSkill(t, name)`** [`skills`] — creates a repo with an existing skill directory at `.claude/skills/<name>/`
+- **`noRepo(t)`** [`git`] — sets the working directory to a path outside any git repository
+- **`defaultBranch()`** [`skills`] — returns `"main"`
+- **`skillsAvailable(t, branch, names...)`** [`skills`] — configures the test environment so the GitHub Contents API returns the given skill names for `branch`
+- **`discoveryWillFail(t, branch)`** [`skills`] — configures the test environment so the GitHub Contents API returns an error for `branch`
+- **`fetchWillFail(t, skill, branch)`** [`skills`] — configures the test environment so fetching `SKILL.md` for `skill` on `branch` returns an error
+- **`installedSkills(t, repo)`** [`skills`] — returns the sorted list of directory names under `.claude/skills/` in `repo`

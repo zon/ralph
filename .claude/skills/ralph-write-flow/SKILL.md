@@ -21,8 +21,15 @@ Create a well-formed flow file in `./specs/features/` based on the user's descri
 
 4. **Determine the language** by reading the relevant source files for the feature area.
 
-5. **Draft the flow and tests** following the format and guidelines in `docs/planning/flows.md`.
+5. **Plan the modules.** Before drafting, decide:
+   - Which module owns the flow function (orchestration only, named after the feature or its command home)
+   - Which module(s) own the helpers, grouped by concern (e.g. `git`, `github`, `skills`)
+   - Which module owns the tests (must differ from the flow module)
+   - Which module(s) own the test helpers, matching the concern of their corresponding helper modules
+   - Confirm no flow function and helper share a module, and no test flow and test helper share a module
 
-6. **Write the file** to `./specs/features/<component>/<feature>/flow.md`.
+6. **Draft the flow and tests** following the format and guidelines in `docs/planning/flows.md`.
 
-7. **Report** the file path and a one-line summary of what the flow models.
+7. **Write the file** to `./specs/features/<component>/<feature>/flow.md`.
+
+8. **Report** the file path and a one-line summary of what the flow models.
