@@ -1,6 +1,7 @@
 package git
 
 import (
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -65,4 +66,26 @@ func TestRevParse(t *testing.T) {
 	branch, err := RevParse("--abbrev-ref", "HEAD")
 	require.NoError(t, err)
 	assert.True(t, branch == "master" || branch == "main")
+}
+
+func TestRepoRoot(t *testing.T) {
+	t.Run("returns absolute path inside git repo", func(t *testing.T) {
+		tempDir := setupTestRepo(t)
+		t.Chdir(tempDir)
+
+		root, err := RepoRoot()
+		require.NoError(t, err, "RepoRoot failed inside git repo")
+
+		absTempDir, err := filepath.Abs(tempDir)
+		require.NoError(t, err)
+		assert.Equal(t, absTempDir, root)
+	})
+
+	t.Run("returns error outside git repo", func(t *testing.T) {
+		tempDir := t.TempDir()
+		t.Chdir(tempDir)
+
+		_, err := RepoRoot()
+		require.Error(t, err, "Expected error from RepoRoot outside git repo")
+	})
 }

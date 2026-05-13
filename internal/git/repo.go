@@ -60,3 +60,8 @@ func RevParse(args ...string) (string, error) {
 	}
 	return strings.TrimSpace(out), nil
 }
+
+// RepoRoot returns the absolute root directory of the git repository containing the current working directory.
+func RepoRoot() (string, error) {
+	return FindRepoRoot()
+}
