@@ -13,6 +13,9 @@ Documentation of file formats used in Ralph development.
             ├── spec.md
             ├── flow.md
             └── architecture.yaml
+
+/projects/
+└── <slug>.yaml
 ```
 
 The top-level `/specs/architecture.yaml` covers the **current** modules of the application ([Architecture Format](./architecture.md)).
@@ -23,9 +26,9 @@ Specs, flows, and per-feature architecture are co-located under `/specs/features
 - `flow.md` — idealized domain logic ([Flow Format](./flows.md))
 - `architecture.yaml` (optional) — **future** modules introduced by this feature ([Architecture Format](./architecture.md))
 
-A **component** is a top-level deployment or ownership boundary — a distinct service, app, or library that could be developed and deployed independently. Good component names reflect runtime identity (`api`, `worker`, `frontend`), not internal organization.
+Project files live at `/projects/<slug>.yaml` and define units of work for the ralph agent to execute, drawing on the specs, flows, and architecture above ([Project Format](./project.md)).
 
-A **feature** is a coherent slice of user-facing or system-facing behavior — something a user can do, or something the system does on their behalf. Good feature names describe what the system does (`auth`, `payments`, `notifications`), not how it does it (`jwt-handler`, `stripe-client`). If a feature grows too large to read comfortably, split it by sub-feature rather than by implementation detail.
+See [Component](../glossary.md#component) and [Feature](../glossary.md#feature) in the glossary.
 
 ## Formats
 
@@ -40,3 +43,7 @@ The flow format for documenting idealized domain logic as implementation contrac
 ### [Architecture](./architecture.md)
 
 The architecture format for outlining deep modules in YAML.
+
+### [Projects](./project.md)
+
+The project format for defining units of work for the ralph agent.
