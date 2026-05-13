@@ -1,1 +1,0 @@
-../../../docs/skills/ralph-write-project.md
