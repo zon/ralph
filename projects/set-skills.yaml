@@ -262,7 +262,7 @@ requirements:
         module: internal/skills
         body: |
           func FetchAll(branch string, names []string) ([]Skill, error)
-    passing: false
+    passing: true
 
   - slug: prune-stale-skills
     description: Remove ralph-prefixed skill directories from the target repo that are not in the fetched set
