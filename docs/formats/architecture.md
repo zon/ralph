@@ -1,6 +1,13 @@
 # Architecture Format
 
-The architecture format is used to outline the [deep modules](../glossary.md#deep-module) of an application in YAML. Architecture documents can describe current or future modules.
+The architecture format is used to outline the [deep modules](../glossary.md#deep-module) of an application in YAML.
+
+## Location
+
+Architecture documents live in two places:
+
+- **`/specs/architecture.yaml`** — describes the **current** modules of the application as a whole.
+- **`/specs/features/<component>/<feature>/architecture.yaml`** (optional) — describes **future** modules introduced or changed by a specific feature. Omit when the feature does not introduce new modules.
 
 ## Format
 
