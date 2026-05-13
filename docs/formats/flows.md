@@ -1,8 +1,10 @@
-## Flows
+# Flow Format
 
-Flows are contracts on domain abstraction — idealized code that defines the function names, orchestration structure, and helper vocabulary the real implementation must preserve. A flow omits anything that would obscure the logic: no error wrapping, no debug code, no retries, no dependency injection boilerplate.
+The flow format defines implementation contracts using idealized code. A flow document specifies function names, orchestration structure, and helper vocabulary that the real implementation must preserve. Flows omit anything that would obscure the logic: no error wrapping, no debug code, no retries, no dependency injection boilerplate.
 
 Flow functions are implemented as written — same names, same signatures, same orchestration structure.
+
+## Structure
 
 ### Writing Flows
 
@@ -24,7 +26,7 @@ Tests cover domain logic only — the orchestration decisions the flow makes, no
 
 **Each test covers one domain outcome.** Tests should read as: given this domain state, calling the flow produces this domain result.
 
-### File Format
+## File Format
 
 ````markdown
 # Checkout Flow
@@ -112,7 +114,7 @@ test("empty cart", () => {
 | `## Tests > **Module**` | The module where the tests are implemented |
 | `## Tests > ### Helpers` | One line per test helper, with its module in brackets and a description of what domain state it sets up or asserts |
 
-### Module Structure
+## Module Structure
 
 Flow functions and helper functions must live in separate modules. A module contains either orchestration or implementation detail — never both.
 
@@ -128,11 +130,11 @@ A flow function and its helpers must be in different modules. A test flow and it
 
 Test helpers that share a concern with a helper module belong in that module or a companion module with the same name (`payments` / `payments.fixtures`). A test helper that asserts on payment behavior belongs near `payments`, not in a generic test module.
 
-### Where Flows Live
+## File Location
 
-See [Directory Structure](./README.md#directory-structure) for how flows are organized.
+See [Directory Structure](./README.md#directory-structure) for where flow files are located.
 
-### What Flows Are Not
+## What Flows Are Not
 
 - **Not a spec.** Flows do not define behavioral guarantees. Put those in `/specs`.
 - **Not a branching tree.** Flows should be exhaustive but designed to minimize paths. If a flow has many branches, that is a signal to simplify the design, not to add more cases.

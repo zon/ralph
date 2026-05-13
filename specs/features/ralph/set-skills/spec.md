@@ -92,17 +92,17 @@ Absolute links already pointing to the ralph raw content URL SHALL have their br
 
 #### Scenario: Relative link rewritten
 
-- GIVEN a `SKILL.md` contains a relative link such as `docs/planning/specs.md`
+- GIVEN a `SKILL.md` contains a relative link such as `docs/formats/specs.md`
 - AND the resolved branch is `main`
 - WHEN the skill is written to the target repository
-- THEN the link is rewritten to `https://raw.githubusercontent.com/zon/ralph/refs/heads/main/docs/planning/specs.md`
+- THEN the link is rewritten to `https://raw.githubusercontent.com/zon/ralph/refs/heads/main/docs/formats/specs.md`
 
 #### Scenario: Existing ralph URL branch updated
 
-- GIVEN a `SKILL.md` contains `https://raw.githubusercontent.com/zon/ralph/refs/heads/main/docs/planning/specs.md`
+- GIVEN a `SKILL.md` contains `https://raw.githubusercontent.com/zon/ralph/refs/heads/main/docs/formats/specs.md`
 - AND the user passes `--branch v2`
 - WHEN the skill is written to the target repository
-- THEN the link is rewritten to `https://raw.githubusercontent.com/zon/ralph/refs/heads/v2/docs/planning/specs.md`
+- THEN the link is rewritten to `https://raw.githubusercontent.com/zon/ralph/refs/heads/v2/docs/formats/specs.md`
 
 #### Scenario: Non-ralph absolute URLs unchanged
 

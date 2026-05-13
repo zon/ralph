@@ -1,6 +1,6 @@
-# Architecture
+# Architecture Format
 
-Architecture docs outline the [deep modules](../glossary.md#deep-module) of an app. This outline can contain current or future modules.
+The architecture format is used to outline the [deep modules](../glossary.md#deep-module) of an application in YAML. Architecture documents can describe current or future modules.
 
 ## Format
 

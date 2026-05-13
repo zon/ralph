@@ -15,7 +15,7 @@ Create a well-formed flow file in `./specs/features/` based on the user's descri
    - What are the main success and failure paths?
 
 2. **Read the flow format docs** to refresh your understanding:
-   - `docs/planning/flows.md`
+   - `docs/formats/flows.md`
 
 3. **Determine the file path.** Check the existing `specs/features/` structure and place the flow at `./specs/features/<component>/<feature>/flow.md`.
 
@@ -28,7 +28,7 @@ Create a well-formed flow file in `./specs/features/` based on the user's descri
    - Which module(s) own the test helpers, matching the concern of their corresponding helper modules
    - Confirm no flow function and helper share a module, and no test flow and test helper share a module
 
-6. **Draft the flow and tests** following the format and guidelines in `docs/planning/flows.md`.
+6. **Draft the flow and tests** following the format and guidelines in `docs/formats/flows.md`.
 
 7. **Write the file** to `./specs/features/<component>/<feature>/flow.md`.
 

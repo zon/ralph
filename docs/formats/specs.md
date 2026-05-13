@@ -1,12 +1,12 @@
-## Specs
+# Spec Format
 
-Specs describe your system's behavior using structured requirements and scenarios.
+The spec format is used to describe system behavior using structured requirements and scenarios.
 
-### Structure
+## File Location
 
-See [Directory Structure](./README.md#directory-structure) for how specs are organized.
+See [Directory Structure](./README.md#directory-structure) for where spec files are located.
 
-### Spec Format
+## Structure
 
 A spec contains requirements, and each requirement has scenarios:
 
@@ -52,7 +52,7 @@ The system MUST expire sessions after 30 minutes of inactivity.
 | `#### Scenario:` | A concrete example of the requirement in action |
 | SHALL/MUST/SHOULD | RFC 2119 keywords indicating requirement strength |
 
-### Why Structure Specs This Way
+## Why Structure Specs This Way
 
 **Requirements are the "what"** — they state what the system should do without specifying implementation.
 
@@ -66,7 +66,7 @@ The system MUST expire sessions after 30 minutes of inactivity.
 - **SHOULD** — recommended, but exceptions exist
 - **MAY** — optional
 
-### What a Spec Is (and Is Not)
+## What a Spec Is (and Is Not)
 
 A spec is a **behavior contract**, not an implementation plan.
 
@@ -85,7 +85,7 @@ Avoid in specs:
 Quick test:
 - If implementation can change without changing externally visible behavior, it likely does not belong in the spec.
 
-### Keep It Lightweight: Progressive Rigor
+## Keep It Lightweight: Progressive Rigor
 
 We aim to avoid bureaucracy. Use the lightest level that still makes the change verifiable.
 
@@ -101,13 +101,13 @@ We aim to avoid bureaucracy. Use the lightest level that still makes the change 
 
 Most changes should stay in Lite mode.
 
-### Human + Agent Collaboration
+## Usage Notes
 
-In many teams, humans explore and agents draft artifacts. The intended loop is:
+Specs are typically authored collaboratively:
 
 1. Human provides intent, context, and constraints.
 2. Agent converts this into behavior-first requirements and scenarios.
-3. Agent keeps implementation detail in `/designs` and `/projects`, not `/specs`.
+3. Implementation detail belongs in other artifacts, not in specs.
 4. Validation confirms structure and clarity before implementation.
 
 This keeps specs readable for humans and consistent for agents.

@@ -1,6 +1,6 @@
-# Development
+# File Formats
 
-The planning and development workflow followed by Ralph.
+Documentation of file formats used in Ralph development.
 
 ## Directory Structure
 
@@ -14,8 +14,8 @@ The planning and development workflow followed by Ralph.
 
 Specs and flows are co-located under `/specs/features`:
 
-- `spec.md` — behavioral requirements and scenarios ([Spec Format](./specs.md#spec-format))
-- `flow.md` — idealized domain logic ([Flow Format](./flows.md#flow-file-format))
+- `spec.md` — behavioral requirements and scenarios ([Spec Format](./specs.md))
+- `flow.md` — idealized domain logic ([Flow Format](./flows.md))
 
 A **component** is a top-level deployment or ownership boundary — a distinct service, app, or library that could be developed and deployed independently. Good component names reflect runtime identity (`api`, `worker`, `frontend`), not internal organization.
 
@@ -29,16 +29,16 @@ When the repo has a single component, omit the component directory:
 └── flow.md
 ```
 
-## Specs
+## Formats
 
-[Specs](./specs.md) describe system behavior using structured requirements and scenarios.
+### [Specs](./specs.md)
 
-## Architecture
+The spec format for describing system behavior using structured requirements and scenarios.
 
-### Flow
+### [Flows](./flows.md)
 
-[Flows](./flows.md) document idealized high level domain logic designs.
+The flow format for documenting idealized domain logic as implementation contracts.
 
-## Projects
+### [Architecture](./architecture.md)
 
-[Projects](./projects.md) contain coding instruction for agents developing the system.
+The architecture format for outlining deep modules in YAML.

@@ -8,7 +8,7 @@ Analyze the repository and write a `/specs` directory covering every component a
 
 ## Context
 
-Read [`docs/planning/specs.md`](docs/planning/specs.md) before writing any spec files.
+Read [`docs/formats/specs.md`](docs/formats/specs.md) before writing any spec files.
 
 ## Instructions
 
@@ -28,6 +28,6 @@ Read [`docs/planning/specs.md`](docs/planning/specs.md) before writing any spec 
    - Worker: list every trigger, queue, or scheduled event it handles
    - Read the relevant source files to understand behavior, inputs, outputs, and error conditions
 
-4. Group the surface into features. For each feature, write a `spec.md` at `specs/features/<component>/<feature>/spec.md` following `docs/planning/specs.md`.
+4. Group the surface into features. For each feature, write a `spec.md` at `specs/features/<component>/<feature>/spec.md` following `docs/formats/specs.md`.
 
 5. List the files created, state which organization pattern was chosen and why, and note any areas where behavior was ambiguous or could not be fully inferred from the source.
