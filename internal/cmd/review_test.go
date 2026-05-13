@@ -335,11 +335,13 @@ review:
 	projectsDir := filepath.Join(tmpDir, "projects")
 	require.NoError(t, os.Mkdir(projectsDir, 0755))
 	projectFile := filepath.Join(projectsDir, "test-review.yaml")
-	projectYAML := `name: test-review
-description: Test project for filter
+	projectYAML := `slug: test-review
+title: Test project for filter
 requirements:
-  - category: test
+  - slug: dummy-requirement
     description: dummy requirement
+    items:
+      - Item 1
     passing: false
 `
 	require.NoError(t, os.WriteFile(projectFile, []byte(projectYAML), 0644))
@@ -393,11 +395,13 @@ review:
 	projectsDir := filepath.Join(tmpDir, "projects")
 	require.NoError(t, os.Mkdir(projectsDir, 0755))
 	projectFile := filepath.Join(projectsDir, "test-review.yaml")
-	projectYAML := `name: test-review
-description: Test project for filter
+	projectYAML := `slug: test-review
+title: Test project for filter
 requirements:
-  - category: test
+  - slug: dummy-requirement
     description: dummy requirement
+    items:
+      - Item 1
     passing: false
 `
 	require.NoError(t, os.WriteFile(projectFile, []byte(projectYAML), 0644))
@@ -635,11 +639,13 @@ review:
 	projectsDir := filepath.Join(tmpDir, "projects")
 	require.NoError(t, os.Mkdir(projectsDir, 0755))
 	projectFile := filepath.Join(projectsDir, "test-review.yaml")
-	projectYAML := `name: test-review
-description: Test project for one flag
+	projectYAML := `slug: test-review
+title: Test project for filter
 requirements:
-  - category: test
+  - slug: dummy-requirement
     description: dummy requirement
+    items:
+      - Item 1
     passing: false
 `
 	require.NoError(t, os.WriteFile(projectFile, []byte(projectYAML), 0644))
@@ -723,11 +729,13 @@ review:
 	projectsDir := filepath.Join(tmpDir, "projects")
 	require.NoError(t, os.Mkdir(projectsDir, 0755))
 	projectFile := filepath.Join(projectsDir, "test-review.yaml")
-	projectYAML := `name: test-review
-description: Test project for loop
+	projectYAML := `slug: test-review
+title: Test project for loop
 requirements:
-  - category: test
+  - slug: dummy-requirement
     description: dummy requirement
+    items:
+      - Item 1
     passing: false
 `
 	require.NoError(t, os.WriteFile(projectFile, []byte(projectYAML), 0644))

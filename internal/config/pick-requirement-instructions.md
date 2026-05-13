@@ -38,4 +38,4 @@ Select the highest-priority failing requirement and write it to a file for the d
 
 ## Output
 
-Write the selected requirement's full YAML content to `{{.PickedReqPath}}`. Include all fields (category, description, items, passing, etc.). Make no other changes.
+Write the selected requirement's full YAML content to `{{.PickedReqPath}}`. Include all fields the requirement has: `slug`, `description`, `items`, `scenarios`, `code`, `tests`, and `passing`. The `slug` field is required — the development agent uses it to look up and update this requirement in the project file. Make no other changes.

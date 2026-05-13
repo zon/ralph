@@ -15,6 +15,6 @@ func (v *ValidateCmd) Run() error {
 		return err
 	}
 
-	logger.Infof("Project '%s' is valid (%d requirements)", projectData.Name, len(projectData.Requirements))
+	logger.Infof("Project '%s' is valid (%d requirements)", projectData.Slug, len(projectData.Requirements))
 	return nil
 }

@@ -21,15 +21,15 @@ func TestFindCompleteProjects(t *testing.T) {
 	}{
 		{
 			name: "complete-project.yaml",
-			content: `name: complete-project
-description: A complete project
+			content: `slug: complete-project
+title: A complete project
 requirements:
-  - category: backend
+  - slug: feature-1
     description: Feature 1
     items:
       - Item 1
     passing: true
-  - category: backend
+  - slug: feature-2
     description: Feature 2
     items:
       - Item 2
@@ -38,15 +38,15 @@ requirements:
 		},
 		{
 			name: "incomplete-project.yaml",
-			content: `name: incomplete-project
-description: An incomplete project
+			content: `slug: incomplete-project
+title: An incomplete project
 requirements:
-  - category: backend
+  - slug: feature-1
     description: Feature 1
     items:
       - Item 1
     passing: true
-  - category: backend
+  - slug: feature-2
     description: Feature 2
     items:
       - Item 2
@@ -55,22 +55,22 @@ requirements:
 		},
 		{
 			name: "no-requirements-project.yaml",
-			content: `name: no-requirements-project
-description: A project with no requirements
+			content: `slug: no-requirements-project
+title: A project with no requirements
 requirements: []`,
 			expected: false,
 		},
 		{
 			name: "all-false-project.yaml",
-			content: `name: all-false-project
-description: A project with all requirements false
+			content: `slug: all-false-project
+title: A project with all requirements false
 requirements:
-  - category: backend
+  - slug: feature-1
     description: Feature 1
     items:
       - Item 1
     passing: false
-  - category: backend
+  - slug: feature-2
     description: Feature 2
     items:
       - Item 2
@@ -79,15 +79,15 @@ requirements:
 		},
 		{
 			name: "mixed-yaml-extension.yml",
-			content: `name: mixed-extension-project
-description: Project with .yml extension
+			content: `slug: mixed-extension-project
+title: Project with .yml extension
 requirements:
-  - category: backend
+  - slug: feature-1
     description: Feature 1
     items:
       - Item 1
     passing: true
-  - category: backend
+  - slug: feature-2
     description: Feature 2
     items:
       - Item 2
@@ -153,10 +153,10 @@ func TestFindCompleteProjects_RecursiveScanning(t *testing.T) {
 		{
 			name: "complete-project.yaml",
 			path: tmpDir,
-			content: `name: complete-project
-description: A complete project at root
+			content: `slug: complete-project
+title: A complete project at root
 requirements:
-  - category: backend
+  - slug: feature-1
     description: Feature 1
     items:
       - Item 1
@@ -166,36 +166,42 @@ requirements:
 		{
 			name:     "incomplete-project.yaml",
 			path:     subDir1,
-			content:  "name: incomplete\nrequirements:\n  - category: foo\n    passing: false",
+			content:  "slug: incomplete\nrequirements:\n  - slug: feature-1\n    items:\n      - Item 1\n    passing: false",
 			expected: false,
 		},
 		{
 			name: "complete-in-subdir.yaml",
 			path: subDir1,
-			content: `name: complete-in-subdir
+			content: `slug: complete-in-subdir
 requirements:
-  - category: backend
+  - slug: feature-1
     description: Feature 1
+    items:
+      - Item 1
     passing: true`,
 			expected: true,
 		},
 		{
 			name: "complete-in-another-subdir.yaml",
 			path: subDir2,
-			content: `name: complete-in-another-subdir
+			content: `slug: complete-in-another-subdir
 requirements:
-  - category: backend
+  - slug: feature-1
     description: Feature 1
+    items:
+      - Item 1
     passing: true`,
 			expected: true,
 		},
 		{
 			name: "complete-in-nested.yaml",
 			path: subDir3,
-			content: `name: complete-in-nested
+			content: `slug: complete-in-nested
 requirements:
-  - category: backend
+  - slug: feature-1
     description: Feature 1
+    items:
+      - Item 1
     passing: true`,
 			expected: true,
 		},
@@ -227,10 +233,10 @@ requirements:
 func TestFindCompleteProjects_InvalidYAML(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	invalidContent := `name: invalid-project
-description: Invalid YAML
+	invalidContent := `slug: invalid-project
+title: Invalid YAML
 requirements:
-  - category: backend
+  - slug: feature-1
     description: Feature 1
     items:
       - Item 1

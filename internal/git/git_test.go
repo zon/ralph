@@ -91,11 +91,13 @@ func TestDetectModifiedProjectFile(t *testing.T) {
 		}
 
 		projectFile := filepath.Join("projects", "fix-ai-error-handling.yaml")
-		projectContent := `name: fix-ai-error-handling
-description: Fix AI error handling
+		projectContent := `slug: fix-ai-error-handling
+title: Fix AI error handling
 requirements:
-  - category: bug
+  - slug: fix-the-error
     description: Fix the error
+    items:
+      - Fix it
     passing: false
 `
 		if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {

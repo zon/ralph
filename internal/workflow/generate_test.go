@@ -18,10 +18,10 @@ import (
 func TestGenerateWorkflow(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	projectContent := `name: test-project
-description: Test project
+	projectContent := `slug: test-project
+title: Test project
 requirements:
-  - category: test
+  - slug: test-requirement
     description: Test requirement
     items:
       - Test item 1
@@ -262,10 +262,10 @@ requirements:
 func TestGenerateWorkflow_DefaultImage(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	projectContent := `name: test-project
-description: Test project
+	projectContent := `slug: test-project
+title: Test project
 requirements:
-  - category: test
+  - slug: test-requirement
     description: Test requirement
     items:
       - Test item 1
@@ -310,10 +310,10 @@ requirements:
 func TestGenerateMergeWorkflow(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	projectContent := `name: test-project
-description: Test project
+	projectContent := `slug: test-project
+title: Test project
 requirements:
-  - category: test
+  - slug: test-requirement
     description: Test requirement
     items:
       - Test item 1
@@ -435,10 +435,10 @@ requirements:
 func TestGenerateMergeWorkflow_DefaultImage(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	projectContent := `name: test-project
-description: Test project
+	projectContent := `slug: test-project
+title: Test project
 requirements:
-  - category: test
+  - slug: test-requirement
     description: Test requirement
     items:
       - Test item 1
@@ -934,10 +934,10 @@ func TestMergeWorkflowRender_GitHubCredentialsVolumeMount(t *testing.T) {
 func TestBaseBranchOverride(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	projectContent := `name: test-project
-description: Test project
+	projectContent := `slug: test-project
+title: Test project
 requirements:
-  - category: test
+  - slug: test-requirement
     description: Test requirement
     items:
       - Test item 1
@@ -1025,10 +1025,10 @@ workflow:
 func TestBaseBranchDefault(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	projectContent := `name: test-project
-description: Test project
+	projectContent := `slug: test-project
+title: Test project
 requirements:
-  - category: test
+  - slug: test-requirement
     description: Test requirement
     items:
       - Test item 1
@@ -1098,10 +1098,10 @@ workflow:
 func TestKubeContextOverride(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	projectContent := `name: test-project
-description: Test project
+	projectContent := `slug: test-project
+title: Test project
 requirements:
-  - category: test
+  - slug: test-requirement
     description: Test requirement
     items:
       - Test item 1

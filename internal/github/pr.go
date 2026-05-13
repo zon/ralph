@@ -21,9 +21,9 @@ func CreatePullRequest(ctx *context.Context, proj *project.Project, branchName, 
 		return "", fmt.Errorf("gh CLI is not ready, please install and authenticate with 'gh auth login'")
 	}
 
-	prTitle := proj.Description
+	prTitle := proj.Title
 	if prTitle == "" {
-		prTitle = proj.Name
+		prTitle = proj.Slug
 	}
 
 	logger.Verbose("Creating GitHub pull request...")

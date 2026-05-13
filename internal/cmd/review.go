@@ -379,14 +379,14 @@ func (r *ReviewRunCmd) submitPR(ctx *execcontext.Context, absProjectFile, review
 	title := reviewName
 	proj, err := project.LoadProject(absProjectFile)
 	if err != nil {
-		proj = &project.Project{Name: reviewName, Description: title}
+		proj = &project.Project{Slug: reviewName, Title: title}
 	}
 
 	var requirementSummaries []string
 	for _, req := range proj.Requirements {
 		reqSummary := req.Description
 		if reqSummary == "" {
-			reqSummary = req.Name
+			reqSummary = req.Slug
 		}
 		if reqSummary != "" {
 			requirementSummaries = append(requirementSummaries, reqSummary)
@@ -395,7 +395,7 @@ func (r *ReviewRunCmd) submitPR(ctx *execcontext.Context, absProjectFile, review
 
 	body := fmt.Sprintf("AI code review findings for `%s`.", reviewName)
 
-	generatedBody, err := ai.GenerateReviewPRBody(ctx, proj.Name, proj.Description, requirementSummaries)
+	generatedBody, err := ai.GenerateReviewPRBody(ctx, proj.Slug, proj.Title, requirementSummaries)
 	if err != nil {
 		logger.Verbosef("Failed to generate PR body with AI: %v", err)
 	} else {

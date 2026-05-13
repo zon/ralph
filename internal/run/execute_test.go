@@ -29,7 +29,7 @@ func TestExecute_NonExistentProjectFile(t *testing.T) {
 func TestExecute_InvalidYAML(t *testing.T) {
 	tmpDir := t.TempDir()
 	projectFile := filepath.Join(tmpDir, "invalid.yaml")
-	invalidYAML := "name: Test\ndescription: [invalid yaml structure\nrequirements:\n  - not properly formatted\n"
+	invalidYAML := "slug: test\ntitle: [invalid yaml structure\nrequirements:\n  - not properly formatted\n"
 	require.NoError(t, os.WriteFile(projectFile, []byte(invalidYAML), 0644))
 
 	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
@@ -42,7 +42,7 @@ func TestExecute_InvalidYAML(t *testing.T) {
 func TestExecute_EmptyRequirements(t *testing.T) {
 	tmpDir := t.TempDir()
 	projectFile := filepath.Join(tmpDir, "empty-reqs.yaml")
-	emptyReqsYAML := "name: Test Project\ndescription: Project with no requirements\nrequirements: []\n"
+	emptyReqsYAML := "slug: test-project\ntitle: Project with no requirements\nrequirements: []\n"
 	require.NoError(t, os.WriteFile(projectFile, []byte(emptyReqsYAML), 0644))
 
 	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
@@ -53,11 +53,13 @@ func TestExecute_EmptyRequirements(t *testing.T) {
 }
 
 // projectYAML is a minimal valid project used across development iteration tests.
-const projectYAML = `name: Test Project
-description: Test project
+const projectYAML = `slug: test-project
+title: Test project
 requirements:
-  - id: req1
+  - slug: req-1
     description: Test requirement
+    items:
+      - Item 1
     passing: false
 `
 

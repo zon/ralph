@@ -1,13 +1,11 @@
-name: set-skills
-description: Add `ralph set skills` to install ralph skills into the target repository
-
 slug: set-skills
 title: Add `ralph set skills` to install ralph skills into the target repository
 
 feature: specs/features/ralph/set-skills
 
 requirements:
-  - description: Orchestrate fetching and installing ralph skills into the target repository
+  - slug: set-skills-orchestrator
+    description: Orchestrate fetching and installing ralph skills into the target repository
     scenarios:
       - title: Only ralph-prefixed skills installed
         items:
@@ -87,7 +85,8 @@ requirements:
           }
     passing: false
 
-  - description: Resolve the root directory of the git repository containing the current working directory
+  - slug: git-repo-root
+    description: Resolve the root directory of the git repository containing the current working directory
     items:
       - Returns an error when the working directory is not inside any git repository
     code:
@@ -98,7 +97,8 @@ requirements:
           func RepoRoot() (string, error)
     passing: false
 
-  - description: Discover ralph-prefixed skill names available on a branch of the ralph repository
+  - slug: discover-skills
+    description: Discover ralph-prefixed skill names available on a branch of the ralph repository
     scenarios:
       - title: Only ralph-prefixed skills installed
         items:
@@ -123,7 +123,8 @@ requirements:
           func Discover(branch string) ([]string, error)
     passing: false
 
-  - description: Fetch each discovered skill's contents and rewrite its links to the resolved branch
+  - slug: fetch-skills
+    description: Fetch each discovered skill's contents and rewrite its links to the resolved branch
     scenarios:
       - title: Fetch failure
         items:
@@ -161,7 +162,8 @@ requirements:
           func FetchAll(branch string, names []string) ([]Skill, error)
     passing: false
 
-  - description: Remove ralph-prefixed skill directories from the target repository that are not present in the fetched set
+  - slug: prune-stale-skills
+    description: Remove ralph-prefixed skill directories from the target repository that are not present in the fetched set
     scenarios:
       - title: Removed skills deleted
         items:
@@ -185,7 +187,8 @@ requirements:
           func PruneStale(root string, fetched []Skill)
     passing: false
 
-  - description: Write fetched skills into `.claude/skills/` under the target repository root
+  - slug: install-skills
+    description: Write fetched skills into `.claude/skills/` under the target repository root
     scenarios:
       - title: Skills installed successfully
         items:
@@ -209,7 +212,8 @@ requirements:
           func InstallAll(root string, fetched []Skill) error
     passing: false
 
-  - description: Expose `ralph set skills` via the CLI
+  - slug: cli-set-skills-command
+    description: Expose `ralph set skills` via the CLI
     items:
       - Adds a `set` parent command with a `skills` subcommand under the root ralph CLI
       - The subcommand accepts an optional `--branch` flag that defaults to `main`
@@ -217,7 +221,8 @@ requirements:
       - The subcommand reports the orchestration error to the user when it fails and exits non-zero
     passing: false
 
-  - description: Version bump
+  - slug: version-bump
+    description: Version bump
     items:
       - Apply a semver minor bump to the app version (CLI gains a new `set skills` command)
     passing: false

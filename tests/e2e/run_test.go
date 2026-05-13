@@ -331,12 +331,13 @@ const aiIterationProjectDescription = "E2E test — single AI iteration adds a g
 // the AI, making E2E tests fast and deterministic.
 // Must match test-data/e2e-noop-run.yaml in cfg.Repo.
 func noopProjectYAML() []byte {
-	return []byte(`name: e2e-noop-run
-description: ` + noopProjectDescription + `
+	return []byte(`slug: e2e-noop-run
+title: ` + noopProjectDescription + `
 requirements:
-  - id: noop
-    category: e2e
+  - slug: noop
     description: No-op requirement (always passing)
+    items:
+      - Always passes
     passing: true
 `)
 }

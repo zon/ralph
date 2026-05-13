@@ -83,8 +83,8 @@ func TestBuildDevelopPrompt(t *testing.T) {
 	data := DevelopPromptData{
 		Notes:               nil,
 		CommitLog:           "",
-		ProjectContent:      "name: Test Project\nrequirements:\n  - description: Feature X\n    passing: false",
-		SelectedRequirement: "- description: Feature X\n  passing: false",
+		ProjectContent:      "slug: test-project\ntitle: Test Project\nrequirements:\n  - slug: feature-x\n    description: Feature X\n    passing: false",
+		SelectedRequirement: "- slug: feature-x\n  description: Feature X\n  passing: false",
 		ProjectFilePath:     "/path/to/project.yaml",
 		Services:            nil,
 		Instructions:        config.DefaultDevelopmentInstructions(),
@@ -108,8 +108,8 @@ func TestBuildDevelopPrompt_WithNotes(t *testing.T) {
 	data := DevelopPromptData{
 		Notes:               []string{"Note 1", "Note 2"},
 		CommitLog:           "",
-		ProjectContent:      "name: Test Project\nrequirements:\n  - description: Feature X\n    passing: false",
-		SelectedRequirement: "- description: Feature X\n  passing: false",
+		ProjectContent:      "slug: test-project\ntitle: Test Project\nrequirements:\n  - slug: feature-x\n    description: Feature X\n    passing: false",
+		SelectedRequirement: "- slug: feature-x\n  description: Feature X\n  passing: false",
 		ProjectFilePath:     "/path/to/project.yaml",
 		Services:            nil,
 		Instructions:        config.DefaultDevelopmentInstructions(),
@@ -127,8 +127,8 @@ func TestBuildDevelopPrompt_WithCommitLog(t *testing.T) {
 	data := DevelopPromptData{
 		Notes:               nil,
 		CommitLog:           "abc123 Feature A\ndef456 Feature B",
-		ProjectContent:      "name: Test Project\nrequirements:\n  - description: Feature X\n    passing: false",
-		SelectedRequirement: "- description: Feature X\n  passing: false",
+		ProjectContent:      "slug: test-project\ntitle: Test Project\nrequirements:\n  - slug: feature-x\n    description: Feature X\n    passing: false",
+		SelectedRequirement: "- slug: feature-x\n  description: Feature X\n  passing: false",
 		ProjectFilePath:     "/path/to/project.yaml",
 		Services:            nil,
 		Instructions:        config.DefaultDevelopmentInstructions(),
@@ -146,8 +146,8 @@ func TestBuildDevelopPrompt_WithServices(t *testing.T) {
 	data := DevelopPromptData{
 		Notes:               nil,
 		CommitLog:           "",
-		ProjectContent:      "name: Test Project",
-		SelectedRequirement: "- description: Feature X",
+		ProjectContent:      "slug: test-project\ntitle: Test Project",
+		SelectedRequirement: "- slug: feature-x\n  description: Feature X",
 		ProjectFilePath:     "/path/to/project.yaml",
 		Services: []config.Service{
 			{Name: "api", Command: "api-server"},
@@ -168,8 +168,8 @@ func TestBuildDevelopPrompt_WithCustomInstructions(t *testing.T) {
 	data := DevelopPromptData{
 		Notes:               nil,
 		CommitLog:           "",
-		ProjectContent:      "name: Test Project",
-		SelectedRequirement: "- description: Feature X",
+		ProjectContent:      "slug: test-project\ntitle: Test Project",
+		SelectedRequirement: "- slug: feature-x\n  description: Feature X",
 		ProjectFilePath:     "/path/to/project.yaml",
 		Services:            nil,
 		Instructions:        "Custom instructions: Do something special",
@@ -201,7 +201,7 @@ func TestBuildPickPrompt(t *testing.T) {
 	data := PickPromptData{
 		Notes:          nil,
 		CommitLog:      "",
-		ProjectContent: "name: Test Project\nrequirements:\n  - description: Feature X\n    passing: false\n  - description: Bug Y\n    passing: false",
+		ProjectContent: "slug: test-project\ntitle: Test Project\nrequirements:\n  - slug: feature-x\n    description: Feature X\n    passing: false\n  - slug: bug-y\n    description: Bug Y\n    passing: false",
 		PickedReqPath:  "/path/to/picked-requirement.yaml",
 	}
 
@@ -224,7 +224,7 @@ func TestBuildPickPrompt_WithNotes(t *testing.T) {
 	data := PickPromptData{
 		Notes:          []string{"Pick this one"},
 		CommitLog:      "",
-		ProjectContent: "name: Test Project",
+		ProjectContent: "slug: test-project\ntitle: Test Project",
 		PickedReqPath:  "/path/to/picked-requirement.yaml",
 	}
 
@@ -239,7 +239,7 @@ func TestBuildPickPrompt_WithCommitLog(t *testing.T) {
 	data := PickPromptData{
 		Notes:          nil,
 		CommitLog:      "abc123 Initial commit\ndef456 Add feature",
-		ProjectContent: "name: Test Project",
+		ProjectContent: "slug: test-project\ntitle: Test Project",
 		PickedReqPath:  "/path/to/picked-requirement.yaml",
 	}
 
@@ -281,8 +281,8 @@ func TestBuildDevelopPrompt_EmptyNotes(t *testing.T) {
 	data := DevelopPromptData{
 		Notes:               []string{},
 		CommitLog:           "",
-		ProjectContent:      "name: Test",
-		SelectedRequirement: "- desc: X",
+		ProjectContent:      "slug: test",
+		SelectedRequirement: "- slug: x\n  description: X",
 		ProjectFilePath:     "/path",
 		Services:            nil,
 		Instructions:        config.DefaultDevelopmentInstructions(),
@@ -298,7 +298,7 @@ func TestBuildPickPrompt_EmptyNotes(t *testing.T) {
 	data := PickPromptData{
 		Notes:          []string{},
 		CommitLog:      "",
-		ProjectContent: "name: Test",
+		ProjectContent: "slug: test",
 		PickedReqPath:  "/path",
 	}
 

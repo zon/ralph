@@ -16,13 +16,13 @@ func skipIfGHNotAvailable(t *testing.T) {
 	}
 }
 
-func TestCreatePullRequest_UsesDescriptionAsTitle(t *testing.T) {
+func TestCreatePullRequest_UsesTitleAsPRTitle(t *testing.T) {
 	skipIfGHNotAvailable(t)
 	t.Setenv("RALPH_MOCK_GH", "true")
 
 	proj := &project.Project{
-		Name:        "Test Project",
-		Description: "This is a detailed description",
+		Slug:  "test-project",
+		Title: "This is a detailed title",
 	}
 	ctx := testutil.NewContext()
 
@@ -32,13 +32,13 @@ func TestCreatePullRequest_UsesDescriptionAsTitle(t *testing.T) {
 	assert.Contains(t, prURL, "github.com")
 }
 
-func TestCreatePullRequest_UsesNameWhenDescriptionEmpty(t *testing.T) {
+func TestCreatePullRequest_UsesSlugWhenTitleEmpty(t *testing.T) {
 	skipIfGHNotAvailable(t)
 	t.Setenv("RALPH_MOCK_GH", "true")
 
 	proj := &project.Project{
-		Name:        "My Project",
-		Description: "",
+		Slug:  "my-project",
+		Title: "",
 	}
 	ctx := testutil.NewContext()
 
@@ -47,12 +47,12 @@ func TestCreatePullRequest_UsesNameWhenDescriptionEmpty(t *testing.T) {
 	assert.NotEmpty(t, prURL)
 }
 
-func TestCreatePullRequest_UsesNameWhenDescriptionMissing(t *testing.T) {
+func TestCreatePullRequest_UsesSlugWhenTitleMissing(t *testing.T) {
 	skipIfGHNotAvailable(t)
 	t.Setenv("RALPH_MOCK_GH", "true")
 
 	proj := &project.Project{
-		Name: "Fallback Project",
+		Slug: "fallback-project",
 	}
 	ctx := testutil.NewContext()
 

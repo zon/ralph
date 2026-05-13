@@ -1,12 +1,12 @@
 # Sample Project File
-# This file defines a development project for ralph
-# File name becomes the branch name (e.g., sample-project.yaml -> sample-project branch)
+# This file defines a development project for ralph.
+# The slug field doubles as the branch name (e.g., sample-project -> ralph/sample-project).
 
-name: sample-project
-description: Implement user authentication with JWT tokens
+slug: sample-project
+title: Implement user authentication with JWT tokens
 
 requirements:
-  - category: backend
+  - slug: user-authentication-model
     description: User Authentication Model
     items:
       - User model with username, email, and hashed password
@@ -14,7 +14,7 @@ requirements:
       - Database schema for storing users
     passing: false
 
-  - category: backend
+  - slug: login-and-jwt-generation
     description: Login and JWT Generation
     items:
       - Login endpoint accepting credentials
@@ -22,7 +22,7 @@ requirements:
       - Error responses for invalid credentials
     passing: false
 
-  - category: backend
+  - slug: authentication-middleware
     description: Authentication Middleware
     items:
       - JWT verification for protected routes
@@ -30,7 +30,7 @@ requirements:
       - Unauthorized responses for invalid tokens
     passing: false
 
-  - category: testing
+  - slug: authentication-tests
     description: Authentication Tests
     items:
       - Password hashing and verification tests
@@ -39,7 +39,7 @@ requirements:
       - Middleware authorization tests with various token states
     passing: false
 
-  - category: documentation
+  - slug: api-documentation
     description: API Documentation
     items:
       - Login endpoint documentation with examples

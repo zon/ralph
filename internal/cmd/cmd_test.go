@@ -239,7 +239,7 @@ func TestRunCmdProjectFileValidation(t *testing.T) {
 	t.Run("existing project file passes file validation", func(t *testing.T) {
 		dir := t.TempDir()
 		f := filepath.Join(dir, "project.yaml")
-		require.NoError(t, os.WriteFile(f, []byte("name: test\n"), 0644))
+		require.NoError(t, os.WriteFile(f, []byte("slug: test\n"), 0644))
 
 		r := &RunCmd{ProjectFile: f}
 		err := r.Run()

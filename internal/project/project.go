@@ -19,22 +19,38 @@ import (
 
 // Project represents a project YAML file with requirements
 type Project struct {
-	Name         string        `yaml:"name"`
-	Description  string        `yaml:"description,omitempty"`
-	Spec         string        `yaml:"spec,omitempty"`
-	Flow         string        `yaml:"flow,omitempty"`
+	Slug         string        `yaml:"slug"`
+	Title        string        `yaml:"title,omitempty"`
+	Feature      string        `yaml:"feature,omitempty"`
 	Requirements []Requirement `yaml:"requirements"`
 	Path         string        `yaml:"-"`
 }
 
 // Requirement represents a single requirement in a project
 type Requirement struct {
-	ID          string   `yaml:"id,omitempty"`
-	Category    string   `yaml:"category,omitempty"`
-	Name        string   `yaml:"name,omitempty"`
-	Description string   `yaml:"description,omitempty"`
-	Items       []string `yaml:"items,omitempty"`
-	Passing     bool     `yaml:"passing"`
+	Slug        string      `yaml:"slug"`
+	Description string      `yaml:"description,omitempty"`
+	Items       []string    `yaml:"items,omitempty"`
+	Scenarios   []Scenario  `yaml:"scenarios,omitempty"`
+	Code        []CodeEntry `yaml:"code,omitempty"`
+	Tests       []CodeEntry `yaml:"tests,omitempty"`
+	Passing     bool        `yaml:"passing"`
+}
+
+// Scenario is a GWT scenario copied from the spec document.
+type Scenario struct {
+	Title string   `yaml:"title"`
+	Items []string `yaml:"items"`
+}
+
+// CodeEntry describes a function or test the project should implement.
+// Used for both `code` (production code from flow.md) and `tests` (specific
+// tests the project must write).
+type CodeEntry struct {
+	Name        string `yaml:"name"`
+	Description string `yaml:"description"`
+	Module      string `yaml:"module"`
+	Body        string `yaml:"body"`
 }
 
 // LoadProject loads and validates a project YAML file
@@ -59,14 +75,60 @@ func LoadProject(path string) (*Project, error) {
 
 // ValidateProject validates a project structure
 func ValidateProject(p *Project) error {
-	if p.Name == "" {
-		return fmt.Errorf("project name is required")
+	if p.Slug == "" {
+		return fmt.Errorf("project slug is required")
 	}
 
 	if len(p.Requirements) == 0 {
 		return fmt.Errorf("project must have at least one requirement")
 	}
 
+	seen := make(map[string]struct{}, len(p.Requirements))
+	for i, req := range p.Requirements {
+		if req.Slug == "" {
+			return fmt.Errorf("requirement[%d] slug is required", i)
+		}
+		if _, dup := seen[req.Slug]; dup {
+			return fmt.Errorf("requirement slug %q is not unique", req.Slug)
+		}
+		seen[req.Slug] = struct{}{}
+
+		if len(req.Items) == 0 && len(req.Scenarios) == 0 && len(req.Code) == 0 && len(req.Tests) == 0 {
+			return fmt.Errorf("requirement %q must define at least one of items, scenarios, code, or tests", req.Slug)
+		}
+
+		for j, c := range req.Code {
+			if err := validateCodeEntry(req.Slug, "code", j, c); err != nil {
+				return err
+			}
+		}
+		for j, c := range req.Tests {
+			if err := validateCodeEntry(req.Slug, "tests", j, c); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func validateCodeEntry(reqSlug, field string, idx int, c CodeEntry) error {
+	missing := []string{}
+	if c.Name == "" {
+		missing = append(missing, "name")
+	}
+	if c.Description == "" {
+		missing = append(missing, "description")
+	}
+	if c.Module == "" {
+		missing = append(missing, "module")
+	}
+	if c.Body == "" {
+		missing = append(missing, "body")
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("requirement %q %s[%d] is missing required field(s): %s", reqSlug, field, idx, strings.Join(missing, ", "))
+	}
 	return nil
 }
 
@@ -103,24 +165,16 @@ func CheckCompletion(p *Project) (bool, int, int) {
 	return allComplete, passingCount, failingCount
 }
 
-// UpdateRequirementStatus updates the passing status of a specific requirement
-func UpdateRequirementStatus(p *Project, reqID string, passing bool) error {
-	found := false
-
+// UpdateRequirementStatus updates the passing status of the requirement
+// identified by its slug.
+func UpdateRequirementStatus(p *Project, reqSlug string, passing bool) error {
 	for i := range p.Requirements {
-		// Match by ID if provided, otherwise match by index
-		if p.Requirements[i].ID == reqID {
+		if p.Requirements[i].Slug == reqSlug {
 			p.Requirements[i].Passing = passing
-			found = true
-			break
+			return nil
 		}
 	}
-
-	if !found {
-		return fmt.Errorf("requirement not found: %s", reqID)
-	}
-
-	return nil
+	return fmt.Errorf("requirement not found: %s", reqSlug)
 }
 
 type IterationSetup struct {
@@ -153,8 +207,8 @@ func PrepareIteration(ctx *context.Context, cleanupRegistrar func(func())) (*Ite
 	if err != nil {
 		return nil, fmt.Errorf("failed to load project: %w", err)
 	}
-	if proj.Description != "" && ctx.IsVerbose() {
-		logger.Verbosef("Description: %s", proj.Description)
+	if proj.Title != "" && ctx.IsVerbose() {
+		logger.Verbosef("Title: %s", proj.Title)
 	}
 
 	allComplete, passingCount, failingCount := CheckCompletion(proj)

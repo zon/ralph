@@ -25,11 +25,13 @@ func TestRunIterationLoop_AllPassingExitsAfterOneIteration(t *testing.T) {
 	t.Chdir(workDir)
 
 	projectFile := "test-project.yaml"
-	projectContent := `name: test-project
-description: Test project
+	projectContent := `slug: test-project
+title: Test project
 requirements:
-  - category: feature
+  - slug: add-feature
     description: Add feature
+    items:
+      - Item 1
     passing: true
 `
 	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
@@ -69,11 +71,13 @@ func TestRunIterationLoop_ReturnsErrorWhenMaxIterationsReached(t *testing.T) {
 	t.Chdir(workDir)
 
 	projectFile := "test-project.yaml"
-	projectContent := `name: test-project
-description: Test project for iteration loop
+	projectContent := `slug: test-project
+title: Test project for iteration loop
 requirements:
-  - category: feature
+  - slug: add-feature
     description: Add feature
+    items:
+      - Item 1
     passing: false
 `
 	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
@@ -105,11 +109,13 @@ func TestRunIterationLoop_BlockedDetected(t *testing.T) {
 
 	// Create project file
 	projectFile := "test-project.yaml"
-	projectContent := `name: test-project
-description: Test project
+	projectContent := `slug: test-project
+title: Test project
 requirements:
-  - category: feature
+  - slug: add-feature
     description: Add feature
+    items:
+      - Item 1
     passing: false
 `
 	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
@@ -241,11 +247,13 @@ func TestRunIterationLoop_ExitsEarlyWhenAllRequirementsPass(t *testing.T) {
 	t.Chdir(workDir)
 
 	projectFile := "test-project.yaml"
-	projectContent := `name: test-project
-description: Test project
+	projectContent := `slug: test-project
+title: Test project
 requirements:
-  - category: feature
+  - slug: add-feature
     description: Add feature
+    items:
+      - Item 1
     passing: true
 `
 	if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {

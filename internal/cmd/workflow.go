@@ -255,7 +255,7 @@ func (w *WorkflowCmd) prepareAndExecute(ctx *context.Context, cleanupRegistrar f
 		return fmt.Errorf("failed to get current branch: %w", err)
 	}
 
-	projectBranch := git.SanitizeBranchName(proj.Name)
+	projectBranch := git.SanitizeBranchName(proj.Slug)
 	setup := &run.ExecutionSetup{
 		ProjectFile:   projectPath,
 		Project:       proj,
