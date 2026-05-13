@@ -319,4 +319,4 @@ requirements:
     description: Version bump
     items:
       - Apply a semver minor bump to the app version (new backwards-compatible feature)
-    passing: false
+    passing: true

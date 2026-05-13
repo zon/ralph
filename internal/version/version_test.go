@@ -3,6 +3,7 @@ package version
 import (
 	_ "embed"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 
@@ -45,4 +46,28 @@ func TestVersion_PatchBumpApplied(t *testing.T) {
 	require.NoError(t, err, "Version should be parseable")
 
 	assert.Equal(t, expectedVersion, versionStr, "Version should match the VERSION file")
+}
+
+func TestBumpMinor_IncrementsMinorVersion(t *testing.T) {
+	orig, err := os.ReadFile("/workspace/repo/internal/version/VERSION")
+	require.NoError(t, err)
+
+	bumped, err := BumpMinorString(strings.TrimSpace(string(orig)))
+	require.NoError(t, err)
+
+	var major, minor, patch int
+	_, err = fmt.Sscanf(bumped, "%d.%d.%d", &major, &minor, &patch)
+	require.NoError(t, err)
+
+	var omajor, ominor, opatch int
+	fmt.Sscanf(strings.TrimSpace(string(orig)), "%d.%d.%d", &omajor, &ominor, &opatch)
+
+	assert.Equal(t, omajor, major, "major should be unchanged")
+	assert.Equal(t, ominor+1, minor, "minor should be incremented")
+	assert.Equal(t, opatch, patch, "patch should be unchanged")
+}
+
+func TestBumpMinor_InvalidVersionErrors(t *testing.T) {
+	_, err := BumpMinorString("not-semver")
+	assert.Error(t, err)
 }
