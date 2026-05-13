@@ -229,7 +229,7 @@ requirements:
         module: internal/skills
         body: |
           func Discover(branch string) ([]string, error)
-    passing: false
+    passing: true
 
   - slug: fetch-skills
     description: Fetch the named skills' SKILL.md contents from a branch with links rewritten to that branch
