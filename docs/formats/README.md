@@ -5,12 +5,16 @@ Documentation of file formats used in Ralph development.
 ## Directory Structure
 
 ```
-/specs/features/
-└── <component>/
-    └── <feature>/
-        ├── spec.md
-        └── flow.md
+/specs/
+├── architecture.md
+└── features/
+    └── <component>/
+        └── <feature>/
+            ├── spec.md
+            └── flow.md
 ```
+
+The architecture doc lives at `/specs/architecture.md` ([Architecture Format](./architecture.md)).
 
 Specs and flows are co-located under `/specs/features`:
 
