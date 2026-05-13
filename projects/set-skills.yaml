@@ -1,18 +1,22 @@
 slug: set-skills
-title: Add `ralph set skills` to install ralph skills into the target repository
+title: Add `ralph set skills` to install ralph skills into the current repo
 
 feature: specs/features/ralph/set-skills
 
 requirements:
-  - slug: set-skills-orchestrator
-    description: Orchestrate fetching and installing ralph skills into the target repository
+  - slug: set-skills-flow
+    description: Orchestrate skill installation from the ralph source branch into the target repository
     scenarios:
-      - title: Only ralph-prefixed skills installed
+      - title: Current directory is inside a git repo
         items:
-          - GIVEN the source branch contains `.claude/skills/ralph-write-spec/` and `.claude/skills/internal-tool/`
+          - GIVEN the current working directory is inside a git repository
           - WHEN the user runs `ralph set skills`
-          - THEN only `ralph-write-spec` is installed into the target repository
-          - AND `internal-tool` is ignored
+          - THEN skills are installed at the root of that git repository
+      - title: Current directory is not inside a git repo
+        items:
+          - GIVEN the current working directory is not inside any git repository
+          - WHEN the user runs `ralph set skills`
+          - THEN an error is returned and no files are written
       - title: Skills installed successfully
         items:
           - GIVEN a target repository with no existing `.claude/skills/` directory
@@ -49,19 +53,9 @@ requirements:
           - GIVEN a skill's raw content URL is unreachable or returns an error
           - WHEN the user runs `ralph set skills`
           - THEN an error is returned and no files are written
-      - title: Current directory is inside a git repo
-        items:
-          - GIVEN the current working directory is inside a git repository
-          - WHEN the user runs `ralph set skills`
-          - THEN skills are installed at the root of that git repository
-      - title: Current directory is not inside a git repo
-        items:
-          - GIVEN the current working directory is not inside any git repository
-          - WHEN the user runs `ralph set skills`
-          - THEN an error is returned and no files are written
     code:
       - name: SetSkills
-        description: orchestrates discovery, fetching, pruning, and installation of ralph skills into the current target repository
+        description: orchestrates discovery, fetch, prune, and install of ralph skills into the current repository
         module: internal/setup
         body: |
           func SetSkills(branch string) error {
@@ -83,105 +77,209 @@ requirements:
               skills.PruneStale(root, fetched)
               return skills.InstallAll(root, fetched)
           }
+    tests:
+      - name: TestSetSkills_InstallsRalphSkills
+        description: only ralph-prefixed skills from the source branch are installed
+        module: internal/setup
+        body: |
+          func TestSetSkills_InstallsRalphSkills(t *testing.T) {
+              target := repos.targetRepo(t)
+              source := skills.sourceBranch(t).
+                  with(skills.aRalphSkill("ralph-write-spec")).
+                  with(skills.aNonRalphSkill("internal-tool"))
+
+              err := SetSkills(source.branch())
+
+              skills.requireOK(t, err)
+              skills.requireInstalled(t, target, "ralph-write-spec")
+              skills.requireNotInstalled(t, target, "internal-tool")
+          }
+      - name: TestSetSkills_OverwritesExistingSkill
+        description: a fetched skill overwrites an installed skill with the same name
+        module: internal/setup
+        body: |
+          func TestSetSkills_OverwritesExistingSkill(t *testing.T) {
+              target := repos.targetRepo(t).with(skills.anInstalledSkill("ralph-write-spec", "old"))
+              source := skills.sourceBranch(t).with(skills.aRalphSkill("ralph-write-spec").withBody("new"))
+
+              err := SetSkills(source.branch())
+
+              skills.requireOK(t, err)
+              skills.requireInstalledBody(t, target, "ralph-write-spec", "new")
+          }
+      - name: TestSetSkills_RemovesStaleRalphSkill
+        description: ralph-prefixed skills no longer on the source branch are removed
+        module: internal/setup
+        body: |
+          func TestSetSkills_RemovesStaleRalphSkill(t *testing.T) {
+              target := repos.targetRepo(t).with(skills.anInstalledSkill("ralph-old-skill", "stale"))
+              source := skills.sourceBranch(t).with(skills.aRalphSkill("ralph-write-spec"))
+
+              err := SetSkills(source.branch())
+
+              skills.requireOK(t, err)
+              skills.requireNotInstalled(t, target, "ralph-old-skill")
+          }
+      - name: TestSetSkills_LeavesNonRalphSkillsUntouched
+        description: non-ralph skills present in the target repository are not touched
+        module: internal/setup
+        body: |
+          func TestSetSkills_LeavesNonRalphSkillsUntouched(t *testing.T) {
+              target := repos.targetRepo(t).with(skills.anInstalledSkill("my-custom-skill", "mine"))
+              source := skills.sourceBranch(t).with(skills.aRalphSkill("ralph-write-spec"))
+
+              err := SetSkills(source.branch())
+
+              skills.requireOK(t, err)
+              skills.requireInstalledBody(t, target, "my-custom-skill", "mine")
+          }
+      - name: TestSetSkills_RewritesLinksToResolvedBranch
+        description: skill links are rewritten to the resolved branch
+        module: internal/setup
+        body: |
+          func TestSetSkills_RewritesLinksToResolvedBranch(t *testing.T) {
+              target := repos.targetRepo(t)
+              source := skills.sourceBranch(t).onBranch("v2").
+                  with(skills.aRalphSkill("ralph-write-spec").linkingTo("docs/formats/specs.md"))
+
+              err := SetSkills("v2")
+
+              skills.requireOK(t, err)
+              skills.requireSkillLink(t, target, "ralph-write-spec", skills.rawURL("v2", "docs/formats/specs.md"))
+          }
+      - name: TestSetSkills_DiscoveryFailureWritesNothing
+        description: a discovery failure aborts before writing anything to the target
+        module: internal/setup
+        body: |
+          func TestSetSkills_DiscoveryFailureWritesNothing(t *testing.T) {
+              target := repos.targetRepo(t)
+              skills.sourceBranch(t).failsDiscovery()
+
+              err := SetSkills(skills.defaultBranch())
+
+              skills.requireError(t, err)
+              skills.requireEmpty(t, target)
+          }
+      - name: TestSetSkills_FetchFailureWritesNothing
+        description: a fetch failure aborts before writing anything to the target
+        module: internal/setup
+        body: |
+          func TestSetSkills_FetchFailureWritesNothing(t *testing.T) {
+              target := repos.targetRepo(t)
+              skills.sourceBranch(t).
+                  with(skills.aRalphSkill("ralph-write-spec")).
+                  failsFetchFor("ralph-write-spec")
+
+              err := SetSkills(skills.defaultBranch())
+
+              skills.requireError(t, err)
+              skills.requireEmpty(t, target)
+          }
+      - name: TestSetSkills_OutsideGitRepoErrors
+        description: running outside any git repository returns an error
+        module: internal/setup
+        body: |
+          func TestSetSkills_OutsideGitRepoErrors(t *testing.T) {
+              repos.outsideAnyRepo(t)
+
+              err := SetSkills(skills.defaultBranch())
+
+              skills.requireError(t, err)
+          }
     passing: false
 
-  - slug: git-repo-root
-    description: Resolve the root directory of the git repository containing the current working directory
-    items:
-      - Returns an error when the working directory is not inside any git repository
+  - slug: repo-root
+    description: Resolve the git repository root that contains the current working directory
+    scenarios:
+      - title: Current directory is inside a git repo
+        items:
+          - GIVEN the current working directory is inside a git repository
+          - WHEN RepoRoot is called
+          - THEN the absolute path of the repository root is returned
+      - title: Current directory is not inside a git repo
+        items:
+          - GIVEN the current working directory is not inside any git repository
+          - WHEN RepoRoot is called
+          - THEN an error is returned
     code:
       - name: RepoRoot
-        description: returns the root directory of the git repository containing the current working directory
+        description: returns the absolute root directory of the git repository containing the current working directory
         module: internal/git
         body: |
           func RepoRoot() (string, error)
     passing: false
 
   - slug: discover-skills
-    description: Discover ralph-prefixed skill names available on a branch of the ralph repository
+    description: List ralph-prefixed skill names available on a branch of the ralph repository
     scenarios:
-      - title: Only ralph-prefixed skills installed
+      - title: Only ralph-prefixed skills returned
         items:
           - GIVEN the source branch contains `.claude/skills/ralph-write-spec/` and `.claude/skills/internal-tool/`
-          - WHEN the user runs `ralph set skills`
-          - THEN only `ralph-write-spec` is installed into the target repository
-          - AND `internal-tool` is ignored
+          - WHEN Discover is called
+          - THEN the returned list contains `ralph-write-spec`
+          - AND does not contain `internal-tool`
       - title: Discovery failure
         items:
           - GIVEN the GitHub Contents API URL is unreachable or returns an error
-          - WHEN the user runs `ralph set skills`
-          - THEN an error is returned and no files are written
-    items:
-      - Queries `https://api.github.com/repos/zon/ralph/contents/.claude/skills?ref=<branch>` for the given branch
-      - Filters returned entries to directories whose name has the `ralph-` prefix
-      - Returns an error when the request fails or returns a non-success status
+          - WHEN Discover is called
+          - THEN an error is returned
     code:
       - name: Discover
-        description: lists the ralph-prefixed skill names available on the given branch of the ralph repository
+        description: queries `https://api.github.com/repos/zon/ralph/contents/.claude/skills?ref=<branch>` and returns the names of directories whose name has the `ralph-` prefix
         module: internal/skills
         body: |
           func Discover(branch string) ([]string, error)
     passing: false
 
   - slug: fetch-skills
-    description: Fetch each discovered skill's contents and rewrite its links to the resolved branch
+    description: Fetch the named skills' SKILL.md contents from a branch with links rewritten to that branch
     scenarios:
-      - title: Fetch failure
-        items:
-          - GIVEN a skill's raw content URL is unreachable or returns an error
-          - WHEN the user runs `ralph set skills`
-          - THEN an error is returned and no files are written
       - title: Relative link rewritten
         items:
           - GIVEN a `SKILL.md` contains a relative link such as `docs/formats/specs.md`
           - AND the resolved branch is `main`
-          - WHEN the skill is written to the target repository
+          - WHEN the skill is fetched
           - THEN the link is rewritten to `https://raw.githubusercontent.com/zon/ralph/refs/heads/main/docs/formats/specs.md`
       - title: Existing ralph URL branch updated
         items:
           - GIVEN a `SKILL.md` contains `https://raw.githubusercontent.com/zon/ralph/refs/heads/main/docs/formats/specs.md`
-          - AND the user passes `--branch v2`
-          - WHEN the skill is written to the target repository
+          - AND the resolved branch is `v2`
+          - WHEN the skill is fetched
           - THEN the link is rewritten to `https://raw.githubusercontent.com/zon/ralph/refs/heads/v2/docs/formats/specs.md`
       - title: Non-ralph absolute URLs unchanged
         items:
           - GIVEN a `SKILL.md` contains an absolute URL pointing to a host other than the ralph repository
-          - WHEN the skill is written to the target repository
-          - THEN the link is written as-is
-    items:
-      - Fetches each skill's `SKILL.md` from `https://raw.githubusercontent.com/zon/ralph/refs/heads/<branch>/.claude/skills/<skill>/SKILL.md`
-      - Any fetch failure aborts the batch and returns an error so no files are written
-      - Returned skill contents have all relative links expanded to absolute raw URLs on the resolved branch
-      - Returned skill contents have absolute ralph raw URLs rewritten so their branch segment matches the resolved branch
-      - Absolute URLs pointing to hosts other than the ralph raw content URL are left unchanged
+          - WHEN the skill is fetched
+          - THEN the link is left as-is
+      - title: Fetch failure aborts batch
+        items:
+          - GIVEN one of the skills' raw content URLs is unreachable or returns an error
+          - WHEN FetchAll is called
+          - THEN an error is returned and no partial result is produced
     code:
       - name: FetchAll
-        description: fetches each named skill's contents from the given branch and returns them with links rewritten to the resolved branch
+        description: fetches each named skill's SKILL.md from `https://raw.githubusercontent.com/zon/ralph/refs/heads/<branch>/.claude/skills/<skill>/SKILL.md` and returns them with links rewritten to the resolved branch; any failure aborts the batch
         module: internal/skills
         body: |
           func FetchAll(branch string, names []string) ([]Skill, error)
     passing: false
 
   - slug: prune-stale-skills
-    description: Remove ralph-prefixed skill directories from the target repository that are not present in the fetched set
+    description: Remove ralph-prefixed skill directories from the target repo that are not in the fetched set
     scenarios:
       - title: Removed skills deleted
         items:
-          - GIVEN a target repository contains `.claude/skills/ralph-old-skill/` that is no longer present on the source branch
-          - WHEN the user runs `ralph set skills`
-          - THEN `.claude/skills/ralph-old-skill/` is removed from the target repository
+          - GIVEN the target repository contains `.claude/skills/ralph-old-skill/` that is not in the fetched set
+          - WHEN PruneStale is called
+          - THEN `.claude/skills/ralph-old-skill/` is removed
       - title: Non-ralph skills untouched
         items:
-          - GIVEN a target repository contains `.claude/skills/my-custom-skill/` without a `ralph-` prefix
-          - WHEN the user runs `ralph set skills`
+          - GIVEN the target repository contains `.claude/skills/my-custom-skill/` without a `ralph-` prefix
+          - WHEN PruneStale is called
           - THEN `.claude/skills/my-custom-skill/` is left unchanged
-    items:
-      - Only inspects directories under `<root>/.claude/skills/`
-      - Only removes directories whose name has the `ralph-` prefix
-      - Leaves directories without the `ralph-` prefix untouched
     code:
       - name: PruneStale
-        description: removes ralph-prefixed skill directories from the target repository that are not present in the fetched set
+        description: deletes ralph-prefixed skill directories under `.claude/skills/` in the target root that are not present in the fetched set
         module: internal/skills
         body: |
           func PruneStale(root string, fetched []Skill)
@@ -193,36 +291,32 @@ requirements:
       - title: Skills installed successfully
         items:
           - GIVEN a target repository with no existing `.claude/skills/` directory
-          - WHEN the user runs `ralph set skills`
-          - THEN `.claude/skills/` is created in the target repository
-          - AND each discovered `ralph-` prefixed skill's `SKILL.md` is written to `.claude/skills/<skill>/SKILL.md`
+          - WHEN InstallAll is called
+          - THEN `.claude/skills/` is created
+          - AND each fetched skill's `SKILL.md` is written to `.claude/skills/<skill>/SKILL.md`
       - title: Existing skills overwritten
         items:
-          - GIVEN a target repository that already has one or more `ralph-` prefixed skills in `.claude/skills/`
-          - WHEN the user runs `ralph set skills`
-          - THEN all discovered skills are fetched and written, overwriting any with the same name
-    items:
-      - Creates `.claude/skills/` and skill subdirectories under the target repository root when missing
-      - Overwrites any existing `SKILL.md` for a skill with the same name
+          - GIVEN a target repository that already has one or more `ralph-` prefixed skills installed
+          - WHEN InstallAll is called with skills of the same names
+          - THEN the existing skills are overwritten
     code:
       - name: InstallAll
-        description: writes the fetched skills into `.claude/skills/` under the target repository root
+        description: writes each fetched skill into `.claude/skills/<name>/SKILL.md` under the target root, overwriting existing entries
         module: internal/skills
         body: |
           func InstallAll(root string, fetched []Skill) error
     passing: false
 
-  - slug: cli-set-skills-command
-    description: Expose `ralph set skills` via the CLI
+  - slug: cli-command
+    description: Wire `ralph set skills [--branch <name>]` to the SetSkills flow
     items:
-      - Adds a `set` parent command with a `skills` subcommand under the root ralph CLI
-      - The subcommand accepts an optional `--branch` flag that defaults to `main`
-      - The subcommand invokes the `SetSkills` orchestration function with the resolved branch value
-      - The subcommand reports the orchestration error to the user when it fails and exits non-zero
+      - Add a `ralph set skills` CLI subcommand
+      - The command accepts an optional `--branch <name>` flag; when omitted, the branch passed to `setup.SetSkills` is `main`
+      - The command calls `setup.SetSkills(branch)` and returns its error
     passing: false
 
   - slug: version-bump
     description: Version bump
     items:
-      - Apply a semver minor bump to the app version (CLI gains a new `set skills` command)
+      - Apply a semver minor bump to the app version (new backwards-compatible feature)
     passing: false
