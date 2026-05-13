@@ -283,7 +283,7 @@ requirements:
         module: internal/skills
         body: |
           func PruneStale(root string, fetched []Skill)
-    passing: false
+    passing: true
 
   - slug: install-skills
     description: Write fetched skills into `.claude/skills/` under the target repository root
