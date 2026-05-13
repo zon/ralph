@@ -162,16 +162,16 @@ func rewriteRelativeLink(line, branch string) (string, string) {
 		if idx == -1 {
 			continue
 		}
-		before := line[:idx+1]
+		before := line[:idx+len(suffix)]
 		openIdx := strings.LastIndex(before, "](")
 		if openIdx == -1 {
 			continue
 		}
 		link := before[openIdx+2:]
 		if !strings.Contains(link, "http") && strings.Contains(link, ".") {
-			newLink := rawGitHubPrefix + branch + "/" + link
+			newLink := rawGitHubPrefix + branch + "/" + link + suffix
 			newLine := line[:openIdx+2] + newLink + line[idx+len(suffix):]
-			path := rawGitHubPrefix + branch + "/" + link + suffix[1:]
+			path := rawGitHubPrefix + branch + "/" + link
 			return newLine, path
 		}
 	}

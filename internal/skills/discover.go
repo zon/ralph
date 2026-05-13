@@ -9,6 +9,14 @@ import (
 
 var httpClient *http.Client
 
+func HTTPClient() *http.Client {
+	return httpClient
+}
+
+func SetHTTPClient(client *http.Client) {
+	httpClient = client
+}
+
 type contentsResponse []struct {
 	Name string `json:"name"`
 	Type string `json:"type"`

@@ -305,7 +305,7 @@ requirements:
         module: internal/skills
         body: |
           func InstallAll(root string, fetched []Skill) error
-    passing: false
+    passing: true
 
   - slug: cli-command
     description: Wire `ralph set skills [--branch <name>]` to the SetSkills flow
