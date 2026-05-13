@@ -186,7 +186,7 @@ requirements:
 
               skills.requireError(t, err)
           }
-    passing: false
+    passing: true
 
   - slug: repo-root
     description: Resolve the git repository root that contains the current working directory
