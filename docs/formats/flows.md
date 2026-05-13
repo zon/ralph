@@ -116,19 +116,11 @@ test("empty cart", () => {
 
 ## Module Structure
 
-Flow functions and helper functions must live in separate modules. A module contains either orchestration or implementation detail — never both.
+The flow function lives in an [orchestration module](../glossary.md#orchestration-module). Each helper lives in an [implementation module](../glossary.md#implementation-module).
 
-A **flow module** contains only flow functions. It calls helpers by name but never defines them. Name it after the feature (`checkout`, `auth`).
+Every flow document must declare its module assignments. The `**Module:**` line under `## Flow` names the orchestration module; the `**Module:**` line under `## Tests` names the test module. These are implementation contracts — the code must match.
 
-A **helper module** contains only implementation detail for one concern. Name it after that concern (`orders`, `payments`, `email`). Its interface is the vocabulary the flow uses; its internals are whatever that requires.
-
-Each module should be deep: a simple interface over hidden complexity. A module that mixes a flow function with helper implementations is wide — it exposes both the coordination logic and the construction detail at the same level, collapsing the interface that separates them.
-
-Every flow document must declare its module assignments. The `**Module:**` line under `## Flow` names the flow module; the `**Module:**` line under `## Tests` names the test module. These are implementation contracts — the code must match.
-
-A flow function and its helpers must be in different modules. A test flow and its test helpers must be in different modules. Mixing them collapses the interface that separates orchestration from implementation.
-
-Test helpers that share a concern with a helper module belong in that module or a companion module with the same name (`payments` / `payments.fixtures`). A test helper that asserts on payment behavior belongs near `payments`, not in a generic test module.
+Tests live in the same module they test, or in a companion module with the same name. A test helper that asserts on payment behavior belongs near the module it tests, not in a generic test module.
 
 ## File Location
 

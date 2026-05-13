@@ -8,6 +8,10 @@ A module with a simple interface but complex implementation. Deep modules hide i
 
 A module that contains concrete technical implementation details and low-level operations. Implementation modules execute specific tasks such as database queries, API calls, cryptographic operations, file I/O, or data transformations. These modules provide the actual "how" of executing operations rather than coordinating what operations to execute.
 
+Each implementation module covers a single deep concern — one cohesive area of functionality with a simple interface over hidden complexity.
+
 ## Orchestration Module
 
 A module that contains only domain logic for coordinating other modules. Orchestration modules define workflows, manage execution sequences, enforce business rules, and delegate to implementation modules. They describe "what" should happen and "when" without containing the low-level details of "how" operations are performed.
+
+A small app typically contains a single orchestration module. As it grows, the orchestration module should be split along deep concern boundaries — each resulting module coordinates one deep concern.
