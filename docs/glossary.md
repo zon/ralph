@@ -1,0 +1,13 @@
+# Glossary
+
+## Deep Module
+
+A module with a simple interface but complex implementation. Deep modules hide implementation complexity behind a clean, minimal API, providing powerful functionality without exposing internal details. This design principle maximizes the benefit-to-complexity ratio by minimizing the cognitive load on users while maximizing utility.
+
+## Implementation Module
+
+A module that contains concrete technical implementation details and low-level operations. Implementation modules execute specific tasks such as database queries, API calls, cryptographic operations, file I/O, or data transformations. These modules provide the actual "how" of executing operations rather than coordinating what operations to execute.
+
+## Orchestration Module
+
+A module that contains only domain logic for coordinating other modules. Orchestration modules define workflows, manage execution sequences, enforce business rules, and delegate to implementation modules. They describe "what" should happen and "when" without containing the low-level details of "how" operations are performed.
