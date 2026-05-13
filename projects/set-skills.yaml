@@ -313,7 +313,7 @@ requirements:
       - Add a `ralph set skills` CLI subcommand
       - The command accepts an optional `--branch <name>` flag; when omitted, the branch passed to `setup.SetSkills` is `main`
       - The command calls `setup.SetSkills(branch)` and returns its error
-    passing: false
+    passing: true
 
   - slug: version-bump
     description: Version bump

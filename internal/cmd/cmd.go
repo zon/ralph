@@ -1,6 +1,9 @@
 package cmd
 
-import "github.com/zon/ralph/internal/config"
+import (
+	"github.com/zon/ralph/internal/config"
+	"github.com/zon/ralph/internal/setup"
+)
 
 // Cmd defines the command-line arguments and execution context
 type Cmd struct {
@@ -9,6 +12,7 @@ type Cmd struct {
 	Comment        CommentCmd        `cmd:"" help:"Run a comment-triggered development iteration"`
 	Merge          MergeCmd          `cmd:"" help:"Submit an Argo workflow to merge a completed PR"`
 	Config         ConfigCmd         `cmd:"" help:"Configure credentials for remote execution"`
+	Set            SetCmd            `cmd:"" help:"Configure and install ralph components"`
 	SetGithubToken GithubTokenCmd    `cmd:"" help:"Generate a GitHub App installation token and configure git HTTPS authentication"`
 	SetupWorkspace SetupWorkspaceCmd `cmd:"" help:"Create symlinks for mounted config files into the working directory"`
 	Workflow       WorkflowCmd       `cmd:"" help:"Run ralph workflow in a container"`
@@ -29,6 +33,24 @@ type ConfigCmd struct {
 	Pulumi        ConfigPulumiCmd        `cmd:"" help:"Configure Pulumi credentials for remote execution"`
 	WebhookConfig ConfigWebhookConfigCmd `cmd:"" name:"webhook" help:"Provision webhook-config secret into Kubernetes"`
 	WebhookSecret ConfigWebhookSecretCmd `cmd:"" help:"Provision webhook-secrets secret into Kubernetes"`
+}
+
+// SetCmd defines the set subcommand group
+type SetCmd struct {
+	Skills SetSkillsCmd `cmd:"" help:"Install ralph skills into the current repository"`
+}
+
+// SetSkillsCmd installs ralph skills
+type SetSkillsCmd struct {
+	Branch string `help:"Branch of the ralph repository to fetch skills from" name:"branch" optional:""`
+}
+
+func (s *SetSkillsCmd) Run() error {
+	branch := s.Branch
+	if branch == "" {
+		branch = "main"
+	}
+	return setup.SetSkills(branch)
 }
 
 // GithubTokenCmd generates a GitHub App installation token
