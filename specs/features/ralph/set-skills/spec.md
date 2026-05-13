@@ -29,28 +29,28 @@ The system SHALL fetch each discovered skill's `SKILL.md` from `https://raw.gith
 
 #### Scenario: Skills installed successfully
 
-- GIVEN a target repository with no existing `.agents/skills/` directory
+- GIVEN a target repository with no existing `.claude/skills/` directory
 - WHEN the user runs `ralph set skills`
-- THEN `.agents/skills/` is created in the target repository
-- AND each discovered `ralph-` prefixed skill's `SKILL.md` is written to `.agents/skills/<skill>/SKILL.md`
+- THEN `.claude/skills/` is created in the target repository
+- AND each discovered `ralph-` prefixed skill's `SKILL.md` is written to `.claude/skills/<skill>/SKILL.md`
 
 #### Scenario: Existing skills overwritten
 
-- GIVEN a target repository that already has one or more `ralph-` prefixed skills in `.agents/skills/`
+- GIVEN a target repository that already has one or more `ralph-` prefixed skills in `.claude/skills/`
 - WHEN the user runs `ralph set skills`
 - THEN all discovered skills are fetched and written, overwriting any with the same name
 
 #### Scenario: Removed skills deleted
 
-- GIVEN a target repository contains `.agents/skills/ralph-old-skill/` that is no longer present on the source branch
+- GIVEN a target repository contains `.claude/skills/ralph-old-skill/` that is no longer present on the source branch
 - WHEN the user runs `ralph set skills`
-- THEN `.agents/skills/ralph-old-skill/` is removed from the target repository
+- THEN `.claude/skills/ralph-old-skill/` is removed from the target repository
 
 #### Scenario: Non-ralph skills untouched
 
-- GIVEN a target repository contains `.agents/skills/my-custom-skill/` without a `ralph-` prefix
+- GIVEN a target repository contains `.claude/skills/my-custom-skill/` without a `ralph-` prefix
 - WHEN the user runs `ralph set skills`
-- THEN `.agents/skills/my-custom-skill/` is left unchanged
+- THEN `.claude/skills/my-custom-skill/` is left unchanged
 
 #### Scenario: Branch override
 
@@ -63,24 +63,6 @@ The system SHALL fetch each discovered skill's `SKILL.md` from `https://raw.gith
 - GIVEN a skill's raw content URL is unreachable or returns an error
 - WHEN the user runs `ralph set skills`
 - THEN an error is returned and no files are written
-
-### Requirement: Claude Skill Links
-
-After writing each skill to `.agents/skills/<skill>/SKILL.md`, the system SHALL create a symbolic link at `.claude/skills/<skill>/SKILL.md` pointing to the corresponding `.agents/skills/<skill>/SKILL.md` file, making the skill available to Claude Code.
-
-When a stale ralph skill is removed from `.agents/skills/`, its corresponding `.claude/skills/<skill>/` directory SHALL also be removed.
-
-#### Scenario: Claude link created
-
-- GIVEN a target repository with no existing `.claude/skills/` directory
-- WHEN the user runs `ralph set skills`
-- THEN `.claude/skills/<skill>/SKILL.md` is created as a symbolic link to `.agents/skills/<skill>/SKILL.md` for each installed skill
-
-#### Scenario: Stale claude link removed
-
-- GIVEN a target repository contains `.agents/skills/ralph-old-skill/` and `.claude/skills/ralph-old-skill/` that are no longer present on the source branch
-- WHEN the user runs `ralph set skills`
-- THEN both `.agents/skills/ralph-old-skill/` and `.claude/skills/ralph-old-skill/` are removed from the target repository
 
 ### Requirement: Link Rewriting
 
