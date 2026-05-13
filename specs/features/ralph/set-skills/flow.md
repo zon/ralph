@@ -1,16 +1,15 @@
 # Set Skills Flow
 
 ## Purpose
-
-Install ralph skills from the source repository into the target repository, replacing previously installed ralph skills while preserving unrelated skills.
+Install ralph's skills from a source branch of the ralph repository into the current target repository.
 
 ## Flow
 
-**Module:** `setup`
+**Module:** `internal/setup`
 
 ```go
-func setSkills(branch string) error {
-    root, err := git.Root()
+func SetSkills(branch string) error {
+    root, err := git.RepoRoot()
     if err != nil {
         return err
     }
@@ -20,133 +19,128 @@ func setSkills(branch string) error {
         return err
     }
 
-    fetched, err := skills.Fetch(names, branch)
+    fetched, err := skills.FetchAll(branch, names)
     if err != nil {
         return err
     }
 
-    skills.RewriteLinks(fetched, branch)
-
-    if err := skills.PruneRalph(root, names); err != nil {
-        return err
-    }
-
-    return skills.Install(root, fetched)
+    skills.PruneStale(root, fetched)
+    return skills.InstallAll(root, fetched)
 }
 ```
 
 ### Helpers
 
-- **`git.Root()`** — returns the root directory of the git repository containing the current working directory, or an error if not inside a git repository
-- **`skills.Discover(branch)`** — queries the GitHub Contents API for `.claude/skills` on `branch` and returns the names of entries with a `ralph-` prefix
-- **`skills.Fetch(names, branch)`** — fetches each named skill's `SKILL.md` from the raw GitHub URL on `branch`, returning a collection keyed by name
-- **`skills.RewriteLinks(fetched, branch)`** — rewrites relative links to absolute raw GitHub URLs on `branch` and normalizes existing ralph raw URLs to use `branch`
-- **`skills.PruneRalph(root, keep)`** — removes every `.claude/skills/ralph-*` directory under `root` whose name is not in `keep`
-- **`skills.Install(root, fetched)`** — writes each skill's `SKILL.md` to `.claude/skills/<name>/SKILL.md` under `root`, overwriting any existing file
+- **`git.RepoRoot()`** — returns the root directory of the git repository containing the current working directory, or an error when the working directory is not inside a repository
+- **`skills.Discover(branch)`** — lists the ralph-prefixed skill names available on the given branch of the ralph repository
+- **`skills.FetchAll(branch, names)`** — fetches each skill's contents from the given branch and returns them with their links already rewritten to the resolved branch; any fetch failure aborts the batch
+- **`skills.PruneStale(root, fetched)`** — removes ralph-prefixed skill directories from the target repository that are not present in the fetched set
+- **`skills.InstallAll(root, fetched)`** — writes the fetched skills into `.claude/skills/` under the target repository root, overwriting existing entries with the same name
 
 ## Tests
 
-**Module:** `setup`
+**Module:** `internal/setup`
 
 ```go
-test("skills installed", func(t *testing.T) {
-    repo := git.AnyRepo(t)
-    skills.Available(t, skills.DefaultBranch(), skills.Any("ralph-write-spec"), skills.Any("ralph-write-flow"))
-    require.NoError(t, setSkills(skills.DefaultBranch()))
-    assert.Equal(t, skills.Installed(t, repo), []string{"ralph-write-flow", "ralph-write-spec"})
-})
+func TestSetSkills_InstallsRalphSkills(t *testing.T) {
+    target := repos.targetRepo(t)
+    source := skills.sourceBranch(t).
+        with(skills.aRalphSkill("ralph-write-spec")).
+        with(skills.aNonRalphSkill("internal-tool"))
 
-test("not in git repo", func(t *testing.T) {
-    git.NoRepo(t)
-    assert.Error(t, setSkills(skills.DefaultBranch()))
-})
+    err := SetSkills(source.branch())
 
-test("discovery failure leaves repo untouched", func(t *testing.T) {
-    repo := skills.AnyRepoWith(t, "ralph-write-spec")
-    skills.DiscoveryFails(t, skills.DefaultBranch())
-    assert.Error(t, setSkills(skills.DefaultBranch()))
-    assert.Equal(t, skills.Installed(t, repo), []string{"ralph-write-spec"})
-})
+    skills.requireOK(t, err)
+    skills.requireInstalled(t, target, "ralph-write-spec")
+    skills.requireNotInstalled(t, target, "internal-tool")
+}
 
-test("fetch failure leaves repo untouched", func(t *testing.T) {
-    repo := skills.AnyRepoWith(t, "ralph-write-spec")
-    skills.Available(t, skills.DefaultBranch(), skills.Any("ralph-write-flow"))
-    skills.FetchFails(t, "ralph-write-flow", skills.DefaultBranch())
-    assert.Error(t, setSkills(skills.DefaultBranch()))
-    assert.Equal(t, skills.Installed(t, repo), []string{"ralph-write-spec"})
-})
+func TestSetSkills_OverwritesExistingSkill(t *testing.T) {
+    target := repos.targetRepo(t).with(skills.anInstalledSkill("ralph-write-spec", "old"))
+    source := skills.sourceBranch(t).with(skills.aRalphSkill("ralph-write-spec").withBody("new"))
 
-test("non-ralph source skills ignored", func(t *testing.T) {
-    repo := git.AnyRepo(t)
-    skills.Available(t, skills.DefaultBranch(), skills.Any("ralph-write-spec"), skills.Any("internal-tool"))
-    require.NoError(t, setSkills(skills.DefaultBranch()))
-    assert.Equal(t, skills.Installed(t, repo), []string{"ralph-write-spec"})
-})
+    err := SetSkills(source.branch())
 
-test("stale ralph skills removed", func(t *testing.T) {
-    repo := skills.AnyRepoWith(t, "ralph-old-skill")
-    skills.Available(t, skills.DefaultBranch(), skills.Any("ralph-write-spec"))
-    require.NoError(t, setSkills(skills.DefaultBranch()))
-    assert.Equal(t, skills.Installed(t, repo), []string{"ralph-write-spec"})
-})
+    skills.requireOK(t, err)
+    skills.requireInstalledBody(t, target, "ralph-write-spec", "new")
+}
 
-test("non-ralph local skills preserved", func(t *testing.T) {
-    repo := skills.AnyRepoWith(t, "my-custom-skill")
-    skills.Available(t, skills.DefaultBranch(), skills.Any("ralph-write-spec"))
-    require.NoError(t, setSkills(skills.DefaultBranch()))
-    assert.Contains(t, skills.Installed(t, repo), "my-custom-skill")
-    assert.Contains(t, skills.Installed(t, repo), "ralph-write-spec")
-})
+func TestSetSkills_RemovesStaleRalphSkill(t *testing.T) {
+    target := repos.targetRepo(t).with(skills.anInstalledSkill("ralph-old-skill", "stale"))
+    source := skills.sourceBranch(t).with(skills.aRalphSkill("ralph-write-spec"))
 
-test("existing ralph skill overwritten", func(t *testing.T) {
-    repo := skills.AnyRepoWith(t, "ralph-write-spec")
-    skills.Available(t, skills.DefaultBranch(), skills.WithBody("ralph-write-spec", "updated"))
-    require.NoError(t, setSkills(skills.DefaultBranch()))
-    assert.Equal(t, skills.Body(t, repo, "ralph-write-spec"), "updated")
-})
+    err := SetSkills(source.branch())
 
-test("relative link rewritten to branch raw url", func(t *testing.T) {
-    repo := git.AnyRepo(t)
-    skills.Available(t, skills.DefaultBranch(), skills.WithBody("ralph-write-spec", skills.RelativeLink("docs/formats/specs.md")))
-    require.NoError(t, setSkills(skills.DefaultBranch()))
-    assert.Equal(t, skills.Body(t, repo, "ralph-write-spec"), skills.RalphRawLink(skills.DefaultBranch(), "docs/formats/specs.md"))
-})
+    skills.requireOK(t, err)
+    skills.requireNotInstalled(t, target, "ralph-old-skill")
+}
 
-test("existing ralph url branch normalized", func(t *testing.T) {
-    repo := git.AnyRepo(t)
-    skills.Available(t, "v2", skills.WithBody("ralph-write-spec", skills.RalphRawLink("main", "docs/formats/specs.md")))
-    require.NoError(t, setSkills("v2"))
-    assert.Equal(t, skills.Body(t, repo, "ralph-write-spec"), skills.RalphRawLink("v2", "docs/formats/specs.md"))
-})
+func TestSetSkills_LeavesNonRalphSkillsUntouched(t *testing.T) {
+    target := repos.targetRepo(t).with(skills.anInstalledSkill("my-custom-skill", "mine"))
+    source := skills.sourceBranch(t).with(skills.aRalphSkill("ralph-write-spec"))
 
-test("foreign absolute link preserved", func(t *testing.T) {
-    repo := git.AnyRepo(t)
-    skills.Available(t, skills.DefaultBranch(), skills.WithBody("ralph-write-spec", skills.ForeignLink()))
-    require.NoError(t, setSkills(skills.DefaultBranch()))
-    assert.Equal(t, skills.Body(t, repo, "ralph-write-spec"), skills.ForeignLink())
-})
+    err := SetSkills(source.branch())
 
-test("branch override applied", func(t *testing.T) {
-    repo := git.AnyRepo(t)
-    skills.Available(t, "v2", skills.Any("ralph-write-spec"))
-    require.NoError(t, setSkills("v2"))
-    assert.Contains(t, skills.Installed(t, repo), "ralph-write-spec")
-})
+    skills.requireOK(t, err)
+    skills.requireInstalledBody(t, target, "my-custom-skill", "mine")
+}
+
+func TestSetSkills_RewritesLinksToResolvedBranch(t *testing.T) {
+    target := repos.targetRepo(t)
+    source := skills.sourceBranch(t).onBranch("v2").
+        with(skills.aRalphSkill("ralph-write-spec").linkingTo("docs/formats/specs.md"))
+
+    err := SetSkills("v2")
+
+    skills.requireOK(t, err)
+    skills.requireSkillLink(t, target, "ralph-write-spec", skills.rawURL("v2", "docs/formats/specs.md"))
+}
+
+func TestSetSkills_DiscoveryFailureWritesNothing(t *testing.T) {
+    target := repos.targetRepo(t)
+    skills.sourceBranch(t).failsDiscovery()
+
+    err := SetSkills(skills.defaultBranch())
+
+    skills.requireError(t, err)
+    skills.requireEmpty(t, target)
+}
+
+func TestSetSkills_FetchFailureWritesNothing(t *testing.T) {
+    target := repos.targetRepo(t)
+    skills.sourceBranch(t).
+        with(skills.aRalphSkill("ralph-write-spec")).
+        failsFetchFor("ralph-write-spec")
+
+    err := SetSkills(skills.defaultBranch())
+
+    skills.requireError(t, err)
+    skills.requireEmpty(t, target)
+}
+
+func TestSetSkills_OutsideGitRepoErrors(t *testing.T) {
+    repos.outsideAnyRepo(t)
+
+    err := SetSkills(skills.defaultBranch())
+
+    skills.requireError(t, err)
+}
 ```
 
 ### Helpers
 
-- **`git.AnyRepo(t)`** — creates an isolated temporary git repository and makes it the working directory for the test, returning its root
-- **`git.NoRepo(t)`** — sets the working directory to a path outside any git repository
-- **`skills.AnyRepoWith(t, name)`** — creates a repo containing an existing skill installed at `.claude/skills/<name>/SKILL.md`, returning the repo root
-- **`skills.DefaultBranch()`** — returns the branch ralph uses when none is specified
-- **`skills.Any(name)`** — describes an available skill on the source branch with placeholder content
-- **`skills.WithBody(name, body)`** — describes an available skill on the source branch with the given `SKILL.md` content
-- **`skills.Available(t, branch, ...)`** — configures the test environment so the source repository exposes the given skills on `branch`
-- **`skills.DiscoveryFails(t, branch)`** — configures the test environment so skill discovery on `branch` returns an error
-- **`skills.FetchFails(t, name, branch)`** — configures the test environment so fetching `name` on `branch` returns an error
-- **`skills.Installed(t, repo)`** — returns the sorted list of skill names installed under `.claude/skills/` in `repo`
-- **`skills.Body(t, repo, name)`** — returns the contents of the installed `SKILL.md` for `name` in `repo`
-- **`skills.RelativeLink(path)`** — returns a `SKILL.md` body containing a relative link to `path`
-- **`skills.RalphRawLink(branch, path)`** — returns a `SKILL.md` body containing the canonical ralph raw GitHub URL for `path` on `branch`
-- **`skills.ForeignLink()`** — returns a `SKILL.md` body containing an absolute URL pointing to a host other than the ralph raw content URL
+- **`repos.targetRepo(t)`** — initializes a temporary git repository, makes it the current working directory, and returns a handle for assertions
+- **`repos.outsideAnyRepo(t)`** — switches the current working directory to a location not inside any git repository
+- **`skills.sourceBranch(t)`** — returns a builder for the simulated ralph source branch served to discovery and fetch helpers
+- **`skills.aRalphSkill(name)`** — returns a builder for a skill whose directory name has the `ralph-` prefix, populated with default content
+- **`skills.aNonRalphSkill(name)`** — returns a builder for a skill whose directory name lacks the `ralph-` prefix
+- **`skills.anInstalledSkill(name, body)`** — pre-populates a skill in the target repository with the given body
+- **`skills.defaultBranch()`** — returns the branch name used when the user does not pass `--branch`
+- **`skills.rawURL(branch, path)`** — constructs the expected raw content URL for a path on a given branch
+- **`skills.requireOK(t, err)`** — asserts the flow completed without error
+- **`skills.requireError(t, err)`** — asserts the flow returned an error
+- **`skills.requireInstalled(t, target, name)`** — asserts the named skill exists in the target repository
+- **`skills.requireNotInstalled(t, target, name)`** — asserts the named skill does not exist in the target repository
+- **`skills.requireInstalledBody(t, target, name, body)`** — asserts the named skill exists with the given body
+- **`skills.requireSkillLink(t, target, name, url)`** — asserts the installed skill contains the given link
+- **`skills.requireEmpty(t, target)`** — asserts no skills were written to the target repository
