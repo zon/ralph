@@ -6,7 +6,7 @@ Discover ralph skills from the source repository and install them into the targe
 
 ## Flow
 
-**Module:** `cmd`
+**Module:** `setup`
 
 ```go
 func setSkills(branch string) error {
@@ -46,7 +46,7 @@ func setSkills(branch string) error {
 
 ## Tests
 
-**Module:** `cmd`
+**Module:** `setup`
 
 ```go
 test("skills installed successfully", func(t *testing.T) {
