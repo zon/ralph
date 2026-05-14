@@ -17,7 +17,7 @@ Architecture documents use YAML format with the following structure:
 
 - **path** (required, string): The file path or directory path where the module is located or should be implemented. This should be relative to the repo root.
 
-- **description** (required, string): A clear explanation of what the module does, its responsibilities, and how it fits into the overall architecture. Should be detailed enough to understand the module's purpose and scope.
+- **description** (required, string): A high-level explanation of what the module does, its responsibilities, and how it fits into the overall architecture. Describe purpose and scope — do not enumerate function signatures, method names, or interface details.
 
 - **orchestration** (optional, boolean): When set to `true`, indicates this is an [orchestration module](../glossary.md#orchestration-module) rather than an [implementation module](../glossary.md#implementation-module). Defaults to `false` if omitted.
 

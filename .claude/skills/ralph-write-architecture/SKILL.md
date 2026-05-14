@@ -20,7 +20,7 @@ Create or update an architecture document. Architecture files live in two places
 
 3. **Read the existing architecture document** at the target path if one exists, so edits preserve unrelated modules.
 
-4. **Understand the scope.** If the user's request is vague, ask clarifying questions.
+4. **Understand the scope.** If the user's request is vague, ask clarifying questions. When architecting a feature, read both the spec (`specs/features/<component>/<feature>/spec.md`) and the flow (`specs/features/<component>/<feature>/flow.md`) to determine what modules are needed and how responsibilities divide between them.
 
 5. **Survey the codebase** when documenting current architecture to confirm module paths and responsibilities.
 
