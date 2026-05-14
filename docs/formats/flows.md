@@ -118,6 +118,8 @@ Every flow document must declare its module assignments. The `**Module:**` line 
 
 Tests live in or beside the module they test, using whatever convention the implementation language idiomatically uses (e.g. Go's `_test.go` files in the same package, Rust's inline `#[cfg(test)] mod tests`, a sibling `*.test.ts` file, a parallel `test/` tree). The test module name in the document should match the module under test; choose a distinct name only if the language enforces one (e.g. a Go external `foo_test` package). A test helper that asserts on payment behavior belongs near the module it tests, not in a generic test module.
 
+Orchestration modules must not contain helper methods that perform or test implementation details. Test helpers — mock factories, HTTP client wiring, fixture builders, assertion utilities — belong in or beside the implementation modules they serve. The orchestration module's test file contains only test functions that exercise orchestration logic; it calls helpers imported from implementation modules, never defines them. If a helper is needed to set up or assert on an implementation concern, it lives with that concern.
+
 ## File Location
 
 See [Directory Structure](./README.md#directory-structure) for where flow files are located.
