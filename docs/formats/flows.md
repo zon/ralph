@@ -20,11 +20,7 @@ A flow should be short enough to read in one pass — typically under 20 lines. 
 
 ### Writing Tests
 
-Tests cover domain logic only — the orchestration decisions the flow makes, not the behavior of helpers it calls.
-
-**Test bodies follow the same rule as flow bodies.** Every line should be a domain-language call — setup, invocation, or assertion. If an assertion requires a literal value, a URL, a file path, or any format detail, extract it into a named test helper. A test body that contains raw strings or construction logic has leaked implementation detail.
-
-**Each test covers one domain outcome.** Tests should read as: given this domain state, calling the flow produces this domain result.
+Tests cover orchestration decisions only — that the right helpers were called under the right conditions. Every line in a test body should be a domain-language call: setup, invocation, or assertion. If an assertion requires a literal value, a file path, a URL, or any format detail, extract it into a named test helper. Each test covers one domain outcome: given this domain state, calling the flow produces this domain result.
 
 ## File Format
 
