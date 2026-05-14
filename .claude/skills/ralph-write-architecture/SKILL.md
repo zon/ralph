@@ -20,12 +20,16 @@ Create or update an architecture document. Architecture files live in two places
 
 3. **Read the existing architecture document** at the target path if one exists, so edits preserve unrelated modules.
 
-4. **Understand the scope.** If the user's request is vague, ask clarifying questions. When architecting a feature, read both the spec (`specs/features/<component>/<feature>/spec.md`) and the flow (`specs/features/<component>/<feature>/flow.md`) to determine what modules are needed and how responsibilities divide between them.
+4. **Clarify the scope.** If the user's request is vague, ask clarifying questions before proceeding.
 
-5. **Survey the codebase** when documenting current architecture to confirm module paths and responsibilities.
+5. **Read the spec and flow** when architecting a feature (`specs/features/<component>/<feature>/spec.md` and `flow.md`) to identify what modules are needed and how responsibilities divide between them.
 
-6. **Draft the architecture** following the format in `docs/formats/architecture.md`.
+6. **Check helper namespaces.** Examine both the `## Flow > ### Helpers` and `## Tests > ### Helpers` sections. Each namespace (e.g. `orders.*`, `target.*`, `source.*`) implies a module home. Add a module entry for any namespace that lives outside the modules already listed.
 
-7. **Write the file** to the target path.
+7. **Survey the codebase** when documenting current architecture to confirm module paths and responsibilities.
 
-8. **Report** the file path and a one-line summary of the modules covered.
+8. **Draft the architecture** following the format in `docs/formats/architecture.md`.
+
+9. **Write the file** to the target path.
+
+10. **Report** the file path and a one-line summary of the modules covered.
