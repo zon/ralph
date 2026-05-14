@@ -1,7 +1,7 @@
 modules:
   - path: internal/setup
-    description: Orchestration module for ralph features that create configuration or set up a repository to work with ralph. Owns commands such as `set skills` (and future setup-oriented commands) that fetch, install, link, or configure ralph assets in the target repository.
+    description: Orchestration module that drives repository setup workflows such as set-skills. Resolves the target repository root and sequences skill discovery, fetching, pruning, and installation by delegating each step to the skills package.
     orchestration: true
 
   - path: internal/skills
-    description: Implementation module for skill discovery, fetching, link rewriting, installation, and stale-skill removal. Provides helpers consumed by the `setup` orchestration module to install ralph skills into a target repository.
+    description: Implementation module for ralph skill management. Discovers ralph-prefixed skill directories from the GitHub Contents API, fetches each skill's SKILL.md from the ralph raw content URL, rewrites relative links and stale branch references to the resolved branch, prunes ralph skills absent from the upstream source, and installs skill files into the target repository.
