@@ -3,7 +3,7 @@ FROM docker.io/library/golang:1.25-bookworm AS builder
 
 WORKDIR /build
 
-RUN apt-get update && apt-get install -y just && rm -rf /var/lib/apt/lists/*
+RUN curl -fsSL https://just.systems/install.sh | bash -s -- --to /usr/local/bin
 
 # Copy go module files
 COPY go.mod go.sum ./
