@@ -17,7 +17,7 @@ The full project file is available at: `{{.ProjectFilePath}}`.
 A requirement may include any of the following optional sections:
 
 - `scenarios` — GIVEN/WHEN/THEN acceptance criteria from the spec; they must pass as automated tests
-- `code` — production functions to implement, sourced from the flow document. Each entry has:
+- `code` — production functions to implement, sourced from the orchestration document. Each entry has:
   - `name` — the function or method name
   - `description` — short summary of what the entry does
   - `module` — the module the code belongs to, matching a `path` in the relevant architecture document
@@ -27,7 +27,7 @@ A requirement may include any of the following optional sections:
   - `description` — what behavior the test verifies
   - `module` — the module the test belongs to
   - `body` — the test code; may be a full implementation or just the signature
-- `items` — additional behavioral constraints that fall outside the spec and flow. Each item describes a behavior, edge case, or operational requirement you must satisfy. Items contain no architecture decisions: you choose where the code lives and what its shape is, guided by the existing `code` entries and the modules listed in `architecture.yaml`. Cover every item — with tests when the behavior is testable, and with implementation when it requires code.
+- `items` — additional behavioral constraints that fall outside the spec and orchestration. Each item describes a behavior, edge case, or operational requirement you must satisfy. Items contain no architecture decisions: you choose where the code lives and what its shape is, guided by the existing `code` entries and the modules listed in `architecture.yaml`. Cover every item — with tests when the behavior is testable, and with implementation when it requires code.
 
 The `slug` field uniquely identifies the requirement inside the project file. Use it to locate the matching entry and set `passing: true` when the work is complete.
 {{- if .Notes}}

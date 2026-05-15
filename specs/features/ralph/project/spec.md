@@ -64,13 +64,13 @@ The system SHALL provide a `ralph validate <file>` command that checks a project
 - WHEN `ralph validate <file>` is run
 - THEN a non-zero exit code is returned and each error is described
 
-### Requirement: Spec and Flow References
+### Requirement: Spec and Orchestration References
 
-A project MAY include `spec` and `flow` fields linking to the feature's documentation. These are reference metadata — their content is not injected into the agent's prompt.
+A project MAY include `spec` and `orchestration` fields linking to the feature's documentation. These are reference metadata — their content is not injected into the agent's prompt.
 
-#### Scenario: Spec and flow provided
+#### Scenario: Spec and orchestration provided
 
-- GIVEN a project with `spec` and `flow` fields
+- GIVEN a project with `spec` and `orchestration` fields
 - WHEN the project is loaded
 - THEN the fields are stored as metadata and the project is valid
 
