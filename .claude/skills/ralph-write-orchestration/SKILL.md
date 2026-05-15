@@ -1,5 +1,5 @@
 ---
-name: ralph-write-flow
+name: ralph-write-orchestration
 description: Creates an orchestration document in /specs. Use when the user wants to write an orchestration, design the domain logic shape for a feature, or produce an idealized implementation template alongside a spec.
 ---
 
