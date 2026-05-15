@@ -264,7 +264,7 @@ requirements:
       - The command accepts an optional `--branch <name>` flag; when omitted, the branch passed to `setup.Setup.SetSkills` is `main`
       - The command constructs a `setup.Setup` with concrete `internal/git` and `internal/skills` implementations and calls `SetSkills(branch)`
       - The command returns any error from `SetSkills`
-    passing: false
+    passing: true
 
   - slug: version-bump
     description: Version bump

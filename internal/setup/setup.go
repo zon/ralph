@@ -34,3 +34,7 @@ func (s *Setup) SetSkills(branch string) error {
 	s.skills.PruneStale(root, fetched)
 	return s.skills.InstallAll(root, fetched)
 }
+
+func New(git GitClient, skills SkillsClient) *Setup {
+	return &Setup{git: git, skills: skills}
+}
