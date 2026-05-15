@@ -12,7 +12,8 @@ Write in the language the feature is implemented in, using an idealized dialect:
 
 - **Pass failures through.** Propagate failures from helpers directly using the language's idiomatic mechanism (returned errors, thrown exceptions, result types). Only introduce a named error value when it represents a distinct domain condition with no underlying cause (e.g. `CartError.Empty` is a state, not a failure).
 - **No debug code.** Remove all logger calls, debug statements, and diagnostic output.
-- **No dependency injection inside flow functions.** Call helpers as real qualified module references — `orders.create(...)`, `payments.charge(...)`. Don't repeat the module name in the function name. Dependencies are wired above or before the flow is invoked, not threaded through arguments.
+- **No dependency injection inside flow functions.** Dependencies are wired above or before the flow is invoked, not threaded through arguments.
+- **Side-effectful helpers use interfaces.** When a flow depends on a helper that performs side effects (database writes, network calls, notifications), call it through an interface rather than a static function. Tests substitute a mock; production wires the real instance. This applies to any helper whose behavior must vary between test and production contexts.
 - **No infrastructure types.** Use domain nouns, not framework types like request contexts, HTTP writers, etc.
 - **Only write bodies that are pure orchestration.** Every line must be a domain condition, a named step call, or a return value. If writing the body would require literals, string construction, or format details, don't write it — just call the function by name.
 
