@@ -1,151 +1,102 @@
 # Set Skills Flow
 
 ## Purpose
-
-Fetch and install ralph skills from the ralph GitHub repository into the target repository, removing stale ralph skills and leaving non-ralph skills untouched.
+Discover, fetch, and install ralph-prefixed Claude Code skills from the ralph GitHub repository into the target git repository, pruning any stale ralph skills no longer present upstream.
 
 ## Flow
 
 **Module:** `internal/setup`
 
 ```go
-func SetSkills(branch string) error {
-    root, err := git.RepoRoot()
-    if err != nil {
-        return err
-    }
+type Setup struct {
+	skills SkillsClient
+	git    GitClient
+}
 
-    names, err := skills.Discover(branch)
-    if err != nil {
-        return err
-    }
+func (s *Setup) SetSkills(branch string) error {
+	root, err := s.git.RepoRoot()
+	if err != nil {
+		return err
+	}
 
-    fetched, err := skills.FetchAll(branch, names)
-    if err != nil {
-        return err
-    }
+	names, err := s.skills.Discover(branch)
+	if err != nil {
+		return err
+	}
 
-    skills.PruneStale(root, fetched)
-    return skills.InstallAll(root, fetched)
+	fetched, err := s.skills.FetchAll(branch, names)
+	if err != nil {
+		return err
+	}
+
+	s.skills.PruneStale(root, fetched)
+	return s.skills.InstallAll(root, fetched)
 }
 ```
 
 ### Helpers
 
-- **`git.RepoRoot()`** — returns the root of the git repository containing the current working directory; fails if not inside any repo
-- **`skills.Discover(branch)`** — queries the GitHub Contents API and returns the names of all ralph-prefixed skill directories on the given branch; fails if the API is unreachable or returns an error
-- **`skills.FetchAll(branch, names)`** — fetches each skill's `SKILL.md` from the ralph raw content URL, rewrites relative and stale-branched links to the resolved branch, and returns the results; fails if any fetch fails
-- **`skills.PruneStale(root, fetched)`** — removes ralph-prefixed skill directories from the target repo that are absent from the fetched set; leaves non-ralph skills untouched
-- **`skills.InstallAll(root, fetched)`** — writes each fetched skill's `SKILL.md` into `.claude/skills/<name>/`, creating directories as needed
+- **`s.git.RepoRoot()`** — returns the root path of the git repository containing the current working directory
+- **`s.skills.Discover(branch)`** — queries the GitHub Contents API and returns the names of all ralph-prefixed skill directories on the given branch
+- **`s.skills.FetchAll(branch, names)`** — fetches each skill's SKILL.md from raw GitHub URLs, rewrites links to the resolved branch, and returns the collected skills
+- **`s.skills.PruneStale(root, fetched)`** — removes ralph-prefixed skill directories from the target repository that are absent from the fetched set; leaves non-ralph skills untouched
+- **`s.skills.InstallAll(root, fetched)`** — writes each fetched skill's SKILL.md into `.claude/skills/<name>/` under the target root, creating the directory if absent
 
 ## Tests
 
 **Module:** `internal/setup`
 
 ```go
-func TestSetSkills_InstallsRalphSkillsOnly(t *testing.T) {
-    repo := target.repo(t)
-    branch := source.branch(t).
-        withRalphSkill("ralph-write-spec", "content").
-        withNonRalphSkill("internal-tool", "content").
-        start()
-
-    err := SetSkills(branch.name())
-
-    require.NoError(t, err)
-    repo.hasSkill("ralph-write-spec")
-    repo.doesNotHaveSkill("internal-tool")
+func TestSetSkillsSuccess(t *testing.T) {
+	root := git.anyRoot()
+	fetched := skills.anySkills()
+	mock := skills.newMock(skills.thatFetches(fetched))
+	svc := setup.withMocks(
+		setup.withGit(git.thatFindsRoot(root)),
+		setup.withSkills(mock),
+	)
+	require.NoError(t, svc.SetSkills("main"))
+	require.Equal(t, fetched, mock.installed())
+	require.Equal(t, fetched, mock.pruned())
 }
 
-func TestSetSkills_OverwritesExistingSkill(t *testing.T) {
-    repo := target.repo(t).withInstalledSkill("ralph-write-spec", "old")
-    branch := source.branch(t).withRalphSkill("ralph-write-spec", "new").start()
-
-    err := SetSkills(branch.name())
-
-    require.NoError(t, err)
-    repo.skillContains("ralph-write-spec", "new")
+func TestSetSkillsNoGitRepo(t *testing.T) {
+	mock := skills.newMock()
+	svc := setup.withMocks(
+		setup.withGit(git.withNoRepo()),
+		setup.withSkills(mock),
+	)
+	require.Error(t, svc.SetSkills("main"))
+	require.Empty(t, mock.installed())
 }
 
-func TestSetSkills_RemovesStaleRalphSkill(t *testing.T) {
-    repo := target.repo(t).withInstalledSkill("ralph-old-skill", "stale")
-    branch := source.branch(t).withRalphSkill("ralph-write-spec", "content").start()
-
-    err := SetSkills(branch.name())
-
-    require.NoError(t, err)
-    repo.doesNotHaveSkill("ralph-old-skill")
+func TestSetSkillsDiscoveryFails(t *testing.T) {
+	mock := skills.newMock(skills.thatFailsDiscovery())
+	svc := setup.withMocks(setup.withSkills(mock))
+	require.Error(t, svc.SetSkills("main"))
+	require.Empty(t, mock.installed())
 }
 
-func TestSetSkills_LeavesNonRalphSkillsUntouched(t *testing.T) {
-    repo := target.repo(t).withInstalledSkill("my-custom-skill", "mine")
-    branch := source.branch(t).withRalphSkill("ralph-write-spec", "content").start()
-
-    err := SetSkills(branch.name())
-
-    require.NoError(t, err)
-    repo.skillContains("my-custom-skill", "mine")
-}
-
-func TestSetSkills_RewritesLinksToResolvedBranch(t *testing.T) {
-    repo := target.repo(t)
-    branch := source.branch(t).onBranch("v2").
-        withRalphSkill("ralph-write-spec", "[spec](docs/formats/specs.md)").
-        start()
-
-    err := SetSkills("v2")
-
-    require.NoError(t, err)
-    repo.skillContains("ralph-write-spec", source.rawURL("v2", "docs/formats/specs.md"))
-}
-
-func TestSetSkills_DiscoveryFailureWritesNothing(t *testing.T) {
-    repo := target.repo(t)
-    source.branch(t).failsDiscovery().start()
-
-    err := SetSkills(source.defaultBranch())
-
-    require.Error(t, err)
-    repo.hasNoSkills()
-}
-
-func TestSetSkills_FetchFailureWritesNothing(t *testing.T) {
-    repo := target.repo(t)
-    source.branch(t).
-        withRalphSkill("ralph-write-spec", "content").
-        failsFetchFor("ralph-write-spec").
-        start()
-
-    err := SetSkills(source.defaultBranch())
-
-    require.Error(t, err)
-    repo.hasNoSkills()
-}
-
-func TestSetSkills_OutsideGitRepoErrors(t *testing.T) {
-    target.outsideRepo(t)
-
-    err := SetSkills(source.defaultBranch())
-
-    require.Error(t, err)
+func TestSetSkillsFetchFails(t *testing.T) {
+	mock := skills.newMock(skills.thatFailsFetch())
+	svc := setup.withMocks(setup.withSkills(mock))
+	require.Error(t, svc.SetSkills("main"))
+	require.Empty(t, mock.installed())
 }
 ```
 
 ### Helpers
 
-- **`target.repo(t)`** — creates a temporary git repository, sets it as the current working directory, and returns a handle for setup and assertions
-- **`target.outsideRepo(t)`** — sets the current working directory to a path that is not inside any git repository
-- **`repo.withInstalledSkill(name, body)`** — pre-installs a skill with the given name and body in the target repository's `.claude/skills/` directory; returns the repo handle for chaining
-- **`repo.hasSkill(name)`** — asserts that the named skill directory and `SKILL.md` exist in the target repository
-- **`repo.doesNotHaveSkill(name)`** — asserts that the named skill is absent from the target repository
-- **`repo.skillContains(name, substr)`** — asserts that the named skill's `SKILL.md` contains the given substring
-- **`repo.hasNoSkills()`** — asserts that no skills are installed in the target repository
-- **`source.branch(t)`** — returns a builder for a mock skill source that simulates the GitHub Contents API and raw content server; registers server shutdown via `t.Cleanup`
-- **`source.defaultBranch()`** — returns the default branch name (`main`)
-- **`source.rawURL(branch, path)`** — returns the expected raw GitHub URL for a file path on the given branch
-- **`builder.onBranch(name)`** — configures the source to serve skills from the named branch
-- **`builder.withRalphSkill(name, body)`** — registers a ralph-prefixed skill on the source
-- **`builder.withNonRalphSkill(name, body)`** — registers a non-ralph-prefixed skill on the source
-- **`builder.failsDiscovery()`** — configures the source to return an error for the Contents API discovery request
-- **`builder.failsFetchFor(name)`** — configures the source to return an error when fetching the named skill's `SKILL.md`
-- **`builder.start()`** — starts the mock HTTP server, wires it as the HTTP backend for the skills package, and returns the started source handle
+- **`setup.withMocks(opts...)`** — constructs a `Setup` with default mock implementations; pass option helpers to configure specific dependencies
+- **`setup.withGit(client)`** — option that sets the git client on the mock setup
+- **`setup.withSkills(client)`** — option that sets the skills client on the mock setup
+- **`git.anyRoot()`** — returns a valid repository root path suitable for use in tests
+- **`git.thatFindsRoot(root)`** — returns a git mock whose `RepoRoot` returns the given root
+- **`git.withNoRepo()`** — returns a git mock whose `RepoRoot` returns an error
+- **`skills.anySkills()`** — returns a non-empty slice of skills in a default valid state
+- **`skills.newMock(opts...)`** — constructs a recording skills mock; pass option helpers to configure its behavior
+- **`skills.thatFetches(skills)`** — option configuring the mock to return names derived from the given skills on `Discover` and the skills themselves on `FetchAll`
+- **`skills.thatFailsDiscovery()`** — option configuring the mock to return an error from `Discover`
+- **`skills.thatFailsFetch()`** — option configuring the mock to return an error from `FetchAll`
+- **`mock.installed()`** — returns the skills passed to `InstallAll` during the test
+- **`mock.pruned()`** — returns the skills passed to `PruneStale` during the test

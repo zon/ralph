@@ -1,6 +1,6 @@
 modules:
   - path: internal/setup
-    description: Orchestration module that drives repository setup workflows such as set-skills. Resolves the target repository root and sequences skill discovery, fetching, pruning, and installation by delegating each step to the skills package.
+    description: Orchestration module for repository setup workflows. Detects the target repository root via the git package and sequences skill discovery, fetching, pruning, and installation by delegating each step to the skills package.
     orchestration: true
 
   - path: internal/skills
