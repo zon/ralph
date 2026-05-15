@@ -12,8 +12,7 @@ Write in the language the feature is implemented in, using an idealized dialect:
 
 - **Pass failures through.** Propagate failures from helpers directly using the language's idiomatic mechanism (returned errors, thrown exceptions, result types). Only introduce a named error value when it represents a distinct domain condition with no underlying cause (e.g. `CartError.Empty` is a state, not a failure).
 - **No debug code.** Remove all logger calls, debug statements, and diagnostic output.
-- **No dependency injection inside flow functions.** Dependencies are wired above or before the flow is invoked, not threaded through arguments.
-- **Side-effectful helpers use interfaces.** When a flow depends on a helper that performs side effects (database writes, network calls, notifications), call it through an interface rather than a static function. Tests substitute a mock; production wires the real instance. This applies to any helper whose behavior must vary between test and production contexts.
+- **Use dependency injection for side effects.** Any helper that performs side effects (database writes, network calls, notifications) must be injected rather than called as a static function. Declare the flow as a method on a struct whose fields are the required interfaces; the caller wires in the real implementations, and tests substitute mocks.
 - **No infrastructure types.** Use domain nouns, not framework types like request contexts, HTTP writers, etc.
 - **Only write bodies that are pure orchestration.** Every line must be a domain condition, a named step call, or a return value. If writing the body would require literals, string construction, or format details, don't write it — just call the function by name.
 
@@ -36,19 +35,27 @@ Process a cart purchase and notify the user.
 **Module:** `checkout`
 
 ```typescript
-async function checkout(cart: Cart, user: User) {
-    if (cart.isEmpty()) return CartError.Empty
+class Checkout {
+    constructor(
+        private orders: OrdersClient,
+        private payments: PaymentsClient,
+        private email: EmailClient,
+    ) {}
 
-    const order = orders.create(cart, user)
+    async checkout(cart: Cart, user: User) {
+        if (cart.isEmpty()) return CartError.Empty
 
-    if (!await payments.charge(order)) {
-        orders.cancel(order)
-        await email.sendDeclined(order, user)
-        return
+        const order = this.orders.create(cart, user)
+
+        if (!await this.payments.charge(order)) {
+            this.orders.cancel(order)
+            await this.email.sendDeclined(order, user)
+            return
+        }
+
+        await this.email.sendConfirmation(order, user)
+        return order
     }
-
-    await email.sendConfirmation(order, user)
-    return order
 }
 ```
 
@@ -68,7 +75,8 @@ async function checkout(cart: Cart, user: User) {
 test("successful checkout", () => {
     const user = users.any()
     const basket = cart.any().withItems(cart.anItem())
-    const order = checkout(basket, user)
+    const svc = checkout.withMocks()
+    const order = svc.checkout(basket, user)
     expect(order).toMatchOrder(basket, user)
     expect(email.sent()).toContain(email.confirmation(order, user))
 })
@@ -76,25 +84,27 @@ test("successful checkout", () => {
 test("payment declined", () => {
     const user = users.any()
     const basket = cart.any().withItems(cart.anItem())
-    payments.willDecline()
-    checkout(basket, user)
+    const svc = checkout.withMocks({ payments: payments.thatDeclines() })
+    svc.checkout(basket, user)
     expect(orders.created()).toBeEmpty()
     expect(email.sent()).toContain(email.declined(user))
 })
 
 test("empty cart", () => {
-    const result = checkout(cart.empty(), users.any())
+    const svc = checkout.withMocks()
+    const result = svc.checkout(cart.empty(), users.any())
     expect(result).toBe(CartError.Empty)
 })
 ```
 
 ### Helpers
 
+- **`checkout.withMocks(overrides?)`** — constructs a `Checkout` with default mock implementations; pass overrides to substitute specific clients
 - **`users.any()`** — returns a valid user in a default state suitable for checkout
 - **`cart.any()`** — returns a cart builder; call `.withItems(...)` to populate it
 - **`cart.anItem()`** — returns a purchasable item with a non-zero price
 - **`cart.empty()`** — returns a cart with no items
-- **`payments.willDecline()`** — configures the test environment so the next payment attempt fails
+- **`payments.thatDeclines()`** — returns a payments mock whose next charge attempt fails
 - **`orders.created()`** — returns the list of orders persisted during the test
 - **`email.sent()`** — returns the list of emails sent during the test
 - **`email.confirmation(order, user)`** — constructs the expected confirmation email value for assertion
