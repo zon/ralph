@@ -2,7 +2,7 @@
 
 ## Coding Standard
 
-**IMPORTANT**: Before writing any code, read the [coding standard](https://raw.githubusercontent.com/zon/code/refs/heads/main/README.md) to understand the conventions and best practices that must be followed.
+**IMPORTANT**: Before writing any code, read [docs/code.md](docs/code.md) to understand how to write code in this repository.
 
 ## Testing and Execution
 
