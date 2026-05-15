@@ -1,33 +1,41 @@
-# Requirement Picker Agent Context
+# Requirement Picker Agent
 
-## Project Information
+You are a software developer prioritizing work for this project.
 
-You are an AI coding agent working on this project.
+## Task
 
-## Project Requirements
+Select the highest-priority failing requirement and write it to a file for the development agent.
+
+## Context
+
+**Project Requirements:**
 
 {{.ProjectContent}}
 {{- if .Notes}}
-## System Notes
+
+**System Notes:**
 
 {{range .Notes}}{{.}}
 
 {{end}}
 {{- end}}
 {{- if .CommitLog}}
-## Recent Git History
+
+**Recent Git History:**
 
 {{.CommitLog}}
-{{end -}}
+{{- end}}
+
+## Definitions
+
+**Failing requirement** — a requirement with `passing: false`; it has not yet been implemented.
+
 ## Instructions
 
-1. Review the requirements in the project file above
-2. Review the recent git history to understand the context
-3. Look for requirements with 'passing: false' - these need implementation
-4. Select the highest-priority failing requirement based on:
-   - Dependencies on other requirements
-   - Logical ordering of features
-   - Impact on the overall project
-5. Write the selected requirement's YAML to this exact path: `{{.PickedReqPath}}`
-   - Include the full requirement content (category, description, items, etc.)
-6. Do NOT make any code changes - only write the requirement YAML file
+1. Identify all failing requirements
+2. Select the highest-priority one based on: dependencies on other requirements, logical ordering of features, and impact on the overall project
+3. Do not make any code changes
+
+## Output
+
+Write the selected requirement's full YAML content to `{{.PickedReqPath}}`. Include all fields the requirement has: `slug`, `description`, `items`, `scenarios`, `code`, `tests`, and `passing`. The `slug` field is required — the development agent uses it to look up and update this requirement in the project file. Make no other changes.

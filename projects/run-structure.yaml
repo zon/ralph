@@ -1,26 +1,26 @@
-name: run-structure
-description: Fix structural issues in Execute domain function
+slug: run-structure
+title: Fix structural issues in Execute domain function
 
 requirements:
-  - category: run
+  - slug: remove-infrastructure-wrappers
     description: Remove infrastructure wrapper functions from execute.go
     items:
       - In internal/run/execute.go, remove the private functions infrastructureRunBeforeCommands (lines 134–141) and infrastructureGetCommitLog (lines 143–145). These are thin wrappers that add no abstraction value — they exist only to give infrastructure calls a different naming convention, which is a smell. Replace the call to infrastructureRunBeforeCommands in Execute with a direct call to services.RunBefore, and replace the call to infrastructureGetCommitLog with a direct call to git.GetCommitLog.
     passing: false
 
-  - category: run
+  - slug: move-project-status-formatting
     description: Move projectStatus formatting out of Execute
     items:
       - In internal/run/execute.go, Execute constructs a formatted status string inline (lines 99–100) before passing it to ai.GeneratePRSummary. This formatting detail does not belong in the domain function. Add a function to the project package (e.g. project.FormatStatus) that accepts a *project.Project and returns the formatted status string. Call that function from Execute instead.
     passing: false
 
-  - category: run
+  - slug: remove-github-error-inspection
     description: Remove github error-type inspection from Execute
     items:
       - In internal/run/execute.go, Execute calls errors.Is(err, github.ErrNoCommitsBetweenBranches) (lines 119–124) to detect when no commits exist between branches. This leaks a concrete error type from the github package into the domain function. Wrap this check inside github.CreatePullRequest or a dedicated helper so Execute receives a clean domain-level signal (e.g. a boolean noPR return value, or a sentinel that does not require the caller to import and inspect github internals).
     passing: false
 
-  - category: versioning
+  - slug: version-bump
     description: Version bump
     items:
       - Apply a semver patch bump to internal/version/VERSION and charts/ralph-webhook/Chart.yaml

@@ -122,8 +122,8 @@ func (r *ArchitectureCmd) commitAndCreatePR(ctx *context.Context) error {
 	}
 
 	proj := &project.Project{
-		Name:        "architecture",
-		Description: "Update architecture.yaml",
+		Slug:  "architecture",
+		Title: "Update architecture.yaml",
 	}
 
 	prSummary := "Automatically generated architecture.yaml documenting the project structure."

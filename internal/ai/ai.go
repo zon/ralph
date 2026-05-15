@@ -424,7 +424,10 @@ func runMockAgent(ctx *execcontext.Context, prompt string) error {
 		}
 
 		pickedReqPath := filepath.Join(filepath.Dir(absProjectFile), "picked-requirement.yaml")
-		mockReqContent := `- description: Mock requirement
+		mockReqContent := `- slug: mock-requirement
+  description: Mock requirement
+  items:
+    - Mock item
   passing: false
 `
 		if err := os.WriteFile(pickedReqPath, []byte(mockReqContent), 0644); err != nil {
@@ -493,11 +496,13 @@ func runMockAgent(ctx *execcontext.Context, prompt string) error {
 		if err := os.MkdirAll("projects", 0755); err != nil {
 			return fmt.Errorf("mock AI failed to create projects directory: %w", err)
 		}
-		mockProjectContent := `name: mock-review
-description: Mock project for testing
+		mockProjectContent := `slug: mock-review
+title: Mock project for testing
 requirements:
-  - category: test
+  - slug: mock-requirement
     description: Mock requirement
+    items:
+      - Mock item
     passing: true
 `
 		projectPath := filepath.Join("projects", "mock-review.yaml")

@@ -9,6 +9,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func validRequirement(slug string) Requirement {
+	return Requirement{
+		Slug:        slug,
+		Description: "test requirement",
+		Items:       []string{"Item 1"},
+		Passing:     false,
+	}
+}
+
 func TestValidateProject(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -16,45 +25,120 @@ func TestValidateProject(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "valid project",
+			name: "valid project with items",
 			project: &Project{
-				Name: "test-project",
-				Requirements: []Requirement{
-					{ID: "req1", Passing: false},
-				},
+				Slug:         "test-project",
+				Requirements: []Requirement{validRequirement("req-1")},
 			},
 			wantErr: false,
 		},
 		{
-			name: "valid project with items",
+			name: "valid project with scenarios",
 			project: &Project{
-				Name: "test-project",
+				Slug: "test-project",
 				Requirements: []Requirement{
 					{
-						Category:    "backend",
-						Description: "Test requirement",
-						Items:       []string{"Item 1", "Item 2"},
-						Passing:     false,
+						Slug:        "req-1",
+						Description: "Scenario-only requirement",
+						Scenarios: []Scenario{
+							{Title: "Happy path", Items: []string{"GIVEN", "WHEN", "THEN"}},
+						},
 					},
 				},
 			},
 			wantErr: false,
 		},
 		{
-			name: "missing name",
+			name: "valid project with code and tests",
 			project: &Project{
-				Name: "",
+				Slug: "test-project",
 				Requirements: []Requirement{
-					{ID: "req1", Passing: false},
+					{
+						Slug:        "req-1",
+						Description: "Has code and tests",
+						Code: []CodeEntry{
+							{Name: "Foo", Description: "does foo", Module: "internal/foo", Body: "func Foo()"},
+						},
+						Tests: []CodeEntry{
+							{Name: "TestFoo", Description: "tests foo", Module: "internal/foo", Body: "func TestFoo(t *testing.T)"},
+						},
+					},
 				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "missing slug",
+			project: &Project{
+				Slug:         "",
+				Requirements: []Requirement{validRequirement("req-1")},
 			},
 			wantErr: true,
 		},
 		{
 			name: "no requirements",
 			project: &Project{
-				Name:         "test-project",
+				Slug:         "test-project",
 				Requirements: []Requirement{},
+			},
+			wantErr: true,
+		},
+		{
+			name: "requirement missing slug",
+			project: &Project{
+				Slug: "test-project",
+				Requirements: []Requirement{
+					{Description: "no slug", Items: []string{"x"}},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "duplicate requirement slugs",
+			project: &Project{
+				Slug: "test-project",
+				Requirements: []Requirement{
+					validRequirement("req-1"),
+					validRequirement("req-1"),
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "requirement with no items/scenarios/code/tests",
+			project: &Project{
+				Slug: "test-project",
+				Requirements: []Requirement{
+					{Slug: "req-1", Description: "empty"},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "code entry missing fields",
+			project: &Project{
+				Slug: "test-project",
+				Requirements: []Requirement{
+					{
+						Slug:        "req-1",
+						Description: "broken code",
+						Code:        []CodeEntry{{Name: "Foo"}},
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "test entry missing fields",
+			project: &Project{
+				Slug: "test-project",
+				Requirements: []Requirement{
+					{
+						Slug:        "req-1",
+						Description: "broken test",
+						Tests:       []CodeEntry{{Name: "TestFoo", Module: "internal/foo"}},
+					},
+				},
 			},
 			wantErr: true,
 		},
@@ -83,7 +167,7 @@ func TestCheckCompletion(t *testing.T) {
 		{
 			name: "all passing",
 			project: &Project{
-				Name: "test",
+				Slug: "test",
 				Requirements: []Requirement{
 					{Passing: true},
 					{Passing: true},
@@ -96,7 +180,7 @@ func TestCheckCompletion(t *testing.T) {
 		{
 			name: "mixed status",
 			project: &Project{
-				Name: "test",
+				Slug: "test",
 				Requirements: []Requirement{
 					{Passing: true},
 					{Passing: false},
@@ -110,7 +194,7 @@ func TestCheckCompletion(t *testing.T) {
 		{
 			name: "all failing",
 			project: &Project{
-				Name: "test",
+				Slug: "test",
 				Requirements: []Requirement{
 					{Passing: false},
 					{Passing: false},
@@ -134,137 +218,122 @@ func TestCheckCompletion(t *testing.T) {
 
 func TestUpdateRequirementStatus(t *testing.T) {
 	proj := &Project{
-		Name: "test",
+		Slug: "test",
 		Requirements: []Requirement{
-			{ID: "req1", Passing: false},
-			{ID: "req2", Passing: false},
+			{Slug: "req-1", Passing: false},
+			{Slug: "req-2", Passing: false},
 		},
 	}
 
-	// Update existing requirement
-	err := UpdateRequirementStatus(proj, "req1", true)
-	require.NoError(t, err, "UpdateRequirementStatus() unexpected error")
-	assert.True(t, proj.Requirements[0].Passing, "UpdateRequirementStatus() did not update status")
+	require.NoError(t, UpdateRequirementStatus(proj, "req-1", true))
+	assert.True(t, proj.Requirements[0].Passing, "expected req-1 to be marked passing")
+	assert.False(t, proj.Requirements[1].Passing, "req-2 should be untouched")
 
-	// Try to update non-existent requirement
-	err = UpdateRequirementStatus(proj, "req999", true)
-	require.Error(t, err, "UpdateRequirementStatus() expected error for non-existent requirement")
+	require.Error(t, UpdateRequirementStatus(proj, "req-999", true), "expected error for unknown slug")
 }
 
 func TestLoadProject(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	projectContent := `name: test-project
-description: A test project
+	projectContent := `slug: test-project
+title: A test project
 requirements:
-  - id: req1
-    name: First requirement
+  - slug: first-requirement
+    description: First requirement
+    items:
+      - Item A
     passing: false
-  - id: req2
-    name: Second requirement
+  - slug: second-requirement
+    description: Second requirement
+    items:
+      - Item B
     passing: true
 `
-	projectPath := filepath.Join(tmpDir, "test.yaml")
+	projectPath := filepath.Join(tmpDir, "test-project.yaml")
 	require.NoError(t, os.WriteFile(projectPath, []byte(projectContent), 0644))
 
-	project, err := LoadProject(projectPath)
-	require.NoError(t, err, "LoadProject() unexpected error")
+	proj, err := LoadProject(projectPath)
+	require.NoError(t, err)
 
-	assert.Equal(t, "test-project", project.Name)
-	assert.Equal(t, "A test project", project.Description)
-	assert.Len(t, project.Requirements, 2)
+	assert.Equal(t, "test-project", proj.Slug)
+	assert.Equal(t, "A test project", proj.Title)
+	require.Len(t, proj.Requirements, 2)
+	assert.Equal(t, "first-requirement", proj.Requirements[0].Slug)
 }
 
-func TestLoadProjectWithItems(t *testing.T) {
+func TestLoadProjectWithCodeAndTests(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Project file matching ../slow-choice/projects/*.yaml format
-	projectContent := `name: test-with-items
-description: Test project with items
-
+	projectContent := `slug: full-shape
+title: Project exercising all requirement fields
+feature: specs/features/foo/bar
 requirements:
-  - category: backend
-    description: User Authentication
-    items:
-      - User model with credentials
-      - Password hashing capability
-      - Login endpoint
-    passing: false
-  - category: testing
-    description: Write tests
-    items:
-      - Authentication unit tests
-      - Integration tests
+  - slug: implement-feature
+    description: Implement feature X
+    scenarios:
+      - title: Happy path
+        items:
+          - GIVEN a user
+          - WHEN they do the thing
+          - THEN it works
+    code:
+      - name: DoThing
+        description: performs the thing
+        module: internal/thing
+        body: |
+          func DoThing() error
+    tests:
+      - name: TestDoThing
+        description: verifies DoThing succeeds
+        module: internal/thing
+        body: |
+          func TestDoThing(t *testing.T)
     passing: false
 `
-	projectPath := filepath.Join(tmpDir, "test-items.yaml")
+	projectPath := filepath.Join(tmpDir, "full-shape.yaml")
 	require.NoError(t, os.WriteFile(projectPath, []byte(projectContent), 0644))
 
-	project, err := LoadProject(projectPath)
-	require.NoError(t, err, "LoadProject() unexpected error")
+	proj, err := LoadProject(projectPath)
+	require.NoError(t, err)
 
-	assert.Equal(t, "test-with-items", project.Name)
-	require.Len(t, project.Requirements, 2)
-
-	// Check first requirement
-	req1 := project.Requirements[0]
-	assert.Equal(t, "backend", req1.Category)
-	assert.Equal(t, "User Authentication", req1.Description)
-	require.Len(t, req1.Items, 3)
-	assert.Equal(t, "User model with credentials", req1.Items[0])
-
-	// Check second requirement
-	req2 := project.Requirements[1]
-	assert.Equal(t, "testing", req2.Category)
-	assert.Len(t, req2.Items, 2)
-}
-
-func TestSaveProject(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	proj := &Project{
-		Name:        "test-project",
-		Description: "Test description",
-		Requirements: []Requirement{
-			{ID: "req1", Name: "Requirement 1", Passing: true},
-		},
-	}
-
-	projectPath := filepath.Join(tmpDir, "project.yaml")
-	require.NoError(t, SaveProject(projectPath, proj), "SaveProject() unexpected error")
-
-	// Verify file was created
-	_, err := os.Stat(projectPath)
-	require.NoError(t, err, "SaveProject() did not create file")
-
-	// Load it back and verify
-	loaded, err := LoadProject(projectPath)
-	require.NoError(t, err, "LoadProject() after save unexpected error")
-	assert.Equal(t, proj.Name, loaded.Name)
-}
-
-func TestLoadProject_FileNotFound(t *testing.T) {
-	_, err := LoadProject("/nonexistent/path/project.yaml")
-	require.Error(t, err, "LoadProject() expected error for nonexistent file")
+	assert.Equal(t, "full-shape", proj.Slug)
+	assert.Equal(t, "specs/features/foo/bar", proj.Feature)
+	require.Len(t, proj.Requirements, 1)
+	req := proj.Requirements[0]
+	assert.Equal(t, "implement-feature", req.Slug)
+	require.Len(t, req.Scenarios, 1)
+	assert.Equal(t, "Happy path", req.Scenarios[0].Title)
+	require.Len(t, req.Code, 1)
+	assert.Equal(t, "DoThing", req.Code[0].Name)
+	assert.Equal(t, "internal/thing", req.Code[0].Module)
+	require.Len(t, req.Tests, 1)
+	assert.Equal(t, "TestDoThing", req.Tests[0].Name)
 }
 
 func TestSaveProjectRoundTrip(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	proj := &Project{
-		Name:        "round-trip-test",
-		Description: "Testing save and load round trip",
+		Slug:  "round-trip",
+		Title: "Testing save and load round trip",
 		Requirements: []Requirement{
-			{ID: "req1", Name: "Requirement 1", Passing: true},
-			{ID: "req2", Name: "Requirement 2", Passing: false},
+			{Slug: "req-1", Description: "Req 1", Items: []string{"a"}, Passing: true},
+			{Slug: "req-2", Description: "Req 2", Items: []string{"b"}, Passing: false},
 		},
 	}
 
 	projectPath := filepath.Join(tmpDir, "roundtrip.yaml")
-	require.NoError(t, SaveProject(projectPath, proj), "SaveProject() unexpected error")
+	require.NoError(t, SaveProject(projectPath, proj))
+
 	loaded, err := LoadProject(projectPath)
-	require.NoError(t, err, "LoadProject() after save unexpected error")
-	assert.Equal(t, proj.Name, loaded.Name)
-	assert.Equal(t, proj.Description, loaded.Description)
-	assert.Len(t, loaded.Requirements, len(proj.Requirements))
+	require.NoError(t, err)
+	assert.Equal(t, proj.Slug, loaded.Slug)
+	assert.Equal(t, proj.Title, loaded.Title)
+	require.Len(t, loaded.Requirements, 2)
+	assert.Equal(t, "req-1", loaded.Requirements[0].Slug)
+}
+
+func TestLoadProject_FileNotFound(t *testing.T) {
+	_, err := LoadProject("/nonexistent/path/project.yaml")
+	require.Error(t, err)
 }

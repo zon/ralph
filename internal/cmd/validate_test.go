@@ -20,10 +20,10 @@ func TestValidateCmd(t *testing.T) {
 		{
 			name: "valid project file",
 			setupFile: func(tmpDir string) string {
-				content := `name: test-project
-description: A test project
+				content := `slug: test-project
+title: A test project
 requirements:
-  - category: cli
+  - slug: validate-subcommand
     description: New validate subcommand
     items:
       - Test item
@@ -36,27 +36,27 @@ requirements:
 			outputContains: "test-project",
 		},
 		{
-			name: "missing name field",
+			name: "missing slug field",
 			setupFile: func(tmpDir string) string {
-				content := `description: A test project
+				content := `title: A test project
 requirements:
-  - category: cli
+  - slug: validate-subcommand
     description: New validate subcommand
     items:
       - Test item
     passing: false`
-				filePath := filepath.Join(tmpDir, "no-name.yaml")
+				filePath := filepath.Join(tmpDir, "no-slug.yaml")
 				require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))
 				return filePath
 			},
 			wantErr:     true,
-			errContains: "project name is required",
+			errContains: "project slug is required",
 		},
 		{
 			name: "missing requirements",
 			setupFile: func(tmpDir string) string {
-				content := `name: no-reqs-project
-description: A test project`
+				content := `slug: no-reqs-project
+title: A test project`
 				filePath := filepath.Join(tmpDir, "no-requirements.yaml")
 				require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))
 				return filePath
@@ -65,12 +65,45 @@ description: A test project`
 			errContains: "at least one requirement",
 		},
 		{
+			name: "requirement missing slug",
+			setupFile: func(tmpDir string) string {
+				content := `slug: missing-req-slug
+title: Missing requirement slug
+requirements:
+  - description: New validate subcommand
+    items:
+      - Test item
+    passing: false`
+				filePath := filepath.Join(tmpDir, "missing-req-slug.yaml")
+				require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))
+				return filePath
+			},
+			wantErr:     true,
+			errContains: "slug is required",
+		},
+		{
+			name: "requirement with no items/scenarios/code/tests",
+			setupFile: func(tmpDir string) string {
+				content := `slug: empty-requirement
+title: Requirement with no work defined
+requirements:
+  - slug: empty-req
+    description: nothing to do
+    passing: false`
+				filePath := filepath.Join(tmpDir, "empty-requirement.yaml")
+				require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))
+				return filePath
+			},
+			wantErr:     true,
+			errContains: "at least one of items, scenarios, code, or tests",
+		},
+		{
 			name: "invalid YAML syntax",
 			setupFile: func(tmpDir string) string {
-				content := `name: invalid-yaml
+				content := `slug: invalid-yaml
   this: is: not: valid: yaml
 requirements:
-  - category: cli`
+  - slug: anything`
 				filePath := filepath.Join(tmpDir, "invalid-yaml.yaml")
 				require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))
 				return filePath
@@ -111,14 +144,18 @@ requirements:
 
 func TestValidateCmdOutput(t *testing.T) {
 	tmpDir := t.TempDir()
-	content := `name: output-test
-description: Test output
+	content := `slug: output-test
+title: Test output
 requirements:
-  - category: cli
+  - slug: feature-1
     description: Feature 1
+    items:
+      - Item 1
     passing: false
-  - category: cli
+  - slug: feature-2
     description: Feature 2
+    items:
+      - Item 2
     passing: true`
 	filePath := filepath.Join(tmpDir, "output-test.yaml")
 	require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))

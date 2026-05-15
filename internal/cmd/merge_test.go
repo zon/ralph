@@ -27,15 +27,15 @@ func TestMergeCmdRunLocalWithCompleteProjects(t *testing.T) {
 
 	// Create a complete project file
 	completeProject := filepath.Join(projectsDir, "complete-project.yaml")
-	content := `name: complete-project
-description: A complete project
+	content := `slug: complete-project
+title: A complete project
 requirements:
-  - category: backend
+  - slug: feature-1
     description: Feature 1
     items:
       - Item 1
     passing: true
-  - category: backend
+  - slug: feature-2
     description: Feature 2
     items:
       - Item 2
@@ -47,15 +47,15 @@ requirements:
 
 	// Create an incomplete project file
 	incompleteProject := filepath.Join(projectsDir, "incomplete-project.yaml")
-	content = `name: incomplete-project
-description: An incomplete project
+	content = `slug: incomplete-project
+title: An incomplete project
 requirements:
-  - category: backend
+  - slug: feature-1
     description: Feature 1
     items:
       - Item 1
     passing: true
-  - category: backend
+  - slug: feature-2
     description: Feature 2
     items:
       - Item 2
@@ -138,7 +138,7 @@ func TestMergeCmdRunLocalFindCompleteProjectsError(t *testing.T) {
 	require.NoError(t, os.MkdirAll(projectsDir, 0755))
 
 	projectFile := filepath.Join(projectsDir, "project.yaml")
-	require.NoError(t, os.WriteFile(projectFile, []byte("name: test"), 0644))
+	require.NoError(t, os.WriteFile(projectFile, []byte("slug: test"), 0644))
 
 	cmd := &MergeCmd{
 		Branch: "test-branch",
@@ -162,10 +162,10 @@ func TestMergeCmdRunLocalRemoveAndCommitError(t *testing.T) {
 	t.Chdir(tmpDir)
 
 	completeProject := filepath.Join(projectsDir, "complete-project.yaml")
-	content := `name: complete-project
-description: A complete project
+	content := `slug: complete-project
+title: A complete project
 requirements:
-  - category: backend
+  - slug: feature-1
     description: Feature 1
     items:
       - Item 1
@@ -438,15 +438,15 @@ func TestMergeCmdRunLocalWithNoCompleteProjects(t *testing.T) {
 	t.Chdir(tmpDir)
 
 	incompleteProject := filepath.Join(projectsDir, "incomplete-project.yaml")
-	content := `name: incomplete-project
-description: An incomplete project
+	content := `slug: incomplete-project
+title: An incomplete project
 requirements:
-  - category: backend
+  - slug: feature-1
     description: Feature 1
     items:
       - Item 1
     passing: true
-  - category: backend
+  - slug: feature-2
     description: Feature 2
     items:
       - Item 2

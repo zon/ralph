@@ -230,10 +230,7 @@ func reportNewlyPassingRequirements(previousProject, currentProject *project.Pro
 		if req.Passing && !previousProject.Requirements[idx].Passing {
 			description := req.Description
 			if description == "" {
-				description = req.Name
-			}
-			if description == "" {
-				description = req.Category
+				description = req.Slug
 			}
 			logger.Successf("Requirement complete: %s", description)
 		}

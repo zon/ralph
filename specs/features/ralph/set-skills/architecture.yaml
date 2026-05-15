@@ -1,0 +1,7 @@
+modules:
+  - path: internal/setup
+    description: Orchestration module for repository setup workflows. Detects the target repository root via the git package and sequences skill discovery, fetching, pruning, and installation by delegating each step to the skills package.
+    orchestration: true
+
+  - path: internal/skills
+    description: Implementation module for ralph skill management. Discovers ralph-prefixed skill directories from the GitHub Contents API, fetches each skill's SKILL.md from the ralph raw content URL, rewrites relative links and stale branch references to the resolved branch, prunes ralph skills absent from the upstream source, and installs skill files into the target repository.

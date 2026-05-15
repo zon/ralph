@@ -38,7 +38,7 @@ func PrepareExecution(ctx *context.Context) (*ExecutionSetup, error) {
 		return nil, fmt.Errorf("failed to load project file: %w", err)
 	}
 
-	branchName := git.SanitizeBranchName(proj.Name)
+	branchName := git.SanitizeBranchName(proj.Slug)
 	logger.Verbosef("Branch name: %s", branchName)
 
 	ralphConfig, err := config.LoadConfig()
@@ -83,7 +83,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func()), setup *Executi
 
 	iterCount, err := RunIterationLoop(ctx, cleanupRegistrar, setup.Project)
 	if err != nil {
-		notify.Error(setup.Project.Name, ctx.ShouldNotify())
+		notify.Error(setup.Project.Slug, ctx.ShouldNotify())
 		return fmt.Errorf("iteration loop failed: %w", err)
 	}
 
@@ -99,7 +99,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func()), setup *Executi
 	allComplete, passingCount, failingCount := project.CheckCompletion(setup.Project)
 	projectStatus := fmt.Sprintf("%d passing, %d failing (complete: %v)", passingCount, failingCount, allComplete)
 
-	prSummary, err := ai.GeneratePRSummary(ctx, setup.Project.Description, projectStatus, setup.BaseBranch, commitLog)
+	prSummary, err := ai.GeneratePRSummary(ctx, setup.Project.Title, projectStatus, setup.BaseBranch, commitLog)
 	if err != nil {
 		return fmt.Errorf("failed to generate PR summary: %w", err)
 	}
@@ -118,7 +118,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func()), setup *Executi
 	if err != nil {
 		if errors.Is(err, github.ErrNoCommitsBetweenBranches) {
 			logger.Verbose("No commits ahead of base branch — all requirements were already passing; skipping PR creation")
-			notify.Success(setup.Project.Name, ctx.ShouldNotify())
+			notify.Success(setup.Project.Slug, ctx.ShouldNotify())
 			return nil
 		}
 		return err
@@ -126,7 +126,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func()), setup *Executi
 
 	logger.Successf("Pull request created: %s", prURL)
 
-	notify.Success(setup.Project.Name, ctx.ShouldNotify())
+	notify.Success(setup.Project.Slug, ctx.ShouldNotify())
 
 	return nil
 }
@@ -152,8 +152,8 @@ func executeRemote(ctx *context.Context, absProjectFile string) error {
 		return fmt.Errorf("failed to load project file: %w", err)
 	}
 
-	projectName := proj.Name
-	projectBranch := git.SanitizeBranchName(proj.Name)
+	projectName := proj.Slug
+	projectBranch := git.SanitizeBranchName(proj.Slug)
 
 	// Load configuration to get default branch
 	if _, err = config.LoadConfig(); err != nil {

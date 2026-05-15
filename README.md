@@ -82,6 +82,6 @@ See [OpenCode authentication docs](https://opencode.ai/docs/cli/#auth) for setup
 ## More
 
 - [CLI reference](docs/cli.md)
-- [Writing projects](docs/projects.md)
+- [Writing projects](docs/skills/ralph-write-project.md)
 - [Remote execution workflows](docs/workflows.md)
 - [Configuration reference](docs/config.md)
