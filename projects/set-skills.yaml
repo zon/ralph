@@ -123,7 +123,7 @@ requirements:
             require.Error(t, svc.SetSkills("main"))
             require.Empty(t, mock.installed())
           }
-    passing: false
+    passing: true
 
   - slug: repo-root
     description: Resolve the git repository root that contains the current working directory
@@ -144,7 +144,7 @@ requirements:
         module: internal/git
         body: |
           func RepoRoot() (string, error)
-    passing: false
+    passing: true
 
   - slug: discover-skills
     description: List ralph-prefixed skill names available on a branch of the ralph repository
@@ -166,7 +166,7 @@ requirements:
         module: internal/skills
         body: |
           func Discover(branch string) ([]string, error)
-    passing: false
+    passing: true
 
   - slug: fetch-skills
     description: Fetch the named skills' SKILL.md contents from a branch with links rewritten to that branch
@@ -212,7 +212,7 @@ requirements:
         module: internal/skills
         body: |
           func FetchAll(branch string, names []string) ([]Skill, error)
-    passing: false
+    passing: true
 
   - slug: prune-stale-skills
     description: Remove ralph-prefixed skill directories from the target repo that are not in the fetched set
@@ -233,7 +233,7 @@ requirements:
         module: internal/skills
         body: |
           func PruneStale(root string, fetched []Skill)
-    passing: false
+    passing: true
 
   - slug: install-skills
     description: Write fetched skills into `.claude/skills/` under the target repository root
@@ -255,7 +255,7 @@ requirements:
         module: internal/skills
         body: |
           func InstallAll(root string, fetched []Skill) error
-    passing: false
+    passing: true
 
   - slug: cli-command
     description: Wire `ralph set skills [--branch <name>]` to the SetSkills flow
@@ -264,10 +264,10 @@ requirements:
       - The command accepts an optional `--branch <name>` flag; when omitted, the branch passed to `setup.Setup.SetSkills` is `main`
       - The command constructs a `setup.Setup` with concrete `internal/git` and `internal/skills` implementations and calls `SetSkills(branch)`
       - The command returns any error from `SetSkills`
-    passing: false
+    passing: true
 
   - slug: version-bump
     description: Version bump
     items:
       - Apply a semver minor bump to the app version (new backwards-compatible feature)
-    passing: false
+    passing: true
