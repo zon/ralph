@@ -15,7 +15,7 @@ Create a well-formed flow file in `./specs/features/` based on the user's descri
    - What are the main success and failure paths?
 
 2. **Read the flow format docs** to refresh your understanding:
-   - `docs/formats/flows.md`
+   - [docs/formats/flows.md](docs/formats/flows.md)
 
 3. **Determine the file path.** Check the existing `specs/features/` structure and place the flow at `./specs/features/<component>/<feature>/flow.md`.
 
@@ -23,7 +23,7 @@ Create a well-formed flow file in `./specs/features/` based on the user's descri
 
 5. **Check the architecture.** Read `specs/architecture.yaml` and, if it exists, the feature's `specs/features/<component>/<feature>/architecture.yaml` to identify the existing modules the flow should use. Prefer reusing modules defined there over inventing new ones.
 
-6. **Draft the flow and tests** following the format and guidelines in `docs/formats/flows.md`.
+6. **Draft the flow and tests** following the format and guidelines in [docs/formats/flows.md](docs/formats/flows.md).
 
 7. **Write the file** to `./specs/features/<component>/<feature>/flow.md`.
 

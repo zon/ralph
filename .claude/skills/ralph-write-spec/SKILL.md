@@ -16,13 +16,13 @@ Create a well-formed spec file in `./specs/features/` based on the user's descri
    - Are there known edge cases or failure modes to capture?
 
 2. **Read the spec format docs** to refresh your understanding:
-   - `docs/formats/specs.md`
+   - [docs/formats/specs.md](docs/formats/specs.md)
 
-3. **Determine the file path.** Check the existing `specs/features/` structure to match its convention as described in `docs/formats/specs.md`.
+3. **Determine the file path.** Check the existing `specs/features/` structure to match its convention as described in [docs/formats/specs.md](docs/formats/specs.md).
 
-4. **Choose the rigor level** as described in `docs/formats/specs.md` (default to Lite).
+4. **Choose the rigor level** as described in [docs/formats/specs.md](docs/formats/specs.md) (default to Lite).
 
-5. **Draft the spec** following the format and guidelines in `docs/formats/specs.md`.
+5. **Draft the spec** following the format and guidelines in [docs/formats/specs.md](docs/formats/specs.md).
 
 6. **Write the file** to `./specs/features/<component>/<feature>/spec.md`.
 

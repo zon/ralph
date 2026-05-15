@@ -10,6 +10,20 @@
 
 **WARNING**: Be careful when executing ralph with the `--local` flag, as it will apply changes to the local environment.
 
+## Ralph Skills
+
+When writing or editing a ralph skill in `.claude/skills/`, all references to files in the ralph repository must use markdown links — never backtick code spans or bare paths. This ensures `rewriteLinks` can expand them to absolute raw GitHub URLs when skills are installed into other repositories.
+
+```markdown
+<!-- correct -->
+Read [docs/formats/specs.md](docs/formats/specs.md) before drafting.
+
+<!-- wrong -->
+Read `docs/formats/specs.md` before drafting.
+```
+
+References to files in the **target** project (e.g. `./specs/features/...`) do not need links — those paths are intentionally resolved in the project where the skill runs.
+
 ## Versioning
 
 When bumping the version, update **both** files together:

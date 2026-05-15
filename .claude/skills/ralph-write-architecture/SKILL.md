@@ -12,7 +12,7 @@ Create or update an architecture document. Architecture files live in two places
 
 ## Steps
 
-1. **Read the architecture format docs** at `docs/formats/architecture.md`.
+1. **Read the architecture format docs** at [docs/formats/architecture.md](docs/formats/architecture.md).
 
 2. **Determine the target file:**
    - If documenting **current** architecture, use `./specs/architecture.yaml`.
@@ -28,7 +28,7 @@ Create or update an architecture document. Architecture files live in two places
 
 7. **Survey the codebase** when documenting current architecture to confirm module paths and responsibilities.
 
-8. **Draft the architecture** following the format in `docs/formats/architecture.md`.
+8. **Draft the architecture** following the format in [docs/formats/architecture.md](docs/formats/architecture.md).
 
 9. **Write the file** to the target path.
 
