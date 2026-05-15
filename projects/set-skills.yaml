@@ -123,7 +123,7 @@ requirements:
             require.Error(t, svc.SetSkills("main"))
             require.Empty(t, mock.installed())
           }
-    passing: false
+    passing: true
 
   - slug: repo-root
     description: Resolve the git repository root that contains the current working directory
