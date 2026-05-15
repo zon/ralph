@@ -22,9 +22,9 @@ Create or update an architecture document. Architecture files live in two places
 
 4. **Clarify the scope.** If the user's request is vague, ask clarifying questions before proceeding.
 
-5. **Read the spec and flow** when architecting a feature (`specs/features/<component>/<feature>/spec.md` and `flow.md`) to identify what modules are needed and how responsibilities divide between them.
+5. **Read the spec and orchestration** when architecting a feature (`specs/features/<component>/<feature>/spec.md` and `orchestration.md`) to identify what modules are needed and how responsibilities divide between them.
 
-6. **Check helper namespaces.** Examine both the `## Flow > ### Helpers` and `## Tests > ### Helpers` sections. Each namespace (e.g. `orders.*`, `target.*`, `source.*`) implies a module home. Add a module entry for any namespace that lives outside the modules already listed.
+6. **Check helper namespaces.** Examine both the `## Orchestration > ### Helpers` and `## Tests > ### Helpers` sections. Each namespace (e.g. `orders.*`, `target.*`, `source.*`) implies a module home. Add a module entry for any namespace that lives outside the modules already listed.
 
 7. **Survey the codebase** when documenting current architecture to confirm module paths and responsibilities.
 

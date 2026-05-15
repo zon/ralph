@@ -58,7 +58,7 @@ Brief one-line description of what the project does. Used in the PR title.
 
 ### feature
 
-Optional relative path to the feature directory under `specs/features/<component>/<feature>`. The directory contains `spec.md`, `flow.md`, and optionally `architecture.yaml`. Reference link for navigation — not injected into the agent's prompt.
+Optional relative path to the feature directory under `specs/features/<component>/<feature>`. The directory contains `spec.md`, `orchestration.md`, and optionally `architecture.yaml`. Reference link for navigation — not injected into the agent's prompt.
 
 ### requirements
 
@@ -67,7 +67,7 @@ A list of one or more requirements. Each has:
 - `slug` — lowercase, hyphen-separated identifier unique within the project. Used by ralph to track which requirement is being picked or updated.
 - `description` — what the requirement covers
 - `passing` — `false` = needs work (agent implements it), `true` = already done (agent skips)
-- `items` (optional) — behavioral outcomes for work that falls outside the spec and flow; no architecture decisions
+- `items` (optional) — behavioral outcomes for work that falls outside the spec and orchestration; no architecture decisions
 - `scenarios` (optional) — GWT scenarios copied from the spec document
 - `code` (optional) — code the project should implement: modules, function signatures, struct names
 - `tests` (optional) — specific tests the project should implement
@@ -76,9 +76,9 @@ At least one of `items`, `scenarios`, `code`, or `tests` must be present.
 
 ## Writing Requirements
 
-The agent sees only the selected requirement and the project file — not the spec or flow content. Requirements must be self-contained.
+The agent sees only the selected requirement and the project file — not the spec or orchestration content. Requirements must be self-contained.
 
-Use `scenarios` for behavioral requirements from the spec, `code` for architecture from the flow document, and `tests` for specific tests that must be written. Use `items` only for work that falls outside the spec and flow — additional constraints, edge cases, or operational requirements. Items must not contain architecture decisions.
+Use `scenarios` for behavioral requirements from the spec, `code` for architecture from the orchestration document, and `tests` for specific tests that must be written. Use `items` only for work that falls outside the spec and orchestration — additional constraints, edge cases, or operational requirements. Items must not contain architecture decisions.
 
 Each helper function called from a code entry's `body` must have its own requirement with a fully-specified `code` entry. Copy any spec scenarios that directly relate to the helper into the requirement's `scenarios`. Use `items` to fill any remaining gaps.
 
@@ -88,7 +88,7 @@ Copied from the spec document. Each has a `title` and `items` (GWT steps).
 
 ## Code
 
-Code entries describe the functions and shapes the project should implement, copied from the flow document.
+Code entries describe the functions and shapes the project should implement, copied from the orchestration document.
 
 All fields are required:
 

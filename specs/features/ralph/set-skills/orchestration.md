@@ -1,9 +1,9 @@
-# Set Skills Flow
+# Set Skills Orchestration
 
 ## Purpose
 Discover, fetch, and install ralph-prefixed Claude Code skills from the ralph GitHub repository into the target git repository, pruning any stale ralph skills no longer present upstream.
 
-## Flow
+## Orchestration
 
 **Module:** `internal/setup`
 

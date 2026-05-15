@@ -44,7 +44,7 @@ type Scenario struct {
 }
 
 // CodeEntry describes a function or test the project should implement.
-// Used for both `code` (production code from flow.md) and `tests` (specific
+// Used for both `code` (production code from orchestration.md) and `tests` (specific
 // tests the project must write).
 type CodeEntry struct {
 	Name        string `yaml:"name"`
