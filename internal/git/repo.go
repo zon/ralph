@@ -51,6 +51,11 @@ func isDetachedHead() (bool, error) {
 	return err != nil, nil
 }
 
+// RepoRoot returns the absolute root directory of the git repository containing the current working directory.
+func RepoRoot() (string, error) {
+	return FindRepoRoot()
+}
+
 // RevParse executes git rev-parse with the given arguments
 func RevParse(args ...string) (string, error) {
 	fullArgs := append([]string{"rev-parse"}, args...)

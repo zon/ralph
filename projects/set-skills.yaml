@@ -144,7 +144,7 @@ requirements:
         module: internal/git
         body: |
           func RepoRoot() (string, error)
-    passing: false
+    passing: true
 
   - slug: discover-skills
     description: List ralph-prefixed skill names available on a branch of the ralph repository
