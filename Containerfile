@@ -3,6 +3,8 @@ FROM docker.io/library/golang:1.25-bookworm AS builder
 
 WORKDIR /build
 
+RUN apt-get update && apt-get install -y just && rm -rf /var/lib/apt/lists/*
+
 # Copy go module files
 COPY go.mod go.sum ./
 RUN go mod download
@@ -10,15 +12,15 @@ RUN go mod download
 # Copy source code and version files
 COPY . .
 
-# Build ralph binary using Makefile (includes version injection)
-RUN make build
+# Build ralph binary using justfile (includes version injection)
+RUN just build
 
 # Runtime stage - use official Playwright image with all browsers pre-installed
 FROM mcr.microsoft.com/playwright:v1.58.2-noble
 
 # Install additional system dependencies (Playwright deps already included)
 RUN apt-get update && apt-get install -y \
-    make \
+    just \
     unzip \
     net-tools \
     jq \
