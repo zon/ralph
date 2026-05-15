@@ -17,32 +17,6 @@ requirements:
           - GIVEN the current working directory is not inside any git repository
           - WHEN the user runs `ralph set skills`
           - THEN an error is returned and no files are written
-      - title: Skills installed successfully
-        items:
-          - GIVEN a target repository with no existing `.claude/skills/` directory
-          - WHEN the user runs `ralph set skills`
-          - THEN `.claude/skills/` is created in the target repository
-          - AND each discovered `ralph-` prefixed skill's `SKILL.md` is written to `.claude/skills/<skill>/SKILL.md`
-      - title: Existing skills overwritten
-        items:
-          - GIVEN a target repository that already has one or more `ralph-` prefixed skills in `.claude/skills/`
-          - WHEN the user runs `ralph set skills`
-          - THEN all discovered skills are fetched and written, overwriting any with the same name
-      - title: Removed skills deleted
-        items:
-          - GIVEN a target repository contains `.claude/skills/ralph-old-skill/` that is no longer present on the source branch
-          - WHEN the user runs `ralph set skills`
-          - THEN `.claude/skills/ralph-old-skill/` is removed from the target repository
-      - title: Non-ralph skills untouched
-        items:
-          - GIVEN a target repository contains `.claude/skills/my-custom-skill/` without a `ralph-` prefix
-          - WHEN the user runs `ralph set skills`
-          - THEN `.claude/skills/my-custom-skill/` is left unchanged
-      - title: Branch override
-        items:
-          - GIVEN the user passes `--branch v2`
-          - WHEN the user runs `ralph set skills --branch v2`
-          - THEN skills are discovered and fetched from `refs/heads/v2` instead of `refs/heads/main`
       - title: Discovery failure
         items:
           - GIVEN the GitHub Contents API URL is unreachable or returns an error
@@ -54,137 +28,100 @@ requirements:
           - WHEN the user runs `ralph set skills`
           - THEN an error is returned and no files are written
     code:
+      - name: Setup
+        description: DI struct for the setup module holding skills and git clients
+        module: internal/setup
+        body: |
+          type Setup struct {
+            skills SkillsClient
+            git    GitClient
+          }
+      - name: GitClient
+        description: interface for resolving the git repository root
+        module: internal/setup
+        body: |
+          type GitClient interface {
+            RepoRoot() (string, error)
+          }
+      - name: SkillsClient
+        description: interface for discovering, fetching, pruning, and installing skills
+        module: internal/setup
+        body: |
+          type SkillsClient interface {
+            Discover(branch string) ([]string, error)
+            FetchAll(branch string, names []string) ([]skills.Skill, error)
+            PruneStale(root string, fetched []skills.Skill)
+            InstallAll(root string, fetched []skills.Skill) error
+          }
       - name: SetSkills
         description: orchestrates discovery, fetch, prune, and install of ralph skills into the current repository
         module: internal/setup
         body: |
-          func SetSkills(branch string) error {
-              root, err := git.RepoRoot()
-              if err != nil {
-                  return err
-              }
-
-              names, err := skills.Discover(branch)
-              if err != nil {
-                  return err
-              }
-
-              fetched, err := skills.FetchAll(branch, names)
-              if err != nil {
-                  return err
-              }
-
-              skills.PruneStale(root, fetched)
-              return skills.InstallAll(root, fetched)
+          func (s *Setup) SetSkills(branch string) error {
+            root, err := s.git.RepoRoot()
+            if err != nil {
+              return err
+            }
+            names, err := s.skills.Discover(branch)
+            if err != nil {
+              return err
+            }
+            fetched, err := s.skills.FetchAll(branch, names)
+            if err != nil {
+              return err
+            }
+            s.skills.PruneStale(root, fetched)
+            return s.skills.InstallAll(root, fetched)
           }
     tests:
-      - name: TestSetSkills_InstallsRalphSkills
-        description: only ralph-prefixed skills from the source branch are installed
+      - name: TestSetSkillsSuccess
+        description: happy path; installs all fetched skills and prunes stale ones
         module: internal/setup
         body: |
-          func TestSetSkills_InstallsRalphSkills(t *testing.T) {
-              target := repos.targetRepo(t)
-              source := skills.sourceBranch(t).
-                  with(skills.aRalphSkill("ralph-write-spec")).
-                  with(skills.aNonRalphSkill("internal-tool"))
-
-              err := SetSkills(source.branch())
-
-              skills.requireOK(t, err)
-              skills.requireInstalled(t, target, "ralph-write-spec")
-              skills.requireNotInstalled(t, target, "internal-tool")
+          func TestSetSkillsSuccess(t *testing.T) {
+            root := git.anyRoot()
+            fetched := skills.anySkills()
+            mock := skills.newMock(skills.thatFetches(fetched))
+            svc := setup.withMocks(
+              setup.withGit(git.thatFindsRoot(root)),
+              setup.withSkills(mock),
+            )
+            require.NoError(t, svc.SetSkills("main"))
+            require.Equal(t, fetched, mock.installed())
+            require.Equal(t, fetched, mock.pruned())
           }
-      - name: TestSetSkills_OverwritesExistingSkill
-        description: a fetched skill overwrites an installed skill with the same name
+      - name: TestSetSkillsNoGitRepo
+        description: returns error when not inside a git repository; no skills installed
         module: internal/setup
         body: |
-          func TestSetSkills_OverwritesExistingSkill(t *testing.T) {
-              target := repos.targetRepo(t).with(skills.anInstalledSkill("ralph-write-spec", "old"))
-              source := skills.sourceBranch(t).with(skills.aRalphSkill("ralph-write-spec").withBody("new"))
-
-              err := SetSkills(source.branch())
-
-              skills.requireOK(t, err)
-              skills.requireInstalledBody(t, target, "ralph-write-spec", "new")
+          func TestSetSkillsNoGitRepo(t *testing.T) {
+            mock := skills.newMock()
+            svc := setup.withMocks(
+              setup.withGit(git.withNoRepo()),
+              setup.withSkills(mock),
+            )
+            require.Error(t, svc.SetSkills("main"))
+            require.Empty(t, mock.installed())
           }
-      - name: TestSetSkills_RemovesStaleRalphSkill
-        description: ralph-prefixed skills no longer on the source branch are removed
+      - name: TestSetSkillsDiscoveryFails
+        description: returns error when discovery fails; no skills installed
         module: internal/setup
         body: |
-          func TestSetSkills_RemovesStaleRalphSkill(t *testing.T) {
-              target := repos.targetRepo(t).with(skills.anInstalledSkill("ralph-old-skill", "stale"))
-              source := skills.sourceBranch(t).with(skills.aRalphSkill("ralph-write-spec"))
-
-              err := SetSkills(source.branch())
-
-              skills.requireOK(t, err)
-              skills.requireNotInstalled(t, target, "ralph-old-skill")
+          func TestSetSkillsDiscoveryFails(t *testing.T) {
+            mock := skills.newMock(skills.thatFailsDiscovery())
+            svc := setup.withMocks(setup.withSkills(mock))
+            require.Error(t, svc.SetSkills("main"))
+            require.Empty(t, mock.installed())
           }
-      - name: TestSetSkills_LeavesNonRalphSkillsUntouched
-        description: non-ralph skills present in the target repository are not touched
+      - name: TestSetSkillsFetchFails
+        description: returns error when fetching fails; no skills installed
         module: internal/setup
         body: |
-          func TestSetSkills_LeavesNonRalphSkillsUntouched(t *testing.T) {
-              target := repos.targetRepo(t).with(skills.anInstalledSkill("my-custom-skill", "mine"))
-              source := skills.sourceBranch(t).with(skills.aRalphSkill("ralph-write-spec"))
-
-              err := SetSkills(source.branch())
-
-              skills.requireOK(t, err)
-              skills.requireInstalledBody(t, target, "my-custom-skill", "mine")
-          }
-      - name: TestSetSkills_RewritesLinksToResolvedBranch
-        description: skill links are rewritten to the resolved branch
-        module: internal/setup
-        body: |
-          func TestSetSkills_RewritesLinksToResolvedBranch(t *testing.T) {
-              target := repos.targetRepo(t)
-              source := skills.sourceBranch(t).onBranch("v2").
-                  with(skills.aRalphSkill("ralph-write-spec").linkingTo("docs/formats/specs.md"))
-
-              err := SetSkills("v2")
-
-              skills.requireOK(t, err)
-              skills.requireSkillLink(t, target, "ralph-write-spec", skills.rawURL("v2", "docs/formats/specs.md"))
-          }
-      - name: TestSetSkills_DiscoveryFailureWritesNothing
-        description: a discovery failure aborts before writing anything to the target
-        module: internal/setup
-        body: |
-          func TestSetSkills_DiscoveryFailureWritesNothing(t *testing.T) {
-              target := repos.targetRepo(t)
-              skills.sourceBranch(t).failsDiscovery()
-
-              err := SetSkills(skills.defaultBranch())
-
-              skills.requireError(t, err)
-              skills.requireEmpty(t, target)
-          }
-      - name: TestSetSkills_FetchFailureWritesNothing
-        description: a fetch failure aborts before writing anything to the target
-        module: internal/setup
-        body: |
-          func TestSetSkills_FetchFailureWritesNothing(t *testing.T) {
-              target := repos.targetRepo(t)
-              skills.sourceBranch(t).
-                  with(skills.aRalphSkill("ralph-write-spec")).
-                  failsFetchFor("ralph-write-spec")
-
-              err := SetSkills(skills.defaultBranch())
-
-              skills.requireError(t, err)
-              skills.requireEmpty(t, target)
-          }
-      - name: TestSetSkills_OutsideGitRepoErrors
-        description: running outside any git repository returns an error
-        module: internal/setup
-        body: |
-          func TestSetSkills_OutsideGitRepoErrors(t *testing.T) {
-              repos.outsideAnyRepo(t)
-
-              err := SetSkills(skills.defaultBranch())
-
-              skills.requireError(t, err)
+          func TestSetSkillsFetchFails(t *testing.T) {
+            mock := skills.newMock(skills.thatFailsFetch())
+            svc := setup.withMocks(setup.withSkills(mock))
+            require.Error(t, svc.SetSkills("main"))
+            require.Empty(t, mock.installed())
           }
     passing: false
 
@@ -225,7 +162,7 @@ requirements:
           - THEN an error is returned
     code:
       - name: Discover
-        description: queries `https://api.github.com/repos/zon/ralph/contents/.claude/skills?ref=<branch>` and returns the names of directories whose name has the `ralph-` prefix
+        description: queries the GitHub Contents API and returns names of directories with the `ralph-` prefix on the given branch
         module: internal/skills
         body: |
           func Discover(branch string) ([]string, error)
@@ -234,6 +171,11 @@ requirements:
   - slug: fetch-skills
     description: Fetch the named skills' SKILL.md contents from a branch with links rewritten to that branch
     scenarios:
+      - title: Branch override
+        items:
+          - GIVEN the user passes `--branch v2`
+          - WHEN the user runs `ralph set skills --branch v2`
+          - THEN skills are discovered and fetched from `refs/heads/v2` instead of `refs/heads/main`
       - title: Relative link rewritten
         items:
           - GIVEN a `SKILL.md` contains a relative link such as `docs/formats/specs.md`
@@ -250,15 +192,23 @@ requirements:
         items:
           - GIVEN a `SKILL.md` contains an absolute URL pointing to a host other than the ralph repository
           - WHEN the skill is fetched
-          - THEN the link is left as-is
-      - title: Fetch failure aborts batch
+          - THEN the link is written as-is
+      - title: Fetch failure
         items:
-          - GIVEN one of the skills' raw content URLs is unreachable or returns an error
+          - GIVEN a skill's raw content URL is unreachable or returns an error
           - WHEN FetchAll is called
           - THEN an error is returned and no partial result is produced
     code:
+      - name: Skill
+        description: represents a fetched ralph skill with its directory name and SKILL.md content
+        module: internal/skills
+        body: |
+          type Skill struct {
+            Name    string
+            Content string
+          }
       - name: FetchAll
-        description: fetches each named skill's SKILL.md from `https://raw.githubusercontent.com/zon/ralph/refs/heads/<branch>/.claude/skills/<skill>/SKILL.md` and returns them with links rewritten to the resolved branch; any failure aborts the batch
+        description: fetches each named skill's SKILL.md from the ralph raw content URL and returns them with links rewritten to the resolved branch; any failure aborts the batch
         module: internal/skills
         body: |
           func FetchAll(branch string, names []string) ([]Skill, error)
@@ -279,7 +229,7 @@ requirements:
           - THEN `.claude/skills/my-custom-skill/` is left unchanged
     code:
       - name: PruneStale
-        description: deletes ralph-prefixed skill directories under `.claude/skills/` in the target root that are not present in the fetched set
+        description: deletes ralph-prefixed skill directories under `.claude/skills/` in the target root that are absent from the fetched set; ignores non-ralph skills
         module: internal/skills
         body: |
           func PruneStale(root string, fetched []Skill)
@@ -301,7 +251,7 @@ requirements:
           - THEN the existing skills are overwritten
     code:
       - name: InstallAll
-        description: writes each fetched skill into `.claude/skills/<name>/SKILL.md` under the target root, overwriting existing entries
+        description: writes each fetched skill into `.claude/skills/<name>/SKILL.md` under the target root, creating directories as needed and overwriting existing entries
         module: internal/skills
         body: |
           func InstallAll(root string, fetched []Skill) error
@@ -311,8 +261,9 @@ requirements:
     description: Wire `ralph set skills [--branch <name>]` to the SetSkills flow
     items:
       - Add a `ralph set skills` CLI subcommand
-      - The command accepts an optional `--branch <name>` flag; when omitted, the branch passed to `setup.SetSkills` is `main`
-      - The command calls `setup.SetSkills(branch)` and returns its error
+      - The command accepts an optional `--branch <name>` flag; when omitted, the branch passed to `setup.Setup.SetSkills` is `main`
+      - The command constructs a `setup.Setup` with concrete `internal/git` and `internal/skills` implementations and calls `SetSkills(branch)`
+      - The command returns any error from `SetSkills`
     passing: false
 
   - slug: version-bump
