@@ -78,7 +78,7 @@ At least one of `items`, `scenarios`, `code`, or `tests` must be present.
 
 The agent sees only the selected requirement and the project file — not the spec or orchestration content. Requirements must be self-contained.
 
-Use `scenarios` for behavioral requirements from the spec, `code` for architecture from the orchestration document, and `tests` for specific tests that must be written. Use `items` only for work that falls outside the spec and orchestration — additional constraints, edge cases, or operational requirements. Items must not contain architecture decisions.
+Use `scenarios` for behavioral requirements from the spec, and `code` and `tests` for implementation and test shapes sourced directly from the orchestration document — never invented. Use `items` only for work that falls outside the spec and orchestration — additional constraints, edge cases, or operational requirements. Items must not contain architecture decisions.
 
 Each helper function called from a code entry's `body` must have its own requirement with a fully-specified `code` entry. Copy any spec scenarios that directly relate to the helper into the requirement's `scenarios`. Use `items` to fill any remaining gaps.
 
@@ -88,7 +88,7 @@ Copied from the spec document. Each has a `title` and `items` (GWT steps).
 
 ## Code
 
-Code entries describe the functions and shapes the project should implement, copied from the orchestration document.
+Code entries relay implementation shapes from the feature's orchestration document to the ralph agent. Every entry must be sourced directly from `orchestration.md` — not composed freehand. If the feature has no orchestration document, or the orchestration has no matching shape for a requirement, omit the `code` field entirely and use `scenarios` and `items` instead.
 
 All fields are required:
 
@@ -99,7 +99,7 @@ All fields are required:
 
 ## Tests
 
-Test entries describe the specific tests the project should implement. Each test entry has the same shape as a `code` entry.
+Test entries relay test shapes from the feature's orchestration document to the ralph agent. Every entry must be sourced directly from `orchestration.md` — not composed freehand. If the feature has no orchestration document, or the orchestration has no matching test shape for a requirement, omit the `tests` field entirely. Each test entry has the same shape as a `code` entry.
 
 All fields are required:
 

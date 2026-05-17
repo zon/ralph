@@ -17,7 +17,7 @@ Create a well-formed project file based on the user's description of the work to
 2. **Read the project format docs** to refresh your understanding:
    - [docs/formats/project.md](docs/formats/project.md)
 
-3. **Locate the feature directory** if the work targets a documented feature. Read `spec.md` and `orchestration.md` to source scenarios and code shapes for the requirements.
+3. **Locate the feature directory** if the work targets a documented feature. Read `spec.md` and `orchestration.md` to source scenarios, code shapes, and test shapes for the requirements. Before adding any `code` or `tests` entry, verify it exists in `orchestration.md`. If no matching shape exists there, omit the field for that requirement and use `scenarios` and `items` instead.
 
 4. **Draft and write the file** following the format and guidelines in [docs/formats/project.md](docs/formats/project.md).
 
