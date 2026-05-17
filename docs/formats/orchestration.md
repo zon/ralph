@@ -131,6 +131,8 @@ Tests live in or beside the module they test, using whatever convention the impl
 
 Orchestration modules must not contain helper methods that perform or test implementation details. Test helpers — mock factories, HTTP client wiring, fixture builders, assertion utilities — belong in or beside the implementation modules they serve. The orchestration module's test file contains only test functions that exercise orchestration logic; it calls helpers imported from implementation modules, never defines them. If a helper is needed to set up or assert on an implementation concern, it lives with that concern.
 
+Fixture builders for input types (e.g. a struct passed into the orchestration by the caller) belong with the module that owns the type, not the orchestration module. When drafting test helpers, identify every input type in the orchestration signature and place its fixture builder in the module that defines the type.
+
 ## File Location
 
 See [Directory Structure](./README.md#directory-structure) for where orchestration files are located.

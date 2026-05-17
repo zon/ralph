@@ -26,10 +26,12 @@ Create or update an architecture document. Architecture files live in two places
 
 6. **Check helper namespaces.** Examine both the `## Orchestration > ### Helpers` and `## Tests > ### Helpers` sections. Each namespace (e.g. `orders.*`, `target.*`, `source.*`) implies a module home. Add a module entry for any namespace that lives outside the modules already listed.
 
-7. **Survey the codebase** when documenting current architecture to confirm module paths and responsibilities.
+7. **Flag shared input types.** When a caller module (e.g. `cmd`) and an orchestration module both appear, identify any type that both sides need and ensure it has a clear module home. Add a module entry for any type that would otherwise be claimed by both sides.
 
-8. **Draft the architecture** following the format in [docs/formats/architecture.md](docs/formats/architecture.md).
+8. **Survey the codebase** when documenting current architecture to confirm module paths and responsibilities.
 
-9. **Write the file** to the target path.
+9. **Draft the architecture** following the format in [docs/formats/architecture.md](docs/formats/architecture.md).
 
-10. **Report** the file path and a one-line summary of the modules covered.
+10. **Write the file** to the target path.
+
+11. **Report** the file path and a one-line summary of the modules covered.
