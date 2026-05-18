@@ -8,7 +8,7 @@ modules:
     orchestration: true
 
   - path: internal/cmd
-    description: Kong subcommand definitions for `run`, `comment`, `merge`, `review`, `architecture`, `validate`, workflow management (`list`, `stop`), and credential configuration. Each subcommand composes other internal packages to fulfil its action.
+    description: Kong subcommand definitions for `run`, `comment`, `merge`, `review`, `architecture`, `validate`, `pass`, workflow management (`list`, `stop`), and credential configuration. Each subcommand composes other internal packages to fulfil its action.
     orchestration: true
 
   - path: internal/run
