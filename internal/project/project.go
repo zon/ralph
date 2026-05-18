@@ -10,6 +10,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/zon/ralph/internal/ai"
+	"github.com/zon/ralph/internal/architecture"
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
@@ -325,7 +326,7 @@ func ExecuteDevelopmentIterationWithSetup(ctx *context.Context, setup *Iteration
 	}
 	logger.Verbose("AI agent execution completed")
 
-	if err := performPostAgentCleanup(ctx, setup.Project.Path, setup.Config.Services); err != nil {
+	if err := performPostAgentCleanup(ctx, setup.Project.Path, setup.Config.Services, setup.Project.Feature); err != nil {
 		return err
 	}
 
@@ -387,8 +388,9 @@ func handleServiceStartup(ctx *context.Context, cleanupRegistrar func(func()), r
 	return nil, nil
 }
 
-// performPostAgentCleanup removes service logs, normalizes project file, and stages it
-func performPostAgentCleanup(ctx *context.Context, absProjectFile string, servicesList []config.Service) error {
+// performPostAgentCleanup removes service logs, normalizes project file, stages it,
+// and migrates any implemented modules from the feature architecture to specs/architecture.yaml.
+func performPostAgentCleanup(ctx *context.Context, absProjectFile string, servicesList []config.Service, feature string) error {
 	// Remove service log files now that the iteration is complete
 	for _, svc := range servicesList {
 		logPath := services.LogFileName(svc.Name)
@@ -416,7 +418,42 @@ func performPostAgentCleanup(ctx *context.Context, absProjectFile string, servic
 			logger.Verbose("Project file staged")
 		}
 	}
+
+	if feature != "" {
+		migrateFeatureArchitecture(feature)
+	}
+
 	return nil
+}
+
+func migrateFeatureArchitecture(feature string) {
+	repoRoot, err := git.FindRepoRoot()
+	if err != nil {
+		logger.Verbosef("Skipping architecture migration: %v", err)
+		return
+	}
+
+	featureArchPath := filepath.Join(repoRoot, "specs", "features", feature, "architecture.yaml")
+	globalArchPath := filepath.Join(repoRoot, "specs", "architecture.yaml")
+
+	count, err := architecture.MigrateImplementedModules(featureArchPath, globalArchPath, repoRoot)
+	if err != nil {
+		logger.Verbosef("Architecture migration failed: %v", err)
+		return
+	}
+	if count == 0 {
+		return
+	}
+
+	logger.Infof("Migrated %d module(s) to specs/architecture.yaml", count)
+
+	for _, p := range []string{globalArchPath, featureArchPath} {
+		if git.IsFileModifiedOrNew(p) {
+			if err := git.StageFile(p); err != nil {
+				logger.Verbosef("Failed to stage %s: %v", p, err)
+			}
+		}
+	}
 }
 
 func marshalProjectToString(proj *Project) (string, error) {
