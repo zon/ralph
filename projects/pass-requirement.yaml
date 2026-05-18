@@ -10,7 +10,7 @@ requirements:
       - Add FileWithRequirement(t, slug string, passing bool) string that writes a valid single-requirement project YAML to a temp file and returns the path
       - Add RequirementStatus(t, path, slug string) bool that loads the project at path and returns the passing value for the named requirement
       - Add NonExistentFile(t) string that returns a path inside t.TempDir() guaranteed not to exist
-    passing: true
+passing: true
 
   - slug: pass-cmd
     description: Implement PassCmd in internal/cmd that marks a project requirement as passing or failing by slug
@@ -106,13 +106,13 @@ requirements:
               cmd := &PassCmd{ProjectFile: path, Slug: "unknown-slug"}
               assert.Error(t, cmd.Run())
           }
-    passing: false
+    passing: true
 
   - slug: register-pass-cmd
     description: Register PassCmd in the root Cmd struct so ralph pass is available as a CLI command
     items:
       - Add a Pass PassCmd field to the Cmd struct in internal/cmd/cmd.go with a cmd tag and help text "Mark a project requirement as passing or failing"
-    passing: false
+    passing: true
 
   - slug: version-bump
     description: Version bump
