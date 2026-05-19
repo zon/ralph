@@ -19,8 +19,10 @@ A project file MUST be a valid YAML file with `name`, `description`, and `requir
 #### Scenario: Missing required fields
 
 - GIVEN a YAML file missing `name` or `requirements`
-- WHEN `ralph validate <file>` is run
+- WHEN the project is loaded
 - THEN an error is reported describing the missing field
+
+See [the validate command spec](../validate/spec.md) for the behavior of the `ralph validate` subcommand that surfaces these errors.
 
 ### Requirement: Requirement Status
 
@@ -47,22 +49,6 @@ The system SHALL derive the git branch name from the project `name` field.
 - GIVEN a project with `name: user-authentication`
 - WHEN ralph runs
 - THEN the working branch is `ralph/user-authentication`
-
-### Requirement: Project Validation
-
-The system SHALL provide a `ralph validate <file>` command that checks a project file without executing it.
-
-#### Scenario: Valid file
-
-- GIVEN a correctly structured project YAML file
-- WHEN `ralph validate <file>` is run
-- THEN exit code 0 is returned with a success message
-
-#### Scenario: Invalid file
-
-- GIVEN a project YAML file with schema errors
-- WHEN `ralph validate <file>` is run
-- THEN a non-zero exit code is returned and each error is described
 
 ### Requirement: Spec and Orchestration References
 

@@ -1,0 +1,4 @@
+modules:
+  - path: internal/validate
+    description: Orchestration module for the `ralph validate` command. Coordinates a bounded fix loop that asks `internal/project` to load and save a project YAML file and delegates to an injected agent client when loading fails. Owns the `ProjectClient` and `AgentClient` interfaces consumed by the validator, the adapters that bind them to `internal/project` and `internal/ai`, and the mock fixtures for the agent namespace used by orchestration tests.
+    orchestration: true

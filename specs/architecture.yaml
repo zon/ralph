@@ -19,6 +19,10 @@ modules:
     description: Project YAML loading and validation plus requirement-completion logic. Coordinates `ai`, `config`, `git`, and `services` to advance iteration state and detect when a project is complete.
     orchestration: true
 
+  - path: internal/validate
+    description: Orchestration module for the `ralph validate` command. Drives a bounded fix loop that loads a project YAML via `internal/project`, asks an agent (via `internal/ai`) to repair the file when loading fails, and rewrites the file in canonical form once it parses. Owns the `ProjectClient` and `AgentClient` interfaces and the adapters that bind them to their underlying packages.
+    orchestration: true
+
   - path: internal/webhook
     description: GitHub webhook HTTP server built on Gin. Parses incoming payloads, filters events, and submits the corresponding Argo workflows for ralph execution.
     orchestration: true
@@ -32,7 +36,7 @@ modules:
     orchestration: true
 
   - path: internal/ai
-    description: Wraps the `opencode` CLI to run AI prompts with embedded instruction templates for PR summaries, changelogs, architecture generation, and code review.
+    description: Wraps the `opencode` CLI to run AI prompts with embedded instruction templates for PR summaries, changelogs, architecture generation, code review, and project YAML repair.
 
   - path: internal/opencode
     description: Thin wrapper around the `opencode` CLI used by `internal/ai` to invoke models with arbitrary prompts.
