@@ -74,7 +74,7 @@ requirements:
               require.NoError(t, svc.SetSkills("main"))
               require.Equal(t, fetched, mock.installed())
             }
-      passing: false
+      passing: true
     - slug: git-client-adapter
       description: Update the gitClient adapter in the cmd package to implement RepoRootOrCwd
       code:
@@ -87,16 +87,16 @@ requirements:
             func (gitClient) RepoRootOrCwd() string {
               return git.RepoRootOrCwd()
             }
-      passing: false
+      passing: true
     - slug: update-git-client-test-mocks
       description: Update test mocks and helpers in internal/setup to match the new GitClient interface
       items:
         - Replace all occurrences of RepoRoot with RepoRootOrCwd in mockGit, gitClientFunc, thatFindsRoot, and withNoRepo
         - withNoRepo must return a valid cwd path instead of an error, since RepoRootOrCwd is now infallible
         - Remove the no-longer-needed ErrNoGitRepo sentinel (if present)
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump
       items:
         - Apply a semver patch bump to the app version
-      passing: false
+      passing: true
