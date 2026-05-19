@@ -170,7 +170,7 @@ requirements:
         - Add project.any() returning a valid *project.Project with a slug, title, and one passing requirement
         - Add project.anyPath() returning a deterministic path string suitable for use in orchestration tests
         - Each fixture lives alongside internal/project so it owns its own type fixtures
-      passing: false
+      passing: true
     - slug: project-client-mocks
       description: Add ProjectClient mock builders used by the orchestration tests
       items:
