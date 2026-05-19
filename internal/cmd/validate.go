@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"github.com/zon/ralph/internal/logger"
-	"github.com/zon/ralph/internal/project"
+	"github.com/zon/ralph/internal/validate"
 )
 
 type ValidateCmd struct {
@@ -10,11 +10,13 @@ type ValidateCmd struct {
 }
 
 func (v *ValidateCmd) Run() error {
-	projectData, err := project.LoadProject(v.ProjectFile)
+	ctx := createExecutionContext()
+	validator := validate.New(ctx)
+	proj, err := validator.Validate(v.ProjectFile)
 	if err != nil {
 		return err
 	}
 
-	logger.Infof("Project '%s' is valid (%d requirements)", projectData.Slug, len(projectData.Requirements))
+	logger.Successf("Project '%s' is valid (%d requirements)", proj.Slug, len(proj.Requirements))
 	return nil
 }
