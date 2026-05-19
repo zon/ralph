@@ -180,7 +180,7 @@ requirements:
         - Implement project.thatAlwaysFailsToLoad() returning a mock whose Load always returns an error
         - Implement project.thatLoadsButFailsToSave(proj) returning a mock whose Load returns proj and whose Save returns an error
         - Implement project.lastSaved() returning the most recent project passed to Save during the test
-      passing: false
+      passing: true
     - slug: project-fix-prompt
       description: Add the project fix instruction template and prompt builder to internal/ai
       items:
