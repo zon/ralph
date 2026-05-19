@@ -29,7 +29,7 @@ A requirement may include any of the following optional sections:
   - `body` — the test code; may be a full implementation or just the signature
 - `items` — additional behavioral constraints that fall outside the spec and orchestration. Each item describes a behavior, edge case, or operational requirement you must satisfy. Items contain no architecture decisions: you choose where the code lives and what its shape is, guided by the existing `code` entries and the modules listed in `architecture.yaml`. Cover every item — with tests when the behavior is testable, and with implementation when it requires code.
 
-The `slug` field uniquely identifies the requirement inside the project file. Use it to locate the matching entry and set `passing: true` when the work is complete.
+The `slug` field uniquely identifies the requirement inside the project file.
 {{- if .Notes}}
 
 **System Notes:**
@@ -67,7 +67,7 @@ Work through the steps in order. Each step skips any work already completed by a
 6. **Scenarios** — write the code needed to make the scenario tests from step 5 pass.
 7. **Item tests** — for each `items` entry whose behavior is observable, write a test that asserts the behavior. Do not write supporting code in this step.
 8. **Items** — write the code needed to make the item tests from step 7 pass, plus any item not covered by a test from step 7.
-9. **Mark passing** — once every step above is done and all tests pass, locate the requirement in the project YAML file by its `slug` and set `passing: true`.
+9. **Mark passing** — once every step above is done and all tests pass, run `ralph pass {{.ProjectFilePath}} <slug>` to mark the requirement as passing.
 
 ## Output
 
