@@ -451,3 +451,23 @@ func TestBuildArchitectureFixPrompt_EmptyErrors(t *testing.T) {
 	assert.NotEmpty(t, prompt, "architecture fix prompt should not be empty")
 	assert.Contains(t, prompt, "/tmp/architecture.yaml", "prompt should include output file path")
 }
+
+func TestBuildProjectFixPrompt(t *testing.T) {
+	loadErr := errors.New("yaml: line 42: did not find expected node")
+	prompt, err := BuildProjectFixPrompt("/tmp/project.yaml", loadErr)
+
+	require.NoError(t, err, "BuildProjectFixPrompt failed")
+	assert.NotEmpty(t, prompt, "project fix prompt should not be empty")
+	assert.Contains(t, prompt, "/tmp/project.yaml", "prompt should include project file path")
+	assert.Contains(t, prompt, "yaml: line 42: did not find expected node", "prompt should include load error")
+	assert.Contains(t, prompt, "## Load Error", "prompt should include Load Error section")
+}
+
+func TestBuildProjectFixPrompt_AbsolutePath(t *testing.T) {
+	loadErr := errors.New("test load error")
+	prompt, err := BuildProjectFixPrompt("project.yaml", loadErr)
+
+	require.NoError(t, err, "BuildProjectFixPrompt failed")
+	absPath, _ := filepath.Abs("project.yaml")
+	assert.Contains(t, prompt, absPath, "prompt should contain absolute path")
+}

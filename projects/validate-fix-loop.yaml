@@ -192,7 +192,7 @@ requirements:
           module: internal/ai
           body: |
             func BuildProjectFixPrompt(projectFile string, loadErr error) (string, error)
-      passing: false
+      passing: true
     - slug: agent-client-adapter
       description: Add the AgentClient adapter that builds the fix prompt and runs the agent locally with the configured model
       scenarios:
