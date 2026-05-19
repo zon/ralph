@@ -16,8 +16,8 @@ type SetSkillsCmd struct {
 
 type gitClient struct{}
 
-func (gitClient) RepoRoot() (string, error) {
-	return git.RepoRoot()
+func (gitClient) RepoRootOrCwd() string {
+	return git.RepoRootOrCwd()
 }
 
 type skillsClient struct{}

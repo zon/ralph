@@ -2,6 +2,7 @@ package setup
 
 import (
 	"errors"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -12,25 +13,26 @@ var ErrDiscoveryFailed = errors.New("discovery failed")
 var ErrFetchFailed = errors.New("fetch failed")
 
 type mockGit struct {
-	rootFn func() (string, error)
+	rootFn func() string
 }
 
-func (m *mockGit) RepoRoot() (string, error) {
+func (m *mockGit) RepoRootOrCwd() string {
 	return m.rootFn()
 }
 
-type gitClientFunc func() (string, error)
+type gitClientFunc func() string
 
-func (f gitClientFunc) RepoRoot() (string, error) {
+func (f gitClientFunc) RepoRootOrCwd() string {
 	return f()
 }
 
 func thatFindsRoot(root string) GitClient {
-	return gitClientFunc(func() (string, error) { return root, nil })
+	return gitClientFunc(func() string { return root })
 }
 
 func withNoRepo() GitClient {
-	return gitClientFunc(func() (string, error) { return "", errors.New("not inside a git repository") })
+	cwd, _ := os.Getwd()
+	return gitClientFunc(func() string { return cwd })
 }
 
 type mockSkills struct {
@@ -165,13 +167,14 @@ func TestSetSkillsSuccess(t *testing.T) {
 }
 
 func TestSetSkillsNoGitRepo(t *testing.T) {
-	mock := newMock()
+	fetched := anySkills()
+	mock := newMock(thatFetches(fetched))
 	svc := withMocks(
 		withGit(withNoRepo()),
 		withSkills(mock),
 	)
-	require.Error(t, svc.SetSkills("main"))
-	require.Empty(t, mock.installed())
+	require.NoError(t, svc.SetSkills("main"))
+	require.Equal(t, fetched, mock.installed())
 }
 
 func TestSetSkillsDiscoveryFails(t *testing.T) {

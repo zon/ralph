@@ -3,7 +3,7 @@ package setup
 import "github.com/zon/ralph/internal/skills"
 
 type GitClient interface {
-	RepoRoot() (string, error)
+	RepoRootOrCwd() string
 }
 
 type SkillsClient interface {
@@ -19,18 +19,18 @@ type Setup struct {
 }
 
 func (s *Setup) SetSkills(branch string) error {
-	root, err := s.git.RepoRoot()
-	if err != nil {
-		return err
-	}
+	root := s.git.RepoRootOrCwd()
+
 	names, err := s.skills.Discover(branch)
 	if err != nil {
 		return err
 	}
+
 	fetched, err := s.skills.FetchAll(branch, names)
 	if err != nil {
 		return err
 	}
+
 	s.skills.PruneStale(root, fetched)
 	return s.skills.InstallAll(root, fetched)
 }
