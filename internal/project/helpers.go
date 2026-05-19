@@ -3,6 +3,7 @@ package project
 import (
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"gopkg.in/yaml.v3"
@@ -57,4 +58,78 @@ func RequirementStatus(t *testing.T, path, slug string) bool {
 func NonExistentFile(t *testing.T) string {
 	t.Helper()
 	return filepath.Join(t.TempDir(), "nonexistent.yaml")
+}
+
+func Any() *Project {
+	return &Project{
+		Slug:  "test-project",
+		Title: "Test Project",
+		Requirements: []Requirement{
+			{
+				Slug:        "test-requirement",
+				Description: "A test requirement",
+				Items:       []string{"Test item"},
+				Passing:     true,
+			},
+		},
+	}
+}
+
+var anyPathValue = "/workspace/repo/projects/test-project.yaml"
+
+func AnyPath() string {
+	return anyPathValue
+}
+
+var lastSavedValue *Project
+
+func LastSaved() *Project {
+	return lastSavedValue
+}
+
+func SetLastSaved(p *Project) {
+	lastSavedValue = p
+}
+
+var (
+	agentFixMu    sync.Mutex
+	agentFixCalls []struct {
+		path    string
+		loadErr error
+	}
+)
+
+func RecordFixCall(path string, loadErr error) {
+	agentFixMu.Lock()
+	agentFixCalls = append(agentFixCalls, struct {
+		path    string
+		loadErr error
+	}{path, loadErr})
+	agentFixMu.Unlock()
+}
+
+func FixCalls() []struct {
+	path    string
+	loadErr error
+} {
+	agentFixMu.Lock()
+	defer agentFixMu.Unlock()
+	calls := make([]struct {
+		path    string
+		loadErr error
+	}, len(agentFixCalls))
+	copy(calls, agentFixCalls)
+	return calls
+}
+
+func ResetFixCalls() {
+	agentFixMu.Lock()
+	agentFixCalls = nil
+	agentFixMu.Unlock()
+}
+
+var loadAttempts int
+
+func ResetLoadAttempts() {
+	loadAttempts = 0
 }

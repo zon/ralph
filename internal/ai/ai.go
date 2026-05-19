@@ -35,6 +35,9 @@ var architectureInstructions string
 //go:embed architecture-fix-instructions.md
 var architectureFixInstructions string
 
+//go:embed project-fix-instructions.md
+var projectFixInstructions string
+
 //go:embed review-instructions.md
 var reviewInstructions string
 
@@ -241,6 +244,21 @@ func BuildArchitectureFixPrompt(outputFile string, errors []string) (string, err
 
 	data := ArchitectureFixPromptData{OutputFile: absPath, Errors: errors}
 	return executeTemplate(architectureFixInstructions, data)
+}
+
+type ProjectFixPromptData struct {
+	ProjectFile string
+	LoadError   string
+}
+
+func BuildProjectFixPrompt(projectFile string, loadErr error) (string, error) {
+	absPath, err := filepath.Abs(projectFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path: %w", err)
+	}
+
+	data := ProjectFixPromptData{ProjectFile: absPath, LoadError: loadErr.Error()}
+	return executeTemplate(projectFixInstructions, data)
 }
 
 func resolveModel(ctx *execcontext.Context) string {
