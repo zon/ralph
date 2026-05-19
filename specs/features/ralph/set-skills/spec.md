@@ -94,7 +94,7 @@ Absolute links already pointing to the ralph raw content URL SHALL have their br
 
 ### Requirement: Target Repository Detection
 
-The system SHALL install skills into the repository containing the current working directory.
+The system SHALL install skills at the root of the git repository containing the current working directory. If the current directory is not inside a git repository, the system SHALL fall back to the current working directory as the install root.
 
 #### Scenario: Current directory is inside a git repo
 
@@ -106,4 +106,4 @@ The system SHALL install skills into the repository containing the current worki
 
 - GIVEN the current working directory is not inside any git repository
 - WHEN the user runs `ralph set skills`
-- THEN an error is returned and no files are written
+- THEN skills are installed into `.claude/skills/` relative to the current working directory

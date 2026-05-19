@@ -1,7 +1,7 @@
 # Set Skills Orchestration
 
 ## Purpose
-Discover, fetch, and install ralph-prefixed Claude Code skills from the ralph GitHub repository into the target git repository, pruning any stale ralph skills no longer present upstream.
+Discover, fetch, and install ralph-prefixed Claude Code skills from the ralph GitHub repository into the target directory, pruning any stale ralph skills no longer present upstream.
 
 ## Orchestration
 
@@ -14,10 +14,7 @@ type Setup struct {
 }
 
 func (s *Setup) SetSkills(branch string) error {
-	root, err := s.git.RepoRoot()
-	if err != nil {
-		return err
-	}
+	root := s.git.RepoRootOrCwd()
 
 	names, err := s.skills.Discover(branch)
 	if err != nil {
@@ -36,7 +33,7 @@ func (s *Setup) SetSkills(branch string) error {
 
 ### Helpers
 
-- **`s.git.RepoRoot()`** — returns the root path of the git repository containing the current working directory
+- **`s.git.RepoRootOrCwd()`** — returns the root path of the git repository containing the current working directory; falls back to the current working directory if not inside a git repository
 - **`s.skills.Discover(branch)`** — queries the GitHub Contents API and returns the names of all ralph-prefixed skill directories on the given branch
 - **`s.skills.FetchAll(branch, names)`** — fetches each skill's SKILL.md from raw GitHub URLs, rewrites links to the resolved branch, and returns the collected skills
 - **`s.skills.PruneStale(root, fetched)`** — removes ralph-prefixed skill directories from the target repository that are absent from the fetched set; leaves non-ralph skills untouched
@@ -61,13 +58,14 @@ func TestSetSkillsSuccess(t *testing.T) {
 }
 
 func TestSetSkillsNoGitRepo(t *testing.T) {
-	mock := skills.newMock()
+	fetched := skills.anySkills()
+	mock := skills.newMock(skills.thatFetches(fetched))
 	svc := setup.withMocks(
 		setup.withGit(git.withNoRepo()),
 		setup.withSkills(mock),
 	)
-	require.Error(t, svc.SetSkills("main"))
-	require.Empty(t, mock.installed())
+	require.NoError(t, svc.SetSkills("main"))
+	require.Equal(t, fetched, mock.installed())
 }
 
 func TestSetSkillsDiscoveryFails(t *testing.T) {
@@ -91,8 +89,8 @@ func TestSetSkillsFetchFails(t *testing.T) {
 - **`setup.withGit(client)`** — option that sets the git client on the mock setup
 - **`setup.withSkills(client)`** — option that sets the skills client on the mock setup
 - **`git.anyRoot()`** — returns a valid repository root path suitable for use in tests
-- **`git.thatFindsRoot(root)`** — returns a git mock whose `RepoRoot` returns the given root
-- **`git.withNoRepo()`** — returns a git mock whose `RepoRoot` returns an error
+- **`git.thatFindsRoot(root)`** — returns a git mock whose `RepoRootOrCwd` returns the given root
+- **`git.withNoRepo()`** — returns a git mock whose `RepoRootOrCwd` returns the current working directory (simulating a non-git directory)
 - **`skills.anySkills()`** — returns a non-empty slice of skills in a default valid state
 - **`skills.newMock(opts...)`** — constructs a recording skills mock; pass option helpers to configure its behavior
 - **`skills.thatFetches(skills)`** — option configuring the mock to return names derived from the given skills on `Discover` and the skills themselves on `FetchAll`
