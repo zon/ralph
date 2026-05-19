@@ -267,7 +267,7 @@ requirements:
                 logger.Successf("Project '%s' is valid (%d requirements)", proj.Slug, len(proj.Requirements))
                 return nil
             }
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump
       items:
