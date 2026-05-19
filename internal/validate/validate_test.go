@@ -1,6 +1,7 @@
 package validate
 
 import (
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -27,12 +28,49 @@ func (m *mockProjectClient) Save(path string, proj *project.Project) error {
 	return nil
 }
 
+var (
+	agentFixMu    sync.Mutex
+	agentFixCalls []struct {
+		path    string
+		loadErr error
+	}
+)
+
+func RecordFixCall(path string, loadErr error) {
+	agentFixMu.Lock()
+	agentFixCalls = append(agentFixCalls, struct {
+		path    string
+		loadErr error
+	}{path, loadErr})
+	agentFixMu.Unlock()
+}
+
+func FixCalls() []struct {
+	path    string
+	loadErr error
+} {
+	agentFixMu.Lock()
+	defer agentFixMu.Unlock()
+	calls := make([]struct {
+		path    string
+		loadErr error
+	}, len(agentFixCalls))
+	copy(calls, agentFixCalls)
+	return calls
+}
+
+func ResetFixCalls() {
+	agentFixMu.Lock()
+	agentFixCalls = nil
+	agentFixMu.Unlock()
+}
+
 type mockAgentClient struct {
 	fixFunc func(path string, loadErr error) error
 }
 
 func (m *mockAgentClient) FixProject(path string, loadErr error) error {
-	project.RecordFixCall(path, loadErr)
+	RecordFixCall(path, loadErr)
 	if m.fixFunc != nil {
 		return m.fixFunc(path, loadErr)
 	}
@@ -147,7 +185,7 @@ func (e *mockFixError) Error() string {
 
 func TestValidateSucceedsOnFirstLoad(t *testing.T) {
 	project.ResetLoadAttempts()
-	project.ResetFixCalls()
+	ResetFixCalls()
 	project.SetLastSaved(nil)
 	proj := project.Any()
 	svc := withMocks(
@@ -157,12 +195,12 @@ func TestValidateSucceedsOnFirstLoad(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, proj, result)
 	require.Equal(t, proj, project.LastSaved())
-	require.Empty(t, project.FixCalls())
+	require.Empty(t, FixCalls())
 }
 
 func TestValidateRepairsThenSucceeds(t *testing.T) {
 	project.ResetLoadAttempts()
-	project.ResetFixCalls()
+	ResetFixCalls()
 	proj := project.Any()
 	svc := withMocks(
 		withProject(thatLoadsAfterFailures(1, proj)),
@@ -170,23 +208,23 @@ func TestValidateRepairsThenSucceeds(t *testing.T) {
 	result, err := svc.Validate(project.AnyPath())
 	require.NoError(t, err)
 	require.Equal(t, proj, result)
-	require.Len(t, project.FixCalls(), 1)
+	require.Len(t, FixCalls(), 1)
 }
 
 func TestValidateGivesUpAfterMaxAttempts(t *testing.T) {
 	project.ResetLoadAttempts()
-	project.ResetFixCalls()
+	ResetFixCalls()
 	svc := withMocks(
 		withProject(thatAlwaysFailsToLoad()),
 	)
 	_, err := svc.Validate(project.AnyPath())
 	require.Error(t, err)
-	require.Len(t, project.FixCalls(), MaxAttempts-1)
+	require.Len(t, FixCalls(), MaxAttempts-1)
 }
 
 func TestValidatePropagatesAgentFailure(t *testing.T) {
 	project.ResetLoadAttempts()
-	project.ResetFixCalls()
+	ResetFixCalls()
 	svc := withMocks(
 		withProject(thatAlwaysFailsToLoad()),
 		withAgent(thatFailsToFix()),
@@ -197,7 +235,7 @@ func TestValidatePropagatesAgentFailure(t *testing.T) {
 
 func TestValidatePropagatesSaveFailure(t *testing.T) {
 	project.ResetLoadAttempts()
-	project.ResetFixCalls()
+	ResetFixCalls()
 	svc := withMocks(
 		withProject(thatLoadsButFailsToSave(project.Any())),
 	)

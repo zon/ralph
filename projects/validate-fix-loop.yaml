@@ -232,7 +232,7 @@ requirements:
         - Implement agent.thatFailsToFix() returning a mock whose FixProject returns an error
         - Implement agent.fixCalls() returning the list of (path, error) pairs passed to FixProject during the test
         - The default mock used by validate.withMocks() must record FixProject calls without returning an error
-      passing: false
+      passing: true
     - slug: validate-cmd-wiring
       description: Refactor internal/cmd/validate.go so the Kong command wires up the Validator, runs it, and logs the success message
       items:
