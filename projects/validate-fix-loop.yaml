@@ -163,7 +163,7 @@ requirements:
             func (projectClient) Save(path string, proj *project.Project) error {
                 return project.SaveProject(path, proj)
             }
-      passing: false
+      passing: true
     - slug: project-test-fixtures
       description: Add project fixture builders in internal/project for use by validate orchestration tests
       items:
