@@ -56,6 +56,17 @@ func RepoRoot() (string, error) {
 	return FindRepoRoot()
 }
 
+// RepoRootOrCwd returns the root directory of the git repository containing the current working directory,
+// or the current working directory if not inside a git repository.
+func RepoRootOrCwd() string {
+	root, err := FindRepoRoot()
+	if err != nil {
+		cwd, _ := os.Getwd()
+		return cwd
+	}
+	return root
+}
+
 // RevParse executes git rev-parse with the given arguments
 func RevParse(args ...string) (string, error) {
 	fullArgs := append([]string{"rev-parse"}, args...)

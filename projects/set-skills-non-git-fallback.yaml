@@ -1,108 +1,102 @@
 slug: set-skills-non-git-fallback
 title: Fall back to cwd when installing skills outside a git repo
-
 feature: specs/features/ralph/set-skills
-
 requirements:
-  - slug: repo-root-or-cwd
-    description: Add RepoRootOrCwd to the git package that returns cwd when not in a git repo
-    scenarios:
-      - title: Current directory is inside a git repo
-        items:
-          - GIVEN the current working directory is inside a git repository
-          - WHEN RepoRootOrCwd is called
-          - THEN the root of that git repository is returned
-      - title: Current directory is not inside a git repo
-        items:
-          - GIVEN the current working directory is not inside any git repository
-          - WHEN RepoRootOrCwd is called
-          - THEN the current working directory is returned
-    code:
-      - name: RepoRootOrCwd
-        description: returns the git repo root, falling back to cwd if not in a repo
-        module: internal/git
-        body: |
-          func RepoRootOrCwd() string {
-            root, err := FindRepoRoot()
-            if err != nil {
-              cwd, _ := os.Getwd()
-              return cwd
+    - slug: repo-root-or-cwd
+      description: Add RepoRootOrCwd to the git package that returns cwd when not in a git repo
+      scenarios:
+        - title: Current directory is inside a git repo
+          items:
+            - GIVEN the current working directory is inside a git repository
+            - WHEN RepoRootOrCwd is called
+            - THEN the root of that git repository is returned
+        - title: Current directory is not inside a git repo
+          items:
+            - GIVEN the current working directory is not inside any git repository
+            - WHEN RepoRootOrCwd is called
+            - THEN the current working directory is returned
+      code:
+        - name: RepoRootOrCwd
+          description: returns the git repo root, falling back to cwd if not in a repo
+          module: internal/git
+          body: |
+            func RepoRootOrCwd() string {
+              root, err := FindRepoRoot()
+              if err != nil {
+                cwd, _ := os.Getwd()
+                return cwd
+              }
+              return root
             }
-            return root
-          }
-    passing: false
-
-  - slug: git-client-interface
-    description: Update the GitClient interface and Setup orchestration to use RepoRootOrCwd
-    code:
-      - name: GitClient
-        description: interface used by Setup to resolve the install root
-        module: internal/setup
-        body: |
-          type GitClient interface {
-            RepoRootOrCwd() string
-          }
-      - name: SetSkills
-        description: orchestration method using the infallible RepoRootOrCwd
-        module: internal/setup
-        body: |
-          func (s *Setup) SetSkills(branch string) error {
-            root := s.git.RepoRootOrCwd()
-
-            names, err := s.skills.Discover(branch)
-            if err != nil {
-              return err
+      passing: true
+    - slug: git-client-interface
+      description: Update the GitClient interface and Setup orchestration to use RepoRootOrCwd
+      code:
+        - name: GitClient
+          description: interface used by Setup to resolve the install root
+          module: internal/setup
+          body: |
+            type GitClient interface {
+              RepoRootOrCwd() string
             }
+        - name: SetSkills
+          description: orchestration method using the infallible RepoRootOrCwd
+          module: internal/setup
+          body: |
+            func (s *Setup) SetSkills(branch string) error {
+              root := s.git.RepoRootOrCwd()
 
-            fetched, err := s.skills.FetchAll(branch, names)
-            if err != nil {
-              return err
+              names, err := s.skills.Discover(branch)
+              if err != nil {
+                return err
+              }
+
+              fetched, err := s.skills.FetchAll(branch, names)
+              if err != nil {
+                return err
+              }
+
+              s.skills.PruneStale(root, fetched)
+              return s.skills.InstallAll(root, fetched)
             }
+      tests:
+        - name: TestSetSkillsNoGitRepo
+          description: verifies skills are installed into cwd when not inside a git repository
+          module: internal/setup
+          body: |
+            func TestSetSkillsNoGitRepo(t *testing.T) {
+              fetched := anySkills()
+              mock := newMock(thatFetches(fetched))
+              svc := withMocks(
+                withGit(withNoRepo()),
+                withSkills(mock),
+              )
+              require.NoError(t, svc.SetSkills("main"))
+              require.Equal(t, fetched, mock.installed())
+            }
+      passing: false
+    - slug: git-client-adapter
+      description: Update the gitClient adapter in the cmd package to implement RepoRootOrCwd
+      code:
+        - name: gitClient
+          description: cmd-layer adapter wiring the git package to the setup.GitClient interface
+          module: internal/cmd
+          body: |
+            type gitClient struct{}
 
-            s.skills.PruneStale(root, fetched)
-            return s.skills.InstallAll(root, fetched)
-          }
-    tests:
-      - name: TestSetSkillsNoGitRepo
-        description: verifies skills are installed into cwd when not inside a git repository
-        module: internal/setup
-        body: |
-          func TestSetSkillsNoGitRepo(t *testing.T) {
-            fetched := anySkills()
-            mock := newMock(thatFetches(fetched))
-            svc := withMocks(
-              withGit(withNoRepo()),
-              withSkills(mock),
-            )
-            require.NoError(t, svc.SetSkills("main"))
-            require.Equal(t, fetched, mock.installed())
-          }
-    passing: false
-
-  - slug: git-client-adapter
-    description: Update the gitClient adapter in the cmd package to implement RepoRootOrCwd
-    code:
-      - name: gitClient
-        description: cmd-layer adapter wiring the git package to the setup.GitClient interface
-        module: internal/cmd
-        body: |
-          type gitClient struct{}
-
-          func (gitClient) RepoRootOrCwd() string {
-            return git.RepoRootOrCwd()
-          }
-    passing: false
-
-  - slug: update-git-client-test-mocks
-    description: Update test mocks and helpers in internal/setup to match the new GitClient interface
-    items:
-      - Replace all occurrences of RepoRoot with RepoRootOrCwd in mockGit, gitClientFunc, thatFindsRoot, and withNoRepo
-      - withNoRepo must return a valid cwd path instead of an error, since RepoRootOrCwd is now infallible
-      - Remove the no-longer-needed ErrNoGitRepo sentinel (if present)
-    passing: false
-
-  - slug: version-bump
-    description: Version bump
-    items:
-      - Apply a semver patch bump to the app version
-    passing: false
+            func (gitClient) RepoRootOrCwd() string {
+              return git.RepoRootOrCwd()
+            }
+      passing: false
+    - slug: update-git-client-test-mocks
+      description: Update test mocks and helpers in internal/setup to match the new GitClient interface
+      items:
+        - Replace all occurrences of RepoRoot with RepoRootOrCwd in mockGit, gitClientFunc, thatFindsRoot, and withNoRepo
+        - withNoRepo must return a valid cwd path instead of an error, since RepoRootOrCwd is now infallible
+        - Remove the no-longer-needed ErrNoGitRepo sentinel (if present)
+      passing: false
+    - slug: version-bump
+      description: Version bump
+      items:
+        - Apply a semver patch bump to the app version
+      passing: false
