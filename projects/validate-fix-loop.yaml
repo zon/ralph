@@ -224,7 +224,7 @@ requirements:
                 }
                 return ai.RunAgent(a.ctx, prompt)
             }
-      passing: false
+      passing: true
     - slug: agent-client-mocks
       description: Add AgentClient mock builders used by the orchestration tests
       items:
