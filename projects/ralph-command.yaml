@@ -273,4 +273,4 @@ requirements:
       items:
         - Apply a semver minor bump to internal/version/VERSION
         - Apply a matching patch bump to charts/ralph-webhook/Chart.yaml (appVersion and version)
-      passing: false
+      passing: true
