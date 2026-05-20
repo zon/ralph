@@ -178,7 +178,7 @@ requirements:
           module: internal/run
           body: |
             func TestExecuteCommand_CommandSuccess(t *testing.T)
-      passing: false
+      passing: true
     - slug: run-command-helper
       description: runCommand helper in internal/run that executes command tokens as a subprocess, streaming output
       code:

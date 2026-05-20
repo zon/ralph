@@ -29,6 +29,11 @@ type ExecutionSetup struct {
 	BaseBranch    string
 }
 
+type CommandSetup struct {
+	Command []string
+	Config  *config.RalphConfig
+}
+
 func PrepareExecution(ctx *context.Context) (*ExecutionSetup, error) {
 	absProjectFile, err := filepath.Abs(ctx.ProjectFile())
 	if err != nil {
@@ -66,6 +71,28 @@ func PrepareExecution(ctx *context.Context) (*ExecutionSetup, error) {
 		CurrentBranch: currentBranch,
 		BaseBranch:    baseBranch,
 	}, nil
+}
+
+func ExecuteCommand(ctx *context.Context, cleanupRegistrar func(func()), setup *CommandSetup) error {
+	if !ctx.IsLocal() {
+		return executeCommandRemote(ctx, setup)
+	}
+
+	if err := infrastructureRunBeforeCommands(setup.Config); err != nil {
+		return err
+	}
+
+	if err := runCommand(setup.Command); err != nil {
+		notify.Error("command", ctx.ShouldNotify())
+		return err
+	}
+
+	notify.Success("command", ctx.ShouldNotify())
+	return nil
+}
+
+func executeCommandRemote(ctx *context.Context, setup *CommandSetup) error {
+	return fmt.Errorf("not implemented")
 }
 
 func Execute(ctx *context.Context, cleanupRegistrar func(func()), setup *ExecutionSetup) error {

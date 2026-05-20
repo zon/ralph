@@ -74,6 +74,13 @@ func WithNoServices(noServices bool) ContextOption {
 	}
 }
 
+// WithLocal sets the local flag
+func WithLocal(local bool) ContextOption {
+	return func(ctx *context.Context) {
+		ctx.SetLocal(local)
+	}
+}
+
 // WithInstructions sets the instructions file path
 func WithInstructions(instructions string) ContextOption {
 	return func(ctx *context.Context) {
