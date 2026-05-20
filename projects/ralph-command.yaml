@@ -82,7 +82,7 @@ requirements:
                 assert.Error(t, err)
                 assert.Contains(t, err.Error(), "--follow")
             }
-      passing: false
+      passing: true
     - slug: command-flags
       description: CommandFlags type with Validate method rejecting incompatible flag combinations
       code:

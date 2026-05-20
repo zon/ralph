@@ -32,7 +32,8 @@ func (c *CommandCmd) Run() error {
 		return err
 	}
 
-	if err := CommandFlags{Follow: c.Follow, Local: c.Local, Debug: c.Debug}.Validate(); err != nil {
+	flags := CommandFlags{Follow: c.Follow, Local: c.Local, Debug: c.Debug}
+	if err := flags.Validate(); err != nil {
 		return err
 	}
 
