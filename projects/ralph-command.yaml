@@ -209,7 +209,7 @@ requirements:
           module: internal/run
           body: |
             func executeCommandRemote(ctx *context.Context, setup *CommandSetup) error
-      passing: false
+      passing: true
     - slug: generate-command-workflow
       description: GenerateCommandWorkflow in internal/workflow that builds a Workflow embedding the user command
       code:

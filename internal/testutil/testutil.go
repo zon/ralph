@@ -81,6 +81,13 @@ func WithLocal(local bool) ContextOption {
 	}
 }
 
+// WithFollow sets the follow flag
+func WithFollow(follow bool) ContextOption {
+	return func(ctx *context.Context) {
+		ctx.SetFollow(follow)
+	}
+}
+
 // WithInstructions sets the instructions file path
 func WithInstructions(instructions string) ContextOption {
 	return func(ctx *context.Context) {

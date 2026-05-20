@@ -92,3 +92,28 @@ requirements: []
 	err := ExecuteCommand(ctx, func(f func()) {}, setup)
 	assert.NoError(t, err)
 }
+
+func TestExecuteCommandRemote_SubmitsWorkflow(t *testing.T) {
+	tmpDir := t.TempDir()
+	projectFile := tmpDir + "/test-project.yaml"
+	require.NoError(t, os.WriteFile(projectFile, []byte(`slug: test-project
+title: Test project
+requirements: []
+`), 0644))
+
+	ralphConfig := &config.RalphConfig{}
+
+	setup := &CommandSetup{
+		Command: []string{"echo", "hello"},
+		Config:  ralphConfig,
+	}
+
+	ctx := testutil.NewContext(
+		testutil.WithProjectFile(projectFile),
+		testutil.WithLocal(false),
+		testutil.WithNoNotify(true),
+	)
+
+	err := executeCommandRemote(ctx, setup)
+	assert.NoError(t, err)
+}
