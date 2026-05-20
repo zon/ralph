@@ -283,6 +283,53 @@ func GenerateArchitectureWorkflowWithGitInfo(repoURL, cloneBranch, output string
 	}, nil
 }
 
+func resolveRemoteURL(ctx *execcontext.Context) (string, error) {
+	if ctx.Repo() != "" {
+		owner, name := ctx.RepoOwnerAndName()
+		return githubpkg.CloneURL(owner, name), nil
+	}
+	return git.RemoteURL()
+}
+
+// GenerateCommandWorkflow builds a Workflow for remote command execution,
+// cloning the current branch and running the supplied command.
+func GenerateCommandWorkflow(ctx *execcontext.Context, cloneBranch string) (*Workflow, error) {
+	remoteURL, err := resolveRemoteURL(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	ralphConfig, err := config.LoadConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	repo, err := githubpkg.ParseRemoteURL(remoteURL)
+	if err != nil {
+		return nil, err
+	}
+
+	opts := workflowOptionsFromConfig(ralphConfig, ctx)
+
+	return &Workflow{
+		ProjectName: "command",
+		Repo:        repo,
+		CloneBranch: cloneBranch,
+		Command:     ctx.Command(),
+		Verbose:     ctx.IsVerbose(),
+		DebugBranch: ctx.DebugBranch(),
+		NoServices:  ctx.NoServices(),
+		Model:       ctx.Model(),
+		Image:       opts.Image,
+		ConfigMaps:  opts.ConfigMaps,
+		Secrets:     opts.Secrets,
+		Env:         opts.Env,
+		KubeContext: opts.KubeContext,
+		Namespace:   opts.Namespace,
+		Labels:      opts.Labels,
+	}, nil
+}
+
 // resolveImage returns the container image string from config, falling back to the default.
 func resolveImage(imageRepository, imageTag string) string {
 	imageRepo := "ghcr.io/zon/ralph"

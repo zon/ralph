@@ -253,7 +253,7 @@ requirements:
                     Labels:      opts.Labels,
                 }, nil
             }
-      passing: false
+      passing: true
     - slug: workflow-command-support
       description: Add Command field to the Workflow struct and wire it into the container args and env vars
       items:
