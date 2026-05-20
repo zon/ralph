@@ -3,6 +3,8 @@ package run
 import (
 	"errors"
 	"fmt"
+	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/zon/ralph/internal/ai"
@@ -142,6 +144,19 @@ func infrastructureRunBeforeCommands(cfg *config.RalphConfig) error {
 
 func infrastructureGetCommitLog(baseBranch string, n int) (string, error) {
 	return git.GetCommitLog(baseBranch, n)
+}
+
+func runCommand(command []string) error {
+	if len(command) == 0 {
+		return fmt.Errorf("command required")
+	}
+	cmd := exec.Command(command[0], command[1:]...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("command failed: %w", err)
+	}
+	return nil
 }
 
 func executeRemote(ctx *context.Context, absProjectFile string) error {

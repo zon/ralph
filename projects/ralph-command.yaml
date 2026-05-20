@@ -187,7 +187,7 @@ requirements:
           module: internal/run
           body: |
             func runCommand(command []string) error
-      passing: false
+      passing: true
     - slug: execute-command-remote
       description: executeCommandRemote in internal/run that generates and submits an Argo Workflow embedding the command
       scenarios:
