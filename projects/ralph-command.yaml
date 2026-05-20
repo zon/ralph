@@ -261,7 +261,7 @@ requirements:
         - When Command is non-empty, buildMainTemplate must invoke ralph workflow --command -- <tokens> in the container args
         - ctx.Command() and ctx.SetCommand() must be added to internal/context
         - workflowOptionsFromConfig must be extracted as a shared helper in internal/workflow if it does not already exist
-      passing: false
+      passing: true
     - slug: register-command-subcommand
       description: Register CommandCmd with the Kong CLI in cmd/ralph so ralph command is a valid subcommand
       items:

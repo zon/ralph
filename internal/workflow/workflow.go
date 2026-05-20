@@ -66,6 +66,8 @@ type Workflow struct {
 	Architecture bool
 	// ArchitectureOutput is the output path for architecture.yaml when Architecture is true.
 	ArchitectureOutput string
+	// Command is the command tokens to pass to `ralph workflow --command -- <tokens>`.
+	Command []string
 }
 
 // Render produces the Argo Workflow YAML string for this Workflow.
@@ -172,6 +174,16 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 			"--local",
 			"--output", w.ArchitectureOutput,
 		}
+		if w.Verbose {
+			args = append(args, "--verbose")
+		}
+		if w.Model != "" {
+			args = append(args, "--model", w.Model)
+		}
+	} else if len(w.Command) > 0 {
+		command = []string{"ralph"}
+		args = []string{"workflow", "--command", "--"}
+		args = append(args, w.Command...)
 		if w.Verbose {
 			args = append(args, "--verbose")
 		}

@@ -453,6 +453,51 @@ func TestNewContextFromEnvEmpty(t *testing.T) {
 	assert.Equal(t, 0, ctx.MaxIterations(), "maxIterations should be 0 by default")
 }
 
+func TestCommand(t *testing.T) {
+	tests := []struct {
+		name    string
+		command []string
+	}{
+		{
+			name:    "default empty command",
+			command: nil,
+		},
+		{
+			name:    "empty slice command",
+			command: []string{},
+		},
+		{
+			name:    "single token command",
+			command: []string{"ls"},
+		},
+		{
+			name:    "multiple token command",
+			command: []string{"ls", "-la", "/tmp"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := &Context{}
+			ctx.SetCommand(tt.command)
+
+			result := ctx.Command()
+			assert.Equal(t, tt.command, result, "Command should match the set value")
+		})
+	}
+}
+
+func TestSetCommand(t *testing.T) {
+	ctx := &Context{}
+	assert.Nil(t, ctx.Command(), "Command should be nil by default")
+
+	ctx.SetCommand([]string{"echo", "hello"})
+	assert.Equal(t, []string{"echo", "hello"}, ctx.Command())
+
+	ctx.SetCommand(nil)
+	assert.Nil(t, ctx.Command(), "Command should be nil after SetCommand(nil)")
+}
+
 func TestValidate(t *testing.T) {
 	tests := []struct {
 		name         string
