@@ -97,7 +97,7 @@ requirements:
             }
 
             func (f CommandFlags) Validate() error
-      passing: false
+      passing: true
     - slug: execute-command
       description: ExecuteCommand and CommandSetup in internal/run — runs before-commands then the supplied command locally, or submits remotely
       scenarios:
