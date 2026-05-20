@@ -267,7 +267,7 @@ requirements:
       items:
         - Add a Command CommandCmd field to the CLI struct in cmd/ralph/main.go (or equivalent Kong root)
         - Wire cleanupRegistrar into CommandCmd the same way RunCmd receives it
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump for the new command subcommand
       items:

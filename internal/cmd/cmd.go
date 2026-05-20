@@ -6,6 +6,7 @@ import "github.com/zon/ralph/internal/config"
 type Cmd struct {
 	// Subcommands
 	Run            RunCmd            `cmd:"" default:"withargs" help:"Execute ralph with a project file (default command)"`
+	Command        CommandCmd        `cmd:"" help:"Run a command in the ralph environment"`
 	Comment        CommentCmd        `cmd:"" help:"Run a comment-triggered development iteration"`
 	Merge          MergeCmd          `cmd:"" help:"Submit an Argo workflow to merge a completed PR"`
 	Config         ConfigCmd         `cmd:"" help:"Configure credentials for remote execution"`
@@ -52,6 +53,7 @@ func (c *Cmd) SetVersion(version, date string) {
 func (c *Cmd) SetCleanupRegistrar(cleanupRegistrar func(func())) {
 	c.cleanupRegistrar = cleanupRegistrar
 	c.Run.cleanupRegistrar = cleanupRegistrar
+	c.Command.cleanupRegistrar = cleanupRegistrar
 	c.Comment.cleanupRegistrar = cleanupRegistrar
 	c.Merge.cleanupRegistrar = cleanupRegistrar
 	c.Workflow.cleanupRegistrar = cleanupRegistrar
