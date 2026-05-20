@@ -8,11 +8,11 @@ modules:
     orchestration: true
 
   - path: internal/cmd
-    description: Kong subcommand definitions for `run`, `comment`, `merge`, `review`, `architecture`, `validate`, `pass`, workflow management (`list`, `stop`), and credential configuration. Each subcommand composes other internal packages to fulfil its action.
+    description: Kong subcommand definitions for `run`, `command`, `comment`, `merge`, `review`, `architecture`, `validate`, `pass`, workflow management (`list`, `stop`), and credential configuration. Each subcommand composes other internal packages to fulfil its action.
     orchestration: true
 
   - path: internal/run
-    description: Core run engine that prepares execution and drives the multi-iteration loop. Coordinates `ai`, `argo`, `config`, `git`, `github`, `notify`, `project`, `services`, and `workflow` packages to fulfil project requirements.
+    description: Core run engine that prepares execution and drives the multi-iteration loop, and executes single user-supplied commands through the workflow infrastructure. Coordinates `ai`, `argo`, `config`, `git`, `github`, `notify`, `project`, `services`, and `workflow` packages to fulfil project requirements and command runs.
     orchestration: true
 
   - path: internal/project
