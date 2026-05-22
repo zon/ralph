@@ -1,17 +1,18 @@
 module github.com/zon/ralph
 
-go 1.25
+go 1.26
 
 require (
 	github.com/alecthomas/kong v1.14.0
 	github.com/fatih/color v1.18.0
 	github.com/gen2brain/beeep v0.11.2
-	golang.org/x/crypto v0.48.0
-	golang.org/x/term v0.40.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
-require github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
+require (
+	github.com/golang-jwt/jwt/v5 v5.3.1
+	golang.org/x/crypto v0.48.0 // indirect
+)
 
 require (
 	git.sr.ht/~jackmordaunt/go-toast v1.1.2 // indirect
@@ -45,7 +46,7 @@ require (
 	github.com/quic-go/quic-go v0.54.0 // indirect
 	github.com/sergeymakinen/go-bmp v1.0.0 // indirect
 	github.com/sergeymakinen/go-ico v1.0.0-beta.0 // indirect
-	github.com/stretchr/testify v1.11.1 // indirect
+	github.com/stretchr/testify v1.11.1
 	github.com/tadvi/systray v0.0.0-20190226123456-11a2b8fa57af // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.3.0 // indirect
