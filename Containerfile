@@ -69,6 +69,12 @@ RUN curl -fsSL https://get.pulumi.com | sh \
     && ln -s /root/.pulumi/bin/pulumi /usr/local/bin/pulumi \
     && ln -s /root/.pulumi/bin/pulumi-gen /usr/local/bin/pulumi-gen
 
+# Install Helm
+ENV HELM_VERSION=v4.2.0
+RUN curl -fsSL "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz" | tar -xz \
+    && mv linux-amd64/helm /usr/local/bin/helm \
+    && rm -rf linux-amd64
+
 # Note: Playwright and all browsers are pre-installed in the base image
 
 # Copy ralph binary from builder
