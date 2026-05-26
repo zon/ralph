@@ -97,23 +97,40 @@ After each iteration the command SHALL commit any changes the AI produced. The c
 
 ---
 
-### Requirement: PR creation after successful loop
+### Requirement: PR creation when all requirements pass
 
-After a successful iteration loop, the command SHALL generate an AI PR summary and open a GitHub pull request from the project branch to the base branch.
+When all requirements are found to be passing — whether they were already passing before the first iteration or became passing during the loop — the command SHALL generate an AI PR summary and open a GitHub pull request from the project branch to the base branch.
 
-#### Scenario: Commits exist ahead of base branch
+#### Scenario: All requirements pass after iterations — commits exist
 
-- GIVEN the project branch has commits not on the base branch
+- GIVEN requirements become passing during the iteration loop
+- AND the project branch has commits not on the base branch
 - WHEN the PR creation step runs
 - THEN a pull request is created
 - AND the PR title matches the project title
 
+#### Scenario: All requirements already passing at start — commits exist
+
+- GIVEN all requirements are passing before any iteration runs
+- AND the project branch has commits not on the base branch
+- WHEN the PR creation step runs
+- THEN a pull request is created
+
 #### Scenario: No commits ahead of base branch
 
-- GIVEN all requirements were already passing and no commits were added
+- GIVEN all requirements are passing
+- AND no commits were added to the project branch
 - WHEN the PR creation step runs
 - THEN PR creation is skipped
 - AND the command exits successfully
+
+#### Scenario: Max iterations reached with failing requirements — PR skipped
+
+- GIVEN the iteration loop exits because max iterations were reached
+- AND one or more requirements are still failing
+- WHEN the loop ends
+- THEN PR creation is skipped
+- AND an error is returned
 
 ---
 
