@@ -1,6 +1,8 @@
 package validate
 
 import (
+	"os"
+
 	"github.com/zon/ralph/internal/ai"
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/project"
@@ -14,6 +16,10 @@ func (projectClient) Load(path string) (*project.Project, error) {
 
 func (projectClient) Save(path string, proj *project.Project) error {
 	return project.SaveProject(path, proj)
+}
+
+func (projectClient) ReadFile(path string) ([]byte, error) {
+	return os.ReadFile(path)
 }
 
 type agentClient struct {
