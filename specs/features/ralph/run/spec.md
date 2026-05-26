@@ -1,134 +1,109 @@
-# Run Specification
+# Run Command Specification
 
 ## Purpose
 
-Execute an AI-driven development workflow for a given project file, from branch creation through pull request submission.
+The `run` command is ralph's primary entry point. Given a project YAML file, it drives an AI coding agent through iterative development cycles until all project requirements pass, then opens a GitHub pull request. Execution can be delegated to an Argo Workflow (default) or run directly on the local machine (`--local`).
+
+Mode-specific behaviors are defined in:
+- [run-local/spec.md](../run-local/spec.md) — `--local` flag: runs the development loop in-process
+- [run-remote/spec.md](../run-remote/spec.md) — default: submits an Argo Workflow to Kubernetes
 
 ## Requirements
 
-### Requirement: Project Execution
+### Requirement: Project file is required
 
-The system SHALL run the full development workflow when given a project YAML file.
+The command SHALL require a project YAML file as a positional argument. Validation of the file's contents is handled by the validate feature.
 
-#### Scenario: Remote submission (default)
+#### Scenario: Project file provided
 
-- GIVEN a valid project file and the current branch is in sync with the remote
-- WHEN the user runs `ralph <project-file>`
-- THEN an Argo Workflow is generated embedding the project file
-- AND the workflow is submitted to the configured Kubernetes cluster
-- AND the user is shown a command to follow logs
+- GIVEN the user provides a path to a valid project YAML file
+- WHEN the command starts
+- THEN the project is loaded and execution proceeds
 
-#### Scenario: Local execution
+---
 
-- GIVEN a valid project file and the `--local` flag is set
-- WHEN the user runs `ralph <project-file> --local`
-- THEN ralph creates the project branch, runs the iteration loop, and opens a PR when done
+### Requirement: Incompatible flags are rejected
 
-#### Scenario: Missing project file
+The command SHALL reject flag combinations that have no valid meaning before any execution begins.
 
-- GIVEN no project file argument is provided
-- WHEN the user runs `ralph`
-- THEN an error is returned with usage instructions
+#### Scenario: `--follow` with `--local`
 
-#### Scenario: Project file not found
+- GIVEN the user passes both `--follow` and `--local`
+- WHEN the command validates flag combinations
+- THEN an error is returned: `--follow flag is not applicable with --local flag`
 
-- GIVEN a project file path that does not exist on disk
-- WHEN the user runs `ralph <missing-file>`
-- THEN an error is returned indicating the file was not found
+#### Scenario: `--debug` with `--local`
 
-### Requirement: Branch Management
+- GIVEN the user passes `--debug <branch>` and `--local`
+- WHEN the command validates flag combinations
+- THEN an error is returned: `--debug flag is not applicable with --local flag`
 
-The system SHALL create and switch to a branch named `ralph/<project-name>` before executing.
+---
 
-#### Scenario: New branch
+### Requirement: Base branch resolution
 
-- GIVEN the project branch does not exist
-- WHEN local execution begins
-- THEN a branch `ralph/<project-name>` is created from the current branch
-- AND the working tree is switched to that branch
+The command SHALL determine the base branch for PR creation by the following priority: explicit `--base` flag > current branch (when different from project branch) > config default branch.
 
-#### Scenario: Base branch resolution
+#### Scenario: Explicit `--base` flag
 
-- GIVEN the user is on branch `feature/foo` and the project branch is `ralph/my-project`
-- WHEN ralph starts
-- THEN the base branch for the PR is set to `feature/foo`
-- AND `--base` overrides this detection when provided
+- GIVEN the user passes `--base develop`
+- WHEN the base branch is resolved
+- THEN `develop` is used regardless of other state
 
-### Requirement: Iteration Loop
+#### Scenario: Current branch differs from project branch
 
-The system SHALL iterate over failing requirements until all pass or the iteration limit is reached. See [execution.md](execution.md) for the full behavior of each iteration: requirement selection, agent invocation, service management, committing, and blocking conditions.
+- GIVEN the current branch is `feature-x` and the project branch would be `my-project`
+- AND no `--base` flag is provided
+- WHEN the base branch is resolved
+- THEN `feature-x` is used as the base branch
 
-#### Scenario: Before commands configured
+#### Scenario: Already on the project branch
 
-- GIVEN `before` commands are defined in `.ralph/config.yaml`
-- WHEN local execution begins
-- THEN all before commands run sequentially before the iteration loop starts
-- AND a non-zero exit from a non-optional command aborts execution
+- GIVEN the current branch is `my-project` and the project branch is also `my-project`
+- AND no `--base` flag is provided
+- WHEN the base branch is resolved
+- THEN the config default branch (e.g. `main`) is used
 
-### Requirement: Pull Request Creation
+---
 
-For local execution (`--local`), the system SHALL create a pull request after the iteration loop completes. For remote execution, PR creation happens inside the Argo Workflow container — see [workflow.md](workflow.md).
+### Requirement: Max iterations resolution
 
-#### Scenario: PR created (local)
+The iteration limit SHALL come from the `--max-iterations` flag when provided and non-zero; otherwise it falls back to `maxIterations` in `.ralph/config.yaml` (default: 10).
 
-- GIVEN `--local` is set and at least one commit was made ahead of the base branch
-- WHEN the iteration loop finishes
-- THEN an AI-generated PR summary is produced from the commit log
-- AND a pull request is opened against the base branch
-- AND the PR URL is printed
+#### Scenario: Flag takes precedence over config
 
-#### Scenario: No commits (local)
+- GIVEN `maxIterations: 5` in `.ralph/config.yaml`
+- AND the user passes `--max-iterations 2`
+- WHEN the iteration limit is resolved
+- THEN the limit is 2
 
-- GIVEN `--local` is set and all requirements were already passing before any iteration ran
-- WHEN execution completes
-- THEN no PR is created
-- AND the user is notified of success
+#### Scenario: Config default used when flag is absent
 
-### Requirement: Single Iteration Mode
+- GIVEN `maxIterations: 7` in `.ralph/config.yaml`
+- AND no `--max-iterations` flag is passed
+- WHEN the iteration limit is resolved
+- THEN the limit is 7
 
-The system SHALL support running one iteration without branch creation or PR submission via `--once`.
+---
 
-#### Scenario: Once mode
+### Requirement: Branch name derived from project slug
 
-- GIVEN the `--once` flag is set
-- WHEN ralph runs
-- THEN one development iteration executes on the current branch
-- AND no branch is created and no PR is opened
+The project branch name SHALL be derived from the project slug: lowercased, with spaces, underscores, and dots converted to hyphens, non-alphanumeric characters stripped, and consecutive or leading/trailing hyphens collapsed.
 
-#### Scenario: Incompatible flags
+#### Scenario: Slug with spaces and capitals
 
-- GIVEN both `--once` and `--local` are set
-- WHEN ralph starts
-- THEN an error is returned before any work is done
+- GIVEN a project slug `My Feature Work`
+- WHEN the branch name is derived
+- THEN the branch name is `my-feature-work`
 
-### Requirement: Workflow Monitoring
+#### Scenario: Slug with special characters
 
-The system SHOULD allow the user to follow Argo Workflow logs in real time via `--follow`.
+- GIVEN a project slug `fix: auth/bug`
+- WHEN the branch name is derived
+- THEN the branch name is `fix-authbug`
 
-#### Scenario: Follow logs
+#### Scenario: Empty or all-invalid slug
 
-- GIVEN `--follow` (or `-f`) is set and `--local` is not set
-- WHEN the workflow is submitted
-- THEN ralph streams the workflow logs until the workflow completes
-
-#### Scenario: Incompatible flags
-
-- GIVEN both `--follow` and `--local` are set
-- WHEN ralph starts
-- THEN an error is returned
-
-### Requirement: Desktop Notifications
-
-The system SHOULD send a desktop notification when a local run completes or fails.
-
-#### Scenario: Success notification
-
-- GIVEN `--no-notify` is not set and the run succeeds
-- WHEN local execution finishes
-- THEN a success desktop notification is shown for the project name
-
-#### Scenario: Failure notification
-
-- GIVEN `--no-notify` is not set and the run fails
-- WHEN local execution fails
-- THEN an error desktop notification is shown for the project name
+- GIVEN a project slug that produces an empty string after sanitization
+- WHEN the branch name is derived
+- THEN the branch name is `unnamed-project`
