@@ -1,6 +1,6 @@
 workflow:
   namespace: ralph
-model: deepinfra/google/gemma-4-31B-it
+model: deepseek/deepseek-v4-flash
 review:
   items:
     - url: https://raw.githubusercontent.com/zon/code/main/review/architecture/deep-modules.md
