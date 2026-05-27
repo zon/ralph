@@ -441,7 +441,7 @@ requirements:
       description: Replace the inline local execution path in Execute with NewRunner(ctx, baseBranch).RunLocal(setup.Project, setup.Config)
       items:
         - Replace the local execution block inside Execute (from the infrastructureRunBeforeCommands call through the notify.Success call) with a single NewRunner(ctx, setup.BaseBranch).RunLocal(setup.Project, setup.Config) call
-        - Delete functions made obsolete by Runner adapters — infrastructureRunBeforeCommands, RunIterationLoop, runSingleIteration, iterateWhile, isBlocked, isFatalOpenCodeError, generateChangelogIfNeeded, getCommitMessage, commitIterationChanges, reportNewlyPassingRequirements, and infrastructureGetCommitLog — along with their tests
+        - Delete functions made obsolete by Runner adapters — RunIterationLoop, runSingleIteration, iterateWhile, isBlocked, isFatalOpenCodeError, generateChangelogIfNeeded, getCommitMessage, commitIterationChanges, reportNewlyPassingRequirements, and infrastructureGetCommitLog — along with their tests; retain infrastructureRunBeforeCommands because ExecuteCommand still calls it
         - Retain PrepareExecution and executeRemote unchanged
       passing: false
     - slug: version-bump
