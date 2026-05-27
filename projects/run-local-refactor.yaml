@@ -1,7 +1,6 @@
 slug: run-local-refactor
 title: Refactor internal/run to the Runner orchestration pattern
 feature: specs/features/ralph/run-local
-maxIterations: 10
 requirements:
     - slug: project-max-iterations
       description: Add MaxIterations field to project.Project, populated from config when not set in the project file
@@ -450,4 +449,4 @@ requirements:
       items:
         - Apply a semver patch bump to internal/version/VERSION
         - Apply a matching patch bump to charts/ralph-webhook/Chart.yaml (appVersion and version)
-      passing: false
+      passing: true
