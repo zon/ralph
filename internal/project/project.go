@@ -433,7 +433,7 @@ func migrateFeatureArchitecture(feature string) {
 		return
 	}
 
-	featureArchPath := filepath.Join(repoRoot, "specs", "features", feature, "architecture.yaml")
+	featureArchPath := filepath.Join(repoRoot, feature, "architecture.yaml")
 	globalArchPath := filepath.Join(repoRoot, "specs", "architecture.yaml")
 
 	count, err := architecture.MigrateImplementedModules(featureArchPath, globalArchPath, repoRoot)
