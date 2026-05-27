@@ -44,7 +44,9 @@ The command MUST attempt to unmarshal the file into the project model using the 
 
 When unmarshalling fails, the command MUST invoke an AI agent locally to repair the file in place, then retry unmarshalling. The loop MUST continue until the project unmarshals successfully or the attempt limit is reached.
 
-The agent MUST be run locally on the current machine (the same execution mode as `ralph run --local`), never delegated to a remote workflow runner. The agent MUST use the model configured in the ralph config file, with no command-line override required.
+The agent MUST be run locally on the current machine (the same execution mode as `ralph run --local`), never delegated to a remote workflow runner. The agent MUST use the model resolved from the ralph config file, with no command-line override required.
+
+Model resolution follows a two-level precedence: if `validate.model` is set in `.ralph/config.yaml` that model is used; otherwise the top-level `model` field is used as the fallback.
 
 #### Scenario: Agent fixes a malformed file
 
@@ -61,12 +63,19 @@ The agent MUST be run locally on the current machine (the same execution mode as
 - THEN the agent runs on the local machine using the same path used by `ralph run --local`
 - AND no Argo workflow or remote runner is involved
 
-#### Scenario: Model selection from config
+#### Scenario: Validate-specific model used when configured
 
-- GIVEN a ralph config file with a `model` field
+- GIVEN `validate.model` is set in `.ralph/config.yaml`
 - WHEN the fix loop invokes the agent
-- THEN that model is used
+- THEN the validate-specific model is used
 - AND the user is not required to pass a model flag
+
+#### Scenario: Fallback to main model when validate model is unset
+
+- GIVEN `validate.model` is not set in `.ralph/config.yaml`
+- AND the top-level `model` field is set
+- WHEN the fix loop invokes the agent
+- THEN the top-level model is used as the fallback
 
 ### Requirement: Fix Loop Limit
 

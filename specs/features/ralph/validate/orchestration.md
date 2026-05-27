@@ -13,6 +13,7 @@ const MaxAttempts = 10
 type Validator struct {
     project ProjectClient
     agent   AgentClient
+    model   string
 }
 
 func (v *Validator) Validate(path string) (*project.Project, error) {
@@ -27,7 +28,7 @@ func (v *Validator) Validate(path string) (*project.Project, error) {
         if attempt == MaxAttempts {
             return nil, loadErr
         }
-        if fixErr := v.agent.FixProject(path, loadErr); fixErr != nil {
+        if fixErr := v.agent.FixProject(path, loadErr, v.model); fixErr != nil {
             return nil, fixErr
         }
     }
@@ -35,11 +36,13 @@ func (v *Validator) Validate(path string) (*project.Project, error) {
 }
 ```
 
+The `model` field is resolved at wiring time using two-level precedence: `validate.model` from the ralph config takes priority; if unset, the top-level `model` field is used as the fallback.
+
 ### Helpers
 
 - **`v.project.Load(path)`** — reads the file at `path` and unmarshals it into a project, returning a schema error if the contents are not a well-formed project
 - **`v.project.Save(path, proj)`** — marshals the project back to disk at `path` using the canonical layout shared with `ralph pass`
-- **`v.agent.FixProject(path, loadErr)`** — invokes the AI agent locally to rewrite the file at `path` so it parses, using the configured ralph model and the most recent load error as context
+- **`v.agent.FixProject(path, loadErr, model)`** — invokes the AI agent locally to rewrite the file at `path` so it parses, using the given model and the most recent load error as context
 
 ## Tests
 
@@ -94,6 +97,26 @@ func TestValidatePropagatesSaveFailure(t *testing.T) {
     _, err := svc.Validate(project.anyPath())
     require.Error(t, err)
 }
+
+func TestValidateUsesValidateSpecificModel(t *testing.T) {
+    svc := validate.withMocks(
+        validate.withModel("validate-model"),
+        validate.withProject(project.thatLoadsAfterFailures(1, project.any())),
+    )
+    _, err := svc.Validate(project.anyPath())
+    require.NoError(t, err)
+    require.Equal(t, "validate-model", agent.fixCalls()[0].model)
+}
+
+func TestValidateFallsBackToMainModel(t *testing.T) {
+    svc := validate.withMocks(
+        validate.withModel("main-model"),
+        validate.withProject(project.thatLoadsAfterFailures(1, project.any())),
+    )
+    _, err := svc.Validate(project.anyPath())
+    require.NoError(t, err)
+    require.Equal(t, "main-model", agent.fixCalls()[0].model)
+}
 ```
 
 ### Helpers
@@ -101,6 +124,7 @@ func TestValidatePropagatesSaveFailure(t *testing.T) {
 - **`validate.withMocks(opts...)`** — constructs a `Validator` with default mock implementations; pass option helpers to configure specific dependencies
 - **`validate.withProject(client)`** — option that sets the project client on the mock validator
 - **`validate.withAgent(client)`** — option that sets the agent client on the mock validator
+- **`validate.withModel(model)`** — option that sets the resolved model string on the mock validator
 - **`project.any()`** — returns a valid project value owned by `internal/project`
 - **`project.anyPath()`** — returns a project file path suitable for use in tests
 - **`project.thatLoads(proj)`** — returns a project client whose `Load` returns `proj` and whose `Save` records the saved value
@@ -109,4 +133,4 @@ func TestValidatePropagatesSaveFailure(t *testing.T) {
 - **`project.thatLoadsButFailsToSave(proj)`** — returns a project client whose `Load` returns `proj` and whose `Save` returns an error
 - **`project.lastSaved()`** — returns the most recent project passed to `Save` during the test
 - **`agent.thatFailsToFix()`** — returns an agent client whose `FixProject` returns an error
-- **`agent.fixCalls()`** — returns the list of `(path, error)` pairs passed to `FixProject` during the test
+- **`agent.fixCalls()`** — returns the list of `(path, error, model)` structs recorded from calls to `FixProject` during the test
