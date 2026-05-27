@@ -9,7 +9,7 @@ modules:
     description: Kong subcommand definitions for `run`, `command`, `comment`, `merge`, `review`, `architecture`, `validate`, `pass`, workflow management (`list`, `stop`), and credential configuration. Each subcommand composes other internal packages to fulfil its action.
     orchestration: true
   - path: internal/run
-    description: Core run engine that prepares execution and drives the multi-iteration loop, and executes single user-supplied commands through the workflow infrastructure. Coordinates `ai`, `argo`, `config`, `git`, `github`, `notify`, `project`, `services`, and `workflow` packages to fulfil project requirements and command runs.
+    description: Orchestration module for the local execution path of `ralph run`. Owns the `Runner` struct and its `RunLocal`, `iterate`, and `commitIteration` methods, which sequence environment setup, the multi-iteration AI loop, and PR creation. Defines the `ProjectClient`, `AgentClient`, `GitClient`, `GitHubClient`, `ServicesClient`, and `NotifyClient` interfaces consumed by `Runner`, along with the adapters that bind them to `internal/project`, `internal/ai`, `internal/git`, `internal/github`, `internal/services`, and `internal/notify`. Owns `ErrBlocked` and the mock fixtures for all client namespaces used by orchestration tests.
     orchestration: true
   - path: internal/project
     description: Project YAML loading and validation plus requirement-completion logic. Coordinates `ai`, `config`, `git`, and `services` to advance iteration state and detect when a project is complete.

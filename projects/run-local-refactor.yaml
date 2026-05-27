@@ -1,13 +1,14 @@
 slug: run-local-refactor
 title: Refactor internal/run to the Runner orchestration pattern
 feature: specs/features/ralph/run-local
+maxIterations: 10
 requirements:
     - slug: project-max-iterations
       description: Add MaxIterations field to project.Project, populated from config when not set in the project file
       items:
         - Add MaxIterations int to the Project struct with yaml tag maxIterations,omitempty
         - When LoadProject finds MaxIterations is 0, load config.RalphConfig and populate MaxIterations from it (default 10)
-      passing: false
+      passing: true
     - slug: runner-interfaces
       description: Define the Runner struct and its six injectable client interfaces in internal/run
       code:

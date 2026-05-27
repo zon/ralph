@@ -337,3 +337,40 @@ func TestLoadProject_FileNotFound(t *testing.T) {
 	_, err := LoadProject("/nonexistent/path/project.yaml")
 	require.Error(t, err)
 }
+
+func TestLoadProject_MaxIterationsFromConfigDefault(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	projectContent := `slug: test-project
+requirements:
+  - slug: req-1
+    items:
+      - Item A
+    passing: false
+`
+	projectPath := filepath.Join(tmpDir, "project.yaml")
+	require.NoError(t, os.WriteFile(projectPath, []byte(projectContent), 0644))
+
+	proj, err := LoadProject(projectPath)
+	require.NoError(t, err)
+	assert.Equal(t, 10, proj.MaxIterations)
+}
+
+func TestLoadProject_MaxIterationsPreserved(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	projectContent := `slug: test-project
+maxIterations: 5
+requirements:
+  - slug: req-1
+    items:
+      - Item A
+    passing: false
+`
+	projectPath := filepath.Join(tmpDir, "project.yaml")
+	require.NoError(t, os.WriteFile(projectPath, []byte(projectContent), 0644))
+
+	proj, err := LoadProject(projectPath)
+	require.NoError(t, err)
+	assert.Equal(t, 5, proj.MaxIterations)
+}
