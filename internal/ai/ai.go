@@ -293,6 +293,25 @@ func RunAgent(ctx *execcontext.Context, prompt string) error {
 	return nil
 }
 
+// RunAgentWithModel executes an AI agent with an explicitly provided model,
+// bypassing the context-based model resolution used by RunAgent.
+func RunAgentWithModel(ctx *execcontext.Context, prompt string, model string) error {
+	if os.Getenv(mockAIEnv) == "true" {
+		return runMockAgent(ctx, prompt)
+	}
+
+	if ctx.IsVerbose() {
+		logger.Verbose(prompt)
+	}
+
+	ring := opencode.NewRingWriter(10)
+	if err := opencode.RunAgentWithRing(ctx.GoContext(), model, prompt, ring); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // createTempFile creates a temp file under the repo's tmp/ directory so that
 // workflow agents, which lack access to /tmp, can read and write it.
 func createTempFile(name string) (*os.File, error) {
