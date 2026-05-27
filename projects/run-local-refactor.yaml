@@ -395,7 +395,7 @@ requirements:
                 require.NoError(t, err)
                 require.False(t, git.committedFromReport())
             }
-      passing: false
+      passing: true
     - slug: concrete-adapters
       description: Concrete adapter implementations for all six Runner interfaces, binding to existing internal packages
       items:
