@@ -266,6 +266,30 @@ func TestValidatePropagatesSaveFailure(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestValidateUsesValidateSpecificModel(t *testing.T) {
+	project.ResetLoadAttempts()
+	ResetFixCalls()
+	svc := withMocks(
+		withModel("validate-model"),
+		withProject(thatLoadsAfterFailures(1, project.Any())),
+	)
+	_, err := svc.Validate(project.AnyPath())
+	require.NoError(t, err)
+	require.Equal(t, "validate-model", FixCalls()[0].model)
+}
+
+func TestValidateFallsBackToMainModel(t *testing.T) {
+	project.ResetLoadAttempts()
+	ResetFixCalls()
+	svc := withMocks(
+		withModel("main-model"),
+		withProject(thatLoadsAfterFailures(1, project.Any())),
+	)
+	_, err := svc.Validate(project.AnyPath())
+	require.NoError(t, err)
+	require.Equal(t, "main-model", FixCalls()[0].model)
+}
+
 func TestValidateFailsFastWhenAgentMakesNoChange(t *testing.T) {
 	project.ResetLoadAttempts()
 	ResetFixCalls()
