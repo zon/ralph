@@ -44,27 +44,31 @@ var (
 	agentFixCalls []struct {
 		path    string
 		loadErr error
+		model   string
 	}
 )
 
-func RecordFixCall(path string, loadErr error) {
+func RecordFixCall(path string, loadErr error, model string) {
 	agentFixMu.Lock()
 	agentFixCalls = append(agentFixCalls, struct {
 		path    string
 		loadErr error
-	}{path, loadErr})
+		model   string
+	}{path, loadErr, model})
 	agentFixMu.Unlock()
 }
 
 func FixCalls() []struct {
 	path    string
 	loadErr error
+	model   string
 } {
 	agentFixMu.Lock()
 	defer agentFixMu.Unlock()
 	calls := make([]struct {
 		path    string
 		loadErr error
+		model   string
 	}, len(agentFixCalls))
 	copy(calls, agentFixCalls)
 	return calls
@@ -77,13 +81,13 @@ func ResetFixCalls() {
 }
 
 type mockAgentClient struct {
-	fixFunc func(path string, loadErr error) error
+	fixFunc func(path string, loadErr error, model string) error
 }
 
-func (m *mockAgentClient) FixProject(path string, loadErr error) error {
-	RecordFixCall(path, loadErr)
+func (m *mockAgentClient) FixProject(path string, loadErr error, model string) error {
+	RecordFixCall(path, loadErr, model)
 	if m.fixFunc != nil {
-		return m.fixFunc(path, loadErr)
+		return m.fixFunc(path, loadErr, model)
 	}
 	return nil
 }
@@ -91,6 +95,7 @@ func (m *mockAgentClient) FixProject(path string, loadErr error) error {
 type mocks struct {
 	project ProjectClient
 	agent   AgentClient
+	model   string
 }
 
 func withMocks(mockFns ...func(*mocks)) *Validator {
@@ -107,6 +112,13 @@ func withMocks(mockFns ...func(*mocks)) *Validator {
 	return &Validator{
 		project: m.project,
 		agent:   m.agent,
+		model:   m.model,
+	}
+}
+
+func withModel(model string) func(*mocks) {
+	return func(m *mocks) {
+		m.model = model
 	}
 }
 
@@ -180,7 +192,7 @@ func (e *mockSaveError) Error() string {
 
 func thatFailsToFix() AgentClient {
 	return &mockAgentClient{
-		fixFunc: func(path string, loadErr error) error {
+		fixFunc: func(path string, loadErr error, model string) error {
 			return &mockFixError{msg: "agent fix failed"}
 		},
 	}

@@ -26,7 +26,7 @@ type agentClient struct {
 	ctx *context.Context
 }
 
-func (a *agentClient) FixProject(path string, loadErr error) error {
+func (a *agentClient) FixProject(path string, loadErr error, _ string) error {
 	prompt, err := ai.BuildProjectFixPrompt(path, loadErr)
 	if err != nil {
 		return err

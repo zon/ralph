@@ -15,6 +15,7 @@ var ErrNoChange = fmt.Errorf("agent made no changes to the project file")
 type Validator struct {
 	project ProjectClient
 	agent   AgentClient
+	model   string
 }
 
 func (v *Validator) Validate(path string) (*project.Project, error) {
@@ -33,7 +34,7 @@ func (v *Validator) Validate(path string) (*project.Project, error) {
 		if err != nil {
 			return nil, err
 		}
-		if fixErr := v.agent.FixProject(path, loadErr); fixErr != nil {
+		if fixErr := v.agent.FixProject(path, loadErr, v.model); fixErr != nil {
 			return nil, fixErr
 		}
 		after, err := v.project.ReadFile(path)
@@ -54,5 +55,5 @@ type ProjectClient interface {
 }
 
 type AgentClient interface {
-	FixProject(path string, loadErr error) error
+	FixProject(path string, loadErr error, model string) error
 }

@@ -118,7 +118,7 @@ requirements:
         - Update RecordFixCall and FixCalls to track and return the model
         - Update mockAgentClient.fixFunc signature to include model string
         - Add withModel(model string) option helper that sets the model field on the Validator
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump
       items:
