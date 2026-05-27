@@ -107,6 +107,11 @@ type ReviewConfig struct {
 	Items []ReviewItem `yaml:"items"`           // Required list of review items
 }
 
+// ValidateConfig represents the validate-specific configuration
+type ValidateConfig struct {
+	Model string `yaml:"model,omitempty"`
+}
+
 // RalphConfig represents the .ralph/config.yaml structure
 type RalphConfig struct {
 	MaxIterations       int            `yaml:"maxIterations,omitempty"`
@@ -117,6 +122,7 @@ type RalphConfig struct {
 	Workflow            WorkflowConfig `yaml:"workflow,omitempty"`
 	App                 AppInfo        `yaml:"app,omitempty"`
 	Review              ReviewConfig   `yaml:"review,omitempty"`
+	Validate            ValidateConfig `yaml:"validate,omitempty"`
 	ConfigPath          string         `yaml:"-"` // Path to the loaded config file
 	Instructions        string         `yaml:"-"` // Not persisted in YAML, loaded from .ralph/instructions.md
 	CommentInstructions string         `yaml:"-"` // Not persisted in YAML, loaded from .ralph/comment-instructions.md

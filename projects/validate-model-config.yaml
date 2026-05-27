@@ -7,7 +7,7 @@ requirements:
       items:
         - Add a ValidateConfig struct to internal/config with a Model string field tagged yaml:"model,omitempty"
         - Add a Validate ValidateConfig field to the Config struct tagged yaml:"validate,omitempty"
-      passing: false
+      passing: true
     - slug: validator-model-field
       description: Add a resolved model string to Validator and update AgentClient to accept it
       scenarios:
