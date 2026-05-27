@@ -110,7 +110,7 @@ requirements:
       items:
         - Update agentClient.FixProject to accept model string and pass it to ai.RunAgent (add a RunAgentWithModel variant or update RunAgent to accept an explicit model parameter)
         - Update validate.New() to resolve the model using two-level precedence — validate.model from the ralph config takes priority, falling back to the top-level model field
-      passing: false
+      passing: true
     - slug: validate-test-helpers
       description: Update test infrastructure in validate_test.go to carry model through fix call records
       items:
