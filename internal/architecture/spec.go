@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -54,8 +53,8 @@ func SaveSpec(path string, arch *SpecArchitecture) error {
 
 // MigrateImplementedModules moves modules from the feature architecture at featurePath
 // into the global architecture at globalPath whenever the module's path exists under repoRoot.
-// Modules whose description starts with "Gains" update the matching global entry instead of
-// adding a new one. Returns the count of modules migrated.
+// Modules that match an existing global entry by path replace it; others are appended.
+// Returns the count of modules migrated.
 func MigrateImplementedModules(featurePath, globalPath, repoRoot string) (int, error) {
 	feature, err := LoadSpec(featurePath)
 	if err != nil {
@@ -82,29 +81,16 @@ func MigrateImplementedModules(featurePath, globalPath, repoRoot string) (int, e
 			continue
 		}
 
-		if strings.HasPrefix(mod.Description, "Gains") {
-			found := false
-			for i := range global.Modules {
-				if global.Modules[i].Path == mod.Path {
-					global.Modules[i].Description += " " + mod.Description
-					found = true
-					break
-				}
+		replaced := false
+		for i := range global.Modules {
+			if global.Modules[i].Path == mod.Path {
+				global.Modules[i] = mod
+				replaced = true
+				break
 			}
-			if !found {
-				global.Modules = append(global.Modules, mod)
-			}
-		} else {
-			duplicate := false
-			for _, gmod := range global.Modules {
-				if gmod.Path == mod.Path {
-					duplicate = true
-					break
-				}
-			}
-			if !duplicate {
-				global.Modules = append(global.Modules, mod)
-			}
+		}
+		if !replaced {
+			global.Modules = append(global.Modules, mod)
 		}
 		migrated++
 	}

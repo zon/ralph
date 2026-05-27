@@ -142,7 +142,7 @@ modules:
 		assert.True(t, os.IsNotExist(statErr))
 	})
 
-	t.Run("updates existing global entry for Gains module", func(t *testing.T) {
+	t.Run("replaces existing global entry when paths match", func(t *testing.T) {
 		dir := t.TempDir()
 		featurePath := filepath.Join(dir, "feature/architecture.yaml")
 		globalPath := filepath.Join(dir, "specs/architecture.yaml")
@@ -150,12 +150,12 @@ modules:
 		writeSpecFile(t, featurePath, `
 modules:
   - path: internal/git
-    description: Gains incremental migration support.
+    description: Updated description from feature.
 `)
 		writeSpecFile(t, globalPath, `
 modules:
   - path: internal/git
-    description: Thin wrapper around the git CLI.
+    description: Old description.
 `)
 		require.NoError(t, os.MkdirAll(filepath.Join(dir, "internal/git"), 0755))
 
@@ -166,59 +166,7 @@ modules:
 		global, _ := LoadSpec(globalPath)
 		require.Len(t, global.Modules, 1)
 		assert.Equal(t, "internal/git", global.Modules[0].Path)
-		assert.Equal(t, "Thin wrapper around the git CLI. Gains incremental migration support.", global.Modules[0].Description)
-	})
-
-	t.Run("adds Gains module as new when not in global", func(t *testing.T) {
-		dir := t.TempDir()
-		featurePath := filepath.Join(dir, "feature/architecture.yaml")
-		globalPath := filepath.Join(dir, "specs/architecture.yaml")
-
-		writeSpecFile(t, featurePath, `
-modules:
-  - path: internal/newmod
-    description: Gains new capability.
-`)
-		writeSpecFile(t, globalPath, `
-modules:
-  - path: internal/other
-    description: Other module.
-`)
-		require.NoError(t, os.MkdirAll(filepath.Join(dir, "internal/newmod"), 0755))
-
-		count, err := MigrateImplementedModules(featurePath, globalPath, dir)
-		require.NoError(t, err)
-		assert.Equal(t, 1, count)
-
-		global, _ := LoadSpec(globalPath)
-		require.Len(t, global.Modules, 2)
-		assert.Equal(t, "internal/newmod", global.Modules[1].Path)
-	})
-
-	t.Run("skips duplicate already in global", func(t *testing.T) {
-		dir := t.TempDir()
-		featurePath := filepath.Join(dir, "feature/architecture.yaml")
-		globalPath := filepath.Join(dir, "specs/architecture.yaml")
-
-		writeSpecFile(t, featurePath, `
-modules:
-  - path: internal/existing
-    description: Already there.
-`)
-		writeSpecFile(t, globalPath, `
-modules:
-  - path: internal/existing
-    description: Existing module.
-`)
-		require.NoError(t, os.MkdirAll(filepath.Join(dir, "internal/existing"), 0755))
-
-		count, err := MigrateImplementedModules(featurePath, globalPath, dir)
-		require.NoError(t, err)
-		assert.Equal(t, 1, count)
-
-		global, _ := LoadSpec(globalPath)
-		require.Len(t, global.Modules, 1)
-		assert.Equal(t, "Existing module.", global.Modules[0].Description)
+		assert.Equal(t, "Updated description from feature.", global.Modules[0].Description)
 	})
 
 	t.Run("partial migration leaves remaining in feature", func(t *testing.T) {
