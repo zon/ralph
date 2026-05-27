@@ -3,6 +3,9 @@ package run
 import (
 	"errors"
 	"fmt"
+	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/zon/ralph/internal/config"
 	proj "github.com/zon/ralph/internal/project"
@@ -30,8 +33,10 @@ type mockAgentClient struct {
 	isFatalFunc   func(err error) bool
 	changelogFunc func() error
 
-	iterateCalls   int
-	changelogCalls int
+	iterateCalls      int
+	changelogCalls    int
+	iterateProjects   []*proj.Project
+	changelogProjects []*proj.Project
 }
 
 func newMockAgentClient() *mockAgentClient {
@@ -44,6 +49,7 @@ func newMockAgentClient() *mockAgentClient {
 
 func (m *mockAgentClient) Iterate(p *proj.Project) error {
 	m.iterateCalls++
+	m.iterateProjects = append(m.iterateProjects, p)
 	return m.iterateFunc()
 }
 
@@ -53,6 +59,7 @@ func (m *mockAgentClient) IsFatal(err error) bool {
 
 func (m *mockAgentClient) GenerateChangelog(p *proj.Project) error {
 	m.changelogCalls++
+	m.changelogProjects = append(m.changelogProjects, p)
 	return m.changelogFunc()
 }
 
@@ -198,6 +205,22 @@ func agentCalls(r *Runner) (iterateCount, changelogCount int) {
 		return 0, 0
 	}
 	return m.iterateCalls, m.changelogCalls
+}
+
+func iterateCalls(r *Runner) []*proj.Project {
+	m, ok := r.ai.(*mockAgentClient)
+	if !ok {
+		return nil
+	}
+	return m.iterateProjects
+}
+
+func changelogCalls(r *Runner) []*proj.Project {
+	m, ok := r.ai.(*mockAgentClient)
+	if !ok {
+		return nil
+	}
+	return m.changelogProjects
 }
 
 func hasCommitted(r *Runner) bool {
@@ -381,4 +404,28 @@ func thatReturnsNonFatalError() AgentClient {
 
 func thatFailBeforeCommands() ServicesClient {
 	return &mockServicesClient{beforeErr: errors.New("before command failed")}
+}
+
+// ---- Tests for mock fixture behaviors ----
+
+func TestMockIterateCallsReturnsProjects(t *testing.T) {
+	runner := withMocks()
+	proj := withMaxIterations(3)
+	_ = runner.RunLocal(proj, anyConfig())
+	calls := iterateCalls(runner)
+	require.Len(t, calls, 3)
+	require.Same(t, proj, calls[0])
+	require.Same(t, proj, calls[2])
+}
+
+func TestMockChangelogCallsReturnsProjects(t *testing.T) {
+	runner := withMocks(
+		withProject(thatReportsPassingAfterIterations(1)),
+		withGit(withChangesButNoReport()),
+	)
+	proj := withFailingRequirements()
+	_ = runner.RunLocal(proj, anyConfig())
+	calls := changelogCalls(runner)
+	require.Len(t, calls, 1)
+	require.Same(t, proj, calls[0])
 }

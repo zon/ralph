@@ -436,7 +436,7 @@ requirements:
         - github.prCreated() returns true when CreatePR was called and returned nil
         - notify.errors() returns the slice of slugs for which Error was called
         - notify.successes() returns the slice of slugs for which Success was called
-      passing: false
+      passing: true
     - slug: wire-execute-local
       description: Replace the inline local execution path in Execute with NewRunner(ctx, baseBranch).RunLocal(setup.Project, setup.Config)
       items:
