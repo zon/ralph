@@ -1,9 +1,17 @@
 package run
 
 import (
+	"errors"
+
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/project"
 )
+
+// ErrBlocked is returned when blocked.md is detected in the repository
+var ErrBlocked = errors.New("blocked.md detected")
+
+// ErrMaxIterationsReached is returned when max iterations are reached but requirements are still failing
+var ErrMaxIterationsReached = errors.New("max iteration limit reached")
 
 type Runner struct {
 	project  ProjectClient

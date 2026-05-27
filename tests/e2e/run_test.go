@@ -13,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/project"
 	"github.com/zon/ralph/internal/run"
@@ -244,11 +245,13 @@ func TestExecute_LocalWithRealGit(t *testing.T) {
 	// it falls back to defaults, which is fine.
 	t.Chdir(repoDir)
 
-	// Run the iteration loop directly: all requirements are already passing so
-	// the loop exits after the first iteration without invoking the AI or pushing.
-	iterCount, err := run.RunIterationLoop(ctx, nil)
+	// Run via the Runner: all requirements are already passing so
+	// the loop exits without invoking the AI or pushing.
+	proj, err := project.LoadProject(projectFile)
 	require.NoError(t, err)
-	assert.Equal(t, 1, iterCount)
+	runner := run.NewRunner(ctx, "main")
+	err = runner.RunLocal(proj, &config.RalphConfig{})
+	require.NoError(t, err)
 }
 
 // TestPush_StaleTokenCleanup verifies that a push succeeds even when the global

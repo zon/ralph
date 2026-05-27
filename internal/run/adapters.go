@@ -49,7 +49,24 @@ func (a *AgentClientAdapter) Iterate(proj *project.Project) error {
 }
 
 func (a *AgentClientAdapter) IsFatal(err error) bool {
-	return isFatalOpenCodeError(err)
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	patterns := []string{
+		"Insufficient Balance",
+		"insufficient balance",
+		"billing",
+		"account",
+		"payment required",
+		"quota exceeded",
+	}
+	for _, p := range patterns {
+		if strings.Contains(errStr, p) {
+			return true
+		}
+	}
+	return false
 }
 
 func (a *AgentClientAdapter) GenerateChangelog(proj *project.Project) error {
