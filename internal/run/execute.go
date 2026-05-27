@@ -3,6 +3,8 @@ package run
 import (
 	"errors"
 	"fmt"
+	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/zon/ralph/internal/ai"
@@ -25,6 +27,11 @@ type ExecutionSetup struct {
 	BranchName    string
 	CurrentBranch string
 	BaseBranch    string
+}
+
+type CommandSetup struct {
+	Command []string
+	Config  *config.RalphConfig
 }
 
 func PrepareExecution(ctx *context.Context) (*ExecutionSetup, error) {
@@ -64,6 +71,68 @@ func PrepareExecution(ctx *context.Context) (*ExecutionSetup, error) {
 		CurrentBranch: currentBranch,
 		BaseBranch:    baseBranch,
 	}, nil
+}
+
+func ExecuteCommand(ctx *context.Context, cleanupRegistrar func(func()), setup *CommandSetup) error {
+	if !ctx.IsLocal() {
+		return executeCommandRemote(ctx, setup)
+	}
+
+	if err := infrastructureRunBeforeCommands(setup.Config); err != nil {
+		return err
+	}
+
+	if err := runCommand(setup.Command); err != nil {
+		notify.Error("command", ctx.ShouldNotify())
+		return err
+	}
+
+	notify.Success("command", ctx.ShouldNotify())
+	return nil
+}
+
+func executeCommandRemote(ctx *context.Context, setup *CommandSetup) error {
+	logger.Verbose("Submitting Argo Workflow for command...")
+
+	currentBranch, err := git.GetCurrentBranch()
+	if err != nil {
+		return fmt.Errorf("failed to get current branch: %w", err)
+	}
+
+	logger.Verbosef("Checking branch '%s' is in sync with remote...", currentBranch)
+	if err := git.IsBranchSyncedWithRemote(currentBranch); err != nil {
+		return err
+	}
+
+	logger.Verbose("Generating command workflow...")
+	wf, err := workflow.GenerateCommandWorkflow(ctx, currentBranch)
+	if err != nil {
+		return fmt.Errorf("failed to generate workflow: %w", err)
+	}
+
+	if ctx.IsVerbose() {
+		workflowYAML, _ := wf.Render()
+		logger.Verbosef("Generated workflow YAML:\n%s", workflowYAML)
+	}
+
+	workflowName, err := wf.Submit()
+	if err != nil {
+		return fmt.Errorf("failed to submit workflow: %w", err)
+	}
+
+	logger.Successf("Workflow submitted: %s", workflowName)
+
+	if ctx.ShouldFollow() {
+		if err := argo.FollowLogs(wf.Namespace, workflowName, wf.KubeContext); err != nil {
+			notify.Error("command", ctx.ShouldNotify())
+			return fmt.Errorf("argo logs failed: %w", err)
+		}
+		notify.Success("command", ctx.ShouldNotify())
+	} else {
+		logger.Infof("To follow logs, run: argo logs -n %s %s -f", wf.Namespace, workflowName)
+	}
+
+	return nil
 }
 
 func Execute(ctx *context.Context, cleanupRegistrar func(func()), setup *ExecutionSetup) error {
@@ -142,6 +211,19 @@ func infrastructureRunBeforeCommands(cfg *config.RalphConfig) error {
 
 func infrastructureGetCommitLog(baseBranch string, n int) (string, error) {
 	return git.GetCommitLog(baseBranch, n)
+}
+
+func runCommand(command []string) error {
+	if len(command) == 0 {
+		return fmt.Errorf("command required")
+	}
+	cmd := exec.Command(command[0], command[1:]...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("command failed: %w", err)
+	}
+	return nil
 }
 
 func executeRemote(ctx *context.Context, absProjectFile string) error {

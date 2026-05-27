@@ -1201,6 +1201,84 @@ func TestWorkflowRender_ReviewWithFilter(t *testing.T) {
 	assert.Equal(t, "my-test-filter", argsStr[filterIdx+1], "Filter value should follow --filter")
 }
 
+func TestWorkflowRender_CommandField(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	if err := os.MkdirAll(ralphDir, 0755); err != nil {
+		t.Fatalf("Failed to create .ralph directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("maxIterations: 5\n"), 0644); err != nil {
+		t.Fatalf("Failed to create config file: %v", err)
+	}
+
+	wf := &Workflow{
+		ProjectName:   "test-project",
+		Repo:          githubpkg.MakeRepo("owner", "repo"),
+		CloneBranch:   "main",
+		ProjectBranch: "feature-branch",
+		ProjectPath:   "project.yaml",
+		Command:       []string{"echo", "hello world"},
+	}
+
+	workflowYAML, err := wf.Render()
+	require.NoError(t, err, "Render failed")
+
+	var wfData map[string]interface{}
+	require.NoError(t, yaml.Unmarshal([]byte(workflowYAML), &wfData), "Failed to parse workflow YAML")
+
+	spec := wfData["spec"].(map[string]interface{})
+	templates := spec["templates"].([]interface{})
+	tmpl := templates[0].(map[string]interface{})
+	container := tmpl["container"].(map[string]interface{})
+
+	command := container["command"].([]interface{})
+	args := container["args"].([]interface{})
+
+	assert.Equal(t, "ralph", command[0], "Command should be 'ralph'")
+	assert.Equal(t, "workflow", args[0], "First arg should be 'workflow'")
+	assert.Equal(t, "--command", args[1], "Second arg should be '--command'")
+	assert.Equal(t, "--", args[2], "Third arg should be '--'")
+	assert.Equal(t, "echo", args[3], "Fourth arg should be command token 'echo'")
+	assert.Equal(t, "hello world", args[4], "Fifth arg should be command token 'hello world'")
+}
+
+func TestWorkflowRender_CommandFieldEmpty(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	if err := os.MkdirAll(ralphDir, 0755); err != nil {
+		t.Fatalf("Failed to create .ralph directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("maxIterations: 5\n"), 0644); err != nil {
+		t.Fatalf("Failed to create config file: %v", err)
+	}
+
+	wf := &Workflow{
+		ProjectName:   "test-project",
+		Repo:          githubpkg.MakeRepo("owner", "repo"),
+		CloneBranch:   "main",
+		ProjectBranch: "feature-branch",
+		ProjectPath:   "project.yaml",
+		Command:       nil,
+	}
+
+	workflowYAML, err := wf.Render()
+	require.NoError(t, err, "Render failed")
+
+	var wfData map[string]interface{}
+	require.NoError(t, yaml.Unmarshal([]byte(workflowYAML), &wfData), "Failed to parse workflow YAML")
+
+	spec := wfData["spec"].(map[string]interface{})
+	templates := spec["templates"].([]interface{})
+	tmpl := templates[0].(map[string]interface{})
+	container := tmpl["container"].(map[string]interface{})
+
+	args := container["args"].([]interface{})
+
+	assert.NotContains(t, args, "--command", "Args should not contain --command when Command is empty/nil")
+}
+
 func TestWorkflowRender_ReviewWithoutFilter(t *testing.T) {
 	tmpDir := t.TempDir()
 
@@ -1239,4 +1317,72 @@ func TestWorkflowRender_ReviewWithoutFilter(t *testing.T) {
 	}
 
 	assert.NotContains(t, argsStr, "--filter", "Args should not contain --filter when Filter is empty")
+}
+
+func TestGenerateCommandWorkflow(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	if err := os.MkdirAll(ralphDir, 0755); err != nil {
+		t.Fatalf("Failed to create .ralph directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("maxIterations: 5\n"), 0644); err != nil {
+		t.Fatalf("Failed to create config file: %v", err)
+	}
+
+	t.Chdir(tmpDir)
+	if err := os.MkdirAll(filepath.Join(tmpDir, ".git"), 0755); err != nil {
+		t.Fatalf("Failed to create .git directory: %v", err)
+	}
+
+	ctx := &execcontext.Context{}
+	ctx.SetRepoOwner("testowner")
+	ctx.SetRepoName("testrepo")
+	ctx.SetCommand([]string{"echo", "hello"})
+	ctx.SetVerbose(true)
+	ctx.SetNoServices(true)
+
+	wf, err := GenerateCommandWorkflow(ctx, "main")
+	require.NoError(t, err, "GenerateCommandWorkflow failed")
+
+	assert.Equal(t, "command", wf.ProjectName)
+	assert.Equal(t, "main", wf.CloneBranch)
+	assert.Equal(t, []string{"echo", "hello"}, wf.Command)
+	assert.True(t, wf.Verbose)
+	assert.True(t, wf.NoServices)
+	assert.Equal(t, "testowner", wf.Repo.Owner)
+	assert.Equal(t, "testrepo", wf.Repo.Name)
+
+	workflowYAML, err := wf.Render()
+	require.NoError(t, err, "Render failed")
+
+	var workflow map[string]interface{}
+	require.NoError(t, yaml.Unmarshal([]byte(workflowYAML), &workflow), "Failed to parse generated workflow YAML")
+
+	assert.Equal(t, "argoproj.io/v1alpha1", workflow["apiVersion"])
+	assert.Equal(t, "Workflow", workflow["kind"])
+
+	metadata, ok := workflow["metadata"].(map[string]interface{})
+	require.True(t, ok, "metadata is not a map")
+	generateName, ok := metadata["generateName"].(string)
+	require.True(t, ok && strings.HasPrefix(generateName, "ralph-command-"), "generateName = %v, want prefix ralph-command-", generateName)
+
+	spec, ok := workflow["spec"].(map[string]interface{})
+	require.True(t, ok, "spec is not a map")
+
+	templates, ok := spec["templates"].([]interface{})
+	require.True(t, ok && len(templates) > 0, "templates is empty or not a list")
+	tmpl := templates[0].(map[string]interface{})
+	container := tmpl["container"].(map[string]interface{})
+
+	command := container["command"].([]interface{})
+	args := container["args"].([]interface{})
+
+	assert.Equal(t, "ralph", command[0], "Command should be 'ralph'")
+	assert.Equal(t, "workflow", args[0], "First arg should be 'workflow'")
+	assert.Equal(t, "--command", args[1], "Second arg should be '--command'")
+	assert.Equal(t, "--", args[2], "Third arg should be '--'")
+	assert.Equal(t, "echo", args[3], "Fourth arg should be command token 'echo'")
+	assert.Equal(t, "hello", args[4], "Fifth arg should be command token 'hello'")
+	assert.Equal(t, "--verbose", args[5], "Sixth arg should be '--verbose'")
 }

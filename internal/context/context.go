@@ -31,6 +31,7 @@ type Context struct {
 	model             string   // Model override; overrides model from .ralph/config.yaml
 	kubeContext       string   // Kubernetes context override; overrides workflow.context from .ralph/config.yaml
 	filter            string   // Filter string for reviewing specific items
+	command           []string // Command tokens for the command subcommand
 }
 
 // NewContext creates a new Context with a background standard context.
@@ -259,6 +260,14 @@ func (c *Context) SetFilter(filter string) {
 
 func (c *Context) Filter() string {
 	return c.filter
+}
+
+func (c *Context) SetCommand(command []string) {
+	c.command = command
+}
+
+func (c *Context) Command() []string {
+	return c.command
 }
 
 func NewContextFromEnv() *Context {

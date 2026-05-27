@@ -429,6 +429,27 @@ func TestMaxIterationsFlagParsing(t *testing.T) {
 	}
 }
 
+func TestCommandSubcommandRegistered(t *testing.T) {
+	cmd := &Cmd{}
+	parser, err := kong.New(cmd,
+		kong.Name("ralph"),
+		kong.Exit(func(int) {}),
+	)
+	require.NoError(t, err)
+
+	_, err = parser.Parse([]string{"command"})
+	require.NoError(t, err)
+}
+
+func TestCommandSubcommandCleanupRegistrarWiring(t *testing.T) {
+	cmd := &Cmd{}
+	require.Nil(t, cmd.Command.cleanupRegistrar, "CommandCmd.cleanupRegistrar should be nil before SetCleanupRegistrar")
+
+	cmd.SetCleanupRegistrar(func(registrar func()) {})
+
+	require.NotNil(t, cmd.Command.cleanupRegistrar, "CommandCmd.cleanupRegistrar should be set after SetCleanupRegistrar")
+}
+
 func TestBaseFlagParsing(t *testing.T) {
 	tests := []struct {
 		name         string
