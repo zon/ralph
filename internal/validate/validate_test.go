@@ -1,6 +1,7 @@
 package validate
 
 import (
+	"fmt"
 	"sync"
 	"testing"
 
@@ -9,8 +10,10 @@ import (
 )
 
 type mockProjectClient struct {
-	loadFunc func(path string) (*project.Project, error)
-	saveFunc func(path string, proj *project.Project) error
+	loadFunc     func(path string) (*project.Project, error)
+	saveFunc     func(path string, proj *project.Project) error
+	readFileFunc func(path string) ([]byte, error)
+	readCallCount int
 }
 
 func (m *mockProjectClient) Load(path string) (*project.Project, error) {
@@ -26,6 +29,14 @@ func (m *mockProjectClient) Save(path string, proj *project.Project) error {
 		return m.saveFunc(path, proj)
 	}
 	return nil
+}
+
+func (m *mockProjectClient) ReadFile(path string) ([]byte, error) {
+	if m.readFileFunc != nil {
+		return m.readFileFunc(path)
+	}
+	m.readCallCount++
+	return []byte(fmt.Sprintf("content-%d", m.readCallCount)), nil
 }
 
 var (
@@ -241,4 +252,21 @@ func TestValidatePropagatesSaveFailure(t *testing.T) {
 	)
 	_, err := svc.Validate(project.AnyPath())
 	require.Error(t, err)
+}
+
+func TestValidateFailsFastWhenAgentMakesNoChange(t *testing.T) {
+	project.ResetLoadAttempts()
+	ResetFixCalls()
+	pc := &mockProjectClient{
+		loadFunc: func(path string) (*project.Project, error) {
+			return nil, &mockLoadError{msg: "always fails"}
+		},
+		readFileFunc: func(path string) ([]byte, error) {
+			return []byte("unchanged content"), nil
+		},
+	}
+	svc := withMocks(withProject(pc))
+	_, err := svc.Validate(project.AnyPath())
+	require.ErrorIs(t, err, ErrNoChange)
+	require.Len(t, FixCalls(), 1)
 }

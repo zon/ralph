@@ -196,7 +196,7 @@ func MergePR(pr, repo string) error {
 	autoCmd.Stderr = &autoOut
 	if err := autoCmd.Run(); err != nil {
 		autoErrStr := autoOut.String()
-		if strings.Contains(autoErrStr, "clean status") || strings.Contains(autoErrStr, "Protected branch rules not configured") {
+		if strings.Contains(autoErrStr, "clean status") || strings.Contains(autoErrStr, "Protected branch rules not configured") || strings.Contains(autoErrStr, "enablePullRequestAutoMerge") {
 			logger.Verbosef("PR #%s is already mergeable, merging immediately", pr)
 			return mergePRImmediate(pr, repo)
 		}
