@@ -316,7 +316,7 @@ requirements:
                 require.Error(t, err)
                 require.True(t, git.blockedFileWritten())
             }
-      passing: false
+      passing: true
     - slug: commit-iteration
       description: commitIteration helper on Runner — commits AI changes using report.md or a generated changelog
       scenarios:

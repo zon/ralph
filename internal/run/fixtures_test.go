@@ -25,7 +25,13 @@ func (m *mockProjectClient) AllRequirementsPassing(p *proj.Project) bool {
 }
 
 func (m *mockProjectClient) MaxIterationsError(p *proj.Project) error {
-	return fmt.Errorf("%w: 0 requirements still failing", ErrMaxIterationsReached)
+	failing := 0
+	for _, req := range p.Requirements {
+		if !req.Passing {
+			failing++
+		}
+	}
+	return fmt.Errorf("%w: %d requirements still failing", ErrMaxIterationsReached, failing)
 }
 
 type mockAgentClient struct {
