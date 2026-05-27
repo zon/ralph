@@ -71,6 +71,7 @@ func (m *mockAgentClient) GenerateChangelog(p *proj.Project) error {
 
 type mockGitClient struct {
 	hasChangesVal        bool
+	hasCommitsVal        bool
 	reportExistsVal      bool
 	blockedFileExistsVal bool
 
@@ -94,6 +95,10 @@ func (m *mockGitClient) WriteBlockedFile(err error) {
 
 func (m *mockGitClient) HasChanges() bool {
 	return m.hasChangesVal
+}
+
+func (m *mockGitClient) HasCommits() bool {
+	return m.hasCommitsVal
 }
 
 func (m *mockGitClient) ReportExists() bool {
@@ -352,6 +357,7 @@ func anyConfig() *config.RalphConfig {
 func withCommitsAhead() GitClient {
 	return &mockGitClient{
 		hasChangesVal:   true,
+		hasCommitsVal:   true,
 		reportExistsVal: false,
 	}
 }

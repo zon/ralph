@@ -175,7 +175,7 @@ requirements:
                 require.False(t, github.prCreated())
                 require.NotEmpty(t, notify.successes())
             }
-      passing: false
+      passing: true
     - slug: iterate
       description: iterate helper on Runner — loops the AI agent until requirements pass, max iterations, or blocked
       scenarios:

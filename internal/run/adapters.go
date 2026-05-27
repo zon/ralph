@@ -58,7 +58,8 @@ func (a *AgentClientAdapter) GenerateChangelog(proj *project.Project) error {
 
 // GitClientAdapter wraps internal/git to satisfy the GitClient interface.
 type GitClientAdapter struct {
-	ctx *execcontext.Context
+	ctx         *execcontext.Context
+	hasCommitted bool
 }
 
 func NewGitClientAdapter(ctx *execcontext.Context) *GitClientAdapter {
@@ -94,6 +95,10 @@ func (a *GitClientAdapter) HasChanges() bool {
 	return git.HasUncommittedChanges()
 }
 
+func (a *GitClientAdapter) HasCommits() bool {
+	return a.hasCommitted
+}
+
 func (a *GitClientAdapter) ReportExists() bool {
 	_, err := os.Stat("report.md")
 	return err == nil
@@ -115,6 +120,7 @@ func (a *GitClientAdapter) CommitFromReport(slug string) error {
 		logger.Warningf("Failed to remove report.md: %v", err)
 	}
 
+	a.hasCommitted = true
 	return nil
 }
 

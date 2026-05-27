@@ -1,119 +1,67 @@
 package run
 
 import (
-	"os"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/zon/ralph/internal/config"
-	"github.com/zon/ralph/internal/testutil"
 )
 
-func TestExecuteCommand_BeforeCommandFailure(t *testing.T) {
-	tmpDir := t.TempDir()
-	projectFile := tmpDir + "/test-project.yaml"
-	require.NoError(t, os.WriteFile(projectFile, []byte(`slug: test-project
-title: Test project
-requirements: []
-`), 0644))
-
-	ralphConfig := &config.RalphConfig{
-		Before: []config.Before{
-			{
-				Name:    "failing-before",
-				Command: "false",
-				Args:    []string{},
-				Optional: false,
-			},
-		},
-	}
-
-	setup := &CommandSetup{
-		Command: []string{"echo", "should-not-run"},
-		Config:  ralphConfig,
-	}
-
-	ctx := testutil.NewContext(
-		testutil.WithProjectFile(projectFile),
+func TestRunLocalBeforeCommandFailureAbortsEarly(t *testing.T) {
+	runner := withMocks(
+		withServices(thatFailBeforeCommands()),
 	)
-
-	err := ExecuteCommand(ctx, func(f func()) {}, setup)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to run before commands")
+	err := runner.RunLocal(anyProject(), anyConfig())
+	require.Error(t, err)
+	require.False(t, hasSwitchedBranch(runner))
 }
 
-func TestExecuteCommand_CommandFailure(t *testing.T) {
-	tmpDir := t.TempDir()
-	projectFile := tmpDir + "/test-project.yaml"
-	require.NoError(t, os.WriteFile(projectFile, []byte(`slug: test-project
-title: Test project
-requirements: []
-`), 0644))
-
-	ralphConfig := &config.RalphConfig{}
-
-	setup := &CommandSetup{
-		Command: []string{"false"},
-		Config:  ralphConfig,
-	}
-
-	ctx := testutil.NewContext(
-		testutil.WithProjectFile(projectFile),
-		testutil.WithNoNotify(true),
+func TestRunLocalIterationFailureSendsErrorNotification(t *testing.T) {
+	runner := withMocks(
+		withAI(thatAlwaysFails()),
 	)
-
-	err := ExecuteCommand(ctx, func(f func()) {}, setup)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "command failed")
+	err := runner.RunLocal(withFailingRequirements(), anyConfig())
+	require.Error(t, err)
+	require.NotEmpty(t, notifyErrors(runner))
 }
 
-func TestExecuteCommand_CommandSuccess(t *testing.T) {
-	tmpDir := t.TempDir()
-	projectFile := tmpDir + "/test-project.yaml"
-	require.NoError(t, os.WriteFile(projectFile, []byte(`slug: test-project
-title: Test project
-requirements: []
-`), 0644))
-
-	ralphConfig := &config.RalphConfig{}
-
-	setup := &CommandSetup{
-		Command: []string{"echo", "hello"},
-		Config:  ralphConfig,
-	}
-
-	ctx := testutil.NewContext(
-		testutil.WithProjectFile(projectFile),
-		testutil.WithNoNotify(true),
+func TestRunLocalAllRequirementsPassCreatesPR(t *testing.T) {
+	runner := withMocks(
+		withProject(thatReportsAllPassing()),
+		withGit(withCommitsAhead()),
 	)
-
-	err := ExecuteCommand(ctx, func(f func()) {}, setup)
-	assert.NoError(t, err)
+	err := runner.RunLocal(withAllPassing(), anyConfig())
+	require.NoError(t, err)
+	require.True(t, hasCreatedPR(runner))
+	require.NotEmpty(t, notifySuccesses(runner))
 }
 
-func TestExecuteCommandRemote_SubmitsWorkflow(t *testing.T) {
-	tmpDir := t.TempDir()
-	projectFile := tmpDir + "/test-project.yaml"
-	require.NoError(t, os.WriteFile(projectFile, []byte(`slug: test-project
-title: Test project
-requirements: []
-`), 0644))
-
-	ralphConfig := &config.RalphConfig{}
-
-	setup := &CommandSetup{
-		Command: []string{"echo", "hello"},
-		Config:  ralphConfig,
-	}
-
-	ctx := testutil.NewContext(
-		testutil.WithProjectFile(projectFile),
-		testutil.WithLocal(false),
-		testutil.WithNoNotify(true),
+func TestRunLocalNoCommitsSkipsPR(t *testing.T) {
+	runner := withMocks(
+		withProject(thatReportsAllPassing()),
 	)
+	err := runner.RunLocal(withAllPassing(), anyConfig())
+	require.NoError(t, err)
+	require.False(t, hasCreatedPR(runner))
+	require.NotEmpty(t, notifySuccesses(runner))
+}
 
-	err := executeCommandRemote(ctx, setup)
-	assert.NoError(t, err)
+func TestRunLocalScenario_BranchSwitchedBeforeIteration(t *testing.T) {
+	runner := withMocks(
+		withProject(thatReportsAllPassing()),
+	)
+	err := runner.RunLocal(withAllPassing(), anyConfig())
+	require.NoError(t, err)
+	require.True(t, hasSwitchedBranch(runner))
+	require.Empty(t, iterateCalls(runner))
+}
+
+func TestRunLocalScenario_RequirementsPassAfterIterationsCreatesPR(t *testing.T) {
+	runner := withMocks(
+		withProject(thatReportsPassingAfterIterations(2)),
+		withGit(withCommitsAhead()),
+	)
+	err := runner.RunLocal(withFailingRequirements(), anyConfig())
+	require.NoError(t, err)
+	require.True(t, hasCreatedPR(runner))
+	require.NotEmpty(t, notifySuccesses(runner))
 }

@@ -30,6 +30,7 @@ type GitClient interface {
 	BlockedFileExists() bool
 	WriteBlockedFile(err error)
 	HasChanges() bool
+	HasCommits() bool
 	ReportExists() bool
 	CommitFromReport(slug string) error
 }
@@ -58,9 +59,11 @@ func (r *Runner) RunLocal(proj *project.Project, cfg *config.RalphConfig) error 
 		r.notify.Error(proj.Slug)
 		return err
 	}
-	if err := r.github.CreatePR(proj); err != nil {
-		r.notify.Error(proj.Slug)
-		return err
+	if r.git.HasCommits() {
+		if err := r.github.CreatePR(proj); err != nil {
+			r.notify.Error(proj.Slug)
+			return err
+		}
 	}
 	r.notify.Success(proj.Slug)
 	return nil
