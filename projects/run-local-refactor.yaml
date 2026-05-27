@@ -1,7 +1,6 @@
 slug: run-local-refactor
 title: Refactor internal/run to the Runner orchestration pattern
 feature: specs/features/ralph/run-local
-maxIterations: 10
 requirements:
     - slug: project-max-iterations
       description: Add MaxIterations field to project.Project, populated from config when not set in the project file
@@ -407,7 +406,7 @@ requirements:
         - ServicesClientAdapter wraps internal/services — RunBeforeCommands calls services.RunBefore when cfg.Before is non-empty
         - NotifyClientAdapter wraps internal/notify — Error and Success call notify.Error and notify.Success with the shouldNotify flag stored at construction time
         - NewRunner(ctx *context.Context, baseBranch string) *Runner constructs a Runner wiring all six concrete adapters from the given context and base branch
-      passing: false
+      passing: true
     - slug: mock-test-fixtures
       description: Mock implementations for all six Runner interfaces and factory helpers used by the orchestration tests
       items:
