@@ -1,6 +1,6 @@
 workflow:
   namespace: ralph
-model: google/gemini-3.5-flash
+model: deepinfra/google/gemma-4-31B-it
 review:
   items:
     - url: https://raw.githubusercontent.com/zon/code/main/review/architecture/deep-modules.md
