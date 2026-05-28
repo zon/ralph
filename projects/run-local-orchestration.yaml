@@ -442,7 +442,7 @@ requirements:
       description: Config data factory helpers for the orchestration tests, in internal/config
       items:
         - config.any() returns a valid *config.RalphConfig in a default state
-      passing: false
+      passing: true
     - slug: wire-execute-local
       description: Replace the inline local execution path in Execute (internal/run/execute.go) with NewRunner and delete obsolete helpers
       items:
