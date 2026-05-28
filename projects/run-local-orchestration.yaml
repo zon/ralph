@@ -397,7 +397,7 @@ requirements:
       description: ServicesClientAdapter — binds ServicesClient to internal/services
       items:
         - RunBeforeCommands calls services.RunBefore when cfg.Before is non-empty
-      passing: false
+      passing: true
     - slug: adapter-notify
       description: NotifyClientAdapter — binds NotifyClient to internal/notify, plus NewRunner constructor
       items:
