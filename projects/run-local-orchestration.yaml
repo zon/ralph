@@ -392,7 +392,7 @@ requirements:
       items:
         - CreatePR generates an AI PR summary via ai.GeneratePRSummary using the stored context, base branch, and project, then calls github.CreatePullRequest
         - When github.ErrNoCommitsBetweenBranches is returned, logs a message and returns nil
-      passing: false
+      passing: true
     - slug: adapter-services
       description: ServicesClientAdapter — binds ServicesClient to internal/services
       items:
