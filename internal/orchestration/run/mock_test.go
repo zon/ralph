@@ -194,7 +194,6 @@ func (m *mockGitHubClient) CreatePR(proj *project.Project) error {
 		}
 		return err
 	}
-	m.createPRReturnedNil = true
 	return nil
 }
 

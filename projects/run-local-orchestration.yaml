@@ -1,6 +1,7 @@
 slug: run-local-orchestration
 title: Create internal/orchestration/run and remove replaced code from internal/run
 feature: specs/features/ralph/run-local
+maxIterations: 10
 requirements:
     - slug: project-max-iterations
       description: Add MaxIterations field to project.Project, populated from config when not set in the project file
@@ -143,7 +144,7 @@ requirements:
                 require.False(t, github.prCreated())
                 require.NotEmpty(t, notify.successes())
             }
-      passing: false
+      passing: true
     - slug: iterate
       description: iterate helper on Runner — loops the AI agent until requirements pass, max iterations, or blocked
       scenarios:
