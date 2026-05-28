@@ -9,7 +9,7 @@ modules:
     description: Subcommand definitions that compose internal packages to fulfil each CLI action.
     orchestration: true
   - path: internal/run
-    description: Orchestration engine that drives the multi-iteration run loop and single command execution.
+    description: Drives the local execution path for ralph run, sequencing environment setup, the AI loop, and PR creation.
     orchestration: true
   - path: internal/project
     description: Loads and validates project YAML files and tracks requirement completion across iterations.

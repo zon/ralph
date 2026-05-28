@@ -7,7 +7,7 @@ requirements:
       items:
         - Add MaxIterations int to the Project struct with yaml tag maxIterations,omitempty
         - When LoadProject finds MaxIterations is 0, load config.RalphConfig and populate MaxIterations from it (default 10)
-      passing: false
+      passing: true
     - slug: runner-interfaces
       description: Define the Runner struct and its six injectable client interfaces in internal/orchestration/run
       items:
