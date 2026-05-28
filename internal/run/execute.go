@@ -1,20 +1,18 @@
 package run
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 
-	"github.com/zon/ralph/internal/ai"
 	"github.com/zon/ralph/internal/argo"
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
-	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/notify"
+	orchestrationRun "github.com/zon/ralph/internal/orchestration/run"
 	"github.com/zon/ralph/internal/project"
 	"github.com/zon/ralph/internal/services"
 	"github.com/zon/ralph/internal/workflow"
@@ -140,64 +138,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func()), setup *Executi
 		return executeRemote(ctx, setup.ProjectFile)
 	}
 
-	if err := infrastructureRunBeforeCommands(setup.Config); err != nil {
-		return err
-	}
-
-	if err := git.ValidateGitStateAndSwitchBranch(ctx, setup.BranchName); err != nil {
-		return err
-	}
-
-	logger.Verbosef("Starting iteration loop (max: %d)", ctx.MaxIterations)
-
-	iterCount, err := RunIterationLoop(ctx, cleanupRegistrar, setup.Project)
-	if err != nil {
-		notify.Error(setup.Project.Slug, ctx.ShouldNotify())
-		return fmt.Errorf("iteration loop failed: %w", err)
-	}
-
-	logger.Verbosef("Iteration loop completed after %d iteration(s)", iterCount)
-
-	logger.Verbose("Generating PR summary...")
-
-	commitLog, err := infrastructureGetCommitLog(setup.BaseBranch, 100)
-	if err != nil {
-		return fmt.Errorf("failed to get commit log: %w", err)
-	}
-
-	allComplete, passingCount, failingCount := project.CheckCompletion(setup.Project)
-	projectStatus := fmt.Sprintf("%d passing, %d failing (complete: %v)", passingCount, failingCount, allComplete)
-
-	prSummary, err := ai.GeneratePRSummary(ctx, setup.Project.Title, projectStatus, setup.BaseBranch, commitLog)
-	if err != nil {
-		return fmt.Errorf("failed to generate PR summary: %w", err)
-	}
-	logger.Verbose("PR summary generated")
-
-	setup.Project, err = project.LoadProject(setup.ProjectFile)
-	if err != nil {
-		return fmt.Errorf("failed to reload project after iteration loop: %w", err)
-	}
-
-	if ctx.IsVerbose() {
-		logger.Verbosef("PR Summary:\n%s", prSummary)
-	}
-
-	prURL, err := github.CreatePullRequest(ctx, setup.Project, setup.BranchName, setup.BaseBranch, prSummary)
-	if err != nil {
-		if errors.Is(err, github.ErrNoCommitsBetweenBranches) {
-			logger.Verbose("No commits ahead of base branch — all requirements were already passing; skipping PR creation")
-			notify.Success(setup.Project.Slug, ctx.ShouldNotify())
-			return nil
-		}
-		return err
-	}
-
-	logger.Successf("Pull request created: %s", prURL)
-
-	notify.Success(setup.Project.Slug, ctx.ShouldNotify())
-
-	return nil
+	return orchestrationRun.NewRunner(ctx, setup.BaseBranch).RunLocal(setup.Project, setup.Config)
 }
 
 func infrastructureRunBeforeCommands(cfg *config.RalphConfig) error {
@@ -207,10 +148,6 @@ func infrastructureRunBeforeCommands(cfg *config.RalphConfig) error {
 		}
 	}
 	return nil
-}
-
-func infrastructureGetCommitLog(baseBranch string, n int) (string, error) {
-	return git.GetCommitLog(baseBranch, n)
 }
 
 func runCommand(command []string) error {

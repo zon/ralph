@@ -1,7 +1,6 @@
 slug: run-local-orchestration
 title: Create internal/orchestration/run and remove replaced code from internal/run
 feature: specs/features/ralph/run-local
-maxIterations: 10
 requirements:
     - slug: project-max-iterations
       description: Add MaxIterations field to project.Project, populated from config when not set in the project file
@@ -451,7 +450,7 @@ requirements:
         - Delete functions made obsolete by Runner adapters — RunIterationLoop, runSingleIteration, iterateWhile, isBlocked, isFatalOpenCodeError, generateChangelogIfNeeded, getCommitMessage, commitIterationChanges, reportNewlyPassingRequirements, and infrastructureGetCommitLog — along with their tests
         - Retain infrastructureRunBeforeCommands because ExecuteCommand still calls it
         - Retain PrepareExecution and executeRemote unchanged
-      passing: false
+      passing: true
     - slug: version-bump
       description: Patch version bump for the run-local orchestration module
       items:
