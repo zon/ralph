@@ -79,6 +79,7 @@ func WithAllPassing() *Project {
 	return &Project{
 		Slug:  "test-project",
 		Title: "Test Project",
+		MaxIterations: 1,
 		Requirements: []Requirement{
 			{
 				Slug:        "req-1",
@@ -126,6 +127,7 @@ func withAllPassing() *Project {
 	return &Project{
 		Slug:  "test-project",
 		Title: "Test Project",
+		MaxIterations: 1,
 		Requirements: []Requirement{
 			{
 				Slug:        "req-1",
