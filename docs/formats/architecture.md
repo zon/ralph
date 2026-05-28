@@ -17,7 +17,7 @@ Architecture documents use YAML format with the following structure:
 
 - **path** (required, string): The file path or directory path where the module is located or should be implemented. This should be relative to the repo root.
 
-- **description** (required, string): A high-level explanation of what the module does, its responsibilities, and how it fits into the overall architecture. Describe purpose and scope — do not enumerate function signatures, method names, or interface details.
+- **description** (required, string): A single short sentence stating the module's purpose and role. Do not include method names, route lists, interface names, or error types — details like these churn every time the module grows. A good description should survive multiple features being added without needing an edit.
 
 - **orchestration** (optional, boolean): When set to `true`, indicates this is an [orchestration module](../glossary.md#orchestration-module) rather than an [implementation module](../glossary.md#implementation-module). Defaults to `false` if omitted.
 
@@ -26,24 +26,24 @@ Architecture documents use YAML format with the following structure:
 ```yaml
 modules:
   - path: src/services
-    description: Contains business logic for orders, inventory, payments, and customer management. Defines multi-step processes like order fulfillment and user onboarding, enforces domain rules, and manages transaction boundaries.
+    description: Orchestrates multi-step business processes for orders, inventory, payments, and customer management.
     orchestration: true
 
   - path: src/api
-    description: API layer that handles HTTP requests and responses. Contains route definitions, request validation, response formatting, and maps HTTP operations to service calls.
+    description: HTTP layer that maps incoming requests to service calls and formats responses.
 
   - path: src/repositories
-    description: Data access layer implementing repository patterns for entity persistence. Executes database queries, handles object-relational mapping, and manages data retrieval and storage logic.
+    description: Data access layer that persists and retrieves domain entities.
 
   - path: src/auth
-    description: Authentication and authorization module. Handles user identity verification, token generation and validation, session management, and permission checking with cryptographic operations.
+    description: Handles user identity verification, token lifecycle, and permission checking.
 
   - path: src/queue
-    description: Message queue integration for asynchronous task processing. Manages job scheduling, message publishing/consuming, serialization, and delivery guarantees.
+    description: Message queue integration for asynchronous task scheduling and delivery.
 
   - path: src/notifications
-    description: Notification delivery system supporting multiple channels (email, SMS, push). Handles templating, formatting, provider integration, and delivery tracking.
+    description: Delivers notifications across email, SMS, and push channels.
 
   - path: src/utils
-    description: Shared utility functions and helpers used across the application. Includes string manipulation, date handling, validation, and common algorithms.
+    description: Shared utility functions used across the application.
 ```
