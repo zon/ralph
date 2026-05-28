@@ -404,7 +404,7 @@ requirements:
         - Error calls notify.Error with the shouldNotify flag stored at construction time
         - Success calls notify.Success with the shouldNotify flag stored at construction time
         - NewRunner(ctx *context.Context, baseBranch string) *Runner constructs a Runner wiring all six concrete adapters from the given context and base branch
-      passing: false
+      passing: true
     - slug: mock-runner-fixtures
       description: Mock Runner constructor and client interface mocks for the orchestration tests, in internal/orchestration/run
       items:
