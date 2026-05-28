@@ -30,7 +30,7 @@ requirements:
                 services ServicesClient
                 notify   NotifyClient
             }
-      passing: false
+      passing: true
     - slug: run-local
       description: RunLocal method on Runner — runs before-commands, switches branch, iterates, creates PR, and notifies
       scenarios:
