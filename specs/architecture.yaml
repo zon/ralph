@@ -26,6 +26,11 @@ modules:
   - path: internal/provisioning
     description: Provisions webhook configuration and secrets into a Kubernetes cluster.
     orchestration: true
+  - path: internal/setup
+    description: Sequences skill discovery, fetching, pruning, and installation for repository setup.
+    orchestration: true
+  - path: internal/skills
+    description: Manages ralph skill lifecycle including discovery, fetching, rewriting, pruning, and installation.
   - path: internal/ai
     description: Runs AI prompts against embedded instruction templates to generate ralph artifacts.
   - path: internal/opencode
