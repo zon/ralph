@@ -2,10 +2,9 @@
 
 ## Overview
 
-Tests are split into three layers: unit, integration, and end-to-end (E2E).
+Tests are split into two layers: unit and integration.
 - **Unit** — individual functions and packages in isolation
 - **Integration** — full request or execution paths end-to-end within the process
-- **E2E** — real Argo Workflows against a live Kubernetes cluster (never part of the standard suite)
 
 ## Conventions
 
@@ -19,38 +18,43 @@ Use table-driven tests with `t.Run()` subtests. Use `t.TempDir()` for any filesy
 
 ### Isolation
 
-Tests must not invoke any external tools or services — no `git`, `gh`, `opencode`, or any other CLI or network call. Functions that call external dependencies must support a dry-run mode that skips the real call and returns inspectable state. Tests enable dry-run and assert on that state.
+Tests must not invoke any external tools or services — no `git`, `gh`, `opencode`, or any other CLI or network call. External dependencies must be abstracted behind interfaces so tests can inject simple mock implementations.
 
-## E2E Tests
-
-E2E tests live in `tests/e2e/` and are guarded with the `//go:build e2e` tag. They must never run as part of the standard test suite.
-
-### Running
-
-```
-go test -tags e2e -timeout 15m ./tests/e2e/...
-```
-
-### How E2E tests work
-
-**Preflight** — `TestNamespacePreflight` runs first and verifies all required resources are present before any workflow is submitted:
-- Kubernetes secrets: `github-credentials`, `opencode-credentials`
-- Files in the test repository: `test-data/e2e-noop-run.yaml`
-
-Failure messages include the exact command needed to fix the missing resource.
-
-**Test project files** — The standard test project file is `test-data/e2e-noop-run.yaml` in `zon/ralph-mock`. All requirements are pre-marked `passing: true` so the iteration loop exits immediately without invoking the AI.
-
-> **Note:** Because all requirements are already passing, the AI makes no commits. `gh pr create` will fail if the branch has no new commits relative to `main` — the remote workflow test requires at least one commit to succeed.
-
-**Cleanup** — Each test registers a `t.Cleanup` function that closes open PRs and deletes the remote branch. Cleanup failures are logged but do not fail the test.
-
-### Helper
-
-Use `testutil.NewE2EContext(t)` to build an execution context from environment variables:
+**Pattern:** define a minimal interface for each external dependency, accept it as a parameter in the function under test, and implement a fake struct in the `_test.go` file. Use function fields so individual behaviors can be overridden per test case:
 
 ```go
-ctx, cfg := testutil.NewE2EContext(t)
-// ctx.Repo, ctx.Branch, ctx.DebugBranch are populated from env vars
-// cfg.Namespace and cfg.Timeout are available for polling helpers
+type GitClient interface {
+    CurrentBranch() (string, error)
+    Push(branch string) error
+}
+
+type mockGit struct {
+    currentBranchFn func() (string, error)
+    pushFn          func(string) error
+}
+
+func (m *mockGit) CurrentBranch() (string, error) {
+    if m.currentBranchFn != nil {
+        return m.currentBranchFn()
+    }
+    return "main", nil
+}
+
+func (m *mockGit) Push(branch string) error {
+    if m.pushFn != nil {
+        return m.pushFn(branch)
+    }
+    return nil
+}
 ```
+
+The production implementation wraps the real CLI call; tests pass a `*mockGit` instead.
+
+### Module boundaries
+
+Orchestration modules define interfaces and compose behavior — they must not contain adapters or concrete implementations. Only implementation modules may contain adapters (the real CLI/network wrappers) and mocks (the test fakes).
+
+| Module type | May contain |
+|---|---|
+| Orchestration | interfaces, orchestration functions, tests |
+| Implementation | adapters, mocks, tests |
