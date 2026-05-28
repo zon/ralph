@@ -564,3 +564,27 @@ requirements:
 
 	return nil
 }
+
+var fatalOpenCodePatterns = []string{
+	"Insufficient Balance",
+	"insufficient balance",
+	"billing",
+	"account",
+	"payment required",
+	"quota exceeded",
+}
+
+// IsFatalError checks if the error matches known fatal opencode error patterns
+// such as billing, quota, or account issues.
+func IsFatalError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	for _, pattern := range fatalOpenCodePatterns {
+		if strings.Contains(errStr, pattern) {
+			return true
+		}
+	}
+	return false
+}
