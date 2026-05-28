@@ -1,4 +1,4 @@
 modules:
   - path: internal/run
-    description: Orchestration module for the local execution path of `ralph run`. Owns the `Runner` struct and its `RunLocal`, `iterate`, and `commitIteration` methods, which sequence environment setup, the multi-iteration AI loop, and PR creation. Defines the `ProjectClient`, `AgentClient`, `GitClient`, `GitHubClient`, `ServicesClient`, and `NotifyClient` interfaces consumed by `Runner`, along with the adapters that bind them to `internal/project`, `internal/ai`, `internal/git`, `internal/github`, `internal/services`, and `internal/notify`. Owns `ErrBlocked` and the mock fixtures for all client namespaces used by orchestration tests.
+    description: Drives the local execution path for ralph run, sequencing environment setup, the AI loop, and PR creation.
     orchestration: true

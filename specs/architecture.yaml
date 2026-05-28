@@ -1,66 +1,66 @@
 modules:
   - path: cmd/ralph
-    description: Main entrypoint for the `ralph` CLI. Wires up the Kong command parser, version reporting, and cleanup manager, then dispatches to subcommand handlers in `internal/cmd`.
+    description: CLI entrypoint that wires up command parsing and dispatches to subcommand handlers.
     orchestration: true
   - path: cmd/ralph-webhook
-    description: Main entrypoint for the `ralph-webhook` service. Loads webhook configuration and secrets, then starts the HTTP server that converts GitHub events into Argo workflows.
+    description: Service entrypoint that loads configuration and starts the webhook HTTP server.
     orchestration: true
   - path: internal/cmd
-    description: Kong subcommand definitions for `run`, `command`, `comment`, `merge`, `review`, `architecture`, `validate`, `pass`, workflow management (`list`, `stop`), and credential configuration. Each subcommand composes other internal packages to fulfil its action.
+    description: Subcommand definitions that compose internal packages to fulfil each CLI action.
     orchestration: true
   - path: internal/run
-    description: Core run engine that prepares execution and drives the multi-iteration loop, and executes single user-supplied commands through the workflow infrastructure. Coordinates `ai`, `argo`, `config`, `git`, `github`, `notify`, `project`, `services`, and `workflow` packages to fulfil project requirements and command runs.
+    description: Orchestration engine that drives the multi-iteration run loop and single command execution.
     orchestration: true
   - path: internal/project
-    description: Project YAML loading and validation plus requirement-completion logic. Coordinates `ai`, `config`, `git`, and `services` to advance iteration state and detect when a project is complete.
+    description: Loads and validates project YAML files and tracks requirement completion across iterations.
     orchestration: true
   - path: internal/validate
-    description: Orchestration module for the `ralph validate` command. Coordinates a bounded fix loop that asks `internal/project` to load and save a project YAML file and delegates to an injected agent client when loading fails. Carries a resolved `model` string on the `Validator` struct, derived at wiring time by preferring `validate.model` from the ralph config and falling back to the top-level `model` field. Owns the `ProjectClient` and `AgentClient` interfaces consumed by the validator, the adapters that bind them to `internal/project` and `internal/ai`, and the mock fixtures for the agent namespace used by orchestration tests.
+    description: Orchestrates a bounded fix loop that repairs invalid project YAML files using an AI agent.
     orchestration: true
   - path: internal/webhook
-    description: GitHub webhook HTTP server built on Gin. Parses incoming payloads, filters events, and submits the corresponding Argo workflows for ralph execution.
+    description: HTTP server that receives GitHub webhook events and dispatches corresponding Argo workflows.
     orchestration: true
   - path: internal/workflow
-    description: Generates and submits Argo Workflow manifests for run and merge flows. Composes embedded shell scripts, container images, and ConfigMap references into a complete workflow spec.
+    description: Generates and submits Argo Workflow manifests for run and merge operations.
     orchestration: true
   - path: internal/provisioning
-    description: Provisions webhook ConfigMaps and Secrets into a Kubernetes cluster. Fetches repository collaborators, generates secrets, and applies them via the `k8s` package.
+    description: Provisions webhook configuration and secrets into a Kubernetes cluster.
     orchestration: true
   - path: internal/ai
-    description: Wraps the `opencode` CLI to run AI prompts with embedded instruction templates for PR summaries, changelogs, architecture generation, code review, and project YAML repair.
+    description: Runs AI prompts against embedded instruction templates to generate ralph artifacts.
   - path: internal/opencode
-    description: Thin wrapper around the `opencode` CLI used by `internal/ai` to invoke models with arbitrary prompts.
+    description: Thin wrapper around the opencode CLI for invoking AI models.
   - path: internal/architecture
-    description: Defines and loads/saves the architecture YAML schema (apps, modules, features, function references) used for architecture generation and review loop expansion.
+    description: Defines and persists the architecture YAML schema for module documentation and review.
   - path: internal/review
-    description: Expands review loop iterations (such as domain-function reviews) by reading an architecture file and producing the unit of work for each iteration.
+    description: Expands review iterations by reading architecture files and partitioning work into units.
   - path: internal/argo
-    description: Thin wrapper around the `argo` CLI for listing, stopping, and submitting workflows.
+    description: Thin wrapper around the argo CLI for workflow management.
   - path: internal/k8s
-    description: Helper functions around the `kubectl` CLI for managing ConfigMaps, Secrets, and Kubernetes contexts.
+    description: Thin wrapper around kubectl for managing Kubernetes resources.
   - path: internal/git
-    description: Thin wrapper around the `git` CLI exposing helpers for branches, commits, configuration, files, remotes, and repository state.
+    description: Thin wrapper around the git CLI for repository operations.
   - path: internal/github
-    description: Wrappers around the `gh` CLI plus GitHub App authentication and PR helpers such as `FindExistingPR` and repository slug parsing.
+    description: Wrapper around the gh CLI for GitHub API operations and authentication.
   - path: internal/config
-    description: Loads and parses the `.ralph/config.yaml` schema covering services, before-commands, and instructions. Embeds the default instruction markdown files.
+    description: Loads and parses the ralph configuration schema including service and instruction settings.
   - path: internal/webhookconfig
-    description: Loads and validates the YAML configuration and secrets schemas used by the ralph-webhook service.
+    description: Loads and validates the ralph-webhook service configuration and secrets.
   - path: internal/context
-    description: Defines the `Context` struct that carries runtime execution settings (project file, flags, overrides) between the command layer and the run engine.
+    description: Carries runtime execution settings between the command layer and the run engine.
   - path: internal/services
-    description: Manages the lifecycle of `before` commands and long-running services declared in project configuration, including start, stop, and port readiness checks.
+    description: Manages the lifecycle of before-commands and long-running services declared in project configuration.
   - path: internal/workspace
-    description: Sets up the in-container workspace including OpenCode credential placement, symlinks, and working directory preparation.
+    description: Prepares the in-container workspace for agent execution.
   - path: internal/cleanup
-    description: Generic cleanup manager that registers shutdown callbacks and installs OS signal handlers for graceful termination.
+    description: Registers shutdown callbacks and handles OS signal-based graceful termination.
   - path: internal/logger
-    description: Leveled logger with color and JSON output modes plus verbosity controls used across the application.
+    description: Structured logger with leveled output used across the application.
   - path: internal/notify
-    description: Desktop notification helper built on `beeep`, exposing Success and Error notifications.
+    description: Desktop notification helper for success and error events.
   - path: internal/version
-    description: Exposes the embedded `VERSION` file string via a `Version()` accessor.
+    description: Exposes the current application version string.
   - path: internal/docker
-    description: Test-only package that verifies the repository `Containerfile` contents. Contains no production code.
+    description: Test-only package that validates the repository Containerfile.
   - path: internal/testutil
-    description: Shared test helpers including a default `Context` factory with options and common string utilities.
+    description: Shared test helpers and factories used across the test suite.
