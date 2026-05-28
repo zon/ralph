@@ -429,7 +429,7 @@ requirements:
         - github.prCreated() returns true when CreatePR was called and returned nil
         - notify.errors() returns the slice of slugs for which Error was called
         - notify.successes() returns the slice of slugs for which Success was called
-      passing: false
+      passing: true
     - slug: mock-project-fixtures
       description: Project data factory helpers for the orchestration tests, in internal/project
       items:

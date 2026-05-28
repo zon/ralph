@@ -42,15 +42,15 @@ func newProjectThatAlwaysReportsFailures() *mockProjectClient {
 
 // mockAgentClient implements AgentClient with configurable behavior and call recording.
 type mockAgentClient struct {
-	iterateFunc          func() error
-	isFatalFunc          func(err error) bool
-	changelogFunc        func() error
-	iterateCallsCount    int
-	changelogCallsCount  int
+	iterateFunc     func() error
+	isFatalFunc     func(err error) bool
+	changelogFunc   func() error
+	iterateCalls    []*project.Project
+	changelogCalls  []*project.Project
 }
 
-func (m *mockAgentClient) Iterate(_ *project.Project) error {
-	m.iterateCallsCount++
+func (m *mockAgentClient) Iterate(proj *project.Project) error {
+	m.iterateCalls = append(m.iterateCalls, proj)
 	if m.iterateFunc != nil {
 		return m.iterateFunc()
 	}
@@ -64,8 +64,8 @@ func (m *mockAgentClient) IsFatal(err error) bool {
 	return false
 }
 
-func (m *mockAgentClient) GenerateChangelog(_ *project.Project) error {
-	m.changelogCallsCount++
+func (m *mockAgentClient) GenerateChangelog(proj *project.Project) error {
+	m.changelogCalls = append(m.changelogCalls, proj)
 	if m.changelogFunc != nil {
 		return m.changelogFunc()
 	}
@@ -178,22 +178,30 @@ func newGitWithBlockedFile() *mockGitClient {
 	}
 }
 
-func newGitWithCommitsAhead() *mockGitClient {
-	return &mockGitClient{}
-}
-
-// mockGitHubClient implements GitHubClient with call recording.
+// mockGitHubClient implements GitHubClient with configurable behavior and call recording.
 type mockGitHubClient struct {
-	createPRFunc      func(*project.Project) error
-	createPRCalled    bool
+	createPRFunc        func(*project.Project) error
+	createPRCalled      bool
+	createPRReturnedNil bool
 }
 
-func (m *mockGitHubClient) CreatePR(_ *project.Project) error {
+func (m *mockGitHubClient) CreatePR(proj *project.Project) error {
 	m.createPRCalled = true
 	if m.createPRFunc != nil {
-		return m.createPRFunc(nil)
+		err := m.createPRFunc(proj)
+		if err == nil {
+			m.createPRReturnedNil = true
+		}
+		return err
 	}
+	m.createPRReturnedNil = true
 	return nil
+}
+
+func newGitHubWithCommitsAhead() *mockGitHubClient {
+	return &mockGitHubClient{
+		createPRFunc: func(_ *project.Project) error { return nil },
+	}
 }
 
 // mockServicesClient implements ServicesClient with configurable behavior.
@@ -201,9 +209,9 @@ type mockServicesClient struct {
 	runBeforeFunc func(cfg *config.RalphConfig) error
 }
 
-func (m *mockServicesClient) RunBeforeCommands(_ *config.RalphConfig) error {
+func (m *mockServicesClient) RunBeforeCommands(cfg *config.RalphConfig) error {
 	if m.runBeforeFunc != nil {
-		return m.runBeforeFunc(nil)
+		return m.runBeforeFunc(cfg)
 	}
 	return nil
 }
@@ -216,10 +224,10 @@ func newServicesThatFailBeforeCommands() *mockServicesClient {
 
 // mockNotifyClient implements NotifyClient with call recording.
 type mockNotifyClient struct {
-	errorsSlice   []string
+	errorsSlice    []string
 	successesSlice []string
-	errorFunc     func(slug string)
-	successFunc   func(slug string)
+	errorFunc      func(slug string)
+	successFunc    func(slug string)
 }
 
 func (m *mockNotifyClient) Error(slug string) {
@@ -270,6 +278,12 @@ func withGit(gc GitClient) runnerOption {
 	}
 }
 
+func withGitHub(gc GitHubClient) runnerOption {
+	return func(r *Runner) {
+		r.github = gc
+	}
+}
+
 func withServices(sc ServicesClient) runnerOption {
 	return func(r *Runner) {
 		r.services = sc
@@ -298,18 +312,18 @@ func withMocks(opts ...runnerOption) *Runner {
 }
 
 // spy accessors — these work on the concrete mock types embedded in the Runner.
-func aiIterateCalls(r *Runner) int {
+func aiIterateCalls(r *Runner) []*project.Project {
 	if m, ok := r.ai.(*mockAgentClient); ok {
-		return m.iterateCallsCount
+		return m.iterateCalls
 	}
-	return 0
+	return nil
 }
 
-func aiChangelogCalls(r *Runner) int {
+func aiChangelogCalls(r *Runner) []*project.Project {
 	if m, ok := r.ai.(*mockAgentClient); ok {
-		return m.changelogCallsCount
+		return m.changelogCalls
 	}
-	return 0
+	return nil
 }
 
 func gitBranchSwitched(r *Runner) bool {
@@ -335,7 +349,7 @@ func gitCommittedFromReport(r *Runner) bool {
 
 func githubPRCreated(r *Runner) bool {
 	if m, ok := r.github.(*mockGitHubClient); ok {
-		return m.createPRCalled
+		return m.createPRCalled && m.createPRReturnedNil
 	}
 	return false
 }

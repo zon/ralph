@@ -27,7 +27,7 @@ func TestCommitIterationGeneratesChangelogWhenNoReport(t *testing.T) {
 	)
 	err := runner.RunLocal(project.WithFailingRequirements(), config.Any())
 	require.NoError(t, err)
-	require.Equal(t, 1, aiChangelogCalls(runner))
+	require.Len(t, aiChangelogCalls(runner), 1)
 	require.True(t, gitCommittedFromReport(runner))
 }
 
