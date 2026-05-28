@@ -369,7 +369,7 @@ requirements:
       items:
         - AllRequirementsPassing calls project.CheckCompletion and returns allComplete
         - MaxIterationsError returns ErrMaxIterationsReached with the count of still-failing requirements
-      passing: false
+      passing: true
     - slug: adapter-agent
       description: AgentClientAdapter — binds AgentClient to internal/ai and internal/project
       items:
