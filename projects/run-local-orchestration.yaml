@@ -437,7 +437,7 @@ requirements:
         - project.withAllPassing() returns a *project.Project where every requirement has passing true
         - project.withFailingRequirements() returns a *project.Project with at least one failing requirement
         - project.withMaxIterations(n) returns a *project.Project with MaxIterations set to n
-      passing: false
+      passing: true
     - slug: mock-config-fixtures
       description: Config data factory helpers for the orchestration tests, in internal/config
       items:
