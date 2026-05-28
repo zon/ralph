@@ -6,7 +6,6 @@ import (
 	"github.com/zon/ralph/internal/project"
 )
 
-// AgentClientAdapter adapts project and ai functions to the AgentClient interface.
 type AgentClientAdapter struct {
 	ctx *context.Context
 }

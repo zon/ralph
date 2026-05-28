@@ -46,3 +46,14 @@ type Runner struct {
 	services ServicesClient
 	notify   NotifyClient
 }
+
+func NewRunner(project ProjectClient, ai AgentClient, git GitClient, github GitHubClient, services ServicesClient, notify NotifyClient) *Runner {
+	return &Runner{
+		project:  project,
+		ai:       ai,
+		git:      git,
+		github:   github,
+		services: services,
+		notify:   notify,
+	}
+}

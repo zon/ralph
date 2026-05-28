@@ -1,4 +1,4 @@
-package run
+package github
 
 import (
 	"errors"
@@ -7,24 +7,23 @@ import (
 	"github.com/zon/ralph/internal/ai"
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
-	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/project"
 )
 
-type GitHubClientAdapter struct {
+type RunAdapter struct {
 	ctx        *context.Context
 	baseBranch string
 }
 
-func NewGitHubClientAdapter(ctx *context.Context, baseBranch string) *GitHubClientAdapter {
-	return &GitHubClientAdapter{
+func NewRunAdapter(ctx *context.Context, baseBranch string) *RunAdapter {
+	return &RunAdapter{
 		ctx:        ctx,
 		baseBranch: baseBranch,
 	}
 }
 
-func (a *GitHubClientAdapter) CreatePR(proj *project.Project) error {
+func (a *RunAdapter) CreatePR(proj *project.Project) error {
 	commitLog, err := git.GetCommitLog(a.baseBranch, 100)
 	if err != nil {
 		return fmt.Errorf("failed to get commit log: %w", err)
@@ -40,9 +39,9 @@ func (a *GitHubClientAdapter) CreatePR(proj *project.Project) error {
 
 	branchName := git.SanitizeBranchName(proj.Slug)
 
-	_, err = github.CreatePullRequest(a.ctx, proj, branchName, a.baseBranch, prSummary)
+	_, err = CreatePullRequest(a.ctx, proj, branchName, a.baseBranch, prSummary)
 	if err != nil {
-		if errors.Is(err, github.ErrNoCommitsBetweenBranches) {
+		if errors.Is(err, ErrNoCommitsBetweenBranches) {
 			logger.Verbose("No commits ahead of base branch — all requirements were already passing; skipping PR creation")
 			return nil
 		}

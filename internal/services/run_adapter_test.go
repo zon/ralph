@@ -1,4 +1,4 @@
-package run
+package services_test
 
 import (
 	"testing"
@@ -7,12 +7,14 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/zon/ralph/internal/config"
+	orchestrationRun "github.com/zon/ralph/internal/orchestration/run"
+	"github.com/zon/ralph/internal/services"
 )
 
-func TestServicesClientAdapterRunBeforeCommands(t *testing.T) {
-	adapter := &ServicesClientAdapter{}
+func TestServicesRunAdapterRunBeforeCommands(t *testing.T) {
+	adapter := &services.RunAdapter{}
 
-	t.Run("calls services.RunBefore when cfg.Before is non-empty", func(t *testing.T) {
+	t.Run("calls RunBefore when cfg.Before is non-empty", func(t *testing.T) {
 		cfg := &config.RalphConfig{
 			Before: []config.Before{
 				{Name: "echo", Command: "echo", Args: []string{"hello"}},
@@ -50,6 +52,6 @@ func TestServicesClientAdapterRunBeforeCommands(t *testing.T) {
 	})
 }
 
-func TestServicesClientAdapterImplementsInterface(t *testing.T) {
-	var _ ServicesClient = &ServicesClientAdapter{}
+func TestServicesRunAdapterImplementsInterface(t *testing.T) {
+	var _ orchestrationRun.ServicesClient = &services.RunAdapter{}
 }

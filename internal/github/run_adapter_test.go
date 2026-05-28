@@ -1,4 +1,4 @@
-package run
+package github
 
 import (
 	"os"
@@ -8,22 +8,24 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/zon/ralph/internal/context"
+	orchestrationRun "github.com/zon/ralph/internal/orchestration/run"
 	"github.com/zon/ralph/internal/project"
+	"github.com/zon/ralph/internal/testutil"
 )
 
-func TestGitHubClientAdapterNewAdapter(t *testing.T) {
+func TestGitHubRunAdapterNewAdapter(t *testing.T) {
 	ctx := context.NewContext()
-	adapter := NewGitHubClientAdapter(ctx, "main")
+	adapter := NewRunAdapter(ctx, "main")
 	require.NotNil(t, adapter)
-	var _ GitHubClient = adapter
+	var _ orchestrationRun.GitHubClient = adapter
 }
 
-func TestGitHubClientAdapterCreatePR_UsesMockAI(t *testing.T) {
+func TestGitHubRunAdapterCreatePR_UsesMockAI(t *testing.T) {
 	t.Setenv("RALPH_MOCK_AI", "true")
 	workDir := t.TempDir()
 	t.Chdir(workDir)
-	initGitRepo(t, workDir)
-	makeInitialCommit(t, workDir)
+	testutil.InitGitRepo(t, workDir)
+	testutil.MakeInitialCommit(t, workDir)
 
 	c := exec.Command("git", "checkout", "-b", "test-slug")
 	c.Dir = workDir
@@ -43,7 +45,7 @@ func TestGitHubClientAdapterCreatePR_UsesMockAI(t *testing.T) {
 	}
 
 	ctx := context.NewContext()
-	adapter := NewGitHubClientAdapter(ctx, "main")
+	adapter := NewRunAdapter(ctx, "main")
 
 	err := adapter.CreatePR(proj)
 	if err != nil {

@@ -1,4 +1,4 @@
-package run
+package git_test
 
 import (
 	"os"
@@ -10,23 +10,25 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/zon/ralph/internal/context"
+	"github.com/zon/ralph/internal/git"
+	orchestrationRun "github.com/zon/ralph/internal/orchestration/run"
+	"github.com/zon/ralph/internal/testutil"
 )
 
-func TestGitClientAdapterNewAdapter(t *testing.T) {
+func TestGitRunAdapterNewAdapter(t *testing.T) {
 	ctx := context.NewContext()
-	adapter := NewGitClientAdapter(ctx)
+	adapter := git.NewRunAdapter(ctx)
 	require.NotNil(t, adapter)
-	var _ GitClient = adapter
+	var _ orchestrationRun.GitClient = adapter
 }
 
-func TestGitClientAdapterBlockedFileExists(t *testing.T) {
+func TestGitRunAdapterBlockedFileExists(t *testing.T) {
 	workDir := t.TempDir()
 	t.Chdir(workDir)
-	initGitRepo(t, workDir)
-	makeInitialCommit(t, workDir)
+	testutil.InitGitRepo(t, workDir)
+	testutil.MakeInitialCommit(t, workDir)
 
-	// Use FindRepoRoot to get the root
-	adapter := NewGitClientAdapter(context.NewContext())
+	adapter := git.NewRunAdapter(context.NewContext())
 
 	t.Run("returns false when no blocked.md exists", func(t *testing.T) {
 		assert.False(t, adapter.BlockedFileExists())
@@ -39,13 +41,13 @@ func TestGitClientAdapterBlockedFileExists(t *testing.T) {
 	})
 }
 
-func TestGitClientAdapterWriteBlockedFile(t *testing.T) {
+func TestGitRunAdapterWriteBlockedFile(t *testing.T) {
 	workDir := t.TempDir()
 	t.Chdir(workDir)
-	initGitRepo(t, workDir)
-	makeInitialCommit(t, workDir)
+	testutil.InitGitRepo(t, workDir)
+	testutil.MakeInitialCommit(t, workDir)
 
-	adapter := NewGitClientAdapter(context.NewContext())
+	adapter := git.NewRunAdapter(context.NewContext())
 	err := &testBlockedError{"connection refused"}
 
 	adapter.WriteBlockedFile(err)
@@ -57,13 +59,13 @@ func TestGitClientAdapterWriteBlockedFile(t *testing.T) {
 	assert.Contains(t, string(data), "# Blocked")
 }
 
-func TestGitClientAdapterHasChanges(t *testing.T) {
+func TestGitRunAdapterHasChanges(t *testing.T) {
 	workDir := t.TempDir()
 	t.Chdir(workDir)
-	initGitRepo(t, workDir)
-	makeInitialCommit(t, workDir)
+	testutil.InitGitRepo(t, workDir)
+	testutil.MakeInitialCommit(t, workDir)
 
-	adapter := NewGitClientAdapter(context.NewContext())
+	adapter := git.NewRunAdapter(context.NewContext())
 
 	t.Run("returns false with clean working tree", func(t *testing.T) {
 		assert.False(t, adapter.HasChanges())
@@ -75,13 +77,13 @@ func TestGitClientAdapterHasChanges(t *testing.T) {
 	})
 }
 
-func TestGitClientAdapterReportExists(t *testing.T) {
+func TestGitRunAdapterReportExists(t *testing.T) {
 	workDir := t.TempDir()
 	t.Chdir(workDir)
-	initGitRepo(t, workDir)
-	makeInitialCommit(t, workDir)
+	testutil.InitGitRepo(t, workDir)
+	testutil.MakeInitialCommit(t, workDir)
 
-	adapter := NewGitClientAdapter(context.NewContext())
+	adapter := git.NewRunAdapter(context.NewContext())
 
 	t.Run("returns false when no report.md exists", func(t *testing.T) {
 		assert.False(t, adapter.ReportExists())
@@ -93,19 +95,18 @@ func TestGitClientAdapterReportExists(t *testing.T) {
 	})
 }
 
-func TestGitClientAdapterCommitFromReport(t *testing.T) {
+func TestGitRunAdapterCommitFromReport(t *testing.T) {
 	workDir := t.TempDir()
 	t.Chdir(workDir)
-	initGitRepo(t, workDir)
-	makeInitialCommit(t, workDir)
+	testutil.InitGitRepo(t, workDir)
+	testutil.MakeInitialCommit(t, workDir)
 	setupLocalRemote(t, workDir)
 
 	ctx := context.NewContext()
-	adapter := NewGitClientAdapter(ctx)
+	adapter := git.NewRunAdapter(ctx)
 
 	reportContent := "Implement requirement: adapter-git"
 	require.NoError(t, os.WriteFile("report.md", []byte(reportContent), 0644))
-
 	require.NoError(t, os.WriteFile("newfile.txt", []byte("change"), 0644))
 
 	err := adapter.CommitFromReport("test-slug")
@@ -115,13 +116,13 @@ func TestGitClientAdapterCommitFromReport(t *testing.T) {
 	assert.True(t, os.IsNotExist(err), "report.md should be deleted after commit")
 }
 
-func TestGitClientAdapterCommitFromReportFailsWhenNoReport(t *testing.T) {
+func TestGitRunAdapterCommitFromReportFailsWhenNoReport(t *testing.T) {
 	workDir := t.TempDir()
 	t.Chdir(workDir)
-	initGitRepo(t, workDir)
-	makeInitialCommit(t, workDir)
+	testutil.InitGitRepo(t, workDir)
+	testutil.MakeInitialCommit(t, workDir)
 
-	adapter := NewGitClientAdapter(context.NewContext())
+	adapter := git.NewRunAdapter(context.NewContext())
 
 	err := adapter.CommitFromReport("test-slug")
 	require.Error(t, err)

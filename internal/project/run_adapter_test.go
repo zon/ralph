@@ -1,4 +1,4 @@
-package run
+package project_test
 
 import (
 	"errors"
@@ -7,11 +7,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	orchestrationRun "github.com/zon/ralph/internal/orchestration/run"
 	"github.com/zon/ralph/internal/project"
 )
 
-func TestProjectClientAdapterAllRequirementsPassing(t *testing.T) {
-	adapter := &ProjectClientAdapter{}
+func TestProjectRunAdapterAllRequirementsPassing(t *testing.T) {
+	adapter := &project.RunAdapter{}
 
 	t.Run("returns true when all requirements pass", func(t *testing.T) {
 		proj := &project.Project{
@@ -47,8 +48,8 @@ func TestProjectClientAdapterAllRequirementsPassing(t *testing.T) {
 	})
 }
 
-func TestProjectClientAdapterMaxIterationsError(t *testing.T) {
-	adapter := &ProjectClientAdapter{}
+func TestProjectRunAdapterMaxIterationsError(t *testing.T) {
+	adapter := &project.RunAdapter{}
 
 	t.Run("returns error wrapping ErrMaxIterationsReached", func(t *testing.T) {
 		proj := &project.Project{
@@ -87,4 +88,8 @@ func TestProjectClientAdapterMaxIterationsError(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "0 requirements still failing")
 	})
+}
+
+func TestProjectRunAdapterImplementsInterface(t *testing.T) {
+	var _ orchestrationRun.ProjectClient = &project.RunAdapter{}
 }

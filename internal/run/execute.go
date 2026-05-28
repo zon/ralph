@@ -12,7 +12,6 @@ import (
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/notify"
-	orchestrationRun "github.com/zon/ralph/internal/orchestration/run"
 	"github.com/zon/ralph/internal/project"
 	"github.com/zon/ralph/internal/services"
 	"github.com/zon/ralph/internal/workflow"
@@ -138,7 +137,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func()), setup *Executi
 		return executeRemote(ctx, setup.ProjectFile)
 	}
 
-	return orchestrationRun.NewRunner(ctx, setup.BaseBranch).RunLocal(setup.Project, setup.Config)
+	return NewLocalRunner(ctx, setup.BaseBranch).RunLocal(setup.Project, setup.Config)
 }
 
 func infrastructureRunBeforeCommands(cfg *config.RalphConfig) error {
