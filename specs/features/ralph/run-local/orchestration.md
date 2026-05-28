@@ -6,7 +6,7 @@ Run the full development loop in-process: set up the environment, iterate until 
 
 ## Orchestration
 
-**Module:** `internal/run`
+**Module:** `internal/orchestration/run`
 
 ```go
 type Runner struct {
@@ -107,7 +107,7 @@ func (r *Runner) commitIteration(proj *project.Project) error {
 
 ## Tests
 
-**Module:** `internal/run`
+**Module:** `internal/orchestration/run`
 
 ```go
 func TestRunLocalBeforeCommandFailureAbortsEarly(t *testing.T) {

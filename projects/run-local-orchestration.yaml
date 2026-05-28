@@ -1,5 +1,5 @@
-slug: run-local-refactor
-title: Refactor internal/run to the Runner orchestration pattern
+slug: run-local-orchestration
+title: Create internal/orchestration/run and remove replaced code from internal/run
 feature: specs/features/ralph/run-local
 requirements:
     - slug: project-max-iterations
@@ -9,11 +9,18 @@ requirements:
         - When LoadProject finds MaxIterations is 0, load config.RalphConfig and populate MaxIterations from it (default 10)
       passing: false
     - slug: runner-interfaces
-      description: Define the Runner struct and its six injectable client interfaces in internal/run
+      description: Define the Runner struct and its six injectable client interfaces in internal/orchestration/run
+      items:
+        - Define ProjectClient interface with AllRequirementsPassing(proj *project.Project) bool and MaxIterationsError(proj *project.Project) error
+        - Define AgentClient interface with Iterate(proj *project.Project) error, IsFatal(err error) bool, and GenerateChangelog(proj *project.Project) error
+        - Define GitClient interface with SwitchToBranch(slug string) error, BlockedFileExists() bool, WriteBlockedFile(err error), HasChanges() bool, ReportExists() bool, and CommitFromReport(slug string) error
+        - Define GitHubClient interface with CreatePR(proj *project.Project) error
+        - Define ServicesClient interface with RunBeforeCommands(cfg *config.RalphConfig) error
+        - Define NotifyClient interface with Error(slug string) and Success(slug string)
       code:
         - name: Runner
           description: Orchestration struct holding the six client dependencies for the local execution path
-          module: internal/run
+          module: internal/orchestration/run
           body: |
             type Runner struct {
                 project  ProjectClient
@@ -22,39 +29,6 @@ requirements:
                 github   GitHubClient
                 services ServicesClient
                 notify   NotifyClient
-            }
-
-            type ProjectClient interface {
-                AllRequirementsPassing(proj *project.Project) bool
-                MaxIterationsError(proj *project.Project) error
-            }
-
-            type AgentClient interface {
-                Iterate(proj *project.Project) error
-                IsFatal(err error) bool
-                GenerateChangelog(proj *project.Project) error
-            }
-
-            type GitClient interface {
-                SwitchToBranch(slug string) error
-                BlockedFileExists() bool
-                WriteBlockedFile(err error)
-                HasChanges() bool
-                ReportExists() bool
-                CommitFromReport(slug string) error
-            }
-
-            type GitHubClient interface {
-                CreatePR(proj *project.Project) error
-            }
-
-            type ServicesClient interface {
-                RunBeforeCommands(cfg *config.RalphConfig) error
-            }
-
-            type NotifyClient interface {
-                Error(slug string)
-                Success(slug string)
             }
       passing: false
     - slug: run-local
@@ -77,12 +51,6 @@ requirements:
             - WHEN the PR creation step runs
             - THEN a pull request is created
             - AND the PR title matches the project title
-        - title: All requirements already passing at start — commits exist
-          items:
-            - GIVEN all requirements are passing before any iteration runs
-            - AND the project branch has commits not on the base branch
-            - WHEN the PR creation step runs
-            - THEN a pull request is created
         - title: No commits ahead of base branch
           items:
             - GIVEN all requirements are passing
@@ -103,7 +71,7 @@ requirements:
       code:
         - name: RunLocal
           description: Runs before-commands, switches to project branch, iterates, creates PR, and notifies on completion
-          module: internal/run
+          module: internal/orchestration/run
           body: |
             func (r *Runner) RunLocal(proj *project.Project, cfg *config.RalphConfig) error {
                 if err := r.services.RunBeforeCommands(cfg); err != nil {
@@ -126,7 +94,7 @@ requirements:
       tests:
         - name: TestRunLocalBeforeCommandFailureAbortsEarly
           description: verifies that a failing before-command aborts before branch switching
-          module: internal/run
+          module: internal/orchestration/run
           body: |
             func TestRunLocalBeforeCommandFailureAbortsEarly(t *testing.T) {
                 runner := run.withMocks(
@@ -138,7 +106,7 @@ requirements:
             }
         - name: TestRunLocalIterationFailureSendsErrorNotification
           description: verifies that an iteration error triggers an error notification
-          module: internal/run
+          module: internal/orchestration/run
           body: |
             func TestRunLocalIterationFailureSendsErrorNotification(t *testing.T) {
                 runner := run.withMocks(
@@ -150,7 +118,7 @@ requirements:
             }
         - name: TestRunLocalAllRequirementsPassCreatesPR
           description: verifies that a successful run with commits ahead creates a PR and sends a success notification
-          module: internal/run
+          module: internal/orchestration/run
           body: |
             func TestRunLocalAllRequirementsPassCreatesPR(t *testing.T) {
                 runner := run.withMocks(
@@ -164,7 +132,7 @@ requirements:
             }
         - name: TestRunLocalNoCommitsSkipsPR
           description: verifies that when no commits exist ahead of base, PR creation is skipped and run succeeds
-          module: internal/run
+          module: internal/orchestration/run
           body: |
             func TestRunLocalNoCommitsSkipsPR(t *testing.T) {
                 runner := run.withMocks(
@@ -217,7 +185,7 @@ requirements:
       code:
         - name: iterate
           description: drives the iteration loop; exits on all-passing, blocked, fatal AI error, or max iterations
-          module: internal/run
+          module: internal/orchestration/run
           body: |
             func (r *Runner) iterate(proj *project.Project) error {
                 for i := 0; i < proj.MaxIterations; i++ {
@@ -243,7 +211,7 @@ requirements:
       tests:
         - name: TestIterateExitsImmediatelyWhenAllPassing
           description: verifies the loop exits without invoking AI when all requirements are already passing
-          module: internal/run
+          module: internal/orchestration/run
           body: |
             func TestIterateExitsImmediatelyWhenAllPassing(t *testing.T) {
                 runner := run.withMocks(
@@ -255,7 +223,7 @@ requirements:
             }
         - name: TestIterateExitsEarlyWhenRequirementsPass
           description: verifies the loop exits after the iteration where requirements first become passing
-          module: internal/run
+          module: internal/orchestration/run
           body: |
             func TestIterateExitsEarlyWhenRequirementsPass(t *testing.T) {
                 runner := run.withMocks(
@@ -268,7 +236,7 @@ requirements:
             }
         - name: TestIterateReturnsErrorAtMaxIterations
           description: verifies an error is returned when max iterations are exhausted with requirements still failing
-          module: internal/run
+          module: internal/orchestration/run
           body: |
             func TestIterateReturnsErrorAtMaxIterations(t *testing.T) {
                 runner := run.withMocks(
@@ -281,7 +249,7 @@ requirements:
             }
         - name: TestIterateStopsOnBlockedFile
           description: verifies the loop stops with ErrBlocked when blocked.md is present
-          module: internal/run
+          module: internal/orchestration/run
           body: |
             func TestIterateStopsOnBlockedFile(t *testing.T) {
                 runner := run.withMocks(
@@ -293,7 +261,7 @@ requirements:
             }
         - name: TestIterateFatalAIErrorIsNotRetried
           description: verifies that a fatal AI error is returned immediately without writing blocked.md or retrying
-          module: internal/run
+          module: internal/orchestration/run
           body: |
             func TestIterateFatalAIErrorIsNotRetried(t *testing.T) {
                 runner := run.withMocks(
@@ -306,7 +274,7 @@ requirements:
             }
         - name: TestIterateNonFatalAIErrorWritesBlockedFile
           description: verifies that a non-fatal AI error writes blocked.md before returning
-          module: internal/run
+          module: internal/orchestration/run
           body: |
             func TestIterateNonFatalAIErrorWritesBlockedFile(t *testing.T) {
                 runner := run.withMocks(
@@ -340,7 +308,7 @@ requirements:
       code:
         - name: commitIteration
           description: commits working tree changes using report.md as the commit message, generating it if absent
-          module: internal/run
+          module: internal/orchestration/run
           body: |
             func (r *Runner) commitIteration(proj *project.Project) error {
                 if !r.git.HasChanges() {
@@ -356,7 +324,7 @@ requirements:
       tests:
         - name: TestCommitIterationUsesReportWhenPresent
           description: verifies that when report.md exists, GenerateChangelog is not called and CommitFromReport is called
-          module: internal/run
+          module: internal/orchestration/run
           body: |
             func TestCommitIterationUsesReportWhenPresent(t *testing.T) {
                 runner := run.withMocks(
@@ -370,7 +338,7 @@ requirements:
             }
         - name: TestCommitIterationGeneratesChangelogWhenNoReport
           description: verifies that when no report.md exists, GenerateChangelog is called before CommitFromReport
-          module: internal/run
+          module: internal/orchestration/run
           body: |
             func TestCommitIterationGeneratesChangelogWhenNoReport(t *testing.T) {
                 runner := run.withMocks(
@@ -384,7 +352,7 @@ requirements:
             }
         - name: TestCommitIterationSkipsCommitWhenNoChanges
           description: verifies that when the working tree is clean, CommitFromReport is not called
-          module: internal/run
+          module: internal/orchestration/run
           body: |
             func TestCommitIterationSkipsCommitWhenNoChanges(t *testing.T) {
                 runner := run.withMocks(
@@ -396,36 +364,61 @@ requirements:
                 require.False(t, git.committedFromReport())
             }
       passing: false
-    - slug: concrete-adapters
-      description: Concrete adapter implementations for all six Runner interfaces, binding to existing internal packages
+    - slug: adapter-project
+      description: ProjectClientAdapter — binds ProjectClient to internal/project
       items:
-        - ProjectClientAdapter wraps internal/project — AllRequirementsPassing calls project.CheckCompletion and returns allComplete; MaxIterationsError returns ErrMaxIterationsReached with the failing count
-        - AgentClientAdapter wraps internal/ai and internal/project — Iterate calls project.ExecuteDevelopmentIteration with the stored context; IsFatal checks for billing/quota patterns matching the existing fatalOpenCodePatterns list; GenerateChangelog calls ai.GenerateChangelog
-        - GitClientAdapter wraps internal/git — SwitchToBranch calls git.ValidateGitStateAndSwitchBranch with the stored context; BlockedFileExists checks for blocked.md in the repo root via git.FindRepoRoot; WriteBlockedFile writes blocked.md to the repo root; HasChanges calls git.HasUncommittedChanges; ReportExists stat-checks report.md in the working directory; CommitFromReport reads report.md, calls git.CommitChanges, and deletes report.md
-        - GitHubClientAdapter wraps internal/github and internal/ai — CreatePR generates the AI PR summary via ai.GeneratePRSummary using the stored context, base branch, and project, then calls github.CreatePullRequest; when github.ErrNoCommitsBetweenBranches is returned it logs a message and returns nil
-        - ServicesClientAdapter wraps internal/services — RunBeforeCommands calls services.RunBefore when cfg.Before is non-empty
-        - NotifyClientAdapter wraps internal/notify — Error and Success call notify.Error and notify.Success with the shouldNotify flag stored at construction time
+        - AllRequirementsPassing calls project.CheckCompletion and returns allComplete
+        - MaxIterationsError returns ErrMaxIterationsReached with the count of still-failing requirements
+      passing: false
+    - slug: adapter-agent
+      description: AgentClientAdapter — binds AgentClient to internal/ai and internal/project
+      items:
+        - Iterate calls project.ExecuteDevelopmentIteration with the stored context
+        - IsFatal checks the error string against the existing fatalOpenCodePatterns list (billing, quota, account, etc.)
+        - GenerateChangelog calls ai.GenerateChangelog with the stored context
+      passing: false
+    - slug: adapter-git
+      description: GitClientAdapter — binds GitClient to internal/git
+      items:
+        - SwitchToBranch calls git.ValidateGitStateAndSwitchBranch with the stored context
+        - BlockedFileExists checks for blocked.md in the repo root via git.FindRepoRoot
+        - WriteBlockedFile writes blocked.md to the repo root containing the error reason
+        - HasChanges calls git.HasUncommittedChanges
+        - ReportExists stat-checks report.md in the working directory
+        - CommitFromReport reads report.md, calls git.CommitChanges, and deletes report.md
+      passing: false
+    - slug: adapter-github
+      description: GitHubClientAdapter — binds GitHubClient to internal/github and internal/ai
+      items:
+        - CreatePR generates an AI PR summary via ai.GeneratePRSummary using the stored context, base branch, and project, then calls github.CreatePullRequest
+        - When github.ErrNoCommitsBetweenBranches is returned, logs a message and returns nil
+      passing: false
+    - slug: adapter-services
+      description: ServicesClientAdapter — binds ServicesClient to internal/services
+      items:
+        - RunBeforeCommands calls services.RunBefore when cfg.Before is non-empty
+      passing: false
+    - slug: adapter-notify
+      description: NotifyClientAdapter — binds NotifyClient to internal/notify, plus NewRunner constructor
+      items:
+        - Error calls notify.Error with the shouldNotify flag stored at construction time
+        - Success calls notify.Success with the shouldNotify flag stored at construction time
         - NewRunner(ctx *context.Context, baseBranch string) *Runner constructs a Runner wiring all six concrete adapters from the given context and base branch
       passing: false
-    - slug: mock-test-fixtures
-      description: Mock implementations for all six Runner interfaces and factory helpers used by the orchestration tests
+    - slug: mock-runner-fixtures
+      description: Mock Runner constructor and client interface mocks for the orchestration tests, in internal/orchestration/run
       items:
-        - run.withMocks(opts...) constructs a Runner backed by default no-op mock clients for all six interfaces; option funcs from run.withServices, run.withAI, run.withProject, and run.withGit replace specific clients
+        - run.withMocks(opts...) constructs a Runner backed by default no-op mock clients for all six interfaces; option funcs run.withServices, run.withAI, run.withProject, and run.withGit replace specific clients
         - project.thatReportsAllPassing() returns a ProjectClient whose AllRequirementsPassing always returns true
         - project.thatReportsPassingAfterIterations(n) returns a ProjectClient whose AllRequirementsPassing returns false for the first n calls and true thereafter
         - project.thatAlwaysReportsFailures() returns a ProjectClient whose AllRequirementsPassing always returns false
-        - project.any() returns a *project.Project with one failing requirement and MaxIterations = 1
-        - project.withAllPassing() returns a *project.Project where every requirement has passing true
-        - project.withFailingRequirements() returns a *project.Project with at least one failing requirement
-        - project.withMaxIterations(n) returns a *project.Project with MaxIterations set to n
-        - config.any() returns a valid *config.RalphConfig in a default state
         - services.thatFailBeforeCommands() returns a ServicesClient whose RunBeforeCommands returns an error
         - ai.thatAlwaysFails() returns an AgentClient whose Iterate always returns a non-fatal error
         - ai.thatReturnsFatalError() returns an AgentClient whose Iterate returns a billing or quota error detected by IsFatal
         - ai.thatReturnsNonFatalError() returns an AgentClient whose Iterate returns a plain error and IsFatal returns false
         - ai.iterateCalls() returns the slice of projects passed to Iterate during the test
         - ai.changelogCalls() returns the slice of projects passed to GenerateChangelog during the test
-        - git.withCommitsAhead() returns a GitClient where CreatePR succeeds (no ErrNoCommitsBetweenBranches)
+        - git.withCommitsAhead() returns a GitHubClient where CreatePR returns nil (no ErrNoCommitsBetweenBranches)
         - git.withBlockedFile() returns a GitClient whose BlockedFileExists always returns true
         - git.withChangesAndReport() returns a GitClient reporting uncommitted changes and a present report.md
         - git.withChangesButNoReport() returns a GitClient reporting uncommitted changes and no report.md
@@ -437,15 +430,29 @@ requirements:
         - notify.errors() returns the slice of slugs for which Error was called
         - notify.successes() returns the slice of slugs for which Success was called
       passing: false
-    - slug: wire-execute-local
-      description: Replace the inline local execution path in Execute with NewRunner(ctx, baseBranch).RunLocal(setup.Project, setup.Config)
+    - slug: mock-project-fixtures
+      description: Project data factory helpers for the orchestration tests, in internal/project
       items:
-        - Replace the local execution block inside Execute (from the infrastructureRunBeforeCommands call through the notify.Success call) with a single NewRunner(ctx, setup.BaseBranch).RunLocal(setup.Project, setup.Config) call
-        - Delete functions made obsolete by Runner adapters — RunIterationLoop, runSingleIteration, iterateWhile, isBlocked, isFatalOpenCodeError, generateChangelogIfNeeded, getCommitMessage, commitIterationChanges, reportNewlyPassingRequirements, and infrastructureGetCommitLog — along with their tests; retain infrastructureRunBeforeCommands because ExecuteCommand still calls it
+        - project.any() returns a *project.Project with one failing requirement and MaxIterations = 1
+        - project.withAllPassing() returns a *project.Project where every requirement has passing true
+        - project.withFailingRequirements() returns a *project.Project with at least one failing requirement
+        - project.withMaxIterations(n) returns a *project.Project with MaxIterations set to n
+      passing: false
+    - slug: mock-config-fixtures
+      description: Config data factory helpers for the orchestration tests, in internal/config
+      items:
+        - config.any() returns a valid *config.RalphConfig in a default state
+      passing: false
+    - slug: wire-execute-local
+      description: Replace the inline local execution path in Execute (internal/run/execute.go) with NewRunner and delete obsolete helpers
+      items:
+        - In Execute (internal/run/execute.go), replace the local path (everything from the infrastructureRunBeforeCommands call through the final notify.Success call) with a single call to NewRunner(ctx, setup.BaseBranch).RunLocal(setup.Project, setup.Config)
+        - Delete functions made obsolete by Runner adapters — RunIterationLoop, runSingleIteration, iterateWhile, isBlocked, isFatalOpenCodeError, generateChangelogIfNeeded, getCommitMessage, commitIterationChanges, reportNewlyPassingRequirements, and infrastructureGetCommitLog — along with their tests
+        - Retain infrastructureRunBeforeCommands because ExecuteCommand still calls it
         - Retain PrepareExecution and executeRemote unchanged
       passing: false
     - slug: version-bump
-      description: Patch version bump for the run-local Runner refactor
+      description: Patch version bump for the run-local orchestration module
       items:
         - Apply a semver patch bump to internal/version/VERSION
         - Apply a matching patch bump to charts/ralph-webhook/Chart.yaml (appVersion and version)
