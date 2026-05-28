@@ -363,7 +363,7 @@ requirements:
                 require.NoError(t, err)
                 require.False(t, git.committedFromReport())
             }
-      passing: false
+      passing: true
     - slug: adapter-project
       description: ProjectClientAdapter — binds ProjectClient to internal/project
       items:

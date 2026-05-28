@@ -1,0 +1,59 @@
+package run
+
+import (
+	"github.com/zon/ralph/internal/config"
+	"github.com/zon/ralph/internal/project"
+)
+
+func (r *Runner) RunLocal(proj *project.Project, cfg *config.RalphConfig) error {
+	if err := r.services.RunBeforeCommands(cfg); err != nil {
+		return err
+	}
+	if err := r.git.SwitchToBranch(proj.Slug); err != nil {
+		return err
+	}
+	if err := r.iterate(proj); err != nil {
+		r.notify.Error(proj.Slug)
+		return err
+	}
+	if err := r.github.CreatePR(proj); err != nil {
+		r.notify.Error(proj.Slug)
+		return err
+	}
+	r.notify.Success(proj.Slug)
+	return nil
+}
+
+func (r *Runner) iterate(proj *project.Project) error {
+	for i := 0; i < proj.MaxIterations; i++ {
+		if r.project.AllRequirementsPassing(proj) {
+			return nil
+		}
+		if r.git.BlockedFileExists() {
+			return ErrBlocked
+		}
+		if err := r.ai.Iterate(proj); err != nil {
+			if r.ai.IsFatal(err) {
+				return err
+			}
+			r.git.WriteBlockedFile(err)
+			return err
+		}
+		if err := r.commitIteration(proj); err != nil {
+			return err
+		}
+	}
+	return r.project.MaxIterationsError(proj)
+}
+
+func (r *Runner) commitIteration(proj *project.Project) error {
+	if !r.git.HasChanges() {
+		return nil
+	}
+	if !r.git.ReportExists() {
+		if err := r.ai.GenerateChangelog(proj); err != nil {
+			return err
+		}
+	}
+	return r.git.CommitFromReport(proj.Slug)
+}

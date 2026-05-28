@@ -75,6 +75,53 @@ func Any() *Project {
 	}
 }
 
+func WithAllPassing() *Project {
+	return &Project{
+		Slug:  "test-project",
+		Title: "Test Project",
+		Requirements: []Requirement{
+			{
+				Slug:        "req-1",
+				Description: "Requirement 1",
+				Items:       []string{"Item 1"},
+				Passing:     true,
+			},
+		},
+	}
+}
+
+func WithFailingRequirements() *Project {
+	return &Project{
+		Slug:  "test-project",
+		Title: "Test Project",
+		MaxIterations: 10,
+		Requirements: []Requirement{
+			{
+				Slug:        "req-1",
+				Description: "Requirement 1",
+				Items:       []string{"Item 1"},
+				Passing:     false,
+			},
+		},
+	}
+}
+
+func WithMaxIterations(n int) *Project {
+	return &Project{
+		Slug:  "test-project",
+		Title: "Test Project",
+		MaxIterations: n,
+		Requirements: []Requirement{
+			{
+				Slug:        "req-1",
+				Description: "Requirement 1",
+				Items:       []string{"Item 1"},
+				Passing:     false,
+			},
+		},
+	}
+}
+
 var anyPathValue = "/workspace/repo/projects/test-project.yaml"
 
 func AnyPath() string {
