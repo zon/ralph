@@ -58,3 +58,5 @@ Orchestration modules define interfaces and compose behavior — they must not c
 |---|---|
 | Orchestration | interfaces, orchestration functions, tests |
 | Implementation | adapters, mocks, tests |
+
+Mocks for an implementation module must live in a `_mock.go` file within that same module — not in `_test.go` files. This makes them importable by other packages that need to stub the dependency without pulling in test infrastructure.
