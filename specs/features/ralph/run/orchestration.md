@@ -2,11 +2,11 @@
 
 ## Purpose
 
-Validate inputs, resolve execution parameters, and dispatch to the local or remote runner.
+Validate inputs, resolve execution parameters, and invoke the local or remote runner directly.
 
 ## Orchestration
 
-**Module:** `internal/orchestration/cmd`
+**Module:** `internal/orchestration/run`
 
 ```go
 type RunCmd struct {
@@ -14,7 +14,8 @@ type RunCmd struct {
     project   ProjectClient
     git       GitClient
     config    ConfigClient
-    runner    RunnerClient
+    local     LocalRunnerClient
+    remote    RemoteRunnerClient
 }
 
 func (r *RunCmd) Run(flags RunFlags) error {
@@ -31,7 +32,10 @@ func (r *RunCmd) Run(flags RunFlags) error {
     if err != nil {
         return err
     }
-    return r.runner.Execute(setup)
+    if flags.Local {
+        return r.local.RunLocal(setup.Project, setup.Config)
+    }
+    return r.remote.RunRemote(setup.Project, flags.Follow)
 }
 ```
 
@@ -41,7 +45,20 @@ func (r *RunCmd) Run(flags RunFlags) error {
 - **`r.project.ValidateFile(path)`** — verifies the project file exists on disk; returns an error containing `"project file not found"` when absent
 - **`flags.Validate()`** — checks flag combinations for mutual incompatibility; returns an error for `--follow + --local` or `--debug + --local`
 - **`r.prepareSetup(flags)`** — loads config, project, and current branch; resolves the project branch name, base branch, and max iterations into an `ExecutionSetup`
-- **`r.runner.Execute(setup)`** — dispatches to the local runner when `--local` is set, otherwise to the remote runner
+- **`r.local.RunLocal(proj, cfg)`** — invokes `Runner.RunLocal` to run the development loop in-process
+- **`r.remote.RunRemote(proj, follow)`** — invokes `RemoteRunner.RunRemote` to submit an Argo Workflow and optionally follow its logs
+
+---
+
+```go
+type LocalRunnerClient interface {
+    RunLocal(proj *project.Project, cfg *config.RalphConfig) error
+}
+
+type RemoteRunnerClient interface {
+    RunRemote(proj *project.Project, follow bool) error
+}
+```
 
 ---
 
@@ -82,7 +99,7 @@ func (r *RunCmd) prepareSetup(flags RunFlags) (ExecutionSetup, error) {
 
 ## Tests
 
-**Module:** `internal/orchestration/cmd`
+**Module:** `internal/orchestration/run`
 
 ```go
 func TestRunWorkingDirectoryFailureAbortsEarly(t *testing.T) {
@@ -110,11 +127,20 @@ func TestRunIncompatibleFlagsAbortBeforeSetup(t *testing.T) {
     require.False(t, config.loaded())
 }
 
-func TestRunDispatchesWithPreparedSetup(t *testing.T) {
+func TestRunLocalDispatchesToLocalRunner(t *testing.T) {
+    cmd := run.withMocks()
+    err := cmd.Run(flags.withLocal())
+    require.NoError(t, err)
+    require.True(t, local.runLocalCalled())
+    require.False(t, remote.runRemoteCalled())
+}
+
+func TestRunRemoteDispatchesToRemoteRunner(t *testing.T) {
     cmd := run.withMocks()
     err := cmd.Run(flags.any())
     require.NoError(t, err)
-    require.True(t, runner.executeCalled())
+    require.True(t, remote.runRemoteCalled())
+    require.False(t, local.runLocalCalled())
 }
 
 func TestPrepareSetupConfigLoadFailureAbortsEarly(t *testing.T) {
@@ -142,7 +168,7 @@ func TestPrepareSetupBaseBranchFromCurrentWhenDifferentFromProject(t *testing.T)
     )
     err := cmd.Run(flags.withNoBase())
     require.NoError(t, err)
-    require.Equal(t, "feature-x", runner.lastSetup().BaseBranch)
+    require.Equal(t, "feature-x", remote.lastProject().BaseBranch)
 }
 
 func TestPrepareSetupMaxIterationsFlagOverridesConfig(t *testing.T) {
@@ -151,18 +177,21 @@ func TestPrepareSetupMaxIterationsFlagOverridesConfig(t *testing.T) {
     )
     err := cmd.Run(flags.withMaxIterations(2))
     require.NoError(t, err)
-    require.Equal(t, 2, runner.lastSetup().MaxIterations)
+    require.Equal(t, 2, remote.lastProject().MaxIterations)
 }
 ```
 
 ### Helpers
 
 - **`run.withMocks(opts...)`** — constructs a `RunCmd` with default mock implementations; pass option helpers to override specific clients
-- **`run.withWorkspace(client)`** — option that sets the workspace client on the mock runner
-- **`run.withProject(client)`** — option that sets the project client on the mock runner
-- **`run.withGit(client)`** — option that sets the git client on the mock runner
-- **`run.withConfig(client)`** — option that sets the config client on the mock runner
-- **`flags.any()`** — returns a valid `RunFlags` in a default state with compatible flag values; owned by `internal/cmd`
+- **`run.withWorkspace(client)`** — option that sets the workspace client
+- **`run.withProject(client)`** — option that sets the project client
+- **`run.withGit(client)`** — option that sets the git client
+- **`run.withConfig(client)`** — option that sets the config client
+- **`run.withLocal(client)`** — option that sets the local runner client
+- **`run.withRemote(client)`** — option that sets the remote runner client
+- **`flags.any()`** — returns a valid `RunFlags` in a default remote state (no `--local`); owned by `internal/cmd`
+- **`flags.withLocal()`** — returns `RunFlags` with `Local` set to true; owned by `internal/cmd`
 - **`flags.withFollowAndLocal()`** — returns `RunFlags` with both `Follow` and `Local` set to true; owned by `internal/cmd`
 - **`flags.withNoBase()`** — returns `RunFlags` with an empty `Base` field; owned by `internal/cmd`
 - **`flags.withMaxIterations(n)`** — returns `RunFlags` with `MaxIterations` set to `n`; owned by `internal/cmd`
@@ -177,5 +206,6 @@ func TestPrepareSetupMaxIterationsFlagOverridesConfig(t *testing.T) {
 - **`config.loaded()`** — returns true when `Load` was called during the test
 - **`git.onBranch(name)`** — returns a git client whose `CurrentBranch` returns `name`
 - **`git.currentBranchCalled()`** — returns true when `CurrentBranch` was called during the test
-- **`runner.executeCalled()`** — returns true when `Execute` was called during the test
-- **`runner.lastSetup()`** — returns the `ExecutionSetup` passed to the most recent `Execute` call
+- **`local.runLocalCalled()`** — returns true when `RunLocal` was called during the test
+- **`remote.runRemoteCalled()`** — returns true when `RunRemote` was called during the test
+- **`remote.lastProject()`** — returns the `*project.Project` passed to the most recent `RunRemote` call

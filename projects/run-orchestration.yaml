@@ -1,10 +1,10 @@
-slug: run-cmd-orchestration
-title: Add internal/orchestration/cmd for run command setup
+slug: run-orchestration
+title: Add RunCmd orchestration to internal/orchestration/run
 feature: specs/features/ralph/run
 maxIterations: 10
 requirements:
     - slug: run-cmd
-      description: RunCmd struct with injected client interfaces and Run method that guards inputs then dispatches
+      description: RunCmd struct with injected client interfaces and Run method that validates inputs and dispatches to the local or remote runner
       scenarios:
         - title: Working directory changed before project file loaded
           items:
@@ -29,15 +29,24 @@ requirements:
             - THEN an error is returned containing "--debug flag is not applicable with --local flag"
       code:
         - name: RunCmd
-          description: orchestration struct with injected clients and Run method
-          module: internal/orchestration/cmd
+          description: orchestration struct with injected clients, LocalRunnerClient and RemoteRunnerClient interfaces, and Run method
+          module: internal/orchestration/run
           body: |
             type RunCmd struct {
                 workspace WorkspaceClient
                 project   ProjectClient
                 git       GitClient
                 config    ConfigClient
-                runner    RunnerClient
+                local     LocalRunnerClient
+                remote    RemoteRunnerClient
+            }
+
+            type LocalRunnerClient interface {
+                RunLocal(proj *project.Project, cfg *config.RalphConfig) error
+            }
+
+            type RemoteRunnerClient interface {
+                RunRemote(proj *project.Project, follow bool) error
             }
 
             func (r *RunCmd) Run(flags RunFlags) error {
@@ -54,12 +63,15 @@ requirements:
                 if err != nil {
                     return err
                 }
-                return r.runner.Execute(setup)
+                if flags.Local {
+                    return r.local.RunLocal(setup.Project, setup.Config)
+                }
+                return r.remote.RunRemote(setup.Project, flags.Follow)
             }
       tests:
         - name: TestRunWorkingDirectoryFailureAbortsEarly
           description: verifies a workspace change failure aborts before project file validation
-          module: internal/orchestration/cmd
+          module: internal/orchestration/run
           body: |
             func TestRunWorkingDirectoryFailureAbortsEarly(t *testing.T) {
                 cmd := run.withMocks(
@@ -71,7 +83,7 @@ requirements:
             }
         - name: TestRunProjectFileNotFoundAbortsEarly
           description: verifies a missing project file aborts before config is loaded
-          module: internal/orchestration/cmd
+          module: internal/orchestration/run
           body: |
             func TestRunProjectFileNotFoundAbortsEarly(t *testing.T) {
                 cmd := run.withMocks(
@@ -83,7 +95,7 @@ requirements:
             }
         - name: TestRunIncompatibleFlagsAbortBeforeSetup
           description: verifies incompatible flags abort before config is loaded
-          module: internal/orchestration/cmd
+          module: internal/orchestration/run
           body: |
             func TestRunIncompatibleFlagsAbortBeforeSetup(t *testing.T) {
                 cmd := run.withMocks()
@@ -91,19 +103,31 @@ requirements:
                 require.Error(t, err)
                 require.False(t, config.loaded())
             }
-        - name: TestRunDispatchesWithPreparedSetup
-          description: verifies the runner is called on the happy path
-          module: internal/orchestration/cmd
+        - name: TestRunLocalDispatchesToLocalRunner
+          description: verifies --local flag routes to the local runner and not the remote runner
+          module: internal/orchestration/run
           body: |
-            func TestRunDispatchesWithPreparedSetup(t *testing.T) {
+            func TestRunLocalDispatchesToLocalRunner(t *testing.T) {
+                cmd := run.withMocks()
+                err := cmd.Run(flags.withLocal())
+                require.NoError(t, err)
+                require.True(t, local.runLocalCalled())
+                require.False(t, remote.runRemoteCalled())
+            }
+        - name: TestRunRemoteDispatchesToRemoteRunner
+          description: verifies default (no --local) routes to the remote runner and not the local runner
+          module: internal/orchestration/run
+          body: |
+            func TestRunRemoteDispatchesToRemoteRunner(t *testing.T) {
                 cmd := run.withMocks()
                 err := cmd.Run(flags.any())
                 require.NoError(t, err)
-                require.True(t, runner.executeCalled())
+                require.True(t, remote.runRemoteCalled())
+                require.False(t, local.runLocalCalled())
             }
       passing: false
     - slug: prepare-setup
-      description: prepareSetup method that loads config and project, resolves project branch, base branch, and max iterations
+      description: prepareSetup method that loads config and project, resolves project branch, base branch, and max iterations into an ExecutionSetup
       items:
         - Model and Context values from RunFlags must be included in ExecutionSetup so the runner can pass them to the local or remote runner
       scenarios:
@@ -137,7 +161,7 @@ requirements:
       code:
         - name: prepareSetup
           description: loads config, project, and current branch; resolves project branch name, base branch, and max iterations
-          module: internal/orchestration/cmd
+          module: internal/orchestration/run
           body: |
             func (r *RunCmd) prepareSetup(flags RunFlags) (ExecutionSetup, error) {
                 cfg, err := r.config.Load()
@@ -165,7 +189,7 @@ requirements:
       tests:
         - name: TestPrepareSetupConfigLoadFailureAbortsEarly
           description: verifies a config load failure aborts before the project is loaded
-          module: internal/orchestration/cmd
+          module: internal/orchestration/run
           body: |
             func TestPrepareSetupConfigLoadFailureAbortsEarly(t *testing.T) {
                 cmd := run.withMocks(
@@ -177,7 +201,7 @@ requirements:
             }
         - name: TestPrepareSetupProjectLoadFailureAbortsEarly
           description: verifies a project load failure aborts before the current branch is fetched
-          module: internal/orchestration/cmd
+          module: internal/orchestration/run
           body: |
             func TestPrepareSetupProjectLoadFailureAbortsEarly(t *testing.T) {
                 cmd := run.withMocks(
@@ -189,7 +213,7 @@ requirements:
             }
         - name: TestPrepareSetupBaseBranchFromCurrentWhenDifferentFromProject
           description: verifies the current branch is used as base when it differs from the project branch
-          module: internal/orchestration/cmd
+          module: internal/orchestration/run
           body: |
             func TestPrepareSetupBaseBranchFromCurrentWhenDifferentFromProject(t *testing.T) {
                 cmd := run.withMocks(
@@ -198,11 +222,11 @@ requirements:
                 )
                 err := cmd.Run(flags.withNoBase())
                 require.NoError(t, err)
-                require.Equal(t, "feature-x", runner.lastSetup().BaseBranch)
+                require.Equal(t, "feature-x", remote.lastProject().BaseBranch)
             }
         - name: TestPrepareSetupMaxIterationsFlagOverridesConfig
           description: verifies a non-zero --max-iterations flag overrides the config value
-          module: internal/orchestration/cmd
+          module: internal/orchestration/run
           body: |
             func TestPrepareSetupMaxIterationsFlagOverridesConfig(t *testing.T) {
                 cmd := run.withMocks(
@@ -210,7 +234,7 @@ requirements:
                 )
                 err := cmd.Run(flags.withMaxIterations(2))
                 require.NoError(t, err)
-                require.Equal(t, 2, runner.lastSetup().MaxIterations)
+                require.Equal(t, 2, remote.lastProject().MaxIterations)
             }
       passing: false
     - slug: resolve-base-branch
@@ -236,7 +260,7 @@ requirements:
       code:
         - name: resolveBaseBranch
           description: returns base when non-empty; returns current when it differs from project; otherwise returns defaultBranch
-          module: internal/orchestration/cmd
+          module: internal/orchestration/run
           body: |
             func resolveBaseBranch(base, current, project, defaultBranch string) string
       passing: false
@@ -258,9 +282,16 @@ requirements:
       code:
         - name: resolveMaxIterations
           description: returns flagMax when non-zero; otherwise returns cfgMax
-          module: internal/orchestration/cmd
+          module: internal/orchestration/run
           body: |
             func resolveMaxIterations(cfgMax, flagMax int) int
+      passing: false
+    - slug: wire-run-command
+      description: Update internal/cmd RunCmd.Run to delegate to the new orchestration RunCmd instead of implementing the logic inline
+      items:
+        - The Kong RunCmd struct in internal/cmd keeps flag parsing but its Run method builds a RunFlags and calls orchestration.RunCmd.Run(flags)
+        - All inline logic in internal/cmd/run.go (working dir change, project file validation, flag validation, config loading, project loading, branch resolution) moves to internal/orchestration/run
+        - The orchestration RunCmd is constructed with real client adapters that wrap the existing packages (workspace, config, project, git, Runner, RemoteRunner)
       passing: false
     - slug: version-bump
       description: Version bump
