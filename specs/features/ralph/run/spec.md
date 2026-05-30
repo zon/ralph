@@ -45,11 +45,55 @@ The command SHALL change its working directory to the path given by `--working-d
 
 The command SHALL accept `--model` to override the AI model from config and `--context` to override the Kubernetes context used for remote workflow submission.
 
+Model resolution follows a two-level precedence: `--model` at the command line takes priority; otherwise the top-level `model` field in `.ralph/config.yaml` is used, defaulting to `deepseek/deepseek-chat` when unset.
+
 #### Scenario: `--model` overrides the configured AI model
 
 - GIVEN the user passes `--model claude-opus-4-8`
 - WHEN the command runs
-- THEN `claude-opus-4-8` is used as the AI model instead of the config default
+- THEN `claude-opus-4-8` is used as the AI model instead of the config value
+
+#### Scenario: Config model used when no flag is passed
+
+- GIVEN `model: anthropic/claude-sonnet-4-6` is set in `.ralph/config.yaml`
+- AND no `--model` flag is passed
+- WHEN the command runs
+- THEN `anthropic/claude-sonnet-4-6` is used as the AI model
+
+#### Scenario: Default model used when config is unset
+
+- GIVEN `model` is not set in `.ralph/config.yaml`
+- AND no `--model` flag is passed
+- WHEN the command runs
+- THEN `deepseek/deepseek-chat` is used as the AI model
+
+---
+
+### Requirement: Model variant override
+
+The command SHALL accept `--variant` to pass a provider-specific reasoning effort hint (e.g., `high`, `max`, `minimal`) to opencode. When neither the flag nor the `variant` field in `.ralph/config.yaml` is set, the `--variant` option is omitted entirely from the opencode invocation.
+
+Variant resolution follows a two-level precedence: `--variant` at the command line takes priority; otherwise the top-level `variant` field in `.ralph/config.yaml` is used. When both are unset, no variant is passed.
+
+#### Scenario: `--variant` flag passes variant to opencode
+
+- GIVEN the user passes `--variant high`
+- WHEN the command runs
+- THEN `--variant high` is included in the opencode invocation
+
+#### Scenario: Config variant used when no flag is passed
+
+- GIVEN `variant: max` is set in `.ralph/config.yaml`
+- AND no `--variant` flag is passed
+- WHEN the command runs
+- THEN `--variant max` is included in the opencode invocation
+
+#### Scenario: Variant omitted when both flag and config are unset
+
+- GIVEN `variant` is not set in `.ralph/config.yaml`
+- AND no `--variant` flag is passed
+- WHEN the command runs
+- THEN the `--variant` option is omitted from the opencode invocation
 
 #### Scenario: `--context` overrides the Kubernetes context
 

@@ -1,0 +1,94 @@
+slug: run-local-variant
+title: Add --variant flag and config property to run command
+feature: specs/features/ralph/run-local
+maxIterations: 10
+requirements:
+    - slug: variant-config-field
+      description: Add Variant field to RalphConfig and a WithVariant test helper
+      items:
+        - Add `Variant string` field with `yaml:"variant,omitempty"` tag to `RalphConfig` in `internal/config/config.go`
+        - Add `WithVariant(v string) *RalphConfig` helper in `internal/config/helpers.go` that returns `Any()` with `Variant` set to `v`
+      passing: false
+    - slug: variant-context-accessors
+      description: Add variant field and accessors to execution context
+      items:
+        - Add `variant string` field to the `Context` struct in `internal/context/context.go`
+        - Add `SetVariant(v string)` method that sets the field
+        - Add `Variant() string` method that returns the field
+      passing: false
+    - slug: variant-opencode-flag
+      description: Update opencode invocation to conditionally pass --variant
+      items:
+        - Add a `variant string` parameter to `RunAgentWithRing` and `RunCommand` in `internal/opencode/opencode.go`
+        - When `variant` is non-empty, append `--variant` and the value to the args slice before the prompt argument
+        - When `variant` is empty, omit `--variant` entirely — do not pass a blank value
+      passing: false
+    - slug: variant-ai-resolution
+      description: Resolve variant from context with config fallback in AI layer
+      items:
+        - Add `resolveVariant(ctx *execcontext.Context) string` in `internal/ai/ai.go`, parallel to `resolveModel`
+        - Read `ctx.Variant()` first; if non-empty return it
+        - Otherwise load the ralph config and return `ralphConfig.Variant`; return empty string when config load fails or field is unset
+        - Update all calls to `opencode.RunAgentWithRing` and `opencode.RunCommand` in `internal/ai/ai.go` to pass the resolved variant
+      passing: false
+    - slug: variant-run-cmd
+      description: Add --variant CLI flag to the run command and wire it into context
+      items:
+        - Add `Variant string` field to `RunCmd` in `internal/cmd/run.go` with help text `Override the model variant from config`
+        - Add `ctx.SetVariant(r.Variant)` to `newExecutionContext()` in `internal/cmd/run.go`
+      scenarios:
+        - title: --variant flag passes variant to opencode
+          items:
+            - GIVEN the user passes --variant high
+            - WHEN the command runs
+            - THEN --variant high is included in the opencode invocation
+        - title: Config variant used when no flag is passed
+          items:
+            - GIVEN variant is set to max in .ralph/config.yaml
+            - AND no --variant flag is passed
+            - WHEN the command runs
+            - THEN --variant max is included in the opencode invocation
+        - title: Variant omitted when both flag and config are unset
+          items:
+            - GIVEN variant is not set in .ralph/config.yaml
+            - AND no --variant flag is passed
+            - WHEN the command runs
+            - THEN the --variant option is omitted from the opencode invocation
+      passing: false
+    - slug: variant-tests
+      description: Orchestration tests verifying variant is passed when configured and omitted when unset
+      items:
+        - Add `lastVariantValue string` field to `mockAIClient` in `internal/orchestration/run/mock_test.go`
+        - Record the resolved variant on each `RunPicker` and `RunDeveloper` call
+        - Add `lastVariant() string` method that returns the recorded value
+      tests:
+        - name: TestRunIterationPassesConfigVariantToAI
+          description: variant set in config is resolved and passed to AI invocations
+          module: internal/orchestration/run
+          body: |
+            func TestRunIterationPassesConfigVariantToAI(t *testing.T) {
+                runner := withMocks(
+                    withProject(newProjectThatReportsPassingAfterIterations(1)),
+                )
+                err := runner.RunLocal(failingProject(), config.WithVariant("high"))
+                require.NoError(t, err)
+                require.Equal(t, "high", mockAI.lastVariant())
+            }
+        - name: TestRunIterationOmitsVariantWhenUnset
+          description: when neither flag nor config sets variant, --variant is omitted from the opencode invocation
+          module: internal/orchestration/run
+          body: |
+            func TestRunIterationOmitsVariantWhenUnset(t *testing.T) {
+                runner := withMocks(
+                    withProject(newProjectThatReportsPassingAfterIterations(1)),
+                )
+                err := runner.RunLocal(failingProject(), anyConfig())
+                require.NoError(t, err)
+                require.Empty(t, mockAI.lastVariant())
+            }
+      passing: false
+    - slug: version-bump
+      description: Version bump
+      items:
+        - Apply a semver minor bump to the app version
+      passing: false
