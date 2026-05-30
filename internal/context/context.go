@@ -29,6 +29,7 @@ type Context struct {
 	botName           string   // Git user name for automated commits
 	botEmail          string   // Git user email for automated commits
 	model             string   // Model override; overrides model from .ralph/config.yaml
+	variant           string   // Variant override; overrides variant from .ralph/config.yaml
 	kubeContext       string   // Kubernetes context override; overrides workflow.context from .ralph/config.yaml
 	filter            string   // Filter string for reviewing specific items
 	command           []string // Command tokens for the command subcommand
@@ -244,6 +245,14 @@ func (c *Context) SetModel(model string) {
 
 func (c *Context) Model() string {
 	return c.model
+}
+
+func (c *Context) SetVariant(v string) {
+	c.variant = v
+}
+
+func (c *Context) Variant() string {
+	return c.variant
 }
 
 func (c *Context) SetKubeContext(kubeContext string) {

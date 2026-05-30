@@ -15,7 +15,7 @@ requirements:
         - Add `variant string` field to the `Context` struct in `internal/context/context.go`
         - Add `SetVariant(v string)` method that sets the field
         - Add `Variant() string` method that returns the field
-      passing: false
+      passing: true
     - slug: variant-opencode-flag
       description: Update opencode invocation to conditionally pass --variant
       items:
