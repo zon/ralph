@@ -1,20 +1,20 @@
 package notify
 
-type MockRunAdapter struct {
+type MockClient struct {
 	ErrorsSlice    []string
 	SuccessesSlice []string
 	ErrorFunc      func(slug string)
 	SuccessFunc    func(slug string)
 }
 
-func (m *MockRunAdapter) Error(slug string) {
+func (m *MockClient) Error(slug string) {
 	m.ErrorsSlice = append(m.ErrorsSlice, slug)
 	if m.ErrorFunc != nil {
 		m.ErrorFunc(slug)
 	}
 }
 
-func (m *MockRunAdapter) Success(slug string) {
+func (m *MockClient) Success(slug string) {
 	m.SuccessesSlice = append(m.SuccessesSlice, slug)
 	if m.SuccessFunc != nil {
 		m.SuccessFunc(slug)

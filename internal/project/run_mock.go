@@ -1,13 +1,13 @@
 package project
 
-type MockRunAdapter struct {
+type MockClient struct {
 	AllPassingFunc func() bool
 }
 
-func (m *MockRunAdapter) AllRequirementsPassing(_ *Project) bool {
+func (m *MockClient) AllRequirementsPassing(_ *Project) bool {
 	return m.AllPassingFunc()
 }
 
-func (m *MockRunAdapter) MaxIterationsError(_ *Project) error {
+func (m *MockClient) MaxIterationsError(_ *Project) error {
 	return ErrMaxIterationsReached
 }

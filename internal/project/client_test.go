@@ -11,8 +11,8 @@ import (
 	"github.com/zon/ralph/internal/project"
 )
 
-func TestProjectRunAdapterAllRequirementsPassing(t *testing.T) {
-	adapter := &project.RunAdapter{}
+func TestProjectClientAllRequirementsPassing(t *testing.T) {
+	client := &project.Client{}
 
 	t.Run("returns true when all requirements pass", func(t *testing.T) {
 		proj := &project.Project{
@@ -22,7 +22,7 @@ func TestProjectRunAdapterAllRequirementsPassing(t *testing.T) {
 				{Slug: "req-2", Items: []string{"b"}, Passing: true},
 			},
 		}
-		assert.True(t, adapter.AllRequirementsPassing(proj))
+		assert.True(t, client.AllRequirementsPassing(proj))
 	})
 
 	t.Run("returns false when some requirements fail", func(t *testing.T) {
@@ -33,7 +33,7 @@ func TestProjectRunAdapterAllRequirementsPassing(t *testing.T) {
 				{Slug: "req-2", Items: []string{"b"}, Passing: false},
 			},
 		}
-		assert.False(t, adapter.AllRequirementsPassing(proj))
+		assert.False(t, client.AllRequirementsPassing(proj))
 	})
 
 	t.Run("returns false when all requirements fail", func(t *testing.T) {
@@ -44,12 +44,12 @@ func TestProjectRunAdapterAllRequirementsPassing(t *testing.T) {
 				{Slug: "req-2", Items: []string{"b"}, Passing: false},
 			},
 		}
-		assert.False(t, adapter.AllRequirementsPassing(proj))
+		assert.False(t, client.AllRequirementsPassing(proj))
 	})
 }
 
-func TestProjectRunAdapterMaxIterationsError(t *testing.T) {
-	adapter := &project.RunAdapter{}
+func TestProjectClientMaxIterationsError(t *testing.T) {
+	client := &project.Client{}
 
 	t.Run("returns error wrapping ErrMaxIterationsReached", func(t *testing.T) {
 		proj := &project.Project{
@@ -58,7 +58,7 @@ func TestProjectRunAdapterMaxIterationsError(t *testing.T) {
 				{Slug: "req-1", Items: []string{"a"}, Passing: false},
 			},
 		}
-		err := adapter.MaxIterationsError(proj)
+		err := client.MaxIterationsError(proj)
 		require.Error(t, err)
 		assert.True(t, errors.Is(err, project.ErrMaxIterationsReached))
 	})
@@ -72,7 +72,7 @@ func TestProjectRunAdapterMaxIterationsError(t *testing.T) {
 				{Slug: "req-3", Items: []string{"c"}, Passing: false},
 			},
 		}
-		err := adapter.MaxIterationsError(proj)
+		err := client.MaxIterationsError(proj)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "2 requirements still failing")
 	})
@@ -84,12 +84,12 @@ func TestProjectRunAdapterMaxIterationsError(t *testing.T) {
 				{Slug: "req-1", Items: []string{"a"}, Passing: true},
 			},
 		}
-		err := adapter.MaxIterationsError(proj)
+		err := client.MaxIterationsError(proj)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "0 requirements still failing")
 	})
 }
 
-func TestProjectRunAdapterImplementsInterface(t *testing.T) {
-	var _ orchestrationRun.ProjectClient = &project.RunAdapter{}
+func TestProjectClientImplementsInterface(t *testing.T) {
+	var _ orchestrationRun.ProjectClient = &project.Client{}
 }

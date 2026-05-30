@@ -11,8 +11,8 @@ import (
 	"github.com/zon/ralph/internal/services"
 )
 
-func TestServicesRunAdapterRunBeforeCommands(t *testing.T) {
-	adapter := &services.RunAdapter{}
+func TestServicesClientRunBeforeCommands(t *testing.T) {
+	client := &services.Client{}
 
 	t.Run("calls RunBefore when cfg.Before is non-empty", func(t *testing.T) {
 		cfg := &config.RalphConfig{
@@ -20,13 +20,13 @@ func TestServicesRunAdapterRunBeforeCommands(t *testing.T) {
 				{Name: "echo", Command: "echo", Args: []string{"hello"}},
 			},
 		}
-		err := adapter.RunBeforeCommands(cfg)
+		err := client.RunBeforeCommands(cfg)
 		require.NoError(t, err)
 	})
 
 	t.Run("returns nil when cfg.Before is empty", func(t *testing.T) {
 		cfg := &config.RalphConfig{}
-		err := adapter.RunBeforeCommands(cfg)
+		err := client.RunBeforeCommands(cfg)
 		require.NoError(t, err)
 	})
 
@@ -36,7 +36,7 @@ func TestServicesRunAdapterRunBeforeCommands(t *testing.T) {
 				{Name: "fail", Command: "nonexistent-command-xyz"},
 			},
 		}
-		err := adapter.RunBeforeCommands(cfg)
+		err := client.RunBeforeCommands(cfg)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to run before commands")
 	})
@@ -47,11 +47,11 @@ func TestServicesRunAdapterRunBeforeCommands(t *testing.T) {
 				{Name: "fail-optional", Command: "false", Optional: true},
 			},
 		}
-		err := adapter.RunBeforeCommands(cfg)
+		err := client.RunBeforeCommands(cfg)
 		require.NoError(t, err)
 	})
 }
 
-func TestServicesRunAdapterImplementsInterface(t *testing.T) {
-	var _ orchestrationRun.ServicesClient = &services.RunAdapter{}
+func TestServicesClientImplementsInterface(t *testing.T) {
+	var _ orchestrationRun.ServicesClient = &services.Client{}
 }

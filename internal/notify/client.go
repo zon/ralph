@@ -4,20 +4,20 @@ import (
 	"github.com/zon/ralph/internal/context"
 )
 
-type RunAdapter struct {
+type Client struct {
 	shouldNotify bool
 }
 
-func NewRunAdapter(ctx *context.Context) *RunAdapter {
-	return &RunAdapter{
+func NewClient(ctx *context.Context) *Client {
+	return &Client{
 		shouldNotify: ctx.ShouldNotify(),
 	}
 }
 
-func (a *RunAdapter) Error(slug string) {
+func (a *Client) Error(slug string) {
 	Error(slug, a.shouldNotify)
 }
 
-func (a *RunAdapter) Success(slug string) {
+func (a *Client) Success(slug string) {
 	Success(slug, a.shouldNotify)
 }

@@ -11,19 +11,19 @@ import (
 	"github.com/zon/ralph/internal/project"
 )
 
-type RunAdapter struct {
+type Client struct {
 	ctx        *context.Context
 	baseBranch string
 }
 
-func NewRunAdapter(ctx *context.Context, baseBranch string) *RunAdapter {
-	return &RunAdapter{
+func NewClient(ctx *context.Context, baseBranch string) *Client {
+	return &Client{
 		ctx:        ctx,
 		baseBranch: baseBranch,
 	}
 }
 
-func (a *RunAdapter) CreatePR(proj *project.Project) error {
+func (a *Client) CreatePR(proj *project.Project) error {
 	commitLog, err := git.GetCommitLog(a.baseBranch, 100)
 	if err != nil {
 		return fmt.Errorf("failed to get commit log: %w", err)

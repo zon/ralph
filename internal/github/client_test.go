@@ -13,14 +13,14 @@ import (
 	"github.com/zon/ralph/internal/testutil"
 )
 
-func TestGitHubRunAdapterNewAdapter(t *testing.T) {
+func TestGitHubClientNew(t *testing.T) {
 	ctx := context.NewContext()
-	adapter := NewRunAdapter(ctx, "main")
-	require.NotNil(t, adapter)
-	var _ orchestrationRun.GitHubClient = adapter
+	client := NewClient(ctx, "main")
+	require.NotNil(t, client)
+	var _ orchestrationRun.GitHubClient = client
 }
 
-func TestGitHubRunAdapterCreatePR_UsesMockAI(t *testing.T) {
+func TestGitHubClientCreatePR_UsesMockAI(t *testing.T) {
 	t.Setenv("RALPH_MOCK_AI", "true")
 	workDir := t.TempDir()
 	t.Chdir(workDir)
@@ -45,9 +45,9 @@ func TestGitHubRunAdapterCreatePR_UsesMockAI(t *testing.T) {
 	}
 
 	ctx := context.NewContext()
-	adapter := NewRunAdapter(ctx, "main")
+	client := NewClient(ctx, "main")
 
-	err := adapter.CreatePR(proj)
+	err := client.CreatePR(proj)
 	if err != nil {
 		t.Logf("CreatePR returned (expected without gh): %v", err)
 	}

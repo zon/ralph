@@ -15,42 +15,42 @@ import (
 	"github.com/zon/ralph/internal/testutil"
 )
 
-func TestGitRunAdapterNewAdapter(t *testing.T) {
+func TestGitClientNew(t *testing.T) {
 	ctx := context.NewContext()
-	adapter := git.NewRunAdapter(ctx)
-	require.NotNil(t, adapter)
-	var _ orchestrationRun.GitClient = adapter
+	client := git.NewClient(ctx)
+	require.NotNil(t, client)
+	var _ orchestrationRun.GitClient = client
 }
 
-func TestGitRunAdapterBlockedFileExists(t *testing.T) {
+func TestGitClientBlockedFileExists(t *testing.T) {
 	workDir := t.TempDir()
 	t.Chdir(workDir)
 	testutil.InitGitRepo(t, workDir)
 	testutil.MakeInitialCommit(t, workDir)
 
-	adapter := git.NewRunAdapter(context.NewContext())
+	client := git.NewClient(context.NewContext())
 
 	t.Run("returns false when no blocked.md exists", func(t *testing.T) {
-		assert.False(t, adapter.BlockedFileExists())
+		assert.False(t, client.BlockedFileExists())
 	})
 
 	t.Run("returns true when blocked.md exists in repo root", func(t *testing.T) {
 		blockedPath := filepath.Join(workDir, "blocked.md")
 		require.NoError(t, os.WriteFile(blockedPath, []byte("blocked"), 0644))
-		assert.True(t, adapter.BlockedFileExists())
+		assert.True(t, client.BlockedFileExists())
 	})
 }
 
-func TestGitRunAdapterWriteBlockedFile(t *testing.T) {
+func TestGitClientWriteBlockedFile(t *testing.T) {
 	workDir := t.TempDir()
 	t.Chdir(workDir)
 	testutil.InitGitRepo(t, workDir)
 	testutil.MakeInitialCommit(t, workDir)
 
-	adapter := git.NewRunAdapter(context.NewContext())
+	client := git.NewClient(context.NewContext())
 	err := &testBlockedError{"connection refused"}
 
-	adapter.WriteBlockedFile(err)
+	client.WriteBlockedFile(err)
 
 	blockedPath := filepath.Join(workDir, "blocked.md")
 	data, readErr := os.ReadFile(blockedPath)
@@ -59,43 +59,43 @@ func TestGitRunAdapterWriteBlockedFile(t *testing.T) {
 	assert.Contains(t, string(data), "# Blocked")
 }
 
-func TestGitRunAdapterHasChanges(t *testing.T) {
+func TestGitClientHasChanges(t *testing.T) {
 	workDir := t.TempDir()
 	t.Chdir(workDir)
 	testutil.InitGitRepo(t, workDir)
 	testutil.MakeInitialCommit(t, workDir)
 
-	adapter := git.NewRunAdapter(context.NewContext())
+	client := git.NewClient(context.NewContext())
 
 	t.Run("returns false with clean working tree", func(t *testing.T) {
-		assert.False(t, adapter.HasChanges())
+		assert.False(t, client.HasChanges())
 	})
 
 	t.Run("returns true after modifying a file", func(t *testing.T) {
 		require.NoError(t, os.WriteFile("new.txt", []byte("content"), 0644))
-		assert.True(t, adapter.HasChanges())
+		assert.True(t, client.HasChanges())
 	})
 }
 
-func TestGitRunAdapterReportExists(t *testing.T) {
+func TestGitClientReportExists(t *testing.T) {
 	workDir := t.TempDir()
 	t.Chdir(workDir)
 	testutil.InitGitRepo(t, workDir)
 	testutil.MakeInitialCommit(t, workDir)
 
-	adapter := git.NewRunAdapter(context.NewContext())
+	client := git.NewClient(context.NewContext())
 
 	t.Run("returns false when no report.md exists", func(t *testing.T) {
-		assert.False(t, adapter.ReportExists())
+		assert.False(t, client.ReportExists())
 	})
 
 	t.Run("returns true when report.md exists", func(t *testing.T) {
 		require.NoError(t, os.WriteFile("report.md", []byte("report content"), 0644))
-		assert.True(t, adapter.ReportExists())
+		assert.True(t, client.ReportExists())
 	})
 }
 
-func TestGitRunAdapterCommitFromReport(t *testing.T) {
+func TestGitClientCommitFromReport(t *testing.T) {
 	workDir := t.TempDir()
 	t.Chdir(workDir)
 	testutil.InitGitRepo(t, workDir)
@@ -103,28 +103,28 @@ func TestGitRunAdapterCommitFromReport(t *testing.T) {
 	setupLocalRemote(t, workDir)
 
 	ctx := context.NewContext()
-	adapter := git.NewRunAdapter(ctx)
+	client := git.NewClient(ctx)
 
 	reportContent := "Implement requirement: adapter-git"
 	require.NoError(t, os.WriteFile("report.md", []byte(reportContent), 0644))
 	require.NoError(t, os.WriteFile("newfile.txt", []byte("change"), 0644))
 
-	err := adapter.CommitFromReport("test-slug")
+	err := client.CommitFromReport("test-slug")
 	require.NoError(t, err)
 
 	_, err = os.Stat("report.md")
 	assert.True(t, os.IsNotExist(err), "report.md should be deleted after commit")
 }
 
-func TestGitRunAdapterCommitFromReportFailsWhenNoReport(t *testing.T) {
+func TestGitClientCommitFromReportFailsWhenNoReport(t *testing.T) {
 	workDir := t.TempDir()
 	t.Chdir(workDir)
 	testutil.InitGitRepo(t, workDir)
 	testutil.MakeInitialCommit(t, workDir)
 
-	adapter := git.NewRunAdapter(context.NewContext())
+	client := git.NewClient(context.NewContext())
 
-	err := adapter.CommitFromReport("test-slug")
+	err := client.CommitFromReport("test-slug")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "report.md")
 }

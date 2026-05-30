@@ -12,11 +12,11 @@ import (
 
 func NewLocalRunner(ctx *context.Context, baseBranch string) *orchestrationRun.Runner {
 	return orchestrationRun.NewRunner(
-		&project.RunAdapter{},
-		NewAgentClientAdapter(ctx),
-		git.NewRunAdapter(ctx),
-		github.NewRunAdapter(ctx, baseBranch),
-		&services.RunAdapter{},
-		notify.NewRunAdapter(ctx),
+		&project.Client{},
+		NewAgentClient(ctx),
+		git.NewClient(ctx),
+		github.NewClient(ctx, baseBranch),
+		&services.Client{},
+		notify.NewClient(ctx),
 	)
 }

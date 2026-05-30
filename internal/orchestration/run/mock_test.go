@@ -9,15 +9,15 @@ import (
 	"github.com/zon/ralph/internal/services"
 )
 
-func newProjectThatReportsAllPassing() *project.MockRunAdapter {
-	return &project.MockRunAdapter{
+func newProjectThatReportsAllPassing() *project.MockClient {
+	return &project.MockClient{
 		AllPassingFunc: func() bool { return true },
 	}
 }
 
-func newProjectThatReportsPassingAfterIterations(n int) *project.MockRunAdapter {
+func newProjectThatReportsPassingAfterIterations(n int) *project.MockClient {
 	calls := 0
-	return &project.MockRunAdapter{
+	return &project.MockClient{
 		AllPassingFunc: func() bool {
 			calls++
 			return calls > n
@@ -25,8 +25,8 @@ func newProjectThatReportsPassingAfterIterations(n int) *project.MockRunAdapter 
 	}
 }
 
-func newProjectThatAlwaysReportsFailures() *project.MockRunAdapter {
-	return &project.MockRunAdapter{
+func newProjectThatAlwaysReportsFailures() *project.MockClient {
+	return &project.MockClient{
 		AllPassingFunc: func() bool { return false },
 	}
 }
@@ -85,41 +85,41 @@ func newAIThatReturnsNonFatalError() *mockAgentClient {
 	}
 }
 
-func newGitWithChangesAndReport() *git.MockRunAdapter {
-	return &git.MockRunAdapter{
+func newGitWithChangesAndReport() *git.MockClient {
+	return &git.MockClient{
 		HasChangesFunc:   func() bool { return true },
 		ReportExistsFunc: func() bool { return true },
 	}
 }
 
-func newGitWithChangesButNoReport() *git.MockRunAdapter {
-	return &git.MockRunAdapter{
+func newGitWithChangesButNoReport() *git.MockClient {
+	return &git.MockClient{
 		HasChangesFunc:   func() bool { return true },
 		ReportExistsFunc: func() bool { return false },
 	}
 }
 
-func newGitWithNoChanges() *git.MockRunAdapter {
-	return &git.MockRunAdapter{
+func newGitWithNoChanges() *git.MockClient {
+	return &git.MockClient{
 		HasChangesFunc:   func() bool { return false },
 		ReportExistsFunc: func() bool { return false },
 	}
 }
 
-func newGitWithBlockedFile() *git.MockRunAdapter {
-	return &git.MockRunAdapter{
+func newGitWithBlockedFile() *git.MockClient {
+	return &git.MockClient{
 		BlockedFileExistsFunc: func() bool { return true },
 	}
 }
 
-func newGitHubWithCommitsAhead() *github.MockRunAdapter {
-	return &github.MockRunAdapter{
+func newGitHubWithCommitsAhead() *github.MockClient {
+	return &github.MockClient{
 		CreatePRFunc: func(_ *project.Project) error { return nil },
 	}
 }
 
-func newServicesThatFailBeforeCommands() *services.MockRunAdapter {
-	return &services.MockRunAdapter{
+func newServicesThatFailBeforeCommands() *services.MockClient {
+	return &services.MockClient{
 		RunBeforeFunc: func(_ *config.RalphConfig) error { return errServiceFailure },
 	}
 }
@@ -172,10 +172,10 @@ func withMocks(opts ...runnerOption) *Runner {
 	r := &Runner{
 		project:  newProjectThatAlwaysReportsFailures(),
 		ai:       &mockAgentClient{},
-		git:      &git.MockRunAdapter{},
-		github:   &github.MockRunAdapter{},
-		services: &services.MockRunAdapter{},
-		notify:   &notify.MockRunAdapter{},
+		git:      &git.MockClient{},
+		github:   &github.MockClient{},
+		services: &services.MockClient{},
+		notify:   &notify.MockClient{},
 	}
 	for _, opt := range opts {
 		opt(r)
@@ -198,42 +198,42 @@ func aiChangelogCalls(r *Runner) []*project.Project {
 }
 
 func gitBranchSwitched(r *Runner) bool {
-	if m, ok := r.git.(*git.MockRunAdapter); ok {
+	if m, ok := r.git.(*git.MockClient); ok {
 		return m.SwitchToBranchCalled
 	}
 	return false
 }
 
 func gitBlockedFileWritten(r *Runner) bool {
-	if m, ok := r.git.(*git.MockRunAdapter); ok {
+	if m, ok := r.git.(*git.MockClient); ok {
 		return m.WriteBlockedFileCalled
 	}
 	return false
 }
 
 func gitCommittedFromReport(r *Runner) bool {
-	if m, ok := r.git.(*git.MockRunAdapter); ok {
+	if m, ok := r.git.(*git.MockClient); ok {
 		return m.CommitFromReportCalled
 	}
 	return false
 }
 
 func githubPRCreated(r *Runner) bool {
-	if m, ok := r.github.(*github.MockRunAdapter); ok {
+	if m, ok := r.github.(*github.MockClient); ok {
 		return m.CreatePRCalled && m.CreatePRReturnedNil
 	}
 	return false
 }
 
 func notifyErrors(r *Runner) []string {
-	if m, ok := r.notify.(*notify.MockRunAdapter); ok {
+	if m, ok := r.notify.(*notify.MockClient); ok {
 		return m.ErrorsSlice
 	}
 	return nil
 }
 
 func notifySuccesses(r *Runner) []string {
-	if m, ok := r.notify.(*notify.MockRunAdapter); ok {
+	if m, ok := r.notify.(*notify.MockClient); ok {
 		return m.SuccessesSlice
 	}
 	return nil

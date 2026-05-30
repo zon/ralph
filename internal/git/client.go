@@ -8,19 +8,19 @@ import (
 	"github.com/zon/ralph/internal/context"
 )
 
-type RunAdapter struct {
+type Client struct {
 	ctx *context.Context
 }
 
-func NewRunAdapter(ctx *context.Context) *RunAdapter {
-	return &RunAdapter{ctx: ctx}
+func NewClient(ctx *context.Context) *Client {
+	return &Client{ctx: ctx}
 }
 
-func (a *RunAdapter) SwitchToBranch(slug string) error {
+func (a *Client) SwitchToBranch(slug string) error {
 	return ValidateGitStateAndSwitchBranch(a.ctx, slug)
 }
 
-func (a *RunAdapter) BlockedFileExists() bool {
+func (a *Client) BlockedFileExists() bool {
 	repoRoot, err := FindRepoRoot()
 	if err != nil {
 		return false
@@ -29,7 +29,7 @@ func (a *RunAdapter) BlockedFileExists() bool {
 	return err == nil
 }
 
-func (a *RunAdapter) WriteBlockedFile(err error) {
+func (a *Client) WriteBlockedFile(err error) {
 	repoRoot, repoErr := FindRepoRoot()
 	if repoErr != nil {
 		return
@@ -38,16 +38,16 @@ func (a *RunAdapter) WriteBlockedFile(err error) {
 	_ = os.WriteFile(filepath.Join(repoRoot, "blocked.md"), []byte(content), 0644)
 }
 
-func (a *RunAdapter) HasChanges() bool {
+func (a *Client) HasChanges() bool {
 	return HasUncommittedChanges()
 }
 
-func (a *RunAdapter) ReportExists() bool {
+func (a *Client) ReportExists() bool {
 	_, err := os.Stat("report.md")
 	return err == nil
 }
 
-func (a *RunAdapter) CommitFromReport(slug string) error {
+func (a *Client) CommitFromReport(slug string) error {
 	data, err := os.ReadFile("report.md")
 	if err != nil {
 		return fmt.Errorf("failed to read report.md: %w", err)
