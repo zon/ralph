@@ -12,7 +12,7 @@ Create a well-formed project file based on the user's description of the work to
 1. **Understand the work.** If the user's request is vague, ask clarifying questions:
    - What feature or change does this project cover?
    - Is there an existing spec and orchestration for it?
-   - Does the repo use versioning? If so, every change merged to `main` requires a version bump. Ask what bump level applies if it is not obvious from the work.
+   - Does the work require a version bump?
 
 2. **Read the project format docs** to refresh your understanding:
    - [docs/formats/project.md](https://raw.githubusercontent.com/zon/ralph/refs/heads/main/docs/formats/project.md)
