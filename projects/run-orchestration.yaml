@@ -236,7 +236,7 @@ requirements:
                 require.NoError(t, err)
                 require.Equal(t, 2, remote.lastProject().MaxIterations)
             }
-      passing: false
+      passing: true
     - slug: resolve-base-branch
       description: resolveBaseBranch pure function that selects the base branch from flag, current branch, or config default
       scenarios:
