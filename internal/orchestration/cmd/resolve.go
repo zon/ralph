@@ -9,3 +9,10 @@ func resolveBaseBranch(base, current, projectBranch, defaultBranch string) strin
 	}
 	return defaultBranch
 }
+
+func resolveMaxIterations(cfgMax, flagMax int) int {
+	if flagMax != 0 {
+		return flagMax
+	}
+	return cfgMax
+}

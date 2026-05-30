@@ -20,3 +20,13 @@ func TestResolveBaseBranch_AlreadyOnProjectBranch(t *testing.T) {
 	base := resolveBaseBranch("", "my-project", "my-project", "main")
 	assert.Equal(t, "main", base)
 }
+
+func TestResolveMaxIterations_FlagOverridesConfig(t *testing.T) {
+	got := resolveMaxIterations(5, 2)
+	assert.Equal(t, 2, got)
+}
+
+func TestResolveMaxIterations_ConfigUsedWhenFlagIsZero(t *testing.T) {
+	got := resolveMaxIterations(7, 0)
+	assert.Equal(t, 7, got)
+}

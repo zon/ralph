@@ -261,7 +261,7 @@ requirements:
           module: internal/orchestration/cmd
           body: |
             func resolveMaxIterations(cfgMax, flagMax int) int
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump
       items:
