@@ -154,7 +154,7 @@ requirements:
                 }
                 return r
             }
-      passing: false
+      passing: true
     - slug: run-remote-tests
       description: Implement the six RunRemote test functions from the orchestration
       tests:
