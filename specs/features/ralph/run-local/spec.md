@@ -24,6 +24,32 @@ Before starting the iteration loop, the command SHALL run any configured `before
 
 ---
 
+### Requirement: Per-Iteration Service Management
+
+Before each iteration the system SHALL start configured services and stop them after the iteration completes.
+
+#### Scenario: Services started before each iteration
+
+- GIVEN services are configured in `.ralph/config.yaml` and `--no-services` is not set
+- WHEN an iteration begins
+- THEN all services are started before the picker and development agents run
+- AND services are stopped when the iteration completes
+
+#### Scenario: Service startup failure triggers AI fix
+
+- GIVEN a configured service fails to start at the start of an iteration
+- WHEN the failure is detected
+- THEN the development agent is invoked with a prompt to diagnose and fix the startup failure
+- AND the iteration proceeds after the fix attempt
+
+#### Scenario: Port health check
+
+- GIVEN a service has a `port` field configured
+- WHEN the service starts during an iteration
+- THEN ralph waits for a TCP connection to that port to succeed before proceeding
+
+---
+
 ### Requirement: Iteration loop
 
 The iteration loop SHALL invoke the AI agent repeatedly until all requirements pass or the iteration limit is reached. Each iteration checks for a blocked state before invoking the AI.
@@ -94,6 +120,19 @@ After each iteration the command SHALL commit any changes the AI produced. The c
 - WHEN the iteration processes the failure
 - THEN `blocked.md` is written to the repository root containing the failure reason
 - AND subsequent iterations detect it and stop
+
+---
+
+### Requirement: Post-Agent Cleanup
+
+After each agent run the command SHALL normalize the project file.
+
+#### Scenario: Project file normalized after agent run
+
+- GIVEN the agent may have added trailing newlines to the project file
+- WHEN the agent finishes
+- THEN excess trailing newlines are stripped from the project file
+- AND the project file is staged if it has changes
 
 ---
 

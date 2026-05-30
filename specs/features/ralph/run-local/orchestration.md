@@ -11,7 +11,7 @@ Run the full development loop in-process: set up the environment, iterate until 
 ```go
 type Runner struct {
     project  ProjectClient
-    ai       AgentClient
+    ai       AIClient
     git      GitClient
     github   GitHubClient
     services ServicesClient
@@ -25,7 +25,7 @@ func (r *Runner) RunLocal(proj *project.Project, cfg *config.RalphConfig) error 
     if err := r.git.SwitchToBranch(proj.Slug); err != nil {
         return err
     }
-    if err := r.iterate(proj); err != nil {
+    if err := r.iterate(proj, cfg); err != nil {
         r.notify.Error(proj.Slug)
         return err
     }
@@ -50,7 +50,7 @@ func (r *Runner) RunLocal(proj *project.Project, cfg *config.RalphConfig) error 
 ---
 
 ```go
-func (r *Runner) iterate(proj *project.Project) error {
+func (r *Runner) iterate(proj *project.Project, cfg *config.RalphConfig) error {
     for i := 0; i < proj.MaxIterations; i++ {
         proj = r.project.Load(proj)
         if r.project.AllRequirementsPassing(proj) {
@@ -59,12 +59,8 @@ func (r *Runner) iterate(proj *project.Project) error {
         if r.git.BlockedFileExists() {
             return ErrBlocked
         }
-        req, err := r.ai.Pick(proj)
-        if err != nil {
-            return r.blockAndReturn(err)
-        }
-        if err := r.ai.Develop(proj, req); err != nil {
-            return r.blockAndReturn(err)
+        if err := r.runIteration(proj, cfg); err != nil {
+            return err
         }
         if err := r.commitIteration(proj); err != nil {
             return err
@@ -86,11 +82,60 @@ func (r *Runner) blockAndReturn(err error) error {
 - **`r.project.Load(proj)`** — reloads the project from disk, returning the latest state; falls back to the in-memory project if the file cannot be read
 - **`r.project.AllRequirementsPassing(proj)`** — returns true when every requirement in the project carries `passing: true`
 - **`r.git.BlockedFileExists()`** — returns true when `blocked.md` is present in the repository root
-- **`r.ai.Pick(proj)`** — invokes the picker agent to select a failing requirement; returns the requirement's YAML content as a string
-- **`r.ai.Develop(proj, req)`** — invokes the developer agent to implement the selected requirement
+- **`r.runIteration(proj, cfg)`** — starts services, runs the picker and development agents, stops services, and removes service logs
+- **`r.project.MaxIterationsError(proj)`** — returns an error naming the count of still-failing requirements
+
+---
+
+```go
+func (r *Runner) runIteration(proj *project.Project, cfg *config.RalphConfig) error {
+    svc, err := r.services.Start(cfg)
+    if err != nil {
+        if fixErr := r.ai.FixServiceStartup(cfg, err); fixErr != nil {
+            return fixErr
+        }
+        svc = nil
+    }
+    defer r.services.Stop(svc)
+    defer r.services.RemoveLogs(cfg)
+    req, err := r.ai.RunPicker(proj)
+    if err != nil {
+        return r.blockAndReturn(err)
+    }
+    if err := r.ai.RunDeveloper(proj, req); err != nil {
+        return r.blockAndReturn(err)
+    }
+    return r.cleanup(proj)
+}
+```
+
+### Helpers
+
+- **`r.services.Start(cfg)`** — starts all services declared in `.ralph/config.yaml`; returns the service manager and any startup error
+- **`r.ai.FixServiceStartup(cfg, err)`** — invokes the development agent with a diagnosis prompt for the failed service; returns nil when the fix succeeds
+- **`r.services.Stop(svc)`** — stops all running services; no-op when `svc` is nil
+- **`r.services.RemoveLogs(cfg)`** — deletes log files produced by each configured service
+- **`r.ai.RunPicker(proj)`** — builds a picker prompt from project content and the recent commit log, invokes the picker agent, reads `picked-requirement.yaml`, and returns its YAML content
+- **`r.ai.RunDeveloper(proj, req)`** — builds a development prompt with project content and the selected requirement, then invokes the development agent
 - **`r.ai.IsFatal(err)`** — returns true when the error is a billing or quota condition that must not be retried
 - **`r.git.WriteBlockedFile(err)`** — writes `blocked.md` to the repository root containing the failure reason
-- **`r.project.MaxIterationsError(proj)`** — returns an error naming the count of still-failing requirements
+- **`r.cleanup(proj)`** — normalizes trailing newlines in the project file and stages it if changed
+
+---
+
+```go
+func (r *Runner) cleanup(proj *project.Project) error {
+    if r.project.HasChanges(proj) {
+        r.project.NormalizeAndStage(proj)
+    }
+    return nil
+}
+```
+
+### Helpers
+
+- **`r.project.HasChanges(proj)`** — returns true when the project file has uncommitted changes relative to the index
+- **`r.project.NormalizeAndStage(proj)`** — strips excess trailing newlines from the project file and stages it
 
 ---
 
@@ -235,6 +280,56 @@ func TestIterateNonFatalDevelopErrorWritesBlockedFile(t *testing.T) {
     require.True(t, git.blockedFileWritten())
 }
 
+func TestRunIterationStartsAndStopsServicesEachIteration(t *testing.T) {
+    runner := run.withMocks(
+        run.withProject(project.thatReportsPassingAfterIterations(2)),
+    )
+    err := runner.RunLocal(project.withFailingRequirements(), config.any())
+    require.NoError(t, err)
+    require.Equal(t, 2, services.startCount())
+    require.Equal(t, 2, services.stopCount())
+    require.Equal(t, 2, services.removeLogsCount())
+}
+
+func TestRunIterationServiceStartupFailureTriggersFix(t *testing.T) {
+    runner := run.withMocks(
+        run.withServices(services.thatFailToStart()),
+        run.withProject(project.thatReportsPassingAfterIterations(1)),
+    )
+    err := runner.RunLocal(project.withFailingRequirements(), config.any())
+    require.NoError(t, err)
+    require.True(t, ai.serviceFixCalled())
+    require.Len(t, ai.pickCalls(), 1)
+}
+
+func TestRunIterationServiceFixFailureReturnsError(t *testing.T) {
+    runner := run.withMocks(
+        run.withServices(services.thatFailToStart()),
+        run.withAI(ai.thatFailsServiceFix()),
+    )
+    err := runner.RunLocal(project.withFailingRequirements(), config.any())
+    require.Error(t, err)
+    require.Empty(t, ai.pickCalls())
+}
+
+func TestCleanupNormalizesProjectFileWhenChanged(t *testing.T) {
+    runner := run.withMocks(
+        run.withProject(project.thatReportsPassingAfterIterations(1).withChanges()),
+    )
+    err := runner.RunLocal(project.withFailingRequirements(), config.any())
+    require.NoError(t, err)
+    require.True(t, project.normalizedAndStaged())
+}
+
+func TestCleanupSkipsNormalizationWhenNoChanges(t *testing.T) {
+    runner := run.withMocks(
+        run.withProject(project.thatReportsPassingAfterIterations(1).withNoChanges()),
+    )
+    err := runner.RunLocal(project.withFailingRequirements(), config.any())
+    require.NoError(t, err)
+    require.False(t, project.normalizedAndStaged())
+}
+
 func TestCommitIterationUsesReportWhenPresent(t *testing.T) {
     runner := run.withMocks(
         run.withProject(project.thatReportsPassingAfterIterations(1)),
@@ -284,14 +379,23 @@ func TestCommitIterationSkipsCommitWhenNoChanges(t *testing.T) {
 - **`project.thatAlwaysReportsFailures()`** — returns a project client whose `AllRequirementsPassing` always returns false
 - **`config.any()`** — returns a valid ralph config in a default state; owned by `internal/config`
 - **`services.thatFailBeforeCommands()`** — returns a services client whose `RunBeforeCommands` returns an error
-- **`ai.thatAlwaysFails()`** — returns an AI client whose `Pick` always returns a non-fatal error
-- **`ai.thatReturnsFatalPickError()`** — returns an AI client whose `Pick` returns a billing or quota error
-- **`ai.thatReturnsNonFatalPickError()`** — returns an AI client whose `Pick` returns a non-fatal error
-- **`ai.thatReturnsFatalDevelopError()`** — returns an AI client whose `Develop` returns a billing or quota error
-- **`ai.thatReturnsNonFatalDevelopError()`** — returns an AI client whose `Develop` returns a non-fatal error
-- **`ai.pickCalls()`** — returns the list of projects passed to `Pick` during the test
-- **`ai.developCalls()`** — returns the list of projects passed to `Develop` during the test
+- **`services.thatFailToStart()`** — returns a services client whose `Start` returns an error
+- **`services.startCount()`** — returns the number of times `Start` was called during the test
+- **`services.stopCount()`** — returns the number of times `Stop` was called during the test
+- **`services.removeLogsCount()`** — returns the number of times `RemoveLogs` was called during the test
+- **`ai.thatAlwaysFails()`** — returns an AI client whose `RunPicker` always returns a non-fatal error
+- **`ai.thatFailsServiceFix()`** — returns an AI client whose `FixServiceStartup` returns an error
+- **`ai.serviceFixCalled()`** — returns true when `FixServiceStartup` was called during the test
+- **`ai.thatReturnsFatalPickError()`** — returns an AI client whose `RunPicker` returns a billing or quota error
+- **`ai.thatReturnsNonFatalPickError()`** — returns an AI client whose `RunPicker` returns a non-fatal error
+- **`ai.thatReturnsFatalDevelopError()`** — returns an AI client whose `RunDeveloper` returns a billing or quota error
+- **`ai.thatReturnsNonFatalDevelopError()`** — returns an AI client whose `RunDeveloper` returns a non-fatal error
+- **`ai.pickCalls()`** — returns the list of projects passed to `RunPicker` during the test
+- **`ai.developCalls()`** — returns the list of projects passed to `RunDeveloper` during the test
 - **`ai.changelogCalls()`** — returns the list of projects passed to `GenerateChangelog` during the test
+- **`project.thatReportsPassingAfterIterations(n).withChanges()`** — chains a modifier so `HasChanges` returns true during that iteration
+- **`project.thatReportsPassingAfterIterations(n).withNoChanges()`** — chains a modifier so `HasChanges` returns false during that iteration
+- **`project.normalizedAndStaged()`** — returns true when `NormalizeAndStage` was called during the test
 - **`git.withCommitsAhead()`** — returns a git client that reports commits ahead of the base branch
 - **`git.withBlockedFile()`** — returns a git client that reports `blocked.md` as present
 - **`git.withChangesAndReport()`** — returns a git client that reports uncommitted changes and a present `report.md`
