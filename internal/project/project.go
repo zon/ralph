@@ -22,6 +22,7 @@ import (
 // ErrMaxIterationsReached is returned when max iterations are reached but requirements are still failing
 var ErrMaxIterationsReached = errors.New("max iteration limit reached")
 
+
 // Project represents a project YAML file with requirements
 type Project struct {
 	Slug          string        `yaml:"slug"`
@@ -255,7 +256,7 @@ func PrepareIteration(ctx *context.Context, cleanupRegistrar func(func())) (*Ite
 	}, nil
 }
 
-func ExecuteDevelopmentIteration(ctx *context.Context, cleanupRegistrar func(func()) /* DEPRECATED: Use ExecuteDevelopmentIterationWithSetup */) error {
+func ExecuteDevelopmentIteration(ctx *context.Context, cleanupRegistrar func(func())) error {
 	setup, err := PrepareIteration(ctx, cleanupRegistrar)
 	if err != nil {
 		return err
@@ -265,27 +266,30 @@ func ExecuteDevelopmentIteration(ctx *context.Context, cleanupRegistrar func(fun
 			setup.ServiceMgr.Stop()
 		}
 	}()
-	return ExecuteDevelopmentIterationWithSetup(ctx, setup)
+	req, err := PickRequirement(ctx, setup)
+	if err != nil {
+		return err
+	}
+	return DevelopRequirement(ctx, setup, req)
 }
 
-func ExecuteDevelopmentIterationWithSetup(ctx *context.Context, setup *IterationSetup) error {
+// PickRequirement runs the picker agent and returns the selected requirement's YAML content.
+func PickRequirement(ctx *context.Context, setup *IterationSetup) (string, error) {
 	logger.Verbosef("Loading project file: %s", setup.Project.Path)
 
 	projectContent, err := marshalProjectToString(setup.Project)
 	if err != nil {
-		return fmt.Errorf("failed to serialize project: %w", err)
+		return "", fmt.Errorf("failed to serialize project: %w", err)
 	}
 
-	pickPromptData := ai.PickPromptData{
+	pickPrompt, err := ai.BuildPickPrompt(ai.PickPromptData{
 		Notes:          ctx.Notes(),
 		CommitLog:      setup.CommitLog,
 		ProjectContent: projectContent,
 		PickedReqPath:  setup.PickedReqPath,
-	}
-
-	pickPrompt, err := ai.BuildPickPrompt(pickPromptData)
+	})
 	if err != nil {
-		return fmt.Errorf("failed to build pick prompt: %w", err)
+		return "", fmt.Errorf("failed to build pick prompt: %w", err)
 	}
 	logger.Verbose("Pick prompt generated")
 
@@ -293,18 +297,18 @@ func ExecuteDevelopmentIterationWithSetup(ctx *context.Context, setup *Iteration
 	if err := ai.RunAgent(ctx, pickPrompt); err != nil {
 		if writeBlockedMD(setup.Project.Path, err) == nil {
 			logger.Verbosef("Wrote blocked.md due to picker agent failure")
-			return fmt.Errorf("picker agent execution failed: %w", err)
+		} else {
+			logger.Verbosef("Failed to write blocked.md: %v", err)
 		}
-		logger.Verbosef("Failed to write blocked.md: %v", err)
-		return fmt.Errorf("picker agent execution failed: %w", err)
+		return "", fmt.Errorf("picker agent execution failed: %w", err)
 	}
 	logger.Verbose("Picker agent execution completed")
 
 	pickedReqData, err := os.ReadFile(setup.PickedReqPath)
 	if err != nil {
-		return fmt.Errorf("failed to read picked requirement: %w", err)
+		return "", fmt.Errorf("failed to read picked requirement: %w", err)
 	}
-	selectedRequirement := string(pickedReqData)
+	req := string(pickedReqData)
 
 	if err := os.Remove(setup.PickedReqPath); err != nil {
 		logger.Verbosef("Failed to remove picked-requirement.yaml: %v", err)
@@ -312,19 +316,25 @@ func ExecuteDevelopmentIterationWithSetup(ctx *context.Context, setup *Iteration
 		logger.Verbose("Cleaned up picked-requirement.yaml")
 	}
 
-	logger.Verbose("Generating development prompt...")
+	return req, nil
+}
 
-	devPromptData := ai.DevelopPromptData{
+// DevelopRequirement runs the developer agent for the given requirement content.
+func DevelopRequirement(ctx *context.Context, setup *IterationSetup, req string) error {
+	projectContent, err := marshalProjectToString(setup.Project)
+	if err != nil {
+		return fmt.Errorf("failed to serialize project: %w", err)
+	}
+
+	devPrompt, err := ai.BuildDevelopPrompt(ai.DevelopPromptData{
 		Notes:               ctx.Notes(),
 		CommitLog:           setup.CommitLog,
 		ProjectContent:      projectContent,
-		SelectedRequirement: selectedRequirement,
+		SelectedRequirement: req,
 		ProjectFilePath:     setup.Project.Path,
 		Services:            setup.Config.Services,
 		Instructions:        setup.Config.Instructions,
-	}
-
-	devPrompt, err := ai.BuildDevelopPrompt(devPromptData)
+	})
 	if err != nil {
 		return fmt.Errorf("failed to build prompt: %w", err)
 	}

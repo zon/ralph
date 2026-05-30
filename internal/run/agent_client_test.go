@@ -58,7 +58,7 @@ func TestAgentClientIsFatal(t *testing.T) {
 	})
 }
 
-func TestAgentClientIterate_MockAI(t *testing.T) {
+func TestAgentClientPickAndDevelop_MockAI(t *testing.T) {
 	t.Setenv("RALPH_MOCK_AI", "true")
 
 	workDir := t.TempDir()
@@ -84,11 +84,15 @@ requirements:
 	client := NewAgentClient(ctx)
 
 	proj := &project.Project{Slug: "test-project", MaxIterations: 1}
-	err := client.Iterate(proj)
+	req, err := client.Pick(proj)
+	require.NoError(t, err)
+	require.NotEmpty(t, req)
+
+	err = client.Develop(proj, req)
 	require.NoError(t, err)
 }
 
-func TestAgentClientNew(t *testing.T) {
+func TestAgentClientImplementsInterface(t *testing.T) {
 	ctx := context.NewContext()
 	client := NewAgentClient(ctx)
 	require.NotNil(t, client)

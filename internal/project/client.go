@@ -4,6 +4,15 @@ import "fmt"
 
 type Client struct{}
 
+func (a *Client) Load(proj *Project) *Project {
+	if proj.Path != "" {
+		if latest, err := LoadProject(proj.Path); err == nil {
+			return latest
+		}
+	}
+	return proj
+}
+
 func (a *Client) AllRequirementsPassing(proj *Project) bool {
 	allComplete, _, _ := CheckCompletion(proj)
 	return allComplete

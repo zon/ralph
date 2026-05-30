@@ -15,7 +15,7 @@ func TestIterateExitsImmediatelyWhenAllPassing(t *testing.T) {
 	)
 	err := runner.RunLocal(project.WithAllPassing(), config.Any())
 	require.NoError(t, err)
-	require.Empty(t, aiIterateCalls(runner))
+	require.Empty(t, aiPickCalls(runner))
 }
 
 func TestIterateExitsEarlyWhenRequirementsPass(t *testing.T) {
@@ -24,7 +24,8 @@ func TestIterateExitsEarlyWhenRequirementsPass(t *testing.T) {
 	)
 	err := runner.RunLocal(project.WithFailingRequirements(), config.Any())
 	require.NoError(t, err)
-	require.Len(t, aiIterateCalls(runner), 2)
+	require.Len(t, aiPickCalls(runner), 2)
+	require.Len(t, aiDevelopCalls(runner), 2)
 }
 
 func TestIterateReturnsErrorAtMaxIterations(t *testing.T) {
@@ -33,7 +34,7 @@ func TestIterateReturnsErrorAtMaxIterations(t *testing.T) {
 	)
 	err := runner.RunLocal(project.WithMaxIterations(3), config.Any())
 	require.Error(t, err)
-	require.Len(t, aiIterateCalls(runner), 3)
+	require.Len(t, aiPickCalls(runner), 3)
 }
 
 func TestIterateStopsOnBlockedFile(t *testing.T) {
@@ -42,22 +43,49 @@ func TestIterateStopsOnBlockedFile(t *testing.T) {
 	)
 	err := runner.RunLocal(project.WithFailingRequirements(), config.Any())
 	require.ErrorIs(t, err, ErrBlocked)
-	require.Empty(t, aiIterateCalls(runner))
+	require.Empty(t, aiPickCalls(runner))
 }
 
-func TestIterateFatalAIErrorIsNotRetried(t *testing.T) {
+
+func TestIterateFatalPickErrorIsNotRetried(t *testing.T) {
 	runner := withMocks(
 		withAI(newAIThatReturnsFatalError()),
 	)
 	err := runner.RunLocal(project.WithFailingRequirements(), config.Any())
 	require.Error(t, err)
-	require.Len(t, aiIterateCalls(runner), 1)
+	require.Len(t, aiPickCalls(runner), 1)
+	require.Empty(t, aiDevelopCalls(runner))
 	require.False(t, gitBlockedFileWritten(runner))
 }
 
-func TestIterateNonFatalAIErrorWritesBlockedFile(t *testing.T) {
+func TestIterateNonFatalPickErrorWritesBlockedFile(t *testing.T) {
 	runner := withMocks(
 		withAI(newAIThatReturnsNonFatalError()),
+	)
+	err := runner.RunLocal(project.WithFailingRequirements(), config.Any())
+	require.Error(t, err)
+	require.True(t, gitBlockedFileWritten(runner))
+}
+
+func TestIterateFatalDevelopErrorIsNotRetried(t *testing.T) {
+	runner := withMocks(
+		withAI(&mockAgentClient{
+			developFunc: func(string) error { return errFatal },
+			isFatalFunc: func(err error) bool { return err == errFatal },
+		}),
+	)
+	err := runner.RunLocal(project.WithFailingRequirements(), config.Any())
+	require.Error(t, err)
+	require.Len(t, aiDevelopCalls(runner), 1)
+	require.False(t, gitBlockedFileWritten(runner))
+}
+
+func TestIterateNonFatalDevelopErrorWritesBlockedFile(t *testing.T) {
+	runner := withMocks(
+		withAI(&mockAgentClient{
+			developFunc: func(string) error { return errNonFatal },
+			isFatalFunc: func(err error) bool { return false },
+		}),
 	)
 	err := runner.RunLocal(project.WithFailingRequirements(), config.Any())
 	require.Error(t, err)

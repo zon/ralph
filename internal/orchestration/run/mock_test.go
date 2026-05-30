@@ -34,17 +34,27 @@ func newProjectThatAlwaysReportsFailures() *project.MockClient {
 // mockAgentClient cannot move to internal/run because that package already
 // imports internal/orchestration/run, which would create an import cycle.
 type mockAgentClient struct {
-	iterateFunc    func() error
+	pickFunc       func() (string, error)
+	developFunc    func(string) error
 	isFatalFunc    func(err error) bool
 	changelogFunc  func() error
-	iterateCalls   []*project.Project
+	pickCalls      []*project.Project
+	developCalls   []*project.Project
 	changelogCalls []*project.Project
 }
 
-func (m *mockAgentClient) Iterate(proj *project.Project) error {
-	m.iterateCalls = append(m.iterateCalls, proj)
-	if m.iterateFunc != nil {
-		return m.iterateFunc()
+func (m *mockAgentClient) Pick(proj *project.Project) (string, error) {
+	m.pickCalls = append(m.pickCalls, proj)
+	if m.pickFunc != nil {
+		return m.pickFunc()
+	}
+	return "mock-requirement", nil
+}
+
+func (m *mockAgentClient) Develop(proj *project.Project, req string) error {
+	m.developCalls = append(m.developCalls, proj)
+	if m.developFunc != nil {
+		return m.developFunc(req)
 	}
 	return nil
 }
@@ -66,21 +76,21 @@ func (m *mockAgentClient) GenerateChangelog(proj *project.Project) error {
 
 func newAIThatAlwaysFails() *mockAgentClient {
 	return &mockAgentClient{
-		iterateFunc: func() error { return errNonFatal },
+		pickFunc:    func() (string, error) { return "", errNonFatal },
 		isFatalFunc: func(err error) bool { return false },
 	}
 }
 
 func newAIThatReturnsFatalError() *mockAgentClient {
 	return &mockAgentClient{
-		iterateFunc: func() error { return errFatal },
+		pickFunc:    func() (string, error) { return "", errFatal },
 		isFatalFunc: func(err error) bool { return err == errFatal },
 	}
 }
 
 func newAIThatReturnsNonFatalError() *mockAgentClient {
 	return &mockAgentClient{
-		iterateFunc: func() error { return errNonFatal },
+		pickFunc:    func() (string, error) { return "", errNonFatal },
 		isFatalFunc: func(err error) bool { return false },
 	}
 }
@@ -183,9 +193,16 @@ func withMocks(opts ...runnerOption) *Runner {
 	return r
 }
 
-func aiIterateCalls(r *Runner) []*project.Project {
+func aiPickCalls(r *Runner) []*project.Project {
 	if m, ok := r.ai.(*mockAgentClient); ok {
-		return m.iterateCalls
+		return m.pickCalls
+	}
+	return nil
+}
+
+func aiDevelopCalls(r *Runner) []*project.Project {
+	if m, ok := r.ai.(*mockAgentClient); ok {
+		return m.developCalls
 	}
 	return nil
 }
