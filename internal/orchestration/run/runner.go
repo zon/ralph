@@ -3,19 +3,23 @@ package run
 import (
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/project"
+	"github.com/zon/ralph/internal/services"
 )
 
 type ProjectClient interface {
 	Reload(proj *project.Project) *project.Project
 	AllRequirementsPassing(proj *project.Project) bool
 	MaxIterationsError(proj *project.Project) error
+	HasChanges(proj *project.Project) bool
+	NormalizeAndStage(proj *project.Project)
 }
 
-type AgentClient interface {
-	Pick(proj *project.Project) (string, error)
-	Develop(proj *project.Project, req string) error
+type AIClient interface {
+	RunPicker(proj *project.Project) (string, error)
+	RunDeveloper(proj *project.Project, req string) error
 	IsFatal(err error) bool
 	GenerateChangelog(proj *project.Project) error
+	FixServiceStartup(cfg *config.RalphConfig, err error) error
 }
 
 type GitClient interface {
@@ -41,6 +45,9 @@ type GitHubClient interface {
 
 type ServicesClient interface {
 	RunBeforeCommands(cfg *config.RalphConfig) error
+	Start(cfg *config.RalphConfig) (*services.Manager, error)
+	Stop(svc *services.Manager)
+	RemoveLogs(cfg *config.RalphConfig)
 }
 
 type NotifyClient interface {
@@ -50,14 +57,14 @@ type NotifyClient interface {
 
 type Runner struct {
 	project  ProjectClient
-	ai       AgentClient
+	ai       AIClient
 	git      GitClient
 	github   GitHubClient
 	services ServicesClient
 	notify   NotifyClient
 }
 
-func NewRunner(project ProjectClient, ai AgentClient, git GitClient, github GitHubClient, services ServicesClient, notify NotifyClient) *Runner {
+func NewRunner(project ProjectClient, ai AIClient, git GitClient, github GitHubClient, services ServicesClient, notify NotifyClient) *Runner {
 	return &Runner{
 		project:  project,
 		ai:       ai,
@@ -96,11 +103,11 @@ func (r *Runner) iterate(proj *project.Project) error {
 		if r.git.BlockedFileExists() {
 			return ErrBlocked
 		}
-		req, err := r.ai.Pick(proj)
+		req, err := r.ai.RunPicker(proj)
 		if err != nil {
 			return r.blockAndReturn(err)
 		}
-		if err := r.ai.Develop(proj, req); err != nil {
+		if err := r.ai.RunDeveloper(proj, req); err != nil {
 			return r.blockAndReturn(err)
 		}
 		if err := r.commitIteration(proj); err != nil {

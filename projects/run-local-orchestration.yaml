@@ -28,7 +28,7 @@ requirements:
                 services ServicesClient
                 notify   NotifyClient
             }
-      passing: false
+      passing: true
     - slug: update-run-local-and-iterate
       description: Pass cfg through RunLocal into iterate; have iterate delegate agent work to runIteration
       scenarios:

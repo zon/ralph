@@ -32,42 +32,44 @@ func newProjectThatAlwaysReportsFailures() *project.MockClient {
 	}
 }
 
-// mockAgentClient cannot move to internal/run because that package already
+// mockAIClient cannot move to internal/run because that package already
 // imports internal/orchestration/run, which would create an import cycle.
-type mockAgentClient struct {
-	pickFunc       func() (string, error)
-	developFunc    func(string) error
-	isFatalFunc    func(err error) bool
-	changelogFunc  func() error
-	pickCalls      []*project.Project
-	developCalls   []*project.Project
-	changelogCalls []*project.Project
+type mockAIClient struct {
+	runPickerFunc    func() (string, error)
+	runDeveloperFunc func(string) error
+	isFatalFunc      func(err error) bool
+	changelogFunc    func() error
+	fixServiceFunc   func(*config.RalphConfig, error) error
+	pickCalls        []*project.Project
+	developCalls     []*project.Project
+	changelogCalls   []*project.Project
+	fixServiceCalled bool
 }
 
-func (m *mockAgentClient) Pick(proj *project.Project) (string, error) {
+func (m *mockAIClient) RunPicker(proj *project.Project) (string, error) {
 	m.pickCalls = append(m.pickCalls, proj)
-	if m.pickFunc != nil {
-		return m.pickFunc()
+	if m.runPickerFunc != nil {
+		return m.runPickerFunc()
 	}
 	return "mock-requirement", nil
 }
 
-func (m *mockAgentClient) Develop(proj *project.Project, req string) error {
+func (m *mockAIClient) RunDeveloper(proj *project.Project, req string) error {
 	m.developCalls = append(m.developCalls, proj)
-	if m.developFunc != nil {
-		return m.developFunc(req)
+	if m.runDeveloperFunc != nil {
+		return m.runDeveloperFunc(req)
 	}
 	return nil
 }
 
-func (m *mockAgentClient) IsFatal(err error) bool {
+func (m *mockAIClient) IsFatal(err error) bool {
 	if m.isFatalFunc != nil {
 		return m.isFatalFunc(err)
 	}
 	return false
 }
 
-func (m *mockAgentClient) GenerateChangelog(proj *project.Project) error {
+func (m *mockAIClient) GenerateChangelog(proj *project.Project) error {
 	m.changelogCalls = append(m.changelogCalls, proj)
 	if m.changelogFunc != nil {
 		return m.changelogFunc()
@@ -75,24 +77,38 @@ func (m *mockAgentClient) GenerateChangelog(proj *project.Project) error {
 	return nil
 }
 
-func newAIThatAlwaysFails() *mockAgentClient {
-	return &mockAgentClient{
-		pickFunc:    func() (string, error) { return "", errNonFatal },
-		isFatalFunc: func(err error) bool { return false },
+func (m *mockAIClient) FixServiceStartup(cfg *config.RalphConfig, err error) error {
+	m.fixServiceCalled = true
+	if m.fixServiceFunc != nil {
+		return m.fixServiceFunc(cfg, err)
+	}
+	return nil
+}
+
+func newAIThatAlwaysFails() *mockAIClient {
+	return &mockAIClient{
+		runPickerFunc: func() (string, error) { return "", errNonFatal },
+		isFatalFunc:   func(err error) bool { return false },
 	}
 }
 
-func newAIThatReturnsFatalError() *mockAgentClient {
-	return &mockAgentClient{
-		pickFunc:    func() (string, error) { return "", errFatal },
-		isFatalFunc: func(err error) bool { return err == errFatal },
+func newAIThatReturnsFatalError() *mockAIClient {
+	return &mockAIClient{
+		runPickerFunc: func() (string, error) { return "", errFatal },
+		isFatalFunc:   func(err error) bool { return err == errFatal },
 	}
 }
 
-func newAIThatReturnsNonFatalError() *mockAgentClient {
-	return &mockAgentClient{
-		pickFunc:    func() (string, error) { return "", errNonFatal },
-		isFatalFunc: func(err error) bool { return false },
+func newAIThatReturnsNonFatalError() *mockAIClient {
+	return &mockAIClient{
+		runPickerFunc: func() (string, error) { return "", errNonFatal },
+		isFatalFunc:   func(err error) bool { return false },
+	}
+}
+
+func newAIThatFailsServiceFix() *mockAIClient {
+	return &mockAIClient{
+		fixServiceFunc: func(_ *config.RalphConfig, _ error) error { return errServiceFailure },
 	}
 }
 
@@ -135,6 +151,49 @@ func newServicesThatFailBeforeCommands() *services.MockClient {
 	}
 }
 
+type mockServicesClient struct {
+	startCount      int
+	stopCount       int
+	removeLogsCount int
+	startFunc       func() error
+}
+
+func (m *mockServicesClient) RunBeforeCommands(_ *config.RalphConfig) error { return nil }
+
+func (m *mockServicesClient) Start(_ *config.RalphConfig) (*services.Manager, error) {
+	m.startCount++
+	if m.startFunc != nil {
+		return nil, m.startFunc()
+	}
+	return &services.Manager{}, nil
+}
+
+func (m *mockServicesClient) Stop(_ *services.Manager) {
+	m.stopCount++
+}
+
+func (m *mockServicesClient) RemoveLogs(_ *config.RalphConfig) {
+	m.removeLogsCount++
+}
+
+func newServicesThatFailToStart() *mockServicesClient {
+	return &mockServicesClient{
+		startFunc: func() error { return errServiceFailure },
+	}
+}
+
+func failingProject() *project.Project {
+	return project.WithFailingRequirements()
+}
+
+func passingProject() *project.Project {
+	return project.WithAllPassing()
+}
+
+func anyConfig() *config.RalphConfig {
+	return config.Any()
+}
+
 var errNonFatal = &mockError{"non-fatal error"}
 var errFatal = &mockError{"billing limit exceeded"}
 var errServiceFailure = &mockError{"service failure"}
@@ -155,7 +214,7 @@ func withProject(pc ProjectClient) runnerOption {
 	}
 }
 
-func withAI(ac AgentClient) runnerOption {
+func withAI(ac AIClient) runnerOption {
 	return func(r *Runner) {
 		r.ai = ac
 	}
@@ -182,7 +241,7 @@ func withServices(sc ServicesClient) runnerOption {
 func withMocks(opts ...runnerOption) *Runner {
 	r := &Runner{
 		project:  newProjectThatAlwaysReportsFailures(),
-		ai:       &mockAgentClient{},
+		ai:       &mockAIClient{},
 		git:      &git.MockClient{},
 		github:   &github.MockClient{},
 		services: &services.MockClient{},
@@ -195,21 +254,21 @@ func withMocks(opts ...runnerOption) *Runner {
 }
 
 func aiPickCalls(r *Runner) []*project.Project {
-	if m, ok := r.ai.(*mockAgentClient); ok {
+	if m, ok := r.ai.(*mockAIClient); ok {
 		return m.pickCalls
 	}
 	return nil
 }
 
 func aiDevelopCalls(r *Runner) []*project.Project {
-	if m, ok := r.ai.(*mockAgentClient); ok {
+	if m, ok := r.ai.(*mockAIClient); ok {
 		return m.developCalls
 	}
 	return nil
 }
 
 func aiChangelogCalls(r *Runner) []*project.Project {
-	if m, ok := r.ai.(*mockAgentClient); ok {
+	if m, ok := r.ai.(*mockAIClient); ok {
 		return m.changelogCalls
 	}
 	return nil

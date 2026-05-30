@@ -69,9 +69,9 @@ func TestIterateNonFatalPickErrorWritesBlockedFile(t *testing.T) {
 
 func TestIterateFatalDevelopErrorIsNotRetried(t *testing.T) {
 	runner := withMocks(
-		withAI(&mockAgentClient{
-			developFunc: func(string) error { return errFatal },
-			isFatalFunc: func(err error) bool { return err == errFatal },
+		withAI(&mockAIClient{
+			runDeveloperFunc: func(string) error { return errFatal },
+			isFatalFunc:      func(err error) bool { return err == errFatal },
 		}),
 	)
 	err := runner.RunLocal(project.WithFailingRequirements(), config.Any())
@@ -82,9 +82,9 @@ func TestIterateFatalDevelopErrorIsNotRetried(t *testing.T) {
 
 func TestIterateNonFatalDevelopErrorWritesBlockedFile(t *testing.T) {
 	runner := withMocks(
-		withAI(&mockAgentClient{
-			developFunc: func(string) error { return errNonFatal },
-			isFatalFunc: func(err error) bool { return false },
+		withAI(&mockAIClient{
+			runDeveloperFunc: func(string) error { return errNonFatal },
+			isFatalFunc:      func(err error) bool { return false },
 		}),
 	)
 	err := runner.RunLocal(project.WithFailingRequirements(), config.Any())

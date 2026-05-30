@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+
+	"github.com/zon/ralph/internal/git"
 )
 
 type Client struct{}
@@ -43,4 +46,20 @@ func (c *Client) AllRequirementsPassing(proj *Project) bool {
 func (c *Client) MaxIterationsError(proj *Project) error {
 	_, _, failingCount := CheckCompletion(proj)
 	return fmt.Errorf("%w: %d requirements still failing", ErrMaxIterationsReached, failingCount)
+}
+
+func (c *Client) HasChanges(proj *Project) bool {
+	return git.HasFileChanges(proj.Path)
+}
+
+func (c *Client) NormalizeAndStage(proj *Project) {
+	data, err := os.ReadFile(proj.Path)
+	if err != nil {
+		return
+	}
+	normalized := []byte(strings.TrimRight(string(data), "\n") + "\n")
+	if len(normalized) != len(data) {
+		os.WriteFile(proj.Path, normalized, 0644)
+	}
+	git.StageFile(proj.Path)
 }

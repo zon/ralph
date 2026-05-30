@@ -84,11 +84,11 @@ requirements:
 	client := NewAgentClient(ctx)
 
 	proj := &project.Project{Slug: "test-project", MaxIterations: 1}
-	req, err := client.Pick(proj)
+	req, err := client.RunPicker(proj)
 	require.NoError(t, err)
 	require.NotEmpty(t, req)
 
-	err = client.Develop(proj, req)
+	err = client.RunDeveloper(proj, req)
 	require.NoError(t, err)
 }
 
@@ -96,5 +96,5 @@ func TestAgentClientImplementsInterface(t *testing.T) {
 	ctx := context.NewContext()
 	client := NewAgentClient(ctx)
 	require.NotNil(t, client)
-	var _ orchestrationRun.AgentClient = client
+	var _ orchestrationRun.AIClient = client
 }
