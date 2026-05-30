@@ -1,7 +1,9 @@
 package project
 
 type MockClient struct {
-	AllPassingFunc func() bool
+	AllPassingFunc          func() bool
+	HasChangesFunc          func(*Project) bool
+	NormalizeAndStageCalled bool
 }
 
 func (m *MockClient) Reload(proj *Project) *Project {
@@ -14,4 +16,15 @@ func (m *MockClient) AllRequirementsPassing(_ *Project) bool {
 
 func (m *MockClient) MaxIterationsError(_ *Project) error {
 	return ErrMaxIterationsReached
+}
+
+func (m *MockClient) HasChanges(proj *Project) bool {
+	if m.HasChangesFunc != nil {
+		return m.HasChangesFunc(proj)
+	}
+	return false
+}
+
+func (m *MockClient) NormalizeAndStage(proj *Project) {
+	m.NormalizeAndStageCalled = true
 }
