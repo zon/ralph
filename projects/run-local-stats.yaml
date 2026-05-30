@@ -18,7 +18,7 @@ requirements:
       items:
         - Define a SessionStats struct in internal/opencode/opencode.go with fields InputTokens int64, OutputTokens int64, Cost float64
         - Add ExportSession(sessionID string) (SessionStats, error) to internal/opencode/opencode.go that runs opencode export <sessionID>, parses the JSON response, and populates SessionStats from the session's cost and token fields
-        - Inspect the opencode export JSON output format to identify the exact field paths for cost and input/output token counts before implementing the parser
+        - 'The opencode export JSON format: top-level object with an "info" key containing "cost" (float64, e.g. 0.0009612848), "tokens.input" (int), "tokens.output" (int), "tokens.reasoning" (int), and "tokens.cache.read"/"tokens.cache.write" (ints). Use info.cost, info.tokens.input, and info.tokens.output to populate SessionStats.'
       passing: false
     - slug: agent-client-print-stats
       description: AgentClient accumulates session IDs and prints stats after the run
