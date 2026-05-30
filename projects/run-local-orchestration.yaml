@@ -350,4 +350,4 @@ requirements:
         - Add `mockServicesClient` struct with `startCount`, `stopCount`, `removeLogsCount` int fields and an optional `startFunc func() error`; add `newServicesThatFailToStart` factory
         - Update `withAI` option to accept `AIClient` instead of `AgentClient`
         - Add `failingProject()`, `passingProject()`, and `anyConfig()` test factories for cleaner test setup
-      passing: false
+      passing: true
