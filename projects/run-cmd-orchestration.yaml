@@ -101,7 +101,7 @@ requirements:
                 require.NoError(t, err)
                 require.True(t, runner.executeCalled())
             }
-      passing: false
+      passing: true
     - slug: prepare-setup
       description: prepareSetup method that loads config and project, resolves project branch, base branch, and max iterations
       items:
