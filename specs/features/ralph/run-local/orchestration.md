@@ -52,18 +52,19 @@ func (r *Runner) RunLocal(proj *project.Project, cfg *config.RalphConfig) error 
 ```go
 func (r *Runner) iterate(proj *project.Project) error {
     for i := 0; i < proj.MaxIterations; i++ {
+        proj = r.project.Load(proj)
         if r.project.AllRequirementsPassing(proj) {
             return nil
         }
         if r.git.BlockedFileExists() {
             return ErrBlocked
         }
-        if err := r.ai.Iterate(proj); err != nil {
-            if r.ai.IsFatal(err) {
-                return err
-            }
-            r.git.WriteBlockedFile(err)
-            return err
+        req, err := r.ai.Pick(proj)
+        if err != nil {
+            return r.blockAndReturn(err)
+        }
+        if err := r.ai.Develop(proj, req); err != nil {
+            return r.blockAndReturn(err)
         }
         if err := r.commitIteration(proj); err != nil {
             return err
@@ -71,13 +72,22 @@ func (r *Runner) iterate(proj *project.Project) error {
     }
     return r.project.MaxIterationsError(proj)
 }
+
+func (r *Runner) blockAndReturn(err error) error {
+    if !r.ai.IsFatal(err) {
+        r.git.WriteBlockedFile(err)
+    }
+    return err
+}
 ```
 
 ### Helpers
 
+- **`r.project.Load(proj)`** — reloads the project from disk, returning the latest state; falls back to the in-memory project if the file cannot be read
 - **`r.project.AllRequirementsPassing(proj)`** — returns true when every requirement in the project carries `passing: true`
 - **`r.git.BlockedFileExists()`** — returns true when `blocked.md` is present in the repository root
-- **`r.ai.Iterate(proj)`** — invokes the AI agent for one iteration of the project; returns a non-nil error on failure
+- **`r.ai.Pick(proj)`** — invokes the picker agent to select a failing requirement; returns the requirement's YAML content as a string
+- **`r.ai.Develop(proj, req)`** — invokes the developer agent to implement the selected requirement
 - **`r.ai.IsFatal(err)`** — returns true when the error is a billing or quota condition that must not be retried
 - **`r.git.WriteBlockedFile(err)`** — writes `blocked.md` to the repository root containing the failure reason
 - **`r.project.MaxIterationsError(proj)`** — returns an error naming the count of still-failing requirements
@@ -155,27 +165,26 @@ func TestIterateExitsImmediatelyWhenAllPassing(t *testing.T) {
     )
     err := runner.RunLocal(project.withAllPassing(), config.any())
     require.NoError(t, err)
-    require.Empty(t, ai.iterateCalls())
+    require.Empty(t, ai.pickCalls())
 }
 
 func TestIterateExitsEarlyWhenRequirementsPass(t *testing.T) {
     runner := run.withMocks(
         run.withProject(project.thatReportsPassingAfterIterations(2)),
-        run.withProject(project.withMaxIterations(10)),
     )
     err := runner.RunLocal(project.withFailingRequirements(), config.any())
     require.NoError(t, err)
-    require.Len(t, ai.iterateCalls(), 2)
+    require.Len(t, ai.pickCalls(), 2)
+    require.Len(t, ai.developCalls(), 2)
 }
 
 func TestIterateReturnsErrorAtMaxIterations(t *testing.T) {
     runner := run.withMocks(
         run.withProject(project.thatAlwaysReportsFailures()),
-        run.withProject(project.withMaxIterations(3)),
     )
-    err := runner.RunLocal(project.withFailingRequirements(), config.any())
+    err := runner.RunLocal(project.withMaxIterations(3), config.any())
     require.Error(t, err)
-    require.Len(t, ai.iterateCalls(), 3)
+    require.Len(t, ai.pickCalls(), 3)
 }
 
 func TestIterateStopsOnBlockedFile(t *testing.T) {
@@ -184,22 +193,42 @@ func TestIterateStopsOnBlockedFile(t *testing.T) {
     )
     err := runner.RunLocal(project.withFailingRequirements(), config.any())
     require.ErrorIs(t, err, run.ErrBlocked)
-    require.Empty(t, ai.iterateCalls())
+    require.Empty(t, ai.pickCalls())
 }
 
-func TestIterateFatalAIErrorIsNotRetried(t *testing.T) {
+func TestIterateFatalPickErrorIsNotRetried(t *testing.T) {
     runner := run.withMocks(
-        run.withAI(ai.thatReturnsFatalError()),
+        run.withAI(ai.thatReturnsFatalPickError()),
     )
     err := runner.RunLocal(project.withFailingRequirements(), config.any())
     require.Error(t, err)
-    require.Len(t, ai.iterateCalls(), 1)
+    require.Len(t, ai.pickCalls(), 1)
+    require.Empty(t, ai.developCalls())
     require.False(t, git.blockedFileWritten())
 }
 
-func TestIterateNonFatalAIErrorWritesBlockedFile(t *testing.T) {
+func TestIterateNonFatalPickErrorWritesBlockedFile(t *testing.T) {
     runner := run.withMocks(
-        run.withAI(ai.thatReturnsNonFatalError()),
+        run.withAI(ai.thatReturnsNonFatalPickError()),
+    )
+    err := runner.RunLocal(project.withFailingRequirements(), config.any())
+    require.Error(t, err)
+    require.True(t, git.blockedFileWritten())
+}
+
+func TestIterateFatalDevelopErrorIsNotRetried(t *testing.T) {
+    runner := run.withMocks(
+        run.withAI(ai.thatReturnsFatalDevelopError()),
+    )
+    err := runner.RunLocal(project.withFailingRequirements(), config.any())
+    require.Error(t, err)
+    require.Len(t, ai.developCalls(), 1)
+    require.False(t, git.blockedFileWritten())
+}
+
+func TestIterateNonFatalDevelopErrorWritesBlockedFile(t *testing.T) {
+    runner := run.withMocks(
+        run.withAI(ai.thatReturnsNonFatalDevelopError()),
     )
     err := runner.RunLocal(project.withFailingRequirements(), config.any())
     require.Error(t, err)
@@ -250,15 +279,18 @@ func TestCommitIterationSkipsCommitWhenNoChanges(t *testing.T) {
 - **`project.withAllPassing()`** — returns a project where every requirement has `passing: true`; owned by `internal/project`
 - **`project.withFailingRequirements()`** — returns a project with at least one failing requirement; owned by `internal/project`
 - **`project.withMaxIterations(n)`** — returns a project whose `MaxIterations` is set to `n`; owned by `internal/project`
-- **`project.thatReportsAllPassing()`** — returns a project client whose `AllRequirementsPassing` always returns true
+- **`project.thatReportsAllPassing()`** — returns a project client whose `Load` and `AllRequirementsPassing` always reflect all requirements passing
 - **`project.thatReportsPassingAfterIterations(n)`** — returns a project client whose `AllRequirementsPassing` returns false for the first `n` calls and true thereafter
 - **`project.thatAlwaysReportsFailures()`** — returns a project client whose `AllRequirementsPassing` always returns false
 - **`config.any()`** — returns a valid ralph config in a default state; owned by `internal/config`
 - **`services.thatFailBeforeCommands()`** — returns a services client whose `RunBeforeCommands` returns an error
-- **`ai.thatAlwaysFails()`** — returns an AI client whose `Iterate` always returns a non-fatal error
-- **`ai.thatReturnsFatalError()`** — returns an AI client whose `Iterate` returns a billing or quota error
-- **`ai.thatReturnsNonFatalError()`** — returns an AI client whose `Iterate` returns a non-fatal error
-- **`ai.iterateCalls()`** — returns the list of projects passed to `Iterate` during the test
+- **`ai.thatAlwaysFails()`** — returns an AI client whose `Pick` always returns a non-fatal error
+- **`ai.thatReturnsFatalPickError()`** — returns an AI client whose `Pick` returns a billing or quota error
+- **`ai.thatReturnsNonFatalPickError()`** — returns an AI client whose `Pick` returns a non-fatal error
+- **`ai.thatReturnsFatalDevelopError()`** — returns an AI client whose `Develop` returns a billing or quota error
+- **`ai.thatReturnsNonFatalDevelopError()`** — returns an AI client whose `Develop` returns a non-fatal error
+- **`ai.pickCalls()`** — returns the list of projects passed to `Pick` during the test
+- **`ai.developCalls()`** — returns the list of projects passed to `Develop` during the test
 - **`ai.changelogCalls()`** — returns the list of projects passed to `GenerateChangelog` during the test
 - **`git.withCommitsAhead()`** — returns a git client that reports commits ahead of the base branch
 - **`git.withBlockedFile()`** — returns a git client that reports `blocked.md` as present
