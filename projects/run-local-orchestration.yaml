@@ -324,7 +324,7 @@ requirements:
         - Add `HasChanges(proj *Project) bool` to `internal/project/client.go` — delegates to `git.HasFileChanges(proj.Path)`
         - Add `NormalizeAndStage(proj *Project)` to `internal/project/client.go` — trims excess trailing newlines from proj.Path and calls `git.StageFile`
         - Add `HasChangesFunc func(*Project) bool` and `normalizeAndStageCalled bool` to `internal/project/client_mock.go`; implement `HasChanges` and `NormalizeAndStage` using these fields
-      passing: false
+      passing: true
     - slug: update-agent-adapter
       description: Update internal/run/agent_client.go to satisfy the new AIClient interface
       items:
