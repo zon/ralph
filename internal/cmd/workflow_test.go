@@ -40,10 +40,6 @@ func TestFetchBaseBranch_CreatesLocalTrackingBranch(t *testing.T) {
 	cmd.Dir = tmpDir
 	require.NoError(t, cmd.Run())
 
-	cmd = exec.Command("git", "branch", "main")
-	cmd.Dir = tmpDir
-	require.NoError(t, cmd.Run())
-
 	cmd = exec.Command("git", "checkout", "-b", "feature/test")
 	cmd.Dir = tmpDir
 	require.NoError(t, cmd.Run())
@@ -122,10 +118,6 @@ func TestFetchBaseBranch_FallsBackToPlainFetch(t *testing.T) {
 	require.NoError(t, cmd.Run())
 
 	cmd = exec.Command("git", "commit", "-m", "initial")
-	cmd.Dir = tmpDir
-	require.NoError(t, cmd.Run())
-
-	cmd = exec.Command("git", "branch", "main")
 	cmd.Dir = tmpDir
 	require.NoError(t, cmd.Run())
 

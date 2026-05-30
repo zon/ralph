@@ -1,0 +1,22 @@
+package notify
+
+type MockClient struct {
+	ErrorsSlice    []string
+	SuccessesSlice []string
+	ErrorFunc      func(slug string)
+	SuccessFunc    func(slug string)
+}
+
+func (m *MockClient) Error(slug string) {
+	m.ErrorsSlice = append(m.ErrorsSlice, slug)
+	if m.ErrorFunc != nil {
+		m.ErrorFunc(slug)
+	}
+}
+
+func (m *MockClient) Success(slug string) {
+	m.SuccessesSlice = append(m.SuccessesSlice, slug)
+	if m.SuccessFunc != nil {
+		m.SuccessFunc(slug)
+	}
+}

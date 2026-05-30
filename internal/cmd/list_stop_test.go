@@ -155,6 +155,9 @@ contexts:
 
 		setupMocks(t, dir)
 
+		mockArgoPath := filepath.Join(dir, "argo")
+		require.NoError(t, os.WriteFile(mockArgoPath, []byte("#!/bin/bash\nexit 0\n"), 0755))
+
 		cmd := &ListCmd{}
 		err := cmd.Run()
 		assert.NoError(t, err)

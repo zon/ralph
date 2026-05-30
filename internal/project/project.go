@@ -1,6 +1,7 @@
 package project
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -18,13 +19,17 @@ import (
 	"github.com/zon/ralph/internal/services"
 )
 
+// ErrMaxIterationsReached is returned when max iterations are reached but requirements are still failing
+var ErrMaxIterationsReached = errors.New("max iteration limit reached")
+
 // Project represents a project YAML file with requirements
 type Project struct {
-	Slug         string        `yaml:"slug"`
-	Title        string        `yaml:"title,omitempty"`
-	Feature      string        `yaml:"feature,omitempty"`
-	Requirements []Requirement `yaml:"requirements"`
-	Path         string        `yaml:"-"`
+	Slug          string        `yaml:"slug"`
+	Title         string        `yaml:"title,omitempty"`
+	Feature       string        `yaml:"feature,omitempty"`
+	MaxIterations int           `yaml:"maxIterations,omitempty"`
+	Requirements  []Requirement `yaml:"requirements"`
+	Path          string        `yaml:"-"`
 }
 
 // Requirement represents a single requirement in a project
@@ -71,6 +76,16 @@ func LoadProject(path string) (*Project, error) {
 	}
 
 	proj.Path = path
+
+	if proj.MaxIterations == 0 {
+		if cfg, err := config.LoadConfig(); err == nil {
+			proj.MaxIterations = cfg.MaxIterations
+		}
+		if proj.MaxIterations == 0 {
+			proj.MaxIterations = 10
+		}
+	}
+
 	return &proj, nil
 }
 

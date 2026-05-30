@@ -1,4 +1,0 @@
-modules:
-  - path: internal/run
-    description: Drives the local execution path for ralph run, sequencing environment setup, the AI loop, and PR creation.
-    orchestration: true

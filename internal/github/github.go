@@ -75,6 +75,10 @@ func FindExistingPR(head string) (string, error) {
 // If found, updates the existing PR's title and body (preserving base branch).
 // If not found, creates a new PR.
 func CreatePR(title, body, base, head string) (string, error) {
+	if os.Getenv("RALPH_MOCK_GH") == "true" {
+		return "https://github.com/mock/repo/pull/1", nil
+	}
+
 	existingPR, err := FindExistingPR(head)
 	if err != nil {
 		return "", err
