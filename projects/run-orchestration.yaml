@@ -263,7 +263,7 @@ requirements:
           module: internal/orchestration/run
           body: |
             func resolveBaseBranch(base, current, project, defaultBranch string) string
-      passing: false
+      passing: true
     - slug: resolve-max-iterations
       description: resolveMaxIterations pure function that selects the iteration limit from flag or config
       scenarios:

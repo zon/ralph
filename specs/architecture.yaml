@@ -6,12 +6,11 @@ modules:
     description: Service entrypoint that loads configuration and starts the webhook HTTP server.
     orchestration: true
   - path: internal/cmd
-    description: Subcommand definitions that compose internal packages to fulfil each CLI action.
-    orchestration: true
+    description: Kong command structs that parse flags and delegate to orchestration modules.
   - path: internal/run
     description: Wires concrete adapter implementations into the run orchestration and drives local and remote execution paths.
   - path: internal/orchestration/run
-    description: Orchestrates the run command — the local development loop (iterating until requirements pass, then opening a PR and notifying) and remote workflow submission (branch sync, Argo submission, optional log following and notification).
+    description: Orchestrates the full run command — validates inputs, resolves execution parameters (base branch, max iterations, project branch), and dispatches to Runner.RunLocal or RemoteRunner.RunRemote.
     orchestration: true
   - path: internal/project
     description: Loads and validates project YAML files and tracks requirement completion across iterations.
