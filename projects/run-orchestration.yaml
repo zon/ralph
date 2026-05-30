@@ -285,7 +285,7 @@ requirements:
           module: internal/orchestration/run
           body: |
             func resolveMaxIterations(cfgMax, flagMax int) int
-      passing: false
+      passing: true
     - slug: wire-run-command
       description: Update internal/cmd RunCmd.Run to delegate to the new orchestration RunCmd instead of implementing the logic inline
       items:
