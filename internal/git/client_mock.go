@@ -1,5 +1,7 @@
 package git
 
+import "fmt"
+
 type MockClient struct {
 	SwitchToBranchFunc          func(slug string) error
 	BlockedFileExistsFunc       func() bool
@@ -73,4 +75,20 @@ func (m *MockClient) IsBranchSyncedWithRemote(branch string) error {
 		return m.IsBranchSyncedWithRemoteFunc(branch)
 	}
 	return nil
+}
+
+func ThatReportsBranchNotPushed() *MockClient {
+	return &MockClient{
+		IsBranchSyncedWithRemoteFunc: func(branch string) error {
+			return fmt.Errorf("branch '%s' has not been pushed to remote - please push before running remotely", branch)
+		},
+	}
+}
+
+func ThatReportsBranchNotInSync() *MockClient {
+	return &MockClient{
+		IsBranchSyncedWithRemoteFunc: func(branch string) error {
+			return fmt.Errorf("branch '%s' is not in sync with remote - please push your changes before running remotely", branch)
+		},
+	}
 }

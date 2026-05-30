@@ -107,7 +107,7 @@ requirements:
                 r.notify.Success(proj.Slug)
                 return nil
             }
-      passing: false
+      passing: true
     - slug: git-client-adapter
       description: Extend git.Client and git.MockClient to satisfy the updated GitClient interface
       items:
