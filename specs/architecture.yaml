@@ -11,7 +11,7 @@ modules:
   - path: internal/run
     description: Wires concrete adapter implementations into the run orchestration and drives local and remote execution paths.
   - path: internal/orchestration/run
-    description: Orchestrates the local development loop — iterating until requirements pass, then opening a PR and notifying.
+    description: Orchestrates the run command — the local development loop (iterating until requirements pass, then opening a PR and notifying) and remote workflow submission (branch sync, Argo submission, optional log following and notification).
     orchestration: true
   - path: internal/project
     description: Loads and validates project YAML files and tracks requirement completion across iterations.

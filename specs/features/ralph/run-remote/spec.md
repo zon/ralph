@@ -22,6 +22,12 @@ The command SHALL verify that the current branch exists on the remote and that l
 - WHEN the command checks branch sync
 - THEN an error is returned indicating the branch is not in sync
 
+#### Scenario: Branch behind remote
+
+- GIVEN the current branch is behind `origin/<branch>`
+- WHEN the command checks branch sync
+- THEN an error is returned indicating the branch is not in sync
+
 ---
 
 ### Requirement: Workflow is submitted to Argo
@@ -66,6 +72,12 @@ With `--follow`, the command SHALL stream the workflow logs and wait for the wor
 - GIVEN `--follow` is set and `--no-notify` is not set
 - WHEN the followed workflow fails
 - THEN an error desktop notification is sent for the project slug
+
+#### Scenario: Notifications suppressed
+
+- GIVEN `--follow` is set and `--no-notify` is set
+- WHEN the followed workflow completes or fails
+- THEN no desktop notification is sent
 
 ---
 

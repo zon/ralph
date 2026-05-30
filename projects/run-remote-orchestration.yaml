@@ -1,0 +1,246 @@
+slug: run-remote-orchestration
+title: Implement run-remote orchestration with RemoteRunner
+feature: specs/features/ralph/run-remote
+maxIterations: 10
+requirements:
+    - slug: remote-runner-struct
+      description: Define RemoteRunner struct, WorkflowClient interface, and NewRemoteRunner constructor in internal/orchestration/run
+      items:
+        - Extend the existing GitClient interface in internal/orchestration/run with two new methods — CurrentBranch() (string, error) and IsBranchSyncedWithRemote(branch string) error — rather than defining a separate interface
+        - The existing NotifyClient in internal/orchestration/run already has the correct shape; reuse it for RemoteRunner without change
+      code:
+        - name: WorkflowClient
+          description: interface for generating, submitting, and following Argo Workflows
+          module: internal/orchestration/run
+          body: |
+            type WorkflowClient interface {
+                Submit(proj *project.Project, cloneBranch string) (string, error)
+                FollowLogs(workflowName string) error
+                PrintLogHint(workflowName string)
+            }
+        - name: RemoteRunner
+          description: runner struct with injected clients for remote execution
+          module: internal/orchestration/run
+          body: |
+            type RemoteRunner struct {
+                git      GitClient
+                workflow WorkflowClient
+                notify   NotifyClient
+            }
+        - name: NewRemoteRunner
+          description: constructor that wires the three clients into a RemoteRunner
+          module: internal/orchestration/run
+          body: |
+            func NewRemoteRunner(git GitClient, workflow WorkflowClient, notify NotifyClient) *RemoteRunner
+      passing: false
+    - slug: run-remote-method
+      description: Implement RunRemote on RemoteRunner
+      scenarios:
+        - title: Branch not pushed to remote
+          items:
+            - GIVEN the current branch has no remote tracking ref
+            - WHEN the command checks branch sync
+            - THEN an error is returned indicating the branch has not been pushed
+        - title: Branch ahead of remote
+          items:
+            - GIVEN the current branch is ahead of origin/<branch>
+            - WHEN the command checks branch sync
+            - THEN an error is returned indicating the branch is not in sync
+        - title: Branch behind remote
+          items:
+            - GIVEN the current branch is behind origin/<branch>
+            - WHEN the command checks branch sync
+            - THEN an error is returned indicating the branch is not in sync
+        - title: Successful workflow submission
+          items:
+            - GIVEN the current branch is in sync with remote
+            - AND the Argo CLI is available
+            - WHEN the workflow is submitted
+            - THEN the workflow name is printed
+            - AND the command exits without waiting for the workflow to complete
+        - title: Log hint printed after submission
+          items:
+            - GIVEN a workflow is submitted without --follow
+            - WHEN the workflow name is printed
+            - THEN ralph also prints the argo logs command the user can run to follow the workflow
+        - title: --follow waits for completion
+          items:
+            - GIVEN the user passes --follow
+            - AND the workflow is submitted successfully
+            - WHEN the workflow runs
+            - THEN ralph streams the Argo workflow logs and blocks until the workflow finishes
+        - title: Notification on followed workflow success
+          items:
+            - GIVEN --follow is set and --no-notify is not set
+            - WHEN the followed workflow completes successfully
+            - THEN a success desktop notification is sent for the project slug
+        - title: Notification on followed workflow failure
+          items:
+            - GIVEN --follow is set and --no-notify is not set
+            - WHEN the followed workflow fails
+            - THEN an error desktop notification is sent for the project slug
+      code:
+        - name: RunRemote
+          description: orchestrates branch sync check, workflow submission, and optional log following with notifications
+          module: internal/orchestration/run
+          body: |
+            func (r *RemoteRunner) RunRemote(proj *project.Project, follow bool) error {
+                branch, err := r.git.CurrentBranch()
+                if err != nil {
+                    return err
+                }
+                if err := r.git.IsBranchSyncedWithRemote(branch); err != nil {
+                    return err
+                }
+                workflowName, err := r.workflow.Submit(proj, branch)
+                if err != nil {
+                    return err
+                }
+                if !follow {
+                    r.workflow.PrintLogHint(workflowName)
+                    return nil
+                }
+                if err := r.workflow.FollowLogs(workflowName); err != nil {
+                    r.notify.Error(proj.Slug)
+                    return err
+                }
+                r.notify.Success(proj.Slug)
+                return nil
+            }
+      passing: false
+    - slug: git-client-adapter
+      description: Extend git.Client and git.MockClient to satisfy the updated GitClient interface
+      items:
+        - Add CurrentBranch() (string, error) to git.Client in internal/git, delegating to git.GetCurrentBranch()
+        - Add IsBranchSyncedWithRemote(branch string) error to git.Client in internal/git, delegating to git.IsBranchSyncedWithRemote()
+        - Add CurrentBranch() and IsBranchSyncedWithRemote() to git.MockClient in internal/git/client_mock.go using the same func-field pattern as existing methods; include a CurrentBranchCalled bool field and a SyncError field for test control
+      passing: false
+    - slug: workflow-client-mock
+      description: Create workflow.MockClient in internal/workflow implementing the WorkflowClient methods
+      items:
+        - Create internal/workflow/client_mock.go with a MockClient struct
+        - MockClient must implement Submit(proj *project.Project, cloneBranch string) (string, error), FollowLogs(workflowName string) error, and PrintLogHint(workflowName string)
+        - Use func-field pattern consistent with git.MockClient and notify.MockClient
+        - Include SubmitCalled bool, FollowLogsCalled bool, PrintLogHintCalled bool tracking fields
+        - Include SubmitFunc, FollowLogsFunc, PrintLogHintFunc override fields
+      passing: false
+    - slug: remote-runner-mock-fixtures
+      description: Add mock builder functions for RemoteRunner tests in internal/orchestration/run
+      items:
+        - Add a remoteRunnerOption func type and withRemoteMocks, withRemoteGit, withRemoteWorkflow builder functions alongside the existing local runner mock helpers in mock_test.go
+      tests:
+        - name: withRemoteMocks
+          description: constructs a RemoteRunner with default no-op mock implementations
+          module: internal/orchestration/run
+          body: |
+            type remoteRunnerOption func(*RemoteRunner)
+
+            func withRemoteGit(gc GitClient) remoteRunnerOption {
+                return func(r *RemoteRunner) { r.git = gc }
+            }
+
+            func withRemoteWorkflow(wc WorkflowClient) remoteRunnerOption {
+                return func(r *RemoteRunner) { r.workflow = wc }
+            }
+
+            func withRemoteMocks(opts ...remoteRunnerOption) *RemoteRunner {
+                r := &RemoteRunner{
+                    git:      &git.MockClient{},
+                    workflow: &workflow.MockClient{},
+                    notify:   &notify.MockClient{},
+                }
+                for _, opt := range opts {
+                    opt(r)
+                }
+                return r
+            }
+      passing: false
+    - slug: run-remote-tests
+      description: Implement the six RunRemote test functions from the orchestration
+      tests:
+        - name: TestRunRemoteBranchNotPushed
+          description: verifies that RunRemote returns an error without submitting when the branch has no remote tracking ref
+          module: internal/orchestration/run
+          body: |
+            func TestRunRemoteBranchNotPushed(t *testing.T) {
+                runner := withRemoteMocks(
+                    withRemoteGit(git.thatReportsBranchNotPushed()),
+                )
+                err := runner.RunRemote(project.any(), false)
+                require.Error(t, err)
+                require.False(t, workflow.submitted())
+            }
+        - name: TestRunRemoteBranchNotInSync
+          description: verifies that RunRemote returns an error without submitting when local and remote commits differ
+          module: internal/orchestration/run
+          body: |
+            func TestRunRemoteBranchNotInSync(t *testing.T) {
+                runner := withRemoteMocks(
+                    withRemoteGit(git.thatReportsBranchNotInSync()),
+                )
+                err := runner.RunRemote(project.any(), false)
+                require.Error(t, err)
+                require.False(t, workflow.submitted())
+            }
+        - name: TestRunRemoteWorkflowSubmissionFailure
+          description: verifies that RunRemote returns an error when workflow submission fails
+          module: internal/orchestration/run
+          body: |
+            func TestRunRemoteWorkflowSubmissionFailure(t *testing.T) {
+                runner := withRemoteMocks(
+                    withRemoteWorkflow(workflow.thatFailsOnSubmit()),
+                )
+                err := runner.RunRemote(project.any(), false)
+                require.Error(t, err)
+            }
+        - name: TestRunRemoteNoFollowPrintsLogHint
+          description: verifies that RunRemote prints a log hint and returns nil when follow is false
+          module: internal/orchestration/run
+          body: |
+            func TestRunRemoteNoFollowPrintsLogHint(t *testing.T) {
+                runner := withRemoteMocks()
+                err := runner.RunRemote(project.any(), false)
+                require.NoError(t, err)
+                require.True(t, workflow.logHintPrinted())
+                require.Empty(t, notify.successes())
+            }
+        - name: TestRunRemoteFollowSuccess
+          description: verifies that RunRemote sends a success notification when the followed workflow completes
+          module: internal/orchestration/run
+          body: |
+            func TestRunRemoteFollowSuccess(t *testing.T) {
+                runner := withRemoteMocks()
+                err := runner.RunRemote(project.any(), true)
+                require.NoError(t, err)
+                require.NotEmpty(t, notify.successes())
+            }
+        - name: TestRunRemoteFollowFailureSendsErrorNotification
+          description: verifies that RunRemote sends an error notification when the followed workflow fails
+          module: internal/orchestration/run
+          body: |
+            func TestRunRemoteFollowFailureSendsErrorNotification(t *testing.T) {
+                runner := withRemoteMocks(
+                    withRemoteWorkflow(workflow.thatFailsOnFollow()),
+                )
+                err := runner.RunRemote(project.any(), true)
+                require.Error(t, err)
+                require.NotEmpty(t, notify.errors())
+            }
+      passing: false
+    - slug: workflow-client-adapter
+      description: Implement a concrete WorkflowClient adapter in internal/run and wire NewRemoteRunner
+      items:
+        - Create a workflowClientAdapter struct in internal/run that wraps workflow.GenerateWorkflow and wf.Submit for Submit(), argo.FollowLogs for FollowLogs(), and prints the argo logs hint for PrintLogHint()
+        - Create NewRemoteRunner(ctx *context.Context) *orchestrationRun.RemoteRunner in internal/run, wiring git.NewClient(ctx), workflowClientAdapter, and notify.NewClient(ctx)
+      passing: false
+    - slug: wire-execute-remote
+      description: Update Execute() in internal/run to dispatch to NewRemoteRunner instead of the inline executeRemote function
+      items:
+        - Replace the executeRemote(ctx, setup.ProjectFile) call in Execute() with NewRemoteRunner(ctx).RunRemote(setup.Project, ctx.ShouldFollow())
+        - Remove the executeRemote function once it is no longer called
+      passing: false
+    - slug: version-bump
+      description: Version bump
+      items:
+        - Apply a semver patch bump to the app version
+      passing: false
