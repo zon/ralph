@@ -6,7 +6,7 @@ import (
 )
 
 type ProjectClient interface {
-	Load(proj *project.Project) *project.Project
+	Reload(proj *project.Project) *project.Project
 	AllRequirementsPassing(proj *project.Project) bool
 	MaxIterationsError(proj *project.Project) error
 }
@@ -89,7 +89,7 @@ func (r *Runner) RunLocal(proj *project.Project, cfg *config.RalphConfig) error 
 
 func (r *Runner) iterate(proj *project.Project) error {
 	for i := 0; i < proj.MaxIterations; i++ {
-		proj = r.project.Load(proj)
+		proj = r.project.Reload(proj)
 		if r.project.AllRequirementsPassing(proj) {
 			return nil
 		}

@@ -4,7 +4,7 @@ type MockClient struct {
 	AllPassingFunc func() bool
 }
 
-func (m *MockClient) Load(proj *Project) *Project {
+func (m *MockClient) Reload(proj *Project) *Project {
 	return proj
 }
 
