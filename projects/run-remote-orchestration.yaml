@@ -123,7 +123,7 @@ requirements:
         - Use func-field pattern consistent with git.MockClient and notify.MockClient
         - Include SubmitCalled bool, FollowLogsCalled bool, PrintLogHintCalled bool tracking fields
         - Include SubmitFunc, FollowLogsFunc, PrintLogHintFunc override fields
-      passing: false
+      passing: true
     - slug: remote-runner-mock-fixtures
       description: Add mock builder functions for RemoteRunner tests in internal/orchestration/run
       items:
