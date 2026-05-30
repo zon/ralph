@@ -2,15 +2,9 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 
-	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
-	"github.com/zon/ralph/internal/git"
-	"github.com/zon/ralph/internal/project"
-	"github.com/zon/ralph/internal/run"
-	"github.com/zon/ralph/internal/workspace"
+	orchestrationRun "github.com/zon/ralph/internal/orchestration/run"
 )
 
 // RunCmd is the default command for executing ralph
@@ -40,63 +34,37 @@ func (r *RunCmd) Run() error {
 		return err
 	}
 
-	if err := r.changeWorkingDirectory(); err != nil {
-		return err
-	}
+	ctx := r.newExecutionContext()
 
-	if err := r.validateProjectFile(); err != nil {
-		return err
-	}
-
-	if err := r.validateFlagCombinations(); err != nil {
-		return err
-	}
-
-	ralphConfig, err := config.LoadConfig()
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
-	}
-
-	maxIterations := resolveMaxIterations(ralphConfig, r.MaxIterations)
-
-	ctx := r.createExecutionContext(maxIterations)
-
-	projectData, err := project.LoadProject(r.ProjectFile)
-	if err != nil {
-		return fmt.Errorf("failed to load project: %w", err)
-	}
-
-	currentBranch, err := git.GetCurrentBranch()
-	if err != nil {
-		return fmt.Errorf("failed to get current branch: %w", err)
-	}
-
-	projectBranch := git.SanitizeBranchName(projectData.Slug)
-	baseBranch := resolveBaseBranch(r.Base, currentBranch, projectBranch, ralphConfig.DefaultBranch)
-	ctx.SetBaseBranch(baseBranch)
-
-	setup := &run.ExecutionSetup{
+	flags := orchestrationRun.RunFlags{
+		WorkingDir:    r.WorkingDir,
 		ProjectFile:   r.ProjectFile,
-		Project:       projectData,
-		Config:        ralphConfig,
-		BranchName:    projectBranch,
-		CurrentBranch: currentBranch,
-		BaseBranch:    baseBranch,
+		MaxIterations: r.MaxIterations,
+		Local:         r.Local,
+		Follow:        r.Follow,
+		Debug:         r.Debug,
+		Base:          r.Base,
+		Model:         r.Model,
+		Context:       r.Context,
 	}
 
-	return run.Execute(ctx, r.cleanupRegistrar, setup)
+	cmd := newOrchestrationRunCmd(ctx)
+	return cmd.Run(flags)
 }
 
-func resolveBaseBranch(baseFlag, currentBranch, projectBranch, defaultBranch string) string {
-	if baseFlag != "" {
-		return baseFlag
-	}
-
-	if currentBranch != projectBranch {
-		return currentBranch
-	}
-
-	return defaultBranch
+func (r *RunCmd) newExecutionContext() *execcontext.Context {
+	ctx := createExecutionContext()
+	ctx.SetProjectFile(r.ProjectFile)
+	ctx.SetVerbose(r.Verbose)
+	ctx.SetNoNotify(r.NoNotify)
+	ctx.SetNoServices(r.NoServices)
+	ctx.SetLocal(r.Local)
+	ctx.SetFollow(r.Follow)
+	ctx.SetDebugBranch(r.Debug)
+	ctx.SetBaseBranch(r.Base)
+	ctx.SetModel(r.Model)
+	ctx.SetKubeContext(r.Context)
+	return ctx
 }
 
 func (r *RunCmd) handleVersionFlag() error {
@@ -109,69 +77,4 @@ func (r *RunCmd) handleVersionFlag() error {
 		fmt.Printf("ralph version %s\n", r.version)
 	}
 	return nil
-}
-
-func (r *RunCmd) changeWorkingDirectory() error {
-	if r.WorkingDir == "" {
-		return nil
-	}
-	return workspace.Chdir(r.WorkingDir)
-}
-
-func (r *RunCmd) validateProjectFile() error {
-	if r.ProjectFile == "" {
-		return fmt.Errorf("project file required (see --help)")
-	}
-
-	absProjectFile, err := filepath.Abs(r.ProjectFile)
-	if err != nil {
-		return fmt.Errorf("failed to resolve project file path: %w", err)
-	}
-	r.ProjectFile = absProjectFile
-
-	if _, err := os.Stat(r.ProjectFile); os.IsNotExist(err) {
-		return fmt.Errorf("project file not found: %s", r.ProjectFile)
-	}
-	return nil
-}
-
-type RunFlags struct {
-	Follow bool
-	Local  bool
-	Debug  string
-}
-
-func (f RunFlags) Validate() error {
-	if f.Follow && f.Local {
-		return fmt.Errorf("--follow flag is not applicable with --local flag")
-	}
-
-	if f.Debug != "" && f.Local {
-		return fmt.Errorf("--debug flag is not applicable with --local flag")
-	}
-	return nil
-}
-
-func (r *RunCmd) validateFlagCombinations() error {
-	return RunFlags{
-		Follow: r.Follow,
-		Local:  r.Local,
-		Debug:  r.Debug,
-	}.Validate()
-}
-
-func (r *RunCmd) createExecutionContext(maxIterations int) *execcontext.Context {
-	ctx := createExecutionContext()
-	ctx.SetProjectFile(r.ProjectFile)
-	ctx.SetMaxIterations(maxIterations)
-	ctx.SetVerbose(r.Verbose)
-	ctx.SetNoNotify(r.NoNotify)
-	ctx.SetNoServices(r.NoServices)
-	ctx.SetLocal(r.Local)
-	ctx.SetFollow(r.Follow)
-	ctx.SetDebugBranch(r.Debug)
-	ctx.SetBaseBranch(r.Base)
-	ctx.SetModel(r.Model)
-	ctx.SetKubeContext(r.Context)
-	return ctx
 }

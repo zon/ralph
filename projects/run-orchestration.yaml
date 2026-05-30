@@ -292,7 +292,7 @@ requirements:
         - The Kong RunCmd struct in internal/cmd keeps flag parsing but its Run method builds a RunFlags and calls orchestration.RunCmd.Run(flags)
         - All inline logic in internal/cmd/run.go (working dir change, project file validation, flag validation, config loading, project loading, branch resolution) moves to internal/orchestration/run
         - The orchestration RunCmd is constructed with real client adapters that wrap the existing packages (workspace, config, project, git, Runner, RemoteRunner)
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump
       items:

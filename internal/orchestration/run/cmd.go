@@ -71,6 +71,17 @@ func (f RunFlags) Validate() error {
 	return nil
 }
 
+func NewRunCmd(workspace WorkspaceClient, project ProjectRepo, git GitClient, config ConfigClient, local LocalRunnerClient, remote RemoteRunnerClient) *RunCmd {
+	return &RunCmd{
+		workspace: workspace,
+		project:   project,
+		git:       git,
+		config:    config,
+		local:     local,
+		remote:    remote,
+	}
+}
+
 func (r *RunCmd) Run(flags RunFlags) error {
 	if err := r.workspace.ChangeDirectory(flags.WorkingDir); err != nil {
 		return err
