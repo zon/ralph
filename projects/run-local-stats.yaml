@@ -65,7 +65,7 @@ requirements:
                 r.notify.Success(proj.Slug)
                 return nil
             }
-      passing: false
+      passing: true
     - slug: mock-and-tests
       description: Mock supports PrintStats and tests verify it fires on both success and failure
       code:

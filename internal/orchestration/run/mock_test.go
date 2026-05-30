@@ -85,6 +85,8 @@ func (m *mockAIClient) FixServiceStartup(cfg *config.RalphConfig, err error) err
 	return nil
 }
 
+func (m *mockAIClient) PrintStats() {}
+
 func newAIThatAlwaysFails() *mockAIClient {
 	return &mockAIClient{
 		runPickerFunc: func() (string, error) { return "", errNonFatal },
