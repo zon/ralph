@@ -16,6 +16,7 @@ type MockClient struct {
 	WriteBlockedFileCalled      bool
 	CommitFromReportCalled      bool
 	CurrentBranchCalled         bool
+	SyncError                   error
 }
 
 func (m *MockClient) SwitchToBranch(slug string) error {
@@ -73,6 +74,9 @@ func (m *MockClient) CurrentBranch() (string, error) {
 func (m *MockClient) IsBranchSyncedWithRemote(branch string) error {
 	if m.IsBranchSyncedWithRemoteFunc != nil {
 		return m.IsBranchSyncedWithRemoteFunc(branch)
+	}
+	if m.SyncError != nil {
+		return m.SyncError
 	}
 	return nil
 }

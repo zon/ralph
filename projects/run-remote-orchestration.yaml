@@ -114,7 +114,7 @@ requirements:
         - Add CurrentBranch() (string, error) to git.Client in internal/git, delegating to git.GetCurrentBranch()
         - Add IsBranchSyncedWithRemote(branch string) error to git.Client in internal/git, delegating to git.IsBranchSyncedWithRemote()
         - Add CurrentBranch() and IsBranchSyncedWithRemote() to git.MockClient in internal/git/client_mock.go using the same func-field pattern as existing methods; include a CurrentBranchCalled bool field and a SyncError field for test control
-      passing: false
+      passing: true
     - slug: workflow-client-mock
       description: Create workflow.MockClient in internal/workflow implementing the WorkflowClient methods
       items:
