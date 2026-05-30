@@ -101,6 +101,16 @@ func (r *ReviewRunCmd) validateFlagCombinations() error {
 	}.Validate()
 }
 
+func resolveBaseBranch(baseFlag, currentBranch, projectBranch, defaultBranch string) string {
+	if baseFlag != "" {
+		return baseFlag
+	}
+	if currentBranch != projectBranch {
+		return currentBranch
+	}
+	return defaultBranch
+}
+
 func (r *ReviewRunCmd) Run() error {
 	if r.Verbose {
 		logger.SetVerbose(true)

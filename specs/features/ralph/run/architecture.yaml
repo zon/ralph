@@ -1,6 +1,0 @@
-modules:
-  - path: internal/orchestration/run
-    description: Orchestrates the full run command — validates inputs, resolves execution parameters (base branch, max iterations, project branch), and dispatches to Runner.RunLocal or RemoteRunner.RunRemote.
-    orchestration: true
-  - path: internal/cmd
-    description: Kong command structs that parse flags and delegate to orchestration modules.

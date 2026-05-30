@@ -11,7 +11,7 @@ import (
 	"github.com/zon/ralph/internal/project"
 )
 
-func TestProjectClientAllRequirementsPassing(t *testing.T) {
+func TestProjectAdapterAllRequirementsPassing(t *testing.T) {
 	client := &project.Client{}
 
 	t.Run("returns true when all requirements pass", func(t *testing.T) {
@@ -48,7 +48,7 @@ func TestProjectClientAllRequirementsPassing(t *testing.T) {
 	})
 }
 
-func TestProjectClientMaxIterationsError(t *testing.T) {
+func TestProjectAdapterMaxIterationsError(t *testing.T) {
 	client := &project.Client{}
 
 	t.Run("returns error wrapping ErrMaxIterationsReached", func(t *testing.T) {
@@ -90,6 +90,7 @@ func TestProjectClientMaxIterationsError(t *testing.T) {
 	})
 }
 
-func TestProjectClientImplementsInterface(t *testing.T) {
+func TestProjectAdapterImplementsInterfaces(t *testing.T) {
 	var _ orchestrationRun.ProjectClient = &project.Client{}
+	var _ orchestrationRun.ProjectRepo = &project.Client{}
 }

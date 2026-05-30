@@ -31,6 +31,7 @@ type Project struct {
 	MaxIterations int           `yaml:"maxIterations,omitempty"`
 	Requirements  []Requirement `yaml:"requirements"`
 	Path          string        `yaml:"-"`
+	BaseBranch    string        `yaml:"-"`
 }
 
 // Requirement represents a single requirement in a project
