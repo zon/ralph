@@ -75,7 +75,7 @@ exit 0
 	t.Setenv("PATH", tmpDir+":"+origPath)
 
 	var stdout, stderr bytes.Buffer
-	err = RunCommand(context.Background(), "test-model", "test-prompt", &stdout, &stderr)
+	err = RunCommand(context.Background(), "test-model", "", "test-prompt", &stdout, &stderr)
 	require.NoError(t, err)
 	assert.Contains(t, stdout.String(), "run output: run --format json --model test-model test-prompt")
 }
@@ -99,7 +99,7 @@ exit 1
 	t.Setenv("PATH", tmpDir+":"+origPath)
 
 	var stdout, stderr bytes.Buffer
-	err = RunCommand(context.Background(), "test-model", "test-prompt", &stdout, &stderr)
+	err = RunCommand(context.Background(), "test-model", "", "test-prompt", &stdout, &stderr)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "opencode command failed")
 }
@@ -217,7 +217,7 @@ exit 0
 	ctx := WithSessionCollector(context.Background(), collector)
 
 	var stdout, stderr bytes.Buffer
-	err = RunCommand(ctx, "test-model", "test-prompt", &stdout, &stderr)
+	err = RunCommand(ctx, "test-model", "", "test-prompt", &stdout, &stderr)
 	require.NoError(t, err)
 
 	ids := collector.IDs()
@@ -245,7 +245,7 @@ exit 0
 	collector := &SessionCollector{}
 	ctx := WithSessionCollector(context.Background(), collector)
 
-	err = RunCommand(ctx, "test-model", "test-prompt", nil, nil)
+	err = RunCommand(ctx, "test-model", "", "test-prompt", nil, nil)
 	require.NoError(t, err)
 
 	ids := collector.IDs()
@@ -374,6 +374,6 @@ exit 0
 	t.Setenv("PATH", tmpDir+":"+origPath)
 
 	var stdout, stderr bytes.Buffer
-	err = RunCommand(context.Background(), "test-model", "test-prompt", &stdout, &stderr)
+	err = RunCommand(context.Background(), "test-model", "", "test-prompt", &stdout, &stderr)
 	require.NoError(t, err)
 }
