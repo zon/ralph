@@ -339,7 +339,7 @@ requirements:
       description: Version bump
       items:
         - Apply a semver patch bump to the app version
-      passing: false
+      passing: true
     - slug: update-mock-infrastructure
       description: Update mock_test.go to reflect the AIClient interface and add helpers for the new service and project mock fields
       items:
