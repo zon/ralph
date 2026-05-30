@@ -272,6 +272,17 @@ func resolveModel(ctx *execcontext.Context) string {
 	return ralphConfig.Model
 }
 
+func resolveVariant(ctx *execcontext.Context) string {
+	if v := ctx.Variant(); v != "" {
+		return v
+	}
+	ralphConfig, err := config.LoadConfig()
+	if err != nil {
+		return ""
+	}
+	return ralphConfig.Variant
+}
+
 // RunAgent executes an AI agent with the given prompt using OpenCode CLI
 // OpenCode manages its own configuration for API keys and models
 func RunAgent(ctx *execcontext.Context, prompt string) error {
@@ -286,7 +297,7 @@ func RunAgent(ctx *execcontext.Context, prompt string) error {
 	model := resolveModel(ctx)
 
 	ring := opencode.NewRingWriter(10)
-	if err := opencode.RunAgentWithRing(ctx.GoContext(), model, "", prompt, ring); err != nil {
+	if err := opencode.RunAgentWithRing(ctx.GoContext(), model, resolveVariant(ctx), prompt, ring); err != nil {
 		return err
 	}
 
@@ -305,7 +316,7 @@ func RunAgentWithModel(ctx *execcontext.Context, prompt string, model string) er
 	}
 
 	ring := opencode.NewRingWriter(10)
-	if err := opencode.RunAgentWithRing(ctx.GoContext(), model, "", prompt, ring); err != nil {
+	if err := opencode.RunAgentWithRing(ctx.GoContext(), model, resolveVariant(ctx), prompt, ring); err != nil {
 		return err
 	}
 
@@ -330,7 +341,7 @@ func runOpenCodeAndReadResult(ctx *execcontext.Context, model, prompt, outputFil
 		stderrWriter = os.Stderr
 	}
 
-	if err := opencode.RunCommand(ctx.GoContext(), model, "", prompt, stdoutWriter, stderrWriter); err != nil {
+	if err := opencode.RunCommand(ctx.GoContext(), model, resolveVariant(ctx), prompt, stdoutWriter, stderrWriter); err != nil {
 		return "", fmt.Errorf("opencode execution failed: %w", err)
 	}
 

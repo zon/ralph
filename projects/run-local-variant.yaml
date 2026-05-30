@@ -30,7 +30,7 @@ requirements:
         - Read `ctx.Variant()` first; if non-empty return it
         - Otherwise load the ralph config and return `ralphConfig.Variant`; return empty string when config load fails or field is unset
         - Update all calls to `opencode.RunAgentWithRing` and `opencode.RunCommand` in `internal/ai/ai.go` to pass the resolved variant
-      passing: false
+      passing: true
     - slug: variant-run-cmd
       description: Add --variant CLI flag to the run command and wire it into context
       items:
