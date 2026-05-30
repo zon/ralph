@@ -6,8 +6,7 @@ modules:
     description: Service entrypoint that loads configuration and starts the webhook HTTP server.
     orchestration: true
   - path: internal/cmd
-    description: Subcommand definitions that compose internal packages to fulfil each CLI action.
-    orchestration: true
+    description: Kong command structs that parse flags and delegate to orchestration modules.
   - path: internal/run
     description: Wires concrete adapter implementations into the run orchestration and drives local and remote execution paths.
   - path: internal/orchestration/run
@@ -70,3 +69,6 @@ modules:
     description: Test-only package that validates the repository Containerfile.
   - path: internal/testutil
     description: Shared test helpers and factories used across the test suite.
+  - path: internal/orchestration/cmd
+    description: Orchestrates the run command setup — validates inputs, resolves execution parameters (base branch, max iterations, project branch), and dispatches to the local or remote runner.
+    orchestration: true

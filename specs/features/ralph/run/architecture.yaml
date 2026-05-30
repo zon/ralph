@@ -1,6 +1,0 @@
-modules:
-  - path: internal/orchestration/cmd
-    description: Orchestrates the run command setup — validates inputs, resolves execution parameters (base branch, max iterations, project branch), and dispatches to the local or remote runner.
-    orchestration: true
-  - path: internal/cmd
-    description: Kong command structs that parse flags and delegate to orchestration modules.
