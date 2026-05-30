@@ -20,6 +20,7 @@ type AIClient interface {
 	IsFatal(err error) bool
 	GenerateChangelog(proj *project.Project) error
 	FixServiceStartup(cfg *config.RalphConfig, err error) error
+	PrintStats()
 }
 
 type GitClient interface {
@@ -76,6 +77,7 @@ func NewRunner(project ProjectClient, ai AIClient, git GitClient, github GitHubC
 }
 
 func (r *Runner) RunLocal(proj *project.Project, cfg *config.RalphConfig) error {
+	defer r.ai.PrintStats()
 	if err := r.services.RunBeforeCommands(cfg); err != nil {
 		return err
 	}
