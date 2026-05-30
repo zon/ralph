@@ -125,7 +125,7 @@ requirements:
                 require.True(t, remote.runRemoteCalled())
                 require.False(t, local.runLocalCalled())
             }
-      passing: false
+      passing: true
     - slug: prepare-setup
       description: prepareSetup method that loads config and project, resolves project branch, base branch, and max iterations into an ExecutionSetup
       items:

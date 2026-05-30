@@ -177,9 +177,25 @@ func flagsWithFollowAndLocal() RunFlags {
 	return RunFlags{ProjectFile: "/fake/project.yaml", Follow: true, Local: true}
 }
 
+func flagsWithDebugAndLocal() RunFlags {
+	return RunFlags{ProjectFile: "/fake/project.yaml", Debug: "feature-x", Local: true}
+}
+
+func flagsWithWorkingDir(dir string) RunFlags {
+	return RunFlags{ProjectFile: "/fake/project.yaml", WorkingDir: dir}
+}
+
 // ---------------------------------------------------------------------------
 // Config mock builders
 // ---------------------------------------------------------------------------
+
+func workspaceThatFailsChangeDirectory() WorkspaceClient {
+	return &mockWorkspaceClient{
+		ChangeDirectoryFunc: func(string) error {
+			return errors.New("workspace change failed")
+		},
+	}
+}
 
 func configThatFailsLoad() ConfigClient {
 	return &mockConfigClient{
@@ -200,6 +216,14 @@ func configWithMaxIterations(n int) ConfigClient {
 // ---------------------------------------------------------------------------
 // Project mock builders
 // ---------------------------------------------------------------------------
+
+func projectThatFailsValidation() ProjectRepo {
+	return &mockProjectRepo{
+		ValidateFileFunc: func(string) error {
+			return errors.New("project file not found")
+		},
+	}
+}
 
 func projectThatFailsLoad() ProjectRepo {
 	return &mockProjectRepo{
@@ -248,6 +272,20 @@ func remoteLastProject(cmd *RunCmd) *project.Project {
 		return m.LastProject
 	}
 	return nil
+}
+
+func projectFileValidated(cmd *RunCmd) bool {
+	if m, ok := cmd.project.(*mockProjectRepo); ok {
+		return m.ValidateFileCalled
+	}
+	return false
+}
+
+func configLoaded(cmd *RunCmd) bool {
+	if m, ok := cmd.config.(*mockConfigClient); ok {
+		return m.LoadCalled
+	}
+	return false
 }
 
 func localRunLocalCalled(cmd *RunCmd) bool {
@@ -303,6 +341,65 @@ func TestPrepareSetupMaxIterationsFlagOverridesConfig(t *testing.T) {
 	err := cmd.Run(flagsWithMaxIterations(2))
 	require.NoError(t, err)
 	require.Equal(t, 2, remoteLastProject(cmd).MaxIterations)
+}
+
+// ---------------------------------------------------------------------------
+// Scenario tests: Working directory changed before project file loaded
+// ---------------------------------------------------------------------------
+
+func TestRunWorkingDirectoryChangedBeforeProjectFileLoaded(t *testing.T) {
+	ws := &mockWorkspaceClient{}
+	proj := &mockProjectRepo{}
+	cmd := cmdWithMocks(
+		cmdWithWorkspace(ws),
+		cmdWithProject(proj),
+	)
+	err := cmd.Run(flagsWithWorkingDir("/path/to/project"))
+	require.NoError(t, err)
+	require.True(t, ws.ChangeDirCalled)
+	require.Equal(t, "/path/to/project", ws.ChangedDir)
+	require.True(t, proj.ValidateFileCalled)
+}
+
+// ---------------------------------------------------------------------------
+// Scenario tests: Project file not found error message
+// ---------------------------------------------------------------------------
+
+func TestRunProjectFileNotFoundErrorMessage(t *testing.T) {
+	proj := &mockProjectRepo{
+		ValidateFileFunc: func(string) error {
+			return errors.New("project file not found: /nonexistent.yaml")
+		},
+	}
+	cmd := cmdWithMocks(
+		cmdWithProject(proj),
+	)
+	err := cmd.Run(flagsAny())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "project file not found")
+	require.False(t, configLoaded(cmd))
+}
+
+// ---------------------------------------------------------------------------
+// Scenario tests: --follow with --local rejected
+// ---------------------------------------------------------------------------
+
+func TestRunFollowWithLocalRejected(t *testing.T) {
+	cmd := cmdWithMocks()
+	err := cmd.Run(flagsWithFollowAndLocal())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "--follow flag is not applicable with --local flag")
+}
+
+// ---------------------------------------------------------------------------
+// Scenario tests: --debug with --local rejected
+// ---------------------------------------------------------------------------
+
+func TestRunDebugWithLocalRejected(t *testing.T) {
+	cmd := cmdWithMocks()
+	err := cmd.Run(flagsWithDebugAndLocal())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "--debug flag is not applicable with --local flag")
 }
 
 // ---------------------------------------------------------------------------
@@ -364,6 +461,24 @@ func TestRunRemoteDispatchesToRemoteRunner(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, remoteRunRemoteCalled(cmd))
 	require.False(t, localRunLocalCalled(cmd))
+}
+
+func TestRunWorkingDirectoryFailureAbortsEarly(t *testing.T) {
+	cmd := cmdWithMocks(
+		cmdWithWorkspace(workspaceThatFailsChangeDirectory()),
+	)
+	err := cmd.Run(flagsAny())
+	require.Error(t, err)
+	require.False(t, projectFileValidated(cmd))
+}
+
+func TestRunProjectFileNotFoundAbortsEarly(t *testing.T) {
+	cmd := cmdWithMocks(
+		cmdWithProject(projectThatFailsValidation()),
+	)
+	err := cmd.Run(flagsAny())
+	require.Error(t, err)
+	require.False(t, configLoaded(cmd))
 }
 
 func TestRunIncompatibleFlagsAbortBeforeSetup(t *testing.T) {
