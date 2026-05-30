@@ -21,12 +21,10 @@ Create a well-formed orchestration file in `./specs/features/` based on the user
 
 4. **Determine the language** by reading the relevant source files for the feature area.
 
-5. **Check the architecture.** Read `specs/architecture.yaml` and, if it exists, the feature's `specs/features/<component>/<feature>/architecture.yaml` to identify the existing modules the orchestration should use. Prefer reusing modules defined there over inventing new ones.
+5. **Check the architecture.** Read `specs/architecture.yaml` and, if it exists, the feature's `specs/features/<component>/<feature>/architecture.yaml` to identify which **implementation modules** should be injected as clients into the orchestration. The orchestration itself must live in a **dedicated orchestration module** — if none exists for this feature area, create one. Do not place the orchestration in an existing implementation module.
 
-6. **Draft the orchestration and tests** following the format and guidelines in [docs/formats/orchestration.md](docs/formats/orchestration.md).
+6. **Draft the orchestration and tests** following the format and guidelines in [docs/formats/orchestration.md](docs/formats/orchestration.md). For each input type in the orchestration signature, identify which module owns the type and place its fixture builder there, not in the orchestration module.
 
-7. **Check input type ownership.** For each input type in the orchestration signature, identify which module owns the type and place its fixture builder there, not in the orchestration module.
-
-8. **Write the file** to `./specs/features/<component>/<feature>/orchestration.md`.
+7. **Write the file** to `./specs/features/<component>/<feature>/orchestration.md`.
 
 9. **Report** the file path and a one-line summary of what the orchestration models.

@@ -12,7 +12,7 @@ Write in the language the feature is implemented in, using an idealized dialect:
 
 - **Pass failures through.** Propagate failures from helpers directly using the language's idiomatic mechanism (returned errors, thrown exceptions, result types). Only introduce a named error value when it represents a distinct domain condition with no underlying cause (e.g. `CartError.Empty` is a state, not a failure).
 - **No debug code.** Remove all logger calls, debug statements, and diagnostic output.
-- **Use dependency injection for side effects.** Any helper that performs side effects (database writes, network calls, notifications) must be injected rather than called as a static function. Declare the orchestration as a method on a struct whose fields are the required interfaces; the caller wires in the real implementations, and tests substitute mocks.
+- **Use dependency injection for side effects.** Any helper that performs side effects (database writes, network calls, notifications) must be injected rather than called as a static function. The caller wires in real implementations; tests substitute mocks.
 - **No infrastructure types.** Use domain nouns, not framework types like request contexts, HTTP writers, etc.
 - **Only write bodies that are pure orchestration.** Every line must be a domain condition, a named step call, or a return value. If writing the body would require literals, string construction, or format details, don't write it — just call the function by name.
 
@@ -128,6 +128,8 @@ The orchestration function lives in an [orchestration module](../glossary.md#orc
 Every orchestration document must declare its module assignments. The `**Module:**` line under `## Orchestration` names the orchestration module; the `**Module:**` line under `## Tests` names the test module. These are implementation contracts — the code must match.
 
 Tests live in or beside the module they test, using whatever convention the implementation language idiomatically uses (e.g. Go's `_test.go` files in the same package, Rust's inline `#[cfg(test)] mod tests`, a sibling `*.test.ts` file, a parallel `test/` tree). The test module name in the document should match the module under test; choose a distinct name only if the language enforces one (e.g. a Go external `foo_test` package). A test helper that asserts on payment behavior belongs near the module it tests, not in a generic test module.
+
+The `**Module:**` named for the orchestration must be an orchestration module. Never place the orchestration struct or function in an existing implementation module. If no orchestration module exists for the feature area, create one following the naming pattern of adjacent orchestration modules in the codebase.
 
 Orchestration modules must not contain helper methods that perform or test implementation details. Test helpers — mock factories, HTTP client wiring, fixture builders, assertion utilities — belong in or beside the implementation modules they serve. The orchestration module's test file contains only test functions that exercise orchestration logic; it calls helpers imported from implementation modules, never defines them. If a helper is needed to set up or assert on an implementation concern, it lives with that concern.
 
