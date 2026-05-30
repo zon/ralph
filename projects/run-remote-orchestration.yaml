@@ -232,7 +232,7 @@ requirements:
       items:
         - Create a workflowClientAdapter struct in internal/run that wraps workflow.GenerateWorkflow and wf.Submit for Submit(), argo.FollowLogs for FollowLogs(), and prints the argo logs hint for PrintLogHint()
         - Create NewRemoteRunner(ctx *context.Context) *orchestrationRun.RemoteRunner in internal/run, wiring git.NewClient(ctx), workflowClientAdapter, and notify.NewClient(ctx)
-      passing: false
+      passing: true
     - slug: wire-execute-remote
       description: Update Execute() in internal/run to dispatch to NewRemoteRunner instead of the inline executeRemote function
       items:
