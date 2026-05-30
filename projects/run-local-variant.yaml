@@ -8,7 +8,7 @@ requirements:
       items:
         - Add `Variant string` field with `yaml:"variant,omitempty"` tag to `RalphConfig` in `internal/config/config.go`
         - Add `WithVariant(v string) *RalphConfig` helper in `internal/config/helpers.go` that returns `Any()` with `Variant` set to `v`
-      passing: false
+      passing: true
     - slug: variant-context-accessors
       description: Add variant field and accessors to execution context
       items:
