@@ -127,7 +127,7 @@ requirements:
                 require.Error(t, err)
                 require.True(t, ai.statsPrinted())
             }
-      passing: false
+      passing: true
     - slug: remove-old-stats-output
       description: Remove the old opencode stats display from workflow and review commands
       items:

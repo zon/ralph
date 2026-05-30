@@ -44,6 +44,7 @@ type mockAIClient struct {
 	developCalls     []*project.Project
 	changelogCalls   []*project.Project
 	fixServiceCalled bool
+	statsPrinted     bool
 }
 
 func (m *mockAIClient) RunPicker(proj *project.Project) (string, error) {
@@ -85,7 +86,9 @@ func (m *mockAIClient) FixServiceStartup(cfg *config.RalphConfig, err error) err
 	return nil
 }
 
-func (m *mockAIClient) PrintStats() {}
+func (m *mockAIClient) PrintStats() {
+	m.statsPrinted = true
+}
 
 func newAIThatAlwaysFails() *mockAIClient {
 	return &mockAIClient{
@@ -267,6 +270,13 @@ func aiDevelopCalls(r *Runner) []*project.Project {
 		return m.developCalls
 	}
 	return nil
+}
+
+func aiStatsPrinted(r *Runner) bool {
+	if m, ok := r.ai.(*mockAIClient); ok {
+		return m.statsPrinted
+	}
+	return false
 }
 
 func aiChangelogCalls(r *Runner) []*project.Project {
