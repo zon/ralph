@@ -286,7 +286,7 @@ func RunAgent(ctx *execcontext.Context, prompt string) error {
 	model := resolveModel(ctx)
 
 	ring := opencode.NewRingWriter(10)
-	if err := opencode.RunAgentWithRing(ctx.GoContext(), model, prompt, ring); err != nil {
+	if err := opencode.RunAgentWithRing(ctx.GoContext(), model, "", prompt, ring); err != nil {
 		return err
 	}
 
@@ -305,7 +305,7 @@ func RunAgentWithModel(ctx *execcontext.Context, prompt string, model string) er
 	}
 
 	ring := opencode.NewRingWriter(10)
-	if err := opencode.RunAgentWithRing(ctx.GoContext(), model, prompt, ring); err != nil {
+	if err := opencode.RunAgentWithRing(ctx.GoContext(), model, "", prompt, ring); err != nil {
 		return err
 	}
 
@@ -330,7 +330,7 @@ func runOpenCodeAndReadResult(ctx *execcontext.Context, model, prompt, outputFil
 		stderrWriter = os.Stderr
 	}
 
-	if err := opencode.RunCommand(ctx.GoContext(), model, prompt, stdoutWriter, stderrWriter); err != nil {
+	if err := opencode.RunCommand(ctx.GoContext(), model, "", prompt, stdoutWriter, stderrWriter); err != nil {
 		return "", fmt.Errorf("opencode execution failed: %w", err)
 	}
 

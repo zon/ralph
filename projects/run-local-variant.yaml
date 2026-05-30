@@ -22,7 +22,7 @@ requirements:
         - Add a `variant string` parameter to `RunAgentWithRing` and `RunCommand` in `internal/opencode/opencode.go`
         - When `variant` is non-empty, append `--variant` and the value to the args slice before the prompt argument
         - When `variant` is empty, omit `--variant` entirely — do not pass a blank value
-      passing: false
+      passing: true
     - slug: variant-ai-resolution
       description: Resolve variant from context with config fallback in AI layer
       items:
