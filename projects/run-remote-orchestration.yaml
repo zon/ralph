@@ -226,7 +226,7 @@ requirements:
                 require.Error(t, err)
                 require.NotEmpty(t, notify.errors())
             }
-      passing: false
+      passing: true
     - slug: workflow-client-adapter
       description: Implement a concrete WorkflowClient adapter in internal/run and wire NewRemoteRunner
       items:
