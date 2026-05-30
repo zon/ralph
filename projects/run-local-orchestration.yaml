@@ -334,7 +334,7 @@ requirements:
         - Remove the `setup` field and `stopServices` helper from `AgentClient`
         - Add `FixServiceStartup(cfg *config.RalphConfig, err error) error` — builds a fix prompt using `ai.BuildFixServicePrompt` and calls `ai.RunAgent`
         - Update `internal/run/local_runner.go` so `NewLocalRunner` passes `NewAgentClient(ctx)` as the `AIClient` argument to `NewRunner`
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump
       items:
