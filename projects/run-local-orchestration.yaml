@@ -267,7 +267,7 @@ requirements:
                 require.Error(t, err)
                 require.Empty(t, aiPickCalls(runner))
             }
-      passing: false
+      passing: true
     - slug: cleanup
       description: New cleanup method normalizes trailing newlines in the project file and stages it if changed
       scenarios:

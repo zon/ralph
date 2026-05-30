@@ -82,7 +82,7 @@ func (r *Runner) RunLocal(proj *project.Project, cfg *config.RalphConfig) error 
 	if err := r.git.SwitchToBranch(proj.Slug); err != nil {
 		return err
 	}
-	if err := r.iterate(proj); err != nil {
+	if err := r.iterate(proj, cfg); err != nil {
 		r.notify.Error(proj.Slug)
 		return err
 	}
@@ -94,7 +94,7 @@ func (r *Runner) RunLocal(proj *project.Project, cfg *config.RalphConfig) error 
 	return nil
 }
 
-func (r *Runner) iterate(proj *project.Project) error {
+func (r *Runner) iterate(proj *project.Project, cfg *config.RalphConfig) error {
 	for i := 0; i < proj.MaxIterations; i++ {
 		proj = r.project.Reload(proj)
 		if r.project.AllRequirementsPassing(proj) {
@@ -103,14 +103,7 @@ func (r *Runner) iterate(proj *project.Project) error {
 		if r.git.BlockedFileExists() {
 			return ErrBlocked
 		}
-		req, err := r.ai.RunPicker(proj)
-		if err != nil {
-			return r.blockAndReturn(err)
-		}
-		if err := r.ai.RunDeveloper(proj, req); err != nil {
-			return r.blockAndReturn(err)
-		}
-		if err := r.cleanup(proj); err != nil {
+		if err := r.runIteration(proj, cfg); err != nil {
 			return err
 		}
 		if err := r.commitIteration(proj); err != nil {
@@ -118,6 +111,26 @@ func (r *Runner) iterate(proj *project.Project) error {
 		}
 	}
 	return r.project.MaxIterationsError(proj)
+}
+
+func (r *Runner) runIteration(proj *project.Project, cfg *config.RalphConfig) error {
+	svc, err := r.services.Start(cfg)
+	if err != nil {
+		if fixErr := r.ai.FixServiceStartup(cfg, err); fixErr != nil {
+			return fixErr
+		}
+		svc = nil
+	}
+	defer r.services.Stop(svc)
+	defer r.services.RemoveLogs(cfg)
+	req, err := r.ai.RunPicker(proj)
+	if err != nil {
+		return r.blockAndReturn(err)
+	}
+	if err := r.ai.RunDeveloper(proj, req); err != nil {
+		return r.blockAndReturn(err)
+	}
+	return r.cleanup(proj)
 }
 
 func (r *Runner) cleanup(proj *project.Project) error {
