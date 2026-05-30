@@ -176,7 +176,7 @@ requirements:
                 require.Error(t, err)
                 require.True(t, gitBlockedFileWritten(runner))
             }
-      passing: false
+      passing: true
     - slug: run-iteration
       description: New runIteration method starts services, invokes picker and developer agents, and stops services after the iteration
       scenarios:
