@@ -12,13 +12,50 @@ Mode-specific behaviors are defined in:
 
 ### Requirement: Project file is required
 
-The command SHALL require a project YAML file as a positional argument. Validation of the file's contents is handled by the validate feature.
+The command SHALL require a project YAML file as a positional argument. The file must exist on disk before execution proceeds. Validation of the file's contents is handled by the validate feature.
 
 #### Scenario: Project file provided
 
 - GIVEN the user provides a path to a valid project YAML file
 - WHEN the command starts
 - THEN the project is loaded and execution proceeds
+
+#### Scenario: Project file not found
+
+- GIVEN the user provides a path to a file that does not exist on disk
+- WHEN the command starts
+- THEN an error is returned: `project file not found: <path>`
+- AND no execution begins
+
+---
+
+### Requirement: Working directory override
+
+The command SHALL change its working directory to the path given by `--working-dir` (`-C`) before any other setup occurs, allowing the command to be invoked against a project in a different directory.
+
+#### Scenario: `--working-dir` changes the working directory
+
+- GIVEN the user passes `--working-dir /path/to/project`
+- WHEN the command starts
+- THEN the working directory is changed to `/path/to/project` before the project file is loaded
+
+---
+
+### Requirement: AI model and Kubernetes context overrides
+
+The command SHALL accept `--model` to override the AI model from config and `--context` to override the Kubernetes context used for remote workflow submission.
+
+#### Scenario: `--model` overrides the configured AI model
+
+- GIVEN the user passes `--model claude-opus-4-8`
+- WHEN the command runs
+- THEN `claude-opus-4-8` is used as the AI model instead of the config default
+
+#### Scenario: `--context` overrides the Kubernetes context
+
+- GIVEN the user passes `--context my-cluster`
+- WHEN a remote workflow is submitted
+- THEN `my-cluster` is used as the Kubernetes context instead of the default
 
 ---
 
