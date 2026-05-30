@@ -1,13 +1,92 @@
 package opencode
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 )
+
+// SessionCollector is a thread-safe collection of session IDs.
+type SessionCollector struct {
+	mu  sync.Mutex
+	ids []string
+}
+
+func (c *SessionCollector) Append(id string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.ids = append(c.ids, id)
+}
+
+func (c *SessionCollector) IDs() []string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	result := make([]string, len(c.ids))
+	copy(result, c.ids)
+	return result
+}
+
+type contextKey string
+
+const sessionCollectorKey contextKey = "sessionCollector"
+
+func WithSessionCollector(ctx context.Context, c *SessionCollector) context.Context {
+	return context.WithValue(ctx, sessionCollectorKey, c)
+}
+
+func SessionCollectorFrom(ctx context.Context) *SessionCollector {
+	c, _ := ctx.Value(sessionCollectorKey).(*SessionCollector)
+	return c
+}
+
+// sessionParser wraps an io.Writer and extracts session ID from JSON lines.
+type sessionParser struct {
+	w         io.Writer
+	sessionID string
+	mu        sync.Mutex
+}
+
+func newSessionParser(w io.Writer) *sessionParser {
+	return &sessionParser{w: w}
+}
+
+func (s *sessionParser) Write(p []byte) (int, error) {
+	s.mu.Lock()
+	if s.sessionID == "" {
+		s.parseSessionID(p)
+	}
+	s.mu.Unlock()
+
+	if s.w != nil {
+		return s.w.Write(p)
+	}
+	return len(p), nil
+}
+
+func (s *sessionParser) parseSessionID(p []byte) {
+	var obj struct {
+		SessionID string `json:"sessionID"`
+	}
+	if err := json.Unmarshal(p, &obj); err == nil && obj.SessionID != "" {
+		s.sessionID = obj.SessionID
+		return
+	}
+	for _, line := range bytes.Split(p, []byte("\n")) {
+		if len(line) == 0 {
+			continue
+		}
+		if err := json.Unmarshal(line, &obj); err == nil && obj.SessionID != "" {
+			s.sessionID = obj.SessionID
+			return
+		}
+	}
+}
 
 func runOpenCodeCommand(ctx context.Context, args []string, stdoutWriter, stderrWriter io.Writer) error {
 	if ctx == nil {
@@ -16,11 +95,9 @@ func runOpenCodeCommand(ctx context.Context, args []string, stdoutWriter, stderr
 	cmd := exec.CommandContext(ctx, "opencode", args...)
 	cmd.Env = append(os.Environ(), "FORCE_COLOR=1")
 
-	if stdoutWriter != nil {
-		cmd.Stdout = stdoutWriter
-	} else {
-		cmd.Stdout = os.Stdout
-	}
+	parser := newSessionParser(stdoutWriter)
+	cmd.Stdout = parser
+
 	if stderrWriter != nil {
 		cmd.Stderr = stderrWriter
 	} else {
@@ -30,11 +107,15 @@ func runOpenCodeCommand(ctx context.Context, args []string, stdoutWriter, stderr
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("opencode command failed: %w", err)
 	}
+
+	if collector := SessionCollectorFrom(ctx); collector != nil && parser.sessionID != "" {
+		collector.Append(parser.sessionID)
+	}
 	return nil
 }
 
 func RunCommand(ctx context.Context, model, prompt string, stdoutWriter, stderrWriter io.Writer) error {
-	args := []string{"run", "--model", model, prompt}
+	args := []string{"run", "--format", "json", "--model", model, prompt}
 	return runOpenCodeCommand(ctx, args, stdoutWriter, stderrWriter)
 }
 
@@ -48,11 +129,16 @@ func runOpenCodeCommandWithRing(ctx context.Context, args []string, ring *RingWr
 	}
 	cmd := exec.CommandContext(ctx, "opencode", args...)
 	cmd.Env = append(os.Environ(), "FORCE_COLOR=1")
-	cmd.Stdout = io.MultiWriter(os.Stdout, ring)
+	parser := newSessionParser(os.Stdout)
+	cmd.Stdout = io.MultiWriter(parser, ring)
 	cmd.Stderr = io.MultiWriter(os.Stderr, ring)
 
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("opencode execution failed: %w\n\nLast 10 lines of output:\n%s", err, ring.Tail())
+	}
+
+	if collector := SessionCollectorFrom(ctx); collector != nil && parser.sessionID != "" {
+		collector.Append(parser.sessionID)
 	}
 	return nil
 }
@@ -89,6 +175,6 @@ func NewRingWriter(n int) *RingWriter {
 }
 
 func RunAgentWithRing(ctx context.Context, model, prompt string, ring *RingWriter) error {
-	args := []string{"run", "--model", model, prompt}
+	args := []string{"run", "--format", "json", "--model", model, prompt}
 	return runOpenCodeCommandWithRing(ctx, args, ring)
 }

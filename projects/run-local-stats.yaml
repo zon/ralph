@@ -12,7 +12,7 @@ requirements:
         - Define context key helpers WithSessionCollector(ctx context.Context, c *SessionCollector) and SessionCollectorFrom(ctx context.Context) in internal/opencode/opencode.go
         - In RunAgentWithRing and RunCommand, if a SessionCollector is present in the Go context, append the captured session ID after a successful run
         - When stdoutWriter is nil in RunCommand (non-verbose callers), suppress the JSON output while still extracting the session ID
-      passing: false
+      passing: true
     - slug: export-session-stats
       description: Fetch per-session cost and token counts via opencode export
       items:
