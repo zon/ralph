@@ -1,16 +1,19 @@
 package git
 
 type MockClient struct {
-	SwitchToBranchFunc    func(slug string) error
-	BlockedFileExistsFunc func() bool
-	WriteBlockedFileFunc  func(err error)
-	HasChangesFunc        func() bool
-	ReportExistsFunc      func() bool
-	CommitFromReportFunc  func(slug string) error
+	SwitchToBranchFunc          func(slug string) error
+	BlockedFileExistsFunc       func() bool
+	WriteBlockedFileFunc        func(err error)
+	HasChangesFunc              func() bool
+	ReportExistsFunc            func() bool
+	CommitFromReportFunc        func(slug string) error
+	CurrentBranchFunc           func() (string, error)
+	IsBranchSyncedWithRemoteFunc func(branch string) error
 
-	SwitchToBranchCalled   bool
-	WriteBlockedFileCalled bool
-	CommitFromReportCalled bool
+	SwitchToBranchCalled        bool
+	WriteBlockedFileCalled      bool
+	CommitFromReportCalled      bool
+	CurrentBranchCalled         bool
 }
 
 func (m *MockClient) SwitchToBranch(slug string) error {
@@ -53,6 +56,21 @@ func (m *MockClient) CommitFromReport(slug string) error {
 	m.CommitFromReportCalled = true
 	if m.CommitFromReportFunc != nil {
 		return m.CommitFromReportFunc(slug)
+	}
+	return nil
+}
+
+func (m *MockClient) CurrentBranch() (string, error) {
+	m.CurrentBranchCalled = true
+	if m.CurrentBranchFunc != nil {
+		return m.CurrentBranchFunc()
+	}
+	return "main", nil
+}
+
+func (m *MockClient) IsBranchSyncedWithRemote(branch string) error {
+	if m.IsBranchSyncedWithRemoteFunc != nil {
+		return m.IsBranchSyncedWithRemoteFunc(branch)
 	}
 	return nil
 }

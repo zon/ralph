@@ -32,7 +32,7 @@ requirements:
           module: internal/orchestration/run
           body: |
             func NewRemoteRunner(git GitClient, workflow WorkflowClient, notify NotifyClient) *RemoteRunner
-      passing: false
+      passing: true
     - slug: run-remote-method
       description: Implement RunRemote on RemoteRunner
       scenarios:
