@@ -172,12 +172,3 @@ The system SHOULD support a debug mode that clones a specific ralph branch and i
 - THEN the specified ralph source branch is checked out into `/workspace/ralph`
 - AND ralph is invoked via `go run ./cmd/ralph` instead of the installed binary
 
-### Requirement: AI Token Statistics
-
-The system SHOULD display OpenCode token usage statistics after each workflow execution.
-
-#### Scenario: Stats display
-
-- GIVEN any workflow run completes (project or review)
-- WHEN execution finishes
-- THEN accumulated AI token usage statistics are printed to the log

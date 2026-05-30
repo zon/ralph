@@ -19,6 +19,7 @@ type Runner struct {
 }
 
 func (r *Runner) RunLocal(proj *project.Project, cfg *config.RalphConfig) error {
+    defer r.ai.PrintStats()
     if err := r.services.RunBeforeCommands(cfg); err != nil {
         return err
     }
@@ -40,6 +41,7 @@ func (r *Runner) RunLocal(proj *project.Project, cfg *config.RalphConfig) error 
 
 ### Helpers
 
+- **`r.ai.PrintStats()`** — prints accumulated input tokens, output tokens, and total cost across all opencode sessions invoked during the run; called via `defer` so it always runs regardless of outcome
 - **`r.services.RunBeforeCommands(cfg)`** — runs each `before` command from the ralph config sequentially; aborts on the first non-zero exit
 - **`r.git.SwitchToBranch(slug)`** — switches to the branch named by the project slug, creating it if it does not exist
 - **`r.iterate(proj)`** — drives the iteration loop; returns nil only when all requirements are passing, or a non-nil error when blocked, when a fatal AI error occurs, or when max iterations is reached with requirements still failing
@@ -165,6 +167,24 @@ func (r *Runner) commitIteration(proj *project.Project) error {
 **Module:** `internal/orchestration/run`
 
 ```go
+func TestRunLocalStatsPrintedOnSuccess(t *testing.T) {
+    runner := run.withMocks(
+        run.withProject(project.thatReportsAllPassing()),
+    )
+    err := runner.RunLocal(project.withAllPassing(), config.any())
+    require.NoError(t, err)
+    require.True(t, ai.statsPrinted())
+}
+
+func TestRunLocalStatsPrintedOnFailure(t *testing.T) {
+    runner := run.withMocks(
+        run.withAI(ai.thatAlwaysFails()),
+    )
+    err := runner.RunLocal(project.withFailingRequirements(), config.any())
+    require.Error(t, err)
+    require.True(t, ai.statsPrinted())
+}
+
 func TestRunLocalBeforeCommandFailureAbortsEarly(t *testing.T) {
     runner := run.withMocks(
         run.withServices(services.thatFailBeforeCommands()),
@@ -383,6 +403,7 @@ func TestCommitIterationSkipsCommitWhenNoChanges(t *testing.T) {
 - **`services.startCount()`** — returns the number of times `Start` was called during the test
 - **`services.stopCount()`** — returns the number of times `Stop` was called during the test
 - **`services.removeLogsCount()`** — returns the number of times `RemoveLogs` was called during the test
+- **`ai.statsPrinted()`** — returns true when `PrintStats` was called during the test
 - **`ai.thatAlwaysFails()`** — returns an AI client whose `RunPicker` always returns a non-fatal error
 - **`ai.thatFailsServiceFix()`** — returns an AI client whose `FixServiceStartup` returns an error
 - **`ai.serviceFixCalled()`** — returns true when `FixServiceStartup` was called during the test

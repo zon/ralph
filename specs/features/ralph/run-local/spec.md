@@ -173,6 +173,24 @@ When all requirements are found to be passing — whether they were already pass
 
 ---
 
+### Requirement: Token usage and cost reporting
+
+After the run completes the command SHALL print accumulated AI token usage and cost statistics to the log.
+
+#### Scenario: Stats printed on success
+
+- GIVEN the run completes successfully
+- WHEN execution finishes
+- THEN input tokens, output tokens, and total cost across the entire run are printed to the log
+
+#### Scenario: Stats printed on failure
+
+- GIVEN the run exits with an error (max iterations, blocked, fatal AI error, or any other failure)
+- WHEN execution finishes
+- THEN input tokens, output tokens, and total cost across the entire run are printed to the log before the error is surfaced
+
+---
+
 ### Requirement: Desktop notifications
 
 The command SHALL send a desktop notification on completion unless `--no-notify` is set.
