@@ -54,7 +54,7 @@ requirements:
             - AND no --variant flag is passed
             - WHEN the command runs
             - THEN the --variant option is omitted from the opencode invocation
-      passing: false
+      passing: true
     - slug: variant-tests
       description: Orchestration tests verifying variant is passed when configured and omitted when unset
       items:
@@ -86,9 +86,9 @@ requirements:
                 require.NoError(t, err)
                 require.Empty(t, mockAI.lastVariant())
             }
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump
       items:
         - Apply a semver minor bump to the app version
-      passing: false
+      passing: true

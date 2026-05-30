@@ -45,9 +45,22 @@ type mockAIClient struct {
 	changelogCalls   []*project.Project
 	fixServiceCalled bool
 	statsPrinted     bool
+	variant          string
+	lastVariantValue string
+}
+
+func (m *mockAIClient) setLastVariant(v string) {
+	m.variant = v
+	m.lastVariantValue = v
+}
+
+// lastVariant returns the variant recorded during the most recent RunPicker or RunDeveloper call.
+func (m *mockAIClient) lastVariant() string {
+	return m.lastVariantValue
 }
 
 func (m *mockAIClient) RunPicker(proj *project.Project) (string, error) {
+	m.lastVariantValue = m.variant
 	m.pickCalls = append(m.pickCalls, proj)
 	if m.runPickerFunc != nil {
 		return m.runPickerFunc()
@@ -56,6 +69,7 @@ func (m *mockAIClient) RunPicker(proj *project.Project) (string, error) {
 }
 
 func (m *mockAIClient) RunDeveloper(proj *project.Project, req string) error {
+	m.lastVariantValue = m.variant
 	m.developCalls = append(m.developCalls, proj)
 	if m.runDeveloperFunc != nil {
 		return m.runDeveloperFunc(req)
@@ -277,6 +291,13 @@ func aiStatsPrinted(r *Runner) bool {
 		return m.statsPrinted
 	}
 	return false
+}
+
+func aiLastVariant(r *Runner) string {
+	if m, ok := r.ai.(*mockAIClient); ok {
+		return m.lastVariant()
+	}
+	return ""
 }
 
 func aiChangelogCalls(r *Runner) []*project.Project {
