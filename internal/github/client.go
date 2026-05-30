@@ -39,7 +39,7 @@ func (a *Client) CreatePR(proj *project.Project) error {
 
 	branchName := git.SanitizeBranchName(proj.Slug)
 
-	_, err = CreatePullRequest(a.ctx, proj, branchName, a.baseBranch, prSummary)
+	prURL, err := CreatePullRequest(a.ctx, proj, branchName, a.baseBranch, prSummary)
 	if err != nil {
 		if errors.Is(err, ErrNoCommitsBetweenBranches) {
 			logger.Verbose("No commits ahead of base branch — all requirements were already passing; skipping PR creation")
@@ -48,5 +48,6 @@ func (a *Client) CreatePR(proj *project.Project) error {
 		return fmt.Errorf("failed to create pull request: %w", err)
 	}
 
+	logger.Info(prURL)
 	return nil
 }
