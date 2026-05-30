@@ -238,7 +238,7 @@ requirements:
       items:
         - Replace the executeRemote(ctx, setup.ProjectFile) call in Execute() with NewRemoteRunner(ctx).RunRemote(setup.Project, ctx.ShouldFollow())
         - Remove the executeRemote function once it is no longer called
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump
       items:

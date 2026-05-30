@@ -134,7 +134,7 @@ func executeCommandRemote(ctx *context.Context, setup *CommandSetup) error {
 
 func Execute(ctx *context.Context, cleanupRegistrar func(func()), setup *ExecutionSetup) error {
 	if !ctx.IsLocal() {
-		return executeRemote(ctx, setup.ProjectFile)
+		return NewRemoteRunner(ctx).RunRemote(setup.Project, ctx.ShouldFollow())
 	}
 
 	return NewLocalRunner(ctx, setup.BaseBranch).RunLocal(setup.Project, setup.Config)
@@ -162,64 +162,4 @@ func runCommand(command []string) error {
 	return nil
 }
 
-func executeRemote(ctx *context.Context, absProjectFile string) error {
-	logger.Verbose("Submitting Argo Workflow...")
 
-	proj, err := project.LoadProject(absProjectFile)
-	if err != nil {
-		return fmt.Errorf("failed to load project file: %w", err)
-	}
-
-	projectName := proj.Slug
-	projectBranch := git.SanitizeBranchName(proj.Slug)
-
-	// Load configuration to get default branch
-	if _, err = config.LoadConfig(); err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
-	}
-
-	var currentBranch string
-	if ctx.Branch() != "" {
-		currentBranch = ctx.Branch()
-	} else {
-		currentBranch, err = git.GetCurrentBranch()
-		if err != nil {
-			return fmt.Errorf("failed to get current branch: %w", err)
-		}
-		// Only check sync when branch is detected locally (not when pre-supplied by caller)
-		logger.Verbosef("Checking branch '%s' is in sync with remote...", currentBranch)
-		if err := git.IsBranchSyncedWithRemote(currentBranch); err != nil {
-			return err
-		}
-	}
-
-	logger.Verbose("Generating Argo Workflow...")
-	wf, err := workflow.GenerateWorkflow(ctx, projectName, currentBranch, projectBranch, ctx.IsVerbose())
-	if err != nil {
-		return fmt.Errorf("failed to generate workflow: %w", err)
-	}
-
-	if ctx.IsVerbose() {
-		workflowYAML, _ := wf.Render()
-		logger.Verbosef("Generated workflow YAML:\n%s", workflowYAML)
-	}
-
-	workflowName, err := wf.Submit()
-	if err != nil {
-		return fmt.Errorf("failed to submit workflow: %w", err)
-	}
-
-	logger.Successf("Workflow submitted: %s", workflowName)
-
-	if ctx.ShouldFollow() {
-		if err := argo.FollowLogs(wf.Namespace, workflowName, wf.KubeContext); err != nil {
-			notify.Error(projectName, ctx.ShouldNotify())
-			return fmt.Errorf("argo logs failed: %w", err)
-		}
-		notify.Success(projectName, ctx.ShouldNotify())
-	} else {
-		logger.Infof("To follow logs, run: argo logs -n %s %s -f", wf.Namespace, workflowName)
-	}
-
-	return nil
-}
