@@ -26,7 +26,7 @@ requirements:
         - Add a collector *opencode.SessionCollector field to AgentClient in internal/run/agent_client.go
         - In NewAgentClient, initialise the collector and store it in the exec context's Go context via opencode.WithSessionCollector so that all downstream opencode invocations record their session IDs automatically
         - Add PrintStats() to AgentClient that iterates over collector.IDs(), calls opencode.ExportSession for each, sums InputTokens, OutputTokens, and Cost across all sessions, and logs the totals
-      passing: false
+      passing: true
     - slug: ai-client-interface-and-defer
       description: AIClient interface exposes PrintStats and RunLocal defers it
       code:

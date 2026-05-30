@@ -8,16 +8,42 @@ import (
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
+	"github.com/zon/ralph/internal/logger"
+	"github.com/zon/ralph/internal/opencode"
 	"github.com/zon/ralph/internal/project"
 	"github.com/zon/ralph/internal/services"
 )
 
 type AgentClient struct {
-	ctx *context.Context
+	ctx       *context.Context
+	collector *opencode.SessionCollector
 }
 
 func NewAgentClient(ctx *context.Context) *AgentClient {
-	return &AgentClient{ctx: ctx}
+	collector := &opencode.SessionCollector{}
+	goCtx := opencode.WithSessionCollector(ctx.GoContext(), collector)
+	ctx = ctx.WithGoContext(goCtx)
+	return &AgentClient{ctx: ctx, collector: collector}
+}
+
+func (a *AgentClient) PrintStats() {
+	ids := a.collector.IDs()
+	if len(ids) == 0 {
+		return
+	}
+	var totalInput, totalOutput int64
+	var totalCost float64
+	for _, id := range ids {
+		stats, err := opencode.ExportSession(id)
+		if err != nil {
+			logger.Warningf("failed to export session %s: %v", id, err)
+			continue
+		}
+		totalInput += stats.InputTokens
+		totalOutput += stats.OutputTokens
+		totalCost += stats.Cost
+	}
+	logger.Infof("Session stats: %d sessions, %d input tokens, %d output tokens, $%.6f total cost", len(ids), totalInput, totalOutput, totalCost)
 }
 
 func (a *AgentClient) RunPicker(proj *project.Project) (string, error) {
