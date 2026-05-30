@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/zon/ralph/internal/config"
+	gitpkg "github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/project"
 )
 
@@ -263,6 +264,18 @@ func (flagsHelper) withMaxIterations(n int) RunFlags {
 	return RunFlags{ProjectFile: "test.yaml", MaxIterations: n}
 }
 
+func (flagsHelper) withModel(ctx string) RunFlags {
+	return RunFlags{ProjectFile: "test.yaml", Model: "gpt-4"}
+}
+
+func (flagsHelper) withContext(ctx string) RunFlags {
+	return RunFlags{ProjectFile: "test.yaml", Context: ctx}
+}
+
+func (flagsHelper) withModelAndContext(model, ctx string) RunFlags {
+	return RunFlags{ProjectFile: "test.yaml", Model: model, Context: ctx}
+}
+
 type runnerHelper struct{}
 
 func (runnerHelper) executeCalled() bool {
@@ -296,6 +309,14 @@ func (gitHelper) currentBranchCalled() bool {
 	return false
 }
 
+func (gitHelper) withBranchName() GitClient {
+	return &mockGitClient{
+		branchNameFunc: func(slug string) string {
+			return gitpkg.SanitizeBranchName(slug)
+		},
+	}
+}
+
 func (flagsHelper) withWorkingDir(dir string) RunFlags {
 	return RunFlags{WorkingDir: dir, ProjectFile: "test.yaml"}
 }
@@ -320,7 +341,7 @@ var (
 	git       = gitHelper{}
 )
 
-// Tests from the requirement -----------------------------------------------
+// Tests from the run-cmd requirement ---------------------------------------
 
 func TestRunWorkingDirectoryFailureAbortsEarly(t *testing.T) {
 	cmd := run.withMocks(
@@ -352,6 +373,45 @@ func TestRunDispatchesWithPreparedSetup(t *testing.T) {
 	err := cmd.Run(flags.any())
 	require.NoError(t, err)
 	require.True(t, runner.executeCalled())
+}
+
+// Tests from the prepare-setup requirement ---------------------------------
+
+func TestPrepareSetupConfigLoadFailureAbortsEarly(t *testing.T) {
+	cmd := run.withMocks(
+		run.withConfig(configH.thatFailsLoad()),
+	)
+	err := cmd.Run(flags.any())
+	require.Error(t, err)
+	require.False(t, projectH.loaded())
+}
+
+func TestPrepareSetupProjectLoadFailureAbortsEarly(t *testing.T) {
+	cmd := run.withMocks(
+		run.withProject(projectH.thatFailsLoad()),
+	)
+	err := cmd.Run(flags.any())
+	require.Error(t, err)
+	require.False(t, git.currentBranchCalled())
+}
+
+func TestPrepareSetupBaseBranchFromCurrentWhenDifferentFromProject(t *testing.T) {
+	cmd := run.withMocks(
+		run.withGit(git.onBranch("feature-x")),
+		run.withProject(projectH.withSlug("my-project")),
+	)
+	err := cmd.Run(flags.withNoBase())
+	require.NoError(t, err)
+	require.Equal(t, "feature-x", runner.lastSetup().BaseBranch)
+}
+
+func TestPrepareSetupMaxIterationsFlagOverridesConfig(t *testing.T) {
+	cmd := run.withMocks(
+		run.withConfig(configH.withMaxIterations(5)),
+	)
+	err := cmd.Run(flags.withMaxIterations(2))
+	require.NoError(t, err)
+	require.Equal(t, 2, runner.lastSetup().MaxIterations)
 }
 
 // Scenario tests ------------------------------------------------------------
@@ -390,4 +450,52 @@ func TestRunScenario_DebugWithLocal(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "--debug flag is not applicable with --local flag")
 	require.False(t, runner.executeCalled())
+}
+
+// prepare-setup scenario tests ----------------------------------------------
+
+func TestPrepareSetupScenario_SlugWithSpacesAndCapitals(t *testing.T) {
+	cmd := run.withMocks(
+		run.withProject(projectH.withSlug("My Feature Work")),
+		run.withGit(git.withBranchName()),
+	)
+	err := cmd.Run(flags.any())
+	require.NoError(t, err)
+	require.Equal(t, "my-feature-work", runner.lastSetup().BranchName)
+}
+
+func TestPrepareSetupScenario_SlugWithSpecialCharacters(t *testing.T) {
+	cmd := run.withMocks(
+		run.withProject(projectH.withSlug("fix: auth/bug")),
+		run.withGit(git.withBranchName()),
+	)
+	err := cmd.Run(flags.any())
+	require.NoError(t, err)
+	require.Equal(t, "fix-authbug", runner.lastSetup().BranchName)
+}
+
+func TestPrepareSetupScenario_EmptySlug(t *testing.T) {
+	cmd := run.withMocks(
+		run.withProject(projectH.withSlug("!!!")),
+		run.withGit(git.withBranchName()),
+	)
+	err := cmd.Run(flags.any())
+	require.NoError(t, err)
+	require.Equal(t, "unnamed-project", runner.lastSetup().BranchName)
+}
+
+// prepare-setup item tests --------------------------------------------------
+
+func TestPrepareSetupModelIncludedInExecutionSetup(t *testing.T) {
+	cmd := run.withMocks()
+	err := cmd.Run(flags.withModel("gpt-4"))
+	require.NoError(t, err)
+	require.Equal(t, "gpt-4", runner.lastSetup().Model)
+}
+
+func TestPrepareSetupContextIncludedInExecutionSetup(t *testing.T) {
+	cmd := run.withMocks()
+	err := cmd.Run(flags.withContext("workflow-123"))
+	require.NoError(t, err)
+	require.Equal(t, "workflow-123", runner.lastSetup().Context)
 }

@@ -11,6 +11,7 @@ type MockClient struct {
 	CommitFromReportFunc        func(slug string) error
 	CurrentBranchFunc           func() (string, error)
 	IsBranchSyncedWithRemoteFunc func(branch string) error
+	BranchNameFunc              func(slug string) string
 
 	SwitchToBranchCalled        bool
 	WriteBlockedFileCalled      bool
@@ -79,6 +80,13 @@ func (m *MockClient) IsBranchSyncedWithRemote(branch string) error {
 		return m.SyncError
 	}
 	return nil
+}
+
+func (m *MockClient) BranchName(slug string) string {
+	if m.BranchNameFunc != nil {
+		return m.BranchNameFunc(slug)
+	}
+	return SanitizeBranchName(slug)
 }
 
 func ThatReportsBranchNotPushed() *MockClient {

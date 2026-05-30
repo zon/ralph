@@ -70,3 +70,7 @@ func (a *Client) CurrentBranch() (string, error) {
 func (a *Client) IsBranchSyncedWithRemote(branch string) error {
 	return IsBranchSyncedWithRemote(branch)
 }
+
+func (a *Client) BranchName(slug string) string {
+	return SanitizeBranchName(slug)
+}

@@ -61,6 +61,8 @@ type ExecutionSetup struct {
 	CurrentBranch string
 	BaseBranch    string
 	MaxIterations int
+	Model         string
+	Context       string
 }
 
 type RunCmd struct {
@@ -109,5 +111,7 @@ func (r *RunCmd) prepareSetup(flags RunFlags) (ExecutionSetup, error) {
 		CurrentBranch: currentBranch,
 		BaseBranch:    resolveBaseBranch(flags.Base, currentBranch, projectBranch, cfg.DefaultBranch),
 		MaxIterations: resolveMaxIterations(cfg.MaxIterations, flags.MaxIterations),
+		Model:         flags.Model,
+		Context:       flags.Context,
 	}, nil
 }
