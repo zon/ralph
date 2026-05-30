@@ -119,6 +119,49 @@ func RunCommand(ctx context.Context, model, prompt string, stdoutWriter, stderrW
 	return runOpenCodeCommand(ctx, args, stdoutWriter, stderrWriter)
 }
 
+// SessionStats holds cost and token counts for a single session.
+type SessionStats struct {
+	InputTokens  int64
+	OutputTokens int64
+	Cost         float64
+}
+
+// ExportSession runs opencode export <sessionID>, parses the JSON response,
+// and populates SessionStats from the session's cost and token fields.
+func ExportSession(sessionID string) (SessionStats, error) {
+	ctx := context.Background()
+	cmd := exec.CommandContext(ctx, "opencode", "export", sessionID)
+	cmd.Env = append(os.Environ(), "FORCE_COLOR=1")
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return SessionStats{}, fmt.Errorf("opencode export failed: %w\nstderr: %s", err, stderr.String())
+	}
+
+	var resp struct {
+		Info struct {
+			Cost   float64 `json:"cost"`
+			Tokens struct {
+				Input  int `json:"input"`
+				Output int `json:"output"`
+			} `json:"tokens"`
+		} `json:"info"`
+	}
+
+	if err := json.Unmarshal(stdout.Bytes(), &resp); err != nil {
+		return SessionStats{}, fmt.Errorf("failed to parse opencode export JSON: %w", err)
+	}
+
+	return SessionStats{
+		InputTokens:  int64(resp.Info.Tokens.Input),
+		OutputTokens: int64(resp.Info.Tokens.Output),
+		Cost:         resp.Info.Cost,
+	}, nil
+}
+
 func DisplayStats() error {
 	return runOpenCodeCommand(context.Background(), []string{"stats"}, os.Stdout, os.Stderr)
 }

@@ -275,6 +275,109 @@ exit 0
 	assert.Equal(t, "sess-suppressed", ids[0])
 }
 
+func TestExportSession(t *testing.T) {
+	tmpDir := t.TempDir()
+	scriptPath := filepath.Join(tmpDir, "fake-opencode.sh")
+
+	scriptContent := `#!/bin/bash
+if [ "$1" = "export" ]; then
+  echo '{"info":{"cost":0.0009612848,"tokens":{"input":123,"output":456,"reasoning":78,"cache":{"read":90,"write":12}}}}'
+  exit 0
+fi
+exit 1
+`
+	err := os.WriteFile(scriptPath, []byte(scriptContent), 0755)
+	require.NoError(t, err)
+
+	opencodePath := filepath.Join(tmpDir, "opencode")
+	err = os.Symlink(scriptPath, opencodePath)
+	require.NoError(t, err)
+
+	origPath := os.Getenv("PATH")
+	t.Setenv("PATH", tmpDir+":"+origPath)
+
+	stats, err := ExportSession("sess-abc123")
+	require.NoError(t, err)
+	assert.Equal(t, int64(123), stats.InputTokens)
+	assert.Equal(t, int64(456), stats.OutputTokens)
+	assert.InDelta(t, 0.0009612848, stats.Cost, 1e-12)
+}
+
+func TestExportSessionFailure(t *testing.T) {
+	tmpDir := t.TempDir()
+	scriptPath := filepath.Join(tmpDir, "fake-opencode.sh")
+
+	scriptContent := `#!/bin/bash
+echo "error: session not found" >&2
+exit 1
+`
+	err := os.WriteFile(scriptPath, []byte(scriptContent), 0755)
+	require.NoError(t, err)
+
+	opencodePath := filepath.Join(tmpDir, "opencode")
+	err = os.Symlink(scriptPath, opencodePath)
+	require.NoError(t, err)
+
+	origPath := os.Getenv("PATH")
+	t.Setenv("PATH", tmpDir+":"+origPath)
+
+	_, err = ExportSession("sess-nonexistent")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "opencode export failed")
+}
+
+func TestExportSessionInvalidJSON(t *testing.T) {
+	tmpDir := t.TempDir()
+	scriptPath := filepath.Join(tmpDir, "fake-opencode.sh")
+
+	scriptContent := `#!/bin/bash
+echo "not valid json"
+exit 0
+`
+	err := os.WriteFile(scriptPath, []byte(scriptContent), 0755)
+	require.NoError(t, err)
+
+	opencodePath := filepath.Join(tmpDir, "opencode")
+	err = os.Symlink(scriptPath, opencodePath)
+	require.NoError(t, err)
+
+	origPath := os.Getenv("PATH")
+	t.Setenv("PATH", tmpDir+":"+origPath)
+
+	_, err = ExportSession("sess-bad")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to parse opencode export JSON")
+}
+
+func TestExportSessionFieldMapping(t *testing.T) {
+	tmpDir := t.TempDir()
+	scriptPath := filepath.Join(tmpDir, "fake-opencode.sh")
+
+	scriptContent := `#!/bin/bash
+if [ "$1" = "export" ]; then
+  echo '{"info":{"cost":1.5,"tokens":{"input":999,"output":888,"reasoning":777,"cache":{"read":111,"write":222}}}}'
+  exit 0
+fi
+exit 1
+`
+	err := os.WriteFile(scriptPath, []byte(scriptContent), 0755)
+	require.NoError(t, err)
+
+	opencodePath := filepath.Join(tmpDir, "opencode")
+	err = os.Symlink(scriptPath, opencodePath)
+	require.NoError(t, err)
+
+	origPath := os.Getenv("PATH")
+	t.Setenv("PATH", tmpDir+":"+origPath)
+
+	stats, err := ExportSession("sess-xyz")
+	require.NoError(t, err)
+	assert.Equal(t, int64(999), stats.InputTokens)
+	assert.Equal(t, int64(888), stats.OutputTokens)
+	assert.InDelta(t, 1.5, stats.Cost, 1e-12)
+	assert.Equal(t, float64(1.5), stats.Cost)
+}
+
 func TestRunCommandNoSessionCollector(t *testing.T) {
 	tmpDir := t.TempDir()
 	scriptPath := filepath.Join(tmpDir, "fake-opencode.sh")
