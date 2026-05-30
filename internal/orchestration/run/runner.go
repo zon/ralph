@@ -110,11 +110,21 @@ func (r *Runner) iterate(proj *project.Project) error {
 		if err := r.ai.RunDeveloper(proj, req); err != nil {
 			return r.blockAndReturn(err)
 		}
+		if err := r.cleanup(proj); err != nil {
+			return err
+		}
 		if err := r.commitIteration(proj); err != nil {
 			return err
 		}
 	}
 	return r.project.MaxIterationsError(proj)
+}
+
+func (r *Runner) cleanup(proj *project.Project) error {
+	if r.project.HasChanges(proj) {
+		r.project.NormalizeAndStage(proj)
+	}
+	return nil
 }
 
 func (r *Runner) blockAndReturn(err error) error {

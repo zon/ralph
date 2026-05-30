@@ -3,7 +3,7 @@ package project
 type MockClient struct {
 	AllPassingFunc          func() bool
 	HasChangesFunc          func(*Project) bool
-	normalizeAndStageCalled bool
+	NormalizeAndStageCalled bool
 }
 
 func (m *MockClient) Reload(proj *Project) *Project {
@@ -26,5 +26,5 @@ func (m *MockClient) HasChanges(proj *Project) bool {
 }
 
 func (m *MockClient) NormalizeAndStage(proj *Project) {
-	m.normalizeAndStageCalled = true
+	m.NormalizeAndStageCalled = true
 }

@@ -313,7 +313,7 @@ requirements:
                 require.NoError(t, err)
                 require.False(t, projMock.normalizeAndStageCalled)
             }
-      passing: false
+      passing: true
     - slug: update-client-implementations
       description: Implement new interface methods on the real and mock clients for services and project packages
       items:
