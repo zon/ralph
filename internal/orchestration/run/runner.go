@@ -25,6 +25,14 @@ type GitClient interface {
 	HasChanges() bool
 	ReportExists() bool
 	CommitFromReport(slug string) error
+	CurrentBranch() (string, error)
+	IsBranchSyncedWithRemote(branch string) error
+}
+
+type WorkflowClient interface {
+	Submit(proj *project.Project, cloneBranch string) (string, error)
+	FollowLogs(workflowName string) error
+	PrintLogHint(workflowName string)
 }
 
 type GitHubClient interface {

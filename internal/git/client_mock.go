@@ -1,16 +1,22 @@
 package git
 
-type MockClient struct {
-	SwitchToBranchFunc    func(slug string) error
-	BlockedFileExistsFunc func() bool
-	WriteBlockedFileFunc  func(err error)
-	HasChangesFunc        func() bool
-	ReportExistsFunc      func() bool
-	CommitFromReportFunc  func(slug string) error
+import "fmt"
 
-	SwitchToBranchCalled   bool
-	WriteBlockedFileCalled bool
-	CommitFromReportCalled bool
+type MockClient struct {
+	SwitchToBranchFunc          func(slug string) error
+	BlockedFileExistsFunc       func() bool
+	WriteBlockedFileFunc        func(err error)
+	HasChangesFunc              func() bool
+	ReportExistsFunc            func() bool
+	CommitFromReportFunc        func(slug string) error
+	CurrentBranchFunc           func() (string, error)
+	IsBranchSyncedWithRemoteFunc func(branch string) error
+
+	SwitchToBranchCalled        bool
+	WriteBlockedFileCalled      bool
+	CommitFromReportCalled      bool
+	CurrentBranchCalled         bool
+	SyncError                   error
 }
 
 func (m *MockClient) SwitchToBranch(slug string) error {
@@ -55,4 +61,38 @@ func (m *MockClient) CommitFromReport(slug string) error {
 		return m.CommitFromReportFunc(slug)
 	}
 	return nil
+}
+
+func (m *MockClient) CurrentBranch() (string, error) {
+	m.CurrentBranchCalled = true
+	if m.CurrentBranchFunc != nil {
+		return m.CurrentBranchFunc()
+	}
+	return "main", nil
+}
+
+func (m *MockClient) IsBranchSyncedWithRemote(branch string) error {
+	if m.IsBranchSyncedWithRemoteFunc != nil {
+		return m.IsBranchSyncedWithRemoteFunc(branch)
+	}
+	if m.SyncError != nil {
+		return m.SyncError
+	}
+	return nil
+}
+
+func ThatReportsBranchNotPushed() *MockClient {
+	return &MockClient{
+		IsBranchSyncedWithRemoteFunc: func(branch string) error {
+			return fmt.Errorf("branch '%s' has not been pushed to remote - please push before running remotely", branch)
+		},
+	}
+}
+
+func ThatReportsBranchNotInSync() *MockClient {
+	return &MockClient{
+		IsBranchSyncedWithRemoteFunc: func(branch string) error {
+			return fmt.Errorf("branch '%s' is not in sync with remote - please push your changes before running remotely", branch)
+		},
+	}
 }

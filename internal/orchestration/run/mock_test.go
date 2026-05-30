@@ -7,6 +7,7 @@ import (
 	"github.com/zon/ralph/internal/notify"
 	"github.com/zon/ralph/internal/project"
 	"github.com/zon/ralph/internal/services"
+	"github.com/zon/ralph/internal/workflow"
 )
 
 func newProjectThatReportsAllPassing() *project.MockClient {
@@ -252,6 +253,56 @@ func notifyErrors(r *Runner) []string {
 func notifySuccesses(r *Runner) []string {
 	if m, ok := r.notify.(*notify.MockClient); ok {
 		return m.SuccessesSlice
+	}
+	return nil
+}
+
+type remoteRunnerOption func(*RemoteRunner)
+
+func withRemoteGit(gc GitClient) remoteRunnerOption {
+	return func(r *RemoteRunner) { r.git = gc }
+}
+
+func withRemoteWorkflow(wc WorkflowClient) remoteRunnerOption {
+	return func(r *RemoteRunner) { r.workflow = wc }
+}
+
+func withRemoteMocks(opts ...remoteRunnerOption) *RemoteRunner {
+	r := &RemoteRunner{
+		git:      &git.MockClient{},
+		workflow: &workflow.MockClient{},
+		notify:   &notify.MockClient{},
+	}
+	for _, opt := range opts {
+		opt(r)
+	}
+	return r
+}
+
+func remoteWorkflowSubmitted(runner *RemoteRunner) bool {
+	if m, ok := runner.workflow.(*workflow.MockClient); ok {
+		return m.SubmitCalled
+	}
+	return false
+}
+
+func remoteWorkflowLogHintPrinted(runner *RemoteRunner) bool {
+	if m, ok := runner.workflow.(*workflow.MockClient); ok {
+		return m.PrintLogHintCalled
+	}
+	return false
+}
+
+func remoteNotifySuccesses(runner *RemoteRunner) []string {
+	if m, ok := runner.notify.(*notify.MockClient); ok {
+		return m.SuccessesSlice
+	}
+	return nil
+}
+
+func remoteNotifyErrors(runner *RemoteRunner) []string {
+	if m, ok := runner.notify.(*notify.MockClient); ok {
+		return m.ErrorsSlice
 	}
 	return nil
 }

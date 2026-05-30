@@ -62,3 +62,11 @@ func (a *Client) CommitFromReport(slug string) error {
 	}
 	return nil
 }
+
+func (a *Client) CurrentBranch() (string, error) {
+	return GetCurrentBranch()
+}
+
+func (a *Client) IsBranchSyncedWithRemote(branch string) error {
+	return IsBranchSyncedWithRemote(branch)
+}
