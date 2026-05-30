@@ -135,7 +135,7 @@ requirements:
         - Remove the printStats() call and printStats() method from internal/cmd/review.go
         - Remove DisplayStats() from internal/ai/ai.go
         - Remove DisplayStats() from internal/opencode/opencode.go
-      passing: false
+      passing: true
     - slug: version-bump
       description: Bump the patch version
       items:

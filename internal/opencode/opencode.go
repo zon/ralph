@@ -162,9 +162,6 @@ func ExportSession(sessionID string) (SessionStats, error) {
 	}, nil
 }
 
-func DisplayStats() error {
-	return runOpenCodeCommand(context.Background(), []string{"stats"}, os.Stdout, os.Stderr)
-}
 
 func runOpenCodeCommandWithRing(ctx context.Context, args []string, ring *RingWriter) error {
 	if ctx == nil {

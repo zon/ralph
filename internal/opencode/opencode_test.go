@@ -55,28 +55,6 @@ func TestCaptureWriterTail(t *testing.T) {
 	}
 }
 
-func TestDisplayStats(t *testing.T) {
-	tmpDir := t.TempDir()
-	scriptPath := filepath.Join(tmpDir, "fake-opencode.sh")
-
-	scriptContent := `#!/bin/bash
-echo "stats output line 1"
-echo "stats output line 2"
-exit 0
-`
-	err := os.WriteFile(scriptPath, []byte(scriptContent), 0755)
-	require.NoError(t, err)
-
-	opencodePath := filepath.Join(tmpDir, "opencode")
-	err = os.Symlink(scriptPath, opencodePath)
-	require.NoError(t, err)
-
-	origPath := os.Getenv("PATH")
-	t.Setenv("PATH", tmpDir+":"+origPath)
-
-	err = DisplayStats()
-	require.NoError(t, err)
-}
 
 func TestRunCommand(t *testing.T) {
 	tmpDir := t.TempDir()

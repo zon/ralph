@@ -439,10 +439,6 @@ func GenerateReviewPRBody(ctx *execcontext.Context, projectName, projectDesc str
 	return summary, nil
 }
 
-// DisplayStats shows OpenCode usage statistics
-func DisplayStats() error {
-	return opencode.DisplayStats()
-}
 
 // runMockAgent simulates AI execution for testing purposes.
 // It parses the prompt to determine what file to write and creates mock output files.
