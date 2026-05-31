@@ -24,7 +24,7 @@ requirements:
         - 'Eino docs — callbacks (callbacks.Handler, HandlerBuilder, OnEnd): https://pkg.go.dev/github.com/cloudwego/eino/callbacks'
         - 'Eino docs — components/model (model.ConvCallbackOutput, model.CallbackOutput): https://pkg.go.dev/github.com/cloudwego/eino/components/model'
         - 'Eino docs — schema (schema.ResponseMeta, ResponseMeta.Usage, TokenUsage): https://pkg.go.dev/github.com/cloudwego/eino/schema'
-      passing: false
+      passing: true
     - slug: eino-streaming-callback
       description: Implement the stdout streaming callback handler for agent output
       items:

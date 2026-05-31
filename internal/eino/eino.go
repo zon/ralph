@@ -4,7 +4,10 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 
+	"github.com/cloudwego/eino/callbacks"
+	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino-ext/components/model/claude"
 	"github.com/cloudwego/eino-ext/components/model/deepseek"
 	"github.com/cloudwego/eino-ext/components/model/gemini"
@@ -13,6 +16,7 @@ import (
 
 	"github.com/zon/ralph/internal/auth"
 	"github.com/zon/ralph/internal/git"
+	"github.com/zon/ralph/internal/logger"
 )
 
 var validProviders = map[string]bool{
@@ -107,4 +111,42 @@ func Complete(ctx context.Context, modelStr, prompt string) (string, error) {
 	}
 
 	return "", fmt.Errorf("unexpected provider %q", provider)
+}
+
+// TokenTracker accumulates token usage across agent calls with thread-safe counters.
+type TokenTracker struct {
+	mu           sync.Mutex
+	inputTokens  int
+	outputTokens int
+}
+
+// Track adds the given token counts to the running totals.
+func (t *TokenTracker) Track(inputTokens, outputTokens int) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.inputTokens += inputTokens
+	t.outputTokens += outputTokens
+}
+
+// PrintStats logs the accumulated token totals using the application logger.
+func (t *TokenTracker) PrintStats() {
+	t.mu.Lock()
+	input := t.inputTokens
+	output := t.outputTokens
+	t.mu.Unlock()
+	logger.Infof("Token usage — input: %d, output: %d, total: %d", input, output, input+output)
+}
+
+// NewHandler creates an eino callback handler that tracks token usage from model responses.
+func NewHandler(tracker *TokenTracker) callbacks.Handler {
+	return callbacks.NewHandlerBuilder().
+		OnEndFn(func(ctx context.Context, info *callbacks.RunInfo, output callbacks.CallbackOutput) context.Context {
+			if cbOutput := model.ConvCallbackOutput(output); cbOutput != nil {
+				if msg := cbOutput.Message; msg != nil && msg.ResponseMeta != nil && msg.ResponseMeta.Usage != nil {
+					tracker.Track(msg.ResponseMeta.Usage.PromptTokens, msg.ResponseMeta.Usage.CompletionTokens)
+				}
+			}
+			return ctx
+		}).
+		Build()
 }
