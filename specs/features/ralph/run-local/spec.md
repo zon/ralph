@@ -175,19 +175,27 @@ When all requirements are found to be passing — whether they were already pass
 
 ### Requirement: Token usage and cost reporting
 
-After the run completes the command SHALL print accumulated AI token usage and cost statistics to the log.
+When running inside a workflow container the command SHALL print accumulated AI token usage and cost statistics at the end of execution, regardless of whether the run succeeded or failed.
 
-#### Scenario: Stats printed on success
+#### Scenario: Stats reported on successful workflow run
 
-- GIVEN the run completes successfully
+- GIVEN ralph is executing inside a workflow container
+- AND the run completes successfully
 - WHEN execution finishes
 - THEN input tokens, output tokens, and total cost across the entire run are printed to the log
 
-#### Scenario: Stats printed on failure
+#### Scenario: Stats reported on failed workflow run
 
-- GIVEN the run exits with an error (max iterations, blocked, fatal AI error, or any other failure)
+- GIVEN ralph is executing inside a workflow container
+- AND the run exits with an error (max iterations, blocked, fatal AI error, or any other failure)
 - WHEN execution finishes
 - THEN input tokens, output tokens, and total cost across the entire run are printed to the log before the error is surfaced
+
+#### Scenario: Stats not printed outside a workflow
+
+- GIVEN ralph is executing locally (not inside a workflow container)
+- WHEN the run completes or fails
+- THEN no token usage or cost statistics are printed
 
 ---
 

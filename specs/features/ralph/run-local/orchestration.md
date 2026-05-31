@@ -16,10 +16,13 @@ type Runner struct {
     github   GitHubClient
     services ServicesClient
     notify   NotifyClient
+    env      EnvClient
 }
 
 func (r *Runner) RunLocal(proj *project.Project, cfg *config.RalphConfig) error {
-    defer r.ai.PrintStats()
+    if r.env.InWorkflow() {
+        defer r.ai.PrintStats()
+    }
     if err := r.services.RunBeforeCommands(cfg); err != nil {
         return err
     }
@@ -41,7 +44,8 @@ func (r *Runner) RunLocal(proj *project.Project, cfg *config.RalphConfig) error 
 
 ### Helpers
 
-- **`r.ai.PrintStats()`** — prints accumulated input tokens, output tokens, and total cost across all opencode sessions invoked during the run; called via `defer` so it always runs regardless of outcome
+- **`r.env.InWorkflow()`** — returns true when ralph is running inside an Argo workflow container
+- **`r.ai.PrintStats()`** — prints input tokens, output tokens, and total cost for the run; called via `defer` so it always runs regardless of outcome
 - **`r.services.RunBeforeCommands(cfg)`** — runs each `before` command from the ralph config sequentially; aborts on the first non-zero exit
 - **`r.git.SwitchToBranch(slug)`** — switches to the branch named by the project slug, creating it if it does not exist
 - **`r.iterate(proj)`** — drives the iteration loop; returns nil only when all requirements are passing, or a non-nil error when blocked, when a fatal AI error occurs, or when max iterations is reached with requirements still failing
@@ -169,6 +173,7 @@ func (r *Runner) commitIteration(proj *project.Project) error {
 ```go
 func TestRunLocalStatsPrintedOnSuccess(t *testing.T) {
     runner := run.withMocks(
+        run.withEnv(env.inWorkflow()),
         run.withProject(project.thatReportsAllPassing()),
     )
     err := runner.RunLocal(project.withAllPassing(), config.any())
@@ -178,11 +183,22 @@ func TestRunLocalStatsPrintedOnSuccess(t *testing.T) {
 
 func TestRunLocalStatsPrintedOnFailure(t *testing.T) {
     runner := run.withMocks(
+        run.withEnv(env.inWorkflow()),
         run.withAI(ai.thatAlwaysFails()),
     )
     err := runner.RunLocal(project.withFailingRequirements(), config.any())
     require.Error(t, err)
     require.True(t, ai.statsPrinted())
+}
+
+func TestRunLocalStatsNotPrintedWhenNotInWorkflow(t *testing.T) {
+    runner := run.withMocks(
+        run.withEnv(env.notInWorkflow()),
+        run.withProject(project.thatReportsAllPassing()),
+    )
+    err := runner.RunLocal(project.withAllPassing(), config.any())
+    require.NoError(t, err)
+    require.False(t, ai.statsPrinted())
 }
 
 func TestRunLocalBeforeCommandFailureAbortsEarly(t *testing.T) {
@@ -386,6 +402,7 @@ func TestCommitIterationSkipsCommitWhenNoChanges(t *testing.T) {
 ### Helpers
 
 - **`run.withMocks(opts...)`** — constructs a `Runner` with default mock implementations; pass option helpers to override specific clients
+- **`run.withEnv(client)`** — option that sets the env client on the mock runner
 - **`run.withServices(client)`** — option that sets the services client on the mock runner
 - **`run.withAI(client)`** — option that sets the AI client on the mock runner
 - **`run.withProject(client)`** — option that sets the project client on the mock runner
@@ -398,6 +415,8 @@ func TestCommitIterationSkipsCommitWhenNoChanges(t *testing.T) {
 - **`project.thatReportsPassingAfterIterations(n)`** — returns a project client whose `AllRequirementsPassing` returns false for the first `n` calls and true thereafter
 - **`project.thatAlwaysReportsFailures()`** — returns a project client whose `AllRequirementsPassing` always returns false
 - **`config.any()`** — returns a valid ralph config in a default state; owned by `internal/config`
+- **`env.inWorkflow()`** — returns an env client that reports `InWorkflow() = true`
+- **`env.notInWorkflow()`** — returns an env client that reports `InWorkflow() = false`
 - **`services.thatFailBeforeCommands()`** — returns a services client whose `RunBeforeCommands` returns an error
 - **`services.thatFailToStart()`** — returns a services client whose `Start` returns an error
 - **`services.startCount()`** — returns the number of times `Start` was called during the test
