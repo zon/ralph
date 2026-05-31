@@ -144,7 +144,7 @@ requirements:
         - Delete `internal/cmd/config_opencode.go`
         - Delete `internal/cmd/config_opencode_test.go`
         - Delete the `OpenCodeSecretName` constant from `internal/k8s/secrets.go` if it is no longer referenced anywhere
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump
       items:
