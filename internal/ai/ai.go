@@ -2,10 +2,10 @@ package ai
 
 import (
 	"bytes"
+	"context"
 	_ "embed"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,9 +13,9 @@ import (
 
 	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
+	"github.com/zon/ralph/internal/eino"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/logger"
-	"github.com/zon/ralph/internal/opencode"
 )
 
 const mockAIEnv = "RALPH_MOCK_AI"
@@ -284,8 +284,17 @@ func resolveVariant(ctx *execcontext.Context) string {
 	return ralphConfig.Variant
 }
 
-// RunAgent executes an AI agent with the given prompt using OpenCode CLI
-// OpenCode manages its own configuration for API keys and models
+type trackerKey struct{}
+
+func ContextWithTracker(ctx context.Context, tracker *eino.TokenTracker) context.Context {
+	return context.WithValue(ctx, trackerKey{}, tracker)
+}
+
+func trackerFromContext(ctx context.Context) *eino.TokenTracker {
+	t, _ := ctx.Value(trackerKey{}).(*eino.TokenTracker)
+	return t
+}
+
 func RunAgent(ctx *execcontext.Context, prompt string) error {
 	if os.Getenv(mockAIEnv) == "true" {
 		return runMockAgent(ctx, prompt)
@@ -295,18 +304,10 @@ func RunAgent(ctx *execcontext.Context, prompt string) error {
 		logger.Verbose(prompt)
 	}
 
-	model := resolveModel(ctx)
-
-	ring := opencode.NewRingWriter(10)
-	if err := opencode.RunAgentWithRing(ctx.GoContext(), model, resolveVariant(ctx), prompt, ring); err != nil {
-		return err
-	}
-
-	return nil
+	tracker := trackerFromContext(ctx.GoContext())
+	return eino.RunAgent(ctx.GoContext(), resolveModel(ctx), resolveVariant(ctx), prompt, tracker)
 }
 
-// RunAgentWithModel executes an AI agent with an explicitly provided model,
-// bypassing the context-based model resolution used by RunAgent.
 func RunAgentWithModel(ctx *execcontext.Context, prompt string, model string) error {
 	if os.Getenv(mockAIEnv) == "true" {
 		return runMockAgent(ctx, prompt)
@@ -316,12 +317,8 @@ func RunAgentWithModel(ctx *execcontext.Context, prompt string, model string) er
 		logger.Verbose(prompt)
 	}
 
-	ring := opencode.NewRingWriter(10)
-	if err := opencode.RunAgentWithRing(ctx.GoContext(), model, resolveVariant(ctx), prompt, ring); err != nil {
-		return err
-	}
-
-	return nil
+	tracker := trackerFromContext(ctx.GoContext())
+	return eino.RunAgent(ctx.GoContext(), model, resolveVariant(ctx), prompt, tracker)
 }
 
 // createTempFile creates a temp file under the repo's tmp/ directory so that
@@ -334,34 +331,6 @@ func createTempFile(name string) (*os.File, error) {
 	return os.Create(path)
 }
 
-// runOpenCodeAndReadResult runs opencode with the given prompt and reads the result from the output file
-func runOpenCodeAndReadResult(ctx *execcontext.Context, model, prompt, outputFile string) (string, error) {
-	var stdoutWriter, stderrWriter io.Writer
-	if ctx.IsVerbose() {
-		stdoutWriter = os.Stdout
-		stderrWriter = os.Stderr
-	}
-
-	if err := opencode.RunCommand(ctx.GoContext(), model, resolveVariant(ctx), prompt, stdoutWriter, stderrWriter); err != nil {
-		return "", fmt.Errorf("opencode execution failed: %w", err)
-	}
-
-	summaryBytes, err := os.ReadFile(outputFile)
-	if err != nil {
-		return "", fmt.Errorf("failed to read summary file: %w", err)
-	}
-
-	summary := strings.TrimSpace(string(summaryBytes))
-	if summary == "" {
-		return "", fmt.Errorf("summary file is empty")
-	}
-
-	return summary, nil
-}
-
-// GeneratePRSummary generates a pull request summary using AI
-// It includes project description, status, commits, and diff
-// This matches ralph.sh's approach: agent writes to a file, we read it back
 func GeneratePRSummary(ctx *execcontext.Context, projectDesc, projectStatus, baseBranch, commitLog string) (summary string, err error) {
 	f, err := createTempFile("pr-summary.md")
 	if err != nil {
@@ -380,17 +349,18 @@ func GeneratePRSummary(ctx *execcontext.Context, projectDesc, projectStatus, bas
 		logger.Verbose(prPrompt)
 	}
 
-	model := resolveModel(ctx)
-	summary, err = runOpenCodeAndReadResult(ctx, model, prPrompt, tmpFile)
+	result, err := eino.Complete(ctx.GoContext(), resolveModel(ctx), prPrompt)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("model completion failed: %w", err)
 	}
 
-	return summary, nil
+	if err := os.WriteFile(tmpFile, []byte(result), 0644); err != nil {
+		return "", fmt.Errorf("failed to write summary file: %w", err)
+	}
+
+	return strings.TrimSpace(result), nil
 }
 
-// GenerateChangelog prompts opencode to inspect the current git diff and write a
-// descriptive changelog to report.md.
 func GenerateChangelog(ctx *execcontext.Context) (err error) {
 	f, err := createTempFile("changelog.md")
 	if err != nil {
@@ -409,10 +379,13 @@ func GenerateChangelog(ctx *execcontext.Context) (err error) {
 		logger.Verbose(changelogPrompt)
 	}
 
-	model := resolveModel(ctx)
-	_, err = runOpenCodeAndReadResult(ctx, model, changelogPrompt, tmpFile)
+	result, err := eino.Complete(ctx.GoContext(), resolveModel(ctx), changelogPrompt)
 	if err != nil {
-		return err
+		return fmt.Errorf("model completion failed: %w", err)
+	}
+
+	if err := os.WriteFile(tmpFile, []byte(result), 0644); err != nil {
+		return fmt.Errorf("failed to write changelog file: %w", err)
 	}
 
 	if err = os.Rename(tmpFile, "report.md"); err != nil {
@@ -422,8 +395,6 @@ func GenerateChangelog(ctx *execcontext.Context) (err error) {
 	return nil
 }
 
-// GenerateReviewPRBody generates a PR body for review findings using AI
-// It reads the review project file and writes a concise summary of recommended changes
 func GenerateReviewPRBody(ctx *execcontext.Context, projectName, projectDesc string, requirementSummaries []string) (summary string, err error) {
 	f, err := createTempFile("review-pr-body.md")
 	if err != nil {
@@ -442,13 +413,16 @@ func GenerateReviewPRBody(ctx *execcontext.Context, projectName, projectDesc str
 		logger.Verbose(reviewPrompt)
 	}
 
-	model := resolveModel(ctx)
-	summary, err = runOpenCodeAndReadResult(ctx, model, reviewPrompt, tmpFile)
+	result, err := eino.Complete(ctx.GoContext(), resolveModel(ctx), reviewPrompt)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("model completion failed: %w", err)
 	}
 
-	return summary, nil
+	if err := os.WriteFile(tmpFile, []byte(result), 0644); err != nil {
+		return "", fmt.Errorf("failed to write review PR body file: %w", err)
+	}
+
+	return strings.TrimSpace(result), nil
 }
 
 

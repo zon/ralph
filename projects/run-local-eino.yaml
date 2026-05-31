@@ -56,7 +56,7 @@ requirements:
         - Rewrite `RunAgentWithModel` to call `eino.RunAgent(ctx.GoContext(), model, resolveVariant(ctx), prompt, tracker)`
         - Remove `runOpenCodeAndReadResult` and replace callers (`GenerateChangelog`, `GeneratePRSummary`, `GenerateReviewPRBody`) with `eino.Complete(ctx.GoContext(), resolveModel(ctx), prompt)` followed by writing the result to the output file directly in Go
         - Remove `opencode.NewRingWriter` and `opencode.RunCommand` usage
-      passing: false
+      passing: true
     - slug: fatal-error-update
       description: Update IsFatalError patterns in internal/ai/ai.go for eino provider responses
       items:
