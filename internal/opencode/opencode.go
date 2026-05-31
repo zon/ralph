@@ -35,8 +35,12 @@ func runOpenCodeCommand(ctx context.Context, args []string, stdoutWriter, stderr
 	return nil
 }
 
-func RunCommand(ctx context.Context, model, prompt string, stdoutWriter, stderrWriter io.Writer) error {
-	args := []string{"run", "--model", model, prompt}
+func RunCommand(ctx context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+	args := []string{"run", "--model", model}
+	if variant != "" {
+		args = append(args, "--variant", variant)
+	}
+	args = append(args, prompt)
 	return runOpenCodeCommand(ctx, args, stdoutWriter, stderrWriter)
 }
 
@@ -197,7 +201,11 @@ func NewRingWriter(n int) *RingWriter {
 	return &RingWriter{n: n}
 }
 
-func RunAgentWithRing(ctx context.Context, model, prompt string, ring *RingWriter) error {
-	args := []string{"run", "--model", model, prompt}
+func RunAgentWithRing(ctx context.Context, model, variant, prompt string, ring *RingWriter) error {
+	args := []string{"run", "--model", model}
+	if variant != "" {
+		args = append(args, "--variant", variant)
+	}
+	args = append(args, prompt)
 	return runOpenCodeCommandWithRing(ctx, args, ring)
 }

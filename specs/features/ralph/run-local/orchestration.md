@@ -121,9 +121,11 @@ func (r *Runner) runIteration(proj *project.Project, cfg *config.RalphConfig) er
 - **`r.ai.FixServiceStartup(cfg, err)`** — invokes the development agent with a diagnosis prompt for the failed service; returns nil when the fix succeeds
 - **`r.services.Stop(svc)`** — stops all running services; no-op when `svc` is nil
 - **`r.services.RemoveLogs(cfg)`** — deletes log files produced by each configured service
-- **`r.ai.RunPicker(proj)`** — builds a picker prompt from project content and the recent commit log, invokes the picker agent, reads `picked-requirement.yaml`, and returns its YAML content
-- **`r.ai.RunDeveloper(proj, req)`** — builds a development prompt with project content and the selected requirement, then invokes the development agent
+- **`r.ai.RunPicker(proj)`** — builds a picker prompt from project content and the recent commit log, invokes the picker agent with the resolved model and variant, reads `picked-requirement.yaml`, and returns its YAML content
+- **`r.ai.RunDeveloper(proj, req)`** — builds a development prompt with project content and the selected requirement, then invokes the development agent with the resolved model and variant
 - **`r.ai.IsFatal(err)`** — returns true when the error is a billing or quota condition that must not be retried
+
+Both `RunPicker` and `RunDeveloper` resolve the variant from the execution context using two-level precedence: `--variant` at the command line takes priority; otherwise the top-level `variant` field in `.ralph/config.yaml` is used. When both are unset, `--variant` is omitted entirely from the opencode invocation (unlike model, which always has a default).
 - **`r.git.WriteBlockedFile(err)`** — writes `blocked.md` to the repository root containing the failure reason
 - **`r.cleanup(proj)`** — normalizes trailing newlines in the project file and stages it if changed
 
@@ -397,6 +399,24 @@ func TestCommitIterationSkipsCommitWhenNoChanges(t *testing.T) {
     require.NoError(t, err)
     require.False(t, git.committedFromReport())
 }
+
+func TestRunIterationPassesConfigVariantToAI(t *testing.T) {
+    runner := run.withMocks(
+        run.withProject(project.thatReportsPassingAfterIterations(1)),
+    )
+    err := runner.RunLocal(project.withFailingRequirements(), config.withVariant("high"))
+    require.NoError(t, err)
+    require.Equal(t, "high", ai.lastVariant())
+}
+
+func TestRunIterationOmitsVariantWhenUnset(t *testing.T) {
+    runner := run.withMocks(
+        run.withProject(project.thatReportsPassingAfterIterations(1)),
+    )
+    err := runner.RunLocal(project.withFailingRequirements(), config.any())
+    require.NoError(t, err)
+    require.Empty(t, ai.lastVariant())
+}
 ```
 
 ### Helpers
@@ -415,6 +435,7 @@ func TestCommitIterationSkipsCommitWhenNoChanges(t *testing.T) {
 - **`project.thatReportsPassingAfterIterations(n)`** — returns a project client whose `AllRequirementsPassing` returns false for the first `n` calls and true thereafter
 - **`project.thatAlwaysReportsFailures()`** — returns a project client whose `AllRequirementsPassing` always returns false
 - **`config.any()`** — returns a valid ralph config in a default state; owned by `internal/config`
+- **`config.withVariant(v)`** — returns a config whose `Variant` field is set to `v`; owned by `internal/config`
 - **`env.inWorkflow()`** — returns an env client that reports `InWorkflow() = true`
 - **`env.notInWorkflow()`** — returns an env client that reports `InWorkflow() = false`
 - **`services.thatFailBeforeCommands()`** — returns a services client whose `RunBeforeCommands` returns an error
@@ -423,6 +444,7 @@ func TestCommitIterationSkipsCommitWhenNoChanges(t *testing.T) {
 - **`services.stopCount()`** — returns the number of times `Stop` was called during the test
 - **`services.removeLogsCount()`** — returns the number of times `RemoveLogs` was called during the test
 - **`ai.statsPrinted()`** — returns true when `PrintStats` was called during the test
+- **`ai.lastVariant()`** — returns the variant resolved during the most recent AI invocation, or empty string when `--variant` was omitted
 - **`ai.thatAlwaysFails()`** — returns an AI client whose `RunPicker` always returns a non-fatal error
 - **`ai.thatFailsServiceFix()`** — returns an AI client whose `FixServiceStartup` returns an error
 - **`ai.serviceFixCalled()`** — returns true when `FixServiceStartup` was called during the test

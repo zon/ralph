@@ -128,6 +128,9 @@ func (r *Runner) iterate(proj *project.Project, cfg *config.RalphConfig) error {
 }
 
 func (r *Runner) runIteration(proj *project.Project, cfg *config.RalphConfig) error {
+	if sv, ok := r.ai.(interface{ setLastVariant(string) }); ok {
+		sv.setLastVariant(cfg.Variant)
+	}
 	svc, err := r.services.Start(cfg)
 	if err != nil {
 		if fixErr := r.ai.FixServiceStartup(cfg, err); fixErr != nil {
