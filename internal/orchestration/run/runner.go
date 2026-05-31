@@ -22,6 +22,10 @@ type AIClient interface {
 	FixServiceStartup(cfg *config.RalphConfig, err error) error
 }
 
+type EnvClient interface {
+	InWorkflow() bool
+}
+
 type GitClient interface {
 	SwitchToBranch(slug string) error
 	BlockedFileExists() bool
@@ -62,9 +66,10 @@ type Runner struct {
 	github   GitHubClient
 	services ServicesClient
 	notify   NotifyClient
+	env      EnvClient
 }
 
-func NewRunner(project ProjectClient, ai AIClient, git GitClient, github GitHubClient, services ServicesClient, notify NotifyClient) *Runner {
+func NewRunner(project ProjectClient, ai AIClient, git GitClient, github GitHubClient, services ServicesClient, notify NotifyClient, env EnvClient) *Runner {
 	return &Runner{
 		project:  project,
 		ai:       ai,
@@ -72,7 +77,12 @@ func NewRunner(project ProjectClient, ai AIClient, git GitClient, github GitHubC
 		github:   github,
 		services: services,
 		notify:   notify,
+		env:      env,
 	}
+}
+
+func (r *Runner) Env() EnvClient {
+	return r.env
 }
 
 func (r *Runner) RunLocal(proj *project.Project, cfg *config.RalphConfig) error {

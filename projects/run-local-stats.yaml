@@ -30,7 +30,7 @@ requirements:
                 notify   NotifyClient
                 env      EnvClient
             }
-      passing: false
+      passing: true
     - slug: opencode-get-stats
       description: opencode package exposes GetStats to capture and parse opencode stats output
       items:
