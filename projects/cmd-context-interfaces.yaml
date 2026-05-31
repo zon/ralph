@@ -1,0 +1,55 @@
+slug: cmd-context-interfaces
+title: Standardized context interfaces for all ralph commands
+maxIterations: 10
+requirements:
+    - slug: orchestration-review
+      description: |
+        The review command's logic moves into internal/orchestration/review, following the same structure as internal/orchestration/run. The package defines its own narrow interfaces, a ReviewCmd struct with injected clients, a ReviewFlags struct for CLI args, and a mock_test.go with test doubles.
+      items:
+        - internal/orchestration/review/cmd.go defines ReviewCmd with unexported interface-typed fields for AI, Git, GitHub, and Workflow clients, plus a ReviewFlags struct covering Seed, Filter, One, Base, Local, Follow, Model, and Verbose
+        - ReviewCmd.Run(flags ReviewFlags) error contains the logic currently in ReviewRunCmd.Run, runReview, commitReviewItemChanges, runLoopItem, submitToArgo, and submitPR — no behavior changes, only relocation
+        - Each interface (AIClient, GitClient, GitHubClient, WorkflowClient) is declared in the package with only the methods the review orchestration needs; interfaces do not accept *context.Context — that is an implementation detail of the concrete adapters
+        - mock_test.go provides mock implementations for all interfaces using the withMocks(opts...) pattern from internal/orchestration/run
+        - Tests cover the same scenarios as the current internal/cmd review tests that exercise inner methods, using injected mocks instead of real git repos and RALPH_MOCK_AI
+      passing: false
+    - slug: orchestration-comment
+      description: |
+        The comment command's logic moves into internal/orchestration/comment, following the same structure as internal/orchestration/run.
+      items:
+        - internal/orchestration/comment/cmd.go defines CommentCmd with interface-typed fields for AI and Services clients, plus a CommentFlags struct covering Body, Repo, Branch, PR, NoServices, and Verbose
+        - CommentCmd.Run(flags CommentFlags) error contains the logic currently in CommentCmd.Run — no behavior changes, only relocation
+        - Each interface is declared with only the methods the comment orchestration needs; interfaces do not accept *context.Context
+        - mock_test.go provides mock implementations using the withMocks pattern
+        - Tests cover the comment orchestration behavior using injected mocks
+      passing: false
+    - slug: orchestration-merge
+      description: |
+        The merge command's logic moves into internal/orchestration/merge, following the same structure as internal/orchestration/run.
+      items:
+        - internal/orchestration/merge/cmd.go defines MergeCmd with interface-typed fields for Git, GitHub, Project, and Workflow clients, plus a MergeFlags struct covering Branch, PR, Repo, Local, and Verbose
+        - MergeCmd.Run(flags MergeFlags) error contains the logic currently in MergeCmd.Run, runLocal, and scanAndCleanupProjects — no behavior changes, only relocation
+        - Each interface is declared with only the methods the merge orchestration needs; interfaces do not accept *context.Context
+        - mock_test.go provides mock implementations using the withMocks pattern
+        - Tests cover the merge orchestration behavior using injected mocks
+      passing: false
+    - slug: orchestration-architecture
+      description: |
+        The architecture command's logic moves into internal/orchestration/architecture, following the same structure as internal/orchestration/run.
+      items:
+        - internal/orchestration/architecture/cmd.go defines ArchitectureCmd with interface-typed fields for AI, Git, GitHub, and Architecture clients, plus an ArchitectureFlags struct covering Output, Verbose, and Model
+        - ArchitectureCmd.Run(flags ArchitectureFlags) error contains the logic currently in ArchitectureCmd.Run, validateAndFix, and commitAndCreatePR — no behavior changes, only relocation
+        - Each interface is declared with only the methods the architecture orchestration needs; interfaces do not accept *context.Context
+        - mock_test.go provides mock implementations using the withMocks pattern
+        - Tests cover the architecture orchestration behavior using injected mocks
+      passing: false
+    - slug: thin-cmd-adapters
+      description: |
+        internal/cmd becomes a thin Kong adapter layer for all four refactored commands, mirroring how internal/cmd/run.go already delegates to internal/orchestration/run.
+      items:
+        - cmd/review.go constructs a ReviewCmd via a newOrchestrationReviewCmd helper (mirroring newOrchestrationRunCmd), builds ReviewFlags from its Kong struct fields, and calls cmd.Run(flags) — all inner methods (runReview, commitReviewItemChanges, etc.) are removed from the file
+        - cmd/comment.go constructs a CommentCmd, builds CommentFlags, and calls cmd.Run(flags) — all inner methods are removed from the file
+        - cmd/merge.go constructs a MergeCmd, builds MergeFlags, and calls cmd.Run(flags) — runLocal and scanAndCleanupProjects are removed from the file
+        - cmd/architecture.go constructs an ArchitectureCmd, builds ArchitectureFlags, and calls cmd.Run(flags) — validateAndFix and commitAndCreatePR are removed from the file
+        - Existing cmd-level tests that exercised inner methods are removed; the orchestration packages own those tests now
+        - All existing behavior is preserved end-to-end
+      passing: false
