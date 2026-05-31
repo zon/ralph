@@ -11,7 +11,7 @@ requirements:
         - Each interface (AIClient, GitClient, GitHubClient, WorkflowClient) is declared in the package with only the methods the review orchestration needs; interfaces do not accept *context.Context — that is an implementation detail of the concrete adapters
         - mock_test.go provides mock implementations for all interfaces using the withMocks(opts...) pattern from internal/orchestration/run
         - Tests cover the same scenarios as the current internal/cmd review tests that exercise inner methods, using injected mocks instead of real git repos and RALPH_MOCK_AI
-      passing: false
+      passing: true
     - slug: orchestration-comment
       description: |
         The comment command's logic moves into internal/orchestration/comment, following the same structure as internal/orchestration/run.
