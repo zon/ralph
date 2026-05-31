@@ -31,7 +31,7 @@ requirements:
         - Each interface is declared with only the methods the merge orchestration needs; interfaces do not accept *context.Context
         - mock_test.go provides mock implementations using the withMocks pattern
         - Tests cover the merge orchestration behavior using injected mocks
-      passing: false
+      passing: true
     - slug: orchestration-architecture
       description: |
         The architecture command's logic moves into internal/orchestration/architecture, following the same structure as internal/orchestration/run.
