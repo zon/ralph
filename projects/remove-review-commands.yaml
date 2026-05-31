@@ -60,4 +60,4 @@ requirements:
         - If no importers remain, delete the internal/review/ directory entirely
         - Run go build ./... and go test ./... to confirm the repo is clean
         - Confirm ralph --help no longer shows a review subcommand by running ralph --help and checking the output
-      passing: false
+      passing: true
