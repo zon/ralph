@@ -1,0 +1,63 @@
+slug: remove-review-commands
+title: Remove the review run and review architecture CLI commands
+maxIterations: 10
+requirements:
+    - slug: delete-cmd-and-orchestration-layers
+      description: |
+        Delete the review and architecture command files from internal/cmd, remove both
+        orchestration packages, update cmd.go to drop the Review field, and strip the review
+        and architecture adapter blocks from cmd_adapters.go. After this requirement the code
+        must compile cleanly.
+      items:
+        - Delete internal/cmd/review.go (ReviewRunCmd, ReviewCmd, and Run adapter)
+        - Delete internal/cmd/review_test.go (all flag-parsing tests for ReviewRunCmd)
+        - Delete internal/cmd/architecture.go (ArchitectureCmd and its Run adapter)
+        - Delete internal/cmd/architecture_test.go (all flag-parsing tests for ArchitectureCmd)
+        - Delete internal/orchestration/review/ entirely (cmd.go, cmd_test.go, mock_test.go)
+        - Delete internal/orchestration/architecture/ entirely (cmd.go, cmd_test.go, mock_test.go)
+        - In internal/cmd/cmd.go remove the Review ReviewCmd field from the Cmd struct; no other changes
+        - In internal/cmd/cmd_adapters.go remove the review adapter block (reviewAIClient, reviewGitClient, reviewGitHubClient, reviewWorkflowClient types and newOrchestrationReviewCmd) and the architecture adapter block (architectureAIClient, architectureGitClient, architectureGitHubClient, archClient types and newOrchestrationArchitectureCmd); remove the now-unused imports for orchestrationArchitecture, orchestrationReview, internal/architecture, and internal/workflow
+        - Run go build ./... and confirm it passes before marking done
+      passing: false
+    - slug: clean-workflow-cmd
+      description: |
+        The WorkflowCmd in internal/cmd/workflow.go contains a --review flag, a --filter flag,
+        and a runReview method that delegates to ReviewRunCmd. All three must be removed since
+        ReviewRunCmd no longer exists. The workflow command is only responsible for running
+        regular project workflows after this change.
+      items:
+        - Remove the Review bool field (help:"Run review mode instead of a project" name:"review") from WorkflowCmd
+        - Remove the Filter string field (help:"Only run review items..." name:"filter") from WorkflowCmd
+        - In WorkflowCmd.Run() remove the if w.Review { ... } branch that called w.runReview
+        - Remove the runReview method from workflow.go entirely
+        - Remove the validation guard `if !w.Review && w.ProjectPath == ""` and replace with a plain check `if w.ProjectPath == ""`; the Review escape hatch is no longer needed
+        - Run go build ./... and confirm it passes
+      passing: false
+    - slug: clean-workflow-package
+      description: |
+        The internal/workflow package contains Review and Architecture fields on the Workflow
+        struct, related branches in buildMainTemplate, and three generator functions that are
+        called only from the now-deleted code. All must be removed.
+      items:
+        - In internal/workflow/workflow.go remove the Review bool, Architecture bool, and ArchitectureOutput string fields from the WorkflowOptions struct (or wherever they are declared)
+        - In internal/workflow/workflow.go remove the else if w.Review { ... } branch and the else if w.Architecture { ... } branch from buildMainTemplate
+        - In internal/workflow/generate.go remove GenerateReviewWorkflow, GenerateArchitectureWorkflow, and GenerateArchitectureWorkflowWithGitInfo functions
+        - Run go build ./... and go test ./... and confirm both pass
+      passing: false
+    - slug: version-bump
+      description: Version bump
+      items:
+        - Apply a semver major bump to the app version in internal/version/VERSION and charts/ralph-webhook/Chart.yaml (appVersion field); also apply a patch bump to the chart version field in charts/ralph-webhook/Chart.yaml
+      passing: false
+    - slug: delete-unused-review-package
+      description: |
+        After removing orchestration/review, the internal/review package (loop.go, architecture.go,
+        spec.go) may have no remaining importers. Verify with grep and delete the package if it
+        is unused. The internal/architecture package must be kept because internal/project/project.go
+        still imports it for MigrateImplementedModules.
+      items:
+        - Run grep -r '"github.com/zon/ralph/internal/review"' . --include='*.go' to find any remaining imports of internal/review outside of that package itself
+        - If no importers remain, delete the internal/review/ directory entirely
+        - Run go build ./... and go test ./... to confirm the repo is clean
+        - Confirm ralph --help no longer shows a review subcommand by running ralph --help and checking the output
+      passing: false
