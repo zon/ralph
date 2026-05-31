@@ -14,6 +14,7 @@ import (
 	"github.com/cloudwego/eino-ext/components/model/claude"
 	"github.com/cloudwego/eino-ext/components/model/deepseek"
 	"github.com/cloudwego/eino-ext/components/model/gemini"
+	"github.com/cloudwego/eino/flow/agent/react"
 	"github.com/cloudwego/eino/schema"
 	"google.golang.org/genai"
 
@@ -114,6 +115,96 @@ func Complete(ctx context.Context, modelStr, prompt string) (string, error) {
 	}
 
 	return "", fmt.Errorf("unexpected provider %q", provider)
+}
+
+// RunAgent creates an agentic ReAct loop with the given model, variant, and prompt.
+func RunAgent(ctx context.Context, model, variant, prompt string, tracker *TokenTracker) error {
+	provider, modelID, err := parseModel(model)
+	if err != nil {
+		return err
+	}
+
+	rootDir, err := git.RepoRoot()
+	if err != nil {
+		return fmt.Errorf("failed to find repo root: %w", err)
+	}
+
+	keys, err := auth.Load(rootDir)
+	if err != nil {
+		return fmt.Errorf("failed to load auth keys: %w", err)
+	}
+
+	apiKey, ok := keys[provider]
+	if !ok || apiKey == "" {
+		return fmt.Errorf("API key for %q not found in auth.yaml", provider)
+	}
+
+	var chatModel model.ToolCallingChatModel
+
+	switch provider {
+	case "anthropic":
+		cfg := &claude.Config{
+			APIKey:    apiKey,
+			Model:     modelID,
+			MaxTokens: 4096,
+		}
+		if variant != "" {
+			cfg.Thinking = &claude.Thinking{
+				Enable:       true,
+				BudgetTokens: 2048,
+			}
+		}
+		cm, err := claude.NewChatModel(ctx, cfg)
+		if err != nil {
+			return fmt.Errorf("failed to create claude model: %w", err)
+		}
+		chatModel = cm
+
+	case "google":
+		client, err := genai.NewClient(ctx, &genai.ClientConfig{APIKey: apiKey})
+		if err != nil {
+			return fmt.Errorf("failed to create gemini client: %w", err)
+		}
+		cfg := &gemini.Config{
+			Client: client,
+			Model:  modelID,
+		}
+		cm, err := gemini.NewChatModel(ctx, cfg)
+		if err != nil {
+			return fmt.Errorf("failed to create gemini model: %w", err)
+		}
+		chatModel = cm
+
+	case "deepseek":
+		cfg := &deepseek.ChatModelConfig{
+			APIKey: apiKey,
+			Model:  modelID,
+		}
+		cm, err := deepseek.NewChatModel(ctx, cfg)
+		if err != nil {
+			return fmt.Errorf("failed to create deepseek model: %w", err)
+		}
+		chatModel = cm
+	}
+
+	callbacks.AppendGlobalHandlers(StreamingHandler(), NewHandler(tracker))
+
+	msg := schema.UserMessage(prompt)
+
+	toolOpts, err := react.WithTools(ctx, CodingTools()...)
+	if err != nil {
+		return fmt.Errorf("failed to configure tools: %w", err)
+	}
+
+	agent, err := react.NewAgent(ctx, &react.AgentConfig{
+		ToolCallingModel: chatModel,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create agent: %w", err)
+	}
+
+	_, err = agent.Generate(ctx, []*schema.Message{msg}, toolOpts...)
+	return err
 }
 
 // TokenTracker accumulates token usage across agent calls with thread-safe counters.
