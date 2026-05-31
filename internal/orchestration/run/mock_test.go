@@ -44,23 +44,9 @@ type mockAIClient struct {
 	developCalls     []*project.Project
 	changelogCalls   []*project.Project
 	fixServiceCalled bool
-	statsPrinted     bool
-	variant          string
-	lastVariantValue string
-}
-
-func (m *mockAIClient) setLastVariant(v string) {
-	m.variant = v
-	m.lastVariantValue = v
-}
-
-// lastVariant returns the variant recorded during the most recent RunPicker or RunDeveloper call.
-func (m *mockAIClient) lastVariant() string {
-	return m.lastVariantValue
 }
 
 func (m *mockAIClient) RunPicker(proj *project.Project) (string, error) {
-	m.lastVariantValue = m.variant
 	m.pickCalls = append(m.pickCalls, proj)
 	if m.runPickerFunc != nil {
 		return m.runPickerFunc()
@@ -69,7 +55,6 @@ func (m *mockAIClient) RunPicker(proj *project.Project) (string, error) {
 }
 
 func (m *mockAIClient) RunDeveloper(proj *project.Project, req string) error {
-	m.lastVariantValue = m.variant
 	m.developCalls = append(m.developCalls, proj)
 	if m.runDeveloperFunc != nil {
 		return m.runDeveloperFunc(req)
@@ -98,10 +83,6 @@ func (m *mockAIClient) FixServiceStartup(cfg *config.RalphConfig, err error) err
 		return m.fixServiceFunc(cfg, err)
 	}
 	return nil
-}
-
-func (m *mockAIClient) PrintStats() {
-	m.statsPrinted = true
 }
 
 func newAIThatAlwaysFails() *mockAIClient {
@@ -284,20 +265,6 @@ func aiDevelopCalls(r *Runner) []*project.Project {
 		return m.developCalls
 	}
 	return nil
-}
-
-func aiStatsPrinted(r *Runner) bool {
-	if m, ok := r.ai.(*mockAIClient); ok {
-		return m.statsPrinted
-	}
-	return false
-}
-
-func aiLastVariant(r *Runner) string {
-	if m, ok := r.ai.(*mockAIClient); ok {
-		return m.lastVariant()
-	}
-	return ""
 }
 
 func aiChangelogCalls(r *Runner) []*project.Project {

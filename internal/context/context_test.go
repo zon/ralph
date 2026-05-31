@@ -498,46 +498,6 @@ func TestSetCommand(t *testing.T) {
 	assert.Nil(t, ctx.Command(), "Command should be nil after SetCommand(nil)")
 }
 
-func TestVariant(t *testing.T) {
-	tests := []struct {
-		name          string
-		variant       string
-		expectDefault bool
-	}{
-		{
-			name:          "default empty variant",
-			variant:       "",
-			expectDefault: true,
-		},
-		{
-			name:          "custom variant",
-			variant:       "high",
-			expectDefault: false,
-		},
-		{
-			name:          "variant with different value",
-			variant:       "max",
-			expectDefault: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctx := &Context{}
-			ctx.SetVariant(tt.variant)
-
-			result := ctx.Variant()
-			assert.Equal(t, tt.variant, result, "Variant should match the set value")
-
-			if tt.expectDefault {
-				assert.Empty(t, result, "Default variant should be empty")
-			} else {
-				assert.NotEmpty(t, result, "Custom variant should not be empty")
-			}
-		})
-	}
-}
-
 func TestValidate(t *testing.T) {
 	tests := []struct {
 		name         string

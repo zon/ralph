@@ -179,6 +179,10 @@ func (r *ReviewRunCmd) Run() error {
 		}
 	}
 
+	if err := r.printStats(); err != nil {
+		logger.Verbosef("Failed to print stats: %v", err)
+	}
+
 	return nil
 }
 
@@ -358,6 +362,10 @@ func (r *ReviewRunCmd) submitToArgo(ctx *execcontext.Context, cloneBranch string
 		logger.Infof("To follow logs, run: argo logs -n %s %s -f", wf.Namespace, workflowName)
 	}
 	return nil
+}
+
+func (r *ReviewRunCmd) printStats() error {
+	return ai.DisplayStats()
 }
 
 func (r *ReviewRunCmd) buildCommitMessage(itemIndex int, summaryPath string) string {
