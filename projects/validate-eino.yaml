@@ -13,7 +13,7 @@ requirements:
         - For "google" use `github.com/cloudwego/eino-ext/components/model/gemini` with `gemini.NewChatModel`
         - For "deepseek" use `github.com/cloudwego/eino-ext/components/model/deepseek` with `deepseek.NewChatModel`
         - Return an error if the auth.yaml key for the provider is missing
-      passing: false
+      passing: true
     - slug: eino-parse-model-tests
       description: Tests for parseModel in internal/eino
       items:
@@ -22,7 +22,7 @@ requirements:
         - Test that "deepseek/deepseek-chat" parses to provider="deepseek", modelID="deepseek-chat"
         - Test that a string with no "/" returns an error
         - Test that an unknown provider prefix returns an error
-      passing: false
+      passing: true
     - slug: project-fix-prompt-update
       description: Update the project-fix prompt template to be self-contained for chat model use
       items:
