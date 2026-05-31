@@ -90,6 +90,22 @@ func (m *mockAIClient) FixServiceStartup(cfg *config.RalphConfig, err error) err
 	return nil
 }
 
+type mockEnvClient struct {
+	inWorkflow bool
+}
+
+func (m *mockEnvClient) InWorkflow() bool {
+	return m.inWorkflow
+}
+
+func newEnvInWorkflow() *mockEnvClient {
+	return &mockEnvClient{inWorkflow: true}
+}
+
+func newEnvNotInWorkflow() *mockEnvClient {
+	return &mockEnvClient{inWorkflow: false}
+}
+
 func newAIThatAlwaysFails() *mockAIClient {
 	return &mockAIClient{
 		runPickerFunc: func() (string, error) { return "", errNonFatal },
@@ -237,6 +253,12 @@ func withGitHub(gc GitHubClient) runnerOption {
 	}
 }
 
+func withEnv(ec EnvClient) runnerOption {
+	return func(r *Runner) {
+		r.env = ec
+	}
+}
+
 func withServices(sc ServicesClient) runnerOption {
 	return func(r *Runner) {
 		r.services = sc
@@ -251,11 +273,19 @@ func withMocks(opts ...runnerOption) *Runner {
 		github:   &github.MockClient{},
 		services: &services.MockClient{},
 		notify:   &notify.MockClient{},
+		env:      newEnvNotInWorkflow(),
 	}
 	for _, opt := range opts {
 		opt(r)
 	}
 	return r
+}
+
+func aiStatsPrinted(r *Runner) bool {
+	if m, ok := r.ai.(*mockAIClient); ok {
+		return m.statsPrinted
+	}
+	return false
 }
 
 func aiPickCalls(r *Runner) []*project.Project {

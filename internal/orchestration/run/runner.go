@@ -87,6 +87,9 @@ func (r *Runner) Env() EnvClient {
 }
 
 func (r *Runner) RunLocal(proj *project.Project, cfg *config.RalphConfig) error {
+	if r.env.InWorkflow() {
+		defer r.ai.PrintStats()
+	}
 	if err := r.services.RunBeforeCommands(cfg); err != nil {
 		return err
 	}
