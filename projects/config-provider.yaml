@@ -31,7 +31,7 @@ requirements:
       items:
         - Add `ProviderSecretName = "provider-credentials"` constant to `internal/k8s/secrets.go`
         - Add `StoreProviderSecret(ctx context.Context, kubeContext, namespace string, keys map[string]string) error` to `internal/k8s/secrets.go` — calls `CreateOrUpdateSecret` with `ProviderSecretName`, passing each provider key as a named entry in the data map
-      passing: false
+      passing: true
     - slug: configprovider-orchestration
       description: Implement the configprovider Runner orchestration
       scenarios:
