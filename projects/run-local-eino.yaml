@@ -11,6 +11,8 @@ requirements:
         - Implement a WriteFile tool that accepts `path` and `content` string parameters and writes the file; register it the same way
         - Implement a Bash tool that accepts a `command` string parameter, runs it via `exec.Command("bash", "-c", command)`, and returns combined stdout+stderr; register it the same way
         - Expose `CodingTools() []tool.BaseTool` that returns the registered instances of all three tools
+        - 'Eino docs — components/tool (tool.BaseTool, tool.InvokableTool): https://pkg.go.dev/github.com/cloudwego/eino/components/tool'
+        - 'Eino docs — components/tool/utils (utils.InferTool): https://pkg.go.dev/github.com/cloudwego/eino/components/tool/utils'
       passing: false
     - slug: eino-token-tracker
       description: Implement TokenTracker in internal/eino for accumulating token usage across agent calls
@@ -19,6 +21,9 @@ requirements:
         - Implement `Track(inputTokens, outputTokens int)` to add to the running totals
         - Implement `PrintStats()` to log the accumulated totals using `internal/logger`
         - Implement `NewHandler(tracker *TokenTracker) callbacks.Handler` that returns an eino callback handler which calls `tracker.Track` from `OnEnd` using `model.ConvCallbackOutput` to extract `ResponseMeta.Usage`
+        - 'Eino docs — callbacks (callbacks.Handler, HandlerBuilder, OnEnd): https://pkg.go.dev/github.com/cloudwego/eino/callbacks'
+        - 'Eino docs — components/model (model.ConvCallbackOutput, model.CallbackOutput): https://pkg.go.dev/github.com/cloudwego/eino/components/model'
+        - 'Eino docs — schema (schema.ResponseMeta, ResponseMeta.Usage, TokenUsage): https://pkg.go.dev/github.com/cloudwego/eino/schema'
       passing: false
     - slug: eino-streaming-callback
       description: Implement the stdout streaming callback handler for agent output
@@ -28,6 +33,8 @@ requirements:
         - When a chunk contains tool calls, write one line per tool call in the format `<tool-name> <first-argument-value>` (e.g. `read internal/eino/eino.go`)
         - All other callback methods (`OnStart`, `OnError`, etc.) produce no output
         - The handler must close the stream in `OnEndWithStreamOutput` to avoid goroutine leaks
+        - 'Eino docs — callbacks (callbacks.Handler, HandlerBuilder, OnEndWithStreamOutput): https://pkg.go.dev/github.com/cloudwego/eino/callbacks'
+        - 'Eino docs — components/model (model.ConvCallbackOutput, model.CallbackOutput with Content and ToolCalls): https://pkg.go.dev/github.com/cloudwego/eino/components/model'
       passing: false
     - slug: eino-run-agent
       description: Implement RunAgent in internal/eino for agentic coding loops
@@ -38,6 +45,8 @@ requirements:
         - Register both `StreamingHandler()` and `NewHandler(tracker)` as global callback handlers for the duration of the call using `callbacks.AppendGlobalHandlers`
         - Create an `llmagent.Agent` (or equivalent agentic runner) with `CodingTools()` and the prompt as the instruction
         - Run the agent to completion and return any error
+        - 'Eino docs — callbacks (callbacks.AppendGlobalHandlers): https://pkg.go.dev/github.com/cloudwego/eino/callbacks'
+        - 'Eino docs — flow/agent/react (react.Agent, react.NewAgent, react.AgentConfig — the agentic ReAct runner): https://pkg.go.dev/github.com/cloudwego/eino/flow/agent/react'
       passing: false
     - slug: ai-runagent-eino
       description: Update ai.RunAgent and ai.RunAgentWithModel in internal/ai/ai.go to call eino.RunAgent
