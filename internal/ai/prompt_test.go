@@ -454,20 +454,42 @@ func TestBuildArchitectureFixPrompt_EmptyErrors(t *testing.T) {
 
 func TestBuildProjectFixPrompt(t *testing.T) {
 	loadErr := errors.New("yaml: line 42: did not find expected node")
-	prompt, err := BuildProjectFixPrompt("/tmp/project.yaml", loadErr)
+	content := []byte("slug: test\nrequirements:\n  - slug: req1\n    description: Test req\n")
+	prompt, err := BuildProjectFixPrompt("/tmp/project.yaml", content, loadErr)
 
 	require.NoError(t, err, "BuildProjectFixPrompt failed")
 	assert.NotEmpty(t, prompt, "project fix prompt should not be empty")
 	assert.Contains(t, prompt, "/tmp/project.yaml", "prompt should include project file path")
 	assert.Contains(t, prompt, "yaml: line 42: did not find expected node", "prompt should include load error")
 	assert.Contains(t, prompt, "## Load Error", "prompt should include Load Error section")
+	assert.Contains(t, prompt, "## Current File Content", "prompt should include Current File Content section")
+	assert.Contains(t, prompt, "slug: test", "prompt should include file content")
+	assert.NotContains(t, prompt, "Fetch the project format reference", "prompt should not include fetch instruction")
+	assert.Contains(t, prompt, "Return ONLY the corrected YAML", "prompt should instruct model to return only YAML")
 }
 
 func TestBuildProjectFixPrompt_AbsolutePath(t *testing.T) {
 	loadErr := errors.New("test load error")
-	prompt, err := BuildProjectFixPrompt("project.yaml", loadErr)
+	content := []byte("slug: test\n")
+	prompt, err := BuildProjectFixPrompt("project.yaml", content, loadErr)
 
 	require.NoError(t, err, "BuildProjectFixPrompt failed")
 	absPath, _ := filepath.Abs("project.yaml")
 	assert.Contains(t, prompt, absPath, "prompt should contain absolute path")
+}
+
+func TestBuildProjectFixPrompt_EmptyContent(t *testing.T) {
+	loadErr := errors.New("test load error")
+	prompt, err := BuildProjectFixPrompt("/tmp/project.yaml", []byte{}, loadErr)
+
+	require.NoError(t, err, "BuildProjectFixPrompt failed")
+	assert.Contains(t, prompt, "## Current File Content", "prompt should include Current File Content section even with empty content")
+}
+
+func TestBuildProjectFixPrompt_NoMarkdownFenceInstruction(t *testing.T) {
+	loadErr := errors.New("test load error")
+	prompt, err := BuildProjectFixPrompt("/tmp/project.yaml", []byte("slug: test"), loadErr)
+
+	require.NoError(t, err, "BuildProjectFixPrompt failed")
+	assert.Contains(t, prompt, "no surrounding text, explanation, or markdown fences", "prompt should forbid markdown fences")
 }

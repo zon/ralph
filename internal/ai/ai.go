@@ -249,15 +249,16 @@ func BuildArchitectureFixPrompt(outputFile string, errors []string) (string, err
 type ProjectFixPromptData struct {
 	ProjectFile string
 	LoadError   string
+	Content     string
 }
 
-func BuildProjectFixPrompt(projectFile string, loadErr error) (string, error) {
+func BuildProjectFixPrompt(projectFile string, content []byte, loadErr error) (string, error) {
 	absPath, err := filepath.Abs(projectFile)
 	if err != nil {
 		return "", fmt.Errorf("failed to get absolute path: %w", err)
 	}
 
-	data := ProjectFixPromptData{ProjectFile: absPath, LoadError: loadErr.Error()}
+	data := ProjectFixPromptData{ProjectFile: absPath, LoadError: loadErr.Error(), Content: string(content)}
 	return executeTemplate(projectFixInstructions, data)
 }
 

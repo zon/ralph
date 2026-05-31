@@ -1,11 +1,14 @@
 package validate
 
 import (
+	"context"
 	"os"
+	"strings"
 
 	"github.com/zon/ralph/internal/ai"
 	"github.com/zon/ralph/internal/config"
-	"github.com/zon/ralph/internal/context"
+	execcontext "github.com/zon/ralph/internal/context"
+	"github.com/zon/ralph/internal/eino"
 	"github.com/zon/ralph/internal/project"
 )
 
@@ -24,15 +27,43 @@ func (projectClient) ReadFile(path string) ([]byte, error) {
 }
 
 type agentClient struct {
-	ctx *context.Context
+	ctx *execcontext.Context
 }
 
 func (a *agentClient) FixProject(path string, loadErr error, model string) error {
-	prompt, err := ai.BuildProjectFixPrompt(path, loadErr)
+	content, err := os.ReadFile(path)
 	if err != nil {
 		return err
 	}
-	return ai.RunAgentWithModel(a.ctx, prompt, model)
+	prompt, err := ai.BuildProjectFixPrompt(path, content, loadErr)
+	if err != nil {
+		return err
+	}
+	response, err := eino.Complete(context.Background(), model, prompt)
+	if err != nil {
+		return err
+	}
+	yaml := extractYAML(response)
+	return os.WriteFile(path, yaml, 0644)
+}
+
+func extractYAML(response string) []byte {
+	trimmed := strings.TrimSpace(response)
+
+	if strings.HasPrefix(trimmed, "```") && strings.HasSuffix(trimmed, "```") && len(trimmed) > 6 {
+		rest := trimmed[3:]
+		if idx := strings.IndexByte(rest, '\n'); idx != -1 {
+			rest = rest[idx+1:]
+		} else {
+			rest = ""
+		}
+		if len(rest) >= 3 {
+			rest = rest[:len(rest)-3]
+		}
+		return []byte(strings.TrimSpace(rest))
+	}
+
+	return []byte(trimmed)
 }
 
 func resolveConfigModel() string {
@@ -46,7 +77,7 @@ func resolveConfigModel() string {
 	return ralphConfig.Model
 }
 
-func New(ctx *context.Context) *Validator {
+func New(ctx *execcontext.Context) *Validator {
 	return &Validator{
 		project: &projectClient{},
 		agent:   &agentClient{ctx: ctx},
