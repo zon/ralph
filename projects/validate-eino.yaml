@@ -42,7 +42,7 @@ requirements:
         - Implement `extractYAML(response string) []byte` — strips a leading markdown YAML code fence (```yaml ... ```) or plain code fence (``` ... ```) from the response if present; otherwise trims whitespace and returns the raw response as bytes
         - Write the extracted YAML back to `path` with `os.WriteFile`
         - Remove the import of `internal/ai` for `RunAgentWithModel`; keep the import for `BuildProjectFixPrompt`
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump
       items:
