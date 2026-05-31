@@ -21,7 +21,7 @@ requirements:
         - Each interface is declared with only the methods the comment orchestration needs; interfaces do not accept *context.Context
         - mock_test.go provides mock implementations using the withMocks pattern
         - Tests cover the comment orchestration behavior using injected mocks
-      passing: false
+      passing: true
     - slug: orchestration-merge
       description: |
         The merge command's logic moves into internal/orchestration/merge, following the same structure as internal/orchestration/run.
