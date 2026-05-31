@@ -547,23 +547,32 @@ requirements:
 	return nil
 }
 
-var fatalOpenCodePatterns = []string{
-	"Insufficient Balance",
-	"insufficient balance",
+var fatalAIPatterns = []string{
+	// Generic billing/quota patterns
 	"billing",
 	"account",
 	"payment required",
+	"Insufficient Balance",
+	// Anthropic
+	"credit balance is too low",
+	"overloaded",
+	"rate_limit_error",
+	// Google
+	"RESOURCE_EXHAUSTED",
 	"quota exceeded",
+	// DeepSeek
+	"insufficient balance",
+	"rate limit",
 }
 
-// IsFatalError checks if the error matches known fatal opencode error patterns
-// such as billing, quota, or account issues.
+// IsFatalError checks if the error matches known fatal AI provider error
+// patterns such as billing, quota, or rate-limit issues.
 func IsFatalError(err error) bool {
 	if err == nil {
 		return false
 	}
 	errStr := err.Error()
-	for _, pattern := range fatalOpenCodePatterns {
+	for _, pattern := range fatalAIPatterns {
 		if strings.Contains(errStr, pattern) {
 			return true
 		}

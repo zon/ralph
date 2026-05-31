@@ -65,7 +65,7 @@ requirements:
         - 'Google patterns to include: "RESOURCE_EXHAUSTED", "quota exceeded"'
         - 'DeepSeek patterns to include: "insufficient balance", "rate limit"'
         - Update the `IsFatalError` comment to remove the opencode reference
-      passing: false
+      passing: true
     - slug: agent-client-eino
       description: Replace opencode.SessionCollector with eino.TokenTracker in internal/run/agent_client.go
       items:
