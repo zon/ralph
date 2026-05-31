@@ -52,4 +52,4 @@ requirements:
         - cmd/architecture.go constructs an ArchitectureCmd, builds ArchitectureFlags, and calls cmd.Run(flags) — validateAndFix and commitAndCreatePR are removed from the file
         - Existing cmd-level tests that exercised inner methods are removed; the orchestration packages own those tests now
         - All existing behavior is preserved end-to-end
-      passing: false
+      passing: true
