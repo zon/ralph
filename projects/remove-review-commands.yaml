@@ -32,7 +32,7 @@ requirements:
         - Remove the runReview method from workflow.go entirely
         - Remove the validation guard `if !w.Review && w.ProjectPath == ""` and replace with a plain check `if w.ProjectPath == ""`; the Review escape hatch is no longer needed
         - Run go build ./... and confirm it passes
-      passing: false
+      passing: true
     - slug: clean-workflow-package
       description: |
         The internal/workflow package contains Review and Architecture fields on the Workflow
