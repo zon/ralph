@@ -27,3 +27,7 @@ Modules marked `orchestration: true` in `specs/architecture.yaml` are orchestrat
 - Keep each module focused on its declared concern. Do not extend a module's scope without updating `specs/architecture.yaml`.
 - Prefer deepening an existing module over creating a new one for the same concern.
 - Expose only what callers need; keep internal details unexported.
+
+## Third-Party API Docs
+
+When working with `internal/eino`, refer to the eino package documentation at https://pkg.go.dev/github.com/cloudwego/eino.
