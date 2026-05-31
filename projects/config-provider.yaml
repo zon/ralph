@@ -10,7 +10,7 @@ requirements:
         - Implement `Load() (map[string]string, error)` — reads `.ralph/auth.yaml` as YAML into `map[string]string`; returns an empty map (not an error) if the file does not exist
         - Implement `Write(keys map[string]string) error` — marshals the map to YAML and writes it to `.ralph/auth.yaml`, creating the `.ralph/` directory if it does not exist
         - Use `gopkg.in/yaml.v3` for marshalling and unmarshalling
-      passing: false
+      passing: true
     - slug: auth-module-tests
       description: Tests for internal/auth Load and Write
       items:
