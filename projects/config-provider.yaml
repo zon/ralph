@@ -25,7 +25,7 @@ requirements:
         - Create `internal/prompt/prompt.go`
         - 'Implement `ProviderKey(provider string) (string, error)` — prints `Enter API key for <provider>: ` to stdout and reads one line from stdin'
         - Return an error if the entered value is blank
-      passing: false
+      passing: true
     - slug: k8s-provider-secret
       description: Add provider secret support to internal/k8s
       items:
