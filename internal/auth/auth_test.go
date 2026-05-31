@@ -68,3 +68,23 @@ func TestWrite_ThenLoad_RoundTrip(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, input, loaded)
 }
+
+func TestWrite_PreservesKeysFromPriorWrite(t *testing.T) {
+	tmpDir := t.TempDir()
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(tmpDir))
+	t.Cleanup(func() { os.Chdir(cwd) })
+
+	require.NoError(t, Write(map[string]string{"google": "AIza-existing"}))
+
+	keys, err := Load()
+	require.NoError(t, err)
+	keys["anthropic"] = "sk-ant-123"
+	require.NoError(t, Write(keys))
+
+	loaded, err := Load()
+	require.NoError(t, err)
+	assert.Equal(t, "sk-ant-123", loaded["anthropic"])
+	assert.Equal(t, "AIza-existing", loaded["google"])
+}

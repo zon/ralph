@@ -18,7 +18,7 @@ requirements:
         - Test that Write then Load round-trips a map of provider keys correctly
         - Test that Write preserves keys that were not passed in the current call (they are already in the file from a prior Write)
         - Use t.TempDir() and set the working directory so .ralph/auth.yaml resolves within the temp dir
-      passing: false
+      passing: true
     - slug: prompt-module
       description: Create internal/prompt for interactive API key collection
       items:
