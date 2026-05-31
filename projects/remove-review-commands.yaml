@@ -18,7 +18,7 @@ requirements:
         - In internal/cmd/cmd.go remove the Review ReviewCmd field from the Cmd struct; no other changes
         - In internal/cmd/cmd_adapters.go remove the review adapter block (reviewAIClient, reviewGitClient, reviewGitHubClient, reviewWorkflowClient types and newOrchestrationReviewCmd) and the architecture adapter block (architectureAIClient, architectureGitClient, architectureGitHubClient, archClient types and newOrchestrationArchitectureCmd); remove the now-unused imports for orchestrationArchitecture, orchestrationReview, internal/architecture, and internal/workflow
         - Run go build ./... and confirm it passes before marking done
-      passing: false
+      passing: true
     - slug: clean-workflow-cmd
       description: |
         The WorkflowCmd in internal/cmd/workflow.go contains a --review flag, a --filter flag,
