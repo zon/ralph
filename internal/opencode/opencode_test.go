@@ -216,7 +216,7 @@ exit 0
 	t.Setenv("PATH", tmpDir+":"+origPath)
 
 	var stdout, stderr bytes.Buffer
-	err = RunCommand(context.Background(), "test-model", "test-prompt", &stdout, &stderr)
+	err = RunCommand(context.Background(), "test-model", "", "test-prompt", &stdout, &stderr)
 	require.NoError(t, err)
 	assert.Contains(t, stdout.String(), "run output: run --model test-model test-prompt")
 }
@@ -240,7 +240,7 @@ exit 1
 	t.Setenv("PATH", tmpDir+":"+origPath)
 
 	var stdout, stderr bytes.Buffer
-	err = RunCommand(context.Background(), "test-model", "test-prompt", &stdout, &stderr)
+	err = RunCommand(context.Background(), "test-model", "", "test-prompt", &stdout, &stderr)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "opencode command failed")
 }

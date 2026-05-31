@@ -9,3 +9,9 @@ func Any() *RalphConfig {
 	applyDefaults(cfg)
 	return cfg
 }
+
+func WithVariant(v string) *RalphConfig {
+	cfg := Any()
+	cfg.Variant = v
+	return cfg
+}
