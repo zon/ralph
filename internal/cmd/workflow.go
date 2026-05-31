@@ -34,14 +34,12 @@ type WorkflowCmd struct {
 	InstructionsMD string `help:"Inline instructions content" name:"instructions-md" optional:""`
 	MaxIterations  int    `help:"Maximum number of iterations" name:"max-iterations" default:"0"`
 	Model          string `help:"Override the AI model from config" name:"model" optional:""`
-	Review         bool   `help:"Run review mode instead of a project" name:"review" default:"false"`
-	Filter         string `help:"Only run review items whose text, file, or url property contains this string" name:"filter" optional:""`
 
 	cleanupRegistrar func(func()) `kong:"-"`
 }
 
 func (w *WorkflowCmd) Run() error {
-	if !w.Review && w.ProjectPath == "" {
+	if w.ProjectPath == "" {
 		return fmt.Errorf("project path is required")
 	}
 
@@ -75,18 +73,12 @@ func (w *WorkflowCmd) Run() error {
 		return fmt.Errorf("failed to clone and setup repo: %w", err)
 	}
 
-	if w.Review {
-		if err := w.runReview(ctx); err != nil {
-			return fmt.Errorf("failed to run review: %w", err)
-		}
-	} else {
-		if err := w.syncBaseBranch(ctx); err != nil {
-			return fmt.Errorf("failed to sync base branch: %w", err)
-		}
+	if err := w.syncBaseBranch(ctx); err != nil {
+		return fmt.Errorf("failed to sync base branch: %w", err)
+	}
 
-		if err := w.runProject(ctx); err != nil {
-			return fmt.Errorf("failed to run project: %w", err)
-		}
+	if err := w.runProject(ctx); err != nil {
+		return fmt.Errorf("failed to run project: %w", err)
 	}
 
 	w.displayStats()
@@ -270,18 +262,6 @@ func (w *WorkflowCmd) prepareAndExecute(ctx *context.Context, cleanupRegistrar f
 	}
 
 	return nil
-}
-
-func (w *WorkflowCmd) runReview(ctx *context.Context) error {
-	logger.Info("Running review...")
-	reviewCmd := &ReviewRunCmd{
-		Local:   true,
-		Verbose: w.Verbose,
-		Model:   w.Model,
-		Base:    ctx.BaseBranch(),
-		Filter:  w.Filter,
-	}
-	return reviewCmd.Run()
 }
 
 func (w *WorkflowCmd) displayStats() {
