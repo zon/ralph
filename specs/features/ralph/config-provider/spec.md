@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Collect an AI provider API key, write it to `.ralph/auth.yaml`, and store all current credentials as a Kubernetes Secret in the ralph namespace for remote execution on Argo Workflows.
+Collect an AI provider API key, write it to `.ralph/auth.yaml` (relative to the git repository root), and store all current credentials as a Kubernetes Secret in the ralph namespace for remote execution on Argo Workflows.
 
 ## Requirements
 

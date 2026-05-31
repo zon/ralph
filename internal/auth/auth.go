@@ -7,10 +7,12 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const authFilePath = ".ralph/auth.yaml"
+func authFilePath(rootDir string) string {
+	return filepath.Join(rootDir, ".ralph", "auth.yaml")
+}
 
-func Load() (map[string]string, error) {
-	data, err := os.ReadFile(authFilePath)
+func Load(rootDir string) (map[string]string, error) {
+	data, err := os.ReadFile(authFilePath(rootDir))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return map[string]string{}, nil
@@ -30,8 +32,8 @@ func Load() (map[string]string, error) {
 	return keys, nil
 }
 
-func Write(keys map[string]string) error {
-	dir := filepath.Dir(authFilePath)
+func Write(rootDir string, keys map[string]string) error {
+	dir := filepath.Dir(authFilePath(rootDir))
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
@@ -41,5 +43,5 @@ func Write(keys map[string]string) error {
 		return err
 	}
 
-	return os.WriteFile(authFilePath, data, 0644)
+	return os.WriteFile(authFilePath(rootDir), data, 0644)
 }

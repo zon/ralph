@@ -6,6 +6,7 @@ import (
 
 	"github.com/zon/ralph/internal/auth"
 	"github.com/zon/ralph/internal/config"
+	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/k8s"
 	configprovider "github.com/zon/ralph/internal/orchestration/configprovider"
 	"github.com/zon/ralph/internal/prompt"
@@ -38,9 +39,14 @@ func (c *ConfigProviderCmd) Run() error {
 		return err
 	}
 
+	rootDir, err := git.RepoRoot()
+	if err != nil {
+		return fmt.Errorf("failed to find git repository root: %w", err)
+	}
+
 	runner := configprovider.New(
 		&promptClientAdapter{},
-		&authClientAdapter{},
+		&authClientAdapter{rootDir: rootDir},
 		&k8sClientAdapter{},
 	)
 
@@ -53,14 +59,16 @@ func (a *promptClientAdapter) ProviderKey(provider string) (string, error) {
 	return prompt.ProviderKey(provider)
 }
 
-type authClientAdapter struct{}
+type authClientAdapter struct {
+	rootDir string
+}
 
 func (a *authClientAdapter) Load() (map[string]string, error) {
-	return auth.Load()
+	return auth.Load(a.rootDir)
 }
 
 func (a *authClientAdapter) Write(keys map[string]string) error {
-	return auth.Write(keys)
+	return auth.Write(a.rootDir, keys)
 }
 
 type k8sClientAdapter struct{}
