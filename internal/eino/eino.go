@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -118,8 +119,8 @@ func Complete(ctx context.Context, modelStr, prompt string) (string, error) {
 }
 
 // RunAgent creates an agentic ReAct loop with the given model, variant, and prompt.
-func RunAgent(ctx context.Context, model, variant, prompt string, tracker *TokenTracker) error {
-	provider, modelID, err := parseModel(model)
+func RunAgent(ctx context.Context, modelStr, variant, prompt string, tracker *TokenTracker) error {
+	provider, modelID, err := parseModel(modelStr)
 	if err != nil {
 		return err
 	}
@@ -149,9 +150,13 @@ func RunAgent(ctx context.Context, model, variant, prompt string, tracker *Token
 			MaxTokens: 4096,
 		}
 		if variant != "" {
+			budget := 2048
+			if n, err := strconv.Atoi(variant); err == nil && n > 0 {
+				budget = n
+			}
 			cfg.Thinking = &claude.Thinking{
 				Enable:       true,
-				BudgetTokens: 2048,
+				BudgetTokens: budget,
 			}
 		}
 		cm, err := claude.NewChatModel(ctx, cfg)

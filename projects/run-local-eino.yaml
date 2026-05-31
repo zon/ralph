@@ -47,7 +47,7 @@ requirements:
         - Run the agent to completion and return any error
         - 'Eino docs — callbacks (callbacks.AppendGlobalHandlers): https://pkg.go.dev/github.com/cloudwego/eino/callbacks'
         - 'Eino docs — flow/agent/react (react.Agent, react.NewAgent, react.AgentConfig — the agentic ReAct runner): https://pkg.go.dev/github.com/cloudwego/eino/flow/agent/react'
-      passing: false
+      passing: true
     - slug: ai-runagent-eino
       description: Update ai.RunAgent and ai.RunAgentWithModel in internal/ai/ai.go to call eino.RunAgent
       items:
