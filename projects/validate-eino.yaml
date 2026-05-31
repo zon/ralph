@@ -31,7 +31,7 @@ requirements:
         - Update `BuildProjectFixPrompt` to accept a `content []byte` parameter and populate `ProjectFixPromptData.Content` with the file content as a string
         - Update the template to include the file content under a "## Current File Content" section
         - Instruct the model to return ONLY the corrected YAML with no surrounding text or markdown fences
-      passing: false
+      passing: true
     - slug: validate-adapter-eino
       description: Update internal/validate/adapters.go to use eino.Complete instead of ai.RunAgentWithModel
       items:

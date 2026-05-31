@@ -28,7 +28,11 @@ type agentClient struct {
 }
 
 func (a *agentClient) FixProject(path string, loadErr error, model string) error {
-	prompt, err := ai.BuildProjectFixPrompt(path, loadErr)
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	prompt, err := ai.BuildProjectFixPrompt(path, content, loadErr)
 	if err != nil {
 		return err
 	}
