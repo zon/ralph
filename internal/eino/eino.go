@@ -2,7 +2,10 @@ package eino
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"sync"
 
@@ -149,4 +152,47 @@ func NewHandler(tracker *TokenTracker) callbacks.Handler {
 			return ctx
 		}).
 		Build()
+}
+
+// StreamingHandler creates an eino callback handler that streams model output to stdout.
+func StreamingHandler() callbacks.Handler {
+	return callbacks.NewHandlerBuilder().
+		OnEndWithStreamOutputFn(func(ctx context.Context, info *callbacks.RunInfo, output *schema.StreamReader[callbacks.CallbackOutput]) context.Context {
+			defer output.Close()
+			for {
+				chunk, err := output.Recv()
+				if errors.Is(err, io.EOF) {
+					break
+				}
+				if err != nil {
+					break
+				}
+				if cbOutput := model.ConvCallbackOutput(chunk); cbOutput != nil {
+					if msg := cbOutput.Message; msg != nil {
+						if msg.Content != "" {
+							fmt.Print(msg.Content)
+						}
+						for _, tc := range msg.ToolCalls {
+							firstArg := extractFirstArg(tc.Function.Arguments)
+							fmt.Printf("\n%s %s", tc.Function.Name, firstArg)
+						}
+					}
+				}
+			}
+			return ctx
+		}).
+		Build()
+}
+
+func extractFirstArg(argsJSON string) string {
+	var args map[string]interface{}
+	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+		return ""
+	}
+	for _, v := range args {
+		if s, ok := v.(string); ok {
+			return s
+		}
+	}
+	return ""
 }

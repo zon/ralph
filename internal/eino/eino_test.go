@@ -1,7 +1,11 @@
 package eino
 
 import (
+	"bytes"
 	"context"
+	"io"
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/cloudwego/eino/callbacks"
@@ -140,4 +144,220 @@ func TestNewHandlerNonModelOutput(t *testing.T) {
 	assert.Equal(t, 0, tracker.inputTokens)
 	assert.Equal(t, 0, tracker.outputTokens)
 	tracker.mu.Unlock()
+}
+
+func captureStdout(fn func()) string {
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	fn()
+	w.Close()
+	var buf bytes.Buffer
+	io.Copy(&buf, r)
+	os.Stdout = old
+	return buf.String()
+}
+
+func TestStreamingHandler_WritesTextToStdout(t *testing.T) {
+	handler := StreamingHandler()
+	require.NotNil(t, handler)
+
+	sr, sw := schema.Pipe[callbacks.CallbackOutput](10)
+	go func() {
+		defer sw.Close()
+		sw.Send(&model.CallbackOutput{
+			Message: &schema.Message{Content: "Hello, "},
+		}, nil)
+		sw.Send(&model.CallbackOutput{
+			Message: &schema.Message{Content: "world!"},
+		}, nil)
+	}()
+
+	output := captureStdout(func() {
+		handler.OnEndWithStreamOutput(context.Background(), &callbacks.RunInfo{}, sr)
+	})
+
+	assert.Equal(t, "Hello, world!", output)
+}
+
+func TestStreamingHandler_WritesToolCallToStdout(t *testing.T) {
+	handler := StreamingHandler()
+	require.NotNil(t, handler)
+
+	sr, sw := schema.Pipe[callbacks.CallbackOutput](10)
+	go func() {
+		defer sw.Close()
+		sw.Send(&model.CallbackOutput{
+			Message: &schema.Message{
+				ToolCalls: []schema.ToolCall{
+					{
+						Function: schema.FunctionCall{
+							Name:      "read",
+							Arguments: `{"path": "internal/eino/eino.go"}`,
+						},
+					},
+				},
+			},
+		}, nil)
+	}()
+
+	output := captureStdout(func() {
+		handler.OnEndWithStreamOutput(context.Background(), &callbacks.RunInfo{}, sr)
+	})
+
+	assert.Contains(t, output, "read internal/eino/eino.go")
+}
+
+func TestStreamingHandler_ClosesStream(t *testing.T) {
+	handler := StreamingHandler()
+	require.NotNil(t, handler)
+
+	sr, sw := schema.Pipe[callbacks.CallbackOutput](10)
+	go func() {
+		sw.Send(&model.CallbackOutput{
+			Message: &schema.Message{Content: "done"},
+		}, nil)
+		sw.Close()
+	}()
+
+	handler.OnEndWithStreamOutput(context.Background(), &callbacks.RunInfo{}, sr)
+
+	assert.Panics(t, func() {
+		sr.Close()
+	})
+}
+
+func TestStreamingHandler_OtherMethodsProduceNoOutput(t *testing.T) {
+	handler := StreamingHandler()
+	require.NotNil(t, handler)
+
+	ctx := context.Background()
+	info := &callbacks.RunInfo{Name: "test"}
+
+	handler.OnStart(ctx, info, "input")
+	handler.OnEnd(ctx, info, "output")
+	handler.OnError(ctx, info, assert.AnError)
+	handler.OnStartWithStreamInput(ctx, info, nil)
+}
+
+func TestStreamingHandler_ToolCallFormat(t *testing.T) {
+	handler := StreamingHandler()
+	require.NotNil(t, handler)
+
+	sr, sw := schema.Pipe[callbacks.CallbackOutput](10)
+	go func() {
+		defer sw.Close()
+		sw.Send(&model.CallbackOutput{
+			Message: &schema.Message{
+				ToolCalls: []schema.ToolCall{
+					{
+						Function: schema.FunctionCall{
+							Name:      "bash",
+							Arguments: `{"command": "ls -la"}`,
+						},
+					},
+					{
+						Function: schema.FunctionCall{
+							Name:      "write",
+							Arguments: `{"path": "test.txt", "content": "hello"}`,
+						},
+					},
+				},
+			},
+		}, nil)
+	}()
+
+	output := captureStdout(func() {
+		handler.OnEndWithStreamOutput(context.Background(), &callbacks.RunInfo{}, sr)
+	})
+
+	assert.Contains(t, output, "bash ls -la")
+	assert.Contains(t, output, "write test.txt")
+}
+
+func TestStreamingHandler_ContentAndToolCalls(t *testing.T) {
+	handler := StreamingHandler()
+	require.NotNil(t, handler)
+
+	sr, sw := schema.Pipe[callbacks.CallbackOutput](10)
+	go func() {
+		defer sw.Close()
+		sw.Send(&model.CallbackOutput{
+			Message: &schema.Message{Content: "Let me check that file."},
+		}, nil)
+		sw.Send(&model.CallbackOutput{
+			Message: &schema.Message{
+				ToolCalls: []schema.ToolCall{
+					{
+						Function: schema.FunctionCall{
+							Name:      "read",
+							Arguments: `{"path": "test.txt"}`,
+						},
+					},
+				},
+			},
+		}, nil)
+	}()
+
+	output := captureStdout(func() {
+		handler.OnEndWithStreamOutput(context.Background(), &callbacks.RunInfo{}, sr)
+	})
+
+	assert.True(t, strings.Contains(output, "Let me check that file."), "output should contain text content")
+	assert.True(t, strings.Contains(output, "read test.txt"), "output should contain tool call line")
+}
+
+func TestStreamingHandler_NonModelOutput(t *testing.T) {
+	handler := StreamingHandler()
+	require.NotNil(t, handler)
+
+	sr, sw := schema.Pipe[callbacks.CallbackOutput](10)
+	go func() {
+		defer sw.Close()
+		sw.Send("not a model output", nil)
+	}()
+
+	output := captureStdout(func() {
+		handler.OnEndWithStreamOutput(context.Background(), &callbacks.RunInfo{}, sr)
+	})
+
+	assert.Empty(t, output)
+}
+
+func TestStreamingHandler_EmptyContent(t *testing.T) {
+	handler := StreamingHandler()
+	require.NotNil(t, handler)
+
+	sr, sw := schema.Pipe[callbacks.CallbackOutput](10)
+	go func() {
+		defer sw.Close()
+		sw.Send(&model.CallbackOutput{
+			Message: &schema.Message{Content: ""},
+		}, nil)
+	}()
+
+	output := captureStdout(func() {
+		handler.OnEndWithStreamOutput(context.Background(), &callbacks.RunInfo{}, sr)
+	})
+
+	assert.Empty(t, output)
+}
+
+func TestStreamingHandler_NilMessage(t *testing.T) {
+	handler := StreamingHandler()
+	require.NotNil(t, handler)
+
+	sr, sw := schema.Pipe[callbacks.CallbackOutput](10)
+	go func() {
+		defer sw.Close()
+		sw.Send(&model.CallbackOutput{
+			Message: nil,
+		}, nil)
+	}()
+
+	output := captureStdout(func() {
+		handler.OnEndWithStreamOutput(context.Background(), &callbacks.RunInfo{}, sr)
+	})
+
+	assert.Empty(t, output)
 }
