@@ -37,6 +37,7 @@ picked-requirement.yaml
 
 # Secrets
 .ralph/secrets.yaml
+.ralph/auth.yaml
 
 # Temp directories
 tmp/
