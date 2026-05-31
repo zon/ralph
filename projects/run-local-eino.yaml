@@ -13,7 +13,7 @@ requirements:
         - Expose `CodingTools() []tool.BaseTool` that returns the registered instances of all three tools
         - 'Eino docs — components/tool (tool.BaseTool, tool.InvokableTool): https://pkg.go.dev/github.com/cloudwego/eino/components/tool'
         - 'Eino docs — components/tool/utils (utils.InferTool): https://pkg.go.dev/github.com/cloudwego/eino/components/tool/utils'
-      passing: false
+      passing: true
     - slug: eino-token-tracker
       description: Implement TokenTracker in internal/eino for accumulating token usage across agent calls
       items:
