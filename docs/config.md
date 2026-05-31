@@ -40,7 +40,7 @@ workflow:
     team: platform
 ```
 
-**Note:** API keys are managed by OpenCode, not Ralph. Configure them with `opencode auth`.
+**Note:** AI provider API keys are stored in `.ralph/auth.yaml` via `ralph config provider <provider>`. Run once per provider; each run syncs the full credentials file to a Kubernetes Secret in the ralph namespace.
 
 ## Review
 
@@ -103,7 +103,7 @@ Store credentials as Kubernetes Secrets for remote execution. See [Workflows](wo
 ```bash
 ralph config git        # SSH key for git operations
 ralph config github     # GitHub personal access token
-ralph config opencode   # OpenCode AI provider tokens
+ralph config provider         # AI provider API keys
 ralph config pulumi     # Pulumi access token
 ```
 

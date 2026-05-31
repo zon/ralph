@@ -23,7 +23,7 @@ To submit remotely and monitor progress in real time:
 ralph my-feature.yaml --watch
 ```
 
-Before running remotely, configure Kubernetes credentials once with `ralph config git`, `ralph config github`, and `ralph config opencode`. See [CLI reference](cli.md) for all flags and commands, and [Configuration](config.md) for workflow settings including custom images, namespaces, and environment variables.
+Before running remotely, configure Kubernetes credentials once with `ralph config git`, `ralph config github`, and `ralph config provider`. See [CLI reference](cli.md) for all flags and commands, and [Configuration](config.md) for workflow settings including custom images, namespaces, and environment variables.
 
 ### Prerequisites
 

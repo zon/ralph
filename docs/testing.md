@@ -18,7 +18,7 @@ Use table-driven tests with `t.Run()` subtests. Use `t.TempDir()` for any filesy
 
 ### Isolation
 
-Tests must not invoke any external tools or services — no `git`, `gh`, `opencode`, or any other CLI or network call. External dependencies must be abstracted behind interfaces so tests can inject simple mock implementations.
+Tests must not invoke any external tools or services — no `git`, `gh`, eino model calls, or any other CLI or network call. External dependencies must be abstracted behind interfaces so tests can inject simple mock implementations.
 
 **Pattern:** define a minimal interface for each external dependency, accept it as a parameter in the function under test, and implement a fake struct in the `_test.go` file. Use function fields so individual behaviors can be overridden per test case:
 

@@ -9,6 +9,12 @@ modules:
     description: Kong command structs that parse flags and delegate to orchestration modules.
   - path: internal/run
     description: Wires concrete adapter implementations into the run orchestration and drives local and remote execution paths.
+  - path: internal/orchestration/configprovider
+    description: Orchestrates the config provider command — prompts for API keys, merges with existing credentials, writes auth.yaml, and stores the Kubernetes Secret.
+    orchestration: true
+  - path: internal/orchestration/models
+    description: Orchestrates the models command — loads auth.yaml, queries each configured provider for available models, and prints them in provider/model-id format.
+    orchestration: true
   - path: internal/orchestration/run
     description: Orchestrates the full run command — validates inputs, resolves execution parameters (base branch, max iterations, project branch), and dispatches to Runner.RunLocal or RemoteRunner.RunRemote.
     orchestration: true
@@ -33,8 +39,8 @@ modules:
     description: Manages ralph skill lifecycle including discovery, fetching, rewriting, pruning, and installation.
   - path: internal/ai
     description: Runs AI prompts against embedded instruction templates to generate ralph artifacts.
-  - path: internal/opencode
-    description: Thin wrapper around the opencode CLI for invoking AI models.
+  - path: internal/eino
+    description: Thin wrapper around the cloudwego/eino SDK for invoking AI models.
   - path: internal/architecture
     description: Defines and persists the architecture YAML schema for module documentation and review.
   - path: internal/review
@@ -49,6 +55,10 @@ modules:
     description: Wrapper around the gh CLI for GitHub API operations and authentication.
   - path: internal/config
     description: Loads and parses the ralph configuration schema including service and instruction settings.
+  - path: internal/auth
+    description: Loads and writes the .ralph/auth.yaml file containing AI provider API keys.
+  - path: internal/prompt
+    description: Handles interactive terminal prompts for collecting user input such as API keys.
   - path: internal/webhookconfig
     description: Loads and validates the ralph-webhook service configuration and secrets.
   - path: internal/context

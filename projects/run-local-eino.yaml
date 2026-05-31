@@ -1,0 +1,73 @@
+slug: run-local-eino
+title: Replace run-local opencode integration with eino
+feature: specs/features/ralph/run-local
+maxIterations: 10
+requirements:
+    - slug: eino-coding-tools
+      description: Implement coding tool functions for the eino agent (ReadFile, WriteFile, Bash)
+      items:
+        - Create `internal/eino/tools.go`
+        - Implement a ReadFile tool that accepts a `path` string parameter and returns the file contents; register it with eino's tool framework using `utils.InferTool`
+        - Implement a WriteFile tool that accepts `path` and `content` string parameters and writes the file; register it the same way
+        - Implement a Bash tool that accepts a `command` string parameter, runs it via `exec.Command("bash", "-c", command)`, and returns combined stdout+stderr; register it the same way
+        - Expose `CodingTools() []tool.BaseTool` that returns the registered instances of all three tools
+      passing: false
+    - slug: eino-token-tracker
+      description: Implement TokenTracker in internal/eino for accumulating token usage across agent calls
+      items:
+        - Add `TokenTracker` struct to `internal/eino/eino.go` with thread-safe counters for input and output tokens
+        - Implement `Track(inputTokens, outputTokens int)` to add to the running totals
+        - Implement `PrintStats()` to log the accumulated totals using `internal/logger`
+        - Implement `NewHandler(tracker *TokenTracker) callbacks.Handler` that returns an eino callback handler which calls `tracker.Track` from `OnEnd` using `model.ConvCallbackOutput` to extract `ResponseMeta.Usage`
+      passing: false
+    - slug: eino-streaming-callback
+      description: Implement the stdout streaming callback handler for agent output
+      items:
+        - Add `StreamingHandler() callbacks.Handler` to `internal/eino/eino.go`
+        - In `OnEndWithStreamOutput`, read chunks from the stream; for each chunk call `model.ConvCallbackOutput` and write text content directly to stdout; close the stream when done
+        - When a chunk contains tool calls, write one line per tool call in the format `<tool-name> <first-argument-value>` (e.g. `read internal/eino/eino.go`)
+        - All other callback methods (`OnStart`, `OnError`, etc.) produce no output
+        - The handler must close the stream in `OnEndWithStreamOutput` to avoid goroutine leaks
+      passing: false
+    - slug: eino-run-agent
+      description: Implement RunAgent in internal/eino for agentic coding loops
+      items:
+        - Add `RunAgent(ctx context.Context, model, variant, prompt string, tracker *TokenTracker) error` to `internal/eino/eino.go`
+        - Parse the model string with `parseModel`; load the API key from auth.yaml; create the provider ChatModel
+        - Apply the variant to the ChatModel config before construction where the provider supports it (Anthropic via `Thinking.Effort`, OpenAI via `ReasoningEffort`); skip silently for providers that do not support it
+        - Register both `StreamingHandler()` and `NewHandler(tracker)` as global callback handlers for the duration of the call using `callbacks.AppendGlobalHandlers`
+        - Create an `llmagent.Agent` (or equivalent agentic runner) with `CodingTools()` and the prompt as the instruction
+        - Run the agent to completion and return any error
+      passing: false
+    - slug: ai-runagent-eino
+      description: Update ai.RunAgent and ai.RunAgentWithModel in internal/ai/ai.go to call eino.RunAgent
+      items:
+        - Remove the import of `internal/opencode` from `internal/ai/ai.go`
+        - Rewrite `RunAgent` to call `eino.RunAgent(ctx.GoContext(), resolveModel(ctx), resolveVariant(ctx), prompt, tracker)` where `tracker` is retrieved from the execution context
+        - Rewrite `RunAgentWithModel` to call `eino.RunAgent(ctx.GoContext(), model, resolveVariant(ctx), prompt, tracker)`
+        - Remove `runOpenCodeAndReadResult` and replace callers (`GenerateChangelog`, `GeneratePRSummary`, `GenerateReviewPRBody`) with `eino.Complete(ctx.GoContext(), resolveModel(ctx), prompt)` followed by writing the result to the output file directly in Go
+        - Remove `opencode.NewRingWriter` and `opencode.RunCommand` usage
+      passing: false
+    - slug: fatal-error-update
+      description: Update IsFatalError patterns in internal/ai/ai.go for eino provider responses
+      items:
+        - Update `fatalOpenCodePatterns` (rename to `fatalAIPatterns`) to include billing and quota patterns returned by Anthropic, Google, and DeepSeek APIs
+        - 'Anthropic patterns to include: "credit balance is too low", "overloaded", "rate_limit_error"'
+        - 'Google patterns to include: "RESOURCE_EXHAUSTED", "quota exceeded"'
+        - 'DeepSeek patterns to include: "insufficient balance", "rate limit"'
+        - Update the `IsFatalError` comment to remove the opencode reference
+      passing: false
+    - slug: agent-client-eino
+      description: Replace opencode.SessionCollector with eino.TokenTracker in internal/run/agent_client.go
+      items:
+        - Remove the import of `internal/opencode` from `internal/run/agent_client.go`
+        - Replace the `collector *opencode.SessionCollector` field with `tracker *eino.TokenTracker`
+        - Rewrite `NewAgentClient` to create an `eino.TokenTracker` and store it on the struct; remove the `opencode.WithSessionCollector` context injection
+        - Rewrite `PrintStats()` to call `a.tracker.PrintStats()`
+        - Thread the tracker through to all `ai.RunAgent` and `ai.RunAgentWithModel` calls by passing it via the execution context or directly; update `RunPicker`, `RunDeveloper`, `FixServiceStartup`, and `GenerateChangelog` accordingly
+      passing: false
+    - slug: version-bump
+      description: Version bump
+      items:
+        - Apply a semver minor bump to the app version
+      passing: false

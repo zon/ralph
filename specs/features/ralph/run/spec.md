@@ -71,29 +71,29 @@ Model resolution follows a two-level precedence: `--model` at the command line t
 
 ### Requirement: Model variant override
 
-The command SHALL accept `--variant` to pass a provider-specific reasoning effort hint (e.g., `high`, `max`, `minimal`) to opencode. When neither the flag nor the `variant` field in `.ralph/config.yaml` is set, the `--variant` option is omitted entirely from the opencode invocation.
+The command SHALL accept `--variant` to pass a provider-specific reasoning effort hint (e.g., `high`, `max`, `minimal`) to the eino SDK. When neither the flag nor the `variant` field in `.ralph/config.yaml` is set, variant is omitted entirely from the eino invocation.
 
 Variant resolution follows a two-level precedence: `--variant` at the command line takes priority; otherwise the top-level `variant` field in `.ralph/config.yaml` is used. When both are unset, no variant is passed.
 
-#### Scenario: `--variant` flag passes variant to opencode
+#### Scenario: `--variant` flag passes variant to eino
 
 - GIVEN the user passes `--variant high`
 - WHEN the command runs
-- THEN `--variant high` is included in the opencode invocation
+- THEN `--variant high` is included in the eino invocation
 
 #### Scenario: Config variant used when no flag is passed
 
 - GIVEN `variant: max` is set in `.ralph/config.yaml`
 - AND no `--variant` flag is passed
 - WHEN the command runs
-- THEN `--variant max` is included in the opencode invocation
+- THEN `--variant max` is included in the eino invocation
 
 #### Scenario: Variant omitted when both flag and config are unset
 
 - GIVEN `variant` is not set in `.ralph/config.yaml`
 - AND no `--variant` flag is passed
 - WHEN the command runs
-- THEN the `--variant` option is omitted from the opencode invocation
+- THEN the `--variant` option is omitted from the eino invocation
 
 #### Scenario: `--context` overrides the Kubernetes context
 

@@ -173,21 +173,47 @@ When all requirements are found to be passing — whether they were already pass
 
 ---
 
-### Requirement: Token usage and cost reporting
+### Requirement: Streaming agent output
 
-After the run completes the command SHALL print accumulated AI token usage and cost statistics to the log.
+During agent invocation the command SHALL stream the agent's output to stdout in real time via eino callbacks. Text content SHALL be written incrementally as each chunk is produced; tool calls SHALL be shown as a single readable line as they are invoked. Internal lifecycle events SHALL produce no output.
+
+#### Scenario: Text content streamed incrementally
+
+- GIVEN the agent is producing a text response
+- WHEN a content chunk arrives via the eino stream callback
+- THEN the text is written to stdout immediately
+- AND no JSON or metadata wrapping is included
+
+#### Scenario: Tool call shown in readable form
+
+- GIVEN the agent invokes a tool during coding
+- WHEN the tool call arrives in the eino stream
+- THEN a single line is written to stdout with the tool name and a brief input summary (e.g. `read projects/run-local-variant.yaml`)
+- AND raw JSON is not written to stdout
+
+#### Scenario: Non-content events suppressed
+
+- GIVEN eino emits internal lifecycle events (e.g. OnStart, OnEnd metadata)
+- WHEN the callback handler processes them
+- THEN nothing is written to stdout
+
+---
+
+### Requirement: Token usage reporting
+
+After the run completes the command SHALL print accumulated AI token usage to the log.
 
 #### Scenario: Stats printed on success
 
 - GIVEN the run completes successfully
 - WHEN execution finishes
-- THEN input tokens, output tokens, and total cost across the entire run are printed to the log
+- THEN input tokens and output tokens across the entire run are printed to the log
 
 #### Scenario: Stats printed on failure
 
 - GIVEN the run exits with an error (max iterations, blocked, fatal AI error, or any other failure)
 - WHEN execution finishes
-- THEN input tokens, output tokens, and total cost across the entire run are printed to the log before the error is surfaced
+- THEN input tokens and output tokens across the entire run are printed to the log before the error is surfaced
 
 ---
 

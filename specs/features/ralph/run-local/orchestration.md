@@ -41,7 +41,7 @@ func (r *Runner) RunLocal(proj *project.Project, cfg *config.RalphConfig) error 
 
 ### Helpers
 
-- **`r.ai.PrintStats()`** — prints accumulated input tokens, output tokens, and total cost across all opencode sessions invoked during the run; called via `defer` so it always runs regardless of outcome
+- **`r.ai.PrintStats()`** — prints accumulated input and output tokens across all eino invocations during the run; called via `defer` so it always runs regardless of outcome
 - **`r.services.RunBeforeCommands(cfg)`** — runs each `before` command from the ralph config sequentially; aborts on the first non-zero exit
 - **`r.git.SwitchToBranch(slug)`** — switches to the branch named by the project slug, creating it if it does not exist
 - **`r.iterate(proj)`** — drives the iteration loop; returns nil only when all requirements are passing, or a non-nil error when blocked, when a fatal AI error occurs, or when max iterations is reached with requirements still failing
@@ -123,7 +123,7 @@ func (r *Runner) runIteration(proj *project.Project, cfg *config.RalphConfig) er
 - **`r.git.WriteBlockedFile(err)`** — writes `blocked.md` to the repository root containing the failure reason
 - **`r.cleanup(proj)`** — normalizes trailing newlines in the project file and stages it if changed
 
-Both `RunPicker` and `RunDeveloper` resolve the variant from the execution context using two-level precedence: `--variant` at the command line takes priority; otherwise the top-level `variant` field in `.ralph/config.yaml` is used. When both are unset, `--variant` is omitted entirely from the opencode invocation (unlike model, which always has a default).
+Both `RunPicker` and `RunDeveloper` resolve the variant from the execution context using two-level precedence: `--variant` at the command line takes priority; otherwise the top-level `variant` field in `.ralph/config.yaml` is used. When both are unset, variant is omitted entirely from the eino invocation (unlike model, which always has a default).
 
 ---
 

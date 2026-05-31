@@ -66,6 +66,16 @@ ralph review
 
 ## Other Commands
 
+### ralph models
+
+```bash
+ralph models [provider]
+```
+
+Lists available AI models from providers that have API keys set in the environment, in `provider/model-id` format — one per line. Pass an optional provider name to filter the output (e.g. `ralph models anthropic`).
+
+
+
 ### ralph config git
 
 ```bash
@@ -82,13 +92,13 @@ ralph config github
 
 Prompts for a GitHub personal access token and stores it as a Kubernetes Secret. The token needs `repo` and `workflow` permissions.
 
-### ralph config opencode
+### ralph config provider
 
 ```bash
-ralph config opencode
+ralph config provider <provider>
 ```
 
-Reads `~/.local/share/opencode/auth.json` and stores it as a Kubernetes Secret with all configured AI providers.
+Prompts for the API key for the named provider (`anthropic`, `google`, or `deepseek`), writes it to `.ralph/auth.yaml`, and syncs the full credentials file to a Kubernetes Secret in the ralph namespace. Run once per provider.
 
 Use `--context` and `--namespace` to target a specific cluster:
 
