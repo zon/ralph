@@ -24,6 +24,10 @@ Read `docs/formats/specs.md` before drafting.
 
 References to files in the **target** project (e.g. `./specs/features/...`) do not need links — those paths are intentionally resolved in the project where the skill runs.
 
+## Eino Documentation
+
+**IMPORTANT**: When working with eino, read the online documentation at https://pkg.go.dev/github.com/cloudwego/eino rather than browsing the locally installed package source. The online docs provide accurate, structured API references without requiring filesystem traversal.
+
 ## Versioning
 
 When bumping the version, update **both** files together:
