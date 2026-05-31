@@ -48,7 +48,7 @@ requirements:
       description: Version bump
       items:
         - Apply a semver major bump to the app version in internal/version/VERSION and charts/ralph-webhook/Chart.yaml (appVersion field); also apply a patch bump to the chart version field in charts/ralph-webhook/Chart.yaml
-      passing: false
+      passing: true
     - slug: delete-unused-review-package
       description: |
         After removing orchestration/review, the internal/review package (loop.go, architecture.go,
