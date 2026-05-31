@@ -8,6 +8,8 @@ import (
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
+	"github.com/zon/ralph/internal/logger"
+	"github.com/zon/ralph/internal/opencode"
 	"github.com/zon/ralph/internal/project"
 	"github.com/zon/ralph/internal/services"
 )
@@ -80,6 +82,14 @@ func (a *AgentClient) FixServiceStartup(cfg *config.RalphConfig, err error) erro
 		return ai.RunAgent(a.ctx, fixPrompt)
 	}
 	return nil
+}
+
+func (a *AgentClient) PrintStats() {
+	stats, err := opencode.GetStats()
+	if err != nil {
+		return
+	}
+	logger.Infof("Input tokens: %d, Output tokens: %d, Cost: $%.4f", stats.InputTokens, stats.OutputTokens, stats.Cost)
 }
 
 func getCommitLog(ctx *context.Context, defaultBranch string) (string, error) {
