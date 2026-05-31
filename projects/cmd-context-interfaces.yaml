@@ -41,7 +41,7 @@ requirements:
         - Each interface is declared with only the methods the architecture orchestration needs; interfaces do not accept *context.Context
         - mock_test.go provides mock implementations using the withMocks pattern
         - Tests cover the architecture orchestration behavior using injected mocks
-      passing: false
+      passing: true
     - slug: thin-cmd-adapters
       description: |
         internal/cmd becomes a thin Kong adapter layer for all four refactored commands, mirroring how internal/cmd/run.go already delegates to internal/orchestration/run.
