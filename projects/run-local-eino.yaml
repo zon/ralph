@@ -35,7 +35,7 @@ requirements:
         - The handler must close the stream in `OnEndWithStreamOutput` to avoid goroutine leaks
         - 'Eino docs — callbacks (callbacks.Handler, HandlerBuilder, OnEndWithStreamOutput): https://pkg.go.dev/github.com/cloudwego/eino/callbacks'
         - 'Eino docs — components/model (model.ConvCallbackOutput, model.CallbackOutput with Content and ToolCalls): https://pkg.go.dev/github.com/cloudwego/eino/components/model'
-      passing: false
+      passing: true
     - slug: eino-run-agent
       description: Implement RunAgent in internal/eino for agentic coding loops
       items:
