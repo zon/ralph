@@ -43,7 +43,7 @@ requirements:
         - In internal/workflow/workflow.go remove the else if w.Review { ... } branch and the else if w.Architecture { ... } branch from buildMainTemplate
         - In internal/workflow/generate.go remove GenerateReviewWorkflow, GenerateArchitectureWorkflow, and GenerateArchitectureWorkflowWithGitInfo functions
         - Run go build ./... and go test ./... and confirm both pass
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump
       items:
