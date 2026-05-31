@@ -12,6 +12,8 @@ const (
 	OpenCodeSecretName = "opencode-credentials"
 	// PulumiSecretName is the name of the Kubernetes secret for Pulumi credentials
 	PulumiSecretName = "pulumi-credentials"
+	// ProviderSecretName is the name of the Kubernetes secret for provider credentials
+	ProviderSecretName = "provider-credentials"
 )
 
 // buildSecretArgs builds the kubectl create secret generic command arguments
@@ -61,4 +63,9 @@ func CreateOrUpdateSecret(ctx context.Context, name, namespace, kubeContext stri
 	}
 
 	return nil
+}
+
+// StoreProviderSecret stores provider API keys as a Kubernetes secret
+func StoreProviderSecret(ctx context.Context, kubeContext, namespace string, keys map[string]string) error {
+	return CreateOrUpdateSecret(ctx, ProviderSecretName, namespace, kubeContext, keys)
 }

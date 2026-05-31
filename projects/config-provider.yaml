@@ -10,7 +10,7 @@ requirements:
         - Implement `Load() (map[string]string, error)` — reads `.ralph/auth.yaml` as YAML into `map[string]string`; returns an empty map (not an error) if the file does not exist
         - Implement `Write(keys map[string]string) error` — marshals the map to YAML and writes it to `.ralph/auth.yaml`, creating the `.ralph/` directory if it does not exist
         - Use `gopkg.in/yaml.v3` for marshalling and unmarshalling
-      passing: false
+      passing: true
     - slug: auth-module-tests
       description: Tests for internal/auth Load and Write
       items:
@@ -18,20 +18,20 @@ requirements:
         - Test that Write then Load round-trips a map of provider keys correctly
         - Test that Write preserves keys that were not passed in the current call (they are already in the file from a prior Write)
         - Use t.TempDir() and set the working directory so .ralph/auth.yaml resolves within the temp dir
-      passing: false
+      passing: true
     - slug: prompt-module
       description: Create internal/prompt for interactive API key collection
       items:
         - Create `internal/prompt/prompt.go`
         - 'Implement `ProviderKey(provider string) (string, error)` — prints `Enter API key for <provider>: ` to stdout and reads one line from stdin'
         - Return an error if the entered value is blank
-      passing: false
+      passing: true
     - slug: k8s-provider-secret
       description: Add provider secret support to internal/k8s
       items:
         - Add `ProviderSecretName = "provider-credentials"` constant to `internal/k8s/secrets.go`
         - Add `StoreProviderSecret(ctx context.Context, kubeContext, namespace string, keys map[string]string) error` to `internal/k8s/secrets.go` — calls `CreateOrUpdateSecret` with `ProviderSecretName`, passing each provider key as a named entry in the data map
-      passing: false
+      passing: true
     - slug: configprovider-orchestration
       description: Implement the configprovider Runner orchestration
       scenarios:
@@ -91,7 +91,7 @@ requirements:
                 }
                 return r.k8s.StoreProviderSecret(ctx, kubeContext, namespace, existing)
             }
-      passing: false
+      passing: true
     - slug: configprovider-tests
       description: Tests for the configprovider Runner
       tests:
@@ -128,7 +128,7 @@ requirements:
                 assert(err).isNotNil()
                 assert(auth.written()).isEmpty()
             }
-      passing: false
+      passing: true
     - slug: config-provider-cmd
       description: Add ConfigProviderCmd to internal/cmd and wire it into ConfigCmd
       items:
@@ -137,16 +137,16 @@ requirements:
         - The `Run()` method constructs a `configprovider.Runner` with real implementations of `AuthClient` (from `internal/auth`), `PromptClient` (from `internal/prompt`), and `K8sClient` (from `internal/k8s`) and calls `runner.Run(ctx, c.Provider, kubeContext, namespace)`
         - 'Validate that `c.Provider` is one of `anthropic`, `google`, `deepseek` before calling the runner; return `fmt.Errorf("unknown provider: %s", c.Provider)` if not'
         - In `internal/cmd/cmd.go`, replace the `Opencode ConfigOpencodeCmd` field in `ConfigCmd` with a `Provider ConfigProviderCmd` field tagged with cmd and help text "Configure an AI provider API key"
-      passing: false
+      passing: true
     - slug: remove-config-opencode
       description: Delete the config opencode command and its tests
       items:
         - Delete `internal/cmd/config_opencode.go`
         - Delete `internal/cmd/config_opencode_test.go`
         - Delete the `OpenCodeSecretName` constant from `internal/k8s/secrets.go` if it is no longer referenced anywhere
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump
       items:
         - Apply a semver minor bump to the app version
-      passing: false
+      passing: true
