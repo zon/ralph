@@ -128,7 +128,7 @@ requirements:
                 assert(err).isNotNil()
                 assert(auth.written()).isEmpty()
             }
-      passing: false
+      passing: true
     - slug: config-provider-cmd
       description: Add ConfigProviderCmd to internal/cmd and wire it into ConfigCmd
       items:
