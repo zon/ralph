@@ -11,6 +11,127 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestStatsParsing(t *testing.T) {
+	output := ` Session Stats
+ Input           3.5M │
+ Output          542.0K │
+ Total Cost      $12.34 │
+`
+	stats, err := parseStatsOutput(output)
+	require.NoError(t, err)
+	assert.Equal(t, int64(3500000), stats.InputTokens)
+	assert.Equal(t, int64(542000), stats.OutputTokens)
+	assert.InDelta(t, 12.34, stats.Cost, 0.001)
+}
+
+func TestStatsParsingZeroValues(t *testing.T) {
+	output := ` Session Stats
+ Input           0 │
+ Output          0 │
+ Total Cost      $0.00 │
+`
+	stats, err := parseStatsOutput(output)
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), stats.InputTokens)
+	assert.Equal(t, int64(0), stats.OutputTokens)
+	assert.InDelta(t, 0.00, stats.Cost, 0.001)
+}
+
+func TestStatsParsingKMValues(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected int64
+	}{
+		{"1K", 1000},
+		{"1.5K", 1500},
+		{"542.0K", 542000},
+		{"1M", 1000000},
+		{"3.5M", 3500000},
+		{"10.123M", 10123000},
+		{"0K", 0},
+		{"0M", 0},
+		{"123", 123},
+		{"0.5K", 500},
+	}
+
+	for _, tt := range tests {
+		val, err := parseTokenValue(tt.input)
+		require.NoError(t, err)
+		assert.Equal(t, tt.expected, val, "input: %s", tt.input)
+	}
+}
+
+func TestGetStats(t *testing.T) {
+	tmpDir := t.TempDir()
+	scriptPath := filepath.Join(tmpDir, "fake-opencode.sh")
+
+	scriptContent := `#!/bin/bash
+echo ' Input           3.5M │'
+echo ' Output          542.0K │'
+echo ' Total Cost      $12.34 │'
+exit 0
+`
+	err := os.WriteFile(scriptPath, []byte(scriptContent), 0755)
+	require.NoError(t, err)
+
+	opencodePath := filepath.Join(tmpDir, "opencode")
+	err = os.Symlink(scriptPath, opencodePath)
+	require.NoError(t, err)
+
+	origPath := os.Getenv("PATH")
+	t.Setenv("PATH", tmpDir+":"+origPath)
+
+	stats, err := GetStats()
+	require.NoError(t, err)
+	assert.Equal(t, int64(3500000), stats.InputTokens)
+	assert.Equal(t, int64(542000), stats.OutputTokens)
+	assert.InDelta(t, 12.34, stats.Cost, 0.001)
+}
+
+func TestGetStatsError(t *testing.T) {
+	tmpDir := t.TempDir()
+	scriptPath := filepath.Join(tmpDir, "fake-opencode.sh")
+
+	scriptContent := `#!/bin/bash
+echo "err output" >&2
+exit 1
+`
+	err := os.WriteFile(scriptPath, []byte(scriptContent), 0755)
+	require.NoError(t, err)
+
+	opencodePath := filepath.Join(tmpDir, "opencode")
+	err = os.Symlink(scriptPath, opencodePath)
+	require.NoError(t, err)
+
+	origPath := os.Getenv("PATH")
+	t.Setenv("PATH", tmpDir+":"+origPath)
+
+	_, err = GetStats()
+	require.Error(t, err)
+}
+
+func TestGetStatsParseError(t *testing.T) {
+	tmpDir := t.TempDir()
+	scriptPath := filepath.Join(tmpDir, "fake-opencode.sh")
+
+	scriptContent := `#!/bin/bash
+echo 'no stats here'
+exit 0
+`
+	err := os.WriteFile(scriptPath, []byte(scriptContent), 0755)
+	require.NoError(t, err)
+
+	opencodePath := filepath.Join(tmpDir, "opencode")
+	err = os.Symlink(scriptPath, opencodePath)
+	require.NoError(t, err)
+
+	origPath := os.Getenv("PATH")
+	t.Setenv("PATH", tmpDir+":"+origPath)
+
+	_, err = GetStats()
+	require.Error(t, err)
+}
+
 func TestCaptureWriterTail(t *testing.T) {
 	tests := []struct {
 		name     string

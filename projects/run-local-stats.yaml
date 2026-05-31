@@ -39,7 +39,7 @@ requirements:
         - Parse the "Input" line for input token count, the "Output" line for output token count, and the "Total Cost" line for cost — each value appears between the last whitespace run and the trailing " │" on its line
         - Token values use K/M suffixes (e.g. 3.5M, 542.0K) — parse as float and multiply by the appropriate multiplier to produce an int64
         - Cost values are prefixed with $ — strip the prefix and parse as float64
-      passing: false
+      passing: true
     - slug: ai-client-print-stats
       description: AIClient interface exposes PrintStats and AgentClient implements it using GetStats
       items:
