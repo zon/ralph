@@ -74,7 +74,7 @@ requirements:
         - Rewrite `NewAgentClient` to create an `eino.TokenTracker` and store it on the struct; remove the `opencode.WithSessionCollector` context injection
         - Rewrite `PrintStats()` to call `a.tracker.PrintStats()`
         - Thread the tracker through to all `ai.RunAgent` and `ai.RunAgentWithModel` calls by passing it via the execution context or directly; update `RunPicker`, `RunDeveloper`, `FixServiceStartup`, and `GenerateChangelog` accordingly
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump
       items:

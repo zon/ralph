@@ -3,14 +3,14 @@ package run
 import (
 	"errors"
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/zon/ralph/internal/ai"
 	"github.com/zon/ralph/internal/context"
-	"github.com/zon/ralph/internal/opencode"
+	"github.com/zon/ralph/internal/eino"
 	orchestrationRun "github.com/zon/ralph/internal/orchestration/run"
 	"github.com/zon/ralph/internal/project"
 	"github.com/zon/ralph/internal/testutil"
@@ -101,30 +101,21 @@ func TestAgentClientImplementsInterface(t *testing.T) {
 	var _ orchestrationRun.AIClient = client
 }
 
-func TestAgentClientCollectorInitialized(t *testing.T) {
+func TestAgentClientTrackerInitialized(t *testing.T) {
 	ctx := context.NewContext()
 	client := NewAgentClient(ctx)
 
-	require.NotNil(t, client.collector)
-	require.Empty(t, client.collector.IDs())
-
-	stored := opencode.SessionCollectorFrom(client.ctx.GoContext())
-	require.Same(t, client.collector, stored)
+	require.NotNil(t, client.tracker)
 }
 
-func TestAgentClientCollectorStoredInGoContext(t *testing.T) {
+func TestAgentClientTrackerTracksAcrossCalls(t *testing.T) {
 	ctx := context.NewContext()
 	client := NewAgentClient(ctx)
 
-	client.collector.Append("sess-test")
-	ids := client.collector.IDs()
-	require.Len(t, ids, 1)
-	require.Equal(t, "sess-test", ids[0])
+	client.tracker.Track(100, 50)
+	client.tracker.Track(200, 75)
 
-	stored := opencode.SessionCollectorFrom(client.ctx.GoContext())
-	storedIDs := stored.IDs()
-	require.Len(t, storedIDs, 1)
-	require.Equal(t, "sess-test", storedIDs[0])
+	client.PrintStats()
 }
 
 func TestAgentClientPrintStatsEmpty(t *testing.T) {
@@ -134,65 +125,13 @@ func TestAgentClientPrintStatsEmpty(t *testing.T) {
 	client.PrintStats()
 }
 
-func TestAgentClientPrintStats(t *testing.T) {
-	tmpDir := t.TempDir()
-	scriptPath := filepath.Join(tmpDir, "fake-opencode.sh")
-	scriptContent := `#!/bin/bash
-if [ "$1" = "export" ]; then
-  echo '{"info":{"cost":0.001,"tokens":{"input":100,"output":200}}}'
-  exit 0
-fi
-exit 1
-`
-	err := os.WriteFile(scriptPath, []byte(scriptContent), 0755)
-	require.NoError(t, err)
-
-	opencodePath := filepath.Join(tmpDir, "opencode")
-	err = os.Symlink(scriptPath, opencodePath)
-	require.NoError(t, err)
-
-	origPath := os.Getenv("PATH")
-	t.Setenv("PATH", tmpDir+":"+origPath)
-
+func TestAgentClientPrintStatsWithTracker(t *testing.T) {
 	ctx := context.NewContext()
+	_ = ai.ContextWithTracker(ctx.GoContext(), &eino.TokenTracker{})
 	client := NewAgentClient(ctx)
 
-	client.collector.Append("sess-one")
-	client.collector.Append("sess-two")
-
-	client.PrintStats()
-}
-
-func TestAgentClientPrintStatsPartialFailure(t *testing.T) {
-	tmpDir := t.TempDir()
-	scriptPath := filepath.Join(tmpDir, "fake-opencode.sh")
-	scriptContent := `#!/bin/bash
-if [ "$1" = "export" ]; then
-  if [ "$2" = "sess-good" ]; then
-    echo '{"info":{"cost":0.002,"tokens":{"input":50,"output":75}}}'
-    exit 0
-  fi
-  echo "error: session not found" >&2
-  exit 1
-fi
-exit 1
-`
-	err := os.WriteFile(scriptPath, []byte(scriptContent), 0755)
-	require.NoError(t, err)
-
-	opencodePath := filepath.Join(tmpDir, "opencode")
-	err = os.Symlink(scriptPath, opencodePath)
-	require.NoError(t, err)
-
-	origPath := os.Getenv("PATH")
-	t.Setenv("PATH", tmpDir+":"+origPath)
-
-	ctx := context.NewContext()
-	client := NewAgentClient(ctx)
-
-	client.collector.Append("sess-bad")
-	client.collector.Append("sess-good")
-	client.collector.Append("sess-unknown")
+	client.tracker.Track(100, 200)
+	client.tracker.Track(300, 400)
 
 	client.PrintStats()
 }
