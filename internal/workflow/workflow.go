@@ -56,16 +56,8 @@ type Workflow struct {
 	MaxIterations int
 	// Model overrides the AI model from config.
 	Model string
-	// Filter is a string to filter review items by text, file, or URL.
-	Filter string
 	// Labels are the Kubernetes labels to apply to the workflow pod.
 	Labels map[string]string
-	// Review indicates this is a review workflow (runs ralph review --local in the container).
-	Review bool
-	// Architecture indicates this is an architecture workflow (runs ralph architecture --local in the container).
-	Architecture bool
-	// ArchitectureOutput is the output path for architecture.yaml when Architecture is true.
-	ArchitectureOutput string
 	// Command is the command tokens to pass to `ralph workflow --command -- <tokens>`.
 	Command []string
 }
@@ -150,36 +142,6 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 	if w.DebugBranch != "" || w.CommentBody != "" {
 		command = []string{"/bin/sh", "-c"}
 		args = []string{w.buildScript()}
-	} else if w.Review {
-		command = []string{"ralph"}
-		args = []string{
-			"workflow",
-			"--review",
-			"--base", w.getEffectiveBaseBranch(),
-			w.Repo.Owner + "/" + w.Repo.Name,
-		}
-		if w.Verbose {
-			args = append(args, "--verbose")
-		}
-		if w.Model != "" {
-			args = append(args, "--model", w.Model)
-		}
-		if w.Filter != "" {
-			args = append(args, "--filter", w.Filter)
-		}
-	} else if w.Architecture {
-		command = []string{"ralph"}
-		args = []string{
-			"architecture",
-			"--local",
-			"--output", w.ArchitectureOutput,
-		}
-		if w.Verbose {
-			args = append(args, "--verbose")
-		}
-		if w.Model != "" {
-			args = append(args, "--model", w.Model)
-		}
 	} else if len(w.Command) > 0 {
 		command = []string{"ralph"}
 		args = []string{"workflow", "--command", "--"}

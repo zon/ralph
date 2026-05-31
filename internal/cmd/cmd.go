@@ -17,7 +17,6 @@ type Cmd struct {
 	Validate       ValidateCmd       `cmd:"" help:"Validate a project YAML file"`
 	List           ListCmd           `cmd:"" help:"List Argo workflows"`
 	Stop           StopCmd           `cmd:"" help:"Stop an Argo workflow"`
-	Review         ReviewCmd         `cmd:"" help:"Run AI-powered code reviews from config prompts"`
 	Pass           PassCmd            `cmd:"" help:"Mark a project requirement as passing or failing"`
 
 	version          string       `kong:"-"`
