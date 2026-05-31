@@ -91,7 +91,7 @@ requirements:
                 }
                 return r.k8s.StoreProviderSecret(ctx, kubeContext, namespace, existing)
             }
-      passing: false
+      passing: true
     - slug: configprovider-tests
       description: Tests for the configprovider Runner
       tests:
