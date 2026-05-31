@@ -57,7 +57,7 @@ requirements:
                 FixServiceStartup(cfg *config.RalphConfig, err error) error
                 PrintStats()
             }
-      passing: false
+      passing: true
     - slug: run-local-gated-stats
       description: RunLocal defers PrintStats only when running inside a workflow container
       code:

@@ -44,6 +44,7 @@ type mockAIClient struct {
 	developCalls     []*project.Project
 	changelogCalls   []*project.Project
 	fixServiceCalled bool
+	statsPrinted     bool
 }
 
 func (m *mockAIClient) RunPicker(proj *project.Project) (string, error) {
@@ -75,6 +76,10 @@ func (m *mockAIClient) GenerateChangelog(proj *project.Project) error {
 		return m.changelogFunc()
 	}
 	return nil
+}
+
+func (m *mockAIClient) PrintStats() {
+	m.statsPrinted = true
 }
 
 func (m *mockAIClient) FixServiceStartup(cfg *config.RalphConfig, err error) error {

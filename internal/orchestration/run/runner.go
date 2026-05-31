@@ -20,6 +20,7 @@ type AIClient interface {
 	IsFatal(err error) bool
 	GenerateChangelog(proj *project.Project) error
 	FixServiceStartup(cfg *config.RalphConfig, err error) error
+	PrintStats()
 }
 
 type EnvClient interface {

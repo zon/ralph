@@ -98,3 +98,8 @@ func TestAgentClientImplementsInterface(t *testing.T) {
 	require.NotNil(t, client)
 	var _ orchestrationRun.AIClient = client
 }
+
+func TestAgentClientPrintStatsDoesNotPanicOnError(t *testing.T) {
+	client := NewAgentClient(context.NewContext())
+	require.NotPanics(t, func() { client.PrintStats() })
+}
