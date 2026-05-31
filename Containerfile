@@ -77,6 +77,11 @@ RUN curl -fsSL "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz" | t
 
 # Note: Playwright and all browsers are pre-installed in the base image
 
+# Configure OpenCode to allow reading any path without prompting
+RUN mkdir -p /root/.config/opencode && \
+    printf '{\n  "$schema": "https://opencode.ai/config.json",\n  "permission": {\n    "read": "allow",\n    "glob": "allow",\n    "list": "allow",\n    "grep": "allow",\n    "external_directory": "allow"\n  }\n}\n' \
+    > /root/.config/opencode/opencode.json
+
 # Copy ralph binary from builder
 COPY --from=builder /build/ralph /usr/local/bin/ralph
 
