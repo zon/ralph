@@ -21,6 +21,10 @@ type Runner struct {
 	k8s    K8sClient
 }
 
+func New(prompt PromptClient, auth AuthClient, k8s K8sClient) *Runner {
+	return &Runner{prompt: prompt, auth: auth, k8s: k8s}
+}
+
 func (r *Runner) Run(ctx context.Context, provider, kubeContext, namespace string) error {
 	key, err := r.prompt.ProviderKey(provider)
 	if err != nil {

@@ -137,7 +137,7 @@ requirements:
         - The `Run()` method constructs a `configprovider.Runner` with real implementations of `AuthClient` (from `internal/auth`), `PromptClient` (from `internal/prompt`), and `K8sClient` (from `internal/k8s`) and calls `runner.Run(ctx, c.Provider, kubeContext, namespace)`
         - 'Validate that `c.Provider` is one of `anthropic`, `google`, `deepseek` before calling the runner; return `fmt.Errorf("unknown provider: %s", c.Provider)` if not'
         - In `internal/cmd/cmd.go`, replace the `Opencode ConfigOpencodeCmd` field in `ConfigCmd` with a `Provider ConfigProviderCmd` field tagged with cmd and help text "Configure an AI provider API key"
-      passing: false
+      passing: true
     - slug: remove-config-opencode
       description: Delete the config opencode command and its tests
       items:
