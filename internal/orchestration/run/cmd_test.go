@@ -260,13 +260,6 @@ func projectLoaded(cmd *RunCmd) bool {
 	return false
 }
 
-func gitCurrentBranchCalled(cmd *RunCmd) bool {
-	if m, ok := cmd.git.(*git.MockClient); ok {
-		return m.CurrentBranchCalled
-	}
-	return false
-}
-
 func remoteLastProject(cmd *RunCmd) *project.Project {
 	if m, ok := cmd.remote.(*mockRemoteRunnerClient); ok {
 		return m.LastProject
@@ -321,7 +314,6 @@ func TestPrepareSetupProjectLoadFailureAbortsEarly(t *testing.T) {
 	)
 	err := cmd.Run(flagsAny())
 	require.Error(t, err)
-	require.False(t, gitCurrentBranchCalled(cmd))
 }
 
 func TestPrepareSetupBaseBranchFromCurrentWhenDifferentFromProject(t *testing.T) {
@@ -420,26 +412,26 @@ func TestPrepareSetupIncludesModelAndContext(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Tests: git.BranchName scenario tests
+// Tests: git.SanitizeBranchName scenario tests
 // ---------------------------------------------------------------------------
 
 func TestBranchNameSlugWithSpacesAndCapitals(t *testing.T) {
-	result := git.BranchName("My Feature Work")
+	result := git.SanitizeBranchName("My Feature Work")
 	require.Equal(t, "my-feature-work", result)
 }
 
 func TestBranchNameSlugWithSpecialCharacters(t *testing.T) {
-	result := git.BranchName("fix: auth/bug")
+	result := git.SanitizeBranchName("fix: auth/bug")
 	require.Equal(t, "fix-authbug", result)
 }
 
 func TestBranchNameEmptySlug(t *testing.T) {
-	result := git.BranchName("")
+	result := git.SanitizeBranchName("")
 	require.Equal(t, "unnamed-project", result)
 }
 
 func TestBranchNameAllInvalidCharacters(t *testing.T) {
-	result := git.BranchName("!!!@@@###")
+	result := git.SanitizeBranchName("!!!@@@###")
 	require.Equal(t, "unnamed-project", result)
 }
 

@@ -7,20 +7,6 @@ import (
 	"strings"
 )
 
-// deleteFile removes a file from the filesystem and stages the deletion
-func deleteFile(filePath string) error {
-	if err := os.Remove(filePath); err != nil {
-		return fmt.Errorf("failed to delete file '%s': %w", filePath, err)
-	}
-
-	_, err := runGit("rm", filePath)
-	if err != nil {
-		return fmt.Errorf("failed to stage deletion of '%s': %w", filePath, err)
-	}
-
-	return nil
-}
-
 // DetectModifiedProjectFile finds the first modified or new YAML file in the projects directory.
 // Returns the absolute path to the modified project file, or empty string if none found.
 func DetectModifiedProjectFile(projectsDir string) (string, error) {

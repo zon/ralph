@@ -117,7 +117,7 @@ func (r *RunCmd) prepareSetup(flags RunFlags) (ExecutionSetup, error) {
 	if err != nil {
 		return ExecutionSetup{}, err
 	}
-	projectBranch := git.BranchName(proj.Slug)
+	projectBranch := git.SanitizeBranchName(proj.Slug)
 	return ExecutionSetup{
 		Project:       proj,
 		Config:        cfg,

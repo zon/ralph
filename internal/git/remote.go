@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os/exec"
 	"strings"
 
 	"github.com/zon/ralph/internal/logger"
@@ -151,10 +150,13 @@ func PullAndPush(isWorkflow bool, owner, repo string) error {
 }
 
 func FetchBranch(branch string) error {
-	cmd := exec.Command("git", "fetch", "origin", branch+":"+branch)
-	if err := cmd.Run(); err != nil {
+	_, err := runGit("fetch", "origin", branch+":"+branch)
+	if err != nil {
 		logger.Infof("Fetch with refspec failed, falling back to plain fetch: %v", err)
-		return exec.Command("git", "fetch", "origin", branch).Run()
+		_, err = runGit("fetch", "origin", branch)
+		if err != nil {
+			return fmt.Errorf("failed to fetch branch %s: %w", branch, err)
+		}
 	}
 	return nil
 }

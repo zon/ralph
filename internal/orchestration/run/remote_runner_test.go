@@ -1,6 +1,7 @@
 package run
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -12,7 +13,11 @@ import (
 
 func TestRunRemoteBranchNotPushed(t *testing.T) {
 	runner := withRemoteMocks(
-		withRemoteGit(git.ThatReportsBranchNotPushed()),
+		withRemoteGit(&git.MockClient{
+			IsBranchSyncedWithRemoteFunc: func(branch string) error {
+				return fmt.Errorf("branch '%s' has not been pushed to remote - please push before running remotely", branch)
+			},
+		}),
 	)
 	err := runner.RunRemote(project.Any(), false)
 	require.Error(t, err)
@@ -21,7 +26,11 @@ func TestRunRemoteBranchNotPushed(t *testing.T) {
 
 func TestRunRemoteBranchNotInSync(t *testing.T) {
 	runner := withRemoteMocks(
-		withRemoteGit(git.ThatReportsBranchNotInSync()),
+		withRemoteGit(&git.MockClient{
+			IsBranchSyncedWithRemoteFunc: func(branch string) error {
+				return fmt.Errorf("branch '%s' is not in sync with remote - please push your changes before running remotely", branch)
+			},
+		}),
 	)
 	err := runner.RunRemote(project.Any(), false)
 	require.Error(t, err)

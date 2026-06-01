@@ -169,9 +169,7 @@ func TestRemoteURL(t *testing.T) {
 
 	t.Run("returns error when no remote origin", func(t *testing.T) {
 		tempDir := t.TempDir()
-		origDir, _ := os.Getwd()
-		defer os.Chdir(origDir)
-		os.Chdir(tempDir)
+		t.Chdir(tempDir)
 
 		cmd := exec.Command("git", "init")
 		require.NoError(t, cmd.Run())
@@ -221,5 +219,14 @@ func TestFetchBranch(t *testing.T) {
 		refs, err := runGit("rev-parse", "--verify", branchName)
 		require.NoError(t, err)
 		assert.NotEmpty(t, refs)
+	})
+
+	t.Run("returns error when fallback fetch also fails", func(t *testing.T) {
+		workDir, _ := setupBareRemoteRepo(t)
+		t.Chdir(workDir)
+
+		err := FetchBranch("nonexistent-branch")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to fetch branch")
 	})
 }

@@ -51,11 +51,6 @@ func isDetachedHead() (bool, error) {
 	return err != nil, nil
 }
 
-// RepoRoot returns the absolute root directory of the git repository containing the current working directory.
-func RepoRoot() (string, error) {
-	return FindRepoRoot()
-}
-
 // RepoRootOrCwd returns the root directory of the git repository containing the current working directory,
 // or the current working directory if not inside a git repository.
 func RepoRootOrCwd() string {
