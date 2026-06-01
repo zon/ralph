@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-func RegisterWebhook(ctx context.Context, owner, repo, webhookURL, secret string) error {
+func (g *GH) RegisterWebhook(ctx context.Context, owner, repo, webhookURL, secret string) error {
 	listCmd := exec.CommandContext(ctx, "gh", "api",
 		fmt.Sprintf("repos/%s/%s/hooks", owner, repo),
 		"--jq", fmt.Sprintf(`.[] | select(.config.url | contains("%s")) | .id`, webhookURL),

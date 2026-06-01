@@ -25,7 +25,7 @@ requirements:
         - Return a wrapped error on non-zero exit for each operation that includes owner, repo, and stderr
         - Add `RegisterWebhookFn func(ctx context.Context, owner, repo, webhookURL, secret string) error` to `MockGH` in `internal/github/client_mock.go` and implement the `RegisterWebhook` method using the same nil-safe function-field pattern
         - Remove any package-level `RegisterWebhook` function; remove stub-binary tests and replace them with mock-based tests in `webhook_test.go` using `MockGH`
-      passing: false
+      passing: true
     - slug: use-github-module-in-provisioning
       description: Wire GHClient into provisioning functions and replace function-based collaborator fetching with interface-based calls
       items:
