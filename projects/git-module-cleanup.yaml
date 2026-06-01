@@ -47,7 +47,7 @@ requirements:
         - Update internal/cmd/execute.go to call git.SanitizeBranchName() directly
         - Update internal/cmd/workflow_client.go to call git.SanitizeBranchName() directly
         - Update internal/github/client.go to call git.SanitizeBranchName() directly
-      passing: false
+      passing: true
     - slug: fix-fetch-branch
       description: FetchBranch bypasses runGit and silently discards errors on the fallback path
       items:

@@ -76,7 +76,7 @@ func (r *RunCmd) prepareSetup(flags RunFlags) (ExecutionSetup, error) {
     if err != nil {
         return ExecutionSetup{}, err
     }
-    projectBranch := git.BranchName(proj.Slug)
+    projectBranch := git.SanitizeBranchName(proj.Slug)
     return ExecutionSetup{
         Project:       proj,
         Config:        cfg,
@@ -93,7 +93,7 @@ func (r *RunCmd) prepareSetup(flags RunFlags) (ExecutionSetup, error) {
 - **`r.config.Load()`** — loads `.ralph/config.yaml` from the working directory
 - **`r.project.Load(path)`** — reads and parses the project YAML file at `path`
 - **`r.git.CurrentBranch()`** — returns the name of the currently checked-out git branch
-- **`git.BranchName(slug)`** — derives the project branch name from the slug: lowercased, spaces/underscores/dots become hyphens, non-alphanumeric characters stripped, consecutive and leading/trailing hyphens collapsed; empty result becomes `unnamed-project`
+- **`git.SanitizeBranchName(slug)`** — derives the project branch name from the slug: lowercased, spaces/underscores/dots become hyphens, non-alphanumeric characters stripped, consecutive and leading/trailing hyphens collapsed; empty result becomes `unnamed-project`
 - **`resolveBaseBranch(base, current, project, default)`** — returns `base` when non-empty; returns `current` when it differs from `project`; otherwise returns `default`
 - **`resolveMaxIterations(cfgMax, flagMax)`** — returns `flagMax` when non-zero; otherwise returns `cfgMax`
 

@@ -420,26 +420,26 @@ func TestPrepareSetupIncludesModelAndContext(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Tests: git.BranchName scenario tests
+// Tests: git.SanitizeBranchName scenario tests
 // ---------------------------------------------------------------------------
 
 func TestBranchNameSlugWithSpacesAndCapitals(t *testing.T) {
-	result := git.BranchName("My Feature Work")
+	result := git.SanitizeBranchName("My Feature Work")
 	require.Equal(t, "my-feature-work", result)
 }
 
 func TestBranchNameSlugWithSpecialCharacters(t *testing.T) {
-	result := git.BranchName("fix: auth/bug")
+	result := git.SanitizeBranchName("fix: auth/bug")
 	require.Equal(t, "fix-authbug", result)
 }
 
 func TestBranchNameEmptySlug(t *testing.T) {
-	result := git.BranchName("")
+	result := git.SanitizeBranchName("")
 	require.Equal(t, "unnamed-project", result)
 }
 
 func TestBranchNameAllInvalidCharacters(t *testing.T) {
-	result := git.BranchName("!!!@@@###")
+	result := git.SanitizeBranchName("!!!@@@###")
 	require.Equal(t, "unnamed-project", result)
 }
 
