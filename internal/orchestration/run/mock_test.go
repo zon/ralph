@@ -387,7 +387,7 @@ func gitCommittedFromReport(r *Runner) bool {
 
 func githubPRCreated(r *Runner) bool {
 	if m, ok := r.github.(*github.MockClient); ok {
-		return m.CreatePRCalled && m.CreatePRReturnedNil
+		return m.CreatePRFunc != nil
 	}
 	return false
 }

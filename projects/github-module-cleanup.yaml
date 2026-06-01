@@ -19,7 +19,7 @@ requirements:
         - Add MockGH to client_mock.go implementing GHClient with one function field per method (IsReadyFn, FindExistingPRFn, CreatePRFn, GetPRHeadRefOidFn, MergePRFn); each method returns a zero-value default when its function field is nil
         - Remove CreatePRCalled and CreatePRReturnedNil from MockClient; keep only CreatePRFunc
         - Update any tests in other packages that referenced CreatePRCalled or CreatePRReturnedNil to assert through other means
-      passing: false
+      passing: true
     - slug: extract-workflow-context
       description: Move the IsWorkflowExecution auth-refresh decision out of pr.go into Client.CreatePR
       items:
