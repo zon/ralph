@@ -22,7 +22,7 @@ requirements:
         - Pass the JSON payload via stdin using `cmd.Stdin`
         - Return a wrapped error on non-zero exit for each operation that includes owner, repo, and stderr
         - Write a test that stubs the gh binary and verifies create and update paths
-      passing: false
+      passing: true
     - slug: use-github-module-in-provisioning
       description: Replace direct gh CLI calls in internal/provisioning/webhook.go with internal/github functions
       items:
