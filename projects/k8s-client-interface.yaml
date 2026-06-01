@@ -23,7 +23,7 @@ requirements:
       items:
         - Add a k8s.Client parameter to WriteWebhookConfigMap, WriteWebhookSecrets, and GetKubeContext in internal/provisioning/webhook.go
         - Each function must call the corresponding method on the client parameter instead of the now-deleted k8s free function
-      passing: false
+      passing: true
     - slug: fix-cmd-callers
       description: Update internal/cmd to construct k8s.NewClient() and thread it through to provisioning and direct k8s calls
       items:

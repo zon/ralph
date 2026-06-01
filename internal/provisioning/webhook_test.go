@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zon/ralph/internal/config"
+	"github.com/zon/ralph/internal/k8s"
 	"github.com/zon/ralph/internal/webhookconfig"
 	"gopkg.in/yaml.v3"
 )
@@ -293,6 +294,109 @@ func TestBuildWebhookSecrets(t *testing.T) {
 		assert.Equal(t, "myowner", roundTripped.Repos[0].Owner)
 		assert.Equal(t, "myrepo", roundTripped.Repos[0].Name)
 		assert.Equal(t, "test-secret-1", roundTripped.Repos[0].WebhookSecret)
+	})
+}
+
+func TestGetKubeContext(t *testing.T) {
+	t.Run("returns contextOverride when non-empty", func(t *testing.T) {
+		client := &k8s.MockClient{}
+		result, err := GetKubeContext(context.Background(), client, "my-cluster")
+		require.NoError(t, err)
+		assert.Equal(t, "my-cluster", result)
+	})
+
+	t.Run("calls client.GetCurrentContext when contextOverride is empty", func(t *testing.T) {
+		client := &k8s.MockClient{
+			GetCurrentContextFunc: func(ctx context.Context) (k8s.Context, error) {
+				return k8s.Context{Name: "current-cluster"}, nil
+			},
+		}
+		result, err := GetKubeContext(context.Background(), client, "")
+		require.NoError(t, err)
+		assert.Equal(t, "current-cluster", result)
+	})
+
+	t.Run("propagates error from client.GetCurrentContext", func(t *testing.T) {
+		client := &k8s.MockClient{
+			GetCurrentContextFunc: func(ctx context.Context) (k8s.Context, error) {
+				return k8s.Context{}, fmt.Errorf("kubeconfig not found")
+			},
+		}
+		_, err := GetKubeContext(context.Background(), client, "")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "kubeconfig not found")
+	})
+}
+
+func TestWriteWebhookConfigMap(t *testing.T) {
+	t.Run("calls client.CreateOrUpdateConfigMap with serialized config", func(t *testing.T) {
+		var capturedName, capturedNamespace, capturedKubeContext string
+		var capturedData map[string]string
+		client := &k8s.MockClient{
+			CreateOrUpdateConfigMapFunc: func(ctx context.Context, name, namespace, kubeContext string, data map[string]string) error {
+				capturedName = name
+				capturedNamespace = namespace
+				capturedKubeContext = kubeContext
+				capturedData = data
+				return nil
+			},
+		}
+		appCfg := webhookconfig.AppConfig{Port: 8080}
+		err := WriteWebhookConfigMap(context.Background(), client, "my-ctx", "my-ns", appCfg)
+		require.NoError(t, err)
+		assert.Equal(t, WebhookConfigMapName, capturedName)
+		assert.Equal(t, "my-ns", capturedNamespace)
+		assert.Equal(t, "my-ctx", capturedKubeContext)
+		assert.Contains(t, capturedData["config.yaml"], "port: 8080")
+	})
+
+	t.Run("propagates error from client.CreateOrUpdateConfigMap", func(t *testing.T) {
+		client := &k8s.MockClient{
+			CreateOrUpdateConfigMapFunc: func(ctx context.Context, name, namespace, kubeContext string, data map[string]string) error {
+				return fmt.Errorf("API error")
+			},
+		}
+		err := WriteWebhookConfigMap(context.Background(), client, "my-ctx", "my-ns", webhookconfig.AppConfig{})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "API error")
+	})
+}
+
+func TestWriteWebhookSecrets(t *testing.T) {
+	t.Run("calls client.CreateOrUpdateSecret with serialized secrets", func(t *testing.T) {
+		var capturedName, capturedNamespace, capturedKubeContext string
+		var capturedData map[string]string
+		client := &k8s.MockClient{
+			CreateOrUpdateSecretFunc: func(ctx context.Context, name, namespace, kubeContext string, data map[string]string) error {
+				capturedName = name
+				capturedNamespace = namespace
+				capturedKubeContext = kubeContext
+				capturedData = data
+				return nil
+			},
+		}
+		secrets := &webhookconfig.Secrets{
+			Repos: []webhookconfig.RepoSecret{
+				{Owner: "acme", Name: "repo-a", WebhookSecret: "s3kr3t"},
+			},
+		}
+		err := WriteWebhookSecrets(context.Background(), client, "my-ctx", "my-ns", secrets)
+		require.NoError(t, err)
+		assert.Equal(t, WebhookSecretsSecretName, capturedName)
+		assert.Equal(t, "my-ns", capturedNamespace)
+		assert.Equal(t, "my-ctx", capturedKubeContext)
+		assert.Contains(t, capturedData["secrets.yaml"], "s3kr3t")
+	})
+
+	t.Run("propagates error from client.CreateOrUpdateSecret", func(t *testing.T) {
+		client := &k8s.MockClient{
+			CreateOrUpdateSecretFunc: func(ctx context.Context, name, namespace, kubeContext string, data map[string]string) error {
+				return fmt.Errorf("API error")
+			},
+		}
+		err := WriteWebhookSecrets(context.Background(), client, "my-ctx", "my-ns", &webhookconfig.Secrets{})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "API error")
 	})
 }
 
