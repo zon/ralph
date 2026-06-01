@@ -8,7 +8,7 @@ requirements:
         - Remove TestNotifyClientError_WithNotificationsEnabled from internal/notify/client_test.go
         - Remove TestNotifyClientSuccess_WithNotificationsEnabled from internal/notify/client_test.go
         - The remaining tests in client_test.go (TestNotifyClientNew, TestNotifyClientShouldNotifyFromContext, TestNotifyClientImplementsInterface, TestNotifyClientError_WithNotificationsDisabled, TestNotifyClientSuccess_WithNotificationsDisabled) must be preserved unchanged
-      passing: false
+      passing: true
     - slug: mock-client-tests
       description: Add tests for MockClient that verify its behavior without OS side effects
       items:
