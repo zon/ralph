@@ -11,6 +11,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestOCClientInterface(t *testing.T) {
+	var _ OCClient = (*Client)(nil)
+}
+
+func TestNewClient(t *testing.T) {
+	c := New()
+	require.NotNil(t, c)
+	var _ OCClient = c
+}
+
 func TestStatsParsing(t *testing.T) {
 	output := ` Session Stats
  Input           3.5M │
@@ -81,7 +91,8 @@ exit 0
 	origPath := os.Getenv("PATH")
 	t.Setenv("PATH", tmpDir+":"+origPath)
 
-	stats, err := GetStats()
+	client := New()
+	stats, err := client.GetStats()
 	require.NoError(t, err)
 	assert.Equal(t, int64(3500000), stats.InputTokens)
 	assert.Equal(t, int64(542000), stats.OutputTokens)
@@ -106,7 +117,8 @@ exit 1
 	origPath := os.Getenv("PATH")
 	t.Setenv("PATH", tmpDir+":"+origPath)
 
-	_, err = GetStats()
+	client := New()
+	_, err = client.GetStats()
 	require.Error(t, err)
 }
 
@@ -128,7 +140,8 @@ exit 0
 	origPath := os.Getenv("PATH")
 	t.Setenv("PATH", tmpDir+":"+origPath)
 
-	_, err = GetStats()
+	client := New()
+	_, err = client.GetStats()
 	require.Error(t, err)
 }
 
@@ -167,7 +180,7 @@ func TestCaptureWriterTail(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cw := &RingWriter{n: 10, lines: tt.lines, buf: tt.buf}
+			cw := &ringWriter{n: 10, lines: tt.lines, buf: tt.buf}
 			result := cw.Tail()
 			assert.Equal(t, tt.expected, result)
 		})
@@ -193,7 +206,8 @@ exit 0
 	origPath := os.Getenv("PATH")
 	t.Setenv("PATH", tmpDir+":"+origPath)
 
-	err = DisplayStats()
+	client := New()
+	err = client.DisplayStats()
 	require.NoError(t, err)
 }
 
@@ -216,7 +230,8 @@ exit 0
 	t.Setenv("PATH", tmpDir+":"+origPath)
 
 	var stdout, stderr bytes.Buffer
-	err = RunCommand(context.Background(), "test-model", "", "test-prompt", &stdout, &stderr)
+	client := New()
+	err = client.RunCommand(context.Background(), "test-model", "", "test-prompt", &stdout, &stderr)
 	require.NoError(t, err)
 	assert.Contains(t, stdout.String(), "run output: run --model test-model test-prompt")
 }
@@ -240,7 +255,8 @@ exit 1
 	t.Setenv("PATH", tmpDir+":"+origPath)
 
 	var stdout, stderr bytes.Buffer
-	err = RunCommand(context.Background(), "test-model", "", "test-prompt", &stdout, &stderr)
+	client := New()
+	err = client.RunCommand(context.Background(), "test-model", "", "test-prompt", &stdout, &stderr)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "opencode command failed")
 }

@@ -11,37 +11,61 @@ import (
 	"strings"
 )
 
-func runOpenCodeCommand(ctx context.Context, args []string, stdoutWriter, stderrWriter io.Writer) error {
+type OCClient interface {
+	RunCommand(ctx context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error
+	RunAgent(ctx context.Context, model, variant, prompt string) error
+	GetStats() (Stats, error)
+	DisplayStats() error
+}
+
+type Client struct{}
+
+func New() *Client {
+	return &Client{}
+}
+
+func execOpenCode(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	cmd := exec.CommandContext(ctx, "opencode", args...)
 	cmd.Env = append(os.Environ(), "FORCE_COLOR=1")
-
-	if stdoutWriter != nil {
-		cmd.Stdout = stdoutWriter
-	} else {
-		cmd.Stdout = os.Stdout
-	}
-	if stderrWriter != nil {
-		cmd.Stderr = stderrWriter
-	} else {
-		cmd.Stderr = os.Stderr
-	}
-
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("opencode command failed: %w", err)
 	}
 	return nil
 }
 
-func RunCommand(ctx context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+func (c *Client) RunCommand(ctx context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
 	args := []string{"run", "--model", model}
 	if variant != "" {
 		args = append(args, "--variant", variant)
 	}
 	args = append(args, prompt)
-	return runOpenCodeCommand(ctx, args, stdoutWriter, stderrWriter)
+	if stdoutWriter == nil {
+		stdoutWriter = os.Stdout
+	}
+	if stderrWriter == nil {
+		stderrWriter = os.Stderr
+	}
+	return execOpenCode(ctx, args, stdoutWriter, stderrWriter)
+}
+
+func (c *Client) RunAgent(ctx context.Context, model, variant, prompt string) error {
+	args := []string{"run", "--model", model}
+	if variant != "" {
+		args = append(args, "--variant", variant)
+	}
+	args = append(args, prompt)
+	ring := &ringWriter{n: 10}
+	stdout := io.MultiWriter(os.Stdout, ring)
+	stderr := io.MultiWriter(os.Stderr, ring)
+	if err := execOpenCode(ctx, args, stdout, stderr); err != nil {
+		return fmt.Errorf("opencode execution failed: %w\n\nLast 10 lines of output:\n%s", err, ring.Tail())
+	}
+	return nil
 }
 
 type Stats struct {
@@ -50,13 +74,17 @@ type Stats struct {
 	Cost         float64
 }
 
-func GetStats() (Stats, error) {
+func (c *Client) GetStats() (Stats, error) {
 	var stdout bytes.Buffer
-	err := runOpenCodeCommand(context.Background(), []string{"stats"}, &stdout, io.Discard)
+	err := execOpenCode(context.Background(), []string{"stats"}, &stdout, io.Discard)
 	if err != nil {
 		return Stats{}, err
 	}
 	return parseStatsOutput(stdout.String())
+}
+
+func (c *Client) DisplayStats() error {
+	return execOpenCode(context.Background(), []string{"stats"}, os.Stdout, os.Stderr)
 }
 
 func parseStatsOutput(output string) (Stats, error) {
@@ -151,32 +179,13 @@ func parseCostValue(s string) (float64, error) {
 	return strconv.ParseFloat(s, 64)
 }
 
-func DisplayStats() error {
-	return runOpenCodeCommand(context.Background(), []string{"stats"}, os.Stdout, os.Stderr)
-}
-
-func runOpenCodeCommandWithRing(ctx context.Context, args []string, ring *RingWriter) error {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	cmd := exec.CommandContext(ctx, "opencode", args...)
-	cmd.Env = append(os.Environ(), "FORCE_COLOR=1")
-	cmd.Stdout = io.MultiWriter(os.Stdout, ring)
-	cmd.Stderr = io.MultiWriter(os.Stderr, ring)
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("opencode execution failed: %w\n\nLast 10 lines of output:\n%s", err, ring.Tail())
-	}
-	return nil
-}
-
-type RingWriter struct {
+type ringWriter struct {
 	n     int
 	lines []string
 	buf   string
 }
 
-func (r *RingWriter) Write(p []byte) (int, error) {
+func (r *ringWriter) Write(p []byte) (int, error) {
 	s := r.buf + string(p)
 	parts := strings.Split(s, "\n")
 	r.buf = parts[len(parts)-1]
@@ -189,23 +198,10 @@ func (r *RingWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func (r *RingWriter) Tail() string {
+func (r *ringWriter) Tail() string {
 	lines := r.lines
 	if r.buf != "" {
 		lines = append(lines, r.buf)
 	}
 	return strings.Join(lines, "\n")
-}
-
-func NewRingWriter(n int) *RingWriter {
-	return &RingWriter{n: n}
-}
-
-func RunAgentWithRing(ctx context.Context, model, variant, prompt string, ring *RingWriter) error {
-	args := []string{"run", "--model", model}
-	if variant != "" {
-		args = append(args, "--variant", variant)
-	}
-	args = append(args, prompt)
-	return runOpenCodeCommandWithRing(ctx, args, ring)
 }

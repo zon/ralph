@@ -11,7 +11,7 @@ requirements:
         - A single private exec function handles CLI invocation; all public methods delegate to it
         - RingWriter creation is internal to the RunAgent method — the ring is not part of any exported type or function signature
         - RingWriter, NewRingWriter, and RunAgentWithRing are removed from the exported API; ring buffering is an internal implementation detail of RunAgent
-      passing: false
+      passing: true
     - slug: oc-mock
       description: internal/opencode provides an exported MockOC in opencode_mock.go that satisfies OCClient
       items:
