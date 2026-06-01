@@ -169,9 +169,7 @@ func TestRemoteURL(t *testing.T) {
 
 	t.Run("returns error when no remote origin", func(t *testing.T) {
 		tempDir := t.TempDir()
-		origDir, _ := os.Getwd()
-		defer os.Chdir(origDir)
-		os.Chdir(tempDir)
+		t.Chdir(tempDir)
 
 		cmd := exec.Command("git", "init")
 		require.NoError(t, cmd.Run())

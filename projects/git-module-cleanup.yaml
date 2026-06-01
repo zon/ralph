@@ -60,7 +60,7 @@ requirements:
       items:
         - Replace the manual origDir/defer os.Chdir pattern in TestRemoteURL/"returns error when no remote origin" (internal/git/remote_test.go) with t.Chdir
         - Replace the four manual origWd/defer os.Chdir patterns in internal/git/repo_test.go (TestRepoRoot and TestRepoRootOrCwd subtests) with t.Chdir — note this requirement depends on remove-repo-root-duplicate; if TestRepoRoot is deleted, only fix TestRepoRootOrCwd
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump for internal cleanup
       items:

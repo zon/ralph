@@ -1,7 +1,6 @@
 package git
 
 import (
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -10,9 +9,7 @@ import (
 func TestRepoRootOrCwd(t *testing.T) {
 	t.Run("returns repo root when inside a git repo", func(t *testing.T) {
 		tempDir := setupTestRepo(t)
-		origWd, _ := os.Getwd()
-		t.Cleanup(func() { os.Chdir(origWd) })
-		os.Chdir(tempDir)
+		t.Chdir(tempDir)
 
 		root := RepoRootOrCwd()
 		require.Equal(t, tempDir, root)
@@ -20,12 +17,9 @@ func TestRepoRootOrCwd(t *testing.T) {
 
 	t.Run("returns cwd when not inside a git repo", func(t *testing.T) {
 		tempDir := t.TempDir()
-		origWd, _ := os.Getwd()
-		t.Cleanup(func() { os.Chdir(origWd) })
-		os.Chdir(tempDir)
+		t.Chdir(tempDir)
 
-		cwd, _ := os.Getwd()
 		root := RepoRootOrCwd()
-		require.Equal(t, cwd, root)
+		require.Equal(t, tempDir, root)
 	})
 }
