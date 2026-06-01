@@ -18,7 +18,7 @@ requirements:
         - Rename ExtractWorkflowName to extractWorkflowName (unexported) since it is only called within the package
         - Update the call site inside client.SubmitYAML to use extractWorkflowName
         - Update argo_test.go to call extractWorkflowName directly (the test is in package argo so it can access unexported identifiers)
-      passing: false
+      passing: true
     - slug: client-mock
       description: Create client_mock.go with a MockClient implementing the Client interface
       items:

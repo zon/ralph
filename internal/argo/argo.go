@@ -105,28 +105,6 @@ func (c *client) SubmitYAML(ctx context.Context, workflowYAML string, kubeCtx K8
 	return workflowName, nil
 }
 
-func ListWorkflows(ctx K8sContext) error {
-	return new(client).ListWorkflows(ctx)
-}
-
-func StopWorkflow(ctx K8sContext, workflowName string) error {
-	return new(client).StopWorkflow(ctx, workflowName)
-}
-
-func FollowLogs(namespace, workflowName, kubeContext string) error {
-	return new(client).FollowLogs(K8sContext{
-		Name:      kubeContext,
-		Namespace: namespace,
-	}, workflowName)
-}
-
-func SubmitYAML(workflowYAML string, workflowContext string, namespace string) (string, error) {
-	return new(client).SubmitYAML(context.Background(), workflowYAML, K8sContext{
-		Name:      workflowContext,
-		Namespace: namespace,
-	})
-}
-
 func extractWorkflowName(output string) string {
 	lines := strings.Split(output, "\n")
 	for _, line := range lines {
