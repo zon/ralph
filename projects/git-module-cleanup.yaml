@@ -37,7 +37,7 @@ requirements:
         - Update internal/project/project.go to call git.FindRepoRoot() directly
         - Update internal/workflow/generate.go to call git.FindRepoRoot() directly
         - Delete TestRepoRoot from internal/git/reporoot_test.go (the file may be removed entirely if it has no remaining tests)
-      passing: false
+      passing: true
     - slug: remove-branch-name-alias
       description: BranchName() is a one-liner alias for SanitizeBranchName() with no added value
       items:
