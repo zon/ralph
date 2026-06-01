@@ -26,12 +26,9 @@ modules:
   - path: cmd/ralph-webhook
     description: Service entrypoint that loads configuration and starts the webhook HTTP server.
     category: entry
-  - path: internal/run
-    description: Wires concrete adapter implementations into the run orchestration and drives local and remote execution paths.
-    category: entry
   - path: internal/cmd
-    description: Command structs that parse flags and delegate to orchestration modules.
-    category: implementation
+    description: Command structs that parse flags, wire concrete adapter implementations into the run orchestration, and drive local and remote execution paths.
+    category: entry
   - path: internal/orchestration/run
     description: Orchestrates the full run command from input validation through local and remote execution dispatch.
     category: orchestration

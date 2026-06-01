@@ -12,7 +12,6 @@ import (
 	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/project"
-	"github.com/zon/ralph/internal/run"
 	"github.com/zon/ralph/internal/workspace"
 )
 
@@ -245,7 +244,7 @@ func (w *WorkflowCmd) prepareAndExecute(ctx *context.Context, cleanupRegistrar f
 	}
 
 	projectBranch := git.SanitizeBranchName(proj.Slug)
-	setup := &run.ExecutionSetup{
+	setup := &ExecutionSetup{
 		ProjectFile:   projectPath,
 		Project:       proj,
 		Config:        ralphConfig,
@@ -254,7 +253,7 @@ func (w *WorkflowCmd) prepareAndExecute(ctx *context.Context, cleanupRegistrar f
 		BaseBranch:    ctx.BaseBranch(),
 	}
 
-	if err := run.Execute(ctx, cleanupRegistrar, setup); err != nil {
+	if err := Execute(ctx, cleanupRegistrar, setup); err != nil {
 		return fmt.Errorf("ralph execution failed: %w", err)
 	}
 
