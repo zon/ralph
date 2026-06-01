@@ -13,37 +13,63 @@ Architecture documents live in two places:
 
 Architecture documents use YAML format with the following structure:
 
-### Fields
+### Top-level fields
 
-- **path** (required, string): The file path or directory path where the module is located or should be implemented. This should be relative to the repo root.
+- **categories** (required, list): Declares the module categories used throughout this architecture document. Each category object has the following fields:
 
-- **description** (required, string): A single short sentence stating the module's purpose and role. Do not include method names, route lists, interface names, or error types — details like these churn every time the module grows. A good description should survive multiple features being added without needing an edit.
+  - **slug** (required, string): Short identifier used as the value of `category` on each module. Must be unique within the document.
+  - **description** (required, string): One sentence describing what this category of module is for.
+  - **orchestration** (optional, boolean): Whether modules in this category are [orchestration modules](../glossary.md#orchestration-module) rather than [implementation modules](../glossary.md#implementation-module). Defaults to `false` if omitted.
+  - **signatures** (required, list of strings): The types of code resources that should be found in modules of this category (e.g. exported functions, interfaces, struct types, CLI wrappers).
 
-- **orchestration** (optional, boolean): When set to `true`, indicates this is an [orchestration module](../glossary.md#orchestration-module) rather than an [implementation module](../glossary.md#implementation-module). Defaults to `false` if omitted.
+- **modules** (required, list): The modules that make up the architecture. Each module has the following fields:
+
+  - **path** (required, string): The file path or directory path where the module is located or should be implemented. Relative to the repo root.
+  - **description** (required, string): A single short sentence stating the module's purpose and role. Do not include method names, route lists, interface names, or error types — details like these churn every time the module grows. A good description should survive multiple features being added without needing an edit.
+  - **category** (required, string): The slug of the category this module belongs to.
 
 ## Example
 
 ```yaml
-modules:
-  - path: src/services
-    description: Orchestrates multi-step business processes for orders, inventory, payments, and customer management.
+categories:
+  - slug: entry
+    description: Main package that wires adapter dependencies and starts the application.
+    signatures:
+      - main function
+      - adapter dependency wiring
+
+  - slug: orchestration
+    description: Domain logic modules that define and coordinate core business processes.
     orchestration: true
+    signatures:
+      - domain logic
+      - domain logic integration tests
 
-  - path: src/api
-    description: HTTP layer that maps incoming requests to service calls and formats responses.
+  - slug: implementation
+    description: Adapter implementations and mocks that back the domain interfaces.
+    signatures:
+      - implementation adapters
+      - implementation mocks
+      - unit tests
 
-  - path: src/repositories
-    description: Data access layer that persists and retrieves domain entities.
+modules:
+  - path: cmd/myapp
+    description: Wires concrete adapters into the application and starts the server.
+    category: entry
 
-  - path: src/auth
-    description: Handles user identity verification, token lifecycle, and permission checking.
+  - path: internal/orders
+    description: Orchestrates order placement, fulfillment, and cancellation workflows.
+    category: orchestration
 
-  - path: src/queue
-    description: Message queue integration for asynchronous task scheduling and delivery.
+  - path: internal/inventory
+    description: Manages stock levels, reservations, and availability checks.
+    category: orchestration
 
-  - path: src/notifications
-    description: Delivers notifications across email, SMS, and push channels.
+  - path: internal/postgres
+    description: PostgreSQL-backed implementations of the domain repository interfaces.
+    category: implementation
 
-  - path: src/utils
-    description: Shared utility functions used across the application.
+  - path: internal/httpapi
+    description: HTTP handlers that translate requests into domain calls and format responses.
+    category: implementation
 ```

@@ -1,71 +1,115 @@
+categories:
+  - slug: entry
+    description: Main packages that wire adapter dependencies and start the application.
+    signatures:
+      - main function
+      - adapter dependency wiring
+
+  - slug: orchestration
+    description: Domain logic modules that define and coordinate core business processes.
+    orchestration: true
+    signatures:
+      - domain logic
+      - domain logic integration tests
+
+  - slug: implementation
+    description: Adapter implementations and supporting utilities that back the domain interfaces.
+    signatures:
+      - implementation adapters
+      - implementation mocks
+      - unit tests
+
 modules:
   - path: cmd/ralph
     description: CLI entrypoint that wires up command parsing and dispatches to subcommand handlers.
-    orchestration: true
+    category: entry
   - path: cmd/ralph-webhook
     description: Service entrypoint that loads configuration and starts the webhook HTTP server.
-    orchestration: true
-  - path: internal/cmd
-    description: Kong command structs that parse flags and delegate to orchestration modules.
+    category: entry
   - path: internal/run
     description: Wires concrete adapter implementations into the run orchestration and drives local and remote execution paths.
+    category: entry
+  - path: internal/cmd
+    description: Command structs that parse flags and delegate to orchestration modules.
+    category: implementation
   - path: internal/orchestration/run
-    description: Orchestrates the full run command — validates inputs, resolves execution parameters (base branch, max iterations, project branch), and dispatches to Runner.RunLocal or RemoteRunner.RunRemote.
-    orchestration: true
+    description: Orchestrates the full run command from input validation through local and remote execution dispatch.
+    category: orchestration
   - path: internal/project
     description: Loads and validates project YAML files and tracks requirement completion across iterations.
+    category: orchestration
   - path: internal/validate
     description: Orchestrates a bounded fix loop that repairs invalid project YAML files using an AI agent.
-    orchestration: true
+    category: orchestration
   - path: internal/webhook
-    description: HTTP server that receives GitHub webhook events and dispatches corresponding Argo workflows.
-    orchestration: true
+    description: HTTP server that receives GitHub webhook events and dispatches corresponding workflow runs.
+    category: orchestration
   - path: internal/workflow
-    description: Generates and submits Argo Workflow manifests for run and merge operations.
-    orchestration: true
+    description: Generates and submits workflow manifests for run and merge operations.
+    category: orchestration
   - path: internal/provisioning
     description: Provisions webhook configuration and secrets into a Kubernetes cluster.
-    orchestration: true
+    category: orchestration
   - path: internal/setup
-    description: Sequences skill discovery, fetching, pruning, and installation for repository setup.
-    orchestration: true
+    description: Coordinates the full skill setup lifecycle for a repository.
+    category: orchestration
   - path: internal/skills
-    description: Manages ralph skill lifecycle including discovery, fetching, rewriting, pruning, and installation.
-  - path: internal/ai
-    description: Runs AI prompts against embedded instruction templates to generate ralph artifacts.
-  - path: internal/opencode
-    description: Thin wrapper around the opencode CLI for invoking AI models.
+    description: Manages the full lifecycle of ralph skills within a repository.
+    category: orchestration
   - path: internal/architecture
     description: Defines and persists the architecture YAML schema for module documentation and review.
+    category: orchestration
   - path: internal/review
     description: Expands review iterations by reading architecture files and partitioning work into units.
-  - path: internal/argo
-    description: Thin wrapper around the argo CLI for workflow management.
-  - path: internal/k8s
-    description: Thin wrapper around kubectl for managing Kubernetes resources.
-  - path: internal/git
-    description: Thin wrapper around the git CLI for repository operations.
-  - path: internal/github
-    description: Wrapper around the gh CLI for GitHub API operations and authentication.
-  - path: internal/config
-    description: Loads and parses the ralph configuration schema including service and instruction settings.
-  - path: internal/webhookconfig
-    description: Loads and validates the ralph-webhook service configuration and secrets.
-  - path: internal/context
-    description: Carries runtime execution settings between the command layer and the run engine.
+    category: orchestration
   - path: internal/services
     description: Manages the lifecycle of before-commands and long-running services declared in project configuration.
+    category: orchestration
   - path: internal/workspace
     description: Prepares the in-container workspace for agent execution.
+    category: orchestration
+  - path: internal/ai
+    description: Runs AI prompts against embedded instruction templates to generate ralph artifacts.
+    category: implementation
+  - path: internal/opencode
+    description: Thin wrapper around the opencode CLI for invoking AI models.
+    category: implementation
+  - path: internal/argo
+    description: Thin wrapper around the argo CLI for workflow management.
+    category: implementation
+  - path: internal/k8s
+    description: Thin wrapper around kubectl for managing Kubernetes resources.
+    category: implementation
+  - path: internal/git
+    description: Thin wrapper around the git CLI for repository operations.
+    category: implementation
+  - path: internal/github
+    description: Wrapper around the gh CLI for GitHub API operations and authentication.
+    category: implementation
+  - path: internal/config
+    description: Loads and parses the ralph configuration file.
+    category: implementation
+  - path: internal/webhookconfig
+    description: Loads and validates the ralph-webhook service configuration and secrets.
+    category: implementation
+  - path: internal/context
+    description: Carries runtime execution settings across the application.
+    category: implementation
   - path: internal/cleanup
     description: Registers shutdown callbacks and handles OS signal-based graceful termination.
+    category: implementation
   - path: internal/logger
     description: Structured logger with leveled output used across the application.
+    category: implementation
   - path: internal/notify
     description: Desktop notification helper for success and error events.
+    category: implementation
   - path: internal/version
     description: Exposes the current application version string.
+    category: implementation
   - path: internal/docker
     description: Test-only package that validates the repository Containerfile.
+    category: implementation
   - path: internal/testutil
     description: Shared test helpers and factories used across the test suite.
+    category: implementation
