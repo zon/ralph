@@ -15,7 +15,7 @@ func NewLocalRunner(ctx *context.Context, baseBranch string) *orchestrationRun.R
 		&project.Client{},
 		NewAgentClient(ctx),
 		git.NewClient(ctx),
-		github.NewClient(ctx, baseBranch),
+		github.NewClient(ctx, baseBranch, &github.GH{}),
 		&services.Client{},
 		notify.NewClient(ctx),
 		&SystemEnvClient{},
