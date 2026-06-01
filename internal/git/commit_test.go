@@ -41,28 +41,6 @@ func TestStageFile_NonExistent(t *testing.T) {
 	require.Error(t, err, "Expected error when staging non-existent file")
 }
 
-func TestDeleteFile(t *testing.T) {
-	tempDir := setupTestRepo(t)
-	t.Chdir(tempDir)
-
-	testFile := filepath.Join(tempDir, "to-delete.txt")
-	if err := os.WriteFile(testFile, []byte("content"), 0644); err != nil {
-		t.Fatalf("Failed to create test file: %v", err)
-	}
-
-	err := StageFile("to-delete.txt")
-	require.NoError(t, err)
-	err = Commit("add file to delete")
-	require.NoError(t, err)
-
-	if err := deleteFile("to-delete.txt"); err != nil {
-		t.Fatalf("DeleteFile failed: %v", err)
-	}
-
-	_, err = os.Stat(testFile)
-	assert.True(t, os.IsNotExist(err), "Expected file to be deleted from filesystem")
-}
-
 func TestHasUncommittedChanges(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	t.Chdir(tempDir)

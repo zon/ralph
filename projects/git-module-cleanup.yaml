@@ -28,7 +28,7 @@ requirements:
       items:
         - Delete deleteFile() from internal/git/file.go
         - Delete TestDeleteFile from internal/git/commit_test.go
-      passing: false
+      passing: true
     - slug: remove-repo-root-duplicate
       description: RepoRoot() wraps FindRepoRoot() with no added behavior — two exported names for one operation
       items:
