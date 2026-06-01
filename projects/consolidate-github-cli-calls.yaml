@@ -10,7 +10,7 @@ requirements:
         - Split stdout on newlines, trim whitespace, and return the non-empty login strings
         - Return a wrapped error on non-zero exit that includes owner, repo, and stderr
         - Write a test that stubs the gh binary and verifies the returned logins
-      passing: false
+      passing: true
     - slug: register-webhook
       description: Add RegisterWebhook to internal/github as a package-level function
       items:
