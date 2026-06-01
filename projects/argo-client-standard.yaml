@@ -17,7 +17,7 @@ requirements:
         - Create internal/argo/client_mock.go (not _test.go) so it is importable by other packages
         - MockClient must implement the Client interface
         - Each method must use a function field so individual behaviors can be overridden per test case
-      passing: false
+      passing: true
     - slug: clean-tests
       description: Remove the trivial TestK8sContext test
       items:
