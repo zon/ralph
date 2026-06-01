@@ -46,7 +46,7 @@ requirements:
         - Move GetRepo and ParseRemoteURL from cli.go into repo.go
         - Rename cli_test.go to repo_test.go; no test logic needs to change since the functions are unchanged
         - Delete cli.go
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump
       items:
