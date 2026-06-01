@@ -57,7 +57,7 @@ func TestExtractWorkflowName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := ExtractWorkflowName(tt.output)
+			result := extractWorkflowName(tt.output)
 			assert.Equal(t, tt.expected, result)
 		})
 	}

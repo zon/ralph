@@ -95,7 +95,7 @@ func (c *client) SubmitYAML(ctx context.Context, workflowYAML string, kubeCtx K8
 		return "", fmt.Errorf("failed to submit workflow: %w\nOutput: %s", err, string(output))
 	}
 
-	workflowName := ExtractWorkflowName(string(output))
+	workflowName := extractWorkflowName(string(output))
 	if workflowName == "" {
 		lines := strings.Split(strings.TrimSpace(string(output)), "\n")
 		if len(lines) > 0 {
@@ -127,7 +127,7 @@ func SubmitYAML(workflowYAML string, workflowContext string, namespace string) (
 	})
 }
 
-func ExtractWorkflowName(output string) string {
+func extractWorkflowName(output string) string {
 	lines := strings.Split(output, "\n")
 	for _, line := range lines {
 		if strings.HasPrefix(strings.TrimSpace(line), "Name:") {

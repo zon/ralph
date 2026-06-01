@@ -10,7 +10,7 @@ requirements:
         - All methods must accept K8sContext — FollowLogs currently takes three separate string parameters, normalize it to match ListWorkflows and StopWorkflow
         - SubmitYAML must accept a context.Context as its first parameter instead of hardcoding context.Background()
         - ExtractWorkflowName must be unexported (extractWorkflowName) since it is only used within the package
-      passing: false
+      passing: true
     - slug: remove-package-wrappers
       description: Remove package-level wrapper functions from internal/argo
       items:
