@@ -1,0 +1,68 @@
+slug: git-module-cleanup
+title: Clean up internal/git — remove dead code, fix mock pattern, fix test isolation
+maxIterations: 10
+requirements:
+    - slug: fix-config-test-isolation
+      description: Config tests that touch the real ~/.gitconfig or the real repo violate test isolation
+      items:
+        - Delete TestConfig/"sets global config" from internal/git/config_test.go — Config(true, ...) cannot be made isolated
+        - Delete TestConfigUnset/"unsets global config" from internal/git/config_test.go for the same reason
+        - Add t.Chdir(setupTestRepo(t)) to the top of TestConfig/"overwrites existing config" — it currently calls Config(false, ...) without a temp repo, which operates against the real working directory
+      passing: false
+    - slug: clean-mock-client
+      description: MockClient mixes function fields with sentinel fields, violating the documented mock pattern
+      items:
+        - Remove the sentinel fields SwitchToBranchCalled, WriteBlockedFileCalled, CommitFromReportCalled, and CurrentBranchCalled from MockClient in internal/git/client_mock.go
+        - Remove the SyncError error field from MockClient — it creates a second way to configure IsBranchSyncedWithRemote alongside IsBranchSyncedWithRemoteFunc; remove the SyncError branch from the method body
+        - Remove ThatReportsBranchNotInSync and ThatReportsBranchNotPushed factory functions — callers can configure IsBranchSyncedWithRemoteFunc directly
+        - Update any callers outside internal/git that reference the removed fields or factory functions
+      passing: false
+    - slug: remove-dead-commit-code
+      description: commitChanges() is unexported, never called by production code, and only reachable from tests
+      items:
+        - Delete commitChanges() and its helpers generateCommitMessage(), buildCommitMessage(), summarizeCommitMessage(), categorizeFile(), and categorizeFiles() from internal/git/commit.go — none are called by any exported function
+        - Delete the corresponding test cases TestCommitChanges, TestCommitChanges_NoChanges, TestCategorizeFile, TestCategorizeFiles, and TestBuildCommitMessage from internal/git/commit_test.go
+      passing: false
+    - slug: remove-dead-file-code
+      description: deleteFile() is unexported and never called by production code
+      items:
+        - Delete deleteFile() from internal/git/file.go
+        - Delete TestDeleteFile from internal/git/commit_test.go
+      passing: false
+    - slug: remove-repo-root-duplicate
+      description: RepoRoot() wraps FindRepoRoot() with no added behavior — two exported names for one operation
+      items:
+        - Delete RepoRoot() from internal/git/repo.go
+        - Update internal/git/client.go to call FindRepoRoot() directly
+        - Update internal/project/project.go to call git.FindRepoRoot() directly
+        - Update internal/workflow/generate.go to call git.FindRepoRoot() directly
+        - Delete TestRepoRoot from internal/git/reporoot_test.go (the file may be removed entirely if it has no remaining tests)
+      passing: false
+    - slug: remove-branch-name-alias
+      description: BranchName() is a one-liner alias for SanitizeBranchName() with no added value
+      items:
+        - Delete BranchName() and internal/git/branchname.go
+        - Update internal/orchestration/run/cmd.go to call git.SanitizeBranchName() directly
+        - Update internal/cmd/workflow.go to call git.SanitizeBranchName() directly
+        - Update internal/cmd/execute.go to call git.SanitizeBranchName() directly
+        - Update internal/cmd/workflow_client.go to call git.SanitizeBranchName() directly
+        - Update internal/github/client.go to call git.SanitizeBranchName() directly
+      passing: false
+    - slug: fix-fetch-branch
+      description: FetchBranch bypasses runGit and silently discards errors on the fallback path
+      items:
+        - Rewrite FetchBranch in internal/git/remote.go to use runGit for both attempts so errors are wrapped consistently
+        - The first attempt fetches with a refspec (branch+":"+branch); if it fails, fall back to a plain fetch of the branch name
+        - Return the error from the fallback attempt rather than discarding it
+      passing: false
+    - slug: fix-chdir-pattern
+      description: Some tests use manual os.Chdir/defer instead of the standard t.Chdir
+      items:
+        - Replace the manual origDir/defer os.Chdir pattern in TestRemoteURL/"returns error when no remote origin" (internal/git/remote_test.go) with t.Chdir
+        - Replace the four manual origWd/defer os.Chdir patterns in internal/git/repo_test.go (TestRepoRoot and TestRepoRootOrCwd subtests) with t.Chdir — note this requirement depends on remove-repo-root-duplicate; if TestRepoRoot is deleted, only fix TestRepoRootOrCwd
+      passing: false
+    - slug: version-bump
+      description: Version bump for internal cleanup
+      items:
+        - Apply a semver patch bump to the app version
+      passing: false
