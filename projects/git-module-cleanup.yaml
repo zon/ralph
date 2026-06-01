@@ -54,7 +54,7 @@ requirements:
         - Rewrite FetchBranch in internal/git/remote.go to use runGit for both attempts so errors are wrapped consistently
         - The first attempt fetches with a refspec (branch+":"+branch); if it fails, fall back to a plain fetch of the branch name
         - Return the error from the fallback attempt rather than discarding it
-      passing: false
+      passing: true
     - slug: fix-chdir-pattern
       description: Some tests use manual os.Chdir/defer instead of the standard t.Chdir
       items:

@@ -222,4 +222,13 @@ func TestFetchBranch(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotEmpty(t, refs)
 	})
+
+	t.Run("returns error when fallback fetch also fails", func(t *testing.T) {
+		workDir, _ := setupBareRemoteRepo(t)
+		t.Chdir(workDir)
+
+		err := FetchBranch("nonexistent-branch")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to fetch branch")
+	})
 }
