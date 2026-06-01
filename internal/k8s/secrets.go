@@ -46,8 +46,7 @@ func buildSecretApplyArgs(kubeContext string) []string {
 	return args
 }
 
-// CreateOrUpdateSecret creates or updates a Kubernetes secret
-func CreateOrUpdateSecret(ctx context.Context, name, namespace, kubeContext string, data map[string]string) error {
+func (c *client) CreateOrUpdateSecret(ctx context.Context, name, namespace, kubeContext string, data map[string]string) error {
 	// Generate the secret YAML
 	stdout, err := runKubectl(ctx, nil, buildSecretArgs(name, namespace, kubeContext, data)...)
 	if err != nil {

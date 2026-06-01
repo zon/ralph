@@ -10,7 +10,7 @@ requirements:
         - Add a NewClient() Client constructor that returns &client{}
         - Add a compile-time assertion var _ Client = (*client)(nil)
         - Delete the exported free functions GetCurrentContext, CreateOrUpdateConfigMap, and CreateOrUpdateSecret
-      passing: false
+      passing: true
     - slug: client-mock
       description: Add a MockClient in client_mock.go so callers can inject a test double
       items:

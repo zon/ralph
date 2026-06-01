@@ -37,15 +37,12 @@ func buildConfigMapApplyArgs(kubeContext string) []string {
 	return args
 }
 
-// CreateOrUpdateConfigMap creates or updates a Kubernetes ConfigMap
-func CreateOrUpdateConfigMap(ctx context.Context, name, namespace, kubeContext string, data map[string]string) error {
-	// Generate the configmap YAML
+func (c *client) CreateOrUpdateConfigMap(ctx context.Context, name, namespace, kubeContext string, data map[string]string) error {
 	stdout, err := runKubectl(ctx, nil, buildConfigMapArgs(name, namespace, kubeContext, data)...)
 	if err != nil {
 		return fmt.Errorf("failed to generate configmap YAML: %w", err)
 	}
 
-	// Apply the configmap (this handles both create and update)
 	_, err = runKubectl(ctx, stdout, buildConfigMapApplyArgs(kubeContext)...)
 	if err != nil {
 		return fmt.Errorf("failed to apply configmap: %w", err)

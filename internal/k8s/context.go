@@ -12,8 +12,7 @@ type Context struct {
 	Namespace string
 }
 
-// GetCurrentContext gets the current Kubernetes context
-func GetCurrentContext(ctx context.Context) (Context, error) {
+func (c *client) GetCurrentContext(ctx context.Context) (Context, error) {
 	stdout, err := runKubectl(ctx, nil, "config", "current-context")
 	if err != nil {
 		return Context{}, fmt.Errorf("failed to get current context: %w", err)
