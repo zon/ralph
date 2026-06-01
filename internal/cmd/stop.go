@@ -26,7 +26,8 @@ func (s *StopCmd) Run() error {
 		return err
 	}
 
-	return argo.StopWorkflow(argo.K8sContext{
+	client := argo.NewClient()
+	return client.StopWorkflow(argo.K8sContext{
 		Name:      k8sCtx.Name,
 		Namespace: k8sCtx.Namespace,
 	}, s.WorkflowName)

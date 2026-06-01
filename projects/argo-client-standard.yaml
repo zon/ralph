@@ -28,7 +28,7 @@ requirements:
       items:
         - Update internal/cmd/list.go, internal/cmd/stop.go, internal/cmd/execute.go, and internal/cmd/workflow_client.go to instantiate argo.NewClient() and call methods on it
         - Update internal/workflow/workflow.go and internal/workflow/merge_workflow.go to accept an argo.Client interface and call SubmitYAML on it, propagating the caller's context.Context rather than creating a new one
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump
       items:

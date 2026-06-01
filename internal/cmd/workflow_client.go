@@ -13,6 +13,7 @@ import (
 
 type workflowClientAdapter struct {
 	ctx         *context.Context
+	argoClient  argo.Client
 	namespace   string
 	kubeContext string
 }
@@ -25,11 +26,11 @@ func (a *workflowClientAdapter) Submit(proj *project.Project, cloneBranch string
 	}
 	a.namespace = wf.Namespace
 	a.kubeContext = wf.KubeContext
-	return wf.Submit()
+	return wf.Submit(a.ctx.GoContext(), a.argoClient)
 }
 
 func (a *workflowClientAdapter) FollowLogs(workflowName string) error {
-	return argo.FollowLogs(a.namespace, workflowName, a.kubeContext)
+	return a.argoClient.FollowLogs(argo.K8sContext{Name: a.kubeContext, Namespace: a.namespace}, workflowName)
 }
 
 func (a *workflowClientAdapter) PrintLogHint(workflowName string) {
@@ -39,7 +40,7 @@ func (a *workflowClientAdapter) PrintLogHint(workflowName string) {
 func NewRemoteRunner(ctx *context.Context) *orchestrationRun.RemoteRunner {
 	return orchestrationRun.NewRemoteRunner(
 		git.NewClient(ctx),
-		&workflowClientAdapter{ctx: ctx},
+		&workflowClientAdapter{ctx: ctx, argoClient: argo.NewClient()},
 		notify.NewClient(ctx),
 	)
 }

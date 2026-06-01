@@ -1,6 +1,7 @@
 package workflow
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/zon/ralph/internal/argo"
@@ -111,12 +112,12 @@ func (w *Workflow) Render() (string, error) {
 }
 
 // Submit renders and submits this Workflow to Argo, returning the workflow name.
-func (w *Workflow) Submit() (string, error) {
+func (w *Workflow) Submit(ctx context.Context, client argo.Client) (string, error) {
 	workflowYAML, err := w.Render()
 	if err != nil {
 		return "", err
 	}
-	return argo.SubmitYAML(workflowYAML, w.KubeContext, w.Namespace)
+	return client.SubmitYAML(ctx, workflowYAML, argo.K8sContext{Name: w.KubeContext, Namespace: w.Namespace})
 }
 
 // getEffectiveBaseBranch returns the effective base branch for the workflow parameter.

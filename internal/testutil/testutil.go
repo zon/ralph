@@ -23,7 +23,7 @@ func Contains(s, substr string) bool {
 //
 // Use options to customize specific fields as needed.
 func NewContext(opts ...ContextOption) *context.Context {
-	ctx := &context.Context{}
+	ctx := context.NewContext()
 	ctx.SetNoNotify(true)
 	ctx.SetLocal(true)
 	ctx.SetMaxIterations(10)
@@ -171,7 +171,7 @@ func NewE2EContext(t *testing.T, opts ...ContextOption) (*context.Context, *E2EC
 
 	cfg := NewE2EConfig(t)
 
-	ctx := &context.Context{}
+	ctx := context.NewContext()
 	ctx.SetRepo(cfg.Repo)
 	ctx.SetBranch(cfg.Branch)
 	ctx.SetDebugBranch(cfg.DebugBranch)
