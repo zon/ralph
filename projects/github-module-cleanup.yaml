@@ -26,7 +26,7 @@ requirements:
         - In Client.CreatePR, call ConfigureGitAuth before invoking gh when ctx.IsWorkflowExecution() is true
         - Remove the IsWorkflowExecution check and the ConfigureGitAuth call from CreatePullRequest in pr.go
         - Remove the internal/context import from pr.go if it is no longer used after the move
-      passing: false
+      passing: true
     - slug: fix-pr-tests
       description: Rewrite pr_test.go so the real gh binary is never invoked
       items:

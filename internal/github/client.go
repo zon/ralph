@@ -1,6 +1,7 @@
 package github
 
 import (
+	gocontext "context"
 	"errors"
 	"fmt"
 
@@ -41,7 +42,14 @@ func (a *Client) CreatePR(proj *project.Project) error {
 
 	branchName := git.SanitizeBranchName(proj.Slug)
 
-	prURL, err := CreatePullRequest(a.gh, a.ctx, proj, branchName, a.baseBranch, prSummary)
+	if a.ctx.IsWorkflowExecution() {
+		owner, repoName := a.ctx.RepoOwnerAndName()
+		if err := ConfigureGitAuth(gocontext.Background(), owner, repoName, DefaultSecretsDir); err != nil {
+			return fmt.Errorf("failed to refresh GitHub credentials before PR creation: %w", err)
+		}
+	}
+
+	prURL, err := CreatePullRequest(a.gh, proj, branchName, a.baseBranch, prSummary)
 	if err != nil {
 		if errors.Is(err, ErrNoCommitsBetweenBranches) {
 			logger.Verbose("No commits ahead of base branch — all requirements were already passing; skipping PR creation")

@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/project"
 )
 
@@ -27,9 +26,8 @@ func TestCreatePullRequest_UsesTitleAsPRTitle(t *testing.T) {
 		Slug:  "test-project",
 		Title: "This is a detailed title",
 	}
-	ctx := context.NewContext()
 
-	prURL, err := CreatePullRequest(&mockGH{}, ctx, proj, "feature-branch", "main", "PR body")
+	prURL, err := CreatePullRequest(&mockGH{}, proj, "feature-branch", "main", "PR body")
 	assert.NoError(t, err)
 	assert.NotEmpty(t, prURL)
 	assert.Contains(t, prURL, "github.com")
@@ -40,9 +38,8 @@ func TestCreatePullRequest_UsesSlugWhenTitleEmpty(t *testing.T) {
 		Slug:  "my-project",
 		Title: "",
 	}
-	ctx := context.NewContext()
 
-	prURL, err := CreatePullRequest(&mockGH{}, ctx, proj, "feature-branch", "main", "PR body")
+	prURL, err := CreatePullRequest(&mockGH{}, proj, "feature-branch", "main", "PR body")
 	assert.NoError(t, err)
 	assert.NotEmpty(t, prURL)
 }
@@ -51,9 +48,8 @@ func TestCreatePullRequest_UsesSlugWhenTitleMissing(t *testing.T) {
 	proj := &project.Project{
 		Slug: "fallback-project",
 	}
-	ctx := context.NewContext()
 
-	prURL, err := CreatePullRequest(&mockGH{}, ctx, proj, "feature-branch", "main", "PR body")
+	prURL, err := CreatePullRequest(&mockGH{}, proj, "feature-branch", "main", "PR body")
 	assert.NoError(t, err)
 	assert.NotEmpty(t, prURL)
 }
@@ -65,9 +61,8 @@ func TestCreatePullRequest_DelegatesToIsReady(t *testing.T) {
 		return true
 	}}
 	proj := &project.Project{Slug: "test", Title: "Test"}
-	ctx := context.NewContext()
 
-	_, err := CreatePullRequest(m, ctx, proj, "feature-branch", "main", "PR body")
+	_, err := CreatePullRequest(m, proj, "feature-branch", "main", "PR body")
 	assert.NoError(t, err)
 	assert.True(t, called, "expected GHClient.IsReady to be called")
 }
