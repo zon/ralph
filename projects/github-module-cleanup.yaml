@@ -33,7 +33,7 @@ requirements:
         - Delete skipIfGHNotAvailable from pr_test.go
         - Rewrite each test in pr_test.go to construct a Client with an injected MockGH whose IsReadyFn returns true and CreatePRFn returns a fake URL
         - Remove all RALPH_MOCK_GH env var usage from pr_test.go
-      passing: false
+      passing: true
     - slug: move-container-workflow-test
       description: Move TestContainerBuildWorkflow to internal/docker where repository CI config tests belong
       items:
