@@ -130,16 +130,34 @@ func TestToWorkflow_NamespacePropagated(t *testing.T) {
 			},
 		},
 	}
-	e := Event{
-		Body:      "fix something",
-		PRBranch:  "ralph/my-feature",
-		RepoOwner: "acme",
-		RepoName:  "myrepo",
-	}
 
-	result, err := e.ToWorkflow(cfg)
-	require.NoError(t, err)
-	assert.Equal(t, "team-ns", result.Namespace)
+	t.Run("comment event", func(t *testing.T) {
+		e := Event{
+			Body:      "fix something",
+			PRBranch:  "ralph/my-feature",
+			RepoOwner: "acme",
+			RepoName:  "myrepo",
+		}
+		result, err := e.ToWorkflow(cfg)
+		require.NoError(t, err)
+		assert.Equal(t, "team-ns", result.Namespace)
+		require.NotNil(t, result.Run)
+		assert.Equal(t, "team-ns", result.Run.Namespace)
+	})
+
+	t.Run("approval event", func(t *testing.T) {
+		e := Event{
+			Approved:  true,
+			PRBranch:  "ralph/my-feature",
+			RepoOwner: "acme",
+			RepoName:  "myrepo",
+		}
+		result, err := e.ToWorkflow(cfg)
+		require.NoError(t, err)
+		assert.Equal(t, "team-ns", result.Namespace)
+		require.NotNil(t, result.Merge)
+		assert.Equal(t, "team-ns", result.Merge.Namespace)
+	})
 }
 
 func TestToWorkflow_Namespace_EmptyWhenNotConfigured(t *testing.T) {

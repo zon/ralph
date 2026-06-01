@@ -53,6 +53,7 @@ func (e Event) ToWorkflow(cfg *webhookconfig.Config) (*WorkflowResult, error) {
 	workflowOpts := workflow.WorkflowOptions{
 		Image:       workflow.MakeImage(cfg.App.ImageRepository, cfg.App.ImageTag),
 		KubeContext: cfg.App.WorkflowContext,
+		Namespace:   namespace,
 	}
 
 	if e.Approved {

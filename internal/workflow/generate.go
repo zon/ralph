@@ -138,6 +138,7 @@ func GenerateCommentWorkflowWithGitInfo(projectName, repoURL, cloneBranch, proje
 		PRNumber:      prNumber,
 		Image:         opts.Image,
 		KubeContext:   opts.KubeContext,
+		Namespace:     opts.Namespace,
 	}, nil
 }
 
