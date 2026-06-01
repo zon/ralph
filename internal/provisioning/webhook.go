@@ -5,12 +5,12 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"os/exec"
 	"strings"
 
 	"github.com/zon/ralph/internal/config"
+	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/k8s"
 	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/webhookconfig"
@@ -24,26 +24,7 @@ const (
 )
 
 func FetchRepoCollaborators(ctx context.Context, owner, repo string) ([]string, error) {
-	cmd := exec.CommandContext(ctx, "gh", "api",
-		fmt.Sprintf("repos/%s/%s/collaborators", owner, repo),
-		"--jq", ".[].login",
-	)
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("failed to list collaborators for %s/%s: %w (stderr: %s)",
-			owner, repo, err, stderr.String())
-	}
-
-	var logins []string
-	for _, line := range strings.Split(strings.TrimSpace(stdout.String()), "\n") {
-		if line = strings.TrimSpace(line); line != "" {
-			logins = append(logins, line)
-		}
-	}
-	return logins, nil
+	return github.ListCollaborators(ctx, owner, repo)
 }
 
 func mergeRepo(repos []webhookconfig.RepoConfig, incoming webhookconfig.RepoConfig) []webhookconfig.RepoConfig {
@@ -150,67 +131,7 @@ func ReadWebhookConfigFromK8s(ctx context.Context, namespace, kubeContext string
 }
 
 func RegisterGitHubWebhook(ctx context.Context, owner, repo, webhookURL, secret string) error {
-	listArgs := []string{
-		"api",
-		fmt.Sprintf("repos/%s/%s/hooks", owner, repo),
-		"--jq", fmt.Sprintf(`.[] | select(.config.url | contains("%s")) | .id`, webhookURL),
-	}
-	listCmdFull := exec.CommandContext(ctx, "gh", listArgs...)
-	var listOut, listErr bytes.Buffer
-	listCmdFull.Stdout = &listOut
-	listCmdFull.Stderr = &listErr
-
-	var existingID string
-	if err := listCmdFull.Run(); err == nil {
-		existingID = strings.TrimSpace(listOut.String())
-	}
-
-	payload := map[string]interface{}{
-		"name":   "web",
-		"active": true,
-		"events": []string{"push", "pull_request", "pull_request_review", "issue_comment"},
-		"config": map[string]string{
-			"url":          webhookURL,
-			"content_type": "json",
-			"secret":       secret,
-		},
-	}
-
-	payloadBytes, err := json.Marshal(payload)
-	if err != nil {
-		return fmt.Errorf("failed to marshal webhook payload: %w", err)
-	}
-
-	if existingID != "" && existingID != "null" {
-		updateCmd := exec.CommandContext(ctx, "gh", "api",
-			fmt.Sprintf("repos/%s/%s/hooks/%s", owner, repo, existingID),
-			"--method", "PATCH",
-			"--input", "-",
-		)
-		updateCmd.Stdin = bytes.NewReader(payloadBytes)
-		var updateErr bytes.Buffer
-		updateCmd.Stderr = &updateErr
-		if err := updateCmd.Run(); err != nil {
-			return fmt.Errorf("failed to update webhook for %s/%s: %w (stderr: %s)",
-				owner, repo, err, updateErr.String())
-		}
-		return nil
-	}
-
-	createCmd := exec.CommandContext(ctx, "gh", "api",
-		fmt.Sprintf("repos/%s/%s/hooks", owner, repo),
-		"--method", "POST",
-		"--input", "-",
-	)
-	createCmd.Stdin = bytes.NewReader(payloadBytes)
-	var createErr bytes.Buffer
-	createCmd.Stderr = &createErr
-	if err := createCmd.Run(); err != nil {
-		return fmt.Errorf("failed to create webhook for %s/%s: %w (stderr: %s)",
-			owner, repo, err, createErr.String())
-	}
-
-	return nil
+	return github.RegisterWebhook(ctx, owner, repo, webhookURL, secret)
 }
 
 func BuildWebhookSecrets(appCfg *webhookconfig.AppConfig, secretGenerator func() (string, error)) (*webhookconfig.Secrets, error) {

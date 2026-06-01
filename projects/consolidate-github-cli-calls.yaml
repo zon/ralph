@@ -30,7 +30,7 @@ requirements:
         - In `RegisterGitHubWebhook`, replace all three `exec.CommandContext` blocks (list, update, create) with a call to `github.RegisterWebhook`
         - Remove the `os/exec` import from `internal/provisioning/webhook.go` if it is no longer used after the replacement
         - All existing tests for `FetchRepoCollaborators` and `RegisterGitHubWebhook` in `internal/provisioning` must continue to pass
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump
       items:
