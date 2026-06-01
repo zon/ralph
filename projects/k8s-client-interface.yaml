@@ -17,7 +17,7 @@ requirements:
         - Create internal/k8s/client_mock.go with a MockClient struct that satisfies Client
         - Use function fields (GetCurrentContextFunc, CreateOrUpdateConfigMapFunc, CreateOrUpdateSecretFunc) so individual behaviors can be overridden per test case; each method calls the function field when non-nil and returns a zero value otherwise
         - Add a compile-time assertion var _ Client = (*MockClient)(nil)
-      passing: false
+      passing: true
     - slug: fix-provisioning-callers
       description: Update internal/provisioning/webhook.go to accept k8s.Client instead of calling deleted free functions
       items:
