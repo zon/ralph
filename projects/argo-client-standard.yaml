@@ -1,0 +1,36 @@
+slug: argo-client-standard
+title: Bring internal/argo up to implementation module standard
+maxIterations: 10
+requirements:
+    - slug: client-interface
+      description: Define a Client interface and real Client struct in internal/argo
+      items:
+        - Define a Client interface with methods ListWorkflows, StopWorkflow, FollowLogs, and SubmitYAML
+        - Create a real Client struct implementing the interface with a NewClient constructor
+        - All methods must accept K8sContext — FollowLogs currently takes three separate string parameters, normalize it to match ListWorkflows and StopWorkflow
+        - SubmitYAML must accept a context.Context as its first parameter instead of hardcoding context.Background()
+        - Keep ExtractWorkflowName as a package-level function since it is pure and used internally
+      passing: false
+    - slug: client-mock
+      description: Create client_mock.go with a MockClient implementing the Client interface
+      items:
+        - Create internal/argo/client_mock.go (not _test.go) so it is importable by other packages
+        - MockClient must implement the Client interface
+        - Each method must use a function field so individual behaviors can be overridden per test case
+      passing: false
+    - slug: clean-tests
+      description: Remove the trivial TestK8sContext test
+      items:
+        - Delete TestK8sContext from internal/argo/argo_test.go — it only asserts struct field assignment with no behavioral coverage
+      passing: false
+    - slug: update-callers
+      description: Update callers to use the new Client struct and interface
+      items:
+        - Update internal/cmd/list.go, internal/cmd/stop.go, internal/cmd/execute.go, and internal/cmd/workflow_client.go to instantiate argo.NewClient() and call methods on it
+        - Update internal/workflow/workflow.go and internal/workflow/merge_workflow.go to accept an argo.Client interface and call SubmitYAML on it, propagating the caller's context.Context rather than creating a new one
+      passing: false
+    - slug: version-bump
+      description: Version bump
+      items:
+        - Apply a semver patch bump to the app version
+      passing: false
