@@ -20,16 +20,10 @@ func TestConfig(t *testing.T) {
 		assert.Equal(t, "testvalue", value)
 	})
 
-	t.Run("sets global config", func(t *testing.T) {
-		err := Config(true, "user.testglobal", "globalvalue")
-		require.NoError(t, err)
-
-		value, err := ConfigGet("user.testglobal")
-		require.NoError(t, err)
-		assert.Equal(t, "globalvalue", value)
-	})
-
 	t.Run("overwrites existing config", func(t *testing.T) {
+		tempDir := setupTestRepo(t)
+		t.Chdir(tempDir)
+
 		err := Config(false, "user.overwritekey", "first")
 		require.NoError(t, err)
 
@@ -81,16 +75,6 @@ func TestConfigUnset(t *testing.T) {
 		assert.Error(t, err)
 	})
 
-	t.Run("unsets global config", func(t *testing.T) {
-		err := Config(true, "user.unsetglobal", "globalunset")
-		require.NoError(t, err)
-
-		err = ConfigUnset(true, "user.unsetglobal")
-		require.NoError(t, err)
-
-		_, err = ConfigGet("user.unsetglobal")
-		assert.Error(t, err)
-	})
 }
 
 func TestConfigGet(t *testing.T) {

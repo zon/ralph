@@ -8,7 +8,7 @@ requirements:
         - Delete TestConfig/"sets global config" from internal/git/config_test.go — Config(true, ...) cannot be made isolated
         - Delete TestConfigUnset/"unsets global config" from internal/git/config_test.go for the same reason
         - Add t.Chdir(setupTestRepo(t)) to the top of TestConfig/"overwrites existing config" — it currently calls Config(false, ...) without a temp repo, which operates against the real working directory
-      passing: false
+      passing: true
     - slug: clean-mock-client
       description: MockClient mixes function fields with sentinel fields, violating the documented mock pattern
       items:
