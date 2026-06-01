@@ -6,6 +6,7 @@ import (
 
 	"github.com/zon/ralph/internal/argo"
 	"github.com/zon/ralph/internal/config"
+	"github.com/zon/ralph/internal/k8s"
 )
 
 type ListCmd struct {
@@ -20,7 +21,8 @@ func (l *ListCmd) Run() error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	k8sCtx, err := resolveKubeContext(ctx, ralphConfig, l.Context, "")
+	k8sClient := k8s.NewClient()
+	k8sCtx, err := resolveKubeContext(ctx, k8sClient, ralphConfig, l.Context, "")
 	if err != nil {
 		return err
 	}

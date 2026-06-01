@@ -6,6 +6,7 @@ import (
 
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/github"
+	"github.com/zon/ralph/internal/k8s"
 	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/provisioning"
 	"github.com/zon/ralph/internal/webhookconfig"
@@ -28,7 +29,9 @@ func (c *ConfigWebhookConfigCmd) Run() error {
 	fmt.Println("Provisioning webhook-config configmap...")
 	fmt.Println()
 
-	kubeContext, err := provisioning.GetKubeContext(ctx, c.Context)
+	client := k8s.NewClient()
+
+	kubeContext, err := provisioning.GetKubeContext(ctx, client, c.Context)
 	if err != nil {
 		return err
 	}
@@ -43,7 +46,7 @@ func (c *ConfigWebhookConfigCmd) Run() error {
 
 	appCfg := provisioning.BuildWebhookAppConfig(ctx, base, updates, repoOwner, repoName, repoNamespace, provisioning.FetchRepoCollaborators)
 
-	if err := provisioning.WriteWebhookConfigMap(ctx, kubeContext, namespace, appCfg); err != nil {
+	if err := provisioning.WriteWebhookConfigMap(ctx, client, kubeContext, namespace, appCfg); err != nil {
 		return err
 	}
 
@@ -98,7 +101,9 @@ func (c *ConfigWebhookSecretCmd) Run() error {
 	fmt.Println("Provisioning webhook-secrets secret...")
 	fmt.Println()
 
-	kubeContext, err := provisioning.GetKubeContext(ctx, c.Context)
+	client := k8s.NewClient()
+
+	kubeContext, err := provisioning.GetKubeContext(ctx, client, c.Context)
 	if err != nil {
 		return err
 	}
@@ -114,7 +119,7 @@ func (c *ConfigWebhookSecretCmd) Run() error {
 		return err
 	}
 
-	if err := c.generateAndWriteSecrets(ctx, kubeContext, namespace, appCfg); err != nil {
+	if err := c.generateAndWriteSecrets(ctx, client, kubeContext, namespace, appCfg); err != nil {
 		return err
 	}
 
@@ -138,7 +143,7 @@ func (c *ConfigWebhookSecretCmd) validateRepos(appCfg *webhookconfig.AppConfig) 
 	return nil
 }
 
-func (c *ConfigWebhookSecretCmd) generateAndWriteSecrets(ctx context.Context, kubeContext, namespace string, appCfg *webhookconfig.AppConfig) error {
+func (c *ConfigWebhookSecretCmd) generateAndWriteSecrets(ctx context.Context, client k8s.Client, kubeContext, namespace string, appCfg *webhookconfig.AppConfig) error {
 	secrets, err := provisioning.BuildWebhookSecrets(appCfg, provisioning.GenerateWebhookSecret)
 	if err != nil {
 		return fmt.Errorf("failed to generate webhook secrets: %w", err)
@@ -150,7 +155,7 @@ func (c *ConfigWebhookSecretCmd) generateAndWriteSecrets(ctx context.Context, ku
 		return err
 	}
 
-	if err := provisioning.WriteWebhookSecrets(ctx, kubeContext, namespace, secrets); err != nil {
+	if err := provisioning.WriteWebhookSecrets(ctx, client, kubeContext, namespace, secrets); err != nil {
 		return fmt.Errorf("failed to create/update secret '%s': %w", provisioning.WebhookSecretsSecretName, err)
 	}
 

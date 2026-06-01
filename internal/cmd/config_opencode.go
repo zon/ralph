@@ -27,7 +27,9 @@ func (c *ConfigOpencodeCmd) Run() error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	k8sCtx, err := resolveKubeContext(ctx, cfg, c.Context, c.Namespace)
+	client := k8s.NewClient()
+
+	k8sCtx, err := resolveKubeContext(ctx, client, cfg, c.Context, c.Namespace)
 	if err != nil {
 		return err
 	}
@@ -37,7 +39,7 @@ func (c *ConfigOpencodeCmd) Run() error {
 		return err
 	}
 
-	if err := c.createK8sSecret(ctx, k8sCtx.Name, k8sCtx.Namespace, authFileContent); err != nil {
+	if err := c.createK8sSecret(ctx, client, k8sCtx.Name, k8sCtx.Namespace, authFileContent); err != nil {
 		return err
 	}
 
@@ -73,14 +75,14 @@ func (c *ConfigOpencodeCmd) readOpenCodeCredentials() (string, error) {
 	return string(authFileContent), nil
 }
 
-func (c *ConfigOpencodeCmd) createK8sSecret(ctx context.Context, kubeContext, namespace, authFileContent string) error {
+func (c *ConfigOpencodeCmd) createK8sSecret(ctx context.Context, client k8s.Client, kubeContext, namespace, authFileContent string) error {
 	logger.Infof("Creating/updating Kubernetes secret '%s'...", k8s.OpenCodeSecretName)
 
 	secretData := map[string]string{
 		"auth.json": authFileContent,
 	}
 
-	if err := k8s.CreateOrUpdateSecret(ctx, k8s.OpenCodeSecretName, namespace, kubeContext, secretData); err != nil {
+	if err := client.CreateOrUpdateSecret(ctx, k8s.OpenCodeSecretName, namespace, kubeContext, secretData); err != nil {
 		return fmt.Errorf("failed to create/update secret: %w", err)
 	}
 

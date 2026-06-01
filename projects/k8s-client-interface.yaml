@@ -31,7 +31,7 @@ requirements:
         - Add a k8s.Client parameter to createK8sSecret in ConfigGithubCmd, ConfigOpencodeCmd, and ConfigPulumiCmd; replace each k8s.CreateOrUpdateSecret call with a method call on the client parameter
         - In ConfigGithubCmd.Run, ConfigOpencodeCmd.Run, and ConfigPulumiCmd.Run construct k8s.NewClient() and pass it to both resolveKubeContext and createK8sSecret
         - In ConfigWebhookConfigCmd.Run and ConfigWebhookSecretCmd.Run construct k8s.NewClient() and pass it to provisioning.GetKubeContext, provisioning.WriteWebhookConfigMap, and provisioning.WriteWebhookSecrets
-      passing: false
+      passing: true
     - slug: remove-comments
       description: Remove all what-comments from internal/k8s source files
       items:

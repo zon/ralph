@@ -28,7 +28,9 @@ func (c *ConfigPulumiCmd) Run() error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	k8sCtx, err := resolveKubeContext(ctx, cfg, c.Context, c.Namespace)
+	client := k8s.NewClient()
+
+	k8sCtx, err := resolveKubeContext(ctx, client, cfg, c.Context, c.Namespace)
 	if err != nil {
 		return err
 	}
@@ -41,7 +43,7 @@ func (c *ConfigPulumiCmd) Run() error {
 		}
 	}
 
-	if err := c.createK8sSecret(ctx, k8sCtx.Name, k8sCtx.Namespace, token); err != nil {
+	if err := c.createK8sSecret(ctx, client, k8sCtx.Name, k8sCtx.Namespace, token); err != nil {
 		return err
 	}
 
@@ -72,14 +74,14 @@ func (c *ConfigPulumiCmd) promptForToken() (string, error) {
 	return token, nil
 }
 
-func (c *ConfigPulumiCmd) createK8sSecret(ctx context.Context, kubeContext, namespace, token string) error {
+func (c *ConfigPulumiCmd) createK8sSecret(ctx context.Context, client k8s.Client, kubeContext, namespace, token string) error {
 	logger.Infof("Creating/updating Kubernetes secret '%s'...", k8s.PulumiSecretName)
 
 	secretData := map[string]string{
 		"PULUMI_ACCESS_TOKEN": token,
 	}
 
-	if err := k8s.CreateOrUpdateSecret(ctx, k8s.PulumiSecretName, namespace, kubeContext, secretData); err != nil {
+	if err := client.CreateOrUpdateSecret(ctx, k8s.PulumiSecretName, namespace, kubeContext, secretData); err != nil {
 		return fmt.Errorf("failed to create/update secret: %w", err)
 	}
 
