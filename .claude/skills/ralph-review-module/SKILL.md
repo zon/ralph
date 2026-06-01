@@ -27,6 +27,6 @@ Audit a module against the architecture and testing standards for its declared c
 
    **Gaps** — specific things missing or wrong, each tied to a rule from the standards docs. For each gap, name the file and the exact issue.
 
-   **Recommendations** — ordered list of changes to bring the module up to standard. Be concrete: name the file to create or edit and what to add or change.
+   **Recommendations** — ordered list of changes to bring the module up to standard. Be concrete: name the file to create or edit and what to add or change. Do not hesitate to redefine interfaces or change signatures anywhere in the repo — recommend the clean end state. Do not recommend compatibility layers, re-exports, or deprecation shims unless the user has explicitly asked for backwards compatibility.
 
 7. **Report the findings** to the user. If the module is fully compliant, say so clearly. If gaps exist, present the recommendations as a starting point for a project or direct fix.
