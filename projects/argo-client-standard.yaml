@@ -22,7 +22,7 @@ requirements:
       description: Remove the trivial TestK8sContext test
       items:
         - Delete TestK8sContext from internal/argo/argo_test.go — it only asserts struct field assignment with no behavioral coverage
-      passing: false
+      passing: true
     - slug: update-callers
       description: Update callers to use the new Client struct and interface
       items:
