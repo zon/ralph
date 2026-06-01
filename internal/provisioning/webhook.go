@@ -231,7 +231,7 @@ func BuildWebhookSecrets(appCfg *webhookconfig.AppConfig, secretGenerator func()
 	return secrets, nil
 }
 
-func WriteWebhookConfigMap(ctx context.Context, kubeContext, namespace string, appCfg webhookconfig.AppConfig) error {
+func WriteWebhookConfigMap(ctx context.Context, client k8s.Client, kubeContext, namespace string, appCfg webhookconfig.AppConfig) error {
 	cfgBytes, err := yaml.Marshal(appCfg)
 	if err != nil {
 		return fmt.Errorf("failed to serialize AppConfig to YAML: %w", err)
@@ -243,14 +243,14 @@ func WriteWebhookConfigMap(ctx context.Context, kubeContext, namespace string, a
 		"config.yaml": cfgYAML,
 	}
 
-	if err := k8s.CreateOrUpdateConfigMap(ctx, WebhookConfigMapName, namespace, kubeContext, configMapData); err != nil {
+	if err := client.CreateOrUpdateConfigMap(ctx, WebhookConfigMapName, namespace, kubeContext, configMapData); err != nil {
 		return fmt.Errorf("failed to create/update configmap '%s': %w", WebhookConfigMapName, err)
 	}
 
 	return nil
 }
 
-func WriteWebhookSecrets(ctx context.Context, kubeContext, namespace string, secrets *webhookconfig.Secrets) error {
+func WriteWebhookSecrets(ctx context.Context, client k8s.Client, kubeContext, namespace string, secrets *webhookconfig.Secrets) error {
 	secretsBytes, err := yaml.Marshal(secrets)
 	if err != nil {
 		return fmt.Errorf("failed to serialize Secrets to YAML: %w", err)
@@ -262,18 +262,18 @@ func WriteWebhookSecrets(ctx context.Context, kubeContext, namespace string, sec
 		"secrets.yaml": secretsYAML,
 	}
 
-	if err := k8s.CreateOrUpdateSecret(ctx, WebhookSecretsSecretName, namespace, kubeContext, secretData); err != nil {
+	if err := client.CreateOrUpdateSecret(ctx, WebhookSecretsSecretName, namespace, kubeContext, secretData); err != nil {
 		return fmt.Errorf("failed to create/update secret '%s': %w", WebhookSecretsSecretName, err)
 	}
 
 	return nil
 }
 
-func GetKubeContext(ctx context.Context, contextOverride string) (string, error) {
+func GetKubeContext(ctx context.Context, client k8s.Client, contextOverride string) (string, error) {
 	if contextOverride != "" {
 		return contextOverride, nil
 	}
-	currentCtx, err := k8s.GetCurrentContext(ctx)
+	currentCtx, err := client.GetCurrentContext(ctx)
 	if err != nil {
 		return "", fmt.Errorf("failed to get current Kubernetes context: %w", err)
 	}

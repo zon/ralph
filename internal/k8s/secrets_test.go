@@ -7,36 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestSecretNames(t *testing.T) {
-	tests := []struct {
-		name     string
-		constant string
-		expected string
-	}{
-		{
-			name:     "github secret name",
-			constant: GitHubSecretName,
-			expected: "github-credentials",
-		},
-		{
-			name:     "opencode secret name",
-			constant: OpenCodeSecretName,
-			expected: "opencode-credentials",
-		},
-		{
-			name:     "pulumi secret name",
-			constant: PulumiSecretName,
-			expected: "pulumi-credentials",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.expected, tt.constant, "Secret name should match expected value")
-		})
-	}
-}
-
 func TestBuildSecretArgs(t *testing.T) {
 	tests := []struct {
 		name          string

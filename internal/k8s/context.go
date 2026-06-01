@@ -6,14 +6,12 @@ import (
 	"strings"
 )
 
-// Context represents a Kubernetes context
 type Context struct {
 	Name      string
 	Namespace string
 }
 
-// GetCurrentContext gets the current Kubernetes context
-func GetCurrentContext(ctx context.Context) (Context, error) {
+func (c *client) GetCurrentContext(ctx context.Context) (Context, error) {
 	stdout, err := runKubectl(ctx, nil, "config", "current-context")
 	if err != nil {
 		return Context{}, fmt.Errorf("failed to get current context: %w", err)
@@ -21,7 +19,6 @@ func GetCurrentContext(ctx context.Context) (Context, error) {
 
 	name := strings.TrimSpace(stdout.String())
 
-	// Get the namespace for the current context
 	args := []string{"config", "view", "-o", fmt.Sprintf("jsonpath='{.contexts[?(@.name==\"%s\")].context.namespace}'", name)}
 	stdout, err = runKubectl(ctx, nil, args...)
 

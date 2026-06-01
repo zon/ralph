@@ -6,6 +6,7 @@ import (
 
 	"github.com/zon/ralph/internal/argo"
 	"github.com/zon/ralph/internal/config"
+	"github.com/zon/ralph/internal/k8s"
 )
 
 type StopCmd struct {
@@ -21,7 +22,8 @@ func (s *StopCmd) Run() error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	k8sCtx, err := resolveKubeContext(ctx, ralphConfig, s.Context, "")
+	k8sClient := k8s.NewClient()
+	k8sCtx, err := resolveKubeContext(ctx, k8sClient, ralphConfig, s.Context, "")
 	if err != nil {
 		return err
 	}

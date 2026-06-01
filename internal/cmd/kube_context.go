@@ -21,7 +21,7 @@ import (
 // 3. "config" namespace (if .ralph/config.yaml is found)
 // 4. kubectl configuration (context namespace)
 // 5. Default namespace ("default")
-func resolveKubeContext(ctx context.Context, ralphConfig *config.RalphConfig, flagContext, flagNamespace string) (k8s.Context, error) {
+func resolveKubeContext(ctx context.Context, client k8s.Client, ralphConfig *config.RalphConfig, flagContext, flagNamespace string) (k8s.Context, error) {
 	var k8sCtx k8s.Context
 
 	// 1. Resolve Context Name
@@ -32,7 +32,7 @@ func resolveKubeContext(ctx context.Context, ralphConfig *config.RalphConfig, fl
 		logger.Verbosef("Using context from .ralph/config.yaml: %s", ralphConfig.Workflow.Context)
 		k8sCtx.Name = ralphConfig.Workflow.Context
 	} else {
-		current, err := k8s.GetCurrentContext(ctx)
+		current, err := client.GetCurrentContext(ctx)
 		if err != nil {
 			return k8s.Context{}, fmt.Errorf("failed to get current Kubernetes context: %w\n\nMake sure kubectl is installed and configured.", err)
 		}

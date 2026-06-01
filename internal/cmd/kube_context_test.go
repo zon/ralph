@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -9,39 +10,19 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zon/ralph/internal/config"
+	"github.com/zon/ralph/internal/k8s"
 )
 
 func TestResolveKubeContext(t *testing.T) {
-	mockKubectl := func(dir, kubeContext, kubeNamespace string, causeError bool) string {
-		ns := kubeNamespace
-		script := `#!/bin/bash
-if [ "$1" = "config" ] && [ "$2" = "current-context" ]; then
-  echo "` + kubeContext + `"
-elif [ "$1" = "config" ] && [ "$2" = "view" ]; then
-  echo "` + ns + `"
-else
-  exit 1
-fi
-`
-		if causeError {
-			script = `#!/bin/bash
-exit 1
-`
-		}
-		scriptPath := filepath.Join(dir, "kubectl")
-		os.WriteFile(scriptPath, []byte(script), 0755)
-		return scriptPath
-	}
-
 	tests := []struct {
 		name              string
 		flagContext       string
 		flagNamespace     string
 		configContext     string
 		configNamespace   string
-		kubeContext       string
-		kubeNamespace     string
-		kubeContextError  bool
+		mockContext       string
+		mockNamespace     string
+		mockError         bool
 		expectedContext   string
 		expectedNamespace string
 		expectError       bool
@@ -52,8 +33,8 @@ exit 1
 			flagNamespace:     "flag-namespace",
 			configContext:     "config-context",
 			configNamespace:   "config-namespace",
-			kubeContext:       "kubectl-context",
-			kubeNamespace:     "kubectl-namespace",
+			mockContext:       "kubectl-context",
+			mockNamespace:     "kubectl-namespace",
 			expectedContext:   "flag-context",
 			expectedNamespace: "flag-namespace",
 		},
@@ -63,19 +44,19 @@ exit 1
 			flagNamespace:     "flag-namespace",
 			configContext:     "config-context",
 			configNamespace:   "config-namespace",
-			kubeContext:       "kubectl-context",
-			kubeNamespace:     "kubectl-namespace",
+			mockContext:       "kubectl-context",
+			mockNamespace:     "kubectl-namespace",
 			expectedContext:   "config-context",
 			expectedNamespace: "flag-namespace",
 		},
 		{
-			name:              "flag namespace only, context from kubectl",
+			name:              "flag namespace only, context from mock",
 			flagContext:       "",
 			flagNamespace:     "flag-namespace",
 			configContext:     "",
 			configNamespace:   "",
-			kubeContext:       "kubectl-context",
-			kubeNamespace:     "kubectl-namespace",
+			mockContext:       "kubectl-context",
+			mockNamespace:     "kubectl-namespace",
 			expectedContext:   "kubectl-context",
 			expectedNamespace: "flag-namespace",
 		},
@@ -85,41 +66,41 @@ exit 1
 			flagNamespace:     "",
 			configContext:     "config-context",
 			configNamespace:   "config-namespace",
-			kubeContext:       "kubectl-context",
-			kubeNamespace:     "kubectl-namespace",
+			mockContext:       "kubectl-context",
+			mockNamespace:     "kubectl-namespace",
 			expectedContext:   "config-context",
 			expectedNamespace: "config-namespace",
 		},
 		{
-			name:              "config namespace used when flag is empty, kubectl context",
+			name:              "config namespace used when flag is empty, mock context",
 			flagContext:       "",
 			flagNamespace:     "",
 			configContext:     "",
 			configNamespace:   "config-namespace",
-			kubeContext:       "kubectl-context",
-			kubeNamespace:     "kubectl-namespace",
+			mockContext:       "kubectl-context",
+			mockNamespace:     "kubectl-namespace",
 			expectedContext:   "kubectl-context",
 			expectedNamespace: "config-namespace",
 		},
 		{
-			name:              "kubectl context and namespace used when flags and config are empty",
+			name:              "mock context and namespace used when flags and config are empty",
 			flagContext:       "",
 			flagNamespace:     "",
 			configContext:     "",
 			configNamespace:   "",
-			kubeContext:       "kubectl-context",
-			kubeNamespace:     "kubectl-namespace",
+			mockContext:       "kubectl-context",
+			mockNamespace:     "kubectl-namespace",
 			expectedContext:   "kubectl-context",
 			expectedNamespace: "kubectl-namespace",
 		},
 		{
-			name:              "kubectl namespace empty defaults to default",
+			name:              "mock namespace empty defaults to default",
 			flagContext:       "",
 			flagNamespace:     "",
 			configContext:     "",
 			configNamespace:   "",
-			kubeContext:       "kubectl-context",
-			kubeNamespace:     "",
+			mockContext:       "kubectl-context",
+			mockNamespace:     "",
 			expectedContext:   "kubectl-context",
 			expectedNamespace: "default",
 		},
@@ -129,19 +110,19 @@ exit 1
 			flagNamespace:     "",
 			configContext:     "config-context",
 			configNamespace:   "",
-			kubeContext:       "kubectl-context",
-			kubeNamespace:     "kubectl-namespace",
+			mockContext:       "kubectl-context",
+			mockNamespace:     "kubectl-namespace",
 			expectedContext:   "config-context",
 			expectedNamespace: "config",
 		},
 		{
-			name:             "kubectl context error returns error when no flag or config context",
-			flagContext:      "",
-			flagNamespace:    "",
-			configContext:    "",
-			configNamespace:  "",
-			kubeContextError: true,
-			expectError:      true,
+			name:        "mock context error returns error when no flag or config context",
+			flagContext: "",
+			flagNamespace: "",
+			configContext: "",
+			configNamespace: "",
+			mockError:   true,
+			expectError: true,
 		},
 		{
 			name:        "error when .ralph directory is missing",
@@ -155,9 +136,6 @@ exit 1
 
 			dir := t.TempDir()
 			t.Chdir(dir)
-
-			kubectlPath := mockKubectl(dir, tt.kubeContext, tt.kubeNamespace, tt.kubeContextError)
-			t.Setenv("PATH", filepath.Dir(kubectlPath)+":"+os.Getenv("PATH"))
 
 			if tt.name != "error when .ralph directory is missing" {
 				ralphDir := filepath.Join(dir, ".ralph")
@@ -177,31 +155,20 @@ exit 1
 				}
 			}
 
-			kubeconfigPath := filepath.Join(dir, "kubeconfig")
-			kubeconfigContent := "apiVersion: v1\nkind: Config\n"
-			if tt.kubeContext != "" && !tt.kubeContextError {
-				kubeconfigContent += "current-context: " + tt.kubeContext + "\n"
-			}
-			if tt.kubeContextError {
-				kubeconfigContent = "invalid yaml"
-			} else {
-				kubeconfigContent += "contexts:\n"
-				if tt.kubeContext != "" {
-					kubeconfigContent += "- name: " + tt.kubeContext + "\n"
-					if tt.kubeNamespace != "" {
-						kubeconfigContent += "  context:\n"
-						kubeconfigContent += "    namespace: " + tt.kubeNamespace + "\n"
-					}
-				}
-			}
-			err := os.WriteFile(kubeconfigPath, []byte(kubeconfigContent), 0644)
-			require.NoError(t, err)
-
-			t.Setenv("KUBECONFIG", kubeconfigPath)
-
 			cfg, err := config.LoadConfig()
 			if err != nil && !tt.expectError {
 				require.NoError(t, err)
+			}
+
+			mockClient := &k8s.MockClient{}
+			if tt.mockError {
+				mockClient.GetCurrentContextFunc = func(ctx context.Context) (k8s.Context, error) {
+					return k8s.Context{}, fmt.Errorf("mock error")
+				}
+			} else if tt.mockContext != "" {
+				mockClient.GetCurrentContextFunc = func(ctx context.Context) (k8s.Context, error) {
+					return k8s.Context{Name: tt.mockContext, Namespace: tt.mockNamespace}, nil
+				}
 			}
 
 			if tt.expectError {
@@ -209,12 +176,12 @@ exit 1
 					require.Error(t, err)
 					return
 				}
-				_, err = resolveKubeContext(ctx, cfg, tt.flagContext, tt.flagNamespace)
+				_, err = resolveKubeContext(ctx, mockClient, cfg, tt.flagContext, tt.flagNamespace)
 				require.Error(t, err)
 				return
 			}
 
-			k8sCtx, err := resolveKubeContext(ctx, cfg, tt.flagContext, tt.flagNamespace)
+			k8sCtx, err := resolveKubeContext(ctx, mockClient, cfg, tt.flagContext, tt.flagNamespace)
 			require.NoError(t, err)
 			assert.Equal(t, tt.expectedContext, k8sCtx.Name)
 			assert.Equal(t, tt.expectedNamespace, k8sCtx.Namespace)
@@ -226,7 +193,6 @@ func TestResolveKubeContext_UpwardSearch(t *testing.T) {
 	ctx := context.Background()
 	dir := t.TempDir()
 
-	// Create .ralph/config.yaml in the root dir
 	ralphDir := filepath.Join(dir, ".ralph")
 	err := os.MkdirAll(ralphDir, 0755)
 	require.NoError(t, err)
@@ -235,30 +201,20 @@ func TestResolveKubeContext_UpwardSearch(t *testing.T) {
 	err = os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte(configContent), 0644)
 	require.NoError(t, err)
 
-	// Create a subdirectory and change into it
 	subDir := filepath.Join(dir, "subdir", "subsubdir")
 	err = os.MkdirAll(subDir, 0755)
 	require.NoError(t, err)
 	t.Chdir(subDir)
 
-	// Set up a basic kubeconfig so resolveKubeContext doesn't fail
-	kubeconfigPath := filepath.Join(dir, "kubeconfig")
-	kubeconfigContent := `apiVersion: v1
-kind: Config
-current-context: test-ctx
-contexts:
-- name: test-ctx
-  context:
-    namespace: default
-`
-	err = os.WriteFile(kubeconfigPath, []byte(kubeconfigContent), 0644)
-	require.NoError(t, err)
-	t.Setenv("KUBECONFIG", kubeconfigPath)
-
 	cfg, err := config.LoadConfig()
 	require.NoError(t, err)
 
-	k8sCtx, err := resolveKubeContext(ctx, cfg, "", "")
+	mockClient := &k8s.MockClient{}
+	mockClient.GetCurrentContextFunc = func(ctx context.Context) (k8s.Context, error) {
+		return k8s.Context{Name: "test-ctx", Namespace: "default"}, nil
+	}
+
+	k8sCtx, err := resolveKubeContext(ctx, mockClient, cfg, "", "")
 
 	require.NoError(t, err)
 	assert.Equal(t, "test-ctx", k8sCtx.Name)
