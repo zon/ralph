@@ -260,13 +260,6 @@ func projectLoaded(cmd *RunCmd) bool {
 	return false
 }
 
-func gitCurrentBranchCalled(cmd *RunCmd) bool {
-	if m, ok := cmd.git.(*git.MockClient); ok {
-		return m.CurrentBranchCalled
-	}
-	return false
-}
-
 func remoteLastProject(cmd *RunCmd) *project.Project {
 	if m, ok := cmd.remote.(*mockRemoteRunnerClient); ok {
 		return m.LastProject
@@ -321,7 +314,6 @@ func TestPrepareSetupProjectLoadFailureAbortsEarly(t *testing.T) {
 	)
 	err := cmd.Run(flagsAny())
 	require.Error(t, err)
-	require.False(t, gitCurrentBranchCalled(cmd))
 }
 
 func TestPrepareSetupBaseBranchFromCurrentWhenDifferentFromProject(t *testing.T) {

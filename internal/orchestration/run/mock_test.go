@@ -240,6 +240,41 @@ func (e *mockError) Error() string {
 	return e.msg
 }
 
+type trackingGitClient struct {
+	GitClient
+	switchToBranchCalled    bool
+	writeBlockedFileCalled  bool
+	commitFromReportCalled  bool
+	currentBranchCalled     bool
+}
+
+func wrapTrackedGit(gc GitClient) GitClient {
+	if _, ok := gc.(*trackingGitClient); ok {
+		return gc
+	}
+	return &trackingGitClient{GitClient: gc}
+}
+
+func (t *trackingGitClient) SwitchToBranch(slug string) error {
+	t.switchToBranchCalled = true
+	return t.GitClient.SwitchToBranch(slug)
+}
+
+func (t *trackingGitClient) WriteBlockedFile(err error) {
+	t.writeBlockedFileCalled = true
+	t.GitClient.WriteBlockedFile(err)
+}
+
+func (t *trackingGitClient) CommitFromReport(slug string) error {
+	t.commitFromReportCalled = true
+	return t.GitClient.CommitFromReport(slug)
+}
+
+func (t *trackingGitClient) CurrentBranch() (string, error) {
+	t.currentBranchCalled = true
+	return t.GitClient.CurrentBranch()
+}
+
 type runnerOption func(*Runner)
 
 func withProject(pc ProjectClient) runnerOption {
@@ -256,7 +291,7 @@ func withAI(ac AIClient) runnerOption {
 
 func withGit(gc GitClient) runnerOption {
 	return func(r *Runner) {
-		r.git = gc
+		r.git = wrapTrackedGit(gc)
 	}
 }
 
@@ -282,7 +317,7 @@ func withMocks(opts ...runnerOption) *Runner {
 	r := &Runner{
 		project:  newProjectThatAlwaysReportsFailures(),
 		ai:       &mockAIClient{},
-		git:      &git.MockClient{},
+		git:      &trackingGitClient{GitClient: &git.MockClient{}},
 		github:   &github.MockClient{},
 		services: &services.MockClient{},
 		notify:   &notify.MockClient{},
@@ -330,22 +365,22 @@ func aiChangelogCalls(r *Runner) []*project.Project {
 }
 
 func gitBranchSwitched(r *Runner) bool {
-	if m, ok := r.git.(*git.MockClient); ok {
-		return m.SwitchToBranchCalled
+	if m, ok := r.git.(*trackingGitClient); ok {
+		return m.switchToBranchCalled
 	}
 	return false
 }
 
 func gitBlockedFileWritten(r *Runner) bool {
-	if m, ok := r.git.(*git.MockClient); ok {
-		return m.WriteBlockedFileCalled
+	if m, ok := r.git.(*trackingGitClient); ok {
+		return m.writeBlockedFileCalled
 	}
 	return false
 }
 
 func gitCommittedFromReport(r *Runner) bool {
-	if m, ok := r.git.(*git.MockClient); ok {
-		return m.CommitFromReportCalled
+	if m, ok := r.git.(*trackingGitClient); ok {
+		return m.commitFromReportCalled
 	}
 	return false
 }

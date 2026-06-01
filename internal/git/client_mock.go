@@ -1,7 +1,5 @@
 package git
 
-import "fmt"
-
 type MockClient struct {
 	SwitchToBranchFunc          func(slug string) error
 	BlockedFileExistsFunc       func() bool
@@ -11,16 +9,9 @@ type MockClient struct {
 	CommitFromReportFunc        func(slug string) error
 	CurrentBranchFunc           func() (string, error)
 	IsBranchSyncedWithRemoteFunc func(branch string) error
-
-	SwitchToBranchCalled        bool
-	WriteBlockedFileCalled      bool
-	CommitFromReportCalled      bool
-	CurrentBranchCalled         bool
-	SyncError                   error
 }
 
 func (m *MockClient) SwitchToBranch(slug string) error {
-	m.SwitchToBranchCalled = true
 	if m.SwitchToBranchFunc != nil {
 		return m.SwitchToBranchFunc(slug)
 	}
@@ -35,7 +26,6 @@ func (m *MockClient) BlockedFileExists() bool {
 }
 
 func (m *MockClient) WriteBlockedFile(err error) {
-	m.WriteBlockedFileCalled = true
 	if m.WriteBlockedFileFunc != nil {
 		m.WriteBlockedFileFunc(err)
 	}
@@ -56,7 +46,6 @@ func (m *MockClient) ReportExists() bool {
 }
 
 func (m *MockClient) CommitFromReport(slug string) error {
-	m.CommitFromReportCalled = true
 	if m.CommitFromReportFunc != nil {
 		return m.CommitFromReportFunc(slug)
 	}
@@ -64,7 +53,6 @@ func (m *MockClient) CommitFromReport(slug string) error {
 }
 
 func (m *MockClient) CurrentBranch() (string, error) {
-	m.CurrentBranchCalled = true
 	if m.CurrentBranchFunc != nil {
 		return m.CurrentBranchFunc()
 	}
@@ -75,24 +63,5 @@ func (m *MockClient) IsBranchSyncedWithRemote(branch string) error {
 	if m.IsBranchSyncedWithRemoteFunc != nil {
 		return m.IsBranchSyncedWithRemoteFunc(branch)
 	}
-	if m.SyncError != nil {
-		return m.SyncError
-	}
 	return nil
-}
-
-func ThatReportsBranchNotPushed() *MockClient {
-	return &MockClient{
-		IsBranchSyncedWithRemoteFunc: func(branch string) error {
-			return fmt.Errorf("branch '%s' has not been pushed to remote - please push before running remotely", branch)
-		},
-	}
-}
-
-func ThatReportsBranchNotInSync() *MockClient {
-	return &MockClient{
-		IsBranchSyncedWithRemoteFunc: func(branch string) error {
-			return fmt.Errorf("branch '%s' is not in sync with remote - please push your changes before running remotely", branch)
-		},
-	}
 }

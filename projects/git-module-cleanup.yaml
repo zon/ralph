@@ -16,7 +16,7 @@ requirements:
         - Remove the SyncError error field from MockClient — it creates a second way to configure IsBranchSyncedWithRemote alongside IsBranchSyncedWithRemoteFunc; remove the SyncError branch from the method body
         - Remove ThatReportsBranchNotInSync and ThatReportsBranchNotPushed factory functions — callers can configure IsBranchSyncedWithRemoteFunc directly
         - Update any callers outside internal/git that reference the removed fields or factory functions
-      passing: false
+      passing: true
     - slug: remove-dead-commit-code
       description: commitChanges() is unexported, never called by production code, and only reachable from tests
       items:
