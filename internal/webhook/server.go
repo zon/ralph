@@ -1,6 +1,7 @@
 package webhook
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -11,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/zon/ralph/internal/argo"
 	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/webhookconfig"
 )
@@ -124,8 +126,10 @@ func (s *Server) readAndParsePayload(c *gin.Context) (*githubPayload, []byte, er
 
 // submitWorkflow submits a WorkflowResult asynchronously.
 func submitWorkflow(result *WorkflowResult, owner, repoName string) {
+	client := argo.NewClient()
+	ctx := context.Background()
 	if result.Run != nil {
-		name, err := result.Run.Submit()
+		name, err := result.Run.Submit(ctx, client)
 		if err != nil {
 			logger.Verbosef("failed to submit run workflow for %s/%s: %v", owner, repoName, err)
 			return
@@ -133,7 +137,7 @@ func submitWorkflow(result *WorkflowResult, owner, repoName string) {
 		logger.Verbosef("submitted run workflow %s for %s/%s", name, owner, repoName)
 		logger.Verbosef("To watch logs, run: argo logs -n %s -f %s", result.Namespace, name)
 	} else if result.Merge != nil {
-		name, err := result.Merge.Submit()
+		name, err := result.Merge.Submit(ctx, client)
 		if err != nil {
 			logger.Verbosef("failed to submit merge workflow for %s/%s: %v", owner, repoName, err)
 			return

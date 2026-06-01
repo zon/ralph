@@ -25,7 +25,8 @@ func (l *ListCmd) Run() error {
 		return err
 	}
 
-	return argo.ListWorkflows(argo.K8sContext{
+	client := argo.NewClient()
+	return client.ListWorkflows(argo.K8sContext{
 		Name:      k8sCtx.Name,
 		Namespace: k8sCtx.Namespace,
 	})

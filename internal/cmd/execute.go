@@ -112,7 +112,8 @@ func executeCommandRemote(ctx *context.Context, setup *CommandSetup) error {
 		logger.Verbosef("Generated workflow YAML:\n%s", workflowYAML)
 	}
 
-	workflowName, err := wf.Submit()
+	argoClient := argo.NewClient()
+	workflowName, err := wf.Submit(ctx.GoContext(), argoClient)
 	if err != nil {
 		return fmt.Errorf("failed to submit workflow: %w", err)
 	}
@@ -120,7 +121,7 @@ func executeCommandRemote(ctx *context.Context, setup *CommandSetup) error {
 	logger.Successf("Workflow submitted: %s", workflowName)
 
 	if ctx.ShouldFollow() {
-		if err := argo.FollowLogs(wf.Namespace, workflowName, wf.KubeContext); err != nil {
+		if err := argoClient.FollowLogs(argo.K8sContext{Name: wf.KubeContext, Namespace: wf.Namespace}, workflowName); err != nil {
 			notify.Error("command", ctx.ShouldNotify())
 			return fmt.Errorf("argo logs failed: %w", err)
 		}

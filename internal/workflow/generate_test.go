@@ -1,6 +1,7 @@
 package workflow
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/zon/ralph/internal/argo"
 	execcontext "github.com/zon/ralph/internal/context"
 	githubpkg "github.com/zon/ralph/internal/github"
 	"gopkg.in/yaml.v3"
@@ -479,7 +481,12 @@ func TestSubmitWorkflow_ArgoNotInstalled(t *testing.T) {
 
 	t.Setenv("PATH", "")
 
-	_, err := wf.Submit()
+	client := &argo.MockClient{
+		SubmitYAMLFunc: func(ctx context.Context, workflowYAML string, kubeCtx argo.K8sContext) (string, error) {
+			return "", fmt.Errorf("argo CLI not found")
+		},
+	}
+	_, err := wf.Submit(context.Background(), client)
 	require.Error(t, err, "Expected error when argo CLI is not installed")
 	assert.True(t, strings.Contains(err.Error(), "argo CLI not found"), "Error message should mention argo CLI not found, got: %v", err)
 }

@@ -1,6 +1,7 @@
 package workflow
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/zon/ralph/internal/argo"
@@ -65,12 +66,12 @@ func (m *MergeWorkflow) Render() (string, error) {
 }
 
 // Submit renders and submits this MergeWorkflow to Argo, returning the workflow name.
-func (m *MergeWorkflow) Submit() (string, error) {
+func (m *MergeWorkflow) Submit(ctx context.Context, client argo.Client) (string, error) {
 	workflowYAML, err := m.Render()
 	if err != nil {
 		return "", err
 	}
-	return argo.SubmitYAML(workflowYAML, m.KubeContext, m.Namespace)
+	return client.SubmitYAML(ctx, workflowYAML, argo.K8sContext{Name: m.KubeContext, Namespace: m.Namespace})
 }
 
 func (m *MergeWorkflow) buildMergeTemplate() map[string]interface{} {

@@ -1,7 +1,10 @@
 package cmd
 
 import (
+	"context"
+
 	"github.com/zon/ralph/internal/ai"
+	"github.com/zon/ralph/internal/argo"
 	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
@@ -90,14 +93,20 @@ func (c *mergeProjectClient) RemoveAndCommit(files []string) error {
 	return project.RemoveAndCommit(nil, files)
 }
 
-type mergeWorkflowClient struct{}
+type mergeWorkflowClient struct {
+	argoClient argo.Client
+}
 
 func (c *mergeWorkflowClient) SubmitMergeWorkflow(branch string) (string, error) {
 	mw, err := workflow.GenerateMergeWorkflow(branch)
 	if err != nil {
 		return "", err
 	}
-	return mw.Submit()
+	return mw.Submit(context.Background(), c.argoClient)
+}
+
+func newMergeWorkflowClient() *mergeWorkflowClient {
+	return &mergeWorkflowClient{argoClient: argo.NewClient()}
 }
 
 func newOrchestrationMergeCmd() *orchestrationMerge.MergeCmd {
@@ -105,7 +114,7 @@ func newOrchestrationMergeCmd() *orchestrationMerge.MergeCmd {
 		&mergeGitClient{},
 		&mergeGitHubClient{},
 		&mergeProjectClient{},
-		&mergeWorkflowClient{},
+		newMergeWorkflowClient(),
 	)
 }
 

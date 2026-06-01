@@ -13,7 +13,22 @@ type K8sContext struct {
 	Namespace string
 }
 
-func ListWorkflows(ctx K8sContext) error {
+type Client interface {
+	ListWorkflows(ctx K8sContext) error
+	StopWorkflow(ctx K8sContext, workflowName string) error
+	FollowLogs(ctx K8sContext, workflowName string) error
+	SubmitYAML(ctx context.Context, workflowYAML string, kubeCtx K8sContext) (string, error)
+}
+
+type client struct{}
+
+var _ Client = (*client)(nil)
+
+func NewClient() Client {
+	return &client{}
+}
+
+func (c *client) ListWorkflows(ctx K8sContext) error {
 	args := []string{"list", "-n", ctx.Namespace}
 	if ctx.Name != "" {
 		args = append(args, "--context", ctx.Name)
@@ -30,7 +45,7 @@ func ListWorkflows(ctx K8sContext) error {
 	return nil
 }
 
-func StopWorkflow(ctx K8sContext, workflowName string) error {
+func (c *client) StopWorkflow(ctx K8sContext, workflowName string) error {
 	args := []string{"stop", "-n", ctx.Namespace}
 	if ctx.Name != "" {
 		args = append(args, "--context", ctx.Name)
@@ -48,10 +63,10 @@ func StopWorkflow(ctx K8sContext, workflowName string) error {
 	return nil
 }
 
-func FollowLogs(namespace, workflowName, kubeContext string) error {
-	args := []string{"logs", "-n", namespace, "-f", workflowName}
-	if kubeContext != "" {
-		args = append(args, "--context", kubeContext)
+func (c *client) FollowLogs(ctx K8sContext, workflowName string) error {
+	args := []string{"logs", "-n", ctx.Namespace, "-f", workflowName}
+	if ctx.Name != "" {
+		args = append(args, "--context", ctx.Name)
 	}
 	cmd := exec.Command("argo", args...)
 	cmd.Stdout = os.Stdout
@@ -62,17 +77,17 @@ func FollowLogs(namespace, workflowName, kubeContext string) error {
 	return nil
 }
 
-func SubmitYAML(workflowYAML string, workflowContext string, namespace string) (string, error) {
+func (c *client) SubmitYAML(ctx context.Context, workflowYAML string, kubeCtx K8sContext) (string, error) {
 	if _, err := exec.LookPath("argo"); err != nil {
 		return "", fmt.Errorf("argo CLI not found - please install Argo CLI to use remote execution: https://github.com/argoproj/argo-workflows/releases")
 	}
 
-	args := []string{"submit", "-", "-n", namespace}
-	if workflowContext != "" {
-		args = append(args, "--context", workflowContext)
+	args := []string{"submit", "-", "-n", kubeCtx.Namespace}
+	if kubeCtx.Name != "" {
+		args = append(args, "--context", kubeCtx.Name)
 	}
 
-	cmd := exec.CommandContext(context.Background(), "argo", args...)
+	cmd := exec.CommandContext(ctx, "argo", args...)
 	cmd.Stdin = strings.NewReader(workflowYAML)
 
 	output, err := cmd.CombinedOutput()
@@ -80,7 +95,7 @@ func SubmitYAML(workflowYAML string, workflowContext string, namespace string) (
 		return "", fmt.Errorf("failed to submit workflow: %w\nOutput: %s", err, string(output))
 	}
 
-	workflowName := ExtractWorkflowName(string(output))
+	workflowName := extractWorkflowName(string(output))
 	if workflowName == "" {
 		lines := strings.Split(strings.TrimSpace(string(output)), "\n")
 		if len(lines) > 0 {
@@ -90,7 +105,7 @@ func SubmitYAML(workflowYAML string, workflowContext string, namespace string) (
 	return workflowName, nil
 }
 
-func ExtractWorkflowName(output string) string {
+func extractWorkflowName(output string) string {
 	lines := strings.Split(output, "\n")
 	for _, line := range lines {
 		if strings.HasPrefix(strings.TrimSpace(line), "Name:") {
