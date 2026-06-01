@@ -1,9 +1,9 @@
 categories:
   - slug: entry
-    description: Main packages that wire adapter dependencies and start the application.
+    description: Main packages that wire real dependencies and start the application.
     signatures:
       - main function
-      - adapter dependency wiring
+      - dependency wiring
 
   - slug: orchestration
     description: Domain logic modules that define and coordinate core business processes.
@@ -13,10 +13,10 @@ categories:
       - domain logic integration tests
 
   - slug: implementation
-    description: Adapter implementations and supporting utilities that back the domain interfaces.
+    description: Real dependency implementations and mocks that back the domain interfaces.
     signatures:
-      - implementation adapters
-      - implementation mocks
+      - real dependency implementations
+      - mocks
       - unit tests
 
 modules:
@@ -27,7 +27,7 @@ modules:
     description: Service entrypoint that loads configuration and starts the webhook HTTP server.
     category: entry
   - path: internal/cmd
-    description: Command structs that parse flags, wire concrete adapter implementations into the run orchestration, and drive local and remote execution paths.
+    description: Command structs that parse flags, wire real dependencies into the run orchestration, and drive local and remote execution paths.
     category: entry
   - path: internal/orchestration/run
     description: Orchestrates the full run command from input validation through local and remote execution dispatch.

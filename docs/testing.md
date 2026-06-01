@@ -18,9 +18,13 @@ Use table-driven tests with `t.Run()` subtests. Use `t.TempDir()` for any filesy
 
 ### Isolation
 
-Tests must not invoke any external tools or services — no `git`, `gh`, `opencode`, or any other CLI or network call. Tests must not trigger OS-level side effects such as desktop notifications via `github.com/gen2brain/beeep`. External dependencies must be abstracted behind interfaces so tests can inject simple mock implementations.
+Unit tests may run code with real side effects; integration tests must always use mocks. `git` and `opencode` may be invoked in unit tests, but only against an isolated temporary directory — never the real repository. Use `t.TempDir()` to create the directory and initialise a fresh repo before the test runs.
 
-**Pattern:** define a minimal interface for each external dependency, accept it as a parameter in the function under test, and implement a fake struct in the `_test.go` file. Use function fields so individual behaviors can be overridden per test case:
+`beeep`, the GitHub API, the `gh` CLI, `argo`, and `kubectl` must never be invoked with real implementations in any test. These must always be abstracted behind interfaces and replaced with mocks.
+
+External dependencies must be abstracted behind interfaces. Each interface has two implementations: a real one that calls the actual dependency, and a mock used in tests.
+
+**Pattern:** define a minimal interface for each external dependency, accept it as a parameter in the function under test, and implement a mock struct in the `_test.go` file. Use function fields so individual behaviors can be overridden per test case:
 
 ```go
 type GitClient interface {
@@ -48,15 +52,23 @@ func (m *mockGit) Push(branch string) error {
 }
 ```
 
-The production implementation wraps the real CLI call; tests pass a `*mockGit` instead.
+The real implementation calls the actual dependency; tests pass a `*mockGit` instead.
+
+### Dependency unit tests
+
+Unit tests for real external dependencies (e.g. `opencode`, `git`) must be small, focused, and cheap — they exist only to verify the lowest-level interface of the real implementation, not to exercise full workflows.
+
+- Test only the minimal surface needed to confirm the real dependency works (e.g. a single command round-trip).
+- Use the shortest possible inputs. For `opencode`, hard-code an inexpensive model such as `deepseek v4 flash` and use a trivial prompt like `"say hi"`.
+- These tests must not accumulate: one or two cases per real dependency are enough.
 
 ### Module boundaries
 
-Orchestration modules define interfaces and compose behavior — they must not contain adapters or concrete implementations. Only implementation modules may contain adapters (the real CLI/network wrappers) and mocks (the test fakes).
+Orchestration modules define interfaces and compose behavior — they must not contain real dependency implementations. Only implementation modules may contain real dependency implementations and mocks.
 
 | Module type | May contain |
 |---|---|
 | Orchestration | interfaces, orchestration functions, tests |
-| Implementation | adapters, mocks, tests |
+| Implementation | real dependency implementations, mocks, tests |
 
 Mocks for an implementation module must live in a `_mock.go` file within that same module — not in `_test.go` files. This makes them importable by other packages that need to stub the dependency without pulling in test infrastructure.

@@ -33,10 +33,10 @@ Architecture documents use YAML format with the following structure:
 ```yaml
 categories:
   - slug: entry
-    description: Main package that wires adapter dependencies and starts the application.
+    description: Main package that wires real dependencies and starts the application.
     signatures:
       - main function
-      - adapter dependency wiring
+      - dependency wiring
 
   - slug: orchestration
     description: Domain logic modules that define and coordinate core business processes.
@@ -46,15 +46,15 @@ categories:
       - domain logic integration tests
 
   - slug: implementation
-    description: Adapter implementations and mocks that back the domain interfaces.
+    description: Real dependency implementations and mocks that back the domain interfaces.
     signatures:
-      - implementation adapters
-      - implementation mocks
+      - real dependency implementations
+      - mocks
       - unit tests
 
 modules:
   - path: cmd/myapp
-    description: Wires concrete adapters into the application and starts the server.
+    description: Wires real dependencies into the application and starts the server.
     category: entry
 
   - path: internal/orders
