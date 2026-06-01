@@ -7,6 +7,7 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/webhookconfig"
 )
 
@@ -104,7 +105,7 @@ func TestConfigWebhookSecretCmd_RegisterWebhooks_NoRepos(t *testing.T) {
 
 	err := cmd.registerWebhooks(context.Background(), &webhookconfig.Secrets{
 		Repos: []webhookconfig.RepoSecret{},
-	})
+	}, &github.MockGH{})
 
 	require.NoError(t, err)
 }
@@ -118,7 +119,7 @@ func TestConfigWebhookSecretCmd_RegisterWebhooks_MultipleRepos(t *testing.T) {
 			{Owner: "owner2", Name: "repo2", WebhookSecret: "secret2"},
 			{Owner: "owner3", Name: "repo3", WebhookSecret: "secret3"},
 		},
-	})
+	}, &github.MockGH{})
 
 	require.NoError(t, err)
 }

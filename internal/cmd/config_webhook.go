@@ -44,7 +44,9 @@ func (c *ConfigWebhookConfigCmd) Run() error {
 
 	repoName, repoOwner, repoNamespace := c.detectRepoAndNamespace(ctx)
 
-	appCfg := provisioning.BuildWebhookAppConfig(ctx, base, updates, repoOwner, repoName, repoNamespace, provisioning.FetchRepoCollaborators)
+	gh := &github.GH{}
+
+	appCfg := provisioning.BuildWebhookAppConfig(ctx, base, updates, repoOwner, repoName, repoNamespace, gh)
 
 	if err := provisioning.WriteWebhookConfigMap(ctx, client, kubeContext, namespace, appCfg); err != nil {
 		return err
@@ -119,7 +121,9 @@ func (c *ConfigWebhookSecretCmd) Run() error {
 		return err
 	}
 
-	if err := c.generateAndWriteSecrets(ctx, client, kubeContext, namespace, appCfg); err != nil {
+	gh := &github.GH{}
+
+	if err := c.generateAndWriteSecrets(ctx, client, kubeContext, namespace, appCfg, gh); err != nil {
 		return err
 	}
 
@@ -143,7 +147,7 @@ func (c *ConfigWebhookSecretCmd) validateRepos(appCfg *webhookconfig.AppConfig) 
 	return nil
 }
 
-func (c *ConfigWebhookSecretCmd) generateAndWriteSecrets(ctx context.Context, client k8s.Client, kubeContext, namespace string, appCfg *webhookconfig.AppConfig) error {
+func (c *ConfigWebhookSecretCmd) generateAndWriteSecrets(ctx context.Context, client k8s.Client, kubeContext, namespace string, appCfg *webhookconfig.AppConfig, gh github.GHClient) error {
 	secrets, err := provisioning.BuildWebhookSecrets(appCfg, provisioning.GenerateWebhookSecret)
 	if err != nil {
 		return fmt.Errorf("failed to generate webhook secrets: %w", err)
@@ -151,7 +155,7 @@ func (c *ConfigWebhookSecretCmd) generateAndWriteSecrets(ctx context.Context, cl
 
 	fmt.Printf("Generated webhook secrets for %d repo(s)\n\n", len(secrets.Repos))
 
-	if err := c.registerWebhooks(ctx, secrets); err != nil {
+	if err := c.registerWebhooks(ctx, secrets, gh); err != nil {
 		return err
 	}
 
@@ -163,12 +167,12 @@ func (c *ConfigWebhookSecretCmd) generateAndWriteSecrets(ctx context.Context, cl
 	return nil
 }
 
-func (c *ConfigWebhookSecretCmd) registerWebhooks(ctx context.Context, secrets *webhookconfig.Secrets) error {
+func (c *ConfigWebhookSecretCmd) registerWebhooks(ctx context.Context, secrets *webhookconfig.Secrets, gh github.GHClient) error {
 	webhookURL := fmt.Sprintf("https://%s/webhook", provisioning.WebhookIngressHostname)
 	logger.Infof("Registering webhooks at %s...", webhookURL)
 	for _, rs := range secrets.Repos {
 		logger.Infof("Registering webhook for %s/%s...", rs.Owner, rs.Name)
-		if err := provisioning.RegisterGitHubWebhook(ctx, rs.Owner, rs.Name, webhookURL, rs.WebhookSecret); err != nil {
+		if err := provisioning.RegisterGitHubWebhook(ctx, gh, rs.Owner, rs.Name, webhookURL, rs.WebhookSecret); err != nil {
 			logger.Warningf("Failed to register webhook for %s/%s: %v", rs.Owner, rs.Name, err)
 		} else {
 			logger.Successf("Webhook registered for %s/%s", rs.Owner, rs.Name)

@@ -35,7 +35,7 @@ requirements:
         - Update provisioning tests in `internal/provisioning/webhook_test.go` to replace the `noopFetcher` function and all function-literal fetcher test cases with a `*github.MockGH`; add tests for `RegisterGitHubWebhook` that verify the mock is called correctly
         - In `internal/cmd/config_webhook.go`, create `gh := &github.GH{}` and pass it to `BuildWebhookAppConfig` and `RegisterGitHubWebhook`
         - All existing tests must continue to pass
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump
       items:

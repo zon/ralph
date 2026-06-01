@@ -23,10 +23,6 @@ const (
 	WebhookIngressHostname   = "ralph.haralovich.org"
 )
 
-func FetchRepoCollaborators(ctx context.Context, owner, repo string) ([]string, error) {
-	return github.ListCollaborators(ctx, owner, repo)
-}
-
 func mergeRepo(repos []webhookconfig.RepoConfig, incoming webhookconfig.RepoConfig) []webhookconfig.RepoConfig {
 	for i, r := range repos {
 		if r.Owner == incoming.Owner && r.Name == incoming.Name {
@@ -37,7 +33,7 @@ func mergeRepo(repos []webhookconfig.RepoConfig, incoming webhookconfig.RepoConf
 	return append(repos, incoming)
 }
 
-func BuildWebhookAppConfig(ctx context.Context, base, updates *webhookconfig.AppConfig, repoOwner, repoName, repoNamespace string, fetcher func(context.Context, string, string) ([]string, error)) webhookconfig.AppConfig {
+func BuildWebhookAppConfig(ctx context.Context, base, updates *webhookconfig.AppConfig, repoOwner, repoName, repoNamespace string, gh github.GHClient) webhookconfig.AppConfig {
 	var cfg webhookconfig.AppConfig
 
 	if base != nil {
@@ -77,7 +73,7 @@ func BuildWebhookAppConfig(ctx context.Context, base, updates *webhookconfig.App
 
 	for i, r := range cfg.Repos {
 		if len(r.AllowedUsers) == 0 {
-			users, err := fetcher(ctx, r.Owner, r.Name)
+			users, err := gh.ListCollaborators(ctx, r.Owner, r.Name)
 			if err != nil {
 				logger.Warningf("Failed to fetch collaborators for %s/%s: %v (skipping AllowedUsers)", r.Owner, r.Name, err)
 			} else {
@@ -130,8 +126,8 @@ func ReadWebhookConfigFromK8s(ctx context.Context, namespace, kubeContext string
 	return &appCfg, nil
 }
 
-func RegisterGitHubWebhook(ctx context.Context, owner, repo, webhookURL, secret string) error {
-	return github.RegisterWebhook(ctx, owner, repo, webhookURL, secret)
+func RegisterGitHubWebhook(ctx context.Context, gh github.GHClient, owner, repo, webhookURL, secret string) error {
+	return gh.RegisterWebhook(ctx, owner, repo, webhookURL, secret)
 }
 
 func BuildWebhookSecrets(appCfg *webhookconfig.AppConfig, secretGenerator func() (string, error)) (*webhookconfig.Secrets, error) {
