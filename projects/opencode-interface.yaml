@@ -19,7 +19,7 @@ requirements:
         - opencode_mock.go exports a MockOC struct with function fields for each method in OCClient
         - Each method on MockOC invokes its function field if non-nil, otherwise returns a zero value
         - MockOC satisfies the OCClient interface
-      passing: false
+      passing: true
     - slug: ai-accepts-occlient
       description: internal/ai functions that invoke opencode accept an OCClient instead of calling package-level opencode functions directly
       items:

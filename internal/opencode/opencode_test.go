@@ -13,6 +13,7 @@ import (
 
 func TestOCClientInterface(t *testing.T) {
 	var _ OCClient = (*Client)(nil)
+	var _ OCClient = (*MockOC)(nil)
 }
 
 func TestNewClient(t *testing.T) {
