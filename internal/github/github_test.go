@@ -6,10 +6,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCreatePR(t *testing.T) {
-	_, _ = CreatePR("Test PR", "Test body", "main", "feature-branch")
-}
-
 func TestMakeRepo(t *testing.T) {
 	repo := MakeRepo("zon", "ralph")
 	assert.Equal(t, "zon", repo.Owner)

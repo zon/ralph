@@ -6,92 +6,75 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/zon/ralph/internal/testutil"
 )
 
 func TestRunGit(t *testing.T) {
-	t.Run("successful git command returns output and no error", func(t *testing.T) {
-		tempDir := setupTestRepo(t)
-		t.Chdir(tempDir)
+	tests := []struct {
+		name         string
+		args         []string
+		wantErr      bool
+		checkTrimmed bool
+	}{
+		{
+			name:    "successful command returns output",
+			args:    []string{"rev-parse", "--show-toplevel"},
+			wantErr: false,
+		},
+		{
+			name:    "failed command returns output and error",
+			args:    []string{"rev-parse", "nonexistent-ref"},
+			wantErr: true,
+		},
+		{
+			name:         "output is trimmed",
+			args:         []string{"rev-parse", "--show-toplevel"},
+			checkTrimmed: true,
+		},
+	}
 
-		output, err := runGit("rev-parse", "--show-toplevel")
-		if err != nil {
-			t.Fatalf("runGit returned error unexpectedly: %v", err)
-		}
-		if output == "" {
-			t.Error("expected non-empty output")
-		}
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := setupTestRepo(t)
+			t.Chdir(dir)
 
-	t.Run("failed git command returns output and error", func(t *testing.T) {
-		tempDir := setupTestRepo(t)
-		t.Chdir(tempDir)
-
-		output, err := runGit("rev-parse", "nonexistent-ref")
-		if err == nil {
-			t.Fatal("expected error for nonexistent ref")
-		}
-		if output == "" {
-			t.Error("expected non-empty output on error")
-		}
-	})
-
-	t.Run("output is trimmed", func(t *testing.T) {
-		tempDir := setupTestRepo(t)
-		t.Chdir(tempDir)
-
-		output, err := runGit("rev-parse", "--show-toplevel")
-		if err != nil {
-			t.Fatalf("runGit returned error: %v", err)
-		}
-		if output != strings.TrimSpace(output) {
-			t.Error("expected output to be trimmed")
-		}
-	})
+			output, err := runGit(tt.args...)
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+			assert.NotEmpty(t, output)
+			if tt.checkTrimmed {
+				assert.Equal(t, strings.TrimSpace(output), output)
+			}
+		})
+	}
 }
 
 func TestDetectModifiedProjectFile(t *testing.T) {
 	t.Run("returns empty when no project files exist", func(t *testing.T) {
-		// Setup a fresh test repo for this subtest
-		tempDir := t.TempDir()
-		origDir, _ := os.Getwd()
-		defer os.Chdir(origDir)
-		os.Chdir(tempDir)
-
-		// Initialize git repo
-		cmd := exec.Command("git", "init")
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("Failed to init git repo: %v", err)
-		}
+		dir := t.TempDir()
+		testutil.InitGitRepo(t, dir)
+		t.Chdir(dir)
 
 		result, err := DetectModifiedProjectFile("projects")
-		if err != nil {
-			t.Fatalf("DetectModifiedProjectFile returned error: %v", err)
-		}
-		if result != "" {
-			t.Errorf("Expected empty string, got %s", result)
-		}
+		require.NoError(t, err)
+		assert.Empty(t, result)
 	})
 
 	t.Run("detects new project file", func(t *testing.T) {
-		// Setup a fresh test repo for this subtest
-		tempDir := t.TempDir()
-		origDir, _ := os.Getwd()
-		defer os.Chdir(origDir)
-		os.Chdir(tempDir)
+		dir := t.TempDir()
+		testutil.InitGitRepo(t, dir)
+		t.Chdir(dir)
 
-		// Initialize git repo
-		cmd := exec.Command("git", "init")
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("Failed to init git repo: %v", err)
-		}
-
-		// Create projects directory and a new project file
-		if err := os.MkdirAll("projects", 0755); err != nil {
-			t.Fatalf("Failed to create projects dir: %v", err)
-		}
-
+		require.NoError(t, os.MkdirAll("projects", 0755))
 		projectFile := filepath.Join("projects", "fix-ai-error-handling.yaml")
-		projectContent := `slug: fix-ai-error-handling
+		require.NoError(t, os.WriteFile(projectFile, []byte(`slug: fix-ai-error-handling
 title: Fix AI error handling
 requirements:
   - slug: fix-the-error
@@ -99,212 +82,100 @@ requirements:
     items:
       - Fix it
     passing: false
-`
-		if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
-			t.Fatalf("Failed to write project file: %v", err)
-		}
+`), 0644))
 
 		result, err := DetectModifiedProjectFile("projects")
-		if err != nil {
-			t.Fatalf("DetectModifiedProjectFile returned error: %v", err)
-		}
-
-		expectedAbs, _ := filepath.Abs(projectFile)
-		if result != expectedAbs {
-			t.Errorf("Expected %s, got %s", expectedAbs, result)
-		}
+		require.NoError(t, err)
+		expected, err := filepath.Abs(projectFile)
+		require.NoError(t, err)
+		assert.Equal(t, expected, result)
 	})
 
 	t.Run("detects modified project file", func(t *testing.T) {
-		// Setup a fresh test repo for this subtest
-		tempDir := t.TempDir()
-		origDir, _ := os.Getwd()
-		defer os.Chdir(origDir)
-		os.Chdir(tempDir)
+		dir := t.TempDir()
+		testutil.InitGitRepo(t, dir)
+		t.Chdir(dir)
 
-		// Initialize git repo
-		cmd := exec.Command("git", "init")
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("Failed to init git repo: %v", err)
-		}
+		require.NoError(t, os.MkdirAll("projects", 0755))
+		projectFile := filepath.Join("projects", "test-project.yaml")
+		content := "name: test-project\ndescription: Test project\nrequirements: []\n"
+		require.NoError(t, os.WriteFile(projectFile, []byte(content), 0644))
 
-		// Configure git user
 		for _, args := range [][]string{
-			{"config", "--local", "user.email", "test@example.com"},
-			{"config", "--local", "user.name", "Test User"},
+			{"add", "projects/test-project.yaml"},
+			{"commit", "-m", "Add project file"},
 		} {
 			c := exec.Command("git", args...)
-			if out, err := c.CombinedOutput(); err != nil {
-				t.Fatalf("git %v failed: %v\n%s", args, err, out)
-			}
+			c.Dir = dir
+			out, err := c.CombinedOutput()
+			require.NoError(t, err, "git %v: %s", args, out)
 		}
 
-		// Create projects directory and a project file
-		if err := os.MkdirAll("projects", 0755); err != nil {
-			t.Fatalf("Failed to create projects dir: %v", err)
-		}
-
-		projectFile := filepath.Join("projects", "test-project.yaml")
-		projectContent := `name: test-project
-description: Test project
-requirements: []
-`
-		if err := os.WriteFile(projectFile, []byte(projectContent), 0644); err != nil {
-			t.Fatalf("Failed to write project file: %v", err)
-		}
-
-		// Stage and commit the file first
-		cmd = exec.Command("git", "add", "projects/test-project.yaml")
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("Failed to stage project file: %v", err)
-		}
-		cmd = exec.Command("git", "commit", "-m", "Add project file")
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("Failed to commit project file: %v", err)
-		}
-
-		// Now modify the file
-		modifiedContent := projectContent + "\n# modified\n"
-		if err := os.WriteFile(projectFile, []byte(modifiedContent), 0644); err != nil {
-			t.Fatalf("Failed to modify project file: %v", err)
-		}
+		require.NoError(t, os.WriteFile(projectFile, []byte(content+"\n# modified\n"), 0644))
 
 		result, err := DetectModifiedProjectFile("projects")
-		if err != nil {
-			t.Fatalf("DetectModifiedProjectFile returned error: %v", err)
-		}
-
-		expectedAbs, _ := filepath.Abs(projectFile)
-		if result != expectedAbs {
-			t.Errorf("Expected %s, got %s", expectedAbs, result)
-		}
+		require.NoError(t, err)
+		expected, err := filepath.Abs(projectFile)
+		require.NoError(t, err)
+		assert.Equal(t, expected, result)
 	})
 
 	t.Run("ignores non-yaml files", func(t *testing.T) {
-		// Setup a fresh test repo for this subtest
-		tempDir := t.TempDir()
-		origDir, _ := os.Getwd()
-		defer os.Chdir(origDir)
-		os.Chdir(tempDir)
+		dir := t.TempDir()
+		testutil.InitGitRepo(t, dir)
+		t.Chdir(dir)
 
-		// Initialize git repo
-		cmd := exec.Command("git", "init")
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("Failed to init git repo: %v", err)
-		}
-
-		// Create projects directory with a non-yaml file
-		if err := os.MkdirAll("projects", 0755); err != nil {
-			t.Fatalf("Failed to create projects dir: %v", err)
-		}
-
-		readmeFile := filepath.Join("projects", "README.md")
-		if err := os.WriteFile(readmeFile, []byte("# Projects\n"), 0644); err != nil {
-			t.Fatalf("Failed to write README: %v", err)
-		}
+		require.NoError(t, os.MkdirAll("projects", 0755))
+		require.NoError(t, os.WriteFile(filepath.Join("projects", "README.md"), []byte("# Projects\n"), 0644))
 
 		result, err := DetectModifiedProjectFile("projects")
-		if err != nil {
-			t.Fatalf("DetectModifiedProjectFile returned error: %v", err)
-		}
-		if result != "" {
-			t.Errorf("Expected empty string for non-yaml file, got %s", result)
-		}
+		require.NoError(t, err)
+		assert.Empty(t, result)
 	})
 }
 
-// setupTestRepo creates a temporary git repository for testing
 func setupTestRepo(t *testing.T) string {
 	t.Helper()
-
-	tempDir := t.TempDir()
-
-	// Initialize git repo
-	cmd := exec.Command("git", "init")
-	cmd.Dir = tempDir
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("Failed to init git repo: %v", err)
-	}
-
-	// Configure git user (required for commits) - using --local to ensure isolation
-	cmd = exec.Command("git", "config", "--local", "user.email", "test@example.com")
-	cmd.Dir = tempDir
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("Failed to configure git user email: %v", err)
-	}
-
-	cmd = exec.Command("git", "config", "--local", "user.name", "Test User")
-	cmd.Dir = tempDir
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("Failed to configure git user name: %v", err)
-	}
-
-	// Create initial commit
-	testFile := filepath.Join(tempDir, "README.md")
-	if err := os.WriteFile(testFile, []byte("# Test Repo\n"), 0644); err != nil {
-		t.Fatalf("Failed to create test file: %v", err)
-	}
-
-	cmd = exec.Command("git", "add", ".")
-	cmd.Dir = tempDir
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("Failed to stage files: %v", err)
-	}
-
-	cmd = exec.Command("git", "commit", "-m", "Initial commit")
-	cmd.Dir = tempDir
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("Failed to create initial commit: %v", err)
-	}
-
-	return tempDir
+	dir := t.TempDir()
+	testutil.InitGitRepo(t, dir)
+	testutil.MakeInitialCommit(t, dir)
+	return dir
 }
 
-// setupBareRemoteRepo creates a temporary bare remote and a clone of it,
-// configures git identity, makes an initial commit, pushes it, and returns
-// (workDir, remoteDir). The caller must chdir into workDir before calling any
-// git functions that rely on the working directory.
 func setupBareRemoteRepo(t *testing.T) (workDir, remoteDir string) {
 	t.Helper()
 
 	remoteDir = t.TempDir()
-	cmd := exec.Command("git", "init", "--bare")
-	cmd.Dir = remoteDir
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("git init --bare failed: %v\n%s", err, out)
-	}
+	c := exec.Command("git", "init", "--bare")
+	c.Dir = remoteDir
+	out, err := c.CombinedOutput()
+	require.NoError(t, err, "git init --bare: %s", out)
 
 	workDir = t.TempDir()
-	cmd = exec.Command("git", "clone", remoteDir, workDir)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("git clone failed: %v\n%s", err, out)
-	}
+	c = exec.Command("git", "clone", remoteDir, workDir)
+	out, err = c.CombinedOutput()
+	require.NoError(t, err, "git clone: %s", out)
 
 	for _, args := range [][]string{
 		{"config", "--local", "user.email", "test@example.com"},
 		{"config", "--local", "user.name", "Test User"},
 	} {
-		c := exec.Command("git", args...)
+		c = exec.Command("git", args...)
 		c.Dir = workDir
-		if out, err := c.CombinedOutput(); err != nil {
-			t.Fatalf("git %v failed: %v\n%s", args, err, out)
-		}
+		out, err = c.CombinedOutput()
+		require.NoError(t, err, "git %v: %s", args, out)
 	}
 
-	// Create and push an initial commit so HEAD exists on the remote.
-	if err := os.WriteFile(filepath.Join(workDir, "README.md"), []byte("# test\n"), 0644); err != nil {
-		t.Fatalf("failed to create README: %v", err)
-	}
+	require.NoError(t, os.WriteFile(filepath.Join(workDir, "README.md"), []byte("# test\n"), 0644))
 	for _, args := range [][]string{
 		{"add", "."},
 		{"commit", "-m", "initial commit"},
 		{"push", "origin", "HEAD"},
 	} {
-		c := exec.Command("git", args...)
+		c = exec.Command("git", args...)
 		c.Dir = workDir
-		if out, err := c.CombinedOutput(); err != nil {
-			t.Fatalf("git %v failed: %v\n%s", args, err, out)
-		}
+		out, err = c.CombinedOutput()
+		require.NoError(t, err, "git %v: %s", args, out)
 	}
 
 	return workDir, remoteDir
