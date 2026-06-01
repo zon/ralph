@@ -11,14 +11,14 @@ requirements:
         - Update all imports of "github.com/zon/ralph/internal/run" to "github.com/zon/ralph/internal/cmd" in internal/cmd/command.go, internal/cmd/run_adapters.go, internal/cmd/workflow.go, and tests/e2e/run_test.go
         - Remove any run. qualifier prefixes left over from the old package name in files that previously imported internal/run — the symbols are now in the same package and need no qualifier in internal/cmd files, but tests/e2e/run_test.go should use the cmd. qualifier instead
         - Delete the internal/run directory after all files have been moved and the codebase compiles cleanly
-      passing: false
+      passing: true
     - slug: update-architecture
       description: Update specs/architecture.yaml to reflect the merged package structure
       items:
         - Remove the internal/run module entry from specs/architecture.yaml
         - Update the internal/cmd module description to cover both CLI command parsing and run adapter wiring (e.g. "Command structs that parse flags, wire concrete adapter implementations, and delegate to orchestration modules.")
         - Change the internal/cmd module category from "implementation" to "entry" since it now owns the dependency wiring role previously held by internal/run
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump
       items:
