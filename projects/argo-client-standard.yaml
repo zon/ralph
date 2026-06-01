@@ -9,8 +9,16 @@ requirements:
         - Create a real Client struct implementing the interface with a NewClient constructor
         - All methods must accept K8sContext — FollowLogs currently takes three separate string parameters, normalize it to match ListWorkflows and StopWorkflow
         - SubmitYAML must accept a context.Context as its first parameter instead of hardcoding context.Background()
-        - Keep ExtractWorkflowName as a package-level function since it is pure and used internally
-      passing: true
+        - ExtractWorkflowName must be unexported (extractWorkflowName) since it is only used within the package
+      passing: false
+    - slug: remove-package-wrappers
+      description: Remove package-level wrapper functions from internal/argo
+      items:
+        - Delete the package-level wrapper functions ListWorkflows, StopWorkflow, FollowLogs, and SubmitYAML — these were never requested and duplicate the Client methods
+        - Rename ExtractWorkflowName to extractWorkflowName (unexported) since it is only called within the package
+        - Update the call site inside client.SubmitYAML to use extractWorkflowName
+        - Update argo_test.go to call extractWorkflowName directly (the test is in package argo so it can access unexported identifiers)
+      passing: false
     - slug: client-mock
       description: Create client_mock.go with a MockClient implementing the Client interface
       items:
