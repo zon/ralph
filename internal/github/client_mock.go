@@ -1,6 +1,10 @@
 package github
 
-import "github.com/zon/ralph/internal/project"
+import (
+	"context"
+
+	"github.com/zon/ralph/internal/project"
+)
 
 type MockGH struct {
 	IsReadyFn         func() bool
@@ -8,6 +12,7 @@ type MockGH struct {
 	CreatePRFn        func(title, body, base, head string) (string, error)
 	GetPRHeadRefOidFn func(pr string) (string, error)
 	MergePRFn         func(pr, repo string) error
+	ListCollaboratorsFn func(ctx context.Context, owner, repo string) ([]string, error)
 }
 
 func (m *MockGH) IsReady() bool {
@@ -43,6 +48,13 @@ func (m *MockGH) MergePR(pr, repo string) error {
 		return m.MergePRFn(pr, repo)
 	}
 	return nil
+}
+
+func (m *MockGH) ListCollaborators(ctx context.Context, owner, repo string) ([]string, error) {
+	if m.ListCollaboratorsFn != nil {
+		return m.ListCollaboratorsFn(ctx, owner, repo)
+	}
+	return nil, nil
 }
 
 type MockClient struct {

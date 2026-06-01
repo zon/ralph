@@ -11,7 +11,7 @@ requirements:
         - Return a wrapped error on non-zero exit that includes owner, repo, and stderr
         - Add `ListCollaboratorsFn func(ctx context.Context, owner, repo string) ([]string, error)` to `MockGH` in `internal/github/client_mock.go` and implement the `ListCollaborators` method using the same nil-safe function-field pattern as the existing mock methods
         - Remove any package-level `ListCollaborators` function; remove stub-binary tests and replace them with mock-based tests in `collaborators_test.go` using `MockGH`
-      passing: false
+      passing: true
     - slug: register-webhook
       description: Add RegisterWebhook to the GHClient interface with a real GH method implementation and MockGH support
       items:

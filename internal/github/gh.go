@@ -2,6 +2,7 @@ package github
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -25,6 +26,7 @@ type GHClient interface {
 	CreatePR(title, body, base, head string) (string, error)
 	GetPRHeadRefOid(pr string) (string, error)
 	MergePR(pr, repo string) error
+	ListCollaborators(ctx context.Context, owner, repo string) ([]string, error)
 }
 
 // GH implements GHClient by shelling out to the gh CLI.

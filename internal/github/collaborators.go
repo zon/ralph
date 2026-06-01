@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-func ListCollaborators(ctx context.Context, owner, repo string) ([]string, error) {
+func (g *GH) ListCollaborators(ctx context.Context, owner, repo string) ([]string, error) {
 	cmd := exec.CommandContext(ctx, "gh", "api",
 		fmt.Sprintf("repos/%s/%s/collaborators", owner, repo),
 		"--jq", ".[].login",
