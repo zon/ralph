@@ -6,7 +6,6 @@ import (
 	"github.com/zon/ralph/internal/git"
 	orchestrationRun "github.com/zon/ralph/internal/orchestration/run"
 	"github.com/zon/ralph/internal/project"
-	"github.com/zon/ralph/internal/run"
 	"github.com/zon/ralph/internal/workspace"
 )
 
@@ -16,7 +15,7 @@ func newOrchestrationRunCmd(ctx *execcontext.Context) *orchestrationRun.RunCmd {
 		&project.Client{},
 		git.NewClient(ctx),
 		&config.Client{},
-		run.NewLocalRunnerClient(ctx),
-		run.NewRemoteRunnerClient(ctx),
+		NewLocalRunnerClient(ctx),
+		NewRemoteRunnerClient(ctx),
 	)
 }

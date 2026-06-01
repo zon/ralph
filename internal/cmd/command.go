@@ -5,7 +5,6 @@ import (
 
 	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
-	"github.com/zon/ralph/internal/run"
 	"github.com/zon/ralph/internal/workspace"
 )
 
@@ -44,12 +43,12 @@ func (c *CommandCmd) Run() error {
 
 	ctx := c.createExecutionContext()
 
-	setup := &run.CommandSetup{
+	setup := &CommandSetup{
 		Command: c.Command,
 		Config:  ralphConfig,
 	}
 
-	return run.ExecuteCommand(ctx, c.cleanupRegistrar, setup)
+	return ExecuteCommand(ctx, c.cleanupRegistrar, setup)
 }
 
 func (c *CommandCmd) changeWorkingDirectory() error {
