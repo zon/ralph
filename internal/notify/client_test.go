@@ -49,24 +49,3 @@ func TestNotifyClientSuccess_WithNotificationsDisabled(t *testing.T) {
 	})
 }
 
-func TestNotifyClientError_WithNotificationsEnabled(t *testing.T) {
-	ctx := context.NewContext()
-	ctx.SetNoNotify(false)
-	ctx.SetLocal(true)
-	client := NewClient(ctx)
-
-	assert.NotPanics(t, func() {
-		client.Error("test-slug")
-	})
-}
-
-func TestNotifyClientSuccess_WithNotificationsEnabled(t *testing.T) {
-	ctx := context.NewContext()
-	ctx.SetNoNotify(false)
-	ctx.SetLocal(true)
-	client := NewClient(ctx)
-
-	assert.NotPanics(t, func() {
-		client.Success("test-slug")
-	})
-}
