@@ -22,7 +22,7 @@ requirements:
       items:
         - Delete commitChanges() and its helpers generateCommitMessage(), buildCommitMessage(), summarizeCommitMessage(), categorizeFile(), and categorizeFiles() from internal/git/commit.go — none are called by any exported function
         - Delete the corresponding test cases TestCommitChanges, TestCommitChanges_NoChanges, TestCategorizeFile, TestCategorizeFiles, and TestBuildCommitMessage from internal/git/commit_test.go
-      passing: false
+      passing: true
     - slug: remove-dead-file-code
       description: deleteFile() is unexported and never called by production code
       items:
