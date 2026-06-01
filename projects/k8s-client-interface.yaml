@@ -42,7 +42,7 @@ requirements:
       description: Delete TestSecretNames from secrets_test.go
       items:
         - Remove the TestSecretNames test function from internal/k8s/secrets_test.go; it asserts that string constants equal their own literal values and provides no defensive value
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump
       items:
