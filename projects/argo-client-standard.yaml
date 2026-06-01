@@ -10,7 +10,7 @@ requirements:
         - All methods must accept K8sContext — FollowLogs currently takes three separate string parameters, normalize it to match ListWorkflows and StopWorkflow
         - SubmitYAML must accept a context.Context as its first parameter instead of hardcoding context.Background()
         - Keep ExtractWorkflowName as a package-level function since it is pure and used internally
-      passing: false
+      passing: true
     - slug: client-mock
       description: Create client_mock.go with a MockClient implementing the Client interface
       items:
