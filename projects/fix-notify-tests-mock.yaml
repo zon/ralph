@@ -78,4 +78,4 @@ requirements:
               m := &MockClient{}
               assert.NotPanics(t, func() { m.Success("test-slug") })
             }
-      passing: false
+      passing: true
