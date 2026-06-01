@@ -5,7 +5,6 @@ import (
 	"fmt"
 )
 
-// buildConfigMapArgs builds the kubectl create configmap command arguments
 func buildConfigMapArgs(name, namespace, kubeContext string, data map[string]string) []string {
 	if namespace == "" {
 		namespace = "default"
@@ -28,7 +27,6 @@ func buildConfigMapArgs(name, namespace, kubeContext string, data map[string]str
 	return args
 }
 
-// buildConfigMapApplyArgs builds the kubectl apply command arguments for ConfigMap
 func buildConfigMapApplyArgs(kubeContext string) []string {
 	args := []string{"apply", "-f", "-"}
 	if kubeContext != "" {

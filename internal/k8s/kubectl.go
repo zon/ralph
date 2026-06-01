@@ -7,7 +7,6 @@ import (
 	"os/exec"
 )
 
-// runKubectl runs a kubectl command with the provided arguments and stdin.
 func runKubectl(ctx context.Context, stdin *bytes.Buffer, args ...string) (*bytes.Buffer, error) {
 	if _, err := exec.LookPath("kubectl"); err != nil {
 		return nil, fmt.Errorf("kubectl not found in PATH - please install kubectl")

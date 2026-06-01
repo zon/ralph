@@ -37,7 +37,7 @@ requirements:
       items:
         - Remove every comment in kubectl.go, context.go, configmaps.go, and secrets.go that describes what a function, method, struct, or constant does — doc comments on functions and types, and inline comments such as "// Generate the configmap YAML" and "// Apply the secret"
         - Retain any comment that explains a non-obvious why, hidden constraint, or workaround — there are none in the current files, so all comments should be removed
-      passing: false
+      passing: true
     - slug: remove-vacuous-test
       description: Delete TestSecretNames from secrets_test.go
       items:
