@@ -73,14 +73,16 @@ func (c *mergeGitClient) Push(branch string) error {
 	return err
 }
 
-type mergeGitHubClient struct{}
+type mergeGitHubClient struct {
+	gh github.GHClient
+}
 
 func (c *mergeGitHubClient) MergePR(pr, repo string) error {
-	return github.MergePR(pr, repo)
+	return c.gh.MergePR(pr, repo)
 }
 
 func (c *mergeGitHubClient) GetPRHeadRefOid(pr string) (string, error) {
-	return github.GetPRHeadRefOid(pr)
+	return c.gh.GetPRHeadRefOid(pr)
 }
 
 type mergeProjectClient struct{}
@@ -112,7 +114,7 @@ func newMergeWorkflowClient() *mergeWorkflowClient {
 func newOrchestrationMergeCmd() *orchestrationMerge.MergeCmd {
 	return orchestrationMerge.NewMergeCmd(
 		&mergeGitClient{},
-		&mergeGitHubClient{},
+		&mergeGitHubClient{gh: &github.GH{}},
 		&mergeProjectClient{},
 		newMergeWorkflowClient(),
 	)

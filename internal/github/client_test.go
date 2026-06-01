@@ -11,7 +11,7 @@ import (
 
 func TestGitHubClientNew(t *testing.T) {
 	ctx := context.NewContext()
-	client := NewClient(ctx, "main")
+	client := NewClient(ctx, "main", &GH{})
 	require.NotNil(t, client)
 	var _ orchestrationRun.GitHubClient = client
 }

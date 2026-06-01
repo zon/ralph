@@ -14,12 +14,14 @@ import (
 type Client struct {
 	ctx        *context.Context
 	baseBranch string
+	gh         GHClient
 }
 
-func NewClient(ctx *context.Context, baseBranch string) *Client {
+func NewClient(ctx *context.Context, baseBranch string, gh GHClient) *Client {
 	return &Client{
 		ctx:        ctx,
 		baseBranch: baseBranch,
+		gh:         gh,
 	}
 }
 
@@ -39,7 +41,7 @@ func (a *Client) CreatePR(proj *project.Project) error {
 
 	branchName := git.SanitizeBranchName(proj.Slug)
 
-	prURL, err := CreatePullRequest(a.ctx, proj, branchName, a.baseBranch, prSummary)
+	prURL, err := CreatePullRequest(a.gh, a.ctx, proj, branchName, a.baseBranch, prSummary)
 	if err != nil {
 		if errors.Is(err, ErrNoCommitsBetweenBranches) {
 			logger.Verbose("No commits ahead of base branch — all requirements were already passing; skipping PR creation")

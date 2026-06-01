@@ -9,7 +9,7 @@ import (
 	"github.com/zon/ralph/internal/project"
 )
 
-func CreatePullRequest(ctx *context.Context, proj *project.Project, branchName, baseBranch, prSummary string) (string, error) {
+func CreatePullRequest(ghClient GHClient, ctx *context.Context, proj *project.Project, branchName, baseBranch, prSummary string) (string, error) {
 	if ctx.IsWorkflowExecution() {
 		owner, repoName := ctx.RepoOwnerAndName()
 		if err := ConfigureGitAuth(gocontext.Background(), owner, repoName, DefaultSecretsDir); err != nil {
@@ -17,7 +17,7 @@ func CreatePullRequest(ctx *context.Context, proj *project.Project, branchName, 
 		}
 	}
 
-	if !IsReady() {
+	if !ghClient.IsReady() {
 		return "", fmt.Errorf("gh CLI is not ready, please install and authenticate with 'gh auth login'")
 	}
 
@@ -27,7 +27,7 @@ func CreatePullRequest(ctx *context.Context, proj *project.Project, branchName, 
 	}
 
 	logger.Verbose("Creating GitHub pull request...")
-	prURL, err := CreatePR(prTitle, prSummary, baseBranch, branchName)
+	prURL, err := ghClient.CreatePR(prTitle, prSummary, baseBranch, branchName)
 	if err != nil {
 		return "", fmt.Errorf("failed to create pull request: %w", err)
 	}

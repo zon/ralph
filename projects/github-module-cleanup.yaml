@@ -12,7 +12,7 @@ requirements:
         - Add a gh GHClient field to Client; update NewClient to accept a GHClient parameter; callers that construct a real Client pass &GH{}
         - Update CreatePullRequest in pr.go to accept a GHClient parameter and delegate gh operations to it instead of calling free functions
         - Find all callers of the deleted free functions outside internal/github and update them to construct or accept a GHClient
-      passing: false
+      passing: true
     - slug: fix-mock-client
       description: Bring MockClient and add MockGH to comply with the standard function-field mock pattern
       items:
