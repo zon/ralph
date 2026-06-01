@@ -39,7 +39,7 @@ requirements:
       items:
         - Move container_workflow_test.go from internal/github to internal/docker; adjust the relative path to the workflow YAML file to match the new package location
         - Delete container_workflow_test.go from internal/github
-      passing: false
+      passing: true
     - slug: merge-cli-into-repo
       description: Consolidate GetRepo and ParseRemoteURL into repo.go and delete cli.go
       items:
