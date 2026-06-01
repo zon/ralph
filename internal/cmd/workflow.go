@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/zon/ralph/internal/ai"
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
@@ -80,8 +79,6 @@ func (w *WorkflowCmd) Run() error {
 	if err := w.runProject(ctx); err != nil {
 		return fmt.Errorf("failed to run project: %w", err)
 	}
-
-	w.displayStats()
 
 	return nil
 }
@@ -264,7 +261,3 @@ func (w *WorkflowCmd) prepareAndExecute(ctx *context.Context, cleanupRegistrar f
 	return nil
 }
 
-func (w *WorkflowCmd) displayStats() {
-	logger.Info("Displaying OpenCode statistics...")
-	ai.DisplayStats()
-}
