@@ -81,3 +81,29 @@ func TestClientErrorf_WritesToErr(t *testing.T) {
 	assert.Contains(t, err.String(), "test error")
 	assert.Empty(t, out.String())
 }
+
+func TestClientSuccess_WritesToOut(t *testing.T) {
+	var out, err bytes.Buffer
+	NewClient(&out, &err, false).Success("test success")
+	assert.Contains(t, out.String(), "✓ test success")
+	assert.Empty(t, err.String())
+}
+
+func TestClientSuccessf_WritesToOut(t *testing.T) {
+	var out, err bytes.Buffer
+	NewClient(&out, &err, false).Successf("test %s", "success")
+	assert.Contains(t, out.String(), "✓ test success")
+	assert.Empty(t, err.String())
+}
+
+func TestClientSuccess_AlwaysWritesWhenDebuggingFalse(t *testing.T) {
+	var out, err bytes.Buffer
+	NewClient(&out, &err, false).Success("test")
+	assert.Contains(t, out.String(), "✓ test")
+}
+
+func TestClientSuccessf_AlwaysWritesWhenDebuggingFalse(t *testing.T) {
+	var out, err bytes.Buffer
+	NewClient(&out, &err, false).Successf("test %s", "success")
+	assert.Contains(t, out.String(), "✓ test success")
+}

@@ -8,8 +8,9 @@ import (
 )
 
 var (
-	warnColor  = color.New(color.FgYellow)
-	errorColor = color.New(color.FgRed)
+	warnColor    = color.New(color.FgYellow)
+	errorColor   = color.New(color.FgRed)
+	successColor = color.New(color.FgGreen)
 )
 
 type Client struct {
@@ -58,4 +59,12 @@ func (c *Client) Error(msg string) {
 
 func (c *Client) Errorf(format string, a ...any) {
 	errorColor.Fprintf(c.err, format+"\n", a...)
+}
+
+func (c *Client) Success(msg string) {
+	successColor.Fprintln(c.out, "✓ "+msg)
+}
+
+func (c *Client) Successf(format string, a ...any) {
+	successColor.Fprintf(c.out, "✓ "+format+"\n", a...)
 }

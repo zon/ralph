@@ -9,7 +9,7 @@ requirements:
         - Add `func (c *Client) Success(msg string)` that writes `"✓ " + msg` to c.out using successColor, matching the logger.Success behaviour
         - Add `func (c *Client) Successf(format string, a ...any)` that writes `"✓ " + format` to c.out using successColor
         - Both methods always write unconditionally (not gated on c.debugging)
-      passing: false
+      passing: true
     - slug: context-output-field
       description: Add an output.Client field to context.Context and wire it at every cmd entry point
       items:
