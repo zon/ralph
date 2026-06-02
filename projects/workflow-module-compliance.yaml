@@ -39,7 +39,7 @@ requirements:
         - Tests pass without calling t.Chdir()
         - Mock implementations for config, filesystem, git, and GitHub dependencies are defined in generate_test.go using the function-field pattern from docs/testing.md
         - All existing behavioral assertions are preserved and no test coverage is removed
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump
       items:

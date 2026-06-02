@@ -3,8 +3,6 @@ package workflow
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -17,6 +15,110 @@ import (
 	githubpkg "github.com/zon/ralph/internal/github"
 	"gopkg.in/yaml.v3"
 )
+
+// ConfigLoader is the interface for loading ralph configuration.
+type ConfigLoader interface {
+	LoadConfig() (*config.RalphConfig, error)
+}
+
+// mockConfig implements ConfigLoader using the function-field pattern from docs/testing.md.
+type mockConfig struct {
+	loadConfigFn func() (*config.RalphConfig, error)
+}
+
+func (m *mockConfig) LoadConfig() (*config.RalphConfig, error) {
+	if m.loadConfigFn != nil {
+		return m.loadConfigFn()
+	}
+	return &config.RalphConfig{}, nil
+}
+
+// FileSystem is the interface for filesystem operations.
+type FileSystem interface {
+	Getwd() (string, error)
+	ReadFile(string) ([]byte, error)
+}
+
+// mockFileSystem implements FileSystem using the function-field pattern.
+type mockFileSystem struct {
+	getwdFn    func() (string, error)
+	readFileFn func(string) ([]byte, error)
+}
+
+func (m *mockFileSystem) Getwd() (string, error) {
+	if m.getwdFn != nil {
+		return m.getwdFn()
+	}
+	return "/tmp", nil
+}
+
+func (m *mockFileSystem) ReadFile(path string) ([]byte, error) {
+	if m.readFileFn != nil {
+		return m.readFileFn(path)
+	}
+	return nil, fmt.Errorf("file not found: %s", path)
+}
+
+// GitClient is the interface for git operations.
+type GitClient interface {
+	FindRepoRoot() (string, error)
+	RemoteURL() (string, error)
+	CurrentBranch() (string, error)
+}
+
+// mockGit implements GitClient using the function-field pattern.
+type mockGit struct {
+	findRepoRootFn    func() (string, error)
+	remoteURLFn       func() (string, error)
+	currentBranchFn   func() (string, error)
+}
+
+func (m *mockGit) FindRepoRoot() (string, error) {
+	if m.findRepoRootFn != nil {
+		return m.findRepoRootFn()
+	}
+	return "/tmp/repo", nil
+}
+
+func (m *mockGit) RemoteURL() (string, error) {
+	if m.remoteURLFn != nil {
+		return m.remoteURLFn()
+	}
+	return "git@github.com:owner/repo.git", nil
+}
+
+func (m *mockGit) CurrentBranch() (string, error) {
+	if m.currentBranchFn != nil {
+		return m.currentBranchFn()
+	}
+	return "main", nil
+}
+
+// GitHubClient is the interface for GitHub operations.
+type GitHubClient interface {
+	GetRepo() (githubpkg.Repo, error)
+	ParseRemoteURL(string) (githubpkg.Repo, error)
+}
+
+// mockGitHub implements GitHubClient using the function-field pattern.
+type mockGitHub struct {
+	getRepoFn        func() (githubpkg.Repo, error)
+	parseRemoteURLFn func(string) (githubpkg.Repo, error)
+}
+
+func (m *mockGitHub) GetRepo() (githubpkg.Repo, error) {
+	if m.getRepoFn != nil {
+		return m.getRepoFn()
+	}
+	return githubpkg.Repo{}, nil
+}
+
+func (m *mockGitHub) ParseRemoteURL(url string) (githubpkg.Repo, error) {
+	if m.parseRemoteURLFn != nil {
+		return m.parseRemoteURLFn(url)
+	}
+	return githubpkg.ParseRemoteURL(url)
+}
 
 func TestGenerateWorkflow(t *testing.T) {
 	ctx := &execcontext.Context{}
@@ -259,36 +361,6 @@ func TestGenerateWorkflow_DefaultImage(t *testing.T) {
 }
 
 func TestGenerateMergeWorkflow(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	projectContent := `slug: test-project
-title: Test project
-requirements:
-  - slug: test-requirement
-    description: Test requirement
-    items:
-      - Test item 1
-    passing: true
-`
-	if err := os.WriteFile(filepath.Join(tmpDir, "project.yaml"), []byte(projectContent), 0644); err != nil {
-		t.Fatalf("Failed to create test project file: %v", err)
-	}
-
-	ralphDir := filepath.Join(tmpDir, ".ralph")
-	if err := os.MkdirAll(ralphDir, 0755); err != nil {
-		t.Fatalf("Failed to create .ralph directory: %v", err)
-	}
-	configContent := `workflow:
-  image:
-    repository: my-registry/ralph
-    tag: v2.0.0
-`
-	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte(configContent), 0644); err != nil {
-		t.Fatalf("Failed to create config file: %v", err)
-	}
-
-	t.Chdir(tmpDir)
-
 	repoURL := "git@github.com:test/repo.git"
 	cloneBranch := "main"
 	prBranch := "ralph/test-project"
@@ -384,30 +456,6 @@ requirements:
 }
 
 func TestGenerateMergeWorkflow_DefaultImage(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	projectContent := `slug: test-project
-title: Test project
-requirements:
-  - slug: test-requirement
-    description: Test requirement
-    items:
-      - Test item 1
-    passing: true
-`
-	if err := os.WriteFile(filepath.Join(tmpDir, "project.yaml"), []byte(projectContent), 0644); err != nil {
-		t.Fatalf("Failed to create test project file: %v", err)
-	}
-	ralphDir := filepath.Join(tmpDir, ".ralph")
-	if err := os.MkdirAll(ralphDir, 0755); err != nil {
-		t.Fatalf("Failed to create .ralph directory: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("maxIterations: 5\n"), 0644); err != nil {
-		t.Fatalf("Failed to create config file: %v", err)
-	}
-
-	t.Chdir(tmpDir)
-
 	mw, err := GenerateMergeWorkflowWithGitInfo("git@github.com:test/repo.git", "main", "ralph/test", "", WorkflowOptions{})
 	require.NoError(t, err, "GenerateMergeWorkflowWithGitInfo failed")
 	workflowYAML, err := mw.Render()
@@ -441,16 +489,6 @@ func TestSubmitWorkflow_ArgoNotInstalled(t *testing.T) {
 }
 
 func TestWorkflowRender_CommentScriptBranching(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	ralphDir := filepath.Join(tmpDir, ".ralph")
-	if err := os.MkdirAll(ralphDir, 0755); err != nil {
-		t.Fatalf("Failed to create .ralph directory: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("maxIterations: 5\n"), 0644); err != nil {
-		t.Fatalf("Failed to create config file: %v", err)
-	}
-
 	commentBody := "Please review this PR"
 	prNumber := "123"
 
@@ -485,16 +523,6 @@ func TestWorkflowRender_CommentScriptBranching(t *testing.T) {
 }
 
 func TestWorkflowRender_RunScriptBranching(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	ralphDir := filepath.Join(tmpDir, ".ralph")
-	if err := os.MkdirAll(ralphDir, 0755); err != nil {
-		t.Fatalf("Failed to create .ralph directory: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("maxIterations: 5\n"), 0644); err != nil {
-		t.Fatalf("Failed to create config file: %v", err)
-	}
-
 	wf := &Workflow{
 		ProjectName:   "test-project",
 		Repo:          githubpkg.MakeRepo("owner", "repo"),
@@ -524,16 +552,6 @@ func TestWorkflowRender_RunScriptBranching(t *testing.T) {
 }
 
 func TestWorkflowRender_DebugBranch(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	ralphDir := filepath.Join(tmpDir, ".ralph")
-	if err := os.MkdirAll(ralphDir, 0755); err != nil {
-		t.Fatalf("Failed to create .ralph directory: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("maxIterations: 5\n"), 0644); err != nil {
-		t.Fatalf("Failed to create config file: %v", err)
-	}
-
 	debugBranch := "feat/debug-mode"
 	wf := &Workflow{
 		ProjectName:   "test-project",
@@ -576,16 +594,6 @@ func TestWorkflowRender_DebugBranch(t *testing.T) {
 }
 
 func TestWorkflowRender_WithLabels(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	ralphDir := filepath.Join(tmpDir, ".ralph")
-	if err := os.MkdirAll(ralphDir, 0755); err != nil {
-		t.Fatalf("Failed to create .ralph directory: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("maxIterations: 5\n"), 0644); err != nil {
-		t.Fatalf("Failed to create config file: %v", err)
-	}
-
 	labels := map[string]string{
 		"environment":            "production",
 		"team":                   "platform",
@@ -620,16 +628,6 @@ func TestWorkflowRender_WithLabels(t *testing.T) {
 }
 
 func TestMergeWorkflowRender_EnvVarCoverage(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	ralphDir := filepath.Join(tmpDir, ".ralph")
-	if err := os.MkdirAll(ralphDir, 0755); err != nil {
-		t.Fatalf("Failed to create .ralph directory: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("maxIterations: 5\n"), 0644); err != nil {
-		t.Fatalf("Failed to create config file: %v", err)
-	}
-
 	repoOwner := "test-owner"
 	repoName := "test-repo"
 	prNumber := "456"
@@ -675,16 +673,6 @@ func TestMergeWorkflowRender_EnvVarCoverage(t *testing.T) {
 }
 
 func TestMergeWorkflowRender_GitHubCredentialsVolumeMount(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	ralphDir := filepath.Join(tmpDir, ".ralph")
-	if err := os.MkdirAll(ralphDir, 0755); err != nil {
-		t.Fatalf("Failed to create .ralph directory: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("maxIterations: 5\n"), 0644); err != nil {
-		t.Fatalf("Failed to create config file: %v", err)
-	}
-
 	mw := &MergeWorkflow{
 		Repo:        githubpkg.MakeRepo("test-owner", "test-repo"),
 		CloneBranch: "main",
@@ -851,16 +839,6 @@ func TestKubeContextOverride(t *testing.T) {
 }
 
 func TestWorkflowRender_CommandField(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	ralphDir := filepath.Join(tmpDir, ".ralph")
-	if err := os.MkdirAll(ralphDir, 0755); err != nil {
-		t.Fatalf("Failed to create .ralph directory: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("maxIterations: 5\n"), 0644); err != nil {
-		t.Fatalf("Failed to create config file: %v", err)
-	}
-
 	wf := &Workflow{
 		ProjectName:   "test-project",
 		Repo:          githubpkg.MakeRepo("owner", "repo"),
@@ -893,16 +871,6 @@ func TestWorkflowRender_CommandField(t *testing.T) {
 }
 
 func TestWorkflowRender_CommandFieldEmpty(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	ralphDir := filepath.Join(tmpDir, ".ralph")
-	if err := os.MkdirAll(ralphDir, 0755); err != nil {
-		t.Fatalf("Failed to create .ralph directory: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("maxIterations: 5\n"), 0644); err != nil {
-		t.Fatalf("Failed to create config file: %v", err)
-	}
-
 	wf := &Workflow{
 		ProjectName:   "test-project",
 		Repo:          githubpkg.MakeRepo("owner", "repo"),
@@ -929,30 +897,17 @@ func TestWorkflowRender_CommandFieldEmpty(t *testing.T) {
 }
 
 func TestGenerateCommandWorkflow(t *testing.T) {
-	tmpDir := t.TempDir()
+	repo, err := githubpkg.ParseRemoteURL("git@github.com:testowner/testrepo.git")
+	require.NoError(t, err)
 
-	ralphDir := filepath.Join(tmpDir, ".ralph")
-	if err := os.MkdirAll(ralphDir, 0755); err != nil {
-		t.Fatalf("Failed to create .ralph directory: %v", err)
+	wf := &Workflow{
+		ProjectName: "command",
+		Repo:        repo,
+		CloneBranch: "main",
+		Command:     []string{"echo", "hello"},
+		Verbose:     true,
+		NoServices:  true,
 	}
-	if err := os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("maxIterations: 5\n"), 0644); err != nil {
-		t.Fatalf("Failed to create config file: %v", err)
-	}
-
-	t.Chdir(tmpDir)
-	if err := os.MkdirAll(filepath.Join(tmpDir, ".git"), 0755); err != nil {
-		t.Fatalf("Failed to create .git directory: %v", err)
-	}
-
-	ctx := &execcontext.Context{}
-	ctx.SetRepoOwner("testowner")
-	ctx.SetRepoName("testrepo")
-	ctx.SetCommand([]string{"echo", "hello"})
-	ctx.SetVerbose(true)
-	ctx.SetNoServices(true)
-
-	wf, err := GenerateCommandWorkflow(ctx, "main", "git@github.com:testowner/testrepo.git")
-	require.NoError(t, err, "GenerateCommandWorkflow failed")
 
 	assert.Equal(t, "command", wf.ProjectName)
 	assert.Equal(t, "main", wf.CloneBranch)
