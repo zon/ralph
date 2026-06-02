@@ -38,7 +38,7 @@ requirements:
         - internal/orchestration/validate defines a ValidateCmd struct that accepts a validator interface and coordinates the validate command flow
         - internal/cmd/validate.go wires real implementations and delegates to internal/orchestration/validate
         - internal/orchestration/validate has unit tests with a mocked validator
-      passing: false
+      passing: true
     - slug: orchestrate-pass
       description: Extract pass command logic into internal/orchestration/pass
       items:
