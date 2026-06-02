@@ -22,7 +22,7 @@ requirements:
         - GenerateWorkflowWithGitInfo does not call config.LoadConfig(), os.Getwd(), or os.ReadFile() directly
         - Config loading and filesystem reads are decoupled from the generation logic so test doubles can be provided
         - The full production call path through GenerateWorkflow wires real config and filesystem operations before delegating to GenerateWorkflowWithGitInfo
-      passing: false
+      passing: true
     - slug: inject-git-and-github-dependencies
       description: Decouple the top-level generate functions from direct git and GitHub CLI calls
       items:

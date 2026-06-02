@@ -53,13 +53,7 @@ func GenerateWorkflow(ctx *execcontext.Context, projectName, cloneBranch, projec
 		}
 	}
 
-	return GenerateWorkflowWithGitInfo(ctx, projectName, remoteURL, cloneBranch, projectBranch, relProjectPath, verbose)
-}
-
-// GenerateWorkflowWithGitInfo builds a Workflow with provided git information.
-// This allows for easier testing by accepting git info as parameters.
-func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL, cloneBranch, projectBranch, relProjectPath string, verbose bool) (*Workflow, error) {
-	ralphConfig, err := config.LoadConfig()
+	cfg, err := config.LoadConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
@@ -76,24 +70,31 @@ func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL,
 		instructions = string(data)
 	}
 
+	return GenerateWorkflowWithGitInfo(ctx, projectName, remoteURL, cloneBranch, projectBranch, relProjectPath, verbose, cfg, instructions)
+}
+
+// GenerateWorkflowWithGitInfo builds a Workflow with provided git information, config,
+// and instructions. It does not perform any I/O itself — the caller supplies the loaded
+// config and instructions so that test doubles can be provided.
+func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL, cloneBranch, projectBranch, relProjectPath string, verbose bool, cfg *config.RalphConfig, instructions string) (*Workflow, error) {
 	repo, err := githubpkg.ParseRemoteURL(repoURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse repository from URL: %w", err)
 	}
 
 	workflowOptions := WorkflowOptions{
-		Image:         MakeImage(ralphConfig.Workflow.Image.Repository, ralphConfig.Workflow.Image.Tag),
-		ConfigMaps:    ralphConfig.Workflow.ConfigMaps,
-		Secrets:       ralphConfig.Workflow.Secrets,
-		Env:           ralphConfig.Workflow.Env,
-		DefaultBranch: ralphConfig.DefaultBranch,
-		Namespace:     ralphConfig.Workflow.Namespace,
-		Labels:        ralphConfig.Workflow.Labels,
+		Image:         MakeImage(cfg.Workflow.Image.Repository, cfg.Workflow.Image.Tag),
+		ConfigMaps:    cfg.Workflow.ConfigMaps,
+		Secrets:       cfg.Workflow.Secrets,
+		Env:           cfg.Workflow.Env,
+		DefaultBranch: cfg.DefaultBranch,
+		Namespace:     cfg.Workflow.Namespace,
+		Labels:        cfg.Workflow.Labels,
 	}
 
 	kubeContext := ctx.KubeContext()
 	if kubeContext == "" {
-		kubeContext = ralphConfig.Workflow.Context
+		kubeContext = cfg.Workflow.Context
 	}
 
 	return &Workflow{
