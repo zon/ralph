@@ -54,7 +54,7 @@ requirements:
         - internal/orchestration/setup_workspace defines interfaces for config loading and filesystem operations
         - internal/cmd/setup_workspace.go wires real implementations and delegates to internal/orchestration/setup_workspace
         - internal/orchestration/setup_workspace has unit tests with mocked dependencies
-      passing: false
+      passing: true
     - slug: orchestrate-config-github
       description: Extract config github command logic into internal/orchestration/config/github
       items:

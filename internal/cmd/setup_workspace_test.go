@@ -62,50 +62,84 @@ func TestSetupWorkspaceCmd_LinkField(t *testing.T) {
 
 	err = cmd.Run()
 	require.NoError(t, err, "SetupWorkspaceCmd.Run should not fail")
+
+	// Verify symlinks were created
+	configLink := filepath.Join(tmpDir, "configs", "app-config.yaml")
+	_, err = os.Lstat(configLink)
+	assert.NoError(t, err, "Config symlink should exist")
+
+	secretLink := filepath.Join(tmpDir, "secrets", "api-key.txt")
+	_, err = os.Lstat(secretLink)
+	assert.NoError(t, err, "Secret symlink should exist")
+
+	// Verify non-linked entries don't create symlinks
+	_, err = os.Lstat(filepath.Join(tmpDir, "other-config.yaml"))
+	assert.True(t, os.IsNotExist(err), "Non-linked config should not create symlink")
+
+	_, err = os.Lstat(filepath.Join(tmpDir, "other-secret.txt"))
+	assert.True(t, os.IsNotExist(err), "Non-linked secret should not create symlink")
 }
 
-func TestSetupWorkspaceCmd_LinkMethod(t *testing.T) {
+func TestSetupWorkspaceCmd_SkipOnExistingLink(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	workspaceDir := filepath.Join(tmpDir, "workspace")
 	err := os.MkdirAll(workspaceDir, 0755)
-	require.NoError(t, err, "Failed to create workspace directory")
+	require.NoError(t, err)
 
 	srcFile := filepath.Join(workspaceDir, "source.txt")
-	err = os.WriteFile(srcFile, []byte("test content"), 0644)
-	require.NoError(t, err, "Failed to create source file")
+	err = os.WriteFile(srcFile, []byte("content"), 0644)
+	require.NoError(t, err)
 
-	destDir := filepath.Join(tmpDir, "dest")
-	err = os.MkdirAll(destDir, 0755)
-	require.NoError(t, err, "Failed to create destination directory")
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	err = os.MkdirAll(ralphDir, 0755)
+	require.NoError(t, err)
+
+	configContent := `workflow:
+  configMaps:
+    - name: my-config
+      destFile: source.txt
+      link: true
+`
+	err = os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte(configContent), 0644)
+	require.NoError(t, err)
+
+	// Create the target symlink already
+	err = os.Symlink(srcFile, filepath.Join(tmpDir, "source.txt"))
+	require.NoError(t, err)
+
+	t.Chdir(tmpDir)
 
 	cmd := &SetupWorkspaceCmd{WorkspaceDir: workspaceDir, out: output.NewClient(os.Stdout, os.Stderr, false)}
+	err = cmd.Run()
+	require.NoError(t, err, "Should succeed even if link already exists")
+}
 
-	err = cmd.link(destDir, "source.txt", "")
-	require.NoError(t, err, "link with destFile should not fail")
+func TestSetupWorkspaceCmd_StatSourceFailure(t *testing.T) {
+	tmpDir := t.TempDir()
 
-	linkPath := filepath.Join(destDir, "source.txt")
-	_, err = os.Lstat(linkPath)
-	assert.NoError(t, err, "Symlink should be created")
+	workspaceDir := filepath.Join(tmpDir, "workspace")
+	err := os.MkdirAll(workspaceDir, 0755)
+	require.NoError(t, err)
 
-	target, err := os.Readlink(linkPath)
-	require.NoError(t, err, "Failed to read symlink")
-	assert.Equal(t, srcFile, target, "Symlink should point to correct location")
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	err = os.MkdirAll(ralphDir, 0755)
+	require.NoError(t, err)
 
-	os.Remove(linkPath)
+	configContent := `workflow:
+  configMaps:
+    - name: my-config
+      destFile: nonexistent.txt
+      link: true
+`
+	err = os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte(configContent), 0644)
+	require.NoError(t, err)
 
-	err = cmd.link(destDir, "", "source.txt")
-	require.NoError(t, err, "link with destDir should not fail")
+	t.Chdir(tmpDir)
 
-	linkPath = filepath.Join(destDir, "source.txt")
-	_, err = os.Lstat(linkPath)
-	assert.NoError(t, err, "Symlink should be created")
-
-	err = cmd.link(destDir, "", "")
-	require.NoError(t, err, "link with no destination should not fail")
-
-	err = cmd.link(destDir, "nonexistent.txt", "")
-	assert.Error(t, err, "Should return error for non-existent source")
+	cmd := &SetupWorkspaceCmd{WorkspaceDir: workspaceDir, out: output.NewClient(os.Stdout, os.Stderr, false)}
+	err = cmd.Run()
+	require.Error(t, err, "Should fail when source does not exist")
 }
 
 func TestConfigMapMountAndSecretMountYAML(t *testing.T) {
