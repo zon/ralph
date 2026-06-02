@@ -1,12 +1,18 @@
-# Module Compliance Plan
+# Orchestration Module Plan
 
-## Review for compliance
+Add orchestration modules so every entry point follows the entry → orchestration → implementation flow.
 
-- `internal/ai` — add Client interface, real implementation, and MockClient
-- `internal/config` — add Client interface and MockClient (bare `Client struct{}` exists)
-- `internal/webhookconfig` — introduce Client struct, interface, and MockClient
+## Modules to create
 
-## Evaluate category
-
-- `internal/logger` — determine whether implementation or pure
-- `internal/cleanup` — determine whether implementation or pure
+- `internal/orchestration/workflow` — GitHub auth, git clone, base branch sync, AI conflict resolution, project execution
+- `internal/orchestration/stop` — kube context resolution and Argo workflow stop
+- `internal/orchestration/list` — kube context resolution and Argo workflow listing
+- `internal/orchestration/validate` — project YAML validation via opencode
+- `internal/orchestration/pass` — load, update, and save project requirement status
+- `internal/orchestration/setup_workspace` — read config and create workspace symlinks
+- `internal/orchestration/config/github` — GitHub App credential validation and K8s secret creation
+- `internal/orchestration/config/opencode` — OpenCode auth file reading and K8s secret creation
+- `internal/orchestration/config/pulumi` — Pulumi token resolution and K8s secret creation
+- `internal/orchestration/config/webhook` — webhook configmap building, secret generation, and webhook registration
+- `internal/orchestration/githubtoken` — configure GitHub App git authentication
+- `internal/orchestration/setup` — move existing `internal/setup` here; already a proper orchestration module
