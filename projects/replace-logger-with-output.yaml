@@ -81,7 +81,7 @@ requirements:
         - Delete internal/logger/logger.go
         - Delete any other files in internal/logger/ (e.g. logger_test.go if present)
         - Remove the `internal/logger` module entry from specs/architecture.yaml
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump
       items:

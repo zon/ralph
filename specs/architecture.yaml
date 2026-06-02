@@ -119,9 +119,6 @@ modules:
   - path: internal/output
     description: Prints warning and error messages to stdout with ANSI color.
     category: pipeline
-  - path: internal/logger
-    description: Structured logger with leveled output used across the application.
-    category: pipeline
   - path: internal/notify
     description: Desktop notification helper for success and error events.
     category: implementation
