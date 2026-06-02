@@ -12,17 +12,13 @@ type RunCmd struct {
 	workspace WorkspaceClient
 	project   ProjectRepo
 	git       GitClient
-	config    ConfigClient
+	config    config.Loader
 	local     LocalRunnerClient
 	remote    RemoteRunnerClient
 }
 
 type WorkspaceClient interface {
 	ChangeDirectory(path string) error
-}
-
-type ConfigClient interface {
-	Load() (*config.RalphConfig, error)
 }
 
 type ProjectRepo interface {
@@ -71,7 +67,7 @@ func (f RunFlags) Validate() error {
 	return nil
 }
 
-func NewRunCmd(workspace WorkspaceClient, project ProjectRepo, git GitClient, config ConfigClient, local LocalRunnerClient, remote RemoteRunnerClient) *RunCmd {
+func NewRunCmd(workspace WorkspaceClient, project ProjectRepo, git GitClient, config config.Loader, local LocalRunnerClient, remote RemoteRunnerClient) *RunCmd {
 	return &RunCmd{
 		workspace: workspace,
 		project:   project,
