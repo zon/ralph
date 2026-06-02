@@ -24,7 +24,7 @@ requirements:
         - Remove the comment block above GenerateChangelog
         - Remove the comment block above GenerateReviewPRBody
         - Keep the comment above createTempFile — it explains a non-obvious constraint about workflow agent filesystem access
-      passing: false
+      passing: true
     - slug: table-driven-tests
       description: Consolidate prompt_test.go into table-driven tests with t.Run() subtests
       items:

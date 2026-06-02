@@ -280,8 +280,6 @@ func resolveVariant(ctx *execcontext.Context) string {
 	return ralphConfig.Variant
 }
 
-// RunAgent executes an AI agent with the given prompt using OpenCode CLI
-// OpenCode manages its own configuration for API keys and models
 func RunAgent(ctx *execcontext.Context, oc opencode.OCClient, prompt string) error {
 	if ctx.IsVerbose() {
 		logger.Verbose(prompt)
@@ -292,8 +290,6 @@ func RunAgent(ctx *execcontext.Context, oc opencode.OCClient, prompt string) err
 	return oc.RunAgent(ctx.GoContext(), model, resolveVariant(ctx), prompt)
 }
 
-// RunAgentWithModel executes an AI agent with an explicitly provided model,
-// bypassing the context-based model resolution used by RunAgent.
 func RunAgentWithModel(ctx *execcontext.Context, oc opencode.OCClient, prompt string, model string) error {
 	if ctx.IsVerbose() {
 		logger.Verbose(prompt)
@@ -312,7 +308,6 @@ func createTempFile(name string) (*os.File, error) {
 	return os.Create(path)
 }
 
-// runOpenCodeAndReadResult runs opencode with the given prompt and reads the result from the output file
 func runOpenCodeAndReadResult(ctx *execcontext.Context, oc opencode.OCClient, model, prompt, outputFile string) (string, error) {
 	var stdoutWriter, stderrWriter io.Writer
 	if ctx.IsVerbose() {
@@ -337,9 +332,6 @@ func runOpenCodeAndReadResult(ctx *execcontext.Context, oc opencode.OCClient, mo
 	return summary, nil
 }
 
-// GeneratePRSummary generates a pull request summary using AI
-// It includes project description, status, commits, and diff
-// This matches ralph.sh's approach: agent writes to a file, we read it back
 func GeneratePRSummary(ctx *execcontext.Context, oc opencode.OCClient, projectDesc, projectStatus, baseBranch, commitLog string) (summary string, err error) {
 	f, err := createTempFile("pr-summary.md")
 	if err != nil {
@@ -367,8 +359,6 @@ func GeneratePRSummary(ctx *execcontext.Context, oc opencode.OCClient, projectDe
 	return summary, nil
 }
 
-// GenerateChangelog prompts opencode to inspect the current git diff and write a
-// descriptive changelog to report.md.
 func GenerateChangelog(ctx *execcontext.Context, oc opencode.OCClient) (err error) {
 	f, err := createTempFile("changelog.md")
 	if err != nil {
@@ -400,8 +390,6 @@ func GenerateChangelog(ctx *execcontext.Context, oc opencode.OCClient) (err erro
 	return nil
 }
 
-// GenerateReviewPRBody generates a PR body for review findings using AI
-// It reads the review project file and writes a concise summary of recommended changes
 func GenerateReviewPRBody(ctx *execcontext.Context, oc opencode.OCClient, projectName, projectDesc string, requirementSummaries []string) (summary string, err error) {
 	f, err := createTempFile("review-pr-body.md")
 	if err != nil {
