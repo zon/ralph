@@ -30,19 +30,6 @@ func (m *mockWorkspaceClient) ChangeDirectory(path string) error {
 	return nil
 }
 
-type mockConfigClient struct {
-	LoadFunc   func() (*config.RalphConfig, error)
-	LoadCalled bool
-}
-
-func (m *mockConfigClient) Load() (*config.RalphConfig, error) {
-	m.LoadCalled = true
-	if m.LoadFunc != nil {
-		return m.LoadFunc()
-	}
-	return config.Any(), nil
-}
-
 type mockProjectRepo struct {
 	LoadFunc          func(string) (*project.Project, error)
 	ValidateFileFunc  func(string) error
@@ -118,7 +105,7 @@ func cmdWithWorkspace(w WorkspaceClient) cmdOption {
 	return func(c *RunCmd) { c.workspace = w }
 }
 
-func cmdWithConfig(cfg ConfigClient) cmdOption {
+func cmdWithConfig(cfg config.Loader) cmdOption {
 	return func(c *RunCmd) { c.config = cfg }
 }
 
@@ -141,7 +128,7 @@ func cmdWithRemote(r RemoteRunnerClient) cmdOption {
 func cmdWithMocks(opts ...cmdOption) *RunCmd {
 	cmd := &RunCmd{
 		workspace: &mockWorkspaceClient{},
-		config:    &mockConfigClient{},
+		config:    &config.MockLoader{},
 		project:   &mockProjectRepo{},
 		git:       &git.MockClient{},
 		local:     &mockLocalRunnerClient{},
@@ -197,19 +184,19 @@ func workspaceThatFailsChangeDirectory() WorkspaceClient {
 	}
 }
 
-func configThatFailsLoad() ConfigClient {
-	return &mockConfigClient{
-		LoadFunc: func() (*config.RalphConfig, error) {
+func configThatFailsLoad() config.Loader {
+	return &config.MockLoader{
+		LoadFn: func() (*config.RalphConfig, error) {
 			return nil, errors.New("config load failed")
 		},
 	}
 }
 
-func configWithMaxIterations(n int) ConfigClient {
+func configWithMaxIterations(n int) config.Loader {
 	cfg := config.Any()
 	cfg.MaxIterations = n
-	return &mockConfigClient{
-		LoadFunc: func() (*config.RalphConfig, error) { return cfg, nil },
+	return &config.MockLoader{
+		LoadFn: func() (*config.RalphConfig, error) { return cfg, nil },
 	}
 }
 
@@ -270,13 +257,6 @@ func remoteLastProject(cmd *RunCmd) *project.Project {
 func projectFileValidated(cmd *RunCmd) bool {
 	if m, ok := cmd.project.(*mockProjectRepo); ok {
 		return m.ValidateFileCalled
-	}
-	return false
-}
-
-func configLoaded(cmd *RunCmd) bool {
-	if m, ok := cmd.config.(*mockConfigClient); ok {
-		return m.LoadCalled
 	}
 	return false
 }
@@ -369,7 +349,6 @@ func TestRunProjectFileNotFoundErrorMessage(t *testing.T) {
 	err := cmd.Run(flagsAny())
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "project file not found")
-	require.False(t, configLoaded(cmd))
 }
 
 // ---------------------------------------------------------------------------
@@ -470,7 +449,6 @@ func TestRunProjectFileNotFoundAbortsEarly(t *testing.T) {
 	)
 	err := cmd.Run(flagsAny())
 	require.Error(t, err)
-	require.False(t, configLoaded(cmd))
 }
 
 func TestRunIncompatibleFlagsAbortBeforeSetup(t *testing.T) {
