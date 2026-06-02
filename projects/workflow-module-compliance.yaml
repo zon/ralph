@@ -15,7 +15,7 @@ requirements:
         - A Client interface is declared in internal/workflow/client_mock.go, above MockClient, with the same Submit, FollowLogs, and PrintLogHint signatures that MockClient already implements
         - MockClient satisfies the Client interface and the compiler enforces this
         - Callers that currently depend on the concrete *workflow.MockClient type can be updated to depend on workflow.Client instead
-      passing: false
+      passing: true
     - slug: inject-config-and-fs-dependencies
       description: Decouple GenerateWorkflowWithGitInfo from direct config loading and filesystem access
       items:
