@@ -26,6 +26,13 @@ categories:
       - pure functions
       - unit tests
 
+  - slug: lifecycle
+    description: Modules that manage process-level concerns such as startup, shutdown, and signal handling. Stateful but infrastructural; not part of the domain.
+    signatures:
+      - signal handling
+      - process shutdown
+      - startup initialization
+
 modules:
   - path: cmd/ralph
     description: CLI entrypoint that wires up command parsing and dispatches to subcommand handlers.
@@ -101,7 +108,7 @@ modules:
     category: implementation
   - path: internal/cleanup
     description: Registers shutdown callbacks and handles OS signal-based graceful termination.
-    category: implementation
+    category: lifecycle
   - path: internal/logger
     description: Structured logger with leveled output used across the application.
     category: implementation
