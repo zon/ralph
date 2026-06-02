@@ -2,11 +2,11 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/zon/ralph/internal/argo"
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/k8s"
+	"github.com/zon/ralph/internal/orchestration/list"
 )
 
 type ListCmd struct {
@@ -14,22 +14,35 @@ type ListCmd struct {
 }
 
 func (l *ListCmd) Run() error {
-	ctx := context.Background()
+	orchestrator := newListOrchestrator()
+	return orchestrator.Run(context.Background(), l.Context)
+}
 
-	ralphConfig, err := config.LoadConfig()
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
-	}
+type listConfigLoaderAdapter struct{}
 
-	k8sClient := k8s.NewClient()
-	k8sCtx, err := resolveKubeContext(ctx, k8sClient, ralphConfig, nil, l.Context, "")
-	if err != nil {
-		return err
-	}
+func (a *listConfigLoaderAdapter) Load() (*config.RalphConfig, error) {
+	return config.LoadConfig()
+}
 
-	client := argo.NewClient()
-	return client.ListWorkflows(argo.K8sContext{
-		Name:      k8sCtx.Name,
-		Namespace: k8sCtx.Namespace,
+type listK8sClientAdapter struct{}
+
+func (a *listK8sClientAdapter) GetCurrentContext(ctx context.Context) (k8s.Context, error) {
+	return k8s.NewClient().GetCurrentContext(ctx)
+}
+
+type listArgoClientAdapter struct{}
+
+func (a *listArgoClientAdapter) ListWorkflows(ctx list.KubeContext) error {
+	return argo.NewClient().ListWorkflows(argo.K8sContext{
+		Name:      ctx.Name,
+		Namespace: ctx.Namespace,
 	})
+}
+
+func newListOrchestrator() *list.List {
+	return list.New(
+		&listConfigLoaderAdapter{},
+		&listK8sClientAdapter{},
+		&listArgoClientAdapter{},
+	)
 }

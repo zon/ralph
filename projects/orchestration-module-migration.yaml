@@ -31,7 +31,7 @@ requirements:
         - internal/orchestration/list defines interfaces for config, Kubernetes, and Argo dependencies
         - internal/cmd/list.go wires real implementations and delegates to internal/orchestration/list
         - internal/orchestration/list has unit tests with mocked dependencies
-      passing: false
+      passing: true
     - slug: orchestrate-validate
       description: Introduce internal/orchestration/validate as the command-level orchestration wrapper for validation
       items:
