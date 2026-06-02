@@ -8,7 +8,7 @@ requirements:
         - Move fatalOpenCodePatterns and IsFatalError from internal/ai/ai.go into internal/opencode/opencode.go
         - Update the caller in internal/cmd/agent_client.go to call opencode.IsFatalError(err) instead of ai.IsFatalError(err)
         - Delete fatalOpenCodePatterns and IsFatalError from internal/ai/ai.go
-      passing: false
+      passing: true
     - slug: delete-displaystats
       description: Remove the zero-value DisplayStats wrapper from internal/ai
       items:

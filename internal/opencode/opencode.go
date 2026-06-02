@@ -205,3 +205,25 @@ func (r *ringWriter) Tail() string {
 	}
 	return strings.Join(lines, "\n")
 }
+
+var fatalOpenCodePatterns = []string{
+	"Insufficient Balance",
+	"insufficient balance",
+	"billing",
+	"account",
+	"payment required",
+	"quota exceeded",
+}
+
+func IsFatalError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	for _, pattern := range fatalOpenCodePatterns {
+		if strings.Contains(errStr, pattern) {
+			return true
+		}
+	}
+	return false
+}
