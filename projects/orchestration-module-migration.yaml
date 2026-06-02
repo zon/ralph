@@ -94,7 +94,7 @@ requirements:
         - internal/orchestration/githubtoken defines an interface for GitHub authentication
         - internal/cmd/github_token.go wires real implementations and delegates to internal/orchestration/githubtoken
         - internal/orchestration/githubtoken has unit tests with a mocked dependency
-      passing: false
+      passing: true
     - slug: move-setup-to-orchestration
       description: Move internal/setup to internal/orchestration/setup
       items:
