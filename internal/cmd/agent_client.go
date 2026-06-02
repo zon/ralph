@@ -74,7 +74,7 @@ func (a *AgentClient) GenerateChangelog(proj *project.Project) error {
 }
 
 func (a *AgentClient) FixServiceStartup(cfg *config.RalphConfig, err error) error {
-	svcMgr := services.NewManager()
+	svcMgr := services.NewManager(a.ctx.Output())
 	if failedSvc, startErr := svcMgr.Start(cfg.Services); startErr != nil {
 		fixPrompt, buildErr := ai.BuildFixServicePrompt(a.ctx, failedSvc, startErr)
 		if buildErr != nil {

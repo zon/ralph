@@ -5,13 +5,20 @@ import (
 	"os"
 
 	"github.com/zon/ralph/internal/config"
+	"github.com/zon/ralph/internal/output"
 )
 
-type Client struct{}
+type Client struct {
+	out *output.Client
+}
+
+func NewClient(out *output.Client) *Client {
+	return &Client{out: out}
+}
 
 func (a *Client) RunBeforeCommands(cfg *config.RalphConfig) error {
 	if len(cfg.Before) > 0 {
-		if err := RunBefore(cfg.Before); err != nil {
+		if err := RunBefore(a.out, cfg.Before); err != nil {
 			return fmt.Errorf("failed to run before commands: %w", err)
 		}
 	}
@@ -19,7 +26,7 @@ func (a *Client) RunBeforeCommands(cfg *config.RalphConfig) error {
 }
 
 func (a *Client) Start(cfg *config.RalphConfig) (*Manager, error) {
-	mgr := NewManager()
+	mgr := NewManager(a.out)
 	if _, err := mgr.Start(cfg.Services); err != nil {
 		return nil, err
 	}

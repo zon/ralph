@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/zon/ralph/internal/logger"
+	"github.com/zon/ralph/internal/output"
 )
 
 type GitClient interface {
@@ -43,15 +44,21 @@ type MergeCmd struct {
 	github   GitHubClient
 	project  ProjectClient
 	workflow WorkflowClient
+	out      *output.Client
 }
 
-func NewMergeCmd(git GitClient, github GitHubClient, project ProjectClient, workflow WorkflowClient) *MergeCmd {
+func NewMergeCmd(git GitClient, github GitHubClient, project ProjectClient, workflow WorkflowClient, out *output.Client) *MergeCmd {
 	return &MergeCmd{
 		git:      git,
 		github:   github,
 		project:  project,
 		workflow: workflow,
+		out:      out,
 	}
+}
+
+func (m *MergeCmd) SetOutput(out *output.Client) {
+	m.out = out
 }
 
 func (m *MergeCmd) Run(flags MergeFlags) error {

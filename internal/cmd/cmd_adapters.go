@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/zon/ralph/internal/ai"
 	"github.com/zon/ralph/internal/argo"
@@ -11,6 +12,7 @@ import (
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/opencode"
+	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/project"
 	"github.com/zon/ralph/internal/services"
 	"github.com/zon/ralph/internal/workflow"
@@ -32,10 +34,11 @@ func (c *commentAIClient) RunAgent(prompt string) error {
 
 type commentServicesClient struct {
 	manager *services.Manager
+	out     *output.Client
 }
 
 func (c *commentServicesClient) Start(svcs []config.Service) error {
-	mgr := services.NewManager()
+	mgr := services.NewManager(c.out)
 	if _, err := mgr.Start(svcs); err != nil {
 		return err
 	}
@@ -52,7 +55,8 @@ func (c *commentServicesClient) Stop() {
 func newOrchestrationCommentCmd(ctx *execcontext.Context) *orchestrationComment.CommentCmd {
 	return orchestrationComment.NewCommentCmd(
 		&commentAIClient{ctx: ctx},
-		&commentServicesClient{},
+		&commentServicesClient{out: ctx.Output()},
+		output.NewClient(os.Stdout, os.Stderr, false),
 	)
 }
 
@@ -129,6 +133,7 @@ func newOrchestrationMergeCmd() *orchestrationMerge.MergeCmd {
 		&mergeGitHubClient{gh: &github.GH{}},
 		&mergeProjectClient{},
 		newMergeWorkflowClient(),
+		output.NewClient(os.Stdout, os.Stderr, false),
 	)
 }
 

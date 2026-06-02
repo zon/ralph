@@ -12,7 +12,7 @@ import (
 )
 
 func TestServicesClientRunBeforeCommands(t *testing.T) {
-	client := &services.Client{}
+	client := services.NewClient(nil)
 
 	t.Run("calls RunBefore when cfg.Before is non-empty", func(t *testing.T) {
 		cfg := &config.RalphConfig{
@@ -53,5 +53,5 @@ func TestServicesClientRunBeforeCommands(t *testing.T) {
 }
 
 func TestServicesClientImplementsInterface(t *testing.T) {
-	var _ orchestrationRun.ServicesClient = &services.Client{}
+	var _ orchestrationRun.ServicesClient = services.NewClient(nil)
 }

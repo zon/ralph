@@ -12,14 +12,14 @@ import (
 )
 
 func TestNewManager(t *testing.T) {
-	m := NewManager()
+	m := NewManager(nil)
 	assert.NotNil(t, m, "NewManager should return non-nil manager")
 	assert.NotNil(t, m.cleanupFn, "cleanupFn slice should be initialized")
 	assert.NotNil(t, m.exitFn, "exitFn should be initialized")
 }
 
 func TestRegisterCleanup(t *testing.T) {
-	m := NewManager()
+	m := NewManager(nil)
 
 	cleanupCalled := false
 	m.RegisterCleanup(func() {
@@ -32,7 +32,7 @@ func TestRegisterCleanup(t *testing.T) {
 }
 
 func TestMultipleCleanupFunctions(t *testing.T) {
-	m := NewManager()
+	m := NewManager(nil)
 
 	var callOrder []int
 	m.RegisterCleanup(func() {
@@ -52,7 +52,7 @@ func TestMultipleCleanupFunctions(t *testing.T) {
 }
 
 func TestCleanupIdempotent(t *testing.T) {
-	m := NewManager()
+	m := NewManager(nil)
 
 	cleanupCount := 0
 	m.RegisterCleanup(func() {
@@ -67,15 +67,14 @@ func TestCleanupIdempotent(t *testing.T) {
 }
 
 func TestCleanupEmptyManager(t *testing.T) {
-	m := NewManager()
+	m := NewManager(nil)
 
 	m.Cleanup()
 }
 
 func TestManager_InjectableExitFn(t *testing.T) {
-	m := &Manager{
-		cleanupFn: make([]func(), 0),
-	}
+	m := NewManager(nil)
+	m.cleanupFn = make([]func(), 0)
 
 	var exitCode int
 	m.exitFn = func(code int) {
@@ -87,7 +86,7 @@ func TestManager_InjectableExitFn(t *testing.T) {
 }
 
 func TestHandleSignal(t *testing.T) {
-	m := NewManager()
+	m := NewManager(nil)
 
 	var exitCode int
 	var cleanupCalled bool
@@ -110,7 +109,7 @@ func TestHandleSignal(t *testing.T) {
 }
 
 func TestHandleSignal_SIGINT(t *testing.T) {
-	m := NewManager()
+	m := NewManager(nil)
 
 	var exitCode int
 	m.exitFn = func(code int) {
@@ -128,7 +127,7 @@ func TestHandleSignal_SIGINT(t *testing.T) {
 }
 
 func TestCleanupIsCalledOnce(t *testing.T) {
-	m := NewManager()
+	m := NewManager(nil)
 
 	m.exitFn = func(code int) {}
 

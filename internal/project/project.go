@@ -385,7 +385,7 @@ func writeBlockedMD(absProjectFile string, err error) error {
 // Returns the service manager if services were started successfully (caller must stop it),
 // or nil if services were not started or a failure was handled.
 func handleServiceStartup(ctx *context.Context, oc opencode.OCClient, cleanupRegistrar func(func()), ralphConfig *config.RalphConfig) (*services.Manager, error) {
-	svcMgr := services.NewManager()
+	svcMgr := services.NewManager(ctx.Output())
 
 	// Start services if not disabled
 	if !ctx.NoServices() && len(ralphConfig.Services) > 0 {

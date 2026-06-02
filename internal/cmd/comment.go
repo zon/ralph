@@ -37,5 +37,6 @@ func (c *CommentCmd) Run() error {
 	}
 
 	cmd := newOrchestrationCommentCmd(ctx)
+	cmd.SetOutput(ctx.Output())
 	return cmd.Run(flags)
 }

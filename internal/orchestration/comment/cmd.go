@@ -10,6 +10,7 @@ import (
 
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/logger"
+	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/project"
 )
 
@@ -34,13 +35,19 @@ type CommentFlags struct {
 type CommentCmd struct {
 	ai       AIClient
 	services ServicesClient
+	out      *output.Client
 }
 
-func NewCommentCmd(ai AIClient, services ServicesClient) *CommentCmd {
+func NewCommentCmd(ai AIClient, services ServicesClient, out *output.Client) *CommentCmd {
 	return &CommentCmd{
 		ai:       ai,
 		services: services,
+		out:      out,
 	}
+}
+
+func (c *CommentCmd) SetOutput(out *output.Client) {
+	c.out = out
 }
 
 func (c *CommentCmd) Run(flags CommentFlags) error {

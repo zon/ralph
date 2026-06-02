@@ -14,6 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/zon/ralph/internal/argo"
 	"github.com/zon/ralph/internal/logger"
+	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/webhookconfig"
 )
 
@@ -21,10 +22,11 @@ import (
 type Server struct {
 	config *webhookconfig.Config
 	router *gin.Engine
+	out    *output.Client
 }
 
 // NewServer creates a new webhook Server with the given configuration.
-func NewServer(cfg *webhookconfig.Config) *Server {
+func NewServer(cfg *webhookconfig.Config, out *output.Client) *Server {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	router.Use(gin.Recovery())
@@ -32,6 +34,7 @@ func NewServer(cfg *webhookconfig.Config) *Server {
 	s := &Server{
 		config: cfg,
 		router: router,
+		out:    out,
 	}
 
 	router.POST("/webhook", s.handleWebhook)

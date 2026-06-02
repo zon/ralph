@@ -13,11 +13,12 @@ import (
 
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/logger"
+	"github.com/zon/ralph/internal/output"
 )
 
 // RunBefore executes commands sequentially before starting services
 // Commands are run with connected output and expected to exit
-func RunBefore(cmds []config.Before) error {
+func RunBefore(out *output.Client, cmds []config.Before) error {
 	if len(cmds) == 0 {
 		return nil
 	}
@@ -67,12 +68,14 @@ type Process struct {
 type Manager struct {
 	mu        sync.Mutex
 	processes []*Process
+	out       *output.Client
 }
 
 // NewManager creates a new service manager
-func NewManager() *Manager {
+func NewManager(out *output.Client) *Manager {
 	return &Manager{
 		processes: make([]*Process, 0),
+		out:       out,
 	}
 }
 

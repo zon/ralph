@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/zon/ralph/internal/config"
+	"github.com/zon/ralph/internal/output"
 )
 
 func cleanupLogs(t *testing.T, services []config.Service) {
@@ -135,7 +136,7 @@ func TestStopAllServicesEmpty(t *testing.T) {
 }
 
 func TestManagerStartStop(t *testing.T) {
-	mgr := NewManager()
+	mgr := NewManager(output.NewClient(os.Stdout, os.Stderr, false))
 
 	services := []config.Service{
 		{Name: "service1", Command: "sleep", Args: []string{"30"}},
@@ -162,7 +163,7 @@ func TestManagerStartStop(t *testing.T) {
 }
 
 func TestManagerMultipleStops(t *testing.T) {
-	mgr := NewManager()
+	mgr := NewManager(output.NewClient(os.Stdout, os.Stderr, false))
 
 	services := []config.Service{
 		{Name: "service1", Command: "sleep", Args: []string{"30"}},
@@ -202,7 +203,7 @@ func TestStartServiceWorkDir(t *testing.T) {
 }
 
 func TestManagerStopBeforeStart(t *testing.T) {
-	mgr := NewManager()
+	mgr := NewManager(output.NewClient(os.Stdout, os.Stderr, false))
 
 	mgr.Stop()
 
@@ -222,7 +223,7 @@ func TestRunBeforeFailingOptional(t *testing.T) {
 		},
 	}
 
-	err := RunBefore(cmds)
+	err := RunBefore(output.NewClient(os.Stdout, os.Stderr, false), cmds)
 	require.NoError(t, err, "RunBefore with failing optional command should return nil")
 }
 
@@ -235,7 +236,7 @@ func TestRunBeforeFailingNonOptional(t *testing.T) {
 		},
 	}
 
-	err := RunBefore(cmds)
+	err := RunBefore(output.NewClient(os.Stdout, os.Stderr, false), cmds)
 	assert.Error(t, err, "RunBefore with failing non-optional command should return error")
 }
 
@@ -258,7 +259,7 @@ func TestRunBeforeSequentialExecution(t *testing.T) {
 		},
 	}
 
-	err := RunBefore(cmds)
+	err := RunBefore(output.NewClient(os.Stdout, os.Stderr, false), cmds)
 	require.NoError(t, err, "RunBefore with successful commands should return nil")
 }
 
@@ -274,7 +275,7 @@ func TestRunBeforeWithWorkDir(t *testing.T) {
 		},
 	}
 
-	err := RunBefore(cmds)
+	err := RunBefore(output.NewClient(os.Stdout, os.Stderr, false), cmds)
 	require.NoError(t, err, "RunBefore with WorkDir should not fail")
 }
 

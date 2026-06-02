@@ -13,6 +13,7 @@ import (
 	githubpkg "github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/notify"
+	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/project"
 	"github.com/zon/ralph/internal/services"
 	"github.com/zon/ralph/internal/workflow"
@@ -76,7 +77,7 @@ func ExecuteCommand(ctx *context.Context, cleanupRegistrar func(func()), setup *
 		return executeCommandRemote(ctx, setup)
 	}
 
-	if err := infrastructureRunBeforeCommands(setup.Config); err != nil {
+	if err := infrastructureRunBeforeCommands(ctx.Output(), setup.Config); err != nil {
 		return err
 	}
 
@@ -153,9 +154,9 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func()), setup *Executi
 	return NewLocalRunner(ctx, setup.BaseBranch).RunLocal(setup.Project, setup.Config)
 }
 
-func infrastructureRunBeforeCommands(cfg *config.RalphConfig) error {
+func infrastructureRunBeforeCommands(out *output.Client, cfg *config.RalphConfig) error {
 	if len(cfg.Before) > 0 {
-		if err := services.RunBefore(cfg.Before); err != nil {
+		if err := services.RunBefore(out, cfg.Before); err != nil {
 			return fmt.Errorf("failed to run before commands: %w", err)
 		}
 	}

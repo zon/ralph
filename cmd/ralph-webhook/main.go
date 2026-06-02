@@ -24,7 +24,7 @@ func (c *CLI) Run() error {
 		return err
 	}
 
-	s := webhook.NewServer(cfg)
+	s := webhook.NewServer(cfg, out)
 	out.Infof("starting ralph-webhook service on port %d", cfg.App.Port)
 	return s.Run()
 }

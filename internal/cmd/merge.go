@@ -1,6 +1,9 @@
 package cmd
 
 import (
+	"os"
+
+	"github.com/zon/ralph/internal/output"
 	orchestrationMerge "github.com/zon/ralph/internal/orchestration/merge"
 )
 
@@ -26,5 +29,6 @@ func (m *MergeCmd) Run() error {
 	}
 
 	cmd := newOrchestrationMergeCmd()
+	cmd.SetOutput(output.NewClient(os.Stdout, os.Stderr, m.Verbose))
 	return cmd.Run(flags)
 }

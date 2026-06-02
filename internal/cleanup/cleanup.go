@@ -7,6 +7,7 @@ import (
 	"syscall"
 
 	"github.com/zon/ralph/internal/logger"
+	"github.com/zon/ralph/internal/output"
 )
 
 // Manager manages cleanup operations for graceful shutdown
@@ -14,13 +15,15 @@ type Manager struct {
 	mu        sync.Mutex
 	cleanupFn []func()
 	exitFn    func(int)
+	out       *output.Client
 }
 
 // NewManager creates a new cleanup manager
-func NewManager() *Manager {
+func NewManager(out *output.Client) *Manager {
 	return &Manager{
 		cleanupFn: make([]func(), 0),
 		exitFn:    os.Exit,
+		out:       out,
 	}
 }
 

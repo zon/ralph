@@ -33,7 +33,7 @@ requirements:
         - Update cmd/ralph/main.go to pass `output.NewClient(os.Stdout, os.Stderr, false)` to cleanup.NewManager
         - Update cmd/ralph-webhook/main.go to pass the out client created in the CLI.Run() method to webhook.NewServer
         - Update every call site that creates a services.Manager or calls services.RunBefore to pass the output.Client from ctx.Output() or the appropriate out field
-      passing: false
+      passing: true
     - slug: replace-logger-in-cmd
       description: Replace all logger package calls in internal/cmd/*.go
       items:
