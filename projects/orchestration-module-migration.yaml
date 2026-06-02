@@ -70,7 +70,7 @@ requirements:
         - internal/orchestration/config/opencode defines interfaces for config, filesystem, and Kubernetes dependencies
         - internal/cmd/config_opencode.go wires real implementations and delegates to internal/orchestration/config/opencode
         - internal/orchestration/config/opencode has unit tests with mocked dependencies
-      passing: false
+      passing: true
     - slug: orchestrate-config-pulumi
       description: Extract config pulumi command logic into internal/orchestration/config/pulumi
       items:

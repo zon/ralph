@@ -2,22 +2,20 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 	"os"
 
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/k8s"
+	ocfgopencode "github.com/zon/ralph/internal/orchestration/config/opencode"
 	"github.com/zon/ralph/internal/output"
 )
 
-// ConfigOpencodeCmd configures OpenCode credentials for Argo Workflows
 type ConfigOpencodeCmd struct {
 	Context   string `help:"Kubernetes context to use (defaults to current context)"`
 	Namespace string `help:"Kubernetes namespace to use (defaults to context default or 'default')"`
 	out       *output.Client
 }
 
-// Run executes the config opencode command
 func (c *ConfigOpencodeCmd) Run() error {
 	ctx := context.Background()
 
@@ -25,74 +23,70 @@ func (c *ConfigOpencodeCmd) Run() error {
 		c.out = output.NewClient(os.Stdout, os.Stderr, false)
 	}
 
-	c.printHeader()
-
-	cfg, err := config.LoadConfig()
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
-	}
-
-	client := k8s.NewClient()
-
-	k8sCtx, err := resolveKubeContext(ctx, client, cfg, c.out, c.Context, c.Namespace)
-	if err != nil {
-		return err
-	}
-
-	authFileContent, err := c.readOpenCodeCredentials()
-	if err != nil {
-		return err
-	}
-
-	if err := c.createK8sSecret(ctx, client, k8sCtx.Name, k8sCtx.Namespace, authFileContent); err != nil {
-		return err
-	}
-
-	return nil
+	orchestrator := newConfigOpencodeOrchestrator(c.out)
+	return orchestrator.Run(ctx, c.Context, c.Namespace)
 }
 
-func (c *ConfigOpencodeCmd) printHeader() {
-	c.out.Info("Configuring OpenCode credentials for Ralph remote execution...")
+type configOpencodeConfigLoaderAdapter struct{}
+
+func (a *configOpencodeConfigLoaderAdapter) Load() (*config.RalphConfig, error) {
+	return config.LoadConfig()
 }
 
-func (c *ConfigOpencodeCmd) readOpenCodeCredentials() (string, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("failed to get user home directory: %w", err)
-	}
+type configOpencodeFsClientAdapter struct{}
 
-	authFilePath := fmt.Sprintf("%s/.local/share/opencode/auth.json", homeDir)
-	c.out.Infof("Reading OpenCode credentials from: %s", authFilePath)
-
-	authFileContent, err := os.ReadFile(authFilePath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return "", fmt.Errorf("OpenCode auth.json not found at %s\n\nPlease ensure OpenCode is configured and the auth.json file exists.", authFilePath)
-		}
-		return "", fmt.Errorf("failed to read auth.json: %w", err)
-	}
-
-	if len(authFileContent) == 0 {
-		return "", fmt.Errorf("auth.json is empty at %s", authFilePath)
-	}
-
-	c.out.Success("OpenCode credentials read successfully")
-	return string(authFileContent), nil
+func (a *configOpencodeFsClientAdapter) UserHomeDir() (string, error) {
+	return os.UserHomeDir()
 }
 
-func (c *ConfigOpencodeCmd) createK8sSecret(ctx context.Context, client k8s.Client, kubeContext, namespace, authFileContent string) error {
-	c.out.Infof("Creating/updating Kubernetes secret '%s'...", k8s.OpenCodeSecretName)
+func (a *configOpencodeFsClientAdapter) ReadFile(name string) ([]byte, error) {
+	return os.ReadFile(name)
+}
 
-	secretData := map[string]string{
-		"auth.json": authFileContent,
+type configOpencodeK8sClientAdapter struct{}
+
+func (a *configOpencodeK8sClientAdapter) GetCurrentContext(ctx context.Context) (ocfgopencode.K8sContext, error) {
+	realClient := k8s.NewClient()
+	k8sCtx, err := realClient.GetCurrentContext(ctx)
+	if err != nil {
+		return ocfgopencode.K8sContext{}, err
 	}
+	return ocfgopencode.K8sContext{Name: k8sCtx.Name, Namespace: k8sCtx.Namespace}, nil
+}
 
-	if err := client.CreateOrUpdateSecret(ctx, k8s.OpenCodeSecretName, namespace, kubeContext, secretData); err != nil {
-		return fmt.Errorf("failed to create/update secret: %w", err)
-	}
+func (a *configOpencodeK8sClientAdapter) CreateOrUpdateSecret(ctx context.Context, name, namespace, kubeContext string, data map[string]string) error {
+	return k8s.NewClient().CreateOrUpdateSecret(ctx, name, namespace, kubeContext, data)
+}
 
-	c.out.Successf("Secret '%s' created/updated successfully", k8s.OpenCodeSecretName)
+type configOpencodeLoggerAdapter struct {
+	out *output.Client
+}
 
-	c.out.Infof("Configuration complete! The secret '%s' is ready for use in namespace '%s'.", k8s.OpenCodeSecretName, namespace)
-	return nil
+func (a *configOpencodeLoggerAdapter) Info(msg string) {
+	a.out.Info(msg)
+}
+
+func (a *configOpencodeLoggerAdapter) Infof(format string, args ...interface{}) {
+	a.out.Infof(format, args...)
+}
+
+func (a *configOpencodeLoggerAdapter) Success(msg string) {
+	a.out.Success(msg)
+}
+
+func (a *configOpencodeLoggerAdapter) Successf(format string, args ...interface{}) {
+	a.out.Successf(format, args...)
+}
+
+func (a *configOpencodeLoggerAdapter) Debugf(format string, args ...interface{}) {
+	a.out.Debugf(format, args...)
+}
+
+func newConfigOpencodeOrchestrator(out *output.Client) *ocfgopencode.Cmd {
+	return ocfgopencode.New(
+		&configOpencodeConfigLoaderAdapter{},
+		&configOpencodeFsClientAdapter{},
+		&configOpencodeK8sClientAdapter{},
+		&configOpencodeLoggerAdapter{out: out},
+	)
 }
