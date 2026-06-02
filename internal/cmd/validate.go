@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"github.com/zon/ralph/internal/logger"
+	"github.com/zon/ralph/internal/opencode"
 	"github.com/zon/ralph/internal/validate"
 )
 
@@ -11,7 +12,7 @@ type ValidateCmd struct {
 
 func (v *ValidateCmd) Run() error {
 	ctx := createExecutionContext()
-	validator := validate.New(ctx)
+	validator := validate.New(ctx, opencode.New())
 	proj, err := validator.Validate(v.ProjectFile)
 	if err != nil {
 		return err

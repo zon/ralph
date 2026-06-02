@@ -1,19 +1,24 @@
 package github
 
 import (
+	"context"
+	"io"
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/zon/ralph/internal/context"
+	execcontext "github.com/zon/ralph/internal/context"
+	"github.com/zon/ralph/internal/opencode"
 	"github.com/zon/ralph/internal/project"
 	orchestrationRun "github.com/zon/ralph/internal/orchestration/run"
 )
 
 func TestGitHubClientNew(t *testing.T) {
-	ctx := context.NewContext()
-	client := NewClient(ctx, "main", &GH{})
+	ctx := execcontext.NewContext()
+	client := NewClient(ctx, "main", &GH{}, &opencode.MockOC{})
 	require.NotNil(t, client)
 	var _ orchestrationRun.GitHubClient = client
 }
@@ -30,8 +35,24 @@ func TestClientCreatePR_DelegatesToCreatePullRequest(t *testing.T) {
 			return "https://github.com/owner/repo/pull/1", nil
 		},
 	}
-	ctx := context.NewContext()
-	client := NewClient(ctx, "main", mock)
+	ctx := execcontext.NewContext()
+	mockOC := &opencode.MockOC{
+		RunCommandFunc: func(_ context.Context, _, _, prompt string, _, _ io.Writer) error {
+			// Extract the output file path from the prompt and write mock content
+			if idx := strings.Index(prompt, "Write your summary to the file:"); idx >= 0 {
+				rest := prompt[idx+len("Write your summary to the file:"):]
+				rest = strings.TrimSpace(rest)
+				lines := strings.SplitN(rest, "\n", 2)
+				filePath := strings.TrimSpace(lines[0])
+				os.WriteFile(filePath, []byte("Mock PR summary"), 0644)
+			}
+			return nil
+		},
+		GetStatsFunc: func() (opencode.Stats, error) {
+			return opencode.Stats{}, nil
+		},
+	}
+	client := NewClient(ctx, "main", mock, mockOC)
 	proj := &project.Project{Slug: "some-branch", Title: "Test Title"}
 
 	err := client.CreatePR(proj)
@@ -44,11 +65,24 @@ func TestClientCreatePR_WorkflowExecutionCallsConfigureGitAuth(t *testing.T) {
 		IsReadyFn:  func() bool { return true },
 		CreatePRFn: func(title, body, base, head string) (string, error) { return "https://github.com/o/r/p/1", nil },
 	}
-	ctx := context.NewContext()
+	ctx := execcontext.NewContext()
 	ctx.SetWorkflowExecution(true)
 	ctx.SetRepoOwner("test-owner")
 	ctx.SetRepoName("test-repo")
-	client := NewClient(ctx, "main", mock)
+	mockOC := &opencode.MockOC{
+		RunCommandFunc: func(_ context.Context, _, _, prompt string, _, _ io.Writer) error {
+			if idx := strings.Index(prompt, "Write your summary to the file:"); idx >= 0 {
+				rest := prompt[idx+len("Write your summary to the file:"):]
+				rest = strings.TrimSpace(rest)
+				lines := strings.SplitN(rest, "\n", 2)
+				filePath := strings.TrimSpace(lines[0])
+				os.WriteFile(filePath, []byte("Mock PR summary"), 0644)
+			}
+			return nil
+		},
+		GetStatsFunc: func() (opencode.Stats, error) { return opencode.Stats{}, nil },
+	}
+	client := NewClient(ctx, "main", mock, mockOC)
 	proj := &project.Project{Slug: "some-branch", Title: "Test Title"}
 
 	err := client.CreatePR(proj)
@@ -67,8 +101,21 @@ func TestClientCreatePR_SkipsConfigureGitAuthWhenNotWorkflow(t *testing.T) {
 			return "https://github.com/o/r/p/1", nil
 		},
 	}
-	ctx := context.NewContext()
-	client := NewClient(ctx, "main", mock)
+	ctx := execcontext.NewContext()
+	mockOC := &opencode.MockOC{
+		RunCommandFunc: func(_ context.Context, _, _, prompt string, _, _ io.Writer) error {
+			if idx := strings.Index(prompt, "Write your summary to the file:"); idx >= 0 {
+				rest := prompt[idx+len("Write your summary to the file:"):]
+				rest = strings.TrimSpace(rest)
+				lines := strings.SplitN(rest, "\n", 2)
+				filePath := strings.TrimSpace(lines[0])
+				os.WriteFile(filePath, []byte("Mock PR summary"), 0644)
+			}
+			return nil
+		},
+		GetStatsFunc: func() (opencode.Stats, error) { return opencode.Stats{}, nil },
+	}
+	client := NewClient(ctx, "main", mock, mockOC)
 	proj := &project.Project{Slug: "some-branch", Title: "Test Title"}
 
 	err := client.CreatePR(proj)
@@ -81,8 +128,21 @@ func TestClientCreatePR_PropagatesCreatePullRequestError(t *testing.T) {
 		IsReadyFn:  func() bool { return true },
 		CreatePRFn: func(title, body, base, head string) (string, error) { return "", assert.AnError },
 	}
-	ctx := context.NewContext()
-	client := NewClient(ctx, "main", mock)
+	ctx := execcontext.NewContext()
+	mockOC := &opencode.MockOC{
+		RunCommandFunc: func(_ context.Context, _, _, prompt string, _, _ io.Writer) error {
+			if idx := strings.Index(prompt, "Write your summary to the file:"); idx >= 0 {
+				rest := prompt[idx+len("Write your summary to the file:"):]
+				rest = strings.TrimSpace(rest)
+				lines := strings.SplitN(rest, "\n", 2)
+				filePath := strings.TrimSpace(lines[0])
+				os.WriteFile(filePath, []byte("Mock PR summary"), 0644)
+			}
+			return nil
+		},
+		GetStatsFunc: func() (opencode.Stats, error) { return opencode.Stats{}, nil },
+	}
+	client := NewClient(ctx, "main", mock, mockOC)
 	proj := &project.Project{Slug: "some-branch", Title: "Test Title"}
 
 	err := client.CreatePR(proj)

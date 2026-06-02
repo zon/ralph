@@ -16,10 +16,11 @@ import (
 
 type AgentClient struct {
 	ctx *context.Context
+	oc  opencode.OCClient
 }
 
-func NewAgentClient(ctx *context.Context) *AgentClient {
-	return &AgentClient{ctx: ctx}
+func NewAgentClient(ctx *context.Context, oc opencode.OCClient) *AgentClient {
+	return &AgentClient{ctx: ctx, oc: oc}
 }
 
 func (a *AgentClient) RunPicker(proj *project.Project) (string, error) {
@@ -41,7 +42,7 @@ func (a *AgentClient) RunPicker(proj *project.Project) (string, error) {
 		PickedReqPath: pickedReqPath,
 	}
 
-	return project.PickRequirement(a.ctx, setup)
+	return project.PickRequirement(a.ctx, a.oc, setup)
 }
 
 func (a *AgentClient) RunDeveloper(proj *project.Project, req string) error {
@@ -61,7 +62,7 @@ func (a *AgentClient) RunDeveloper(proj *project.Project, req string) error {
 		Config:    cfg,
 	}
 
-	return project.DevelopRequirement(a.ctx, setup, req)
+	return project.DevelopRequirement(a.ctx, a.oc, setup, req)
 }
 
 func (a *AgentClient) IsFatal(err error) bool {
@@ -69,7 +70,7 @@ func (a *AgentClient) IsFatal(err error) bool {
 }
 
 func (a *AgentClient) GenerateChangelog(proj *project.Project) error {
-	return ai.GenerateChangelog(a.ctx)
+	return ai.GenerateChangelog(a.ctx, a.oc)
 }
 
 func (a *AgentClient) FixServiceStartup(cfg *config.RalphConfig, err error) error {
@@ -79,13 +80,13 @@ func (a *AgentClient) FixServiceStartup(cfg *config.RalphConfig, err error) erro
 		if buildErr != nil {
 			return buildErr
 		}
-		return ai.RunAgent(a.ctx, fixPrompt)
+		return ai.RunAgent(a.ctx, a.oc, fixPrompt)
 	}
 	return nil
 }
 
 func (a *AgentClient) PrintStats() {
-	stats, err := opencode.GetStats()
+	stats, err := a.oc.GetStats()
 	if err != nil {
 		return
 	}

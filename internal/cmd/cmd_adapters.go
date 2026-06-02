@@ -9,6 +9,7 @@ import (
 	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/github"
+	"github.com/zon/ralph/internal/opencode"
 	"github.com/zon/ralph/internal/project"
 	"github.com/zon/ralph/internal/services"
 	"github.com/zon/ralph/internal/workflow"
@@ -25,7 +26,7 @@ type commentAIClient struct {
 }
 
 func (c *commentAIClient) RunAgent(prompt string) error {
-	return ai.RunAgent(c.ctx, prompt)
+	return ai.RunAgent(c.ctx, opencode.New(), prompt)
 }
 
 type commentServicesClient struct {

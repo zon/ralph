@@ -6,6 +6,7 @@ import (
 	"github.com/zon/ralph/internal/ai"
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
+	"github.com/zon/ralph/internal/opencode"
 	"github.com/zon/ralph/internal/project"
 )
 
@@ -25,6 +26,7 @@ func (projectClient) ReadFile(path string) ([]byte, error) {
 
 type agentClient struct {
 	ctx *context.Context
+	oc  opencode.OCClient
 }
 
 func (a *agentClient) FixProject(path string, loadErr error, model string) error {
@@ -32,7 +34,7 @@ func (a *agentClient) FixProject(path string, loadErr error, model string) error
 	if err != nil {
 		return err
 	}
-	return ai.RunAgentWithModel(a.ctx, prompt, model)
+	return ai.RunAgentWithModel(a.ctx, a.oc, prompt, model)
 }
 
 func resolveConfigModel() string {
@@ -46,10 +48,10 @@ func resolveConfigModel() string {
 	return ralphConfig.Model
 }
 
-func New(ctx *context.Context) *Validator {
+func New(ctx *context.Context, oc opencode.OCClient) *Validator {
 	return &Validator{
 		project: &projectClient{},
-		agent:   &agentClient{ctx: ctx},
+		agent:   &agentClient{ctx: ctx, oc: oc},
 		model:   resolveConfigModel(),
 	}
 }
