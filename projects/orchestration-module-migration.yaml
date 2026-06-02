@@ -46,7 +46,7 @@ requirements:
         - internal/orchestration/pass defines interfaces for project loading and saving
         - internal/cmd/pass.go wires real implementations and delegates to internal/orchestration/pass
         - internal/orchestration/pass has unit tests with mocked dependencies
-      passing: false
+      passing: true
     - slug: orchestrate-setup-workspace
       description: Extract setup-workspace command logic into internal/orchestration/setup_workspace
       items:

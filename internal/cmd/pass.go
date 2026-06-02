@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"github.com/zon/ralph/internal/orchestration/pass"
 	"github.com/zon/ralph/internal/project"
 )
 
@@ -11,14 +12,25 @@ type PassCmd struct {
 }
 
 func (c *PassCmd) Run() error {
-	proj, err := project.LoadProject(c.ProjectFile)
-	if err != nil {
-		return err
-	}
+	orchestrator := newPassOrchestrator()
+	return orchestrator.Run(c.ProjectFile, c.Slug, !c.False)
+}
 
-	if err := project.UpdateRequirementStatus(proj, c.Slug, !c.False); err != nil {
-		return err
-	}
+type passProjectLoaderAdapter struct{}
 
-	return project.SaveProject(c.ProjectFile, proj)
+func (a *passProjectLoaderAdapter) LoadProject(path string) (*project.Project, error) {
+	return project.LoadProject(path)
+}
+
+type passProjectSaverAdapter struct{}
+
+func (a *passProjectSaverAdapter) SaveProject(path string, p *project.Project) error {
+	return project.SaveProject(path, p)
+}
+
+func newPassOrchestrator() *pass.PassCmd {
+	return pass.New(
+		&passProjectLoaderAdapter{},
+		&passProjectSaverAdapter{},
+	)
 }
