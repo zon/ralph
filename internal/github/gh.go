@@ -10,7 +10,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/zon/ralph/internal/logger"
+	"github.com/zon/ralph/internal/output"
 )
 
 // ErrNoCommitsBetweenBranches is returned when gh pr create fails because the
@@ -31,7 +31,13 @@ type GHClient interface {
 }
 
 // GH implements GHClient by shelling out to the gh CLI.
-type GH struct{}
+type GH struct {
+	out *output.Client
+}
+
+func NewGH(out *output.Client) *GH {
+	return &GH{out: out}
+}
 
 func (g *GH) IsReady() bool {
 	cmd := exec.Command("gh", "--version")
@@ -85,7 +91,7 @@ func (g *GH) CreatePR(title, body, base, head string) (string, error) {
 	}
 
 	if existingPR != "" {
-		return updateExistingPR(existingPR, title, body)
+		return updateExistingPR(g.out, existingPR, title, body)
 	}
 
 	cmd := exec.Command("gh", "pr", "create",
@@ -101,10 +107,10 @@ func (g *GH) CreatePR(title, body, base, head string) (string, error) {
 	cmd.Stderr = &errOut
 
 	if createErr := cmd.Run(); createErr != nil {
-		return handleExistingPR(createErr, errOut.String(), out.String(), title, body)
+		return handleExistingPR(g.out, createErr, errOut.String(), out.String(), title, body)
 	}
 
-	return parsePRURL(out.String())
+	return parsePRURL(g.out, out.String())
 }
 
 func (g *GH) GetPRHeadRefOid(pr string) (string, error) {
@@ -137,18 +143,18 @@ func (g *GH) MergePR(pr, repo string) error {
 	if err := autoCmd.Run(); err != nil {
 		autoErrStr := autoOut.String()
 		if strings.Contains(autoErrStr, "clean status") || strings.Contains(autoErrStr, "Protected branch rules not configured") || strings.Contains(autoErrStr, "enablePullRequestAutoMerge") {
-			logger.Verbosef("PR #%s is already mergeable, merging immediately", pr)
-			return mergePRImmediate(pr, repo)
+			g.out.Debugf("PR #%s is already mergeable, merging immediately", pr)
+			return mergePRImmediate(g.out, pr, repo)
 		}
 		fmt.Fprint(os.Stderr, autoErrStr)
 		return fmt.Errorf("failed to merge PR #%s: %w", pr, err)
 	}
 
-	logger.Successf("Auto-merge enabled for PR #%s", pr)
+	g.out.Successf("Auto-merge enabled for PR #%s", pr)
 	return nil
 }
 
-func mergePRImmediate(pr, repo string) error {
+func mergePRImmediate(out *output.Client, pr, repo string) error {
 	immediateArgs := []string{"pr", "merge", pr, "--merge", "--delete-branch"}
 	if repo != "" {
 		immediateArgs = append(immediateArgs, "--repo", repo)
@@ -161,6 +167,6 @@ func mergePRImmediate(pr, repo string) error {
 		fmt.Fprint(os.Stderr, immediateOut.String())
 		return fmt.Errorf("failed to merge PR #%s: %w", pr, err)
 	}
-	logger.Successf("Merged PR #%s", pr)
+	out.Successf("Merged PR #%s", pr)
 	return nil
 }

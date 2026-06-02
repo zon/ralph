@@ -13,7 +13,7 @@ import (
 	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
-	"github.com/zon/ralph/internal/logger"
+
 	"github.com/zon/ralph/internal/opencode"
 )
 
@@ -282,7 +282,7 @@ func resolveVariant(ctx *execcontext.Context) string {
 
 func RunAgent(ctx *execcontext.Context, oc opencode.OCClient, prompt string) error {
 	if ctx.IsVerbose() {
-		logger.Verbose(prompt)
+		ctx.Output().Debug(prompt)
 	}
 
 	model := resolveModel(ctx)
@@ -292,7 +292,7 @@ func RunAgent(ctx *execcontext.Context, oc opencode.OCClient, prompt string) err
 
 func RunAgentWithModel(ctx *execcontext.Context, oc opencode.OCClient, prompt string, model string) error {
 	if ctx.IsVerbose() {
-		logger.Verbose(prompt)
+		ctx.Output().Debug(prompt)
 	}
 
 	return oc.RunAgent(ctx.GoContext(), model, resolveVariant(ctx), prompt)
@@ -347,7 +347,7 @@ func GeneratePRSummary(ctx *execcontext.Context, oc opencode.OCClient, projectDe
 	}
 
 	if ctx.IsVerbose() {
-		logger.Verbose(prPrompt)
+		ctx.Output().Debug(prPrompt)
 	}
 
 	model := resolveModel(ctx)
@@ -374,7 +374,7 @@ func GenerateChangelog(ctx *execcontext.Context, oc opencode.OCClient) (err erro
 	}
 
 	if ctx.IsVerbose() {
-		logger.Verbose(changelogPrompt)
+		ctx.Output().Debug(changelogPrompt)
 	}
 
 	model := resolveModel(ctx)
@@ -405,7 +405,7 @@ func GenerateReviewPRBody(ctx *execcontext.Context, oc opencode.OCClient, projec
 	}
 
 	if ctx.IsVerbose() {
-		logger.Verbose(reviewPrompt)
+		ctx.Output().Debug(reviewPrompt)
 	}
 
 	model := resolveModel(ctx)

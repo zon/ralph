@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/zon/ralph/internal/logger"
+	"github.com/zon/ralph/internal/output"
 )
 
 type AuthConfig struct {
@@ -149,10 +149,10 @@ func PullAndPush(isWorkflow bool, owner, repo string) error {
 	return nil
 }
 
-func FetchBranch(branch string) error {
+func FetchBranch(out *output.Client, branch string) error {
 	_, err := runGit("fetch", "origin", branch+":"+branch)
 	if err != nil {
-		logger.Infof("Fetch with refspec failed, falling back to plain fetch: %v", err)
+		out.Infof("Fetch with refspec failed, falling back to plain fetch: %v", err)
 		_, err = runGit("fetch", "origin", branch)
 		if err != nil {
 			return fmt.Errorf("failed to fetch branch %s: %w", branch, err)

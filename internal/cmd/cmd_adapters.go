@@ -130,7 +130,7 @@ func newMergeWorkflowClient() *mergeWorkflowClient {
 func newOrchestrationMergeCmd() *orchestrationMerge.MergeCmd {
 	return orchestrationMerge.NewMergeCmd(
 		&mergeGitClient{},
-		&mergeGitHubClient{gh: &github.GH{}},
+		&mergeGitHubClient{gh: github.NewGH(output.NewClient(os.Stdout, os.Stderr, false))},
 		&mergeProjectClient{},
 		newMergeWorkflowClient(),
 		output.NewClient(os.Stdout, os.Stderr, false),

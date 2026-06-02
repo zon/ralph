@@ -138,7 +138,7 @@ func (w *WorkflowCmd) syncBaseBranch(ctx *context.Context) error {
 func (w *WorkflowCmd) fetchBaseBranch(ctx *context.Context) error {
 	baseBranch := ctx.BaseBranch()
 	ctx.Output().Infof("Fetching base branch: %s", baseBranch)
-	return git.FetchBranch(baseBranch)
+	return git.FetchBranch(ctx.Output(), baseBranch)
 }
 
 func (w *WorkflowCmd) checkIfMergeNeeded(ctx *context.Context) (bool, error) {

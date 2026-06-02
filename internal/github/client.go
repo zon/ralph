@@ -8,7 +8,7 @@ import (
 	"github.com/zon/ralph/internal/ai"
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
-	"github.com/zon/ralph/internal/logger"
+
 	"github.com/zon/ralph/internal/opencode"
 	"github.com/zon/ralph/internal/project"
 )
@@ -52,15 +52,15 @@ func (a *Client) CreatePR(proj *project.Project) error {
 		}
 	}
 
-	prURL, err := CreatePullRequest(a.gh, proj, branchName, a.baseBranch, prSummary)
+	prURL, err := CreatePullRequest(a.ctx.Output(), a.gh, proj, branchName, a.baseBranch, prSummary)
 	if err != nil {
 		if errors.Is(err, ErrNoCommitsBetweenBranches) {
-			logger.Verbose("No commits ahead of base branch — all requirements were already passing; skipping PR creation")
+			a.ctx.Output().Debug("No commits ahead of base branch — all requirements were already passing; skipping PR creation")
 			return nil
 		}
 		return fmt.Errorf("failed to create pull request: %w", err)
 	}
 
-	logger.Info(prURL)
+	a.ctx.Output().Info(prURL)
 	return nil
 }

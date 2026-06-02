@@ -9,6 +9,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/zon/ralph/internal/output"
 )
 
 // TestPush_HappyPath verifies that Push succeeds against a local
@@ -194,7 +196,7 @@ func TestFetchBranch(t *testing.T) {
 		_, err := Push(nil, branchName)
 		require.NoError(t, err)
 
-		require.NoError(t, FetchBranch(branchName))
+		require.NoError(t, FetchBranch(output.NewClient(os.Stdout, os.Stderr, false), branchName))
 
 		refs, err := runGit("rev-parse", "--verify", branchName)
 		require.NoError(t, err)
@@ -214,7 +216,7 @@ func TestFetchBranch(t *testing.T) {
 		_, err := Push(nil, branchName)
 		require.NoError(t, err)
 
-		require.NoError(t, FetchBranch(branchName))
+		require.NoError(t, FetchBranch(output.NewClient(os.Stdout, os.Stderr, false), branchName))
 
 		refs, err := runGit("rev-parse", "--verify", branchName)
 		require.NoError(t, err)
@@ -225,7 +227,7 @@ func TestFetchBranch(t *testing.T) {
 		workDir, _ := setupBareRemoteRepo(t)
 		t.Chdir(workDir)
 
-		err := FetchBranch("nonexistent-branch")
+		err := FetchBranch(output.NewClient(os.Stdout, os.Stderr, false), "nonexistent-branch")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to fetch branch")
 	})

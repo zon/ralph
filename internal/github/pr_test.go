@@ -1,16 +1,20 @@
 package github
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/opencode"
+	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/project"
 )
 
 // Compile-time assertion that *GH implements GHClient.
 var _ GHClient = (*GH)(nil)
+
+var testOut = output.NewClient(os.Stdout, os.Stderr, false)
 
 func TestCreatePullRequest_UsesTitleAsPRTitle(t *testing.T) {
 	mock := &MockGH{
@@ -26,7 +30,7 @@ func TestCreatePullRequest_UsesTitleAsPRTitle(t *testing.T) {
 		Slug:  "test-project",
 		Title: "This is a detailed title",
 	}
-	prURL, err := CreatePullRequest(mock, proj, "feature-branch", "main", "PR body")
+	prURL, err := CreatePullRequest(testOut, mock, proj, "feature-branch", "main", "PR body")
 	assert.NoError(t, err)
 	assert.NotEmpty(t, prURL)
 	assert.Contains(t, prURL, "github.com")
@@ -46,7 +50,7 @@ func TestCreatePullRequest_UsesSlugWhenTitleEmpty(t *testing.T) {
 		Slug:  "my-project",
 		Title: "",
 	}
-	prURL, err := CreatePullRequest(mock, proj, "feature-branch", "main", "PR body")
+	prURL, err := CreatePullRequest(testOut, mock, proj, "feature-branch", "main", "PR body")
 	assert.NoError(t, err)
 	assert.NotEmpty(t, prURL)
 }
@@ -64,7 +68,7 @@ func TestCreatePullRequest_UsesSlugWhenTitleMissing(t *testing.T) {
 	proj := &project.Project{
 		Slug: "fallback-project",
 	}
-	prURL, err := CreatePullRequest(mock, proj, "feature-branch", "main", "PR body")
+	prURL, err := CreatePullRequest(testOut, mock, proj, "feature-branch", "main", "PR body")
 	assert.NoError(t, err)
 	assert.NotEmpty(t, prURL)
 }
@@ -83,7 +87,7 @@ func TestCreatePullRequest_DelegatesToIsReady(t *testing.T) {
 	NewClient(context.NewContext(), "main", mock, &opencode.MockOC{})
 
 	proj := &project.Project{Slug: "test", Title: "Test"}
-	_, err := CreatePullRequest(mock, proj, "feature-branch", "main", "PR body")
+	_, err := CreatePullRequest(testOut, mock, proj, "feature-branch", "main", "PR body")
 	assert.NoError(t, err)
 	assert.True(t, called, "expected GHClient.IsReady to be called")
 }

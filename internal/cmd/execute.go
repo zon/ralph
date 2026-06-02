@@ -81,11 +81,11 @@ func ExecuteCommand(ctx *context.Context, cleanupRegistrar func(func()), setup *
 	}
 
 	if err := runCommand(setup.Command); err != nil {
-		notify.Error("command", ctx.ShouldNotify())
+		notify.Error(ctx.Output(), "command", ctx.ShouldNotify())
 		return err
 	}
 
-	notify.Success("command", ctx.ShouldNotify())
+	notify.Success(ctx.Output(), "command", ctx.ShouldNotify())
 	return nil
 }
 
@@ -134,10 +134,10 @@ func executeCommandRemote(ctx *context.Context, setup *CommandSetup) error {
 
 	if ctx.ShouldFollow() {
 		if err := argoClient.FollowLogs(argo.K8sContext{Name: wf.KubeContext, Namespace: wf.Namespace}, workflowName); err != nil {
-			notify.Error("command", ctx.ShouldNotify())
+		notify.Error(ctx.Output(), "command", ctx.ShouldNotify())
 			return fmt.Errorf("argo logs failed: %w", err)
 		}
-		notify.Success("command", ctx.ShouldNotify())
+	notify.Success(ctx.Output(), "command", ctx.ShouldNotify())
 	} else {
 		ctx.Output().Infof("To follow logs, run: argo logs -n %s %s -f", wf.Namespace, workflowName)
 	}

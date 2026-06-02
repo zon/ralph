@@ -6,10 +6,10 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/zon/ralph/internal/logger"
+	"github.com/zon/ralph/internal/output"
 )
 
-func handleExistingPR(err error, errStr, outStr, title, body string) (string, error) {
+func handleExistingPR(out *output.Client, err error, errStr, outStr, title, body string) (string, error) {
 	// GitHub rejects the PR when the head branch has no commits ahead of base.
 	// Treat this as a sentinel so callers can decide how to proceed.
 	if strings.Contains(errStr, "No commits between") {
@@ -25,7 +25,7 @@ func handleExistingPR(err error, errStr, outStr, title, body string) (string, er
 		return "", fmt.Errorf("failed to create PR: %w (output: %s, stderr: %s)", err, outStr, errStr)
 	}
 
-	return updateExistingPR(existingURL, title, body)
+	return updateExistingPR(out, existingURL, title, body)
 }
 
 func extractExistingPRURL(errStr string) string {
@@ -38,7 +38,7 @@ func extractExistingPRURL(errStr string) string {
 	return ""
 }
 
-func updateExistingPR(prURL, title, body string) (string, error) {
+func updateExistingPR(out *output.Client, prURL, title, body string) (string, error) {
 	editCmd := exec.Command("gh", "pr", "edit", prURL,
 		"--title", title,
 		"--body", body,
@@ -50,11 +50,11 @@ func updateExistingPR(prURL, title, body string) (string, error) {
 	if editErr := editCmd.Run(); editErr != nil {
 		return "", fmt.Errorf("failed to update existing PR: %w (output: %s, stderr: %s)", editErr, editOut.String(), editErrOut.String())
 	}
-	logger.Verbosef("Updated existing PR: %s", prURL)
+	out.Debugf("Updated existing PR: %s", prURL)
 	return prURL, nil
 }
 
-func parsePRURL(output string) (string, error) {
+func parsePRURL(out *output.Client, output string) (string, error) {
 	lines := strings.Split(output, "\n")
 
 	prURL := ""
@@ -69,7 +69,7 @@ func parsePRURL(output string) (string, error) {
 		return "", fmt.Errorf("failed to parse PR URL from gh output: %s", output)
 	}
 
-	logger.Verbosef("Created PR: %s", prURL)
+	out.Debugf("Created PR: %s", prURL)
 	return prURL, nil
 }
 

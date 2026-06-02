@@ -6,7 +6,6 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/output"
 )
 
@@ -57,8 +56,8 @@ func (m *Manager) SetupSignalHandlers() {
 
 func (m *Manager) handleSignal(sigChan <-chan os.Signal) {
 	sig := <-sigChan
-	logger.Infof("Received signal: %v", sig)
-	logger.Info("Cleaning up...")
+	m.out.Infof("Received signal: %v", sig)
+	m.out.Info("Cleaning up...")
 	m.Cleanup()
 	m.exitFn(0)
 }

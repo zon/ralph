@@ -51,7 +51,7 @@ func (c *ConfigWebhookConfigCmd) Run() error {
 
 	repoName, repoOwner, repoNamespace := c.detectRepoAndNamespace(ctx)
 
-	gh := &github.GH{}
+	gh := github.NewGH(c.out)
 
 	appCfg := provisioning.BuildWebhookAppConfig(ctx, c.out, base, updates, repoOwner, repoName, repoNamespace, gh)
 
@@ -132,7 +132,7 @@ func (c *ConfigWebhookSecretCmd) Run() error {
 		return err
 	}
 
-	gh := &github.GH{}
+	gh := github.NewGH(c.out)
 
 	if err := c.generateAndWriteSecrets(ctx, client, kubeContext, namespace, appCfg, gh); err != nil {
 		return err

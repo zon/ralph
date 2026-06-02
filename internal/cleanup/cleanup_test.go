@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/zon/ralph/internal/output"
 )
 
 func TestNewManager(t *testing.T) {
@@ -86,7 +88,7 @@ func TestManager_InjectableExitFn(t *testing.T) {
 }
 
 func TestHandleSignal(t *testing.T) {
-	m := NewManager(nil)
+	m := NewManager(output.NewClient(os.Stdout, os.Stderr, false))
 
 	var exitCode int
 	var cleanupCalled bool
@@ -109,7 +111,7 @@ func TestHandleSignal(t *testing.T) {
 }
 
 func TestHandleSignal_SIGINT(t *testing.T) {
-	m := NewManager(nil)
+	m := NewManager(output.NewClient(os.Stdout, os.Stderr, false))
 
 	var exitCode int
 	m.exitFn = func(code int) {
@@ -127,7 +129,7 @@ func TestHandleSignal_SIGINT(t *testing.T) {
 }
 
 func TestCleanupIsCalledOnce(t *testing.T) {
-	m := NewManager(nil)
+	m := NewManager(output.NewClient(os.Stdout, os.Stderr, false))
 
 	m.exitFn = func(code int) {}
 

@@ -73,7 +73,7 @@ requirements:
         - In internal/ai/ai.go, replace all logger.Verbose calls with ctx.Output().Debug (these functions already receive *execcontext.Context); remove the logger import
         - In internal/cleanup/cleanup.go, replace logger.Info/Infof with m.out.Info/Infof in the handleSignal method; remove the logger import
         - In internal/notify/notify.go, add `out *output.Client` as the first parameter to both Success and Error; replace logger.Warningf with out.Warnf; update callers in internal/cmd/execute.go to pass ctx.Output() as the first argument; remove the logger import from notify.go
-      passing: false
+      passing: true
     - slug: remove-logger-package
       description: Delete the internal/logger package and remove it from specs/architecture.yaml
       items:

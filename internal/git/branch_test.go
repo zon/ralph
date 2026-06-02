@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/zon/ralph/internal/context"
+	"github.com/zon/ralph/internal/output"
 )
 
 func TestSanitizeBranchName(t *testing.T) {
@@ -198,6 +199,7 @@ func TestValidateGitStateAndSwitchBranch_AlreadyOnBranch(t *testing.T) {
 	t.Chdir(workDir)
 
 	ctx := context.NewContext()
+	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
 	ctx.SetLocal(true)
 
 	currentBranch, err := GetCurrentBranch()
@@ -216,6 +218,7 @@ func TestValidateGitStateAndSwitchBranch_SwitchToNewBranch(t *testing.T) {
 	t.Chdir(workDir)
 
 	ctx := context.NewContext()
+	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
 	ctx.SetLocal(true)
 
 	currentBranch, err := GetCurrentBranch()
@@ -237,6 +240,7 @@ func TestValidateGitStateAndSwitchBranch_WorkflowContext(t *testing.T) {
 	t.Chdir(workDir)
 
 	ctx := context.NewContext()
+	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
 	ctx.SetLocal(true)
 	ctx.SetWorkflowExecution(true)
 	ctx.SetRepoOwner("testowner")
@@ -256,6 +260,7 @@ func TestSwitchToProjectBranch_CreatesNewBranch(t *testing.T) {
 	t.Chdir(workDir)
 
 	ctx := context.NewContext()
+	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
 	ctx.SetLocal(true)
 
 	branchName := "brand-new-branch"
@@ -323,6 +328,7 @@ func TestSwitchToProjectBranch_ExitingRemoteBranch(t *testing.T) {
 	t.Chdir(workDir)
 
 	ctx := context.NewContext()
+	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
 	ctx.SetLocal(true)
 
 	err := SwitchToProjectBranch(ctx, branchName)
