@@ -78,7 +78,7 @@ requirements:
         - internal/orchestration/config/pulumi defines interfaces for config, environment, and Kubernetes dependencies
         - internal/cmd/config_pulumi.go wires real implementations and delegates to internal/orchestration/config/pulumi
         - internal/orchestration/config/pulumi has unit tests with mocked dependencies
-      passing: false
+      passing: true
     - slug: orchestrate-config-webhook
       description: Extract config webhook command logic into internal/orchestration/config/webhook
       items:
