@@ -5,7 +5,7 @@ Discover, fetch, and install ralph-prefixed Claude Code skills from the ralph Gi
 
 ## Orchestration
 
-**Module:** `internal/setup`
+**Module:** `internal/orchestration/setup`
 
 ```go
 type Setup struct {
@@ -41,7 +41,7 @@ func (s *Setup) SetSkills(branch string) error {
 
 ## Tests
 
-**Module:** `internal/setup`
+**Module:** `internal/orchestration/setup`
 
 ```go
 func TestSetSkillsSuccess(t *testing.T) {

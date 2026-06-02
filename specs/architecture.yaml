@@ -68,7 +68,7 @@ modules:
   - path: internal/provisioning
     description: Provisions webhook configuration and secrets into a Kubernetes cluster.
     category: orchestration
-  - path: internal/setup
+  - path: internal/orchestration/setup
     description: Coordinates the full skill setup lifecycle for a repository.
     category: orchestration
   - path: internal/skills

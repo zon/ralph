@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"github.com/zon/ralph/internal/git"
-	"github.com/zon/ralph/internal/setup"
+	"github.com/zon/ralph/internal/orchestration/setup"
 	"github.com/zon/ralph/internal/skills"
 )
 

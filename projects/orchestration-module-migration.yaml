@@ -101,7 +101,7 @@ requirements:
         - The package at internal/setup moves to internal/orchestration/setup with package name setup
         - All import paths referencing internal/setup are updated to internal/orchestration/setup
         - The package passes all existing tests at its new path
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump
       items:
