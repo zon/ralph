@@ -1,0 +1,18 @@
+slug: webhookconfig-module-compliance
+title: 'webhookconfig module compliance: remove orphaned files and table-driven tests'
+maxIterations: 10
+requirements:
+    - slug: remove-orphaned-markdown
+      description: Delete the two markdown files that sit in internal/webhookconfig but are never embedded or referenced by any Go code
+      items:
+        - Delete internal/webhookconfig/comment-instructions.md
+        - Delete internal/webhookconfig/merge-instructions.md
+      passing: false
+    - slug: table-driven-tests
+      description: Convert TestValidateConfig, TestWebhookSecretForRepo, and TestRepoByFullName in internal/webhookconfig/config_test.go to table-driven tests
+      items:
+        - Rewrite TestValidateConfig as a table-driven test with a struct containing name, cfg *Config, wantErr bool, and errContains string fields; preserve all existing cases
+        - Rewrite TestWebhookSecretForRepo as a table-driven test with a struct containing name, owner, repoName, and want string fields; preserve all existing cases
+        - Rewrite TestRepoByFullName as a table-driven test with a struct containing name, owner, repoName string, and wantNil bool fields; preserve all existing cases
+        - Each rewritten test must use a single for loop over the table with t.Run(tc.name, ...) — no behavior changes
+      passing: false
