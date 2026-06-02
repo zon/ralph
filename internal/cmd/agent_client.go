@@ -66,7 +66,7 @@ func (a *AgentClient) RunDeveloper(proj *project.Project, req string) error {
 }
 
 func (a *AgentClient) IsFatal(err error) bool {
-	return ai.IsFatalError(err)
+	return opencode.IsFatalError(err)
 }
 
 func (a *AgentClient) GenerateChangelog(proj *project.Project) error {
