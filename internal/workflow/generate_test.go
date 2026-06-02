@@ -951,7 +951,7 @@ func TestGenerateCommandWorkflow(t *testing.T) {
 	ctx.SetVerbose(true)
 	ctx.SetNoServices(true)
 
-	wf, err := GenerateCommandWorkflow(ctx, "main")
+	wf, err := GenerateCommandWorkflow(ctx, "main", "git@github.com:testowner/testrepo.git")
 	require.NoError(t, err, "GenerateCommandWorkflow failed")
 
 	assert.Equal(t, "command", wf.ProjectName)

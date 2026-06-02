@@ -31,7 +31,7 @@ requirements:
         - GenerateCommandWorkflow does not call git.RemoteURL() directly
         - Git and GitHub discovery are decoupled from generation logic so test doubles can be provided
         - Callers in internal/cmd supply real git and GitHub implementations
-      passing: false
+      passing: true
     - slug: update-generate-tests
       description: Update generate_test.go to use mock dependencies instead of real filesystem and CLI state
       items:
