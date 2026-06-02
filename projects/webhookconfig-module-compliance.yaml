@@ -15,4 +15,4 @@ requirements:
         - Rewrite TestWebhookSecretForRepo as a table-driven test with a struct containing name, owner, repoName, and want string fields; preserve all existing cases
         - Rewrite TestRepoByFullName as a table-driven test with a struct containing name, owner, repoName string, and wantNil bool fields; preserve all existing cases
         - Each rewritten test must use a single for loop over the table with t.Run(tc.name, ...) — no behavior changes
-      passing: false
+      passing: true

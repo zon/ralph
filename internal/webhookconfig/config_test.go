@@ -232,77 +232,85 @@ func TestLoadConfig(t *testing.T) {
 }
 
 func TestValidateConfig(t *testing.T) {
-	t.Run("valid config passes", func(t *testing.T) {
-		cfg := &Config{
-			App: AppConfig{
-				Port: 8080,
-				Repos: []RepoConfig{
-					{Owner: "acme", Name: "my-service", Namespace: "team-ns"},
+	tests := []struct {
+		name        string
+		cfg         *Config
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name: "valid config passes",
+			cfg: &Config{
+				App: AppConfig{
+					Port: 8080,
+					Repos: []RepoConfig{
+						{Owner: "acme", Name: "my-service", Namespace: "team-ns"},
+					},
+				},
+				Secrets: Secrets{
+					Repos: []RepoSecret{
+						{Owner: "acme", Name: "my-service", WebhookSecret: "webhook-secret-1"},
+					},
 				},
 			},
-			Secrets: Secrets{
-				Repos: []RepoSecret{
-					{Owner: "acme", Name: "my-service", WebhookSecret: "webhook-secret-1"},
+		},
+		{
+			name: "error when repo has no namespace",
+			cfg: &Config{
+				App: AppConfig{
+					Repos: []RepoConfig{
+						{Owner: "acme", Name: "my-service"},
+					},
+				},
+				Secrets: Secrets{
+					Repos: []RepoSecret{
+						{Owner: "acme", Name: "my-service", WebhookSecret: "secret"},
+					},
 				},
 			},
-		}
-
-		err := ValidateConfig(cfg)
-		require.NoError(t, err)
-	})
-
-	t.Run("error when repo has no namespace", func(t *testing.T) {
-		cfg := &Config{
-			App: AppConfig{
-				Repos: []RepoConfig{
-					{Owner: "acme", Name: "my-service"},
+			wantErr:     true,
+			errContains: "namespace is required",
+		},
+		{
+			name: "error when repo has no webhook secret",
+			cfg: &Config{
+				App: AppConfig{
+					Repos: []RepoConfig{
+						{Owner: "acme", Name: "my-service", Namespace: "ns-a"},
+						{Owner: "acme", Name: "other-service", Namespace: "ns-b"},
+					},
+				},
+				Secrets: Secrets{
+					Repos: []RepoSecret{
+						{Owner: "acme", Name: "my-service", WebhookSecret: "secret"},
+					},
 				},
 			},
-			Secrets: Secrets{
-				Repos: []RepoSecret{
-					{Owner: "acme", Name: "my-service", WebhookSecret: "secret"},
+			wantErr:     true,
+			errContains: "acme/other-service",
+		},
+		{
+			name: "no repos is valid",
+			cfg: &Config{
+				App: AppConfig{
+					Port: 8080,
 				},
+				Secrets: Secrets{},
 			},
-		}
+		},
+	}
 
-		err := ValidateConfig(cfg)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "namespace is required")
-		assert.Contains(t, err.Error(), "acme/my-service")
-	})
-
-	t.Run("error when repo has no webhook secret", func(t *testing.T) {
-		cfg := &Config{
-			App: AppConfig{
-				Repos: []RepoConfig{
-					{Owner: "acme", Name: "my-service", Namespace: "ns-a"},
-					{Owner: "acme", Name: "other-service", Namespace: "ns-b"},
-				},
-			},
-			Secrets: Secrets{
-				Repos: []RepoSecret{
-					{Owner: "acme", Name: "my-service", WebhookSecret: "secret"},
-					// other-service has no secret entry
-				},
-			},
-		}
-
-		err := ValidateConfig(cfg)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "acme/other-service")
-	})
-
-	t.Run("no repos is valid", func(t *testing.T) {
-		cfg := &Config{
-			App: AppConfig{
-				Port: 8080,
-			},
-			Secrets: Secrets{},
-		}
-
-		err := ValidateConfig(cfg)
-		require.NoError(t, err)
-	})
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateConfig(tc.cfg)
+			if tc.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.errContains)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
 }
 
 func TestWebhookSecretForRepo(t *testing.T) {
@@ -315,15 +323,22 @@ func TestWebhookSecretForRepo(t *testing.T) {
 		},
 	}
 
-	t.Run("returns secret for known repo", func(t *testing.T) {
-		secret := cfg.WebhookSecretForRepo("acme", "my-service")
-		assert.Equal(t, "secret-abc", secret)
-	})
+	tests := []struct {
+		name     string
+		owner    string
+		repoName string
+		want     string
+	}{
+		{name: "returns secret for known repo", owner: "acme", repoName: "my-service", want: "secret-abc"},
+		{name: "returns empty string for unknown repo", owner: "acme", repoName: "nonexistent", want: ""},
+	}
 
-	t.Run("returns empty string for unknown repo", func(t *testing.T) {
-		secret := cfg.WebhookSecretForRepo("acme", "nonexistent")
-		assert.Equal(t, "", secret)
-	})
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			secret := cfg.WebhookSecretForRepo(tc.owner, tc.repoName)
+			assert.Equal(t, tc.want, secret)
+		})
+	}
 }
 
 func TestIsUserAllowed(t *testing.T) {
@@ -407,13 +422,24 @@ func TestRepoByFullName(t *testing.T) {
 		},
 	}
 
-	t.Run("returns repo for known owner/name", func(t *testing.T) {
-		repo := cfg.RepoByFullName("acme", "my-service")
-		require.NotNil(t, repo)
-	})
+	tests := []struct {
+		name     string
+		owner    string
+		repoName string
+		wantNil  bool
+	}{
+		{name: "returns repo for known owner/name", owner: "acme", repoName: "my-service", wantNil: false},
+		{name: "returns nil for unknown repo", owner: "acme", repoName: "nonexistent", wantNil: true},
+	}
 
-	t.Run("returns nil for unknown repo", func(t *testing.T) {
-		repo := cfg.RepoByFullName("acme", "nonexistent")
-		assert.Nil(t, repo)
-	})
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := cfg.RepoByFullName(tc.owner, tc.repoName)
+			if tc.wantNil {
+				assert.Nil(t, repo)
+			} else {
+				require.NotNil(t, repo)
+			}
+		})
+	}
 }
