@@ -130,14 +130,6 @@ type RalphConfig struct {
 	MergeInstructions   string         `yaml:"-"` // Not persisted in YAML, loaded from .ralph/merge-instructions.md
 }
 
-func (c *RalphConfig) DefaultCommentInstructions() string {
-	return DefaultCommentInstructions()
-}
-
-func (c *RalphConfig) DefaultMergeInstructions() string {
-	return DefaultMergeInstructions()
-}
-
 func DefaultCommentInstructions() string {
 	return defaultCommentInstructions
 }

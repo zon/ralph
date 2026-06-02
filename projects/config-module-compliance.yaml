@@ -21,7 +21,7 @@ requirements:
         - Delete `(c *RalphConfig) DefaultCommentInstructions()` from internal/config/config.go
         - Delete `(c *RalphConfig) DefaultMergeInstructions()` from internal/config/config.go
         - Search the codebase for callers of these methods; update any found to call the free functions DefaultCommentInstructions() and DefaultMergeInstructions() directly
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump
       items:
