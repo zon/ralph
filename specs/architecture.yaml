@@ -33,6 +33,13 @@ categories:
       - process shutdown
       - startup initialization
 
+  - slug: pipeline
+    description: Modules that direct in-process flow — routing I/O streams and carrying runtime state across the application.
+    signatures:
+      - I/O routing
+      - runtime state
+      - unit tests
+
 modules:
   - path: cmd/ralph
     description: CLI entrypoint that wires up command parsing and dispatches to subcommand handlers.
@@ -105,13 +112,16 @@ modules:
     category: implementation
   - path: internal/context
     description: Carries runtime execution settings across the application.
-    category: implementation
+    category: pipeline
   - path: internal/cleanup
     description: Registers shutdown callbacks and handles OS signal-based graceful termination.
     category: lifecycle
+  - path: internal/output
+    description: Prints warning and error messages to stdout with ANSI color.
+    category: pipeline
   - path: internal/logger
     description: Structured logger with leveled output used across the application.
-    category: implementation
+    category: pipeline
   - path: internal/notify
     description: Desktop notification helper for success and error events.
     category: implementation
