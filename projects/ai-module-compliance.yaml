@@ -13,7 +13,7 @@ requirements:
       description: Remove the zero-value DisplayStats wrapper from internal/ai
       items:
         - Delete DisplayStats from internal/ai/ai.go — it has no callers, adds no logic, and wraps opencode.OCClient.DisplayStats with a one-liner that callers can invoke directly
-      passing: false
+      passing: true
     - slug: remove-what-comments
       description: Remove what-the-code-does comments from internal/ai/ai.go
       items:

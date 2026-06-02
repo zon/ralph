@@ -429,8 +429,3 @@ func GenerateReviewPRBody(ctx *execcontext.Context, oc opencode.OCClient, projec
 	return summary, nil
 }
 
-// DisplayStats shows OpenCode usage statistics
-func DisplayStats(oc opencode.OCClient) error {
-	return oc.DisplayStats()
-}
-
