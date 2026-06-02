@@ -7,7 +7,7 @@ requirements:
       items:
         - Add `type Loader interface { Load() (*RalphConfig, error) }` to internal/config/client.go so that *Client satisfies a named interface callers can depend on
         - Create internal/config/config_mock.go with an exported MockLoader struct; it must have a single function field `LoadFn func() (*RalphConfig, error)`; its Load method calls LoadFn when set, otherwise returns Any() and nil
-      passing: false
+      passing: true
     - slug: consolidate-config-interface
       description: Remove the locally-defined ConfigClient from internal/orchestration/run and replace it with config.Loader
       items:
