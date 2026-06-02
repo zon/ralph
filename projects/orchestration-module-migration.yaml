@@ -7,7 +7,7 @@ requirements:
       items:
         - Add entries for internal/orchestration/workflow, internal/orchestration/stop, internal/orchestration/list, internal/orchestration/validate, internal/orchestration/pass, internal/orchestration/setup_workspace, internal/orchestration/config/github, internal/orchestration/config/opencode, internal/orchestration/config/pulumi, internal/orchestration/config/webhook, and internal/orchestration/githubtoken with category orchestration
         - Update the path for internal/setup to internal/orchestration/setup in specs/architecture.yaml
-      passing: false
+      passing: true
     - slug: orchestrate-workflow
       description: Extract workflow command logic into internal/orchestration/workflow
       items:

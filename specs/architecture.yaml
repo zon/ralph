@@ -71,6 +71,39 @@ modules:
   - path: internal/orchestration/setup
     description: Coordinates the full skill setup lifecycle for a repository.
     category: orchestration
+  - path: internal/orchestration/setup_workspace
+    description: Orchestrates workspace setup by loading config and creating workspace symlinks.
+    category: orchestration
+  - path: internal/orchestration/stop
+    description: Orchestrates Argo workflow stopping with kube context resolution.
+    category: orchestration
+  - path: internal/orchestration/list
+    description: Orchestrates Argo workflow listing with kube context resolution.
+    category: orchestration
+  - path: internal/orchestration/validate
+    description: Orchestrates the validate command flow using a validator interface.
+    category: orchestration
+  - path: internal/orchestration/pass
+    description: Orchestrates project requirement status updates.
+    category: orchestration
+  - path: internal/orchestration/workflow
+    description: Orchestrates the full workflow command from setup through AI conflict resolution and project execution.
+    category: orchestration
+  - path: internal/orchestration/githubtoken
+    description: Orchestrates GitHub App installation token generation and git HTTPS authentication configuration.
+    category: orchestration
+  - path: internal/orchestration/config/github
+    description: Orchestrates GitHub credential configuration and K8s secret creation.
+    category: orchestration
+  - path: internal/orchestration/config/opencode
+    description: Orchestrates OpenCode credential configuration and K8s secret creation.
+    category: orchestration
+  - path: internal/orchestration/config/pulumi
+    description: Orchestrates Pulumi token configuration and K8s secret creation.
+    category: orchestration
+  - path: internal/orchestration/config/webhook
+    description: Orchestrates webhook config and secret provisioning into Kubernetes.
+    category: orchestration
   - path: internal/skills
     description: Manages the full lifecycle of ralph skills within a repository.
     category: orchestration
