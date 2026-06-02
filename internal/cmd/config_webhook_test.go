@@ -1,16 +1,11 @@
 package cmd
 
 import (
-	"context"
-	"os"
 	"testing"
 
 	"github.com/alecthomas/kong"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/zon/ralph/internal/github"
-	"github.com/zon/ralph/internal/output"
-	"github.com/zon/ralph/internal/webhookconfig"
 )
 
 func TestConfigWebhookConfigFlagParsing(t *testing.T) {
@@ -102,26 +97,4 @@ func TestConfigWebhookSecretFlagParsing(t *testing.T) {
 	}
 }
 
-func TestConfigWebhookSecretCmd_RegisterWebhooks_NoRepos(t *testing.T) {
-	cmd := &ConfigWebhookSecretCmd{out: output.NewClient(os.Stdout, os.Stderr, false)}
 
-	err := cmd.registerWebhooks(context.Background(), &webhookconfig.Secrets{
-		Repos: []webhookconfig.RepoSecret{},
-	}, &github.MockGH{})
-
-	require.NoError(t, err)
-}
-
-func TestConfigWebhookSecretCmd_RegisterWebhooks_MultipleRepos(t *testing.T) {
-	cmd := &ConfigWebhookSecretCmd{out: output.NewClient(os.Stdout, os.Stderr, false)}
-
-	err := cmd.registerWebhooks(context.Background(), &webhookconfig.Secrets{
-		Repos: []webhookconfig.RepoSecret{
-			{Owner: "owner1", Name: "repo1", WebhookSecret: "secret1"},
-			{Owner: "owner2", Name: "repo2", WebhookSecret: "secret2"},
-			{Owner: "owner3", Name: "repo3", WebhookSecret: "secret3"},
-		},
-	}, &github.MockGH{})
-
-	require.NoError(t, err)
-}

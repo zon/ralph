@@ -86,7 +86,7 @@ requirements:
         - internal/orchestration/config/webhook defines interfaces for config, GitHub, Kubernetes, and provisioning dependencies
         - internal/cmd/config_webhook.go wires real implementations and delegates to internal/orchestration/config/webhook
         - internal/orchestration/config/webhook has unit tests with mocked dependencies
-      passing: false
+      passing: true
     - slug: orchestrate-githubtoken
       description: Extract github-token command logic into internal/orchestration/githubtoken
       items:

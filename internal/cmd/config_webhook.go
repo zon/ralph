@@ -2,12 +2,12 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 	"os"
 
 	"github.com/zon/ralph/internal/config"
-	"github.com/zon/ralph/internal/github"
+	internalgithub "github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/k8s"
+	"github.com/zon/ralph/internal/orchestration/config/webhook"
 	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/provisioning"
 	"github.com/zon/ralph/internal/webhookconfig"
@@ -33,75 +33,8 @@ func (c *ConfigWebhookConfigCmd) Run() error {
 		c.out = output.NewClient(os.Stdout, os.Stderr, false)
 	}
 
-	fmt.Println("Provisioning webhook-config configmap...")
-	fmt.Println()
-
-	client := k8s.NewClient()
-
-	kubeContext, err := provisioning.GetKubeContext(ctx, client, c.Context)
-	if err != nil {
-		return err
-	}
-
-	namespace := c.Namespace
-
-	base := c.readExistingConfigmap(ctx, namespace, kubeContext)
-
-	updates := c.loadConfigUpdates()
-
-	repoName, repoOwner, repoNamespace := c.detectRepoAndNamespace(ctx)
-
-	gh := github.NewGH(c.out)
-
-	appCfg := provisioning.BuildWebhookAppConfig(ctx, c.out, base, updates, repoOwner, repoName, repoNamespace, gh)
-
-	if err := provisioning.WriteWebhookConfigMap(ctx, client, kubeContext, namespace, appCfg); err != nil {
-		return err
-	}
-
-	fmt.Printf("ConfigMap '%s' created/updated in namespace '%s'\n", provisioning.WebhookConfigMapName, namespace)
-	return nil
-}
-
-func (c *ConfigWebhookConfigCmd) readExistingConfigmap(ctx context.Context, namespace, kubeContext string) *webhookconfig.AppConfig {
-	existing, err := provisioning.ReadWebhookConfigFromK8s(ctx, namespace, kubeContext)
-	if err != nil {
-		c.out.Warnf("Could not read existing configmap '%s': %v (starting from scratch)", provisioning.WebhookConfigMapName, err)
-		return nil
-	}
-	return existing
-}
-
-func (c *ConfigWebhookConfigCmd) loadConfigUpdates() *webhookconfig.AppConfig {
-	if c.Config == "" {
-		return nil
-	}
-	loaded, err := webhookconfig.LoadAppConfig(c.Config)
-	if err != nil {
-		c.out.Warnf("Failed to load partial config: %v (ignoring)", err)
-		return nil
-	}
-	return loaded
-}
-
-func (c *ConfigWebhookConfigCmd) detectRepoAndNamespace(ctx context.Context) (string, string, string) {
-	repo, err := github.GetRepo(ctx)
-	if err != nil {
-		c.out.Warnf("Failed to detect GitHub repository: %v (skipping repo auto-detection)", err)
-		return "", "", ""
-	}
-
-	if repo.Owner == "" || repo.Name == "" {
-		return "", "", ""
-	}
-
-	ralphCfg, err := config.LoadConfig()
-	if err != nil {
-		c.out.Warnf("Failed to load .ralph/config.yaml: %v (namespace will be empty)", err)
-		return repo.Name, repo.Owner, ""
-	}
-
-	return repo.Name, repo.Owner, ralphCfg.Workflow.Namespace
+	orchestrator := newConfigWebhookOrchestrator(c.out)
+	return orchestrator.RunConfig(ctx, c.Config, c.Context, c.Namespace)
 }
 
 func (c *ConfigWebhookSecretCmd) Run() error {
@@ -111,84 +44,116 @@ func (c *ConfigWebhookSecretCmd) Run() error {
 		c.out = output.NewClient(os.Stdout, os.Stderr, false)
 	}
 
-	fmt.Println("Provisioning webhook-secrets secret...")
-	fmt.Println()
-
-	client := k8s.NewClient()
-
-	kubeContext, err := provisioning.GetKubeContext(ctx, client, c.Context)
-	if err != nil {
-		return err
-	}
-
-	namespace := c.Namespace
-
-	appCfg, err := c.readRepoList(ctx, namespace, kubeContext)
-	if err != nil {
-		return err
-	}
-
-	if err := c.validateRepos(appCfg); err != nil {
-		return err
-	}
-
-	gh := github.NewGH(c.out)
-
-	if err := c.generateAndWriteSecrets(ctx, client, kubeContext, namespace, appCfg, gh); err != nil {
-		return err
-	}
-
-	return nil
+	orchestrator := newConfigWebhookOrchestrator(c.out)
+	return orchestrator.RunSecret(ctx, c.Context, c.Namespace)
 }
 
-func (c *ConfigWebhookSecretCmd) readRepoList(ctx context.Context, namespace, kubeContext string) (*webhookconfig.AppConfig, error) {
-	fmt.Printf("Reading repo list from configmap '%s' in namespace '%s'...\n", provisioning.WebhookConfigMapName, namespace)
-	appCfg, err := provisioning.ReadWebhookConfigFromK8s(ctx, namespace, kubeContext)
+type configWebhookConfigLoaderAdapter struct{}
+
+func (a *configWebhookConfigLoaderAdapter) Load() (*config.RalphConfig, error) {
+	return config.LoadConfig()
+}
+
+type configWebhookGitHubClientAdapter struct {
+	out *output.Client
+}
+
+func (a *configWebhookGitHubClientAdapter) GetRepo(ctx context.Context) (string, string, error) {
+	repo, err := internalgithub.GetRepo(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read webhook-config: %w\n\nRun 'ralph config webhook-config' first to create the webhook-config configmap.", err)
+		return "", "", err
 	}
-	return appCfg, nil
+	return repo.Owner, repo.Name, nil
 }
 
-func (c *ConfigWebhookSecretCmd) validateRepos(appCfg *webhookconfig.AppConfig) error {
-	if len(appCfg.Repos) == 0 {
-		return fmt.Errorf("no repos found in webhook-config secret — add repos first via 'ralph config webhook-config'")
-	}
-	fmt.Printf("Found %d repo(s) in webhook-config\n\n", len(appCfg.Repos))
-	return nil
+func (a *configWebhookGitHubClientAdapter) RegisterWebhook(ctx context.Context, owner, repo, webhookURL, secret string) error {
+	gh := internalgithub.NewGH(a.out)
+	return gh.RegisterWebhook(ctx, owner, repo, webhookURL, secret)
 }
 
-func (c *ConfigWebhookSecretCmd) generateAndWriteSecrets(ctx context.Context, client k8s.Client, kubeContext, namespace string, appCfg *webhookconfig.AppConfig, gh github.GHClient) error {
-	secrets, err := provisioning.BuildWebhookSecrets(appCfg, provisioning.GenerateWebhookSecret)
+type configWebhookK8sClientAdapter struct{}
+
+func (a *configWebhookK8sClientAdapter) GetCurrentContext(ctx context.Context) (webhook.K8sContext, error) {
+	realClient := k8s.NewClient()
+	k8sCtx, err := realClient.GetCurrentContext(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to generate webhook secrets: %w", err)
+		return webhook.K8sContext{}, err
 	}
-
-	fmt.Printf("Generated webhook secrets for %d repo(s)\n\n", len(secrets.Repos))
-
-	if err := c.registerWebhooks(ctx, secrets, gh); err != nil {
-		return err
-	}
-
-	if err := provisioning.WriteWebhookSecrets(ctx, client, kubeContext, namespace, secrets); err != nil {
-		return fmt.Errorf("failed to create/update secret '%s': %w", provisioning.WebhookSecretsSecretName, err)
-	}
-
-	c.out.Successf("Secret '%s' created/updated in namespace '%s'", provisioning.WebhookSecretsSecretName, namespace)
-	return nil
+	return webhook.K8sContext{Name: k8sCtx.Name, Namespace: k8sCtx.Namespace}, nil
 }
 
-func (c *ConfigWebhookSecretCmd) registerWebhooks(ctx context.Context, secrets *webhookconfig.Secrets, gh github.GHClient) error {
-	webhookURL := fmt.Sprintf("https://%s/webhook", provisioning.WebhookIngressHostname)
-	c.out.Infof("Registering webhooks at %s...", webhookURL)
-	for _, rs := range secrets.Repos {
-		c.out.Infof("Registering webhook for %s/%s...", rs.Owner, rs.Name)
-		if err := provisioning.RegisterGitHubWebhook(ctx, gh, rs.Owner, rs.Name, webhookURL, rs.WebhookSecret); err != nil {
-			c.out.Warnf("Failed to register webhook for %s/%s: %v", rs.Owner, rs.Name, err)
-		} else {
-			c.out.Successf("Webhook registered for %s/%s", rs.Owner, rs.Name)
-		}
-	}
-	c.out.Info("")
-	return nil
+func (a *configWebhookK8sClientAdapter) CreateOrUpdateConfigMap(ctx context.Context, name, namespace, kubeContext string, data map[string]string) error {
+	return k8s.NewClient().CreateOrUpdateConfigMap(ctx, name, namespace, kubeContext, data)
+}
+
+func (a *configWebhookK8sClientAdapter) CreateOrUpdateSecret(ctx context.Context, name, namespace, kubeContext string, data map[string]string) error {
+	return k8s.NewClient().CreateOrUpdateSecret(ctx, name, namespace, kubeContext, data)
+}
+
+type configWebhookConfigMapReaderAdapter struct{}
+
+func (a *configWebhookConfigMapReaderAdapter) ReadWebhookConfig(ctx context.Context, namespace, kubeContext string) (*webhookconfig.AppConfig, error) {
+	return provisioning.ReadWebhookConfigFromK8s(ctx, namespace, kubeContext)
+}
+
+type configWebhookAppConfigLoaderAdapter struct{}
+
+func (a *configWebhookAppConfigLoaderAdapter) LoadAppConfig(path string) (*webhookconfig.AppConfig, error) {
+	return webhookconfig.LoadAppConfig(path)
+}
+
+type configWebhookAppConfigBuilderAdapter struct {
+	out *output.Client
+}
+
+func (a *configWebhookAppConfigBuilderAdapter) Build(ctx context.Context, base, updates *webhookconfig.AppConfig, repoOwner, repoName, repoNamespace string) webhookconfig.AppConfig {
+	gh := internalgithub.NewGH(a.out)
+	return provisioning.BuildWebhookAppConfig(ctx, a.out, base, updates, repoOwner, repoName, repoNamespace, gh)
+}
+
+type configWebhookSecretBuilderAdapter struct{}
+
+func (a *configWebhookSecretBuilderAdapter) BuildSecrets(appCfg *webhookconfig.AppConfig) (*webhookconfig.Secrets, error) {
+	return provisioning.BuildWebhookSecrets(appCfg, provisioning.GenerateWebhookSecret)
+}
+
+type configWebhookLoggerAdapter struct {
+	out *output.Client
+}
+
+func (a *configWebhookLoggerAdapter) Info(msg string) {
+	a.out.Info(msg)
+}
+
+func (a *configWebhookLoggerAdapter) Infof(format string, args ...interface{}) {
+	a.out.Infof(format, args...)
+}
+
+func (a *configWebhookLoggerAdapter) Warnf(format string, args ...interface{}) {
+	a.out.Warnf(format, args...)
+}
+
+func (a *configWebhookLoggerAdapter) Success(msg string) {
+	a.out.Success(msg)
+}
+
+func (a *configWebhookLoggerAdapter) Successf(format string, args ...interface{}) {
+	a.out.Successf(format, args...)
+}
+
+func (a *configWebhookLoggerAdapter) Debugf(format string, args ...interface{}) {
+	a.out.Debugf(format, args...)
+}
+
+func newConfigWebhookOrchestrator(out *output.Client) *webhook.Cmd {
+	return webhook.New(
+		&configWebhookConfigLoaderAdapter{},
+		&configWebhookGitHubClientAdapter{out: out},
+		&configWebhookK8sClientAdapter{},
+		&configWebhookConfigMapReaderAdapter{},
+		&configWebhookAppConfigLoaderAdapter{},
+		&configWebhookAppConfigBuilderAdapter{out: out},
+		&configWebhookSecretBuilderAdapter{},
+		&configWebhookLoggerAdapter{out: out},
+	)
 }
