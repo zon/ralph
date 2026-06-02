@@ -4,12 +4,12 @@ import (
 	gocontext "context"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/github"
+	"github.com/zon/ralph/internal/orchestration/workflow"
 	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/project"
 	"github.com/zon/ralph/internal/workspace"
@@ -56,208 +56,111 @@ func (w *WorkflowCmd) Run() error {
 	ctx.SetBotEmail(w.BotEmail)
 	ctx.SetModel(w.Model)
 
-	ctx.Output().Info("Executing workflow inside container...")
-
-	if err := w.setupGitHubAuth(ctx); err != nil {
-		return fmt.Errorf("failed to setup GitHub auth: %w", err)
-	}
-
-	if err := workspace.SetupOpenCodeCredentials(ctx.Output()); err != nil {
-		return fmt.Errorf("failed to setup OpenCode credentials: %w", err)
-	}
-
-	w.configureGitUser(ctx)
-
-	if err := w.cloneAndSetupRepo(ctx); err != nil {
-		return fmt.Errorf("failed to clone and setup repo: %w", err)
-	}
-
-	if err := w.syncBaseBranch(ctx); err != nil {
-		return fmt.Errorf("failed to sync base branch: %w", err)
-	}
-
-	if err := w.runProject(ctx); err != nil {
-		return fmt.Errorf("failed to run project: %w", err)
-	}
-
-	return nil
+	orchestrator := newWorkflowOrchestrator(ctx)
+	return orchestrator.Run(ctx, w.cleanupRegistrar)
 }
 
-func (w *WorkflowCmd) setupGitHubAuth(ctx *context.Context) error {
-	owner, repo := ctx.RepoOwnerAndName()
-	if owner == "" || repo == "" {
-		return fmt.Errorf("failed to parse owner/repo: %s", ctx.Repo())
-	}
+type gitHubAuthAdapter struct{}
 
-	ctx.Output().Info("Setting up GitHub App token and configuring git authentication...")
-	return github.ConfigureGitAuth(gocontext.Background(), owner, repo, DefaultSecretsDir)
+func (a *gitHubAuthAdapter) ConfigureGitAuth(ctx gocontext.Context, owner, repo, secretsDir string) error {
+	return github.ConfigureGitAuth(ctx, owner, repo, secretsDir)
 }
 
-func (w *WorkflowCmd) configureGitUser(ctx *context.Context) {
-	ctx.Output().Info("Configuring git user...")
-	_ = git.Config(true, "user.name", ctx.BotName())
-	_ = git.Config(true, "user.email", ctx.BotEmail())
+type openCodeAdapter struct{}
+
+func (a *openCodeAdapter) SetupOpenCodeCredentials(out *output.Client) error {
+	return workspace.SetupOpenCodeCredentials(out)
 }
 
-func (w *WorkflowCmd) cloneAndSetupRepo(ctx *context.Context) error {
-	cloneBranch := os.Getenv("GIT_BRANCH")
-	if err := workspace.PrepareWorkspace(ctx.Output(), ctx.RepoURL(), cloneBranch, workspace.DefaultWorkDir); err != nil {
-		return err
-	}
+type gitClientAdapter struct{}
 
-	setupCmd := &SetupWorkspaceCmd{WorkspaceDir: workspace.DefaultWorkspaceDir, out: ctx.Output()}
-	if err := setupCmd.Run(); err != nil {
-		return fmt.Errorf("failed to setup workspace: %w", err)
-	}
-
-	return nil
+func (a *gitClientAdapter) Config(global bool, key, value string) error {
+	return git.Config(global, key, value)
 }
 
-func (w *WorkflowCmd) syncBaseBranch(ctx *context.Context) error {
-	ctx.Output().Infof("Base branch: %s", ctx.BaseBranch())
-
-	if err := w.fetchBaseBranch(ctx); err != nil {
-		ctx.Output().Warnf("failed to fetch base branch: %v", err)
-		return nil
-	}
-
-	needsMerge, err := w.checkIfMergeNeeded(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to check if merge needed: %w", err)
-	}
-
-	if !needsMerge {
-		ctx.Output().Info("Project branch is up-to-date with base branch")
-		return nil
-	}
-
-	ctx.Output().Info("Project branch is behind base branch, attempting merge...")
-	return w.mergeBaseBranch(ctx)
+func (a *gitClientAdapter) FetchBranch(out *output.Client, branch string) error {
+	return git.FetchBranch(out, branch)
 }
 
-func (w *WorkflowCmd) fetchBaseBranch(ctx *context.Context) error {
-	baseBranch := ctx.BaseBranch()
-	ctx.Output().Infof("Fetching base branch: %s", baseBranch)
-	return git.FetchBranch(ctx.Output(), baseBranch)
+func (a *gitClientAdapter) RevParse(args ...string) (string, error) {
+	return git.RevParse(args...)
 }
 
-func (w *WorkflowCmd) checkIfMergeNeeded(ctx *context.Context) (bool, error) {
-	baseBranch := ctx.BaseBranch()
-	if _, err := git.RevParse("--verify", baseBranch); err != nil {
-		return false, nil
-	}
-
-	mergeBase, err := git.MergeBase("HEAD", baseBranch)
-	if err != nil {
-		return false, err
-	}
-
-	baseCommit, err := git.RevParse(baseBranch)
-	if err != nil {
-		return false, err
-	}
-
-	return mergeBase != baseCommit, nil
+func (a *gitClientAdapter) MergeBase(x, y string) (string, error) {
+	return git.MergeBase(x, y)
 }
 
-func (w *WorkflowCmd) mergeBaseBranch(ctx *context.Context) error {
-	baseBranch := ctx.BaseBranch()
-	if err := git.Merge(baseBranch); err != nil {
-		ctx.Output().Info("Merge had conflicts - resolving with AI...")
-		_ = git.AbortMerge()
-
-		return w.resolveConflictsWithAI(ctx)
-	}
-
-	ctx.Output().Info("Merge successful (fast-forward or no conflicts)")
-	return nil
+func (a *gitClientAdapter) Merge(branch string) error {
+	return git.Merge(branch)
 }
 
-func (w *WorkflowCmd) resolveConflictsWithAI(ctx *context.Context) error {
-	baseBranch := ctx.BaseBranch()
-	ctx.Output().Info("Running AI to resolve merge conflicts...")
-
-	instructions := fmt.Sprintf(`You need to resolve merge conflicts between the base branch (%s) and the current branch (%s).
-
-Steps:
-1. Run 'git merge %s' to see the conflicts
-2. Examine the conflicting files and resolve each conflict
-3. Run tests to ensure the merged code is correct
-4. After resolving and verifying with tests, run 'git add <resolved-files>' to stage them (the system will automatically commit)
-
-Focus on accepting the correct changes from both branches. If there are test failures after resolving, fix them.
-`, baseBranch, ctx.Branch(), baseBranch)
-
-	instructionsFile, err := git.TmpPath("merge-instructions.md")
-	if err != nil {
-		return fmt.Errorf("failed to get tmp path for merge instructions: %w", err)
-	}
-
-	if err := os.WriteFile(instructionsFile, []byte(instructions), 0644); err != nil {
-		return fmt.Errorf("failed to write merge instructions: %w", err)
-	}
-
-	ctx.SetBaseBranch(baseBranch)
-
-	return w.prepareAndExecute(ctx, w.cleanupRegistrar, instructionsFile)
+func (a *gitClientAdapter) AbortMerge() error {
+	return git.AbortMerge()
 }
 
-func (w *WorkflowCmd) runProject(ctx *context.Context) error {
-	ctx.Output().Info("Running project...")
-
-	return w.prepareAndExecute(ctx, w.cleanupRegistrar, "")
+func (a *gitClientAdapter) TmpPath(name string) (string, error) {
+	return git.TmpPath(name)
 }
 
-func (w *WorkflowCmd) prepareAndExecute(ctx *context.Context, cleanupRegistrar func(func()), instructionsFile string) error {
-	projectPath := ctx.ProjectFile()
-	if !filepath.IsAbs(projectPath) {
-		var err error
-		projectPath, err = filepath.Abs(projectPath)
-		if err != nil {
-			return fmt.Errorf("failed to resolve project file path: %w", err)
-		}
-	}
-
-	ralphConfig, err := config.LoadConfig()
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
-	}
-	maxIterations := resolveMaxIterations(ralphConfig, ctx.MaxIterations())
-
-	ctx.SetProjectFile(projectPath)
-	ctx.SetMaxIterations(maxIterations)
-	ctx.SetLocal(true)
-	ctx.SetNoNotify(true)
-	ctx.SetWorkflowExecution(true)
-
-	if instructionsFile != "" {
-		ctx.SetInstructions(instructionsFile)
-	}
-
-	proj, err := project.LoadProject(projectPath)
-	if err != nil {
-		return fmt.Errorf("failed to load project: %w", err)
-	}
-
-	currentBranch, err := git.GetCurrentBranch()
-	if err != nil {
-		return fmt.Errorf("failed to get current branch: %w", err)
-	}
-
-	projectBranch := git.SanitizeBranchName(proj.Slug)
-	setup := &ExecutionSetup{
-		ProjectFile:   projectPath,
-		Project:       proj,
-		Config:        ralphConfig,
-		BranchName:    projectBranch,
-		CurrentBranch: currentBranch,
-		BaseBranch:    ctx.BaseBranch(),
-	}
-
-	if err := Execute(ctx, cleanupRegistrar, setup); err != nil {
-		return fmt.Errorf("ralph execution failed: %w", err)
-	}
-
-	return nil
+func (a *gitClientAdapter) GetCurrentBranch() (string, error) {
+	return git.GetCurrentBranch()
 }
 
+func (a *gitClientAdapter) SanitizeBranchName(name string) string {
+	return git.SanitizeBranchName(name)
+}
+
+type workspaceAdapter struct{}
+
+func (a *workspaceAdapter) PrepareWorkspace(out *output.Client, repoURL, branch, workDir string) error {
+	return workspace.PrepareWorkspace(out, repoURL, branch, workDir)
+}
+
+type workspaceSetupAdapter struct {
+	out         *output.Client
+	workspaceDir string
+}
+
+func (a *workspaceSetupAdapter) Run() error {
+	cmd := &SetupWorkspaceCmd{WorkspaceDir: a.workspaceDir, out: a.out}
+	return cmd.Run()
+}
+
+type configLoaderAdapter struct{}
+
+func (a *configLoaderAdapter) Load() (*config.RalphConfig, error) {
+	return config.LoadConfig()
+}
+
+type projectLoaderAdapter struct{}
+
+func (a *projectLoaderAdapter) Load(path string) (*project.Project, error) {
+	return project.LoadProject(path)
+}
+
+type executorAdapter struct{}
+
+func (a *executorAdapter) Execute(ctx *context.Context, cleanupRegistrar func(func()), setup *workflow.ProjectExecutionSetup) error {
+	cmdSetup := &ExecutionSetup{
+		ProjectFile:   setup.ProjectFile,
+		Project:       setup.Project,
+		Config:        setup.Config,
+		BranchName:    setup.BranchName,
+		CurrentBranch: setup.CurrentBranch,
+		BaseBranch:    setup.BaseBranch,
+	}
+	return Execute(ctx, cleanupRegistrar, cmdSetup)
+}
+
+func newWorkflowOrchestrator(ctx *context.Context) *workflow.Workflow {
+	return workflow.New(
+		&gitHubAuthAdapter{},
+		&openCodeAdapter{},
+		&gitClientAdapter{},
+		&workspaceAdapter{},
+		&workspaceSetupAdapter{out: ctx.Output(), workspaceDir: workspace.DefaultWorkspaceDir},
+		&configLoaderAdapter{},
+		&projectLoaderAdapter{},
+		&executorAdapter{},
+	)
+}

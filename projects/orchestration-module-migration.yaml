@@ -15,7 +15,7 @@ requirements:
         - internal/orchestration/workflow defines interfaces for each external dependency it coordinates
         - internal/cmd/workflow.go wires real implementations and delegates to internal/orchestration/workflow
         - internal/orchestration/workflow has unit tests covering each orchestration step with mocked dependencies
-      passing: false
+      passing: true
     - slug: orchestrate-stop
       description: Extract stop command logic into internal/orchestration/stop
       items:
