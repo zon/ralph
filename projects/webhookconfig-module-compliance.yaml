@@ -7,7 +7,7 @@ requirements:
       items:
         - Delete internal/webhookconfig/comment-instructions.md
         - Delete internal/webhookconfig/merge-instructions.md
-      passing: false
+      passing: true
     - slug: table-driven-tests
       description: Convert TestValidateConfig, TestWebhookSecretForRepo, and TestRepoByFullName in internal/webhookconfig/config_test.go to table-driven tests
       items:
