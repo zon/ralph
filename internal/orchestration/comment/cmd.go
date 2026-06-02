@@ -9,7 +9,6 @@ import (
 	"text/template"
 
 	"github.com/zon/ralph/internal/config"
-	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/project"
 )
@@ -51,10 +50,6 @@ func (c *CommentCmd) SetOutput(out *output.Client) {
 }
 
 func (c *CommentCmd) Run(flags CommentFlags) error {
-	if flags.Verbose {
-		logger.SetVerbose(true)
-	}
-
 	projectFile := projectFileFromBranch(flags.Branch)
 	absProjectFile, err := filepath.Abs(projectFile)
 	if err != nil {
@@ -80,7 +75,7 @@ func (c *CommentCmd) Run(flags CommentFlags) error {
 
 	agentPrompt := renderInstructions(cfg.CommentInstructions, flags.Repo, flags.Branch, flags.Body, flags.PR)
 
-	logger.Verbose("Running AI agent...")
+	c.out.Debug("Running AI agent...")
 	if err := c.ai.RunAgent(agentPrompt); err != nil {
 		return fmt.Errorf("agent execution failed: %w", err)
 	}

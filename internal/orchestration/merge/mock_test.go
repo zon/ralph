@@ -1,5 +1,11 @@
 package merge
 
+import (
+	"io"
+
+	"github.com/zon/ralph/internal/output"
+)
+
 // mockGitClient
 type mockGitClient struct {
 	currentBranchFunc func() (string, error)
@@ -136,6 +142,7 @@ func withMocks(opts ...mergeOption) *MergeCmd {
 		github:   &mockGitHubClient{},
 		project:  &mockProjectClient{},
 		workflow: &mockWorkflowClient{},
+		out:      output.NewClient(io.Discard, io.Discard, false),
 	}
 	for _, opt := range opts {
 		opt(m)

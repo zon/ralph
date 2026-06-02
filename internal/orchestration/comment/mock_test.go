@@ -1,6 +1,11 @@
 package comment
 
-import "github.com/zon/ralph/internal/config"
+import (
+	"io"
+
+	"github.com/zon/ralph/internal/config"
+	"github.com/zon/ralph/internal/output"
+)
 
 type mockAIClient struct {
 	runAgentFunc  func(string) error
@@ -49,6 +54,7 @@ func withMocks(opts ...commentOption) *CommentCmd {
 	c := &CommentCmd{
 		ai:       &mockAIClient{},
 		services: &mockServicesClient{},
+		out:      output.NewClient(io.Discard, io.Discard, false),
 	}
 	for _, opt := range opts {
 		opt(c)

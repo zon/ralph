@@ -60,7 +60,7 @@ requirements:
       items:
         - In internal/orchestration/merge/cmd.go, replace all logger.Verbose/Verbosef with m.out.Debug/Debugf, logger.Success/Successf with m.out.Success/Successf, logger.Info/Infof with m.out.Info/Infof; remove the logger.SetVerbose(true) call (out.debugging is already set from flags.Verbose at construction); remove the logger import
         - In internal/orchestration/comment/cmd.go, replace all logger.Verbose/Verbosef with c.out.Debug/Debugf; remove the logger.SetVerbose(true) call; remove the logger import
-      passing: false
+      passing: true
     - slug: replace-logger-in-implementation
       description: Replace all logger package calls in implementation modules
       items:
