@@ -136,3 +136,16 @@ func TestAgentClientPrintStatsDoesNotPanicOnError(t *testing.T) {
 	client := NewAgentClient(execcontext.NewContext(), &opencode.MockOC{})
 	require.NotPanics(t, func() { client.PrintStats() })
 }
+
+func TestAgentClientPrintStatsUsesStoredOCClient(t *testing.T) {
+	var called bool
+	mockOC := &opencode.MockOC{
+		GetStatsFunc: func() (opencode.Stats, error) {
+			called = true
+			return opencode.Stats{}, nil
+		},
+	}
+	client := NewAgentClient(execcontext.NewContext(), mockOC)
+	client.PrintStats()
+	assert.True(t, called, "PrintStats should call GetStats on the stored OCClient")
+}

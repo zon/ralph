@@ -37,7 +37,7 @@ requirements:
         - AgentClient.PrintStats uses the stored OCClient to call GetStats rather than calling opencode.GetStats directly
         - The internal/cmd package no longer imports internal/opencode for package-level function calls
         - Call sites of NewAgentClient in entry modules pass opencode.New()
-      passing: false
+      passing: true
     - slug: trim-invocation-tests
       description: opencode_test.go contains at most two CLI invocation tests — one happy path and one failure
       items:
