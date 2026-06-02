@@ -28,7 +28,7 @@ requirements:
         - The RALPH_MOCK_AI environment variable check and runMockAgent function are removed from internal/ai
         - All call sites of RunAgent, RunAgentWithModel, and DisplayStats throughout the codebase are updated to pass an OCClient
         - Where call sites are in entry modules (internal/cmd), a real *opencode.Client is passed; where call sites are in tests, a *opencode.MockOC is passed
-      passing: false
+      passing: true
     - slug: cmd-accepts-occlient
       description: AgentClient in internal/cmd holds an OCClient field and uses it instead of calling opencode package-level functions directly
       items:

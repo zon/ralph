@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/zon/ralph/internal/context"
+	"github.com/zon/ralph/internal/opencode"
 	"github.com/zon/ralph/internal/project"
 )
 
@@ -19,7 +20,7 @@ func TestCreatePullRequest_UsesTitleAsPRTitle(t *testing.T) {
 			return "https://github.com/mock/repo/pull/1", nil
 		},
 	}
-	NewClient(context.NewContext(), "main", mock)
+	NewClient(context.NewContext(), "main", mock, &opencode.MockOC{})
 
 	proj := &project.Project{
 		Slug:  "test-project",
@@ -39,7 +40,7 @@ func TestCreatePullRequest_UsesSlugWhenTitleEmpty(t *testing.T) {
 			return "https://github.com/mock/repo/pull/1", nil
 		},
 	}
-	NewClient(context.NewContext(), "main", mock)
+	NewClient(context.NewContext(), "main", mock, &opencode.MockOC{})
 
 	proj := &project.Project{
 		Slug:  "my-project",
@@ -58,7 +59,7 @@ func TestCreatePullRequest_UsesSlugWhenTitleMissing(t *testing.T) {
 			return "https://github.com/mock/repo/pull/1", nil
 		},
 	}
-	NewClient(context.NewContext(), "main", mock)
+	NewClient(context.NewContext(), "main", mock, &opencode.MockOC{})
 
 	proj := &project.Project{
 		Slug: "fallback-project",
@@ -79,7 +80,7 @@ func TestCreatePullRequest_DelegatesToIsReady(t *testing.T) {
 			return "https://github.com/mock/repo/pull/1", nil
 		},
 	}
-	NewClient(context.NewContext(), "main", mock)
+	NewClient(context.NewContext(), "main", mock, &opencode.MockOC{})
 
 	proj := &project.Project{Slug: "test", Title: "Test"}
 	_, err := CreatePullRequest(mock, proj, "feature-branch", "main", "PR body")

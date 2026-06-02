@@ -3,7 +3,6 @@ package ai
 import (
 	"bytes"
 	_ "embed"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -17,8 +16,6 @@ import (
 	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/opencode"
 )
-
-const mockAIEnv = "RALPH_MOCK_AI"
 
 //go:embed pr-summary-instructions.md
 var prSummaryInstructions string
@@ -285,42 +282,24 @@ func resolveVariant(ctx *execcontext.Context) string {
 
 // RunAgent executes an AI agent with the given prompt using OpenCode CLI
 // OpenCode manages its own configuration for API keys and models
-func RunAgent(ctx *execcontext.Context, prompt string) error {
-	if os.Getenv(mockAIEnv) == "true" {
-		return runMockAgent(ctx, prompt)
-	}
-
+func RunAgent(ctx *execcontext.Context, oc opencode.OCClient, prompt string) error {
 	if ctx.IsVerbose() {
 		logger.Verbose(prompt)
 	}
 
 	model := resolveModel(ctx)
 
-	ring := opencode.NewRingWriter(10)
-	if err := opencode.RunAgentWithRing(ctx.GoContext(), model, resolveVariant(ctx), prompt, ring); err != nil {
-		return err
-	}
-
-	return nil
+	return oc.RunAgent(ctx.GoContext(), model, resolveVariant(ctx), prompt)
 }
 
 // RunAgentWithModel executes an AI agent with an explicitly provided model,
 // bypassing the context-based model resolution used by RunAgent.
-func RunAgentWithModel(ctx *execcontext.Context, prompt string, model string) error {
-	if os.Getenv(mockAIEnv) == "true" {
-		return runMockAgent(ctx, prompt)
-	}
-
+func RunAgentWithModel(ctx *execcontext.Context, oc opencode.OCClient, prompt string, model string) error {
 	if ctx.IsVerbose() {
 		logger.Verbose(prompt)
 	}
 
-	ring := opencode.NewRingWriter(10)
-	if err := opencode.RunAgentWithRing(ctx.GoContext(), model, resolveVariant(ctx), prompt, ring); err != nil {
-		return err
-	}
-
-	return nil
+	return oc.RunAgent(ctx.GoContext(), model, resolveVariant(ctx), prompt)
 }
 
 // createTempFile creates a temp file under the repo's tmp/ directory so that
@@ -334,14 +313,14 @@ func createTempFile(name string) (*os.File, error) {
 }
 
 // runOpenCodeAndReadResult runs opencode with the given prompt and reads the result from the output file
-func runOpenCodeAndReadResult(ctx *execcontext.Context, model, prompt, outputFile string) (string, error) {
+func runOpenCodeAndReadResult(ctx *execcontext.Context, oc opencode.OCClient, model, prompt, outputFile string) (string, error) {
 	var stdoutWriter, stderrWriter io.Writer
 	if ctx.IsVerbose() {
 		stdoutWriter = os.Stdout
 		stderrWriter = os.Stderr
 	}
 
-	if err := opencode.RunCommand(ctx.GoContext(), model, resolveVariant(ctx), prompt, stdoutWriter, stderrWriter); err != nil {
+	if err := oc.RunCommand(ctx.GoContext(), model, resolveVariant(ctx), prompt, stdoutWriter, stderrWriter); err != nil {
 		return "", fmt.Errorf("opencode execution failed: %w", err)
 	}
 
@@ -361,7 +340,7 @@ func runOpenCodeAndReadResult(ctx *execcontext.Context, model, prompt, outputFil
 // GeneratePRSummary generates a pull request summary using AI
 // It includes project description, status, commits, and diff
 // This matches ralph.sh's approach: agent writes to a file, we read it back
-func GeneratePRSummary(ctx *execcontext.Context, projectDesc, projectStatus, baseBranch, commitLog string) (summary string, err error) {
+func GeneratePRSummary(ctx *execcontext.Context, oc opencode.OCClient, projectDesc, projectStatus, baseBranch, commitLog string) (summary string, err error) {
 	f, err := createTempFile("pr-summary.md")
 	if err != nil {
 		return "", fmt.Errorf("failed to create temporary PR summary file: %w", err)
@@ -380,7 +359,7 @@ func GeneratePRSummary(ctx *execcontext.Context, projectDesc, projectStatus, bas
 	}
 
 	model := resolveModel(ctx)
-	summary, err = runOpenCodeAndReadResult(ctx, model, prPrompt, tmpFile)
+	summary, err = runOpenCodeAndReadResult(ctx, oc, model, prPrompt, tmpFile)
 	if err != nil {
 		return "", err
 	}
@@ -390,7 +369,7 @@ func GeneratePRSummary(ctx *execcontext.Context, projectDesc, projectStatus, bas
 
 // GenerateChangelog prompts opencode to inspect the current git diff and write a
 // descriptive changelog to report.md.
-func GenerateChangelog(ctx *execcontext.Context) (err error) {
+func GenerateChangelog(ctx *execcontext.Context, oc opencode.OCClient) (err error) {
 	f, err := createTempFile("changelog.md")
 	if err != nil {
 		return fmt.Errorf("failed to create temporary changelog file: %w", err)
@@ -409,7 +388,7 @@ func GenerateChangelog(ctx *execcontext.Context) (err error) {
 	}
 
 	model := resolveModel(ctx)
-	_, err = runOpenCodeAndReadResult(ctx, model, changelogPrompt, tmpFile)
+	_, err = runOpenCodeAndReadResult(ctx, oc, model, changelogPrompt, tmpFile)
 	if err != nil {
 		return err
 	}
@@ -423,7 +402,7 @@ func GenerateChangelog(ctx *execcontext.Context) (err error) {
 
 // GenerateReviewPRBody generates a PR body for review findings using AI
 // It reads the review project file and writes a concise summary of recommended changes
-func GenerateReviewPRBody(ctx *execcontext.Context, projectName, projectDesc string, requirementSummaries []string) (summary string, err error) {
+func GenerateReviewPRBody(ctx *execcontext.Context, oc opencode.OCClient, projectName, projectDesc string, requirementSummaries []string) (summary string, err error) {
 	f, err := createTempFile("review-pr-body.md")
 	if err != nil {
 		return "", fmt.Errorf("failed to create temporary review PR body file: %w", err)
@@ -442,7 +421,7 @@ func GenerateReviewPRBody(ctx *execcontext.Context, projectName, projectDesc str
 	}
 
 	model := resolveModel(ctx)
-	summary, err = runOpenCodeAndReadResult(ctx, model, reviewPrompt, tmpFile)
+	summary, err = runOpenCodeAndReadResult(ctx, oc, model, reviewPrompt, tmpFile)
 	if err != nil {
 		return "", err
 	}
@@ -451,129 +430,8 @@ func GenerateReviewPRBody(ctx *execcontext.Context, projectName, projectDesc str
 }
 
 // DisplayStats shows OpenCode usage statistics
-func DisplayStats() error {
-	return opencode.DisplayStats()
-}
-
-// runMockAgent simulates AI execution for testing purposes.
-// It parses the prompt to determine what file to write and creates mock output files.
-func runMockAgent(ctx *execcontext.Context, prompt string) error {
-	if os.Getenv("RALPH_MOCK_AI_FAIL") == "true" {
-		logger.Verbosef("Mock AI failing as requested")
-		return fmt.Errorf("opencode execution failed: mock AI failure\n\nline 9 output\nline 10 output\nline 11 output\nline 12 output")
-	}
-
-	promptLower := strings.ToLower(prompt)
-
-	if strings.Contains(promptLower, "picked-requirement") {
-		absProjectFile := ctx.ProjectFile()
-		if absProjectFile == "" {
-			return fmt.Errorf("mock AI requires project file to be set")
-		}
-
-		pickedReqPath := filepath.Join(filepath.Dir(absProjectFile), "picked-requirement.yaml")
-		mockReqContent := `- slug: mock-requirement
-  description: Mock requirement
-  items:
-    - Mock item
-  passing: false
-`
-		if err := os.WriteFile(pickedReqPath, []byte(mockReqContent), 0644); err != nil {
-			return fmt.Errorf("mock AI failed to write picked-requirement.yaml: %w", err)
-		}
-		logger.Verbosef("Mock AI wrote picked-requirement.yaml")
-	}
-
-	if strings.Contains(promptLower, "report.md") {
-		if err := os.WriteFile("report.md", []byte("Mock: test commit\n"), 0644); err != nil {
-			return fmt.Errorf("mock AI failed to write report.md: %w", err)
-		}
-		logger.Verbosef("Mock AI wrote report.md")
-	}
-
-	if strings.Contains(promptLower, "overview") {
-		var jsonPath string
-		words := strings.Fields(prompt)
-		for _, word := range words {
-			if strings.HasSuffix(word, ".json") {
-				jsonPath = word
-				break
-			}
-		}
-		if jsonPath == "" {
-			jsonPath = "overview.json"
-		}
-		overview := struct {
-			Modules []struct {
-				Name    string `json:"name"`
-				Path    string `json:"path"`
-				Summary string `json:"summary"`
-			} `json:"modules"`
-			Apps []struct {
-				Name    string `json:"name"`
-				Path    string `json:"path"`
-				Summary string `json:"summary"`
-			} `json:"apps"`
-		}{
-			Modules: []struct {
-				Name    string `json:"name"`
-				Path    string `json:"path"`
-				Summary string `json:"summary"`
-			}{
-				{Name: "mock-module", Path: "internal/mock", Summary: "Mock module for testing"},
-			},
-			Apps: []struct {
-				Name    string `json:"name"`
-				Path    string `json:"path"`
-				Summary string `json:"summary"`
-			}{
-				{Name: "mock-app", Path: "cmd/mock", Summary: "Mock app for testing"},
-			},
-		}
-		data, err := json.Marshal(overview)
-		if err != nil {
-			return fmt.Errorf("mock AI failed to marshal overview: %w", err)
-		}
-		if err := os.WriteFile(jsonPath, data, 0644); err != nil {
-			return fmt.Errorf("mock AI failed to write overview JSON: %w", err)
-		}
-		logger.Verbosef("Mock AI wrote overview JSON to %s", jsonPath)
-	}
-
-	if strings.Contains(promptLower, "projects/") {
-		if err := os.MkdirAll("projects", 0755); err != nil {
-			return fmt.Errorf("mock AI failed to create projects directory: %w", err)
-		}
-		mockProjectContent := `slug: mock-review
-title: Mock project for testing
-requirements:
-  - slug: mock-requirement
-    description: Mock requirement
-    items:
-      - Mock item
-    passing: true
-`
-		projectPath := filepath.Join("projects", "mock-review.yaml")
-		if err := os.WriteFile(projectPath, []byte(mockProjectContent), 0644); err != nil {
-			return fmt.Errorf("mock AI failed to write project file: %w", err)
-		}
-		logger.Verbosef("Mock AI wrote project file to %s", projectPath)
-	} else {
-		absProjectFile := ctx.ProjectFile()
-		if absProjectFile != "" {
-			f, err := os.OpenFile(absProjectFile, os.O_APPEND|os.O_WRONLY, 0644)
-			if err == nil {
-				defer f.Close()
-				if _, err := f.WriteString("\n# mock modification"); err != nil {
-					logger.Verbosef("Mock AI failed to append to project file: %v", err)
-				} else {
-					logger.Verbosef("Mock AI appended to project file: %s", absProjectFile)
-				}
-			}
-		}
-	}
-
-	return nil
+func DisplayStats(oc opencode.OCClient) error {
+	return oc.DisplayStats()
 }
 
 var fatalOpenCodePatterns = []string{

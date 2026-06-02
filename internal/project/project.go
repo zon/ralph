@@ -16,6 +16,7 @@ import (
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/logger"
+	"github.com/zon/ralph/internal/opencode"
 	"github.com/zon/ralph/internal/services"
 )
 
@@ -203,7 +204,7 @@ type IterationSetup struct {
 	ServiceMgr    *services.Manager
 }
 
-func PrepareIteration(ctx *context.Context, cleanupRegistrar func(func())) (*IterationSetup, error) {
+func PrepareIteration(ctx *context.Context, oc opencode.OCClient, cleanupRegistrar func(func())) (*IterationSetup, error) {
 	if ctx.IsVerbose() {
 		logger.SetVerbose(true)
 	}
@@ -237,7 +238,7 @@ func PrepareIteration(ctx *context.Context, cleanupRegistrar func(func())) (*Ite
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
-	svcMgr, err := handleServiceStartup(ctx, cleanupRegistrar, ralphConfig)
+	svcMgr, err := handleServiceStartup(ctx, oc, cleanupRegistrar, ralphConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -257,8 +258,8 @@ func PrepareIteration(ctx *context.Context, cleanupRegistrar func(func())) (*Ite
 	}, nil
 }
 
-func ExecuteDevelopmentIteration(ctx *context.Context, cleanupRegistrar func(func())) error {
-	setup, err := PrepareIteration(ctx, cleanupRegistrar)
+func ExecuteDevelopmentIteration(ctx *context.Context, oc opencode.OCClient, cleanupRegistrar func(func())) error {
+	setup, err := PrepareIteration(ctx, oc, cleanupRegistrar)
 	if err != nil {
 		return err
 	}
@@ -267,15 +268,15 @@ func ExecuteDevelopmentIteration(ctx *context.Context, cleanupRegistrar func(fun
 			setup.ServiceMgr.Stop()
 		}
 	}()
-	req, err := PickRequirement(ctx, setup)
+	req, err := PickRequirement(ctx, oc, setup)
 	if err != nil {
 		return err
 	}
-	return DevelopRequirement(ctx, setup, req)
+	return DevelopRequirement(ctx, oc, setup, req)
 }
 
 // PickRequirement runs the picker agent and returns the selected requirement's YAML content.
-func PickRequirement(ctx *context.Context, setup *IterationSetup) (string, error) {
+func PickRequirement(ctx *context.Context, oc opencode.OCClient, setup *IterationSetup) (string, error) {
 	logger.Verbosef("Loading project file: %s", setup.Project.Path)
 
 	projectContent, err := marshalProjectToString(setup.Project)
@@ -295,7 +296,7 @@ func PickRequirement(ctx *context.Context, setup *IterationSetup) (string, error
 	logger.Verbose("Pick prompt generated")
 
 	logger.Verbose("Running picker agent...")
-	if err := ai.RunAgent(ctx, pickPrompt); err != nil {
+	if err := ai.RunAgent(ctx, oc, pickPrompt); err != nil {
 		if writeBlockedMD(setup.Project.Path, err) == nil {
 			logger.Verbosef("Wrote blocked.md due to picker agent failure")
 		} else {
@@ -321,7 +322,7 @@ func PickRequirement(ctx *context.Context, setup *IterationSetup) (string, error
 }
 
 // DevelopRequirement runs the developer agent for the given requirement content.
-func DevelopRequirement(ctx *context.Context, setup *IterationSetup, req string) error {
+func DevelopRequirement(ctx *context.Context, oc opencode.OCClient, setup *IterationSetup, req string) error {
 	projectContent, err := marshalProjectToString(setup.Project)
 	if err != nil {
 		return fmt.Errorf("failed to serialize project: %w", err)
@@ -342,7 +343,7 @@ func DevelopRequirement(ctx *context.Context, setup *IterationSetup, req string)
 	logger.Verbose("Development prompt generated")
 
 	logger.Verbose("Running AI agent...")
-	if err := ai.RunAgent(ctx, devPrompt); err != nil {
+	if err := ai.RunAgent(ctx, oc, devPrompt); err != nil {
 		if writeBlockedMD(setup.Project.Path, err) == nil {
 			logger.Verbosef("Wrote blocked.md due to agent failure")
 		} else {
@@ -383,7 +384,7 @@ func writeBlockedMD(absProjectFile string, err error) error {
 // handleServiceStartup starts services if not disabled, and handles failure recovery.
 // Returns the service manager if services were started successfully (caller must stop it),
 // or nil if services were not started or a failure was handled.
-func handleServiceStartup(ctx *context.Context, cleanupRegistrar func(func()), ralphConfig *config.RalphConfig) (*services.Manager, error) {
+func handleServiceStartup(ctx *context.Context, oc opencode.OCClient, cleanupRegistrar func(func()), ralphConfig *config.RalphConfig) (*services.Manager, error) {
 	svcMgr := services.NewManager()
 
 	// Start services if not disabled
@@ -396,7 +397,7 @@ func handleServiceStartup(ctx *context.Context, cleanupRegistrar func(func()), r
 				return nil, fmt.Errorf("failed to build fix service prompt: %w", buildErr)
 			}
 
-			if agentErr := ai.RunAgent(ctx, fixPrompt); agentErr != nil {
+			if agentErr := ai.RunAgent(ctx, oc, fixPrompt); agentErr != nil {
 				return nil, fmt.Errorf("agent execution failed while fixing service: %w", agentErr)
 			}
 			return nil, nil
