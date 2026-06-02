@@ -44,7 +44,7 @@ requirements:
         - TestGetStatsError, TestGetStatsParseError, TestDisplayStats are removed from opencode_test.go
         - The remaining CLI invocation tests are TestRunCommand (happy path) and TestRunCommandFailure (failure)
         - The stats parsing unit tests (TestStatsParsing, TestStatsParsingZeroValues, TestStatsParsingKMValues, TestCaptureWriterTail) are kept unchanged
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump
       items:
