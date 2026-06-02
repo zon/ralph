@@ -10,6 +10,7 @@ import (
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
+	githubpkg "github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/notify"
 	"github.com/zon/ralph/internal/project"
@@ -102,7 +103,18 @@ func executeCommandRemote(ctx *context.Context, setup *CommandSetup) error {
 	}
 
 	logger.Verbose("Generating command workflow...")
-	wf, err := workflow.GenerateCommandWorkflow(ctx, currentBranch)
+	var remoteURL string
+	if ctx.Repo() != "" {
+		owner, name := ctx.RepoOwnerAndName()
+		remoteURL = githubpkg.CloneURL(owner, name)
+	} else {
+		remoteURL, err = git.RemoteURL()
+		if err != nil {
+			return fmt.Errorf("failed to get remote URL: %w", err)
+		}
+	}
+
+	wf, err := workflow.GenerateCommandWorkflow(ctx, currentBranch, remoteURL)
 	if err != nil {
 		return fmt.Errorf("failed to generate workflow: %w", err)
 	}

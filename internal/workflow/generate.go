@@ -1,14 +1,12 @@
 package workflow
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
-	"github.com/zon/ralph/internal/git"
 	githubpkg "github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/version"
 )
@@ -22,44 +20,10 @@ func DefaultContainerVersion() string {
 // GenerateWorkflow builds a Workflow for remote execution.
 // cloneBranch is the branch the container will clone (current local branch).
 // projectBranch is the branch the container will create and work on (derived from the project file name).
-// If ctx.Repo is set (owner/repo format) the remote URL is constructed directly from it, skipping local
-// git commands. If the project file path is absolute and ctx.Repo is set, it is used as-is (callers
-// that bypass local git must pass a relative path).
-func GenerateWorkflow(ctx *execcontext.Context, projectName, cloneBranch, projectBranch string, verbose bool) (*Workflow, error) {
-	var remoteURL string
-	if ctx.Repo() != "" {
-		owner, name := ctx.RepoOwnerAndName()
-		remoteURL = githubpkg.CloneURL(owner, name)
-	} else {
-		repo, err := githubpkg.GetRepo(ctx.GoContext())
-		if err != nil {
-			return nil, fmt.Errorf("failed to get repository: %w", err)
-		}
-		remoteURL = repo.CloneURL()
-	}
-
-	relProjectPath := ctx.ProjectFile()
-	if filepath.IsAbs(relProjectPath) {
-		if ctx.Repo() == "" {
-			repoRoot, err := git.FindRepoRoot()
-			if err != nil {
-				return nil, fmt.Errorf("failed to get repository root: %w", err)
-			}
-			var err2 error
-			relProjectPath, err2 = filepath.Rel(repoRoot, relProjectPath)
-			if err2 != nil {
-				return nil, fmt.Errorf("failed to calculate relative project path: %w", err2)
-			}
-		}
-	}
-
-	return GenerateWorkflowWithGitInfo(ctx, projectName, remoteURL, cloneBranch, projectBranch, relProjectPath, verbose)
-}
-
-// GenerateWorkflowWithGitInfo builds a Workflow with provided git information.
-// This allows for easier testing by accepting git info as parameters.
-func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL, cloneBranch, projectBranch, relProjectPath string, verbose bool) (*Workflow, error) {
-	ralphConfig, err := config.LoadConfig()
+// repoURL is the git remote URL and relProjectPath is the project file path relative to the repo root —
+// both are resolved by the caller so that git and GitHub discovery are decoupled from generation logic.
+func GenerateWorkflow(ctx *execcontext.Context, projectName, cloneBranch, projectBranch string, verbose bool, repoURL, relProjectPath string) (*Workflow, error) {
+	cfg, err := config.LoadConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
@@ -76,24 +40,31 @@ func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL,
 		instructions = string(data)
 	}
 
+	return GenerateWorkflowWithGitInfo(ctx, projectName, repoURL, cloneBranch, projectBranch, relProjectPath, verbose, cfg, instructions)
+}
+
+// GenerateWorkflowWithGitInfo builds a Workflow with provided git information, config,
+// and instructions. It does not perform any I/O itself — the caller supplies the loaded
+// config and instructions so that test doubles can be provided.
+func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL, cloneBranch, projectBranch, relProjectPath string, verbose bool, cfg *config.RalphConfig, instructions string) (*Workflow, error) {
 	repo, err := githubpkg.ParseRemoteURL(repoURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse repository from URL: %w", err)
 	}
 
 	workflowOptions := WorkflowOptions{
-		Image:         MakeImage(ralphConfig.Workflow.Image.Repository, ralphConfig.Workflow.Image.Tag),
-		ConfigMaps:    ralphConfig.Workflow.ConfigMaps,
-		Secrets:       ralphConfig.Workflow.Secrets,
-		Env:           ralphConfig.Workflow.Env,
-		DefaultBranch: ralphConfig.DefaultBranch,
-		Namespace:     ralphConfig.Workflow.Namespace,
-		Labels:        ralphConfig.Workflow.Labels,
+		Image:         MakeImage(cfg.Workflow.Image.Repository, cfg.Workflow.Image.Tag),
+		ConfigMaps:    cfg.Workflow.ConfigMaps,
+		Secrets:       cfg.Workflow.Secrets,
+		Env:           cfg.Workflow.Env,
+		DefaultBranch: cfg.DefaultBranch,
+		Namespace:     cfg.Workflow.Namespace,
+		Labels:        cfg.Workflow.Labels,
 	}
 
 	kubeContext := ctx.KubeContext()
 	if kubeContext == "" {
-		kubeContext = ralphConfig.Workflow.Context
+		kubeContext = cfg.Workflow.Context
 	}
 
 	return &Workflow{
@@ -142,21 +113,13 @@ func GenerateCommentWorkflowWithGitInfo(projectName, repoURL, cloneBranch, proje
 	}, nil
 }
 
-// GenerateMergeWorkflow builds a MergeWorkflow, detecting git info from the local repository.
-func GenerateMergeWorkflow(prBranch string) (*MergeWorkflow, error) {
+// GenerateMergeWorkflow builds a MergeWorkflow from caller-supplied git info.
+// repoURL and currentBranch are resolved by the caller so that git and GitHub
+// discovery are decoupled from generation logic.
+func GenerateMergeWorkflow(prBranch, repoURL, currentBranch string) (*MergeWorkflow, error) {
 	ralphConfig, err := config.LoadConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)
-	}
-
-	repo, err := githubpkg.GetRepo(context.Background())
-	if err != nil {
-		return nil, fmt.Errorf("failed to get repository: %w", err)
-	}
-
-	currentBranch, err := git.GetCurrentBranch()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get current branch: %w", err)
 	}
 
 	opts := WorkflowOptions{
@@ -165,7 +128,7 @@ func GenerateMergeWorkflow(prBranch string) (*MergeWorkflow, error) {
 		Namespace:   ralphConfig.Workflow.Namespace,
 	}
 
-	return GenerateMergeWorkflowWithGitInfo(repo.CloneURL(), currentBranch, prBranch, "", opts)
+	return GenerateMergeWorkflowWithGitInfo(repoURL, currentBranch, prBranch, "", opts)
 }
 
 // GenerateMergeWorkflowWithGitInfo builds a MergeWorkflow with provided git information.
@@ -187,22 +150,11 @@ func GenerateMergeWorkflowWithGitInfo(repoURL, cloneBranch, prBranch, prNumber s
 	}, nil
 }
 
-func resolveRemoteURL(ctx *execcontext.Context) (string, error) {
-	if ctx.Repo() != "" {
-		owner, name := ctx.RepoOwnerAndName()
-		return githubpkg.CloneURL(owner, name), nil
-	}
-	return git.RemoteURL()
-}
-
 // GenerateCommandWorkflow builds a Workflow for remote command execution,
 // cloning the current branch and running the supplied command.
-func GenerateCommandWorkflow(ctx *execcontext.Context, cloneBranch string) (*Workflow, error) {
-	remoteURL, err := resolveRemoteURL(ctx)
-	if err != nil {
-		return nil, err
-	}
-
+// remoteURL is resolved by the caller so that git discovery is decoupled
+// from generation logic.
+func GenerateCommandWorkflow(ctx *execcontext.Context, cloneBranch, remoteURL string) (*Workflow, error) {
 	ralphConfig, err := config.LoadConfig()
 	if err != nil {
 		return nil, err

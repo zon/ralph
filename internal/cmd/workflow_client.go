@@ -1,9 +1,13 @@
 package cmd
 
 import (
+	"fmt"
+	"path/filepath"
+
 	"github.com/zon/ralph/internal/argo"
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
+	githubpkg "github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/notify"
 	orchestrationRun "github.com/zon/ralph/internal/orchestration/run"
@@ -20,7 +24,34 @@ type workflowClientAdapter struct {
 
 func (a *workflowClientAdapter) Submit(proj *project.Project, cloneBranch string) (string, error) {
 	projectBranch := git.SanitizeBranchName(proj.Slug)
-	wf, err := workflow.GenerateWorkflow(a.ctx, proj.Slug, cloneBranch, projectBranch, a.ctx.IsVerbose())
+
+	var repoURL string
+	if a.ctx.Repo() != "" {
+		owner, name := a.ctx.RepoOwnerAndName()
+		repoURL = githubpkg.CloneURL(owner, name)
+	} else {
+		repo, err := githubpkg.GetRepo(a.ctx.GoContext())
+		if err != nil {
+			return "", fmt.Errorf("failed to get repository: %w", err)
+		}
+		repoURL = repo.CloneURL()
+	}
+
+	relProjectPath := a.ctx.ProjectFile()
+	if filepath.IsAbs(relProjectPath) {
+		if a.ctx.Repo() == "" {
+			repoRoot, err := git.FindRepoRoot()
+			if err != nil {
+				return "", fmt.Errorf("failed to get repository root: %w", err)
+			}
+			relProjectPath, err = filepath.Rel(repoRoot, relProjectPath)
+			if err != nil {
+				return "", fmt.Errorf("failed to calculate relative project path: %w", err)
+			}
+		}
+	}
+
+	wf, err := workflow.GenerateWorkflow(a.ctx, proj.Slug, cloneBranch, projectBranch, a.ctx.IsVerbose(), repoURL, relProjectPath)
 	if err != nil {
 		return "", err
 	}
