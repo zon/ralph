@@ -2,11 +2,11 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/zon/ralph/internal/argo"
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/k8s"
+	"github.com/zon/ralph/internal/orchestration/stop"
 )
 
 type StopCmd struct {
@@ -15,22 +15,35 @@ type StopCmd struct {
 }
 
 func (s *StopCmd) Run() error {
-	ctx := context.Background()
+	orchestrator := newStopOrchestrator()
+	return orchestrator.Run(context.Background(), s.Context, s.WorkflowName)
+}
 
-	ralphConfig, err := config.LoadConfig()
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
-	}
+type stopConfigLoaderAdapter struct{}
 
-	k8sClient := k8s.NewClient()
-	k8sCtx, err := resolveKubeContext(ctx, k8sClient, ralphConfig, nil, s.Context, "")
-	if err != nil {
-		return err
-	}
+func (a *stopConfigLoaderAdapter) Load() (*config.RalphConfig, error) {
+	return config.LoadConfig()
+}
 
-	client := argo.NewClient()
-	return client.StopWorkflow(argo.K8sContext{
-		Name:      k8sCtx.Name,
-		Namespace: k8sCtx.Namespace,
-	}, s.WorkflowName)
+type stopK8sClientAdapter struct{}
+
+func (a *stopK8sClientAdapter) GetCurrentContext(ctx context.Context) (k8s.Context, error) {
+	return k8s.NewClient().GetCurrentContext(ctx)
+}
+
+type stopArgoClientAdapter struct{}
+
+func (a *stopArgoClientAdapter) StopWorkflow(ctx stop.KubeContext, workflowName string) error {
+	return argo.NewClient().StopWorkflow(argo.K8sContext{
+		Name:      ctx.Name,
+		Namespace: ctx.Namespace,
+	}, workflowName)
+}
+
+func newStopOrchestrator() *stop.Stop {
+	return stop.New(
+		&stopConfigLoaderAdapter{},
+		&stopK8sClientAdapter{},
+		&stopArgoClientAdapter{},
+	)
 }

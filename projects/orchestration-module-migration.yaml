@@ -23,7 +23,7 @@ requirements:
         - internal/orchestration/stop defines interfaces for config, Kubernetes, and Argo dependencies
         - internal/cmd/stop.go wires real implementations and delegates to internal/orchestration/stop
         - internal/orchestration/stop has unit tests with mocked dependencies
-      passing: false
+      passing: true
     - slug: orchestrate-list
       description: Extract list command logic into internal/orchestration/list
       items:
