@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/zon/ralph/internal/ai"
 	"github.com/zon/ralph/internal/argo"
@@ -101,7 +102,17 @@ type mergeWorkflowClient struct {
 }
 
 func (c *mergeWorkflowClient) SubmitMergeWorkflow(branch string) (string, error) {
-	mw, err := workflow.GenerateMergeWorkflow(branch)
+	repo, err := github.GetRepo(context.Background())
+	if err != nil {
+		return "", fmt.Errorf("failed to get repository: %w", err)
+	}
+
+	currentBranch, err := git.GetCurrentBranch()
+	if err != nil {
+		return "", fmt.Errorf("failed to get current branch: %w", err)
+	}
+
+	mw, err := workflow.GenerateMergeWorkflow(branch, repo.CloneURL(), currentBranch)
 	if err != nil {
 		return "", err
 	}

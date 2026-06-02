@@ -50,7 +50,7 @@ modules:
     category: orchestration
   - path: internal/workflow
     description: Generates and submits workflow manifests for run and merge operations.
-    category: orchestration
+    category: implementation
   - path: internal/provisioning
     description: Provisions webhook configuration and secrets into a Kubernetes cluster.
     category: orchestration
