@@ -54,7 +54,7 @@ requirements:
         - In internal/workspace/workspace.go, add `out *output.Client` as the first parameter to SetupOpenCodeCredentials and PrepareWorkspace (Chdir has no logger calls so needs no change); replace logger.Info/Infof with out.Info/Infof; update callers in internal/cmd/workflow.go to pass ctx.Output()
         - In internal/provisioning/webhook.go, add `out *output.Client` as a parameter to BuildWebhookAppConfig; replace logger.Warningf with out.Warnf; update the caller in internal/cmd/config_webhook.go to pass ctx.Output()
         - Remove logger imports from all modified files
-      passing: false
+      passing: true
     - slug: replace-logger-in-orchestration-cmds
       description: Replace all logger package calls in orchestration/merge and orchestration/comment
       items:

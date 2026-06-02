@@ -70,7 +70,7 @@ func TestGracefulShutdown(t *testing.T) {
 	}
 	t.Cleanup(func() { cleanupLogs(t, []config.Service{svc}) })
 
-	proc, err := startService(svc)
+	proc, err := startService(svc, output.NewClient(os.Stdout, os.Stderr, false))
 	require.NoError(t, err, "Failed to start service")
 
 	assert.True(t, proc.IsRunning(), "Process should be running")
@@ -90,7 +90,7 @@ func TestForceKillAfterTimeout(t *testing.T) {
 	}
 	t.Cleanup(func() { cleanupLogs(t, []config.Service{svc}) })
 
-	proc, err := startService(svc)
+	proc, err := startService(svc, output.NewClient(os.Stdout, os.Stderr, false))
 	require.NoError(t, err, "Failed to start service")
 
 	assert.True(t, proc.IsRunning(), "Process should be running")
@@ -112,7 +112,7 @@ func TestStopAllServicesOrder(t *testing.T) {
 
 	processes := []*Process{}
 	for _, svc := range services {
-		proc, err := startService(svc)
+		proc, err := startService(svc, output.NewClient(os.Stdout, os.Stderr, false))
 		require.NoError(t, err, "Failed to start service %s", svc.Name)
 		processes = append(processes, proc)
 	}
@@ -121,7 +121,7 @@ func TestStopAllServicesOrder(t *testing.T) {
 		assert.True(t, proc.IsRunning(), "Service %s should be running", proc.Name)
 	}
 
-	stopAllServices(processes)
+	stopAllServices(processes, output.NewClient(os.Stdout, os.Stderr, false))
 
 	time.Sleep(200 * time.Millisecond)
 	for _, proc := range processes {
@@ -131,7 +131,7 @@ func TestStopAllServicesOrder(t *testing.T) {
 
 func TestStopAllServicesEmpty(t *testing.T) {
 	assert.NotPanics(t, func() {
-		stopAllServices([]*Process{})
+		stopAllServices([]*Process{}, output.NewClient(os.Stdout, os.Stderr, false))
 	}, "stopAllServices should handle empty slice")
 }
 
@@ -195,7 +195,7 @@ func TestStartServiceWorkDir(t *testing.T) {
 	}
 	t.Cleanup(func() { cleanupLogs(t, []config.Service{svc}) })
 
-	proc, err := startService(svc)
+	proc, err := startService(svc, output.NewClient(os.Stdout, os.Stderr, false))
 	require.NoError(t, err, "startService with WorkDir should not fail")
 	defer proc.Stop()
 
@@ -288,7 +288,7 @@ func TestWaitForHealthProcessRunningNoPort(t *testing.T) {
 	}
 	t.Cleanup(func() { cleanupLogs(t, []config.Service{svc}) })
 
-	proc, err := startService(svc)
+	proc, err := startService(svc, output.NewClient(os.Stdout, os.Stderr, false))
 	require.NoError(t, err, "Failed to start service")
 	defer proc.Stop()
 
@@ -305,7 +305,7 @@ func TestWaitForHealthProcessExitsBeforeCheck(t *testing.T) {
 	}
 	t.Cleanup(func() { cleanupLogs(t, []config.Service{svc}) })
 
-	proc, err := startService(svc)
+	proc, err := startService(svc, output.NewClient(os.Stdout, os.Stderr, false))
 	require.NoError(t, err, "Failed to start service")
 
 	proc.cmd.Wait()
@@ -321,7 +321,7 @@ func TestStartAllServicesRollbackOnStartFailure(t *testing.T) {
 	}
 	t.Cleanup(func() { cleanupLogs(t, services) })
 
-	_, _, err := startAllServices(services)
+	_, _, err := startAllServices(services, output.NewClient(os.Stdout, os.Stderr, false))
 	assert.Error(t, err, "startAllServices should fail")
 
 	time.Sleep(600 * time.Millisecond)
@@ -336,7 +336,7 @@ func TestStartAllServicesRollbackOnHealthCheckFailure(t *testing.T) {
 	}
 	t.Cleanup(func() { cleanupLogs(t, services) })
 
-	_, _, err := startAllServices(services)
+	_, _, err := startAllServices(services, output.NewClient(os.Stdout, os.Stderr, false))
 	assert.Error(t, err, "startAllServices should fail health check")
 
 	time.Sleep(600 * time.Millisecond)

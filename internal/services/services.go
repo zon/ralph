@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/zon/ralph/internal/config"
-	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/output"
 )
 
@@ -23,13 +22,13 @@ func RunBefore(out *output.Client, cmds []config.Before) error {
 		return nil
 	}
 
-	logger.Verbosef("Running %d before command(s)...", len(cmds))
+	out.Debugf("Running %d before command(s)...", len(cmds))
 
 	for _, cmd := range cmds {
 		cmdStr := fmt.Sprintf("%s %s", cmd.Command, strings.Join(cmd.Args, " "))
 
-		logger.Infof("Running before: %s", cmd.Name)
-		logger.Verbosef("Command: %s", cmdStr)
+		out.Infof("Running before: %s", cmd.Name)
+		out.Debugf("Command: %s", cmdStr)
 
 		c := exec.Command(cmd.Command, cmd.Args...)
 
@@ -42,13 +41,13 @@ func RunBefore(out *output.Client, cmds []config.Before) error {
 
 		if err := c.Run(); err != nil {
 			if cmd.Optional {
-				logger.Warningf("Optional before %s failed: %v", cmd.Name, err)
+				out.Warnf("Optional before %s failed: %v", cmd.Name, err)
 				continue
 			}
 			return fmt.Errorf("before %s failed: %w", cmd.Name, err)
 		}
 
-		logger.Successf("Before %s completed successfully", cmd.Name)
+		out.Successf("Before %s completed successfully", cmd.Name)
 	}
 
 	return nil
@@ -61,6 +60,7 @@ type Process struct {
 	cmd     *exec.Cmd
 	pid     int
 	logFile *os.File // {service}.log in the repo root, capturing output during startup
+	out     *output.Client
 }
 
 // Manager manages a collection of running services
@@ -85,7 +85,7 @@ func (m *Manager) Start(services []config.Service) (config.Service, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	processes, failedSvc, err := startAllServices(services)
+	processes, failedSvc, err := startAllServices(services, m.out)
 	if err != nil {
 		return failedSvc, err
 	}
@@ -106,19 +106,19 @@ func (m *Manager) Stop() {
 	}
 
 	// Stop all services
-	stopAllServices(m.processes)
+	stopAllServices(m.processes, m.out)
 
 	// Clear the process list so subsequent calls are no-ops
 	m.processes = nil
 }
 
 // startService starts a service and returns a Process handle
-func startService(svc config.Service) (*Process, error) {
+func startService(svc config.Service, out *output.Client) (*Process, error) {
 	cmdStr := fmt.Sprintf("%s %s", svc.Command, joinArgs(svc.Args))
-	return createAndStartProcess(svc, cmdStr)
+	return createAndStartProcess(svc, cmdStr, out)
 }
 
-func createAndStartProcess(svc config.Service, cmdStr string) (*Process, error) {
+func createAndStartProcess(svc config.Service, cmdStr string, out *output.Client) (*Process, error) {
 	cmd := exec.Command(svc.Command, svc.Args...)
 
 	if svc.WorkDir != "" {
@@ -149,6 +149,7 @@ func createAndStartProcess(svc config.Service, cmdStr string) (*Process, error) 
 		cmd:     cmd,
 		pid:     cmd.Process.Pid,
 		logFile: logFile,
+		out:     out,
 	}, nil
 }
 
@@ -175,7 +176,7 @@ func (p *Process) StopWithTimeout(timeout time.Duration) error {
 	}
 
 	if err := p.cmd.Process.Signal(syscall.SIGTERM); err != nil {
-		logger.Warningf("Failed to send SIGTERM to %s: %v", p.Name, err)
+		p.out.Warnf("Failed to send SIGTERM to %s: %v", p.Name, err)
 		return nil
 	}
 
@@ -186,16 +187,16 @@ func (p *Process) StopWithTimeout(timeout time.Duration) error {
 
 	select {
 	case <-done:
-		logger.Infof("Service %s stopped", p.Name)
+		p.out.Infof("Service %s stopped", p.Name)
 		return nil
 	case <-time.After(timeout):
-		logger.Warningf("Service %s did not stop gracefully, sending SIGKILL", p.Name)
+		p.out.Warnf("Service %s did not stop gracefully, sending SIGKILL", p.Name)
 		if err := p.cmd.Process.Kill(); err != nil {
-			logger.Errorf("Failed to kill service %s: %v", p.Name, err)
+			p.out.Errorf("Failed to kill service %s: %v", p.Name, err)
 			return fmt.Errorf("failed to kill service %s: %w", p.Name, err)
 		}
 		<-done
-		logger.Infof("Service %s stopped", p.Name)
+		p.out.Infof("Service %s stopped", p.Name)
 		return nil
 	}
 }
@@ -253,7 +254,7 @@ func logServiceOutput(p *Process) {
 	if _, err := buf.ReadFrom(p.logFile); err != nil || buf.Len() == 0 {
 		return
 	}
-	logger.Infof("Service %s output:\n%s", p.Name, buf.String())
+	p.out.Infof("Service %s output:\n%s", p.Name, buf.String())
 }
 
 // closeLogFile closes the log file handle without removing the file,
@@ -282,13 +283,13 @@ func LogFileName(serviceName string) string {
 
 // startAllServices starts all services and waits for them to become healthy
 // Returns a slice of started processes and any error encountered
-func startAllServices(services []config.Service) ([]*Process, config.Service, error) {
+func startAllServices(services []config.Service, out *output.Client) ([]*Process, config.Service, error) {
 	processes := []*Process{}
 
 	for _, svc := range services {
-		proc, err := startService(svc)
+		proc, err := startService(svc, out)
 		if err != nil {
-			stopAllServices(processes)
+			stopAllServices(processes, out)
 			return nil, svc, fmt.Errorf("failed to start service %s: %w", svc.Name, err)
 		}
 		processes = append(processes, proc)
@@ -298,12 +299,12 @@ func startAllServices(services []config.Service) ([]*Process, config.Service, er
 		if err := WaitForHealth(proc, timeout); err != nil {
 			logServiceOutput(proc)
 			cleanupOutput(proc)
-			stopAllServices(processes)
+			stopAllServices(processes, out)
 			return nil, svc, fmt.Errorf("health check failed for service %s: %w", svc.Name, err)
 		}
 
 		closeLogFile(proc)
-		logger.Infof("Service %s is ready", svc.Name)
+		out.Infof("Service %s is ready", svc.Name)
 	}
 
 	return processes, config.Service{}, nil
@@ -312,7 +313,7 @@ func startAllServices(services []config.Service) ([]*Process, config.Service, er
 // stopAllServices stops all services in reverse order
 // It stops services gracefully with SIGTERM, waiting for clean shutdown
 // Services that don't stop within timeout are force-killed with SIGKILL
-func stopAllServices(processes []*Process) {
+func stopAllServices(processes []*Process, out *output.Client) {
 	if len(processes) == 0 {
 		return
 	}
@@ -321,12 +322,12 @@ func stopAllServices(processes []*Process) {
 	for i := len(processes) - 1; i >= 0; i-- {
 		p := processes[i]
 		if err := p.Stop(); err != nil {
-			logger.Warningf("Error stopping service %s: %v", p.Name, err)
+			out.Warnf("Error stopping service %s: %v", p.Name, err)
 			// Continue stopping other services even if one fails
 		}
 		if p.service.Port > 0 {
 			if err := waitForPortRelease(p.service.Port, 5*time.Second); err != nil {
-				logger.Warningf("Port %d may still be in use after stopping %s: %v", p.service.Port, p.Name, err)
+				out.Warnf("Port %d may still be in use after stopping %s: %v", p.service.Port, p.Name, err)
 			}
 		}
 	}

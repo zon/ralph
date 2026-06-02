@@ -62,7 +62,7 @@ func (w *WorkflowCmd) Run() error {
 		return fmt.Errorf("failed to setup GitHub auth: %w", err)
 	}
 
-	if err := workspace.SetupOpenCodeCredentials(); err != nil {
+	if err := workspace.SetupOpenCodeCredentials(ctx.Output()); err != nil {
 		return fmt.Errorf("failed to setup OpenCode credentials: %w", err)
 	}
 
@@ -101,7 +101,7 @@ func (w *WorkflowCmd) configureGitUser(ctx *context.Context) {
 
 func (w *WorkflowCmd) cloneAndSetupRepo(ctx *context.Context) error {
 	cloneBranch := os.Getenv("GIT_BRANCH")
-	if err := workspace.PrepareWorkspace(ctx.RepoURL(), cloneBranch, workspace.DefaultWorkDir); err != nil {
+	if err := workspace.PrepareWorkspace(ctx.Output(), ctx.RepoURL(), cloneBranch, workspace.DefaultWorkDir); err != nil {
 		return err
 	}
 

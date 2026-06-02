@@ -15,7 +15,6 @@ import (
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
-	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/opencode"
 	"github.com/zon/ralph/internal/services"
 )
@@ -205,10 +204,6 @@ type IterationSetup struct {
 }
 
 func PrepareIteration(ctx *context.Context, oc opencode.OCClient, cleanupRegistrar func(func())) (*IterationSetup, error) {
-	if ctx.IsVerbose() {
-		logger.SetVerbose(true)
-	}
-
 	absProjectFile, err := filepath.Abs(ctx.ProjectFile())
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve project file path: %w", err)
@@ -227,11 +222,11 @@ func PrepareIteration(ctx *context.Context, oc opencode.OCClient, cleanupRegistr
 		return nil, fmt.Errorf("failed to load project: %w", err)
 	}
 	if proj.Title != "" && ctx.IsVerbose() {
-		logger.Verbosef("Title: %s", proj.Title)
+		ctx.Output().Debugf("Title: %s", proj.Title)
 	}
 
 	allComplete, passingCount, failingCount := CheckCompletion(proj)
-	logger.Verbosef("Requirements: %d passing, %d failing (complete: %v)", passingCount, failingCount, allComplete)
+	ctx.Output().Debugf("Requirements: %d passing, %d failing (complete: %v)", passingCount, failingCount, allComplete)
 
 	ralphConfig, err := config.LoadConfig()
 	if err != nil {
@@ -245,7 +240,7 @@ func PrepareIteration(ctx *context.Context, oc opencode.OCClient, cleanupRegistr
 
 	commitLog, err := getCommitLogForPrompt(ctx, ralphConfig.DefaultBranch)
 	if err != nil {
-		logger.Verbosef("Failed to get commit log: %v", err)
+		ctx.Output().Debugf("Failed to get commit log: %v", err)
 		commitLog = ""
 	}
 
@@ -277,7 +272,7 @@ func ExecuteDevelopmentIteration(ctx *context.Context, oc opencode.OCClient, cle
 
 // PickRequirement runs the picker agent and returns the selected requirement's YAML content.
 func PickRequirement(ctx *context.Context, oc opencode.OCClient, setup *IterationSetup) (string, error) {
-	logger.Verbosef("Loading project file: %s", setup.Project.Path)
+	ctx.Output().Debugf("Loading project file: %s", setup.Project.Path)
 
 	projectContent, err := marshalProjectToString(setup.Project)
 	if err != nil {
@@ -293,18 +288,18 @@ func PickRequirement(ctx *context.Context, oc opencode.OCClient, setup *Iteratio
 	if err != nil {
 		return "", fmt.Errorf("failed to build pick prompt: %w", err)
 	}
-	logger.Verbose("Pick prompt generated")
+	ctx.Output().Debug("Pick prompt generated")
 
-	logger.Verbose("Running picker agent...")
+	ctx.Output().Debug("Running picker agent...")
 	if err := ai.RunAgent(ctx, oc, pickPrompt); err != nil {
 		if writeBlockedMD(setup.Project.Path, err) == nil {
-			logger.Verbosef("Wrote blocked.md due to picker agent failure")
+			ctx.Output().Debugf("Wrote blocked.md due to picker agent failure")
 		} else {
-			logger.Verbosef("Failed to write blocked.md: %v", err)
+			ctx.Output().Debugf("Failed to write blocked.md: %v", err)
 		}
 		return "", fmt.Errorf("picker agent execution failed: %w", err)
 	}
-	logger.Verbose("Picker agent execution completed")
+	ctx.Output().Debug("Picker agent execution completed")
 
 	pickedReqData, err := os.ReadFile(setup.PickedReqPath)
 	if err != nil {
@@ -313,9 +308,9 @@ func PickRequirement(ctx *context.Context, oc opencode.OCClient, setup *Iteratio
 	req := string(pickedReqData)
 
 	if err := os.Remove(setup.PickedReqPath); err != nil {
-		logger.Verbosef("Failed to remove picked-requirement.yaml: %v", err)
+		ctx.Output().Debugf("Failed to remove picked-requirement.yaml: %v", err)
 	} else {
-		logger.Verbose("Cleaned up picked-requirement.yaml")
+		ctx.Output().Debug("Cleaned up picked-requirement.yaml")
 	}
 
 	return req, nil
@@ -340,24 +335,24 @@ func DevelopRequirement(ctx *context.Context, oc opencode.OCClient, setup *Itera
 	if err != nil {
 		return fmt.Errorf("failed to build prompt: %w", err)
 	}
-	logger.Verbose("Development prompt generated")
+	ctx.Output().Debug("Development prompt generated")
 
-	logger.Verbose("Running AI agent...")
+	ctx.Output().Debug("Running AI agent...")
 	if err := ai.RunAgent(ctx, oc, devPrompt); err != nil {
 		if writeBlockedMD(setup.Project.Path, err) == nil {
-			logger.Verbosef("Wrote blocked.md due to agent failure")
+			ctx.Output().Debugf("Wrote blocked.md due to agent failure")
 		} else {
-			logger.Verbosef("Failed to write blocked.md: %v", err)
+			ctx.Output().Debugf("Failed to write blocked.md: %v", err)
 		}
 		return fmt.Errorf("agent execution failed: %w", err)
 	}
-	logger.Verbose("AI agent execution completed")
+	ctx.Output().Debug("AI agent execution completed")
 
 	if err := performPostAgentCleanup(ctx, setup.Project.Path, setup.Config.Services, setup.Project.Feature); err != nil {
 		return err
 	}
 
-	logger.Verbose("Single iteration completed successfully")
+	ctx.Output().Debug("Single iteration completed successfully")
 
 	return nil
 }
@@ -390,7 +385,7 @@ func handleServiceStartup(ctx *context.Context, oc opencode.OCClient, cleanupReg
 	// Start services if not disabled
 	if !ctx.NoServices() && len(ralphConfig.Services) > 0 {
 		if failedSvc, err := svcMgr.Start(ralphConfig.Services); err != nil {
-			logger.Warningf("Service startup failed: %v", err)
+			ctx.Output().Warnf("Service startup failed: %v", err)
 
 			fixPrompt, buildErr := ai.BuildFixServicePrompt(ctx, failedSvc, err)
 			if buildErr != nil {
@@ -422,7 +417,7 @@ func performPostAgentCleanup(ctx *context.Context, absProjectFile string, servic
 	for _, svc := range servicesList {
 		logPath := services.LogFileName(svc.Name)
 		if err := os.Remove(logPath); err == nil {
-			logger.Verbosef("Removed service log: %s", logPath)
+			ctx.Output().Debugf("Removed service log: %s", logPath)
 		}
 	}
 
@@ -431,32 +426,32 @@ func performPostAgentCleanup(ctx *context.Context, absProjectFile string, servic
 		normalized := []byte(strings.TrimRight(string(data), "\n") + "\n")
 		if len(normalized) != len(data) {
 			if writeErr := os.WriteFile(absProjectFile, normalized, 0644); writeErr != nil {
-				logger.Verbosef("Failed to normalize project file: %v", writeErr)
+				ctx.Output().Debugf("Failed to normalize project file: %v", writeErr)
 			}
 		}
 	}
 
 	// Stage project file after agent completes, only if it has changes
 	if git.HasFileChanges(absProjectFile) {
-		logger.Verbose("Staging project file...")
+		ctx.Output().Debug("Staging project file...")
 		if err := git.StageFile(absProjectFile); err != nil {
-			logger.Verbosef("Failed to stage project file: %v", err)
+			ctx.Output().Debugf("Failed to stage project file: %v", err)
 		} else {
-			logger.Verbose("Project file staged")
+			ctx.Output().Debug("Project file staged")
 		}
 	}
 
 	if feature != "" {
-		migrateFeatureArchitecture(feature)
+		migrateFeatureArchitecture(ctx, feature)
 	}
 
 	return nil
 }
 
-func migrateFeatureArchitecture(feature string) {
+func migrateFeatureArchitecture(ctx *context.Context, feature string) {
 	repoRoot, err := git.FindRepoRoot()
 	if err != nil {
-		logger.Verbosef("Skipping architecture migration: %v", err)
+		ctx.Output().Debugf("Skipping architecture migration: %v", err)
 		return
 	}
 
@@ -465,19 +460,19 @@ func migrateFeatureArchitecture(feature string) {
 
 	count, err := architecture.MigrateImplementedModules(featureArchPath, globalArchPath, repoRoot)
 	if err != nil {
-		logger.Verbosef("Architecture migration failed: %v", err)
+		ctx.Output().Debugf("Architecture migration failed: %v", err)
 		return
 	}
 	if count == 0 {
 		return
 	}
 
-	logger.Infof("Migrated %d module(s) to specs/architecture.yaml", count)
+	ctx.Output().Infof("Migrated %d module(s) to specs/architecture.yaml", count)
 
 	for _, p := range []string{globalArchPath, featureArchPath} {
 		if git.IsFileModifiedOrNew(p) {
 			if err := git.StageFile(p); err != nil {
-				logger.Verbosef("Failed to stage %s: %v", p, err)
+				ctx.Output().Debugf("Failed to stage %s: %v", p, err)
 			}
 		}
 	}
@@ -575,7 +570,7 @@ func RemoveAndCommit(ctx *context.Context, files []string) error {
 		if err := os.Remove(filePath); err != nil {
 			return fmt.Errorf("failed to remove project file %s: %w", filePath, err)
 		}
-		logger.Infof("Removed complete project file: %s", filePath)
+		ctx.Output().Infof("Removed complete project file: %s", filePath)
 	}
 
 	for _, filePath := range files {
@@ -589,6 +584,6 @@ func RemoveAndCommit(ctx *context.Context, files []string) error {
 		return fmt.Errorf("failed to commit deleted files: %w", err)
 	}
 
-	logger.Successf("Committed removal of %d complete project file(s)", len(files))
+	ctx.Output().Successf("Committed removal of %d complete project file(s)", len(files))
 	return nil
 }

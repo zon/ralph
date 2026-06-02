@@ -84,6 +84,7 @@ requirements:
 	require.NoError(t, os.WriteFile("test-project.yaml", []byte(projectYAML), 0644))
 
 	ctx := execcontext.NewContext()
+	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, true))
 	ctx.SetProjectFile("test-project.yaml")
 
 	mockOC := &opencode.MockOC{

@@ -53,7 +53,7 @@ func (c *ConfigWebhookConfigCmd) Run() error {
 
 	gh := &github.GH{}
 
-	appCfg := provisioning.BuildWebhookAppConfig(ctx, base, updates, repoOwner, repoName, repoNamespace, gh)
+	appCfg := provisioning.BuildWebhookAppConfig(ctx, c.out, base, updates, repoOwner, repoName, repoNamespace, gh)
 
 	if err := provisioning.WriteWebhookConfigMap(ctx, client, kubeContext, namespace, appCfg); err != nil {
 		return err

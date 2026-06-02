@@ -1,6 +1,7 @@
 package services_test
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -8,11 +9,12 @@ import (
 
 	"github.com/zon/ralph/internal/config"
 	orchestrationRun "github.com/zon/ralph/internal/orchestration/run"
+	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/services"
 )
 
 func TestServicesClientRunBeforeCommands(t *testing.T) {
-	client := services.NewClient(nil)
+	client := services.NewClient(output.NewClient(os.Stdout, os.Stderr, false))
 
 	t.Run("calls RunBefore when cfg.Before is non-empty", func(t *testing.T) {
 		cfg := &config.RalphConfig{
@@ -53,5 +55,5 @@ func TestServicesClientRunBeforeCommands(t *testing.T) {
 }
 
 func TestServicesClientImplementsInterface(t *testing.T) {
-	var _ orchestrationRun.ServicesClient = services.NewClient(nil)
+	var _ orchestrationRun.ServicesClient = services.NewClient(output.NewClient(os.Stdout, os.Stderr, false))
 }
