@@ -15,6 +15,7 @@ import (
 	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/opencode"
 	orchestrationRun "github.com/zon/ralph/internal/orchestration/run"
+	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/project"
 	"github.com/zon/ralph/internal/testutil"
 )
@@ -133,7 +134,9 @@ func TestAgentClientImplementsInterface(t *testing.T) {
 }
 
 func TestAgentClientPrintStatsDoesNotPanicOnError(t *testing.T) {
-	client := NewAgentClient(execcontext.NewContext(), &opencode.MockOC{})
+	ctx := execcontext.NewContext()
+	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
+	client := NewAgentClient(ctx, &opencode.MockOC{})
 	require.NotPanics(t, func() { client.PrintStats() })
 }
 
@@ -145,7 +148,9 @@ func TestAgentClientPrintStatsUsesStoredOCClient(t *testing.T) {
 			return opencode.Stats{}, nil
 		},
 	}
-	client := NewAgentClient(execcontext.NewContext(), mockOC)
+	ctx := execcontext.NewContext()
+	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
+	client := NewAgentClient(ctx, mockOC)
 	client.PrintStats()
 	assert.True(t, called, "PrintStats should call GetStats on the stored OCClient")
 }

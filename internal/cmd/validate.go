@@ -3,7 +3,6 @@ package cmd
 import (
 	"os"
 
-	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/opencode"
 	"github.com/zon/ralph/internal/validate"
@@ -22,6 +21,6 @@ func (v *ValidateCmd) Run() error {
 		return err
 	}
 
-	logger.Successf("Project '%s' is valid (%d requirements)", proj.Slug, len(proj.Requirements))
+	ctx.Output().Successf("Project '%s' is valid (%d requirements)", proj.Slug, len(proj.Requirements))
 	return nil
 }

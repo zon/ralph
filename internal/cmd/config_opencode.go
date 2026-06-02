@@ -7,18 +7,23 @@ import (
 
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/k8s"
-	"github.com/zon/ralph/internal/logger"
+	"github.com/zon/ralph/internal/output"
 )
 
 // ConfigOpencodeCmd configures OpenCode credentials for Argo Workflows
 type ConfigOpencodeCmd struct {
 	Context   string `help:"Kubernetes context to use (defaults to current context)"`
 	Namespace string `help:"Kubernetes namespace to use (defaults to context default or 'default')"`
+	out       *output.Client
 }
 
 // Run executes the config opencode command
 func (c *ConfigOpencodeCmd) Run() error {
 	ctx := context.Background()
+
+	if c.out == nil {
+		c.out = output.NewClient(os.Stdout, os.Stderr, false)
+	}
 
 	c.printHeader()
 
@@ -29,7 +34,7 @@ func (c *ConfigOpencodeCmd) Run() error {
 
 	client := k8s.NewClient()
 
-	k8sCtx, err := resolveKubeContext(ctx, client, cfg, c.Context, c.Namespace)
+	k8sCtx, err := resolveKubeContext(ctx, client, cfg, c.out, c.Context, c.Namespace)
 	if err != nil {
 		return err
 	}
@@ -47,7 +52,7 @@ func (c *ConfigOpencodeCmd) Run() error {
 }
 
 func (c *ConfigOpencodeCmd) printHeader() {
-	logger.Info("Configuring OpenCode credentials for Ralph remote execution...")
+	c.out.Info("Configuring OpenCode credentials for Ralph remote execution...")
 }
 
 func (c *ConfigOpencodeCmd) readOpenCodeCredentials() (string, error) {
@@ -57,7 +62,7 @@ func (c *ConfigOpencodeCmd) readOpenCodeCredentials() (string, error) {
 	}
 
 	authFilePath := fmt.Sprintf("%s/.local/share/opencode/auth.json", homeDir)
-	logger.Infof("Reading OpenCode credentials from: %s", authFilePath)
+	c.out.Infof("Reading OpenCode credentials from: %s", authFilePath)
 
 	authFileContent, err := os.ReadFile(authFilePath)
 	if err != nil {
@@ -71,12 +76,12 @@ func (c *ConfigOpencodeCmd) readOpenCodeCredentials() (string, error) {
 		return "", fmt.Errorf("auth.json is empty at %s", authFilePath)
 	}
 
-	logger.Success("OpenCode credentials read successfully")
+	c.out.Success("OpenCode credentials read successfully")
 	return string(authFileContent), nil
 }
 
 func (c *ConfigOpencodeCmd) createK8sSecret(ctx context.Context, client k8s.Client, kubeContext, namespace, authFileContent string) error {
-	logger.Infof("Creating/updating Kubernetes secret '%s'...", k8s.OpenCodeSecretName)
+	c.out.Infof("Creating/updating Kubernetes secret '%s'...", k8s.OpenCodeSecretName)
 
 	secretData := map[string]string{
 		"auth.json": authFileContent,
@@ -86,8 +91,8 @@ func (c *ConfigOpencodeCmd) createK8sSecret(ctx context.Context, client k8s.Clie
 		return fmt.Errorf("failed to create/update secret: %w", err)
 	}
 
-	logger.Successf("Secret '%s' created/updated successfully", k8s.OpenCodeSecretName)
+	c.out.Successf("Secret '%s' created/updated successfully", k8s.OpenCodeSecretName)
 
-	logger.Infof("Configuration complete! The secret '%s' is ready for use in namespace '%s'.", k8s.OpenCodeSecretName, namespace)
+	c.out.Infof("Configuration complete! The secret '%s' is ready for use in namespace '%s'.", k8s.OpenCodeSecretName, namespace)
 	return nil
 }

@@ -44,7 +44,7 @@ requirements:
         - Replace logger.Error/Errorf with ctx.Output().Error/Errorf
         - Remove all logger imports from internal/cmd/*.go
         - In internal/cmd/execute_test.go, replace `logger.SetVerbose(true)` with creating a debug output client and setting it on the context via ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, true)); remove the logger import
-      passing: false
+      passing: true
     - slug: replace-logger-in-orchestration
       description: Replace all logger package calls in orchestration modules
       items:

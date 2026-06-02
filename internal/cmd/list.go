@@ -22,7 +22,7 @@ func (l *ListCmd) Run() error {
 	}
 
 	k8sClient := k8s.NewClient()
-	k8sCtx, err := resolveKubeContext(ctx, k8sClient, ralphConfig, l.Context, "")
+	k8sCtx, err := resolveKubeContext(ctx, k8sClient, ralphConfig, nil, l.Context, "")
 	if err != nil {
 		return err
 	}

@@ -6,16 +6,21 @@ import (
 	"path/filepath"
 
 	"github.com/zon/ralph/internal/config"
-	"github.com/zon/ralph/internal/logger"
+	"github.com/zon/ralph/internal/output"
 )
 
 // SetupWorkspaceCmd symlinks mounted config files/dirs into the working directory
 type SetupWorkspaceCmd struct {
 	WorkspaceDir string `help:"Workspace directory containing mounted config files" default:"/workspace"`
+	out          *output.Client
 }
 
 // Run executes the setup-workspace command (implements kong.Run interface)
 func (s *SetupWorkspaceCmd) Run() error {
+	if s.out == nil {
+		s.out = output.NewClient(os.Stdout, os.Stderr, false)
+	}
+
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
@@ -71,7 +76,7 @@ func (s *SetupWorkspaceCmd) link(cwd, destFile, destDir string) error {
 		return nil
 	}
 
-	logger.Infof("Linking %s -> %s", linkPath, src)
+	s.out.Infof("Linking %s -> %s", linkPath, src)
 	if err := os.Symlink(src, linkPath); err != nil {
 		return fmt.Errorf("failed to create symlink %s -> %s: %w", linkPath, src, err)
 	}
