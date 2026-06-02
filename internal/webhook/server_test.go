@@ -8,9 +8,11 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/webhookconfig"
 )
 
@@ -75,7 +77,7 @@ func postWebhook(t *testing.T, s *Server, eventType string, body []byte, signatu
 // ──────────────────────────────────────────────────────────────────────────────
 
 func TestHandleWebhook_InvalidJSON_Returns400(t *testing.T) {
-	s := NewServer(testConfig())
+	s := NewServer(testConfig(), output.NewClient(os.Stdout, os.Stderr, false))
 	req := httptest.NewRequest(http.MethodPost, "/webhook", bytes.NewReader([]byte("not json")))
 	req.Header.Set("X-Hub-Signature-256", "sha256=anything")
 	w := httptest.NewRecorder()
@@ -84,7 +86,7 @@ func TestHandleWebhook_InvalidJSON_Returns400(t *testing.T) {
 }
 
 func TestHandleWebhook_UnknownRepo_Returns401(t *testing.T) {
-	s := NewServer(testConfig())
+	s := NewServer(testConfig(), output.NewClient(os.Stdout, os.Stderr, false))
 	body := buildPayload("unknown-org", "other-repo", nil)
 	sig := sign(body, "doesnotmatter")
 	w := postWebhook(t, s, "pull_request_review_comment", body, sig)
@@ -92,28 +94,28 @@ func TestHandleWebhook_UnknownRepo_Returns401(t *testing.T) {
 }
 
 func TestHandleWebhook_MissingSignature_Returns401(t *testing.T) {
-	s := NewServer(testConfig())
+	s := NewServer(testConfig(), output.NewClient(os.Stdout, os.Stderr, false))
 	body := buildPayload("acme", "myrepo", nil)
 	w := postWebhook(t, s, "pull_request_review_comment", body, "")
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
 func TestHandleWebhook_InvalidSignature_Returns401(t *testing.T) {
-	s := NewServer(testConfig())
+	s := NewServer(testConfig(), output.NewClient(os.Stdout, os.Stderr, false))
 	body := buildPayload("acme", "myrepo", nil)
 	w := postWebhook(t, s, "pull_request_review_comment", body, "sha256=deadbeef")
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
 func TestHandleWebhook_WrongPrefixSignature_Returns401(t *testing.T) {
-	s := NewServer(testConfig())
+	s := NewServer(testConfig(), output.NewClient(os.Stdout, os.Stderr, false))
 	body := buildPayload("acme", "myrepo", nil)
 	w := postWebhook(t, s, "pull_request_review_comment", body, "sha1=abc123")
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
 func TestHandleWebhook_FilteredEvent_Returns200(t *testing.T) {
-	s := NewServer(testConfig())
+	s := NewServer(testConfig(), output.NewClient(os.Stdout, os.Stderr, false))
 	body := buildPayload("acme", "myrepo", nil)
 	sig := sign(body, "supersecret")
 	w := postWebhook(t, s, "unknown_event_type", body, sig)
@@ -121,7 +123,7 @@ func TestHandleWebhook_FilteredEvent_Returns200(t *testing.T) {
 }
 
 func TestHandleWebhook_EmptyRepoOwner_Returns400(t *testing.T) {
-	s := NewServer(testConfig())
+	s := NewServer(testConfig(), output.NewClient(os.Stdout, os.Stderr, false))
 	body := buildPayload("", "myrepo", nil)
 	sig := sign(body, "supersecret")
 	w := postWebhook(t, s, "pull_request_review_comment", body, sig)
@@ -129,7 +131,7 @@ func TestHandleWebhook_EmptyRepoOwner_Returns400(t *testing.T) {
 }
 
 func TestHandleWebhook_EmptyRepoName_Returns400(t *testing.T) {
-	s := NewServer(testConfig())
+	s := NewServer(testConfig(), output.NewClient(os.Stdout, os.Stderr, false))
 	body := buildPayload("acme", "", nil)
 	sig := sign(body, "supersecret")
 	w := postWebhook(t, s, "pull_request_review_comment", body, sig)
@@ -137,7 +139,7 @@ func TestHandleWebhook_EmptyRepoName_Returns400(t *testing.T) {
 }
 
 func TestHandleWebhook_ToWorkflowError_Returns200(t *testing.T) {
-	s := NewServer(testConfig())
+	s := NewServer(testConfig(), output.NewClient(os.Stdout, os.Stderr, false))
 	payload := map[string]interface{}{
 		"repository": map[string]interface{}{
 			"name": "myrepo",

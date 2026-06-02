@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/alecthomas/kong"
-	"github.com/zon/ralph/internal/logger"
+	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/webhook"
 	"github.com/zon/ralph/internal/webhookconfig"
 )
@@ -17,15 +17,15 @@ type CLI struct {
 }
 
 func (c *CLI) Run() error {
-	logger.SetVerbose(c.Verbose)
+	out := output.NewClient(os.Stdout, os.Stderr, c.Verbose)
 
 	cfg, err := webhookconfig.LoadConfig(c.Config, c.Secrets)
 	if err != nil {
 		return err
 	}
 
-	s := webhook.NewServer(cfg)
-	logger.Infof("starting ralph-webhook service on port %d", cfg.App.Port)
+	s := webhook.NewServer(cfg, out)
+	out.Infof("starting ralph-webhook service on port %d", cfg.App.Port)
 	return s.Run()
 }
 

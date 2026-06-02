@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/opencode"
+	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/project"
 	"github.com/zon/ralph/internal/testutil"
 )
@@ -246,14 +246,14 @@ func TestExecute_StartsServices(t *testing.T) {
 }
 
 func TestExecute_WritesBlockedOnAgentFailure(t *testing.T) {
-	logger.SetVerbose(true)
-
 	workDir := setupIterationTestRepo(t, "")
 	t.Chdir(workDir)
 
+	ctx := testutil.NewContext(testutil.WithProjectFile("test-project.yaml"))
+	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, true))
+
 	require.NoError(t, os.WriteFile("test-project.yaml", []byte(projectYAML), 0644))
 
-	ctx := testutil.NewContext(testutil.WithProjectFile("test-project.yaml"))
 	mockOC := mockAgentOC(context.Background(), "test-project.yaml", true)
 	err := project.ExecuteDevelopmentIteration(ctx, mockOC, nil)
 

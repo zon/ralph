@@ -2,7 +2,7 @@ package notify
 
 import (
 	"github.com/gen2brain/beeep"
-	"github.com/zon/ralph/internal/logger"
+	"github.com/zon/ralph/internal/output"
 )
 
 func init() {
@@ -13,7 +13,7 @@ func init() {
 
 // Success sends a success notification
 // If notify is disabled, this is a no-op
-func Success(projectName string, enabled bool) {
+func Success(out *output.Client, projectName string, enabled bool) {
 	if !enabled {
 		return
 	}
@@ -24,13 +24,13 @@ func Success(projectName string, enabled bool) {
 	// Use dialog-information icon (stock icon available on most Linux systems)
 	if err := beeep.Notify(title, message, "dialog-information"); err != nil {
 		// Gracefully handle notification failures
-		logger.Warningf("Failed to send desktop notification: %v", err)
+		out.Warnf("Failed to send desktop notification: %v", err)
 	}
 }
 
 // Error sends an error notification
 // If notify is disabled, this is a no-op
-func Error(projectName string, enabled bool) {
+func Error(out *output.Client, projectName string, enabled bool) {
 	if !enabled {
 		return
 	}
@@ -41,6 +41,6 @@ func Error(projectName string, enabled bool) {
 	// Use dialog-error icon (stock icon available on most Linux systems)
 	if err := beeep.Notify(title, message, "dialog-error"); err != nil {
 		// Gracefully handle notification failures
-		logger.Warningf("Failed to send desktop notification: %v", err)
+		out.Warnf("Failed to send desktop notification: %v", err)
 	}
 }

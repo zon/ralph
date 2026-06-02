@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/zon/ralph/internal/context"
+	"github.com/zon/ralph/internal/output"
 )
 
 // Contains reports whether substr is in s.
@@ -24,6 +25,7 @@ func Contains(s, substr string) bool {
 // Use options to customize specific fields as needed.
 func NewContext(opts ...ContextOption) *context.Context {
 	ctx := context.NewContext()
+	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
 	ctx.SetNoNotify(true)
 	ctx.SetLocal(true)
 	ctx.SetMaxIterations(10)

@@ -2,12 +2,14 @@ package cmd
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	"github.com/alecthomas/kong"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zon/ralph/internal/github"
+	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/webhookconfig"
 )
 
@@ -101,7 +103,7 @@ func TestConfigWebhookSecretFlagParsing(t *testing.T) {
 }
 
 func TestConfigWebhookSecretCmd_RegisterWebhooks_NoRepos(t *testing.T) {
-	cmd := &ConfigWebhookSecretCmd{}
+	cmd := &ConfigWebhookSecretCmd{out: output.NewClient(os.Stdout, os.Stderr, false)}
 
 	err := cmd.registerWebhooks(context.Background(), &webhookconfig.Secrets{
 		Repos: []webhookconfig.RepoSecret{},
@@ -111,7 +113,7 @@ func TestConfigWebhookSecretCmd_RegisterWebhooks_NoRepos(t *testing.T) {
 }
 
 func TestConfigWebhookSecretCmd_RegisterWebhooks_MultipleRepos(t *testing.T) {
-	cmd := &ConfigWebhookSecretCmd{}
+	cmd := &ConfigWebhookSecretCmd{out: output.NewClient(os.Stdout, os.Stderr, false)}
 
 	err := cmd.registerWebhooks(context.Background(), &webhookconfig.Secrets{
 		Repos: []webhookconfig.RepoSecret{

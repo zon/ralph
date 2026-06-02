@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/zon/ralph/internal/git"
-	"github.com/zon/ralph/internal/logger"
+	"github.com/zon/ralph/internal/output"
 )
 
 const (
@@ -15,8 +15,8 @@ const (
 	DefaultWorkDir            = "/workspace/repo"
 )
 
-func SetupOpenCodeCredentials() error {
-	logger.Info("Setting up OpenCode credentials...")
+func SetupOpenCodeCredentials(out *output.Client) error {
+	out.Info("Setting up OpenCode credentials...")
 
 	openCodeDir := filepath.Join(os.Getenv("HOME"), ".local", "share", "opencode")
 	if err := os.MkdirAll(openCodeDir, 0755); err != nil {
@@ -33,7 +33,7 @@ func SetupOpenCodeCredentials() error {
 		if err := os.WriteFile(destPath, data, 0644); err != nil {
 			return fmt.Errorf("failed to write auth file: %w", err)
 		}
-		logger.Infof("Copied OpenCode credentials to %s", destPath)
+		out.Infof("Copied OpenCode credentials to %s", destPath)
 	} else if !os.IsNotExist(err) {
 		return fmt.Errorf("failed to check auth file: %w", err)
 	}
@@ -41,8 +41,8 @@ func SetupOpenCodeCredentials() error {
 	return nil
 }
 
-func PrepareWorkspace(repoURL, branch, workDir string) error {
-	logger.Infof("Cloning repository: %s", repoURL)
+func PrepareWorkspace(out *output.Client, repoURL, branch, workDir string) error {
+	out.Infof("Cloning repository: %s", repoURL)
 
 	if err := os.MkdirAll(filepath.Dir(workDir), 0755); err != nil {
 		return fmt.Errorf("failed to create work dir: %w", err)

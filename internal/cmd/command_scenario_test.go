@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/zon/ralph/internal/config"
+	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/testutil"
 )
 
@@ -162,6 +163,7 @@ requirements: []
 		testutil.WithLocal(false),
 		testutil.WithNoNotify(true),
 	)
+	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
 
 	err := executeCommandRemote(ctx, setup)
 	assert.NoError(t, err)
@@ -188,6 +190,7 @@ requirements: []
 		testutil.WithFollow(true),
 		testutil.WithNoNotify(true),
 	)
+	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
 
 	err := executeCommandRemote(ctx, setup)
 	assert.NoError(t, err)

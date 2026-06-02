@@ -12,13 +12,14 @@ import (
 
 	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/opencode"
+	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/project"
 	orchestrationRun "github.com/zon/ralph/internal/orchestration/run"
 )
 
 func TestGitHubClientNew(t *testing.T) {
 	ctx := execcontext.NewContext()
-	client := NewClient(ctx, "main", &GH{}, &opencode.MockOC{})
+	client := NewClient(ctx, "main", NewGH(nil), &opencode.MockOC{})
 	require.NotNil(t, client)
 	var _ orchestrationRun.GitHubClient = client
 }
@@ -36,6 +37,7 @@ func TestClientCreatePR_DelegatesToCreatePullRequest(t *testing.T) {
 		},
 	}
 	ctx := execcontext.NewContext()
+	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
 	mockOC := &opencode.MockOC{
 		RunCommandFunc: func(_ context.Context, _, _, prompt string, _, _ io.Writer) error {
 			// Extract the output file path from the prompt and write mock content
@@ -66,6 +68,7 @@ func TestClientCreatePR_WorkflowExecutionCallsConfigureGitAuth(t *testing.T) {
 		CreatePRFn: func(title, body, base, head string) (string, error) { return "https://github.com/o/r/p/1", nil },
 	}
 	ctx := execcontext.NewContext()
+	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
 	ctx.SetWorkflowExecution(true)
 	ctx.SetRepoOwner("test-owner")
 	ctx.SetRepoName("test-repo")
@@ -102,6 +105,7 @@ func TestClientCreatePR_SkipsConfigureGitAuthWhenNotWorkflow(t *testing.T) {
 		},
 	}
 	ctx := execcontext.NewContext()
+	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
 	mockOC := &opencode.MockOC{
 		RunCommandFunc: func(_ context.Context, _, _, prompt string, _, _ io.Writer) error {
 			if idx := strings.Index(prompt, "Write your summary to the file:"); idx >= 0 {
@@ -129,6 +133,7 @@ func TestClientCreatePR_PropagatesCreatePullRequestError(t *testing.T) {
 		CreatePRFn: func(title, body, base, head string) (string, error) { return "", assert.AnError },
 	}
 	ctx := execcontext.NewContext()
+	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
 	mockOC := &opencode.MockOC{
 		RunCommandFunc: func(_ context.Context, _, _, prompt string, _, _ io.Writer) error {
 			if idx := strings.Index(prompt, "Write your summary to the file:"); idx >= 0 {

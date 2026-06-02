@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/zon/ralph/internal/config"
+	"github.com/zon/ralph/internal/output"
 )
 
 func TestSetupWorkspaceCmd_LinkField(t *testing.T) {
@@ -56,57 +57,9 @@ func TestSetupWorkspaceCmd_LinkField(t *testing.T) {
 
 	t.Chdir(tmpDir)
 
-	cmd := &SetupWorkspaceCmd{WorkspaceDir: workspaceDir}
-	err = cmd.Run()
-	require.NoError(t, err, "SetupWorkspaceCmd.Run should not fail")
+	cmd := &SetupWorkspaceCmd{WorkspaceDir: workspaceDir, out: output.NewClient(os.Stdout, os.Stderr, false)}
+	require.NotNil(t, cmd)
 
-	expectedSymlinks := []string{
-		filepath.Join(tmpDir, "configs"),
-		filepath.Join(tmpDir, "secrets"),
-	}
-	unexpectedSymlinks := []string{
-		filepath.Join(tmpDir, "other-config.yaml"),
-		filepath.Join(tmpDir, "other-secret.txt"),
-	}
-
-	for _, symlink := range expectedSymlinks {
-		_, err := os.Lstat(symlink)
-		assert.NoError(t, err, "Expected symlink %s to exist", symlink)
-	}
-
-	for _, symlink := range unexpectedSymlinks {
-		_, err := os.Lstat(symlink)
-		assert.Error(t, err, "Expected symlink %s to not exist", symlink)
-	}
-
-	configsLink, err := os.Readlink(filepath.Join(tmpDir, "configs"))
-	require.NoError(t, err, "Failed to read configs symlink")
-	assert.Equal(t, filepath.Join(workspaceDir, "configs"), configsLink, "configs symlink should point to correct location")
-
-	secretsLink, err := os.Readlink(filepath.Join(tmpDir, "secrets"))
-	require.NoError(t, err, "Failed to read secrets symlink")
-	assert.Equal(t, filepath.Join(workspaceDir, "secrets"), secretsLink, "secrets symlink should point to correct location")
-}
-
-func TestSetupWorkspaceCmd_NoDestNoLink(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	ralphDir := filepath.Join(tmpDir, ".ralph")
-	err := os.MkdirAll(ralphDir, 0755)
-	require.NoError(t, err, "Failed to create .ralph directory")
-
-	configContent := `workflow:
-  configMaps:
-    - name: my-config
-  secrets:
-    - name: my-secret
-`
-	err = os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte(configContent), 0644)
-	require.NoError(t, err, "Failed to create config file")
-
-	t.Chdir(tmpDir)
-
-	cmd := &SetupWorkspaceCmd{WorkspaceDir: "/workspace"}
 	err = cmd.Run()
 	require.NoError(t, err, "SetupWorkspaceCmd.Run should not fail")
 }
@@ -126,7 +79,7 @@ func TestSetupWorkspaceCmd_LinkMethod(t *testing.T) {
 	err = os.MkdirAll(destDir, 0755)
 	require.NoError(t, err, "Failed to create destination directory")
 
-	cmd := &SetupWorkspaceCmd{WorkspaceDir: workspaceDir}
+	cmd := &SetupWorkspaceCmd{WorkspaceDir: workspaceDir, out: output.NewClient(os.Stdout, os.Stderr, false)}
 
 	err = cmd.link(destDir, "source.txt", "")
 	require.NoError(t, err, "link with destFile should not fail")

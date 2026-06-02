@@ -1,9 +1,12 @@
 package github
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/zon/ralph/internal/output"
 )
 
 func TestMakeRepo(t *testing.T) {
@@ -76,7 +79,7 @@ func TestParsePRURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := parsePRURL(tt.output)
+			result, err := parsePRURL(output.NewClient(os.Stdout, os.Stderr, false), tt.output)
 			if tt.err {
 				assert.Error(t, err)
 			} else {

@@ -20,7 +20,7 @@ func TestBuildWebhookAppConfig(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("fills all defaults from nil base and nil updates", func(t *testing.T) {
-		cfg := BuildWebhookAppConfig(ctx, nil, nil, "", "", "", &github.MockGH{})
+		cfg := BuildWebhookAppConfig(ctx, nil, nil, nil, "", "", "", &github.MockGH{})
 
 		assert.Equal(t, 8080, cfg.Port)
 		assert.Equal(t, config.DefaultAppName+"[bot]", cfg.RalphUser)
@@ -34,7 +34,7 @@ func TestBuildWebhookAppConfig(t *testing.T) {
 				{Owner: "my-owner", Name: "my-repo", Namespace: "my-ns"},
 			},
 		}
-		cfg := BuildWebhookAppConfig(ctx, base, nil, "", "", "", &github.MockGH{})
+		cfg := BuildWebhookAppConfig(ctx, nil, base, nil, "", "", "", &github.MockGH{})
 
 		assert.Equal(t, 9090, cfg.Port)
 		require.Len(t, cfg.Repos, 1)
@@ -53,7 +53,7 @@ func TestBuildWebhookAppConfig(t *testing.T) {
 				{Owner: "acme", Name: "repo-a", Namespace: "new-ns"},
 			},
 		}
-		cfg := BuildWebhookAppConfig(ctx, base, updates, "", "", "", &github.MockGH{})
+		cfg := BuildWebhookAppConfig(ctx, nil, base, updates, "", "", "", &github.MockGH{})
 
 		require.Len(t, cfg.Repos, 2)
 		assert.Equal(t, "new-ns", cfg.Repos[0].Namespace)
@@ -71,7 +71,7 @@ func TestBuildWebhookAppConfig(t *testing.T) {
 				{Owner: "acme", Name: "repo-b", Namespace: "ns-b"},
 			},
 		}
-		cfg := BuildWebhookAppConfig(ctx, base, updates, "", "", "", &github.MockGH{})
+		cfg := BuildWebhookAppConfig(ctx, nil, base, updates, "", "", "", &github.MockGH{})
 
 		require.Len(t, cfg.Repos, 2)
 		assert.Equal(t, "repo-a", cfg.Repos[0].Name)
@@ -81,13 +81,13 @@ func TestBuildWebhookAppConfig(t *testing.T) {
 	t.Run("updates override port from base", func(t *testing.T) {
 		base := &webhookconfig.AppConfig{Port: 8080}
 		updates := &webhookconfig.AppConfig{Port: 9090}
-		cfg := BuildWebhookAppConfig(ctx, base, updates, "", "", "", &github.MockGH{})
+		cfg := BuildWebhookAppConfig(ctx, nil, base, updates, "", "", "", &github.MockGH{})
 
 		assert.Equal(t, 9090, cfg.Port)
 	})
 
 	t.Run("auto-detected repo upserts into result", func(t *testing.T) {
-		cfg := BuildWebhookAppConfig(ctx, nil, nil, "my-owner", "my-repo", "my-ns", &github.MockGH{})
+		cfg := BuildWebhookAppConfig(ctx, nil, nil, nil, "my-owner", "my-repo", "my-ns", &github.MockGH{})
 
 		require.Len(t, cfg.Repos, 1)
 		assert.Equal(t, "my-owner", cfg.Repos[0].Owner)
@@ -101,7 +101,7 @@ func TestBuildWebhookAppConfig(t *testing.T) {
 				{Owner: "my-owner", Name: "my-repo", Namespace: "old-ns"},
 			},
 		}
-		cfg := BuildWebhookAppConfig(ctx, base, nil, "my-owner", "my-repo", "new-ns", &github.MockGH{})
+		cfg := BuildWebhookAppConfig(ctx, nil, base, nil, "my-owner", "my-repo", "new-ns", &github.MockGH{})
 
 		require.Len(t, cfg.Repos, 1)
 		assert.Equal(t, "new-ns", cfg.Repos[0].Namespace)
@@ -113,7 +113,7 @@ func TestBuildWebhookAppConfig(t *testing.T) {
 				{Owner: "owner-a", Name: "repo-a", Namespace: "ns-a"},
 			},
 		}
-		cfg := BuildWebhookAppConfig(ctx, base, nil, "owner-b", "repo-b", "ns-b", &github.MockGH{})
+		cfg := BuildWebhookAppConfig(ctx, nil, base, nil, "owner-b", "repo-b", "ns-b", &github.MockGH{})
 
 		require.Len(t, cfg.Repos, 2)
 		assert.Equal(t, "repo-a", cfg.Repos[0].Name)
@@ -130,7 +130,7 @@ func TestBuildWebhookAppConfig(t *testing.T) {
 		loaded, err := webhookconfig.LoadAppConfig(path)
 		require.NoError(t, err)
 
-		cfg := BuildWebhookAppConfig(ctx, nil, loaded, "", "", "", &github.MockGH{})
+		cfg := BuildWebhookAppConfig(ctx, nil, nil, loaded, "", "", "", &github.MockGH{})
 
 		assert.Equal(t, 7070, cfg.Port)
 	})
@@ -141,7 +141,7 @@ func TestBuildWebhookAppConfig(t *testing.T) {
 				return []string{"alice", "bob"}, nil
 			},
 		}
-		cfg := BuildWebhookAppConfig(ctx, nil, nil, "my-owner", "my-repo", "my-ns", gh)
+		cfg := BuildWebhookAppConfig(ctx, nil, nil, nil, "my-owner", "my-repo", "my-ns", gh)
 
 		require.Len(t, cfg.Repos, 1)
 		assert.Equal(t, []string{"alice", "bob"}, cfg.Repos[0].AllowedUsers)
@@ -158,7 +158,7 @@ func TestBuildWebhookAppConfig(t *testing.T) {
 				return []string{"alice", "bob"}, nil
 			},
 		}
-		cfg := BuildWebhookAppConfig(ctx, base, nil, "", "", "", gh)
+		cfg := BuildWebhookAppConfig(ctx, nil, base, nil, "", "", "", gh)
 
 		require.Len(t, cfg.Repos, 1)
 		assert.Equal(t, []string{"existing-user"}, cfg.Repos[0].AllowedUsers)
@@ -170,14 +170,14 @@ func TestBuildWebhookAppConfig(t *testing.T) {
 				return nil, fmt.Errorf("API error")
 			},
 		}
-		cfg := BuildWebhookAppConfig(ctx, nil, nil, "my-owner", "my-repo", "my-ns", gh)
+		cfg := BuildWebhookAppConfig(ctx, nil, nil, nil, "my-owner", "my-repo", "my-ns", gh)
 
 		require.Len(t, cfg.Repos, 1)
 		assert.Empty(t, cfg.Repos[0].AllowedUsers)
 	})
 
 	t.Run("sets RalphUser to DefaultAppName[bot] by default", func(t *testing.T) {
-		cfg := BuildWebhookAppConfig(ctx, nil, nil, "", "", "", &github.MockGH{})
+		cfg := BuildWebhookAppConfig(ctx, nil, nil, nil, "", "", "", &github.MockGH{})
 
 		assert.Equal(t, config.DefaultAppName+"[bot]", cfg.RalphUser)
 	})
@@ -185,14 +185,14 @@ func TestBuildWebhookAppConfig(t *testing.T) {
 	t.Run("updates override base RalphUser", func(t *testing.T) {
 		base := &webhookconfig.AppConfig{RalphUser: "base-bot"}
 		updates := &webhookconfig.AppConfig{RalphUser: "new-bot"}
-		cfg := BuildWebhookAppConfig(ctx, base, updates, "", "", "", &github.MockGH{})
+		cfg := BuildWebhookAppConfig(ctx, nil, base, updates, "", "", "", &github.MockGH{})
 
 		assert.Equal(t, "new-bot", cfg.RalphUser)
 	})
 
 	t.Run("base RalphUser preserved when updates has none", func(t *testing.T) {
 		base := &webhookconfig.AppConfig{RalphUser: "existing-bot"}
-		cfg := BuildWebhookAppConfig(ctx, base, nil, "", "", "", &github.MockGH{})
+		cfg := BuildWebhookAppConfig(ctx, nil, base, nil, "", "", "", &github.MockGH{})
 
 		assert.Equal(t, "existing-bot", cfg.RalphUser)
 	})

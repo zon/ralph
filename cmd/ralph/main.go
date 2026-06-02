@@ -1,9 +1,12 @@
 package main
 
 import (
+	"os"
+
 	"github.com/alecthomas/kong"
 	"github.com/zon/ralph/internal/cleanup"
 	"github.com/zon/ralph/internal/cmd"
+	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/version"
 )
 
@@ -11,7 +14,7 @@ import (
 var Date = "unknown"
 
 // Global cleanup manager instance
-var cleanupManager = cleanup.NewManager()
+var cleanupManager = cleanup.NewManager(output.NewClient(os.Stdout, os.Stderr, false))
 
 func main() {
 	// Set up signal handlers for graceful shutdown

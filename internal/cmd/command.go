@@ -2,9 +2,11 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
+	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/workspace"
 )
 
@@ -68,6 +70,7 @@ func (c *CommandCmd) validateArgs() error {
 func (c *CommandCmd) createExecutionContext() *execcontext.Context {
 	ctx := createExecutionContext()
 	ctx.SetVerbose(c.Verbose)
+	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, c.Verbose))
 	ctx.SetNoNotify(c.NoNotify)
 	ctx.SetNoServices(c.NoServices)
 	ctx.SetLocal(c.Local)

@@ -13,7 +13,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/zon/ralph/internal/argo"
-	"github.com/zon/ralph/internal/logger"
+	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/webhookconfig"
 )
 
@@ -21,10 +21,11 @@ import (
 type Server struct {
 	config *webhookconfig.Config
 	router *gin.Engine
+	out    *output.Client
 }
 
 // NewServer creates a new webhook Server with the given configuration.
-func NewServer(cfg *webhookconfig.Config) *Server {
+func NewServer(cfg *webhookconfig.Config, out *output.Client) *Server {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	router.Use(gin.Recovery())
@@ -32,6 +33,7 @@ func NewServer(cfg *webhookconfig.Config) *Server {
 	s := &Server{
 		config: cfg,
 		router: router,
+		out:    out,
 	}
 
 	router.POST("/webhook", s.handleWebhook)
@@ -67,18 +69,18 @@ func (s *Server) handleWebhook(c *gin.Context) {
 		return
 	}
 
-	logger.Verbosef("received webhook for %s/%s", owner, repoName)
+	s.out.Debugf("received webhook for %s/%s", owner, repoName)
 
 	secret := s.config.WebhookSecretForRepo(owner, repoName)
 	if secret == "" {
-		logger.Verbosef("ignoring event: repo %s/%s not configured", owner, repoName)
+		s.out.Debugf("ignoring event: repo %s/%s not configured", owner, repoName)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "repository not configured"})
 		return
 	}
 
 	sig := c.GetHeader("X-Hub-Signature-256")
 	if !validateSignature(body, secret, sig) {
-		logger.Verbosef("rejected request: invalid signature for %s/%s", owner, repoName)
+		s.out.Debugf("rejected request: invalid signature for %s/%s", owner, repoName)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid signature"})
 		return
 	}
@@ -88,25 +90,25 @@ func (s *Server) handleWebhook(c *gin.Context) {
 	if msg == "" {
 		msg = payload.Comment.Body
 	}
-	logger.Verbosef("incoming %s (%s) for %s/%s PR#%d branch=%s body=%q", eventType, payload.Action, owner, repoName, payload.PullRequest.Number, payload.PullRequest.Head.Ref, msg)
+	s.out.Debugf("incoming %s (%s) for %s/%s PR#%d branch=%s body=%q", eventType, payload.Action, owner, repoName, payload.PullRequest.Number, payload.PullRequest.Head.Ref, msg)
 
 	if !payload.IsAcceptable(eventType, s.config) {
-		logger.Verbosef("ignoring %s event for %s/%s", eventType, owner, repoName)
+		s.out.Debugf("ignoring %s event for %s/%s", eventType, owner, repoName)
 		c.Status(http.StatusOK)
 		return
 	}
 
 	event := payload.ToEvent(eventType)
-	logger.Verbosef("dispatching %s for %s/%s", eventType, owner, repoName)
+	s.out.Debugf("dispatching %s for %s/%s", eventType, owner, repoName)
 
 	result, err := event.ToWorkflow(s.config)
 	if err != nil {
-		logger.Verbosef("failed to generate workflow for %s/%s: %v", owner, repoName, err)
+		s.out.Debugf("failed to generate workflow for %s/%s: %v", owner, repoName, err)
 		c.Status(http.StatusOK)
 		return
 	}
 
-	go submitWorkflow(result, owner, repoName)
+	go submitWorkflow(s.out, result, owner, repoName)
 	c.Status(http.StatusOK)
 }
 
@@ -125,25 +127,25 @@ func (s *Server) readAndParsePayload(c *gin.Context) (*githubPayload, []byte, er
 }
 
 // submitWorkflow submits a WorkflowResult asynchronously.
-func submitWorkflow(result *WorkflowResult, owner, repoName string) {
+func submitWorkflow(out *output.Client, result *WorkflowResult, owner, repoName string) {
 	client := argo.NewClient()
 	ctx := context.Background()
 	if result.Run != nil {
 		name, err := result.Run.Submit(ctx, client)
 		if err != nil {
-			logger.Verbosef("failed to submit run workflow for %s/%s: %v", owner, repoName, err)
+			out.Debugf("failed to submit run workflow for %s/%s: %v", owner, repoName, err)
 			return
 		}
-		logger.Verbosef("submitted run workflow %s for %s/%s", name, owner, repoName)
-		logger.Verbosef("To watch logs, run: argo logs -n %s -f %s", result.Namespace, name)
+		out.Debugf("submitted run workflow %s for %s/%s", name, owner, repoName)
+		out.Debugf("To watch logs, run: argo logs -n %s -f %s", result.Namespace, name)
 	} else if result.Merge != nil {
 		name, err := result.Merge.Submit(ctx, client)
 		if err != nil {
-			logger.Verbosef("failed to submit merge workflow for %s/%s: %v", owner, repoName, err)
+			out.Debugf("failed to submit merge workflow for %s/%s: %v", owner, repoName, err)
 			return
 		}
-		logger.Verbosef("submitted merge workflow %s for %s/%s", name, owner, repoName)
-		logger.Verbosef("To watch logs, run: argo logs -n %s -f %s", result.Namespace, name)
+		out.Debugf("submitted merge workflow %s for %s/%s", name, owner, repoName)
+		out.Debugf("To watch logs, run: argo logs -n %s -f %s", result.Namespace, name)
 	}
 }
 

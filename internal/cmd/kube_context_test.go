@@ -176,12 +176,12 @@ func TestResolveKubeContext(t *testing.T) {
 					require.Error(t, err)
 					return
 				}
-				_, err = resolveKubeContext(ctx, mockClient, cfg, tt.flagContext, tt.flagNamespace)
+				_, err = resolveKubeContext(ctx, mockClient, cfg, nil, tt.flagContext, tt.flagNamespace)
 				require.Error(t, err)
 				return
 			}
 
-			k8sCtx, err := resolveKubeContext(ctx, mockClient, cfg, tt.flagContext, tt.flagNamespace)
+			k8sCtx, err := resolveKubeContext(ctx, mockClient, cfg, nil, tt.flagContext, tt.flagNamespace)
 			require.NoError(t, err)
 			assert.Equal(t, tt.expectedContext, k8sCtx.Name)
 			assert.Equal(t, tt.expectedNamespace, k8sCtx.Namespace)
@@ -214,7 +214,7 @@ func TestResolveKubeContext_UpwardSearch(t *testing.T) {
 		return k8s.Context{Name: "test-ctx", Namespace: "default"}, nil
 	}
 
-	k8sCtx, err := resolveKubeContext(ctx, mockClient, cfg, "", "")
+	k8sCtx, err := resolveKubeContext(ctx, mockClient, cfg, nil, "", "")
 
 	require.NoError(t, err)
 	assert.Equal(t, "test-ctx", k8sCtx.Name)

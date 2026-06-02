@@ -8,7 +8,6 @@ import (
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
 	githubpkg "github.com/zon/ralph/internal/github"
-	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/notify"
 	orchestrationRun "github.com/zon/ralph/internal/orchestration/run"
 	"github.com/zon/ralph/internal/project"
@@ -65,7 +64,7 @@ func (a *workflowClientAdapter) FollowLogs(workflowName string) error {
 }
 
 func (a *workflowClientAdapter) PrintLogHint(workflowName string) {
-	logger.Infof("To follow logs, run: argo logs -n %s %s -f", a.namespace, workflowName)
+	a.ctx.Output().Infof("To follow logs, run: argo logs -n %s %s -f", a.namespace, workflowName)
 }
 
 func NewRemoteRunner(ctx *context.Context) *orchestrationRun.RemoteRunner {

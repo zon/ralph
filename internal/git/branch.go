@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/zon/ralph/internal/context"
-	"github.com/zon/ralph/internal/logger"
 )
 
 // GetCurrentBranch returns the name of the current git branch
@@ -123,7 +122,7 @@ func ValidateGitStateAndSwitchBranch(ctx *context.Context, branchName string) er
 		return fmt.Errorf("failed to get current branch: %w", err)
 	}
 
-	logger.Verbosef("Current branch: %s", currentBranch)
+	ctx.Output().Debugf("Current branch: %s", currentBranch)
 
 	if err := validateBranchSync(ctx, currentBranch); err != nil {
 		return err
@@ -134,7 +133,7 @@ func ValidateGitStateAndSwitchBranch(ctx *context.Context, branchName string) er
 			return err
 		}
 	} else {
-		logger.Verbosef("Already on branch '%s'", branchName)
+		ctx.Output().Debugf("Already on branch '%s'", branchName)
 	}
 
 	return nil
@@ -142,12 +141,12 @@ func ValidateGitStateAndSwitchBranch(ctx *context.Context, branchName string) er
 
 func validateBranchSync(ctx *context.Context, currentBranch string) error {
 	if !ctx.IsWorkflowExecution() {
-		logger.Verbosef("Checking branch '%s' is in sync with remote...", currentBranch)
+		ctx.Output().Debugf("Checking branch '%s' is in sync with remote...", currentBranch)
 		if err := IsBranchSyncedWithRemote(currentBranch); err != nil {
 			return err
 		}
 	} else {
-		logger.Verbosef("Skipping remote sync check (running in workflow container)")
+		ctx.Output().Debugf("Skipping remote sync check (running in workflow container)")
 	}
 	return nil
 }
@@ -160,7 +159,7 @@ func SwitchToProjectBranch(ctx *context.Context, branchName string) error {
 	}
 
 	if err := Fetch(auth); err != nil {
-		logger.Verbosef("Could not fetch from remote (continuing anyway): %v", err)
+		ctx.Output().Debugf("Could not fetch from remote (continuing anyway): %v", err)
 	}
 
 	if err := CheckoutOrCreateBranch(branchName); err != nil {

@@ -10,7 +10,7 @@ import (
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/github"
-	"github.com/zon/ralph/internal/logger"
+	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/project"
 	"github.com/zon/ralph/internal/workspace"
 )
@@ -43,6 +43,7 @@ func (w *WorkflowCmd) Run() error {
 
 	ctx := createExecutionContext()
 	ctx.SetVerbose(w.Verbose)
+	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, w.Verbose))
 	ctx.SetNoServices(w.NoServices)
 	ctx.SetRepo(w.Repo)
 	ctx.SetBranch(w.ProjectBranch)
@@ -55,13 +56,13 @@ func (w *WorkflowCmd) Run() error {
 	ctx.SetBotEmail(w.BotEmail)
 	ctx.SetModel(w.Model)
 
-	logger.Info("Executing workflow inside container...")
+	ctx.Output().Info("Executing workflow inside container...")
 
 	if err := w.setupGitHubAuth(ctx); err != nil {
 		return fmt.Errorf("failed to setup GitHub auth: %w", err)
 	}
 
-	if err := workspace.SetupOpenCodeCredentials(); err != nil {
+	if err := workspace.SetupOpenCodeCredentials(ctx.Output()); err != nil {
 		return fmt.Errorf("failed to setup OpenCode credentials: %w", err)
 	}
 
@@ -88,23 +89,23 @@ func (w *WorkflowCmd) setupGitHubAuth(ctx *context.Context) error {
 		return fmt.Errorf("failed to parse owner/repo: %s", ctx.Repo())
 	}
 
-	logger.Info("Setting up GitHub App token and configuring git authentication...")
+	ctx.Output().Info("Setting up GitHub App token and configuring git authentication...")
 	return github.ConfigureGitAuth(gocontext.Background(), owner, repo, DefaultSecretsDir)
 }
 
 func (w *WorkflowCmd) configureGitUser(ctx *context.Context) {
-	logger.Info("Configuring git user...")
+	ctx.Output().Info("Configuring git user...")
 	_ = git.Config(true, "user.name", ctx.BotName())
 	_ = git.Config(true, "user.email", ctx.BotEmail())
 }
 
 func (w *WorkflowCmd) cloneAndSetupRepo(ctx *context.Context) error {
 	cloneBranch := os.Getenv("GIT_BRANCH")
-	if err := workspace.PrepareWorkspace(ctx.RepoURL(), cloneBranch, workspace.DefaultWorkDir); err != nil {
+	if err := workspace.PrepareWorkspace(ctx.Output(), ctx.RepoURL(), cloneBranch, workspace.DefaultWorkDir); err != nil {
 		return err
 	}
 
-	setupCmd := &SetupWorkspaceCmd{WorkspaceDir: workspace.DefaultWorkspaceDir}
+	setupCmd := &SetupWorkspaceCmd{WorkspaceDir: workspace.DefaultWorkspaceDir, out: ctx.Output()}
 	if err := setupCmd.Run(); err != nil {
 		return fmt.Errorf("failed to setup workspace: %w", err)
 	}
@@ -113,10 +114,10 @@ func (w *WorkflowCmd) cloneAndSetupRepo(ctx *context.Context) error {
 }
 
 func (w *WorkflowCmd) syncBaseBranch(ctx *context.Context) error {
-	logger.Infof("Base branch: %s", ctx.BaseBranch())
+	ctx.Output().Infof("Base branch: %s", ctx.BaseBranch())
 
 	if err := w.fetchBaseBranch(ctx); err != nil {
-		logger.Warningf("failed to fetch base branch: %v", err)
+		ctx.Output().Warnf("failed to fetch base branch: %v", err)
 		return nil
 	}
 
@@ -126,18 +127,18 @@ func (w *WorkflowCmd) syncBaseBranch(ctx *context.Context) error {
 	}
 
 	if !needsMerge {
-		logger.Info("Project branch is up-to-date with base branch")
+		ctx.Output().Info("Project branch is up-to-date with base branch")
 		return nil
 	}
 
-	logger.Info("Project branch is behind base branch, attempting merge...")
+	ctx.Output().Info("Project branch is behind base branch, attempting merge...")
 	return w.mergeBaseBranch(ctx)
 }
 
 func (w *WorkflowCmd) fetchBaseBranch(ctx *context.Context) error {
 	baseBranch := ctx.BaseBranch()
-	logger.Infof("Fetching base branch: %s", baseBranch)
-	return git.FetchBranch(baseBranch)
+	ctx.Output().Infof("Fetching base branch: %s", baseBranch)
+	return git.FetchBranch(ctx.Output(), baseBranch)
 }
 
 func (w *WorkflowCmd) checkIfMergeNeeded(ctx *context.Context) (bool, error) {
@@ -162,19 +163,19 @@ func (w *WorkflowCmd) checkIfMergeNeeded(ctx *context.Context) (bool, error) {
 func (w *WorkflowCmd) mergeBaseBranch(ctx *context.Context) error {
 	baseBranch := ctx.BaseBranch()
 	if err := git.Merge(baseBranch); err != nil {
-		logger.Info("Merge had conflicts - resolving with AI...")
+		ctx.Output().Info("Merge had conflicts - resolving with AI...")
 		_ = git.AbortMerge()
 
 		return w.resolveConflictsWithAI(ctx)
 	}
 
-	logger.Info("Merge successful (fast-forward or no conflicts)")
+	ctx.Output().Info("Merge successful (fast-forward or no conflicts)")
 	return nil
 }
 
 func (w *WorkflowCmd) resolveConflictsWithAI(ctx *context.Context) error {
 	baseBranch := ctx.BaseBranch()
-	logger.Info("Running AI to resolve merge conflicts...")
+	ctx.Output().Info("Running AI to resolve merge conflicts...")
 
 	instructions := fmt.Sprintf(`You need to resolve merge conflicts between the base branch (%s) and the current branch (%s).
 
@@ -202,7 +203,7 @@ Focus on accepting the correct changes from both branches. If there are test fai
 }
 
 func (w *WorkflowCmd) runProject(ctx *context.Context) error {
-	logger.Info("Running project...")
+	ctx.Output().Info("Running project...")
 
 	return w.prepareAndExecute(ctx, w.cleanupRegistrar, "")
 }

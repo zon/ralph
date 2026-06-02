@@ -8,7 +8,6 @@ import (
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
-	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/opencode"
 	"github.com/zon/ralph/internal/project"
 	"github.com/zon/ralph/internal/services"
@@ -74,7 +73,7 @@ func (a *AgentClient) GenerateChangelog(proj *project.Project) error {
 }
 
 func (a *AgentClient) FixServiceStartup(cfg *config.RalphConfig, err error) error {
-	svcMgr := services.NewManager()
+	svcMgr := services.NewManager(a.ctx.Output())
 	if failedSvc, startErr := svcMgr.Start(cfg.Services); startErr != nil {
 		fixPrompt, buildErr := ai.BuildFixServicePrompt(a.ctx, failedSvc, startErr)
 		if buildErr != nil {
@@ -90,7 +89,7 @@ func (a *AgentClient) PrintStats() {
 	if err != nil {
 		return
 	}
-	logger.Infof("Input tokens: %s, Output tokens: %s, Cost: $%.2f", formatTokens(stats.InputTokens), formatTokens(stats.OutputTokens), stats.Cost)
+	a.ctx.Output().Infof("Input tokens: %s, Output tokens: %s, Cost: $%.2f", formatTokens(stats.InputTokens), formatTokens(stats.OutputTokens), stats.Cost)
 }
 
 func formatTokens(n int64) string {

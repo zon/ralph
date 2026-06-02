@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zon/ralph/internal/logger"
+	"github.com/zon/ralph/internal/output"
 )
 
 type GitClient interface {
@@ -43,22 +43,24 @@ type MergeCmd struct {
 	github   GitHubClient
 	project  ProjectClient
 	workflow WorkflowClient
+	out      *output.Client
 }
 
-func NewMergeCmd(git GitClient, github GitHubClient, project ProjectClient, workflow WorkflowClient) *MergeCmd {
+func NewMergeCmd(git GitClient, github GitHubClient, project ProjectClient, workflow WorkflowClient, out *output.Client) *MergeCmd {
 	return &MergeCmd{
 		git:      git,
 		github:   github,
 		project:  project,
 		workflow: workflow,
+		out:      out,
 	}
 }
 
-func (m *MergeCmd) Run(flags MergeFlags) error {
-	if flags.Verbose {
-		logger.SetVerbose(true)
-	}
+func (m *MergeCmd) SetOutput(out *output.Client) {
+	m.out = out
+}
 
+func (m *MergeCmd) Run(flags MergeFlags) error {
 	if flags.Local {
 		return m.runLocal(flags)
 	}
@@ -68,7 +70,7 @@ func (m *MergeCmd) Run(flags MergeFlags) error {
 		return fmt.Errorf("failed to submit merge workflow: %w", err)
 	}
 
-	logger.Successf("Merge workflow submitted: %s", workflowName)
+	m.out.Successf("Merge workflow submitted: %s", workflowName)
 	return nil
 }
 
@@ -83,7 +85,7 @@ func (m *MergeCmd) runLocal(flags MergeFlags) error {
 func (m *MergeCmd) scanAndCleanupProjects(flags MergeFlags) error {
 	projectsDir := "projects"
 	if _, err := os.Stat(projectsDir); os.IsNotExist(err) {
-		logger.Verbose("Projects directory not found, skipping complete project cleanup")
+		m.out.Debug("Projects directory not found, skipping complete project cleanup")
 		return nil
 	}
 
@@ -93,17 +95,17 @@ func (m *MergeCmd) scanAndCleanupProjects(flags MergeFlags) error {
 	}
 
 	if len(completeProjects) == 0 {
-		logger.Verbose("No complete projects found")
+		m.out.Debug("No complete projects found")
 		return nil
 	}
 
-	logger.Infof("Found %d complete project(s) to clean up", len(completeProjects))
+	m.out.Infof("Found %d complete project(s) to clean up", len(completeProjects))
 	for _, file := range completeProjects {
 		relPath, err := filepath.Rel(".", file)
 		if err != nil {
 			relPath = file
 		}
-		logger.Infof("  - %s", relPath)
+		m.out.Infof("  - %s", relPath)
 	}
 
 	if err := m.project.RemoveAndCommit(completeProjects); err != nil {
@@ -142,12 +144,12 @@ func (m *MergeCmd) waitForGitHubHead(pr string) error {
 		}
 
 		if strings.HasPrefix(headRefOid, localSHA) || strings.HasPrefix(localSHA, headRefOid) {
-			logger.Verbosef("GitHub head SHA matches local HEAD (%s)", localSHA[:8])
+			m.out.Debugf("GitHub head SHA matches local HEAD (%s)", localSHA[:8])
 			return nil
 		}
 
 		if i < maxAttempts-1 {
-			logger.Verbosef("Waiting for GitHub to sync push (attempt %d/%d, local=%s, remote=%s)...",
+			m.out.Debugf("Waiting for GitHub to sync push (attempt %d/%d, local=%s, remote=%s)...",
 				i+1, maxAttempts, localSHA[:8], headRefOid[:8])
 			time.Sleep(pollInterval)
 		}

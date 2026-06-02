@@ -12,7 +12,7 @@ import (
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/k8s"
-	"github.com/zon/ralph/internal/logger"
+	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/webhookconfig"
 	"gopkg.in/yaml.v3"
 )
@@ -33,7 +33,7 @@ func mergeRepo(repos []webhookconfig.RepoConfig, incoming webhookconfig.RepoConf
 	return append(repos, incoming)
 }
 
-func BuildWebhookAppConfig(ctx context.Context, base, updates *webhookconfig.AppConfig, repoOwner, repoName, repoNamespace string, gh github.GHClient) webhookconfig.AppConfig {
+func BuildWebhookAppConfig(ctx context.Context, out *output.Client, base, updates *webhookconfig.AppConfig, repoOwner, repoName, repoNamespace string, gh github.GHClient) webhookconfig.AppConfig {
 	var cfg webhookconfig.AppConfig
 
 	if base != nil {
@@ -75,7 +75,9 @@ func BuildWebhookAppConfig(ctx context.Context, base, updates *webhookconfig.App
 		if len(r.AllowedUsers) == 0 {
 			users, err := gh.ListCollaborators(ctx, r.Owner, r.Name)
 			if err != nil {
-				logger.Warningf("Failed to fetch collaborators for %s/%s: %v (skipping AllowedUsers)", r.Owner, r.Name, err)
+				if out != nil {
+				out.Warnf("Failed to fetch collaborators for %s/%s: %v (skipping AllowedUsers)", r.Owner, r.Name, err)
+			}
 			} else {
 				cfg.Repos[i].AllowedUsers = users
 			}

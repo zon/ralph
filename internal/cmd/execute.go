@@ -11,8 +11,8 @@ import (
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
 	githubpkg "github.com/zon/ralph/internal/github"
-	"github.com/zon/ralph/internal/logger"
 	"github.com/zon/ralph/internal/notify"
+	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/project"
 	"github.com/zon/ralph/internal/services"
 	"github.com/zon/ralph/internal/workflow"
@@ -44,7 +44,7 @@ func PrepareExecution(ctx *context.Context) (*ExecutionSetup, error) {
 	}
 
 	branchName := git.SanitizeBranchName(proj.Slug)
-	logger.Verbosef("Branch name: %s", branchName)
+	ctx.Output().Debugf("Branch name: %s", branchName)
 
 	ralphConfig, err := config.LoadConfig()
 	if err != nil {
@@ -76,33 +76,33 @@ func ExecuteCommand(ctx *context.Context, cleanupRegistrar func(func()), setup *
 		return executeCommandRemote(ctx, setup)
 	}
 
-	if err := infrastructureRunBeforeCommands(setup.Config); err != nil {
+	if err := infrastructureRunBeforeCommands(ctx.Output(), setup.Config); err != nil {
 		return err
 	}
 
 	if err := runCommand(setup.Command); err != nil {
-		notify.Error("command", ctx.ShouldNotify())
+		notify.Error(ctx.Output(), "command", ctx.ShouldNotify())
 		return err
 	}
 
-	notify.Success("command", ctx.ShouldNotify())
+	notify.Success(ctx.Output(), "command", ctx.ShouldNotify())
 	return nil
 }
 
 func executeCommandRemote(ctx *context.Context, setup *CommandSetup) error {
-	logger.Verbose("Submitting Argo Workflow for command...")
+	ctx.Output().Debug("Submitting Argo Workflow for command...")
 
 	currentBranch, err := git.GetCurrentBranch()
 	if err != nil {
 		return fmt.Errorf("failed to get current branch: %w", err)
 	}
 
-	logger.Verbosef("Checking branch '%s' is in sync with remote...", currentBranch)
+	ctx.Output().Debugf("Checking branch '%s' is in sync with remote...", currentBranch)
 	if err := git.IsBranchSyncedWithRemote(currentBranch); err != nil {
 		return err
 	}
 
-	logger.Verbose("Generating command workflow...")
+	ctx.Output().Debug("Generating command workflow...")
 	var remoteURL string
 	if ctx.Repo() != "" {
 		owner, name := ctx.RepoOwnerAndName()
@@ -121,7 +121,7 @@ func executeCommandRemote(ctx *context.Context, setup *CommandSetup) error {
 
 	if ctx.IsVerbose() {
 		workflowYAML, _ := wf.Render()
-		logger.Verbosef("Generated workflow YAML:\n%s", workflowYAML)
+		ctx.Output().Debugf("Generated workflow YAML:\n%s", workflowYAML)
 	}
 
 	argoClient := argo.NewClient()
@@ -130,16 +130,16 @@ func executeCommandRemote(ctx *context.Context, setup *CommandSetup) error {
 		return fmt.Errorf("failed to submit workflow: %w", err)
 	}
 
-	logger.Successf("Workflow submitted: %s", workflowName)
+	ctx.Output().Successf("Workflow submitted: %s", workflowName)
 
 	if ctx.ShouldFollow() {
 		if err := argoClient.FollowLogs(argo.K8sContext{Name: wf.KubeContext, Namespace: wf.Namespace}, workflowName); err != nil {
-			notify.Error("command", ctx.ShouldNotify())
+		notify.Error(ctx.Output(), "command", ctx.ShouldNotify())
 			return fmt.Errorf("argo logs failed: %w", err)
 		}
-		notify.Success("command", ctx.ShouldNotify())
+	notify.Success(ctx.Output(), "command", ctx.ShouldNotify())
 	} else {
-		logger.Infof("To follow logs, run: argo logs -n %s %s -f", wf.Namespace, workflowName)
+		ctx.Output().Infof("To follow logs, run: argo logs -n %s %s -f", wf.Namespace, workflowName)
 	}
 
 	return nil
@@ -153,9 +153,9 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func()), setup *Executi
 	return NewLocalRunner(ctx, setup.BaseBranch).RunLocal(setup.Project, setup.Config)
 }
 
-func infrastructureRunBeforeCommands(cfg *config.RalphConfig) error {
+func infrastructureRunBeforeCommands(out *output.Client, cfg *config.RalphConfig) error {
 	if len(cfg.Before) > 0 {
-		if err := services.RunBefore(cfg.Before); err != nil {
+		if err := services.RunBefore(out, cfg.Before); err != nil {
 			return fmt.Errorf("failed to run before commands: %w", err)
 		}
 	}
