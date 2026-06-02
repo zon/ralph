@@ -1,6 +1,9 @@
 package cmd
 
 import (
+	"os"
+
+	"github.com/zon/ralph/internal/output"
 	orchestrationComment "github.com/zon/ralph/internal/orchestration/comment"
 )
 
@@ -20,6 +23,7 @@ type CommentCmd struct {
 func (c *CommentCmd) Run() error {
 	ctx := createExecutionContext()
 	ctx.SetVerbose(c.Verbose)
+	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, c.Verbose))
 	ctx.SetNoServices(c.NoServices)
 	ctx.SetNoNotify(true)
 

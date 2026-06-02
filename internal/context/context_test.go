@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/zon/ralph/internal/output"
 )
 
 func TestShouldNotify(t *testing.T) {
@@ -586,4 +587,32 @@ func TestValidate(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestOutput_DefaultIsNil(t *testing.T) {
+	ctx := &Context{}
+	assert.Nil(t, ctx.Output(), "Output should be nil by default")
+}
+
+func TestSetOutput_SetsAndGets(t *testing.T) {
+	ctx := &Context{}
+	out := output.NewClient(os.Stdout, os.Stderr, true)
+	ctx.SetOutput(out)
+	assert.Equal(t, out, ctx.Output(), "SetOutput should store the client")
+}
+
+func TestSetOutput_Nil(t *testing.T) {
+	ctx := &Context{}
+	ctx.SetOutput(nil)
+	assert.Nil(t, ctx.Output(), "SetOutput(nil) should set it to nil")
+}
+
+func TestNewContext_OutputIsNil(t *testing.T) {
+	ctx := NewContext()
+	assert.Nil(t, ctx.Output(), "NewContext should not set output client")
+}
+
+func TestNewContextFromEnv_OutputIsNil(t *testing.T) {
+	ctx := NewContextFromEnv()
+	assert.Nil(t, ctx.Output(), "NewContextFromEnv should not set output client")
 }

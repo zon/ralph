@@ -2,8 +2,10 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	execcontext "github.com/zon/ralph/internal/context"
+	"github.com/zon/ralph/internal/output"
 	orchestrationRun "github.com/zon/ralph/internal/orchestration/run"
 )
 
@@ -57,6 +59,7 @@ func (r *RunCmd) newExecutionContext() *execcontext.Context {
 	ctx := createExecutionContext()
 	ctx.SetProjectFile(r.ProjectFile)
 	ctx.SetVerbose(r.Verbose)
+	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, r.Verbose))
 	ctx.SetNoNotify(r.NoNotify)
 	ctx.SetNoServices(r.NoServices)
 	ctx.SetLocal(r.Local)

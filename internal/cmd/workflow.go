@@ -11,6 +11,7 @@ import (
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/logger"
+	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/project"
 	"github.com/zon/ralph/internal/workspace"
 )
@@ -43,6 +44,7 @@ func (w *WorkflowCmd) Run() error {
 
 	ctx := createExecutionContext()
 	ctx.SetVerbose(w.Verbose)
+	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, w.Verbose))
 	ctx.SetNoServices(w.NoServices)
 	ctx.SetRepo(w.Repo)
 	ctx.SetBranch(w.ProjectBranch)

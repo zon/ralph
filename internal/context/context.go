@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/zon/ralph/internal/output"
 )
 
 // Context holds the execution context for ralph commands
 type Context struct {
 	goCtx             context.Context // Embedded standard context
+	out               *output.Client
 	projectFile       string
 	maxIterations     int
 	verbose           bool
@@ -52,6 +55,16 @@ func (c *Context) WithGoContext(goCtx context.Context) *Context {
 	newCtx := *c
 	newCtx.goCtx = goCtx
 	return &newCtx
+}
+
+// Output returns the output client
+func (c *Context) Output() *output.Client {
+	return c.out
+}
+
+// SetOutput sets the output client
+func (c *Context) SetOutput(out *output.Client) {
+	c.out = out
 }
 
 // IsVerbose returns true if verbose logging is enabled

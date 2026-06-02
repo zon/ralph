@@ -19,7 +19,7 @@ requirements:
         - In each of the following Run() methods in internal/cmd/, after ctx.SetVerbose() is called, add `ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, <VerboseField>))` — the relevant files are run.go, command.go, comment.go, workflow.go, validate.go, and merge.go (already passes verbose via MergeFlags, so wire after ctx is built)
         - In cmd/ralph-webhook/main.go CLI.Run(), create `out := output.NewClient(os.Stdout, os.Stderr, c.Verbose)` immediately after setting verbose; use it to replace the two logger calls in that file
         - Do not set output.Client in NewContextFromEnv — that function does not know the writer
-      passing: false
+      passing: true
     - slug: add-output-to-structs
       description: Add out *output.Client to structs that do not receive a context.Context
       items:
