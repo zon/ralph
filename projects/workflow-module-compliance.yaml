@@ -8,7 +8,7 @@ requirements:
         - The internal/workflow module's category in specs/architecture.yaml is changed from orchestration to implementation
         - The orchestration true flag is not set for internal/workflow
         - The updated architecture file is valid and passes ralph validate
-      passing: false
+      passing: true
     - slug: workflow-client-interface
       description: Declare an explicit Client interface in internal/workflow that MockClient satisfies
       items:
