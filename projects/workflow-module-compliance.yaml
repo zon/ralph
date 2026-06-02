@@ -1,0 +1,47 @@
+slug: workflow-module-compliance
+title: Bring internal/workflow up to implementation module standards
+maxIterations: 10
+requirements:
+    - slug: reclassify-workflow-module
+      description: Update specs/architecture.yaml to classify internal/workflow as implementation
+      items:
+        - The internal/workflow module's category in specs/architecture.yaml is changed from orchestration to implementation
+        - The orchestration true flag is not set for internal/workflow
+        - The updated architecture file is valid and passes ralph validate
+      passing: false
+    - slug: workflow-client-interface
+      description: Declare an explicit Client interface in internal/workflow that MockClient satisfies
+      items:
+        - A Client interface is declared in internal/workflow/client_mock.go, above MockClient, with the same Submit, FollowLogs, and PrintLogHint signatures that MockClient already implements
+        - MockClient satisfies the Client interface and the compiler enforces this
+        - Callers that currently depend on the concrete *workflow.MockClient type can be updated to depend on workflow.Client instead
+      passing: false
+    - slug: inject-config-and-fs-dependencies
+      description: Decouple GenerateWorkflowWithGitInfo from direct config loading and filesystem access
+      items:
+        - GenerateWorkflowWithGitInfo does not call config.LoadConfig(), os.Getwd(), or os.ReadFile() directly
+        - Config loading and filesystem reads are decoupled from the generation logic so test doubles can be provided
+        - The full production call path through GenerateWorkflow wires real config and filesystem operations before delegating to GenerateWorkflowWithGitInfo
+      passing: false
+    - slug: inject-git-and-github-dependencies
+      description: Decouple the top-level generate functions from direct git and GitHub CLI calls
+      items:
+        - GenerateWorkflow does not call githubpkg.GetRepo() or git.FindRepoRoot() directly
+        - GenerateMergeWorkflow does not call githubpkg.GetRepo() or git.GetCurrentBranch() directly
+        - GenerateCommandWorkflow does not call git.RemoteURL() directly
+        - Git and GitHub discovery are decoupled from generation logic so test doubles can be provided
+        - Callers in internal/cmd supply real git and GitHub implementations
+      passing: false
+    - slug: update-generate-tests
+      description: Update generate_test.go to use mock dependencies instead of real filesystem and CLI state
+      items:
+        - Tests in generate_test.go pass without writing .ralph/config.yaml or .ralph/instructions.md to disk
+        - Tests pass without calling t.Chdir()
+        - Mock implementations for config, filesystem, git, and GitHub dependencies are defined in generate_test.go using the function-field pattern from docs/testing.md
+        - All existing behavioral assertions are preserved and no test coverage is removed
+      passing: false
+    - slug: version-bump
+      description: Version bump
+      items:
+        - Apply a semver patch bump to the app version
+      passing: false
