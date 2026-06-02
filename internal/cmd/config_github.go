@@ -2,16 +2,15 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 	"os"
 
 	"github.com/zon/ralph/internal/config"
-	"github.com/zon/ralph/internal/github"
+	internalgithub "github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/k8s"
+	ocfggithub "github.com/zon/ralph/internal/orchestration/config/github"
 	"github.com/zon/ralph/internal/output"
 )
 
-// ConfigGithubCmd configures GitHub credentials for Argo Workflows
 type ConfigGithubCmd struct {
 	PrivateKey string `arg:"" help:"Path to GitHub App private key (.pem file)" type:"existingfile"`
 	Context    string `help:"Kubernetes context to use (defaults to current context)"`
@@ -19,7 +18,6 @@ type ConfigGithubCmd struct {
 	out        *output.Client
 }
 
-// Run executes the config github command
 func (c *ConfigGithubCmd) Run() error {
 	ctx := context.Background()
 
@@ -27,105 +25,87 @@ func (c *ConfigGithubCmd) Run() error {
 		c.out = output.NewClient(os.Stdout, os.Stderr, false)
 	}
 
-	c.printHeader()
-
-	cfg, err := config.LoadConfig()
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
-	}
-
-	client := k8s.NewClient()
-
-	k8sCtx, err := resolveKubeContext(ctx, client, cfg, c.out, c.Context, c.Namespace)
-	if err != nil {
-		return err
-	}
-
-	repo, err := c.detectRepo(ctx)
-	if err != nil {
-		return err
-	}
-
-	privateKeyBytes, err := c.readAndValidatePrivateKey()
-	if err != nil {
-		return err
-	}
-
-	if err := c.validateCredentials(ctx, repo.Owner, repo.Name, privateKeyBytes); err != nil {
-		return err
-	}
-
-	appID := config.DefaultAppID
-
-	if err := c.createK8sSecret(ctx, client, k8sCtx.Name, k8sCtx.Namespace, appID, privateKeyBytes); err != nil {
-		return err
-	}
-
-	c.out.Info("Note: GitHub App credentials are not tied to any user account.")
-
-	return nil
-}
-
-func (c *ConfigGithubCmd) printHeader() {
-	c.out.Info("Configuring GitHub App credentials for Ralph remote execution...")
-}
-
-func (c *ConfigGithubCmd) detectRepo(ctx context.Context) (github.Repo, error) {
-	repo, err := github.GetRepo(ctx)
-	if err != nil {
-		return github.Repo{}, fmt.Errorf("failed to detect GitHub repository: %w", err)
-	}
-	return repo, nil
-}
-
-func (c *ConfigGithubCmd) readAndValidatePrivateKey() ([]byte, error) {
 	privateKeyBytes, err := os.ReadFile(c.PrivateKey)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read private key file: %w", err)
+		return err
 	}
-	if len(privateKeyBytes) == 0 {
-		return nil, fmt.Errorf("private key file is empty")
-	}
-	return privateKeyBytes, nil
+
+	orchestrator := newConfigGithubOrchestrator(c.out)
+	return orchestrator.Run(ctx, privateKeyBytes, c.Context, c.Namespace)
 }
 
-func (c *ConfigGithubCmd) validateCredentials(ctx context.Context, repoOwner, repoName string, privateKeyBytes []byte) error {
-	c.out.Info("Validating credentials...")
-	appID := config.DefaultAppID
+type configGithubConfigLoaderAdapter struct{}
 
-	jwtToken, err := github.GenerateAppJWT(appID, privateKeyBytes)
-	if err != nil {
-		return fmt.Errorf("failed to generate JWT for validation: %w", err)
-	}
-
-	installationID, err := github.GetInstallationID(ctx, jwtToken, repoOwner, repoName)
-	if err != nil {
-		return fmt.Errorf("failed to get installation ID: %w", err)
-	}
-
-	_, err = github.GetInstallationToken(ctx, jwtToken, installationID)
-	if err != nil {
-		return fmt.Errorf("failed to get installation token: %w", err)
-	}
-
-	c.out.Success("Credentials validated successfully")
-	return nil
+func (a *configGithubConfigLoaderAdapter) Load() (*config.RalphConfig, error) {
+	return config.LoadConfig()
 }
 
-func (c *ConfigGithubCmd) createK8sSecret(ctx context.Context, client k8s.Client, kubeContext, namespace, appID string, privateKeyBytes []byte) error {
-	c.out.Infof("Creating/updating Kubernetes secret '%s'...", k8s.GitHubSecretName)
+type configGithubGitHubClientAdapter struct{}
 
-	secretData := map[string]string{
-		"app-id":      appID,
-		"private-key": string(privateKeyBytes),
+func (a *configGithubGitHubClientAdapter) GetRepo(ctx context.Context) (string, string, error) {
+	repo, err := internalgithub.GetRepo(ctx)
+	if err != nil {
+		return "", "", err
 	}
+	return repo.Owner, repo.Name, nil
+}
 
-	if err := client.CreateOrUpdateSecret(ctx, k8s.GitHubSecretName, namespace, kubeContext, secretData); err != nil {
-		return fmt.Errorf("failed to create/update secret: %w", err)
+func (a *configGithubGitHubClientAdapter) GenerateAppJWT(appID string, privateKeyPEM []byte) (string, error) {
+	return internalgithub.GenerateAppJWT(appID, privateKeyPEM)
+}
+
+func (a *configGithubGitHubClientAdapter) GetInstallationID(ctx context.Context, jwtToken, owner, repo string) (int64, error) {
+	return internalgithub.GetInstallationID(ctx, jwtToken, owner, repo)
+}
+
+func (a *configGithubGitHubClientAdapter) GetInstallationToken(ctx context.Context, jwtToken string, installationID int64) (string, error) {
+	return internalgithub.GetInstallationToken(ctx, jwtToken, installationID)
+}
+
+type configGithubK8sClientAdapter struct{}
+
+func (a *configGithubK8sClientAdapter) GetCurrentContext(ctx context.Context) (ocfggithub.K8sContext, error) {
+	realClient := k8s.NewClient()
+	k8sCtx, err := realClient.GetCurrentContext(ctx)
+	if err != nil {
+		return ocfggithub.K8sContext{}, err
 	}
+	return ocfggithub.K8sContext{Name: k8sCtx.Name, Namespace: k8sCtx.Namespace}, nil
+}
 
-	c.out.Successf("Secret '%s' created/updated successfully", k8s.GitHubSecretName)
+func (a *configGithubK8sClientAdapter) CreateOrUpdateSecret(ctx context.Context, name, namespace, kubeContext string, data map[string]string) error {
+	return k8s.NewClient().CreateOrUpdateSecret(ctx, name, namespace, kubeContext, data)
+}
 
-	c.out.Infof("Configuration complete! The secret '%s' is ready for use in namespace '%s'.", k8s.GitHubSecretName, namespace)
-	return nil
+type configGithubLoggerAdapter struct {
+	out *output.Client
+}
+
+func (a *configGithubLoggerAdapter) Info(msg string) {
+	a.out.Info(msg)
+}
+
+func (a *configGithubLoggerAdapter) Infof(format string, args ...interface{}) {
+	a.out.Infof(format, args...)
+}
+
+func (a *configGithubLoggerAdapter) Success(msg string) {
+	a.out.Success(msg)
+}
+
+func (a *configGithubLoggerAdapter) Successf(format string, args ...interface{}) {
+	a.out.Successf(format, args...)
+}
+
+func (a *configGithubLoggerAdapter) Debugf(format string, args ...interface{}) {
+	a.out.Debugf(format, args...)
+}
+
+func newConfigGithubOrchestrator(out *output.Client) *ocfggithub.Cmd {
+	return ocfggithub.New(
+		&configGithubConfigLoaderAdapter{},
+		&configGithubGitHubClientAdapter{},
+		&configGithubK8sClientAdapter{},
+		&configGithubLoggerAdapter{out: out},
+	)
 }

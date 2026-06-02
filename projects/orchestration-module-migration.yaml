@@ -62,7 +62,7 @@ requirements:
         - internal/orchestration/config/github defines interfaces for config, GitHub, and Kubernetes dependencies
         - internal/cmd/config_github.go wires real implementations and delegates to internal/orchestration/config/github
         - internal/orchestration/config/github has unit tests with mocked dependencies
-      passing: false
+      passing: true
     - slug: orchestrate-config-opencode
       description: Extract config opencode command logic into internal/orchestration/config/opencode
       items:
