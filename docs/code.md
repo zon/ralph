@@ -14,6 +14,12 @@ Every piece of code belongs in a specific module. Before writing, ask:
 2. **Does an orchestration file assign this code to a specific module?** Orchestration files (`specs/features/<component>/<feature>/orchestration.md`) are implementation contracts — the `**Module:**` annotations are binding. Place the code in the module named by the orchestration.
 3. **Is there no existing home?** If neither an existing module nor an orchestration file covers the concern, determine whether it belongs in an existing module (by expanding its scope) or requires a new module. If a new module is needed, update `specs/architecture.yaml` before writing the code.
 
+## Pure Modules
+
+- Contain only value objects and pure functions — no I/O, no external calls, no mutation of shared state.
+- Test with unit tests only; no mocks or integration setup are needed or permitted.
+- If a pure module accumulates side-effectful code, move that code into an implementation module.
+
 ## Orchestration Modules
 
 Modules marked `orchestration: true` in `specs/architecture.yaml` are orchestration modules.

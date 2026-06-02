@@ -52,6 +52,13 @@ categories:
       - mocks
       - unit tests
 
+  - slug: pure
+    description: Stateless modules containing only value objects and pure functions with no side effects.
+    signatures:
+      - value objects
+      - pure functions
+      - unit tests
+
 modules:
   - path: cmd/myapp
     description: Wires real dependencies into the application and starts the server.

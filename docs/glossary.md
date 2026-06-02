@@ -18,6 +18,10 @@ A module that contains concrete technical implementation details and low-level o
 
 Each implementation module covers a single deep concern — one cohesive area of functionality with a simple interface over hidden complexity.
 
+## Pure Module
+
+A module that contains only value objects and pure functions — code with no side effects. Pure modules do not perform I/O, mutate shared state, or call external services. They are fully testable with unit tests alone, with no need for mocks or integration setup.
+
 ## Orchestration Module
 
 A module that contains only domain logic for coordinating other modules. Orchestration modules define workflows, manage execution sequences, enforce business rules, and delegate to implementation modules. They describe "what" should happen and "when" without containing the low-level details of "how" operations are performed.

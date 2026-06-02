@@ -19,6 +19,13 @@ categories:
       - mocks
       - unit tests
 
+  - slug: pure
+    description: Stateless modules containing only value objects and pure functions with no side effects.
+    signatures:
+      - value objects
+      - pure functions
+      - unit tests
+
 modules:
   - path: cmd/ralph
     description: CLI entrypoint that wires up command parsing and dispatches to subcommand handlers.
