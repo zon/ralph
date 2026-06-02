@@ -39,7 +39,7 @@ requirements:
         - Merge TestBuildArchitectureFixPrompt, TestBuildArchitectureFixPrompt_AbsolutePath, TestBuildArchitectureFixPrompt_EmptyErrors into one TestBuildArchitectureFixPrompt
         - Merge TestBuildProjectFixPrompt and TestBuildProjectFixPrompt_AbsolutePath into one TestBuildProjectFixPrompt
         - Merge TestExecuteTemplate, TestExecuteTemplate_ParseError, TestExecuteTemplate_ExecuteError into one TestExecuteTemplate
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump
       items:
