@@ -2,27 +2,20 @@
 
 ## Purpose
 
-Run an arbitrary command through the ralph workflow infrastructure (before-commands, services) on the current branch, without branch creation, AI iteration, or PR creation. Intended for testing ralph workflow configuration.
+Submit an arbitrary command as an Argo Workflow on the current branch and stream its logs. Intended for testing ralph workflow configuration without AI iteration or PR creation.
 
 ## Requirements
 
-### Requirement: Command Execution via Workflow
+### Requirement: Workflow Submission
 
-The system SHALL run a user-supplied command through the full ralph workflow (excluding AI iteration) when invoked as `ralph command -- <cmd>`.
+The system SHALL generate and submit an Argo Workflow embedding the supplied command tokens when invoked as `ralph command -- <cmd>`.
 
-#### Scenario: Remote submission (default)
+#### Scenario: Command submitted
 
 - GIVEN a command is provided and the current branch is in sync with the remote
 - WHEN the user runs `ralph command -- <cmd>`
 - THEN an Argo Workflow is generated embedding the command
 - AND the workflow is submitted to the configured Kubernetes cluster
-- AND the user is shown a command to follow logs
-
-#### Scenario: Local execution
-
-- GIVEN a command is provided and the `--local` flag is set
-- WHEN the user runs `ralph command --local -- <cmd>`
-- THEN ralph runs the before-commands, starts any configured services, and executes the supplied command on the current branch
 
 #### Scenario: Missing command
 
@@ -30,67 +23,34 @@ The system SHALL run a user-supplied command through the full ralph workflow (ex
 - WHEN the user runs `ralph command`
 - THEN an error is returned with usage instructions
 
-### Requirement: Before Commands
-
-The system SHALL run before-commands from `.ralph/config.yaml` before executing the supplied command, matching the behavior in `ralph run`.
-
-#### Scenario: Before commands configured
-
-- GIVEN `before` commands are defined in `.ralph/config.yaml`
-- WHEN local execution begins
-- THEN all before commands run sequentially before the supplied command
-- AND a non-zero exit from a non-optional before command aborts execution
-
-#### Scenario: No before commands
-
-- GIVEN no `before` commands are defined
-- WHEN local execution begins
-- THEN the supplied command runs directly
-
-### Requirement: Command Exit Code Propagation
-
-The system SHALL treat the exit code of the supplied command as the run result.
-
-#### Scenario: Command succeeds
-
-- GIVEN the supplied command exits with code 0
-- WHEN the command finishes
-- THEN execution is considered successful
-
-#### Scenario: Command fails
-
-- GIVEN the supplied command exits with a non-zero code
-- WHEN the command finishes
-- THEN execution is considered failed and the non-zero exit is reported
-
 ### Requirement: Workflow Monitoring
 
-The system SHOULD allow the user to follow Argo Workflow logs in real time via `--follow`.
+The system SHALL stream workflow logs by default after submission. The user MAY pass `--no-follow` to skip log streaming.
 
-#### Scenario: Follow logs
+#### Scenario: Logs streamed by default
 
-- GIVEN `--follow` (or `-f`) is set and `--local` is not set
-- WHEN the workflow is submitted
+- GIVEN a command is submitted and `--no-follow` is not set
+- WHEN the workflow starts
 - THEN ralph streams the workflow logs until the workflow completes
 
-#### Scenario: Incompatible flags
+#### Scenario: Follow suppressed
 
-- GIVEN both `--follow` and `--local` are set
-- WHEN ralph starts
-- THEN an error is returned
+- GIVEN `--no-follow` is set
+- WHEN the workflow is submitted
+- THEN the workflow is submitted without streaming logs
 
-### Requirement: Desktop Notifications
+### Requirement: Exit Code Propagation
 
-The system SHOULD send a desktop notification when a local command run completes or fails.
+The system SHALL reflect the workflow outcome as the process exit code.
 
-#### Scenario: Success notification
+#### Scenario: Workflow succeeds
 
-- GIVEN `--no-notify` is not set and the command succeeds
-- WHEN local execution finishes
-- THEN a success desktop notification is shown
+- GIVEN the submitted workflow completes successfully
+- WHEN log streaming finishes
+- THEN ralph exits with code 0
 
-#### Scenario: Failure notification
+#### Scenario: Workflow fails
 
-- GIVEN `--no-notify` is not set and the command fails
-- WHEN local execution fails
-- THEN an error desktop notification is shown
+- GIVEN the submitted workflow exits with a failure
+- WHEN log streaming finishes
+- THEN ralph exits with a non-zero code
