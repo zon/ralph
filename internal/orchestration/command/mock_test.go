@@ -122,3 +122,80 @@ func (h *flagsHelper) any() WorkflowCommandFlags {
 		Command:     []string{"echo", "hello"},
 	}
 }
+
+type mockWorkflowClient struct {
+	submitFunc             func([]string) (string, error)
+	submitCalled           bool
+	streamLogsFunc         func(string) error
+	streamLogsCalled       bool
+	streamLogsWorkflowName string
+}
+
+func (m *mockWorkflowClient) Submit(command []string) (string, error) {
+	m.submitCalled = true
+	if m.submitFunc != nil {
+		return m.submitFunc(command)
+	}
+	return "test-workflow", nil
+}
+
+func (m *mockWorkflowClient) StreamLogs(workflowName string) error {
+	m.streamLogsCalled = true
+	m.streamLogsWorkflowName = workflowName
+	if m.streamLogsFunc != nil {
+		return m.streamLogsFunc(workflowName)
+	}
+	return nil
+}
+
+var mockWorkflowCli *mockWorkflowClient
+
+type commandHelper struct{}
+
+type commandOption func(*CommandCmd)
+
+var command = &commandHelper{}
+
+func (h *commandHelper) withMocks(opts ...commandOption) *CommandCmd {
+	mockWorkflowCli = &mockWorkflowClient{}
+	cmd := &CommandCmd{
+		workflow: mockWorkflowCli,
+	}
+	for _, opt := range opts {
+		opt(cmd)
+	}
+	return cmd
+}
+
+type workflowHelper struct{}
+
+var workflow = &workflowHelper{}
+
+func (h *workflowHelper) submitCalled() bool {
+	return mockWorkflowCli != nil && mockWorkflowCli.submitCalled
+}
+
+func (h *workflowHelper) streamLogsCalled() bool {
+	return mockWorkflowCli != nil && mockWorkflowCli.streamLogsCalled
+}
+
+type cmdFlagsHelper struct{}
+
+var cmdFlags = &cmdFlagsHelper{}
+
+func (h *cmdFlagsHelper) withNoCommand() CommandFlags {
+	return CommandFlags{}
+}
+
+func (h *cmdFlagsHelper) any() CommandFlags {
+	return CommandFlags{
+		Command: []string{"echo", "hello"},
+	}
+}
+
+func (h *cmdFlagsHelper) withNoFollow() CommandFlags {
+	return CommandFlags{
+		Command:  []string{"echo", "hello"},
+		NoFollow: true,
+	}
+}

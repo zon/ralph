@@ -955,7 +955,7 @@ requirements:
                 require.True(t, workflow.submitCalled())
                 require.False(t, workflow.streamLogsCalled())
             }
-      passing: false
+      passing: true
     - slug: run-remote-debug
       description: Update RemoteRunner in internal/orchestration/run to accept RunRemoteFlags with Debug and rename Run method; update WorkflowClient interface to include debug parameter in Submit
       items:

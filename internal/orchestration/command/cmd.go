@@ -47,3 +47,31 @@ func (w *WorkflowCommandCmd) Run(flags WorkflowCommandFlags) error {
 	}
 	return w.exec.Run(flags.Command)
 }
+
+type WorkflowClient interface {
+	Submit(command []string) (string, error)
+	StreamLogs(workflowName string) error
+}
+
+type CommandCmd struct {
+	workflow WorkflowClient
+}
+
+type CommandFlags struct {
+	Command  []string
+	NoFollow bool
+}
+
+func (c *CommandCmd) Run(flags CommandFlags) error {
+	if len(flags.Command) == 0 {
+		return ErrMissingCommand
+	}
+	workflowName, err := c.workflow.Submit(flags.Command)
+	if err != nil {
+		return err
+	}
+	if flags.NoFollow {
+		return nil
+	}
+	return c.workflow.StreamLogs(workflowName)
+}

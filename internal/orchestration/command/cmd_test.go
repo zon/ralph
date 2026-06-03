@@ -28,3 +28,32 @@ func TestWorkflowCommandRunExecutesCommandAfterWorkspace(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, exec.runCalled())
 }
+
+func TestCommandRunMissingCommandReturnsError(t *testing.T) {
+	cmd := command.withMocks()
+	err := cmd.Run(cmdFlags.withNoCommand())
+	require.Error(t, err)
+	require.False(t, workflow.submitCalled())
+}
+
+func TestCommandRunSubmitsWorkflow(t *testing.T) {
+	cmd := command.withMocks()
+	err := cmd.Run(cmdFlags.any())
+	require.NoError(t, err)
+	require.True(t, workflow.submitCalled())
+}
+
+func TestCommandRunStreamsLogsByDefault(t *testing.T) {
+	cmd := command.withMocks()
+	err := cmd.Run(cmdFlags.any())
+	require.NoError(t, err)
+	require.True(t, workflow.streamLogsCalled())
+}
+
+func TestCommandRunNoFollowSkipsLogStreaming(t *testing.T) {
+	cmd := command.withMocks()
+	err := cmd.Run(cmdFlags.withNoFollow())
+	require.NoError(t, err)
+	require.True(t, workflow.submitCalled())
+	require.False(t, workflow.streamLogsCalled())
+}
