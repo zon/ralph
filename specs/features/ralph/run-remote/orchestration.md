@@ -2,38 +2,25 @@
 
 ## Purpose
 
-Verify the current branch is in sync with remote, submit an Argo Workflow, and optionally follow its logs and notify on completion.
+`ralph run` (default, without `--local`): verify the branch is in sync with remote, submit an Argo Workflow, and optionally stream its logs and notify on completion.
 
 ## Orchestration
 
 **Module:** `internal/orchestration/run`
 
 ```go
-type GitClient interface {
-    CurrentBranch() (string, error)
-    IsBranchSyncedWithRemote(branch string) error
-}
-
-type WorkflowClient interface {
-    Submit(proj *project.Project, cloneBranch string) (string, error)
-    FollowLogs(workflowName string) error
-    PrintLogHint(workflowName string)
-}
-
-type NotifyClient interface {
-    Error(slug string)
-    Success(slug string)
-}
-
 type RemoteRunner struct {
     git      GitClient
     workflow WorkflowClient
     notify   NotifyClient
 }
 
-func NewRemoteRunner(git GitClient, workflow WorkflowClient, notify NotifyClient) *RemoteRunner
+type RunRemoteFlags struct {
+    Follow bool
+    Debug  string
+}
 
-func (r *RemoteRunner) RunRemote(proj *project.Project, follow bool) error {
+func (r *RemoteRunner) Run(proj *project.Project, flags RunRemoteFlags) error {
     branch, err := r.git.CurrentBranch()
     if err != nil {
         return err
@@ -41,11 +28,11 @@ func (r *RemoteRunner) RunRemote(proj *project.Project, follow bool) error {
     if err := r.git.IsBranchSyncedWithRemote(branch); err != nil {
         return err
     }
-    workflowName, err := r.workflow.Submit(proj, branch)
+    workflowName, err := r.workflow.Submit(proj, branch, flags.Debug)
     if err != nil {
         return err
     }
-    if !follow {
+    if !flags.Follow {
         r.workflow.PrintLogHint(workflowName)
         return nil
     }
@@ -62,7 +49,7 @@ func (r *RemoteRunner) RunRemote(proj *project.Project, follow bool) error {
 
 - **`r.git.CurrentBranch()`** — returns the name of the currently checked-out branch
 - **`r.git.IsBranchSyncedWithRemote(branch)`** — returns an error when the branch has no remote tracking ref or when local and remote are at different commits
-- **`r.workflow.Submit(proj, cloneBranch)`** — generates an Argo Workflow for the project and submits it to the configured cluster; returns the workflow name on success
+- **`r.workflow.Submit(proj, branch, debug)`** — generates and submits an Argo Workflow for the project cloned at `branch`; when `debug` is non-empty the workflow checks out that ralph source branch and invokes ralph via `go run`; returns the submitted workflow name
 - **`r.workflow.PrintLogHint(workflowName)`** — prints the `argo logs` command the user can run to follow the workflow
 - **`r.workflow.FollowLogs(workflowName)`** — streams the workflow logs and blocks until the workflow finishes; returns a non-nil error on workflow failure
 - **`r.notify.Error(slug)`** — sends a desktop error notification for the given project slug when notifications are enabled
@@ -73,68 +60,81 @@ func (r *RemoteRunner) RunRemote(proj *project.Project, follow bool) error {
 **Module:** `internal/orchestration/run`
 
 ```go
-func TestRunRemoteBranchNotPushed(t *testing.T) {
+func TestRunBranchNotPushedAbortsBeforeSubmit(t *testing.T) {
     runner := remote.withMocks(
         remote.withGit(git.thatReportsBranchNotPushed()),
     )
-    err := runner.RunRemote(project.any(), false)
+    err := runner.Run(project.any(), flags.any())
     require.Error(t, err)
-    require.False(t, workflow.submitted())
+    require.False(t, workflow.submitCalled())
 }
 
-func TestRunRemoteBranchNotInSync(t *testing.T) {
+func TestRunBranchNotInSyncAbortsBeforeSubmit(t *testing.T) {
     runner := remote.withMocks(
         remote.withGit(git.thatReportsBranchNotInSync()),
     )
-    err := runner.RunRemote(project.any(), false)
+    err := runner.Run(project.any(), flags.any())
     require.Error(t, err)
-    require.False(t, workflow.submitted())
+    require.False(t, workflow.submitCalled())
 }
 
-func TestRunRemoteWorkflowSubmissionFailure(t *testing.T) {
+func TestRunSubmitFailureReturnsError(t *testing.T) {
     runner := remote.withMocks(
-        remote.withWorkflow(workflow.thatFailsOnSubmit()),
+        remote.withWorkflow(workflow.thatFailsSubmit()),
     )
-    err := runner.RunRemote(project.any(), false)
+    err := runner.Run(project.any(), flags.any())
     require.Error(t, err)
 }
 
-func TestRunRemoteNoFollowPrintsLogHint(t *testing.T) {
+func TestRunNoFollowPrintsLogHint(t *testing.T) {
     runner := remote.withMocks()
-    err := runner.RunRemote(project.any(), false)
+    err := runner.Run(project.any(), flags.withoutFollow())
     require.NoError(t, err)
     require.True(t, workflow.logHintPrinted())
-    require.Empty(t, notify.successes())
+    require.False(t, workflow.followLogsCalled())
 }
 
-func TestRunRemoteFollowSuccess(t *testing.T) {
+func TestRunFollowStreamsLogsAndNotifiesSuccess(t *testing.T) {
     runner := remote.withMocks()
-    err := runner.RunRemote(project.any(), true)
+    err := runner.Run(project.any(), flags.withFollow())
     require.NoError(t, err)
-    require.NotEmpty(t, notify.successes())
+    require.True(t, workflow.followLogsCalled())
+    require.True(t, notify.successSent())
 }
 
-func TestRunRemoteFollowFailureSendsErrorNotification(t *testing.T) {
+func TestRunFollowFailureNotifiesErrorAndReturns(t *testing.T) {
     runner := remote.withMocks(
-        remote.withWorkflow(workflow.thatFailsOnFollow()),
+        remote.withWorkflow(workflow.thatFailsFollowLogs()),
     )
-    err := runner.RunRemote(project.any(), true)
+    err := runner.Run(project.any(), flags.withFollow())
     require.Error(t, err)
-    require.NotEmpty(t, notify.errors())
+    require.True(t, notify.errorSent())
+}
+
+func TestRunDebugBranchPassedToSubmit(t *testing.T) {
+    runner := remote.withMocks()
+    err := runner.Run(project.any(), flags.withDebug("my-fix"))
+    require.NoError(t, err)
+    require.Equal(t, "my-fix", workflow.lastDebugBranch())
 }
 ```
 
 ### Helpers
 
 - **`remote.withMocks(opts...)`** — constructs a `RemoteRunner` with default mock implementations; pass option helpers to override specific clients
-- **`remote.withGit(client)`** — option that sets the git client on the mock runner
-- **`remote.withWorkflow(client)`** — option that sets the workflow client on the mock runner
-- **`project.any()`** — returns a valid project in a default state; owned by `internal/project`
-- **`git.thatReportsBranchNotPushed()`** — returns a git client whose `IsBranchSyncedWithRemote` returns an error indicating the branch has no remote tracking ref
+- **`remote.withGit(client)`** — option that sets the git client
+- **`remote.withWorkflow(client)`** — option that sets the workflow client
+- **`flags.any()`** — returns `RunRemoteFlags` with `Follow` false and no debug branch
+- **`flags.withFollow()`** — returns `RunRemoteFlags` with `Follow` true
+- **`flags.withoutFollow()`** — returns `RunRemoteFlags` with `Follow` false
+- **`flags.withDebug(branch)`** — returns `RunRemoteFlags` with `Debug` set to the given branch
+- **`git.thatReportsBranchNotPushed()`** — returns a git client whose `IsBranchSyncedWithRemote` returns an error indicating no remote tracking ref
 - **`git.thatReportsBranchNotInSync()`** — returns a git client whose `IsBranchSyncedWithRemote` returns an error indicating local and remote are at different commits
-- **`workflow.submitted()`** — returns true when `Submit` was called during the test
-- **`workflow.thatFailsOnSubmit()`** — returns a workflow client whose `Submit` returns an error
+- **`workflow.thatFailsSubmit()`** — returns a workflow client whose `Submit` returns an error
+- **`workflow.thatFailsFollowLogs()`** — returns a workflow client whose `FollowLogs` returns an error
+- **`workflow.submitCalled()`** — returns true when `Submit` was called during the test
+- **`workflow.followLogsCalled()`** — returns true when `FollowLogs` was called during the test
 - **`workflow.logHintPrinted()`** — returns true when `PrintLogHint` was called during the test
-- **`workflow.thatFailsOnFollow()`** — returns a workflow client whose `FollowLogs` returns an error
-- **`notify.errors()`** — returns the list of error notifications sent during the test
-- **`notify.successes()`** — returns the list of success notifications sent during the test
+- **`workflow.lastDebugBranch()`** — returns the debug branch passed to the most recent `Submit` call
+- **`notify.successSent()`** — returns true when `Success` was called during the test
+- **`notify.errorSent()`** — returns true when `Error` was called during the test
