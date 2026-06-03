@@ -4,6 +4,42 @@
 
 `ralph workflow comment`: set up the workspace on the project branch, invoke the AI agent with a rendered comment prompt, commit any changes, post a reply on the PR.
 
+## Interfaces
+
+**Module:** `internal/orchestration/comment`
+
+```go
+type WorkspaceSetupClient interface {
+    Setup(flags WorkspaceFlags) error
+}
+
+type ConfigClient interface {
+    LoadOptional() (*config.RalphConfig, error)
+}
+
+type AIClient interface {
+    RenderCommentPrompt(ctx CommentContext, instructionsFile string) (string, error)
+    RunAgent(prompt string) error
+    GenerateChangelog() error
+    GenerateCommentReply(ctx CommentContext, pushed bool) (string, error)
+}
+
+type ServicesClient interface {
+    Start(cfg *config.RalphConfig) (*services.Handle, error)
+    Stop(handle *services.Handle)
+}
+
+type GitClient interface {
+    HasChanges() bool
+    ReportExists() bool
+    CommitAndPushFromReport() error
+}
+
+type GitHubClient interface {
+    PostComment(prNumber int, body string) error
+}
+```
+
 ## Orchestration
 
 **Module:** `internal/orchestration/comment`

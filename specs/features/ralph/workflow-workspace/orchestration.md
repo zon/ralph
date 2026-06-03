@@ -4,6 +4,29 @@
 
 Bootstrap the container environment for all `ralph workflow` subcommands: authenticate to GitHub, place AI credentials, configure git identity, clone the repository, check out the target branch, and symlink mounted files.
 
+## Interfaces
+
+**Module:** `internal/orchestration/workspace`
+
+```go
+type GitHubClient interface {
+    ConfigureAuth(repo string) error
+}
+
+type WorkspaceClient interface {
+    SetupCredentials() error
+    SetupSymlinks() error
+}
+
+type GitClient interface {
+    ConfigureUser(name, email string)
+    Clone(branch string) error
+    RemoteBranchExists(branch string) (bool, error)
+    FetchAndCheckout(branch string) error
+    CreateAndCheckout(branch string) error
+}
+```
+
 ## Orchestration
 
 **Module:** `internal/orchestration/workspace`

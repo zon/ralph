@@ -4,6 +4,28 @@
 
 `ralph run` (default, without `--local`): verify the branch is in sync with remote, submit an Argo Workflow, and optionally stream its logs and notify on completion.
 
+## Interfaces
+
+**Module:** `internal/orchestration/run`
+
+```go
+type GitClient interface {
+    CurrentBranch() (string, error)
+    IsBranchSyncedWithRemote(branch string) error
+}
+
+type WorkflowClient interface {
+    Submit(proj *project.Project, cloneBranch string, debug string) (string, error)
+    PrintLogHint(workflowName string)
+    FollowLogs(workflowName string) error
+}
+
+type NotifyClient interface {
+    Success(slug string)
+    Error(slug string)
+}
+```
+
 ## Orchestration
 
 **Module:** `internal/orchestration/run`

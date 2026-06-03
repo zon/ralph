@@ -4,6 +4,43 @@
 
 `ralph workflow run`: set up the workspace, validate inputs, synchronize the base branch, and run the project execution loop.
 
+## Interfaces
+
+**Module:** `internal/orchestration/workflow`
+
+```go
+type WorkspaceSetupClient interface {
+    Setup(flags WorkspaceFlags) error
+}
+
+type GitClient interface {
+    FetchBranch(branch string) error
+    NeedsMerge(branch string) (bool, error)
+    Merge(branch string) error
+    AbortMerge()
+}
+
+type AIClient interface {
+    ResolveMergeConflicts(baseBranch, projectBranch string) error
+}
+
+type RunnerClient interface {
+    RunLocal(proj *project.Project, cfg *config.RalphConfig) error
+}
+
+type ConfigClient interface {
+    LoadOptional() (*config.RalphConfig, error)
+}
+
+type ProjectClient interface {
+    Load(path string) (*project.Project, error)
+}
+
+type DebugClient interface {
+    Setup(branch string) error
+}
+```
+
 ## Orchestration
 
 **Module:** `internal/orchestration/workflow`

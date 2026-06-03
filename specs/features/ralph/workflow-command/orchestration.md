@@ -4,6 +4,20 @@
 
 `ralph workflow command`: set up the workspace and execute the supplied command tokens in the cloned repository.
 
+## Interfaces
+
+**Module:** `internal/orchestration/command`
+
+```go
+type WorkspaceSetupClient interface {
+    Setup(flags WorkspaceFlags) error
+}
+
+type ExecClient interface {
+    Run(tokens []string) error
+}
+```
+
 ## Orchestration
 
 **Module:** `internal/orchestration/command`

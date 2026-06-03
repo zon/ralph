@@ -4,6 +4,17 @@
 
 `ralph command`: validate the command, submit an Argo Workflow, and stream its logs.
 
+## Interfaces
+
+**Module:** `internal/orchestration/command`
+
+```go
+type WorkflowClient interface {
+    Submit(command []string) (string, error)
+    StreamLogs() error
+}
+```
+
 ## Orchestration
 
 **Module:** `internal/orchestration/command`

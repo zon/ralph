@@ -4,6 +4,31 @@
 
 `ralph workflow merge`: set up the workspace on the PR branch, clean up completed project files, confirm GitHub has processed any push, and merge the PR.
 
+## Interfaces
+
+**Module:** `internal/orchestration/merge`
+
+```go
+type WorkspaceSetupClient interface {
+    Setup(flags WorkspaceFlags) error
+}
+
+type GitClient interface {
+    CommitAndPush(message string) error
+}
+
+type GitHubClient interface {
+    WaitForHeadSync(prBranch string) error
+    MergePR(prNumber int) error
+}
+
+type ProjectClient interface {
+    LoadAll() ([]*project.Project, error)
+    FilterPassing(projects []*project.Project) []*project.Project
+    DeleteAll(projects []*project.Project) error
+}
+```
+
 ## Orchestration
 
 **Module:** `internal/orchestration/merge`

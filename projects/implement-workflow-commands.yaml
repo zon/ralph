@@ -1,0 +1,1104 @@
+slug: implement-workflow-commands
+title: Implement ralph workflow subcommands and remove old equivalent commands
+maxIterations: 10
+requirements:
+    - slug: workspace-setup
+      description: Create internal/orchestration/workspace with WorkspaceSetup that bootstraps the container environment for all workflow subcommands
+      code:
+        - name: WorkspaceSetup
+          description: orchestrates container bootstrap — GitHub auth, AI credentials, git identity, clone, branch checkout, symlinks
+          module: internal/orchestration/workspace
+          body: |
+            type WorkspaceSetup struct {
+                github    GitHubClient
+                workspace WorkspaceClient
+                git       GitClient
+            }
+
+            type WorkspaceFlags struct {
+                Repo         string
+                CloneBranch  string
+                TargetBranch string
+                CreateBranch bool
+                BotName      string
+                BotEmail     string
+                Symlinks     bool
+            }
+
+            func (w *WorkspaceSetup) Setup(flags WorkspaceFlags) error {
+                if err := w.github.ConfigureAuth(flags.Repo); err != nil {
+                    return err
+                }
+                if err := w.workspace.SetupCredentials(); err != nil {
+                    return err
+                }
+                w.git.ConfigureUser(flags.BotName, flags.BotEmail)
+                if err := w.git.Clone(flags.CloneBranch); err != nil {
+                    return err
+                }
+                if flags.TargetBranch != "" {
+                    if err := w.checkoutBranch(flags.TargetBranch, flags.CreateBranch); err != nil {
+                        return err
+                    }
+                }
+                if flags.Symlinks {
+                    return w.workspace.SetupSymlinks()
+                }
+                return nil
+            }
+        - name: checkoutBranch
+          description: fetches and checks out an existing remote branch, or creates a new local branch
+          module: internal/orchestration/workspace
+          body: |
+            func (w *WorkspaceSetup) checkoutBranch(branch string, create bool) error {
+                exists, err := w.git.RemoteBranchExists(branch)
+                if err != nil {
+                    return err
+                }
+                if exists {
+                    return w.git.FetchAndCheckout(branch)
+                }
+                if !create {
+                    return ErrBranchNotFound
+                }
+                return w.git.CreateAndCheckout(branch)
+            }
+        - name: GitHubClient
+          description: interface for GitHub authentication
+          module: internal/orchestration/workspace
+          body: |
+            type GitHubClient interface {
+                ConfigureAuth(repo string) error
+            }
+        - name: WorkspaceClient
+          description: interface for credential and symlink setup
+          module: internal/orchestration/workspace
+          body: |
+            type WorkspaceClient interface {
+                SetupCredentials() error
+                SetupSymlinks() error
+            }
+        - name: GitClient
+          description: interface for git operations during workspace bootstrap
+          module: internal/orchestration/workspace
+          body: |
+            type GitClient interface {
+                ConfigureUser(name, email string)
+                Clone(branch string) error
+                RemoteBranchExists(branch string) (bool, error)
+                FetchAndCheckout(branch string) error
+                CreateAndCheckout(branch string) error
+            }
+      tests:
+        - name: TestSetupGitHubAuthFailureAbortsEarly
+          description: verifies GitHub auth failure stops setup before credentials
+          module: internal/orchestration/workspace
+          body: |
+            func TestSetupGitHubAuthFailureAbortsEarly(t *testing.T) {
+                cmd := workspace.withMocks(
+                    workspace.withGitHub(github.thatFailsAuth()),
+                )
+                err := cmd.Setup(flags.any())
+                require.Error(t, err)
+                require.False(t, workspace.credentialsSetUp())
+            }
+        - name: TestSetupCredentialsFailureAbortsEarly
+          description: verifies credentials failure stops setup before clone
+          module: internal/orchestration/workspace
+          body: |
+            func TestSetupCredentialsFailureAbortsEarly(t *testing.T) {
+                cmd := workspace.withMocks(
+                    workspace.withWorkspace(workspace.thatFailsCredentials()),
+                )
+                err := cmd.Setup(flags.any())
+                require.Error(t, err)
+                require.False(t, git.cloned())
+            }
+        - name: TestSetupCloneFailureAbortsEarly
+          description: verifies clone failure stops setup before checkout
+          module: internal/orchestration/workspace
+          body: |
+            func TestSetupCloneFailureAbortsEarly(t *testing.T) {
+                cmd := workspace.withMocks(
+                    workspace.withGit(git.thatFailsClone()),
+                )
+                err := cmd.Setup(flags.any())
+                require.Error(t, err)
+                require.False(t, git.checkoutCalled())
+            }
+        - name: TestSetupNoTargetBranchSkipsCheckout
+          description: verifies no target branch means no checkout
+          module: internal/orchestration/workspace
+          body: |
+            func TestSetupNoTargetBranchSkipsCheckout(t *testing.T) {
+                cmd := workspace.withMocks()
+                err := cmd.Setup(flags.withNoTargetBranch())
+                require.NoError(t, err)
+                require.False(t, git.checkoutCalled())
+            }
+        - name: TestSetupExistingTargetBranchFetchesAndChecksOut
+          description: verifies existing remote branch is fetched and checked out
+          module: internal/orchestration/workspace
+          body: |
+            func TestSetupExistingTargetBranchFetchesAndChecksOut(t *testing.T) {
+                cmd := workspace.withMocks(
+                    workspace.withGit(git.thatReportsRemoteBranchExists()),
+                )
+                err := cmd.Setup(flags.withTargetBranch("ralph/my-feature"))
+                require.NoError(t, err)
+                require.True(t, git.fetchAndCheckoutCalled())
+                require.False(t, git.createAndCheckoutCalled())
+            }
+        - name: TestSetupNonExistingBranchWithCreateChecksOut
+          description: verifies absent remote branch is created when CreateBranch is true
+          module: internal/orchestration/workspace
+          body: |
+            func TestSetupNonExistingBranchWithCreateChecksOut(t *testing.T) {
+                cmd := workspace.withMocks(
+                    workspace.withGit(git.thatReportsRemoteBranchAbsent()),
+                )
+                err := cmd.Setup(flags.withTargetBranch("ralph/my-feature").withCreateBranch())
+                require.NoError(t, err)
+                require.True(t, git.createAndCheckoutCalled())
+            }
+        - name: TestSetupNonExistingBranchWithoutCreateReturnsError
+          description: verifies absent remote branch returns error when CreateBranch is false
+          module: internal/orchestration/workspace
+          body: |
+            func TestSetupNonExistingBranchWithoutCreateReturnsError(t *testing.T) {
+                cmd := workspace.withMocks(
+                    workspace.withGit(git.thatReportsRemoteBranchAbsent()),
+                )
+                err := cmd.Setup(flags.withTargetBranch("ralph/my-feature"))
+                require.Error(t, err)
+                require.False(t, git.createAndCheckoutCalled())
+            }
+        - name: TestSetupSymlinksDisabledSkipsSetup
+          description: verifies symlinks are not set up when Symlinks is false
+          module: internal/orchestration/workspace
+          body: |
+            func TestSetupSymlinksDisabledSkipsSetup(t *testing.T) {
+                cmd := workspace.withMocks()
+                err := cmd.Setup(flags.withSymlinksDisabled())
+                require.NoError(t, err)
+                require.False(t, workspace.symlinksSetUp())
+            }
+        - name: TestSetupSymlinksEnabledCallsSetup
+          description: verifies symlinks are set up when Symlinks is true
+          module: internal/orchestration/workspace
+          body: |
+            func TestSetupSymlinksEnabledCallsSetup(t *testing.T) {
+                cmd := workspace.withMocks()
+                err := cmd.Setup(flags.withSymlinksEnabled())
+                require.NoError(t, err)
+                require.True(t, workspace.symlinksSetUp())
+            }
+      passing: false
+    - slug: workflow-run
+      description: Create internal/orchestration/workflow with WorkflowRunCmd that sets up the workspace, validates inputs, syncs the base branch, and runs the project
+      code:
+        - name: WorkflowRunCmd
+          description: orchestrates workspace setup, validation, base-branch sync, and project execution
+          module: internal/orchestration/workflow
+          body: |
+            type WorkflowRunCmd struct {
+                workspace WorkspaceSetupClient
+                git       GitClient
+                ai        AIClient
+                runner    RunnerClient
+                config    ConfigClient
+                project   ProjectClient
+                debug     DebugClient
+            }
+
+            type WorkflowRunFlags struct {
+                Repo            string
+                CloneBranch     string
+                BaseBranch      string
+                ProjectBranch   string
+                BotName         string
+                BotEmail        string
+                ProjectPath     string
+                InstructionsMd  string
+                MaxIterations   int
+                Model           string
+                NoServices      bool
+                Debug           string
+            }
+
+            func (w *WorkflowRunCmd) Run(flags WorkflowRunFlags) error {
+                if flags.ProjectPath == "" {
+                    return ErrMissingProjectPath
+                }
+                if err := w.workspace.Setup(flags.WorkspaceFlags()); err != nil {
+                    return err
+                }
+                if flags.Debug != "" {
+                    if err := w.debug.Setup(flags.Debug); err != nil {
+                        return err
+                    }
+                }
+                cfg, err := w.config.LoadOptional()
+                if err != nil {
+                    return err
+                }
+                proj, err := w.project.Load(flags.ProjectPath)
+                if err != nil {
+                    return err
+                }
+                w.applyFlags(proj, cfg, flags)
+                if err := w.syncBaseBranch(flags.BaseBranch, flags.ProjectBranch); err != nil {
+                    return err
+                }
+                return w.runner.RunLocal(proj, cfg)
+            }
+        - name: syncBaseBranch
+          description: fetches and merges the base branch; uses AI to resolve conflicts
+          module: internal/orchestration/workflow
+          body: |
+            func (w *WorkflowRunCmd) syncBaseBranch(baseBranch, projectBranch string) error {
+                if err := w.git.FetchBranch(baseBranch); err != nil {
+                    return nil
+                }
+                needsMerge, err := w.git.NeedsMerge(baseBranch)
+                if err != nil {
+                    return err
+                }
+                if !needsMerge {
+                    return nil
+                }
+                if err := w.git.Merge(baseBranch); err != nil {
+                    w.git.AbortMerge()
+                    return w.ai.ResolveMergeConflicts(baseBranch, projectBranch)
+                }
+                return nil
+            }
+        - name: WorkspaceSetupClient
+          description: interface for workspace setup used by WorkflowRunCmd
+          module: internal/orchestration/workflow
+          body: |
+            type WorkspaceSetupClient interface {
+                Setup(flags workspace.WorkspaceFlags) error
+            }
+
+            type GitClient interface {
+                FetchBranch(branch string) error
+                NeedsMerge(branch string) (bool, error)
+                Merge(branch string) error
+                AbortMerge()
+            }
+
+            type AIClient interface {
+                ResolveMergeConflicts(baseBranch, projectBranch string) error
+            }
+
+            type RunnerClient interface {
+                RunLocal(proj *project.Project, cfg *config.RalphConfig) error
+            }
+
+            type ConfigClient interface {
+                LoadOptional() (*config.RalphConfig, error)
+            }
+
+            type ProjectClient interface {
+                Load(path string) (*project.Project, error)
+            }
+
+            type DebugClient interface {
+                Setup(branch string) error
+            }
+      tests:
+        - name: TestRunMissingProjectPathAbortsBeforeWorkspace
+          description: verifies missing ProjectPath returns error before workspace setup
+          module: internal/orchestration/workflow
+          body: |
+            func TestRunMissingProjectPathAbortsBeforeWorkspace(t *testing.T) {
+                cmd := run.withMocks()
+                err := cmd.Run(flags.withNoProjectPath())
+                require.Error(t, err)
+                require.False(t, workspace.setupCalled())
+            }
+        - name: TestRunWorkspaceFailureAbortsEarly
+          description: verifies workspace failure aborts before config load
+          module: internal/orchestration/workflow
+          body: |
+            func TestRunWorkspaceFailureAbortsEarly(t *testing.T) {
+                cmd := run.withMocks(
+                    run.withWorkspace(workspace.thatFailsSetup()),
+                )
+                err := cmd.Run(flags.any())
+                require.Error(t, err)
+                require.False(t, config.loadCalled())
+            }
+        - name: TestRunDebugSetupFailureAbortsEarly
+          description: verifies debug setup failure aborts before config load
+          module: internal/orchestration/workflow
+          body: |
+            func TestRunDebugSetupFailureAbortsEarly(t *testing.T) {
+                cmd := run.withMocks(
+                    run.withDebug(debug.thatFailsSetup()),
+                )
+                err := cmd.Run(flags.withDebugBranch("my-ralph-branch"))
+                require.Error(t, err)
+                require.False(t, config.loadCalled())
+            }
+        - name: TestRunMissingConfigProceedsWithDefaults
+          description: verifies missing config does not abort execution
+          module: internal/orchestration/workflow
+          body: |
+            func TestRunMissingConfigProceedsWithDefaults(t *testing.T) {
+                cmd := run.withMocks(
+                    run.withConfig(config.thatReportsMissing()),
+                )
+                err := cmd.Run(flags.any())
+                require.NoError(t, err)
+                require.True(t, runner.runLocalCalled())
+            }
+        - name: TestRunMalformedConfigAbortsBeforeSync
+          description: verifies malformed config aborts before base-branch fetch
+          module: internal/orchestration/workflow
+          body: |
+            func TestRunMalformedConfigAbortsBeforeSync(t *testing.T) {
+                cmd := run.withMocks(
+                    run.withConfig(config.thatFailsParsing()),
+                )
+                err := cmd.Run(flags.any())
+                require.Error(t, err)
+                require.False(t, git.fetchCalled())
+            }
+        - name: TestRunProjectLoadFailureAbortsBeforeSync
+          description: verifies project load failure aborts before sync
+          module: internal/orchestration/workflow
+          body: |
+            func TestRunProjectLoadFailureAbortsBeforeSync(t *testing.T) {
+                cmd := run.withMocks(
+                    run.withProject(project.thatFailsLoad()),
+                )
+                err := cmd.Run(flags.any())
+                require.Error(t, err)
+                require.False(t, git.fetchCalled())
+            }
+        - name: TestSyncBaseBranchFetchFailureContinues
+          description: verifies fetch failure is treated as a warning and execution continues
+          module: internal/orchestration/workflow
+          body: |
+            func TestSyncBaseBranchFetchFailureContinues(t *testing.T) {
+                cmd := run.withMocks(
+                    run.withGit(git.thatFailsFetch()),
+                )
+                err := cmd.Run(flags.any())
+                require.NoError(t, err)
+                require.True(t, runner.runLocalCalled())
+            }
+        - name: TestSyncBaseBranchUpToDateSkipsMerge
+          description: verifies up-to-date branch skips merge
+          module: internal/orchestration/workflow
+          body: |
+            func TestSyncBaseBranchUpToDateSkipsMerge(t *testing.T) {
+                cmd := run.withMocks(
+                    run.withGit(git.thatReportsUpToDate()),
+                )
+                err := cmd.Run(flags.any())
+                require.NoError(t, err)
+                require.False(t, git.mergeCalled())
+            }
+        - name: TestSyncBaseBranchConflictsAbortAndInvokeAI
+          description: verifies merge conflicts abort the merge and invoke AI resolution
+          module: internal/orchestration/workflow
+          body: |
+            func TestSyncBaseBranchConflictsAbortAndInvokeAI(t *testing.T) {
+                cmd := run.withMocks(
+                    run.withGit(git.thatNeedsMerge().thatProducesConflicts()),
+                )
+                err := cmd.Run(flags.any())
+                require.NoError(t, err)
+                require.True(t, git.mergeAborted())
+                require.True(t, ai.conflictsResolved())
+            }
+        - name: TestRunDelegatesToLocalRunner
+          description: verifies successful run delegates to the local runner
+          module: internal/orchestration/workflow
+          body: |
+            func TestRunDelegatesToLocalRunner(t *testing.T) {
+                cmd := run.withMocks()
+                err := cmd.Run(flags.any())
+                require.NoError(t, err)
+                require.True(t, runner.runLocalCalled())
+            }
+      passing: false
+    - slug: workflow-comment
+      description: Rewrite internal/orchestration/comment as WorkflowCommentCmd — workspace setup, AI agent with rendered prompt, commit, PR reply
+      code:
+        - name: WorkflowCommentCmd
+          description: orchestrates workspace setup, AI agent invocation, commit, and PR reply
+          module: internal/orchestration/comment
+          body: |
+            type WorkflowCommentCmd struct {
+                workspace WorkspaceSetupClient
+                config    ConfigClient
+                ai        AIClient
+                services  ServicesClient
+                git       GitClient
+                github    GitHubClient
+            }
+
+            type WorkflowCommentFlags struct {
+                Repo             string
+                CloneBranch      string
+                ProjectBranch    string
+                BotName          string
+                BotEmail         string
+                CommentBody      string
+                PRNumber         int
+                RepoOwner        string
+                RepoName         string
+                NoServices       bool
+                InstructionsFile string
+            }
+
+            func (w *WorkflowCommentCmd) Run(flags WorkflowCommentFlags) error {
+                if flags.CommentBody == "" {
+                    return ErrMissingCommentBody
+                }
+                if err := w.workspace.Setup(flags.WorkspaceFlags()); err != nil {
+                    return err
+                }
+                cfg, err := w.config.LoadOptional()
+                if err != nil {
+                    return err
+                }
+                if flags.NoServices {
+                    cfg.Services = nil
+                }
+                prompt, err := w.ai.RenderCommentPrompt(flags.CommentContext(), flags.InstructionsFile)
+                if err != nil {
+                    return err
+                }
+                svc, err := w.services.Start(cfg)
+                if err != nil {
+                    return err
+                }
+                defer w.services.Stop(svc)
+                if err := w.ai.RunAgent(prompt); err != nil {
+                    return err
+                }
+                pushed, err := w.commitChanges()
+                if err != nil {
+                    return err
+                }
+                reply, err := w.ai.GenerateCommentReply(flags.CommentContext(), pushed)
+                if err != nil {
+                    return err
+                }
+                return w.github.PostComment(flags.PRNumber, reply)
+            }
+        - name: commitChanges
+          description: commits and pushes agent changes; returns true when a commit was pushed
+          module: internal/orchestration/comment
+          body: |
+            func (w *WorkflowCommentCmd) commitChanges() (bool, error) {
+                if !w.git.HasChanges() {
+                    return false, nil
+                }
+                if !w.git.ReportExists() {
+                    if err := w.ai.GenerateChangelog(); err != nil {
+                        return false, err
+                    }
+                }
+                if err := w.git.CommitAndPushFromReport(); err != nil {
+                    return false, err
+                }
+                return true, nil
+            }
+        - name: WorkspaceSetupClient
+          description: interfaces used by WorkflowCommentCmd
+          module: internal/orchestration/comment
+          body: |
+            type WorkspaceSetupClient interface {
+                Setup(flags workspace.WorkspaceFlags) error
+            }
+
+            type ConfigClient interface {
+                LoadOptional() (*config.RalphConfig, error)
+            }
+
+            type AIClient interface {
+                RenderCommentPrompt(ctx CommentContext, instructionsFile string) (string, error)
+                RunAgent(prompt string) error
+                GenerateChangelog() error
+                GenerateCommentReply(ctx CommentContext, pushed bool) (string, error)
+            }
+
+            type ServicesClient interface {
+                Start(cfg *config.RalphConfig) (*services.Manager, error)
+                Stop(svc *services.Manager)
+            }
+
+            type GitClient interface {
+                HasChanges() bool
+                ReportExists() bool
+                CommitAndPushFromReport() error
+            }
+
+            type GitHubClient interface {
+                PostComment(prNumber int, body string) error
+            }
+
+            type CommentContext struct {
+                CommentBody string
+                PRNumber    int
+                PRBranch    string
+                RepoOwner   string
+                RepoName    string
+            }
+      tests:
+        - name: TestRunMissingCommentBodyAbortsBeforeWorkspace
+          description: verifies missing comment body returns error before workspace setup
+          module: internal/orchestration/comment
+          body: |
+            func TestRunMissingCommentBodyAbortsBeforeWorkspace(t *testing.T) {
+                cmd := comment.withMocks()
+                err := cmd.Run(flags.withNoCommentBody())
+                require.Error(t, err)
+                require.False(t, workspace.setupCalled())
+            }
+        - name: TestRunWorkspaceFailureAbortsEarly
+          description: verifies workspace failure aborts before config load
+          module: internal/orchestration/comment
+          body: |
+            func TestRunWorkspaceFailureAbortsEarly(t *testing.T) {
+                cmd := comment.withMocks(
+                    comment.withWorkspace(workspace.thatFailsSetup()),
+                )
+                err := cmd.Run(flags.any())
+                require.Error(t, err)
+                require.False(t, config.loadCalled())
+            }
+        - name: TestRunServicesStartedBeforeAgentAndStopped
+          description: verifies services are started before the agent and stopped after
+          module: internal/orchestration/comment
+          body: |
+            func TestRunServicesStartedBeforeAgentAndStopped(t *testing.T) {
+                cmd := comment.withMocks()
+                err := cmd.Run(flags.any())
+                require.NoError(t, err)
+                require.Equal(t, 1, services.startCount())
+                require.Equal(t, 1, services.stopCount())
+                require.True(t, services.startedBeforeAgent())
+            }
+        - name: TestRunNoServicesFlagSkipsServiceStartup
+          description: verifies --no-services prevents service startup
+          module: internal/orchestration/comment
+          body: |
+            func TestRunNoServicesFlagSkipsServiceStartup(t *testing.T) {
+                cmd := comment.withMocks()
+                err := cmd.Run(flags.withNoServices())
+                require.NoError(t, err)
+                require.Equal(t, 0, services.startCount())
+            }
+        - name: TestRunChangesCommittedAndPushed
+          description: verifies agent changes are committed and pushed
+          module: internal/orchestration/comment
+          body: |
+            func TestRunChangesCommittedAndPushed(t *testing.T) {
+                cmd := comment.withMocks(
+                    comment.withGit(git.withChangesAndReport()),
+                )
+                err := cmd.Run(flags.any())
+                require.NoError(t, err)
+                require.True(t, git.committedAndPushed())
+            }
+        - name: TestRunNoChangesSkipsCommit
+          description: verifies no changes skips commit
+          module: internal/orchestration/comment
+          body: |
+            func TestRunNoChangesSkipsCommit(t *testing.T) {
+                cmd := comment.withMocks(
+                    comment.withGit(git.withNoChanges()),
+                )
+                err := cmd.Run(flags.any())
+                require.NoError(t, err)
+                require.False(t, git.committedAndPushed())
+            }
+        - name: TestRunReplyPostedAfterCommit
+          description: verifies a reply is posted after changes are committed
+          module: internal/orchestration/comment
+          body: |
+            func TestRunReplyPostedAfterCommit(t *testing.T) {
+                cmd := comment.withMocks(
+                    comment.withGit(git.withChangesAndReport()),
+                )
+                err := cmd.Run(flags.any())
+                require.NoError(t, err)
+                require.True(t, github.commentPosted())
+            }
+        - name: TestRunReplyPostedWhenNoChanges
+          description: verifies a reply is posted even when there are no changes
+          module: internal/orchestration/comment
+          body: |
+            func TestRunReplyPostedWhenNoChanges(t *testing.T) {
+                cmd := comment.withMocks(
+                    comment.withGit(git.withNoChanges()),
+                )
+                err := cmd.Run(flags.any())
+                require.NoError(t, err)
+                require.True(t, github.commentPosted())
+            }
+      passing: false
+    - slug: workflow-merge
+      description: Rewrite internal/orchestration/merge as WorkflowMergeCmd — workspace setup, completed project cleanup, GitHub head sync, PR merge
+      code:
+        - name: WorkflowMergeCmd
+          description: orchestrates workspace setup, project cleanup, head sync, and PR merge
+          module: internal/orchestration/merge
+          body: |
+            type WorkflowMergeCmd struct {
+                workspace WorkspaceSetupClient
+                git       GitClient
+                github    GitHubClient
+                project   ProjectClient
+            }
+
+            type WorkflowMergeFlags struct {
+                Repo        string
+                CloneBranch string
+                PRBranch    string
+                PRNumber    int
+                BotName     string
+                BotEmail    string
+            }
+
+            func (w *WorkflowMergeCmd) Merge(flags WorkflowMergeFlags) error {
+                if err := w.workspace.Setup(flags.WorkspaceFlags()); err != nil {
+                    return err
+                }
+                pushed, err := w.cleanupCompletedProjects()
+                if err != nil {
+                    return err
+                }
+                if pushed {
+                    if err := w.github.WaitForHeadSync(flags.PRBranch); err != nil {
+                        return err
+                    }
+                }
+                return w.github.MergePR(flags.PRNumber)
+            }
+        - name: cleanupCompletedProjects
+          description: deletes passing project files, commits and pushes; returns true when a commit was pushed
+          module: internal/orchestration/merge
+          body: |
+            func (w *WorkflowMergeCmd) cleanupCompletedProjects() (bool, error) {
+                projects, err := w.project.LoadAll()
+                if err != nil {
+                    return false, err
+                }
+                completed := w.project.FilterPassing(projects)
+                if len(completed) == 0 {
+                    return false, nil
+                }
+                if err := w.project.DeleteAll(completed); err != nil {
+                    return false, err
+                }
+                if err := w.git.CommitAndPush("chore: remove completed project files"); err != nil {
+                    return false, err
+                }
+                return true, nil
+            }
+        - name: WorkspaceSetupClient
+          description: interfaces used by WorkflowMergeCmd
+          module: internal/orchestration/merge
+          body: |
+            type WorkspaceSetupClient interface {
+                Setup(flags workspace.WorkspaceFlags) error
+            }
+
+            type GitClient interface {
+                CommitAndPush(message string) error
+            }
+
+            type GitHubClient interface {
+                WaitForHeadSync(prBranch string) error
+                MergePR(prNumber int) error
+            }
+
+            type ProjectClient interface {
+                LoadAll() ([]*project.Project, error)
+                FilterPassing(projects []*project.Project) []*project.Project
+                DeleteAll(projects []*project.Project) error
+            }
+      tests:
+        - name: TestMergeWorkspaceFailureAbortsEarly
+          description: verifies workspace failure aborts before project load
+          module: internal/orchestration/merge
+          body: |
+            func TestMergeWorkspaceFailureAbortsEarly(t *testing.T) {
+                cmd := merge.withMocks(
+                    merge.withWorkspace(workspace.thatFailsSetup()),
+                )
+                err := cmd.Merge(flags.any())
+                require.Error(t, err)
+                require.False(t, project.loadAllCalled())
+            }
+        - name: TestMergeNoCompletedProjectsSkipsCleanupAndSync
+          description: verifies no completed projects skips cleanup and head sync
+          module: internal/orchestration/merge
+          body: |
+            func TestMergeNoCompletedProjectsSkipsCleanupAndSync(t *testing.T) {
+                cmd := merge.withMocks(
+                    merge.withProject(project.withNoCompletedProjects()),
+                )
+                err := cmd.Merge(flags.any())
+                require.NoError(t, err)
+                require.False(t, git.commitAndPushCalled())
+                require.False(t, github.waitForHeadSyncCalled())
+                require.True(t, github.mergePRCalled())
+            }
+        - name: TestMergeCompletedProjectsDeletedCommittedAndPushed
+          description: verifies completed projects are deleted, committed, and pushed
+          module: internal/orchestration/merge
+          body: |
+            func TestMergeCompletedProjectsDeletedCommittedAndPushed(t *testing.T) {
+                cmd := merge.withMocks(
+                    merge.withProject(project.withCompletedProjects()),
+                )
+                err := cmd.Merge(flags.any())
+                require.NoError(t, err)
+                require.True(t, project.deletedAll())
+                require.True(t, git.commitAndPushCalled())
+            }
+        - name: TestMergeHeadSyncCalledAfterPush
+          description: verifies GitHub head sync is called after a push
+          module: internal/orchestration/merge
+          body: |
+            func TestMergeHeadSyncCalledAfterPush(t *testing.T) {
+                cmd := merge.withMocks(
+                    merge.withProject(project.withCompletedProjects()),
+                )
+                err := cmd.Merge(flags.any())
+                require.NoError(t, err)
+                require.True(t, github.waitForHeadSyncCalled())
+            }
+        - name: TestMergeHeadSyncTimeoutAbortsBeforeMerge
+          description: verifies head sync timeout prevents the PR merge
+          module: internal/orchestration/merge
+          body: |
+            func TestMergeHeadSyncTimeoutAbortsBeforeMerge(t *testing.T) {
+                cmd := merge.withMocks(
+                    merge.withProject(project.withCompletedProjects()),
+                    merge.withGitHub(github.thatTimesOutHeadSync()),
+                )
+                err := cmd.Merge(flags.any())
+                require.Error(t, err)
+                require.False(t, github.mergePRCalled())
+            }
+        - name: TestMergePRCalledOnSuccess
+          description: verifies the PR is merged on success
+          module: internal/orchestration/merge
+          body: |
+            func TestMergePRCalledOnSuccess(t *testing.T) {
+                cmd := merge.withMocks()
+                err := cmd.Merge(flags.any())
+                require.NoError(t, err)
+                require.True(t, github.mergePRCalled())
+            }
+      passing: false
+    - slug: workflow-command
+      description: Add WorkflowCommandCmd to internal/orchestration/command — workspace setup and exec for container-side arbitrary command execution
+      code:
+        - name: WorkflowCommandCmd
+          description: 'container-side command: sets up workspace and runs the supplied command tokens'
+          module: internal/orchestration/command
+          body: |
+            type WorkflowCommandCmd struct {
+                workspace WorkspaceSetupClient
+                exec      ExecClient
+            }
+
+            type WorkflowCommandFlags struct {
+                Repo        string
+                CloneBranch string
+                BotName     string
+                BotEmail    string
+                Command     []string
+            }
+
+            func (w *WorkflowCommandCmd) Run(flags WorkflowCommandFlags) error {
+                if len(flags.Command) == 0 {
+                    return ErrMissingCommand
+                }
+                if err := w.workspace.Setup(flags.WorkspaceFlags()); err != nil {
+                    return err
+                }
+                return w.exec.Run(flags.Command)
+            }
+        - name: WorkspaceSetupClient
+          description: interfaces used by WorkflowCommandCmd
+          module: internal/orchestration/command
+          body: |
+            type WorkspaceSetupClient interface {
+                Setup(flags workspace.WorkspaceFlags) error
+            }
+
+            type ExecClient interface {
+                Run(tokens []string) error
+            }
+      tests:
+        - name: TestWorkflowCommandRunMissingCommandAbortsBeforeWorkspace
+          description: verifies missing command returns error before workspace setup
+          module: internal/orchestration/command
+          body: |
+            func TestWorkflowCommandRunMissingCommandAbortsBeforeWorkspace(t *testing.T) {
+                cmd := workflowCommand.withMocks()
+                err := cmd.Run(flags.withNoCommand())
+                require.Error(t, err)
+                require.False(t, workspace.setupCalled())
+            }
+        - name: TestWorkflowCommandRunWorkspaceFailureAbortsEarly
+          description: verifies workspace failure aborts before exec
+          module: internal/orchestration/command
+          body: |
+            func TestWorkflowCommandRunWorkspaceFailureAbortsEarly(t *testing.T) {
+                cmd := workflowCommand.withMocks(
+                    workflowCommand.withWorkspace(workspace.thatFailsSetup()),
+                )
+                err := cmd.Run(flags.any())
+                require.Error(t, err)
+                require.False(t, exec.runCalled())
+            }
+        - name: TestWorkflowCommandRunExecutesCommandAfterWorkspace
+          description: verifies command is executed after successful workspace setup
+          module: internal/orchestration/command
+          body: |
+            func TestWorkflowCommandRunExecutesCommandAfterWorkspace(t *testing.T) {
+                cmd := workflowCommand.withMocks()
+                err := cmd.Run(flags.any())
+                require.NoError(t, err)
+                require.True(t, exec.runCalled())
+            }
+      passing: false
+    - slug: command-submit
+      description: Add CommandCmd to internal/orchestration/command — client-side Argo workflow submission and log streaming for arbitrary commands
+      code:
+        - name: CommandCmd
+          description: client-side command that submits an Argo workflow and optionally streams logs
+          module: internal/orchestration/command
+          body: |
+            type CommandCmd struct {
+                workflow WorkflowClient
+            }
+
+            type CommandFlags struct {
+                Command  []string
+                NoFollow bool
+            }
+
+            func (c *CommandCmd) Run(flags CommandFlags) error {
+                if len(flags.Command) == 0 {
+                    return ErrMissingCommand
+                }
+                workflowName, err := c.workflow.Submit(flags.Command)
+                if err != nil {
+                    return err
+                }
+                if flags.NoFollow {
+                    return nil
+                }
+                return c.workflow.StreamLogs(workflowName)
+            }
+        - name: WorkflowClient
+          description: interface for Argo workflow submission and log streaming
+          module: internal/orchestration/command
+          body: |
+            type WorkflowClient interface {
+                Submit(command []string) (string, error)
+                StreamLogs(workflowName string) error
+            }
+      tests:
+        - name: TestCommandRunMissingCommandReturnsError
+          description: verifies missing command returns error without submitting
+          module: internal/orchestration/command
+          body: |
+            func TestCommandRunMissingCommandReturnsError(t *testing.T) {
+                cmd := command.withMocks()
+                err := cmd.Run(flags.withNoCommand())
+                require.Error(t, err)
+                require.False(t, workflow.submitCalled())
+            }
+        - name: TestCommandRunSubmitsWorkflow
+          description: verifies command is submitted as an Argo workflow
+          module: internal/orchestration/command
+          body: |
+            func TestCommandRunSubmitsWorkflow(t *testing.T) {
+                cmd := command.withMocks()
+                err := cmd.Run(flags.any())
+                require.NoError(t, err)
+                require.True(t, workflow.submitCalled())
+            }
+        - name: TestCommandRunStreamsLogsByDefault
+          description: verifies logs are streamed by default after submission
+          module: internal/orchestration/command
+          body: |
+            func TestCommandRunStreamsLogsByDefault(t *testing.T) {
+                cmd := command.withMocks()
+                err := cmd.Run(flags.any())
+                require.NoError(t, err)
+                require.True(t, workflow.streamLogsCalled())
+            }
+        - name: TestCommandRunNoFollowSkipsLogStreaming
+          description: verifies --no-follow skips log streaming
+          module: internal/orchestration/command
+          body: |
+            func TestCommandRunNoFollowSkipsLogStreaming(t *testing.T) {
+                cmd := command.withMocks()
+                err := cmd.Run(flags.withNoFollow())
+                require.NoError(t, err)
+                require.True(t, workflow.submitCalled())
+                require.False(t, workflow.streamLogsCalled())
+            }
+      passing: false
+    - slug: run-remote-debug
+      description: Update RemoteRunner in internal/orchestration/run to accept RunRemoteFlags with Debug and rename Run method; update WorkflowClient interface to include debug parameter in Submit
+      items:
+        - RemoteRunner.RunRemote is renamed to Run and takes RunRemoteFlags{Follow bool, Debug string} instead of a bare follow bool
+        - WorkflowClient.Submit in internal/orchestration/run adds a third debug string parameter — Submit(proj, cloneBranch, debug string)
+        - 'RemoteRunnerClient interface in internal/orchestration/run/cmd.go is updated: Run(proj *project.Project, flags RunRemoteFlags) error'
+        - The call site in RunCmd.Run passes flags.Debug into RunRemoteFlags when dispatching to the remote runner
+        - All existing remote runner tests are updated to use the new Run method and flags
+      code:
+        - name: RemoteRunner.Run
+          description: checks branch sync, submits workflow (with optional debug branch), follows logs if requested
+          module: internal/orchestration/run
+          body: |
+            type RunRemoteFlags struct {
+                Follow bool
+                Debug  string
+            }
+
+            func (r *RemoteRunner) Run(proj *project.Project, flags RunRemoteFlags) error {
+                branch, err := r.git.CurrentBranch()
+                if err != nil {
+                    return err
+                }
+                if err := r.git.IsBranchSyncedWithRemote(branch); err != nil {
+                    return err
+                }
+                workflowName, err := r.workflow.Submit(proj, branch, flags.Debug)
+                if err != nil {
+                    return err
+                }
+                if !flags.Follow {
+                    r.workflow.PrintLogHint(workflowName)
+                    return nil
+                }
+                if err := r.workflow.FollowLogs(workflowName); err != nil {
+                    r.notify.Error(proj.Slug)
+                    return err
+                }
+                r.notify.Success(proj.Slug)
+                return nil
+            }
+        - name: WorkflowClient
+          description: updated interface with debug parameter in Submit
+          module: internal/orchestration/run
+          body: |
+            type WorkflowClient interface {
+                Submit(proj *project.Project, cloneBranch string, debug string) (string, error)
+                PrintLogHint(workflowName string)
+                FollowLogs(workflowName string) error
+            }
+      tests:
+        - name: TestRunBranchNotPushedAbortsBeforeSubmit
+          description: verifies untracked branch aborts before workflow submission
+          module: internal/orchestration/run
+          body: |
+            func TestRunBranchNotPushedAbortsBeforeSubmit(t *testing.T) {
+                runner := remote.withMocks(
+                    remote.withGit(git.thatReportsBranchNotPushed()),
+                )
+                err := runner.Run(project.any(), flags.any())
+                require.Error(t, err)
+                require.False(t, workflow.submitCalled())
+            }
+        - name: TestRunNoFollowPrintsLogHint
+          description: verifies no-follow prints the log hint instead of streaming
+          module: internal/orchestration/run
+          body: |
+            func TestRunNoFollowPrintsLogHint(t *testing.T) {
+                runner := remote.withMocks()
+                err := runner.Run(project.any(), flags.withoutFollow())
+                require.NoError(t, err)
+                require.True(t, workflow.logHintPrinted())
+                require.False(t, workflow.followLogsCalled())
+            }
+        - name: TestRunFollowStreamsLogsAndNotifiesSuccess
+          description: verifies follow mode streams logs and sends success notification
+          module: internal/orchestration/run
+          body: |
+            func TestRunFollowStreamsLogsAndNotifiesSuccess(t *testing.T) {
+                runner := remote.withMocks()
+                err := runner.Run(project.any(), flags.withFollow())
+                require.NoError(t, err)
+                require.True(t, workflow.followLogsCalled())
+                require.True(t, notify.successSent())
+            }
+        - name: TestRunDebugBranchPassedToSubmit
+          description: verifies debug branch is passed to workflow submission
+          module: internal/orchestration/run
+          body: |
+            func TestRunDebugBranchPassedToSubmit(t *testing.T) {
+                runner := remote.withMocks()
+                err := runner.Run(project.any(), flags.withDebug("my-fix"))
+                require.NoError(t, err)
+                require.Equal(t, "my-fix", workflow.lastDebugBranch())
+            }
+      passing: false
+    - slug: workflow-client-debug
+      description: Update internal/workflow Client interface and MockClient to add debug string to Submit; update workflowClientAdapter in internal/cmd to pass debug through
+      items:
+        - workflow.Client interface Submit signature changes to Submit(proj *project.Project, cloneBranch string, debug string) (string, error)
+        - workflow.MockClient SubmitFunc and Submit method add the debug string parameter
+        - workflow.ThatFailsOnSubmit and all other factory functions in client_mock.go are updated for the new signature
+        - workflowClientAdapter.Submit in internal/cmd/workflow_client.go passes debug to workflow generation — when debug is non-empty the generated workflow invokes ralph via go run from the cloned debug branch
+        - NewRemoteRunner in internal/cmd/workflow_client.go is updated to wire the new Submit signature
+        - internal/cmd/run.go RunFlags already has Debug; the orchestration/run RunCmd.Run must pass flags.Debug into RunRemoteFlags when calling remote.Run
+      passing: false
+    - slug: workflow-generator
+      description: Update internal/workflow to generate workflows that call the new ralph workflow subcommands directly instead of using shell scripts
+      items:
+        - workflow.Workflow.buildMainTemplate for run workflows uses ralph workflow run with --project-branch, --base, and optionally --debug instead of the old ralph workflow invocation
+        - workflow.Workflow.buildMainTemplate for comment workflows uses ralph workflow comment with --repo, --clone-branch, --project-branch, --comment-body, --pr, --bot-name, --bot-email as direct container args instead of using comment.sh
+        - workflow.MergeWorkflow.buildMergeTemplate uses ralph workflow merge with --pr-branch, --pr, --repo, --clone-branch, --bot-name, --bot-email as direct container args instead of using merge.sh
+        - The debug.sh, comment.sh, and merge.sh scripts in internal/workflow/ are deleted
+        - All script-related buildDebugScript, buildCommentScript, buildMergeScript helpers and renderScript infrastructure are removed from scripts.go
+        - internal/webhook/events.go comment-event path is updated to generate a workflow that calls ralph workflow comment instead of calling GenerateCommentWorkflowWithGitInfo; it passes RepoOwner, RepoName, PRBranch, PRNumber, and body as explicit container command args
+        - All generate_test.go tests are updated to assert the new command/args structure
+      passing: false
+    - slug: cli-workflow-group
+      description: Replace the flat WorkflowCmd in internal/cmd with a WorkflowGroup kong subcommand group containing WorkflowRunCmd, WorkflowCommentCmd, WorkflowMergeCmd, and WorkflowCommandCmd thin adapters
+      items:
+        - internal/cmd/cmd.go replaces the Workflow WorkflowCmd field with Workflow WorkflowGroup, which is a struct with Run, Comment, Merge, and Command subcommand fields
+        - internal/cmd/workflow.go is rewritten as a thin kong adapter WorkflowRunCmd that wires workspace, git, ai, runner, config, project, and debug clients and delegates to internal/orchestration/workflow.WorkflowRunCmd
+        - internal/cmd/workflow_run_adapters.go is created to hold all adapter implementations (WorkspaceSetupAdapter, GitAdapter, AIAdapter, DebugAdapter, etc.) used by WorkflowRunCmd
+        - internal/cmd/workflow_comment.go is created as a thin kong adapter WorkflowCommentCmd wiring internal/orchestration/comment.WorkflowCommentCmd
+        - internal/cmd/workflow_merge.go is created as a thin kong adapter WorkflowMergeCmd wiring internal/orchestration/merge.WorkflowMergeCmd
+        - internal/cmd/workflow_command.go is created as a thin kong adapter WorkflowCommandCmd wiring internal/orchestration/command.WorkflowCommandCmd
+        - internal/cmd/command.go is rewritten as a thin kong adapter that wires internal/orchestration/command.CommandCmd; flags are Command []string and NoFollow bool
+        - SetCleanupRegistrar in internal/cmd/cmd.go is updated for the new subcommand structure
+      passing: false
+    - slug: remove-old-commands
+      description: Remove ralph comment, the old WorkflowCmd logic, and the --local flag from ralph merge; clean up dead code
+      items:
+        - internal/cmd/comment.go (the old ralph comment command) is deleted; the CommentCmd field is removed from Cmd in cmd.go
+        - The old WorkflowCmd struct and its methods in internal/cmd/workflow.go are removed (the file is replaced entirely by the new WorkflowRunCmd adapter)
+        - SetupWorkspaceCmd in internal/cmd/setup_workspace.go is deleted; the SetupWorkspace field is removed from Cmd in cmd.go; internal/workspace package is removed from architecture.yaml
+        - The WorkflowCmd.cleanupRegistrar field and its wiring in SetCleanupRegistrar are removed
+        - internal/cmd/merge.go no longer has a Local bool flag; the runLocal path and WorkflowClient.SubmitMergeWorkflow adapter are removed; MergeCmd now only submits a workflow calling ralph workflow merge in the container
+        - internal/cmd/cmd_adapters.go removes the merge workflow client adapter (mergeWorkflowClient, newMergeWorkflowClient, newOrchestrationMergeCmd) as merge now wires directly to internal/orchestration/merge.WorkflowMergeCmd submission
+        - internal/cmd/comment_test.go, internal/cmd/merge_test.go, internal/cmd/setup_workspace_test.go, and internal/cmd/workflow_test.go are updated to match the new command structures; tests for removed logic are deleted
+        - All references to resolveMaxIterations in internal/cmd/cmd.go are removed if no longer used
+      passing: false
+    - slug: version-bump
+      description: Version bump
+      items:
+        - Apply a semver major bump to the app version
+      passing: false
