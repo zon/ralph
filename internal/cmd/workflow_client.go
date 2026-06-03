@@ -50,6 +50,9 @@ func (a *workflowClientAdapter) Submit(proj *project.Project, cloneBranch string
 		}
 	}
 
+	if debug != "" {
+		a.ctx.SetDebugBranch(debug)
+	}
 	wf, err := workflow.GenerateWorkflow(a.ctx, proj.Slug, cloneBranch, projectBranch, a.ctx.IsVerbose(), repoURL, relProjectPath)
 	if err != nil {
 		return "", err

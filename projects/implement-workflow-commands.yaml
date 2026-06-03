@@ -1061,7 +1061,7 @@ requirements:
         - workflowClientAdapter.Submit in internal/cmd/workflow_client.go passes debug to workflow generation — when debug is non-empty the generated workflow invokes ralph via go run from the cloned debug branch
         - NewRemoteRunner in internal/cmd/workflow_client.go is updated to wire the new Submit signature
         - internal/cmd/run.go RunFlags already has Debug; the orchestration/run RunCmd.Run must pass flags.Debug into RunRemoteFlags when calling remote.Run
-      passing: false
+      passing: true
     - slug: workflow-generator
       description: Update internal/workflow to generate workflows that call the new ralph workflow subcommands directly instead of using shell scripts
       items:
