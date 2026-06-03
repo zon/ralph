@@ -48,6 +48,17 @@ type CommentContext struct {
 	RepoName    string
 }
 
+func NewWorkflowCommentCmd(workspace WorkspaceSetupClient, config ConfigClient, ai AIClient, services ServicesClient, git GitClient, github GitHubClient) *WorkflowCommentCmd {
+	return &WorkflowCommentCmd{
+		workspace: workspace,
+		config:    config,
+		ai:        ai,
+		services:  services,
+		git:       git,
+		github:    github,
+	}
+}
+
 type WorkflowCommentCmd struct {
 	workspace WorkspaceSetupClient
 	config    ConfigClient

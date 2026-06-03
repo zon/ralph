@@ -2,12 +2,12 @@ package cmd
 
 import (
 	"os"
+	"strconv"
 
 	"github.com/zon/ralph/internal/output"
 	orchestrationComment "github.com/zon/ralph/internal/orchestration/comment"
 )
 
-// CommentCmd is the command for running a comment-triggered development iteration
 type CommentCmd struct {
 	Body       string `arg:"" help:"Comment body text"`
 	Repo       string `help:"Repository in owner/repo format, e.g. zon/ralph" required:""`
@@ -19,24 +19,36 @@ type CommentCmd struct {
 	cleanupRegistrar func(func()) `kong:"-"`
 }
 
-// Run executes the comment command (implements kong.Run interface)
 func (c *CommentCmd) Run() error {
 	ctx := createExecutionContext()
 	ctx.SetVerbose(c.Verbose)
 	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, c.Verbose))
 	ctx.SetNoServices(c.NoServices)
 	ctx.SetNoNotify(true)
+	ctx.SetWorkflowExecution(true)
 
-	flags := orchestrationComment.CommentFlags{
-		Body:       c.Body,
-		Repo:       c.Repo,
-		Branch:     c.Branch,
-		PR:         c.PR,
-		NoServices: c.NoServices,
-		Verbose:    c.Verbose,
+	owner, repoName := parseRepo(c.Repo)
+	prNum, _ := strconv.Atoi(c.PR)
+
+	cmd := orchestrationComment.NewWorkflowCommentCmd(
+		&workspaceSetupAdapter{ctx: ctx},
+		&configOptionalAdapter{},
+		&workflowCommentAIClient{ctx: ctx},
+		&workflowCommentServicesClient{ctx: ctx},
+		&workflowCommentGitClient{},
+		&workflowCommentGitHubClient{},
+	)
+	flags := orchestrationComment.WorkflowCommentFlags{
+		Repo:          c.Repo,
+		CloneBranch:   c.Branch,
+		ProjectBranch: c.Branch,
+		BotName:       "ralph-zon[bot]",
+		BotEmail:      "ralph-zon[bot]@users.noreply.github.com",
+		CommentBody:   c.Body,
+		PRNumber:      prNum,
+		RepoOwner:     owner,
+		RepoName:      repoName,
+		NoServices:    c.NoServices,
 	}
-
-	cmd := newOrchestrationCommentCmd(ctx)
-	cmd.SetOutput(ctx.Output())
 	return cmd.Run(flags)
 }

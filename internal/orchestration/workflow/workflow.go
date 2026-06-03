@@ -41,6 +41,18 @@ type DebugClient interface {
 	Setup(branch string) error
 }
 
+func NewWorkflowRunCmd(workspace WorkspaceSetupClient, git GitClient, ai AIClient, runner RunnerClient, config ConfigClient, project ProjectClient, debug DebugClient) *WorkflowRunCmd {
+	return &WorkflowRunCmd{
+		workspace: workspace,
+		git:       git,
+		ai:        ai,
+		runner:    runner,
+		config:    config,
+		project:   project,
+		debug:     debug,
+	}
+}
+
 type WorkflowRunCmd struct {
 	workspace WorkspaceSetupClient
 	git       GitClient

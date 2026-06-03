@@ -24,6 +24,15 @@ type ProjectClient interface {
 	DeleteAll(projects []*ralphproj.Project) error
 }
 
+func NewWorkflowMergeCmd(workspace WorkspaceSetupClient, git GitClient, github GitHubClient, project ProjectClient) *WorkflowMergeCmd {
+	return &WorkflowMergeCmd{
+		workspace: workspace,
+		git:       git,
+		github:    github,
+		project:   project,
+	}
+}
+
 type WorkflowMergeCmd struct {
 	workspace WorkspaceSetupClient
 	git       GitClient

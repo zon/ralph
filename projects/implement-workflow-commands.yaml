@@ -1084,7 +1084,7 @@ requirements:
         - internal/cmd/workflow_command.go is created as a thin kong adapter WorkflowCommandCmd wiring internal/orchestration/command.WorkflowCommandCmd
         - internal/cmd/command.go is rewritten as a thin kong adapter that wires internal/orchestration/command.CommandCmd; flags are Command []string and NoFollow bool
         - SetCleanupRegistrar in internal/cmd/cmd.go is updated for the new subcommand structure
-      passing: false
+      passing: true
     - slug: remove-old-commands
       description: Remove ralph comment, the old WorkflowCmd logic, and the --local flag from ralph merge; clean up dead code
       items:

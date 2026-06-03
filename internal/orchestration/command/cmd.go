@@ -16,6 +16,13 @@ type ExecClient interface {
 	Run(tokens []string) error
 }
 
+func NewWorkflowCommandCmd(workspace WorkspaceSetupClient, exec ExecClient) *WorkflowCommandCmd {
+	return &WorkflowCommandCmd{
+		workspace: workspace,
+		exec:      exec,
+	}
+}
+
 type WorkflowCommandCmd struct {
 	workspace WorkspaceSetupClient
 	exec      ExecClient
@@ -51,6 +58,12 @@ func (w *WorkflowCommandCmd) Run(flags WorkflowCommandFlags) error {
 type WorkflowClient interface {
 	Submit(command []string) (string, error)
 	StreamLogs(workflowName string) error
+}
+
+func NewCommandCmd(workflow WorkflowClient) *CommandCmd {
+	return &CommandCmd{
+		workflow: workflow,
+	}
 }
 
 type CommandCmd struct {

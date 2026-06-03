@@ -5,107 +5,60 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/zon/ralph/internal/ai"
 	"github.com/zon/ralph/internal/argo"
-	"github.com/zon/ralph/internal/config"
-	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/github"
-	"github.com/zon/ralph/internal/opencode"
 	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/project"
-	"github.com/zon/ralph/internal/services"
 	"github.com/zon/ralph/internal/workflow"
-	orchestrationComment "github.com/zon/ralph/internal/orchestration/comment"
-	orchestrationMerge "github.com/zon/ralph/internal/orchestration/merge"
 )
 
 // ---------------------------------------------------------------------------
-// Comment adapters
+// Merge adapters (used by the legacy top-level merge command)
 // ---------------------------------------------------------------------------
 
-type commentAIClient struct {
-	ctx *execcontext.Context
-}
+type legacyMergeGitClient struct{}
 
-func (c *commentAIClient) RunAgent(prompt string) error {
-	return ai.RunAgent(c.ctx, opencode.New(), prompt)
-}
-
-type commentServicesClient struct {
-	manager *services.Manager
-	out     *output.Client
-}
-
-func (c *commentServicesClient) Start(svcs []config.Service) error {
-	mgr := services.NewManager(c.out)
-	if _, err := mgr.Start(svcs); err != nil {
-		return err
-	}
-	c.manager = mgr
-	return nil
-}
-
-func (c *commentServicesClient) Stop() {
-	if c.manager != nil {
-		c.manager.Stop()
-	}
-}
-
-func newOrchestrationCommentCmd(ctx *execcontext.Context) *orchestrationComment.CommentCmd {
-	return orchestrationComment.NewCommentCmd(
-		&commentAIClient{ctx: ctx},
-		&commentServicesClient{out: ctx.Output()},
-		output.NewClient(os.Stdout, os.Stderr, false),
-	)
-}
-
-// ---------------------------------------------------------------------------
-// Merge adapters
-// ---------------------------------------------------------------------------
-
-type mergeGitClient struct{}
-
-func (c *mergeGitClient) CurrentBranch() (string, error) {
+func (c *legacyMergeGitClient) CurrentBranch() (string, error) {
 	return git.GetCurrentBranch()
 }
 
-func (c *mergeGitClient) RevParse(rev string) (string, error) {
+func (c *legacyMergeGitClient) RevParse(rev string) (string, error) {
 	return git.RevParse(rev)
 }
 
-func (c *mergeGitClient) Push(branch string) error {
+func (c *legacyMergeGitClient) Push(branch string) error {
 	_, err := git.Push(nil, branch)
 	return err
 }
 
-type mergeGitHubClient struct {
+type legacyMergeGitHubClient struct {
 	gh github.GHClient
 }
 
-func (c *mergeGitHubClient) MergePR(pr, repo string) error {
+func (c *legacyMergeGitHubClient) MergePR(pr, repo string) error {
 	return c.gh.MergePR(pr, repo)
 }
 
-func (c *mergeGitHubClient) GetPRHeadRefOid(pr string) (string, error) {
+func (c *legacyMergeGitHubClient) GetPRHeadRefOid(pr string) (string, error) {
 	return c.gh.GetPRHeadRefOid(pr)
 }
 
-type mergeProjectClient struct{}
+type legacyMergeProjectClient struct{}
 
-func (c *mergeProjectClient) FindCompleteProjects(dir string) ([]string, error) {
+func (c *legacyMergeProjectClient) FindCompleteProjects(dir string) ([]string, error) {
 	return project.FindCompleteProjects(dir)
 }
 
-func (c *mergeProjectClient) RemoveAndCommit(files []string) error {
+func (c *legacyMergeProjectClient) RemoveAndCommit(files []string) error {
 	return project.RemoveAndCommit(nil, files)
 }
 
-type mergeWorkflowClient struct {
+type legacyMergeWorkflowClient struct {
 	argoClient argo.Client
 }
 
-func (c *mergeWorkflowClient) SubmitMergeWorkflow(branch string) (string, error) {
+func (c *legacyMergeWorkflowClient) SubmitMergeWorkflow(branch string) (string, error) {
 	repo, err := github.GetRepo(context.Background())
 	if err != nil {
 		return "", fmt.Errorf("failed to get repository: %w", err)
@@ -123,18 +76,22 @@ func (c *mergeWorkflowClient) SubmitMergeWorkflow(branch string) (string, error)
 	return mw.Submit(context.Background(), c.argoClient)
 }
 
-func newMergeWorkflowClient() *mergeWorkflowClient {
-	return &mergeWorkflowClient{argoClient: argo.NewClient()}
+func newLegacyMergeWorkflowClient() *legacyMergeWorkflowClient {
+	return &legacyMergeWorkflowClient{argoClient: argo.NewClient()}
 }
 
-func newOrchestrationMergeCmd() *orchestrationMerge.MergeCmd {
-	return orchestrationMerge.NewMergeCmd(
-		&mergeGitClient{},
-		&mergeGitHubClient{gh: github.NewGH(output.NewClient(os.Stdout, os.Stderr, false))},
-		&mergeProjectClient{},
-		newMergeWorkflowClient(),
-		output.NewClient(os.Stdout, os.Stderr, false),
-	)
+type legacyMergeCmd struct {
+	git     *legacyMergeGitClient
+	github  *legacyMergeGitHubClient
+	project *legacyMergeProjectClient
+	wf      *legacyMergeWorkflowClient
 }
 
-
+func newLegacyMergeCmd() *legacyMergeCmd {
+	return &legacyMergeCmd{
+		git:     &legacyMergeGitClient{},
+		github:  &legacyMergeGitHubClient{gh: github.NewGH(output.NewClient(os.Stdout, os.Stderr, false))},
+		project: &legacyMergeProjectClient{},
+		wf:      newLegacyMergeWorkflowClient(),
+	}
+}
