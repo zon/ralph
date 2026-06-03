@@ -644,7 +644,7 @@ requirements:
                 require.NoError(t, err)
                 require.True(t, github.commentPosted())
             }
-      passing: false
+      passing: true
     - slug: workflow-merge
       description: Rewrite internal/orchestration/merge as WorkflowMergeCmd — workspace setup, completed project cleanup, GitHub head sync, PR merge
       code:
