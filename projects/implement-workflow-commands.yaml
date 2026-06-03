@@ -1,6 +1,5 @@
 slug: implement-workflow-commands
 title: Implement ralph workflow subcommands and remove old equivalent commands
-maxIterations: 10
 requirements:
     - slug: workspace-setup
       description: Create internal/orchestration/workspace with WorkspaceSetup that bootstraps the container environment for all workflow subcommands
@@ -1101,4 +1100,4 @@ requirements:
       description: Version bump
       items:
         - Apply a semver major bump to the app version
-      passing: false
+      passing: true
