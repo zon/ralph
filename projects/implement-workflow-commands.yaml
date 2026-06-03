@@ -875,7 +875,7 @@ requirements:
                 require.NoError(t, err)
                 require.True(t, exec.runCalled())
             }
-      passing: false
+      passing: true
     - slug: command-submit
       description: Add CommandCmd to internal/orchestration/command — client-side Argo workflow submission and log streaming for arbitrary commands
       code:
