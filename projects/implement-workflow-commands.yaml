@@ -193,7 +193,7 @@ requirements:
                 require.NoError(t, err)
                 require.True(t, workspace.symlinksSetUp())
             }
-      passing: false
+      passing: true
     - slug: workflow-run
       description: Create internal/orchestration/workflow with WorkflowRunCmd that sets up the workspace, validates inputs, syncs the base branch, and runs the project
       code:
