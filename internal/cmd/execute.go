@@ -14,6 +14,7 @@ import (
 	"github.com/zon/ralph/internal/notify"
 	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/project"
+	orchestrationRun "github.com/zon/ralph/internal/orchestration/run"
 	"github.com/zon/ralph/internal/services"
 	"github.com/zon/ralph/internal/workflow"
 )
@@ -147,7 +148,7 @@ func executeCommandRemote(ctx *context.Context, setup *CommandSetup) error {
 
 func Execute(ctx *context.Context, cleanupRegistrar func(func()), setup *ExecutionSetup) error {
 	if !ctx.IsLocal() {
-		return NewRemoteRunner(ctx).RunRemote(setup.Project, ctx.ShouldFollow())
+		return NewRemoteRunner(ctx).Run(setup.Project, orchestrationRun.RunRemoteFlags{Follow: ctx.ShouldFollow()})
 	}
 
 	return NewLocalRunner(ctx, setup.BaseBranch).RunLocal(setup.Project, setup.Config)

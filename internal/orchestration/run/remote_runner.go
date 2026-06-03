@@ -2,6 +2,11 @@ package run
 
 import "github.com/zon/ralph/internal/project"
 
+type RunRemoteFlags struct {
+	Follow bool
+	Debug  string
+}
+
 type RemoteRunner struct {
 	git      GitClient
 	workflow WorkflowClient
@@ -16,7 +21,7 @@ func NewRemoteRunner(git GitClient, workflow WorkflowClient, notify NotifyClient
 	}
 }
 
-func (r *RemoteRunner) RunRemote(proj *project.Project, follow bool) error {
+func (r *RemoteRunner) Run(proj *project.Project, flags RunRemoteFlags) error {
 	branch, err := r.git.CurrentBranch()
 	if err != nil {
 		return err
@@ -24,11 +29,11 @@ func (r *RemoteRunner) RunRemote(proj *project.Project, follow bool) error {
 	if err := r.git.IsBranchSyncedWithRemote(branch); err != nil {
 		return err
 	}
-	workflowName, err := r.workflow.Submit(proj, branch)
+	workflowName, err := r.workflow.Submit(proj, branch, flags.Debug)
 	if err != nil {
 		return err
 	}
-	if !follow {
+	if !flags.Follow {
 		r.workflow.PrintLogHint(workflowName)
 		return nil
 	}

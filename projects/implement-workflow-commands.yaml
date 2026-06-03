@@ -1051,7 +1051,7 @@ requirements:
                 require.NoError(t, err)
                 require.Equal(t, "my-fix", workflow.lastDebugBranch())
             }
-      passing: false
+      passing: true
     - slug: workflow-client-debug
       description: Update internal/workflow Client interface and MockClient to add debug string to Submit; update workflowClientAdapter in internal/cmd to pass debug through
       items:

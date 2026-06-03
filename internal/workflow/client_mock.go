@@ -7,25 +7,27 @@ import (
 )
 
 type Client interface {
-	Submit(proj *project.Project, cloneBranch string) (string, error)
+	Submit(proj *project.Project, cloneBranch string, debug string) (string, error)
 	FollowLogs(workflowName string) error
 	PrintLogHint(workflowName string)
 }
 
 type MockClient struct {
-	SubmitFunc       func(proj *project.Project, cloneBranch string) (string, error)
+	SubmitFunc       func(proj *project.Project, cloneBranch string, debug string) (string, error)
 	FollowLogsFunc   func(workflowName string) error
 	PrintLogHintFunc func(workflowName string)
 
 	SubmitCalled       bool
 	FollowLogsCalled   bool
 	PrintLogHintCalled bool
+	LastDebugBranch    string
 }
 
-func (m *MockClient) Submit(proj *project.Project, cloneBranch string) (string, error) {
+func (m *MockClient) Submit(proj *project.Project, cloneBranch string, debug string) (string, error) {
 	m.SubmitCalled = true
+	m.LastDebugBranch = debug
 	if m.SubmitFunc != nil {
-		return m.SubmitFunc(proj, cloneBranch)
+		return m.SubmitFunc(proj, cloneBranch, debug)
 	}
 	return "test-workflow", nil
 }
@@ -49,7 +51,7 @@ var _ Client = (*MockClient)(nil)
 
 func ThatFailsOnSubmit() *MockClient {
 	return &MockClient{
-		SubmitFunc: func(proj *project.Project, cloneBranch string) (string, error) {
+		SubmitFunc: func(proj *project.Project, cloneBranch string, debug string) (string, error) {
 			return "", errors.New("submit failed")
 		},
 	}

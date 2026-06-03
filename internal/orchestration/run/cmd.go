@@ -31,7 +31,7 @@ type LocalRunnerClient interface {
 }
 
 type RemoteRunnerClient interface {
-	RunRemote(proj *project.Project, follow bool) error
+	Run(proj *project.Project, flags RunRemoteFlags) error
 }
 
 type ExecutionSetup struct {
@@ -97,7 +97,7 @@ func (r *RunCmd) Run(flags RunFlags) error {
 	if flags.Local {
 		return r.local.RunLocal(setup.Project, setup.Config)
 	}
-	return r.remote.RunRemote(setup.Project, flags.Follow)
+	return r.remote.Run(setup.Project, RunRemoteFlags{Follow: flags.Follow, Debug: flags.Debug})
 }
 
 func (r *RunCmd) prepareSetup(flags RunFlags) (ExecutionSetup, error) {
