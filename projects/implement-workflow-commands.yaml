@@ -801,7 +801,7 @@ requirements:
                 require.NoError(t, err)
                 require.True(t, github.mergePRCalled())
             }
-      passing: false
+      passing: true
     - slug: workflow-command
       description: Add WorkflowCommandCmd to internal/orchestration/command — workspace setup and exec for container-side arbitrary command execution
       code:

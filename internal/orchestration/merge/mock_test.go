@@ -1,204 +1,267 @@
 package merge
 
 import (
-	"io"
-
-	"github.com/zon/ralph/internal/output"
+	wksp "github.com/zon/ralph/internal/orchestration/workspace"
+	ralphproj "github.com/zon/ralph/internal/project"
 )
 
-// mockGitClient
+var errMock = &mockError{"mock error"}
+
+type mockError struct{ msg string }
+
+func (e *mockError) Error() string { return e.msg }
+
+type mockWorkspaceSetupClient struct {
+	setupFunc   func(wksp.WorkspaceFlags) error
+	setupCalled bool
+}
+
+func (m *mockWorkspaceSetupClient) Setup(flags wksp.WorkspaceFlags) error {
+	m.setupCalled = true
+	if m.setupFunc != nil {
+		return m.setupFunc(flags)
+	}
+	return nil
+}
+
 type mockGitClient struct {
-	currentBranchFunc func() (string, error)
-	revParseFunc      func(string) (string, error)
-	pushFunc          func(string) error
-
-	currentBranchCalled bool
-	pushCalls           []string
+	commitAndPushFunc   func(string) error
+	commitAndPushCalled bool
+	commitAndPushMsg    string
 }
 
-func (m *mockGitClient) CurrentBranch() (string, error) {
-	m.currentBranchCalled = true
-	if m.currentBranchFunc != nil {
-		return m.currentBranchFunc()
-	}
-	return "main", nil
-}
-
-func (m *mockGitClient) RevParse(rev string) (string, error) {
-	if m.revParseFunc != nil {
-		return m.revParseFunc(rev)
-	}
-	return "abc123def456", nil
-}
-
-func (m *mockGitClient) Push(branch string) error {
-	m.pushCalls = append(m.pushCalls, branch)
-	if m.pushFunc != nil {
-		return m.pushFunc(branch)
+func (m *mockGitClient) CommitAndPush(message string) error {
+	m.commitAndPushCalled = true
+	m.commitAndPushMsg = message
+	if m.commitAndPushFunc != nil {
+		return m.commitAndPushFunc(message)
 	}
 	return nil
 }
 
-// mockGitHubClient
 type mockGitHubClient struct {
-	mergePRFunc          func(string, string) error
-	getPRHeadRefOidFunc  func(string) (string, error)
-
-	mergePRCalls     []mergePRCall
-	prHeadRefOidCall bool
+	waitForHeadSyncFunc   func(string) error
+	mergePRFunc           func(int) error
+	waitForHeadSyncCalled bool
+	mergePRCalled         bool
 }
 
-type mergePRCall struct {
-	pr   string
-	repo string
-}
-
-func (m *mockGitHubClient) MergePR(pr, repo string) error {
-	m.mergePRCalls = append(m.mergePRCalls, mergePRCall{pr: pr, repo: repo})
-	if m.mergePRFunc != nil {
-		return m.mergePRFunc(pr, repo)
+func (m *mockGitHubClient) WaitForHeadSync(prBranch string) error {
+	m.waitForHeadSyncCalled = true
+	if m.waitForHeadSyncFunc != nil {
+		return m.waitForHeadSyncFunc(prBranch)
 	}
 	return nil
 }
 
-func (m *mockGitHubClient) GetPRHeadRefOid(pr string) (string, error) {
-	m.prHeadRefOidCall = true
-	if m.getPRHeadRefOidFunc != nil {
-		return m.getPRHeadRefOidFunc(pr)
+func (m *mockGitHubClient) MergePR(prNumber int) error {
+	m.mergePRCalled = true
+	if m.mergePRFunc != nil {
+		return m.mergePRFunc(prNumber)
 	}
-	return "abc123def456", nil
+	return nil
 }
 
-// mockProjectClient
 type mockProjectClient struct {
-	findCompleteProjectsFunc func(string) ([]string, error)
-	removeAndCommitFunc      func([]string) error
-
-	findCompleteProjectsCalled bool
-	removeAndCommitCalls       [][]string
+	loadAllFunc        func() ([]*ralphproj.Project, error)
+	filterPassingFunc  func([]*ralphproj.Project) []*ralphproj.Project
+	deleteAllFunc      func([]*ralphproj.Project) error
+	loadAllCalled      bool
+	filterPassingCalled bool
+	deleteAllCalled    bool
 }
 
-func (m *mockProjectClient) FindCompleteProjects(dir string) ([]string, error) {
-	m.findCompleteProjectsCalled = true
-	if m.findCompleteProjectsFunc != nil {
-		return m.findCompleteProjectsFunc(dir)
+func (m *mockProjectClient) LoadAll() ([]*ralphproj.Project, error) {
+	m.loadAllCalled = true
+	if m.loadAllFunc != nil {
+		return m.loadAllFunc()
 	}
 	return nil, nil
 }
 
-func (m *mockProjectClient) RemoveAndCommit(files []string) error {
-	m.removeAndCommitCalls = append(m.removeAndCommitCalls, files)
-	if m.removeAndCommitFunc != nil {
-		return m.removeAndCommitFunc(files)
+func (m *mockProjectClient) FilterPassing(projects []*ralphproj.Project) []*ralphproj.Project {
+	m.filterPassingCalled = true
+	if m.filterPassingFunc != nil {
+		return m.filterPassingFunc(projects)
 	}
 	return nil
 }
 
-// mockWorkflowClient
-type mockWorkflowClient struct {
-	submitMergeWorkflowFunc func(string) (string, error)
-
-	submitMergeWorkflowCalls []string
-}
-
-func (m *mockWorkflowClient) SubmitMergeWorkflow(branch string) (string, error) {
-	m.submitMergeWorkflowCalls = append(m.submitMergeWorkflowCalls, branch)
-	if m.submitMergeWorkflowFunc != nil {
-		return m.submitMergeWorkflowFunc(branch)
+func (m *mockProjectClient) DeleteAll(projects []*ralphproj.Project) error {
+	m.deleteAllCalled = true
+	if m.deleteAllFunc != nil {
+		return m.deleteAllFunc(projects)
 	}
-	return "merge-workflow-123", nil
+	return nil
 }
 
-// option types
-type mergeOption func(*MergeCmd)
+var mockWksp *mockWorkspaceSetupClient
+var mockGit *mockGitClient
+var mockGH *mockGitHubClient
+var mockProj *mockProjectClient
 
-func withGit(gc GitClient) mergeOption {
-	return func(m *MergeCmd) {
-		m.git = gc
-	}
-}
+type mergeHelper struct{}
 
-func withGitHub(gc GitHubClient) mergeOption {
-	return func(m *MergeCmd) {
-		m.github = gc
-	}
-}
+type mergeOption func(*WorkflowMergeCmd)
 
-func withProject(pc ProjectClient) mergeOption {
-	return func(m *MergeCmd) {
-		m.project = pc
-	}
-}
+var merge = &mergeHelper{}
 
-func withWorkflow(wc WorkflowClient) mergeOption {
-	return func(m *MergeCmd) {
-		m.workflow = wc
-	}
-}
-
-func withMocks(opts ...mergeOption) *MergeCmd {
-	m := &MergeCmd{
-		git:      &mockGitClient{},
-		github:   &mockGitHubClient{},
-		project:  &mockProjectClient{},
-		workflow: &mockWorkflowClient{},
-		out:      output.NewClient(io.Discard, io.Discard, false),
+func (h *mergeHelper) withMocks(opts ...mergeOption) *WorkflowMergeCmd {
+	mockWksp = &mockWorkspaceSetupClient{}
+	mockGit = &mockGitClient{}
+	mockGH = &mockGitHubClient{}
+	mockProj = &mockProjectClient{}
+	cmd := &WorkflowMergeCmd{
+		workspace: mockWksp,
+		git:       mockGit,
+		github:    mockGH,
+		project:   mockProj,
 	}
 	for _, opt := range opts {
-		opt(m)
+		opt(cmd)
 	}
-	return m
+	return cmd
 }
 
-// Accessor helpers
-func gitCurrentBranchCalled(cmd *MergeCmd) bool {
-	if mc, ok := cmd.git.(*mockGitClient); ok {
-		return mc.currentBranchCalled
+func (h *mergeHelper) withWorkspace(wc WorkspaceSetupClient) mergeOption {
+	return func(cmd *WorkflowMergeCmd) {
+		cmd.workspace = wc
+		if m, ok := wc.(*mockWorkspaceSetupClient); ok {
+			mockWksp = m
+		}
 	}
-	return false
 }
 
-func gitPushCalls(cmd *MergeCmd) []string {
-	if mc, ok := cmd.git.(*mockGitClient); ok {
-		return mc.pushCalls
+func (h *mergeHelper) withGit(gc GitClient) mergeOption {
+	return func(cmd *WorkflowMergeCmd) {
+		cmd.git = gc
+		if m, ok := gc.(*mockGitClient); ok {
+			mockGit = m
+		}
 	}
-	return nil
 }
 
-func gitHubMergePRCalls(cmd *MergeCmd) []mergePRCall {
-	if mc, ok := cmd.github.(*mockGitHubClient); ok {
-		return mc.mergePRCalls
+func (h *mergeHelper) withGitHub(gc GitHubClient) mergeOption {
+	return func(cmd *WorkflowMergeCmd) {
+		cmd.github = gc
+		if m, ok := gc.(*mockGitHubClient); ok {
+			mockGH = m
+		}
 	}
-	return nil
 }
 
-func projectFindCompleteProjectsCalled(cmd *MergeCmd) bool {
-	if mc, ok := cmd.project.(*mockProjectClient); ok {
-		return mc.findCompleteProjectsCalled
+func (h *mergeHelper) withProject(pc ProjectClient) mergeOption {
+	return func(cmd *WorkflowMergeCmd) {
+		cmd.project = pc
+		if m, ok := pc.(*mockProjectClient); ok {
+			mockProj = m
+		}
 	}
-	return false
 }
 
-func projectRemoveAndCommitCalls(cmd *MergeCmd) [][]string {
-	if mc, ok := cmd.project.(*mockProjectClient); ok {
-		return mc.removeAndCommitCalls
+type workspaceHelper struct{}
+
+var workspace = &workspaceHelper{}
+
+func (h *workspaceHelper) thatFailsSetup() *mockWorkspaceSetupClient {
+	return &mockWorkspaceSetupClient{
+		setupFunc: func(wksp.WorkspaceFlags) error { return errMock },
 	}
-	return nil
 }
 
-func workflowSubmitMergeWorkflowCalls(cmd *MergeCmd) []string {
-	if mc, ok := cmd.workflow.(*mockWorkflowClient); ok {
-		return mc.submitMergeWorkflowCalls
+func (h *workspaceHelper) setupCalled() bool {
+	return mockWksp != nil && mockWksp.setupCalled
+}
+
+type gitHelper struct{}
+
+var git = &gitHelper{}
+
+func (h *gitHelper) commitAndPushCalled() bool {
+	return mockGit != nil && mockGit.commitAndPushCalled
+}
+
+type githubHelper struct{}
+
+var github = &githubHelper{}
+
+func (h *githubHelper) waitForHeadSyncCalled() bool {
+	return mockGH != nil && mockGH.waitForHeadSyncCalled
+}
+
+func (h *githubHelper) mergePRCalled() bool {
+	return mockGH != nil && mockGH.mergePRCalled
+}
+
+func (h *githubHelper) thatTimesOutHeadSync() *mockGitHubClient {
+	return &mockGitHubClient{
+		waitForHeadSyncFunc: func(string) error { return errMock },
 	}
-	return nil
 }
 
-var errMock = &mockError{"mock error"}
+type projectHelper struct{}
 
-type mockError struct {
-	msg string
+var project = &projectHelper{}
+
+func (h *projectHelper) loadAllCalled() bool {
+	return mockProj != nil && mockProj.loadAllCalled
 }
 
-func (e *mockError) Error() string {
-	return e.msg
+func (h *projectHelper) deletedAll() bool {
+	return mockProj != nil && mockProj.deleteAllCalled
+}
+
+func (h *projectHelper) withNoCompletedProjects() *mockProjectClient {
+	return &mockProjectClient{
+		loadAllFunc: func() ([]*ralphproj.Project, error) {
+			return []*ralphproj.Project{
+				{Slug: "req-1", Requirements: []ralphproj.Requirement{{Slug: "req-1", Passing: false}}},
+			}, nil
+		},
+		filterPassingFunc: func(projects []*ralphproj.Project) []*ralphproj.Project {
+			return nil
+		},
+	}
+}
+
+func (h *projectHelper) withCompletedProjects() *mockProjectClient {
+	return &mockProjectClient{
+		loadAllFunc: func() ([]*ralphproj.Project, error) {
+			return []*ralphproj.Project{
+				{Slug: "req-1", Requirements: []ralphproj.Requirement{{Slug: "req-1", Passing: false}}},
+				{Slug: "req-2", Requirements: []ralphproj.Requirement{{Slug: "req-2", Passing: true}}},
+			}, nil
+		},
+		filterPassingFunc: func(projects []*ralphproj.Project) []*ralphproj.Project {
+			var passing []*ralphproj.Project
+			for _, p := range projects {
+				allPassing := true
+				for _, req := range p.Requirements {
+					if !req.Passing {
+						allPassing = false
+						break
+					}
+				}
+				if allPassing {
+					passing = append(passing, p)
+				}
+			}
+			return passing
+		},
+	}
+}
+
+type flagsHelper struct{}
+
+var flags = &flagsHelper{}
+
+func (h *flagsHelper) any() WorkflowMergeFlags {
+	return WorkflowMergeFlags{
+		Repo:        "owner/repo",
+		CloneBranch: "main",
+		PRBranch:    "feature/test",
+		PRNumber:    42,
+		BotName:     "ralph",
+		BotEmail:    "ralph@example.com",
+	}
 }
