@@ -1072,7 +1072,7 @@ requirements:
         - All script-related buildDebugScript, buildCommentScript, buildMergeScript helpers and renderScript infrastructure are removed from scripts.go
         - internal/webhook/events.go comment-event path is updated to generate a workflow that calls ralph workflow comment instead of calling GenerateCommentWorkflowWithGitInfo; it passes RepoOwner, RepoName, PRBranch, PRNumber, and body as explicit container command args
         - All generate_test.go tests are updated to assert the new command/args structure
-      passing: false
+      passing: true
     - slug: cli-workflow-group
       description: Replace the flat WorkflowCmd in internal/cmd with a WorkflowGroup kong subcommand group containing WorkflowRunCmd, WorkflowCommentCmd, WorkflowMergeCmd, and WorkflowCommandCmd thin adapters
       items:

@@ -213,7 +213,7 @@ func TestGenerateWorkflow(t *testing.T) {
 	assert.Equal(t, "my-registry/ralph:v1.0.0", container["image"])
 	assert.Equal(t, "/workspace", container["workingDir"])
 	assert.Equal(t, []interface{}{"ralph"}, container["command"])
-	assert.Equal(t, []interface{}{"workflow", "--project-branch", projectBranch, "--base", "main", "test/repo", "{{workflow.parameters.project-path}}", "--no-services"}, container["args"])
+	assert.Equal(t, []interface{}{"workflow", "run", "--project-branch", projectBranch, "--base", "main", "test/repo", "{{workflow.parameters.project-path}}", "--no-services"}, container["args"])
 
 	env, ok := container["env"].([]interface{})
 	require.True(t, ok, "env is not a list")
@@ -488,7 +488,7 @@ func TestSubmitWorkflow_ArgoNotInstalled(t *testing.T) {
 	assert.True(t, strings.Contains(err.Error(), "argo CLI not found"), "Error message should mention argo CLI not found, got: %v", err)
 }
 
-func TestWorkflowRender_CommentScriptBranching(t *testing.T) {
+func TestWorkflowRender_CommentBranching(t *testing.T) {
 	commentBody := "Please review this PR"
 	prNumber := "123"
 
@@ -506,7 +506,6 @@ func TestWorkflowRender_CommentScriptBranching(t *testing.T) {
 	require.NoError(t, err, "Render failed")
 
 	assert.True(t, strings.Contains(workflowYAML, commentBody), "Rendered YAML should contain comment body %q", commentBody)
-	assert.True(t, strings.Contains(workflowYAML, prNumber), "Rendered YAML should contain PR number %q", prNumber)
 
 	var wfData map[string]interface{}
 	require.NoError(t, yaml.Unmarshal([]byte(workflowYAML), &wfData), "Failed to parse workflow YAML")
@@ -516,13 +515,18 @@ func TestWorkflowRender_CommentScriptBranching(t *testing.T) {
 	tmpl := templates[0].(map[string]interface{})
 	container := tmpl["container"].(map[string]interface{})
 
+	command := container["command"].([]interface{})
 	args := container["args"].([]interface{})
-	script := args[0].(string)
 
-	assert.True(t, strings.Contains(script, "ralph comment"), "Script should contain 'ralph comment' for comment-triggered workflow")
+	assert.Equal(t, "ralph", command[0], "Command should be 'ralph' for comment workflow")
+	assert.Equal(t, "workflow", args[0], "First arg should be 'workflow'")
+	assert.Equal(t, "comment", args[1], "Second arg should be 'comment'")
+	assert.Equal(t, "--comment-body", args[8], "Should have --comment-body flag")
+	assert.Equal(t, commentBody, args[9], "Comment body should be passed as arg")
+	assert.Equal(t, "--pr", args[10], "Should have --pr flag")
 }
 
-func TestWorkflowRender_RunScriptBranching(t *testing.T) {
+func TestWorkflowRender_RunBranching(t *testing.T) {
 	wf := &Workflow{
 		ProjectName:   "test-project",
 		Repo:          githubpkg.MakeRepo("owner", "repo"),
@@ -549,6 +553,8 @@ func TestWorkflowRender_RunScriptBranching(t *testing.T) {
 
 	assert.Equal(t, "ralph", command[0], "Command should be 'ralph' for regular workflow")
 	assert.Equal(t, "workflow", args[0], "First arg should be 'workflow' for regular workflow")
+	assert.Equal(t, "run", args[1], "Second arg should be 'run' for regular workflow")
+	assert.Equal(t, "--project-branch", args[2], "Third arg should be '--project-branch'")
 }
 
 func TestWorkflowRender_DebugBranch(t *testing.T) {
@@ -575,11 +581,11 @@ func TestWorkflowRender_DebugBranch(t *testing.T) {
 
 	command := container["command"].([]interface{})
 	args := container["args"].([]interface{})
-	script := args[0].(string)
 
-	assert.Equal(t, "/bin/sh", command[0])
-	assert.True(t, strings.Contains(script, debugBranch), "Script should contain debug branch name")
-	assert.True(t, strings.Contains(script, "git clone -b"), "Script should contain git clone command")
+	assert.Equal(t, "ralph", command[0], "Command should be 'ralph' for debug workflow")
+	assert.Equal(t, "run", args[1], "Second arg should be 'run'")
+	assert.Equal(t, "--debug", args[8], "Should have --debug flag")
+	assert.Equal(t, debugBranch, args[9], "Debug branch should be passed as arg")
 
 	env := container["env"].([]interface{})
 	foundDebugBranch := false

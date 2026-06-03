@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/zon/ralph/internal/argo"
+	"github.com/zon/ralph/internal/config"
 	githubpkg "github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/k8s"
 	"gopkg.in/yaml.v3"
@@ -78,9 +79,17 @@ func (m *MergeWorkflow) buildMergeTemplate() map[string]interface{} {
 	return map[string]interface{}{
 		"name": "ralph-merger",
 		"container": map[string]interface{}{
-			"image":   resolveImage(m.Image.Repository, m.Image.Tag),
-			"command": []string{"/bin/sh", "-c"},
-			"args":    []string{buildMergeScript()},
+			"image": resolveImage(m.Image.Repository, m.Image.Tag),
+			"command": []string{"ralph"},
+			"args": []string{
+				"workflow", "merge",
+				"--pr-branch", m.PRBranch,
+				"--pr", m.PRNumber,
+				"--repo", m.Repo.Owner + "/" + m.Repo.Name,
+				"--clone-branch", m.CloneBranch,
+				"--bot-name", config.DefaultAppName + "[bot]",
+				"--bot-email", config.DefaultAppName + "[bot]@users.noreply.github.com",
+			},
 			"env": []map[string]interface{}{
 				{"name": "GIT_REPO_URL", "value": m.Repo.CloneURL()},
 				{"name": "GITHUB_REPO_OWNER", "value": m.Repo.Owner},
