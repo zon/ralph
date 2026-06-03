@@ -1096,7 +1096,7 @@ requirements:
         - internal/cmd/cmd_adapters.go removes the merge workflow client adapter (mergeWorkflowClient, newMergeWorkflowClient, newOrchestrationMergeCmd) as merge now wires directly to internal/orchestration/merge.WorkflowMergeCmd submission
         - internal/cmd/comment_test.go, internal/cmd/merge_test.go, internal/cmd/setup_workspace_test.go, and internal/cmd/workflow_test.go are updated to match the new command structures; tests for removed logic are deleted
         - All references to resolveMaxIterations in internal/cmd/cmd.go are removed if no longer used
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump
       items:

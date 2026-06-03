@@ -12,7 +12,6 @@ import (
 type MergeCmd struct {
 	Branch  string `arg:"" help:"PR branch name to merge"`
 	Verbose bool   `help:"Enable verbose logging" default:"false"`
-	Local   bool   `help:"Run merge locally instead of submitting an Argo workflow" default:"false"`
 	PR      string `help:"Pull request number" required:""`
 	Repo    string `help:"GitHub repository (owner/repo); defaults to repo detected from git remote" default:""`
 

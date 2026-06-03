@@ -1,18 +1,14 @@
 package cmd
 
-import "github.com/zon/ralph/internal/config"
-
 // Cmd defines the command-line arguments and execution context
 type Cmd struct {
 	// Subcommands
 	Run            RunCmd            `cmd:"" default:"withargs" help:"Execute ralph with a project file (default command)"`
 	Command        CommandCmd        `cmd:"" help:"Run a command in the ralph environment"`
-	Comment        CommentCmd        `cmd:"" help:"Run a comment-triggered development iteration"`
 	Merge          MergeCmd          `cmd:"" help:"Submit an Argo workflow to merge a completed PR"`
 	Config         ConfigCmd         `cmd:"" help:"Configure credentials for remote execution"`
 	SetGithubToken GithubTokenCmd    `cmd:"" help:"Generate a GitHub App installation token and configure git HTTPS authentication"`
 	Set            SetCmd            `cmd:"" help:"Configure ralph settings"`
-	SetupWorkspace SetupWorkspaceCmd `cmd:"" help:"Create symlinks for mounted config files into the working directory"`
 	Workflow       WorkflowGroup     `cmd:"" help:"Run ralph workflow subcommands in a container"`
 	Validate       ValidateCmd       `cmd:"" help:"Validate a project YAML file"`
 	List           ListCmd           `cmd:"" help:"List Argo workflows"`
@@ -61,7 +57,6 @@ func (c *Cmd) SetCleanupRegistrar(cleanupRegistrar func(func())) {
 	c.cleanupRegistrar = cleanupRegistrar
 	c.Run.cleanupRegistrar = cleanupRegistrar
 	c.Command.cleanupRegistrar = cleanupRegistrar
-	c.Comment.cleanupRegistrar = cleanupRegistrar
 	c.Merge.cleanupRegistrar = cleanupRegistrar
 	c.Workflow.Run.cleanupRegistrar = cleanupRegistrar
 	c.Workflow.Comment.cleanupRegistrar = cleanupRegistrar
@@ -69,10 +64,4 @@ func (c *Cmd) SetCleanupRegistrar(cleanupRegistrar func(func())) {
 	c.Workflow.Command.cleanupRegistrar = cleanupRegistrar
 }
 
-// resolveMaxIterations returns flagMaxIterations if non-zero, otherwise returns RalphConfig.MaxIterations
-func resolveMaxIterations(ralphConfig *config.RalphConfig, flagMaxIterations int) int {
-	if flagMaxIterations != 0 {
-		return flagMaxIterations
-	}
-	return ralphConfig.MaxIterations
-}
+
