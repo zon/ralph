@@ -3,6 +3,7 @@ package cmd
 import (
 	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
+	orchestrationRun "github.com/zon/ralph/internal/orchestration/run"
 	"github.com/zon/ralph/internal/project"
 )
 
@@ -27,7 +28,7 @@ func NewRemoteRunnerClient(ctx *execcontext.Context) *RemoteRunnerClient {
 	return &RemoteRunnerClient{ctx: ctx}
 }
 
-func (c *RemoteRunnerClient) RunRemote(proj *project.Project, follow bool) error {
+func (c *RemoteRunnerClient) Run(proj *project.Project, flags orchestrationRun.RunRemoteFlags) error {
 	runner := NewRemoteRunner(c.ctx)
-	return runner.RunRemote(proj, follow)
+	return runner.Run(proj, flags)
 }

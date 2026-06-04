@@ -14,6 +14,7 @@ import (
 	"github.com/zon/ralph/internal/notify"
 	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/project"
+	orchestrationRun "github.com/zon/ralph/internal/orchestration/run"
 	"github.com/zon/ralph/internal/services"
 	"github.com/zon/ralph/internal/workflow"
 )
@@ -73,7 +74,7 @@ func PrepareExecution(ctx *context.Context) (*ExecutionSetup, error) {
 
 func ExecuteCommand(ctx *context.Context, cleanupRegistrar func(func()), setup *CommandSetup) error {
 	if !ctx.IsLocal() {
-		return executeCommandRemote(ctx, setup)
+		return executeCommandRemote(ctx, setup, argo.NewClient())
 	}
 
 	if err := infrastructureRunBeforeCommands(ctx.Output(), setup.Config); err != nil {
@@ -89,7 +90,7 @@ func ExecuteCommand(ctx *context.Context, cleanupRegistrar func(func()), setup *
 	return nil
 }
 
-func executeCommandRemote(ctx *context.Context, setup *CommandSetup) error {
+func executeCommandRemote(ctx *context.Context, setup *CommandSetup, argoClient argo.Client) error {
 	ctx.Output().Debug("Submitting Argo Workflow for command...")
 
 	currentBranch, err := git.GetCurrentBranch()
@@ -124,7 +125,6 @@ func executeCommandRemote(ctx *context.Context, setup *CommandSetup) error {
 		ctx.Output().Debugf("Generated workflow YAML:\n%s", workflowYAML)
 	}
 
-	argoClient := argo.NewClient()
 	workflowName, err := wf.Submit(ctx.GoContext(), argoClient)
 	if err != nil {
 		return fmt.Errorf("failed to submit workflow: %w", err)
@@ -147,7 +147,7 @@ func executeCommandRemote(ctx *context.Context, setup *CommandSetup) error {
 
 func Execute(ctx *context.Context, cleanupRegistrar func(func()), setup *ExecutionSetup) error {
 	if !ctx.IsLocal() {
-		return NewRemoteRunner(ctx).RunRemote(setup.Project, ctx.ShouldFollow())
+		return NewRemoteRunner(ctx).Run(setup.Project, orchestrationRun.RunRemoteFlags{Follow: ctx.ShouldFollow()})
 	}
 
 	return NewLocalRunner(ctx, setup.BaseBranch).RunLocal(setup.Project, setup.Config)

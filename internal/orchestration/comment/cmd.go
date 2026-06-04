@@ -1,135 +1,156 @@
 package comment
 
 import (
-	"bytes"
-	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
-	"text/template"
+	"errors"
 
-	"github.com/zon/ralph/internal/config"
-	"github.com/zon/ralph/internal/output"
-	"github.com/zon/ralph/internal/project"
+	ralphcfg "github.com/zon/ralph/internal/config"
+	wksp "github.com/zon/ralph/internal/orchestration/workspace"
+	"github.com/zon/ralph/internal/services"
 )
 
+var ErrMissingCommentBody = errors.New("comment body is required")
+
+type WorkspaceSetupClient interface {
+	Setup(flags wksp.WorkspaceFlags) error
+}
+
+type ConfigClient interface {
+	LoadOptional() (*ralphcfg.RalphConfig, error)
+}
+
 type AIClient interface {
+	RenderCommentPrompt(ctx CommentContext, instructionsFile string) (string, error)
 	RunAgent(prompt string) error
+	GenerateChangelog() error
+	GenerateCommentReply(ctx CommentContext, pushed bool) (string, error)
 }
 
 type ServicesClient interface {
-	Start(services []config.Service) error
-	Stop()
+	Start(cfg *ralphcfg.RalphConfig) (*services.Manager, error)
+	Stop(svc *services.Manager)
 }
 
-type CommentFlags struct {
-	Body       string
-	Repo       string
-	Branch     string
-	PR         string
-	NoServices bool
-	Verbose    bool
+type GitClient interface {
+	HasChanges() bool
+	ReportExists() bool
+	CommitAndPushFromReport() error
 }
 
-type CommentCmd struct {
-	ai       AIClient
-	services ServicesClient
-	out      *output.Client
+type GitHubClient interface {
+	PostComment(prNumber int, body string) error
 }
 
-func NewCommentCmd(ai AIClient, services ServicesClient, out *output.Client) *CommentCmd {
-	return &CommentCmd{
-		ai:       ai,
-		services: services,
-		out:      out,
+type CommentContext struct {
+	CommentBody string
+	PRNumber    int
+	PRBranch    string
+	RepoOwner   string
+	RepoName    string
+}
+
+func NewWorkflowCommentCmd(workspace WorkspaceSetupClient, config ConfigClient, ai AIClient, services ServicesClient, git GitClient, github GitHubClient) *WorkflowCommentCmd {
+	return &WorkflowCommentCmd{
+		workspace: workspace,
+		config:    config,
+		ai:        ai,
+		services:  services,
+		git:       git,
+		github:    github,
 	}
 }
 
-func (c *CommentCmd) SetOutput(out *output.Client) {
-	c.out = out
+type WorkflowCommentCmd struct {
+	workspace WorkspaceSetupClient
+	config    ConfigClient
+	ai        AIClient
+	services  ServicesClient
+	git       GitClient
+	github    GitHubClient
 }
 
-func (c *CommentCmd) Run(flags CommentFlags) error {
-	projectFile := projectFileFromBranch(flags.Branch)
-	absProjectFile, err := filepath.Abs(projectFile)
+type WorkflowCommentFlags struct {
+	Repo             string
+	CloneBranch      string
+	ProjectBranch    string
+	BotName          string
+	BotEmail         string
+	CommentBody      string
+	PRNumber         int
+	RepoOwner        string
+	RepoName         string
+	NoServices       bool
+	InstructionsFile string
+}
+
+func (f WorkflowCommentFlags) WorkspaceFlags() wksp.WorkspaceFlags {
+	return wksp.WorkspaceFlags{
+		Repo:        f.Repo,
+		CloneBranch: f.CloneBranch,
+		BotName:     f.BotName,
+		BotEmail:    f.BotEmail,
+	}
+}
+
+func (f WorkflowCommentFlags) CommentContext() CommentContext {
+	return CommentContext{
+		CommentBody: f.CommentBody,
+		PRNumber:    f.PRNumber,
+		PRBranch:    f.ProjectBranch,
+		RepoOwner:   f.RepoOwner,
+		RepoName:    f.RepoName,
+	}
+}
+
+func (w *WorkflowCommentCmd) Run(flags WorkflowCommentFlags) error {
+	if flags.CommentBody == "" {
+		return ErrMissingCommentBody
+	}
+	if err := w.workspace.Setup(flags.WorkspaceFlags()); err != nil {
+		return err
+	}
+	cfg, err := w.config.LoadOptional()
 	if err != nil {
-		return fmt.Errorf("failed to resolve project file path: %w", err)
+		return err
 	}
-	if _, err := os.Stat(absProjectFile); os.IsNotExist(err) {
-		return fmt.Errorf("project file not found: %s", absProjectFile)
+	if flags.NoServices {
+		cfg.Services = nil
 	}
-
-	if _, err := project.LoadProject(absProjectFile); err != nil {
-		return fmt.Errorf("failed to load project: %w", err)
-	}
-
-	cfg, err := config.LoadConfig()
+	prompt, err := w.ai.RenderCommentPrompt(flags.CommentContext(), flags.InstructionsFile)
 	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
+		return err
 	}
-
-	svcCleanup := c.startServicesIfNeeded(flags.NoServices, cfg.Services)
-	if svcCleanup != nil {
-		defer svcCleanup()
+	if !flags.NoServices {
+		svc, err := w.services.Start(cfg)
+		if err != nil {
+			return err
+		}
+		defer w.services.Stop(svc)
 	}
-
-	agentPrompt := renderInstructions(cfg.CommentInstructions, flags.Repo, flags.Branch, flags.Body, flags.PR)
-
-	c.out.Debug("Running AI agent...")
-	if err := c.ai.RunAgent(agentPrompt); err != nil {
-		return fmt.Errorf("agent execution failed: %w", err)
+	if err := w.ai.RunAgent(prompt); err != nil {
+		return err
 	}
-
-	return nil
-}
-
-func (c *CommentCmd) startServicesIfNeeded(noServices bool, services []config.Service) func() {
-	if noServices || len(services) == 0 {
-		return nil
-	}
-	if err := c.services.Start(services); err != nil {
-		return nil
-	}
-	return c.services.Stop
-}
-
-func renderInstructions(tmplText, repo, branch, body, pr string) string {
-	parts := strings.SplitN(repo, "/", 2)
-	repoOwner, repoName := "", ""
-	if len(parts) == 2 {
-		repoOwner = parts[0]
-		repoName = parts[1]
-	}
-	tmpl, err := template.New("instructions").Parse(tmplText)
+	pushed, err := w.commitChanges()
 	if err != nil {
-		return tmplText
+		return err
 	}
-	data := struct {
-		CommentBody string
-		PRNumber    string
-		PRBranch    string
-		RepoOwner   string
-		RepoName    string
-	}{
-		CommentBody: body,
-		PRNumber:    pr,
-		PRBranch:    branch,
-		RepoOwner:   repoOwner,
-		RepoName:    repoName,
+	reply, err := w.ai.GenerateCommentReply(flags.CommentContext(), pushed)
+	if err != nil {
+		return err
 	}
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, data); err != nil {
-		return tmplText
-	}
-	return buf.String()
+	return w.github.PostComment(flags.PRNumber, reply)
 }
 
-func projectFileFromBranch(branch string) string {
-	projectName := branch
-	if strings.HasPrefix(branch, "ralph/") {
-		projectName = strings.TrimPrefix(branch, "ralph/")
-	} else {
-		projectName = strings.ReplaceAll(branch, "/", "-")
+func (w *WorkflowCommentCmd) commitChanges() (bool, error) {
+	if !w.git.HasChanges() {
+		return false, nil
 	}
-	return filepath.Join("projects", projectName+".yaml")
+	if !w.git.ReportExists() {
+		if err := w.ai.GenerateChangelog(); err != nil {
+			return false, err
+		}
+	}
+	if err := w.git.CommitAndPushFromReport(); err != nil {
+		return false, err
+	}
+	return true, nil
 }

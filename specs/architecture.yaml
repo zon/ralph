@@ -56,7 +56,7 @@ modules:
   - path: internal/orchestration/workspace
     description: Bootstraps the container environment for all workflow subcommands — GitHub auth, AI credentials, git identity, repo clone, branch checkout, and symlinks.
     category: orchestration
-  - path: internal/orchestration/workflow
+  - path: internal/orchestration/workflowrun
     description: Orchestrates the workflow run subcommand — workspace setup, base branch sync, optional debug mode setup, and project execution.
     category: orchestration
   - path: internal/orchestration/comment
@@ -97,9 +97,6 @@ modules:
     category: orchestration
   - path: internal/orchestration/command
     description: Orchestrates both the client-side command submission (Argo workflow) and the container-side command execution (workspace setup + exec).
-    category: orchestration
-  - path: internal/workspace
-    description: Prepares the in-container workspace for agent execution.
     category: orchestration
   - path: internal/ai
     description: Runs AI prompts against embedded instruction templates to generate ralph artifacts.

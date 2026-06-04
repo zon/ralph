@@ -1,70 +1,13 @@
 package workflow
 
 import (
-	"bytes"
-	_ "embed"
 	"fmt"
 	"path/filepath"
 	"strings"
-	"text/template"
 
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/k8s"
 )
-
-//go:embed debug.sh
-var debugScript string
-
-//go:embed comment.sh
-var commentScript string
-
-//go:embed merge.sh
-var mergeScript string
-
-// scriptData holds the template variables injected into each .sh file.
-type scriptData struct {
-	BotName        string
-	BotEmail       string
-	VerboseFlag    string // empty or " --verbose"
-	NoServicesFlag string // empty or " --no-services"
-	ModelFlag      string // empty or " --model <model>"
-	DebugBranch    string // empty or the ralph repo branch to use for go run mode
-}
-
-func newScriptData(verbose bool, noServices bool, debugBranch string, model string) scriptData {
-	verboseFlag := ""
-	if verbose {
-		verboseFlag = " --verbose"
-	}
-	noServicesFlag := ""
-	if noServices {
-		noServicesFlag = " --no-services"
-	}
-	modelFlag := ""
-	if model != "" {
-		modelFlag = " --model " + model
-	}
-	return scriptData{
-		BotName:        config.DefaultAppName + "[bot]",
-		BotEmail:       config.DefaultAppName + "[bot]@users.noreply.github.com",
-		VerboseFlag:    verboseFlag,
-		NoServicesFlag: noServicesFlag,
-		ModelFlag:      modelFlag,
-		DebugBranch:    debugBranch,
-	}
-}
-
-func renderScript(tmplText string, data scriptData) string {
-	tmpl, err := template.New("script").Parse(tmplText)
-	if err != nil {
-		return tmplText
-	}
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, data); err != nil {
-		return tmplText
-	}
-	return buf.String()
-}
 
 // buildParameters builds workflow parameters from the params map
 func buildParameters(params map[string]string) []map[string]interface{} {
@@ -80,21 +23,6 @@ func buildParameters(params map[string]string) []map[string]interface{} {
 		parameters = append(parameters, param)
 	}
 	return parameters
-}
-
-// buildDebugScript returns the rendered debug.sh script for a debug development workflow.
-func buildDebugScript(verbose bool, noServices bool, debugBranch string, model string) string {
-	return renderScript(debugScript, newScriptData(verbose, noServices, debugBranch, model))
-}
-
-// buildCommentScript returns the rendered comment.sh script for a comment-triggered workflow.
-func buildCommentScript(verbose bool, noServices bool, model string) string {
-	return renderScript(commentScript, newScriptData(verbose, noServices, "", model))
-}
-
-// buildMergeScript returns the rendered merge.sh script for a merge workflow.
-func buildMergeScript() string {
-	return renderScript(mergeScript, newScriptData(false, false, "", ""))
 }
 
 func buildConfigMapVolumeMount(name string, destFile, destDir string, index int) map[string]interface{} {

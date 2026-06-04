@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/zon/ralph/internal/argo"
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/testutil"
@@ -165,8 +166,11 @@ requirements: []
 	)
 	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
 
-	err := executeCommandRemote(ctx, setup)
+	mockArgo := &argo.MockClient{}
+	err := executeCommandRemote(ctx, setup, mockArgo)
 	assert.NoError(t, err)
+	assert.True(t, mockArgo.SubmitYAMLCalled)
+	assert.False(t, mockArgo.FollowLogsCalled)
 }
 
 func TestExecuteCommandRemote_FollowLogs(t *testing.T) {
@@ -192,6 +196,9 @@ requirements: []
 	)
 	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
 
-	err := executeCommandRemote(ctx, setup)
+	mockArgo := &argo.MockClient{}
+	err := executeCommandRemote(ctx, setup, mockArgo)
 	assert.NoError(t, err)
+	assert.True(t, mockArgo.SubmitYAMLCalled)
+	assert.True(t, mockArgo.FollowLogsCalled)
 }

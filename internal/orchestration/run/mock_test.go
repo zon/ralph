@@ -442,6 +442,20 @@ func remoteWorkflowLogHintPrinted(runner *RemoteRunner) bool {
 	return false
 }
 
+func remoteWorkflowFollowLogsCalled(runner *RemoteRunner) bool {
+	if m, ok := runner.workflow.(*workflow.MockClient); ok {
+		return m.FollowLogsCalled
+	}
+	return false
+}
+
+func remoteWorkflowLastDebugBranch(runner *RemoteRunner) string {
+	if m, ok := runner.workflow.(*workflow.MockClient); ok {
+		return m.LastDebugBranch
+	}
+	return ""
+}
+
 func remoteNotifySuccesses(runner *RemoteRunner) []string {
 	if m, ok := runner.notify.(*notify.MockClient); ok {
 		return m.SuccessesSlice
@@ -454,4 +468,34 @@ func remoteNotifyErrors(runner *RemoteRunner) []string {
 		return m.ErrorsSlice
 	}
 	return nil
+}
+
+func remoteNotifySuccessSent(runner *RemoteRunner) bool {
+	if m, ok := runner.notify.(*notify.MockClient); ok {
+		return len(m.SuccessesSlice) > 0
+	}
+	return false
+}
+
+func remoteNotifyErrorSent(runner *RemoteRunner) bool {
+	if m, ok := runner.notify.(*notify.MockClient); ok {
+		return len(m.ErrorsSlice) > 0
+	}
+	return false
+}
+
+func runRemoteFlagsAny() RunRemoteFlags {
+	return RunRemoteFlags{}
+}
+
+func runRemoteFlagsWithFollow() RunRemoteFlags {
+	return RunRemoteFlags{Follow: true}
+}
+
+func runRemoteFlagsWithoutFollow() RunRemoteFlags {
+	return RunRemoteFlags{}
+}
+
+func runRemoteFlagsWithDebug(branch string) RunRemoteFlags {
+	return RunRemoteFlags{Debug: branch}
 }

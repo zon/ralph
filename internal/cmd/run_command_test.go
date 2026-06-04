@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/zon/ralph/internal/argo"
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/testutil"
 )
@@ -114,6 +115,6 @@ requirements: []
 		testutil.WithNoNotify(true),
 	)
 
-	err := executeCommandRemote(ctx, setup)
+	err := executeCommandRemote(ctx, setup, &argo.MockClient{})
 	assert.NoError(t, err)
 }

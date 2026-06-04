@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"os"
+	"strconv"
 
 	"github.com/zon/ralph/internal/output"
 	orchestrationMerge "github.com/zon/ralph/internal/orchestration/merge"
@@ -11,7 +12,6 @@ import (
 type MergeCmd struct {
 	Branch  string `arg:"" help:"PR branch name to merge"`
 	Verbose bool   `help:"Enable verbose logging" default:"false"`
-	Local   bool   `help:"Run merge locally instead of submitting an Argo workflow" default:"false"`
 	PR      string `help:"Pull request number" required:""`
 	Repo    string `help:"GitHub repository (owner/repo); defaults to repo detected from git remote" default:""`
 
@@ -20,15 +20,26 @@ type MergeCmd struct {
 
 // Run executes the merge command (implements kong.Run interface)
 func (m *MergeCmd) Run() error {
-	flags := orchestrationMerge.MergeFlags{
-		Branch:  m.Branch,
-		PR:      m.PR,
-		Repo:    m.Repo,
-		Local:   m.Local,
-		Verbose: m.Verbose,
-	}
+	ctx := createExecutionContext()
+	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, m.Verbose))
+	ctx.SetNoNotify(true)
+	ctx.SetWorkflowExecution(true)
 
-	cmd := newOrchestrationMergeCmd()
-	cmd.SetOutput(output.NewClient(os.Stdout, os.Stderr, m.Verbose))
-	return cmd.Run(flags)
+	prNum, _ := strconv.Atoi(m.PR)
+
+	cmd := orchestrationMerge.NewWorkflowMergeCmd(
+		&workspaceSetupAdapter{ctx: ctx},
+		&workflowMergeGitClient{},
+		&workflowMergeGitHubClient{},
+		&workflowMergeProjectClient{},
+	)
+	flags := orchestrationMerge.WorkflowMergeFlags{
+		Repo:        m.Repo,
+		CloneBranch: m.Branch,
+		PRBranch:    m.Branch,
+		PRNumber:    prNum,
+		BotName:     "ralph-zon[bot]",
+		BotEmail:    "ralph-zon[bot]@users.noreply.github.com",
+	}
+	return cmd.Merge(flags)
 }

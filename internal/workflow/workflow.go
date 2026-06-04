@@ -128,22 +128,34 @@ func (w *Workflow) getEffectiveBaseBranch() string {
 	return w.DefaultBranch
 }
 
-// buildScript returns the appropriate shell script for this workflow type.
-func (w *Workflow) buildScript() string {
-	if w.CommentBody != "" {
-		return buildCommentScript(w.Verbose, w.NoServices, w.Model)
-	}
-	return buildDebugScript(w.Verbose, w.NoServices, w.DebugBranch, w.Model)
-}
-
 func (w *Workflow) buildMainTemplate() map[string]interface{} {
 	var command []string
 	var args []string
 
-	if w.DebugBranch != "" || w.CommentBody != "" {
-		command = []string{"/bin/sh", "-c"}
-		args = []string{w.buildScript()}
-	} else if len(w.Command) > 0 {
+	switch {
+	case w.CommentBody != "":
+		command = []string{"ralph"}
+		args = []string{
+			"workflow", "comment",
+			"--repo", w.Repo.Owner + "/" + w.Repo.Name,
+			"--clone-branch", w.CloneBranch,
+			"--project-branch", w.ProjectBranch,
+			"--comment-body", w.CommentBody,
+			"--pr", w.PRNumber,
+			"--bot-name", config.DefaultAppName + "[bot]",
+			"--bot-email", config.DefaultAppName + "[bot]@users.noreply.github.com",
+		}
+		if w.Verbose {
+			args = append(args, "--verbose")
+		}
+		if w.NoServices {
+			args = append(args, "--no-services")
+		}
+		if w.Model != "" {
+			args = append(args, "--model", w.Model)
+		}
+
+	case len(w.Command) > 0:
 		command = []string{"ralph"}
 		args = []string{"workflow", "--command", "--"}
 		args = append(args, w.Command...)
@@ -153,14 +165,18 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 		if w.Model != "" {
 			args = append(args, "--model", w.Model)
 		}
-	} else {
+
+	default:
 		command = []string{"ralph"}
 		args = []string{
-			"workflow",
+			"workflow", "run",
 			"--project-branch", w.ProjectBranch,
 			"--base", w.getEffectiveBaseBranch(),
 			w.Repo.Owner + "/" + w.Repo.Name,
 			"{{workflow.parameters.project-path}}",
+		}
+		if w.DebugBranch != "" {
+			args = append(args, "--debug", w.DebugBranch)
 		}
 		if w.NoServices {
 			args = append(args, "--no-services")

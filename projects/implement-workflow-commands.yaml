@@ -1,6 +1,5 @@
 slug: implement-workflow-commands
 title: Implement ralph workflow subcommands and remove old equivalent commands
-maxIterations: 10
 requirements:
     - slug: workspace-setup
       description: Create internal/orchestration/workspace with WorkspaceSetup that bootstraps the container environment for all workflow subcommands
@@ -193,7 +192,7 @@ requirements:
                 require.NoError(t, err)
                 require.True(t, workspace.symlinksSetUp())
             }
-      passing: false
+      passing: true
     - slug: workflow-run
       description: Create internal/orchestration/workflow with WorkflowRunCmd that sets up the workspace, validates inputs, syncs the base branch, and runs the project
       code:
@@ -425,7 +424,7 @@ requirements:
                 require.NoError(t, err)
                 require.True(t, runner.runLocalCalled())
             }
-      passing: false
+      passing: true
     - slug: workflow-comment
       description: Rewrite internal/orchestration/comment as WorkflowCommentCmd — workspace setup, AI agent with rendered prompt, commit, PR reply
       code:
@@ -644,7 +643,7 @@ requirements:
                 require.NoError(t, err)
                 require.True(t, github.commentPosted())
             }
-      passing: false
+      passing: true
     - slug: workflow-merge
       description: Rewrite internal/orchestration/merge as WorkflowMergeCmd — workspace setup, completed project cleanup, GitHub head sync, PR merge
       code:
@@ -801,7 +800,7 @@ requirements:
                 require.NoError(t, err)
                 require.True(t, github.mergePRCalled())
             }
-      passing: false
+      passing: true
     - slug: workflow-command
       description: Add WorkflowCommandCmd to internal/orchestration/command — workspace setup and exec for container-side arbitrary command execution
       code:
@@ -875,7 +874,7 @@ requirements:
                 require.NoError(t, err)
                 require.True(t, exec.runCalled())
             }
-      passing: false
+      passing: true
     - slug: command-submit
       description: Add CommandCmd to internal/orchestration/command — client-side Argo workflow submission and log streaming for arbitrary commands
       code:
@@ -955,7 +954,7 @@ requirements:
                 require.True(t, workflow.submitCalled())
                 require.False(t, workflow.streamLogsCalled())
             }
-      passing: false
+      passing: true
     - slug: run-remote-debug
       description: Update RemoteRunner in internal/orchestration/run to accept RunRemoteFlags with Debug and rename Run method; update WorkflowClient interface to include debug parameter in Submit
       items:
@@ -1051,7 +1050,7 @@ requirements:
                 require.NoError(t, err)
                 require.Equal(t, "my-fix", workflow.lastDebugBranch())
             }
-      passing: false
+      passing: true
     - slug: workflow-client-debug
       description: Update internal/workflow Client interface and MockClient to add debug string to Submit; update workflowClientAdapter in internal/cmd to pass debug through
       items:
@@ -1061,7 +1060,7 @@ requirements:
         - workflowClientAdapter.Submit in internal/cmd/workflow_client.go passes debug to workflow generation — when debug is non-empty the generated workflow invokes ralph via go run from the cloned debug branch
         - NewRemoteRunner in internal/cmd/workflow_client.go is updated to wire the new Submit signature
         - internal/cmd/run.go RunFlags already has Debug; the orchestration/run RunCmd.Run must pass flags.Debug into RunRemoteFlags when calling remote.Run
-      passing: false
+      passing: true
     - slug: workflow-generator
       description: Update internal/workflow to generate workflows that call the new ralph workflow subcommands directly instead of using shell scripts
       items:
@@ -1072,7 +1071,7 @@ requirements:
         - All script-related buildDebugScript, buildCommentScript, buildMergeScript helpers and renderScript infrastructure are removed from scripts.go
         - internal/webhook/events.go comment-event path is updated to generate a workflow that calls ralph workflow comment instead of calling GenerateCommentWorkflowWithGitInfo; it passes RepoOwner, RepoName, PRBranch, PRNumber, and body as explicit container command args
         - All generate_test.go tests are updated to assert the new command/args structure
-      passing: false
+      passing: true
     - slug: cli-workflow-group
       description: Replace the flat WorkflowCmd in internal/cmd with a WorkflowGroup kong subcommand group containing WorkflowRunCmd, WorkflowCommentCmd, WorkflowMergeCmd, and WorkflowCommandCmd thin adapters
       items:
@@ -1084,7 +1083,7 @@ requirements:
         - internal/cmd/workflow_command.go is created as a thin kong adapter WorkflowCommandCmd wiring internal/orchestration/command.WorkflowCommandCmd
         - internal/cmd/command.go is rewritten as a thin kong adapter that wires internal/orchestration/command.CommandCmd; flags are Command []string and NoFollow bool
         - SetCleanupRegistrar in internal/cmd/cmd.go is updated for the new subcommand structure
-      passing: false
+      passing: true
     - slug: remove-old-commands
       description: Remove ralph comment, the old WorkflowCmd logic, and the --local flag from ralph merge; clean up dead code
       items:
@@ -1096,9 +1095,9 @@ requirements:
         - internal/cmd/cmd_adapters.go removes the merge workflow client adapter (mergeWorkflowClient, newMergeWorkflowClient, newOrchestrationMergeCmd) as merge now wires directly to internal/orchestration/merge.WorkflowMergeCmd submission
         - internal/cmd/comment_test.go, internal/cmd/merge_test.go, internal/cmd/setup_workspace_test.go, and internal/cmd/workflow_test.go are updated to match the new command structures; tests for removed logic are deleted
         - All references to resolveMaxIterations in internal/cmd/cmd.go are removed if no longer used
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump
       items:
         - Apply a semver major bump to the app version
-      passing: false
+      passing: true

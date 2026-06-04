@@ -1,159 +1,93 @@
 package merge
 
 import (
-	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
-	"time"
-
-	"github.com/zon/ralph/internal/output"
+	wksp "github.com/zon/ralph/internal/orchestration/workspace"
+	ralphproj "github.com/zon/ralph/internal/project"
 )
 
+type WorkspaceSetupClient interface {
+	Setup(flags wksp.WorkspaceFlags) error
+}
+
 type GitClient interface {
-	CurrentBranch() (string, error)
-	RevParse(rev string) (string, error)
-	Push(branch string) error
+	CommitAndPush(message string) error
 }
 
 type GitHubClient interface {
-	MergePR(pr, repo string) error
-	GetPRHeadRefOid(pr string) (string, error)
+	WaitForHeadSync(prBranch string) error
+	MergePR(prNumber int) error
 }
 
 type ProjectClient interface {
-	FindCompleteProjects(dir string) ([]string, error)
-	RemoveAndCommit(files []string) error
+	LoadAll() ([]*ralphproj.Project, error)
+	FilterPassing(projects []*ralphproj.Project) []*ralphproj.Project
+	DeleteAll(projects []*ralphproj.Project) error
 }
 
-type WorkflowClient interface {
-	SubmitMergeWorkflow(branch string) (string, error)
-}
-
-type MergeFlags struct {
-	Branch  string
-	PR      string
-	Repo    string
-	Local   bool
-	Verbose bool
-}
-
-type MergeCmd struct {
-	git      GitClient
-	github   GitHubClient
-	project  ProjectClient
-	workflow WorkflowClient
-	out      *output.Client
-}
-
-func NewMergeCmd(git GitClient, github GitHubClient, project ProjectClient, workflow WorkflowClient, out *output.Client) *MergeCmd {
-	return &MergeCmd{
-		git:      git,
-		github:   github,
-		project:  project,
-		workflow: workflow,
-		out:      out,
+func NewWorkflowMergeCmd(workspace WorkspaceSetupClient, git GitClient, github GitHubClient, project ProjectClient) *WorkflowMergeCmd {
+	return &WorkflowMergeCmd{
+		workspace: workspace,
+		git:       git,
+		github:    github,
+		project:   project,
 	}
 }
 
-func (m *MergeCmd) SetOutput(out *output.Client) {
-	m.out = out
+type WorkflowMergeCmd struct {
+	workspace WorkspaceSetupClient
+	git       GitClient
+	github    GitHubClient
+	project   ProjectClient
 }
 
-func (m *MergeCmd) Run(flags MergeFlags) error {
-	if flags.Local {
-		return m.runLocal(flags)
-	}
-
-	workflowName, err := m.workflow.SubmitMergeWorkflow(flags.Branch)
-	if err != nil {
-		return fmt.Errorf("failed to submit merge workflow: %w", err)
-	}
-
-	m.out.Successf("Merge workflow submitted: %s", workflowName)
-	return nil
+type WorkflowMergeFlags struct {
+	Repo        string
+	CloneBranch string
+	PRBranch    string
+	PRNumber    int
+	BotName     string
+	BotEmail    string
 }
 
-func (m *MergeCmd) runLocal(flags MergeFlags) error {
-	if err := m.scanAndCleanupProjects(flags); err != nil {
+func (f WorkflowMergeFlags) WorkspaceFlags() wksp.WorkspaceFlags {
+	return wksp.WorkspaceFlags{
+		Repo:        f.Repo,
+		CloneBranch: f.CloneBranch,
+		BotName:     f.BotName,
+		BotEmail:    f.BotEmail,
+	}
+}
+
+func (w *WorkflowMergeCmd) Merge(flags WorkflowMergeFlags) error {
+	if err := w.workspace.Setup(flags.WorkspaceFlags()); err != nil {
 		return err
 	}
-
-	return m.github.MergePR(flags.PR, flags.Repo)
+	pushed, err := w.cleanupCompletedProjects()
+	if err != nil {
+		return err
+	}
+	if pushed {
+		if err := w.github.WaitForHeadSync(flags.PRBranch); err != nil {
+			return err
+		}
+	}
+	return w.github.MergePR(flags.PRNumber)
 }
 
-func (m *MergeCmd) scanAndCleanupProjects(flags MergeFlags) error {
-	projectsDir := "projects"
-	if _, err := os.Stat(projectsDir); os.IsNotExist(err) {
-		m.out.Debug("Projects directory not found, skipping complete project cleanup")
-		return nil
-	}
-
-	completeProjects, err := m.project.FindCompleteProjects(projectsDir)
+func (w *WorkflowMergeCmd) cleanupCompletedProjects() (bool, error) {
+	projects, err := w.project.LoadAll()
 	if err != nil {
-		return fmt.Errorf("failed to scan for complete projects: %w", err)
+		return false, err
 	}
-
-	if len(completeProjects) == 0 {
-		m.out.Debug("No complete projects found")
-		return nil
+	completed := w.project.FilterPassing(projects)
+	if len(completed) == 0 {
+		return false, nil
 	}
-
-	m.out.Infof("Found %d complete project(s) to clean up", len(completeProjects))
-	for _, file := range completeProjects {
-		relPath, err := filepath.Rel(".", file)
-		if err != nil {
-			relPath = file
-		}
-		m.out.Infof("  - %s", relPath)
+	if err := w.project.DeleteAll(completed); err != nil {
+		return false, err
 	}
-
-	if err := m.project.RemoveAndCommit(completeProjects); err != nil {
-		return fmt.Errorf("failed to remove complete projects: %w", err)
+	if err := w.git.CommitAndPush("chore: remove completed project files"); err != nil {
+		return false, err
 	}
-
-	branch, err := m.git.CurrentBranch()
-	if err != nil {
-		return fmt.Errorf("failed to get current branch: %w", err)
-	}
-
-	if err := m.git.Push(branch); err != nil {
-		return fmt.Errorf("failed to push after removing complete projects: %w", err)
-	}
-
-	if err := m.waitForGitHubHead(flags.PR); err != nil {
-		return fmt.Errorf("failed waiting for GitHub to sync push: %w", err)
-	}
-
-	return nil
-}
-
-func (m *MergeCmd) waitForGitHubHead(pr string) error {
-	localSHA, err := m.git.RevParse("HEAD")
-	if err != nil {
-		return fmt.Errorf("failed to get local HEAD: %w", err)
-	}
-
-	const maxAttempts = 20
-	const pollInterval = 3 * time.Second
-
-	for i := range maxAttempts {
-		headRefOid, err := m.github.GetPRHeadRefOid(pr)
-		if err != nil {
-			return fmt.Errorf("failed to query PR head: %w", err)
-		}
-
-		if strings.HasPrefix(headRefOid, localSHA) || strings.HasPrefix(localSHA, headRefOid) {
-			m.out.Debugf("GitHub head SHA matches local HEAD (%s)", localSHA[:8])
-			return nil
-		}
-
-		if i < maxAttempts-1 {
-			m.out.Debugf("Waiting for GitHub to sync push (attempt %d/%d, local=%s, remote=%s)...",
-				i+1, maxAttempts, localSHA[:8], headRefOid[:8])
-			time.Sleep(pollInterval)
-		}
-	}
-
-	return fmt.Errorf("timed out waiting for GitHub to sync push (local HEAD: %s)", localSHA[:8])
+	return true, nil
 }

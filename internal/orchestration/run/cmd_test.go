@@ -79,18 +79,18 @@ func (m *mockLocalRunnerClient) RunLocal(proj *project.Project, cfg *config.Ralp
 }
 
 type mockRemoteRunnerClient struct {
-	RunRemoteFunc    func(*project.Project, bool) error
-	LastProject      *project.Project
-	LastFollow       bool
-	RunRemoteCalled  bool
+	RunFunc    func(*project.Project, RunRemoteFlags) error
+	LastProject *project.Project
+	LastFlags   RunRemoteFlags
+	RunCalled   bool
 }
 
-func (m *mockRemoteRunnerClient) RunRemote(proj *project.Project, follow bool) error {
-	m.RunRemoteCalled = true
+func (m *mockRemoteRunnerClient) Run(proj *project.Project, flags RunRemoteFlags) error {
+	m.RunCalled = true
 	m.LastProject = proj
-	m.LastFollow = follow
-	if m.RunRemoteFunc != nil {
-		return m.RunRemoteFunc(proj, follow)
+	m.LastFlags = flags
+	if m.RunFunc != nil {
+		return m.RunFunc(proj, flags)
 	}
 	return nil
 }
@@ -268,9 +268,9 @@ func localRunLocalCalled(cmd *RunCmd) bool {
 	return false
 }
 
-func remoteRunRemoteCalled(cmd *RunCmd) bool {
+func remoteRunCalled(cmd *RunCmd) bool {
 	if m, ok := cmd.remote.(*mockRemoteRunnerClient); ok {
-		return m.RunRemoteCalled
+		return m.RunCalled
 	}
 	return false
 }
@@ -423,14 +423,14 @@ func TestRunLocalDispatchesToLocalRunner(t *testing.T) {
 	err := cmd.Run(flagsWithLocal())
 	require.NoError(t, err)
 	require.True(t, localRunLocalCalled(cmd))
-	require.False(t, remoteRunRemoteCalled(cmd))
+	require.False(t, remoteRunCalled(cmd))
 }
 
 func TestRunRemoteDispatchesToRemoteRunner(t *testing.T) {
 	cmd := cmdWithMocks()
 	err := cmd.Run(flagsAny())
 	require.NoError(t, err)
-	require.True(t, remoteRunRemoteCalled(cmd))
+	require.True(t, remoteRunCalled(cmd))
 	require.False(t, localRunLocalCalled(cmd))
 }
 

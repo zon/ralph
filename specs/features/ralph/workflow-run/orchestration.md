@@ -6,7 +6,7 @@
 
 ## Interfaces
 
-**Module:** `internal/orchestration/workflow`
+**Module:** `internal/orchestration/workflowrun`
 
 ```go
 type WorkspaceSetupClient interface {
@@ -43,7 +43,7 @@ type DebugClient interface {
 
 ## Orchestration
 
-**Module:** `internal/orchestration/workflow`
+**Module:** `internal/orchestration/workflowrun`
 
 ```go
 type WorkflowRunCmd struct {
@@ -142,7 +142,7 @@ func (w *WorkflowRunCmd) syncBaseBranch(baseBranch, projectBranch string) error 
 
 ## Tests
 
-**Module:** `internal/orchestration/workflow`
+**Module:** `internal/orchestration/workflowrun`
 
 ```go
 func TestRunMissingProjectPathAbortsBeforeWorkspace(t *testing.T) {

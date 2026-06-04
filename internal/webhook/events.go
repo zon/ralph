@@ -65,12 +65,21 @@ func (e Event) ToWorkflow(cfg *webhookconfig.Config) (*WorkflowResult, error) {
 	}
 
 	projectName := strings.TrimSuffix(filepath.Base(projectFile), filepath.Ext(projectFile))
-	wf, err := workflow.GenerateCommentWorkflowWithGitInfo(
-		projectName, repoURL, e.PRBranch, e.PRBranch, projectFile,
-		e.Body, e.PRNumber, workflowOpts,
-	)
+	repo, err := github.ParseRemoteURL(repoURL)
 	if err != nil {
 		return nil, err
+	}
+	wf := &workflow.Workflow{
+		ProjectName:   projectName,
+		Repo:          repo,
+		CloneBranch:   e.PRBranch,
+		ProjectBranch: e.PRBranch,
+		ProjectPath:   projectFile,
+		CommentBody:   e.Body,
+		PRNumber:      e.PRNumber,
+		Image:         workflowOpts.Image,
+		KubeContext:   workflowOpts.KubeContext,
+		Namespace:     namespace,
 	}
 	return &WorkflowResult{Run: wf, Namespace: namespace}, nil
 }
