@@ -1,4 +1,4 @@
-package workflow
+package workflowrun
 
 import (
 	ralphcfg "github.com/zon/ralph/internal/config"

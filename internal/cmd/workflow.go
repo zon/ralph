@@ -3,7 +3,7 @@ package cmd
 import (
 	"os"
 
-	orchestrationWorkflow "github.com/zon/ralph/internal/orchestration/workflow"
+	orchestrationWorkflow "github.com/zon/ralph/internal/orchestration/workflowrun"
 )
 
 type WorkflowRunCmd struct {

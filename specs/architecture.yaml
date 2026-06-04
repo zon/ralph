@@ -56,7 +56,7 @@ modules:
   - path: internal/orchestration/workspace
     description: Bootstraps the container environment for all workflow subcommands — GitHub auth, AI credentials, git identity, repo clone, branch checkout, and symlinks.
     category: orchestration
-  - path: internal/orchestration/workflow
+  - path: internal/orchestration/workflowrun
     description: Orchestrates the workflow run subcommand — workspace setup, base branch sync, optional debug mode setup, and project execution.
     category: orchestration
   - path: internal/orchestration/comment

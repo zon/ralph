@@ -14,7 +14,7 @@ import (
 	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/output"
 	wksp "github.com/zon/ralph/internal/orchestration/workspace"
-	orchestrationWorkflow "github.com/zon/ralph/internal/orchestration/workflow"
+	orchestrationWorkflow "github.com/zon/ralph/internal/orchestration/workflowrun"
 	"github.com/zon/ralph/internal/project"
 	"github.com/zon/ralph/internal/workspace"
 )

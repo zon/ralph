@@ -74,7 +74,7 @@ func PrepareExecution(ctx *context.Context) (*ExecutionSetup, error) {
 
 func ExecuteCommand(ctx *context.Context, cleanupRegistrar func(func()), setup *CommandSetup) error {
 	if !ctx.IsLocal() {
-		return executeCommandRemote(ctx, setup)
+		return executeCommandRemote(ctx, setup, argo.NewClient())
 	}
 
 	if err := infrastructureRunBeforeCommands(ctx.Output(), setup.Config); err != nil {
@@ -90,7 +90,7 @@ func ExecuteCommand(ctx *context.Context, cleanupRegistrar func(func()), setup *
 	return nil
 }
 
-func executeCommandRemote(ctx *context.Context, setup *CommandSetup) error {
+func executeCommandRemote(ctx *context.Context, setup *CommandSetup, argoClient argo.Client) error {
 	ctx.Output().Debug("Submitting Argo Workflow for command...")
 
 	currentBranch, err := git.GetCurrentBranch()
@@ -125,7 +125,6 @@ func executeCommandRemote(ctx *context.Context, setup *CommandSetup) error {
 		ctx.Output().Debugf("Generated workflow YAML:\n%s", workflowYAML)
 	}
 
-	argoClient := argo.NewClient()
 	workflowName, err := wf.Submit(ctx.GoContext(), argoClient)
 	if err != nil {
 		return fmt.Errorf("failed to submit workflow: %w", err)
