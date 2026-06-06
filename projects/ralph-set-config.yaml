@@ -115,7 +115,7 @@ requirements:
 
               return c.GitHub.Configure(k8sCtx, keyPath)
             }
-      passing: false
+      passing: true
     - slug: setconfig-tests
       description: Implement orchestration tests covering all domain outcomes
       tests:
@@ -190,7 +190,7 @@ requirements:
               require.Error(t, err)
               require.False(t, github.validateCalled())
             }
-      passing: false
+      passing: true
     - slug: wire-cmd
       description: Wire ralph set config into internal/cmd and remove config github and config opencode
       items:
