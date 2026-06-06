@@ -39,6 +39,18 @@ The system SHALL stream workflow logs by default after submission. The user MAY 
 - WHEN the workflow is submitted
 - THEN the workflow is submitted without streaming logs
 
+### Requirement: Workflow Labeled as Ralph-Owned
+
+The submitted workflow SHALL include the label `app.kubernetes.io/managed-by=ralph` in its metadata so that `ralph list` can filter for it.
+
+#### Scenario: Label present on submitted workflow
+
+- GIVEN a command is provided and the workflow is generated
+- WHEN the workflow YAML is rendered
+- THEN the workflow metadata contains the label `app.kubernetes.io/managed-by=ralph`
+
+---
+
 ### Requirement: Exit Code Propagation
 
 The system SHALL reflect the workflow outcome as the process exit code.

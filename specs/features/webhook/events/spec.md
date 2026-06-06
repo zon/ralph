@@ -125,6 +125,24 @@ The service SHALL submit Argo Workflows asynchronously so webhook responses are 
 - THEN HTTP 200 is returned immediately
 - AND the Argo Workflow is submitted in a background goroutine
 
+### Requirement: Workflows Labeled as Ralph-Owned
+
+Every Argo Workflow submitted by the webhook service SHALL include the label `app.kubernetes.io/managed-by=ralph` in its metadata so that `ralph list` can filter for it.
+
+#### Scenario: Run Workflow labeled
+
+- GIVEN a comment event triggers a Run Workflow submission
+- WHEN the workflow YAML is rendered
+- THEN the workflow metadata contains the label `app.kubernetes.io/managed-by=ralph`
+
+#### Scenario: Merge Workflow labeled
+
+- GIVEN a review approval triggers a Merge Workflow submission
+- WHEN the workflow YAML is rendered
+- THEN the workflow metadata contains the label `app.kubernetes.io/managed-by=ralph`
+
+---
+
 ### Requirement: Project File Derivation
 
 The service SHALL derive the project file path from the PR branch name.

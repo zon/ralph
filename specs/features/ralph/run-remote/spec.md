@@ -50,6 +50,18 @@ The command SHALL generate an Argo Workflow for the project and submit it to the
 
 ---
 
+### Requirement: Workflow Labeled as Ralph-Owned
+
+The submitted workflow SHALL include the label `app.kubernetes.io/managed-by=ralph` in its metadata so that `ralph list` can filter for it.
+
+#### Scenario: Label present on submitted workflow
+
+- GIVEN `ralph run` generates a workflow for the project
+- WHEN the workflow YAML is rendered
+- THEN the workflow metadata contains the label `app.kubernetes.io/managed-by=ralph`
+
+---
+
 ### Requirement: `--follow` streams logs after submission
 
 With `--follow`, the command SHALL stream the workflow logs and wait for the workflow to finish before returning.
