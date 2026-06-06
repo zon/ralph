@@ -162,4 +162,4 @@ requirements:
       description: Version bump
       items:
         - Apply a semver major bump to the app version
-      passing: false
+      passing: true
