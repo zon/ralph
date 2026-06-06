@@ -7,7 +7,6 @@ import (
 	"github.com/zon/ralph/internal/argo"
 	"github.com/zon/ralph/internal/config"
 	githubpkg "github.com/zon/ralph/internal/github"
-	"github.com/zon/ralph/internal/k8s"
 	"gopkg.in/yaml.v3"
 )
 
@@ -236,24 +235,6 @@ func (w *Workflow) buildEnvVars() []map[string]interface{} {
 		{"name": "RALPH_VERBOSE", "value": fmt.Sprintf("%t", w.Verbose)},
 		{"name": "RALPH_NO_SERVICES", "value": fmt.Sprintf("%t", w.NoServices)},
 		{"name": "RALPH_MAX_ITERATIONS", "value": fmt.Sprintf("%d", w.MaxIterations)},
-	}
-
-	hasPulumiToken := false
-	if w.Env != nil {
-		_, hasPulumiToken = w.Env["PULUMI_ACCESS_TOKEN"]
-	}
-
-	if !hasPulumiToken {
-		envVars = append(envVars, map[string]interface{}{
-			"name": "PULUMI_ACCESS_TOKEN",
-			"valueFrom": map[string]interface{}{
-				"secretKeyRef": map[string]interface{}{
-					"name":     k8s.PulumiSecretName,
-					"key":      "PULUMI_ACCESS_TOKEN",
-					"optional": true,
-				},
-			},
-		})
 	}
 
 	for key, value := range w.Env {

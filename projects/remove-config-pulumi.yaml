@@ -14,7 +14,7 @@ requirements:
       items:
         - Delete the PulumiSecretName constant from internal/k8s/secrets.go
         - Confirm no other files in the repo reference PulumiSecretName after removal
-      passing: false
+      passing: true
     - slug: remove-workflow-injection
       description: Remove pulumi secret and volume injection from workflow generation
       items:
