@@ -66,7 +66,7 @@ requirements:
                 cmd := &PassCmd{ProjectFile: path, Slug: "unknown-slug"}
                 assert.Error(t, cmd.Run())
             }
-      passing: false
+      passing: true
     - slug: remove-internal-cmd-pass
       description: Remove pass.go and pass_test.go from internal/cmd and update cmd.go to use pass.PassCmd
       items:
