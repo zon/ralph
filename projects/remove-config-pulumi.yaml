@@ -20,7 +20,7 @@ requirements:
       items:
         - Remove the hasPulumiToken check and the PULUMI_ACCESS_TOKEN env var injection from internal/workflow/workflow.go
         - Remove the pulumi-credentials volume and volume mount entries from internal/workflow/scripts.go
-      passing: false
+      passing: true
     - slug: remove-spec-files
       description: Remove the config-pulumi spec and its index entry
       items:
