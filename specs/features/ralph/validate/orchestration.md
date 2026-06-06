@@ -20,16 +20,16 @@ func (v *Validator) Validate(path string) (*project.Project, error) {
     for attempt := 1; attempt <= MaxAttempts; attempt++ {
         proj, loadErr := v.project.Load(path)
         if loadErr == nil {
-            if saveErr := v.project.Save(path, proj); saveErr != nil {
-                return nil, saveErr
-            }
-            return proj, nil
+            return proj, v.project.Save(path, proj)
         }
         if attempt == MaxAttempts {
             return nil, loadErr
         }
-        if fixErr := v.agent.FixProject(path, loadErr, v.model); fixErr != nil {
-            return nil, fixErr
+        before := v.project.ReadFile(path)
+        v.agent.FixProject(path, loadErr, v.model)
+        after := v.project.ReadFile(path)
+        if bytes.Equal(before, after) {
+            return nil, ErrNoChange
         }
     }
     return nil, ErrUnreachable
@@ -42,6 +42,7 @@ The `model` field is resolved at wiring time using two-level precedence: `valida
 
 - **`v.project.Load(path)`** — reads the file at `path` and unmarshals it into a project, returning a schema error if the contents are not a well-formed project
 - **`v.project.Save(path, proj)`** — marshals the project back to disk at `path` using the canonical layout shared with `ralph pass`
+- **`v.project.ReadFile(path)`** — reads the raw bytes of the file at `path` for change detection before and after an agent fix attempt
 - **`v.agent.FixProject(path, loadErr, model)`** — invokes the AI agent locally to rewrite the file at `path` so it parses, using the given model and the most recent load error as context
 
 ## Tests
@@ -50,87 +51,97 @@ The `model` field is resolved at wiring time using two-level precedence: `valida
 
 ```go
 func TestValidateSucceedsOnFirstLoad(t *testing.T) {
-    proj := project.any()
-    svc := validate.withMocks(
-        validate.withProject(project.thatLoads(proj)),
+    proj := project.Any()
+    svc := withMocks(
+        withProject(thatLoads(proj)),
     )
-    result, err := svc.Validate(project.anyPath())
+    result, err := svc.Validate(project.AnyPath())
     require.NoError(t, err)
     require.Equal(t, proj, result)
-    require.Equal(t, proj, project.lastSaved())
-    require.Empty(t, agent.fixCalls())
+    require.Equal(t, proj, project.LastSaved())
+    require.Empty(t, FixCalls())
 }
 
 func TestValidateRepairsThenSucceeds(t *testing.T) {
-    proj := project.any()
-    svc := validate.withMocks(
-        validate.withProject(project.thatLoadsAfterFailures(1, proj)),
+    proj := project.Any()
+    svc := withMocks(
+        withProject(thatLoadsAfterFailures(1, proj)),
     )
-    result, err := svc.Validate(project.anyPath())
+    result, err := svc.Validate(project.AnyPath())
     require.NoError(t, err)
     require.Equal(t, proj, result)
-    require.Len(t, agent.fixCalls(), 1)
+    require.Len(t, FixCalls(), 1)
 }
 
 func TestValidateGivesUpAfterMaxAttempts(t *testing.T) {
-    svc := validate.withMocks(
-        validate.withProject(project.thatAlwaysFailsToLoad()),
+    svc := withMocks(
+        withProject(thatAlwaysFailsToLoad()),
     )
-    _, err := svc.Validate(project.anyPath())
+    _, err := svc.Validate(project.AnyPath())
     require.Error(t, err)
-    require.Len(t, agent.fixCalls(), validate.MaxAttempts-1)
+    require.Len(t, FixCalls(), MaxAttempts-1)
+}
+
+func TestValidateFailsFastWhenAgentMakesNoChange(t *testing.T) {
+    svc := withMocks(
+        withProject(thatAlwaysFailsToLoadWithUnchangedFile()),
+    )
+    _, err := svc.Validate(project.AnyPath())
+    require.ErrorIs(t, err, ErrNoChange)
+    require.Len(t, FixCalls(), 1)
 }
 
 func TestValidatePropagatesAgentFailure(t *testing.T) {
-    svc := validate.withMocks(
-        validate.withProject(project.thatAlwaysFailsToLoad()),
-        validate.withAgent(agent.thatFailsToFix()),
+    svc := withMocks(
+        withProject(thatAlwaysFailsToLoad()),
+        withAgent(thatFailsToFix()),
     )
-    _, err := svc.Validate(project.anyPath())
+    _, err := svc.Validate(project.AnyPath())
     require.Error(t, err)
 }
 
 func TestValidatePropagatesSaveFailure(t *testing.T) {
-    svc := validate.withMocks(
-        validate.withProject(project.thatLoadsButFailsToSave(project.any())),
+    svc := withMocks(
+        withProject(thatLoadsButFailsToSave(project.Any())),
     )
-    _, err := svc.Validate(project.anyPath())
+    _, err := svc.Validate(project.AnyPath())
     require.Error(t, err)
 }
 
 func TestValidateUsesValidateSpecificModel(t *testing.T) {
-    svc := validate.withMocks(
-        validate.withModel("validate-model"),
-        validate.withProject(project.thatLoadsAfterFailures(1, project.any())),
+    svc := withMocks(
+        withModel("validate-model"),
+        withProject(thatLoadsAfterFailures(1, project.Any())),
     )
-    _, err := svc.Validate(project.anyPath())
+    _, err := svc.Validate(project.AnyPath())
     require.NoError(t, err)
-    require.Equal(t, "validate-model", agent.fixCalls()[0].model)
+    require.Equal(t, "validate-model", FixCalls()[0].model)
 }
 
 func TestValidateFallsBackToMainModel(t *testing.T) {
-    svc := validate.withMocks(
-        validate.withModel("main-model"),
-        validate.withProject(project.thatLoadsAfterFailures(1, project.any())),
+    svc := withMocks(
+        withModel("main-model"),
+        withProject(thatLoadsAfterFailures(1, project.Any())),
     )
-    _, err := svc.Validate(project.anyPath())
+    _, err := svc.Validate(project.AnyPath())
     require.NoError(t, err)
-    require.Equal(t, "main-model", agent.fixCalls()[0].model)
+    require.Equal(t, "main-model", FixCalls()[0].model)
 }
 ```
 
 ### Helpers
 
-- **`validate.withMocks(opts...)`** — constructs a `Validator` with default mock implementations; pass option helpers to configure specific dependencies
-- **`validate.withProject(client)`** — option that sets the project client on the mock validator
-- **`validate.withAgent(client)`** — option that sets the agent client on the mock validator
-- **`validate.withModel(model)`** — option that sets the resolved model string on the mock validator
-- **`project.any()`** — returns a valid project value owned by `internal/project`
-- **`project.anyPath()`** — returns a project file path suitable for use in tests
-- **`project.thatLoads(proj)`** — returns a project client whose `Load` returns `proj` and whose `Save` records the saved value
-- **`project.thatLoadsAfterFailures(n, proj)`** — returns a project client whose `Load` fails `n` times and then returns `proj`
-- **`project.thatAlwaysFailsToLoad()`** — returns a project client whose `Load` always returns an error
-- **`project.thatLoadsButFailsToSave(proj)`** — returns a project client whose `Load` returns `proj` and whose `Save` returns an error
-- **`project.lastSaved()`** — returns the most recent project passed to `Save` during the test
-- **`agent.thatFailsToFix()`** — returns an agent client whose `FixProject` returns an error
-- **`agent.fixCalls()`** — returns the list of `(path, error, model)` structs recorded from calls to `FixProject` during the test
+- **`withMocks(opts...)`** — constructs a `Validator` with default mock implementations; pass option helpers to configure specific dependencies
+- **`withProject(client)`** — option that sets the project client on the mock validator
+- **`withAgent(client)`** — option that sets the agent client on the mock validator
+- **`withModel(model)`** — option that sets the resolved model string on the mock validator
+- **`thatLoads(proj)`** — returns a project client whose `Load` returns `proj` and whose `Save` records the saved value
+- **`thatLoadsAfterFailures(n, proj)`** — returns a project client whose `Load` fails `n` times and then returns `proj`
+- **`thatAlwaysFailsToLoad()`** — returns a project client whose `Load` always returns an error
+- **`thatAlwaysFailsToLoadWithUnchangedFile()`** — returns a project client whose `Load` always fails and whose `ReadFile` always returns the same bytes, simulating an agent that makes no change
+- **`thatLoadsButFailsToSave(proj)`** — returns a project client whose `Load` returns `proj` and whose `Save` returns an error
+- **`thatFailsToFix()`** — returns an agent client whose `FixProject` returns an error
+- **`FixCalls()`** — returns the list of `(path, error, model)` structs recorded from calls to `FixProject` during the test
+- **`project.Any()`** — returns a valid project value; defined in `internal/project`
+- **`project.AnyPath()`** — returns a project file path suitable for use in tests; defined in `internal/project`
+- **`project.LastSaved()`** — returns the most recent project passed to `Save` during the test; defined in `internal/project`
