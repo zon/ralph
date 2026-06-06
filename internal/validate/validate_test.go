@@ -163,6 +163,17 @@ func thatAlwaysFailsToLoad() ProjectClient {
 	}
 }
 
+func thatAlwaysFailsToLoadWithUnchangedFile() ProjectClient {
+	return &mockProjectClient{
+		loadFunc: func(path string) (*project.Project, error) {
+			return nil, &mockLoadError{msg: "always fails"}
+		},
+		readFileFunc: func(path string) ([]byte, error) {
+			return []byte("unchanged content"), nil
+		},
+	}
+}
+
 func thatLoadsButFailsToSave(proj *project.Project) ProjectClient {
 	return &mockProjectClient{
 		loadFunc: func(path string) (*project.Project, error) {
@@ -293,15 +304,9 @@ func TestValidateFallsBackToMainModel(t *testing.T) {
 func TestValidateFailsFastWhenAgentMakesNoChange(t *testing.T) {
 	project.ResetLoadAttempts()
 	ResetFixCalls()
-	pc := &mockProjectClient{
-		loadFunc: func(path string) (*project.Project, error) {
-			return nil, &mockLoadError{msg: "always fails"}
-		},
-		readFileFunc: func(path string) ([]byte, error) {
-			return []byte("unchanged content"), nil
-		},
-	}
-	svc := withMocks(withProject(pc))
+	svc := withMocks(
+		withProject(thatAlwaysFailsToLoadWithUnchangedFile()),
+	)
 	_, err := svc.Validate(project.AnyPath())
 	require.ErrorIs(t, err, ErrNoChange)
 	require.Len(t, FixCalls(), 1)
