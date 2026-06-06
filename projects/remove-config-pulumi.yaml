@@ -8,7 +8,7 @@ requirements:
         - Delete internal/cmd/config_pulumi.go
         - Delete internal/cmd/config_pulumi_test.go
         - Remove the Pulumi field from the ConfigCmd struct in internal/cmd/cmd.go
-      passing: false
+      passing: true
     - slug: remove-k8s-constant
       description: Remove the PulumiSecretName constant from the k8s package
       items:
