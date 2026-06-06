@@ -49,7 +49,7 @@ var argo = &argoHelper{}
 func (h *argoHelper) withMocks(opts ...argoOption) *ArgoCmd {
 	mockArgo = &mockArgoClient{}
 	mockCtx = &mockContextClient{}
-	cmd := &ArgoCmd{argo: mockArgo, ctx: mockCtx}
+	cmd := &ArgoCmd{Argo: mockArgo, Ctx: mockCtx}
 	for _, opt := range opts {
 		opt(cmd)
 	}
@@ -58,7 +58,7 @@ func (h *argoHelper) withMocks(opts ...argoOption) *ArgoCmd {
 
 func (h *argoHelper) withContext(cc ContextClient) argoOption {
 	return func(cmd *ArgoCmd) {
-		cmd.ctx = cc
+		cmd.Ctx = cc
 		if m, ok := cc.(*mockContextClient); ok {
 			mockCtx = m
 		}

@@ -142,7 +142,7 @@ requirements:
             - AND no `--namespace` flag is given
             - WHEN `ralph list` runs
             - THEN the `platform` namespace is used
-      passing: false
+      passing: true
     - slug: stop-command
       description: Update ralph stop to support --namespace/-n flag and wire to the orchestration module
       items:

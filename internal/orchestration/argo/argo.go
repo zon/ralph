@@ -15,8 +15,8 @@ type ContextClient interface {
 }
 
 type ArgoCmd struct {
-	argo ArgoClient
-	ctx  ContextClient
+	Argo ArgoClient
+	Ctx  ContextClient
 }
 
 type ListFlags struct {
@@ -31,17 +31,17 @@ type StopFlags struct {
 }
 
 func (c *ArgoCmd) List(flags ListFlags) error {
-	k8sCtx, err := c.ctx.Resolve(flags.Context, flags.Namespace)
+	k8sCtx, err := c.Ctx.Resolve(flags.Context, flags.Namespace)
 	if err != nil {
 		return err
 	}
-	return c.argo.List(k8sCtx)
+	return c.Argo.List(k8sCtx)
 }
 
 func (c *ArgoCmd) Stop(flags StopFlags) error {
-	k8sCtx, err := c.ctx.Resolve(flags.Context, flags.Namespace)
+	k8sCtx, err := c.Ctx.Resolve(flags.Context, flags.Namespace)
 	if err != nil {
 		return err
 	}
-	return c.argo.Stop(k8sCtx, flags.WorkflowName)
+	return c.Argo.Stop(k8sCtx, flags.WorkflowName)
 }
