@@ -200,7 +200,7 @@ requirements:
         - Delete internal/cmd/config_opencode.go and internal/cmd/config_opencode_test.go
         - Remove the Github and Opencode fields from the ConfigCmd struct in internal/cmd/cmd.go
         - Remove ConfigCmd entirely if it has no remaining fields after the above removals
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump
       items:
