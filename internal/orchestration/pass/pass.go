@@ -1,4 +1,4 @@
-package cmd
+package pass
 
 import (
 	"github.com/zon/ralph/internal/project"
