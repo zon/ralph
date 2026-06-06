@@ -4,6 +4,7 @@ import (
 	"os"
 
 	orchestrationWorkflow "github.com/zon/ralph/internal/orchestration/workflowrun"
+	"github.com/zon/ralph/internal/output"
 )
 
 type WorkflowRunCmd struct {
@@ -24,6 +25,7 @@ type WorkflowRunCmd struct {
 
 func (w *WorkflowRunCmd) Run() error {
 	ctx := createExecutionContext()
+	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
 	ctx.SetRepo(w.Repo)
 	ctx.SetBranch(w.ProjectBranch)
 	ctx.SetBaseBranch(w.BaseBranch)
