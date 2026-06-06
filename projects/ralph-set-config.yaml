@@ -68,7 +68,7 @@ requirements:
 
               return c.OpenCode.Configure(k8sCtx)
             }
-      passing: false
+      passing: true
     - slug: configure-github
       description: Implement the configureGitHub sub-orchestration handling the key-present and key-absent branches
       scenarios:
