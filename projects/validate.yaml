@@ -157,7 +157,7 @@ requirements:
         - Implement thatLoadsButFailsToSave(proj) returning a project client whose Load returns proj and whose Save returns an error
         - Implement thatFailsToFix() returning an agent client whose FixProject returns an error
         - Implement FixCalls() to return all (path, loadErr, model) records captured from FixProject calls during the test run
-      passing: false
+      passing: true
     - slug: remove-internal-validate-orchestration
       description: Remove orchestration code and tests from internal/validate now that they live in internal/orchestration/validate
       items:
