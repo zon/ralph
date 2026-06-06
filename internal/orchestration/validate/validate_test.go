@@ -10,9 +10,9 @@ import (
 )
 
 type mockProjectClient struct {
-	loadFunc     func(path string) (*project.Project, error)
-	saveFunc     func(path string, proj *project.Project) error
-	readFileFunc func(path string) ([]byte, error)
+	loadFunc      func(path string) (*project.Project, error)
+	saveFunc      func(path string, proj *project.Project) error
+	readFileFunc  func(path string) ([]byte, error)
 	readCallCount int
 }
 
@@ -39,45 +39,35 @@ func (m *mockProjectClient) ReadFile(path string) ([]byte, error) {
 	return []byte(fmt.Sprintf("content-%d", m.readCallCount)), nil
 }
 
-var (
-	agentFixMu    sync.Mutex
-	agentFixCalls []struct {
-		path    string
-		loadErr error
-		model   string
-	}
-)
-
-func RecordFixCall(path string, loadErr error, model string) {
-	agentFixMu.Lock()
-	agentFixCalls = append(agentFixCalls, struct {
-		path    string
-		loadErr error
-		model   string
-	}{path, loadErr, model})
-	agentFixMu.Unlock()
-}
-
-func FixCalls() []struct {
+type fixCall struct {
 	path    string
 	loadErr error
 	model   string
-} {
-	agentFixMu.Lock()
-	defer agentFixMu.Unlock()
-	calls := make([]struct {
-		path    string
-		loadErr error
-		model   string
-	}, len(agentFixCalls))
-	copy(calls, agentFixCalls)
+}
+
+var (
+	fixCallMu    sync.Mutex
+	fixCallLog   []fixCall
+)
+
+func RecordFixCall(path string, loadErr error, model string) {
+	fixCallMu.Lock()
+	fixCallLog = append(fixCallLog, fixCall{path, loadErr, model})
+	fixCallMu.Unlock()
+}
+
+func FixCalls() []fixCall {
+	fixCallMu.Lock()
+	defer fixCallMu.Unlock()
+	calls := make([]fixCall, len(fixCallLog))
+	copy(calls, fixCallLog)
 	return calls
 }
 
 func ResetFixCalls() {
-	agentFixMu.Lock()
-	agentFixCalls = nil
-	agentFixMu.Unlock()
+	fixCallMu.Lock()
+	fixCallLog = nil
+	fixCallMu.Unlock()
 }
 
 type mockAgentClient struct {
@@ -98,9 +88,9 @@ type mocks struct {
 	model   string
 }
 
-func withMocks(mockFns ...func(*mocks)) *Validator {
-	m := &mocks{}
-	for _, fn := range mockFns {
+func withMocks(opts ...func(*mocks)) *Validator {
+	m := &mocks{project: nil, agent: nil}
+	for _, fn := range opts {
 		fn(m)
 	}
 	if m.project == nil {
@@ -116,12 +106,6 @@ func withMocks(mockFns ...func(*mocks)) *Validator {
 	}
 }
 
-func withModel(model string) func(*mocks) {
-	return func(m *mocks) {
-		m.model = model
-	}
-}
-
 func withProject(pc ProjectClient) func(*mocks) {
 	return func(m *mocks) {
 		m.project = pc
@@ -131,6 +115,12 @@ func withProject(pc ProjectClient) func(*mocks) {
 func withAgent(ac AgentClient) func(*mocks) {
 	return func(m *mocks) {
 		m.agent = ac
+	}
+}
+
+func withModel(model string) func(*mocks) {
+	return func(m *mocks) {
+		m.model = model
 	}
 }
 
@@ -159,6 +149,17 @@ func thatAlwaysFailsToLoad() ProjectClient {
 	return &mockProjectClient{
 		loadFunc: func(path string) (*project.Project, error) {
 			return nil, &mockLoadError{msg: "always fails"}
+		},
+	}
+}
+
+func thatAlwaysFailsToLoadWithUnchangedFile() ProjectClient {
+	return &mockProjectClient{
+		loadFunc: func(path string) (*project.Project, error) {
+			return nil, &mockLoadError{msg: "always fails"}
+		},
+		readFileFunc: func(path string) ([]byte, error) {
+			return []byte("unchanged content"), nil
 		},
 	}
 }
@@ -245,6 +246,17 @@ func TestValidateGivesUpAfterMaxAttempts(t *testing.T) {
 	require.Len(t, FixCalls(), MaxAttempts-1)
 }
 
+func TestValidateFailsFastWhenAgentMakesNoChange(t *testing.T) {
+	project.ResetLoadAttempts()
+	ResetFixCalls()
+	svc := withMocks(
+		withProject(thatAlwaysFailsToLoadWithUnchangedFile()),
+	)
+	_, err := svc.Validate(project.AnyPath())
+	require.ErrorIs(t, err, ErrNoChange)
+	require.Len(t, FixCalls(), 1)
+}
+
 func TestValidatePropagatesAgentFailure(t *testing.T) {
 	project.ResetLoadAttempts()
 	ResetFixCalls()
@@ -288,21 +300,4 @@ func TestValidateFallsBackToMainModel(t *testing.T) {
 	_, err := svc.Validate(project.AnyPath())
 	require.NoError(t, err)
 	require.Equal(t, "main-model", FixCalls()[0].model)
-}
-
-func TestValidateFailsFastWhenAgentMakesNoChange(t *testing.T) {
-	project.ResetLoadAttempts()
-	ResetFixCalls()
-	pc := &mockProjectClient{
-		loadFunc: func(path string) (*project.Project, error) {
-			return nil, &mockLoadError{msg: "always fails"}
-		},
-		readFileFunc: func(path string) ([]byte, error) {
-			return []byte("unchanged content"), nil
-		},
-	}
-	svc := withMocks(withProject(pc))
-	_, err := svc.Validate(project.AnyPath())
-	require.ErrorIs(t, err, ErrNoChange)
-	require.Len(t, FixCalls(), 1)
 }

@@ -5,7 +5,7 @@ import (
 
 	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/opencode"
-	"github.com/zon/ralph/internal/validate"
+	"github.com/zon/ralph/internal/orchestration/validate"
 )
 
 type ValidateCmd struct {
