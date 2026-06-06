@@ -148,7 +148,7 @@ requirements:
               require.Error(t, err)
               require.False(t, config.writeCalled())
             }
-      passing: false
+      passing: true
     - slug: wire-ralph-webhook
       description: Add the set config subcommand to the ralph-webhook binary and remove the old commands from the ralph binary
       items:

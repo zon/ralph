@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRunCompletesFullSetup(t *testing.T) {
+func TestRunWritesConfigThenSecrets(t *testing.T) {
 	cmd := webhooksetconfig.withMocks()
 	err := cmd.Run(flags.any())
 
