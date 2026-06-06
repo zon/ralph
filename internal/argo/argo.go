@@ -29,7 +29,7 @@ func NewClient() Client {
 }
 
 func (c *client) ListWorkflows(ctx K8sContext) error {
-	args := []string{"list", "-n", ctx.Namespace}
+	args := []string{"list", "-n", ctx.Namespace, "-l", "app.kubernetes.io/managed-by=ralph"}
 	if ctx.Name != "" {
 		args = append(args, "--context", ctx.Name)
 	}

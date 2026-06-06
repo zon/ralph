@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -15,17 +16,44 @@ func TestListCmdFlagParsing(t *testing.T) {
 		name         string
 		args         []string
 		expectedCtx  string
+		expectedNS   string
 		wantParseErr bool
 	}{
 		{
 			name:        "list command without flags",
 			args:        []string{"list"},
 			expectedCtx: "",
+			expectedNS:  "",
 		},
 		{
 			name:        "list command with context flag",
 			args:        []string{"list", "--context", "my-context"},
 			expectedCtx: "my-context",
+			expectedNS:  "",
+		},
+		{
+			name:        "list command with namespace flag",
+			args:        []string{"list", "--namespace", "staging"},
+			expectedCtx: "",
+			expectedNS:  "staging",
+		},
+		{
+			name:        "list command with namespace short flag",
+			args:        []string{"list", "-n", "staging"},
+			expectedCtx: "",
+			expectedNS:  "staging",
+		},
+		{
+			name:        "list command with context and namespace flags",
+			args:        []string{"list", "--context", "prod-cluster", "-n", "staging"},
+			expectedCtx: "prod-cluster",
+			expectedNS:  "staging",
+		},
+		{
+			name:        "list command with context and namespace long flags",
+			args:        []string{"list", "--context", "prod-cluster", "--namespace", "staging"},
+			expectedCtx: "prod-cluster",
+			expectedNS:  "staging",
 		},
 	}
 
@@ -54,6 +82,9 @@ func TestListCmdFlagParsing(t *testing.T) {
 			if cmd.List.Context != tt.expectedCtx {
 				t.Errorf("expected Context=%q, got %q", tt.expectedCtx, cmd.List.Context)
 			}
+			if cmd.List.Namespace != tt.expectedNS {
+				t.Errorf("expected Namespace=%q, got %q", tt.expectedNS, cmd.List.Namespace)
+			}
 		})
 	}
 }
@@ -64,6 +95,7 @@ func TestStopCmdFlagParsing(t *testing.T) {
 		args             []string
 		expectedWorkflow string
 		expectedCtx      string
+		expectedNS       string
 		wantParseErr     bool
 	}{
 		{
@@ -71,12 +103,42 @@ func TestStopCmdFlagParsing(t *testing.T) {
 			args:             []string{"stop", "my-workflow"},
 			expectedWorkflow: "my-workflow",
 			expectedCtx:      "",
+			expectedNS:       "",
 		},
 		{
 			name:             "stop command with workflow name and context flag",
 			args:             []string{"stop", "--context", "my-context", "my-workflow"},
 			expectedWorkflow: "my-workflow",
 			expectedCtx:      "my-context",
+			expectedNS:       "",
+		},
+		{
+			name:             "stop command with namespace flag",
+			args:             []string{"stop", "--namespace", "staging", "my-workflow"},
+			expectedWorkflow: "my-workflow",
+			expectedCtx:      "",
+			expectedNS:       "staging",
+		},
+		{
+			name:             "stop command with namespace short flag",
+			args:             []string{"stop", "-n", "staging", "my-workflow"},
+			expectedWorkflow: "my-workflow",
+			expectedCtx:      "",
+			expectedNS:       "staging",
+		},
+		{
+			name:             "stop command with context and namespace flags",
+			args:             []string{"stop", "--context", "prod-cluster", "-n", "staging", "my-workflow"},
+			expectedWorkflow: "my-workflow",
+			expectedCtx:      "prod-cluster",
+			expectedNS:       "staging",
+		},
+		{
+			name:             "stop command with context and namespace long flags",
+			args:             []string{"stop", "--context", "prod-cluster", "--namespace", "staging", "my-workflow"},
+			expectedWorkflow: "my-workflow",
+			expectedCtx:      "prod-cluster",
+			expectedNS:       "staging",
 		},
 		{
 			name:         "stop command without workflow name should fail",
@@ -112,6 +174,9 @@ func TestStopCmdFlagParsing(t *testing.T) {
 			}
 			if cmd.Stop.Context != tt.expectedCtx {
 				t.Errorf("expected Context=%q, got %q", tt.expectedCtx, cmd.Stop.Context)
+			}
+			if cmd.Stop.Namespace != tt.expectedNS {
+				t.Errorf("expected Namespace=%q, got %q", tt.expectedNS, cmd.Stop.Namespace)
 			}
 		})
 	}
@@ -214,6 +279,442 @@ fi
 		cmd := &ListCmd{}
 		err := cmd.Run()
 		assert.Error(t, err)
+	})
+}
+
+func TestListCmdScenarios(t *testing.T) {
+	t.Run("default list uses config namespace", func(t *testing.T) {
+		dir := t.TempDir()
+		t.Chdir(dir)
+
+		ralphDir := filepath.Join(dir, ".ralph")
+		require.NoError(t, os.MkdirAll(ralphDir, 0755))
+		configContent := "workflow:\n  namespace: platform\n"
+		require.NoError(t, os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte(configContent), 0644))
+
+		kubeconfigPath := filepath.Join(dir, "kubeconfig")
+		kubeconfigContent := `apiVersion: v1
+kind: Config
+current-context: test-ctx
+contexts:
+- name: test-ctx
+  context:
+    namespace: kubectl-ns
+`
+		require.NoError(t, os.WriteFile(kubeconfigPath, []byte(kubeconfigContent), 0644))
+		t.Setenv("KUBECONFIG", kubeconfigPath)
+
+		mockKubectlPath := filepath.Join(dir, "kubectl")
+		mockScript := `#!/bin/bash
+if [ "$1" = "config" ] && [ "$2" = "current-context" ]; then
+  echo "test-ctx"
+elif [ "$1" = "config" ] && [ "$2" = "view" ]; then
+  echo "kubectl-ns"
+fi
+`
+		require.NoError(t, os.WriteFile(mockKubectlPath, []byte(mockScript), 0755))
+		t.Setenv("PATH", filepath.Dir(mockKubectlPath)+":"+os.Getenv("PATH"))
+
+		argoArgsFile := filepath.Join(dir, "argo-args.txt")
+		mockArgoPath := filepath.Join(dir, "argo")
+		argoScript := fmt.Sprintf(`#!/bin/bash
+echo "$@" > %s
+`, argoArgsFile)
+		require.NoError(t, os.WriteFile(mockArgoPath, []byte(argoScript), 0755))
+
+		cmd := &ListCmd{}
+		err := cmd.Run()
+		require.NoError(t, err)
+
+		argsData, err := os.ReadFile(argoArgsFile)
+		require.NoError(t, err)
+		args := string(argsData)
+		assert.Contains(t, args, "-n platform")
+		assert.Contains(t, args, "-l app.kubernetes.io/managed-by=ralph")
+	})
+
+	t.Run("custom namespace flag overrides config", func(t *testing.T) {
+		dir := t.TempDir()
+		t.Chdir(dir)
+
+		ralphDir := filepath.Join(dir, ".ralph")
+		require.NoError(t, os.MkdirAll(ralphDir, 0755))
+		configContent := "workflow:\n  namespace: default\n"
+		require.NoError(t, os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte(configContent), 0644))
+
+		kubeconfigPath := filepath.Join(dir, "kubeconfig")
+		kubeconfigContent := `apiVersion: v1
+kind: Config
+current-context: test-ctx
+contexts:
+- name: test-ctx
+  context:
+    namespace: kubectl-ns
+`
+		require.NoError(t, os.WriteFile(kubeconfigPath, []byte(kubeconfigContent), 0644))
+		t.Setenv("KUBECONFIG", kubeconfigPath)
+
+		mockKubectlPath := filepath.Join(dir, "kubectl")
+		mockScript := `#!/bin/bash
+if [ "$1" = "config" ] && [ "$2" = "current-context" ]; then
+  echo "test-ctx"
+elif [ "$1" = "config" ] && [ "$2" = "view" ]; then
+  echo "kubectl-ns"
+fi
+`
+		require.NoError(t, os.WriteFile(mockKubectlPath, []byte(mockScript), 0755))
+		t.Setenv("PATH", filepath.Dir(mockKubectlPath)+":"+os.Getenv("PATH"))
+
+		argoArgsFile := filepath.Join(dir, "argo-args.txt")
+		mockArgoPath := filepath.Join(dir, "argo")
+		argoScript := fmt.Sprintf(`#!/bin/bash
+echo "$@" > %s
+`, argoArgsFile)
+		require.NoError(t, os.WriteFile(mockArgoPath, []byte(argoScript), 0755))
+
+		cmd := &ListCmd{Namespace: "staging"}
+		err := cmd.Run()
+		require.NoError(t, err)
+
+		argsData, err := os.ReadFile(argoArgsFile)
+		require.NoError(t, err)
+		args := string(argsData)
+		assert.Contains(t, args, "-n staging")
+		assert.NotContains(t, args, "-n default")
+	})
+
+	t.Run("custom context flag used", func(t *testing.T) {
+		dir := t.TempDir()
+		t.Chdir(dir)
+
+		ralphDir := filepath.Join(dir, ".ralph")
+		require.NoError(t, os.MkdirAll(ralphDir, 0755))
+		configContent := "workflow:\n  namespace: platform\n"
+		require.NoError(t, os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte(configContent), 0644))
+
+		kubeconfigPath := filepath.Join(dir, "kubeconfig")
+		kubeconfigContent := `apiVersion: v1
+kind: Config
+current-context: test-ctx
+contexts:
+- name: test-ctx
+  context:
+    namespace: kubectl-ns
+`
+		require.NoError(t, os.WriteFile(kubeconfigPath, []byte(kubeconfigContent), 0644))
+		t.Setenv("KUBECONFIG", kubeconfigPath)
+
+		mockKubectlPath := filepath.Join(dir, "kubectl")
+		mockScript := `#!/bin/bash
+if [ "$1" = "config" ] && [ "$2" = "current-context" ]; then
+  echo "test-ctx"
+elif [ "$1" = "config" ] && [ "$2" = "view" ]; then
+  echo "kubectl-ns"
+fi
+`
+		require.NoError(t, os.WriteFile(mockKubectlPath, []byte(mockScript), 0755))
+		t.Setenv("PATH", filepath.Dir(mockKubectlPath)+":"+os.Getenv("PATH"))
+
+		argoArgsFile := filepath.Join(dir, "argo-args.txt")
+		mockArgoPath := filepath.Join(dir, "argo")
+		argoScript := fmt.Sprintf(`#!/bin/bash
+echo "$@" > %s
+`, argoArgsFile)
+		require.NoError(t, os.WriteFile(mockArgoPath, []byte(argoScript), 0755))
+
+		cmd := &ListCmd{Context: "prod-cluster"}
+		err := cmd.Run()
+		require.NoError(t, err)
+
+		argsData, err := os.ReadFile(argoArgsFile)
+		require.NoError(t, err)
+		args := string(argsData)
+		assert.Contains(t, args, "--context prod-cluster")
+	})
+
+	t.Run("custom context and namespace together", func(t *testing.T) {
+		dir := t.TempDir()
+		t.Chdir(dir)
+
+		ralphDir := filepath.Join(dir, ".ralph")
+		require.NoError(t, os.MkdirAll(ralphDir, 0755))
+		configContent := "workflow:\n  namespace: default\n"
+		require.NoError(t, os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte(configContent), 0644))
+
+		kubeconfigPath := filepath.Join(dir, "kubeconfig")
+		kubeconfigContent := `apiVersion: v1
+kind: Config
+current-context: test-ctx
+contexts:
+- name: test-ctx
+  context:
+    namespace: kubectl-ns
+`
+		require.NoError(t, os.WriteFile(kubeconfigPath, []byte(kubeconfigContent), 0644))
+		t.Setenv("KUBECONFIG", kubeconfigPath)
+
+		mockKubectlPath := filepath.Join(dir, "kubectl")
+		mockScript := `#!/bin/bash
+if [ "$1" = "config" ] && [ "$2" = "current-context" ]; then
+  echo "test-ctx"
+elif [ "$1" = "config" ] && [ "$2" = "view" ]; then
+  echo "kubectl-ns"
+fi
+`
+		require.NoError(t, os.WriteFile(mockKubectlPath, []byte(mockScript), 0755))
+		t.Setenv("PATH", filepath.Dir(mockKubectlPath)+":"+os.Getenv("PATH"))
+
+		argoArgsFile := filepath.Join(dir, "argo-args.txt")
+		mockArgoPath := filepath.Join(dir, "argo")
+		argoScript := fmt.Sprintf(`#!/bin/bash
+echo "$@" > %s
+`, argoArgsFile)
+		require.NoError(t, os.WriteFile(mockArgoPath, []byte(argoScript), 0755))
+
+		cmd := &ListCmd{Context: "prod-cluster", Namespace: "staging"}
+		err := cmd.Run()
+		require.NoError(t, err)
+
+		argsData, err := os.ReadFile(argoArgsFile)
+		require.NoError(t, err)
+		args := string(argsData)
+		assert.Contains(t, args, "-n staging")
+		assert.Contains(t, args, "--context prod-cluster")
+		assert.Contains(t, args, "-l app.kubernetes.io/managed-by=ralph")
+	})
+}
+
+func TestStopCmdScenarios(t *testing.T) {
+	t.Run("stop by workflow name uses config namespace", func(t *testing.T) {
+		dir := t.TempDir()
+		t.Chdir(dir)
+
+		ralphDir := filepath.Join(dir, ".ralph")
+		require.NoError(t, os.MkdirAll(ralphDir, 0755))
+		configContent := "workflow:\n  namespace: platform\n"
+		require.NoError(t, os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte(configContent), 0644))
+
+		kubeconfigPath := filepath.Join(dir, "kubeconfig")
+		kubeconfigContent := `apiVersion: v1
+kind: Config
+current-context: test-ctx
+contexts:
+- name: test-ctx
+  context:
+    namespace: kubectl-ns
+`
+		require.NoError(t, os.WriteFile(kubeconfigPath, []byte(kubeconfigContent), 0644))
+		t.Setenv("KUBECONFIG", kubeconfigPath)
+
+		mockKubectlPath := filepath.Join(dir, "kubectl")
+		mockScript := `#!/bin/bash
+if [ "$1" = "config" ] && [ "$2" = "current-context" ]; then
+  echo "test-ctx"
+elif [ "$1" = "config" ] && [ "$2" = "view" ]; then
+  echo "kubectl-ns"
+fi
+`
+		require.NoError(t, os.WriteFile(mockKubectlPath, []byte(mockScript), 0755))
+		t.Setenv("PATH", filepath.Dir(mockKubectlPath)+":"+os.Getenv("PATH"))
+
+		argoArgsFile := filepath.Join(dir, "argo-args.txt")
+		mockArgoPath := filepath.Join(dir, "argo")
+		argoScript := fmt.Sprintf(`#!/bin/bash
+echo "$@" > %s
+`, argoArgsFile)
+		require.NoError(t, os.WriteFile(mockArgoPath, []byte(argoScript), 0755))
+
+		cmd := &StopCmd{WorkflowName: "test-wf"}
+		err := cmd.Run()
+		require.NoError(t, err)
+
+		argsData, err := os.ReadFile(argoArgsFile)
+		require.NoError(t, err)
+		args := string(argsData)
+		assert.Contains(t, args, "-n platform")
+		assert.Contains(t, args, "test-wf")
+	})
+
+	t.Run("missing workflow name returns error", func(t *testing.T) {
+		dir := t.TempDir()
+		t.Chdir(dir)
+
+		kubeconfigPath := filepath.Join(dir, "kubeconfig")
+		kubeconfigContent := `apiVersion: v1
+kind: Config
+current-context: test-ctx
+contexts:
+- name: test-ctx
+`
+		require.NoError(t, os.WriteFile(kubeconfigPath, []byte(kubeconfigContent), 0644))
+		t.Setenv("KUBECONFIG", kubeconfigPath)
+
+		mockKubectlPath := filepath.Join(dir, "kubectl")
+		mockScript := `#!/bin/bash
+if [ "$1" = "config" ] && [ "$2" = "current-context" ]; then
+  echo "test-ctx"
+elif [ "$1" = "config" ] && [ "$2" = "view" ]; then
+  echo ""
+fi
+`
+		require.NoError(t, os.WriteFile(mockKubectlPath, []byte(mockScript), 0755))
+		t.Setenv("PATH", filepath.Dir(mockKubectlPath)+":"+os.Getenv("PATH"))
+
+		cmd := &StopCmd{}
+		err := cmd.Run()
+		assert.Error(t, err)
+	})
+
+	t.Run("custom namespace flag overrides config", func(t *testing.T) {
+		dir := t.TempDir()
+		t.Chdir(dir)
+
+		ralphDir := filepath.Join(dir, ".ralph")
+		require.NoError(t, os.MkdirAll(ralphDir, 0755))
+		configContent := "workflow:\n  namespace: default\n"
+		require.NoError(t, os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte(configContent), 0644))
+
+		kubeconfigPath := filepath.Join(dir, "kubeconfig")
+		kubeconfigContent := `apiVersion: v1
+kind: Config
+current-context: test-ctx
+contexts:
+- name: test-ctx
+  context:
+    namespace: kubectl-ns
+`
+		require.NoError(t, os.WriteFile(kubeconfigPath, []byte(kubeconfigContent), 0644))
+		t.Setenv("KUBECONFIG", kubeconfigPath)
+
+		mockKubectlPath := filepath.Join(dir, "kubectl")
+		mockScript := `#!/bin/bash
+if [ "$1" = "config" ] && [ "$2" = "current-context" ]; then
+  echo "test-ctx"
+elif [ "$1" = "config" ] && [ "$2" = "view" ]; then
+  echo "kubectl-ns"
+fi
+`
+		require.NoError(t, os.WriteFile(mockKubectlPath, []byte(mockScript), 0755))
+		t.Setenv("PATH", filepath.Dir(mockKubectlPath)+":"+os.Getenv("PATH"))
+
+		argoArgsFile := filepath.Join(dir, "argo-args.txt")
+		mockArgoPath := filepath.Join(dir, "argo")
+		argoScript := fmt.Sprintf(`#!/bin/bash
+echo "$@" > %s
+`, argoArgsFile)
+		require.NoError(t, os.WriteFile(mockArgoPath, []byte(argoScript), 0755))
+
+		cmd := &StopCmd{WorkflowName: "test-wf", Namespace: "staging"}
+		err := cmd.Run()
+		require.NoError(t, err)
+
+		argsData, err := os.ReadFile(argoArgsFile)
+		require.NoError(t, err)
+		args := string(argsData)
+		assert.Contains(t, args, "-n staging")
+		assert.NotContains(t, args, "-n default")
+		assert.Contains(t, args, "test-wf")
+	})
+
+	t.Run("custom context flag used", func(t *testing.T) {
+		dir := t.TempDir()
+		t.Chdir(dir)
+
+		ralphDir := filepath.Join(dir, ".ralph")
+		require.NoError(t, os.MkdirAll(ralphDir, 0755))
+		configContent := "workflow:\n  namespace: platform\n"
+		require.NoError(t, os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte(configContent), 0644))
+
+		kubeconfigPath := filepath.Join(dir, "kubeconfig")
+		kubeconfigContent := `apiVersion: v1
+kind: Config
+current-context: test-ctx
+contexts:
+- name: test-ctx
+  context:
+    namespace: kubectl-ns
+`
+		require.NoError(t, os.WriteFile(kubeconfigPath, []byte(kubeconfigContent), 0644))
+		t.Setenv("KUBECONFIG", kubeconfigPath)
+
+		mockKubectlPath := filepath.Join(dir, "kubectl")
+		mockScript := `#!/bin/bash
+if [ "$1" = "config" ] && [ "$2" = "current-context" ]; then
+  echo "test-ctx"
+elif [ "$1" = "config" ] && [ "$2" = "view" ]; then
+  echo "kubectl-ns"
+fi
+`
+		require.NoError(t, os.WriteFile(mockKubectlPath, []byte(mockScript), 0755))
+		t.Setenv("PATH", filepath.Dir(mockKubectlPath)+":"+os.Getenv("PATH"))
+
+		argoArgsFile := filepath.Join(dir, "argo-args.txt")
+		mockArgoPath := filepath.Join(dir, "argo")
+		argoScript := fmt.Sprintf(`#!/bin/bash
+echo "$@" > %s
+`, argoArgsFile)
+		require.NoError(t, os.WriteFile(mockArgoPath, []byte(argoScript), 0755))
+
+		cmd := &StopCmd{WorkflowName: "test-wf", Context: "prod-cluster"}
+		err := cmd.Run()
+		require.NoError(t, err)
+
+		argsData, err := os.ReadFile(argoArgsFile)
+		require.NoError(t, err)
+		args := string(argsData)
+		assert.Contains(t, args, "--context prod-cluster")
+		assert.Contains(t, args, "test-wf")
+	})
+
+	t.Run("custom context and namespace together", func(t *testing.T) {
+		dir := t.TempDir()
+		t.Chdir(dir)
+
+		ralphDir := filepath.Join(dir, ".ralph")
+		require.NoError(t, os.MkdirAll(ralphDir, 0755))
+		configContent := "workflow:\n  namespace: default\n"
+		require.NoError(t, os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte(configContent), 0644))
+
+		kubeconfigPath := filepath.Join(dir, "kubeconfig")
+		kubeconfigContent := `apiVersion: v1
+kind: Config
+current-context: test-ctx
+contexts:
+- name: test-ctx
+  context:
+    namespace: kubectl-ns
+`
+		require.NoError(t, os.WriteFile(kubeconfigPath, []byte(kubeconfigContent), 0644))
+		t.Setenv("KUBECONFIG", kubeconfigPath)
+
+		mockKubectlPath := filepath.Join(dir, "kubectl")
+		mockScript := `#!/bin/bash
+if [ "$1" = "config" ] && [ "$2" = "current-context" ]; then
+  echo "test-ctx"
+elif [ "$1" = "config" ] && [ "$2" = "view" ]; then
+  echo "kubectl-ns"
+fi
+`
+		require.NoError(t, os.WriteFile(mockKubectlPath, []byte(mockScript), 0755))
+		t.Setenv("PATH", filepath.Dir(mockKubectlPath)+":"+os.Getenv("PATH"))
+
+		argoArgsFile := filepath.Join(dir, "argo-args.txt")
+		mockArgoPath := filepath.Join(dir, "argo")
+		argoScript := fmt.Sprintf(`#!/bin/bash
+echo "$@" > %s
+`, argoArgsFile)
+		require.NoError(t, os.WriteFile(mockArgoPath, []byte(argoScript), 0755))
+
+		cmd := &StopCmd{WorkflowName: "test-wf", Context: "prod-cluster", Namespace: "staging"}
+		err := cmd.Run()
+		require.NoError(t, err)
+
+		argsData, err := os.ReadFile(argoArgsFile)
+		require.NoError(t, err)
+		args := string(argsData)
+		assert.Contains(t, args, "-n staging")
+		assert.Contains(t, args, "--context prod-cluster")
+		assert.Contains(t, args, "test-wf")
 	})
 }
 

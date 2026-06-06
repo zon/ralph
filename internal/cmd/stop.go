@@ -2,16 +2,16 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 
-	"github.com/zon/ralph/internal/argo"
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/k8s"
+	orchestrationArgo "github.com/zon/ralph/internal/orchestration/argo"
 )
 
 type StopCmd struct {
 	WorkflowName string `arg:"" help:"Name of the workflow to stop"`
 	Context      string `help:"Kubernetes context to use" name:"context" optional:""`
+	Namespace    string `help:"Kubernetes namespace to use" short:"n" optional:""`
 }
 
 func (s *StopCmd) Run() error {
@@ -19,18 +19,14 @@ func (s *StopCmd) Run() error {
 
 	ralphConfig, err := config.LoadConfig()
 	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
-	}
-
-	k8sClient := k8s.NewClient()
-	k8sCtx, err := resolveKubeContext(ctx, k8sClient, ralphConfig, nil, s.Context, "")
-	if err != nil {
 		return err
 	}
 
-	client := argo.NewClient()
-	return client.StopWorkflow(argo.K8sContext{
-		Name:      k8sCtx.Name,
-		Namespace: k8sCtx.Namespace,
-	}, s.WorkflowName)
+	k8sClient := k8s.NewClient()
+	cmd := newOrchestrationArgoCmd(ctx, k8sClient, ralphConfig)
+	return cmd.Stop(orchestrationArgo.StopFlags{
+		Context:      s.Context,
+		Namespace:    s.Namespace,
+		WorkflowName: s.WorkflowName,
+	})
 }

@@ -95,6 +95,9 @@ modules:
   - path: internal/services
     description: Manages the lifecycle of before-commands and long-running services declared in project configuration.
     category: orchestration
+  - path: internal/orchestration/argo
+    description: Orchestrates argo workflow list and stop commands by resolving Kubernetes context and delegating to the argo client.
+    category: orchestration
   - path: internal/orchestration/command
     description: Orchestrates both the client-side command submission (Argo workflow) and the container-side command execution (workspace setup + exec).
     category: orchestration
