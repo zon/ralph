@@ -24,12 +24,16 @@ func (m *mockRepoClient) Resolve(owner, repo string) (string, string, error) {
 }
 
 type mockGitHubClient struct {
-	generateTokenFunc   func(owner, repo, secretsDir string) (string, error)
-	generateTokenCalled bool
+	generateTokenFunc     func(owner, repo, secretsDir string) (string, error)
+	generateTokenCalled   bool
+	generateTokenLastOwner string
+	generateTokenLastRepo  string
 }
 
 func (m *mockGitHubClient) GenerateToken(owner, repo, secretsDir string) (string, error) {
 	m.generateTokenCalled = true
+	m.generateTokenLastOwner = owner
+	m.generateTokenLastRepo = repo
 	if m.generateTokenFunc != nil {
 		return m.generateTokenFunc(owner, repo, secretsDir)
 	}
@@ -123,6 +127,17 @@ type repoHelper struct{}
 
 var repo = &repoHelper{}
 
+func (h *repoHelper) thatDetectsFromRemote() *mockRepoClient {
+	return &mockRepoClient{
+		resolveFunc: func(owner, repo string) (string, string, error) {
+			if owner == "" && repo == "" {
+				return "detected-owner", "detected-repo", nil
+			}
+			return owner, repo, nil
+		},
+	}
+}
+
 func (h *repoHelper) thatFails() *mockRepoClient {
 	return &mockRepoClient{
 		resolveFunc: func(_, _ string) (string, string, error) {
@@ -148,6 +163,13 @@ var github = &githubHelper{}
 
 func (h *githubHelper) generateTokenCalled() bool {
 	return mockGitHub != nil && mockGitHub.generateTokenCalled
+}
+
+func (h *githubHelper) generateTokenLastArgs() (string, string) {
+	if mockGitHub != nil {
+		return mockGitHub.generateTokenLastOwner, mockGitHub.generateTokenLastRepo
+	}
+	return "", ""
 }
 
 func (h *githubHelper) thatFailsTokenGeneration() *mockGitHubClient {

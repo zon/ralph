@@ -58,6 +58,21 @@ func TestScenarioInvalidCredentials(t *testing.T) {
 	require.False(t, git.configureAuthCalled(), "no git configuration should be written")
 }
 
+func TestScenarioAutoDetectionFromGitRemote(t *testing.T) {
+	cmd := workflowtoken.withMocks(
+		workflowtoken.withRepo(repo.thatDetectsFromRemote()),
+	)
+	err := cmd.Run(flags.any())
+	require.NoError(t, err)
+	gotOwner, gotRepo := repo.lastResolved()
+	require.Equal(t, "", gotOwner, "Resolve should be called with empty owner when --owner is not provided")
+	require.Equal(t, "", gotRepo, "Resolve should be called with empty repo when --repo is not provided")
+	tokenOwner, tokenRepo := github.generateTokenLastArgs()
+	require.Equal(t, "detected-owner", tokenOwner, "GenerateToken should receive owner detected from git remote")
+	require.Equal(t, "detected-repo", tokenRepo, "GenerateToken should receive repo detected from git remote")
+	require.True(t, git.configureAuthCalled(), "git auth should be configured after successful token generation")
+}
+
 func TestRunResolvesRepoFromFlags(t *testing.T) {
 	cmd := workflowtoken.withMocks()
 	err := cmd.Run(flags.withOwnerAndRepo("myorg", "myrepo"))

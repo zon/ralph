@@ -121,7 +121,7 @@ requirements:
               require.NoError(t, err)
               require.Equal(t, repo.lastResolved(), repo.explicit("myorg", "myrepo"))
             }
-      passing: false
+      passing: true
     - slug: wire-cmd
       description: Add ralph workflow token to internal/cmd and remove set-github-token
       items:
