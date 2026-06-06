@@ -144,7 +144,7 @@ requirements:
                 require.NoError(t, err)
                 require.Equal(t, "main-model", FixCalls()[0].model)
             }
-      passing: false
+      passing: true
     - slug: validate-test-helpers
       description: Mock infrastructure and factory helpers for the validate orchestration tests
       items:
@@ -157,16 +157,16 @@ requirements:
         - Implement thatLoadsButFailsToSave(proj) returning a project client whose Load returns proj and whose Save returns an error
         - Implement thatFailsToFix() returning an agent client whose FixProject returns an error
         - Implement FixCalls() to return all (path, loadErr, model) records captured from FixProject calls during the test run
-      passing: false
+      passing: true
     - slug: remove-internal-validate-orchestration
       description: Remove orchestration code and tests from internal/validate now that they live in internal/orchestration/validate
       items:
         - Delete validator.go from internal/validate
         - Delete validate_test.go from internal/validate
         - Update any callers that imported the orchestration types from internal/validate to use internal/orchestration/validate
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump
       items:
         - Apply a semver patch bump to the app version
-      passing: false
+      passing: true
