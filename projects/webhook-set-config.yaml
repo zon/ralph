@@ -1,0 +1,165 @@
+slug: webhook-set-config
+title: Add ralph-webhook set config command for one-shot webhook service setup
+feature: specs/features/webhook/set-config
+maxIterations: 10
+requirements:
+    - slug: webhooksetconfig-orchestration
+      description: Implement the SetConfigCmd struct, interfaces, and Run method in internal/orchestration/webhooksetconfig
+      scenarios:
+        - title: Full setup completes successfully
+          items:
+            - GIVEN a reachable Kubernetes cluster and valid GitHub credentials
+            - WHEN the user runs ralph-webhook set config
+            - THEN the webhook-config ConfigMap is written with repo list and app settings
+            - AND per-repo HMAC secrets are generated
+            - AND GitHub webhooks are registered for each repo pointing to the webhook service ingress
+            - AND the webhook-secrets Kubernetes Secret is written
+            - AND the command exits with success
+        - title: ConfigMap write failure halts setup
+          items:
+            - GIVEN the Kubernetes API is unreachable
+            - WHEN the user runs ralph-webhook set config
+            - THEN an error is returned after the ConfigMap step
+            - AND no webhook secrets are generated or registered
+        - title: Webhook registration failure is non-fatal
+          items:
+            - GIVEN one repo's GitHub webhook registration fails
+            - WHEN ralph-webhook set config runs the registration step
+            - THEN a warning is emitted for the failing repo
+            - AND registration continues for remaining repos
+            - AND the webhook-secrets Secret is still written
+      code:
+        - name: SetConfigCmd
+          description: orchestration struct with injected clients for context, config, secrets, and GitHub
+          module: internal/orchestration/webhooksetconfig
+          body: |
+            type K8sContext struct {
+              Name      string
+              Namespace string
+            }
+
+            type ContextClient interface {
+              Resolve(flagContext, flagNamespace string) (K8sContext, error)
+            }
+
+            type ConfigClient interface {
+              Build(k8sCtx K8sContext, configPath string) AppConfig
+              Write(k8sCtx K8sContext, cfg AppConfig) error
+              Read(k8sCtx K8sContext) (AppConfig, error)
+            }
+
+            type SecretsClient interface {
+              Generate(cfg AppConfig) (WebhookSecrets, error)
+              Write(k8sCtx K8sContext, secrets WebhookSecrets) error
+            }
+
+            type GitHubClient interface {
+              RegisterWebhooks(secrets WebhookSecrets)
+            }
+
+            type SetConfigCmd struct {
+              Ctx     ContextClient
+              Config  ConfigClient
+              Secrets SecretsClient
+              GitHub  GitHubClient
+            }
+
+            type Flags struct {
+              Context    string
+              Namespace  string
+              ConfigPath string
+            }
+
+            func (c *SetConfigCmd) Run(flags Flags) error {
+              k8sCtx, err := c.Ctx.Resolve(flags.Context, flags.Namespace)
+              if err != nil {
+                return err
+              }
+
+              appCfg := c.Config.Build(k8sCtx, flags.ConfigPath)
+
+              if err := c.Config.Write(k8sCtx, appCfg); err != nil {
+                return err
+              }
+
+              appCfg, err = c.Config.Read(k8sCtx)
+              if err != nil {
+                return err
+              }
+
+              secrets, err := c.Secrets.Generate(appCfg)
+              if err != nil {
+                return err
+              }
+
+              c.GitHub.RegisterWebhooks(secrets)
+
+              return c.Secrets.Write(k8sCtx, secrets)
+            }
+      passing: false
+    - slug: webhooksetconfig-tests
+      description: Implement orchestration tests covering all domain outcomes
+      tests:
+        - name: TestRunWritesConfigThenSecrets
+          description: verifies the full happy path writes both the ConfigMap and the secrets Secret
+          module: internal/orchestration/webhooksetconfig
+          body: |
+            func TestRunWritesConfigThenSecrets(t *testing.T) {
+              cmd := webhooksetconfig.withMocks()
+              err := cmd.Run(flags.any())
+              require.NoError(t, err)
+              require.True(t, config.writeCalled())
+              require.True(t, secrets.writeCalled())
+            }
+        - name: TestRunHaltsOnConfigWriteFailure
+          description: verifies that a ConfigMap write failure prevents secret generation and writing
+          module: internal/orchestration/webhooksetconfig
+          body: |
+            func TestRunHaltsOnConfigWriteFailure(t *testing.T) {
+              cmd := webhooksetconfig.withMocks(
+                webhooksetconfig.withConfig(config.thatFailsWrite()),
+              )
+              err := cmd.Run(flags.any())
+              require.Error(t, err)
+              require.False(t, secrets.generateCalled())
+              require.False(t, secrets.writeCalled())
+            }
+        - name: TestRunContinuesAfterWebhookRegistrationFailure
+          description: verifies that webhook registration failures are non-fatal and the secrets Secret is still written
+          module: internal/orchestration/webhooksetconfig
+          body: |
+            func TestRunContinuesAfterWebhookRegistrationFailure(t *testing.T) {
+              cmd := webhooksetconfig.withMocks(
+                webhooksetconfig.withGitHub(github.thatFailsRegistration()),
+              )
+              err := cmd.Run(flags.any())
+              require.NoError(t, err)
+              require.True(t, secrets.writeCalled())
+            }
+        - name: TestRunPropagatesContextResolutionFailure
+          description: verifies that a context resolution failure prevents any provisioning steps from running
+          module: internal/orchestration/webhooksetconfig
+          body: |
+            func TestRunPropagatesContextResolutionFailure(t *testing.T) {
+              cmd := webhooksetconfig.withMocks(
+                webhooksetconfig.withContext(ctx.thatFails()),
+              )
+              err := cmd.Run(flags.any())
+              require.Error(t, err)
+              require.False(t, config.writeCalled())
+            }
+      passing: false
+    - slug: wire-ralph-webhook
+      description: Add the set config subcommand to the ralph-webhook binary and remove the old commands from the ralph binary
+      items:
+        - Add a Set field to the CLI struct in cmd/ralph-webhook/main.go containing a SetCmd subcommand with a Config field wired to a new webhooksetconfig.SetConfigCmd
+        - Create cmd/ralph-webhook/set_config.go implementing the Set and SetConfig command structs that wire real clients into the orchestration and delegate to webhooksetconfig.SetConfigCmd.Run
+        - Delete internal/cmd/config_webhook.go and internal/cmd/config_webhook_test.go
+        - Remove the WebhookConfig and WebhookSecret fields from the ConfigCmd struct in internal/cmd/cmd.go
+        - Remove ConfigCmd entirely from internal/cmd/cmd.go if it has no remaining fields after the above removals
+      passing: false
+    - slug: version-bump
+      description: Version bump
+      items:
+        - Apply a semver major bump to the app version
+      passing: false

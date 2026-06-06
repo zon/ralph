@@ -1,0 +1,137 @@
+slug: ralph-workflow-token
+title: Add ralph workflow token command and remove set-github-token
+feature: specs/features/ralph/workflow-token
+maxIterations: 10
+requirements:
+    - slug: workflowtoken-orchestration
+      description: Implement the WorkflowTokenCmd struct, interfaces, and Run method in internal/orchestration/workflowtoken
+      scenarios:
+        - title: Successful token generation
+          items:
+            - GIVEN GitHub App credentials are present at --secrets-dir
+            - AND the App is installed on the target repository
+            - WHEN the user runs ralph workflow token
+            - THEN a GitHub App installation token is generated
+            - AND git HTTPS authentication is configured so subsequent git operations authenticate as the App
+        - title: Missing credentials
+          items:
+            - GIVEN the secrets directory does not exist or is missing required files
+            - WHEN the user runs ralph workflow token
+            - THEN an error is returned and no git configuration is written
+        - title: Invalid credentials
+          items:
+            - GIVEN the private key or app ID in the secrets directory is malformed
+            - WHEN the user runs ralph workflow token
+            - THEN an error is returned after the GitHub API rejects the JWT
+      code:
+        - name: WorkflowTokenCmd
+          description: orchestration struct with injected clients for repo resolution, GitHub token generation, and git auth configuration
+          module: internal/orchestration/workflowtoken
+          body: |
+            type RepoClient interface {
+              Resolve(owner, repo string) (string, string, error)
+            }
+
+            type GitHubClient interface {
+              GenerateToken(owner, repo, secretsDir string) (string, error)
+            }
+
+            type GitClient interface {
+              ConfigureAuth(token string) error
+            }
+
+            type WorkflowTokenCmd struct {
+              Repo   RepoClient
+              GitHub GitHubClient
+              Git    GitClient
+            }
+
+            type Flags struct {
+              Owner      string
+              Repo       string
+              SecretsDir string
+            }
+
+            func (c *WorkflowTokenCmd) Run(flags Flags) error {
+              owner, repo, err := c.Repo.Resolve(flags.Owner, flags.Repo)
+              if err != nil {
+                return err
+              }
+
+              token, err := c.GitHub.GenerateToken(owner, repo, flags.SecretsDir)
+              if err != nil {
+                return err
+              }
+
+              return c.Git.ConfigureAuth(token)
+            }
+      passing: false
+    - slug: workflowtoken-tests
+      description: Implement orchestration tests covering all domain outcomes
+      scenarios:
+        - title: Auto-detection from git remote
+          items:
+            - GIVEN --owner and --repo are not provided
+            - AND the current directory is a git repository with a GitHub remote
+            - WHEN ralph workflow token runs
+            - THEN the owner and repo are inferred from the remote URL
+      tests:
+        - name: TestRunGeneratesTokenAndConfiguresAuth
+          description: verifies the full happy path calls GenerateToken and ConfigureAuth in order
+          module: internal/orchestration/workflowtoken
+          body: |
+            func TestRunGeneratesTokenAndConfiguresAuth(t *testing.T) {
+              cmd := workflowtoken.withMocks()
+              err := cmd.Run(flags.any())
+              require.NoError(t, err)
+              require.True(t, github.generateTokenCalled())
+              require.True(t, git.configureAuthCalled())
+            }
+        - name: TestRunPropagatesRepoResolutionFailure
+          description: verifies that a repo resolution failure prevents token generation
+          module: internal/orchestration/workflowtoken
+          body: |
+            func TestRunPropagatesRepoResolutionFailure(t *testing.T) {
+              cmd := workflowtoken.withMocks(
+                workflowtoken.withRepo(repo.thatFails()),
+              )
+              err := cmd.Run(flags.any())
+              require.Error(t, err)
+              require.False(t, github.generateTokenCalled())
+            }
+        - name: TestRunPropagatesTokenGenerationFailure
+          description: verifies that a token generation failure prevents git auth configuration
+          module: internal/orchestration/workflowtoken
+          body: |
+            func TestRunPropagatesTokenGenerationFailure(t *testing.T) {
+              cmd := workflowtoken.withMocks(
+                workflowtoken.withGitHub(github.thatFailsTokenGeneration()),
+              )
+              err := cmd.Run(flags.any())
+              require.Error(t, err)
+              require.False(t, git.configureAuthCalled())
+            }
+        - name: TestRunResolvesRepoFromFlags
+          description: verifies that explicit --owner and --repo flags are passed through to Resolve
+          module: internal/orchestration/workflowtoken
+          body: |
+            func TestRunResolvesRepoFromFlags(t *testing.T) {
+              cmd := workflowtoken.withMocks()
+              err := cmd.Run(flags.withOwnerAndRepo("myorg", "myrepo"))
+              require.NoError(t, err)
+              require.Equal(t, repo.lastResolved(), repo.explicit("myorg", "myrepo"))
+            }
+      passing: false
+    - slug: wire-cmd
+      description: Add ralph workflow token to internal/cmd and remove set-github-token
+      items:
+        - Add a Token field of type WorkflowTokenCmd to the WorkflowGroup struct in internal/cmd/cmd.go
+        - Create internal/cmd/workflow_token.go implementing WorkflowTokenCmd that wires real github and git clients into the orchestration and delegates to workflowtoken.WorkflowTokenCmd.Run
+        - Remove the SetGithubToken field from the Cmd struct in internal/cmd/cmd.go
+        - Delete internal/cmd/github_token.go and internal/cmd/github_token_test.go
+      passing: false
+    - slug: version-bump
+      description: Version bump
+      items:
+        - Apply a semver major bump to the app version
+      passing: false
