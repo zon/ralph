@@ -73,7 +73,7 @@ requirements:
         - Delete internal/cmd/pass.go
         - Delete internal/cmd/pass_test.go
         - In internal/cmd/cmd.go import github.com/zon/ralph/internal/orchestration/pass and change the Pass field type from PassCmd to pass.PassCmd
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump
       items:
