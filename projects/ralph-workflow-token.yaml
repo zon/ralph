@@ -65,7 +65,7 @@ requirements:
 
               return c.Git.ConfigureAuth(token)
             }
-      passing: false
+      passing: true
     - slug: workflowtoken-tests
       description: Implement orchestration tests covering all domain outcomes
       scenarios:
