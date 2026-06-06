@@ -164,7 +164,7 @@ requirements:
         - Delete validator.go from internal/validate
         - Delete validate_test.go from internal/validate
         - Update any callers that imported the orchestration types from internal/validate to use internal/orchestration/validate
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump
       items:
