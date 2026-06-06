@@ -9,7 +9,7 @@
 - [config-pulumi](features/ralph/config-pulumi/spec.md) — Store a Pulumi access token as a Kubernetes Secret for ralph's remote execution.
 - [config-webhook](features/ralph/config-webhook/spec.md) — Provision webhook configuration into a Kubernetes ConfigMap for the ralph webhook service.
 - [config-webhook-secret](features/ralph/config-webhook-secret/spec.md) — Generate per-repo webhook secrets, register GitHub webhooks, and store them in Kubernetes.
-- [pass-requirement](features/ralph/pass-requirement/spec.md) — CLI command for marking a project requirement as passing or failing without editing YAML directly.
+- [pass](features/ralph/pass/spec.md) — CLI command for marking a project requirement as passing or failing without editing YAML directly.
 - [run](features/ralph/run/spec.md) — Primary entry point that drives an AI coding agent through iterative development cycles until all requirements pass.
 - [run-local](features/ralph/run-local/spec.md) — Runs the full development loop in-process on the local machine without submitting an Argo Workflow.
 - [run-remote](features/ralph/run-remote/spec.md) — Submits an Argo Workflow to a Kubernetes cluster and returns after submission for remote execution.

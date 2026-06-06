@@ -101,6 +101,9 @@ modules:
   - path: internal/orchestration/command
     description: Orchestrates both the client-side command submission (Argo workflow) and the container-side command execution (workspace setup + exec).
     category: orchestration
+  - path: internal/orchestration/pass
+    description: Orchestrates marking a project requirement as passing or failing by loading, updating, and saving the project YAML.
+    category: orchestration
   - path: internal/ai
     description: Runs AI prompts against embedded instruction templates to generate ralph artifacts.
     category: implementation

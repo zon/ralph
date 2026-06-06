@@ -1,4 +1,4 @@
-# Pass Requirement Specification
+# Pass Specification
 
 ## Purpose
 

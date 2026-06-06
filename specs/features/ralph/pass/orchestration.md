@@ -1,4 +1,4 @@
-# Pass Requirement Orchestration
+# Pass Orchestration
 
 ## Purpose
 
@@ -6,7 +6,7 @@ Mark a project requirement as passing or failing by slug, updating the project Y
 
 ## Orchestration
 
-**Module:** `internal/cmd`
+**Module:** `internal/orchestration/pass`
 
 ```go
 type PassCmd struct {
@@ -37,7 +37,7 @@ func (c *PassCmd) Run() error {
 
 ## Tests
 
-**Module:** `internal/cmd`
+**Module:** `internal/orchestration/pass`
 
 ```go
 func TestPassCmd_MarkPassing(t *testing.T) {
