@@ -2,7 +2,10 @@ package cmd
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
+	"path/filepath"
+	"time"
 
 	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
@@ -74,10 +77,11 @@ type workflowMergeGitHubClient struct{}
 func (c *workflowMergeGitHubClient) WaitForHeadSync(prBranch string) error {
 	gh := github.NewGH(output.NewClient(os.Stdout, os.Stderr, false))
 	for i := 0; i < 30; i++ {
-		oid, err := gh.GetPRHeadRefOid(fmt.Sprintf("%d", 0))
+		oid, err := gh.GetPRHeadRefOid(prBranch)
 		if err == nil && oid != "" {
 			return nil
 		}
+		time.Sleep(2 * time.Second)
 	}
 	return fmt.Errorf("head sync timeout for branch %s", prBranch)
 }
@@ -94,13 +98,46 @@ func (c *workflowMergeGitHubClient) MergePR(prNumber int) error {
 type workflowMergeProjectClient struct{}
 
 func (c *workflowMergeProjectClient) LoadAll() ([]*project.Project, error) {
-	return nil, nil
+	var projects []*project.Project
+	err := filepath.WalkDir("projects", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		ext := filepath.Ext(path)
+		if ext != ".yaml" && ext != ".yml" {
+			return nil
+		}
+		proj, err := project.LoadProject(path)
+		if err != nil {
+			return nil
+		}
+		projects = append(projects, proj)
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to walk projects directory: %w", err)
+	}
+	return projects, nil
 }
 
 func (c *workflowMergeProjectClient) FilterPassing(projects []*project.Project) []*project.Project {
-	return nil
+	var passing []*project.Project
+	for _, p := range projects {
+		if project.IsProjectComplete(p) {
+			passing = append(passing, p)
+		}
+	}
+	return passing
 }
 
 func (c *workflowMergeProjectClient) DeleteAll(projects []*project.Project) error {
+	for _, p := range projects {
+		if err := os.Remove(p.Path); err != nil {
+			return fmt.Errorf("failed to delete project file %s: %w", p.Path, err)
+		}
+	}
 	return nil
 }
