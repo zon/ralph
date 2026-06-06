@@ -129,7 +129,7 @@ requirements:
         - Create internal/cmd/workflow_token.go implementing WorkflowTokenCmd that wires real github and git clients into the orchestration and delegates to workflowtoken.WorkflowTokenCmd.Run
         - Remove the SetGithubToken field from the Cmd struct in internal/cmd/cmd.go
         - Delete internal/cmd/github_token.go and internal/cmd/github_token_test.go
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump
       items:
