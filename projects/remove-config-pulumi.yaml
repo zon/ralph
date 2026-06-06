@@ -27,7 +27,7 @@ requirements:
         - Delete the file specs/features/ralph/config-pulumi/spec.md
         - Delete the directory specs/features/ralph/config-pulumi/
         - Remove the config-pulumi line from specs/README.md
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump
       items:
