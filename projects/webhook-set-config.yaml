@@ -157,7 +157,7 @@ requirements:
         - Delete internal/cmd/config_webhook.go and internal/cmd/config_webhook_test.go
         - Remove the WebhookConfig and WebhookSecret fields from the ConfigCmd struct in internal/cmd/cmd.go
         - Remove ConfigCmd entirely from internal/cmd/cmd.go if it has no remaining fields after the above removals
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump
       items:
