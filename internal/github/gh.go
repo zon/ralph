@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/zon/ralph/internal/output"
 )
@@ -159,14 +160,23 @@ func mergePRImmediate(out *output.Client, pr, repo string) error {
 	if repo != "" {
 		immediateArgs = append(immediateArgs, "--repo", repo)
 	}
-	var immediateOut bytes.Buffer
-	immediateCmd := exec.Command("gh", immediateArgs...)
-	immediateCmd.Stdout = os.Stdout
-	immediateCmd.Stderr = &immediateOut
-	if err := immediateCmd.Run(); err != nil {
-		fmt.Fprint(os.Stderr, immediateOut.String())
-		return fmt.Errorf("failed to merge PR #%s: %w", pr, err)
+	for attempt := range 10 {
+		var immediateOut bytes.Buffer
+		immediateCmd := exec.Command("gh", immediateArgs...)
+		immediateCmd.Stdout = os.Stdout
+		immediateCmd.Stderr = &immediateOut
+		if err := immediateCmd.Run(); err != nil {
+			errStr := immediateOut.String()
+			if strings.Contains(errStr, "not mergeable") {
+				out.Debugf("PR #%s not mergeable yet, retrying (attempt %d/10)...", pr, attempt+1)
+				time.Sleep(5 * time.Second)
+				continue
+			}
+			fmt.Fprint(os.Stderr, errStr)
+			return fmt.Errorf("failed to merge PR #%s: %w", pr, err)
+		}
+		out.Successf("Merged PR #%s", pr)
+		return nil
 	}
-	out.Successf("Merged PR #%s", pr)
-	return nil
+	return fmt.Errorf("PR #%s was not mergeable after 10 attempts", pr)
 }
