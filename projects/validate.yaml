@@ -12,7 +12,7 @@ requirements:
       code:
         - name: Validator
           description: orchestration struct that holds project and agent clients with a resolved model string
-          module: internal/validate
+          module: internal/orchestration/validate
           body: |
             type Validator struct {
                 project ProjectClient
@@ -21,7 +21,7 @@ requirements:
             }
         - name: Validate
           description: fix loop that loads the project and retries after agent repair, halting on no-change or max attempts
-          module: internal/validate
+          module: internal/orchestration/validate
           body: |
             func (v *Validator) Validate(path string) (*project.Project, error) {
                 for attempt := 1; attempt <= MaxAttempts; attempt++ {
@@ -44,7 +44,7 @@ requirements:
       tests:
         - name: TestValidateSucceedsOnFirstLoad
           description: verifies validate saves and returns the project when the first load succeeds
-          module: internal/validate
+          module: internal/orchestration/validate
           body: |
             func TestValidateSucceedsOnFirstLoad(t *testing.T) {
                 proj := project.Any()
@@ -59,7 +59,7 @@ requirements:
             }
         - name: TestValidateRepairsThenSucceeds
           description: verifies validate invokes the agent once and returns the project when load succeeds after one repair
-          module: internal/validate
+          module: internal/orchestration/validate
           body: |
             func TestValidateRepairsThenSucceeds(t *testing.T) {
                 proj := project.Any()
@@ -73,7 +73,7 @@ requirements:
             }
         - name: TestValidateGivesUpAfterMaxAttempts
           description: verifies validate returns an error after MaxAttempts-1 agent fix attempts all fail
-          module: internal/validate
+          module: internal/orchestration/validate
           body: |
             func TestValidateGivesUpAfterMaxAttempts(t *testing.T) {
                 svc := withMocks(
@@ -85,7 +85,7 @@ requirements:
             }
         - name: TestValidateFailsFastWhenAgentMakesNoChange
           description: verifies validate returns ErrNoChange after the first agent fix attempt that leaves the file unchanged
-          module: internal/validate
+          module: internal/orchestration/validate
           body: |
             func TestValidateFailsFastWhenAgentMakesNoChange(t *testing.T) {
                 svc := withMocks(
@@ -97,7 +97,7 @@ requirements:
             }
         - name: TestValidatePropagatesAgentFailure
           description: verifies validate returns an error when the agent fix call fails
-          module: internal/validate
+          module: internal/orchestration/validate
           body: |
             func TestValidatePropagatesAgentFailure(t *testing.T) {
                 svc := withMocks(
@@ -109,7 +109,7 @@ requirements:
             }
         - name: TestValidatePropagatesSaveFailure
           description: verifies validate returns an error when save fails after a successful load
-          module: internal/validate
+          module: internal/orchestration/validate
           body: |
             func TestValidatePropagatesSaveFailure(t *testing.T) {
                 svc := withMocks(
@@ -120,7 +120,7 @@ requirements:
             }
         - name: TestValidateUsesValidateSpecificModel
           description: verifies validate passes the validate-specific model to the agent when it is configured
-          module: internal/validate
+          module: internal/orchestration/validate
           body: |
             func TestValidateUsesValidateSpecificModel(t *testing.T) {
                 svc := withMocks(
@@ -133,7 +133,7 @@ requirements:
             }
         - name: TestValidateFallsBackToMainModel
           description: verifies validate passes the main model to the agent when no validate-specific model is configured
-          module: internal/validate
+          module: internal/orchestration/validate
           body: |
             func TestValidateFallsBackToMainModel(t *testing.T) {
                 svc := withMocks(
@@ -158,8 +158,15 @@ requirements:
         - Implement thatFailsToFix() returning an agent client whose FixProject returns an error
         - Implement FixCalls() to return all (path, loadErr, model) records captured from FixProject calls during the test run
       passing: false
+    - slug: remove-internal-validate-orchestration
+      description: Remove orchestration code and tests from internal/validate now that they live in internal/orchestration/validate
+      items:
+        - Delete validator.go from internal/validate
+        - Delete validate_test.go from internal/validate
+        - Update any callers that imported the orchestration types from internal/validate to use internal/orchestration/validate
+      passing: false
     - slug: version-bump
       description: Version bump
       items:
-        - Apply a semver minor bump to the app version
+        - Apply a semver patch bump to the app version
       passing: false

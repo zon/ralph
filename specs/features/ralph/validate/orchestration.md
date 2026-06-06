@@ -5,7 +5,7 @@ Load a project YAML file, ask a local agent to repair it when loading fails, and
 
 ## Orchestration
 
-**Module:** `internal/validate`
+**Module:** `internal/orchestration/validate`
 
 ```go
 const MaxAttempts = 10
@@ -47,7 +47,7 @@ The `model` field is resolved at wiring time using two-level precedence: `valida
 
 ## Tests
 
-**Module:** `internal/validate`
+**Module:** `internal/orchestration/validate`
 
 ```go
 func TestValidateSucceedsOnFirstLoad(t *testing.T) {
