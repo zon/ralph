@@ -170,10 +170,10 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 		command = []string{"ralph"}
 		args = []string{
 			"workflow", "run",
+			"--repo", w.Repo.Owner + "/" + w.Repo.Name,
+			"--project-path", "{{workflow.parameters.project-path}}",
 			"--project-branch", w.ProjectBranch,
 			"--base", w.getEffectiveBaseBranch(),
-			w.Repo.Owner + "/" + w.Repo.Name,
-			"{{workflow.parameters.project-path}}",
 		}
 		if w.DebugBranch != "" {
 			args = append(args, "--debug", w.DebugBranch)

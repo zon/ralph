@@ -213,7 +213,7 @@ func TestGenerateWorkflow(t *testing.T) {
 	assert.Equal(t, "my-registry/ralph:v1.0.0", container["image"])
 	assert.Equal(t, "/workspace", container["workingDir"])
 	assert.Equal(t, []interface{}{"ralph"}, container["command"])
-	assert.Equal(t, []interface{}{"workflow", "run", "--project-branch", projectBranch, "--base", "main", "test/repo", "{{workflow.parameters.project-path}}", "--no-services"}, container["args"])
+	assert.Equal(t, []interface{}{"workflow", "run", "--repo", "test/repo", "--project-path", "{{workflow.parameters.project-path}}", "--project-branch", projectBranch, "--base", "main", "--no-services"}, container["args"])
 
 	env, ok := container["env"].([]interface{})
 	require.True(t, ok, "env is not a list")
@@ -554,7 +554,7 @@ func TestWorkflowRender_RunBranching(t *testing.T) {
 	assert.Equal(t, "ralph", command[0], "Command should be 'ralph' for regular workflow")
 	assert.Equal(t, "workflow", args[0], "First arg should be 'workflow' for regular workflow")
 	assert.Equal(t, "run", args[1], "Second arg should be 'run' for regular workflow")
-	assert.Equal(t, "--project-branch", args[2], "Third arg should be '--project-branch'")
+	assert.Equal(t, "--repo", args[2], "Third arg should be '--repo'")
 }
 
 func TestWorkflowRender_DebugBranch(t *testing.T) {
@@ -584,8 +584,8 @@ func TestWorkflowRender_DebugBranch(t *testing.T) {
 
 	assert.Equal(t, "ralph", command[0], "Command should be 'ralph' for debug workflow")
 	assert.Equal(t, "run", args[1], "Second arg should be 'run'")
-	assert.Equal(t, "--debug", args[8], "Should have --debug flag")
-	assert.Equal(t, debugBranch, args[9], "Debug branch should be passed as arg")
+	assert.Equal(t, "--debug", args[10], "Should have --debug flag")
+	assert.Equal(t, debugBranch, args[11], "Debug branch should be passed as arg")
 
 	env := container["env"].([]interface{})
 	foundDebugBranch := false
