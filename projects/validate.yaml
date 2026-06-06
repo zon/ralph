@@ -144,7 +144,7 @@ requirements:
                 require.NoError(t, err)
                 require.Equal(t, "main-model", FixCalls()[0].model)
             }
-      passing: false
+      passing: true
     - slug: validate-test-helpers
       description: Mock infrastructure and factory helpers for the validate orchestration tests
       items:
