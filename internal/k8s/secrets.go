@@ -8,7 +8,6 @@ import (
 const (
 	GitHubSecretName = "github-credentials"
 	OpenCodeSecretName = "opencode-credentials"
-	PulumiSecretName = "pulumi-credentials"
 )
 
 func buildSecretArgs(name, namespace, kubeContext string, data map[string]string) []string {
