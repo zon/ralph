@@ -100,7 +100,7 @@ requirements:
                 require.Error(t, err)
                 require.False(t, argoClient.stopCalled())
             }
-      passing: false
+      passing: true
     - slug: list-command
       description: Update ralph list to filter by app.kubernetes.io/managed-by=ralph and support --namespace/-n flag
       items:
