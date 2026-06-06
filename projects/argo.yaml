@@ -211,7 +211,7 @@ requirements:
             - GIVEN a review approval triggers a Merge Workflow submission
             - WHEN the workflow YAML is rendered
             - THEN the workflow metadata contains the label `app.kubernetes.io/managed-by=ralph`
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump
       items:

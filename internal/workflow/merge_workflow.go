@@ -36,6 +36,9 @@ func (m *MergeWorkflow) Render() (string, error) {
 		"kind":       "Workflow",
 		"metadata": map[string]interface{}{
 			"generateName": "ralph-merge-",
+			"labels": map[string]string{
+				"app.kubernetes.io/managed-by": "ralph",
+			},
 		},
 		"spec": map[string]interface{}{
 			"entrypoint": "ralph-merger",

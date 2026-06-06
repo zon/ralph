@@ -73,11 +73,19 @@ func (w *Workflow) Render() (string, error) {
 		"base-branch":     w.getEffectiveBaseBranch(),
 	}
 
+	wfLabels := map[string]string{
+		"app.kubernetes.io/managed-by": "ralph",
+	}
+	for k, v := range w.Labels {
+		wfLabels[k] = v
+	}
+
 	wf := map[string]interface{}{
 		"apiVersion": "argoproj.io/v1alpha1",
 		"kind":       "Workflow",
 		"metadata": map[string]interface{}{
 			"generateName": fmt.Sprintf("ralph-%s-", w.ProjectName),
+			"labels":       wfLabels,
 		},
 		"spec": map[string]interface{}{
 			"entrypoint": "ralph-executor",

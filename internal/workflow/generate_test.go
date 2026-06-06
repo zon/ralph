@@ -167,6 +167,10 @@ func TestGenerateWorkflow(t *testing.T) {
 	generateName, ok := metadata["generateName"].(string)
 	require.True(t, ok && strings.HasPrefix(generateName, "ralph-test-project-"), "generateName = %v, want prefix ralph-test-project-", generateName)
 
+	labels, ok := metadata["labels"].(map[string]interface{})
+	require.True(t, ok, "metadata labels is not a map")
+	assert.Equal(t, "ralph", labels["app.kubernetes.io/managed-by"], "workflow metadata should contain app.kubernetes.io/managed-by=ralph")
+
 	spec, ok := workflow["spec"].(map[string]interface{})
 	require.True(t, ok, "spec is not a map")
 	assert.Equal(t, "ralph-executor", spec["entrypoint"])
@@ -381,6 +385,10 @@ func TestGenerateMergeWorkflow(t *testing.T) {
 	metadata, ok := wf["metadata"].(map[string]interface{})
 	require.True(t, ok, "metadata is not a map")
 	assert.Equal(t, "ralph-merge-", metadata["generateName"])
+
+	labels, ok := metadata["labels"].(map[string]interface{})
+	require.True(t, ok, "metadata labels is not a map")
+	assert.Equal(t, "ralph", labels["app.kubernetes.io/managed-by"], "workflow metadata should contain app.kubernetes.io/managed-by=ralph")
 
 	spec, ok := wf["spec"].(map[string]interface{})
 	require.True(t, ok, "spec is not a map")
@@ -936,6 +944,10 @@ func TestGenerateCommandWorkflow(t *testing.T) {
 	require.True(t, ok, "metadata is not a map")
 	generateName, ok := metadata["generateName"].(string)
 	require.True(t, ok && strings.HasPrefix(generateName, "ralph-command-"), "generateName = %v, want prefix ralph-command-", generateName)
+
+	labels, ok := metadata["labels"].(map[string]interface{})
+	require.True(t, ok, "metadata labels is not a map")
+	assert.Equal(t, "ralph", labels["app.kubernetes.io/managed-by"], "workflow metadata should contain app.kubernetes.io/managed-by=ralph")
 
 	spec, ok := workflow["spec"].(map[string]interface{})
 	require.True(t, ok, "spec is not a map")
