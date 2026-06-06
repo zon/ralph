@@ -216,4 +216,4 @@ requirements:
       description: Version bump
       items:
         - Apply a semver minor bump to the app version
-      passing: false
+      passing: true
