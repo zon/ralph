@@ -26,4 +26,6 @@ Create a well-formed spec file in `./specs/features/` based on the user's descri
 
 6. **Write the file** to `./specs/features/<component>/<feature>/spec.md`.
 
-7. **Report** the file path and a one-line summary of what the spec covers.
+7. **Update [specs/README.md](specs/README.md).** Add or update a list item in the appropriate component section with the feature name as a relative link to the spec, followed by an em dash and a one-sentence description drawn from the spec's Purpose section. Create the component section if it doesn't exist yet.
+
+8. **Report** the file path and a one-line summary of what the spec covers.
