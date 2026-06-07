@@ -16,4 +16,4 @@ requirements:
           The "context" import in internal/argo/argo_test.go is removed if it becomes unused as a result of the deletion (TestExtractWorkflowName and TestNewClient do not reference the context package); imports that remain in use are left untouched.
         - |
           go vet ./internal/argo/... and go test ./internal/argo/... pass after the deletion, with no compile errors from dangling references or unused imports.
-      passing: false
+      passing: true

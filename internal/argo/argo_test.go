@@ -1,7 +1,6 @@
 package argo
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,13 +12,6 @@ func TestNewClient(t *testing.T) {
 
 	// Verify interface compliance at compile time
 	var _ Client = c
-}
-
-func TestClientSubmitYAML_AcceptsContext(t *testing.T) {
-	c := NewClient()
-	_, err := c.SubmitYAML(context.Background(), "yaml", K8sContext{Name: "ctx", Namespace: "ns"})
-	// We don't expect success (argo CLI isn't available), but the signature is what we're testing
-	assert.Error(t, err)
 }
 
 func TestExtractWorkflowName(t *testing.T) {
