@@ -14,6 +14,7 @@ type CLI struct {
 	Config  string `help:"Path to app config YAML file" env:"WEBHOOK_CONFIG"`
 	Secrets string `help:"Path to secrets YAML file" env:"WEBHOOK_SECRETS"`
 	Verbose bool   `help:"Enable verbose logging" default:"false"`
+	Set     SetCmd `cmd:"" help:"Set webhook configuration"`
 }
 
 func (c *CLI) Run() error {
