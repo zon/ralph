@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -267,4 +268,134 @@ func TestRunAgentWithModel(t *testing.T) {
 		require.NoError(t, err)
 		assert.Empty(t, buf.String())
 	})
+}
+
+func TestRunOpenCodeAndReadResult(t *testing.T) {
+	originalErr := errors.New("command failed")
+
+	tests := []struct {
+		name      string
+		ctx       *execcontext.Context
+		setupMock func(t *testing.T, outputFile string) *opencode.MockOC
+		want      string
+		wantErr   string
+		wantErrIs error
+	}{
+		{
+			name: "success trims leading and trailing whitespace",
+			ctx:  &execcontext.Context{},
+			setupMock: func(t *testing.T, outputFile string) *opencode.MockOC {
+				return &opencode.MockOC{
+					RunCommandFunc: func(_ context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+						return os.WriteFile(outputFile, []byte("  hello world\n  "), 0644)
+					},
+				}
+			},
+			want: "hello world",
+		},
+		{
+			name: "runcommand error is wrapped with opencode execution failed",
+			ctx:  &execcontext.Context{},
+			setupMock: func(t *testing.T, outputFile string) *opencode.MockOC {
+				return &opencode.MockOC{
+					RunCommandFunc: func(_ context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+						return originalErr
+					},
+				}
+			},
+			wantErr:   "opencode execution failed:",
+			wantErrIs: originalErr,
+		},
+		{
+			name: "missing output file returns read error",
+			ctx:  &execcontext.Context{},
+			setupMock: func(t *testing.T, outputFile string) *opencode.MockOC {
+				return &opencode.MockOC{
+					RunCommandFunc: func(_ context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+						return nil
+					},
+				}
+			},
+			wantErr: "failed to read summary file:",
+		},
+		{
+			name: "whitespace-only output returns summary is empty",
+			ctx:  &execcontext.Context{},
+			setupMock: func(t *testing.T, outputFile string) *opencode.MockOC {
+				return &opencode.MockOC{
+					RunCommandFunc: func(_ context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+						return os.WriteFile(outputFile, []byte("   \n  \n"), 0644)
+					},
+				}
+			},
+			wantErr: "summary file is empty",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			outputFile := filepath.Join(t.TempDir(), "output.md")
+			mockOC := tt.setupMock(t, outputFile)
+
+			result, err := runOpenCodeAndReadResult(tt.ctx, mockOC, "some-model", "some prompt", outputFile)
+
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+				if tt.wantErrIs != nil {
+					assert.True(t, errors.Is(err, tt.wantErrIs), "wrapped error should be reachable via errors.Is")
+				}
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, result)
+		})
+	}
+}
+
+func TestRunOpenCodeAndReadResultVerboseWiring(t *testing.T) {
+	tests := []struct {
+		name    string
+		verbose bool
+		wantNil bool
+	}{
+		{
+			name:    "passes stdout and stderr when verbose",
+			verbose: true,
+			wantNil: false,
+		},
+		{
+			name:    "passes nil writers when not verbose",
+			verbose: false,
+			wantNil: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := &execcontext.Context{}
+			ctx.SetVerbose(tt.verbose)
+			outputFile := filepath.Join(t.TempDir(), "output.md")
+
+			var capturedStdout, capturedStderr io.Writer
+			mockOC := &opencode.MockOC{
+				RunCommandFunc: func(_ context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+					capturedStdout = stdoutWriter
+					capturedStderr = stderrWriter
+					return os.WriteFile(outputFile, []byte("content"), 0644)
+				},
+			}
+
+			_, err := runOpenCodeAndReadResult(ctx, mockOC, "model", "prompt", outputFile)
+			require.NoError(t, err)
+
+			if tt.wantNil {
+				assert.Nil(t, capturedStdout)
+				assert.Nil(t, capturedStderr)
+			} else {
+				assert.Equal(t, os.Stdout, capturedStdout)
+				assert.Equal(t, os.Stderr, capturedStderr)
+			}
+		})
+	}
 }

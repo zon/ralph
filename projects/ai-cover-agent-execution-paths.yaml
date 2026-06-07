@@ -46,7 +46,7 @@ requirements:
           A test covers an output file containing only whitespace (or being empty): asserts the function returns an error with the exact message "summary file is empty".
         - |
           All file I/O in these tests targets paths inside t.TempDir() — no real repository files are read or written. Tests use testify assert/require and t.Run() subtests in a table-driven structure.
-      passing: false
+      passing: true
     - slug: test-create-temp-file
       description: |
         Add a unit test for the unexported createTempFile helper in internal/ai/ai.go, verifying it creates a file under the repository's tmp/ directory via git.TmpPath.
