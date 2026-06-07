@@ -98,4 +98,4 @@ requirements:
         - |
           go build ./... succeeds, confirming the architecture.yaml description edit (a
           non-Go file) introduced no build breakage.
-      passing: false
+      passing: true
