@@ -14,7 +14,7 @@ requirements:
           Tests use *execcontext.Context constructed directly (e.g. &execcontext.Context{} with SetModel/SetVariant setters, mirroring how internal/workflow/generate_test.go and other packages build contexts for tests) — no real ralph repository paths are touched.
         - |
           Tests use testify assert/require and t.Run() subtests in a table-driven structure consistent with the existing tests in internal/ai/prompt_test.go.
-      passing: false
+      passing: true
     - slug: test-run-agent-functions
       description: |
         Add unit tests for RunAgent and RunAgentWithModel in internal/ai/ai.go, verifying model/variant resolution, verbose prompt logging, and propagation of the underlying RunAgent call and its error.
