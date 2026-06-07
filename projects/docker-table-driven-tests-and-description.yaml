@@ -85,7 +85,7 @@ requirements:
           while internal/docker/container_workflow_test.go validates
           .github/workflows/container-build.yaml (TestContainerBuildWorkflow) — none of which
           the current "validates the repository Containerfile" description captures in full.
-      passing: false
+      passing: true
     - slug: verify-docker-tests-pass
       description: |
         Confirm the converted tests still pass and the package builds cleanly after the
