@@ -1,13 +1,40 @@
-# Orchestration Module Plan
+# Non-Orchestration Module Review Plan
 
-Add orchestration modules so every entry point follows the entry → orchestration → implementation flow.
+Review every module outside the `orchestration` category against the standards
+in [docs/code.md](docs/code.md) and [docs/testing.md](docs/testing.md), using
+the `ralph-review-module` skill, and report or fix any gaps found.
 
-## Modules to create
+## Implementation
 
-- `internal/orchestration/validate` — project YAML validation via opencode
-- `internal/orchestration/pass` — load, update, and save project requirement status
-- `internal/orchestration/config/github` — GitHub App credential validation and K8s secret creation
-- `internal/orchestration/config/opencode` — OpenCode auth file reading and K8s secret creation
-- `internal/orchestration/config/pulumi` — Pulumi token resolution and K8s secret creation
-- `internal/orchestration/config/webhook` — webhook configmap building, secret generation, and webhook registration
-- `internal/orchestration/githubtoken` — configure GitHub App git authentication
+- [ ] `internal/workflow`
+- [ ] `internal/ai`
+- [ ] `internal/opencode`
+- [ ] `internal/argo`
+- [ ] `internal/k8s`
+- [ ] `internal/git`
+- [ ] `internal/workspace`
+- [ ] `internal/github`
+- [ ] `internal/config`
+- [ ] `internal/webhookconfig`
+- [ ] `internal/notify`
+- [ ] `internal/version`
+- [ ] `internal/docker`
+- [ ] `internal/testutil`
+
+## Pipeline
+
+- [ ] `internal/context`
+- [ ] `internal/output`
+
+## Lifecycle
+
+- [ ] `internal/cleanup`
+
+## Entry
+
+Reviewed last — entry modules wire everything else, so review them once their
+dependencies' compliance is known.
+
+- [ ] `cmd/ralph`
+- [ ] `cmd/ralph-webhook`
+- [ ] `internal/cmd`
