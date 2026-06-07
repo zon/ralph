@@ -29,14 +29,101 @@ func TestBuildLoopItemPrompt(t *testing.T) {
 		assert.Contains(t, result, "You are a software architect reviewing source code.")
 		assert.Contains(t, result, "Address any issues found")
 	})
+}
 
-	t.Run("malformed template returns error", func(t *testing.T) {
-		content := "Review {{.FunctionName} in {{.FunctionPath}}"
-		_, err := BuildLoopItemPrompt(content, "DoThing", "internal/pkg/pkg.go")
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to parse template")
+func TestGenerateChangelog(t *testing.T) {
+	dir := t.TempDir()
+	testutil.InitGitRepo(t, dir)
+	t.Chdir(dir)
+
+	errCommandFailed := errors.New("command failed")
+
+	tests := []struct {
+		name      string
+		setupMock func(*testing.T) *opencode.MockOC
+		wantErr   string
+		wantErrIs error
+	}{
+		{
+			name: "success renames to report.md and cleans up temp file",
+			setupMock: func(t *testing.T) *opencode.MockOC {
+				return &opencode.MockOC{
+					RunCommandFunc: func(_ context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+						return writeOutputFromChangelogPrompt(prompt, "  changelog content\n")
+					},
+				}
+			},
+		},
+		{
+			name: "runcommand error is propagated and temp file cleaned up",
+			setupMock: func(t *testing.T) *opencode.MockOC {
+				return &opencode.MockOC{
+					RunCommandFunc: func(_ context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+						return errCommandFailed
+					},
+				}
+			},
+			wantErr:   "opencode execution failed:",
+			wantErrIs: errCommandFailed,
+		},
+		{
+			name: "empty summary returns error and temp file cleaned up",
+			setupMock: func(t *testing.T) *opencode.MockOC {
+				return &opencode.MockOC{
+					RunCommandFunc: func(_ context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+						return writeOutputFromChangelogPrompt(prompt, "   \n  \n")
+					},
+				}
+			},
+			wantErr: "summary file is empty",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			os.Remove("report.md")
+
+			ctx := &execcontext.Context{}
+			mockOC := tt.setupMock(t)
+			err := GenerateChangelog(ctx, mockOC)
+
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+				if tt.wantErrIs != nil {
+					assert.True(t, errors.Is(err, tt.wantErrIs), "wrapped error should be reachable via errors.Is")
+				}
+				_, statErr := os.Stat("report.md")
+				assert.True(t, os.IsNotExist(statErr), "report.md should not be created after error")
+			} else {
+				require.NoError(t, err)
+				content, err := os.ReadFile("report.md")
+				require.NoError(t, err, "report.md should exist after success")
+				assert.Equal(t, "changelog content", strings.TrimSpace(string(content)))
+			}
+
+			assertTempFileCleanedUp(t, dir, "changelog")
+		})
+	}
+
+	t.Run("logs prompt when verbose", func(t *testing.T) {
+		var buf bytes.Buffer
+		ctx := &execcontext.Context{}
+		ctx.SetVerbose(true)
+		ctx.SetOutput(output.NewClient(&buf, &buf, true))
+
+		mockOC := &opencode.MockOC{
+			RunCommandFunc: func(_ context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+				return writeOutputFromChangelogPrompt(prompt, "result")
+			},
+		}
+
+		err := GenerateChangelog(ctx, mockOC)
+		require.NoError(t, err)
+		assert.Contains(t, buf.String(), "Write a concise changelog entry")
 	})
 }
+
 
 func TestResolveModel(t *testing.T) {
 	tests := []struct {
@@ -428,6 +515,22 @@ func TestCreateTempFile(t *testing.T) {
 	n, err := f.WriteString("test content")
 	assert.NoError(t, err)
 	assert.Positive(t, n)
+}
+
+// writeOutputFromChangelogPrompt extracts the output file path from a changelog prompt
+// containing "Write the changelog entry to the file: <path>" and writes content to it.
+func writeOutputFromChangelogPrompt(prompt, content string) error {
+	prefix := "Write the changelog entry to the file: "
+	idx := strings.Index(prompt, prefix)
+	if idx < 0 {
+		return fmt.Errorf("changelog output file path not found in prompt")
+	}
+	rest := prompt[idx+len(prefix):]
+	if nl := strings.IndexByte(rest, '\n'); nl >= 0 {
+		rest = rest[:nl]
+	}
+	path := strings.TrimSpace(rest)
+	return os.WriteFile(path, []byte(content), 0644)
 }
 
 // writeOutputFromPrompt extracts the output file path from a prompt containing

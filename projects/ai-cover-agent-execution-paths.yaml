@@ -95,4 +95,4 @@ requirements:
           A test covers the verbose-logging branch: when ctx.IsVerbose() is true, the built changelog prompt is written via ctx.Output().Debug before the agent runs.
         - |
           Tests use testify assert/require, t.Run() subtests, and a table-driven structure consistent with internal/ai/prompt_test.go.
-      passing: false
+      passing: true
