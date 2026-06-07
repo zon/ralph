@@ -29,7 +29,7 @@ requirements:
           A test covers the verbose-logging branch: when ctx.IsVerbose() is true, the prompt is written via ctx.Output().Debug before the agent runs (assert by capturing/inspecting output, e.g. using the same approach internal/output's tests use to capture debug output, or by asserting on a buffer/writer the Context's Output is configured with); when ctx.IsVerbose() is false, no debug output is produced.
         - |
           Tests use testify assert/require, t.Run() subtests, and the opencode.MockOC function-field override pattern — no real opencode CLI is invoked.
-      passing: false
+      passing: true
     - slug: test-run-opencode-and-read-result
       description: |
         Add unit tests for the unexported runOpenCodeAndReadResult helper in internal/ai/ai.go, covering successful result extraction and every error path it defines.

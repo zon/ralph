@@ -1,6 +1,9 @@
 package ai
 
 import (
+	"bytes"
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -9,6 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	execcontext "github.com/zon/ralph/internal/context"
+	"github.com/zon/ralph/internal/opencode"
+	"github.com/zon/ralph/internal/output"
 )
 
 func TestBuildLoopItemPrompt(t *testing.T) {
@@ -119,4 +124,147 @@ func TestResolveVariant(t *testing.T) {
 			assert.Equal(t, tt.want, result)
 		})
 	}
+}
+
+func TestRunAgent(t *testing.T) {
+	t.Run("captures resolved model, variant, and prompt", func(t *testing.T) {
+		ctx := &execcontext.Context{}
+		ctx.SetModel("gpt-4")
+		ctx.SetVariant("custom-variant")
+
+		var capturedModel, capturedVariant, capturedPrompt string
+		mockOC := &opencode.MockOC{
+			RunAgentFunc: func(_ context.Context, model, variant, prompt string) error {
+				capturedModel = model
+				capturedVariant = variant
+				capturedPrompt = prompt
+				return nil
+			},
+		}
+
+		err := RunAgent(ctx, mockOC, "test prompt")
+		require.NoError(t, err)
+		assert.Equal(t, "gpt-4", capturedModel)
+		assert.Equal(t, "custom-variant", capturedVariant)
+		assert.Equal(t, "test prompt", capturedPrompt)
+	})
+
+	t.Run("returns underlying error unchanged", func(t *testing.T) {
+		ctx := &execcontext.Context{}
+		ctx.SetModel("gpt-4")
+
+		expectedErr := errors.New("agent execution failed")
+		mockOC := &opencode.MockOC{
+			RunAgentFunc: func(_ context.Context, model, variant, prompt string) error {
+				return expectedErr
+			},
+		}
+
+		err := RunAgent(ctx, mockOC, "test prompt")
+		assert.Equal(t, expectedErr, err, "error should be returned unchanged, not wrapped")
+	})
+
+	t.Run("logs prompt when verbose", func(t *testing.T) {
+		var buf bytes.Buffer
+		ctx := &execcontext.Context{}
+		ctx.SetVerbose(true)
+		ctx.SetOutput(output.NewClient(&buf, &buf, true))
+
+		mockOC := &opencode.MockOC{
+			RunAgentFunc: func(_ context.Context, model, variant, prompt string) error {
+				return nil
+			},
+		}
+
+		err := RunAgent(ctx, mockOC, "verbose prompt")
+		require.NoError(t, err)
+		assert.Contains(t, buf.String(), "verbose prompt")
+	})
+
+	t.Run("does not log when not verbose", func(t *testing.T) {
+		var buf bytes.Buffer
+		ctx := &execcontext.Context{}
+		ctx.SetVerbose(false)
+		ctx.SetOutput(output.NewClient(&buf, &buf, false))
+
+		mockOC := &opencode.MockOC{
+			RunAgentFunc: func(_ context.Context, model, variant, prompt string) error {
+				return nil
+			},
+		}
+
+		err := RunAgent(ctx, mockOC, "quiet prompt")
+		require.NoError(t, err)
+		assert.Empty(t, buf.String())
+	})
+}
+
+func TestRunAgentWithModel(t *testing.T) {
+	t.Run("passes model verbatim, resolves variant", func(t *testing.T) {
+		ctx := &execcontext.Context{}
+		ctx.SetModel("default-model")
+		ctx.SetVariant("my-variant")
+
+		var capturedModel, capturedVariant string
+		mockOC := &opencode.MockOC{
+			RunAgentFunc: func(_ context.Context, model, variant, prompt string) error {
+				capturedModel = model
+				capturedVariant = variant
+				return nil
+			},
+		}
+
+		err := RunAgentWithModel(ctx, mockOC, "test prompt", "explicit-model")
+		require.NoError(t, err)
+		assert.Equal(t, "explicit-model", capturedModel, "model should be passed verbatim, not resolved")
+		assert.Equal(t, "my-variant", capturedVariant, "variant should still be resolved from context")
+	})
+
+	t.Run("returns underlying error unchanged", func(t *testing.T) {
+		ctx := &execcontext.Context{}
+
+		expectedErr := errors.New("agent execution failed")
+		mockOC := &opencode.MockOC{
+			RunAgentFunc: func(_ context.Context, model, variant, prompt string) error {
+				return expectedErr
+			},
+		}
+
+		err := RunAgentWithModel(ctx, mockOC, "test prompt", "some-model")
+		assert.Equal(t, expectedErr, err, "error should be returned unchanged, not wrapped")
+	})
+
+	t.Run("logs prompt when verbose", func(t *testing.T) {
+		var buf bytes.Buffer
+		ctx := &execcontext.Context{}
+		ctx.SetVerbose(true)
+		ctx.SetOutput(output.NewClient(&buf, &buf, true))
+
+		mockOC := &opencode.MockOC{
+			RunAgentFunc: func(_ context.Context, model, variant, prompt string) error {
+				return nil
+			},
+		}
+
+		err := RunAgentWithModel(ctx, mockOC, "verbose prompt", "some-model")
+		require.NoError(t, err)
+		assert.Contains(t, buf.String(), "verbose prompt")
+	})
+
+	t.Run("does not log when not verbose", func(t *testing.T) {
+		var buf bytes.Buffer
+		ctx := &execcontext.Context{}
+		ctx.SetVerbose(false)
+		ctx.SetOutput(output.NewClient(&buf, &buf, false))
+
+		mockOC := &opencode.MockOC{
+			RunAgentFunc: func(_ context.Context, model, variant, prompt string) error {
+				return nil
+			},
+		}
+
+		err := RunAgentWithModel(ctx, mockOC, "quiet prompt", "some-model")
+		require.NoError(t, err)
+		assert.Empty(t, buf.String())
+	})
 }
