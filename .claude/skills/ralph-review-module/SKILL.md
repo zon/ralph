@@ -1,11 +1,11 @@
 ---
 name: ralph-review-module
-description: Reviews a module against the architecture standards for its category (entry, orchestration, implementation) and reports gaps. Use when the user wants to audit a module, bring it up to standard, or understand what it's missing.
+description: Reviews a module against the architecture standards for its category (entry, orchestration, implementation), reports gaps, and creates a project to code the recommendations. Use when the user wants to audit a module, bring it up to standard, or understand what it's missing.
 ---
 
 # Review Module
 
-Audit a module against the architecture and testing standards for its declared category, then report what is compliant and what is missing.
+Audit a module against the architecture and testing standards for its declared category, report what is compliant and what is missing, then create a project to carry out the recommendations.
 
 ## Steps
 
@@ -29,4 +29,8 @@ Audit a module against the architecture and testing standards for its declared c
 
    **Recommendations** — ordered list of changes to bring the module up to standard. Be concrete: name the file to create or edit and what to add or change. Do not hesitate to redefine interfaces or change signatures anywhere in the repo — recommend the clean end state. Do not recommend compatibility layers, re-exports, or deprecation shims unless the user has explicitly asked for backwards compatibility.
 
-7. **Report the findings** to the user. If the module is fully compliant, say so clearly. If gaps exist, present the recommendations as a starting point for a project or direct fix.
+7. **Report the findings** to the user. If the module is fully compliant, say so clearly and stop — no project is needed.
+
+8. **If gaps exist, create a project to code the recommendations.** Invoke the `ralph-write-project` skill, handing it the module path and the **Recommendations** list from step 6 as the work to be done. Let that skill draft, write, and validate the project file according to its own steps.
+
+9. **Report the project file path** alongside the findings, so the user can hand it to the ralph agent to execute.
