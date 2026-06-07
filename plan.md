@@ -15,11 +15,11 @@ the `ralph-review-module` skill, and report or fix any gaps found.
 - [x] `internal/workspace`
 - [x] `internal/github`
 - [x] `internal/config`
-- [ ] `internal/webhookconfig`
-- [ ] `internal/notify`
-- [ ] `internal/version`
-- [ ] `internal/docker`
-- [ ] `internal/testutil`
+- [x] `internal/webhookconfig`
+- [x] `internal/notify`
+- [x] `internal/version`
+- [x] `internal/docker`
+- [x] `internal/testutil`
 
 ## Pipeline
 

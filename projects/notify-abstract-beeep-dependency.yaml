@@ -1,0 +1,61 @@
+slug: notify-abstract-beeep-dependency
+title: Abstract beeep behind an interface in internal/notify and unify the Client API
+maxIterations: 15
+requirements:
+    - slug: define-notifier-interface
+      description: |
+        Introduce a Notifier interface in internal/notify/notify.go that wraps the beeep dependency, with a real implementation backed by beeep.Notify.
+      items:
+        - |
+          internal/notify/notify.go defines a Notifier interface with a method such as `Notify(title, message, appIcon string) error`, and a real implementation (e.g. a struct or function-based adapter) whose method calls beeep.Notify(title, message, appIcon) directly. This is the only place beeep.Notify is invoked in the package.
+        - |
+          docs/testing.md states that "beeep... must never be invoked with real implementations in any test. These must always be abstracted behind interfaces and replaced with mocks" and that "External dependencies must be abstracted behind interfaces. Each interface has two implementations: a real one that calls the actual dependency, and a mock used in tests." Currently beeep.Notify is called directly from the package-level Success and Error functions in internal/notify/notify.go (lines 25 and 42), with no interface in between — this requirement closes that gap.
+        - |
+          The beeep.AppName = "Ralph" assignment in the existing init() function in internal/notify/notify.go is preserved as-is.
+      passing: false
+    - slug: add-mock-notifier
+      description: |
+        Add a MockNotifier to internal/notify/client_mock.go following the function-field mock pattern described in docs/testing.md.
+      items:
+        - |
+          internal/notify/client_mock.go gains a MockNotifier struct with a function field such as `NotifyFn func(title, message, appIcon string) error`, and a `Notify` method that calls NotifyFn when set and otherwise returns nil — mirroring the pattern shown in docs/testing.md ("define a minimal interface for each external dependency, accept it as a parameter in the function under test, and implement a mock struct... Use function fields so individual behaviors can be overridden per test case").
+        - |
+          MockNotifier satisfies the Notifier interface defined in internal/notify/notify.go (verified at compile time, e.g. via a `var _ Notifier = &MockNotifier{}` assertion or equivalent test).
+        - |
+          The mock lives in internal/notify/client_mock.go (a _mock.go file), not in a _test.go file, per docs/testing.md's rule that "Mocks for an implementation module must live in a _mock.go file within that same module."
+      passing: false
+    - slug: refactor-client-to-use-notifier
+      description: |
+        Refactor Client in internal/notify/client.go to own a Notifier, move the notification-building logic out of the package-level Success/Error functions into Client methods, and remove the now-redundant free functions.
+      items:
+        - |
+          Client (internal/notify/client.go) gains a `notifier Notifier` field. NewClient constructs Client with the real Notifier implementation from the define-notifier-interface requirement (in addition to its existing `out` and `shouldNotify` fields, which are unchanged).
+        - |
+          Client.Success and Client.Error build the title and message strings themselves (the same "Ralph Success"/"Ralph completed successfully for <slug>" and "Ralph Failed"/"Ralph failed for <slug>" text and "dialog-information"/"dialog-error" icons currently produced by the package-level Success/Error functions in internal/notify/notify.go), call `c.notifier.Notify(title, message, icon)`, and — on error — call `c.out.Warnf("Failed to send desktop notification: %v", err)`, exactly mirroring the current behavior of the package-level functions. Both methods continue to no-op when c.shouldNotify is false.
+        - |
+          The package-level Success and Error functions and their `enabled bool` / `out *output.Client` parameters are deleted from internal/notify/notify.go entirely — Client.Success/Client.Error are the only public entry points for sending notifications. The init() function and Notifier-related declarations remain in notify.go (or are reorganized within the package as appropriate), and the package compiles with no dangling references.
+      passing: false
+    - slug: update-execute-command-call-sites
+      description: |
+        Update internal/cmd/execute.go to send notifications through notify.Client instead of calling the deleted package-level notify.Success/notify.Error functions.
+      items:
+        - |
+          internal/cmd/execute.go's ExecuteCommand function (the four notify.Error/notify.Success call sites, currently around lines 85, 89, 137, and 140) constructs a `notify.NewClient(ctx)` and calls `.Error("command")` / `.Success("command")` on it instead of calling the deleted package-level notify.Error(ctx.Output(), "command", ctx.ShouldNotify()) / notify.Success(ctx.Output(), "command", ctx.ShouldNotify()).
+        - |
+          The behavior observed by callers of ExecuteCommand is unchanged: a notification slug of "command" is still used for both the local-failure and local-success paths, gated on the same shouldNotify condition that NewClient derives from ctx.
+        - |
+          go build ./... succeeds with no remaining references to the deleted package-level notify.Success/notify.Error functions anywhere in the codebase.
+      passing: false
+    - slug: rewrite-notify-tests-with-mock-notifier
+      description: |
+        Rewrite internal/notify's tests to inject MockNotifier and exercise the real notification-sending path (previously untestable because beeep was called directly), in addition to the disabled-notifications path.
+      items:
+        - |
+          internal/notify/notify_test.go's TestSuccess, TestError, and TestNotificationsDisabled (which currently only cover the `enabled: false` early-return branch by necessity, since there was no way to substitute beeep) are replaced or merged into internal/notify/client_test.go so that Client is exercised via a MockNotifier instead of the package-level functions that this project deletes.
+        - |
+          New or updated test cases use MockNotifier to assert: (a) when shouldNotify is true, Client.Success sends the expected title ("Ralph Success"), message (containing the slug), and icon ("dialog-information"), and Client.Error sends the expected title ("Ralph Failed"), message (containing the slug), and icon ("dialog-error"); (b) when the injected Notifier's NotifyFn returns an error, out.Warnf is invoked with a message containing "Failed to send desktop notification" and the call does not panic; (c) when shouldNotify is false, NotifyFn is never invoked for either Success or Error.
+        - |
+          Tests follow the conventions in docs/testing.md: table-driven with t.Run subtests where appropriate, and assertions via github.com/stretchr/testify (assert/require). t.TempDir() is not needed since this module does no filesystem I/O.
+        - |
+          go test ./internal/notify/... and go vet ./internal/notify/... pass with no real beeep invocations anywhere in the test suite.
+      passing: false

@@ -1,0 +1,26 @@
+slug: version-recategorize-as-pure
+title: Recategorize internal/version as a pure module in architecture.yaml
+maxIterations: 5
+requirements:
+    - slug: update-version-category
+      description: |
+        Correct the internal/version entry in specs/architecture.yaml so its category
+        reflects what the module actually contains.
+      items:
+        - |
+          The internal/version entry in specs/architecture.yaml has its `category` field
+          changed from `implementation` to `pure`. The `path` and `description` fields are
+          left unchanged.
+        - |
+          This change reflects that internal/version contains only value objects and pure
+          functions (Version, BumpMinor) plus a compile-time go:embed constant — no I/O, no
+          external calls, and no real dependency implementations or mocks. Per
+          specs/architecture.yaml's category definitions, `implementation` means "Real
+          dependency implementations and mocks that back the domain interfaces" while `pure`
+          means "Stateless modules containing only value objects and pure functions with no
+          side effects" — the latter matches this module's actual contents.
+        - |
+          No source code or test files are modified — internal/version/version.go and
+          internal/version/version_test.go already conform to pure-module standards
+          (unit-only tests, no mocks, no I/O beyond a compile-time embed).
+      passing: false
