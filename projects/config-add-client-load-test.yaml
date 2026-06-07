@@ -16,4 +16,4 @@ requirements:
           The test uses testify require/assert and follows the structure and naming conventions established elsewhere in the package (e.g. table-driven where appropriate, consistent helper usage with config_test.go).
         - |
           go vet ./internal/config/... and go test ./internal/config/... pass with the new test included.
-      passing: false
+      passing: true
