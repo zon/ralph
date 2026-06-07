@@ -152,7 +152,9 @@ func TestPushScriptUsesEnvironmentVariables(t *testing.T) {
 	}
 
 	for _, pattern := range envVarPatterns {
-		assert.Contains(t, script, pattern, "Push script should support %s environment variable", pattern)
+		t.Run(pattern, func(t *testing.T) {
+			assert.Contains(t, script, pattern, "Push script should support %s environment variable", pattern)
+		})
 	}
 
 	assert.Contains(t, script, "ghcr.io/zon/ralph", "Push script should have default repository")

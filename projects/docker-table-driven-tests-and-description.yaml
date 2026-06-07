@@ -63,7 +63,7 @@ requirements:
           TestPushScriptUsesEnvironmentVariables, exactly as they are today — they describe a
           different concern (defaults) than the per-variable table and are intentionally left
           out of the new subtests.
-      passing: false
+      passing: true
     - slug: fix-architecture-description
       description: |
         Correct the internal/docker description in specs/architecture.yaml so it reflects
