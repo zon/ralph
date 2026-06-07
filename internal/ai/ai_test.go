@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -427,4 +428,279 @@ func TestCreateTempFile(t *testing.T) {
 	n, err := f.WriteString("test content")
 	assert.NoError(t, err)
 	assert.Positive(t, n)
+}
+
+// writeOutputFromPrompt extracts the output file path from a prompt containing
+// "Write your summary to the file: <path>" and writes content to it.
+func writeOutputFromPrompt(prompt, content string) error {
+	prefix := "Write your summary to the file: "
+	idx := strings.Index(prompt, prefix)
+	if idx < 0 {
+		return fmt.Errorf("output file path not found in prompt")
+	}
+	rest := prompt[idx+len(prefix):]
+	if nl := strings.IndexByte(rest, '\n'); nl >= 0 {
+		rest = rest[:nl]
+	}
+	path := strings.TrimSpace(rest)
+	return os.WriteFile(path, []byte(content), 0644)
+}
+
+// assertTempFileCleanedUp verifies no files with the given prefix remain in tmp/.
+func assertTempFileCleanedUp(t *testing.T, gitRoot, prefix string) {
+	t.Helper()
+	entries, err := os.ReadDir(filepath.Join(gitRoot, "tmp"))
+	if os.IsNotExist(err) {
+		return
+	}
+	require.NoError(t, err)
+	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), prefix+"-") {
+			assert.Fail(t, "temporary file was not cleaned up", "unexpected file: %s", e.Name())
+		}
+	}
+}
+
+func TestGeneratePRSummary(t *testing.T) {
+	dir := t.TempDir()
+	testutil.InitGitRepo(t, dir)
+	t.Chdir(dir)
+
+	errCommandFailed := errors.New("command failed")
+
+	tests := []struct {
+		name          string
+		projectDesc   string
+		projectStatus string
+		baseBranch    string
+		commitLog     string
+		setupMock     func(*testing.T) *opencode.MockOC
+		want          string
+		wantErr       string
+		wantErrIs     error
+	}{
+		{
+			name:          "success returns trimmed summary and cleans up temp file",
+			projectDesc:   "Test Project",
+			projectStatus: "✅ Active",
+			baseBranch:    "main",
+			commitLog:     "abc: feat\n",
+			setupMock: func(t *testing.T) *opencode.MockOC {
+				return &opencode.MockOC{
+					RunCommandFunc: func(_ context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+						return writeOutputFromPrompt(prompt, "  expected summary\n")
+					},
+				}
+			},
+			want: "expected summary",
+		},
+		{
+			name:          "runcommand error is wrapped and temp file cleaned up",
+			projectDesc:   "Test Project",
+			projectStatus: "✅ Active",
+			baseBranch:    "main",
+			commitLog:     "abc: feat\n",
+			setupMock: func(t *testing.T) *opencode.MockOC {
+				return &opencode.MockOC{
+					RunCommandFunc: func(_ context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+						return errCommandFailed
+					},
+				}
+			},
+			wantErr:   "opencode execution failed:",
+			wantErrIs: errCommandFailed,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := &execcontext.Context{}
+			mockOC := tt.setupMock(t)
+			result, err := GeneratePRSummary(ctx, mockOC, tt.projectDesc, tt.projectStatus, tt.baseBranch, tt.commitLog)
+
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+				if tt.wantErrIs != nil {
+					assert.True(t, errors.Is(err, tt.wantErrIs), "wrapped error should be reachable via errors.Is")
+				}
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.want, result)
+			}
+
+			assertTempFileCleanedUp(t, dir, "pr-summary")
+		})
+	}
+
+	t.Run("prompt contains expected inputs", func(t *testing.T) {
+		var capturedPrompt string
+		mockOC := &opencode.MockOC{
+			RunCommandFunc: func(_ context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+				capturedPrompt = prompt
+				return writeOutputFromPrompt(prompt, "result")
+			},
+		}
+		ctx := &execcontext.Context{}
+		_, err := GeneratePRSummary(ctx, mockOC, "My Project", "Beta", "develop", "abc: init\ndef: add\n")
+		require.NoError(t, err)
+		assert.Contains(t, capturedPrompt, "My Project")
+		assert.Contains(t, capturedPrompt, "Beta")
+		assert.Contains(t, capturedPrompt, "develop..HEAD")
+		assert.Contains(t, capturedPrompt, "abc: init")
+		assert.Contains(t, capturedPrompt, "def: add")
+	})
+
+	t.Run("logs prompt when verbose", func(t *testing.T) {
+		var buf bytes.Buffer
+		ctx := &execcontext.Context{}
+		ctx.SetVerbose(true)
+		ctx.SetOutput(output.NewClient(&buf, &buf, true))
+
+		mockOC := &opencode.MockOC{
+			RunCommandFunc: func(_ context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+				return writeOutputFromPrompt(prompt, "result")
+			},
+		}
+		_, err := GeneratePRSummary(ctx, mockOC, "Test", "Active", "main", "abc\n")
+		require.NoError(t, err)
+		assert.Contains(t, buf.String(), "Project:")
+		assert.Contains(t, buf.String(), "Test")
+	})
+
+	t.Run("does not log when not verbose", func(t *testing.T) {
+		var buf bytes.Buffer
+		ctx := &execcontext.Context{}
+		ctx.SetVerbose(false)
+		ctx.SetOutput(output.NewClient(&buf, &buf, false))
+
+		mockOC := &opencode.MockOC{
+			RunCommandFunc: func(_ context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+				return writeOutputFromPrompt(prompt, "result")
+			},
+		}
+		_, err := GeneratePRSummary(ctx, mockOC, "Test", "Active", "main", "abc\n")
+		require.NoError(t, err)
+		assert.Empty(t, buf.String())
+	})
+}
+
+func TestGenerateReviewPRBody(t *testing.T) {
+	dir := t.TempDir()
+	testutil.InitGitRepo(t, dir)
+	t.Chdir(dir)
+
+	errCommandFailed := errors.New("command failed")
+
+	tests := []struct {
+		name         string
+		projectName  string
+		projectDesc  string
+		requirements []string
+		setupMock    func(*testing.T) *opencode.MockOC
+		want         string
+		wantErr      string
+		wantErrIs    error
+	}{
+		{
+			name:         "success returns trimmed body and cleans up temp file",
+			projectName:  "my-project",
+			projectDesc:  "Test project description",
+			requirements: []string{"- **security**: JWT validation", "- **style**: naming"},
+			setupMock: func(t *testing.T) *opencode.MockOC {
+				return &opencode.MockOC{
+					RunCommandFunc: func(_ context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+						return writeOutputFromPrompt(prompt, "  expected review body\n")
+					},
+				}
+			},
+			want: "expected review body",
+		},
+		{
+			name:         "runcommand error is wrapped and temp file cleaned up",
+			projectName:  "my-project",
+			projectDesc:  "Test project description",
+			requirements: []string{"- **security**: JWT validation"},
+			setupMock: func(t *testing.T) *opencode.MockOC {
+				return &opencode.MockOC{
+					RunCommandFunc: func(_ context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+						return errCommandFailed
+					},
+				}
+			},
+			wantErr:   "opencode execution failed:",
+			wantErrIs: errCommandFailed,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := &execcontext.Context{}
+			mockOC := tt.setupMock(t)
+			result, err := GenerateReviewPRBody(ctx, mockOC, tt.projectName, tt.projectDesc, tt.requirements)
+
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+				if tt.wantErrIs != nil {
+					assert.True(t, errors.Is(err, tt.wantErrIs), "wrapped error should be reachable via errors.Is")
+				}
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.want, result)
+			}
+
+			assertTempFileCleanedUp(t, dir, "review-pr-body")
+		})
+	}
+
+	t.Run("prompt contains expected inputs", func(t *testing.T) {
+		var capturedPrompt string
+		mockOC := &opencode.MockOC{
+			RunCommandFunc: func(_ context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+				capturedPrompt = prompt
+				return writeOutputFromPrompt(prompt, "result")
+			},
+		}
+		ctx := &execcontext.Context{}
+		_, err := GenerateReviewPRBody(ctx, mockOC, "MyProject", "Auth review", []string{"- **security**: JWT", "- **style**: naming"})
+		require.NoError(t, err)
+		assert.Contains(t, capturedPrompt, "MyProject")
+		assert.Contains(t, capturedPrompt, "Auth review")
+		assert.Contains(t, capturedPrompt, "JWT")
+		assert.Contains(t, capturedPrompt, "naming")
+	})
+
+	t.Run("logs prompt when verbose", func(t *testing.T) {
+		var buf bytes.Buffer
+		ctx := &execcontext.Context{}
+		ctx.SetVerbose(true)
+		ctx.SetOutput(output.NewClient(&buf, &buf, true))
+
+		mockOC := &opencode.MockOC{
+			RunCommandFunc: func(_ context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+				return writeOutputFromPrompt(prompt, "result")
+			},
+		}
+		_, err := GenerateReviewPRBody(ctx, mockOC, "P", "D", []string{"req1"})
+		require.NoError(t, err)
+		assert.Contains(t, buf.String(), "Review Name:")
+		assert.Contains(t, buf.String(), "P")
+	})
+
+	t.Run("does not log when not verbose", func(t *testing.T) {
+		var buf bytes.Buffer
+		ctx := &execcontext.Context{}
+		ctx.SetVerbose(false)
+		ctx.SetOutput(output.NewClient(&buf, &buf, false))
+
+		mockOC := &opencode.MockOC{
+			RunCommandFunc: func(_ context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+				return writeOutputFromPrompt(prompt, "result")
+			},
+		}
+		_, err := GenerateReviewPRBody(ctx, mockOC, "P", "D", []string{"req1"})
+		require.NoError(t, err)
+		assert.Empty(t, buf.String())
+	})
 }

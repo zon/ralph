@@ -78,7 +78,7 @@ requirements:
           A test covers the verbose-logging branch for each function: when ctx.IsVerbose() is true, the built prompt is written via ctx.Output().Debug before the agent runs.
         - |
           Tests use testify assert/require, t.Run() subtests, and a table-driven structure consistent with internal/ai/prompt_test.go.
-      passing: false
+      passing: true
     - slug: test-generate-changelog
       description: |
         Add unit tests for GenerateChangelog in internal/ai/ai.go, covering its temp-file lifecycle including the rename to report.md that distinguishes it from GeneratePRSummary and GenerateReviewPRBody.
