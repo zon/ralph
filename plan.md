@@ -6,15 +6,15 @@ the `ralph-review-module` skill, and report or fix any gaps found.
 
 ## Implementation
 
-- [ ] `internal/workflow`
-- [ ] `internal/ai`
-- [ ] `internal/opencode`
-- [ ] `internal/argo`
-- [ ] `internal/k8s`
-- [ ] `internal/git`
-- [ ] `internal/workspace`
-- [ ] `internal/github`
-- [ ] `internal/config`
+- [x] `internal/workflow`
+- [x] `internal/ai`
+- [x] `internal/opencode`
+- [x] `internal/argo`
+- [x] `internal/k8s`
+- [x] `internal/git`
+- [x] `internal/workspace`
+- [x] `internal/github`
+- [x] `internal/config`
 - [ ] `internal/webhookconfig`
 - [ ] `internal/notify`
 - [ ] `internal/version`

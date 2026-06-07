@@ -1,0 +1,51 @@
+slug: workflow-remove-dead-test-scaffolding
+title: Remove dead mock/interface scaffolding from internal/workflow
+maxIterations: 10
+requirements:
+    - slug: remove-unused-generate-test-mocks
+      description: |
+        Delete the unused interfaces and mock types at the top of internal/workflow/generate_test.go (lines 19-121): ConfigLoader, mockConfig, FileSystem, mockFileSystem, GitClient, mockGit, GitHubClient, mockGitHub.
+      items:
+        - |
+          internal/workflow/generate_test.go no longer declares the ConfigLoader interface or the mockConfig struct and its LoadConfig method.
+        - |
+          internal/workflow/generate_test.go no longer declares the FileSystem interface or the mockFileSystem struct and its Getwd/ReadFile methods.
+        - |
+          internal/workflow/generate_test.go no longer declares the GitClient interface or the mockGit struct and its FindRepoRoot/RemoteURL/CurrentBranch methods.
+        - |
+          internal/workflow/generate_test.go no longer declares the GitHubClient interface or the mockGitHub struct and its GetRepo/ParseRemoteURL methods.
+        - |
+          These types are confirmed dead: grep the file (and the rest of internal/workflow) for "&mockConfig{", "&mockFileSystem{", "&mockGit{", and "&mockGitHub{" — none of these constructions exist anywhere, because GenerateWorkflow now calls config.LoadConfig, os.Getwd, os.ReadFile, and githubpkg.ParseRemoteURL directly, and is exercised in tests via GenerateWorkflowWithGitInfo with plain structs and strings, not injected interfaces.
+        - |
+          After removing the types, any import in internal/workflow/generate_test.go that becomes unused as a result (for example "fmt", if its only remaining use was inside mockFileSystem.ReadFile) is also removed. Imports that remain in use elsewhere in the file (for example githubpkg, used by GenerateWorkflowWithGitInfo test calls and ParseRemoteURL assertions) are left untouched.
+        - |
+          No other code in internal/workflow or elsewhere references ConfigLoader, mockConfig, FileSystem, mockFileSystem, GitClient, mockGit, GitHubClient, or mockGitHub after the change (grep returns no matches outside of this edit's diff).
+        - |
+          go vet ./internal/workflow/... and go test ./internal/workflow/... pass after the deletion, with no compile errors from dangling references or unused imports.
+      passing: false
+    - slug: remove-unused-client-interface
+      description: |
+        Remove the unused Client interface and its compile-time assertion from internal/workflow/client_mock.go, keeping MockClient, ThatFailsOnSubmit, and ThatFailsOnFollow unchanged.
+      items:
+        - |
+          internal/workflow/client_mock.go no longer declares a Client interface (the Submit/FollowLogs/PrintLogHint method set previously defined at the top of the file).
+        - |
+          internal/workflow/client_mock.go no longer contains the compile-time assertion "var _ Client = (*MockClient)(nil)".
+        - |
+          MockClient (with its SubmitFunc/FollowLogsFunc/PrintLogHintFunc function fields and Submit/FollowLogs/PrintLogHint methods), ThatFailsOnSubmit, and ThatFailsOnFollow remain exactly as they are today — only the interface declaration and its assertion are removed.
+        - |
+          Confirm before removing that workflow.Client is referenced nowhere else in the codebase (grep for "workflow\.Client\b" returns no results): the real consumer, internal/orchestration/run, defines its own structurally-identical WorkflowClient interface in runner.go, and the real implementation (workflowClientAdapter) lives in internal/cmd — neither depends on internal/workflow's Client type, and MockClient satisfies orchestrationRun.WorkflowClient structurally without it.
+        - |
+          go vet ./internal/workflow/... and go test ./internal/workflow/... pass after the deletion, with no compile errors.
+      passing: false
+    - slug: verify-dependents-still-pass
+      description: |
+        Confirm that packages depending on internal/workflow (especially internal/orchestration/run, which imports workflow.MockClient and workflow.ThatFailsOnSubmit/ThatFailsOnFollow) still build and pass their tests after both deletions, since this change must be purely subtractive with no behavioral impact.
+      items:
+        - |
+          go build ./... succeeds with no compile errors anywhere in the repository.
+        - |
+          go test ./internal/orchestration/run/... passes, including the tests in remote_runner_test.go and mock_test.go that construct workflow.MockClient{}, workflow.ThatFailsOnSubmit(), and workflow.ThatFailsOnFollow().
+        - |
+          go test ./internal/cmd/... passes, including any tests covering workflowClientAdapter in workflow_client.go.
+      passing: false
