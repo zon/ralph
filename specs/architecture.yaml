@@ -68,8 +68,20 @@ modules:
   - path: internal/project
     description: Loads and validates project YAML files and tracks requirement completion across iterations.
     category: orchestration
-  - path: internal/validate
+  - path: internal/orchestration/validate
     description: Orchestrates a bounded fix loop that repairs invalid project YAML files using an AI agent.
+    category: orchestration
+  - path: internal/orchestration/setup
+    description: Coordinates the full skill setup lifecycle for a repository.
+    category: orchestration
+  - path: internal/orchestration/setconfig
+    description: Orchestrates the ralph CLI set-config subcommand — resolving the Kubernetes context and configuring GitHub and OpenCode credentials.
+    category: orchestration
+  - path: internal/orchestration/webhooksetconfig
+    description: Orchestrates the ralph-webhook set-config subcommand — building and writing service configuration, generating and writing secrets, and registering webhooks.
+    category: orchestration
+  - path: internal/orchestration/workflowtoken
+    description: Orchestrates generating a scoped GitHub workflow token for a repository and configuring git to authenticate with it.
     category: orchestration
   - path: internal/webhook
     description: HTTP server that receives GitHub webhook events and dispatches corresponding workflow runs.
@@ -80,17 +92,11 @@ modules:
   - path: internal/provisioning
     description: Provisions webhook configuration and secrets into a Kubernetes cluster.
     category: orchestration
-  - path: internal/setup
-    description: Coordinates the full skill setup lifecycle for a repository.
-    category: orchestration
   - path: internal/skills
     description: Manages the full lifecycle of ralph skills within a repository.
     category: orchestration
   - path: internal/architecture
     description: Defines and persists the architecture YAML schema for module documentation and review.
-    category: orchestration
-  - path: internal/review
-    description: Expands review iterations by reading architecture files and partitioning work into units.
     category: orchestration
   - path: internal/services
     description: Manages the lifecycle of before-commands and long-running services declared in project configuration.
@@ -118,6 +124,9 @@ modules:
     category: implementation
   - path: internal/git
     description: Thin wrapper around the git CLI for repository operations.
+    category: implementation
+  - path: internal/workspace
+    description: Filesystem helpers for preparing the container workspace — credential placement, repo checkout, and directory changes.
     category: implementation
   - path: internal/github
     description: Wrapper around the gh CLI for GitHub API operations and authentication.
