@@ -131,7 +131,9 @@ func TestPushScriptContentsValid(t *testing.T) {
 	}
 
 	for _, element := range requiredElements {
-		assert.Contains(t, script, element.pattern, "Push script should contain: %s", element.name)
+		t.Run(element.name, func(t *testing.T) {
+			assert.Contains(t, script, element.pattern, "Push script should contain: %s", element.name)
+		})
 	}
 }
 

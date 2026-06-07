@@ -39,7 +39,7 @@ requirements:
           variable, Tag variable, Podman build command, Podman push command, Containerfile
           reference) still runs and asserts exactly as before — only the test's structure
           changes (bare loop -> t.Run subtests), not the cases, patterns, or assertions.
-      passing: false
+      passing: true
     - slug: subtest-push-script-env-vars-check
       description: |
         Convert TestPushScriptUsesEnvironmentVariables in internal/docker/docker_test.go to
