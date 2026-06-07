@@ -21,7 +21,7 @@ requirements:
           Ralph binary, Git, Pulumi, jq) still runs and asserts exactly as before — only the
           test's structure changes (bare loop -> t.Run subtests), not the cases, search terms,
           or assertions.
-      passing: false
+      passing: true
     - slug: subtest-push-script-contents-check
       description: |
         Convert TestPushScriptContentsValid in internal/docker/docker_test.go to use t.Run()

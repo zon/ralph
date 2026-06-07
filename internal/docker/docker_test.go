@@ -62,14 +62,16 @@ func TestDockerfileContainsRequiredComponents(t *testing.T) {
 	}
 
 	for _, component := range requiredComponents {
-		found := false
-		for _, term := range component.searchTerms {
-			if strings.Contains(strings.ToLower(dockerfile), strings.ToLower(term)) {
-				found = true
-				break
+		t.Run(component.name, func(t *testing.T) {
+			found := false
+			for _, term := range component.searchTerms {
+				if strings.Contains(strings.ToLower(dockerfile), strings.ToLower(term)) {
+					found = true
+					break
+				}
 			}
-		}
-		assert.True(t, found, "Containerfile should contain required component: %s", component.name)
+			assert.True(t, found, "Containerfile should contain required component: %s", component.name)
+		})
 	}
 }
 
