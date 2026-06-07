@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,6 +16,7 @@ import (
 	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/opencode"
 	"github.com/zon/ralph/internal/output"
+	"github.com/zon/ralph/internal/testutil"
 )
 
 func TestBuildLoopItemPrompt(t *testing.T) {
@@ -398,4 +400,31 @@ func TestRunOpenCodeAndReadResultVerboseWiring(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCreateTempFile(t *testing.T) {
+	dir := t.TempDir()
+	testutil.InitGitRepo(t, dir)
+	t.Chdir(dir)
+
+	f, err := createTempFile("example.md")
+	require.NoError(t, err)
+	require.NotNil(t, f)
+	defer f.Close()
+
+	expectedPrefix := filepath.Join(dir, "tmp", "example-")
+	assert.True(t, strings.HasPrefix(f.Name(), expectedPrefix),
+		"expected path starting with %q, got %q", expectedPrefix, f.Name())
+	assert.True(t, strings.HasSuffix(f.Name(), ".md"),
+		"expected .md extension, got %q", f.Name())
+
+	_, err = os.Stat(filepath.Join(dir, "tmp"))
+	assert.NoError(t, err, "tmp/ directory should exist")
+
+	_, err = os.Stat(f.Name())
+	assert.NoError(t, err, "file should exist on disk")
+
+	n, err := f.WriteString("test content")
+	assert.NoError(t, err)
+	assert.Positive(t, n)
 }

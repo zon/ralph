@@ -59,7 +59,7 @@ requirements:
           The test closes and removes the created file (or relies on t.TempDir() cleanup) so it leaves no residue.
         - |
           Test uses testify assert/require.
-      passing: false
+      passing: true
     - slug: test-generate-pr-summary-and-review-pr-body
       description: |
         Add unit tests for GeneratePRSummary and GenerateReviewPRBody in internal/ai/ai.go, covering the full temp-file-create, prompt-build, run, read-result, and cleanup lifecycle.
