@@ -36,5 +36,5 @@ Reviewed last — entry modules wire everything else, so review them once their
 dependencies' compliance is known.
 
 - [x] `cmd/ralph`
-- [ ] `cmd/ralph-webhook`
+- [x] `cmd/ralph-webhook`
 - [ ] `internal/cmd`
