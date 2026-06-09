@@ -28,7 +28,7 @@ requirements:
       items:
         - In internal/git/config_test.go, the subtest "lists global config" calls ConfigList(true) which shells out to git config --global --list against the developer's real ~/.gitconfig — no HOME isolation is applied
         - Before calling ConfigList(true), set t.Setenv("HOME", t.TempDir()) so that git reads from an empty isolated home directory; the test should then assert that the output is empty (not just non-nil), since a clean git home has no global config
-      passing: false
+      passing: true
     - slug: webhooksetconfig-missing-error-paths
       description: Add test coverage for three untested error paths in webhooksetconfig.Run
       items:
