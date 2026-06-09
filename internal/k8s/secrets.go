@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	GitHubSecretName = "github-credentials"
+	GitHubSecretName   = "github-credentials"
 	OpenCodeSecretName = "opencode-credentials"
 )
 
