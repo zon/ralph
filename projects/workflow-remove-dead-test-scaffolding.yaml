@@ -48,4 +48,4 @@ requirements:
           go test ./internal/orchestration/run/... passes, including the tests in remote_runner_test.go and mock_test.go that construct workflow.MockClient{}, workflow.ThatFailsOnSubmit(), and workflow.ThatFailsOnFollow().
         - |
           go test ./internal/cmd/... passes, including any tests covering workflowClientAdapter in workflow_client.go.
-      passing: false
+      passing: true
