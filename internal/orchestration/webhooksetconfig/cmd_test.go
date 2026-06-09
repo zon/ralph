@@ -26,13 +26,12 @@ func TestRunHaltsOnConfigWriteFailure(t *testing.T) {
 	require.False(t, secrets.writeCalled())
 }
 
-func TestRunContinuesAfterWebhookRegistrationFailure(t *testing.T) {
-	cmd := webhooksetconfig.withMocks(
-		webhooksetconfig.withGitHub(github.thatFailsRegistration()),
-	)
+func TestRunCallsWebhookRegistration(t *testing.T) {
+	cmd := webhooksetconfig.withMocks()
 	err := cmd.Run(flags.any())
 
 	require.NoError(t, err)
+	require.True(t, github.registerCalled())
 	require.True(t, secrets.writeCalled())
 }
 

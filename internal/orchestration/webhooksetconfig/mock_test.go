@@ -183,10 +183,8 @@ type githubHelper struct{}
 
 var github = &githubHelper{}
 
-func (h *githubHelper) thatFailsRegistration() *mockGitHubClient {
-	return &mockGitHubClient{
-		registerWebhooksFunc: func(WebhookSecrets) {},
-	}
+func (h *githubHelper) registerCalled() bool {
+	return mockGH != nil && mockGH.registerCalled
 }
 
 type ctxHelper struct{}

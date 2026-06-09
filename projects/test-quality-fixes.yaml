@@ -14,7 +14,7 @@ requirements:
         - In internal/orchestration/webhooksetconfig/cmd_test.go, TestRunContinuesAfterWebhookRegistrationFailure calls github.thatFailsRegistration() which sets a no-op func — but RegisterWebhooks has no error return so no failure can be injected
         - In internal/orchestration/webhooksetconfig/mock_test.go, thatFailsRegistration() sets a no-op func that is identical to the default behavior; the helper is misleading and should be removed
         - Rename the test to TestRunCallsWebhookRegistration and remove the thatFailsRegistration helper; use the default mock (no override needed) and assert that registerCalled is true on the mockGitHubClient
-      passing: false
+      passing: true
     - slug: github-client-configure-git-auth-isolation
       description: Abstract ConfigureGitAuth behind an interface so the client test can mock it
       items:
