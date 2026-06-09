@@ -1,0 +1,70 @@
+slug: test-quality-fixes
+title: Fix 10 test quality issues found in code review
+maxIterations: 10
+requirements:
+    - slug: workflow-token-notnil-assert
+      description: Replace always-true assert.NotNil on a string field with a meaningful assertion
+      items:
+        - In internal/cmd/workflow_token_test.go line 81, cmd.Workflow.Token is a value type (WorkflowTokenCmd struct) and cmd.Workflow.Token.Owner is a string — assert.NotNil on either always passes
+        - Replace assert.NotNil(t, cmd.Workflow.Token.Owner) with assert.Empty(t, cmd.Workflow.Token.Owner) to assert the field parsed to its zero value when no flag is provided
+      passing: false
+    - slug: webhooksetconfig-failing-registration-test
+      description: Remove or rename the misleading TestRunContinuesAfterWebhookRegistrationFailure test
+      items:
+        - In internal/orchestration/webhooksetconfig/cmd_test.go, TestRunContinuesAfterWebhookRegistrationFailure calls github.thatFailsRegistration() which sets a no-op func — but RegisterWebhooks has no error return so no failure can be injected
+        - In internal/orchestration/webhooksetconfig/mock_test.go, thatFailsRegistration() sets a no-op func that is identical to the default behavior; the helper is misleading and should be removed
+        - Rename the test to TestRunCallsWebhookRegistration and remove the thatFailsRegistration helper; use the default mock (no override needed) and assert that registerCalled is true on the mockGitHubClient
+      passing: false
+    - slug: github-client-configure-git-auth-isolation
+      description: Abstract ConfigureGitAuth behind an interface so the client test can mock it
+      items:
+        - In internal/github/client.go, ConfigureGitAuth is called directly at line 50 when ctx.IsWorkflowExecution() is true — this is a concrete call that cannot be replaced in tests
+        - Define a GitAuthConfigurer interface in internal/github with a single method ConfigureGitAuth(ctx context.Context, owner, repo, secretsDir string) error
+        - Add a gitAuthConfigurer field to the Client struct and set it to the real ConfigureGitAuth function wrapped in a struct implementing the interface when constructing via NewClient
+        - In TestClientCreatePR_WorkflowExecutionCallsConfigureGitAuth, inject a mock GitAuthConfigurer that records whether it was called and returns an error — assert it was called rather than asserting on the real error message
+      passing: false
+    - slug: git-config-global-isolation
+      description: Isolate TestConfigList from the host machine's real global git config
+      items:
+        - In internal/git/config_test.go, the subtest "lists global config" calls ConfigList(true) which shells out to git config --global --list against the developer's real ~/.gitconfig — no HOME isolation is applied
+        - Before calling ConfigList(true), set t.Setenv("HOME", t.TempDir()) so that git reads from an empty isolated home directory; the test should then assert that the output is empty (not just non-nil), since a clean git home has no global config
+      passing: false
+    - slug: webhooksetconfig-missing-error-paths
+      description: Add test coverage for three untested error paths in webhooksetconfig.Run
+      items:
+        - internal/orchestration/webhooksetconfig/cmd.go calls Config.Read after Config.Write, then Secrets.Generate, then Secrets.Write — all three return errors that Run propagates, but none have test coverage
+        - Add TestRunHaltsOnConfigReadFailure — inject config.thatFailsRead() using a new thatFailsRead helper on configHelper that sets readFunc to return errMock; assert require.Error and require.False(secrets.generateCalled())
+        - Add TestRunHaltsOnSecretsGenerateFailure — inject secrets.thatFailsGenerate() using a new thatFailsGenerate helper on secretsHelper that sets generateFunc to return errMock; assert require.Error and require.False(secrets.writeCalled())
+        - Add TestRunHaltsOnSecretsWriteFailure — inject secrets.thatFailsWrite() using a new thatFailsWrite helper on secretsHelper that sets writeFunc to return errMock; assert require.Error
+      passing: false
+    - slug: setconfig-missing-error-paths
+      description: Add test coverage for two untested error paths in setconfig.Run
+      items:
+        - internal/orchestration/setconfig/cmd.go returns early if SecretExists returns (_, err) or if Configure returns an error — neither path has test coverage
+        - Add TestRunHaltsOnSecretExistsError — inject a github mock whose secretExistsFunc returns (false, errMock); use setconfig.withGitHub with a new thatFailsSecretExists helper on githubHelper; assert require.Error and require.False(github.validateCalled())
+        - Add TestRunHaltsOnGitHubConfigureFailure — inject a github mock that succeeds Validate but whose configureFunc returns errMock; use a new thatFailsConfigure helper on githubHelper; assert require.Error
+      passing: false
+    - slug: workflowtoken-duplicate-scenarios
+      description: Remove duplicate test scenarios in workflowtoken that cover identical code paths
+      items:
+        - In internal/orchestration/workflowtoken/workflow_token_test.go, TestScenarioSuccessfulTokenGeneration is byte-for-byte identical to TestRunGeneratesTokenAndConfiguresAuth — same mock setup, same two assertions; remove TestScenarioSuccessfulTokenGeneration
+        - TestScenarioMissingCredentials and TestScenarioInvalidCredentials are also byte-for-byte identical — both call github.thatFailsTokenGeneration() and make the same two assertions with only the message strings differing; remove TestScenarioInvalidCredentials and rename TestScenarioMissingCredentials to TestRunHaltsOnTokenGenerationFailure to avoid duplicating TestRunPropagatesTokenGenerationFailure; if TestRunPropagatesTokenGenerationFailure already covers the same assertions, remove TestScenarioMissingCredentials too and keep only the original
+      passing: false
+    - slug: workflow-sanitizename-trun
+      description: Wrap TestSanitizeName table cases in t.Run() subtests
+      items:
+        - In internal/workflow/scripts_test.go, TestSanitizeName iterates 12 table cases in a plain for loop with no t.Run() — a failure on any case reports only the loop line with no subtest name
+        - Each table entry has an input and expected field but no name field; add a name string field to the table struct and populate it for all 12 entries, then replace the loop body with t.Run(tt.name, func(t *testing.T) { ... })
+      passing: false
+    - slug: git-commit-raw-fatalf
+      description: Replace raw t.Fatalf calls with require.NoError in commit_test.go
+      items:
+        - 'In internal/git/commit_test.go, lines 22, 52, 229, 247, and 271 use raw t.Fatalf("Failed to create/modify test file: %v", err) for os.WriteFile errors — these bypass testify''s assertion chain'
+        - Replace each t.Fatalf(..., err) call with require.NoError(t, err) from github.com/stretchr/testify/require
+      passing: false
+    - slug: git-branch-raw-fatalf
+      description: Replace raw t.Fatalf calls with require.NoError in branch_test.go
+      items:
+        - In internal/git/branch_test.go, lines 96, 104, 141, 148, 278, 284, 290, 296, 307, and 316 use raw t.Fatalf for git exec errors in test setup (rev-parse HEAD, git checkout, git init --bare, git clone, git push)
+        - Replace each t.Fatalf(..., err) call with require.NoError(t, err) or require.NoError(t, err, "descriptive message") from github.com/stretchr/testify/require
+      passing: false
