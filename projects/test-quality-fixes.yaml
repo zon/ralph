@@ -55,7 +55,7 @@ requirements:
       items:
         - In internal/workflow/scripts_test.go, TestSanitizeName iterates 12 table cases in a plain for loop with no t.Run() — a failure on any case reports only the loop line with no subtest name
         - Each table entry has an input and expected field but no name field; add a name string field to the table struct and populate it for all 12 entries, then replace the loop body with t.Run(tt.name, func(t *testing.T) { ... })
-      passing: false
+      passing: true
     - slug: git-commit-raw-fatalf
       description: Replace raw t.Fatalf calls with require.NoError in commit_test.go
       items:

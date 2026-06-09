@@ -38,27 +38,30 @@ func TestBuildVolumeMounts_WorkspacePrefix(t *testing.T) {
 
 func TestSanitizeName(t *testing.T) {
 	tests := []struct {
+		name     string
 		input    string
 		expected string
 	}{
-		{"my-config", "my-config"},
-		{"my_config", "my-config"},
-		{"my.config", "my-config"},
-		{"MyConfig", "myconfig"},
-		{"my_config.map", "my-config-map"},
-		{"my/config", "my-config"},
-		{"my/branch.name", "my-branch-name"},
-		{"MY_BRANCH", "my-branch"},
-		{"feature/123-add-thing", "feature-123-add-thing"},
-		{"feature@special!", "feature-special"},
-		{"123-branch", "branch-123-branch"},
-		{"---test---", "test"},
-		{"", "default"},
+		{name: "hyphen", input: "my-config", expected: "my-config"},
+		{name: "underscore", input: "my_config", expected: "my-config"},
+		{name: "dot", input: "my.config", expected: "my-config"},
+		{name: "camelcase", input: "MyConfig", expected: "myconfig"},
+		{name: "mixed_separators", input: "my_config.map", expected: "my-config-map"},
+		{name: "slash", input: "my/config", expected: "my-config"},
+		{name: "slash_and_dot", input: "my/branch.name", expected: "my-branch-name"},
+		{name: "uppercase_with_underscore", input: "MY_BRANCH", expected: "my-branch"},
+		{name: "feature_branch_with_numbers", input: "feature/123-add-thing", expected: "feature-123-add-thing"},
+		{name: "special_characters", input: "feature@special!", expected: "feature-special"},
+		{name: "leading_digits", input: "123-branch", expected: "branch-123-branch"},
+		{name: "leading_only_dashes", input: "---test---", expected: "test"},
+		{name: "empty_string", input: "", expected: "default"},
 	}
 
 	for _, tt := range tests {
-		result := sanitizeName(tt.input)
-		assert.Equal(t, tt.expected, result, "sanitizeName should return expected value")
+		t.Run(tt.name, func(t *testing.T) {
+			result := sanitizeName(tt.input)
+			assert.Equal(t, tt.expected, result, "sanitizeName should return expected value")
+		})
 	}
 }
 
