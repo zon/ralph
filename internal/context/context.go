@@ -44,7 +44,6 @@ func NewContext() *Context {
 	}
 }
 
-// GoContext returns the underlying standard context.Context.
 func (c *Context) GoContext() context.Context {
 	return c.goCtx
 }
@@ -56,17 +55,14 @@ func (c *Context) WithGoContext(goCtx context.Context) *Context {
 	return &newCtx
 }
 
-// Output returns the output client
 func (c *Context) Output() *output.Client {
 	return c.out
 }
 
-// SetOutput sets the output client
 func (c *Context) SetOutput(out *output.Client) {
 	c.out = out
 }
 
-// IsVerbose returns true if verbose logging is enabled
 func (c *Context) IsVerbose() bool {
 	return c.verbose
 }
@@ -75,37 +71,30 @@ func (c *Context) NoNotify() bool {
 	return c.noNotify
 }
 
-// NoServices returns true if services should be skipped
 func (c *Context) NoServices() bool {
 	return c.noServices
 }
 
-// IsLocal returns true if running locally instead of submitting to Argo Workflows
 func (c *Context) IsLocal() bool {
 	return c.local
 }
 
-// ShouldFollow returns true if workflow logs should be followed after submission
 func (c *Context) ShouldFollow() bool {
 	return c.follow
 }
 
-// IsWorkflowExecution returns true if running inside a workflow container
 func (c *Context) IsWorkflowExecution() bool {
 	return c.workflowExecution
 }
 
-// SetWorkflowExecution sets whether the context is for a workflow execution
 func (c *Context) SetWorkflowExecution(workflowExecution bool) {
 	c.workflowExecution = workflowExecution
 }
 
-// RepoOwnerAndName returns the owner and repository name.
 func (c *Context) RepoOwnerAndName() (owner, name string) {
 	return c.repoOwner, c.repoName
 }
 
-// AddNote adds a runtime note to be passed to the agent
 func (c *Context) AddNote(note string) {
 	if c.notes == nil {
 		c.notes = []string{}
@@ -113,7 +102,6 @@ func (c *Context) AddNote(note string) {
 	c.notes = append(c.notes, note)
 }
 
-// HasNotes returns true if there are any notes
 func (c *Context) HasNotes() bool {
 	return len(c.notes) > 0
 }
