@@ -129,6 +129,19 @@ func (h *githubHelper) configureCalled() bool {
 	return mockGH != nil && mockGH.configureCalled
 }
 
+func (h *githubHelper) thatFailsSecretExists() *mockGitHubCredentialsClient {
+	return &mockGitHubCredentialsClient{
+		secretExistsFunc: func(K8sContext) (bool, error) { return false, errMock },
+	}
+}
+
+func (h *githubHelper) thatFailsConfigure() *mockGitHubCredentialsClient {
+	return &mockGitHubCredentialsClient{
+		validateFunc:  func(string) error { return nil },
+		configureFunc: func(K8sContext, string) error { return errMock },
+	}
+}
+
 func (h *githubHelper) thatFailsValidation() *mockGitHubCredentialsClient {
 	return &mockGitHubCredentialsClient{
 		validateFunc: func(string) error { return errMock },

@@ -1,6 +1,8 @@
 package git
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -38,9 +40,14 @@ func TestConfig(t *testing.T) {
 
 func TestConfigList(t *testing.T) {
 	t.Run("lists global config", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		err := os.WriteFile(filepath.Join(home, ".gitconfig"), nil, 0644)
+		require.NoError(t, err)
+
 		output, err := ConfigList(true)
 		require.NoError(t, err)
-		assert.NotEmpty(t, output)
+		assert.Empty(t, output)
 	})
 
 	t.Run("lists local config", func(t *testing.T) {

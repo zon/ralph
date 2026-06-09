@@ -26,14 +26,42 @@ func TestRunHaltsOnConfigWriteFailure(t *testing.T) {
 	require.False(t, secrets.writeCalled())
 }
 
-func TestRunContinuesAfterWebhookRegistrationFailure(t *testing.T) {
-	cmd := webhooksetconfig.withMocks(
-		webhooksetconfig.withGitHub(github.thatFailsRegistration()),
-	)
+func TestRunCallsWebhookRegistration(t *testing.T) {
+	cmd := webhooksetconfig.withMocks()
 	err := cmd.Run(flags.any())
 
 	require.NoError(t, err)
+	require.True(t, github.registerCalled())
 	require.True(t, secrets.writeCalled())
+}
+
+func TestRunHaltsOnConfigReadFailure(t *testing.T) {
+	cmd := webhooksetconfig.withMocks(
+		webhooksetconfig.withConfig(config.thatFailsRead()),
+	)
+	err := cmd.Run(flags.any())
+
+	require.Error(t, err)
+	require.False(t, secrets.generateCalled())
+}
+
+func TestRunHaltsOnSecretsGenerateFailure(t *testing.T) {
+	cmd := webhooksetconfig.withMocks(
+		webhooksetconfig.withSecrets(secrets.thatFailsGenerate()),
+	)
+	err := cmd.Run(flags.any())
+
+	require.Error(t, err)
+	require.False(t, secrets.writeCalled())
+}
+
+func TestRunHaltsOnSecretsWriteFailure(t *testing.T) {
+	cmd := webhooksetconfig.withMocks(
+		webhooksetconfig.withSecrets(secrets.thatFailsWrite()),
+	)
+	err := cmd.Run(flags.any())
+
+	require.Error(t, err)
 }
 
 func TestRunPropagatesContextResolutionFailure(t *testing.T) {

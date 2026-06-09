@@ -13,19 +13,32 @@ import (
 	"github.com/zon/ralph/internal/project"
 )
 
+// GitAuthConfigurer configures git authentication for GitHub operations.
+type GitAuthConfigurer interface {
+	ConfigureGitAuth(ctx gocontext.Context, owner, repo, secretsDir string) error
+}
+
+type realGitAuthConfigurer struct{}
+
+func (r *realGitAuthConfigurer) ConfigureGitAuth(ctx gocontext.Context, owner, repo, secretsDir string) error {
+	return ConfigureGitAuth(ctx, owner, repo, secretsDir)
+}
+
 type Client struct {
-	ctx        *context.Context
-	baseBranch string
-	gh         GHClient
-	oc         opencode.OCClient
+	ctx               *context.Context
+	baseBranch        string
+	gh                GHClient
+	oc                opencode.OCClient
+	gitAuthConfigurer GitAuthConfigurer
 }
 
 func NewClient(ctx *context.Context, baseBranch string, gh GHClient, oc opencode.OCClient) *Client {
 	return &Client{
-		ctx:        ctx,
-		baseBranch: baseBranch,
-		gh:         gh,
-		oc:         oc,
+		ctx:               ctx,
+		baseBranch:        baseBranch,
+		gh:                gh,
+		oc:                oc,
+		gitAuthConfigurer: &realGitAuthConfigurer{},
 	}
 }
 
@@ -47,7 +60,7 @@ func (a *Client) CreatePR(proj *project.Project) error {
 
 	if a.ctx.IsWorkflowExecution() {
 		owner, repoName := a.ctx.RepoOwnerAndName()
-		if err := ConfigureGitAuth(gocontext.Background(), owner, repoName, DefaultSecretsDir); err != nil {
+		if err := a.gitAuthConfigurer.ConfigureGitAuth(gocontext.Background(), owner, repoName, DefaultSecretsDir); err != nil {
 			return fmt.Errorf("failed to refresh GitHub credentials before PR creation: %w", err)
 		}
 	}

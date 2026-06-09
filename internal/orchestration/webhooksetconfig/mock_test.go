@@ -167,12 +167,30 @@ func (h *configHelper) thatFailsWrite() *mockConfigClient {
 	}
 }
 
+func (h *configHelper) thatFailsRead() *mockConfigClient {
+	return &mockConfigClient{
+		readFunc: func(K8sContext) (webhookconfig.AppConfig, error) { return webhookconfig.AppConfig{}, errMock },
+	}
+}
+
 type secretsHelper struct{}
 
 var secrets = &secretsHelper{}
 
 func (h *secretsHelper) generateCalled() bool {
 	return mockSec != nil && mockSec.generateCalled
+}
+
+func (h *secretsHelper) thatFailsGenerate() *mockSecretsClient {
+	return &mockSecretsClient{
+		generateFunc: func(webhookconfig.AppConfig) (WebhookSecrets, error) { return WebhookSecrets{}, errMock },
+	}
+}
+
+func (h *secretsHelper) thatFailsWrite() *mockSecretsClient {
+	return &mockSecretsClient{
+		writeFunc: func(K8sContext, WebhookSecrets) error { return errMock },
+	}
 }
 
 func (h *secretsHelper) writeCalled() bool {
@@ -183,10 +201,8 @@ type githubHelper struct{}
 
 var github = &githubHelper{}
 
-func (h *githubHelper) thatFailsRegistration() *mockGitHubClient {
-	return &mockGitHubClient{
-		registerWebhooksFunc: func(WebhookSecrets) {},
-	}
+func (h *githubHelper) registerCalled() bool {
+	return mockGH != nil && mockGH.registerCalled
 }
 
 type ctxHelper struct{}

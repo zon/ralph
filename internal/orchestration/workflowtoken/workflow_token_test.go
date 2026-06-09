@@ -32,32 +32,6 @@ func TestRunPropagatesTokenGenerationFailure(t *testing.T) {
 	require.False(t, git.configureAuthCalled())
 }
 
-func TestScenarioSuccessfulTokenGeneration(t *testing.T) {
-	cmd := workflowtoken.withMocks()
-	err := cmd.Run(flags.any())
-	require.NoError(t, err)
-	require.True(t, github.generateTokenCalled(), "a GitHub App installation token should be generated")
-	require.True(t, git.configureAuthCalled(), "git HTTPS authentication should be configured")
-}
-
-func TestScenarioMissingCredentials(t *testing.T) {
-	cmd := workflowtoken.withMocks(
-		workflowtoken.withGitHub(github.thatFailsTokenGeneration()),
-	)
-	err := cmd.Run(flags.any())
-	require.Error(t, err, "an error should be returned when credentials are missing")
-	require.False(t, git.configureAuthCalled(), "no git configuration should be written")
-}
-
-func TestScenarioInvalidCredentials(t *testing.T) {
-	cmd := workflowtoken.withMocks(
-		workflowtoken.withGitHub(github.thatFailsTokenGeneration()),
-	)
-	err := cmd.Run(flags.any())
-	require.Error(t, err, "an error should be returned when the GitHub API rejects the JWT")
-	require.False(t, git.configureAuthCalled(), "no git configuration should be written")
-}
-
 func TestScenarioAutoDetectionFromGitRemote(t *testing.T) {
 	cmd := workflowtoken.withMocks(
 		workflowtoken.withRepo(repo.thatDetectsFromRemote()),

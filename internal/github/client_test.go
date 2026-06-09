@@ -2,6 +2,7 @@ package github
 
 import (
 	"context"
+	"errors"
 	"io"
 	"os"
 	"strings"
@@ -62,7 +63,27 @@ func TestClientCreatePR_DelegatesToCreatePullRequest(t *testing.T) {
 	assert.True(t, createPRCalled, "expected GHClient.CreatePR to be called")
 }
 
+type mockGitAuthConfigurer struct {
+	configureGitAuthFn func(ctx context.Context, owner, repo, secretsDir string) error
+}
+
+func (m *mockGitAuthConfigurer) ConfigureGitAuth(ctx context.Context, owner, repo, secretsDir string) error {
+	if m.configureGitAuthFn != nil {
+		return m.configureGitAuthFn(ctx, owner, repo, secretsDir)
+	}
+	return nil
+}
+
 func TestClientCreatePR_WorkflowExecutionCallsConfigureGitAuth(t *testing.T) {
+	called := false
+	mockGitAuth := &mockGitAuthConfigurer{
+		configureGitAuthFn: func(_ context.Context, owner, repo, _ string) error {
+			called = true
+			assert.Equal(t, "test-owner", owner)
+			assert.Equal(t, "test-repo", repo)
+			return errors.New("mock git auth error")
+		},
+	}
 	mock := &MockGH{
 		IsReadyFn:  func() bool { return true },
 		CreatePRFn: func(title, body, base, head string) (string, error) { return "https://github.com/o/r/p/1", nil },
@@ -86,13 +107,13 @@ func TestClientCreatePR_WorkflowExecutionCallsConfigureGitAuth(t *testing.T) {
 		GetStatsFunc: func() (opencode.Stats, error) { return opencode.Stats{}, nil },
 	}
 	client := NewClient(ctx, "main", mock, mockOC)
+	client.gitAuthConfigurer = mockGitAuth
 	proj := &project.Project{Slug: "some-branch", Title: "Test Title"}
 
 	err := client.CreatePR(proj)
-	// ConfigureGitAuth will fail in test environment (no secrets), but we verify
-	// the error is from the auth step, proving it was called.
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to refresh GitHub credentials")
+	assert.True(t, called, "expected ConfigureGitAuth to be called")
 }
 
 func TestClientCreatePR_SkipsConfigureGitAuthWhenNotWorkflow(t *testing.T) {
