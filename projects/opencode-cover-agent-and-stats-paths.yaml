@@ -54,4 +54,4 @@ requirements:
           The MockOC struct fields in internal/opencode/opencode_mock.go (RunCommandFunc, RunAgentFunc, GetStatsFunc, DisplayStatsFunc) are realigned so the file matches gofmt's canonical output — run gofmt -w on the file (or apply the equivalent whitespace change by hand) so `gofmt -l internal/opencode/opencode_mock.go` reports no files needing formatting.
         - |
           No field names, types, comments, or any other content in internal/opencode/opencode_mock.go changes — this is a whitespace-only formatting fix.
-      passing: false
+      passing: true

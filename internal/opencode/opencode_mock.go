@@ -6,9 +6,9 @@ import (
 )
 
 type MockOC struct {
-	RunCommandFunc func(ctx context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error
-	RunAgentFunc   func(ctx context.Context, model, variant, prompt string) error
-	GetStatsFunc   func() (Stats, error)
+	RunCommandFunc   func(ctx context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error
+	RunAgentFunc     func(ctx context.Context, model, variant, prompt string) error
+	GetStatsFunc     func() (Stats, error)
 	DisplayStatsFunc func() error
 }
 
