@@ -156,7 +156,7 @@ requirements:
               _, err = os.Stat(filepath.Join(repoRoot, proj.Feature, "orchestration.md"))
               return err == nil
             }
-      passing: false
+      passing: true
     - slug: project-client-remove-orchestration
       description: RemoveOrchestration on ProjectClient interface and project.Client implementation
       items:

@@ -13,6 +13,7 @@ type ProjectClient interface {
 	HasChanges(proj *project.Project) bool
 	NormalizeAndStage(proj *project.Project)
 	HasSpec(proj *project.Project) bool
+	HasOrchestration(proj *project.Project) bool
 }
 
 type AIClient interface {

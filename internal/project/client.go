@@ -56,6 +56,18 @@ func (c *Client) HasSpec(proj *Project) bool {
 	return proj.Feature != ""
 }
 
+func (c *Client) HasOrchestration(proj *Project) bool {
+	if proj.Feature == "" {
+		return false
+	}
+	repoRoot, err := git.FindRepoRoot()
+	if err != nil {
+		return false
+	}
+	_, err = os.Stat(filepath.Join(repoRoot, proj.Feature, "orchestration.md"))
+	return err == nil
+}
+
 func (c *Client) NormalizeAndStage(proj *Project) {
 	data, err := os.ReadFile(proj.Path)
 	if err != nil {
