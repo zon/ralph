@@ -92,17 +92,13 @@ func TestGetCurrentBranch_DetachedHead(t *testing.T) {
 	cmd := exec.Command("git", "rev-parse", "HEAD")
 	cmd.Dir = tempDir
 	output, err := cmd.Output()
-	if err != nil {
-		t.Fatalf("Failed to get commit hash: %v", err)
-	}
+	require.NoError(t, err, "Failed to get commit hash")
 	commitHash := string(output[:7]) // Use first 7 chars
 
 	// Checkout the commit directly (detached HEAD)
 	cmd = exec.Command("git", "checkout", commitHash)
 	cmd.Dir = tempDir
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("Failed to checkout commit: %v", err)
-	}
+	require.NoError(t, cmd.Run(), "Failed to checkout commit")
 
 	// GetCurrentBranch should return error for detached HEAD
 	_, err = GetCurrentBranch()
@@ -138,15 +134,13 @@ func TestCheckoutOrCreateBranch_ExistingRemoteBranch(t *testing.T) {
 	remoteDir := t.TempDir()
 	cmd := exec.Command("git", "init", "--bare")
 	cmd.Dir = remoteDir
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("git init --bare failed: %v\n%s", err, out)
-	}
+	_, err := cmd.CombinedOutput()
+	require.NoError(t, err, "git init --bare failed")
 
 	workDir := t.TempDir()
 	cmd = exec.Command("git", "clone", remoteDir, workDir)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("git clone failed: %v\n%s", err, out)
-	}
+	_, err = cmd.CombinedOutput()
+	require.NoError(t, err, "git clone failed")
 
 	// Configure identity
 	_ = exec.Command("git", "-C", workDir, "config", "--local", "user.email", "test@example.com").Run()
@@ -168,9 +162,8 @@ func TestCheckoutOrCreateBranch_ExistingRemoteBranch(t *testing.T) {
 	// Second clone
 	workDir2 := t.TempDir()
 	cmd = exec.Command("git", "clone", remoteDir, workDir2)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("failed to clone: %v\n%s", err, out)
-	}
+	_, err = cmd.CombinedOutput()
+	require.NoError(t, err, "failed to clone")
 
 	t.Chdir(workDir2)
 	require.NoError(t, CheckoutOrCreateBranch(branchName), "CheckoutOrCreateBranch failed")
@@ -276,15 +269,13 @@ func TestSwitchToProjectBranch_ExitingRemoteBranch(t *testing.T) {
 	remoteDir := t.TempDir()
 	cmd := exec.Command("git", "init", "--bare")
 	cmd.Dir = remoteDir
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("git init --bare failed: %v\n%s", err, out)
-	}
+	_, err := cmd.CombinedOutput()
+	require.NoError(t, err, "git init --bare failed")
 
 	workDir := t.TempDir()
 	cmd = exec.Command("git", "clone", remoteDir, workDir)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("git clone failed: %v\n%s", err, out)
-	}
+	_, err = cmd.CombinedOutput()
+	require.NoError(t, err, "git clone failed")
 
 	for _, args := range [][]string{
 		{"config", "--local", "user.email", "test@example.com"},
@@ -292,9 +283,8 @@ func TestSwitchToProjectBranch_ExitingRemoteBranch(t *testing.T) {
 	} {
 		c := exec.Command("git", args...)
 		c.Dir = workDir
-		if out, err := c.CombinedOutput(); err != nil {
-			t.Fatalf("git %v failed: %v\n%s", args, err, out)
-		}
+		_, err := c.CombinedOutput()
+		require.NoError(t, err, "git %v failed", args)
 	}
 
 	os.WriteFile(workDir+"/README.md", []byte("# test\n"), 0644)
@@ -305,9 +295,8 @@ func TestSwitchToProjectBranch_ExitingRemoteBranch(t *testing.T) {
 	} {
 		c := exec.Command("git", args...)
 		c.Dir = workDir
-		if out, err := c.CombinedOutput(); err != nil {
-			t.Fatalf("git %v failed: %v\n%s", args, err, out)
-		}
+		_, err := c.CombinedOutput()
+		require.NoError(t, err, "git %v failed", args)
 	}
 
 	branchName := "remote-branch"
@@ -320,9 +309,8 @@ func TestSwitchToProjectBranch_ExitingRemoteBranch(t *testing.T) {
 	} {
 		c := exec.Command("git", args...)
 		c.Dir = workDir
-		if out, err := c.CombinedOutput(); err != nil {
-			t.Fatalf("git %v failed: %v\n%s", args, err, out)
-		}
+		_, err := c.CombinedOutput()
+		require.NoError(t, err, "git %v failed", args)
 	}
 
 	t.Chdir(workDir)
@@ -331,7 +319,7 @@ func TestSwitchToProjectBranch_ExitingRemoteBranch(t *testing.T) {
 	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
 	ctx.SetLocal(true)
 
-	err := SwitchToProjectBranch(ctx, branchName)
+	err = SwitchToProjectBranch(ctx, branchName)
 	require.NoError(t, err, "SwitchToProjectBranch failed for existing remote branch")
 
 	currentBranch, err := GetCurrentBranch()

@@ -67,4 +67,4 @@ requirements:
       items:
         - In internal/git/branch_test.go, lines 96, 104, 141, 148, 278, 284, 290, 296, 307, and 316 use raw t.Fatalf for git exec errors in test setup (rev-parse HEAD, git checkout, git init --bare, git clone, git push)
         - Replace each t.Fatalf(..., err) call with require.NoError(t, err) or require.NoError(t, err, "descriptive message") from github.com/stretchr/testify/require
-      passing: false
+      passing: true
