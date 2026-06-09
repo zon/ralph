@@ -198,7 +198,7 @@ requirements:
                 r.notify.Success(proj.Slug)
                 return nil
             }
-      passing: false
+      passing: true
     - slug: generate-artifacts
       description: Implement Runner.generateArtifacts which returns a *project.Project from any InputFile type, invoking AI generation for orchestration and spec inputs before committing the results
       scenarios:
