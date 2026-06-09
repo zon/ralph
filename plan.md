@@ -23,7 +23,7 @@ the `ralph-review-module` skill, and report or fix any gaps found.
 
 ## Pipeline
 
-- [ ] `internal/context`
+- [x] `internal/context`
 - [ ] `internal/output`
 
 ## Lifecycle
