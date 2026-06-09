@@ -37,4 +37,4 @@ dependencies' compliance is known.
 
 - [x] `cmd/ralph`
 - [x] `cmd/ralph-webhook`
-- [ ] `internal/cmd`
+- [x] `internal/cmd`
