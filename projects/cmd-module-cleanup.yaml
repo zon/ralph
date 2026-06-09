@@ -69,7 +69,7 @@ requirements:
         - Wire commandWorkflowClient.Submit to generate and submit an Argo command workflow using workflow.GenerateCommandWorkflow and argo.NewClient(), equivalent to executeCommandRemote in execute.go
         - Wire commandWorkflowClient.StreamLogs to call argo.Client.FollowLogs with the workflow namespace and kube context
         - Thread any required context (kube context, namespace) through CommandCmd or its wiring in internal/cmd/command.go
-      passing: false
+      passing: true
     - slug: cleanup-comments-and-stale-tests
       description: Remove the multi-line comment block in kube_context.go and the stale --once test in cmd_test.go
       items:
