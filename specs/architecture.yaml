@@ -153,7 +153,7 @@ modules:
     description: Exposes the current application version string.
     category: implementation
   - path: internal/docker
-    description: Test-only package that validates the repository Containerfile.
+    description: Test-only package that validates the repository Containerfile, image push script, and container build CI workflow.
     category: implementation
   - path: internal/testutil
     description: Shared test helpers and factories used across the test suite.

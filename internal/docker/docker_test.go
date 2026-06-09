@@ -62,14 +62,16 @@ func TestDockerfileContainsRequiredComponents(t *testing.T) {
 	}
 
 	for _, component := range requiredComponents {
-		found := false
-		for _, term := range component.searchTerms {
-			if strings.Contains(strings.ToLower(dockerfile), strings.ToLower(term)) {
-				found = true
-				break
+		t.Run(component.name, func(t *testing.T) {
+			found := false
+			for _, term := range component.searchTerms {
+				if strings.Contains(strings.ToLower(dockerfile), strings.ToLower(term)) {
+					found = true
+					break
+				}
 			}
-		}
-		assert.True(t, found, "Containerfile should contain required component: %s", component.name)
+			assert.True(t, found, "Containerfile should contain required component: %s", component.name)
+		})
 	}
 }
 
@@ -129,7 +131,9 @@ func TestPushScriptContentsValid(t *testing.T) {
 	}
 
 	for _, element := range requiredElements {
-		assert.Contains(t, script, element.pattern, "Push script should contain: %s", element.name)
+		t.Run(element.name, func(t *testing.T) {
+			assert.Contains(t, script, element.pattern, "Push script should contain: %s", element.name)
+		})
 	}
 }
 
@@ -148,7 +152,9 @@ func TestPushScriptUsesEnvironmentVariables(t *testing.T) {
 	}
 
 	for _, pattern := range envVarPatterns {
-		assert.Contains(t, script, pattern, "Push script should support %s environment variable", pattern)
+		t.Run(pattern, func(t *testing.T) {
+			assert.Contains(t, script, pattern, "Push script should support %s environment variable", pattern)
+		})
 	}
 
 	assert.Contains(t, script, "ghcr.io/zon/ralph", "Push script should have default repository")
