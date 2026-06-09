@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -118,6 +119,9 @@ func (c *workflowMergeProjectClient) LoadAll() ([]*project.Project, error) {
 		return nil
 	})
 	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, nil
+		}
 		return nil, fmt.Errorf("failed to walk projects directory: %w", err)
 	}
 	return projects, nil
