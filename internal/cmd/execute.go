@@ -105,8 +105,8 @@ func executeCommandRemote(ctx *context.Context, setup *CommandSetup, argoClient 
 
 	ctx.Output().Debug("Generating command workflow...")
 	var remoteURL string
-	if ctx.Repo() != "" {
-		owner, name := ctx.RepoOwnerAndName()
+	owner, name := ctx.RepoOwnerAndName()
+	if owner != "" {
 		remoteURL = githubpkg.CloneURL(owner, name)
 	} else {
 		remoteURL, err = git.RemoteURL()

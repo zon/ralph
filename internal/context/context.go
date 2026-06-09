@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/zon/ralph/internal/output"
 )
@@ -45,7 +44,6 @@ func NewContext() *Context {
 	}
 }
 
-// GoContext returns the underlying standard context.Context.
 func (c *Context) GoContext() context.Context {
 	return c.goCtx
 }
@@ -57,61 +55,46 @@ func (c *Context) WithGoContext(goCtx context.Context) *Context {
 	return &newCtx
 }
 
-// Output returns the output client
 func (c *Context) Output() *output.Client {
 	return c.out
 }
 
-// SetOutput sets the output client
 func (c *Context) SetOutput(out *output.Client) {
 	c.out = out
 }
 
-// IsVerbose returns true if verbose logging is enabled
 func (c *Context) IsVerbose() bool {
 	return c.verbose
 }
 
-// ShouldNotify returns true if notifications should be sent
-func (c *Context) ShouldNotify() bool {
-	// Disable notifications if submitting a remote workflow without following
-	if !c.local && !c.follow {
-		return false
-	}
-	return !c.noNotify
+func (c *Context) NoNotify() bool {
+	return c.noNotify
 }
 
-// NoServices returns true if services should be skipped
 func (c *Context) NoServices() bool {
 	return c.noServices
 }
 
-// IsLocal returns true if running locally instead of submitting to Argo Workflows
 func (c *Context) IsLocal() bool {
 	return c.local
 }
 
-// ShouldFollow returns true if workflow logs should be followed after submission
 func (c *Context) ShouldFollow() bool {
 	return c.follow
 }
 
-// IsWorkflowExecution returns true if running inside a workflow container
 func (c *Context) IsWorkflowExecution() bool {
 	return c.workflowExecution
 }
 
-// SetWorkflowExecution sets whether the context is for a workflow execution
 func (c *Context) SetWorkflowExecution(workflowExecution bool) {
 	c.workflowExecution = workflowExecution
 }
 
-// RepoOwnerAndName returns the owner and repository name.
 func (c *Context) RepoOwnerAndName() (owner, name string) {
 	return c.repoOwner, c.repoName
 }
 
-// AddNote adds a runtime note to be passed to the agent
 func (c *Context) AddNote(note string) {
 	if c.notes == nil {
 		c.notes = []string{}
@@ -119,7 +102,6 @@ func (c *Context) AddNote(note string) {
 	c.notes = append(c.notes, note)
 }
 
-// HasNotes returns true if there are any notes
 func (c *Context) HasNotes() bool {
 	return len(c.notes) > 0
 }
@@ -160,15 +142,6 @@ func (c *Context) SetInstructionsMD(instructionsMD string) {
 	c.instructionsMD = instructionsMD
 }
 
-// SetRepo sets the repository using an "owner/repo" string.
-func (c *Context) SetRepo(repo string) {
-	parts := strings.SplitN(repo, "/", 2)
-	if len(parts) == 2 {
-		c.repoOwner = parts[0]
-		c.repoName = parts[1]
-	}
-}
-
 func (c *Context) SetBranch(branch string) {
 	c.branch = branch
 }
@@ -195,21 +168,6 @@ func (c *Context) SetRepoOwner(owner string) {
 
 func (c *Context) SetRepoName(name string) {
 	c.repoName = name
-}
-
-func (c *Context) RepoURL() string {
-	if c.repoOwner == "" || c.repoName == "" {
-		return ""
-	}
-	return "https://github.com/" + c.repoOwner + "/" + c.repoName + ".git"
-}
-
-// Repo returns the repository in "owner/repo" format.
-func (c *Context) Repo() string {
-	if c.repoOwner == "" || c.repoName == "" {
-		return ""
-	}
-	return c.repoOwner + "/" + c.repoName
 }
 
 func (c *Context) Branch() string {
