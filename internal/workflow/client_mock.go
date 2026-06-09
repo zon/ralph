@@ -6,12 +6,6 @@ import (
 	"github.com/zon/ralph/internal/project"
 )
 
-type Client interface {
-	Submit(proj *project.Project, cloneBranch string, debug string) (string, error)
-	FollowLogs(workflowName string) error
-	PrintLogHint(workflowName string)
-}
-
 type MockClient struct {
 	SubmitFunc       func(proj *project.Project, cloneBranch string, debug string) (string, error)
 	FollowLogsFunc   func(workflowName string) error
@@ -46,8 +40,6 @@ func (m *MockClient) PrintLogHint(workflowName string) {
 		m.PrintLogHintFunc(workflowName)
 	}
 }
-
-var _ Client = (*MockClient)(nil)
 
 func ThatFailsOnSubmit() *MockClient {
 	return &MockClient{
