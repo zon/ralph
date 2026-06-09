@@ -22,7 +22,7 @@ requirements:
           No other code in internal/workflow or elsewhere references ConfigLoader, mockConfig, FileSystem, mockFileSystem, GitClient, mockGit, GitHubClient, or mockGitHub after the change (grep returns no matches outside of this edit's diff).
         - |
           go vet ./internal/workflow/... and go test ./internal/workflow/... pass after the deletion, with no compile errors from dangling references or unused imports.
-      passing: false
+      passing: true
     - slug: remove-unused-client-interface
       description: |
         Remove the unused Client interface and its compile-time assertion from internal/workflow/client_mock.go, keeping MockClient, ThatFailsOnSubmit, and ThatFailsOnFollow unchanged.
