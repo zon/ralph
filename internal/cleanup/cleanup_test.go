@@ -68,44 +68,38 @@ func TestCleanup(t *testing.T) {
 }
 
 func TestHandleSignal(t *testing.T) {
-	m := NewManager(output.NewClient(os.Stdout, os.Stderr, false))
-
-	var exitCode int
-	var cleanupCalled bool
-	m.exitFn = func(code int) {
-		exitCode = code
-	}
-	m.RegisterCleanup(func() {
-		cleanupCalled = true
-	})
-
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-
-	go m.handleSignal(sigChan)
-
-	sigChan <- syscall.SIGTERM
-
-	assert.Eventually(t, func() bool { return cleanupCalled }, time.Second, 10*time.Millisecond)
-	assert.Eventually(t, func() bool { return exitCode == 0 }, time.Second, 10*time.Millisecond)
-}
-
-func TestHandleSignal_SIGINT(t *testing.T) {
-	m := NewManager(output.NewClient(os.Stdout, os.Stderr, false))
-
-	var exitCode int
-	m.exitFn = func(code int) {
-		exitCode = code
+	tests := []struct {
+		name string
+		sig  os.Signal
+	}{
+		{"SIGTERM", syscall.SIGTERM},
+		{"os.Interrupt", os.Interrupt},
 	}
 
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := NewManager(output.NewClient(os.Stdout, os.Stderr, false))
 
-	go m.handleSignal(sigChan)
+			var exitCode int
+			var cleanupCalled bool
+			m.exitFn = func(code int) {
+				exitCode = code
+			}
+			m.RegisterCleanup(func() {
+				cleanupCalled = true
+			})
 
-	sigChan <- os.Interrupt
+			sigChan := make(chan os.Signal, 1)
+			signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
-	assert.Eventually(t, func() bool { return exitCode == 0 }, time.Second, 10*time.Millisecond)
+			go m.handleSignal(sigChan)
+
+			sigChan <- tt.sig
+
+			assert.Eventually(t, func() bool { return cleanupCalled }, time.Second, 10*time.Millisecond)
+			assert.Eventually(t, func() bool { return exitCode == 0 }, time.Second, 10*time.Millisecond)
+		})
+	}
 }
 
 func TestCleanupIsCalledOnce(t *testing.T) {

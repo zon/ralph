@@ -34,7 +34,7 @@ requirements:
         - Each subtest verifies that the registered cleanup callback was called
         - Each subtest verifies that exitFn was called with exit code 0
         - Each subtest uses assert.Eventually for the async signal dispatch
-      passing: false
+      passing: true
     - slug: fix-testnewmanager
       description: Rewrite TestNewManager to use the public API only and delete the vacuous TestManager_InjectableExitFn
       items:
