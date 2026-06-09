@@ -7,13 +7,13 @@ import (
 )
 
 type MockGH struct {
-	IsReadyFn         func() bool
-	FindExistingPRFn  func(head string) (string, error)
-	CreatePRFn        func(title, body, base, head string) (string, error)
-	GetPRHeadRefOidFn func(pr string) (string, error)
-	MergePRFn         func(pr, repo string) error
-	ListCollaboratorsFn  func(ctx context.Context, owner, repo string) ([]string, error)
-	RegisterWebhookFn func(ctx context.Context, owner, repo, webhookURL, secret string) error
+	IsReadyFn           func() bool
+	FindExistingPRFn    func(head string) (string, error)
+	CreatePRFn          func(title, body, base, head string) (string, error)
+	GetPRHeadRefOidFn   func(pr string) (string, error)
+	MergePRFn           func(pr, repo string) error
+	ListCollaboratorsFn func(ctx context.Context, owner, repo string) ([]string, error)
+	RegisterWebhookFn   func(ctx context.Context, owner, repo, webhookURL, secret string) error
 }
 
 func (m *MockGH) IsReady() bool {

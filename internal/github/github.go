@@ -72,5 +72,3 @@ func parsePRURL(out *output.Client, output string) (string, error) {
 	out.Debugf("Created PR: %s", prURL)
 	return prURL, nil
 }
-
-

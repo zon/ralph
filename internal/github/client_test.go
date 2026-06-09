@@ -13,9 +13,9 @@ import (
 
 	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/opencode"
+	orchestrationRun "github.com/zon/ralph/internal/orchestration/run"
 	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/project"
-	orchestrationRun "github.com/zon/ralph/internal/orchestration/run"
 )
 
 func TestGitHubClientNew(t *testing.T) {
