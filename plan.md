@@ -28,7 +28,7 @@ the `ralph-review-module` skill, and report or fix any gaps found.
 
 ## Lifecycle
 
-- [ ] `internal/cleanup`
+- [x] `internal/cleanup`
 
 ## Entry
 
