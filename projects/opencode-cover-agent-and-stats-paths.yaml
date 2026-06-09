@@ -14,7 +14,7 @@ requirements:
           The test requires no PATH manipulation, fake binaries, or skip/availability gating — there is no existing precedent in the repository for conditionally skipping real-CLI dependency tests (internal/git's real-git tests, e.g. internal/git/branch_test.go, invoke the real git binary unconditionally), so this test follows the same assumption that the real binary is present in the test environment.
         - |
           The test uses testify require for its assertion and is named and structured consistently with the other tests in internal/opencode/opencode_test.go.
-      passing: false
+      passing: true
     - slug: test-is-fatal-error
       description: |
         Add table-driven coverage for the exported IsFatalError function, which checks an error's message against a fixed set of fatal-pattern substrings.

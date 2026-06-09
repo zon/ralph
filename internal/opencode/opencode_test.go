@@ -258,3 +258,10 @@ exit 1
 	expectedTail := strings.Join(expectedLines, "\n")
 	assert.Equal(t, expectedTail, tail)
 }
+
+func TestRunCommand_RealOpenCode(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	client := New()
+	err := client.RunCommand(context.Background(), "deepseek/deepseek-v4-flash", "", "say hi", &stdout, &stderr)
+	require.NoError(t, err)
+}
