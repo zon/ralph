@@ -12,6 +12,25 @@ import (
 	"github.com/zon/ralph/internal/output"
 )
 
+func TestSetupOpenCodeCredentials(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	out := output.NewClient(os.Stdout, os.Stderr, false)
+
+	err := SetupOpenCodeCredentials(out)
+	require.NoError(t, err)
+
+	openCodeDir := filepath.Join(os.Getenv("HOME"), ".local", "share", "opencode")
+	_, err = os.Stat(openCodeDir)
+	assert.NoError(t, err, "opencode directory should be created")
+
+	srcAuthFile := filepath.Join(DefaultOpenCodeSecretsDir, "auth.json")
+	if _, err := os.Stat(srcAuthFile); os.IsNotExist(err) {
+		destAuthFile := filepath.Join(openCodeDir, "auth.json")
+		_, err := os.Stat(destAuthFile)
+		assert.True(t, os.IsNotExist(err), "auth.json should not be created when no source credentials exist")
+	}
+}
+
 func TestChdir(t *testing.T) {
 	tmpDir := t.TempDir()
 	err := Chdir(tmpDir)
