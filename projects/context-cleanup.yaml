@@ -26,7 +26,7 @@ requirements:
         - In internal/cmd/workflow.go, replace ctx.SetRepo(w.Repo) with splitting w.Repo on "/" and calling ctx.SetRepoOwner + ctx.SetRepoName
         - Remove the "strings" import from internal/context/context.go if it is no longer used
         - Remove any test cases in context_test.go that test SetRepo() directly
-      passing: false
+      passing: true
     - slug: remove-redundant-comments
       description: Strip "what" comments from exported methods in context.go that merely restate the method name
       items:

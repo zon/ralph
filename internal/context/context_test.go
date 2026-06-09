@@ -254,32 +254,17 @@ func TestBaseBranch(t *testing.T) {
 func TestRepoOwnerAndName(t *testing.T) {
 	tests := []struct {
 		name        string
-		repo        string
 		repoOwner   string
 		repoName    string
 		expectOwner string
 		expectName  string
 	}{
 		{
-			name:        "SetRepo populates owner and name",
-			repo:        "owner/repo",
-			expectOwner: "owner",
-			expectName:  "repo",
-		},
-		{
 			name:        "SetRepoOwner and SetRepoName populate fields",
 			repoOwner:   "field-owner",
 			repoName:    "field-repo",
 			expectOwner: "field-owner",
 			expectName:  "field-repo",
-		},
-		{
-			name:        "SetRepo overrides previous SetRepoOwner/Name",
-			repoOwner:   "old-owner",
-			repoName:    "old-repo",
-			repo:        "new-owner/new-repo",
-			expectOwner: "new-owner",
-			expectName:  "new-repo",
 		},
 	}
 
@@ -291,9 +276,6 @@ func TestRepoOwnerAndName(t *testing.T) {
 			}
 			if tt.repoName != "" {
 				ctx.SetRepoName(tt.repoName)
-			}
-			if tt.repo != "" {
-				ctx.SetRepo(tt.repo)
 			}
 
 			owner, name := ctx.RepoOwnerAndName()

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/zon/ralph/internal/output"
 )
@@ -158,15 +157,6 @@ func (c *Context) SetInstructions(instructions string) {
 
 func (c *Context) SetInstructionsMD(instructionsMD string) {
 	c.instructionsMD = instructionsMD
-}
-
-// SetRepo sets the repository using an "owner/repo" string.
-func (c *Context) SetRepo(repo string) {
-	parts := strings.SplitN(repo, "/", 2)
-	if len(parts) == 2 {
-		c.repoOwner = parts[0]
-		c.repoName = parts[1]
-	}
 }
 
 func (c *Context) SetBranch(branch string) {
