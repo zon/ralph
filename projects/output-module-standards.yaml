@@ -6,7 +6,7 @@ requirements:
       description: Update the internal/output module description in specs/architecture.yaml to accurately reflect all message levels and stream routing.
       items:
         - In specs/architecture.yaml, change the description for path internal/output from "Prints warning and error messages to stdout with ANSI color." to "Routes debug, info, warn, error, and success messages to configurable output and error streams with ANSI color."
-      passing: false
+      passing: true
     - slug: table-driven-tests
       description: Rewrite the flat test functions in internal/output/client_test.go as table-driven subtests using t.Run(), grouped by method.
       items:
