@@ -34,7 +34,7 @@ requirements:
           internal/opencode/opencode_test.go gains TestRunAgentFailure, using the same fake-binary technique: the fake script prints more than 10 distinct lines to stdout and/or stderr and then exits non-zero. The test asserts the returned error contains both "opencode execution failed" and "Last 10 lines of output:", and that the tail portion of the error message contains only the last 10 of the lines the script printed (not the earlier ones) — directly verifying the ringWriter's 10-line bound and RunAgent's "%w\n\nLast 10 lines of output:\n%s" formatting from internal/opencode/opencode.go:66.
         - |
           Both tests use testify require/assert and follow the structure and PATH-substitution pattern already established by TestRunCommand and TestRunCommandFailure in internal/opencode/opencode_test.go — no real opencode CLI is invoked by these two tests.
-      passing: false
+      passing: true
     - slug: test-get-stats-and-display-stats
       description: |
         Add coverage for GetStats and DisplayStats, which currently have no test exercising the execOpenCode plumbing or the GetStats-to-parseStatsOutput integration.

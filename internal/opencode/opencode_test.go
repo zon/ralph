@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -186,4 +187,74 @@ exit 1
 	err = client.RunCommand(context.Background(), "test-model", "", "test-prompt", &stdout, &stderr)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "opencode command failed")
+}
+
+func TestRunAgent(t *testing.T) {
+	tmpDir := t.TempDir()
+	scriptPath := filepath.Join(tmpDir, "fake-opencode.sh")
+	outputPath := filepath.Join(tmpDir, "output.txt")
+
+	scriptContent := fmt.Sprintf(`#!/bin/bash
+echo "agent ran successfully"
+echo "done" > '%s'
+exit 0
+`, outputPath)
+	err := os.WriteFile(scriptPath, []byte(scriptContent), 0755)
+	require.NoError(t, err)
+
+	opencodePath := filepath.Join(tmpDir, "opencode")
+	err = os.Symlink(scriptPath, opencodePath)
+	require.NoError(t, err)
+
+	origPath := os.Getenv("PATH")
+	t.Setenv("PATH", tmpDir+":"+origPath)
+
+	client := New()
+	err = client.RunAgent(context.Background(), "test-model", "", "test-prompt")
+	require.NoError(t, err)
+
+	data, err := os.ReadFile(outputPath)
+	require.NoError(t, err)
+	assert.Equal(t, "done\n", string(data))
+}
+
+func TestRunAgentFailure(t *testing.T) {
+	tmpDir := t.TempDir()
+	scriptPath := filepath.Join(tmpDir, "fake-opencode.sh")
+
+	scriptContent := `#!/bin/bash
+for i in $(seq 1 15); do
+  echo "line $i"
+done
+exit 1
+`
+	err := os.WriteFile(scriptPath, []byte(scriptContent), 0755)
+	require.NoError(t, err)
+
+	opencodePath := filepath.Join(tmpDir, "opencode")
+	err = os.Symlink(scriptPath, opencodePath)
+	require.NoError(t, err)
+
+	origPath := os.Getenv("PATH")
+	t.Setenv("PATH", tmpDir+":"+origPath)
+
+	client := New()
+	err = client.RunAgent(context.Background(), "test-model", "", "test-prompt")
+	require.Error(t, err)
+
+	errMsg := err.Error()
+	assert.Contains(t, errMsg, "opencode execution failed")
+	assert.Contains(t, errMsg, "Last 10 lines of output:")
+
+	prefix := "Last 10 lines of output:\n"
+	idx := strings.Index(errMsg, prefix)
+	require.NotEqual(t, -1, idx)
+	tail := errMsg[idx+len(prefix):]
+
+	var expectedLines []string
+	for i := 6; i <= 15; i++ {
+		expectedLines = append(expectedLines, fmt.Sprintf("line %d", i))
+	}
+	expectedTail := strings.Join(expectedLines, "\n")
+	assert.Equal(t, expectedTail, tail)
 }
