@@ -58,4 +58,4 @@ requirements:
           Tests follow the conventions in docs/testing.md: table-driven with t.Run subtests where appropriate, and assertions via github.com/stretchr/testify (assert/require). t.TempDir() is not needed since this module does no filesystem I/O.
         - |
           go test ./internal/notify/... and go vet ./internal/notify/... pass with no real beeep invocations anywhere in the test suite.
-      passing: false
+      passing: true
