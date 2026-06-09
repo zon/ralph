@@ -25,8 +25,8 @@ func (a *workflowClientAdapter) Submit(input *project.InputFile, cloneBranch str
 	projectBranch := git.SanitizeBranchName(input.Slug())
 
 	var repoURL string
-	if a.ctx.Repo() != "" {
-		owner, name := a.ctx.RepoOwnerAndName()
+	owner, name := a.ctx.RepoOwnerAndName()
+	if owner != "" {
 		repoURL = githubpkg.CloneURL(owner, name)
 	} else {
 		repo, err := githubpkg.GetRepo(a.ctx.GoContext())
@@ -38,7 +38,8 @@ func (a *workflowClientAdapter) Submit(input *project.InputFile, cloneBranch str
 
 	relProjectPath := input.Path()
 	if filepath.IsAbs(relProjectPath) {
-		if a.ctx.Repo() == "" {
+		owner, _ := a.ctx.RepoOwnerAndName()
+		if owner == "" {
 			repoRoot, err := git.FindRepoRoot()
 			if err != nil {
 				return "", fmt.Errorf("failed to get repository root: %w", err)

@@ -18,7 +18,7 @@ requirements:
         - In internal/cmd/execute.go, replace the `ctx.Repo() != ""` guard with an owner check via ctx.RepoOwnerAndName()
         - In internal/cmd/workflow_client.go, replace both `a.ctx.Repo() != ""` checks with owner checks via ctx.RepoOwnerAndName()
         - Remove any imports from context.go that become unused after removing these methods
-      passing: false
+      passing: true
     - slug: remove-set-repo
       description: Remove SetRepo() from Context; update call sites to use SetRepoOwner + SetRepoName separately
       items:
