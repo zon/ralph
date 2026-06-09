@@ -52,6 +52,10 @@ func (c *Client) HasChanges(proj *Project) bool {
 	return git.HasFileChanges(proj.Path)
 }
 
+func (c *Client) HasSpec(proj *Project) bool {
+	return proj.Feature != ""
+}
+
 func (c *Client) NormalizeAndStage(proj *Project) {
 	data, err := os.ReadFile(proj.Path)
 	if err != nil {

@@ -134,7 +134,7 @@ requirements:
             func (c *Client) HasSpec(proj *Project) bool {
               return proj.Feature != ""
             }
-      passing: false
+      passing: true
     - slug: project-client-has-orchestration
       description: HasOrchestration on ProjectClient interface and project.Client implementation
       items:

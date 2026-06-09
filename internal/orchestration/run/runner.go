@@ -12,6 +12,7 @@ type ProjectClient interface {
 	MaxIterationsError(proj *project.Project) error
 	HasChanges(proj *project.Project) bool
 	NormalizeAndStage(proj *project.Project)
+	HasSpec(proj *project.Project) bool
 }
 
 type AIClient interface {
