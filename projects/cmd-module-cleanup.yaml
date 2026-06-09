@@ -61,7 +61,7 @@ requirements:
         - Add DeleteAll(projects []*Project) error to internal/project; move from workflowMergeProjectClient.DeleteAll (lines 139-147)
         - After extraction, workflowMergeGitHubClient and workflowMergeProjectClient in internal/cmd/workflow_merge.go become thin delegators
         - Add unit tests for LoadAll, FilterPassing, and DeleteAll in internal/project using t.TempDir()
-      passing: false
+      passing: true
     - slug: fix-command-workflow-client
       description: Replace the no-op commandWorkflowClient stub in internal/cmd/command.go with real Argo wiring
       items:
