@@ -84,7 +84,7 @@ requirements:
         - In internal/cmd/setup_workspace_test.go (currently empty), write tests for workspaceSetupAdapter.Setup covering the happy path and error propagation when GitHub auth fails; use mocked dependencies — no real GitHub API, gh CLI, or kubectl invocations
         - In internal/cmd/merge_test.go (currently empty), write table-driven tests for WorkflowMergeCmd.Run() and for workflowMergeProjectClient.LoadAll, FilterPassing, and DeleteAll using t.TempDir()
         - All new tests must use testify assert/require, table-driven t.Run() patterns, and t.TempDir() for filesystem interaction; no real GitHub API, gh CLI, argo, or kubectl in any test
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump
       items:
