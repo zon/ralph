@@ -69,7 +69,7 @@ requirements:
           module: internal/project
           body: |
             func ResolveInputFile(path string) (*InputFile, error)
-      passing: false
+      passing: true
     - slug: run-cmd-input-resolution
       description: Update RunCmd to resolve an InputFile instead of validating then loading a project file, and update the LocalRunnerClient and RemoteRunnerClient interfaces to accept *project.InputFile
       items:
