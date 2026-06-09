@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/zon/ralph/internal/config"
-	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/project"
 )
 
@@ -22,20 +21,18 @@ type WorkspaceClient interface {
 }
 
 type ProjectRepo interface {
-	Load(path string) (*project.Project, error)
-	ValidateFile(path string) error
+	ResolveInputFile(path string) (*project.InputFile, error)
 }
 
 type LocalRunnerClient interface {
-	RunLocal(proj *project.Project, cfg *config.RalphConfig) error
+	RunLocal(input *project.InputFile, cfg *config.RalphConfig) error
 }
 
 type RemoteRunnerClient interface {
-	Run(proj *project.Project, flags RunRemoteFlags) error
+	Run(input *project.InputFile, flags RunRemoteFlags) error
 }
 
 type ExecutionSetup struct {
-	Project       *project.Project
 	Config        *config.RalphConfig
 	BranchName    string
 	CurrentBranch string
@@ -47,7 +44,7 @@ type ExecutionSetup struct {
 
 type RunFlags struct {
 	WorkingDir    string
-	ProjectFile   string
+	InputFile     string
 	MaxIterations int
 	Local         bool
 	Follow        bool
@@ -82,30 +79,25 @@ func (r *RunCmd) Run(flags RunFlags) error {
 	if err := r.workspace.ChangeDirectory(flags.WorkingDir); err != nil {
 		return err
 	}
-	if err := r.project.ValidateFile(flags.ProjectFile); err != nil {
+	input, err := r.project.ResolveInputFile(flags.InputFile)
+	if err != nil {
 		return err
 	}
 	if err := flags.Validate(); err != nil {
 		return err
 	}
-	setup, err := r.prepareSetup(flags)
+	setup, err := r.prepareSetup(flags, input)
 	if err != nil {
 		return err
 	}
-	setup.Project.MaxIterations = setup.MaxIterations
-	setup.Project.BaseBranch = setup.BaseBranch
 	if flags.Local {
-		return r.local.RunLocal(setup.Project, setup.Config)
+		return r.local.RunLocal(input, setup.Config)
 	}
-	return r.remote.Run(setup.Project, RunRemoteFlags{Follow: flags.Follow, Debug: flags.Debug})
+	return r.remote.Run(input, RunRemoteFlags{Follow: flags.Follow, Debug: flags.Debug})
 }
 
-func (r *RunCmd) prepareSetup(flags RunFlags) (ExecutionSetup, error) {
+func (r *RunCmd) prepareSetup(flags RunFlags, input *project.InputFile) (ExecutionSetup, error) {
 	cfg, err := r.config.Load()
-	if err != nil {
-		return ExecutionSetup{}, err
-	}
-	proj, err := r.project.Load(flags.ProjectFile)
 	if err != nil {
 		return ExecutionSetup{}, err
 	}
@@ -113,14 +105,22 @@ func (r *RunCmd) prepareSetup(flags RunFlags) (ExecutionSetup, error) {
 	if err != nil {
 		return ExecutionSetup{}, err
 	}
-	projectBranch := git.SanitizeBranchName(proj.Slug)
+	projectBranch := input.Slug()
+	var baseBranch string
+	var maxIterations int
+	if input.IsProject() {
+		baseBranch = resolveBaseBranch(flags.Base, currentBranch, projectBranch, cfg.DefaultBranch)
+		maxIterations = resolveMaxIterations(cfg.MaxIterations, flags.MaxIterations)
+	} else {
+		maxIterations = resolveMaxIterations(cfg.MaxIterations, flags.MaxIterations)
+		baseBranch = ""
+	}
 	return ExecutionSetup{
-		Project:       proj,
 		Config:        cfg,
 		BranchName:    projectBranch,
 		CurrentBranch: currentBranch,
-		BaseBranch:    resolveBaseBranch(flags.Base, currentBranch, projectBranch, cfg.DefaultBranch),
-		MaxIterations: resolveMaxIterations(cfg.MaxIterations, flags.MaxIterations),
+		BaseBranch:    baseBranch,
+		MaxIterations: maxIterations,
 		Model:         flags.Model,
 		Context:       flags.Context,
 	}, nil

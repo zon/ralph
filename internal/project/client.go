@@ -15,6 +15,10 @@ func (c *Client) Load(path string) (*Project, error) {
 	return LoadProject(path)
 }
 
+func (c *Client) ResolveInputFile(path string) (*InputFile, error) {
+	return ResolveInputFile(path)
+}
+
 func (c *Client) ValidateFile(path string) error {
 	if path == "" {
 		return fmt.Errorf("project file required (see --help)")

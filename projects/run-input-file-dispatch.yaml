@@ -132,7 +132,7 @@ requirements:
                 }
                 return r.remote.Run(input, RunRemoteFlags{Follow: flags.Follow, Debug: flags.Debug})
             }
-      passing: false
+      passing: true
     - slug: runner-run-local
       description: Update Runner.RunLocal to accept *project.InputFile, use input.Slug() for branch switching, and extend AIClient and GitClient interfaces with artifact generation methods
       items:

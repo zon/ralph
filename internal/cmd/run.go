@@ -12,7 +12,7 @@ import (
 // RunCmd is the default command for executing ralph
 type RunCmd struct {
 	WorkingDir    string `help:"Working directory to run ralph in" type:"path" short:"C"`
-	ProjectFile   string `arg:"" optional:"" help:"Path to project YAML file"`
+	InputFile     string `arg:"" optional:"" help:"Path to input file (project YAML, orchestration.md, or spec.md)"`
 	MaxIterations int    `help:"Maximum number of development iterations" default:"0"`
 	NoNotify      bool   `help:"Disable desktop notifications" default:"false"`
 	NoServices    bool   `help:"Skip service startup" default:"false"`
@@ -41,7 +41,7 @@ func (r *RunCmd) Run() error {
 
 	flags := orchestrationRun.RunFlags{
 		WorkingDir:    r.WorkingDir,
-		ProjectFile:   r.ProjectFile,
+		InputFile:     r.InputFile,
 		MaxIterations: r.MaxIterations,
 		Local:         r.Local,
 		Follow:        r.Follow,
@@ -57,7 +57,7 @@ func (r *RunCmd) Run() error {
 
 func (r *RunCmd) newExecutionContext() *execcontext.Context {
 	ctx := createExecutionContext()
-	ctx.SetProjectFile(r.ProjectFile)
+	ctx.SetProjectFile(r.InputFile)
 	ctx.SetVerbose(r.Verbose)
 	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, r.Verbose))
 	ctx.SetNoNotify(r.NoNotify)

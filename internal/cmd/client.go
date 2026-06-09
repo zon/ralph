@@ -15,9 +15,9 @@ func NewLocalRunnerClient(ctx *execcontext.Context) *LocalRunnerClient {
 	return &LocalRunnerClient{ctx: ctx}
 }
 
-func (c *LocalRunnerClient) RunLocal(proj *project.Project, cfg *config.RalphConfig) error {
-	runner := NewLocalRunner(c.ctx, proj.BaseBranch)
-	return runner.RunLocal(proj, cfg)
+func (c *LocalRunnerClient) RunLocal(input *project.InputFile, cfg *config.RalphConfig) error {
+	runner := NewLocalRunner(c.ctx, input.Slug())
+	return runner.RunLocal(input.Project(), cfg)
 }
 
 type RemoteRunnerClient struct {
@@ -28,7 +28,7 @@ func NewRemoteRunnerClient(ctx *execcontext.Context) *RemoteRunnerClient {
 	return &RemoteRunnerClient{ctx: ctx}
 }
 
-func (c *RemoteRunnerClient) Run(proj *project.Project, flags orchestrationRun.RunRemoteFlags) error {
+func (c *RemoteRunnerClient) Run(input *project.InputFile, flags orchestrationRun.RunRemoteFlags) error {
 	runner := NewRemoteRunner(c.ctx)
-	return runner.Run(proj, flags)
+	return runner.Run(input.Project(), flags)
 }

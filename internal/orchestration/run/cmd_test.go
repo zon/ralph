@@ -31,66 +31,56 @@ func (m *mockWorkspaceClient) ChangeDirectory(path string) error {
 }
 
 type mockProjectRepo struct {
-	LoadFunc          func(string) (*project.Project, error)
-	ValidateFileFunc  func(string) error
-	LoadCalled        bool
-	ValidateFileCalled bool
-	Project           *project.Project
-	Err               error
+	ResolveInputFileFunc  func(string) (*project.InputFile, error)
+	ResolveInputFileCalled bool
+	InputFile             *project.InputFile
+	Err                   error
 }
 
-func (m *mockProjectRepo) Load(path string) (*project.Project, error) {
-	m.LoadCalled = true
-	if m.LoadFunc != nil {
-		return m.LoadFunc(path)
+func (m *mockProjectRepo) ResolveInputFile(path string) (*project.InputFile, error) {
+	m.ResolveInputFileCalled = true
+	if m.ResolveInputFileFunc != nil {
+		return m.ResolveInputFileFunc(path)
 	}
 	if m.Err != nil {
 		return nil, m.Err
 	}
-	if m.Project != nil {
-		return m.Project, nil
+	if m.InputFile != nil {
+		return m.InputFile, nil
 	}
-	return project.Any(), nil
-}
-
-func (m *mockProjectRepo) ValidateFile(path string) error {
-	m.ValidateFileCalled = true
-	if m.ValidateFileFunc != nil {
-		return m.ValidateFileFunc(path)
-	}
-	return nil
+	return project.ForProjectInput(project.Any()), nil
 }
 
 type mockLocalRunnerClient struct {
-	RunLocalFunc    func(*project.Project, *config.RalphConfig) error
-	LastProject     *project.Project
+	RunLocalFunc    func(*project.InputFile, *config.RalphConfig) error
+	LastInput       *project.InputFile
 	LastConfig      *config.RalphConfig
 	RunLocalCalled  bool
 }
 
-func (m *mockLocalRunnerClient) RunLocal(proj *project.Project, cfg *config.RalphConfig) error {
+func (m *mockLocalRunnerClient) RunLocal(input *project.InputFile, cfg *config.RalphConfig) error {
 	m.RunLocalCalled = true
-	m.LastProject = proj
+	m.LastInput = input
 	m.LastConfig = cfg
 	if m.RunLocalFunc != nil {
-		return m.RunLocalFunc(proj, cfg)
+		return m.RunLocalFunc(input, cfg)
 	}
 	return nil
 }
 
 type mockRemoteRunnerClient struct {
-	RunFunc    func(*project.Project, RunRemoteFlags) error
-	LastProject *project.Project
-	LastFlags   RunRemoteFlags
-	RunCalled   bool
+	RunFunc    func(*project.InputFile, RunRemoteFlags) error
+	LastInput  *project.InputFile
+	LastFlags  RunRemoteFlags
+	RunCalled  bool
 }
 
-func (m *mockRemoteRunnerClient) Run(proj *project.Project, flags RunRemoteFlags) error {
+func (m *mockRemoteRunnerClient) Run(input *project.InputFile, flags RunRemoteFlags) error {
 	m.RunCalled = true
-	m.LastProject = proj
+	m.LastInput = input
 	m.LastFlags = flags
 	if m.RunFunc != nil {
-		return m.RunFunc(proj, flags)
+		return m.RunFunc(input, flags)
 	}
 	return nil
 }
@@ -145,31 +135,31 @@ func cmdWithMocks(opts ...cmdOption) *RunCmd {
 // ---------------------------------------------------------------------------
 
 func flagsAny() RunFlags {
-	return RunFlags{ProjectFile: "/fake/project.yaml"}
+	return RunFlags{InputFile: "/fake/project.yaml"}
 }
 
 func flagsWithNoBase() RunFlags {
-	return RunFlags{ProjectFile: "/fake/project.yaml"}
+	return RunFlags{InputFile: "/fake/project.yaml"}
 }
 
 func flagsWithMaxIterations(n int) RunFlags {
-	return RunFlags{ProjectFile: "/fake/project.yaml", MaxIterations: n}
+	return RunFlags{InputFile: "/fake/project.yaml", MaxIterations: n}
 }
 
 func flagsWithLocal() RunFlags {
-	return RunFlags{ProjectFile: "/fake/project.yaml", Local: true}
+	return RunFlags{InputFile: "/fake/project.yaml", Local: true}
 }
 
 func flagsWithFollowAndLocal() RunFlags {
-	return RunFlags{ProjectFile: "/fake/project.yaml", Follow: true, Local: true}
+	return RunFlags{InputFile: "/fake/project.yaml", Follow: true, Local: true}
 }
 
 func flagsWithDebugAndLocal() RunFlags {
-	return RunFlags{ProjectFile: "/fake/project.yaml", Debug: "feature-x", Local: true}
+	return RunFlags{InputFile: "/fake/project.yaml", Debug: "feature-x", Local: true}
 }
 
 func flagsWithWorkingDir(dir string) RunFlags {
-	return RunFlags{ProjectFile: "/fake/project.yaml", WorkingDir: dir}
+	return RunFlags{InputFile: "/fake/project.yaml", WorkingDir: dir}
 }
 
 // ---------------------------------------------------------------------------
@@ -204,17 +194,17 @@ func configWithMaxIterations(n int) config.Loader {
 // Project mock builders
 // ---------------------------------------------------------------------------
 
-func projectThatFailsValidation() ProjectRepo {
+func projectThatFailsResolve() ProjectRepo {
 	return &mockProjectRepo{
-		ValidateFileFunc: func(string) error {
-			return errors.New("project file not found")
+		ResolveInputFileFunc: func(string) (*project.InputFile, error) {
+			return nil, errors.New("input file not found: /nonexistent.yaml")
 		},
 	}
 }
 
 func projectThatFailsLoad() ProjectRepo {
 	return &mockProjectRepo{
-		LoadFunc: func(string) (*project.Project, error) {
+		ResolveInputFileFunc: func(string) (*project.InputFile, error) {
 			return nil, errors.New("project load failed")
 		},
 	}
@@ -222,7 +212,7 @@ func projectThatFailsLoad() ProjectRepo {
 
 func projectWithSlug(slug string) ProjectRepo {
 	return &mockProjectRepo{
-		Project: &project.Project{Slug: slug},
+		InputFile: project.ForProjectInput(&project.Project{Slug: slug}),
 	}
 }
 
@@ -240,25 +230,18 @@ func gitOnBranch(branch string) GitClient {
 // Accessor helpers for mock queries
 // ---------------------------------------------------------------------------
 
-func projectLoaded(cmd *RunCmd) bool {
+func inputResolved(cmd *RunCmd) bool {
 	if m, ok := cmd.project.(*mockProjectRepo); ok {
-		return m.LoadCalled
+		return m.ResolveInputFileCalled
 	}
 	return false
 }
 
-func remoteLastProject(cmd *RunCmd) *project.Project {
+func remoteLastInput(cmd *RunCmd) *project.InputFile {
 	if m, ok := cmd.remote.(*mockRemoteRunnerClient); ok {
-		return m.LastProject
+		return m.LastInput
 	}
 	return nil
-}
-
-func projectFileValidated(cmd *RunCmd) bool {
-	if m, ok := cmd.project.(*mockProjectRepo); ok {
-		return m.ValidateFileCalled
-	}
-	return false
 }
 
 func localRunLocalCalled(cmd *RunCmd) bool {
@@ -275,6 +258,13 @@ func remoteRunCalled(cmd *RunCmd) bool {
 	return false
 }
 
+func localLastInput(cmd *RunCmd) *project.InputFile {
+	if m, ok := cmd.local.(*mockLocalRunnerClient); ok {
+		return m.LastInput
+	}
+	return nil
+}
+
 // ---------------------------------------------------------------------------
 // Tests: prepareSetup
 // ---------------------------------------------------------------------------
@@ -285,7 +275,6 @@ func TestPrepareSetupConfigLoadFailureAbortsEarly(t *testing.T) {
 	)
 	err := cmd.Run(flagsAny())
 	require.Error(t, err)
-	require.False(t, projectLoaded(cmd))
 }
 
 func TestPrepareSetupProjectLoadFailureAbortsEarly(t *testing.T) {
@@ -301,25 +290,25 @@ func TestPrepareSetupBaseBranchFromCurrentWhenDifferentFromProject(t *testing.T)
 		cmdWithGit(gitOnBranch("feature-x")),
 		cmdWithProject(projectWithSlug("my-project")),
 	)
-	err := cmd.Run(flagsWithNoBase())
+	setup, err := cmd.prepareSetup(flagsWithNoBase(), project.ForProjectInput(&project.Project{Slug: "my-project"}))
 	require.NoError(t, err)
-	require.Equal(t, "feature-x", remoteLastProject(cmd).BaseBranch)
+	require.Equal(t, "feature-x", setup.BaseBranch)
 }
 
 func TestPrepareSetupMaxIterationsFlagOverridesConfig(t *testing.T) {
 	cmd := cmdWithMocks(
 		cmdWithConfig(configWithMaxIterations(5)),
 	)
-	err := cmd.Run(flagsWithMaxIterations(2))
+	setup, err := cmd.prepareSetup(flagsWithMaxIterations(2), project.ForProjectInput(project.Any()))
 	require.NoError(t, err)
-	require.Equal(t, 2, remoteLastProject(cmd).MaxIterations)
+	require.Equal(t, 2, setup.MaxIterations)
 }
 
 // ---------------------------------------------------------------------------
-// Scenario tests: Working directory changed before project file loaded
+// Scenario tests: Working directory changed before input file resolved
 // ---------------------------------------------------------------------------
 
-func TestRunWorkingDirectoryChangedBeforeProjectFileLoaded(t *testing.T) {
+func TestRunWorkingDirectoryChangedBeforeInputFileResolved(t *testing.T) {
 	ws := &mockWorkspaceClient{}
 	proj := &mockProjectRepo{}
 	cmd := cmdWithMocks(
@@ -330,17 +319,17 @@ func TestRunWorkingDirectoryChangedBeforeProjectFileLoaded(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, ws.ChangeDirCalled)
 	require.Equal(t, "/path/to/project", ws.ChangedDir)
-	require.True(t, proj.ValidateFileCalled)
+	require.True(t, proj.ResolveInputFileCalled)
 }
 
 // ---------------------------------------------------------------------------
-// Scenario tests: Project file not found error message
+// Scenario tests: Input file not found error message
 // ---------------------------------------------------------------------------
 
-func TestRunProjectFileNotFoundErrorMessage(t *testing.T) {
+func TestRunInputFileNotFoundErrorMessage(t *testing.T) {
 	proj := &mockProjectRepo{
-		ValidateFileFunc: func(string) error {
-			return errors.New("project file not found: /nonexistent.yaml")
+		ResolveInputFileFunc: func(string) (*project.InputFile, error) {
+			return nil, errors.New("input file not found: /nonexistent.yaml")
 		},
 	}
 	cmd := cmdWithMocks(
@@ -348,7 +337,7 @@ func TestRunProjectFileNotFoundErrorMessage(t *testing.T) {
 	)
 	err := cmd.Run(flagsAny())
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "project file not found")
+	require.Contains(t, err.Error(), "input file not found")
 }
 
 // ---------------------------------------------------------------------------
@@ -380,11 +369,11 @@ func TestRunDebugWithLocalRejected(t *testing.T) {
 func TestPrepareSetupIncludesModelAndContext(t *testing.T) {
 	cmd := cmdWithMocks()
 	flags := RunFlags{
-		ProjectFile: "/fake/project.yaml",
-		Model:       "gpt-4",
-		Context:     "my-cluster",
+		InputFile: "/fake/project.yaml",
+		Model:     "gpt-4",
+		Context:   "my-cluster",
 	}
-	setup, err := cmd.prepareSetup(flags)
+	setup, err := cmd.prepareSetup(flags, project.ForProjectInput(project.Any()))
 	require.NoError(t, err)
 	require.Equal(t, "gpt-4", setup.Model)
 	require.Equal(t, "my-cluster", setup.Context)
@@ -440,12 +429,12 @@ func TestRunWorkingDirectoryFailureAbortsEarly(t *testing.T) {
 	)
 	err := cmd.Run(flagsAny())
 	require.Error(t, err)
-	require.False(t, projectFileValidated(cmd))
+	require.False(t, inputResolved(cmd))
 }
 
-func TestRunProjectFileNotFoundAbortsEarly(t *testing.T) {
+func TestRunInputFileNotFoundAbortsEarly(t *testing.T) {
 	cmd := cmdWithMocks(
-		cmdWithProject(projectThatFailsValidation()),
+		cmdWithProject(projectThatFailsResolve()),
 	)
 	err := cmd.Run(flagsAny())
 	require.Error(t, err)
@@ -455,5 +444,120 @@ func TestRunIncompatibleFlagsAbortBeforeSetup(t *testing.T) {
 	cmd := cmdWithMocks()
 	err := cmd.Run(flagsWithFollowAndLocal())
 	require.Error(t, err)
-	require.False(t, projectLoaded(cmd))
+	require.False(t, localRunLocalCalled(cmd))
+	require.False(t, remoteRunCalled(cmd))
+}
+
+// ---------------------------------------------------------------------------
+// Tests: Orchestration and spec inputs dispatch through RunCmd
+// ---------------------------------------------------------------------------
+
+func TestRunLocalDispatchesWithOrchestrationInput(t *testing.T) {
+	proj := &mockProjectRepo{
+		InputFile: project.ForOrchestrationInput("specs/features/ralph/run/orchestration.md"),
+	}
+	cmd := cmdWithMocks(
+		cmdWithProject(proj),
+		cmdWithLocal(&mockLocalRunnerClient{}),
+	)
+	err := cmd.Run(flagsWithLocal())
+	require.NoError(t, err)
+	require.True(t, localRunLocalCalled(cmd))
+	require.NotNil(t, localLastInput(cmd))
+	require.True(t, localLastInput(cmd).IsOrchestration())
+}
+
+func TestRunLocalDispatchesWithSpecInput(t *testing.T) {
+	proj := &mockProjectRepo{
+		InputFile: project.ForSpecInput("specs/features/ralph/run/spec.md"),
+	}
+	cmd := cmdWithMocks(
+		cmdWithProject(proj),
+		cmdWithLocal(&mockLocalRunnerClient{}),
+	)
+	err := cmd.Run(flagsWithLocal())
+	require.NoError(t, err)
+	require.True(t, localRunLocalCalled(cmd))
+	require.NotNil(t, localLastInput(cmd))
+	require.True(t, localLastInput(cmd).IsSpec())
+}
+
+func TestRunRemoteDispatchesWithOrchestrationInput(t *testing.T) {
+	proj := &mockProjectRepo{
+		InputFile: project.ForOrchestrationInput("specs/features/ralph/run/orchestration.md"),
+	}
+	cmd := cmdWithMocks(
+		cmdWithProject(proj),
+		cmdWithRemote(&mockRemoteRunnerClient{}),
+	)
+	err := cmd.Run(flagsAny())
+	require.NoError(t, err)
+	require.True(t, remoteRunCalled(cmd))
+	require.NotNil(t, remoteLastInput(cmd))
+	require.True(t, remoteLastInput(cmd).IsOrchestration())
+}
+
+func TestRunRemoteDispatchesWithSpecInput(t *testing.T) {
+	proj := &mockProjectRepo{
+		InputFile: project.ForSpecInput("specs/features/ralph/run/spec.md"),
+	}
+	cmd := cmdWithMocks(
+		cmdWithProject(proj),
+		cmdWithRemote(&mockRemoteRunnerClient{}),
+	)
+	err := cmd.Run(flagsAny())
+	require.NoError(t, err)
+	require.True(t, remoteRunCalled(cmd))
+	require.NotNil(t, remoteLastInput(cmd))
+	require.True(t, remoteLastInput(cmd).IsSpec())
+}
+
+// ---------------------------------------------------------------------------
+// Tests: Input file not found aborts before flag validation and setup
+// ---------------------------------------------------------------------------
+
+func TestRunInputFileNotFoundAbortsBeforeFlagValidation(t *testing.T) {
+	proj := &mockProjectRepo{
+		ResolveInputFileFunc: func(string) (*project.InputFile, error) {
+			return nil, errors.New("input file not found: /nonexistent.yaml")
+		},
+	}
+	cmd := cmdWithMocks(
+		cmdWithProject(proj),
+	)
+	err := cmd.Run(flagsWithFollowAndLocal())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "input file not found")
+}
+
+// ---------------------------------------------------------------------------
+// Tests: Incompatible flags rejected before setup
+// ---------------------------------------------------------------------------
+
+func TestRunIncompatibleFlagsRejectedBeforeSetupForProjectInput(t *testing.T) {
+	cmd := cmdWithMocks()
+	err := cmd.Run(flagsWithFollowAndLocal())
+	require.Error(t, err)
+	require.False(t, localRunLocalCalled(cmd))
+	require.False(t, remoteRunCalled(cmd))
+}
+
+// ---------------------------------------------------------------------------
+// Tests: prepareSetup with non-project inputs
+// ---------------------------------------------------------------------------
+
+func TestPrepareSetupWithOrchestrationInputDefaultsBaseBranch(t *testing.T) {
+	cmd := cmdWithMocks()
+	input := project.ForOrchestrationInput("specs/features/ralph/run/orchestration.md")
+	setup, err := cmd.prepareSetup(flagsAny(), input)
+	require.NoError(t, err)
+	require.Empty(t, setup.BaseBranch)
+}
+
+func TestPrepareSetupWithSpecInputDefaultsBaseBranch(t *testing.T) {
+	cmd := cmdWithMocks()
+	input := project.ForSpecInput("specs/features/ralph/run/spec.md")
+	setup, err := cmd.prepareSetup(flagsAny(), input)
+	require.NoError(t, err)
+	require.Empty(t, setup.BaseBranch)
 }
