@@ -16,8 +16,13 @@ import (
 func TestNewManager(t *testing.T) {
 	m := NewManager(nil)
 	assert.NotNil(t, m, "NewManager should return non-nil manager")
-	assert.NotNil(t, m.cleanupFn, "cleanupFn slice should be initialized")
-	assert.NotNil(t, m.exitFn, "exitFn should be initialized")
+
+	assert.NotPanics(t, func() { m.Cleanup() })
+
+	called := false
+	m.RegisterCleanup(func() { called = true })
+	m.Cleanup()
+	assert.True(t, called, "cleanup function should have been called")
 }
 
 func TestRegisterCleanup(t *testing.T) {
@@ -72,19 +77,6 @@ func TestCleanupEmptyManager(t *testing.T) {
 	m := NewManager(nil)
 
 	m.Cleanup()
-}
-
-func TestManager_InjectableExitFn(t *testing.T) {
-	m := NewManager(nil)
-	m.cleanupFn = make([]func(), 0)
-
-	var exitCode int
-	m.exitFn = func(code int) {
-		exitCode = code
-	}
-
-	m.exitFn(42)
-	assert.Equal(t, 42, exitCode)
 }
 
 func TestHandleSignal(t *testing.T) {

@@ -42,4 +42,4 @@ requirements:
         - 'TestNewManager verifies observable behavior: a newly constructed manager does not panic when Cleanup is called'
         - TestNewManager verifies that RegisterCleanup followed by Cleanup invokes the registered function
         - TestManager_InjectableExitFn is deleted entirely
-      passing: false
+      passing: true
