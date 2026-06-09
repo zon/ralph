@@ -40,6 +40,7 @@ type GitClient interface {
 	CurrentBranch() (string, error)
 	IsBranchSyncedWithRemote(branch string) error
 	CommitOrchestrationRemoval(slug string) error
+	CommitGeneratedArtifacts(slug string) error
 }
 
 type WorkflowClient interface {

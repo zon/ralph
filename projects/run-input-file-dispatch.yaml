@@ -405,7 +405,7 @@ requirements:
                 }
                 return nil
             }
-      passing: false
+      passing: true
     - slug: remote-runner-input
       description: Update RemoteRunner and WorkflowClient to accept *project.InputFile instead of *project.Project so remote submission works for any input type
       items:

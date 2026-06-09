@@ -244,11 +244,12 @@ func (e *mockError) Error() string {
 
 type trackingGitClient struct {
 	GitClient
-	switchToBranchCalled              bool
-	writeBlockedFileCalled            bool
-	commitFromReportCalled            bool
-	commitOrchestrationRemovalCalled  bool
-	currentBranchCalled               bool
+	switchToBranchCalled                bool
+	writeBlockedFileCalled              bool
+	commitFromReportCalled              bool
+	commitOrchestrationRemovalCalled    bool
+	currentBranchCalled                 bool
+	commitGeneratedArtifactsCalled      bool
 }
 
 func wrapTrackedGit(gc GitClient) GitClient {
@@ -281,6 +282,11 @@ func (t *trackingGitClient) CommitOrchestrationRemoval(slug string) error {
 func (t *trackingGitClient) CurrentBranch() (string, error) {
 	t.currentBranchCalled = true
 	return t.GitClient.CurrentBranch()
+}
+
+func (t *trackingGitClient) CommitGeneratedArtifacts(slug string) error {
+	t.commitGeneratedArtifactsCalled = true
+	return t.GitClient.CommitGeneratedArtifacts(slug)
 }
 
 type runnerOption func(*Runner)

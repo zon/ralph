@@ -9,8 +9,10 @@ type MockClient struct {
 	CommitFromReportFunc         func(slug string) error
 	CurrentBranchFunc            func() (string, error)
 	IsBranchSyncedWithRemoteFunc      func(branch string) error
-	CommitOrchestrationRemovalFunc    func(slug string) error
-	CommitOrchestrationRemovalCalled  bool
+	CommitOrchestrationRemovalFunc         func(slug string) error
+	CommitOrchestrationRemovalCalled       bool
+	CommitGeneratedArtifactsFunc           func(slug string) error
+	CommitGeneratedArtifactsCalled         bool
 }
 
 func (m *MockClient) SwitchToBranch(slug string) error {
@@ -72,6 +74,14 @@ func (m *MockClient) CommitOrchestrationRemoval(slug string) error {
 	m.CommitOrchestrationRemovalCalled = true
 	if m.CommitOrchestrationRemovalFunc != nil {
 		return m.CommitOrchestrationRemovalFunc(slug)
+	}
+	return nil
+}
+
+func (m *MockClient) CommitGeneratedArtifacts(slug string) error {
+	m.CommitGeneratedArtifactsCalled = true
+	if m.CommitGeneratedArtifactsFunc != nil {
+		return m.CommitGeneratedArtifactsFunc(slug)
 	}
 	return nil
 }
