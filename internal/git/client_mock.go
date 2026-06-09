@@ -8,7 +8,9 @@ type MockClient struct {
 	ReportExistsFunc             func() bool
 	CommitFromReportFunc         func(slug string) error
 	CurrentBranchFunc            func() (string, error)
-	IsBranchSyncedWithRemoteFunc func(branch string) error
+	IsBranchSyncedWithRemoteFunc      func(branch string) error
+	CommitOrchestrationRemovalFunc    func(slug string) error
+	CommitOrchestrationRemovalCalled  bool
 }
 
 func (m *MockClient) SwitchToBranch(slug string) error {
@@ -62,6 +64,14 @@ func (m *MockClient) CurrentBranch() (string, error) {
 func (m *MockClient) IsBranchSyncedWithRemote(branch string) error {
 	if m.IsBranchSyncedWithRemoteFunc != nil {
 		return m.IsBranchSyncedWithRemoteFunc(branch)
+	}
+	return nil
+}
+
+func (m *MockClient) CommitOrchestrationRemoval(slug string) error {
+	m.CommitOrchestrationRemovalCalled = true
+	if m.CommitOrchestrationRemovalFunc != nil {
+		return m.CommitOrchestrationRemovalFunc(slug)
 	}
 	return nil
 }

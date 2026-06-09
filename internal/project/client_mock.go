@@ -4,8 +4,10 @@ type MockClient struct {
 	AllPassingFunc          func() bool
 	HasChangesFunc           func(*Project) bool
 	HasSpecFunc              func(*Project) bool
-	HasOrchestrationFunc     func(*Project) bool
-	NormalizeAndStageCalled  bool
+	HasOrchestrationFunc         func(*Project) bool
+	RemoveOrchestrationFunc      func(*Project) error
+	RemoveOrchestrationCalled    bool
+	NormalizeAndStageCalled      bool
 }
 
 func (m *MockClient) Reload(proj *Project) *Project {
@@ -43,4 +45,12 @@ func (m *MockClient) HasOrchestration(proj *Project) bool {
 		return m.HasOrchestrationFunc(proj)
 	}
 	return false
+}
+
+func (m *MockClient) RemoveOrchestration(proj *Project) error {
+	m.RemoveOrchestrationCalled = true
+	if m.RemoveOrchestrationFunc != nil {
+		return m.RemoveOrchestrationFunc(proj)
+	}
+	return nil
 }

@@ -119,7 +119,7 @@ requirements:
               require.NotEmpty(t, notifyErrors(runner))
               require.False(t, githubPRCreated(runner))
             }
-      passing: false
+      passing: true
     - slug: project-client-has-spec
       description: HasSpec on ProjectClient interface and project.Client implementation
       items:
@@ -178,7 +178,7 @@ requirements:
               }
               return git.StageFile(orchestrationPath)
             }
-      passing: false
+      passing: true
     - slug: git-client-commit-orchestration-removal
       description: CommitOrchestrationRemoval on GitClient interface and git.Client implementation
       items:
@@ -193,7 +193,7 @@ requirements:
             func (a *Client) CommitOrchestrationRemoval(_ string) error {
               return Commit("chore: remove orchestration doc before PR")
             }
-      passing: false
+      passing: true
     - slug: run-orchestration-test-helpers
       description: New project mock factories in mock_test.go for the removeOrchestration test cases
       items:
@@ -202,4 +202,4 @@ requirements:
         - Add newProjectThatReportsAllPassingWithOrchestration() with HasSpecFunc=true, HasOrchestrationFunc=true
         - Add newProjectThatReportsAllPassingWithOrchestrationRemovalFailure() with the above plus RemoveOrchestrationFunc returning an error
         - Add projectOrchestrationRemoved(runner *Runner) bool that returns the project mock's RemoveOrchestrationCalled field
-      passing: false
+      passing: true

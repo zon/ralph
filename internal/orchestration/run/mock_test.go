@@ -1,6 +1,8 @@
 package run
 
 import (
+	"github.com/stretchr/testify/assert"
+
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/github"
@@ -242,10 +244,11 @@ func (e *mockError) Error() string {
 
 type trackingGitClient struct {
 	GitClient
-	switchToBranchCalled    bool
-	writeBlockedFileCalled  bool
-	commitFromReportCalled  bool
-	currentBranchCalled     bool
+	switchToBranchCalled              bool
+	writeBlockedFileCalled            bool
+	commitFromReportCalled            bool
+	commitOrchestrationRemovalCalled  bool
+	currentBranchCalled               bool
 }
 
 func wrapTrackedGit(gc GitClient) GitClient {
@@ -268,6 +271,11 @@ func (t *trackingGitClient) WriteBlockedFile(err error) {
 func (t *trackingGitClient) CommitFromReport(slug string) error {
 	t.commitFromReportCalled = true
 	return t.GitClient.CommitFromReport(slug)
+}
+
+func (t *trackingGitClient) CommitOrchestrationRemoval(slug string) error {
+	t.commitOrchestrationRemovalCalled = true
+	return t.GitClient.CommitOrchestrationRemoval(slug)
 }
 
 func (t *trackingGitClient) CurrentBranch() (string, error) {
@@ -374,6 +382,52 @@ func gitBranchSwitched(r *Runner) bool {
 func gitBlockedFileWritten(r *Runner) bool {
 	if m, ok := r.git.(*trackingGitClient); ok {
 		return m.writeBlockedFileCalled
+	}
+	return false
+}
+
+func newProjectThatReportsAllPassingWithNoSpec() *project.MockClient {
+	return &project.MockClient{
+		AllPassingFunc:  func() bool { return true },
+		HasSpecFunc:     func(*project.Project) bool { return false },
+	}
+}
+
+func newProjectThatReportsAllPassingWithSpecButNoOrchestration() *project.MockClient {
+	return &project.MockClient{
+		AllPassingFunc:      func() bool { return true },
+		HasSpecFunc:         func(*project.Project) bool { return true },
+		HasOrchestrationFunc: func(*project.Project) bool { return false },
+	}
+}
+
+func newProjectThatReportsAllPassingWithOrchestration() *project.MockClient {
+	return &project.MockClient{
+		AllPassingFunc:      func() bool { return true },
+		HasSpecFunc:         func(*project.Project) bool { return true },
+		HasOrchestrationFunc: func(*project.Project) bool { return true },
+	}
+}
+
+func newProjectThatReportsAllPassingWithOrchestrationRemovalFailure() *project.MockClient {
+	return &project.MockClient{
+		AllPassingFunc:         func() bool { return true },
+		HasSpecFunc:            func(*project.Project) bool { return true },
+		HasOrchestrationFunc:   func(*project.Project) bool { return true },
+		RemoveOrchestrationFunc: func(*project.Project) error { return assert.AnError },
+	}
+}
+
+func projectOrchestrationRemoved(r *Runner) bool {
+	if m, ok := r.project.(*project.MockClient); ok {
+		return m.RemoveOrchestrationCalled
+	}
+	return false
+}
+
+func gitOrchestrationRemovalCommitted(r *Runner) bool {
+	if m, ok := r.git.(*trackingGitClient); ok {
+		return m.commitOrchestrationRemovalCalled
 	}
 	return false
 }

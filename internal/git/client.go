@@ -70,3 +70,7 @@ func (a *Client) CurrentBranch() (string, error) {
 func (a *Client) IsBranchSyncedWithRemote(branch string) error {
 	return IsBranchSyncedWithRemote(branch)
 }
+
+func (a *Client) CommitOrchestrationRemoval(_ string) error {
+	return Commit("chore: remove orchestration doc before PR")
+}

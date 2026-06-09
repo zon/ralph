@@ -68,6 +68,18 @@ func (c *Client) HasOrchestration(proj *Project) bool {
 	return err == nil
 }
 
+func (c *Client) RemoveOrchestration(proj *Project) error {
+	repoRoot, err := git.FindRepoRoot()
+	if err != nil {
+		return err
+	}
+	orchestrationPath := filepath.Join(repoRoot, proj.Feature, "orchestration.md")
+	if err := os.Remove(orchestrationPath); err != nil {
+		return err
+	}
+	return git.StageFile(orchestrationPath)
+}
+
 func (c *Client) NormalizeAndStage(proj *Project) {
 	data, err := os.ReadFile(proj.Path)
 	if err != nil {
