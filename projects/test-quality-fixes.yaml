@@ -36,7 +36,7 @@ requirements:
         - Add TestRunHaltsOnConfigReadFailure — inject config.thatFailsRead() using a new thatFailsRead helper on configHelper that sets readFunc to return errMock; assert require.Error and require.False(secrets.generateCalled())
         - Add TestRunHaltsOnSecretsGenerateFailure — inject secrets.thatFailsGenerate() using a new thatFailsGenerate helper on secretsHelper that sets generateFunc to return errMock; assert require.Error and require.False(secrets.writeCalled())
         - Add TestRunHaltsOnSecretsWriteFailure — inject secrets.thatFailsWrite() using a new thatFailsWrite helper on secretsHelper that sets writeFunc to return errMock; assert require.Error
-      passing: false
+      passing: true
     - slug: setconfig-missing-error-paths
       description: Add test coverage for two untested error paths in setconfig.Run
       items:
