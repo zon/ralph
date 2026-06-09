@@ -20,7 +20,7 @@ type SetCmd struct {
 type SetConfigCmd struct {
 	Context   string `help:"Kubernetes context to use (defaults to current context)"`
 	Namespace string `help:"Kubernetes namespace to use" default:"ralph-webhook"`
-	Config    string `help:"Path to a partial AppConfig YAML file to use as a starting point" type:"path" optional:""`
+	Config    string `name:"partial-config" help:"Path to a partial AppConfig YAML file to use as a starting point" type:"path" optional:""`
 }
 
 func (c *SetConfigCmd) Run() error {

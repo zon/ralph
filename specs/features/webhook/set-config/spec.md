@@ -37,7 +37,7 @@ The system SHALL run setup steps in order via `ralph-webhook set config`: (1) re
 
 ### Requirement: Partial Config Seed
 
-The command SHALL accept an optional `--config` flag pointing to a partial AppConfig YAML file. When provided, its values SHALL be merged into the ConfigMap as a starting point before auto-detection fills remaining fields.
+The command SHALL accept an optional `--partial-config` flag pointing to a partial AppConfig YAML file. When provided, its values SHALL be merged into the ConfigMap as a starting point before auto-detection fills remaining fields.
 
 #### Scenario: Existing ConfigMap merged
 
@@ -57,14 +57,14 @@ The command SHALL accept an optional `--config` flag pointing to a partial AppCo
 #### Scenario: Partial config provided
 
 - GIVEN a YAML file specifying a subset of AppConfig fields
-- WHEN the user runs `ralph-webhook set config --config partial.yaml`
+- WHEN the user runs `ralph-webhook set config --partial-config partial.yaml`
 - THEN the provided values are merged on top of any existing ConfigMap values
 - AND auto-detected values (repo owner, name, namespace) fill any unset fields
 
 #### Scenario: Partial config file unreadable
 
-- GIVEN `--config` points to a file that does not exist or cannot be parsed
-- WHEN the user runs `ralph-webhook set config --config bad.yaml`
+- GIVEN `--partial-config` points to a file that does not exist or cannot be parsed
+- WHEN the user runs `ralph-webhook set config --partial-config bad.yaml`
 - THEN a warning is emitted and setup proceeds without the partial config
 
 ### Requirement: Kubernetes Context Targeting
