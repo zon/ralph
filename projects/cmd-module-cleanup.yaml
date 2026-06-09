@@ -75,7 +75,7 @@ requirements:
       items:
         - In internal/cmd/kube_context.go, remove the 14-line comment block on lines 12-25 — code standard prohibits multi-line comment blocks; the function name and parameter names already document the behavior
         - In internal/cmd/cmd_test.go, remove the stale test case 'default command - local with once should fail' (line 57) — the --once flag does not exist on RunCmd so the parser rejects it as unknown before validateRunFlags is ever reached, making the expected error message unreachable
-      passing: false
+      passing: true
     - slug: add-missing-tests
       description: 'Write tests in the four empty test files: workflow_test.go, comment_test.go, setup_workspace_test.go, and merge_test.go'
       items:
