@@ -22,7 +22,7 @@ requirements:
         - Define a GitAuthConfigurer interface in internal/github with a single method ConfigureGitAuth(ctx context.Context, owner, repo, secretsDir string) error
         - Add a gitAuthConfigurer field to the Client struct and set it to the real ConfigureGitAuth function wrapped in a struct implementing the interface when constructing via NewClient
         - In TestClientCreatePR_WorkflowExecutionCallsConfigureGitAuth, inject a mock GitAuthConfigurer that records whether it was called and returns an error — assert it was called rather than asserting on the real error message
-      passing: false
+      passing: true
     - slug: git-config-global-isolation
       description: Isolate TestConfigList from the host machine's real global git config
       items:
