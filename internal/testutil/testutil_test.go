@@ -11,7 +11,7 @@ func TestNewContext(t *testing.T) {
 
 	assert.Equal(t, 10, ctx.MaxIterations(), "MaxIterations should be 10 by default")
 	assert.False(t, ctx.IsVerbose(), "IsVerbose should be false by default")
-	assert.False(t, ctx.ShouldNotify(), "ShouldNotify should be false when NoNotify=true")
+	assert.True(t, ctx.NoNotify(), "NoNotify should be true by default")
 	assert.False(t, ctx.NoServices(), "NoServices should be false when NoServices=false")
 	assert.Empty(t, ctx.ProjectFile(), "ProjectFile should be empty by default")
 }
@@ -26,7 +26,7 @@ func TestNewContext_WithOptions(t *testing.T) {
 	assert.Equal(t, "/path/to/project.yaml", ctx.ProjectFile(), "ProjectFile should match")
 	assert.Equal(t, 5, ctx.MaxIterations(), "MaxIterations should be 5")
 	assert.True(t, ctx.IsVerbose(), "IsVerbose should be true")
-	assert.False(t, ctx.ShouldNotify(), "ShouldNotify should be false (default NoNotify=true)")
+	assert.True(t, ctx.NoNotify(), "NoNotify should be true (default)")
 }
 
 func TestNewContext_MultipleOptions(t *testing.T) {

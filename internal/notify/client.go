@@ -14,7 +14,7 @@ type Client struct {
 func NewClient(ctx *context.Context) *Client {
 	return &Client{
 		out:          ctx.Output(),
-		shouldNotify: ctx.ShouldNotify(),
+		shouldNotify: (ctx.IsLocal() || ctx.ShouldFollow()) && !ctx.NoNotify(),
 		notifier:     &realNotifier{},
 	}
 }

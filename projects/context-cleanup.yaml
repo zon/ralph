@@ -9,7 +9,7 @@ requirements:
         - Add a NoNotify() bool getter that returns c.noNotify
         - 'Update internal/notify/client.go: replace ctx.ShouldNotify() with the inlined expression (ctx.IsLocal() || ctx.ShouldFollow()) && !ctx.NoNotify()'
         - Delete TestShouldNotify from internal/context/context_test.go
-      passing: false
+      passing: true
     - slug: remove-repo-url-and-repo
       description: Remove RepoURL() and Repo() from Context; update call sites to use RepoOwnerAndName() directly
       items:

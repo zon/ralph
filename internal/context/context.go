@@ -71,13 +71,8 @@ func (c *Context) IsVerbose() bool {
 	return c.verbose
 }
 
-// ShouldNotify returns true if notifications should be sent
-func (c *Context) ShouldNotify() bool {
-	// Disable notifications if submitting a remote workflow without following
-	if !c.local && !c.follow {
-		return false
-	}
-	return !c.noNotify
+func (c *Context) NoNotify() bool {
+	return c.noNotify
 }
 
 // NoServices returns true if services should be skipped
