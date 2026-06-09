@@ -1,10 +1,45 @@
 package notify
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
+
+func TestMockNotifierImplementsNotifier(t *testing.T) {
+	var _ Notifier = (*MockNotifier)(nil)
+}
+
+func TestMockNotifierNotify_CallsNotifyFn(t *testing.T) {
+	var title, message, appIcon string
+	m := &MockNotifier{
+		NotifyFn: func(t, msg, icon string) error {
+			title, message, appIcon = t, msg, icon
+			return nil
+		},
+	}
+	err := m.Notify("test-title", "test-message", "test-icon")
+	assert.NoError(t, err)
+	assert.Equal(t, "test-title", title)
+	assert.Equal(t, "test-message", message)
+	assert.Equal(t, "test-icon", appIcon)
+}
+
+func TestMockNotifierNotify_NilNotifyFn(t *testing.T) {
+	m := &MockNotifier{}
+	err := m.Notify("title", "msg", "icon")
+	assert.NoError(t, err)
+}
+
+func TestMockNotifierNotify_ReturnsError(t *testing.T) {
+	wantErr := errors.New("notify failed")
+	m := &MockNotifier{
+		NotifyFn: func(_, _, _ string) error { return wantErr },
+	}
+	err := m.Notify("title", "msg", "icon")
+	assert.ErrorIs(t, err, wantErr)
+}
 
 func TestMockClientError_AppendsToSlice(t *testing.T) {
 	m := &MockClient{}

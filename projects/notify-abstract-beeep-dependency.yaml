@@ -23,7 +23,7 @@ requirements:
           MockNotifier satisfies the Notifier interface defined in internal/notify/notify.go (verified at compile time, e.g. via a `var _ Notifier = &MockNotifier{}` assertion or equivalent test).
         - |
           The mock lives in internal/notify/client_mock.go (a _mock.go file), not in a _test.go file, per docs/testing.md's rule that "Mocks for an implementation module must live in a _mock.go file within that same module."
-      passing: false
+      passing: true
     - slug: refactor-client-to-use-notifier
       description: |
         Refactor Client in internal/notify/client.go to own a Notifier, move the notification-building logic out of the package-level Success/Error functions into Client methods, and remove the now-redundant free functions.
