@@ -136,6 +136,31 @@ After each agent run the command SHALL normalize the project file.
 
 ---
 
+### Requirement: Orchestration cleanup before PR
+
+Before submitting a pull request the command SHALL check whether the project's spec has an orchestration document, and if so, delete it and commit the deletion.
+
+#### Scenario: Project has a spec with orchestration — orchestration removed
+
+- GIVEN the project references a spec that contains an orchestration document
+- WHEN all requirements are passing and the command is about to create a PR
+- THEN the orchestration document is deleted from the repository
+- AND the deletion is committed before the pull request is opened
+
+#### Scenario: Project has no spec — cleanup skipped
+
+- GIVEN the project does not reference a spec
+- WHEN the command is about to create a PR
+- THEN no orchestration cleanup is performed
+
+#### Scenario: Project spec has no orchestration — cleanup skipped
+
+- GIVEN the project references a spec that does not contain an orchestration document
+- WHEN the command is about to create a PR
+- THEN no orchestration cleanup is performed
+
+---
+
 ### Requirement: PR creation when all requirements pass
 
 When all requirements are found to be passing — whether they were already passing before the first iteration or became passing during the loop — the command SHALL generate an AI PR summary and open a GitHub pull request from the project branch to the base branch.

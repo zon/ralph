@@ -33,6 +33,10 @@ func (r *Runner) RunLocal(proj *project.Project, cfg *config.RalphConfig) error 
         r.notify.Error(proj.Slug)
         return err
     }
+    if err := r.removeOrchestration(proj); err != nil {
+        r.notify.Error(proj.Slug)
+        return err
+    }
     if err := r.github.CreatePR(proj); err != nil {
         r.notify.Error(proj.Slug)
         return err
@@ -49,6 +53,7 @@ func (r *Runner) RunLocal(proj *project.Project, cfg *config.RalphConfig) error 
 - **`r.services.RunBeforeCommands(cfg)`** — runs each `before` command from the ralph config sequentially; aborts on the first non-zero exit
 - **`r.git.SwitchToBranch(slug)`** — switches to the branch named by the project slug, creating it if it does not exist
 - **`r.iterate(proj)`** — drives the iteration loop; returns nil only when all requirements are passing, or a non-nil error when blocked, when a fatal AI error occurs, or when max iterations is reached with requirements still failing
+- **`r.removeOrchestration(proj)`** — checks whether the project's spec contains an orchestration document and, if so, deletes it and commits the deletion
 - **`r.github.CreatePR(proj)`** — generates an AI PR summary and opens a pull request from the project branch to the base branch; is a no-op when no commits exist ahead of the base branch
 - **`r.notify.Error(slug)`** — sends a desktop error notification for the given project slug when notifications are enabled
 - **`r.notify.Success(slug)`** — sends a desktop success notification for the given project slug when notifications are enabled
@@ -167,6 +172,30 @@ func (r *Runner) commitIteration(proj *project.Project) error {
 - **`r.git.ReportExists()`** — returns true when `report.md` is present in the repository root
 - **`r.ai.GenerateChangelog(proj)`** — invokes the AI agent to produce a changelog and write it to `report.md`
 - **`r.git.CommitFromReport(slug)`** — stages all changes, uses `report.md` as the commit message, commits, then deletes `report.md`
+
+---
+
+```go
+func (r *Runner) removeOrchestration(proj *project.Project) error {
+    if !r.project.HasSpec(proj) {
+        return nil
+    }
+    if !r.project.HasOrchestration(proj) {
+        return nil
+    }
+    if err := r.project.RemoveOrchestration(proj); err != nil {
+        return err
+    }
+    return r.git.CommitOrchestrationRemoval(proj.Slug)
+}
+```
+
+### Helpers
+
+- **`r.project.HasSpec(proj)`** — returns true when the project references a spec path
+- **`r.project.HasOrchestration(proj)`** — returns true when an `orchestration.md` file exists inside the project's spec directory
+- **`r.project.RemoveOrchestration(proj)`** — deletes the `orchestration.md` file from the project's spec directory and stages the deletion
+- **`r.git.CommitOrchestrationRemoval(slug)`** — commits the staged orchestration deletion with a fixed message
 
 ## Tests
 
@@ -417,6 +446,44 @@ func TestRunIterationOmitsVariantWhenUnset(t *testing.T) {
     require.NoError(t, err)
     require.Empty(t, ai.lastVariant())
 }
+
+func TestRemoveOrchestrationSkipsWhenNoSpec(t *testing.T) {
+    runner := run.withMocks(
+        run.withProject(project.thatReportsAllPassing().withNoSpec()),
+    )
+    err := runner.RunLocal(project.withAllPassing(), config.any())
+    require.NoError(t, err)
+    require.False(t, git.orchestrationRemovalCommitted())
+}
+
+func TestRemoveOrchestrationSkipsWhenNoOrchestration(t *testing.T) {
+    runner := run.withMocks(
+        run.withProject(project.thatReportsAllPassing().withSpecButNoOrchestration()),
+    )
+    err := runner.RunLocal(project.withAllPassing(), config.any())
+    require.NoError(t, err)
+    require.False(t, git.orchestrationRemovalCommitted())
+}
+
+func TestRemoveOrchestrationRemovesAndCommitsWhenPresent(t *testing.T) {
+    runner := run.withMocks(
+        run.withProject(project.thatReportsAllPassing().withOrchestration()),
+    )
+    err := runner.RunLocal(project.withAllPassing(), config.any())
+    require.NoError(t, err)
+    require.True(t, project.orchestrationRemoved())
+    require.True(t, git.orchestrationRemovalCommitted())
+}
+
+func TestRemoveOrchestrationFailureSendsErrorNotification(t *testing.T) {
+    runner := run.withMocks(
+        run.withProject(project.thatReportsAllPassing().withOrchestration().thatFailsRemoval()),
+    )
+    err := runner.RunLocal(project.withAllPassing(), config.any())
+    require.Error(t, err)
+    require.NotEmpty(t, notify.errors())
+    require.False(t, github.prCreated())
+}
 ```
 
 ### Helpers
@@ -432,8 +499,13 @@ func TestRunIterationOmitsVariantWhenUnset(t *testing.T) {
 - **`project.withFailingRequirements()`** — returns a project with at least one failing requirement; owned by `internal/project`
 - **`project.withMaxIterations(n)`** — returns a project whose `MaxIterations` is set to `n`; owned by `internal/project`
 - **`project.thatReportsAllPassing()`** — returns a project client whose `Load` and `AllRequirementsPassing` always reflect all requirements passing
+- **`project.thatReportsAllPassing().withNoSpec()`** — chains a modifier so `HasSpec` returns false
+- **`project.thatReportsAllPassing().withSpecButNoOrchestration()`** — chains a modifier so `HasSpec` returns true and `HasOrchestration` returns false
+- **`project.thatReportsAllPassing().withOrchestration()`** — chains a modifier so `HasSpec` and `HasOrchestration` both return true
+- **`project.thatReportsAllPassing().withOrchestration().thatFailsRemoval()`** — chains a modifier so `RemoveOrchestration` returns an error
 - **`project.thatReportsPassingAfterIterations(n)`** — returns a project client whose `AllRequirementsPassing` returns false for the first `n` calls and true thereafter
 - **`project.thatAlwaysReportsFailures()`** — returns a project client whose `AllRequirementsPassing` always returns false
+- **`project.orchestrationRemoved()`** — returns true when `RemoveOrchestration` was called during the test
 - **`config.any()`** — returns a valid ralph config in a default state; owned by `internal/config`
 - **`config.withVariant(v)`** — returns a config whose `Variant` field is set to `v`; owned by `internal/config`
 - **`env.inWorkflow()`** — returns an env client that reports `InWorkflow() = true`
@@ -466,6 +538,7 @@ func TestRunIterationOmitsVariantWhenUnset(t *testing.T) {
 - **`git.branchSwitched()`** — returns true when `SwitchToBranch` was called during the test
 - **`git.blockedFileWritten()`** — returns true when `WriteBlockedFile` was called during the test
 - **`git.committedFromReport()`** — returns true when `CommitFromReport` was called during the test
+- **`git.orchestrationRemovalCommitted()`** — returns true when `CommitOrchestrationRemoval` was called during the test
 - **`github.prCreated()`** — returns true when `CreatePR` was called and produced a pull request
 - **`notify.errors()`** — returns the list of error notifications sent during the test
 - **`notify.successes()`** — returns the list of success notifications sent during the test
