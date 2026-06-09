@@ -12,7 +12,7 @@ requirements:
           internal/git/reporoot_test.go gains a trailing newline at end of file (its final line is currently "}" with no newline after it) — run gofmt -w on the file (or append the missing newline by hand).
         - |
           No field names, types, test logic, comments, or any other content changes — these are whitespace-only fixes. After the change, `gofmt -l internal/git/` reports no files needing formatting.
-      passing: false
+      passing: true
     - slug: add-merge-and-abortmerge-tests
       description: |
         Add merge_test.go covering Merge and AbortMerge — the only two functions in internal/git/merge.go that remain after MergeBase is removed (see the remove-dead-mergebase requirement) — using the package's existing isolated-temp-repo helpers, mirroring the patterns already established in commit_test.go and branch_test.go.

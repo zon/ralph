@@ -1,13 +1,13 @@
 package git
 
 type MockClient struct {
-	SwitchToBranchFunc          func(slug string) error
-	BlockedFileExistsFunc       func() bool
-	WriteBlockedFileFunc        func(err error)
-	HasChangesFunc              func() bool
-	ReportExistsFunc            func() bool
-	CommitFromReportFunc        func(slug string) error
-	CurrentBranchFunc           func() (string, error)
+	SwitchToBranchFunc           func(slug string) error
+	BlockedFileExistsFunc        func() bool
+	WriteBlockedFileFunc         func(err error)
+	HasChangesFunc               func() bool
+	ReportExistsFunc             func() bool
+	CommitFromReportFunc         func(slug string) error
+	CurrentBranchFunc            func() (string, error)
 	IsBranchSyncedWithRemoteFunc func(branch string) error
 }
 
