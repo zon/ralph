@@ -52,6 +52,34 @@ func (c *Client) HasChanges(proj *Project) bool {
 	return git.HasFileChanges(proj.Path)
 }
 
+func (c *Client) HasSpec(proj *Project) bool {
+	return proj.Feature != ""
+}
+
+func (c *Client) HasOrchestration(proj *Project) bool {
+	if proj.Feature == "" {
+		return false
+	}
+	repoRoot, err := git.FindRepoRoot()
+	if err != nil {
+		return false
+	}
+	_, err = os.Stat(filepath.Join(repoRoot, proj.Feature, "orchestration.md"))
+	return err == nil
+}
+
+func (c *Client) RemoveOrchestration(proj *Project) error {
+	repoRoot, err := git.FindRepoRoot()
+	if err != nil {
+		return err
+	}
+	orchestrationPath := filepath.Join(repoRoot, proj.Feature, "orchestration.md")
+	if err := os.Remove(orchestrationPath); err != nil {
+		return err
+	}
+	return git.StageFile(orchestrationPath)
+}
+
 func (c *Client) NormalizeAndStage(proj *Project) {
 	data, err := os.ReadFile(proj.Path)
 	if err != nil {
