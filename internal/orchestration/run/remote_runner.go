@@ -21,7 +21,7 @@ func NewRemoteRunner(git GitClient, workflow WorkflowClient, notify NotifyClient
 	}
 }
 
-func (r *RemoteRunner) Run(proj *project.Project, flags RunRemoteFlags) error {
+func (r *RemoteRunner) Run(input *project.InputFile, flags RunRemoteFlags) error {
 	branch, err := r.git.CurrentBranch()
 	if err != nil {
 		return err
@@ -29,7 +29,7 @@ func (r *RemoteRunner) Run(proj *project.Project, flags RunRemoteFlags) error {
 	if err := r.git.IsBranchSyncedWithRemote(branch); err != nil {
 		return err
 	}
-	workflowName, err := r.workflow.Submit(proj, branch, flags.Debug)
+	workflowName, err := r.workflow.Submit(input, branch, flags.Debug)
 	if err != nil {
 		return err
 	}
@@ -38,9 +38,9 @@ func (r *RemoteRunner) Run(proj *project.Project, flags RunRemoteFlags) error {
 		return nil
 	}
 	if err := r.workflow.FollowLogs(workflowName); err != nil {
-		r.notify.Error(proj.Slug)
+		r.notify.Error(input.Slug())
 		return err
 	}
-	r.notify.Success(proj.Slug)
+	r.notify.Success(input.Slug())
 	return nil
 }

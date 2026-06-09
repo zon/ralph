@@ -441,7 +441,7 @@ requirements:
                 r.notify.Success(input.Slug())
                 return nil
             }
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump for the new run command input file dispatch feature
       items:

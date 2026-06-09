@@ -30,5 +30,5 @@ func NewRemoteRunnerClient(ctx *execcontext.Context) *RemoteRunnerClient {
 
 func (c *RemoteRunnerClient) Run(input *project.InputFile, flags orchestrationRun.RunRemoteFlags) error {
 	runner := NewRemoteRunner(c.ctx)
-	return runner.Run(input.Project(), flags)
+	return runner.Run(input, flags)
 }

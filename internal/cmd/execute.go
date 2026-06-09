@@ -147,7 +147,7 @@ func executeCommandRemote(ctx *context.Context, setup *CommandSetup, argoClient 
 
 func Execute(ctx *context.Context, cleanupRegistrar func(func()), setup *ExecutionSetup) error {
 	if !ctx.IsLocal() {
-		return NewRemoteRunner(ctx).Run(setup.Project, orchestrationRun.RunRemoteFlags{Follow: ctx.ShouldFollow()})
+		return NewRemoteRunner(ctx).Run(project.ForProjectInput(setup.Project), orchestrationRun.RunRemoteFlags{Follow: ctx.ShouldFollow()})
 	}
 
 	return NewLocalRunner(ctx, setup.BaseBranch).RunLocal(project.ForProjectInput(setup.Project), setup.Config)

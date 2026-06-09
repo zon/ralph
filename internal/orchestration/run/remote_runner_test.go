@@ -19,7 +19,7 @@ func TestRunBranchNotPushedAbortsBeforeSubmit(t *testing.T) {
 			},
 		}),
 	)
-	err := runner.Run(project.Any(), runRemoteFlagsAny())
+	err := runner.Run(project.ForProjectInput(project.Any()), runRemoteFlagsAny())
 	require.Error(t, err)
 	require.False(t, remoteWorkflowSubmitted(runner))
 }
@@ -32,7 +32,7 @@ func TestRunBranchNotInSyncAbortsBeforeSubmit(t *testing.T) {
 			},
 		}),
 	)
-	err := runner.Run(project.Any(), runRemoteFlagsAny())
+	err := runner.Run(project.ForProjectInput(project.Any()), runRemoteFlagsAny())
 	require.Error(t, err)
 	require.False(t, remoteWorkflowSubmitted(runner))
 }
@@ -41,13 +41,13 @@ func TestRunSubmitFailureReturnsError(t *testing.T) {
 	runner := withRemoteMocks(
 		withRemoteWorkflow(workflow.ThatFailsOnSubmit()),
 	)
-	err := runner.Run(project.Any(), runRemoteFlagsAny())
+	err := runner.Run(project.ForProjectInput(project.Any()), runRemoteFlagsAny())
 	require.Error(t, err)
 }
 
 func TestRunNoFollowPrintsLogHint(t *testing.T) {
 	runner := withRemoteMocks()
-	err := runner.Run(project.Any(), runRemoteFlagsWithoutFollow())
+	err := runner.Run(project.ForProjectInput(project.Any()), runRemoteFlagsWithoutFollow())
 	require.NoError(t, err)
 	require.True(t, remoteWorkflowLogHintPrinted(runner))
 	require.False(t, remoteWorkflowFollowLogsCalled(runner))
@@ -55,7 +55,7 @@ func TestRunNoFollowPrintsLogHint(t *testing.T) {
 
 func TestRunFollowStreamsLogsAndNotifiesSuccess(t *testing.T) {
 	runner := withRemoteMocks()
-	err := runner.Run(project.Any(), runRemoteFlagsWithFollow())
+	err := runner.Run(project.ForProjectInput(project.Any()), runRemoteFlagsWithFollow())
 	require.NoError(t, err)
 	require.True(t, remoteWorkflowFollowLogsCalled(runner))
 	require.True(t, remoteNotifySuccessSent(runner))
@@ -65,14 +65,14 @@ func TestRunFollowFailureNotifiesErrorAndReturns(t *testing.T) {
 	runner := withRemoteMocks(
 		withRemoteWorkflow(workflow.ThatFailsOnFollow()),
 	)
-	err := runner.Run(project.Any(), runRemoteFlagsWithFollow())
+	err := runner.Run(project.ForProjectInput(project.Any()), runRemoteFlagsWithFollow())
 	require.Error(t, err)
 	require.True(t, remoteNotifyErrorSent(runner))
 }
 
 func TestRunDebugBranchPassedToSubmit(t *testing.T) {
 	runner := withRemoteMocks()
-	err := runner.Run(project.Any(), runRemoteFlagsWithDebug("my-fix"))
+	err := runner.Run(project.ForProjectInput(project.Any()), runRemoteFlagsWithDebug("my-fix"))
 	require.NoError(t, err)
 	require.Equal(t, "my-fix", remoteWorkflowLastDebugBranch(runner))
 }
