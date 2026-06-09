@@ -446,4 +446,4 @@ requirements:
       description: Version bump for the new run command input file dispatch feature
       items:
         - Apply a semver minor bump to the app version
-      passing: false
+      passing: true
