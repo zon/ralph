@@ -1,6 +1,9 @@
 package notify
 
 import (
+	"bytes"
+	"errors"
+	"io"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -8,6 +11,7 @@ import (
 
 	"github.com/zon/ralph/internal/context"
 	orchestrationRun "github.com/zon/ralph/internal/orchestration/run"
+	"github.com/zon/ralph/internal/output"
 )
 
 func TestNotifyClientNew(t *testing.T) {
@@ -15,6 +19,7 @@ func TestNotifyClientNew(t *testing.T) {
 	client := NewClient(ctx)
 	require.NotNil(t, client)
 	assert.False(t, client.shouldNotify)
+	assert.NotNil(t, client.notifier)
 }
 
 func TestNotifyClientShouldNotifyFromContext(t *testing.T) {
@@ -29,23 +34,137 @@ func TestNotifyClientImplementsInterface(t *testing.T) {
 	var _ orchestrationRun.NotifyClient = &Client{}
 }
 
-func TestNotifyClientError_WithNotificationsDisabled(t *testing.T) {
-	ctx := context.NewContext()
-	ctx.SetNoNotify(true)
-	client := NewClient(ctx)
+func TestClientNotify_SendsCorrectNotification(t *testing.T) {
+	tests := []struct {
+		name     string
+		method   func(client *Client, slug string)
+		slug     string
+		wantTitle string
+		wantMsg  string
+		wantIcon string
+	}{
+		{
+			name:      "Success",
+			method:    (*Client).Success,
+			slug:      "test-slug",
+			wantTitle: "Ralph Success",
+			wantMsg:   "Ralph completed successfully for test-slug",
+			wantIcon:  "dialog-information",
+		},
+		{
+			name:      "Error",
+			method:    (*Client).Error,
+			slug:      "test-slug",
+			wantTitle: "Ralph Failed",
+			wantMsg:   "Ralph failed for test-slug",
+			wantIcon:  "dialog-error",
+		},
+	}
 
-	assert.NotPanics(t, func() {
-		client.Error("test-slug")
-	})
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var capturedTitle, capturedMessage, capturedIcon string
+			mockNotifier := &MockNotifier{
+				NotifyFn: func(title, message, appIcon string) error {
+					capturedTitle, capturedMessage, capturedIcon = title, message, appIcon
+					return nil
+				},
+			}
+
+			client := &Client{
+				out:          output.NewClient(io.Discard, io.Discard, false),
+				shouldNotify: true,
+				notifier:     mockNotifier,
+			}
+
+			tc.method(client, tc.slug)
+			assert.Equal(t, tc.wantTitle, capturedTitle)
+			assert.Equal(t, tc.wantMsg, capturedMessage)
+			assert.Equal(t, tc.wantIcon, capturedIcon)
+		})
+	}
 }
 
-func TestNotifyClientSuccess_WithNotificationsDisabled(t *testing.T) {
-	ctx := context.NewContext()
-	ctx.SetNoNotify(true)
-	client := NewClient(ctx)
+func TestClientNotify_WhenNotifyFails_CallsWarnf(t *testing.T) {
+	tests := []struct {
+		name   string
+		method func(client *Client, slug string)
+		slug   string
+	}{
+		{
+			name:   "Success",
+			method: (*Client).Success,
+			slug:   "test-slug",
+		},
+		{
+			name:   "Error",
+			method: (*Client).Error,
+			slug:   "test-slug",
+		},
+	}
 
-	assert.NotPanics(t, func() {
-		client.Success("test-slug")
-	})
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			mockErr := errors.New("notify error")
+			mockNotifier := &MockNotifier{
+				NotifyFn: func(_, _, _ string) error {
+					return mockErr
+				},
+			}
+
+			var buf bytes.Buffer
+			out := output.NewClient(&buf, io.Discard, false)
+			client := &Client{
+				out:          out,
+				shouldNotify: true,
+				notifier:     mockNotifier,
+			}
+
+			assert.NotPanics(t, func() {
+				tc.method(client, tc.slug)
+			})
+
+			assert.Contains(t, buf.String(), "Failed to send desktop notification")
+		})
+	}
 }
 
+func TestClientNotify_WhenNotificationsDisabled_DoesNotCallNotify(t *testing.T) {
+	tests := []struct {
+		name   string
+		method func(client *Client, slug string)
+		slug   string
+	}{
+		{
+			name:   "Success",
+			method: (*Client).Success,
+			slug:   "test-slug",
+		},
+		{
+			name:   "Error",
+			method: (*Client).Error,
+			slug:   "test-slug",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			callCount := 0
+			mockNotifier := &MockNotifier{
+				NotifyFn: func(_, _, _ string) error {
+					callCount++
+					return nil
+				},
+			}
+
+			client := &Client{
+				out:          output.NewClient(io.Discard, io.Discard, false),
+				shouldNotify: false,
+				notifier:     mockNotifier,
+			}
+
+			tc.method(client, tc.slug)
+			assert.Equal(t, 0, callCount)
+		})
+	}
+}

@@ -1,5 +1,19 @@
 package notify
 
+// MockNotifier implements Notifier with a function field for per-test control.
+type MockNotifier struct {
+	NotifyFn func(title, message, appIcon string) error
+}
+
+func (m *MockNotifier) Notify(title, message, appIcon string) error {
+	if m.NotifyFn != nil {
+		return m.NotifyFn(title, message, appIcon)
+	}
+	return nil
+}
+
+var _ Notifier = (*MockNotifier)(nil)
+
 type MockClient struct {
 	ErrorsSlice    []string
 	SuccessesSlice []string
