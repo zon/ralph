@@ -45,7 +45,7 @@ requirements:
           The behavior observed by callers of ExecuteCommand is unchanged: a notification slug of "command" is still used for both the local-failure and local-success paths, gated on the same shouldNotify condition that NewClient derives from ctx.
         - |
           go build ./... succeeds with no remaining references to the deleted package-level notify.Success/notify.Error functions anywhere in the codebase.
-      passing: false
+      passing: true
     - slug: rewrite-notify-tests-with-mock-notifier
       description: |
         Rewrite internal/notify's tests to inject MockNotifier and exercise the real notification-sending path (previously untestable because beeep was called directly), in addition to the disabled-notifications path.
