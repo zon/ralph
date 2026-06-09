@@ -2,7 +2,6 @@ package git
 
 import (
 	"fmt"
-	"strings"
 )
 
 // Merge merges a branch into the current branch
@@ -23,11 +22,3 @@ func AbortMerge() error {
 	return nil
 }
 
-// MergeBase returns the merge base of two commits
-func MergeBase(a, b string) (string, error) {
-	out, err := runGit("merge-base", a, b)
-	if err != nil {
-		return "", fmt.Errorf("failed to find merge base: %w", err)
-	}
-	return strings.TrimSpace(out), nil
-}

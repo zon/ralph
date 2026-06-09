@@ -42,7 +42,7 @@ requirements:
           No replacement or re-export of MergeBase is added — this is a clean removal of dead exported surface area, not a deprecation or compatibility shim.
         - |
           go vet ./internal/git/... and go test ./internal/git/... pass after the deletion, with no compile errors from dangling references or unused imports.
-      passing: false
+      passing: true
     - slug: isolate-global-config-test
       description: |
         Isolate TestConfigList's "lists global config" subtest in internal/git/config_test.go from the host machine's real global git configuration, so the test no longer depends on or reads ambient environment state.
