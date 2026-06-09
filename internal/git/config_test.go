@@ -1,7 +1,6 @@
 package git
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -40,14 +39,15 @@ func TestConfig(t *testing.T) {
 
 func TestConfigList(t *testing.T) {
 	t.Run("lists global config", func(t *testing.T) {
-		home := t.TempDir()
-		t.Setenv("HOME", home)
-		err := os.WriteFile(filepath.Join(home, ".gitconfig"), nil, 0644)
+		tempDir := t.TempDir()
+		t.Setenv("GIT_CONFIG_GLOBAL", filepath.Join(tempDir, ".gitconfig"))
+
+		err := Config(true, "user.isolatedtest", "isolatedvalue")
 		require.NoError(t, err)
 
 		output, err := ConfigList(true)
 		require.NoError(t, err)
-		assert.Empty(t, output)
+		assert.Contains(t, output, "user.isolatedtest=isolatedvalue")
 	})
 
 	t.Run("lists local config", func(t *testing.T) {

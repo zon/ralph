@@ -55,4 +55,4 @@ requirements:
           The subtest never reads from or writes to the real ambient ~/.gitconfig or any global config outside the test's t.TempDir() — mirroring the isolation already present in "lists local config" (which uses setupTestRepo(t) + t.Chdir(tempDir)) and the package-wide rule that git "may be invoked in unit tests, but only against an isolated temporary directory — never the real repository."
         - |
           Other subtests in TestConfigList and the rest of config_test.go are unchanged. testify require/assert usage remains consistent with the rest of the file.
-      passing: false
+      passing: true
