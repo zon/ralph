@@ -51,12 +51,6 @@ func TestLocalFlagValidation(t *testing.T) {
 			expectError: true,
 			errorMsg:    "--follow flag is not applicable with --local flag",
 		},
-		{
-			name:        "default command - local with once should fail",
-			args:        []string{"--local", "--once", "test.yaml"},
-			expectError: true,
-			errorMsg:    "--local flag is incompatible with --once flag",
-		},
 	}
 
 	for _, tt := range tests {

@@ -1,6 +1,7 @@
 package k8s
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 )
@@ -52,4 +53,19 @@ func (c *client) CreateOrUpdateSecret(ctx context.Context, name, namespace, kube
 	}
 
 	return nil
+}
+
+func (c *client) SecretExists(ctx context.Context, name, namespace, kubeContext string) (bool, error) {
+	args := []string{"get", "secret", name, "-n", namespace}
+	if kubeContext != "" {
+		args = append(args, "--context", kubeContext)
+	}
+	_, err := runKubectl(ctx, nil, args...)
+	if err != nil {
+		if bytes.Contains([]byte(err.Error()), []byte("not found")) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
 }

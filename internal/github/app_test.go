@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -380,6 +381,104 @@ func TestGetInstallationToken_ReturnsErrorOnInvalidJSON(t *testing.T) {
 	_, err := GetInstallationToken(ctx, "test-jwt", 12345678)
 
 	assert.Error(t, err, "should return error for invalid JSON")
+}
+
+func TestGenerateInstallationToken_Success(t *testing.T) {
+	// Set up mock GitHub API server
+	installationID := int64(87654321)
+	tokenValue := "ghs_test-installation-token"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.Contains(r.URL.Path, "/access_tokens"):
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(map[string]string{"token": tokenValue})
+		case strings.Contains(r.URL.Path, "/installation"):
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(map[string]int64{"id": installationID})
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	serverURL := strings.TrimPrefix(server.URL, "http://")
+
+	oldClient := httpClient
+	httpClient = &http.Client{Transport: &rewriteTransport{old: http.DefaultTransport, serverURL: serverURL}}
+	defer func() { httpClient = oldClient }()
+
+	// Set up temp secrets directory
+	secretsDir := t.TempDir()
+
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+	privateKeyPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(privateKey),
+	})
+
+	os.WriteFile(filepath.Join(secretsDir, "app-id"), []byte("12345"), 0644)
+	os.WriteFile(filepath.Join(secretsDir, "private-key"), privateKeyPEM, 0644)
+
+	ctx := context.Background()
+	token, err := GenerateInstallationToken(ctx, "test-owner", "test-repo", secretsDir)
+	require.NoError(t, err)
+	assert.Equal(t, tokenValue, token)
+}
+
+func TestGenerateInstallationToken_MissingSecretsDir(t *testing.T) {
+	ctx := context.Background()
+	_, err := GenerateInstallationToken(ctx, "owner", "repo", "/nonexistent/secrets")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to read app ID")
+}
+
+func TestGenerateInstallationToken_EmptyAppID(t *testing.T) {
+	secretsDir := t.TempDir()
+	os.WriteFile(filepath.Join(secretsDir, "app-id"), []byte("  \n"), 0644)
+	os.WriteFile(filepath.Join(secretsDir, "private-key"), []byte("key-data"), 0644)
+
+	ctx := context.Background()
+	_, err := GenerateInstallationToken(ctx, "owner", "repo", secretsDir)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "app ID is empty")
+}
+
+func TestGenerateInstallationToken_EmptyPrivateKey(t *testing.T) {
+	secretsDir := t.TempDir()
+	os.WriteFile(filepath.Join(secretsDir, "app-id"), []byte("12345"), 0644)
+	os.WriteFile(filepath.Join(secretsDir, "private-key"), []byte{}, 0644)
+
+	ctx := context.Background()
+	_, err := GenerateInstallationToken(ctx, "owner", "repo", secretsDir)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "private key is empty")
+}
+
+func TestConfigureTokenAuth_GitConfig(t *testing.T) {
+	withIsolatedGitHome(t, func() {
+		ctx := context.Background()
+		token := "ghs_test-token"
+
+		// ConfigureTokenAuth will set git config and try to authenticate gh CLI.
+		// We expect an error from the gh CLI part (gh not available in test env),
+		// but the git config should have been written.
+		err := ConfigureTokenAuth(ctx, token)
+
+		after := gitListGlobal(t)
+		found := false
+		for _, l := range after {
+			if strings.Contains(strings.ToLower(l), "x-access-token:ghs_test-token@github.com/.insteadof") {
+				found = true
+			}
+		}
+		assert.True(t, found, "git config should contain the token insteadOf rewrite")
+
+		// gh auth will fail in test environment, but that's expected
+		if err != nil {
+			assert.Contains(t, err.Error(), "gh")
+		}
+	})
 }
 
 type rewriteTransport struct {

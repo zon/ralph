@@ -1,12 +1,8 @@
 package cmd
 
 import (
-	"errors"
-	"fmt"
-	"io/fs"
 	"os"
-	"path/filepath"
-	"time"
+	"strconv"
 
 	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
@@ -77,19 +73,12 @@ type workflowMergeGitHubClient struct{}
 
 func (c *workflowMergeGitHubClient) WaitForHeadSync(prBranch string) error {
 	gh := github.NewGH(output.NewClient(os.Stdout, os.Stderr, false))
-	for i := 0; i < 30; i++ {
-		oid, err := gh.GetPRHeadRefOid(prBranch)
-		if err == nil && oid != "" {
-			return nil
-		}
-		time.Sleep(2 * time.Second)
-	}
-	return fmt.Errorf("head sync timeout for branch %s", prBranch)
+	return github.WaitForHeadSync(gh, prBranch)
 }
 
 func (c *workflowMergeGitHubClient) MergePR(prNumber int) error {
 	gh := github.NewGH(output.NewClient(os.Stdout, os.Stderr, false))
-	return gh.MergePR(fmt.Sprintf("%d", prNumber), "")
+	return gh.MergePR(strconv.Itoa(prNumber), "")
 }
 
 // ---------------------------------------------------------------------------
@@ -99,49 +88,13 @@ func (c *workflowMergeGitHubClient) MergePR(prNumber int) error {
 type workflowMergeProjectClient struct{}
 
 func (c *workflowMergeProjectClient) LoadAll() ([]*project.Project, error) {
-	var projects []*project.Project
-	err := filepath.WalkDir("projects", func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			return nil
-		}
-		ext := filepath.Ext(path)
-		if ext != ".yaml" && ext != ".yml" {
-			return nil
-		}
-		proj, err := project.LoadProject(path)
-		if err != nil {
-			return nil
-		}
-		projects = append(projects, proj)
-		return nil
-	})
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("failed to walk projects directory: %w", err)
-	}
-	return projects, nil
+	return project.LoadAll("projects")
 }
 
 func (c *workflowMergeProjectClient) FilterPassing(projects []*project.Project) []*project.Project {
-	var passing []*project.Project
-	for _, p := range projects {
-		if project.IsProjectComplete(p) {
-			passing = append(passing, p)
-		}
-	}
-	return passing
+	return project.FilterPassing(projects)
 }
 
 func (c *workflowMergeProjectClient) DeleteAll(projects []*project.Project) error {
-	for _, p := range projects {
-		if err := os.Remove(p.Path); err != nil {
-			return fmt.Errorf("failed to delete project file %s: %w", p.Path, err)
-		}
-	}
-	return nil
+	return project.DeleteAll(projects)
 }

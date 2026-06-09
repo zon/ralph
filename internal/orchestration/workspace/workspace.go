@@ -27,6 +27,14 @@ type WorkspaceSetup struct {
 	git       GitClient
 }
 
+func New(github GitHubClient, workspace WorkspaceClient, git GitClient) *WorkspaceSetup {
+	return &WorkspaceSetup{
+		github:    github,
+		workspace: workspace,
+		git:       git,
+	}
+}
+
 type WorkspaceFlags struct {
 	Repo         string
 	CloneBranch  string

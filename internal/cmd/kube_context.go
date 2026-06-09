@@ -10,18 +10,6 @@ import (
 	"github.com/zon/ralph/internal/output"
 )
 
-// resolveKubeContext resolves the Kubernetes context and namespace with the following priority:
-// Context priority:
-// 1. Command-line flags (if provided)
-// 2. .ralph/config.yaml (workflow.context)
-// 3. kubectl configuration (current context)
-//
-// Namespace priority:
-// 1. Command-line flags (if provided)
-// 2. .ralph/config.yaml (workflow.namespace)
-// 3. "config" namespace (if .ralph/config.yaml is found)
-// 4. kubectl configuration (context namespace)
-// 5. Default namespace ("default")
 func resolveKubeContext(ctx context.Context, client k8s.Client, ralphConfig *config.RalphConfig, out *output.Client, flagContext, flagNamespace string) (k8s.Context, error) {
 	if out == nil {
 		out = output.NewClient(io.Discard, io.Discard, false)

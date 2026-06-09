@@ -9,6 +9,7 @@ import (
 
 	"github.com/zon/ralph/internal/argo"
 	"github.com/zon/ralph/internal/config"
+	orchestrationCommand "github.com/zon/ralph/internal/orchestration/command"
 	"github.com/zon/ralph/internal/testutil"
 )
 
@@ -102,19 +103,12 @@ title: Test project
 requirements: []
 `), 0644))
 
-	ralphConfig := &config.RalphConfig{}
-
-	setup := &CommandSetup{
-		Command: []string{"echo", "hello"},
-		Config:  ralphConfig,
-	}
-
 	ctx := testutil.NewContext(
 		testutil.WithProjectFile(projectFile),
 		testutil.WithLocal(false),
 		testutil.WithNoNotify(true),
 	)
 
-	err := executeCommandRemote(ctx, setup, &argo.MockClient{})
+	err := orchestrationCommand.ExecuteRemoteCommand(ctx, &argo.MockClient{})
 	assert.NoError(t, err)
 }
