@@ -5,105 +5,238 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func TestNewClient(t *testing.T) {
-	require.NotNil(t, NewClient(nil, nil, false))
+type testCase struct {
+	name        string
+	debugging   bool
+	msg         string
+	format      string
+	args        []any
+	outContains string
+	errContains string
 }
 
-func TestClientDebug_SuppressedWhenDebuggingFalse(t *testing.T) {
-	var out, err bytes.Buffer
-	NewClient(&out, &err, false).Debug("test debug")
-	assert.Empty(t, out.String())
-	assert.Empty(t, err.String())
+func checkOutput(t *testing.T, gotOut, gotErr, wantOut, wantErr string) {
+	t.Helper()
+	if wantOut != "" {
+		assert.Contains(t, gotOut, wantOut)
+	} else {
+		assert.Empty(t, gotOut)
+	}
+	if wantErr != "" {
+		assert.Contains(t, gotErr, wantErr)
+	} else {
+		assert.Empty(t, gotErr)
+	}
 }
 
-func TestClientDebug_WritesToOutWhenDebuggingTrue(t *testing.T) {
-	var out, err bytes.Buffer
-	NewClient(&out, &err, true).Debug("test debug")
-	assert.Contains(t, out.String(), "test debug")
-	assert.Empty(t, err.String())
+func TestClientDebug(t *testing.T) {
+	tests := []testCase{
+		{
+			name:        "suppressed when debugging false",
+			debugging:   false,
+			msg:         "test debug",
+			outContains: "",
+			errContains: "",
+		},
+		{
+			name:        "writes to out when debugging true",
+			debugging:   true,
+			msg:         "test debug",
+			outContains: "test debug",
+			errContains: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var out, err bytes.Buffer
+			NewClient(&out, &err, tt.debugging).Debug(tt.msg)
+			checkOutput(t, out.String(), err.String(), tt.outContains, tt.errContains)
+		})
+	}
 }
 
-func TestClientDebugf_SuppressedWhenDebuggingFalse(t *testing.T) {
-	var out, err bytes.Buffer
-	NewClient(&out, &err, false).Debugf("test %s", "debug")
-	assert.Empty(t, out.String())
-	assert.Empty(t, err.String())
+func TestClientDebugf(t *testing.T) {
+	tests := []testCase{
+		{
+			name:        "suppressed when debugging false",
+			debugging:   false,
+			format:      "test %s",
+			args:        []any{"debug"},
+			outContains: "",
+			errContains: "",
+		},
+		{
+			name:        "writes to out when debugging true",
+			debugging:   true,
+			format:      "test %s",
+			args:        []any{"debug"},
+			outContains: "test debug",
+			errContains: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var out, err bytes.Buffer
+			NewClient(&out, &err, tt.debugging).Debugf(tt.format, tt.args...)
+			checkOutput(t, out.String(), err.String(), tt.outContains, tt.errContains)
+		})
+	}
 }
 
-func TestClientDebugf_WritesToOutWhenDebuggingTrue(t *testing.T) {
-	var out, err bytes.Buffer
-	NewClient(&out, &err, true).Debugf("test %s", "debug")
-	assert.Contains(t, out.String(), "test debug")
-	assert.Empty(t, err.String())
+func TestClientInfo(t *testing.T) {
+	tests := []testCase{
+		{
+			name:        "always writes to out",
+			debugging:   false,
+			msg:         "test info",
+			outContains: "test info",
+			errContains: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var out, err bytes.Buffer
+			NewClient(&out, &err, tt.debugging).Info(tt.msg)
+			checkOutput(t, out.String(), err.String(), tt.outContains, tt.errContains)
+		})
+	}
 }
 
-func TestClientInfo_WritesToOut(t *testing.T) {
-	var out, err bytes.Buffer
-	NewClient(&out, &err, false).Info("test info")
-	assert.Contains(t, out.String(), "test info")
-	assert.Empty(t, err.String())
+func TestClientInfof(t *testing.T) {
+	tests := []testCase{
+		{
+			name:        "always writes to out",
+			debugging:   false,
+			format:      "test %s",
+			args:        []any{"info"},
+			outContains: "test info",
+			errContains: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var out, err bytes.Buffer
+			NewClient(&out, &err, tt.debugging).Infof(tt.format, tt.args...)
+			checkOutput(t, out.String(), err.String(), tt.outContains, tt.errContains)
+		})
+	}
 }
 
-func TestClientInfof_WritesToOut(t *testing.T) {
-	var out, err bytes.Buffer
-	NewClient(&out, &err, false).Infof("test %s", "info")
-	assert.Contains(t, out.String(), "test info")
-	assert.Empty(t, err.String())
+func TestClientWarn(t *testing.T) {
+	tests := []testCase{
+		{
+			name:        "always writes to out",
+			debugging:   false,
+			msg:         "test warning",
+			outContains: "test warning",
+			errContains: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var out, err bytes.Buffer
+			NewClient(&out, &err, tt.debugging).Warn(tt.msg)
+			checkOutput(t, out.String(), err.String(), tt.outContains, tt.errContains)
+		})
+	}
 }
 
-func TestClientWarn_WritesToOut(t *testing.T) {
-	var out, err bytes.Buffer
-	NewClient(&out, &err, false).Warn("test warning")
-	assert.Contains(t, out.String(), "test warning")
-	assert.Empty(t, err.String())
+func TestClientWarnf(t *testing.T) {
+	tests := []testCase{
+		{
+			name:        "always writes to out",
+			debugging:   false,
+			format:      "test %s",
+			args:        []any{"warning"},
+			outContains: "test warning",
+			errContains: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var out, err bytes.Buffer
+			NewClient(&out, &err, tt.debugging).Warnf(tt.format, tt.args...)
+			checkOutput(t, out.String(), err.String(), tt.outContains, tt.errContains)
+		})
+	}
 }
 
-func TestClientWarnf_WritesToOut(t *testing.T) {
-	var out, err bytes.Buffer
-	NewClient(&out, &err, false).Warnf("test %s", "warning")
-	assert.Contains(t, out.String(), "test warning")
-	assert.Empty(t, err.String())
+func TestClientError(t *testing.T) {
+	tests := []testCase{
+		{
+			name:        "writes to err with nothing to out",
+			debugging:   false,
+			msg:         "test error",
+			outContains: "",
+			errContains: "test error",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var out, err bytes.Buffer
+			NewClient(&out, &err, tt.debugging).Error(tt.msg)
+			checkOutput(t, out.String(), err.String(), tt.outContains, tt.errContains)
+		})
+	}
 }
 
-func TestClientError_WritesToErr(t *testing.T) {
-	var out, err bytes.Buffer
-	NewClient(&out, &err, false).Error("test error")
-	assert.Contains(t, err.String(), "test error")
-	assert.Empty(t, out.String())
+func TestClientErrorf(t *testing.T) {
+	tests := []testCase{
+		{
+			name:        "writes to err with nothing to out",
+			debugging:   false,
+			format:      "test %s",
+			args:        []any{"error"},
+			outContains: "",
+			errContains: "test error",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var out, err bytes.Buffer
+			NewClient(&out, &err, tt.debugging).Errorf(tt.format, tt.args...)
+			checkOutput(t, out.String(), err.String(), tt.outContains, tt.errContains)
+		})
+	}
 }
 
-func TestClientErrorf_WritesToErr(t *testing.T) {
-	var out, err bytes.Buffer
-	NewClient(&out, &err, false).Errorf("test %s", "error")
-	assert.Contains(t, err.String(), "test error")
-	assert.Empty(t, out.String())
+func TestClientSuccess(t *testing.T) {
+	tests := []testCase{
+		{
+			name:        "writes checkmark and message to out",
+			debugging:   false,
+			msg:         "test success",
+			outContains: "✓ test success",
+			errContains: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var out, err bytes.Buffer
+			NewClient(&out, &err, tt.debugging).Success(tt.msg)
+			checkOutput(t, out.String(), err.String(), tt.outContains, tt.errContains)
+		})
+	}
 }
 
-func TestClientSuccess_WritesToOut(t *testing.T) {
-	var out, err bytes.Buffer
-	NewClient(&out, &err, false).Success("test success")
-	assert.Contains(t, out.String(), "✓ test success")
-	assert.Empty(t, err.String())
-}
-
-func TestClientSuccessf_WritesToOut(t *testing.T) {
-	var out, err bytes.Buffer
-	NewClient(&out, &err, false).Successf("test %s", "success")
-	assert.Contains(t, out.String(), "✓ test success")
-	assert.Empty(t, err.String())
-}
-
-func TestClientSuccess_AlwaysWritesWhenDebuggingFalse(t *testing.T) {
-	var out, err bytes.Buffer
-	NewClient(&out, &err, false).Success("test")
-	assert.Contains(t, out.String(), "✓ test")
-}
-
-func TestClientSuccessf_AlwaysWritesWhenDebuggingFalse(t *testing.T) {
-	var out, err bytes.Buffer
-	NewClient(&out, &err, false).Successf("test %s", "success")
-	assert.Contains(t, out.String(), "✓ test success")
+func TestClientSuccessf(t *testing.T) {
+	tests := []testCase{
+		{
+			name:        "writes checkmark and formatted message to out",
+			debugging:   false,
+			format:      "test %s",
+			args:        []any{"success"},
+			outContains: "✓ test success",
+			errContains: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var out, err bytes.Buffer
+			NewClient(&out, &err, tt.debugging).Successf(tt.format, tt.args...)
+			checkOutput(t, out.String(), err.String(), tt.outContains, tt.errContains)
+		})
+	}
 }

@@ -144,7 +144,7 @@ modules:
     description: Registers shutdown callbacks and handles OS signal-based graceful termination.
     category: lifecycle
   - path: internal/output
-    description: Prints warning and error messages to stdout with ANSI color.
+    description: Routes debug, info, warn, error, and success messages to configurable output and error streams with ANSI color.
     category: pipeline
   - path: internal/notify
     description: Desktop notification helper for success and error events.
