@@ -89,4 +89,4 @@ requirements:
       description: Version bump
       items:
         - Apply a semver patch bump to the app version
-      passing: false
+      passing: true
