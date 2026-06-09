@@ -4,9 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
@@ -124,42 +122,19 @@ func (c *workspaceGitClient) CreateAndCheckout(branch string) error {
 type gitAdapter struct{}
 
 func (a *gitAdapter) FetchBranch(branch string) error {
-	_, err := runGit("fetch", "origin", branch+":"+branch)
-	if err != nil {
-		_, err = runGit("fetch", "origin", branch)
-		if err != nil {
-			return fmt.Errorf("failed to fetch branch %s: %w", branch, err)
-		}
-	}
-	return nil
+	return git.FetchBranch(branch)
 }
 
 func (a *gitAdapter) NeedsMerge(branch string) (bool, error) {
-	_, err := runGit("rev-parse", "--verify", branch)
-	if err != nil {
-		return false, nil
-	}
-	mergeBase, err := runGit("merge-base", "HEAD", branch)
-	if err != nil {
-		return false, fmt.Errorf("failed to find merge base: %w", err)
-	}
-	baseCommit, err := runGit("rev-parse", branch)
-	if err != nil {
-		return false, fmt.Errorf("failed to get base commit: %w", err)
-	}
-	return strings.TrimSpace(mergeBase) != strings.TrimSpace(baseCommit), nil
+	return git.NeedsMerge(branch)
 }
 
 func (a *gitAdapter) Merge(branch string) error {
-	_, err := runGit("merge", branch, "--no-edit")
-	if err != nil {
-		return fmt.Errorf("merge failed: %w", err)
-	}
-	return nil
+	return git.Merge(branch)
 }
 
 func (a *gitAdapter) AbortMerge() {
-	_, _ = runGit("merge", "--abort")
+	_ = git.AbortMerge()
 }
 
 // ---------------------------------------------------------------------------
@@ -275,11 +250,4 @@ func (a *debugAdapter) Setup(branch string) error {
 	return nil
 }
 
-func runGit(args ...string) (string, error) {
-	cmd := exec.Command("git", args...)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return strings.TrimSpace(string(output)), fmt.Errorf("git %v failed: %w (output: %s)", args, err, output)
-	}
-	return strings.TrimSpace(string(output)), nil
-}
+

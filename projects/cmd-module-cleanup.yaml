@@ -26,7 +26,7 @@ requirements:
         - In internal/cmd/workflow_run_adapters.go, replace gitAdapter.FetchBranch, Merge, and AbortMerge with calls to git.FetchBranch, git.Merge, and git.AbortMerge from internal/git
         - Replace gitAdapter.NeedsMerge with a call to the new git.NeedsMerge function
         - Delete runGit, gitCheckout, gitCreateBranch, and remoteBranchExists from internal/cmd/workflow_run_adapters.go — they duplicate functions already in internal/git; update checkoutWorkflowBranch to delegate to internal/git instead
-      passing: false
+      passing: true
     - slug: extract-ai-merge-conflicts
       description: Move aiAdapter.ResolveMergeConflicts from internal/cmd/workflow_run_adapters.go into internal/orchestration/workflowrun
       items:
