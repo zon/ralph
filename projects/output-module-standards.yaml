@@ -15,4 +15,4 @@ requirements:
         - Each table row covers one scenario (e.g. suppressed when debugging=false, writes to out when debugging=true, writes to err). Use struct fields for inputs (msg or format+args, debugging bool) and expected outputs (outContains, errContains strings).
         - 'Preserve all existing coverage: Debug/Debugf suppress output when debugging=false and write to out when debugging=true; Info/Infof always write to out; Warn/Warnf always write to out; Error/Errorf always write to err with nothing to out; Success/Successf always write "✓ <msg>" to out with nothing to err.'
         - Remove TestNewClient — it only asserts that a constructor that always returns non-nil returns non-nil.
-      passing: false
+      passing: true
