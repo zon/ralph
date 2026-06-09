@@ -547,6 +547,41 @@ func TestWriteWebhookSecrets(t *testing.T) {
 	})
 }
 
+func TestWriteWebhookSecretsAndLog(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("calls Successf with secret name and namespace on success", func(t *testing.T) {
+		var outBuf, errBuf bytes.Buffer
+		out := output.NewClient(&outBuf, &errBuf, false)
+		client := &k8s.MockClient{
+			CreateOrUpdateSecretFunc: func(ctx context.Context, name, namespace, kubeContext string, data map[string]string) error {
+				return nil
+			},
+		}
+		secrets := &webhookconfig.Secrets{}
+		err := WriteWebhookSecretsAndLog(ctx, client, "my-ctx", "my-ns", secrets, out)
+		require.NoError(t, err)
+		output := outBuf.String()
+		assert.Contains(t, output, WebhookSecretsSecretName)
+		assert.Contains(t, output, "my-ns")
+	})
+
+	t.Run("returns error and does not call Successf when write fails", func(t *testing.T) {
+		var outBuf, errBuf bytes.Buffer
+		out := output.NewClient(&outBuf, &errBuf, false)
+		client := &k8s.MockClient{
+			CreateOrUpdateSecretFunc: func(ctx context.Context, name, namespace, kubeContext string, data map[string]string) error {
+				return fmt.Errorf("API error")
+			},
+		}
+		secrets := &webhookconfig.Secrets{}
+		err := WriteWebhookSecretsAndLog(ctx, client, "my-ctx", "my-ns", secrets, out)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "API error")
+		assert.NotContains(t, outBuf.String(), "Success")
+	})
+}
+
 func TestGenerateWebhookSecret(t *testing.T) {
 	t.Run("generates a non-empty secret", func(t *testing.T) {
 		secret, err := GenerateWebhookSecret()

@@ -206,6 +206,14 @@ func WriteWebhookConfigMap(ctx context.Context, client k8s.Client, kubeContext, 
 	return nil
 }
 
+func WriteWebhookSecretsAndLog(ctx context.Context, client k8s.Client, kubeContext, namespace string, secrets *webhookconfig.Secrets, out *output.Client) error {
+	if err := WriteWebhookSecrets(ctx, client, kubeContext, namespace, secrets); err != nil {
+		return err
+	}
+	out.Successf("Secret '%s' created/updated in namespace '%s'", WebhookSecretsSecretName, namespace)
+	return nil
+}
+
 func WriteWebhookSecrets(ctx context.Context, client k8s.Client, kubeContext, namespace string, secrets *webhookconfig.Secrets) error {
 	secretsBytes, err := yaml.Marshal(secrets)
 	if err != nil {

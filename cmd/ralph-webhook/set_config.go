@@ -95,11 +95,7 @@ func (c *setconfigSecretsClient) Generate(cfg webhookconfig.AppConfig) (webhooks
 
 func (c *setconfigSecretsClient) Write(k8sCtx webhooksetconfig.K8sContext, secrets webhooksetconfig.WebhookSecrets) error {
 	s := &webhookconfig.Secrets{Repos: secrets.Repos}
-	if err := provisioning.WriteWebhookSecrets(c.ctx, c.k8sClient, k8sCtx.Name, k8sCtx.Namespace, s); err != nil {
-		return err
-	}
-	c.out.Successf("Secret '%s' created/updated in namespace '%s'", provisioning.WebhookSecretsSecretName, k8sCtx.Namespace)
-	return nil
+	return provisioning.WriteWebhookSecretsAndLog(c.ctx, c.k8sClient, k8sCtx.Name, k8sCtx.Namespace, s, c.out)
 }
 
 type setconfigGitHubClient struct {
