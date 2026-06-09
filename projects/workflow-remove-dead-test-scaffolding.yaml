@@ -37,7 +37,7 @@ requirements:
           Confirm before removing that workflow.Client is referenced nowhere else in the codebase (grep for "workflow\.Client\b" returns no results): the real consumer, internal/orchestration/run, defines its own structurally-identical WorkflowClient interface in runner.go, and the real implementation (workflowClientAdapter) lives in internal/cmd — neither depends on internal/workflow's Client type, and MockClient satisfies orchestrationRun.WorkflowClient structurally without it.
         - |
           go vet ./internal/workflow/... and go test ./internal/workflow/... pass after the deletion, with no compile errors.
-      passing: false
+      passing: true
     - slug: verify-dependents-still-pass
       description: |
         Confirm that packages depending on internal/workflow (especially internal/orchestration/run, which imports workflow.MockClient and workflow.ThatFailsOnSubmit/ThatFailsOnFollow) still build and pass their tests after both deletions, since this change must be purely subtractive with no behavioral impact.
