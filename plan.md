@@ -35,6 +35,6 @@ the `ralph-review-module` skill, and report or fix any gaps found.
 Reviewed last — entry modules wire everything else, so review them once their
 dependencies' compliance is known.
 
-- [ ] `cmd/ralph`
+- [x] `cmd/ralph`
 - [ ] `cmd/ralph-webhook`
 - [ ] `internal/cmd`
