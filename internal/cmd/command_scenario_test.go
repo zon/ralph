@@ -10,6 +10,7 @@ import (
 	"github.com/zon/ralph/internal/argo"
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/output"
+	orchestrationCommand "github.com/zon/ralph/internal/orchestration/command"
 	"github.com/zon/ralph/internal/testutil"
 )
 
@@ -152,13 +153,6 @@ title: Test project
 requirements: []
 `), 0644))
 
-	ralphConfig := &config.RalphConfig{}
-
-	setup := &CommandSetup{
-		Command: []string{"echo", "remote-command"},
-		Config:  ralphConfig,
-	}
-
 	ctx := testutil.NewContext(
 		testutil.WithProjectFile(projectFile),
 		testutil.WithLocal(false),
@@ -167,7 +161,7 @@ requirements: []
 	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
 
 	mockArgo := &argo.MockClient{}
-	err := executeCommandRemote(ctx, setup, mockArgo)
+	err := orchestrationCommand.ExecuteRemoteCommand(ctx, mockArgo)
 	assert.NoError(t, err)
 	assert.True(t, mockArgo.SubmitYAMLCalled)
 	assert.False(t, mockArgo.FollowLogsCalled)
@@ -181,13 +175,6 @@ title: Test project
 requirements: []
 `), 0644))
 
-	ralphConfig := &config.RalphConfig{}
-
-	setup := &CommandSetup{
-		Command: []string{"echo", "follow-logs-test"},
-		Config:  ralphConfig,
-	}
-
 	ctx := testutil.NewContext(
 		testutil.WithProjectFile(projectFile),
 		testutil.WithLocal(false),
@@ -197,7 +184,7 @@ requirements: []
 	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
 
 	mockArgo := &argo.MockClient{}
-	err := executeCommandRemote(ctx, setup, mockArgo)
+	err := orchestrationCommand.ExecuteRemoteCommand(ctx, mockArgo)
 	assert.NoError(t, err)
 	assert.True(t, mockArgo.SubmitYAMLCalled)
 	assert.True(t, mockArgo.FollowLogsCalled)

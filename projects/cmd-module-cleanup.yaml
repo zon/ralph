@@ -9,7 +9,7 @@ requirements:
         - Move PrepareExecution (internal/cmd/execute.go lines 36-73) into internal/orchestration/run — it loads the project file, config, and branch state; this setup belongs in the run orchestration layer
         - Update CommandCmd.Run in internal/cmd/command.go and any other callers to use the new orchestration-layer location
         - After both moves, internal/cmd/execute.go should contain only Execute, ExecuteCommand, and infrastructureRunBeforeCommands; delete dead code
-      passing: false
+      passing: true
     - slug: route-workspace-setup-through-orchestration
       description: Eliminate workspaceSetupAdapter.Setup inline logic by routing through internal/orchestration/workspace.WorkspaceSetup
       items:
