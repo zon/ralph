@@ -43,7 +43,7 @@ requirements:
         - internal/orchestration/setconfig/cmd.go returns early if SecretExists returns (_, err) or if Configure returns an error — neither path has test coverage
         - Add TestRunHaltsOnSecretExistsError — inject a github mock whose secretExistsFunc returns (false, errMock); use setconfig.withGitHub with a new thatFailsSecretExists helper on githubHelper; assert require.Error and require.False(github.validateCalled())
         - Add TestRunHaltsOnGitHubConfigureFailure — inject a github mock that succeeds Validate but whose configureFunc returns errMock; use a new thatFailsConfigure helper on githubHelper; assert require.Error
-      passing: false
+      passing: true
     - slug: workflowtoken-duplicate-scenarios
       description: Remove duplicate test scenarios in workflowtoken that cover identical code paths
       items:

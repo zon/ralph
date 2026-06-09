@@ -58,3 +58,20 @@ func TestRunPropagatesContextResolutionFailure(t *testing.T) {
 	require.Error(t, err)
 	require.False(t, github.validateCalled())
 }
+
+func TestRunHaltsOnSecretExistsError(t *testing.T) {
+	cmd := setconfig.withMocks(
+		setconfig.withGitHub(github.thatFailsSecretExists()),
+	)
+	err := cmd.Run(flags.withoutKey())
+	require.Error(t, err)
+	require.False(t, github.validateCalled())
+}
+
+func TestRunHaltsOnGitHubConfigureFailure(t *testing.T) {
+	cmd := setconfig.withMocks(
+		setconfig.withGitHub(github.thatFailsConfigure()),
+	)
+	err := cmd.Run(flags.withKey())
+	require.Error(t, err)
+}
