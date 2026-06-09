@@ -2,17 +2,17 @@
 
 ## Purpose
 
-Define the behavior of the `ralph validate` command, which checks that a project YAML file unmarshals into a well-formed project, asks a locally-run agent to repair the file when it does not, and rewrites the file in canonical format on success.
+Define the behavior of the `ralph validate` command, which checks that a project file (JSON or YAML) unmarshals into a well-formed project, asks a locally-run agent to repair the file when it does not, and rewrites the file in canonical YAML format on success. When the input file has a `.json` extension, the validated output is written to a new `.yaml` file and the original `.json` file is removed.
 
 ## Requirements
 
 ### Requirement: Command Invocation
 
-The system SHALL provide a `ralph validate <file>` subcommand that accepts a path to a project YAML file as its sole positional argument.
+The system SHALL provide a `ralph validate <file>` subcommand that accepts a path to a project file (JSON or YAML) as its sole positional argument.
 
 #### Scenario: File path provided
 
-- GIVEN a path to a project YAML file
+- GIVEN a path to a project file
 - WHEN the user runs `ralph validate <file>`
 - THEN the command loads the file from that path and begins validation
 
@@ -24,18 +24,18 @@ The system SHALL provide a `ralph validate <file>` subcommand that accepts a pat
 
 ### Requirement: Project Unmarshalling
 
-The command MUST attempt to unmarshal the file into the project model using the same loader used by other ralph commands. The project is considered valid when it parses as YAML and satisfies the project schema (required fields populated, requirements well-formed).
+The command MUST attempt to unmarshal the file into the project model using the same loader used by other ralph commands. The loader accepts both JSON and YAML input. The project is considered valid when it parses and satisfies the project schema (required fields populated, requirements well-formed).
 
 #### Scenario: Well-formed project
 
-- GIVEN a YAML file that parses and satisfies the project schema
+- GIVEN a file that parses and satisfies the project schema
 - WHEN `ralph validate <file>` is run
 - THEN unmarshalling succeeds on the first attempt
 - AND no agent is invoked
 
 #### Scenario: Unmarshalling failure
 
-- GIVEN a YAML file that fails to parse or fails schema checks
+- GIVEN a file that fails to parse or fails schema checks
 - WHEN `ralph validate <file>` is run
 - THEN the command enters the fix loop described below
 - AND the underlying error is reported to the user before each fix attempt
@@ -98,20 +98,27 @@ The fix loop MUST be capped at 10 total unmarshalling attempts (the initial atte
 
 ### Requirement: Canonical Formatting
 
-After unmarshalling succeeds, the command MUST marshal the project model back to the file using the same serialization path as `ralph pass`. This ensures the file is written in the canonical layout regardless of how it was originally formatted.
+After unmarshalling succeeds, the command MUST marshal the project model back to disk as YAML using the same serialization path as `ralph pass`. This ensures the output is always in canonical YAML layout regardless of the input format.
 
 #### Scenario: File rewritten in canonical format
 
 - GIVEN a project file that unmarshals successfully (immediately or after agent fixes)
 - WHEN `ralph validate <file>` finishes validation
 - THEN the file is rewritten using the same marshalling routine as `ralph pass`
-- AND the on-disk content matches the canonical representation of the parsed project
+- AND the on-disk content matches the canonical YAML representation of the parsed project
 
-#### Scenario: Already-canonical file is unchanged
+#### Scenario: Already-canonical YAML file is unchanged
 
-- GIVEN a file that is already in canonical format
+- GIVEN a YAML file that is already in canonical format
 - WHEN `ralph validate <file>` rewrites it
 - THEN the resulting file content is byte-identical to the input
+
+#### Scenario: JSON file renamed to YAML
+
+- GIVEN a project file with a `.json` extension that unmarshals successfully
+- WHEN `ralph validate <file>` finishes validation
+- THEN the validated project is written to a new file with the same name but a `.yaml` extension
+- AND the original `.json` file is removed
 
 ### Requirement: Successful Validation Output
 

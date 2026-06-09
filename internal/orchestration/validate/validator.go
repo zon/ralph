@@ -3,6 +3,8 @@ package validate
 import (
 	"bytes"
 	"fmt"
+	"path/filepath"
+	"strings"
 
 	"github.com/zon/ralph/internal/project"
 )
@@ -18,6 +20,7 @@ type ProjectClient interface {
 	Load(path string) (*project.Project, error)
 	Save(path string, proj *project.Project) error
 	ReadFile(path string) ([]byte, error)
+	Remove(path string) error
 }
 
 type AgentClient interface {
@@ -34,7 +37,16 @@ func (v *Validator) Validate(path string) (*project.Project, error) {
 	for attempt := 1; attempt <= MaxAttempts; attempt++ {
 		proj, loadErr := v.project.Load(path)
 		if loadErr == nil {
-			return proj, v.project.Save(path, proj)
+			savePath := yamlPath(path)
+			if err := v.project.Save(savePath, proj); err != nil {
+				return nil, err
+			}
+			if savePath != path {
+				if err := v.project.Remove(path); err != nil {
+					return nil, err
+				}
+			}
+			return proj, nil
 		}
 		if attempt == MaxAttempts {
 			return nil, loadErr
@@ -47,4 +59,11 @@ func (v *Validator) Validate(path string) (*project.Project, error) {
 		}
 	}
 	return nil, ErrUnreachable
+}
+
+func yamlPath(path string) string {
+	if strings.ToLower(filepath.Ext(path)) == ".json" {
+		return path[:len(path)-len(filepath.Ext(path))] + ".yaml"
+	}
+	return path
 }

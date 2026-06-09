@@ -13,7 +13,10 @@ type mockProjectClient struct {
 	loadFunc      func(path string) (*project.Project, error)
 	saveFunc      func(path string, proj *project.Project) error
 	readFileFunc  func(path string) ([]byte, error)
+	removeFunc    func(path string) error
 	readCallCount int
+	savedPath     string
+	removedPath   string
 }
 
 func (m *mockProjectClient) Load(path string) (*project.Project, error) {
@@ -24,9 +27,18 @@ func (m *mockProjectClient) Load(path string) (*project.Project, error) {
 }
 
 func (m *mockProjectClient) Save(path string, proj *project.Project) error {
+	m.savedPath = path
 	project.SetLastSaved(proj)
 	if m.saveFunc != nil {
 		return m.saveFunc(path, proj)
+	}
+	return nil
+}
+
+func (m *mockProjectClient) Remove(path string) error {
+	m.removedPath = path
+	if m.removeFunc != nil {
+		return m.removeFunc(path)
 	}
 	return nil
 }
@@ -265,6 +277,57 @@ func TestValidatePropagatesAgentFailure(t *testing.T) {
 		withAgent(thatFailsToFix()),
 	)
 	_, err := svc.Validate(project.AnyPath())
+	require.Error(t, err)
+}
+
+func TestValidateRenamesJSONToYAML(t *testing.T) {
+	project.ResetLoadAttempts()
+	ResetFixCalls()
+	project.SetLastSaved(nil)
+	proj := project.Any()
+	mock := &mockProjectClient{
+		loadFunc: func(path string) (*project.Project, error) {
+			return proj, nil
+		},
+	}
+	svc := &Validator{project: mock, agent: &mockAgentClient{}}
+	result, err := svc.Validate(project.AnyJSONPath())
+	require.NoError(t, err)
+	require.Equal(t, proj, result)
+	require.Equal(t, "/workspace/repo/projects/test-project.yaml", mock.savedPath)
+	require.Equal(t, project.AnyJSONPath(), mock.removedPath)
+}
+
+func TestValidateDoesNotRemoveYAML(t *testing.T) {
+	project.ResetLoadAttempts()
+	ResetFixCalls()
+	project.SetLastSaved(nil)
+	proj := project.Any()
+	mock := &mockProjectClient{
+		loadFunc: func(path string) (*project.Project, error) {
+			return proj, nil
+		},
+	}
+	svc := &Validator{project: mock, agent: &mockAgentClient{}}
+	_, err := svc.Validate(project.AnyPath())
+	require.NoError(t, err)
+	require.Equal(t, project.AnyPath(), mock.savedPath)
+	require.Empty(t, mock.removedPath)
+}
+
+func TestValidatePropagatesRemoveFailure(t *testing.T) {
+	project.ResetLoadAttempts()
+	ResetFixCalls()
+	mock := &mockProjectClient{
+		loadFunc: func(path string) (*project.Project, error) {
+			return project.Any(), nil
+		},
+		removeFunc: func(path string) error {
+			return fmt.Errorf("remove failed")
+		},
+	}
+	svc := &Validator{project: mock, agent: &mockAgentClient{}}
+	_, err := svc.Validate(project.AnyJSONPath())
 	require.Error(t, err)
 }
 

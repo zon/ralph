@@ -24,6 +24,10 @@ func (projectClient) ReadFile(path string) ([]byte, error) {
 	return os.ReadFile(path)
 }
 
+func (projectClient) Remove(path string) error {
+	return os.Remove(path)
+}
+
 type agentClient struct {
 	ctx *context.Context
 	oc  opencode.OCClient

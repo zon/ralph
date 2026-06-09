@@ -1,6 +1,6 @@
 ---
 name: ralph-write-project
-description: Creates and validates a ralph project YAML file defining work for the ralph agent to execute
+description: Creates and validates a ralph project file defining work for the ralph agent to execute
 ---
 
 # Write Project
@@ -31,8 +31,8 @@ Create a well-formed project file based on the user's description of the work to
 
 8. **Draft remaining requirements** as `items` for any work not covered by the orchestration or spec — additional constraints, edge cases, operational requirements, and the version bump if needed.
 
-9. **Write the file** following the format and guidelines in [docs/formats/project.md](https://raw.githubusercontent.com/zon/ralph/refs/heads/main/docs/formats/project.md).
+9. **Write the file** as JSON at `./projects/<slug>.json`, following the format and guidelines in [docs/formats/project.md](https://raw.githubusercontent.com/zon/ralph/refs/heads/main/docs/formats/project.md). The format doc shows YAML — write the equivalent JSON instead.
 
-10. **Validate** the file using the command in [docs/formats/project.md](https://raw.githubusercontent.com/zon/ralph/refs/heads/main/docs/formats/project.md).
+10. **Validate** by running `ralph validate ./projects/<slug>.json`. This checks the structure and renames the file to `./projects/<slug>.yaml`.
 
 11. **Report** the file path and a one-line summary of what the project covers.
