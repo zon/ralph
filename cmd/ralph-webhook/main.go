@@ -11,13 +11,17 @@ import (
 )
 
 type CLI struct {
+	Serve ServeCmd `cmd:"" default:"withargs" help:"Start the webhook server"`
+	Set   SetCmd   `cmd:"" help:"Set webhook configuration"`
+}
+
+type ServeCmd struct {
 	Config  string `help:"Path to app config YAML file" env:"WEBHOOK_CONFIG"`
 	Secrets string `help:"Path to secrets YAML file" env:"WEBHOOK_SECRETS"`
 	Verbose bool   `help:"Enable verbose logging" default:"false"`
-	Set     SetCmd `cmd:"" help:"Set webhook configuration"`
 }
 
-func (c *CLI) Run() error {
+func (c *ServeCmd) Run() error {
 	out := output.NewClient(os.Stdout, os.Stderr, c.Verbose)
 
 	cfg, err := webhookconfig.LoadConfig(c.Config, c.Secrets)
