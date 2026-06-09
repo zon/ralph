@@ -34,7 +34,7 @@ requirements:
           Client.Success and Client.Error build the title and message strings themselves (the same "Ralph Success"/"Ralph completed successfully for <slug>" and "Ralph Failed"/"Ralph failed for <slug>" text and "dialog-information"/"dialog-error" icons currently produced by the package-level Success/Error functions in internal/notify/notify.go), call `c.notifier.Notify(title, message, icon)`, and — on error — call `c.out.Warnf("Failed to send desktop notification: %v", err)`, exactly mirroring the current behavior of the package-level functions. Both methods continue to no-op when c.shouldNotify is false.
         - |
           The package-level Success and Error functions and their `enabled bool` / `out *output.Client` parameters are deleted from internal/notify/notify.go entirely — Client.Success/Client.Error are the only public entry points for sending notifications. The init() function and Notifier-related declarations remain in notify.go (or are reorganized within the package as appropriate), and the package compiles with no dangling references.
-      passing: false
+      passing: true
     - slug: update-execute-command-call-sites
       description: |
         Update internal/cmd/execute.go to send notifications through notify.Client instead of calling the deleted package-level notify.Success/notify.Error functions.
