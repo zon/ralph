@@ -12,7 +12,7 @@ requirements:
           docs/testing.md states that "beeep... must never be invoked with real implementations in any test. These must always be abstracted behind interfaces and replaced with mocks" and that "External dependencies must be abstracted behind interfaces. Each interface has two implementations: a real one that calls the actual dependency, and a mock used in tests." Currently beeep.Notify is called directly from the package-level Success and Error functions in internal/notify/notify.go (lines 25 and 42), with no interface in between — this requirement closes that gap.
         - |
           The beeep.AppName = "Ralph" assignment in the existing init() function in internal/notify/notify.go is preserved as-is.
-      passing: false
+      passing: true
     - slug: add-mock-notifier
       description: |
         Add a MockNotifier to internal/notify/client_mock.go following the function-field mock pattern described in docs/testing.md.

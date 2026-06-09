@@ -11,6 +11,22 @@ func init() {
 	beeep.AppName = "Ralph"
 }
 
+// Notifier wraps beeep notification functionality behind an
+// interface so it can be substituted in tests.
+type Notifier interface {
+	Notify(title, message, appIcon string) error
+}
+
+type realNotifier struct{}
+
+func (r *realNotifier) Notify(title, message, appIcon string) error {
+	return beeep.Notify(title, message, appIcon)
+}
+
+var _ Notifier = (*realNotifier)(nil)
+
+var defaultNotifier Notifier = &realNotifier{}
+
 // Success sends a success notification
 // If notify is disabled, this is a no-op
 func Success(out *output.Client, projectName string, enabled bool) {
@@ -21,9 +37,7 @@ func Success(out *output.Client, projectName string, enabled bool) {
 	title := "Ralph Success"
 	message := "Ralph completed successfully for " + projectName
 
-	// Use dialog-information icon (stock icon available on most Linux systems)
-	if err := beeep.Notify(title, message, "dialog-information"); err != nil {
-		// Gracefully handle notification failures
+	if err := defaultNotifier.Notify(title, message, "dialog-information"); err != nil {
 		out.Warnf("Failed to send desktop notification: %v", err)
 	}
 }
@@ -38,9 +52,7 @@ func Error(out *output.Client, projectName string, enabled bool) {
 	title := "Ralph Failed"
 	message := "Ralph failed for " + projectName
 
-	// Use dialog-error icon (stock icon available on most Linux systems)
-	if err := beeep.Notify(title, message, "dialog-error"); err != nil {
-		// Gracefully handle notification failures
+	if err := defaultNotifier.Notify(title, message, "dialog-error"); err != nil {
 		out.Warnf("Failed to send desktop notification: %v", err)
 	}
 }

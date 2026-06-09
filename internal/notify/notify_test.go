@@ -6,6 +6,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestRealNotifierImplementsNotifier(t *testing.T) {
+	var _ Notifier = (*realNotifier)(nil)
+}
+
 func TestSuccess(t *testing.T) {
 	tests := []struct {
 		name        string
