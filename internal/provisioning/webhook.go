@@ -87,6 +87,30 @@ func BuildWebhookAppConfig(ctx context.Context, out *output.Client, base, update
 	return cfg
 }
 
+func BuildWebhookAppConfigFromK8s(ctx context.Context, namespace, kubeContext, configPath string, configReader func(context.Context, string, string) (*webhookconfig.AppConfig, error), ghClient github.GHClient, out *output.Client) webhookconfig.AppConfig {
+	base, err := configReader(ctx, namespace, kubeContext)
+	if err != nil {
+		if out != nil {
+			out.Warnf("Could not read existing configmap '%s': %v (starting from scratch)", WebhookConfigMapName, err)
+		}
+		base = nil
+	}
+
+	var updates *webhookconfig.AppConfig
+	if configPath != "" {
+		loaded, err := webhookconfig.LoadAppConfig(configPath)
+		if err != nil {
+			if out != nil {
+				out.Warnf("Failed to load partial config: %v (ignoring)", err)
+			}
+		} else {
+			updates = loaded
+		}
+	}
+
+	return BuildWebhookAppConfig(ctx, out, base, updates, "", "", "", ghClient)
+}
+
 func GenerateWebhookSecret() (string, error) {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
@@ -132,6 +156,19 @@ func RegisterGitHubWebhook(ctx context.Context, gh github.GHClient, owner, repo,
 	return gh.RegisterWebhook(ctx, owner, repo, webhookURL, secret)
 }
 
+func RegisterAllGitHubWebhooks(ctx context.Context, ghClient github.GHClient, out *output.Client, repos []webhookconfig.RepoSecret) {
+	webhookURL := fmt.Sprintf("https://%s/webhook", WebhookIngressHostname)
+	out.Infof("Registering webhooks at %s...", webhookURL)
+	for _, rs := range repos {
+		if err := RegisterGitHubWebhook(ctx, ghClient, rs.Owner, rs.Name, webhookURL, rs.WebhookSecret); err != nil {
+			out.Warnf("Failed to register webhook for %s/%s: %v", rs.Owner, rs.Name, err)
+		} else {
+			out.Successf("Webhook registered for %s/%s", rs.Owner, rs.Name)
+		}
+	}
+	out.Info("")
+}
+
 func BuildWebhookSecrets(appCfg *webhookconfig.AppConfig, secretGenerator func() (string, error)) (*webhookconfig.Secrets, error) {
 	secrets := &webhookconfig.Secrets{}
 
@@ -166,6 +203,14 @@ func WriteWebhookConfigMap(ctx context.Context, client k8s.Client, kubeContext, 
 		return fmt.Errorf("failed to create/update configmap '%s': %w", WebhookConfigMapName, err)
 	}
 
+	return nil
+}
+
+func WriteWebhookSecretsAndLog(ctx context.Context, client k8s.Client, kubeContext, namespace string, secrets *webhookconfig.Secrets, out *output.Client) error {
+	if err := WriteWebhookSecrets(ctx, client, kubeContext, namespace, secrets); err != nil {
+		return err
+	}
+	out.Successf("Secret '%s' created/updated in namespace '%s'", WebhookSecretsSecretName, namespace)
 	return nil
 }
 

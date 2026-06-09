@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 
 	"github.com/zon/ralph/internal/github"
@@ -65,23 +64,7 @@ type setconfigCfgClient struct {
 }
 
 func (c *setconfigCfgClient) Build(k8sCtx webhooksetconfig.K8sContext, configPath string) webhookconfig.AppConfig {
-	base, err := provisioning.ReadWebhookConfigFromK8s(c.ctx, k8sCtx.Namespace, k8sCtx.Name)
-	if err != nil {
-		c.out.Warnf("Could not read existing configmap '%s': %v (starting from scratch)", provisioning.WebhookConfigMapName, err)
-		base = nil
-	}
-
-	var updates *webhookconfig.AppConfig
-	if configPath != "" {
-		loaded, err := webhookconfig.LoadAppConfig(configPath)
-		if err != nil {
-			c.out.Warnf("Failed to load partial config: %v (ignoring)", err)
-		} else {
-			updates = loaded
-		}
-	}
-
-	return provisioning.BuildWebhookAppConfig(c.ctx, c.out, base, updates, "", "", "", c.ghClient)
+	return provisioning.BuildWebhookAppConfigFromK8s(c.ctx, k8sCtx.Namespace, k8sCtx.Name, configPath, provisioning.ReadWebhookConfigFromK8s, c.ghClient, c.out)
 }
 
 func (c *setconfigCfgClient) Write(k8sCtx webhooksetconfig.K8sContext, cfg webhookconfig.AppConfig) error {
@@ -112,11 +95,7 @@ func (c *setconfigSecretsClient) Generate(cfg webhookconfig.AppConfig) (webhooks
 
 func (c *setconfigSecretsClient) Write(k8sCtx webhooksetconfig.K8sContext, secrets webhooksetconfig.WebhookSecrets) error {
 	s := &webhookconfig.Secrets{Repos: secrets.Repos}
-	if err := provisioning.WriteWebhookSecrets(c.ctx, c.k8sClient, k8sCtx.Name, k8sCtx.Namespace, s); err != nil {
-		return err
-	}
-	c.out.Successf("Secret '%s' created/updated in namespace '%s'", provisioning.WebhookSecretsSecretName, k8sCtx.Namespace)
-	return nil
+	return provisioning.WriteWebhookSecretsAndLog(c.ctx, c.k8sClient, k8sCtx.Name, k8sCtx.Namespace, s, c.out)
 }
 
 type setconfigGitHubClient struct {
@@ -126,15 +105,5 @@ type setconfigGitHubClient struct {
 }
 
 func (c *setconfigGitHubClient) RegisterWebhooks(secrets webhooksetconfig.WebhookSecrets) {
-	webhookURL := fmt.Sprintf("https://%s/webhook", provisioning.WebhookIngressHostname)
-	c.out.Infof("Registering webhooks at %s...", webhookURL)
-	for _, rs := range secrets.Repos {
-		c.out.Infof("Registering webhook for %s/%s...", rs.Owner, rs.Name)
-		if err := provisioning.RegisterGitHubWebhook(c.ctx, c.ghClient, rs.Owner, rs.Name, webhookURL, rs.WebhookSecret); err != nil {
-			c.out.Warnf("Failed to register webhook for %s/%s: %v", rs.Owner, rs.Name, err)
-		} else {
-			c.out.Successf("Webhook registered for %s/%s", rs.Owner, rs.Name)
-		}
-	}
-	c.out.Info("")
+	provisioning.RegisterAllGitHubWebhooks(c.ctx, c.ghClient, c.out, secrets.Repos)
 }

@@ -1,6 +1,7 @@
 package provisioning
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/k8s"
+	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/webhookconfig"
 	"gopkg.in/yaml.v3"
 )
@@ -198,6 +200,46 @@ func TestBuildWebhookAppConfig(t *testing.T) {
 	})
 }
 
+func TestBuildWebhookAppConfigFromK8s(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("proceeds with defaults when configReader returns error", func(t *testing.T) {
+		configReader := func(_ context.Context, _, _ string) (*webhookconfig.AppConfig, error) {
+			return nil, fmt.Errorf("configmap not found")
+		}
+		cfg := BuildWebhookAppConfigFromK8s(ctx, "test-ns", "test-ctx", "", configReader, &github.MockGH{}, nil)
+
+		assert.Equal(t, 8080, cfg.Port)
+		assert.Equal(t, config.DefaultAppName+"[bot]", cfg.RalphUser)
+	})
+
+	t.Run("loads partial config from configPath when configReader fails", func(t *testing.T) {
+		configReader := func(_ context.Context, _, _ string) (*webhookconfig.AppConfig, error) {
+			return nil, fmt.Errorf("configmap not found")
+		}
+		dir := t.TempDir()
+		partialYAML := "port: 7070\n"
+		path := filepath.Join(dir, "partial.yaml")
+		require.NoError(t, os.WriteFile(path, []byte(partialYAML), 0644))
+
+		cfg := BuildWebhookAppConfigFromK8s(ctx, "test-ns", "test-ctx", path, configReader, &github.MockGH{}, nil)
+
+		assert.Equal(t, 7070, cfg.Port)
+	})
+
+	t.Run("ignores partial config and uses defaults when configPath file does not exist", func(t *testing.T) {
+		configReader := func(_ context.Context, _, _ string) (*webhookconfig.AppConfig, error) {
+			return nil, fmt.Errorf("configmap not found")
+		}
+		dir := t.TempDir()
+		path := filepath.Join(dir, "nonexistent.yaml")
+
+		cfg := BuildWebhookAppConfigFromK8s(ctx, "test-ns", "test-ctx", path, configReader, &github.MockGH{}, nil)
+
+		assert.Equal(t, 8080, cfg.Port)
+	})
+}
+
 func TestRegisterGitHubWebhook(t *testing.T) {
 	ctx := context.Background()
 
@@ -231,6 +273,72 @@ func TestRegisterGitHubWebhook(t *testing.T) {
 		err := RegisterGitHubWebhook(ctx, gh, "owner", "repo", "http://hook", "secret")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "registration failed")
+	})
+}
+
+func TestRegisterAllGitHubWebhooks(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("calls Successf for each successful registration", func(t *testing.T) {
+		var outBuf, errBuf bytes.Buffer
+		out := output.NewClient(&outBuf, &errBuf, false)
+		gh := &github.MockGH{
+			RegisterWebhookFn: func(_ context.Context, owner, repo, webhookURL, secret string) error {
+				return nil
+			},
+		}
+
+		repos := []webhookconfig.RepoSecret{
+			{Owner: "acme", Name: "repo-a", WebhookSecret: "s3kr3t1"},
+			{Owner: "acme", Name: "repo-b", WebhookSecret: "s3kr3t2"},
+		}
+		RegisterAllGitHubWebhooks(ctx, gh, out, repos)
+
+		output := outBuf.String()
+		assert.Contains(t, output, "✓ Webhook registered for acme/repo-a")
+		assert.Contains(t, output, "✓ Webhook registered for acme/repo-b")
+	})
+
+	t.Run("calls Warnf for failed registration and continues", func(t *testing.T) {
+		var outBuf, errBuf bytes.Buffer
+		out := output.NewClient(&outBuf, &errBuf, false)
+		callCount := 0
+		gh := &github.MockGH{
+			RegisterWebhookFn: func(_ context.Context, owner, repo, webhookURL, secret string) error {
+				callCount++
+				if callCount == 1 {
+					return fmt.Errorf("network error")
+				}
+				return nil
+			},
+		}
+
+		repos := []webhookconfig.RepoSecret{
+			{Owner: "acme", Name: "repo-a", WebhookSecret: "s3kr3t1"},
+			{Owner: "acme", Name: "repo-b", WebhookSecret: "s3kr3t2"},
+		}
+		RegisterAllGitHubWebhooks(ctx, gh, out, repos)
+
+		output := outBuf.String()
+		assert.Contains(t, output, "Failed to register webhook for acme/repo-a: network error")
+		assert.Contains(t, output, "✓ Webhook registered for acme/repo-b")
+	})
+
+	t.Run("does nothing on empty repos slice", func(t *testing.T) {
+		var outBuf, errBuf bytes.Buffer
+		out := output.NewClient(&outBuf, &errBuf, false)
+		gh := &github.MockGH{
+			RegisterWebhookFn: func(_ context.Context, owner, repo, webhookURL, secret string) error {
+				t.Error("RegisterWebhook should not be called")
+				return nil
+			},
+		}
+
+		RegisterAllGitHubWebhooks(ctx, gh, out, nil)
+
+		output := outBuf.String()
+		assert.NotContains(t, output, "Webhook registered")
+		assert.NotContains(t, output, "Failed to register")
 	})
 }
 
@@ -436,6 +544,41 @@ func TestWriteWebhookSecrets(t *testing.T) {
 		err := WriteWebhookSecrets(context.Background(), client, "my-ctx", "my-ns", &webhookconfig.Secrets{})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "API error")
+	})
+}
+
+func TestWriteWebhookSecretsAndLog(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("calls Successf with secret name and namespace on success", func(t *testing.T) {
+		var outBuf, errBuf bytes.Buffer
+		out := output.NewClient(&outBuf, &errBuf, false)
+		client := &k8s.MockClient{
+			CreateOrUpdateSecretFunc: func(ctx context.Context, name, namespace, kubeContext string, data map[string]string) error {
+				return nil
+			},
+		}
+		secrets := &webhookconfig.Secrets{}
+		err := WriteWebhookSecretsAndLog(ctx, client, "my-ctx", "my-ns", secrets, out)
+		require.NoError(t, err)
+		output := outBuf.String()
+		assert.Contains(t, output, WebhookSecretsSecretName)
+		assert.Contains(t, output, "my-ns")
+	})
+
+	t.Run("returns error and does not call Successf when write fails", func(t *testing.T) {
+		var outBuf, errBuf bytes.Buffer
+		out := output.NewClient(&outBuf, &errBuf, false)
+		client := &k8s.MockClient{
+			CreateOrUpdateSecretFunc: func(ctx context.Context, name, namespace, kubeContext string, data map[string]string) error {
+				return fmt.Errorf("API error")
+			},
+		}
+		secrets := &webhookconfig.Secrets{}
+		err := WriteWebhookSecretsAndLog(ctx, client, "my-ctx", "my-ns", secrets, out)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "API error")
+		assert.NotContains(t, outBuf.String(), "Success")
 	})
 }
 
