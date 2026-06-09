@@ -3,6 +3,7 @@ package opencode
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -69,6 +70,29 @@ func TestStatsParsingKMValues(t *testing.T) {
 		val, err := parseTokenValue(tt.input)
 		require.NoError(t, err)
 		assert.Equal(t, tt.expected, val, "input: %s", tt.input)
+	}
+}
+
+func TestIsFatalError(t *testing.T) {
+	tests := []struct {
+		name   string
+		err    error
+		fatal bool
+	}{
+		{name: "nil error", err: nil, fatal: false},
+		{name: "Insufficient Balance", err: fmt.Errorf("Insufficient Balance"), fatal: true},
+		{name: "insufficient balance", err: fmt.Errorf("insufficient balance"), fatal: true},
+		{name: "billing", err: fmt.Errorf("billing error"), fatal: true},
+		{name: "account", err: fmt.Errorf("account problem"), fatal: true},
+		{name: "payment required", err: fmt.Errorf("payment required"), fatal: true},
+		{name: "quota exceeded", err: fmt.Errorf("quota exceeded"), fatal: true},
+		{name: "no match", err: fmt.Errorf("some random error"), fatal: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.fatal, IsFatalError(tt.err))
+		})
 	}
 }
 

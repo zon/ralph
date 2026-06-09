@@ -23,7 +23,7 @@ requirements:
           internal/opencode/opencode_test.go gains TestIsFatalError, a table-driven test using t.Run() subtests, covering: a nil error (expect false); an error whose message contains each of the six patterns defined in fatalOpenCodePatterns — "Insufficient Balance", "insufficient balance", "billing", "account", "payment required", "quota exceeded" — each expected to return true; and an error whose message matches none of the patterns (expect false).
         - |
           The test uses testify assert for its boolean assertions and follows the table-driven structure already used by TestStatsParsingKMValues and TestCaptureWriterTail in the same file.
-      passing: false
+      passing: true
     - slug: test-run-agent
       description: |
         Add coverage for RunAgent's distinguishing behavior — wrapping stdout/stderr with a ringWriter tail buffer and formatting failures with the captured tail — using the same fake-binary substitution technique as the existing TestRunCommand tests.
