@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Run the full development loop in-process: set up the environment, iterate until all requirements pass, then open a pull request and notify.
+Run the full development loop in-process: set up the environment, generate any missing artifacts, iterate until all requirements pass, then open a pull request and notify.
 
 ## Orchestration
 
@@ -17,16 +17,23 @@ type Runner struct {
     services ServicesClient
     notify   NotifyClient
     env      EnvClient
+    cmd      CmdClient
+    remote   RemoteClient
 }
 
-func (r *Runner) RunLocal(proj *project.Project, cfg *config.RalphConfig) error {
+func (r *Runner) RunLocal(input *InputFile, cfg *config.RalphConfig) error {
     if r.env.InWorkflow() {
         defer r.ai.PrintStats()
     }
     if err := r.services.RunBeforeCommands(cfg); err != nil {
         return err
     }
-    if err := r.git.SwitchToBranch(proj.Slug); err != nil {
+    if err := r.git.SwitchToBranch(input.Slug()); err != nil {
+        return err
+    }
+    proj, err := r.generateArtifacts(input)
+    if err != nil {
+        r.notify.Error(input.Slug())
         return err
     }
     if err := r.iterate(proj, cfg); err != nil {
@@ -51,12 +58,43 @@ func (r *Runner) RunLocal(proj *project.Project, cfg *config.RalphConfig) error 
 - **`r.env.InWorkflow()`** — returns true when ralph is running inside an Argo workflow container
 - **`r.ai.PrintStats()`** — prints input tokens, output tokens, and total cost for the run; called via `defer` so it always runs regardless of outcome
 - **`r.services.RunBeforeCommands(cfg)`** — runs each `before` command from the ralph config sequentially; aborts on the first non-zero exit
-- **`r.git.SwitchToBranch(slug)`** — switches to the branch named by the project slug, creating it if it does not exist
-- **`r.iterate(proj)`** — drives the iteration loop; returns nil only when all requirements are passing, or a non-nil error when blocked, when a fatal AI error occurs, or when max iterations is reached with requirements still failing
+- **`input.Slug()`** — returns the slug for the input: the project slug when the input is a project file, otherwise a slug derived from the input file path
+- **`r.git.SwitchToBranch(slug)`** — switches to the branch named by the slug, creating it if it does not exist
+- **`r.generateArtifacts(input)`** — generates any missing artifacts for orchestration or spec inputs and commits them; returns the project to run
+- **`r.iterate(proj, cfg)`** — drives the iteration loop; returns nil only when all requirements are passing, or a non-nil error when blocked, when a fatal AI error occurs, or when max iterations is reached with requirements still failing
 - **`r.removeOrchestration(proj)`** — checks whether the project's spec contains an orchestration document and, if so, deletes it and commits the deletion
 - **`r.github.CreatePR(proj)`** — generates an AI PR summary and opens a pull request from the project branch to the base branch; is a no-op when no commits exist ahead of the base branch
 - **`r.notify.Error(slug)`** — sends a desktop error notification for the given project slug when notifications are enabled
 - **`r.notify.Success(slug)`** — sends a desktop success notification for the given project slug when notifications are enabled
+
+---
+
+```go
+func (r *Runner) generateArtifacts(input *InputFile) (*project.Project, error) {
+    if input.IsProject() {
+        return input.Project(), nil
+    }
+    if input.IsSpec() {
+        if err := r.ai.WriteOrchestration(input); err != nil {
+            return nil, err
+        }
+    }
+    proj, err := r.ai.WriteProject(input)
+    if err != nil {
+        return nil, err
+    }
+    return proj, r.git.CommitGeneratedArtifacts(proj)
+}
+```
+
+### Helpers
+
+- **`input.IsProject()`** — returns true when the input file is a project YAML
+- **`input.IsSpec()`** — returns true when the input file is a `spec.md`
+- **`input.Project()`** — returns the project loaded from the input file; only valid when `IsProject()` is true
+- **`r.ai.WriteOrchestration(input)`** — invokes the AI agent to generate an `orchestration.md` file in the same directory as the spec and writes it to disk
+- **`r.ai.WriteProject(input)`** — invokes the AI agent to generate a project YAML file in `projects/` based on the input, writes it to disk, and returns the loaded project; for spec inputs, reads both the spec and the orchestration from disk
+- **`r.git.CommitGeneratedArtifacts(proj)`** — stages and commits all generated files (the project YAML and any orchestration document) with a fixed message
 
 ---
 
@@ -207,7 +245,7 @@ func TestRunLocalStatsPrintedOnSuccess(t *testing.T) {
         run.withEnv(env.inWorkflow()),
         run.withProject(project.thatReportsAllPassing()),
     )
-    err := runner.RunLocal(project.withAllPassing(), config.any())
+    err := runner.RunLocal(input.forProject(project.withAllPassing()), config.any())
     require.NoError(t, err)
     require.True(t, ai.statsPrinted())
 }
@@ -217,7 +255,7 @@ func TestRunLocalStatsPrintedOnFailure(t *testing.T) {
         run.withEnv(env.inWorkflow()),
         run.withAI(ai.thatAlwaysFails()),
     )
-    err := runner.RunLocal(project.withFailingRequirements(), config.any())
+    err := runner.RunLocal(input.forProject(project.withFailingRequirements()), config.any())
     require.Error(t, err)
     require.True(t, ai.statsPrinted())
 }
@@ -227,7 +265,7 @@ func TestRunLocalStatsNotPrintedWhenNotInWorkflow(t *testing.T) {
         run.withEnv(env.notInWorkflow()),
         run.withProject(project.thatReportsAllPassing()),
     )
-    err := runner.RunLocal(project.withAllPassing(), config.any())
+    err := runner.RunLocal(input.forProject(project.withAllPassing()), config.any())
     require.NoError(t, err)
     require.False(t, ai.statsPrinted())
 }
@@ -236,16 +274,89 @@ func TestRunLocalBeforeCommandFailureAbortsEarly(t *testing.T) {
     runner := run.withMocks(
         run.withServices(services.thatFailBeforeCommands()),
     )
-    err := runner.RunLocal(project.any(), config.any())
+    err := runner.RunLocal(input.forProject(project.any()), config.any())
     require.Error(t, err)
     require.False(t, git.branchSwitched())
+}
+
+func TestRunLocalProjectInputSkipsGeneration(t *testing.T) {
+    runner := run.withMocks(
+        run.withProject(project.thatReportsAllPassing()),
+    )
+    err := runner.RunLocal(input.forProject(project.withAllPassing()), config.any())
+    require.NoError(t, err)
+    require.False(t, ai.writeProjectCalled())
+    require.False(t, git.artifactsCommitted())
+}
+
+func TestRunLocalOrchestrationInputGeneratesAndCommitsProject(t *testing.T) {
+    runner := run.withMocks(
+        run.withProject(project.thatReportsAllPassing()),
+    )
+    err := runner.RunLocal(input.forOrchestration(), config.any())
+    require.NoError(t, err)
+    require.False(t, ai.writeOrchestrationCalled())
+    require.True(t, ai.writeProjectCalled())
+    require.True(t, git.artifactsCommitted())
+}
+
+func TestRunLocalSpecInputGeneratesOrchestrationThenProject(t *testing.T) {
+    runner := run.withMocks(
+        run.withProject(project.thatReportsAllPassing()),
+    )
+    err := runner.RunLocal(input.forSpec(), config.any())
+    require.NoError(t, err)
+    require.True(t, ai.writeOrchestrationCalled())
+    require.True(t, ai.writeProjectCalled())
+    require.True(t, git.artifactsCommitted())
+}
+
+func TestRunLocalOrchestrationWriteProjectFailureSendsErrorNotification(t *testing.T) {
+    runner := run.withMocks(
+        run.withAI(ai.thatFailsWriteProject()),
+    )
+    err := runner.RunLocal(input.forOrchestration(), config.any())
+    require.Error(t, err)
+    require.NotEmpty(t, notify.errors())
+    require.Empty(t, ai.pickCalls())
+}
+
+func TestRunLocalSpecWriteOrchestrationFailureSendsErrorNotification(t *testing.T) {
+    runner := run.withMocks(
+        run.withAI(ai.thatFailsWriteOrchestration()),
+    )
+    err := runner.RunLocal(input.forSpec(), config.any())
+    require.Error(t, err)
+    require.NotEmpty(t, notify.errors())
+    require.False(t, ai.writeProjectCalled())
+    require.Empty(t, ai.pickCalls())
+}
+
+func TestRunLocalSpecWriteProjectFailureSendsErrorNotification(t *testing.T) {
+    runner := run.withMocks(
+        run.withAI(ai.thatFailsWriteProject()),
+    )
+    err := runner.RunLocal(input.forSpec(), config.any())
+    require.Error(t, err)
+    require.NotEmpty(t, notify.errors())
+    require.Empty(t, ai.pickCalls())
+}
+
+func TestRunLocalGenerationHappensAfterBranchSwitch(t *testing.T) {
+    runner := run.withMocks(
+        run.withProject(project.thatReportsAllPassing()),
+        run.withGit(git.thatRecordsCallOrder()),
+    )
+    err := runner.RunLocal(input.forOrchestration(), config.any())
+    require.NoError(t, err)
+    require.True(t, git.switchedBeforeArtifactsCommitted())
 }
 
 func TestRunLocalIterationFailureSendsErrorNotification(t *testing.T) {
     runner := run.withMocks(
         run.withAI(ai.thatAlwaysFails()),
     )
-    err := runner.RunLocal(project.withFailingRequirements(), config.any())
+    err := runner.RunLocal(input.forProject(project.withFailingRequirements()), config.any())
     require.Error(t, err)
     require.NotEmpty(t, notify.errors())
 }
@@ -255,7 +366,7 @@ func TestRunLocalAllRequirementsPassCreatesPR(t *testing.T) {
         run.withProject(project.thatReportsAllPassing()),
         run.withGit(git.withCommitsAhead()),
     )
-    err := runner.RunLocal(project.withAllPassing(), config.any())
+    err := runner.RunLocal(input.forProject(project.withAllPassing()), config.any())
     require.NoError(t, err)
     require.True(t, github.prCreated())
     require.NotEmpty(t, notify.successes())
@@ -265,7 +376,7 @@ func TestRunLocalNoCommitsSkipsPR(t *testing.T) {
     runner := run.withMocks(
         run.withProject(project.thatReportsAllPassing()),
     )
-    err := runner.RunLocal(project.withAllPassing(), config.any())
+    err := runner.RunLocal(input.forProject(project.withAllPassing()), config.any())
     require.NoError(t, err)
     require.False(t, github.prCreated())
     require.NotEmpty(t, notify.successes())
@@ -275,7 +386,7 @@ func TestIterateExitsImmediatelyWhenAllPassing(t *testing.T) {
     runner := run.withMocks(
         run.withProject(project.thatReportsAllPassing()),
     )
-    err := runner.RunLocal(project.withAllPassing(), config.any())
+    err := runner.RunLocal(input.forProject(project.withAllPassing()), config.any())
     require.NoError(t, err)
     require.Empty(t, ai.pickCalls())
 }
@@ -284,7 +395,7 @@ func TestIterateExitsEarlyWhenRequirementsPass(t *testing.T) {
     runner := run.withMocks(
         run.withProject(project.thatReportsPassingAfterIterations(2)),
     )
-    err := runner.RunLocal(project.withFailingRequirements(), config.any())
+    err := runner.RunLocal(input.forProject(project.withFailingRequirements()), config.any())
     require.NoError(t, err)
     require.Len(t, ai.pickCalls(), 2)
     require.Len(t, ai.developCalls(), 2)
@@ -294,7 +405,7 @@ func TestIterateReturnsErrorAtMaxIterations(t *testing.T) {
     runner := run.withMocks(
         run.withProject(project.thatAlwaysReportsFailures()),
     )
-    err := runner.RunLocal(project.withMaxIterations(3), config.any())
+    err := runner.RunLocal(input.forProject(project.withMaxIterations(3)), config.any())
     require.Error(t, err)
     require.Len(t, ai.pickCalls(), 3)
 }
@@ -303,7 +414,7 @@ func TestIterateStopsOnBlockedFile(t *testing.T) {
     runner := run.withMocks(
         run.withGit(git.withBlockedFile()),
     )
-    err := runner.RunLocal(project.withFailingRequirements(), config.any())
+    err := runner.RunLocal(input.forProject(project.withFailingRequirements()), config.any())
     require.ErrorIs(t, err, run.ErrBlocked)
     require.Empty(t, ai.pickCalls())
 }
@@ -312,7 +423,7 @@ func TestIterateFatalPickErrorIsNotRetried(t *testing.T) {
     runner := run.withMocks(
         run.withAI(ai.thatReturnsFatalPickError()),
     )
-    err := runner.RunLocal(project.withFailingRequirements(), config.any())
+    err := runner.RunLocal(input.forProject(project.withFailingRequirements()), config.any())
     require.Error(t, err)
     require.Len(t, ai.pickCalls(), 1)
     require.Empty(t, ai.developCalls())
@@ -323,7 +434,7 @@ func TestIterateNonFatalPickErrorWritesBlockedFile(t *testing.T) {
     runner := run.withMocks(
         run.withAI(ai.thatReturnsNonFatalPickError()),
     )
-    err := runner.RunLocal(project.withFailingRequirements(), config.any())
+    err := runner.RunLocal(input.forProject(project.withFailingRequirements()), config.any())
     require.Error(t, err)
     require.True(t, git.blockedFileWritten())
 }
@@ -332,7 +443,7 @@ func TestIterateFatalDevelopErrorIsNotRetried(t *testing.T) {
     runner := run.withMocks(
         run.withAI(ai.thatReturnsFatalDevelopError()),
     )
-    err := runner.RunLocal(project.withFailingRequirements(), config.any())
+    err := runner.RunLocal(input.forProject(project.withFailingRequirements()), config.any())
     require.Error(t, err)
     require.Len(t, ai.developCalls(), 1)
     require.False(t, git.blockedFileWritten())
@@ -342,7 +453,7 @@ func TestIterateNonFatalDevelopErrorWritesBlockedFile(t *testing.T) {
     runner := run.withMocks(
         run.withAI(ai.thatReturnsNonFatalDevelopError()),
     )
-    err := runner.RunLocal(project.withFailingRequirements(), config.any())
+    err := runner.RunLocal(input.forProject(project.withFailingRequirements()), config.any())
     require.Error(t, err)
     require.True(t, git.blockedFileWritten())
 }
@@ -351,7 +462,7 @@ func TestRunIterationStartsAndStopsServicesEachIteration(t *testing.T) {
     runner := run.withMocks(
         run.withProject(project.thatReportsPassingAfterIterations(2)),
     )
-    err := runner.RunLocal(project.withFailingRequirements(), config.any())
+    err := runner.RunLocal(input.forProject(project.withFailingRequirements()), config.any())
     require.NoError(t, err)
     require.Equal(t, 2, services.startCount())
     require.Equal(t, 2, services.stopCount())
@@ -363,7 +474,7 @@ func TestRunIterationServiceStartupFailureTriggersFix(t *testing.T) {
         run.withServices(services.thatFailToStart()),
         run.withProject(project.thatReportsPassingAfterIterations(1)),
     )
-    err := runner.RunLocal(project.withFailingRequirements(), config.any())
+    err := runner.RunLocal(input.forProject(project.withFailingRequirements()), config.any())
     require.NoError(t, err)
     require.True(t, ai.serviceFixCalled())
     require.Len(t, ai.pickCalls(), 1)
@@ -374,7 +485,7 @@ func TestRunIterationServiceFixFailureReturnsError(t *testing.T) {
         run.withServices(services.thatFailToStart()),
         run.withAI(ai.thatFailsServiceFix()),
     )
-    err := runner.RunLocal(project.withFailingRequirements(), config.any())
+    err := runner.RunLocal(input.forProject(project.withFailingRequirements()), config.any())
     require.Error(t, err)
     require.Empty(t, ai.pickCalls())
 }
@@ -383,7 +494,7 @@ func TestCleanupNormalizesProjectFileWhenChanged(t *testing.T) {
     runner := run.withMocks(
         run.withProject(project.thatReportsPassingAfterIterations(1).withChanges()),
     )
-    err := runner.RunLocal(project.withFailingRequirements(), config.any())
+    err := runner.RunLocal(input.forProject(project.withFailingRequirements()), config.any())
     require.NoError(t, err)
     require.True(t, project.normalizedAndStaged())
 }
@@ -392,7 +503,7 @@ func TestCleanupSkipsNormalizationWhenNoChanges(t *testing.T) {
     runner := run.withMocks(
         run.withProject(project.thatReportsPassingAfterIterations(1).withNoChanges()),
     )
-    err := runner.RunLocal(project.withFailingRequirements(), config.any())
+    err := runner.RunLocal(input.forProject(project.withFailingRequirements()), config.any())
     require.NoError(t, err)
     require.False(t, project.normalizedAndStaged())
 }
@@ -402,7 +513,7 @@ func TestCommitIterationUsesReportWhenPresent(t *testing.T) {
         run.withProject(project.thatReportsPassingAfterIterations(1)),
         run.withGit(git.withChangesAndReport()),
     )
-    err := runner.RunLocal(project.withFailingRequirements(), config.any())
+    err := runner.RunLocal(input.forProject(project.withFailingRequirements()), config.any())
     require.NoError(t, err)
     require.Empty(t, ai.changelogCalls())
     require.True(t, git.committedFromReport())
@@ -413,7 +524,7 @@ func TestCommitIterationGeneratesChangelogWhenNoReport(t *testing.T) {
         run.withProject(project.thatReportsPassingAfterIterations(1)),
         run.withGit(git.withChangesButNoReport()),
     )
-    err := runner.RunLocal(project.withFailingRequirements(), config.any())
+    err := runner.RunLocal(input.forProject(project.withFailingRequirements()), config.any())
     require.NoError(t, err)
     require.Len(t, ai.changelogCalls(), 1)
     require.True(t, git.committedFromReport())
@@ -424,7 +535,7 @@ func TestCommitIterationSkipsCommitWhenNoChanges(t *testing.T) {
         run.withProject(project.thatReportsPassingAfterIterations(1)),
         run.withGit(git.withNoChanges()),
     )
-    err := runner.RunLocal(project.withFailingRequirements(), config.any())
+    err := runner.RunLocal(input.forProject(project.withFailingRequirements()), config.any())
     require.NoError(t, err)
     require.False(t, git.committedFromReport())
 }
@@ -433,7 +544,7 @@ func TestRunIterationPassesConfigVariantToAI(t *testing.T) {
     runner := run.withMocks(
         run.withProject(project.thatReportsPassingAfterIterations(1)),
     )
-    err := runner.RunLocal(project.withFailingRequirements(), config.withVariant("high"))
+    err := runner.RunLocal(input.forProject(project.withFailingRequirements()), config.withVariant("high"))
     require.NoError(t, err)
     require.Equal(t, "high", ai.lastVariant())
 }
@@ -442,7 +553,7 @@ func TestRunIterationOmitsVariantWhenUnset(t *testing.T) {
     runner := run.withMocks(
         run.withProject(project.thatReportsPassingAfterIterations(1)),
     )
-    err := runner.RunLocal(project.withFailingRequirements(), config.any())
+    err := runner.RunLocal(input.forProject(project.withFailingRequirements()), config.any())
     require.NoError(t, err)
     require.Empty(t, ai.lastVariant())
 }
@@ -451,7 +562,7 @@ func TestRemoveOrchestrationSkipsWhenNoSpec(t *testing.T) {
     runner := run.withMocks(
         run.withProject(project.thatReportsAllPassing().withNoSpec()),
     )
-    err := runner.RunLocal(project.withAllPassing(), config.any())
+    err := runner.RunLocal(input.forProject(project.withAllPassing()), config.any())
     require.NoError(t, err)
     require.False(t, git.orchestrationRemovalCommitted())
 }
@@ -460,7 +571,7 @@ func TestRemoveOrchestrationSkipsWhenNoOrchestration(t *testing.T) {
     runner := run.withMocks(
         run.withProject(project.thatReportsAllPassing().withSpecButNoOrchestration()),
     )
-    err := runner.RunLocal(project.withAllPassing(), config.any())
+    err := runner.RunLocal(input.forProject(project.withAllPassing()), config.any())
     require.NoError(t, err)
     require.False(t, git.orchestrationRemovalCommitted())
 }
@@ -469,7 +580,7 @@ func TestRemoveOrchestrationRemovesAndCommitsWhenPresent(t *testing.T) {
     runner := run.withMocks(
         run.withProject(project.thatReportsAllPassing().withOrchestration()),
     )
-    err := runner.RunLocal(project.withAllPassing(), config.any())
+    err := runner.RunLocal(input.forProject(project.withAllPassing()), config.any())
     require.NoError(t, err)
     require.True(t, project.orchestrationRemoved())
     require.True(t, git.orchestrationRemovalCommitted())
@@ -479,7 +590,7 @@ func TestRemoveOrchestrationFailureSendsErrorNotification(t *testing.T) {
     runner := run.withMocks(
         run.withProject(project.thatReportsAllPassing().withOrchestration().thatFailsRemoval()),
     )
-    err := runner.RunLocal(project.withAllPassing(), config.any())
+    err := runner.RunLocal(input.forProject(project.withAllPassing()), config.any())
     require.Error(t, err)
     require.NotEmpty(t, notify.errors())
     require.False(t, github.prCreated())
@@ -494,6 +605,9 @@ func TestRemoveOrchestrationFailureSendsErrorNotification(t *testing.T) {
 - **`run.withAI(client)`** — option that sets the AI client on the mock runner
 - **`run.withProject(client)`** — option that sets the project client on the mock runner
 - **`run.withGit(client)`** — option that sets the git client on the mock runner
+- **`input.forProject(p)`** — returns an `InputFile` wrapping the given project; `IsProject()` returns true and `Slug()` returns the project slug; owned by `internal/project`
+- **`input.forOrchestration()`** — returns an `InputFile` representing an orchestration document; `IsProject()` returns false, `IsSpec()` returns false; owned by `internal/project`
+- **`input.forSpec()`** — returns an `InputFile` representing a spec document; `IsProject()` returns false, `IsSpec()` returns true; owned by `internal/project`
 - **`project.any()`** — returns a valid project in a default state; owned by `internal/project`
 - **`project.withAllPassing()`** — returns a project where every requirement has `passing: true`; owned by `internal/project`
 - **`project.withFailingRequirements()`** — returns a project with at least one failing requirement; owned by `internal/project`
@@ -519,7 +633,11 @@ func TestRemoveOrchestrationFailureSendsErrorNotification(t *testing.T) {
 - **`ai.lastVariant()`** — returns the variant resolved during the most recent AI invocation, or empty string when `--variant` was omitted
 - **`ai.thatAlwaysFails()`** — returns an AI client whose `RunPicker` always returns a non-fatal error
 - **`ai.thatFailsServiceFix()`** — returns an AI client whose `FixServiceStartup` returns an error
+- **`ai.thatFailsWriteOrchestration()`** — returns an AI client whose `WriteOrchestration` returns an error
+- **`ai.thatFailsWriteProject()`** — returns an AI client whose `WriteProject` returns an error
 - **`ai.serviceFixCalled()`** — returns true when `FixServiceStartup` was called during the test
+- **`ai.writeOrchestrationCalled()`** — returns true when `WriteOrchestration` was called during the test
+- **`ai.writeProjectCalled()`** — returns true when `WriteProject` was called during the test
 - **`ai.thatReturnsFatalPickError()`** — returns an AI client whose `RunPicker` returns a billing or quota error
 - **`ai.thatReturnsNonFatalPickError()`** — returns an AI client whose `RunPicker` returns a non-fatal error
 - **`ai.thatReturnsFatalDevelopError()`** — returns an AI client whose `RunDeveloper` returns a billing or quota error
@@ -535,9 +653,12 @@ func TestRemoveOrchestrationFailureSendsErrorNotification(t *testing.T) {
 - **`git.withChangesAndReport()`** — returns a git client that reports uncommitted changes and a present `report.md`
 - **`git.withChangesButNoReport()`** — returns a git client that reports uncommitted changes and no `report.md`
 - **`git.withNoChanges()`** — returns a git client that reports a clean working tree
+- **`git.thatRecordsCallOrder()`** — returns a git client that records the order in which its methods are called
+- **`git.switchedBeforeArtifactsCommitted()`** — returns true when `SwitchToBranch` was called before `CommitGeneratedArtifacts` during the test
 - **`git.branchSwitched()`** — returns true when `SwitchToBranch` was called during the test
 - **`git.blockedFileWritten()`** — returns true when `WriteBlockedFile` was called during the test
 - **`git.committedFromReport()`** — returns true when `CommitFromReport` was called during the test
+- **`git.artifactsCommitted()`** — returns true when `CommitGeneratedArtifacts` was called during the test
 - **`git.orchestrationRemovalCommitted()`** — returns true when `CommitOrchestrationRemoval` was called during the test
 - **`github.prCreated()`** — returns true when `CreatePR` was called and produced a pull request
 - **`notify.errors()`** — returns the list of error notifications sent during the test

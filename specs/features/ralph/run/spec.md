@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The `run` command is ralph's primary entry point. Given a project YAML file, it drives an AI coding agent through iterative development cycles until all project requirements pass, then opens a GitHub pull request. Execution can be delegated to an Argo Workflow (default) or run directly on the local machine (`--local`).
+The `run` command is ralph's primary entry point. Given a project YAML file, an orchestration document, or a spec document, it drives an AI coding agent through iterative development cycles until all project requirements pass, then opens a GitHub pull request. When an orchestration or spec is provided instead of a project, ralph generates the missing artifacts and commits them before running. Execution can be delegated to an Argo Workflow (default) or run directly on the local machine (`--local`).
 
 Mode-specific behaviors are defined in:
 - [run-local/spec.md](../run-local/spec.md) — `--local` flag: runs the development loop in-process
@@ -10,9 +10,9 @@ Mode-specific behaviors are defined in:
 
 ## Requirements
 
-### Requirement: Project file is required
+### Requirement: Input file is required
 
-The command SHALL require a project YAML file as a positional argument. The file must exist on disk before execution proceeds. Validation of the file's contents is handled by the validate feature.
+The command SHALL require a positional argument that is a path to one of: a project YAML file, an orchestration document (`orchestration.md`), or a spec document (`spec.md`). The file must exist on disk before execution proceeds. When an orchestration or spec is provided, the actual project generation and artifact commits happen inside the execution mode; see [run-local/spec.md](../run-local/spec.md).
 
 #### Scenario: Project file provided
 
@@ -20,11 +20,30 @@ The command SHALL require a project YAML file as a positional argument. The file
 - WHEN the command starts
 - THEN the project is loaded and execution proceeds
 
-#### Scenario: Project file not found
+#### Scenario: Orchestration file provided
+
+- GIVEN the user provides a path to a file named `orchestration.md`
+- WHEN the command starts
+- THEN the input is forwarded to the execution mode for just-in-time project generation
+
+#### Scenario: Spec file provided
+
+- GIVEN the user provides a path to a file named `spec.md`
+- WHEN the command starts
+- THEN the input is forwarded to the execution mode for just-in-time orchestration and project generation
+
+#### Scenario: Input file not found
 
 - GIVEN the user provides a path to a file that does not exist on disk
 - WHEN the command starts
-- THEN an error is returned: `project file not found: <path>`
+- THEN an error is returned: `input file not found: <path>`
+- AND no execution begins
+
+#### Scenario: Unrecognized file type
+
+- GIVEN the user provides a path to a file that is not a `.yaml`/`.yml` file, `orchestration.md`, or `spec.md`
+- WHEN the command starts
+- THEN an error is returned: `unrecognized input file type: <path>`
 - AND no execution begins
 
 ---

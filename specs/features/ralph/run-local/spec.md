@@ -24,6 +24,57 @@ Before starting the iteration loop, the command SHALL run any configured `before
 
 ---
 
+### Requirement: Just-in-time artifact generation
+
+When the input is an orchestration or spec document rather than a project file, the command SHALL use the AI agent to generate the missing artifacts and commit them after switching to the project branch, so that the generation commits and the coding work share the same branch.
+
+When the input is an **orchestration document**, the command generates a project file and commits it, then proceeds using the generated project.
+
+When the input is a **spec document**, the command generates an orchestration document in the same directory as the spec, then generates a project file, commits both, and proceeds using the generated project.
+
+#### Scenario: Project generated and committed from orchestration
+
+- GIVEN the input is an `orchestration.md` file
+- AND the command has switched to the project branch
+- WHEN just-in-time generation runs
+- THEN the AI agent generates a project YAML file in `projects/` that implements the orchestration
+- AND the generated project file is committed to the project branch
+- AND execution proceeds using the generated project
+
+#### Scenario: Orchestration and project generated and committed from spec
+
+- GIVEN the input is a `spec.md` file
+- AND the command has switched to the project branch
+- WHEN just-in-time generation runs
+- THEN the AI agent generates an `orchestration.md` file in the same directory as the spec
+- AND the AI agent generates a project YAML file in `projects/` that implements the spec and orchestration
+- AND both generated files are committed to the project branch
+- AND execution proceeds using the generated project
+
+#### Scenario: Project generation failure from orchestration aborts run
+
+- GIVEN the input is an `orchestration.md` file
+- AND the AI agent fails to generate a valid project
+- WHEN the generation step runs
+- THEN an error is returned and no further execution begins
+
+#### Scenario: Orchestration generation failure from spec aborts run
+
+- GIVEN the input is a `spec.md` file
+- AND the AI agent fails to generate an orchestration
+- WHEN the orchestration generation step runs
+- THEN an error is returned and no further execution begins
+
+#### Scenario: Project generation failure from spec aborts run after orchestration succeeds
+
+- GIVEN the input is a `spec.md` file
+- AND the orchestration is generated and committed successfully
+- AND the AI agent fails to generate a valid project
+- WHEN the project generation step runs
+- THEN an error is returned and no further execution begins
+
+---
+
 ### Requirement: Per-Iteration Service Management
 
 Before each iteration the system SHALL start configured services and stop them after the iteration completes.
