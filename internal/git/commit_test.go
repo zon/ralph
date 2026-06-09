@@ -18,12 +18,11 @@ func TestStageFile(t *testing.T) {
 
 	// Create a new file
 	testFile := filepath.Join(tempDir, "newfile.txt")
-	if err := os.WriteFile(testFile, []byte("new content"), 0644); err != nil {
-		t.Fatalf("Failed to create test file: %v", err)
-	}
+	err := os.WriteFile(testFile, []byte("new content"), 0644)
+	require.NoError(t, err)
 
 	// Stage the file
-	err := StageFile("newfile.txt")
+	err = StageFile("newfile.txt")
 	require.NoError(t, err, "StageFile failed")
 
 	// Verify the file is staged by checking git status
@@ -48,9 +47,8 @@ func TestHasUncommittedChanges(t *testing.T) {
 	assert.False(t, HasUncommittedChanges())
 
 	// Unstaged change
-	if err := os.WriteFile(filepath.Join(tempDir, "README.md"), []byte("modified\n"), 0644); err != nil {
-		t.Fatalf("Failed to modify file: %v", err)
-	}
+	err := os.WriteFile(filepath.Join(tempDir, "README.md"), []byte("modified\n"), 0644)
+	require.NoError(t, err)
 	assert.True(t, HasUncommittedChanges())
 }
 
@@ -226,13 +224,12 @@ func TestPerformCommit_WithStagedChanges(t *testing.T) {
 	t.Chdir(tempDir)
 
 	testFile := filepath.Join(tempDir, "test.txt")
-	if err := os.WriteFile(testFile, []byte("test content"), 0644); err != nil {
-		t.Fatalf("Failed to create test file: %v", err)
-	}
+	err := os.WriteFile(testFile, []byte("test content"), 0644)
+	require.NoError(t, err)
 
 	require.NoError(t, StageFile("test.txt"))
 
-	err := performCommit("Add test file")
+	err = performCommit("Add test file")
 	require.NoError(t, err, "performCommit failed")
 
 	hasStaged := HasStagedChanges()
@@ -244,13 +241,12 @@ func TestPerformCommit_EmptyMessage(t *testing.T) {
 	t.Chdir(tempDir)
 
 	testFile := filepath.Join(tempDir, "test.txt")
-	if err := os.WriteFile(testFile, []byte("test content"), 0644); err != nil {
-		t.Fatalf("Failed to create test file: %v", err)
-	}
+	err := os.WriteFile(testFile, []byte("test content"), 0644)
+	require.NoError(t, err)
 
 	require.NoError(t, StageFile("test.txt"))
 
-	err := performCommit("")
+	err = performCommit("")
 	require.Error(t, err, "performCommit should fail with empty message")
 	assert.Contains(t, err.Error(), "empty commit message")
 }
@@ -269,11 +265,10 @@ func TestCommitChanges_WithStagedChanges(t *testing.T) {
 	t.Chdir(workDir)
 
 	testFile := filepath.Join(workDir, "test.txt")
-	if err := os.WriteFile(testFile, []byte("test content"), 0644); err != nil {
-		t.Fatalf("Failed to create test file: %v", err)
-	}
+	err := os.WriteFile(testFile, []byte("test content"), 0644)
+	require.NoError(t, err)
 
-	err := CommitChanges(false, "", "", "Add test file")
+	err = CommitChanges(false, "", "", "Add test file")
 	require.NoError(t, err, "CommitChanges failed")
 
 	hasChanges := HasUncommittedChanges()

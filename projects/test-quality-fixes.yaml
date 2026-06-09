@@ -61,7 +61,7 @@ requirements:
       items:
         - 'In internal/git/commit_test.go, lines 22, 52, 229, 247, and 271 use raw t.Fatalf("Failed to create/modify test file: %v", err) for os.WriteFile errors — these bypass testify''s assertion chain'
         - Replace each t.Fatalf(..., err) call with require.NoError(t, err) from github.com/stretchr/testify/require
-      passing: false
+      passing: true
     - slug: git-branch-raw-fatalf
       description: Replace raw t.Fatalf calls with require.NoError in branch_test.go
       items:
