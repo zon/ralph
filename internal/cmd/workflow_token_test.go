@@ -78,5 +78,5 @@ func TestWorkflowTokenCmd_RegisteredViaWorkflowGroup(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.NotNil(t, cmd.Workflow.Token)
-	assert.NotNil(t, cmd.Workflow.Token.Owner)
+	assert.Empty(t, cmd.Workflow.Token.Owner)
 }

@@ -7,7 +7,7 @@ requirements:
       items:
         - In internal/cmd/workflow_token_test.go line 81, cmd.Workflow.Token is a value type (WorkflowTokenCmd struct) and cmd.Workflow.Token.Owner is a string — assert.NotNil on either always passes
         - Replace assert.NotNil(t, cmd.Workflow.Token.Owner) with assert.Empty(t, cmd.Workflow.Token.Owner) to assert the field parsed to its zero value when no flag is provided
-      passing: false
+      passing: true
     - slug: webhooksetconfig-failing-registration-test
       description: Remove or rename the misleading TestRunContinuesAfterWebhookRegistrationFailure test
       items:
