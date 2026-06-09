@@ -143,7 +143,7 @@ func (g *GH) MergePR(pr, repo string) error {
 	autoCmd.Stderr = &autoOut
 	if err := autoCmd.Run(); err != nil {
 		autoErrStr := autoOut.String()
-		if strings.Contains(autoErrStr, "clean status") || strings.Contains(autoErrStr, "Protected branch rules not configured") || strings.Contains(autoErrStr, "enablePullRequestAutoMerge") {
+		if strings.Contains(autoErrStr, "clean status") || strings.Contains(autoErrStr, "Protected branch rules not configured") || strings.Contains(autoErrStr, "enablePullRequestAutoMerge") || strings.Contains(autoErrStr, "not mergeable") {
 			g.out.Debugf("PR #%s is already mergeable, merging immediately", pr)
 			return mergePRImmediate(g.out, pr, repo)
 		}
