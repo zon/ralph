@@ -35,4 +35,4 @@ requirements:
           All new tests use t.TempDir() for the fake binary's directory and t.Setenv("PATH", ...) to prepend it — never invoking the real "gh" CLI (per docs/testing.md's rule that "the GitHub API, the gh CLI... must never be invoked with real implementations in any test. These must always be abstracted behind interfaces and replaced with mocks" — here *GH is itself the implementation being tested via a substituted fake binary, not the real CLI). Tests use testify require/assert and follow the structure and naming conventions established elsewhere in the package (e.g. TestParseRemoteURL's table-driven style, TestCreatePullRequest_*'s mock-construction style).
         - |
           go vet ./internal/github/... and go test ./internal/github/... pass with the new tests included.
-      passing: false
+      passing: true

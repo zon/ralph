@@ -2,22 +2,10 @@ package github
 
 import (
 	"context"
-	"os"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
-
-func shQuote(s string) string {
-	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
-}
-
-func withFakeGH(t *testing.T, dir string) {
-	t.Helper()
-	origPath := os.Getenv("PATH")
-	t.Setenv("PATH", dir+string(os.PathListSeparator)+origPath)
-}
 
 func TestMockListCollaborators_Multiple(t *testing.T) {
 	mock := &MockGH{
