@@ -18,7 +18,7 @@ requirements:
           After removing these declarations, the "time" import in internal/testutil/testutil.go is removed if it is no longer referenced anywhere else in the file (it was only used by E2EConfig.Timeout and the timeout-parsing logic in NewE2EConfig).
         - |
           go vet ./internal/testutil/... and go test ./internal/testutil/... pass after the deletion, with no compile errors from dangling references or unused imports.
-      passing: false
+      passing: true
     - slug: remove-contains-wrapper
       description: |
         Delete the Contains helper from internal/testutil/testutil.go — it is a one-line pass-through to strings.Contains that adds indirection without value — and update its only caller to call strings.Contains directly.
