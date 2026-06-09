@@ -259,6 +259,85 @@ exit 1
 	assert.Equal(t, expectedTail, tail)
 }
 
+func TestGetStats(t *testing.T) {
+	tmpDir := t.TempDir()
+	scriptPath := filepath.Join(tmpDir, "fake-opencode.sh")
+
+	scriptContent := `#!/bin/bash
+if [ "$1" = "stats" ]; then
+  echo ' Session Stats'
+  echo ' Input           3.5M │'
+  echo ' Output          542.0K │'
+  echo ' Total Cost      $12.34 │'
+  exit 0
+fi
+exit 1
+`
+	err := os.WriteFile(scriptPath, []byte(scriptContent), 0755)
+	require.NoError(t, err)
+
+	opencodePath := filepath.Join(tmpDir, "opencode")
+	err = os.Symlink(scriptPath, opencodePath)
+	require.NoError(t, err)
+
+	origPath := os.Getenv("PATH")
+	t.Setenv("PATH", tmpDir+":"+origPath)
+
+	client := New()
+	stats, err := client.GetStats()
+	require.NoError(t, err)
+	assert.Equal(t, int64(3500000), stats.InputTokens)
+	assert.Equal(t, int64(542000), stats.OutputTokens)
+	assert.InDelta(t, 12.34, stats.Cost, 0.001)
+}
+
+func TestDisplayStats(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		scriptPath := filepath.Join(tmpDir, "fake-opencode.sh")
+
+		scriptContent := `#!/bin/bash
+exit 0
+`
+		err := os.WriteFile(scriptPath, []byte(scriptContent), 0755)
+		require.NoError(t, err)
+
+		opencodePath := filepath.Join(tmpDir, "opencode")
+		err = os.Symlink(scriptPath, opencodePath)
+		require.NoError(t, err)
+
+		origPath := os.Getenv("PATH")
+		t.Setenv("PATH", tmpDir+":"+origPath)
+
+		client := New()
+		err = client.DisplayStats()
+		require.NoError(t, err)
+	})
+
+	t.Run("failure", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		scriptPath := filepath.Join(tmpDir, "fake-opencode.sh")
+
+		scriptContent := `#!/bin/bash
+echo "error output" >&2
+exit 1
+`
+		err := os.WriteFile(scriptPath, []byte(scriptContent), 0755)
+		require.NoError(t, err)
+
+		opencodePath := filepath.Join(tmpDir, "opencode")
+		err = os.Symlink(scriptPath, opencodePath)
+		require.NoError(t, err)
+
+		origPath := os.Getenv("PATH")
+		t.Setenv("PATH", tmpDir+":"+origPath)
+
+		client := New()
+		err = client.DisplayStats()
+		require.Error(t, err)
+	})
+}
+
 func TestRunCommand_RealOpenCode(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	client := New()

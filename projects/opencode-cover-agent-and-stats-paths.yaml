@@ -45,7 +45,7 @@ requirements:
           internal/opencode/opencode_test.go gains TestDisplayStats, covering both branches with the fake-binary technique: when the fake script exits 0, DisplayStats returns nil; when it exits non-zero, DisplayStats returns a non-nil error.
         - |
           Both tests use testify require/assert and follow the structure and PATH-substitution pattern already established by TestRunCommand and TestRunCommandFailure — no real opencode CLI is invoked by these two tests.
-      passing: false
+      passing: true
     - slug: format-mock-struct-fields
       description: |
         Fix gofmt struct field alignment in internal/opencode/opencode_mock.go, which gofmt -l currently flags.
