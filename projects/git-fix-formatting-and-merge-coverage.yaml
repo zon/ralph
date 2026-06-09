@@ -29,7 +29,7 @@ requirements:
           All four tests operate exclusively inside directories returned by setupTestRepo(t)/t.TempDir() with t.Chdir — never the real ralph repository (a prior incident where a test ran git against the real repo caused a lost branch, so this isolation is mandatory) — and use testify require/assert consistently with the rest of the package's tests.
         - |
           No test for MergeBase is added — it is being deleted as dead code by the remove-dead-mergebase requirement in this same project, so it must never gain test coverage.
-      passing: false
+      passing: true
     - slug: remove-dead-mergebase
       description: |
         Delete the unused MergeBase function from internal/git/merge.go.
