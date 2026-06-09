@@ -147,52 +147,14 @@ type aiAdapter struct {
 }
 
 func (a *aiAdapter) ResolveMergeConflicts(baseBranch, projectBranch string) error {
-	instructions := fmt.Sprintf(`You need to resolve merge conflicts between the base branch (%s) and the current branch (%s).
-
-Steps:
-1. Run 'git merge %s' to see the conflicts
-2. Examine the conflicting files and resolve each conflict
-3. Run tests to ensure the merged code is correct
-4. After resolving and verifying with tests, run 'git add <resolved-files>' to stage them (the system will automatically commit)
-
-Focus on accepting the correct changes from both branches. If there are test failures after resolving, fix them.
-`, baseBranch, projectBranch, baseBranch)
-
-	instructionsFile, err := git.TmpPath("merge-instructions.md")
-	if err != nil {
-		return fmt.Errorf("failed to get tmp path for merge instructions: %w", err)
-	}
-	if err := os.WriteFile(instructionsFile, []byte(instructions), 0644); err != nil {
-		return fmt.Errorf("failed to write merge instructions: %w", err)
-	}
-
-	ralphConfig, err := config.LoadConfig()
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
-	}
-
-	proj, err := project.LoadProject(a.ctx.ProjectFile())
-	if err != nil {
-		return fmt.Errorf("failed to load project: %w", err)
-	}
-
-	currentBranch, err := git.GetCurrentBranch()
-	if err != nil {
-		return fmt.Errorf("failed to get current branch: %w", err)
-	}
-
-	projectBranchName := git.SanitizeBranchName(proj.Slug)
-	setup := &ExecutionSetup{
-		ProjectFile:   a.ctx.ProjectFile(),
-		Project:       proj,
-		Config:        ralphConfig,
-		BranchName:    projectBranchName,
-		CurrentBranch: currentBranch,
-		BaseBranch:    baseBranch,
-	}
-
-	a.ctx.SetInstructions(instructionsFile)
-	return Execute(a.ctx, a.cleanupRegistrar, setup)
+	return orchestrationWorkflow.ResolveMergeConflicts(
+		&configOptionalAdapter{},
+		&projectLoadAdapter{},
+		&runnerAdapter{ctx: a.ctx, baseBranch: baseBranch},
+		a.ctx.ProjectFile(),
+		baseBranch,
+		projectBranch,
+	)
 }
 
 // ---------------------------------------------------------------------------

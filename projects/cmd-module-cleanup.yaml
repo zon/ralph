@@ -33,7 +33,7 @@ requirements:
         - Move aiAdapter.ResolveMergeConflicts (internal/cmd/workflow_run_adapters.go lines 138-185) into internal/orchestration/workflowrun — it builds merge instructions, loads config, loads project, and calls the local runner; these are orchestration concerns not entry wiring
         - After the move, aiAdapter.ResolveMergeConflicts in internal/cmd/workflow_run_adapters.go delegates to the new orchestration function
         - The moved code must not contain raw subprocess calls or I/O formatting — any such logic must live in implementation modules
-      passing: false
+      passing: true
     - slug: move-setconfig-implementations
       description: Move setconfigGitHubClient and setconfigOpenCodeClient real implementations into internal/github, internal/k8s, and internal/workspace
       items:

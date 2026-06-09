@@ -2,6 +2,7 @@ package workflowrun
 
 import (
 	"errors"
+	"fmt"
 
 	ralphcfg "github.com/zon/ralph/internal/config"
 	wksp "github.com/zon/ralph/internal/orchestration/workspace"
@@ -148,4 +149,36 @@ func (w *WorkflowRunCmd) applyFlags(proj *ralphproj.Project, cfg *ralphcfg.Ralph
 	if flags.NoServices {
 		cfg.Services = nil
 	}
+}
+
+func ResolveMergeConflicts(
+	cfgClient ConfigClient,
+	projClient ProjectClient,
+	runnerClient RunnerClient,
+	projectFile string,
+	baseBranch string,
+	projectBranch string,
+) error {
+	_ = fmt.Sprintf(`You need to resolve merge conflicts between the base branch (%s) and the current branch (%s).
+
+Steps:
+1. Run 'git merge %s' to see the conflicts
+2. Examine the conflicting files and resolve each conflict
+3. Run tests to ensure the merged code is correct
+4. After resolving and verifying with tests, run 'git add <resolved-files>' to stage them (the system will automatically commit)
+
+Focus on accepting the correct changes from both branches. If there are test failures after resolving, fix them.
+`, baseBranch, projectBranch, baseBranch)
+
+	cfg, err := cfgClient.LoadOptional()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	proj, err := projClient.Load(projectFile)
+	if err != nil {
+		return fmt.Errorf("failed to load project: %w", err)
+	}
+
+	return runnerClient.RunLocal(proj, cfg)
 }
