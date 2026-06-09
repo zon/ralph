@@ -49,7 +49,7 @@ requirements:
       items:
         - In internal/orchestration/workflowtoken/workflow_token_test.go, TestScenarioSuccessfulTokenGeneration is byte-for-byte identical to TestRunGeneratesTokenAndConfiguresAuth — same mock setup, same two assertions; remove TestScenarioSuccessfulTokenGeneration
         - TestScenarioMissingCredentials and TestScenarioInvalidCredentials are also byte-for-byte identical — both call github.thatFailsTokenGeneration() and make the same two assertions with only the message strings differing; remove TestScenarioInvalidCredentials and rename TestScenarioMissingCredentials to TestRunHaltsOnTokenGenerationFailure to avoid duplicating TestRunPropagatesTokenGenerationFailure; if TestRunPropagatesTokenGenerationFailure already covers the same assertions, remove TestScenarioMissingCredentials too and keep only the original
-      passing: false
+      passing: true
     - slug: workflow-sanitizename-trun
       description: Wrap TestSanitizeName table cases in t.Run() subtests
       items:
