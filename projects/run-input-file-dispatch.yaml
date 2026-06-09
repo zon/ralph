@@ -380,7 +380,7 @@ requirements:
         - For spec inputs, the prompt also references the orchestration.md in the same directory as the spec
         - After the agent runs, the method scans projects/ for the newest .yaml file written during the run and loads it with project.LoadProject; it returns an error if no valid project file is found
         - Add a write-project-instructions.md embedded prompt template in internal/ai that both WriteOrchestration and WriteProject delegate to for prompt construction
-      passing: false
+      passing: true
     - slug: git-commit-generated-artifacts
       description: Add CommitGeneratedArtifacts to internal/git Client and MockClient that stages all changes and commits with a descriptive message
       items:

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/zon/ralph/internal/ai"
@@ -82,6 +83,95 @@ func (a *AgentClient) FixServiceStartup(cfg *config.RalphConfig, err error) erro
 		return ai.RunAgent(a.ctx, a.oc, fixPrompt)
 	}
 	return nil
+}
+
+func (a *AgentClient) WriteOrchestration(input *project.InputFile) error {
+	prompt, err := ai.BuildWriteProjectPrompt(ai.WriteProjectPromptData{
+		InputPath: input.Path(),
+		InputType: "specification file",
+	})
+	if err != nil {
+		return fmt.Errorf("failed to build write orchestration prompt: %w", err)
+	}
+
+	if a.ctx.IsVerbose() {
+		a.ctx.Output().Debug(prompt)
+	}
+
+	return ai.RunAgent(a.ctx, a.oc, prompt)
+}
+
+func (a *AgentClient) WriteProject(input *project.InputFile) (*project.Project, error) {
+	inputType := "orchestration file"
+	var orchestrationPath string
+	if input.IsSpec() {
+		inputType = "specification file"
+		orchestrationPath = filepath.Join(filepath.Dir(input.Path()), "orchestration.md")
+	}
+
+	prompt, err := ai.BuildWriteProjectPrompt(ai.WriteProjectPromptData{
+		InputPath:        input.Path(),
+		InputType:        inputType,
+		HasOrchestration: input.IsSpec(),
+		OrchestrationPath: orchestrationPath,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to build write project prompt: %w", err)
+	}
+
+	if a.ctx.IsVerbose() {
+		a.ctx.Output().Debug(prompt)
+	}
+
+	if err := ai.RunAgent(a.ctx, a.oc, prompt); err != nil {
+		return nil, err
+	}
+
+	proj, err := findNewestProject()
+	if err != nil {
+		return nil, err
+	}
+
+	return proj, nil
+}
+
+func findNewestProject() (*project.Project, error) {
+	entries, err := os.ReadDir("projects")
+	if err != nil {
+		return nil, fmt.Errorf("failed to read projects directory: %w", err)
+	}
+
+	var newestPath string
+	var newestModTime int64
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		ext := filepath.Ext(e.Name())
+		if ext != ".yaml" && ext != ".yml" {
+			continue
+		}
+		info, err := e.Info()
+		if err != nil {
+			continue
+		}
+		modTime := info.ModTime().UnixNano()
+		if modTime > newestModTime {
+			newestModTime = modTime
+			newestPath = filepath.Join("projects", e.Name())
+		}
+	}
+
+	if newestPath == "" {
+		return nil, fmt.Errorf("no project file found in projects/ directory")
+	}
+
+	proj, err := project.LoadProject(newestPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load generated project file: %w", err)
+	}
+
+	return proj, nil
 }
 
 func (a *AgentClient) PrintStats() {
