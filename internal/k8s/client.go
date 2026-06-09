@@ -6,6 +6,7 @@ type Client interface {
 	GetCurrentContext(ctx context.Context) (Context, error)
 	CreateOrUpdateConfigMap(ctx context.Context, name, namespace, kubeContext string, data map[string]string) error
 	CreateOrUpdateSecret(ctx context.Context, name, namespace, kubeContext string, data map[string]string) error
+	SecretExists(ctx context.Context, name, namespace, kubeContext string) (bool, error)
 }
 
 type client struct{}

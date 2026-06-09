@@ -42,7 +42,7 @@ requirements:
         - Move the k8s secret creation from setconfigGitHubClient.Configure (set_config.go lines 122-143) into internal/k8s as a new method on the Client
         - Add ReadOpenCodeCredentials(authFilePath string) ([]byte, error) to internal/workspace; move the auth.json reading from setconfigOpenCodeClient.Configure (set_config.go lines 151-187) there; move the k8s secret creation to internal/k8s
         - After extraction, setconfigGitHubClient and setconfigOpenCodeClient in internal/cmd/set_config.go become thin delegators
-      passing: false
+      passing: true
     - slug: consolidate-workflow-token
       description: Eliminate duplicated token generation and git auth logic in internal/cmd/workflow_token.go by delegating to internal/github
       items:

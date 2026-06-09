@@ -279,6 +279,49 @@ func obtainInstallationToken(ctx context.Context, owner, repo, appID string, pri
 	return installationToken, nil
 }
 
+func ValidateAppCredentials(ctx context.Context, keyPath, appID string) error {
+	privateKeyBytes, err := os.ReadFile(keyPath)
+	if err != nil {
+		return fmt.Errorf("failed to read private key file: %w", err)
+	}
+	if len(privateKeyBytes) == 0 {
+		return fmt.Errorf("private key file is empty")
+	}
+
+	repo, err := GetRepo(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to detect GitHub repository: %w", err)
+	}
+
+	jwtToken, err := GenerateAppJWT(appID, privateKeyBytes)
+	if err != nil {
+		return fmt.Errorf("failed to generate JWT for validation: %w", err)
+	}
+
+	installationID, err := GetInstallationID(ctx, jwtToken, repo.Owner, repo.Name)
+	if err != nil {
+		return fmt.Errorf("failed to get installation ID: %w", err)
+	}
+
+	_, err = GetInstallationToken(ctx, jwtToken, installationID)
+	if err != nil {
+		return fmt.Errorf("failed to get installation token: %w", err)
+	}
+
+	return nil
+}
+
+func ReadGitHubAppCredentials(keyPath string) ([]byte, error) {
+	privateKeyBytes, err := os.ReadFile(keyPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read private key file: %w", err)
+	}
+	if len(privateKeyBytes) == 0 {
+		return nil, fmt.Errorf("private key file is empty")
+	}
+	return privateKeyBytes, nil
+}
+
 func configureGitAuth(ctx context.Context, installationToken string) error {
 	cleanupStaleTokenRewrites(ctx)
 
