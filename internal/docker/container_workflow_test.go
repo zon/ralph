@@ -3,10 +3,10 @@ package docker
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/zon/ralph/internal/testutil"
 	"gopkg.in/yaml.v3"
 )
 
@@ -100,13 +100,13 @@ func TestContainerBuildWorkflow(t *testing.T) {
 	foundPodmanPush := false
 	for _, run := range stepRun {
 		if run != "" {
-			if testutil.Contains(run, "podman login") {
+			if strings.Contains(run, "podman login") {
 				foundPodmanLogin = true
 			}
-			if testutil.Contains(run, "podman build") {
+			if strings.Contains(run, "podman build") {
 				foundPodmanBuild = true
 			}
-			if testutil.Contains(run, "podman push") {
+			if strings.Contains(run, "podman push") {
 				foundPodmanPush = true
 			}
 		}
@@ -137,13 +137,13 @@ func TestContainerBuildWorkflow(t *testing.T) {
 
 			require.NotEmpty(t, tagStrings, "build-push-action should have tags")
 			for _, tagStr := range tagStrings {
-				if testutil.Contains(tagStr, "latest") {
+				if strings.Contains(tagStr, "latest") {
 					hasLatestTag = true
 				}
-				if testutil.Contains(tagStr, "steps.version.outputs.VERSION") {
+				if strings.Contains(tagStr, "steps.version.outputs.VERSION") {
 					hasVersionTag = true
 				}
-				if testutil.Contains(tagStr, "GITHUB_SHA") || testutil.Contains(tagStr, "SHORT_SHA") {
+				if strings.Contains(tagStr, "GITHUB_SHA") || strings.Contains(tagStr, "SHORT_SHA") {
 					hasShaTag = true
 				}
 			}

@@ -2,16 +2,10 @@ package testutil
 
 import (
 	"os"
-	"strings"
 
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/output"
 )
-
-// Contains reports whether substr is in s.
-func Contains(s, substr string) bool {
-	return strings.Contains(s, substr)
-}
 
 // NewContext creates a standard test context with safe defaults.
 // All tests should use this to ensure consistent configuration:

@@ -35,7 +35,7 @@ requirements:
           internal/docker/container_workflow_test.go removes the "github.com/zon/ralph/internal/testutil" import, since Contains was its only use of the testutil package and grep confirms no other testutil.* reference remains in the file.
         - |
           go vet ./internal/testutil/... ./internal/docker/... and go test ./internal/testutil/... ./internal/docker/... pass after the change, with no compile errors from dangling references or unused imports.
-      passing: false
+      passing: true
     - slug: verify-dependents-still-pass
       description: |
         Confirm the repository still builds and the affected packages' tests pass after both deletions, since this change must be purely subtractive with no behavioral impact on any caller.
