@@ -16,7 +16,7 @@ requirements:
           No identifiers, logic, comments, or other content changes — these are whitespace/import-ordering-only fixes. After the change, `gofmt -l internal/github/` reports no files needing formatting.
         - |
           go vet ./internal/github/... and go test ./internal/github/... pass with no errors.
-      passing: false
+      passing: true
     - slug: add-real-gh-cli-tests
       description: |
         Add direct unit test coverage for the *GH struct in internal/github/gh.go — the implementation that shells out to the real "gh" CLI via os/exec — using the fake-binary-on-PATH substitution technique already established in this codebase (see internal/opencode's TestRunCommand/TestRunCommandFailure: write a fake executable script to t.TempDir(), prepend its directory to PATH via t.Setenv, and assert on *GH's behavior against the fake script's output). Currently none of *GH's methods are exercised by any test — only MockGH (the interface mock) and the higher-level Client wrapper are tested, never the real gh-CLI-shelling implementation, confirmed via `grep -n "^func Test" internal/github/*_test.go` showing no test that constructs a *GH and calls IsReady/FindExistingPR/CreatePR/GetPRHeadRefOid/MergePR/ListCollaborators/RegisterWebhook directly.
