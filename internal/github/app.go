@@ -279,6 +279,25 @@ func obtainInstallationToken(ctx context.Context, owner, repo, appID string, pri
 	return installationToken, nil
 }
 
+// GenerateInstallationToken reads GitHub App credentials from secretsDir and
+// returns an installation access token for the given owner/repo.
+func GenerateInstallationToken(ctx context.Context, owner, repo, secretsDir string) (string, error) {
+	appID, privateKeyBytes, err := readAppCredentials(secretsDir)
+	if err != nil {
+		return "", err
+	}
+	return obtainInstallationToken(ctx, owner, repo, appID, privateKeyBytes)
+}
+
+// ConfigureTokenAuth configures git to authenticate HTTPS requests with the
+// given token and authenticates the gh CLI (gh auth login --with-token).
+func ConfigureTokenAuth(ctx context.Context, token string) error {
+	if err := configureGitAuth(ctx, token); err != nil {
+		return err
+	}
+	return authenticateGHCLI(ctx, token)
+}
+
 func ValidateAppCredentials(ctx context.Context, keyPath, appID string) error {
 	privateKeyBytes, err := os.ReadFile(keyPath)
 	if err != nil {

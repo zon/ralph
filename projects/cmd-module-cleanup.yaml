@@ -51,7 +51,7 @@ requirements:
         - In internal/cmd/workflow_token.go, update workflowTokenGitHubClient.GenerateToken to call github.GenerateInstallationToken instead of duplicating the JWT/token generation logic
         - Update workflowTokenGitClient.ConfigureAuth to call github.ConfigureTokenAuth instead of its own copies of cleanupStaleTokenRewrites and authenticateGHCLI
         - Delete cleanupStaleTokenRewrites and authenticateGHCLI from internal/cmd/workflow_token.go — they duplicate functions already in internal/github/app.go
-      passing: false
+      passing: true
     - slug: move-merge-implementations
       description: Move workflowMergeGitHubClient.WaitForHeadSync and workflowMergeProjectClient methods into internal/github and internal/project
       items:
