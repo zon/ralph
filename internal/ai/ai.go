@@ -38,6 +38,9 @@ var projectFixInstructions string
 //go:embed review-instructions.md
 var reviewInstructions string
 
+//go:embed write-orchestration-instructions.md
+var writeOrchestrationInstructions string
+
 //go:embed write-project-instructions.md
 var writeProjectInstructions string
 
@@ -108,6 +111,10 @@ type WriteProjectPromptData struct {
 	InputType        string
 	HasOrchestration bool
 	OrchestrationPath string
+}
+
+type WriteOrchestrationPromptData struct {
+	SpecPath string
 }
 
 func executeTemplate(templateContent string, data interface{}) (string, error) {
@@ -260,6 +267,10 @@ type ProjectFixPromptData struct {
 
 func BuildWriteProjectPrompt(data WriteProjectPromptData) (string, error) {
 	return executeTemplate(writeProjectInstructions, data)
+}
+
+func BuildWriteOrchestrationPrompt(data WriteOrchestrationPromptData) (string, error) {
+	return executeTemplate(writeOrchestrationInstructions, data)
 }
 
 func BuildProjectFixPrompt(projectFile string, loadErr error) (string, error) {

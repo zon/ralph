@@ -352,9 +352,6 @@ requirements:
 }
 
 func TestAgentClientWriteOrchestrationWithSpecInput(t *testing.T) {
-	dir := t.TempDir()
-	t.Chdir(dir)
-
 	var promptUsed string
 	mockOC := &opencode.MockOC{
 		RunAgentFunc: func(_ context.Context, _, _, prompt string) error {
@@ -369,8 +366,9 @@ func TestAgentClientWriteOrchestrationWithSpecInput(t *testing.T) {
 	input := project.ForSpecInput("specs/features/test/spec.md")
 	err := client.WriteOrchestration(input)
 	require.NoError(t, err)
-	assert.Contains(t, promptUsed, "specification file")
 	assert.Contains(t, promptUsed, "specs/features/test/spec.md")
+	assert.Contains(t, promptUsed, "orchestration.md")
+	assert.Contains(t, promptUsed, "docs/formats/orchestration.md")
 }
 
 func TestAgentClientWriteOrchestrationFailureReturnsError(t *testing.T) {

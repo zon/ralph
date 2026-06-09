@@ -647,6 +647,36 @@ func TestBuildWriteProjectPrompt(t *testing.T) {
 	}
 }
 
+func TestBuildWriteOrchestrationPrompt(t *testing.T) {
+	tests := []struct {
+		name  string
+		data  WriteOrchestrationPromptData
+		check func(t *testing.T, prompt string)
+	}{
+		{
+			name: "spec input",
+			data: WriteOrchestrationPromptData{
+				SpecPath: "specs/features/my-feature/spec.md",
+			},
+			check: func(t *testing.T, prompt string) {
+				assert.Contains(t, prompt, "specs/features/my-feature/spec.md")
+				assert.Contains(t, prompt, "orchestration.md")
+				assert.Contains(t, prompt, "docs/formats/orchestration.md")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			prompt, err := BuildWriteOrchestrationPrompt(tt.data)
+			require.NoError(t, err, "BuildWriteOrchestrationPrompt failed")
+			if tt.check != nil {
+				tt.check(t, prompt)
+			}
+		})
+	}
+}
+
 func TestExecuteTemplate(t *testing.T) {
 	tests := []struct {
 		name     string

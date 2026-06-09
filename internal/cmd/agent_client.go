@@ -86,9 +86,8 @@ func (a *AgentClient) FixServiceStartup(cfg *config.RalphConfig, err error) erro
 }
 
 func (a *AgentClient) WriteOrchestration(input *project.InputFile) error {
-	prompt, err := ai.BuildWriteProjectPrompt(ai.WriteProjectPromptData{
-		InputPath: input.Path(),
-		InputType: "specification file",
+	prompt, err := ai.BuildWriteOrchestrationPrompt(ai.WriteOrchestrationPromptData{
+		SpecPath: input.Path(),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to build write orchestration prompt: %w", err)

@@ -371,7 +371,7 @@ requirements:
         - The prompt references the spec file path and instructs the agent to follow the orchestration format documented at docs/formats/orchestration.md
         - The method returns an error if the agent call fails
         - Add a write-orchestration-instructions.md embedded prompt template in internal/ai that the method uses; the template instructs the agent to read the spec at a given path and write an orchestration.md beside it following docs/formats/orchestration.md
-      passing: false
+      passing: true
     - slug: ai-write-project
       description: Implement AgentClient.WriteProject in internal/cmd/agent_client.go to invoke the AI agent with a write-project prompt and load the resulting project file
       items:
