@@ -87,6 +87,30 @@ func BuildWebhookAppConfig(ctx context.Context, out *output.Client, base, update
 	return cfg
 }
 
+func BuildWebhookAppConfigFromK8s(ctx context.Context, namespace, kubeContext, configPath string, configReader func(context.Context, string, string) (*webhookconfig.AppConfig, error), ghClient github.GHClient, out *output.Client) webhookconfig.AppConfig {
+	base, err := configReader(ctx, namespace, kubeContext)
+	if err != nil {
+		if out != nil {
+			out.Warnf("Could not read existing configmap '%s': %v (starting from scratch)", WebhookConfigMapName, err)
+		}
+		base = nil
+	}
+
+	var updates *webhookconfig.AppConfig
+	if configPath != "" {
+		loaded, err := webhookconfig.LoadAppConfig(configPath)
+		if err != nil {
+			if out != nil {
+				out.Warnf("Failed to load partial config: %v (ignoring)", err)
+			}
+		} else {
+			updates = loaded
+		}
+	}
+
+	return BuildWebhookAppConfig(ctx, out, base, updates, "", "", "", ghClient)
+}
+
 func GenerateWebhookSecret() (string, error) {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {

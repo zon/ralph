@@ -65,23 +65,7 @@ type setconfigCfgClient struct {
 }
 
 func (c *setconfigCfgClient) Build(k8sCtx webhooksetconfig.K8sContext, configPath string) webhookconfig.AppConfig {
-	base, err := provisioning.ReadWebhookConfigFromK8s(c.ctx, k8sCtx.Namespace, k8sCtx.Name)
-	if err != nil {
-		c.out.Warnf("Could not read existing configmap '%s': %v (starting from scratch)", provisioning.WebhookConfigMapName, err)
-		base = nil
-	}
-
-	var updates *webhookconfig.AppConfig
-	if configPath != "" {
-		loaded, err := webhookconfig.LoadAppConfig(configPath)
-		if err != nil {
-			c.out.Warnf("Failed to load partial config: %v (ignoring)", err)
-		} else {
-			updates = loaded
-		}
-	}
-
-	return provisioning.BuildWebhookAppConfig(c.ctx, c.out, base, updates, "", "", "", c.ghClient)
+	return provisioning.BuildWebhookAppConfigFromK8s(c.ctx, k8sCtx.Namespace, k8sCtx.Name, configPath, provisioning.ReadWebhookConfigFromK8s, c.ghClient, c.out)
 }
 
 func (c *setconfigCfgClient) Write(k8sCtx webhooksetconfig.K8sContext, cfg webhookconfig.AppConfig) error {

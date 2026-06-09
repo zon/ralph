@@ -198,6 +198,46 @@ func TestBuildWebhookAppConfig(t *testing.T) {
 	})
 }
 
+func TestBuildWebhookAppConfigFromK8s(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("proceeds with defaults when configReader returns error", func(t *testing.T) {
+		configReader := func(_ context.Context, _, _ string) (*webhookconfig.AppConfig, error) {
+			return nil, fmt.Errorf("configmap not found")
+		}
+		cfg := BuildWebhookAppConfigFromK8s(ctx, "test-ns", "test-ctx", "", configReader, &github.MockGH{}, nil)
+
+		assert.Equal(t, 8080, cfg.Port)
+		assert.Equal(t, config.DefaultAppName+"[bot]", cfg.RalphUser)
+	})
+
+	t.Run("loads partial config from configPath when configReader fails", func(t *testing.T) {
+		configReader := func(_ context.Context, _, _ string) (*webhookconfig.AppConfig, error) {
+			return nil, fmt.Errorf("configmap not found")
+		}
+		dir := t.TempDir()
+		partialYAML := "port: 7070\n"
+		path := filepath.Join(dir, "partial.yaml")
+		require.NoError(t, os.WriteFile(path, []byte(partialYAML), 0644))
+
+		cfg := BuildWebhookAppConfigFromK8s(ctx, "test-ns", "test-ctx", path, configReader, &github.MockGH{}, nil)
+
+		assert.Equal(t, 7070, cfg.Port)
+	})
+
+	t.Run("ignores partial config and uses defaults when configPath file does not exist", func(t *testing.T) {
+		configReader := func(_ context.Context, _, _ string) (*webhookconfig.AppConfig, error) {
+			return nil, fmt.Errorf("configmap not found")
+		}
+		dir := t.TempDir()
+		path := filepath.Join(dir, "nonexistent.yaml")
+
+		cfg := BuildWebhookAppConfigFromK8s(ctx, "test-ns", "test-ctx", path, configReader, &github.MockGH{}, nil)
+
+		assert.Equal(t, 8080, cfg.Port)
+	})
+}
+
 func TestRegisterGitHubWebhook(t *testing.T) {
 	ctx := context.Background()
 
