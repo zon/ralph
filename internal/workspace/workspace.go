@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/output"
 )
@@ -68,6 +69,67 @@ func PrepareWorkspace(out *output.Client, repoURL, branch, workDir string) error
 func Chdir(dir string) error {
 	if err := os.Chdir(dir); err != nil {
 		return fmt.Errorf("failed to change directory to %s: %w", dir, err)
+	}
+	return nil
+}
+
+func SetupSymlinks(out *output.Client) error {
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory: %w", err)
+	}
+
+	for _, cm := range cfg.Workflow.ConfigMaps {
+		if cm.Link {
+			if err := link(cwd, DefaultWorkspaceDir, cm.DestFile, cm.DestDir, out); err != nil {
+				return err
+			}
+		}
+	}
+
+	for _, secret := range cfg.Workflow.Secrets {
+		if secret.Link {
+			if err := link(cwd, DefaultWorkspaceDir, secret.DestFile, secret.DestDir, out); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func link(cwd, workspaceDir, destFile, destDir string, out *output.Client) error {
+	dest := destFile
+	if dest == "" {
+		dest = destDir
+	}
+	if dest == "" {
+		return nil
+	}
+
+	src := filepath.Join(workspaceDir, dest)
+	linkPath := filepath.Join(cwd, dest)
+
+	if _, err := os.Stat(src); err != nil {
+		return fmt.Errorf("failed to stat source %s: %w", src, err)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(linkPath), 0755); err != nil {
+		return fmt.Errorf("failed to create parent directory for %s: %w", linkPath, err)
+	}
+
+	if _, err := os.Lstat(linkPath); err == nil {
+		return nil
+	}
+
+	out.Infof("Linking %s -> %s", linkPath, src)
+	if err := os.Symlink(src, linkPath); err != nil {
+		return fmt.Errorf("failed to create symlink %s -> %s: %w", linkPath, src, err)
 	}
 	return nil
 }

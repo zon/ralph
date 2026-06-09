@@ -39,6 +39,29 @@ func GetRepo(ctx context.Context) (Repo, error) {
 	return ParseRemoteURL(remoteURL)
 }
 
+// ParseRepo splits an "owner/repo" string and returns the owner and name.
+func ParseRepo(repo string) (string, string) {
+	if repo == "" {
+		return "", ""
+	}
+	parts := split2(repo, "/")
+	return parts[0], parts[1]
+}
+
+// split2 splits a string by the first occurrence of sep and returns up to 2 parts.
+func split2(s, sep string) [2]string {
+	var result [2]string
+	for i := 0; i+len(sep) <= len(s); i++ {
+		if s[i:i+len(sep)] == sep {
+			result[0] = s[:i]
+			result[1] = s[i+len(sep):]
+			return result
+		}
+	}
+	result[0] = s
+	return result
+}
+
 // ParseRemoteURL parses a GitHub remote URL and returns the repository.
 // Supported formats:
 //

@@ -43,6 +43,15 @@ func CheckoutOrCreateBranch(name string) error {
 	return nil
 }
 
+// CheckoutBranch switches to the specified git branch
+func CheckoutBranch(name string) error {
+	_, err := runGit("checkout", name)
+	if err != nil {
+		return fmt.Errorf("failed to checkout branch '%s': %w", name, err)
+	}
+	return nil
+}
+
 // checkoutBranch switches to the specified git branch
 func checkoutBranch(name string) error {
 	_, err := runGit("checkout", name)
@@ -84,10 +93,28 @@ func IsBranchSyncedWithRemote(branch string) error {
 	return nil
 }
 
+// RemoteBranchExists checks whether a branch exists on the remote.
+func RemoteBranchExists(branch string) (bool, error) {
+	_, err := runGit("ls-remote", "--exit-code", "--heads", "origin", branch)
+	if err != nil {
+		return false, nil
+	}
+	return true, nil
+}
+
 // remoteBranchExists checks whether a branch exists on the remote.
 func remoteBranchExists(branch string) bool {
-	_, err := runGit("ls-remote", "--exit-code", "--heads", "origin", branch)
-	return err == nil
+	ok, _ := RemoteBranchExists(branch)
+	return ok
+}
+
+// CreateBranch creates and switches to a new branch.
+func CreateBranch(name string) error {
+	_, err := runGit("checkout", "-b", name)
+	if err != nil {
+		return fmt.Errorf("failed to create branch '%s': %w", name, err)
+	}
+	return nil
 }
 
 func SanitizeBranchName(name string) string {

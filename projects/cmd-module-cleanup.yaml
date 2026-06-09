@@ -18,7 +18,7 @@ requirements:
         - Move setupWorkspaceSymlinks and link (workflow_run_adapters.go lines 306-365) into internal/workspace so they can serve as the SetupSymlinks implementation
         - Move repoCloneURL into internal/github if not already present; move parseRepo and split2 into internal/github or internal/git
         - Delete the inline setup logic and all moved helpers from internal/cmd once delegation is in place
-      passing: false
+      passing: true
     - slug: delegate-git-adapter
       description: Replace gitAdapter's raw runGit subprocess calls with internal/git function delegation
       items:
