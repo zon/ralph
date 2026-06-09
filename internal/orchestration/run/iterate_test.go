@@ -28,6 +28,16 @@ func TestIterateExitsEarlyWhenRequirementsPass(t *testing.T) {
 	require.Len(t, aiDevelopCalls(runner), 2)
 }
 
+func TestIterateSucceedsWhenFinalIterationCompletesAllRequirements(t *testing.T) {
+	const maxIterations = 3
+	runner := withMocks(
+		withProject(newProjectThatReportsPassingAfterIterations(maxIterations)),
+	)
+	err := runner.RunLocal(project.WithMaxIterations(maxIterations), config.Any())
+	require.NoError(t, err)
+	require.Len(t, aiPickCalls(runner), maxIterations)
+}
+
 func TestIterateReturnsErrorAtMaxIterations(t *testing.T) {
 	runner := withMocks(
 		withProject(newProjectThatAlwaysReportsFailures()),

@@ -124,6 +124,10 @@ func (r *Runner) iterate(proj *project.Project, cfg *config.RalphConfig) error {
 			return err
 		}
 	}
+	proj = r.project.Reload(proj)
+	if r.project.AllRequirementsPassing(proj) {
+		return nil
+	}
 	return r.project.MaxIterationsError(proj)
 }
 
