@@ -48,4 +48,4 @@ requirements:
           go test ./internal/docker/... passes, including TestContainerBuildWorkflow in container_workflow_test.go with its substring assertions now performed via strings.Contains.
         - |
           go test ./internal/git/... and go test ./internal/cmd/... pass, confirming InitGitRepo, MakeInitialCommit, CreateRalphConfig, and NewContext (the helpers that remain in internal/testutil) are unaffected by this change.
-      passing: false
+      passing: true
