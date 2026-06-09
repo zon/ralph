@@ -25,58 +25,46 @@ func TestNewManager(t *testing.T) {
 	assert.True(t, called, "cleanup function should have been called")
 }
 
-func TestRegisterCleanup(t *testing.T) {
-	m := NewManager(nil)
+func TestCleanup(t *testing.T) {
+	t.Run("single function called", func(t *testing.T) {
+		m := NewManager(nil)
 
-	cleanupCalled := false
-	m.RegisterCleanup(func() {
-		cleanupCalled = true
+		called := false
+		m.RegisterCleanup(func() { called = true })
+		m.Cleanup()
+
+		assert.True(t, called, "cleanup function should have been called")
 	})
 
-	m.Cleanup()
+	t.Run("multiple functions called in reverse order", func(t *testing.T) {
+		m := NewManager(nil)
 
-	assert.True(t, cleanupCalled, "Cleanup function should have been called")
-}
+		var callOrder []int
+		m.RegisterCleanup(func() { callOrder = append(callOrder, 1) })
+		m.RegisterCleanup(func() { callOrder = append(callOrder, 2) })
+		m.RegisterCleanup(func() { callOrder = append(callOrder, 3) })
 
-func TestMultipleCleanupFunctions(t *testing.T) {
-	m := NewManager(nil)
+		m.Cleanup()
 
-	var callOrder []int
-	m.RegisterCleanup(func() {
-		callOrder = append(callOrder, 1)
-	})
-	m.RegisterCleanup(func() {
-		callOrder = append(callOrder, 2)
-	})
-	m.RegisterCleanup(func() {
-		callOrder = append(callOrder, 3)
+		assert.Equal(t, []int{3, 2, 1}, callOrder)
 	})
 
-	m.Cleanup()
+	t.Run("idempotent", func(t *testing.T) {
+		m := NewManager(nil)
 
-	assert.Len(t, callOrder, 3, "Expected 3 cleanup calls")
-	assert.Equal(t, []int{3, 2, 1}, callOrder, "Cleanup functions should be called in reverse order")
-}
+		count := 0
+		m.RegisterCleanup(func() { count++ })
+		m.Cleanup()
+		m.Cleanup()
 
-func TestCleanupIdempotent(t *testing.T) {
-	m := NewManager(nil)
-
-	cleanupCount := 0
-	m.RegisterCleanup(func() {
-		cleanupCount++
+		assert.Equal(t, 1, count, "cleanup should only execute once")
 	})
 
-	m.Cleanup()
-	m.Cleanup()
-	m.Cleanup()
+	t.Run("empty manager", func(t *testing.T) {
+		m := NewManager(nil)
 
-	assert.Equal(t, 1, cleanupCount, "Cleanup should only be called once")
-}
-
-func TestCleanupEmptyManager(t *testing.T) {
-	m := NewManager(nil)
-
-	m.Cleanup()
+		assert.NotPanics(t, func() { m.Cleanup() })
+	})
 }
 
 func TestHandleSignal(t *testing.T) {

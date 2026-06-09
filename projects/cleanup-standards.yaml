@@ -23,7 +23,7 @@ requirements:
         - TestCleanup subtest 'multiple functions called in reverse order' registers three callbacks and verifies they execute in reverse registration order
         - TestCleanup subtest 'idempotent' calls Cleanup twice and verifies the callback is invoked exactly once
         - TestCleanup subtest 'empty manager' calls Cleanup on a manager with no registered callbacks and verifies no panic
-      passing: false
+      passing: true
     - slug: table-driven-signal-tests
       description: Replace the two standalone signal tests with a single table-driven TestHandleSignal
       items:
