@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/zon/ralph/internal/project"
 )
 
 func TestRunLocalStatsPrintedOnSuccess(t *testing.T) {
@@ -11,7 +13,7 @@ func TestRunLocalStatsPrintedOnSuccess(t *testing.T) {
 		withEnv(newEnvInWorkflow()),
 		withProject(newProjectThatReportsAllPassing()),
 	)
-	err := runner.RunLocal(passingProject(), anyConfig())
+	err := runner.RunLocal(project.ForProjectInput(passingProject()), anyConfig())
 	require.NoError(t, err)
 	require.True(t, aiStatsPrinted(runner))
 }
@@ -21,7 +23,7 @@ func TestRunLocalStatsPrintedOnFailure(t *testing.T) {
 		withEnv(newEnvInWorkflow()),
 		withAI(newAIThatAlwaysFails()),
 	)
-	err := runner.RunLocal(failingProject(), anyConfig())
+	err := runner.RunLocal(project.ForProjectInput(failingProject()), anyConfig())
 	require.Error(t, err)
 	require.True(t, aiStatsPrinted(runner))
 }
@@ -31,7 +33,7 @@ func TestRunLocalStatsNotPrintedWhenNotInWorkflow(t *testing.T) {
 		withEnv(newEnvNotInWorkflow()),
 		withProject(newProjectThatReportsAllPassing()),
 	)
-	err := runner.RunLocal(passingProject(), anyConfig())
+	err := runner.RunLocal(project.ForProjectInput(passingProject()), anyConfig())
 	require.NoError(t, err)
 	require.False(t, aiStatsPrinted(runner))
 }

@@ -24,6 +24,8 @@ type AIClient interface {
 	GenerateChangelog(proj *project.Project) error
 	FixServiceStartup(cfg *config.RalphConfig, err error) error
 	PrintStats()
+	WriteOrchestration(input *project.InputFile) error
+	WriteProject(input *project.InputFile) (*project.Project, error)
 }
 
 type EnvClient interface {
@@ -91,14 +93,19 @@ func (r *Runner) Env() EnvClient {
 	return r.env
 }
 
-func (r *Runner) RunLocal(proj *project.Project, cfg *config.RalphConfig) error {
+func (r *Runner) RunLocal(input *project.InputFile, cfg *config.RalphConfig) error {
 	if r.env.InWorkflow() {
 		defer r.ai.PrintStats()
 	}
 	if err := r.services.RunBeforeCommands(cfg); err != nil {
 		return err
 	}
-	if err := r.git.SwitchToBranch(proj.Slug); err != nil {
+	if err := r.git.SwitchToBranch(input.Slug()); err != nil {
+		return err
+	}
+	proj, err := r.generateArtifacts(input)
+	if err != nil {
+		r.notify.Error(input.Slug())
 		return err
 	}
 	if err := r.iterate(proj, cfg); err != nil {
@@ -115,6 +122,22 @@ func (r *Runner) RunLocal(proj *project.Project, cfg *config.RalphConfig) error 
 	}
 	r.notify.Success(proj.Slug)
 	return nil
+}
+
+func (r *Runner) generateArtifacts(input *project.InputFile) (*project.Project, error) {
+	if input.IsProject() {
+		return input.Project(), nil
+	}
+	if input.IsSpec() {
+		if err := r.ai.WriteOrchestration(input); err != nil {
+			return nil, err
+		}
+	}
+	proj, err := r.ai.WriteProject(input)
+	if err != nil {
+		return nil, err
+	}
+	return proj, r.git.CommitGeneratedArtifacts(proj.Slug)
 }
 
 func (r *Runner) iterate(proj *project.Project, cfg *config.RalphConfig) error {

@@ -17,7 +17,7 @@ func NewLocalRunnerClient(ctx *execcontext.Context) *LocalRunnerClient {
 
 func (c *LocalRunnerClient) RunLocal(input *project.InputFile, cfg *config.RalphConfig) error {
 	runner := NewLocalRunner(c.ctx, input.Slug())
-	return runner.RunLocal(input.Project(), cfg)
+	return runner.RunLocal(input, cfg)
 }
 
 type RemoteRunnerClient struct {

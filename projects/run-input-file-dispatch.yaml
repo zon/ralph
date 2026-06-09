@@ -363,7 +363,7 @@ requirements:
                 require.NoError(t, err)
                 require.Equal(t, []string{"switch", "commit"}, order)
             }
-      passing: false
+      passing: true
     - slug: ai-write-orchestration
       description: Implement AgentClient.WriteOrchestration in internal/cmd/agent_client.go to invoke the AI agent with a write-orchestration prompt for spec inputs
       items:

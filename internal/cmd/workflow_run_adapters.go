@@ -195,7 +195,7 @@ type runnerAdapter struct {
 
 func (a *runnerAdapter) RunLocal(proj *project.Project, cfg *config.RalphConfig) error {
 	runner := NewLocalRunner(a.ctx, a.baseBranch)
-	return runner.RunLocal(proj, cfg)
+	return runner.RunLocal(project.ForProjectInput(proj), cfg)
 }
 
 // ---------------------------------------------------------------------------

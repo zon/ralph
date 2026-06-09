@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/zon/ralph/internal/config"
+	"github.com/zon/ralph/internal/project"
 )
 
 func TestRunIterationPassesConfigVariantToAI(t *testing.T) {
@@ -14,7 +15,7 @@ func TestRunIterationPassesConfigVariantToAI(t *testing.T) {
 		withProject(newProjectThatReportsPassingAfterIterations(1)),
 		withAI(aiMock),
 	)
-	err := runner.RunLocal(failingProject(), config.WithVariant("high"))
+	err := runner.RunLocal(project.ForProjectInput(failingProject()), config.WithVariant("high"))
 	require.NoError(t, err)
 	require.Equal(t, "high", aiMock.lastVariant())
 }
@@ -25,7 +26,7 @@ func TestRunIterationOmitsVariantWhenUnset(t *testing.T) {
 		withProject(newProjectThatReportsPassingAfterIterations(1)),
 		withAI(aiMock),
 	)
-	err := runner.RunLocal(failingProject(), anyConfig())
+	err := runner.RunLocal(project.ForProjectInput(failingProject()), anyConfig())
 	require.NoError(t, err)
 	require.Empty(t, aiMock.lastVariant())
 }

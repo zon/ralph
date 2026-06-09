@@ -150,7 +150,7 @@ func Execute(ctx *context.Context, cleanupRegistrar func(func()), setup *Executi
 		return NewRemoteRunner(ctx).Run(setup.Project, orchestrationRun.RunRemoteFlags{Follow: ctx.ShouldFollow()})
 	}
 
-	return NewLocalRunner(ctx, setup.BaseBranch).RunLocal(setup.Project, setup.Config)
+	return NewLocalRunner(ctx, setup.BaseBranch).RunLocal(project.ForProjectInput(setup.Project), setup.Config)
 }
 
 func infrastructureRunBeforeCommands(out *output.Client, cfg *config.RalphConfig) error {
