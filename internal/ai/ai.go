@@ -38,6 +38,12 @@ var projectFixInstructions string
 //go:embed review-instructions.md
 var reviewInstructions string
 
+//go:embed write-orchestration-instructions.md
+var writeOrchestrationInstructions string
+
+//go:embed write-project-instructions.md
+var writeProjectInstructions string
+
 type FixServicePromptData struct {
 	Notes       []string
 	ServiceName string
@@ -98,6 +104,17 @@ type ReviewItemPromptData struct {
 type LoopItemPromptData struct {
 	FunctionName string
 	FunctionPath string
+}
+
+type WriteProjectPromptData struct {
+	InputPath        string
+	InputType        string
+	HasOrchestration bool
+	OrchestrationPath string
+}
+
+type WriteOrchestrationPromptData struct {
+	SpecPath string
 }
 
 func executeTemplate(templateContent string, data interface{}) (string, error) {
@@ -246,6 +263,14 @@ func BuildArchitectureFixPrompt(outputFile string, errors []string) (string, err
 type ProjectFixPromptData struct {
 	ProjectFile string
 	LoadError   string
+}
+
+func BuildWriteProjectPrompt(data WriteProjectPromptData) (string, error) {
+	return executeTemplate(writeProjectInstructions, data)
+}
+
+func BuildWriteOrchestrationPrompt(data WriteOrchestrationPromptData) (string, error) {
+	return executeTemplate(writeOrchestrationInstructions, data)
 }
 
 func BuildProjectFixPrompt(projectFile string, loadErr error) (string, error) {

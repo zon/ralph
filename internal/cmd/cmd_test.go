@@ -84,8 +84,8 @@ func TestLocalFlagValidation(t *testing.T) {
 			// Now run validation
 			// We need to mock the execution to test only validation
 			// Override the project file validation since we're not testing that
-			if cmd.Run.ProjectFile == "" {
-				cmd.Run.ProjectFile = "test.yaml"
+			if cmd.Run.InputFile == "" {
+				cmd.Run.InputFile = "test.yaml"
 			}
 
 			// Test follow + local validation
@@ -221,19 +221,12 @@ func validateRunFlags(r *RunCmd) error {
 	return nil
 }
 
-func TestRunCmdProjectFileValidation(t *testing.T) {
-	t.Run("missing project file returns error", func(t *testing.T) {
-		r := &RunCmd{ProjectFile: ""}
+func TestRunCmdInputFileValidation(t *testing.T) {
+	t.Run("nonexistent input file returns error", func(t *testing.T) {
+		r := &RunCmd{InputFile: "/nonexistent/path/project.yaml"}
 		err := r.Run()
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "project file required")
-	})
-
-	t.Run("nonexistent project file returns error", func(t *testing.T) {
-		r := &RunCmd{ProjectFile: "/nonexistent/path/project.yaml"}
-		err := r.Run()
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "project file not found")
+		assert.Contains(t, err.Error(), "input file not found")
 	})
 
 	t.Run("existing project file passes file validation", func(t *testing.T) {
@@ -241,12 +234,12 @@ func TestRunCmdProjectFileValidation(t *testing.T) {
 		f := filepath.Join(dir, "project.yaml")
 		require.NoError(t, os.WriteFile(f, []byte("slug: test\n"), 0644))
 
-		r := &RunCmd{ProjectFile: f}
+		r := &RunCmd{InputFile: f}
 		err := r.Run()
 		// Error is expected (project execution will fail without full setup),
-		// but it should NOT be a "project file not found" error.
+		// but it should NOT be an "input file not found" error.
 		if err != nil {
-			assert.NotContains(t, err.Error(), "project file not found")
+			assert.NotContains(t, err.Error(), "input file not found")
 		}
 	})
 }

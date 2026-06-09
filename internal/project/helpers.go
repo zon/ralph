@@ -170,6 +170,28 @@ func withMaxIterations(n int) *Project {
 	}
 }
 
+func ForProjectInput(p *Project) *InputFile {
+	return &InputFile{
+		path:    p.Path,
+		kind:    inputProject,
+		project: p,
+	}
+}
+
+func ForOrchestrationInput(path string) *InputFile {
+	return &InputFile{
+		path: path,
+		kind: inputOrchestration,
+	}
+}
+
+func ForSpecInput(path string) *InputFile {
+	return &InputFile{
+		path: path,
+		kind: inputSpec,
+	}
+}
+
 func WithMaxIterations(n int) *Project {
 	return &Project{
 		Slug:  "test-project",

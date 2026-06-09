@@ -74,3 +74,10 @@ func (a *Client) IsBranchSyncedWithRemote(branch string) error {
 func (a *Client) CommitOrchestrationRemoval(_ string) error {
 	return Commit("chore: remove orchestration doc before PR")
 }
+
+func (a *Client) CommitGeneratedArtifacts(slug string) error {
+	if err := StageAll(); err != nil {
+		return err
+	}
+	return Commit(fmt.Sprintf("chore: generate project for %s", slug))
+}

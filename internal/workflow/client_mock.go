@@ -7,7 +7,7 @@ import (
 )
 
 type MockClient struct {
-	SubmitFunc       func(proj *project.Project, cloneBranch string, debug string) (string, error)
+	SubmitFunc       func(input *project.InputFile, cloneBranch string, debug string) (string, error)
 	FollowLogsFunc   func(workflowName string) error
 	PrintLogHintFunc func(workflowName string)
 
@@ -17,11 +17,11 @@ type MockClient struct {
 	LastDebugBranch    string
 }
 
-func (m *MockClient) Submit(proj *project.Project, cloneBranch string, debug string) (string, error) {
+func (m *MockClient) Submit(input *project.InputFile, cloneBranch string, debug string) (string, error) {
 	m.SubmitCalled = true
 	m.LastDebugBranch = debug
 	if m.SubmitFunc != nil {
-		return m.SubmitFunc(proj, cloneBranch, debug)
+		return m.SubmitFunc(input, cloneBranch, debug)
 	}
 	return "test-workflow", nil
 }
@@ -43,7 +43,7 @@ func (m *MockClient) PrintLogHint(workflowName string) {
 
 func ThatFailsOnSubmit() *MockClient {
 	return &MockClient{
-		SubmitFunc: func(proj *project.Project, cloneBranch string, debug string) (string, error) {
+		SubmitFunc: func(input *project.InputFile, cloneBranch string, debug string) (string, error) {
 			return "", errors.New("submit failed")
 		},
 	}

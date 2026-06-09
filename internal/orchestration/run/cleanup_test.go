@@ -12,7 +12,7 @@ func TestCleanupNormalizesProjectFileWhenChanged(t *testing.T) {
 	projMock := newProjectThatReportsPassingAfterIterations(1)
 	projMock.HasChangesFunc = func(_ *project.Project) bool { return true }
 	runner := withMocks(withProject(projMock))
-	err := runner.RunLocal(failingProject(), anyConfig())
+	err := runner.RunLocal(project.ForProjectInput(failingProject()), anyConfig())
 	require.NoError(t, err)
 	require.True(t, projMock.NormalizeAndStageCalled)
 }
@@ -21,7 +21,7 @@ func TestCleanupSkipsNormalizationWhenNoChanges(t *testing.T) {
 	projMock := newProjectThatReportsPassingAfterIterations(1)
 	projMock.HasChangesFunc = func(_ *project.Project) bool { return false }
 	runner := withMocks(withProject(projMock))
-	err := runner.RunLocal(failingProject(), anyConfig())
+	err := runner.RunLocal(project.ForProjectInput(failingProject()), anyConfig())
 	require.NoError(t, err)
 	require.False(t, projMock.NormalizeAndStageCalled)
 }

@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -127,6 +128,41 @@ func TestGitClientCommitFromReportFailsWhenNoReport(t *testing.T) {
 	err := client.CommitFromReport("test-slug")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "report.md")
+}
+
+func TestGitClientCommitGeneratedArtifacts(t *testing.T) {
+	workDir := t.TempDir()
+	t.Chdir(workDir)
+	testutil.InitGitRepo(t, workDir)
+	testutil.MakeInitialCommit(t, workDir)
+	setupLocalRemote(t, workDir)
+
+	client := git.NewClient(context.NewContext())
+
+	require.NoError(t, os.MkdirAll(filepath.Join(workDir, "projects"), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(workDir, "projects", "test.yaml"), []byte("slug: my-feature\n"), 0644))
+
+	err := client.CommitGeneratedArtifacts("my-feature")
+	require.NoError(t, err)
+
+	cmd := exec.Command("git", "log", "-1", "--format=%B")
+	cmd.Dir = workDir
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err)
+	assert.Equal(t, "chore: generate project for my-feature", strings.TrimSpace(string(out)))
+}
+
+func TestGitClientCommitGeneratedArtifactsNoChanges(t *testing.T) {
+	workDir := t.TempDir()
+	t.Chdir(workDir)
+	testutil.InitGitRepo(t, workDir)
+	testutil.MakeInitialCommit(t, workDir)
+	setupLocalRemote(t, workDir)
+
+	client := git.NewClient(context.NewContext())
+
+	err := client.CommitGeneratedArtifacts("empty-feature")
+	require.Error(t, err)
 }
 
 func setupLocalRemote(t *testing.T, dir string) {

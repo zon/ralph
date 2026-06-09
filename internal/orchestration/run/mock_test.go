@@ -37,18 +37,22 @@ func newProjectThatAlwaysReportsFailures() *project.MockClient {
 // mockAIClient cannot move to internal/run because that package already
 // imports internal/orchestration/run, which would create an import cycle.
 type mockAIClient struct {
-	runPickerFunc    func() (string, error)
-	runDeveloperFunc func(string) error
-	isFatalFunc      func(err error) bool
-	changelogFunc    func() error
-	fixServiceFunc   func(*config.RalphConfig, error) error
-	pickCalls        []*project.Project
-	developCalls     []*project.Project
-	changelogCalls   []*project.Project
-	fixServiceCalled bool
-	statsPrinted     bool
-	variant          string
-	lastVariantValue string
+	runPickerFunc            func() (string, error)
+	runDeveloperFunc         func(string) error
+	isFatalFunc              func(err error) bool
+	changelogFunc            func() error
+	fixServiceFunc           func(*config.RalphConfig, error) error
+	pickCalls                []*project.Project
+	developCalls             []*project.Project
+	changelogCalls           []*project.Project
+	fixServiceCalled         bool
+	statsPrinted             bool
+	variant                  string
+	lastVariantValue         string
+	writeOrchestrationCalled bool
+	writeOrchestrationFunc   func(input *project.InputFile) error
+	writeProjectCalled       bool
+	writeProjectFunc         func(input *project.InputFile) (*project.Project, error)
 }
 
 func (m *mockAIClient) setLastVariant(v string) {
@@ -103,6 +107,22 @@ func (m *mockAIClient) FixServiceStartup(cfg *config.RalphConfig, err error) err
 		return m.fixServiceFunc(cfg, err)
 	}
 	return nil
+}
+
+func (m *mockAIClient) WriteOrchestration(input *project.InputFile) error {
+	m.writeOrchestrationCalled = true
+	if m.writeOrchestrationFunc != nil {
+		return m.writeOrchestrationFunc(input)
+	}
+	return nil
+}
+
+func (m *mockAIClient) WriteProject(input *project.InputFile) (*project.Project, error) {
+	m.writeProjectCalled = true
+	if m.writeProjectFunc != nil {
+		return m.writeProjectFunc(input)
+	}
+	return &project.Project{Slug: "generated-project", MaxIterations: 10}, nil
 }
 
 type mockEnvClient struct {
@@ -244,11 +264,12 @@ func (e *mockError) Error() string {
 
 type trackingGitClient struct {
 	GitClient
-	switchToBranchCalled              bool
-	writeBlockedFileCalled            bool
-	commitFromReportCalled            bool
-	commitOrchestrationRemovalCalled  bool
-	currentBranchCalled               bool
+	switchToBranchCalled                bool
+	writeBlockedFileCalled              bool
+	commitFromReportCalled              bool
+	commitOrchestrationRemovalCalled    bool
+	currentBranchCalled                 bool
+	commitGeneratedArtifactsCalled      bool
 }
 
 func wrapTrackedGit(gc GitClient) GitClient {
@@ -282,6 +303,21 @@ func (t *trackingGitClient) CurrentBranch() (string, error) {
 	t.currentBranchCalled = true
 	return t.GitClient.CurrentBranch()
 }
+
+func (t *trackingGitClient) CommitGeneratedArtifacts(slug string) error {
+	t.commitGeneratedArtifactsCalled = true
+	return t.GitClient.CommitGeneratedArtifacts(slug)
+}
+
+type mockNotifyClient struct {
+	errors []string
+}
+
+func (m *mockNotifyClient) Error(slug string) {
+	m.errors = append(m.errors, slug)
+}
+
+func (m *mockNotifyClient) Success(slug string) {}
 
 type runnerOption func(*Runner)
 
@@ -329,6 +365,22 @@ func withMocks(opts ...runnerOption) *Runner {
 		github:   &github.MockClient{},
 		services: &services.MockClient{},
 		notify:   &notify.MockClient{},
+		env:      newEnvNotInWorkflow(),
+	}
+	for _, opt := range opts {
+		opt(r)
+	}
+	return r
+}
+
+func newRunnerWithMocks(opts ...runnerOption) *Runner {
+	r := &Runner{
+		project:  newProjectThatAlwaysReportsFailures(),
+		ai:       &mockAIClient{},
+		git:      &git.MockClient{},
+		github:   &github.MockClient{},
+		services: &services.MockClient{},
+		notify:   &mockNotifyClient{},
 		env:      newEnvNotInWorkflow(),
 	}
 	for _, opt := range opts {

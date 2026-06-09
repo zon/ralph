@@ -21,8 +21,8 @@ type workflowClientAdapter struct {
 	kubeContext string
 }
 
-func (a *workflowClientAdapter) Submit(proj *project.Project, cloneBranch string, debug string) (string, error) {
-	projectBranch := git.SanitizeBranchName(proj.Slug)
+func (a *workflowClientAdapter) Submit(input *project.InputFile, cloneBranch string, debug string) (string, error) {
+	projectBranch := git.SanitizeBranchName(input.Slug())
 
 	var repoURL string
 	if a.ctx.Repo() != "" {
@@ -36,7 +36,7 @@ func (a *workflowClientAdapter) Submit(proj *project.Project, cloneBranch string
 		repoURL = repo.CloneURL()
 	}
 
-	relProjectPath := a.ctx.ProjectFile()
+	relProjectPath := input.Path()
 	if filepath.IsAbs(relProjectPath) {
 		if a.ctx.Repo() == "" {
 			repoRoot, err := git.FindRepoRoot()
@@ -53,7 +53,7 @@ func (a *workflowClientAdapter) Submit(proj *project.Project, cloneBranch string
 	if debug != "" {
 		a.ctx.SetDebugBranch(debug)
 	}
-	wf, err := workflow.GenerateWorkflow(a.ctx, proj.Slug, cloneBranch, projectBranch, a.ctx.IsVerbose(), repoURL, relProjectPath)
+	wf, err := workflow.GenerateWorkflow(a.ctx, input.Slug(), cloneBranch, projectBranch, a.ctx.IsVerbose(), repoURL, relProjectPath)
 	if err != nil {
 		return "", err
 	}
