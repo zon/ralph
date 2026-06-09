@@ -23,4 +23,4 @@ requirements:
           No source code or test files are modified — internal/version/version.go and
           internal/version/version_test.go already conform to pure-module standards
           (unit-only tests, no mocks, no I/O beyond a compile-time embed).
-      passing: false
+      passing: true
