@@ -156,6 +156,19 @@ func RegisterGitHubWebhook(ctx context.Context, gh github.GHClient, owner, repo,
 	return gh.RegisterWebhook(ctx, owner, repo, webhookURL, secret)
 }
 
+func RegisterAllGitHubWebhooks(ctx context.Context, ghClient github.GHClient, out *output.Client, repos []webhookconfig.RepoSecret) {
+	webhookURL := fmt.Sprintf("https://%s/webhook", WebhookIngressHostname)
+	out.Infof("Registering webhooks at %s...", webhookURL)
+	for _, rs := range repos {
+		if err := RegisterGitHubWebhook(ctx, ghClient, rs.Owner, rs.Name, webhookURL, rs.WebhookSecret); err != nil {
+			out.Warnf("Failed to register webhook for %s/%s: %v", rs.Owner, rs.Name, err)
+		} else {
+			out.Successf("Webhook registered for %s/%s", rs.Owner, rs.Name)
+		}
+	}
+	out.Info("")
+}
+
 func BuildWebhookSecrets(appCfg *webhookconfig.AppConfig, secretGenerator func() (string, error)) (*webhookconfig.Secrets, error) {
 	secrets := &webhookconfig.Secrets{}
 

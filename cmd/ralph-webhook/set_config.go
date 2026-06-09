@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 
 	"github.com/zon/ralph/internal/github"
@@ -110,15 +109,5 @@ type setconfigGitHubClient struct {
 }
 
 func (c *setconfigGitHubClient) RegisterWebhooks(secrets webhooksetconfig.WebhookSecrets) {
-	webhookURL := fmt.Sprintf("https://%s/webhook", provisioning.WebhookIngressHostname)
-	c.out.Infof("Registering webhooks at %s...", webhookURL)
-	for _, rs := range secrets.Repos {
-		c.out.Infof("Registering webhook for %s/%s...", rs.Owner, rs.Name)
-		if err := provisioning.RegisterGitHubWebhook(c.ctx, c.ghClient, rs.Owner, rs.Name, webhookURL, rs.WebhookSecret); err != nil {
-			c.out.Warnf("Failed to register webhook for %s/%s: %v", rs.Owner, rs.Name, err)
-		} else {
-			c.out.Successf("Webhook registered for %s/%s", rs.Owner, rs.Name)
-		}
-	}
-	c.out.Info("")
+	provisioning.RegisterAllGitHubWebhooks(c.ctx, c.ghClient, c.out, secrets.Repos)
 }

@@ -1,6 +1,7 @@
 package provisioning
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/k8s"
+	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/webhookconfig"
 	"gopkg.in/yaml.v3"
 )
@@ -271,6 +273,72 @@ func TestRegisterGitHubWebhook(t *testing.T) {
 		err := RegisterGitHubWebhook(ctx, gh, "owner", "repo", "http://hook", "secret")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "registration failed")
+	})
+}
+
+func TestRegisterAllGitHubWebhooks(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("calls Successf for each successful registration", func(t *testing.T) {
+		var outBuf, errBuf bytes.Buffer
+		out := output.NewClient(&outBuf, &errBuf, false)
+		gh := &github.MockGH{
+			RegisterWebhookFn: func(_ context.Context, owner, repo, webhookURL, secret string) error {
+				return nil
+			},
+		}
+
+		repos := []webhookconfig.RepoSecret{
+			{Owner: "acme", Name: "repo-a", WebhookSecret: "s3kr3t1"},
+			{Owner: "acme", Name: "repo-b", WebhookSecret: "s3kr3t2"},
+		}
+		RegisterAllGitHubWebhooks(ctx, gh, out, repos)
+
+		output := outBuf.String()
+		assert.Contains(t, output, "✓ Webhook registered for acme/repo-a")
+		assert.Contains(t, output, "✓ Webhook registered for acme/repo-b")
+	})
+
+	t.Run("calls Warnf for failed registration and continues", func(t *testing.T) {
+		var outBuf, errBuf bytes.Buffer
+		out := output.NewClient(&outBuf, &errBuf, false)
+		callCount := 0
+		gh := &github.MockGH{
+			RegisterWebhookFn: func(_ context.Context, owner, repo, webhookURL, secret string) error {
+				callCount++
+				if callCount == 1 {
+					return fmt.Errorf("network error")
+				}
+				return nil
+			},
+		}
+
+		repos := []webhookconfig.RepoSecret{
+			{Owner: "acme", Name: "repo-a", WebhookSecret: "s3kr3t1"},
+			{Owner: "acme", Name: "repo-b", WebhookSecret: "s3kr3t2"},
+		}
+		RegisterAllGitHubWebhooks(ctx, gh, out, repos)
+
+		output := outBuf.String()
+		assert.Contains(t, output, "Failed to register webhook for acme/repo-a: network error")
+		assert.Contains(t, output, "✓ Webhook registered for acme/repo-b")
+	})
+
+	t.Run("does nothing on empty repos slice", func(t *testing.T) {
+		var outBuf, errBuf bytes.Buffer
+		out := output.NewClient(&outBuf, &errBuf, false)
+		gh := &github.MockGH{
+			RegisterWebhookFn: func(_ context.Context, owner, repo, webhookURL, secret string) error {
+				t.Error("RegisterWebhook should not be called")
+				return nil
+			},
+		}
+
+		RegisterAllGitHubWebhooks(ctx, gh, out, nil)
+
+		output := outBuf.String()
+		assert.NotContains(t, output, "Webhook registered")
+		assert.NotContains(t, output, "Failed to register")
 	})
 }
 
