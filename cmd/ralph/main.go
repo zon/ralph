@@ -13,14 +13,11 @@ import (
 // Date is set via ldflags during build
 var Date = "unknown"
 
-// Global cleanup manager instance
 var cleanupManager = cleanup.NewManager(output.NewClient(os.Stdout, os.Stderr, false))
 
 func main() {
-	// Set up signal handlers for graceful shutdown
 	cleanupManager.SetupSignalHandlers()
 
-	// Ensure cleanup happens on normal exit
 	defer cleanupManager.Cleanup()
 
 	c := &cmd.Cmd{}
@@ -36,7 +33,6 @@ func main() {
 		}),
 	)
 
-	// Execute the selected command
 	err := ctx.Run()
 	ctx.FatalIfErrorf(err)
 }
