@@ -8,7 +8,7 @@ requirements:
         - In specs/architecture.yaml, change the internal/services module entry's category field from "orchestration" to "implementation"
         - Leave the internal/services module's existing description in specs/architecture.yaml unchanged, as it already accurately describes the module
         - Make no changes to any Go source files - this is a specs/architecture.yaml-only change
-      passing: false
+      passing: true
     - slug: full-suite-check
       description: Confirm the recategorization did not break the broader build or test suite.
       items:
