@@ -56,4 +56,4 @@ requirements:
         - 'Review the final internal/webhook/server.go and confirm handleWebhook''s body consists only of: reading the request, calling github.ParseWebhookPayload, webhookconfig.WebhookSecretForRepo, webhookconfig.ValidateSignature, payload.IsAcceptable/ToEvent (or relocated equivalents), workflow.FromWebhookEvent, and s.argoClient submission via s.submitWorkflow'
         - Confirm internal/webhook/payload.go and internal/webhook/events.go either no longer exist or contain only thin coordination types/aliases with no implementation logic
         - Run go vet ./internal/webhook/... and go test ./... to confirm the full suite remains green after all extractions
-      passing: false
+      passing: true

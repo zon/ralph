@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	githubpkg "github.com/zon/ralph/internal/github"
+	"github.com/zon/ralph/internal/webhookconfig"
 )
 
 // WebhookEvent contains the fields from a filtered GitHub webhook event needed
@@ -74,4 +75,29 @@ func ProjectFileFromBranch(branch string) string {
 		projectName = strings.ReplaceAll(branch, "/", "-")
 	}
 	return filepath.Join("projects", projectName+".yaml")
+}
+
+// FromWebhookEventWithConfig is a convenience wrapper that constructs WorkflowOptions
+// from a webhookconfig.Config and calls FromWebhookEvent. It resolves the image,
+// kube context, and namespace (per-repo) from the config.
+func FromWebhookEventWithConfig(fields githubpkg.EventFields, cfg *webhookconfig.Config) (*WorkflowResult, error) {
+	we := WebhookEvent{
+		Body:      fields.Body,
+		Approved:  fields.Approved,
+		PRBranch:  fields.PRBranch,
+		RepoOwner: fields.RepoOwner,
+		RepoName:  fields.RepoName,
+		PRNumber:  fields.PRNumber,
+	}
+	image := MakeImage(cfg.App.ImageRepository, cfg.App.ImageTag)
+	namespace := ""
+	if repo := cfg.RepoByFullName(fields.RepoOwner, fields.RepoName); repo != nil {
+		namespace = repo.Namespace
+	}
+	opts := WorkflowOptions{
+		Image:       image,
+		KubeContext: cfg.App.WorkflowContext,
+		Namespace:   namespace,
+	}
+	return FromWebhookEvent(we, opts)
 }

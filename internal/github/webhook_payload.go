@@ -90,7 +90,7 @@ func (p *WebhookPayload) IsAcceptable(eventType string, cfg *webhookconfig.Confi
 }
 
 // EventFields holds the parsed fields from a WebhookPayload for a specific event type.
-// The caller (internal/webhook) converts this into a webhook.Event.
+// The caller passes EventFields directly to workflow.FromWebhookEventWithConfig.
 type EventFields struct {
 	Body      string
 	Approved  bool
@@ -134,6 +134,31 @@ func (p *WebhookPayload) ToEvent(eventType string) EventFields {
 		}
 	}
 	return EventFields{}
+}
+
+// EventAction returns the action field from the payload.
+func (p *WebhookPayload) EventAction() string {
+	return p.Action
+}
+
+// PRNumber returns the pull request number.
+func (p *WebhookPayload) PRNumber() int {
+	return p.PullRequest.Number
+}
+
+// PRHeadRef returns the head branch ref of the pull request.
+func (p *WebhookPayload) PRHeadRef() string {
+	return p.PullRequest.Head.Ref
+}
+
+// CommentBody returns the comment body text.
+func (p *WebhookPayload) CommentBody() string {
+	return p.Comment.Body
+}
+
+// ReviewBody returns the review body text.
+func (p *WebhookPayload) ReviewBody() string {
+	return p.Review.Body
 }
 
 // ParseWebhookPayload unmarshals a raw JSON body into a WebhookPayload.

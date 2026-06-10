@@ -91,11 +91,6 @@ func (s *Server) handleWebhook(c *gin.Context) {
 	}
 
 	eventType := c.GetHeader("X-GitHub-Event")
-	msg := payload.Review.Body
-	if msg == "" {
-		msg = payload.Comment.Body
-	}
-	s.out.Debugf("incoming %s (%s) for %s/%s PR#%d branch=%s body=%q", eventType, payload.Action, owner, repoName, payload.PullRequest.Number, payload.PullRequest.Head.Ref, msg)
 
 	if !payload.IsAcceptable(eventType, s.config) {
 		s.out.Debugf("ignoring %s event for %s/%s", eventType, owner, repoName)
@@ -104,35 +99,9 @@ func (s *Server) handleWebhook(c *gin.Context) {
 	}
 
 	fields := payload.ToEvent(eventType)
-	event := Event{
-		Body:      fields.Body,
-		Approved:  fields.Approved,
-		PRBranch:  fields.PRBranch,
-		RepoOwner: fields.RepoOwner,
-		RepoName:  fields.RepoName,
-		PRNumber:  fields.PRNumber,
-		Author:    fields.Author,
-	}
 	s.out.Debugf("dispatching %s for %s/%s", eventType, owner, repoName)
 
-	namespace := ""
-	if repo := s.config.RepoByFullName(event.RepoOwner, event.RepoName); repo != nil {
-		namespace = repo.Namespace
-	}
-	we := workflow.WebhookEvent{
-		Body:      event.Body,
-		Approved:  event.Approved,
-		PRBranch:  event.PRBranch,
-		RepoOwner: event.RepoOwner,
-		RepoName:  event.RepoName,
-		PRNumber:  event.PRNumber,
-	}
-	opts := workflow.WorkflowOptions{
-		Image:       workflow.MakeImage(s.config.App.ImageRepository, s.config.App.ImageTag),
-		KubeContext: s.config.App.WorkflowContext,
-		Namespace:   namespace,
-	}
-	result, err := workflow.FromWebhookEvent(we, opts)
+	result, err := workflow.FromWebhookEventWithConfig(fields, s.config)
 	if err != nil {
 		s.out.Debugf("failed to generate workflow for %s/%s: %v", owner, repoName, err)
 		c.Status(http.StatusOK)
