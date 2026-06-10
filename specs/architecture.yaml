@@ -129,7 +129,7 @@ modules:
     description: Filesystem helpers for preparing the container workspace — credential placement, repo checkout, and directory changes.
     category: implementation
   - path: internal/github
-    description: Wrapper around the gh CLI for GitHub API operations and authentication.
+    description: Wrapper around the gh CLI for GitHub API operations, authentication, and webhook payload parsing.
     category: implementation
   - path: internal/config
     description: Loads and parses the ralph configuration file.

@@ -38,7 +38,7 @@ requirements:
         - Update internal/webhook/server.go's readAndParsePayload (or remove it) to call github.ParseWebhookPayload, and update handleWebhook to call the relocated IsAcceptable/ToEvent via the github package types
         - Update specs/architecture.yaml's internal/github description to mention webhook payload parsing as part of its scope
         - Run go build ./... and go test ./internal/webhook/... ./internal/github/... to confirm everything compiles and passes with no import cycles
-      passing: false
+      passing: true
     - slug: extract-workflow-construction
       description: internal/webhook/events.go defines Event, WorkflowResult, ToWorkflow, and projectFileFromBranch, which build workflow.Workflow/workflow.MergeWorkflow/workflow.WorkflowOptions structs field-by-field -- this is implementation-level workflow construction that belongs in internal/workflow, the implementation module that already owns these types and their generation functions.
       items:

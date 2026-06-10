@@ -2,13 +2,13 @@ package webhook
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/zon/ralph/internal/argo"
+	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/webhookconfig"
 )
@@ -55,7 +55,13 @@ func (s *Server) Run() error {
 // handleWebhook is the main Gin handler for POST /webhook.
 // It runs the full pipeline: receive → validate → filter → event → workflow → submit.
 func (s *Server) handleWebhook(c *gin.Context) {
-	payload, body, err := s.readAndParsePayload(c)
+	body, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to read request body"})
+		return
+	}
+
+	payload, err := github.ParseWebhookPayload(body)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -96,7 +102,16 @@ func (s *Server) handleWebhook(c *gin.Context) {
 		return
 	}
 
-	event := payload.ToEvent(eventType)
+	fields := payload.ToEvent(eventType)
+	event := Event{
+		Body:      fields.Body,
+		Approved:  fields.Approved,
+		PRBranch:  fields.PRBranch,
+		RepoOwner: fields.RepoOwner,
+		RepoName:  fields.RepoName,
+		PRNumber:  fields.PRNumber,
+		Author:    fields.Author,
+	}
 	s.out.Debugf("dispatching %s for %s/%s", eventType, owner, repoName)
 
 	result, err := event.ToWorkflow(s.config)
@@ -108,20 +123,6 @@ func (s *Server) handleWebhook(c *gin.Context) {
 
 	go s.submitWorkflow(result, owner, repoName)
 	c.Status(http.StatusOK)
-}
-
-func (s *Server) readAndParsePayload(c *gin.Context) (*githubPayload, []byte, error) {
-	body, err := io.ReadAll(c.Request.Body)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to read request body")
-	}
-
-	var payload githubPayload
-	if err := json.Unmarshal(body, &payload); err != nil {
-		return nil, nil, fmt.Errorf("invalid JSON payload")
-	}
-
-	return &payload, body, nil
 }
 
 // submitWorkflow submits a WorkflowResult asynchronously.

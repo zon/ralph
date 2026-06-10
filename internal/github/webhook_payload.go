@@ -1,14 +1,15 @@
-package webhook
+package github
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
 	"github.com/zon/ralph/internal/webhookconfig"
 )
 
-// githubPayload is the subset of a GitHub webhook JSON payload that the server needs.
-type githubPayload struct {
+// WebhookPayload is the subset of a GitHub webhook JSON payload that the server needs.
+type WebhookPayload struct {
 	Action string `json:"action"`
 	Issue  struct {
 		PullRequest *struct {
@@ -43,12 +44,12 @@ type githubPayload struct {
 }
 
 // RepoOwner returns the repository owner login.
-func (p githubPayload) RepoOwner() string {
+func (p *WebhookPayload) RepoOwner() string {
 	return p.Repository.Owner.Login
 }
 
 // RepoName returns the repository name.
-func (p githubPayload) RepoName() string {
+func (p *WebhookPayload) RepoName() string {
 	return p.Repository.Name
 }
 
@@ -56,7 +57,7 @@ func (p githubPayload) RepoName() string {
 // event type, applying user ignore/allowlist rules from cfg.
 // Returns false for unrecognised event types, non-PR issue comments, empty
 // review bodies, and non-approved/non-commented review states.
-func (p githubPayload) IsAcceptable(eventType string, cfg *webhookconfig.Config) bool {
+func (p *WebhookPayload) IsAcceptable(eventType string, cfg *webhookconfig.Config) bool {
 	repo := cfg.RepoByFullName(p.RepoOwner(), p.RepoName())
 
 	switch eventType {
@@ -88,9 +89,21 @@ func (p githubPayload) IsAcceptable(eventType string, cfg *webhookconfig.Config)
 	return false
 }
 
-// ToEvent converts the payload into an Event for the given event type.
+// EventFields holds the parsed fields from a WebhookPayload for a specific event type.
+// The caller (internal/webhook) converts this into a webhook.Event.
+type EventFields struct {
+	Body      string
+	Approved  bool
+	PRBranch  string
+	RepoOwner string
+	RepoName  string
+	PRNumber  string
+	Author    string
+}
+
+// ToEvent converts the payload into EventFields for the given event type.
 // Call IsAcceptable first to ensure the payload is valid.
-func (p githubPayload) ToEvent(eventType string) Event {
+func (p *WebhookPayload) ToEvent(eventType string) EventFields {
 	prNumber := ""
 	if p.PullRequest.Number != 0 {
 		prNumber = fmt.Sprintf("%d", p.PullRequest.Number)
@@ -101,7 +114,7 @@ func (p githubPayload) ToEvent(eventType string) Event {
 
 	switch eventType {
 	case "issue_comment", "pull_request_review_comment":
-		return Event{
+		return EventFields{
 			Body:      p.Comment.Body,
 			PRBranch:  branch,
 			RepoOwner: owner,
@@ -110,7 +123,7 @@ func (p githubPayload) ToEvent(eventType string) Event {
 			Author:    p.Comment.User.Login,
 		}
 	case "pull_request_review":
-		return Event{
+		return EventFields{
 			Body:      p.Review.Body,
 			Approved:  strings.ToLower(p.Review.State) == "approved",
 			PRBranch:  branch,
@@ -120,5 +133,16 @@ func (p githubPayload) ToEvent(eventType string) Event {
 			Author:    p.Review.User.Login,
 		}
 	}
-	return Event{}
+	return EventFields{}
 }
+
+// ParseWebhookPayload unmarshals a raw JSON body into a WebhookPayload.
+func ParseWebhookPayload(body []byte) (*WebhookPayload, error) {
+	var payload WebhookPayload
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return nil, fmt.Errorf("invalid JSON payload")
+	}
+	return &payload, nil
+}
+
+
