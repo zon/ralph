@@ -1,9 +1,5 @@
 package cmd
 
-import (
-	"github.com/zon/ralph/internal/orchestration/pass"
-)
-
 // Cmd defines the command-line arguments and execution context
 type Cmd struct {
 	// Subcommands
@@ -15,7 +11,7 @@ type Cmd struct {
 	Validate       ValidateCmd       `cmd:"" help:"Validate a project YAML file"`
 	List           ListCmd           `cmd:"" help:"List Argo workflows"`
 	Stop           StopCmd           `cmd:"" help:"Stop an Argo workflow"`
-	Pass           pass.PassCmd      `cmd:"" help:"Mark a project requirement as passing or failing"`
+	Pass           PassCmd           `cmd:"" help:"Mark a project requirement as passing or failing"`
 
 	version          string       `kong:"-"`
 	date             string       `kong:"-"`
