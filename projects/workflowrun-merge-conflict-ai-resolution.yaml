@@ -49,7 +49,7 @@ requirements:
             - THEN the merge is aborted
             - AND an AI agent is invoked with instructions to resolve all conflicts, run tests, and stage the resolved files
             - AND execution continues after resolution
-      passing: false
+      passing: true
     - slug: log-warning-on-base-branch-fetch-failure
       description: syncBaseBranch logs a warning and continues when the base branch cannot be fetched, per the workflow-run spec's Base Branch Synchronization requirement
       items:
