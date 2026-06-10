@@ -57,3 +57,7 @@ container-build:
 # Push container image to registry
 push:
     ./scripts/push-image.sh
+
+# Submit every project in projects/ as a remote workflow
+run-projects:
+    ./scripts/run-projects.sh
