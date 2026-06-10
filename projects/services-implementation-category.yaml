@@ -13,4 +13,4 @@ requirements:
       description: Confirm the recategorization did not break the broader build or test suite.
       items:
         - Run go build ./... and go test ./... and confirm both succeed with no failures
-      passing: false
+      passing: true
