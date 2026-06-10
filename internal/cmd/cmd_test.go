@@ -428,6 +428,31 @@ func TestSetConfigCmdHelpText(t *testing.T) {
 	assert.Contains(t, output, "Configure credentials for remote execution")
 }
 
+func TestWorkflowRunCmdHelpText(t *testing.T) {
+	output := captureHelpOutput(&Cmd{}, []string{"workflow", "run", "--help"})
+	assert.Contains(t, output, "Run a project via the workflow engine")
+}
+
+func TestWorkflowCommentCmdHelpText(t *testing.T) {
+	output := captureHelpOutput(&Cmd{}, []string{"workflow", "comment", "--help"})
+	assert.Contains(t, output, "Run a comment-triggered workflow iteration")
+}
+
+func TestWorkflowMergeCmdHelpText(t *testing.T) {
+	output := captureHelpOutput(&Cmd{}, []string{"workflow", "merge", "--help"})
+	assert.Contains(t, output, "Merge a completed PR via workflow")
+}
+
+func TestWorkflowCommandCmdHelpText(t *testing.T) {
+	output := captureHelpOutput(&Cmd{}, []string{"workflow", "command", "--help"})
+	assert.Contains(t, output, "Run an arbitrary command via workflow")
+}
+
+func TestWorkflowTokenCmdHelpText(t *testing.T) {
+	output := captureHelpOutput(&Cmd{}, []string{"workflow", "token", "--help"})
+	assert.Contains(t, output, "Generate a GitHub App installation token")
+}
+
 func TestTopLevelCommandsParsed(t *testing.T) {
 	tests := []struct {
 		name string
@@ -442,6 +467,33 @@ func TestTopLevelCommandsParsed(t *testing.T) {
 		{name: "pass", args: []string{"pass", "test.yaml", "test-slug"}},
 		{name: "set skills", args: []string{"set", "skills"}},
 		{name: "set config", args: []string{"set", "config"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := &Cmd{}
+			parser, err := kong.New(cmd,
+				kong.Name("ralph"),
+				kong.Exit(func(int) {}),
+			)
+			require.NoError(t, err)
+
+			_, err = parser.Parse(tt.args)
+			require.NoError(t, err)
+		})
+	}
+}
+
+func TestWorkflowSubcommandsParsed(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{name: "workflow run", args: []string{"workflow", "run", "--repo", "owner/repo", "--project-path", "test.yaml", "--base", "main"}},
+		{name: "workflow comment", args: []string{"workflow", "comment", "--repo", "owner/repo", "--project-branch", "feature", "--comment-body", "test", "--pr", "1", "--repo-owner", "owner", "--repo-name", "repo"}},
+		{name: "workflow merge", args: []string{"workflow", "merge", "--repo", "owner/repo", "--pr-branch", "feature", "--pr", "1"}},
+		{name: "workflow command", args: []string{"workflow", "command", "--repo", "owner/repo", "echo", "hello"}},
+		{name: "workflow token", args: []string{"workflow", "token"}},
 	}
 
 	for _, tt := range tests {

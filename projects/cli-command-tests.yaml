@@ -27,7 +27,7 @@ requirements:
         - The 'ralph workflow merge' command exists and displays help text about merging a completed PR via workflow
         - The 'ralph workflow command' command exists and displays help text about running an arbitrary command via workflow
         - The 'ralph workflow token' command exists and displays help text about generating a GitHub App installation token
-      passing: false
+      passing: true
     - slug: ralph-webhook-commands
       description: Verify ralph-webhook commands exist with expected structure
       items:
