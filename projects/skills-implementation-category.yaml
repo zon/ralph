@@ -21,7 +21,7 @@ requirements:
         - Update internal/orchestration/setup/setup_test.go to use skills.MockClient (from internal/skills) in place of the locally defined mockSkills type, wiring its DiscoverFunc, FetchAllFunc, PruneStaleFunc, and InstallAllFunc fields to reproduce the existing test behaviors (success path, no-git-repo path, discovery failure, fetch failure, and tracking of installed/pruned skills for assertions)
         - Remove the now-unused mockSkills type and its helper methods/functions (newMock, installed, pruned, thatFetches, thatFailsDiscovery, thatFailsFetch) from internal/orchestration/setup/setup_test.go, keeping only what is still needed
         - Run go test ./internal/orchestration/setup/... to confirm all existing test cases still pass with the same coverage
-      passing: false
+      passing: true
     - slug: dedupe-cmd-set-adapter
       description: internal/cmd/set.go defines its own skillsClient{} struct whose methods simply forward to the package-level functions in internal/skills (Discover, FetchAll, PruneStale, InstallAll). This adapter exists only to satisfy the SkillsClient interface for production wiring and duplicates the shape already implemented by the package functions themselves.
       items:

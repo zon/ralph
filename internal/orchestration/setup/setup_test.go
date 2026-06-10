@@ -35,84 +35,6 @@ func withNoRepo() GitClient {
 	return gitClientFunc(func() string { return cwd })
 }
 
-type mockSkills struct {
-	discoverFn   func(branch string) ([]string, error)
-	fetchAllFn   func(branch string, names []string) ([]skills.Skill, error)
-	pruneStaleFn func(root string, fetched []skills.Skill)
-	installAllFn func(root string, fetched []skills.Skill) error
-	installedVar []skills.Skill
-	prunedVar    []skills.Skill
-}
-
-func newMock(opts ...func(*mockSkills)) *mockSkills {
-	m := &mockSkills{}
-	for _, opt := range opts {
-		opt(m)
-	}
-	return m
-}
-
-func (m *mockSkills) Discover(branch string) ([]string, error) {
-	if m.discoverFn != nil {
-		return m.discoverFn(branch)
-	}
-	return nil, nil
-}
-
-func (m *mockSkills) FetchAll(branch string, names []string) ([]skills.Skill, error) {
-	if m.fetchAllFn != nil {
-		return m.fetchAllFn(branch, names)
-	}
-	return nil, nil
-}
-
-func (m *mockSkills) PruneStale(root string, fetched []skills.Skill) {
-	m.prunedVar = fetched
-	if m.pruneStaleFn != nil {
-		m.pruneStaleFn(root, fetched)
-	}
-}
-
-func (m *mockSkills) InstallAll(root string, fetched []skills.Skill) error {
-	m.installedVar = fetched
-	if m.installAllFn != nil {
-		return m.installAllFn(root, fetched)
-	}
-	return nil
-}
-
-func (m *mockSkills) installed() []skills.Skill {
-	return m.installedVar
-}
-
-func (m *mockSkills) pruned() []skills.Skill {
-	return m.prunedVar
-}
-
-func thatFetches(fetched []skills.Skill) func(*mockSkills) {
-	return func(m *mockSkills) {
-		m.fetchAllFn = func(branch string, names []string) ([]skills.Skill, error) {
-			return fetched, nil
-		}
-	}
-}
-
-func thatFailsDiscovery() func(*mockSkills) {
-	return func(m *mockSkills) {
-		m.discoverFn = func(branch string) ([]string, error) {
-			return nil, ErrDiscoveryFailed
-		}
-	}
-}
-
-func thatFailsFetch() func(*mockSkills) {
-	return func(m *mockSkills) {
-		m.fetchAllFn = func(branch string, names []string) ([]skills.Skill, error) {
-			return nil, ErrFetchFailed
-		}
-	}
-}
-
 type deps struct {
 	git    GitClient
 	skills SkillsClient
@@ -156,43 +78,82 @@ func anySkills() []skills.Skill {
 func TestSetSkillsSuccess(t *testing.T) {
 	root := anyRoot()
 	fetched := anySkills()
-	mock := newMock(thatFetches(fetched))
+	var installed, pruned []skills.Skill
+	mock := &skills.MockClient{
+		FetchAllFunc: func(branch string, names []string) ([]skills.Skill, error) {
+			return fetched, nil
+		},
+		PruneStaleFunc: func(root string, f []skills.Skill) {
+			pruned = f
+		},
+		InstallAllFunc: func(root string, f []skills.Skill) error {
+			installed = f
+			return nil
+		},
+	}
 	svc := withMocks(
 		withGit(thatFindsRoot(root)),
 		withSkills(mock),
 	)
 	require.NoError(t, svc.SetSkills("main"))
-	require.Equal(t, fetched, mock.installed())
-	require.Equal(t, fetched, mock.pruned())
+	require.Equal(t, fetched, installed)
+	require.Equal(t, fetched, pruned)
 }
 
 func TestSetSkillsNoGitRepo(t *testing.T) {
 	fetched := anySkills()
-	mock := newMock(thatFetches(fetched))
+	var installed []skills.Skill
+	mock := &skills.MockClient{
+		FetchAllFunc: func(branch string, names []string) ([]skills.Skill, error) {
+			return fetched, nil
+		},
+		InstallAllFunc: func(root string, f []skills.Skill) error {
+			installed = f
+			return nil
+		},
+	}
 	svc := withMocks(
 		withGit(withNoRepo()),
 		withSkills(mock),
 	)
 	require.NoError(t, svc.SetSkills("main"))
-	require.Equal(t, fetched, mock.installed())
+	require.Equal(t, fetched, installed)
 }
 
 func TestSetSkillsDiscoveryFails(t *testing.T) {
-	mock := newMock(thatFailsDiscovery())
+	var installed []skills.Skill
+	mock := &skills.MockClient{
+		DiscoverFunc: func(branch string) ([]string, error) {
+			return nil, ErrDiscoveryFailed
+		},
+		InstallAllFunc: func(root string, f []skills.Skill) error {
+			installed = f
+			return nil
+		},
+	}
 	svc := withMocks(
 		withGit(thatFindsRoot(anyRoot())),
 		withSkills(mock),
 	)
 	require.Error(t, svc.SetSkills("main"))
-	require.Empty(t, mock.installed())
+	require.Empty(t, installed)
 }
 
 func TestSetSkillsFetchFails(t *testing.T) {
-	mock := newMock(thatFailsFetch())
+	var installed []skills.Skill
+	mock := &skills.MockClient{
+		FetchAllFunc: func(branch string, names []string) ([]skills.Skill, error) {
+			return nil, ErrFetchFailed
+		},
+		InstallAllFunc: func(root string, f []skills.Skill) error {
+			installed = f
+			return nil
+		},
+	}
 	svc := withMocks(
 		withGit(thatFindsRoot(anyRoot())),
 		withSkills(mock),
 	)
 	require.Error(t, svc.SetSkills("main"))
-	require.Empty(t, mock.installed())
+	require.Empty(t, installed)
 }
