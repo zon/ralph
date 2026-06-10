@@ -12,7 +12,7 @@ requirements:
         - The 'ralph list' command exists and displays help text about listing Argo workflows
         - The 'ralph stop' command exists and displays help text about stopping an Argo workflow
         - The 'ralph pass' command exists and displays help text about marking a project requirement as passing or failing
-      passing: false
+      passing: true
     - slug: ralph-set-commands
       description: Verify ralph set subcommands exist with expected structure
       items:

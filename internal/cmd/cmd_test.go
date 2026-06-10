@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -353,6 +355,96 @@ func TestCommandSubcommandRegistered(t *testing.T) {
 
 	_, err = parser.Parse([]string{"command"})
 	require.NoError(t, err)
+}
+
+func captureHelpOutput(cmd interface{}, args []string) string {
+	r, w, _ := os.Pipe()
+	old := os.Stdout
+	os.Stdout = w
+
+	parser, err := kong.New(cmd,
+		kong.Name("ralph"),
+		kong.Exit(func(int) {}),
+	)
+	if err != nil {
+		os.Stdout = old
+		w.Close()
+		return ""
+	}
+
+	parser.Parse(args)
+
+	w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	io.Copy(&buf, r)
+	r.Close()
+	return buf.String()
+}
+
+func TestRunCmdHelpText(t *testing.T) {
+	output := captureHelpOutput(&Cmd{}, []string{"run", "--help"})
+	assert.Contains(t, output, "Execute ralph with a project file")
+}
+
+func TestCommandCmdHelpText(t *testing.T) {
+	output := captureHelpOutput(&Cmd{}, []string{"command", "--help"})
+	assert.Contains(t, output, "Run a command in the ralph environment")
+}
+
+func TestMergeCmdHelpText(t *testing.T) {
+	output := captureHelpOutput(&Cmd{}, []string{"merge", "--help"})
+	assert.Contains(t, output, "Submit an Argo workflow to merge a completed PR")
+}
+
+func TestValidateCmdHelpText(t *testing.T) {
+	output := captureHelpOutput(&Cmd{}, []string{"validate", "--help"})
+	assert.Contains(t, output, "Validate a project YAML file")
+}
+
+func TestListCmdHelpText(t *testing.T) {
+	output := captureHelpOutput(&Cmd{}, []string{"list", "--help"})
+	assert.Contains(t, output, "List Argo workflows")
+}
+
+func TestStopCmdHelpText(t *testing.T) {
+	output := captureHelpOutput(&Cmd{}, []string{"stop", "--help"})
+	assert.Contains(t, output, "Stop an Argo workflow")
+}
+
+func TestPassCmdHelpText(t *testing.T) {
+	output := captureHelpOutput(&Cmd{}, []string{"pass", "--help"})
+	assert.Contains(t, output, "Mark a project requirement as passing or failing")
+}
+
+func TestTopLevelCommandsParsed(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{name: "run", args: []string{"run", "test.yaml"}},
+		{name: "command", args: []string{"command", "echo", "hello"}},
+		{name: "merge", args: []string{"merge", "my-branch", "--pr", "1"}},
+		{name: "validate", args: []string{"validate", "test.yaml"}},
+		{name: "list", args: []string{"list"}},
+		{name: "stop", args: []string{"stop", "test-workflow"}},
+		{name: "pass", args: []string{"pass", "test.yaml", "test-slug"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := &Cmd{}
+			parser, err := kong.New(cmd,
+				kong.Name("ralph"),
+				kong.Exit(func(int) {}),
+			)
+			require.NoError(t, err)
+
+			_, err = parser.Parse(tt.args)
+			require.NoError(t, err)
+		})
+	}
 }
 
 func TestCommandSubcommandCleanupRegistrarWiring(t *testing.T) {
