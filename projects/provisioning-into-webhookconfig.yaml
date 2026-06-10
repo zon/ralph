@@ -78,7 +78,7 @@ requirements:
         - specs/architecture.yaml no longer contains a module entry with path internal/provisioning
         - 'specs/architecture.yaml''s internal/webhookconfig entry description is updated to reflect its expanded scope: loading, validating, building, and provisioning the ralph-webhook service configuration and secrets, including Kubernetes configmap/secret read/write via internal/k8s and GitHub webhook registration via internal/github'
         - The full test suite (go build ./... and go test ./...) passes with no references to internal/provisioning remaining anywhere in the repository
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump for the internal refactor
       items:
