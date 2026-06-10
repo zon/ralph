@@ -721,3 +721,11 @@ func TestExecuteTemplate(t *testing.T) {
 		})
 	}
 }
+
+func TestBuildResolveMergeConflictsPrompt(t *testing.T) {
+	prompt, err := BuildResolveMergeConflictsPrompt("main", "feature-branch")
+	require.NoError(t, err)
+	assert.Contains(t, prompt, "main")
+	assert.Contains(t, prompt, "feature-branch")
+	assert.Contains(t, prompt, "git merge main")
+}

@@ -33,7 +33,7 @@ requirements:
             	assert.Contains(t, prompt, "feature-branch")
             	assert.Contains(t, prompt, "git merge main")
             }
-      passing: false
+      passing: true
     - slug: ai-client-resolves-conflicts-via-agent
       description: internal/orchestration/workflowrun.AIClient.ResolveMergeConflicts is implemented by an adapter that renders the AI prompt and runs the agent, instead of the dead orchestration-level free function
       items:
