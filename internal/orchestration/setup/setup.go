@@ -6,15 +6,15 @@ type GitClient interface {
 	RepoRootOrCwd() string
 }
 
-type SkillsClient interface {
-	Discover(branch string) ([]string, error)
-	FetchAll(branch string, names []string) ([]skills.Skill, error)
-	PruneStale(root string, fetched []skills.Skill)
-	InstallAll(root string, fetched []skills.Skill) error
+type Skills struct {
+	Discover   func(branch string) ([]string, error)
+	FetchAll   func(branch string, names []string) ([]skills.Skill, error)
+	PruneStale func(root string, fetched []skills.Skill)
+	InstallAll func(root string, fetched []skills.Skill) error
 }
 
 type Setup struct {
-	skills SkillsClient
+	skills Skills
 	git    GitClient
 }
 
@@ -35,6 +35,6 @@ func (s *Setup) SetSkills(branch string) error {
 	return s.skills.InstallAll(root, fetched)
 }
 
-func New(git GitClient, skills SkillsClient) *Setup {
+func New(git GitClient, skills Skills) *Setup {
 	return &Setup{git: git, skills: skills}
 }

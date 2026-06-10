@@ -21,31 +21,18 @@ func (gitClient) RepoRootOrCwd() string {
 	return git.RepoRootOrCwd()
 }
 
-type skillsClient struct{}
-
-func (skillsClient) Discover(branch string) ([]string, error) {
-	return skills.Discover(branch)
-}
-
-func (skillsClient) FetchAll(branch string, names []string) ([]skills.Skill, error) {
-	return skills.FetchAll(branch, names)
-}
-
-func (skillsClient) PruneStale(root string, fetched []skills.Skill) {
-	skills.PruneStale(root, fetched)
-}
-
-func (skillsClient) InstallAll(root string, fetched []skills.Skill) error {
-	return skills.InstallAll(root, fetched)
-}
-
 func (s *SetSkillsCmd) Run() error {
 	branch := s.Branch
 	if branch == "" {
 		branch = "main"
 	}
 
-	svc := setup.New(&gitClient{}, &skillsClient{})
+	svc := setup.New(&gitClient{}, setup.Skills{
+		Discover:   skills.Discover,
+		FetchAll:   skills.FetchAll,
+		PruneStale: skills.PruneStale,
+		InstallAll: skills.InstallAll,
+	})
 
 	return svc.SetSkills(branch)
 }

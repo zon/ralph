@@ -28,7 +28,7 @@ requirements:
         - Remove the skillsClient struct and its four forwarding methods from internal/cmd/set.go
         - Update SetSkillsCmd.Run to construct the setup.Setup using a value that satisfies setup.SkillsClient by directly referencing the internal/skills package functions (e.g. a small unexported struct or function-based adapter defined inline in internal/cmd/set.go is acceptable only if it cannot be eliminated entirely; prefer wiring setup.New to accept the package functions directly if setup.SkillsClient's shape allows it)
         - Run go build ./... and go test ./internal/cmd/... to confirm SetSkillsCmd still parses and runs correctly
-      passing: false
+      passing: true
     - slug: full-suite-check
       description: Confirm the recategorization and deduplication did not break the broader build or test suite.
       items:

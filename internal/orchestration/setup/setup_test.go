@@ -37,7 +37,7 @@ func withNoRepo() GitClient {
 
 type deps struct {
 	git    GitClient
-	skills SkillsClient
+	skills Skills
 }
 
 type Opt func(*deps)
@@ -48,7 +48,7 @@ func withGit(gitClient GitClient) Opt {
 	}
 }
 
-func withSkills(skillsClient SkillsClient) Opt {
+func withSkills(skillsClient Skills) Opt {
 	return func(d *deps) {
 		d.skills = skillsClient
 	}
@@ -79,14 +79,15 @@ func TestSetSkillsSuccess(t *testing.T) {
 	root := anyRoot()
 	fetched := anySkills()
 	var installed, pruned []skills.Skill
-	mock := &skills.MockClient{
-		FetchAllFunc: func(branch string, names []string) ([]skills.Skill, error) {
+	mock := Skills{
+		Discover: func(branch string) ([]string, error) { return nil, nil },
+		FetchAll: func(branch string, names []string) ([]skills.Skill, error) {
 			return fetched, nil
 		},
-		PruneStaleFunc: func(root string, f []skills.Skill) {
+		PruneStale: func(root string, f []skills.Skill) {
 			pruned = f
 		},
-		InstallAllFunc: func(root string, f []skills.Skill) error {
+		InstallAll: func(root string, f []skills.Skill) error {
 			installed = f
 			return nil
 		},
@@ -103,11 +104,13 @@ func TestSetSkillsSuccess(t *testing.T) {
 func TestSetSkillsNoGitRepo(t *testing.T) {
 	fetched := anySkills()
 	var installed []skills.Skill
-	mock := &skills.MockClient{
-		FetchAllFunc: func(branch string, names []string) ([]skills.Skill, error) {
+	mock := Skills{
+		Discover: func(branch string) ([]string, error) { return nil, nil },
+		FetchAll: func(branch string, names []string) ([]skills.Skill, error) {
 			return fetched, nil
 		},
-		InstallAllFunc: func(root string, f []skills.Skill) error {
+		PruneStale: func(root string, f []skills.Skill) {},
+		InstallAll: func(root string, f []skills.Skill) error {
 			installed = f
 			return nil
 		},
@@ -122,13 +125,9 @@ func TestSetSkillsNoGitRepo(t *testing.T) {
 
 func TestSetSkillsDiscoveryFails(t *testing.T) {
 	var installed []skills.Skill
-	mock := &skills.MockClient{
-		DiscoverFunc: func(branch string) ([]string, error) {
+	mock := Skills{
+		Discover: func(branch string) ([]string, error) {
 			return nil, ErrDiscoveryFailed
-		},
-		InstallAllFunc: func(root string, f []skills.Skill) error {
-			installed = f
-			return nil
 		},
 	}
 	svc := withMocks(
@@ -141,13 +140,10 @@ func TestSetSkillsDiscoveryFails(t *testing.T) {
 
 func TestSetSkillsFetchFails(t *testing.T) {
 	var installed []skills.Skill
-	mock := &skills.MockClient{
-		FetchAllFunc: func(branch string, names []string) ([]skills.Skill, error) {
+	mock := Skills{
+		Discover: func(branch string) ([]string, error) { return nil, nil },
+		FetchAll: func(branch string, names []string) ([]skills.Skill, error) {
 			return nil, ErrFetchFailed
-		},
-		InstallAllFunc: func(root string, f []skills.Skill) error {
-			installed = f
-			return nil
 		},
 	}
 	svc := withMocks(
