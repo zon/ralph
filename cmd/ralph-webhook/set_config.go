@@ -8,7 +8,6 @@ import (
 	"github.com/zon/ralph/internal/k8s"
 	webhooksetconfig "github.com/zon/ralph/internal/orchestration/webhooksetconfig"
 	"github.com/zon/ralph/internal/output"
-	"github.com/zon/ralph/internal/provisioning"
 	"github.com/zon/ralph/internal/webhookconfig"
 )
 
@@ -49,7 +48,7 @@ type setconfigCtxClient struct {
 }
 
 func (c *setconfigCtxClient) Resolve(flagContext, flagNamespace string) (webhooksetconfig.K8sContext, error) {
-	kubeCtx, err := provisioning.GetKubeContext(c.ctx, c.k8sClient, flagContext)
+	kubeCtx, err := webhookconfig.GetKubeContext(c.ctx, c.k8sClient, flagContext)
 	if err != nil {
 		return webhooksetconfig.K8sContext{}, err
 	}
@@ -64,15 +63,15 @@ type setconfigCfgClient struct {
 }
 
 func (c *setconfigCfgClient) Build(k8sCtx webhooksetconfig.K8sContext, configPath string) webhookconfig.AppConfig {
-	return provisioning.BuildWebhookAppConfigFromK8s(c.ctx, k8sCtx.Namespace, k8sCtx.Name, configPath, provisioning.ReadWebhookConfigFromK8s, c.ghClient, c.out)
+	return webhookconfig.BuildWebhookAppConfigFromK8s(c.ctx, k8sCtx.Namespace, k8sCtx.Name, configPath, c.k8sClient, c.ghClient, c.out)
 }
 
 func (c *setconfigCfgClient) Write(k8sCtx webhooksetconfig.K8sContext, cfg webhookconfig.AppConfig) error {
-	return provisioning.WriteWebhookConfigMap(c.ctx, c.k8sClient, k8sCtx.Name, k8sCtx.Namespace, cfg)
+	return webhookconfig.WriteWebhookConfigMap(c.ctx, c.k8sClient, k8sCtx.Name, k8sCtx.Namespace, cfg)
 }
 
 func (c *setconfigCfgClient) Read(k8sCtx webhooksetconfig.K8sContext) (webhookconfig.AppConfig, error) {
-	cfg, err := provisioning.ReadWebhookConfigFromK8s(c.ctx, k8sCtx.Namespace, k8sCtx.Name)
+	cfg, err := webhookconfig.ReadWebhookConfigFromK8s(c.ctx, c.k8sClient, k8sCtx.Namespace, k8sCtx.Name)
 	if err != nil {
 		return webhookconfig.AppConfig{}, err
 	}
@@ -86,7 +85,7 @@ type setconfigSecretsClient struct {
 }
 
 func (c *setconfigSecretsClient) Generate(cfg webhookconfig.AppConfig) (webhooksetconfig.WebhookSecrets, error) {
-	secrets, err := provisioning.BuildWebhookSecrets(&cfg, provisioning.GenerateWebhookSecret)
+	secrets, err := webhookconfig.BuildWebhookSecrets(&cfg, webhookconfig.GenerateWebhookSecret)
 	if err != nil {
 		return webhooksetconfig.WebhookSecrets{}, err
 	}
@@ -95,7 +94,7 @@ func (c *setconfigSecretsClient) Generate(cfg webhookconfig.AppConfig) (webhooks
 
 func (c *setconfigSecretsClient) Write(k8sCtx webhooksetconfig.K8sContext, secrets webhooksetconfig.WebhookSecrets) error {
 	s := &webhookconfig.Secrets{Repos: secrets.Repos}
-	return provisioning.WriteWebhookSecretsAndLog(c.ctx, c.k8sClient, k8sCtx.Name, k8sCtx.Namespace, s, c.out)
+	return webhookconfig.WriteWebhookSecretsAndLog(c.ctx, c.k8sClient, k8sCtx.Name, k8sCtx.Namespace, s, c.out)
 }
 
 type setconfigGitHubClient struct {
@@ -105,5 +104,5 @@ type setconfigGitHubClient struct {
 }
 
 func (c *setconfigGitHubClient) RegisterWebhooks(secrets webhooksetconfig.WebhookSecrets) {
-	provisioning.RegisterAllGitHubWebhooks(c.ctx, c.ghClient, c.out, secrets.Repos)
+	webhookconfig.RegisterAllGitHubWebhooks(c.ctx, c.ghClient, c.out, secrets.Repos)
 }

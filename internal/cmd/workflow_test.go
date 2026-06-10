@@ -139,6 +139,16 @@ func (m *mockWorDebugClient) Setup(branch string) error {
 	return nil
 }
 
+type mockWorOutputClient struct {
+	warnfFn func(format string, a ...any)
+}
+
+func (m *mockWorOutputClient) Warnf(format string, a ...any) {
+	if m.warnfFn != nil {
+		m.warnfFn(format, a...)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Tests for orchestration WorkflowRunCmd.Run
 // ---------------------------------------------------------------------------
@@ -154,6 +164,7 @@ func TestWorkflowRunCmd_MissingProjectPath(t *testing.T) {
 		&mockWorConfigClient{},
 		&mockWorProjectClient{},
 		&mockWorDebugClient{},
+		&mockWorOutputClient{},
 	)
 
 	flags := orchestrationWorkflow.WorkflowRunFlags{
@@ -253,6 +264,7 @@ func TestWorkflowRunCmd_FlagPropagation(t *testing.T) {
 						return nil
 					},
 				},
+				&mockWorOutputClient{},
 			)
 
 			err := cmd.Run(tt.flags)
@@ -290,6 +302,7 @@ func TestWorkflowRunCmd_WorkspaceSetupError(t *testing.T) {
 		&mockWorConfigClient{},
 		&mockWorProjectClient{},
 		&mockWorDebugClient{},
+		&mockWorOutputClient{},
 	)
 
 	err := cmd.Run(orchestrationWorkflow.WorkflowRunFlags{ProjectPath: "test.yaml"})
@@ -311,6 +324,7 @@ func TestWorkflowRunCmd_ProjectLoadError(t *testing.T) {
 			},
 		},
 		&mockWorDebugClient{},
+		&mockWorOutputClient{},
 	)
 
 	err := cmd.Run(orchestrationWorkflow.WorkflowRunFlags{ProjectPath: "test.yaml"})
@@ -350,6 +364,7 @@ func TestWorkflowRunCmd_RunnerCalledWithLoadedProjectAndConfig(t *testing.T) {
 			},
 		},
 		&mockWorDebugClient{},
+		&mockWorOutputClient{},
 	)
 
 	err := cmd.Run(orchestrationWorkflow.WorkflowRunFlags{

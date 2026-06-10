@@ -44,6 +44,9 @@ var writeOrchestrationInstructions string
 //go:embed write-project-instructions.md
 var writeProjectInstructions string
 
+//go:embed resolve-merge-conflicts-instructions.md
+var resolveMergeConflictsInstructions string
+
 type FixServicePromptData struct {
 	Notes       []string
 	ServiceName string
@@ -115,6 +118,11 @@ type WriteProjectPromptData struct {
 
 type WriteOrchestrationPromptData struct {
 	SpecPath string
+}
+
+type ResolveMergeConflictsPromptData struct {
+	BaseBranch    string
+	ProjectBranch string
 }
 
 func executeTemplate(templateContent string, data interface{}) (string, error) {
@@ -271,6 +279,14 @@ func BuildWriteProjectPrompt(data WriteProjectPromptData) (string, error) {
 
 func BuildWriteOrchestrationPrompt(data WriteOrchestrationPromptData) (string, error) {
 	return executeTemplate(writeOrchestrationInstructions, data)
+}
+
+func BuildResolveMergeConflictsPrompt(baseBranch, projectBranch string) (string, error) {
+	data := ResolveMergeConflictsPromptData{
+		BaseBranch:    baseBranch,
+		ProjectBranch: projectBranch,
+	}
+	return executeTemplate(resolveMergeConflictsInstructions, data)
 }
 
 func BuildProjectFixPrompt(projectFile string, loadErr error) (string, error) {

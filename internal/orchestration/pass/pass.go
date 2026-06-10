@@ -10,15 +10,19 @@ type PassCmd struct {
 	False       bool   `name:"false"`
 }
 
-func (c *PassCmd) Run() error {
+func (c *PassCmd) Run() (*project.Project, error) {
 	proj, err := project.LoadProject(c.ProjectFile)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := project.UpdateRequirementStatus(proj, c.Slug, !c.False); err != nil {
-		return err
+		return nil, err
 	}
 
-	return project.SaveProject(c.ProjectFile, proj)
+	if err := project.SaveProject(c.ProjectFile, proj); err != nil {
+		return nil, err
+	}
+
+	return proj, nil
 }

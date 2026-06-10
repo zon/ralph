@@ -2,7 +2,6 @@ package workflowrun
 
 import (
 	"errors"
-	"fmt"
 
 	ralphcfg "github.com/zon/ralph/internal/config"
 	wksp "github.com/zon/ralph/internal/orchestration/workspace"
@@ -42,7 +41,11 @@ type DebugClient interface {
 	Setup(branch string) error
 }
 
-func NewWorkflowRunCmd(workspace WorkspaceSetupClient, git GitClient, ai AIClient, runner RunnerClient, config ConfigClient, project ProjectClient, debug DebugClient) *WorkflowRunCmd {
+type OutputClient interface {
+	Warnf(format string, a ...any)
+}
+
+func NewWorkflowRunCmd(workspace WorkspaceSetupClient, git GitClient, ai AIClient, runner RunnerClient, config ConfigClient, project ProjectClient, debug DebugClient, output OutputClient) *WorkflowRunCmd {
 	return &WorkflowRunCmd{
 		workspace: workspace,
 		git:       git,
@@ -51,6 +54,7 @@ func NewWorkflowRunCmd(workspace WorkspaceSetupClient, git GitClient, ai AIClien
 		config:    config,
 		project:   project,
 		debug:     debug,
+		output:    output,
 	}
 }
 
@@ -62,6 +66,7 @@ type WorkflowRunCmd struct {
 	config    ConfigClient
 	project   ProjectClient
 	debug     DebugClient
+	output    OutputClient
 }
 
 type WorkflowRunFlags struct {
@@ -117,6 +122,7 @@ func (w *WorkflowRunCmd) Run(flags WorkflowRunFlags) error {
 
 func (w *WorkflowRunCmd) syncBaseBranch(baseBranch, projectBranch string) error {
 	if err := w.git.FetchBranch(baseBranch); err != nil {
+		w.output.Warnf("Failed to fetch base branch %q: %v", baseBranch, err)
 		return nil
 	}
 	needsMerge, err := w.git.NeedsMerge(baseBranch)
@@ -151,34 +157,4 @@ func (w *WorkflowRunCmd) applyFlags(proj *ralphproj.Project, cfg *ralphcfg.Ralph
 	}
 }
 
-func ResolveMergeConflicts(
-	cfgClient ConfigClient,
-	projClient ProjectClient,
-	runnerClient RunnerClient,
-	projectFile string,
-	baseBranch string,
-	projectBranch string,
-) error {
-	_ = fmt.Sprintf(`You need to resolve merge conflicts between the base branch (%s) and the current branch (%s).
 
-Steps:
-1. Run 'git merge %s' to see the conflicts
-2. Examine the conflicting files and resolve each conflict
-3. Run tests to ensure the merged code is correct
-4. After resolving and verifying with tests, run 'git add <resolved-files>' to stage them (the system will automatically commit)
-
-Focus on accepting the correct changes from both branches. If there are test failures after resolving, fix them.
-`, baseBranch, projectBranch, baseBranch)
-
-	cfg, err := cfgClient.LoadOptional()
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
-	}
-
-	proj, err := projClient.Load(projectFile)
-	if err != nil {
-		return fmt.Errorf("failed to load project: %w", err)
-	}
-
-	return runnerClient.RunLocal(proj, cfg)
-}
