@@ -1,4 +1,4 @@
-package provisioning
+package webhookconfig
 
 import (
 	"bytes"
@@ -14,7 +14,6 @@ import (
 	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/k8s"
 	"github.com/zon/ralph/internal/output"
-	"github.com/zon/ralph/internal/webhookconfig"
 	"gopkg.in/yaml.v3"
 )
 
@@ -30,9 +29,9 @@ func TestBuildWebhookAppConfig(t *testing.T) {
 	})
 
 	t.Run("preserves base repos when no updates", func(t *testing.T) {
-		base := &webhookconfig.AppConfig{
+		base := &AppConfig{
 			Port: 9090,
-			Repos: []webhookconfig.RepoConfig{
+			Repos: []RepoConfig{
 				{Owner: "my-owner", Name: "my-repo", Namespace: "my-ns"},
 			},
 		}
@@ -44,14 +43,14 @@ func TestBuildWebhookAppConfig(t *testing.T) {
 	})
 
 	t.Run("updates replace matching base repos by owner/name", func(t *testing.T) {
-		base := &webhookconfig.AppConfig{
-			Repos: []webhookconfig.RepoConfig{
+		base := &AppConfig{
+			Repos: []RepoConfig{
 				{Owner: "acme", Name: "repo-a", Namespace: "old-ns", AllowedUsers: []string{"alice"}},
 				{Owner: "acme", Name: "repo-b", Namespace: "ns-b"},
 			},
 		}
-		updates := &webhookconfig.AppConfig{
-			Repos: []webhookconfig.RepoConfig{
+		updates := &AppConfig{
+			Repos: []RepoConfig{
 				{Owner: "acme", Name: "repo-a", Namespace: "new-ns"},
 			},
 		}
@@ -63,13 +62,13 @@ func TestBuildWebhookAppConfig(t *testing.T) {
 	})
 
 	t.Run("updates add new repos not in base", func(t *testing.T) {
-		base := &webhookconfig.AppConfig{
-			Repos: []webhookconfig.RepoConfig{
+		base := &AppConfig{
+			Repos: []RepoConfig{
 				{Owner: "acme", Name: "repo-a", Namespace: "ns-a"},
 			},
 		}
-		updates := &webhookconfig.AppConfig{
-			Repos: []webhookconfig.RepoConfig{
+		updates := &AppConfig{
+			Repos: []RepoConfig{
 				{Owner: "acme", Name: "repo-b", Namespace: "ns-b"},
 			},
 		}
@@ -81,8 +80,8 @@ func TestBuildWebhookAppConfig(t *testing.T) {
 	})
 
 	t.Run("updates override port from base", func(t *testing.T) {
-		base := &webhookconfig.AppConfig{Port: 8080}
-		updates := &webhookconfig.AppConfig{Port: 9090}
+		base := &AppConfig{Port: 8080}
+		updates := &AppConfig{Port: 9090}
 		cfg := BuildWebhookAppConfig(ctx, nil, base, updates, "", "", "", &github.MockGH{})
 
 		assert.Equal(t, 9090, cfg.Port)
@@ -98,8 +97,8 @@ func TestBuildWebhookAppConfig(t *testing.T) {
 	})
 
 	t.Run("auto-detected repo replaces existing entry", func(t *testing.T) {
-		base := &webhookconfig.AppConfig{
-			Repos: []webhookconfig.RepoConfig{
+		base := &AppConfig{
+			Repos: []RepoConfig{
 				{Owner: "my-owner", Name: "my-repo", Namespace: "old-ns"},
 			},
 		}
@@ -110,8 +109,8 @@ func TestBuildWebhookAppConfig(t *testing.T) {
 	})
 
 	t.Run("auto-detected repo adds alongside existing repos", func(t *testing.T) {
-		base := &webhookconfig.AppConfig{
-			Repos: []webhookconfig.RepoConfig{
+		base := &AppConfig{
+			Repos: []RepoConfig{
 				{Owner: "owner-a", Name: "repo-a", Namespace: "ns-a"},
 			},
 		}
@@ -129,7 +128,7 @@ func TestBuildWebhookAppConfig(t *testing.T) {
 		path := filepath.Join(dir, "partial.yaml")
 		require.NoError(t, os.WriteFile(path, []byte(partialYAML), 0644))
 
-		loaded, err := webhookconfig.LoadAppConfig(path)
+		loaded, err := LoadAppConfig(path)
 		require.NoError(t, err)
 
 		cfg := BuildWebhookAppConfig(ctx, nil, nil, loaded, "", "", "", &github.MockGH{})
@@ -150,8 +149,8 @@ func TestBuildWebhookAppConfig(t *testing.T) {
 	})
 
 	t.Run("does not override existing AllowedUsers from base", func(t *testing.T) {
-		base := &webhookconfig.AppConfig{
-			Repos: []webhookconfig.RepoConfig{
+		base := &AppConfig{
+			Repos: []RepoConfig{
 				{Owner: "my-owner", Name: "my-repo", Namespace: "my-ns", AllowedUsers: []string{"existing-user"}},
 			},
 		}
@@ -185,56 +184,101 @@ func TestBuildWebhookAppConfig(t *testing.T) {
 	})
 
 	t.Run("updates override base RalphUser", func(t *testing.T) {
-		base := &webhookconfig.AppConfig{RalphUser: "base-bot"}
-		updates := &webhookconfig.AppConfig{RalphUser: "new-bot"}
+		base := &AppConfig{RalphUser: "base-bot"}
+		updates := &AppConfig{RalphUser: "new-bot"}
 		cfg := BuildWebhookAppConfig(ctx, nil, base, updates, "", "", "", &github.MockGH{})
 
 		assert.Equal(t, "new-bot", cfg.RalphUser)
 	})
 
 	t.Run("base RalphUser preserved when updates has none", func(t *testing.T) {
-		base := &webhookconfig.AppConfig{RalphUser: "existing-bot"}
+		base := &AppConfig{RalphUser: "existing-bot"}
 		cfg := BuildWebhookAppConfig(ctx, nil, base, nil, "", "", "", &github.MockGH{})
 
 		assert.Equal(t, "existing-bot", cfg.RalphUser)
 	})
 }
 
+func TestReadWebhookConfigFromK8s(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns parsed AppConfig when GetConfigMapData succeeds", func(t *testing.T) {
+		yamlData := "port: 9090\n"
+		client := &k8s.MockClient{
+			GetConfigMapDataFunc: func(_ context.Context, name, namespace, kubeContext string) (string, error) {
+				return yamlData, nil
+			},
+		}
+		cfg, err := ReadWebhookConfigFromK8s(ctx, client, "ns", "ctx")
+		require.NoError(t, err)
+		require.NotNil(t, cfg)
+		assert.Equal(t, 9090, cfg.Port)
+	})
+
+	t.Run("returns error when GetConfigMapData fails", func(t *testing.T) {
+		client := &k8s.MockClient{
+			GetConfigMapDataFunc: func(_ context.Context, name, namespace, kubeContext string) (string, error) {
+				return "", fmt.Errorf("configmap not found")
+			},
+		}
+		_, err := ReadWebhookConfigFromK8s(ctx, client, "ns", "ctx")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "configmap not found")
+	})
+
+	t.Run("returns error on invalid YAML", func(t *testing.T) {
+		client := &k8s.MockClient{
+			GetConfigMapDataFunc: func(_ context.Context, name, namespace, kubeContext string) (string, error) {
+				return "invalid: [yaml\n", nil
+			},
+		}
+		_, err := ReadWebhookConfigFromK8s(ctx, client, "ns", "ctx")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to parse AppConfig YAML from configmap")
+	})
+}
+
 func TestBuildWebhookAppConfigFromK8s(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("proceeds with defaults when configReader returns error", func(t *testing.T) {
-		configReader := func(_ context.Context, _, _ string) (*webhookconfig.AppConfig, error) {
-			return nil, fmt.Errorf("configmap not found")
+	t.Run("proceeds with defaults when GetConfigMapData returns error", func(t *testing.T) {
+		client := &k8s.MockClient{
+			GetConfigMapDataFunc: func(_ context.Context, _, _, _ string) (string, error) {
+				return "", fmt.Errorf("configmap not found")
+			},
 		}
-		cfg := BuildWebhookAppConfigFromK8s(ctx, "test-ns", "test-ctx", "", configReader, &github.MockGH{}, nil)
+		cfg := BuildWebhookAppConfigFromK8s(ctx, "test-ns", "test-ctx", "", client, &github.MockGH{}, nil)
 
 		assert.Equal(t, 8080, cfg.Port)
 		assert.Equal(t, config.DefaultAppName+"[bot]", cfg.RalphUser)
 	})
 
-	t.Run("loads partial config from configPath when configReader fails", func(t *testing.T) {
-		configReader := func(_ context.Context, _, _ string) (*webhookconfig.AppConfig, error) {
-			return nil, fmt.Errorf("configmap not found")
+	t.Run("loads partial config from configPath when GetConfigMapData fails", func(t *testing.T) {
+		client := &k8s.MockClient{
+			GetConfigMapDataFunc: func(_ context.Context, _, _, _ string) (string, error) {
+				return "", fmt.Errorf("configmap not found")
+			},
 		}
 		dir := t.TempDir()
 		partialYAML := "port: 7070\n"
 		path := filepath.Join(dir, "partial.yaml")
 		require.NoError(t, os.WriteFile(path, []byte(partialYAML), 0644))
 
-		cfg := BuildWebhookAppConfigFromK8s(ctx, "test-ns", "test-ctx", path, configReader, &github.MockGH{}, nil)
+		cfg := BuildWebhookAppConfigFromK8s(ctx, "test-ns", "test-ctx", path, client, &github.MockGH{}, nil)
 
 		assert.Equal(t, 7070, cfg.Port)
 	})
 
 	t.Run("ignores partial config and uses defaults when configPath file does not exist", func(t *testing.T) {
-		configReader := func(_ context.Context, _, _ string) (*webhookconfig.AppConfig, error) {
-			return nil, fmt.Errorf("configmap not found")
+		client := &k8s.MockClient{
+			GetConfigMapDataFunc: func(_ context.Context, _, _, _ string) (string, error) {
+				return "", fmt.Errorf("configmap not found")
+			},
 		}
 		dir := t.TempDir()
 		path := filepath.Join(dir, "nonexistent.yaml")
 
-		cfg := BuildWebhookAppConfigFromK8s(ctx, "test-ns", "test-ctx", path, configReader, &github.MockGH{}, nil)
+		cfg := BuildWebhookAppConfigFromK8s(ctx, "test-ns", "test-ctx", path, client, &github.MockGH{}, nil)
 
 		assert.Equal(t, 8080, cfg.Port)
 	})
@@ -288,7 +332,7 @@ func TestRegisterAllGitHubWebhooks(t *testing.T) {
 			},
 		}
 
-		repos := []webhookconfig.RepoSecret{
+		repos := []RepoSecret{
 			{Owner: "acme", Name: "repo-a", WebhookSecret: "s3kr3t1"},
 			{Owner: "acme", Name: "repo-b", WebhookSecret: "s3kr3t2"},
 		}
@@ -313,7 +357,7 @@ func TestRegisterAllGitHubWebhooks(t *testing.T) {
 			},
 		}
 
-		repos := []webhookconfig.RepoSecret{
+		repos := []RepoSecret{
 			{Owner: "acme", Name: "repo-a", WebhookSecret: "s3kr3t1"},
 			{Owner: "acme", Name: "repo-b", WebhookSecret: "s3kr3t2"},
 		}
@@ -351,8 +395,8 @@ func TestBuildWebhookSecrets(t *testing.T) {
 
 	t.Run("generates a secret for each repo", func(t *testing.T) {
 		counter = 0
-		appCfg := &webhookconfig.AppConfig{
-			Repos: []webhookconfig.RepoConfig{
+		appCfg := &AppConfig{
+			Repos: []RepoConfig{
 				{Owner: "acme", Name: "repo-a"},
 				{Owner: "acme", Name: "repo-b"},
 			},
@@ -372,8 +416,8 @@ func TestBuildWebhookSecrets(t *testing.T) {
 
 	t.Run("returns empty repos list when no repos configured", func(t *testing.T) {
 		counter = 0
-		appCfg := &webhookconfig.AppConfig{
-			Repos: []webhookconfig.RepoConfig{},
+		appCfg := &AppConfig{
+			Repos: []RepoConfig{},
 		}
 
 		secrets, err := BuildWebhookSecrets(appCfg, deterministicGenerator)
@@ -387,8 +431,8 @@ func TestBuildWebhookSecrets(t *testing.T) {
 			return "", fmt.Errorf("entropy exhausted")
 		}
 
-		appCfg := &webhookconfig.AppConfig{
-			Repos: []webhookconfig.RepoConfig{
+		appCfg := &AppConfig{
+			Repos: []RepoConfig{
 				{Owner: "acme", Name: "repo-a"},
 			},
 		}
@@ -399,8 +443,8 @@ func TestBuildWebhookSecrets(t *testing.T) {
 	})
 
 	t.Run("generates unique secrets per repo", func(t *testing.T) {
-		appCfg := &webhookconfig.AppConfig{
-			Repos: []webhookconfig.RepoConfig{
+		appCfg := &AppConfig{
+			Repos: []RepoConfig{
 				{Owner: "acme", Name: "repo-a"},
 				{Owner: "acme", Name: "repo-b"},
 				{Owner: "acme", Name: "repo-c"},
@@ -422,8 +466,8 @@ func TestBuildWebhookSecrets(t *testing.T) {
 
 	t.Run("serializes secrets to valid YAML", func(t *testing.T) {
 		counter = 0
-		appCfg := &webhookconfig.AppConfig{
-			Repos: []webhookconfig.RepoConfig{
+		appCfg := &AppConfig{
+			Repos: []RepoConfig{
 				{Owner: "myowner", Name: "myrepo"},
 			},
 		}
@@ -434,7 +478,7 @@ func TestBuildWebhookSecrets(t *testing.T) {
 		secretsBytes, err := yaml.Marshal(secrets)
 		require.NoError(t, err)
 
-		var roundTripped webhookconfig.Secrets
+		var roundTripped Secrets
 		require.NoError(t, yaml.Unmarshal(secretsBytes, &roundTripped))
 
 		require.Len(t, roundTripped.Repos, 1)
@@ -488,7 +532,7 @@ func TestWriteWebhookConfigMap(t *testing.T) {
 				return nil
 			},
 		}
-		appCfg := webhookconfig.AppConfig{Port: 8080}
+		appCfg := AppConfig{Port: 8080}
 		err := WriteWebhookConfigMap(context.Background(), client, "my-ctx", "my-ns", appCfg)
 		require.NoError(t, err)
 		assert.Equal(t, WebhookConfigMapName, capturedName)
@@ -503,7 +547,7 @@ func TestWriteWebhookConfigMap(t *testing.T) {
 				return fmt.Errorf("API error")
 			},
 		}
-		err := WriteWebhookConfigMap(context.Background(), client, "my-ctx", "my-ns", webhookconfig.AppConfig{})
+		err := WriteWebhookConfigMap(context.Background(), client, "my-ctx", "my-ns", AppConfig{})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "API error")
 	})
@@ -522,8 +566,8 @@ func TestWriteWebhookSecrets(t *testing.T) {
 				return nil
 			},
 		}
-		secrets := &webhookconfig.Secrets{
-			Repos: []webhookconfig.RepoSecret{
+		secrets := &Secrets{
+			Repos: []RepoSecret{
 				{Owner: "acme", Name: "repo-a", WebhookSecret: "s3kr3t"},
 			},
 		}
@@ -541,7 +585,7 @@ func TestWriteWebhookSecrets(t *testing.T) {
 				return fmt.Errorf("API error")
 			},
 		}
-		err := WriteWebhookSecrets(context.Background(), client, "my-ctx", "my-ns", &webhookconfig.Secrets{})
+		err := WriteWebhookSecrets(context.Background(), client, "my-ctx", "my-ns", &Secrets{})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "API error")
 	})
@@ -558,7 +602,7 @@ func TestWriteWebhookSecretsAndLog(t *testing.T) {
 				return nil
 			},
 		}
-		secrets := &webhookconfig.Secrets{}
+		secrets := &Secrets{}
 		err := WriteWebhookSecretsAndLog(ctx, client, "my-ctx", "my-ns", secrets, out)
 		require.NoError(t, err)
 		output := outBuf.String()
@@ -574,7 +618,7 @@ func TestWriteWebhookSecretsAndLog(t *testing.T) {
 				return fmt.Errorf("API error")
 			},
 		}
-		secrets := &webhookconfig.Secrets{}
+		secrets := &Secrets{}
 		err := WriteWebhookSecretsAndLog(ctx, client, "my-ctx", "my-ns", secrets, out)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "API error")

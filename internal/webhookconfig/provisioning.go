@@ -1,19 +1,15 @@
-package provisioning
+package webhookconfig
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
-	"os/exec"
-	"strings"
 
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/k8s"
 	"github.com/zon/ralph/internal/output"
-	"github.com/zon/ralph/internal/webhookconfig"
 	"gopkg.in/yaml.v3"
 )
 
@@ -23,7 +19,7 @@ const (
 	WebhookIngressHostname   = "ralph.haralovich.org"
 )
 
-func mergeRepo(repos []webhookconfig.RepoConfig, incoming webhookconfig.RepoConfig) []webhookconfig.RepoConfig {
+func mergeRepo(repos []RepoConfig, incoming RepoConfig) []RepoConfig {
 	for i, r := range repos {
 		if r.Owner == incoming.Owner && r.Name == incoming.Name {
 			repos[i] = incoming
@@ -33,8 +29,8 @@ func mergeRepo(repos []webhookconfig.RepoConfig, incoming webhookconfig.RepoConf
 	return append(repos, incoming)
 }
 
-func BuildWebhookAppConfig(ctx context.Context, out *output.Client, base, updates *webhookconfig.AppConfig, repoOwner, repoName, repoNamespace string, gh github.GHClient) webhookconfig.AppConfig {
-	var cfg webhookconfig.AppConfig
+func BuildWebhookAppConfig(ctx context.Context, out *output.Client, base, updates *AppConfig, repoOwner, repoName, repoNamespace string, gh github.GHClient) AppConfig {
+	var cfg AppConfig
 
 	if base != nil {
 		cfg = *base
@@ -64,7 +60,7 @@ func BuildWebhookAppConfig(ctx context.Context, out *output.Client, base, update
 	}
 
 	if repoOwner != "" && repoName != "" {
-		cfg.Repos = mergeRepo(cfg.Repos, webhookconfig.RepoConfig{
+		cfg.Repos = mergeRepo(cfg.Repos, RepoConfig{
 			Owner:     repoOwner,
 			Name:      repoName,
 			Namespace: repoNamespace,
@@ -76,8 +72,8 @@ func BuildWebhookAppConfig(ctx context.Context, out *output.Client, base, update
 			users, err := gh.ListCollaborators(ctx, r.Owner, r.Name)
 			if err != nil {
 				if out != nil {
-				out.Warnf("Failed to fetch collaborators for %s/%s: %v (skipping AllowedUsers)", r.Owner, r.Name, err)
-			}
+					out.Warnf("Failed to fetch collaborators for %s/%s: %v (skipping AllowedUsers)", r.Owner, r.Name, err)
+				}
 			} else {
 				cfg.Repos[i].AllowedUsers = users
 			}
@@ -87,8 +83,8 @@ func BuildWebhookAppConfig(ctx context.Context, out *output.Client, base, update
 	return cfg
 }
 
-func BuildWebhookAppConfigFromK8s(ctx context.Context, namespace, kubeContext, configPath string, configReader func(context.Context, string, string) (*webhookconfig.AppConfig, error), ghClient github.GHClient, out *output.Client) webhookconfig.AppConfig {
-	base, err := configReader(ctx, namespace, kubeContext)
+func BuildWebhookAppConfigFromK8s(ctx context.Context, namespace, kubeContext, configPath string, client k8s.Client, ghClient github.GHClient, out *output.Client) AppConfig {
+	base, err := ReadWebhookConfigFromK8s(ctx, client, namespace, kubeContext)
 	if err != nil {
 		if out != nil {
 			out.Warnf("Could not read existing configmap '%s': %v (starting from scratch)", WebhookConfigMapName, err)
@@ -96,9 +92,9 @@ func BuildWebhookAppConfigFromK8s(ctx context.Context, namespace, kubeContext, c
 		base = nil
 	}
 
-	var updates *webhookconfig.AppConfig
+	var updates *AppConfig
 	if configPath != "" {
-		loaded, err := webhookconfig.LoadAppConfig(configPath)
+		loaded, err := LoadAppConfig(configPath)
 		if err != nil {
 			if out != nil {
 				out.Warnf("Failed to load partial config: %v (ignoring)", err)
@@ -119,32 +115,13 @@ func GenerateWebhookSecret() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(b), nil
 }
 
-func ReadWebhookConfigFromK8s(ctx context.Context, namespace, kubeContext string) (*webhookconfig.AppConfig, error) {
-	args := []string{
-		"get", "configmap", WebhookConfigMapName,
-		"-n", namespace,
-		"-o", `jsonpath={.data.config\.yaml}`,
-	}
-	if kubeContext != "" {
-		args = append(args, "--context", kubeContext)
+func ReadWebhookConfigFromK8s(ctx context.Context, client k8s.Client, namespace, kubeContext string) (*AppConfig, error) {
+	raw, err := client.GetConfigMapData(ctx, WebhookConfigMapName, namespace, kubeContext)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read configmap '%s' from namespace '%s': %w", WebhookConfigMapName, namespace, err)
 	}
 
-	cmd := exec.CommandContext(ctx, "kubectl", args...)
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("failed to read configmap '%s' from namespace '%s': %w (stderr: %s)",
-			WebhookConfigMapName, namespace, err, stderr.String())
-	}
-
-	raw := strings.TrimSpace(stdout.String())
-	if raw == "" {
-		return nil, fmt.Errorf("configmap '%s' exists but config.yaml key is empty", WebhookConfigMapName)
-	}
-
-	var appCfg webhookconfig.AppConfig
+	var appCfg AppConfig
 	if err := yaml.Unmarshal([]byte(raw), &appCfg); err != nil {
 		return nil, fmt.Errorf("failed to parse AppConfig YAML from configmap: %w", err)
 	}
@@ -156,7 +133,7 @@ func RegisterGitHubWebhook(ctx context.Context, gh github.GHClient, owner, repo,
 	return gh.RegisterWebhook(ctx, owner, repo, webhookURL, secret)
 }
 
-func RegisterAllGitHubWebhooks(ctx context.Context, ghClient github.GHClient, out *output.Client, repos []webhookconfig.RepoSecret) {
+func RegisterAllGitHubWebhooks(ctx context.Context, ghClient github.GHClient, out *output.Client, repos []RepoSecret) {
 	webhookURL := fmt.Sprintf("https://%s/webhook", WebhookIngressHostname)
 	out.Infof("Registering webhooks at %s...", webhookURL)
 	for _, rs := range repos {
@@ -169,15 +146,15 @@ func RegisterAllGitHubWebhooks(ctx context.Context, ghClient github.GHClient, ou
 	out.Info("")
 }
 
-func BuildWebhookSecrets(appCfg *webhookconfig.AppConfig, secretGenerator func() (string, error)) (*webhookconfig.Secrets, error) {
-	secrets := &webhookconfig.Secrets{}
+func BuildWebhookSecrets(appCfg *AppConfig, secretGenerator func() (string, error)) (*Secrets, error) {
+	secrets := &Secrets{}
 
 	for _, repo := range appCfg.Repos {
 		secret, err := secretGenerator()
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate secret for %s/%s: %w", repo.Owner, repo.Name, err)
 		}
-		secrets.Repos = append(secrets.Repos, webhookconfig.RepoSecret{
+		secrets.Repos = append(secrets.Repos, RepoSecret{
 			Owner:         repo.Owner,
 			Name:          repo.Name,
 			WebhookSecret: secret,
@@ -187,7 +164,7 @@ func BuildWebhookSecrets(appCfg *webhookconfig.AppConfig, secretGenerator func()
 	return secrets, nil
 }
 
-func WriteWebhookConfigMap(ctx context.Context, client k8s.Client, kubeContext, namespace string, appCfg webhookconfig.AppConfig) error {
+func WriteWebhookConfigMap(ctx context.Context, client k8s.Client, kubeContext, namespace string, appCfg AppConfig) error {
 	cfgBytes, err := yaml.Marshal(appCfg)
 	if err != nil {
 		return fmt.Errorf("failed to serialize AppConfig to YAML: %w", err)
@@ -206,7 +183,7 @@ func WriteWebhookConfigMap(ctx context.Context, client k8s.Client, kubeContext, 
 	return nil
 }
 
-func WriteWebhookSecretsAndLog(ctx context.Context, client k8s.Client, kubeContext, namespace string, secrets *webhookconfig.Secrets, out *output.Client) error {
+func WriteWebhookSecretsAndLog(ctx context.Context, client k8s.Client, kubeContext, namespace string, secrets *Secrets, out *output.Client) error {
 	if err := WriteWebhookSecrets(ctx, client, kubeContext, namespace, secrets); err != nil {
 		return err
 	}
@@ -214,7 +191,7 @@ func WriteWebhookSecretsAndLog(ctx context.Context, client k8s.Client, kubeConte
 	return nil
 }
 
-func WriteWebhookSecrets(ctx context.Context, client k8s.Client, kubeContext, namespace string, secrets *webhookconfig.Secrets) error {
+func WriteWebhookSecrets(ctx context.Context, client k8s.Client, kubeContext, namespace string, secrets *Secrets) error {
 	secretsBytes, err := yaml.Marshal(secrets)
 	if err != nil {
 		return fmt.Errorf("failed to serialize Secrets to YAML: %w", err)
