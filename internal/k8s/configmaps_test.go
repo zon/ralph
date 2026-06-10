@@ -86,6 +86,42 @@ func TestBuildConfigMapArgs(t *testing.T) {
 	}
 }
 
+func TestBuildGetConfigMapDataArgs(t *testing.T) {
+	tests := []struct {
+		name          string
+		configMapName string
+		namespace     string
+		kubeContext   string
+		expectedArgs  []string
+	}{
+		{
+			name:          "basic configmap read",
+			configMapName: "webhook-config",
+			namespace:     "default",
+			kubeContext:   "",
+			expectedArgs:  []string{"get", "configmap", "webhook-config", "-n", "default", "-o", `jsonpath={.data.config\.yaml}`},
+		},
+		{
+			name:          "configmap read with context",
+			configMapName: "webhook-config",
+			namespace:     "production",
+			kubeContext:   "prod-cluster",
+			expectedArgs:  []string{"get", "configmap", "webhook-config", "-n", "production", "-o", `jsonpath={.data.config\.yaml}`, "--context", "prod-cluster"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			args := buildGetConfigMapDataArgs(tt.configMapName, tt.namespace, tt.kubeContext)
+
+			assert.Len(t, args, len(tt.expectedArgs), "Args length should match")
+			for i, expected := range tt.expectedArgs {
+				assert.Equal(t, expected, args[i], "Arg %d should match", i)
+			}
+		})
+	}
+}
+
 func TestBuildConfigMapApplyArgs(t *testing.T) {
 	tests := []struct {
 		name          string

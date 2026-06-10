@@ -40,7 +40,7 @@ requirements:
 
             	return raw, nil
             }
-      passing: false
+      passing: true
     - slug: webhookconfig-provisioning-functions
       description: Move all webhook configuration build/read/write/registration helpers from internal/provisioning into internal/webhookconfig, using the new k8s.Client.GetConfigMapData for reads
       items:

@@ -7,6 +7,7 @@ type MockClient struct {
 	CreateOrUpdateConfigMapFunc func(ctx context.Context, name, namespace, kubeContext string, data map[string]string) error
 	CreateOrUpdateSecretFunc    func(ctx context.Context, name, namespace, kubeContext string, data map[string]string) error
 	SecretExistsFunc            func(ctx context.Context, name, namespace, kubeContext string) (bool, error)
+	GetConfigMapDataFunc        func(ctx context.Context, name, namespace, kubeContext string) (string, error)
 }
 
 func (m *MockClient) GetCurrentContext(ctx context.Context) (Context, error) {
@@ -35,6 +36,13 @@ func (m *MockClient) SecretExists(ctx context.Context, name, namespace, kubeCont
 		return m.SecretExistsFunc(ctx, name, namespace, kubeContext)
 	}
 	return false, nil
+}
+
+func (m *MockClient) GetConfigMapData(ctx context.Context, name, namespace, kubeContext string) (string, error) {
+	if m.GetConfigMapDataFunc != nil {
+		return m.GetConfigMapDataFunc(ctx, name, namespace, kubeContext)
+	}
+	return "", nil
 }
 
 var _ Client = (*MockClient)(nil)
