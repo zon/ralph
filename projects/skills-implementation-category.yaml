@@ -14,7 +14,7 @@ requirements:
         - Create internal/skills/skills_mock.go in package skills containing a MockClient struct with overridable function fields DiscoverFunc, FetchAllFunc, PruneStaleFunc, and InstallAllFunc, matching the signatures of Discover, FetchAll, PruneStale, and InstallAll
         - MockClient must implement methods Discover(branch string) ([]string, error), FetchAll(branch string, names []string) ([]Skill, error), PruneStale(root string, fetched []Skill), and InstallAll(root string, fetched []Skill) error, each calling the corresponding *Func field if set and otherwise returning a safe zero-value default (nil/no error for the discover/fetch/install functions, and doing nothing for PruneStale)
         - Follow the mock pattern shown in docs/testing.md (function-field overrides per test case), matching the style of internal/git/client_mock.go
-      passing: false
+      passing: true
     - slug: dedupe-setup-mock
       description: internal/orchestration/setup/setup_test.go defines a local mockSkills type that duplicates the SkillsClient interface implementation now provided by internal/skills.MockClient. Removing this duplication keeps the SkillsClient interface defined once (in internal/orchestration/setup, which is permitted to define interfaces) while reusing the shared implementation-module mock for its backing implementation.
       items:
