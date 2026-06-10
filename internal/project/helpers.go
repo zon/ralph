@@ -3,7 +3,6 @@ package project
 import (
 	"os"
 	"path/filepath"
-	"sync"
 	"testing"
 
 	"gopkg.in/yaml.v3"
@@ -166,43 +165,6 @@ func LastSaved() *Project {
 
 func SetLastSaved(p *Project) {
 	lastSavedValue = p
-}
-
-var (
-	agentFixMu    sync.Mutex
-	agentFixCalls []struct {
-		path    string
-		loadErr error
-	}
-)
-
-func RecordFixCall(path string, loadErr error) {
-	agentFixMu.Lock()
-	agentFixCalls = append(agentFixCalls, struct {
-		path    string
-		loadErr error
-	}{path, loadErr})
-	agentFixMu.Unlock()
-}
-
-func FixCalls() []struct {
-	path    string
-	loadErr error
-} {
-	agentFixMu.Lock()
-	defer agentFixMu.Unlock()
-	calls := make([]struct {
-		path    string
-		loadErr error
-	}, len(agentFixCalls))
-	copy(calls, agentFixCalls)
-	return calls
-}
-
-func ResetFixCalls() {
-	agentFixMu.Lock()
-	agentFixCalls = nil
-	agentFixMu.Unlock()
 }
 
 var loadAttempts int

@@ -15,7 +15,7 @@ requirements:
         - Delete the agentFixMu and agentFixCalls package-level vars and the RecordFixCall, FixCalls, and ResetFixCalls functions from internal/project/helpers.go
         - Remove the "sync" import from internal/project/helpers.go if it is no longer used after this removal
         - Run go build ./... and go test ./internal/project/... to confirm the package still builds and all tests pass
-      passing: false
+      passing: true
     - slug: remove-dead-load-attempts-tracking
       description: internal/project/helpers.go defines a loadAttempts package var and a ResetLoadAttempts function. loadAttempts is never incremented or read anywhere in the codebase; ResetLoadAttempts is called repeatedly from internal/orchestration/validate/validate_test.go but only resets this dead state, so the calls are pointless.
       items:
