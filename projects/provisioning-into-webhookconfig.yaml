@@ -83,4 +83,4 @@ requirements:
       description: Version bump for the internal refactor
       items:
         - Apply a semver patch bump to internal/version/VERSION and to charts/ralph-webhook/Chart.yaml (appVersion and version, per the versioning convention in CLAUDE.md)
-      passing: false
+      passing: true
