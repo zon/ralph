@@ -11,6 +11,7 @@ import (
 	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/webhookconfig"
+	"github.com/zon/ralph/internal/workflow"
 )
 
 // Server is the GitHub webhook HTTP server.
@@ -114,7 +115,24 @@ func (s *Server) handleWebhook(c *gin.Context) {
 	}
 	s.out.Debugf("dispatching %s for %s/%s", eventType, owner, repoName)
 
-	result, err := event.ToWorkflow(s.config)
+	namespace := ""
+	if repo := s.config.RepoByFullName(event.RepoOwner, event.RepoName); repo != nil {
+		namespace = repo.Namespace
+	}
+	we := workflow.WebhookEvent{
+		Body:      event.Body,
+		Approved:  event.Approved,
+		PRBranch:  event.PRBranch,
+		RepoOwner: event.RepoOwner,
+		RepoName:  event.RepoName,
+		PRNumber:  event.PRNumber,
+	}
+	opts := workflow.WorkflowOptions{
+		Image:       workflow.MakeImage(s.config.App.ImageRepository, s.config.App.ImageTag),
+		KubeContext: s.config.App.WorkflowContext,
+		Namespace:   namespace,
+	}
+	result, err := workflow.FromWebhookEvent(we, opts)
 	if err != nil {
 		s.out.Debugf("failed to generate workflow for %s/%s: %v", owner, repoName, err)
 		c.Status(http.StatusOK)
@@ -126,7 +144,7 @@ func (s *Server) handleWebhook(c *gin.Context) {
 }
 
 // submitWorkflow submits a WorkflowResult asynchronously.
-func (s *Server) submitWorkflow(result *WorkflowResult, owner, repoName string) {
+func (s *Server) submitWorkflow(result *workflow.WorkflowResult, owner, repoName string) {
 	ctx := context.Background()
 	if result.Run != nil {
 		name, err := result.Run.Submit(ctx, s.argoClient)

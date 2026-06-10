@@ -1,14 +1,5 @@
 package webhook
 
-import (
-	"path/filepath"
-	"strings"
-
-	"github.com/zon/ralph/internal/github"
-	"github.com/zon/ralph/internal/webhookconfig"
-	"github.com/zon/ralph/internal/workflow"
-)
-
 // Event represents a filtered GitHub webhook event — either a comment or a review.
 // Use IsComment and IsReview to distinguish them.
 type Event struct {
@@ -29,73 +20,4 @@ func (e Event) IsComment() bool {
 // IsReview reports whether the event is an approved pull request review.
 func (e Event) IsReview() bool {
 	return e.Approved
-}
-
-// WorkflowResult holds the output of ToWorkflow. Exactly one of Run or Merge is non-nil.
-type WorkflowResult struct {
-	Run       *workflow.Workflow
-	Merge     *workflow.MergeWorkflow
-	Namespace string // Kubernetes namespace for workflow submission, from RepoConfig
-}
-
-// ToWorkflow converts the event into an Argo Workflow.
-// Comment events produce a Run workflow that calls `ralph comment`.
-// Approval events produce a MergeWorkflow that calls `ralph merge --local`.
-func (e Event) ToWorkflow(cfg *webhookconfig.Config) (*WorkflowResult, error) {
-	projectFile := projectFileFromBranch(e.PRBranch)
-	repoURL := github.CloneURL(e.RepoOwner, e.RepoName)
-
-	namespace := ""
-	if repo := cfg.RepoByFullName(e.RepoOwner, e.RepoName); repo != nil {
-		namespace = repo.Namespace
-	}
-
-	workflowOpts := workflow.WorkflowOptions{
-		Image:       workflow.MakeImage(cfg.App.ImageRepository, cfg.App.ImageTag),
-		KubeContext: cfg.App.WorkflowContext,
-		Namespace:   namespace,
-	}
-
-	if e.Approved {
-		mw, err := workflow.GenerateMergeWorkflowWithGitInfo(repoURL, e.PRBranch, e.PRBranch, e.PRNumber, workflowOpts)
-		if err != nil {
-			return nil, err
-		}
-		return &WorkflowResult{Merge: mw, Namespace: namespace}, nil
-	}
-
-	projectName := strings.TrimSuffix(filepath.Base(projectFile), filepath.Ext(projectFile))
-	repo, err := github.ParseRemoteURL(repoURL)
-	if err != nil {
-		return nil, err
-	}
-	wf := &workflow.Workflow{
-		ProjectName:   projectName,
-		Repo:          repo,
-		CloneBranch:   e.PRBranch,
-		ProjectBranch: e.PRBranch,
-		ProjectPath:   projectFile,
-		CommentBody:   e.Body,
-		PRNumber:      e.PRNumber,
-		Image:         workflowOpts.Image,
-		KubeContext:   workflowOpts.KubeContext,
-		Namespace:     namespace,
-	}
-	return &WorkflowResult{Run: wf, Namespace: namespace}, nil
-}
-
-// projectFileFromBranch derives the project file path from the PR head branch name.
-//
-// Convention: branch "ralph/<project-name>" → "projects/<project-name>.yaml"
-//
-// If the branch does not follow the ralph/ prefix convention the full branch
-// name (with slashes replaced by dashes) is used as the project name.
-func projectFileFromBranch(branch string) string {
-	projectName := branch
-	if strings.HasPrefix(branch, "ralph/") {
-		projectName = strings.TrimPrefix(branch, "ralph/")
-	} else {
-		projectName = strings.ReplaceAll(branch, "/", "-")
-	}
-	return filepath.Join("projects", projectName+".yaml")
 }

@@ -87,7 +87,7 @@ modules:
     description: HTTP server that receives GitHub webhook events and dispatches corresponding workflow runs.
     category: orchestration
   - path: internal/workflow
-    description: Generates and submits workflow manifests for run and merge operations.
+    description: Generates and submits workflow manifests for run and merge operations. Constructs workflows from webhook events.
     category: implementation
   - path: internal/provisioning
     description: Provisions webhook configuration and secrets into a Kubernetes cluster.

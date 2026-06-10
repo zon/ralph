@@ -49,7 +49,7 @@ requirements:
         - Remove internal/webhook/events.go's ToWorkflow and projectFileFromBranch once relocated, retaining only the Event type (or its replacement) needed for coordination
         - Update specs/architecture.yaml's internal/workflow description to mention constructing workflows from webhook events as part of its scope
         - Run go build ./... and go test ./internal/webhook/... ./internal/workflow/... to confirm everything compiles and passes with no import cycles
-      passing: false
+      passing: true
     - slug: verify-server-is-pure-coordination
       description: After the prior extractions, internal/webhook/server.go should contain only route registration, gin request/response plumbing, and calls into webhookconfig, github, workflow, and argo -- no string construction, crypto, JSON struct definitions, or workflow-struct field assembly.
       items:
