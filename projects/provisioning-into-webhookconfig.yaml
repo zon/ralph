@@ -57,7 +57,7 @@ requirements:
         - internal/webhookconfig gains GetKubeContext(ctx context.Context, client k8s.Client, contextOverride string) (string, error), unchanged from internal/provisioning
         - internal/webhookconfig imports github.com/zon/ralph/internal/k8s, github.com/zon/ralph/internal/github, github.com/zon/ralph/internal/output, and github.com/zon/ralph/internal/config as needed for the moved code
         - All unit tests for the moved functions are migrated from internal/provisioning/webhook_test.go into internal/webhookconfig (e.g. a new internal/webhookconfig/provisioning_test.go), preserving the use of k8s.MockClient and github.MockGH and table-driven t.Run() structure; ReadWebhookConfigFromK8s tests are adapted to mock k8s.Client.GetConfigMapDataFunc instead of the prior configReader function parameter
-      passing: false
+      passing: true
     - slug: rewire-set-config-cmd
       description: cmd/ralph-webhook/set_config.go calls webhookconfig.* instead of provisioning.* for all webhooksetconfig interface implementations
       items:
