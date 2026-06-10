@@ -18,7 +18,7 @@ requirements:
         - In internal/webhook/server_test.go, construct the test Server using internal/argo's existing mock client (from internal/argo/client_mock.go) instead of a real argo.Client
         - Add a new test that posts an acceptable issue_comment webhook payload to a Server built with the mock argo client, and asserts the mock's SubmitYAML (or equivalent Submit-path) was invoked with a non-empty workflow YAML
         - Run go test ./internal/webhook/... ./internal/argo/... to confirm the new test passes and existing tests remain green
-      passing: false
+      passing: true
     - slug: extract-signature-validation
       description: validateSignature in internal/webhook/server.go performs HMAC-SHA256 string construction and crypto operations, which is implementation detail that does not belong in an orchestration module. internal/webhookconfig already owns secret management and is the natural home for signature validation.
       items:

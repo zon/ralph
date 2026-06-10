@@ -2,6 +2,7 @@ package webhook
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -10,6 +11,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/zon/ralph/internal/argo"
@@ -160,6 +162,50 @@ func TestHandleWebhook_ToWorkflowError_Returns200(t *testing.T) {
 	sig := sign(body, "supersecret")
 	w := postWebhook(t, s, "issue_comment", body, sig)
 	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestHandleWebhook_IssueComment_SubmitsWorkflow(t *testing.T) {
+	submitCh := make(chan string, 1)
+	mock := &argo.MockClient{
+		SubmitYAMLFunc: func(ctx context.Context, workflowYAML string, kubeCtx argo.K8sContext) (string, error) {
+			submitCh <- workflowYAML
+			return "test-workflow", nil
+		},
+	}
+	s := NewServer(testConfig(), output.NewClient(os.Stdout, os.Stderr, false), mock)
+
+	payload := map[string]interface{}{
+		"repository": map[string]interface{}{
+			"name": "myrepo",
+			"owner": map[string]interface{}{
+				"login": "acme",
+			},
+		},
+		"comment": map[string]interface{}{
+			"body": "hello",
+			"user": map[string]interface{}{"login": "testuser"},
+		},
+		"issue": map[string]interface{}{
+			"pull_request": map[string]interface{}{},
+		},
+		"pull_request": map[string]interface{}{
+			"number": 42,
+			"head": map[string]interface{}{
+				"ref": "ralph/my-feature",
+			},
+		},
+	}
+	body, _ := json.Marshal(payload)
+	sig := sign(body, "supersecret")
+	w := postWebhook(t, s, "issue_comment", body, sig)
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	select {
+	case workflowYAML := <-submitCh:
+		assert.NotEmpty(t, workflowYAML)
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for workflow submission")
+	}
 }
 
 // ──────────────────────────────────────────────────────────────────────────────

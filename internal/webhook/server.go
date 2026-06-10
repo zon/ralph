@@ -110,7 +110,7 @@ func (s *Server) handleWebhook(c *gin.Context) {
 		return
 	}
 
-	go submitWorkflow(s.out, result, owner, repoName)
+	go s.submitWorkflow(result, owner, repoName)
 	c.Status(http.StatusOK)
 }
 
@@ -129,25 +129,24 @@ func (s *Server) readAndParsePayload(c *gin.Context) (*githubPayload, []byte, er
 }
 
 // submitWorkflow submits a WorkflowResult asynchronously.
-func submitWorkflow(out *output.Client, result *WorkflowResult, owner, repoName string) {
-	client := argo.NewClient()
+func (s *Server) submitWorkflow(result *WorkflowResult, owner, repoName string) {
 	ctx := context.Background()
 	if result.Run != nil {
-		name, err := result.Run.Submit(ctx, client)
+		name, err := result.Run.Submit(ctx, s.argoClient)
 		if err != nil {
-			out.Debugf("failed to submit run workflow for %s/%s: %v", owner, repoName, err)
+			s.out.Debugf("failed to submit run workflow for %s/%s: %v", owner, repoName, err)
 			return
 		}
-		out.Debugf("submitted run workflow %s for %s/%s", name, owner, repoName)
-		out.Debugf("To watch logs, run: argo logs -n %s -f %s", result.Namespace, name)
+		s.out.Debugf("submitted run workflow %s for %s/%s", name, owner, repoName)
+		s.out.Debugf("To watch logs, run: argo logs -n %s -f %s", result.Namespace, name)
 	} else if result.Merge != nil {
-		name, err := result.Merge.Submit(ctx, client)
+		name, err := result.Merge.Submit(ctx, s.argoClient)
 		if err != nil {
-			out.Debugf("failed to submit merge workflow for %s/%s: %v", owner, repoName, err)
+			s.out.Debugf("failed to submit merge workflow for %s/%s: %v", owner, repoName, err)
 			return
 		}
-		out.Debugf("submitted merge workflow %s for %s/%s", name, owner, repoName)
-		out.Debugf("To watch logs, run: argo logs -n %s -f %s", result.Namespace, name)
+		s.out.Debugf("submitted merge workflow %s for %s/%s", name, owner, repoName)
+		s.out.Debugf("To watch logs, run: argo logs -n %s -f %s", result.Namespace, name)
 	}
 }
 
