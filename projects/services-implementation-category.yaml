@@ -1,0 +1,16 @@
+slug: services-implementation-category
+title: Recategorize internal/services as an implementation module
+maxIterations: 5
+requirements:
+    - slug: recategorize-services-module
+      description: internal/services (RunBefore, Manager, Process, startService, WaitForHealth, port checking/waiting, log file handling, signal-based process termination) is composed of real dependency implementations - os/exec process management, log file I/O, TCP port polling via net, and OS signal handling via syscall - plus a Client/MockClient pair following the implementation-module mock pattern. specs/architecture.yaml currently lists internal/services under category "orchestration", but its contents match the "implementation" category's signatures (real dependency implementations, mocks, unit tests), and orchestration modules must not contain string construction, format literals, I/O, or external calls per docs/code.md.
+      items:
+        - In specs/architecture.yaml, change the internal/services module entry's category field from "orchestration" to "implementation"
+        - Leave the internal/services module's existing description in specs/architecture.yaml unchanged, as it already accurately describes the module
+        - Make no changes to any Go source files - this is a specs/architecture.yaml-only change
+      passing: false
+    - slug: full-suite-check
+      description: Confirm the recategorization did not break the broader build or test suite.
+      items:
+        - Run go build ./... and go test ./... and confirm both succeed with no failures
+      passing: false

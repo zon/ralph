@@ -1,0 +1,25 @@
+slug: clean-up-project-helpers
+title: Remove dead code and duplication from internal/project/helpers.go
+maxIterations: 10
+requirements:
+    - slug: dedupe-fixture-helpers
+      description: internal/project/helpers.go defines exact duplicate fixture-builder pairs - any()/Any(), withAllPassing()/WithAllPassing(), withFailingRequirements()/WithFailingRequirements(), and withMaxIterations(n)/WithMaxIterations(n). The unexported lowercase versions exist only so internal/project/helpers_test.go can exercise them in-package, while the exported versions are the real API consumed by other packages.
+      items:
+        - Delete the unexported duplicate functions any(), withAllPassing(), withFailingRequirements(), and withMaxIterations(n int) from internal/project/helpers.go
+        - Update internal/project/helpers_test.go to call the exported equivalents Any(), WithAllPassing(), WithFailingRequirements(), and WithMaxIterations(n) in place of the removed unexported functions, preserving the existing assertions and subtests
+        - Run go build ./... and go test ./internal/project/... to confirm the package still builds and all tests pass
+      passing: false
+    - slug: remove-dead-fix-call-tracking
+      description: internal/project/helpers.go defines RecordFixCall, FixCalls, ResetFixCalls, and the backing agentFixMu/agentFixCalls package vars. None of these are referenced anywhere in the repository - internal/orchestration/validate/validate_test.go defines its own local equivalents with a different signature (including a model field) and does not use these.
+      items:
+        - Delete the agentFixMu and agentFixCalls package-level vars and the RecordFixCall, FixCalls, and ResetFixCalls functions from internal/project/helpers.go
+        - Remove the "sync" import from internal/project/helpers.go if it is no longer used after this removal
+        - Run go build ./... and go test ./internal/project/... to confirm the package still builds and all tests pass
+      passing: false
+    - slug: remove-dead-load-attempts-tracking
+      description: internal/project/helpers.go defines a loadAttempts package var and a ResetLoadAttempts function. loadAttempts is never incremented or read anywhere in the codebase; ResetLoadAttempts is called repeatedly from internal/orchestration/validate/validate_test.go but only resets this dead state, so the calls are pointless.
+      items:
+        - Delete the loadAttempts package var and the ResetLoadAttempts function from internal/project/helpers.go
+        - Remove every call to project.ResetLoadAttempts() from internal/orchestration/validate/validate_test.go
+        - Run go build ./... and go test ./... to confirm the full build and test suite remain green after all three cleanups in this project
+      passing: false

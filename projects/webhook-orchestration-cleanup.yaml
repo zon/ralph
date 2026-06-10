@@ -1,0 +1,59 @@
+slug: webhook-orchestration-cleanup
+title: Bring internal/webhook into compliance as an orchestration module
+maxIterations: 10
+requirements:
+    - slug: inject-argo-client
+      description: internal/webhook/server.go constructs a real argo.Client via argo.NewClient() inside the package-level submitWorkflow function, which violates the orchestration module rule that real dependency implementations must not be constructed in orchestration code, and makes the workflow-submission success path untestable without invoking the real argo CLI.
+      items:
+        - Add an argoClient argo.Client field to the Server struct in internal/webhook/server.go
+        - Change NewServer's signature to func NewServer(cfg *webhookconfig.Config, out *output.Client, argoClient argo.Client) *Server and store the passed client on the Server
+        - Update cmd/ralph-webhook/main.go to construct argo.NewClient() and pass it to webhook.NewServer
+        - Run go build ./... to confirm the new constructor signature compiles everywhere it is used
+      passing: false
+    - slug: submit-workflow-as-method
+      description: Convert the free function submitWorkflow into a method on Server that uses the injected argoClient, and add a test exercising handleWebhook's success path with a mocked argo client.
+      items:
+        - Convert func submitWorkflow(out *output.Client, result *WorkflowResult, owner, repoName string) into a method func (s *Server) submitWorkflow(result *WorkflowResult, owner, repoName string) on internal/webhook/server.go, replacing the local argo.NewClient() call with s.argoClient
+        - Update handleWebhook's call site from 'go submitWorkflow(s.out, result, owner, repoName)' to 'go s.submitWorkflow(result, owner, repoName)'
+        - In internal/webhook/server_test.go, construct the test Server using internal/argo's existing mock client (from internal/argo/client_mock.go) instead of a real argo.Client
+        - Add a new test that posts an acceptable issue_comment webhook payload to a Server built with the mock argo client, and asserts the mock's SubmitYAML (or equivalent Submit-path) was invoked with a non-empty workflow YAML
+        - Run go test ./internal/webhook/... ./internal/argo/... to confirm the new test passes and existing tests remain green
+      passing: false
+    - slug: extract-signature-validation
+      description: validateSignature in internal/webhook/server.go performs HMAC-SHA256 string construction and crypto operations, which is implementation detail that does not belong in an orchestration module. internal/webhookconfig already owns secret management and is the natural home for signature validation.
+      items:
+        - Add an exported function ValidateSignature(body []byte, secret, signature string) bool to internal/webhookconfig, moving the existing implementation of validateSignature from internal/webhook/server.go
+        - 'Add unit tests for webhookconfig.ValidateSignature in internal/webhookconfig covering: valid signature, missing signature, wrong prefix, tampered body, and wrong secret (mirroring the existing TestValidateSignature cases in internal/webhook/server_test.go)'
+        - Update internal/webhook/server.go's handleWebhook to call webhookconfig.ValidateSignature instead of the local validateSignature function, and remove the now-unused crypto/hmac, crypto/sha256, encoding/hex, and strings imports if no longer needed
+        - Remove the local validateSignature function and its TestValidateSignature test from internal/webhook (now covered in internal/webhookconfig)
+        - Run go test ./internal/webhook/... ./internal/webhookconfig/... to confirm all signature validation tests pass in their new location
+      passing: false
+    - slug: extract-payload-parsing
+      description: internal/webhook/payload.go defines the githubPayload struct and its IsAcceptable/ToEvent methods, plus readAndParsePayload in server.go does raw JSON unmarshalling -- all implementation-level GitHub payload parsing that belongs in internal/github, which already owns GitHub API/webhook concerns (internal/github/webhook.go).
+      items:
+        - Move the githubPayload struct (renamed to an exported type, e.g. github.WebhookPayload) and its RepoOwner, RepoName, IsAcceptable, and ToEvent methods from internal/webhook/payload.go into internal/github (e.g. a new internal/github/webhook_payload.go file)
+        - Add an exported function github.ParseWebhookPayload(body []byte) (*WebhookPayload, error) in internal/github that performs the JSON unmarshalling currently done in internal/webhook/server.go's readAndParsePayload
+        - ToEvent on WebhookPayload should continue to return a webhook.Event -- since internal/github cannot import internal/webhook (would create a cycle given internal/webhook already imports internal/github), keep the Event type defined in internal/webhook and have github.WebhookPayload.ToEvent return the fields needed, OR move the Event type itself into internal/github alongside WebhookPayload if that avoids the cycle; choose whichever avoids an import cycle and keeps internal/webhook free of payload-shape definitions
+        - Move payload_test.go's IsAcceptable and ToEvent test cases into internal/github (e.g. internal/github/webhook_payload_test.go), updating imports and the openConfig/configWithAllowedUsers helpers as needed
+        - Update internal/webhook/server.go's readAndParsePayload (or remove it) to call github.ParseWebhookPayload, and update handleWebhook to call the relocated IsAcceptable/ToEvent via the github package types
+        - Update specs/architecture.yaml's internal/github description to mention webhook payload parsing as part of its scope
+        - Run go build ./... and go test ./internal/webhook/... ./internal/github/... to confirm everything compiles and passes with no import cycles
+      passing: false
+    - slug: extract-workflow-construction
+      description: internal/webhook/events.go defines Event, WorkflowResult, ToWorkflow, and projectFileFromBranch, which build workflow.Workflow/workflow.MergeWorkflow/workflow.WorkflowOptions structs field-by-field -- this is implementation-level workflow construction that belongs in internal/workflow, the implementation module that already owns these types and their generation functions.
+      items:
+        - Move projectFileFromBranch and the WorkflowResult struct from internal/webhook/events.go into internal/workflow (e.g. internal/workflow/from_event.go), keeping projectFileFromBranch unexported within internal/workflow if only used there, or exporting it if internal/webhook still needs to reference it
+        - Add an exported function workflow.FromWebhookEvent(event webhook.Event, cfg *webhookconfig.Config) (*WorkflowResult, error) in internal/workflow that contains the logic currently in Event.ToWorkflow -- if this creates an import cycle (internal/workflow importing internal/webhook for the Event type), instead define a minimal parameter struct in internal/workflow (e.g. workflow.WebhookEvent with the same fields as webhook.Event) and have internal/webhook map its Event to that struct before calling FromWebhookEvent, OR keep Event defined in internal/workflow and have internal/webhook re-export/alias it -- choose whichever avoids a cycle and keeps internal/webhook free of workflow-construction logic
+        - Move the ToWorkflow test cases from internal/webhook/events_test.go (TestToWorkflow_*, TestProjectFileFromBranch) into internal/workflow, updating helper setup (workflowTestDir) and imports as needed
+        - Update internal/webhook/server.go's handleWebhook to call workflow.FromWebhookEvent (or equivalent) instead of event.ToWorkflow
+        - Remove internal/webhook/events.go's ToWorkflow and projectFileFromBranch once relocated, retaining only the Event type (or its replacement) needed for coordination
+        - Update specs/architecture.yaml's internal/workflow description to mention constructing workflows from webhook events as part of its scope
+        - Run go build ./... and go test ./internal/webhook/... ./internal/workflow/... to confirm everything compiles and passes with no import cycles
+      passing: false
+    - slug: verify-server-is-pure-coordination
+      description: After the prior extractions, internal/webhook/server.go should contain only route registration, gin request/response plumbing, and calls into webhookconfig, github, workflow, and argo -- no string construction, crypto, JSON struct definitions, or workflow-struct field assembly.
+      items:
+        - 'Review the final internal/webhook/server.go and confirm handleWebhook''s body consists only of: reading the request, calling github.ParseWebhookPayload, webhookconfig.WebhookSecretForRepo, webhookconfig.ValidateSignature, payload.IsAcceptable/ToEvent (or relocated equivalents), workflow.FromWebhookEvent, and s.argoClient submission via s.submitWorkflow'
+        - Confirm internal/webhook/payload.go and internal/webhook/events.go either no longer exist or contain only thin coordination types/aliases with no implementation logic
+        - Run go vet ./internal/webhook/... and go test ./... to confirm the full suite remains green after all extractions
+      passing: false

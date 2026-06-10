@@ -63,12 +63,12 @@ func (m *mockGitHubClient) MergePR(prNumber int) error {
 }
 
 type mockProjectClient struct {
-	loadAllFunc        func() ([]*ralphproj.Project, error)
-	filterPassingFunc  func([]*ralphproj.Project) []*ralphproj.Project
-	deleteAllFunc      func([]*ralphproj.Project) error
-	loadAllCalled      bool
+	loadAllFunc         func() ([]*ralphproj.Project, error)
+	filterPassingFunc   func([]*ralphproj.Project) []*ralphproj.Project
+	deleteAllFunc       func([]*ralphproj.Project) error
+	loadAllCalled       bool
 	filterPassingCalled bool
-	deleteAllCalled    bool
+	deleteAllCalled     bool
 }
 
 func (m *mockProjectClient) LoadAll() ([]*ralphproj.Project, error) {

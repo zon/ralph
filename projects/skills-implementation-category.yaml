@@ -1,0 +1,36 @@
+slug: skills-implementation-category
+title: Recategorize internal/skills as an implementation module and add a shared mock
+maxIterations: 10
+requirements:
+    - slug: recategorize-skills-module
+      description: internal/skills (Discover, FetchAll, InstallAll, PruneStale) is entirely composed of real dependency implementations - GitHub Contents API HTTP calls, raw.githubusercontent.com fetches with regex-based link rewriting, and filesystem install/prune operations. specs/architecture.yaml currently lists it under category "orchestration", but its contents match the "implementation" category's signatures (real dependency implementations, mocks, unit tests), and orchestration modules must not contain string construction, format literals, I/O, or external calls per docs/code.md.
+      items:
+        - In specs/architecture.yaml, change the internal/skills module entry's category field from "orchestration" to "implementation"
+        - Update the internal/skills module's description in specs/architecture.yaml to describe it as a real implementation that fetches skill definitions from GitHub and installs/prunes them on disk, without listing specific function or type names
+      passing: false
+    - slug: add-skills-mock
+      description: Per docs/testing.md, mocks for an implementation module must live in a _mock.go file within that same module so other packages can import them without pulling in test infrastructure. internal/skills currently has no such file, even though internal/orchestration/setup/setup_test.go defines its own local mockSkills and internal/cmd/set.go defines its own skillsClient adapter for the same SkillsClient interface declared in internal/orchestration/setup/setup.go.
+      items:
+        - Create internal/skills/skills_mock.go in package skills containing a MockClient struct with overridable function fields DiscoverFunc, FetchAllFunc, PruneStaleFunc, and InstallAllFunc, matching the signatures of Discover, FetchAll, PruneStale, and InstallAll
+        - MockClient must implement methods Discover(branch string) ([]string, error), FetchAll(branch string, names []string) ([]Skill, error), PruneStale(root string, fetched []Skill), and InstallAll(root string, fetched []Skill) error, each calling the corresponding *Func field if set and otherwise returning a safe zero-value default (nil/no error for the discover/fetch/install functions, and doing nothing for PruneStale)
+        - Follow the mock pattern shown in docs/testing.md (function-field overrides per test case), matching the style of internal/git/client_mock.go
+      passing: false
+    - slug: dedupe-setup-mock
+      description: internal/orchestration/setup/setup_test.go defines a local mockSkills type that duplicates the SkillsClient interface implementation now provided by internal/skills.MockClient. Removing this duplication keeps the SkillsClient interface defined once (in internal/orchestration/setup, which is permitted to define interfaces) while reusing the shared implementation-module mock for its backing implementation.
+      items:
+        - Update internal/orchestration/setup/setup_test.go to use skills.MockClient (from internal/skills) in place of the locally defined mockSkills type, wiring its DiscoverFunc, FetchAllFunc, PruneStaleFunc, and InstallAllFunc fields to reproduce the existing test behaviors (success path, no-git-repo path, discovery failure, fetch failure, and tracking of installed/pruned skills for assertions)
+        - Remove the now-unused mockSkills type and its helper methods/functions (newMock, installed, pruned, thatFetches, thatFailsDiscovery, thatFailsFetch) from internal/orchestration/setup/setup_test.go, keeping only what is still needed
+        - Run go test ./internal/orchestration/setup/... to confirm all existing test cases still pass with the same coverage
+      passing: false
+    - slug: dedupe-cmd-set-adapter
+      description: internal/cmd/set.go defines its own skillsClient{} struct whose methods simply forward to the package-level functions in internal/skills (Discover, FetchAll, PruneStale, InstallAll). This adapter exists only to satisfy the SkillsClient interface for production wiring and duplicates the shape already implemented by the package functions themselves.
+      items:
+        - Remove the skillsClient struct and its four forwarding methods from internal/cmd/set.go
+        - Update SetSkillsCmd.Run to construct the setup.Setup using a value that satisfies setup.SkillsClient by directly referencing the internal/skills package functions (e.g. a small unexported struct or function-based adapter defined inline in internal/cmd/set.go is acceptable only if it cannot be eliminated entirely; prefer wiring setup.New to accept the package functions directly if setup.SkillsClient's shape allows it)
+        - Run go build ./... and go test ./internal/cmd/... to confirm SetSkillsCmd still parses and runs correctly
+      passing: false
+    - slug: full-suite-check
+      description: Confirm the recategorization and deduplication did not break the broader build or test suite.
+      items:
+        - Run go build ./... and go test ./... and confirm both succeed with no failures
+      passing: false

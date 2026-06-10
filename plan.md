@@ -6,25 +6,25 @@ the `ralph-review-module` skill, and report or fix any gaps found.
 
 ## Modules
 
-- [ ] `internal/orchestration/run`
-- [ ] `internal/orchestration/workspace`
-- [ ] `internal/orchestration/workflowrun`
-- [ ] `internal/orchestration/comment`
-- [ ] `internal/orchestration/merge`
-- [ ] `internal/project`
-- [ ] `internal/orchestration/validate`
-- [ ] `internal/orchestration/setup`
-- [ ] `internal/orchestration/setconfig`
-- [ ] `internal/orchestration/webhooksetconfig`
-- [ ] `internal/orchestration/workflowtoken`
-- [ ] `internal/webhook`
-- [ ] `internal/provisioning`
-- [ ] `internal/skills`
-- [ ] `internal/architecture`
-- [ ] `internal/services`
-- [ ] `internal/orchestration/argo`
-- [ ] `internal/orchestration/command`
-- [ ] `internal/orchestration/pass`
+- [x] `internal/orchestration/run` — gaps found, project: `projects/remove-dead-prepare-execution.yaml`
+- [x] `internal/orchestration/workspace`
+- [x] `internal/orchestration/workflowrun` — gaps found, project: `projects/workflowrun-merge-conflict-ai-resolution.yaml`
+- [x] `internal/orchestration/comment`
+- [x] `internal/orchestration/merge`
+- [x] `internal/project` — gaps found, project: `projects/clean-up-project-helpers.yaml`
+- [x] `internal/orchestration/validate`
+- [x] `internal/orchestration/setup`
+- [x] `internal/orchestration/setconfig`
+- [x] `internal/orchestration/webhooksetconfig`
+- [x] `internal/orchestration/workflowtoken` — minor gofmt/dead-code cleanup noted, no project
+- [x] `internal/webhook` — gaps found, project: `projects/webhook-orchestration-cleanup.yaml`
+- [x] `internal/provisioning` — gaps found, project: `projects/provisioning-into-webhookconfig.yaml`
+- [x] `internal/skills` — gaps found, project: `projects/skills-implementation-category.yaml`
+- [x] `internal/architecture` — gaps found, project: `projects/architecture-remove-dead-schema.yaml`
+- [x] `internal/services` — gaps found, project: `projects/services-implementation-category.yaml`
+- [x] `internal/orchestration/argo`
+- [x] `internal/orchestration/command` — gaps found, project: `projects/remove-dead-remote-command.yaml`
+- [x] `internal/orchestration/pass` — gaps found, project: `projects/pass-confirmation-message.yaml`
 
 ## Process per module
 

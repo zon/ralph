@@ -1,0 +1,12 @@
+slug: remove-dead-prepare-execution
+title: Remove dead PrepareExecution code from internal/orchestration/run
+maxIterations: 10
+requirements:
+    - slug: remove-prepare-execution
+      description: internal/orchestration/run/prepare.go contains PrepareResult and PrepareExecution, which perform direct I/O and call implementation packages directly (config.LoadConfig, git.GetCurrentBranch, project.LoadProject, filepath.Abs). This is not permitted in an orchestration module per docs/code.md, and the function has no production caller — RunCmd.prepareSetup in internal/orchestration/run/cmd.go already covers this via the GitClient/ProjectRepo/config.Loader interfaces.
+      items:
+        - Delete internal/orchestration/run/prepare.go entirely, removing the PrepareResult struct and PrepareExecution function
+        - Remove TestExecute_NonExistentProjectFile, TestExecute_InvalidYAML, and TestExecute_EmptyRequirements from internal/cmd/execute_test.go, since these tests call run.PrepareExecution
+        - Remove the now-unused "github.com/zon/ralph/internal/orchestration/run" import from internal/cmd/execute_test.go if nothing else in that file references the run package
+        - Run go build ./... and go test ./internal/orchestration/run/... ./internal/cmd/... to confirm the build and tests remain green after removal
+      passing: false
