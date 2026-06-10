@@ -7,8 +7,8 @@ import (
 )
 
 type SetCmd struct {
-	Skills   SetSkillsCmd   `cmd:"" help:"Manage ralph skill installation"`
-	SetConfig SetConfigCmd   `cmd:"" help:"Configure credentials for remote execution"`
+	Skills SetSkillsCmd `cmd:"" help:"Manage ralph skill installation"`
+	Config SetConfigCmd `cmd:"" help:"Configure credentials for remote execution"`
 }
 
 type SetSkillsCmd struct {

@@ -72,3 +72,23 @@ Orchestration modules define interfaces and compose behavior — they must not c
 | Implementation | real dependency implementations, mocks, tests |
 
 Mocks for an implementation module must live in a `_mock.go` file within that same module — not in `_test.go` files. This makes them importable by other packages that need to stub the dependency without pulling in test infrastructure.
+
+### CLI command validation
+
+Commands defined in specs must be tested to verify they exist in the expected format. Use `--help` to confirm the command structure matches the specification:
+
+```go
+func TestCommand(t *testing.T) {
+    cmd := exec.Command("go", "run", "./cmd/ralph", "subcommand", "name", "--help")
+    output, err := cmd.CombinedOutput()
+    require.NoError(t, err)
+    assert.Contains(t, string(output), "Expected help text from spec")
+}
+```
+
+This catches structural issues such as:
+- Incorrect command names (e.g. duplicated subcommand names)
+- Missing subcommands
+- Mismatched help text or flags
+
+Run these tests as part of the standard test suite to ensure the CLI structure stays aligned with specifications.
