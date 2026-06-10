@@ -220,7 +220,6 @@ func (e *mockFixError) Error() string {
 }
 
 func TestValidateSucceedsOnFirstLoad(t *testing.T) {
-	project.ResetLoadAttempts()
 	ResetFixCalls()
 	project.SetLastSaved(nil)
 	proj := project.Any()
@@ -235,7 +234,6 @@ func TestValidateSucceedsOnFirstLoad(t *testing.T) {
 }
 
 func TestValidateRepairsThenSucceeds(t *testing.T) {
-	project.ResetLoadAttempts()
 	ResetFixCalls()
 	proj := project.Any()
 	svc := withMocks(
@@ -248,7 +246,6 @@ func TestValidateRepairsThenSucceeds(t *testing.T) {
 }
 
 func TestValidateGivesUpAfterMaxAttempts(t *testing.T) {
-	project.ResetLoadAttempts()
 	ResetFixCalls()
 	svc := withMocks(
 		withProject(thatAlwaysFailsToLoad()),
@@ -259,7 +256,6 @@ func TestValidateGivesUpAfterMaxAttempts(t *testing.T) {
 }
 
 func TestValidateFailsFastWhenAgentMakesNoChange(t *testing.T) {
-	project.ResetLoadAttempts()
 	ResetFixCalls()
 	svc := withMocks(
 		withProject(thatAlwaysFailsToLoadWithUnchangedFile()),
@@ -270,7 +266,6 @@ func TestValidateFailsFastWhenAgentMakesNoChange(t *testing.T) {
 }
 
 func TestValidatePropagatesAgentFailure(t *testing.T) {
-	project.ResetLoadAttempts()
 	ResetFixCalls()
 	svc := withMocks(
 		withProject(thatAlwaysFailsToLoad()),
@@ -281,7 +276,6 @@ func TestValidatePropagatesAgentFailure(t *testing.T) {
 }
 
 func TestValidateRenamesJSONToYAML(t *testing.T) {
-	project.ResetLoadAttempts()
 	ResetFixCalls()
 	project.SetLastSaved(nil)
 	proj := project.Any()
@@ -299,7 +293,6 @@ func TestValidateRenamesJSONToYAML(t *testing.T) {
 }
 
 func TestValidateDoesNotRemoveYAML(t *testing.T) {
-	project.ResetLoadAttempts()
 	ResetFixCalls()
 	project.SetLastSaved(nil)
 	proj := project.Any()
@@ -316,7 +309,6 @@ func TestValidateDoesNotRemoveYAML(t *testing.T) {
 }
 
 func TestValidatePropagatesRemoveFailure(t *testing.T) {
-	project.ResetLoadAttempts()
 	ResetFixCalls()
 	mock := &mockProjectClient{
 		loadFunc: func(path string) (*project.Project, error) {
@@ -332,7 +324,6 @@ func TestValidatePropagatesRemoveFailure(t *testing.T) {
 }
 
 func TestValidatePropagatesSaveFailure(t *testing.T) {
-	project.ResetLoadAttempts()
 	ResetFixCalls()
 	svc := withMocks(
 		withProject(thatLoadsButFailsToSave(project.Any())),
@@ -342,7 +333,6 @@ func TestValidatePropagatesSaveFailure(t *testing.T) {
 }
 
 func TestValidateUsesValidateSpecificModel(t *testing.T) {
-	project.ResetLoadAttempts()
 	ResetFixCalls()
 	svc := withMocks(
 		withModel("validate-model"),
@@ -354,7 +344,6 @@ func TestValidateUsesValidateSpecificModel(t *testing.T) {
 }
 
 func TestValidateFallsBackToMainModel(t *testing.T) {
-	project.ResetLoadAttempts()
 	ResetFixCalls()
 	svc := withMocks(
 		withModel("main-model"),

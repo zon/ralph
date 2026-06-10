@@ -167,8 +167,3 @@ func SetLastSaved(p *Project) {
 	lastSavedValue = p
 }
 
-var loadAttempts int
-
-func ResetLoadAttempts() {
-	loadAttempts = 0
-}

@@ -22,4 +22,4 @@ requirements:
         - Delete the loadAttempts package var and the ResetLoadAttempts function from internal/project/helpers.go
         - Remove every call to project.ResetLoadAttempts() from internal/orchestration/validate/validate_test.go
         - Run go build ./... and go test ./... to confirm the full build and test suite remain green after all three cleanups in this project
-      passing: false
+      passing: true
