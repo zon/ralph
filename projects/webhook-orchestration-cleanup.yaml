@@ -9,7 +9,7 @@ requirements:
         - Change NewServer's signature to func NewServer(cfg *webhookconfig.Config, out *output.Client, argoClient argo.Client) *Server and store the passed client on the Server
         - Update cmd/ralph-webhook/main.go to construct argo.NewClient() and pass it to webhook.NewServer
         - Run go build ./... to confirm the new constructor signature compiles everywhere it is used
-      passing: false
+      passing: true
     - slug: submit-workflow-as-method
       description: Convert the free function submitWorkflow into a method on Server that uses the injected argoClient, and add a test exercising handleWebhook's success path with a mocked argo client.
       items:

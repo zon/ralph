@@ -19,21 +19,23 @@ import (
 
 // Server is the GitHub webhook HTTP server.
 type Server struct {
-	config *webhookconfig.Config
-	router *gin.Engine
-	out    *output.Client
+	config     *webhookconfig.Config
+	router     *gin.Engine
+	out        *output.Client
+	argoClient argo.Client
 }
 
 // NewServer creates a new webhook Server with the given configuration.
-func NewServer(cfg *webhookconfig.Config, out *output.Client) *Server {
+func NewServer(cfg *webhookconfig.Config, out *output.Client, argoClient argo.Client) *Server {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	router.Use(gin.Recovery())
 
 	s := &Server{
-		config: cfg,
-		router: router,
-		out:    out,
+		config:     cfg,
+		router:     router,
+		out:        out,
+		argoClient: argoClient,
 	}
 
 	router.POST("/webhook", s.handleWebhook)
