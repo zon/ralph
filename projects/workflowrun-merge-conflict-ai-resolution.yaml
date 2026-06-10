@@ -62,7 +62,7 @@ requirements:
             - GIVEN the base branch cannot be fetched (e.g., network error)
             - WHEN synchronization runs
             - THEN a warning is logged and execution continues without merging
-      passing: false
+      passing: true
     - slug: workflowrun-tests-cover-ai-resolution-and-warning
       description: Unit tests for internal/orchestration/workflowrun cover AI-driven conflict resolution invocation and the fetch-failure warning
       items:

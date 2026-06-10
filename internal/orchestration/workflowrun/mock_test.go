@@ -133,6 +133,18 @@ func (m *mockDebugClient) Setup(branch string) error {
 	return nil
 }
 
+type mockOutputClient struct {
+	warnfFunc   func(string, ...any)
+	warnfCalled bool
+}
+
+func (m *mockOutputClient) Warnf(format string, a ...any) {
+	m.warnfCalled = true
+	if m.warnfFunc != nil {
+		m.warnfFunc(format, a...)
+	}
+}
+
 var mockWksp *mockWorkspaceSetupClient
 var mockGit *mockGitClient
 var mockAI *mockAIClient
@@ -140,6 +152,7 @@ var mockRunner *mockRunnerClient
 var mockCfg *mockConfigClient
 var mockProj *mockProjectClient
 var mockDebug *mockDebugClient
+var mockOutput *mockOutputClient
 
 type runHelper struct{}
 
@@ -155,6 +168,7 @@ func (r *runHelper) withMocks(opts ...runOption) *WorkflowRunCmd {
 	mockCfg = &mockConfigClient{}
 	mockProj = &mockProjectClient{}
 	mockDebug = &mockDebugClient{}
+	mockOutput = &mockOutputClient{}
 	cmd := &WorkflowRunCmd{
 		workspace: mockWksp,
 		git:       mockGit,
@@ -163,6 +177,7 @@ func (r *runHelper) withMocks(opts ...runOption) *WorkflowRunCmd {
 		config:    mockCfg,
 		project:   mockProj,
 		debug:     mockDebug,
+		output:    mockOutput,
 	}
 	for _, opt := range opts {
 		opt(cmd)
@@ -220,6 +235,15 @@ func (r *runHelper) withDebug(dc DebugClient) runOption {
 		cmd.debug = dc
 		if m, ok := dc.(*mockDebugClient); ok {
 			mockDebug = m
+		}
+	}
+}
+
+func (r *runHelper) withOutput(oc OutputClient) runOption {
+	return func(cmd *WorkflowRunCmd) {
+		cmd.output = oc
+		if m, ok := oc.(*mockOutputClient); ok {
+			mockOutput = m
 		}
 	}
 }
@@ -327,6 +351,14 @@ func (h *projectHelper) thatFailsLoad() *mockProjectClient {
 
 func (h *projectHelper) loadCalled() bool {
 	return mockProj != nil && mockProj.loadCalled
+}
+
+type outputHelper struct{}
+
+var output = &outputHelper{}
+
+func (h *outputHelper) warnfCalled() bool {
+	return mockOutput != nil && mockOutput.warnfCalled
 }
 
 type debugHelper struct{}

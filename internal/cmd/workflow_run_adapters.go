@@ -27,6 +27,7 @@ func newOrchestrationWorkflowRunCmd(ctx *execcontext.Context, cleanupRegistrar f
 		&configOptionalAdapter{},
 		&projectLoadAdapter{},
 		&debugAdapter{ctx: ctx},
+		ctx.Output(),
 	)
 }
 

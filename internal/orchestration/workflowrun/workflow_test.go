@@ -65,6 +65,7 @@ func TestSyncBaseBranchFetchFailureContinues(t *testing.T) {
 	err := cmd.Run(flags.any())
 	require.NoError(t, err)
 	require.True(t, runner.runLocalCalled())
+	require.True(t, output.warnfCalled())
 }
 
 func TestSyncBaseBranchUpToDateSkipsMerge(t *testing.T) {

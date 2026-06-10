@@ -41,7 +41,11 @@ type DebugClient interface {
 	Setup(branch string) error
 }
 
-func NewWorkflowRunCmd(workspace WorkspaceSetupClient, git GitClient, ai AIClient, runner RunnerClient, config ConfigClient, project ProjectClient, debug DebugClient) *WorkflowRunCmd {
+type OutputClient interface {
+	Warnf(format string, a ...any)
+}
+
+func NewWorkflowRunCmd(workspace WorkspaceSetupClient, git GitClient, ai AIClient, runner RunnerClient, config ConfigClient, project ProjectClient, debug DebugClient, output OutputClient) *WorkflowRunCmd {
 	return &WorkflowRunCmd{
 		workspace: workspace,
 		git:       git,
@@ -50,6 +54,7 @@ func NewWorkflowRunCmd(workspace WorkspaceSetupClient, git GitClient, ai AIClien
 		config:    config,
 		project:   project,
 		debug:     debug,
+		output:    output,
 	}
 }
 
@@ -61,6 +66,7 @@ type WorkflowRunCmd struct {
 	config    ConfigClient
 	project   ProjectClient
 	debug     DebugClient
+	output    OutputClient
 }
 
 type WorkflowRunFlags struct {
@@ -116,6 +122,7 @@ func (w *WorkflowRunCmd) Run(flags WorkflowRunFlags) error {
 
 func (w *WorkflowRunCmd) syncBaseBranch(baseBranch, projectBranch string) error {
 	if err := w.git.FetchBranch(baseBranch); err != nil {
+		w.output.Warnf("Failed to fetch base branch %q: %v", baseBranch, err)
 		return nil
 	}
 	needsMerge, err := w.git.NeedsMerge(baseBranch)
