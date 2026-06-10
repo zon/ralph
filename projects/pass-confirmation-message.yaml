@@ -36,14 +36,14 @@ requirements:
             - WHEN the user runs 'ralph pass ./projects/my-project.yaml my-req --false'
             - THEN the requirement's 'passing' field is set to 'false' in the project file
             - AND a confirmation message is printed
-      passing: false
+      passing: true
     - slug: pass-cmd-tests
       description: Test the new internal/cmd PassCmd confirmation-message behavior
       items:
         - Add tests in internal/cmd (e.g. internal/cmd/pass_test.go) that run PassCmd.Run() against a temporary project file created with t.TempDir() and assert that a confirmation message is written to the output writer for both the mark-passing and mark-failing cases
         - Use github.com/stretchr/testify assert/require for all assertions, following the table-driven and t.TempDir() conventions in docs/testing.md
         - Ensure the existing internal/orchestration/pass/pass_test.go cases (mark passing, mark failing, file not found, slug not found) are preserved or moved as appropriate to continue testing the pure coordination logic without output
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump
       items:
