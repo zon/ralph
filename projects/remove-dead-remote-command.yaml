@@ -17,4 +17,4 @@ requirements:
         - Remove the CommandSetup type and runCommand function from internal/cmd/types.go, since after the above deletions they have no remaining callers
         - Remove any imports in internal/cmd/types.go that become unused after removing CommandSetup and runCommand (e.g. os, os/exec, fmt, github.com/zon/ralph/internal/config if unused elsewhere in that file)
         - Run go build ./... and go test ./... to confirm the build succeeds and the full test suite remains green, with no remaining references anywhere in the repo to ExecuteRemoteCommand, ExecuteCommand, CommandSetup, runCommand, or infrastructureRunBeforeCommands
-      passing: false
+      passing: true
