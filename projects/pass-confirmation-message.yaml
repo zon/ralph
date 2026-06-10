@@ -9,7 +9,7 @@ requirements:
         - internal/orchestration/pass/pass.go must not import or reference internal/output, and must not construct any user-facing strings
         - The exported type in internal/orchestration/pass/pass.go must remain a plain coordination type with a Run-style method that loads the project file via project.LoadProject, updates the requirement via project.UpdateRequirementStatus, and saves it via project.SaveProject, returning the loaded *project.Project (or equivalent) and an error so callers can build a confirmation message
         - Existing tests in internal/orchestration/pass/pass_test.go must continue to pass for the mark-passing, mark-failing, file-not-found, and slug-not-found cases
-      passing: false
+      passing: true
     - slug: pass-cmd-confirmation-message
       description: Add a cmd/ralph 'pass' command in internal/cmd that wires output and prints a confirmation message after a successful update, mirroring the pattern in internal/cmd/validate.go
       items:
