@@ -64,12 +64,13 @@ func Any() *Project {
 	return &Project{
 		Slug:  "test-project",
 		Title: "Test Project",
+		MaxIterations: 1,
 		Requirements: []Requirement{
 			{
-				Slug:        "test-requirement",
-				Description: "A test requirement",
-				Items:       []string{"Test item"},
-				Passing:     true,
+				Slug:        "req-1",
+				Description: "Requirement 1",
+				Items:       []string{"Item 1"},
+				Passing:     false,
 			},
 		},
 	}
@@ -96,69 +97,6 @@ func WithFailingRequirements() *Project {
 		Slug:  "test-project",
 		Title: "Test Project",
 		MaxIterations: 10,
-		Requirements: []Requirement{
-			{
-				Slug:        "req-1",
-				Description: "Requirement 1",
-				Items:       []string{"Item 1"},
-				Passing:     false,
-			},
-		},
-	}
-}
-
-func any() *Project {
-	return &Project{
-		Slug:  "test-project",
-		Title: "Test Project",
-		MaxIterations: 1,
-		Requirements: []Requirement{
-			{
-				Slug:        "req-1",
-				Description: "Requirement 1",
-				Items:       []string{"Item 1"},
-				Passing:     false,
-			},
-		},
-	}
-}
-
-func withAllPassing() *Project {
-	return &Project{
-		Slug:  "test-project",
-		Title: "Test Project",
-		MaxIterations: 1,
-		Requirements: []Requirement{
-			{
-				Slug:        "req-1",
-				Description: "Requirement 1",
-				Items:       []string{"Item 1"},
-				Passing:     true,
-			},
-		},
-	}
-}
-
-func withFailingRequirements() *Project {
-	return &Project{
-		Slug:  "test-project",
-		Title: "Test Project",
-		Requirements: []Requirement{
-			{
-				Slug:        "req-1",
-				Description: "Requirement 1",
-				Items:       []string{"Item 1"},
-				Passing:     false,
-			},
-		},
-	}
-}
-
-func withMaxIterations(n int) *Project {
-	return &Project{
-		Slug:  "test-project",
-		Title: "Test Project",
-		MaxIterations: n,
 		Requirements: []Requirement{
 			{
 				Slug:        "req-1",
