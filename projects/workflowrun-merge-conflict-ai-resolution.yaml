@@ -69,7 +69,7 @@ requirements:
         - In internal/orchestration/workflowrun/mock_test.go, add a mockOutputClient implementing OutputClient with a warnfFunc/warnfCalled pattern consistent with the other mocks in this file, and wire it into runHelper.withMocks/withOutput following the existing withX option pattern
         - Update TestSyncBaseBranchFetchFailureContinues in internal/orchestration/workflowrun/workflow_test.go to assert that the output mock's Warnf was called when git.FetchBranch fails, in addition to the existing assertion that runner.runLocalCalled() is true
         - Update TestSyncBaseBranchConflictsAbortAndInvokeAI in internal/orchestration/workflowrun/workflow_test.go (or add a new test) to assert ai.conflictsResolved() remains true after the AIClient.ResolveMergeConflicts signature/behavior change — the orchestration-level test continues to verify only that the interface method is called with the correct baseBranch and projectBranch arguments, not the prompt content (prompt rendering is now an internal/ai concern covered by its own test)
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump
       items:
