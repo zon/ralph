@@ -93,8 +93,8 @@ modules:
     description: Provisions webhook configuration and secrets into a Kubernetes cluster.
     category: orchestration
   - path: internal/skills
-    description: Manages the full lifecycle of ralph skills within a repository.
-    category: orchestration
+    description: Fetches skill definitions from GitHub and installs or prunes them on disk.
+    category: implementation
   - path: internal/architecture
     description: Defines and persists the architecture YAML schema for module documentation and review.
     category: orchestration

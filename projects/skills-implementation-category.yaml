@@ -7,7 +7,7 @@ requirements:
       items:
         - In specs/architecture.yaml, change the internal/skills module entry's category field from "orchestration" to "implementation"
         - Update the internal/skills module's description in specs/architecture.yaml to describe it as a real implementation that fetches skill definitions from GitHub and installs/prunes them on disk, without listing specific function or type names
-      passing: false
+      passing: true
     - slug: add-skills-mock
       description: Per docs/testing.md, mocks for an implementation module must live in a _mock.go file within that same module so other packages can import them without pulling in test infrastructure. internal/skills currently has no such file, even though internal/orchestration/setup/setup_test.go defines its own local mockSkills and internal/cmd/set.go defines its own skillsClient adapter for the same SkillsClient interface declared in internal/orchestration/setup/setup.go.
       items:
