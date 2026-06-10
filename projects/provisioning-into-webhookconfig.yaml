@@ -70,7 +70,7 @@ requirements:
         - setconfigSecretsClient.Write calls webhookconfig.WriteWebhookSecretsAndLog instead of provisioning.WriteWebhookSecretsAndLog
         - setconfigGitHubClient.RegisterWebhooks calls webhookconfig.RegisterAllGitHubWebhooks instead of provisioning.RegisterAllGitHubWebhooks
         - Existing tests in internal/orchestration/webhooksetconfig continue to pass unchanged, since they only depend on the webhooksetconfig interfaces, not on internal/provisioning or internal/webhookconfig directly
-      passing: false
+      passing: true
     - slug: remove-provisioning-module
       description: Delete internal/provisioning entirely and update the architecture registry to reflect the new module boundaries
       items:
