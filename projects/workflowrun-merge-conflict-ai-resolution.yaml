@@ -74,4 +74,4 @@ requirements:
       description: Version bump
       items:
         - Apply a semver patch bump to internal/version/VERSION and to charts/ralph-webhook/Chart.yaml (appVersion and a patch bump of version), per docs/code.md versioning rules
-      passing: false
+      passing: true
