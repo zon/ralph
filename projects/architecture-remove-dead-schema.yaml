@@ -9,4 +9,4 @@ requirements:
         - Delete internal/architecture/architecture_test.go entirely, since it tests only the dead code being removed
         - Run go build ./... and go test ./internal/architecture/... to confirm spec.go and spec_test.go still build and pass with no dependency on the removed file
         - Make no changes to specs/architecture.yaml or internal/project — they already use the correct SpecArchitecture/SpecModule types from spec.go
-      passing: false
+      passing: true
