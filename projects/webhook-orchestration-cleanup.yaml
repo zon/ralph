@@ -27,7 +27,7 @@ requirements:
         - Update internal/webhook/server.go's handleWebhook to call webhookconfig.ValidateSignature instead of the local validateSignature function, and remove the now-unused crypto/hmac, crypto/sha256, encoding/hex, and strings imports if no longer needed
         - Remove the local validateSignature function and its TestValidateSignature test from internal/webhook (now covered in internal/webhookconfig)
         - Run go test ./internal/webhook/... ./internal/webhookconfig/... to confirm all signature validation tests pass in their new location
-      passing: false
+      passing: true
     - slug: extract-payload-parsing
       description: internal/webhook/payload.go defines the githubPayload struct and its IsAcceptable/ToEvent methods, plus readAndParsePayload in server.go does raw JSON unmarshalling -- all implementation-level GitHub payload parsing that belongs in internal/github, which already owns GitHub API/webhook concerns (internal/github/webhook.go).
       items:

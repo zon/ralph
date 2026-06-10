@@ -208,31 +208,3 @@ func TestHandleWebhook_IssueComment_SubmitsWorkflow(t *testing.T) {
 	}
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// validateSignature unit tests
-// ──────────────────────────────────────────────────────────────────────────────
-
-func TestValidateSignature(t *testing.T) {
-	secret := "mysecret"
-	body := []byte(`{"test":"value"}`)
-	validSig := sign(body, secret)
-
-	tests := []struct {
-		name      string
-		signature string
-		want      bool
-	}{
-		{"valid signature", validSig, true},
-		{"missing signature", "", false},
-		{"wrong prefix", "sha1=" + validSig[7:], false},
-		{"tampered body", "sha256=000000", false},
-		{"wrong secret", sign(body, "wrong"), false},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			got := validateSignature(body, secret, tc.signature)
-			assert.Equal(t, tc.want, got)
-		})
-	}
-}

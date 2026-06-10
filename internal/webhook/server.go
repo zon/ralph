@@ -2,14 +2,10 @@ package webhook
 
 import (
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/zon/ralph/internal/argo"
@@ -81,7 +77,7 @@ func (s *Server) handleWebhook(c *gin.Context) {
 	}
 
 	sig := c.GetHeader("X-Hub-Signature-256")
-	if !validateSignature(body, secret, sig) {
+	if !webhookconfig.ValidateSignature(body, secret, sig) {
 		s.out.Debugf("rejected request: invalid signature for %s/%s", owner, repoName)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid signature"})
 		return
@@ -150,21 +146,3 @@ func (s *Server) submitWorkflow(result *WorkflowResult, owner, repoName string) 
 	}
 }
 
-// validateSignature checks the X-Hub-Signature-256 header against the HMAC-SHA256
-// of body using secret. Returns false if the signature is missing or invalid.
-func validateSignature(body []byte, secret, signature string) bool {
-	if signature == "" {
-		return false
-	}
-	const prefix = "sha256="
-	if !strings.HasPrefix(signature, prefix) {
-		return false
-	}
-	sigHex := strings.TrimPrefix(signature, prefix)
-
-	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write(body)
-	expected := hex.EncodeToString(mac.Sum(nil))
-
-	return hmac.Equal([]byte(expected), []byte(sigHex))
-}
