@@ -13,48 +13,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/zon/ralph/internal/opencode"
-	"github.com/zon/ralph/internal/orchestration/run"
 	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/project"
 	"github.com/zon/ralph/internal/testutil"
 )
-
-func TestExecute_NonExistentProjectFile(t *testing.T) {
-	tmpDir := t.TempDir()
-	projectFile := filepath.Join(tmpDir, "non-existent.yaml")
-
-	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
-
-	result, err := run.PrepareExecution(ctx)
-	assert.Error(t, err, "PrepareExecution should return error when project file does not exist")
-	assert.Nil(t, result)
-}
-
-func TestExecute_InvalidYAML(t *testing.T) {
-	tmpDir := t.TempDir()
-	projectFile := filepath.Join(tmpDir, "invalid.yaml")
-	invalidYAML := "slug: test\ntitle: [invalid yaml structure\nrequirements:\n  - not properly formatted\n"
-	require.NoError(t, os.WriteFile(projectFile, []byte(invalidYAML), 0644))
-
-	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
-	result, err := run.PrepareExecution(ctx)
-
-	require.Error(t, err)
-	assert.Nil(t, result)
-}
-
-func TestExecute_EmptyRequirements(t *testing.T) {
-	tmpDir := t.TempDir()
-	projectFile := filepath.Join(tmpDir, "empty-reqs.yaml")
-	emptyReqsYAML := "slug: test-project\ntitle: Project with no requirements\nrequirements: []\n"
-	require.NoError(t, os.WriteFile(projectFile, []byte(emptyReqsYAML), 0644))
-
-	ctx := testutil.NewContext(testutil.WithProjectFile(projectFile))
-	result, err := run.PrepareExecution(ctx)
-
-	require.Error(t, err)
-	assert.Nil(t, result)
-}
 
 // projectYAML is a minimal valid project used across development iteration tests.
 const projectYAML = `slug: test-project

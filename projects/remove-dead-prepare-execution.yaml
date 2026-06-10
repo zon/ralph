@@ -9,4 +9,4 @@ requirements:
         - Remove TestExecute_NonExistentProjectFile, TestExecute_InvalidYAML, and TestExecute_EmptyRequirements from internal/cmd/execute_test.go, since these tests call run.PrepareExecution
         - Remove the now-unused "github.com/zon/ralph/internal/orchestration/run" import from internal/cmd/execute_test.go if nothing else in that file references the run package
         - Run go build ./... and go test ./internal/orchestration/run/... ./internal/cmd/... to confirm the build and tests remain green after removal
-      passing: false
+      passing: true
