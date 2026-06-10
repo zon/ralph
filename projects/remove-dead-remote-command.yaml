@@ -8,7 +8,7 @@ requirements:
         - Delete internal/orchestration/command/remote.go entirely, removing the ExecuteRemoteCommand function
         - Remove the now-unused imports (github.com/zon/ralph/internal/argo, github.com/zon/ralph/internal/context, github.com/zon/ralph/internal/git, github.com/zon/ralph/internal/github, github.com/zon/ralph/internal/notify, github.com/zon/ralph/internal/workflow) from the internal/orchestration/command package if no remaining file in the package references them
         - Run go build ./internal/orchestration/command/... to confirm the package still builds after removal
-      passing: false
+      passing: true
     - slug: remove-execute-command
       description: internal/cmd/execute.go contains ExecuteCommand and infrastructureRunBeforeCommands, which call orchestrationCommand.ExecuteRemoteCommand (being removed) and runCommand. ExecuteCommand has no production caller — it is invoked only from internal/cmd/command_scenario_test.go and internal/cmd/run_command_test.go, never from kong command wiring (the live path is CommandCmd.Run in internal/cmd/command.go).
       items:
