@@ -33,7 +33,7 @@ requirements:
       items:
         - The 'ralph-webhook serve' command exists and displays help text about starting the webhook server
         - The 'ralph-webhook set config' command exists and displays help text about setting webhook configuration and secrets
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump
       items:
