@@ -418,6 +418,16 @@ func TestPassCmdHelpText(t *testing.T) {
 	assert.Contains(t, output, "Mark a project requirement as passing or failing")
 }
 
+func TestSetSkillsCmdHelpText(t *testing.T) {
+	output := captureHelpOutput(&Cmd{}, []string{"set", "skills", "--help"})
+	assert.Contains(t, output, "Manage ralph skill installation")
+}
+
+func TestSetConfigCmdHelpText(t *testing.T) {
+	output := captureHelpOutput(&Cmd{}, []string{"set", "config", "--help"})
+	assert.Contains(t, output, "Configure credentials for remote execution")
+}
+
 func TestTopLevelCommandsParsed(t *testing.T) {
 	tests := []struct {
 		name string
@@ -430,6 +440,8 @@ func TestTopLevelCommandsParsed(t *testing.T) {
 		{name: "list", args: []string{"list"}},
 		{name: "stop", args: []string{"stop", "test-workflow"}},
 		{name: "pass", args: []string{"pass", "test.yaml", "test-slug"}},
+		{name: "set skills", args: []string{"set", "skills"}},
+		{name: "set config", args: []string{"set", "config"}},
 	}
 
 	for _, tt := range tests {

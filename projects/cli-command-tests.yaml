@@ -18,7 +18,7 @@ requirements:
       items:
         - The 'ralph set skills' command exists and displays help text about managing ralph skill installation
         - The 'ralph set config' command exists and displays help text about configuring credentials for remote execution
-      passing: false
+      passing: true
     - slug: ralph-workflow-commands
       description: Verify ralph workflow subcommands exist with expected structure
       items:
