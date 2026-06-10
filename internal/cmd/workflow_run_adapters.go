@@ -6,10 +6,12 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/zon/ralph/internal/ai"
 	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/github"
+	"github.com/zon/ralph/internal/opencode"
 	wksp "github.com/zon/ralph/internal/orchestration/workspace"
 	orchestrationWorkflow "github.com/zon/ralph/internal/orchestration/workflowrun"
 	"github.com/zon/ralph/internal/project"
@@ -25,6 +27,7 @@ func newOrchestrationWorkflowRunCmd(ctx *execcontext.Context, cleanupRegistrar f
 		&configOptionalAdapter{},
 		&projectLoadAdapter{},
 		&debugAdapter{ctx: ctx},
+		ctx.Output(),
 	)
 }
 
@@ -147,14 +150,11 @@ type aiAdapter struct {
 }
 
 func (a *aiAdapter) ResolveMergeConflicts(baseBranch, projectBranch string) error {
-	return orchestrationWorkflow.ResolveMergeConflicts(
-		&configOptionalAdapter{},
-		&projectLoadAdapter{},
-		&runnerAdapter{ctx: a.ctx, baseBranch: baseBranch},
-		a.ctx.ProjectFile(),
-		baseBranch,
-		projectBranch,
-	)
+	prompt, err := ai.BuildResolveMergeConflictsPrompt(baseBranch, projectBranch)
+	if err != nil {
+		return err
+	}
+	return ai.RunAgent(a.ctx, opencode.New(), prompt)
 }
 
 // ---------------------------------------------------------------------------
