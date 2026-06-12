@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/alecthomas/kong"
+	"github.com/zon/ralph/internal/argo"
 	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/webhook"
 	"github.com/zon/ralph/internal/webhookconfig"
@@ -29,7 +30,7 @@ func (c *ServeCmd) Run() error {
 		return err
 	}
 
-	s := webhook.NewServer(cfg, out)
+	s := webhook.NewServer(cfg, out, argo.NewClient())
 	out.Infof("starting ralph-webhook service on port %d", cfg.App.Port)
 	return s.Run()
 }

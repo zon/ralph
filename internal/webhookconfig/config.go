@@ -1,6 +1,9 @@
 package webhookconfig
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"strings"
@@ -219,6 +222,25 @@ func (c *Config) IsUserIgnored(repo *RepoConfig, username string) bool {
 		}
 	}
 	return false
+}
+
+// ValidateSignature checks the X-Hub-Signature-256 header against the HMAC-SHA256
+// of body using secret. Returns false if the signature is missing or invalid.
+func ValidateSignature(body []byte, secret, signature string) bool {
+	if signature == "" {
+		return false
+	}
+	const prefix = "sha256="
+	if !strings.HasPrefix(signature, prefix) {
+		return false
+	}
+	sigHex := strings.TrimPrefix(signature, prefix)
+
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write(body)
+	expected := hex.EncodeToString(mac.Sum(nil))
+
+	return hmac.Equal([]byte(expected), []byte(sigHex))
 }
 
 func repoKey(owner, name string) string {

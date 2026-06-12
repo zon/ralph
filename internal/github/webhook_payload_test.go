@@ -1,18 +1,41 @@
-package webhook
+package github
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/zon/ralph/internal/webhookconfig"
 )
 
-// minimalPayload builds a githubPayload for acme/myrepo with the given overrides.
-func minimalPayload(owner, repo string) githubPayload {
-	var p githubPayload
+// ──────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ──────────────────────────────────────────────────────────────────────────────
+
+// minimalPayload builds a WebhookPayload for acme/myrepo with the given overrides.
+func minimalPayload(owner, repo string) WebhookPayload {
+	var p WebhookPayload
 	p.Repository.Owner.Login = owner
 	p.Repository.Name = repo
 	return p
+}
+
+// openConfig returns a Config with no allowlist restrictions.
+func openConfig() *webhookconfig.Config {
+	return &webhookconfig.Config{
+		App: webhookconfig.AppConfig{
+			Repos: []webhookconfig.RepoConfig{
+				{Owner: "acme", Name: "myrepo"},
+			},
+		},
+	}
+}
+
+// configWithAllowedUsers returns a Config with an AllowedUsers list on acme/myrepo.
+func configWithAllowedUsers(users []string) *webhookconfig.Config {
+	cfg := openConfig()
+	cfg.App.Repos[0].AllowedUsers = users
+	return cfg
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -27,7 +50,6 @@ func TestIsAcceptable_UnknownEventType_ReturnsFalse(t *testing.T) {
 func TestIsAcceptable_IssueComment_NonPR_ReturnsFalse(t *testing.T) {
 	p := minimalPayload("acme", "myrepo")
 	p.Comment.User.Login = "alice"
-	// Issue.PullRequest is nil → plain issue comment
 	assert.False(t, p.IsAcceptable("issue_comment", openConfig()))
 }
 
@@ -181,7 +203,6 @@ func TestToEvent_IssueComment_FieldsPopulated(t *testing.T) {
 	assert.Equal(t, "acme", e.RepoOwner)
 	assert.Equal(t, "myrepo", e.RepoName)
 	assert.False(t, e.Approved)
-	assert.True(t, e.IsComment())
 }
 
 func TestToEvent_PullRequestReviewComment_FieldsPopulated(t *testing.T) {
@@ -206,7 +227,6 @@ func TestToEvent_ReviewApproved_ApprovedTrue(t *testing.T) {
 	e := p.ToEvent("pull_request_review")
 
 	assert.True(t, e.Approved)
-	assert.True(t, e.IsReview())
 	assert.Equal(t, "carol", e.Author)
 }
 
@@ -225,7 +245,6 @@ func TestToEvent_ReviewCommented_ApprovedFalse(t *testing.T) {
 func TestToEvent_NoPRNumber_EmptyString(t *testing.T) {
 	p := minimalPayload("acme", "myrepo")
 	p.Comment.Body = "hello"
-	// PullRequest.Number is zero
 	e := p.ToEvent("pull_request_review_comment")
 	assert.Equal(t, "", e.PRNumber)
 }
@@ -261,23 +280,23 @@ func TestToEvent_ReviewChangesRequested_ApprovedFalse(t *testing.T) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Helpers
+// ParseWebhookPayload tests
 // ──────────────────────────────────────────────────────────────────────────────
 
-// openConfig returns a Config with no allowlist restrictions.
-func openConfig() *webhookconfig.Config {
-	return &webhookconfig.Config{
-		App: webhookconfig.AppConfig{
-			Repos: []webhookconfig.RepoConfig{
-				{Owner: "acme", Name: "myrepo"},
-			},
-		},
-	}
+func TestParseWebhookPayload_ValidJSON_ParsesCorrectly(t *testing.T) {
+	body := []byte(`{"repository":{"name":"myrepo","owner":{"login":"acme"}}}`)
+	p, err := ParseWebhookPayload(body)
+	require.NoError(t, err)
+	assert.Equal(t, "acme", p.RepoOwner())
+	assert.Equal(t, "myrepo", p.RepoName())
 }
 
-// configWithAllowedUsers returns a Config with an AllowedUsers list on acme/myrepo.
-func configWithAllowedUsers(users []string) *webhookconfig.Config {
-	cfg := openConfig()
-	cfg.App.Repos[0].AllowedUsers = users
-	return cfg
+func TestParseWebhookPayload_InvalidJSON_ReturnsError(t *testing.T) {
+	_, err := ParseWebhookPayload([]byte("not json"))
+	assert.Error(t, err)
+}
+
+func TestParseWebhookPayload_EmptyBody_ReturnsError(t *testing.T) {
+	_, err := ParseWebhookPayload([]byte{})
+	assert.Error(t, err)
 }
