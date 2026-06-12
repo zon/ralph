@@ -42,13 +42,11 @@ type Workflow struct {
 	Secrets []config.SecretMount
 	// Env is the environment variables to set in the container.
 	Env map[string]string
-	// DefaultBranch is the default branch for PR creation.
-	DefaultBranch string
 	// KubeContext is the Argo workflow context label.
 	KubeContext string
 	// Namespace is the Kubernetes namespace for workflow submission.
 	Namespace string
-	// BaseBranch overrides the default branch for PR creation (overrides DefaultBranch when set).
+	// BaseBranch is the base branch for PR creation, already resolved by the caller.
 	BaseBranch string
 	// NoServices controls whether the ralph command inside the container runs with --no-services.
 	NoServices bool
@@ -69,7 +67,7 @@ func (w *Workflow) Render() (string, error) {
 		"instructions-md": w.Instructions,
 		"comment-body":    w.CommentBody,
 		"pr-number":       w.PRNumber,
-		"base-branch":     w.getEffectiveBaseBranch(),
+		"base-branch":     w.BaseBranch,
 	}
 
 	wfLabels := map[string]string{
@@ -127,14 +125,6 @@ func (w *Workflow) Submit(ctx context.Context, client argo.Client) (string, erro
 	return client.SubmitYAML(ctx, workflowYAML, argo.K8sContext{Name: w.KubeContext, Namespace: w.Namespace})
 }
 
-// getEffectiveBaseBranch returns the effective base branch for the workflow parameter.
-func (w *Workflow) getEffectiveBaseBranch() string {
-	if w.BaseBranch != "" {
-		return w.BaseBranch
-	}
-	return w.DefaultBranch
-}
-
 func (w *Workflow) buildMainTemplate() map[string]interface{} {
 	var command []string
 	var args []string
@@ -180,7 +170,7 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 			"--repo", w.Repo.Owner + "/" + w.Repo.Name,
 			"--project-path", "{{workflow.parameters.project-path}}",
 			"--project-branch", w.ProjectBranch,
-			"--base", w.getEffectiveBaseBranch(),
+			"--base", w.BaseBranch,
 		}
 		if w.DebugBranch != "" {
 			args = append(args, "--debug", w.DebugBranch)
@@ -230,7 +220,6 @@ func (w *Workflow) buildEnvVars() []map[string]interface{} {
 		{"name": "COMMENT_BODY", "value": "{{workflow.parameters.comment-body}}"},
 		{"name": "PR_NUMBER", "value": "{{workflow.parameters.pr-number}}"},
 		{"name": "RALPH_WORKFLOW_EXECUTION", "value": "true"},
-		{"name": "BASE_BRANCH", "value": "{{workflow.parameters.base-branch}}"},
 		{"name": "RALPH_DEBUG_BRANCH", "value": w.DebugBranch},
 		{"name": "RALPH_VERBOSE", "value": fmt.Sprintf("%t", w.Verbose)},
 		{"name": "RALPH_NO_SERVICES", "value": fmt.Sprintf("%t", w.NoServices)},

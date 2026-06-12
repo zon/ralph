@@ -142,7 +142,7 @@ The command SHALL reject flag combinations that have no valid meaning before any
 
 ### Requirement: Base branch resolution
 
-The command SHALL determine the base branch for PR creation by the following priority: explicit `--base` flag > current branch (when different from project branch) > config default branch.
+The command SHALL determine the base branch for PR creation by the following priority: explicit `--base` flag > current branch (when different from project branch) > config default branch. This resolution SHALL happen once, locally, before dispatching to either run-local or run-remote, and the resolved value SHALL be passed down as a parameter rather than recomputed by the runner.
 
 #### Scenario: Explicit `--base` flag
 
@@ -163,6 +163,22 @@ The command SHALL determine the base branch for PR creation by the following pri
 - AND no `--base` flag is provided
 - WHEN the base branch is resolved
 - THEN the config default branch (e.g. `main`) is used
+
+#### Scenario: Resolved base branch passed to run-local
+
+- GIVEN the base branch has been resolved locally
+- AND the command runs with `--local`
+- WHEN execution is dispatched
+- THEN the resolved base branch is passed to the run-local behavior described in [run-local/spec.md](../run-local/spec.md)
+- AND run-local does not recompute the base branch
+
+#### Scenario: Resolved base branch passed to run-remote
+
+- GIVEN the base branch has been resolved locally
+- AND the command runs without `--local`
+- WHEN execution is dispatched
+- THEN the resolved base branch is passed to the run-remote behavior described in [run-remote/spec.md](../run-remote/spec.md)
+- AND run-remote does not recompute the base branch
 
 ---
 

@@ -212,6 +212,18 @@ Before submitting a pull request the command SHALL check whether the project's s
 
 ---
 
+### Requirement: Base branch for PR creation
+
+The base branch used for PR creation SHALL be the value passed in by the caller, resolved according to [run/spec.md](../run/spec.md). The command SHALL NOT recompute or override this value.
+
+#### Scenario: PR opened against the supplied base branch
+
+- GIVEN the caller has resolved a base branch and passed it to run-local
+- WHEN the PR creation step runs
+- THEN the pull request base is the supplied base branch
+
+---
+
 ### Requirement: PR creation when all requirements pass
 
 When all requirements are found to be passing — whether they were already passing before the first iteration or became passing during the loop — the command SHALL generate an AI PR summary and open a GitHub pull request from the project branch to the base branch.

@@ -52,18 +52,20 @@ func (m *mockProjectRepo) ResolveInputFile(path string) (*project.InputFile, err
 }
 
 type mockLocalRunnerClient struct {
-	RunLocalFunc    func(*project.InputFile, *config.RalphConfig) error
+	RunLocalFunc    func(*project.InputFile, *config.RalphConfig, string) error
 	LastInput       *project.InputFile
 	LastConfig      *config.RalphConfig
+	LastBaseBranch  string
 	RunLocalCalled  bool
 }
 
-func (m *mockLocalRunnerClient) RunLocal(input *project.InputFile, cfg *config.RalphConfig) error {
+func (m *mockLocalRunnerClient) RunLocal(input *project.InputFile, cfg *config.RalphConfig, baseBranch string) error {
 	m.RunLocalCalled = true
 	m.LastInput = input
 	m.LastConfig = cfg
+	m.LastBaseBranch = baseBranch
 	if m.RunLocalFunc != nil {
-		return m.RunLocalFunc(input, cfg)
+		return m.RunLocalFunc(input, cfg, baseBranch)
 	}
 	return nil
 }
@@ -546,18 +548,18 @@ func TestRunIncompatibleFlagsRejectedBeforeSetupForProjectInput(t *testing.T) {
 // Tests: prepareSetup with non-project inputs
 // ---------------------------------------------------------------------------
 
-func TestPrepareSetupWithOrchestrationInputDefaultsBaseBranch(t *testing.T) {
+func TestPrepareSetupWithOrchestrationInputResolvesBaseBranch(t *testing.T) {
 	cmd := cmdWithMocks()
 	input := project.ForOrchestrationInput("specs/features/ralph/run/orchestration.md")
 	setup, err := cmd.prepareSetup(flagsAny(), input)
 	require.NoError(t, err)
-	require.Empty(t, setup.BaseBranch)
+	require.Equal(t, "main", setup.BaseBranch)
 }
 
-func TestPrepareSetupWithSpecInputDefaultsBaseBranch(t *testing.T) {
+func TestPrepareSetupWithSpecInputResolvesBaseBranch(t *testing.T) {
 	cmd := cmdWithMocks()
 	input := project.ForSpecInput("specs/features/ralph/run/spec.md")
 	setup, err := cmd.prepareSetup(flagsAny(), input)
 	require.NoError(t, err)
-	require.Empty(t, setup.BaseBranch)
+	require.Equal(t, "main", setup.BaseBranch)
 }

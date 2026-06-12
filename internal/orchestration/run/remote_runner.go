@@ -3,8 +3,9 @@ package run
 import "github.com/zon/ralph/internal/project"
 
 type RunRemoteFlags struct {
-	Follow bool
-	Debug  string
+	Follow     bool
+	Debug      string
+	BaseBranch string
 }
 
 type RemoteRunner struct {
@@ -29,7 +30,7 @@ func (r *RemoteRunner) Run(input *project.InputFile, flags RunRemoteFlags) error
 	if err := r.git.IsBranchSyncedWithRemote(branch); err != nil {
 		return err
 	}
-	workflowName, err := r.workflow.Submit(input, branch, flags.Debug)
+	workflowName, err := r.workflow.Submit(input, branch, flags.Debug, flags.BaseBranch)
 	if err != nil {
 		return err
 	}

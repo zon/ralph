@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/zon/ralph/internal/config"
+	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/project"
 )
 
@@ -25,7 +26,7 @@ type ProjectRepo interface {
 }
 
 type LocalRunnerClient interface {
-	RunLocal(input *project.InputFile, cfg *config.RalphConfig) error
+	RunLocal(input *project.InputFile, cfg *config.RalphConfig, baseBranch string) error
 }
 
 type RemoteRunnerClient interface {
@@ -91,9 +92,9 @@ func (r *RunCmd) Run(flags RunFlags) error {
 		return err
 	}
 	if flags.Local {
-		return r.local.RunLocal(input, setup.Config)
+		return r.local.RunLocal(input, setup.Config, setup.BaseBranch)
 	}
-	return r.remote.Run(input, RunRemoteFlags{Follow: flags.Follow, Debug: flags.Debug})
+	return r.remote.Run(input, RunRemoteFlags{Follow: flags.Follow, Debug: flags.Debug, BaseBranch: setup.BaseBranch})
 }
 
 func (r *RunCmd) prepareSetup(flags RunFlags, input *project.InputFile) (ExecutionSetup, error) {
@@ -105,16 +106,9 @@ func (r *RunCmd) prepareSetup(flags RunFlags, input *project.InputFile) (Executi
 	if err != nil {
 		return ExecutionSetup{}, err
 	}
-	projectBranch := input.Slug()
-	var baseBranch string
-	var maxIterations int
-	if input.IsProject() {
-		baseBranch = resolveBaseBranch(flags.Base, currentBranch, projectBranch, cfg.DefaultBranch)
-		maxIterations = resolveMaxIterations(cfg.MaxIterations, flags.MaxIterations)
-	} else {
-		maxIterations = resolveMaxIterations(cfg.MaxIterations, flags.MaxIterations)
-		baseBranch = ""
-	}
+	projectBranch := git.SanitizeBranchName(input.Slug())
+	baseBranch := resolveBaseBranch(flags.Base, currentBranch, projectBranch, cfg.DefaultBranch)
+	maxIterations := resolveMaxIterations(cfg.MaxIterations, flags.MaxIterations)
 	return ExecutionSetup{
 		Config:        cfg,
 		BranchName:    projectBranch,

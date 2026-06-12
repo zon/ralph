@@ -308,7 +308,6 @@ func TestNewContextFromEnv(t *testing.T) {
 		"GITHUB_REPO_NAME":         "test-repo",
 		"PROJECT_PATH":             "/path/to/project.yaml",
 		"PROJECT_BRANCH":           "feature/test",
-		"BASE_BRANCH":              "main",
 		"RALPH_VERBOSE":            "true",
 		"RALPH_NO_SERVICES":        "true",
 		"RALPH_DEBUG_BRANCH":       "debug-branch",
@@ -329,7 +328,6 @@ func TestNewContextFromEnv(t *testing.T) {
 	assert.Equal(t, "test-repo", name, "repo name should match")
 	assert.Equal(t, "/path/to/project.yaml", ctx.ProjectFile(), "project file should match")
 	assert.Equal(t, "feature/test", ctx.Branch(), "branch should match")
-	assert.Equal(t, "main", ctx.BaseBranch(), "base branch should match")
 	assert.True(t, ctx.IsVerbose(), "verbose should be true")
 	assert.True(t, ctx.NoServices(), "noServices should be true")
 	assert.Equal(t, "debug-branch", ctx.DebugBranch(), "debug branch should match")
@@ -344,7 +342,6 @@ func TestNewContextFromEnvEmpty(t *testing.T) {
 		"GITHUB_REPO_NAME",
 		"PROJECT_PATH",
 		"PROJECT_BRANCH",
-		"BASE_BRANCH",
 		"RALPH_VERBOSE",
 		"RALPH_NO_SERVICES",
 		"RALPH_DEBUG_BRANCH",

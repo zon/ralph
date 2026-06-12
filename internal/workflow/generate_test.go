@@ -47,7 +47,7 @@ func TestGenerateWorkflow(t *testing.T) {
 	projectBranch := "test-project"
 	relProjectPath := "project.yaml"
 
-	wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", repoURL, cloneBranch, projectBranch, relProjectPath, false, cfg, instructions)
+	wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", repoURL, cloneBranch, projectBranch, "main", relProjectPath, false, cfg, instructions)
 	require.NoError(t, err, "GenerateWorkflowWithGitInfo failed")
 	workflowYAML, err := wf.Render()
 	require.NoError(t, err, "Render failed")
@@ -118,7 +118,7 @@ func TestGenerateWorkflow(t *testing.T) {
 	env, ok := container["env"].([]interface{})
 	require.True(t, ok, "env is not a list")
 
-	hasGitRepoURL, hasGitBranch, hasProjectBranch, hasCustomEnv, hasBaseBranch, hasDebugBranch, hasVerbose, hasNoServices := false, false, false, false, false, false, false, false
+	hasGitRepoURL, hasGitBranch, hasProjectBranch, hasCustomEnv, hasDebugBranch, hasVerbose, hasNoServices := false, false, false, false, false, false, false
 	for _, envVar := range env {
 		envMap, ok := envVar.(map[string]interface{})
 		if !ok {
@@ -137,8 +137,6 @@ func TestGenerateWorkflow(t *testing.T) {
 			if envMap["value"] == "my-value" {
 				hasCustomEnv = true
 			}
-		case "BASE_BRANCH":
-			hasBaseBranch = true
 		case "RALPH_DEBUG_BRANCH":
 			hasDebugBranch = true
 		case "RALPH_VERBOSE":
@@ -151,7 +149,6 @@ func TestGenerateWorkflow(t *testing.T) {
 	assert.True(t, hasGitBranch, "GIT_BRANCH environment variable not found")
 	assert.True(t, hasProjectBranch, "PROJECT_BRANCH environment variable not found")
 	assert.True(t, hasCustomEnv, "Custom environment variable MY_VAR not found")
-	assert.True(t, hasBaseBranch, "BASE_BRANCH environment variable not found")
 	assert.True(t, hasDebugBranch, "RALPH_DEBUG_BRANCH environment variable not found")
 	assert.True(t, hasVerbose, "RALPH_VERBOSE environment variable not found")
 	assert.True(t, hasNoServices, "RALPH_NO_SERVICES environment variable not found")
@@ -224,7 +221,7 @@ func TestGenerateWorkflow_DefaultImage(t *testing.T) {
 		DefaultBranch: "main",
 	}
 	ctx := &execcontext.Context{}
-	wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", "git@github.com:test/repo.git", "main", "test-project", "project.yaml", false, cfg, "")
+	wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", "git@github.com:test/repo.git", "main", "test-project", "main", "project.yaml", false, cfg, "")
 	require.NoError(t, err, "GenerateWorkflowWithGitInfo failed")
 	workflowYAML, err := wf.Render()
 	require.NoError(t, err, "Render failed")
@@ -594,7 +591,7 @@ func TestMergeWorkflowRender_GitHubCredentialsVolumeMount(t *testing.T) {
 	assert.True(t, hasGithubMount, "github-credentials volume mount at /secrets/github not found")
 }
 
-func TestBaseBranchOverride(t *testing.T) {
+func TestBaseBranchPassedToWorkflow(t *testing.T) {
 	cfg := &config.RalphConfig{
 		DefaultBranch: "config-base-branch",
 		Workflow: config.WorkflowConfig{
@@ -602,17 +599,16 @@ func TestBaseBranchOverride(t *testing.T) {
 		},
 	}
 	ctx := &execcontext.Context{}
-	ctx.SetBaseBranch("override-branch")
 
 	repoURL := "git@github.com:test/repo.git"
 	cloneBranch := "main"
 	projectBranch := "test-project"
 	relProjectPath := "project.yaml"
 
-	wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", repoURL, cloneBranch, projectBranch, relProjectPath, false, cfg, "")
+	wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", repoURL, cloneBranch, projectBranch, "override-branch", relProjectPath, false, cfg, "")
 	require.NoError(t, err, "GenerateWorkflowWithGitInfo failed")
 
-	assert.Equal(t, "override-branch", wf.BaseBranch, "BaseBranch should be set from context")
+	assert.Equal(t, "override-branch", wf.BaseBranch, "BaseBranch should be set from the resolved baseBranch parameter")
 
 	workflowYAML, err := wf.Render()
 	require.NoError(t, err, "Render failed")
@@ -642,62 +638,15 @@ func TestBaseBranchOverride(t *testing.T) {
 	tmpl := templates[0].(map[string]interface{})
 	container := tmpl["container"].(map[string]interface{})
 
-	env := container["env"].([]interface{})
-
-	var baseBranchValue string
-	for _, envVar := range env {
-		envMap := envVar.(map[string]interface{})
-		if envMap["name"] == "BASE_BRANCH" {
-			baseBranchValue = envMap["value"].(string)
+	args := container["args"].([]interface{})
+	var hasBaseArg bool
+	for i, a := range args {
+		if a == "--base" && i+1 < len(args) && args[i+1] == "override-branch" {
+			hasBaseArg = true
 			break
 		}
 	}
-
-	assert.Equal(t, "{{workflow.parameters.base-branch}}", baseBranchValue, "BASE_BRANCH env var should reference workflow parameter")
-}
-
-func TestBaseBranchDefault(t *testing.T) {
-	cfg := &config.RalphConfig{
-		DefaultBranch: "main",
-		Workflow: config.WorkflowConfig{
-			Namespace: "my-namespace",
-		},
-	}
-	ctx := &execcontext.Context{}
-
-	repoURL := "git@github.com:test/repo.git"
-	cloneBranch := "main"
-	projectBranch := "test-project"
-	relProjectPath := "project.yaml"
-
-	wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", repoURL, cloneBranch, projectBranch, relProjectPath, false, cfg, "")
-	require.NoError(t, err, "GenerateWorkflowWithGitInfo failed")
-
-	assert.Equal(t, "", wf.BaseBranch, "BaseBranch should be empty when not set")
-
-	workflowYAML, err := wf.Render()
-	require.NoError(t, err, "Render failed")
-
-	var workflow map[string]interface{}
-	require.NoError(t, yaml.Unmarshal([]byte(workflowYAML), &workflow), "Failed to parse generated workflow YAML")
-
-	spec := workflow["spec"].(map[string]interface{})
-
-	arguments := spec["arguments"].(map[string]interface{})
-	params := arguments["parameters"].([]interface{})
-
-	var baseBranchParamValue string
-	var hasBaseBranchParam bool
-	for _, p := range params {
-		paramMap := p.(map[string]interface{})
-		if paramMap["name"] == "base-branch" {
-			hasBaseBranchParam = true
-			baseBranchParamValue = paramMap["value"].(string)
-			break
-		}
-	}
-	assert.True(t, hasBaseBranchParam, "base-branch parameter should exist")
-	assert.Equal(t, "main", baseBranchParamValue, "base-branch parameter should default to config defaultBranch")
+	assert.True(t, hasBaseArg, "--base override-branch should be passed as a container arg")
 }
 
 func TestKubeContextOverride(t *testing.T) {
@@ -713,7 +662,7 @@ func TestKubeContextOverride(t *testing.T) {
 		ctx := &execcontext.Context{}
 		ctx.SetKubeContext("override-context")
 
-		wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", "git@github.com:test/repo.git", "main", "test-project", "project.yaml", false, cfg, "")
+		wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", "git@github.com:test/repo.git", "main", "test-project", "main", "project.yaml", false, cfg, "")
 		require.NoError(t, err, "GenerateWorkflowWithGitInfo failed")
 
 		assert.Equal(t, "override-context", wf.KubeContext, "KubeContext should be set from context override")
@@ -722,7 +671,7 @@ func TestKubeContextOverride(t *testing.T) {
 	t.Run("falls back to config when context override is empty", func(t *testing.T) {
 		ctx := &execcontext.Context{}
 
-		wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", "git@github.com:test/repo.git", "main", "test-project", "project.yaml", false, cfg, "")
+		wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", "git@github.com:test/repo.git", "main", "test-project", "main", "project.yaml", false, cfg, "")
 		require.NoError(t, err)
 
 		assert.Equal(t, "config-context", wf.KubeContext, "KubeContext should fall back to config")

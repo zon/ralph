@@ -103,3 +103,15 @@ With `--debug <branch>`, the generated workflow SHALL check out the specified ra
 - WHEN the workflow YAML is generated
 - THEN the container checks out the `my-fix` branch of the ralph repository
 - AND invokes ralph via `go run` instead of the pre-built binary
+
+---
+
+### Requirement: Base branch delivered to the workflow via `--base` argument
+
+The base branch SHALL be resolved locally (see [run/spec.md](../run/spec.md)) and passed to the generated workflow as the `--base` CLI argument to `ralph workflow run`. The container SHALL NOT recompute the base branch.
+
+#### Scenario: Resolved base branch passed as `--base` argument
+
+- GIVEN a base branch has been resolved locally before workflow submission
+- WHEN the workflow YAML is generated
+- THEN the container args for `ralph workflow run` include `--base <resolved-base-branch>`

@@ -266,9 +266,6 @@ func NewContextFromEnv() *Context {
 	if val := os.Getenv("PROJECT_BRANCH"); val != "" {
 		ctx.SetBranch(val)
 	}
-	if val := os.Getenv("BASE_BRANCH"); val != "" {
-		ctx.SetBaseBranch(val)
-	}
 
 	if os.Getenv("RALPH_VERBOSE") == "true" {
 		ctx.SetVerbose(true)
