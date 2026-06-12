@@ -92,7 +92,7 @@ func (s *Server) handleWebhook(c *gin.Context) {
 
 	eventType := c.GetHeader("X-GitHub-Event")
 
-	if !payload.IsAcceptable(eventType, s.config) {
+	if !webhookconfig.IsAcceptable(payload, eventType, s.config) {
 		s.out.Debugf("ignoring %s event for %s/%s", eventType, owner, repoName)
 		c.Status(http.StatusOK)
 		return

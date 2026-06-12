@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-
-	"github.com/zon/ralph/internal/webhookconfig"
 )
 
 // WebhookPayload is the subset of a GitHub webhook JSON payload that the server needs.
@@ -53,42 +51,6 @@ func (p *WebhookPayload) RepoName() string {
 	return p.Repository.Name
 }
 
-// IsAcceptable reports whether the payload should be dispatched for the given
-// event type, applying user ignore/allowlist rules from cfg.
-// Returns false for unrecognised event types, non-PR issue comments, empty
-// review bodies, and non-approved/non-commented review states.
-func (p *WebhookPayload) IsAcceptable(eventType string, cfg *webhookconfig.Config) bool {
-	repo := cfg.RepoByFullName(p.RepoOwner(), p.RepoName())
-
-	switch eventType {
-	case "issue_comment":
-		if p.Issue.PullRequest == nil {
-			return false
-		}
-		author := p.Comment.User.Login
-		return !cfg.IsUserIgnored(repo, author) && (repo == nil || repo.IsUserAllowed(author))
-
-	case "pull_request_review_comment":
-		author := p.Comment.User.Login
-		return !cfg.IsUserIgnored(repo, author) && (repo == nil || repo.IsUserAllowed(author))
-
-	case "pull_request_review":
-		author := p.Review.User.Login
-		if cfg.IsUserIgnored(repo, author) || (repo != nil && !repo.IsUserAllowed(author)) {
-			return false
-		}
-		switch strings.ToLower(p.Review.State) {
-		case "approved":
-			return true
-		case "commented":
-			return p.Review.Body != ""
-		}
-		return false
-	}
-
-	return false
-}
-
 // EventFields holds the parsed fields from a WebhookPayload for a specific event type.
 // The caller passes EventFields directly to workflow.FromWebhookEventWithConfig.
 type EventFields struct {
@@ -102,7 +64,7 @@ type EventFields struct {
 }
 
 // ToEvent converts the payload into EventFields for the given event type.
-// Call IsAcceptable first to ensure the payload is valid.
+// Call webhookconfig.IsAcceptable first to ensure the payload is valid.
 func (p *WebhookPayload) ToEvent(eventType string) EventFields {
 	prNumber := ""
 	if p.PullRequest.Number != 0 {
@@ -169,5 +131,3 @@ func ParseWebhookPayload(body []byte) (*WebhookPayload, error) {
 	}
 	return &payload, nil
 }
-
-
