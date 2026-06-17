@@ -31,11 +31,19 @@ func buildConfigMapVolumeMount(name string, destFile, destDir string, index int)
 		"readOnly": true,
 	}
 	if destFile != "" {
-		mount["mountPath"] = "/workspace/" + destFile
+		if filepath.IsAbs(destFile) {
+			mount["mountPath"] = destFile
+		} else {
+			mount["mountPath"] = "/workspace/" + destFile
+		}
 		mount["subPath"] = filepath.Base(destFile)
 		mount["name"] = fmt.Sprintf("%s-%d", sanitizeName(name), index)
 	} else if destDir != "" {
-		mount["mountPath"] = "/workspace/" + destDir
+		if filepath.IsAbs(destDir) {
+			mount["mountPath"] = destDir
+		} else {
+			mount["mountPath"] = "/workspace/" + destDir
+		}
 	} else {
 		mount["mountPath"] = fmt.Sprintf("/configmaps/%s", name)
 	}
@@ -48,11 +56,19 @@ func buildSecretVolumeMount(name string, destFile, destDir string, index int) ma
 		"readOnly": true,
 	}
 	if destFile != "" {
-		mount["mountPath"] = "/workspace/" + destFile
+		if filepath.IsAbs(destFile) {
+			mount["mountPath"] = destFile
+		} else {
+			mount["mountPath"] = "/workspace/" + destFile
+		}
 		mount["subPath"] = filepath.Base(destFile)
 		mount["name"] = fmt.Sprintf("%s-%d", sanitizeName(name), index)
 	} else if destDir != "" {
-		mount["mountPath"] = "/workspace/" + destDir
+		if filepath.IsAbs(destDir) {
+			mount["mountPath"] = destDir
+		} else {
+			mount["mountPath"] = "/workspace/" + destDir
+		}
 	} else {
 		mount["mountPath"] = fmt.Sprintf("/secrets/%s", name)
 	}

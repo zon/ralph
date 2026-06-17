@@ -128,7 +128,12 @@ func link(cwd, workspaceDir, destFile, destDir string, out *output.Client) error
 		return nil
 	}
 
-	src := filepath.Join(workspaceDir, dest)
+	var src string
+	if filepath.IsAbs(dest) {
+		src = dest
+	} else {
+		src = filepath.Join(workspaceDir, dest)
+	}
 	linkPath := filepath.Join(cwd, dest)
 
 	if _, err := os.Stat(src); err != nil {

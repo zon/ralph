@@ -86,12 +86,33 @@ func TestBuildConfigMapVolumeMount(t *testing.T) {
 		},
 		{
 			name:     "my-config",
+			destFile: "/etc/id/backend/config.json",
+			destDir:  "",
+			index:    0,
+			check: func(t *testing.T, mount map[string]interface{}) {
+				assert.Equal(t, "my-config-0", mount["name"], "name should match")
+				assert.Equal(t, "/etc/id/backend/config.json", mount["mountPath"], "mountPath should use absolute path")
+				assert.Equal(t, "config.json", mount["subPath"], "subPath should match")
+			},
+		},
+		{
+			name:     "my-config",
 			destFile: "",
 			destDir:  "config/extra",
 			index:    0,
 			check: func(t *testing.T, mount map[string]interface{}) {
 				assert.Equal(t, "my-config", mount["name"], "name should match")
 				assert.Equal(t, "/workspace/config/extra", mount["mountPath"], "mountPath should match")
+			},
+		},
+		{
+			name:     "my-config",
+			destFile: "",
+			destDir:  "/etc/id/backend",
+			index:    0,
+			check: func(t *testing.T, mount map[string]interface{}) {
+				assert.Equal(t, "my-config", mount["name"], "name should match")
+				assert.Equal(t, "/etc/id/backend", mount["mountPath"], "mountPath should use absolute path")
 			},
 		},
 		{
@@ -117,6 +138,10 @@ func TestBuildSecretVolumeMount(t *testing.T) {
 	mount := buildSecretVolumeMount("my-secret", "secrets.yaml", "", 0)
 	assert.Equal(t, "my-secret-0", mount["name"], "name should match")
 	assert.Equal(t, "/workspace/secrets.yaml", mount["mountPath"], "mountPath should match")
+
+	mount = buildSecretVolumeMount("my-secret", "/etc/id/backend/secrets.json", "", 0)
+	assert.Equal(t, "my-secret-0", mount["name"], "name should match")
+	assert.Equal(t, "/etc/id/backend/secrets.json", mount["mountPath"], "mountPath should use absolute path")
 }
 
 func TestBuildCredentialMounts(t *testing.T) {
