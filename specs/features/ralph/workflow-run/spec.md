@@ -20,11 +20,12 @@ The system SHALL apply run-specific flags to the execution context before starti
 - WHEN `ralph workflow run` starts
 - THEN the instructions are passed into the execution context for the AI agent
 
-#### Scenario: Iteration limit
+#### Scenario: Extra iterations
 
-- GIVEN `--max-iterations` is provided (default 0 falls back to the value in `.ralph/config.yaml`)
+- GIVEN `--extra-iterations` is provided
 - WHEN the project loop executes
-- THEN the loop stops after that many iterations
+- THEN the provided extra iteration count is passed to the run-local behavior
+- AND when `--extra-iterations` is absent, no extra iteration value is passed and run-local applies its default
 
 #### Scenario: Model override
 

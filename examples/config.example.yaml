@@ -1,8 +1,8 @@
 # Ralph Configuration Example
 # Copy this file to .ralph/config.yaml in your project root
 
-# Maximum number of development iterations before stopping
-maxIterations: 10
+# Extra iterations beyond the number of requirements (unset = 20% of requirement count, rounded up)
+# Set to a finite value to override the default, e.g.: extraIterations: 5
 
 # Default branch for pull requests
 defaultBranch: main

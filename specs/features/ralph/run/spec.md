@@ -182,23 +182,32 @@ The command SHALL determine the base branch for PR creation by the following pri
 
 ---
 
-### Requirement: Max iterations resolution
+### Requirement: Extra iterations resolution
 
-The iteration limit SHALL come from the `--max-iterations` flag when provided and non-zero; otherwise it falls back to `maxIterations` in `.ralph/config.yaml` (default: 10).
+The command SHALL accept `--extra-iterations` to set a finite extra iteration count. The resolved extra iteration value SHALL be passed down to the execution mode, which determines the default when the value is unset.
+
+Extra iterations resolution follows a two-level precedence: `--extra-iterations` at the command line takes priority; otherwise the `extraIterations` field in `.ralph/config.yaml` is used. The resolved value SHALL be passed to the execution mode as-is — nil/unset propagates to the runner.
 
 #### Scenario: Flag takes precedence over config
 
-- GIVEN `maxIterations: 5` in `.ralph/config.yaml`
-- AND the user passes `--max-iterations 2`
-- WHEN the iteration limit is resolved
-- THEN the limit is 2
+- GIVEN `extraIterations: 5` in `.ralph/config.yaml`
+- AND the user passes `--extra-iterations 2`
+- WHEN the extra iteration count is resolved
+- THEN the resolved value is 2
 
-#### Scenario: Config default used when flag is absent
+#### Scenario: Config value used when flag is absent
 
-- GIVEN `maxIterations: 7` in `.ralph/config.yaml`
-- AND no `--max-iterations` flag is passed
-- WHEN the iteration limit is resolved
-- THEN the limit is 7
+- GIVEN `extraIterations: 3` in `.ralph/config.yaml`
+- AND no `--extra-iterations` flag is passed
+- WHEN the extra iteration count is resolved
+- THEN the resolved value is 3
+
+#### Scenario: Both flag and config are unset
+
+- GIVEN neither `extraIterations` in config nor `--extra-iterations` flag is set
+- WHEN the extra iteration count is resolved
+- THEN the resolved value is nil/unset
+- AND the execution mode applies its default behavior
 
 ---
 

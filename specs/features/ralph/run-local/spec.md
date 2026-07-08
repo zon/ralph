@@ -103,7 +103,7 @@ Before each iteration the system SHALL start configured services and stop them a
 
 ### Requirement: Iteration loop
 
-The iteration loop SHALL invoke the AI agent repeatedly until all requirements pass or the iteration limit is reached. Each iteration checks for a blocked state before invoking the AI.
+The iteration loop SHALL invoke the AI agent repeatedly until all requirements pass or the iteration limit is reached. The iteration limit SHALL be the project's requirement count plus the extra iteration count. When the extra iteration count is unset (nil), it SHALL default to 20% of the project's requirement count, rounded up. Each iteration checks for a blocked state before invoking the AI.
 
 #### Scenario: All requirements already passing — exits after one iteration
 
@@ -113,16 +113,31 @@ The iteration loop SHALL invoke the AI agent repeatedly until all requirements p
 
 #### Scenario: Requirements pass mid-loop — exits early
 
-- GIVEN a project with failing requirements and max iterations = 10
+- GIVEN a project with 5 requirements and `--extra-iterations 3` (limit = 8)
 - WHEN the AI marks all requirements as passing during iteration 3
 - THEN the loop exits after iteration 3
 - AND does not consume additional iterations
 
-#### Scenario: Max iterations reached with failures remaining
+#### Scenario: Default extra iterations is 20% when unset
 
-- GIVEN max iterations is 1 and requirements are still failing after iteration 1
+- GIVEN neither `extraIterations` in config nor `--extra-iterations` flag is set
+- AND the project has 10 requirements
+- WHEN the iteration loop starts
+- THEN the iteration limit is 12 (10 requirements + 20% of 10)
+
+#### Scenario: Default extra iterations rounds up
+
+- GIVEN neither `extraIterations` in config nor `--extra-iterations` flag is set
+- AND the project has 3 requirements
+- WHEN the iteration loop starts
+- THEN the iteration limit is 4 (3 requirements + 20% of 3 rounded up from 0.6 to 1)
+
+#### Scenario: Extra iterations exhausted with failures remaining
+
+- GIVEN a project with 1 requirement and `--extra-iterations 0` (limit = 1)
+- AND requirements are still failing after iteration 1
 - WHEN the iteration loop finishes
-- THEN an error is returned indicating max iterations were reached
+- THEN an error is returned indicating the iteration limit was reached
 - AND the number of still-failing requirements is included in the error message
 
 #### Scenario: `blocked.md` detected at loop start
@@ -251,9 +266,9 @@ When all requirements are found to be passing — whether they were already pass
 - THEN PR creation is skipped
 - AND the command exits successfully
 
-#### Scenario: Max iterations reached with failing requirements — PR skipped
+#### Scenario: Iteration limit reached with failing requirements — PR skipped
 
-- GIVEN the iteration loop exits because max iterations were reached
+- GIVEN the iteration loop exits because the iteration limit was reached
 - AND one or more requirements are still failing
 - WHEN the loop ends
 - THEN PR creation is skipped
@@ -275,7 +290,7 @@ When running inside a workflow container the command SHALL print accumulated AI 
 #### Scenario: Stats reported on failed workflow run
 
 - GIVEN ralph is executing inside a workflow container
-- AND the run exits with an error (max iterations, blocked, fatal AI error, or any other failure)
+- AND the run exits with an error (iteration limit reached, blocked, fatal AI error, or any other failure)
 - WHEN execution finishes
 - THEN input tokens, output tokens, and total cost across the entire run are printed to the log before the error is surfaced
 

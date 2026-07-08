@@ -61,7 +61,7 @@ func (r *Runner) RunLocal(input *InputFile, cfg *config.RalphConfig) error {
 - **`input.Slug()`** — returns the slug for the input: the project slug when the input is a project file, otherwise a slug derived from the input file path
 - **`r.git.SwitchToBranch(slug)`** — switches to the branch named by the slug, creating it if it does not exist
 - **`r.generateArtifacts(input)`** — generates any missing artifacts for orchestration or spec inputs and commits them; returns the project to run
-- **`r.iterate(proj, cfg)`** — drives the iteration loop; returns nil only when all requirements are passing, or a non-nil error when blocked, when a fatal AI error occurs, or when max iterations is reached with requirements still failing
+- **`r.iterate(proj, cfg)`** — drives the iteration loop; returns nil only when all requirements are passing, or a non-nil error when blocked, when a fatal AI error occurs, or when the iteration limit is reached with requirements still failing
 - **`r.removeOrchestration(proj)`** — checks whether the project's spec contains an orchestration document and, if so, deletes it and commits the deletion
 - **`r.github.CreatePR(proj)`** — generates an AI PR summary and opens a pull request from the project branch to the base branch; is a no-op when no commits exist ahead of the base branch
 - **`r.notify.Error(slug)`** — sends a desktop error notification for the given project slug when notifications are enabled
@@ -100,7 +100,9 @@ func (r *Runner) generateArtifacts(input *InputFile) (*project.Project, error) {
 
 ```go
 func (r *Runner) iterate(proj *project.Project, cfg *config.RalphConfig) error {
-    for i := 0; i < proj.MaxIterations; i++ {
+    extra := r.project.ExtraIterations(proj, cfg)
+    limit := len(proj.Requirements) + extra
+    for i := 0; i < limit; i++ {
         proj = r.project.Load(proj)
         if r.project.AllRequirementsPassing(proj) {
             return nil
@@ -115,7 +117,7 @@ func (r *Runner) iterate(proj *project.Project, cfg *config.RalphConfig) error {
             return err
         }
     }
-    return r.project.MaxIterationsError(proj)
+    return r.project.ExtraIterationsError(proj)
 }
 
 func (r *Runner) blockAndReturn(err error) error {
@@ -132,7 +134,8 @@ func (r *Runner) blockAndReturn(err error) error {
 - **`r.project.AllRequirementsPassing(proj)`** — returns true when every requirement in the project carries `passing: true`
 - **`r.git.BlockedFileExists()`** — returns true when `blocked.md` is present in the repository root
 - **`r.runIteration(proj, cfg)`** — starts services, runs the picker and development agents, stops services, and removes service logs
-- **`r.project.MaxIterationsError(proj)`** — returns an error naming the count of still-failing requirements
+- **`r.project.ExtraIterations(proj, cfg)`** — returns the configured extra iteration count from config or flag, or 20% of the project's requirement count (rounded up) when unset
+- **`r.project.ExtraIterationsError(proj)`** — returns an error naming the count of still-failing requirements
 
 ---
 
@@ -401,13 +404,31 @@ func TestIterateExitsEarlyWhenRequirementsPass(t *testing.T) {
     require.Len(t, ai.developCalls(), 2)
 }
 
-func TestIterateReturnsErrorAtMaxIterations(t *testing.T) {
+func TestIterateReturnsErrorWhenLimitReached(t *testing.T) {
     runner := run.withMocks(
         run.withProject(project.thatAlwaysReportsFailures()),
     )
-    err := runner.RunLocal(input.forProject(project.withMaxIterations(3)), config.any())
+    err := runner.RunLocal(input.forProject(project.withFailingRequirements(1)), config.withExtraIterations(0))
     require.Error(t, err)
-    require.Len(t, ai.pickCalls(), 3)
+    require.Len(t, ai.pickCalls(), 1)
+}
+
+func TestIterateRespectsExtraIterations(t *testing.T) {
+    runner := run.withMocks(
+        run.withProject(project.thatAlwaysReportsFailures()),
+    )
+    err := runner.RunLocal(input.forProject(project.withFailingRequirements(3)), config.withExtraIterations(2))
+    require.Error(t, err)
+    require.Len(t, ai.pickCalls(), 5)
+}
+
+func TestIterateDefaultsToTwentyPercentExtra(t *testing.T) {
+    runner := run.withMocks(
+        run.withProject(project.thatAlwaysReportsFailures()),
+    )
+    err := runner.RunLocal(input.forProject(project.withFailingRequirements(10)), config.any())
+    require.Error(t, err)
+    require.Len(t, ai.pickCalls(), 12)
 }
 
 func TestIterateStopsOnBlockedFile(t *testing.T) {
@@ -611,7 +632,7 @@ func TestRemoveOrchestrationFailureSendsErrorNotification(t *testing.T) {
 - **`project.any()`** — returns a valid project in a default state; owned by `internal/project`
 - **`project.withAllPassing()`** — returns a project where every requirement has `passing: true`; owned by `internal/project`
 - **`project.withFailingRequirements()`** — returns a project with at least one failing requirement; owned by `internal/project`
-- **`project.withMaxIterations(n)`** — returns a project whose `MaxIterations` is set to `n`; owned by `internal/project`
+- **`project.withFailingRequirements(n)`** — returns a project with exactly `n` failing requirements; owned by `internal/project`
 - **`project.thatReportsAllPassing()`** — returns a project client whose `Load` and `AllRequirementsPassing` always reflect all requirements passing
 - **`project.thatReportsAllPassing().withNoSpec()`** — chains a modifier so `HasSpec` returns false
 - **`project.thatReportsAllPassing().withSpecButNoOrchestration()`** — chains a modifier so `HasSpec` returns true and `HasOrchestration` returns false
@@ -621,6 +642,7 @@ func TestRemoveOrchestrationFailureSendsErrorNotification(t *testing.T) {
 - **`project.thatAlwaysReportsFailures()`** — returns a project client whose `AllRequirementsPassing` always returns false
 - **`project.orchestrationRemoved()`** — returns true when `RemoveOrchestration` was called during the test
 - **`config.any()`** — returns a valid ralph config in a default state; owned by `internal/config`
+- **`config.withExtraIterations(n)`** — returns a config whose `ExtraIterations` field is set to `n`; owned by `internal/config`
 - **`config.withVariant(v)`** — returns a config whose `Variant` field is set to `v`; owned by `internal/config`
 - **`env.inWorkflow()`** — returns an env client that reports `InWorkflow() = true`
 - **`env.notInWorkflow()`** — returns an env client that reports `InWorkflow() = false`

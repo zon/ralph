@@ -5,7 +5,7 @@ Ralph looks for `.ralph/config.yaml` in your project root for optional settings.
 ## Format
 
 ```yaml
-maxIterations: 10              # Max iterations before stopping (default: 10)
+extraIterations:               # Extra iterations beyond requirement count (unset = 20% of requirements, rounded up)
 defaultBranch: main             # Default branch for PRs (default: main)
 model: deepseek/deepseek-chat  # AI model (default: deepseek/deepseek-chat)
 

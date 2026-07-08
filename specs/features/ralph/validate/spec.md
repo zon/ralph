@@ -120,6 +120,13 @@ After unmarshalling succeeds, the command MUST marshal the project model back to
 - THEN the validated project is written to a new file with the same name but a `.yaml` extension
 - AND the original `.json` file is removed
 
+#### Scenario: Empty values omitted from canonical output
+
+- GIVEN a validated project with unset/empty fields (e.g., `extraIterations` is nil)
+- WHEN the project is marshalled to canonical YAML
+- THEN fields with empty or nil values are omitted from the output
+- AND no fields are emitted with empty values
+
 ### Requirement: Successful Validation Output
 
 When validation completes successfully, the command MUST exit with status code 0 and emit a confirmation message identifying the project slug and the number of requirements it contains.
