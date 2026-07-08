@@ -263,7 +263,7 @@ requirements:
             - WHEN the project loop executes
             - THEN the provided extra iteration count is passed to the run-local behavior
             - AND when `--extra-iterations` is absent, no extra iteration value is passed and run-local applies its default
-      passing: false
+      passing: true
     - slug: validate-canonical-omitempty
       description: Ensure canonical YAML serialization in ralph validate omits empty/nil fields
       scenarios:

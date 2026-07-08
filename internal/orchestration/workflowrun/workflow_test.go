@@ -115,6 +115,23 @@ func TestRunExtraIterationsAppliedToConfig(t *testing.T) {
 	require.Equal(t, 2, *capturedCfg.ExtraIterations)
 }
 
+func TestRunExtraIterationsAbsentDefaultsToConfig(t *testing.T) {
+	var capturedCfg *ralphcfg.RalphConfig
+	mockRunner := &mockRunnerClient{
+		runLocalFunc: func(proj *ralphproj.Project, cfg *ralphcfg.RalphConfig) error {
+			capturedCfg = cfg
+			return nil
+		},
+	}
+	cmd := run.withMocks(
+		run.withRunner(mockRunner),
+	)
+	err := cmd.Run(flags.any())
+	require.NoError(t, err)
+	require.NotNil(t, capturedCfg)
+	require.Nil(t, capturedCfg.ExtraIterations)
+}
+
 func TestRunNoServicesClearsConfigServices(t *testing.T) {
 	cfg := ralphcfg.Any()
 	cfg.Services = []ralphcfg.Service{
