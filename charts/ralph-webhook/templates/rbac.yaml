@@ -1,11 +1,13 @@
+{{- range .Values.workflowNamespaces }}
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: ralph-webhook
-  namespace: {{ .Values.namespace }}
+  namespace: {{ . }}
   labels:
     app.kubernetes.io/name: ralph-webhook
-    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/instance: {{ $.Release.Name }}
 rules:
   - apiGroups:
       - argoproj.io
@@ -18,15 +20,16 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: ralph-webhook
-  namespace: {{ .Values.namespace }}
+  namespace: {{ . }}
   labels:
     app.kubernetes.io/name: ralph-webhook
-    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/instance: {{ $.Release.Name }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
   name: ralph-webhook
 subjects:
   - kind: ServiceAccount
-    name: {{ .Values.serviceAccount.name }}
-    namespace: {{ .Values.namespace }}
+    name: {{ $.Values.serviceAccount.name }}
+    namespace: {{ $.Values.namespace }}
+{{- end }}

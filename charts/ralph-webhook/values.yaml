@@ -29,5 +29,7 @@ resources:
     cpu: 500m
     memory: 256Mi
 
+workflowNamespaces: []
+
 serviceAccount:
   name: ralph-webhook
