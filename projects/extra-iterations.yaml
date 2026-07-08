@@ -279,7 +279,7 @@ requirements:
       items:
         - 'Replace maxIterations with extraIterations in docs/config.md: comment reads ''Extra iterations beyond requirement count (unset = 20% of requirements, rounded up)'''
         - Omit extraIterations from examples/config.example.yaml when unset; keep only a comment explaining how to set it
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump for replacing max iteration config with extra iterations
       items:
