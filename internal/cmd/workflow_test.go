@@ -179,31 +179,36 @@ func TestWorkflowRunCmd_FlagPropagation(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name         string
-		flags        orchestrationWorkflow.WorkflowRunFlags
-		debugBranch  string
-		wantBase     string
-		wantIter     int
-		wantModel    string
+		name               string
+		flags              orchestrationWorkflow.WorkflowRunFlags
+		debugBranch        string
+		wantBase           string
+		wantIter           int
+		wantModel          string
+		wantExtraIter      int
+		wantNoServices     bool
 	}{
 		{
 			name: "propagates all flags to orchestration",
 			flags: orchestrationWorkflow.WorkflowRunFlags{
-				ProjectPath:    "test.yaml",
-				Repo:           "owner/repo",
-				CloneBranch:    "main",
-				BaseBranch:     "base-branch",
-				ProjectBranch:  "feature",
-				BotName:        "bot",
-				BotEmail:       "bot@test.com",
-				MaxIterations:  5,
-				InstructionsMd: "custom instructions",
-				Model:          "gpt-4",
-				NoServices:     true,
+				ProjectPath:     "test.yaml",
+				Repo:            "owner/repo",
+				CloneBranch:     "main",
+				BaseBranch:      "base-branch",
+				ProjectBranch:   "feature",
+				BotName:         "bot",
+				BotEmail:        "bot@test.com",
+				MaxIterations:   5,
+				ExtraIterations: 3,
+				InstructionsMd:  "custom instructions",
+				Model:           "gpt-4",
+				NoServices:      true,
 			},
-			wantBase:  "base-branch",
-			wantIter:  5,
-			wantModel: "gpt-4",
+			wantBase:       "base-branch",
+			wantIter:       5,
+			wantModel:      "gpt-4",
+			wantExtraIter:  3,
+			wantNoServices: true,
 		},
 		{
 			name: "default values when flags are empty",
@@ -282,6 +287,13 @@ func TestWorkflowRunCmd_FlagPropagation(t *testing.T) {
 			}
 			if tt.wantModel != "" {
 				assert.Equal(t, tt.wantModel, capturedCfg.Model)
+			}
+			if tt.wantExtraIter > 0 {
+				require.NotNil(t, capturedCfg.ExtraIterations)
+				assert.Equal(t, tt.wantExtraIter, *capturedCfg.ExtraIterations)
+			}
+			if tt.wantNoServices {
+				assert.Nil(t, capturedCfg.Services)
 			}
 		})
 	}

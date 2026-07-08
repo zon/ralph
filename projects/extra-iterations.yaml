@@ -94,7 +94,7 @@ requirements:
                 require.NoError(t, err)
                 assert.Contains(t, string(out), "--extra-iterations")
             }
-      passing: false
+      passing: true
     - slug: project-extra-iterations-helper
       description: Add ExtraIterations and ExtraIterationsError helpers to the project client
       code:

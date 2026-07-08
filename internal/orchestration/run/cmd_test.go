@@ -148,6 +148,10 @@ func flagsWithMaxIterations(n int) RunFlags {
 	return RunFlags{InputFile: "/fake/project.yaml", MaxIterations: n}
 }
 
+func flagsWithExtraIterations(n int) RunFlags {
+	return RunFlags{InputFile: "/fake/project.yaml", ExtraIterations: n}
+}
+
 func flagsWithLocal() RunFlags {
 	return RunFlags{InputFile: "/fake/project.yaml", Local: true}
 }
@@ -304,6 +308,58 @@ func TestPrepareSetupMaxIterationsFlagOverridesConfig(t *testing.T) {
 	setup, err := cmd.prepareSetup(flagsWithMaxIterations(2), project.ForProjectInput(project.Any()))
 	require.NoError(t, err)
 	require.Equal(t, 2, setup.MaxIterations)
+}
+
+func configWithExtraIterations(n int) config.Loader {
+	cfg := config.Any()
+	v := n
+	cfg.ExtraIterations = &v
+	return &config.MockLoader{
+		LoadFn: func() (*config.RalphConfig, error) { return cfg, nil },
+	}
+}
+
+func TestPrepareSetupExtraIterationsFlagOverridesConfig(t *testing.T) {
+	cmd := cmdWithMocks(
+		cmdWithConfig(configWithExtraIterations(5)),
+	)
+	flags := flagsWithExtraIterations(2)
+	setup, err := cmd.prepareSetup(flags, project.ForProjectInput(project.Any()))
+	require.NoError(t, err)
+	require.NotNil(t, setup.Config.ExtraIterations)
+	require.Equal(t, 2, *setup.Config.ExtraIterations)
+}
+
+func TestPrepareSetupExtraIterationsZeroDoesNotOverrideConfig(t *testing.T) {
+	v := 5
+	cfg := config.Any()
+	cfg.ExtraIterations = &v
+	cmd := cmdWithMocks(
+		cmdWithConfig(&config.MockLoader{
+			LoadFn: func() (*config.RalphConfig, error) { return cfg, nil },
+		}),
+	)
+	flags := flagsWithExtraIterations(0)
+	setup, err := cmd.prepareSetup(flags, project.ForProjectInput(project.Any()))
+	require.NoError(t, err)
+	require.NotNil(t, setup.Config.ExtraIterations)
+	require.Equal(t, 5, *setup.Config.ExtraIterations)
+}
+
+func TestPrepareSetupExtraIterationsDefaultsToConfigWhenFlagAbsent(t *testing.T) {
+	v := 3
+	cfg := config.Any()
+	cfg.ExtraIterations = &v
+	cmd := cmdWithMocks(
+		cmdWithConfig(&config.MockLoader{
+			LoadFn: func() (*config.RalphConfig, error) { return cfg, nil },
+		}),
+	)
+	flags := flagsAny()
+	setup, err := cmd.prepareSetup(flags, project.ForProjectInput(project.Any()))
+	require.NoError(t, err)
+	require.NotNil(t, setup.Config.ExtraIterations)
+	require.Equal(t, 3, *setup.Config.ExtraIterations)
 }
 
 // ---------------------------------------------------------------------------

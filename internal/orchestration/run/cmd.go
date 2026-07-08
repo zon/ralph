@@ -44,15 +44,16 @@ type ExecutionSetup struct {
 }
 
 type RunFlags struct {
-	WorkingDir    string
-	InputFile     string
-	MaxIterations int
-	Local         bool
-	Follow        bool
-	Debug         string
-	Base          string
-	Model         string
-	Context       string
+	WorkingDir      string
+	InputFile       string
+	MaxIterations   int
+	ExtraIterations int
+	Local           bool
+	Follow          bool
+	Debug           string
+	Base            string
+	Model           string
+	Context         string
 }
 
 func (f RunFlags) Validate() error {
@@ -109,6 +110,10 @@ func (r *RunCmd) prepareSetup(flags RunFlags, input *project.InputFile) (Executi
 	projectBranch := git.SanitizeBranchName(input.Slug())
 	baseBranch := resolveBaseBranch(flags.Base, currentBranch, projectBranch, cfg.DefaultBranch)
 	maxIterations := resolveMaxIterations(cfg.MaxIterations, flags.MaxIterations)
+	if flags.ExtraIterations != 0 {
+		v := flags.ExtraIterations
+		cfg.ExtraIterations = &v
+	}
 	return ExecutionSetup{
 		Config:        cfg,
 		BranchName:    projectBranch,

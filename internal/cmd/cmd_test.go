@@ -520,6 +520,52 @@ func TestCommandSubcommandCleanupRegistrarWiring(t *testing.T) {
 	require.NotNil(t, cmd.Command.cleanupRegistrar, "CommandCmd.cleanupRegistrar should be set after SetCleanupRegistrar")
 }
 
+func TestExtraIterationsFlagParsing(t *testing.T) {
+	tests := []struct {
+		name          string
+		args          []string
+		expectedValue int
+	}{
+		{
+			name:          "default value is 0 when not provided",
+			args:          []string{"run", "test.yaml"},
+			expectedValue: 0,
+		},
+		{
+			name:          "explicit value is parsed correctly",
+			args:          []string{"run", "--extra-iterations", "3", "test.yaml"},
+			expectedValue: 3,
+		},
+		{
+			name:          "default command with explicit value",
+			args:          []string{"--extra-iterations", "5", "test.yaml"},
+			expectedValue: 5,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := &Cmd{}
+			parser, err := kong.New(cmd,
+				kong.Name("ralph"),
+				kong.Exit(func(int) {}),
+			)
+			if err != nil {
+				t.Fatalf("failed to create parser: %v", err)
+			}
+
+			_, err = parser.Parse(tt.args)
+			if err != nil {
+				t.Fatalf("failed to parse args: %v", err)
+			}
+
+			if cmd.Run.ExtraIterations != tt.expectedValue {
+				t.Errorf("expected ExtraIterations=%v, got %v", tt.expectedValue, cmd.Run.ExtraIterations)
+			}
+		})
+	}
+}
+
 func TestBaseFlagParsing(t *testing.T) {
 	tests := []struct {
 		name         string
