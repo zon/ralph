@@ -339,61 +339,6 @@ func TestLoadProject_FileNotFound(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestLoadProjectDefaultMaxIterations(t *testing.T) {
-	tmpDir := t.TempDir()
-	projectContent := `slug: test-project
-requirements:
-  - slug: req-1
-    description: test
-    items:
-      - Item A
-    passing: false
-`
-	projectPath := filepath.Join(tmpDir, "test.yaml")
-	require.NoError(t, os.WriteFile(projectPath, []byte(projectContent), 0644))
-
-	proj, err := LoadProject(projectPath)
-	require.NoError(t, err)
-	assert.Equal(t, 10, proj.MaxIterations)
-}
-
-func TestLoadProjectPreservesMaxIterations(t *testing.T) {
-	tmpDir := t.TempDir()
-	projectContent := `slug: test-project
-maxIterations: 5
-requirements:
-  - slug: req-1
-    description: test
-    items:
-      - Item A
-    passing: false
-`
-	projectPath := filepath.Join(tmpDir, "test.yaml")
-	require.NoError(t, os.WriteFile(projectPath, []byte(projectContent), 0644))
-
-	proj, err := LoadProject(projectPath)
-	require.NoError(t, err)
-	assert.Equal(t, 5, proj.MaxIterations)
-}
-
-func TestProjectMaxIterationsYAMLRoundTrip(t *testing.T) {
-	proj := &Project{
-		Slug:          "test",
-		MaxIterations: 7,
-		Requirements: []Requirement{
-			{Slug: "req-1", Description: "test", Items: []string{"a"}},
-		},
-	}
-
-	data, err := yaml.Marshal(proj)
-	require.NoError(t, err)
-	assert.Contains(t, string(data), "maxIterations: 7")
-
-	var decoded Project
-	require.NoError(t, yaml.Unmarshal(data, &decoded))
-	assert.Equal(t, 7, decoded.MaxIterations)
-}
-
 func TestCanonicalYAMLOmitsEmptyFields(t *testing.T) {
 	proj := &Project{
 		Slug: "test",

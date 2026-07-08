@@ -78,7 +78,6 @@ type WorkflowRunFlags struct {
 	BotEmail        string
 	ProjectPath     string
 	InstructionsMd  string
-	MaxIterations   int
 	ExtraIterations int
 	Model           string
 	NoServices      bool
@@ -143,9 +142,6 @@ func (w *WorkflowRunCmd) syncBaseBranch(baseBranch, projectBranch string) error 
 func (w *WorkflowRunCmd) applyFlags(proj *ralphproj.Project, cfg *ralphcfg.RalphConfig, flags WorkflowRunFlags) {
 	if flags.BaseBranch != "" {
 		proj.BaseBranch = flags.BaseBranch
-	}
-	if flags.MaxIterations > 0 {
-		proj.MaxIterations = flags.MaxIterations
 	}
 	if flags.InstructionsMd != "" {
 		cfg.Instructions = flags.InstructionsMd

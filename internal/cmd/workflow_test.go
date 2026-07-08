@@ -183,7 +183,6 @@ func TestWorkflowRunCmd_FlagPropagation(t *testing.T) {
 		flags              orchestrationWorkflow.WorkflowRunFlags
 		debugBranch        string
 		wantBase           string
-		wantIter           int
 		wantModel          string
 		wantExtraIter      int
 		wantNoServices     bool
@@ -198,14 +197,12 @@ func TestWorkflowRunCmd_FlagPropagation(t *testing.T) {
 				ProjectBranch:   "feature",
 				BotName:         "bot",
 				BotEmail:        "bot@test.com",
-				MaxIterations:   5,
 				ExtraIterations: 3,
 				InstructionsMd:  "custom instructions",
 				Model:           "gpt-4",
 				NoServices:      true,
 			},
 			wantBase:       "base-branch",
-			wantIter:       5,
 			wantModel:      "gpt-4",
 			wantExtraIter:  3,
 			wantNoServices: true,
@@ -216,7 +213,6 @@ func TestWorkflowRunCmd_FlagPropagation(t *testing.T) {
 				ProjectPath: "test.yaml",
 			},
 			wantBase:  "",
-			wantIter:  0,
 			wantModel: "",
 		},
 		{
@@ -282,10 +278,7 @@ func TestWorkflowRunCmd_FlagPropagation(t *testing.T) {
 			if tt.wantBase != "" {
 				assert.Equal(t, tt.wantBase, capturedProj.BaseBranch)
 			}
-			if tt.wantIter > 0 {
-				assert.Equal(t, tt.wantIter, capturedProj.MaxIterations)
-			}
-			if tt.wantModel != "" {
+					if tt.wantModel != "" {
 				assert.Equal(t, tt.wantModel, capturedCfg.Model)
 			}
 			if tt.wantExtraIter > 0 {

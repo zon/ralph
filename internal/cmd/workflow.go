@@ -18,7 +18,6 @@ type WorkflowRunCmd struct {
 	Debug           string `help:"Ralph branch to use for debug mode" name:"debug"`
 	NoServices      bool   `help:"Skip service startup" default:"false"`
 	InstructionsMD  string `help:"Inline instructions content" name:"instructions-md"`
-	MaxIterations   int    `help:"Maximum number of iterations" name:"max-iterations" default:"0"`
 	ExtraIterations int    `help:"Extra iterations beyond requirement count (default: 20% of requirements)" name:"extra-iterations"`
 	Model           string `help:"Override the AI model from config" name:"model"`
 
@@ -37,7 +36,6 @@ func (w *WorkflowRunCmd) Run() error {
 	ctx.SetProjectFile(w.ProjectPath)
 	ctx.SetInstructionsMD(w.InstructionsMD)
 	ctx.SetDebugBranch(w.Debug)
-	ctx.SetMaxIterations(w.MaxIterations)
 	ctx.SetBotName(w.BotName)
 	ctx.SetBotEmail(w.BotEmail)
 	ctx.SetModel(w.Model)
@@ -58,7 +56,6 @@ func (w *WorkflowRunCmd) Run() error {
 		BotEmail:        w.BotEmail,
 		ProjectPath:     w.ProjectPath,
 		InstructionsMd:  w.InstructionsMD,
-		MaxIterations:   w.MaxIterations,
 		ExtraIterations: w.ExtraIterations,
 		Model:           w.Model,
 		NoServices:      w.NoServices,

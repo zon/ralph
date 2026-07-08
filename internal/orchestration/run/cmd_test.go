@@ -144,10 +144,6 @@ func flagsWithNoBase() RunFlags {
 	return RunFlags{InputFile: "/fake/project.yaml"}
 }
 
-func flagsWithMaxIterations(n int) RunFlags {
-	return RunFlags{InputFile: "/fake/project.yaml", MaxIterations: n}
-}
-
 func flagsWithExtraIterations(n int) RunFlags {
 	return RunFlags{InputFile: "/fake/project.yaml", ExtraIterations: n}
 }
@@ -185,14 +181,6 @@ func configThatFailsLoad() config.Loader {
 		LoadFn: func() (*config.RalphConfig, error) {
 			return nil, errors.New("config load failed")
 		},
-	}
-}
-
-func configWithMaxIterations(n int) config.Loader {
-	cfg := config.Any()
-	cfg.MaxIterations = n
-	return &config.MockLoader{
-		LoadFn: func() (*config.RalphConfig, error) { return cfg, nil },
 	}
 }
 
@@ -299,15 +287,6 @@ func TestPrepareSetupBaseBranchFromCurrentWhenDifferentFromProject(t *testing.T)
 	setup, err := cmd.prepareSetup(flagsWithNoBase(), project.ForProjectInput(&project.Project{Slug: "my-project"}))
 	require.NoError(t, err)
 	require.Equal(t, "feature-x", setup.BaseBranch)
-}
-
-func TestPrepareSetupMaxIterationsFlagOverridesConfig(t *testing.T) {
-	cmd := cmdWithMocks(
-		cmdWithConfig(configWithMaxIterations(5)),
-	)
-	setup, err := cmd.prepareSetup(flagsWithMaxIterations(2), project.ForProjectInput(project.Any()))
-	require.NoError(t, err)
-	require.Equal(t, 2, setup.MaxIterations)
 }
 
 func configWithExtraIterations(n int) config.Loader {

@@ -38,7 +38,7 @@ func TestIterateSucceedsWhenFinalIterationCompletesAllRequirements(t *testing.T)
 	require.Len(t, aiPickCalls(runner), 3)
 }
 
-func TestIterateReturnsErrorAtMaxIterations(t *testing.T) {
+func TestIterateReturnsErrorAtLimit(t *testing.T) {
 	runner := withMocks(
 		withProject(newProjectThatAlwaysReportsFailures()),
 	)

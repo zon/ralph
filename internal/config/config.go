@@ -116,7 +116,6 @@ type ValidateConfig struct {
 type RalphConfig struct {
 	Variant             string         `yaml:"variant,omitempty"`
 	ExtraIterations     *int           `yaml:"extraIterations,omitempty"`
-	MaxIterations       int            `yaml:"maxIterations,omitempty"`
 	DefaultBranch       string         `yaml:"defaultBranch,omitempty"`
 	Model               string         `yaml:"model,omitempty"` // AI model to use for coding and PR summary (default: deepseek/deepseek-chat)
 	Before              []Before       `yaml:"before,omitempty"`
@@ -186,9 +185,6 @@ func ValidateReviewConfig(r *ReviewConfig) error {
 
 // applyDefaults fills in zero-value fields with their default values.
 func applyDefaults(config *RalphConfig) {
-	if config.MaxIterations == 0 {
-		config.MaxIterations = 10
-	}
 	if config.DefaultBranch == "" {
 		config.DefaultBranch = "main"
 	}

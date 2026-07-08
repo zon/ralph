@@ -22,7 +22,6 @@ func TestLoadConfig_Defaults(t *testing.T) {
 	config, err := LoadConfig()
 	require.NoError(t, err, "LoadConfig() unexpected error")
 
-	assert.Equal(t, 10, config.MaxIterations)
 	assert.Equal(t, "main", config.DefaultBranch)
 	assert.Empty(t, config.Services)
 	assert.NotEmpty(t, config.Instructions, "LoadConfig() Instructions is empty, expected default instructions")
@@ -60,7 +59,6 @@ services:
 	config, err := LoadConfig()
 	require.NoError(t, err, "LoadConfig() unexpected error")
 
-	assert.Equal(t, 5, config.MaxIterations)
 	assert.Equal(t, "develop", config.DefaultBranch)
 	assert.Len(t, config.Services, 1)
 	assert.Equal(t, "test-service", config.Services[0].Name)
@@ -356,7 +354,6 @@ services:
 	config, err := LoadConfig()
 	require.NoError(t, err, "LoadConfig() unexpected error")
 
-	assert.Equal(t, 5, config.MaxIterations)
 	assert.Equal(t, "develop", config.DefaultBranch)
 	assert.Equal(t, "anthropic/claude-3-sonnet", config.Model)
 	assert.Equal(t, "my-app", config.App.Name)
@@ -699,13 +696,11 @@ func TestLoadConfigFromPath(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, config)
 		assert.Equal(t, "", config.ConfigPath)
-		assert.Equal(t, 0, config.MaxIterations)
 	})
 
 	t.Run("valid YAML returns parsed config", func(t *testing.T) {
 		configPath := filepath.Join(tmpDir, "config.yaml")
-		content := `maxIterations: 5
-defaultBranch: develop
+		content := `defaultBranch: develop
 model: anthropic/claude-3-sonnet`
 		require.NoError(t, os.WriteFile(configPath, []byte(content), 0644))
 
@@ -713,14 +708,13 @@ model: anthropic/claude-3-sonnet`
 		require.NoError(t, err)
 		require.NotNil(t, config)
 		assert.Equal(t, configPath, config.ConfigPath)
-		assert.Equal(t, 5, config.MaxIterations)
 		assert.Equal(t, "develop", config.DefaultBranch)
 		assert.Equal(t, "anthropic/claude-3-sonnet", config.Model)
 	})
 
 	t.Run("invalid YAML returns error", func(t *testing.T) {
 		configPath := filepath.Join(tmpDir, "invalid.yaml")
-		content := `maxIterations: [invalid`
+		content := `defaultBranch: [invalid`
 		require.NoError(t, os.WriteFile(configPath, []byte(content), 0644))
 
 		config, err := loadConfigFromPath(configPath)

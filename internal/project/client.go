@@ -58,11 +58,6 @@ func (c *Client) ExtraIterations(proj *Project, cfg *config.RalphConfig) int {
 	return extra
 }
 
-func (c *Client) MaxIterationsError(proj *Project) error {
-	_, _, failingCount := CheckCompletion(proj)
-	return fmt.Errorf("%w: %d requirements still failing", ErrMaxIterationsReached, failingCount)
-}
-
 func (c *Client) ExtraIterationsError(proj *Project) error {
 	_, _, failingCount := CheckCompletion(proj)
 	return fmt.Errorf("%w: %d requirements still failing", ErrExtraIterationsReached, failingCount)

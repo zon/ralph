@@ -64,7 +64,6 @@ func Any() *Project {
 	return &Project{
 		Slug:  "test-project",
 		Title: "Test Project",
-		MaxIterations: 1,
 		Requirements: []Requirement{
 			{
 				Slug:        "req-1",
@@ -80,7 +79,6 @@ func WithAllPassing() *Project {
 	return &Project{
 		Slug:  "test-project",
 		Title: "Test Project",
-		MaxIterations: 1,
 		Requirements: []Requirement{
 			{
 				Slug:        "req-1",
@@ -96,7 +94,6 @@ func WithFailingRequirements() *Project {
 	return &Project{
 		Slug:  "test-project",
 		Title: "Test Project",
-		MaxIterations: 10,
 		Requirements: []Requirement{
 			{
 				Slug:        "req-1",
@@ -144,22 +141,6 @@ func ForSpecInput(path string) *InputFile {
 	return &InputFile{
 		path: path,
 		kind: inputSpec,
-	}
-}
-
-func WithMaxIterations(n int) *Project {
-	return &Project{
-		Slug:  "test-project",
-		Title: "Test Project",
-		MaxIterations: n,
-		Requirements: []Requirement{
-			{
-				Slug:        "req-1",
-				Description: "Requirement 1",
-				Items:       []string{"Item 1"},
-				Passing:     false,
-			},
-		},
 	}
 }
 

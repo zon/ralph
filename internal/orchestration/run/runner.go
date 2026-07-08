@@ -9,7 +9,6 @@ import (
 type ProjectClient interface {
 	Reload(proj *project.Project) *project.Project
 	AllRequirementsPassing(proj *project.Project) bool
-	MaxIterationsError(proj *project.Project) error
 	ExtraIterations(proj *project.Project, cfg *config.RalphConfig) int
 	ExtraIterationsError(proj *project.Project) error
 	HasChanges(proj *project.Project) bool

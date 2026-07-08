@@ -13,7 +13,6 @@ import (
 type RunCmd struct {
 	WorkingDir       string `help:"Working directory to run ralph in" type:"path" short:"C"`
 	InputFile        string `arg:"" optional:"" help:"Path to input file (project YAML, orchestration.md, or spec.md)"`
-	MaxIterations    int    `help:"Maximum number of development iterations" default:"0"`
 	ExtraIterations  int    `help:"Extra iterations beyond requirement count (default: 20% of requirements)" name:"extra-iterations"`
 	NoNotify         bool   `help:"Disable desktop notifications" default:"false"`
 	NoServices       bool   `help:"Skip service startup" default:"false"`
@@ -43,7 +42,6 @@ func (r *RunCmd) Run() error {
 	flags := orchestrationRun.RunFlags{
 		WorkingDir:      r.WorkingDir,
 		InputFile:       r.InputFile,
-		MaxIterations:   r.MaxIterations,
 		ExtraIterations: r.ExtraIterations,
 		Local:           r.Local,
 		Follow:          r.Follow,

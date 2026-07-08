@@ -26,10 +26,6 @@ func (m *MockClient) AllRequirementsPassing(_ *Project) bool {
 	return m.AllPassingFunc()
 }
 
-func (m *MockClient) MaxIterationsError(_ *Project) error {
-	return ErrMaxIterationsReached
-}
-
 func (m *MockClient) HasChanges(proj *Project) bool {
 	if m.HasChangesFunc != nil {
 		return m.HasChangesFunc(proj)

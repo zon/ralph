@@ -13,7 +13,6 @@ type Context struct {
 	goCtx             context.Context // Embedded standard context
 	out               *output.Client
 	projectFile       string
-	maxIterations     int
 	verbose           bool
 	noNotify          bool
 	noServices        bool
@@ -130,10 +129,6 @@ func (c *Context) SetProjectFile(projectFile string) {
 	c.projectFile = projectFile
 }
 
-func (c *Context) SetMaxIterations(maxIterations int) {
-	c.maxIterations = maxIterations
-}
-
 func (c *Context) SetInstructions(instructions string) {
 	c.instructions = instructions
 }
@@ -196,10 +191,6 @@ func (c *Context) ProjectFile() string {
 
 func (c *Context) InstructionsMD() string {
 	return c.instructionsMD
-}
-
-func (c *Context) MaxIterations() int {
-	return c.maxIterations
 }
 
 func (c *Context) Instructions() string {
@@ -278,13 +269,6 @@ func NewContextFromEnv() *Context {
 	}
 	if val := os.Getenv("INSTRUCTIONS_MD"); val != "" {
 		ctx.SetInstructionsMD(val)
-	}
-
-	if val := os.Getenv("RALPH_MAX_ITERATIONS"); val != "" {
-		var max int
-		if _, err := fmt.Sscanf(val, "%d", &max); err == nil {
-			ctx.SetMaxIterations(max)
-		}
 	}
 
 	return ctx

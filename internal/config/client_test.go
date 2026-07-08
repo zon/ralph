@@ -41,7 +41,6 @@ services:
 	require.NoError(t, err)
 	require.NotNil(t, config)
 
-	assert.Equal(t, 5, config.MaxIterations)
 	assert.Equal(t, "develop", config.DefaultBranch)
 	assert.Len(t, config.Services, 1)
 	assert.Equal(t, "test-service", config.Services[0].Name)

@@ -84,7 +84,6 @@ func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL,
 		KubeContext:   kubeContext,
 		Namespace:     workflowOptions.Namespace,
 		NoServices:    ctx.NoServices(),
-		MaxIterations: ctx.MaxIterations(),
 		Model:         ctx.Model(),
 		Labels:        workflowOptions.Labels,
 	}, nil

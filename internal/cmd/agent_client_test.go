@@ -119,7 +119,7 @@ requirements:
 	}
 	client := NewAgentClient(ctx, mockOC)
 
-	proj := &project.Project{Slug: "test-project", MaxIterations: 1}
+	proj := &project.Project{Slug: "test-project"}
 	req, err := client.RunPicker(proj)
 	require.NoError(t, err)
 	require.NotEmpty(t, req)
