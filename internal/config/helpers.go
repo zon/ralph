@@ -15,3 +15,10 @@ func WithVariant(v string) *RalphConfig {
 	cfg.Variant = v
 	return cfg
 }
+
+func WithExtraIterations(n int) *RalphConfig {
+	cfg := Any()
+	v := n
+	cfg.ExtraIterations = &v
+	return cfg
+}

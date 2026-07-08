@@ -11,7 +11,6 @@ import (
 func TestAny_ReturnsDefaultConfig(t *testing.T) {
 	cfg := Any()
 
-	assert.Equal(t, 10, cfg.MaxIterations)
 	assert.Equal(t, "main", cfg.DefaultBranch)
 	assert.Equal(t, "deepseek/deepseek-chat", cfg.Model)
 	assert.Equal(t, "ralph-zon", cfg.App.Name)
@@ -38,7 +37,6 @@ func TestWithVariant_SetsVariantField(t *testing.T) {
 
 func TestWithVariant_ReturnsBaselineConfig(t *testing.T) {
 	cfg := WithVariant("custom")
-	assert.Equal(t, 10, cfg.MaxIterations)
 	assert.Equal(t, "main", cfg.DefaultBranch)
 	assert.Equal(t, "deepseek/deepseek-chat", cfg.Model)
 	assert.NotEmpty(t, cfg.Instructions)

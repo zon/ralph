@@ -9,7 +9,8 @@ import (
 type ProjectClient interface {
 	Reload(proj *project.Project) *project.Project
 	AllRequirementsPassing(proj *project.Project) bool
-	MaxIterationsError(proj *project.Project) error
+	ExtraIterations(proj *project.Project, cfg *config.RalphConfig) int
+	ExtraIterationsError(proj *project.Project) error
 	HasChanges(proj *project.Project) bool
 	NormalizeAndStage(proj *project.Project)
 	HasSpec(proj *project.Project) bool
@@ -141,7 +142,9 @@ func (r *Runner) generateArtifacts(input *project.InputFile) (*project.Project, 
 }
 
 func (r *Runner) iterate(proj *project.Project, cfg *config.RalphConfig) error {
-	for i := 0; i < proj.MaxIterations; i++ {
+	extra := r.project.ExtraIterations(proj, cfg)
+	limit := len(proj.Requirements) + extra
+	for i := 0; i < limit; i++ {
 		proj = r.project.Reload(proj)
 		if r.project.AllRequirementsPassing(proj) {
 			return nil
@@ -160,7 +163,7 @@ func (r *Runner) iterate(proj *project.Project, cfg *config.RalphConfig) error {
 	if r.project.AllRequirementsPassing(proj) {
 		return nil
 	}
-	return r.project.MaxIterationsError(proj)
+	return r.project.ExtraIterationsError(proj)
 }
 
 func (r *Runner) runIteration(proj *project.Project, cfg *config.RalphConfig) error {

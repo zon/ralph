@@ -12,7 +12,6 @@ import (
 // - NoNotify: true (prevents real desktop notifications)
 // - NoServices: false (allows service testing)
 // - Verbose: false (reduces test output noise)
-// - MaxIterations: 10 (reasonable default)
 //
 // Use options to customize specific fields as needed.
 func NewContext(opts ...ContextOption) *context.Context {
@@ -20,7 +19,6 @@ func NewContext(opts ...ContextOption) *context.Context {
 	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
 	ctx.SetNoNotify(true)
 	ctx.SetLocal(true)
-	ctx.SetMaxIterations(10)
 
 	for _, opt := range opts {
 		opt(ctx)
@@ -36,13 +34,6 @@ type ContextOption func(*context.Context)
 func WithProjectFile(path string) ContextOption {
 	return func(ctx *context.Context) {
 		ctx.SetProjectFile(path)
-	}
-}
-
-// WithMaxIterations sets the maximum iterations
-func WithMaxIterations(max int) ContextOption {
-	return func(ctx *context.Context) {
-		ctx.SetMaxIterations(max)
 	}
 }
 

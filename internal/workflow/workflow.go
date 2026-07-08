@@ -50,8 +50,6 @@ type Workflow struct {
 	BaseBranch string
 	// NoServices controls whether the ralph command inside the container runs with --no-services.
 	NoServices bool
-	// MaxIterations is the maximum number of development iterations.
-	MaxIterations int
 	// Model overrides the AI model from config.
 	Model string
 	// Labels are the Kubernetes labels to apply to the workflow pod.
@@ -223,7 +221,6 @@ func (w *Workflow) buildEnvVars() []map[string]interface{} {
 		{"name": "RALPH_DEBUG_BRANCH", "value": w.DebugBranch},
 		{"name": "RALPH_VERBOSE", "value": fmt.Sprintf("%t", w.Verbose)},
 		{"name": "RALPH_NO_SERVICES", "value": fmt.Sprintf("%t", w.NoServices)},
-		{"name": "RALPH_MAX_ITERATIONS", "value": fmt.Sprintf("%d", w.MaxIterations)},
 	}
 
 	for key, value := range w.Env {

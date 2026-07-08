@@ -1,6 +1,7 @@
 package project
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -63,7 +64,6 @@ func Any() *Project {
 	return &Project{
 		Slug:  "test-project",
 		Title: "Test Project",
-		MaxIterations: 1,
 		Requirements: []Requirement{
 			{
 				Slug:        "req-1",
@@ -79,7 +79,6 @@ func WithAllPassing() *Project {
 	return &Project{
 		Slug:  "test-project",
 		Title: "Test Project",
-		MaxIterations: 1,
 		Requirements: []Requirement{
 			{
 				Slug:        "req-1",
@@ -95,7 +94,6 @@ func WithFailingRequirements() *Project {
 	return &Project{
 		Slug:  "test-project",
 		Title: "Test Project",
-		MaxIterations: 10,
 		Requirements: []Requirement{
 			{
 				Slug:        "req-1",
@@ -104,6 +102,23 @@ func WithFailingRequirements() *Project {
 				Passing:     false,
 			},
 		},
+	}
+}
+
+func WithFailingRequirementsCount(n int) *Project {
+	reqs := make([]Requirement, n)
+	for i := 0; i < n; i++ {
+		reqs[i] = Requirement{
+			Slug:        fmt.Sprintf("req-%d", i+1),
+			Description: fmt.Sprintf("Requirement %d", i+1),
+			Items:       []string{fmt.Sprintf("Item %d", i+1)},
+			Passing:     false,
+		}
+	}
+	return &Project{
+		Slug:         "test-project",
+		Title:        "Test Project",
+		Requirements: reqs,
 	}
 }
 
@@ -126,22 +141,6 @@ func ForSpecInput(path string) *InputFile {
 	return &InputFile{
 		path: path,
 		kind: inputSpec,
-	}
-}
-
-func WithMaxIterations(n int) *Project {
-	return &Project{
-		Slug:  "test-project",
-		Title: "Test Project",
-		MaxIterations: n,
-		Requirements: []Requirement{
-			{
-				Slug:        "req-1",
-				Description: "Requirement 1",
-				Items:       []string{"Item 1"},
-				Passing:     false,
-			},
-		},
 	}
 }
 

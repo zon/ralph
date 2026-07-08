@@ -160,6 +160,15 @@ type runOption func(*WorkflowRunCmd)
 
 var run = &runHelper{}
 
+func (r *runHelper) withRunner(rc RunnerClient) runOption {
+	return func(cmd *WorkflowRunCmd) {
+		cmd.runner = rc
+		if m, ok := rc.(*mockRunnerClient); ok {
+			mockRunner = m
+		}
+	}
+}
+
 func (r *runHelper) withMocks(opts ...runOption) *WorkflowRunCmd {
 	mockWksp = &mockWorkspaceSetupClient{}
 	mockGit = &mockGitClient{}
@@ -384,6 +393,12 @@ func (h *flagsHelper) any() WorkflowRunFlags {
 		BotName:     "ralph",
 		BotEmail:    "ralph@example.com",
 	}
+}
+
+func (h *flagsHelper) withExtraIterations(n int) WorkflowRunFlags {
+	f := h.any()
+	f.ExtraIterations = n
+	return f
 }
 
 func (h *flagsHelper) withNoProjectPath() WorkflowRunFlags {

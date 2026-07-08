@@ -70,18 +70,18 @@ type WorkflowRunCmd struct {
 }
 
 type WorkflowRunFlags struct {
-	Repo           string
-	CloneBranch    string
-	BaseBranch     string
-	ProjectBranch  string
-	BotName        string
-	BotEmail       string
-	ProjectPath    string
-	InstructionsMd string
-	MaxIterations  int
-	Model          string
-	NoServices     bool
-	Debug          string
+	Repo            string
+	CloneBranch     string
+	BaseBranch      string
+	ProjectBranch   string
+	BotName         string
+	BotEmail        string
+	ProjectPath     string
+	InstructionsMd  string
+	ExtraIterations int
+	Model           string
+	NoServices      bool
+	Debug           string
 }
 
 func (f WorkflowRunFlags) WorkspaceFlags() wksp.WorkspaceFlags {
@@ -143,14 +143,15 @@ func (w *WorkflowRunCmd) applyFlags(proj *ralphproj.Project, cfg *ralphcfg.Ralph
 	if flags.BaseBranch != "" {
 		proj.BaseBranch = flags.BaseBranch
 	}
-	if flags.MaxIterations > 0 {
-		proj.MaxIterations = flags.MaxIterations
-	}
 	if flags.InstructionsMd != "" {
 		cfg.Instructions = flags.InstructionsMd
 	}
 	if flags.Model != "" {
 		cfg.Model = flags.Model
+	}
+	if flags.ExtraIterations != 0 {
+		v := flags.ExtraIterations
+		cfg.ExtraIterations = &v
 	}
 	if flags.NoServices {
 		cfg.Services = nil

@@ -144,8 +144,8 @@ func flagsWithNoBase() RunFlags {
 	return RunFlags{InputFile: "/fake/project.yaml"}
 }
 
-func flagsWithMaxIterations(n int) RunFlags {
-	return RunFlags{InputFile: "/fake/project.yaml", MaxIterations: n}
+func flagsWithExtraIterations(n int) RunFlags {
+	return RunFlags{InputFile: "/fake/project.yaml", ExtraIterations: n}
 }
 
 func flagsWithLocal() RunFlags {
@@ -181,14 +181,6 @@ func configThatFailsLoad() config.Loader {
 		LoadFn: func() (*config.RalphConfig, error) {
 			return nil, errors.New("config load failed")
 		},
-	}
-}
-
-func configWithMaxIterations(n int) config.Loader {
-	cfg := config.Any()
-	cfg.MaxIterations = n
-	return &config.MockLoader{
-		LoadFn: func() (*config.RalphConfig, error) { return cfg, nil },
 	}
 }
 
@@ -297,13 +289,56 @@ func TestPrepareSetupBaseBranchFromCurrentWhenDifferentFromProject(t *testing.T)
 	require.Equal(t, "feature-x", setup.BaseBranch)
 }
 
-func TestPrepareSetupMaxIterationsFlagOverridesConfig(t *testing.T) {
+func configWithExtraIterations(n int) config.Loader {
+	cfg := config.Any()
+	v := n
+	cfg.ExtraIterations = &v
+	return &config.MockLoader{
+		LoadFn: func() (*config.RalphConfig, error) { return cfg, nil },
+	}
+}
+
+func TestPrepareSetupExtraIterationsFlagOverridesConfig(t *testing.T) {
 	cmd := cmdWithMocks(
-		cmdWithConfig(configWithMaxIterations(5)),
+		cmdWithConfig(configWithExtraIterations(5)),
 	)
-	setup, err := cmd.prepareSetup(flagsWithMaxIterations(2), project.ForProjectInput(project.Any()))
+	flags := flagsWithExtraIterations(2)
+	setup, err := cmd.prepareSetup(flags, project.ForProjectInput(project.Any()))
 	require.NoError(t, err)
-	require.Equal(t, 2, setup.MaxIterations)
+	require.NotNil(t, setup.Config.ExtraIterations)
+	require.Equal(t, 2, *setup.Config.ExtraIterations)
+}
+
+func TestPrepareSetupExtraIterationsZeroDoesNotOverrideConfig(t *testing.T) {
+	v := 5
+	cfg := config.Any()
+	cfg.ExtraIterations = &v
+	cmd := cmdWithMocks(
+		cmdWithConfig(&config.MockLoader{
+			LoadFn: func() (*config.RalphConfig, error) { return cfg, nil },
+		}),
+	)
+	flags := flagsWithExtraIterations(0)
+	setup, err := cmd.prepareSetup(flags, project.ForProjectInput(project.Any()))
+	require.NoError(t, err)
+	require.NotNil(t, setup.Config.ExtraIterations)
+	require.Equal(t, 5, *setup.Config.ExtraIterations)
+}
+
+func TestPrepareSetupExtraIterationsDefaultsToConfigWhenFlagAbsent(t *testing.T) {
+	v := 3
+	cfg := config.Any()
+	cfg.ExtraIterations = &v
+	cmd := cmdWithMocks(
+		cmdWithConfig(&config.MockLoader{
+			LoadFn: func() (*config.RalphConfig, error) { return cfg, nil },
+		}),
+	)
+	flags := flagsAny()
+	setup, err := cmd.prepareSetup(flags, project.ForProjectInput(project.Any()))
+	require.NoError(t, err)
+	require.NotNil(t, setup.Config.ExtraIterations)
+	require.Equal(t, 3, *setup.Config.ExtraIterations)
 }
 
 // ---------------------------------------------------------------------------

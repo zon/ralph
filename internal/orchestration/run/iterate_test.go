@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/zon/ralph/internal/config"
+	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/project"
 )
 
@@ -29,20 +30,19 @@ func TestIterateExitsEarlyWhenRequirementsPass(t *testing.T) {
 }
 
 func TestIterateSucceedsWhenFinalIterationCompletesAllRequirements(t *testing.T) {
-	const maxIterations = 3
 	runner := withMocks(
-		withProject(newProjectThatReportsPassingAfterIterations(maxIterations)),
+		withProject(newProjectThatReportsPassingAfterIterations(3)),
 	)
-	err := runner.RunLocal(project.ForProjectInput(project.WithMaxIterations(maxIterations)), config.Any())
+	err := runner.RunLocal(project.ForProjectInput(project.WithFailingRequirements()), config.WithExtraIterations(2))
 	require.NoError(t, err)
-	require.Len(t, aiPickCalls(runner), maxIterations)
+	require.Len(t, aiPickCalls(runner), 3)
 }
 
-func TestIterateReturnsErrorAtMaxIterations(t *testing.T) {
+func TestIterateReturnsErrorAtLimit(t *testing.T) {
 	runner := withMocks(
 		withProject(newProjectThatAlwaysReportsFailures()),
 	)
-	err := runner.RunLocal(project.ForProjectInput(project.WithMaxIterations(3)), config.Any())
+	err := runner.RunLocal(project.ForProjectInput(project.WithFailingRequirements()), config.WithExtraIterations(2))
 	require.Error(t, err)
 	require.Len(t, aiPickCalls(runner), 3)
 }
@@ -100,4 +100,56 @@ func TestIterateNonFatalDevelopErrorWritesBlockedFile(t *testing.T) {
 	err := runner.RunLocal(project.ForProjectInput(project.WithFailingRequirements()), config.Any())
 	require.Error(t, err)
 	require.True(t, gitBlockedFileWritten(runner))
+}
+
+func TestIterateReturnsErrorWhenLimitReached(t *testing.T) {
+	runner := withMocks(
+		withProject(newProjectThatAlwaysReportsFailures()),
+	)
+	err := runner.RunLocal(project.ForProjectInput(project.WithFailingRequirementsCount(1)), config.WithExtraIterations(0))
+	require.Error(t, err)
+	require.Len(t, aiPickCalls(runner), 1)
+}
+
+func TestIterateRespectsExtraIterations(t *testing.T) {
+	runner := withMocks(
+		withProject(newProjectThatAlwaysReportsFailures()),
+	)
+	err := runner.RunLocal(project.ForProjectInput(project.WithFailingRequirementsCount(3)), config.WithExtraIterations(2))
+	require.Error(t, err)
+	require.Len(t, aiPickCalls(runner), 5)
+}
+
+func TestIterateDefaultsToTwentyPercentExtra(t *testing.T) {
+	runner := withMocks(
+		withProject(newProjectThatAlwaysReportsFailures()),
+	)
+	err := runner.RunLocal(project.ForProjectInput(project.WithFailingRequirementsCount(10)), config.Any())
+	require.Error(t, err)
+	require.Len(t, aiPickCalls(runner), 12)
+}
+
+func TestIterateDefaultsRoundsUp(t *testing.T) {
+	runner := withMocks(
+		withProject(newProjectThatAlwaysReportsFailures()),
+	)
+	err := runner.RunLocal(project.ForProjectInput(project.WithFailingRequirementsCount(3)), config.Any())
+	require.Error(t, err)
+	require.Len(t, aiPickCalls(runner), 4)
+}
+
+func TestRunLocalSkipsPRWhenIterationLimitReached(t *testing.T) {
+	prCalled := false
+	runner := withMocks(
+		withProject(newProjectThatAlwaysReportsFailures()),
+		withGitHub(&github.MockClient{
+			CreatePRFunc: func(*project.Project) error {
+				prCalled = true
+				return nil
+			},
+		}),
+	)
+	err := runner.RunLocal(project.ForProjectInput(project.WithFailingRequirementsCount(1)), config.WithExtraIterations(0))
+	require.Error(t, err)
+	require.False(t, prCalled, "PR should not be created when iteration limit is reached")
 }

@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 )
 
 func TestLoadConfig_Defaults(t *testing.T) {
@@ -21,7 +22,6 @@ func TestLoadConfig_Defaults(t *testing.T) {
 	config, err := LoadConfig()
 	require.NoError(t, err, "LoadConfig() unexpected error")
 
-	assert.Equal(t, 10, config.MaxIterations)
 	assert.Equal(t, "main", config.DefaultBranch)
 	assert.Empty(t, config.Services)
 	assert.NotEmpty(t, config.Instructions, "LoadConfig() Instructions is empty, expected default instructions")
@@ -59,7 +59,6 @@ services:
 	config, err := LoadConfig()
 	require.NoError(t, err, "LoadConfig() unexpected error")
 
-	assert.Equal(t, 5, config.MaxIterations)
 	assert.Equal(t, "develop", config.DefaultBranch)
 	assert.Len(t, config.Services, 1)
 	assert.Equal(t, "test-service", config.Services[0].Name)
@@ -355,7 +354,6 @@ services:
 	config, err := LoadConfig()
 	require.NoError(t, err, "LoadConfig() unexpected error")
 
-	assert.Equal(t, 5, config.MaxIterations)
 	assert.Equal(t, "develop", config.DefaultBranch)
 	assert.Equal(t, "anthropic/claude-3-sonnet", config.Model)
 	assert.Equal(t, "my-app", config.App.Name)
@@ -698,13 +696,11 @@ func TestLoadConfigFromPath(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, config)
 		assert.Equal(t, "", config.ConfigPath)
-		assert.Equal(t, 0, config.MaxIterations)
 	})
 
 	t.Run("valid YAML returns parsed config", func(t *testing.T) {
 		configPath := filepath.Join(tmpDir, "config.yaml")
-		content := `maxIterations: 5
-defaultBranch: develop
+		content := `defaultBranch: develop
 model: anthropic/claude-3-sonnet`
 		require.NoError(t, os.WriteFile(configPath, []byte(content), 0644))
 
@@ -712,14 +708,13 @@ model: anthropic/claude-3-sonnet`
 		require.NoError(t, err)
 		require.NotNil(t, config)
 		assert.Equal(t, configPath, config.ConfigPath)
-		assert.Equal(t, 5, config.MaxIterations)
 		assert.Equal(t, "develop", config.DefaultBranch)
 		assert.Equal(t, "anthropic/claude-3-sonnet", config.Model)
 	})
 
 	t.Run("invalid YAML returns error", func(t *testing.T) {
 		configPath := filepath.Join(tmpDir, "invalid.yaml")
-		content := `maxIterations: [invalid`
+		content := `defaultBranch: [invalid`
 		require.NoError(t, os.WriteFile(configPath, []byte(content), 0644))
 
 		config, err := loadConfigFromPath(configPath)
@@ -741,6 +736,35 @@ model: anthropic/claude-3-sonnet`
 		assert.Nil(t, config)
 		assert.Contains(t, err.Error(), "failed to read config file")
 	})
+}
+
+func TestConfigExtraIterationsOmittedWhenNil(t *testing.T) {
+	cfg := &RalphConfig{}
+	out, err := yaml.Marshal(cfg)
+	require.NoError(t, err)
+	assert.NotContains(t, string(out), "extraIterations")
+}
+
+func TestConfigExtraIterationsSerializedWhenSet(t *testing.T) {
+	v := 5
+	cfg := &RalphConfig{ExtraIterations: &v}
+	out, err := yaml.Marshal(cfg)
+	require.NoError(t, err)
+	assert.Contains(t, string(out), "extraIterations: 5")
+}
+
+func TestConfigExtraIterations_UnsetReturnsNil(t *testing.T) {
+	cfg := &RalphConfig{}
+	resolved := cfg.ExtraIterations
+	assert.Nil(t, resolved, "expected nil when ExtraIterations is unset")
+}
+
+func TestConfigExtraIterations_ConfigValueReturnedWhenSet(t *testing.T) {
+	v := 3
+	cfg := &RalphConfig{ExtraIterations: &v}
+	resolved := cfg.ExtraIterations
+	require.NotNil(t, resolved)
+	assert.Equal(t, 3, *resolved)
 }
 
 func TestLoadInstructions(t *testing.T) {

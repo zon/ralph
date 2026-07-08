@@ -1,12 +1,11 @@
 package project_test
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
+	"github.com/zon/ralph/internal/config"
 	orchestrationRun "github.com/zon/ralph/internal/orchestration/run"
 	"github.com/zon/ralph/internal/project"
 )
@@ -48,46 +47,35 @@ func TestProjectAdapterAllRequirementsPassing(t *testing.T) {
 	})
 }
 
-func TestProjectAdapterMaxIterationsError(t *testing.T) {
-	client := &project.Client{}
+func TestExtraIterationsDefaultTwentyPercent(t *testing.T) {
+	cfg := &config.RalphConfig{}
+	proj := &project.Project{
+		Requirements: make([]project.Requirement, 10),
+	}
+	c := &project.Client{}
+	extra := c.ExtraIterations(proj, cfg)
+	assert.Equal(t, 2, extra)
+}
 
-	t.Run("returns error wrapping ErrMaxIterationsReached", func(t *testing.T) {
-		proj := &project.Project{
-			Slug: "test",
-			Requirements: []project.Requirement{
-				{Slug: "req-1", Items: []string{"a"}, Passing: false},
-			},
-		}
-		err := client.MaxIterationsError(proj)
-		require.Error(t, err)
-		assert.True(t, errors.Is(err, project.ErrMaxIterationsReached))
-	})
+func TestExtraIterationsRoundsUp(t *testing.T) {
+	cfg := &config.RalphConfig{}
+	proj := &project.Project{
+		Requirements: make([]project.Requirement, 3),
+	}
+	c := &project.Client{}
+	extra := c.ExtraIterations(proj, cfg)
+	assert.Equal(t, 1, extra)
+}
 
-	t.Run("includes count of failing requirements", func(t *testing.T) {
-		proj := &project.Project{
-			Slug: "test",
-			Requirements: []project.Requirement{
-				{Slug: "req-1", Items: []string{"a"}, Passing: false},
-				{Slug: "req-2", Items: []string{"b"}, Passing: true},
-				{Slug: "req-3", Items: []string{"c"}, Passing: false},
-			},
-		}
-		err := client.MaxIterationsError(proj)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "2 requirements still failing")
-	})
-
-	t.Run("reports 0 when all requirements pass", func(t *testing.T) {
-		proj := &project.Project{
-			Slug: "test",
-			Requirements: []project.Requirement{
-				{Slug: "req-1", Items: []string{"a"}, Passing: true},
-			},
-		}
-		err := client.MaxIterationsError(proj)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "0 requirements still failing")
-	})
+func TestExtraIterationsUsesConfigValue(t *testing.T) {
+	v := 5
+	cfg := &config.RalphConfig{ExtraIterations: &v}
+	proj := &project.Project{
+		Requirements: make([]project.Requirement, 10),
+	}
+	c := &project.Client{}
+	extra := c.ExtraIterations(proj, cfg)
+	assert.Equal(t, 5, extra)
 }
 
 func TestProjectAdapterHasSpec(t *testing.T) {

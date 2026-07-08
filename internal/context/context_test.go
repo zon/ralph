@@ -312,7 +312,6 @@ func TestNewContextFromEnv(t *testing.T) {
 		"RALPH_NO_SERVICES":        "true",
 		"RALPH_DEBUG_BRANCH":       "debug-branch",
 		"INSTRUCTIONS_MD":          "# Test Instructions",
-		"RALPH_MAX_ITERATIONS":     "42",
 	}
 
 	for key, val := range envVars {
@@ -332,7 +331,6 @@ func TestNewContextFromEnv(t *testing.T) {
 	assert.True(t, ctx.NoServices(), "noServices should be true")
 	assert.Equal(t, "debug-branch", ctx.DebugBranch(), "debug branch should match")
 	assert.Equal(t, "# Test Instructions", ctx.InstructionsMD(), "instructionsMD should match")
-	assert.Equal(t, 42, ctx.MaxIterations(), "maxIterations should match")
 }
 
 func TestNewContextFromEnvEmpty(t *testing.T) {
@@ -346,7 +344,6 @@ func TestNewContextFromEnvEmpty(t *testing.T) {
 		"RALPH_NO_SERVICES",
 		"RALPH_DEBUG_BRANCH",
 		"INSTRUCTIONS_MD",
-		"RALPH_MAX_ITERATIONS",
 	}
 
 	for _, key := range envVars {
@@ -366,7 +363,6 @@ func TestNewContextFromEnvEmpty(t *testing.T) {
 	assert.False(t, ctx.NoServices(), "noServices should be false")
 	assert.Empty(t, ctx.DebugBranch(), "debug branch should be empty")
 	assert.Empty(t, ctx.InstructionsMD(), "instructionsMD should be empty")
-	assert.Equal(t, 0, ctx.MaxIterations(), "maxIterations should be 0 by default")
 }
 
 func TestCommand(t *testing.T) {

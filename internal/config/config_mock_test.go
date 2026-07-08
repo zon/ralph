@@ -36,6 +36,5 @@ func TestMockLoader_LoadFnNilReturnsAny(t *testing.T) {
 	cfg, err := m.Load()
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
-	assert.Equal(t, 10, cfg.MaxIterations)
 	assert.Equal(t, "main", cfg.DefaultBranch)
 }

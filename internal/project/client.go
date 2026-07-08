@@ -2,10 +2,12 @@ package project
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/git"
 )
 
@@ -47,9 +49,18 @@ func (c *Client) AllRequirementsPassing(proj *Project) bool {
 	return allComplete
 }
 
-func (c *Client) MaxIterationsError(proj *Project) error {
+func (c *Client) ExtraIterations(proj *Project, cfg *config.RalphConfig) int {
+	if cfg.ExtraIterations != nil {
+		return *cfg.ExtraIterations
+	}
+	count := len(proj.Requirements)
+	extra := int(math.Ceil(float64(count) * 0.2))
+	return extra
+}
+
+func (c *Client) ExtraIterationsError(proj *Project) error {
 	_, _, failingCount := CheckCompletion(proj)
-	return fmt.Errorf("%w: %d requirements still failing", ErrMaxIterationsReached, failingCount)
+	return fmt.Errorf("%w: %d requirements still failing", ErrExtraIterationsReached, failingCount)
 }
 
 func (c *Client) HasChanges(proj *Project) bool {

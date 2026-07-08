@@ -11,20 +11,20 @@ import (
 
 // RunCmd is the default command for executing ralph
 type RunCmd struct {
-	WorkingDir    string `help:"Working directory to run ralph in" type:"path" short:"C"`
-	InputFile     string `arg:"" optional:"" help:"Path to input file (project YAML, orchestration.md, or spec.md)"`
-	MaxIterations int    `help:"Maximum number of development iterations" default:"0"`
-	NoNotify      bool   `help:"Disable desktop notifications" default:"false"`
-	NoServices    bool   `help:"Skip service startup" default:"false"`
-	Verbose       bool   `help:"Enable verbose logging" default:"false"`
-	Local         bool   `help:"Run on this machine instead of in Argo Workflows" default:"false"`
-	Follow        bool   `help:"Follow workflow logs after submission (only applicable without --local)" short:"f" default:"false"`
-	Debug         string `help:"Checkout the given ralph repo branch in the workflow container and invoke ralph via 'go run' instead of the built binary" name:"debug" optional:""`
-	Base          string `help:"Override the base branch for PR creation (default: detects from current branch)" name:"base" optional:"" short:"B"`
-	Model         string `help:"Override the AI model from config" name:"model" optional:""`
-	Variant       string `help:"Override the model variant from config" name:"variant" optional:""`
-	Context       string `help:"Kubernetes context to use" name:"context" optional:""`
-	ShowVersion   bool   `help:"Show version information" short:"v" name:"version"`
+	WorkingDir       string `help:"Working directory to run ralph in" type:"path" short:"C"`
+	InputFile        string `arg:"" optional:"" help:"Path to input file (project YAML, orchestration.md, or spec.md)"`
+	ExtraIterations  int    `help:"Extra iterations beyond requirement count (default: 20% of requirements)" name:"extra-iterations"`
+	NoNotify         bool   `help:"Disable desktop notifications" default:"false"`
+	NoServices       bool   `help:"Skip service startup" default:"false"`
+	Verbose          bool   `help:"Enable verbose logging" default:"false"`
+	Local            bool   `help:"Run on this machine instead of in Argo Workflows" default:"false"`
+	Follow           bool   `help:"Follow workflow logs after submission (only applicable without --local)" short:"f" default:"false"`
+	Debug            string `help:"Checkout the given ralph repo branch in the workflow container and invoke ralph via 'go run' instead of the built binary" name:"debug" optional:""`
+	Base             string `help:"Override the base branch for PR creation (default: detects from current branch)" name:"base" optional:"" short:"B"`
+	Model            string `help:"Override the AI model from config" name:"model" optional:""`
+	Variant          string `help:"Override the model variant from config" name:"variant" optional:""`
+	Context          string `help:"Kubernetes context to use" name:"context" optional:""`
+	ShowVersion      bool   `help:"Show version information" short:"v" name:"version"`
 
 	version          string       `kong:"-"`
 	date             string       `kong:"-"`
@@ -40,15 +40,15 @@ func (r *RunCmd) Run() error {
 	ctx := r.newExecutionContext()
 
 	flags := orchestrationRun.RunFlags{
-		WorkingDir:    r.WorkingDir,
-		InputFile:     r.InputFile,
-		MaxIterations: r.MaxIterations,
-		Local:         r.Local,
-		Follow:        r.Follow,
-		Debug:         r.Debug,
-		Base:          r.Base,
-		Model:         r.Model,
-		Context:       r.Context,
+		WorkingDir:      r.WorkingDir,
+		InputFile:       r.InputFile,
+		ExtraIterations: r.ExtraIterations,
+		Local:           r.Local,
+		Follow:          r.Follow,
+		Debug:           r.Debug,
+		Base:            r.Base,
+		Model:           r.Model,
+		Context:         r.Context,
 	}
 
 	cmd := newOrchestrationRunCmd(ctx)

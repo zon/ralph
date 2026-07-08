@@ -122,7 +122,7 @@ func (m *mockAIClient) WriteProject(input *project.InputFile) (*project.Project,
 	if m.writeProjectFunc != nil {
 		return m.writeProjectFunc(input)
 	}
-	return &project.Project{Slug: "generated-project", MaxIterations: 10}, nil
+	return &project.Project{Slug: "generated-project"}, nil
 }
 
 type mockEnvClient struct {
