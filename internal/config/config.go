@@ -115,6 +115,7 @@ type ValidateConfig struct {
 // RalphConfig represents the .ralph/config.yaml structure
 type RalphConfig struct {
 	Variant             string         `yaml:"variant,omitempty"`
+	ExtraIterations     *int           `yaml:"extraIterations,omitempty"`
 	MaxIterations       int            `yaml:"maxIterations,omitempty"`
 	DefaultBranch       string         `yaml:"defaultBranch,omitempty"`
 	Model               string         `yaml:"model,omitempty"` // AI model to use for coding and PR summary (default: deepseek/deepseek-chat)

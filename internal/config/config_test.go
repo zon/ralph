@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 )
 
 func TestLoadConfig_Defaults(t *testing.T) {
@@ -741,6 +742,35 @@ model: anthropic/claude-3-sonnet`
 		assert.Nil(t, config)
 		assert.Contains(t, err.Error(), "failed to read config file")
 	})
+}
+
+func TestConfigExtraIterationsOmittedWhenNil(t *testing.T) {
+	cfg := &RalphConfig{}
+	out, err := yaml.Marshal(cfg)
+	require.NoError(t, err)
+	assert.NotContains(t, string(out), "extraIterations")
+}
+
+func TestConfigExtraIterationsSerializedWhenSet(t *testing.T) {
+	v := 5
+	cfg := &RalphConfig{ExtraIterations: &v}
+	out, err := yaml.Marshal(cfg)
+	require.NoError(t, err)
+	assert.Contains(t, string(out), "extraIterations: 5")
+}
+
+func TestConfigExtraIterations_UnsetReturnsNil(t *testing.T) {
+	cfg := &RalphConfig{}
+	resolved := cfg.ExtraIterations
+	assert.Nil(t, resolved, "expected nil when ExtraIterations is unset")
+}
+
+func TestConfigExtraIterations_ConfigValueReturnedWhenSet(t *testing.T) {
+	v := 3
+	cfg := &RalphConfig{ExtraIterations: &v}
+	resolved := cfg.ExtraIterations
+	require.NotNil(t, resolved)
+	assert.Equal(t, 3, *resolved)
 }
 
 func TestLoadInstructions(t *testing.T) {

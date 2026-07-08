@@ -54,7 +54,7 @@ requirements:
                 require.NoError(t, err)
                 assert.Contains(t, string(out), "extraIterations: 5")
             }
-      passing: false
+      passing: true
     - slug: cmd-extra-iterations-flag
       description: Add --extra-iterations flag to the run command and wire it into the execution context
       scenarios:
