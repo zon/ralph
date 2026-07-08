@@ -273,7 +273,7 @@ requirements:
             - WHEN the project is marshalled to canonical YAML
             - THEN fields with empty or nil values are omitted from the output
             - AND no fields are emitted with empty values
-      passing: false
+      passing: true
     - slug: docs-config-example
       description: Update config docs and example to document extraIterations instead of maxIterations
       items:

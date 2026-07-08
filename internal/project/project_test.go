@@ -393,3 +393,27 @@ func TestProjectMaxIterationsYAMLRoundTrip(t *testing.T) {
 	require.NoError(t, yaml.Unmarshal(data, &decoded))
 	assert.Equal(t, 7, decoded.MaxIterations)
 }
+
+func TestCanonicalYAMLOmitsEmptyFields(t *testing.T) {
+	proj := &Project{
+		Slug: "test",
+		Requirements: []Requirement{
+			{
+				Slug:  "req-1",
+				Items: []string{"do something"},
+			},
+		},
+	}
+
+	data, err := yaml.Marshal(proj)
+	require.NoError(t, err)
+	output := string(data)
+
+	assert.NotContains(t, output, "title:")
+	assert.NotContains(t, output, "feature:")
+	assert.NotContains(t, output, "maxIterations:")
+	assert.NotContains(t, output, "description:")
+	assert.NotContains(t, output, "scenarios:")
+	assert.NotContains(t, output, "code:")
+	assert.NotContains(t, output, "tests:")
+}
