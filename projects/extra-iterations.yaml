@@ -284,4 +284,4 @@ requirements:
       description: Version bump for replacing max iteration config with extra iterations
       items:
         - Apply a semver minor bump to internal/version/VERSION
-      passing: false
+      passing: true
