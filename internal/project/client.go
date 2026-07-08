@@ -63,6 +63,11 @@ func (c *Client) MaxIterationsError(proj *Project) error {
 	return fmt.Errorf("%w: %d requirements still failing", ErrMaxIterationsReached, failingCount)
 }
 
+func (c *Client) ExtraIterationsError(proj *Project) error {
+	_, _, failingCount := CheckCompletion(proj)
+	return fmt.Errorf("%w: %d requirements still failing", ErrExtraIterationsReached, failingCount)
+}
+
 func (c *Client) HasChanges(proj *Project) bool {
 	return git.HasFileChanges(proj.Path)
 }

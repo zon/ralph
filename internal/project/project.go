@@ -22,6 +22,9 @@ import (
 // ErrMaxIterationsReached is returned when max iterations are reached but requirements are still failing
 var ErrMaxIterationsReached = errors.New("max iteration limit reached")
 
+// ErrExtraIterationsReached is returned when the iteration limit is exhausted but requirements are still failing
+var ErrExtraIterationsReached = errors.New("iteration limit reached")
+
 
 // Project represents a project YAML file with requirements
 type Project struct {

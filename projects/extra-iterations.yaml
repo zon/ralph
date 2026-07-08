@@ -253,7 +253,7 @@ requirements:
                 require.Error(t, err)
                 require.Len(t, ai.pickCalls(), 12)
             }
-      passing: false
+      passing: true
     - slug: workflow-run-extra-iterations
       description: Update workflow-run to pass --extra-iterations through to the run-local behavior
       scenarios:

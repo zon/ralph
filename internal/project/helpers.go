@@ -1,6 +1,7 @@
 package project
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -104,6 +105,23 @@ func WithFailingRequirements() *Project {
 				Passing:     false,
 			},
 		},
+	}
+}
+
+func WithFailingRequirementsCount(n int) *Project {
+	reqs := make([]Requirement, n)
+	for i := 0; i < n; i++ {
+		reqs[i] = Requirement{
+			Slug:        fmt.Sprintf("req-%d", i+1),
+			Description: fmt.Sprintf("Requirement %d", i+1),
+			Items:       []string{fmt.Sprintf("Item %d", i+1)},
+			Passing:     false,
+		}
+	}
+	return &Project{
+		Slug:         "test-project",
+		Title:        "Test Project",
+		Requirements: reqs,
 	}
 }
 
