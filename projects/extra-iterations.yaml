@@ -161,7 +161,7 @@ requirements:
                 extra := c.ExtraIterations(proj, cfg)
                 assert.Equal(t, 5, extra)
             }
-      passing: false
+      passing: true
     - slug: iterate-loop
       description: Update the iterate function to compute the iteration limit from requirement count plus extra iterations
       scenarios:

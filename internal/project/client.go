@@ -2,10 +2,12 @@ package project
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/git"
 )
 
@@ -45,6 +47,15 @@ func (c *Client) Reload(proj *Project) *Project {
 func (c *Client) AllRequirementsPassing(proj *Project) bool {
 	allComplete, _, _ := CheckCompletion(proj)
 	return allComplete
+}
+
+func (c *Client) ExtraIterations(proj *Project, cfg *config.RalphConfig) int {
+	if cfg.ExtraIterations != nil {
+		return *cfg.ExtraIterations
+	}
+	count := len(proj.Requirements)
+	extra := int(math.Ceil(float64(count) * 0.2))
+	return extra
 }
 
 func (c *Client) MaxIterationsError(proj *Project) error {

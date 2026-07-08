@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/zon/ralph/internal/config"
 	orchestrationRun "github.com/zon/ralph/internal/orchestration/run"
 	"github.com/zon/ralph/internal/project"
 )
@@ -46,6 +47,37 @@ func TestProjectAdapterAllRequirementsPassing(t *testing.T) {
 		}
 		assert.False(t, client.AllRequirementsPassing(proj))
 	})
+}
+
+func TestExtraIterationsDefaultTwentyPercent(t *testing.T) {
+	cfg := &config.RalphConfig{}
+	proj := &project.Project{
+		Requirements: make([]project.Requirement, 10),
+	}
+	c := &project.Client{}
+	extra := c.ExtraIterations(proj, cfg)
+	assert.Equal(t, 2, extra)
+}
+
+func TestExtraIterationsRoundsUp(t *testing.T) {
+	cfg := &config.RalphConfig{}
+	proj := &project.Project{
+		Requirements: make([]project.Requirement, 3),
+	}
+	c := &project.Client{}
+	extra := c.ExtraIterations(proj, cfg)
+	assert.Equal(t, 1, extra)
+}
+
+func TestExtraIterationsUsesConfigValue(t *testing.T) {
+	v := 5
+	cfg := &config.RalphConfig{ExtraIterations: &v}
+	proj := &project.Project{
+		Requirements: make([]project.Requirement, 10),
+	}
+	c := &project.Client{}
+	extra := c.ExtraIterations(proj, cfg)
+	assert.Equal(t, 5, extra)
 }
 
 func TestProjectAdapterMaxIterationsError(t *testing.T) {
