@@ -1012,7 +1012,7 @@ requirements:
             - WHEN the loop ends
             - THEN PR creation is skipped
             - AND an error is returned
-      passing: false
+      passing: true
     - slug: remove-pass-command
       description: The `ralph pass` command is removed, since nothing writes completion into the project file
       items:

@@ -572,22 +572,20 @@ func TestGeneratePRSummary(t *testing.T) {
 	errCommandFailed := errors.New("command failed")
 
 	tests := []struct {
-		name          string
-		projectDesc   string
-		projectStatus string
-		baseBranch    string
-		commitLog     string
-		setupMock     func(*testing.T) *opencode.MockOC
-		want          string
-		wantErr       string
-		wantErrIs     error
+		name        string
+		projectDesc string
+		baseBranch  string
+		commitLog   string
+		setupMock   func(*testing.T) *opencode.MockOC
+		want        string
+		wantErr     string
+		wantErrIs   error
 	}{
 		{
-			name:          "success returns trimmed summary and cleans up temp file",
-			projectDesc:   "Test Project",
-			projectStatus: "✅ Active",
-			baseBranch:    "main",
-			commitLog:     "abc: feat\n",
+			name:        "success returns trimmed summary and cleans up temp file",
+			projectDesc: "Test Project",
+			baseBranch:  "main",
+			commitLog:   "abc: feat\n",
 			setupMock: func(t *testing.T) *opencode.MockOC {
 				return &opencode.MockOC{
 					RunCommandFunc: func(_ context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
@@ -598,11 +596,10 @@ func TestGeneratePRSummary(t *testing.T) {
 			want: "expected summary",
 		},
 		{
-			name:          "runcommand error is wrapped and temp file cleaned up",
-			projectDesc:   "Test Project",
-			projectStatus: "✅ Active",
-			baseBranch:    "main",
-			commitLog:     "abc: feat\n",
+			name:        "runcommand error is wrapped and temp file cleaned up",
+			projectDesc: "Test Project",
+			baseBranch:  "main",
+			commitLog:   "abc: feat\n",
 			setupMock: func(t *testing.T) *opencode.MockOC {
 				return &opencode.MockOC{
 					RunCommandFunc: func(_ context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
@@ -619,7 +616,7 @@ func TestGeneratePRSummary(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := &execcontext.Context{}
 			mockOC := tt.setupMock(t)
-			result, err := GeneratePRSummary(ctx, mockOC, tt.projectDesc, tt.projectStatus, tt.baseBranch, tt.commitLog)
+			result, err := GeneratePRSummary(ctx, mockOC, tt.projectDesc, tt.baseBranch, tt.commitLog)
 
 			if tt.wantErr != "" {
 				require.Error(t, err)
@@ -645,10 +642,9 @@ func TestGeneratePRSummary(t *testing.T) {
 			},
 		}
 		ctx := &execcontext.Context{}
-		_, err := GeneratePRSummary(ctx, mockOC, "My Project", "Beta", "develop", "abc: init\ndef: add\n")
+		_, err := GeneratePRSummary(ctx, mockOC, "My Project", "develop", "abc: init\ndef: add\n")
 		require.NoError(t, err)
 		assert.Contains(t, capturedPrompt, "My Project")
-		assert.Contains(t, capturedPrompt, "Beta")
 		assert.Contains(t, capturedPrompt, "develop..HEAD")
 		assert.Contains(t, capturedPrompt, "abc: init")
 		assert.Contains(t, capturedPrompt, "def: add")
@@ -665,7 +661,7 @@ func TestGeneratePRSummary(t *testing.T) {
 				return writeOutputFromPrompt(prompt, "result")
 			},
 		}
-		_, err := GeneratePRSummary(ctx, mockOC, "Test", "Active", "main", "abc\n")
+		_, err := GeneratePRSummary(ctx, mockOC, "Test", "main", "abc\n")
 		require.NoError(t, err)
 		assert.Contains(t, buf.String(), "Project:")
 		assert.Contains(t, buf.String(), "Test")
@@ -682,7 +678,7 @@ func TestGeneratePRSummary(t *testing.T) {
 				return writeOutputFromPrompt(prompt, "result")
 			},
 		}
-		_, err := GeneratePRSummary(ctx, mockOC, "Test", "Active", "main", "abc\n")
+		_, err := GeneratePRSummary(ctx, mockOC, "Test", "main", "abc\n")
 		require.NoError(t, err)
 		assert.Empty(t, buf.String())
 	})

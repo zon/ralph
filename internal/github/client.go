@@ -4,6 +4,7 @@ import (
 	gocontext "context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/zon/ralph/internal/ai"
 	"github.com/zon/ralph/internal/context"
@@ -24,12 +25,25 @@ func (r *realGitAuthConfigurer) ConfigureGitAuth(ctx gocontext.Context, owner, r
 	return ConfigureGitAuth(ctx, owner, repo, secretsDir)
 }
 
+// CommitLogGetter retrieves the commit log of the commits on the current branch
+// that are not on the base branch.
+type CommitLogGetter interface {
+	GetCommitLog(base string, limit int) (string, error)
+}
+
+type realCommitLog struct{}
+
+func (realCommitLog) GetCommitLog(base string, limit int) (string, error) {
+	return git.GetCommitLog(base, limit)
+}
+
 type Client struct {
 	ctx               *context.Context
 	baseBranch        string
 	gh                GHClient
 	oc                opencode.OCClient
 	gitAuthConfigurer GitAuthConfigurer
+	commitLog         CommitLogGetter
 }
 
 func NewClient(ctx *context.Context, baseBranch string, gh GHClient, oc opencode.OCClient) *Client {
@@ -39,19 +53,22 @@ func NewClient(ctx *context.Context, baseBranch string, gh GHClient, oc opencode
 		gh:                gh,
 		oc:                oc,
 		gitAuthConfigurer: &realGitAuthConfigurer{},
+		commitLog:         realCommitLog{},
 	}
 }
 
 func (a *Client) CreatePR(proj *project.Project) error {
-	commitLog, err := git.GetCommitLog(a.baseBranch, 100)
+	commitLog, err := a.commitLog.GetCommitLog(a.baseBranch, 100)
 	if err != nil {
 		return fmt.Errorf("failed to get commit log: %w", err)
 	}
 
-	allComplete, passingCount, failingCount := project.CheckCompletion(proj)
-	projectStatus := fmt.Sprintf("%d passing, %d failing (complete: %v)", passingCount, failingCount, allComplete)
+	if strings.TrimSpace(commitLog) == "" {
+		a.ctx.Output().Debug("No commits ahead of base branch; skipping PR creation")
+		return nil
+	}
 
-	prSummary, err := ai.GeneratePRSummary(a.ctx, a.oc, proj.Title, projectStatus, a.baseBranch, commitLog)
+	prSummary, err := ai.GeneratePRSummary(a.ctx, a.oc, proj.Title, a.baseBranch, commitLog)
 	if err != nil {
 		return fmt.Errorf("failed to generate PR summary: %w", err)
 	}
@@ -68,7 +85,7 @@ func (a *Client) CreatePR(proj *project.Project) error {
 	prURL, err := CreatePullRequest(a.ctx.Output(), a.gh, proj, branchName, a.baseBranch, prSummary)
 	if err != nil {
 		if errors.Is(err, ErrNoCommitsBetweenBranches) {
-			a.ctx.Output().Debug("No commits ahead of base branch — all requirements were already passing; skipping PR creation")
+			a.ctx.Output().Debug("No commits ahead of base branch; skipping PR creation")
 			return nil
 		}
 		return fmt.Errorf("failed to create pull request: %w", err)

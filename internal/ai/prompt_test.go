@@ -314,7 +314,6 @@ func TestBuildPRSummaryPrompt(t *testing.T) {
 	tests := []struct {
 		name        string
 		projectDesc string
-		status      string
 		baseBranch  string
 		commitLog   string
 		outputPath  string
@@ -323,23 +322,22 @@ func TestBuildPRSummaryPrompt(t *testing.T) {
 		{
 			name:        "happy path",
 			projectDesc: "Test Project",
-			status:      "✅ Complete",
 			baseBranch:  "main",
 			commitLog:   "abc123: Initial commit\ndef456: Add feature\n",
 			outputPath:  "/tmp/pr-summary.txt",
 			check: func(t *testing.T, prompt string) {
 				assert.NotEmpty(t, prompt, "PR summary prompt should not be empty")
 				assert.Contains(t, prompt, "Test Project")
-				assert.Contains(t, prompt, "✅ Complete")
 				assert.Contains(t, prompt, "main..HEAD")
 				assert.Contains(t, prompt, "abc123: Initial commit")
 				assert.Contains(t, prompt, "/tmp/pr-summary.txt")
+				assert.NotContains(t, prompt, "passing")
+				assert.NotContains(t, prompt, "failing")
 			},
 		},
 		{
 			name:        "absolute path",
 			projectDesc: "My Project",
-			status:      "status",
 			baseBranch:  "develop",
 			commitLog:   "commit log",
 			outputPath:  "relative/path.txt",
@@ -352,7 +350,7 @@ func TestBuildPRSummaryPrompt(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			prompt, err := BuildPRSummaryPrompt(tt.projectDesc, tt.status, tt.baseBranch, tt.commitLog, tt.outputPath)
+			prompt, err := BuildPRSummaryPrompt(tt.projectDesc, tt.baseBranch, tt.commitLog, tt.outputPath)
 			require.NoError(t, err, "BuildPRSummaryPrompt failed")
 			if tt.check != nil {
 				tt.check(t, prompt)

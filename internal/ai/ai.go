@@ -79,11 +79,10 @@ type PickPromptData struct {
 }
 
 type PRSummaryPromptData struct {
-	ProjectDesc   string
-	ProjectStatus string
-	BaseBranch    string
-	CommitLog     string
-	AbsPath       string
+	ProjectDesc string
+	BaseBranch  string
+	CommitLog   string
+	AbsPath     string
 }
 
 type ChangelogPromptData struct {
@@ -222,18 +221,17 @@ func BuildPickPrompt(data PickPromptData) (string, error) {
 	return executeTemplate(config.DefaultPickInstructions(), tmplData)
 }
 
-func BuildPRSummaryPrompt(projectDesc, projectStatus, baseBranch, commitLog, outputFile string) (string, error) {
+func BuildPRSummaryPrompt(projectDesc, baseBranch, commitLog, outputFile string) (string, error) {
 	absPath, err := filepath.Abs(outputFile)
 	if err != nil {
 		return "", fmt.Errorf("failed to get absolute path: %w", err)
 	}
 
 	data := PRSummaryPromptData{
-		ProjectDesc:   projectDesc,
-		ProjectStatus: projectStatus,
-		BaseBranch:    baseBranch,
-		CommitLog:     commitLog,
-		AbsPath:       absPath,
+		ProjectDesc: projectDesc,
+		BaseBranch:  baseBranch,
+		CommitLog:   commitLog,
+		AbsPath:     absPath,
 	}
 	return executeTemplate(prSummaryInstructions, data)
 }
@@ -452,7 +450,7 @@ func runOpenCodeAndReadResult(ctx *execcontext.Context, oc opencode.OCClient, mo
 	return summary, nil
 }
 
-func GeneratePRSummary(ctx *execcontext.Context, oc opencode.OCClient, projectDesc, projectStatus, baseBranch, commitLog string) (summary string, err error) {
+func GeneratePRSummary(ctx *execcontext.Context, oc opencode.OCClient, projectDesc, baseBranch, commitLog string) (summary string, err error) {
 	f, err := createTempFile("pr-summary.md")
 	if err != nil {
 		return "", fmt.Errorf("failed to create temporary PR summary file: %w", err)
@@ -461,7 +459,7 @@ func GeneratePRSummary(ctx *execcontext.Context, oc opencode.OCClient, projectDe
 	tmpFile := f.Name()
 	defer os.Remove(tmpFile)
 
-	prPrompt, err := BuildPRSummaryPrompt(projectDesc, projectStatus, baseBranch, commitLog, tmpFile)
+	prPrompt, err := BuildPRSummaryPrompt(projectDesc, baseBranch, commitLog, tmpFile)
 	if err != nil {
 		return "", fmt.Errorf("failed to build PR summary prompt: %w", err)
 	}
