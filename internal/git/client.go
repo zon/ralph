@@ -67,6 +67,10 @@ func (a *Client) CurrentBranch() (string, error) {
 	return GetCurrentBranch()
 }
 
+func (a *Client) CommitMessages(base string) ([]string, error) {
+	return CommitMessages(base)
+}
+
 func (a *Client) IsBranchSyncedWithRemote(branch string) error {
 	return IsBranchSyncedWithRemote(branch)
 }

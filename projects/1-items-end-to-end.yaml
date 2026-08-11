@@ -203,7 +203,7 @@ requirements:
           module: internal/git
           body: |
             func CommitMessages(base string) ([]string, error)
-      passing: false
+      passing: true
     - slug: complete-and-incomplete-queries
       description: The project client answers which items are complete, which are left, how many iterations are allowed, and what to say when the limit is hit
       items:
