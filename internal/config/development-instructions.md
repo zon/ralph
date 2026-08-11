@@ -55,6 +55,8 @@ The `slug` field uniquely identifies the requirement inside the project file.
 
 **Deep module** — a module that handles one concern end-to-end through a simple interface, hiding internal complexity.
 
+**Completion** — the completion trailer is the only way an item is marked complete. An item is complete only when a commit message on the project branch ends with its trailer line, `Ralph item <index> completed` or `Ralph item <index> (<key>) completed`; no field in the project file records completion.
+
 ## Instructions
 
 Work through the steps in order. Each step skips any work already completed by an earlier step.

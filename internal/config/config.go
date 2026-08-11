@@ -115,6 +115,8 @@ type ValidateConfig struct {
 // RalphConfig represents the .ralph/config.yaml structure
 type RalphConfig struct {
 	Variant             string         `yaml:"variant,omitempty"`
+	Items               string         `yaml:"items,omitempty"`   // jq query selecting the item array from a project file (default: .)
+	Cleanup             bool           `yaml:"cleanup,omitempty"` // Delete the project file once every item is complete (default: false)
 	ExtraIterations     *int           `yaml:"extraIterations,omitempty"`
 	DefaultBranch       string         `yaml:"defaultBranch,omitempty"`
 	Model               string         `yaml:"model,omitempty"` // AI model to use for coding and PR summary (default: deepseek/deepseek-chat)
@@ -185,6 +187,9 @@ func ValidateReviewConfig(r *ReviewConfig) error {
 
 // applyDefaults fills in zero-value fields with their default values.
 func applyDefaults(config *RalphConfig) {
+	if config.Items == "" {
+		config.Items = "."
+	}
 	if config.DefaultBranch == "" {
 		config.DefaultBranch = "main"
 	}
@@ -203,6 +208,28 @@ func applyDefaults(config *RalphConfig) {
 			config.Services[i].Timeout = 30
 		}
 	}
+}
+
+// ResolveItems returns the effective item query for a run: the flag when
+// passed, otherwise the config `items` field, otherwise the default ".".
+func (c *RalphConfig) ResolveItems(flag string) string {
+	if flag != "" {
+		return flag
+	}
+	if c.Items != "" {
+		return c.Items
+	}
+	return "."
+}
+
+// ResolveCleanup returns whether project file cleanup is enabled for a run:
+// the flag when passed, otherwise the config `cleanup` field, otherwise false.
+// A nil flag means the flag was not passed.
+func (c *RalphConfig) ResolveCleanup(flag *bool) bool {
+	if flag != nil {
+		return *flag
+	}
+	return c.Cleanup
 }
 
 // FindConfigDir searches upwards from startDir for a .ralph directory

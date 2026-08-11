@@ -286,7 +286,7 @@ requirements:
             - AND no `--cleanup` flag is passed
             - WHEN cleanup is resolved
             - THEN cleanup is enabled
-      passing: false
+      passing: true
     - slug: get-command
       description: A read-only `ralph get` command reports which items are complete and which are left
       items:
