@@ -84,19 +84,13 @@ The service SHALL globally ignore all events from the configured `ralphUser`, re
 
 ### Requirement: Custom Instructions
 
-The service SHOULD allow overriding the default AI instructions for comment replies and merge operations.
+The service SHOULD allow overriding the default AI instructions for comment replies.
 
 #### Scenario: Comment instructions override
 
 - GIVEN `commentInstructionsFile` points to a custom markdown file
 - WHEN a comment event is dispatched
 - THEN the custom file's content is used as the AI prompt template instead of the built-in default
-
-#### Scenario: Merge instructions override
-
-- GIVEN `mergeInstructionsFile` points to a custom markdown file
-- WHEN a merge event is dispatched
-- THEN the custom file's content is used as the AI merge prompt template
 
 ### Requirement: Container Image Configuration
 

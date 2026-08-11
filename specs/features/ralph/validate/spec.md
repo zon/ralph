@@ -2,7 +2,9 @@
 
 ## Purpose
 
-Define the behavior of the `ralph validate` command, which checks that a project file (JSON or YAML) unmarshals into a well-formed project, asks a locally-run agent to repair the file when it does not, and rewrites the file in canonical YAML format on success. When the input file has a `.json` extension, the validated output is written to a new `.yaml` file and the original `.json` file is removed.
+Define the behavior of `ralph validate`, which checks that a project file is usable by a run: that it parses as YAML or JSON, that the item query evaluates against it, and that the query resolves to at least one item. When the file fails to parse, the command asks a locally-run agent to repair it and retries. On success the file is rewritten in canonical YAML; a `.json` input is written to a new `.yaml` file and the original is removed.
+
+Ralph imposes no schema on a project file, so validation makes no schema checks. Anything that parses and yields items is a valid project.
 
 ## Requirements
 
@@ -22,27 +24,78 @@ The system SHALL provide a `ralph validate <file>` subcommand that accepts a pat
 - WHEN the user runs `ralph validate`
 - THEN the command exits with a non-zero status and reports that a project file path is required
 
-### Requirement: Project Unmarshalling
+### Requirement: Item Query Resolution
 
-The command MUST attempt to unmarshal the file into the project model using the same loader used by other ralph commands. The loader accepts both JSON and YAML input. The project is considered valid when it parses and satisfies the project schema (required fields populated, requirements well-formed).
+The command SHALL resolve the item query with the same two-level precedence a run uses: `--items` at the command line takes priority; otherwise the `items` field in `.ralph/config.yaml` is used; otherwise the query defaults to `.`. Validating with one query and running with another does not check what the run will do.
+
+#### Scenario: `--items` flag takes precedence
+
+- GIVEN `items: .requirements` is set in `.ralph/config.yaml`
+- AND the user runs `ralph validate <file> --items '.spec.tasks'`
+- WHEN the item query is resolved
+- THEN `.spec.tasks` is evaluated against the parsed file
+
+#### Scenario: Config query used when no flag is passed
+
+- GIVEN `items: .requirements` is set in `.ralph/config.yaml`
+- AND no `--items` flag is passed
+- WHEN the item query is resolved
+- THEN `.requirements` is evaluated against the parsed file
+
+#### Scenario: Default query when flag and config are unset
+
+- GIVEN `items` is not set in `.ralph/config.yaml`
+- AND no `--items` flag is passed
+- WHEN the item query is resolved
+- THEN the query `.` is evaluated, so a file whose top level is an array validates with no configuration
+
+### Requirement: Validation Checks
+
+The command MUST check exactly three things, in order: the file parses as YAML or JSON; the item query evaluates against the parsed document without error; the query resolves to at least one item. There MUST be no schema check — no field is required, and no field is rejected.
 
 #### Scenario: Well-formed project
 
-- GIVEN a file that parses and satisfies the project schema
+- GIVEN a file that parses and whose query resolves to one or more items
 - WHEN `ralph validate <file>` is run
-- THEN unmarshalling succeeds on the first attempt
+- THEN all three checks pass on the first attempt
 - AND no agent is invoked
 
-#### Scenario: Unmarshalling failure
+#### Scenario: Unrecognized fields accepted
 
-- GIVEN a file that fails to parse or fails schema checks
+- GIVEN a file that parses and yields items but contains fields ralph does not read
+- WHEN `ralph validate <file>` is run
+- THEN validation succeeds and the unrecognized fields are left untouched
+
+#### Scenario: Items with no conventional shape accepted
+
+- GIVEN a file whose top level is an array of plain strings
+- WHEN `ralph validate <file>` is run with the default query
+- THEN validation succeeds, because each string is a valid item
+
+#### Scenario: Parse failure
+
+- GIVEN a file that is not valid YAML or JSON
 - WHEN `ralph validate <file>` is run
 - THEN the command enters the fix loop described below
-- AND the underlying error is reported to the user before each fix attempt
+- AND the underlying parse error is reported to the user before each fix attempt
+
+#### Scenario: Query evaluation failure
+
+- GIVEN a file that parses and a query that cannot be evaluated against it
+- WHEN `ralph validate <file>` is run
+- THEN the command exits with a non-zero status reporting the query error
+- AND no agent is invoked, because the file is not the thing that is wrong
+
+#### Scenario: Query yields no items
+
+- GIVEN a file that parses and a query that produces no output
+- WHEN `ralph validate <file>` is run
+- THEN the command exits with a non-zero status and the error names the query: `item query yielded no items: <query>`
+- AND no agent is invoked
 
 ### Requirement: Local Agent Fix Loop
 
-When unmarshalling fails, the command MUST invoke an AI agent locally to repair the file in place, then retry unmarshalling. The loop MUST continue until the project unmarshals successfully or the attempt limit is reached.
+When the file fails to parse, the command MUST invoke an AI agent locally to repair the file in place, then retry parsing. The loop MUST continue until the file parses or the attempt limit is reached.
 
 The agent MUST be run locally on the current machine (the same execution mode as `ralph run --local`), never delegated to a remote workflow runner. The agent MUST use the model resolved from the ralph config file, with no command-line override required.
 
@@ -50,15 +103,15 @@ Model resolution follows a two-level precedence: if `validate.model` is set in `
 
 #### Scenario: Agent fixes a malformed file
 
-- GIVEN a file whose contents do not unmarshal into a valid project
+- GIVEN a file whose contents do not parse as YAML or JSON
 - WHEN `ralph validate <file>` is run
-- THEN the command invokes the agent with the file path and the unmarshalling error
+- THEN the command invokes the agent with the file path and the parse error
 - AND the agent rewrites the file
-- AND the command retries unmarshalling against the updated file
+- AND the command retries parsing against the updated file
 
 #### Scenario: Local execution
 
-- GIVEN any failed unmarshalling
+- GIVEN any failed parse
 - WHEN the fix loop invokes the agent
 - THEN the agent runs on the local machine using the same path used by `ralph run --local`
 - AND no Argo workflow or remote runner is involved
@@ -77,16 +130,23 @@ Model resolution follows a two-level precedence: if `validate.model` is set in `
 - WHEN the fix loop invokes the agent
 - THEN the top-level model is used as the fallback
 
+#### Scenario: Query checks run after the file parses
+
+- GIVEN a file that the agent repairs into valid YAML
+- WHEN the fix loop exits
+- THEN the item query is evaluated against the repaired file
+- AND a query that yields no items fails validation without re-entering the fix loop
+
 ### Requirement: Fix Loop Limit
 
-The fix loop MUST be capped at 10 total unmarshalling attempts (the initial attempt plus up to 9 agent-assisted retries). If the project still fails to unmarshal after the final attempt, the command MUST exit with a non-zero status code and report that the limit was reached along with the most recent unmarshalling error.
+The fix loop MUST be capped at 10 total parse attempts (the initial attempt plus up to 9 agent-assisted retries). If the file still fails to parse after the final attempt, the command MUST exit with a non-zero status code and report that the limit was reached along with the most recent parse error.
 
-#### Scenario: Project becomes valid within the limit
+#### Scenario: File becomes parseable within the limit
 
 - GIVEN a file that the agent successfully repairs within 10 attempts
 - WHEN `ralph validate <file>` is run
-- THEN the loop exits as soon as unmarshalling succeeds
-- AND the command proceeds to canonical formatting
+- THEN the loop exits as soon as parsing succeeds
+- AND the command proceeds to the query checks
 
 #### Scenario: Limit exceeded
 
@@ -94,18 +154,18 @@ The fix loop MUST be capped at 10 total unmarshalling attempts (the initial atte
 - WHEN `ralph validate <file>` is run
 - THEN the command exits with a non-zero status
 - AND the error message reports that the 10-attempt limit was reached
-- AND the error message includes the final unmarshalling error
+- AND the error message includes the final parse error
 
 ### Requirement: Canonical Formatting
 
-After unmarshalling succeeds, the command MUST marshal the project model back to disk as YAML using the same serialization path as `ralph pass`. This ensures the output is always in canonical YAML layout regardless of the input format.
+After all three checks pass, the command MUST write the parsed document back to disk as YAML. Because ralph has no project schema, the rewrite MUST preserve the document's full content and key order — only formatting is normalized. No field is dropped for being unrecognized, and no field is added.
 
 #### Scenario: File rewritten in canonical format
 
-- GIVEN a project file that unmarshals successfully (immediately or after agent fixes)
+- GIVEN a project file that validates (immediately or after agent fixes)
 - WHEN `ralph validate <file>` finishes validation
-- THEN the file is rewritten using the same marshalling routine as `ralph pass`
-- AND the on-disk content matches the canonical YAML representation of the parsed project
+- THEN the file is rewritten as canonical YAML
+- AND the on-disk content parses to the same document as the input
 
 #### Scenario: Already-canonical YAML file is unchanged
 
@@ -113,27 +173,36 @@ After unmarshalling succeeds, the command MUST marshal the project model back to
 - WHEN `ralph validate <file>` rewrites it
 - THEN the resulting file content is byte-identical to the input
 
+#### Scenario: Unrecognized fields survive the rewrite
+
+- GIVEN a project file containing fields ralph does not read
+- WHEN the file is rewritten in canonical format
+- THEN those fields are present in the output with their original values
+
 #### Scenario: JSON file renamed to YAML
 
-- GIVEN a project file with a `.json` extension that unmarshals successfully
+- GIVEN a project file with a `.json` extension that validates
 - WHEN `ralph validate <file>` finishes validation
-- THEN the validated project is written to a new file with the same name but a `.yaml` extension
+- THEN the document is written to a new file with the same name but a `.yaml` extension
 - AND the original `.json` file is removed
-
-#### Scenario: Empty values omitted from canonical output
-
-- GIVEN a validated project with unset/empty fields (e.g., `extraIterations` is nil)
-- WHEN the project is marshalled to canonical YAML
-- THEN fields with empty or nil values are omitted from the output
-- AND no fields are emitted with empty values
 
 ### Requirement: Successful Validation Output
 
-When validation completes successfully, the command MUST exit with status code 0 and emit a confirmation message identifying the project slug and the number of requirements it contains.
+When validation completes successfully, the command MUST exit with status code 0 and emit a confirmation message identifying the file path and the number of items the query resolved.
 
 #### Scenario: Valid project file
 
 - GIVEN a project file that ends up valid (with or without agent fixes)
 - WHEN `ralph validate <file>` finishes
 - THEN the command exits with status code 0
-- AND a message confirms the project is valid and reports its slug and requirement count
+- AND a message confirms the project is valid and reports the file path and its item count
+
+### Requirement: Validation Is Not Required to Run
+
+Validation MUST be an optional convenience, not a precondition for a run. A run resolves items with the same query and reports the same errors, so a project file that has never been validated is runnable.
+
+#### Scenario: Foreign project file run without validation
+
+- GIVEN a project file owned by another tool, whose formatting must not be rewritten
+- WHEN the user runs ralph against it without validating first
+- THEN the run resolves items normally and the file is not reformatted

@@ -8,7 +8,7 @@ Analyze the repository and write a `/specs` directory covering every component a
 
 ## Context
 
-Read [`docs/formats/specs.md`](docs/formats/specs.md) before writing any spec files.
+Read [docs/formats/specs.md](../formats/specs.md) before writing any spec files.
 
 ## Instructions
 

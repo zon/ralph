@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The `run` command is ralph's primary entry point. Given a project YAML file, an orchestration document, or a spec document, it drives an AI coding agent through iterative development cycles until all project requirements pass, then opens a GitHub pull request. When an orchestration or spec is provided instead of a project, ralph generates the missing artifacts and commits them before running. Execution can be delegated to an Argo Workflow (default) or run directly on the local machine (`--local`).
+The `run` command is ralph's primary entry point. Given a project file, an orchestration document, or a spec document, it drives an AI coding agent through iterative development cycles until every item in the project is recorded complete, then opens a GitHub pull request. A project file is any YAML or JSON file containing an array of work items; the array is selected with the [item query](../../../../docs/formats/project.md#item-query) and completion is recorded in the branch's commit messages, not in the file. When an orchestration or spec is provided instead of a project, ralph generates the missing artifacts and commits them before running. Execution can be delegated to an Argo Workflow (default) or run directly on the local machine (`--local`).
 
 Mode-specific behaviors are defined in:
 - [run-local/spec.md](../run-local/spec.md) — `--local` flag: runs the development loop in-process
@@ -12,13 +12,13 @@ Mode-specific behaviors are defined in:
 
 ### Requirement: Input file is required
 
-The command SHALL require a positional argument that is a path to one of: a project YAML file, an orchestration document (`orchestration.md`), or a spec document (`spec.md`). The file must exist on disk before execution proceeds. When an orchestration or spec is provided, the actual project generation and artifact commits happen inside the execution mode; see [run-local/spec.md](../run-local/spec.md).
+The command SHALL require a positional argument that is a path to one of: a project file (`.yaml`, `.yml`, or `.json`), an orchestration document (`orchestration.md`), or a spec document (`spec.md`). The file must exist on disk before execution proceeds. When an orchestration or spec is provided, the actual project generation and artifact commits happen inside the execution mode; see [run-local/spec.md](../run-local/spec.md).
 
 #### Scenario: Project file provided
 
-- GIVEN the user provides a path to a valid project YAML file
+- GIVEN the user provides a path to a project file that parses and yields items
 - WHEN the command starts
-- THEN the project is loaded and execution proceeds
+- THEN the project file is loaded and execution proceeds
 
 #### Scenario: Orchestration file provided
 
@@ -41,7 +41,7 @@ The command SHALL require a positional argument that is a path to one of: a proj
 
 #### Scenario: Unrecognized file type
 
-- GIVEN the user provides a path to a file that is not a `.yaml`/`.yml` file, `orchestration.md`, or `spec.md`
+- GIVEN the user provides a path to a file that is not a `.yaml`/`.yml`/`.json` file, `orchestration.md`, or `spec.md`
 - WHEN the command starts
 - THEN an error is returned: `unrecognized input file type: <path>`
 - AND no execution begins
@@ -182,6 +182,71 @@ The command SHALL determine the base branch for PR creation by the following pri
 
 ---
 
+### Requirement: Item query resolution
+
+The command SHALL accept `--items` to set the jq query that selects the item array from the project file. The query SHALL be resolved once, locally, before dispatching to either execution mode, and the resolved value SHALL be passed down so that the whole run — local or remote — indexes items against the same query.
+
+Item query resolution follows a three-level precedence: `--items` at the command line takes priority; otherwise the `items` field in `.ralph/config.yaml` is used; otherwise the query defaults to `.`.
+
+#### Scenario: `--items` overrides the configured query
+
+- GIVEN `items: .requirements` is set in `.ralph/config.yaml`
+- AND the user passes `--items '.spec.tasks'`
+- WHEN the item query is resolved
+- THEN the resolved query is `.spec.tasks`
+
+#### Scenario: Config query used when no flag is passed
+
+- GIVEN `items: .requirements` is set in `.ralph/config.yaml`
+- AND no `--items` flag is passed
+- WHEN the item query is resolved
+- THEN the resolved query is `.requirements`
+
+#### Scenario: Default query when flag and config are unset
+
+- GIVEN `items` is not set in `.ralph/config.yaml`
+- AND no `--items` flag is passed
+- WHEN the item query is resolved
+- THEN the resolved query is `.`
+
+#### Scenario: Resolved query passed to the execution mode
+
+- GIVEN the item query has been resolved locally
+- WHEN execution is dispatched to run-local or run-remote
+- THEN the resolved query is passed down as a parameter
+- AND the execution mode does not re-resolve it from config
+
+---
+
+### Requirement: Cleanup resolution
+
+The command SHALL accept `--cleanup` to request that the project file be deleted in its own commit once every item is complete. The resolved value SHALL be passed down to the execution mode, which performs the deletion; see [run-local/spec.md](../run-local/spec.md).
+
+Cleanup resolution follows a three-level precedence: `--cleanup` at the command line takes priority; otherwise the `cleanup` field in `.ralph/config.yaml` is used; otherwise cleanup is disabled.
+
+#### Scenario: `--cleanup` enables cleanup for one run
+
+- GIVEN `cleanup` is not set in `.ralph/config.yaml`
+- AND the user passes `--cleanup`
+- WHEN cleanup is resolved
+- THEN cleanup is enabled for this run
+
+#### Scenario: Config value used when no flag is passed
+
+- GIVEN `cleanup: true` is set in `.ralph/config.yaml`
+- AND no `--cleanup` flag is passed
+- WHEN cleanup is resolved
+- THEN cleanup is enabled
+
+#### Scenario: Cleanup disabled by default
+
+- GIVEN `cleanup` is not set in `.ralph/config.yaml`
+- AND no `--cleanup` flag is passed
+- WHEN cleanup is resolved
+- THEN cleanup is disabled and the project file survives the run
+
+---
+
 ### Requirement: Extra iterations resolution
 
 The command SHALL accept `--extra-iterations` to set a finite extra iteration count. The resolved extra iteration value SHALL be passed down to the execution mode, which determines the default when the value is unset.
@@ -211,9 +276,33 @@ Extra iterations resolution follows a two-level precedence: `--extra-iterations`
 
 ---
 
+### Requirement: Project slug resolution
+
+The project slug SHALL be taken from the project file's top-level `slug` field when the file's top level is a mapping carrying one, and SHALL otherwise fall back to the project file's base name without its extension. A project file whose top level is an array therefore always takes its slug from the file name.
+
+#### Scenario: Slug field present
+
+- GIVEN a project file whose top level is a mapping with `slug: csv-export`
+- WHEN the slug is resolved
+- THEN the slug is `csv-export`
+
+#### Scenario: Top-level array has no slug field
+
+- GIVEN a project file at `projects/csv-export.yaml` whose top level is an array
+- WHEN the slug is resolved
+- THEN the slug is `csv-export`, from the file's base name
+
+#### Scenario: Mapping without a slug field
+
+- GIVEN a project file at `projects/tasks.json` whose top level is a mapping with no `slug` field
+- WHEN the slug is resolved
+- THEN the slug is `tasks`, from the file's base name
+
+---
+
 ### Requirement: Branch name derived from project slug
 
-The project branch name SHALL be derived from the project slug: lowercased, with spaces, underscores, and dots converted to hyphens, non-alphanumeric characters stripped, and consecutive or leading/trailing hyphens collapsed.
+The project branch name SHALL be derived from the resolved project slug: lowercased, with spaces, underscores, and dots converted to hyphens, non-alphanumeric characters stripped, and consecutive or leading/trailing hyphens collapsed.
 
 #### Scenario: Slug with spaces and capitals
 

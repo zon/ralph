@@ -115,3 +115,46 @@ The base branch SHALL be resolved locally (see [run/spec.md](../run/spec.md)) an
 - GIVEN a base branch has been resolved locally before workflow submission
 - WHEN the workflow YAML is generated
 - THEN the container args for `ralph workflow run` include `--base <resolved-base-branch>`
+
+---
+
+### Requirement: Item query delivered to the workflow via `--items` argument
+
+The item query SHALL be resolved locally (see [run/spec.md](../run/spec.md)) and passed to the generated workflow as the `--items` CLI argument to `ralph workflow run`, so the query travels with the workflow rather than being re-read from `.ralph/config.yaml` inside the container. A remote run therefore indexes items consistently for its whole lifetime even if the repository's config changes underneath it.
+
+#### Scenario: Resolved item query passed as `--items` argument
+
+- GIVEN the item query resolved locally to `.requirements`
+- WHEN the workflow YAML is generated
+- THEN the container args for `ralph workflow run` include `--items .requirements`
+
+#### Scenario: Default query passed explicitly
+
+- GIVEN neither `--items` nor `items` in `.ralph/config.yaml` is set, so the query resolves to `.`
+- WHEN the workflow YAML is generated
+- THEN the container args include `--items .`, so the container does not re-resolve the query
+
+#### Scenario: Config change after submission does not affect the run
+
+- GIVEN a workflow has been submitted carrying `--items .requirements`
+- AND `.ralph/config.yaml` is later changed on the branch
+- WHEN the container runs
+- THEN it resolves items with `.requirements` as submitted
+
+---
+
+### Requirement: Cleanup setting delivered to the workflow
+
+The cleanup setting SHALL be resolved locally (see [run/spec.md](../run/spec.md)) and passed to the generated workflow as the `--cleanup` CLI argument to `ralph workflow run` when enabled.
+
+#### Scenario: Cleanup enabled
+
+- GIVEN cleanup resolved to enabled before workflow submission
+- WHEN the workflow YAML is generated
+- THEN the container args for `ralph workflow run` include `--cleanup`
+
+#### Scenario: Cleanup disabled
+
+- GIVEN cleanup resolved to disabled
+- WHEN the workflow YAML is generated
+- THEN the container args contain no `--cleanup` flag

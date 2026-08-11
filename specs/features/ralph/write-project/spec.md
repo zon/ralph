@@ -2,129 +2,242 @@
 
 ## Purpose
 
-Define the format of ralph project YAML files and the rules for writing them, and specify that the documentation describing this format is written as a Claude Code and opencode skill.
+Define the format of ralph project files and the rules for writing them, and specify that the documentation describing this format is written as a Claude Code and opencode skill.
+
+A project is any YAML or JSON file containing an array of work items. Ralph imposes no schema on it: it resolves the array with the [item query](../../../../docs/formats/project.md#item-query) and treats everything else in the file as opaque context passed through to the AI agent. The conventional item shape below is what the skill generates and what the default agent instructions are tuned for — a convention, not a requirement.
 
 ## Requirements
 
-### Requirement: Slug
+### Requirement: Project File
 
-A project MUST have a `slug` field containing a lowercase, hyphen-separated string that uniquely identifies the project.
+A project file MUST be a YAML or JSON document from which the item query resolves an array of one or more items. No field is required and no field is rejected.
 
-#### Scenario: Valid slug
+#### Scenario: Top-level array
 
-- GIVEN a project with `slug: fix-pagination`
-- WHEN the file is authored
-- THEN the slug is accepted as the project identifier
+- GIVEN a file whose top level is an array of work items
+- WHEN it is used as a project with the default query
+- THEN each element of the array is an item and the file is valid
 
-#### Scenario: Invalid slug format
+#### Scenario: Nested array
 
-- GIVEN a project with a slug containing uppercase letters, spaces, or special characters
-- WHEN the project is validated
-- THEN an error is reported describing the invalid format
+- GIVEN a file whose top level is a mapping with a `requirements` list
+- WHEN it is used as a project with the query `.requirements`
+- THEN each element of that list is an item and the file is valid
 
-### Requirement: Title
+#### Scenario: Foreign file used as a project
 
-A project MUST have a `title` field containing a brief one-line description of what the project is doing.
+- GIVEN a YAML or JSON file authored by another tool, containing a list of work
+- WHEN a query is chosen that resolves that list
+- THEN the file is a valid project and ralph does not require any ralph-specific field in it
 
-#### Scenario: Title describes the work
+#### Scenario: Query resolves nothing
 
-- GIVEN a project implementing a CSV export feature
-- WHEN the author writes the title
-- THEN the title reads something like `Add CSV export to the reports API`
+- GIVEN a file against which the item query produces no output
+- WHEN the project is used
+- THEN an error is reported naming the query, because there is no work to iterate over
 
-### Requirement: Spec and Orchestration References
+### Requirement: Item Index
 
-A project MAY include `spec` and `orchestration` fields containing relative paths to the spec and orchestration documents the project is implementing.
+Each item MUST be identified by its 0-based position in the resolved array. The index is the only identifier ralph uses. Because the project file is never written to during a run, an item's index refers to the same work for the whole run.
 
-#### Scenario: Spec and orchestration provided
+#### Scenario: Index identifies the item
 
-- GIVEN a project that implements a documented feature
-- WHEN the author adds `spec` and `orchestration` fields
-- THEN each field contains a relative path from the project file to the corresponding document
+- GIVEN a project resolving to four items
+- WHEN the third element is selected for an iteration
+- THEN it is identified as index 2 in the picker prompt, the development prompt, and the completion trailer
 
-#### Scenario: Spec and orchestration omitted
+#### Scenario: Index is not written into the file
 
-- GIVEN a project with no associated spec or orchestration
-- WHEN the project is authored without `spec` or `orchestration` fields
-- THEN the project is valid and the fields are simply absent
+- GIVEN any project file
+- WHEN it is authored
+- THEN no index field is written into the items, because the index is the array position
 
-### Requirement: Requirements
+### Requirement: Item Key
 
-A project MUST have a `requirements` field containing a list of one or more requirements. Each requirement MUST have `description` and `passing` fields, and MUST have at least one of `items`, `scenarios`, or `orchestrations`.
+When an item is a mapping with a scalar `slug`, `id`, or `name` field — checked in that order — that value MUST be used as the item's key. The key is a label used in commit messages, logs, and picker output. It MUST NOT be used to identify or match items, and keys need not be unique.
 
-#### Scenario: Requirement with failing work
+#### Scenario: Key taken from `slug`
 
-- GIVEN a requirement describing work that has not been implemented
-- WHEN the author sets `passing: false`
-- THEN the agent will select and implement this requirement
+- GIVEN an item that is a mapping with `slug: csv-serializer`
+- WHEN the key is resolved
+- THEN the key is `csv-serializer` and the commit trailer reads `Ralph item 0 (csv-serializer) completed`
 
-#### Scenario: Requirement already complete
+#### Scenario: Key falls back to `id` then `name`
 
-- GIVEN a requirement describing work that is already done
-- WHEN the author sets `passing: true`
-- THEN the agent skips this requirement
+- GIVEN an item that is a mapping with `id: 4821` and no `slug`
+- WHEN the key is resolved
+- THEN the key is `4821`
 
-#### Scenario: Requirement items
+#### Scenario: Item with no key
 
-- GIVEN a requirement with work that falls outside the associated spec and orchestration
+- GIVEN an item that is a plain string, or a mapping with no `slug`, `id`, or `name`
+- WHEN the key is resolved
+- THEN the item has no key and its commit trailer reads `Ralph item 0 completed`
+- AND the item is tracked exactly as any keyed item is
+
+#### Scenario: Duplicate keys are not an error
+
+- GIVEN two items that share the same `slug`
+- WHEN the project is used
+- THEN both items are tracked independently by index and no error is reported
+
+### Requirement: Optional Metadata
+
+A project file MAY carry top-level `slug` and `title` fields, which are read only when the file's top level is a mapping. `slug` names the branch `ralph/<slug>` and falls back to the project file's base name. `title` becomes the pull request title and falls back to the slug.
+
+#### Scenario: Slug and title provided
+
+- GIVEN a project file whose top level is a mapping with `slug: csv-export` and `title: Add CSV export to the reports API`
+- WHEN the run starts
+- THEN the branch is `ralph/csv-export` and the pull request title is `Add CSV export to the reports API`
+
+#### Scenario: Top-level array has no metadata
+
+- GIVEN a project file at `projects/csv-export.yaml` whose top level is an array
+- WHEN the run starts
+- THEN the slug is `csv-export`, derived from the file name, and the PR title falls back to that slug
+
+#### Scenario: Metadata omitted from a mapping
+
+- GIVEN a project file whose top level is a mapping with neither `slug` nor `title`
+- WHEN the run starts
+- THEN both fall back as above and the project is valid
+
+### Requirement: No Completion State In The File
+
+A project file MUST NOT carry completion state. Items MUST NOT have a `passing` field or any equivalent, and nothing — not the author, not ralph, not the AI agent — writes progress back into the file. Completion is recorded in the branch's commit messages; see [get/spec.md](../get/spec.md).
+
+#### Scenario: Items carry no completion field
+
+- GIVEN an item authored for ralph
+- WHEN it is written
+- THEN it describes work to do and carries no field indicating whether that work is done
+
+#### Scenario: Completion queried from the commit log
+
+- GIVEN a run in progress
+- WHEN the author wants to know what is done
+- THEN they run `ralph get complete` or `ralph get incomplete`, not read the project file
+
+#### Scenario: Pre-existing completion field is inert
+
+- GIVEN a borrowed project file whose items happen to carry a `passing` field
+- WHEN the project is run
+- THEN the field is passed through to the agent as ordinary item content and has no effect on completion
+
+### Requirement: Conventional Item Shape
+
+An item authored for ralph SHOULD be a mapping with a `slug` and a `description`, and SHOULD have at least one of `items`, `scenarios`, `code`, or `tests`. This shape is what the skill generates and what the default agent instructions expect; ralph does not enforce it.
+
+- `slug` — lowercase, hyphen-separated label, conventionally unique within the project; becomes the item key
+- `description` — what the item covers
+- `items` — behavioral outcomes for work that falls outside the spec and orchestration
+- `scenarios` — GWT scenarios copied from the spec document
+- `code` — code the item should implement, sourced from the orchestration document
+- `tests` — tests the item should implement, sourced from the orchestration document
+
+#### Scenario: Item with the conventional shape
+
+- GIVEN an item authored from a spec and orchestration
+- WHEN it is written
+- THEN it has a `slug`, a `description`, and at least one of `items`, `scenarios`, `code`, or `tests`
+
+#### Scenario: Item with only a slug and description
+
+- GIVEN an item with no `items`, `scenarios`, `code`, or `tests`
+- WHEN the project is reviewed
+- THEN the item is flagged as giving the agent nothing to build
+- AND the run still executes, because ralph enforces no schema
+
+#### Scenario: Behavioral outcomes in `items`
+
+- GIVEN work that falls outside the associated spec and orchestration
 - WHEN the author writes the `items` list
-- THEN each item is a specific, observable outcome the agent must achieve, free of architecture decisions such as package names, struct names, or implementation strategies
-
-#### Scenario: Items omitted when scenarios or orchestrations are present
-
-- GIVEN a requirement with `scenarios` or `orchestrations` but no `items`
-- WHEN the project is validated
-- THEN the requirement is valid because at least one content field is present
-
-#### Scenario: No content fields
-
-- GIVEN a requirement with no `items`, `scenarios`, or `orchestrations`
-- WHEN the project is validated
-- THEN an error is reported requiring at least one content field
-
-### Requirement: Requirement Scenarios
-
-A requirement MAY include a `scenarios` field containing a list of scenarios. Each scenario MUST have a `title` and an `items` list. Scenarios are copied from the spec document when the project is based on one.
+- THEN each entry is a specific, observable outcome the agent must achieve, free of architecture decisions such as package names, struct names, or implementation strategies
 
 #### Scenario: Scenarios copied from spec
 
 - GIVEN a project based on a spec document
-- WHEN the author writes a requirement
-- THEN relevant scenarios are copied from the spec into the requirement's `scenarios` field
+- WHEN the author writes an item
+- THEN relevant scenarios are copied verbatim from the spec into the item's `scenarios` field
 
-#### Scenario: Scenarios omitted
+### Requirement: Items Are Self-Contained
 
-- GIVEN a requirement with no associated spec scenarios
-- WHEN the project is authored without a `scenarios` field on that requirement
-- THEN the requirement is valid and the field is simply absent
+Each item MUST be written to stand alone. The development agent receives the selected item and the full project file, but not the spec or orchestration documents, so any content the agent needs MUST be present in the item itself.
 
-### Requirement: Helper Requirements
+#### Scenario: Agent context is the item and the project file
 
-Each helper function defined in an orchestration document's `helpers` list MUST have a corresponding requirement in the project. The helper requirement MUST include an `orchestrations` entry for the helper with `name` and optionally `module` and `description`, but MUST NOT include `code` or `helpers` on that orchestration. Scenarios from the spec that directly relate to the helper MUST be copied into the requirement. Items MUST be used to fill in any gaps not covered by scenarios or the orchestration.
+- GIVEN an item that references a spec by path only
+- WHEN the development agent runs
+- THEN the referenced content is unavailable to it, so the item is incomplete as written
 
-#### Scenario: Helper gets its own requirement
+#### Scenario: One item is one iteration
 
-- GIVEN an orchestration document that lists `buildCSV` as a helper of `ExportReport`
+- GIVEN work that needs several separate rounds of development
 - WHEN the author writes the project
-- THEN a separate requirement exists for `buildCSV` with an orchestration entry containing `name` and optionally `module` and `description`
+- THEN the work is split across several items, because each iteration works exactly one item
 
-#### Scenario: Helper orchestration omits code and helpers
+### Requirement: Code and Tests Sourced from Orchestration
 
-- GIVEN a helper requirement with an `orchestrations` entry
-- WHEN the author writes the orchestration
-- THEN the orchestration does not include `code` or `helpers` properties
+An item's `code` and `tests` entries MUST be sourced directly from the feature's orchestration document, never composed freehand. When the feature has no orchestration document, or the orchestration has no matching shape, the field MUST be omitted and `scenarios` and `items` used instead.
 
-#### Scenario: Spec scenarios copied to helper requirement
+Every entry in both fields MUST have `name`, `description`, `module`, and `body`. `module` MUST match a `path` entry in the relevant architecture document.
+
+#### Scenario: Code entry copied from orchestration
+
+- GIVEN an orchestration document defining `ExportReport` in `internal/reports`
+- WHEN the author writes the corresponding item
+- THEN a `code` entry carries that name, module, description, and body as the orchestration defines them
+
+#### Scenario: No orchestration — code omitted
+
+- GIVEN a feature with no orchestration document
+- WHEN the author writes the items
+- THEN the `code` and `tests` fields are omitted and the work is expressed with `scenarios` and `items`
+
+#### Scenario: Incomplete code entry
+
+- GIVEN a `code` entry missing `module` or `body`
+- WHEN the project is reviewed
+- THEN the entry is flagged as incomplete
+
+### Requirement: Helper Items
+
+Each helper function called from a `code` entry's body MUST have its own item with a fully-specified `code` entry. Spec scenarios that directly relate to the helper MUST be copied into that item's `scenarios`, and `items` MUST be used to fill any remaining gaps.
+
+#### Scenario: Helper gets its own item
+
+- GIVEN an orchestration where `ExportReport` calls `buildCSV`
+- WHEN the author writes the project
+- THEN a separate item exists for `buildCSV` with its own `code` entry carrying `name`, `description`, `module`, and `body`
+
+#### Scenario: Spec scenarios copied to the helper item
 
 - GIVEN a spec scenario that directly describes the behavior of a helper function
-- WHEN the author writes the helper requirement
-- THEN that scenario is copied into the requirement's `scenarios` field
+- WHEN the author writes the helper item
+- THEN that scenario is copied into the helper item's `scenarios` field
 
-#### Scenario: Items fill gaps for helper
+#### Scenario: Items fill gaps for the helper
 
-- GIVEN a helper requirement where the spec and orchestration do not fully describe the expected behavior
-- WHEN the author writes the helper requirement
+- GIVEN a helper item where the spec and orchestration do not fully describe the expected behavior
+- WHEN the author writes the item
 - THEN `items` are added to cover the remaining behavioral expectations
+
+### Requirement: Version Bump Items
+
+When the repository uses versioning, the project SHOULD include an item for the version bump. The item MUST specify the bump level — patch, minor, or major — and MUST NOT specify a target version, because ralph determines the current version and applies the bump.
+
+#### Scenario: Bump level specified
+
+- GIVEN a project adding a backwards-compatible feature
+- WHEN the author writes the version item
+- THEN it reads as a minor bump to the named resource, with no version number
+
+#### Scenario: Independent bumps per resource
+
+- GIVEN a repository with several independently versioned resources
+- WHEN the author writes version items
+- THEN each resource's bump level is chosen from how its own interface changed
 
 ### Requirement: Skill-Format Documentation
 
@@ -143,23 +256,3 @@ The skill file MUST begin with YAML frontmatter containing a `name` and `descrip
 - GIVEN the documentation skill file
 - WHEN the frontmatter is parsed
 - THEN `name` is a lowercase hyphen-separated identifier and `description` is a concise one-line summary
-
-### Requirement: Requirement Orchestrations
-
-A requirement MAY include an `orchestrations` field containing a list of orchestrations. Each orchestration MUST have a `name` field containing the method name. The `module`, `code`, `helpers`, and `description` fields are all optional. Orchestrations are optionally copied from the orchestration document when the project is based on one.
-
-The `name` field identifies the method. The `module` field defines where the orchestration should be written. The `code` field contains the orchestration code itself — including package names, function signatures, struct names, and implementation strategies. The `helpers` field is a list of helper functions the orchestration requires, each with `name`, `module`, and `description` properties. The `description` field provides a short summary of the orchestration's purpose.
-
-Orchestrations are the correct place to specify architecture. Items must not contain architecture decisions; orchestrations must.
-
-#### Scenario: Orchestrations copied from orchestration document
-
-- GIVEN a project based on an orchestration document
-- WHEN the author writes a requirement
-- THEN relevant orchestrations are copied from the orchestration document into the requirement's `orchestrations` field
-
-#### Scenario: Orchestrations omitted
-
-- GIVEN a requirement with no associated orchestration
-- WHEN the project is authored without an `orchestrations` field on that requirement
-- THEN the requirement is valid and the field is simply absent
