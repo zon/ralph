@@ -1,0 +1,1040 @@
+slug: 1-items-end-to-end
+title: '1/2: Drive runs from a generic item array and track completion in commit trailers'
+feature: specs/features/ralph/run-local
+requirements:
+    - slug: item-query-resolution
+      description: A project file is any YAML or JSON document whose item array is resolved by a jq query
+      items:
+        - A project file is parsed as YAML or JSON, chosen by its extension
+        - The item query is a jq expression evaluated against the parsed document with gojq, and gojq is added as a dependency
+        - When the query produces exactly one output and that output is an array, the array's elements are the items
+        - In every other case each output of the query is one item, so a query ending in `[]` and one returning the array itself resolve identically
+        - 'When the query produces no output the error is `item query yielded no items: <query>`'
+        - When the query cannot be evaluated against the parsed document the error names the query error and is distinguishable from the no-items error
+        - No field of the document is required and no field is rejected; content outside the item array is retained and passed through untouched
+      scenarios:
+        - title: Default query when flag and config are unset
+          items:
+            - GIVEN `items` is not set in `.ralph/config.yaml`
+            - AND no `--items` flag is passed
+            - THEN the query `.` is evaluated, so a file whose top level is an array resolves to that array
+        - title: Query yields no items
+          items:
+            - GIVEN a project file and a query that produces no output
+            - WHEN the item array is resolved
+            - 'THEN an error is returned - `item query yielded no items: <query>`'
+        - title: Query resolution does not depend on the file's shape
+          items:
+            - GIVEN a project file whose items are plain strings, mappings, or nested structures
+            - WHEN the item array is resolved
+            - THEN each element becomes one item regardless of its shape
+            - AND no field of any item is required
+        - title: Nested array
+          items:
+            - GIVEN a file whose top level is a mapping with a `requirements` list
+            - WHEN it is used as a project with the query `.requirements`
+            - THEN each element of that list is an item and the file is valid
+        - title: Foreign file used as a project
+          items:
+            - GIVEN a YAML or JSON file authored by another tool, containing a list of work
+            - WHEN a query is chosen that resolves that list
+            - THEN the file is a valid project and ralph does not require any ralph-specific field in it
+      code:
+        - name: Parse
+          description: reads a project file from disk and parses it as YAML or JSON, chosen by its extension, preserving the document's content and key order
+          module: internal/projectfile
+          body: |
+            func Parse(path string) (*Document, error)
+        - name: ResolveItems
+          description: evaluates a jq item query against a parsed document with gojq and returns the resolved item values
+          module: internal/projectfile
+          body: |
+            // Returns an error naming the query when it cannot be evaluated, and a
+            // distinct error when it yields no output.
+            func ResolveItems(doc *Document, query string) ([]any, error)
+      passing: false
+    - slug: item-index-and-key
+      description: An item is identified by its position in the resolved array and labelled by an optional key
+      items:
+        - Each item carries its 0-based position in the resolved array, and that position is the only identifier ralph uses
+        - Each item carries the raw value it was resolved from, unchanged, so it can be handed to an agent verbatim
+        - When an item is a mapping with a scalar `slug`, `id`, or `name` field, checked in that order, that value is the item's key, rendered as a string
+        - An item that is not a mapping, or a mapping with none of those fields, has no key
+        - Keys are never used to identify or match items, and two items sharing a key is not an error
+      scenarios:
+        - title: Index identifies the item
+          items:
+            - GIVEN a project resolving to four items
+            - WHEN the third element is selected for an iteration
+            - THEN it is identified as index 2 in the picker prompt, the development prompt, and the completion trailer
+        - title: Key taken from `slug`
+          items:
+            - 'GIVEN an item that is a mapping with `slug: csv-serializer`'
+            - WHEN the key is resolved
+            - THEN the key is `csv-serializer` and the commit trailer reads `Ralph item 0 (csv-serializer) completed`
+        - title: Key falls back to `id` then `name`
+          items:
+            - 'GIVEN an item that is a mapping with `id: 4821` and no `slug`'
+            - WHEN the key is resolved
+            - THEN the key is `4821`
+        - title: Item with no key
+          items:
+            - GIVEN an item that is a plain string, or a mapping with no `slug`, `id`, or `name`
+            - WHEN the key is resolved
+            - THEN the item has no key and its commit trailer reads `Ralph item 0 completed`
+            - AND the item is tracked exactly as any keyed item is
+        - title: Duplicate keys are not an error
+          items:
+            - GIVEN two items that share the same `slug`
+            - WHEN the project is used
+            - THEN both items are tracked independently by index and no error is reported
+      passing: false
+    - slug: project-metadata-and-input-files
+      description: Slug and title fall back to the file name, and a project input file may be YAML or JSON
+      items:
+        - The project slug is the document's top-level `slug` field when the top level is a mapping carrying one, and otherwise the input file's base name without its extension
+        - The project title is the document's top-level `title` field when present, and otherwise the resolved slug
+        - Resolving an input file accepts a `.json` extension alongside `.yaml` and `.yml` and treats all three as project files
+        - A project input file is not schema-checked when it is resolved, so resolving succeeds for any document that parses and yields items
+      scenarios:
+        - title: Slug field present
+          items:
+            - 'GIVEN a project file whose top level is a mapping with `slug: csv-export`'
+            - WHEN the slug is resolved
+            - THEN the slug is `csv-export`
+        - title: Top-level array has no slug field
+          items:
+            - GIVEN a project file at `projects/csv-export.yaml` whose top level is an array
+            - WHEN the slug is resolved
+            - THEN the slug is `csv-export`, from the file's base name
+        - title: Mapping without a slug field
+          items:
+            - GIVEN a project file at `projects/tasks.json` whose top level is a mapping with no `slug` field
+            - WHEN the slug is resolved
+            - THEN the slug is `tasks`, from the file's base name
+        - title: Project file provided
+          items:
+            - GIVEN the user provides a path to a project file that parses and yields items
+            - WHEN the command starts
+            - THEN the project file is loaded and execution proceeds
+        - title: Unrecognized file type
+          items:
+            - GIVEN the user provides a path to a file that is not a `.yaml`/`.yml`/`.json` file, `orchestration.md`, or `spec.md`
+            - WHEN the command starts
+            - 'THEN an error is returned - `unrecognized input file type: <path>`'
+            - AND no execution begins
+        - title: Top-level array has no metadata
+          items:
+            - GIVEN a project file at `projects/csv-export.yaml` whose top level is an array
+            - WHEN the run starts
+            - THEN the slug is `csv-export`, derived from the file name, and the PR title falls back to that slug
+      passing: false
+    - slug: completion-trailers
+      description: Completion is read from the commit trailers on the project branch, bounded by the base branch
+      items:
+        - A commit records an item complete when its message contains a trailer line of the form `Ralph item <index> completed` or `Ralph item <index> (<key>) completed`
+        - Trailer formatting and parsing are pure string operations with no filesystem, git, or network access, so they are unit tested directly with no mocks
+        - The commits considered are those on the current branch that are not on the base branch
+        - One commit may carry more than one trailer, and all of them count
+        - The reported indices are ascending and deduplicated
+        - The index alone identifies the item; a key present in the trailer is never used for matching
+        - When a trailer's key differs from the key of the item at its index, a warning reports the mismatch and the index is still honored
+        - When a trailer's index is outside the resolved item array and an array was resolved, a warning names the out-of-range index and the index is dropped
+        - When no item array was resolved, every trailer found in the log is reported without a range check
+      scenarios:
+        - title: Index-only trailer recognized
+          items:
+            - GIVEN a commit whose message ends with `Ralph item 0 completed`
+            - WHEN completion is read
+            - THEN item 0 is reported complete
+        - title: Trailer with key recognized
+          items:
+            - GIVEN a commit whose message ends with `Ralph item 3 (csv-serializer) completed`
+            - WHEN completion is read
+            - THEN item 3 is reported complete
+        - title: Multiple trailers in one commit
+          items:
+            - GIVEN a commit whose message ends with a paragraph containing `Ralph item 1 completed` and `Ralph item 2 (export-endpoint) completed`
+            - WHEN completion is read
+            - THEN both item 1 and item 2 are reported complete
+        - title: Commit without a trailer completes nothing
+          items:
+            - GIVEN a commit whose message contains no completion trailer
+            - WHEN completion is read
+            - THEN that commit contributes no completed indices
+        - title: Key mismatch is honored by index with a warning
+          items:
+            - GIVEN a trailer `Ralph item 2 (export-endpoint) completed`
+            - AND the item at index 2 in the resolved array has the key `csv-serializer`
+            - WHEN completion is read
+            - THEN a warning reports the key mismatch
+            - AND item 2 is still reported complete
+        - title: Out-of-range index ignored with a warning
+          items:
+            - GIVEN a trailer whose index is greater than or equal to the number of resolved items
+            - AND a project file was provided
+            - WHEN completion is read
+            - THEN a warning is emitted naming the out-of-range index
+            - AND that index is not reported complete
+        - title: Duplicate trailers collapse
+          items:
+            - GIVEN two commits on the branch both record item 1 complete
+            - WHEN completion is read
+            - THEN index 1 appears exactly once in the output
+      code:
+        - name: Format
+          description: renders the completion trailer line for an item index and its optional key
+          module: internal/trailer
+          body: |
+            // "Ralph item 2 completed" or "Ralph item 2 (export-endpoint) completed"
+            func Format(index int, key string) string
+        - name: Parse
+          description: extracts every completion trailer from a commit message, returning the index and any key each one names
+          module: internal/trailer
+          body: |
+            type Ref struct {
+                Index int
+                Key   string
+            }
+
+            func Parse(message string) []Ref
+        - name: CommitMessages
+          description: returns the messages of the commits on the current branch that are not on the base branch
+          module: internal/git
+          body: |
+            func CommitMessages(base string) ([]string, error)
+      passing: false
+    - slug: complete-and-incomplete-queries
+      description: The project client answers which items are complete, which are left, how many iterations are allowed, and what to say when the limit is hit
+      items:
+        - The extra iteration count comes from config when set and is otherwise 20% of the resolved item count, rounded up
+        - The incomplete error names the items that are still incomplete rather than counting failing requirements
+        - Reading completion makes no AI call and writes nothing
+        - Resolution reads and parses nothing itself — it delegates file reading, parsing, and query evaluation, then builds the domain values from the results
+        - Reading completion neither shells out nor matches a trailer pattern itself — it delegates retrieving the commit messages and extracting the trailers from them, then reconciles the results against the resolved item array
+        - The trailer text appears in exactly one place in the codebase, so the line the development agent is told to write and the line completion is read from cannot drift apart
+      code:
+        - name: Resolve
+          description: delegates parsing and query evaluation and returns a Project carrying the file path, slug, title, parsed document, and resolved item array
+          module: internal/project
+          body: |
+            // Returns an error when the file does not parse, the query fails,
+            // or the query yields no items.
+            func (c *Client) Resolve(path string, query string) (*Project, error)
+        - name: Complete
+          description: reconciles the trailers found in the branch commit log against the resolved item array and returns the ascending, deduplicated indices they name
+          module: internal/project
+          body: |
+            // Warns and drops indices outside proj.Items, and warns when a trailer's
+            // key does not match the item at its index.
+            func (c *Client) Complete(proj *Project, base string) ([]int, error)
+        - name: Incomplete
+          description: returns the items whose indices are not reported complete, in array order
+          module: internal/project
+          body: |
+            // An empty result is the iteration loop's exit condition.
+            func (c *Client) Incomplete(proj *Project, base string) ([]Item, error)
+        - name: ExtraIterations
+          description: returns the configured extra iteration count, or 20% of the item count rounded up when unset
+          module: internal/project
+          body: |
+            func (c *Client) ExtraIterations(proj *Project, cfg *config.RalphConfig) int
+        - name: IncompleteError
+          description: returns an error naming the items that are still incomplete
+          module: internal/project
+          body: |
+            func (c *Client) IncompleteError(proj *Project, base string) error
+        - name: Remove
+          description: deletes the project file and stages the deletion, delegating the filesystem work
+          module: internal/project
+          body: |
+            func (c *Client) Remove(proj *Project) error
+        - name: Remove
+          description: deletes a project file from disk
+          module: internal/projectfile
+          body: |
+            func Remove(path string) error
+      passing: false
+    - slug: project-test-factories
+      description: The shared project test factories describe item arrays and completion instead of passing requirements
+      items:
+        - A factory produces a project whose resolved array holds exactly n items
+        - A factory produces a project in a valid default state
+        - Factories produce project clients that report every item complete, report items incomplete for the first n calls then complete, and always report incomplete
+        - A factory produces a project client that reports a given set of indices complete, and one that then reports every item complete on later calls
+        - A factory produces a project client whose resolution fails with an item-query error
+        - Factories record and expose the last item query used, the last base branch used, the resolve call count, the incomplete call count, whether the project file was written, and whether it was removed
+        - Factories exist for wrapping a project, an orchestration document, and a spec document as an input file
+        - The factories for passing and failing requirements are deleted rather than adapted
+      passing: false
+    - slug: config-items-and-cleanup
+      description: The ralph config gains an item query and a cleanup setting
+      items:
+        - The config file accepts an `items` field holding the jq query that selects the item array, defaulting to `.` when absent
+        - The config file accepts a `cleanup` boolean that deletes the project file once every item is complete, defaulting to false
+        - The documented default instructions note explains that the completion trailer is the only way an item is marked complete
+      scenarios:
+        - title: Config query used when no flag is passed
+          items:
+            - 'GIVEN `items: .requirements` is set in `.ralph/config.yaml`'
+            - AND no `--items` flag is passed
+            - WHEN the item query is resolved
+            - THEN the resolved query is `.requirements`
+        - title: Config value used when no flag is passed
+          items:
+            - 'GIVEN `cleanup: true` is set in `.ralph/config.yaml`'
+            - AND no `--cleanup` flag is passed
+            - WHEN cleanup is resolved
+            - THEN cleanup is enabled
+      passing: false
+    - slug: get-command
+      description: A read-only `ralph get` command reports which items are complete and which are left
+      items:
+        - '`ralph get` provides `complete` and `incomplete` subcommands'
+        - '`complete` takes an optional project file path; `incomplete` requires one and exits non-zero reporting that a project file path is required when it is missing'
+        - Both subcommands exit non-zero reporting that the file was not found when the given path does not exist
+        - Both subcommands accept `--items` and resolve the query as flag, then config, then `.`
+        - Both subcommands accept `-B`/`--base` and otherwise bound the commit log by the configured default branch
+        - '`incomplete` accepts `--index` to emit indices instead of items, and `complete` rejects `--index` with an error because it already emits indices'
+        - Both subcommands print a JSON array to stdout and exit 0, printing `[]` when there is nothing to report
+        - Neither subcommand invokes an AI agent, writes a file, creates a commit, or switches a branch
+      scenarios:
+        - title: Complete invoked without a project file
+          items:
+            - GIVEN the user runs `ralph get complete`
+            - WHEN the command starts
+            - THEN the completion trailers are read from the commit log with no item array resolved
+        - title: Complete invoked with a project file
+          items:
+            - GIVEN the user runs `ralph get complete ./projects/csv-export.yaml`
+            - WHEN the command starts
+            - THEN the item array is resolved from that file and used to bound the reported indices
+        - title: Completed indices printed
+          items:
+            - GIVEN the branch's commit log records items 2, 0, and 3 complete
+            - WHEN `ralph get complete` runs
+            - THEN `[0, 2, 3]` is printed to stdout
+            - AND the command exits with status 0
+        - title: Works after the project file is removed
+          items:
+            - GIVEN the project file was deleted by a cleanup commit on this branch
+            - WHEN `ralph get complete` runs without a project file argument
+            - THEN the completed indices are still reported from the commit log
+        - title: Remaining items printed
+          items:
+            - GIVEN a project resolving to 4 items
+            - AND items 0 and 2 are recorded complete
+            - WHEN `ralph get incomplete <file>` runs
+            - THEN the items at indices 1 and 3 are printed as a JSON array, in that order
+            - AND each item is printed exactly as it appears in the resolved array
+        - title: Indices emitted instead of items
+          items:
+            - GIVEN a project resolving to 5 items
+            - AND items 0, 2, and 3 are recorded complete
+            - WHEN `ralph get incomplete <file> --index` runs
+            - THEN `[1, 4]` is printed to stdout
+        - title: Every item complete
+          items:
+            - GIVEN every resolved item is recorded complete
+            - WHEN `ralph get incomplete <file>` runs
+            - THEN `[]` is printed to stdout
+            - AND the command exits with status 0
+        - title: Repository left untouched
+          items:
+            - GIVEN either subcommand runs against a repository with a clean working tree
+            - WHEN the command finishes
+            - THEN the working tree is still clean and the current branch is unchanged
+            - AND the project file is byte-identical to what it was before the command ran
+        - title: '`--base` overrides the configured default branch'
+          items:
+            - 'GIVEN `defaultBranch: main` is set in `.ralph/config.yaml`'
+            - AND the user passes `--base develop`
+            - WHEN the commit log is read
+            - THEN only commits on the current branch that are not on `develop` are considered
+      passing: false
+    - slug: run-local-runner
+      description: The local runner resolves the project once and drives setup, iteration, cleanup, and PR creation
+      items:
+        - The project client interface exposes item resolution, completion queries, extra iterations, the incomplete error, and project file removal, and no longer exposes reloading, requirement passing checks, or project file normalization
+        - Artifact generation resolves the generated project file with the run's item query, so generation fails when the generated file yields no items
+      scenarios:
+        - title: Generated project resolves under the run's item query
+          items:
+            - GIVEN the input is an `orchestration.md` or `spec.md` file
+            - WHEN the project file is generated
+            - THEN it is written in a shape that the run's resolved item query selects an item array from
+            - AND generation fails if the resolved query yields no items from the generated file
+      code:
+        - name: RunLocal
+          description: runs the full development loop in-process from environment setup through pull request creation
+          module: internal/orchestration/run
+          body: |
+            func (r *Runner) RunLocal(input *InputFile, cfg *config.RalphConfig) error {
+                if r.env.InWorkflow() {
+                    defer r.ai.PrintStats()
+                }
+                if err := r.services.RunBeforeCommands(cfg); err != nil {
+                    return err
+                }
+                if err := r.git.SwitchToBranch(input.Slug()); err != nil {
+                    return err
+                }
+                proj, err := r.generateArtifacts(input, cfg)
+                if err != nil {
+                    r.notify.Error(input.Slug())
+                    return err
+                }
+                if err := r.iterate(proj, cfg); err != nil {
+                    r.notify.Error(proj.Slug)
+                    return err
+                }
+                if err := r.removeOrchestration(proj); err != nil {
+                    r.notify.Error(proj.Slug)
+                    return err
+                }
+                if err := r.removeProjectFile(proj, cfg); err != nil {
+                    r.notify.Error(proj.Slug)
+                    return err
+                }
+                if err := r.github.CreatePR(proj); err != nil {
+                    r.notify.Error(proj.Slug)
+                    return err
+                }
+                r.notify.Success(proj.Slug)
+                return nil
+            }
+        - name: generateArtifacts
+          description: generates any missing artifacts for orchestration or spec inputs, commits them, and returns the project with its item array resolved
+          module: internal/orchestration/run
+          body: |
+            func (r *Runner) generateArtifacts(input *InputFile, cfg *config.RalphConfig) (*project.Project, error) {
+                if input.IsProject() {
+                    return r.project.Resolve(input.Path(), cfg.Items)
+                }
+                if input.IsSpec() {
+                    if err := r.ai.WriteOrchestration(input); err != nil {
+                        return nil, err
+                    }
+                }
+                path, err := r.ai.WriteProject(input)
+                if err != nil {
+                    return nil, err
+                }
+                proj, err := r.project.Resolve(path, cfg.Items)
+                if err != nil {
+                    return nil, err
+                }
+                return proj, r.git.CommitGeneratedArtifacts(proj)
+            }
+      tests:
+        - name: TestRunLocalResolvesItemsWithConfiguredQuery
+          description: verifies the configured item query is the one used to resolve the project
+          module: internal/orchestration/run
+          body: |
+            func TestRunLocalResolvesItemsWithConfiguredQuery(t *testing.T) {
+                runner := run.withMocks(
+                    run.withProject(project.thatReportsAllComplete()),
+                )
+                err := runner.RunLocal(input.forProject(project.withItems(3)), config.withItems(".requirements"))
+                require.NoError(t, err)
+                require.Equal(t, ".requirements", project.lastQuery())
+            }
+        - name: TestRunLocalResolvesItemsOncePerRun
+          description: verifies the item array is resolved exactly once for the whole run
+          module: internal/orchestration/run
+          body: |
+            func TestRunLocalResolvesItemsOncePerRun(t *testing.T) {
+                runner := run.withMocks(
+                    run.withProject(project.thatReportsIncompleteUntil(3)),
+                )
+                err := runner.RunLocal(input.forProject(project.withItems(5)), config.any())
+                require.NoError(t, err)
+                require.Equal(t, 1, project.resolveCount())
+            }
+        - name: TestRunLocalItemQueryYieldingNoItemsAborts
+          description: verifies a query that yields no items aborts before any iteration and notifies an error
+          module: internal/orchestration/run
+          body: |
+            func TestRunLocalItemQueryYieldingNoItemsAborts(t *testing.T) {
+                runner := run.withMocks(
+                    run.withProject(project.thatFailsResolution()),
+                )
+                err := runner.RunLocal(input.forProject(project.withItems(3)), config.any())
+                require.Error(t, err)
+                require.NotEmpty(t, notify.errors())
+                require.Empty(t, ai.pickCalls())
+            }
+        - name: TestRunLocalOrchestrationInputGeneratesAndCommitsProject
+          description: verifies an orchestration input generates and commits a project file without generating an orchestration
+          module: internal/orchestration/run
+          body: |
+            func TestRunLocalOrchestrationInputGeneratesAndCommitsProject(t *testing.T) {
+                runner := run.withMocks(
+                    run.withProject(project.thatReportsAllComplete()),
+                )
+                err := runner.RunLocal(input.forOrchestration(), config.any())
+                require.NoError(t, err)
+                require.False(t, ai.writeOrchestrationCalled())
+                require.True(t, ai.writeProjectCalled())
+                require.True(t, git.artifactsCommitted())
+            }
+        - name: TestRunLocalAllItemsCompleteCreatesPR
+          description: verifies a fully complete branch with commits ahead creates a PR and notifies success
+          module: internal/orchestration/run
+          body: |
+            func TestRunLocalAllItemsCompleteCreatesPR(t *testing.T) {
+                runner := run.withMocks(
+                    run.withProject(project.thatReportsAllComplete()),
+                    run.withGit(git.withCommitsAhead()),
+                )
+                err := runner.RunLocal(input.forProject(project.withItems(3)), config.any())
+                require.NoError(t, err)
+                require.True(t, github.prCreated())
+                require.NotEmpty(t, notify.successes())
+            }
+      passing: false
+    - slug: iteration-loop
+      description: The loop reads completion from the commit log each iteration and stops when nothing is left
+      items:
+        - The project file is never consulted for completion state
+      scenarios:
+        - title: Interrupted run resumes from the log
+          items:
+            - GIVEN a run that was stopped after completing several items
+            - WHEN local execution is started again against the same branch and base
+            - THEN the previously completed items are read from the commit log
+            - AND the loop continues with the items that are left
+        - title: Out-of-range trailer ignored with a warning
+          items:
+            - GIVEN a completion trailer whose index is outside the resolved item array
+            - WHEN completion is determined
+            - THEN a warning is emitted and the trailer is ignored
+            - AND the run continues
+        - title: Default extra iterations rounds up
+          items:
+            - GIVEN neither `extraIterations` in config nor `--extra-iterations` flag is set
+            - AND the project resolves to 3 items
+            - WHEN the iteration loop starts
+            - THEN the iteration limit is 4 (3 items + 20% of 3 rounded up from 0.6 to 1)
+      code:
+        - name: iterate
+          description: drives the iteration loop until the commit log records every item complete or the iteration limit is reached
+          module: internal/orchestration/run
+          body: |
+            func (r *Runner) iterate(proj *project.Project, cfg *config.RalphConfig) error {
+                extra := r.project.ExtraIterations(proj, cfg)
+                limit := len(proj.Items) + extra
+                for i := 0; i < limit; i++ {
+                    incomplete, err := r.project.Incomplete(proj, cfg.Base)
+                    if err != nil {
+                        return err
+                    }
+                    if len(incomplete) == 0 {
+                        return nil
+                    }
+                    if r.git.BlockedFileExists() {
+                        return ErrBlocked
+                    }
+                    if err := r.runIteration(proj, incomplete, cfg); err != nil {
+                        return err
+                    }
+                    if err := r.commitIteration(proj); err != nil {
+                        return err
+                    }
+                }
+                return r.project.IncompleteError(proj, cfg.Base)
+            }
+        - name: blockAndReturn
+          description: writes blocked.md for non-fatal agent errors and returns the error unchanged
+          module: internal/orchestration/run
+          body: |
+            func (r *Runner) blockAndReturn(err error) error {
+                if !r.ai.IsFatal(err) {
+                    r.git.WriteBlockedFile(err)
+                }
+                return err
+            }
+      tests:
+        - name: TestIterateExitsImmediatelyWhenAllComplete
+          description: verifies a branch that already records every item complete runs no picker
+          module: internal/orchestration/run
+          body: |
+            func TestIterateExitsImmediatelyWhenAllComplete(t *testing.T) {
+                runner := run.withMocks(
+                    run.withProject(project.thatReportsAllComplete()),
+                )
+                err := runner.RunLocal(input.forProject(project.withItems(3)), config.any())
+                require.NoError(t, err)
+                require.Empty(t, ai.pickCalls())
+            }
+        - name: TestIterateReadsCompletionEachIteration
+          description: verifies completion is recomputed at the start of every iteration
+          module: internal/orchestration/run
+          body: |
+            func TestIterateReadsCompletionEachIteration(t *testing.T) {
+                runner := run.withMocks(
+                    run.withProject(project.thatReportsIncompleteUntil(3)),
+                )
+                err := runner.RunLocal(input.forProject(project.withItems(5)), config.any())
+                require.NoError(t, err)
+                require.Equal(t, 4, project.incompleteCallCount())
+            }
+        - name: TestIterateReadsCompletionAgainstSuppliedBase
+          description: verifies the caller's base branch bounds the commit log completion is read from
+          module: internal/orchestration/run
+          body: |
+            func TestIterateReadsCompletionAgainstSuppliedBase(t *testing.T) {
+                runner := run.withMocks(
+                    run.withProject(project.thatReportsIncompleteUntil(1)),
+                )
+                err := runner.RunLocal(input.forProject(project.withItems(3)), config.withBase("develop"))
+                require.NoError(t, err)
+                require.Equal(t, "develop", project.lastBase())
+            }
+        - name: TestIterateSkipsCompletedItemsInPicker
+          description: verifies only incomplete items are offered to the picker
+          module: internal/orchestration/run
+          body: |
+            func TestIterateSkipsCompletedItemsInPicker(t *testing.T) {
+                runner := run.withMocks(
+                    run.withProject(project.thatReportsComplete(0, 2).thenAllComplete()),
+                )
+                err := runner.RunLocal(input.forProject(project.withItems(4)), config.any())
+                require.NoError(t, err)
+                require.Equal(t, []int{1, 3}, ai.lastPickerIndices())
+            }
+        - name: TestIterateReturnsErrorWhenLimitReached
+          description: verifies reaching the limit with items left returns an error naming them
+          module: internal/orchestration/run
+          body: |
+            func TestIterateReturnsErrorWhenLimitReached(t *testing.T) {
+                runner := run.withMocks(
+                    run.withProject(project.thatAlwaysReportsIncomplete()),
+                )
+                err := runner.RunLocal(input.forProject(project.withItems(1)), config.withExtraIterations(0))
+                require.Error(t, err)
+                require.Len(t, ai.pickCalls(), 1)
+                require.Contains(t, err.Error(), "incomplete")
+            }
+        - name: TestIterateDefaultsToTwentyPercentExtra
+          description: verifies the default limit is the item count plus 20% rounded up
+          module: internal/orchestration/run
+          body: |
+            func TestIterateDefaultsToTwentyPercentExtra(t *testing.T) {
+                runner := run.withMocks(
+                    run.withProject(project.thatAlwaysReportsIncomplete()),
+                )
+                err := runner.RunLocal(input.forProject(project.withItems(10)), config.any())
+                require.Error(t, err)
+                require.Len(t, ai.pickCalls(), 12)
+            }
+        - name: TestIterateStopsOnBlockedFile
+          description: verifies blocked.md at loop start stops the loop before any picker call
+          module: internal/orchestration/run
+          body: |
+            func TestIterateStopsOnBlockedFile(t *testing.T) {
+                runner := run.withMocks(
+                    run.withGit(git.withBlockedFile()),
+                )
+                err := runner.RunLocal(input.forProject(project.withItems(3)), config.any())
+                require.ErrorIs(t, err, run.ErrBlocked)
+                require.Empty(t, ai.pickCalls())
+            }
+      passing: false
+    - slug: item-selection-and-development
+      description: Each iteration picks one incomplete item and develops it without touching the project file
+      items:
+        - The picked item is handed straight from the picker to the developer, with no file written to disk between them
+        - The completion trailer line placed in the development prompt is produced by the shared trailer formatter rather than assembled in the prompt template, so it matches the line completion is read from
+      scenarios:
+        - title: Picker receives the full project file
+          items:
+            - GIVEN a project file with content outside the item array
+            - WHEN the picker runs
+            - THEN the whole file is included in the prompt as context
+        - title: Selection is not array order
+          items:
+            - GIVEN incomplete items at indices 1, 2, and 3 where item 3 is a prerequisite of item 1
+            - WHEN the picker runs
+            - THEN it may select index 3 first
+        - title: Selected item passed verbatim
+          items:
+            - GIVEN the picker selected the item at index 2
+            - WHEN the development agent is invoked
+            - THEN the item's value is included in the prompt exactly as it appears in the resolved array
+        - title: Index and key supplied to the agent
+          items:
+            - GIVEN the selected item at index 2 has the key `export-endpoint`
+            - WHEN the development agent is invoked
+            - THEN the prompt supplies index 2 and key `export-endpoint`
+            - AND instructs the agent to end its commit message with `Ralph item 2 (export-endpoint) completed` when the item is done
+        - title: Item without a key
+          items:
+            - GIVEN the selected item at index 2 is a plain string with no `slug`, `id`, or `name`
+            - WHEN the development agent is invoked
+            - THEN the prompt supplies the index-only trailer form `Ralph item 2 completed`
+        - title: No normalization after an agent run
+          items:
+            - GIVEN the AI agent has finished an iteration
+            - WHEN the iteration completes
+            - THEN no normalization or staging is applied to the project file
+      code:
+        - name: runIteration
+          description: starts services, runs the picker and development agents, and stops services
+          module: internal/orchestration/run
+          body: |
+            func (r *Runner) runIteration(proj *project.Project, incomplete []project.Item, cfg *config.RalphConfig) error {
+                svc, err := r.services.Start(cfg)
+                if err != nil {
+                    if fixErr := r.ai.FixServiceStartup(cfg, err); fixErr != nil {
+                        return fixErr
+                    }
+                    svc = nil
+                }
+                defer r.services.Stop(svc)
+                defer r.services.RemoveLogs(cfg)
+                item, err := r.ai.RunPicker(proj, incomplete)
+                if err != nil {
+                    return r.blockAndReturn(err)
+                }
+                if err := r.ai.RunDeveloper(proj, item); err != nil {
+                    return r.blockAndReturn(err)
+                }
+                return nil
+            }
+        - name: RunPicker
+          description: builds a picker prompt from the project file, the incomplete items with their indices and keys, and the recent commit log, and returns the selected item
+          module: internal/ai
+          body: |
+            func (c *Client) RunPicker(proj *project.Project, incomplete []project.Item) (project.Item, error)
+        - name: RunDeveloper
+          description: builds a development prompt carrying the project file, the selected item verbatim, its index, and its key, and invokes the development agent
+          module: internal/ai
+          body: |
+            func (c *Client) RunDeveloper(proj *project.Project, item project.Item) error
+      tests:
+        - name: TestRunIterationPassesSelectedItemToDeveloper
+          description: verifies the item the picker chose is the item the developer receives
+          module: internal/orchestration/run
+          body: |
+            func TestRunIterationPassesSelectedItemToDeveloper(t *testing.T) {
+                runner := run.withMocks(
+                    run.withProject(project.thatReportsIncompleteUntil(1)),
+                    run.withAI(ai.thatPicksIndex(2)),
+                )
+                err := runner.RunLocal(input.forProject(project.withItems(4)), config.any())
+                require.NoError(t, err)
+                require.Equal(t, 2, ai.lastDevelopedIndex())
+            }
+        - name: TestRunIterationLeavesProjectFileUntouched
+          description: verifies no write to the project file is attempted during the loop
+          module: internal/orchestration/run
+          body: |
+            func TestRunIterationLeavesProjectFileUntouched(t *testing.T) {
+                runner := run.withMocks(
+                    run.withProject(project.thatReportsIncompleteUntil(2)),
+                )
+                err := runner.RunLocal(input.forProject(project.withItems(3)), config.any())
+                require.NoError(t, err)
+                require.False(t, project.written())
+            }
+        - name: TestRunIterationStartsAndStopsServicesEachIteration
+          description: verifies services start, stop, and have their logs removed once per iteration
+          module: internal/orchestration/run
+          body: |
+            func TestRunIterationStartsAndStopsServicesEachIteration(t *testing.T) {
+                runner := run.withMocks(
+                    run.withProject(project.thatReportsIncompleteUntil(2)),
+                )
+                err := runner.RunLocal(input.forProject(project.withItems(3)), config.any())
+                require.NoError(t, err)
+                require.Equal(t, 2, services.startCount())
+                require.Equal(t, 2, services.stopCount())
+                require.Equal(t, 2, services.removeLogsCount())
+            }
+        - name: TestIterateFatalDevelopErrorIsNotRetried
+          description: verifies a billing or quota error stops the loop without writing blocked.md
+          module: internal/orchestration/run
+          body: |
+            func TestIterateFatalDevelopErrorIsNotRetried(t *testing.T) {
+                runner := run.withMocks(
+                    run.withAI(ai.thatReturnsFatalDevelopError()),
+                )
+                err := runner.RunLocal(input.forProject(project.withItems(3)), config.any())
+                require.Error(t, err)
+                require.Len(t, ai.developCalls(), 1)
+                require.False(t, git.blockedFileWritten())
+            }
+      passing: false
+    - slug: commit-trailer-preservation
+      description: The iteration commit uses the agent's report verbatim so its completion trailer survives
+      items:
+        - Committing never appends, rewrites, or removes a completion trailer
+        - The changelog generation prompt does not instruct the agent to write a completion trailer
+      scenarios:
+        - title: Report without a trailer leaves the item incomplete
+          items:
+            - GIVEN the AI wrote `report.md` with no completion trailer
+            - WHEN changes are committed
+            - THEN the commit is created and no item is marked complete
+            - AND the picker may select the same item again in a later iteration
+        - title: Changes without `report.md`
+          items:
+            - GIVEN the working tree has uncommitted changes and no `report.md`
+            - WHEN changes are committed
+            - THEN the AI is called to generate a changelog, producing `report.md`
+            - AND that content is used as the commit message
+            - AND the generated changelog contains no completion trailer, so no item is marked complete
+      code:
+        - name: commitIteration
+          description: commits whatever the agent produced, generating a changelog only when the agent wrote no report
+          module: internal/orchestration/run
+          body: |
+            func (r *Runner) commitIteration(proj *project.Project) error {
+                if !r.git.HasChanges() {
+                    return nil
+                }
+                if !r.git.ReportExists() {
+                    if err := r.ai.GenerateChangelog(proj); err != nil {
+                        return err
+                    }
+                }
+                return r.git.CommitFromReport(proj.Slug)
+            }
+      tests:
+        - name: TestCommitIterationDoesNotAlterReportContents
+          description: verifies the commit message is byte-identical to the report, trailer included
+          module: internal/orchestration/run
+          body: |
+            func TestCommitIterationDoesNotAlterReportContents(t *testing.T) {
+                runner := run.withMocks(
+                    run.withProject(project.thatReportsIncompleteUntil(1)),
+                    run.withGit(git.withReport("feat: add serializer\n\nRalph item 0 (csv-serializer) completed")),
+                )
+                err := runner.RunLocal(input.forProject(project.withItems(3)), config.any())
+                require.NoError(t, err)
+                require.Equal(t, "feat: add serializer\n\nRalph item 0 (csv-serializer) completed", git.lastCommitMessage())
+            }
+        - name: TestCommitIterationGeneratesChangelogWhenNoReport
+          description: verifies a missing report falls back to a generated changelog
+          module: internal/orchestration/run
+          body: |
+            func TestCommitIterationGeneratesChangelogWhenNoReport(t *testing.T) {
+                runner := run.withMocks(
+                    run.withProject(project.thatReportsIncompleteUntil(1)),
+                    run.withGit(git.withChangesButNoReport()),
+                )
+                err := runner.RunLocal(input.forProject(project.withItems(3)), config.any())
+                require.NoError(t, err)
+                require.Len(t, ai.changelogCalls(), 1)
+                require.True(t, git.committedFromReport())
+            }
+      passing: false
+    - slug: project-file-cleanup
+      description: An optional cleanup commit deletes the completed project file on its own before the PR
+      items:
+        - The cleanup commit contains no file changes other than the project file deletion
+      scenarios:
+        - title: Cleanup commit carries no trailer
+          items:
+            - GIVEN the cleanup commit is created
+            - WHEN the commit message is written
+            - THEN it contains no completion trailer
+            - AND the completion record already in the branch's history is unchanged
+        - title: Completion still readable after cleanup
+          items:
+            - GIVEN cleanup deleted the project file on this branch
+            - WHEN completion is read again from the branch
+            - THEN the trailers in the branch's history still report every item complete
+      code:
+        - name: removeProjectFile
+          description: deletes the project file and commits the deletion on its own when cleanup is enabled
+          module: internal/orchestration/run
+          body: |
+            func (r *Runner) removeProjectFile(proj *project.Project, cfg *config.RalphConfig) error {
+                if !cfg.Cleanup {
+                    return nil
+                }
+                if err := r.project.Remove(proj); err != nil {
+                    return err
+                }
+                return r.git.CommitProjectRemoval(proj)
+            }
+        - name: CommitProjectRemoval
+          description: commits the staged project deletion on its own with no completion trailer
+          module: internal/git
+          body: |
+            // Message: "chore: clean up completed project <path>"
+            func CommitProjectRemoval(proj *project.Project) error
+      tests:
+        - name: TestRemoveProjectFileSkippedWhenCleanupDisabled
+          description: verifies the project file survives a run when cleanup is off
+          module: internal/orchestration/run
+          body: |
+            func TestRemoveProjectFileSkippedWhenCleanupDisabled(t *testing.T) {
+                runner := run.withMocks(
+                    run.withProject(project.thatReportsAllComplete()),
+                )
+                err := runner.RunLocal(input.forProject(project.withItems(3)), config.any())
+                require.NoError(t, err)
+                require.False(t, project.removed())
+                require.False(t, git.projectRemovalCommitted())
+            }
+        - name: TestRemoveProjectFileRemovesAndCommitsWhenCleanupEnabled
+          description: verifies cleanup deletes the project file and commits the deletion
+          module: internal/orchestration/run
+          body: |
+            func TestRemoveProjectFileRemovesAndCommitsWhenCleanupEnabled(t *testing.T) {
+                runner := run.withMocks(
+                    run.withProject(project.thatReportsAllComplete()),
+                )
+                err := runner.RunLocal(input.forProject(project.withItems(3)), config.withCleanup())
+                require.NoError(t, err)
+                require.True(t, project.removed())
+                require.True(t, git.projectRemovalCommitted())
+            }
+        - name: TestRemoveProjectFileCommitsBeforePR
+          description: verifies the cleanup commit lands before the pull request is opened
+          module: internal/orchestration/run
+          body: |
+            func TestRemoveProjectFileCommitsBeforePR(t *testing.T) {
+                runner := run.withMocks(
+                    run.withProject(project.thatReportsAllComplete()),
+                    run.withGit(git.thatRecordsCallOrder().withCommitsAhead()),
+                )
+                err := runner.RunLocal(input.forProject(project.withItems(3)), config.withCleanup())
+                require.NoError(t, err)
+                require.True(t, git.projectRemovalCommittedBeforePR())
+            }
+        - name: TestRemoveProjectFileSkippedWhenIterationLimitReached
+          description: verifies an unfinished run never deletes the project file
+          module: internal/orchestration/run
+          body: |
+            func TestRemoveProjectFileSkippedWhenIterationLimitReached(t *testing.T) {
+                runner := run.withMocks(
+                    run.withProject(project.thatAlwaysReportsIncomplete()),
+                )
+                err := runner.RunLocal(input.forProject(project.withItems(1)), config.withCleanup().withExtraIterations(0))
+                require.Error(t, err)
+                require.False(t, project.removed())
+            }
+      passing: false
+    - slug: picker-agent-instructions
+      description: The picker agent instructions select one incomplete item from an array and report its index
+      items:
+        - The instructions describe items rather than requirements, and never mention a passing field
+        - The prompt carries the full project file, the incomplete items each labelled with its index and key, and the recent commit log
+        - The agent selects one item based on dependencies between items, logical ordering, and impact, and is told selection is not constrained to array order
+        - The agent reports the index of the item it selected rather than writing a requirement file to disk
+        - The instructions tell the agent to make no code changes
+      scenarios:
+        - title: Picker chooses from incomplete items only
+          items:
+            - GIVEN items 0 and 2 are recorded complete
+            - WHEN the picker runs
+            - THEN it is given only the remaining items, each with its index and key
+      passing: false
+    - slug: development-agent-instructions
+      description: The development agent instructions describe one item, the completion trailer, and the read-only project file
+      items:
+        - The instructions present the selected item verbatim along with its index and its key when it has one
+        - The instructions describe the conventional item fields as optional, and tell the agent that an item may instead be a plain string or any other shape
+        - The instructions tell the agent that the last line of its commit message must be the completion trailer for the supplied index and key when the item is finished, and show both the keyed and index-only forms
+        - The instructions tell the agent not to modify the project file, and explain that completion is recorded in the commit message instead
+        - The step that ran `ralph pass` is removed, and no instruction asks the agent to edit any completion field
+        - The instructions still tell the agent to write its commit message to `report.md`, and to write `blocked.md` without a trailer when it is completely blocked
+      scenarios:
+        - title: Agent instructed not to edit the project file
+          items:
+            - GIVEN the development agent is invoked for any item
+            - WHEN the prompt is built
+            - THEN it instructs the agent not to modify the project file
+      passing: false
+    - slug: run-items-and-cleanup-flags
+      description: The run command resolves the item query and cleanup setting once, locally, and passes them down
+      items:
+        - '`ralph run` accepts `--items` holding the jq query that selects the item array'
+        - '`ralph run` accepts `--cleanup` to delete the project file in its own commit once every item is complete'
+        - The item query resolves as flag, then the config `items` field, then `.`
+        - Cleanup resolves as flag, then the config `cleanup` field, then disabled
+        - Both are resolved before execution is dispatched to either mode, and the execution mode uses the resolved values rather than re-reading config
+      scenarios:
+        - title: '`--items` overrides the configured query'
+          items:
+            - 'GIVEN `items: .requirements` is set in `.ralph/config.yaml`'
+            - AND the user passes `--items '.spec.tasks'`
+            - WHEN the item query is resolved
+            - THEN the resolved query is `.spec.tasks`
+        - title: Resolved query passed to the execution mode
+          items:
+            - GIVEN the item query has been resolved locally
+            - WHEN execution is dispatched to run-local or run-remote
+            - THEN the resolved query is passed down as a parameter
+            - AND the execution mode does not re-resolve it from config
+        - title: '`--cleanup` enables cleanup for one run'
+          items:
+            - GIVEN `cleanup` is not set in `.ralph/config.yaml`
+            - AND the user passes `--cleanup`
+            - WHEN cleanup is resolved
+            - THEN cleanup is enabled for this run
+        - title: Cleanup disabled by default
+          items:
+            - GIVEN `cleanup` is not set in `.ralph/config.yaml`
+            - AND no `--cleanup` flag is passed
+            - WHEN cleanup is resolved
+            - THEN cleanup is disabled and the project file survives the run
+      passing: false
+    - slug: pull-request-title-and-summary
+      description: The pull request takes its title from the project title and its summary from the commit log
+      items:
+        - The pull request title is the project's title field, falling back to the resolved slug when there is none
+        - The pull request summary is generated from the branch's commit log and carries no passing or failing requirement counts
+        - Pull request creation is skipped without error when no commits exist ahead of the base branch, and the debug message no longer refers to passing requirements
+      scenarios:
+        - title: All items complete after iterations — commits exist
+          items:
+            - GIVEN items are recorded complete during the iteration loop
+            - AND the project branch has commits not on the base branch
+            - WHEN the PR creation step runs
+            - THEN a pull request is created
+            - AND the PR title is the project's `title` field, falling back to its slug
+        - title: No commits ahead of base branch
+          items:
+            - GIVEN all items are complete
+            - AND no commits were added to the project branch
+            - WHEN the PR creation step runs
+            - THEN PR creation is skipped
+            - AND the command exits successfully
+        - title: Iteration limit reached with items incomplete — PR skipped
+          items:
+            - GIVEN the iteration loop exits because the iteration limit was reached
+            - AND one or more items are still incomplete
+            - WHEN the loop ends
+            - THEN PR creation is skipped
+            - AND an error is returned
+      passing: false
+    - slug: remove-pass-command
+      description: The `ralph pass` command is removed, since nothing writes completion into the project file
+      items:
+        - '`ralph --help` lists no `pass` command'
+        - Invoking `ralph pass` exits non-zero with an unknown-command error
+        - The pass orchestration module and its tests are deleted
+        - Updating a requirement's completion field in a parsed project is no longer supported
+        - Nothing in the codebase or the embedded instruction templates references a pass command
+      passing: false
+    - slug: write-project-skill
+      description: The project-writing skill teaches the item array format
+      items:
+        - The skill describes a project as any YAML or JSON file containing an array of work items, resolved by a jq item query
+        - The skill explains that the item's index identifies it, that `slug`, `id`, or `name` supplies an optional key, and that no completion field belongs in the file
+        - The skill instructs the author to write items with the conventional shape and to give each one a key so commit trailers read well
+        - The skill no longer instructs the author to write a passing field
+        - The skill states that top-level `slug` and `title` are optional and fall back to the file name
+        - References to files in the ralph repository are written as markdown links so they can be rewritten to absolute raw URLs on install
+      passing: false
+    - slug: version-bump
+      description: Version bump
+      items:
+        - Apply a semver major bump to the app version, because the project file format and the completion mechanism change and `ralph pass` is removed
+        - Apply the matching app version to the ralph-webhook chart and a patch bump to the chart version
+      passing: false

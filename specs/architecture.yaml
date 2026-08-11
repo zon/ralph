@@ -63,7 +63,7 @@ modules:
     description: Orchestrates the workflow comment subcommand — workspace setup, AI agent invocation with a rendered comment prompt, commit, and PR reply.
     category: orchestration
   - path: internal/project
-    description: Parses YAML and JSON project files, resolves the item array with a jq item query, and reads item completion from the branch's commit trailers.
+    description: Resolves a project file into its item array and reads item completion, coordinating the project file reader, the branch commit log, and completion trailer parsing.
     category: orchestration
   - path: internal/orchestration/get
     description: Orchestrates the get complete and get incomplete subcommands by resolving the item array and subtracting the indices recorded in the commit log.
@@ -126,6 +126,9 @@ modules:
   - path: internal/github
     description: Wrapper around the gh CLI for GitHub API operations, authentication, and webhook payload parsing.
     category: implementation
+  - path: internal/projectfile
+    description: Reads and writes project files — YAML and JSON parsing, jq item-query evaluation via gojq, canonical YAML output that preserves the document's content and key order, and project file removal.
+    category: implementation
   - path: internal/config
     description: Loads and parses the ralph configuration file.
     category: implementation
@@ -144,6 +147,9 @@ modules:
   - path: internal/notify
     description: Desktop notification helper for success and error events.
     category: implementation
+  - path: internal/trailer
+    description: Formats and parses ralph completion trailers in commit messages.
+    category: pure
   - path: internal/version
     description: Exposes the current application version string.
     category: pure
