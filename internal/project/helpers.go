@@ -1,7 +1,6 @@
 package project
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -58,68 +57,6 @@ func RequirementStatus(t *testing.T, path, slug string) bool {
 func NonExistentFile(t *testing.T) string {
 	t.Helper()
 	return filepath.Join(t.TempDir(), "nonexistent.yaml")
-}
-
-func Any() *Project {
-	return &Project{
-		Slug:  "test-project",
-		Title: "Test Project",
-		Requirements: []Requirement{
-			{
-				Slug:        "req-1",
-				Description: "Requirement 1",
-				Items:       []string{"Item 1"},
-				Passing:     false,
-			},
-		},
-	}
-}
-
-func WithAllPassing() *Project {
-	return &Project{
-		Slug:  "test-project",
-		Title: "Test Project",
-		Requirements: []Requirement{
-			{
-				Slug:        "req-1",
-				Description: "Requirement 1",
-				Items:       []string{"Item 1"},
-				Passing:     true,
-			},
-		},
-	}
-}
-
-func WithFailingRequirements() *Project {
-	return &Project{
-		Slug:  "test-project",
-		Title: "Test Project",
-		Requirements: []Requirement{
-			{
-				Slug:        "req-1",
-				Description: "Requirement 1",
-				Items:       []string{"Item 1"},
-				Passing:     false,
-			},
-		},
-	}
-}
-
-func WithFailingRequirementsCount(n int) *Project {
-	reqs := make([]Requirement, n)
-	for i := 0; i < n; i++ {
-		reqs[i] = Requirement{
-			Slug:        fmt.Sprintf("req-%d", i+1),
-			Description: fmt.Sprintf("Requirement %d", i+1),
-			Items:       []string{fmt.Sprintf("Item %d", i+1)},
-			Passing:     false,
-		}
-	}
-	return &Project{
-		Slug:         "test-project",
-		Title:        "Test Project",
-		Requirements: reqs,
-	}
 }
 
 func ForProjectInput(p *Project) *InputFile {

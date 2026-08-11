@@ -266,7 +266,7 @@ requirements:
         - Factories record and expose the last item query used, the last base branch used, the resolve call count, the incomplete call count, whether the project file was written, and whether it was removed
         - Factories exist for wrapping a project, an orchestration document, and a spec document as an input file
         - The factories for passing and failing requirements are deleted rather than adapted
-      passing: false
+      passing: true
     - slug: config-items-and-cleanup
       description: The ralph config gains an item query and a cleanup setting
       items:

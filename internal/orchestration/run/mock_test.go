@@ -1,6 +1,8 @@
 package run
 
 import (
+	"fmt"
+
 	"github.com/stretchr/testify/assert"
 
 	"github.com/zon/ralph/internal/config"
@@ -239,11 +241,50 @@ func newServicesThatFailToStart() *mockServicesClient {
 }
 
 func failingProject() *project.Project {
-	return project.WithFailingRequirements()
+	return &project.Project{
+		Slug:  "test-project",
+		Title: "Test Project",
+		Requirements: []project.Requirement{
+			{
+				Slug:        "req-1",
+				Description: "Requirement 1",
+				Items:       []string{"Item 1"},
+				Passing:     false,
+			},
+		},
+	}
 }
 
 func passingProject() *project.Project {
-	return project.WithAllPassing()
+	return &project.Project{
+		Slug:  "test-project",
+		Title: "Test Project",
+		Requirements: []project.Requirement{
+			{
+				Slug:        "req-1",
+				Description: "Requirement 1",
+				Items:       []string{"Item 1"},
+				Passing:     true,
+			},
+		},
+	}
+}
+
+func failingProjectCount(n int) *project.Project {
+	reqs := make([]project.Requirement, n)
+	for i := range reqs {
+		reqs[i] = project.Requirement{
+			Slug:        fmt.Sprintf("req-%d", i+1),
+			Description: fmt.Sprintf("Requirement %d", i+1),
+			Items:       []string{fmt.Sprintf("Item %d", i+1)},
+			Passing:     false,
+		}
+	}
+	return &project.Project{
+		Slug:         "test-project",
+		Title:        "Test Project",
+		Requirements: reqs,
+	}
 }
 
 func anyConfig() *config.RalphConfig {

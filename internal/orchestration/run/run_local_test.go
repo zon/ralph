@@ -24,7 +24,7 @@ func TestRunLocalIterationFailureSendsErrorNotification(t *testing.T) {
 	runner := withMocks(
 		withAI(newAIThatAlwaysFails()),
 	)
-	err := runner.RunLocal(project.ForProjectInput(project.WithFailingRequirements()), config.Any())
+	err := runner.RunLocal(project.ForProjectInput(failingProject()), config.Any())
 	require.Error(t, err)
 	require.NotEmpty(t, notifyErrors(runner))
 }
@@ -34,7 +34,7 @@ func TestRunLocalAllRequirementsPassCreatesPR(t *testing.T) {
 		withProject(newProjectThatReportsAllPassing()),
 		withGitHub(newGitHubWithCommitsAhead()),
 	)
-	err := runner.RunLocal(project.ForProjectInput(project.WithAllPassing()), config.Any())
+	err := runner.RunLocal(project.ForProjectInput(passingProject()), config.Any())
 	require.NoError(t, err)
 	require.True(t, githubPRCreated(runner))
 	require.NotEmpty(t, notifySuccesses(runner))
@@ -44,7 +44,7 @@ func TestRunLocalNoCommitsSkipsPR(t *testing.T) {
 	runner := withMocks(
 		withProject(newProjectThatReportsAllPassing()),
 	)
-	err := runner.RunLocal(project.ForProjectInput(project.WithAllPassing()), config.Any())
+	err := runner.RunLocal(project.ForProjectInput(passingProject()), config.Any())
 	require.NoError(t, err)
 	require.False(t, githubPRCreated(runner))
 	require.NotEmpty(t, notifySuccesses(runner))
@@ -54,7 +54,7 @@ func TestRunLocalProjectInputSkipsGeneration(t *testing.T) {
 	runner := newRunnerWithMocks(
 		withProject(newProjectThatReportsAllPassing()),
 	)
-	err := runner.RunLocal(project.ForProjectInput(project.WithAllPassing()), config.Any())
+	err := runner.RunLocal(project.ForProjectInput(passingProject()), config.Any())
 	require.NoError(t, err)
 	require.False(t, runner.ai.(*mockAIClient).writeProjectCalled)
 	require.False(t, runner.git.(*git.MockClient).CommitGeneratedArtifactsCalled)
