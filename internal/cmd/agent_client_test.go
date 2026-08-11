@@ -4,9 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -73,58 +71,26 @@ func TestAgentClientPickAndDevelop_MockAI(t *testing.T) {
 	testutil.MakeInitialCommit(t, workDir)
 	testutil.CreateRalphConfig(t, workDir)
 
-	projectYAML := `slug: test-project
-title: Test project
-requirements:
-  - slug: req-1
-    description: Test requirement
-    items:
-      - Item 1
-    passing: false
-`
-	require.NoError(t, os.WriteFile("test-project.yaml", []byte(projectYAML), 0644))
-
 	ctx := execcontext.NewContext()
 	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, true))
-	ctx.SetProjectFile("test-project.yaml")
 
 	mockOC := &opencode.MockOC{
 		RunAgentFunc: func(_ context.Context, _, _, prompt string) error {
-			// Simulate mock agent writing picked-requirement.yaml for pick prompts
-			if strings.Contains(strings.ToLower(prompt), "picked-requirement") {
-				pickedReqPath := filepath.Join(filepath.Dir(ctx.ProjectFile()), "picked-requirement.yaml")
-				mockReqContent := `- slug: mock-requirement
-  description: Mock requirement
-  items:
-    - Mock item
-  passing: false
-`
-				if err := os.WriteFile(pickedReqPath, []byte(mockReqContent), 0644); err != nil {
-					return fmt.Errorf("mock AI failed to write picked-requirement.yaml: %w", err)
-				}
-			}
-			// Append mock modification to project file for develop prompts
-			absProjectFile := ctx.ProjectFile()
-			if absProjectFile != "" {
-				f, err := os.OpenFile(absProjectFile, os.O_APPEND|os.O_WRONLY, 0644)
-				if err == nil {
-					defer f.Close()
-					if _, err := f.WriteString("\n# mock modification"); err != nil {
-						return fmt.Errorf("mock AI failed to append to project file: %w", err)
-					}
-				}
+			// The picker agent writes the selected item's index to disk.
+			if strings.Contains(strings.ToLower(prompt), "picker") {
+				return os.WriteFile("picked-item-index.txt", []byte("0"), 0644)
 			}
 			return nil
 		},
 	}
 	client := NewAgentClient(ctx, mockOC)
 
-	proj := &project.Project{Slug: "test-project"}
-	req, err := client.RunPicker(proj)
+	proj := &project.Project{Slug: "test-project", Items: project.NewItems([]any{"csv-serializer"})}
+	item, err := client.RunPicker(proj, proj.Items)
 	require.NoError(t, err)
-	require.NotEmpty(t, req)
+	require.Equal(t, 0, item.Index)
 
-	err = client.RunDeveloper(proj, req)
+	err = client.RunDeveloper(proj, item)
 	require.NoError(t, err)
 }
 
@@ -171,10 +137,9 @@ requirements:
 	client := NewAgentClient(ctx, mockOC)
 
 	input := project.ForOrchestrationInput("specs/features/test/orchestration.md")
-	proj, err := client.WriteProject(input)
+	path, err := client.WriteProject(input)
 	require.NoError(t, err)
-	require.NotNil(t, proj)
-	assert.Equal(t, "test-project", proj.Slug)
+	assert.Equal(t, "projects/generated.yaml", path)
 }
 
 func TestAgentClientWriteProjectWithSpecInput(t *testing.T) {
@@ -207,10 +172,9 @@ requirements:
 	client := NewAgentClient(ctx, mockOC)
 
 	input := project.ForSpecInput("specs/features/test/spec.md")
-	proj, err := client.WriteProject(input)
+	path, err := client.WriteProject(input)
 	require.NoError(t, err)
-	require.NotNil(t, proj)
-	assert.Equal(t, "test-project", proj.Slug)
+	assert.Equal(t, "projects/generated.yaml", path)
 }
 
 func TestAgentClientWriteProjectAgentFailureReturnsError(t *testing.T) {
@@ -225,9 +189,9 @@ func TestAgentClientWriteProjectAgentFailureReturnsError(t *testing.T) {
 
 	client := NewAgentClient(ctx, mockOC)
 	input := project.ForOrchestrationInput("specs/features/test/orchestration.md")
-	proj, err := client.WriteProject(input)
+	path, err := client.WriteProject(input)
 	require.Error(t, err)
-	assert.Nil(t, proj)
+	assert.Empty(t, path)
 }
 
 func TestAgentClientWriteProjectNoProjectFileCreatedReturnsError(t *testing.T) {
@@ -246,10 +210,10 @@ func TestAgentClientWriteProjectNoProjectFileCreatedReturnsError(t *testing.T) {
 	client := NewAgentClient(ctx, mockOC)
 
 	input := project.ForOrchestrationInput("specs/features/test/orchestration.md")
-	proj, err := client.WriteProject(input)
+	path, err := client.WriteProject(input)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no project file found")
-	assert.Nil(t, proj)
+	assert.Empty(t, path)
 }
 
 func TestAgentClientWriteProjectFindsNewestProjectFile(t *testing.T) {
@@ -289,13 +253,12 @@ requirements:
 	client := NewAgentClient(ctx, mockOC)
 
 	input := project.ForOrchestrationInput("specs/features/test/orchestration.md")
-	proj, err := client.WriteProject(input)
+	path, err := client.WriteProject(input)
 	require.NoError(t, err)
-	require.NotNil(t, proj)
-	assert.Equal(t, "new-project", proj.Slug)
+	assert.Equal(t, "projects/new.yaml", path)
 }
 
-func TestAgentClientWriteProjectInvalidYamlReturnsError(t *testing.T) {
+func TestAgentClientWriteProjectReturnsPathForUnresolvableFile(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
 
@@ -311,10 +274,12 @@ func TestAgentClientWriteProjectInvalidYamlReturnsError(t *testing.T) {
 	client := NewAgentClient(ctx, mockOC)
 
 	input := project.ForOrchestrationInput("specs/features/test/orchestration.md")
-	proj, err := client.WriteProject(input)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to load generated project file")
-	assert.Nil(t, proj)
+	path, err := client.WriteProject(input)
+	require.NoError(t, err)
+	// WriteProject only reports the generated file's path; resolving it against
+	// the run's item query is the caller's job, so an unresolvable file is not
+	// an error here.
+	assert.Equal(t, "projects/invalid.yaml", path)
 }
 
 func TestAgentClientWriteProjectLogsPromptWhenVerbose(t *testing.T) {
@@ -400,10 +365,10 @@ func TestAgentClientWriteProjectNoProjectsDirReturnsError(t *testing.T) {
 	client := NewAgentClient(ctx, mockOC)
 
 	input := project.ForOrchestrationInput("specs/features/test/orchestration.md")
-	proj, err := client.WriteProject(input)
+	path, err := client.WriteProject(input)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to read projects directory")
-	assert.Nil(t, proj)
+	assert.Empty(t, path)
 }
 
 func TestAgentClientPrintStatsUsesStoredOCClient(t *testing.T) {

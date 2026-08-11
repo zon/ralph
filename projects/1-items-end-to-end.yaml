@@ -492,7 +492,7 @@ requirements:
                 require.True(t, github.prCreated())
                 require.NotEmpty(t, notify.successes())
             }
-      passing: false
+      passing: true
     - slug: iteration-loop
       description: The loop reads completion from the commit log each iteration and stops when nothing is left
       items:

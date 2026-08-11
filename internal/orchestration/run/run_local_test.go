@@ -1,40 +1,161 @@
 package run
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/zon/ralph/internal/config"
-	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/project"
 )
 
+func TestRunLocalStatsPrintedOnSuccess(t *testing.T) {
+	runner := withMocks(
+		withEnv(envInWorkflow()),
+		withProject(project.ThatReportsAllComplete()),
+	)
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.Any())
+	require.NoError(t, err)
+	require.True(t, aiStatsPrinted(runner))
+}
+
+func TestRunLocalStatsPrintedOnFailure(t *testing.T) {
+	runner := withMocks(
+		withEnv(envInWorkflow()),
+		withAI(aiThatAlwaysFails()),
+	)
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.Any())
+	require.Error(t, err)
+	require.True(t, aiStatsPrinted(runner))
+}
+
+func TestRunLocalStatsNotPrintedWhenNotInWorkflow(t *testing.T) {
+	runner := withMocks(
+		withEnv(envNotInWorkflow()),
+		withProject(project.ThatReportsAllComplete()),
+	)
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.Any())
+	require.NoError(t, err)
+	require.False(t, aiStatsPrinted(runner))
+}
+
 func TestRunLocalBeforeCommandFailureAbortsEarly(t *testing.T) {
 	runner := withMocks(
-		withServices(newServicesThatFailBeforeCommands()),
+		withServices(servicesThatFailBeforeCommands()),
 	)
 	err := runner.RunLocal(project.ForProjectInput(project.Any()), config.Any())
 	require.Error(t, err)
 	require.False(t, gitBranchSwitched(runner))
 }
 
+func TestRunLocalProjectInputSkipsGeneration(t *testing.T) {
+	runner := withMocks(
+		withProject(project.ThatReportsAllComplete()),
+	)
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.Any())
+	require.NoError(t, err)
+	require.False(t, aiWriteProjectCalled(runner))
+	require.False(t, gitArtifactsCommitted(runner))
+}
+
+func TestRunLocalOrchestrationInputGeneratesAndCommitsProject(t *testing.T) {
+	runner := withMocks(
+		withProject(project.ThatReportsAllComplete()),
+	)
+	err := runner.RunLocal(project.ForOrchestrationInput("specs/features/ralph/run/orchestration.md"), config.Any())
+	require.NoError(t, err)
+	require.False(t, aiWriteOrchestrationCalled(runner))
+	require.True(t, aiWriteProjectCalled(runner))
+	require.True(t, gitArtifactsCommitted(runner))
+}
+
+func TestRunLocalSpecInputGeneratesOrchestrationThenProject(t *testing.T) {
+	runner := withMocks(
+		withProject(project.ThatReportsAllComplete()),
+	)
+	err := runner.RunLocal(project.ForSpecInput("specs/features/ralph/run/spec.md"), config.Any())
+	require.NoError(t, err)
+	require.True(t, aiWriteOrchestrationCalled(runner))
+	require.True(t, aiWriteProjectCalled(runner))
+	require.True(t, gitArtifactsCommitted(runner))
+}
+
+func TestRunLocalOrchestrationWriteProjectFailureSendsErrorNotification(t *testing.T) {
+	runner := withMocks(
+		withAI(aiThatFailsWriteProject()),
+	)
+	err := runner.RunLocal(project.ForOrchestrationInput("specs/features/ralph/run/orchestration.md"), config.Any())
+	require.Error(t, err)
+	require.NotEmpty(t, notifyErrors(runner))
+	require.Zero(t, aiPickCalls(runner))
+}
+
+func TestRunLocalSpecWriteOrchestrationFailureSendsErrorNotification(t *testing.T) {
+	runner := withMocks(
+		withAI(aiThatFailsWriteOrchestration()),
+	)
+	err := runner.RunLocal(project.ForSpecInput("specs/features/ralph/run/spec.md"), config.Any())
+	require.Error(t, err)
+	require.NotEmpty(t, notifyErrors(runner))
+	require.False(t, aiWriteProjectCalled(runner))
+	require.Zero(t, aiPickCalls(runner))
+}
+
+func TestRunLocalGenerationHappensAfterBranchSwitch(t *testing.T) {
+	runner := withMocks(
+		withGit(gitNewMock()),
+		withProject(project.ThatReportsAllComplete()),
+	)
+	err := runner.RunLocal(project.ForOrchestrationInput("specs/features/ralph/run/orchestration.md"), config.Any())
+	require.NoError(t, err)
+	require.True(t, gitSwitchedBeforeArtifactsCommitted(runner))
+}
+
+func TestRunLocalResolvesItemsWithConfiguredQuery(t *testing.T) {
+	projMock := project.ThatReportsAllComplete()
+	runner := withMocks(
+		withProject(projMock),
+	)
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.WithItems(".requirements"))
+	require.NoError(t, err)
+	require.Equal(t, ".requirements", projMock.LastQuery())
+}
+
+func TestRunLocalItemQueryYieldingNoItemsAborts(t *testing.T) {
+	runner := withMocks(
+		withProject(project.ThatFailsResolution()),
+	)
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.Any())
+	require.Error(t, err)
+	require.NotEmpty(t, notifyErrors(runner))
+	require.Zero(t, aiPickCalls(runner))
+}
+
+func TestRunLocalResolvesItemsOncePerRun(t *testing.T) {
+	projMock := project.ThatReportsIncompleteUntil(3)
+	runner := withMocks(
+		withProject(projMock),
+	)
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(5)), config.Any())
+	require.NoError(t, err)
+	require.Equal(t, 1, projMock.ResolveCount())
+}
+
 func TestRunLocalIterationFailureSendsErrorNotification(t *testing.T) {
 	runner := withMocks(
-		withAI(newAIThatAlwaysFails()),
+		withAI(aiThatAlwaysFails()),
 	)
-	err := runner.RunLocal(project.ForProjectInput(failingProject()), config.Any())
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.Any())
 	require.Error(t, err)
 	require.NotEmpty(t, notifyErrors(runner))
 }
 
-func TestRunLocalAllRequirementsPassCreatesPR(t *testing.T) {
+func TestRunLocalAllItemsCompleteCreatesPR(t *testing.T) {
 	runner := withMocks(
-		withProject(newProjectThatReportsAllPassing()),
-		withGitHub(newGitHubWithCommitsAhead()),
+		withProject(project.ThatReportsAllComplete()),
+		withGit(gitThatCommitsAhead()),
 	)
-	err := runner.RunLocal(project.ForProjectInput(passingProject()), config.Any())
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.Any())
 	require.NoError(t, err)
 	require.True(t, githubPRCreated(runner))
 	require.NotEmpty(t, notifySuccesses(runner))
@@ -42,90 +163,10 @@ func TestRunLocalAllRequirementsPassCreatesPR(t *testing.T) {
 
 func TestRunLocalNoCommitsSkipsPR(t *testing.T) {
 	runner := withMocks(
-		withProject(newProjectThatReportsAllPassing()),
+		withProject(project.ThatReportsAllComplete()),
 	)
-	err := runner.RunLocal(project.ForProjectInput(passingProject()), config.Any())
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.Any())
 	require.NoError(t, err)
 	require.False(t, githubPRCreated(runner))
 	require.NotEmpty(t, notifySuccesses(runner))
-}
-
-func TestRunLocalProjectInputSkipsGeneration(t *testing.T) {
-	runner := newRunnerWithMocks(
-		withProject(newProjectThatReportsAllPassing()),
-	)
-	err := runner.RunLocal(project.ForProjectInput(passingProject()), config.Any())
-	require.NoError(t, err)
-	require.False(t, runner.ai.(*mockAIClient).writeProjectCalled)
-	require.False(t, runner.git.(*git.MockClient).CommitGeneratedArtifactsCalled)
-}
-
-func TestRunLocalOrchestrationInputGeneratesAndCommitsProject(t *testing.T) {
-	runner := newRunnerWithMocks(
-		withProject(newProjectThatReportsAllPassing()),
-	)
-	err := runner.RunLocal(project.ForOrchestrationInput("specs/features/ralph/run/orchestration.md"), config.Any())
-	require.NoError(t, err)
-	require.False(t, runner.ai.(*mockAIClient).writeOrchestrationCalled)
-	require.True(t, runner.ai.(*mockAIClient).writeProjectCalled)
-	require.True(t, runner.git.(*git.MockClient).CommitGeneratedArtifactsCalled)
-}
-
-func TestRunLocalSpecInputGeneratesOrchestrationThenProject(t *testing.T) {
-	runner := newRunnerWithMocks(
-		withProject(newProjectThatReportsAllPassing()),
-	)
-	err := runner.RunLocal(project.ForSpecInput("specs/features/ralph/run/spec.md"), config.Any())
-	require.NoError(t, err)
-	require.True(t, runner.ai.(*mockAIClient).writeOrchestrationCalled)
-	require.True(t, runner.ai.(*mockAIClient).writeProjectCalled)
-	require.True(t, runner.git.(*git.MockClient).CommitGeneratedArtifactsCalled)
-}
-
-func TestRunLocalOrchestrationWriteProjectFailureSendsErrorNotification(t *testing.T) {
-	ai := &mockAIClient{
-		writeProjectFunc: func(*project.InputFile) (*project.Project, error) {
-			return nil, errors.New("write project failed")
-		},
-	}
-	runner := newRunnerWithMocks(withAI(ai))
-	err := runner.RunLocal(project.ForOrchestrationInput("specs/features/ralph/run/orchestration.md"), config.Any())
-	require.Error(t, err)
-	require.NotEmpty(t, runner.notify.(*mockNotifyClient).errors)
-	require.Empty(t, ai.pickCalls)
-}
-
-func TestRunLocalSpecWriteOrchestrationFailureAbortsBeforeWriteProject(t *testing.T) {
-	ai := &mockAIClient{
-		writeOrchestrationFunc: func(*project.InputFile) error {
-			return errors.New("write orchestration failed")
-		},
-	}
-	runner := newRunnerWithMocks(withAI(ai))
-	err := runner.RunLocal(project.ForSpecInput("specs/features/ralph/run/spec.md"), config.Any())
-	require.Error(t, err)
-	require.NotEmpty(t, runner.notify.(*mockNotifyClient).errors)
-	require.False(t, ai.writeProjectCalled)
-	require.Empty(t, ai.pickCalls)
-}
-
-func TestRunLocalGenerationHappensAfterBranchSwitch(t *testing.T) {
-	order := []string{}
-	gitMock := &git.MockClient{
-		SwitchToBranchFunc: func(string) error {
-			order = append(order, "switch")
-			return nil
-		},
-		CommitGeneratedArtifactsFunc: func(string) error {
-			order = append(order, "commit")
-			return nil
-		},
-	}
-	runner := newRunnerWithMocks(
-		withGit(gitMock),
-		withProject(newProjectThatReportsAllPassing()),
-	)
-	err := runner.RunLocal(project.ForOrchestrationInput("specs/features/ralph/run/orchestration.md"), config.Any())
-	require.NoError(t, err)
-	require.Equal(t, []string{"switch", "commit"}, order)
 }

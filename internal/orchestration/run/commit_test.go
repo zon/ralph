@@ -11,32 +11,43 @@ import (
 
 func TestCommitIterationUsesReportWhenPresent(t *testing.T) {
 	runner := withMocks(
-		withProject(newProjectThatReportsPassingAfterIterations(1)),
-		withGit(newGitWithChangesAndReport()),
+		withProject(project.ThatReportsIncompleteUntil(1)),
+		withGit(gitWithChangesAndReport()),
 	)
-	err := runner.RunLocal(project.ForProjectInput(failingProject()), config.Any())
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.Any())
 	require.NoError(t, err)
-	require.Empty(t, aiChangelogCalls(runner))
+	require.Zero(t, aiChangelogCalls(runner))
 	require.True(t, gitCommittedFromReport(runner))
+}
+
+func TestCommitIterationDoesNotAlterReportContents(t *testing.T) {
+	const report = "feat: add serializer\n\nRalph item 0 (csv-serializer) completed"
+	runner := withMocks(
+		withProject(project.ThatReportsIncompleteUntil(1)),
+		withGit(gitWithReport(report)),
+	)
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.Any())
+	require.NoError(t, err)
+	require.Equal(t, report, gitLastCommitMessage(runner))
 }
 
 func TestCommitIterationGeneratesChangelogWhenNoReport(t *testing.T) {
 	runner := withMocks(
-		withProject(newProjectThatReportsPassingAfterIterations(1)),
-		withGit(newGitWithChangesButNoReport()),
+		withProject(project.ThatReportsIncompleteUntil(1)),
+		withGit(gitWithChangesButNoReport()),
 	)
-	err := runner.RunLocal(project.ForProjectInput(failingProject()), config.Any())
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.Any())
 	require.NoError(t, err)
-	require.Len(t, aiChangelogCalls(runner), 1)
+	require.Equal(t, 1, aiChangelogCalls(runner))
 	require.True(t, gitCommittedFromReport(runner))
 }
 
 func TestCommitIterationSkipsCommitWhenNoChanges(t *testing.T) {
 	runner := withMocks(
-		withProject(newProjectThatReportsPassingAfterIterations(1)),
-		withGit(newGitWithNoChanges()),
+		withProject(project.ThatReportsIncompleteUntil(1)),
+		withGit(gitWithNoChanges()),
 	)
-	err := runner.RunLocal(project.ForProjectInput(failingProject()), config.Any())
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.Any())
 	require.NoError(t, err)
 	require.False(t, gitCommittedFromReport(runner))
 }

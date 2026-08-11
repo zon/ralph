@@ -50,6 +50,7 @@ type MockProject struct {
 	removeErr              error
 
 	lastQuery            string
+	lastPath             string
 	lastBase             string
 	resolveCount         int
 	incompleteCount      int
@@ -138,11 +139,12 @@ func (m *MockProject) WithResolvedItems(n int) *MockProject {
 	return m
 }
 
-// Resolve records the item query and returns the client's project, or the
-// configured item-query error.
+// Resolve records the item query and the file path, and returns the client's
+// project, or the configured item-query error.
 func (m *MockProject) Resolve(path string, query string) (*Project, error) {
 	m.resolveCount++
 	m.lastQuery = query
+	m.lastPath = path
 	if m.resolveErr != nil {
 		return nil, m.resolveErr
 	}
@@ -253,6 +255,11 @@ func (m *MockProject) RemoveOrchestration(proj *Project) error {
 // LastQuery returns the item query passed to the most recent Resolve call.
 func (m *MockProject) LastQuery() string {
 	return m.lastQuery
+}
+
+// LastPath returns the file path passed to the most recent Resolve call.
+func (m *MockProject) LastPath() string {
+	return m.lastPath
 }
 
 // LastBase returns the base branch passed to the most recent completion call.

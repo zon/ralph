@@ -282,6 +282,30 @@ func TestCommitChanges_WithStagedChanges(t *testing.T) {
 	assert.Equal(t, "Add test file", msg)
 }
 
+func TestCommitProjectRemoval(t *testing.T) {
+	tempDir := setupTestRepo(t)
+	t.Chdir(tempDir)
+
+	projectFile := filepath.Join(tempDir, "projects", "test-project.yaml")
+	require.NoError(t, os.MkdirAll(filepath.Dir(projectFile), 0755))
+	require.NoError(t, os.WriteFile(projectFile, []byte("slug: test-project\n"), 0644))
+	require.NoError(t, StageFile("projects/test-project.yaml"))
+	require.NoError(t, Commit("add project file"))
+
+	require.NoError(t, os.Remove(projectFile))
+	require.NoError(t, StageFile(projectFile))
+
+	err := CommitProjectRemoval("projects/test-project.yaml")
+	require.NoError(t, err, "CommitProjectRemoval failed")
+
+	cmd := exec.Command("git", "log", "-1", "--format=%B")
+	cmd.Dir = tempDir
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, "git log failed")
+	msg := strings.TrimSpace(string(out))
+	assert.Equal(t, "chore: clean up completed project projects/test-project.yaml", msg)
+}
+
 func TestCommitChanges_NoStagedChanges(t *testing.T) {
 	workDir, _ := setupBareRemoteRepo(t)
 	t.Chdir(workDir)

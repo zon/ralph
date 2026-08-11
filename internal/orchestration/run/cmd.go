@@ -26,7 +26,7 @@ type ProjectRepo interface {
 }
 
 type LocalRunnerClient interface {
-	RunLocal(input *project.InputFile, cfg *config.RalphConfig, baseBranch string) error
+	RunLocal(input *project.InputFile, cfg *config.RalphConfig) error
 }
 
 type RemoteRunnerClient interface {
@@ -91,7 +91,7 @@ func (r *RunCmd) Run(flags RunFlags) error {
 		return err
 	}
 	if flags.Local {
-		return r.local.RunLocal(input, setup.Config, setup.BaseBranch)
+		return r.local.RunLocal(input, setup.Config)
 	}
 	return r.remote.Run(input, RunRemoteFlags{Follow: flags.Follow, Debug: flags.Debug, BaseBranch: setup.BaseBranch})
 }
@@ -111,6 +111,7 @@ func (r *RunCmd) prepareSetup(flags RunFlags, input *project.InputFile) (Executi
 		v := flags.ExtraIterations
 		cfg.ExtraIterations = &v
 	}
+	cfg.Base = baseBranch
 	return ExecutionSetup{
 		Config:        cfg,
 		BranchName:    projectBranch,

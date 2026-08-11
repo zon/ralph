@@ -117,6 +117,7 @@ type RalphConfig struct {
 	Variant             string         `yaml:"variant,omitempty"`
 	Items               string         `yaml:"items,omitempty"`   // jq query selecting the item array from a project file (default: .)
 	Cleanup             bool           `yaml:"cleanup,omitempty"` // Delete the project file once every item is complete (default: false)
+	Base                string         `yaml:"-"`                 // Base branch resolved by the caller, bounding the commit log completion is read from
 	ExtraIterations     *int           `yaml:"extraIterations,omitempty"`
 	DefaultBranch       string         `yaml:"defaultBranch,omitempty"`
 	Model               string         `yaml:"model,omitempty"` // AI model to use for coding and PR summary (default: deepseek/deepseek-chat)

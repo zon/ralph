@@ -85,3 +85,7 @@ func (a *Client) CommitGeneratedArtifacts(slug string) error {
 	}
 	return Commit(fmt.Sprintf("chore: generate project for %s", slug))
 }
+
+func (a *Client) CommitProjectRemoval(path string) error {
+	return CommitProjectRemoval(path)
+}

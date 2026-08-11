@@ -47,6 +47,12 @@ var writeProjectInstructions string
 //go:embed resolve-merge-conflicts-instructions.md
 var resolveMergeConflictsInstructions string
 
+//go:embed item-pick-instructions.md
+var itemPickInstructions string
+
+//go:embed item-develop-instructions.md
+var itemDevelopInstructions string
+
 type FixServicePromptData struct {
 	Notes       []string
 	ServiceName string
@@ -123,6 +129,32 @@ type WriteOrchestrationPromptData struct {
 type ResolveMergeConflictsPromptData struct {
 	BaseBranch    string
 	ProjectBranch string
+}
+
+// ItemPickPromptData carries the context for the picker agent: the full project
+// file, the incomplete items each labelled with its index and key, and the
+// recent commit log. The agent selects one item and reports its index.
+type ItemPickPromptData struct {
+	Notes          []string
+	CommitLog      string
+	ProjectContent string
+	Items          string
+}
+
+// ItemDevelopPromptData carries the context for the development agent: the full
+// project file, the selected item verbatim with its index and key, and the
+// completion trailer the agent must use when the item is finished.
+type ItemDevelopPromptData struct {
+	Notes           []string
+	CommitLog       string
+	ProjectContent  string
+	ItemIndex       int
+	ItemKey         string
+	ItemValue       string
+	Trailer         string
+	ProjectFilePath string
+	Services        []config.Service
+	Instructions    string
 }
 
 func executeTemplate(templateContent string, data interface{}) (string, error) {
@@ -287,6 +319,53 @@ func BuildResolveMergeConflictsPrompt(baseBranch, projectBranch string) (string,
 		ProjectBranch: projectBranch,
 	}
 	return executeTemplate(resolveMergeConflictsInstructions, data)
+}
+
+// BuildItemPickPrompt renders the picker prompt from the project file content,
+// the incomplete items rendered with their indices and keys, and the commit log.
+func BuildItemPickPrompt(data ItemPickPromptData) (string, error) {
+	tmplData := struct {
+		Notes          []string
+		CommitLog      string
+		ProjectContent string
+		Items          string
+	}{
+		Notes:          data.Notes,
+		CommitLog:      data.CommitLog,
+		ProjectContent: strings.TrimRight(data.ProjectContent, "\n"),
+		Items:          strings.TrimRight(data.Items, "\n"),
+	}
+	return executeTemplate(itemPickInstructions, tmplData)
+}
+
+// BuildItemDevelopPrompt renders the development prompt carrying the full
+// project file, the selected item verbatim with its index and key, and the
+// completion trailer for the item.
+func BuildItemDevelopPrompt(data ItemDevelopPromptData) (string, error) {
+	tmplData := struct {
+		Notes           []string
+		CommitLog       string
+		ProjectContent  string
+		ItemIndex       int
+		ItemKey         string
+		ItemValue       string
+		Trailer         string
+		ProjectFilePath string
+		Services        []config.Service
+		Instructions    string
+	}{
+		Notes:           data.Notes,
+		CommitLog:       data.CommitLog,
+		ProjectContent:  strings.TrimRight(data.ProjectContent, "\n"),
+		ItemIndex:       data.ItemIndex,
+		ItemKey:         data.ItemKey,
+		ItemValue:       strings.TrimRight(data.ItemValue, "\n"),
+		Trailer:         data.Trailer,
+		ProjectFilePath: data.ProjectFilePath,
+		Services:        data.Services,
+		Instructions:    data.Instructions,
+	}
+	return executeTemplate(itemDevelopInstructions, tmplData)
 }
 
 func BuildProjectFixPrompt(projectFile string, loadErr error) (string, error) {

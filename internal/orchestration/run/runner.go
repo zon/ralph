@@ -7,26 +7,26 @@ import (
 )
 
 type ProjectClient interface {
-	Reload(proj *project.Project) *project.Project
-	AllRequirementsPassing(proj *project.Project) bool
+	Resolve(path string, query string) (*project.Project, error)
+	Complete(proj *project.Project, base string) ([]int, error)
+	Incomplete(proj *project.Project, base string) ([]project.Item, error)
 	ExtraIterations(proj *project.Project, cfg *config.RalphConfig) int
-	ExtraIterationsError(proj *project.Project) error
-	HasChanges(proj *project.Project) bool
-	NormalizeAndStage(proj *project.Project)
+	IncompleteError(proj *project.Project, base string) error
+	Remove(proj *project.Project) error
 	HasSpec(proj *project.Project) bool
 	HasOrchestration(proj *project.Project) bool
 	RemoveOrchestration(proj *project.Project) error
 }
 
 type AIClient interface {
-	RunPicker(proj *project.Project) (string, error)
-	RunDeveloper(proj *project.Project, req string) error
+	RunPicker(proj *project.Project, incomplete []project.Item) (project.Item, error)
+	RunDeveloper(proj *project.Project, item project.Item) error
 	IsFatal(err error) bool
 	GenerateChangelog(proj *project.Project) error
 	FixServiceStartup(cfg *config.RalphConfig, err error) error
 	PrintStats()
 	WriteOrchestration(input *project.InputFile) error
-	WriteProject(input *project.InputFile) (*project.Project, error)
+	WriteProject(input *project.InputFile) (string, error)
 }
 
 type EnvClient interface {
@@ -44,6 +44,7 @@ type GitClient interface {
 	IsBranchSyncedWithRemote(branch string) error
 	CommitOrchestrationRemoval(slug string) error
 	CommitGeneratedArtifacts(slug string) error
+	CommitProjectRemoval(path string) error
 }
 
 type WorkflowClient interface {
@@ -104,7 +105,7 @@ func (r *Runner) RunLocal(input *project.InputFile, cfg *config.RalphConfig) err
 	if err := r.git.SwitchToBranch(input.Slug()); err != nil {
 		return err
 	}
-	proj, err := r.generateArtifacts(input)
+	proj, err := r.generateArtifacts(input, cfg)
 	if err != nil {
 		r.notify.Error(input.Slug())
 		return err
@@ -117,6 +118,10 @@ func (r *Runner) RunLocal(input *project.InputFile, cfg *config.RalphConfig) err
 		r.notify.Error(proj.Slug)
 		return err
 	}
+	if err := r.removeProjectFile(proj, cfg); err != nil {
+		r.notify.Error(proj.Slug)
+		return err
+	}
 	if err := r.github.CreatePR(proj); err != nil {
 		r.notify.Error(proj.Slug)
 		return err
@@ -125,16 +130,20 @@ func (r *Runner) RunLocal(input *project.InputFile, cfg *config.RalphConfig) err
 	return nil
 }
 
-func (r *Runner) generateArtifacts(input *project.InputFile) (*project.Project, error) {
+func (r *Runner) generateArtifacts(input *project.InputFile, cfg *config.RalphConfig) (*project.Project, error) {
 	if input.IsProject() {
-		return input.Project(), nil
+		return r.project.Resolve(input.Path(), cfg.Items)
 	}
 	if input.IsSpec() {
 		if err := r.ai.WriteOrchestration(input); err != nil {
 			return nil, err
 		}
 	}
-	proj, err := r.ai.WriteProject(input)
+	path, err := r.ai.WriteProject(input)
+	if err != nil {
+		return nil, err
+	}
+	proj, err := r.project.Resolve(path, cfg.Items)
 	if err != nil {
 		return nil, err
 	}
@@ -143,33 +152,29 @@ func (r *Runner) generateArtifacts(input *project.InputFile) (*project.Project, 
 
 func (r *Runner) iterate(proj *project.Project, cfg *config.RalphConfig) error {
 	extra := r.project.ExtraIterations(proj, cfg)
-	limit := len(proj.Requirements) + extra
+	limit := len(proj.Items) + extra
 	for i := 0; i < limit; i++ {
-		proj = r.project.Reload(proj)
-		if r.project.AllRequirementsPassing(proj) {
+		incomplete, err := r.project.Incomplete(proj, cfg.Base)
+		if err != nil {
+			return err
+		}
+		if len(incomplete) == 0 {
 			return nil
 		}
 		if r.git.BlockedFileExists() {
 			return ErrBlocked
 		}
-		if err := r.runIteration(proj, cfg); err != nil {
+		if err := r.runIteration(proj, incomplete, cfg); err != nil {
 			return err
 		}
 		if err := r.commitIteration(proj); err != nil {
 			return err
 		}
 	}
-	proj = r.project.Reload(proj)
-	if r.project.AllRequirementsPassing(proj) {
-		return nil
-	}
-	return r.project.ExtraIterationsError(proj)
+	return r.project.IncompleteError(proj, cfg.Base)
 }
 
-func (r *Runner) runIteration(proj *project.Project, cfg *config.RalphConfig) error {
-	if sv, ok := r.ai.(interface{ setLastVariant(string) }); ok {
-		sv.setLastVariant(cfg.Variant)
-	}
+func (r *Runner) runIteration(proj *project.Project, incomplete []project.Item, cfg *config.RalphConfig) error {
 	svc, err := r.services.Start(cfg)
 	if err != nil {
 		if fixErr := r.ai.FixServiceStartup(cfg, err); fixErr != nil {
@@ -179,19 +184,12 @@ func (r *Runner) runIteration(proj *project.Project, cfg *config.RalphConfig) er
 	}
 	defer r.services.Stop(svc)
 	defer r.services.RemoveLogs(cfg)
-	req, err := r.ai.RunPicker(proj)
+	item, err := r.ai.RunPicker(proj, incomplete)
 	if err != nil {
 		return r.blockAndReturn(err)
 	}
-	if err := r.ai.RunDeveloper(proj, req); err != nil {
+	if err := r.ai.RunDeveloper(proj, item); err != nil {
 		return r.blockAndReturn(err)
-	}
-	return r.cleanup(proj)
-}
-
-func (r *Runner) cleanup(proj *project.Project) error {
-	if r.project.HasChanges(proj) {
-		r.project.NormalizeAndStage(proj)
 	}
 	return nil
 }
@@ -214,6 +212,16 @@ func (r *Runner) removeOrchestration(proj *project.Project) error {
 		return err
 	}
 	return r.git.CommitOrchestrationRemoval(proj.Slug)
+}
+
+func (r *Runner) removeProjectFile(proj *project.Project, cfg *config.RalphConfig) error {
+	if !cfg.Cleanup {
+		return nil
+	}
+	if err := r.project.Remove(proj); err != nil {
+		return err
+	}
+	return r.git.CommitProjectRemoval(proj.Path)
 }
 
 func (r *Runner) commitIteration(proj *project.Project) error {

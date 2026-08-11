@@ -4,6 +4,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
+
+	"gopkg.in/yaml.v3"
 
 	"github.com/zon/ralph/internal/ai"
 	"github.com/zon/ralph/internal/config"
@@ -12,6 +16,7 @@ import (
 	"github.com/zon/ralph/internal/opencode"
 	"github.com/zon/ralph/internal/project"
 	"github.com/zon/ralph/internal/services"
+	"github.com/zon/ralph/internal/trailer"
 )
 
 type AgentClient struct {
@@ -23,10 +28,10 @@ func NewAgentClient(ctx *context.Context, oc opencode.OCClient) *AgentClient {
 	return &AgentClient{ctx: ctx, oc: oc}
 }
 
-func (a *AgentClient) RunPicker(proj *project.Project) (string, error) {
+func (a *AgentClient) RunPicker(proj *project.Project, incomplete []project.Item) (project.Item, error) {
 	cfg, err := config.LoadConfig()
 	if err != nil {
-		return "", fmt.Errorf("failed to load config: %w", err)
+		return project.Item{}, fmt.Errorf("failed to load config: %w", err)
 	}
 
 	commitLog, err := getCommitLog(a.ctx, cfg.DefaultBranch)
@@ -34,18 +39,35 @@ func (a *AgentClient) RunPicker(proj *project.Project) (string, error) {
 		commitLog = ""
 	}
 
-	pickedReqPath := filepath.Join(filepath.Dir(proj.Path), "picked-requirement.yaml")
-
-	setup := &project.IterationSetup{
-		Project:       proj,
-		CommitLog:     commitLog,
-		PickedReqPath: pickedReqPath,
+	prompt, err := ai.BuildItemPickPrompt(ai.ItemPickPromptData{
+		Notes:          a.ctx.Notes(),
+		CommitLog:      commitLog,
+		ProjectContent: projectContent(proj),
+		Items:          renderItems(incomplete),
+	})
+	if err != nil {
+		return project.Item{}, fmt.Errorf("failed to build pick prompt: %w", err)
 	}
 
-	return project.PickRequirement(a.ctx, a.oc, setup)
+	if a.ctx.IsVerbose() {
+		a.ctx.Output().Debug(prompt)
+	}
+
+	if err := ai.RunAgent(a.ctx, a.oc, prompt); err != nil {
+		return project.Item{}, err
+	}
+
+	idx, err := readPickedIndex()
+	if err != nil {
+		return project.Item{}, err
+	}
+	if idx < 0 || idx >= len(proj.Items) {
+		return project.Item{}, fmt.Errorf("picker reported index %d which is outside the resolved item array (%d items)", idx, len(proj.Items))
+	}
+	return proj.Items[idx], nil
 }
 
-func (a *AgentClient) RunDeveloper(proj *project.Project, req string) error {
+func (a *AgentClient) RunDeveloper(proj *project.Project, item project.Item) error {
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
@@ -56,13 +78,80 @@ func (a *AgentClient) RunDeveloper(proj *project.Project, req string) error {
 		commitLog = ""
 	}
 
-	setup := &project.IterationSetup{
-		Project:   proj,
-		CommitLog: commitLog,
-		Config:    cfg,
+	prompt, err := ai.BuildItemDevelopPrompt(ai.ItemDevelopPromptData{
+		Notes:           a.ctx.Notes(),
+		CommitLog:       commitLog,
+		ProjectContent:  projectContent(proj),
+		ItemIndex:       item.Index,
+		ItemKey:         item.Key(),
+		ItemValue:       renderItemValue(item.Value),
+		Trailer:         trailer.Format(item.Index, item.Key()),
+		ProjectFilePath: proj.Path,
+		Services:        cfg.Services,
+		Instructions:    cfg.Instructions,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to build development prompt: %w", err)
 	}
 
-	return project.DevelopRequirement(a.ctx, a.oc, setup, req)
+	if a.ctx.IsVerbose() {
+		a.ctx.Output().Debug(prompt)
+	}
+
+	return ai.RunAgent(a.ctx, a.oc, prompt)
+}
+
+// projectContent returns the project file's raw content, falling back to a
+// YAML rendering when the raw document was not retained.
+func projectContent(proj *project.Project) string {
+	if proj.Doc != nil && proj.Doc.Raw != "" {
+		return proj.Doc.Raw
+	}
+	data, err := yaml.Marshal(proj)
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
+// renderItems renders each incomplete item with its index and key so the picker
+// can select one of them.
+func renderItems(items []project.Item) string {
+	var b strings.Builder
+	for _, it := range items {
+		if key := it.Key(); key != "" {
+			fmt.Fprintf(&b, "item %d (%s):\n%s\n", it.Index, key, renderItemValue(it.Value))
+		} else {
+			fmt.Fprintf(&b, "item %d:\n%s\n", it.Index, renderItemValue(it.Value))
+		}
+	}
+	return strings.TrimRight(b.String(), "\n")
+}
+
+// renderItemValue renders an item's raw resolved value verbatim as YAML.
+func renderItemValue(v any) string {
+	data, err := yaml.Marshal(v)
+	if err != nil {
+		return fmt.Sprint(v)
+	}
+	return strings.TrimRight(string(data), "\n")
+}
+
+// readPickedIndex reads the 0-based index the picker agent wrote to
+// picked-item-index.txt.
+func readPickedIndex() (int, error) {
+	data, err := os.ReadFile("picked-item-index.txt")
+	if err != nil {
+		return 0, fmt.Errorf("failed to read picked item index: %w", err)
+	}
+	idx, err := strconv.Atoi(strings.TrimSpace(string(data)))
+	if err != nil {
+		return 0, fmt.Errorf("picked item index is not an integer: %q", strings.TrimSpace(string(data)))
+	}
+	if err := os.Remove("picked-item-index.txt"); err != nil {
+		return 0, fmt.Errorf("failed to remove picked-item-index.txt: %w", err)
+	}
+	return idx, nil
 }
 
 func (a *AgentClient) IsFatal(err error) bool {
@@ -100,7 +189,7 @@ func (a *AgentClient) WriteOrchestration(input *project.InputFile) error {
 	return ai.RunAgent(a.ctx, a.oc, prompt)
 }
 
-func (a *AgentClient) WriteProject(input *project.InputFile) (*project.Project, error) {
+func (a *AgentClient) WriteProject(input *project.InputFile) (string, error) {
 	inputType := "orchestration file"
 	var orchestrationPath string
 	if input.IsSpec() {
@@ -109,13 +198,13 @@ func (a *AgentClient) WriteProject(input *project.InputFile) (*project.Project, 
 	}
 
 	prompt, err := ai.BuildWriteProjectPrompt(ai.WriteProjectPromptData{
-		InputPath:        input.Path(),
-		InputType:        inputType,
-		HasOrchestration: input.IsSpec(),
+		InputPath:         input.Path(),
+		InputType:         inputType,
+		HasOrchestration:  input.IsSpec(),
 		OrchestrationPath: orchestrationPath,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to build write project prompt: %w", err)
+		return "", fmt.Errorf("failed to build write project prompt: %w", err)
 	}
 
 	if a.ctx.IsVerbose() {
@@ -123,21 +212,21 @@ func (a *AgentClient) WriteProject(input *project.InputFile) (*project.Project, 
 	}
 
 	if err := ai.RunAgent(a.ctx, a.oc, prompt); err != nil {
-		return nil, err
+		return "", err
 	}
 
-	proj, err := findNewestProject()
+	path, err := findNewestProjectPath()
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	return proj, nil
+	return path, nil
 }
 
-func findNewestProject() (*project.Project, error) {
+func findNewestProjectPath() (string, error) {
 	entries, err := os.ReadDir("projects")
 	if err != nil {
-		return nil, fmt.Errorf("failed to read projects directory: %w", err)
+		return "", fmt.Errorf("failed to read projects directory: %w", err)
 	}
 
 	var newestPath string
@@ -147,7 +236,7 @@ func findNewestProject() (*project.Project, error) {
 			continue
 		}
 		ext := filepath.Ext(e.Name())
-		if ext != ".yaml" && ext != ".yml" {
+		if ext != ".yaml" && ext != ".yml" && ext != ".json" {
 			continue
 		}
 		info, err := e.Info()
@@ -162,15 +251,10 @@ func findNewestProject() (*project.Project, error) {
 	}
 
 	if newestPath == "" {
-		return nil, fmt.Errorf("no project file found in projects/ directory")
+		return "", fmt.Errorf("no project file found in projects/ directory")
 	}
 
-	proj, err := project.LoadProject(newestPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load generated project file: %w", err)
-	}
-
-	return proj, nil
+	return newestPath, nil
 }
 
 func (a *AgentClient) PrintStats() {

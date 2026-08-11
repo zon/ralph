@@ -1,109 +1,76 @@
 package run
 
 import (
-	"fmt"
-
-	"github.com/stretchr/testify/assert"
-
 	"github.com/zon/ralph/internal/config"
-	"github.com/zon/ralph/internal/git"
-	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/notify"
 	"github.com/zon/ralph/internal/project"
 	"github.com/zon/ralph/internal/services"
 	"github.com/zon/ralph/internal/workflow"
 )
 
-func newProjectThatReportsAllPassing() *project.MockClient {
-	return &project.MockClient{
-		AllPassingFunc: func() bool { return true },
-	}
-}
+// mockAI implements AIClient with configurable behaviors and recorded call
+// history for the item-based run flow.
+type mockAI struct {
+	runPickerFunc          func(proj *project.Project, incomplete []project.Item) (project.Item, error)
+	runDeveloperFunc       func(proj *project.Project, item project.Item) error
+	isFatalFunc            func(err error) bool
+	changelogFunc          func() error
+	fixServiceFunc         func(*config.RalphConfig, error) error
+	writeOrchestrationFunc func(input *project.InputFile) error
+	writeProjectFunc       func(input *project.InputFile) (string, error)
 
-func newProjectThatReportsPassingAfterIterations(n int) *project.MockClient {
-	calls := 0
-	return &project.MockClient{
-		AllPassingFunc: func() bool {
-			calls++
-			return calls > n
-		},
-	}
-}
-
-func newProjectThatAlwaysReportsFailures() *project.MockClient {
-	return &project.MockClient{
-		AllPassingFunc: func() bool { return false },
-	}
-}
-
-// mockAIClient cannot move to internal/run because that package already
-// imports internal/orchestration/run, which would create an import cycle.
-type mockAIClient struct {
-	runPickerFunc            func() (string, error)
-	runDeveloperFunc         func(string) error
-	isFatalFunc              func(err error) bool
-	changelogFunc            func() error
-	fixServiceFunc           func(*config.RalphConfig, error) error
-	pickCalls                []*project.Project
-	developCalls             []*project.Project
-	changelogCalls           []*project.Project
-	fixServiceCalled         bool
 	statsPrinted             bool
-	variant                  string
-	lastVariantValue         string
+	pickCalls                int
+	developCalls             int
+	changelogCalls           int
+	fixServiceCalled         bool
 	writeOrchestrationCalled bool
-	writeOrchestrationFunc   func(input *project.InputFile) error
 	writeProjectCalled       bool
-	writeProjectFunc         func(input *project.InputFile) (*project.Project, error)
+	lastPickerIndices        []int
+	lastDevelopedIndex       int
 }
 
-func (m *mockAIClient) setLastVariant(v string) {
-	m.variant = v
-	m.lastVariantValue = v
-}
-
-func (m *mockAIClient) lastVariant() string {
-	return m.lastVariantValue
-}
-
-func (m *mockAIClient) RunPicker(proj *project.Project) (string, error) {
-	m.lastVariantValue = m.variant
-	m.pickCalls = append(m.pickCalls, proj)
+func (m *mockAI) RunPicker(proj *project.Project, incomplete []project.Item) (project.Item, error) {
+	m.pickCalls++
+	m.lastPickerIndices = itemIndices(incomplete)
 	if m.runPickerFunc != nil {
-		return m.runPickerFunc()
+		return m.runPickerFunc(proj, incomplete)
 	}
-	return "mock-requirement", nil
+	if len(incomplete) > 0 {
+		return incomplete[0], nil
+	}
+	return project.Item{}, nil
 }
 
-func (m *mockAIClient) RunDeveloper(proj *project.Project, req string) error {
-	m.lastVariantValue = m.variant
-	m.developCalls = append(m.developCalls, proj)
+func (m *mockAI) RunDeveloper(proj *project.Project, item project.Item) error {
+	m.developCalls++
+	m.lastDevelopedIndex = item.Index
 	if m.runDeveloperFunc != nil {
-		return m.runDeveloperFunc(req)
+		return m.runDeveloperFunc(proj, item)
 	}
 	return nil
 }
 
-func (m *mockAIClient) IsFatal(err error) bool {
+func (m *mockAI) IsFatal(err error) bool {
 	if m.isFatalFunc != nil {
 		return m.isFatalFunc(err)
 	}
 	return false
 }
 
-func (m *mockAIClient) GenerateChangelog(proj *project.Project) error {
-	m.changelogCalls = append(m.changelogCalls, proj)
+func (m *mockAI) GenerateChangelog(proj *project.Project) error {
+	m.changelogCalls++
 	if m.changelogFunc != nil {
 		return m.changelogFunc()
 	}
 	return nil
 }
 
-func (m *mockAIClient) PrintStats() {
+func (m *mockAI) PrintStats() {
 	m.statsPrinted = true
 }
 
-func (m *mockAIClient) FixServiceStartup(cfg *config.RalphConfig, err error) error {
+func (m *mockAI) FixServiceStartup(cfg *config.RalphConfig, err error) error {
 	m.fixServiceCalled = true
 	if m.fixServiceFunc != nil {
 		return m.fixServiceFunc(cfg, err)
@@ -111,7 +78,7 @@ func (m *mockAIClient) FixServiceStartup(cfg *config.RalphConfig, err error) err
 	return nil
 }
 
-func (m *mockAIClient) WriteOrchestration(input *project.InputFile) error {
+func (m *mockAI) WriteOrchestration(input *project.InputFile) error {
 	m.writeOrchestrationCalled = true
 	if m.writeOrchestrationFunc != nil {
 		return m.writeOrchestrationFunc(input)
@@ -119,181 +86,158 @@ func (m *mockAIClient) WriteOrchestration(input *project.InputFile) error {
 	return nil
 }
 
-func (m *mockAIClient) WriteProject(input *project.InputFile) (*project.Project, error) {
+func (m *mockAI) WriteProject(input *project.InputFile) (string, error) {
 	m.writeProjectCalled = true
 	if m.writeProjectFunc != nil {
 		return m.writeProjectFunc(input)
 	}
-	return &project.Project{Slug: "generated-project"}, nil
+	return "projects/generated.yaml", nil
 }
 
-type mockEnvClient struct {
-	inWorkflow bool
-}
-
-func (m *mockEnvClient) InWorkflow() bool {
-	return m.inWorkflow
-}
-
-func newEnvInWorkflow() *mockEnvClient {
-	return &mockEnvClient{inWorkflow: true}
-}
-
-func newEnvNotInWorkflow() *mockEnvClient {
-	return &mockEnvClient{inWorkflow: false}
-}
-
-func newAIThatAlwaysFails() *mockAIClient {
-	return &mockAIClient{
-		runPickerFunc: func() (string, error) { return "", errNonFatal },
-		isFatalFunc:   func(err error) bool { return false },
+func itemIndices(items []project.Item) []int {
+	indices := make([]int, len(items))
+	for i, it := range items {
+		indices[i] = it.Index
 	}
+	return indices
 }
 
-func newAIThatReturnsFatalError() *mockAIClient {
-	return &mockAIClient{
-		runPickerFunc: func() (string, error) { return "", errFatal },
-		isFatalFunc:   func(err error) bool { return err == errFatal },
-	}
+// mockGit implements GitClient with configurable behaviors, a call-order log,
+// and recorded commit history.
+type mockGit struct {
+	commitsAhead  bool
+	blockedFile   bool
+	hasChanges    bool
+	reportExists  bool
+	reportMessage string
+	order         []string
+
+	switchToBranchCalled             bool
+	writeBlockedFileCalled           bool
+	commitFromReportCalled           bool
+	commitOrchestrationRemovalCalled bool
+	commitGeneratedArtifactsCalled   bool
+	commitProjectRemovalCalled       bool
+	lastCommitMessage                string
 }
 
-func newAIThatReturnsNonFatalError() *mockAIClient {
-	return &mockAIClient{
-		runPickerFunc: func() (string, error) { return "", errNonFatal },
-		isFatalFunc:   func(err error) bool { return false },
-	}
+func gitNewMock() *mockGit {
+	return &mockGit{}
 }
 
-func newAIThatFailsServiceFix() *mockAIClient {
-	return &mockAIClient{
-		fixServiceFunc: func(_ *config.RalphConfig, _ error) error { return errServiceFailure },
-	}
+func (m *mockGit) SwitchToBranch(slug string) error {
+	m.switchToBranchCalled = true
+	m.order = append(m.order, "switch")
+	return nil
 }
 
-func newGitWithChangesAndReport() *git.MockClient {
-	return &git.MockClient{
-		HasChangesFunc:   func() bool { return true },
-		ReportExistsFunc: func() bool { return true },
-	}
+func (m *mockGit) BlockedFileExists() bool {
+	return m.blockedFile
 }
 
-func newGitWithChangesButNoReport() *git.MockClient {
-	return &git.MockClient{
-		HasChangesFunc:   func() bool { return true },
-		ReportExistsFunc: func() bool { return false },
-	}
+func (m *mockGit) WriteBlockedFile(err error) {
+	m.writeBlockedFileCalled = true
 }
 
-func newGitWithNoChanges() *git.MockClient {
-	return &git.MockClient{
-		HasChangesFunc:   func() bool { return false },
-		ReportExistsFunc: func() bool { return false },
-	}
+func (m *mockGit) HasChanges() bool {
+	return m.hasChanges
 }
 
-func newGitWithBlockedFile() *git.MockClient {
-	return &git.MockClient{
-		BlockedFileExistsFunc: func() bool { return true },
-	}
+func (m *mockGit) ReportExists() bool {
+	return m.reportExists
 }
 
-func newGitHubWithCommitsAhead() *github.MockClient {
-	return &github.MockClient{
-		CreatePRFunc: func(_ *project.Project) error { return nil },
-	}
+func (m *mockGit) CommitFromReport(slug string) error {
+	m.commitFromReportCalled = true
+	m.lastCommitMessage = m.reportMessage
+	return nil
 }
 
-func newServicesThatFailBeforeCommands() *services.MockClient {
-	return &services.MockClient{
-		RunBeforeFunc: func(_ *config.RalphConfig) error { return errServiceFailure },
-	}
+func (m *mockGit) CurrentBranch() (string, error) {
+	return "main", nil
 }
 
-type mockServicesClient struct {
-	startCount      int
-	stopCount       int
+func (m *mockGit) IsBranchSyncedWithRemote(branch string) error {
+	return nil
+}
+
+func (m *mockGit) CommitOrchestrationRemoval(slug string) error {
+	m.commitOrchestrationRemovalCalled = true
+	m.order = append(m.order, "commit-orchestration-removal")
+	return nil
+}
+
+func (m *mockGit) CommitGeneratedArtifacts(slug string) error {
+	m.commitGeneratedArtifactsCalled = true
+	m.order = append(m.order, "commit-artifacts")
+	return nil
+}
+
+func (m *mockGit) CommitProjectRemoval(path string) error {
+	m.commitProjectRemovalCalled = true
+	m.order = append(m.order, "commit-project-removal")
+	return nil
+}
+
+// mockGitHub implements GitHubClient and records whether CreatePR was called.
+type mockGitHub struct {
+	createPRCalled bool
+}
+
+func (m *mockGitHub) CreatePR(proj *project.Project) error {
+	m.createPRCalled = true
+	return nil
+}
+
+// mockServices implements ServicesClient with recorded start/stop/removeLogs
+// counts and configurable failures.
+type mockServices struct {
+	runBeforeErr   error
+	startErr       error
+	startCount     int
+	stopCount      int
 	removeLogsCount int
-	startFunc       func() error
 }
 
-func (m *mockServicesClient) RunBeforeCommands(_ *config.RalphConfig) error { return nil }
+func (m *mockServices) RunBeforeCommands(cfg *config.RalphConfig) error {
+	return m.runBeforeErr
+}
 
-func (m *mockServicesClient) Start(_ *config.RalphConfig) (*services.Manager, error) {
+func (m *mockServices) Start(cfg *config.RalphConfig) (*services.Manager, error) {
 	m.startCount++
-	if m.startFunc != nil {
-		return nil, m.startFunc()
+	if m.startErr != nil {
+		return nil, m.startErr
 	}
 	return &services.Manager{}, nil
 }
 
-func (m *mockServicesClient) Stop(_ *services.Manager) {
+func (m *mockServices) Stop(svc *services.Manager) {
 	m.stopCount++
 }
 
-func (m *mockServicesClient) RemoveLogs(_ *config.RalphConfig) {
+func (m *mockServices) RemoveLogs(cfg *config.RalphConfig) {
 	m.removeLogsCount++
 }
 
-func newServicesThatFailToStart() *mockServicesClient {
-	return &mockServicesClient{
-		startFunc: func() error { return errServiceFailure },
-	}
+// mockEnv implements EnvClient.
+type mockEnv struct {
+	inWorkflow bool
 }
 
-func failingProject() *project.Project {
-	return &project.Project{
-		Slug:  "test-project",
-		Title: "Test Project",
-		Requirements: []project.Requirement{
-			{
-				Slug:        "req-1",
-				Description: "Requirement 1",
-				Items:       []string{"Item 1"},
-				Passing:     false,
-			},
-		},
-	}
+func (m *mockEnv) InWorkflow() bool {
+	return m.inWorkflow
 }
 
-func passingProject() *project.Project {
-	return &project.Project{
-		Slug:  "test-project",
-		Title: "Test Project",
-		Requirements: []project.Requirement{
-			{
-				Slug:        "req-1",
-				Description: "Requirement 1",
-				Items:       []string{"Item 1"},
-				Passing:     true,
-			},
-		},
-	}
+func envInWorkflow() *mockEnv {
+	return &mockEnv{inWorkflow: true}
 }
 
-func failingProjectCount(n int) *project.Project {
-	reqs := make([]project.Requirement, n)
-	for i := range reqs {
-		reqs[i] = project.Requirement{
-			Slug:        fmt.Sprintf("req-%d", i+1),
-			Description: fmt.Sprintf("Requirement %d", i+1),
-			Items:       []string{fmt.Sprintf("Item %d", i+1)},
-			Passing:     false,
-		}
-	}
-	return &project.Project{
-		Slug:         "test-project",
-		Title:        "Test Project",
-		Requirements: reqs,
-	}
+func envNotInWorkflow() *mockEnv {
+	return &mockEnv{inWorkflow: false}
 }
 
-func anyConfig() *config.RalphConfig {
-	return config.Any()
-}
-
-var errNonFatal = &mockError{"non-fatal error"}
 var errFatal = &mockError{"billing limit exceeded"}
-var errServiceFailure = &mockError{"service failure"}
+var errNonFatal = &mockError{"non-fatal error"}
 
 type mockError struct {
 	msg string
@@ -303,62 +247,128 @@ func (e *mockError) Error() string {
 	return e.msg
 }
 
-type trackingGitClient struct {
-	GitClient
-	switchToBranchCalled                bool
-	writeBlockedFileCalled              bool
-	commitFromReportCalled              bool
-	commitOrchestrationRemovalCalled    bool
-	currentBranchCalled                 bool
-	commitGeneratedArtifactsCalled      bool
-}
+// ---------------------------------------------------------------------------
+// AI client builders
+// ---------------------------------------------------------------------------
 
-func wrapTrackedGit(gc GitClient) GitClient {
-	if _, ok := gc.(*trackingGitClient); ok {
-		return gc
+func aiThatAlwaysFails() *mockAI {
+	return &mockAI{
+		runPickerFunc: func(_ *project.Project, _ []project.Item) (project.Item, error) {
+			return project.Item{}, errNonFatal
+		},
+		isFatalFunc: func(err error) bool { return false },
 	}
-	return &trackingGitClient{GitClient: gc}
 }
 
-func (t *trackingGitClient) SwitchToBranch(slug string) error {
-	t.switchToBranchCalled = true
-	return t.GitClient.SwitchToBranch(slug)
+func aiThatFailsServiceFix() *mockAI {
+	return &mockAI{
+		fixServiceFunc: func(_ *config.RalphConfig, _ error) error { return errNonFatal },
+	}
 }
 
-func (t *trackingGitClient) WriteBlockedFile(err error) {
-	t.writeBlockedFileCalled = true
-	t.GitClient.WriteBlockedFile(err)
+func aiThatFailsWriteOrchestration() *mockAI {
+	return &mockAI{
+		writeOrchestrationFunc: func(*project.InputFile) error { return errNonFatal },
+	}
 }
 
-func (t *trackingGitClient) CommitFromReport(slug string) error {
-	t.commitFromReportCalled = true
-	return t.GitClient.CommitFromReport(slug)
+func aiThatFailsWriteProject() *mockAI {
+	return &mockAI{
+		writeProjectFunc: func(*project.InputFile) (string, error) { return "", errNonFatal },
+	}
 }
 
-func (t *trackingGitClient) CommitOrchestrationRemoval(slug string) error {
-	t.commitOrchestrationRemovalCalled = true
-	return t.GitClient.CommitOrchestrationRemoval(slug)
+func aiThatPicksIndex(i int) *mockAI {
+	return &mockAI{
+		runPickerFunc: func(proj *project.Project, incomplete []project.Item) (project.Item, error) {
+			for _, it := range incomplete {
+				if it.Index == i {
+					return it, nil
+				}
+			}
+			if i >= 0 && i < len(proj.Items) {
+				return proj.Items[i], nil
+			}
+			return project.Item{}, errNonFatal
+		},
+	}
 }
 
-func (t *trackingGitClient) CurrentBranch() (string, error) {
-	t.currentBranchCalled = true
-	return t.GitClient.CurrentBranch()
+func aiThatReturnsFatalPickError() *mockAI {
+	return &mockAI{
+		runPickerFunc: func(_ *project.Project, _ []project.Item) (project.Item, error) {
+			return project.Item{}, errFatal
+		},
+		isFatalFunc: func(err error) bool { return err == errFatal },
+	}
 }
 
-func (t *trackingGitClient) CommitGeneratedArtifacts(slug string) error {
-	t.commitGeneratedArtifactsCalled = true
-	return t.GitClient.CommitGeneratedArtifacts(slug)
+func aiThatReturnsNonFatalPickError() *mockAI {
+	return &mockAI{
+		runPickerFunc: func(_ *project.Project, _ []project.Item) (project.Item, error) {
+			return project.Item{}, errNonFatal
+		},
+		isFatalFunc: func(err error) bool { return false },
+	}
 }
 
-type mockNotifyClient struct {
-	errors []string
+func aiThatReturnsFatalDevelopError() *mockAI {
+	return &mockAI{
+		runDeveloperFunc: func(_ *project.Project, _ project.Item) error { return errFatal },
+		isFatalFunc:      func(err error) bool { return err == errFatal },
+	}
 }
 
-func (m *mockNotifyClient) Error(slug string) {
-	m.errors = append(m.errors, slug)
+func aiThatReturnsNonFatalDevelopError() *mockAI {
+	return &mockAI{
+		runDeveloperFunc: func(_ *project.Project, _ project.Item) error { return errNonFatal },
+		isFatalFunc:      func(err error) bool { return false },
+	}
 }
 
-func (m *mockNotifyClient) Success(slug string) {}
+// ---------------------------------------------------------------------------
+// Git client builders
+// ---------------------------------------------------------------------------
+
+func gitThatCommitsAhead() *mockGit {
+	return &mockGit{commitsAhead: true}
+}
+
+func gitWithBlockedFile() *mockGit {
+	return &mockGit{blockedFile: true}
+}
+
+func gitWithChangesAndReport() *mockGit {
+	return &mockGit{hasChanges: true, reportExists: true}
+}
+
+func gitWithReport(message string) *mockGit {
+	return &mockGit{hasChanges: true, reportExists: true, reportMessage: message}
+}
+
+func gitWithChangesButNoReport() *mockGit {
+	return &mockGit{hasChanges: true, reportExists: false}
+}
+
+func gitWithNoChanges() *mockGit {
+	return &mockGit{hasChanges: false, reportExists: false}
+}
+
+// ---------------------------------------------------------------------------
+// Services client builders
+// ---------------------------------------------------------------------------
+
+func servicesThatFailBeforeCommands() *mockServices {
+	return &mockServices{runBeforeErr: errNonFatal}
+}
+
+func servicesThatFailToStart() *mockServices {
+	return &mockServices{startErr: errNonFatal}
+}
+
+// ---------------------------------------------------------------------------
+// Runner construction
+// ---------------------------------------------------------------------------
 
 type runnerOption func(*Runner)
 
@@ -376,7 +386,7 @@ func withAI(ac AIClient) runnerOption {
 
 func withGit(gc GitClient) runnerOption {
 	return func(r *Runner) {
-		r.git = wrapTrackedGit(gc)
+		r.git = gc
 	}
 }
 
@@ -400,13 +410,13 @@ func withServices(sc ServicesClient) runnerOption {
 
 func withMocks(opts ...runnerOption) *Runner {
 	r := &Runner{
-		project:  newProjectThatAlwaysReportsFailures(),
-		ai:       &mockAIClient{},
-		git:      &trackingGitClient{GitClient: &git.MockClient{}},
-		github:   &github.MockClient{},
-		services: &services.MockClient{},
+		project:  project.ThatAlwaysReportsIncomplete(),
+		ai:       &mockAI{},
+		git:      gitNewMock(),
+		github:   &mockGitHub{},
+		services: &mockServices{},
 		notify:   &notify.MockClient{},
-		env:      newEnvNotInWorkflow(),
+		env:      envNotInWorkflow(),
 	}
 	for _, opt := range opts {
 		opt(r)
@@ -414,127 +424,151 @@ func withMocks(opts ...runnerOption) *Runner {
 	return r
 }
 
-func newRunnerWithMocks(opts ...runnerOption) *Runner {
-	r := &Runner{
-		project:  newProjectThatAlwaysReportsFailures(),
-		ai:       &mockAIClient{},
-		git:      &git.MockClient{},
-		github:   &github.MockClient{},
-		services: &services.MockClient{},
-		notify:   &mockNotifyClient{},
-		env:      newEnvNotInWorkflow(),
-	}
-	for _, opt := range opts {
-		opt(r)
-	}
-	return r
-}
+// ---------------------------------------------------------------------------
+// Accessors
+// ---------------------------------------------------------------------------
 
 func aiStatsPrinted(r *Runner) bool {
-	if m, ok := r.ai.(*mockAIClient); ok {
+	if m, ok := r.ai.(*mockAI); ok {
 		return m.statsPrinted
 	}
 	return false
 }
 
-func aiPickCalls(r *Runner) []*project.Project {
-	if m, ok := r.ai.(*mockAIClient); ok {
+func aiPickCalls(r *Runner) int {
+	if m, ok := r.ai.(*mockAI); ok {
 		return m.pickCalls
 	}
-	return nil
+	return 0
 }
 
-func aiDevelopCalls(r *Runner) []*project.Project {
-	if m, ok := r.ai.(*mockAIClient); ok {
+func aiDevelopCalls(r *Runner) int {
+	if m, ok := r.ai.(*mockAI); ok {
 		return m.developCalls
 	}
-	return nil
+	return 0
 }
 
-func aiLastVariant(r *Runner) string {
-	if m, ok := r.ai.(*mockAIClient); ok {
-		return m.lastVariant()
-	}
-	return ""
-}
-
-func aiChangelogCalls(r *Runner) []*project.Project {
-	if m, ok := r.ai.(*mockAIClient); ok {
+func aiChangelogCalls(r *Runner) int {
+	if m, ok := r.ai.(*mockAI); ok {
 		return m.changelogCalls
 	}
+	return 0
+}
+
+func aiServiceFixCalled(r *Runner) bool {
+	if m, ok := r.ai.(*mockAI); ok {
+		return m.fixServiceCalled
+	}
+	return false
+}
+
+func aiWriteOrchestrationCalled(r *Runner) bool {
+	if m, ok := r.ai.(*mockAI); ok {
+		return m.writeOrchestrationCalled
+	}
+	return false
+}
+
+func aiWriteProjectCalled(r *Runner) bool {
+	if m, ok := r.ai.(*mockAI); ok {
+		return m.writeProjectCalled
+	}
+	return false
+}
+
+func aiLastPickerIndices(r *Runner) []int {
+	if m, ok := r.ai.(*mockAI); ok {
+		return m.lastPickerIndices
+	}
 	return nil
+}
+
+func aiLastDevelopedIndex(r *Runner) int {
+	if m, ok := r.ai.(*mockAI); ok {
+		return m.lastDevelopedIndex
+	}
+	return -1
 }
 
 func gitBranchSwitched(r *Runner) bool {
-	if m, ok := r.git.(*trackingGitClient); ok {
+	if m, ok := r.git.(*mockGit); ok {
 		return m.switchToBranchCalled
 	}
 	return false
 }
 
-func gitBlockedFileWritten(r *Runner) bool {
-	if m, ok := r.git.(*trackingGitClient); ok {
-		return m.writeBlockedFileCalled
-	}
-	return false
-}
-
-func newProjectThatReportsAllPassingWithNoSpec() *project.MockClient {
-	return &project.MockClient{
-		AllPassingFunc:  func() bool { return true },
-		HasSpecFunc:     func(*project.Project) bool { return false },
-	}
-}
-
-func newProjectThatReportsAllPassingWithSpecButNoOrchestration() *project.MockClient {
-	return &project.MockClient{
-		AllPassingFunc:      func() bool { return true },
-		HasSpecFunc:         func(*project.Project) bool { return true },
-		HasOrchestrationFunc: func(*project.Project) bool { return false },
-	}
-}
-
-func newProjectThatReportsAllPassingWithOrchestration() *project.MockClient {
-	return &project.MockClient{
-		AllPassingFunc:      func() bool { return true },
-		HasSpecFunc:         func(*project.Project) bool { return true },
-		HasOrchestrationFunc: func(*project.Project) bool { return true },
-	}
-}
-
-func newProjectThatReportsAllPassingWithOrchestrationRemovalFailure() *project.MockClient {
-	return &project.MockClient{
-		AllPassingFunc:         func() bool { return true },
-		HasSpecFunc:            func(*project.Project) bool { return true },
-		HasOrchestrationFunc:   func(*project.Project) bool { return true },
-		RemoveOrchestrationFunc: func(*project.Project) error { return assert.AnError },
-	}
-}
-
-func projectOrchestrationRemoved(r *Runner) bool {
-	if m, ok := r.project.(*project.MockClient); ok {
-		return m.RemoveOrchestrationCalled
-	}
-	return false
-}
-
-func gitOrchestrationRemovalCommitted(r *Runner) bool {
-	if m, ok := r.git.(*trackingGitClient); ok {
-		return m.commitOrchestrationRemovalCalled
+func gitArtifactsCommitted(r *Runner) bool {
+	if m, ok := r.git.(*mockGit); ok {
+		return m.commitGeneratedArtifactsCalled
 	}
 	return false
 }
 
 func gitCommittedFromReport(r *Runner) bool {
-	if m, ok := r.git.(*trackingGitClient); ok {
+	if m, ok := r.git.(*mockGit); ok {
 		return m.commitFromReportCalled
 	}
 	return false
 }
 
+func gitOrchestrationRemovalCommitted(r *Runner) bool {
+	if m, ok := r.git.(*mockGit); ok {
+		return m.commitOrchestrationRemovalCalled
+	}
+	return false
+}
+
+func gitProjectRemovalCommitted(r *Runner) bool {
+	if m, ok := r.git.(*mockGit); ok {
+		return m.commitProjectRemovalCalled
+	}
+	return false
+}
+
+func gitBlockedFileWritten(r *Runner) bool {
+	if m, ok := r.git.(*mockGit); ok {
+		return m.writeBlockedFileCalled
+	}
+	return false
+}
+
+func gitLastCommitMessage(r *Runner) string {
+	if m, ok := r.git.(*mockGit); ok {
+		return m.lastCommitMessage
+	}
+	return ""
+}
+
+func gitSwitchedBeforeArtifactsCommitted(r *Runner) bool {
+	m, ok := r.git.(*mockGit)
+	if !ok {
+		return false
+	}
+	switchIdx, artifactsIdx := -1, -1
+	for i, event := range m.order {
+		switch event {
+		case "switch":
+			switchIdx = i
+		case "commit-artifacts":
+			artifactsIdx = i
+		}
+	}
+	return switchIdx >= 0 && artifactsIdx >= 0 && switchIdx < artifactsIdx
+}
+
 func githubPRCreated(r *Runner) bool {
-	if m, ok := r.github.(*github.MockClient); ok {
-		return m.CreatePRFunc != nil
+	g, ok := r.git.(*mockGit)
+	if !ok || !g.commitsAhead {
+		return false
+	}
+	h, ok := r.github.(*mockGitHub)
+	return ok && h.createPRCalled
+}
+
+func githubCreatePRCalled(r *Runner) bool {
+	if m, ok := r.github.(*mockGitHub); ok {
+		return m.createPRCalled
 	}
 	return false
 }
@@ -553,6 +587,10 @@ func notifySuccesses(r *Runner) []string {
 	return nil
 }
 
+// ---------------------------------------------------------------------------
+// Remote runner helpers
+// ---------------------------------------------------------------------------
+
 type remoteRunnerOption func(*RemoteRunner)
 
 func withRemoteGit(gc GitClient) remoteRunnerOption {
@@ -565,7 +603,7 @@ func withRemoteWorkflow(wc WorkflowClient) remoteRunnerOption {
 
 func withRemoteMocks(opts ...remoteRunnerOption) *RemoteRunner {
 	r := &RemoteRunner{
-		git:      &git.MockClient{},
+		git:      gitNewMock(),
 		workflow: &workflow.MockClient{},
 		notify:   &notify.MockClient{},
 	}
@@ -573,6 +611,22 @@ func withRemoteMocks(opts ...remoteRunnerOption) *RemoteRunner {
 		opt(r)
 	}
 	return r
+}
+
+func runRemoteFlagsAny() RunRemoteFlags {
+	return RunRemoteFlags{}
+}
+
+func runRemoteFlagsWithFollow() RunRemoteFlags {
+	return RunRemoteFlags{Follow: true}
+}
+
+func runRemoteFlagsWithoutFollow() RunRemoteFlags {
+	return RunRemoteFlags{}
+}
+
+func runRemoteFlagsWithDebug(branch string) RunRemoteFlags {
+	return RunRemoteFlags{Debug: branch}
 }
 
 func remoteWorkflowSubmitted(runner *RemoteRunner) bool {
@@ -603,6 +657,14 @@ func remoteWorkflowLastDebugBranch(runner *RemoteRunner) string {
 	return ""
 }
 
+func remoteNotifySuccessSent(runner *RemoteRunner) bool {
+	return len(remoteNotifySuccesses(runner)) > 0
+}
+
+func remoteNotifyErrorSent(runner *RemoteRunner) bool {
+	return len(remoteNotifyErrors(runner)) > 0
+}
+
 func remoteNotifySuccesses(runner *RemoteRunner) []string {
 	if m, ok := runner.notify.(*notify.MockClient); ok {
 		return m.SuccessesSlice
@@ -615,34 +677,4 @@ func remoteNotifyErrors(runner *RemoteRunner) []string {
 		return m.ErrorsSlice
 	}
 	return nil
-}
-
-func remoteNotifySuccessSent(runner *RemoteRunner) bool {
-	if m, ok := runner.notify.(*notify.MockClient); ok {
-		return len(m.SuccessesSlice) > 0
-	}
-	return false
-}
-
-func remoteNotifyErrorSent(runner *RemoteRunner) bool {
-	if m, ok := runner.notify.(*notify.MockClient); ok {
-		return len(m.ErrorsSlice) > 0
-	}
-	return false
-}
-
-func runRemoteFlagsAny() RunRemoteFlags {
-	return RunRemoteFlags{}
-}
-
-func runRemoteFlagsWithFollow() RunRemoteFlags {
-	return RunRemoteFlags{Follow: true}
-}
-
-func runRemoteFlagsWithoutFollow() RunRemoteFlags {
-	return RunRemoteFlags{}
-}
-
-func runRemoteFlagsWithDebug(branch string) RunRemoteFlags {
-	return RunRemoteFlags{Debug: branch}
 }

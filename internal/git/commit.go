@@ -69,6 +69,12 @@ func Commit(message string) error {
 	return nil
 }
 
+// CommitProjectRemoval commits the staged project file deletion on its own with
+// a message naming the project file, and no completion trailer.
+func CommitProjectRemoval(path string) error {
+	return Commit(fmt.Sprintf("chore: clean up completed project %s", path))
+}
+
 // CommitMessages returns the full commit messages of the commits on the
 // current branch that are not on the base branch, in git log order (newest
 // first). Each message is returned verbatim, including any trailing newline git

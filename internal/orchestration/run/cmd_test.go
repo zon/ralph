@@ -52,20 +52,18 @@ func (m *mockProjectRepo) ResolveInputFile(path string) (*project.InputFile, err
 }
 
 type mockLocalRunnerClient struct {
-	RunLocalFunc    func(*project.InputFile, *config.RalphConfig, string) error
-	LastInput       *project.InputFile
-	LastConfig      *config.RalphConfig
-	LastBaseBranch  string
-	RunLocalCalled  bool
+	RunLocalFunc   func(*project.InputFile, *config.RalphConfig) error
+	LastInput      *project.InputFile
+	LastConfig     *config.RalphConfig
+	RunLocalCalled bool
 }
 
-func (m *mockLocalRunnerClient) RunLocal(input *project.InputFile, cfg *config.RalphConfig, baseBranch string) error {
+func (m *mockLocalRunnerClient) RunLocal(input *project.InputFile, cfg *config.RalphConfig) error {
 	m.RunLocalCalled = true
 	m.LastInput = input
 	m.LastConfig = cfg
-	m.LastBaseBranch = baseBranch
 	if m.RunLocalFunc != nil {
-		return m.RunLocalFunc(input, cfg, baseBranch)
+		return m.RunLocalFunc(input, cfg)
 	}
 	return nil
 }
