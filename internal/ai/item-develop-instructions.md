@@ -12,7 +12,7 @@ Implement the selected item, organize the code into concern-separated deep modul
 
 {{.ItemValue}}
 
-The full project file is available at: `{{.ProjectFilePath}}`. Do not modify the project file — completion is recorded in the commit message, not in the file. The item is identified by its index, so the file is read-only for the whole run.
+The full project file is available at: `{{.ProjectFilePath}}`. Do not modify the project file — completion is recorded in the commit message, not in the file. The item is identified by its index, so the file is read-only for the whole run. Do not edit any completion field, because no field in the file records completion.
 {{- if .Notes}}
 
 **System Notes:**
@@ -34,6 +34,12 @@ The full project file is available at: `{{.ProjectFilePath}}`. Do not modify the
 {{end}}
 {{- end}}
 
+## Definitions
+
+**Item** — one element of the project's resolved item array, presented above verbatim with its 0-based index and its key when it has one. An item may carry conventional fields such as `slug`, `description`, `items`, `scenarios`, `code`, and `tests`, but every field is optional: an item may instead be a plain string or any other shape.
+
+**Completion** — the completion trailer is the only way an item is marked complete. An item is complete only when a commit message on the project branch ends with its trailer line, `Ralph item <index> completed` or `Ralph item <index> (<key>) completed`; no field in the project file records completion.
+
 ## Instructions
 
 {{.Instructions}}
@@ -41,5 +47,5 @@ The full project file is available at: `{{.ProjectFilePath}}`. Do not modify the
 ## Output
 
 - Write a concise report to `report.md` formatted as a git commit message: brief summary of what was implemented and what tests were added; no code snippets or implementation details.
-- When the item is finished, the last line of `report.md` MUST be the completion trailer `{{.Trailer}}`. Use that exact line — it is the only way the item is marked complete. When the item is not finished, end `report.md` with no completion trailer.
+- When the item is finished, the last line of `report.md` MUST be the completion trailer for the supplied index and key. The trailer takes one of two forms — `Ralph item <index> (<key>) completed` when the item has a key, `Ralph item <index> completed` when it does not. Use exactly this line for this item: `{{.Trailer}}`. It is the only way the item is marked complete. When the item is not finished, end `report.md` with no completion trailer.
 - If completely blocked, write a summary to `blocked.md` (with no completion trailer) explaining what blocked you and what you tried.

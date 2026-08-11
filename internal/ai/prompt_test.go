@@ -675,6 +675,101 @@ func TestBuildWriteOrchestrationPrompt(t *testing.T) {
 	}
 }
 
+func TestBuildItemDevelopPrompt(t *testing.T) {
+	keyed := ItemDevelopPromptData{
+		Notes:           nil,
+		CommitLog:       "abc123 feat: add exporter\n",
+		ProjectContent:  "slug: csv-export\ntitle: CSV Export\ntasks:\n  - slug: exporter\n    description: Exporter\n",
+		ItemIndex:       2,
+		ItemKey:         "export-endpoint",
+		ItemValue:       "slug: export-endpoint\ndescription: Build the export endpoint",
+		Trailer:         "Ralph item 2 (export-endpoint) completed",
+		ProjectFilePath: "projects/csv-export.yaml",
+		Services:        nil,
+	}
+
+	t.Run("presents the selected item verbatim with its index and key", func(t *testing.T) {
+		prompt, err := BuildItemDevelopPrompt(keyed)
+		require.NoError(t, err)
+		assert.Contains(t, prompt, "**Selected Item (index 2, key export-endpoint):**")
+		assert.Contains(t, prompt, "slug: export-endpoint")
+		assert.Contains(t, prompt, "description: Build the export endpoint")
+	})
+
+	t.Run("presents a keyless item with its index only", func(t *testing.T) {
+		data := keyed
+		data.ItemKey = ""
+		data.Trailer = "Ralph item 2 completed"
+		prompt, err := BuildItemDevelopPrompt(data)
+		require.NoError(t, err)
+		assert.Contains(t, prompt, "**Selected Item (index 2):**")
+		assert.NotContains(t, prompt, "key export-endpoint")
+	})
+
+	t.Run("describes conventional item fields as optional", func(t *testing.T) {
+		prompt, err := BuildItemDevelopPrompt(keyed)
+		require.NoError(t, err)
+		assert.Contains(t, prompt, "every field is optional")
+		assert.Contains(t, prompt, "plain string")
+		assert.Contains(t, prompt, "any other shape")
+	})
+
+	t.Run("tells the agent the last line must be the completion trailer", func(t *testing.T) {
+		prompt, err := BuildItemDevelopPrompt(keyed)
+		require.NoError(t, err)
+		assert.Contains(t, prompt, "last line of `report.md` MUST be the completion trailer")
+		assert.Contains(t, prompt, "Ralph item 2 (export-endpoint) completed")
+	})
+
+	t.Run("shows both the keyed and index-only trailer forms", func(t *testing.T) {
+		prompt, err := BuildItemDevelopPrompt(keyed)
+		require.NoError(t, err)
+		assert.Contains(t, prompt, "`Ralph item <index> (<key>) completed`")
+		assert.Contains(t, prompt, "`Ralph item <index> completed`")
+	})
+
+	t.Run("instructs the agent not to modify the project file", func(t *testing.T) {
+		prompt, err := BuildItemDevelopPrompt(keyed)
+		require.NoError(t, err)
+		assert.Contains(t, prompt, "Do not modify the project file")
+		assert.Contains(t, prompt, "read-only for the whole run")
+	})
+
+	t.Run("never asks the agent to edit a completion field or run ralph pass", func(t *testing.T) {
+		prompt, err := BuildItemDevelopPrompt(keyed)
+		require.NoError(t, err)
+		assert.Contains(t, prompt, "Do not edit any completion field")
+		assert.NotContains(t, prompt, "ralph pass")
+		assert.NotContains(t, prompt, "Mark passing")
+	})
+
+	t.Run("still asks for report.md and blocked.md without a trailer", func(t *testing.T) {
+		prompt, err := BuildItemDevelopPrompt(keyed)
+		require.NoError(t, err)
+		assert.Contains(t, prompt, "Write a concise report to `report.md`")
+		assert.Contains(t, prompt, "`blocked.md`")
+		assert.Contains(t, prompt, "no completion trailer")
+	})
+
+	t.Run("uses the item-based default instructions when none are supplied", func(t *testing.T) {
+		data := keyed
+		data.Instructions = ""
+		prompt, err := BuildItemDevelopPrompt(data)
+		require.NoError(t, err)
+		assert.Contains(t, prompt, "read the selected item carefully")
+		assert.NotContains(t, prompt, "selected requirement")
+		assert.NotContains(t, prompt, "{{.SelectedRequirement}}")
+	})
+}
+
+func TestDefaultItemDevelopmentInstructions(t *testing.T) {
+	instructions := DefaultItemDevelopmentInstructions()
+	assert.Contains(t, instructions, "selected item")
+	assert.NotContains(t, instructions, "ralph pass")
+	assert.NotContains(t, instructions, "Mark passing")
+	assert.NotContains(t, instructions, "completion trailer")
+}
+
 func TestExecuteTemplate(t *testing.T) {
 	tests := []struct {
 		name     string

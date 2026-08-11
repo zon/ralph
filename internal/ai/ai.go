@@ -53,6 +53,9 @@ var itemPickInstructions string
 //go:embed item-develop-instructions.md
 var itemDevelopInstructions string
 
+//go:embed development-item-instructions.md
+var itemDefaultInstructions string
+
 type FixServicePromptData struct {
 	Notes       []string
 	ServiceName string
@@ -319,6 +322,14 @@ func BuildResolveMergeConflictsPrompt(baseBranch, projectBranch string) (string,
 	return executeTemplate(resolveMergeConflictsInstructions, data)
 }
 
+// DefaultItemDevelopmentInstructions returns the embedded item-based default
+// workflow steps for the development agent. The requirement-shaped config
+// default describes a single requirement, so the item flow substitutes these
+// item-shaped steps unless a custom instructions file overrides them.
+func DefaultItemDevelopmentInstructions() string {
+	return itemDefaultInstructions
+}
+
 // BuildItemPickPrompt renders the picker prompt from the project file content,
 // the incomplete items rendered with their indices and keys, and the commit log.
 func BuildItemPickPrompt(data ItemPickPromptData) (string, error) {
@@ -338,8 +349,12 @@ func BuildItemPickPrompt(data ItemPickPromptData) (string, error) {
 
 // BuildItemDevelopPrompt renders the development prompt carrying the full
 // project file, the selected item verbatim with its index and key, and the
-// completion trailer for the item.
+// completion trailer for the item. When no Instructions are supplied, the
+// item-based default workflow steps are used.
 func BuildItemDevelopPrompt(data ItemDevelopPromptData) (string, error) {
+	if data.Instructions == "" {
+		data.Instructions = DefaultItemDevelopmentInstructions()
+	}
 	tmplData := struct {
 		Notes           []string
 		CommitLog       string

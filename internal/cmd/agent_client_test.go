@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -99,6 +100,61 @@ func TestAgentClientImplementsInterface(t *testing.T) {
 	client := NewAgentClient(ctx, &opencode.MockOC{})
 	require.NotNil(t, client)
 	var _ orchestrationRun.AIClient = client
+}
+
+func TestAgentClientRunDeveloperUsesItemBasedInstructionsByDefault(t *testing.T) {
+	workDir := t.TempDir()
+	t.Chdir(workDir)
+
+	testutil.InitGitRepo(t, workDir)
+	testutil.MakeInitialCommit(t, workDir)
+	testutil.CreateRalphConfig(t, workDir)
+
+	var developPrompt string
+	mockOC := &opencode.MockOC{
+		RunAgentFunc: func(_ context.Context, _, _, prompt string) error {
+			developPrompt = prompt
+			return nil
+		},
+	}
+	client := NewAgentClient(execcontext.NewContext(), mockOC)
+
+	proj := &project.Project{Slug: "test-project", Path: "projects/test.yaml", Items: project.NewItems([]any{map[string]any{"slug": "csv-serializer", "description": "CSV serializer"}})}
+	err := client.RunDeveloper(proj, proj.Items[0])
+	require.NoError(t, err)
+
+	assert.Contains(t, developPrompt, "one item of this project")
+	assert.Contains(t, developPrompt, "Ralph item 0 (csv-serializer) completed")
+	assert.NotContains(t, developPrompt, "implementing a specific requirement")
+	assert.NotContains(t, developPrompt, "{{.SelectedRequirement}}")
+}
+
+func TestAgentClientRunDeveloperHonorsCustomInstructions(t *testing.T) {
+	workDir := t.TempDir()
+	t.Chdir(workDir)
+
+	testutil.InitGitRepo(t, workDir)
+	testutil.MakeInitialCommit(t, workDir)
+	testutil.CreateRalphConfig(t, workDir)
+
+	custom := "Custom instructions: focus on performance"
+	require.NoError(t, os.WriteFile(filepath.Join(workDir, ".ralph", "instructions.md"), []byte(custom), 0644))
+
+	var developPrompt string
+	mockOC := &opencode.MockOC{
+		RunAgentFunc: func(_ context.Context, _, _, prompt string) error {
+			developPrompt = prompt
+			return nil
+		},
+	}
+	client := NewAgentClient(execcontext.NewContext(), mockOC)
+
+	proj := &project.Project{Slug: "test-project", Items: project.NewItems([]any{"csv-serializer"})}
+	err := client.RunDeveloper(proj, proj.Items[0])
+	require.NoError(t, err)
+
+	assert.Contains(t, developPrompt, custom)
+	assert.NotContains(t, developPrompt, "read the selected item carefully")
 }
 
 func TestAgentClientPrintStatsDoesNotPanicOnError(t *testing.T) {
