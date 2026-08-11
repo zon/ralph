@@ -1021,7 +1021,7 @@ requirements:
         - The pass orchestration module and its tests are deleted
         - Updating a requirement's completion field in a parsed project is no longer supported
         - Nothing in the codebase or the embedded instruction templates references a pass command
-      passing: false
+      passing: true
     - slug: write-project-skill
       description: The project-writing skill teaches the item array format
       items:

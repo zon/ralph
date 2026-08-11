@@ -175,18 +175,6 @@ func CheckCompletion(p *Project) (bool, int, int) {
 	return allComplete, passingCount, failingCount
 }
 
-// UpdateRequirementStatus updates the passing status of the requirement
-// identified by its slug.
-func UpdateRequirementStatus(p *Project, reqSlug string, passing bool) error {
-	for i := range p.Requirements {
-		if p.Requirements[i].Slug == reqSlug {
-			p.Requirements[i].Passing = passing
-			return nil
-		}
-	}
-	return fmt.Errorf("requirement not found: %s", reqSlug)
-}
-
 type IterationSetup struct {
 	Project       *Project
 	Config        *config.RalphConfig

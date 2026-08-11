@@ -123,3 +123,9 @@ func TestDefaultInstructionsExplainCompletionTrailer(t *testing.T) {
 	assert.Contains(t, instructions, "completion trailer")
 	assert.Contains(t, instructions, "only way")
 }
+
+func TestDefaultInstructionsDoNotReferencePassCommand(t *testing.T) {
+	instructions := DefaultDevelopmentInstructions()
+	assert.NotContains(t, instructions, "ralph pass")
+	assert.NotContains(t, instructions, "Mark passing")
+}

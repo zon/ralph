@@ -24,7 +24,7 @@ the `ralph-review-module` skill, and report or fix any gaps found.
 - [x] `internal/services` — gaps found, project: `projects/services-implementation-category.yaml`
 - [x] `internal/orchestration/argo`
 - [x] `internal/orchestration/command` — gaps found, project: `projects/remove-dead-remote-command.yaml`
-- [x] `internal/orchestration/pass` — gaps found, project: `projects/pass-confirmation-message.yaml`
+- [x] `internal/orchestration/pass` — removed: the `ralph pass` command is gone, since nothing writes completion into the project file
 
 ## Process per module
 
