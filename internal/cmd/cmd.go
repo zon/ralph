@@ -7,6 +7,7 @@ type Cmd struct {
 	Command        CommandCmd        `cmd:"" help:"Run a command in the ralph environment"`
 	Merge          MergeCmd          `cmd:"" help:"Submit an Argo workflow to merge a completed PR"`
 	Set            SetCmd            `cmd:"" help:"Configure ralph settings"`
+	Get            GetCmd            `cmd:"" help:"Report which items are complete and which are left"`
 	Workflow       WorkflowGroup     `cmd:"" help:"Run ralph workflow subcommands in a container"`
 	Validate       ValidateCmd       `cmd:"" help:"Validate a project YAML file"`
 	List           ListCmd           `cmd:"" help:"List Argo workflows"`
