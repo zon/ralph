@@ -50,8 +50,12 @@ func ResolveInputFile(path string) (*InputFile, error) {
 	base := filepath.Base(absPath)
 	ext := strings.ToLower(filepath.Ext(base))
 
-	if ext == ".yaml" || ext == ".yml" {
-		proj, err := LoadProject(absPath)
+	if ext == ".yaml" || ext == ".yml" || ext == ".json" {
+		// A project file is not schema-checked here: any document that parses
+		// and yields items resolves, so the input kind is decided by extension
+		// alone and the slug and title are derived from the document's metadata
+		// with the file name as the fallback.
+		proj, err := (&Client{}).Resolve(absPath, ".")
 		if err != nil {
 			return nil, err
 		}

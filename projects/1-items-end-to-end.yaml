@@ -128,7 +128,7 @@ requirements:
             - GIVEN a project file at `projects/csv-export.yaml` whose top level is an array
             - WHEN the run starts
             - THEN the slug is `csv-export`, derived from the file name, and the PR title falls back to that slug
-      passing: false
+      passing: true
     - slug: completion-trailers
       description: Completion is read from the commit trailers on the project branch, bounded by the base branch
       items:
