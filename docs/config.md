@@ -5,7 +5,9 @@ Ralph looks for `.ralph/config.yaml` in your project root for optional settings.
 ## Format
 
 ```yaml
-extraIterations:               # Extra iterations beyond requirement count (unset = 20% of requirements, rounded up)
+items: .requirements           # jq query selecting the item array from a project file (default: .)
+cleanup: false                 # Delete the project file in its own commit once complete (default: false)
+extraIterations:               # Extra iterations beyond item count (unset = 20% of items, rounded up)
 defaultBranch: main             # Default branch for PRs (default: main)
 model: deepseek/deepseek-chat  # AI model (default: deepseek/deepseek-chat)
 
@@ -41,6 +43,24 @@ workflow:
 ```
 
 **Note:** API keys are managed by OpenCode, not Ralph. Configure them with `opencode auth`.
+
+## Items
+
+`items` is a [jq](https://jqlang.org/manual/) query that selects the array of work items from a project file. It defaults to `.`, which is correct for a project file whose top level is already an array.
+
+```yaml
+items: .requirements                                  # nested list
+items: .spec.tasks                                    # deeper nesting
+items: '.issues | map(select(.state == "open"))'      # filtered
+```
+
+The query must resolve to at least one item. Every command that reads a project file — the run command, `ralph get`, and `ralph validate` — resolves it the same way: `--items` first, then this field, then `.`. Keep the query stable for the duration of a run; it defines the indices that completion tracking uses. See [Project Format](formats/project.md#item-query) and [Iterations](iterations.md).
+
+## Iterations
+
+`extraIterations` sets how many iterations the loop may run beyond the item count. The limit is `len(items) + extraIterations`. When unset it defaults to 20% of the item count, rounded up. `--extra-iterations` overrides it.
+
+`cleanup` deletes the project file once every item is complete, in a commit of its own, before the pull request is opened. Off by default; `--cleanup` enables it for a single run. Completion history lives in the branch's commit trailers, so cleaning up the file does not lose it.
 
 ## Review
 
@@ -109,6 +129,6 @@ ralph config pulumi     # Pulumi access token
 
 ## Custom Instructions
 
-Create `.ralph/instructions.md` to guide the AI. Ralph includes this file in the AI prompt automatically. If not present, [default instructions](../internal/config/default-instructions.md) are used.
+Create `.ralph/instructions.md` to guide the AI. Ralph includes this file in the AI prompt automatically. If not present, the [default development instructions](../internal/config/development-instructions.md) are used.
 
-**Note:** The default instructions include important guidance for requirement management and reporting. Edit carefully to preserve this functionality.
+**Note:** The default instructions tell the agent to write its commit message to `report.md` and to end that message with `Ralph item <index> completed` when the item is finished. That trailer is the only way an item is ever marked complete — instructions that drop it produce a run that does work every iteration, completes nothing, and exhausts its iteration limit. Edit carefully.

@@ -7,37 +7,23 @@ Ralph orchestrates AI coding agents to automate development workflows, from bran
 ## Features
 
 - 🤖 AI-driven development with OpenCode
-- 🔄 Iterative workflows until requirements pass
+- 🔄 One iteration per item, until every item is done
+- 📋 Any YAML or JSON file with a list in it can be a project
 - 🌿 Automated git operations (branch, commit, push, PR)
+- 📝 Completion tracked in the commit log, not in your files
 - 🚀 Service management (start/stop dev services)
-- 🔍 Dry-run mode to preview actions
-- 🎯 YAML-based project definitions
 - 🐙 Remote execution via Argo Workflows on Kubernetes
 
 ## Example
 
-Define your project with requirements:
+A project is any YAML or JSON file containing an array of work items. The simplest one is a list:
 
 ```yaml
-name: user-authentication
-description: Add user authentication
-
-requirements:
-  - category: backend
-    description: Authentication API
-    items:
-      - Users can register with email and password
-      - Users can log in with valid credentials
-      - JWT tokens are issued on successful authentication
-    passing: false
-
-  - category: frontend
-    description: Authentication UI
-    items:
-      - Users can access login and registration forms
-      - Login redirects to dashboard on success
-      - Invalid credentials show error messages
-    passing: false
+# user-authentication.yaml
+- Users can register with email and password
+- Users can log in with valid credentials
+- JWT tokens are issued on successful authentication
+- Login redirects to the dashboard on success
 ```
 
 Run it locally:
@@ -46,7 +32,46 @@ Run it locally:
 ralph user-authentication.yaml --local
 ```
 
-Ralph will create a branch, implement each requirement using an AI agent, and open a pull request when all requirements pass.
+Ralph creates a branch and picks one item per iteration. The AI agent implements it and ends its commit message with a note saying which item it finished:
+
+```
+feat: issue JWT tokens on successful authentication
+
+Ralph item 2 completed
+```
+
+That note is the whole tracking mechanism — ralph reads the branch's commit log each iteration to see what is left, and opens a pull request when nothing is.
+
+Items can be structured instead of plain strings, and the array can be nested anywhere in the file — point ralph at it with a [jq](https://jqlang.org/manual/) query:
+
+```yaml
+# .ralph/config.yaml
+items: .requirements
+```
+
+```yaml
+# projects/user-authentication.yaml
+slug: user-authentication
+title: Add user authentication
+
+requirements:
+  - slug: register
+    description: Users can register with email and password
+    scenarios:
+      - title: Successful registration
+        items:
+          - GIVEN an unused email address
+          - WHEN POST /auth/register is called
+          - THEN a user is created and a JWT is returned
+
+  - slug: login
+    description: Users can log in with valid credentials
+    items:
+      - Invalid credentials return 401 with an error message
+      - Session tokens expire after 24 hours
+```
+
+Ralph never writes to the project file during a run — an item's `slug`, `id`, or `name` just labels it in the commit trailer. See [Project Format](docs/formats/project.md) and [Iterations](docs/iterations.md).
 
 ## Installation
 
@@ -82,6 +107,7 @@ See [OpenCode authentication docs](https://opencode.ai/docs/cli/#auth) for setup
 ## More
 
 - [CLI reference](docs/cli.md)
-- [Writing projects](docs/skills/ralph-write-project.md)
+- [Project format](docs/formats/project.md)
+- [Iterations and completion](docs/iterations.md)
 - [Remote execution workflows](docs/workflows.md)
 - [Configuration reference](docs/config.md)

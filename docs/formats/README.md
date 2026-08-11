@@ -26,7 +26,7 @@ Specs, orchestrations, and per-feature architecture are co-located under `/specs
 - `orchestration.md` — idealized domain logic ([Orchestration Format](./orchestration.md))
 - `architecture.yaml` (optional) — **future** modules introduced by this feature ([Architecture Format](./architecture.md))
 
-Project files live at `/projects/<slug>.yaml` and define units of work for the ralph agent to execute, drawing on the specs, orchestrations, and architecture above ([Project Format](./project.md)).
+Project files conventionally live at `/projects/<slug>.yaml` and define units of work for the ralph agent to execute, drawing on the specs, orchestrations, and architecture above ([Project Format](./project.md)). Ralph imposes no schema on them — a project is any YAML or JSON file containing an array of items, selected with a jq query.
 
 See [Component](../glossary.md#component) and [Feature](../glossary.md#feature) in the glossary.
 
@@ -46,4 +46,4 @@ The architecture format for outlining deep modules in YAML.
 
 ### [Projects](./project.md)
 
-The project format for defining units of work for the ralph agent.
+The project format for defining units of work for the ralph agent — the item query, item keys, and the conventional item shape. See also [Iterations](../iterations.md) for how items are picked and recorded complete.
