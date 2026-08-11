@@ -52,7 +52,7 @@ requirements:
             // Returns an error naming the query when it cannot be evaluated, and a
             // distinct error when it yields no output.
             func ResolveItems(doc *Document, query string) ([]any, error)
-      passing: false
+      passing: true
     - slug: item-index-and-key
       description: An item is identified by its position in the resolved array and labelled by an optional key
       items:

@@ -6,11 +6,13 @@ require (
 	github.com/alecthomas/kong v1.15.0
 	github.com/fatih/color v1.19.0
 	github.com/gen2brain/beeep v0.11.2
+	github.com/itchyny/gojq v0.12.19
 	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
 	github.com/bytedance/gopkg v0.1.4 // indirect
+	github.com/itchyny/timefmt-go v0.1.8 // indirect
 	go.mongodb.org/mongo-driver/v2 v2.6.0 // indirect
 )
 
