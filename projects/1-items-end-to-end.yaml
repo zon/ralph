@@ -640,7 +640,7 @@ requirements:
                 require.ErrorIs(t, err, run.ErrBlocked)
                 require.Empty(t, ai.pickCalls())
             }
-      passing: false
+      passing: true
     - slug: item-selection-and-development
       description: Each iteration picks one incomplete item and develops it without touching the project file
       items:
