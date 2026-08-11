@@ -254,7 +254,7 @@ requirements:
           module: internal/projectfile
           body: |
             func Remove(path string) error
-      passing: false
+      passing: true
     - slug: project-test-factories
       description: The shared project test factories describe item arrays and completion instead of passing requirements
       items:

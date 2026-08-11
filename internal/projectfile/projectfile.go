@@ -79,3 +79,11 @@ func ResolveItems(doc *Document, query string) ([]any, error) {
 	}
 	return items, nil
 }
+
+// Remove deletes a project file from disk.
+func Remove(path string) error {
+	if err := os.Remove(path); err != nil {
+		return fmt.Errorf("failed to remove project file: %w", err)
+	}
+	return nil
+}

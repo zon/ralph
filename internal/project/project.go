@@ -16,6 +16,7 @@ import (
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/opencode"
+	"github.com/zon/ralph/internal/projectfile"
 	"github.com/zon/ralph/internal/services"
 )
 
@@ -24,13 +25,14 @@ var ErrExtraIterationsReached = errors.New("iteration limit reached")
 
 // Project represents a project YAML file with requirements
 type Project struct {
-	Slug         string        `yaml:"slug"`
-	Title        string        `yaml:"title,omitempty"`
-	Feature      string        `yaml:"feature,omitempty"`
-	Requirements []Requirement `yaml:"requirements"`
-	Items        []Item        `yaml:"-"`
-	Path         string        `yaml:"-"`
-	BaseBranch   string        `yaml:"-"`
+	Slug         string                `yaml:"slug"`
+	Title        string                `yaml:"title,omitempty"`
+	Feature      string                `yaml:"feature,omitempty"`
+	Requirements []Requirement         `yaml:"requirements"`
+	Items        []Item                `yaml:"-"`
+	Path         string                `yaml:"-"`
+	BaseBranch   string                `yaml:"-"`
+	Doc          *projectfile.Document `yaml:"-"`
 }
 
 // Requirement represents a single requirement in a project

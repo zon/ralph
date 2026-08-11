@@ -47,35 +47,27 @@ func TestProjectAdapterAllRequirementsPassing(t *testing.T) {
 	})
 }
 
+func withItems(n int) *project.Project {
+	return &project.Project{Items: project.NewItems(make([]any, n))}
+}
+
 func TestExtraIterationsDefaultTwentyPercent(t *testing.T) {
 	cfg := &config.RalphConfig{}
-	proj := &project.Project{
-		Requirements: make([]project.Requirement, 10),
-	}
 	c := &project.Client{}
-	extra := c.ExtraIterations(proj, cfg)
-	assert.Equal(t, 2, extra)
+	assert.Equal(t, 2, c.ExtraIterations(withItems(10), cfg))
 }
 
 func TestExtraIterationsRoundsUp(t *testing.T) {
 	cfg := &config.RalphConfig{}
-	proj := &project.Project{
-		Requirements: make([]project.Requirement, 3),
-	}
 	c := &project.Client{}
-	extra := c.ExtraIterations(proj, cfg)
-	assert.Equal(t, 1, extra)
+	assert.Equal(t, 1, c.ExtraIterations(withItems(3), cfg))
 }
 
 func TestExtraIterationsUsesConfigValue(t *testing.T) {
 	v := 5
 	cfg := &config.RalphConfig{ExtraIterations: &v}
-	proj := &project.Project{
-		Requirements: make([]project.Requirement, 10),
-	}
 	c := &project.Client{}
-	extra := c.ExtraIterations(proj, cfg)
-	assert.Equal(t, 5, extra)
+	assert.Equal(t, 5, c.ExtraIterations(withItems(10), cfg))
 }
 
 func TestProjectAdapterHasSpec(t *testing.T) {

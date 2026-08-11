@@ -10,6 +10,7 @@ import (
 
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/git"
+	"github.com/zon/ralph/internal/projectfile"
 	"github.com/zon/ralph/internal/trailer"
 )
 
@@ -35,6 +36,55 @@ func NewClient(log CommitLog, out WarnOutput) *Client {
 
 func (c *Client) Load(path string) (*Project, error) {
 	return LoadProject(path)
+}
+
+// Resolve parses the project file at path and evaluates the item query against
+// it, returning a Project carrying the file path, slug, title, parsed document,
+// and resolved item array. It reads and parses nothing itself, delegating file
+// reading, parsing, and query evaluation, then builds the domain values from
+// the results. Returns an error when the file does not parse, the query fails,
+// or the query yields no items.
+func (c *Client) Resolve(path string, query string) (*Project, error) {
+	doc, err := projectfile.Parse(path)
+	if err != nil {
+		return nil, err
+	}
+	values, err := projectfile.ResolveItems(doc, query)
+	if err != nil {
+		return nil, err
+	}
+	slug := slugFrom(doc, path)
+	return &Project{
+		Slug:  slug,
+		Title: titleFrom(doc, slug),
+		Path:  path,
+		Items: NewItems(values),
+		Doc:   doc,
+	}, nil
+}
+
+// slugFrom derives the project slug from the document's top-level `slug` field
+// when the top level is a mapping carrying one, and otherwise from the input
+// file's base name without its extension.
+func slugFrom(doc *projectfile.Document, path string) string {
+	if m, ok := doc.Root.(map[string]any); ok {
+		if v, ok := m["slug"].(string); ok && v != "" {
+			return v
+		}
+	}
+	base := filepath.Base(path)
+	return strings.TrimSuffix(base, filepath.Ext(base))
+}
+
+// titleFrom derives the project title from the document's top-level `title`
+// field when present, and otherwise from the resolved slug.
+func titleFrom(doc *projectfile.Document, slug string) string {
+	if m, ok := doc.Root.(map[string]any); ok {
+		if v, ok := m["title"].(string); ok && v != "" {
+			return v
+		}
+	}
+	return slug
 }
 
 func (c *Client) ResolveInputFile(path string) (*InputFile, error) {
@@ -85,6 +135,56 @@ func (c *Client) reconcile(refs []trailer.Ref, proj *Project) []int {
 	return indices
 }
 
+// Incomplete returns the items of proj.Items whose indices are not reported
+// complete in the branch commit log, in array order. An empty result is the
+// iteration loop's exit condition.
+func (c *Client) Incomplete(proj *Project, base string) ([]Item, error) {
+	complete, err := c.Complete(proj, base)
+	if err != nil {
+		return nil, err
+	}
+	completeSet := make(map[int]struct{}, len(complete))
+	for _, i := range complete {
+		completeSet[i] = struct{}{}
+	}
+	incomplete := make([]Item, 0, len(proj.Items))
+	for _, it := range proj.Items {
+		if _, ok := completeSet[it.Index]; !ok {
+			incomplete = append(incomplete, it)
+		}
+	}
+	return incomplete, nil
+}
+
+// IncompleteError returns an error naming the items that are still incomplete.
+func (c *Client) IncompleteError(proj *Project, base string) error {
+	incomplete, err := c.Incomplete(proj, base)
+	if err != nil {
+		return err
+	}
+	if len(incomplete) == 0 {
+		return nil
+	}
+	names := make([]string, 0, len(incomplete))
+	for _, it := range incomplete {
+		name := fmt.Sprintf("item %d", it.Index)
+		if key := it.Key(); key != "" {
+			name = fmt.Sprintf("item %d (%s)", it.Index, key)
+		}
+		names = append(names, name)
+	}
+	return fmt.Errorf("%w: %s still incomplete", ErrExtraIterationsReached, strings.Join(names, ", "))
+}
+
+// Remove deletes the project file and stages the deletion, delegating the
+// filesystem work to the project file module and the git wrapper.
+func (c *Client) Remove(proj *Project) error {
+	if err := projectfile.Remove(proj.Path); err != nil {
+		return err
+	}
+	return git.StageFile(proj.Path)
+}
+
 func (c *Client) ValidateFile(path string) error {
 	if path == "" {
 		return fmt.Errorf("project file required (see --help)")
@@ -117,7 +217,7 @@ func (c *Client) ExtraIterations(proj *Project, cfg *config.RalphConfig) int {
 	if cfg.ExtraIterations != nil {
 		return *cfg.ExtraIterations
 	}
-	count := len(proj.Requirements)
+	count := len(proj.Items)
 	extra := int(math.Ceil(float64(count) * 0.2))
 	return extra
 }
