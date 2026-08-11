@@ -158,3 +158,71 @@ func TestRunNoServicesClearsConfigServices(t *testing.T) {
 	require.NotNil(t, capturedCfg)
 	require.Nil(t, capturedCfg.Services)
 }
+
+func TestRunItemsAppliedToConfig(t *testing.T) {
+	var capturedCfg *ralphcfg.RalphConfig
+	mockRunner := &mockRunnerClient{
+		runLocalFunc: func(proj *ralphproj.Project, cfg *ralphcfg.RalphConfig) error {
+			capturedCfg = cfg
+			return nil
+		},
+	}
+	cmd := run.withMocks(
+		run.withRunner(mockRunner),
+	)
+	err := cmd.Run(flags.withItems(".spec.tasks"))
+	require.NoError(t, err)
+	require.NotNil(t, capturedCfg)
+	require.Equal(t, ".spec.tasks", capturedCfg.Items)
+}
+
+func TestRunItemsAbsentLeavesConfigQuery(t *testing.T) {
+	var capturedCfg *ralphcfg.RalphConfig
+	mockRunner := &mockRunnerClient{
+		runLocalFunc: func(proj *ralphproj.Project, cfg *ralphcfg.RalphConfig) error {
+			capturedCfg = cfg
+			return nil
+		},
+	}
+	cmd := run.withMocks(
+		run.withRunner(mockRunner),
+	)
+	err := cmd.Run(flags.any())
+	require.NoError(t, err)
+	require.NotNil(t, capturedCfg)
+	require.Equal(t, ".", capturedCfg.Items)
+}
+
+func TestRunCleanupAppliedToConfig(t *testing.T) {
+	var capturedCfg *ralphcfg.RalphConfig
+	mockRunner := &mockRunnerClient{
+		runLocalFunc: func(proj *ralphproj.Project, cfg *ralphcfg.RalphConfig) error {
+			capturedCfg = cfg
+			return nil
+		},
+	}
+	cmd := run.withMocks(
+		run.withRunner(mockRunner),
+	)
+	err := cmd.Run(flags.withCleanup())
+	require.NoError(t, err)
+	require.NotNil(t, capturedCfg)
+	require.True(t, capturedCfg.Cleanup)
+}
+
+func TestRunCleanupAbsentLeavesCleanupDisabled(t *testing.T) {
+	var capturedCfg *ralphcfg.RalphConfig
+	mockRunner := &mockRunnerClient{
+		runLocalFunc: func(proj *ralphproj.Project, cfg *ralphcfg.RalphConfig) error {
+			capturedCfg = cfg
+			return nil
+		},
+	}
+	cmd := run.withMocks(
+		run.withRunner(mockRunner),
+	)
+	err := cmd.Run(flags.any())
+	require.NoError(t, err)
+	require.NotNil(t, capturedCfg)
+	require.False(t, capturedCfg.Cleanup)
+}

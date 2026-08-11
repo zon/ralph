@@ -46,6 +46,8 @@ type RunFlags struct {
 	WorkingDir      string
 	InputFile       string
 	ExtraIterations int
+	Items           string
+	Cleanup         *bool
 	Local           bool
 	Follow          bool
 	Debug           string
@@ -93,7 +95,13 @@ func (r *RunCmd) Run(flags RunFlags) error {
 	if flags.Local {
 		return r.local.RunLocal(input, setup.Config)
 	}
-	return r.remote.Run(input, RunRemoteFlags{Follow: flags.Follow, Debug: flags.Debug, BaseBranch: setup.BaseBranch})
+	return r.remote.Run(input, RunRemoteFlags{
+		Follow:     flags.Follow,
+		Debug:      flags.Debug,
+		BaseBranch: setup.BaseBranch,
+		Items:      setup.Config.Items,
+		Cleanup:    setup.Config.Cleanup,
+	})
 }
 
 func (r *RunCmd) prepareSetup(flags RunFlags, input *project.InputFile) (ExecutionSetup, error) {
@@ -111,6 +119,8 @@ func (r *RunCmd) prepareSetup(flags RunFlags, input *project.InputFile) (Executi
 		v := flags.ExtraIterations
 		cfg.ExtraIterations = &v
 	}
+	cfg.Items = cfg.ResolveItems(flags.Items)
+	cfg.Cleanup = cfg.ResolveCleanup(flags.Cleanup)
 	cfg.Base = baseBranch
 	return ExecutionSetup{
 		Config:        cfg,

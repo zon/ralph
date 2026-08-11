@@ -76,3 +76,25 @@ func TestRunDebugBranchPassedToSubmit(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "my-fix", remoteWorkflowLastDebugBranch(runner))
 }
+
+func TestRunItemsQueryPassedToSubmit(t *testing.T) {
+	runner := withRemoteMocks()
+	err := runner.Run(project.ForProjectInput(project.Any()), runRemoteFlagsWithItems(".spec.tasks"))
+	require.NoError(t, err)
+	require.Equal(t, ".spec.tasks", remoteWorkflowLastItems(runner))
+}
+
+func TestRunCleanupPassedToSubmit(t *testing.T) {
+	runner := withRemoteMocks()
+	err := runner.Run(project.ForProjectInput(project.Any()), runRemoteFlagsWithCleanup())
+	require.NoError(t, err)
+	require.True(t, remoteWorkflowLastCleanup(runner))
+}
+
+func TestRunItemsAndCleanupEmptyByDefault(t *testing.T) {
+	runner := withRemoteMocks()
+	err := runner.Run(project.ForProjectInput(project.Any()), runRemoteFlagsAny())
+	require.NoError(t, err)
+	require.Empty(t, remoteWorkflowLastItems(runner))
+	require.False(t, remoteWorkflowLastCleanup(runner))
+}

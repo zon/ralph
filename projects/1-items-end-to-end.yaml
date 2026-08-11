@@ -983,7 +983,7 @@ requirements:
             - AND no `--cleanup` flag is passed
             - WHEN cleanup is resolved
             - THEN cleanup is disabled and the project file survives the run
-      passing: false
+      passing: true
     - slug: pull-request-title-and-summary
       description: The pull request takes its title from the project title and its summary from the commit log
       items:

@@ -629,6 +629,14 @@ func runRemoteFlagsWithDebug(branch string) RunRemoteFlags {
 	return RunRemoteFlags{Debug: branch}
 }
 
+func runRemoteFlagsWithItems(query string) RunRemoteFlags {
+	return RunRemoteFlags{Items: query}
+}
+
+func runRemoteFlagsWithCleanup() RunRemoteFlags {
+	return RunRemoteFlags{Cleanup: true}
+}
+
 func remoteWorkflowSubmitted(runner *RemoteRunner) bool {
 	if m, ok := runner.workflow.(*workflow.MockClient); ok {
 		return m.SubmitCalled
@@ -655,6 +663,20 @@ func remoteWorkflowLastDebugBranch(runner *RemoteRunner) string {
 		return m.LastDebugBranch
 	}
 	return ""
+}
+
+func remoteWorkflowLastItems(runner *RemoteRunner) string {
+	if m, ok := runner.workflow.(*workflow.MockClient); ok {
+		return m.LastItems
+	}
+	return ""
+}
+
+func remoteWorkflowLastCleanup(runner *RemoteRunner) bool {
+	if m, ok := runner.workflow.(*workflow.MockClient); ok {
+		return m.LastCleanup
+	}
+	return false
 }
 
 func remoteNotifySuccessSent(runner *RemoteRunner) bool {

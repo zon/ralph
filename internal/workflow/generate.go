@@ -21,9 +21,12 @@ func DefaultContainerVersion() string {
 // cloneBranch is the branch the container will clone (current local branch).
 // projectBranch is the branch the container will create and work on (derived from the project file name).
 // baseBranch is the already-resolved base branch for PR creation (see specs/features/ralph/run/spec.md).
+// items is the already-resolved item query selecting the item array, and cleanup reports whether the
+// project file should be deleted once every item is complete — both resolved by the caller so the
+// workflow container does not re-resolve them from config.
 // repoURL is the git remote URL and relProjectPath is the project file path relative to the repo root —
 // both are resolved by the caller so that git and GitHub discovery are decoupled from generation logic.
-func GenerateWorkflow(ctx *execcontext.Context, projectName, cloneBranch, projectBranch, baseBranch string, verbose bool, repoURL, relProjectPath string) (*Workflow, error) {
+func GenerateWorkflow(ctx *execcontext.Context, projectName, cloneBranch, projectBranch, baseBranch, items string, cleanup bool, verbose bool, repoURL, relProjectPath string) (*Workflow, error) {
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)
@@ -41,13 +44,13 @@ func GenerateWorkflow(ctx *execcontext.Context, projectName, cloneBranch, projec
 		instructions = string(data)
 	}
 
-	return GenerateWorkflowWithGitInfo(ctx, projectName, repoURL, cloneBranch, projectBranch, baseBranch, relProjectPath, verbose, cfg, instructions)
+	return GenerateWorkflowWithGitInfo(ctx, projectName, repoURL, cloneBranch, projectBranch, baseBranch, items, cleanup, relProjectPath, verbose, cfg, instructions)
 }
 
 // GenerateWorkflowWithGitInfo builds a Workflow with provided git information, config,
 // and instructions. It does not perform any I/O itself — the caller supplies the loaded
 // config and instructions so that test doubles can be provided.
-func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL, cloneBranch, projectBranch, baseBranch, relProjectPath string, verbose bool, cfg *config.RalphConfig, instructions string) (*Workflow, error) {
+func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL, cloneBranch, projectBranch, baseBranch, items string, cleanup bool, relProjectPath string, verbose bool, cfg *config.RalphConfig, instructions string) (*Workflow, error) {
 	repo, err := githubpkg.ParseRemoteURL(repoURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse repository from URL: %w", err)
@@ -77,6 +80,8 @@ func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL,
 		Verbose:       verbose,
 		DebugBranch:   ctx.DebugBranch(),
 		BaseBranch:    baseBranch,
+		Items:         items,
+		Cleanup:       cleanup,
 		Image:         workflowOptions.Image,
 		ConfigMaps:    workflowOptions.ConfigMaps,
 		Secrets:       workflowOptions.Secrets,

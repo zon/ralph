@@ -412,3 +412,15 @@ func (h *flagsHelper) withDebugBranch(branch string) WorkflowRunFlags {
 	f.Debug = branch
 	return f
 }
+
+func (h *flagsHelper) withItems(query string) WorkflowRunFlags {
+	f := h.any()
+	f.Items = query
+	return f
+}
+
+func (h *flagsHelper) withCleanup() WorkflowRunFlags {
+	f := h.any()
+	f.Cleanup = true
+	return f
+}
