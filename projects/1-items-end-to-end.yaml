@@ -88,7 +88,7 @@ requirements:
             - GIVEN two items that share the same `slug`
             - WHEN the project is used
             - THEN both items are tracked independently by index and no error is reported
-      passing: false
+      passing: true
     - slug: project-metadata-and-input-files
       description: Slug and title fall back to the file name, and a project input file may be YAML or JSON
       items:
