@@ -27,6 +27,20 @@ The system SHALL apply run-specific flags to the execution context before starti
 - THEN the provided extra iteration count is passed to the run-local behavior
 - AND when `--extra-iterations` is absent, no extra iteration value is passed and run-local applies its default
 
+#### Scenario: Item query
+
+- GIVEN `--items` is provided with the query resolved at submission time
+- WHEN the project loop executes
+- THEN that query is used to resolve the item array
+- AND the `items` field in `.ralph/config.yaml` is not consulted
+
+#### Scenario: Cleanup
+
+- GIVEN `--cleanup` is provided
+- WHEN every item is complete
+- THEN the project file is deleted and the deletion committed on its own before the pull request is opened
+- AND when `--cleanup` is absent, the project file is left in place
+
 #### Scenario: Model override
 
 - GIVEN `--model` is provided
@@ -63,7 +77,7 @@ The system SHALL validate all required inputs and load configuration before perf
 
 #### Scenario: Project file load failure
 
-- GIVEN the project file at the provided path is missing or malformed
+- GIVEN the project file at the provided path is missing, does not parse, or yields no items under the supplied item query
 - WHEN validation runs after the workspace is ready
 - THEN an error is returned before base-branch synchronization begins
 

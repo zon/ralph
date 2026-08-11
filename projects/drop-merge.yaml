@@ -1,0 +1,90 @@
+slug: drop-merge
+title: Stop merging pull requests — remove approval-triggered merge and the whole merge feature
+feature: specs/features/webhook/events
+requirements:
+    - slug: ignore-approved-reviews
+      description: The webhook service ignores pull request review approvals instead of dispatching a merge workflow, and keeps dispatching run workflows for commented reviews
+      items:
+        - The webhook server no longer has a branch that submits a merge workflow for any event
+        - An approved review produces no log line claiming a workflow was submitted
+      scenarios:
+        - title: Review approval ignored
+          items:
+            - GIVEN a `pull_request_review` event with state `approved`
+            - WHEN the webhook is received
+            - THEN the event is silently ignored and HTTP 200 is returned
+            - AND no workflow is submitted, because merging an approved PR is the reviewer's own action
+        - title: Approving review with a body ignored
+          items:
+            - GIVEN a `pull_request_review` event with state `approved` and a non-empty body
+            - WHEN the webhook is received
+            - THEN the event is silently ignored, because approval is not a request for work
+        - title: Changes requested ignored
+          items:
+            - GIVEN a `pull_request_review` event with state `changes_requested`
+            - WHEN the webhook is received
+            - THEN the event is silently ignored and HTTP 200 is returned
+        - title: Review with comment
+          items:
+            - GIVEN a `pull_request_review` event with state `commented` and a non-empty body
+            - WHEN the webhook is received
+            - THEN a Run Workflow is submitted calling `ralph comment` with the review body
+        - title: Empty commented review ignored
+          items:
+            - GIVEN a `pull_request_review` event with state `commented` and an empty body
+            - WHEN the webhook is received
+            - THEN the event is silently ignored and HTTP 200 is returned
+      passing: false
+    - slug: remove-merge-workflow-generation
+      description: Workflow construction no longer produces or carries merge workflows
+      items:
+        - Converting a webhook event into a workflow only ever produces a run workflow
+        - The approval flag is gone from the webhook event value passed into workflow construction, since no event outcome depends on it any more
+        - The workflow result value exposes only a run workflow, so callers no longer branch on which kind of workflow came back
+        - Merge workflow manifest generation is deleted along with its tests
+        - Every remaining submitted workflow still carries the label `app.kubernetes.io/managed-by=ralph`
+      scenarios:
+        - title: Run Workflow labeled
+          items:
+            - GIVEN a comment event triggers a Run Workflow submission
+            - WHEN the workflow YAML is rendered
+            - THEN the workflow metadata contains the label `app.kubernetes.io/managed-by=ralph`
+      passing: false
+    - slug: remove-merge-commands
+      description: The `ralph merge` and `ralph workflow merge` commands and their orchestration are removed from the CLI
+      items:
+        - '`ralph --help` lists no `merge` command'
+        - '`ralph workflow --help` lists no `merge` subcommand'
+        - Invoking `ralph merge` exits non-zero with an unknown-command error
+        - The merge orchestration module and its tests are deleted
+        - The pull request merge call into the `gh` CLI is deleted, since nothing invokes it any more
+        - Nothing in the codebase references a merge command, merge workflow, or PR merge operation, except the base-branch conflict resolution used by a run
+      passing: false
+    - slug: remove-merge-instructions
+      description: Merge AI instructions and their configuration overrides are removed from both ralph config and the webhook service config
+      items:
+        - The embedded default merge instructions file is deleted and no longer embedded by the config loader
+        - The ralph config no longer exposes merge instructions, and no longer reads `.ralph/merge-instructions.md`
+        - The webhook service config no longer accepts a merge instructions file setting, and loading a config that still names one does not fail
+        - Comment instructions loading and overriding is unchanged
+      scenarios:
+        - title: Comment instructions override
+          items:
+            - GIVEN `commentInstructionsFile` points to a custom markdown file
+            - WHEN a comment event is dispatched
+            - THEN the custom file's content is used as the AI prompt template instead of the built-in default
+      passing: false
+    - slug: remove-completed-project-scanning
+      description: The helpers that existed only to find and delete completed project files before a merge are removed
+      items:
+        - Loading every project file in a directory is no longer supported, since only the merge path needed it
+        - Scanning a directory for fully-complete project files is no longer supported
+        - Removing a set of project files and committing the deletion is no longer supported here; deleting a single completed project file is handled by the run loop and is out of scope for this project
+        - The tests covering the removed helpers are deleted rather than adapted
+      passing: false
+    - slug: version-bump
+      description: Version bump
+      items:
+        - Apply a semver major bump to the app version, because two documented CLI commands and one webhook behavior are removed
+        - Apply the matching app version to the ralph-webhook chart and a patch bump to the chart version
+      passing: false

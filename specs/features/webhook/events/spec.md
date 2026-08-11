@@ -2,7 +2,9 @@
 
 ## Purpose
 
-Receive GitHub webhook events for pull requests and dispatch Argo Workflows to implement comment requests or merge approved PRs.
+Receive GitHub webhook events for pull requests and dispatch Argo Workflows to implement comment requests.
+
+The service never merges a pull request. Ralph opens the PR and responds to review comments; approving and merging are the repository's own process, performed by its reviewers.
 
 ## Requirements
 
@@ -72,7 +74,7 @@ The service SHALL dispatch a Run Workflow for `pull_request_review_comment` even
 
 ### Requirement: Pull Request Review Events
 
-The service SHALL dispatch a Run Workflow for `commented` reviews and a Merge Workflow for `approved` reviews.
+The service SHALL dispatch a Run Workflow for `commented` reviews. All other review states SHALL be ignored.
 
 #### Scenario: Review with comment
 
@@ -80,11 +82,24 @@ The service SHALL dispatch a Run Workflow for `commented` reviews and a Merge Wo
 - WHEN the webhook is received
 - THEN a Run Workflow is submitted calling `ralph comment` with the review body
 
-#### Scenario: Review approval triggers merge
+#### Scenario: Review approval ignored
 
 - GIVEN a `pull_request_review` event with state `approved`
 - WHEN the webhook is received
-- THEN a Merge Workflow is submitted calling `ralph merge --local` for the PR branch
+- THEN the event is silently ignored and HTTP 200 is returned
+- AND no workflow is submitted, because merging an approved PR is the reviewer's own action
+
+#### Scenario: Approving review with a body ignored
+
+- GIVEN a `pull_request_review` event with state `approved` and a non-empty body
+- WHEN the webhook is received
+- THEN the event is silently ignored, because approval is not a request for work
+
+#### Scenario: Changes requested ignored
+
+- GIVEN a `pull_request_review` event with state `changes_requested`
+- WHEN the webhook is received
+- THEN the event is silently ignored and HTTP 200 is returned
 
 #### Scenario: Empty commented review ignored
 
@@ -132,12 +147,6 @@ Every Argo Workflow submitted by the webhook service SHALL include the label `ap
 #### Scenario: Run Workflow labeled
 
 - GIVEN a comment event triggers a Run Workflow submission
-- WHEN the workflow YAML is rendered
-- THEN the workflow metadata contains the label `app.kubernetes.io/managed-by=ralph`
-
-#### Scenario: Merge Workflow labeled
-
-- GIVEN a review approval triggers a Merge Workflow submission
 - WHEN the workflow YAML is rendered
 - THEN the workflow metadata contains the label `app.kubernetes.io/managed-by=ralph`
 
