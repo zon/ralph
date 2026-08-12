@@ -3,6 +3,7 @@ package cmd
 import (
 	"os"
 
+	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/opencode"
 	"github.com/zon/ralph/internal/orchestration/validate"
@@ -15,12 +16,18 @@ type ValidateCmd struct {
 func (v *ValidateCmd) Run() error {
 	ctx := createExecutionContext()
 	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
+
+	query := "."
+	if ralphConfig, err := config.LoadConfig(); err == nil {
+		query = ralphConfig.ResolveItems("")
+	}
+
 	validator := validate.New(ctx, opencode.New())
-	proj, err := validator.Validate(v.ProjectFile)
+	res, err := validator.Validate(v.ProjectFile, query)
 	if err != nil {
 		return err
 	}
 
-	ctx.Output().Successf("Project '%s' is valid (%d requirements)", proj.Slug, len(proj.Requirements))
+	ctx.Output().Successf("Project file '%s' is valid (%d items)", res.Path, res.ItemCount)
 	return nil
 }

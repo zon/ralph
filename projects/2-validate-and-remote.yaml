@@ -38,7 +38,7 @@ requirements:
             - WHEN `ralph validate <file>` is run
             - 'THEN the command exits with a non-zero status and the error names the query - `item query yielded no items: <query>`'
             - AND no agent is invoked
-      passing: false
+      passing: true
     - slug: validate-items-flag
       description: Validate resolves the item query exactly as a run does
       items:

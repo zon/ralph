@@ -104,3 +104,47 @@ requirements:
 	err := cmd.Run()
 	require.NoError(t, err)
 }
+
+// writeValidateConfig writes a .ralph/config.yaml into a temp working directory
+// and changes the working directory to it, so the validate command resolves the
+// item query from the config.
+func writeValidateConfig(t *testing.T, content string) string {
+	t.Helper()
+	tmpDir := t.TempDir()
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	require.NoError(t, os.MkdirAll(ralphDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte(content), 0644))
+	t.Chdir(tmpDir)
+	return tmpDir
+}
+
+func TestValidateCmdQueryYieldsNoItems(t *testing.T) {
+	// GIVEN a config whose item query resolves to nothing for the parsed file
+	tmpDir := writeValidateConfig(t, "items: .missing\n")
+	filePath := filepath.Join(tmpDir, "project.yaml")
+	require.NoError(t, os.WriteFile(filePath, []byte("slug: x\n"), 0644))
+
+	// WHEN `ralph validate <file>` is run
+	cmd := &ValidateCmd{ProjectFile: filePath}
+	err := cmd.Run()
+
+	// THEN the command exits with an error naming the query
+	require.Error(t, err)
+	assert.Equal(t, "item query yielded no items: .missing", err.Error())
+}
+
+func TestValidateCmdQueryEvaluationError(t *testing.T) {
+	// GIVEN a config whose item query cannot be evaluated against the file
+	tmpDir := writeValidateConfig(t, "items: .slug.name\n")
+	filePath := filepath.Join(tmpDir, "project.yaml")
+	require.NoError(t, os.WriteFile(filePath, []byte("slug: x\n"), 0644))
+
+	// WHEN `ralph validate <file>` is run
+	cmd := &ValidateCmd{ProjectFile: filePath}
+	err := cmd.Run()
+
+	// THEN the command exits with an error reporting the query error
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "item query failed")
+	assert.Contains(t, err.Error(), ".slug.name")
+}

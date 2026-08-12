@@ -7,25 +7,21 @@ import (
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/opencode"
-	"github.com/zon/ralph/internal/project"
+	"github.com/zon/ralph/internal/projectfile"
 )
 
-type projectClient struct{}
+type projectFile struct{}
 
-func (projectClient) Load(path string) (*project.Project, error) {
-	return project.LoadProject(path)
+func (projectFile) Parse(path string) (*projectfile.Document, error) {
+	return projectfile.Parse(path)
 }
 
-func (projectClient) Save(path string, proj *project.Project) error {
-	return project.SaveProject(path, proj)
+func (projectFile) ResolveItems(doc *projectfile.Document, query string) ([]any, error) {
+	return projectfile.ResolveItems(doc, query)
 }
 
-func (projectClient) ReadFile(path string) ([]byte, error) {
+func (projectFile) ReadFile(path string) ([]byte, error) {
 	return os.ReadFile(path)
-}
-
-func (projectClient) Remove(path string) error {
-	return os.Remove(path)
 }
 
 type agentClient struct {
@@ -33,8 +29,8 @@ type agentClient struct {
 	oc  opencode.OCClient
 }
 
-func (a *agentClient) FixProject(path string, loadErr error, model string) error {
-	prompt, err := ai.BuildProjectFixPrompt(path, loadErr)
+func (a *agentClient) FixProject(path string, parseErr error, model string) error {
+	prompt, err := ai.BuildProjectFixPrompt(path, parseErr)
 	if err != nil {
 		return err
 	}
@@ -54,8 +50,8 @@ func resolveConfigModel() string {
 
 func New(ctx *context.Context, oc opencode.OCClient) *Validator {
 	return &Validator{
-		project: &projectClient{},
-		agent:   &agentClient{ctx: ctx, oc: oc},
-		model:   resolveConfigModel(),
+		file:  &projectFile{},
+		agent: &agentClient{ctx: ctx, oc: oc},
+		model: resolveConfigModel(),
 	}
 }
