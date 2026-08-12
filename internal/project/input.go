@@ -38,7 +38,10 @@ func (f *InputFile) Slug() string {
 	return git.SanitizeBranchName(base)
 }
 
-func ResolveInputFile(path string) (*InputFile, error) {
+// ResolveInputFile classifies the file at path as a project document, an
+// orchestration, or a spec, and resolves a project document through the client
+// so the returned InputFile carries its Project.
+func (c *Client) ResolveInputFile(path string) (*InputFile, error) {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve input file path: %w", err)
@@ -55,7 +58,7 @@ func ResolveInputFile(path string) (*InputFile, error) {
 		// and yields items resolves, so the input kind is decided by extension
 		// alone and the slug and title are derived from the document's metadata
 		// with the file name as the fallback.
-		proj, err := (&Client{}).Resolve(absPath, ".")
+		proj, err := c.Resolve(absPath, ".")
 		if err != nil {
 			return nil, err
 		}

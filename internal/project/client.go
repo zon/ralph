@@ -87,10 +87,6 @@ func titleFrom(doc *projectfile.Document, slug string) string {
 	return slug
 }
 
-func (c *Client) ResolveInputFile(path string) (*InputFile, error) {
-	return ResolveInputFile(path)
-}
-
 // Complete reads the completion trailers from the commit messages on the
 // current branch that are not on the base branch and returns the ascending,
 // deduplicated indices they name. When proj is non-nil and its item array was

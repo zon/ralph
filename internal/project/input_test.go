@@ -9,6 +9,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// inputClient returns a wired client for input resolution, which reads neither
+// the commit log nor the warning output.
+func inputClient() *Client {
+	c, _, _ := testClient()
+	return c
+}
+
 func TestInputFilePredicates(t *testing.T) {
 	t.Run("IsProject returns true for project kind", func(t *testing.T) {
 		f := &InputFile{kind: inputProject}
@@ -83,7 +90,7 @@ func TestResolveInputFile(t *testing.T) {
 		path := filepath.Join(dir, "project.yaml")
 		require.NoError(t, os.WriteFile(path, []byte("slug: my-project\nrequirements:\n  - slug: req-1\n    items:\n      - item 1\n"), 0644))
 
-		f, err := ResolveInputFile(path)
+		f, err := inputClient().ResolveInputFile(path)
 		require.NoError(t, err)
 		assert.True(t, f.IsProject())
 		assert.Equal(t, "my-project", f.Slug())
@@ -95,7 +102,7 @@ func TestResolveInputFile(t *testing.T) {
 		path := filepath.Join(dir, "project.yml")
 		require.NoError(t, os.WriteFile(path, []byte("slug: my-project\nrequirements:\n  - slug: req-1\n    items:\n      - item 1\n"), 0644))
 
-		f, err := ResolveInputFile(path)
+		f, err := inputClient().ResolveInputFile(path)
 		require.NoError(t, err)
 		assert.True(t, f.IsProject())
 		assert.Equal(t, "my-project", f.Slug())
@@ -106,7 +113,7 @@ func TestResolveInputFile(t *testing.T) {
 		path := filepath.Join(dir, "project.json")
 		require.NoError(t, os.WriteFile(path, []byte(`{"slug": "my-project", "requirements": ["one", "two"]}`), 0644))
 
-		f, err := ResolveInputFile(path)
+		f, err := inputClient().ResolveInputFile(path)
 		require.NoError(t, err)
 		assert.True(t, f.IsProject())
 		assert.Equal(t, "my-project", f.Slug())
@@ -117,7 +124,7 @@ func TestResolveInputFile(t *testing.T) {
 		path := filepath.Join(dir, "tasks.json")
 		require.NoError(t, os.WriteFile(path, []byte(`["one", "two"]`), 0644))
 
-		f, err := ResolveInputFile(path)
+		f, err := inputClient().ResolveInputFile(path)
 		require.NoError(t, err)
 		assert.True(t, f.IsProject())
 		assert.Equal(t, "tasks", f.Slug())
@@ -129,7 +136,7 @@ func TestResolveInputFile(t *testing.T) {
 		path := filepath.Join(dir, "orchestration.md")
 		require.NoError(t, os.WriteFile(path, []byte("# Orchestration\n"), 0644))
 
-		f, err := ResolveInputFile(path)
+		f, err := inputClient().ResolveInputFile(path)
 		require.NoError(t, err)
 		assert.True(t, f.IsOrchestration())
 		assert.Equal(t, filepath.Base(dir), f.Slug())
@@ -140,7 +147,7 @@ func TestResolveInputFile(t *testing.T) {
 		path := filepath.Join(dir, "spec.md")
 		require.NoError(t, os.WriteFile(path, []byte("# Spec\n"), 0644))
 
-		f, err := ResolveInputFile(path)
+		f, err := inputClient().ResolveInputFile(path)
 		require.NoError(t, err)
 		assert.True(t, f.IsSpec())
 		assert.Equal(t, filepath.Base(dir), f.Slug())
@@ -148,7 +155,7 @@ func TestResolveInputFile(t *testing.T) {
 
 	t.Run("returns error when file does not exist", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "nonexistent.yaml")
-		_, err := ResolveInputFile(path)
+		_, err := inputClient().ResolveInputFile(path)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "input file not found")
 	})
@@ -158,7 +165,7 @@ func TestResolveInputFile(t *testing.T) {
 		path := filepath.Join(dir, "readme.txt")
 		require.NoError(t, os.WriteFile(path, []byte("hello"), 0644))
 
-		_, err := ResolveInputFile(path)
+		_, err := inputClient().ResolveInputFile(path)
 		require.Error(t, err)
 		absPath, absErr := filepath.Abs(path)
 		require.NoError(t, absErr)
@@ -172,7 +179,7 @@ func TestResolveInputFile_ProjectSlugFromYAML(t *testing.T) {
 		path := filepath.Join(dir, "project.yaml")
 		require.NoError(t, os.WriteFile(path, []byte("slug: from-yaml-field\nrequirements:\n  - slug: req-1\n    items:\n      - item 1\n"), 0644))
 
-		f, err := ResolveInputFile(path)
+		f, err := inputClient().ResolveInputFile(path)
 		require.NoError(t, err)
 		assert.Equal(t, "from-yaml-field", f.Slug())
 	})
@@ -184,7 +191,7 @@ func TestResolveInputFile_UnparseableProject(t *testing.T) {
 		path := filepath.Join(dir, "broken.yaml")
 		require.NoError(t, os.WriteFile(path, []byte("slug: [unclosed\n"), 0644))
 
-		_, err := ResolveInputFile(path)
+		_, err := inputClient().ResolveInputFile(path)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to parse project")
 	})
