@@ -240,65 +240,6 @@ func TestRunCmdInputFileValidation(t *testing.T) {
 	})
 }
 
-func TestMergeCmdFlagParsing(t *testing.T) {
-	tests := []struct {
-		name            string
-		args            []string
-		expectedBranch  string
-		expectedVerbose bool
-		wantParseErr    bool
-	}{
-		{
-			name:            "basic merge command",
-			args:            []string{"merge", "ralph/my-feature", "--pr", "42"},
-			expectedBranch:  "ralph/my-feature",
-			expectedVerbose: false,
-		},
-		{
-			name:            "merge with verbose flag",
-			args:            []string{"merge", "ralph/my-feature", "--pr", "42", "--verbose"},
-			expectedBranch:  "ralph/my-feature",
-			expectedVerbose: true,
-		},
-		{
-			name:         "merge missing pr should fail",
-			args:         []string{"merge", "ralph/my-feature"},
-			wantParseErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cmd := &Cmd{}
-			parser, err := kong.New(cmd,
-				kong.Name("ralph"),
-				kong.Exit(func(int) {}),
-			)
-			if err != nil {
-				t.Fatalf("failed to create parser: %v", err)
-			}
-
-			_, err = parser.Parse(tt.args)
-			if tt.wantParseErr {
-				if err == nil {
-					t.Error("expected parse error but got none")
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("failed to parse args: %v", err)
-			}
-
-			if cmd.Merge.Branch != tt.expectedBranch {
-				t.Errorf("expected Branch=%q, got %q", tt.expectedBranch, cmd.Merge.Branch)
-			}
-			if cmd.Merge.Verbose != tt.expectedVerbose {
-				t.Errorf("expected Verbose=%v, got %v", tt.expectedVerbose, cmd.Merge.Verbose)
-			}
-		})
-	}
-}
-
 func TestCommandSubcommandRegistered(t *testing.T) {
 	cmd := &Cmd{}
 	parser, err := kong.New(cmd,
@@ -347,11 +288,6 @@ func TestCommandCmdHelpText(t *testing.T) {
 	assert.Contains(t, output, "Run a command in the ralph environment")
 }
 
-func TestMergeCmdHelpText(t *testing.T) {
-	output := captureHelpOutput(&Cmd{}, []string{"merge", "--help"})
-	assert.Contains(t, output, "Submit an Argo workflow to merge a completed PR")
-}
-
 func TestValidateCmdHelpText(t *testing.T) {
 	output := captureHelpOutput(&Cmd{}, []string{"validate", "--help"})
 	assert.Contains(t, output, "Validate a project YAML file")
@@ -370,7 +306,6 @@ func TestStopCmdHelpText(t *testing.T) {
 func TestTopLevelHelpListsNoPassCommand(t *testing.T) {
 	output := captureHelpOutput(&Cmd{}, []string{"--help"})
 	assert.NotContains(t, output, "pass")
-	assert.NotContains(t, output, "Mark a project requirement as passing or failing")
 }
 
 func TestSetSkillsCmdHelpText(t *testing.T) {
@@ -393,11 +328,6 @@ func TestWorkflowCommentCmdHelpText(t *testing.T) {
 	assert.Contains(t, output, "Run a comment-triggered workflow iteration")
 }
 
-func TestWorkflowMergeCmdHelpText(t *testing.T) {
-	output := captureHelpOutput(&Cmd{}, []string{"workflow", "merge", "--help"})
-	assert.Contains(t, output, "Merge a completed PR via workflow")
-}
-
 func TestWorkflowCommandCmdHelpText(t *testing.T) {
 	output := captureHelpOutput(&Cmd{}, []string{"workflow", "command", "--help"})
 	assert.Contains(t, output, "Run an arbitrary command via workflow")
@@ -415,7 +345,6 @@ func TestTopLevelCommandsParsed(t *testing.T) {
 	}{
 		{name: "run", args: []string{"run", "test.yaml"}},
 		{name: "command", args: []string{"command", "echo", "hello"}},
-		{name: "merge", args: []string{"merge", "my-branch", "--pr", "1"}},
 		{name: "validate", args: []string{"validate", "test.yaml"}},
 		{name: "list", args: []string{"list"}},
 		{name: "stop", args: []string{"stop", "test-workflow"}},
@@ -445,7 +374,6 @@ func TestWorkflowSubcommandsParsed(t *testing.T) {
 	}{
 		{name: "workflow run", args: []string{"workflow", "run", "--repo", "owner/repo", "--project-path", "test.yaml", "--base", "main"}},
 		{name: "workflow comment", args: []string{"workflow", "comment", "--repo", "owner/repo", "--project-branch", "feature", "--comment-body", "test", "--pr", "1", "--repo-owner", "owner", "--repo-name", "repo"}},
-		{name: "workflow merge", args: []string{"workflow", "merge", "--repo", "owner/repo", "--pr-branch", "feature", "--pr", "1"}},
 		{name: "workflow command", args: []string{"workflow", "command", "--repo", "owner/repo", "echo", "hello"}},
 		{name: "workflow token", args: []string{"workflow", "token"}},
 	}

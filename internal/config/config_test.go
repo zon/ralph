@@ -384,29 +384,6 @@ func TestLoadConfig_CommentInstructionsFromFile(t *testing.T) {
 	assert.Equal(t, customCommentInstructions, config.CommentInstructions)
 }
 
-func TestLoadConfig_MergeInstructionsFromFile(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	ralphDir := filepath.Join(tmpDir, ".ralph")
-	require.NoError(t, os.Mkdir(ralphDir, 0755))
-
-	configContent := `maxIterations: 3
-`
-	configPath := filepath.Join(ralphDir, "config.yaml")
-	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
-
-	customMergeInstructions := "Custom merge instructions for PR merging"
-	mergeInstructionsPath := filepath.Join(ralphDir, "merge-instructions.md")
-	require.NoError(t, os.WriteFile(mergeInstructionsPath, []byte(customMergeInstructions), 0644))
-
-	t.Chdir(tmpDir)
-
-	config, err := LoadConfig()
-	require.NoError(t, err, "LoadConfig() unexpected error")
-
-	assert.Equal(t, customMergeInstructions, config.MergeInstructions)
-}
-
 func TestLoadConfig_DefaultInstructionsWhenFilesNotExist(t *testing.T) {
 	tmpDir := t.TempDir()
 
@@ -424,7 +401,6 @@ func TestLoadConfig_DefaultInstructionsWhenFilesNotExist(t *testing.T) {
 	require.NoError(t, err, "LoadConfig() unexpected error")
 
 	assert.NotEmpty(t, config.CommentInstructions, "CommentInstructions is empty, expected default instructions")
-	assert.NotEmpty(t, config.MergeInstructions, "MergeInstructions is empty, expected default instructions")
 	assert.NotEmpty(t, config.Instructions, "Instructions is empty, expected default instructions")
 }
 
@@ -773,10 +749,9 @@ func TestLoadInstructions(t *testing.T) {
 		configDir := filepath.Join(tmpDir, ".ralph")
 		require.NoError(t, os.Mkdir(configDir, 0755))
 
-		instructions, commentInstructions, mergeInstructions := loadInstructions(configDir)
+		instructions, commentInstructions := loadInstructions(configDir)
 		assert.Contains(t, instructions, "## Instructions")
 		assert.Contains(t, commentInstructions, "# Comment Instructions")
-		assert.Contains(t, mergeInstructions, "# Merge Instructions")
 	})
 
 	t.Run("custom instructions loaded from files", func(t *testing.T) {
@@ -786,16 +761,13 @@ func TestLoadInstructions(t *testing.T) {
 
 		customInstructions := "Custom instructions"
 		customComment := "Custom comment instructions"
-		customMerge := "Custom merge instructions"
 
 		require.NoError(t, os.WriteFile(filepath.Join(configDir, "instructions.md"), []byte(customInstructions), 0644))
 		require.NoError(t, os.WriteFile(filepath.Join(configDir, "comment-instructions.md"), []byte(customComment), 0644))
-		require.NoError(t, os.WriteFile(filepath.Join(configDir, "merge-instructions.md"), []byte(customMerge), 0644))
 
-		instructions, commentInstructions, mergeInstructions := loadInstructions(configDir)
+		instructions, commentInstructions := loadInstructions(configDir)
 		assert.Equal(t, customInstructions, instructions)
 		assert.Equal(t, customComment, commentInstructions)
-		assert.Equal(t, customMerge, mergeInstructions)
 	})
 
 	t.Run("mixed presence uses defaults for missing files", func(t *testing.T) {
@@ -806,11 +778,9 @@ func TestLoadInstructions(t *testing.T) {
 		customInstructions := "Custom instructions"
 		require.NoError(t, os.WriteFile(filepath.Join(configDir, "instructions.md"), []byte(customInstructions), 0644))
 		// comment-instructions.md missing
-		// merge-instructions.md missing
 
-		instructions, commentInstructions, mergeInstructions := loadInstructions(configDir)
+		instructions, commentInstructions := loadInstructions(configDir)
 		assert.Equal(t, customInstructions, instructions)
 		assert.Contains(t, commentInstructions, "# Comment Instructions")
-		assert.Contains(t, mergeInstructions, "# Merge Instructions")
 	})
 }

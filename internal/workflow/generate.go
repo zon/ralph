@@ -116,43 +116,6 @@ func GenerateCommentWorkflowWithGitInfo(projectName, repoURL, cloneBranch, proje
 	}, nil
 }
 
-// GenerateMergeWorkflow builds a MergeWorkflow from caller-supplied git info.
-// repoURL and currentBranch are resolved by the caller so that git and GitHub
-// discovery are decoupled from generation logic.
-func GenerateMergeWorkflow(prBranch, repoURL, currentBranch string) (*MergeWorkflow, error) {
-	ralphConfig, err := config.LoadConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load config: %w", err)
-	}
-
-	opts := WorkflowOptions{
-		Image:       MakeImage(ralphConfig.Workflow.Image.Repository, ralphConfig.Workflow.Image.Tag),
-		KubeContext: ralphConfig.Workflow.Context,
-		Namespace:   ralphConfig.Workflow.Namespace,
-	}
-
-	return GenerateMergeWorkflowWithGitInfo(repoURL, currentBranch, prBranch, "", opts)
-}
-
-// GenerateMergeWorkflowWithGitInfo builds a MergeWorkflow with provided git information.
-// This allows for easier testing by accepting git info as parameters.
-func GenerateMergeWorkflowWithGitInfo(repoURL, cloneBranch, prBranch, prNumber string, opts WorkflowOptions) (*MergeWorkflow, error) {
-	repo, err := githubpkg.ParseRemoteURL(repoURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse repository from URL: %w", err)
-	}
-
-	return &MergeWorkflow{
-		Repo:        repo,
-		CloneBranch: cloneBranch,
-		PRBranch:    prBranch,
-		PRNumber:    prNumber,
-		Image:       opts.Image,
-		KubeContext: opts.KubeContext,
-		Namespace:   opts.Namespace,
-	}, nil
-}
-
 // GenerateCommandWorkflow builds a Workflow for remote command execution,
 // cloning the current branch and running the supplied command.
 // remoteURL is resolved by the caller so that git discovery is decoupled

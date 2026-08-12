@@ -38,7 +38,6 @@ func TestToEvent_IssueComment_FieldsPopulated(t *testing.T) {
 	assert.Equal(t, "ralph/my-feature", e.PRBranch)
 	assert.Equal(t, "acme", e.RepoOwner)
 	assert.Equal(t, "myrepo", e.RepoName)
-	assert.False(t, e.Approved)
 }
 
 func TestToEvent_PullRequestReviewComment_FieldsPopulated(t *testing.T) {
@@ -51,10 +50,9 @@ func TestToEvent_PullRequestReviewComment_FieldsPopulated(t *testing.T) {
 
 	assert.Equal(t, "nit: rename this", e.Body)
 	assert.Equal(t, "bob", e.Author)
-	assert.False(t, e.Approved)
 }
 
-func TestToEvent_ReviewApproved_ApprovedTrue(t *testing.T) {
+func TestToEvent_ReviewApproved_FieldsPopulated(t *testing.T) {
 	p := minimalPayload("acme", "myrepo")
 	p.Review.State = "approved"
 	p.Review.User.Login = "carol"
@@ -62,11 +60,10 @@ func TestToEvent_ReviewApproved_ApprovedTrue(t *testing.T) {
 
 	e := p.ToEvent("pull_request_review")
 
-	assert.True(t, e.Approved)
 	assert.Equal(t, "carol", e.Author)
 }
 
-func TestToEvent_ReviewCommented_ApprovedFalse(t *testing.T) {
+func TestToEvent_ReviewCommented_FieldsPopulated(t *testing.T) {
 	p := minimalPayload("acme", "myrepo")
 	p.Review.State = "commented"
 	p.Review.Body = "looks good overall"
@@ -74,7 +71,6 @@ func TestToEvent_ReviewCommented_ApprovedFalse(t *testing.T) {
 
 	e := p.ToEvent("pull_request_review")
 
-	assert.False(t, e.Approved)
 	assert.Equal(t, "looks good overall", e.Body)
 }
 
@@ -100,10 +96,9 @@ func TestToEvent_UnknownEventType_ReturnsEmptyEvent(t *testing.T) {
 	assert.Equal(t, "", e.PRBranch)
 	assert.Equal(t, "", e.RepoOwner)
 	assert.Equal(t, "", e.RepoName)
-	assert.False(t, e.Approved)
 }
 
-func TestToEvent_ReviewChangesRequested_ApprovedFalse(t *testing.T) {
+func TestToEvent_ReviewChangesRequested_FieldsPopulated(t *testing.T) {
 	p := minimalPayload("acme", "myrepo")
 	p.Review.State = "changes_requested"
 	p.Review.User.Login = "carol"
@@ -111,7 +106,6 @@ func TestToEvent_ReviewChangesRequested_ApprovedFalse(t *testing.T) {
 
 	e := p.ToEvent("pull_request_review")
 
-	assert.False(t, e.Approved)
 	assert.Equal(t, "carol", e.Author)
 }
 

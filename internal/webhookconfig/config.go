@@ -28,8 +28,6 @@ type AppConfig struct {
 	RalphUser               string       `yaml:"ralphUser"`               // GitHub username of the ralph bot user; always ignored regardless of per-repo ignoredUsers
 	CommentInstructionsFile string       `yaml:"commentInstructionsFile"` // Path to a markdown file overriding the default comment-reply instructions
 	CommentInstructions     string       `yaml:"-"`                       // Loaded from CommentInstructionsFile; falls back to the embedded default
-	MergeInstructionsFile   string       `yaml:"mergeInstructionsFile"`   // Path to a markdown file overriding the default merge instructions
-	MergeInstructions       string       `yaml:"-"`                       // Loaded from MergeInstructionsFile; falls back to the embedded default
 	ImageRepository         string       `yaml:"imageRepository"`         // Container image repository for workflow
 	ImageTag                string       `yaml:"imageTag"`                // Container image tag for workflow
 	WorkflowContext         string       `yaml:"workflowContext"`         // Argo workflow context label
@@ -73,16 +71,6 @@ func LoadAppConfig(path string) (*AppConfig, error) {
 		cfg.CommentInstructions = string(instrData)
 	} else {
 		cfg.CommentInstructions = config.DefaultCommentInstructions()
-	}
-
-	if cfg.MergeInstructionsFile != "" {
-		instrData, err := os.ReadFile(cfg.MergeInstructionsFile)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read mergeInstructionsFile %s: %w", cfg.MergeInstructionsFile, err)
-		}
-		cfg.MergeInstructions = string(instrData)
-	} else {
-		cfg.MergeInstructions = config.DefaultMergeInstructions()
 	}
 
 	return &cfg, nil

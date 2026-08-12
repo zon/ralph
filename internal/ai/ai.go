@@ -64,23 +64,6 @@ type FixServicePromptData struct {
 	Error       string
 }
 
-type DevelopPromptData struct {
-	Notes               []string
-	CommitLog           string
-	ProjectContent      string
-	SelectedRequirement string
-	ProjectFilePath     string
-	Services            []config.Service
-	Instructions        string
-}
-
-type PickPromptData struct {
-	Notes          []string
-	CommitLog      string
-	ProjectContent string
-	PickedReqPath  string
-}
-
 type PRSummaryPromptData struct {
 	ProjectDesc string
 	BaseBranch  string
@@ -186,42 +169,6 @@ func BuildFixServicePrompt(ctx *execcontext.Context, svc config.Service, svcErr 
 	}
 
 	return executeTemplate(config.DefaultFixServiceInstructions(), data)
-}
-
-func BuildDevelopPrompt(data DevelopPromptData) (string, error) {
-	tmplData := struct {
-		Notes               []string
-		CommitLog           string
-		ProjectContent      string
-		SelectedRequirement string
-		ProjectFilePath     string
-		Services            []config.Service
-	}{
-		Notes:               data.Notes,
-		CommitLog:           data.CommitLog,
-		ProjectContent:      strings.TrimRight(data.ProjectContent, "\n"),
-		SelectedRequirement: data.SelectedRequirement,
-		ProjectFilePath:     data.ProjectFilePath,
-		Services:            data.Services,
-	}
-
-	return executeTemplate(data.Instructions, tmplData)
-}
-
-func BuildPickPrompt(data PickPromptData) (string, error) {
-	tmplData := struct {
-		Notes          []string
-		CommitLog      string
-		ProjectContent string
-		PickedReqPath  string
-	}{
-		Notes:          data.Notes,
-		CommitLog:      data.CommitLog,
-		ProjectContent: strings.TrimRight(data.ProjectContent, "\n"),
-		PickedReqPath:  data.PickedReqPath,
-	}
-
-	return executeTemplate(config.DefaultPickInstructions(), tmplData)
 }
 
 func BuildPRSummaryPrompt(projectDesc, baseBranch, commitLog, outputFile string) (string, error) {

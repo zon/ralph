@@ -391,7 +391,6 @@ requirements:
     description: Test requirement
     items:
       - Item 1
-    passing: false
 `
 
 	mockOC := &opencode.MockOC{
@@ -425,7 +424,6 @@ requirements:
     description: Test requirement
     items:
       - Item 1
-    passing: false
 `
 
 	mockOC := &opencode.MockOC{
@@ -499,7 +497,6 @@ requirements:
     description: Old requirement
     items:
       - Item 1
-    passing: false
 `
 	newYAML := `slug: new-project
 title: New Project
@@ -508,7 +505,6 @@ requirements:
     description: New requirement
     items:
       - Item 1
-    passing: false
 `
 
 	require.NoError(t, os.WriteFile("projects/old.yaml", []byte(oldYAML), 0644))
@@ -570,7 +566,6 @@ requirements:
     description: Test requirement
     items:
       - Item 1
-    passing: false
 `
 
 	mockOC := &opencode.MockOC{

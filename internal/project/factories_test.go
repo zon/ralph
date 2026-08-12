@@ -1,7 +1,6 @@
 package project
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -208,6 +207,4 @@ func TestNewFactoriesDescribeItemsNotRequirements(t *testing.T) {
 	for _, it := range proj.Items {
 		assert.Empty(t, it.Key())
 	}
-	assert.Empty(t, proj.Requirements)
-	assert.NotContains(t, "passing", strings.Join([]string{proj.Slug, proj.Title}, " "))
 }

@@ -226,7 +226,7 @@ requirements:
         - Counting passing and failing requirements is no longer supported anywhere
         - No Go source file, embedded instruction template, or test refers to a requirement's passing field
         - Tests covering the deleted helpers are removed rather than adapted, and the remaining suite passes
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump
       items:

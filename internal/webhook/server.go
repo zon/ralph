@@ -115,22 +115,15 @@ func (s *Server) handleWebhook(c *gin.Context) {
 // submitWorkflow submits a WorkflowResult asynchronously.
 func (s *Server) submitWorkflow(result *workflow.WorkflowResult, owner, repoName string) {
 	ctx := context.Background()
-	if result.Run != nil {
-		name, err := result.Run.Submit(ctx, s.argoClient)
-		if err != nil {
-			s.out.Debugf("failed to submit run workflow for %s/%s: %v", owner, repoName, err)
-			return
-		}
-		s.out.Debugf("submitted run workflow %s for %s/%s", name, owner, repoName)
-		s.out.Debugf("To watch logs, run: argo logs -n %s -f %s", result.Namespace, name)
-	} else if result.Merge != nil {
-		name, err := result.Merge.Submit(ctx, s.argoClient)
-		if err != nil {
-			s.out.Debugf("failed to submit merge workflow for %s/%s: %v", owner, repoName, err)
-			return
-		}
-		s.out.Debugf("submitted merge workflow %s for %s/%s", name, owner, repoName)
-		s.out.Debugf("To watch logs, run: argo logs -n %s -f %s", result.Namespace, name)
+	if result.Run == nil {
+		return
 	}
+	name, err := result.Run.Submit(ctx, s.argoClient)
+	if err != nil {
+		s.out.Debugf("failed to submit run workflow for %s/%s: %v", owner, repoName, err)
+		return
+	}
+	s.out.Debugf("submitted run workflow %s for %s/%s", name, owner, repoName)
+	s.out.Debugf("To watch logs, run: argo logs -n %s -f %s", result.Namespace, name)
 }
 

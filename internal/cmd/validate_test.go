@@ -32,7 +32,7 @@ requirements:
     description: New validate subcommand
     items:
       - Test item
-    passing: false`
+`
 				filePath := filepath.Join(tmpDir, "valid-project.yaml")
 				require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))
 				return filePath
@@ -127,7 +127,7 @@ requirements:
     description: Test requirement
     items:
       - Test item
-    passing: true`
+`
 	filePath := filepath.Join(tmpDir, "wiring-test.yaml")
 	require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))
 
@@ -148,12 +148,12 @@ requirements:
     description: Feature 1
     items:
       - Item 1
-    passing: false
+
   - slug: feature-2
     description: Feature 2
     items:
       - Item 2
-    passing: true`
+`
 	filePath := filepath.Join(tmpDir, "output-test.yaml")
 	require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))
 

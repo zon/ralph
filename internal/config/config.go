@@ -15,14 +15,8 @@ var defaultInstructions string
 //go:embed comment-instructions.md
 var defaultCommentInstructions string
 
-//go:embed merge-instructions.md
-var defaultMergeInstructions string
-
 //go:embed fix-service-instructions.md
 var defaultFixServiceInstructions string
-
-//go:embed pick-requirement-instructions.md
-var defaultPickInstructions string
 
 // Before represents a command to run before starting services
 type Before struct {
@@ -130,15 +124,10 @@ type RalphConfig struct {
 	ConfigPath          string         `yaml:"-"` // Path to the loaded config file
 	Instructions        string         `yaml:"-"` // Not persisted in YAML, loaded from .ralph/instructions.md
 	CommentInstructions string         `yaml:"-"` // Not persisted in YAML, loaded from .ralph/comment-instructions.md
-	MergeInstructions   string         `yaml:"-"` // Not persisted in YAML, loaded from .ralph/merge-instructions.md
 }
 
 func DefaultCommentInstructions() string {
 	return defaultCommentInstructions
-}
-
-func DefaultMergeInstructions() string {
-	return defaultMergeInstructions
 }
 
 func DefaultDevelopmentInstructions() string {
@@ -147,10 +136,6 @@ func DefaultDevelopmentInstructions() string {
 
 func DefaultFixServiceInstructions() string {
 	return defaultFixServiceInstructions
-}
-
-func DefaultPickInstructions() string {
-	return defaultPickInstructions
 }
 
 // ValidateReviewConfig validates the review configuration
@@ -272,7 +257,7 @@ func loadConfigFromPath(configPath string) (*RalphConfig, error) {
 
 // loadInstructions loads the instruction files from the config directory.
 // If a file does not exist, the corresponding default instructions are used.
-func loadInstructions(configDir string) (instructions, commentInstructions, mergeInstructions string) {
+func loadInstructions(configDir string) (instructions, commentInstructions string) {
 	// Load instructions from .ralph/instructions.md or use default
 	instructionsPath := filepath.Join(configDir, "instructions.md")
 	if instructionsData, err := os.ReadFile(instructionsPath); err == nil {
@@ -287,14 +272,6 @@ func loadInstructions(configDir string) (instructions, commentInstructions, merg
 		commentInstructions = string(data)
 	} else {
 		commentInstructions = defaultCommentInstructions
-	}
-
-	// Load merge instructions from .ralph/merge-instructions.md or use default
-	mergeInstructionsPath := filepath.Join(configDir, "merge-instructions.md")
-	if data, err := os.ReadFile(mergeInstructionsPath); err == nil {
-		mergeInstructions = string(data)
-	} else {
-		mergeInstructions = defaultMergeInstructions
 	}
 
 	return
@@ -317,10 +294,9 @@ func LoadConfig() (*RalphConfig, error) {
 		return nil, err
 	}
 
-	instructions, commentInstructions, mergeInstructions := loadInstructions(configDir)
+	instructions, commentInstructions := loadInstructions(configDir)
 	config.Instructions = instructions
 	config.CommentInstructions = commentInstructions
-	config.MergeInstructions = mergeInstructions
 
 	applyDefaults(config)
 

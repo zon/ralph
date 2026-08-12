@@ -21,8 +21,6 @@ func TestAny_ReturnsDefaultConfig(t *testing.T) {
 	assert.True(t, strings.Contains(cfg.Instructions, "## Instructions"))
 	assert.NotEmpty(t, cfg.CommentInstructions)
 	assert.True(t, strings.Contains(cfg.CommentInstructions, "# Comment Instructions"))
-	assert.NotEmpty(t, cfg.MergeInstructions)
-	assert.True(t, strings.Contains(cfg.MergeInstructions, "# Merge Instructions"))
 }
 
 func TestAny_ReturnsValidNonNilConfig(t *testing.T) {

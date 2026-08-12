@@ -81,7 +81,7 @@ func TestResolveInputFile(t *testing.T) {
 	t.Run("loads project from .yaml file", func(t *testing.T) {
 		dir := t.TempDir()
 		path := filepath.Join(dir, "project.yaml")
-		require.NoError(t, os.WriteFile(path, []byte("slug: my-project\nrequirements:\n  - slug: req-1\n    items:\n      - item 1\n    passing: false\n"), 0644))
+		require.NoError(t, os.WriteFile(path, []byte("slug: my-project\nrequirements:\n  - slug: req-1\n    items:\n      - item 1\n"), 0644))
 
 		f, err := ResolveInputFile(path)
 		require.NoError(t, err)
@@ -93,7 +93,7 @@ func TestResolveInputFile(t *testing.T) {
 	t.Run("loads project from .yml file", func(t *testing.T) {
 		dir := t.TempDir()
 		path := filepath.Join(dir, "project.yml")
-		require.NoError(t, os.WriteFile(path, []byte("slug: my-project\nrequirements:\n  - slug: req-1\n    items:\n      - item 1\n    passing: false\n"), 0644))
+		require.NoError(t, os.WriteFile(path, []byte("slug: my-project\nrequirements:\n  - slug: req-1\n    items:\n      - item 1\n"), 0644))
 
 		f, err := ResolveInputFile(path)
 		require.NoError(t, err)
@@ -170,7 +170,7 @@ func TestResolveInputFile_ProjectSlugFromYAML(t *testing.T) {
 	t.Run("slug comes from project YAML slug field", func(t *testing.T) {
 		dir := t.TempDir()
 		path := filepath.Join(dir, "project.yaml")
-		require.NoError(t, os.WriteFile(path, []byte("slug: from-yaml-field\nrequirements:\n  - slug: req-1\n    items:\n      - item 1\n    passing: false\n"), 0644))
+		require.NoError(t, os.WriteFile(path, []byte("slug: from-yaml-field\nrequirements:\n  - slug: req-1\n    items:\n      - item 1\n"), 0644))
 
 		f, err := ResolveInputFile(path)
 		require.NoError(t, err)

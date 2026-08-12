@@ -67,11 +67,11 @@ func TestIsAcceptable_PullRequestReviewComment_ReturnsTrue(t *testing.T) {
 	assert.True(t, IsAcceptable(&p, "pull_request_review_comment", openConfig()))
 }
 
-func TestIsAcceptable_ReviewApproved_ReturnsTrue(t *testing.T) {
+func TestIsAcceptable_ReviewApproved_ReturnsFalse(t *testing.T) {
 	p := minimalPayload("acme", "myrepo")
 	p.Review.State = "approved"
 	p.Review.User.Login = "alice"
-	assert.True(t, IsAcceptable(&p, "pull_request_review", openConfig()))
+	assert.False(t, IsAcceptable(&p, "pull_request_review", openConfig()))
 }
 
 func TestIsAcceptable_ReviewCommentedWithBody_ReturnsTrue(t *testing.T) {
@@ -119,11 +119,11 @@ func TestIsAcceptable_UserInAllowedList_ReturnsTrue(t *testing.T) {
 	assert.True(t, IsAcceptable(&p, "pull_request_review_comment", cfg))
 }
 
-func TestIsAcceptable_ReviewApprovedCaseInsensitive_ReturnsTrue(t *testing.T) {
+func TestIsAcceptable_ReviewApprovedCaseInsensitive_ReturnsFalse(t *testing.T) {
 	p := minimalPayload("acme", "myrepo")
 	p.Review.State = "APPROVED"
 	p.Review.User.Login = "alice"
-	assert.True(t, IsAcceptable(&p, "pull_request_review", openConfig()))
+	assert.False(t, IsAcceptable(&p, "pull_request_review", openConfig()))
 }
 
 func TestIsAcceptable_IssueComment_IgnoredRalphUser_ReturnsFalse(t *testing.T) {
@@ -174,10 +174,10 @@ func TestIsAcceptable_ReviewApproved_UserNotInAllowedList_ReturnsFalse(t *testin
 	assert.False(t, IsAcceptable(&p, "pull_request_review", cfg))
 }
 
-func TestIsAcceptable_ReviewApproved_EmptyAllowedList_ReturnsTrue(t *testing.T) {
+func TestIsAcceptable_ReviewApproved_EmptyAllowedList_ReturnsFalse(t *testing.T) {
 	p := minimalPayload("acme", "myrepo")
 	p.Review.State = "approved"
 	p.Review.User.Login = "charlie"
 	cfg := configWithAllowedUsers([]string{})
-	assert.True(t, IsAcceptable(&p, "pull_request_review", cfg))
+	assert.False(t, IsAcceptable(&p, "pull_request_review", cfg))
 }

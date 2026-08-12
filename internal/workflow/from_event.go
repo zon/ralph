@@ -12,34 +12,24 @@ import (
 // to construct a workflow.
 type WebhookEvent struct {
 	Body      string
-	Approved  bool
 	PRBranch  string
 	RepoOwner string
 	RepoName  string
 	PRNumber  string
 }
 
-// WorkflowResult holds the output of FromWebhookEvent. Exactly one of Run or Merge is non-nil.
+// WorkflowResult holds the output of FromWebhookEvent: the run workflow and the
+// namespace it is submitted to.
 type WorkflowResult struct {
 	Run       *Workflow
-	Merge     *MergeWorkflow
 	Namespace string
 }
 
 // FromWebhookEvent converts a webhook event into an Argo Workflow.
 // Comment events produce a Run workflow that calls `ralph comment`.
-// Approval events produce a MergeWorkflow that calls `ralph merge --local`.
 func FromWebhookEvent(event WebhookEvent, opts WorkflowOptions) (*WorkflowResult, error) {
 	projectFile := ProjectFileFromBranch(event.PRBranch)
 	repoURL := githubpkg.CloneURL(event.RepoOwner, event.RepoName)
-
-	if event.Approved {
-		mw, err := GenerateMergeWorkflowWithGitInfo(repoURL, event.PRBranch, event.PRBranch, event.PRNumber, opts)
-		if err != nil {
-			return nil, err
-		}
-		return &WorkflowResult{Merge: mw, Namespace: opts.Namespace}, nil
-	}
 
 	projectName := strings.TrimSuffix(filepath.Base(projectFile), filepath.Ext(projectFile))
 	repo, err := githubpkg.ParseRemoteURL(repoURL)
@@ -83,7 +73,6 @@ func ProjectFileFromBranch(branch string) string {
 func FromWebhookEventWithConfig(fields githubpkg.EventFields, cfg *webhookconfig.Config) (*WorkflowResult, error) {
 	we := WebhookEvent{
 		Body:      fields.Body,
-		Approved:  fields.Approved,
 		PRBranch:  fields.PRBranch,
 		RepoOwner: fields.RepoOwner,
 		RepoName:  fields.RepoName,

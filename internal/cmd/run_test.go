@@ -86,7 +86,6 @@ func TestTopLevelHelpOmitsPass(t *testing.T) {
 	out, err = cmd.CombinedOutput()
 	require.NoError(t, err)
 	assert.NotContains(t, string(out), "pass")
-	assert.NotContains(t, string(out), "Mark a project requirement as passing or failing")
 }
 
 // findRepoRoot walks up from the working directory to find go.mod
