@@ -62,8 +62,9 @@ func resolveConfigModel() string {
 
 func New(ctx *context.Context, oc opencode.OCClient) *Validator {
 	return &Validator{
-		file:  &projectFile{},
-		agent: &agentClient{ctx: ctx, oc: oc},
-		model: resolveConfigModel(),
+		file:     &projectFile{},
+		agent:    &agentClient{ctx: ctx, oc: oc},
+		model:    resolveConfigModel(),
+		reporter: ctx.Output(),
 	}
 }

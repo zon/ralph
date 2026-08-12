@@ -122,9 +122,10 @@ func (m *mockAgentClient) FixProject(path string, parseErr error, model string) 
 }
 
 type mocks struct {
-	project ProjectFile
-	agent   AgentClient
-	model   string
+	project  ProjectFile
+	agent    AgentClient
+	model    string
+	reporter Reporter
 }
 
 func withMocks(opts ...func(*mocks)) *Validator {
@@ -138,10 +139,14 @@ func withMocks(opts ...func(*mocks)) *Validator {
 	if m.agent == nil {
 		m.agent = &mockAgentClient{}
 	}
+	if m.reporter == nil {
+		m.reporter = &mockReporter{}
+	}
 	return &Validator{
-		file:  m.project,
-		agent: m.agent,
-		model: m.model,
+		file:     m.project,
+		agent:    m.agent,
+		model:    m.model,
+		reporter: m.reporter,
 	}
 }
 
@@ -161,6 +166,35 @@ func withModel(model string) func(*mocks) {
 	return func(m *mocks) {
 		m.model = model
 	}
+}
+
+func withReporter(r Reporter) func(*mocks) {
+	return func(m *mocks) {
+		m.reporter = r
+	}
+}
+
+type mockReporter struct {
+	mu        sync.Mutex
+	warns     []string
+	warnfFunc func(format string, a ...any)
+}
+
+func (m *mockReporter) Warnf(format string, a ...any) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.warnfFunc != nil {
+		m.warnfFunc(format, a...)
+	}
+	m.warns = append(m.warns, fmt.Sprintf(format, a...))
+}
+
+func (m *mockReporter) messages() []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	out := make([]string, len(m.warns))
+	copy(out, m.warns)
+	return out
 }
 
 func thatParses(doc *projectfile.Document) ProjectFile {
@@ -255,6 +289,24 @@ func TestValidateRepairsThenSucceeds(t *testing.T) {
 	require.Len(t, FixCalls(), 1)
 }
 
+// TestValidateInvokesAgentWithFilePathAndParseError covers the "Agent fixes a
+// malformed file" scenario: the command invokes the agent with the file path
+// and the parse error before retrying parsing against the updated file.
+func TestValidateInvokesAgentWithFilePathAndParseError(t *testing.T) {
+	ResetFixCalls()
+	doc := &projectfile.Document{Raw: "parsed", Root: map[string]any{"slug": "one"}}
+	svc := withMocks(
+		withProject(thatParsesAfterFailures(1, doc)),
+	)
+	_, err := svc.Validate(anyPath, ".")
+	require.NoError(t, err)
+
+	calls := FixCalls()
+	require.Len(t, calls, 1)
+	assert.Equal(t, anyPath, calls[0].path)
+	require.Equal(t, "parse failed", calls[0].parseErr.Error())
+}
+
 func TestValidateGivesUpAfterMaxAttempts(t *testing.T) {
 	ResetFixCalls()
 	svc := withMocks(
@@ -263,6 +315,68 @@ func TestValidateGivesUpAfterMaxAttempts(t *testing.T) {
 	_, err := svc.Validate(anyPath, ".")
 	require.Error(t, err)
 	require.Len(t, FixCalls(), MaxAttempts-1)
+}
+
+// TestValidateLimitExceededReportsLimitReached covers the "Limit exceeded"
+// scenario: when the agent cannot repair the file, the command exits with a
+// non-zero status, the error reports that the 10-attempt limit was reached, and
+// the error message includes the final parse error.
+func TestValidateLimitExceededReportsLimitReached(t *testing.T) {
+	ResetFixCalls()
+	svc := withMocks(
+		withProject(thatAlwaysFailsToParse()),
+	)
+	_, err := svc.Validate(anyPath, ".")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "10-attempt limit")
+	assert.Contains(t, err.Error(), "always fails")
+	require.Len(t, FixCalls(), MaxAttempts-1)
+}
+
+// TestValidateReportsParseErrorBeforeInvokingAgent covers the item that each
+// attempt reports the underlying parse error before invoking the agent: the
+// reporter sees the parse error before the agent is called on the same attempt.
+func TestValidateReportsParseErrorBeforeInvokingAgent(t *testing.T) {
+	ResetFixCalls()
+	doc := &projectfile.Document{Raw: "parsed", Root: map[string]any{"slug": "one"}}
+	var events []string
+	reporter := &mockReporter{
+		warnfFunc: func(format string, a ...any) {
+			events = append(events, fmt.Sprintf("report:%s", fmt.Sprintf(format, a...)))
+		},
+	}
+	agent := &mockAgentClient{
+		fixFunc: func(path string, parseErr error, model string) error {
+			events = append(events, "fix:"+parseErr.Error())
+			return nil
+		},
+	}
+	svc := withMocks(
+		withProject(thatParsesAfterFailures(1, doc)),
+		withAgent(agent),
+		withReporter(reporter),
+	)
+	_, err := svc.Validate(anyPath, ".")
+	require.NoError(t, err)
+	require.Len(t, events, 2)
+	assert.Equal(t, "report:project file failed to parse: parse failed", events[0])
+	assert.Equal(t, "fix:parse failed", events[1])
+}
+
+// TestValidateFixesParseableWithinLimit covers the "File becomes parseable
+// within the limit" scenario: a file the agent repairs after several attempts
+// exits the loop as soon as parsing succeeds and proceeds to the query checks.
+func TestValidateFixesParseableWithinLimit(t *testing.T) {
+	ResetFixCalls()
+	doc := &projectfile.Document{Raw: "parsed", Root: map[string]any{"slug": "one"}}
+	svc := withMocks(
+		withProject(thatParsesAfterFailures(3, doc)),
+	)
+	result, err := svc.Validate(anyPath, ".")
+	require.NoError(t, err)
+	require.Equal(t, 1, result.ItemCount)
+	require.Len(t, FixCalls(), 3)
+	require.Less(t, len(FixCalls()), MaxAttempts)
 }
 
 func TestValidateFailsFastWhenAgentMakesNoChange(t *testing.T) {

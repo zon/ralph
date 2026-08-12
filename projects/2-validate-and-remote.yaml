@@ -100,7 +100,7 @@ requirements:
             - THEN the command exits with a non-zero status
             - AND the error message reports that the 10-attempt limit was reached
             - AND the error message includes the final parse error
-      passing: false
+      passing: true
     - slug: validate-canonical-rewrite
       description: The canonical rewrite preserves the whole document, normalizing only formatting
       items:

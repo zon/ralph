@@ -31,6 +31,12 @@ type AgentClient interface {
 	FixProject(path string, parseErr error, model string) error
 }
 
+// Reporter surfaces the underlying parse error to the user before each fix
+// attempt so they can see why the file is being repaired.
+type Reporter interface {
+	Warnf(format string, a ...any)
+}
+
 // Result reports a successful validation: the validated file path and the
 // number of items the query resolved.
 type Result struct {
@@ -39,9 +45,10 @@ type Result struct {
 }
 
 type Validator struct {
-	file  ProjectFile
-	agent AgentClient
-	model string
+	file     ProjectFile
+	agent    AgentClient
+	model    string
+	reporter Reporter
 }
 
 // Validate performs exactly three checks, in order: the file parses as YAML or
@@ -90,7 +97,10 @@ func (v *Validator) parse(path string) (*projectfile.Document, error) {
 			return doc, nil
 		}
 		if attempt == MaxAttempts {
-			return nil, parseErr
+			return nil, fmt.Errorf("project file failed to parse after the %d-attempt limit: %w", MaxAttempts, parseErr)
+		}
+		if v.reporter != nil {
+			v.reporter.Warnf("project file failed to parse: %v", parseErr)
 		}
 		before, _ := v.file.ReadFile(path)
 		if err := v.agent.FixProject(path, parseErr, v.model); err != nil {
