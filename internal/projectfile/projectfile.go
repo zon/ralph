@@ -1,7 +1,6 @@
 package projectfile
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,15 +12,20 @@ import (
 )
 
 // Document is a parsed project file. It preserves the file's raw content so
-// content outside the item array can be passed through untouched, and exposes
-// the decoded document for item-query evaluation.
+// content outside the item array can be passed through untouched, retains the
+// parsed YAML node so the file can be rewritten canonically with its key order
+// intact, and exposes the decoded document for item-query evaluation.
 type Document struct {
 	Raw  string
 	Root any
+	Node *yaml.Node
 }
 
 // Parse reads a project file from disk and parses it as YAML or JSON, chosen by
-// its extension. It returns an error for any other extension.
+// its extension. JSON is parsed with the YAML parser because every JSON value
+// is also a YAML value, so both formats produce the same document and a JSON
+// input can be rewritten as YAML without losing key order. It returns an error
+// for any other extension.
 func Parse(path string) (*Document, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -29,19 +33,84 @@ func Parse(path string) (*Document, error) {
 	}
 
 	doc := &Document{Raw: string(data)}
+	var node yaml.Node
 	switch strings.ToLower(filepath.Ext(path)) {
 	case ".yaml", ".yml":
-		if err := yaml.Unmarshal(data, &doc.Root); err != nil {
+		if err := yaml.Unmarshal(data, &node); err != nil {
 			return nil, fmt.Errorf("failed to parse project YAML: %w", err)
 		}
 	case ".json":
-		if err := json.Unmarshal(data, &doc.Root); err != nil {
+		if err := yaml.Unmarshal(data, &node); err != nil {
 			return nil, fmt.Errorf("failed to parse project JSON: %w", err)
 		}
 	default:
 		return nil, fmt.Errorf("unrecognized input file type: %s", path)
 	}
+	if err := node.Decode(&doc.Root); err != nil {
+		return nil, fmt.Errorf("failed to parse project file: %w", err)
+	}
+	doc.Node = &node
 	return doc, nil
+}
+
+// CanonicalPath returns the path WriteCanonical writes to for the given input
+// path: a .json input is rewritten as a sibling .yaml file, any other input is
+// rewritten in place.
+func CanonicalPath(path string) string {
+	if strings.EqualFold(filepath.Ext(path), ".json") {
+		return strings.TrimSuffix(path, filepath.Ext(path)) + ".yaml"
+	}
+	return path
+}
+
+// WriteCanonical writes a parsed document back to disk as canonical YAML,
+// preserving its content and key order. Writing a document parsed from a .json
+// path produces a sibling .yaml file; removing the original is the caller's
+// decision.
+func WriteCanonical(path string, doc *Document) error {
+	target := CanonicalPath(path)
+	node := doc.Node
+	if node == nil {
+		data, err := yaml.Marshal(doc.Root)
+		if err != nil {
+			return fmt.Errorf("failed to marshal canonical YAML: %w", err)
+		}
+		if err := os.WriteFile(target, data, 0o644); err != nil {
+			return fmt.Errorf("failed to write canonical YAML: %w", err)
+		}
+		return nil
+	}
+	normalizeNode(node)
+	data, err := yaml.Marshal(node)
+	if err != nil {
+		return fmt.Errorf("failed to marshal canonical YAML: %w", err)
+	}
+	if err := os.WriteFile(target, data, 0o644); err != nil {
+		return fmt.Errorf("failed to write canonical YAML: %w", err)
+	}
+	return nil
+}
+
+// normalizeNode rewrites a parsed node's styles in place so marshaling produces
+// canonical block YAML: mappings and sequences are block-laid, and scalars are
+// left for the marshaler to quote only when required. Flow styles introduced by
+// JSON parsing are dropped, but already-canonical block input is untouched, so
+// a canonical file round-trips byte-identically.
+func normalizeNode(n *yaml.Node) {
+	if n == nil {
+		return
+	}
+	switch n.Kind {
+	case yaml.MappingNode, yaml.SequenceNode:
+		n.Style = 0
+	case yaml.ScalarNode:
+		if n.Style == yaml.DoubleQuotedStyle || n.Style == yaml.SingleQuotedStyle {
+			n.Style = 0
+		}
+	}
+	for _, c := range n.Content {
+		normalizeNode(c)
+	}
 }
 
 // ResolveItems evaluates a jq item query against a parsed document with gojq

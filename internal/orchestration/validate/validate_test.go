@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 
@@ -24,7 +25,12 @@ type mockProjectFile struct {
 	parseFunc        func(path string) (*projectfile.Document, error)
 	resolveItemsFunc func(doc *projectfile.Document, query string) ([]any, error)
 	readFileFunc     func(path string) ([]byte, error)
+	writeCanonicalFn func(path string, doc *projectfile.Document) error
+	removeFn         func(path string) error
+	canonicalPathFn  func(path string) string
 	readCallCount    int
+	writeCalls       []string
+	removeCalls      []string
 }
 
 func (m *mockProjectFile) Parse(path string) (*projectfile.Document, error) {
@@ -47,6 +53,29 @@ func (m *mockProjectFile) ReadFile(path string) ([]byte, error) {
 	}
 	m.readCallCount++
 	return []byte(fmt.Sprintf("content-%d", m.readCallCount)), nil
+}
+
+func (m *mockProjectFile) WriteCanonical(path string, doc *projectfile.Document) error {
+	m.writeCalls = append(m.writeCalls, path)
+	if m.writeCanonicalFn != nil {
+		return m.writeCanonicalFn(path, doc)
+	}
+	return nil
+}
+
+func (m *mockProjectFile) Remove(path string) error {
+	m.removeCalls = append(m.removeCalls, path)
+	if m.removeFn != nil {
+		return m.removeFn(path)
+	}
+	return nil
+}
+
+func (m *mockProjectFile) CanonicalPath(path string) string {
+	if m.canonicalPathFn != nil {
+		return m.canonicalPathFn(path)
+	}
+	return path
 }
 
 type fixCall struct {
@@ -282,7 +311,9 @@ func TestValidateFallsBackToMainModel(t *testing.T) {
 
 // TestValidateAcceptsUnrecognizedFields covers the "Unrecognized fields
 // accepted" scenario and the item that no field is required and no field is
-// rejected.
+// rejected. Because validation now rewrites the file in canonical YAML, the
+// unrecognized field must survive the rewrite with its original value rather
+// than the file staying byte-identical.
 func TestValidateAcceptsUnrecognizedFields(t *testing.T) {
 	ResetFixCalls()
 	content := "slug: csv-export\nunrelated: [1, 2, 3]\nrequirements:\n  - slug: one\n"
@@ -294,9 +325,12 @@ func TestValidateAcceptsUnrecognizedFields(t *testing.T) {
 	require.Equal(t, 1, result.ItemCount)
 	require.Empty(t, FixCalls())
 
-	after, err := os.ReadFile(path)
+	rewritten, err := projectfile.Parse(path)
 	require.NoError(t, err)
-	require.Equal(t, content, string(after))
+	root, ok := rewritten.Root.(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "csv-export", root["slug"])
+	require.Equal(t, []any{1, 2, 3}, root["unrelated"])
 }
 
 // TestValidateAcceptsTopLevelArrayOfStrings covers the "Items with no
@@ -364,6 +398,163 @@ func TestValidateQueryRunsAgainstRepairedFile(t *testing.T) {
 	require.Error(t, err)
 	assert.Equal(t, "item query yielded no items: .", err.Error())
 	require.Len(t, FixCalls(), 1)
+}
+
+// TestValidateRewritesFileInCanonicalFormat covers the "File rewritten in
+// canonical format" scenario: when validation finishes, the file is rewritten
+// as canonical YAML and the on-disk content parses to the same document as the
+// input.
+func TestValidateRewritesFileInCanonicalFormat(t *testing.T) {
+	ResetFixCalls()
+	content := "slug: csv-export\nrequirements:\n  - slug: one\n  - slug: two\n"
+	path := writeTempProject(t, "project.yaml", content)
+	svc := withMocks(withProject(&projectFile{}), withAgent(&mockAgentClient{}))
+
+	before, err := projectfile.Parse(path)
+	require.NoError(t, err)
+
+	result, err := svc.Validate(path, ".requirements")
+	require.NoError(t, err)
+	require.Equal(t, 2, result.ItemCount)
+	require.Empty(t, FixCalls())
+
+	after, err := projectfile.Parse(path)
+	require.NoError(t, err)
+	assert.Equal(t, before.Root, after.Root, "on-disk content parses to the same document as the input")
+}
+
+// TestValidateUnrecognizedFieldsSurviveRewrite covers the "Unrecognized fields
+// survive the rewrite" scenario: fields ralph does not read are present in the
+// rewritten output with their original values.
+func TestValidateUnrecognizedFieldsSurviveRewrite(t *testing.T) {
+	ResetFixCalls()
+	content := "slug: csv-export\nunrelated: [1, 2, 3]\nforeign:\n  note: keep me\nrequirements:\n  - slug: one\n"
+	path := writeTempProject(t, "project.yaml", content)
+	svc := withMocks(withProject(&projectFile{}), withAgent(&mockAgentClient{}))
+
+	_, err := svc.Validate(path, ".requirements")
+	require.NoError(t, err)
+	require.Empty(t, FixCalls())
+
+	rewritten, err := projectfile.Parse(path)
+	require.NoError(t, err)
+	root, ok := rewritten.Root.(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, []any{1, 2, 3}, root["unrelated"])
+	foreign, ok := root["foreign"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "keep me", foreign["note"])
+}
+
+// TestValidateJSONRenamedToYAML covers the "JSON file renamed to YAML" scenario:
+// a .json input is written to a new file with the same name but a .yaml
+// extension, and the original .json file is removed.
+func TestValidateJSONRenamedToYAML(t *testing.T) {
+	ResetFixCalls()
+	jsonContent := `{"slug":"csv-export","requirements":[{"slug":"one"}]}`
+	path := writeTempProject(t, "project.json", jsonContent)
+	svc := withMocks(withProject(&projectFile{}), withAgent(&mockAgentClient{}))
+
+	result, err := svc.Validate(path, ".requirements")
+	require.NoError(t, err)
+	require.Equal(t, 1, result.ItemCount)
+	require.Empty(t, FixCalls())
+
+	yamlPath := strings.TrimSuffix(path, filepath.Ext(path)) + ".yaml"
+	require.FileExists(t, yamlPath)
+	_, err = os.Stat(path)
+	assert.True(t, os.IsNotExist(err), "the original .json file is removed")
+
+	yamlDoc, err := projectfile.Parse(yamlPath)
+	require.NoError(t, err)
+	root, ok := yamlDoc.Root.(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "csv-export", root["slug"])
+	require.Len(t, root["requirements"], 1)
+}
+
+// TestValidateCanonicalYAMLUnchanged covers the "Already-canonical YAML file is
+// unchanged" scenario: a file already in canonical YAML form is rewritten
+// byte-identically.
+func TestValidateCanonicalYAMLUnchanged(t *testing.T) {
+	ResetFixCalls()
+	content := "slug: csv-export\nrequirements:\n    - slug: one\n      items:\n        - a\n"
+	path := writeTempProject(t, "project.yaml", content)
+	svc := withMocks(withProject(&projectFile{}), withAgent(&mockAgentClient{}))
+
+	_, err := svc.Validate(path, ".requirements")
+	require.NoError(t, err)
+	require.Empty(t, FixCalls())
+
+	after, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, content, string(after))
+}
+
+// TestValidateComposesFileReaderWriteOperation covers the item that validation
+// composes the file reader's parse, query, and write operations rather than
+// performing any of them itself: a successful validation invokes the reader's
+// canonical write.
+func TestValidateComposesFileReaderWriteOperation(t *testing.T) {
+	ResetFixCalls()
+	pf := &mockProjectFile{}
+	svc := withMocks(withProject(pf))
+
+	_, err := svc.Validate(anyPath, ".")
+	require.NoError(t, err)
+	require.Len(t, pf.writeCalls, 1)
+	assert.Equal(t, anyPath, pf.writeCalls[0])
+	require.Empty(t, pf.removeCalls)
+}
+
+// TestValidateRepairedFileRewrittenInCanonicalFormat covers the "File rewritten
+// in canonical format" scenario for a file that validates only after agent
+// fixes: the repaired file is rewritten in canonical YAML.
+func TestValidateRepairedFileRewrittenInCanonicalFormat(t *testing.T) {
+	ResetFixCalls()
+	broken := "slug: [unclosed\nrequirements:\n"
+	fixed := "slug: csv-export\nrequirements:\n  - slug: one\n"
+	path := writeTempProject(t, "project.yaml", broken)
+	svc := withMocks(withProject(&projectFile{}), withAgent(&mockAgentClient{
+		fixFunc: func(p string, parseErr error, model string) error {
+			return os.WriteFile(p, []byte(fixed), 0o644)
+		},
+	}))
+
+	before, err := projectfile.Parse(writeTempProject(t, "before.yaml", fixed))
+	require.NoError(t, err)
+
+	result, err := svc.Validate(path, ".requirements")
+	require.NoError(t, err)
+	require.Equal(t, 1, result.ItemCount)
+	require.Len(t, FixCalls(), 1)
+
+	after, err := projectfile.Parse(path)
+	require.NoError(t, err)
+	assert.Equal(t, before.Root, after.Root, "the repaired file is rewritten in canonical YAML")
+}
+
+// TestValidateComposesFileReaderRemoval covers the item that a .json input is
+// written to a sibling .yaml file and the original removed: validation composes
+// the file reader's canonical write and removal operations rather than doing
+// the file work itself.
+func TestValidateComposesFileReaderRemoval(t *testing.T) {
+	ResetFixCalls()
+	jsonPath := "/workspace/repo/projects/project.json"
+	yamlPath := "/workspace/repo/projects/project.yaml"
+	pf := &mockProjectFile{canonicalPathFn: func(path string) string {
+		if path == jsonPath {
+			return yamlPath
+		}
+		return path
+	}}
+	svc := withMocks(withProject(pf))
+
+	result, err := svc.Validate(jsonPath, ".")
+	require.NoError(t, err)
+	require.Equal(t, yamlPath, result.Path)
+	require.Equal(t, []string{jsonPath}, pf.writeCalls)
+	require.Equal(t, []string{jsonPath}, pf.removeCalls)
 }
 
 const anyPath = "/workspace/repo/projects/test-project.yaml"

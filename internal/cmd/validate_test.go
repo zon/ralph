@@ -8,6 +8,8 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/zon/ralph/internal/projectfile"
 )
 
 func TestValidateCmd(t *testing.T) {
@@ -247,4 +249,90 @@ func TestValidateCmdQueryEvaluationError(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "item query failed")
 	assert.Contains(t, err.Error(), ".slug.name")
+}
+
+// TestValidateCmdRewritesFileInCanonicalFormat covers the "File rewritten in
+// canonical format" scenario at the command level: after validation finishes,
+// the file is rewritten as canonical YAML and the on-disk content parses to the
+// same document as the input.
+func TestValidateCmdRewritesFileInCanonicalFormat(t *testing.T) {
+	// GIVEN a project file that validates
+	tmpDir := writeValidateConfig(t, "items: .requirements\n")
+	content := "slug: csv-export\nrequirements:\n  - slug: one\n  - slug: two\n"
+	filePath := filepath.Join(tmpDir, "project.yaml")
+	require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))
+	before, err := projectfile.Parse(filePath)
+	require.NoError(t, err)
+
+	// WHEN `ralph validate <file>` is run
+	cmd := &ValidateCmd{ProjectFile: filePath}
+	err = cmd.Run()
+	require.NoError(t, err)
+
+	// THEN the file is rewritten as canonical YAML
+	// AND the on-disk content parses to the same document as the input
+	after, err := projectfile.Parse(filePath)
+	require.NoError(t, err)
+	assert.Equal(t, before.Root, after.Root)
+}
+
+// TestValidateCmdUnrecognizedFieldsSurviveRewrite covers the "Unrecognized
+// fields survive the rewrite" scenario at the command level.
+func TestValidateCmdUnrecognizedFieldsSurviveRewrite(t *testing.T) {
+	// GIVEN a project file containing fields ralph does not read
+	tmpDir := writeValidateConfig(t, "items: .requirements\n")
+	filePath := filepath.Join(tmpDir, "project.yaml")
+	require.NoError(t, os.WriteFile(filePath, []byte("slug: csv-export\nunrelated: [1, 2, 3]\nrequirements:\n  - slug: one\n"), 0644))
+
+	// WHEN `ralph validate <file>` is run
+	cmd := &ValidateCmd{ProjectFile: filePath}
+	require.NoError(t, cmd.Run())
+
+	// THEN those fields are present in the output with their original values
+	after, err := projectfile.Parse(filePath)
+	require.NoError(t, err)
+	root, ok := after.Root.(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, []any{1, 2, 3}, root["unrelated"])
+}
+
+// TestValidateCmdJSONRenamedToYAML covers the "JSON file renamed to YAML"
+// scenario at the command level: a .json input is written to a .yaml sibling and
+// the original .json file is removed.
+func TestValidateCmdJSONRenamedToYAML(t *testing.T) {
+	// GIVEN a project file with a .json extension that validates
+	tmpDir := writeValidateConfig(t, "items: .requirements\n")
+	jsonPath := filepath.Join(tmpDir, "project.json")
+	require.NoError(t, os.WriteFile(jsonPath, []byte(`{"slug":"csv-export","requirements":[{"slug":"one"}]}`), 0644))
+
+	// WHEN `ralph validate <file>` is run
+	cmd := &ValidateCmd{ProjectFile: jsonPath}
+	require.NoError(t, cmd.Run())
+
+	// THEN the document is written to a new file with the same name but a .yaml
+	// extension AND the original .json file is removed
+	yamlPath := filepath.Join(tmpDir, "project.yaml")
+	require.FileExists(t, yamlPath)
+	_, err := os.Stat(jsonPath)
+	assert.True(t, os.IsNotExist(err))
+}
+
+// TestValidateCmdCanonicalYAMLUnchanged covers the "Already-canonical YAML file
+// is unchanged" scenario at the command level: a file already in canonical YAML
+// form is rewritten byte-identically.
+func TestValidateCmdCanonicalYAMLUnchanged(t *testing.T) {
+	// GIVEN a project file already in canonical YAML form
+	tmpDir := writeValidateConfig(t, "items: .requirements\n")
+	content := "slug: csv-export\nrequirements:\n    - slug: one\n      items:\n        - a\n"
+	filePath := filepath.Join(tmpDir, "project.yaml")
+	require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))
+
+	// WHEN `ralph validate <file>` is run
+	cmd := &ValidateCmd{ProjectFile: filePath}
+	require.NoError(t, cmd.Run())
+
+	// THEN the resulting file content is byte-identical to the input
+	after, err := os.ReadFile(filePath)
+	require.NoError(t, err)
+	assert.Equal(t, content, string(after))
 }

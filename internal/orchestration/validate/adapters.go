@@ -24,6 +24,18 @@ func (projectFile) ReadFile(path string) ([]byte, error) {
 	return os.ReadFile(path)
 }
 
+func (projectFile) WriteCanonical(path string, doc *projectfile.Document) error {
+	return projectfile.WriteCanonical(path, doc)
+}
+
+func (projectFile) Remove(path string) error {
+	return projectfile.Remove(path)
+}
+
+func (projectFile) CanonicalPath(path string) string {
+	return projectfile.CanonicalPath(path)
+}
+
 type agentClient struct {
 	ctx *context.Context
 	oc  opencode.OCClient

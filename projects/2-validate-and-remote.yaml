@@ -141,7 +141,7 @@ requirements:
             // Writing a document parsed from a .json path produces a sibling .yaml
             // file; removing the original is the caller's decision.
             func WriteCanonical(path string, doc *Document) error
-      passing: false
+      passing: true
     - slug: validate-output
       description: A successful validation reports the file path and item count
       items:

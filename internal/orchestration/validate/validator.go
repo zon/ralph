@@ -14,13 +14,17 @@ var (
 	ErrUnreachable = fmt.Errorf("unreachable: validate loop exited without returning")
 )
 
-// ProjectFile reads and evaluates a project file. The real implementation
-// composes the project file module's parse, item-query evaluation, and raw
-// reads; validation performs no file work itself.
+// ProjectFile reads, evaluates, and rewrites a project file. The real
+// implementation composes the project file module's parse, item-query
+// evaluation, raw reads, canonical write, and removal; validation performs no
+// file work itself.
 type ProjectFile interface {
 	Parse(path string) (*projectfile.Document, error)
 	ResolveItems(doc *projectfile.Document, query string) ([]any, error)
 	ReadFile(path string) ([]byte, error)
+	WriteCanonical(path string, doc *projectfile.Document) error
+	Remove(path string) error
+	CanonicalPath(path string) string
 }
 
 type AgentClient interface {
@@ -45,7 +49,9 @@ type Validator struct {
 // the query resolves to at least one item. There is no schema check — no field
 // is required and no field is rejected. A parse failure enters the bounded fix
 // loop; a query that cannot be evaluated or yields no items is returned as an
-// error without invoking the agent.
+// error without invoking the agent. When all three checks pass, the file is
+// rewritten in canonical YAML via the file reader's write operation; a .json
+// input is renamed to a sibling .yaml file and the original removed.
 func (v *Validator) Validate(path, query string) (*Result, error) {
 	if query == "" {
 		query = "."
@@ -61,7 +67,16 @@ func (v *Validator) Validate(path, query string) (*Result, error) {
 	if len(items) == 0 {
 		return nil, fmt.Errorf("item query yielded no items: %s", query)
 	}
-	return &Result{Path: path, ItemCount: len(items)}, nil
+	if err := v.file.WriteCanonical(path, doc); err != nil {
+		return nil, err
+	}
+	resultPath := v.file.CanonicalPath(path)
+	if resultPath != path {
+		if err := v.file.Remove(path); err != nil {
+			return nil, err
+		}
+	}
+	return &Result{Path: resultPath, ItemCount: len(items)}, nil
 }
 
 // parse reads and parses the file at path, entering the bounded fix loop only
