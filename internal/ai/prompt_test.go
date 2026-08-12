@@ -762,6 +762,66 @@ func TestBuildItemDevelopPrompt(t *testing.T) {
 	})
 }
 
+func TestBuildItemPickPrompt(t *testing.T) {
+	data := ItemPickPromptData{
+		Notes:          nil,
+		CommitLog:      "abc123 feat: add exporter\n",
+		ProjectContent: "slug: csv-export\ntitle: CSV Export\ntasks:\n  - slug: exporter\n    description: Exporter\n  - slug: importer\n    description: Importer\n",
+		Items:          "item 1 (exporter):\nslug: exporter\ndescription: Exporter\nitem 3 (importer):\nslug: importer\ndescription: Importer",
+	}
+
+	t.Run("describes items rather than requirements and never mentions a passing field", func(t *testing.T) {
+		prompt, err := BuildItemPickPrompt(data)
+		require.NoError(t, err)
+		assert.Contains(t, prompt, "Item Picker Agent")
+		assert.Contains(t, prompt, "incomplete item")
+		assert.NotContains(t, prompt, "requirement")
+		assert.NotContains(t, prompt, "passing")
+	})
+
+	t.Run("carries the full project file, the labelled incomplete items, and the commit log", func(t *testing.T) {
+		prompt, err := BuildItemPickPrompt(data)
+		require.NoError(t, err)
+		assert.Contains(t, prompt, "slug: csv-export")
+		assert.Contains(t, prompt, "title: CSV Export")
+		assert.Contains(t, prompt, "item 1 (exporter):")
+		assert.Contains(t, prompt, "item 3 (importer):")
+		assert.Contains(t, prompt, "abc123 feat: add exporter")
+	})
+
+	t.Run("selects by dependencies, logical ordering, and impact, not array order", func(t *testing.T) {
+		prompt, err := BuildItemPickPrompt(data)
+		require.NoError(t, err)
+		assert.Contains(t, prompt, "dependencies between items")
+		assert.Contains(t, prompt, "logical ordering")
+		assert.Contains(t, prompt, "impact on the overall project")
+		assert.Contains(t, prompt, "not constrained to array order")
+	})
+
+	t.Run("reports the index rather than writing a requirement file to disk", func(t *testing.T) {
+		prompt, err := BuildItemPickPrompt(data)
+		require.NoError(t, err)
+		assert.Contains(t, prompt, "0-based index")
+		assert.Contains(t, prompt, "picked-item-index.txt")
+		assert.NotContains(t, prompt, "requirement")
+	})
+
+	t.Run("tells the agent to make no code changes", func(t *testing.T) {
+		prompt, err := BuildItemPickPrompt(data)
+		require.NoError(t, err)
+		assert.Contains(t, prompt, "Do not make any code changes")
+	})
+
+	t.Run("renders the project file, items, and commit log sections", func(t *testing.T) {
+		prompt, err := BuildItemPickPrompt(data)
+		require.NoError(t, err)
+		assert.Contains(t, prompt, "**Project File:**")
+		assert.Contains(t, prompt, "**Incomplete Items:**")
+		assert.Contains(t, prompt, "**Recent Git History:**")
+		assert.NotContains(t, prompt, "**System Notes:**")
+	})
+}
+
 func TestDefaultItemDevelopmentInstructions(t *testing.T) {
 	instructions := DefaultItemDevelopmentInstructions()
 	assert.Contains(t, instructions, "selected item")

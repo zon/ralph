@@ -17,6 +17,7 @@ import (
 	orchestrationRun "github.com/zon/ralph/internal/orchestration/run"
 	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/project"
+	"github.com/zon/ralph/internal/projectfile"
 	"github.com/zon/ralph/internal/testutil"
 )
 
@@ -100,6 +101,59 @@ func TestAgentClientImplementsInterface(t *testing.T) {
 	client := NewAgentClient(ctx, &opencode.MockOC{})
 	require.NotNil(t, client)
 	var _ orchestrationRun.AIClient = client
+}
+
+func TestAgentClientRunPickerGivesOnlyIncompleteItemsEachLabelledWithIndexAndKey(t *testing.T) {
+	workDir := t.TempDir()
+	t.Chdir(workDir)
+
+	testutil.InitGitRepo(t, workDir)
+	testutil.MakeInitialCommit(t, workDir)
+	testutil.CreateRalphConfig(t, workDir)
+
+	var pickPrompt string
+	mockOC := &opencode.MockOC{
+		RunAgentFunc: func(_ context.Context, _, _, prompt string) error {
+			pickPrompt = prompt
+			return os.WriteFile("picked-item-index.txt", []byte("1"), 0644)
+		},
+	}
+	client := NewAgentClient(execcontext.NewContext(), mockOC)
+
+	proj := &project.Project{
+		Slug: "test-project",
+		Path: "projects/test.yaml",
+		Items: project.NewItems([]any{
+			map[string]any{"slug": "one", "description": "first"},
+			map[string]any{"slug": "exporter", "description": "export endpoint"},
+			map[string]any{"slug": "two", "description": "second"},
+			map[string]any{"slug": "importer", "description": "import endpoint"},
+		}),
+		Doc: &projectfile.Document{
+			Raw: "slug: test-project\ntitle: Test Project\nitems:\n" +
+				"  - slug: one\n    description: first\n" +
+				"  - slug: exporter\n    description: export endpoint\n" +
+				"  - slug: two\n    description: second\n" +
+				"  - slug: importer\n    description: import endpoint\n",
+		},
+	}
+
+	item, err := client.RunPicker(proj, []project.Item{proj.Items[1], proj.Items[3]})
+	require.NoError(t, err)
+	require.Equal(t, 1, item.Index)
+
+	assert.Contains(t, pickPrompt, "slug: test-project", "the full project file is carried in the prompt")
+	assert.Contains(t, pickPrompt, "item 1 (exporter):", "the remaining item is labelled with its index and key")
+	assert.Contains(t, pickPrompt, "slug: exporter")
+	assert.Contains(t, pickPrompt, "item 3 (importer):", "the remaining item is labelled with its index and key")
+	assert.Contains(t, pickPrompt, "slug: importer")
+	assert.NotContains(t, pickPrompt, "item 0 (", "the complete item is not offered to the picker")
+	assert.NotContains(t, pickPrompt, "item 2 (", "the complete item is not offered to the picker")
+	assert.NotContains(t, pickPrompt, "passing", "the instructions never mention a passing field")
+	assert.NotContains(t, pickPrompt, "requirement", "the instructions describe items, not requirements")
+	assert.Contains(t, pickPrompt, "not constrained to array order")
+	assert.Contains(t, pickPrompt, "Do not make any code changes")
+	assert.Contains(t, pickPrompt, "picked-item-index.txt", "the agent reports the index it selected")
 }
 
 func TestAgentClientRunDeveloperUsesItemBasedInstructionsByDefault(t *testing.T) {

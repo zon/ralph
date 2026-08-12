@@ -27,12 +27,14 @@ type mockAI struct {
 	writeOrchestrationCalled bool
 	writeProjectCalled       bool
 	lastPickerIndices        []int
+	lastPickerItems          []project.Item
 	lastDevelopedIndex       int
 }
 
 func (m *mockAI) RunPicker(proj *project.Project, incomplete []project.Item) (project.Item, error) {
 	m.pickCalls++
 	m.lastPickerIndices = itemIndices(incomplete)
+	m.lastPickerItems = cloneProjectItems(incomplete)
 	if m.runPickerFunc != nil {
 		return m.runPickerFunc(proj, incomplete)
 	}
@@ -100,6 +102,12 @@ func itemIndices(items []project.Item) []int {
 		indices[i] = it.Index
 	}
 	return indices
+}
+
+func cloneProjectItems(items []project.Item) []project.Item {
+	cloned := make([]project.Item, len(items))
+	copy(cloned, items)
+	return cloned
 }
 
 // mockGit implements GitClient with configurable behaviors, a call-order log,
@@ -480,6 +488,13 @@ func aiWriteProjectCalled(r *Runner) bool {
 func aiLastPickerIndices(r *Runner) []int {
 	if m, ok := r.ai.(*mockAI); ok {
 		return m.lastPickerIndices
+	}
+	return nil
+}
+
+func aiLastPickerItems(r *Runner) []project.Item {
+	if m, ok := r.ai.(*mockAI); ok {
+		return m.lastPickerItems
 	}
 	return nil
 }

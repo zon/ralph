@@ -1,0 +1,59 @@
+package run
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/zon/ralph/internal/config"
+	"github.com/zon/ralph/internal/project"
+)
+
+// pickerScenarioCommitLog records items 0 and 2 complete on the first query and
+// every item complete on later queries, so a run offers only the remaining
+// items to the picker once and then ends.
+type pickerScenarioCommitLog struct {
+	calls int
+}
+
+func (s *pickerScenarioCommitLog) CommitMessages(base string) ([]string, error) {
+	s.calls++
+	if s.calls == 1 {
+		return []string{
+			"feat: first\n\nRalph item 0 (one) completed",
+			"feat: second\n\nRalph item 2 (two) completed",
+		}, nil
+	}
+	return []string{
+		"feat: finished\n\nRalph item 0 (one) completed\nRalph item 1 (exporter) completed\nRalph item 2 (two) completed\nRalph item 3 (importer) completed",
+	}, nil
+}
+
+func TestPickerScenario_ChoosesFromIncompleteItemsOnly(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "proj.yaml")
+	require.NoError(t, os.WriteFile(path, []byte(
+		"- slug: one\n  description: first\n"+
+			"- slug: exporter\n  description: export endpoint\n"+
+			"- slug: two\n  description: second\n"+
+			"- slug: importer\n  description: import endpoint\n",
+	), 0o644))
+
+	client := project.NewClient(&pickerScenarioCommitLog{}, &scenarioWarnings{})
+
+	proj := project.WithItems(4)
+	proj.Path = path
+
+	runner := withMocks(
+		withProject(client),
+	)
+	err := runner.RunLocal(project.ForProjectInput(proj), config.WithBase("main"))
+	require.NoError(t, err)
+
+	items := aiLastPickerItems(runner)
+	require.Len(t, items, 2, "the picker is given only the remaining items")
+	require.Equal(t, []int{1, 3}, itemIndices(items), "each remaining item carries its 0-based index")
+	require.Equal(t, []string{"exporter", "importer"}, []string{items[0].Key(), items[1].Key()}, "each remaining item carries its key")
+}
