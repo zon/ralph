@@ -295,7 +295,10 @@ func TestHandleWebhook_ReviewCommented_SubmitsRunWorkflow(t *testing.T) {
 
 	select {
 	case workflowYAML := <-submitCh:
-		assert.NotEmpty(t, workflowYAML)
+		assert.Contains(t, workflowYAML, "ralph")
+		assert.Contains(t, workflowYAML, "comment")
+		assert.Contains(t, workflowYAML, "--comment-body")
+		assert.Contains(t, workflowYAML, "Please add a test for the new helper")
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for workflow submission")
 	}
@@ -355,4 +358,3 @@ func TestHandleWebhook_ApprovedReview_NoWorkflowSubmissionLogLine(t *testing.T) 
 	assert.False(t, mock.SubmitYAMLCalled)
 	assert.NotContains(t, logBuf.String(), "submitted")
 }
-
