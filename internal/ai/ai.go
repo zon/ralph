@@ -234,10 +234,9 @@ func BuildResolveMergeConflictsPrompt(baseBranch, projectBranch string) (string,
 	return executeTemplate(resolveMergeConflictsInstructions, data)
 }
 
-// DefaultItemDevelopmentInstructions returns the embedded item-based default
-// workflow steps for the development agent. The requirement-shaped config
-// default describes a single requirement, so the item flow substitutes these
-// item-shaped steps unless a custom instructions file overrides them.
+// DefaultItemDevelopmentInstructions returns the embedded default workflow
+// steps for the development agent. They are used whenever the repository has
+// no instructions file of its own.
 func DefaultItemDevelopmentInstructions() string {
 	return itemDefaultInstructions
 }

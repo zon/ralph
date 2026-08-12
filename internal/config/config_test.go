@@ -24,8 +24,8 @@ func TestLoadConfig_Defaults(t *testing.T) {
 
 	assert.Equal(t, "main", config.DefaultBranch)
 	assert.Empty(t, config.Services)
-	assert.NotEmpty(t, config.Instructions, "LoadConfig() Instructions is empty, expected default instructions")
-	assert.True(t, strings.Contains(config.Instructions, "## Instructions"), "LoadConfig() Instructions missing expected header")
+	assert.Empty(t, config.Instructions, "LoadConfig() Instructions must stay unset so the prompt supplies its default steps")
+	assert.True(t, strings.Contains(config.CommentInstructions, "# Comment Instructions"), "LoadConfig() CommentInstructions missing expected header")
 }
 
 func TestLoadConfig_FromFile(t *testing.T) {
@@ -401,7 +401,7 @@ func TestLoadConfig_DefaultInstructionsWhenFilesNotExist(t *testing.T) {
 	require.NoError(t, err, "LoadConfig() unexpected error")
 
 	assert.NotEmpty(t, config.CommentInstructions, "CommentInstructions is empty, expected default instructions")
-	assert.NotEmpty(t, config.Instructions, "Instructions is empty, expected default instructions")
+	assert.Empty(t, config.Instructions, "Instructions must stay unset so the prompt supplies its default steps")
 }
 
 func TestLoadConfig_InvalidYAML(t *testing.T) {
@@ -744,13 +744,13 @@ func TestConfigExtraIterations_ConfigValueReturnedWhenSet(t *testing.T) {
 }
 
 func TestLoadInstructions(t *testing.T) {
-	t.Run("all files missing uses defaults", func(t *testing.T) {
+	t.Run("all files missing leaves development instructions to the prompt", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		configDir := filepath.Join(tmpDir, ".ralph")
 		require.NoError(t, os.Mkdir(configDir, 0755))
 
 		instructions, commentInstructions := loadInstructions(configDir)
-		assert.Contains(t, instructions, "## Instructions")
+		assert.Empty(t, instructions)
 		assert.Contains(t, commentInstructions, "# Comment Instructions")
 	})
 

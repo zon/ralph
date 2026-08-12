@@ -96,6 +96,8 @@ func TestInstalledStandardsReachableFromAgentInstructions(t *testing.T) {
 	agents := string(readRepoFile(t, "AGENTS.md"))
 	assert.Contains(t, agents, "[docs/specs/code.md](docs/specs/code.md)", "AGENTS.md must point the coding standard at the installed document")
 	assert.Contains(t, agents, "[docs/specs/testing.md](docs/specs/testing.md)", "AGENTS.md must point the testing standard at the installed document")
+	assert.Contains(t, agents, "[docs/specs/project.md](docs/specs/project.md)", "AGENTS.md must point the project item shape at the installed document")
+	assert.Contains(t, agents, "[Architecture Format](docs/specs/architecture.md)", "AGENTS.md must reach the architecture format the coding standard depends on")
 	_, err := os.Stat(filepath.Join(repoRoot(t), "docs/specs/code.md"))
 	require.NoError(t, err, "docs/specs/code.md must exist")
 

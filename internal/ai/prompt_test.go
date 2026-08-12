@@ -453,6 +453,28 @@ func TestBuildItemDevelopPrompt(t *testing.T) {
 		require.NoError(t, err)
 		assert.Contains(t, prompt, "read the selected item carefully")
 	})
+
+	t.Run("uses the repository's own instructions when supplied", func(t *testing.T) {
+		data := keyed
+		data.Instructions = "1. **Ship** — do it the house way."
+		prompt, err := BuildItemDevelopPrompt(data)
+		require.NoError(t, err)
+		assert.Contains(t, prompt, "do it the house way")
+		assert.NotContains(t, prompt, "read the selected item carefully")
+	})
+
+	t.Run("explains that the completion trailer is the only way an item completes", func(t *testing.T) {
+		prompt, err := BuildItemDevelopPrompt(keyed)
+		require.NoError(t, err)
+		assert.Contains(t, prompt, "completion trailer")
+		assert.Contains(t, prompt, "only way")
+	})
+
+	t.Run("defers the item shape to the repository's installed project format", func(t *testing.T) {
+		prompt, err := BuildItemDevelopPrompt(keyed)
+		require.NoError(t, err)
+		assert.Contains(t, prompt, "project format the repository has installed")
+	})
 }
 
 func TestBuildItemPickPrompt(t *testing.T) {
@@ -532,6 +554,29 @@ func TestDefaultItemDevelopmentInstructions(t *testing.T) {
 	instructions := DefaultItemDevelopmentInstructions()
 	assert.Contains(t, instructions, "selected item")
 	assert.NotContains(t, instructions, "completion trailer")
+}
+
+func TestDefaultItemDevelopmentInstructionsDeferToTheRepositoryStandards(t *testing.T) {
+	// GIVEN the default development steps
+	// WHEN an agent looks for where code belongs and how tests are written
+	// THEN it is sent to the repository's own agent instructions and standards
+	instructions := DefaultItemDevelopmentInstructions()
+	assert.Contains(t, instructions, "repository's agent instructions and the standards they link to")
+	assert.Contains(t, instructions, "where code belongs")
+	assert.Contains(t, instructions, "how tests are written")
+}
+
+func TestDefaultItemDevelopmentInstructionsKeepTestsBeforeCode(t *testing.T) {
+	// GIVEN the default development steps
+	// WHEN their order is read
+	// THEN the tests step precedes the code step and the run ends verified
+	instructions := DefaultItemDevelopmentInstructions()
+	tests := strings.Index(instructions, "**Tests**")
+	code := strings.Index(instructions, "**Code**")
+	verify := strings.Index(instructions, "**Verify**")
+	require.Greater(t, tests, -1, "the steps must include a tests step")
+	assert.Less(t, tests, code, "the tests step must precede the code step")
+	assert.Less(t, code, verify, "the code step must precede the verify step")
 }
 
 func TestExecuteTemplate(t *testing.T) {

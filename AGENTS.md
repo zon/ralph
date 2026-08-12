@@ -1,8 +1,12 @@
 # Agent Instructions
 
+## Reading Projects
+
+**IMPORTANT**: Before implementing a project item, read [docs/specs/project.md](docs/specs/project.md) to understand the conventional item shape — what `items`, `scenarios`, `code`, and `tests` entries mean and what satisfying each one requires. The mechanics ralph itself implements — the item query, item indices, and the completion trailer — are in [docs/projects.md](docs/projects.md).
+
 ## Coding Standard
 
-**IMPORTANT**: Before writing any code, read [docs/specs/code.md](docs/specs/code.md) to understand how to write code in this repository.
+**IMPORTANT**: Before writing any code, read [docs/specs/code.md](docs/specs/code.md) to understand how to write code in this repository. It covers module placement and directs you to the module map in `specs/architecture.yaml` ([Architecture Format](docs/specs/architecture.md)), including a feature's own architecture document when the project names a `feature`.
 
 ## Testing and Execution
 
