@@ -277,6 +277,9 @@ func TestFixLoopSucceedsOnFirstParse(t *testing.T) {
 	require.Empty(t, FixCalls())
 }
 
+// TestValidateRepairsThenSucceeds covers the "Valid project file" scenario for
+// a file that only ends up valid after the fix loop repairs it: the resulting
+// report carries the file path and the item count of the repaired file.
 func TestValidateRepairsThenSucceeds(t *testing.T) {
 	ResetFixCalls()
 	doc := &projectfile.Document{Raw: "parsed", Root: map[string]any{"slug": "one"}}
@@ -286,6 +289,7 @@ func TestValidateRepairsThenSucceeds(t *testing.T) {
 	result, err := svc.Validate(anyPath, ".")
 	require.NoError(t, err)
 	require.Equal(t, 1, result.ItemCount)
+	require.Equal(t, anyPath, result.Path)
 	require.Len(t, FixCalls(), 1)
 }
 

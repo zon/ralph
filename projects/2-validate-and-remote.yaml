@@ -158,7 +158,7 @@ requirements:
             - GIVEN a project file owned by another tool, whose formatting must not be rewritten
             - WHEN the user runs ralph against it without validating first
             - THEN the run resolves items normally and the file is not reformatted
-      passing: false
+      passing: true
     - slug: workflow-run-item-flags
       description: The container-side workflow run command accepts the item query and cleanup setting as flags
       items:

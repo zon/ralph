@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"bytes"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -36,7 +38,7 @@ requirements:
 				return filePath
 			},
 			wantErr:        false,
-			outputContains: "test-project",
+			outputContains: "valid-project.yaml",
 		},
 	}
 
@@ -49,18 +51,73 @@ requirements:
 				ProjectFile: projectFile,
 			}
 
-			err := cmd.Run()
-
-			if tt.wantErr {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), tt.errContains)
+			var output string
+			if tt.outputContains != "" {
+				output = captureStdout(t, func() {
+					require.NoError(t, cmd.Run())
+				})
 			} else {
-				require.NoError(t, err)
+				err := cmd.Run()
+				if tt.wantErr {
+					require.Error(t, err)
+					assert.Contains(t, err.Error(), tt.errContains)
+				} else {
+					require.NoError(t, err)
+				}
 			}
+			assert.Contains(t, output, tt.outputContains)
 		})
 	}
 }
 
+// captureStdout runs fn with the process stdout redirected to a pipe and
+// returns everything the function wrote to it.
+func captureStdout(t *testing.T, fn func()) string {
+	t.Helper()
+	old := os.Stdout
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+	os.Stdout = w
+	defer func() { os.Stdout = old }()
+
+	fn()
+
+	require.NoError(t, w.Close())
+	var buf bytes.Buffer
+	_, err = io.Copy(&buf, r)
+	require.NoError(t, err)
+	require.NoError(t, r.Close())
+	return buf.String()
+}
+
+// TestValidateCmdSuccessMessageReportsPathAndItemCount covers the "Valid
+// project file" scenario: when `ralph validate <file>` finishes, the command
+// exits with status code 0 and a message confirms the project is valid and
+// reports the file path and its item count.
+func TestValidateCmdSuccessMessageReportsPathAndItemCount(t *testing.T) {
+	// GIVEN a project file that ends up valid
+	tmpDir := writeValidateConfig(t, "items: .requirements\n")
+	content := "slug: output-test\nrequirements:\n  - slug: one\n  - slug: two\n  - slug: three\n"
+	filePath := filepath.Join(tmpDir, "project.yaml")
+	require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))
+
+	// WHEN `ralph validate <file>` finishes
+	cmd := &ValidateCmd{ProjectFile: filePath}
+	output := captureStdout(t, func() {
+		err := cmd.Run()
+		// THEN the command exits with status code 0
+		require.NoError(t, err)
+	})
+
+	// AND a message confirms the project is valid and reports the file path and
+	// its item count
+	assert.Contains(t, output, "is valid")
+	assert.Contains(t, output, filePath)
+	assert.Contains(t, output, "3 items")
+}
+
+// TestValidateCmdWiring covers a basic validate run end to end through the
+// command surface.
 func TestValidateCmdWiring(t *testing.T) {
 	tmpDir := t.TempDir()
 	content := `slug: wiring-test
