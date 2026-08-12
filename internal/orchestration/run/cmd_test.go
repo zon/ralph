@@ -697,6 +697,18 @@ func TestRunLocalRunnerDoesNotReResolveQueryFromConfig(t *testing.T) {
 	require.NotEqual(t, ".requirements", local.LastConfig.Items)
 }
 
+func TestRunResolvedDefaultQueryPassedToRemoteRunner(t *testing.T) {
+	remote := &mockRemoteRunnerClient{}
+	cmd := cmdWithMocks(
+		cmdWithConfig(configWithItems("")),
+		cmdWithRemote(remote),
+	)
+	err := cmd.Run(flagsAny())
+	require.NoError(t, err)
+	require.True(t, remote.RunCalled)
+	require.Equal(t, ".", remote.LastFlags.Items)
+}
+
 // ---------------------------------------------------------------------------
 // Scenario tests: --cleanup enables cleanup for one run
 // ---------------------------------------------------------------------------

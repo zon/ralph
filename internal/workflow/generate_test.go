@@ -113,7 +113,7 @@ func TestGenerateWorkflow(t *testing.T) {
 	assert.Equal(t, "my-registry/ralph:v1.0.0", container["image"])
 	assert.Equal(t, "/workspace", container["workingDir"])
 	assert.Equal(t, []interface{}{"ralph"}, container["command"])
-	assert.Equal(t, []interface{}{"workflow", "run", "--repo", "test/repo", "--project-path", "{{workflow.parameters.project-path}}", "--project-branch", projectBranch, "--base", "main", "--no-services"}, container["args"])
+	assert.Equal(t, []interface{}{"workflow", "run", "--repo", "test/repo", "--project-path", "{{workflow.parameters.project-path}}", "--project-branch", projectBranch, "--base", "main", "--items", ".", "--no-services"}, container["args"])
 
 	env, ok := container["env"].([]interface{})
 	require.True(t, ok, "env is not a list")
@@ -695,7 +695,7 @@ func TestItemsAndCleanupPassedToWorkflow(t *testing.T) {
 	assert.True(t, hasCleanupArg, "--cleanup should be passed as a container arg")
 }
 
-func TestItemsAndCleanupOmittedWhenUnset(t *testing.T) {
+func TestItemsDefaultsToExplicitDotAndCleanupOmittedWhenUnset(t *testing.T) {
 	cfg := &config.RalphConfig{
 		DefaultBranch: "main",
 		Workflow: config.WorkflowConfig{
@@ -719,7 +719,8 @@ func TestItemsAndCleanupOmittedWhenUnset(t *testing.T) {
 	container := tmpl["container"].(map[string]interface{})
 
 	args := container["args"].([]interface{})
-	assert.NotContains(t, args, "--items", "args should not contain --items when unset")
+	assert.Contains(t, args, "--items", "args should always carry the item query as --items")
+	assert.Contains(t, args, ".", "args should carry the default item query . when the resolved query is unset")
 	assert.NotContains(t, args, "--cleanup", "args should not contain --cleanup when unset")
 }
 

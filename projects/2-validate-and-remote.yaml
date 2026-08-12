@@ -216,7 +216,7 @@ requirements:
             - GIVEN cleanup resolved to disabled
             - WHEN the workflow YAML is generated
             - THEN the container args contain no `--cleanup` flag
-      passing: false
+      passing: true
     - slug: remove-requirement-model
       description: The typed requirement model and every helper built on it are deleted
       items:
