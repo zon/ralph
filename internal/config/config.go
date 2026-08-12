@@ -9,9 +9,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-//go:embed development-instructions.md
-var defaultInstructions string
-
 //go:embed comment-instructions.md
 var defaultCommentInstructions string
 
@@ -128,10 +125,6 @@ type RalphConfig struct {
 
 func DefaultCommentInstructions() string {
 	return defaultCommentInstructions
-}
-
-func DefaultDevelopmentInstructions() string {
-	return defaultInstructions
 }
 
 func DefaultFixServiceInstructions() string {
@@ -256,14 +249,14 @@ func loadConfigFromPath(configPath string) (*RalphConfig, error) {
 }
 
 // loadInstructions loads the instruction files from the config directory.
-// If a file does not exist, the corresponding default instructions are used.
+// Development instructions are left empty when .ralph/instructions.md is
+// absent, so the prompt supplies its own default steps; the comment
+// instructions fall back to the embedded default.
 func loadInstructions(configDir string) (instructions, commentInstructions string) {
-	// Load instructions from .ralph/instructions.md or use default
+	// Load instructions from .ralph/instructions.md, leaving them unset otherwise
 	instructionsPath := filepath.Join(configDir, "instructions.md")
 	if instructionsData, err := os.ReadFile(instructionsPath); err == nil {
 		instructions = string(instructionsData)
-	} else {
-		instructions = defaultInstructions
 	}
 
 	// Load comment instructions from .ralph/comment-instructions.md or use default

@@ -13,7 +13,7 @@ resolve items ──► pick an item ──► develop it ──► commit (+ co
 
 Each iteration:
 
-1. **Resolve** — parse the project file and evaluate the [item query](formats/project.md#item-query) to get the item array. Empty outputs are dropped, and a run whose array comes back empty stops here.
+1. **Resolve** — parse the project file and evaluate the [item query](projects.md#item-query) to get the item array. Empty outputs are dropped, and a run whose array comes back empty stops here.
 2. **Read completions** — parse `git log <base>..HEAD` for completion trailers and mark the matching items complete (`ralph get complete`).
 3. **Exit check** — if nothing is left, leave the loop (`ralph get incomplete` is empty).
 4. **Start services** — run configured `before` commands and services (see [Configuration](config.md)).
@@ -132,4 +132,4 @@ Cleaning up the project file does not erase the completion record — the traile
 
 ## Foreign Project Files
 
-Because ralph writes completion to git rather than to the project file, the file can belong to another tool entirely. A CI config, an exported issue list, or a task file checked in by a different system can drive a run without ralph mutating it, and without ralph needing to understand any of its fields beyond the item query. See [Choosing a query for foreign files](formats/project.md#choosing-a-query-for-foreign-files).
+Because ralph writes completion to git rather than to the project file, the file can belong to another tool entirely. A CI config, an exported issue list, or a task file checked in by a different system can drive a run without ralph mutating it, and without ralph needing to understand any of its fields beyond the item query. See [Choosing a query for foreign files](projects.md#choosing-a-query-for-foreign-files).

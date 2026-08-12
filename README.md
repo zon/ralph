@@ -49,6 +49,8 @@ Items can be structured instead of plain strings, and the array can be nested an
 items: .requirements
 ```
 
+The shape below is one convention among many. Ralph reads only the item array out of a project file; a top-level list, or any other document with a list of work in it, works the same way.
+
 ```yaml
 # projects/user-authentication.yaml
 slug: user-authentication
@@ -71,7 +73,9 @@ requirements:
       - Session tokens expire after 24 hours
 ```
 
-Ralph never writes to the project file during a run — an item's `slug`, `id`, or `name` just labels it in the commit trailer. See [Project Format](docs/formats/project.md) and [Iterations](docs/iterations.md).
+Ralph never writes to the project file during a run — an item's `slug`, `id`, or `name` just labels it in the commit trailer. See [Project Files](docs/projects.md) and [Iterations](docs/iterations.md).
+
+The spec, orchestration, architecture, and project conventions are published separately and installed into a repository at `docs/specs/` — see the [specs repository](https://github.com/zon/specs). Ralph itself only runs what it is given.
 
 ## Installation
 
@@ -107,7 +111,7 @@ See [OpenCode authentication docs](https://opencode.ai/docs/cli/#auth) for setup
 ## More
 
 - [CLI reference](docs/cli.md)
-- [Project format](docs/formats/project.md)
+- [Project files](docs/projects.md)
 - [Iterations and completion](docs/iterations.md)
 - [Remote execution workflows](docs/workflows.md)
 - [Configuration reference](docs/config.md)

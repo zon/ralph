@@ -303,14 +303,15 @@ func TestStopCmdHelpText(t *testing.T) {
 	assert.Contains(t, output, "Stop an Argo workflow")
 }
 
-func TestSetSkillsCmdHelpText(t *testing.T) {
-	output := captureHelpOutput(&Cmd{}, []string{"set", "skills", "--help"})
-	assert.Contains(t, output, "Manage ralph skill installation")
-}
-
 func TestSetConfigCmdHelpText(t *testing.T) {
 	output := captureHelpOutput(&Cmd{}, []string{"set", "config", "--help"})
 	assert.Contains(t, output, "Configure credentials for remote execution")
+}
+
+func TestSetHelpDoesNotListSkills(t *testing.T) {
+	output := captureHelpOutput(&Cmd{}, []string{"set", "--help"})
+	assert.NotContains(t, output, "skills")
+	assert.Contains(t, output, "config")
 }
 
 func TestWorkflowRunCmdHelpText(t *testing.T) {
@@ -343,7 +344,6 @@ func TestTopLevelCommandsParsed(t *testing.T) {
 		{name: "validate", args: []string{"validate", "test.yaml"}},
 		{name: "list", args: []string{"list"}},
 		{name: "stop", args: []string{"stop", "test-workflow"}},
-		{name: "set skills", args: []string{"set", "skills"}},
 		{name: "set config", args: []string{"set", "config"}},
 	}
 
@@ -360,6 +360,18 @@ func TestTopLevelCommandsParsed(t *testing.T) {
 			require.NoError(t, err)
 		})
 	}
+}
+
+func TestSetSkillsNotRegistered(t *testing.T) {
+	cmd := &Cmd{}
+	parser, err := kong.New(cmd,
+		kong.Name("ralph"),
+		kong.Exit(func(int) {}),
+	)
+	require.NoError(t, err)
+
+	_, err = parser.Parse([]string{"set", "skills"})
+	require.Error(t, err, "set skills should not parse once the skills command is removed")
 }
 
 func TestWorkflowSubcommandsParsed(t *testing.T) {

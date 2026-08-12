@@ -117,9 +117,3 @@ func TestConfigCleanupOmittedWhenFalse(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotContains(t, string(out), "cleanup")
 }
-
-func TestDefaultInstructionsExplainCompletionTrailer(t *testing.T) {
-	instructions := DefaultDevelopmentInstructions()
-	assert.Contains(t, instructions, "completion trailer")
-	assert.Contains(t, instructions, "only way")
-}

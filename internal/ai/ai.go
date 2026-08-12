@@ -26,12 +26,6 @@ var changelogInstructions string
 //go:embed review-pr-body-instructions.md
 var reviewPRBodyInstructions string
 
-//go:embed architecture-instructions.md
-var architectureInstructions string
-
-//go:embed architecture-fix-instructions.md
-var architectureFixInstructions string
-
 //go:embed project-fix-instructions.md
 var projectFixInstructions string
 
@@ -80,15 +74,6 @@ type ReviewPRBodyPromptData struct {
 	ProjectDescription string
 	Requirements       []string
 	AbsPath            string
-}
-
-type ArchitecturePromptData struct {
-	OutputFile string
-}
-
-type ArchitectureFixPromptData struct {
-	OutputFile string
-	Errors     []string
 }
 
 type ReviewItemPromptData struct {
@@ -211,16 +196,6 @@ func BuildReviewPRBodyPrompt(projectName, projectDesc string, requirements []str
 	return executeTemplate(reviewPRBodyInstructions, data)
 }
 
-func BuildArchitecturePrompt(outputFile string) (string, error) {
-	absPath, err := filepath.Abs(outputFile)
-	if err != nil {
-		return "", fmt.Errorf("failed to get absolute path: %w", err)
-	}
-
-	data := ArchitecturePromptData{OutputFile: absPath}
-	return executeTemplate(architectureInstructions, data)
-}
-
 func BuildReviewItemPrompt(content string) (string, error) {
 	data := ReviewItemPromptData{ItemContent: content}
 	return executeTemplate(reviewInstructions, data)
@@ -236,16 +211,6 @@ func BuildLoopItemPrompt(content, functionName, functionPath string) (string, er
 		return "", err
 	}
 	return executeTemplate(reviewInstructions, ReviewItemPromptData{ItemContent: rendered})
-}
-
-func BuildArchitectureFixPrompt(outputFile string, errors []string) (string, error) {
-	absPath, err := filepath.Abs(outputFile)
-	if err != nil {
-		return "", fmt.Errorf("failed to get absolute path: %w", err)
-	}
-
-	data := ArchitectureFixPromptData{OutputFile: absPath, Errors: errors}
-	return executeTemplate(architectureFixInstructions, data)
 }
 
 type ProjectFixPromptData struct {
@@ -269,10 +234,9 @@ func BuildResolveMergeConflictsPrompt(baseBranch, projectBranch string) (string,
 	return executeTemplate(resolveMergeConflictsInstructions, data)
 }
 
-// DefaultItemDevelopmentInstructions returns the embedded item-based default
-// workflow steps for the development agent. The requirement-shaped config
-// default describes a single requirement, so the item flow substitutes these
-// item-shaped steps unless a custom instructions file overrides them.
+// DefaultItemDevelopmentInstructions returns the embedded default workflow
+// steps for the development agent. They are used whenever the repository has
+// no instructions file of its own.
 func DefaultItemDevelopmentInstructions() string {
 	return itemDefaultInstructions
 }

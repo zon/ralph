@@ -129,6 +129,8 @@ ralph config pulumi     # Pulumi access token
 
 ## Custom Instructions
 
-Create `.ralph/instructions.md` to guide the AI. Ralph includes this file in the AI prompt automatically. If not present, the [default development instructions](../internal/config/development-instructions.md) are used.
+Create `.ralph/instructions.md` to replace the development steps in the AI prompt. The file supplies the prompt's instruction steps only — the surrounding prompt still carries the selected item, the project file path, the git history, and the report contract. If not present, ralph's [default steps](../internal/ai/development-item-instructions.md) are used.
 
-**Note:** The default instructions tell the agent to write its commit message to `report.md` and to end that message with `Ralph item <index> completed` when the item is finished. That trailer is the only way an item is ever marked complete — instructions that drop it produce a run that does work every iteration, completes nothing, and exhausts its iteration limit. Edit carefully.
+The default steps are deliberately generic: they send the agent to the repository's own agent instructions for how project items are read, where code belongs, and how tests are written. Custom instructions replace those steps, so state the standards they should follow.
+
+**Note:** The prompt tells the agent to write its commit message to `report.md` and to end that message with `Ralph item <index> completed` when the item is finished. That trailer is the only way an item is ever marked complete, and it is stated outside the instruction steps, so a custom `instructions.md` cannot drop it.

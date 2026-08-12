@@ -78,11 +78,6 @@ func (a *AgentClient) RunDeveloper(proj *project.Project, item project.Item) err
 		commitLog = ""
 	}
 
-	instructions := cfg.Instructions
-	if instructions == config.DefaultDevelopmentInstructions() {
-		instructions = ai.DefaultItemDevelopmentInstructions()
-	}
-
 	prompt, err := ai.BuildItemDevelopPrompt(ai.ItemDevelopPromptData{
 		Notes:           a.ctx.Notes(),
 		CommitLog:       commitLog,
@@ -93,7 +88,7 @@ func (a *AgentClient) RunDeveloper(proj *project.Project, item project.Item) err
 		Trailer:         trailer.Format(item.Index, item.Key()),
 		ProjectFilePath: proj.Path,
 		Services:        cfg.Services,
-		Instructions:    instructions,
+		Instructions:    cfg.Instructions,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to build development prompt: %w", err)

@@ -17,8 +17,7 @@ func TestAny_ReturnsDefaultConfig(t *testing.T) {
 	assert.Equal(t, "2966665", cfg.App.ID)
 	assert.Empty(t, cfg.Before)
 	assert.Empty(t, cfg.Services)
-	assert.NotEmpty(t, cfg.Instructions)
-	assert.True(t, strings.Contains(cfg.Instructions, "## Instructions"))
+	assert.Empty(t, cfg.Instructions, "development instructions come from the prompt unless the repository supplies its own")
 	assert.NotEmpty(t, cfg.CommentInstructions)
 	assert.True(t, strings.Contains(cfg.CommentInstructions, "# Comment Instructions"))
 }
@@ -37,7 +36,7 @@ func TestWithVariant_ReturnsBaselineConfig(t *testing.T) {
 	cfg := WithVariant("custom")
 	assert.Equal(t, "main", cfg.DefaultBranch)
 	assert.Equal(t, "deepseek/deepseek-chat", cfg.Model)
-	assert.NotEmpty(t, cfg.Instructions)
+	assert.NotEmpty(t, cfg.CommentInstructions)
 }
 
 func TestWithVariant_EmptyString(t *testing.T) {

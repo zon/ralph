@@ -71,9 +71,6 @@ modules:
   - path: internal/orchestration/validate
     description: Orchestrates a bounded fix loop that repairs unparseable project files using an AI agent, then checks the item query resolves.
     category: orchestration
-  - path: internal/orchestration/setup
-    description: Coordinates the full skill setup lifecycle for a repository.
-    category: orchestration
   - path: internal/orchestration/setconfig
     description: Orchestrates the ralph CLI set-config subcommand — resolving the Kubernetes context and configuring GitHub and OpenCode credentials.
     category: orchestration
@@ -90,12 +87,6 @@ modules:
     description: Generates and submits workflow manifests for run operations. Constructs workflows from webhook events.
     category: implementation
 
-  - path: internal/skills
-    description: Fetches skill definitions from GitHub and installs or prunes them on disk.
-    category: implementation
-  - path: internal/architecture
-    description: Defines and persists the architecture YAML schema for module documentation and review.
-    category: orchestration
   - path: internal/services
     description: Manages the lifecycle of before-commands and long-running services declared in project configuration.
     category: implementation

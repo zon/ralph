@@ -4,7 +4,7 @@ You are a software developer implementing one item of this project.
 
 ## Task
 
-Implement the selected item, organize the code into concern-separated deep modules, and report what was done.
+Implement the selected item and report what was done.
 
 ## Context
 
@@ -36,7 +36,7 @@ The full project file is available at: `{{.ProjectFilePath}}`. Do not modify the
 
 ## Definitions
 
-**Item** — one element of the project's resolved item array, presented above verbatim with its 0-based index and its key when it has one. An item may carry conventional fields such as `slug`, `description`, `items`, `scenarios`, `code`, and `tests`, but every field is optional: an item may instead be a plain string or any other shape.
+**Item** — one element of the project's resolved item array, presented above verbatim with its 0-based index and its key when it has one. An item has no fixed schema: every field is optional, and an item may be a mapping, a plain string, or any other shape. The project format the repository has installed defines what its fields mean; read it before interpreting them.
 
 **Completion** — the completion trailer is the only way an item is marked complete. An item is complete only when a commit message on the project branch ends with its trailer line, `Ralph item <index> completed` or `Ralph item <index> (<key>) completed`; no field in the project file records completion.
 

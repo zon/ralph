@@ -123,7 +123,7 @@ test("empty cart", () => {
 
 ## Module Structure
 
-The orchestration function lives in an [orchestration module](../glossary.md#orchestration-module). Each helper lives in an [implementation module](../glossary.md#implementation-module).
+The orchestration function lives in an [orchestration module](glossary.md#orchestration-module). Each helper lives in an [implementation module](glossary.md#implementation-module).
 
 Every orchestration document must declare its module assignments. The `**Module:**` line under `## Orchestration` names the orchestration module; the `**Module:**` line under `## Tests` names the test module. These are implementation contracts — the code must match.
 
@@ -137,9 +137,9 @@ Fixture builders for input types (e.g. a struct passed into the orchestration by
 
 ## File Location
 
-See [Directory Structure](./README.md#directory-structure) for where orchestration files are located.
+See [Directory Structure](README.md#directory-structure) for where orchestration files are located.
 
 ## What Orchestrations Are Not
 
-- **Not a spec.** Orchestrations do not define behavioral guarantees. Put those in `/specs`.
+- **Not a spec.** Orchestrations do not define behavioral guarantees. Put those in a [spec](spec.md).
 - **Not a branching tree.** Orchestrations should be exhaustive but designed to minimize paths. If an orchestration has many branches, that is a signal to simplify the design, not to add more cases.
