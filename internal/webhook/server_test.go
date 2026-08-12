@@ -208,3 +208,151 @@ func TestHandleWebhook_IssueComment_SubmitsWorkflow(t *testing.T) {
 	}
 }
 
+// ──────────────────────────────────────────────────────────────────────────────
+// Pull request review event tests
+// ──────────────────────────────────────────────────────────────────────────────
+
+// buildReviewPayload creates a pull_request_review payload for acme/myrepo with
+// the given review state and body.
+func buildReviewPayload(state, body string) []byte {
+	payload := map[string]interface{}{
+		"repository": map[string]interface{}{
+			"name": "myrepo",
+			"owner": map[string]interface{}{
+				"login": "acme",
+			},
+		},
+		"review": map[string]interface{}{
+			"state": state,
+			"body":  body,
+			"user":  map[string]interface{}{"login": "testuser"},
+		},
+		"pull_request": map[string]interface{}{
+			"number": 42,
+			"head": map[string]interface{}{
+				"ref": "ralph/my-feature",
+			},
+		},
+	}
+	b, _ := json.Marshal(payload)
+	return b
+}
+
+// postReview sends a pull_request_review event with the given state and body and
+// returns the recorder.
+func postReview(t *testing.T, s *Server, state, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	payload := buildReviewPayload(state, body)
+	sig := sign(payload, "supersecret")
+	return postWebhook(t, s, "pull_request_review", payload, sig)
+}
+
+// noWorkflowSubmitted asserts that the mock was never asked to submit a workflow.
+func noWorkflowSubmitted(t *testing.T, mock *argo.MockClient) {
+	t.Helper()
+	select {
+	case <-time.After(200 * time.Millisecond):
+	default:
+	}
+	assert.False(t, mock.SubmitYAMLCalled)
+}
+
+func TestHandleWebhook_ReviewApproved_Ignored(t *testing.T) {
+	s := NewServer(testConfig(), output.NewClient(os.Stdout, os.Stderr, false), &argo.MockClient{})
+	w := postReview(t, s, "approved", "")
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.False(t, w.Body.Len() > 0)
+}
+
+func TestHandleWebhook_ReviewApprovedWithBody_Ignored(t *testing.T) {
+	mock := &argo.MockClient{}
+	s := NewServer(testConfig(), output.NewClient(os.Stdout, os.Stderr, false), mock)
+	w := postReview(t, s, "approved", "This looks good to me")
+	assert.Equal(t, http.StatusOK, w.Code)
+	noWorkflowSubmitted(t, mock)
+}
+
+func TestHandleWebhook_ReviewChangesRequested_Ignored(t *testing.T) {
+	mock := &argo.MockClient{}
+	s := NewServer(testConfig(), output.NewClient(os.Stdout, os.Stderr, false), mock)
+	w := postReview(t, s, "changes_requested", "Please fix the tests")
+	assert.Equal(t, http.StatusOK, w.Code)
+	noWorkflowSubmitted(t, mock)
+}
+
+func TestHandleWebhook_ReviewCommented_SubmitsRunWorkflow(t *testing.T) {
+	submitCh := make(chan string, 1)
+	mock := &argo.MockClient{
+		SubmitYAMLFunc: func(ctx context.Context, workflowYAML string, kubeCtx argo.K8sContext) (string, error) {
+			submitCh <- workflowYAML
+			return "test-workflow", nil
+		},
+	}
+	s := NewServer(testConfig(), output.NewClient(os.Stdout, os.Stderr, false), mock)
+
+	w := postReview(t, s, "commented", "Please add a test for the new helper")
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	select {
+	case workflowYAML := <-submitCh:
+		assert.NotEmpty(t, workflowYAML)
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for workflow submission")
+	}
+}
+
+func TestHandleWebhook_ReviewCommentedEmptyBody_Ignored(t *testing.T) {
+	mock := &argo.MockClient{}
+	s := NewServer(testConfig(), output.NewClient(os.Stdout, os.Stderr, false), mock)
+	w := postReview(t, s, "commented", "")
+	assert.Equal(t, http.StatusOK, w.Code)
+	noWorkflowSubmitted(t, mock)
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Item tests: no merge workflow submission for any event
+// ──────────────────────────────────────────────────────────────────────────────
+
+// TestHandleWebhook_NoEventSubmitsMergeWorkflow asserts that the server has no
+// branch that submits a merge workflow: an approved review, which used to trigger
+// a merge, submits no workflow at all, and a commented review submits a run
+// workflow whose rendered YAML never references a merge.
+func TestHandleWebhook_NoEventSubmitsMergeWorkflow(t *testing.T) {
+	mock := &argo.MockClient{}
+	s := NewServer(testConfig(), output.NewClient(os.Stdout, os.Stderr, false), mock)
+
+	w := postReview(t, s, "approved", "")
+	assert.Equal(t, http.StatusOK, w.Code)
+	noWorkflowSubmitted(t, mock)
+
+	submitCh := make(chan string, 1)
+	mock = &argo.MockClient{
+		SubmitYAMLFunc: func(ctx context.Context, workflowYAML string, kubeCtx argo.K8sContext) (string, error) {
+			submitCh <- workflowYAML
+			return "test-workflow", nil
+		},
+	}
+	s = NewServer(testConfig(), output.NewClient(os.Stdout, os.Stderr, false), mock)
+
+	_ = postReview(t, s, "commented", "Please add a test")
+	select {
+	case workflowYAML := <-submitCh:
+		assert.NotContains(t, workflowYAML, "merge")
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for workflow submission")
+	}
+}
+
+// TestHandleWebhook_ApprovedReview_NoWorkflowSubmissionLogLine asserts that an
+// approved review produces no log line claiming a workflow was submitted.
+func TestHandleWebhook_ApprovedReview_NoWorkflowSubmissionLogLine(t *testing.T) {
+	var logBuf bytes.Buffer
+	mock := &argo.MockClient{}
+	s := NewServer(testConfig(), output.NewClient(&logBuf, os.Stderr, true), mock)
+
+	w := postReview(t, s, "approved", "")
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.False(t, mock.SubmitYAMLCalled)
+	assert.NotContains(t, logBuf.String(), "submitted")
+}
+
