@@ -449,6 +449,20 @@ func TestCommandSubcommandCleanupRegistrarWiring(t *testing.T) {
 	require.NotNil(t, cmd.Command.cleanupRegistrar, "CommandCmd.cleanupRegistrar should be set after SetCleanupRegistrar")
 }
 
+// TestTopLevelHelpListsNoMergeCommand asserts the top-level help lists no merge
+// command now that the merge feature is removed.
+func TestTopLevelHelpListsNoMergeCommand(t *testing.T) {
+	output := captureHelpOutput(&Cmd{}, []string{"--help"})
+	assert.NotContains(t, output, "merge")
+}
+
+// TestWorkflowHelpListsNoMergeSubcommand asserts the workflow group help lists
+// no merge subcommand now that the merge feature is removed.
+func TestWorkflowHelpListsNoMergeSubcommand(t *testing.T) {
+	output := captureHelpOutput(&Cmd{}, []string{"workflow", "--help"})
+	assert.NotContains(t, output, "merge")
+}
+
 func TestExtraIterationsFlagParsing(t *testing.T) {
 	tests := []struct {
 		name          string
