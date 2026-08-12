@@ -43,6 +43,48 @@ func TestResolveArrayIterationMatchesArrayForm(t *testing.T) {
 	assert.Equal(t, fromArray, fromIteration)
 }
 
+func TestResolveEmptyArrayReturnsNoItemsError(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+	}{
+		{"flow style", "requirements: []\n"},
+		{"top level array", "[]"},
+		{"json", `{"requirements": []}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			name := "project.yaml"
+			query := ".requirements"
+			if tt.name == "json" {
+				name = "project.json"
+			}
+			if tt.name == "top level array" {
+				query = "."
+			}
+			doc, err := Parse(writeProjectFile(t, name, tt.content))
+			require.NoError(t, err)
+
+			items, err := ResolveItems(doc, query)
+			require.Error(t, err)
+			assert.Nil(t, items)
+			assert.Equal(t, "item query yielded no items: "+query, err.Error())
+		})
+	}
+}
+
+func TestResolveEmptyArrayIterationMatchesArrayForm(t *testing.T) {
+	doc, err := Parse(writeProjectFile(t, "project.yaml", "requirements: []\n"))
+	require.NoError(t, err)
+
+	_, fromArray := ResolveItems(doc, ".requirements")
+	_, fromIteration := ResolveItems(doc, ".requirements[]")
+	require.Error(t, fromArray)
+	require.Error(t, fromIteration)
+	assert.Contains(t, fromArray.Error(), "yielded no items")
+	assert.Contains(t, fromIteration.Error(), "yielded no items")
+}
+
 func TestResolveScalarOutputIsSingleItem(t *testing.T) {
 	path := writeProjectFile(t, "project.yaml", "name: only-item\n")
 	doc, err := Parse(path)

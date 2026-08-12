@@ -48,8 +48,10 @@ func Parse(path string) (*Document, error) {
 //
 // When the query produces exactly one output and that output is an array, the
 // array's elements are the items. In every other case each output of the query
-// is one item. Returns an error naming the query when it cannot be evaluated,
-// and a distinct error when it yields no output.
+// is one item, so a query ending in `[]` and one returning the array itself
+// resolve identically — including for an empty array, which yields no items in
+// either form. Returns an error naming the query when it cannot be evaluated,
+// and a distinct error when it yields no items.
 func ResolveItems(doc *Document, query string) ([]any, error) {
 	q, err := gojq.Parse(query)
 	if err != nil {
@@ -69,13 +71,13 @@ func ResolveItems(doc *Document, query string) ([]any, error) {
 		items = append(items, v)
 	}
 
-	if len(items) == 0 {
-		return nil, fmt.Errorf("item query yielded no items: %s", query)
-	}
 	if len(items) == 1 {
 		if arr, ok := items[0].([]any); ok {
-			return arr, nil
+			items = arr
 		}
+	}
+	if len(items) == 0 {
+		return nil, fmt.Errorf("item query yielded no items: %s", query)
 	}
 	return items, nil
 }
