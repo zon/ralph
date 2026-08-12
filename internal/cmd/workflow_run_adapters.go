@@ -25,7 +25,7 @@ func newOrchestrationWorkflowRunCmd(ctx *execcontext.Context, cleanupRegistrar f
 		&aiAdapter{ctx: ctx, cleanupRegistrar: cleanupRegistrar},
 		&runnerAdapter{ctx: ctx, baseBranch: ctx.BaseBranch()},
 		&configOptionalAdapter{},
-		&projectLoadAdapter{},
+		&projectResolveAdapter{},
 		&debugAdapter{ctx: ctx},
 		ctx.Output(),
 	)
@@ -186,17 +186,17 @@ func (a *configOptionalAdapter) LoadOptional() (*config.RalphConfig, error) {
 }
 
 // ---------------------------------------------------------------------------
-// projectLoadAdapter
+// projectResolveAdapter
 // ---------------------------------------------------------------------------
 
-type projectLoadAdapter struct{}
+type projectResolveAdapter struct{}
 
-func (a *projectLoadAdapter) Load(path string) (*project.Project, error) {
+func (a *projectResolveAdapter) Resolve(path, query string) (*project.Project, error) {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve project file path: %w", err)
 	}
-	return project.LoadProject(absPath)
+	return (&project.Client{}).Resolve(absPath, query)
 }
 
 // ---------------------------------------------------------------------------

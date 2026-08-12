@@ -108,14 +108,16 @@ func (m *mockConfigClient) LoadOptional() (*ralphcfg.RalphConfig, error) {
 }
 
 type mockProjectClient struct {
-	loadFunc   func(string) (*ralphproj.Project, error)
-	loadCalled bool
+	resolveFunc   func(string, string) (*ralphproj.Project, error)
+	resolveCalled bool
+	lastQuery     string
 }
 
-func (m *mockProjectClient) Load(path string) (*ralphproj.Project, error) {
-	m.loadCalled = true
-	if m.loadFunc != nil {
-		return m.loadFunc(path)
+func (m *mockProjectClient) Resolve(path, query string) (*ralphproj.Project, error) {
+	m.resolveCalled = true
+	m.lastQuery = query
+	if m.resolveFunc != nil {
+		return m.resolveFunc(path, query)
 	}
 	return &ralphproj.Project{Slug: "test-project"}, nil
 }
@@ -350,16 +352,23 @@ type projectHelper struct{}
 
 var project = &projectHelper{}
 
-func (h *projectHelper) thatFailsLoad() *mockProjectClient {
+func (h *projectHelper) thatFailsResolve() *mockProjectClient {
 	return &mockProjectClient{
-		loadFunc: func(string) (*ralphproj.Project, error) {
+		resolveFunc: func(string, string) (*ralphproj.Project, error) {
 			return nil, errMock
 		},
 	}
 }
 
 func (h *projectHelper) loadCalled() bool {
-	return mockProj != nil && mockProj.loadCalled
+	return mockProj != nil && mockProj.resolveCalled
+}
+
+func (h *projectHelper) lastQuery() string {
+	if mockProj == nil {
+		return ""
+	}
+	return mockProj.lastQuery
 }
 
 type outputHelper struct{}

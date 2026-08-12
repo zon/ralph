@@ -465,6 +465,46 @@ func TestWorkflowSubcommandsParsed(t *testing.T) {
 	}
 }
 
+// TestWorkflowRunItemFlagsParsed covers the items that `ralph workflow run`
+// accepts an `--items` flag holding the item query and a `--cleanup` flag for
+// the cleanup setting, with `--items` defaulting to empty when absent.
+func TestWorkflowRunItemFlagsParsed(t *testing.T) {
+	cmd := &Cmd{}
+	parser, err := kong.New(cmd,
+		kong.Name("ralph"),
+		kong.Exit(func(int) {}),
+	)
+	require.NoError(t, err)
+
+	_, err = parser.Parse([]string{
+		"workflow", "run",
+		"--repo", "owner/repo",
+		"--project-path", "test.yaml",
+		"--base", "main",
+		"--items", ".spec.tasks",
+		"--cleanup",
+	})
+	require.NoError(t, err)
+	require.Equal(t, ".spec.tasks", cmd.Workflow.Run.Items)
+	require.True(t, cmd.Workflow.Run.Cleanup)
+
+	cmd2 := &Cmd{}
+	parser2, err := kong.New(cmd2,
+		kong.Name("ralph"),
+		kong.Exit(func(int) {}),
+	)
+	require.NoError(t, err)
+	_, err = parser2.Parse([]string{
+		"workflow", "run",
+		"--repo", "owner/repo",
+		"--project-path", "test.yaml",
+		"--base", "main",
+	})
+	require.NoError(t, err)
+	require.Equal(t, "", cmd2.Workflow.Run.Items)
+	require.False(t, cmd2.Workflow.Run.Cleanup)
+}
+
 func TestCommandSubcommandCleanupRegistrarWiring(t *testing.T) {
 	cmd := &Cmd{}
 	require.Nil(t, cmd.Command.cleanupRegistrar, "CommandCmd.cleanupRegistrar should be nil before SetCleanupRegistrar")

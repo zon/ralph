@@ -183,7 +183,7 @@ requirements:
             - GIVEN the project file at the provided path is missing, does not parse, or yields no items under the supplied item query
             - WHEN validation runs after the workspace is ready
             - THEN an error is returned before base-branch synchronization begins
-      passing: false
+      passing: true
     - slug: remote-workflow-arguments
       description: The generated workflow manifest carries the locally resolved item query and cleanup setting
       items:
