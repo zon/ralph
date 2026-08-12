@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 )
 
 // workflowTestDir sets up a temp dir with the minimal .ralph/config.yaml that
@@ -62,6 +63,21 @@ func TestFromWebhookEvent_CommentEvent_ReturnsRunWorkflow(t *testing.T) {
 	assert.Equal(t, "acme", result.Run.Repo.Owner)
 	assert.Equal(t, "myrepo", result.Run.Repo.Name)
 	assert.Equal(t, "ralph/my-feature", result.Run.CloneBranch)
+
+	workflowYAML, err := result.Run.Render()
+	require.NoError(t, err)
+	var wfData map[string]interface{}
+	require.NoError(t, yaml.Unmarshal([]byte(workflowYAML), &wfData))
+
+	spec := wfData["spec"].(map[string]interface{})
+	templates := spec["templates"].([]interface{})
+	tmpl := templates[0].(map[string]interface{})
+	container := tmpl["container"].(map[string]interface{})
+	args := container["args"].([]interface{})
+
+	assert.Equal(t, "ralph", container["command"].([]interface{})[0], "Command should be 'ralph' for a run workflow")
+	assert.Equal(t, "workflow", args[0], "First arg should be 'workflow'")
+	assert.Equal(t, "comment", args[1], "Second arg should be 'comment' — a webhook event only ever produces a run workflow")
 }
 
 func TestFromWebhookEvent_RunWorkflow_RendersToYAML(t *testing.T) {
@@ -84,6 +100,40 @@ func TestFromWebhookEvent_RunWorkflow_RendersToYAML(t *testing.T) {
 	assert.Contains(t, yaml, "acme")
 	assert.Contains(t, yaml, "myrepo")
 	assert.Contains(t, yaml, "ralph/my-feature")
+}
+
+// Scenario: Run Workflow labeled.
+//
+// GIVEN a comment event triggers a Run Workflow submission
+// WHEN the workflow YAML is rendered
+// THEN the workflow metadata contains the label app.kubernetes.io/managed-by=ralph
+func TestFromWebhookEvent_RunWorkflow_Labeled(t *testing.T) {
+	workflowTestDir(t)
+
+	opts := WorkflowOptions{}
+	we := WebhookEvent{
+		Body:      "fix the bug",
+		PRBranch:  "ralph/my-feature",
+		RepoOwner: "acme",
+		RepoName:  "myrepo",
+		PRNumber:  "7",
+	}
+
+	result, err := FromWebhookEvent(we, opts)
+	require.NoError(t, err)
+	require.NotNil(t, result.Run)
+
+	workflowYAML, err := result.Run.Render()
+	require.NoError(t, err)
+
+	var workflow map[string]interface{}
+	require.NoError(t, yaml.Unmarshal([]byte(workflowYAML), &workflow))
+
+	metadata, ok := workflow["metadata"].(map[string]interface{})
+	require.True(t, ok, "metadata is not a map")
+	labels, ok := metadata["labels"].(map[string]interface{})
+	require.True(t, ok, "metadata labels is not a map")
+	assert.Equal(t, "ralph", labels["app.kubernetes.io/managed-by"], "workflow metadata should contain app.kubernetes.io/managed-by=ralph")
 }
 
 func TestFromWebhookEvent_NamespacePropagated(t *testing.T) {

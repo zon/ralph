@@ -14,9 +14,11 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/zon/ralph/internal/argo"
 	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/webhookconfig"
+	"gopkg.in/yaml.v3"
 )
 
 // testConfig builds a minimal Config suitable for server tests.
@@ -299,6 +301,62 @@ func TestHandleWebhook_ReviewCommented_SubmitsRunWorkflow(t *testing.T) {
 		assert.Contains(t, workflowYAML, "comment")
 		assert.Contains(t, workflowYAML, "--comment-body")
 		assert.Contains(t, workflowYAML, "Please add a test for the new helper")
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for workflow submission")
+	}
+}
+
+// Scenario: Run Workflow labeled.
+//
+// GIVEN a comment event triggers a Run Workflow submission
+// WHEN the workflow YAML is rendered
+// THEN the workflow metadata contains the label app.kubernetes.io/managed-by=ralph
+func TestHandleWebhook_CommentEvent_SubmitsLabeledRunWorkflow(t *testing.T) {
+	submitCh := make(chan string, 1)
+	mock := &argo.MockClient{
+		SubmitYAMLFunc: func(ctx context.Context, workflowYAML string, kubeCtx argo.K8sContext) (string, error) {
+			submitCh <- workflowYAML
+			return "test-workflow", nil
+		},
+	}
+	s := NewServer(testConfig(), output.NewClient(os.Stdout, os.Stderr, false), mock)
+
+	payload := map[string]interface{}{
+		"repository": map[string]interface{}{
+			"name": "myrepo",
+			"owner": map[string]interface{}{
+				"login": "acme",
+			},
+		},
+		"comment": map[string]interface{}{
+			"body": "hello",
+			"user": map[string]interface{}{"login": "testuser"},
+		},
+		"issue": map[string]interface{}{
+			"pull_request": map[string]interface{}{},
+		},
+		"pull_request": map[string]interface{}{
+			"number": 42,
+			"head": map[string]interface{}{
+				"ref": "ralph/my-feature",
+			},
+		},
+	}
+	body, _ := json.Marshal(payload)
+	sig := sign(body, "supersecret")
+	w := postWebhook(t, s, "issue_comment", body, sig)
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	select {
+	case workflowYAML := <-submitCh:
+		var wfData map[string]interface{}
+		require.NoError(t, yaml.Unmarshal([]byte(workflowYAML), &wfData))
+
+		metadata, ok := wfData["metadata"].(map[string]interface{})
+		require.True(t, ok, "metadata is not a map")
+		labels, ok := metadata["labels"].(map[string]interface{})
+		require.True(t, ok, "metadata labels is not a map")
+		assert.Equal(t, "ralph", labels["app.kubernetes.io/managed-by"], "workflow metadata should contain app.kubernetes.io/managed-by=ralph")
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for workflow submission")
 	}
