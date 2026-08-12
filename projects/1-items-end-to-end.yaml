@@ -351,7 +351,7 @@ requirements:
             - AND the user passes `--base develop`
             - WHEN the commit log is read
             - THEN only commits on the current branch that are not on `develop` are considered
-      passing: false
+      passing: true
     - slug: run-local-runner
       description: The local runner resolves the project once and drives setup, iteration, cleanup, and PR creation
       items:
