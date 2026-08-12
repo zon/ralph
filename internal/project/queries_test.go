@@ -172,7 +172,6 @@ func TestIncompleteErrorNamesIncompleteItems(t *testing.T) {
 	msg := err.Error()
 	assert.Contains(t, msg, "item 1")
 	assert.Contains(t, msg, "item 2 (another-item)")
-	assert.NotContains(t, msg, "requirements still failing")
 }
 
 func TestIncompleteErrorNilWhenAllComplete(t *testing.T) {

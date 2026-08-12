@@ -81,7 +81,6 @@ requirements:
     description: Fix the error
     items:
       - Fix it
-    passing: false
 `), 0644))
 
 		result, err := DetectModifiedProjectFile("projects")

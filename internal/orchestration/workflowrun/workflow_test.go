@@ -54,7 +54,7 @@ func TestRunMalformedConfigAbortsBeforeSync(t *testing.T) {
 
 func TestRunProjectLoadFailureAbortsBeforeSync(t *testing.T) {
 	cmd := run.withMocks(
-		run.withProject(project.thatFailsLoad()),
+		run.withProject(project.thatFailsResolve()),
 	)
 	err := cmd.Run(flags.any())
 	require.Error(t, err)

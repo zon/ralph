@@ -3,7 +3,6 @@ package github
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 )
 
 // WebhookPayload is the subset of a GitHub webhook JSON payload that the server needs.
@@ -55,7 +54,6 @@ func (p *WebhookPayload) RepoName() string {
 // The caller passes EventFields directly to workflow.FromWebhookEventWithConfig.
 type EventFields struct {
 	Body      string
-	Approved  bool
 	PRBranch  string
 	RepoOwner string
 	RepoName  string
@@ -87,7 +85,6 @@ func (p *WebhookPayload) ToEvent(eventType string) EventFields {
 	case "pull_request_review":
 		return EventFields{
 			Body:      p.Review.Body,
-			Approved:  strings.ToLower(p.Review.State) == "approved",
 			PRBranch:  branch,
 			RepoOwner: owner,
 			RepoName:  repoName,

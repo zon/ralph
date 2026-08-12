@@ -1,8 +1,0 @@
-slug: ralph-cmd
-title: Ralph CLI Commands
-requirements:
-  - slug: validate-command
-    description: Validate project YAML files
-    items:
-      - Test item
-    passing: false

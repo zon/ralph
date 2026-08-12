@@ -3,13 +3,10 @@ package github
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"os/exec"
 	"strings"
-	"time"
 
 	"github.com/zon/ralph/internal/output"
 )
@@ -25,8 +22,6 @@ type GHClient interface {
 	IsReady() bool
 	FindExistingPR(head string) (string, error)
 	CreatePR(title, body, base, head string) (string, error)
-	GetPRHeadRefOid(pr string) (string, error)
-	MergePR(pr, repo string) error
 	ListCollaborators(ctx context.Context, owner, repo string) ([]string, error)
 	RegisterWebhook(ctx context.Context, owner, repo, webhookURL, secret string) error
 }
@@ -112,71 +107,4 @@ func (g *GH) CreatePR(title, body, base, head string) (string, error) {
 	}
 
 	return parsePRURL(g.out, out.String())
-}
-
-func (g *GH) GetPRHeadRefOid(pr string) (string, error) {
-	cmd := exec.Command("gh", "pr", "view", pr, "--json", "headRefOid")
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &out
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("failed to query PR head: %w (output: %s)", err, out.String())
-	}
-
-	var result struct {
-		HeadRefOid string `json:"headRefOid"`
-	}
-	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
-		return "", fmt.Errorf("failed to parse PR head response: %w", err)
-	}
-	return result.HeadRefOid, nil
-}
-
-func (g *GH) MergePR(pr, repo string) error {
-	autoArgs := []string{"pr", "merge", pr, "--merge", "--delete-branch", "--auto"}
-	if repo != "" {
-		autoArgs = append(autoArgs, "--repo", repo)
-	}
-	var autoOut bytes.Buffer
-	autoCmd := exec.Command("gh", autoArgs...)
-	autoCmd.Stdout = os.Stdout
-	autoCmd.Stderr = &autoOut
-	if err := autoCmd.Run(); err != nil {
-		autoErrStr := autoOut.String()
-		if strings.Contains(autoErrStr, "clean status") || strings.Contains(autoErrStr, "Protected branch rules not configured") || strings.Contains(autoErrStr, "enablePullRequestAutoMerge") || strings.Contains(autoErrStr, "not mergeable") {
-			g.out.Debugf("PR #%s is already mergeable, merging immediately", pr)
-			return mergePRImmediate(g.out, pr, repo)
-		}
-		fmt.Fprint(os.Stderr, autoErrStr)
-		return fmt.Errorf("failed to merge PR #%s: %w", pr, err)
-	}
-
-	g.out.Successf("Auto-merge enabled for PR #%s", pr)
-	return nil
-}
-
-func mergePRImmediate(out *output.Client, pr, repo string) error {
-	immediateArgs := []string{"pr", "merge", pr, "--merge", "--delete-branch"}
-	if repo != "" {
-		immediateArgs = append(immediateArgs, "--repo", repo)
-	}
-	for attempt := range 10 {
-		var immediateOut bytes.Buffer
-		immediateCmd := exec.Command("gh", immediateArgs...)
-		immediateCmd.Stdout = os.Stdout
-		immediateCmd.Stderr = &immediateOut
-		if err := immediateCmd.Run(); err != nil {
-			errStr := immediateOut.String()
-			if strings.Contains(errStr, "not mergeable") {
-				out.Debugf("PR #%s not mergeable yet, retrying (attempt %d/10)...", pr, attempt+1)
-				time.Sleep(5 * time.Second)
-				continue
-			}
-			fmt.Fprint(os.Stderr, errStr)
-			return fmt.Errorf("failed to merge PR #%s: %w", pr, err)
-		}
-		out.Successf("Merged PR #%s", pr)
-		return nil
-	}
-	return fmt.Errorf("PR #%s was not mergeable after 10 attempts", pr)
 }

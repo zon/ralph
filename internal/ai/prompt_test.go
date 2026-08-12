@@ -85,231 +85,6 @@ func TestBuildFixServicePrompt(t *testing.T) {
 	}
 }
 
-func TestBuildDevelopPrompt(t *testing.T) {
-	tests := []struct {
-		name    string
-		data    DevelopPromptData
-		wantErr bool
-		errMsg  string
-		check   func(t *testing.T, prompt string)
-	}{
-		{
-			name: "base case",
-			data: DevelopPromptData{
-				Notes:               nil,
-				CommitLog:           "",
-				ProjectContent:      "slug: test-project\ntitle: Test Project\nrequirements:\n  - slug: feature-x\n    description: Feature X\n    passing: false",
-				SelectedRequirement: "- slug: feature-x\n  description: Feature X\n  passing: false",
-				ProjectFilePath:     "/path/to/project.yaml",
-				Services:            nil,
-				Instructions:        config.DefaultDevelopmentInstructions(),
-			},
-			check: func(t *testing.T, prompt string) {
-				assert.Contains(t, prompt, "# Development Agent")
-				assert.Contains(t, prompt, "## Context")
-				assert.Contains(t, prompt, "**Selected Requirement:**")
-				assert.Contains(t, prompt, "## Instructions")
-				assert.Contains(t, prompt, "Feature X")
-				assert.Contains(t, prompt, "/path/to/project.yaml")
-				assert.Contains(t, prompt, "Implement the selected requirement")
-				assert.NotContains(t, prompt, "**Recent Git History:**")
-				assert.NotContains(t, prompt, "**System Notes:**")
-			},
-		},
-		{
-			name: "with notes",
-			data: DevelopPromptData{
-				Notes:               []string{"Note 1", "Note 2"},
-				CommitLog:           "",
-				ProjectContent:      "slug: test-project\ntitle: Test Project\nrequirements:\n  - slug: feature-x\n    description: Feature X\n    passing: false",
-				SelectedRequirement: "- slug: feature-x\n  description: Feature X\n  passing: false",
-				ProjectFilePath:     "/path/to/project.yaml",
-				Services:            nil,
-				Instructions:        config.DefaultDevelopmentInstructions(),
-			},
-			check: func(t *testing.T, prompt string) {
-				assert.Contains(t, prompt, "**System Notes:**")
-				assert.Contains(t, prompt, "Note 1")
-				assert.Contains(t, prompt, "Note 2")
-			},
-		},
-		{
-			name: "with commit log",
-			data: DevelopPromptData{
-				Notes:               nil,
-				CommitLog:           "abc123 Feature A\ndef456 Feature B",
-				ProjectContent:      "slug: test-project\ntitle: Test Project\nrequirements:\n  - slug: feature-x\n    description: Feature X\n    passing: false",
-				SelectedRequirement: "- slug: feature-x\n  description: Feature X\n  passing: false",
-				ProjectFilePath:     "/path/to/project.yaml",
-				Services:            nil,
-				Instructions:        config.DefaultDevelopmentInstructions(),
-			},
-			check: func(t *testing.T, prompt string) {
-				assert.Contains(t, prompt, "**Recent Git History:**")
-				assert.Contains(t, prompt, "abc123 Feature A")
-				assert.Contains(t, prompt, "def456 Feature B")
-			},
-		},
-		{
-			name: "with services",
-			data: DevelopPromptData{
-				Notes:               nil,
-				CommitLog:           "",
-				ProjectContent:      "slug: test-project\ntitle: Test Project",
-				SelectedRequirement: "- slug: feature-x\n  description: Feature X",
-				ProjectFilePath:     "/path/to/project.yaml",
-				Services: []config.Service{
-					{Name: "api", Command: "api-server"},
-					{Name: "worker", Command: "worker"},
-				},
-				Instructions: config.DefaultDevelopmentInstructions(),
-			},
-			check: func(t *testing.T, prompt string) {
-				assert.Contains(t, prompt, "**Services**")
-				assert.Contains(t, prompt, "api.log")
-				assert.Contains(t, prompt, "worker.log")
-			},
-		},
-		{
-			name: "with custom instructions",
-			data: DevelopPromptData{
-				Notes:               nil,
-				CommitLog:           "",
-				ProjectContent:      "slug: test-project\ntitle: Test Project",
-				SelectedRequirement: "- slug: feature-x\n  description: Feature X",
-				ProjectFilePath:     "/path/to/project.yaml",
-				Services:            nil,
-				Instructions:        "Custom instructions: Do something special",
-			},
-			check: func(t *testing.T, prompt string) {
-				assert.Contains(t, prompt, "Custom instructions: Do something special")
-			},
-		},
-		{
-			name: "error on invalid template",
-			data: DevelopPromptData{
-				Notes:               nil,
-				CommitLog:           "",
-				ProjectContent:      "content",
-				SelectedRequirement: "requirement",
-				ProjectFilePath:     "/path",
-				Services:            nil,
-				Instructions:        "{{.InvalidField}}",
-			},
-			wantErr: true,
-			errMsg:  "failed to execute template",
-		},
-		{
-			name: "empty notes",
-			data: DevelopPromptData{
-				Notes:               []string{},
-				CommitLog:           "",
-				ProjectContent:      "slug: test",
-				SelectedRequirement: "- slug: x\n  description: X",
-				ProjectFilePath:     "/path",
-				Services:            nil,
-				Instructions:        config.DefaultDevelopmentInstructions(),
-			},
-			check: func(t *testing.T, prompt string) {
-				assert.NotContains(t, prompt, "**System Notes:**")
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			prompt, err := BuildDevelopPrompt(tt.data)
-			if tt.wantErr {
-				require.Error(t, err, "BuildDevelopPrompt should error")
-				assert.Contains(t, err.Error(), tt.errMsg)
-				return
-			}
-			require.NoError(t, err, "BuildDevelopPrompt failed")
-			if tt.check != nil {
-				tt.check(t, prompt)
-			}
-		})
-	}
-}
-
-func TestBuildPickPrompt(t *testing.T) {
-	tests := []struct {
-		name  string
-		data  PickPromptData
-		check func(t *testing.T, prompt string)
-	}{
-		{
-			name: "base case",
-			data: PickPromptData{
-				Notes:          nil,
-				CommitLog:      "",
-				ProjectContent: "slug: test-project\ntitle: Test Project\nrequirements:\n  - slug: feature-x\n    description: Feature X\n    passing: false\n  - slug: bug-y\n    description: Bug Y\n    passing: false",
-				PickedReqPath:  "/path/to/picked-requirement.yaml",
-			},
-			check: func(t *testing.T, prompt string) {
-				assert.Contains(t, prompt, "# Requirement Picker Agent")
-				assert.Contains(t, prompt, "## Context")
-				assert.Contains(t, prompt, "**Project Requirements:**")
-				assert.Contains(t, prompt, "## Instructions")
-				assert.Contains(t, prompt, "Test Project")
-				assert.Contains(t, prompt, "Feature X")
-				assert.Contains(t, prompt, "Bug Y")
-				assert.Contains(t, prompt, "/path/to/picked-requirement.yaml")
-				assert.NotContains(t, prompt, "**Recent Git History:**")
-				assert.NotContains(t, prompt, "**System Notes:**")
-			},
-		},
-		{
-			name: "with notes",
-			data: PickPromptData{
-				Notes:          []string{"Pick this one"},
-				CommitLog:      "",
-				ProjectContent: "slug: test-project\ntitle: Test Project",
-				PickedReqPath:  "/path/to/picked-requirement.yaml",
-			},
-			check: func(t *testing.T, prompt string) {
-				assert.Contains(t, prompt, "**System Notes:**")
-				assert.Contains(t, prompt, "Pick this one")
-			},
-		},
-		{
-			name: "with commit log",
-			data: PickPromptData{
-				Notes:          nil,
-				CommitLog:      "abc123 Initial commit\ndef456 Add feature",
-				ProjectContent: "slug: test-project\ntitle: Test Project",
-				PickedReqPath:  "/path/to/picked-requirement.yaml",
-			},
-			check: func(t *testing.T, prompt string) {
-				assert.Contains(t, prompt, "**Recent Git History:**")
-				assert.Contains(t, prompt, "abc123 Initial commit")
-			},
-		},
-		{
-			name: "empty notes",
-			data: PickPromptData{
-				Notes:          []string{},
-				CommitLog:      "",
-				ProjectContent: "slug: test",
-				PickedReqPath:  "/path",
-			},
-			check: func(t *testing.T, prompt string) {
-				assert.NotContains(t, prompt, "**System Notes:**")
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			prompt, err := BuildPickPrompt(tt.data)
-			require.NoError(t, err, "BuildPickPrompt failed")
-			if tt.check != nil {
-				tt.check(t, prompt)
-			}
-		})
-	}
-}
-
 func TestBuildPRSummaryPrompt(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -331,8 +106,6 @@ func TestBuildPRSummaryPrompt(t *testing.T) {
 				assert.Contains(t, prompt, "main..HEAD")
 				assert.Contains(t, prompt, "abc123: Initial commit")
 				assert.Contains(t, prompt, "/tmp/pr-summary.txt")
-				assert.NotContains(t, prompt, "passing")
-				assert.NotContains(t, prompt, "failing")
 			},
 		},
 		{
@@ -745,12 +518,10 @@ func TestBuildItemDevelopPrompt(t *testing.T) {
 		assert.Contains(t, prompt, "read-only for the whole run")
 	})
 
-	t.Run("never asks the agent to edit a completion field or run ralph pass", func(t *testing.T) {
+	t.Run("tells the agent to leave completion fields alone", func(t *testing.T) {
 		prompt, err := BuildItemDevelopPrompt(keyed)
 		require.NoError(t, err)
 		assert.Contains(t, prompt, "Do not edit any completion field")
-		assert.NotContains(t, prompt, "ralph pass")
-		assert.NotContains(t, prompt, "Mark passing")
 	})
 
 	t.Run("still asks for report.md and blocked.md without a trailer", func(t *testing.T) {
@@ -767,8 +538,6 @@ func TestBuildItemDevelopPrompt(t *testing.T) {
 		prompt, err := BuildItemDevelopPrompt(data)
 		require.NoError(t, err)
 		assert.Contains(t, prompt, "read the selected item carefully")
-		assert.NotContains(t, prompt, "selected requirement")
-		assert.NotContains(t, prompt, "{{.SelectedRequirement}}")
 	})
 }
 
@@ -780,13 +549,11 @@ func TestBuildItemPickPrompt(t *testing.T) {
 		Items:          "item 1 (exporter):\nslug: exporter\ndescription: Exporter\nitem 3 (importer):\nslug: importer\ndescription: Importer",
 	}
 
-	t.Run("describes items rather than requirements and never mentions a passing field", func(t *testing.T) {
+	t.Run("frames the agent as an item picker", func(t *testing.T) {
 		prompt, err := BuildItemPickPrompt(data)
 		require.NoError(t, err)
 		assert.Contains(t, prompt, "Item Picker Agent")
 		assert.Contains(t, prompt, "incomplete item")
-		assert.NotContains(t, prompt, "requirement")
-		assert.NotContains(t, prompt, "passing")
 	})
 
 	t.Run("carries the full project file, the labelled incomplete items, and the commit log", func(t *testing.T) {
@@ -808,12 +575,11 @@ func TestBuildItemPickPrompt(t *testing.T) {
 		assert.Contains(t, prompt, "not constrained to array order")
 	})
 
-	t.Run("reports the index rather than writing a requirement file to disk", func(t *testing.T) {
+	t.Run("reports the picked index to a file", func(t *testing.T) {
 		prompt, err := BuildItemPickPrompt(data)
 		require.NoError(t, err)
 		assert.Contains(t, prompt, "0-based index")
 		assert.Contains(t, prompt, "picked-item-index.txt")
-		assert.NotContains(t, prompt, "requirement")
 	})
 
 	t.Run("tells the agent to make no code changes", func(t *testing.T) {
@@ -835,8 +601,6 @@ func TestBuildItemPickPrompt(t *testing.T) {
 func TestDefaultItemDevelopmentInstructions(t *testing.T) {
 	instructions := DefaultItemDevelopmentInstructions()
 	assert.Contains(t, instructions, "selected item")
-	assert.NotContains(t, instructions, "ralph pass")
-	assert.NotContains(t, instructions, "Mark passing")
 	assert.NotContains(t, instructions, "completion trailer")
 }
 

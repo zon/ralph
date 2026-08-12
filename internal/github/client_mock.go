@@ -10,8 +10,6 @@ type MockGH struct {
 	IsReadyFn           func() bool
 	FindExistingPRFn    func(head string) (string, error)
 	CreatePRFn          func(title, body, base, head string) (string, error)
-	GetPRHeadRefOidFn   func(pr string) (string, error)
-	MergePRFn           func(pr, repo string) error
 	ListCollaboratorsFn func(ctx context.Context, owner, repo string) ([]string, error)
 	RegisterWebhookFn   func(ctx context.Context, owner, repo, webhookURL, secret string) error
 }
@@ -35,20 +33,6 @@ func (m *MockGH) CreatePR(title, body, base, head string) (string, error) {
 		return m.CreatePRFn(title, body, base, head)
 	}
 	return "", nil
-}
-
-func (m *MockGH) GetPRHeadRefOid(pr string) (string, error) {
-	if m.GetPRHeadRefOidFn != nil {
-		return m.GetPRHeadRefOidFn(pr)
-	}
-	return "", nil
-}
-
-func (m *MockGH) MergePR(pr, repo string) error {
-	if m.MergePRFn != nil {
-		return m.MergePRFn(pr, repo)
-	}
-	return nil
 }
 
 func (m *MockGH) ListCollaborators(ctx context.Context, owner, repo string) ([]string, error) {

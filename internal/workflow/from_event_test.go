@@ -57,34 +57,11 @@ func TestFromWebhookEvent_CommentEvent_ReturnsRunWorkflow(t *testing.T) {
 	result, err := FromWebhookEvent(we, opts)
 	require.NoError(t, err)
 	require.NotNil(t, result.Run)
-	assert.Nil(t, result.Merge)
 	assert.Equal(t, "please add a test", result.Run.CommentBody)
 	assert.Equal(t, "5", result.Run.PRNumber)
 	assert.Equal(t, "acme", result.Run.Repo.Owner)
 	assert.Equal(t, "myrepo", result.Run.Repo.Name)
 	assert.Equal(t, "ralph/my-feature", result.Run.CloneBranch)
-}
-
-func TestFromWebhookEvent_ApprovalEvent_ReturnsMergeWorkflow(t *testing.T) {
-	workflowTestDir(t)
-
-	opts := WorkflowOptions{}
-	we := WebhookEvent{
-		Approved:  true,
-		PRBranch:  "ralph/my-feature",
-		PRNumber:  "99",
-		RepoOwner: "acme",
-		RepoName:  "myrepo",
-	}
-
-	result, err := FromWebhookEvent(we, opts)
-	require.NoError(t, err)
-	require.NotNil(t, result.Merge)
-	assert.Nil(t, result.Run)
-	assert.Equal(t, "acme", result.Merge.Repo.Owner)
-	assert.Equal(t, "myrepo", result.Merge.Repo.Name)
-	assert.Equal(t, "ralph/my-feature", result.Merge.PRBranch)
-	assert.Equal(t, "99", result.Merge.PRNumber)
 }
 
 func TestFromWebhookEvent_RunWorkflow_RendersToYAML(t *testing.T) {
@@ -112,35 +89,18 @@ func TestFromWebhookEvent_RunWorkflow_RendersToYAML(t *testing.T) {
 func TestFromWebhookEvent_NamespacePropagated(t *testing.T) {
 	workflowTestDir(t)
 
-	t.Run("comment event", func(t *testing.T) {
-		opts := WorkflowOptions{Namespace: "team-ns"}
-		we := WebhookEvent{
-			Body:      "fix something",
-			PRBranch:  "ralph/my-feature",
-			RepoOwner: "acme",
-			RepoName:  "myrepo",
-		}
-		result, err := FromWebhookEvent(we, opts)
-		require.NoError(t, err)
-		assert.Equal(t, "team-ns", result.Namespace)
-		require.NotNil(t, result.Run)
-		assert.Equal(t, "team-ns", result.Run.Namespace)
-	})
-
-	t.Run("approval event", func(t *testing.T) {
-		opts := WorkflowOptions{Namespace: "team-ns"}
-		we := WebhookEvent{
-			Approved:  true,
-			PRBranch:  "ralph/my-feature",
-			RepoOwner: "acme",
-			RepoName:  "myrepo",
-		}
-		result, err := FromWebhookEvent(we, opts)
-		require.NoError(t, err)
-		assert.Equal(t, "team-ns", result.Namespace)
-		require.NotNil(t, result.Merge)
-		assert.Equal(t, "team-ns", result.Merge.Namespace)
-	})
+	opts := WorkflowOptions{Namespace: "team-ns"}
+	we := WebhookEvent{
+		Body:      "fix something",
+		PRBranch:  "ralph/my-feature",
+		RepoOwner: "acme",
+		RepoName:  "myrepo",
+	}
+	result, err := FromWebhookEvent(we, opts)
+	require.NoError(t, err)
+	assert.Equal(t, "team-ns", result.Namespace)
+	require.NotNil(t, result.Run)
+	assert.Equal(t, "team-ns", result.Run.Namespace)
 }
 
 func TestFromWebhookEvent_Namespace_EmptyWhenNotConfigured(t *testing.T) {
@@ -157,24 +117,4 @@ func TestFromWebhookEvent_Namespace_EmptyWhenNotConfigured(t *testing.T) {
 	result, err := FromWebhookEvent(we, opts)
 	require.NoError(t, err)
 	assert.Equal(t, "", result.Namespace)
-}
-
-func TestFromWebhookEvent_MergeWorkflow_RendersToYAML(t *testing.T) {
-	workflowTestDir(t)
-
-	opts := WorkflowOptions{}
-	we := WebhookEvent{
-		Approved:  true,
-		PRBranch:  "ralph/my-feature",
-		RepoOwner: "acme",
-		RepoName:  "myrepo",
-	}
-
-	result, err := FromWebhookEvent(we, opts)
-	require.NoError(t, err)
-
-	yaml, err := result.Merge.Render()
-	require.NoError(t, err)
-	assert.Contains(t, yaml, "argoproj.io/v1alpha1")
-	assert.Contains(t, yaml, "ralph-merge-")
 }

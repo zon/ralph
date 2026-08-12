@@ -113,7 +113,7 @@ func TestGenerateWorkflow(t *testing.T) {
 	assert.Equal(t, "my-registry/ralph:v1.0.0", container["image"])
 	assert.Equal(t, "/workspace", container["workingDir"])
 	assert.Equal(t, []interface{}{"ralph"}, container["command"])
-	assert.Equal(t, []interface{}{"workflow", "run", "--repo", "test/repo", "--project-path", "{{workflow.parameters.project-path}}", "--project-branch", projectBranch, "--base", "main", "--no-services"}, container["args"])
+	assert.Equal(t, []interface{}{"workflow", "run", "--repo", "test/repo", "--project-path", "{{workflow.parameters.project-path}}", "--project-branch", projectBranch, "--base", "main", "--items", ".", "--no-services"}, container["args"])
 
 	env, ok := container["env"].([]interface{})
 	require.True(t, ok, "env is not a list")
@@ -230,123 +230,6 @@ func TestGenerateWorkflow_DefaultImage(t *testing.T) {
 	require.NoError(t, yaml.Unmarshal([]byte(workflowYAML), &workflow), "Failed to parse generated workflow YAML")
 
 	spec := workflow["spec"].(map[string]interface{})
-	templates := spec["templates"].([]interface{})
-	tmpl := templates[0].(map[string]interface{})
-	container := tmpl["container"].(map[string]interface{})
-
-	expectedImage := fmt.Sprintf("ghcr.io/zon/ralph:%s", DefaultContainerVersion())
-	assert.Equal(t, expectedImage, container["image"])
-}
-
-func TestGenerateMergeWorkflow(t *testing.T) {
-	repoURL := "git@github.com:test/repo.git"
-	cloneBranch := "main"
-	prBranch := "ralph/test-project"
-
-	mw, err := GenerateMergeWorkflowWithGitInfo(repoURL, cloneBranch, prBranch, "", WorkflowOptions{
-		Image: MakeImage("my-registry/ralph", "v2.0.0"),
-	})
-	require.NoError(t, err, "GenerateMergeWorkflowWithGitInfo failed")
-	workflowYAML, err := mw.Render()
-	require.NoError(t, err, "Render failed")
-
-	var wf map[string]interface{}
-	require.NoError(t, yaml.Unmarshal([]byte(workflowYAML), &wf), "Failed to parse generated workflow YAML")
-
-	assert.Equal(t, "argoproj.io/v1alpha1", wf["apiVersion"])
-	assert.Equal(t, "Workflow", wf["kind"])
-
-	metadata, ok := wf["metadata"].(map[string]interface{})
-	require.True(t, ok, "metadata is not a map")
-	assert.Equal(t, "ralph-merge-", metadata["generateName"])
-
-	labels, ok := metadata["labels"].(map[string]interface{})
-	require.True(t, ok, "metadata labels is not a map")
-	assert.Equal(t, "ralph", labels["app.kubernetes.io/managed-by"], "workflow metadata should contain app.kubernetes.io/managed-by=ralph")
-
-	spec, ok := wf["spec"].(map[string]interface{})
-	require.True(t, ok, "spec is not a map")
-	assert.Equal(t, "ralph-merger", spec["entrypoint"])
-
-	ttlStrategy, ok := spec["ttlStrategy"].(map[string]interface{})
-	require.True(t, ok, "ttlStrategy is not a map")
-	assert.Equal(t, 86400, ttlStrategy["secondsAfterCompletion"])
-
-	podGC, ok := spec["podGC"].(map[string]interface{})
-	require.True(t, ok, "podGC is not a map")
-	assert.Equal(t, "OnWorkflowCompletion", podGC["strategy"])
-
-	templates, ok := spec["templates"].([]interface{})
-	require.True(t, ok && len(templates) > 0, "templates is empty or not a list")
-	tmpl, ok := templates[0].(map[string]interface{})
-	require.True(t, ok, "template is not a map")
-	assert.Equal(t, "ralph-merger", tmpl["name"])
-
-	container, ok := tmpl["container"].(map[string]interface{})
-	require.True(t, ok, "container is not a map")
-	assert.Equal(t, "my-registry/ralph:v2.0.0", container["image"])
-
-	env, ok := container["env"].([]interface{})
-	require.True(t, ok, "env is not a list")
-
-	hasPRBranch, hasGitRepoURL, hasGitBranch := false, false, false
-	for _, e := range env {
-		em, ok := e.(map[string]interface{})
-		if !ok {
-			continue
-		}
-		switch em["name"] {
-		case "PR_BRANCH":
-			hasPRBranch = true
-			assert.Equal(t, prBranch, em["value"])
-		case "GIT_REPO_URL":
-			hasGitRepoURL = true
-		case "GIT_BRANCH":
-			hasGitBranch = true
-			assert.Equal(t, cloneBranch, em["value"])
-		}
-	}
-	assert.True(t, hasPRBranch, "PR_BRANCH environment variable not found")
-	assert.True(t, hasGitRepoURL, "GIT_REPO_URL environment variable not found")
-	assert.True(t, hasGitBranch, "GIT_BRANCH environment variable not found")
-
-	volumes, ok := tmpl["volumes"].([]interface{})
-	require.True(t, ok, "volumes is not a list")
-	hasGithubVol := false
-	for _, v := range volumes {
-		vm, ok := v.(map[string]interface{})
-		if !ok {
-			continue
-		}
-		if vm["name"] == "github-credentials" {
-			hasGithubVol = true
-		}
-	}
-	assert.True(t, hasGithubVol, "github-credentials volume not found")
-
-	synchronization, ok := spec["synchronization"].(map[string]interface{})
-	require.True(t, ok, "synchronization is not a map")
-	mutexes, ok := synchronization["mutexes"].([]interface{})
-	require.True(t, ok, "mutexes is not a slice")
-	require.NotEmpty(t, mutexes, "mutexes slice is empty")
-	mutex, ok := mutexes[0].(map[string]interface{})
-	require.True(t, ok, "mutex is not a map")
-	mutexName, ok := mutex["name"].(string)
-	require.True(t, ok, "mutex name is not a string")
-	expectedMutexName := "ralph-test-project"
-	assert.Equal(t, expectedMutexName, mutexName)
-}
-
-func TestGenerateMergeWorkflow_DefaultImage(t *testing.T) {
-	mw, err := GenerateMergeWorkflowWithGitInfo("git@github.com:test/repo.git", "main", "ralph/test", "", WorkflowOptions{})
-	require.NoError(t, err, "GenerateMergeWorkflowWithGitInfo failed")
-	workflowYAML, err := mw.Render()
-	require.NoError(t, err, "Render failed")
-
-	var wf map[string]interface{}
-	require.NoError(t, yaml.Unmarshal([]byte(workflowYAML), &wf), "Failed to parse generated workflow YAML")
-
-	spec := wf["spec"].(map[string]interface{})
 	templates := spec["templates"].([]interface{})
 	tmpl := templates[0].(map[string]interface{})
 	container := tmpl["container"].(map[string]interface{})
@@ -515,82 +398,6 @@ func TestWorkflowRender_WithLabels(t *testing.T) {
 	assert.Equal(t, "ralph", podLabels["app.kubernetes.io/name"])
 }
 
-func TestMergeWorkflowRender_EnvVarCoverage(t *testing.T) {
-	repoOwner := "test-owner"
-	repoName := "test-repo"
-	prNumber := "456"
-
-	mw := &MergeWorkflow{
-		Repo:        githubpkg.MakeRepo(repoOwner, repoName),
-		CloneBranch: "main",
-		PRBranch:    "feature-branch",
-		PRNumber:    prNumber,
-	}
-
-	workflowYAML, err := mw.Render()
-	require.NoError(t, err, "Render failed")
-
-	var wfData map[string]interface{}
-	require.NoError(t, yaml.Unmarshal([]byte(workflowYAML), &wfData), "Failed to parse workflow YAML")
-
-	spec := wfData["spec"].(map[string]interface{})
-	templates := spec["templates"].([]interface{})
-	tmpl := templates[0].(map[string]interface{})
-	container := tmpl["container"].(map[string]interface{})
-
-	env := container["env"].([]interface{})
-
-	hasRepoOwner, hasRepoName, hasPRNumber := false, false, false
-	for _, e := range env {
-		em := e.(map[string]interface{})
-		switch em["name"] {
-		case "GITHUB_REPO_OWNER":
-			hasRepoOwner = true
-			assert.Equal(t, repoOwner, em["value"])
-		case "GITHUB_REPO_NAME":
-			hasRepoName = true
-			assert.Equal(t, repoName, em["value"])
-		case "PR_NUMBER":
-			hasPRNumber = true
-			assert.Equal(t, prNumber, em["value"])
-		}
-	}
-	assert.True(t, hasRepoOwner, "GITHUB_REPO_OWNER environment variable not found")
-	assert.True(t, hasRepoName, "GITHUB_REPO_NAME environment variable not found")
-	assert.True(t, hasPRNumber, "PR_NUMBER environment variable not found")
-}
-
-func TestMergeWorkflowRender_GitHubCredentialsVolumeMount(t *testing.T) {
-	mw := &MergeWorkflow{
-		Repo:        githubpkg.MakeRepo("test-owner", "test-repo"),
-		CloneBranch: "main",
-		PRBranch:    "feature-branch",
-	}
-
-	workflowYAML, err := mw.Render()
-	require.NoError(t, err, "Render failed")
-
-	var wfData map[string]interface{}
-	require.NoError(t, yaml.Unmarshal([]byte(workflowYAML), &wfData), "Failed to parse workflow YAML")
-
-	spec := wfData["spec"].(map[string]interface{})
-	templates := spec["templates"].([]interface{})
-	tmpl := templates[0].(map[string]interface{})
-	container := tmpl["container"].(map[string]interface{})
-
-	volumeMounts := container["volumeMounts"].([]interface{})
-
-	hasGithubMount := false
-	for _, m := range volumeMounts {
-		mount := m.(map[string]interface{})
-		if mount["name"] == "github-credentials" && mount["mountPath"] == "/secrets/github" {
-			hasGithubMount = true
-			assert.Equal(t, true, mount["readOnly"], "github-credentials volume mount should have readOnly set to true")
-		}
-	}
-	assert.True(t, hasGithubMount, "github-credentials volume mount at /secrets/github not found")
-}
-
 func TestBaseBranchPassedToWorkflow(t *testing.T) {
 	cfg := &config.RalphConfig{
 		DefaultBranch: "config-base-branch",
@@ -695,7 +502,7 @@ func TestItemsAndCleanupPassedToWorkflow(t *testing.T) {
 	assert.True(t, hasCleanupArg, "--cleanup should be passed as a container arg")
 }
 
-func TestItemsAndCleanupOmittedWhenUnset(t *testing.T) {
+func TestItemsDefaultsToExplicitDotAndCleanupOmittedWhenUnset(t *testing.T) {
 	cfg := &config.RalphConfig{
 		DefaultBranch: "main",
 		Workflow: config.WorkflowConfig{
@@ -719,7 +526,8 @@ func TestItemsAndCleanupOmittedWhenUnset(t *testing.T) {
 	container := tmpl["container"].(map[string]interface{})
 
 	args := container["args"].([]interface{})
-	assert.NotContains(t, args, "--items", "args should not contain --items when unset")
+	assert.Contains(t, args, "--items", "args should always carry the item query as --items")
+	assert.Contains(t, args, ".", "args should carry the default item query . when the resolved query is unset")
 	assert.NotContains(t, args, "--cleanup", "args should not contain --cleanup when unset")
 }
 

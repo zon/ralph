@@ -10,43 +10,6 @@ import (
 	"github.com/zon/ralph/internal/project"
 )
 
-func TestProjectAdapterAllRequirementsPassing(t *testing.T) {
-	client := &project.Client{}
-
-	t.Run("returns true when all requirements pass", func(t *testing.T) {
-		proj := &project.Project{
-			Slug: "test",
-			Requirements: []project.Requirement{
-				{Slug: "req-1", Items: []string{"a"}, Passing: true},
-				{Slug: "req-2", Items: []string{"b"}, Passing: true},
-			},
-		}
-		assert.True(t, client.AllRequirementsPassing(proj))
-	})
-
-	t.Run("returns false when some requirements fail", func(t *testing.T) {
-		proj := &project.Project{
-			Slug: "test",
-			Requirements: []project.Requirement{
-				{Slug: "req-1", Items: []string{"a"}, Passing: true},
-				{Slug: "req-2", Items: []string{"b"}, Passing: false},
-			},
-		}
-		assert.False(t, client.AllRequirementsPassing(proj))
-	})
-
-	t.Run("returns false when all requirements fail", func(t *testing.T) {
-		proj := &project.Project{
-			Slug: "test",
-			Requirements: []project.Requirement{
-				{Slug: "req-1", Items: []string{"a"}, Passing: false},
-				{Slug: "req-2", Items: []string{"b"}, Passing: false},
-			},
-		}
-		assert.False(t, client.AllRequirementsPassing(proj))
-	})
-}
-
 func withItems(n int) *project.Project {
 	return &project.Project{Items: project.NewItems(make([]any, n))}
 }

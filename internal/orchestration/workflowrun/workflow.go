@@ -34,7 +34,7 @@ type ConfigClient interface {
 }
 
 type ProjectClient interface {
-	Load(path string) (*ralphproj.Project, error)
+	Resolve(path, query string) (*ralphproj.Project, error)
 }
 
 type DebugClient interface {
@@ -111,10 +111,12 @@ func (w *WorkflowRunCmd) Run(flags WorkflowRunFlags) error {
 	if err != nil {
 		return err
 	}
-	proj, err := w.project.Load(flags.ProjectPath)
+	query := cfg.ResolveItems(flags.Items)
+	proj, err := w.project.Resolve(flags.ProjectPath, query)
 	if err != nil {
 		return err
 	}
+	cfg.Items = query
 	w.applyFlags(proj, cfg, flags)
 	if err := w.syncBaseBranch(flags.BaseBranch, flags.ProjectBranch); err != nil {
 		return err
@@ -154,9 +156,6 @@ func (w *WorkflowRunCmd) applyFlags(proj *ralphproj.Project, cfg *ralphcfg.Ralph
 	if flags.ExtraIterations != 0 {
 		v := flags.ExtraIterations
 		cfg.ExtraIterations = &v
-	}
-	if flags.Items != "" {
-		cfg.Items = flags.Items
 	}
 	cfg.Cleanup = flags.Cleanup
 	if flags.NoServices {

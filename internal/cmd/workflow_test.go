@@ -118,12 +118,12 @@ func (m *mockWorConfigClient) LoadOptional() (*config.RalphConfig, error) {
 }
 
 type mockWorProjectClient struct {
-	loadFn func(path string) (*project.Project, error)
+	resolveFn func(path, query string) (*project.Project, error)
 }
 
-func (m *mockWorProjectClient) Load(path string) (*project.Project, error) {
-	if m.loadFn != nil {
-		return m.loadFn(path)
+func (m *mockWorProjectClient) Resolve(path, query string) (*project.Project, error) {
+	if m.resolveFn != nil {
+		return m.resolveFn(path, query)
 	}
 	return &project.Project{}, nil
 }
@@ -255,7 +255,7 @@ func TestWorkflowRunCmd_FlagPropagation(t *testing.T) {
 					},
 				},
 				&mockWorProjectClient{
-					loadFn: func(path string) (*project.Project, error) {
+					resolveFn: func(path, query string) (*project.Project, error) {
 						return &project.Project{}, nil
 					},
 				},
@@ -324,7 +324,7 @@ func TestWorkflowRunCmd_ProjectLoadError(t *testing.T) {
 		&mockWorRunnerClient{},
 		&mockWorConfigClient{},
 		&mockWorProjectClient{
-			loadFn: func(path string) (*project.Project, error) {
+			resolveFn: func(path, query string) (*project.Project, error) {
 				return nil, assert.AnError
 			},
 		},
@@ -364,7 +364,7 @@ func TestWorkflowRunCmd_RunnerCalledWithLoadedProjectAndConfig(t *testing.T) {
 			},
 		},
 		&mockWorProjectClient{
-			loadFn: func(path string) (*project.Project, error) {
+			resolveFn: func(path, query string) (*project.Project, error) {
 				return expectedProj, nil
 			},
 		},

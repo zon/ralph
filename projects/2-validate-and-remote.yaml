@@ -38,7 +38,7 @@ requirements:
             - WHEN `ralph validate <file>` is run
             - 'THEN the command exits with a non-zero status and the error names the query - `item query yielded no items: <query>`'
             - AND no agent is invoked
-      passing: false
+      passing: true
     - slug: validate-items-flag
       description: Validate resolves the item query exactly as a run does
       items:
@@ -63,7 +63,7 @@ requirements:
             - AND no `--items` flag is passed
             - WHEN the item query is resolved
             - THEN the query `.` is evaluated, so a file whose top level is an array validates with no configuration
-      passing: false
+      passing: true
     - slug: validate-fix-loop
       description: The bounded AI fix loop repairs parse failures only
       items:
@@ -100,7 +100,7 @@ requirements:
             - THEN the command exits with a non-zero status
             - AND the error message reports that the 10-attempt limit was reached
             - AND the error message includes the final parse error
-      passing: false
+      passing: true
     - slug: validate-canonical-rewrite
       description: The canonical rewrite preserves the whole document, normalizing only formatting
       items:
@@ -141,7 +141,7 @@ requirements:
             // Writing a document parsed from a .json path produces a sibling .yaml
             // file; removing the original is the caller's decision.
             func WriteCanonical(path string, doc *Document) error
-      passing: false
+      passing: true
     - slug: validate-output
       description: A successful validation reports the file path and item count
       items:
@@ -158,7 +158,7 @@ requirements:
             - GIVEN a project file owned by another tool, whose formatting must not be rewritten
             - WHEN the user runs ralph against it without validating first
             - THEN the run resolves items normally and the file is not reformatted
-      passing: false
+      passing: true
     - slug: workflow-run-item-flags
       description: The container-side workflow run command accepts the item query and cleanup setting as flags
       items:
@@ -183,7 +183,7 @@ requirements:
             - GIVEN the project file at the provided path is missing, does not parse, or yields no items under the supplied item query
             - WHEN validation runs after the workspace is ready
             - THEN an error is returned before base-branch synchronization begins
-      passing: false
+      passing: true
     - slug: remote-workflow-arguments
       description: The generated workflow manifest carries the locally resolved item query and cleanup setting
       items:
@@ -216,7 +216,7 @@ requirements:
             - GIVEN cleanup resolved to disabled
             - WHEN the workflow YAML is generated
             - THEN the container args contain no `--cleanup` flag
-      passing: false
+      passing: true
     - slug: remove-requirement-model
       description: The typed requirement model and every helper built on it are deleted
       items:
@@ -226,10 +226,10 @@ requirements:
         - Counting passing and failing requirements is no longer supported anywhere
         - No Go source file, embedded instruction template, or test refers to a requirement's passing field
         - Tests covering the deleted helpers are removed rather than adapted, and the remaining suite passes
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump
       items:
         - Apply a semver minor bump to the app version, because validate gains a flag and stops enforcing a schema while remaining compatible with valid files
         - Apply the matching app version to the ralph-webhook chart and a patch bump to the chart version
-      passing: false
+      passing: true

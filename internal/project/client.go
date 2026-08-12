@@ -34,10 +34,6 @@ func NewClient(log CommitLog, out WarnOutput) *Client {
 	return &Client{log: log, out: out}
 }
 
-func (c *Client) Load(path string) (*Project, error) {
-	return LoadProject(path)
-}
-
 // Resolve parses the project file at path and evaluates the item query against
 // it, returning a Project carrying the file path, slug, title, parsed document,
 // and resolved item array. It reads and parses nothing itself, delegating file
@@ -203,20 +199,6 @@ func (c *Client) ValidateFile(path string) error {
 	return nil
 }
 
-func (c *Client) Reload(proj *Project) *Project {
-	if proj.Path != "" {
-		if latest, err := LoadProject(proj.Path); err == nil {
-			return latest
-		}
-	}
-	return proj
-}
-
-func (c *Client) AllRequirementsPassing(proj *Project) bool {
-	allComplete, _, _ := CheckCompletion(proj)
-	return allComplete
-}
-
 func (c *Client) ExtraIterations(proj *Project, cfg *config.RalphConfig) int {
 	if cfg.ExtraIterations != nil {
 		return *cfg.ExtraIterations
@@ -224,15 +206,6 @@ func (c *Client) ExtraIterations(proj *Project, cfg *config.RalphConfig) int {
 	count := len(proj.Items)
 	extra := int(math.Ceil(float64(count) * 0.2))
 	return extra
-}
-
-func (c *Client) ExtraIterationsError(proj *Project) error {
-	_, _, failingCount := CheckCompletion(proj)
-	return fmt.Errorf("%w: %d requirements still failing", ErrExtraIterationsReached, failingCount)
-}
-
-func (c *Client) HasChanges(proj *Project) bool {
-	return git.HasFileChanges(proj.Path)
 }
 
 func (c *Client) HasSpec(proj *Project) bool {
@@ -261,16 +234,4 @@ func (c *Client) RemoveOrchestration(proj *Project) error {
 		return err
 	}
 	return git.StageFile(orchestrationPath)
-}
-
-func (c *Client) NormalizeAndStage(proj *Project) {
-	data, err := os.ReadFile(proj.Path)
-	if err != nil {
-		return
-	}
-	normalized := []byte(strings.TrimRight(string(data), "\n") + "\n")
-	if len(normalized) != len(data) {
-		os.WriteFile(proj.Path, normalized, 0644)
-	}
-	git.StageFile(proj.Path)
 }

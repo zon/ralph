@@ -20,10 +20,9 @@ func TestWorkflowCommentAIClient_RenderCommentPrompt(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name            string
-		ctx             orchestrationComment.CommentContext
-		wantContains    []string
-		wantNotContains []string
+		name         string
+		ctx          orchestrationComment.CommentContext
+		wantContains []string
 	}{
 		{
 			name: "includes all comment context fields",
@@ -66,9 +65,6 @@ func TestWorkflowCommentAIClient_RenderCommentPrompt(t *testing.T) {
 			require.NoError(t, err)
 			for _, want := range tt.wantContains {
 				assert.Contains(t, prompt, want)
-			}
-			for _, notWant := range tt.wantNotContains {
-				assert.NotContains(t, prompt, notWant)
 			}
 		})
 	}

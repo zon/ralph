@@ -151,8 +151,6 @@ func TestAgentClientRunPickerGivesOnlyIncompleteItemsEachLabelledWithIndexAndKey
 	assert.Contains(t, pickPrompt, "slug: importer")
 	assert.NotContains(t, pickPrompt, "item 0 (", "the complete item is not offered to the picker")
 	assert.NotContains(t, pickPrompt, "item 2 (", "the complete item is not offered to the picker")
-	assert.NotContains(t, pickPrompt, "passing", "the instructions never mention a passing field")
-	assert.NotContains(t, pickPrompt, "requirement", "the instructions describe items, not requirements")
 	assert.Contains(t, pickPrompt, "not constrained to array order")
 	assert.Contains(t, pickPrompt, "Do not make any code changes")
 	assert.Contains(t, pickPrompt, "picked-item-index.txt", "the agent reports the index it selected")
@@ -181,8 +179,6 @@ func TestAgentClientRunDeveloperUsesItemBasedInstructionsByDefault(t *testing.T)
 
 	assert.Contains(t, developPrompt, "one item of this project")
 	assert.Contains(t, developPrompt, "Ralph item 0 (csv-serializer) completed")
-	assert.NotContains(t, developPrompt, "implementing a specific requirement")
-	assert.NotContains(t, developPrompt, "{{.SelectedRequirement}}")
 }
 
 func TestAgentClientRunDeveloperHonorsCustomInstructions(t *testing.T) {
@@ -391,7 +387,6 @@ requirements:
     description: Test requirement
     items:
       - Item 1
-    passing: false
 `
 
 	mockOC := &opencode.MockOC{
@@ -425,7 +420,6 @@ requirements:
     description: Test requirement
     items:
       - Item 1
-    passing: false
 `
 
 	mockOC := &opencode.MockOC{
@@ -499,7 +493,6 @@ requirements:
     description: Old requirement
     items:
       - Item 1
-    passing: false
 `
 	newYAML := `slug: new-project
 title: New Project
@@ -508,7 +501,6 @@ requirements:
     description: New requirement
     items:
       - Item 1
-    passing: false
 `
 
 	require.NoError(t, os.WriteFile("projects/old.yaml", []byte(oldYAML), 0644))
@@ -570,7 +562,6 @@ requirements:
     description: Test requirement
     items:
       - Item 1
-    passing: false
 `
 
 	mockOC := &opencode.MockOC{

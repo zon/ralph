@@ -9,7 +9,8 @@ import (
 // IsAcceptable reports whether the payload should be dispatched for the given
 // event type, applying user ignore/allowlist rules from cfg.
 // Returns false for unrecognised event types, non-PR issue comments, empty
-// review bodies, and non-approved/non-commented review states.
+// review bodies, approved reviews, and non-commented review states. Approving
+// a pull request is the reviewer's own action, so an approval requests no work.
 func IsAcceptable(p *github.WebhookPayload, eventType string, cfg *Config) bool {
 	repo := cfg.RepoByFullName(p.RepoOwner(), p.RepoName())
 
@@ -32,7 +33,7 @@ func IsAcceptable(p *github.WebhookPayload, eventType string, cfg *Config) bool 
 		}
 		switch strings.ToLower(p.Review.State) {
 		case "approved":
-			return true
+			return false
 		case "commented":
 			return p.Review.Body != ""
 		}

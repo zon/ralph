@@ -3,15 +3,14 @@ package cmd
 // Cmd defines the command-line arguments and execution context
 type Cmd struct {
 	// Subcommands
-	Run            RunCmd            `cmd:"" default:"withargs" help:"Execute ralph with a project file (default command)"`
-	Command        CommandCmd        `cmd:"" help:"Run a command in the ralph environment"`
-	Merge          MergeCmd          `cmd:"" help:"Submit an Argo workflow to merge a completed PR"`
-	Set            SetCmd            `cmd:"" help:"Configure ralph settings"`
-	Get            GetCmd            `cmd:"" help:"Report which items are complete and which are left"`
-	Workflow       WorkflowGroup     `cmd:"" help:"Run ralph workflow subcommands in a container"`
-	Validate       ValidateCmd       `cmd:"" help:"Validate a project YAML file"`
-	List           ListCmd           `cmd:"" help:"List Argo workflows"`
-	Stop           StopCmd           `cmd:"" help:"Stop an Argo workflow"`
+	Run      RunCmd        `cmd:"" default:"withargs" help:"Execute ralph with a project file (default command)"`
+	Command  CommandCmd    `cmd:"" help:"Run a command in the ralph environment"`
+	Set      SetCmd        `cmd:"" help:"Configure ralph settings"`
+	Get      GetCmd        `cmd:"" help:"Report which items are complete and which are left"`
+	Workflow WorkflowGroup `cmd:"" help:"Run ralph workflow subcommands in a container"`
+	Validate ValidateCmd   `cmd:"" help:"Validate a project YAML file"`
+	List     ListCmd       `cmd:"" help:"List Argo workflows"`
+	Stop     StopCmd       `cmd:"" help:"Stop an Argo workflow"`
 
 	version          string       `kong:"-"`
 	date             string       `kong:"-"`
@@ -22,7 +21,6 @@ type Cmd struct {
 type WorkflowGroup struct {
 	Run     WorkflowRunCmd     `cmd:"" help:"Run a project via the workflow engine"`
 	Comment WorkflowCommentCmd `cmd:"" help:"Run a comment-triggered workflow iteration"`
-	Merge   WorkflowMergeCmd   `cmd:"" help:"Merge a completed PR via workflow"`
 	Command WorkflowCommandCmd `cmd:"" help:"Run an arbitrary command via workflow"`
 	Token   WorkflowTokenCmd   `cmd:"" help:"Generate a GitHub App installation token and configure git HTTPS authentication"`
 }
@@ -40,11 +38,7 @@ func (c *Cmd) SetCleanupRegistrar(cleanupRegistrar func(func())) {
 	c.cleanupRegistrar = cleanupRegistrar
 	c.Run.cleanupRegistrar = cleanupRegistrar
 	c.Command.cleanupRegistrar = cleanupRegistrar
-	c.Merge.cleanupRegistrar = cleanupRegistrar
 	c.Workflow.Run.cleanupRegistrar = cleanupRegistrar
 	c.Workflow.Comment.cleanupRegistrar = cleanupRegistrar
-	c.Workflow.Merge.cleanupRegistrar = cleanupRegistrar
 	c.Workflow.Command.cleanupRegistrar = cleanupRegistrar
 }
-
-
