@@ -101,6 +101,29 @@ func TestResolveInputFile(t *testing.T) {
 		assert.Equal(t, "my-project", f.Slug())
 	})
 
+	t.Run("loads project from .json file", func(t *testing.T) {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "project.json")
+		require.NoError(t, os.WriteFile(path, []byte(`{"slug": "my-project", "requirements": ["one", "two"]}`), 0644))
+
+		f, err := ResolveInputFile(path)
+		require.NoError(t, err)
+		assert.True(t, f.IsProject())
+		assert.Equal(t, "my-project", f.Slug())
+	})
+
+	t.Run("accepts a schema-less document that parses and yields items", func(t *testing.T) {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "tasks.json")
+		require.NoError(t, os.WriteFile(path, []byte(`["one", "two"]`), 0644))
+
+		f, err := ResolveInputFile(path)
+		require.NoError(t, err)
+		assert.True(t, f.IsProject())
+		assert.Equal(t, "tasks", f.Slug())
+		assert.Len(t, f.Project().Items, 2)
+	})
+
 	t.Run("detects orchestration.md file", func(t *testing.T) {
 		dir := t.TempDir()
 		path := filepath.Join(dir, "orchestration.md")
@@ -137,7 +160,9 @@ func TestResolveInputFile(t *testing.T) {
 
 		_, err := ResolveInputFile(path)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "unrecognized input file type")
+		absPath, absErr := filepath.Abs(path)
+		require.NoError(t, absErr)
+		assert.Equal(t, "unrecognized input file type: "+absPath, err.Error())
 	})
 }
 
@@ -153,14 +178,15 @@ func TestResolveInputFile_ProjectSlugFromYAML(t *testing.T) {
 	})
 }
 
-func TestResolveInputFile_InvalidProject(t *testing.T) {
-	t.Run("returns error for invalid project YAML", func(t *testing.T) {
+func TestResolveInputFile_UnparseableProject(t *testing.T) {
+	t.Run("returns error when the document cannot be parsed", func(t *testing.T) {
 		dir := t.TempDir()
-		path := filepath.Join(dir, "invalid.yaml")
-		require.NoError(t, os.WriteFile(path, []byte("slug: \nrequirements: []\n"), 0644))
+		path := filepath.Join(dir, "broken.yaml")
+		require.NoError(t, os.WriteFile(path, []byte("slug: [unclosed\n"), 0644))
 
 		_, err := ResolveInputFile(path)
 		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to parse project")
 	})
 }
 

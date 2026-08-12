@@ -10,12 +10,12 @@ import (
 )
 
 func TestRunIterationStartsAndStopsServicesEachIteration(t *testing.T) {
-	svcMock := &mockServicesClient{}
+	svcMock := &mockServices{}
 	runner := withMocks(
-		withProject(newProjectThatReportsPassingAfterIterations(2)),
+		withProject(project.ThatReportsIncompleteUntil(2)),
 		withServices(svcMock),
 	)
-	err := runner.RunLocal(project.ForProjectInput(project.WithFailingRequirements()), config.Any())
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.Any())
 	require.NoError(t, err)
 	require.Equal(t, 2, svcMock.startCount)
 	require.Equal(t, 2, svcMock.stopCount)
@@ -23,24 +23,44 @@ func TestRunIterationStartsAndStopsServicesEachIteration(t *testing.T) {
 }
 
 func TestRunIterationServiceStartupFailureTriggersFix(t *testing.T) {
-	aiMock := &mockAIClient{}
+	aiMock := &mockAI{}
 	runner := withMocks(
-		withServices(newServicesThatFailToStart()),
-		withProject(newProjectThatReportsPassingAfterIterations(1)),
+		withServices(servicesThatFailToStart()),
+		withProject(project.ThatReportsIncompleteUntil(1)),
 		withAI(aiMock),
 	)
-	err := runner.RunLocal(project.ForProjectInput(project.WithFailingRequirements()), config.Any())
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.Any())
 	require.NoError(t, err)
-	require.True(t, aiMock.fixServiceCalled)
-	require.Len(t, aiMock.pickCalls, 1)
+	require.True(t, aiServiceFixCalled(runner))
+	require.Equal(t, 1, aiPickCalls(runner))
 }
 
 func TestRunIterationServiceFixFailureReturnsError(t *testing.T) {
 	runner := withMocks(
-		withServices(newServicesThatFailToStart()),
-		withAI(newAIThatFailsServiceFix()),
+		withServices(servicesThatFailToStart()),
+		withAI(aiThatFailsServiceFix()),
 	)
-	err := runner.RunLocal(project.ForProjectInput(project.WithFailingRequirements()), config.Any())
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.Any())
 	require.Error(t, err)
-	require.Empty(t, aiPickCalls(runner))
+	require.Zero(t, aiPickCalls(runner))
+}
+
+func TestRunIterationPassesSelectedItemToDeveloper(t *testing.T) {
+	runner := withMocks(
+		withProject(project.ThatReportsIncompleteUntil(1)),
+		withAI(aiThatPicksIndex(2)),
+	)
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(4)), config.Any())
+	require.NoError(t, err)
+	require.Equal(t, 2, aiLastDevelopedIndex(runner))
+}
+
+func TestRunIterationLeavesProjectFileUntouched(t *testing.T) {
+	projMock := project.ThatReportsIncompleteUntil(2)
+	runner := withMocks(
+		withProject(projMock),
+	)
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.Any())
+	require.NoError(t, err)
+	require.False(t, projMock.Written())
 }

@@ -47,6 +47,15 @@ var writeProjectInstructions string
 //go:embed resolve-merge-conflicts-instructions.md
 var resolveMergeConflictsInstructions string
 
+//go:embed item-pick-instructions.md
+var itemPickInstructions string
+
+//go:embed item-develop-instructions.md
+var itemDevelopInstructions string
+
+//go:embed development-item-instructions.md
+var itemDefaultInstructions string
+
 type FixServicePromptData struct {
 	Notes       []string
 	ServiceName string
@@ -73,11 +82,10 @@ type PickPromptData struct {
 }
 
 type PRSummaryPromptData struct {
-	ProjectDesc   string
-	ProjectStatus string
-	BaseBranch    string
-	CommitLog     string
-	AbsPath       string
+	ProjectDesc string
+	BaseBranch  string
+	CommitLog   string
+	AbsPath     string
 }
 
 type ChangelogPromptData struct {
@@ -123,6 +131,32 @@ type WriteOrchestrationPromptData struct {
 type ResolveMergeConflictsPromptData struct {
 	BaseBranch    string
 	ProjectBranch string
+}
+
+// ItemPickPromptData carries the context for the picker agent: the full project
+// file, the incomplete items each labelled with its index and key, and the
+// recent commit log. The agent selects one item and reports its index.
+type ItemPickPromptData struct {
+	Notes          []string
+	CommitLog      string
+	ProjectContent string
+	Items          string
+}
+
+// ItemDevelopPromptData carries the context for the development agent: the full
+// project file, the selected item verbatim with its index and key, and the
+// completion trailer the agent must use when the item is finished.
+type ItemDevelopPromptData struct {
+	Notes           []string
+	CommitLog       string
+	ProjectContent  string
+	ItemIndex       int
+	ItemKey         string
+	ItemValue       string
+	Trailer         string
+	ProjectFilePath string
+	Services        []config.Service
+	Instructions    string
 }
 
 func executeTemplate(templateContent string, data interface{}) (string, error) {
@@ -190,18 +224,17 @@ func BuildPickPrompt(data PickPromptData) (string, error) {
 	return executeTemplate(config.DefaultPickInstructions(), tmplData)
 }
 
-func BuildPRSummaryPrompt(projectDesc, projectStatus, baseBranch, commitLog, outputFile string) (string, error) {
+func BuildPRSummaryPrompt(projectDesc, baseBranch, commitLog, outputFile string) (string, error) {
 	absPath, err := filepath.Abs(outputFile)
 	if err != nil {
 		return "", fmt.Errorf("failed to get absolute path: %w", err)
 	}
 
 	data := PRSummaryPromptData{
-		ProjectDesc:   projectDesc,
-		ProjectStatus: projectStatus,
-		BaseBranch:    baseBranch,
-		CommitLog:     commitLog,
-		AbsPath:       absPath,
+		ProjectDesc: projectDesc,
+		BaseBranch:  baseBranch,
+		CommitLog:   commitLog,
+		AbsPath:     absPath,
 	}
 	return executeTemplate(prSummaryInstructions, data)
 }
@@ -289,6 +322,65 @@ func BuildResolveMergeConflictsPrompt(baseBranch, projectBranch string) (string,
 	return executeTemplate(resolveMergeConflictsInstructions, data)
 }
 
+// DefaultItemDevelopmentInstructions returns the embedded item-based default
+// workflow steps for the development agent. The requirement-shaped config
+// default describes a single requirement, so the item flow substitutes these
+// item-shaped steps unless a custom instructions file overrides them.
+func DefaultItemDevelopmentInstructions() string {
+	return itemDefaultInstructions
+}
+
+// BuildItemPickPrompt renders the picker prompt from the project file content,
+// the incomplete items rendered with their indices and keys, and the commit log.
+func BuildItemPickPrompt(data ItemPickPromptData) (string, error) {
+	tmplData := struct {
+		Notes          []string
+		CommitLog      string
+		ProjectContent string
+		Items          string
+	}{
+		Notes:          data.Notes,
+		CommitLog:      data.CommitLog,
+		ProjectContent: strings.TrimRight(data.ProjectContent, "\n"),
+		Items:          strings.TrimRight(data.Items, "\n"),
+	}
+	return executeTemplate(itemPickInstructions, tmplData)
+}
+
+// BuildItemDevelopPrompt renders the development prompt carrying the full
+// project file, the selected item verbatim with its index and key, and the
+// completion trailer for the item. When no Instructions are supplied, the
+// item-based default workflow steps are used.
+func BuildItemDevelopPrompt(data ItemDevelopPromptData) (string, error) {
+	if data.Instructions == "" {
+		data.Instructions = DefaultItemDevelopmentInstructions()
+	}
+	tmplData := struct {
+		Notes           []string
+		CommitLog       string
+		ProjectContent  string
+		ItemIndex       int
+		ItemKey         string
+		ItemValue       string
+		Trailer         string
+		ProjectFilePath string
+		Services        []config.Service
+		Instructions    string
+	}{
+		Notes:           data.Notes,
+		CommitLog:       data.CommitLog,
+		ProjectContent:  strings.TrimRight(data.ProjectContent, "\n"),
+		ItemIndex:       data.ItemIndex,
+		ItemKey:         data.ItemKey,
+		ItemValue:       strings.TrimRight(data.ItemValue, "\n"),
+		Trailer:         data.Trailer,
+		ProjectFilePath: data.ProjectFilePath,
+		Services:        data.Services,
+		Instructions:    data.Instructions,
+	}
+	return executeTemplate(itemDevelopInstructions, tmplData)
+}
+
 func BuildProjectFixPrompt(projectFile string, loadErr error) (string, error) {
 	absPath, err := filepath.Abs(projectFile)
 	if err != nil {
@@ -373,7 +465,7 @@ func runOpenCodeAndReadResult(ctx *execcontext.Context, oc opencode.OCClient, mo
 	return summary, nil
 }
 
-func GeneratePRSummary(ctx *execcontext.Context, oc opencode.OCClient, projectDesc, projectStatus, baseBranch, commitLog string) (summary string, err error) {
+func GeneratePRSummary(ctx *execcontext.Context, oc opencode.OCClient, projectDesc, baseBranch, commitLog string) (summary string, err error) {
 	f, err := createTempFile("pr-summary.md")
 	if err != nil {
 		return "", fmt.Errorf("failed to create temporary PR summary file: %w", err)
@@ -382,7 +474,7 @@ func GeneratePRSummary(ctx *execcontext.Context, oc opencode.OCClient, projectDe
 	tmpFile := f.Name()
 	defer os.Remove(tmpFile)
 
-	prPrompt, err := BuildPRSummaryPrompt(projectDesc, projectStatus, baseBranch, commitLog, tmpFile)
+	prPrompt, err := BuildPRSummaryPrompt(projectDesc, baseBranch, commitLog, tmpFile)
 	if err != nil {
 		return "", fmt.Errorf("failed to build PR summary prompt: %w", err)
 	}

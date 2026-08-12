@@ -79,6 +79,8 @@ type WorkflowRunFlags struct {
 	ProjectPath     string
 	InstructionsMd  string
 	ExtraIterations int
+	Items           string
+	Cleanup         bool
 	Model           string
 	NoServices      bool
 	Debug           string
@@ -153,6 +155,10 @@ func (w *WorkflowRunCmd) applyFlags(proj *ralphproj.Project, cfg *ralphcfg.Ralph
 		v := flags.ExtraIterations
 		cfg.ExtraIterations = &v
 	}
+	if flags.Items != "" {
+		cfg.Items = flags.Items
+	}
+	cfg.Cleanup = flags.Cleanup
 	if flags.NoServices {
 		cfg.Services = nil
 	}

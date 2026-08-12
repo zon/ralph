@@ -58,7 +58,7 @@ When the input is a **spec document**, the command generates an orchestration do
 - GIVEN the input is an `orchestration.md` or `spec.md` file
 - WHEN the project file is generated
 - THEN it is written in a shape that the run's resolved item query selects an item array from
-- AND generation fails if the resolved query yields no items from the generated file
+- AND generation fails if the resolved query yields no non-empty items from the generated file
 
 #### Scenario: Project generation failure from orchestration aborts run
 
@@ -88,6 +88,8 @@ When the input is a **spec document**, the command generates an orchestration do
 
 The command SHALL resolve the item array by evaluating the item query supplied by the caller (see [run/spec.md](../run/spec.md)) against the parsed project file, and SHALL do so exactly once, before the first iteration. Every iteration SHALL use that same resolved array, so an item's index means the same thing from the first iteration to the last.
 
+Resolution discards empty outputs, so the resolved array is either empty or made entirely of non-empty items; see [write-project/spec.md](../write-project/spec.md). An empty resolved array SHALL abort the run before the first iteration, because a run with nothing to do MUST NOT reach the pull request step as though the project had completed.
+
 #### Scenario: Query resolved before the first iteration
 
 - GIVEN a project file and a resolved item query
@@ -101,6 +103,21 @@ The command SHALL resolve the item array by evaluating the item query supplied b
 - WHEN the item array is resolved
 - THEN an error is returned: `item query yielded no items: <query>`
 - AND no iteration runs
+
+#### Scenario: Query yields only empty items
+
+- GIVEN a project file whose item list holds nothing but nulls, blank strings, and empty mappings
+- WHEN the item array is resolved
+- THEN the resolved array is empty
+- AND an error is returned: `item query yielded no items: <query>`
+- AND no iteration runs and no pull request is opened
+
+#### Scenario: Empty items dropped before indexing
+
+- GIVEN a project file whose item list holds two work items with a null entry between them
+- WHEN the item array is resolved
+- THEN the loop iterates two items, indexed 0 and 1
+- AND the completion trailers record those indices
 
 #### Scenario: Query resolution does not depend on the file's shape
 

@@ -48,6 +48,10 @@ type Workflow struct {
 	Namespace string
 	// BaseBranch is the base branch for PR creation, already resolved by the caller.
 	BaseBranch string
+	// Items is the item query selecting the item array, already resolved by the caller.
+	Items string
+	// Cleanup reports whether the project file should be deleted once every item is complete.
+	Cleanup bool
 	// NoServices controls whether the ralph command inside the container runs with --no-services.
 	NoServices bool
 	// Model overrides the AI model from config.
@@ -172,6 +176,12 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 		}
 		if w.DebugBranch != "" {
 			args = append(args, "--debug", w.DebugBranch)
+		}
+		if w.Items != "" {
+			args = append(args, "--items", w.Items)
+		}
+		if w.Cleanup {
+			args = append(args, "--cleanup")
 		}
 		if w.NoServices {
 			args = append(args, "--no-services")

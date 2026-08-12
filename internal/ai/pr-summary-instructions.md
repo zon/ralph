@@ -1,7 +1,6 @@
 Write a concise PR description (3-5 paragraphs max) for the changes made in this branch.
 
 Project: {{.ProjectDesc}}
-Status: {{.ProjectStatus}}
 
 ## Commit Log
 {{.CommitLog}}

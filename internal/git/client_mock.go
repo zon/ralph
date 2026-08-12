@@ -13,6 +13,8 @@ type MockClient struct {
 	CommitOrchestrationRemovalCalled       bool
 	CommitGeneratedArtifactsFunc           func(slug string) error
 	CommitGeneratedArtifactsCalled         bool
+	CommitProjectRemovalFunc               func(path string) error
+	CommitProjectRemovalCalled             bool
 }
 
 func (m *MockClient) SwitchToBranch(slug string) error {
@@ -82,6 +84,14 @@ func (m *MockClient) CommitGeneratedArtifacts(slug string) error {
 	m.CommitGeneratedArtifactsCalled = true
 	if m.CommitGeneratedArtifactsFunc != nil {
 		return m.CommitGeneratedArtifactsFunc(slug)
+	}
+	return nil
+}
+
+func (m *MockClient) CommitProjectRemoval(path string) error {
+	m.CommitProjectRemovalCalled = true
+	if m.CommitProjectRemovalFunc != nil {
+		return m.CommitProjectRemovalFunc(path)
 	}
 	return nil
 }

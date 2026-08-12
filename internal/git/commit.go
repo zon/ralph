@@ -69,6 +69,31 @@ func Commit(message string) error {
 	return nil
 }
 
+// CommitProjectRemoval commits the staged project file deletion on its own with
+// a message naming the project file, and no completion trailer.
+func CommitProjectRemoval(path string) error {
+	return Commit(fmt.Sprintf("chore: clean up completed project %s", path))
+}
+
+// CommitMessages returns the full commit messages of the commits on the
+// current branch that are not on the base branch, in git log order (newest
+// first). Each message is returned verbatim, including any trailing newline git
+// stores with it.
+func CommitMessages(base string) ([]string, error) {
+	logRange := fmt.Sprintf("%s..HEAD", base)
+	output, err := runGit("log", "-z", logRange, "--format=%B")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get commit messages: %w", err)
+	}
+	var messages []string
+	for _, m := range strings.Split(output, "\x00") {
+		if m != "" {
+			messages = append(messages, m)
+		}
+	}
+	return messages, nil
+}
+
 // GetCommitLog retrieves commit log formatted exactly like the reference implementation.
 // Returns a single string with commits formatted as "%h: %B" (hash: full message).
 // Gets all commits since base..HEAD. If limit > 0, only the most recent limit commits are returned.

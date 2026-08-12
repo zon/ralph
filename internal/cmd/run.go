@@ -21,6 +21,8 @@ type RunCmd struct {
 	Follow           bool   `help:"Follow workflow logs after submission (only applicable without --local)" short:"f" default:"false"`
 	Debug            string `help:"Checkout the given ralph repo branch in the workflow container and invoke ralph via 'go run' instead of the built binary" name:"debug" optional:""`
 	Base             string `help:"Override the base branch for PR creation (default: detects from current branch)" name:"base" optional:"" short:"B"`
+	Items            string `help:"jq query selecting the item array from the project file (default: from config or .)" name:"items" optional:""`
+	Cleanup          *bool  `help:"Delete the project file in its own commit once every item is complete" name:"cleanup"`
 	Model            string `help:"Override the AI model from config" name:"model" optional:""`
 	Variant          string `help:"Override the model variant from config" name:"variant" optional:""`
 	Context          string `help:"Kubernetes context to use" name:"context" optional:""`
@@ -47,6 +49,8 @@ func (r *RunCmd) Run() error {
 		Follow:          r.Follow,
 		Debug:           r.Debug,
 		Base:            r.Base,
+		Items:           r.Items,
+		Cleanup:         r.Cleanup,
 		Model:           r.Model,
 		Context:         r.Context,
 	}

@@ -52,20 +52,18 @@ func (m *mockProjectRepo) ResolveInputFile(path string) (*project.InputFile, err
 }
 
 type mockLocalRunnerClient struct {
-	RunLocalFunc    func(*project.InputFile, *config.RalphConfig, string) error
-	LastInput       *project.InputFile
-	LastConfig      *config.RalphConfig
-	LastBaseBranch  string
-	RunLocalCalled  bool
+	RunLocalFunc   func(*project.InputFile, *config.RalphConfig) error
+	LastInput      *project.InputFile
+	LastConfig     *config.RalphConfig
+	RunLocalCalled bool
 }
 
-func (m *mockLocalRunnerClient) RunLocal(input *project.InputFile, cfg *config.RalphConfig, baseBranch string) error {
+func (m *mockLocalRunnerClient) RunLocal(input *project.InputFile, cfg *config.RalphConfig) error {
 	m.RunLocalCalled = true
 	m.LastInput = input
 	m.LastConfig = cfg
-	m.LastBaseBranch = baseBranch
 	if m.RunLocalFunc != nil {
-		return m.RunLocalFunc(input, cfg, baseBranch)
+		return m.RunLocalFunc(input, cfg)
 	}
 	return nil
 }
@@ -162,6 +160,29 @@ func flagsWithDebugAndLocal() RunFlags {
 
 func flagsWithWorkingDir(dir string) RunFlags {
 	return RunFlags{InputFile: "/fake/project.yaml", WorkingDir: dir}
+}
+
+func flagsWithItems(query string) RunFlags {
+	return RunFlags{InputFile: "/fake/project.yaml", Items: query}
+}
+
+func flagsWithLocalAndItems(query string) RunFlags {
+	return RunFlags{InputFile: "/fake/project.yaml", Local: true, Items: query}
+}
+
+func flagsWithCleanup() RunFlags {
+	v := true
+	return RunFlags{InputFile: "/fake/project.yaml", Cleanup: &v}
+}
+
+func flagsWithLocalAndCleanup() RunFlags {
+	v := true
+	return RunFlags{InputFile: "/fake/project.yaml", Local: true, Cleanup: &v}
+}
+
+func flagsWithCleanupDisabled() RunFlags {
+	v := false
+	return RunFlags{InputFile: "/fake/project.yaml", Cleanup: &v}
 }
 
 // ---------------------------------------------------------------------------
@@ -293,6 +314,20 @@ func configWithExtraIterations(n int) config.Loader {
 	cfg := config.Any()
 	v := n
 	cfg.ExtraIterations = &v
+	return &config.MockLoader{
+		LoadFn: func() (*config.RalphConfig, error) { return cfg, nil },
+	}
+}
+
+func configWithItems(query string) config.Loader {
+	cfg := config.WithItems(query)
+	return &config.MockLoader{
+		LoadFn: func() (*config.RalphConfig, error) { return cfg, nil },
+	}
+}
+
+func configWithCleanup() config.Loader {
+	cfg := config.WithCleanup()
 	return &config.MockLoader{
 		LoadFn: func() (*config.RalphConfig, error) { return cfg, nil },
 	}
@@ -597,4 +632,163 @@ func TestPrepareSetupWithSpecInputResolvesBaseBranch(t *testing.T) {
 	setup, err := cmd.prepareSetup(flagsAny(), input)
 	require.NoError(t, err)
 	require.Equal(t, "main", setup.BaseBranch)
+}
+
+// ---------------------------------------------------------------------------
+// Scenario tests: --items overrides the configured query
+// ---------------------------------------------------------------------------
+
+func TestRunItemsFlagOverridesConfiguredQuery(t *testing.T) {
+	// GIVEN `items: .requirements` is set in `.ralph/config.yaml`
+	cmd := cmdWithMocks(
+		cmdWithConfig(configWithItems(".requirements")),
+	)
+	// AND the user passes `--items '.spec.tasks'`
+	// WHEN the item query is resolved
+	setup, err := cmd.prepareSetup(flagsWithItems(".spec.tasks"), project.ForProjectInput(project.Any()))
+	require.NoError(t, err)
+	// THEN the resolved query is `.spec.tasks`
+	require.Equal(t, ".spec.tasks", setup.Config.Items)
+}
+
+// ---------------------------------------------------------------------------
+// Scenario tests: resolved query passed to the execution mode
+// ---------------------------------------------------------------------------
+
+func TestRunResolvedQueryPassedToLocalRunner(t *testing.T) {
+	// GIVEN the item query has been resolved locally
+	local := &mockLocalRunnerClient{}
+	cmd := cmdWithMocks(
+		cmdWithConfig(configWithItems(".requirements")),
+		cmdWithLocal(local),
+	)
+	// WHEN execution is dispatched to run-local
+	err := cmd.Run(flagsWithLocalAndItems(".spec.tasks"))
+	require.NoError(t, err)
+	// THEN the resolved query is passed down as a parameter
+	require.True(t, local.RunLocalCalled)
+	require.Equal(t, ".spec.tasks", local.LastConfig.Items)
+}
+
+func TestRunResolvedQueryPassedToRemoteRunner(t *testing.T) {
+	// GIVEN the item query has been resolved locally
+	remote := &mockRemoteRunnerClient{}
+	cmd := cmdWithMocks(
+		cmdWithConfig(configWithItems(".requirements")),
+		cmdWithRemote(remote),
+	)
+	// WHEN execution is dispatched to run-remote
+	err := cmd.Run(flagsWithItems(".spec.tasks"))
+	require.NoError(t, err)
+	// THEN the resolved query is passed down as a parameter
+	require.True(t, remote.RunCalled)
+	require.Equal(t, ".spec.tasks", remote.LastFlags.Items)
+}
+
+func TestRunLocalRunnerDoesNotReResolveQueryFromConfig(t *testing.T) {
+	local := &mockLocalRunnerClient{}
+	cmd := cmdWithMocks(
+		cmdWithConfig(configWithItems(".requirements")),
+		cmdWithLocal(local),
+	)
+	err := cmd.Run(flagsWithLocalAndItems(".spec.tasks"))
+	require.NoError(t, err)
+	require.Equal(t, ".spec.tasks", local.LastConfig.Items)
+	require.NotEqual(t, ".requirements", local.LastConfig.Items)
+}
+
+// ---------------------------------------------------------------------------
+// Scenario tests: --cleanup enables cleanup for one run
+// ---------------------------------------------------------------------------
+
+func TestRunCleanupFlagEnablesCleanup(t *testing.T) {
+	// GIVEN `cleanup` is not set in `.ralph/config.yaml`
+	cmd := cmdWithMocks()
+	// AND the user passes `--cleanup`
+	// WHEN cleanup is resolved
+	setup, err := cmd.prepareSetup(flagsWithCleanup(), project.ForProjectInput(project.Any()))
+	require.NoError(t, err)
+	// THEN cleanup is enabled for this run
+	require.True(t, setup.Config.Cleanup)
+}
+
+func TestRunCleanupFlagEnablesCleanupForLocalRun(t *testing.T) {
+	local := &mockLocalRunnerClient{}
+	cmd := cmdWithMocks(cmdWithLocal(local))
+	err := cmd.Run(flagsWithLocalAndCleanup())
+	require.NoError(t, err)
+	require.True(t, local.LastConfig.Cleanup)
+}
+
+// ---------------------------------------------------------------------------
+// Scenario tests: cleanup disabled by default
+// ---------------------------------------------------------------------------
+
+func TestRunCleanupDisabledByDefault(t *testing.T) {
+	// GIVEN `cleanup` is not set in `.ralph/config.yaml`
+	cmd := cmdWithMocks()
+	// AND no `--cleanup` flag is passed
+	// WHEN cleanup is resolved
+	setup, err := cmd.prepareSetup(flagsAny(), project.ForProjectInput(project.Any()))
+	require.NoError(t, err)
+	// THEN cleanup is disabled and the project file survives the run
+	require.False(t, setup.Config.Cleanup)
+}
+
+func TestRunCleanupDisabledByDefaultForLocalRun(t *testing.T) {
+	local := &mockLocalRunnerClient{}
+	cmd := cmdWithMocks(cmdWithLocal(local))
+	err := cmd.Run(flagsWithLocal())
+	require.NoError(t, err)
+	require.False(t, local.LastConfig.Cleanup)
+}
+
+// ---------------------------------------------------------------------------
+// Item tests: resolution order
+// ---------------------------------------------------------------------------
+
+func TestRunItemsResolvesFlagThenConfigThenDefault(t *testing.T) {
+	t.Run("flag overrides configured query", func(t *testing.T) {
+		cmd := cmdWithMocks(cmdWithConfig(configWithItems(".requirements")))
+		setup, err := cmd.prepareSetup(flagsWithItems(".spec.tasks"), project.ForProjectInput(project.Any()))
+		require.NoError(t, err)
+		require.Equal(t, ".spec.tasks", setup.Config.Items)
+	})
+
+	t.Run("configured query used when no flag", func(t *testing.T) {
+		cmd := cmdWithMocks(cmdWithConfig(configWithItems(".requirements")))
+		setup, err := cmd.prepareSetup(flagsAny(), project.ForProjectInput(project.Any()))
+		require.NoError(t, err)
+		require.Equal(t, ".requirements", setup.Config.Items)
+	})
+
+	t.Run("default query used when flag and config unset", func(t *testing.T) {
+		cmd := cmdWithMocks()
+		setup, err := cmd.prepareSetup(flagsAny(), project.ForProjectInput(project.Any()))
+		require.NoError(t, err)
+		require.Equal(t, ".", setup.Config.Items)
+	})
+}
+
+func TestRunCleanupResolvesFlagThenConfigThenDisabled(t *testing.T) {
+	t.Run("flag overrides configured cleanup", func(t *testing.T) {
+		cmd := cmdWithMocks(cmdWithConfig(configWithCleanup()))
+		setup, err := cmd.prepareSetup(flagsWithCleanupDisabled(), project.ForProjectInput(project.Any()))
+		require.NoError(t, err)
+		require.False(t, setup.Config.Cleanup)
+	})
+
+	t.Run("configured cleanup used when no flag", func(t *testing.T) {
+		cmd := cmdWithMocks(cmdWithConfig(configWithCleanup()))
+		setup, err := cmd.prepareSetup(flagsAny(), project.ForProjectInput(project.Any()))
+		require.NoError(t, err)
+		require.True(t, setup.Config.Cleanup)
+	})
+
+	t.Run("cleanup disabled when flag and config unset", func(t *testing.T) {
+		cmd := cmdWithMocks()
+		setup, err := cmd.prepareSetup(flagsAny(), project.ForProjectInput(project.Any()))
+		require.NoError(t, err)
+		require.False(t, setup.Config.Cleanup)
+	})
 }

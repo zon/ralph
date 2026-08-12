@@ -314,7 +314,6 @@ func TestBuildPRSummaryPrompt(t *testing.T) {
 	tests := []struct {
 		name        string
 		projectDesc string
-		status      string
 		baseBranch  string
 		commitLog   string
 		outputPath  string
@@ -323,23 +322,22 @@ func TestBuildPRSummaryPrompt(t *testing.T) {
 		{
 			name:        "happy path",
 			projectDesc: "Test Project",
-			status:      "✅ Complete",
 			baseBranch:  "main",
 			commitLog:   "abc123: Initial commit\ndef456: Add feature\n",
 			outputPath:  "/tmp/pr-summary.txt",
 			check: func(t *testing.T, prompt string) {
 				assert.NotEmpty(t, prompt, "PR summary prompt should not be empty")
 				assert.Contains(t, prompt, "Test Project")
-				assert.Contains(t, prompt, "✅ Complete")
 				assert.Contains(t, prompt, "main..HEAD")
 				assert.Contains(t, prompt, "abc123: Initial commit")
 				assert.Contains(t, prompt, "/tmp/pr-summary.txt")
+				assert.NotContains(t, prompt, "passing")
+				assert.NotContains(t, prompt, "failing")
 			},
 		},
 		{
 			name:        "absolute path",
 			projectDesc: "My Project",
-			status:      "status",
 			baseBranch:  "develop",
 			commitLog:   "commit log",
 			outputPath:  "relative/path.txt",
@@ -352,7 +350,7 @@ func TestBuildPRSummaryPrompt(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			prompt, err := BuildPRSummaryPrompt(tt.projectDesc, tt.status, tt.baseBranch, tt.commitLog, tt.outputPath)
+			prompt, err := BuildPRSummaryPrompt(tt.projectDesc, tt.baseBranch, tt.commitLog, tt.outputPath)
 			require.NoError(t, err, "BuildPRSummaryPrompt failed")
 			if tt.check != nil {
 				tt.check(t, prompt)
@@ -395,6 +393,16 @@ func TestBuildChangelogPrompt(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestBuildChangelogPromptDoesNotInstructCompletionTrailer(t *testing.T) {
+	prompt, err := BuildChangelogPrompt("/tmp/report.md")
+	require.NoError(t, err)
+	assert.NotEmpty(t, prompt, "changelog prompt should not be empty")
+	assert.NotContains(t, prompt, "Ralph item")
+	assert.NotContains(t, prompt, "completed")
+	assert.NotContains(t, prompt, "completion trailer")
+	assert.NotContains(t, prompt, "trailer")
 }
 
 func TestBuildReviewPRBodyPrompt(t *testing.T) {
@@ -675,6 +683,161 @@ func TestBuildWriteOrchestrationPrompt(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestBuildItemDevelopPrompt(t *testing.T) {
+	keyed := ItemDevelopPromptData{
+		Notes:           nil,
+		CommitLog:       "abc123 feat: add exporter\n",
+		ProjectContent:  "slug: csv-export\ntitle: CSV Export\ntasks:\n  - slug: exporter\n    description: Exporter\n",
+		ItemIndex:       2,
+		ItemKey:         "export-endpoint",
+		ItemValue:       "slug: export-endpoint\ndescription: Build the export endpoint",
+		Trailer:         "Ralph item 2 (export-endpoint) completed",
+		ProjectFilePath: "projects/csv-export.yaml",
+		Services:        nil,
+	}
+
+	t.Run("presents the selected item verbatim with its index and key", func(t *testing.T) {
+		prompt, err := BuildItemDevelopPrompt(keyed)
+		require.NoError(t, err)
+		assert.Contains(t, prompt, "**Selected Item (index 2, key export-endpoint):**")
+		assert.Contains(t, prompt, "slug: export-endpoint")
+		assert.Contains(t, prompt, "description: Build the export endpoint")
+	})
+
+	t.Run("presents a keyless item with its index only", func(t *testing.T) {
+		data := keyed
+		data.ItemKey = ""
+		data.Trailer = "Ralph item 2 completed"
+		prompt, err := BuildItemDevelopPrompt(data)
+		require.NoError(t, err)
+		assert.Contains(t, prompt, "**Selected Item (index 2):**")
+		assert.NotContains(t, prompt, "key export-endpoint")
+	})
+
+	t.Run("describes conventional item fields as optional", func(t *testing.T) {
+		prompt, err := BuildItemDevelopPrompt(keyed)
+		require.NoError(t, err)
+		assert.Contains(t, prompt, "every field is optional")
+		assert.Contains(t, prompt, "plain string")
+		assert.Contains(t, prompt, "any other shape")
+	})
+
+	t.Run("tells the agent the last line must be the completion trailer", func(t *testing.T) {
+		prompt, err := BuildItemDevelopPrompt(keyed)
+		require.NoError(t, err)
+		assert.Contains(t, prompt, "last line of `report.md` MUST be the completion trailer")
+		assert.Contains(t, prompt, "Ralph item 2 (export-endpoint) completed")
+	})
+
+	t.Run("shows both the keyed and index-only trailer forms", func(t *testing.T) {
+		prompt, err := BuildItemDevelopPrompt(keyed)
+		require.NoError(t, err)
+		assert.Contains(t, prompt, "`Ralph item <index> (<key>) completed`")
+		assert.Contains(t, prompt, "`Ralph item <index> completed`")
+	})
+
+	t.Run("instructs the agent not to modify the project file", func(t *testing.T) {
+		prompt, err := BuildItemDevelopPrompt(keyed)
+		require.NoError(t, err)
+		assert.Contains(t, prompt, "Do not modify the project file")
+		assert.Contains(t, prompt, "read-only for the whole run")
+	})
+
+	t.Run("never asks the agent to edit a completion field or run ralph pass", func(t *testing.T) {
+		prompt, err := BuildItemDevelopPrompt(keyed)
+		require.NoError(t, err)
+		assert.Contains(t, prompt, "Do not edit any completion field")
+		assert.NotContains(t, prompt, "ralph pass")
+		assert.NotContains(t, prompt, "Mark passing")
+	})
+
+	t.Run("still asks for report.md and blocked.md without a trailer", func(t *testing.T) {
+		prompt, err := BuildItemDevelopPrompt(keyed)
+		require.NoError(t, err)
+		assert.Contains(t, prompt, "Write a concise report to `report.md`")
+		assert.Contains(t, prompt, "`blocked.md`")
+		assert.Contains(t, prompt, "no completion trailer")
+	})
+
+	t.Run("uses the item-based default instructions when none are supplied", func(t *testing.T) {
+		data := keyed
+		data.Instructions = ""
+		prompt, err := BuildItemDevelopPrompt(data)
+		require.NoError(t, err)
+		assert.Contains(t, prompt, "read the selected item carefully")
+		assert.NotContains(t, prompt, "selected requirement")
+		assert.NotContains(t, prompt, "{{.SelectedRequirement}}")
+	})
+}
+
+func TestBuildItemPickPrompt(t *testing.T) {
+	data := ItemPickPromptData{
+		Notes:          nil,
+		CommitLog:      "abc123 feat: add exporter\n",
+		ProjectContent: "slug: csv-export\ntitle: CSV Export\ntasks:\n  - slug: exporter\n    description: Exporter\n  - slug: importer\n    description: Importer\n",
+		Items:          "item 1 (exporter):\nslug: exporter\ndescription: Exporter\nitem 3 (importer):\nslug: importer\ndescription: Importer",
+	}
+
+	t.Run("describes items rather than requirements and never mentions a passing field", func(t *testing.T) {
+		prompt, err := BuildItemPickPrompt(data)
+		require.NoError(t, err)
+		assert.Contains(t, prompt, "Item Picker Agent")
+		assert.Contains(t, prompt, "incomplete item")
+		assert.NotContains(t, prompt, "requirement")
+		assert.NotContains(t, prompt, "passing")
+	})
+
+	t.Run("carries the full project file, the labelled incomplete items, and the commit log", func(t *testing.T) {
+		prompt, err := BuildItemPickPrompt(data)
+		require.NoError(t, err)
+		assert.Contains(t, prompt, "slug: csv-export")
+		assert.Contains(t, prompt, "title: CSV Export")
+		assert.Contains(t, prompt, "item 1 (exporter):")
+		assert.Contains(t, prompt, "item 3 (importer):")
+		assert.Contains(t, prompt, "abc123 feat: add exporter")
+	})
+
+	t.Run("selects by dependencies, logical ordering, and impact, not array order", func(t *testing.T) {
+		prompt, err := BuildItemPickPrompt(data)
+		require.NoError(t, err)
+		assert.Contains(t, prompt, "dependencies between items")
+		assert.Contains(t, prompt, "logical ordering")
+		assert.Contains(t, prompt, "impact on the overall project")
+		assert.Contains(t, prompt, "not constrained to array order")
+	})
+
+	t.Run("reports the index rather than writing a requirement file to disk", func(t *testing.T) {
+		prompt, err := BuildItemPickPrompt(data)
+		require.NoError(t, err)
+		assert.Contains(t, prompt, "0-based index")
+		assert.Contains(t, prompt, "picked-item-index.txt")
+		assert.NotContains(t, prompt, "requirement")
+	})
+
+	t.Run("tells the agent to make no code changes", func(t *testing.T) {
+		prompt, err := BuildItemPickPrompt(data)
+		require.NoError(t, err)
+		assert.Contains(t, prompt, "Do not make any code changes")
+	})
+
+	t.Run("renders the project file, items, and commit log sections", func(t *testing.T) {
+		prompt, err := BuildItemPickPrompt(data)
+		require.NoError(t, err)
+		assert.Contains(t, prompt, "**Project File:**")
+		assert.Contains(t, prompt, "**Incomplete Items:**")
+		assert.Contains(t, prompt, "**Recent Git History:**")
+		assert.NotContains(t, prompt, "**System Notes:**")
+	})
+}
+
+func TestDefaultItemDevelopmentInstructions(t *testing.T) {
+	instructions := DefaultItemDevelopmentInstructions()
+	assert.Contains(t, instructions, "selected item")
+	assert.NotContains(t, instructions, "ralph pass")
+	assert.NotContains(t, instructions, "Mark passing")
+	assert.NotContains(t, instructions, "completion trailer")
 }
 
 func TestExecuteTemplate(t *testing.T) {

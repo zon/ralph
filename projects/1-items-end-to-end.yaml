@@ -52,7 +52,7 @@ requirements:
             // Returns an error naming the query when it cannot be evaluated, and a
             // distinct error when it yields no output.
             func ResolveItems(doc *Document, query string) ([]any, error)
-      passing: false
+      passing: true
     - slug: item-index-and-key
       description: An item is identified by its position in the resolved array and labelled by an optional key
       items:
@@ -88,7 +88,7 @@ requirements:
             - GIVEN two items that share the same `slug`
             - WHEN the project is used
             - THEN both items are tracked independently by index and no error is reported
-      passing: false
+      passing: true
     - slug: project-metadata-and-input-files
       description: Slug and title fall back to the file name, and a project input file may be YAML or JSON
       items:
@@ -128,7 +128,7 @@ requirements:
             - GIVEN a project file at `projects/csv-export.yaml` whose top level is an array
             - WHEN the run starts
             - THEN the slug is `csv-export`, derived from the file name, and the PR title falls back to that slug
-      passing: false
+      passing: true
     - slug: completion-trailers
       description: Completion is read from the commit trailers on the project branch, bounded by the base branch
       items:
@@ -203,7 +203,7 @@ requirements:
           module: internal/git
           body: |
             func CommitMessages(base string) ([]string, error)
-      passing: false
+      passing: true
     - slug: complete-and-incomplete-queries
       description: The project client answers which items are complete, which are left, how many iterations are allowed, and what to say when the limit is hit
       items:
@@ -254,7 +254,7 @@ requirements:
           module: internal/projectfile
           body: |
             func Remove(path string) error
-      passing: false
+      passing: true
     - slug: project-test-factories
       description: The shared project test factories describe item arrays and completion instead of passing requirements
       items:
@@ -266,7 +266,7 @@ requirements:
         - Factories record and expose the last item query used, the last base branch used, the resolve call count, the incomplete call count, whether the project file was written, and whether it was removed
         - Factories exist for wrapping a project, an orchestration document, and a spec document as an input file
         - The factories for passing and failing requirements are deleted rather than adapted
-      passing: false
+      passing: true
     - slug: config-items-and-cleanup
       description: The ralph config gains an item query and a cleanup setting
       items:
@@ -286,7 +286,7 @@ requirements:
             - AND no `--cleanup` flag is passed
             - WHEN cleanup is resolved
             - THEN cleanup is enabled
-      passing: false
+      passing: true
     - slug: get-command
       description: A read-only `ralph get` command reports which items are complete and which are left
       items:
@@ -351,7 +351,7 @@ requirements:
             - AND the user passes `--base develop`
             - WHEN the commit log is read
             - THEN only commits on the current branch that are not on `develop` are considered
-      passing: false
+      passing: true
     - slug: run-local-runner
       description: The local runner resolves the project once and drives setup, iteration, cleanup, and PR creation
       items:
@@ -492,7 +492,7 @@ requirements:
                 require.True(t, github.prCreated())
                 require.NotEmpty(t, notify.successes())
             }
-      passing: false
+      passing: true
     - slug: iteration-loop
       description: The loop reads completion from the commit log each iteration and stops when nothing is left
       items:
@@ -640,7 +640,7 @@ requirements:
                 require.ErrorIs(t, err, run.ErrBlocked)
                 require.Empty(t, ai.pickCalls())
             }
-      passing: false
+      passing: true
     - slug: item-selection-and-development
       description: Each iteration picks one incomplete item and develops it without touching the project file
       items:
@@ -765,7 +765,7 @@ requirements:
                 require.Len(t, ai.developCalls(), 1)
                 require.False(t, git.blockedFileWritten())
             }
-      passing: false
+      passing: true
     - slug: commit-trailer-preservation
       description: The iteration commit uses the agent's report verbatim so its completion trailer survives
       items:
@@ -829,7 +829,7 @@ requirements:
                 require.Len(t, ai.changelogCalls(), 1)
                 require.True(t, git.committedFromReport())
             }
-      passing: false
+      passing: true
     - slug: project-file-cleanup
       description: An optional cleanup commit deletes the completed project file on its own before the PR
       items:
@@ -918,7 +918,7 @@ requirements:
                 require.Error(t, err)
                 require.False(t, project.removed())
             }
-      passing: false
+      passing: true
     - slug: picker-agent-instructions
       description: The picker agent instructions select one incomplete item from an array and report its index
       items:
@@ -933,7 +933,7 @@ requirements:
             - GIVEN items 0 and 2 are recorded complete
             - WHEN the picker runs
             - THEN it is given only the remaining items, each with its index and key
-      passing: false
+      passing: true
     - slug: development-agent-instructions
       description: The development agent instructions describe one item, the completion trailer, and the read-only project file
       items:
@@ -949,7 +949,7 @@ requirements:
             - GIVEN the development agent is invoked for any item
             - WHEN the prompt is built
             - THEN it instructs the agent not to modify the project file
-      passing: false
+      passing: true
     - slug: run-items-and-cleanup-flags
       description: The run command resolves the item query and cleanup setting once, locally, and passes them down
       items:
@@ -983,7 +983,7 @@ requirements:
             - AND no `--cleanup` flag is passed
             - WHEN cleanup is resolved
             - THEN cleanup is disabled and the project file survives the run
-      passing: false
+      passing: true
     - slug: pull-request-title-and-summary
       description: The pull request takes its title from the project title and its summary from the commit log
       items:
@@ -1012,7 +1012,7 @@ requirements:
             - WHEN the loop ends
             - THEN PR creation is skipped
             - AND an error is returned
-      passing: false
+      passing: true
     - slug: remove-pass-command
       description: The `ralph pass` command is removed, since nothing writes completion into the project file
       items:
@@ -1021,7 +1021,7 @@ requirements:
         - The pass orchestration module and its tests are deleted
         - Updating a requirement's completion field in a parsed project is no longer supported
         - Nothing in the codebase or the embedded instruction templates references a pass command
-      passing: false
+      passing: true
     - slug: write-project-skill
       description: The project-writing skill teaches the item array format
       items:
@@ -1031,10 +1031,10 @@ requirements:
         - The skill no longer instructs the author to write a passing field
         - The skill states that top-level `slug` and `title` are optional and fall back to the file name
         - References to files in the ralph repository are written as markdown links so they can be rewritten to absolute raw URLs on install
-      passing: false
+      passing: true
     - slug: version-bump
       description: Version bump
       items:
         - Apply a semver major bump to the app version, because the project file format and the completion mechanism change and `ralph pass` is removed
         - Apply the matching app version to the ralph-webhook chart and a patch bump to the chart version
-      passing: false
+      passing: true

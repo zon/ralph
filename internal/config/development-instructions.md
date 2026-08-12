@@ -55,6 +55,8 @@ The `slug` field uniquely identifies the requirement inside the project file.
 
 **Deep module** — a module that handles one concern end-to-end through a simple interface, hiding internal complexity.
 
+**Completion** — the completion trailer is the only way an item is marked complete. An item is complete only when a commit message on the project branch ends with its trailer line, `Ralph item <index> completed` or `Ralph item <index> (<key>) completed`; no field in the project file records completion.
+
 ## Instructions
 
 Work through the steps in order. Each step skips any work already completed by an earlier step.
@@ -67,9 +69,8 @@ Work through the steps in order. Each step skips any work already completed by a
 6. **Scenarios** — write the code needed to make the scenario tests from step 5 pass.
 7. **Item tests** — for each `items` entry whose behavior is observable, write a test that asserts the behavior. Do not write supporting code in this step.
 8. **Items** — write the code needed to make the item tests from step 7 pass, plus any item not covered by a test from step 7.
-9. **Mark passing** — once every step above is done and all tests pass, run `ralph pass {{.ProjectFilePath}} <slug>` to mark the requirement as passing.
 
 ## Output
 
 - Write a concise report to `report.md` formatted as a git commit message: brief summary of what was implemented and what tests were added; no code snippets or implementation details
-- If completely blocked, write a summary to `blocked.md` explaining what blocked you and what you tried; do not update the requirement to passing
+- If completely blocked, write a summary to `blocked.md` explaining what blocked you and what you tried

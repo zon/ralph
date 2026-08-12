@@ -16,21 +16,23 @@ import (
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/opencode"
+	"github.com/zon/ralph/internal/projectfile"
 	"github.com/zon/ralph/internal/services"
 )
 
 // ErrExtraIterationsReached is returned when the iteration limit is exhausted but requirements are still failing
 var ErrExtraIterationsReached = errors.New("iteration limit reached")
 
-
 // Project represents a project YAML file with requirements
 type Project struct {
-	Slug          string        `yaml:"slug"`
-	Title         string        `yaml:"title,omitempty"`
-	Feature       string        `yaml:"feature,omitempty"`
-	Requirements  []Requirement `yaml:"requirements"`
-	Path          string        `yaml:"-"`
-	BaseBranch    string        `yaml:"-"`
+	Slug         string                `yaml:"slug"`
+	Title        string                `yaml:"title,omitempty"`
+	Feature      string                `yaml:"feature,omitempty"`
+	Requirements []Requirement         `yaml:"requirements"`
+	Items        []Item                `yaml:"-"`
+	Path         string                `yaml:"-"`
+	BaseBranch   string                `yaml:"-"`
+	Doc          *projectfile.Document `yaml:"-"`
 }
 
 // Requirement represents a single requirement in a project
@@ -171,18 +173,6 @@ func CheckCompletion(p *Project) (bool, int, int) {
 	allComplete := failingCount == 0
 
 	return allComplete, passingCount, failingCount
-}
-
-// UpdateRequirementStatus updates the passing status of the requirement
-// identified by its slug.
-func UpdateRequirementStatus(p *Project, reqSlug string, passing bool) error {
-	for i := range p.Requirements {
-		if p.Requirements[i].Slug == reqSlug {
-			p.Requirements[i].Passing = passing
-			return nil
-		}
-	}
-	return fmt.Errorf("requirement not found: %s", reqSlug)
 }
 
 type IterationSetup struct {

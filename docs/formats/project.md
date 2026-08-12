@@ -49,7 +49,20 @@ The query is evaluated and its outputs collected:
 
 - **One output, and it is an array** — the array's elements are the items. `.requirements`
 - **Any other case** — each output is an item. `.requirements[]` and `.backend[], .frontend[]` both work; a query returning a single scalar yields a single item.
-- **No output** — an error: `item query yielded no items: <query>`.
+
+Empty outputs are then dropped, so resolution produces either nothing at all or a list in which every item has content. An output is empty when it is null, `false`, `0`, a string that is empty or only whitespace, `{}`, or `[]`.
+
+```yaml
+requirements:
+  - Add a CSV serializer for report entries
+  -                                          # null — dropped
+  - ""                                       # dropped
+  - Add GET /reports/:id/export              # index 1, not 3
+```
+
+Dropping happens before indices are assigned, so an index is a position in the surviving list. Every command resolves the same way, so `ralph run`, `ralph get`, and `ralph validate` all agree on it.
+
+When nothing survives — no output at all, or only empty outputs — the command that needs the items reports `item query yielded no items: <query>` and does no work. For a run that means it stops before the first iteration rather than opening a pull request on an empty project.
 
 Because both `.requirements` and `.requirements[]` produce the same result, either form is fine. Prefer the array form.
 
@@ -261,8 +274,8 @@ Validation checks only what ralph depends on:
 
 1. The file parses as YAML or JSON.
 2. The item query evaluates without error.
-3. The query resolves to at least one item.
+3. The query resolves to at least one non-empty item.
 
-There is no schema check — anything that parses and yields items is a valid project. When a file fails to parse, `ralph validate` still runs its bounded AI fix loop to repair the syntax, then rewrites the file in canonical YAML.
+There is no schema check — anything that parses and yields non-empty items is a valid project. When a file fails to parse, `ralph validate` still runs its bounded AI fix loop to repair the syntax, then rewrites the file in canonical YAML.
 
 `--items` overrides the query for one invocation; otherwise validate uses `items` from `.ralph/config.yaml`, then `.` — the same resolution a run uses, so validate and run agree by default. Passing a query to one and not the other is the only way to get a file that validates but does not run.

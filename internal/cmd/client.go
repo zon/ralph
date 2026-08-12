@@ -15,8 +15,8 @@ func NewLocalRunnerClient(ctx *execcontext.Context) *LocalRunnerClient {
 	return &LocalRunnerClient{ctx: ctx}
 }
 
-func (c *LocalRunnerClient) RunLocal(input *project.InputFile, cfg *config.RalphConfig, baseBranch string) error {
-	runner := NewLocalRunner(c.ctx, baseBranch)
+func (c *LocalRunnerClient) RunLocal(input *project.InputFile, cfg *config.RalphConfig) error {
+	runner := NewLocalRunner(c.ctx, cfg.Base)
 	return runner.RunLocal(input, cfg)
 }
 

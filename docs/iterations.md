@@ -13,7 +13,7 @@ resolve items ──► pick an item ──► develop it ──► commit (+ co
 
 Each iteration:
 
-1. **Resolve** — parse the project file and evaluate the [item query](formats/project.md#item-query) to get the item array.
+1. **Resolve** — parse the project file and evaluate the [item query](formats/project.md#item-query) to get the item array. Empty outputs are dropped, and a run whose array comes back empty stops here.
 2. **Read completions** — parse `git log <base>..HEAD` for completion trailers and mark the matching items complete (`ralph get complete`).
 3. **Exit check** — if nothing is left, leave the loop (`ralph get incomplete` is empty).
 4. **Start services** — run configured `before` commands and services (see [Configuration](config.md)).

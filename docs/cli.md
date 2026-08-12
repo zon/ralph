@@ -104,7 +104,7 @@ ralph validate ./projects/my-feature.yaml
 ralph validate ./projects/my-feature.yaml --items '.requirements'
 ```
 
-Checks that the file parses as YAML or JSON, that the item query evaluates against it, and that it resolves to at least one item. On a parse failure it runs a bounded AI fix loop, then rewrites the file as canonical YAML. There is no schema check.
+Checks that the file parses as YAML or JSON, that the item query evaluates against it, and that it resolves to at least one non-empty item. On a parse failure it runs a bounded AI fix loop, then rewrites the file as canonical YAML. There is no schema check.
 
 ### Flags
 

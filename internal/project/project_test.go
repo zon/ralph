@@ -217,22 +217,6 @@ func TestCheckCompletion(t *testing.T) {
 	}
 }
 
-func TestUpdateRequirementStatus(t *testing.T) {
-	proj := &Project{
-		Slug: "test",
-		Requirements: []Requirement{
-			{Slug: "req-1", Passing: false},
-			{Slug: "req-2", Passing: false},
-		},
-	}
-
-	require.NoError(t, UpdateRequirementStatus(proj, "req-1", true))
-	assert.True(t, proj.Requirements[0].Passing, "expected req-1 to be marked passing")
-	assert.False(t, proj.Requirements[1].Passing, "req-2 should be untouched")
-
-	require.Error(t, UpdateRequirementStatus(proj, "req-999", true), "expected error for unknown slug")
-}
-
 func TestLoadProject(t *testing.T) {
 	tmpDir := t.TempDir()
 

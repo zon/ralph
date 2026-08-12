@@ -16,6 +16,8 @@ type WorkflowRunCmd struct {
 	BotName         string `help:"Git user name for commits" default:"ralph-zon[bot]"`
 	BotEmail        string `help:"Git user email for commits" default:"ralph-zon[bot]@users.noreply.github.com"`
 	Debug           string `help:"Ralph branch to use for debug mode" name:"debug"`
+	Items           string `help:"jq query selecting the item array from the project file" name:"items"`
+	Cleanup         bool   `help:"Delete the project file in its own commit once every item is complete" name:"cleanup"`
 	NoServices      bool   `help:"Skip service startup" default:"false"`
 	InstructionsMD  string `help:"Inline instructions content" name:"instructions-md"`
 	ExtraIterations int    `help:"Extra iterations beyond requirement count (default: 20% of requirements)" name:"extra-iterations"`
@@ -57,6 +59,8 @@ func (w *WorkflowRunCmd) Run() error {
 		ProjectPath:     w.ProjectPath,
 		InstructionsMd:  w.InstructionsMD,
 		ExtraIterations: w.ExtraIterations,
+		Items:           w.Items,
+		Cleanup:         w.Cleanup,
 		Model:           w.Model,
 		NoServices:      w.NoServices,
 		Debug:           w.Debug,

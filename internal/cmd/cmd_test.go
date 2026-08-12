@@ -367,9 +367,10 @@ func TestStopCmdHelpText(t *testing.T) {
 	assert.Contains(t, output, "Stop an Argo workflow")
 }
 
-func TestPassCmdHelpText(t *testing.T) {
-	output := captureHelpOutput(&Cmd{}, []string{"pass", "--help"})
-	assert.Contains(t, output, "Mark a project requirement as passing or failing")
+func TestTopLevelHelpListsNoPassCommand(t *testing.T) {
+	output := captureHelpOutput(&Cmd{}, []string{"--help"})
+	assert.NotContains(t, output, "pass")
+	assert.NotContains(t, output, "Mark a project requirement as passing or failing")
 }
 
 func TestSetSkillsCmdHelpText(t *testing.T) {
@@ -418,7 +419,6 @@ func TestTopLevelCommandsParsed(t *testing.T) {
 		{name: "validate", args: []string{"validate", "test.yaml"}},
 		{name: "list", args: []string{"list"}},
 		{name: "stop", args: []string{"stop", "test-workflow"}},
-		{name: "pass", args: []string{"pass", "test.yaml", "test-slug"}},
 		{name: "set skills", args: []string{"set", "skills"}},
 		{name: "set config", args: []string{"set", "config"}},
 	}

@@ -117,6 +117,33 @@ func TestGitClientCommitFromReport(t *testing.T) {
 	assert.True(t, os.IsNotExist(err), "report.md should be deleted after commit")
 }
 
+func TestGitClientCommitFromReportPreservesTrailer(t *testing.T) {
+	workDir := t.TempDir()
+	t.Chdir(workDir)
+	testutil.InitGitRepo(t, workDir)
+	testutil.MakeInitialCommit(t, workDir)
+	setupLocalRemote(t, workDir)
+
+	ctx := context.NewContext()
+	client := git.NewClient(ctx)
+
+	const trailer = "Ralph item 0 (csv-serializer) completed"
+	reportContent := "feat: add serializer\n\n" + trailer + "\n"
+	require.NoError(t, os.WriteFile("report.md", []byte(reportContent), 0644))
+	require.NoError(t, os.WriteFile("newfile.txt", []byte("change"), 0644))
+
+	err := client.CommitFromReport("test-slug")
+	require.NoError(t, err)
+
+	cmd := exec.Command("git", "log", "-1", "--format=%B")
+	cmd.Dir = workDir
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err)
+	msg := strings.TrimRight(string(out), "\n")
+	assert.Equal(t, strings.TrimRight(reportContent, "\n"), msg, "the report is committed verbatim, trailer included")
+	assert.Equal(t, trailer, msg[strings.LastIndex(msg, "\n")+1:], "the completion trailer survives as the last line, neither appended to nor removed")
+}
+
 func TestGitClientCommitFromReportFailsWhenNoReport(t *testing.T) {
 	workDir := t.TempDir()
 	t.Chdir(workDir)
