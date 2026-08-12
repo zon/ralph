@@ -47,7 +47,7 @@ func TestScenarioMappingWithoutSlugField(t *testing.T) {
 func TestScenarioProjectFileProvided(t *testing.T) {
 	path := writeNamedProjectFile(t, "csv-export.yaml", "- one\n- two\n")
 
-	input, err := ResolveInputFile(path)
+	input, err := inputClient().ResolveInputFile(path)
 	require.NoError(t, err)
 	assert.True(t, input.IsProject())
 	assert.Equal(t, "csv-export", input.Slug())
@@ -62,7 +62,7 @@ func TestScenarioUnrecognizedFileType(t *testing.T) {
 
 	absPath, err := filepath.Abs(path)
 	require.NoError(t, err)
-	_, err = ResolveInputFile(path)
+	_, err = inputClient().ResolveInputFile(path)
 	require.Error(t, err)
 	assert.Equal(t, "unrecognized input file type: "+absPath, err.Error())
 }

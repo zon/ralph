@@ -12,7 +12,7 @@ import (
 func newOrchestrationRunCmd(ctx *execcontext.Context) *orchestrationRun.RunCmd {
 	return orchestrationRun.NewRunCmd(
 		&workspace.Client{},
-		&project.Client{},
+		project.NewClient(git.NewClient(ctx), ctx.Output()),
 		git.NewClient(ctx),
 		&config.Client{},
 		NewLocalRunnerClient(ctx),

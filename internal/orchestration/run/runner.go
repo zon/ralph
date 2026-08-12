@@ -95,6 +95,10 @@ func (r *Runner) Env() EnvClient {
 	return r.env
 }
 
+func (r *Runner) Project() ProjectClient {
+	return r.project
+}
+
 func (r *Runner) RunLocal(input *project.InputFile, cfg *config.RalphConfig) error {
 	if r.env.InWorkflow() {
 		defer r.ai.PrintStats()
