@@ -395,6 +395,16 @@ func TestBuildChangelogPrompt(t *testing.T) {
 	}
 }
 
+func TestBuildChangelogPromptDoesNotInstructCompletionTrailer(t *testing.T) {
+	prompt, err := BuildChangelogPrompt("/tmp/report.md")
+	require.NoError(t, err)
+	assert.NotEmpty(t, prompt, "changelog prompt should not be empty")
+	assert.NotContains(t, prompt, "Ralph item")
+	assert.NotContains(t, prompt, "completed")
+	assert.NotContains(t, prompt, "completion trailer")
+	assert.NotContains(t, prompt, "trailer")
+}
+
 func TestBuildReviewPRBodyPrompt(t *testing.T) {
 	tests := []struct {
 		name         string
