@@ -2,6 +2,8 @@ workflow:
   namespace: ralph
 model: deepseek/deepseek-v4-flash
 variant: high
+items: .requirements
+cleanup: true
 review:
   items:
     - url: https://raw.githubusercontent.com/zon/code/main/review/architecture/deep-modules.md
