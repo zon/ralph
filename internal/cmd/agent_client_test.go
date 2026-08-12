@@ -393,7 +393,7 @@ requirements:
 		RunAgentFunc: func(_ context.Context, _, _, prompt string) error {
 			assert.Contains(t, prompt, "orchestration file")
 			assert.Contains(t, prompt, "orchestration.md")
-			assert.Contains(t, prompt, "ralph-write-project")
+			assert.Contains(t, prompt, "project format document installed in the repository")
 			return os.WriteFile("projects/generated.yaml", []byte(projectYAML), 0644)
 		},
 	}
@@ -427,7 +427,7 @@ requirements:
 			assert.Contains(t, prompt, "specification file")
 			assert.Contains(t, prompt, "spec.md")
 			assert.Contains(t, prompt, "orchestration.md")
-			assert.Contains(t, prompt, "ralph-write-project")
+			assert.Contains(t, prompt, "project format document installed in the repository")
 			return os.WriteFile("projects/generated.yaml", []byte(projectYAML), 0644)
 		},
 	}
@@ -574,7 +574,7 @@ requirements:
 	input := project.ForOrchestrationInput("specs/features/test/orchestration.md")
 	_, err := client.WriteProject(input)
 	require.NoError(t, err)
-	assert.Contains(t, buf.String(), "ralph-write-project")
+	assert.Contains(t, buf.String(), "project format document installed in the repository")
 }
 
 func TestAgentClientWriteOrchestrationWithSpecInput(t *testing.T) {
@@ -594,7 +594,7 @@ func TestAgentClientWriteOrchestrationWithSpecInput(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, promptUsed, "specs/features/test/spec.md")
 	assert.Contains(t, promptUsed, "orchestration.md")
-	assert.Contains(t, promptUsed, "docs/formats/orchestration.md")
+	assert.Contains(t, promptUsed, "orchestration format document installed in the repository")
 }
 
 func TestAgentClientWriteOrchestrationFailureReturnsError(t *testing.T) {

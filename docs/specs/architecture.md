@@ -1,6 +1,6 @@
 # Architecture Format
 
-The architecture format is used to outline the [deep modules](../glossary.md#deep-module) of an application in YAML.
+The architecture format is used to outline the [deep modules](glossary.md#deep-module) of an application in YAML.
 
 ## Location
 
@@ -19,7 +19,7 @@ Architecture documents use YAML format with the following structure:
 
   - **slug** (required, string): Short identifier used as the value of `category` on each module. Must be unique within the document.
   - **description** (required, string): One sentence describing what this category of module is for.
-  - **orchestration** (optional, boolean): Whether modules in this category are [orchestration modules](../glossary.md#orchestration-module) rather than [implementation modules](../glossary.md#implementation-module). Defaults to `false` if omitted.
+  - **orchestration** (optional, boolean): Whether modules in this category are [orchestration modules](glossary.md#orchestration-module) rather than [implementation modules](glossary.md#implementation-module). Defaults to `false` if omitted.
   - **signatures** (required, list of strings): The types of code resources that should be found in modules of this category (e.g. exported functions, interfaces, struct types, CLI wrappers).
 
 - **modules** (required, list): The modules that make up the architecture. Each module has the following fields:
@@ -27,6 +27,8 @@ Architecture documents use YAML format with the following structure:
   - **path** (required, string): The file path or directory path where the module is located or should be implemented. Relative to the repo root.
   - **description** (required, string): A single short sentence stating the module's purpose and role. Do not include method names, route lists, interface names, or error types — details like these churn every time the module grows. A good description should survive multiple features being added without needing an edit.
   - **category** (required, string): The slug of the category this module belongs to.
+
+The category set is per-project. The four in the example below are the common baseline; add categories when a project has a distinct kind of module that none of them describe (process lifecycle, in-process pipeline, generated code), rather than stretching an existing category's description to cover it.
 
 ## Example
 
@@ -80,3 +82,9 @@ modules:
     description: HTTP handlers that translate requests into domain calls and format responses.
     category: implementation
 ```
+
+## How the Architecture Is Used
+
+The architecture document is the module map. It is read before any code is written ([Writing Code](code.md)), it decides where an orchestration's helpers live ([Orchestration Format](orchestration.md#module-structure)), and its `category` and `signatures` fields determine what form a project's `code` and `tests` entries must take ([Project Format](project.md#code-and-tests)).
+
+Keeping it accurate matters more than keeping it complete. A module whose description no longer matches what it does is worse than a module that is missing.

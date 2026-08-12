@@ -3,6 +3,7 @@ package ai
 import (
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -237,98 +238,6 @@ func TestBuildReviewPRBodyPrompt(t *testing.T) {
 	}
 }
 
-func TestBuildArchitecturePrompt(t *testing.T) {
-	tests := []struct {
-		name       string
-		outputPath string
-		check      func(t *testing.T, prompt string)
-	}{
-		{
-			name:       "happy path",
-			outputPath: "/tmp/architecture.yaml",
-			check: func(t *testing.T, prompt string) {
-				assert.NotEmpty(t, prompt, "architecture prompt should not be empty")
-				assert.Contains(t, prompt, "architecture.yaml")
-				assert.Contains(t, prompt, "software architect")
-				assert.Contains(t, prompt, "domain function")
-				assert.Contains(t, prompt, "Major Feature")
-				assert.Contains(t, prompt, "cmd/")
-				assert.Contains(t, prompt, "internal/")
-				assert.Contains(t, prompt, "/tmp/architecture.yaml")
-			},
-		},
-		{
-			name:       "absolute path",
-			outputPath: "architecture.yaml",
-			check: func(t *testing.T, prompt string) {
-				absPath, _ := filepath.Abs("architecture.yaml")
-				assert.Contains(t, prompt, absPath)
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			prompt, err := BuildArchitecturePrompt(tt.outputPath)
-			require.NoError(t, err, "BuildArchitecturePrompt failed")
-			if tt.check != nil {
-				tt.check(t, prompt)
-			}
-		})
-	}
-}
-
-func TestBuildArchitectureFixPrompt(t *testing.T) {
-	tests := []struct {
-		name       string
-		outputPath string
-		errors     []string
-		check      func(t *testing.T, prompt string)
-	}{
-		{
-			name:       "happy path",
-			outputPath: "/tmp/architecture.yaml",
-			errors:     []string{"app 'ralph' is missing description", "module 'internal/ai' must have type domain or implementation"},
-			check: func(t *testing.T, prompt string) {
-				assert.NotEmpty(t, prompt, "architecture fix prompt should not be empty")
-				assert.Contains(t, prompt, "/tmp/architecture.yaml")
-				assert.Contains(t, prompt, "validation errors")
-				assert.Contains(t, prompt, "app 'ralph' is missing description")
-				assert.Contains(t, prompt, "module 'internal/ai' must have type domain or implementation")
-				assert.Contains(t, prompt, "## Errors")
-			},
-		},
-		{
-			name:       "absolute path",
-			outputPath: "architecture.yaml",
-			errors:     []string{"test error"},
-			check: func(t *testing.T, prompt string) {
-				absPath, _ := filepath.Abs("architecture.yaml")
-				assert.Contains(t, prompt, absPath)
-			},
-		},
-		{
-			name:       "empty errors",
-			outputPath: "/tmp/architecture.yaml",
-			errors:     []string{},
-			check: func(t *testing.T, prompt string) {
-				assert.NotEmpty(t, prompt, "architecture fix prompt should not be empty")
-				assert.Contains(t, prompt, "/tmp/architecture.yaml")
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			prompt, err := BuildArchitectureFixPrompt(tt.outputPath, tt.errors)
-			require.NoError(t, err, "BuildArchitectureFixPrompt failed")
-			if tt.check != nil {
-				tt.check(t, prompt)
-			}
-		})
-	}
-}
-
 func TestBuildProjectFixPrompt(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -384,7 +293,9 @@ func TestBuildWriteProjectPrompt(t *testing.T) {
 			check: func(t *testing.T, prompt string) {
 				assert.Contains(t, prompt, "orchestration file")
 				assert.Contains(t, prompt, "specs/features/my-feature/orchestration.md")
-				assert.Contains(t, prompt, "ralph-write-project")
+				assert.Contains(t, prompt, "project format document installed in the repository")
+				assert.NotContains(t, prompt, "ralph-write-project")
+				assert.NotContains(t, prompt, "docs/formats/")
 				assert.NotContains(t, prompt, "Also read the orchestration document")
 			},
 		},
@@ -400,7 +311,9 @@ func TestBuildWriteProjectPrompt(t *testing.T) {
 				assert.Contains(t, prompt, "specification file")
 				assert.Contains(t, prompt, "specs/features/my-feature/spec.md")
 				assert.Contains(t, prompt, "specs/features/my-feature/orchestration.md")
-				assert.Contains(t, prompt, "ralph-write-project")
+				assert.Contains(t, prompt, "project format document installed in the repository")
+				assert.NotContains(t, prompt, "ralph-write-project")
+				assert.NotContains(t, prompt, "docs/formats/")
 				assert.Contains(t, prompt, "Also read the orchestration document")
 			},
 		},
@@ -442,7 +355,8 @@ func TestBuildWriteOrchestrationPrompt(t *testing.T) {
 			check: func(t *testing.T, prompt string) {
 				assert.Contains(t, prompt, "specs/features/my-feature/spec.md")
 				assert.Contains(t, prompt, "orchestration.md")
-				assert.Contains(t, prompt, "docs/formats/orchestration.md")
+				assert.Contains(t, prompt, "orchestration format document installed in the repository")
+				assert.NotContains(t, prompt, "docs/formats/")
 			},
 		},
 	}
@@ -596,6 +510,22 @@ func TestBuildItemPickPrompt(t *testing.T) {
 		assert.Contains(t, prompt, "**Recent Git History:**")
 		assert.NotContains(t, prompt, "**System Notes:**")
 	})
+}
+
+func TestEmbeddedPromptsCarryNoRalphOwnedPaths(t *testing.T) {
+	// GIVEN the embedded instruction templates
+	// WHEN they are searched for docs/formats/
+	// THEN no match is found
+	entries, err := os.ReadDir(".")
+	require.NoError(t, err)
+	for _, e := range entries {
+		if !strings.HasSuffix(e.Name(), ".md") {
+			continue
+		}
+		data, err := os.ReadFile(e.Name())
+		require.NoError(t, err)
+		assert.NotContains(t, string(data), "docs/formats/", "%s must not name a ralph-shipped document path", e.Name())
+	}
 }
 
 func TestDefaultItemDevelopmentInstructions(t *testing.T) {

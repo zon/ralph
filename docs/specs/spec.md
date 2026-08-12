@@ -4,7 +4,7 @@ The spec format is used to describe system behavior using structured requirement
 
 ## File Location
 
-See [Directory Structure](./README.md#directory-structure) for where spec files are located.
+See [Directory Structure](README.md#directory-structure) for where spec files are located.
 
 ## Structure
 
@@ -80,7 +80,7 @@ Avoid in specs:
 - Internal class/function names
 - Library or framework choices
 - Step-by-step implementation details
-- Detailed execution plans (those belong in `/designs` or `/projects`)
+- Detailed execution plans — those belong in an [orchestration](orchestration.md) or a [project](project.md)
 
 Quick test:
 - If implementation can change without changing externally visible behavior, it likely does not belong in the spec.

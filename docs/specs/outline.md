@@ -8,12 +8,12 @@ Analyze the repository and write a `/specs` directory covering every component a
 
 ## Context
 
-Read [docs/formats/specs.md](../formats/specs.md) before writing any spec files.
+Read [docs/specs/spec.md](spec.md) before writing any spec files.
 
 ## Instructions
 
 1. Orient yourself in the repository:
-   - Read `CLAUDE.md` and `README.md` (if present) for purpose and top-level concepts
+   - Read `AGENTS.md`, `CLAUDE.md`, and `README.md` (if present) for purpose and top-level concepts
    - Read any manifest files (`go.mod`, `package.json`, `pyproject.toml`, etc.) for module name and dependencies
    - List the repo root directory
 
@@ -28,6 +28,12 @@ Read [docs/formats/specs.md](../formats/specs.md) before writing any spec files.
    - Worker: list every trigger, queue, or scheduled event it handles
    - Read the relevant source files to understand behavior, inputs, outputs, and error conditions
 
-4. Group the surface into features. For each feature, write a `spec.md` at `specs/features/<component>/<feature>/spec.md` following `docs/formats/specs.md`.
+4. Group the surface into features. For each feature, write a `spec.md` at `specs/features/<component>/<feature>/spec.md` following [docs/specs/spec.md](spec.md).
 
-5. List the files created, state which organization pattern was chosen and why, and note any areas where behavior was ambiguous or could not be fully inferred from the source.
+5. Write an index at `specs/README.md`: one section per component, one list item per feature linking to its spec, each followed by an em dash and a one-sentence description drawn from the spec's Purpose section.
+
+6. List the files created, state which organization pattern was chosen and why, and note any areas where behavior was ambiguous or could not be fully inferred from the source.
+
+## Output
+
+A `/specs` tree as described in [docs/specs/README.md](README.md#directory-structure), plus the summary from step 6.

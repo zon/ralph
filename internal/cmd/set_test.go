@@ -1,59 +1,26 @@
 package cmd
 
 import (
+	"os/exec"
+	"path/filepath"
 	"testing"
 
-	"github.com/alecthomas/kong"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestSetSkillsCmdParsing(t *testing.T) {
-	tests := []struct {
-		name           string
-		args           []string
-		expectedBranch string
-	}{
-		{
-			name:           "default branch is main when not specified",
-			args:           []string{"set", "skills"},
-			expectedBranch: "",
-		},
-		{
-			name:           "explicit branch is parsed correctly",
-			args:           []string{"set", "skills", "--branch", "v2"},
-			expectedBranch: "v2",
-		},
-		{
-			name:           "branch short form -b",
-			args:           []string{"set", "skills", "-b", "develop"},
-			expectedBranch: "develop",
-		},
-	}
+func TestSetHelpListsConfigOnly(t *testing.T) {
+	repoRoot := findRepoRoot(t)
+	binary := filepath.Join(t.TempDir(), "ralph")
+	build := exec.Command("go", "build", "-o", binary, "./cmd/ralph")
+	build.Dir = repoRoot
+	out, err := build.CombinedOutput()
+	require.NoError(t, err, "build failed: %s", string(out))
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cmd := &Cmd{}
-			parser, err := kong.New(cmd,
-				kong.Name("ralph"),
-				kong.Exit(func(int) {}),
-			)
-			require.NoError(t, err)
-
-			_, err = parser.Parse(tt.args)
-			require.NoError(t, err)
-
-			require.Equal(t, tt.expectedBranch, cmd.Set.Skills.Branch)
-		})
-	}
-}
-
-func TestSetSkillsCmdDefaultsToMain(t *testing.T) {
-	cmd := &SetSkillsCmd{}
-	require.Empty(t, cmd.Branch)
-
-	branch := cmd.Branch
-	if branch == "" {
-		branch = "main"
-	}
-	require.Equal(t, "main", branch)
+	cmd := exec.Command(binary, "set", "--help")
+	cmd.Dir = repoRoot
+	out, err = cmd.CombinedOutput()
+	require.NoError(t, err)
+	assert.Contains(t, string(out), "config")
+	assert.NotContains(t, string(out), "skills")
 }

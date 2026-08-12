@@ -6,5 +6,4 @@ Read the {{.InputType}} at:
 {{if .HasOrchestration}}Also read the orchestration document at:
 {{.OrchestrationPath}}{{end}}
 
-Generate a project YAML file in the projects/ directory following the format at docs/formats/project.md.
-Use the ralph-write-project skill to draft, write, and validate the project file.
+Generate a project YAML file in the projects/ directory following the project format document installed in the repository. If the repository has an installed project-authoring skill, use that instead.

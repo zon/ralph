@@ -1,8 +1,8 @@
 # Orchestration Module Review Plan
 
 Audit every module in the `orchestration` category against the standards in
-[docs/code.md](docs/code.md) and [docs/testing.md](docs/testing.md), using
-the `ralph-review-module` skill, and report or fix any gaps found.
+[docs/specs/code.md](docs/specs/code.md) and [docs/specs/testing.md](docs/specs/testing.md),
+and report or fix any gaps found.
 
 ## Modules
 
@@ -13,14 +13,11 @@ the `ralph-review-module` skill, and report or fix any gaps found.
 - [x] `internal/orchestration/merge`
 - [x] `internal/project` — gaps found, project: `projects/clean-up-project-helpers.yaml`
 - [x] `internal/orchestration/validate`
-- [x] `internal/orchestration/setup`
 - [x] `internal/orchestration/setconfig`
 - [x] `internal/orchestration/webhooksetconfig`
 - [x] `internal/orchestration/workflowtoken` — minor gofmt/dead-code cleanup noted, no project
 - [x] `internal/webhook` — gaps found, project: `projects/webhook-orchestration-cleanup.yaml`
 - [x] `internal/provisioning` — gaps found, project: `projects/provisioning-into-webhookconfig.yaml`
-- [x] `internal/skills` — gaps found, project: `projects/skills-implementation-category.yaml`
-- [x] `internal/architecture` — gaps found, project: `projects/architecture-remove-dead-schema.yaml`
 - [x] `internal/services` — gaps found, project: `projects/services-implementation-category.yaml`
 - [x] `internal/orchestration/argo`
 - [x] `internal/orchestration/command` — gaps found, project: `projects/remove-dead-remote-command.yaml`
