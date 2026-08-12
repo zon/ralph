@@ -232,4 +232,4 @@ requirements:
       items:
         - Apply a semver minor bump to the app version, because validate gains a flag and stops enforcing a schema while remaining compatible with valid files
         - Apply the matching app version to the ralph-webhook chart and a patch bump to the chart version
-      passing: false
+      passing: true
