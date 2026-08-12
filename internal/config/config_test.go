@@ -404,6 +404,47 @@ func TestLoadConfig_DefaultInstructionsWhenFilesNotExist(t *testing.T) {
 	assert.Empty(t, config.Instructions, "Instructions must stay unset so the prompt supplies its default steps")
 }
 
+// Item test: the ralph config no longer reads `.ralph/merge-instructions.md` —
+// the file is ignored, so the config keeps the default comment instructions and
+// no development instructions.
+func TestLoadConfig_MergeInstructionsFileIgnored(t *testing.T) {
+	tmpDir := t.TempDir()
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	require.NoError(t, os.Mkdir(ralphDir, 0755))
+
+	configPath := filepath.Join(ralphDir, "config.yaml")
+	require.NoError(t, os.WriteFile(configPath, []byte("maxIterations: 3\n"), 0644))
+
+	mergeInstructionsPath := filepath.Join(ralphDir, "merge-instructions.md")
+	require.NoError(t, os.WriteFile(mergeInstructionsPath, []byte("Custom merge instructions for merging PRs"), 0644))
+
+	t.Chdir(tmpDir)
+
+	config, err := LoadConfig()
+	require.NoError(t, err)
+	assert.Empty(t, config.Instructions)
+	assert.NotContains(t, config.CommentInstructions, "Custom merge instructions", "the merge instructions file must not be read")
+	assert.Contains(t, config.CommentInstructions, "# Comment Instructions", "comment instructions must still fall back to the embedded default")
+}
+
+// Item test: the embedded default merge instructions file is gone and no longer
+// embedded by the config loader — loadInstructions never reads
+// `.ralph/merge-instructions.md`, so the file has no effect on what is loaded.
+func TestLoadInstructions_MergeInstructionsFileIgnored(t *testing.T) {
+	tmpDir := t.TempDir()
+	configDir := filepath.Join(tmpDir, ".ralph")
+	require.NoError(t, os.Mkdir(configDir, 0755))
+
+	instructions, commentInstructions := loadInstructions(configDir)
+
+	require.NoError(t, os.WriteFile(filepath.Join(configDir, "merge-instructions.md"), []byte("Custom merge instructions"), 0644))
+
+	withMerge, withMergeComment := loadInstructions(configDir)
+	assert.Equal(t, instructions, withMerge, "merge-instructions.md must not be read into development instructions")
+	assert.Equal(t, commentInstructions, withMergeComment, "merge-instructions.md must not be read into comment instructions")
+	assert.Contains(t, commentInstructions, "# Comment Instructions")
+}
+
 func TestLoadConfig_InvalidYAML(t *testing.T) {
 	tmpDir := t.TempDir()
 

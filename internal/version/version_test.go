@@ -68,6 +68,20 @@ func TestVersion_ChartAppVersionMatches(t *testing.T) {
 	assert.Equal(t, Version(), appVersion, "chart appVersion should match the app version")
 }
 
+func TestVersion_ChartVersionIsValidSemver(t *testing.T) {
+	raw, err := os.ReadFile("../../charts/ralph-webhook/Chart.yaml")
+	require.NoError(t, err, "Chart.yaml should be readable")
+
+	var chart struct {
+		Version string `yaml:"version"`
+	}
+	require.NoError(t, yaml.Unmarshal(raw, &chart))
+
+	var major, minor, patch int
+	_, err = fmt.Sscanf(chart.Version, "%d.%d.%d", &major, &minor, &patch)
+	require.NoError(t, err, "chart version should be a valid semver in format X.Y.Z")
+}
+
 func TestVersion_PatchBumpApplied(t *testing.T) {
 	versionStr := Version()
 	expectedVersion := strings.TrimSpace(versionSource)

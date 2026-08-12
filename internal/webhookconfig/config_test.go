@@ -98,6 +98,52 @@ func TestLoadAppConfig(t *testing.T) {
 	})
 }
 
+// Scenario: Comment instructions override.
+//
+// GIVEN `commentInstructionsFile` points to a custom markdown file
+// WHEN a comment event is dispatched
+// THEN the custom file's content is used as the AI prompt template instead of
+// the built-in default.
+func TestLoadAppConfig_CommentInstructionsOverride(t *testing.T) {
+	dir := t.TempDir()
+	customInstructions := "# Custom comment instructions\n\nReply in a terse style."
+	instrPath := writeFile(t, dir, "comment.md", customInstructions)
+	yaml := "port: 8080\ncommentInstructionsFile: " + instrPath + "\n"
+	path := writeFile(t, dir, "config.yaml", yaml)
+
+	cfg, err := LoadAppConfig(path)
+	require.NoError(t, err)
+	assert.Equal(t, customInstructions, cfg.CommentInstructions, "the custom file's content must be used as the AI prompt template")
+	assert.NotEqual(t, config.DefaultCommentInstructions(), cfg.CommentInstructions, "the built-in default must not be used")
+}
+
+// Item test: the webhook service config no longer accepts a merge instructions
+// file setting, and loading a config that still names one does not fail.
+func TestLoadConfig_MergeInstructionsFileSettingIgnored(t *testing.T) {
+	dir := t.TempDir()
+	cfgYAML := "port: 8080\nmergeInstructionsFile: /nonexistent/merge-instructions.md\nrepos:\n  - owner: acme\n    name: my-service\n    namespace: ns-a\n"
+	cfgPath := writeFile(t, dir, "config.yaml", cfgYAML)
+	secPath := writeFile(t, dir, "secrets.yaml", validSecrets)
+
+	cfg, err := LoadConfig(cfgPath, secPath)
+	require.NoError(t, err, "loading a config that still names a merge instructions file must not fail")
+	assert.Equal(t, config.DefaultCommentInstructions(), cfg.App.CommentInstructions, "the merge instructions file must not be loaded")
+}
+
+// Item test: comment instructions loading and overriding is unchanged — a
+// config that still names a merge instructions file keeps its comment override.
+func TestLoadAppConfig_CommentOverrideUnchangedWhenMergeFileNamed(t *testing.T) {
+	dir := t.TempDir()
+	customInstructions := "# Custom comment instructions"
+	instrPath := writeFile(t, dir, "comment.md", customInstructions)
+	yaml := "port: 8080\ncommentInstructionsFile: " + instrPath + "\nmergeInstructionsFile: /nonexistent/merge-instructions.md\n"
+	path := writeFile(t, dir, "config.yaml", yaml)
+
+	cfg, err := LoadAppConfig(path)
+	require.NoError(t, err)
+	assert.Equal(t, customInstructions, cfg.CommentInstructions, "comment instructions must still override from the custom file")
+}
+
 func TestLoadSecrets(t *testing.T) {
 	t.Run("loads valid secrets", func(t *testing.T) {
 		dir := t.TempDir()

@@ -58,6 +58,41 @@ func TestRunCmdFlagCleanup(t *testing.T) {
 	assert.Contains(t, string(out), "--cleanup")
 }
 
+// TestMergeCommandRejected asserts that invoking `ralph merge` exits non-zero
+// with an unknown-command error now that the merge command is removed.
+func TestMergeCommandRejected(t *testing.T) {
+	repoRoot := findRepoRoot(t)
+	binary := filepath.Join(t.TempDir(), "ralph")
+	build := exec.Command("go", "build", "-o", binary, "./cmd/ralph")
+	build.Dir = repoRoot
+	out, err := build.CombinedOutput()
+	require.NoError(t, err, "build failed: %s", string(out))
+
+	cmd := exec.Command(binary, "merge")
+	cmd.Dir = repoRoot
+	out, err = cmd.CombinedOutput()
+	require.Error(t, err, "ralph merge should exit non-zero")
+	assert.Contains(t, string(out), "error")
+}
+
+// TestWorkflowMergeSubcommandRejected asserts that invoking `ralph workflow
+// merge` exits non-zero with an unknown-argument error now that the workflow
+// merge subcommand is removed.
+func TestWorkflowMergeSubcommandRejected(t *testing.T) {
+	repoRoot := findRepoRoot(t)
+	binary := filepath.Join(t.TempDir(), "ralph")
+	build := exec.Command("go", "build", "-o", binary, "./cmd/ralph")
+	build.Dir = repoRoot
+	out, err := build.CombinedOutput()
+	require.NoError(t, err, "build failed: %s", string(out))
+
+	cmd := exec.Command(binary, "workflow", "merge")
+	cmd.Dir = repoRoot
+	out, err = cmd.CombinedOutput()
+	require.Error(t, err, "ralph workflow merge should exit non-zero")
+	assert.Contains(t, string(out), "error")
+}
+
 // findRepoRoot walks up from the working directory to find go.mod
 func findRepoRoot(t *testing.T) string {
 	t.Helper()
