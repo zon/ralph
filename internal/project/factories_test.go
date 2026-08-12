@@ -201,10 +201,3 @@ func TestInputFactories(t *testing.T) {
 		assert.False(t, f.IsOrchestration())
 	})
 }
-
-func TestNewFactoriesDescribeItemsNotRequirements(t *testing.T) {
-	proj := WithItems(4)
-	for _, it := range proj.Items {
-		assert.Empty(t, it.Key())
-	}
-}

@@ -139,8 +139,6 @@ func TestClientCreatePR_SummaryGeneratedFromCommitLog(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Contains(t, capturedPrompt, "abc: feat serializer")
 	assert.Contains(t, capturedPrompt, "def: add endpoint")
-	assert.NotContains(t, capturedPrompt, "passing")
-	assert.NotContains(t, capturedPrompt, "failing")
 }
 
 func TestClientCreatePR_SkipsWhenNoCommitsAhead(t *testing.T) {
@@ -168,8 +166,6 @@ func TestClientCreatePR_SkipsWhenNoCommitsAhead(t *testing.T) {
 	assert.NoError(t, err)
 	assert.False(t, createPRCalled, "expected PR creation to be skipped when no commits exist ahead of base")
 	assert.Contains(t, buf.String(), "No commits ahead of base branch; skipping PR creation")
-	assert.NotContains(t, buf.String(), "passing")
-	assert.NotContains(t, buf.String(), "requirements")
 }
 
 func TestClientCreatePR_SentinelNoCommitsSkipsWithoutError(t *testing.T) {
@@ -192,7 +188,6 @@ func TestClientCreatePR_SentinelNoCommitsSkipsWithoutError(t *testing.T) {
 	err := client.CreatePR(proj)
 	assert.NoError(t, err)
 	assert.Contains(t, buf.String(), "No commits ahead of base branch; skipping PR creation")
-	assert.NotContains(t, buf.String(), "passing")
 }
 
 func TestClientCreatePR_WorkflowExecutionCallsConfigureGitAuth(t *testing.T) {

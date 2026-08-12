@@ -44,12 +44,6 @@ func TestWriteProjectSkillInstructsConventionalShapeAndKeys(t *testing.T) {
 	require.Contains(t, skill, "commit trailers")
 }
 
-func TestWriteProjectSkillDoesNotInstructPassingField(t *testing.T) {
-	skill := readWriteProjectSkill(t)
-
-	require.NotContains(t, skill, "passing")
-}
-
 func TestWriteProjectSkillStatesSlugAndTitleFallbacks(t *testing.T) {
 	skill := readWriteProjectSkill(t)
 

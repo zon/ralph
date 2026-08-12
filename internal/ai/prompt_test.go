@@ -106,8 +106,6 @@ func TestBuildPRSummaryPrompt(t *testing.T) {
 				assert.Contains(t, prompt, "main..HEAD")
 				assert.Contains(t, prompt, "abc123: Initial commit")
 				assert.Contains(t, prompt, "/tmp/pr-summary.txt")
-				assert.NotContains(t, prompt, "passing")
-				assert.NotContains(t, prompt, "failing")
 			},
 		},
 		{
@@ -520,12 +518,10 @@ func TestBuildItemDevelopPrompt(t *testing.T) {
 		assert.Contains(t, prompt, "read-only for the whole run")
 	})
 
-	t.Run("never asks the agent to edit a completion field or run ralph pass", func(t *testing.T) {
+	t.Run("tells the agent to leave completion fields alone", func(t *testing.T) {
 		prompt, err := BuildItemDevelopPrompt(keyed)
 		require.NoError(t, err)
 		assert.Contains(t, prompt, "Do not edit any completion field")
-		assert.NotContains(t, prompt, "ralph pass")
-		assert.NotContains(t, prompt, "Mark passing")
 	})
 
 	t.Run("still asks for report.md and blocked.md without a trailer", func(t *testing.T) {
@@ -542,8 +538,6 @@ func TestBuildItemDevelopPrompt(t *testing.T) {
 		prompt, err := BuildItemDevelopPrompt(data)
 		require.NoError(t, err)
 		assert.Contains(t, prompt, "read the selected item carefully")
-		assert.NotContains(t, prompt, "selected requirement")
-		assert.NotContains(t, prompt, "{{.SelectedRequirement}}")
 	})
 }
 
@@ -555,13 +549,11 @@ func TestBuildItemPickPrompt(t *testing.T) {
 		Items:          "item 1 (exporter):\nslug: exporter\ndescription: Exporter\nitem 3 (importer):\nslug: importer\ndescription: Importer",
 	}
 
-	t.Run("describes items rather than requirements and never mentions a passing field", func(t *testing.T) {
+	t.Run("frames the agent as an item picker", func(t *testing.T) {
 		prompt, err := BuildItemPickPrompt(data)
 		require.NoError(t, err)
 		assert.Contains(t, prompt, "Item Picker Agent")
 		assert.Contains(t, prompt, "incomplete item")
-		assert.NotContains(t, prompt, "requirement")
-		assert.NotContains(t, prompt, "passing")
 	})
 
 	t.Run("carries the full project file, the labelled incomplete items, and the commit log", func(t *testing.T) {
@@ -583,12 +575,11 @@ func TestBuildItemPickPrompt(t *testing.T) {
 		assert.Contains(t, prompt, "not constrained to array order")
 	})
 
-	t.Run("reports the index rather than writing a requirement file to disk", func(t *testing.T) {
+	t.Run("reports the picked index to a file", func(t *testing.T) {
 		prompt, err := BuildItemPickPrompt(data)
 		require.NoError(t, err)
 		assert.Contains(t, prompt, "0-based index")
 		assert.Contains(t, prompt, "picked-item-index.txt")
-		assert.NotContains(t, prompt, "requirement")
 	})
 
 	t.Run("tells the agent to make no code changes", func(t *testing.T) {
@@ -610,8 +601,6 @@ func TestBuildItemPickPrompt(t *testing.T) {
 func TestDefaultItemDevelopmentInstructions(t *testing.T) {
 	instructions := DefaultItemDevelopmentInstructions()
 	assert.Contains(t, instructions, "selected item")
-	assert.NotContains(t, instructions, "ralph pass")
-	assert.NotContains(t, instructions, "Mark passing")
 	assert.NotContains(t, instructions, "completion trailer")
 }
 

@@ -118,8 +118,8 @@ func TestWriteCanonicalJSONWritesSiblingYAML(t *testing.T) {
 }
 
 // TestWriteCanonicalPreservesEmptyAndNilFields covers the item that the rewrite
-// no longer marshals a typed project model, so empty and nil field omission
-// rules no longer apply.
+// preserves empty maps, nil values, zero numbers, and empty sequences exactly as
+// the source document wrote them.
 func TestWriteCanonicalPreservesEmptyAndNilFields(t *testing.T) {
 	content := "notes: {}\nowner:\ndescription: \"\"\ncount: 0\nenabled: false\nitems: []\n"
 	path := writeProjectFile(t, "project.yaml", content)

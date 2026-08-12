@@ -303,11 +303,6 @@ func TestStopCmdHelpText(t *testing.T) {
 	assert.Contains(t, output, "Stop an Argo workflow")
 }
 
-func TestTopLevelHelpListsNoPassCommand(t *testing.T) {
-	output := captureHelpOutput(&Cmd{}, []string{"--help"})
-	assert.NotContains(t, output, "pass")
-}
-
 func TestSetSkillsCmdHelpText(t *testing.T) {
 	output := captureHelpOutput(&Cmd{}, []string{"set", "skills", "--help"})
 	assert.Contains(t, output, "Manage ralph skill installation")

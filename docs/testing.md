@@ -12,6 +12,35 @@ Tests are split into two layers: unit and integration.
 
 Use `github.com/stretchr/testify` (`assert` and `require`) for all assertions.
 
+### Test present behavior, not removals
+
+Never write a test that confirms an old feature has been removed. Deleting the code and testing its replacement already proves the removal; an assertion that stale vocabulary is absent adds nothing and breaks the moment an unrelated substring reappears.
+
+```go
+// wrong — asserts a deleted command and its vocabulary are gone
+func TestTopLevelHelpOmitsPass(t *testing.T) {
+    assert.NotContains(t, helpOutput(t), "pass")
+}
+
+func TestPickPromptDescribesItemsNotRequirements(t *testing.T) {
+    prompt, err := BuildItemPickPrompt(data)
+    require.NoError(t, err)
+    assert.NotContains(t, prompt, "requirement")
+}
+
+// right — asserts what the code does now
+func TestPickPromptFramesTheAgentAsAnItemPicker(t *testing.T) {
+    prompt, err := BuildItemPickPrompt(data)
+    require.NoError(t, err)
+    assert.Contains(t, prompt, "Item Picker Agent")
+    assert.Contains(t, prompt, "incomplete item")
+}
+```
+
+A negative assertion is fine when it pins live behavior — a complete item is not offered to the picker, an `omitempty` field stays out of the marshalled YAML, custom instructions replace the default text. It is not fine when it only says "the old thing is gone".
+
+Name test functions after present behavior, and keep "no longer" or "rather than" framing out of test names and comments.
+
 ### Test structure
 
 Use table-driven tests with `t.Run()` subtests. Use `t.TempDir()` for any filesystem interaction — the testing package cleans it up automatically.

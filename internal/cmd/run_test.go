@@ -58,36 +58,6 @@ func TestRunCmdFlagCleanup(t *testing.T) {
 	assert.Contains(t, string(out), "--cleanup")
 }
 
-func TestPassCommandRejected(t *testing.T) {
-	repoRoot := findRepoRoot(t)
-	binary := filepath.Join(t.TempDir(), "ralph")
-	build := exec.Command("go", "build", "-o", binary, "./cmd/ralph")
-	build.Dir = repoRoot
-	out, err := build.CombinedOutput()
-	require.NoError(t, err, "build failed: %s", string(out))
-
-	cmd := exec.Command(binary, "pass", "test.yaml", "test-slug")
-	cmd.Dir = repoRoot
-	out, err = cmd.CombinedOutput()
-	require.Error(t, err, "ralph pass should exit non-zero")
-	assert.Contains(t, string(out), "error")
-}
-
-func TestTopLevelHelpOmitsPass(t *testing.T) {
-	repoRoot := findRepoRoot(t)
-	binary := filepath.Join(t.TempDir(), "ralph")
-	build := exec.Command("go", "build", "-o", binary, "./cmd/ralph")
-	build.Dir = repoRoot
-	out, err := build.CombinedOutput()
-	require.NoError(t, err, "build failed: %s", string(out))
-
-	cmd := exec.Command(binary, "--help")
-	cmd.Dir = repoRoot
-	out, err = cmd.CombinedOutput()
-	require.NoError(t, err)
-	assert.NotContains(t, string(out), "pass")
-}
-
 // findRepoRoot walks up from the working directory to find go.mod
 func findRepoRoot(t *testing.T) string {
 	t.Helper()

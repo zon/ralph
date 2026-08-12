@@ -694,7 +694,6 @@ func TestRunLocalRunnerDoesNotReResolveQueryFromConfig(t *testing.T) {
 	err := cmd.Run(flagsWithLocalAndItems(".spec.tasks"))
 	require.NoError(t, err)
 	require.Equal(t, ".spec.tasks", local.LastConfig.Items)
-	require.NotEqual(t, ".requirements", local.LastConfig.Items)
 }
 
 func TestRunResolvedDefaultQueryPassedToRemoteRunner(t *testing.T) {
