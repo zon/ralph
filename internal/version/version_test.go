@@ -3,11 +3,13 @@ package version
 import (
 	_ "embed"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 )
 
 //go:embed VERSION
@@ -50,6 +52,20 @@ func TestBumpMinor(t *testing.T) {
 			assert.Equal(t, tt.expected, result)
 		})
 	}
+}
+
+func TestVersion_ChartAppVersionMatches(t *testing.T) {
+	raw, err := os.ReadFile("../../charts/ralph-webhook/Chart.yaml")
+	require.NoError(t, err, "Chart.yaml should be readable")
+
+	var chart struct {
+		Version    string `yaml:"version"`
+		AppVersion string `yaml:"appVersion"`
+	}
+	require.NoError(t, yaml.Unmarshal(raw, &chart))
+
+	appVersion := strings.Trim(chart.AppVersion, `"`)
+	assert.Equal(t, Version(), appVersion, "chart appVersion should match the app version")
 }
 
 func TestVersion_PatchBumpApplied(t *testing.T) {
