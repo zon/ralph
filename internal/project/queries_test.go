@@ -86,6 +86,27 @@ func TestResolveReturnsErrorWhenQueryYieldsNoItems(t *testing.T) {
 	assert.Equal(t, "item query yielded no items: empty", err.Error())
 }
 
+func TestResolveReturnsErrorWhenQueryYieldsOnlyEmptyItems(t *testing.T) {
+	path := writeResolveProjectFile(t, "empty.yaml", "requirements:\n  -\n  - \"\"\n  - {}\n")
+
+	_, err := (&Client{}).Resolve(path, ".requirements")
+	require.Error(t, err)
+	assert.Equal(t, "item query yielded no items: .requirements", err.Error())
+}
+
+func TestResolveIndexesItemsAfterDroppingEmptyEntries(t *testing.T) {
+	path := writeResolveProjectFile(t, "tasks.yaml", "- slug: csv-serializer\n-\n- \"\"\n- slug: export-endpoint\n")
+
+	proj, err := (&Client{}).Resolve(path, ".")
+	require.NoError(t, err)
+
+	require.Len(t, proj.Items, 2)
+	assert.Equal(t, 0, proj.Items[0].Index)
+	assert.Equal(t, "csv-serializer", proj.Items[0].Key())
+	assert.Equal(t, 1, proj.Items[1].Index)
+	assert.Equal(t, "export-endpoint", proj.Items[1].Key())
+}
+
 func TestResolveReturnsErrorWhenQueryFails(t *testing.T) {
 	path := writeResolveProjectFile(t, "project.yaml", "foo: 1\n")
 

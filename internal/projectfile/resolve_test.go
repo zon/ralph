@@ -43,7 +43,7 @@ func TestResolveArrayIterationMatchesArrayForm(t *testing.T) {
 	assert.Equal(t, fromArray, fromIteration)
 }
 
-func TestResolveEmptyArrayReturnsNoItemsError(t *testing.T) {
+func TestResolveEmptyArrayResolvesToNoItems(t *testing.T) {
 	tests := []struct {
 		name    string
 		content string
@@ -66,9 +66,8 @@ func TestResolveEmptyArrayReturnsNoItemsError(t *testing.T) {
 			require.NoError(t, err)
 
 			items, err := ResolveItems(doc, query)
-			require.Error(t, err)
-			assert.Nil(t, items)
-			assert.Equal(t, "item query yielded no items: "+query, err.Error())
+			require.NoError(t, err)
+			assert.Empty(t, items)
 		})
 	}
 }
@@ -77,12 +76,71 @@ func TestResolveEmptyArrayIterationMatchesArrayForm(t *testing.T) {
 	doc, err := Parse(writeProjectFile(t, "project.yaml", "requirements: []\n"))
 	require.NoError(t, err)
 
-	_, fromArray := ResolveItems(doc, ".requirements")
-	_, fromIteration := ResolveItems(doc, ".requirements[]")
-	require.Error(t, fromArray)
-	require.Error(t, fromIteration)
-	assert.Contains(t, fromArray.Error(), "yielded no items")
-	assert.Contains(t, fromIteration.Error(), "yielded no items")
+	fromArray, err := ResolveItems(doc, ".requirements")
+	require.NoError(t, err)
+	fromIteration, err := ResolveItems(doc, ".requirements[]")
+	require.NoError(t, err)
+	assert.Empty(t, fromArray)
+	assert.Empty(t, fromIteration)
+}
+
+func TestResolveDiscardsEmptyItems(t *testing.T) {
+	tests := []struct {
+		name  string
+		entry string
+	}{
+		{"null", "  -\n"},
+		{"explicit null", "  - null\n"},
+		{"empty string", `  - ""` + "\n"},
+		{"whitespace only string", `  - "   "` + "\n"},
+		{"false", "  - false\n"},
+		{"zero", "  - 0\n"},
+		{"zero float", "  - 0.0\n"},
+		{"empty mapping", "  - {}\n"},
+		{"empty sequence", "  - []\n"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			content := "requirements:\n  - Add a CSV serializer\n" + tt.entry + "  - Add an export endpoint\n"
+			doc, err := Parse(writeProjectFile(t, "project.yaml", content))
+			require.NoError(t, err)
+
+			items, err := ResolveItems(doc, ".requirements")
+			require.NoError(t, err)
+			require.Len(t, items, 2)
+			assert.Equal(t, "Add a CSV serializer", items[0])
+			assert.Equal(t, "Add an export endpoint", items[1])
+		})
+	}
+}
+
+func TestResolveOnlyEmptyItemsResolvesToNoItems(t *testing.T) {
+	content := "requirements:\n  -\n  - \"\"\n  - \"  \"\n  - {}\n  - []\n  - false\n  - 0\n"
+	doc, err := Parse(writeProjectFile(t, "project.yaml", content))
+	require.NoError(t, err)
+
+	items, err := ResolveItems(doc, ".requirements")
+	require.NoError(t, err)
+	assert.Empty(t, items)
+}
+
+func TestResolveKeepsNonEmptyValues(t *testing.T) {
+	content := "requirements:\n  - true\n  - 1\n  - slug: one\n  - [nested]\n"
+	doc, err := Parse(writeProjectFile(t, "project.yaml", content))
+	require.NoError(t, err)
+
+	items, err := ResolveItems(doc, ".requirements")
+	require.NoError(t, err)
+	require.Len(t, items, 4)
+}
+
+func TestResolveEmptyScalarOutputIsNoItems(t *testing.T) {
+	doc, err := Parse(writeProjectFile(t, "project.yaml", "name: \"\"\n"))
+	require.NoError(t, err)
+
+	items, err := ResolveItems(doc, ".name")
+	require.NoError(t, err)
+	assert.Empty(t, items)
 }
 
 func TestResolveScalarOutputIsSingleItem(t *testing.T) {
@@ -106,14 +164,14 @@ func TestResolveMultipleOutputsAreItems(t *testing.T) {
 	assert.Equal(t, []any{1, 2}, items)
 }
 
-func TestResolveNoOutputReturnsError(t *testing.T) {
+func TestResolveNoOutputIsNoItems(t *testing.T) {
 	path := writeProjectFile(t, "project.yaml", "foo: 1\n")
 	doc, err := Parse(path)
 	require.NoError(t, err)
 
-	_, err = ResolveItems(doc, "empty")
-	require.Error(t, err)
-	assert.Equal(t, "item query yielded no items: empty", err.Error())
+	items, err := ResolveItems(doc, "empty")
+	require.NoError(t, err)
+	assert.Empty(t, items)
 }
 
 func TestResolveEvaluationErrorNamesQuery(t *testing.T) {

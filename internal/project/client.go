@@ -43,7 +43,8 @@ func (c *Client) Load(path string) (*Project, error) {
 // and resolved item array. It reads and parses nothing itself, delegating file
 // reading, parsing, and query evaluation, then builds the domain values from
 // the results. Returns an error when the file does not parse, the query fails,
-// or the query yields no items.
+// or the query yields no items — resolution discards empty outputs, so a query
+// that produces nothing but empty values leaves no work to run.
 func (c *Client) Resolve(path string, query string) (*Project, error) {
 	doc, err := projectfile.Parse(path)
 	if err != nil {
@@ -52,6 +53,9 @@ func (c *Client) Resolve(path string, query string) (*Project, error) {
 	values, err := projectfile.ResolveItems(doc, query)
 	if err != nil {
 		return nil, err
+	}
+	if len(values) == 0 {
+		return nil, fmt.Errorf("item query yielded no items: %s", query)
 	}
 	slug := slugFrom(doc, path)
 	return &Project{

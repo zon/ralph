@@ -77,7 +77,7 @@ The system SHALL validate all required inputs and load configuration before perf
 
 #### Scenario: Project file load failure
 
-- GIVEN the project file at the provided path is missing, does not parse, or yields no items under the supplied item query
+- GIVEN the project file at the provided path is missing, does not parse, or yields no non-empty items under the supplied item query
 - WHEN validation runs after the workspace is ready
 - THEN an error is returned before base-branch synchronization begins
 

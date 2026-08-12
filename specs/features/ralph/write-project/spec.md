@@ -10,7 +10,7 @@ A project is any YAML or JSON file containing an array of work items. Ralph impo
 
 ### Requirement: Project File
 
-A project file MUST be a YAML or JSON document from which the item query resolves an array of one or more items. No field is required and no field is rejected.
+A project file MUST be a YAML or JSON document from which the item query resolves at least one non-empty item. No field is required and no field is rejected.
 
 #### Scenario: Top-level array
 
@@ -34,7 +34,48 @@ A project file MUST be a YAML or JSON document from which the item query resolve
 
 - GIVEN a file against which the item query produces no output
 - WHEN the project is used
-- THEN an error is reported naming the query, because there is no work to iterate over
+- THEN the resolved list is empty
+- AND an error is reported naming the query, because there is no work to iterate over
+
+### Requirement: Empty Items Are Dropped
+
+Item query resolution MUST discard every empty output, so it produces either an empty list or a list in which every item is non-empty. An output is empty when it is null, `false`, the number zero, a string that is empty or contains only whitespace, an empty mapping, or an empty sequence. Every other value — including a mapping or sequence with any content at all — is an item.
+
+Resolution itself MUST NOT fail when nothing survives; it returns the empty list. Reporting that as an error is the job of the command that needs work to do, and each one reports `item query yielded no items: <query>`; see [validate/spec.md](../validate/spec.md), [run-local/spec.md](../run-local/spec.md), and [get/spec.md](../get/spec.md).
+
+Discarding MUST happen during resolution, before any index is assigned, so an item's index is its position in the surviving list. Because every command resolves the same query against the same file the same way, all of them agree on that index.
+
+#### Scenario: Empty entries discarded
+
+- GIVEN a list holding a work item, a null entry, an empty string, and a second work item
+- WHEN the item query resolves
+- THEN two items are resolved
+- AND their indices are 0 and 1, as though the empty entries were never in the file
+
+#### Scenario: Falsy scalars are empty
+
+- GIVEN a list holding entries `false`, `0`, and `"   "`
+- WHEN the item query resolves
+- THEN none of them is an item
+
+#### Scenario: Empty mappings and sequences are empty
+
+- GIVEN a list holding an entry `{}` and an entry `[]`
+- WHEN the item query resolves
+- THEN neither is an item, because neither carries any work to do
+
+#### Scenario: Query resolves only empty outputs
+
+- GIVEN a file whose item list holds nothing but nulls and empty mappings
+- WHEN the item query resolves
+- THEN the resolved list is empty and no error comes from resolution itself
+- AND the command using the project reports `item query yielded no items: <query>` and does no work
+
+#### Scenario: Non-empty items are untouched
+
+- GIVEN a list whose entries are plain strings, mappings, and nested structures, none of them empty
+- WHEN the item query resolves
+- THEN every entry is an item, in file order, and nothing is dropped
 
 ### Requirement: Item Index
 

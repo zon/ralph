@@ -40,7 +40,9 @@ The system SHALL provide a `ralph get` command with two subcommands: `complete` 
 
 ### Requirement: Item Query Resolution
 
-Both subcommands SHALL resolve the item array from the project file using a jq query resolved with two-level precedence: `--items` at the command line takes priority; otherwise the `items` field in `.ralph/config.yaml` is used; otherwise the query defaults to `.`. This is the same resolution the run command and `ralph validate` use, so all three agree on what the items are by default.
+Both subcommands SHALL resolve the item array from the project file using a jq query resolved with two-level precedence: `--items` at the command line takes priority; otherwise the `items` field in `.ralph/config.yaml` is used; otherwise the query defaults to `.`. This is the same resolution the run command and `ralph validate` use, so all three agree on what the items are — and on their indices — by default.
+
+Resolution discards empty outputs, so the resolved array is either empty or made entirely of non-empty items; see [write-project/spec.md](../write-project/spec.md). An empty resolved array SHALL be reported as an error, because there are no items to report on.
 
 #### Scenario: `--items` flag takes precedence
 
@@ -68,6 +70,19 @@ Both subcommands SHALL resolve the item array from the project file using a jq q
 - GIVEN a project file and a query that produces no output
 - WHEN the item array is resolved
 - THEN an error is returned: `item query yielded no items: <query>`
+
+#### Scenario: Query yields only empty items
+
+- GIVEN a project file whose item list holds nothing but nulls, blank strings, and empty mappings
+- WHEN the item array is resolved
+- THEN the resolved array is empty and an error is returned: `item query yielded no items: <query>`
+
+#### Scenario: Empty entries dropped before indexing
+
+- GIVEN a project file whose item list holds two work items with a null entry between them
+- WHEN the item array is resolved
+- THEN two items are reported, indexed 0 and 1
+- AND completion is matched against those indices, the same ones a run records
 
 ---
 

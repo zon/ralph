@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 
 	"github.com/itchyny/gojq"
@@ -49,9 +50,14 @@ func Parse(path string) (*Document, error) {
 // When the query produces exactly one output and that output is an array, the
 // array's elements are the items. In every other case each output of the query
 // is one item, so a query ending in `[]` and one returning the array itself
-// resolve identically — including for an empty array, which yields no items in
-// either form. Returns an error naming the query when it cannot be evaluated,
-// and a distinct error when it yields no items.
+// resolve identically. Empty outputs are then discarded, so the result is
+// either an empty slice or a slice whose every element is non-empty; see
+// isEmptyItem for what counts as empty. Discarding happens before any caller
+// indexes the result, so an item's index is its position among the survivors.
+//
+// Resolving nothing is not an error here: callers that need work to do report
+// the empty slice themselves. Returns an error only when the query cannot be
+// parsed or evaluated, naming the query.
 func ResolveItems(doc *Document, query string) ([]any, error) {
 	q, err := gojq.Parse(query)
 	if err != nil {
@@ -76,10 +82,41 @@ func ResolveItems(doc *Document, query string) ([]any, error) {
 			items = arr
 		}
 	}
-	if len(items) == 0 {
-		return nil, fmt.Errorf("item query yielded no items: %s", query)
+
+	resolved := make([]any, 0, len(items))
+	for _, v := range items {
+		if !isEmptyItem(v) {
+			resolved = append(resolved, v)
+		}
 	}
-	return items, nil
+	return resolved, nil
+}
+
+// isEmptyItem reports whether a query output carries no work and so is not an
+// item. Empty means falsy: null, false, a zero number, a string that is empty
+// or only whitespace, an empty mapping, or an empty sequence. Every other
+// value is an item, whatever its shape.
+func isEmptyItem(v any) bool {
+	if v == nil {
+		return true
+	}
+	rv := reflect.ValueOf(v)
+	switch rv.Kind() {
+	case reflect.Bool:
+		return !rv.Bool()
+	case reflect.String:
+		return strings.TrimSpace(rv.String()) == ""
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return rv.Int() == 0
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return rv.Uint() == 0
+	case reflect.Float32, reflect.Float64:
+		return rv.Float() == 0
+	case reflect.Map, reflect.Slice, reflect.Array:
+		return rv.Len() == 0
+	default:
+		return false
+	}
 }
 
 // Remove deletes a project file from disk.

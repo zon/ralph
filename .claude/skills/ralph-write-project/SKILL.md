@@ -74,6 +74,6 @@ An item is identified by its **index**, its 0-based position in the resolved arr
 
    Each item's `slug`, `id`, or `name` field — checked in that order — is its key, so commit trailers such as `Ralph item 0 (csv-serializer) completed` read well. No completion field belongs in the file: completion is recorded in commit messages, never written into the project file.
 
-10. **Validate** by running `ralph validate ./projects/<slug>.yaml`. This checks the file parses and the item query resolves to at least one item.
+10. **Validate** by running `ralph validate ./projects/<slug>.yaml`. This checks the file parses and the item query resolves to at least one non-empty item. Empty entries — null, `false`, `0`, blank strings, `{}`, `[]` — are dropped during resolution, so never leave a placeholder entry in the list expecting ralph to work it.
 
 11. **Report** the file path and a one-line summary of what the project covers.

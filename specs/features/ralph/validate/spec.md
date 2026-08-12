@@ -2,9 +2,9 @@
 
 ## Purpose
 
-Define the behavior of `ralph validate`, which checks that a project file is usable by a run: that it parses as YAML or JSON, that the item query evaluates against it, and that the query resolves to at least one item. When the file fails to parse, the command asks a locally-run agent to repair it and retries. On success the file is rewritten in canonical YAML; a `.json` input is written to a new `.yaml` file and the original is removed.
+Define the behavior of `ralph validate`, which checks that a project file is usable by a run: that it parses as YAML or JSON, that the item query evaluates against it, and that the query resolves to at least one non-empty item. When the file fails to parse, the command asks a locally-run agent to repair it and retries. On success the file is rewritten in canonical YAML; a `.json` input is written to a new `.yaml` file and the original is removed.
 
-Ralph imposes no schema on a project file, so validation makes no schema checks. Anything that parses and yields items is a valid project.
+Ralph imposes no schema on a project file, so validation makes no schema checks. Anything that parses and yields non-empty items is a valid project.
 
 ## Requirements
 
@@ -51,7 +51,7 @@ The command SHALL resolve the item query with the same two-level precedence a ru
 
 ### Requirement: Validation Checks
 
-The command MUST check exactly three things, in order: the file parses as YAML or JSON; the item query evaluates against the parsed document without error; the query resolves to at least one item. There MUST be no schema check — no field is required, and no field is rejected.
+The command MUST check exactly three things, in order: the file parses as YAML or JSON; the item query evaluates against the parsed document without error; the query resolves to at least one non-empty item. There MUST be no schema check — no field is required, and no field is rejected.
 
 #### Scenario: Well-formed project
 
@@ -92,6 +92,19 @@ The command MUST check exactly three things, in order: the file parses as YAML o
 - WHEN `ralph validate <file>` is run
 - THEN the command exits with a non-zero status and the error names the query: `item query yielded no items: <query>`
 - AND no agent is invoked
+
+#### Scenario: Query yields only empty items
+
+- GIVEN a file that parses and whose item list holds nothing but nulls, blank strings, and empty mappings
+- WHEN `ralph validate <file>` is run
+- THEN the resolved list is empty, so the command exits with a non-zero status and the error names the query: `item query yielded no items: <query>`
+- AND no agent is invoked, because the file parses
+
+#### Scenario: Empty entries among real items pass validation
+
+- GIVEN a file that parses and whose item list holds two work items with a null entry between them
+- WHEN `ralph validate <file>` is run
+- THEN validation passes, because resolution drops the null and two non-empty items remain
 
 ### Requirement: Local Agent Fix Loop
 
@@ -135,7 +148,7 @@ Model resolution follows a two-level precedence: if `validate.model` is set in `
 - GIVEN a file that the agent repairs into valid YAML
 - WHEN the fix loop exits
 - THEN the item query is evaluated against the repaired file
-- AND a query that yields no items fails validation without re-entering the fix loop
+- AND a query that yields no non-empty items fails validation without re-entering the fix loop
 
 ### Requirement: Fix Loop Limit
 
