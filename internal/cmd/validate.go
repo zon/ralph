@@ -11,15 +11,21 @@ import (
 
 type ValidateCmd struct {
 	ProjectFile string `arg:"" help:"Path to project YAML file"`
+	Items       string `help:"jq query selecting the item array from the project file (default: from config or .)" name:"items" optional:""`
 }
 
 func (v *ValidateCmd) Run() error {
 	ctx := createExecutionContext()
 	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
 
-	query := "."
-	if ralphConfig, err := config.LoadConfig(); err == nil {
-		query = ralphConfig.ResolveItems("")
+	query := v.Items
+	if query == "" {
+		if ralphConfig, err := config.LoadConfig(); err == nil {
+			query = ralphConfig.ResolveItems("")
+		}
+		if query == "" {
+			query = "."
+		}
 	}
 
 	validator := validate.New(ctx, opencode.New())

@@ -63,7 +63,7 @@ requirements:
             - AND no `--items` flag is passed
             - WHEN the item query is resolved
             - THEN the query `.` is evaluated, so a file whose top level is an array validates with no configuration
-      passing: false
+      passing: true
     - slug: validate-fix-loop
       description: The bounded AI fix loop repairs parse failures only
       items:
