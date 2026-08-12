@@ -29,6 +29,7 @@ type mockAI struct {
 	lastPickerIndices        []int
 	lastPickerItems          []project.Item
 	lastDevelopedIndex       int
+	lastDevelopedValue       any
 }
 
 func (m *mockAI) RunPicker(proj *project.Project, incomplete []project.Item) (project.Item, error) {
@@ -47,6 +48,7 @@ func (m *mockAI) RunPicker(proj *project.Project, incomplete []project.Item) (pr
 func (m *mockAI) RunDeveloper(proj *project.Project, item project.Item) error {
 	m.developCalls++
 	m.lastDevelopedIndex = item.Index
+	m.lastDevelopedValue = item.Value
 	if m.runDeveloperFunc != nil {
 		return m.runDeveloperFunc(proj, item)
 	}
@@ -200,10 +202,10 @@ func (m *mockGitHub) CreatePR(proj *project.Project) error {
 // mockServices implements ServicesClient with recorded start/stop/removeLogs
 // counts and configurable failures.
 type mockServices struct {
-	runBeforeErr   error
-	startErr       error
-	startCount     int
-	stopCount      int
+	runBeforeErr    error
+	startErr        error
+	startCount      int
+	stopCount       int
 	removeLogsCount int
 }
 
@@ -504,6 +506,13 @@ func aiLastDevelopedIndex(r *Runner) int {
 		return m.lastDevelopedIndex
 	}
 	return -1
+}
+
+func aiLastDevelopedValue(r *Runner) any {
+	if m, ok := r.ai.(*mockAI); ok {
+		return m.lastDevelopedValue
+	}
+	return nil
 }
 
 func gitBranchSwitched(r *Runner) bool {

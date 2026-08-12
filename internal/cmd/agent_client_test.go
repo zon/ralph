@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 
 	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/opencode"
@@ -19,6 +20,7 @@ import (
 	"github.com/zon/ralph/internal/project"
 	"github.com/zon/ralph/internal/projectfile"
 	"github.com/zon/ralph/internal/testutil"
+	"github.com/zon/ralph/internal/trailer"
 )
 
 func TestAgentClientIsFatal(t *testing.T) {
@@ -209,6 +211,164 @@ func TestAgentClientRunDeveloperHonorsCustomInstructions(t *testing.T) {
 
 	assert.Contains(t, developPrompt, custom)
 	assert.NotContains(t, developPrompt, "read the selected item carefully")
+}
+
+func TestAgentClientRunPickerCarriesFullProjectFileAsContext(t *testing.T) {
+	workDir := t.TempDir()
+	t.Chdir(workDir)
+
+	testutil.InitGitRepo(t, workDir)
+	testutil.MakeInitialCommit(t, workDir)
+	testutil.CreateRalphConfig(t, workDir)
+
+	raw := "title: CSV Export\nnotes:\n  owner: platform\ntasks:\n" +
+		"  - slug: exporter\n    description: export endpoint\n" +
+		"  - slug: importer\n    description: import endpoint\n"
+	var pickPrompt string
+	mockOC := &opencode.MockOC{
+		RunAgentFunc: func(_ context.Context, _, _, prompt string) error {
+			pickPrompt = prompt
+			return os.WriteFile("picked-item-index.txt", []byte("0"), 0644)
+		},
+	}
+	client := NewAgentClient(execcontext.NewContext(), mockOC)
+
+	proj := &project.Project{
+		Slug: "csv-export",
+		Path: "projects/csv-export.yaml",
+		Items: project.NewItems([]any{
+			map[string]any{"slug": "exporter", "description": "export endpoint"},
+			map[string]any{"slug": "importer", "description": "import endpoint"},
+		}),
+		Doc: &projectfile.Document{Raw: raw},
+	}
+
+	_, err := client.RunPicker(proj, proj.Items)
+	require.NoError(t, err)
+	assert.Contains(t, pickPrompt, strings.TrimRight(raw, "\n"), "the whole project file is included in the prompt as context")
+	assert.Contains(t, pickPrompt, "owner: platform", "content outside the item array is retained")
+	assert.Contains(t, pickPrompt, "title: CSV Export", "content outside the item array is retained")
+}
+
+func TestAgentClientDevelopPromptCarriesSelectedItemVerbatim(t *testing.T) {
+	workDir := t.TempDir()
+	t.Chdir(workDir)
+
+	testutil.InitGitRepo(t, workDir)
+	testutil.MakeInitialCommit(t, workDir)
+	testutil.CreateRalphConfig(t, workDir)
+
+	var developPrompt string
+	mockOC := &opencode.MockOC{
+		RunAgentFunc: func(_ context.Context, _, _, prompt string) error {
+			developPrompt = prompt
+			return nil
+		},
+	}
+	client := NewAgentClient(execcontext.NewContext(), mockOC)
+
+	values := []any{
+		"exporter",
+		map[string]any{"slug": "importer", "description": "import endpoint"},
+		map[string]any{"slug": "export-endpoint", "description": "Build the export endpoint"},
+	}
+	proj := &project.Project{Slug: "csv-export", Path: "projects/csv-export.yaml", Items: project.NewItems(values)}
+	item := proj.Items[2]
+	err := client.RunDeveloper(proj, item)
+	require.NoError(t, err)
+
+	rendered, err := yaml.Marshal(item.Value)
+	require.NoError(t, err)
+	assert.Contains(t, developPrompt, strings.TrimRight(string(rendered), "\n"), "the item's value is included in the prompt exactly as it appears in the resolved array")
+}
+
+func TestAgentClientDevelopPromptSuppliesIndexKeyAndTrailer(t *testing.T) {
+	workDir := t.TempDir()
+	t.Chdir(workDir)
+
+	testutil.InitGitRepo(t, workDir)
+	testutil.MakeInitialCommit(t, workDir)
+	testutil.CreateRalphConfig(t, workDir)
+
+	var developPrompt string
+	mockOC := &opencode.MockOC{
+		RunAgentFunc: func(_ context.Context, _, _, prompt string) error {
+			developPrompt = prompt
+			return nil
+		},
+	}
+	client := NewAgentClient(execcontext.NewContext(), mockOC)
+
+	proj := &project.Project{
+		Slug:  "csv-export",
+		Path:  "projects/csv-export.yaml",
+		Items: project.NewItems([]any{"exporter", "importer", map[string]any{"slug": "export-endpoint", "description": "build the export endpoint"}}),
+	}
+	err := client.RunDeveloper(proj, proj.Items[2])
+	require.NoError(t, err)
+
+	assert.Contains(t, developPrompt, "(index 2, key export-endpoint)", "the prompt supplies index 2 and the key export-endpoint")
+	assert.Contains(t, developPrompt, "`Ralph item 2 (export-endpoint) completed`", "the prompt instructs the exact trailer line")
+}
+
+func TestAgentClientDevelopPromptKeylessItemUsesIndexOnlyTrailer(t *testing.T) {
+	workDir := t.TempDir()
+	t.Chdir(workDir)
+
+	testutil.InitGitRepo(t, workDir)
+	testutil.MakeInitialCommit(t, workDir)
+	testutil.CreateRalphConfig(t, workDir)
+
+	var developPrompt string
+	mockOC := &opencode.MockOC{
+		RunAgentFunc: func(_ context.Context, _, _, prompt string) error {
+			developPrompt = prompt
+			return nil
+		},
+	}
+	client := NewAgentClient(execcontext.NewContext(), mockOC)
+
+	proj := &project.Project{Slug: "csv-export", Path: "projects/csv-export.yaml", Items: project.NewItems([]any{"exporter", "importer", "writer"})}
+	err := client.RunDeveloper(proj, proj.Items[2])
+	require.NoError(t, err)
+
+	assert.Contains(t, developPrompt, "(index 2)", "a plain string item is supplied with its index only")
+	assert.Contains(t, developPrompt, "`Ralph item 2 completed`", "a keyless item uses the index-only trailer form")
+}
+
+func TestAgentClientDevelopPromptTrailerComesFromSharedFormatter(t *testing.T) {
+	workDir := t.TempDir()
+	t.Chdir(workDir)
+
+	testutil.InitGitRepo(t, workDir)
+	testutil.MakeInitialCommit(t, workDir)
+	testutil.CreateRalphConfig(t, workDir)
+
+	for _, tc := range []struct {
+		name  string
+		value any
+	}{
+		{name: "keyed", value: map[string]any{"slug": "export-endpoint", "description": "build the export endpoint"}},
+		{name: "keyless", value: "plain string"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var developPrompt string
+			mockOC := &opencode.MockOC{
+				RunAgentFunc: func(_ context.Context, _, _, prompt string) error {
+					developPrompt = prompt
+					return nil
+				},
+			}
+			client := NewAgentClient(execcontext.NewContext(), mockOC)
+
+			proj := &project.Project{Slug: "csv-export", Path: "projects/csv-export.yaml", Items: project.NewItems([]any{"exporter", "importer", tc.value})}
+			item := proj.Items[2]
+			err := client.RunDeveloper(proj, item)
+			require.NoError(t, err)
+
+			assert.Contains(t, developPrompt, "`"+trailer.Format(item.Index, item.Key())+"`", "the trailer is produced by the shared trailer formatter")
+		})
+	}
 }
 
 func TestAgentClientPrintStatsDoesNotPanicOnError(t *testing.T) {
