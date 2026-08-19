@@ -92,18 +92,17 @@ func isTestFile(rel string) bool {
 func TestInstalledStandardsReachableFromAgentInstructions(t *testing.T) {
 	// GIVEN a fresh clone of the repository
 	// WHEN an agent follows AGENTS.md to find the coding standard
-	// THEN it is directed to docs/specs/code.md and that file exists
+	// THEN it is directed to docs/zpecs/architecture.md and that file exists
 	agents := string(readRepoFile(t, "AGENTS.md"))
-	assert.Contains(t, agents, "[docs/specs/code.md](docs/specs/code.md)", "AGENTS.md must point the coding standard at the installed document")
-	assert.Contains(t, agents, "[docs/specs/testing.md](docs/specs/testing.md)", "AGENTS.md must point the testing standard at the installed document")
-	assert.Contains(t, agents, "[docs/specs/project.md](docs/specs/project.md)", "AGENTS.md must point the project item shape at the installed document")
-	assert.Contains(t, agents, "[Architecture Format](docs/specs/architecture.md)", "AGENTS.md must reach the architecture format the coding standard depends on")
-	_, err := os.Stat(filepath.Join(repoRoot(t), "docs/specs/code.md"))
-	require.NoError(t, err, "docs/specs/code.md must exist")
+	assert.Contains(t, agents, "[docs/zpecs/architecture.md](docs/zpecs/architecture.md)", "AGENTS.md must point the coding standard at the installed document")
+	assert.Contains(t, agents, "[docs/testing.md](docs/testing.md)", "AGENTS.md must point the testing standard at the installed document")
+	assert.Contains(t, agents, "[Architecture Format](docs/zpecs/architecture-outline.md)", "AGENTS.md must reach the architecture format the coding standard depends on")
+	_, err := os.Stat(filepath.Join(repoRoot(t), "docs/testing.md"))
+	require.NoError(t, err, "docs/testing.md must exist")
 
-	for _, name := range []string{"README", "spec", "orchestration", "architecture", "project", "code", "testing", "glossary", "requirements", "prompts", "outline"} {
-		_, err := os.Stat(filepath.Join(repoRoot(t), "docs/specs", name+".md"))
-		require.NoError(t, err, "docs/specs/%s.md must be installed", name)
+	for _, name := range []string{"README", "specs", "architecture-outline", "architecture", "project", "glossary", "requirements", "prompts", "orchestration", "dependencies", "prose"} {
+		_, err := os.Stat(filepath.Join(repoRoot(t), "docs/zpecs", name+".md"))
+		require.NoError(t, err, "docs/zpecs/%s.md must be installed", name)
 	}
 }
 
@@ -115,7 +114,6 @@ func TestNoDanglingReferencesToRemovedDocuments(t *testing.T) {
 		"docs/formats",
 		"docs/outline",
 		"docs/code.md",
-		"docs/testing.md",
 		"docs/writing-requirements.md",
 		"docs/prompts.md",
 	}
@@ -144,9 +142,9 @@ func TestProjectMechanicsSurviveTheSplit(t *testing.T) {
 func TestProjectOpinionDoesNotSurviveTheSplit(t *testing.T) {
 	// GIVEN docs/projects.md
 	// WHEN a reader looks for the requirements list or a code entry
-	// THEN the document defers to docs/specs/project.md instead of describing them
+	// THEN the document defers to docs/zpecs/project.md instead of describing them
 	content := string(readRepoFile(t, "docs/projects.md"))
-	assert.Contains(t, content, "[Project Format](specs/project.md)")
+	assert.Contains(t, content, "[Project Format](zpecs/project.md)")
 	assert.NotContains(t, content, "## Requirements")
 	assert.NotContains(t, content, "## Items")
 	assert.NotContains(t, content, "## Code and Tests")

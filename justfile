@@ -23,11 +23,7 @@ build:
     go build -ldflags "{{ldflags}}" -o {{webhook_binary}} {{webhook_main_path}}
     @echo "Build complete: ./{{webhook_binary}}"
 
-spec_docs := "docs/specs"
-spec_docs_names := "README spec orchestration architecture project code testing glossary requirements prompts outline"
-spec_docs_default := "../specs"
-
-# Install ralph and ralph-webhook to GOPATH/bin, and install the spec documents into docs/specs/
+# Install ralph and ralph-webhook to GOPATH/bin
 install:
     @echo "Installing {{binary}} v{{version}} to {{install_path}}..."
     go install -ldflags "{{ldflags}}" {{main_path}}
@@ -35,23 +31,6 @@ install:
     @echo "Installing {{webhook_binary}} v{{version}} to {{install_path}}..."
     go install -ldflags "{{ldflags}}" {{webhook_main_path}}
     @echo "Installation complete: {{install_path}}/{{webhook_binary}}"
-    just install-specs
-
-# Install the spec documents into docs/specs/ from a checkout of the specs repository, or fetch them from raw.githubusercontent.com when no checkout is available
-install-specs:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    docs="{{spec_docs}}"
-    mkdir -p "$docs"
-    source="${SPECS_DIR:-{{spec_docs_default}}}"
-    if [ -d "$source/docs/specs" ]; then
-        cp "$source"/docs/specs/*.md "$docs/"
-    else
-        for name in {{spec_docs_names}}; do
-            curl -fsSL "https://raw.githubusercontent.com/zon/specs/refs/heads/main/docs/specs/$name.md" -o "$docs/$name.md"
-        done
-    fi
-    echo "Installed spec documents to $docs"
 
 # Display version information
 show-version:

@@ -75,7 +75,7 @@ requirements:
 
 Ralph never writes to the project file during a run — an item's `slug`, `id`, or `name` just labels it in the commit trailer. See [Project Files](docs/projects.md) and [Iterations](docs/iterations.md).
 
-The spec, orchestration, architecture, and project conventions are published separately and installed into a repository at `docs/specs/` — see the [specs repository](https://github.com/zon/specs). Ralph itself only runs what it is given.
+The spec, orchestration, architecture, and project conventions are published separately and installed into a repository at `docs/zpecs/` — see the [specs repository](https://github.com/zon/specs). Ralph itself only runs what it is given.
 
 ## Installation
 

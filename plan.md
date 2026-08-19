@@ -1,7 +1,7 @@
 # Orchestration Module Review Plan
 
 Audit every module in the `orchestration` category against the standards in
-[docs/specs/code.md](docs/specs/code.md) and [docs/specs/testing.md](docs/specs/testing.md),
+[docs/zpecs/architecture.md](docs/zpecs/architecture.md) and [docs/testing.md](docs/testing.md),
 and report or fix any gaps found.
 
 ## Modules
