@@ -59,6 +59,13 @@ The system SHALL apply run-specific flags to the execution context before starti
 - WHEN `ralph workflow run` starts
 - THEN dependent service startup is skipped before executing the project
 
+#### Scenario: Base branch bounds the completion log
+
+- GIVEN `--base develop` is provided
+- WHEN `ralph workflow run` starts
+- THEN the run-local behavior bounds the commit log completion is read from by `develop`
+- AND completion is never read from commits already on `develop`
+
 ### Requirement: Input and Configuration Validation
 
 The system SHALL validate all required inputs and load configuration before performing any base-branch synchronization or AI agent invocations.

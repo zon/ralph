@@ -288,6 +288,13 @@ Each iteration SHALL invoke a picker agent to select exactly one incomplete item
 - WHEN the picker runs
 - THEN it may select index 3 first
 
+#### Scenario: Picker treats the incomplete list as authoritative
+
+- GIVEN the picker is given a list of incomplete items and the recent commit log
+- WHEN the picker selects an item
+- THEN it selects exactly one of the listed items without auditing the wider git history or the working tree for completion evidence
+- AND it never reports that no item can be selected
+
 ---
 
 ### Requirement: Item development

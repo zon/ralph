@@ -38,7 +38,9 @@ Select the highest-priority incomplete item and report its index. Do not make an
 
 1. Review the incomplete items above, each labelled with its index and key.
 2. Select the one to develop next based on dependencies between items, logical ordering, and impact on the overall project. Selection is not constrained to array order.
-3. Do not make any code changes.
+3. Treat the incomplete items list as authoritative. It is derived from the completion trailers in the branch's commit log, and every listed item is genuinely pending. Do not audit the wider git history or the working tree for completion evidence, and do not second-guess whether a listed item is really done. A trailer that names the same index elsewhere in history may belong to a different project and is not evidence of completion.
+4. Select exactly one of the listed items. There is always at least one listed item to select.
+5. Do not make any code changes.
 
 ## Output
 

@@ -518,6 +518,14 @@ func TestBuildItemPickPrompt(t *testing.T) {
 		assert.Contains(t, prompt, "picked-item-index.txt")
 	})
 
+	t.Run("treats the incomplete list as authoritative and forbids auditing wider history", func(t *testing.T) {
+		prompt, err := BuildItemPickPrompt(data)
+		require.NoError(t, err)
+		assert.Contains(t, prompt, "incomplete items list as authoritative")
+		assert.Contains(t, prompt, "Do not audit the wider git history or the working tree for completion evidence")
+		assert.Contains(t, prompt, "Select exactly one of the listed items")
+	})
+
 	t.Run("tells the agent to make no code changes", func(t *testing.T) {
 		prompt, err := BuildItemPickPrompt(data)
 		require.NoError(t, err)

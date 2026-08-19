@@ -147,6 +147,7 @@ func (w *WorkflowRunCmd) syncBaseBranch(baseBranch, projectBranch string) error 
 func (w *WorkflowRunCmd) applyFlags(proj *ralphproj.Project, cfg *ralphcfg.RalphConfig, flags WorkflowRunFlags) {
 	if flags.BaseBranch != "" {
 		proj.BaseBranch = flags.BaseBranch
+		cfg.Base = flags.BaseBranch
 	}
 	if flags.InstructionsMd != "" {
 		cfg.Instructions = flags.InstructionsMd

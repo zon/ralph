@@ -159,6 +159,25 @@ func TestRunNoServicesClearsConfigServices(t *testing.T) {
 	require.Nil(t, capturedCfg.Services)
 }
 
+func TestRunBaseBranchBoundsCompletionLog(t *testing.T) {
+	var capturedCfg *ralphcfg.RalphConfig
+	mockRunner := &mockRunnerClient{
+		runLocalFunc: func(proj *ralphproj.Project, cfg *ralphcfg.RalphConfig) error {
+			capturedCfg = cfg
+			return nil
+		},
+	}
+	cf := flags.any()
+	cf.BaseBranch = "develop"
+	cmd := run.withMocks(
+		run.withRunner(mockRunner),
+	)
+	err := cmd.Run(cf)
+	require.NoError(t, err)
+	require.NotNil(t, capturedCfg)
+	require.Equal(t, "develop", capturedCfg.Base, "the base branch bounds the commit log completion is read from")
+}
+
 func TestRunItemsAppliedToConfig(t *testing.T) {
 	var capturedCfg *ralphcfg.RalphConfig
 	mockRunner := &mockRunnerClient{
