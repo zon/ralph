@@ -64,11 +64,6 @@ RUN curl -sLO "https://github.com/argoproj/argo-workflows/releases/download/${AR
     && chmod +x argo-linux-amd64 \
     && mv argo-linux-amd64 /usr/local/bin/argo
 
-# Install Pulumi CLI
-RUN curl -fsSL https://get.pulumi.com | sh \
-    && ln -s /root/.pulumi/bin/pulumi /usr/local/bin/pulumi \
-    && ln -s /root/.pulumi/bin/pulumi-gen /usr/local/bin/pulumi-gen
-
 # Install Helm
 ENV HELM_VERSION=v4.2.0
 RUN curl -fsSL "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz" | tar -xz \

@@ -52,10 +52,6 @@ func TestDockerfileContainsRequiredComponents(t *testing.T) {
 			searchTerms: []string{"git"},
 		},
 		{
-			name:        "Pulumi",
-			searchTerms: []string{"pulumi"},
-		},
-		{
 			name:        "jq",
 			searchTerms: []string{"jq"},
 		},
