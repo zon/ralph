@@ -1,5 +1,5 @@
 # Build stage - compile ralph
-FROM docker.io/library/golang:1.26-bookworm AS builder
+FROM docker.io/library/golang:1.27-bookworm AS builder
 
 WORKDIR /build
 
@@ -35,12 +35,14 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | d
     && rm -rf /var/lib/apt/lists/*
 
 # Install Go toolchain
-ENV GO_VERSION=1.26.3
+ENV GO_VERSION=1.27.0
 RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" | tar -C /usr/local -xzf - \
     && ln -s /usr/local/go/bin/go /usr/local/bin/go \
     && ln -s /usr/local/go/bin/gofmt /usr/local/bin/gofmt
 
 # Install Go development tools (air for live reload, templ for templates)
+ENV GOPATH=/root/go
+ENV PATH="${GOPATH}/bin:${PATH}"
 RUN go install github.com/air-verse/air@latest \
     && go install github.com/a-h/templ/cmd/templ@latest \
     && ln -s /root/go/bin/air /usr/local/bin/air \
