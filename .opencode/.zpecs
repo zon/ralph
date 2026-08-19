@@ -1,0 +1,10 @@
+.opencode/agents/code-architect.md
+.opencode/agents/code-reviewer.md
+.opencode/agents/code-tester.md
+.opencode/agents/code-writer.md
+.opencode/agents/prose-editor.md
+.opencode/skills/write-agent/SKILL.md
+.opencode/skills/write-architecture/SKILL.md
+.opencode/skills/write-project/SKILL.md
+.opencode/skills/write-skill/SKILL.md
+.opencode/skills/write-spec/SKILL.md

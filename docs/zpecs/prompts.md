@@ -19,9 +19,9 @@ A well-structured prompt contains these sections in order:
 - **Give the agent only the context it needs.** Irrelevant context dilutes attention. Omit optional sections when they have nothing to contribute.
 - **Use numbered steps for instructions.** Ordered steps give the agent a clear execution path and reduce ambiguous behavior.
 - **Define domain terms inline.** If the prompt relies on a concept with a precise meaning, define it in the prompt. Don't assume the agent infers it from context.
-- **Specify output explicitly.** Tell the agent exactly what to produce — format, location, and any schema or example it should follow.
+- **Specify output explicitly.** Tell the agent exactly what to produce: format, location, and any schema or example it should follow.
 - **State blocking behavior.** If the agent can get stuck, tell it what to do rather than leaving it to guess.
 
 ## Prompts vs Skills
 
-A prompt is invoked once with its context inlined. A skill is installed into a repository and invoked by name, so it must locate its own context — which is why the skills in this repository reference documents by path and let the agent read them, rather than restating their contents. When a task is repeated across projects, write it as a skill; when it is a one-off with specific inputs, write it as a prompt. [Outline](outline.md) is an example of the latter.
+A prompt is invoked once with its context inlined. A skill is installed into a repository and invoked by name, so it must locate its own context. That is why the skills in this repository reference documents by path and let the agent read them, rather than restating their contents. When a task is repeated across projects, write it as a skill. When it is a one-off with specific inputs, write it as a prompt.
