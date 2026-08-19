@@ -443,11 +443,13 @@ func TestPrepareSetupIncludesModelAndContext(t *testing.T) {
 	flags := RunFlags{
 		InputFile: "/fake/project.yaml",
 		Model:     "gpt-4",
+		Agent:     "code-reviewer",
 		Context:   "my-cluster",
 	}
 	setup, err := cmd.prepareSetup(flags, project.ForProjectInput(project.Any()))
 	require.NoError(t, err)
 	require.Equal(t, "gpt-4", setup.Model)
+	require.Equal(t, "code-reviewer", setup.Agent)
 	require.Equal(t, "my-cluster", setup.Context)
 }
 

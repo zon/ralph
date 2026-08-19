@@ -24,6 +24,7 @@ type RunCmd struct {
 	Items            string `help:"jq query selecting the item array from the project file (default: from config or .)" name:"items" optional:""`
 	Cleanup          *bool  `help:"Delete the project file in its own commit once every item is complete" name:"cleanup"`
 	Model            string `help:"Override the AI model from config" name:"model" optional:""`
+	Agent            string `help:"Override the opencode agent from config" name:"agent" optional:""`
 	Variant          string `help:"Override the model variant from config" name:"variant" optional:""`
 	Context          string `help:"Kubernetes context to use" name:"context" optional:""`
 	ShowVersion      bool   `help:"Show version information" short:"v" name:"version"`
@@ -52,6 +53,7 @@ func (r *RunCmd) Run() error {
 		Items:           r.Items,
 		Cleanup:         r.Cleanup,
 		Model:           r.Model,
+		Agent:           r.Agent,
 		Context:         r.Context,
 	}
 
@@ -71,6 +73,7 @@ func (r *RunCmd) newExecutionContext() *execcontext.Context {
 	ctx.SetDebugBranch(r.Debug)
 	ctx.SetBaseBranch(r.Base)
 	ctx.SetModel(r.Model)
+	ctx.SetAgent(r.Agent)
 	ctx.SetVariant(r.Variant)
 	ctx.SetKubeContext(r.Context)
 	return ctx

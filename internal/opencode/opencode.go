@@ -12,8 +12,8 @@ import (
 )
 
 type OCClient interface {
-	RunCommand(ctx context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error
-	RunAgent(ctx context.Context, model, variant, prompt string) error
+	RunCommand(ctx context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error
+	RunAgent(ctx context.Context, model, variant, agent, prompt string) error
 	GetStats() (Stats, error)
 	DisplayStats() error
 }
@@ -38,10 +38,13 @@ func execOpenCode(ctx context.Context, args []string, stdout, stderr io.Writer) 
 	return nil
 }
 
-func (c *Client) RunCommand(ctx context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+func (c *Client) RunCommand(ctx context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
 	args := []string{"run", "--model", model}
 	if variant != "" {
 		args = append(args, "--variant", variant)
+	}
+	if agent != "" {
+		args = append(args, "--agent", agent)
 	}
 	args = append(args, prompt)
 	if stdoutWriter == nil {
@@ -53,10 +56,13 @@ func (c *Client) RunCommand(ctx context.Context, model, variant, prompt string, 
 	return execOpenCode(ctx, args, stdoutWriter, stderrWriter)
 }
 
-func (c *Client) RunAgent(ctx context.Context, model, variant, prompt string) error {
+func (c *Client) RunAgent(ctx context.Context, model, variant, agent, prompt string) error {
 	args := []string{"run", "--model", model}
 	if variant != "" {
 		args = append(args, "--variant", variant)
+	}
+	if agent != "" {
+		args = append(args, "--agent", agent)
 	}
 	args = append(args, prompt)
 	ring := &ringWriter{n: 10}

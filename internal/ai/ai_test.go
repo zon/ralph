@@ -48,7 +48,7 @@ func TestGenerateChangelog(t *testing.T) {
 			name: "success renames to report.md and cleans up temp file",
 			setupMock: func(t *testing.T) *opencode.MockOC {
 				return &opencode.MockOC{
-					RunCommandFunc: func(_ context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+					RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
 						return writeOutputFromChangelogPrompt(prompt, "  changelog content\n")
 					},
 				}
@@ -58,7 +58,7 @@ func TestGenerateChangelog(t *testing.T) {
 			name: "runcommand error is propagated and temp file cleaned up",
 			setupMock: func(t *testing.T) *opencode.MockOC {
 				return &opencode.MockOC{
-					RunCommandFunc: func(_ context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+					RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
 						return errCommandFailed
 					},
 				}
@@ -70,7 +70,7 @@ func TestGenerateChangelog(t *testing.T) {
 			name: "empty summary returns error and temp file cleaned up",
 			setupMock: func(t *testing.T) *opencode.MockOC {
 				return &opencode.MockOC{
-					RunCommandFunc: func(_ context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+					RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
 						return writeOutputFromChangelogPrompt(prompt, "   \n  \n")
 					},
 				}
@@ -113,7 +113,7 @@ func TestGenerateChangelog(t *testing.T) {
 		ctx.SetOutput(output.NewClient(&buf, &buf, true))
 
 		mockOC := &opencode.MockOC{
-			RunCommandFunc: func(_ context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+			RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
 				return writeOutputFromChangelogPrompt(prompt, "result")
 			},
 		}
@@ -217,17 +217,65 @@ func TestResolveVariant(t *testing.T) {
 	}
 }
 
+func TestResolveAgent(t *testing.T) {
+	tests := []struct {
+		name  string
+		agent string
+		setup func(*testing.T)
+		want  string
+	}{
+		{
+			name:  "context agent overrides config",
+			agent: "code-reviewer",
+			want:  "code-reviewer",
+		},
+		{
+			name: "falls back to config agent",
+			want: "build",
+			setup: func(t *testing.T) {
+				dir := t.TempDir()
+				require.NoError(t, os.MkdirAll(filepath.Join(dir, ".ralph"), 0755))
+				require.NoError(t, os.WriteFile(filepath.Join(dir, ".ralph", "config.yaml"), []byte("agent: build\n"), 0644))
+				t.Chdir(dir)
+			},
+		},
+		{
+			name: "falls back to empty when config load fails",
+			want: "",
+			setup: func(t *testing.T) {
+				t.Chdir(t.TempDir())
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.setup != nil {
+				tt.setup(t)
+			}
+			ctx := &execcontext.Context{}
+			if tt.agent != "" {
+				ctx.SetAgent(tt.agent)
+			}
+			result := resolveAgent(ctx)
+			assert.Equal(t, tt.want, result)
+		})
+	}
+}
+
 func TestRunAgent(t *testing.T) {
-	t.Run("captures resolved model, variant, and prompt", func(t *testing.T) {
+	t.Run("captures resolved model, variant, agent, and prompt", func(t *testing.T) {
 		ctx := &execcontext.Context{}
 		ctx.SetModel("gpt-4")
 		ctx.SetVariant("custom-variant")
+		ctx.SetAgent("code-reviewer")
 
-		var capturedModel, capturedVariant, capturedPrompt string
+		var capturedModel, capturedVariant, capturedAgent, capturedPrompt string
 		mockOC := &opencode.MockOC{
-			RunAgentFunc: func(_ context.Context, model, variant, prompt string) error {
+			RunAgentFunc: func(_ context.Context, model, variant, agent, prompt string) error {
 				capturedModel = model
 				capturedVariant = variant
+				capturedAgent = agent
 				capturedPrompt = prompt
 				return nil
 			},
@@ -237,6 +285,7 @@ func TestRunAgent(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "gpt-4", capturedModel)
 		assert.Equal(t, "custom-variant", capturedVariant)
+		assert.Equal(t, "code-reviewer", capturedAgent)
 		assert.Equal(t, "test prompt", capturedPrompt)
 	})
 
@@ -246,7 +295,7 @@ func TestRunAgent(t *testing.T) {
 
 		expectedErr := errors.New("agent execution failed")
 		mockOC := &opencode.MockOC{
-			RunAgentFunc: func(_ context.Context, model, variant, prompt string) error {
+			RunAgentFunc: func(_ context.Context, model, variant, agent, prompt string) error {
 				return expectedErr
 			},
 		}
@@ -262,7 +311,7 @@ func TestRunAgent(t *testing.T) {
 		ctx.SetOutput(output.NewClient(&buf, &buf, true))
 
 		mockOC := &opencode.MockOC{
-			RunAgentFunc: func(_ context.Context, model, variant, prompt string) error {
+			RunAgentFunc: func(_ context.Context, model, variant, agent, prompt string) error {
 				return nil
 			},
 		}
@@ -279,7 +328,7 @@ func TestRunAgent(t *testing.T) {
 		ctx.SetOutput(output.NewClient(&buf, &buf, false))
 
 		mockOC := &opencode.MockOC{
-			RunAgentFunc: func(_ context.Context, model, variant, prompt string) error {
+			RunAgentFunc: func(_ context.Context, model, variant, agent, prompt string) error {
 				return nil
 			},
 		}
@@ -298,7 +347,7 @@ func TestRunAgentWithModel(t *testing.T) {
 
 		var capturedModel, capturedVariant string
 		mockOC := &opencode.MockOC{
-			RunAgentFunc: func(_ context.Context, model, variant, prompt string) error {
+			RunAgentFunc: func(_ context.Context, model, variant, agent, prompt string) error {
 				capturedModel = model
 				capturedVariant = variant
 				return nil
@@ -316,7 +365,7 @@ func TestRunAgentWithModel(t *testing.T) {
 
 		expectedErr := errors.New("agent execution failed")
 		mockOC := &opencode.MockOC{
-			RunAgentFunc: func(_ context.Context, model, variant, prompt string) error {
+			RunAgentFunc: func(_ context.Context, model, variant, agent, prompt string) error {
 				return expectedErr
 			},
 		}
@@ -332,7 +381,7 @@ func TestRunAgentWithModel(t *testing.T) {
 		ctx.SetOutput(output.NewClient(&buf, &buf, true))
 
 		mockOC := &opencode.MockOC{
-			RunAgentFunc: func(_ context.Context, model, variant, prompt string) error {
+			RunAgentFunc: func(_ context.Context, model, variant, agent, prompt string) error {
 				return nil
 			},
 		}
@@ -349,7 +398,7 @@ func TestRunAgentWithModel(t *testing.T) {
 		ctx.SetOutput(output.NewClient(&buf, &buf, false))
 
 		mockOC := &opencode.MockOC{
-			RunAgentFunc: func(_ context.Context, model, variant, prompt string) error {
+			RunAgentFunc: func(_ context.Context, model, variant, agent, prompt string) error {
 				return nil
 			},
 		}
@@ -376,7 +425,7 @@ func TestRunOpenCodeAndReadResult(t *testing.T) {
 			ctx:  &execcontext.Context{},
 			setupMock: func(t *testing.T, outputFile string) *opencode.MockOC {
 				return &opencode.MockOC{
-					RunCommandFunc: func(_ context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+					RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
 						return os.WriteFile(outputFile, []byte("  hello world\n  "), 0644)
 					},
 				}
@@ -388,7 +437,7 @@ func TestRunOpenCodeAndReadResult(t *testing.T) {
 			ctx:  &execcontext.Context{},
 			setupMock: func(t *testing.T, outputFile string) *opencode.MockOC {
 				return &opencode.MockOC{
-					RunCommandFunc: func(_ context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+					RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
 						return originalErr
 					},
 				}
@@ -401,7 +450,7 @@ func TestRunOpenCodeAndReadResult(t *testing.T) {
 			ctx:  &execcontext.Context{},
 			setupMock: func(t *testing.T, outputFile string) *opencode.MockOC {
 				return &opencode.MockOC{
-					RunCommandFunc: func(_ context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+					RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
 						return nil
 					},
 				}
@@ -413,7 +462,7 @@ func TestRunOpenCodeAndReadResult(t *testing.T) {
 			ctx:  &execcontext.Context{},
 			setupMock: func(t *testing.T, outputFile string) *opencode.MockOC {
 				return &opencode.MockOC{
-					RunCommandFunc: func(_ context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+					RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
 						return os.WriteFile(outputFile, []byte("   \n  \n"), 0644)
 					},
 				}
@@ -469,7 +518,7 @@ func TestRunOpenCodeAndReadResultVerboseWiring(t *testing.T) {
 
 			var capturedStdout, capturedStderr io.Writer
 			mockOC := &opencode.MockOC{
-				RunCommandFunc: func(_ context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+				RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
 					capturedStdout = stdoutWriter
 					capturedStderr = stderrWriter
 					return os.WriteFile(outputFile, []byte("content"), 0644)
@@ -588,7 +637,7 @@ func TestGeneratePRSummary(t *testing.T) {
 			commitLog:   "abc: feat\n",
 			setupMock: func(t *testing.T) *opencode.MockOC {
 				return &opencode.MockOC{
-					RunCommandFunc: func(_ context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+					RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
 						return writeOutputFromPrompt(prompt, "  expected summary\n")
 					},
 				}
@@ -602,7 +651,7 @@ func TestGeneratePRSummary(t *testing.T) {
 			commitLog:   "abc: feat\n",
 			setupMock: func(t *testing.T) *opencode.MockOC {
 				return &opencode.MockOC{
-					RunCommandFunc: func(_ context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+					RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
 						return errCommandFailed
 					},
 				}
@@ -636,7 +685,7 @@ func TestGeneratePRSummary(t *testing.T) {
 	t.Run("prompt contains expected inputs", func(t *testing.T) {
 		var capturedPrompt string
 		mockOC := &opencode.MockOC{
-			RunCommandFunc: func(_ context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+			RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
 				capturedPrompt = prompt
 				return writeOutputFromPrompt(prompt, "result")
 			},
@@ -657,7 +706,7 @@ func TestGeneratePRSummary(t *testing.T) {
 		ctx.SetOutput(output.NewClient(&buf, &buf, true))
 
 		mockOC := &opencode.MockOC{
-			RunCommandFunc: func(_ context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+			RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
 				return writeOutputFromPrompt(prompt, "result")
 			},
 		}
@@ -674,7 +723,7 @@ func TestGeneratePRSummary(t *testing.T) {
 		ctx.SetOutput(output.NewClient(&buf, &buf, false))
 
 		mockOC := &opencode.MockOC{
-			RunCommandFunc: func(_ context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+			RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
 				return writeOutputFromPrompt(prompt, "result")
 			},
 		}
@@ -708,7 +757,7 @@ func TestGenerateReviewPRBody(t *testing.T) {
 			requirements: []string{"- **security**: JWT validation", "- **style**: naming"},
 			setupMock: func(t *testing.T) *opencode.MockOC {
 				return &opencode.MockOC{
-					RunCommandFunc: func(_ context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+					RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
 						return writeOutputFromPrompt(prompt, "  expected review body\n")
 					},
 				}
@@ -722,7 +771,7 @@ func TestGenerateReviewPRBody(t *testing.T) {
 			requirements: []string{"- **security**: JWT validation"},
 			setupMock: func(t *testing.T) *opencode.MockOC {
 				return &opencode.MockOC{
-					RunCommandFunc: func(_ context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+					RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
 						return errCommandFailed
 					},
 				}
@@ -756,7 +805,7 @@ func TestGenerateReviewPRBody(t *testing.T) {
 	t.Run("prompt contains expected inputs", func(t *testing.T) {
 		var capturedPrompt string
 		mockOC := &opencode.MockOC{
-			RunCommandFunc: func(_ context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+			RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
 				capturedPrompt = prompt
 				return writeOutputFromPrompt(prompt, "result")
 			},
@@ -777,7 +826,7 @@ func TestGenerateReviewPRBody(t *testing.T) {
 		ctx.SetOutput(output.NewClient(&buf, &buf, true))
 
 		mockOC := &opencode.MockOC{
-			RunCommandFunc: func(_ context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+			RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
 				return writeOutputFromPrompt(prompt, "result")
 			},
 		}
@@ -794,7 +843,7 @@ func TestGenerateReviewPRBody(t *testing.T) {
 		ctx.SetOutput(output.NewClient(&buf, &buf, false))
 
 		mockOC := &opencode.MockOC{
-			RunCommandFunc: func(_ context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+			RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
 				return writeOutputFromPrompt(prompt, "result")
 			},
 		}

@@ -39,6 +39,7 @@ type ExecutionSetup struct {
 	CurrentBranch string
 	BaseBranch    string
 	Model         string
+	Agent         string
 	Context       string
 }
 
@@ -53,6 +54,7 @@ type RunFlags struct {
 	Debug           string
 	Base            string
 	Model           string
+	Agent           string
 	Context         string
 }
 
@@ -128,6 +130,7 @@ func (r *RunCmd) prepareSetup(flags RunFlags, input *project.InputFile) (Executi
 		CurrentBranch: currentBranch,
 		BaseBranch:    baseBranch,
 		Model:         flags.Model,
+		Agent:         flags.Agent,
 		Context:       flags.Context,
 	}, nil
 }

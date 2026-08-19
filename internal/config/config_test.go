@@ -338,6 +338,7 @@ func TestApplyDefaults_DoesNotOverwriteNonZeroValues(t *testing.T) {
 	configContent := `maxIterations: 5
 defaultBranch: develop
 model: anthropic/claude-3-sonnet
+agent: code-reviewer
 app:
   name: my-app
   id: 1234567
@@ -356,6 +357,7 @@ services:
 
 	assert.Equal(t, "develop", config.DefaultBranch)
 	assert.Equal(t, "anthropic/claude-3-sonnet", config.Model)
+	assert.Equal(t, "code-reviewer", config.Agent)
 	assert.Equal(t, "my-app", config.App.Name)
 	assert.Equal(t, "1234567", config.App.ID)
 	assert.Equal(t, 60, config.Services[0].Timeout)

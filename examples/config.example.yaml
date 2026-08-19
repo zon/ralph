@@ -14,6 +14,10 @@ defaultBranch: main
 #   opencode config set model anthropic/claude-3-5-sonnet-20241022
 #   opencode config set model openai/gpt-4
 
+# opencode agent used for coding (unset = opencode's primary agent)
+# Example:
+# agent: build
+
 # Commands to run once before starting services and the iteration loop
 # Useful for compilation, code generation, dependency setup, or any other preparation
 before:

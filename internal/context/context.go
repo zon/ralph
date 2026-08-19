@@ -30,6 +30,7 @@ type Context struct {
 	botName           string   // Git user name for automated commits
 	botEmail          string   // Git user email for automated commits
 	model             string   // Model override; overrides model from .ralph/config.yaml
+	agent             string   // Agent override; overrides agent from .ralph/config.yaml
 	variant           string   // Variant override; overrides variant from .ralph/config.yaml
 	kubeContext       string   // Kubernetes context override; overrides workflow.context from .ralph/config.yaml
 	filter            string   // Filter string for reviewing specific items
@@ -207,6 +208,14 @@ func (c *Context) SetModel(model string) {
 
 func (c *Context) Model() string {
 	return c.model
+}
+
+func (c *Context) SetAgent(agent string) {
+	c.agent = agent
+}
+
+func (c *Context) Agent() string {
+	return c.agent
 }
 
 func (c *Context) SetVariant(v string) {

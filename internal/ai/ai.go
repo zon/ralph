@@ -324,6 +324,17 @@ func resolveVariant(ctx *execcontext.Context) string {
 	return ralphConfig.Variant
 }
 
+func resolveAgent(ctx *execcontext.Context) string {
+	if a := ctx.Agent(); a != "" {
+		return a
+	}
+	ralphConfig, err := config.LoadConfig()
+	if err != nil {
+		return ""
+	}
+	return ralphConfig.Agent
+}
+
 func RunAgent(ctx *execcontext.Context, oc opencode.OCClient, prompt string) error {
 	if ctx.IsVerbose() {
 		ctx.Output().Debug(prompt)
@@ -331,7 +342,7 @@ func RunAgent(ctx *execcontext.Context, oc opencode.OCClient, prompt string) err
 
 	model := resolveModel(ctx)
 
-	return oc.RunAgent(ctx.GoContext(), model, resolveVariant(ctx), prompt)
+	return oc.RunAgent(ctx.GoContext(), model, resolveVariant(ctx), resolveAgent(ctx), prompt)
 }
 
 func RunAgentWithModel(ctx *execcontext.Context, oc opencode.OCClient, prompt string, model string) error {
@@ -339,7 +350,7 @@ func RunAgentWithModel(ctx *execcontext.Context, oc opencode.OCClient, prompt st
 		ctx.Output().Debug(prompt)
 	}
 
-	return oc.RunAgent(ctx.GoContext(), model, resolveVariant(ctx), prompt)
+	return oc.RunAgent(ctx.GoContext(), model, resolveVariant(ctx), resolveAgent(ctx), prompt)
 }
 
 // createTempFile creates a temp file under the repo's tmp/ directory so that
@@ -359,7 +370,7 @@ func runOpenCodeAndReadResult(ctx *execcontext.Context, oc opencode.OCClient, mo
 		stderrWriter = os.Stderr
 	}
 
-	if err := oc.RunCommand(ctx.GoContext(), model, resolveVariant(ctx), prompt, stdoutWriter, stderrWriter); err != nil {
+	if err := oc.RunCommand(ctx.GoContext(), model, resolveVariant(ctx), resolveAgent(ctx), prompt, stdoutWriter, stderrWriter); err != nil {
 		return "", fmt.Errorf("opencode execution failed: %w", err)
 	}
 

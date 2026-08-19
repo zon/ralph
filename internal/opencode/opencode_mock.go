@@ -6,22 +6,22 @@ import (
 )
 
 type MockOC struct {
-	RunCommandFunc   func(ctx context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error
-	RunAgentFunc     func(ctx context.Context, model, variant, prompt string) error
+	RunCommandFunc   func(ctx context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error
+	RunAgentFunc     func(ctx context.Context, model, variant, agent, prompt string) error
 	GetStatsFunc     func() (Stats, error)
 	DisplayStatsFunc func() error
 }
 
-func (m *MockOC) RunCommand(ctx context.Context, model, variant, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+func (m *MockOC) RunCommand(ctx context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
 	if m.RunCommandFunc != nil {
-		return m.RunCommandFunc(ctx, model, variant, prompt, stdoutWriter, stderrWriter)
+		return m.RunCommandFunc(ctx, model, variant, agent, prompt, stdoutWriter, stderrWriter)
 	}
 	return nil
 }
 
-func (m *MockOC) RunAgent(ctx context.Context, model, variant, prompt string) error {
+func (m *MockOC) RunAgent(ctx context.Context, model, variant, agent, prompt string) error {
 	if m.RunAgentFunc != nil {
-		return m.RunAgentFunc(ctx, model, variant, prompt)
+		return m.RunAgentFunc(ctx, model, variant, agent, prompt)
 	}
 	return nil
 }

@@ -47,6 +47,12 @@ The system SHALL apply run-specific flags to the execution context before starti
 - WHEN `ralph workflow run` starts
 - THEN the specified model is used instead of the model in `.ralph/config.yaml`
 
+#### Scenario: Agent override
+
+- GIVEN `--agent` is provided
+- WHEN `ralph workflow run` starts
+- THEN the specified opencode agent is used instead of the agent in `.ralph/config.yaml`
+
 #### Scenario: Service startup skipped
 
 - GIVEN `--no-services` is set

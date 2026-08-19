@@ -120,3 +120,36 @@ func TestRemoteArgumentsCleanupOnlyWhenEnabled(t *testing.T) {
 	assert.NotContains(t, renderRemoteRunArgs(t, ".requirements", false), "--cleanup")
 	assert.Contains(t, renderRemoteRunArgs(t, ".requirements", true), "--cleanup")
 }
+
+// TestRemoteArgumentsAgentScenario covers the "Agent override" scenario: when
+// an opencode agent is set on the context, the container args for
+// `ralph workflow run` include `--agent <name>`.
+func TestRemoteArgumentsAgentScenario(t *testing.T) {
+	// GIVEN an agent override is set on the context
+	ctx := &execcontext.Context{}
+	ctx.SetAgent("code-reviewer")
+	cfg := &config.RalphConfig{DefaultBranch: "main"}
+	wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", "git@github.com:test/repo.git", "main", "test-project", "main", "", false, "project.yaml", false, cfg, "")
+	require.NoError(t, err, "GenerateWorkflowWithGitInfo failed")
+	workflowYAML, err := wf.Render()
+	require.NoError(t, err, "Render failed")
+
+	var workflow map[string]interface{}
+	require.NoError(t, yaml.Unmarshal([]byte(workflowYAML), &workflow), "Failed to parse generated workflow YAML")
+	spec := workflow["spec"].(map[string]interface{})
+	templates := spec["templates"].([]interface{})
+	require.NotEmpty(t, templates, "templates is empty")
+	tmpl := templates[0].(map[string]interface{})
+	container := tmpl["container"].(map[string]interface{})
+	args := container["args"].([]interface{})
+
+	// THEN the container args for `ralph workflow run` include `--agent code-reviewer`
+	assert.Contains(t, args, "--agent")
+	assert.Contains(t, args, "code-reviewer")
+}
+
+// TestRemoteArgumentsAgentOmittedWhenUnset covers the item that the `--agent`
+// flag appears in the container args only when an agent is set.
+func TestRemoteArgumentsAgentOmittedWhenUnset(t *testing.T) {
+	assert.NotContains(t, renderRemoteRunArgs(t, ".requirements", false), "--agent")
+}

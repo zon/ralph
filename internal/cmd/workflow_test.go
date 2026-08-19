@@ -184,6 +184,7 @@ func TestWorkflowRunCmd_FlagPropagation(t *testing.T) {
 		debugBranch        string
 		wantBase           string
 		wantModel          string
+		wantAgent          string
 		wantExtraIter      int
 		wantNoServices     bool
 	}{
@@ -200,10 +201,12 @@ func TestWorkflowRunCmd_FlagPropagation(t *testing.T) {
 				ExtraIterations: 3,
 				InstructionsMd:  "custom instructions",
 				Model:           "gpt-4",
+				Agent:           "code-reviewer",
 				NoServices:      true,
 			},
 			wantBase:       "base-branch",
 			wantModel:      "gpt-4",
+			wantAgent:      "code-reviewer",
 			wantExtraIter:  3,
 			wantNoServices: true,
 		},
@@ -214,6 +217,7 @@ func TestWorkflowRunCmd_FlagPropagation(t *testing.T) {
 			},
 			wantBase:  "",
 			wantModel: "",
+			wantAgent: "",
 		},
 		{
 			name: "sets debug when provided",
@@ -280,6 +284,9 @@ func TestWorkflowRunCmd_FlagPropagation(t *testing.T) {
 			}
 					if tt.wantModel != "" {
 				assert.Equal(t, tt.wantModel, capturedCfg.Model)
+			}
+			if tt.wantAgent != "" {
+				assert.Equal(t, tt.wantAgent, capturedCfg.Agent)
 			}
 			if tt.wantExtraIter > 0 {
 				require.NotNil(t, capturedCfg.ExtraIterations)

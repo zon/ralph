@@ -72,7 +72,7 @@ func TestClientCreatePR_DelegatesToCreatePullRequest(t *testing.T) {
 	ctx := execcontext.NewContext()
 	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
 	mockOC := &opencode.MockOC{
-		RunCommandFunc: func(_ context.Context, _, _, prompt string, _, _ io.Writer) error {
+		RunCommandFunc: func(_ context.Context, _, _, _, prompt string, _, _ io.Writer) error {
 			if idx := strings.Index(prompt, "Write your summary to the file:"); idx >= 0 {
 				rest := prompt[idx+len("Write your summary to the file:"):]
 				rest = strings.TrimSpace(rest)
@@ -105,7 +105,7 @@ func TestClientCreatePR_UsesTitleAsPRTitle(t *testing.T) {
 	ctx := execcontext.NewContext()
 	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
 	mockOC := &opencode.MockOC{
-		RunCommandFunc: func(_ context.Context, _, _, prompt string, _, _ io.Writer) error {
+		RunCommandFunc: func(_ context.Context, _, _, _, prompt string, _, _ io.Writer) error {
 			return writeMockSummary(t, prompt)
 		},
 		GetStatsFunc: func() (opencode.Stats, error) { return opencode.Stats{}, nil },
@@ -126,7 +126,7 @@ func TestClientCreatePR_SummaryGeneratedFromCommitLog(t *testing.T) {
 	ctx := execcontext.NewContext()
 	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
 	mockOC := &opencode.MockOC{
-		RunCommandFunc: func(_ context.Context, _, _, prompt string, _, _ io.Writer) error {
+		RunCommandFunc: func(_ context.Context, _, _, _, prompt string, _, _ io.Writer) error {
 			capturedPrompt = prompt
 			return writeMockSummary(t, prompt)
 		},
@@ -154,7 +154,7 @@ func TestClientCreatePR_SkipsWhenNoCommitsAhead(t *testing.T) {
 	ctx := execcontext.NewContext()
 	ctx.SetOutput(output.NewClient(&buf, &buf, true))
 	mockOC := &opencode.MockOC{
-		RunCommandFunc: func(_ context.Context, _, _, prompt string, _, _ io.Writer) error {
+		RunCommandFunc: func(_ context.Context, _, _, _, prompt string, _, _ io.Writer) error {
 			return writeMockSummary(t, prompt)
 		},
 		GetStatsFunc: func() (opencode.Stats, error) { return opencode.Stats{}, nil },
@@ -177,7 +177,7 @@ func TestClientCreatePR_SentinelNoCommitsSkipsWithoutError(t *testing.T) {
 	ctx := execcontext.NewContext()
 	ctx.SetOutput(output.NewClient(&buf, &buf, true))
 	mockOC := &opencode.MockOC{
-		RunCommandFunc: func(_ context.Context, _, _, prompt string, _, _ io.Writer) error {
+		RunCommandFunc: func(_ context.Context, _, _, _, prompt string, _, _ io.Writer) error {
 			return writeMockSummary(t, prompt)
 		},
 		GetStatsFunc: func() (opencode.Stats, error) { return opencode.Stats{}, nil },
@@ -210,7 +210,7 @@ func TestClientCreatePR_WorkflowExecutionCallsConfigureGitAuth(t *testing.T) {
 	ctx.SetRepoOwner("test-owner")
 	ctx.SetRepoName("test-repo")
 	mockOC := &opencode.MockOC{
-		RunCommandFunc: func(_ context.Context, _, _, prompt string, _, _ io.Writer) error {
+		RunCommandFunc: func(_ context.Context, _, _, _, prompt string, _, _ io.Writer) error {
 			return writeMockSummary(t, prompt)
 		},
 		GetStatsFunc: func() (opencode.Stats, error) { return opencode.Stats{}, nil },
@@ -237,7 +237,7 @@ func TestClientCreatePR_SkipsConfigureGitAuthWhenNotWorkflow(t *testing.T) {
 	ctx := execcontext.NewContext()
 	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
 	mockOC := &opencode.MockOC{
-		RunCommandFunc: func(_ context.Context, _, _, prompt string, _, _ io.Writer) error {
+		RunCommandFunc: func(_ context.Context, _, _, _, prompt string, _, _ io.Writer) error {
 			return writeMockSummary(t, prompt)
 		},
 		GetStatsFunc: func() (opencode.Stats, error) { return opencode.Stats{}, nil },
@@ -258,7 +258,7 @@ func TestClientCreatePR_PropagatesCreatePullRequestError(t *testing.T) {
 	ctx := execcontext.NewContext()
 	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
 	mockOC := &opencode.MockOC{
-		RunCommandFunc: func(_ context.Context, _, _, prompt string, _, _ io.Writer) error {
+		RunCommandFunc: func(_ context.Context, _, _, _, prompt string, _, _ io.Writer) error {
 			return writeMockSummary(t, prompt)
 		},
 		GetStatsFunc: func() (opencode.Stats, error) { return opencode.Stats{}, nil },

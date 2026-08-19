@@ -90,6 +90,7 @@ func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL,
 		Namespace:     workflowOptions.Namespace,
 		NoServices:    ctx.NoServices(),
 		Model:         ctx.Model(),
+		Agent:         ctx.Agent(),
 		Labels:        workflowOptions.Labels,
 	}, nil
 }
@@ -142,6 +143,7 @@ func GenerateCommandWorkflow(ctx *execcontext.Context, cloneBranch, remoteURL st
 		DebugBranch: ctx.DebugBranch(),
 		NoServices:  ctx.NoServices(),
 		Model:       ctx.Model(),
+		Agent:       ctx.Agent(),
 		Image:       opts.Image,
 		ConfigMaps:  opts.ConfigMaps,
 		Secrets:     opts.Secrets,

@@ -79,7 +79,7 @@ func TestAgentClientPickAndDevelop_MockAI(t *testing.T) {
 	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, true))
 
 	mockOC := &opencode.MockOC{
-		RunAgentFunc: func(_ context.Context, _, _, prompt string) error {
+		RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
 			// The picker agent writes the selected item's index to disk.
 			if strings.Contains(strings.ToLower(prompt), "picker") {
 				return os.WriteFile("picked-item-index.txt", []byte("0"), 0644)
@@ -115,7 +115,7 @@ func TestAgentClientRunPickerGivesOnlyIncompleteItemsEachLabelledWithIndexAndKey
 
 	var pickPrompt string
 	mockOC := &opencode.MockOC{
-		RunAgentFunc: func(_ context.Context, _, _, prompt string) error {
+		RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
 			pickPrompt = prompt
 			return os.WriteFile("picked-item-index.txt", []byte("1"), 0644)
 		},
@@ -166,7 +166,7 @@ func TestAgentClientRunDeveloperUsesItemBasedInstructionsByDefault(t *testing.T)
 
 	var developPrompt string
 	mockOC := &opencode.MockOC{
-		RunAgentFunc: func(_ context.Context, _, _, prompt string) error {
+		RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
 			developPrompt = prompt
 			return nil
 		},
@@ -194,7 +194,7 @@ func TestAgentClientRunDeveloperHonorsCustomInstructions(t *testing.T) {
 
 	var developPrompt string
 	mockOC := &opencode.MockOC{
-		RunAgentFunc: func(_ context.Context, _, _, prompt string) error {
+		RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
 			developPrompt = prompt
 			return nil
 		},
@@ -222,7 +222,7 @@ func TestAgentClientRunPickerCarriesFullProjectFileAsContext(t *testing.T) {
 		"  - slug: importer\n    description: import endpoint\n"
 	var pickPrompt string
 	mockOC := &opencode.MockOC{
-		RunAgentFunc: func(_ context.Context, _, _, prompt string) error {
+		RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
 			pickPrompt = prompt
 			return os.WriteFile("picked-item-index.txt", []byte("0"), 0644)
 		},
@@ -256,7 +256,7 @@ func TestAgentClientDevelopPromptCarriesSelectedItemVerbatim(t *testing.T) {
 
 	var developPrompt string
 	mockOC := &opencode.MockOC{
-		RunAgentFunc: func(_ context.Context, _, _, prompt string) error {
+		RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
 			developPrompt = prompt
 			return nil
 		},
@@ -288,7 +288,7 @@ func TestAgentClientDevelopPromptSuppliesIndexKeyAndTrailer(t *testing.T) {
 
 	var developPrompt string
 	mockOC := &opencode.MockOC{
-		RunAgentFunc: func(_ context.Context, _, _, prompt string) error {
+		RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
 			developPrompt = prompt
 			return nil
 		},
@@ -317,7 +317,7 @@ func TestAgentClientDevelopPromptKeylessItemUsesIndexOnlyTrailer(t *testing.T) {
 
 	var developPrompt string
 	mockOC := &opencode.MockOC{
-		RunAgentFunc: func(_ context.Context, _, _, prompt string) error {
+		RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
 			developPrompt = prompt
 			return nil
 		},
@@ -350,7 +350,7 @@ func TestAgentClientDevelopPromptTrailerComesFromSharedFormatter(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var developPrompt string
 			mockOC := &opencode.MockOC{
-				RunAgentFunc: func(_ context.Context, _, _, prompt string) error {
+				RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
 					developPrompt = prompt
 					return nil
 				},
@@ -390,7 +390,7 @@ requirements:
 `
 
 	mockOC := &opencode.MockOC{
-		RunAgentFunc: func(_ context.Context, _, _, prompt string) error {
+		RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
 			assert.Contains(t, prompt, "orchestration file")
 			assert.Contains(t, prompt, "orchestration.md")
 			assert.Contains(t, prompt, "project format document installed in the repository")
@@ -423,7 +423,7 @@ requirements:
 `
 
 	mockOC := &opencode.MockOC{
-		RunAgentFunc: func(_ context.Context, _, _, prompt string) error {
+		RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
 			assert.Contains(t, prompt, "specification file")
 			assert.Contains(t, prompt, "spec.md")
 			assert.Contains(t, prompt, "orchestration.md")
@@ -446,7 +446,7 @@ func TestAgentClientWriteProjectAgentFailureReturnsError(t *testing.T) {
 	expectedErr := errors.New("agent failed")
 
 	mockOC := &opencode.MockOC{
-		RunAgentFunc: func(_ context.Context, _, _, prompt string) error {
+		RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
 			return expectedErr
 		},
 	}
@@ -465,7 +465,7 @@ func TestAgentClientWriteProjectNoProjectFileCreatedReturnsError(t *testing.T) {
 	require.NoError(t, os.MkdirAll("projects", 0755))
 
 	mockOC := &opencode.MockOC{
-		RunAgentFunc: func(_ context.Context, _, _, prompt string) error {
+		RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
 			return nil
 		},
 	}
@@ -506,7 +506,7 @@ requirements:
 	require.NoError(t, os.WriteFile("projects/old.yaml", []byte(oldYAML), 0644))
 
 	mockOC := &opencode.MockOC{
-		RunAgentFunc: func(_ context.Context, _, _, prompt string) error {
+		RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
 			return os.WriteFile("projects/new.yaml", []byte(newYAML), 0644)
 		},
 	}
@@ -527,7 +527,7 @@ func TestAgentClientWriteProjectReturnsPathForUnresolvableFile(t *testing.T) {
 	require.NoError(t, os.MkdirAll("projects", 0755))
 
 	mockOC := &opencode.MockOC{
-		RunAgentFunc: func(_ context.Context, _, _, prompt string) error {
+		RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
 			return os.WriteFile("projects/invalid.yaml", []byte("invalid: yaml: ["), 0644)
 		},
 	}
@@ -565,7 +565,7 @@ requirements:
 `
 
 	mockOC := &opencode.MockOC{
-		RunAgentFunc: func(_ context.Context, _, _, prompt string) error {
+		RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
 			return os.WriteFile("projects/generated.yaml", []byte(projectYAML), 0644)
 		},
 	}
@@ -580,7 +580,7 @@ requirements:
 func TestAgentClientWriteOrchestrationWithSpecInput(t *testing.T) {
 	var promptUsed string
 	mockOC := &opencode.MockOC{
-		RunAgentFunc: func(_ context.Context, _, _, prompt string) error {
+		RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
 			promptUsed = prompt
 			return nil
 		},
@@ -599,7 +599,7 @@ func TestAgentClientWriteOrchestrationWithSpecInput(t *testing.T) {
 
 func TestAgentClientWriteOrchestrationFailureReturnsError(t *testing.T) {
 	mockOC := &opencode.MockOC{
-		RunAgentFunc: func(_ context.Context, _, _, prompt string) error {
+		RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
 			return errors.New("agent failed")
 		},
 	}
@@ -617,7 +617,7 @@ func TestAgentClientWriteProjectNoProjectsDirReturnsError(t *testing.T) {
 	t.Chdir(dir)
 
 	mockOC := &opencode.MockOC{
-		RunAgentFunc: func(_ context.Context, _, _, prompt string) error {
+		RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
 			return nil
 		},
 	}

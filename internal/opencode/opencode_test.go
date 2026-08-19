@@ -159,9 +159,63 @@ exit 0
 
 	var stdout, stderr bytes.Buffer
 	client := New()
-	err = client.RunCommand(context.Background(), "test-model", "", "test-prompt", &stdout, &stderr)
+	err = client.RunCommand(context.Background(), "test-model", "", "", "test-prompt", &stdout, &stderr)
 	require.NoError(t, err)
 	assert.Contains(t, stdout.String(), "run output: run --model test-model test-prompt")
+}
+
+func TestRunCommandWithAgent(t *testing.T) {
+	tmpDir := t.TempDir()
+	scriptPath := filepath.Join(tmpDir, "fake-opencode.sh")
+
+	scriptContent := `#!/bin/bash
+echo "run output: $@"
+exit 0
+`
+	err := os.WriteFile(scriptPath, []byte(scriptContent), 0755)
+	require.NoError(t, err)
+
+	opencodePath := filepath.Join(tmpDir, "opencode")
+	err = os.Symlink(scriptPath, opencodePath)
+	require.NoError(t, err)
+
+	origPath := os.Getenv("PATH")
+	t.Setenv("PATH", tmpDir+":"+origPath)
+
+	var stdout, stderr bytes.Buffer
+	client := New()
+	err = client.RunCommand(context.Background(), "test-model", "", "test-agent", "test-prompt", &stdout, &stderr)
+	require.NoError(t, err)
+	assert.Contains(t, stdout.String(), "run output: run --model test-model --agent test-agent test-prompt")
+}
+
+func TestRunAgentWithAgent(t *testing.T) {
+	tmpDir := t.TempDir()
+	scriptPath := filepath.Join(tmpDir, "fake-opencode.sh")
+	outputPath := filepath.Join(tmpDir, "output.txt")
+
+	scriptContent := fmt.Sprintf(`#!/bin/bash
+echo "agent ran successfully"
+echo "done" > '%s'
+exit 0
+`, outputPath)
+	err := os.WriteFile(scriptPath, []byte(scriptContent), 0755)
+	require.NoError(t, err)
+
+	opencodePath := filepath.Join(tmpDir, "opencode")
+	err = os.Symlink(scriptPath, opencodePath)
+	require.NoError(t, err)
+
+	origPath := os.Getenv("PATH")
+	t.Setenv("PATH", tmpDir+":"+origPath)
+
+	client := New()
+	err = client.RunAgent(context.Background(), "test-model", "", "test-agent", "test-prompt")
+	require.NoError(t, err)
+
+	data, err := os.ReadFile(outputPath)
+	require.NoError(t, err)
+	assert.Equal(t, "done\n", string(data))
 }
 
 func TestRunCommandFailure(t *testing.T) {
@@ -184,7 +238,7 @@ exit 1
 
 	var stdout, stderr bytes.Buffer
 	client := New()
-	err = client.RunCommand(context.Background(), "test-model", "", "test-prompt", &stdout, &stderr)
+	err = client.RunCommand(context.Background(), "test-model", "", "", "test-prompt", &stdout, &stderr)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "opencode command failed")
 }
@@ -210,7 +264,7 @@ exit 0
 	t.Setenv("PATH", tmpDir+":"+origPath)
 
 	client := New()
-	err = client.RunAgent(context.Background(), "test-model", "", "test-prompt")
+	err = client.RunAgent(context.Background(), "test-model", "", "", "test-prompt")
 	require.NoError(t, err)
 
 	data, err := os.ReadFile(outputPath)
@@ -239,7 +293,7 @@ exit 1
 	t.Setenv("PATH", tmpDir+":"+origPath)
 
 	client := New()
-	err = client.RunAgent(context.Background(), "test-model", "", "test-prompt")
+	err = client.RunAgent(context.Background(), "test-model", "", "", "test-prompt")
 	require.Error(t, err)
 
 	errMsg := err.Error()
@@ -341,6 +395,6 @@ exit 1
 func TestRunCommand_RealOpenCode(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	client := New()
-	err := client.RunCommand(context.Background(), "deepseek/deepseek-v4-flash", "", "say hi", &stdout, &stderr)
+	err := client.RunCommand(context.Background(), "deepseek/deepseek-v4-flash", "", "", "say hi", &stdout, &stderr)
 	require.NoError(t, err)
 }

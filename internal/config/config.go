@@ -112,6 +112,7 @@ type RalphConfig struct {
 	ExtraIterations     *int           `yaml:"extraIterations,omitempty"`
 	DefaultBranch       string         `yaml:"defaultBranch,omitempty"`
 	Model               string         `yaml:"model,omitempty"` // AI model to use for coding and PR summary (default: deepseek/deepseek-chat)
+	Agent               string         `yaml:"agent,omitempty"` // opencode agent to use for coding (default: opencode's primary agent)
 	Before              []Before       `yaml:"before,omitempty"`
 	Services            []Service      `yaml:"services,omitempty"`
 	Workflow            WorkflowConfig `yaml:"workflow,omitempty"`

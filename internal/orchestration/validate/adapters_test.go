@@ -21,7 +21,7 @@ func TestAgentClientFixProjectRunsLocally(t *testing.T) {
 
 	var capturedModel, capturedPrompt string
 	mockOC := &opencode.MockOC{
-		RunAgentFunc: func(_ context.Context, model, variant, prompt string) error {
+		RunAgentFunc: func(_ context.Context, model, variant, agent, prompt string) error {
 			capturedModel = model
 			capturedPrompt = prompt
 			return nil

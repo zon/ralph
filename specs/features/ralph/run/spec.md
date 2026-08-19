@@ -114,6 +114,34 @@ Variant resolution follows a two-level precedence: `--variant` at the command li
 - WHEN the command runs
 - THEN the `--variant` option is omitted from the opencode invocation
 
+---
+
+### Requirement: opencode agent override
+
+The command SHALL accept `--agent` to select which opencode agent runs the AI prompts. When neither the flag nor the top-level `agent` field in `.ralph/config.yaml` is set, the `--agent` option is omitted entirely from the opencode invocation and opencode's primary agent is used.
+
+Agent resolution follows a two-level precedence: `--agent` at the command line takes priority; otherwise the top-level `agent` field in `.ralph/config.yaml` is used. When both are unset, no agent is passed.
+
+#### Scenario: `--agent` flag passes agent to opencode
+
+- GIVEN the user passes `--agent code-reviewer`
+- WHEN the command runs
+- THEN `--agent code-reviewer` is included in the opencode invocation
+
+#### Scenario: Config agent used when no flag is passed
+
+- GIVEN `agent: build` is set in `.ralph/config.yaml`
+- AND no `--agent` flag is passed
+- WHEN the command runs
+- THEN `--agent build` is included in the opencode invocation
+
+#### Scenario: Agent omitted when both flag and config are unset
+
+- GIVEN `agent` is not set in `.ralph/config.yaml`
+- AND no `--agent` flag is passed
+- WHEN the command runs
+- THEN the `--agent` option is omitted from the opencode invocation, and opencode's primary agent is used
+
 #### Scenario: `--context` overrides the Kubernetes context
 
 - GIVEN the user passes `--context my-cluster`

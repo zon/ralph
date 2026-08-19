@@ -22,6 +22,7 @@ type WorkflowRunCmd struct {
 	InstructionsMD  string `help:"Inline instructions content" name:"instructions-md"`
 	ExtraIterations int    `help:"Extra iterations beyond requirement count (default: 20% of requirements)" name:"extra-iterations"`
 	Model           string `help:"Override the AI model from config" name:"model"`
+	Agent           string `help:"Override the opencode agent from config" name:"agent"`
 
 	cleanupRegistrar func(func()) `kong:"-"`
 }
@@ -41,6 +42,7 @@ func (w *WorkflowRunCmd) Run() error {
 	ctx.SetBotName(w.BotName)
 	ctx.SetBotEmail(w.BotEmail)
 	ctx.SetModel(w.Model)
+	ctx.SetAgent(w.Agent)
 	ctx.SetNoServices(w.NoServices)
 	ctx.SetLocal(true)
 	ctx.SetNoNotify(true)
@@ -62,6 +64,7 @@ func (w *WorkflowRunCmd) Run() error {
 		Items:           w.Items,
 		Cleanup:         w.Cleanup,
 		Model:           w.Model,
+		Agent:           w.Agent,
 		NoServices:      w.NoServices,
 		Debug:           w.Debug,
 	}

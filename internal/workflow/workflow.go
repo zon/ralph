@@ -58,6 +58,8 @@ type Workflow struct {
 	NoServices bool
 	// Model overrides the AI model from config.
 	Model string
+	// Agent overrides the opencode agent from config.
+	Agent string
 	// Labels are the Kubernetes labels to apply to the workflow pod.
 	Labels map[string]string
 	// Command is the command tokens to pass to `ralph workflow --command -- <tokens>`.
@@ -155,6 +157,9 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 		if w.Model != "" {
 			args = append(args, "--model", w.Model)
 		}
+		if w.Agent != "" {
+			args = append(args, "--agent", w.Agent)
+		}
 
 	case len(w.Command) > 0:
 		command = []string{"ralph"}
@@ -165,6 +170,9 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 		}
 		if w.Model != "" {
 			args = append(args, "--model", w.Model)
+		}
+		if w.Agent != "" {
+			args = append(args, "--agent", w.Agent)
 		}
 
 	default:
@@ -195,6 +203,9 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 		}
 		if w.Model != "" {
 			args = append(args, "--model", w.Model)
+		}
+		if w.Agent != "" {
+			args = append(args, "--agent", w.Agent)
 		}
 	}
 
