@@ -1,11 +1,12 @@
-docs/zpecs/README.md
-docs/zpecs/architecture-outline.md
-docs/zpecs/architecture.md
-docs/zpecs/dependencies.md
-docs/zpecs/glossary.md
-docs/zpecs/orchestration.md
-docs/zpecs/project.md
-docs/zpecs/prompts.md
-docs/zpecs/prose.md
-docs/zpecs/requirements.md
-docs/zpecs/specs.md
+doc docs/zpecs/README.md
+doc docs/zpecs/architecture-outline.md
+doc docs/zpecs/architecture.md
+doc docs/zpecs/code.md
+doc docs/zpecs/dependencies.md
+doc docs/zpecs/glossary.md
+doc docs/zpecs/orchestration.md
+doc docs/zpecs/project.md
+doc docs/zpecs/prompts.md
+doc docs/zpecs/prose.md
+doc docs/zpecs/requirements.md
+doc docs/zpecs/specs.md
