@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
+	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/opencode"
 	orchestrationRun "github.com/zon/ralph/internal/orchestration/run"
@@ -645,4 +646,187 @@ func TestAgentClientPrintStatsUsesStoredOCClient(t *testing.T) {
 	client := NewAgentClient(ctx, mockOC)
 	client.PrintStats()
 	assert.True(t, called, "PrintStats should call GetStats on the stored OCClient")
+}
+
+// appendAgentToConfig appends `agent: build` to the .ralph/config.yaml created
+// by testutil.CreateRalphConfig so the config fallback resolves an agent.
+func appendAgentToConfig(t *testing.T, workDir string) {
+	t.Helper()
+	configPath := filepath.Join(workDir, ".ralph", "config.yaml")
+	configData, err := os.ReadFile(configPath)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(configPath, append(configData, []byte("agent: build\n")...), 0644))
+}
+
+func TestAgentClientRunPickerRunsWithPrimaryAgent(t *testing.T) {
+	workDir := t.TempDir()
+	t.Chdir(workDir)
+
+	testutil.InitGitRepo(t, workDir)
+	testutil.MakeInitialCommit(t, workDir)
+	testutil.CreateRalphConfig(t, workDir)
+	appendAgentToConfig(t, workDir)
+
+	ctx := execcontext.NewContext()
+	ctx.SetAgent("code-reviewer")
+
+	var capturedAgent string
+	mockOC := &opencode.MockOC{
+		RunAgentFunc: func(_ context.Context, _, _, agent, prompt string) error {
+			capturedAgent = agent
+			return os.WriteFile("picked-item-index.txt", []byte("0"), 0644)
+		},
+	}
+	client := NewAgentClient(ctx, mockOC)
+
+	proj := &project.Project{Slug: "test-project", Items: project.NewItems([]any{"csv-serializer"})}
+	_, err := client.RunPicker(proj, proj.Items)
+	require.NoError(t, err)
+	assert.Equal(t, "", capturedAgent, "the picker must run with opencode's primary agent")
+}
+
+func TestAgentClientRunDeveloperReceivesConfiguredAgent(t *testing.T) {
+	t.Run("flag agent wins", func(t *testing.T) {
+		workDir := t.TempDir()
+		t.Chdir(workDir)
+
+		testutil.InitGitRepo(t, workDir)
+		testutil.MakeInitialCommit(t, workDir)
+		testutil.CreateRalphConfig(t, workDir)
+
+		ctx := execcontext.NewContext()
+		ctx.SetAgent("code-reviewer")
+
+		var capturedAgent string
+		mockOC := &opencode.MockOC{
+			RunAgentFunc: func(_ context.Context, _, _, agent, prompt string) error {
+				capturedAgent = agent
+				return nil
+			},
+		}
+		client := NewAgentClient(ctx, mockOC)
+
+		proj := &project.Project{Slug: "test-project", Items: project.NewItems([]any{"csv-serializer"})}
+		err := client.RunDeveloper(proj, proj.Items[0])
+		require.NoError(t, err)
+		assert.Equal(t, "code-reviewer", capturedAgent, "item development is code-writing and receives the flag agent")
+	})
+
+	t.Run("config agent used when no flag agent set", func(t *testing.T) {
+		workDir := t.TempDir()
+		t.Chdir(workDir)
+
+		testutil.InitGitRepo(t, workDir)
+		testutil.MakeInitialCommit(t, workDir)
+		testutil.CreateRalphConfig(t, workDir)
+		appendAgentToConfig(t, workDir)
+
+		ctx := execcontext.NewContext()
+
+		var capturedAgent string
+		mockOC := &opencode.MockOC{
+			RunAgentFunc: func(_ context.Context, _, _, agent, prompt string) error {
+				capturedAgent = agent
+				return nil
+			},
+		}
+		client := NewAgentClient(ctx, mockOC)
+
+		proj := &project.Project{Slug: "test-project", Items: project.NewItems([]any{"csv-serializer"})}
+		err := client.RunDeveloper(proj, proj.Items[0])
+		require.NoError(t, err)
+		assert.Equal(t, "build", capturedAgent, "item development is code-writing and falls back to the config agent")
+	})
+}
+
+func TestAgentClientWriteOrchestrationRunsWithPrimaryAgent(t *testing.T) {
+	workDir := t.TempDir()
+	t.Chdir(workDir)
+
+	testutil.InitGitRepo(t, workDir)
+	testutil.MakeInitialCommit(t, workDir)
+	testutil.CreateRalphConfig(t, workDir)
+	appendAgentToConfig(t, workDir)
+
+	ctx := execcontext.NewContext()
+	ctx.SetAgent("code-reviewer")
+
+	var capturedAgent string
+	mockOC := &opencode.MockOC{
+		RunAgentFunc: func(_ context.Context, _, _, agent, prompt string) error {
+			capturedAgent = agent
+			return nil
+		},
+	}
+	client := NewAgentClient(ctx, mockOC)
+
+	input := project.ForSpecInput("specs/features/test/spec.md")
+	err := client.WriteOrchestration(input)
+	require.NoError(t, err)
+	assert.Equal(t, "", capturedAgent, "orchestration generation must run with opencode's primary agent")
+}
+
+func TestAgentClientWriteProjectRunsWithPrimaryAgent(t *testing.T) {
+	workDir := t.TempDir()
+	t.Chdir(workDir)
+
+	testutil.InitGitRepo(t, workDir)
+	testutil.MakeInitialCommit(t, workDir)
+	testutil.CreateRalphConfig(t, workDir)
+	appendAgentToConfig(t, workDir)
+	require.NoError(t, os.MkdirAll("projects", 0755))
+
+	ctx := execcontext.NewContext()
+	ctx.SetAgent("code-reviewer")
+
+	projectYAML := `slug: test-project
+title: Test Project
+requirements:
+  - slug: req-1
+    description: Test requirement
+    items:
+      - Item 1
+`
+
+	var capturedAgent string
+	mockOC := &opencode.MockOC{
+		RunAgentFunc: func(_ context.Context, _, _, agent, prompt string) error {
+			capturedAgent = agent
+			return os.WriteFile("projects/generated.yaml", []byte(projectYAML), 0644)
+		},
+	}
+	client := NewAgentClient(ctx, mockOC)
+
+	input := project.ForSpecInput("specs/features/test/spec.md")
+	path, err := client.WriteProject(input)
+	require.NoError(t, err)
+	assert.Equal(t, "projects/generated.yaml", path)
+	assert.Equal(t, "", capturedAgent, "project generation must run with opencode's primary agent")
+}
+
+func TestAgentClientFixServiceStartupReceivesConfiguredAgent(t *testing.T) {
+	workDir := t.TempDir()
+	t.Chdir(workDir)
+
+	testutil.InitGitRepo(t, workDir)
+	testutil.MakeInitialCommit(t, workDir)
+	testutil.CreateRalphConfig(t, workDir)
+	appendAgentToConfig(t, workDir)
+
+	ctx := execcontext.NewContext()
+	ctx.SetAgent("code-reviewer")
+
+	var capturedAgent string
+	mockOC := &opencode.MockOC{
+		RunAgentFunc: func(_ context.Context, _, _, agent, prompt string) error {
+			capturedAgent = agent
+			return nil
+		},
+	}
+	client := NewAgentClient(ctx, mockOC)
+
+	cfg := &config.RalphConfig{Services: []config.Service{{Name: "missing-svc", Command: "definitely-not-a-real-command-xyz"}}}
+	err := client.FixServiceStartup(cfg, errors.New("ignored"))
+	require.NoError(t, err)
+	assert.Equal(t, "code-reviewer", capturedAgent, "service-startup fixes are code-writing and receive the flag agent")
 }

@@ -18,11 +18,13 @@ import (
 // error.
 func TestAgentClientFixProjectRunsLocally(t *testing.T) {
 	ctx := execcontext.NewContext()
+	ctx.SetAgent("code-reviewer")
 
-	var capturedModel, capturedPrompt string
+	var capturedModel, capturedAgent, capturedPrompt string
 	mockOC := &opencode.MockOC{
 		RunAgentFunc: func(_ context.Context, model, variant, agent, prompt string) error {
 			capturedModel = model
+			capturedAgent = agent
 			capturedPrompt = prompt
 			return nil
 		},
@@ -33,6 +35,7 @@ func TestAgentClientFixProjectRunsLocally(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, "validate-model", capturedModel)
+	require.Equal(t, "", capturedAgent, "validate project-file repair runs with opencode's primary agent")
 	require.Contains(t, capturedPrompt, "/workspace/repo/projects/project.yaml")
 	require.Contains(t, capturedPrompt, "boom")
 	require.False(t, strings.Contains(capturedPrompt, "argo"), "the agent must not be delegated to a remote runner")
