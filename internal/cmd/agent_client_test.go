@@ -658,31 +658,50 @@ func appendAgentToConfig(t *testing.T, workDir string) {
 	require.NoError(t, os.WriteFile(configPath, append(configData, []byte("agent: build\n")...), 0644))
 }
 
-func TestAgentClientRunPickerRunsWithPrimaryAgent(t *testing.T) {
-	workDir := t.TempDir()
-	t.Chdir(workDir)
-
-	testutil.InitGitRepo(t, workDir)
-	testutil.MakeInitialCommit(t, workDir)
-	testutil.CreateRalphConfig(t, workDir)
-	appendAgentToConfig(t, workDir)
-
-	ctx := execcontext.NewContext()
-	ctx.SetAgent("code-reviewer")
-
-	var capturedAgent string
-	mockOC := &opencode.MockOC{
-		RunAgentFunc: func(_ context.Context, _, _, agent, prompt string) error {
-			capturedAgent = agent
-			return os.WriteFile("picked-item-index.txt", []byte("0"), 0644)
-		},
+func TestAgentClientRunPickerNeverPassesAgent(t *testing.T) {
+	tests := []struct {
+		name              string
+		flagAgent         string
+		appendConfigAgent bool
+	}{
+		{name: "flag agent set only", flagAgent: "code-reviewer", appendConfigAgent: false},
+		{name: "config agent set only", appendConfigAgent: true},
+		{name: "flag and config agents set", flagAgent: "code-reviewer", appendConfigAgent: true},
+		{name: "neither flag nor config agent set"},
 	}
-	client := NewAgentClient(ctx, mockOC)
 
-	proj := &project.Project{Slug: "test-project", Items: project.NewItems([]any{"csv-serializer"})}
-	_, err := client.RunPicker(proj, proj.Items)
-	require.NoError(t, err)
-	assert.Equal(t, "", capturedAgent, "the picker must run with opencode's primary agent")
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			workDir := t.TempDir()
+			t.Chdir(workDir)
+
+			testutil.InitGitRepo(t, workDir)
+			testutil.MakeInitialCommit(t, workDir)
+			testutil.CreateRalphConfig(t, workDir)
+			if tc.appendConfigAgent {
+				appendAgentToConfig(t, workDir)
+			}
+
+			ctx := execcontext.NewContext()
+			if tc.flagAgent != "" {
+				ctx.SetAgent(tc.flagAgent)
+			}
+
+			var capturedAgent string
+			mockOC := &opencode.MockOC{
+				RunAgentFunc: func(_ context.Context, _, _, agent, prompt string) error {
+					capturedAgent = agent
+					return os.WriteFile("picked-item-index.txt", []byte("0"), 0644)
+				},
+			}
+			client := NewAgentClient(ctx, mockOC)
+
+			proj := &project.Project{Slug: "test-project", Items: project.NewItems([]any{"csv-serializer"})}
+			_, err := client.RunPicker(proj, proj.Items)
+			require.NoError(t, err)
+			assert.Equal(t, "", capturedAgent, "the picker must never pass --agent to opencode, so it always runs with the primary agent")
+		})
+	}
 }
 
 func TestAgentClientRunDeveloperReceivesConfiguredAgent(t *testing.T) {
