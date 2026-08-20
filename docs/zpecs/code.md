@@ -1,6 +1,6 @@
 # Code Guidelines
 
-We want clear, minimal code that is easy to understand and replace. Code should meet our requirements and standards but in the simplest possible way.
+We want clear, minimal code that is easy to understand and replace.
 
 ## Writing
 
@@ -12,11 +12,9 @@ We want clear, minimal code that is easy to understand and replace. Code should 
 ## Refactoring
 
 * Gradually move towards ideal architecture and implementation. Always look for clearer, more minimal solutions
-* Always refactor within the scope of work
-* File refactoring ideas that are out of the work scope in /refactoring.md
+* Refactor immediately when the opportunity is inside components we're already working on
+* Write a project when the refactoring touches components outside the current work. Name it `refactor-<slug>.yaml`
 
-### refactoring.md
+### Refactoring projects
 
-This is a Markdown file where every section is a refactoring plan. Each plan should be self-contained and narrow in scope.
-
-Refactoring plans should be removed from the file after they are completed. Remove the /refactoring.md file when it contains no plans.
+Before writing a project, check whether a similar one already exists in `./projects/`. If it does, update it instead of writing a new one. Use the `write-project` skill.

@@ -1,14 +1,14 @@
 # Orchestration Pattern
 
-Orchestration is a pattern for structuring domain logic. An orchestration sequences steps, enforces domain conditions, and delegates the actual work to other modules. It says what should happen and when, never how.
+Orchestration is a pattern for structuring domain logic. An orchestration sequences steps, enforces domain conditions, and delegates the work to other modules.
 
-A coding agent writes the orchestration code while implementing a feature. Decide during planning whether a feature needs orchestration, and apply that decision when writing the code.
+A coding agent writes the orchestration code while implementing a feature. Decide during planning whether a feature needs orchestration.
 
 ## Writing Orchestrations
 
 Write orchestration code in the feature's implementation language:
 
-- **Pass failures through.** Propagate failures from helpers directly using the language's idiomatic mechanism (returned errors, thrown exceptions, result types). Only introduce a named error value when it represents a distinct domain condition with no underlying cause (e.g. `CartError.Empty` is a state, not a failure).
+- **Pass failures through.** Propagate them from helpers directly using the language's idiomatic mechanism (returned errors, thrown exceptions, result types). Only introduce a named error value when it represents a distinct domain condition with no underlying cause (e.g. `CartError.Empty` is a state, not a failure).
 - **No debug code.** Remove all logger calls, debug statements, and diagnostic output.
 - **Delegate side effects.** Hand off database writes, network calls, and notifications to helpers rather than performing them in the orchestration body. How helpers are wired is the repo's policy.
 - **No infrastructure types.** Use domain nouns, not framework types like request contexts or HTTP writers.
@@ -73,13 +73,13 @@ test("payment declined", () => {
 
 The orchestration function lives in an [orchestration module](glossary.md#orchestration-module). Each helper lives in an [implementation module](glossary.md#implementation-module).
 
-Orchestration modules must not contain helper methods that perform or test implementation details. Test helpers such as HTTP client wiring, fixture builders, and assertion utilities belong in or beside their implementation modules. The orchestration module's test file contains only test functions that exercise orchestration logic. It calls helpers imported from implementation modules, never defines them.
+Test helpers such as HTTP client wiring, fixture builders, and assertion utilities belong in or beside their implementation modules, never in the orchestration module.
 
-Fixture builders for input types (e.g. a struct passed into the orchestration by the caller) belong with the module that owns the type, not the orchestration module. When drafting test helpers, identify every input type in the orchestration signature and place its fixture builder with that module.
+Fixture builders for input types (e.g. a struct the caller passes into the orchestration) belong with the module that owns the type.
 
 Record orchestration modules in `specs/architecture.yaml`. See [Architecture Format](architecture-outline.md).
 
 ## What Orchestrations Are Not
 
 - **Not a spec.** Orchestrations do not define behavioral guarantees. Put those in a [spec](specs.md).
-- **Not a branching tree.** Orchestrations should be exhaustive but designed to minimize paths. If an orchestration has many branches, that is a signal to simplify the design, not to add more cases.
+- **Not a branching tree.** Orchestrations should be exhaustive but minimize paths. If an orchestration has many branches, that is a signal to simplify the design, not to add more cases.

@@ -1,6 +1,6 @@
 ---
 mode: subagent
-description: Writes the code and tests for a coding step, runs the tests, and reports back. Use when the user wants one.
+description: Writes the code and tests for a coding step, runs the tests, and reports back. Use when the user wants a coding step implemented.
 permission:
   apply_patch: deny
   lsp: deny

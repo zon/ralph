@@ -11,7 +11,7 @@ The architecture document lives at **`/specs/architecture.yaml`** and describes 
 The architecture document is a YAML list. A component is a collection of resources that serve one concern: source code, scripts, runtimes, assets, or config. Each entry has the following fields:
 
 - **path** (required, string): The file path or directory path where the component lives. Relative to the repo root.
-- **description** (required, string): A single short sentence stating the component's purpose and role. Do not include method names, route lists, interface names, or error types. Details like these churn every time the component grows. A good description should survive multiple features being added without needing an edit.
+- **description** (required, string): A single short sentence stating the component's purpose and role. Do not include method names, route lists, interface names, or error types. Details like these churn every time the component grows.
 - **orchestration** (optional, boolean): Whether the component is an [orchestration module](glossary.md#orchestration-module) rather than an [implementation module](glossary.md#implementation-module). Defaults to `false` if omitted.
 
 ## Example

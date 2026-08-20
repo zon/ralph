@@ -1,6 +1,6 @@
 # Agent Prompts
 
-Agent prompts drive a single, focused task. A well-written prompt gives the agent a clear role, the context it needs, and unambiguous instructions for what to produce.
+A prompt drives one task.
 
 ## Structure
 
@@ -15,13 +15,13 @@ A well-structured prompt contains these sections in order:
 
 ## Principles
 
-- **One task per prompt.** Each prompt drives one agent action. Combining tasks causes the agent to lose focus.
+- **One task per prompt.** Combining tasks causes the agent to lose focus.
 - **Give the agent only the context it needs.** Irrelevant context dilutes attention. Omit optional sections when they have nothing to contribute.
 - **Use numbered steps for instructions.** Ordered steps give the agent a clear execution path and reduce ambiguous behavior.
-- **Define domain terms inline.** If the prompt relies on a concept with a precise meaning, define it in the prompt. Don't assume the agent infers it from context.
+- **Define domain terms inline.** If the prompt relies on a concept with a precise meaning, define it inline. Don't assume the agent infers it from context.
 - **Specify output explicitly.** Tell the agent exactly what to produce: format, location, and any schema or example it should follow.
 - **State blocking behavior.** If the agent can get stuck, tell it what to do rather than leaving it to guess.
 
 ## Prompts vs Skills
 
-A prompt is invoked once with its context inlined. A skill is installed into a repository and invoked by name, so it must locate its own context. That is why the skills in this repository reference documents by path and let the agent read them, rather than restating their contents. When a task is repeated across projects, write it as a skill. When it is a one-off with specific inputs, write it as a prompt.
+A prompt is invoked once with its context inlined. A skill is installed into a repository and invoked by name, so it must locate its own context. That is why the skills in this repository reference documents by path and let the agent read them, rather than restating their contents. Write a task repeated across projects as a skill, and a one-off with specific inputs as a prompt.

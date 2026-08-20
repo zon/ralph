@@ -1,7 +1,8 @@
+agent .opencode/agents/architecture-reviewer.md
 agent .opencode/agents/code-architect.md
-agent .opencode/agents/code-reviewer.md
 agent .opencode/agents/code-tester.md
 agent .opencode/agents/code-writer.md
+agent .opencode/agents/component-reviewer.md
 agent .opencode/agents/prose-editor.md
 skill .opencode/skills/write-agent/SKILL.md
 skill .opencode/skills/write-architecture/SKILL.md

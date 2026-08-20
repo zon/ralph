@@ -24,7 +24,7 @@ A concrete example of a requirement in action, in Given/When/Then form. Scenario
 
 ## Project
 
-A YAML or JSON file holding a list of requirements for a coding agent to work through, one per iteration. See [Project Format](project.md).
+A YAML or JSON file listing requirements for a coding agent. See [Project Format](project.md).
 
 ## Deep Module
 
