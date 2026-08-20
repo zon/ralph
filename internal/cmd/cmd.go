@@ -11,6 +11,7 @@ type Cmd struct {
 	Validate ValidateCmd   `cmd:"" help:"Validate a project YAML file"`
 	List     ListCmd       `cmd:"" help:"List Argo workflows"`
 	Stop     StopCmd       `cmd:"" help:"Stop an Argo workflow"`
+	Logs     LogsCmd       `cmd:"" help:"Get logs of an Argo workflow"`
 
 	version          string       `kong:"-"`
 	date             string       `kong:"-"`

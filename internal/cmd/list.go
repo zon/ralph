@@ -10,24 +10,25 @@ import (
 )
 
 type ListCmd struct {
-	Context   string `help:"Kubernetes context to use" name:"context" optional:""`
-	Namespace string `help:"Kubernetes namespace to use" short:"n" optional:""`
+	Context   string `help:"Kubernetes context to use"`
+	Namespace string `help:"Kubernetes namespace to use" short:"n"`
 }
 
 func (l *ListCmd) Run() error {
-	ctx := context.Background()
+	return runArgoCmd(func(cmd *orchestrationArgo.ArgoCmd) error {
+		return cmd.List(orchestrationArgo.ListFlags{
+			Context:   l.Context,
+			Namespace: l.Namespace,
+		})
+	})
+}
 
+func runArgoCmd(run func(cmd *orchestrationArgo.ArgoCmd) error) error {
 	ralphConfig, err := config.LoadConfig()
 	if err != nil {
 		return err
 	}
-
-	k8sClient := k8s.NewClient()
-	cmd := newOrchestrationArgoCmd(ctx, k8sClient, ralphConfig)
-	return cmd.List(orchestrationArgo.ListFlags{
-		Context:   l.Context,
-		Namespace: l.Namespace,
-	})
+	return run(newOrchestrationArgoCmd(context.Background(), k8s.NewClient(), ralphConfig))
 }
 
 type argoContextClient struct {
@@ -54,6 +55,14 @@ func (a *argoClientAdapter) List(ctx orchestrationArgo.K8sContext) error {
 
 func (a *argoClientAdapter) Stop(ctx orchestrationArgo.K8sContext, workflowName string) error {
 	return a.client.StopWorkflow(argo.K8sContext{Name: ctx.Name, Namespace: ctx.Namespace}, workflowName)
+}
+
+func (a *argoClientAdapter) ListWorkflowNames(ctx orchestrationArgo.K8sContext) ([]string, error) {
+	return a.client.ListWorkflowNames(argo.K8sContext{Name: ctx.Name, Namespace: ctx.Namespace})
+}
+
+func (a *argoClientAdapter) Logs(ctx orchestrationArgo.K8sContext, workflowName string, follow bool) error {
+	return a.client.Logs(argo.K8sContext{Name: ctx.Name, Namespace: ctx.Namespace}, workflowName, follow)
 }
 
 func newOrchestrationArgoCmd(ctx context.Context, k8sClient k8s.Client, ralphConfig *config.RalphConfig) *orchestrationArgo.ArgoCmd {

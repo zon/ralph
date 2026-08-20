@@ -64,7 +64,7 @@ func (a *workflowClientAdapter) Submit(input *project.InputFile, cloneBranch str
 }
 
 func (a *workflowClientAdapter) FollowLogs(workflowName string) error {
-	return a.argoClient.FollowLogs(argo.K8sContext{Name: a.kubeContext, Namespace: a.namespace}, workflowName)
+	return a.argoClient.Logs(argo.K8sContext{Name: a.kubeContext, Namespace: a.namespace}, workflowName, true)
 }
 
 func (a *workflowClientAdapter) PrintLogHint(workflowName string) {
