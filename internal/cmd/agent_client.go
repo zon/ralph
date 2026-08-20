@@ -53,7 +53,7 @@ func (a *AgentClient) RunPicker(proj *project.Project, incomplete []project.Item
 		a.ctx.Output().Debug(prompt)
 	}
 
-	if err := ai.RunAgent(a.ctx, a.oc, prompt); err != nil {
+	if err := ai.RunAgentPrimary(a.ctx, a.oc, prompt); err != nil {
 		return project.Item{}, err
 	}
 
@@ -186,7 +186,7 @@ func (a *AgentClient) WriteOrchestration(input *project.InputFile) error {
 		a.ctx.Output().Debug(prompt)
 	}
 
-	return ai.RunAgent(a.ctx, a.oc, prompt)
+	return ai.RunAgentPrimary(a.ctx, a.oc, prompt)
 }
 
 func (a *AgentClient) WriteProject(input *project.InputFile) (string, error) {
@@ -211,7 +211,7 @@ func (a *AgentClient) WriteProject(input *project.InputFile) (string, error) {
 		a.ctx.Output().Debug(prompt)
 	}
 
-	if err := ai.RunAgent(a.ctx, a.oc, prompt); err != nil {
+	if err := ai.RunAgentPrimary(a.ctx, a.oc, prompt); err != nil {
 		return "", err
 	}
 

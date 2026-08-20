@@ -6,6 +6,8 @@
 
 **IMPORTANT**: Read [docs/zpecs/architecture.md](docs/zpecs/architecture.md) when planning the structure of code.
 
+**IMPORTANT**: Read the [Architecture Format](docs/zpecs/architecture-outline.md) when adding or changing a component.
+
 ## Prose Standard
 
 **IMPORTANT**: Follow [docs/zpecs/prose.md](docs/zpecs/prose.md) when writing prose.

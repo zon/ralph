@@ -124,7 +124,6 @@ func TestGenerateChangelog(t *testing.T) {
 	})
 }
 
-
 func TestResolveModel(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -339,6 +338,87 @@ func TestRunAgent(t *testing.T) {
 	})
 }
 
+func TestRunAgentPrimary(t *testing.T) {
+	t.Run("resolves model and variant but never passes agent", func(t *testing.T) {
+		dir := t.TempDir()
+		require.NoError(t, os.MkdirAll(filepath.Join(dir, ".ralph"), 0755))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, ".ralph", "config.yaml"), []byte("agent: build\n"), 0644))
+		t.Chdir(dir)
+
+		ctx := &execcontext.Context{}
+		ctx.SetModel("gpt-4")
+		ctx.SetVariant("custom-variant")
+		ctx.SetAgent("code-reviewer")
+
+		var capturedModel, capturedVariant, capturedAgent, capturedPrompt string
+		mockOC := &opencode.MockOC{
+			RunAgentFunc: func(_ context.Context, model, variant, agent, prompt string) error {
+				capturedModel = model
+				capturedVariant = variant
+				capturedAgent = agent
+				capturedPrompt = prompt
+				return nil
+			},
+		}
+
+		err := RunAgentPrimary(ctx, mockOC, "test prompt")
+		require.NoError(t, err)
+		assert.Equal(t, "gpt-4", capturedModel)
+		assert.Equal(t, "custom-variant", capturedVariant)
+		assert.Equal(t, "", capturedAgent, "agent must never be passed, even when flag and config resolve one")
+		assert.Equal(t, "test prompt", capturedPrompt)
+	})
+
+	t.Run("returns underlying error unchanged", func(t *testing.T) {
+		ctx := &execcontext.Context{}
+		ctx.SetModel("gpt-4")
+
+		expectedErr := errors.New("agent execution failed")
+		mockOC := &opencode.MockOC{
+			RunAgentFunc: func(_ context.Context, model, variant, agent, prompt string) error {
+				return expectedErr
+			},
+		}
+
+		err := RunAgentPrimary(ctx, mockOC, "test prompt")
+		assert.Equal(t, expectedErr, err, "error should be returned unchanged, not wrapped")
+	})
+
+	t.Run("logs prompt when verbose", func(t *testing.T) {
+		var buf bytes.Buffer
+		ctx := &execcontext.Context{}
+		ctx.SetVerbose(true)
+		ctx.SetOutput(output.NewClient(&buf, &buf, true))
+
+		mockOC := &opencode.MockOC{
+			RunAgentFunc: func(_ context.Context, model, variant, agent, prompt string) error {
+				return nil
+			},
+		}
+
+		err := RunAgentPrimary(ctx, mockOC, "verbose prompt")
+		require.NoError(t, err)
+		assert.Contains(t, buf.String(), "verbose prompt")
+	})
+
+	t.Run("does not log when not verbose", func(t *testing.T) {
+		var buf bytes.Buffer
+		ctx := &execcontext.Context{}
+		ctx.SetVerbose(false)
+		ctx.SetOutput(output.NewClient(&buf, &buf, false))
+
+		mockOC := &opencode.MockOC{
+			RunAgentFunc: func(_ context.Context, model, variant, agent, prompt string) error {
+				return nil
+			},
+		}
+
+		err := RunAgentPrimary(ctx, mockOC, "quiet prompt")
+		require.NoError(t, err)
+		assert.Empty(t, buf.String())
+	})
+}
+
 func TestRunAgentWithModel(t *testing.T) {
 	t.Run("passes model verbatim, resolves variant", func(t *testing.T) {
 		ctx := &execcontext.Context{}
@@ -358,6 +438,34 @@ func TestRunAgentWithModel(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "explicit-model", capturedModel, "model should be passed verbatim, not resolved")
 		assert.Equal(t, "my-variant", capturedVariant, "variant should still be resolved from context")
+	})
+
+	t.Run("never passes the configured agent", func(t *testing.T) {
+		dir := t.TempDir()
+		require.NoError(t, os.MkdirAll(filepath.Join(dir, ".ralph"), 0755))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, ".ralph", "config.yaml"), []byte("agent: build\n"), 0644))
+		t.Chdir(dir)
+
+		ctx := &execcontext.Context{}
+		ctx.SetModel("default-model")
+		ctx.SetVariant("my-variant")
+		ctx.SetAgent("code-reviewer")
+
+		var capturedModel, capturedVariant, capturedAgent string
+		mockOC := &opencode.MockOC{
+			RunAgentFunc: func(_ context.Context, model, variant, agent, prompt string) error {
+				capturedModel = model
+				capturedVariant = variant
+				capturedAgent = agent
+				return nil
+			},
+		}
+
+		err := RunAgentWithModel(ctx, mockOC, "test prompt", "explicit-model")
+		require.NoError(t, err)
+		assert.Equal(t, "explicit-model", capturedModel, "model should be passed verbatim, not resolved")
+		assert.Equal(t, "my-variant", capturedVariant, "variant should still be resolved from context")
+		assert.Equal(t, "", capturedAgent, "agent must never be passed, even when flag and config resolve one")
 	})
 
 	t.Run("returns underlying error unchanged", func(t *testing.T) {
@@ -490,6 +598,30 @@ func TestRunOpenCodeAndReadResult(t *testing.T) {
 			assert.Equal(t, tt.want, result)
 		})
 	}
+}
+
+func TestRunOpenCodeAndReadResultNeverPassesAgent(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".ralph"), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".ralph", "config.yaml"), []byte("agent: build\n"), 0644))
+	t.Chdir(dir)
+
+	ctx := &execcontext.Context{}
+	ctx.SetAgent("code-reviewer")
+
+	outputFile := filepath.Join(t.TempDir(), "output.md")
+	var capturedAgent string
+	mockOC := &opencode.MockOC{
+		RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+			capturedAgent = agent
+			return os.WriteFile(outputFile, []byte("content"), 0644)
+		},
+	}
+
+	result, err := runOpenCodeAndReadResult(ctx, mockOC, "some-model", "some prompt", outputFile)
+	require.NoError(t, err)
+	assert.Equal(t, "content", result)
+	assert.Equal(t, "", capturedAgent, "agent must never be passed, even when flag and config resolve one")
 }
 
 func TestRunOpenCodeAndReadResultVerboseWiring(t *testing.T) {
@@ -851,4 +983,150 @@ func TestGenerateReviewPRBody(t *testing.T) {
 		require.NoError(t, err)
 		assert.Empty(t, buf.String())
 	})
+}
+
+// TestGenerateChangelogNeverPassesAgent covers all four branches of agent
+// resolution: the changelog prompt produces a supporting artifact and must run
+// with opencode's primary agent, never passing --agent.
+func TestGenerateChangelogNeverPassesAgent(t *testing.T) {
+	tests := []struct {
+		name        string
+		flagAgent   string
+		configAgent bool
+	}{
+		{name: "flag agent set only", flagAgent: "code-reviewer"},
+		{name: "config agent set only", configAgent: true},
+		{name: "flag and config agents set", flagAgent: "code-reviewer", configAgent: true},
+		{name: "neither flag nor config agent set"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			testutil.InitGitRepo(t, dir)
+			t.Chdir(dir)
+
+			require.NoError(t, os.MkdirAll(".ralph", 0755))
+			configContent := "defaultBranch: main\nmodel: deepseek/deepseek-chat\n"
+			if tt.configAgent {
+				configContent += "agent: build\n"
+			}
+			require.NoError(t, os.WriteFile(".ralph/config.yaml", []byte(configContent), 0644))
+
+			ctx := &execcontext.Context{}
+			if tt.flagAgent != "" {
+				ctx.SetAgent(tt.flagAgent)
+			}
+
+			var capturedAgent string
+			mockOC := &opencode.MockOC{
+				RunCommandFunc: func(_ context.Context, _, _, agent, prompt string, _, _ io.Writer) error {
+					capturedAgent = agent
+					return writeOutputFromChangelogPrompt(prompt, "changelog content")
+				},
+			}
+
+			err := GenerateChangelog(ctx, mockOC)
+			require.NoError(t, err)
+			assert.Equal(t, "", capturedAgent, "the changelog prompt must never pass --agent to opencode, so it always runs with the primary agent")
+		})
+	}
+}
+
+// TestGeneratePRSummaryNeverPassesAgent covers all four branches of agent
+// resolution: the PR summary prompt produces a supporting artifact and must run
+// with opencode's primary agent, never passing --agent.
+func TestGeneratePRSummaryNeverPassesAgent(t *testing.T) {
+	tests := []struct {
+		name        string
+		flagAgent   string
+		configAgent bool
+	}{
+		{name: "flag agent set only", flagAgent: "code-reviewer"},
+		{name: "config agent set only", configAgent: true},
+		{name: "flag and config agents set", flagAgent: "code-reviewer", configAgent: true},
+		{name: "neither flag nor config agent set"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			testutil.InitGitRepo(t, dir)
+			t.Chdir(dir)
+
+			require.NoError(t, os.MkdirAll(".ralph", 0755))
+			configContent := "defaultBranch: main\nmodel: deepseek/deepseek-chat\n"
+			if tt.configAgent {
+				configContent += "agent: build\n"
+			}
+			require.NoError(t, os.WriteFile(".ralph/config.yaml", []byte(configContent), 0644))
+
+			ctx := &execcontext.Context{}
+			if tt.flagAgent != "" {
+				ctx.SetAgent(tt.flagAgent)
+			}
+
+			var capturedAgent string
+			mockOC := &opencode.MockOC{
+				RunCommandFunc: func(_ context.Context, _, _, agent, prompt string, _, _ io.Writer) error {
+					capturedAgent = agent
+					return writeOutputFromPrompt(prompt, "summary")
+				},
+			}
+
+			result, err := GeneratePRSummary(ctx, mockOC, "Test Project", "main", "abc: feat\n")
+			require.NoError(t, err)
+			assert.Equal(t, "summary", result)
+			assert.Equal(t, "", capturedAgent, "the PR summary prompt must never pass --agent to opencode, so it always runs with the primary agent")
+		})
+	}
+}
+
+// TestGenerateReviewPRBodyNeverPassesAgent covers all four branches of agent
+// resolution: the PR review body prompt produces a supporting artifact and must
+// run with opencode's primary agent, never passing --agent.
+func TestGenerateReviewPRBodyNeverPassesAgent(t *testing.T) {
+	tests := []struct {
+		name        string
+		flagAgent   string
+		configAgent bool
+	}{
+		{name: "flag agent set only", flagAgent: "code-reviewer"},
+		{name: "config agent set only", configAgent: true},
+		{name: "flag and config agents set", flagAgent: "code-reviewer", configAgent: true},
+		{name: "neither flag nor config agent set"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			testutil.InitGitRepo(t, dir)
+			t.Chdir(dir)
+
+			require.NoError(t, os.MkdirAll(".ralph", 0755))
+			configContent := "defaultBranch: main\nmodel: deepseek/deepseek-chat\n"
+			if tt.configAgent {
+				configContent += "agent: build\n"
+			}
+			require.NoError(t, os.WriteFile(".ralph/config.yaml", []byte(configContent), 0644))
+
+			ctx := &execcontext.Context{}
+			if tt.flagAgent != "" {
+				ctx.SetAgent(tt.flagAgent)
+			}
+
+			var capturedAgent string
+			mockOC := &opencode.MockOC{
+				RunCommandFunc: func(_ context.Context, _, _, agent, prompt string, _, _ io.Writer) error {
+					capturedAgent = agent
+					return writeOutputFromPrompt(prompt, "review body")
+				},
+			}
+
+			result, err := GenerateReviewPRBody(ctx, mockOC, "my-project", "Test project description", []string{"- **security**: JWT validation"})
+			require.NoError(t, err)
+			assert.Equal(t, "review body", result)
+			assert.Equal(t, "", capturedAgent, "the PR review body prompt must never pass --agent to opencode, so it always runs with the primary agent")
+		})
+	}
 }

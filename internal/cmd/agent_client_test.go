@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
+	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/opencode"
 	orchestrationRun "github.com/zon/ralph/internal/orchestration/run"
@@ -645,4 +647,281 @@ func TestAgentClientPrintStatsUsesStoredOCClient(t *testing.T) {
 	client := NewAgentClient(ctx, mockOC)
 	client.PrintStats()
 	assert.True(t, called, "PrintStats should call GetStats on the stored OCClient")
+}
+
+// appendAgentToConfig appends `agent: build` to the .ralph/config.yaml created
+// by testutil.CreateRalphConfig so the config fallback resolves an agent.
+func appendAgentToConfig(t *testing.T, workDir string) {
+	t.Helper()
+	configPath := filepath.Join(workDir, ".ralph", "config.yaml")
+	configData, err := os.ReadFile(configPath)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(configPath, append(configData, []byte("agent: build\n")...), 0644))
+}
+
+// newNeverPassesAgentClient sets up a temporary working directory with a ralph
+// config and returns an AgentClient wired to an opencode mock that captures the
+// agent argument. initGit initializes a git repo for the tests that need one:
+// the picker reads the commit log, and changelog generation resolves the repo
+// root for its temp file. When runAgent is non-nil, the mock calls it with the
+// prompt so tests can write the files their prompts expect. runCommand is the
+// equivalent hook for the RunCommand path used by changelog generation.
+func newNeverPassesAgentClient(t *testing.T, flagAgent string, appendConfigAgent, initGit bool, runAgent func(prompt string) error, runCommand func(prompt string) error) (*AgentClient, *string) {
+	t.Helper()
+
+	workDir := t.TempDir()
+	t.Chdir(workDir)
+
+	if initGit {
+		testutil.InitGitRepo(t, workDir)
+		testutil.MakeInitialCommit(t, workDir)
+	}
+
+	testutil.CreateRalphConfig(t, workDir)
+	if appendConfigAgent {
+		appendAgentToConfig(t, workDir)
+	}
+
+	ctx := execcontext.NewContext()
+	if flagAgent != "" {
+		ctx.SetAgent(flagAgent)
+	}
+
+	var capturedAgent string
+	mockOC := &opencode.MockOC{
+		RunAgentFunc: func(_ context.Context, _, _, agent, prompt string) error {
+			capturedAgent = agent
+			if runAgent != nil {
+				return runAgent(prompt)
+			}
+			return nil
+		},
+		RunCommandFunc: func(_ context.Context, _, _, agent, prompt string, _, _ io.Writer) error {
+			capturedAgent = agent
+			if runCommand != nil {
+				return runCommand(prompt)
+			}
+			return nil
+		},
+	}
+
+	return NewAgentClient(ctx, mockOC), &capturedAgent
+}
+
+// writeChangelogOutput writes content to the file path named in the changelog prompt.
+func writeChangelogOutput(prompt, content string) error {
+	prefix := "Write the changelog entry to the file: "
+	idx := strings.Index(prompt, prefix)
+	if idx < 0 {
+		return errors.New("changelog output file path not found in prompt")
+	}
+	rest := prompt[idx+len(prefix):]
+	if nl := strings.IndexByte(rest, '\n'); nl >= 0 {
+		rest = rest[:nl]
+	}
+	path := strings.TrimSpace(rest)
+	return os.WriteFile(path, []byte(content), 0644)
+}
+
+func TestAgentClientRunPickerNeverPassesAgent(t *testing.T) {
+	tests := []struct {
+		name              string
+		flagAgent         string
+		appendConfigAgent bool
+	}{
+		{name: "flag agent set only", flagAgent: "code-reviewer", appendConfigAgent: false},
+		{name: "config agent set only", appendConfigAgent: true},
+		{name: "flag and config agents set", flagAgent: "code-reviewer", appendConfigAgent: true},
+		{name: "neither flag nor config agent set"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			client, capturedAgent := newNeverPassesAgentClient(t, tc.flagAgent, tc.appendConfigAgent, true, func(_ string) error {
+				return os.WriteFile("picked-item-index.txt", []byte("0"), 0644)
+			}, nil)
+
+			proj := &project.Project{Slug: "test-project", Items: project.NewItems([]any{"csv-serializer"})}
+			_, err := client.RunPicker(proj, proj.Items)
+			require.NoError(t, err)
+			assert.Equal(t, "", *capturedAgent, "the picker must never pass --agent to opencode, so it always runs with the primary agent")
+		})
+	}
+}
+
+// TestAgentClientGenerateChangelogNeverPassesAgent covers all four branches of
+// agent resolution: the changelog prompt produces a supporting artifact and
+// must run with opencode's primary agent, never passing --agent. Changelog
+// generation needs a git repo for its temp file, so the test passes initGit
+// true.
+func TestAgentClientGenerateChangelogNeverPassesAgent(t *testing.T) {
+	tests := []struct {
+		name              string
+		flagAgent         string
+		appendConfigAgent bool
+	}{
+		{name: "flag agent set only", flagAgent: "code-reviewer", appendConfigAgent: false},
+		{name: "config agent set only", appendConfigAgent: true},
+		{name: "flag and config agents set", flagAgent: "code-reviewer", appendConfigAgent: true},
+		{name: "neither flag nor config agent set"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			client, capturedAgent := newNeverPassesAgentClient(t, tc.flagAgent, tc.appendConfigAgent, true, nil, func(prompt string) error {
+				return writeChangelogOutput(prompt, "changelog content")
+			})
+
+			proj := &project.Project{Slug: "test-project", Items: project.NewItems([]any{"csv-serializer"})}
+			err := client.GenerateChangelog(proj)
+			require.NoError(t, err)
+			assert.Equal(t, "", *capturedAgent, "the changelog prompt must never pass --agent to opencode, so it always runs with the primary agent")
+		})
+	}
+}
+
+func TestAgentClientRunDeveloperReceivesConfiguredAgent(t *testing.T) {
+	t.Run("flag agent wins", func(t *testing.T) {
+		workDir := t.TempDir()
+		t.Chdir(workDir)
+
+		testutil.InitGitRepo(t, workDir)
+		testutil.MakeInitialCommit(t, workDir)
+		testutil.CreateRalphConfig(t, workDir)
+
+		ctx := execcontext.NewContext()
+		ctx.SetAgent("code-reviewer")
+
+		var capturedAgent string
+		mockOC := &opencode.MockOC{
+			RunAgentFunc: func(_ context.Context, _, _, agent, prompt string) error {
+				capturedAgent = agent
+				return nil
+			},
+		}
+		client := NewAgentClient(ctx, mockOC)
+
+		proj := &project.Project{Slug: "test-project", Items: project.NewItems([]any{"csv-serializer"})}
+		err := client.RunDeveloper(proj, proj.Items[0])
+		require.NoError(t, err)
+		assert.Equal(t, "code-reviewer", capturedAgent, "item development is code-writing and receives the flag agent")
+	})
+
+	t.Run("config agent used when no flag agent set", func(t *testing.T) {
+		workDir := t.TempDir()
+		t.Chdir(workDir)
+
+		testutil.InitGitRepo(t, workDir)
+		testutil.MakeInitialCommit(t, workDir)
+		testutil.CreateRalphConfig(t, workDir)
+		appendAgentToConfig(t, workDir)
+
+		ctx := execcontext.NewContext()
+
+		var capturedAgent string
+		mockOC := &opencode.MockOC{
+			RunAgentFunc: func(_ context.Context, _, _, agent, prompt string) error {
+				capturedAgent = agent
+				return nil
+			},
+		}
+		client := NewAgentClient(ctx, mockOC)
+
+		proj := &project.Project{Slug: "test-project", Items: project.NewItems([]any{"csv-serializer"})}
+		err := client.RunDeveloper(proj, proj.Items[0])
+		require.NoError(t, err)
+		assert.Equal(t, "build", capturedAgent, "item development is code-writing and falls back to the config agent")
+	})
+}
+
+// TestAgentClientWriteOrchestrationNeverPassesAgent covers all four branches of
+// agent resolution.
+func TestAgentClientWriteOrchestrationNeverPassesAgent(t *testing.T) {
+	tests := []struct {
+		name              string
+		flagAgent         string
+		appendConfigAgent bool
+	}{
+		{name: "flag agent set only", flagAgent: "code-reviewer", appendConfigAgent: false},
+		{name: "config agent set only", appendConfigAgent: true},
+		{name: "flag and config agents set", flagAgent: "code-reviewer", appendConfigAgent: true},
+		{name: "neither flag nor config agent set"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			client, capturedAgent := newNeverPassesAgentClient(t, tc.flagAgent, tc.appendConfigAgent, false, nil, nil)
+
+			input := project.ForSpecInput("specs/features/test/spec.md")
+			err := client.WriteOrchestration(input)
+			require.NoError(t, err)
+			assert.Equal(t, "", *capturedAgent, "orchestration generation must never pass --agent to opencode, so it always runs with the primary agent")
+		})
+	}
+}
+
+// TestAgentClientWriteProjectNeverPassesAgent covers all four branches of agent
+// resolution.
+func TestAgentClientWriteProjectNeverPassesAgent(t *testing.T) {
+	tests := []struct {
+		name              string
+		flagAgent         string
+		appendConfigAgent bool
+	}{
+		{name: "flag agent set only", flagAgent: "code-reviewer", appendConfigAgent: false},
+		{name: "config agent set only", appendConfigAgent: true},
+		{name: "flag and config agents set", flagAgent: "code-reviewer", appendConfigAgent: true},
+		{name: "neither flag nor config agent set"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			projectYAML := `slug: test-project
+title: Test Project
+requirements:
+  - slug: req-1
+    description: Test requirement
+    items:
+      - Item 1
+`
+
+			client, capturedAgent := newNeverPassesAgentClient(t, tc.flagAgent, tc.appendConfigAgent, false, func(_ string) error {
+				return os.WriteFile("projects/generated.yaml", []byte(projectYAML), 0644)
+			}, nil)
+			require.NoError(t, os.MkdirAll("projects", 0755))
+
+			input := project.ForSpecInput("specs/features/test/spec.md")
+			path, err := client.WriteProject(input)
+			require.NoError(t, err)
+			assert.Equal(t, "projects/generated.yaml", path)
+			assert.Equal(t, "", *capturedAgent, "project generation must never pass --agent to opencode, so it always runs with the primary agent")
+		})
+	}
+}
+
+func TestAgentClientFixServiceStartupReceivesConfiguredAgent(t *testing.T) {
+	workDir := t.TempDir()
+	t.Chdir(workDir)
+
+	testutil.InitGitRepo(t, workDir)
+	testutil.MakeInitialCommit(t, workDir)
+	testutil.CreateRalphConfig(t, workDir)
+	appendAgentToConfig(t, workDir)
+
+	ctx := execcontext.NewContext()
+	ctx.SetAgent("code-reviewer")
+
+	var capturedAgent string
+	mockOC := &opencode.MockOC{
+		RunAgentFunc: func(_ context.Context, _, _, agent, prompt string) error {
+			capturedAgent = agent
+			return nil
+		},
+	}
+	client := NewAgentClient(ctx, mockOC)
+
+	cfg := &config.RalphConfig{Services: []config.Service{{Name: "missing-svc", Command: "definitely-not-a-real-command-xyz"}}}
+	err := client.FixServiceStartup(cfg, errors.New("ignored"))
+	require.NoError(t, err)
+	assert.Equal(t, "code-reviewer", capturedAgent, "service-startup fixes are code-writing and receive the flag agent")
 }

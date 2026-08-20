@@ -345,12 +345,28 @@ func RunAgent(ctx *execcontext.Context, oc opencode.OCClient, prompt string) err
 	return oc.RunAgent(ctx.GoContext(), model, resolveVariant(ctx), resolveAgent(ctx), prompt)
 }
 
+// RunAgentPrimary runs the prompt with opencode's primary agent and is for
+// prompts that produce supporting artifacts without touching repository code.
+// It resolves the model and variant exactly like RunAgent but never passes the
+// configured agent.
+func RunAgentPrimary(ctx *execcontext.Context, oc opencode.OCClient, prompt string) error {
+	if ctx.IsVerbose() {
+		ctx.Output().Debug(prompt)
+	}
+
+	model := resolveModel(ctx)
+
+	return oc.RunAgent(ctx.GoContext(), model, resolveVariant(ctx), "", prompt)
+}
+
+// RunAgentWithModel runs the prompt with an explicit model. It never passes
+// the configured agent: the prompt runs with opencode's primary agent.
 func RunAgentWithModel(ctx *execcontext.Context, oc opencode.OCClient, prompt string, model string) error {
 	if ctx.IsVerbose() {
 		ctx.Output().Debug(prompt)
 	}
 
-	return oc.RunAgent(ctx.GoContext(), model, resolveVariant(ctx), resolveAgent(ctx), prompt)
+	return oc.RunAgent(ctx.GoContext(), model, resolveVariant(ctx), "", prompt)
 }
 
 // createTempFile creates a temp file under the repo's tmp/ directory so that
@@ -370,7 +386,7 @@ func runOpenCodeAndReadResult(ctx *execcontext.Context, oc opencode.OCClient, mo
 		stderrWriter = os.Stderr
 	}
 
-	if err := oc.RunCommand(ctx.GoContext(), model, resolveVariant(ctx), resolveAgent(ctx), prompt, stdoutWriter, stderrWriter); err != nil {
+	if err := oc.RunCommand(ctx.GoContext(), model, resolveVariant(ctx), "", prompt, stdoutWriter, stderrWriter); err != nil {
 		return "", fmt.Errorf("opencode execution failed: %w", err)
 	}
 
