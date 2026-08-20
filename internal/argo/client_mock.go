@@ -3,15 +3,17 @@ package argo
 import "context"
 
 type MockClient struct {
-	ListWorkflowsFunc func(ctx K8sContext) error
-	StopWorkflowFunc  func(ctx K8sContext, workflowName string) error
-	FollowLogsFunc    func(ctx K8sContext, workflowName string) error
-	SubmitYAMLFunc    func(ctx context.Context, workflowYAML string, kubeCtx K8sContext) (string, error)
+	ListWorkflowsFunc     func(ctx K8sContext) error
+	ListWorkflowNamesFunc func(ctx K8sContext) ([]string, error)
+	StopWorkflowFunc      func(ctx K8sContext, workflowName string) error
+	LogsFunc              func(ctx K8sContext, workflowName string, follow bool) error
+	SubmitYAMLFunc        func(ctx context.Context, workflowYAML string, kubeCtx K8sContext) (string, error)
 
-	ListWorkflowsCalled bool
-	StopWorkflowCalled  bool
-	FollowLogsCalled    bool
-	SubmitYAMLCalled    bool
+	ListWorkflowsCalled     bool
+	ListWorkflowNamesCalled bool
+	StopWorkflowCalled      bool
+	LogsCalled              bool
+	SubmitYAMLCalled        bool
 }
 
 func (m *MockClient) ListWorkflows(ctx K8sContext) error {
@@ -30,10 +32,18 @@ func (m *MockClient) StopWorkflow(ctx K8sContext, workflowName string) error {
 	return nil
 }
 
-func (m *MockClient) FollowLogs(ctx K8sContext, workflowName string) error {
-	m.FollowLogsCalled = true
-	if m.FollowLogsFunc != nil {
-		return m.FollowLogsFunc(ctx, workflowName)
+func (m *MockClient) ListWorkflowNames(ctx K8sContext) ([]string, error) {
+	m.ListWorkflowNamesCalled = true
+	if m.ListWorkflowNamesFunc != nil {
+		return m.ListWorkflowNamesFunc(ctx)
+	}
+	return nil, nil
+}
+
+func (m *MockClient) Logs(ctx K8sContext, workflowName string, follow bool) error {
+	m.LogsCalled = true
+	if m.LogsFunc != nil {
+		return m.LogsFunc(ctx, workflowName, follow)
 	}
 	return nil
 }

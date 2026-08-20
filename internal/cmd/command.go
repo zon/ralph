@@ -93,5 +93,5 @@ func (c *commandWorkflowClient) Submit(command []string) (string, error) {
 }
 
 func (c *commandWorkflowClient) StreamLogs(workflowName string) error {
-	return c.argoClient.FollowLogs(argo.K8sContext{Name: c.kubeContext, Namespace: c.namespace}, workflowName)
+	return c.argoClient.Logs(argo.K8sContext{Name: c.kubeContext, Namespace: c.namespace}, workflowName, true)
 }

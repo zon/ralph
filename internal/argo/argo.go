@@ -1,6 +1,7 @@
 package argo
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -15,8 +16,9 @@ type K8sContext struct {
 
 type Client interface {
 	ListWorkflows(ctx K8sContext) error
+	ListWorkflowNames(ctx K8sContext) ([]string, error)
 	StopWorkflow(ctx K8sContext, workflowName string) error
-	FollowLogs(ctx K8sContext, workflowName string) error
+	Logs(ctx K8sContext, workflowName string, follow bool) error
 	SubmitYAML(ctx context.Context, workflowYAML string, kubeCtx K8sContext) (string, error)
 }
 
@@ -29,20 +31,56 @@ func NewClient() Client {
 }
 
 func (c *client) ListWorkflows(ctx K8sContext) error {
+	output, err := runList(ctx)
+	if err != nil {
+		return err
+	}
+	fmt.Fprint(os.Stdout, output)
+	return nil
+}
+
+func (c *client) ListWorkflowNames(ctx K8sContext) ([]string, error) {
+	output, err := runList(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return parseWorkflowNames(output), nil
+}
+
+func listArgs(ctx K8sContext) []string {
 	args := []string{"list", "-n", ctx.Namespace, "-l", "app.kubernetes.io/managed-by=ralph"}
 	if ctx.Name != "" {
 		args = append(args, "--context", ctx.Name)
 	}
+	return args
+}
 
-	cmd := exec.Command("argo", args...)
-	cmd.Stdout = os.Stdout
+func runList(ctx K8sContext) (string, error) {
+	cmd := exec.Command("argo", listArgs(ctx)...)
+	var buffer bytes.Buffer
+	cmd.Stdout = &buffer
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to list workflows: %w", err)
+		return "", fmt.Errorf("failed to list workflows: %w", err)
 	}
 
-	return nil
+	return buffer.String(), nil
+}
+
+func parseWorkflowNames(output string) []string {
+	var names []string
+	for _, line := range strings.Split(output, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 0 {
+			continue
+		}
+		if strings.ToUpper(fields[0]) == "NAME" {
+			continue
+		}
+		names = append(names, fields[0])
+	}
+	return names
 }
 
 func (c *client) StopWorkflow(ctx K8sContext, workflowName string) error {
@@ -63,17 +101,26 @@ func (c *client) StopWorkflow(ctx K8sContext, workflowName string) error {
 	return nil
 }
 
-func (c *client) FollowLogs(ctx K8sContext, workflowName string) error {
-	args := []string{"logs", "-n", ctx.Namespace, "-f", workflowName}
+func logsArgs(ctx K8sContext, workflowName string, follow bool) []string {
+	args := []string{"logs", "-n", ctx.Namespace}
+	if follow {
+		args = append(args, "-f")
+	}
 	if ctx.Name != "" {
 		args = append(args, "--context", ctx.Name)
 	}
-	cmd := exec.Command("argo", args...)
+	return append(args, workflowName)
+}
+
+func (c *client) Logs(ctx K8sContext, workflowName string, follow bool) error {
+	cmd := exec.Command("argo", logsArgs(ctx, workflowName, follow)...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("argo logs failed: %w", err)
+		return fmt.Errorf("failed to get logs for workflow %s: %w", workflowName, err)
 	}
+
 	return nil
 }
 
