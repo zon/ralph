@@ -5,9 +5,12 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -76,8 +79,8 @@ func TestStatsParsingKMValues(t *testing.T) {
 
 func TestIsFatalError(t *testing.T) {
 	tests := []struct {
-		name   string
-		err    error
+		name  string
+		err   error
 		fatal bool
 	}{
 		{name: "nil error", err: nil, fatal: false},
@@ -397,4 +400,37 @@ func TestRunCommand_RealOpenCode(t *testing.T) {
 	client := New()
 	err := client.RunCommand(context.Background(), "deepseek/deepseek-v4-flash", "", "", "say hi", &stdout, &stderr)
 	require.NoError(t, err)
+}
+
+func TestWaitForGroupExit(t *testing.T) {
+	t.Run("returns when the group drains", func(t *testing.T) {
+		cmd := exec.Command("sleep", "0.2")
+		cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+		require.NoError(t, cmd.Start())
+
+		done := make(chan error, 1)
+		go func() { done <- cmd.Wait() }()
+
+		err := waitForGroupExit(cmd.Process.Pid)
+		require.NoError(t, err)
+		require.NoError(t, <-done)
+	})
+
+	t.Run("reports a timeout when the group lingers", func(t *testing.T) {
+		old := opencodeProcessGroupWaitTimeout
+		opencodeProcessGroupWaitTimeout = 50 * time.Millisecond
+		defer func() { opencodeProcessGroupWaitTimeout = old }()
+
+		cmd := exec.Command("sleep", "5")
+		cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+		require.NoError(t, cmd.Start())
+		defer func() {
+			_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+			_ = cmd.Wait()
+		}()
+
+		err := waitForGroupExit(cmd.Process.Pid)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "still active")
+	})
 }

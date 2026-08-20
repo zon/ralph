@@ -57,6 +57,13 @@ func PullRebase(auth *AuthConfig) error {
 		return nil
 	}
 
+	// git pull --rebase aborts when the worktree has uncommitted changes. A
+	// sub-process of the agent can still be writing tracked files when we get
+	// here, so sweep anything left over into a commit before pulling.
+	if err := CommitWorkingTree(workingTreeCommitMessage); err != nil {
+		return fmt.Errorf("failed to commit working tree before pull: %w", err)
+	}
+
 	_, err = runGit("pull", "--rebase", "origin", branch)
 	if err != nil {
 		return fmt.Errorf("failed to pull --rebase: %w", err)
