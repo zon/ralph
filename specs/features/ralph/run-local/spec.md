@@ -328,6 +328,42 @@ After selection, the command SHALL invoke the development agent with the selecte
 
 ---
 
+### Requirement: Agent scope across the loop
+
+The command SHALL apply the configured agent, resolved as described in [run/spec.md](../run/spec.md), only to prompts that write repository code: item development and service-startup fixes. Prompts that produce supporting artifacts — item selection, artifact generation, changelogs, and PR summaries — SHALL run with opencode's primary agent and SHALL NOT receive the configured agent.
+
+#### Scenario: Item development prompt receives the configured agent
+
+- GIVEN the agent resolves to `build`
+- WHEN the development agent is invoked
+- THEN `--agent build` is included in its opencode invocation
+
+#### Scenario: Service-startup fix prompt receives the configured agent
+
+- GIVEN the agent resolves to `build`
+- WHEN the service-startup fix prompt is invoked
+- THEN `--agent build` is included in its opencode invocation
+
+#### Scenario: Picker runs without the configured agent
+
+- GIVEN the agent resolves to `build`
+- WHEN the picker runs
+- THEN the `--agent` option is omitted from its opencode invocation, and opencode's primary agent is used
+
+#### Scenario: Artifact generation runs without the configured agent
+
+- GIVEN the agent resolves to `build`
+- WHEN an orchestration or project generation prompt runs
+- THEN the `--agent` option is omitted from its opencode invocation, and opencode's primary agent is used
+
+#### Scenario: Changelog and PR summary run without the configured agent
+
+- GIVEN the agent resolves to `build`
+- WHEN a changelog or PR summary prompt runs
+- THEN the `--agent` option is omitted from its opencode invocation, and opencode's primary agent is used
+
+---
+
 ### Requirement: Commit after each iteration
 
 After each iteration the command SHALL commit any changes the AI produced. The commit message comes from `report.md` if present; otherwise the AI generates a changelog. The command SHALL commit `report.md` verbatim and SHALL NOT append, rewrite, or remove a completion trailer.

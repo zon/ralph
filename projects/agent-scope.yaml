@@ -1,0 +1,6 @@
+- 'The opencode agent resolved from the `--agent` flag and the top-level `agent` field in `.ralph/config.yaml` applies only to the prompts that write repository code: item development, merge-conflict resolution, PR comment implementation, and service-startup fixes. Each of those prompts passes `--agent` to its opencode invocation when an agent is resolved, and omits it when neither the flag nor the config value is set.'
+- The item picker prompt runs with opencode's primary agent and never passes `--agent`, so a configured agent that denies file writes can no longer block item selection at `picked-item-index.txt`
+- The orchestration and project generation prompts run with opencode's primary agent and never pass `--agent`
+- The changelog, PR summary, and PR review body prompts run with opencode's primary agent and never pass `--agent`
+- The validate project-file repair prompt runs with opencode's primary agent and never passes `--agent`, while its model resolution is unchanged
+- Apply a semver patch bump to the app version

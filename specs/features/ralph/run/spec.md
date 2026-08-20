@@ -118,29 +118,65 @@ Variant resolution follows a two-level precedence: `--variant` at the command li
 
 ### Requirement: opencode agent override
 
-The command SHALL accept `--agent` to select which opencode agent runs the AI prompts. When neither the flag nor the top-level `agent` field in `.ralph/config.yaml` is set, the `--agent` option is omitted entirely from the opencode invocation and opencode's primary agent is used.
+The command SHALL accept `--agent` to select which opencode agent runs the AI prompts that write repository code. The agent SHALL apply only to prompts that change code: item development, merge-conflict resolution, PR comment implementation, and service-startup fixes. Prompts that produce supporting artifacts without touching repository code — item selection, orchestration and project generation, changelogs, PR summaries, and PR review bodies — SHALL run with opencode's primary agent and SHALL NOT receive the configured agent.
 
-Agent resolution follows a two-level precedence: `--agent` at the command line takes priority; otherwise the top-level `agent` field in `.ralph/config.yaml` is used. When both are unset, no agent is passed.
+Agent resolution follows a two-level precedence: `--agent` at the command line takes priority; otherwise the top-level `agent` field in `.ralph/config.yaml` is used. When both are unset, no agent is passed to any prompt.
 
-#### Scenario: `--agent` flag passes agent to opencode
+#### Scenario: `--agent` flag applies to the item development prompt
 
 - GIVEN the user passes `--agent code-reviewer`
-- WHEN the command runs
-- THEN `--agent code-reviewer` is included in the opencode invocation
+- WHEN an item development prompt runs
+- THEN `--agent code-reviewer` is included in its opencode invocation
 
 #### Scenario: Config agent used when no flag is passed
 
 - GIVEN `agent: build` is set in `.ralph/config.yaml`
 - AND no `--agent` flag is passed
-- WHEN the command runs
-- THEN `--agent build` is included in the opencode invocation
+- WHEN a prompt that writes code runs
+- THEN `--agent build` is included in its opencode invocation
+
+#### Scenario: Agent applies to merge-conflict resolution
+
+- GIVEN the agent resolves to `build`
+- WHEN a merge-conflict resolution prompt runs
+- THEN `--agent build` is included in its opencode invocation
+
+#### Scenario: Agent applies to PR comment implementation
+
+- GIVEN the agent resolves to `build`
+- WHEN a PR comment prompt runs
+- THEN `--agent build` is included in its opencode invocation
+
+#### Scenario: Agent applies to service-startup fixes
+
+- GIVEN the agent resolves to `build`
+- WHEN a service-startup fix prompt runs
+- THEN `--agent build` is included in its opencode invocation
+
+#### Scenario: Item picker runs without the agent
+
+- GIVEN the agent resolves to `build`
+- WHEN the item picker prompt runs
+- THEN the `--agent` option is omitted from its opencode invocation, and opencode's primary agent is used
+
+#### Scenario: Artifact generation runs without the agent
+
+- GIVEN the agent resolves to `build`
+- WHEN an orchestration or project generation prompt runs
+- THEN the `--agent` option is omitted from its opencode invocation, and opencode's primary agent is used
+
+#### Scenario: Changelog, PR summary, and review prompts run without the agent
+
+- GIVEN the agent resolves to `build`
+- WHEN a changelog, PR summary, or PR review body prompt runs
+- THEN the `--agent` option is omitted from its opencode invocation, and opencode's primary agent is used
 
 #### Scenario: Agent omitted when both flag and config are unset
 
 - GIVEN `agent` is not set in `.ralph/config.yaml`
 - AND no `--agent` flag is passed
-- WHEN the command runs
-- THEN the `--agent` option is omitted from the opencode invocation, and opencode's primary agent is used
+- WHEN any prompt runs
+- THEN the `--agent` option is omitted from every opencode invocation, and opencode's primary agent is used
 
 #### Scenario: `--context` overrides the Kubernetes context
 

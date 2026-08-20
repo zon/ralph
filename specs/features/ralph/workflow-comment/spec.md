@@ -12,7 +12,7 @@ The system SHALL prepare the container workspace as defined in [workflow-workspa
 
 ### Requirement: Comment Execution
 
-The system SHALL invoke the AI agent with the comment body as the prompt after the workspace is ready.
+The system SHALL invoke the AI agent with the comment body as the prompt after the workspace is ready. Because the prompt may implement code changes requested in the comment, its opencode invocation SHALL receive the configured agent, resolved as described in [run/spec.md](../run/spec.md).
 
 #### Scenario: Missing comment body
 
@@ -26,6 +26,12 @@ The system SHALL invoke the AI agent with the comment body as the prompt after t
 - WHEN `ralph workflow comment` runs
 - THEN the AI agent is invoked with a rendered prompt incorporating the comment body, PR number, branch, repo owner, and repo name
 - AND the agent runs to completion
+
+#### Scenario: Comment prompt receives the configured agent
+
+- GIVEN the agent resolves to `build`
+- WHEN `ralph workflow comment` runs
+- THEN `--agent build` is included in the prompt's opencode invocation
 
 ### Requirement: Instruction Rendering
 

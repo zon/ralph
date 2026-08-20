@@ -51,7 +51,7 @@ The system SHALL apply run-specific flags to the execution context before starti
 
 - GIVEN `--agent` is provided
 - WHEN `ralph workflow run` starts
-- THEN the specified opencode agent is used instead of the agent in `.ralph/config.yaml`
+- THEN the specified opencode agent is used for the prompts that write code instead of the agent in `.ralph/config.yaml`
 
 #### Scenario: Service startup skipped
 
@@ -117,6 +117,7 @@ The system SHALL attempt to merge the base branch into the project branch before
 - WHEN the merge fails
 - THEN the merge is aborted
 - AND an AI agent is invoked with instructions to resolve all conflicts, run tests, and stage the resolved files
+- AND the invocation receives the configured agent, because resolving conflicts writes repository code
 - AND execution continues after resolution
 
 #### Scenario: Base branch fetch failure
