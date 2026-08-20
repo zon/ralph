@@ -3,13 +3,25 @@ package opencode
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"strconv"
 	"strings"
+	"syscall"
+	"time"
 )
+
+// opencodeProcessGroupWaitTimeout bounds how long execOpenCode waits for
+// opencode's process group to drain after the CLI exits. The CLI can exit
+// while a process it spawned (a sub-agent, the local server) is still writing,
+// so ralph drains the group before treating the run as complete. The wait is
+// best-effort: a lingering group is reported, not fatal.
+var opencodeProcessGroupWaitTimeout = 30 * time.Second
+
+const opencodeProcessGroupPollInterval = 100 * time.Millisecond
 
 type OCClient interface {
 	RunCommand(ctx context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error
@@ -32,10 +44,45 @@ func execOpenCode(ctx context.Context, args []string, stdout, stderr io.Writer) 
 	cmd.Env = append(os.Environ(), "FORCE_COLOR=1")
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
+	// Run opencode in its own process group so waitForGroupExit can wait for
+	// every process it spawns to exit before the run is reported complete.
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("opencode command failed: %w", err)
 	}
+	if err := waitForGroupExit(cmd.Process.Pid); err != nil {
+		// A lingering process (e.g. a server) must not fail the run; the
+		// pull-before-push step tolerates any leftover writes.
+		if stderr != nil {
+			fmt.Fprintf(stderr, "opencode: %v\n", err)
+		}
+	}
 	return nil
+}
+
+// waitForGroupExit blocks until every process in the group led by pid has
+// exited or opencodeProcessGroupWaitTimeout elapses. pid is the group leader:
+// Setpgid makes the child its own group leader, so the process group id equals
+// the child's pid.
+func waitForGroupExit(pid int) error {
+	deadline := time.Now().Add(opencodeProcessGroupWaitTimeout)
+	for {
+		err := syscall.Kill(-pid, 0)
+		switch {
+		case err == nil:
+			// The group still has members.
+		case errors.Is(err, syscall.ESRCH):
+			return nil
+		case errors.Is(err, syscall.EPERM):
+			// A member exists that we cannot signal; keep waiting.
+		default:
+			return fmt.Errorf("failed to check process group %d: %w", pid, err)
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("process group %d still active after %s", pid, opencodeProcessGroupWaitTimeout)
+		}
+		time.Sleep(opencodeProcessGroupPollInterval)
+	}
 }
 
 func (c *Client) RunCommand(ctx context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {

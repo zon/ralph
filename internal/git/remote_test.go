@@ -135,6 +135,32 @@ func TestPullRebase_WithNewCommits(t *testing.T) {
 	require.NoError(t, PullRebase(nil))
 }
 
+func TestPullRebase_CommitsDirtyTreeBeforePull(t *testing.T) {
+	workDir, _ := setupBareRemoteRepo(t)
+	t.Chdir(workDir)
+
+	branchName := "feature/dirty-pull"
+	require.NoError(t, CheckoutOrCreateBranch(branchName))
+	require.NoError(t, os.WriteFile(filepath.Join(workDir, "feature.txt"), []byte("feature\n"), 0644))
+	require.NoError(t, StageAll())
+	require.NoError(t, Commit("add feature"))
+	_, err := Push(nil, branchName)
+	require.NoError(t, err)
+
+	// Leave the worktree dirty after the last commit, as a straggling agent
+	// write would. The pull before push must sweep it into a commit, not abort.
+	require.NoError(t, os.WriteFile(filepath.Join(workDir, "feature.txt"), []byte("feature\nmore\n"), 0644))
+	require.True(t, HasUncommittedChanges())
+
+	require.NoError(t, PullAndPush(false, "", ""))
+	require.False(t, HasUncommittedChanges())
+
+	messages, err := CommitMessages("HEAD~1")
+	require.NoError(t, err)
+	require.Len(t, messages, 1)
+	assert.Equal(t, workingTreeCommitMessage+"\n", messages[0])
+}
+
 func TestClone(t *testing.T) {
 	remoteDir := t.TempDir()
 	require.NoError(t, exec.Command("git", "init", "--bare", remoteDir).Run())

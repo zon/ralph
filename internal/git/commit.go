@@ -8,6 +8,29 @@ import (
 
 var ErrNoChanges = errors.New("no changes to commit")
 
+// workingTreeCommitMessage is used for the commit that sweeps up leftover
+// working tree changes before a pull --rebase. It carries no completion trailer.
+const workingTreeCommitMessage = "chore: commit working tree before pull"
+
+// CommitWorkingTree stages and commits any uncommitted changes in the working
+// tree. It is a no-op when the tree is clean or when nothing can be staged. It
+// is used before pull --rebase, which refuses to run on a dirty tree.
+func CommitWorkingTree(message string) error {
+	if !HasUncommittedChanges() {
+		return nil
+	}
+	if err := StageAll(); err != nil {
+		return fmt.Errorf("failed to stage working tree: %w", err)
+	}
+	if !HasStagedChanges() {
+		return nil
+	}
+	if err := Commit(message); err != nil {
+		return fmt.Errorf("failed to commit working tree: %w", err)
+	}
+	return nil
+}
+
 // StageFile stages a specific file using git add
 func StageFile(filePath string) error {
 	_, err := runGit("add", filePath)

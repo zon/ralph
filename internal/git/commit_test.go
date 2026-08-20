@@ -314,3 +314,28 @@ func TestCommitChanges_NoStagedChanges(t *testing.T) {
 	require.Error(t, err, "CommitChanges should fail with no staged changes")
 	assert.True(t, errors.Is(err, ErrNoChanges), "Expected ErrNoChanges, got: %v", err)
 }
+
+func TestCommitWorkingTree(t *testing.T) {
+	t.Run("is a no-op on a clean tree", func(t *testing.T) {
+		tempDir := setupTestRepo(t)
+		t.Chdir(tempDir)
+
+		require.NoError(t, CommitWorkingTree("chore: no-op"))
+		require.False(t, HasUncommittedChanges())
+	})
+
+	t.Run("commits uncommitted changes", func(t *testing.T) {
+		tempDir := setupTestRepo(t)
+		t.Chdir(tempDir)
+
+		require.NoError(t, os.WriteFile(filepath.Join(tempDir, "new.txt"), []byte("x\n"), 0644))
+		require.NoError(t, CommitWorkingTree("chore: sweep"))
+
+		require.False(t, HasUncommittedChanges())
+		cmd := exec.Command("git", "log", "-1", "--format=%B")
+		cmd.Dir = tempDir
+		out, err := cmd.CombinedOutput()
+		require.NoError(t, err, "git log failed")
+		assert.Equal(t, "chore: sweep", strings.TrimSpace(string(out)))
+	})
+}
