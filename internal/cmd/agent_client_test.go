@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -660,11 +661,12 @@ func appendAgentToConfig(t *testing.T, workDir string) {
 
 // newNeverPassesAgentClient sets up a temporary working directory with a ralph
 // config and returns an AgentClient wired to an opencode mock that captures the
-// agent argument. initGit initializes a git repo, which only the picker needs
-// because it reads the commit log. Artifact-generation prompts never touch git.
-// When runAgent is non-nil, the mock calls it with the prompt so tests can
-// write the files their prompts expect.
-func newNeverPassesAgentClient(t *testing.T, flagAgent string, appendConfigAgent, initGit bool, runAgent func(prompt string) error) (*AgentClient, *string) {
+// agent argument. initGit initializes a git repo for the tests that need one:
+// the picker reads the commit log, and changelog generation resolves the repo
+// root for its temp file. When runAgent is non-nil, the mock calls it with the
+// prompt so tests can write the files their prompts expect. runCommand is the
+// equivalent hook for the RunCommand path used by changelog generation.
+func newNeverPassesAgentClient(t *testing.T, flagAgent string, appendConfigAgent, initGit bool, runAgent func(prompt string) error, runCommand func(prompt string) error) (*AgentClient, *string) {
 	t.Helper()
 
 	workDir := t.TempDir()
@@ -694,9 +696,31 @@ func newNeverPassesAgentClient(t *testing.T, flagAgent string, appendConfigAgent
 			}
 			return nil
 		},
+		RunCommandFunc: func(_ context.Context, _, _, agent, prompt string, _, _ io.Writer) error {
+			capturedAgent = agent
+			if runCommand != nil {
+				return runCommand(prompt)
+			}
+			return nil
+		},
 	}
 
 	return NewAgentClient(ctx, mockOC), &capturedAgent
+}
+
+// writeChangelogOutput writes content to the file path named in the changelog prompt.
+func writeChangelogOutput(prompt, content string) error {
+	prefix := "Write the changelog entry to the file: "
+	idx := strings.Index(prompt, prefix)
+	if idx < 0 {
+		return errors.New("changelog output file path not found in prompt")
+	}
+	rest := prompt[idx+len(prefix):]
+	if nl := strings.IndexByte(rest, '\n'); nl >= 0 {
+		rest = rest[:nl]
+	}
+	path := strings.TrimSpace(rest)
+	return os.WriteFile(path, []byte(content), 0644)
 }
 
 func TestAgentClientRunPickerNeverPassesAgent(t *testing.T) {
@@ -715,12 +739,43 @@ func TestAgentClientRunPickerNeverPassesAgent(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			client, capturedAgent := newNeverPassesAgentClient(t, tc.flagAgent, tc.appendConfigAgent, true, func(_ string) error {
 				return os.WriteFile("picked-item-index.txt", []byte("0"), 0644)
-			})
+			}, nil)
 
 			proj := &project.Project{Slug: "test-project", Items: project.NewItems([]any{"csv-serializer"})}
 			_, err := client.RunPicker(proj, proj.Items)
 			require.NoError(t, err)
 			assert.Equal(t, "", *capturedAgent, "the picker must never pass --agent to opencode, so it always runs with the primary agent")
+		})
+	}
+}
+
+// TestAgentClientGenerateChangelogNeverPassesAgent covers all four branches of
+// agent resolution: the changelog prompt produces a supporting artifact and
+// must run with opencode's primary agent, never passing --agent. Changelog
+// generation needs a git repo for its temp file, so the test passes initGit
+// true.
+func TestAgentClientGenerateChangelogNeverPassesAgent(t *testing.T) {
+	tests := []struct {
+		name              string
+		flagAgent         string
+		appendConfigAgent bool
+	}{
+		{name: "flag agent set only", flagAgent: "code-reviewer", appendConfigAgent: false},
+		{name: "config agent set only", appendConfigAgent: true},
+		{name: "flag and config agents set", flagAgent: "code-reviewer", appendConfigAgent: true},
+		{name: "neither flag nor config agent set"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			client, capturedAgent := newNeverPassesAgentClient(t, tc.flagAgent, tc.appendConfigAgent, true, nil, func(prompt string) error {
+				return writeChangelogOutput(prompt, "changelog content")
+			})
+
+			proj := &project.Project{Slug: "test-project", Items: project.NewItems([]any{"csv-serializer"})}
+			err := client.GenerateChangelog(proj)
+			require.NoError(t, err)
+			assert.Equal(t, "", *capturedAgent, "the changelog prompt must never pass --agent to opencode, so it always runs with the primary agent")
 		})
 	}
 }
@@ -795,7 +850,7 @@ func TestAgentClientWriteOrchestrationNeverPassesAgent(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			client, capturedAgent := newNeverPassesAgentClient(t, tc.flagAgent, tc.appendConfigAgent, false, nil)
+			client, capturedAgent := newNeverPassesAgentClient(t, tc.flagAgent, tc.appendConfigAgent, false, nil, nil)
 
 			input := project.ForSpecInput("specs/features/test/spec.md")
 			err := client.WriteOrchestration(input)
@@ -832,7 +887,7 @@ requirements:
 
 			client, capturedAgent := newNeverPassesAgentClient(t, tc.flagAgent, tc.appendConfigAgent, false, func(_ string) error {
 				return os.WriteFile("projects/generated.yaml", []byte(projectYAML), 0644)
-			})
+			}, nil)
 			require.NoError(t, os.MkdirAll("projects", 0755))
 
 			input := project.ForSpecInput("specs/features/test/spec.md")
