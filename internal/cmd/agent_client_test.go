@@ -658,6 +658,47 @@ func appendAgentToConfig(t *testing.T, workDir string) {
 	require.NoError(t, os.WriteFile(configPath, append(configData, []byte("agent: build\n")...), 0644))
 }
 
+// newNeverPassesAgentClient sets up a temporary working directory with a ralph
+// config and returns an AgentClient wired to an opencode mock that captures the
+// agent argument. initGit initializes a git repo, which only the picker needs
+// because it reads the commit log. Artifact-generation prompts never touch git.
+// When runAgent is non-nil, the mock calls it with the prompt so tests can
+// write the files their prompts expect.
+func newNeverPassesAgentClient(t *testing.T, flagAgent string, appendConfigAgent, initGit bool, runAgent func(prompt string) error) (*AgentClient, *string) {
+	t.Helper()
+
+	workDir := t.TempDir()
+	t.Chdir(workDir)
+
+	if initGit {
+		testutil.InitGitRepo(t, workDir)
+		testutil.MakeInitialCommit(t, workDir)
+	}
+
+	testutil.CreateRalphConfig(t, workDir)
+	if appendConfigAgent {
+		appendAgentToConfig(t, workDir)
+	}
+
+	ctx := execcontext.NewContext()
+	if flagAgent != "" {
+		ctx.SetAgent(flagAgent)
+	}
+
+	var capturedAgent string
+	mockOC := &opencode.MockOC{
+		RunAgentFunc: func(_ context.Context, _, _, agent, prompt string) error {
+			capturedAgent = agent
+			if runAgent != nil {
+				return runAgent(prompt)
+			}
+			return nil
+		},
+	}
+
+	return NewAgentClient(ctx, mockOC), &capturedAgent
+}
+
 func TestAgentClientRunPickerNeverPassesAgent(t *testing.T) {
 	tests := []struct {
 		name              string
@@ -672,34 +713,14 @@ func TestAgentClientRunPickerNeverPassesAgent(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			workDir := t.TempDir()
-			t.Chdir(workDir)
-
-			testutil.InitGitRepo(t, workDir)
-			testutil.MakeInitialCommit(t, workDir)
-			testutil.CreateRalphConfig(t, workDir)
-			if tc.appendConfigAgent {
-				appendAgentToConfig(t, workDir)
-			}
-
-			ctx := execcontext.NewContext()
-			if tc.flagAgent != "" {
-				ctx.SetAgent(tc.flagAgent)
-			}
-
-			var capturedAgent string
-			mockOC := &opencode.MockOC{
-				RunAgentFunc: func(_ context.Context, _, _, agent, prompt string) error {
-					capturedAgent = agent
-					return os.WriteFile("picked-item-index.txt", []byte("0"), 0644)
-				},
-			}
-			client := NewAgentClient(ctx, mockOC)
+			client, capturedAgent := newNeverPassesAgentClient(t, tc.flagAgent, tc.appendConfigAgent, true, func(_ string) error {
+				return os.WriteFile("picked-item-index.txt", []byte("0"), 0644)
+			})
 
 			proj := &project.Project{Slug: "test-project", Items: project.NewItems([]any{"csv-serializer"})}
 			_, err := client.RunPicker(proj, proj.Items)
 			require.NoError(t, err)
-			assert.Equal(t, "", capturedAgent, "the picker must never pass --agent to opencode, so it always runs with the primary agent")
+			assert.Equal(t, "", *capturedAgent, "the picker must never pass --agent to opencode, so it always runs with the primary agent")
 		})
 	}
 }
@@ -758,47 +779,49 @@ func TestAgentClientRunDeveloperReceivesConfiguredAgent(t *testing.T) {
 	})
 }
 
-func TestAgentClientWriteOrchestrationRunsWithPrimaryAgent(t *testing.T) {
-	workDir := t.TempDir()
-	t.Chdir(workDir)
-
-	testutil.InitGitRepo(t, workDir)
-	testutil.MakeInitialCommit(t, workDir)
-	testutil.CreateRalphConfig(t, workDir)
-	appendAgentToConfig(t, workDir)
-
-	ctx := execcontext.NewContext()
-	ctx.SetAgent("code-reviewer")
-
-	var capturedAgent string
-	mockOC := &opencode.MockOC{
-		RunAgentFunc: func(_ context.Context, _, _, agent, prompt string) error {
-			capturedAgent = agent
-			return nil
-		},
+// TestAgentClientWriteOrchestrationNeverPassesAgent covers all four branches of
+// agent resolution.
+func TestAgentClientWriteOrchestrationNeverPassesAgent(t *testing.T) {
+	tests := []struct {
+		name              string
+		flagAgent         string
+		appendConfigAgent bool
+	}{
+		{name: "flag agent set only", flagAgent: "code-reviewer", appendConfigAgent: false},
+		{name: "config agent set only", appendConfigAgent: true},
+		{name: "flag and config agents set", flagAgent: "code-reviewer", appendConfigAgent: true},
+		{name: "neither flag nor config agent set"},
 	}
-	client := NewAgentClient(ctx, mockOC)
 
-	input := project.ForSpecInput("specs/features/test/spec.md")
-	err := client.WriteOrchestration(input)
-	require.NoError(t, err)
-	assert.Equal(t, "", capturedAgent, "orchestration generation must run with opencode's primary agent")
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			client, capturedAgent := newNeverPassesAgentClient(t, tc.flagAgent, tc.appendConfigAgent, false, nil)
+
+			input := project.ForSpecInput("specs/features/test/spec.md")
+			err := client.WriteOrchestration(input)
+			require.NoError(t, err)
+			assert.Equal(t, "", *capturedAgent, "orchestration generation must never pass --agent to opencode, so it always runs with the primary agent")
+		})
+	}
 }
 
-func TestAgentClientWriteProjectRunsWithPrimaryAgent(t *testing.T) {
-	workDir := t.TempDir()
-	t.Chdir(workDir)
+// TestAgentClientWriteProjectNeverPassesAgent covers all four branches of agent
+// resolution.
+func TestAgentClientWriteProjectNeverPassesAgent(t *testing.T) {
+	tests := []struct {
+		name              string
+		flagAgent         string
+		appendConfigAgent bool
+	}{
+		{name: "flag agent set only", flagAgent: "code-reviewer", appendConfigAgent: false},
+		{name: "config agent set only", appendConfigAgent: true},
+		{name: "flag and config agents set", flagAgent: "code-reviewer", appendConfigAgent: true},
+		{name: "neither flag nor config agent set"},
+	}
 
-	testutil.InitGitRepo(t, workDir)
-	testutil.MakeInitialCommit(t, workDir)
-	testutil.CreateRalphConfig(t, workDir)
-	appendAgentToConfig(t, workDir)
-	require.NoError(t, os.MkdirAll("projects", 0755))
-
-	ctx := execcontext.NewContext()
-	ctx.SetAgent("code-reviewer")
-
-	projectYAML := `slug: test-project
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			projectYAML := `slug: test-project
 title: Test Project
 requirements:
   - slug: req-1
@@ -807,20 +830,18 @@ requirements:
       - Item 1
 `
 
-	var capturedAgent string
-	mockOC := &opencode.MockOC{
-		RunAgentFunc: func(_ context.Context, _, _, agent, prompt string) error {
-			capturedAgent = agent
-			return os.WriteFile("projects/generated.yaml", []byte(projectYAML), 0644)
-		},
-	}
-	client := NewAgentClient(ctx, mockOC)
+			client, capturedAgent := newNeverPassesAgentClient(t, tc.flagAgent, tc.appendConfigAgent, false, func(_ string) error {
+				return os.WriteFile("projects/generated.yaml", []byte(projectYAML), 0644)
+			})
+			require.NoError(t, os.MkdirAll("projects", 0755))
 
-	input := project.ForSpecInput("specs/features/test/spec.md")
-	path, err := client.WriteProject(input)
-	require.NoError(t, err)
-	assert.Equal(t, "projects/generated.yaml", path)
-	assert.Equal(t, "", capturedAgent, "project generation must run with opencode's primary agent")
+			input := project.ForSpecInput("specs/features/test/spec.md")
+			path, err := client.WriteProject(input)
+			require.NoError(t, err)
+			assert.Equal(t, "projects/generated.yaml", path)
+			assert.Equal(t, "", *capturedAgent, "project generation must never pass --agent to opencode, so it always runs with the primary agent")
+		})
+	}
 }
 
 func TestAgentClientFixServiceStartupReceivesConfiguredAgent(t *testing.T) {
