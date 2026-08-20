@@ -2,7 +2,13 @@
 
 ## Coding Standard
 
-**IMPORTANT**: Before writing any code, read [docs/zpecs/architecture.md](docs/zpecs/architecture.md) to understand how to write code in this repository. It covers component placement and directs you to the component map in `specs/architecture.yaml` ([Architecture Format](docs/zpecs/architecture-outline.md)).
+**IMPORTANT**: Follow [docs/zpecs/code.md](docs/zpecs/code.md) when writing code.
+
+**IMPORTANT**: Read [docs/zpecs/architecture.md](docs/zpecs/architecture.md) when planning the structure of code.
+
+## Prose Standard
+
+**IMPORTANT**: Follow [docs/zpecs/prose.md](docs/zpecs/prose.md) when writing prose.
 
 ## Testing and Execution
 
