@@ -114,6 +114,8 @@ The agent MUST be run locally on the current machine (the same execution mode as
 
 Model resolution follows a two-level precedence: if `validate.model` is set in `.ralph/config.yaml` that model is used; otherwise the top-level `model` field is used as the fallback.
 
+The repair prompt SHALL run with opencode's primary agent and SHALL NOT receive the configured agent, so a configured agent that denies file writes cannot block the repair. This scoping leaves the model resolution above unchanged.
+
 #### Scenario: Agent fixes a malformed file
 
 - GIVEN a file whose contents do not parse as YAML or JSON
@@ -142,6 +144,14 @@ Model resolution follows a two-level precedence: if `validate.model` is set in `
 - AND the top-level `model` field is set
 - WHEN the fix loop invokes the agent
 - THEN the top-level model is used as the fallback
+
+#### Scenario: Repair prompt runs without the configured agent
+
+- GIVEN the agent resolves to `build`
+- WHEN the fix loop invokes the repair prompt
+- THEN the `--agent` option is omitted from the opencode invocation
+- AND opencode's primary agent is used
+- AND the validate-specific or fallback model is still used
 
 #### Scenario: Query checks run after the file parses
 
