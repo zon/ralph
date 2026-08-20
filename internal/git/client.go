@@ -76,7 +76,10 @@ func (a *Client) IsBranchSyncedWithRemote(branch string) error {
 }
 
 func (a *Client) CommitOrchestrationRemoval(_ string) error {
-	return Commit("chore: remove orchestration doc before PR")
+	if err := Commit("chore: remove orchestration doc before PR"); err != nil {
+		return err
+	}
+	return a.pushAfterCommit()
 }
 
 func (a *Client) CommitGeneratedArtifacts(slug string) error {
@@ -87,5 +90,16 @@ func (a *Client) CommitGeneratedArtifacts(slug string) error {
 }
 
 func (a *Client) CommitProjectRemoval(path string) error {
-	return CommitProjectRemoval(path)
+	if err := CommitProjectRemoval(path); err != nil {
+		return err
+	}
+	return a.pushAfterCommit()
+}
+
+// pushAfterCommit pushes the current branch after a pre-PR cleanup commit so
+// the cleanup lands on the remote before the pull request is opened, matching
+// how iteration commits are pushed by CommitChanges.
+func (a *Client) pushAfterCommit() error {
+	owner, repo := a.ctx.RepoOwnerAndName()
+	return PullAndPush(a.ctx.IsWorkflowExecution(), owner, repo)
 }

@@ -422,6 +422,7 @@ Before submitting a pull request the command SHALL check whether the project's s
 - WHEN all items are complete and the command is about to create a PR
 - THEN the orchestration document is deleted from the repository
 - AND the deletion is committed before the pull request is opened
+- AND the deletion commit is pushed to the remote before the pull request is opened
 
 #### Scenario: Project has no spec — cleanup skipped
 
@@ -447,6 +448,7 @@ When cleanup is enabled by the caller (see [run/spec.md](../run/spec.md)) and ev
 - WHEN the command is about to create a PR
 - THEN the project file is deleted and the deletion is committed as `chore: clean up completed project <path>`
 - AND that commit contains no other file changes
+- AND the cleanup commit is pushed to the remote before the pull request is opened
 
 #### Scenario: Cleanup commit carries no trailer
 
