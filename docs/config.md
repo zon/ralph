@@ -37,6 +37,10 @@ workflow:
       mountPath: /secrets
   env:                         # environment variables (optional)
     DEBUG: "true"
+    API_KEY:                   # value from a Kubernetes secret
+      secretKeyRef:
+        name: my-secret
+        key: api-key
   labels:                      # Kubernetes labels for workflow pods (optional)
     environment: production
     team: platform
@@ -113,8 +117,25 @@ Each item requires exactly one source:
 | `namespace` | Kubernetes namespace (default: `argo`) |
 | `configMaps` | Additional ConfigMaps to mount |
 | `secrets` | Additional Secrets to mount |
-| `env` | Environment variables to set in the container |
+| `env` | Environment variables to set in the container; each value is a literal string or a Kubernetes secret reference |
 | `labels` | Kubernetes labels to apply to workflow pods |
+
+An `env` value can be a literal string or a reference to a key in a Kubernetes Secret. For a literal, set the value directly:
+
+```yaml
+env:
+  LOG_LEVEL: debug
+```
+
+To source a value from a Secret, provide `secretKeyRef` with the Secret name and key. The container receives the Secret's value as the environment variable:
+
+```yaml
+env:
+  API_KEY:
+    secretKeyRef:
+      name: my-secret
+      key: api-key
+```
 
 ### Remote Credentials
 
