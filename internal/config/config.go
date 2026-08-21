@@ -67,15 +67,123 @@ type SecretMount struct {
 	Link     bool   `yaml:"link,omitempty"`     // Whether to create a symlink in workspace (default: false)
 }
 
+// SecretKeyRef references a key within a named Kubernetes Secret.
+type SecretKeyRef struct {
+	Name string `yaml:"name"`
+	Key  string `yaml:"key"`
+}
+
+// EnvVar is a single entry in the workflow env section: either a literal
+// string value or a reference to a key in a Kubernetes Secret.
+type EnvVar struct {
+	Value        string
+	SecretKeyRef *SecretKeyRef
+}
+
+// UnmarshalYAML implements yaml.Unmarshaler so each env entry accepts either a
+// literal string value or a mapping holding a secretKeyRef.
+func (e *EnvVar) UnmarshalYAML(node *yaml.Node) error {
+	switch node.Kind {
+	case yaml.ScalarNode:
+		var value string
+		if err := node.Decode(&value); err != nil {
+			return err
+		}
+		e.Value = value
+		e.SecretKeyRef = nil
+		return nil
+	case yaml.MappingNode:
+		if len(node.Content) != 2 || node.Content[0].Value != "secretKeyRef" {
+			return fmt.Errorf("line %d: env entry must be a string or a mapping with a secretKeyRef", node.Line)
+		}
+		if node.Content[1].Kind != yaml.MappingNode {
+			return fmt.Errorf("line %d: env entry secretKeyRef must be a mapping with a name and key", node.Line)
+		}
+		var ref SecretKeyRef
+		if err := node.Content[1].Decode(&ref); err != nil {
+			return err
+		}
+		e.Value = ""
+		e.SecretKeyRef = &ref
+		return nil
+	}
+	return fmt.Errorf("line %d: env entry must be a string or a mapping with a secretKeyRef", node.Line)
+}
+
+// MarshalYAML implements yaml.Marshaler so literal values round-trip as bare
+// strings and secretKeyRef entries as mappings.
+func (e EnvVar) MarshalYAML() (interface{}, error) {
+	if e.SecretKeyRef != nil {
+		return map[string]interface{}{"secretKeyRef": e.SecretKeyRef}, nil
+	}
+	return e.Value, nil
+}
+
 // WorkflowConfig represents Argo Workflow configuration options
 type WorkflowConfig struct {
 	Image      ImageConfig       `yaml:"image,omitempty"`
 	ConfigMaps []ConfigMapMount  `yaml:"configMaps,omitempty"`
 	Secrets    []SecretMount     `yaml:"secrets,omitempty"`
-	Env        map[string]string `yaml:"env,omitempty"`
+	Env        map[string]EnvVar `yaml:"env,omitempty"`
 	Context    string            `yaml:"context,omitempty"`
 	Namespace  string            `yaml:"namespace,omitempty"`
 	Labels     map[string]string `yaml:"labels,omitempty"`
+}
+
+// UnmarshalYAML implements yaml.Unmarshaler so a null workflow.env entry is
+// rejected with a descriptive error. yaml.v3 decodes a null env entry as an
+// empty EnvVar without calling EnvVar.UnmarshalYAML, so the null check runs
+// here over the workflow mapping node before normal decoding.
+func (w *WorkflowConfig) UnmarshalYAML(node *yaml.Node) error {
+	if err := rejectNullEnvEntries(node); err != nil {
+		return err
+	}
+	type plain WorkflowConfig
+	var p plain
+	if err := node.Decode(&p); err != nil {
+		return err
+	}
+	*w = WorkflowConfig(p)
+	return nil
+}
+
+// rejectNullEnvEntries returns an error when a workflow.env entry has no value
+// (a YAML null), which yaml.v3 would otherwise silently decode as an empty
+// EnvVar. YAML aliases are unwrapped so anchored nulls are rejected too.
+func rejectNullEnvEntries(node *yaml.Node) error {
+	envNode := mappingValue(node, "env")
+	if envNode == nil {
+		return nil
+	}
+	if envNode.Kind == yaml.AliasNode {
+		envNode = envNode.Alias
+	}
+	if envNode.Kind != yaml.MappingNode {
+		return nil
+	}
+	for i := 0; i < len(envNode.Content); i += 2 {
+		valueNode := envNode.Content[i+1]
+		if valueNode.Kind == yaml.AliasNode {
+			valueNode = valueNode.Alias
+		}
+		if valueNode.Kind == yaml.ScalarNode && valueNode.Tag == "!!null" {
+			return fmt.Errorf("line %d: env entry must be a string or a mapping with a secretKeyRef", valueNode.Line)
+		}
+	}
+	return nil
+}
+
+// mappingValue returns the value node for key in a mapping node, or nil.
+func mappingValue(node *yaml.Node, key string) *yaml.Node {
+	if node == nil || node.Kind != yaml.MappingNode {
+		return nil
+	}
+	for i := 0; i < len(node.Content); i += 2 {
+		if node.Content[i].Value == key {
+			return node.Content[i+1]
+		}
+	}
+	return nil
 }
 
 const LoopTypeDomainFunction = "domain-function"
@@ -162,6 +270,22 @@ func ValidateReviewConfig(r *ReviewConfig) error {
 		}
 	}
 
+	return nil
+}
+
+// validateWorkflowEnv rejects env entries whose secretKeyRef lacks a name or key.
+func validateWorkflowEnv(env map[string]EnvVar) error {
+	for name, envVar := range env {
+		if envVar.SecretKeyRef == nil {
+			continue
+		}
+		if envVar.SecretKeyRef.Name == "" {
+			return fmt.Errorf("env %q: secretKeyRef requires a name", name)
+		}
+		if envVar.SecretKeyRef.Key == "" {
+			return fmt.Errorf("env %q: secretKeyRef requires a key", name)
+		}
+	}
 	return nil
 }
 
@@ -298,6 +422,10 @@ func LoadConfig() (*RalphConfig, error) {
 		if err := ValidateReviewConfig(&config.Review); err != nil {
 			return nil, fmt.Errorf("invalid review config: %w", err)
 		}
+	}
+
+	if err := validateWorkflowEnv(config.Workflow.Env); err != nil {
+		return nil, fmt.Errorf("invalid workflow env: %w", err)
 	}
 
 	return config, nil

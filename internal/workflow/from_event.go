@@ -44,9 +44,9 @@ func FromWebhookEvent(event WebhookEvent, opts WorkflowOptions) (*WorkflowResult
 		ProjectPath:   projectFile,
 		CommentBody:   event.Body,
 		PRNumber:      event.PRNumber,
-		Image:       opts.Image,
-		KubeContext: opts.KubeContext,
-		Namespace:   opts.Namespace,
+		Image:         opts.Image,
+		KubeContext:   opts.KubeContext,
+		Namespace:     opts.Namespace,
 	}
 	return &WorkflowResult{Run: wf, Namespace: opts.Namespace}, nil
 }

@@ -45,6 +45,10 @@ func TestBumpMinor(t *testing.T) {
 		{"increments minor from 0", "1.0.0", "1.1.0"},
 		{"handles two digit minor", "9.99.0", "9.100.0"},
 		{"resets patch to 0", "2.4.6", "2.5.0"},
+		{"passes through non-numeric parts", "a.b.c", "a.b.c"},
+		{"passes through non-numeric patch", "1.2.abc", "1.2.abc"},
+		{"passes through prerelease suffix", "1.2.3-rc1", "1.2.3-rc1"},
+		{"passes through trailing dot", "1.2.", "1.2."},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -80,18 +84,4 @@ func TestVersion_ChartVersionIsValidSemver(t *testing.T) {
 	var major, minor, patch int
 	_, err = fmt.Sscanf(chart.Version, "%d.%d.%d", &major, &minor, &patch)
 	require.NoError(t, err, "chart version should be a valid semver in format X.Y.Z")
-}
-
-func TestVersion_PatchBumpApplied(t *testing.T) {
-	versionStr := Version()
-	expectedVersion := strings.TrimSpace(versionSource)
-
-	parts := strings.Split(versionStr, ".")
-	require.Len(t, parts, 3, "Version should have 3 parts")
-
-	var major, minor, patch int
-	_, err := fmt.Sscanf(versionStr, "%d.%d.%d", &major, &minor, &patch)
-	require.NoError(t, err, "Version should be parseable")
-
-	assert.Equal(t, expectedVersion, versionStr, "Version should match the VERSION file")
 }

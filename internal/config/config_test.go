@@ -174,12 +174,209 @@ workflow:
 
 	// Verify environment variables
 	require.Len(t, config.Workflow.Env, 2)
-	assert.Equal(t, "debug", config.Workflow.Env["LOG_LEVEL"])
-	assert.Equal(t, "production", config.Workflow.Env["APP_ENV"])
+	assert.Equal(t, "debug", config.Workflow.Env["LOG_LEVEL"].Value)
+	assert.Equal(t, "production", config.Workflow.Env["APP_ENV"].Value)
 
 	// Verify Kubernetes context and namespace
 	assert.Equal(t, "my-k8s-cluster", config.Workflow.Context)
 	assert.Equal(t, "ralph-workflows", config.Workflow.Namespace)
+}
+
+func TestLoadConfig_WorkflowEnvSecretKeyRef(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	require.NoError(t, os.Mkdir(ralphDir, 0755))
+
+	configContent := `workflow:
+  env:
+    LOG_LEVEL: debug
+    API_KEY:
+      secretKeyRef:
+        name: my-secret
+        key: api-key
+    PORT: 8080
+`
+	configPath := filepath.Join(ralphDir, "config.yaml")
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
+
+	t.Chdir(tmpDir)
+
+	config, err := LoadConfig()
+	require.NoError(t, err, "LoadConfig() unexpected error")
+
+	require.Len(t, config.Workflow.Env, 3)
+
+	literal := config.Workflow.Env["LOG_LEVEL"]
+	assert.Equal(t, "debug", literal.Value)
+	assert.Nil(t, literal.SecretKeyRef, "literal env entry must have nil SecretKeyRef")
+
+	port := config.Workflow.Env["PORT"]
+	assert.Equal(t, "8080", port.Value, "non-string scalar must coerce to string")
+	assert.Nil(t, port.SecretKeyRef, "literal env entry must have nil SecretKeyRef")
+
+	secret := config.Workflow.Env["API_KEY"]
+	assert.Empty(t, secret.Value, "secret env entry must have empty Value")
+	require.NotNil(t, secret.SecretKeyRef, "secret env entry must have SecretKeyRef set")
+	assert.Equal(t, "my-secret", secret.SecretKeyRef.Name)
+	assert.Equal(t, "api-key", secret.SecretKeyRef.Key)
+}
+
+func TestLoadConfig_WorkflowEnvSecretKeyRefValidation(t *testing.T) {
+	tests := []struct {
+		name    string
+		envYAML string
+		errMsg  string
+	}{
+		{
+			name:    "missing name",
+			envYAML: "    API_KEY:\n      secretKeyRef:\n        key: api-key\n",
+			errMsg:  `env "API_KEY": secretKeyRef requires a name`,
+		},
+		{
+			name:    "missing key",
+			envYAML: "    API_KEY:\n      secretKeyRef:\n        name: my-secret\n",
+			errMsg:  `env "API_KEY": secretKeyRef requires a key`,
+		},
+		{
+			name:    "empty secretKeyRef",
+			envYAML: "    API_KEY:\n      secretKeyRef: {}\n",
+			errMsg:  `env "API_KEY": secretKeyRef requires a name`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+
+			ralphDir := filepath.Join(tmpDir, ".ralph")
+			require.NoError(t, os.Mkdir(ralphDir, 0755))
+
+			configContent := "workflow:\n  env:\n" + tt.envYAML
+			configPath := filepath.Join(ralphDir, "config.yaml")
+			require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
+
+			t.Chdir(tmpDir)
+
+			_, err := LoadConfig()
+			require.Error(t, err, "LoadConfig() expected error")
+			assert.Contains(t, err.Error(), "invalid workflow env")
+			assert.Contains(t, err.Error(), tt.errMsg)
+		})
+	}
+}
+
+func TestLoadConfig_WorkflowEnvInvalidStructure(t *testing.T) {
+	tests := []struct {
+		name          string
+		configContent string
+		errMsg        string
+		wantLine      string
+	}{
+		{
+			name: "mapping without secretKeyRef",
+			configContent: `workflow:
+  env:
+    API_KEY:
+      something: else
+`,
+			errMsg: "must be a string or a mapping with a secretKeyRef",
+		},
+		{
+			name: "sequence value",
+			configContent: `workflow:
+  env:
+    API_KEY:
+      - one
+      - two
+`,
+			errMsg: "must be a string or a mapping with a secretKeyRef",
+		},
+		{
+			name: "null value",
+			configContent: `workflow:
+  env:
+    API_KEY:
+`,
+			errMsg:   "must be a string or a mapping with a secretKeyRef",
+			wantLine: "line 3",
+		},
+		{
+			name: "anchored null",
+			configContent: `nothing: &n
+workflow:
+  env:
+    API_KEY: *n
+`,
+			errMsg: "must be a string or a mapping with a secretKeyRef",
+		},
+		{
+			name: "secretKeyRef not a mapping",
+			configContent: `workflow:
+  env:
+    API_KEY:
+      secretKeyRef:
+        - one
+`,
+			errMsg: "secretKeyRef must be a mapping with a name and key",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+
+			ralphDir := filepath.Join(tmpDir, ".ralph")
+			require.NoError(t, os.Mkdir(ralphDir, 0755))
+
+			configPath := filepath.Join(ralphDir, "config.yaml")
+			require.NoError(t, os.WriteFile(configPath, []byte(tt.configContent), 0644))
+
+			t.Chdir(tmpDir)
+
+			_, err := LoadConfig()
+			require.Error(t, err, "LoadConfig() expected error")
+			assert.Contains(t, err.Error(), "failed to parse config YAML")
+			assert.Contains(t, err.Error(), tt.errMsg)
+			if tt.wantLine != "" {
+				assert.Contains(t, err.Error(), tt.wantLine)
+			}
+		})
+	}
+}
+
+func TestEnvVarYAMLRoundTrip(t *testing.T) {
+	input := map[string]EnvVar{
+		"LOG_LEVEL": {Value: "debug"},
+		"API_KEY":   {SecretKeyRef: &SecretKeyRef{Name: "my-secret", Key: "api-key"}},
+	}
+
+	out, err := yaml.Marshal(input)
+	require.NoError(t, err, "yaml.Marshal unexpected error")
+
+	var got map[string]EnvVar
+	require.NoError(t, yaml.Unmarshal(out, &got), "yaml.Unmarshal unexpected error")
+
+	require.Len(t, got, 2)
+
+	literal, ok := got["LOG_LEVEL"]
+	require.True(t, ok, "LOG_LEVEL missing after round trip")
+	assert.Equal(t, "debug", literal.Value)
+	assert.Nil(t, literal.SecretKeyRef, "literal entry must round-trip with nil SecretKeyRef")
+
+	secret, ok := got["API_KEY"]
+	require.True(t, ok, "API_KEY missing after round trip")
+	assert.Empty(t, secret.Value, "secret entry must round-trip with empty Value")
+	require.NotNil(t, secret.SecretKeyRef, "secret entry must round-trip with SecretKeyRef")
+	assert.Equal(t, "my-secret", secret.SecretKeyRef.Name)
+	assert.Equal(t, "api-key", secret.SecretKeyRef.Key)
+
+	data := string(out)
+	nameIdx := strings.Index(data, "name: my-secret")
+	keyIdx := strings.Index(data, "key: api-key")
+	require.True(t, nameIdx >= 0, "marshaled YAML missing name: my-secret")
+	require.True(t, keyIdx >= 0, "marshaled YAML missing key: api-key")
+	assert.Less(t, nameIdx, keyIdx, "secretKeyRef must marshal name before key")
 }
 
 func TestLoadConfig_WithPartialWorkflowConfig(t *testing.T) {

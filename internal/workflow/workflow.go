@@ -3,6 +3,8 @@ package workflow
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 
 	"github.com/zon/ralph/internal/argo"
 	"github.com/zon/ralph/internal/config"
@@ -41,7 +43,7 @@ type Workflow struct {
 	// Secrets are the Secrets to mount into the container.
 	Secrets []config.SecretMount
 	// Env is the environment variables to set in the container.
-	Env map[string]string
+	Env map[string]config.EnvVar
 	// KubeContext is the Argo workflow context label.
 	KubeContext string
 	// Namespace is the Kubernetes namespace for workflow submission.
@@ -248,10 +250,23 @@ func (w *Workflow) buildEnvVars() []map[string]interface{} {
 		{"name": "RALPH_NO_SERVICES", "value": fmt.Sprintf("%t", w.NoServices)},
 	}
 
-	for key, value := range w.Env {
+	for _, key := range slices.Sorted(maps.Keys(w.Env)) {
+		envVar := w.Env[key]
+		if envVar.SecretKeyRef != nil {
+			envVars = append(envVars, map[string]interface{}{
+				"name": key,
+				"valueFrom": map[string]interface{}{
+					"secretKeyRef": map[string]interface{}{
+						"name": envVar.SecretKeyRef.Name,
+						"key":  envVar.SecretKeyRef.Key,
+					},
+				},
+			})
+			continue
+		}
 		envVars = append(envVars, map[string]interface{}{
 			"name":  key,
-			"value": value,
+			"value": envVar.Value,
 		})
 	}
 
