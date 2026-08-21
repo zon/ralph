@@ -9,7 +9,7 @@ type WorkflowOptions struct {
 	Image       Image
 	ConfigMaps  []config.ConfigMapMount
 	Secrets     []config.SecretMount
-	Env         map[string]string
+	Env         map[string]config.EnvVar
 	KubeContext string
 	Namespace   string
 	Labels      map[string]string

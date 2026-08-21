@@ -33,8 +33,8 @@ func TestGenerateWorkflow(t *testing.T) {
 			Secrets: []config.SecretMount{
 				{Name: "my-secret"},
 			},
-			Env: map[string]string{
-				"MY_VAR": "my-value",
+			Env: map[string]config.EnvVar{
+				"MY_VAR": {Value: "my-value"},
 			},
 			Context:   "my-context",
 			Namespace: "my-namespace",
