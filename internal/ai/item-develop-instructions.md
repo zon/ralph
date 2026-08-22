@@ -38,7 +38,7 @@ The full project file is available at: `{{.ProjectFilePath}}`. Do not modify the
 
 **Item** — one element of the project's resolved item array, presented above verbatim with its 0-based index and its key when it has one. An item has no fixed schema: every field is optional, and an item may be a mapping, a plain string, or any other shape. The project format the repository has installed defines what its fields mean; read it before interpreting them.
 
-**Completion** — the completion trailer is the only way an item is marked complete. An item is complete only when a commit message on the project branch ends with its trailer line, `Ralph item <index> completed` or `Ralph item <index> (<key>) completed`; no field in the project file records completion.
+**Completion** — the completion trailer is the only way an item is marked complete: a bare `<branch>-<index>` line such as `csv-export-2` at the end of a commit message on the project branch. A trailer naming a different branch is not evidence of completion.
 
 ## Instructions
 
@@ -47,5 +47,5 @@ The full project file is available at: `{{.ProjectFilePath}}`. Do not modify the
 ## Output
 
 - Write a concise report to `report.md` formatted as a git commit message: brief summary of what was implemented and what tests were added; no code snippets or implementation details.
-- When the item is finished, the last line of `report.md` MUST be the completion trailer for the supplied index and key. The trailer takes one of two forms — `Ralph item <index> (<key>) completed` when the item has a key, `Ralph item <index> completed` when it does not. Use exactly this line for this item: `{{.Trailer}}`. It is the only way the item is marked complete. When the item is not finished, end `report.md` with no completion trailer.
+- When the item is finished, the last line of `report.md` MUST be the completion trailer for the supplied branch and index. Use exactly this line for this item: `{{.Trailer}}`. When the item is not finished, end `report.md` with no completion trailer.
 - If completely blocked, write a summary to `blocked.md` (with no completion trailer) explaining what blocked you and what you tried.

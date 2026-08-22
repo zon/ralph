@@ -46,7 +46,7 @@ Ralph does not pick in array order. Order the array however you like; the picker
 
 ## Recording Completion
 
-There is no command for this. The iteration prompt tells the development agent that when it has finished the item, the last line of its commit message must be the completion trailer — and the agent writes that message itself, as `report.md`. Ralph commits `report.md` verbatim.
+There is no command for this. The iteration prompt tells the development agent that when it has finished the item, the last line of its commit message must be the completion trailer. The agent writes that message itself, as `report.md`. Ralph commits `report.md` verbatim.
 
 ```
 feat: add CSV serializer for report entries
@@ -54,19 +54,18 @@ feat: add CSV serializer for report entries
 Converts report entries to RFC 4180 CSV bytes and wires the
 serializer into the reports package.
 
-Ralph item 0 (csv-serializer) completed
+csv-export-2
 ```
 
 The trailer format is:
 
 ```
-Ralph item <index> completed
-Ralph item <index> (<key>) completed
+<branch>-<index>
 ```
 
-The index identifies the item. The key is included whenever the item has one, purely so the message says what was finished — items without a key, plain strings or mappings with no `slug`/`id`/`name`, get the index-only form and are tracked exactly the same way. The trailer is the message's own trailing paragraph, and one commit may carry several if the iteration finished more than the item it was assigned.
+The branch is the project branch and the index identifies the item. The trailer is the message's own trailing paragraph, and one commit may carry several if the iteration finished more than the item it was assigned.
 
-The prompt supplies the index and key of the picked item, so the agent has the exact line to write rather than deriving it. Ralph does not append or rewrite anything — a trailer exists because the agent decided the item was done and said so.
+The prompt supplies the branch and index of the picked item, so the agent has the exact line to write rather than deriving it. Ralph does not append or rewrite anything. A trailer exists because the agent decided the item was done and said so.
 
 ### When no trailer is written
 
@@ -75,13 +74,13 @@ Not writing one is the normal way to report unfinished work:
 - **The agent wrote `report.md` without a trailer** — the iteration commits, the item stays incomplete, and the picker can choose it again. Partial progress carries forward in the branch, and the next iteration sees it in the commit log.
 - **The agent wrote no `report.md`** — ralph falls back to generating a changelog for the commit message. That path never produces a trailer, so it never completes an item.
 
-A trailer with an index outside the resolved array is ignored with a warning; the run continues and the item it was aimed at stays incomplete.
+A trailer with an index outside the resolved array is ignored with a warning. The run continues and the item it was aimed at stays incomplete.
 
 ## Reading Completion
 
-At the start of each iteration ralph scans the commit messages on the project branch that are not on the base branch, collects every completion trailer, and marks the item at each trailer's index complete. A trailer whose index is out of range for the current array is ignored with a warning.
+At the start of each iteration ralph scans the commit messages on the project branch that are not on the base branch, collects every completion trailer, and marks the item at each trailer's index complete. Only trailers naming the current branch count. A trailer naming any other branch is ignored without a warning, so a project branched from another project's branch never inherits that project's completion. A trailer whose index is out of range for the current array is ignored with a warning.
 
-Matching is by index alone. Because [the project file is immutable](#the-project-file-is-immutable) during a run, the index resolved in iteration 1 refers to the same item in iteration 9, and no further reconciliation is needed. When a trailer carries a key and the item at that index has a different one, ralph warns — the project file changed between runs — but still honors the index.
+Matching is by branch and index. Because [the project file is immutable](#the-project-file-is-immutable) during a run, the index resolved in iteration 1 refers to the same item in iteration 9, and no further reconciliation is needed.
 
 The same two steps are exposed as commands, and they are the ones the loop itself uses:
 
@@ -96,13 +95,13 @@ $ ralph get incomplete projects/csv-export.yaml --index
 [1, 3]
 ```
 
-`ralph get complete` needs only the branch and the base — it parses trailers and nothing else, so it works even after the project file has been removed. `ralph get incomplete` is that result subtracted from the resolved item array; an empty array from it is the loop's exit condition, and its non-empty output is what the picker chooses from. Both are read-only and make no AI calls, which makes them the way to check on a run in progress or debug a stuck one. See [CLI reference](cli.md#ralph-get).
+`ralph get complete` needs only the branch and the base. It parses trailers and nothing else, so it works even after the project file has been removed. `ralph get incomplete` is that result subtracted from the resolved item array. An empty array from it is the loop's exit condition, and its non-empty output is what the picker chooses from. Both are read-only and make no AI calls, which makes them the way to check on a run in progress or debug a stuck one. See [CLI reference](cli.md#ralph-get).
 
 ### Resuming and re-running
 
 The completion record belongs to the branch, so a run that is interrupted, stopped, or resubmitted picks up where it left off simply by reading the log again. Nothing needs to be restored.
 
-Re-running against a branch after editing the project file *between* runs is where indices can go stale — an item inserted at the top shifts everything after it, and old trailers then point at different work. The key mismatch warning is the signal that this happened. For a project file that has changed shape, start a fresh branch.
+Re-running against a branch after editing the project file *between* runs is where indices can go stale. An item inserted at the top shifts everything after it, and old trailers then point at different work. For a project file that has changed shape, start a fresh branch.
 
 ## Iteration Limit
 

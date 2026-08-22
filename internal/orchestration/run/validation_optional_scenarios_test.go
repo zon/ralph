@@ -41,6 +41,10 @@ func (c *realResolvingProjectClient) Incomplete(proj *project.Project, base stri
 
 type emptyCommitLog struct{}
 
+func (emptyCommitLog) CurrentBranch() (string, error) {
+	return "csv-export", nil
+}
+
 func (emptyCommitLog) CommitMessages(base string) ([]string, error) {
 	return nil, nil
 }

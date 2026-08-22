@@ -27,7 +27,7 @@ For each iteration:
 2. Runs `before` commands from `.ralph/config.yaml`
 3. Starts services from `.ralph/config.yaml`
 4. The picker agent selects one incomplete item
-5. The AI implements that item and writes its commit message to `report.md`, ending with `Ralph item <index> (<key>) completed` if the item is finished
+5. The AI implements that item and writes its commit message to `report.md`, ending with a bare `<branch>-<index>` completion trailer if the item is finished
 6. Commits changes using that message
 7. Stops services
 
@@ -57,13 +57,13 @@ ralph get complete
 ralph get complete projects/csv-export.yaml
 ```
 
-Reads the commit messages on the current branch that are not on the base branch, parses the [completion trailers](iterations.md#recording-completion), and prints the indices of the completed items as a JSON array — ascending and deduplicated:
+Reads the commit messages on the current branch that are not on the base branch, parses the [completion trailers](iterations.md#recording-completion), and prints the indices of the completed items as a JSON array, ascending and deduplicated. Only trailers naming the current branch count. A trailer naming any other branch is ignored without a warning:
 
 ```json
 [0, 2, 3]
 ```
 
-The project file is optional. When given, trailers whose index is outside the resolved item array are dropped; without it, every trailer found in the log is reported. Prints `[]` and exits 0 when nothing is complete.
+The project file is optional. When given, trailers whose index is outside the resolved item array are dropped. Without it, every current-branch trailer found in the log is reported. Prints `[]` and exits 0 when nothing is complete.
 
 ### ralph get incomplete
 

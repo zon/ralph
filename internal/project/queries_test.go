@@ -117,8 +117,8 @@ func TestResolveReturnsErrorWhenQueryFails(t *testing.T) {
 
 func TestIncompleteReturnsItemsNotCompleteInArrayOrder(t *testing.T) {
 	c, _, _ := testClient(
-		"feat: a\n\nRalph item 0 completed",
-		"feat: b\n\nRalph item 2 (export-endpoint) completed",
+		"feat: a\n\ncsv-export-0",
+		"feat: b\n\ncsv-export-2",
 	)
 	proj := completedProject("a", "b", "c", "d")
 
@@ -130,7 +130,7 @@ func TestIncompleteReturnsItemsNotCompleteInArrayOrder(t *testing.T) {
 }
 
 func TestIncompleteEmptyWhenAllComplete(t *testing.T) {
-	c, _, _ := testClient("Ralph item 0 completed\nRalph item 1 completed")
+	c, _, _ := testClient("csv-export-0\ncsv-export-1")
 	proj := completedProject("a", "b")
 
 	incomplete, err := c.Incomplete(proj, "main")
@@ -148,7 +148,7 @@ func TestIncompleteSurfacesCommitLogError(t *testing.T) {
 }
 
 func TestIncompletePreservesKeyedValues(t *testing.T) {
-	c, _, _ := testClient("Ralph item 1 (b) completed")
+	c, _, _ := testClient("csv-export-1")
 	proj := completedProject(map[string]any{"slug": "a"}, map[string]any{"slug": "b"})
 
 	incomplete, err := c.Incomplete(proj, "main")
@@ -159,7 +159,7 @@ func TestIncompletePreservesKeyedValues(t *testing.T) {
 }
 
 func TestIncompleteErrorNamesIncompleteItems(t *testing.T) {
-	c, _, _ := testClient("Ralph item 0 completed")
+	c, _, _ := testClient("csv-export-0")
 	proj := completedProject(
 		map[string]any{"slug": "csv-serializer"},
 		"plain string item",
@@ -175,7 +175,7 @@ func TestIncompleteErrorNamesIncompleteItems(t *testing.T) {
 }
 
 func TestIncompleteErrorNilWhenAllComplete(t *testing.T) {
-	c, _, _ := testClient("Ralph item 0 completed")
+	c, _, _ := testClient("csv-export-0")
 	proj := completedProject("a")
 
 	err := c.IncompleteError(proj, "main")

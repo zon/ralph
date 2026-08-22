@@ -20,13 +20,17 @@ type scenarioCommitLog struct {
 	calls int
 }
 
+func (s *scenarioCommitLog) CurrentBranch() (string, error) {
+	return "csv-export", nil
+}
+
 func (s *scenarioCommitLog) CommitMessages(base string) ([]string, error) {
 	s.calls++
 	if s.calls == 1 {
-		return []string{"feat: first iteration\n\nRalph item 5 completed"}, nil
+		return []string{"feat: first iteration\n\ncsv-export-5"}, nil
 	}
 	return []string{
-		"feat: finished\n\nRalph item 0 completed\nRalph item 1 completed\nRalph item 2 completed",
+		"feat: finished\n\ncsv-export-0\ncsv-export-1\ncsv-export-2",
 	}, nil
 }
 
