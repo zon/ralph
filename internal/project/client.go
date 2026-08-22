@@ -14,9 +14,10 @@ import (
 	"github.com/zon/ralph/internal/trailer"
 )
 
-// CommitLog retrieves the commit messages of the commits on the current branch
-// that are not on the base branch.
+// CommitLog reports the current branch and retrieves the commit messages on
+// it that are not on the base branch.
 type CommitLog interface {
+	CurrentBranch() (string, error)
 	CommitMessages(base string) ([]string, error)
 }
 
@@ -89,11 +90,16 @@ func titleFrom(doc *projectfile.Document, slug string) string {
 
 // Complete reads the completion trailers from the commit messages on the
 // current branch that are not on the base branch and returns the ascending,
-// deduplicated indices they name. When proj is non-nil and its item array was
-// resolved, an index outside the array is dropped with a warning naming it.
-// When no item array was resolved, every trailer found in the log is reported
-// without a range check.
+// deduplicated indices they name. Only trailers naming the current branch
+// count. A trailer naming any other branch is ignored without a warning. When
+// proj is non-nil and its item array was resolved, an index outside the array
+// is dropped with a warning naming it. When no item array was resolved, every
+// trailer that passes the branch filter is reported without a range check.
 func (c *Client) Complete(proj *Project, base string) ([]int, error) {
+	branch, err := c.log.CurrentBranch()
+	if err != nil {
+		return nil, err
+	}
 	messages, err := c.log.CommitMessages(base)
 	if err != nil {
 		return nil, err
@@ -102,16 +108,20 @@ func (c *Client) Complete(proj *Project, base string) ([]int, error) {
 	for _, m := range messages {
 		refs = append(refs, trailer.Parse(m)...)
 	}
-	return c.reconcile(refs, proj), nil
+	return c.reconcile(refs, branch, proj), nil
 }
 
-// reconcile turns parsed completion trailers into the reported indices, applying
-// the range check only when an item array was resolved. refs[i].Branch is
-// intentionally not used yet — a later project item adds branch-scoped reading.
-func (c *Client) reconcile(refs []trailer.Ref, proj *Project) []int {
+// reconcile keeps the refs naming the current branch and applies the range
+// check only when an item array was resolved. The comparison is an exact
+// string match, so the trailer writer must stamp the branch name the run loop
+// checks out.
+func (c *Client) reconcile(refs []trailer.Ref, branch string, proj *Project) []int {
 	resolved := proj != nil && proj.Items != nil
 	seen := make(map[int]struct{}, len(refs))
 	for _, r := range refs {
+		if r.Branch != branch {
+			continue
+		}
 		if resolved {
 			if r.Index >= len(proj.Items) {
 				c.out.Warnf("completion trailer names index %d which is outside the resolved item array (%d items); ignoring", r.Index, len(proj.Items))

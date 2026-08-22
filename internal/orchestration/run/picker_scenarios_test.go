@@ -18,6 +18,10 @@ type pickerScenarioCommitLog struct {
 	calls int
 }
 
+func (s *pickerScenarioCommitLog) CurrentBranch() (string, error) {
+	return "csv-export", nil
+}
+
 func (s *pickerScenarioCommitLog) CommitMessages(base string) ([]string, error) {
 	s.calls++
 	if s.calls == 1 {

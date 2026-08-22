@@ -103,7 +103,7 @@ func TestScenarioRepositoryLeftUntouched(t *testing.T) {
 	assert.Equal(t, before, after, "the project file must remain byte-identical")
 }
 
-func TestScenarioBaseOverridesConfiguredDefaultBranch(t *testing.T) {
+func TestScenarioCompletionScopedToCurrentBranch(t *testing.T) {
 	dir := setupGetRepo(t)
 	t.Chdir(dir)
 
@@ -120,10 +120,36 @@ func TestScenarioBaseOverridesConfiguredDefaultBranch(t *testing.T) {
 	var buf bytes.Buffer
 	cmd := newGetCmd(&buf)
 
+	// Feature is forked from develop, so the develop-1 trailer is in the
+	// main..HEAD log range. It names develop, not feature, so it is not counted.
+	require.NoError(t, cmd.Complete(cfg, Flags{}))
+	assert.Equal(t, "[0]", strings.TrimSpace(buf.String()), "completion on the current branch only")
+}
+
+func TestScenarioBaseOverridesConfiguredDefaultBranch(t *testing.T) {
+	dir := setupGetRepo(t)
+	t.Chdir(dir)
+
+	runGit(t, dir, "checkout", "-b", "feature")
+	addTrailerCommit(t, dir, "feat: on feature\n\nfeature-0")
+
+	runGit(t, dir, "checkout", "-b", "develop")
+	addTrailerCommit(t, dir, "feat: on develop\n\ndevelop-1")
+
+	runGit(t, dir, "checkout", "feature")
+	addTrailerCommit(t, dir, "feat: on feature\n\nfeature-1")
+
+	cfg, err := config.LoadConfig()
+	require.NoError(t, err)
+	require.Equal(t, "main", cfg.DefaultBranch)
+
+	var buf bytes.Buffer
+	cmd := newGetCmd(&buf)
+
 	require.NoError(t, cmd.Complete(cfg, Flags{}))
 	assert.Equal(t, "[0,1]", strings.TrimSpace(buf.String()), "the configured default branch bounds the log")
 
 	buf.Reset()
 	require.NoError(t, cmd.Complete(cfg, Flags{Base: "develop"}))
-	assert.Equal(t, "[0]", strings.TrimSpace(buf.String()), "--base overrides the configured default branch")
+	assert.Equal(t, "[1]", strings.TrimSpace(buf.String()), "--base overrides the configured default branch")
 }

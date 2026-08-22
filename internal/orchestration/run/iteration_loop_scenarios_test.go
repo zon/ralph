@@ -20,6 +20,10 @@ type scenarioCommitLog struct {
 	calls int
 }
 
+func (s *scenarioCommitLog) CurrentBranch() (string, error) {
+	return "csv-export", nil
+}
+
 func (s *scenarioCommitLog) CommitMessages(base string) ([]string, error) {
 	s.calls++
 	if s.calls == 1 {

@@ -15,6 +15,10 @@ import (
 // repository.
 type realCommitLog struct{}
 
+func (realCommitLog) CurrentBranch() (string, error) {
+	return git.GetCurrentBranch()
+}
+
 func (realCommitLog) CommitMessages(base string) ([]string, error) {
 	return git.CommitMessages(base)
 }
