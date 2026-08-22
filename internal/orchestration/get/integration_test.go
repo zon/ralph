@@ -153,3 +153,32 @@ func TestScenarioBaseOverridesConfiguredDefaultBranch(t *testing.T) {
 	require.NoError(t, cmd.Complete(cfg, Flags{Base: "develop"}))
 	assert.Equal(t, "[1]", strings.TrimSpace(buf.String()), "--base overrides the configured default branch")
 }
+
+func TestScenarioOutOfRangeIndexWarnedByGetComplete(t *testing.T) {
+	dir := setupGetRepo(t)
+	t.Chdir(dir)
+
+	projectContent := "- item 0\n- item 1\n- item 2\n"
+	projectPath := filepath.Join("projects", "csv-export.yaml")
+	require.NoError(t, os.MkdirAll("projects", 0755))
+	require.NoError(t, os.WriteFile(projectPath, []byte(projectContent), 0644))
+	runGit(t, dir, "add", projectPath)
+	runGit(t, dir, "commit", "-m", "add project file")
+
+	runGit(t, dir, "checkout", "-b", "csv-export")
+	addTrailerCommit(t, dir, "feat: out of range\n\ncsv-export-9")
+
+	cfg, err := config.LoadConfig()
+	require.NoError(t, err)
+
+	var warnBuf bytes.Buffer
+	var buf bytes.Buffer
+	ctx := testutil.NewContext()
+	client := project.NewClient(git.NewClient(ctx), output.NewClient(&warnBuf, io.Discard, false))
+	cmd := NewCmd(client, &buf)
+
+	require.NoError(t, cmd.Complete(cfg, Flags{ProjectFile: projectPath}))
+	assert.Equal(t, "[]", strings.TrimSpace(buf.String()), "the out-of-range index is not reported as complete")
+	assert.Contains(t, warnBuf.String(), "9", "the warning names the out-of-range index")
+	assert.Contains(t, warnBuf.String(), "outside", "the warning says the index is outside the resolved item array")
+}
