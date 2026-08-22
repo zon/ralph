@@ -108,23 +108,25 @@ Both subcommands SHALL bound the commit log by a base branch, resolved from `--b
 
 ### Requirement: Completion Trailer Parsing
 
-The system SHALL treat a commit as recording an item complete when its message contains a trailer of the form `Ralph item <index> completed` or `Ralph item <index> (<key>) completed`, where `<index>` is the item's 0-based position in the resolved array. A single commit MAY carry more than one trailer. The index alone identifies the item; the key is a label and is never used for matching.
+The system SHALL treat a commit as recording an item complete when its message contains a trailer of the form `<branch>-<index>`, where `<branch>` is the project branch the trailer belongs to and `<index>` is the item's 0-based position in the resolved array. A single commit MAY carry more than one trailer. The index alone identifies the item. Only trailers whose branch matches the current branch SHALL be honored; a trailer from any other branch is ignored without a warning, so a project branched from another project's branch never inherits that project's completion.
 
-#### Scenario: Index-only trailer recognized
+#### Scenario: Trailer on the current branch recognized
 
-- GIVEN a commit whose message ends with `Ralph item 0 completed`
+- GIVEN a commit whose message ends with `csv-export-0`
+- AND the current branch is `csv-export`
 - WHEN completion is read
 - THEN item 0 is reported complete
 
-#### Scenario: Trailer with key recognized
+#### Scenario: Trailer from another branch ignored
 
-- GIVEN a commit whose message ends with `Ralph item 3 (csv-serializer) completed`
+- GIVEN a commit whose message ends with `feature-a-2`
+- AND the current branch is `csv-export`
 - WHEN completion is read
-- THEN item 3 is reported complete
+- THEN no item is reported complete, because the trailer names a different project branch
 
 #### Scenario: Multiple trailers in one commit
 
-- GIVEN a commit whose message ends with a paragraph containing `Ralph item 1 completed` and `Ralph item 2 (export-endpoint) completed`
+- GIVEN a commit whose message ends with a paragraph containing `csv-export-1` and `csv-export-2`
 - WHEN completion is read
 - THEN both item 1 and item 2 are reported complete
 
@@ -134,17 +136,9 @@ The system SHALL treat a commit as recording an item complete when its message c
 - WHEN completion is read
 - THEN that commit contributes no completed indices
 
-#### Scenario: Key mismatch is honored by index with a warning
-
-- GIVEN a trailer `Ralph item 2 (export-endpoint) completed`
-- AND the item at index 2 in the resolved array has the key `csv-serializer`
-- WHEN completion is read
-- THEN a warning reports the key mismatch
-- AND item 2 is still reported complete
-
 #### Scenario: Out-of-range index ignored with a warning
 
-- GIVEN a trailer whose index is greater than or equal to the number of resolved items
+- GIVEN a trailer `csv-export-9` whose index is greater than or equal to the number of resolved items
 - AND a project file was provided
 - WHEN completion is read
 - THEN a warning is emitted naming the out-of-range index
@@ -179,7 +173,7 @@ The system SHALL treat a commit as recording an item complete when its message c
 #### Scenario: Unbounded output without a project file
 
 - GIVEN no project file is provided
-- AND the log contains a trailer for index 9
+- AND the log contains a trailer `csv-export-9` on the current branch `csv-export`
 - WHEN `ralph get complete` runs
 - THEN index 9 is reported without a range check, because no item array was resolved
 

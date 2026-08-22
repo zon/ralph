@@ -191,9 +191,18 @@ At the start of every iteration the command SHALL determine which items are comp
 
 #### Scenario: Trailer written in a previous iteration is honored
 
-- GIVEN iteration 1 committed a message ending with `Ralph item 0 (csv-serializer) completed`
+- GIVEN iteration 1 committed a message ending with `csv-export-0`
+- AND the project branch is `csv-export`
 - WHEN iteration 2 determines completion
 - THEN item 0 is complete and is not offered to the picker
+
+#### Scenario: Parent project's trailers are ignored
+
+- GIVEN the project branch `csv-export` is branched from another project's branch `feature-a`
+- AND the commit log contains trailers `feature-a-0` and `csv-export-1`
+- WHEN completion is determined
+- THEN only item 1 is treated as complete
+- AND item 0 is still offered to the picker
 
 #### Scenario: Out-of-range trailer ignored with a warning
 
@@ -299,7 +308,7 @@ Each iteration SHALL invoke a picker agent to select exactly one incomplete item
 
 ### Requirement: Item development
 
-After selection, the command SHALL invoke the development agent with the selected item verbatim, its index, its key when it has one, and the full project file. The agent SHALL be instructed to write its commit message to `report.md` and, when the item is finished, to end that message with the completion trailer for the supplied index and key.
+After selection, the command SHALL invoke the development agent with the selected item verbatim, its index, its key when it has one, and the full project file. The agent SHALL be instructed to write its commit message to `report.md` and, when the item is finished, to end that message with the completion trailer for the supplied branch and index.
 
 #### Scenario: Selected item passed verbatim
 
@@ -310,15 +319,17 @@ After selection, the command SHALL invoke the development agent with the selecte
 #### Scenario: Index and key supplied to the agent
 
 - GIVEN the selected item at index 2 has the key `export-endpoint`
+- AND the project branch is `csv-export`
 - WHEN the development agent is invoked
 - THEN the prompt supplies index 2 and key `export-endpoint`
-- AND instructs the agent to end its commit message with `Ralph item 2 (export-endpoint) completed` when the item is done
+- AND instructs the agent to end its commit message with `csv-export-2` when the item is done
 
 #### Scenario: Item without a key
 
 - GIVEN the selected item at index 2 is a plain string with no `slug`, `id`, or `name`
+- AND the project branch is `csv-export`
 - WHEN the development agent is invoked
-- THEN the prompt supplies the index-only trailer form `Ralph item 2 completed`
+- THEN the prompt supplies the trailer line `csv-export-2`
 
 #### Scenario: Agent instructed not to edit the project file
 
@@ -377,7 +388,8 @@ After each iteration the command SHALL commit any changes the AI produced. The c
 
 #### Scenario: Trailer preserved in the commit message
 
-- GIVEN `report.md` ends with `Ralph item 1 (export-endpoint) completed`
+- GIVEN `report.md` ends with `csv-export-1`
+- AND the project branch is `csv-export`
 - WHEN changes are committed
 - THEN the commit message ends with that line
 - AND the next iteration reads item 1 as complete
