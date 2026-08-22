@@ -380,7 +380,7 @@ func TestBuildItemDevelopPrompt(t *testing.T) {
 		ItemIndex:       2,
 		ItemKey:         "export-endpoint",
 		ItemValue:       "slug: export-endpoint\ndescription: Build the export endpoint",
-		Trailer:         "Ralph item 2 (export-endpoint) completed",
+		Trailer:         "csv-export-2",
 		ProjectFilePath: "projects/csv-export.yaml",
 		Services:        nil,
 	}
@@ -396,7 +396,6 @@ func TestBuildItemDevelopPrompt(t *testing.T) {
 	t.Run("presents a keyless item with its index only", func(t *testing.T) {
 		data := keyed
 		data.ItemKey = ""
-		data.Trailer = "Ralph item 2 completed"
 		prompt, err := BuildItemDevelopPrompt(data)
 		require.NoError(t, err)
 		assert.Contains(t, prompt, "**Selected Item (index 2):**")
@@ -415,14 +414,20 @@ func TestBuildItemDevelopPrompt(t *testing.T) {
 		prompt, err := BuildItemDevelopPrompt(keyed)
 		require.NoError(t, err)
 		assert.Contains(t, prompt, "last line of `report.md` MUST be the completion trailer")
-		assert.Contains(t, prompt, "Ralph item 2 (export-endpoint) completed")
+		assert.Contains(t, prompt, "csv-export-2")
 	})
 
-	t.Run("shows both the keyed and index-only trailer forms", func(t *testing.T) {
+	t.Run("describes the trailer as a bare branch-index line", func(t *testing.T) {
 		prompt, err := BuildItemDevelopPrompt(keyed)
 		require.NoError(t, err)
-		assert.Contains(t, prompt, "`Ralph item <index> (<key>) completed`")
-		assert.Contains(t, prompt, "`Ralph item <index> completed`")
+		assert.Contains(t, prompt, "`<branch>-<index>`")
+		assert.Contains(t, prompt, "`csv-export-2`")
+	})
+
+	t.Run("notes that a trailer naming a different branch is not evidence of completion", func(t *testing.T) {
+		prompt, err := BuildItemDevelopPrompt(keyed)
+		require.NoError(t, err)
+		assert.Contains(t, prompt, "A trailer naming a different branch is not evidence of completion")
 	})
 
 	t.Run("instructs the agent not to modify the project file", func(t *testing.T) {
@@ -524,6 +529,13 @@ func TestBuildItemPickPrompt(t *testing.T) {
 		assert.Contains(t, prompt, "incomplete items list as authoritative")
 		assert.Contains(t, prompt, "Do not audit the wider git history or the working tree for completion evidence")
 		assert.Contains(t, prompt, "Select exactly one of the listed items")
+	})
+
+	t.Run("describes trailers as bare branch-index lines and ignores other branches", func(t *testing.T) {
+		prompt, err := BuildItemPickPrompt(data)
+		require.NoError(t, err)
+		assert.Contains(t, prompt, "`<branch>-<index>`")
+		assert.Contains(t, prompt, "A trailer naming a different branch is not evidence of completion")
 	})
 
 	t.Run("tells the agent to make no code changes", func(t *testing.T) {
