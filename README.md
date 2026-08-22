@@ -32,24 +32,24 @@ Run it locally:
 ralph user-authentication.yaml --local
 ```
 
-Ralph creates a branch and picks one item per iteration. The AI agent implements it and ends its commit message with a note saying which item it finished:
+Ralph creates a branch and picks one item per iteration. The AI agent implements it and ends its commit message with a bare `<branch>-<index>` line naming which item it finished:
 
 ```
 feat: issue JWT tokens on successful authentication
 
-Ralph item 2 completed
+user-authentication-2
 ```
 
-That note is the whole tracking mechanism — ralph reads the branch's commit log each iteration to see what is left, and opens a pull request when nothing is.
+That line is the whole tracking mechanism. Ralph reads the branch's commit log each iteration to see what is left, and opens a pull request when nothing is.
 
-Items can be structured instead of plain strings, and the array can be nested anywhere in the file — point ralph at it with a [jq](https://jqlang.org/manual/) query:
+Items can be structured instead of plain strings, and the array can be nested anywhere in the file. Point ralph at it with a [jq](https://jqlang.org/manual/) query:
 
 ```yaml
 # .ralph/config.yaml
 items: .requirements
 ```
 
-The shape below is one convention among many. Ralph reads only the item array out of a project file; a top-level list, or any other document with a list of work in it, works the same way.
+The shape below is one convention among many. Ralph reads only the item array out of a project file. A top-level list, or any other document with a list of work in it, works the same way.
 
 ```yaml
 # projects/user-authentication.yaml
@@ -73,7 +73,7 @@ requirements:
       - Session tokens expire after 24 hours
 ```
 
-Ralph never writes to the project file during a run — an item's `slug`, `id`, or `name` just labels it in the commit trailer. See [Project Files](docs/projects.md) and [Iterations](docs/iterations.md).
+Ralph never writes to the project file during a run. An item's `slug`, `id`, or `name` just labels it in logs and picker output. See [Project Files](docs/projects.md) and [Iterations](docs/iterations.md).
 
 The spec, orchestration, architecture, and project conventions are published separately and installed into a repository at `docs/zpecs/` — see the [specs repository](https://github.com/zon/specs). Ralph itself only runs what it is given.
 

@@ -14,8 +14,8 @@ A [jq](https://jqlang.org/manual/) expression that resolves a project file to it
 
 ## Item Key
 
-The value of an item's `slug`, `id`, or `name` field, checked in that order. A convenience label that names the item in commit messages, logs, and picker output. It is not an identifier — items are tracked by index whether or not they have a key.
+The value of an item's `slug`, `id`, or `name` field, checked in that order. A convenience label that names the item in logs and picker output. It is not an identifier. Items are tracked by index whether or not they have a key.
 
 ## Completion Trailer
 
-The last line of an iteration's commit message, written by the development agent to record that an item is finished — `Ralph item <index> completed`, or `Ralph item <index> (<key>) completed` when the item has a key. The set of trailers on a branch is ralph's only record of progress. See [Iterations](iterations.md).
+The last line of an iteration's commit message, written by the development agent to record that an item is finished: a bare `<branch>-<index>` line, for example `csv-export-2`, where the branch is the project branch and the index is the item's 0-based position in the resolved array. Only trailers naming the current branch count. The set of trailers on the branch is ralph's only record of progress. See [Iterations](iterations.md).

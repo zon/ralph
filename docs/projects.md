@@ -82,7 +82,7 @@ If the item is a mapping with a scalar `slug`, `id`, or `name` field — checked
 - Add a CSV serializer      # no key
 ```
 
-The key is a convenience: it labels the item in commit messages, logs, and picker output, so `Ralph item 0 (csv-serializer) completed` reads better than `Ralph item 0 completed`. It is not an identifier — ralph tracks items by index. Keys need not be unique and nothing breaks if they are not.
+The key is a convenience: it labels the item in logs and picker output. It is not an identifier. Ralph tracks items by index. Keys need not be unique and nothing breaks if they are not.
 
 ## Optional Metadata
 
@@ -97,12 +97,12 @@ A project file that is a top-level array has neither, so both derive from the fi
 
 ## No Completion State in the File
 
-Items do not carry a completion field. Nothing writes progress back into the project file — not the AI agent, not ralph. Completion is recorded in the branch's commit messages instead:
+Items do not carry a completion field. Neither the AI agent nor ralph writes progress back into the project file. Completion is recorded in the branch's commit messages instead, as a bare `<branch>-<index>` trailer line:
 
 ```
 feat: add CSV serializer for report entries
 
-Ralph item 0 (csv-serializer) completed
+csv-export-2
 ```
 
 Ralph reads `git log <base>..HEAD` at the start of every iteration to determine which items are done. The project file is read-only from the first iteration to the last. See [Iterations](iterations.md#the-project-file-is-immutable).
