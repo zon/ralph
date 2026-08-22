@@ -9,36 +9,33 @@ import (
 	"strconv"
 )
 
-// Format renders the completion trailer line for an item index and its
-// optional key: "Ralph item 2 completed" or "Ralph item 2 (export-endpoint)
-// completed".
-func Format(index int, key string) string {
-	if key == "" {
-		return fmt.Sprintf("Ralph item %d completed", index)
-	}
-	return fmt.Sprintf("Ralph item %d (%s) completed", index, key)
+// Format renders the completion trailer line for a branch and an item index:
+// "<branch>-<index>", for example "csv-export-2".
+func Format(branch string, index int) string {
+	return fmt.Sprintf("%s-%d", branch, index)
 }
 
-// trailerRe matches a whole line of the form "Ralph item <index> completed" or
-// "Ralph item <index> (<key>) completed". A key is a non-empty run of any
-// character except a closing parenthesis.
-var trailerRe = regexp.MustCompile(`(?m)^Ralph item (\d+)(?: \(([^)]+)\))? completed\s*$`)
+// trailerRe matches a whole line of the form "<branch>-<index>": a non-empty
+// branch name and a trailing index joined by a hyphen. The branch is any run
+// of git-branch characters, so a branch containing hyphens, dots, or slashes
+// still parses; the trailing numeric segment is the index.
+var trailerRe = regexp.MustCompile(`(?m)^([A-Za-z0-9][A-Za-z0-9._/-]*)-(\d+)\s*$`)
 
-// Ref is one completion trailer extracted from a commit message: the item
-// index it names and any key carried alongside it.
+// Ref is one completion trailer extracted from a commit message: the branch
+// and item index it names.
 type Ref struct {
-	Index int
-	Key   string
+	Branch string
+	Index  int
 }
 
 // Parse extracts every completion trailer from a commit message, returning the
-// index and any key each one names, in order of appearance.
+// branch and index each one names, in order of appearance.
 func Parse(message string) []Ref {
 	matches := trailerRe.FindAllStringSubmatch(message, -1)
 	refs := make([]Ref, 0, len(matches))
 	for _, m := range matches {
-		index, _ := strconv.Atoi(m[1])
-		refs = append(refs, Ref{Index: index, Key: m[2]})
+		index, _ := strconv.Atoi(m[2])
+		refs = append(refs, Ref{Branch: m[1], Index: index})
 	}
 	return refs
 }

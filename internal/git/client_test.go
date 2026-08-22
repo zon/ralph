@@ -127,7 +127,7 @@ func TestGitClientCommitFromReportPreservesTrailer(t *testing.T) {
 	ctx := context.NewContext()
 	client := git.NewClient(ctx)
 
-	const trailer = "Ralph item 0 (csv-serializer) completed"
+	const trailer = "csv-export-0"
 	reportContent := "feat: add serializer\n\n" + trailer + "\n"
 	require.NoError(t, os.WriteFile("report.md", []byte(reportContent), 0644))
 	require.NoError(t, os.WriteFile("newfile.txt", []byte("change"), 0644))

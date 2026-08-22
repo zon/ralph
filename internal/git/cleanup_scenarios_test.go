@@ -27,7 +27,7 @@ func TestCleanupScenario_CommitCarriesNoTrailer(t *testing.T) {
 
 	require.NoError(t, os.WriteFile("serializer.go", []byte("package main\n"), 0o644))
 	require.NoError(t, StageFile("serializer.go"))
-	require.NoError(t, Commit("feat: add serializer\n\nRalph item 0 (csv-serializer) completed"))
+	require.NoError(t, Commit("feat: add serializer\n\ncleanup-branch-0"))
 
 	before, err := CommitMessages(base)
 	require.NoError(t, err)
@@ -44,7 +44,6 @@ func TestCleanupScenario_CommitCarriesNoTrailer(t *testing.T) {
 
 	cleanupMessage := after[0]
 	assert.Equal(t, "chore: clean up completed project projects/test-project.yaml", strings.TrimSpace(cleanupMessage))
-	assert.NotContains(t, cleanupMessage, "Ralph item", "the cleanup commit carries no completion trailer")
 	assert.Empty(t, trailer.Parse(cleanupMessage), "no completion trailer is parsed from the cleanup commit")
 
 	afterRefs := trailer.Parse(strings.Join(after, "\n"))

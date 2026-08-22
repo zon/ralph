@@ -72,10 +72,10 @@ func TestCommitMessagesPreservesFullMessageVerbatim(t *testing.T) {
 	require.NoError(t, CheckoutOrCreateBranch("trailer-branch"))
 	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "serializer.go"), []byte("package main\n"), 0644))
 	require.NoError(t, StageFile("serializer.go"))
-	require.NoError(t, Commit("feat: add serializer\n\nRalph item 0 (csv-serializer) completed"))
+	require.NoError(t, Commit("feat: add serializer\n\ntrailer-branch-0"))
 
 	messages, err := CommitMessages(base)
 	require.NoError(t, err)
 	require.Len(t, messages, 1)
-	assert.Equal(t, "feat: add serializer\n\nRalph item 0 (csv-serializer) completed\n", messages[0])
+	assert.Equal(t, "feat: add serializer\n\ntrailer-branch-0\n", messages[0])
 }

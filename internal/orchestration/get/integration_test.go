@@ -70,7 +70,7 @@ func TestScenarioRepositoryLeftUntouched(t *testing.T) {
 	runGit(t, dir, "add", projectPath)
 	runGit(t, dir, "commit", "-m", "add project file")
 	runGit(t, dir, "checkout", "-b", "feature")
-	addTrailerCommit(t, dir, "feat: serializer\n\nRalph item 0 completed")
+	addTrailerCommit(t, dir, "feat: serializer\n\nfeature-0")
 
 	before, err := os.ReadFile(projectPath)
 	require.NoError(t, err)
@@ -108,10 +108,10 @@ func TestScenarioBaseOverridesConfiguredDefaultBranch(t *testing.T) {
 	t.Chdir(dir)
 
 	runGit(t, dir, "checkout", "-b", "develop")
-	addTrailerCommit(t, dir, "feat: on develop\n\nRalph item 1 completed")
+	addTrailerCommit(t, dir, "feat: on develop\n\ndevelop-1")
 
 	runGit(t, dir, "checkout", "-b", "feature")
-	addTrailerCommit(t, dir, "feat: on feature\n\nRalph item 0 completed")
+	addTrailerCommit(t, dir, "feat: on feature\n\nfeature-0")
 
 	cfg, err := config.LoadConfig()
 	require.NoError(t, err)

@@ -85,7 +85,7 @@ func (a *AgentClient) RunDeveloper(proj *project.Project, item project.Item) err
 		ItemIndex:       item.Index,
 		ItemKey:         item.Key(),
 		ItemValue:       renderItemValue(item.Value),
-		Trailer:         trailer.Format(item.Index, item.Key()),
+		Trailer:         trailer.Format(proj.Slug, item.Index),
 		ProjectFilePath: proj.Path,
 		Services:        cfg.Services,
 		Instructions:    cfg.Instructions,

@@ -7,6 +7,7 @@ import (
 
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/project"
+	"github.com/zon/ralph/internal/trailer"
 )
 
 func TestCommitTrailerScenario_ReportWithoutTrailerLeavesItemIncomplete(t *testing.T) {
@@ -44,7 +45,7 @@ func TestCommitTrailerScenario_ChangesWithoutReportGenerateChangelog(t *testing.
 	require.Equal(t, 1, aiChangelogCalls(runner), "the AI is called to generate a changelog because no report.md exists")
 	require.True(t, gitCommittedFromReport(runner), "the generated report.md is used as the commit message")
 	require.Equal(t, changelog, gitLastCommitMessage(runner))
-	require.NotContains(t, changelog, "Ralph item")
+	require.Empty(t, trailer.Parse(changelog), "the generated changelog records no item complete")
 	require.Equal(t, 2, aiPickCalls(runner), "the generated changelog records no item complete, so the loop runs another iteration")
 	require.Equal(t, []int{0, 1, 2}, aiLastPickerIndices(runner), "the picker may select the same item again in a later iteration")
 }

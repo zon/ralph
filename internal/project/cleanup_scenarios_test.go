@@ -37,7 +37,7 @@ func TestCleanupScenario_CompletionStillReadableAfterCleanup(t *testing.T) {
 
 	require.NoError(t, os.WriteFile("serializer.go", []byte("package main\n"), 0o644))
 	require.NoError(t, git.StageFile("serializer.go"))
-	require.NoError(t, git.Commit("feat: add serializer\n\nRalph item 0 completed\nRalph item 1 completed"))
+	require.NoError(t, git.Commit("feat: add serializer\n\ncleanup-branch-0\ncleanup-branch-1"))
 
 	require.NoError(t, os.Remove(projectPath))
 	require.NoError(t, git.StageFile(projectPath))
@@ -72,7 +72,7 @@ func TestCleanupScenario_ArchitectureDocumentLeftUntouched(t *testing.T) {
 
 	require.NoError(t, os.WriteFile("serializer.go", []byte("package main\n"), 0o644))
 	require.NoError(t, git.StageFile("serializer.go"))
-	require.NoError(t, git.Commit("feat: add exporter\n\nRalph item 0 completed"))
+	require.NoError(t, git.Commit("feat: add exporter\n\ncleanup-branch-0"))
 
 	client := NewClient(realCommitLog{}, &captureOutput{})
 	proj, err := client.Resolve(projectPath, ".")

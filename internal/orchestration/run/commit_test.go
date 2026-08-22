@@ -21,7 +21,7 @@ func TestCommitIterationUsesReportWhenPresent(t *testing.T) {
 }
 
 func TestCommitIterationDoesNotAlterReportContents(t *testing.T) {
-	const report = "feat: add serializer\n\nRalph item 0 (csv-serializer) completed"
+	const report = "feat: add serializer\n\ncsv-export-0"
 	runner := withMocks(
 		withProject(project.ThatReportsIncompleteUntil(1)),
 		withGit(gitWithReport(report)),

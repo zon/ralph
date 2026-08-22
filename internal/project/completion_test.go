@@ -38,15 +38,15 @@ func completedProject(values ...any) *Project {
 	return &Project{Items: NewItems(values)}
 }
 
-func TestCompleteReportsIndexOnlyTrailer(t *testing.T) {
-	c, _, _ := testClient("feat: add serializer\n\nRalph item 0 completed")
+func TestCompleteReportsBareTrailer(t *testing.T) {
+	c, _, _ := testClient("feat: add serializer\n\ncsv-export-0")
 	indices, err := c.Complete(completedProject("a"), "main")
 	require.NoError(t, err)
 	assert.Equal(t, []int{0}, indices)
 }
 
-func TestCompleteReportsKeyedTrailerByIndex(t *testing.T) {
-	c, _, _ := testClient("feat: export\n\nRalph item 3 (csv-serializer) completed")
+func TestCompleteReportsTrailerByIndex(t *testing.T) {
+	c, _, _ := testClient("feat: export\n\ncsv-export-3")
 	indices, err := c.Complete(completedProject("a", "b", "c", "d"), "main")
 	require.NoError(t, err)
 	assert.Equal(t, []int{3}, indices)
@@ -54,8 +54,8 @@ func TestCompleteReportsKeyedTrailerByIndex(t *testing.T) {
 
 func TestCompleteCollectsTrailersAcrossCommits(t *testing.T) {
 	c, _, _ := testClient(
-		"Ralph item 1 completed",
-		"Ralph item 2 (export-endpoint) completed",
+		"csv-export-1",
+		"csv-export-2",
 	)
 	indices, err := c.Complete(completedProject("a", "b", "c"), "main")
 	require.NoError(t, err)
@@ -63,7 +63,7 @@ func TestCompleteCollectsTrailersAcrossCommits(t *testing.T) {
 }
 
 func TestCompleteReadsAgainstSuppliedBase(t *testing.T) {
-	c, log, _ := testClient("Ralph item 0 completed")
+	c, log, _ := testClient("csv-export-0")
 	_, err := c.Complete(completedProject("a"), "develop")
 	require.NoError(t, err)
 	assert.Equal(t, "develop", log.base)
@@ -79,40 +79,16 @@ func TestCompleteSurfacesCommitLogError(t *testing.T) {
 
 func TestCompleteAscendingAndDeduplicated(t *testing.T) {
 	c, _, _ := testClient(
-		"Ralph item 2 completed\nRalph item 0 completed",
-		"Ralph item 3 (x) completed\nRalph item 2 completed",
+		"csv-export-2\ncsv-export-0",
+		"csv-export-3\ncsv-export-2",
 	)
 	indices, err := c.Complete(completedProject("a", "b", "c", "d", "e"), "main")
 	require.NoError(t, err)
 	assert.Equal(t, []int{0, 2, 3}, indices)
 }
 
-func TestCompleteKeyNeverUsedForMatching(t *testing.T) {
-	c, _, _ := testClient("Ralph item 1 (some-other-key) completed")
-	indices, err := c.Complete(completedProject("a", "b"), "main")
-	require.NoError(t, err)
-	assert.Equal(t, []int{1}, indices, "the index alone identifies the item")
-}
-
-func TestScenarioKeyMismatchHonoredByIndexWithWarning(t *testing.T) {
-	c, _, out := testClient("Ralph item 2 (export-endpoint) completed")
-	proj := completedProject(
-		"a",
-		"b",
-		map[string]any{"slug": "csv-serializer"},
-	)
-
-	indices, err := c.Complete(proj, "main")
-	require.NoError(t, err)
-	assert.Equal(t, []int{2}, indices)
-
-	warning := out.String()
-	assert.Contains(t, warning, "export-endpoint")
-	assert.Contains(t, warning, "csv-serializer")
-}
-
 func TestScenarioOutOfRangeIndexIgnoredWithWarning(t *testing.T) {
-	c, _, out := testClient("Ralph item 5 completed")
+	c, _, out := testClient("csv-export-5")
 	proj := completedProject("a", "b", "c")
 
 	indices, err := c.Complete(proj, "main")
@@ -124,8 +100,8 @@ func TestScenarioOutOfRangeIndexIgnoredWithWarning(t *testing.T) {
 
 func TestScenarioDuplicateTrailersCollapse(t *testing.T) {
 	c, _, _ := testClient(
-		"feat: a\n\nRalph item 1 completed",
-		"feat: b\n\nRalph item 1 (x) completed",
+		"feat: a\n\ncsv-export-1",
+		"feat: b\n\ncsv-export-1",
 	)
 	indices, err := c.Complete(completedProject("a", "b", "c"), "main")
 	require.NoError(t, err)
@@ -133,7 +109,7 @@ func TestScenarioDuplicateTrailersCollapse(t *testing.T) {
 }
 
 func TestCompleteNoItemArraySkipsRangeCheck(t *testing.T) {
-	c, _, out := testClient("Ralph item 9 completed")
+	c, _, out := testClient("csv-export-9")
 	indices, err := c.Complete(nil, "main")
 	require.NoError(t, err)
 	assert.Equal(t, []int{9}, indices)
@@ -141,19 +117,9 @@ func TestCompleteNoItemArraySkipsRangeCheck(t *testing.T) {
 }
 
 func TestCompleteNilItemsProjectSkipsRangeCheck(t *testing.T) {
-	c, _, out := testClient("Ralph item 7 completed")
+	c, _, out := testClient("csv-export-7")
 	indices, err := c.Complete(&Project{}, "main")
 	require.NoError(t, err)
 	assert.Equal(t, []int{7}, indices)
 	assert.Empty(t, out.String())
-}
-
-func TestCompleteIndexOnlyTrailerOnKeyedItemNoWarning(t *testing.T) {
-	c, _, out := testClient("Ralph item 0 completed")
-	proj := completedProject(map[string]any{"slug": "csv-serializer"})
-
-	indices, err := c.Complete(proj, "main")
-	require.NoError(t, err)
-	assert.Equal(t, []int{0}, indices)
-	assert.Empty(t, out.String(), "an index-only trailer carries no key to mismatch")
 }

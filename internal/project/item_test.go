@@ -91,14 +91,14 @@ func TestScenarioIndexIdentifiesItem(t *testing.T) {
 
 	selected := items[2]
 	assert.Equal(t, 2, selected.Index)
-	assert.Equal(t, "Ralph item 2 completed", trailer.Format(selected.Index, selected.Key()))
+	assert.Equal(t, "csv-export-2", trailer.Format("csv-export", selected.Index))
 }
 
 func TestScenarioKeyTakenFromSlug(t *testing.T) {
 	item := NewItems([]any{map[string]any{"slug": "csv-serializer"}})[0]
 
 	assert.Equal(t, "csv-serializer", item.Key())
-	assert.Equal(t, "Ralph item 0 (csv-serializer) completed", trailer.Format(item.Index, item.Key()))
+	assert.Equal(t, "csv-export-0", trailer.Format("csv-export", item.Index))
 }
 
 func TestScenarioKeyFallsBackToIDThenName(t *testing.T) {
@@ -112,7 +112,7 @@ func TestScenarioItemWithNoKey(t *testing.T) {
 	plain := NewItems([]any{"Add a CSV serializer"})[0]
 
 	assert.Empty(t, plain.Key())
-	assert.Equal(t, "Ralph item 0 completed", trailer.Format(plain.Index, plain.Key()))
+	assert.Equal(t, "csv-export-0", trailer.Format("csv-export", plain.Index))
 	assert.Equal(t, 0, plain.Index, "tracked exactly as any keyed item is")
 	assert.Equal(t, keyed.Index, plain.Index)
 }

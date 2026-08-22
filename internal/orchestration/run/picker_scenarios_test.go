@@ -22,12 +22,12 @@ func (s *pickerScenarioCommitLog) CommitMessages(base string) ([]string, error) 
 	s.calls++
 	if s.calls == 1 {
 		return []string{
-			"feat: first\n\nRalph item 0 (one) completed",
-			"feat: second\n\nRalph item 2 (two) completed",
+			"feat: first\n\ncsv-export-0",
+			"feat: second\n\ncsv-export-2",
 		}, nil
 	}
 	return []string{
-		"feat: finished\n\nRalph item 0 (one) completed\nRalph item 1 (exporter) completed\nRalph item 2 (two) completed\nRalph item 3 (importer) completed",
+		"feat: finished\n\ncsv-export-0\ncsv-export-1\ncsv-export-2\ncsv-export-3",
 	}, nil
 }
 
