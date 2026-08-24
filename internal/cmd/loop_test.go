@@ -205,6 +205,7 @@ func TestLoopRunWithStepsWithoutSlugPropagatesProposalError(t *testing.T) {
 // TestLoopRunWithSlugAndStepsUsesPassedSteps asserts the wired command prefers
 // the passed steps over the config entry's steps: the config is present but its
 // steps differ, the slug is given, and the slug proposer must never be called.
+// The given slug and the passed steps are retained on the command.
 func TestLoopRunWithSlugAndStepsUsesPassedSteps(t *testing.T) {
 	writeLoopConfig(t, `loops:
   - slug: fmt
@@ -214,9 +215,12 @@ func TestLoopRunWithSlugAndStepsUsesPassedSteps(t *testing.T) {
 
 	proposer := &fakeSlugProposer{slug: "should-not-be-used"}
 	passed := []string{"write code", "run tests"}
-	err := (&LoopCmd{Slug: "fmt", Steps: passed, slugProposer: proposer}).Run()
+	cmd := &LoopCmd{Slug: "fmt", Steps: passed, slugProposer: proposer}
+	err := cmd.Run()
 	require.NoError(t, err)
 	assert.False(t, proposer.called, "the slug proposer is not called when a slug is given")
+	assert.Equal(t, "fmt", cmd.resolvedSlug, "the given slug is retained on the command")
+	assert.Equal(t, passed, cmd.resolvedSteps, "the passed steps replace the config entry's steps on the command")
 }
 
 // fakeSlugProposer records the steps it was called with and returns an injected

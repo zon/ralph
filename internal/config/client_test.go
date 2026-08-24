@@ -46,3 +46,40 @@ services:
 	assert.Equal(t, "test-service", config.Services[0].Name)
 	assert.Equal(t, instructionsContent, config.Instructions)
 }
+
+func TestClientLoopSteps_MatchingSlugReturnsSteps(t *testing.T) {
+	loadConfigWithContent(t, `loops:
+  - slug: fmt
+    steps:
+      - run gofmt
+      - run go vet
+`)
+
+	client := &Client{}
+	steps, err := client.LoopSteps("fmt")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"run gofmt", "run go vet"}, steps)
+}
+
+func TestClientLoopSteps_NotFoundReturnsError(t *testing.T) {
+	loadConfigWithContent(t, `loops:
+  - slug: fmt
+    steps:
+      - run gofmt
+`)
+
+	client := &Client{}
+	_, err := client.LoopSteps("missing")
+	require.Error(t, err)
+	assert.EqualError(t, err, "loop config not found: missing")
+}
+
+func TestClientLoopSteps_PropagatesLoadError(t *testing.T) {
+	// GIVEN no .ralph directory in the working directory, so LoadConfig fails
+	t.Chdir(t.TempDir())
+
+	client := &Client{}
+	_, err := client.LoopSteps("fmt")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to find .ralph directory")
+}

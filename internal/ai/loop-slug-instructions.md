@@ -10,6 +10,7 @@ Propose a short, descriptive slug for the branch.
 {{end}}
 
 The slug must be a single token: lowercase letters, digits, and hyphens only
-(e.g. "fmt-vet"). Write nothing else.
+(e.g. "fmt-vet"). It must not start or end with a hyphen, and must not contain
+consecutive hyphens. Write nothing else.
 
 Write the slug to the file: {{.OutputFile}}

@@ -75,7 +75,7 @@ func TestGenerateChangelog(t *testing.T) {
 					},
 				}
 			},
-			wantErr: "summary file is empty",
+			wantErr: "output file is empty",
 		},
 	}
 
@@ -566,7 +566,7 @@ func TestRunOpenCodeAndReadResult(t *testing.T) {
 			wantErr: "failed to read output file:",
 		},
 		{
-			name: "whitespace-only output returns summary is empty",
+			name: "whitespace-only output returns output file is empty",
 			ctx:  &execcontext.Context{},
 			setupMock: func(t *testing.T, outputFile string) *opencode.MockOC {
 				return &opencode.MockOC{
@@ -575,7 +575,7 @@ func TestRunOpenCodeAndReadResult(t *testing.T) {
 					},
 				}
 			},
-			wantErr: "summary file is empty",
+			wantErr: "output file is empty",
 		},
 	}
 
@@ -1263,6 +1263,28 @@ func TestProposeLoopSlug(t *testing.T) {
 				return &opencode.MockOC{
 					RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
 						return writeOutputFromSlugPrompt(prompt, "-fix")
+					},
+				}
+			},
+			wantErr: "no usable slug proposed by the AI",
+		},
+		{
+			name: "slug ending with a hyphen returns no usable slug error",
+			setupMock: func(t *testing.T) *opencode.MockOC {
+				return &opencode.MockOC{
+					RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+						return writeOutputFromSlugPrompt(prompt, "fmt-")
+					},
+				}
+			},
+			wantErr: "no usable slug proposed by the AI",
+		},
+		{
+			name: "slug with consecutive hyphens returns no usable slug error",
+			setupMock: func(t *testing.T) *opencode.MockOC {
+				return &opencode.MockOC{
+					RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+						return writeOutputFromSlugPrompt(prompt, "fmt--vet")
 					},
 				}
 			},

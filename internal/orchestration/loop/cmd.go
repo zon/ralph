@@ -1,6 +1,10 @@
 package loop
 
-import "github.com/zon/ralph/internal/config"
+// LoopConfigClient resolves the steps of the loop config entry matching the
+// slug.
+type LoopConfigClient interface {
+	LoopSteps(slug string) ([]string, error)
+}
 
 // PromptBuilder builds the loop prompt that embeds the resolved steps.
 type PromptBuilder interface {
@@ -14,12 +18,12 @@ type SlugProposer interface {
 
 // Cmd orchestrates the ralph loop command.
 type Cmd struct {
-	cfg     config.Loader
+	cfg     LoopConfigClient
 	prompt  PromptBuilder
 	propose SlugProposer
 }
 
-func NewCmd(cfg config.Loader, prompt PromptBuilder, propose SlugProposer) *Cmd {
+func NewCmd(cfg LoopConfigClient, prompt PromptBuilder, propose SlugProposer) *Cmd {
 	return &Cmd{cfg: cfg, prompt: prompt, propose: propose}
 }
 
@@ -67,16 +71,12 @@ func (c *Cmd) resolve(slug string, steps []string) (*Result, error) {
 // replace the matching loop config entry's steps when present, otherwise the
 // entry's steps are used.
 func (c *Cmd) resolveConfig(slug string, steps []string) (*Result, error) {
-	cfg, err := c.cfg.Load()
-	if err != nil {
-		return nil, err
-	}
-	resolved, err := cfg.LoopSteps(slug)
+	loopSteps, err := c.cfg.LoopSteps(slug)
 	if err != nil {
 		return nil, err
 	}
 	if len(steps) > 0 {
 		return &Result{Slug: slug, Steps: steps}, nil
 	}
-	return &Result{Slug: slug, Steps: resolved}, nil
+	return &Result{Slug: slug, Steps: loopSteps}, nil
 }

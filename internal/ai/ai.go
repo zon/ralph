@@ -448,7 +448,7 @@ func runOpenCodeAndReadResult(ctx *execcontext.Context, oc opencode.OCClient, mo
 	}
 
 	if content == "" {
-		return "", fmt.Errorf("summary file is empty")
+		return "", fmt.Errorf("output file is empty")
 	}
 
 	return content, nil
@@ -540,11 +540,11 @@ func GenerateReviewPRBody(ctx *execcontext.Context, oc opencode.OCClient, projec
 }
 
 // usableSlug reports whether the AI proposed a usable slug: non-empty after
-// trimming, not starting with a hyphen, and matching the promised charset of
-// lowercase letters, digits, and hyphens only.
+// trimming, a single token of lowercase letters, digits, and hyphens only, not
+// starting or ending with a hyphen, and without consecutive hyphens.
 func usableSlug(s string) bool {
 	s = strings.TrimSpace(s)
-	if s == "" || s[0] == '-' {
+	if s == "" || s[0] == '-' || s[len(s)-1] == '-' || strings.Contains(s, "--") {
 		return false
 	}
 	for _, r := range s {
