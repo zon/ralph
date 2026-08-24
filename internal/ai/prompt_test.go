@@ -698,6 +698,21 @@ func TestBuildLoopPrompt(t *testing.T) {
 				assert.NotContains(t, prompt, "- run gofmt")
 			},
 		},
+		{
+			name:  "instructs the agent to write a brief summary to report.md",
+			steps: []string{"run gofmt"},
+			check: func(t *testing.T, prompt string) {
+				assert.Contains(t, prompt, "Write a brief summary of what you did to `report.md`")
+			},
+		},
+		{
+			name:  "instructs writing exactly NOTHING_TO_DO when nothing was necessary",
+			steps: []string{"run gofmt"},
+			check: func(t *testing.T, prompt string) {
+				assert.Contains(t, prompt, "write exactly `NOTHING_TO_DO` to `report.md`")
+				assert.Contains(t, prompt, "nothing was necessary")
+			},
+		},
 	}
 
 	for _, tt := range tests {
