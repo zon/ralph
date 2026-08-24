@@ -343,3 +343,29 @@ When the loop ends, the command SHALL open a pull request from the branch `loop-
 - WHEN the loop finishes
 - THEN no pull request is opened
 - AND the command exits successfully
+
+---
+
+### Requirement: Token usage and cost reporting
+
+When running inside a workflow container the command SHALL print accumulated AI token usage and cost statistics at the end of execution, regardless of whether the loop succeeded or failed, matching the behavior of `ralph run` described in [run-local/spec.md](../run-local/spec.md).
+
+#### Scenario: Stats reported on successful workflow loop
+
+- GIVEN ralph is executing inside a workflow container
+- AND the loop completes successfully
+- WHEN execution finishes
+- THEN input tokens, output tokens, and total cost across the entire loop are printed to the log
+
+#### Scenario: Stats reported on failed workflow loop
+
+- GIVEN ralph is executing inside a workflow container
+- AND the loop exits with an error (iteration limit reached, fatal AI error, or any other failure)
+- WHEN execution finishes
+- THEN input tokens, output tokens, and total cost across the entire loop are printed to the log before the error is surfaced
+
+#### Scenario: Stats not printed outside a workflow
+
+- GIVEN ralph is executing locally (not inside a workflow container)
+- WHEN the loop completes or fails
+- THEN no token usage or cost statistics are printed
