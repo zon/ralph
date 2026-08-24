@@ -69,7 +69,7 @@ modules:
     description: Orchestrates the get complete and get incomplete subcommands by resolving the item array and subtracting the indices recorded in the commit log.
     category: orchestration
   - path: internal/orchestration/loop
-    description: Orchestrates the ralph loop command, resolving the steps and branch slug, switching to the loop-<slug> branch so the agent works on its own state, building the prompt, and running it as an iteration loop that commits each iteration that did work to the loop branch, opens a pull request for the loop branch when the loop made commits, and stops when the agent reports nothing to do or after max iterations. It also submits the loop workflow for remote execution after verifying the current branch is in sync with the remote, streams the submitted workflow logs and waits for the workflow to finish when following, sending a success or error notification for the slug on completion, and prepares the container workspace that runs the loop in-process with the submitted slug and steps.
+    description: Orchestrates the ralph loop command — local iteration, remote submission, and in-workflow execution.
     category: orchestration
   - path: internal/orchestration/validate
     description: Orchestrates a bounded fix loop that repairs unparseable project files using an AI agent, then checks the item query resolves.
