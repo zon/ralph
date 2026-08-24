@@ -63,6 +63,23 @@ services:
     command: npm
     args: [run, dev:frontend]
     port: 8080
+
+# Named step lists for `ralph loop <slug>`
+# The prompt embeds the steps of the entry whose slug matches
+loops:
+  # Example: Format and lint the codebase
+  - slug: fmt
+    steps:
+      - run gofmt
+      - run go vet
+
+  # Example: Update dependencies
+  - slug: update-deps
+    steps:
+      - check for outdated dependencies
+      - update the dependency manifest
+      - run the test suite
+
 # Notes:
 # Before Commands:
 # - Before commands are executed once at the start of a project (not per iteration)

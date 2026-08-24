@@ -3,11 +3,14 @@ package cmd
 import (
 	"errors"
 	"fmt"
+
+	"github.com/zon/ralph/internal/ai"
+	"github.com/zon/ralph/internal/config"
+	"github.com/zon/ralph/internal/orchestration/loop"
 )
 
-// LoopCmd is the `ralph loop` command. It runs AI iterations over a set of
-// steps until an iteration reports nothing to do or the loop reaches its
-// limit.
+// LoopCmd is the `ralph loop` command. It resolves the loop config steps by
+// slug (or uses the passed --step values) and builds the prompt embedding them.
 type LoopCmd struct {
 	Slug  string   `arg:"" optional:"" help:"Slug of the loop configuration in .ralph/config.yaml"`
 	Steps []string `help:"Step to run in the loop (repeatable)" name:"step"`
@@ -26,7 +29,17 @@ func (c *LoopCmd) Validate() error {
 	return nil
 }
 
-// Run is a stub. It does nothing yet.
+// Run wires the orchestration. The iteration loop that executes the prompt is
+// a later work item.
 func (c *LoopCmd) Run() error {
-	return nil
+	return loop.NewCmd(&config.Client{}, &LoopPromptBuilder{}).Run(c.Slug, c.Steps)
+}
+
+// LoopPromptBuilder adapts ai.BuildLoopPrompt to the orchestration's
+// PromptBuilder interface.
+type LoopPromptBuilder struct{}
+
+// BuildLoopPrompt builds the loop prompt embedding the given steps.
+func (b *LoopPromptBuilder) BuildLoopPrompt(steps []string) (string, error) {
+	return ai.BuildLoopPrompt(steps)
 }

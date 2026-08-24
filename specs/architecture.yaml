@@ -68,6 +68,9 @@ modules:
   - path: internal/orchestration/get
     description: Orchestrates the get complete and get incomplete subcommands by resolving the item array and subtracting the indices recorded in the commit log.
     category: orchestration
+  - path: internal/orchestration/loop
+    description: Orchestrates the ralph loop command, resolving loop config steps by slug and building the prompt that embeds them.
+    category: orchestration
   - path: internal/orchestration/validate
     description: Orchestrates a bounded fix loop that repairs unparseable project files using an AI agent, then checks the item query resolves.
     category: orchestration

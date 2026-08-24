@@ -50,6 +50,9 @@ var itemDevelopInstructions string
 //go:embed development-item-instructions.md
 var itemDefaultInstructions string
 
+//go:embed loop-instructions.md
+var loopInstructions string
+
 type FixServicePromptData struct {
 	Notes       []string
 	ServiceName string
@@ -83,6 +86,11 @@ type ReviewItemPromptData struct {
 type LoopItemPromptData struct {
 	FunctionName string
 	FunctionPath string
+}
+
+// LoopPromptData carries the steps of the loop.
+type LoopPromptData struct {
+	Steps []string
 }
 
 type WriteProjectPromptData struct {
@@ -211,6 +219,11 @@ func BuildLoopItemPrompt(content, functionName, functionPath string) (string, er
 		return "", err
 	}
 	return executeTemplate(reviewInstructions, ReviewItemPromptData{ItemContent: rendered})
+}
+
+// BuildLoopPrompt renders the loop prompt embedding the given steps in order.
+func BuildLoopPrompt(steps []string) (string, error) {
+	return executeTemplate(loopInstructions, LoopPromptData{Steps: steps})
 }
 
 type ProjectFixPromptData struct {

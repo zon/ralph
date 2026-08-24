@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/alecthomas/kong"
@@ -107,4 +109,51 @@ func TestLoopMaxNegativeSpaceFormRejected(t *testing.T) {
 
 	_, err = parser.Parse([]string{"loop", "feature-x", "--max", "-1"})
 	require.Error(t, err)
+}
+
+// writeLoopConfig writes a .ralph/config.yaml with the given loops section
+// into the working directory.
+func writeLoopConfig(t *testing.T, content string) {
+	t.Helper()
+	tmpDir := t.TempDir()
+	require.NoError(t, os.Mkdir(filepath.Join(tmpDir, ".ralph"), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, ".ralph", "config.yaml"), []byte(content), 0644))
+	t.Chdir(tmpDir)
+}
+
+// TestLoopRunWithMatchingSlug asserts Run resolves the matching loops: entry
+// from the temp config and returns no error.
+func TestLoopRunWithMatchingSlug(t *testing.T) {
+	writeLoopConfig(t, `loops:
+  - slug: fmt
+    steps:
+      - run gofmt
+      - run go vet
+`)
+
+	err := (&LoopCmd{Slug: "fmt"}).Run()
+	require.NoError(t, err)
+}
+
+// TestLoopRunWithMissingSlug asserts Run returns an error carrying exactly
+// "loop config not found: <slug>" when no loops: entry matches the slug.
+func TestLoopRunWithMissingSlug(t *testing.T) {
+	writeLoopConfig(t, `loops:
+  - slug: fmt
+    steps:
+      - run gofmt
+`)
+
+	err := (&LoopCmd{Slug: "missing"}).Run()
+	require.Error(t, err)
+	assert.EqualError(t, err, "loop config not found: missing")
+}
+
+// TestLoopRunWithStepsWithoutSlug asserts Run accepts steps without a slug and
+// needs no config file present.
+func TestLoopRunWithStepsWithoutSlug(t *testing.T) {
+	t.Chdir(t.TempDir())
+
+	err := (&LoopCmd{Steps: []string{"run gofmt"}}).Run()
+	require.NoError(t, err)
 }

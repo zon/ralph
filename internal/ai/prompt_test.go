@@ -651,3 +651,62 @@ func TestBuildResolveMergeConflictsPrompt(t *testing.T) {
 	assert.Contains(t, prompt, "feature-branch")
 	assert.Contains(t, prompt, "git merge main")
 }
+
+func TestBuildLoopPrompt(t *testing.T) {
+	tests := []struct {
+		name  string
+		steps []string
+		check func(t *testing.T, prompt string)
+	}{
+		{
+			name:  "embeds a single step",
+			steps: []string{"run gofmt"},
+			check: func(t *testing.T, prompt string) {
+				assert.NotEmpty(t, prompt, "loop prompt should not be empty")
+				assert.Contains(t, prompt, "- run gofmt")
+			},
+		},
+		{
+			name:  "embeds multiple steps in the order given",
+			steps: []string{"run gofmt", "run go vet", "run tests"},
+			check: func(t *testing.T, prompt string) {
+				first := strings.Index(prompt, "run gofmt")
+				second := strings.Index(prompt, "run go vet")
+				third := strings.Index(prompt, "run tests")
+				require.Greater(t, first, -1, "first step must appear in the prompt")
+				require.Greater(t, second, -1, "second step must appear in the prompt")
+				require.Greater(t, third, -1, "third step must appear in the prompt")
+				assert.Less(t, first, second, "first step must appear before the second")
+				assert.Less(t, second, third, "second step must appear before the third")
+			},
+		},
+		{
+			name:  "empty steps render without error",
+			steps: nil,
+			check: func(t *testing.T, prompt string) {
+				assert.NotEmpty(t, prompt, "loop prompt should not be empty")
+				assert.Contains(t, prompt, "Follow these steps in order:")
+				assert.NotContains(t, prompt, "- run gofmt")
+			},
+		},
+		{
+			name:  "empty steps slice renders without error",
+			steps: []string{},
+			check: func(t *testing.T, prompt string) {
+				assert.NotEmpty(t, prompt, "loop prompt should not be empty")
+				assert.Contains(t, prompt, "Follow these steps in order:")
+				assert.NotContains(t, prompt, "- run gofmt")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			prompt, err := BuildLoopPrompt(tt.steps)
+			require.NoError(t, err, "BuildLoopPrompt failed")
+			if tt.check != nil {
+				tt.check(t, prompt)
+			}
+		})
+	}
+}

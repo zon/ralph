@@ -87,6 +87,25 @@ Each item requires exactly one source:
 | `file` | Path to a file relative to the repo root |
 | `url` | HTTP URL returning plain text |
 
+## Loops
+
+`loops` defines named step lists for the `ralph loop` command. Each entry has a `slug` and `steps`.
+
+```yaml
+loops:
+  - slug: fmt
+    steps:
+      - run gofmt
+      - run go vet
+  - slug: update-deps
+    steps:
+      - check for outdated dependencies
+      - update the dependency manifest
+      - run the test suite
+```
+
+`ralph loop <slug>` uses the entry whose `slug` matches and embeds its `steps` in the prompt. When no entry matches, it returns `loop config not found: <slug>`.
+
 ## Before
 
 `before` defines commands that run once before services start and before the iteration loop begins.
