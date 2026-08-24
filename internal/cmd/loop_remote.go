@@ -9,10 +9,10 @@ import (
 	internalwf "github.com/zon/ralph/internal/workflow"
 )
 
-// NewLoopRemoteRunner wires the remote loop execution path with the real argo
-// client.
+// NewLoopRemoteRunner wires the remote loop execution path with the real git
+// and argo clients.
 func NewLoopRemoteRunner(ctx *execcontext.Context) *loop.RemoteRunner {
-	return loop.NewRemoteRunner(&loopWorkflowClientAdapter{ctx: ctx, argoClient: argo.NewClient()})
+	return loop.NewRemoteRunner(git.NewClient(ctx), &loopWorkflowClientAdapter{ctx: ctx, argoClient: argo.NewClient()})
 }
 
 // loopWorkflowClientAdapter implements loop.WorkflowSubmitter and submits a
@@ -55,4 +55,10 @@ func (a *loopWorkflowClientAdapter) Submit(slug string, steps []string, max int)
 	}
 	a.ctx.Output().Successf("Workflow submitted: %s", workflowName)
 	return workflowName, nil
+}
+
+// PrintLogHint prints the argo logs command the user can run to follow the
+// submitted loop workflow.
+func (a *loopWorkflowClientAdapter) PrintLogHint(workflowName string) {
+	a.ctx.Output().Infof("To follow logs, run: argo logs -n %s %s -f", a.namespace, workflowName)
 }

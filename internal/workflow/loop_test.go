@@ -64,6 +64,28 @@ func argsForFlag(args []interface{}, flag string) []interface{} {
 	return values
 }
 
+// TestWorkflowRender_LoopManagedByLabel asserts a loop workflow's metadata is
+// labeled app.kubernetes.io/managed-by=ralph, marking it as ralph-managed for
+// listing and cleanup.
+func TestWorkflowRender_LoopManagedByLabel(t *testing.T) {
+	wf := &Workflow{
+		ProjectName: "loop",
+		Repo:        githubpkg.MakeRepo("owner", "repo"),
+		CloneBranch: "main",
+		Loop:        &LoopSpec{Slug: "fmt", Steps: []string{"run gofmt"}, Max: 3},
+	}
+	workflowYAML, err := wf.Render()
+	require.NoError(t, err, "Render failed")
+
+	var wfData map[string]interface{}
+	require.NoError(t, yaml.Unmarshal([]byte(workflowYAML), &wfData), "Failed to parse workflow YAML")
+
+	metadata := wfData["metadata"].(map[string]interface{})
+	labels, ok := metadata["labels"].(map[string]interface{})
+	require.True(t, ok, "workflow metadata labels is not a map")
+	assert.Equal(t, "ralph", labels["app.kubernetes.io/managed-by"], "the loop workflow carries the managed-by label")
+}
+
 // TestWorkflowRender_Loop asserts a workflow carrying a Loop spec invokes
 // `ralph workflow loop` with the slug, steps, max iterations, repo, clone
 // branch, and bot identity.
