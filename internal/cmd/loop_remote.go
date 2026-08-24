@@ -5,14 +5,15 @@ import (
 	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
 	githubpkg "github.com/zon/ralph/internal/github"
+	"github.com/zon/ralph/internal/notify"
 	"github.com/zon/ralph/internal/orchestration/loop"
 	internalwf "github.com/zon/ralph/internal/workflow"
 )
 
-// NewLoopRemoteRunner wires the remote loop execution path with the real git
-// and argo clients.
+// NewLoopRemoteRunner wires the remote loop execution path with the real git,
+// argo, and notify clients.
 func NewLoopRemoteRunner(ctx *execcontext.Context) *loop.RemoteRunner {
-	return loop.NewRemoteRunner(git.NewClient(ctx), &loopWorkflowClientAdapter{ctx: ctx, argoClient: argo.NewClient()})
+	return loop.NewRemoteRunner(git.NewClient(ctx), &loopWorkflowClientAdapter{ctx: ctx, argoClient: argo.NewClient()}, notify.NewClient(ctx))
 }
 
 // loopWorkflowClientAdapter implements loop.WorkflowSubmitter and submits a
@@ -61,4 +62,10 @@ func (a *loopWorkflowClientAdapter) Submit(slug string, steps []string, max int)
 // submitted loop workflow.
 func (a *loopWorkflowClientAdapter) PrintLogHint(workflowName string) {
 	a.ctx.Output().Infof("To follow logs, run: argo logs -n %s %s -f", a.namespace, workflowName)
+}
+
+// FollowLogs streams the submitted loop workflow logs and waits for the
+// workflow to finish.
+func (a *loopWorkflowClientAdapter) FollowLogs(workflowName string) error {
+	return a.argoClient.Logs(argo.K8sContext{Name: a.kubeContext, Namespace: a.namespace}, workflowName, true)
 }

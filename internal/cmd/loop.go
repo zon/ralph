@@ -21,20 +21,24 @@ import (
 // and runs it as an iteration loop. It retains the resolved slug and steps on
 // the command for the later loop phases. By default it submits an Argo Workflow
 // and the loop runs inside the workflow container; with --local it runs the
-// loop in-process on the local machine without submitting a workflow. The
-// --model and --context flags resolve the same way `ralph run` resolves them:
-// --model overrides the top-level model field in .ralph/config.yaml, which
-// defaults to deepseek/deepseek-chat when unset, and --context overrides the
-// Kubernetes context used for workflow submission.
+// loop in-process on the local machine without submitting a workflow. With
+// --follow it streams the submitted workflow logs and waits for the workflow
+// to finish, sending a success or error desktop notification for the slug on
+// completion, suppressed by --no-notify. The --model and --context flags
+// resolve the same way `ralph run` resolves them: --model overrides the
+// top-level model field in .ralph/config.yaml, which defaults to
+// deepseek/deepseek-chat when unset, and --context overrides the Kubernetes
+// context used for workflow submission.
 type LoopCmd struct {
-	Slug    string   `arg:"" optional:"" help:"Slug of the loop configuration in .ralph/config.yaml"`
-	Steps   []string `help:"Step to run in the loop (repeatable)" name:"step"`
-	Max     int      `help:"Maximum number of iterations" name:"max" default:"10"`
-	Verbose bool     `help:"Enable verbose logging" default:"false"`
-	Local   bool     `help:"Run on this machine instead of in Argo Workflows" default:"false"`
-	Follow  bool     `help:"Follow workflow logs after submission (only applicable without --local)" short:"f" default:"false"`
-	Model   string   `help:"Override the AI model from config" name:"model" optional:""`
-	Context string   `help:"Kubernetes context to use" name:"context" optional:""`
+	Slug     string   `arg:"" optional:"" help:"Slug of the loop configuration in .ralph/config.yaml"`
+	Steps    []string `help:"Step to run in the loop (repeatable)" name:"step"`
+	Max      int      `help:"Maximum number of iterations" name:"max" default:"10"`
+	Verbose  bool     `help:"Enable verbose logging" default:"false"`
+	Local    bool     `help:"Run on this machine instead of in Argo Workflows" default:"false"`
+	Follow   bool     `help:"Follow workflow logs after submission (only applicable without --local)" short:"f" default:"false"`
+	NoNotify bool     `help:"Disable desktop notifications" default:"false"`
+	Model    string   `help:"Override the AI model from config" name:"model" optional:""`
+	Context  string   `help:"Kubernetes context to use" name:"context" optional:""`
 
 	// slugProposer proposes a branch slug from steps. Tests inject a fake. When
 	// nil, runLocal builds the real adapter that consults the AI.
@@ -102,6 +106,7 @@ func (c *LoopCmd) applyToContext(ctx *execcontext.Context) {
 	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, c.Verbose))
 	ctx.SetLocal(c.Local)
 	ctx.SetFollow(c.Follow)
+	ctx.SetNoNotify(c.NoNotify)
 	ctx.SetModel(c.Model)
 	ctx.SetKubeContext(c.Context)
 }
@@ -146,13 +151,14 @@ func (c *LoopCmd) runLocal(ctx *execcontext.Context) error {
 }
 
 // runRemote submits a loop workflow that runs the loop inside the workflow
-// container.
+// container. With --follow it streams the submitted workflow logs and waits for
+// the workflow to finish instead of printing the argo logs command.
 func (c *LoopCmd) runRemote(ctx *execcontext.Context) error {
 	runner := c.remoteRunner
 	if runner == nil {
 		runner = NewLoopRemoteRunner(ctx)
 	}
-	return runner.Run(c.Slug, c.Steps, c.Max)
+	return runner.Run(c.Slug, c.Steps, c.Max, c.Follow)
 }
 
 // loopSlugProposer adapts ai.ProposeLoopSlug to the orchestration's

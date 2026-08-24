@@ -16,21 +16,22 @@ import (
 
 // TestLoopCmdParsing covers the `ralph loop` command surface. It checks the
 // optional slug argument, the repeatable --step flags, the --max default of
-// 10, the --verbose flag, the --local and --follow flags, and the usage errors
-// produced by Validate.
+// 10, the --verbose flag, the --local, --follow, and --no-notify flags, and
+// the usage errors produced by Validate.
 func TestLoopCmdParsing(t *testing.T) {
 	tests := []struct {
-		name        string
-		args        []string
-		wantSlug    string
-		wantSteps   []string
-		wantMax     int
-		wantVerbose bool
-		wantLocal   bool
-		wantFollow  bool
-		wantModel   string
-		wantContext string
-		wantErr     string
+		name         string
+		args         []string
+		wantSlug     string
+		wantSteps    []string
+		wantMax      int
+		wantVerbose  bool
+		wantLocal    bool
+		wantFollow   bool
+		wantNoNotify bool
+		wantModel    string
+		wantContext  string
+		wantErr      string
 	}{
 		{
 			name:     "slug argument parses and max defaults to 10",
@@ -84,6 +85,13 @@ func TestLoopCmdParsing(t *testing.T) {
 			wantSlug:   "feature-x",
 			wantMax:    10,
 			wantFollow: true,
+		},
+		{
+			name:         "--no-notify parses",
+			args:         []string{"loop", "feature-x", "--no-notify"},
+			wantSlug:     "feature-x",
+			wantMax:      10,
+			wantNoNotify: true,
 		},
 		{
 			name:      "--model parses",
@@ -156,6 +164,7 @@ func TestLoopCmdParsing(t *testing.T) {
 			assert.Equal(t, tt.wantVerbose, cmd.Loop.Verbose)
 			assert.Equal(t, tt.wantLocal, cmd.Loop.Local)
 			assert.Equal(t, tt.wantFollow, cmd.Loop.Follow)
+			assert.Equal(t, tt.wantNoNotify, cmd.Loop.NoNotify)
 			assert.Equal(t, tt.wantModel, cmd.Loop.Model)
 			assert.Equal(t, tt.wantContext, cmd.Loop.Context)
 		})
@@ -168,14 +177,16 @@ func TestLoopCmdParsing(t *testing.T) {
 // the overrides downstream.
 func TestLoopApplyToContextWiresModelAndContext(t *testing.T) {
 	tests := []struct {
-		name        string
-		model       string
-		context     string
-		wantModel   string
-		wantContext string
-		wantVerbose bool
-		wantLocal   bool
-		wantFollow  bool
+		name         string
+		model        string
+		context      string
+		noNotify     bool
+		wantModel    string
+		wantContext  string
+		wantVerbose  bool
+		wantLocal    bool
+		wantFollow   bool
+		wantNoNotify bool
 	}{
 		{
 			name:        "overrides flow into the context",
@@ -183,6 +194,11 @@ func TestLoopApplyToContextWiresModelAndContext(t *testing.T) {
 			context:     "prod-cluster",
 			wantModel:   "gpt-4",
 			wantContext: "prod-cluster",
+		},
+		{
+			name:         "--no-notify flows into the context",
+			noNotify:     true,
+			wantNoNotify: true,
 		},
 		{
 			name:        "unset flags leave the context empty for config fallback",
@@ -193,7 +209,7 @@ func TestLoopApplyToContextWiresModelAndContext(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := &LoopCmd{Model: tt.model, Context: tt.context, Verbose: tt.wantVerbose, Local: tt.wantLocal, Follow: tt.wantFollow}
+			cmd := &LoopCmd{Model: tt.model, Context: tt.context, Verbose: tt.wantVerbose, Local: tt.wantLocal, Follow: tt.wantFollow, NoNotify: tt.noNotify}
 			ctx := execcontext.NewContext()
 			cmd.applyToContext(ctx)
 
@@ -202,6 +218,7 @@ func TestLoopApplyToContextWiresModelAndContext(t *testing.T) {
 			assert.Equal(t, tt.wantVerbose, ctx.IsVerbose())
 			assert.Equal(t, tt.wantLocal, ctx.IsLocal())
 			assert.Equal(t, tt.wantFollow, ctx.ShouldFollow())
+			assert.Equal(t, tt.wantNoNotify, ctx.NoNotify())
 		})
 	}
 }
@@ -217,6 +234,7 @@ func TestLoopCmdHelpText(t *testing.T) {
 	assert.Contains(t, output, "--verbose")
 	assert.Contains(t, output, "--local")
 	assert.Contains(t, output, "--follow")
+	assert.Contains(t, output, "--no-notify")
 	assert.Contains(t, output, "--model")
 	assert.Contains(t, output, "--context")
 }
@@ -651,15 +669,17 @@ type fakeLoopRemoteRunner struct {
 	slug   string
 	steps  []string
 	max    int
+	follow bool
 	err    error
 	called bool
 }
 
-func (f *fakeLoopRemoteRunner) Run(slug string, steps []string, max int) error {
+func (f *fakeLoopRemoteRunner) Run(slug string, steps []string, max int, follow bool) error {
 	f.called = true
 	f.slug = slug
 	f.steps = steps
 	f.max = max
+	f.follow = follow
 	return f.err
 }
 
@@ -678,7 +698,22 @@ func TestLoopRunRemoteSubmitsWorkflow(t *testing.T) {
 	assert.Equal(t, "fmt", runner.slug, "the remote runner receives the slug")
 	assert.Equal(t, []string{"run gofmt"}, runner.steps, "the remote runner receives the steps")
 	assert.Equal(t, 3, runner.max, "the remote runner receives the max iterations")
+	assert.False(t, runner.follow, "the remote runner does not follow without --follow")
 	assert.Empty(t, cmd.resolvedSlug, "no slug is retained in local-mode fields on the remote path")
+}
+
+// TestLoopRunRemoteFollowPassesFollowFlag asserts the default run path passes
+// the --follow flag through to the remote runner so it streams the workflow
+// logs and waits for the workflow to finish.
+func TestLoopRunRemoteFollowPassesFollowFlag(t *testing.T) {
+	t.Chdir(t.TempDir())
+
+	runner := &fakeLoopRemoteRunner{}
+	cmd := &LoopCmd{Slug: "fmt", Max: 3, Follow: true, remoteRunner: runner}
+	err := cmd.Run()
+	require.NoError(t, err)
+	assert.True(t, runner.called, "the remote runner is consulted without --local")
+	assert.True(t, runner.follow, "the --follow flag is passed through to the remote runner")
 }
 
 // TestLoopRunRemotePropagatesSubmitError asserts a workflow submission failure
