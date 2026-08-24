@@ -95,6 +95,44 @@ func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL,
 	}, nil
 }
 
+// GenerateLoopWorkflow builds a Workflow that runs the ralph loop inside the
+// container. cloneBranch is the branch the container clones (the current local
+// branch) and remoteURL is the git remote URL — both resolved by the caller so
+// that git and GitHub discovery are decoupled from generation logic. The slug,
+// steps, and max iterations are carried into the container as CLI arguments to
+// `ralph workflow loop`.
+func GenerateLoopWorkflow(ctx *execcontext.Context, slug string, steps []string, max int, cloneBranch, remoteURL string) (*Workflow, error) {
+	ralphConfig, err := config.LoadConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	repo, err := githubpkg.ParseRemoteURL(remoteURL)
+	if err != nil {
+		return nil, err
+	}
+
+	opts := workflowOptionsFromConfig(ralphConfig, ctx)
+
+	return &Workflow{
+		ProjectName: "loop",
+		Repo:        repo,
+		CloneBranch: cloneBranch,
+		Loop:        &LoopSpec{Slug: slug, Steps: steps, Max: max},
+		Image:       opts.Image,
+		ConfigMaps:  opts.ConfigMaps,
+		Secrets:     opts.Secrets,
+		Env:         opts.Env,
+		KubeContext: opts.KubeContext,
+		Namespace:   opts.Namespace,
+		NoServices:  ctx.NoServices(),
+		Model:       ctx.Model(),
+		Agent:       ctx.Agent(),
+		Labels:      opts.Labels,
+		Verbose:     ctx.IsVerbose(),
+	}, nil
+}
+
 // GenerateCommentWorkflowWithGitInfo builds a Workflow for a comment-triggered event.
 // The container script will call `ralph comment` with the provided body and PR number.
 func GenerateCommentWorkflowWithGitInfo(projectName, repoURL, cloneBranch, projectBranch, relProjectPath, commentBody, prNumber string, opts WorkflowOptions) (*Workflow, error) {
