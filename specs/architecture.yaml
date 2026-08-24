@@ -56,7 +56,7 @@ modules:
     description: Orchestrates the workflow comment subcommand — workspace setup, AI agent invocation with a rendered comment prompt, commit, and PR reply.
     category: orchestration
   - path: internal/project
-    description: Resolves a project file into its item array and reconciles completion trailers from the branch commit log.
+    description: Resolves a project file into its item array, reconciles completion trailers from the branch commit log, and projects item arrays into indices or values.
     category: implementation
   - path: internal/orchestration/get
     description: Orchestrates the get complete and get incomplete subcommands by resolving the item array and subtracting the indices recorded in the commit log.
@@ -126,7 +126,7 @@ modules:
     description: Carries runtime execution settings across the application.
     category: pipeline
   - path: internal/output
-    description: Routes debug, info, warn, error, and success messages to configurable output and error streams with ANSI color.
+    description: Routes debug, info, warn, error, and success messages and JSON output to configurable output and error streams with ANSI color.
     category: pipeline
   - path: internal/notify
     description: Desktop notification helper for success and error events.

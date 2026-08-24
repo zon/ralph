@@ -1,12 +1,11 @@
 package get
 
 import (
-	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 
 	"github.com/zon/ralph/internal/config"
+	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/project"
 )
 
@@ -57,7 +56,7 @@ func (c *Cmd) Complete(cfg *config.RalphConfig, flags Flags) error {
 	if err != nil {
 		return err
 	}
-	return printJSON(c.out, complete)
+	return output.PrintJSON(c.out, complete)
 }
 
 // Incomplete requires a project file and prints the items whose indices are
@@ -76,17 +75,9 @@ func (c *Cmd) Incomplete(cfg *config.RalphConfig, flags Flags, indexOnly bool) e
 		return err
 	}
 	if indexOnly {
-		indices := make([]int, len(incomplete))
-		for i, it := range incomplete {
-			indices[i] = it.Index
-		}
-		return printJSON(c.out, indices)
+		return output.PrintJSON(c.out, project.ItemIndices(incomplete))
 	}
-	values := make([]any, len(incomplete))
-	for i, it := range incomplete {
-		values[i] = it.Value
-	}
-	return printJSON(c.out, values)
+	return output.PrintJSON(c.out, project.ItemValues(incomplete))
 }
 
 // resolveProject validates the project file on disk and resolves its item
@@ -105,17 +96,4 @@ func resolveBase(flag, defaultBranch string) string {
 		return flag
 	}
 	return defaultBranch
-}
-
-// printJSON writes v as a JSON array followed by a newline.
-func printJSON(w io.Writer, v any) error {
-	data, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-	if _, err := w.Write(data); err != nil {
-		return err
-	}
-	_, err = fmt.Fprintln(w)
-	return err
 }
