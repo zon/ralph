@@ -16,8 +16,8 @@ import (
 // LoopCmd is the `ralph loop` command. It resolves the loop config steps by
 // slug or uses the passed --step values. When steps are given without a slug,
 // it asks the AI for a branch slug. It builds the prompt embedding the steps
-// and retains the resolved slug and steps on the command for the later loop
-// phases.
+// and runs it as an iteration loop. It retains the resolved slug and steps on
+// the command for the later loop phases.
 type LoopCmd struct {
 	Slug    string   `arg:"" optional:"" help:"Slug of the loop configuration in .ralph/config.yaml"`
 	Steps   []string `help:"Step to run in the loop (repeatable)" name:"step"`
@@ -28,8 +28,16 @@ type LoopCmd struct {
 	// nil, Run builds the real adapter that consults the AI.
 	slugProposer loop.SlugProposer `kong:"-"`
 
+	// aiClient runs the loop prompt as an AI agent pass. Tests inject a fake.
+	// When nil, Run builds the real adapter.
+	aiClient loop.AIClient `kong:"-"`
+
+	// reportReader reads the agent's report from report.md. Tests inject a
+	// fake. When nil, Run builds the real adapter.
+	reportReader loop.ReportReader `kong:"-"`
+
 	// resolvedSlug and resolvedSteps retain the resolution of the last Run call
-	// so the later loop phases (iteration, branch creation) can use them.
+	// so the later loop phases (branch commit, pull request) can use them.
 	resolvedSlug  string   `kong:"-"`
 	resolvedSteps []string `kong:"-"`
 }
@@ -46,8 +54,9 @@ func (c *LoopCmd) Validate() error {
 	return nil
 }
 
-// Run wires the orchestration, resolving the slug and steps and retaining them
-// on the command so the later loop phases can use them.
+// Run wires the orchestration, resolving the slug and steps, running the
+// prompt as an iteration loop, and retaining the resolution on the command so
+// the later loop phases can use it.
 func (c *LoopCmd) Run() error {
 	ctx := createExecutionContext()
 	ctx.SetVerbose(c.Verbose)
@@ -58,7 +67,16 @@ func (c *LoopCmd) Run() error {
 		propose = &loopSlugProposer{ctx: ctx}
 	}
 
-	result, err := loop.NewCmd(&config.Client{}, &loopPromptBuilder{}, propose).Run(c.Slug, c.Steps)
+	aiClient := c.aiClient
+	if aiClient == nil {
+		aiClient = &loopAIClient{ctx: ctx}
+	}
+	reportReader := c.reportReader
+	if reportReader == nil {
+		reportReader = &loopReportReader{}
+	}
+
+	result, err := loop.NewCmd(&config.Client{}, &loopPromptBuilder{}, propose, aiClient, reportReader).Run(c.Slug, c.Steps, c.Max)
 	if err != nil {
 		return err
 	}
@@ -85,4 +103,23 @@ type loopPromptBuilder struct{}
 // BuildLoopPrompt builds the loop prompt embedding the given steps.
 func (b *loopPromptBuilder) BuildLoopPrompt(steps []string) (string, error) {
 	return ai.BuildLoopPrompt(steps)
+}
+
+// loopAIClient adapts ai.RunAgent to the orchestration's AIClient interface.
+type loopAIClient struct {
+	ctx *execcontext.Context
+}
+
+// RunAgent runs the loop prompt with opencode's configured agent.
+func (a *loopAIClient) RunAgent(prompt string) error {
+	return ai.RunAgent(a.ctx, opencode.New(), prompt)
+}
+
+// loopReportReader adapts ai.ReadReport to the orchestration's ReportReader
+// interface.
+type loopReportReader struct{}
+
+// ReadReport reads the agent's report from report.md.
+func (r *loopReportReader) ReadReport() (ai.Report, error) {
+	return ai.ReadReport()
 }

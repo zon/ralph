@@ -9,6 +9,8 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/zon/ralph/internal/ai"
 )
 
 // TestLoopCmdParsing covers the `ralph loop` command surface. It checks the
@@ -132,7 +134,7 @@ func writeLoopConfig(t *testing.T, content string) {
 	t.Chdir(tmpDir)
 }
 
-// TestLoopRunWithMatchingSlug asserts Run resolves the matching loops: entry
+// TestLoopRunWithMatchingSlug asserts Run resolves the matching loops entry
 // from the temp config, returns no error, and retains the resolved slug and
 // steps on the command. The fake proposer guards against a regression where a
 // given slug would consult the real AI.
@@ -145,7 +147,7 @@ func TestLoopRunWithMatchingSlug(t *testing.T) {
 `)
 
 	proposer := &fakeSlugProposer{slug: "should-not-be-used"}
-	cmd := &LoopCmd{Slug: "fmt", slugProposer: proposer}
+	cmd := &LoopCmd{Slug: "fmt", slugProposer: proposer, aiClient: &fakeAIClient{}, reportReader: &fakeReportReader{content: "NOTHING_TO_DO"}}
 	err := cmd.Run()
 	require.NoError(t, err)
 	assert.False(t, proposer.called, "the slug proposer is not called when a slug is given")
@@ -154,7 +156,7 @@ func TestLoopRunWithMatchingSlug(t *testing.T) {
 }
 
 // TestLoopRunWithMissingSlug asserts Run returns an error carrying exactly
-// "loop config not found: <slug>" when no loops: entry matches the slug. The
+// "loop config not found: <slug>" when no loops entry matches the slug. The
 // fake proposer guards against a regression where a given slug would consult
 // the real AI.
 func TestLoopRunWithMissingSlug(t *testing.T) {
@@ -165,7 +167,7 @@ func TestLoopRunWithMissingSlug(t *testing.T) {
 `)
 
 	proposer := &fakeSlugProposer{slug: "should-not-be-used"}
-	err := (&LoopCmd{Slug: "missing", slugProposer: proposer}).Run()
+	err := (&LoopCmd{Slug: "missing", slugProposer: proposer, aiClient: &fakeAIClient{}, reportReader: &fakeReportReader{content: "NOTHING_TO_DO"}}).Run()
 	require.Error(t, err)
 	assert.EqualError(t, err, "loop config not found: missing")
 	assert.False(t, proposer.called, "the slug proposer is not called when a slug is given")
@@ -179,7 +181,7 @@ func TestLoopRunWithStepsWithoutSlug(t *testing.T) {
 	t.Chdir(t.TempDir())
 
 	proposer := &fakeSlugProposer{slug: "gofmt"}
-	cmd := &LoopCmd{Steps: []string{"run gofmt"}, slugProposer: proposer}
+	cmd := &LoopCmd{Steps: []string{"run gofmt"}, slugProposer: proposer, aiClient: &fakeAIClient{}, reportReader: &fakeReportReader{content: "NOTHING_TO_DO"}}
 	err := cmd.Run()
 	require.NoError(t, err)
 	assert.True(t, proposer.called, "the slug proposer is asked for a slug when none is given")
@@ -196,16 +198,16 @@ func TestLoopRunWithStepsWithoutSlugPropagatesProposalError(t *testing.T) {
 
 	proposeErr := errors.New("no usable slug proposed by the AI")
 	proposer := &fakeSlugProposer{err: proposeErr}
-	err := (&LoopCmd{Steps: []string{"run gofmt"}, slugProposer: proposer}).Run()
+	err := (&LoopCmd{Steps: []string{"run gofmt"}, slugProposer: proposer, aiClient: &fakeAIClient{}, reportReader: &fakeReportReader{content: "NOTHING_TO_DO"}}).Run()
 	require.Error(t, err)
 	assert.Equal(t, proposeErr, err)
 	assert.True(t, proposer.called, "the slug proposer is consulted before failing")
 }
 
 // TestLoopRunWithSlugAndStepsUsesPassedSteps asserts the wired command prefers
-// the passed steps over the config entry's steps: the config is present but its
-// steps differ, the slug is given, and the slug proposer must never be called.
-// The given slug and the passed steps are retained on the command.
+// the passed steps over the config entry's steps. The config is present but
+// its steps differ, and the slug is given, so the slug proposer must never be
+// called. The given slug and the passed steps are retained on the command.
 func TestLoopRunWithSlugAndStepsUsesPassedSteps(t *testing.T) {
 	writeLoopConfig(t, `loops:
   - slug: fmt
@@ -215,7 +217,7 @@ func TestLoopRunWithSlugAndStepsUsesPassedSteps(t *testing.T) {
 
 	proposer := &fakeSlugProposer{slug: "should-not-be-used"}
 	passed := []string{"write code", "run tests"}
-	cmd := &LoopCmd{Slug: "fmt", Steps: passed, slugProposer: proposer}
+	cmd := &LoopCmd{Slug: "fmt", Steps: passed, slugProposer: proposer, aiClient: &fakeAIClient{}, reportReader: &fakeReportReader{content: "NOTHING_TO_DO"}}
 	err := cmd.Run()
 	require.NoError(t, err)
 	assert.False(t, proposer.called, "the slug proposer is not called when a slug is given")
@@ -239,4 +241,104 @@ func (f *fakeSlugProposer) ProposeSlug(steps []string) (string, error) {
 		return "", f.err
 	}
 	return f.slug, nil
+}
+
+// fakeAIClient records the prompts it ran and returns an injected error when
+// set, so tests never invoke the real AI.
+type fakeAIClient struct {
+	prompts []string
+	err     error
+	calls   int
+}
+
+func (f *fakeAIClient) RunAgent(prompt string) error {
+	f.calls++
+	f.prompts = append(f.prompts, prompt)
+	return f.err
+}
+
+// fakeReportReader returns an injected report content or error, so tests never
+// read the real report.md.
+type fakeReportReader struct {
+	content string
+	err     error
+}
+
+func (f *fakeReportReader) ReadReport() (ai.Report, error) {
+	if f.err != nil {
+		return ai.Report{}, f.err
+	}
+	return ai.Report{Content: f.content}, nil
+}
+
+// TestLoopRunInvokesAIWithLoopPrompt asserts the wired command runs the built
+// loop prompt through the injected AI client exactly once when the report says
+// nothing to do. The given slug never consults the slug proposer.
+func TestLoopRunInvokesAIWithLoopPrompt(t *testing.T) {
+	writeLoopConfig(t, `loops:
+  - slug: fmt
+    steps:
+      - run gofmt
+`)
+
+	ai := &fakeAIClient{}
+	cmd := &LoopCmd{
+		Slug:         "fmt",
+		Max:          10,
+		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
+		aiClient:     ai,
+		reportReader: &fakeReportReader{content: "NOTHING_TO_DO"},
+	}
+	err := cmd.Run()
+	require.NoError(t, err)
+	assert.Equal(t, 1, ai.calls, "the AI is invoked once before the report stops the loop")
+	assert.Len(t, ai.prompts, 1)
+	assert.Contains(t, ai.prompts[0], "run gofmt", "the loop prompt embeds the resolved steps")
+}
+
+// TestLoopRunStopsAfterMaxIterations asserts the wired command respects --max:
+// a report that never says nothing to do runs exactly max AI passes.
+func TestLoopRunStopsAfterMaxIterations(t *testing.T) {
+	writeLoopConfig(t, `loops:
+  - slug: fmt
+    steps:
+      - run gofmt
+`)
+
+	ai := &fakeAIClient{}
+	cmd := &LoopCmd{
+		Slug:         "fmt",
+		Max:          3,
+		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
+		aiClient:     ai,
+		reportReader: &fakeReportReader{content: "did the work"},
+	}
+	err := cmd.Run()
+	require.NoError(t, err)
+	assert.Equal(t, 3, ai.calls, "the AI runs exactly max iterations when the report never says nothing to do")
+}
+
+// TestLoopRunPropagatesAIError asserts an AI failure aborts the wired command
+// and leaves the command without a resolved slug, because the loop fails before
+// the resolution is retained.
+func TestLoopRunPropagatesAIError(t *testing.T) {
+	writeLoopConfig(t, `loops:
+  - slug: fmt
+    steps:
+      - run gofmt
+`)
+
+	aiErr := errors.New("opencode execution failed: boom")
+	ai := &fakeAIClient{err: aiErr}
+	cmd := &LoopCmd{
+		Slug:         "fmt",
+		Max:          10,
+		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
+		aiClient:     ai,
+		reportReader: &fakeReportReader{content: "did the work"},
+	}
+	err := cmd.Run()
+	require.Error(t, err)
+	assert.Equal(t, aiErr, err, "the AI error is returned unchanged")
+	assert.Empty(t, cmd.resolvedSlug, "no slug is retained when the loop fails")
 }

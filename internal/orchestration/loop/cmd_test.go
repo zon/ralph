@@ -24,8 +24,10 @@ func TestRunPassedStepsReplaceConfigSteps(t *testing.T) {
 	}}
 	prompt := &mockPromptBuilder{}
 	proposer := &mockSlugProposer{slug: "proposed"}
+	ai := &mockAIClient{}
+	report := &mockReportReader{reports: nothingToDoReports()}
 
-	result, err := NewCmd(client, prompt, proposer).Run("fmt", steps)
+	result, err := NewCmd(client, prompt, proposer, ai, report).Run("fmt", steps, 10)
 
 	require.NoError(t, err)
 	assertResolved(t, result, "fmt", steps)
@@ -43,14 +45,18 @@ func TestRunRequiresConfigEntryWhenSlugPassedWithSteps(t *testing.T) {
 	}}
 	prompt := &mockPromptBuilder{}
 	proposer := &mockSlugProposer{slug: "proposed"}
+	ai := &mockAIClient{}
+	report := &mockReportReader{reports: nothingToDoReports()}
 
-	result, err := NewCmd(client, prompt, proposer).Run("missing", steps)
+	result, err := NewCmd(client, prompt, proposer, ai, report).Run("missing", steps, 10)
 
 	require.Error(t, err)
 	assert.Nil(t, result, "no resolution is returned when no loop config matches the slug")
 	assert.EqualError(t, err, "loop config not found: missing")
 	assert.False(t, prompt.called, "the prompt builder is not called when no loop config matches the slug")
 	assert.False(t, proposer.called, "the slug proposer is not called when a slug is passed")
+	assert.Zero(t, ai.calls, "the AI is not invoked when the resolution fails")
+	assert.Zero(t, report.reads, "the report is not read when the resolution fails")
 }
 
 func TestRunProposesSlugForPassedSteps(t *testing.T) {
@@ -58,8 +64,10 @@ func TestRunProposesSlugForPassedSteps(t *testing.T) {
 	client := &mockLoopConfigClient{}
 	prompt := &mockPromptBuilder{}
 	proposer := &mockSlugProposer{slug: "fmt"}
+	ai := &mockAIClient{}
+	report := &mockReportReader{reports: nothingToDoReports()}
 
-	result, err := NewCmd(client, prompt, proposer).Run("", steps)
+	result, err := NewCmd(client, prompt, proposer, ai, report).Run("", steps, 10)
 
 	require.NoError(t, err)
 	assertResolved(t, result, "fmt", steps)
@@ -76,14 +84,18 @@ func TestRunPropagatesSlugProposalError(t *testing.T) {
 	client := &mockLoopConfigClient{}
 	prompt := &mockPromptBuilder{}
 	proposer := &mockSlugProposer{err: proposeErr}
+	ai := &mockAIClient{}
+	report := &mockReportReader{reports: nothingToDoReports()}
 
-	result, err := NewCmd(client, prompt, proposer).Run("", steps)
+	result, err := NewCmd(client, prompt, proposer, ai, report).Run("", steps, 10)
 
 	require.Error(t, err)
 	assert.Nil(t, result, "no resolution is returned when slug proposal fails")
 	assert.Equal(t, proposeErr, err)
 	assert.False(t, client.called, "the loop config client is not consulted when steps are passed without a slug")
 	assert.False(t, prompt.called, "the prompt builder is not called when slug proposal fails")
+	assert.Zero(t, ai.calls, "the AI is not invoked when the resolution fails")
+	assert.Zero(t, report.reads, "the report is not read when the resolution fails")
 }
 
 func TestRunUsesMatchingLoopConfigSteps(t *testing.T) {
@@ -93,8 +105,10 @@ func TestRunUsesMatchingLoopConfigSteps(t *testing.T) {
 	}}
 	prompt := &mockPromptBuilder{}
 	proposer := &mockSlugProposer{slug: "proposed"}
+	ai := &mockAIClient{}
+	report := &mockReportReader{reports: nothingToDoReports()}
 
-	result, err := NewCmd(client, prompt, proposer).Run("fmt", nil)
+	result, err := NewCmd(client, prompt, proposer, ai, report).Run("fmt", nil, 10)
 
 	require.NoError(t, err)
 	assertResolved(t, result, "fmt", steps)
@@ -109,14 +123,18 @@ func TestRunReturnsLoopConfigNotFoundWithoutBuildingPrompt(t *testing.T) {
 	}}
 	prompt := &mockPromptBuilder{}
 	proposer := &mockSlugProposer{}
+	ai := &mockAIClient{}
+	report := &mockReportReader{reports: nothingToDoReports()}
 
-	result, err := NewCmd(client, prompt, proposer).Run("missing", nil)
+	result, err := NewCmd(client, prompt, proposer, ai, report).Run("missing", nil, 10)
 
 	require.Error(t, err)
 	assert.Nil(t, result, "no resolution is returned when no loop config matches")
 	assert.EqualError(t, err, "loop config not found: missing")
 	assert.False(t, prompt.called, "the prompt builder is not called when no loop config matches")
 	assert.False(t, proposer.called, "the slug proposer is not called when a slug is passed")
+	assert.Zero(t, ai.calls, "the AI is not invoked when the resolution fails")
+	assert.Zero(t, report.reads, "the report is not read when the resolution fails")
 }
 
 func TestRunPropagatesLoopConfigLookupError(t *testing.T) {
@@ -124,13 +142,17 @@ func TestRunPropagatesLoopConfigLookupError(t *testing.T) {
 	client := &mockLoopConfigClient{err: lookupErr}
 	prompt := &mockPromptBuilder{}
 	proposer := &mockSlugProposer{}
+	ai := &mockAIClient{}
+	report := &mockReportReader{reports: nothingToDoReports()}
 
-	result, err := NewCmd(client, prompt, proposer).Run("fmt", nil)
+	result, err := NewCmd(client, prompt, proposer, ai, report).Run("fmt", nil, 10)
 
 	require.Error(t, err)
 	assert.Nil(t, result, "no resolution is returned when the loop config lookup fails")
 	assert.Equal(t, lookupErr, err)
 	assert.False(t, prompt.called, "the prompt builder is not called when the loop config lookup fails")
+	assert.Zero(t, ai.calls, "the AI is not invoked when the resolution fails")
+	assert.Zero(t, report.reads, "the report is not read when the resolution fails")
 }
 
 func TestRunPropagatesPromptBuildError(t *testing.T) {
@@ -140,21 +162,27 @@ func TestRunPropagatesPromptBuildError(t *testing.T) {
 	promptErr := errors.New("prompt build boom")
 	prompt := &mockPromptBuilder{err: promptErr}
 	proposer := &mockSlugProposer{}
+	ai := &mockAIClient{}
+	report := &mockReportReader{reports: nothingToDoReports()}
 
-	result, err := NewCmd(client, prompt, proposer).Run("fmt", nil)
+	result, err := NewCmd(client, prompt, proposer, ai, report).Run("fmt", nil, 10)
 
 	require.Error(t, err)
 	assert.Nil(t, result, "no resolution is returned when the prompt fails to build")
 	assert.Equal(t, promptErr, err)
 	assert.True(t, prompt.called)
+	assert.Zero(t, ai.calls, "the AI is not invoked when the prompt fails to build")
+	assert.Zero(t, report.reads, "the report is not read when the prompt fails to build")
 }
 
-func TestRunWithNoSlugAndNoStepsBuildsPromptWithoutConsultingAI(t *testing.T) {
+func TestRunWithNoSlugAndNoStepsResolvesEmptyAndBuildsEmptyPrompt(t *testing.T) {
 	client := &mockLoopConfigClient{}
 	prompt := &mockPromptBuilder{}
 	proposer := &mockSlugProposer{slug: "proposed"}
+	ai := &mockAIClient{}
+	report := &mockReportReader{reports: nothingToDoReports()}
 
-	result, err := NewCmd(client, prompt, proposer).Run("", nil)
+	result, err := NewCmd(client, prompt, proposer, ai, report).Run("", nil, 10)
 
 	require.NoError(t, err)
 	assertResolved(t, result, "", nil)
@@ -162,4 +190,6 @@ func TestRunWithNoSlugAndNoStepsBuildsPromptWithoutConsultingAI(t *testing.T) {
 	assert.False(t, proposer.called, "the slug proposer is not called when there are no steps")
 	assert.True(t, prompt.called, "the prompt builder is called with no steps")
 	assert.Empty(t, prompt.steps)
+	assert.Equal(t, 1, ai.calls, "the AI is invoked once before the nothing-to-do report stops the loop")
+	assert.Equal(t, 1, report.reads, "the report is read once before the nothing-to-do report stops the loop")
 }
