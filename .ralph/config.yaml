@@ -1,9 +1,7 @@
 workflow:
   namespace: ralph
 model: deepseek/deepseek-v4-flash
-agent: code-architect
 variant: high
-items: .
 cleanup: true
 review:
   items:
