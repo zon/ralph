@@ -710,3 +710,59 @@ func TestBuildLoopPrompt(t *testing.T) {
 		})
 	}
 }
+
+func TestBuildLoopSlugPrompt(t *testing.T) {
+	tests := []struct {
+		name       string
+		steps      []string
+		outputPath string
+		check      func(t *testing.T, prompt string)
+	}{
+		{
+			name:       "embeds steps in the order given",
+			steps:      []string{"run gofmt", "run go vet", "run tests"},
+			outputPath: "/tmp/loop-slug.txt",
+			check: func(t *testing.T, prompt string) {
+				assert.NotEmpty(t, prompt, "loop slug prompt should not be empty")
+				first := strings.Index(prompt, "run gofmt")
+				second := strings.Index(prompt, "run go vet")
+				third := strings.Index(prompt, "run tests")
+				require.Greater(t, first, -1, "first step must appear in the prompt")
+				require.Greater(t, second, -1, "second step must appear in the prompt")
+				require.Greater(t, third, -1, "third step must appear in the prompt")
+				assert.Less(t, first, second, "first step must appear before the second")
+				assert.Less(t, second, third, "second step must appear before the third")
+			},
+		},
+		{
+			name:       "resolves the output path to an absolute path",
+			steps:      []string{"run gofmt"},
+			outputPath: "relative/loop-slug.txt",
+			check: func(t *testing.T, prompt string) {
+				absPath, _ := filepath.Abs("relative/loop-slug.txt")
+				assert.Contains(t, prompt, absPath)
+			},
+		},
+		{
+			name:       "instructs the AI to write only the slug",
+			steps:      []string{"run gofmt"},
+			outputPath: "/tmp/loop-slug.txt",
+			check: func(t *testing.T, prompt string) {
+				assert.Contains(t, prompt, "Write the slug to the file: /tmp/loop-slug.txt")
+				assert.Contains(t, prompt, "lowercase letters")
+				assert.Contains(t, prompt, "hyphens")
+				assert.NotContains(t, prompt, "docs/formats/")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			prompt, err := BuildLoopSlugPrompt(tt.steps, tt.outputPath)
+			require.NoError(t, err, "BuildLoopSlugPrompt failed")
+			if tt.check != nil {
+				tt.check(t, prompt)
+			}
+		})
+	}
+}

@@ -563,7 +563,7 @@ func TestRunOpenCodeAndReadResult(t *testing.T) {
 					},
 				}
 			},
-			wantErr: "failed to read summary file:",
+			wantErr: "failed to read output file:",
 		},
 		{
 			name: "whitespace-only output returns summary is empty",
@@ -698,26 +698,9 @@ func TestCreateTempFile(t *testing.T) {
 	assert.Positive(t, n)
 }
 
-// writeOutputFromChangelogPrompt extracts the output file path from a changelog prompt
-// containing "Write the changelog entry to the file: <path>" and writes content to it.
-func writeOutputFromChangelogPrompt(prompt, content string) error {
-	prefix := "Write the changelog entry to the file: "
-	idx := strings.Index(prompt, prefix)
-	if idx < 0 {
-		return fmt.Errorf("changelog output file path not found in prompt")
-	}
-	rest := prompt[idx+len(prefix):]
-	if nl := strings.IndexByte(rest, '\n'); nl >= 0 {
-		rest = rest[:nl]
-	}
-	path := strings.TrimSpace(rest)
-	return os.WriteFile(path, []byte(content), 0644)
-}
-
-// writeOutputFromPrompt extracts the output file path from a prompt containing
-// "Write your summary to the file: <path>" and writes content to it.
-func writeOutputFromPrompt(prompt, content string) error {
-	prefix := "Write your summary to the file: "
+// writeOutputFromPromptWithPrefix extracts the output file path that follows
+// the given marker in the prompt and writes content to it.
+func writeOutputFromPromptWithPrefix(prefix string, prompt, content string) error {
 	idx := strings.Index(prompt, prefix)
 	if idx < 0 {
 		return fmt.Errorf("output file path not found in prompt")
@@ -728,6 +711,24 @@ func writeOutputFromPrompt(prompt, content string) error {
 	}
 	path := strings.TrimSpace(rest)
 	return os.WriteFile(path, []byte(content), 0644)
+}
+
+// writeOutputFromChangelogPrompt extracts the output file path from a changelog prompt
+// containing "Write the changelog entry to the file: <path>" and writes content to it.
+func writeOutputFromChangelogPrompt(prompt, content string) error {
+	return writeOutputFromPromptWithPrefix("Write the changelog entry to the file: ", prompt, content)
+}
+
+// writeOutputFromPrompt extracts the output file path from a prompt containing
+// "Write your summary to the file: <path>" and writes content to it.
+func writeOutputFromPrompt(prompt, content string) error {
+	return writeOutputFromPromptWithPrefix("Write your summary to the file: ", prompt, content)
+}
+
+// writeOutputFromSlugPrompt extracts the output file path from a loop slug
+// prompt containing "Write the slug to the file: <path>" and writes content to it.
+func writeOutputFromSlugPrompt(prompt, content string) error {
+	return writeOutputFromPromptWithPrefix("Write the slug to the file: ", prompt, content)
 }
 
 // assertTempFileCleanedUp verifies no files with the given prefix remain in tmp/.
@@ -1127,6 +1128,277 @@ func TestGenerateReviewPRBodyNeverPassesAgent(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, "review body", result)
 			assert.Equal(t, "", capturedAgent, "the PR review body prompt must never pass --agent to opencode, so it always runs with the primary agent")
+		})
+	}
+}
+
+func TestProposeLoopSlug(t *testing.T) {
+	dir := t.TempDir()
+	testutil.InitGitRepo(t, dir)
+	t.Chdir(dir)
+
+	errCommandFailed := errors.New("command failed")
+
+	tests := []struct {
+		name      string
+		setupMock func(*testing.T) *opencode.MockOC
+		want      string
+		wantErr   string
+		wantErrIs error
+	}{
+		{
+			name: "success returns trimmed slug and cleans up temp file",
+			setupMock: func(t *testing.T) *opencode.MockOC {
+				return &opencode.MockOC{
+					RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+						return writeOutputFromSlugPrompt(prompt, "  fix-formatting\n")
+					},
+				}
+			},
+			want: "fix-formatting",
+		},
+		{
+			name: "letters, digits, and hyphens only is usable",
+			setupMock: func(t *testing.T) *opencode.MockOC {
+				return &opencode.MockOC{
+					RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+						return writeOutputFromSlugPrompt(prompt, "fmt-vet")
+					},
+				}
+			},
+			want: "fmt-vet",
+		},
+		{
+			name: "digits in the slug are usable",
+			setupMock: func(t *testing.T) *opencode.MockOC {
+				return &opencode.MockOC{
+					RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+						return writeOutputFromSlugPrompt(prompt, "format42")
+					},
+				}
+			},
+			want: "format42",
+		},
+		{
+			name: "runcommand error is wrapped and temp file cleaned up",
+			setupMock: func(t *testing.T) *opencode.MockOC {
+				return &opencode.MockOC{
+					RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+						return errCommandFailed
+					},
+				}
+			},
+			wantErr:   "opencode execution failed:",
+			wantErrIs: errCommandFailed,
+		},
+		{
+			name: "whitespace-only output returns no usable slug error",
+			setupMock: func(t *testing.T) *opencode.MockOC {
+				return &opencode.MockOC{
+					RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+						return writeOutputFromSlugPrompt(prompt, "   \n  \n")
+					},
+				}
+			},
+			wantErr: "no usable slug proposed by the AI",
+		},
+		{
+			name: "output containing a space returns no usable slug error",
+			setupMock: func(t *testing.T) *opencode.MockOC {
+				return &opencode.MockOC{
+					RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+						return writeOutputFromSlugPrompt(prompt, "fix formatting")
+					},
+				}
+			},
+			wantErr: "no usable slug proposed by the AI",
+		},
+		{
+			name: "repeated dots return no usable slug error",
+			setupMock: func(t *testing.T) *opencode.MockOC {
+				return &opencode.MockOC{
+					RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+						return writeOutputFromSlugPrompt(prompt, "fix..format")
+					},
+				}
+			},
+			wantErr: "no usable slug proposed by the AI",
+		},
+		{
+			name: "mixed case returns no usable slug error",
+			setupMock: func(t *testing.T) *opencode.MockOC {
+				return &opencode.MockOC{
+					RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+						return writeOutputFromSlugPrompt(prompt, "Fix_Formatting")
+					},
+				}
+			},
+			wantErr: "no usable slug proposed by the AI",
+		},
+		{
+			name: "slash returns no usable slug error",
+			setupMock: func(t *testing.T) *opencode.MockOC {
+				return &opencode.MockOC{
+					RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+						return writeOutputFromSlugPrompt(prompt, "fix/format")
+					},
+				}
+			},
+			wantErr: "no usable slug proposed by the AI",
+		},
+		{
+			name: "non-ascii letters return no usable slug error",
+			setupMock: func(t *testing.T) *opencode.MockOC {
+				return &opencode.MockOC{
+					RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+						return writeOutputFromSlugPrompt(prompt, "héllo")
+					},
+				}
+			},
+			wantErr: "no usable slug proposed by the AI",
+		},
+		{
+			name: "slug starting with a hyphen returns no usable slug error",
+			setupMock: func(t *testing.T) *opencode.MockOC {
+				return &opencode.MockOC{
+					RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+						return writeOutputFromSlugPrompt(prompt, "-fix")
+					},
+				}
+			},
+			wantErr: "no usable slug proposed by the AI",
+		},
+		{
+			name: "slug of only hyphens returns no usable slug error",
+			setupMock: func(t *testing.T) *opencode.MockOC {
+				return &opencode.MockOC{
+					RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+						return writeOutputFromSlugPrompt(prompt, "--")
+					},
+				}
+			},
+			wantErr: "no usable slug proposed by the AI",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := &execcontext.Context{}
+			mockOC := tt.setupMock(t)
+			result, err := ProposeLoopSlug(ctx, mockOC, []string{"run gofmt"})
+
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+				if tt.wantErrIs != nil {
+					assert.True(t, errors.Is(err, tt.wantErrIs), "wrapped error should be reachable via errors.Is")
+				}
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.want, result)
+			}
+
+			assertTempFileCleanedUp(t, dir, "loop-slug")
+		})
+	}
+
+	t.Run("prompt passed to opencode embeds the steps and the output path", func(t *testing.T) {
+		var capturedPrompt string
+		mockOC := &opencode.MockOC{
+			RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+				capturedPrompt = prompt
+				return writeOutputFromSlugPrompt(prompt, "fix-formatting")
+			},
+		}
+		ctx := &execcontext.Context{}
+		_, err := ProposeLoopSlug(ctx, mockOC, []string{"run gofmt", "run go vet"})
+		require.NoError(t, err)
+		assert.Contains(t, capturedPrompt, "run gofmt")
+		assert.Contains(t, capturedPrompt, "run go vet")
+		assert.Contains(t, capturedPrompt, filepath.Join(dir, "tmp", "loop-slug-"))
+		assert.Contains(t, capturedPrompt, ".md")
+	})
+
+	t.Run("logs prompt when verbose", func(t *testing.T) {
+		var buf bytes.Buffer
+		ctx := &execcontext.Context{}
+		ctx.SetVerbose(true)
+		ctx.SetOutput(output.NewClient(&buf, &buf, true))
+
+		mockOC := &opencode.MockOC{
+			RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+				return writeOutputFromSlugPrompt(prompt, "fix-formatting")
+			},
+		}
+
+		_, err := ProposeLoopSlug(ctx, mockOC, []string{"run gofmt"})
+		require.NoError(t, err)
+		assert.Contains(t, buf.String(), "run gofmt")
+	})
+
+	t.Run("does not log when not verbose", func(t *testing.T) {
+		var buf bytes.Buffer
+		ctx := &execcontext.Context{}
+		ctx.SetVerbose(false)
+		ctx.SetOutput(output.NewClient(&buf, &buf, false))
+
+		mockOC := &opencode.MockOC{
+			RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+				return writeOutputFromSlugPrompt(prompt, "fix-formatting")
+			},
+		}
+
+		_, err := ProposeLoopSlug(ctx, mockOC, []string{"run gofmt"})
+		require.NoError(t, err)
+		assert.Empty(t, buf.String())
+	})
+}
+
+// TestProposeLoopSlugNeverPassesAgent covers all four branches of agent
+// resolution: the loop slug prompt produces a supporting artifact and must run
+// with opencode's primary agent, never passing --agent.
+func TestProposeLoopSlugNeverPassesAgent(t *testing.T) {
+	tests := []struct {
+		name        string
+		flagAgent   string
+		configAgent bool
+	}{
+		{name: "flag agent set only", flagAgent: "code-reviewer"},
+		{name: "config agent set only", configAgent: true},
+		{name: "flag and config agents set", flagAgent: "code-reviewer", configAgent: true},
+		{name: "neither flag nor config agent set"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			testutil.InitGitRepo(t, dir)
+			t.Chdir(dir)
+
+			require.NoError(t, os.MkdirAll(".ralph", 0755))
+			configContent := "defaultBranch: main\nmodel: deepseek/deepseek-chat\n"
+			if tt.configAgent {
+				configContent += "agent: build\n"
+			}
+			require.NoError(t, os.WriteFile(".ralph/config.yaml", []byte(configContent), 0644))
+
+			ctx := &execcontext.Context{}
+			if tt.flagAgent != "" {
+				ctx.SetAgent(tt.flagAgent)
+			}
+
+			var capturedAgent string
+			mockOC := &opencode.MockOC{
+				RunCommandFunc: func(_ context.Context, _, _, agent, prompt string, _, _ io.Writer) error {
+					capturedAgent = agent
+					return writeOutputFromSlugPrompt(prompt, "fix-formatting")
+				},
+			}
+
+			result, err := ProposeLoopSlug(ctx, mockOC, []string{"run gofmt"})
+			require.NoError(t, err)
+			assert.Equal(t, "fix-formatting", result)
+			assert.Equal(t, "", capturedAgent, "the loop slug prompt must never pass --agent to opencode, so it always runs with the primary agent")
 		})
 	}
 }

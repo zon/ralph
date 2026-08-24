@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,16 +12,17 @@ import (
 )
 
 // TestLoopCmdParsing covers the `ralph loop` command surface. It checks the
-// optional slug argument, the repeatable --step flags, and the --max default
-// of 10. It also checks the usage errors produced by Validate.
+// optional slug argument, the repeatable --step flags, the --max default of
+// 10, the --verbose flag, and the usage errors produced by Validate.
 func TestLoopCmdParsing(t *testing.T) {
 	tests := []struct {
-		name      string
-		args      []string
-		wantSlug  string
-		wantSteps []string
-		wantMax   int
-		wantErr   string
+		name        string
+		args        []string
+		wantSlug    string
+		wantSteps   []string
+		wantMax     int
+		wantVerbose bool
+		wantErr     string
 	}{
 		{
 			name:     "slug argument parses and max defaults to 10",
@@ -46,6 +48,13 @@ func TestLoopCmdParsing(t *testing.T) {
 			args:     []string{"loop", "feature-x", "--max", "3"},
 			wantSlug: "feature-x",
 			wantMax:  3,
+		},
+		{
+			name:        "explicit --verbose parses",
+			args:        []string{"loop", "feature-x", "--verbose"},
+			wantSlug:    "feature-x",
+			wantMax:     10,
+			wantVerbose: true,
 		},
 		{
 			name:    "usage error when neither slug nor step given",
@@ -83,6 +92,7 @@ func TestLoopCmdParsing(t *testing.T) {
 			assert.Equal(t, tt.wantSlug, cmd.Loop.Slug)
 			assert.Equal(t, tt.wantSteps, cmd.Loop.Steps)
 			assert.Equal(t, tt.wantMax, cmd.Loop.Max)
+			assert.Equal(t, tt.wantVerbose, cmd.Loop.Verbose)
 		})
 	}
 }
@@ -95,6 +105,7 @@ func TestLoopCmdHelpText(t *testing.T) {
 	assert.Contains(t, output, "Run AI iterations over a set of steps")
 	assert.Contains(t, output, "--max")
 	assert.Contains(t, output, "--step")
+	assert.Contains(t, output, "--verbose")
 }
 
 // TestLoopMaxNegativeSpaceFormRejected asserts kong rejects a negative --max
@@ -122,7 +133,9 @@ func writeLoopConfig(t *testing.T, content string) {
 }
 
 // TestLoopRunWithMatchingSlug asserts Run resolves the matching loops: entry
-// from the temp config and returns no error.
+// from the temp config, returns no error, and retains the resolved slug and
+// steps on the command. The fake proposer guards against a regression where a
+// given slug would consult the real AI.
 func TestLoopRunWithMatchingSlug(t *testing.T) {
 	writeLoopConfig(t, `loops:
   - slug: fmt
@@ -131,12 +144,19 @@ func TestLoopRunWithMatchingSlug(t *testing.T) {
       - run go vet
 `)
 
-	err := (&LoopCmd{Slug: "fmt"}).Run()
+	proposer := &fakeSlugProposer{slug: "should-not-be-used"}
+	cmd := &LoopCmd{Slug: "fmt", slugProposer: proposer}
+	err := cmd.Run()
 	require.NoError(t, err)
+	assert.False(t, proposer.called, "the slug proposer is not called when a slug is given")
+	assert.Equal(t, "fmt", cmd.resolvedSlug, "the given slug is retained on the command")
+	assert.Equal(t, []string{"run gofmt", "run go vet"}, cmd.resolvedSteps, "the config entry's steps are retained on the command")
 }
 
 // TestLoopRunWithMissingSlug asserts Run returns an error carrying exactly
-// "loop config not found: <slug>" when no loops: entry matches the slug.
+// "loop config not found: <slug>" when no loops: entry matches the slug. The
+// fake proposer guards against a regression where a given slug would consult
+// the real AI.
 func TestLoopRunWithMissingSlug(t *testing.T) {
 	writeLoopConfig(t, `loops:
   - slug: fmt
@@ -144,16 +164,75 @@ func TestLoopRunWithMissingSlug(t *testing.T) {
       - run gofmt
 `)
 
-	err := (&LoopCmd{Slug: "missing"}).Run()
+	proposer := &fakeSlugProposer{slug: "should-not-be-used"}
+	err := (&LoopCmd{Slug: "missing", slugProposer: proposer}).Run()
 	require.Error(t, err)
 	assert.EqualError(t, err, "loop config not found: missing")
+	assert.False(t, proposer.called, "the slug proposer is not called when a slug is given")
 }
 
 // TestLoopRunWithStepsWithoutSlug asserts Run accepts steps without a slug and
-// needs no config file present.
+// needs no config file present. The injected fake proposer supplies the slug,
+// so the real AI (opencode) is never consulted. The proposed slug and the
+// passed steps are retained on the command.
 func TestLoopRunWithStepsWithoutSlug(t *testing.T) {
 	t.Chdir(t.TempDir())
 
-	err := (&LoopCmd{Steps: []string{"run gofmt"}}).Run()
+	proposer := &fakeSlugProposer{slug: "gofmt"}
+	cmd := &LoopCmd{Steps: []string{"run gofmt"}, slugProposer: proposer}
+	err := cmd.Run()
 	require.NoError(t, err)
+	assert.True(t, proposer.called, "the slug proposer is asked for a slug when none is given")
+	assert.Equal(t, []string{"run gofmt"}, proposer.steps)
+	assert.Equal(t, "gofmt", cmd.resolvedSlug, "the proposed slug is retained on the command")
+	assert.Equal(t, []string{"run gofmt"}, cmd.resolvedSteps, "the passed steps are retained on the command")
+}
+
+// TestLoopRunWithStepsWithoutSlugPropagatesProposalError asserts that when the
+// slug proposer fails (the "AI produces no usable slug" path), Run returns that
+// error unchanged.
+func TestLoopRunWithStepsWithoutSlugPropagatesProposalError(t *testing.T) {
+	t.Chdir(t.TempDir())
+
+	proposeErr := errors.New("no usable slug proposed by the AI")
+	proposer := &fakeSlugProposer{err: proposeErr}
+	err := (&LoopCmd{Steps: []string{"run gofmt"}, slugProposer: proposer}).Run()
+	require.Error(t, err)
+	assert.Equal(t, proposeErr, err)
+	assert.True(t, proposer.called, "the slug proposer is consulted before failing")
+}
+
+// TestLoopRunWithSlugAndStepsUsesPassedSteps asserts the wired command prefers
+// the passed steps over the config entry's steps: the config is present but its
+// steps differ, the slug is given, and the slug proposer must never be called.
+func TestLoopRunWithSlugAndStepsUsesPassedSteps(t *testing.T) {
+	writeLoopConfig(t, `loops:
+  - slug: fmt
+    steps:
+      - run gofmt
+`)
+
+	proposer := &fakeSlugProposer{slug: "should-not-be-used"}
+	passed := []string{"write code", "run tests"}
+	err := (&LoopCmd{Slug: "fmt", Steps: passed, slugProposer: proposer}).Run()
+	require.NoError(t, err)
+	assert.False(t, proposer.called, "the slug proposer is not called when a slug is given")
+}
+
+// fakeSlugProposer records the steps it was called with and returns an injected
+// slug or error, so tests never invoke the real AI.
+type fakeSlugProposer struct {
+	steps  []string
+	slug   string
+	err    error
+	called bool
+}
+
+func (f *fakeSlugProposer) ProposeSlug(steps []string) (string, error) {
+	f.called = true
+	f.steps = steps
+	if f.err != nil {
+		return "", f.err
+	}
+	return f.slug, nil
 }
