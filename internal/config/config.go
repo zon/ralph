@@ -211,6 +211,12 @@ type ValidateConfig struct {
 	Model string `yaml:"model,omitempty"`
 }
 
+// LoopConfig represents a named loop configuration with a slug and steps
+type LoopConfig struct {
+	Slug  string   `yaml:"slug"`
+	Steps []string `yaml:"steps"`
+}
+
 // RalphConfig represents the .ralph/config.yaml structure
 type RalphConfig struct {
 	Variant             string         `yaml:"variant,omitempty"`
@@ -227,6 +233,7 @@ type RalphConfig struct {
 	App                 AppInfo        `yaml:"app,omitempty"`
 	Review              ReviewConfig   `yaml:"review,omitempty"`
 	Validate            ValidateConfig `yaml:"validate,omitempty"`
+	Loops               []LoopConfig   `yaml:"loops,omitempty"`
 	ConfigPath          string         `yaml:"-"` // Path to the loaded config file
 	Instructions        string         `yaml:"-"` // Not persisted in YAML, loaded from .ralph/instructions.md
 	CommentInstructions string         `yaml:"-"` // Not persisted in YAML, loaded from .ralph/comment-instructions.md
@@ -334,6 +341,17 @@ func (c *RalphConfig) ResolveCleanup(flag *bool) bool {
 		return *flag
 	}
 	return c.Cleanup
+}
+
+// LoopSteps returns the steps of the first loop config matching the slug, or
+// an error when none matches.
+func (c *RalphConfig) LoopSteps(slug string) ([]string, error) {
+	for _, loop := range c.Loops {
+		if loop.Slug == slug {
+			return loop.Steps, nil
+		}
+	}
+	return nil, fmt.Errorf("loop config not found: %s", slug)
 }
 
 // FindConfigDir searches upwards from startDir for a .ralph directory

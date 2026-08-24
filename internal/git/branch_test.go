@@ -73,6 +73,32 @@ func TestSanitizeBranchName(t *testing.T) {
 	}
 }
 
+func TestLoopBranch(t *testing.T) {
+	tests := []struct {
+		name         string
+		slug         string
+		expectedName string
+	}{
+		{
+			name:         "non-empty slug",
+			slug:         "fmt",
+			expectedName: "loop-fmt",
+		},
+		{
+			name:         "empty slug",
+			slug:         "",
+			expectedName: "loop-",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := LoopBranch(tt.slug)
+			assert.Equal(t, tt.expectedName, got, "LoopBranch should return expected value")
+		})
+	}
+}
+
 func TestGetCurrentBranch(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	t.Chdir(tempDir)

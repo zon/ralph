@@ -157,6 +157,78 @@ func TestGitClientCommitFromReportFailsWhenNoReport(t *testing.T) {
 	assert.Contains(t, err.Error(), "report.md")
 }
 
+func TestGitClientCommitIterationAndPush(t *testing.T) {
+	workDir := t.TempDir()
+	t.Chdir(workDir)
+	testutil.InitGitRepo(t, workDir)
+	testutil.MakeInitialCommit(t, workDir)
+	setupLocalRemote(t, workDir)
+
+	ctx := context.NewContext()
+	client := git.NewClient(ctx)
+
+	baseBranch := currentBranch(t, workDir)
+	baseHead := revParse(t, workDir, "HEAD")
+
+	reportContent := "Implement requirement: adapter-git"
+	require.NoError(t, os.WriteFile("report.md", []byte(reportContent), 0644))
+	require.NoError(t, os.WriteFile("newfile.txt", []byte("change"), 0644))
+
+	err := client.CommitIterationAndPush("fmt")
+	require.NoError(t, err)
+
+	assert.Equal(t, "loop-fmt", currentBranch(t, workDir), "the client switches to the loop branch")
+	assert.Equal(t, revParse(t, workDir, "HEAD"), revParse(t, workDir, "origin/loop-fmt"), "the iteration commit is pushed to the loop branch")
+	assert.Equal(t, baseHead, revParse(t, workDir, baseBranch), "the base branch still points at its original HEAD, so the loop branch was created from it")
+	_, err = os.Stat("report.md")
+	assert.True(t, os.IsNotExist(err), "report.md should be deleted after the iteration commit")
+	assert.Equal(t, reportContent, lastCommitMessage(t, workDir), "the last commit message is the report content")
+	assert.NotContains(t, lsTreeFiles(t, workDir, "origin/loop-fmt"), "report.md", "the pushed loop branch tree must not contain report.md")
+	assert.Empty(t, gitStatusPorcelain(t, workDir), "the working tree must be clean after the iteration commit")
+}
+
+func TestGitClientCommitIterationAndPushReusesExistingBranch(t *testing.T) {
+	workDir := t.TempDir()
+	t.Chdir(workDir)
+	testutil.InitGitRepo(t, workDir)
+	testutil.MakeInitialCommit(t, workDir)
+	setupLocalRemote(t, workDir)
+
+	ctx := context.NewContext()
+	client := git.NewClient(ctx)
+
+	firstReport := "iteration one"
+	require.NoError(t, os.WriteFile("report.md", []byte(firstReport), 0644))
+	require.NoError(t, os.WriteFile("file1.txt", []byte("one"), 0644))
+	require.NoError(t, client.CommitIterationAndPush("fmt"))
+
+	secondReport := "iteration two"
+	require.NoError(t, os.WriteFile("report.md", []byte(secondReport), 0644))
+	require.NoError(t, os.WriteFile("file2.txt", []byte("two"), 0644))
+
+	err := client.CommitIterationAndPush("fmt")
+	require.NoError(t, err)
+
+	assert.Equal(t, "loop-fmt", currentBranch(t, workDir), "the client stays on the loop branch")
+	assert.Equal(t, revParse(t, workDir, "HEAD"), revParse(t, workDir, "origin/loop-fmt"), "the second iteration commit is pushed to the loop branch")
+	assert.Equal(t, secondReport, lastCommitMessage(t, workDir), "the last commit message is the second report content")
+	assert.NotContains(t, lsTreeFiles(t, workDir, "origin/loop-fmt"), "report.md", "the pushed loop branch tree must not contain report.md")
+	assert.Empty(t, gitStatusPorcelain(t, workDir), "the working tree must be clean after the iteration commit")
+}
+
+func TestGitClientCommitIterationAndPushFailsWhenNoReport(t *testing.T) {
+	workDir := t.TempDir()
+	t.Chdir(workDir)
+	testutil.InitGitRepo(t, workDir)
+	testutil.MakeInitialCommit(t, workDir)
+
+	client := git.NewClient(context.NewContext())
+
+	err := client.CommitIterationAndPush("fmt")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "report.md")
+}
+
 func TestGitClientCommitGeneratedArtifacts(t *testing.T) {
 	workDir := t.TempDir()
 	t.Chdir(workDir)
@@ -251,6 +323,15 @@ func revParse(t *testing.T, dir, ref string) string {
 	return strings.TrimSpace(string(out))
 }
 
+func currentBranch(t *testing.T, dir string) string {
+	t.Helper()
+	c := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
+	c.Dir = dir
+	out, err := c.CombinedOutput()
+	require.NoError(t, err, "git rev-parse --abbrev-ref HEAD failed")
+	return strings.TrimSpace(string(out))
+}
+
 func lastCommitMessage(t *testing.T, dir string) string {
 	t.Helper()
 	c := exec.Command("git", "log", "-1", "--format=%B")
@@ -275,6 +356,24 @@ func setupLocalRemote(t *testing.T, dir string) {
 	c = exec.Command("git", "push", "--set-upstream", "origin", "main")
 	c.Dir = dir
 	require.NoError(t, c.Run())
+}
+
+func lsTreeFiles(t *testing.T, dir, ref string) string {
+	t.Helper()
+	c := exec.Command("git", "ls-tree", "-r", ref, "--name-only")
+	c.Dir = dir
+	out, err := c.CombinedOutput()
+	require.NoError(t, err, "git ls-tree -r %s --name-only", ref)
+	return string(out)
+}
+
+func gitStatusPorcelain(t *testing.T, dir string) string {
+	t.Helper()
+	c := exec.Command("git", "status", "--porcelain")
+	c.Dir = dir
+	out, err := c.CombinedOutput()
+	require.NoError(t, err, "git status --porcelain failed")
+	return string(out)
 }
 
 type testBlockedError struct {

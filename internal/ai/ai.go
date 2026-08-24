@@ -3,6 +3,7 @@ package ai
 import (
 	"bytes"
 	_ "embed"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -50,6 +51,12 @@ var itemDevelopInstructions string
 //go:embed development-item-instructions.md
 var itemDefaultInstructions string
 
+//go:embed loop-instructions.md
+var loopInstructions string
+
+//go:embed loop-slug-instructions.md
+var loopSlugInstructions string
+
 type FixServicePromptData struct {
 	Notes       []string
 	ServiceName string
@@ -85,10 +92,22 @@ type LoopItemPromptData struct {
 	FunctionPath string
 }
 
+// LoopPromptData carries the steps of the loop.
+type LoopPromptData struct {
+	Steps []string
+}
+
+// LoopSlugPromptData carries the steps of the loop and the output file path
+// where the AI must write the proposed branch slug.
+type LoopSlugPromptData struct {
+	Steps      []string
+	OutputFile string
+}
+
 type WriteProjectPromptData struct {
-	InputPath        string
-	InputType        string
-	HasOrchestration bool
+	InputPath         string
+	InputType         string
+	HasOrchestration  bool
 	OrchestrationPath string
 }
 
@@ -211,6 +230,26 @@ func BuildLoopItemPrompt(content, functionName, functionPath string) (string, er
 		return "", err
 	}
 	return executeTemplate(reviewInstructions, ReviewItemPromptData{ItemContent: rendered})
+}
+
+// BuildLoopPrompt renders the loop prompt embedding the given steps in order.
+func BuildLoopPrompt(steps []string) (string, error) {
+	return executeTemplate(loopInstructions, LoopPromptData{Steps: steps})
+}
+
+// BuildLoopSlugPrompt renders the loop slug prompt embedding the given steps in
+// order and the absolute path of the file the AI must write the slug to.
+func BuildLoopSlugPrompt(steps []string, outputPath string) (string, error) {
+	absPath, err := filepath.Abs(outputPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path: %w", err)
+	}
+
+	data := LoopSlugPromptData{
+		Steps:      steps,
+		OutputFile: absPath,
+	}
+	return executeTemplate(loopSlugInstructions, data)
 }
 
 type ProjectFixPromptData struct {
@@ -379,7 +418,11 @@ func createTempFile(name string) (*os.File, error) {
 	return os.Create(path)
 }
 
-func runOpenCodeAndReadResult(ctx *execcontext.Context, oc opencode.OCClient, model, prompt, outputFile string) (string, error) {
+// runOpenCodeAndReadContent runs opencode with the given prompt and returns the
+// trimmed content of the output file. Unlike runOpenCodeAndReadResult it does
+// not treat an empty result as an error, so callers can apply their own
+// validation.
+func runOpenCodeAndReadContent(ctx *execcontext.Context, oc opencode.OCClient, model, prompt, outputFile string) (string, error) {
 	var stdoutWriter, stderrWriter io.Writer
 	if ctx.IsVerbose() {
 		stdoutWriter = os.Stdout
@@ -392,15 +435,23 @@ func runOpenCodeAndReadResult(ctx *execcontext.Context, oc opencode.OCClient, mo
 
 	summaryBytes, err := os.ReadFile(outputFile)
 	if err != nil {
-		return "", fmt.Errorf("failed to read summary file: %w", err)
+		return "", fmt.Errorf("failed to read output file: %w", err)
 	}
 
-	summary := strings.TrimSpace(string(summaryBytes))
-	if summary == "" {
-		return "", fmt.Errorf("summary file is empty")
+	return strings.TrimSpace(string(summaryBytes)), nil
+}
+
+func runOpenCodeAndReadResult(ctx *execcontext.Context, oc opencode.OCClient, model, prompt, outputFile string) (string, error) {
+	content, err := runOpenCodeAndReadContent(ctx, oc, model, prompt, outputFile)
+	if err != nil {
+		return "", err
 	}
 
-	return summary, nil
+	if content == "" {
+		return "", fmt.Errorf("output file is empty")
+	}
+
+	return content, nil
 }
 
 func GeneratePRSummary(ctx *execcontext.Context, oc opencode.OCClient, projectDesc, baseBranch, commitLog string) (summary string, err error) {
@@ -488,3 +539,52 @@ func GenerateReviewPRBody(ctx *execcontext.Context, oc opencode.OCClient, projec
 	return summary, nil
 }
 
+// usableSlug reports whether the AI proposed a usable slug: non-empty after
+// trimming, a single token of lowercase letters, digits, and hyphens only, not
+// starting or ending with a hyphen, and without consecutive hyphens.
+func usableSlug(s string) bool {
+	s = strings.TrimSpace(s)
+	if s == "" || s[0] == '-' || s[len(s)-1] == '-' || strings.Contains(s, "--") {
+		return false
+	}
+	for _, r := range s {
+		if (r < 'a' || r > 'z') && (r < '0' || r > '9') && r != '-' {
+			return false
+		}
+	}
+	return true
+}
+
+// ProposeLoopSlug asks the AI to read the loop steps and propose a short slug
+// for the git branch that will run them. It returns an error when the AI
+// produces no usable slug.
+func ProposeLoopSlug(ctx *execcontext.Context, oc opencode.OCClient, steps []string) (slug string, err error) {
+	f, err := createTempFile("loop-slug.md")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temporary loop slug file: %w", err)
+	}
+	f.Close()
+	tmpFile := f.Name()
+	defer os.Remove(tmpFile)
+
+	slugPrompt, err := BuildLoopSlugPrompt(steps, tmpFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to build loop slug prompt: %w", err)
+	}
+
+	if ctx.IsVerbose() {
+		ctx.Output().Debug(slugPrompt)
+	}
+
+	model := resolveModel(ctx)
+	content, err := runOpenCodeAndReadContent(ctx, oc, model, slugPrompt, tmpFile)
+	if err != nil {
+		return "", err
+	}
+
+	if !usableSlug(content) {
+		return "", errors.New("no usable slug proposed by the AI")
+	}
+
+	return content, nil
+}

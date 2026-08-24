@@ -73,8 +73,25 @@ func (a *Client) CreatePR(proj *project.Project) error {
 		return fmt.Errorf("failed to generate PR summary: %w", err)
 	}
 
-	branchName := git.SanitizeBranchName(proj.Slug)
+	return a.openPullRequest(proj, git.SanitizeBranchName(proj.Slug), a.baseBranch, prSummary)
+}
 
+// OpenLoopPullRequest opens a pull request from loop-<slug> to the base branch
+// when the loop branch has commits ahead of the base. When there are no commits
+// ahead of the base, no pull request is opened and the call succeeds.
+func (a *Client) OpenLoopPullRequest(slug string) error {
+	commitLog, err := a.commitLog.GetCommitLog(a.baseBranch, 100)
+	if err != nil {
+		return fmt.Errorf("failed to get commit log: %w", err)
+	}
+	if strings.TrimSpace(commitLog) == "" {
+		a.ctx.Output().Debug("No commits ahead of base branch; skipping PR creation")
+		return nil
+	}
+	return a.openPullRequest(&project.Project{Slug: slug}, git.LoopBranch(slug), a.baseBranch, commitLog)
+}
+
+func (a *Client) openPullRequest(proj *project.Project, head, base, body string) error {
 	if a.ctx.IsWorkflowExecution() {
 		owner, repoName := a.ctx.RepoOwnerAndName()
 		if err := a.gitAuthConfigurer.ConfigureGitAuth(gocontext.Background(), owner, repoName, DefaultSecretsDir); err != nil {
@@ -82,7 +99,7 @@ func (a *Client) CreatePR(proj *project.Project) error {
 		}
 	}
 
-	prURL, err := CreatePullRequest(a.ctx.Output(), a.gh, proj, branchName, a.baseBranch, prSummary)
+	prURL, err := CreatePullRequest(a.ctx.Output(), a.gh, proj, head, base, body)
 	if err != nil {
 		if errors.Is(err, ErrNoCommitsBetweenBranches) {
 			a.ctx.Output().Debug("No commits ahead of base branch; skipping PR creation")

@@ -194,3 +194,8 @@ func SwitchToProjectBranch(ctx *context.Context, branchName string) error {
 	}
 	return nil
 }
+
+// LoopBranch returns the branch a loop run commits its iterations to.
+func LoopBranch(slug string) string {
+	return "loop-" + slug
+}
