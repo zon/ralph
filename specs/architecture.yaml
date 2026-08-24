@@ -120,7 +120,7 @@ modules:
     description: Loads and parses the ralph configuration file.
     category: implementation
   - path: internal/webhookconfig
-    description: Loads, validates, builds, and provisions the ralph-webhook service configuration and secrets, including Kubernetes configmap/secret read/write via internal/k8s and GitHub webhook registration via internal/github.
+    description: Loads, validates, builds, and provisions the ralph-webhook service configuration and secrets.
     category: implementation
   - path: internal/context
     description: Carries runtime execution settings across the application.
