@@ -27,11 +27,20 @@ type WorkflowLoopCmd struct {
 	Verbose     bool     `help:"Enable verbose logging" default:"false"`
 	Model       string   `help:"Override the AI model from config" name:"model"`
 	Agent       string   `help:"Override the opencode agent from config" name:"agent"`
+
+	// workspaceSetup prepares the container workspace before the loop runs.
+	// Tests inject a fake. When nil, Run builds the real adapter.
+	workspaceSetup orchestrationLoop.WorkspaceSetupClient `kong:"-"`
+
+	// loopRunner runs the loop in-process after the workspace is prepared.
+	// Tests inject a fake. When nil, Run builds the real adapter.
+	loopRunner orchestrationLoop.LoopRunnerClient `kong:"-"`
 }
 
 func (w *WorkflowLoopCmd) Run() error {
 	ctx := createExecutionContext()
 	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, w.Verbose))
+	ctx.SetVerbose(w.Verbose)
 	if parts := strings.SplitN(w.Repo, "/", 2); len(parts) == 2 {
 		ctx.SetRepoOwner(parts[0])
 		ctx.SetRepoName(parts[1])
@@ -45,7 +54,6 @@ func (w *WorkflowLoopCmd) Run() error {
 	ctx.SetNoNotify(true)
 	ctx.SetWorkflowExecution(true)
 
-	cmd := newOrchestrationWorkflowLoopCmd(ctx)
 	flags := orchestrationLoop.WorkflowLoopFlags{
 		Repo:        w.Repo,
 		CloneBranch: w.CloneBranch,
@@ -55,14 +63,21 @@ func (w *WorkflowLoopCmd) Run() error {
 		Steps:       w.Steps,
 		Max:         w.Max,
 	}
-	return cmd.Run(flags)
+	return w.newOrchestrationWorkflowLoopCmd(ctx).Run(flags)
 }
 
-func newOrchestrationWorkflowLoopCmd(ctx *execcontext.Context) *orchestrationLoop.WorkflowLoopCmd {
-	return orchestrationLoop.NewWorkflowLoopCmd(
-		&workspaceSetupAdapter{ctx: ctx},
-		&loopWorkflowRunnerAdapter{ctx: ctx},
-	)
+// newOrchestrationWorkflowLoopCmd wires the container-side workflow loop
+// command. Tests inject fakes for the workspace setup and loop runner.
+func (w *WorkflowLoopCmd) newOrchestrationWorkflowLoopCmd(ctx *execcontext.Context) *orchestrationLoop.WorkflowLoopCmd {
+	workspace := w.workspaceSetup
+	if workspace == nil {
+		workspace = &workspaceSetupAdapter{ctx: ctx}
+	}
+	runner := w.loopRunner
+	if runner == nil {
+		runner = &loopWorkflowRunnerAdapter{ctx: ctx}
+	}
+	return orchestrationLoop.NewWorkflowLoopCmd(workspace, runner)
 }
 
 // loopWorkflowRunnerAdapter implements orchestration/loop.LoopRunnerClient and
