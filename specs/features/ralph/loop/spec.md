@@ -2,9 +2,112 @@
 
 ## Purpose
 
-The `loop` command runs a bounded AI iteration loop over a list of steps. Given a slug, ralph looks up the matching loop config in the `loops:` section of `.ralph/config.yaml`, embeds that config's `steps` in a prompt, and runs the prompt until the agent reports nothing left to do or the `--max` cap is reached. Every iteration that does real work is committed and pushed to a `loop-<slug>` branch. When the loop ends with commits on that branch, ralph opens a pull request. Steps can also be supplied directly with `--step` flags, which replace the config's `steps`. When steps are supplied without a slug, ralph asks the AI to read the steps and propose a slug.
+The `loop` command runs a bounded AI iteration loop over a list of steps. Given a slug, ralph looks up the matching loop config in the `loops:` section of `.ralph/config.yaml`, embeds that config's `steps` in a prompt, and runs the prompt until the agent reports nothing left to do or the `--max` cap is reached. Every iteration that does real work is committed and pushed to a `loop-<slug>` branch. When the loop ends with commits on that branch, ralph opens a pull request. Steps can also be supplied directly with `--step` flags, which replace the config's `steps`. When steps are supplied without a slug, ralph asks the AI to read the steps and propose a slug. Execution can be delegated to an Argo Workflow (default) or run directly on the local machine (`--local`).
+
+Mode-specific behaviors are defined in:
+- [run-remote/spec.md](../run-remote/spec.md) — default: submits an Argo Workflow to Kubernetes, with the same remote defaults and config as `ralph run`
+- `--local`: runs the loop in-process on the local machine, as described by the requirements below
 
 ## Requirements
+
+### Requirement: Execution mode selection
+
+The command SHALL support two execution modes. By default the command SHALL submit an Argo Workflow to Kubernetes, and the loop SHALL run inside the workflow container. With `--local`, the command SHALL run the loop in-process on the local machine without submitting a workflow. The loop body — slug and step resolution, prompt construction, iteration, commit and push, and pull request opening — SHALL behave identically in both modes.
+
+#### Scenario: Default mode submits a workflow
+
+- GIVEN no `--local` flag is passed
+- WHEN the command starts
+- THEN an Argo Workflow is submitted to Kubernetes
+- AND the loop runs inside the workflow container
+
+#### Scenario: `--local` runs in-process
+
+- GIVEN the user passes `--local`
+- WHEN the command starts
+- THEN the loop runs in-process on the local machine
+- AND no workflow is submitted
+
+#### Scenario: Loop body runs in both modes
+
+- GIVEN either `--local` or the default remote mode
+- WHEN the loop executes
+- THEN the requirements below for slug and step resolution, prompt construction, iteration, commit and push, and pull request opening apply unchanged
+
+---
+
+### Requirement: Incompatible flags are rejected
+
+The command SHALL reject flag combinations that have no valid meaning before any execution begins.
+
+#### Scenario: `--follow` with `--local`
+
+- GIVEN the user passes both `--follow` and `--local`
+- WHEN the command validates flag combinations
+- THEN an error is returned: `--follow flag is not applicable with --local flag`
+
+---
+
+### Requirement: Remote behavior matches `ralph run`
+
+The command SHALL reuse the remote defaults and config of `ralph run` as defined in [run/spec.md](../run/spec.md) and [run-remote/spec.md](../run-remote/spec.md). The resolved model, Kubernetes context, base branch, branch-sync check, ralph-owned workflow label, and notification behavior SHALL be the same as for `ralph run`.
+
+Model resolution SHALL follow the same two-level precedence as `ralph run`: `--model` at the command line takes priority; otherwise the top-level `model` field in `.ralph/config.yaml` is used, defaulting to `deepseek/deepseek-chat` when unset. `--context` SHALL override the Kubernetes context used for workflow submission. Before submission the command SHALL verify, exactly as `ralph run` does, that the current branch exists on the remote and that local and remote are at the same commit.
+
+#### Scenario: Config model used when no flag is passed
+
+- GIVEN `model: anthropic/claude-sonnet-4-6` is set in `.ralph/config.yaml`
+- AND no `--model` flag is passed
+- WHEN the command runs
+- THEN `anthropic/claude-sonnet-4-6` is used as the AI model
+
+#### Scenario: Default model used when config is unset
+
+- GIVEN `model` is not set in `.ralph/config.yaml`
+- AND no `--model` flag is passed
+- WHEN the command runs
+- THEN `deepseek/deepseek-chat` is used as the AI model
+
+#### Scenario: `--context` overrides the Kubernetes context
+
+- GIVEN the user passes `--context my-cluster`
+- WHEN a remote workflow is submitted
+- THEN `my-cluster` is used as the Kubernetes context instead of the default
+
+#### Scenario: Branch must be in sync with remote before submission
+
+- GIVEN the current branch has no remote tracking ref, or local and remote differ at the current commit
+- WHEN the command checks branch sync
+- THEN an error is returned
+- AND no workflow is submitted
+
+#### Scenario: Workflow carries the slug and steps into the container
+
+- GIVEN a loop with slug `fmt` and resolved steps
+- WHEN the workflow YAML is generated
+- THEN the container runs the loop with the slug `fmt` and the resolved steps
+
+---
+
+### Requirement: `--follow` streams logs after submission
+
+The command SHALL accept `--follow`. With `--follow`, the command SHALL stream the workflow logs and wait for the workflow to finish before returning. Without `--follow`, the command SHALL print the `argo logs` command the user can run to follow the workflow and return after submission. Notification behavior on followed workflows SHALL match [run-remote/spec.md](../run-remote/spec.md).
+
+#### Scenario: Log hint printed after submission
+
+- GIVEN a workflow is submitted without `--follow`
+- WHEN the workflow name is printed
+- THEN ralph also prints the `argo logs` command the user can run to follow the workflow
+- AND the command returns without waiting
+
+#### Scenario: `--follow` waits for completion
+
+- GIVEN the user passes `--follow`
+- AND the workflow is submitted successfully
+- WHEN the workflow runs
+- THEN ralph streams the Argo workflow logs and blocks until the workflow finishes
+
+---
 
 ### Requirement: Slug or steps required
 
