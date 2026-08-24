@@ -1,17 +1,9 @@
-`ralph loop` opens a pull request for the loop branch when the loop ends
+Apply a semver minor bump to the app version
 
-When the loop ends, `ralph loop` now opens a pull request from `loop-<slug>`
-to the branch the loop branch was created from, but only when the loop branch
-has at least one commit ahead of that base. When no commits were made, the
-command exits successfully without opening a pull request. The new
-`github.Client.OpenLoopPullRequest` skips PR creation (without error) when the
-loop branch has no commits ahead of the base, reuses the existing PR creation
-path via a shared `openPullRequest` helper, and wires a `PullRequestOpener`
-interface through `LoopCmd` and `loop.Cmd` with fake-based test coverage.
-Exported `git.LoopBranch` for reuse.
+Bump the app version to 21.1.0: update internal/version/VERSION and the
+chart's appVersion. Patch-bump the ralph-webhook chart version to 2.0.97.
+The existing version package tests assert the VERSION file stays valid
+semver and the chart appVersion matches the app version; they pass after
+the bump.
 
-Tests cover the delegation to the existing PR creation path, the skip when no
-commits are ahead, the no-commits sentinel, workflow git-auth refresh, error
-propagation, and the wired command paths.
-
-Ralph item 6 completed
+Ralph item 7 completed
