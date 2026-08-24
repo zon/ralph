@@ -121,7 +121,7 @@ modules:
     description: Wraps the gh CLI and the GitHub App API for GitHub operations, authentication, and webhook payload parsing.
     category: implementation
   - path: internal/projectfile
-    description: Reads and writes project files — YAML and JSON parsing, jq item-query evaluation via gojq, canonical YAML output that preserves the document's content and key order, and project file removal.
+    description: Reads and writes project files and evaluates jq item queries.
     category: implementation
   - path: internal/config
     description: Loads and parses the ralph configuration file.
