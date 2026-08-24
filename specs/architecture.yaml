@@ -150,6 +150,9 @@ modules:
   - path: internal/docker
     description: Test-only package that validates the repository Containerfile, image push script, and container build CI workflow.
     category: implementation
+  - path: internal/repostructure
+    description: Test-only package that validates repository structure, documentation consistency, and references to removed modules.
+    category: implementation
   - path: internal/testutil
     description: Shared test helpers and factories used across the test suite.
     category: implementation
