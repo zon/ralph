@@ -4,7 +4,6 @@ import (
 	"os"
 
 	"github.com/alecthomas/kong"
-	"github.com/zon/ralph/internal/cleanup"
 	"github.com/zon/ralph/internal/cmd"
 	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/version"
@@ -13,7 +12,7 @@ import (
 // Date is set via ldflags during build
 var Date = "unknown"
 
-var cleanupManager = cleanup.NewManager(output.NewClient(os.Stdout, os.Stderr, false))
+var cleanupManager = NewManager(output.NewClient(os.Stdout, os.Stderr, false))
 
 func main() {
 	cleanupManager.SetupSignalHandlers()
