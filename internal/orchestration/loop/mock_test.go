@@ -73,15 +73,38 @@ func nothingToDoReports() []string {
 // mockAIClient records the prompts it ran and returns an injected error when
 // set.
 type mockAIClient struct {
-	prompts []string
-	err     error
-	calls   int
+	prompts      []string
+	err          error
+	calls        int
+	statsPrinted bool
 }
 
 func (m *mockAIClient) RunAgent(prompt string) error {
 	m.calls++
 	m.prompts = append(m.prompts, prompt)
 	return m.err
+}
+
+func (m *mockAIClient) PrintStats() {
+	m.statsPrinted = true
+}
+
+// mockEnvClient reports whether the command is executing inside a workflow
+// container.
+type mockEnvClient struct {
+	inWorkflow bool
+}
+
+func (m *mockEnvClient) InWorkflow() bool {
+	return m.inWorkflow
+}
+
+func envInWorkflow() *mockEnvClient {
+	return &mockEnvClient{inWorkflow: true}
+}
+
+func envNotInWorkflow() *mockEnvClient {
+	return &mockEnvClient{inWorkflow: false}
 }
 
 // mockReportReader serves a sequence of report contents, one per read, and

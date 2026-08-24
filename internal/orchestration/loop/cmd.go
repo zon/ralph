@@ -23,6 +23,14 @@ type SlugProposer interface {
 // AIClient runs the loop prompt as one AI agent pass.
 type AIClient interface {
 	RunAgent(prompt string) error
+	// PrintStats prints the accumulated AI token usage and cost statistics.
+	PrintStats()
+}
+
+// EnvClient reports whether the command is executing inside a workflow
+// container, where token usage and cost statistics are printed on completion.
+type EnvClient interface {
+	InWorkflow() bool
 }
 
 // ReportReader reads the agent's report from report.md.
@@ -55,10 +63,11 @@ type Cmd struct {
 	report  ReportReader
 	git     GitClient
 	pr      PullRequestOpener
+	env     EnvClient
 }
 
-func NewCmd(cfg LoopConfigClient, prompt PromptBuilder, propose SlugProposer, ai AIClient, report ReportReader, git GitClient, pr PullRequestOpener) *Cmd {
-	return &Cmd{cfg: cfg, prompt: prompt, propose: propose, ai: ai, report: report, git: git, pr: pr}
+func NewCmd(cfg LoopConfigClient, prompt PromptBuilder, propose SlugProposer, ai AIClient, report ReportReader, git GitClient, pr PullRequestOpener, env EnvClient) *Cmd {
+	return &Cmd{cfg: cfg, prompt: prompt, propose: propose, ai: ai, report: report, git: git, pr: pr, env: env}
 }
 
 // Result carries the resolution of a loop invocation: the branch slug and the
@@ -73,8 +82,13 @@ type Result struct {
 // the steps, and runs it as an iteration loop. The loop stops when the agent
 // reports nothing to do or after max iterations, whichever comes first. After
 // the loop ends it opens the loop branch's pull request. It returns the
-// resolution so the caller can derive the branch name from the slug.
+// resolution so the caller can derive the branch name from the slug. Inside a
+// workflow container the accumulated AI token usage and cost statistics are
+// printed at the end of execution, whether the loop succeeded or failed.
 func (c *Cmd) Run(slug string, steps []string, max int) (*Result, error) {
+	if c.env.InWorkflow() {
+		defer c.ai.PrintStats()
+	}
 	result, err := c.resolve(slug, steps)
 	if err != nil {
 		return nil, err

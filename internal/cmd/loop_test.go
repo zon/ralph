@@ -375,15 +375,20 @@ func (f *fakeSlugProposer) ProposeSlug(steps []string) (string, error) {
 // fakeAIClient records the prompts it ran and returns an injected error when
 // set, so tests never invoke the real AI.
 type fakeAIClient struct {
-	prompts []string
-	err     error
-	calls   int
+	prompts      []string
+	err          error
+	calls        int
+	statsPrinted bool
 }
 
 func (f *fakeAIClient) RunAgent(prompt string) error {
 	f.calls++
 	f.prompts = append(f.prompts, prompt)
 	return f.err
+}
+
+func (f *fakeAIClient) PrintStats() {
+	f.statsPrinted = true
 }
 
 // fakeReportReader returns an injected report content or error, so tests never
