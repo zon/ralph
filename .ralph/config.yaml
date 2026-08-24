@@ -3,7 +3,7 @@ workflow:
 model: deepseek/deepseek-v4-flash
 agent: code-architect
 variant: high
-items: .requirements
+items: .
 cleanup: true
 review:
   items:
