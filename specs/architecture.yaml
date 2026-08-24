@@ -118,7 +118,7 @@ modules:
     description: Filesystem helpers for preparing the container workspace — credential placement, repo checkout, and directory changes.
     category: implementation
   - path: internal/github
-    description: Wrapper around the gh CLI for GitHub API operations, authentication, and webhook payload parsing.
+    description: Wraps the gh CLI and the GitHub App API for GitHub operations, authentication, and webhook payload parsing.
     category: implementation
   - path: internal/projectfile
     description: Reads and writes project files — YAML and JSON parsing, jq item-query evaluation via gojq, canonical YAML output that preserves the document's content and key order, and project file removal.
