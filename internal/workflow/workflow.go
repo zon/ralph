@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strconv"
 
 	"github.com/zon/ralph/internal/argo"
 	"github.com/zon/ralph/internal/config"
@@ -66,6 +67,17 @@ type Workflow struct {
 	Labels map[string]string
 	// Command is the command tokens to pass to `ralph workflow --command -- <tokens>`.
 	Command []string
+	// Loop carries the loop invocation the container runs when set. When set,
+	// the container script calls `ralph workflow loop` instead of `ralph workflow run`.
+	Loop *LoopSpec
+}
+
+// LoopSpec carries the loop invocation a loop workflow runs: the slug, steps,
+// and maximum iterations.
+type LoopSpec struct {
+	Slug  string
+	Steps []string
+	Max   int
 }
 
 // Render produces the Argo Workflow YAML string for this Workflow.
@@ -167,6 +179,34 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 		command = []string{"ralph"}
 		args = []string{"workflow", "--command", "--"}
 		args = append(args, w.Command...)
+		if w.Verbose {
+			args = append(args, "--verbose")
+		}
+		if w.Model != "" {
+			args = append(args, "--model", w.Model)
+		}
+		if w.Agent != "" {
+			args = append(args, "--agent", w.Agent)
+		}
+
+	case w.Loop != nil:
+		command = []string{"ralph"}
+		args = []string{"workflow", "loop"}
+		if w.Loop.Slug != "" {
+			args = append(args, "--slug", w.Loop.Slug)
+		}
+		args = append(args,
+			"--repo", w.Repo.Owner+"/"+w.Repo.Name,
+			"--clone-branch", w.CloneBranch,
+			"--bot-name", config.DefaultAppName+"[bot]",
+			"--bot-email", config.DefaultAppName+"[bot]@users.noreply.github.com",
+		)
+		if w.Loop.Max > 0 {
+			args = append(args, "--max", strconv.Itoa(w.Loop.Max))
+		}
+		for _, step := range w.Loop.Steps {
+			args = append(args, "--step", step)
+		}
 		if w.Verbose {
 			args = append(args, "--verbose")
 		}

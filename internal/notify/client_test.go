@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/zon/ralph/internal/context"
+	orchestrationLoop "github.com/zon/ralph/internal/orchestration/loop"
 	orchestrationRun "github.com/zon/ralph/internal/orchestration/run"
 	"github.com/zon/ralph/internal/output"
 )
@@ -32,6 +33,7 @@ func TestNotifyClientShouldNotifyFromContext(t *testing.T) {
 
 func TestNotifyClientImplementsInterface(t *testing.T) {
 	var _ orchestrationRun.NotifyClient = &Client{}
+	var _ orchestrationLoop.NotifyClient = &Client{}
 }
 
 func TestClientNotify_SendsCorrectNotification(t *testing.T) {

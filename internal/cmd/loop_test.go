@@ -11,20 +11,27 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/zon/ralph/internal/ai"
+	execcontext "github.com/zon/ralph/internal/context"
 )
 
 // TestLoopCmdParsing covers the `ralph loop` command surface. It checks the
 // optional slug argument, the repeatable --step flags, the --max default of
-// 10, the --verbose flag, and the usage errors produced by Validate.
+// 10, the --verbose flag, the --local, --follow, and --no-notify flags, and
+// the usage errors produced by Validate.
 func TestLoopCmdParsing(t *testing.T) {
 	tests := []struct {
-		name        string
-		args        []string
-		wantSlug    string
-		wantSteps   []string
-		wantMax     int
-		wantVerbose bool
-		wantErr     string
+		name         string
+		args         []string
+		wantSlug     string
+		wantSteps    []string
+		wantMax      int
+		wantVerbose  bool
+		wantLocal    bool
+		wantFollow   bool
+		wantNoNotify bool
+		wantModel    string
+		wantContext  string
+		wantErr      string
 	}{
 		{
 			name:     "slug argument parses and max defaults to 10",
@@ -59,6 +66,56 @@ func TestLoopCmdParsing(t *testing.T) {
 			wantVerbose: true,
 		},
 		{
+			name:      "--local parses",
+			args:      []string{"loop", "feature-x", "--local"},
+			wantSlug:  "feature-x",
+			wantMax:   10,
+			wantLocal: true,
+		},
+		{
+			name:       "--follow parses",
+			args:       []string{"loop", "feature-x", "--follow"},
+			wantSlug:   "feature-x",
+			wantMax:    10,
+			wantFollow: true,
+		},
+		{
+			name:       "-f short form parses",
+			args:       []string{"loop", "feature-x", "-f"},
+			wantSlug:   "feature-x",
+			wantMax:    10,
+			wantFollow: true,
+		},
+		{
+			name:         "--no-notify parses",
+			args:         []string{"loop", "feature-x", "--no-notify"},
+			wantSlug:     "feature-x",
+			wantMax:      10,
+			wantNoNotify: true,
+		},
+		{
+			name:      "--model parses",
+			args:      []string{"loop", "feature-x", "--model", "gpt-4"},
+			wantSlug:  "feature-x",
+			wantMax:   10,
+			wantModel: "gpt-4",
+		},
+		{
+			name:        "--context parses",
+			args:        []string{"loop", "feature-x", "--context", "prod-cluster"},
+			wantSlug:    "feature-x",
+			wantMax:     10,
+			wantContext: "prod-cluster",
+		},
+		{
+			name:        "--model and --context parse together",
+			args:        []string{"loop", "feature-x", "--model", "gpt-4", "--context", "prod-cluster"},
+			wantSlug:    "feature-x",
+			wantMax:     10,
+			wantModel:   "gpt-4",
+			wantContext: "prod-cluster",
+		},
+		{
 			name:    "usage error when neither slug nor step given",
 			args:    []string{"loop"},
 			wantErr: "a slug or at least one --step is required",
@@ -72,6 +129,16 @@ func TestLoopCmdParsing(t *testing.T) {
 			name:    "negative --max rejected before execution",
 			args:    []string{"loop", "feature-x", "--max=-1"},
 			wantErr: "--max must be positive",
+		},
+		{
+			name:    "--follow rejected together with --local before execution",
+			args:    []string{"loop", "feature-x", "--local", "--follow"},
+			wantErr: "--follow flag is not applicable with --local flag",
+		},
+		{
+			name:    "--follow rejected together with --local in short form before execution",
+			args:    []string{"loop", "feature-x", "--local", "-f"},
+			wantErr: "--follow flag is not applicable with --local flag",
 		},
 	}
 
@@ -95,6 +162,63 @@ func TestLoopCmdParsing(t *testing.T) {
 			assert.Equal(t, tt.wantSteps, cmd.Loop.Steps)
 			assert.Equal(t, tt.wantMax, cmd.Loop.Max)
 			assert.Equal(t, tt.wantVerbose, cmd.Loop.Verbose)
+			assert.Equal(t, tt.wantLocal, cmd.Loop.Local)
+			assert.Equal(t, tt.wantFollow, cmd.Loop.Follow)
+			assert.Equal(t, tt.wantNoNotify, cmd.Loop.NoNotify)
+			assert.Equal(t, tt.wantModel, cmd.Loop.Model)
+			assert.Equal(t, tt.wantContext, cmd.Loop.Context)
+		})
+	}
+}
+
+// TestLoopApplyToContextWiresModelAndContext asserts the --model and --context
+// flags are resolved into the execution context the same way `ralph run`
+// resolves them, so the local AI path and the remote workflow generation read
+// the overrides downstream.
+func TestLoopApplyToContextWiresModelAndContext(t *testing.T) {
+	tests := []struct {
+		name         string
+		model        string
+		context      string
+		noNotify     bool
+		wantModel    string
+		wantContext  string
+		wantVerbose  bool
+		wantLocal    bool
+		wantFollow   bool
+		wantNoNotify bool
+	}{
+		{
+			name:        "overrides flow into the context",
+			model:       "gpt-4",
+			context:     "prod-cluster",
+			wantModel:   "gpt-4",
+			wantContext: "prod-cluster",
+		},
+		{
+			name:         "--no-notify flows into the context",
+			noNotify:     true,
+			wantNoNotify: true,
+		},
+		{
+			name:        "unset flags leave the context empty for config fallback",
+			wantModel:   "",
+			wantContext: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := &LoopCmd{Model: tt.model, Context: tt.context, Verbose: tt.wantVerbose, Local: tt.wantLocal, Follow: tt.wantFollow, NoNotify: tt.noNotify}
+			ctx := execcontext.NewContext()
+			cmd.applyToContext(ctx)
+
+			assert.Equal(t, tt.wantModel, ctx.Model(), "the model override is applied to the context")
+			assert.Equal(t, tt.wantContext, ctx.KubeContext(), "the kube context override is applied to the context")
+			assert.Equal(t, tt.wantVerbose, ctx.IsVerbose())
+			assert.Equal(t, tt.wantLocal, ctx.IsLocal())
+			assert.Equal(t, tt.wantFollow, ctx.ShouldFollow())
+			assert.Equal(t, tt.wantNoNotify, ctx.NoNotify())
 		})
 	}
 }
@@ -108,6 +232,11 @@ func TestLoopCmdHelpText(t *testing.T) {
 	assert.Contains(t, output, "--max")
 	assert.Contains(t, output, "--step")
 	assert.Contains(t, output, "--verbose")
+	assert.Contains(t, output, "--local")
+	assert.Contains(t, output, "--follow")
+	assert.Contains(t, output, "--no-notify")
+	assert.Contains(t, output, "--model")
+	assert.Contains(t, output, "--context")
 }
 
 // TestLoopMaxNegativeSpaceFormRejected asserts kong rejects a negative --max
@@ -147,7 +276,7 @@ func TestLoopRunWithMatchingSlug(t *testing.T) {
 `)
 
 	proposer := &fakeSlugProposer{slug: "should-not-be-used"}
-	cmd := &LoopCmd{Slug: "fmt", slugProposer: proposer, aiClient: &fakeAIClient{}, reportReader: &fakeReportReader{content: "NOTHING_TO_DO"}, prClient: &fakePullRequestOpener{}}
+	cmd := &LoopCmd{Local: true, Slug: "fmt", slugProposer: proposer, aiClient: &fakeAIClient{}, reportReader: &fakeReportReader{content: "NOTHING_TO_DO"}, prClient: &fakePullRequestOpener{}}
 	err := cmd.Run()
 	require.NoError(t, err)
 	assert.False(t, proposer.called, "the slug proposer is not called when a slug is given")
@@ -167,7 +296,7 @@ func TestLoopRunWithMissingSlug(t *testing.T) {
 `)
 
 	proposer := &fakeSlugProposer{slug: "should-not-be-used"}
-	err := (&LoopCmd{Slug: "missing", slugProposer: proposer, aiClient: &fakeAIClient{}, reportReader: &fakeReportReader{content: "NOTHING_TO_DO"}, prClient: &fakePullRequestOpener{}}).Run()
+	err := (&LoopCmd{Local: true, Slug: "missing", slugProposer: proposer, aiClient: &fakeAIClient{}, reportReader: &fakeReportReader{content: "NOTHING_TO_DO"}, prClient: &fakePullRequestOpener{}}).Run()
 	require.Error(t, err)
 	assert.EqualError(t, err, "loop config not found: missing")
 	assert.False(t, proposer.called, "the slug proposer is not called when a slug is given")
@@ -181,7 +310,7 @@ func TestLoopRunWithStepsWithoutSlug(t *testing.T) {
 	t.Chdir(t.TempDir())
 
 	proposer := &fakeSlugProposer{slug: "gofmt"}
-	cmd := &LoopCmd{Steps: []string{"run gofmt"}, slugProposer: proposer, aiClient: &fakeAIClient{}, reportReader: &fakeReportReader{content: "NOTHING_TO_DO"}, prClient: &fakePullRequestOpener{}}
+	cmd := &LoopCmd{Local: true, Steps: []string{"run gofmt"}, slugProposer: proposer, aiClient: &fakeAIClient{}, reportReader: &fakeReportReader{content: "NOTHING_TO_DO"}, prClient: &fakePullRequestOpener{}}
 	err := cmd.Run()
 	require.NoError(t, err)
 	assert.True(t, proposer.called, "the slug proposer is asked for a slug when none is given")
@@ -198,7 +327,7 @@ func TestLoopRunWithStepsWithoutSlugPropagatesProposalError(t *testing.T) {
 
 	proposeErr := errors.New("no usable slug proposed by the AI")
 	proposer := &fakeSlugProposer{err: proposeErr}
-	err := (&LoopCmd{Steps: []string{"run gofmt"}, slugProposer: proposer, aiClient: &fakeAIClient{}, reportReader: &fakeReportReader{content: "NOTHING_TO_DO"}, prClient: &fakePullRequestOpener{}}).Run()
+	err := (&LoopCmd{Local: true, Steps: []string{"run gofmt"}, slugProposer: proposer, aiClient: &fakeAIClient{}, reportReader: &fakeReportReader{content: "NOTHING_TO_DO"}, prClient: &fakePullRequestOpener{}}).Run()
 	require.Error(t, err)
 	assert.Equal(t, proposeErr, err)
 	assert.True(t, proposer.called, "the slug proposer is consulted before failing")
@@ -217,7 +346,7 @@ func TestLoopRunWithSlugAndStepsUsesPassedSteps(t *testing.T) {
 
 	proposer := &fakeSlugProposer{slug: "should-not-be-used"}
 	passed := []string{"write code", "run tests"}
-	cmd := &LoopCmd{Slug: "fmt", Steps: passed, slugProposer: proposer, aiClient: &fakeAIClient{}, reportReader: &fakeReportReader{content: "NOTHING_TO_DO"}, prClient: &fakePullRequestOpener{}}
+	cmd := &LoopCmd{Local: true, Slug: "fmt", Steps: passed, slugProposer: proposer, aiClient: &fakeAIClient{}, reportReader: &fakeReportReader{content: "NOTHING_TO_DO"}, prClient: &fakePullRequestOpener{}}
 	err := cmd.Run()
 	require.NoError(t, err)
 	assert.False(t, proposer.called, "the slug proposer is not called when a slug is given")
@@ -312,6 +441,7 @@ func TestLoopRunInvokesAIWithLoopPrompt(t *testing.T) {
 
 	ai := &fakeAIClient{}
 	cmd := &LoopCmd{
+		Local:        true,
 		Slug:         "fmt",
 		Max:          10,
 		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
@@ -338,6 +468,7 @@ func TestLoopRunStopsAfterMaxIterations(t *testing.T) {
 	ai := &fakeAIClient{}
 	git := &fakeGitClient{}
 	cmd := &LoopCmd{
+		Local:        true,
 		Slug:         "fmt",
 		Max:          3,
 		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
@@ -370,6 +501,7 @@ func TestLoopRunNothingToDoDoesNotCommit(t *testing.T) {
 	ai := &fakeAIClient{}
 	git := &fakeGitClient{}
 	cmd := &LoopCmd{
+		Local:        true,
 		Slug:         "fmt",
 		Max:          10,
 		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
@@ -399,6 +531,7 @@ func TestLoopRunPropagatesIterationCommitError(t *testing.T) {
 	commitErr := errors.New("failed to push loop-fmt: boom")
 	git := &fakeGitClient{err: commitErr}
 	cmd := &LoopCmd{
+		Local:        true,
 		Slug:         "fmt",
 		Max:          10,
 		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
@@ -426,6 +559,7 @@ func TestLoopRunPropagatesAIError(t *testing.T) {
 	aiErr := errors.New("opencode execution failed: boom")
 	ai := &fakeAIClient{err: aiErr}
 	cmd := &LoopCmd{
+		Local:        true,
 		Slug:         "fmt",
 		Max:          10,
 		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
@@ -453,6 +587,7 @@ func TestLoopRunOpensPullRequestAfterCommits(t *testing.T) {
 	git := &fakeGitClient{}
 	pr := &fakePullRequestOpener{}
 	cmd := &LoopCmd{
+		Local:        true,
 		Slug:         "fmt",
 		Max:          1,
 		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
@@ -485,6 +620,7 @@ func TestLoopRunDelegatesPullRequestWhenNothingCommitted(t *testing.T) {
 	git := &fakeGitClient{}
 	pr := &fakePullRequestOpener{}
 	cmd := &LoopCmd{
+		Local:        true,
 		Slug:         "fmt",
 		Max:          10,
 		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
@@ -513,6 +649,7 @@ func TestLoopRunPropagatesPullRequestOpenError(t *testing.T) {
 	prErr := errors.New("failed to open loop pull request: boom")
 	pr := &fakePullRequestOpener{err: prErr}
 	cmd := &LoopCmd{
+		Local:        true,
 		Slug:         "fmt",
 		Max:          10,
 		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
@@ -524,4 +661,97 @@ func TestLoopRunPropagatesPullRequestOpenError(t *testing.T) {
 	require.Error(t, err)
 	assert.Equal(t, prErr, err, "the pull request open error is returned unchanged")
 	assert.Equal(t, 1, pr.calls, "the pull request open is attempted once after the loop ends")
+}
+
+// fakeLoopRemoteRunner records the invocation and returns an injected error
+// when set, so tests never touch the real argo client.
+type fakeLoopRemoteRunner struct {
+	slug   string
+	steps  []string
+	max    int
+	follow bool
+	err    error
+	called bool
+}
+
+func (f *fakeLoopRemoteRunner) Run(slug string, steps []string, max int, follow bool) error {
+	f.called = true
+	f.slug = slug
+	f.steps = steps
+	f.max = max
+	f.follow = follow
+	return f.err
+}
+
+// TestLoopRunRemoteSubmitsWorkflow asserts the default (without --local) run
+// path delegates to the remote runner, which submits the loop workflow carrying
+// the slug, steps, and max iterations. No loop config is needed because the
+// remote path never runs the loop in-process.
+func TestLoopRunRemoteSubmitsWorkflow(t *testing.T) {
+	t.Chdir(t.TempDir())
+
+	runner := &fakeLoopRemoteRunner{}
+	cmd := &LoopCmd{Slug: "fmt", Steps: []string{"run gofmt"}, Max: 3, remoteRunner: runner}
+	err := cmd.Run()
+	require.NoError(t, err)
+	assert.True(t, runner.called, "the remote runner is consulted without --local")
+	assert.Equal(t, "fmt", runner.slug, "the remote runner receives the slug")
+	assert.Equal(t, []string{"run gofmt"}, runner.steps, "the remote runner receives the steps")
+	assert.Equal(t, 3, runner.max, "the remote runner receives the max iterations")
+	assert.False(t, runner.follow, "the remote runner does not follow without --follow")
+	assert.Empty(t, cmd.resolvedSlug, "no slug is retained in local-mode fields on the remote path")
+}
+
+// TestLoopRunRemoteFollowPassesFollowFlag asserts the default run path passes
+// the --follow flag through to the remote runner so it streams the workflow
+// logs and waits for the workflow to finish.
+func TestLoopRunRemoteFollowPassesFollowFlag(t *testing.T) {
+	t.Chdir(t.TempDir())
+
+	runner := &fakeLoopRemoteRunner{}
+	cmd := &LoopCmd{Slug: "fmt", Max: 3, Follow: true, remoteRunner: runner}
+	err := cmd.Run()
+	require.NoError(t, err)
+	assert.True(t, runner.called, "the remote runner is consulted without --local")
+	assert.True(t, runner.follow, "the --follow flag is passed through to the remote runner")
+}
+
+// TestLoopRunRemotePropagatesSubmitError asserts a workflow submission failure
+// aborts the default run path and is returned unchanged.
+func TestLoopRunRemotePropagatesSubmitError(t *testing.T) {
+	t.Chdir(t.TempDir())
+
+	submitErr := errors.New("failed to submit workflow: boom")
+	runner := &fakeLoopRemoteRunner{err: submitErr}
+	cmd := &LoopCmd{Slug: "fmt", Max: 10, remoteRunner: runner}
+	err := cmd.Run()
+	require.Error(t, err)
+	assert.Equal(t, submitErr, err, "the workflow submission error is returned unchanged")
+	assert.True(t, runner.called, "the remote runner is consulted before failing")
+}
+
+// TestLoopRunLocalDoesNotSubmitWorkflow asserts --local runs the loop in-process
+// and never consults the remote runner, so no workflow is submitted.
+func TestLoopRunLocalDoesNotSubmitWorkflow(t *testing.T) {
+	writeLoopConfig(t, `loops:
+  - slug: fmt
+    steps:
+      - run gofmt
+`)
+
+	runner := &fakeLoopRemoteRunner{}
+	cmd := &LoopCmd{
+		Local:        true,
+		Slug:         "fmt",
+		Max:          10,
+		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
+		aiClient:     &fakeAIClient{},
+		reportReader: &fakeReportReader{content: "NOTHING_TO_DO"},
+		prClient:     &fakePullRequestOpener{},
+		remoteRunner: runner,
+	}
+	err := cmd.Run()
+	require.NoError(t, err)
+	assert.False(t, runner.called, "the remote runner is never consulted with --local")
+	assert.Equal(t, "fmt", cmd.resolvedSlug, "the loop runs in-process with --local")
 }
