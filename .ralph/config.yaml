@@ -3,3 +3,14 @@ workflow:
 model: deepseek/deepseek-v4-flash
 variant: high
 cleanup: true
+
+loops:
+  - slug: prose
+    steps:
+      - Review this repo's prose against the [prose guidelines](docs/zpecs/prose.md) and fix one problem if any
+  - slug: architecture
+    steps:
+      - Review this repo's architecture against the [architecture guidelines](docs/zpecs/architecture.md) and fix one problem if any
+  - slug: code
+    steps:
+      - Review this repo's code against the [code guidelines](docs/zpecs/code.md) and fix one problem if any
