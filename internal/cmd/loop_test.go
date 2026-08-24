@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/zon/ralph/internal/ai"
+	execcontext "github.com/zon/ralph/internal/context"
 )
 
 // TestLoopCmdParsing covers the `ralph loop` command surface. It checks the
@@ -27,6 +28,8 @@ func TestLoopCmdParsing(t *testing.T) {
 		wantVerbose bool
 		wantLocal   bool
 		wantFollow  bool
+		wantModel   string
+		wantContext string
 		wantErr     string
 	}{
 		{
@@ -83,6 +86,28 @@ func TestLoopCmdParsing(t *testing.T) {
 			wantFollow: true,
 		},
 		{
+			name:      "--model parses",
+			args:      []string{"loop", "feature-x", "--model", "gpt-4"},
+			wantSlug:  "feature-x",
+			wantMax:   10,
+			wantModel: "gpt-4",
+		},
+		{
+			name:        "--context parses",
+			args:        []string{"loop", "feature-x", "--context", "prod-cluster"},
+			wantSlug:    "feature-x",
+			wantMax:     10,
+			wantContext: "prod-cluster",
+		},
+		{
+			name:        "--model and --context parse together",
+			args:        []string{"loop", "feature-x", "--model", "gpt-4", "--context", "prod-cluster"},
+			wantSlug:    "feature-x",
+			wantMax:     10,
+			wantModel:   "gpt-4",
+			wantContext: "prod-cluster",
+		},
+		{
 			name:    "usage error when neither slug nor step given",
 			args:    []string{"loop"},
 			wantErr: "a slug or at least one --step is required",
@@ -131,6 +156,52 @@ func TestLoopCmdParsing(t *testing.T) {
 			assert.Equal(t, tt.wantVerbose, cmd.Loop.Verbose)
 			assert.Equal(t, tt.wantLocal, cmd.Loop.Local)
 			assert.Equal(t, tt.wantFollow, cmd.Loop.Follow)
+			assert.Equal(t, tt.wantModel, cmd.Loop.Model)
+			assert.Equal(t, tt.wantContext, cmd.Loop.Context)
+		})
+	}
+}
+
+// TestLoopApplyToContextWiresModelAndContext asserts the --model and --context
+// flags are resolved into the execution context the same way `ralph run`
+// resolves them, so the local AI path and the remote workflow generation read
+// the overrides downstream.
+func TestLoopApplyToContextWiresModelAndContext(t *testing.T) {
+	tests := []struct {
+		name        string
+		model       string
+		context     string
+		wantModel   string
+		wantContext string
+		wantVerbose bool
+		wantLocal   bool
+		wantFollow  bool
+	}{
+		{
+			name:        "overrides flow into the context",
+			model:       "gpt-4",
+			context:     "prod-cluster",
+			wantModel:   "gpt-4",
+			wantContext: "prod-cluster",
+		},
+		{
+			name:        "unset flags leave the context empty for config fallback",
+			wantModel:   "",
+			wantContext: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := &LoopCmd{Model: tt.model, Context: tt.context, Verbose: tt.wantVerbose, Local: tt.wantLocal, Follow: tt.wantFollow}
+			ctx := execcontext.NewContext()
+			cmd.applyToContext(ctx)
+
+			assert.Equal(t, tt.wantModel, ctx.Model(), "the model override is applied to the context")
+			assert.Equal(t, tt.wantContext, ctx.KubeContext(), "the kube context override is applied to the context")
+			assert.Equal(t, tt.wantVerbose, ctx.IsVerbose())
+			assert.Equal(t, tt.wantLocal, ctx.IsLocal())
+			assert.Equal(t, tt.wantFollow, ctx.ShouldFollow())
 		})
 	}
 }
@@ -146,6 +217,8 @@ func TestLoopCmdHelpText(t *testing.T) {
 	assert.Contains(t, output, "--verbose")
 	assert.Contains(t, output, "--local")
 	assert.Contains(t, output, "--follow")
+	assert.Contains(t, output, "--model")
+	assert.Contains(t, output, "--context")
 }
 
 // TestLoopMaxNegativeSpaceFormRejected asserts kong rejects a negative --max

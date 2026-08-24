@@ -21,7 +21,11 @@ import (
 // and runs it as an iteration loop. It retains the resolved slug and steps on
 // the command for the later loop phases. By default it submits an Argo Workflow
 // and the loop runs inside the workflow container; with --local it runs the
-// loop in-process on the local machine without submitting a workflow.
+// loop in-process on the local machine without submitting a workflow. The
+// --model and --context flags resolve the same way `ralph run` resolves them:
+// --model overrides the top-level model field in .ralph/config.yaml, which
+// defaults to deepseek/deepseek-chat when unset, and --context overrides the
+// Kubernetes context used for workflow submission.
 type LoopCmd struct {
 	Slug    string   `arg:"" optional:"" help:"Slug of the loop configuration in .ralph/config.yaml"`
 	Steps   []string `help:"Step to run in the loop (repeatable)" name:"step"`
@@ -29,6 +33,8 @@ type LoopCmd struct {
 	Verbose bool     `help:"Enable verbose logging" default:"false"`
 	Local   bool     `help:"Run on this machine instead of in Argo Workflows" default:"false"`
 	Follow  bool     `help:"Follow workflow logs after submission (only applicable without --local)" short:"f" default:"false"`
+	Model   string   `help:"Override the AI model from config" name:"model" optional:""`
+	Context string   `help:"Kubernetes context to use" name:"context" optional:""`
 
 	// slugProposer proposes a branch slug from steps. Tests inject a fake. When
 	// nil, runLocal builds the real adapter that consults the AI.
@@ -80,15 +86,24 @@ func (c *LoopCmd) Validate() error {
 // runs the loop in-process on the local machine without submitting a workflow.
 func (c *LoopCmd) Run() error {
 	ctx := createExecutionContext()
-	ctx.SetVerbose(c.Verbose)
-	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, c.Verbose))
-	ctx.SetLocal(c.Local)
-	ctx.SetFollow(c.Follow)
-
+	c.applyToContext(ctx)
 	if c.Local {
 		return c.runLocal(ctx)
 	}
 	return c.runRemote(ctx)
+}
+
+// applyToContext resolves the command flags into the execution context. The
+// --model override and the --context override resolve the same way `ralph run`
+// resolves them: the flag wins, otherwise the value from .ralph/config.yaml
+// (the model defaulting to deepseek/deepseek-chat) is used downstream.
+func (c *LoopCmd) applyToContext(ctx *execcontext.Context) {
+	ctx.SetVerbose(c.Verbose)
+	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, c.Verbose))
+	ctx.SetLocal(c.Local)
+	ctx.SetFollow(c.Follow)
+	ctx.SetModel(c.Model)
+	ctx.SetKubeContext(c.Context)
 }
 
 // runLocal wires the orchestration, resolving the slug and steps, running the

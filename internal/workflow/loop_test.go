@@ -1,6 +1,8 @@
 package workflow
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -120,6 +122,84 @@ func TestGenerateLoopWorkflow(t *testing.T) {
 	assert.Equal(t, "fmt", wf.Loop.Slug, "the slug is carried in the loop spec")
 	assert.Equal(t, []string{"run gofmt", "run go vet"}, wf.Loop.Steps, "the steps are carried in the loop spec")
 	assert.Equal(t, 3, wf.Loop.Max, "the max iterations are carried in the loop spec")
+}
+
+// TestGenerateLoopWorkflowCarriesModelOverride asserts a loop workflow carries
+// the context model override into the workflow and passes it to the container
+// command, mirroring how `ralph run` resolves --model.
+func TestGenerateLoopWorkflowCarriesModelOverride(t *testing.T) {
+	ctx := &execcontext.Context{}
+	ctx.SetModel("gpt-4")
+
+	wf, err := GenerateLoopWorkflow(ctx, "fmt", []string{"run gofmt"}, 3, "main", "git@github.com:test/repo.git")
+	require.NoError(t, err, "GenerateLoopWorkflow failed")
+	assert.Equal(t, "gpt-4", wf.Model, "the model override is carried in the workflow")
+
+	workflowYAML, err := wf.Render()
+	require.NoError(t, err, "Render failed")
+
+	var wfData map[string]interface{}
+	require.NoError(t, yaml.Unmarshal([]byte(workflowYAML), &wfData), "Failed to parse workflow YAML")
+	spec := wfData["spec"].(map[string]interface{})
+	templates := spec["templates"].([]interface{})
+	tmpl := templates[0].(map[string]interface{})
+	container := tmpl["container"].(map[string]interface{})
+	args := container["args"].([]interface{})
+
+	assert.Equal(t, "gpt-4", argValue(args, "--model"), "the model override is passed to the container command")
+}
+
+// TestGenerateLoopWorkflowOmitsModelWhenUnset asserts a loop workflow carries no
+// --model argument when the context model is unset, so the container resolves
+// the model from its own config exactly like `ralph run`.
+func TestGenerateLoopWorkflowOmitsModelWhenUnset(t *testing.T) {
+	ctx := &execcontext.Context{}
+
+	wf, err := GenerateLoopWorkflow(ctx, "fmt", []string{"run gofmt"}, 3, "main", "git@github.com:test/repo.git")
+	require.NoError(t, err, "GenerateLoopWorkflow failed")
+	assert.Empty(t, wf.Model, "no model override is carried when the context model is unset")
+
+	workflowYAML, err := wf.Render()
+	require.NoError(t, err, "Render failed")
+
+	var wfData map[string]interface{}
+	require.NoError(t, yaml.Unmarshal([]byte(workflowYAML), &wfData), "Failed to parse workflow YAML")
+	spec := wfData["spec"].(map[string]interface{})
+	templates := spec["templates"].([]interface{})
+	tmpl := templates[0].(map[string]interface{})
+	container := tmpl["container"].(map[string]interface{})
+	args := container["args"].([]interface{})
+
+	assert.NotContains(t, args, "--model", "no --model argument is passed when the model override is unset")
+}
+
+// TestGenerateLoopWorkflowKubeContextOverride asserts the context kube context
+// override takes precedence over the workflow context in .ralph/config.yaml for
+// loop workflow submission, and falls back to the config value when no override
+// is given.
+func TestGenerateLoopWorkflowKubeContextOverride(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".ralph"), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".ralph", "config.yaml"), []byte("workflow:\n  context: config-context\n  namespace: ralph\n"), 0644))
+
+	t.Run("context override takes precedence over config", func(t *testing.T) {
+		t.Chdir(dir)
+		ctx := &execcontext.Context{}
+		ctx.SetKubeContext("override-context")
+
+		wf, err := GenerateLoopWorkflow(ctx, "fmt", nil, 3, "main", "git@github.com:test/repo.git")
+		require.NoError(t, err, "GenerateLoopWorkflow failed")
+		assert.Equal(t, "override-context", wf.KubeContext, "the kube context override wins over the config value")
+	})
+
+	t.Run("falls back to config when context override is empty", func(t *testing.T) {
+		t.Chdir(dir)
+		ctx := &execcontext.Context{}
+
+		wf, err := GenerateLoopWorkflow(ctx, "fmt", nil, 3, "main", "git@github.com:test/repo.git")
+		require.NoError(t, err, "GenerateLoopWorkflow failed")
+		assert.Equal(t, "config-context", wf.KubeContext, "the workflow falls back to the config kube context")
+	})
 }
 
 // TestGenerateLoopWorkflowWithoutSteps asserts a steps-only loop keeps an empty
