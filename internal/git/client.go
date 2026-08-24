@@ -20,6 +20,15 @@ func (a *Client) SwitchToBranch(slug string) error {
 	return ValidateGitStateAndSwitchBranch(a.ctx, slug)
 }
 
+// SwitchToLoopBranch switches to the loop-<slug> branch before the loop's
+// agent passes run, creating it from the current branch when it does not
+// exist. It mirrors SwitchToBranch for project runs: the branch is resolved
+// before any AI work begins, so the agent reviews the loop branch's own state
+// and iteration commits never have to move edits across a diverged branch.
+func (a *Client) SwitchToLoopBranch(slug string) error {
+	return ValidateGitStateAndSwitchBranch(a.ctx, LoopBranch(slug))
+}
+
 func (a *Client) BlockedFileExists() bool {
 	repoRoot, err := FindRepoRoot()
 	if err != nil {
@@ -47,20 +56,13 @@ func (a *Client) ReportExists() bool {
 	return err == nil
 }
 
-// CommitIterationAndPush switches to the loop-<slug> branch, creating it from
-// the current branch when it does not exist, then commits the iteration's
-// changes with the report content as the commit message and pushes the branch.
-// It removes report.md before the commit so it never lands on the loop branch
-// and the working tree stays clean.
+// CommitIterationAndPush commits the iteration's changes with the report
+// content as the commit message and pushes the loop branch. The caller
+// switches to the loop branch first via SwitchToLoopBranch, so this method
+// never switches branches while the agent's edits are uncommitted. It removes
+// report.md before the commit so it never lands on the loop branch and the
+// working tree stays clean.
 func (a *Client) CommitIterationAndPush(slug string) error {
-	var auth *AuthConfig
-	if a.ctx.IsWorkflowExecution() {
-		owner, repo := a.ctx.RepoOwnerAndName()
-		auth = &AuthConfig{Owner: owner, Repo: repo}
-	}
-	if err := SwitchToBranchIfNeeded(auth, LoopBranch(slug)); err != nil {
-		return err
-	}
 	data, err := os.ReadFile("report.md")
 	if err != nil {
 		return fmt.Errorf("failed to read report.md: %w", err)

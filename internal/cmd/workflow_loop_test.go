@@ -230,6 +230,7 @@ func TestWorkflowLoopCmdRunRunsLoopBodyIdenticalToLocal(t *testing.T) {
 	assert.Contains(t, ai.prompts[0], "run go vet", "the prompt embeds the resolved steps in order")
 	assert.Equal(t, 1, git.calls, "the work iteration is committed once")
 	assert.Equal(t, []string{"fmt"}, git.slugs, "the iteration is committed and pushed to loop-<slug>")
+	assert.Equal(t, 1, git.switchCalls, "the loop branch is switched to once before the iterations run")
 	assert.Equal(t, 1, pr.calls, "the pull request is opened once after the loop ends")
 	assert.Equal(t, []string{"fmt"}, pr.slugs, "the pull request is opened for the resolved slug")
 }

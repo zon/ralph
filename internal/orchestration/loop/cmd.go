@@ -30,8 +30,10 @@ type ReportReader interface {
 	ReadReport() (ai.Report, error)
 }
 
-// GitClient commits the iteration's changes to the loop branch and pushes it.
+// GitClient switches the loop to its branch before the agent runs and commits
+// each iteration to the loop branch, pushing it.
 type GitClient interface {
+	SwitchToLoopBranch(slug string) error
 	CommitIterationAndPush(slug string) error
 }
 
@@ -66,15 +68,18 @@ type Result struct {
 	Steps []string
 }
 
-// Run resolves the branch slug and the steps to run, builds the loop prompt
-// embedding the steps, and runs it as an iteration loop. The loop stops when
-// the agent reports nothing to do or after max iterations, whichever comes
-// first. After the loop ends it opens the loop branch's pull request. It
-// returns the resolution so the caller can derive the branch name from the
-// slug.
+// Run resolves the branch slug and the steps to run, switches to the loop
+// branch so the agent works on its own state, builds the loop prompt embedding
+// the steps, and runs it as an iteration loop. The loop stops when the agent
+// reports nothing to do or after max iterations, whichever comes first. After
+// the loop ends it opens the loop branch's pull request. It returns the
+// resolution so the caller can derive the branch name from the slug.
 func (c *Cmd) Run(slug string, steps []string, max int) (*Result, error) {
 	result, err := c.resolve(slug, steps)
 	if err != nil {
+		return nil, err
+	}
+	if err := c.git.SwitchToLoopBranch(result.Slug); err != nil {
 		return nil, err
 	}
 	prompt, err := c.prompt.BuildLoopPrompt(result.Steps)

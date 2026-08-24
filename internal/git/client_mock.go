@@ -1,25 +1,33 @@
 package git
 
 type MockClient struct {
-	SwitchToBranchFunc           func(slug string) error
-	BlockedFileExistsFunc        func() bool
-	WriteBlockedFileFunc         func(err error)
-	HasChangesFunc               func() bool
-	ReportExistsFunc             func() bool
-	CommitFromReportFunc         func(slug string) error
-	CurrentBranchFunc            func() (string, error)
-	IsBranchSyncedWithRemoteFunc      func(branch string) error
-	CommitOrchestrationRemovalFunc         func(slug string) error
-	CommitOrchestrationRemovalCalled       bool
-	CommitGeneratedArtifactsFunc           func(slug string) error
-	CommitGeneratedArtifactsCalled         bool
-	CommitProjectRemovalFunc               func(path string) error
-	CommitProjectRemovalCalled             bool
+	SwitchToBranchFunc               func(slug string) error
+	SwitchToLoopBranchFunc           func(slug string) error
+	BlockedFileExistsFunc            func() bool
+	WriteBlockedFileFunc             func(err error)
+	HasChangesFunc                   func() bool
+	ReportExistsFunc                 func() bool
+	CommitFromReportFunc             func(slug string) error
+	CurrentBranchFunc                func() (string, error)
+	IsBranchSyncedWithRemoteFunc     func(branch string) error
+	CommitOrchestrationRemovalFunc   func(slug string) error
+	CommitOrchestrationRemovalCalled bool
+	CommitGeneratedArtifactsFunc     func(slug string) error
+	CommitGeneratedArtifactsCalled   bool
+	CommitProjectRemovalFunc         func(path string) error
+	CommitProjectRemovalCalled       bool
 }
 
 func (m *MockClient) SwitchToBranch(slug string) error {
 	if m.SwitchToBranchFunc != nil {
 		return m.SwitchToBranchFunc(slug)
+	}
+	return nil
+}
+
+func (m *MockClient) SwitchToLoopBranch(slug string) error {
+	if m.SwitchToLoopBranchFunc != nil {
+		return m.SwitchToLoopBranchFunc(slug)
 	}
 	return nil
 }

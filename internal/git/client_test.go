@@ -13,6 +13,7 @@ import (
 	"github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
 	orchestrationRun "github.com/zon/ralph/internal/orchestration/run"
+	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/testutil"
 )
 
@@ -165,10 +166,13 @@ func TestGitClientCommitIterationAndPush(t *testing.T) {
 	setupLocalRemote(t, workDir)
 
 	ctx := context.NewContext()
+	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
 	client := git.NewClient(ctx)
 
 	baseBranch := currentBranch(t, workDir)
 	baseHead := revParse(t, workDir, "HEAD")
+
+	require.NoError(t, client.SwitchToLoopBranch("fmt"), "the loop branch is switched to before the iteration runs")
 
 	reportContent := "Implement requirement: adapter-git"
 	require.NoError(t, os.WriteFile("report.md", []byte(reportContent), 0644))
@@ -195,7 +199,10 @@ func TestGitClientCommitIterationAndPushReusesExistingBranch(t *testing.T) {
 	setupLocalRemote(t, workDir)
 
 	ctx := context.NewContext()
+	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
 	client := git.NewClient(ctx)
+
+	require.NoError(t, client.SwitchToLoopBranch("fmt"), "the loop branch is switched to before the iterations run")
 
 	firstReport := "iteration one"
 	require.NoError(t, os.WriteFile("report.md", []byte(firstReport), 0644))
@@ -227,6 +234,68 @@ func TestGitClientCommitIterationAndPushFailsWhenNoReport(t *testing.T) {
 	err := client.CommitIterationAndPush("fmt")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "report.md")
+}
+
+func TestGitClientSwitchToLoopBranch(t *testing.T) {
+	workDir := t.TempDir()
+	t.Chdir(workDir)
+	testutil.InitGitRepo(t, workDir)
+	testutil.MakeInitialCommit(t, workDir)
+	setupLocalRemote(t, workDir)
+
+	ctx := context.NewContext()
+	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
+	client := git.NewClient(ctx)
+
+	require.NoError(t, client.SwitchToLoopBranch("fmt"))
+	assert.Equal(t, "loop-fmt", currentBranch(t, workDir), "the client switches to the loop branch, creating it from the current branch")
+	assert.Empty(t, gitStatusPorcelain(t, workDir), "the working tree stays clean during the switch")
+}
+
+// TestGitClientSwitchToLoopBranchReusesDivergedRemoteBranch reproduces the
+// failure that stashing could not fix: the loop branch from a prior run has
+// diverged from the base branch and the agent's edits differ from it. Because
+// the switch happens before the agent runs, the divergent loop branch checks
+// out cleanly, the agent edits on the loop branch itself, and the iteration
+// commits on top of the prior work.
+func TestGitClientSwitchToLoopBranchReusesDivergedRemoteBranch(t *testing.T) {
+	workDir := t.TempDir()
+	t.Chdir(workDir)
+	testutil.InitGitRepo(t, workDir)
+	testutil.MakeInitialCommit(t, workDir)
+	setupLocalRemote(t, workDir)
+
+	require.NoError(t, os.WriteFile("note.txt", []byte("hello world"), 0644))
+	require.NoError(t, git.StageFile("note.txt"))
+	require.NoError(t, git.Commit("chore: add note.txt"))
+	_, err := git.Push(nil, "main")
+	require.NoError(t, err)
+
+	require.NoError(t, git.CreateBranch("loop-fmt"))
+	require.NoError(t, os.WriteFile("note.txt", []byte("diverged state"), 0644))
+	require.NoError(t, git.StageFile("note.txt"))
+	require.NoError(t, git.Commit("chore: prior run edits"))
+	_, err = git.Push(nil, "loop-fmt")
+	require.NoError(t, err)
+	require.NoError(t, git.CheckoutBranch("main"))
+
+	ctx := context.NewContext()
+	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
+	client := git.NewClient(ctx)
+
+	require.NoError(t, client.SwitchToLoopBranch("fmt"), "the divergent loop branch switches in cleanly")
+	assert.Equal(t, "loop-fmt", currentBranch(t, workDir))
+	content, err := os.ReadFile("note.txt")
+	require.NoError(t, err)
+	assert.Equal(t, "diverged state", string(content), "the loop branch's own state is checked out")
+
+	require.NoError(t, os.WriteFile("report.md", []byte("iteration report"), 0644))
+	require.NoError(t, os.WriteFile("note.txt", []byte("diverged state with agent edit"), 0644))
+	require.NoError(t, client.CommitIterationAndPush("fmt"))
+
+	assert.Equal(t, revParse(t, workDir, "HEAD"), revParse(t, workDir, "origin/loop-fmt"), "the iteration commit is pushed to the loop branch")
+	assert.Equal(t, "iteration report", lastCommitMessage(t, workDir), "the last commit message is the report content")
+	assert.Empty(t, gitStatusPorcelain(t, workDir), "the working tree must be clean after the iteration commit")
 }
 
 func TestGitClientCommitGeneratedArtifacts(t *testing.T) {

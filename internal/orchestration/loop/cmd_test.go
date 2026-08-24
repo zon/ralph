@@ -164,15 +164,60 @@ func TestRunPropagatesPromptBuildError(t *testing.T) {
 	proposer := &mockSlugProposer{}
 	ai := &mockAIClient{}
 	report := &mockReportReader{reports: nothingToDoReports()}
+	git := &mockGitClient{}
 
-	result, err := NewCmd(client, prompt, proposer, ai, report, &mockGitClient{}, &mockPullRequestOpener{}).Run("fmt", nil, 10)
+	result, err := NewCmd(client, prompt, proposer, ai, report, git, &mockPullRequestOpener{}).Run("fmt", nil, 10)
 
 	require.Error(t, err)
 	assert.Nil(t, result, "no resolution is returned when the prompt fails to build")
 	assert.Equal(t, promptErr, err)
 	assert.True(t, prompt.called)
+	assert.Equal(t, 1, git.switchCalls, "the loop branch is switched to before the prompt is built")
 	assert.Zero(t, ai.calls, "the AI is not invoked when the prompt fails to build")
 	assert.Zero(t, report.reads, "the report is not read when the prompt fails to build")
+}
+
+// TestRunSwitchesToLoopBranchBeforeIteration asserts the resolved slug reaches
+// the git client as a branch switch before any agent pass runs, mirroring how
+// `ralph run` switches to the project branch before iterating.
+func TestRunSwitchesToLoopBranchBeforeIteration(t *testing.T) {
+	steps := []string{"run gofmt"}
+	client := &mockLoopConfigClient{loops: map[string][]string{"fmt": steps}}
+	prompt := &mockPromptBuilder{}
+	proposer := &mockSlugProposer{slug: "proposed"}
+	ai := &mockAIClient{}
+	report := &mockReportReader{reports: nothingToDoReports()}
+	git := &mockGitClient{}
+
+	result, err := NewCmd(client, prompt, proposer, ai, report, git, &mockPullRequestOpener{}).Run("fmt", steps, 10)
+
+	require.NoError(t, err)
+	assertResolved(t, result, "fmt", steps)
+	assert.Equal(t, 1, git.switchCalls, "the loop branch is switched to once before the iterations run")
+	assert.Equal(t, []string{"fmt"}, git.switchSlugs, "the loop branch switch receives the resolved slug")
+	assert.Zero(t, git.calls, "no iteration is committed before the agent runs")
+}
+
+// TestRunPropagatesSwitchToLoopBranchError asserts a loop branch switch failure
+// aborts the run before the agent runs and is returned unchanged.
+func TestRunPropagatesSwitchToLoopBranchError(t *testing.T) {
+	steps := []string{"run gofmt"}
+	client := &mockLoopConfigClient{loops: map[string][]string{"fmt": steps}}
+	prompt := &mockPromptBuilder{}
+	proposer := &mockSlugProposer{slug: "proposed"}
+	ai := &mockAIClient{}
+	report := &mockReportReader{reports: nothingToDoReports()}
+	switchErr := errors.New("failed to checkout review branch: boom")
+	git := &mockGitClient{switchErr: switchErr}
+
+	result, err := NewCmd(client, prompt, proposer, ai, report, git, &mockPullRequestOpener{}).Run("fmt", steps, 10)
+
+	require.Error(t, err)
+	assert.Nil(t, result, "no resolution is returned when the loop branch switch fails")
+	assert.Equal(t, switchErr, err, "the loop branch switch error is returned unchanged")
+	assert.False(t, prompt.called, "the prompt is not built when the loop branch switch fails")
+	assert.Zero(t, ai.calls, "the AI is not invoked when the loop branch switch fails")
+	assert.Zero(t, report.reads, "the report is not read when the loop branch switch fails")
 }
 
 func TestRunWithNoSlugAndNoStepsResolvesEmptyAndBuildsEmptyPrompt(t *testing.T) {

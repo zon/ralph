@@ -276,7 +276,7 @@ func TestLoopRunWithMatchingSlug(t *testing.T) {
 `)
 
 	proposer := &fakeSlugProposer{slug: "should-not-be-used"}
-	cmd := &LoopCmd{Local: true, Slug: "fmt", slugProposer: proposer, aiClient: &fakeAIClient{}, reportReader: &fakeReportReader{content: "NOTHING_TO_DO"}, prClient: &fakePullRequestOpener{}}
+	cmd := &LoopCmd{Local: true, Slug: "fmt", slugProposer: proposer, aiClient: &fakeAIClient{}, reportReader: &fakeReportReader{content: "NOTHING_TO_DO"}, gitClient: &fakeGitClient{}, prClient: &fakePullRequestOpener{}}
 	err := cmd.Run()
 	require.NoError(t, err)
 	assert.False(t, proposer.called, "the slug proposer is not called when a slug is given")
@@ -310,7 +310,7 @@ func TestLoopRunWithStepsWithoutSlug(t *testing.T) {
 	t.Chdir(t.TempDir())
 
 	proposer := &fakeSlugProposer{slug: "gofmt"}
-	cmd := &LoopCmd{Local: true, Steps: []string{"run gofmt"}, slugProposer: proposer, aiClient: &fakeAIClient{}, reportReader: &fakeReportReader{content: "NOTHING_TO_DO"}, prClient: &fakePullRequestOpener{}}
+	cmd := &LoopCmd{Local: true, Steps: []string{"run gofmt"}, slugProposer: proposer, aiClient: &fakeAIClient{}, reportReader: &fakeReportReader{content: "NOTHING_TO_DO"}, gitClient: &fakeGitClient{}, prClient: &fakePullRequestOpener{}}
 	err := cmd.Run()
 	require.NoError(t, err)
 	assert.True(t, proposer.called, "the slug proposer is asked for a slug when none is given")
@@ -346,7 +346,7 @@ func TestLoopRunWithSlugAndStepsUsesPassedSteps(t *testing.T) {
 
 	proposer := &fakeSlugProposer{slug: "should-not-be-used"}
 	passed := []string{"write code", "run tests"}
-	cmd := &LoopCmd{Local: true, Slug: "fmt", Steps: passed, slugProposer: proposer, aiClient: &fakeAIClient{}, reportReader: &fakeReportReader{content: "NOTHING_TO_DO"}, prClient: &fakePullRequestOpener{}}
+	cmd := &LoopCmd{Local: true, Slug: "fmt", Steps: passed, slugProposer: proposer, aiClient: &fakeAIClient{}, reportReader: &fakeReportReader{content: "NOTHING_TO_DO"}, gitClient: &fakeGitClient{}, prClient: &fakePullRequestOpener{}}
 	err := cmd.Run()
 	require.NoError(t, err)
 	assert.False(t, proposer.called, "the slug proposer is not called when a slug is given")
@@ -400,18 +400,33 @@ func (f *fakeReportReader) ReadReport() (ai.Report, error) {
 	return ai.Report{Content: f.content}, nil
 }
 
-// fakeGitClient records the slugs it committed and returns an injected error
-// when set, so tests never touch a real git repository.
+// fakeGitClient records the slugs it switched to and committed and returns an
+// injected error when set, so tests never touch a real git repository.
 type fakeGitClient struct {
-	slugs []string
-	err   error
-	calls int
+	slugs       []string
+	switched    []string
+	err         error
+	switchErr   error
+	calls       int
+	switchCalls int
+}
+
+func (f *fakeGitClient) SwitchToLoopBranch(slug string) error {
+	f.switchCalls++
+	f.switched = append(f.switched, slug)
+	if f.switchErr != nil {
+		return f.switchErr
+	}
+	return nil
 }
 
 func (f *fakeGitClient) CommitIterationAndPush(slug string) error {
 	f.calls++
 	f.slugs = append(f.slugs, slug)
-	return f.err
+	if f.err != nil {
+		return f.err
+	}
+	return nil
 }
 
 // fakePullRequestOpener records the slugs it opened pull requests for and
@@ -447,6 +462,7 @@ func TestLoopRunInvokesAIWithLoopPrompt(t *testing.T) {
 		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
 		aiClient:     ai,
 		reportReader: &fakeReportReader{content: "NOTHING_TO_DO"},
+		gitClient:    &fakeGitClient{},
 		prClient:     &fakePullRequestOpener{},
 	}
 	err := cmd.Run()
@@ -485,12 +501,14 @@ func TestLoopRunStopsAfterMaxIterations(t *testing.T) {
 	for _, slug := range git.slugs {
 		assert.Equal(t, "fmt", slug, "every iteration commits the resolved slug")
 	}
+	assert.Equal(t, 1, git.switchCalls, "the loop branch is switched to once before the iterations run")
+	assert.Equal(t, []string{"fmt"}, git.switched, "the loop branch switch receives the resolved slug")
 }
 
 // TestLoopRunNothingToDoDoesNotCommit asserts an iteration whose report says
-// nothing to do runs the AI once but is not committed: the git client is never
-// called. The resolved slug is still retained on the command for the later loop
-// phases.
+// nothing to do runs the AI once but commits nothing: the git client switches
+// to the loop branch but is never asked to commit. The resolved slug is still
+// retained on the command for the later loop phases.
 func TestLoopRunNothingToDoDoesNotCommit(t *testing.T) {
 	writeLoopConfig(t, `loops:
   - slug: fmt
@@ -515,6 +533,7 @@ func TestLoopRunNothingToDoDoesNotCommit(t *testing.T) {
 	assert.Equal(t, 1, ai.calls, "the AI is invoked once before the report stops the loop")
 	assert.Equal(t, 0, git.calls, "a nothing-to-do iteration is not committed")
 	assert.Empty(t, git.slugs, "no iteration commits a slug when there is nothing to do")
+	assert.Equal(t, 1, git.switchCalls, "the loop branch is switched to even when the loop finds nothing to do")
 	assert.Equal(t, "fmt", cmd.resolvedSlug, "the resolved slug is retained on the command")
 }
 
@@ -543,6 +562,7 @@ func TestLoopRunPropagatesIterationCommitError(t *testing.T) {
 	err := cmd.Run()
 	require.Error(t, err)
 	assert.Equal(t, commitErr, err, "the iteration commit error is returned unchanged")
+	assert.Equal(t, 1, git.switchCalls, "the loop branch is switched to before the commit fails")
 	assert.Empty(t, cmd.resolvedSlug, "no slug is retained when the iteration commit fails")
 }
 
@@ -565,12 +585,70 @@ func TestLoopRunPropagatesAIError(t *testing.T) {
 		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
 		aiClient:     ai,
 		reportReader: &fakeReportReader{content: "did the work"},
+		gitClient:    &fakeGitClient{},
 		prClient:     &fakePullRequestOpener{},
 	}
 	err := cmd.Run()
 	require.Error(t, err)
 	assert.Equal(t, aiErr, err, "the AI error is returned unchanged")
 	assert.Empty(t, cmd.resolvedSlug, "no slug is retained when the loop fails")
+}
+
+// TestLoopRunSwitchesToLoopBranchBeforeIteration asserts the loop branch switch
+// reaches the git client once before the agent runs, mirroring how `ralph run`
+// switches to the project branch before iterating.
+func TestLoopRunSwitchesToLoopBranchBeforeIteration(t *testing.T) {
+	writeLoopConfig(t, `loops:
+  - slug: fmt
+    steps:
+      - run gofmt
+`)
+
+	git := &fakeGitClient{}
+	cmd := &LoopCmd{
+		Local:        true,
+		Slug:         "fmt",
+		Max:          10,
+		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
+		aiClient:     &fakeAIClient{},
+		reportReader: &fakeReportReader{content: "NOTHING_TO_DO"},
+		gitClient:    git,
+		prClient:     &fakePullRequestOpener{},
+	}
+	err := cmd.Run()
+	require.NoError(t, err)
+	assert.Equal(t, 1, git.switchCalls, "the loop branch is switched to once before the iterations run")
+	assert.Equal(t, []string{"fmt"}, git.switched, "the loop branch switch receives the resolved slug")
+}
+
+// TestLoopRunPropagatesSwitchToLoopBranchError asserts a loop branch switch
+// failure aborts the wired command before the agent runs and is returned
+// unchanged.
+func TestLoopRunPropagatesSwitchToLoopBranchError(t *testing.T) {
+	writeLoopConfig(t, `loops:
+  - slug: fmt
+    steps:
+      - run gofmt
+`)
+
+	switchErr := errors.New("failed to checkout review branch: boom")
+	git := &fakeGitClient{switchErr: switchErr}
+	ai := &fakeAIClient{}
+	cmd := &LoopCmd{
+		Local:        true,
+		Slug:         "fmt",
+		Max:          10,
+		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
+		aiClient:     ai,
+		reportReader: &fakeReportReader{content: "did the work"},
+		gitClient:    git,
+		prClient:     &fakePullRequestOpener{},
+	}
+	err := cmd.Run()
+	require.Error(t, err)
+	assert.Equal(t, switchErr, err, "the loop branch switch error is returned unchanged")
+	assert.Zero(t, ai.calls, "the AI is not invoked when the loop branch switch fails")
+	assert.Empty(t, cmd.resolvedSlug, "no slug is retained when the loop branch switch fails")
 }
 
 // TestLoopRunOpensPullRequestAfterCommits asserts the wired command opens the
@@ -600,6 +678,7 @@ func TestLoopRunOpensPullRequestAfterCommits(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 1, git.calls, "the work iteration is committed once")
 	assert.Equal(t, []string{"fmt"}, git.slugs, "the commit records the resolved slug")
+	assert.Equal(t, 1, git.switchCalls, "the loop branch is switched to once before the iterations run")
 	assert.Equal(t, 1, pr.calls, "the pull request is opened exactly once after the loop ends")
 	assert.Equal(t, []string{"fmt"}, pr.slugs, "the pull request is opened for the resolved slug")
 	assert.Equal(t, "fmt", cmd.resolvedSlug, "the resolved slug is retained on the command")
@@ -632,6 +711,7 @@ func TestLoopRunDelegatesPullRequestWhenNothingCommitted(t *testing.T) {
 	err := cmd.Run()
 	require.NoError(t, err)
 	assert.Equal(t, 0, git.calls, "a nothing-to-do iteration is not committed")
+	assert.Equal(t, 1, git.switchCalls, "the loop branch is switched to before the loop finds nothing to do")
 	assert.Equal(t, 1, pr.calls, "the pull request open is delegated exactly once after the loop ends")
 	assert.Equal(t, []string{"fmt"}, pr.slugs, "the pull request open receives the resolved slug")
 	assert.Equal(t, "fmt", cmd.resolvedSlug, "the resolved slug is retained on the command")
@@ -655,6 +735,7 @@ func TestLoopRunPropagatesPullRequestOpenError(t *testing.T) {
 		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
 		aiClient:     &fakeAIClient{},
 		reportReader: &fakeReportReader{content: "NOTHING_TO_DO"},
+		gitClient:    &fakeGitClient{},
 		prClient:     pr,
 	}
 	err := cmd.Run()
@@ -747,6 +828,7 @@ func TestLoopRunLocalDoesNotSubmitWorkflow(t *testing.T) {
 		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
 		aiClient:     &fakeAIClient{},
 		reportReader: &fakeReportReader{content: "NOTHING_TO_DO"},
+		gitClient:    &fakeGitClient{},
 		prClient:     &fakePullRequestOpener{},
 		remoteRunner: runner,
 	}

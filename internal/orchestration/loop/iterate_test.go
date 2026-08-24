@@ -71,6 +71,8 @@ func TestRunIterationLoop(t *testing.T) {
 
 			require.NoError(t, err)
 			assertResolved(t, result, "fmt", steps)
+			assert.Equal(t, 1, git.switchCalls, "the loop branch is switched to once before the iterations run")
+			assert.Equal(t, []string{"fmt"}, git.switchSlugs, "the loop branch switch receives the resolved slug")
 			assert.Equal(t, tt.wantAICalls, ai.calls, "the AI is invoked once per iteration until the loop stops")
 			assert.Equal(t, tt.wantReads, report.reads, "the report is read once per iteration until the loop stops")
 			assert.Equal(t, tt.wantGitCalls, git.calls, "each non-nothing-to-do iteration is committed exactly once")

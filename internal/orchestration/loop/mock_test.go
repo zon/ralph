@@ -110,18 +110,33 @@ func (m *mockReportReader) ReadReport() (ai.Report, error) {
 	return ai.Report{Content: content}, nil
 }
 
-// mockGitClient records the slugs it committed and returns an injected error
-// when set.
+// mockGitClient records the slugs it switched to and committed and returns an
+// injected error when set.
 type mockGitClient struct {
-	slugs []string
-	err   error
-	calls int
+	slugs       []string
+	switchSlugs []string
+	err         error
+	switchErr   error
+	calls       int
+	switchCalls int
+}
+
+func (m *mockGitClient) SwitchToLoopBranch(slug string) error {
+	m.switchCalls++
+	m.switchSlugs = append(m.switchSlugs, slug)
+	if m.switchErr != nil {
+		return m.switchErr
+	}
+	return nil
 }
 
 func (m *mockGitClient) CommitIterationAndPush(slug string) error {
 	m.calls++
 	m.slugs = append(m.slugs, slug)
-	return m.err
+	if m.err != nil {
+		return m.err
+	}
+	return nil
 }
 
 // mockPullRequestOpener records the slugs it opened pull requests for and

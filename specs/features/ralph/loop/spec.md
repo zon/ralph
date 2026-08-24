@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The `loop` command runs a bounded AI iteration loop over a list of steps. Given a slug, ralph looks up the matching loop config in the `loops:` section of `.ralph/config.yaml`, embeds that config's `steps` in a prompt, and runs the prompt until the agent reports nothing left to do or the `--max` cap is reached. Every iteration that does real work is committed and pushed to a `loop-<slug>` branch. When the loop ends with commits on that branch, ralph opens a pull request. Steps can also be supplied directly with `--step` flags, which replace the config's `steps`. When steps are supplied without a slug, ralph asks the AI to read the steps and propose a slug. Execution can be delegated to an Argo Workflow (default) or run directly on the local machine (`--local`).
+The `loop` command runs a bounded AI iteration loop over a list of steps. Given a slug, ralph looks up the matching loop config in the `loops:` section of `.ralph/config.yaml`, embeds that config's `steps` in a prompt, and runs the prompt until the agent reports nothing left to do or the `--max` cap is reached. Before iterating, ralph switches to the `loop-<slug>` branch, creating it from the current branch when it does not exist, so the agent works on the loop branch's own state. Every iteration that does real work is committed and pushed to `loop-<slug>`. When the loop ends with commits on that branch, ralph opens a pull request. Steps can also be supplied directly with `--step` flags, which replace the config's `steps`. When steps are supplied without a slug, ralph asks the AI to read the steps and propose a slug. Execution can be delegated to an Argo Workflow (default) or run directly on the local machine (`--local`).
 
 Mode-specific behaviors are defined in:
 - [run-remote/spec.md](../run-remote/spec.md) — default: submits an Argo Workflow to Kubernetes, with the same remote defaults and config as `ralph run`
@@ -241,7 +241,21 @@ The command SHALL build a prompt that embeds the resolved steps, in order. The p
 
 ### Requirement: Iteration loop
 
-The command SHALL run the prompt repeatedly as an iteration loop. Each iteration SHALL invoke the AI with the prompt and then read `report.md`. The loop SHALL stop when the report content equals the constant string `NOTHING_TO_DO` (trimmed of surrounding whitespace) or when the number of iterations reaches the `--max` cap, whichever comes first. The `--max` flag SHALL default to `10` and SHALL be a positive integer.
+Before running the prompt, the command SHALL switch to the branch `loop-<slug>`, creating it from the current branch when it does not already exist. The command SHALL then run the prompt repeatedly as an iteration loop. Each iteration SHALL invoke the AI with the prompt and then read `report.md`. The loop SHALL stop when the report content equals the constant string `NOTHING_TO_DO` (trimmed of surrounding whitespace) or when the number of iterations reaches the `--max` cap, whichever comes first. The `--max` flag SHALL default to `10` and SHALL be a positive integer.
+
+#### Scenario: Switches to the loop branch before the first iteration
+
+- GIVEN no `loop-<slug>` branch exists and the current branch is `main`
+- WHEN the loop starts
+- THEN the branch `loop-<slug>` is created from `main` and checked out
+- AND the prompt runs on the `loop-<slug>` branch
+
+#### Scenario: Switches to an existing loop branch
+
+- GIVEN a `loop-<slug>` branch already exists
+- WHEN the loop starts
+- THEN the `loop-<slug>` branch is checked out
+- AND the prompt runs on the `loop-<slug>` branch's own state
 
 #### Scenario: Stops on the nothing-to-do report
 
@@ -281,7 +295,7 @@ The command SHALL run the prompt repeatedly as an iteration loop. Each iteration
 
 ### Requirement: Commit and push each iteration
 
-After each iteration whose report is not the nothing-to-do constant, the command SHALL commit the AI's changes and push them to the branch `loop-<slug>`, creating the branch from the current branch when it does not already exist. The commit message SHALL be the report content. `report.md` SHALL be deleted after the commit. An iteration whose report equals `NOTHING_TO_DO` SHALL NOT be committed.
+After each iteration whose report is not the nothing-to-do constant, the command SHALL commit the AI's changes and push them to the branch `loop-<slug>`. The commit message SHALL be the report content. `report.md` SHALL be deleted after the commit. An iteration whose report equals `NOTHING_TO_DO` SHALL NOT be committed.
 
 #### Scenario: Changes committed and pushed
 
@@ -290,11 +304,13 @@ After each iteration whose report is not the nothing-to-do constant, the command
 - THEN the changes are committed with the report content as the message
 - AND the commit is pushed to `loop-<slug>`
 
-#### Scenario: Branch created from the current branch
+#### Scenario: Commits land on the checked-out loop branch
 
-- GIVEN no `loop-<slug>` branch exists and the current branch is `main`
-- WHEN the first commit is pushed
-- THEN the branch `loop-<slug>` is created from `main`
+- GIVEN the loop switched to `loop-<slug>` before iterating
+- AND the AI made changes on that branch and wrote a summary to `report.md`
+- WHEN the iteration completes
+- THEN the changes are committed on `loop-<slug>`
+- AND the working tree stays clean after the commit
 
 #### Scenario: `report.md` deleted after the commit
 
