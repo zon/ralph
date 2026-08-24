@@ -63,8 +63,8 @@ modules:
     description: Orchestrates the workflow comment subcommand — workspace setup, AI agent invocation with a rendered comment prompt, commit, and PR reply.
     category: orchestration
   - path: internal/project
-    description: Resolves a project file into its item array and reads item completion, coordinating the project file reader, the branch commit log, and completion trailer parsing.
-    category: orchestration
+    description: Resolves a project file into its item array and reconciles completion trailers from the branch commit log.
+    category: implementation
   - path: internal/orchestration/get
     description: Orchestrates the get complete and get incomplete subcommands by resolving the item array and subtracting the indices recorded in the commit log.
     category: orchestration
