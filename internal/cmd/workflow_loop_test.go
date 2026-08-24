@@ -178,7 +178,7 @@ type inProcessLoopRunner struct {
 }
 
 func (r *inProcessLoopRunner) Run(slug string, steps []string, max int) error {
-	_, err := orchestrationLoop.NewCmd(r.cfg, r.prompt, r.propose, r.ai, r.report, r.git, r.pr).Run(slug, steps, max)
+	_, err := orchestrationLoop.NewCmd(r.cfg, r.prompt, r.propose, r.ai, r.report, r.git, r.pr, &SystemEnvClient{}).Run(slug, steps, max)
 	return err
 }
 
@@ -233,4 +233,82 @@ func TestWorkflowLoopCmdRunRunsLoopBodyIdenticalToLocal(t *testing.T) {
 	assert.Equal(t, 1, git.switchCalls, "the loop branch is switched to once before the iterations run")
 	assert.Equal(t, 1, pr.calls, "the pull request is opened once after the loop ends")
 	assert.Equal(t, []string{"fmt"}, pr.slugs, "the pull request is opened for the resolved slug")
+}
+
+// TestWorkflowLoopCmdPrintsStatsInWorkflow asserts the container-side workflow
+// loop command prints the accumulated AI token usage and cost statistics after
+// the loop succeeds, matching `ralph run` in the workflow container.
+func TestWorkflowLoopCmdPrintsStatsInWorkflow(t *testing.T) {
+	t.Setenv("RALPH_WORKFLOW_EXECUTION", "true")
+	writeLoopConfig(t, `loops:
+  - slug: fmt
+    steps:
+      - run gofmt
+`)
+
+	ai := &fakeAIClient{}
+	runner := &inProcessLoopRunner{
+		cfg:     &config.Client{},
+		prompt:  &loopPromptBuilder{},
+		propose: &fakeSlugProposer{slug: "should-not-be-used"},
+		ai:      ai,
+		report:  &fakeReportReader{content: "NOTHING_TO_DO"},
+		git:     &fakeGitClient{},
+		pr:      &fakePullRequestOpener{},
+	}
+	cmd := &WorkflowLoopCmd{
+		Repo:           "owner/repo",
+		CloneBranch:    "main",
+		BotName:        "ralph-zon[bot]",
+		BotEmail:       "ralph-zon[bot]@users.noreply.github.com",
+		Slug:           "fmt",
+		Max:            1,
+		workspaceSetup: &fakeWorkspaceSetupClient{},
+		loopRunner:     runner,
+	}
+
+	err := cmd.Run()
+
+	require.NoError(t, err)
+	require.True(t, ai.statsPrinted, "the stats are printed when the loop succeeds in the workflow container")
+}
+
+// TestWorkflowLoopCmdPrintsStatsOnFailureInWorkflow asserts the container-side
+// workflow loop command prints the accumulated AI token usage and cost
+// statistics before the loop failure is surfaced.
+func TestWorkflowLoopCmdPrintsStatsOnFailureInWorkflow(t *testing.T) {
+	t.Setenv("RALPH_WORKFLOW_EXECUTION", "true")
+	writeLoopConfig(t, `loops:
+  - slug: fmt
+    steps:
+      - run gofmt
+`)
+
+	aiErr := errors.New("loop boom")
+	ai := &fakeAIClient{err: aiErr}
+	runner := &inProcessLoopRunner{
+		cfg:     &config.Client{},
+		prompt:  &loopPromptBuilder{},
+		propose: &fakeSlugProposer{slug: "should-not-be-used"},
+		ai:      ai,
+		report:  &fakeReportReader{content: "NOTHING_TO_DO"},
+		git:     &fakeGitClient{},
+		pr:      &fakePullRequestOpener{},
+	}
+	cmd := &WorkflowLoopCmd{
+		Repo:           "owner/repo",
+		CloneBranch:    "main",
+		BotName:        "ralph-zon[bot]",
+		BotEmail:       "ralph-zon[bot]@users.noreply.github.com",
+		Slug:           "fmt",
+		Max:            1,
+		workspaceSetup: &fakeWorkspaceSetupClient{},
+		loopRunner:     runner,
+	}
+
+	err := cmd.Run()
+
+	require.Error(t, err)
+	require.Equal(t, aiErr, err, "the loop error is returned unchanged")
+	require.True(t, ai.statsPrinted, "the stats are printed before the loop failure is surfaced")
 }

@@ -99,6 +99,7 @@ func (a *loopWorkflowRunnerAdapter) Run(slug string, steps []string, max int) er
 		&loopReportReader{},
 		git.NewClient(a.ctx),
 		github.NewClient(a.ctx, baseBranch, github.NewGH(a.ctx.Output()), opencode.New()),
+		&SystemEnvClient{},
 	)
 	_, err = cmd.Run(slug, steps, max)
 	return err

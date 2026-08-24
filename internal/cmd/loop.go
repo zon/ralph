@@ -141,7 +141,7 @@ func (c *LoopCmd) runLocal(ctx *execcontext.Context) error {
 		prClient = github.NewClient(ctx, baseBranch, github.NewGH(ctx.Output()), opencode.New())
 	}
 
-	result, err := loop.NewCmd(&config.Client{}, &loopPromptBuilder{}, propose, aiClient, reportReader, gitClient, prClient).Run(c.Slug, c.Steps, c.Max)
+	result, err := loop.NewCmd(&config.Client{}, &loopPromptBuilder{}, propose, aiClient, reportReader, gitClient, prClient, &SystemEnvClient{}).Run(c.Slug, c.Steps, c.Max)
 	if err != nil {
 		return err
 	}
@@ -189,6 +189,12 @@ type loopAIClient struct {
 // RunAgent runs the loop prompt with opencode's configured agent.
 func (a *loopAIClient) RunAgent(prompt string) error {
 	return ai.RunAgent(a.ctx, opencode.New(), prompt)
+}
+
+// PrintStats prints the accumulated AI token usage and cost statistics, using
+// the same formatting as `ralph run`.
+func (a *loopAIClient) PrintStats() {
+	NewAgentClient(a.ctx, opencode.New()).PrintStats()
 }
 
 // loopReportReader adapts ai.ReadReport to the orchestration's ReportReader

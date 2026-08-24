@@ -67,7 +67,7 @@ func TestRunIterationLoop(t *testing.T) {
 			report := &mockReportReader{reports: tt.reports}
 			git := &mockGitClient{}
 
-			result, err := NewCmd(client, prompt, proposer, ai, report, git, &mockPullRequestOpener{}).Run("fmt", steps, tt.max)
+			result, err := NewCmd(client, prompt, proposer, ai, report, git, &mockPullRequestOpener{}, envNotInWorkflow()).Run("fmt", steps, tt.max)
 
 			require.NoError(t, err)
 			assertResolved(t, result, "fmt", steps)
@@ -101,7 +101,7 @@ func TestRunPropagatesAIError(t *testing.T) {
 	ai := &mockAIClient{err: aiErr}
 	report := &mockReportReader{reports: []string{"did the work"}}
 
-	result, err := NewCmd(client, prompt, proposer, ai, report, &mockGitClient{}, &mockPullRequestOpener{}).Run("fmt", steps, 10)
+	result, err := NewCmd(client, prompt, proposer, ai, report, &mockGitClient{}, &mockPullRequestOpener{}, envNotInWorkflow()).Run("fmt", steps, 10)
 
 	require.Error(t, err)
 	assert.Nil(t, result, "no resolution is returned when the AI pass fails")
@@ -121,7 +121,7 @@ func TestRunPropagatesReportReadError(t *testing.T) {
 	readErr := errors.New("failed to read report.md: boom")
 	report := &mockReportReader{err: readErr}
 
-	result, err := NewCmd(client, prompt, proposer, ai, report, &mockGitClient{}, &mockPullRequestOpener{}).Run("fmt", steps, 10)
+	result, err := NewCmd(client, prompt, proposer, ai, report, &mockGitClient{}, &mockPullRequestOpener{}, envNotInWorkflow()).Run("fmt", steps, 10)
 
 	require.Error(t, err)
 	assert.Nil(t, result, "no resolution is returned when the report read fails")
@@ -143,7 +143,7 @@ func TestRunPropagatesIterationCommitError(t *testing.T) {
 	git := &mockGitClient{err: commitErr}
 	pr := &mockPullRequestOpener{}
 
-	result, err := NewCmd(client, prompt, proposer, ai, report, git, pr).Run("fmt", steps, 10)
+	result, err := NewCmd(client, prompt, proposer, ai, report, git, pr, envNotInWorkflow()).Run("fmt", steps, 10)
 
 	require.Error(t, err)
 	assert.Nil(t, result, "no resolution is returned when the iteration commit fails")
@@ -166,7 +166,7 @@ func TestRunCommitsToProposedSlug(t *testing.T) {
 	report := &mockReportReader{reports: []string{"did the work"}}
 	git := &mockGitClient{}
 
-	result, err := NewCmd(client, prompt, proposer, ai, report, git, &mockPullRequestOpener{}).Run("", steps, 1)
+	result, err := NewCmd(client, prompt, proposer, ai, report, git, &mockPullRequestOpener{}, envNotInWorkflow()).Run("", steps, 1)
 
 	require.NoError(t, err)
 	assertResolved(t, result, "fmt", steps)
