@@ -271,6 +271,103 @@ func TestClientCreatePR_PropagatesCreatePullRequestError(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to create pull request")
 }
 
+func TestClientOpenLoopPullRequest_DelegatesToCreatePullRequest(t *testing.T) {
+	mock := &MockGH{
+		IsReadyFn: func() bool { return true },
+		CreatePRFn: func(title, body, base, head string) (string, error) {
+			assert.Equal(t, "fmt", title)
+			assert.Equal(t, "main", base)
+			assert.Equal(t, "loop-fmt", head)
+			assert.Contains(t, body, "abc: feat")
+			return "https://github.com/owner/repo/pull/2", nil
+		},
+	}
+	ctx := execcontext.NewContext()
+	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
+	mockOC := &opencode.MockOC{}
+	client := withMockCommitLog(NewClient(ctx, "main", mock, mockOC), "abc: feat\n")
+
+	err := client.OpenLoopPullRequest("fmt")
+	assert.NoError(t, err)
+}
+
+func TestClientOpenLoopPullRequest_SkipsWhenNoCommitsAhead(t *testing.T) {
+	createPRCalled := false
+	mock := &MockGH{
+		IsReadyFn: func() bool { return true },
+		CreatePRFn: func(title, body, base, head string) (string, error) {
+			createPRCalled = true
+			return "https://github.com/o/r/p/2", nil
+		},
+	}
+	var buf bytes.Buffer
+	ctx := execcontext.NewContext()
+	ctx.SetOutput(output.NewClient(&buf, &buf, true))
+	client := withMockCommitLog(NewClient(ctx, "main", mock, &opencode.MockOC{}), "")
+
+	err := client.OpenLoopPullRequest("fmt")
+	assert.NoError(t, err)
+	assert.False(t, createPRCalled, "expected PR creation to be skipped when no commits exist ahead of base")
+	assert.Contains(t, buf.String(), "No commits ahead of base branch; skipping PR creation")
+}
+
+func TestClientOpenLoopPullRequest_SentinelNoCommitsSkipsWithoutError(t *testing.T) {
+	mock := &MockGH{
+		IsReadyFn:  func() bool { return true },
+		CreatePRFn: func(title, body, base, head string) (string, error) { return "", ErrNoCommitsBetweenBranches },
+	}
+	var buf bytes.Buffer
+	ctx := execcontext.NewContext()
+	ctx.SetOutput(output.NewClient(&buf, &buf, true))
+	client := withMockCommitLog(NewClient(ctx, "main", mock, &opencode.MockOC{}), "abc: feat\n")
+
+	err := client.OpenLoopPullRequest("fmt")
+	assert.NoError(t, err)
+	assert.Contains(t, buf.String(), "No commits ahead of base branch; skipping PR creation")
+}
+
+func TestClientOpenLoopPullRequest_WorkflowExecutionCallsConfigureGitAuth(t *testing.T) {
+	called := false
+	mockGitAuth := &mockGitAuthConfigurer{
+		configureGitAuthFn: func(_ context.Context, owner, repo, _ string) error {
+			called = true
+			assert.Equal(t, "test-owner", owner)
+			assert.Equal(t, "test-repo", repo)
+			return errors.New("mock git auth error")
+		},
+	}
+	mock := &MockGH{
+		IsReadyFn:  func() bool { return true },
+		CreatePRFn: func(title, body, base, head string) (string, error) { return "https://github.com/o/r/p/2", nil },
+	}
+	ctx := execcontext.NewContext()
+	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
+	ctx.SetWorkflowExecution(true)
+	ctx.SetRepoOwner("test-owner")
+	ctx.SetRepoName("test-repo")
+	client := withMockCommitLog(NewClient(ctx, "main", mock, &opencode.MockOC{}), "abc: feat\n")
+	client.gitAuthConfigurer = mockGitAuth
+
+	err := client.OpenLoopPullRequest("fmt")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to refresh GitHub credentials")
+	assert.True(t, called, "expected ConfigureGitAuth to be called")
+}
+
+func TestClientOpenLoopPullRequest_PropagatesCreatePullRequestError(t *testing.T) {
+	mock := &MockGH{
+		IsReadyFn:  func() bool { return true },
+		CreatePRFn: func(title, body, base, head string) (string, error) { return "", assert.AnError },
+	}
+	ctx := execcontext.NewContext()
+	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
+	client := withMockCommitLog(NewClient(ctx, "main", mock, &opencode.MockOC{}), "abc: feat\n")
+
+	err := client.OpenLoopPullRequest("fmt")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to create pull request")
+}
+
 func writeMockSummary(t *testing.T, prompt string) error {
 	t.Helper()
 	if idx := strings.Index(prompt, "Write your summary to the file:"); idx >= 0 {

@@ -147,7 +147,7 @@ func TestLoopRunWithMatchingSlug(t *testing.T) {
 `)
 
 	proposer := &fakeSlugProposer{slug: "should-not-be-used"}
-	cmd := &LoopCmd{Slug: "fmt", slugProposer: proposer, aiClient: &fakeAIClient{}, reportReader: &fakeReportReader{content: "NOTHING_TO_DO"}}
+	cmd := &LoopCmd{Slug: "fmt", slugProposer: proposer, aiClient: &fakeAIClient{}, reportReader: &fakeReportReader{content: "NOTHING_TO_DO"}, prClient: &fakePullRequestOpener{}}
 	err := cmd.Run()
 	require.NoError(t, err)
 	assert.False(t, proposer.called, "the slug proposer is not called when a slug is given")
@@ -167,7 +167,7 @@ func TestLoopRunWithMissingSlug(t *testing.T) {
 `)
 
 	proposer := &fakeSlugProposer{slug: "should-not-be-used"}
-	err := (&LoopCmd{Slug: "missing", slugProposer: proposer, aiClient: &fakeAIClient{}, reportReader: &fakeReportReader{content: "NOTHING_TO_DO"}}).Run()
+	err := (&LoopCmd{Slug: "missing", slugProposer: proposer, aiClient: &fakeAIClient{}, reportReader: &fakeReportReader{content: "NOTHING_TO_DO"}, prClient: &fakePullRequestOpener{}}).Run()
 	require.Error(t, err)
 	assert.EqualError(t, err, "loop config not found: missing")
 	assert.False(t, proposer.called, "the slug proposer is not called when a slug is given")
@@ -181,7 +181,7 @@ func TestLoopRunWithStepsWithoutSlug(t *testing.T) {
 	t.Chdir(t.TempDir())
 
 	proposer := &fakeSlugProposer{slug: "gofmt"}
-	cmd := &LoopCmd{Steps: []string{"run gofmt"}, slugProposer: proposer, aiClient: &fakeAIClient{}, reportReader: &fakeReportReader{content: "NOTHING_TO_DO"}}
+	cmd := &LoopCmd{Steps: []string{"run gofmt"}, slugProposer: proposer, aiClient: &fakeAIClient{}, reportReader: &fakeReportReader{content: "NOTHING_TO_DO"}, prClient: &fakePullRequestOpener{}}
 	err := cmd.Run()
 	require.NoError(t, err)
 	assert.True(t, proposer.called, "the slug proposer is asked for a slug when none is given")
@@ -198,7 +198,7 @@ func TestLoopRunWithStepsWithoutSlugPropagatesProposalError(t *testing.T) {
 
 	proposeErr := errors.New("no usable slug proposed by the AI")
 	proposer := &fakeSlugProposer{err: proposeErr}
-	err := (&LoopCmd{Steps: []string{"run gofmt"}, slugProposer: proposer, aiClient: &fakeAIClient{}, reportReader: &fakeReportReader{content: "NOTHING_TO_DO"}}).Run()
+	err := (&LoopCmd{Steps: []string{"run gofmt"}, slugProposer: proposer, aiClient: &fakeAIClient{}, reportReader: &fakeReportReader{content: "NOTHING_TO_DO"}, prClient: &fakePullRequestOpener{}}).Run()
 	require.Error(t, err)
 	assert.Equal(t, proposeErr, err)
 	assert.True(t, proposer.called, "the slug proposer is consulted before failing")
@@ -217,7 +217,7 @@ func TestLoopRunWithSlugAndStepsUsesPassedSteps(t *testing.T) {
 
 	proposer := &fakeSlugProposer{slug: "should-not-be-used"}
 	passed := []string{"write code", "run tests"}
-	cmd := &LoopCmd{Slug: "fmt", Steps: passed, slugProposer: proposer, aiClient: &fakeAIClient{}, reportReader: &fakeReportReader{content: "NOTHING_TO_DO"}}
+	cmd := &LoopCmd{Slug: "fmt", Steps: passed, slugProposer: proposer, aiClient: &fakeAIClient{}, reportReader: &fakeReportReader{content: "NOTHING_TO_DO"}, prClient: &fakePullRequestOpener{}}
 	err := cmd.Run()
 	require.NoError(t, err)
 	assert.False(t, proposer.called, "the slug proposer is not called when a slug is given")
@@ -285,6 +285,21 @@ func (f *fakeGitClient) CommitIterationAndPush(slug string) error {
 	return f.err
 }
 
+// fakePullRequestOpener records the slugs it opened pull requests for and
+// returns an injected error when set, so tests never touch the real GitHub
+// client.
+type fakePullRequestOpener struct {
+	slugs []string
+	err   error
+	calls int
+}
+
+func (f *fakePullRequestOpener) OpenLoopPullRequest(slug string) error {
+	f.calls++
+	f.slugs = append(f.slugs, slug)
+	return f.err
+}
+
 // TestLoopRunInvokesAIWithLoopPrompt asserts the wired command runs the built
 // loop prompt through the injected AI client exactly once when the report says
 // nothing to do. The given slug never consults the slug proposer.
@@ -302,6 +317,7 @@ func TestLoopRunInvokesAIWithLoopPrompt(t *testing.T) {
 		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
 		aiClient:     ai,
 		reportReader: &fakeReportReader{content: "NOTHING_TO_DO"},
+		prClient:     &fakePullRequestOpener{},
 	}
 	err := cmd.Run()
 	require.NoError(t, err)
@@ -328,6 +344,7 @@ func TestLoopRunStopsAfterMaxIterations(t *testing.T) {
 		aiClient:     ai,
 		reportReader: &fakeReportReader{content: "did the work"},
 		gitClient:    git,
+		prClient:     &fakePullRequestOpener{},
 	}
 	err := cmd.Run()
 	require.NoError(t, err)
@@ -359,6 +376,7 @@ func TestLoopRunNothingToDoDoesNotCommit(t *testing.T) {
 		aiClient:     ai,
 		reportReader: &fakeReportReader{content: "NOTHING_TO_DO"},
 		gitClient:    git,
+		prClient:     &fakePullRequestOpener{},
 	}
 	err := cmd.Run()
 	require.NoError(t, err)
@@ -387,6 +405,7 @@ func TestLoopRunPropagatesIterationCommitError(t *testing.T) {
 		aiClient:     &fakeAIClient{},
 		reportReader: &fakeReportReader{content: "did the work"},
 		gitClient:    git,
+		prClient:     &fakePullRequestOpener{},
 	}
 	err := cmd.Run()
 	require.Error(t, err)
@@ -412,9 +431,97 @@ func TestLoopRunPropagatesAIError(t *testing.T) {
 		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
 		aiClient:     ai,
 		reportReader: &fakeReportReader{content: "did the work"},
+		prClient:     &fakePullRequestOpener{},
 	}
 	err := cmd.Run()
 	require.Error(t, err)
 	assert.Equal(t, aiErr, err, "the AI error is returned unchanged")
 	assert.Empty(t, cmd.resolvedSlug, "no slug is retained when the loop fails")
+}
+
+// TestLoopRunOpensPullRequestAfterCommits asserts the wired command opens the
+// loop branch's pull request once for the resolved slug after the loop commits
+// its work.
+func TestLoopRunOpensPullRequestAfterCommits(t *testing.T) {
+	writeLoopConfig(t, `loops:
+  - slug: fmt
+    steps:
+      - run gofmt
+`)
+
+	ai := &fakeAIClient{}
+	git := &fakeGitClient{}
+	pr := &fakePullRequestOpener{}
+	cmd := &LoopCmd{
+		Slug:         "fmt",
+		Max:          1,
+		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
+		aiClient:     ai,
+		reportReader: &fakeReportReader{content: "did the work"},
+		gitClient:    git,
+		prClient:     pr,
+	}
+	err := cmd.Run()
+	require.NoError(t, err)
+	assert.Equal(t, 1, git.calls, "the work iteration is committed once")
+	assert.Equal(t, []string{"fmt"}, git.slugs, "the commit records the resolved slug")
+	assert.Equal(t, 1, pr.calls, "the pull request is opened exactly once after the loop ends")
+	assert.Equal(t, []string{"fmt"}, pr.slugs, "the pull request is opened for the resolved slug")
+	assert.Equal(t, "fmt", cmd.resolvedSlug, "the resolved slug is retained on the command")
+}
+
+// TestLoopRunDelegatesPullRequestWhenNothingCommitted asserts the wired command
+// still delegates opening the pull request when no iteration committed work:
+// the git client is never called, yet the pull request opener is called once
+// with the resolved slug, because the implementation decides nothing was
+// committed.
+func TestLoopRunDelegatesPullRequestWhenNothingCommitted(t *testing.T) {
+	writeLoopConfig(t, `loops:
+  - slug: fmt
+    steps:
+      - run gofmt
+`)
+
+	git := &fakeGitClient{}
+	pr := &fakePullRequestOpener{}
+	cmd := &LoopCmd{
+		Slug:         "fmt",
+		Max:          10,
+		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
+		aiClient:     &fakeAIClient{},
+		reportReader: &fakeReportReader{content: "NOTHING_TO_DO"},
+		gitClient:    git,
+		prClient:     pr,
+	}
+	err := cmd.Run()
+	require.NoError(t, err)
+	assert.Equal(t, 0, git.calls, "a nothing-to-do iteration is not committed")
+	assert.Equal(t, 1, pr.calls, "the pull request open is delegated exactly once after the loop ends")
+	assert.Equal(t, []string{"fmt"}, pr.slugs, "the pull request open receives the resolved slug")
+	assert.Equal(t, "fmt", cmd.resolvedSlug, "the resolved slug is retained on the command")
+}
+
+// TestLoopRunPropagatesPullRequestOpenError asserts a pull request open failure
+// after the loop ends aborts the wired command and is returned unchanged.
+func TestLoopRunPropagatesPullRequestOpenError(t *testing.T) {
+	writeLoopConfig(t, `loops:
+  - slug: fmt
+    steps:
+      - run gofmt
+`)
+
+	prErr := errors.New("failed to open loop pull request: boom")
+	pr := &fakePullRequestOpener{err: prErr}
+	cmd := &LoopCmd{
+		Slug:         "fmt",
+		Max:          10,
+		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
+		aiClient:     &fakeAIClient{},
+		reportReader: &fakeReportReader{content: "NOTHING_TO_DO"},
+		prClient:     pr,
+	}
+	err := cmd.Run()
+	require.Error(t, err)
+	assert.Equal(t, prErr, err, "the pull request open error is returned unchanged")
+	assert.Equal(t, 1, pr.calls, "the pull request open is attempted once after the loop ends")
 }

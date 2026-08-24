@@ -9,6 +9,7 @@ import (
 	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
+	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/opencode"
 	"github.com/zon/ralph/internal/orchestration/loop"
 	"github.com/zon/ralph/internal/output"
@@ -40,6 +41,10 @@ type LoopCmd struct {
 	// gitClient commits each iteration to the loop branch and pushes it.
 	// Tests inject a fake. When nil, Run builds the real adapter.
 	gitClient loop.GitClient `kong:"-"`
+
+	// prClient opens the loop branch's pull request when the loop ends.
+	// Tests inject a fake. When nil, Run builds the real adapter.
+	prClient loop.PullRequestOpener `kong:"-"`
 
 	// resolvedSlug and resolvedSteps retain the resolution of the last Run call
 	// so the later loop phases (branch commit, pull request) can use them.
@@ -84,8 +89,16 @@ func (c *LoopCmd) Run() error {
 	if gitClient == nil {
 		gitClient = git.NewClient(ctx)
 	}
+	prClient := c.prClient
+	if prClient == nil {
+		baseBranch, err := git.GetCurrentBranch()
+		if err != nil {
+			return err
+		}
+		prClient = github.NewClient(ctx, baseBranch, github.NewGH(ctx.Output()), opencode.New())
+	}
 
-	result, err := loop.NewCmd(&config.Client{}, &loopPromptBuilder{}, propose, aiClient, reportReader, gitClient).Run(c.Slug, c.Steps, c.Max)
+	result, err := loop.NewCmd(&config.Client{}, &loopPromptBuilder{}, propose, aiClient, reportReader, gitClient, prClient).Run(c.Slug, c.Steps, c.Max)
 	if err != nil {
 		return err
 	}

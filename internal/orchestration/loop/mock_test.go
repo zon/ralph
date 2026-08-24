@@ -123,3 +123,17 @@ func (m *mockGitClient) CommitIterationAndPush(slug string) error {
 	m.slugs = append(m.slugs, slug)
 	return m.err
 }
+
+// mockPullRequestOpener records the slugs it opened pull requests for and
+// returns an injected error when set.
+type mockPullRequestOpener struct {
+	slugs []string
+	err   error
+	calls int
+}
+
+func (m *mockPullRequestOpener) OpenLoopPullRequest(slug string) error {
+	m.calls++
+	m.slugs = append(m.slugs, slug)
+	return m.err
+}

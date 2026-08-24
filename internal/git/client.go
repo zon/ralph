@@ -58,7 +58,7 @@ func (a *Client) CommitIterationAndPush(slug string) error {
 		owner, repo := a.ctx.RepoOwnerAndName()
 		auth = &AuthConfig{Owner: owner, Repo: repo}
 	}
-	if err := SwitchToBranchIfNeeded(auth, loopBranch(slug)); err != nil {
+	if err := SwitchToBranchIfNeeded(auth, LoopBranch(slug)); err != nil {
 		return err
 	}
 	data, err := os.ReadFile("report.md")

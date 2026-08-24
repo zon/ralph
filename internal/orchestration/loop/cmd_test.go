@@ -27,7 +27,7 @@ func TestRunPassedStepsReplaceConfigSteps(t *testing.T) {
 	ai := &mockAIClient{}
 	report := &mockReportReader{reports: nothingToDoReports()}
 
-	result, err := NewCmd(client, prompt, proposer, ai, report, &mockGitClient{}).Run("fmt", steps, 10)
+	result, err := NewCmd(client, prompt, proposer, ai, report, &mockGitClient{}, &mockPullRequestOpener{}).Run("fmt", steps, 10)
 
 	require.NoError(t, err)
 	assertResolved(t, result, "fmt", steps)
@@ -48,7 +48,7 @@ func TestRunRequiresConfigEntryWhenSlugPassedWithSteps(t *testing.T) {
 	ai := &mockAIClient{}
 	report := &mockReportReader{reports: nothingToDoReports()}
 
-	result, err := NewCmd(client, prompt, proposer, ai, report, &mockGitClient{}).Run("missing", steps, 10)
+	result, err := NewCmd(client, prompt, proposer, ai, report, &mockGitClient{}, &mockPullRequestOpener{}).Run("missing", steps, 10)
 
 	require.Error(t, err)
 	assert.Nil(t, result, "no resolution is returned when no loop config matches the slug")
@@ -67,7 +67,7 @@ func TestRunProposesSlugForPassedSteps(t *testing.T) {
 	ai := &mockAIClient{}
 	report := &mockReportReader{reports: nothingToDoReports()}
 
-	result, err := NewCmd(client, prompt, proposer, ai, report, &mockGitClient{}).Run("", steps, 10)
+	result, err := NewCmd(client, prompt, proposer, ai, report, &mockGitClient{}, &mockPullRequestOpener{}).Run("", steps, 10)
 
 	require.NoError(t, err)
 	assertResolved(t, result, "fmt", steps)
@@ -87,7 +87,7 @@ func TestRunPropagatesSlugProposalError(t *testing.T) {
 	ai := &mockAIClient{}
 	report := &mockReportReader{reports: nothingToDoReports()}
 
-	result, err := NewCmd(client, prompt, proposer, ai, report, &mockGitClient{}).Run("", steps, 10)
+	result, err := NewCmd(client, prompt, proposer, ai, report, &mockGitClient{}, &mockPullRequestOpener{}).Run("", steps, 10)
 
 	require.Error(t, err)
 	assert.Nil(t, result, "no resolution is returned when slug proposal fails")
@@ -108,7 +108,7 @@ func TestRunUsesMatchingLoopConfigSteps(t *testing.T) {
 	ai := &mockAIClient{}
 	report := &mockReportReader{reports: nothingToDoReports()}
 
-	result, err := NewCmd(client, prompt, proposer, ai, report, &mockGitClient{}).Run("fmt", nil, 10)
+	result, err := NewCmd(client, prompt, proposer, ai, report, &mockGitClient{}, &mockPullRequestOpener{}).Run("fmt", nil, 10)
 
 	require.NoError(t, err)
 	assertResolved(t, result, "fmt", steps)
@@ -126,7 +126,7 @@ func TestRunReturnsLoopConfigNotFoundWithoutBuildingPrompt(t *testing.T) {
 	ai := &mockAIClient{}
 	report := &mockReportReader{reports: nothingToDoReports()}
 
-	result, err := NewCmd(client, prompt, proposer, ai, report, &mockGitClient{}).Run("missing", nil, 10)
+	result, err := NewCmd(client, prompt, proposer, ai, report, &mockGitClient{}, &mockPullRequestOpener{}).Run("missing", nil, 10)
 
 	require.Error(t, err)
 	assert.Nil(t, result, "no resolution is returned when no loop config matches")
@@ -145,7 +145,7 @@ func TestRunPropagatesLoopConfigLookupError(t *testing.T) {
 	ai := &mockAIClient{}
 	report := &mockReportReader{reports: nothingToDoReports()}
 
-	result, err := NewCmd(client, prompt, proposer, ai, report, &mockGitClient{}).Run("fmt", nil, 10)
+	result, err := NewCmd(client, prompt, proposer, ai, report, &mockGitClient{}, &mockPullRequestOpener{}).Run("fmt", nil, 10)
 
 	require.Error(t, err)
 	assert.Nil(t, result, "no resolution is returned when the loop config lookup fails")
@@ -165,7 +165,7 @@ func TestRunPropagatesPromptBuildError(t *testing.T) {
 	ai := &mockAIClient{}
 	report := &mockReportReader{reports: nothingToDoReports()}
 
-	result, err := NewCmd(client, prompt, proposer, ai, report, &mockGitClient{}).Run("fmt", nil, 10)
+	result, err := NewCmd(client, prompt, proposer, ai, report, &mockGitClient{}, &mockPullRequestOpener{}).Run("fmt", nil, 10)
 
 	require.Error(t, err)
 	assert.Nil(t, result, "no resolution is returned when the prompt fails to build")
@@ -182,7 +182,7 @@ func TestRunWithNoSlugAndNoStepsResolvesEmptyAndBuildsEmptyPrompt(t *testing.T) 
 	ai := &mockAIClient{}
 	report := &mockReportReader{reports: nothingToDoReports()}
 
-	result, err := NewCmd(client, prompt, proposer, ai, report, &mockGitClient{}).Run("", nil, 10)
+	result, err := NewCmd(client, prompt, proposer, ai, report, &mockGitClient{}, &mockPullRequestOpener{}).Run("", nil, 10)
 
 	require.NoError(t, err)
 	assertResolved(t, result, "", nil)
@@ -192,4 +192,91 @@ func TestRunWithNoSlugAndNoStepsResolvesEmptyAndBuildsEmptyPrompt(t *testing.T) 
 	assert.Empty(t, prompt.steps)
 	assert.Equal(t, 1, ai.calls, "the AI is invoked once before the nothing-to-do report stops the loop")
 	assert.Equal(t, 1, report.reads, "the report is read once before the nothing-to-do report stops the loop")
+}
+
+// TestRunDelegatesPullRequestOpening asserts the pull request for the loop
+// branch is opened exactly once after the loop ends, whatever the loop's
+// outcome, and receives the resolved slug.
+func TestRunDelegatesPullRequestOpening(t *testing.T) {
+	tests := []struct {
+		name     string
+		slug     string
+		steps    []string
+		reports  []string
+		max      int
+		proposed string
+		wantSlug string
+	}{
+		{
+			name:     "opens the pull request when nothing to do first",
+			slug:     "fmt",
+			steps:    []string{"run gofmt"},
+			reports:  nothingToDoReports(),
+			max:      10,
+			wantSlug: "fmt",
+		},
+		{
+			name:     "opens the pull request after committing work then nothing to do",
+			slug:     "fmt",
+			steps:    []string{"run gofmt"},
+			reports:  []string{"did the work", "NOTHING_TO_DO"},
+			max:      10,
+			wantSlug: "fmt",
+		},
+		{
+			name:     "opens the pull request after running until max iterations",
+			slug:     "fmt",
+			steps:    []string{"run gofmt"},
+			reports:  []string{"did the work"},
+			max:      3,
+			wantSlug: "fmt",
+		},
+		{
+			name:     "opens the pull request for the proposed slug",
+			slug:     "",
+			steps:    []string{"run gofmt"},
+			reports:  nothingToDoReports(),
+			max:      10,
+			proposed: "fmt",
+			wantSlug: "fmt",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := &mockLoopConfigClient{loops: map[string][]string{"fmt": {"run gofmt"}}}
+			prompt := &mockPromptBuilder{}
+			proposer := &mockSlugProposer{slug: tt.proposed}
+			ai := &mockAIClient{}
+			report := &mockReportReader{reports: tt.reports}
+			pr := &mockPullRequestOpener{}
+
+			result, err := NewCmd(client, prompt, proposer, ai, report, &mockGitClient{}, pr).Run(tt.slug, tt.steps, tt.max)
+
+			require.NoError(t, err)
+			assertResolved(t, result, tt.wantSlug, tt.steps)
+			assert.Equal(t, 1, pr.calls, "the pull request is opened exactly once after the loop ends")
+			assert.Equal(t, []string{tt.wantSlug}, pr.slugs, "the pull request is opened for the resolved slug")
+		})
+	}
+}
+
+// TestRunPropagatesPullRequestOpenError asserts a pull request open failure
+// after the loop ends aborts the run and is returned unchanged.
+func TestRunPropagatesPullRequestOpenError(t *testing.T) {
+	steps := []string{"run gofmt"}
+	client := &mockLoopConfigClient{loops: map[string][]string{"fmt": steps}}
+	prompt := &mockPromptBuilder{}
+	proposer := &mockSlugProposer{slug: "proposed"}
+	ai := &mockAIClient{}
+	report := &mockReportReader{reports: nothingToDoReports()}
+	prErr := errors.New("failed to open loop pull request: boom")
+	pr := &mockPullRequestOpener{err: prErr}
+
+	result, err := NewCmd(client, prompt, proposer, ai, report, &mockGitClient{}, pr).Run("fmt", steps, 10)
+
+	require.Error(t, err)
+	assert.Nil(t, result, "no resolution is returned when opening the pull request fails")
+	assert.Equal(t, prErr, err, "the pull request open error is returned unchanged")
+	assert.Equal(t, 1, pr.calls, "the pull request open is attempted once after the loop ends")
 }

@@ -35,7 +35,16 @@ type GitClient interface {
 	CommitIterationAndPush(slug string) error
 }
 
-// Cmd orchestrates the ralph loop command.
+// PullRequestOpener opens a pull request for the loop branch after the
+// loop ends. It opens nothing when no commits were made on the loop
+// branch, and succeeds.
+type PullRequestOpener interface {
+	OpenLoopPullRequest(slug string) error
+}
+
+// Cmd orchestrates the ralph loop command, from resolving the steps and slug
+// through running the iteration loop and opening the loop branch's pull
+// request.
 type Cmd struct {
 	cfg     LoopConfigClient
 	prompt  PromptBuilder
@@ -43,10 +52,11 @@ type Cmd struct {
 	ai      AIClient
 	report  ReportReader
 	git     GitClient
+	pr      PullRequestOpener
 }
 
-func NewCmd(cfg LoopConfigClient, prompt PromptBuilder, propose SlugProposer, ai AIClient, report ReportReader, git GitClient) *Cmd {
-	return &Cmd{cfg: cfg, prompt: prompt, propose: propose, ai: ai, report: report, git: git}
+func NewCmd(cfg LoopConfigClient, prompt PromptBuilder, propose SlugProposer, ai AIClient, report ReportReader, git GitClient, pr PullRequestOpener) *Cmd {
+	return &Cmd{cfg: cfg, prompt: prompt, propose: propose, ai: ai, report: report, git: git, pr: pr}
 }
 
 // Result carries the resolution of a loop invocation: the branch slug and the
@@ -59,8 +69,9 @@ type Result struct {
 // Run resolves the branch slug and the steps to run, builds the loop prompt
 // embedding the steps, and runs it as an iteration loop. The loop stops when
 // the agent reports nothing to do or after max iterations, whichever comes
-// first. It returns the resolution so the caller can derive the branch name
-// from the slug.
+// first. After the loop ends it opens the loop branch's pull request. It
+// returns the resolution so the caller can derive the branch name from the
+// slug.
 func (c *Cmd) Run(slug string, steps []string, max int) (*Result, error) {
 	result, err := c.resolve(slug, steps)
 	if err != nil {
@@ -71,6 +82,9 @@ func (c *Cmd) Run(slug string, steps []string, max int) (*Result, error) {
 		return nil, err
 	}
 	if err := c.iterate(prompt, max, result.Slug); err != nil {
+		return nil, err
+	}
+	if err := c.pr.OpenLoopPullRequest(result.Slug); err != nil {
 		return nil, err
 	}
 	return result, nil
