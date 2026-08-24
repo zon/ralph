@@ -241,7 +241,7 @@ The command SHALL build a prompt that embeds the resolved steps, in order. The p
 
 ### Requirement: Iteration loop
 
-Before running the prompt, the command SHALL switch to the branch `loop-<slug>`, creating it from the current branch when it does not already exist. The command SHALL then run the prompt repeatedly as an iteration loop. Each iteration SHALL invoke the AI with the prompt and then read `report.md`. The loop SHALL stop when the report content equals the constant string `NOTHING_TO_DO` (trimmed of surrounding whitespace) or when the number of iterations reaches the `--max` cap, whichever comes first. The `--max` flag SHALL default to `10` and SHALL be a positive integer.
+Before running the prompt, the command SHALL switch to the branch `loop-<slug>`, creating it from the current branch when it does not already exist. The command SHALL then run the prompt repeatedly as an iteration loop. Each iteration SHALL invoke the AI with the prompt and then read `report.md`. The loop SHALL stop when the report content equals the constant string `NOTHING_TO_DO` (trimmed of surrounding whitespace) or when the number of iterations reaches the `--max` cap, whichever comes first. The `--max` flag SHALL default to `20` and SHALL be a positive integer.
 
 #### Scenario: Switches to the loop branch before the first iteration
 
@@ -271,12 +271,12 @@ Before running the prompt, the command SHALL switch to the branch `loop-<slug>`,
 - THEN the loop stops after iteration 3
 - AND no fourth iteration runs
 
-#### Scenario: Default `--max` is 10
+#### Scenario: Default `--max` is 20
 
 - GIVEN no `--max` flag is passed
 - AND the AI never writes `NOTHING_TO_DO`
 - WHEN the loop runs
-- THEN the loop runs at most 10 iterations
+- THEN the loop runs at most 20 iterations
 
 #### Scenario: Custom `--max` overrides the default
 

@@ -56,7 +56,7 @@ func TestWorkflowLoopCmdDefaults(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "ralph-zon[bot]", cmd.Workflow.Loop.BotName, "the bot name defaults to the app bot")
 	assert.Equal(t, "ralph-zon[bot]@users.noreply.github.com", cmd.Workflow.Loop.BotEmail, "the bot email defaults to the app bot email")
-	assert.Equal(t, 10, cmd.Workflow.Loop.Max, "the max iterations default to 10")
+	assert.Equal(t, 20, cmd.Workflow.Loop.Max, "the max iterations default to 20")
 	assert.Empty(t, cmd.Workflow.Loop.Slug, "the slug defaults to empty")
 	assert.Empty(t, cmd.Workflow.Loop.Steps, "the steps default to empty")
 }

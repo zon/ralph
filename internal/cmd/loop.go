@@ -32,7 +32,7 @@ import (
 type LoopCmd struct {
 	Slug     string   `arg:"" optional:"" help:"Slug of the loop configuration in .ralph/config.yaml"`
 	Steps    []string `help:"Step to run in the loop (repeatable)" name:"step"`
-	Max      int      `help:"Maximum number of iterations" name:"max" default:"10"`
+	Max      int      `help:"Maximum number of iterations" name:"max" default:"20"`
 	Verbose  bool     `help:"Enable verbose logging" default:"false"`
 	Local    bool     `help:"Run on this machine instead of in Argo Workflows" default:"false"`
 	Follow   bool     `help:"Follow workflow logs after submission (only applicable without --local)" short:"f" default:"false"`

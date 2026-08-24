@@ -23,7 +23,7 @@ type WorkflowLoopCmd struct {
 	BotEmail    string   `help:"Git user email for commits" default:"ralph-zon[bot]@users.noreply.github.com"`
 	Slug        string   `help:"Slug of the loop configuration in .ralph/config.yaml"`
 	Steps       []string `help:"Step to run in the loop (repeatable)" name:"step"`
-	Max         int      `help:"Maximum number of iterations" name:"max" default:"10"`
+	Max         int      `help:"Maximum number of iterations" name:"max" default:"20"`
 	Verbose     bool     `help:"Enable verbose logging" default:"false"`
 	Model       string   `help:"Override the AI model from config" name:"model"`
 	Agent       string   `help:"Override the opencode agent from config" name:"agent"`

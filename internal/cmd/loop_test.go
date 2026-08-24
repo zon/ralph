@@ -16,7 +16,7 @@ import (
 
 // TestLoopCmdParsing covers the `ralph loop` command surface. It checks the
 // optional slug argument, the repeatable --step flags, the --max default of
-// 10, the --verbose flag, the --local, --follow, and --no-notify flags, and
+// 20, the --verbose flag, the --local, --follow, and --no-notify flags, and
 // the usage errors produced by Validate.
 func TestLoopCmdParsing(t *testing.T) {
 	tests := []struct {
@@ -34,23 +34,23 @@ func TestLoopCmdParsing(t *testing.T) {
 		wantErr      string
 	}{
 		{
-			name:     "slug argument parses and max defaults to 10",
+			name:     "slug argument parses and max defaults to 20",
 			args:     []string{"loop", "feature-x"},
 			wantSlug: "feature-x",
-			wantMax:  10,
+			wantMax:  20,
 		},
 		{
 			name:      "repeatable --step flags preserve order",
 			args:      []string{"loop", "--step", "write code", "--step", "run tests"},
 			wantSteps: []string{"write code", "run tests"},
-			wantMax:   10,
+			wantMax:   20,
 		},
 		{
 			name:      "slug plus steps",
 			args:      []string{"loop", "feature-x", "--step", "write code"},
 			wantSlug:  "feature-x",
 			wantSteps: []string{"write code"},
-			wantMax:   10,
+			wantMax:   20,
 		},
 		{
 			name:     "explicit --max is parsed",
@@ -62,56 +62,56 @@ func TestLoopCmdParsing(t *testing.T) {
 			name:        "explicit --verbose parses",
 			args:        []string{"loop", "feature-x", "--verbose"},
 			wantSlug:    "feature-x",
-			wantMax:     10,
+			wantMax:     20,
 			wantVerbose: true,
 		},
 		{
 			name:      "--local parses",
 			args:      []string{"loop", "feature-x", "--local"},
 			wantSlug:  "feature-x",
-			wantMax:   10,
+			wantMax:   20,
 			wantLocal: true,
 		},
 		{
 			name:       "--follow parses",
 			args:       []string{"loop", "feature-x", "--follow"},
 			wantSlug:   "feature-x",
-			wantMax:    10,
+			wantMax:    20,
 			wantFollow: true,
 		},
 		{
 			name:       "-f short form parses",
 			args:       []string{"loop", "feature-x", "-f"},
 			wantSlug:   "feature-x",
-			wantMax:    10,
+			wantMax:    20,
 			wantFollow: true,
 		},
 		{
 			name:         "--no-notify parses",
 			args:         []string{"loop", "feature-x", "--no-notify"},
 			wantSlug:     "feature-x",
-			wantMax:      10,
+			wantMax:      20,
 			wantNoNotify: true,
 		},
 		{
 			name:      "--model parses",
 			args:      []string{"loop", "feature-x", "--model", "gpt-4"},
 			wantSlug:  "feature-x",
-			wantMax:   10,
+			wantMax:   20,
 			wantModel: "gpt-4",
 		},
 		{
 			name:        "--context parses",
 			args:        []string{"loop", "feature-x", "--context", "prod-cluster"},
 			wantSlug:    "feature-x",
-			wantMax:     10,
+			wantMax:     20,
 			wantContext: "prod-cluster",
 		},
 		{
 			name:        "--model and --context parse together",
 			args:        []string{"loop", "feature-x", "--model", "gpt-4", "--context", "prod-cluster"},
 			wantSlug:    "feature-x",
-			wantMax:     10,
+			wantMax:     20,
 			wantModel:   "gpt-4",
 			wantContext: "prod-cluster",
 		},
