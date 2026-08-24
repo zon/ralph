@@ -30,6 +30,11 @@ type ReportReader interface {
 	ReadReport() (ai.Report, error)
 }
 
+// GitClient commits the iteration's changes to the loop branch and pushes it.
+type GitClient interface {
+	CommitIterationAndPush(slug string) error
+}
+
 // Cmd orchestrates the ralph loop command.
 type Cmd struct {
 	cfg     LoopConfigClient
@@ -37,10 +42,11 @@ type Cmd struct {
 	propose SlugProposer
 	ai      AIClient
 	report  ReportReader
+	git     GitClient
 }
 
-func NewCmd(cfg LoopConfigClient, prompt PromptBuilder, propose SlugProposer, ai AIClient, report ReportReader) *Cmd {
-	return &Cmd{cfg: cfg, prompt: prompt, propose: propose, ai: ai, report: report}
+func NewCmd(cfg LoopConfigClient, prompt PromptBuilder, propose SlugProposer, ai AIClient, report ReportReader, git GitClient) *Cmd {
+	return &Cmd{cfg: cfg, prompt: prompt, propose: propose, ai: ai, report: report, git: git}
 }
 
 // Result carries the resolution of a loop invocation: the branch slug and the
@@ -64,16 +70,17 @@ func (c *Cmd) Run(slug string, steps []string, max int) (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := c.iterate(prompt, max); err != nil {
+	if err := c.iterate(prompt, max, result.Slug); err != nil {
 		return nil, err
 	}
 	return result, nil
 }
 
 // iterate runs the loop prompt as an iteration loop. Each iteration invokes
-// the AI and reads the agent's report. The loop stops when the report says
-// nothing to do or after max iterations, whichever comes first.
-func (c *Cmd) iterate(prompt string, max int) error {
+// the AI, reads the agent's report, and commits the iteration when the report
+// says work was done. The loop stops when the report says nothing to do or
+// after max iterations, whichever comes first.
+func (c *Cmd) iterate(prompt string, max int, slug string) error {
 	for i := 0; i < max; i++ {
 		if err := c.ai.RunAgent(prompt); err != nil {
 			return err
@@ -84,6 +91,9 @@ func (c *Cmd) iterate(prompt string, max int) error {
 		}
 		if report.IsNothingToDo() {
 			return nil
+		}
+		if err := c.git.CommitIterationAndPush(slug); err != nil {
+			return err
 		}
 	}
 	return nil

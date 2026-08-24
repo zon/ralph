@@ -8,6 +8,7 @@ import (
 	"github.com/zon/ralph/internal/ai"
 	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
+	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/opencode"
 	"github.com/zon/ralph/internal/orchestration/loop"
 	"github.com/zon/ralph/internal/output"
@@ -35,6 +36,10 @@ type LoopCmd struct {
 	// reportReader reads the agent's report from report.md. Tests inject a
 	// fake. When nil, Run builds the real adapter.
 	reportReader loop.ReportReader `kong:"-"`
+
+	// gitClient commits each iteration to the loop branch and pushes it.
+	// Tests inject a fake. When nil, Run builds the real adapter.
+	gitClient loop.GitClient `kong:"-"`
 
 	// resolvedSlug and resolvedSteps retain the resolution of the last Run call
 	// so the later loop phases (branch commit, pull request) can use them.
@@ -75,8 +80,12 @@ func (c *LoopCmd) Run() error {
 	if reportReader == nil {
 		reportReader = &loopReportReader{}
 	}
+	gitClient := c.gitClient
+	if gitClient == nil {
+		gitClient = git.NewClient(ctx)
+	}
 
-	result, err := loop.NewCmd(&config.Client{}, &loopPromptBuilder{}, propose, aiClient, reportReader).Run(c.Slug, c.Steps, c.Max)
+	result, err := loop.NewCmd(&config.Client{}, &loopPromptBuilder{}, propose, aiClient, reportReader, gitClient).Run(c.Slug, c.Steps, c.Max)
 	if err != nil {
 		return err
 	}

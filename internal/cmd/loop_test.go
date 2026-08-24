@@ -271,6 +271,20 @@ func (f *fakeReportReader) ReadReport() (ai.Report, error) {
 	return ai.Report{Content: f.content}, nil
 }
 
+// fakeGitClient records the slugs it committed and returns an injected error
+// when set, so tests never touch a real git repository.
+type fakeGitClient struct {
+	slugs []string
+	err   error
+	calls int
+}
+
+func (f *fakeGitClient) CommitIterationAndPush(slug string) error {
+	f.calls++
+	f.slugs = append(f.slugs, slug)
+	return f.err
+}
+
 // TestLoopRunInvokesAIWithLoopPrompt asserts the wired command runs the built
 // loop prompt through the injected AI client exactly once when the report says
 // nothing to do. The given slug never consults the slug proposer.
@@ -306,16 +320,78 @@ func TestLoopRunStopsAfterMaxIterations(t *testing.T) {
 `)
 
 	ai := &fakeAIClient{}
+	git := &fakeGitClient{}
 	cmd := &LoopCmd{
 		Slug:         "fmt",
 		Max:          3,
 		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
 		aiClient:     ai,
 		reportReader: &fakeReportReader{content: "did the work"},
+		gitClient:    git,
 	}
 	err := cmd.Run()
 	require.NoError(t, err)
 	assert.Equal(t, 3, ai.calls, "the AI runs exactly max iterations when the report never says nothing to do")
+	assert.Equal(t, 3, git.calls, "each non-nothing-to-do iteration is committed exactly once")
+	require.Len(t, git.slugs, 3, "every commit records the slug it was called with")
+	for _, slug := range git.slugs {
+		assert.Equal(t, "fmt", slug, "every iteration commits the resolved slug")
+	}
+}
+
+// TestLoopRunNothingToDoDoesNotCommit asserts an iteration whose report says
+// nothing to do runs the AI once but is not committed: the git client is never
+// called. The resolved slug is still retained on the command for the later loop
+// phases.
+func TestLoopRunNothingToDoDoesNotCommit(t *testing.T) {
+	writeLoopConfig(t, `loops:
+  - slug: fmt
+    steps:
+      - run gofmt
+`)
+
+	ai := &fakeAIClient{}
+	git := &fakeGitClient{}
+	cmd := &LoopCmd{
+		Slug:         "fmt",
+		Max:          10,
+		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
+		aiClient:     ai,
+		reportReader: &fakeReportReader{content: "NOTHING_TO_DO"},
+		gitClient:    git,
+	}
+	err := cmd.Run()
+	require.NoError(t, err)
+	assert.Equal(t, 1, ai.calls, "the AI is invoked once before the report stops the loop")
+	assert.Equal(t, 0, git.calls, "a nothing-to-do iteration is not committed")
+	assert.Empty(t, git.slugs, "no iteration commits a slug when there is nothing to do")
+	assert.Equal(t, "fmt", cmd.resolvedSlug, "the resolved slug is retained on the command")
+}
+
+// TestLoopRunPropagatesIterationCommitError asserts a commit failure aborts
+// the wired command: the error is returned unchanged and no resolved slug is
+// retained on the command.
+func TestLoopRunPropagatesIterationCommitError(t *testing.T) {
+	writeLoopConfig(t, `loops:
+  - slug: fmt
+    steps:
+      - run gofmt
+`)
+
+	commitErr := errors.New("failed to push loop-fmt: boom")
+	git := &fakeGitClient{err: commitErr}
+	cmd := &LoopCmd{
+		Slug:         "fmt",
+		Max:          10,
+		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
+		aiClient:     &fakeAIClient{},
+		reportReader: &fakeReportReader{content: "did the work"},
+		gitClient:    git,
+	}
+	err := cmd.Run()
+	require.Error(t, err)
+	assert.Equal(t, commitErr, err, "the iteration commit error is returned unchanged")
+	assert.Empty(t, cmd.resolvedSlug, "no slug is retained when the iteration commit fails")
 }
 
 // TestLoopRunPropagatesAIError asserts an AI failure aborts the wired command

@@ -27,7 +27,7 @@ func TestRunPassedStepsReplaceConfigSteps(t *testing.T) {
 	ai := &mockAIClient{}
 	report := &mockReportReader{reports: nothingToDoReports()}
 
-	result, err := NewCmd(client, prompt, proposer, ai, report).Run("fmt", steps, 10)
+	result, err := NewCmd(client, prompt, proposer, ai, report, &mockGitClient{}).Run("fmt", steps, 10)
 
 	require.NoError(t, err)
 	assertResolved(t, result, "fmt", steps)
@@ -48,7 +48,7 @@ func TestRunRequiresConfigEntryWhenSlugPassedWithSteps(t *testing.T) {
 	ai := &mockAIClient{}
 	report := &mockReportReader{reports: nothingToDoReports()}
 
-	result, err := NewCmd(client, prompt, proposer, ai, report).Run("missing", steps, 10)
+	result, err := NewCmd(client, prompt, proposer, ai, report, &mockGitClient{}).Run("missing", steps, 10)
 
 	require.Error(t, err)
 	assert.Nil(t, result, "no resolution is returned when no loop config matches the slug")
@@ -67,7 +67,7 @@ func TestRunProposesSlugForPassedSteps(t *testing.T) {
 	ai := &mockAIClient{}
 	report := &mockReportReader{reports: nothingToDoReports()}
 
-	result, err := NewCmd(client, prompt, proposer, ai, report).Run("", steps, 10)
+	result, err := NewCmd(client, prompt, proposer, ai, report, &mockGitClient{}).Run("", steps, 10)
 
 	require.NoError(t, err)
 	assertResolved(t, result, "fmt", steps)
@@ -87,7 +87,7 @@ func TestRunPropagatesSlugProposalError(t *testing.T) {
 	ai := &mockAIClient{}
 	report := &mockReportReader{reports: nothingToDoReports()}
 
-	result, err := NewCmd(client, prompt, proposer, ai, report).Run("", steps, 10)
+	result, err := NewCmd(client, prompt, proposer, ai, report, &mockGitClient{}).Run("", steps, 10)
 
 	require.Error(t, err)
 	assert.Nil(t, result, "no resolution is returned when slug proposal fails")
@@ -108,7 +108,7 @@ func TestRunUsesMatchingLoopConfigSteps(t *testing.T) {
 	ai := &mockAIClient{}
 	report := &mockReportReader{reports: nothingToDoReports()}
 
-	result, err := NewCmd(client, prompt, proposer, ai, report).Run("fmt", nil, 10)
+	result, err := NewCmd(client, prompt, proposer, ai, report, &mockGitClient{}).Run("fmt", nil, 10)
 
 	require.NoError(t, err)
 	assertResolved(t, result, "fmt", steps)
@@ -126,7 +126,7 @@ func TestRunReturnsLoopConfigNotFoundWithoutBuildingPrompt(t *testing.T) {
 	ai := &mockAIClient{}
 	report := &mockReportReader{reports: nothingToDoReports()}
 
-	result, err := NewCmd(client, prompt, proposer, ai, report).Run("missing", nil, 10)
+	result, err := NewCmd(client, prompt, proposer, ai, report, &mockGitClient{}).Run("missing", nil, 10)
 
 	require.Error(t, err)
 	assert.Nil(t, result, "no resolution is returned when no loop config matches")
@@ -145,7 +145,7 @@ func TestRunPropagatesLoopConfigLookupError(t *testing.T) {
 	ai := &mockAIClient{}
 	report := &mockReportReader{reports: nothingToDoReports()}
 
-	result, err := NewCmd(client, prompt, proposer, ai, report).Run("fmt", nil, 10)
+	result, err := NewCmd(client, prompt, proposer, ai, report, &mockGitClient{}).Run("fmt", nil, 10)
 
 	require.Error(t, err)
 	assert.Nil(t, result, "no resolution is returned when the loop config lookup fails")
@@ -165,7 +165,7 @@ func TestRunPropagatesPromptBuildError(t *testing.T) {
 	ai := &mockAIClient{}
 	report := &mockReportReader{reports: nothingToDoReports()}
 
-	result, err := NewCmd(client, prompt, proposer, ai, report).Run("fmt", nil, 10)
+	result, err := NewCmd(client, prompt, proposer, ai, report, &mockGitClient{}).Run("fmt", nil, 10)
 
 	require.Error(t, err)
 	assert.Nil(t, result, "no resolution is returned when the prompt fails to build")
@@ -182,7 +182,7 @@ func TestRunWithNoSlugAndNoStepsResolvesEmptyAndBuildsEmptyPrompt(t *testing.T) 
 	ai := &mockAIClient{}
 	report := &mockReportReader{reports: nothingToDoReports()}
 
-	result, err := NewCmd(client, prompt, proposer, ai, report).Run("", nil, 10)
+	result, err := NewCmd(client, prompt, proposer, ai, report, &mockGitClient{}).Run("", nil, 10)
 
 	require.NoError(t, err)
 	assertResolved(t, result, "", nil)

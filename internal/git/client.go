@@ -47,6 +47,31 @@ func (a *Client) ReportExists() bool {
 	return err == nil
 }
 
+// CommitIterationAndPush switches to the loop-<slug> branch, creating it from
+// the current branch when it does not exist, then commits the iteration's
+// changes with the report content as the commit message and pushes the branch.
+// It removes report.md before the commit so it never lands on the loop branch
+// and the working tree stays clean.
+func (a *Client) CommitIterationAndPush(slug string) error {
+	var auth *AuthConfig
+	if a.ctx.IsWorkflowExecution() {
+		owner, repo := a.ctx.RepoOwnerAndName()
+		auth = &AuthConfig{Owner: owner, Repo: repo}
+	}
+	if err := SwitchToBranchIfNeeded(auth, loopBranch(slug)); err != nil {
+		return err
+	}
+	data, err := os.ReadFile("report.md")
+	if err != nil {
+		return fmt.Errorf("failed to read report.md: %w", err)
+	}
+	if err := os.Remove("report.md"); err != nil {
+		return fmt.Errorf("failed to remove report.md: %w", err)
+	}
+	owner, repo := a.ctx.RepoOwnerAndName()
+	return CommitChanges(a.ctx.IsWorkflowExecution(), owner, repo, string(data))
+}
+
 func (a *Client) CommitFromReport(slug string) error {
 	data, err := os.ReadFile("report.md")
 	if err != nil {

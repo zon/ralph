@@ -10,7 +10,8 @@ import (
 
 // TestRunIterationLoop covers the loop's stop conditions. The loop stops as
 // soon as the agent's report says nothing to do. Otherwise it runs all max
-// iterations, invoking the AI and reading the report once per iteration.
+// iterations, invoking the AI, reading the report, and committing the
+// iteration once per iteration.
 func TestRunIterationLoop(t *testing.T) {
 	steps := []string{"run gofmt"}
 	tests := []struct {
@@ -19,14 +20,16 @@ func TestRunIterationLoop(t *testing.T) {
 		max             int
 		wantAICalls     int
 		wantReads       int
+		wantGitCalls    int
 		wantPromptReuse bool
 	}{
 		{
-			name:        "stops when the report says nothing to do",
-			reports:     nothingToDoReports(),
-			max:         10,
-			wantAICalls: 1,
-			wantReads:   1,
+			name:         "stops when the report says nothing to do",
+			reports:      nothingToDoReports(),
+			max:          10,
+			wantAICalls:  1,
+			wantReads:    1,
+			wantGitCalls: 0,
 		},
 		{
 			name:            "runs every iteration up to max when the report never stops",
@@ -34,14 +37,24 @@ func TestRunIterationLoop(t *testing.T) {
 			max:             3,
 			wantAICalls:     3,
 			wantReads:       3,
+			wantGitCalls:    3,
 			wantPromptReuse: true,
 		},
 		{
-			name:        "runs no iterations when max is zero",
-			reports:     []string{"did the work"},
-			max:         0,
-			wantAICalls: 0,
-			wantReads:   0,
+			name:         "commits an iteration then stops on a later nothing-to-do report",
+			reports:      []string{"did the work", "NOTHING_TO_DO"},
+			max:          10,
+			wantAICalls:  2,
+			wantReads:    2,
+			wantGitCalls: 1,
+		},
+		{
+			name:         "runs no iterations when max is zero",
+			reports:      []string{"did the work"},
+			max:          0,
+			wantAICalls:  0,
+			wantReads:    0,
+			wantGitCalls: 0,
 		},
 	}
 
@@ -52,13 +65,19 @@ func TestRunIterationLoop(t *testing.T) {
 			proposer := &mockSlugProposer{slug: "proposed"}
 			ai := &mockAIClient{}
 			report := &mockReportReader{reports: tt.reports}
+			git := &mockGitClient{}
 
-			result, err := NewCmd(client, prompt, proposer, ai, report).Run("fmt", steps, tt.max)
+			result, err := NewCmd(client, prompt, proposer, ai, report, git).Run("fmt", steps, tt.max)
 
 			require.NoError(t, err)
 			assertResolved(t, result, "fmt", steps)
 			assert.Equal(t, tt.wantAICalls, ai.calls, "the AI is invoked once per iteration until the loop stops")
 			assert.Equal(t, tt.wantReads, report.reads, "the report is read once per iteration until the loop stops")
+			assert.Equal(t, tt.wantGitCalls, git.calls, "each non-nothing-to-do iteration is committed exactly once")
+			assert.Equal(t, tt.wantGitCalls, len(git.slugs), "every commit records the slug it was called with")
+			for _, slug := range git.slugs {
+				assert.Equal(t, "fmt", slug, "every iteration commits the resolved slug")
+			}
 			if tt.wantPromptReuse {
 				require.Len(t, ai.prompts, tt.max, "one prompt is recorded per iteration")
 				for i := 1; i < len(ai.prompts); i++ {
@@ -80,7 +99,7 @@ func TestRunPropagatesAIError(t *testing.T) {
 	ai := &mockAIClient{err: aiErr}
 	report := &mockReportReader{reports: []string{"did the work"}}
 
-	result, err := NewCmd(client, prompt, proposer, ai, report).Run("fmt", steps, 10)
+	result, err := NewCmd(client, prompt, proposer, ai, report, &mockGitClient{}).Run("fmt", steps, 10)
 
 	require.Error(t, err)
 	assert.Nil(t, result, "no resolution is returned when the AI pass fails")
@@ -100,11 +119,56 @@ func TestRunPropagatesReportReadError(t *testing.T) {
 	readErr := errors.New("failed to read report.md: boom")
 	report := &mockReportReader{err: readErr}
 
-	result, err := NewCmd(client, prompt, proposer, ai, report).Run("fmt", steps, 10)
+	result, err := NewCmd(client, prompt, proposer, ai, report, &mockGitClient{}).Run("fmt", steps, 10)
 
 	require.Error(t, err)
 	assert.Nil(t, result, "no resolution is returned when the report read fails")
 	assert.Equal(t, readErr, err, "the report read error is returned unchanged")
 	assert.Equal(t, 1, ai.calls, "the AI is invoked once before the read fails")
 	assert.Equal(t, 1, report.reads, "the report is read once before failing")
+}
+
+// TestRunPropagatesIterationCommitError asserts a commit failure aborts the
+// loop after the first non-nothing-to-do report and is returned unchanged.
+func TestRunPropagatesIterationCommitError(t *testing.T) {
+	steps := []string{"run gofmt"}
+	client := &mockLoopConfigClient{loops: map[string][]string{"fmt": steps}}
+	prompt := &mockPromptBuilder{}
+	proposer := &mockSlugProposer{slug: "proposed"}
+	ai := &mockAIClient{}
+	commitErr := errors.New("failed to push loop-fmt: boom")
+	report := &mockReportReader{reports: []string{"did the work"}}
+	git := &mockGitClient{err: commitErr}
+
+	result, err := NewCmd(client, prompt, proposer, ai, report, git).Run("fmt", steps, 10)
+
+	require.Error(t, err)
+	assert.Nil(t, result, "no resolution is returned when the iteration commit fails")
+	assert.Equal(t, commitErr, err, "the iteration commit error is returned unchanged")
+	assert.Equal(t, 1, ai.calls, "the AI is invoked once before the commit fails")
+	assert.Equal(t, 1, report.reads, "the report is read once before the commit fails")
+	assert.Equal(t, 1, git.calls, "the iteration is committed once before the commit fails")
+	assert.Equal(t, []string{"fmt"}, git.slugs, "the commit receives the resolved slug")
+}
+
+// TestRunCommitsToProposedSlug asserts the slug resolved by the proposer, not
+// the raw input slug, is what reaches the git client.
+func TestRunCommitsToProposedSlug(t *testing.T) {
+	steps := []string{"run gofmt"}
+	client := &mockLoopConfigClient{}
+	prompt := &mockPromptBuilder{}
+	proposer := &mockSlugProposer{slug: "fmt"}
+	ai := &mockAIClient{}
+	report := &mockReportReader{reports: []string{"did the work"}}
+	git := &mockGitClient{}
+
+	result, err := NewCmd(client, prompt, proposer, ai, report, git).Run("", steps, 1)
+
+	require.NoError(t, err)
+	assertResolved(t, result, "fmt", steps)
+	assert.True(t, proposer.called, "the slug proposer is asked for a slug when none is given")
+	assert.Equal(t, 1, ai.calls, "the AI is invoked once before the work report is committed")
+	assert.Equal(t, 1, report.reads, "the report is read once before the work report is committed")
+	assert.Equal(t, 1, git.calls, "the iteration is committed once for the work report")
+	assert.Equal(t, []string{"fmt"}, git.slugs, "the commit receives the proposed slug, not the empty input slug")
 }

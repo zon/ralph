@@ -86,7 +86,8 @@ func (m *mockAIClient) RunAgent(prompt string) error {
 
 // mockReportReader serves a sequence of report contents, one per read, and
 // returns an injected error when set. Reads past the end of the sequence
-// return an empty report.
+// repeat the last report, as the real report file keeps its content until the
+// agent rewrites it. An empty sequence returns an empty report.
 type mockReportReader struct {
 	reports []string
 	err     error
@@ -99,8 +100,26 @@ func (m *mockReportReader) ReadReport() (ai.Report, error) {
 		return ai.Report{}, m.err
 	}
 	content := ""
-	if m.reads <= len(m.reports) {
-		content = m.reports[m.reads-1]
+	if len(m.reports) > 0 {
+		idx := m.reads - 1
+		if last := len(m.reports) - 1; idx > last {
+			idx = last
+		}
+		content = m.reports[idx]
 	}
 	return ai.Report{Content: content}, nil
+}
+
+// mockGitClient records the slugs it committed and returns an injected error
+// when set.
+type mockGitClient struct {
+	slugs []string
+	err   error
+	calls int
+}
+
+func (m *mockGitClient) CommitIterationAndPush(slug string) error {
+	m.calls++
+	m.slugs = append(m.slugs, slug)
+	return m.err
 }
