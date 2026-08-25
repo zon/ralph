@@ -371,3 +371,57 @@ func TestRunLoopStatsNotPrintedWhenNotInWorkflow(t *testing.T) {
 	assertResolved(t, result, "fmt", []string{"run gofmt"})
 	require.False(t, ai.statsPrinted, "no stats are printed when the loop runs outside a workflow")
 }
+
+// TestRunResolvedInWorktreeSkipsBranchSwitch asserts worktree execution never
+// switches branches: the git client is not asked to switch to the loop branch,
+// yet the loop runs in-process and commits its iterations.
+func TestRunResolvedInWorktreeSkipsBranchSwitch(t *testing.T) {
+	ai := &mockAIClient{}
+	git := &mockGitClient{}
+	pr := &mockPullRequestOpener{}
+	cmd := NewCmd(&mockLoopConfigClient{}, &mockPromptBuilder{}, &mockSlugProposer{}, ai, &mockReportReader{reports: nothingToDoReports()}, git, pr, envNotInWorkflow())
+
+	err := cmd.RunResolvedInWorktree(&Result{Slug: "fmt", Steps: []string{"run gofmt"}}, 10)
+
+	require.NoError(t, err)
+	assert.Zero(t, git.switchCalls, "worktree execution must not switch branches in the current checkout")
+	assert.Equal(t, 1, ai.calls, "the AI is invoked once before the nothing-to-do report stops the loop")
+	assert.Zero(t, git.calls, "a nothing-to-do iteration is not committed")
+	assert.Equal(t, 1, pr.calls, "the pull request is opened after the loop ends")
+}
+
+// TestRunResolvedInWorktreeRunsFullLoop asserts worktree execution runs the
+// same iteration loop and opens the loop branch's pull request, committing each
+// work iteration without ever switching branches.
+func TestRunResolvedInWorktreeRunsFullLoop(t *testing.T) {
+	ai := &mockAIClient{}
+	git := &mockGitClient{}
+	pr := &mockPullRequestOpener{}
+	cmd := NewCmd(&mockLoopConfigClient{}, &mockPromptBuilder{}, &mockSlugProposer{}, ai, &mockReportReader{reports: []string{"did the work"}}, git, pr, envNotInWorkflow())
+
+	err := cmd.RunResolvedInWorktree(&Result{Slug: "fmt", Steps: []string{"run gofmt"}}, 1)
+
+	require.NoError(t, err)
+	assert.Zero(t, git.switchCalls, "worktree execution must not switch branches")
+	assert.Equal(t, 1, ai.calls, "the AI runs exactly max iterations when the report never says nothing to do")
+	assert.Equal(t, 1, git.calls, "the work iteration is committed")
+	assert.Equal(t, []string{"fmt"}, git.slugs, "the commit records the resolved slug")
+	assert.Equal(t, 1, pr.calls, "the pull request is opened after the loop ends")
+}
+
+// TestRunResolvedInWorktreePropagatesAIError asserts an AI failure inside the
+// worktree aborts the loop and is returned unchanged.
+func TestRunResolvedInWorktreePropagatesAIError(t *testing.T) {
+	aiErr := errors.New("opencode execution failed: boom")
+	ai := &mockAIClient{err: aiErr}
+	git := &mockGitClient{}
+	pr := &mockPullRequestOpener{}
+	cmd := NewCmd(&mockLoopConfigClient{}, &mockPromptBuilder{}, &mockSlugProposer{}, ai, &mockReportReader{reports: nothingToDoReports()}, git, pr, envNotInWorkflow())
+
+	err := cmd.RunResolvedInWorktree(&Result{Slug: "fmt", Steps: []string{"run gofmt"}}, 10)
+
+	require.Error(t, err)
+	assert.Equal(t, aiErr, err, "the AI error is returned unchanged")
+	assert.Zero(t, git.switchCalls, "no branch switch happens before the failure")
+	assert.Zero(t, pr.calls, "the pull request is not opened when the loop fails")
+}

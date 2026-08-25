@@ -86,27 +86,52 @@ type Result struct {
 // workflow container the accumulated AI token usage and cost statistics are
 // printed at the end of execution, whether the loop succeeded or failed.
 func (c *Cmd) Run(slug string, steps []string, max int) (*Result, error) {
-	if c.env.InWorkflow() {
-		defer c.ai.PrintStats()
-	}
-	result, err := c.resolve(slug, steps)
+	result, err := c.Resolve(slug, steps)
 	if err != nil {
 		return nil, err
 	}
-	if err := c.git.SwitchToLoopBranch(result.Slug); err != nil {
-		return nil, err
-	}
-	prompt, err := c.prompt.BuildLoopPrompt(result.Steps)
-	if err != nil {
-		return nil, err
-	}
-	if err := c.iterate(prompt, max, result.Slug); err != nil {
-		return nil, err
-	}
-	if err := c.pr.OpenLoopPullRequest(result.Slug); err != nil {
+	if err := c.runResolved(result, max, false); err != nil {
 		return nil, err
 	}
 	return result, nil
+}
+
+// Resolve returns the branch slug and steps to run for the invocation without
+// running the loop. Worktree mode resolves before creating the loop branch's
+// worktree, so the branch name is known ahead of the in-process run.
+func (c *Cmd) Resolve(slug string, steps []string) (*Result, error) {
+	return c.resolve(slug, steps)
+}
+
+// RunResolvedInWorktree runs the loop in-process inside an existing worktree
+// that already has the loop branch checked out, without switching branches in
+// the current checkout. It runs the same iteration loop as Run and opens the
+// loop branch's pull request when the loop ends.
+func (c *Cmd) RunResolvedInWorktree(result *Result, max int) error {
+	return c.runResolved(result, max, true)
+}
+
+// runResolved builds the loop prompt embedding the resolved steps and runs it
+// as an iteration loop, opening the loop branch's pull request afterwards.
+// In worktree mode the branch switch is skipped because the worktree already
+// has the loop branch checked out.
+func (c *Cmd) runResolved(result *Result, max int, inWorktree bool) error {
+	if c.env.InWorkflow() {
+		defer c.ai.PrintStats()
+	}
+	if !inWorktree {
+		if err := c.git.SwitchToLoopBranch(result.Slug); err != nil {
+			return err
+		}
+	}
+	prompt, err := c.prompt.BuildLoopPrompt(result.Steps)
+	if err != nil {
+		return err
+	}
+	if err := c.iterate(prompt, max, result.Slug); err != nil {
+		return err
+	}
+	return c.pr.OpenLoopPullRequest(result.Slug)
 }
 
 // iterate runs the loop prompt as an iteration loop. Each iteration invokes

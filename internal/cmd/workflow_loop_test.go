@@ -185,9 +185,9 @@ func (r *inProcessLoopRunner) Run(slug string, steps []string, max int) error {
 // TestWorkflowLoopCmdRunRunsLoopBodyIdenticalToLocal asserts the container-side
 // command runs the full loop body: slug and step resolution, prompt
 // construction, iteration, commit and push to loop-<slug>, and pull request
-// opening, exactly like `ralph loop --local`. The injected runner wraps the
-// same loop orchestration the --local path wires, fed with the same fakes the
-// --local tests use.
+// opening, exactly like `ralph loop --mode local`. The injected runner wraps
+// the same loop orchestration the local-mode path wires, fed with the same
+// fakes the local-mode tests use.
 func TestWorkflowLoopCmdRunRunsLoopBodyIdenticalToLocal(t *testing.T) {
 	writeLoopConfig(t, `loops:
   - slug: fmt

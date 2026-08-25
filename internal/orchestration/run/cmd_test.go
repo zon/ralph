@@ -19,11 +19,13 @@ type mockWorkspaceClient struct {
 	ChangeDirectoryFunc func(string) error
 	ChangedDir          string
 	ChangeDirCalled     bool
+	ChangedDirs         []string
 }
 
 func (m *mockWorkspaceClient) ChangeDirectory(path string) error {
 	m.ChangeDirCalled = true
 	m.ChangedDir = path
+	m.ChangedDirs = append(m.ChangedDirs, path)
 	if m.ChangeDirectoryFunc != nil {
 		return m.ChangeDirectoryFunc(path)
 	}
@@ -52,10 +54,12 @@ func (m *mockProjectRepo) ResolveInputFile(path string) (*project.InputFile, err
 }
 
 type mockLocalRunnerClient struct {
-	RunLocalFunc   func(*project.InputFile, *config.RalphConfig) error
-	LastInput      *project.InputFile
-	LastConfig     *config.RalphConfig
-	RunLocalCalled bool
+	RunLocalFunc             func(*project.InputFile, *config.RalphConfig) error
+	RunLocalInWorktreeFunc   func(*project.InputFile, *config.RalphConfig) error
+	LastInput                *project.InputFile
+	LastConfig               *config.RalphConfig
+	RunLocalCalled           bool
+	RunLocalInWorktreeCalled bool
 }
 
 func (m *mockLocalRunnerClient) RunLocal(input *project.InputFile, cfg *config.RalphConfig) error {
@@ -64,6 +68,16 @@ func (m *mockLocalRunnerClient) RunLocal(input *project.InputFile, cfg *config.R
 	m.LastConfig = cfg
 	if m.RunLocalFunc != nil {
 		return m.RunLocalFunc(input, cfg)
+	}
+	return nil
+}
+
+func (m *mockLocalRunnerClient) RunLocalInWorktree(input *project.InputFile, cfg *config.RalphConfig) error {
+	m.RunLocalInWorktreeCalled = true
+	m.LastInput = input
+	m.LastConfig = cfg
+	if m.RunLocalInWorktreeFunc != nil {
+		return m.RunLocalInWorktreeFunc(input, cfg)
 	}
 	return nil
 }
@@ -83,6 +97,47 @@ func (m *mockRemoteRunnerClient) Run(input *project.InputFile, flags RunRemoteFl
 		return m.RunFunc(input, flags)
 	}
 	return nil
+}
+
+type mockWorktreeClient struct {
+	CreateWorktreeFunc             func(string, bool) (*git.WorktreeCommand, error)
+	BranchCheckedOutInWorktreeFunc func(string, bool) (*git.WorktreeCommand, bool, error)
+	RemoveWorktreeFunc             func(string, bool) (*git.WorktreeCommand, error)
+
+	CreateWorktreeCalled             bool
+	BranchCheckedOutInWorktreeCalled bool
+	RemoveWorktreeCalled             bool
+	CreateWorktreeBranch             string
+	DetectedBranch                   string
+	RemoveWorktreeBranch             string
+	checkedOut                       bool
+}
+
+func (m *mockWorktreeClient) CreateWorktree(branch string, dryRun bool) (*git.WorktreeCommand, error) {
+	m.CreateWorktreeCalled = true
+	m.CreateWorktreeBranch = branch
+	if m.CreateWorktreeFunc != nil {
+		return m.CreateWorktreeFunc(branch, dryRun)
+	}
+	return &git.WorktreeCommand{Args: []string{"worktree", "add", "-b", branch, "/sibling/repo-" + branch}, Path: "/sibling/repo-" + branch}, nil
+}
+
+func (m *mockWorktreeClient) BranchCheckedOutInWorktree(branch string, dryRun bool) (*git.WorktreeCommand, bool, error) {
+	m.BranchCheckedOutInWorktreeCalled = true
+	m.DetectedBranch = branch
+	if m.BranchCheckedOutInWorktreeFunc != nil {
+		return m.BranchCheckedOutInWorktreeFunc(branch, dryRun)
+	}
+	return &git.WorktreeCommand{Args: []string{"worktree", "list", "--porcelain"}}, m.checkedOut, nil
+}
+
+func (m *mockWorktreeClient) RemoveWorktree(branch string, dryRun bool) (*git.WorktreeCommand, error) {
+	m.RemoveWorktreeCalled = true
+	m.RemoveWorktreeBranch = branch
+	if m.RemoveWorktreeFunc != nil {
+		return m.RemoveWorktreeFunc(branch, dryRun)
+	}
+	return &git.WorktreeCommand{Args: []string{"worktree", "remove", "--force"}, Path: "/sibling/repo-" + branch}, nil
 }
 
 // ---------------------------------------------------------------------------
@@ -107,6 +162,10 @@ func cmdWithGit(gc GitClient) cmdOption {
 	return func(c *RunCmd) { c.git = gc }
 }
 
+func cmdWithWorktree(wt WorktreeClient) cmdOption {
+	return func(c *RunCmd) { c.worktree = wt }
+}
+
 func cmdWithLocal(l LocalRunnerClient) cmdOption {
 	return func(c *RunCmd) { c.local = l }
 }
@@ -121,6 +180,7 @@ func cmdWithMocks(opts ...cmdOption) *RunCmd {
 		config:    &config.MockLoader{},
 		project:   &mockProjectRepo{},
 		git:       &git.MockClient{},
+		worktree:  &mockWorktreeClient{},
 		local:     &mockLocalRunnerClient{},
 		remote:    &mockRemoteRunnerClient{},
 	}
@@ -142,20 +202,24 @@ func flagsWithNoBase() RunFlags {
 	return RunFlags{InputFile: "/fake/project.yaml"}
 }
 
+func flagsWithMode(mode string) RunFlags {
+	return RunFlags{InputFile: "/fake/project.yaml", Mode: mode}
+}
+
+func flagsWithFollow() RunFlags {
+	return RunFlags{InputFile: "/fake/project.yaml", Follow: true}
+}
+
+func flagsWithFollowAndMode(mode string) RunFlags {
+	return RunFlags{InputFile: "/fake/project.yaml", Follow: true, Mode: mode}
+}
+
+func flagsWithDebugAndMode(mode string) RunFlags {
+	return RunFlags{InputFile: "/fake/project.yaml", Debug: "feature-x", Mode: mode}
+}
+
 func flagsWithExtraIterations(n int) RunFlags {
 	return RunFlags{InputFile: "/fake/project.yaml", ExtraIterations: n}
-}
-
-func flagsWithLocal() RunFlags {
-	return RunFlags{InputFile: "/fake/project.yaml", Local: true}
-}
-
-func flagsWithFollowAndLocal() RunFlags {
-	return RunFlags{InputFile: "/fake/project.yaml", Follow: true, Local: true}
-}
-
-func flagsWithDebugAndLocal() RunFlags {
-	return RunFlags{InputFile: "/fake/project.yaml", Debug: "feature-x", Local: true}
 }
 
 func flagsWithWorkingDir(dir string) RunFlags {
@@ -166,8 +230,8 @@ func flagsWithItems(query string) RunFlags {
 	return RunFlags{InputFile: "/fake/project.yaml", Items: query}
 }
 
-func flagsWithLocalAndItems(query string) RunFlags {
-	return RunFlags{InputFile: "/fake/project.yaml", Local: true, Items: query}
+func flagsWithModeAndItems(mode, query string) RunFlags {
+	return RunFlags{InputFile: "/fake/project.yaml", Mode: mode, Items: query}
 }
 
 func flagsWithCleanup() RunFlags {
@@ -175,9 +239,9 @@ func flagsWithCleanup() RunFlags {
 	return RunFlags{InputFile: "/fake/project.yaml", Cleanup: &v}
 }
 
-func flagsWithLocalAndCleanup() RunFlags {
+func flagsWithModeAndCleanup(mode string) RunFlags {
 	v := true
-	return RunFlags{InputFile: "/fake/project.yaml", Local: true, Cleanup: &v}
+	return RunFlags{InputFile: "/fake/project.yaml", Mode: mode, Cleanup: &v}
 }
 
 func flagsWithCleanupDisabled() RunFlags {
@@ -266,6 +330,13 @@ func localRunLocalCalled(cmd *RunCmd) bool {
 	return false
 }
 
+func localRunLocalInWorktreeCalled(cmd *RunCmd) bool {
+	if m, ok := cmd.local.(*mockLocalRunnerClient); ok {
+		return m.RunLocalInWorktreeCalled
+	}
+	return false
+}
+
 func remoteRunCalled(cmd *RunCmd) bool {
 	if m, ok := cmd.remote.(*mockRemoteRunnerClient); ok {
 		return m.RunCalled
@@ -333,6 +404,12 @@ func configWithCleanup() config.Loader {
 	}
 }
 
+func configWithMode(mode string) config.Loader {
+	return &config.MockLoader{
+		LoadFn: func() (*config.RalphConfig, error) { return config.WithMode(mode), nil },
+	}
+}
+
 func TestPrepareSetupExtraIterationsFlagOverridesConfig(t *testing.T) {
 	cmd := cmdWithMocks(
 		cmdWithConfig(configWithExtraIterations(5)),
@@ -390,7 +467,7 @@ func TestRunWorkingDirectoryChangedBeforeInputFileResolved(t *testing.T) {
 	err := cmd.Run(flagsWithWorkingDir("/path/to/project"))
 	require.NoError(t, err)
 	require.True(t, ws.ChangeDirCalled)
-	require.Equal(t, "/path/to/project", ws.ChangedDir)
+	require.Equal(t, "/path/to/project", ws.ChangedDirs[0])
 	require.True(t, proj.ResolveInputFileCalled)
 }
 
@@ -413,25 +490,127 @@ func TestRunInputFileNotFoundErrorMessage(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Scenario tests: --follow with --local rejected
+// Scenario tests: --follow rejected for local and worktree modes
 // ---------------------------------------------------------------------------
 
-func TestRunFollowWithLocalRejected(t *testing.T) {
-	cmd := cmdWithMocks()
-	err := cmd.Run(flagsWithFollowAndLocal())
+func TestRunFollowRejectedForLocalAndWorktreeModes(t *testing.T) {
+	tests := []struct {
+		name string
+		mode string
+	}{
+		{name: "local", mode: config.ModeLocal},
+		{name: "worktree", mode: config.ModeWorktree},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := cmdWithMocks()
+			err := cmd.Run(flagsWithFollowAndMode(tt.mode))
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "--follow flag is not applicable with --mode "+tt.mode)
+			require.False(t, localRunLocalCalled(cmd))
+			require.False(t, remoteRunCalled(cmd))
+		})
+	}
+}
+
+func TestRunFollowRejectedWhenWorktreeFromConfig(t *testing.T) {
+	cmd := cmdWithMocks(cmdWithConfig(configWithMode(config.ModeWorktree)))
+	err := cmd.Run(flagsWithFollow())
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "--follow flag is not applicable with --local flag")
+	require.Contains(t, err.Error(), "--follow flag is not applicable with --mode worktree")
+	require.False(t, localRunLocalCalled(cmd))
+	require.False(t, remoteRunCalled(cmd))
 }
 
 // ---------------------------------------------------------------------------
-// Scenario tests: --debug with --local rejected
+// Scenario tests: --debug rejected for local and worktree modes
 // ---------------------------------------------------------------------------
 
-func TestRunDebugWithLocalRejected(t *testing.T) {
+func TestRunDebugRejectedForLocalAndWorktreeModes(t *testing.T) {
+	tests := []struct {
+		name string
+		mode string
+	}{
+		{name: "local", mode: config.ModeLocal},
+		{name: "worktree", mode: config.ModeWorktree},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := cmdWithMocks()
+			err := cmd.Run(flagsWithDebugAndMode(tt.mode))
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "--debug flag is not applicable with --mode "+tt.mode)
+			require.False(t, localRunLocalCalled(cmd))
+			require.False(t, remoteRunCalled(cmd))
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Scenario tests: --follow and --debug accepted for remote mode
+// ---------------------------------------------------------------------------
+
+func TestRunFollowAndDebugAcceptedForRemoteMode(t *testing.T) {
 	cmd := cmdWithMocks()
-	err := cmd.Run(flagsWithDebugAndLocal())
+	err := cmd.Run(flagsWithFollowAndMode(config.ModeRemote))
+	require.NoError(t, err)
+	require.True(t, remoteRunCalled(cmd))
+	require.False(t, localRunLocalCalled(cmd))
+
+	cmd = cmdWithMocks()
+	err = cmd.Run(flagsWithDebugAndMode(config.ModeRemote))
+	require.NoError(t, err)
+	require.True(t, remoteRunCalled(cmd))
+	require.False(t, localRunLocalCalled(cmd))
+}
+
+// ---------------------------------------------------------------------------
+// Scenario tests: mode resolution and rejection
+// ---------------------------------------------------------------------------
+
+func TestRunModeResolvesFlagThenConfigThenWorktree(t *testing.T) {
+	t.Run("flag overrides configured mode", func(t *testing.T) {
+		cmd := cmdWithMocks(cmdWithConfig(configWithMode(config.ModeRemote)))
+		err := cmd.Run(flagsWithMode(config.ModeLocal))
+		require.NoError(t, err)
+		require.True(t, localRunLocalCalled(cmd))
+		require.False(t, remoteRunCalled(cmd))
+	})
+
+	t.Run("configured mode used when no flag", func(t *testing.T) {
+		cmd := cmdWithMocks(cmdWithConfig(configWithMode(config.ModeRemote)))
+		err := cmd.Run(flagsAny())
+		require.NoError(t, err)
+		require.True(t, remoteRunCalled(cmd))
+		require.False(t, localRunLocalCalled(cmd))
+	})
+
+	t.Run("worktree default when flag and config unset", func(t *testing.T) {
+		cmd := cmdWithMocks()
+		err := cmd.Run(flagsAny())
+		require.NoError(t, err)
+		require.True(t, localRunLocalInWorktreeCalled(cmd))
+		require.False(t, remoteRunCalled(cmd))
+		require.False(t, localRunLocalCalled(cmd))
+	})
+}
+
+func TestRunInvalidModeRejectedBeforeExecution(t *testing.T) {
+	cmd := cmdWithMocks()
+	err := cmd.Run(flagsWithMode("sandbox"))
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "--debug flag is not applicable with --local flag")
+	require.Contains(t, err.Error(), "invalid mode: sandbox (expected local, worktree, or remote)")
+	require.False(t, localRunLocalCalled(cmd))
+	require.False(t, remoteRunCalled(cmd))
+}
+
+func TestRunInvalidConfiguredModeRejectedBeforeExecution(t *testing.T) {
+	cmd := cmdWithMocks(cmdWithConfig(configWithMode("sandbox")))
+	err := cmd.Run(flagsAny())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid mode: sandbox (expected local, worktree, or remote)")
+	require.False(t, localRunLocalCalled(cmd))
+	require.False(t, remoteRunCalled(cmd))
 }
 
 // ---------------------------------------------------------------------------
@@ -483,7 +662,7 @@ func TestBranchNameAllInvalidCharacters(t *testing.T) {
 
 func TestRunLocalDispatchesToLocalRunner(t *testing.T) {
 	cmd := cmdWithMocks()
-	err := cmd.Run(flagsWithLocal())
+	err := cmd.Run(flagsWithMode(config.ModeLocal))
 	require.NoError(t, err)
 	require.True(t, localRunLocalCalled(cmd))
 	require.False(t, remoteRunCalled(cmd))
@@ -491,7 +670,7 @@ func TestRunLocalDispatchesToLocalRunner(t *testing.T) {
 
 func TestRunRemoteDispatchesToRemoteRunner(t *testing.T) {
 	cmd := cmdWithMocks()
-	err := cmd.Run(flagsAny())
+	err := cmd.Run(flagsWithMode(config.ModeRemote))
 	require.NoError(t, err)
 	require.True(t, remoteRunCalled(cmd))
 	require.False(t, localRunLocalCalled(cmd))
@@ -516,7 +695,7 @@ func TestRunInputFileNotFoundAbortsEarly(t *testing.T) {
 
 func TestRunIncompatibleFlagsAbortBeforeSetup(t *testing.T) {
 	cmd := cmdWithMocks()
-	err := cmd.Run(flagsWithFollowAndLocal())
+	err := cmd.Run(flagsWithFollowAndMode(config.ModeLocal))
 	require.Error(t, err)
 	require.False(t, localRunLocalCalled(cmd))
 	require.False(t, remoteRunCalled(cmd))
@@ -534,7 +713,7 @@ func TestRunLocalDispatchesWithOrchestrationInput(t *testing.T) {
 		cmdWithProject(proj),
 		cmdWithLocal(&mockLocalRunnerClient{}),
 	)
-	err := cmd.Run(flagsWithLocal())
+	err := cmd.Run(flagsWithMode(config.ModeLocal))
 	require.NoError(t, err)
 	require.True(t, localRunLocalCalled(cmd))
 	require.NotNil(t, localLastInput(cmd))
@@ -549,7 +728,7 @@ func TestRunLocalDispatchesWithSpecInput(t *testing.T) {
 		cmdWithProject(proj),
 		cmdWithLocal(&mockLocalRunnerClient{}),
 	)
-	err := cmd.Run(flagsWithLocal())
+	err := cmd.Run(flagsWithMode(config.ModeLocal))
 	require.NoError(t, err)
 	require.True(t, localRunLocalCalled(cmd))
 	require.NotNil(t, localLastInput(cmd))
@@ -564,7 +743,7 @@ func TestRunRemoteDispatchesWithOrchestrationInput(t *testing.T) {
 		cmdWithProject(proj),
 		cmdWithRemote(&mockRemoteRunnerClient{}),
 	)
-	err := cmd.Run(flagsAny())
+	err := cmd.Run(flagsWithMode(config.ModeRemote))
 	require.NoError(t, err)
 	require.True(t, remoteRunCalled(cmd))
 	require.NotNil(t, remoteLastInput(cmd))
@@ -579,7 +758,7 @@ func TestRunRemoteDispatchesWithSpecInput(t *testing.T) {
 		cmdWithProject(proj),
 		cmdWithRemote(&mockRemoteRunnerClient{}),
 	)
-	err := cmd.Run(flagsAny())
+	err := cmd.Run(flagsWithMode(config.ModeRemote))
 	require.NoError(t, err)
 	require.True(t, remoteRunCalled(cmd))
 	require.NotNil(t, remoteLastInput(cmd))
@@ -599,7 +778,7 @@ func TestRunInputFileNotFoundAbortsBeforeFlagValidation(t *testing.T) {
 	cmd := cmdWithMocks(
 		cmdWithProject(proj),
 	)
-	err := cmd.Run(flagsWithFollowAndLocal())
+	err := cmd.Run(flagsWithFollowAndMode(config.ModeLocal))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "input file not found")
 }
@@ -610,7 +789,7 @@ func TestRunInputFileNotFoundAbortsBeforeFlagValidation(t *testing.T) {
 
 func TestRunIncompatibleFlagsRejectedBeforeSetupForProjectInput(t *testing.T) {
 	cmd := cmdWithMocks()
-	err := cmd.Run(flagsWithFollowAndLocal())
+	err := cmd.Run(flagsWithFollowAndMode(config.ModeLocal))
 	require.Error(t, err)
 	require.False(t, localRunLocalCalled(cmd))
 	require.False(t, remoteRunCalled(cmd))
@@ -665,7 +844,7 @@ func TestRunResolvedQueryPassedToLocalRunner(t *testing.T) {
 		cmdWithLocal(local),
 	)
 	// WHEN execution is dispatched to run-local
-	err := cmd.Run(flagsWithLocalAndItems(".spec.tasks"))
+	err := cmd.Run(flagsWithModeAndItems(config.ModeLocal, ".spec.tasks"))
 	require.NoError(t, err)
 	// THEN the resolved query is passed down as a parameter
 	require.True(t, local.RunLocalCalled)
@@ -680,7 +859,7 @@ func TestRunResolvedQueryPassedToRemoteRunner(t *testing.T) {
 		cmdWithRemote(remote),
 	)
 	// WHEN execution is dispatched to run-remote
-	err := cmd.Run(flagsWithItems(".spec.tasks"))
+	err := cmd.Run(flagsWithModeAndItems(config.ModeRemote, ".spec.tasks"))
 	require.NoError(t, err)
 	// THEN the resolved query is passed down as a parameter
 	require.True(t, remote.RunCalled)
@@ -693,7 +872,7 @@ func TestRunLocalRunnerDoesNotReResolveQueryFromConfig(t *testing.T) {
 		cmdWithConfig(configWithItems(".requirements")),
 		cmdWithLocal(local),
 	)
-	err := cmd.Run(flagsWithLocalAndItems(".spec.tasks"))
+	err := cmd.Run(flagsWithModeAndItems(config.ModeLocal, ".spec.tasks"))
 	require.NoError(t, err)
 	require.Equal(t, ".spec.tasks", local.LastConfig.Items)
 }
@@ -704,7 +883,7 @@ func TestRunResolvedDefaultQueryPassedToRemoteRunner(t *testing.T) {
 		cmdWithConfig(configWithItems("")),
 		cmdWithRemote(remote),
 	)
-	err := cmd.Run(flagsAny())
+	err := cmd.Run(flagsWithMode(config.ModeRemote))
 	require.NoError(t, err)
 	require.True(t, remote.RunCalled)
 	require.Equal(t, ".", remote.LastFlags.Items)
@@ -728,7 +907,7 @@ func TestRunCleanupFlagEnablesCleanup(t *testing.T) {
 func TestRunCleanupFlagEnablesCleanupForLocalRun(t *testing.T) {
 	local := &mockLocalRunnerClient{}
 	cmd := cmdWithMocks(cmdWithLocal(local))
-	err := cmd.Run(flagsWithLocalAndCleanup())
+	err := cmd.Run(flagsWithModeAndCleanup(config.ModeLocal))
 	require.NoError(t, err)
 	require.True(t, local.LastConfig.Cleanup)
 }
@@ -751,7 +930,7 @@ func TestRunCleanupDisabledByDefault(t *testing.T) {
 func TestRunCleanupDisabledByDefaultForLocalRun(t *testing.T) {
 	local := &mockLocalRunnerClient{}
 	cmd := cmdWithMocks(cmdWithLocal(local))
-	err := cmd.Run(flagsWithLocal())
+	err := cmd.Run(flagsWithMode(config.ModeLocal))
 	require.NoError(t, err)
 	require.False(t, local.LastConfig.Cleanup)
 }

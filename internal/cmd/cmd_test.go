@@ -11,9 +11,11 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/zon/ralph/internal/config"
 )
 
-func TestLocalFlagValidation(t *testing.T) {
+func TestModeFlagValidation(t *testing.T) {
 	tests := []struct {
 		name        string
 		args        []string
@@ -22,18 +24,24 @@ func TestLocalFlagValidation(t *testing.T) {
 	}{
 		{
 			name:        "follow with local should fail",
-			args:        []string{"run", "--follow", "--local", "test.yaml"},
+			args:        []string{"run", "--follow", "--mode", "local", "test.yaml"},
 			expectError: true,
-			errorMsg:    "--follow flag is not applicable with --local flag",
+			errorMsg:    "--follow flag is not applicable with --mode local",
+		},
+		{
+			name:        "follow with worktree should fail",
+			args:        []string{"run", "--follow", "--mode", "worktree", "test.yaml"},
+			expectError: true,
+			errorMsg:    "--follow flag is not applicable with --mode worktree",
 		},
 		{
 			name:        "local alone should succeed validation",
-			args:        []string{"run", "--local", "test.yaml"},
+			args:        []string{"run", "--mode", "local", "test.yaml"},
 			expectError: false,
 		},
 		{
-			name:        "follow without local should succeed validation",
-			args:        []string{"run", "--follow", "test.yaml"},
+			name:        "follow with remote should succeed validation",
+			args:        []string{"run", "--follow", "--mode", "remote", "test.yaml"},
 			expectError: false,
 		},
 		{
@@ -42,16 +50,28 @@ func TestLocalFlagValidation(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name:        "debug with local should fail",
-			args:        []string{"run", "--debug", "my-branch", "--local", "test.yaml"},
+			name:        "follow alone should fail with the worktree default",
+			args:        []string{"run", "--follow", "test.yaml"},
 			expectError: true,
-			errorMsg:    "--debug flag is not applicable with --local flag",
+			errorMsg:    "--follow flag is not applicable with --mode worktree",
+		},
+		{
+			name:        "debug with local should fail",
+			args:        []string{"run", "--debug", "my-branch", "--mode", "local", "test.yaml"},
+			expectError: true,
+			errorMsg:    "--debug flag is not applicable with --mode local",
+		},
+		{
+			name:        "debug with worktree should fail",
+			args:        []string{"run", "--debug", "my-branch", "--mode", "worktree", "test.yaml"},
+			expectError: true,
+			errorMsg:    "--debug flag is not applicable with --mode worktree",
 		},
 		{
 			name:        "default command - follow with local should fail",
-			args:        []string{"--follow", "--local", "test.yaml"},
+			args:        []string{"--follow", "--mode", "local", "test.yaml"},
 			expectError: true,
-			errorMsg:    "--follow flag is not applicable with --local flag",
+			errorMsg:    "--follow flag is not applicable with --mode local",
 		},
 	}
 
@@ -69,53 +89,23 @@ func TestLocalFlagValidation(t *testing.T) {
 			// Parse the args
 			_, err = parser.Parse(tt.args)
 			if err != nil {
-				// Parser error - skip validation test as we can't reach Run()
 				if tt.expectError {
-					// This is ok - parser caught the error
+					// This is ok - the parser caught an error
 					return
 				}
 				t.Fatalf("failed to parse args: %v", err)
 			}
 
-			// Now run validation
-			// We need to mock the execution to test only validation
-			// Override the project file validation since we're not testing that
 			if cmd.Run.InputFile == "" {
 				cmd.Run.InputFile = "test.yaml"
 			}
 
-			// Test follow + local validation
-			if cmd.Run.Follow && cmd.Run.Local {
-				err = validateRunFlags(&cmd.Run)
-				if !tt.expectError {
-					t.Errorf("expected no error, got: %v", err)
-				} else if err == nil {
-					t.Error("expected error but got none")
-				} else if err.Error() != tt.errorMsg {
-					t.Errorf("expected error %q, got %q", tt.errorMsg, err.Error())
-				}
-				return
-			}
-
-			// Test local + debug validation
-			if cmd.Run.Local && cmd.Run.Debug != "" {
-				err = validateRunFlags(&cmd.Run)
-				if !tt.expectError {
-					t.Errorf("expected no error, got: %v", err)
-				} else if err == nil {
-					t.Error("expected error but got none")
-				} else if err.Error() != tt.errorMsg {
-					t.Errorf("expected error %q, got %q", tt.errorMsg, err.Error())
-				}
-				return
-			}
-
-			// Should pass validation
 			err = validateRunFlags(&cmd.Run)
-			if tt.expectError && err == nil {
-				t.Error("expected error but got none")
-			} else if !tt.expectError && err != nil {
-				t.Errorf("expected no error, got: %v", err)
+			if tt.expectError {
+				require.Error(t, err)
+				assert.Equal(t, tt.errorMsg, err.Error())
+			} else {
+				assert.NoError(t, err)
 			}
 		})
 	}
@@ -125,21 +115,24 @@ func TestFlagParsing(t *testing.T) {
 	tests := []struct {
 		name              string
 		args              []string
-		expectLocal       bool
+		expectMode        string
 		expectFollow      bool
 		expectNoNotify    bool
 		expectDebugBranch string
 	}{
 		{
-			name:         "local flag sets Local to true",
-			args:         []string{"run", "--local", "test.yaml"},
-			expectLocal:  true,
-			expectFollow: false,
+			name:       "mode local flag sets Mode",
+			args:       []string{"run", "--mode", "local", "test.yaml"},
+			expectMode: "local",
+		},
+		{
+			name:       "mode remote flag sets Mode",
+			args:       []string{"run", "--mode", "remote", "test.yaml"},
+			expectMode: "remote",
 		},
 		{
 			name:         "follow flag sets Follow to true",
 			args:         []string{"run", "--follow", "test.yaml"},
-			expectLocal:  false,
 			expectFollow: true,
 		},
 		{
@@ -150,26 +143,23 @@ func TestFlagParsing(t *testing.T) {
 		{
 			name:           "no-notify flag sets NoNotify to true",
 			args:           []string{"run", "--no-notify", "test.yaml"},
-			expectLocal:    false,
 			expectFollow:   false,
 			expectNoNotify: true,
 		},
 		{
 			name:         "default values",
 			args:         []string{"run", "test.yaml"},
-			expectLocal:  false,
 			expectFollow: false,
 		},
 		{
-			name:         "default command - local flag sets Local to true",
-			args:         []string{"--local", "test.yaml"},
-			expectLocal:  true,
+			name:         "default command - mode local flag sets Mode",
+			args:         []string{"--mode", "local", "test.yaml"},
+			expectMode:   "local",
 			expectFollow: false,
 		},
 		{
 			name:         "default command - follow flag sets Follow to true",
 			args:         []string{"--follow", "test.yaml"},
-			expectLocal:  false,
 			expectFollow: true,
 		},
 	}
@@ -190,8 +180,8 @@ func TestFlagParsing(t *testing.T) {
 				t.Fatalf("failed to parse args: %v", err)
 			}
 
-			if cmd.Run.Local != tt.expectLocal {
-				t.Errorf("expected Local=%v, got %v", tt.expectLocal, cmd.Run.Local)
+			if cmd.Run.Mode != tt.expectMode {
+				t.Errorf("expected Mode=%q, got %q", tt.expectMode, cmd.Run.Mode)
 			}
 			if cmd.Run.Follow != tt.expectFollow {
 				t.Errorf("expected Follow=%v, got %v", tt.expectFollow, cmd.Run.Follow)
@@ -206,13 +196,18 @@ func TestFlagParsing(t *testing.T) {
 	}
 }
 
-// validateRunFlags extracts the validation logic for testing
+// validateRunFlags extracts the validation logic for testing. The mode
+// resolves as the --mode flag when passed, otherwise the worktree default.
 func validateRunFlags(r *RunCmd) error {
-	if r.Follow && r.Local {
-		return fmt.Errorf("--follow flag is not applicable with --local flag")
+	mode := r.Mode
+	if mode == "" {
+		mode = config.ModeWorktree
 	}
-	if r.Debug != "" && r.Local {
-		return fmt.Errorf("--debug flag is not applicable with --local flag")
+	if r.Follow && (mode == config.ModeLocal || mode == config.ModeWorktree) {
+		return fmt.Errorf("--follow flag is not applicable with --mode %s", mode)
+	}
+	if r.Debug != "" && (mode == config.ModeLocal || mode == config.ModeWorktree) {
+		return fmt.Errorf("--debug flag is not applicable with --mode %s", mode)
 	}
 	return nil
 }

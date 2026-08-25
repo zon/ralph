@@ -10,10 +10,12 @@ import (
 )
 
 func newOrchestrationRunCmd(ctx *execcontext.Context) *orchestrationRun.RunCmd {
+	gitClient := git.NewClient(ctx)
 	return orchestrationRun.NewRunCmd(
 		&workspace.Client{},
-		project.NewClient(git.NewClient(ctx), ctx.Output()),
-		git.NewClient(ctx),
+		project.NewClient(gitClient, ctx.Output()),
+		gitClient,
+		gitClient,
 		&config.Client{},
 		NewLocalRunnerClient(ctx),
 		NewRemoteRunnerClient(ctx),

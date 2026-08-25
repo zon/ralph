@@ -100,15 +100,31 @@ func (r *Runner) Project() ProjectClient {
 	return r.project
 }
 
+// RunLocal runs the full development loop in the current checkout, switching
+// to the project branch first.
 func (r *Runner) RunLocal(input *project.InputFile, cfg *config.RalphConfig) error {
+	return r.runLocal(input, cfg, false)
+}
+
+// RunLocalInWorktree runs the full development loop inside an existing worktree
+// that already has the project branch checked out. The branch switch is skipped
+// so the run neither changes the current checkout nor checks a freshly created
+// worktree branch against the remote.
+func (r *Runner) RunLocalInWorktree(input *project.InputFile, cfg *config.RalphConfig) error {
+	return r.runLocal(input, cfg, true)
+}
+
+func (r *Runner) runLocal(input *project.InputFile, cfg *config.RalphConfig, inWorktree bool) error {
 	if r.env.InWorkflow() {
 		defer r.ai.PrintStats()
 	}
 	if err := r.services.RunBeforeCommands(cfg); err != nil {
 		return err
 	}
-	if err := r.git.SwitchToBranch(input.Slug()); err != nil {
-		return err
+	if !inWorktree {
+		if err := r.git.SwitchToBranch(input.Slug()); err != nil {
+			return err
+		}
 	}
 	proj, err := r.generateArtifacts(input, cfg)
 	if err != nil {
