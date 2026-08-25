@@ -21,6 +21,15 @@ func (c *LocalRunnerClient) RunLocal(input *project.InputFile, cfg *config.Ralph
 	return runner.RunLocal(input, cfg)
 }
 
+// RunLocalInWorktree runs the development loop in-process inside the worktree
+// that already has the project branch checked out, without switching branches
+// in the current checkout.
+func (c *LocalRunnerClient) RunLocalInWorktree(input *project.InputFile, cfg *config.RalphConfig) error {
+	c.ctx.SetLocal(true)
+	runner := NewLocalRunner(c.ctx, cfg.Base)
+	return runner.RunLocalInWorktree(input, cfg)
+}
+
 type RemoteRunnerClient struct {
 	ctx *execcontext.Context
 }

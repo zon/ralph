@@ -41,10 +41,10 @@ modules:
     description: Service entrypoint that loads configuration and starts the webhook HTTP server.
     category: entry
   - path: internal/cmd
-    description: Command structs that parse flags, wire real dependencies into the subcommand orchestrations, and drive local and remote execution paths.
+    description: Command structs that parse flags, wire real dependencies into the subcommand orchestrations, and drive local, worktree, and remote execution paths.
     category: entry
   - path: internal/orchestration/run
-    description: Orchestrates the full run command from input validation through local and remote execution dispatch.
+    description: Orchestrates the full run command from input validation through local, worktree, and remote execution dispatch.
     category: orchestration
   - path: internal/orchestration/workspace
     description: Bootstraps the container environment for the workflow subcommands.

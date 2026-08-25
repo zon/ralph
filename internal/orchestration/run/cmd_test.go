@@ -19,11 +19,13 @@ type mockWorkspaceClient struct {
 	ChangeDirectoryFunc func(string) error
 	ChangedDir          string
 	ChangeDirCalled     bool
+	ChangedDirs         []string
 }
 
 func (m *mockWorkspaceClient) ChangeDirectory(path string) error {
 	m.ChangeDirCalled = true
 	m.ChangedDir = path
+	m.ChangedDirs = append(m.ChangedDirs, path)
 	if m.ChangeDirectoryFunc != nil {
 		return m.ChangeDirectoryFunc(path)
 	}
@@ -52,10 +54,12 @@ func (m *mockProjectRepo) ResolveInputFile(path string) (*project.InputFile, err
 }
 
 type mockLocalRunnerClient struct {
-	RunLocalFunc   func(*project.InputFile, *config.RalphConfig) error
-	LastInput      *project.InputFile
-	LastConfig     *config.RalphConfig
-	RunLocalCalled bool
+	RunLocalFunc             func(*project.InputFile, *config.RalphConfig) error
+	RunLocalInWorktreeFunc   func(*project.InputFile, *config.RalphConfig) error
+	LastInput                *project.InputFile
+	LastConfig               *config.RalphConfig
+	RunLocalCalled           bool
+	RunLocalInWorktreeCalled bool
 }
 
 func (m *mockLocalRunnerClient) RunLocal(input *project.InputFile, cfg *config.RalphConfig) error {
@@ -64,6 +68,16 @@ func (m *mockLocalRunnerClient) RunLocal(input *project.InputFile, cfg *config.R
 	m.LastConfig = cfg
 	if m.RunLocalFunc != nil {
 		return m.RunLocalFunc(input, cfg)
+	}
+	return nil
+}
+
+func (m *mockLocalRunnerClient) RunLocalInWorktree(input *project.InputFile, cfg *config.RalphConfig) error {
+	m.RunLocalInWorktreeCalled = true
+	m.LastInput = input
+	m.LastConfig = cfg
+	if m.RunLocalInWorktreeFunc != nil {
+		return m.RunLocalInWorktreeFunc(input, cfg)
 	}
 	return nil
 }
@@ -83,6 +97,47 @@ func (m *mockRemoteRunnerClient) Run(input *project.InputFile, flags RunRemoteFl
 		return m.RunFunc(input, flags)
 	}
 	return nil
+}
+
+type mockWorktreeClient struct {
+	CreateWorktreeFunc             func(string, bool) (*git.WorktreeCommand, error)
+	BranchCheckedOutInWorktreeFunc func(string, bool) (*git.WorktreeCommand, bool, error)
+	RemoveWorktreeFunc             func(string, bool) (*git.WorktreeCommand, error)
+
+	CreateWorktreeCalled             bool
+	BranchCheckedOutInWorktreeCalled bool
+	RemoveWorktreeCalled             bool
+	CreateWorktreeBranch             string
+	DetectedBranch                   string
+	RemoveWorktreeBranch             string
+	checkedOut                       bool
+}
+
+func (m *mockWorktreeClient) CreateWorktree(branch string, dryRun bool) (*git.WorktreeCommand, error) {
+	m.CreateWorktreeCalled = true
+	m.CreateWorktreeBranch = branch
+	if m.CreateWorktreeFunc != nil {
+		return m.CreateWorktreeFunc(branch, dryRun)
+	}
+	return &git.WorktreeCommand{Args: []string{"worktree", "add", "-b", branch, "/sibling/repo-" + branch}, Path: "/sibling/repo-" + branch}, nil
+}
+
+func (m *mockWorktreeClient) BranchCheckedOutInWorktree(branch string, dryRun bool) (*git.WorktreeCommand, bool, error) {
+	m.BranchCheckedOutInWorktreeCalled = true
+	m.DetectedBranch = branch
+	if m.BranchCheckedOutInWorktreeFunc != nil {
+		return m.BranchCheckedOutInWorktreeFunc(branch, dryRun)
+	}
+	return &git.WorktreeCommand{Args: []string{"worktree", "list", "--porcelain"}}, m.checkedOut, nil
+}
+
+func (m *mockWorktreeClient) RemoveWorktree(branch string, dryRun bool) (*git.WorktreeCommand, error) {
+	m.RemoveWorktreeCalled = true
+	m.RemoveWorktreeBranch = branch
+	if m.RemoveWorktreeFunc != nil {
+		return m.RemoveWorktreeFunc(branch, dryRun)
+	}
+	return &git.WorktreeCommand{Args: []string{"worktree", "remove", "--force"}, Path: "/sibling/repo-" + branch}, nil
 }
 
 // ---------------------------------------------------------------------------
@@ -107,6 +162,10 @@ func cmdWithGit(gc GitClient) cmdOption {
 	return func(c *RunCmd) { c.git = gc }
 }
 
+func cmdWithWorktree(wt WorktreeClient) cmdOption {
+	return func(c *RunCmd) { c.worktree = wt }
+}
+
 func cmdWithLocal(l LocalRunnerClient) cmdOption {
 	return func(c *RunCmd) { c.local = l }
 }
@@ -121,6 +180,7 @@ func cmdWithMocks(opts ...cmdOption) *RunCmd {
 		config:    &config.MockLoader{},
 		project:   &mockProjectRepo{},
 		git:       &git.MockClient{},
+		worktree:  &mockWorktreeClient{},
 		local:     &mockLocalRunnerClient{},
 		remote:    &mockRemoteRunnerClient{},
 	}
@@ -270,6 +330,13 @@ func localRunLocalCalled(cmd *RunCmd) bool {
 	return false
 }
 
+func localRunLocalInWorktreeCalled(cmd *RunCmd) bool {
+	if m, ok := cmd.local.(*mockLocalRunnerClient); ok {
+		return m.RunLocalInWorktreeCalled
+	}
+	return false
+}
+
 func remoteRunCalled(cmd *RunCmd) bool {
 	if m, ok := cmd.remote.(*mockRemoteRunnerClient); ok {
 		return m.RunCalled
@@ -400,7 +467,7 @@ func TestRunWorkingDirectoryChangedBeforeInputFileResolved(t *testing.T) {
 	err := cmd.Run(flagsWithWorkingDir("/path/to/project"))
 	require.NoError(t, err)
 	require.True(t, ws.ChangeDirCalled)
-	require.Equal(t, "/path/to/project", ws.ChangedDir)
+	require.Equal(t, "/path/to/project", ws.ChangedDirs[0])
 	require.True(t, proj.ResolveInputFileCalled)
 }
 
@@ -522,8 +589,9 @@ func TestRunModeResolvesFlagThenConfigThenWorktree(t *testing.T) {
 		cmd := cmdWithMocks()
 		err := cmd.Run(flagsAny())
 		require.NoError(t, err)
-		require.True(t, localRunLocalCalled(cmd))
+		require.True(t, localRunLocalInWorktreeCalled(cmd))
 		require.False(t, remoteRunCalled(cmd))
+		require.False(t, localRunLocalCalled(cmd))
 	})
 }
 

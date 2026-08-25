@@ -2,6 +2,7 @@ package run
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/git"
@@ -12,6 +13,7 @@ type RunCmd struct {
 	workspace WorkspaceClient
 	project   ProjectRepo
 	git       GitClient
+	worktree  WorktreeClient
 	config    config.Loader
 	local     LocalRunnerClient
 	remote    RemoteRunnerClient
@@ -27,10 +29,20 @@ type ProjectRepo interface {
 
 type LocalRunnerClient interface {
 	RunLocal(input *project.InputFile, cfg *config.RalphConfig) error
+	RunLocalInWorktree(input *project.InputFile, cfg *config.RalphConfig) error
 }
 
 type RemoteRunnerClient interface {
 	Run(input *project.InputFile, flags RunRemoteFlags) error
+}
+
+// WorktreeClient creates, detects, and removes git worktrees. Worktree mode
+// uses it to run the development loop in a sibling directory worktree while
+// leaving the current checkout untouched.
+type WorktreeClient interface {
+	CreateWorktree(branch string, dryRun bool) (*git.WorktreeCommand, error)
+	BranchCheckedOutInWorktree(branch string, dryRun bool) (*git.WorktreeCommand, bool, error)
+	RemoveWorktree(branch string, dryRun bool) (*git.WorktreeCommand, error)
 }
 
 type ExecutionSetup struct {
@@ -72,11 +84,12 @@ func (f RunFlags) Validate(mode string) error {
 	return nil
 }
 
-func NewRunCmd(workspace WorkspaceClient, project ProjectRepo, git GitClient, config config.Loader, local LocalRunnerClient, remote RemoteRunnerClient) *RunCmd {
+func NewRunCmd(workspace WorkspaceClient, project ProjectRepo, git GitClient, worktree WorktreeClient, config config.Loader, local LocalRunnerClient, remote RemoteRunnerClient) *RunCmd {
 	return &RunCmd{
 		workspace: workspace,
 		project:   project,
 		git:       git,
+		worktree:  worktree,
 		config:    config,
 		local:     local,
 		remote:    remote,
@@ -98,7 +111,8 @@ func (r *RunCmd) Run(flags RunFlags) error {
 	if err := flags.Validate(setup.Mode); err != nil {
 		return err
 	}
-	if setup.Mode == config.ModeRemote {
+	switch setup.Mode {
+	case config.ModeRemote:
 		return r.remote.Run(input, RunRemoteFlags{
 			Follow:     flags.Follow,
 			Debug:      flags.Debug,
@@ -106,8 +120,51 @@ func (r *RunCmd) Run(flags RunFlags) error {
 			Items:      setup.Config.Items,
 			Cleanup:    setup.Config.Cleanup,
 		})
+	case config.ModeWorktree:
+		return r.runWorktree(input, setup)
+	default:
+		return r.local.RunLocal(input, setup.Config)
 	}
-	return r.local.RunLocal(input, setup.Config)
+}
+
+// runWorktree runs the full development loop inside a git worktree created for
+// the project branch in a sibling directory. The worktree is removed when the
+// run ends, whether it succeeds or fails, and the current checkout stays
+// untouched. When the project branch is already checked out in a worktree, it
+// returns an error and creates no worktree.
+func (r *RunCmd) runWorktree(input *project.InputFile, setup ExecutionSetup) (retErr error) {
+	branch := setup.BranchName
+	_, checkedOut, err := r.worktree.BranchCheckedOutInWorktree(branch, false)
+	if err != nil {
+		return err
+	}
+	if checkedOut {
+		return fmt.Errorf("branch '%s' is already checked out in another worktree", branch)
+	}
+	originalDir, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	worktree, err := r.worktree.CreateWorktree(branch, false)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		// git refuses to remove the worktree of the current directory, so change
+		// back to the main checkout before removing it.
+		_ = r.workspace.ChangeDirectory(originalDir)
+		if _, removeErr := r.worktree.RemoveWorktree(branch, false); removeErr != nil && retErr == nil {
+			retErr = fmt.Errorf("failed to remove worktree for branch '%s': %w", branch, removeErr)
+		}
+	}()
+
+	if err := r.workspace.ChangeDirectory(worktree.Path); err != nil {
+		return err
+	}
+	if err := r.local.RunLocalInWorktree(input, setup.Config); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (r *RunCmd) prepareSetup(flags RunFlags, input *project.InputFile) (ExecutionSetup, error) {
