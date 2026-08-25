@@ -52,8 +52,8 @@ type Workflow struct {
 	// BaseBranch is the base branch for PR creation, already resolved by the caller.
 	BaseBranch string
 	// Items is the item query selecting the item array, already resolved by the
-	// caller. The manifest always carries it as an explicit --items argument —
-	// empty falls back to "." — so the container never re-resolves it from config.
+	// caller. The manifest always carries it as an explicit --items argument. An
+	// empty value falls back to ".", so the container never re-resolves it from config.
 	Items string
 	// Cleanup reports whether the project file should be deleted once every item is complete.
 	Cleanup bool

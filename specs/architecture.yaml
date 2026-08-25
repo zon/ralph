@@ -27,7 +27,7 @@ categories:
       - unit tests
 
   - slug: pipeline
-    description: Modules that direct in-process flow — routing I/O streams and carrying runtime state across the application.
+    description: Modules that direct in-process flow by routing I/O streams and carrying runtime state across the application.
     signatures:
       - I/O routing
       - runtime state

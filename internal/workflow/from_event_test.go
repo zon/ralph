@@ -77,7 +77,7 @@ func TestFromWebhookEvent_CommentEvent_ReturnsRunWorkflow(t *testing.T) {
 
 	assert.Equal(t, "ralph", container["command"].([]interface{})[0], "Command should be 'ralph' for a run workflow")
 	assert.Equal(t, "workflow", args[0], "First arg should be 'workflow'")
-	assert.Equal(t, "comment", args[1], "Second arg should be 'comment' — a webhook event only ever produces a run workflow")
+	assert.Equal(t, "comment", args[1], "Second arg should be 'comment'. A webhook event only ever produces a run workflow")
 }
 
 func TestFromWebhookEvent_RunWorkflow_RendersToYAML(t *testing.T) {
