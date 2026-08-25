@@ -14,4 +14,4 @@ Tests must not invoke any external tools or services. No `git`, `gh`, `opencode`
 
 ## Structure
 
-Use table-driven tests with `t.Run()` subtests. Use `t.TempDir()` for any file system interaction — the testing package cleans it up automatically.
+Use table-driven tests with `t.Run()` subtests. Use `t.TempDir()` for any file system interaction. The testing package cleans it up automatically.
