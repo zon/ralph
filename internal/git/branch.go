@@ -151,15 +151,12 @@ func ValidateGitStateAndSwitchBranch(ctx *context.Context, branchName string) er
 }
 
 func validateBranchSync(ctx *context.Context, currentBranch string) error {
-	if !ctx.IsWorkflowExecution() {
-		ctx.Output().Debugf("Checking branch '%s' is in sync with remote...", currentBranch)
-		if err := IsBranchSyncedWithRemote(currentBranch); err != nil {
-			return err
-		}
-	} else {
+	if ctx.IsWorkflowExecution() {
 		ctx.Output().Debugf("Skipping remote sync check (running in workflow container)")
+		return nil
 	}
-	return nil
+	ctx.Output().Debugf("Checking branch '%s' is in sync with remote...", currentBranch)
+	return IsBranchSyncedWithRemote(currentBranch)
 }
 
 func SwitchToProjectBranch(ctx *context.Context, branchName string) error {
