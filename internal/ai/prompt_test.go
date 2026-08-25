@@ -92,6 +92,7 @@ func TestBuildPRSummaryPrompt(t *testing.T) {
 		projectDesc string
 		baseBranch  string
 		commitLog   string
+		usage       string
 		outputPath  string
 		check       func(t *testing.T, prompt string)
 	}{
@@ -120,11 +121,35 @@ func TestBuildPRSummaryPrompt(t *testing.T) {
 				assert.Contains(t, prompt, absPath)
 			},
 		},
+		{
+			name:        "usage is embedded when provided",
+			projectDesc: "Test Project",
+			baseBranch:  "main",
+			commitLog:   "abc123: Initial commit\n",
+			usage:       "Input tokens: 1.5M, Output tokens: 542.0K, Cost: $12.34",
+			outputPath:  "/tmp/pr-summary.txt",
+			check: func(t *testing.T, prompt string) {
+				assert.Contains(t, prompt, "## AI Usage")
+				assert.Contains(t, prompt, "Input tokens: 1.5M, Output tokens: 542.0K, Cost: $12.34")
+				assert.Contains(t, prompt, "Usage\" section")
+			},
+		},
+		{
+			name:        "usage is omitted when empty",
+			projectDesc: "Test Project",
+			baseBranch:  "main",
+			commitLog:   "abc123: Initial commit\n",
+			outputPath:  "/tmp/pr-summary.txt",
+			check: func(t *testing.T, prompt string) {
+				assert.NotContains(t, prompt, "## AI Usage")
+				assert.NotContains(t, prompt, "Usage\" section")
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			prompt, err := BuildPRSummaryPrompt(tt.projectDesc, tt.baseBranch, tt.commitLog, tt.outputPath)
+			prompt, err := BuildPRSummaryPrompt(tt.projectDesc, tt.baseBranch, tt.commitLog, tt.usage, tt.outputPath)
 			require.NoError(t, err, "BuildPRSummaryPrompt failed")
 			if tt.check != nil {
 				tt.check(t, prompt)

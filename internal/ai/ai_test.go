@@ -787,7 +787,7 @@ func TestGeneratePRSummary(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := &execcontext.Context{}
 			mockOC := tt.setupMock(t)
-			result, err := GeneratePRSummary(ctx, mockOC, tt.projectDesc, tt.baseBranch, tt.commitLog)
+			result, err := GeneratePRSummary(ctx, mockOC, tt.projectDesc, tt.baseBranch, tt.commitLog, "")
 
 			if tt.wantErr != "" {
 				require.Error(t, err)
@@ -813,12 +813,27 @@ func TestGeneratePRSummary(t *testing.T) {
 			},
 		}
 		ctx := &execcontext.Context{}
-		_, err := GeneratePRSummary(ctx, mockOC, "My Project", "develop", "abc: init\ndef: add\n")
+		_, err := GeneratePRSummary(ctx, mockOC, "My Project", "develop", "abc: init\ndef: add\n", "")
 		require.NoError(t, err)
 		assert.Contains(t, capturedPrompt, "My Project")
 		assert.Contains(t, capturedPrompt, "develop..HEAD")
 		assert.Contains(t, capturedPrompt, "abc: init")
 		assert.Contains(t, capturedPrompt, "def: add")
+	})
+
+	t.Run("prompt contains usage when provided", func(t *testing.T) {
+		var capturedPrompt string
+		mockOC := &opencode.MockOC{
+			RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+				capturedPrompt = prompt
+				return writeOutputFromPrompt(prompt, "result")
+			},
+		}
+		ctx := &execcontext.Context{}
+		_, err := GeneratePRSummary(ctx, mockOC, "My Project", "develop", "abc: init\n", "Input tokens: 1.5M, Output tokens: 542.0K, Cost: $12.34")
+		require.NoError(t, err)
+		assert.Contains(t, capturedPrompt, "Input tokens: 1.5M, Output tokens: 542.0K, Cost: $12.34")
+		assert.Contains(t, capturedPrompt, "Usage\" section")
 	})
 
 	t.Run("logs prompt when verbose", func(t *testing.T) {
@@ -832,7 +847,7 @@ func TestGeneratePRSummary(t *testing.T) {
 				return writeOutputFromPrompt(prompt, "result")
 			},
 		}
-		_, err := GeneratePRSummary(ctx, mockOC, "Test", "main", "abc\n")
+		_, err := GeneratePRSummary(ctx, mockOC, "Test", "main", "abc\n", "")
 		require.NoError(t, err)
 		assert.Contains(t, buf.String(), "Project:")
 		assert.Contains(t, buf.String(), "Test")
@@ -849,7 +864,7 @@ func TestGeneratePRSummary(t *testing.T) {
 				return writeOutputFromPrompt(prompt, "result")
 			},
 		}
-		_, err := GeneratePRSummary(ctx, mockOC, "Test", "main", "abc\n")
+		_, err := GeneratePRSummary(ctx, mockOC, "Test", "main", "abc\n", "")
 		require.NoError(t, err)
 		assert.Empty(t, buf.String())
 	})
@@ -944,7 +959,7 @@ func TestGeneratePRSummaryNeverPassesAgent(t *testing.T) {
 				},
 			}
 
-			result, err := GeneratePRSummary(ctx, mockOC, "Test Project", "main", "abc: feat\n")
+			result, err := GeneratePRSummary(ctx, mockOC, "Test Project", "main", "abc: feat\n", "")
 			require.NoError(t, err)
 			assert.Equal(t, "summary", result)
 			assert.Equal(t, "", capturedAgent, "the PR summary prompt must never pass --agent to opencode, so it always runs with the primary agent")

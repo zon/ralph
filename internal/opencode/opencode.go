@@ -127,6 +127,23 @@ type Stats struct {
 	Cost         float64
 }
 
+// Formatted returns a one-line human-readable summary of the token usage and
+// cost.
+func (s Stats) Formatted() string {
+	return fmt.Sprintf("Input tokens: %s, Output tokens: %s, Cost: $%.2f", formatTokens(s.InputTokens), formatTokens(s.OutputTokens), s.Cost)
+}
+
+func formatTokens(n int64) string {
+	switch {
+	case n >= 1_000_000:
+		return fmt.Sprintf("%.1fM", float64(n)/1_000_000)
+	case n >= 1_000:
+		return fmt.Sprintf("%.1fK", float64(n)/1_000)
+	default:
+		return fmt.Sprintf("%d", n)
+	}
+}
+
 func (c *Client) GetStats() (Stats, error) {
 	var stdout bytes.Buffer
 	err := execOpenCode(context.Background(), []string{"stats"}, &stdout, io.Discard)

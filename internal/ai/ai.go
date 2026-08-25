@@ -63,6 +63,7 @@ type PRSummaryPromptData struct {
 	ProjectDesc string
 	BaseBranch  string
 	CommitLog   string
+	Usage       string
 	AbsPath     string
 }
 
@@ -153,7 +154,7 @@ func BuildFixServicePrompt(ctx *execcontext.Context, svc config.Service, svcErr 
 	return executeTemplate(config.DefaultFixServiceInstructions(), data)
 }
 
-func BuildPRSummaryPrompt(projectDesc, baseBranch, commitLog, outputFile string) (string, error) {
+func BuildPRSummaryPrompt(projectDesc, baseBranch, commitLog, usage, outputFile string) (string, error) {
 	absPath, err := filepath.Abs(outputFile)
 	if err != nil {
 		return "", fmt.Errorf("failed to get absolute path: %w", err)
@@ -163,6 +164,7 @@ func BuildPRSummaryPrompt(projectDesc, baseBranch, commitLog, outputFile string)
 		ProjectDesc: projectDesc,
 		BaseBranch:  baseBranch,
 		CommitLog:   commitLog,
+		Usage:       usage,
 		AbsPath:     absPath,
 	}
 	return executeTemplate(prSummaryInstructions, data)
@@ -400,7 +402,7 @@ func runOpenCodeAndReadResult(ctx *execcontext.Context, oc opencode.OCClient, mo
 	return content, nil
 }
 
-func GeneratePRSummary(ctx *execcontext.Context, oc opencode.OCClient, projectDesc, baseBranch, commitLog string) (summary string, err error) {
+func GeneratePRSummary(ctx *execcontext.Context, oc opencode.OCClient, projectDesc, baseBranch, commitLog, usage string) (summary string, err error) {
 	f, err := createTempFile("pr-summary.md")
 	if err != nil {
 		return "", fmt.Errorf("failed to create temporary PR summary file: %w", err)
@@ -409,7 +411,7 @@ func GeneratePRSummary(ctx *execcontext.Context, oc opencode.OCClient, projectDe
 	tmpFile := f.Name()
 	defer os.Remove(tmpFile)
 
-	prPrompt, err := BuildPRSummaryPrompt(projectDesc, baseBranch, commitLog, tmpFile)
+	prPrompt, err := BuildPRSummaryPrompt(projectDesc, baseBranch, commitLog, usage, tmpFile)
 	if err != nil {
 		return "", fmt.Errorf("failed to build PR summary prompt: %w", err)
 	}

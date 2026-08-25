@@ -72,12 +72,27 @@ func (a *Client) CreatePR(proj *project.Project, head string) error {
 		return nil
 	}
 
-	prSummary, err := ai.GeneratePRSummary(a.ctx, a.oc, proj.Title, a.baseBranch, commitLog)
+	prSummary, err := ai.GeneratePRSummary(a.ctx, a.oc, proj.Title, a.baseBranch, commitLog, a.runUsage())
 	if err != nil {
 		return fmt.Errorf("failed to generate PR summary: %w", err)
 	}
 
 	return a.openPullRequest(proj, head, a.baseBranch, prSummary)
+}
+
+// runUsage returns the formatted AI token usage and cost for this run. It is
+// only meaningful inside a workflow container, where the shared opencode
+// database records the run's sessions; outside a workflow it returns empty so
+// the PR summary prompt is not given misleading global statistics.
+func (a *Client) runUsage() string {
+	if !a.ctx.IsWorkflowExecution() {
+		return ""
+	}
+	stats, err := a.oc.GetStats()
+	if err != nil {
+		return ""
+	}
+	return stats.Formatted()
 }
 
 func (a *Client) openPullRequest(proj *project.Project, head, base, body string) error {

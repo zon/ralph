@@ -303,6 +303,59 @@ func TestClientCreatePR_LoopUsageGeneratesSummary(t *testing.T) {
 	assert.Equal(t, "Mock PR summary", capturedBody, "the PR body is the AI-generated summary, not the raw commit log")
 }
 
+func TestClientCreatePR_WorkflowIncludesUsageInSummaryPrompt(t *testing.T) {
+	var capturedPrompt string
+	mock := &MockGH{
+		IsReadyFn:  func() bool { return true },
+		CreatePRFn: func(title, body, base, head string) (string, error) { return "https://github.com/o/r/p/1", nil },
+	}
+	ctx := execcontext.NewContext()
+	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
+	ctx.SetWorkflowExecution(true)
+	mockOC := &opencode.MockOC{
+		RunCommandFunc: func(_ context.Context, _, _, _, prompt string, _, _ io.Writer) error {
+			capturedPrompt = prompt
+			return writeMockSummary(t, prompt)
+		},
+		GetStatsFunc: func() (opencode.Stats, error) {
+			return opencode.Stats{InputTokens: 1500, OutputTokens: 2500, Cost: 1.23}, nil
+		},
+	}
+	client := withMockCommitLog(NewClient(ctx, "main", mock, mockOC), "abc: feat\n")
+	client.gitAuthConfigurer = &mockGitAuthConfigurer{}
+	proj := &project.Project{Slug: "some-branch", Title: "Test Title"}
+
+	err := client.CreatePR(proj, "some-branch")
+	require.NoError(t, err)
+	assert.Contains(t, capturedPrompt, "## AI Usage")
+	assert.Contains(t, capturedPrompt, "Input tokens: 1.5K, Output tokens: 2.5K, Cost: $1.23")
+}
+
+func TestClientCreatePR_OutsideWorkflowDoesNotFetchStats(t *testing.T) {
+	getStatsCalled := false
+	mock := &MockGH{
+		IsReadyFn:  func() bool { return true },
+		CreatePRFn: func(title, body, base, head string) (string, error) { return "https://github.com/o/r/p/1", nil },
+	}
+	ctx := execcontext.NewContext()
+	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
+	mockOC := &opencode.MockOC{
+		RunCommandFunc: func(_ context.Context, _, _, _, prompt string, _, _ io.Writer) error {
+			return writeMockSummary(t, prompt)
+		},
+		GetStatsFunc: func() (opencode.Stats, error) {
+			getStatsCalled = true
+			return opencode.Stats{}, nil
+		},
+	}
+	client := withMockCommitLog(NewClient(ctx, "main", mock, mockOC), "abc: feat\n")
+	proj := &project.Project{Slug: "some-branch", Title: "Test Title"}
+
+	err := client.CreatePR(proj, "some-branch")
+	require.NoError(t, err)
+	assert.False(t, getStatsCalled, "stats must not be fetched outside a workflow")
+}
+
 func writeMockSummary(t *testing.T, prompt string) error {
 	t.Helper()
 	if idx := strings.Index(prompt, "Write your summary to the file:"); idx >= 0 {

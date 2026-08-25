@@ -13,6 +13,12 @@ Summarize:
 1. What was implemented/changed
 2. Key technical decisions
 3. Any notable considerations or future work
+{{if .Usage}}
+## AI Usage
+{{.Usage}}
+
+Include the AI token usage and cost above in a "Usage" section at the end of the PR description.
+{{end}}
 
 Be concise and focus on what matters for code review.
 
