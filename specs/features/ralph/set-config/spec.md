@@ -47,21 +47,21 @@ The command SHALL accept `--context` and `--namespace` flags to target a specifi
 
 The command SHALL accept an optional `--github-key` flag pointing to an existing `.pem` file containing the GitHub App private key. If the flag is omitted, the command SHALL check whether the GitHub App credentials secret already exists in Kubernetes. If the secret exists, the existing key is reused. If the secret does not exist, an error is returned.
 
-#### Scenario: Flag provided — secret written with new key
+#### Scenario: Flag provided writes the secret with a new key
 
 - GIVEN `--github-key <key.pem>` is provided
 - WHEN the user runs `ralph set config`
 - THEN the key is validated against the GitHub API
 - AND the credentials secret is created or updated with the new key
 
-#### Scenario: Flag omitted — existing secret reused
+#### Scenario: Flag omitted reuses the existing secret
 
 - GIVEN `--github-key` is not provided
 - AND the GitHub App credentials secret already exists in the target namespace
 - WHEN the user runs `ralph set config`
 - THEN the GitHub credential step succeeds without reading a local key file
 
-#### Scenario: Flag omitted — no existing secret
+#### Scenario: Flag omitted with no existing secret
 
 - GIVEN `--github-key` is not provided
 - AND no GitHub App credentials secret exists in the target namespace

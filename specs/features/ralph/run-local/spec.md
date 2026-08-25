@@ -4,7 +4,7 @@
 
 Behavior of the `local` execution mode (`ralph run --mode local`): runs the full development loop in-process in the current checkout without submitting an Argo Workflow. This is the execution mode used inside workflow containers and for local development.
 
-Each iteration works on exactly one [item](../../../../docs/glossary.md#item) of the project's resolved item array, and the branch's commit log — not the project file — records which items are done. See [Iterations](../../../../docs/iterations.md).
+Each iteration works on exactly one [item](../../../../docs/glossary.md#item) of the project's resolved item array, and the branch's commit log (not the project file) records which items are done. See [Iterations](../../../../docs/iterations.md).
 
 ## Requirements
 
@@ -88,7 +88,7 @@ When the input is a **spec document**, the command generates an orchestration do
 
 The command SHALL resolve the item array by evaluating the item query supplied by the caller (see [run/spec.md](../run/spec.md)) against the parsed project file, and SHALL do so exactly once, before the first iteration. Every iteration SHALL use that same resolved array, so an item's index means the same thing from the first iteration to the last.
 
-Resolution discards empty outputs, so the resolved array is either empty or made entirely of non-empty items; see [write-project/spec.md](../write-project/spec.md). An empty resolved array SHALL abort the run before the first iteration, because a run with nothing to do MUST NOT reach the pull request step as though the project had completed.
+Resolution discards empty outputs, so the resolved array is either empty or made entirely of non-empty items. See [write-project/spec.md](../write-project/spec.md). An empty resolved array SHALL abort the run before the first iteration, because a run with nothing to do MUST NOT reach the pull request step as though the project had completed.
 
 #### Scenario: Query resolved before the first iteration
 
@@ -224,13 +224,13 @@ At the start of every iteration the command SHALL determine which items are comp
 
 The iteration loop SHALL invoke the AI agent repeatedly until every item is complete or the iteration limit is reached. The iteration limit SHALL be the resolved item count plus the extra iteration count. When the extra iteration count is unset (nil), it SHALL default to 20% of the item count, rounded up. Each iteration checks for a blocked state before invoking the AI.
 
-#### Scenario: All items already complete — exits after one iteration
+#### Scenario: All items already complete
 
 - GIVEN a branch whose commit log already records every item complete
 - WHEN the iteration loop runs
 - THEN the loop exits after exactly 1 iteration without invoking the AI
 
-#### Scenario: Items complete mid-loop — exits early
+#### Scenario: Items complete mid-loop
 
 - GIVEN a project with 5 items and `--extra-iterations 3` (limit = 8)
 - WHEN the last incomplete item is recorded complete during iteration 5
@@ -341,7 +341,7 @@ After selection, the command SHALL invoke the development agent with the selecte
 
 ### Requirement: Agent scope across the loop
 
-The command SHALL apply the configured agent, resolved as described in [run/spec.md](../run/spec.md), only to prompts that write repository code: item development and service-startup fixes. Prompts that produce supporting artifacts — item selection, artifact generation, changelogs, and PR summaries — SHALL run with opencode's primary agent and SHALL NOT receive the configured agent.
+The command SHALL apply the configured agent, resolved as described in [run/spec.md](../run/spec.md), only to prompts that write repository code: item development and service-startup fixes. Prompts that produce supporting artifacts (item selection, artifact generation, changelogs, and PR summaries) SHALL run with opencode's primary agent and SHALL NOT receive the configured agent.
 
 #### Scenario: Item development prompt receives the configured agent
 
@@ -377,7 +377,7 @@ The command SHALL apply the configured agent, resolved as described in [run/spec
 
 ### Requirement: Commit after each iteration
 
-After each iteration the command SHALL commit any changes the AI produced. The commit message comes from `report.md` if present; otherwise the AI generates a changelog. The command SHALL commit `report.md` verbatim and SHALL NOT append, rewrite, or remove a completion trailer.
+After each iteration the command SHALL commit any changes the AI produced. The commit message comes from `report.md` if present. Otherwise the AI generates a changelog. The command SHALL commit `report.md` verbatim and SHALL NOT append, rewrite, or remove a completion trailer.
 
 #### Scenario: AI produces `report.md`
 
@@ -428,7 +428,7 @@ After each iteration the command SHALL commit any changes the AI produced. The c
 
 Before submitting a pull request the command SHALL check whether the project's spec has an orchestration document, and if so, delete it and commit the deletion.
 
-#### Scenario: Project has a spec with orchestration — orchestration removed
+#### Scenario: Project has a spec with orchestration
 
 - GIVEN the project references a spec that contains an orchestration document
 - WHEN all items are complete and the command is about to create a PR
@@ -436,13 +436,13 @@ Before submitting a pull request the command SHALL check whether the project's s
 - AND the deletion is committed before the pull request is opened
 - AND the deletion commit is pushed to the remote before the pull request is opened
 
-#### Scenario: Project has no spec — cleanup skipped
+#### Scenario: Project has no spec
 
 - GIVEN the project does not reference a spec
 - WHEN the command is about to create a PR
 - THEN no orchestration cleanup is performed
 
-#### Scenario: Project spec has no orchestration — cleanup skipped
+#### Scenario: Project spec has no orchestration
 
 - GIVEN the project references a spec that does not contain an orchestration document
 - WHEN the command is about to create a PR
@@ -510,9 +510,9 @@ The base branch used for PR creation SHALL be the value passed in by the caller,
 
 ### Requirement: PR creation when all items are complete
 
-When every item is found to be complete — whether the branch already recorded them all before the first iteration or they were recorded during the loop — the command SHALL generate an AI PR summary from the branch's commit log and open a GitHub pull request from the project branch to the base branch.
+When every item is found to be complete, whether the branch already recorded them all before the first iteration or they were recorded during the loop, the command SHALL generate an AI PR summary from the branch's commit log and open a GitHub pull request from the project branch to the base branch.
 
-#### Scenario: All items complete after iterations — commits exist
+#### Scenario: All items complete after iterations
 
 - GIVEN items are recorded complete during the iteration loop
 - AND the project branch has commits not on the base branch
@@ -520,7 +520,7 @@ When every item is found to be complete — whether the branch already recorded 
 - THEN a pull request is created
 - AND the PR title is the project's `title` field, falling back to its slug
 
-#### Scenario: All items already complete at start — commits exist
+#### Scenario: All items already complete at start
 
 - GIVEN the branch already records every item complete before any iteration runs
 - AND the project branch has commits not on the base branch
@@ -535,7 +535,7 @@ When every item is found to be complete — whether the branch already recorded 
 - THEN PR creation is skipped
 - AND the command exits successfully
 
-#### Scenario: Iteration limit reached with items incomplete — PR skipped
+#### Scenario: Iteration limit reached with items incomplete
 
 - GIVEN the iteration loop exits because the iteration limit was reached
 - AND one or more items are still incomplete

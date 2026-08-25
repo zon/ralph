@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Define the behavior of `ralph validate`, which checks that a project file is usable by a run: that it parses as YAML or JSON, that the item query evaluates against it, and that the query resolves to at least one non-empty item. When the file fails to parse, the command asks a locally-run agent to repair it and retries. On success the file is rewritten in canonical YAML; a `.json` input is written to a new `.yaml` file and the original is removed.
+Define the behavior of `ralph validate`, which checks that a project file is usable by a run: that it parses as YAML or JSON, that the item query evaluates against it, and that the query resolves to at least one non-empty item. When the file fails to parse, the command asks a locally-run agent to repair it and retries. On success the file is rewritten in canonical YAML. A `.json` input is written to a new `.yaml` file and the original is removed.
 
 Ralph imposes no schema on a project file, so validation makes no schema checks. Anything that parses and yields non-empty items is a valid project.
 
@@ -26,7 +26,7 @@ The system SHALL provide a `ralph validate <file>` subcommand that accepts a pat
 
 ### Requirement: Item Query Resolution
 
-The command SHALL resolve the item query with the same two-level precedence a run uses: `--items` at the command line takes priority; otherwise the `items` field in `.ralph/config.yaml` is used; otherwise the query defaults to `.`. Validating with one query and running with another does not check what the run will do.
+The command SHALL resolve the item query with the same two-level precedence a run uses: `--items` at the command line takes priority. Otherwise the `items` field in `.ralph/config.yaml` is used. Otherwise the query defaults to `.`. Validating with one query and running with another does not check what the run will do.
 
 #### Scenario: `--items` flag takes precedence
 
@@ -51,7 +51,7 @@ The command SHALL resolve the item query with the same two-level precedence a ru
 
 ### Requirement: Validation Checks
 
-The command MUST check exactly three things, in order: the file parses as YAML or JSON; the item query evaluates against the parsed document without error; the query resolves to at least one non-empty item. There MUST be no schema check: no field is required, and no field is rejected.
+The command MUST check exactly three things, in order: the file parses as YAML or JSON, the item query evaluates against the parsed document without error, and the query resolves to at least one non-empty item. There MUST be no schema check: no field is required, and no field is rejected.
 
 #### Scenario: Well-formed project
 
@@ -112,7 +112,7 @@ When the file fails to parse, the command MUST invoke an AI agent locally to rep
 
 The agent MUST be run locally on the current machine (the `local` execution mode, selected with `--mode local`), never delegated to a remote workflow runner. The agent MUST use the model resolved from the ralph config file, with no command-line override required.
 
-Model resolution follows a two-level precedence: if `validate.model` is set in `.ralph/config.yaml` that model is used; otherwise the top-level `model` field is used as the fallback.
+Model resolution follows a two-level precedence: if `validate.model` is set in `.ralph/config.yaml` that model is used. Otherwise the top-level `model` field is used as the fallback.
 
 The repair prompt SHALL run with opencode's primary agent and SHALL NOT receive the configured agent, so a configured agent that denies file writes cannot block the repair. This scoping leaves the model resolution above unchanged.
 

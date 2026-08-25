@@ -130,7 +130,7 @@ func TestLoadConfig_MergeInstructionsFileSettingIgnored(t *testing.T) {
 	assert.Equal(t, config.DefaultCommentInstructions(), cfg.App.CommentInstructions, "the merge instructions file must not be loaded")
 }
 
-// Item test: comment instructions loading and overriding is unchanged — a
+// Item test: comment instructions loading and overriding is unchanged. A
 // config that still names a merge instructions file keeps its comment override.
 func TestLoadAppConfig_CommentOverrideUnchangedWhenMergeFileNamed(t *testing.T) {
 	dir := t.TempDir()

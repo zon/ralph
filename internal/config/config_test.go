@@ -603,8 +603,8 @@ func TestLoadConfig_DefaultInstructionsWhenFilesNotExist(t *testing.T) {
 	assert.Empty(t, config.Instructions, "Instructions must stay unset so the prompt supplies its default steps")
 }
 
-// Item test: the ralph config no longer reads `.ralph/merge-instructions.md` —
-// the file is ignored, so the config keeps the default comment instructions and
+// Item test: the ralph config no longer reads `.ralph/merge-instructions.md`.
+// The file is ignored, so the config keeps the default comment instructions and
 // no development instructions.
 func TestLoadConfig_MergeInstructionsFileIgnored(t *testing.T) {
 	tmpDir := t.TempDir()
@@ -627,7 +627,7 @@ func TestLoadConfig_MergeInstructionsFileIgnored(t *testing.T) {
 }
 
 // Item test: the embedded default merge instructions file is gone and no longer
-// embedded by the config loader — loadInstructions never reads
+// embedded by the config loader. loadInstructions never reads
 // `.ralph/merge-instructions.md`, so the file has no effect on what is loaded.
 func TestLoadInstructions_MergeInstructionsFileIgnored(t *testing.T) {
 	tmpDir := t.TempDir()

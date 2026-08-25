@@ -13,7 +13,7 @@ import (
 
 // ErrNoCommitsBetweenBranches is returned when gh pr create fails because the
 // head branch has no commits ahead of the base branch. This is not an error in
-// the traditional sense — it means the work was already complete before this
+// the traditional sense. It means the work was already complete before this
 // run started, so there is nothing to open a PR for.
 var ErrNoCommitsBetweenBranches = errors.New("no commits between branches")
 

@@ -17,7 +17,7 @@ Your task:
 1. Read the comment carefully.
 2. If the comment asks a question, answer it by posting a GitHub PR comment.
 3. If the comment requests code changes, implement them, then commit and push the changes.
-4. After completing your work, post a GitHub PR comment summarising what you did.
+4. After completing your work, post a GitHub PR comment summarizing what you did.
 
 When posting PR comments use the gh CLI with a heredoc to avoid shell interpretation of special characters:
   gh pr comment {{.PRNumber}} --body "$(cat <<'EOF'

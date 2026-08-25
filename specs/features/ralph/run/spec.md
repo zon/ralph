@@ -127,7 +127,7 @@ The command SHALL change its working directory to the path given by `--working-d
 
 The command SHALL accept `--model` to override the AI model from config and `--context` to override the Kubernetes context used for remote workflow submission.
 
-Model resolution follows a two-level precedence: `--model` at the command line takes priority; otherwise the top-level `model` field in `.ralph/config.yaml` is used, defaulting to `deepseek/deepseek-chat` when unset.
+Model resolution follows a two-level precedence: `--model` at the command line takes priority. Otherwise the top-level `model` field in `.ralph/config.yaml` is used, defaulting to `deepseek/deepseek-chat` when unset.
 
 #### Scenario: `--model` overrides the configured AI model
 
@@ -155,7 +155,7 @@ Model resolution follows a two-level precedence: `--model` at the command line t
 
 The command SHALL accept `--variant` to pass a provider-specific reasoning effort hint (e.g., `high`, `max`, `minimal`) to opencode. When neither the flag nor the `variant` field in `.ralph/config.yaml` is set, the `--variant` option is omitted entirely from the opencode invocation.
 
-Variant resolution follows a two-level precedence: `--variant` at the command line takes priority; otherwise the top-level `variant` field in `.ralph/config.yaml` is used. When both are unset, no variant is passed.
+Variant resolution follows a two-level precedence: `--variant` at the command line takes priority. Otherwise the top-level `variant` field in `.ralph/config.yaml` is used. When both are unset, no variant is passed.
 
 #### Scenario: `--variant` flag passes variant to opencode
 
@@ -181,9 +181,9 @@ Variant resolution follows a two-level precedence: `--variant` at the command li
 
 ### Requirement: opencode agent override
 
-The command SHALL accept `--agent` to select which opencode agent runs the AI prompts that write repository code. The agent SHALL apply only to prompts that change code: item development, merge-conflict resolution, PR comment implementation, and service-startup fixes. Prompts that produce supporting artifacts without touching repository code — item selection, orchestration and project generation, changelogs, PR summaries, and PR review bodies — SHALL run with opencode's primary agent and SHALL NOT receive the configured agent.
+The command SHALL accept `--agent` to select which opencode agent runs the AI prompts that write repository code. The agent SHALL apply only to prompts that change code: item development, merge-conflict resolution, PR comment implementation, and service-startup fixes. Prompts that produce supporting artifacts without touching repository code (item selection, orchestration and project generation, changelogs, PR summaries, and PR review bodies) SHALL run with opencode's primary agent and SHALL NOT receive the configured agent.
 
-Agent resolution follows a two-level precedence: `--agent` at the command line takes priority; otherwise the top-level `agent` field in `.ralph/config.yaml` is used. When both are unset, no agent is passed to any prompt.
+Agent resolution follows a two-level precedence: `--agent` at the command line takes priority. Otherwise the top-level `agent` field in `.ralph/config.yaml` is used. When both are unset, no agent is passed to any prompt.
 
 #### Scenario: `--agent` flag applies to the item development prompt
 
@@ -331,9 +331,9 @@ The command SHALL determine the base branch for PR creation by the following pri
 
 ### Requirement: Item query resolution
 
-The command SHALL accept `--items` to set the jq query that selects the item array from the project file. The query SHALL be resolved once, locally, before dispatching to the selected execution mode, and the resolved value SHALL be passed down so that the whole run — whichever mode — indexes items against the same query.
+The command SHALL accept `--items` to set the jq query that selects the item array from the project file. The query SHALL be resolved once, locally, before dispatching to the selected execution mode, and the resolved value SHALL be passed down so that the whole run, whichever mode, indexes items against the same query.
 
-Item query resolution follows a three-level precedence: `--items` at the command line takes priority; otherwise the `items` field in `.ralph/config.yaml` is used; otherwise the query defaults to `.`.
+Item query resolution follows a three-level precedence: `--items` at the command line takes priority. Otherwise the `items` field in `.ralph/config.yaml` is used. Otherwise the query defaults to `.`.
 
 #### Scenario: `--items` overrides the configured query
 
@@ -367,9 +367,9 @@ Item query resolution follows a three-level precedence: `--items` at the command
 
 ### Requirement: Cleanup resolution
 
-The command SHALL accept `--cleanup` to request that the project file be deleted in its own commit once every item is complete. The resolved value SHALL be passed down to the execution mode, which performs the deletion; see [run-local/spec.md](../run-local/spec.md).
+The command SHALL accept `--cleanup` to request that the project file be deleted in its own commit once every item is complete. The resolved value SHALL be passed down to the execution mode, which performs the deletion. See [run-local/spec.md](../run-local/spec.md).
 
-Cleanup resolution follows a three-level precedence: `--cleanup` at the command line takes priority; otherwise the `cleanup` field in `.ralph/config.yaml` is used; otherwise cleanup is disabled.
+Cleanup resolution follows a three-level precedence: `--cleanup` at the command line takes priority. Otherwise the `cleanup` field in `.ralph/config.yaml` is used. Otherwise cleanup is disabled.
 
 #### Scenario: `--cleanup` enables cleanup for one run
 
@@ -398,7 +398,7 @@ Cleanup resolution follows a three-level precedence: `--cleanup` at the command 
 
 The command SHALL accept `--extra-iterations` to set a finite extra iteration count. The resolved extra iteration value SHALL be passed down to the execution mode, which determines the default when the value is unset.
 
-Extra iterations resolution follows a two-level precedence: `--extra-iterations` at the command line takes priority; otherwise the `extraIterations` field in `.ralph/config.yaml` is used. The resolved value SHALL be passed to the execution mode as-is — nil/unset propagates to the runner.
+Extra iterations resolution follows a two-level precedence: `--extra-iterations` at the command line takes priority. Otherwise the `extraIterations` field in `.ralph/config.yaml` is used. The resolved value SHALL be passed to the execution mode as-is (nil/unset propagates to the runner).
 
 #### Scenario: Flag takes precedence over config
 

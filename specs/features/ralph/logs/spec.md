@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Define the behavior of `ralph logs`, the command that prints the pod logs of a ralph-owned Argo Workflow. It takes an optional workflow name; when the name is omitted, ralph logs the workflow at the top of the `ralph list` output — the most recently created ralph workflow. Logs are printed once by default and streamed with `--follow` (`-f`). Like `ralph list` and `ralph stop`, it scopes to the ralph config namespace by default and supports overrides for Kubernetes context and namespace.
+Define the behavior of `ralph logs`, the command that prints the pod logs of a ralph-owned Argo Workflow. It takes an optional workflow name. When the name is omitted, ralph logs the workflow at the top of the `ralph list` output, the most recently created ralph workflow. Logs are printed once by default and streamed with `--follow` (`-f`). Like `ralph list` and `ralph stop`, it scopes to the ralph config namespace by default and supports overrides for Kubernetes context and namespace.
 
 ## Requirements
 
@@ -58,7 +58,7 @@ When no workflow name is provided, the system SHALL select the workflow at the t
 
 ### Requirement: Log Output
 
-The system SHALL print the pod logs of the resolved workflow, targeting the pod Argo names after the workflow. By default the command SHALL print the current logs and exit; with `--follow` (`-f`) it SHALL stream log lines as they are produced until the pod terminates.
+The system SHALL print the pod logs of the resolved workflow, targeting the pod Argo names after the workflow. By default the command SHALL print the current logs and exit. With `--follow` (`-f`) it SHALL stream log lines as they are produced until the pod terminates.
 
 #### Scenario: Logs printed once by default
 
