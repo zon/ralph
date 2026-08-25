@@ -73,7 +73,7 @@ The item's 0-based position in the resolved array. Always present, and the only 
 
 ## Item Key
 
-If the item is a mapping with a scalar `slug`, `id`, or `name` field — checked in that order — that value is the item's **key**.
+If the item is a mapping with a scalar `slug`, `id`, or `name` field, checked in that order, that value is the item's **key**.
 
 ```yaml
 - slug: csv-serializer      # key: "csv-serializer"
