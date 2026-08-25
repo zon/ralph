@@ -49,13 +49,6 @@ func StageAll() error {
 	return nil
 }
 
-// HasFileChanges checks if a specific file has unstaged changes (i.e. differs from the index)
-func HasFileChanges(filePath string) bool {
-	// git diff --quiet -- <file>: exit 0 = no changes, exit 1 = has changes
-	_, err := runGit("diff", "--quiet", "--", filePath)
-	return err != nil
-}
-
 // IsFileModifiedOrNew returns true if the given file has uncommitted modifications
 // or is an untracked new file. Works for both tracked and untracked files.
 func IsFileModifiedOrNew(path string) bool {
@@ -131,88 +124,6 @@ func GetCommitLog(base string, limit int) (string, error) {
 		return "", fmt.Errorf("failed to get commit log: %w", err)
 	}
 	return output, nil
-}
-
-// BranchLogContainsPrefix reports whether any commit on branch (relative to base) has a
-// commit message that contains the given prefix string. Returns false (not an error) when
-// the branch does not yet exist or has no commits relative to base.
-func BranchLogContainsPrefix(base, branch, prefix string) (bool, error) {
-	logRange := fmt.Sprintf("%s..%s", base, branch)
-	output, err := runGit("log", logRange, "--format=%s")
-	if err != nil {
-		return false, nil
-	}
-
-	for _, line := range strings.Split(output, "\n") {
-		if strings.Contains(line, prefix) {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
-func SwitchToBranchIfNeeded(auth *AuthConfig, branchName string) error {
-	currentBranch, err := GetCurrentBranch()
-	if err != nil {
-		return fmt.Errorf("failed to get current branch: %w", err)
-	}
-	if currentBranch != branchName {
-		_ = Fetch(auth)
-		if err := CheckoutOrCreateBranch(branchName); err != nil {
-			return fmt.Errorf("failed to checkout review branch: %w", err)
-		}
-	}
-	return nil
-}
-
-func CommitFileAndPush(auth *AuthConfig, filePath, branchName, commitMsg string) error {
-	if err := SwitchToBranchIfNeeded(auth, branchName); err != nil {
-		return err
-	}
-
-	if err := StageFile(filePath); err != nil {
-		return fmt.Errorf("failed to stage project file: %w", err)
-	}
-
-	if err := Commit(commitMsg); err != nil {
-		return fmt.Errorf("failed to commit review findings: %w", err)
-	}
-
-	isWorkflow := auth != nil
-	var owner, repo string
-	if auth != nil {
-		owner, repo = auth.Owner, auth.Repo
-	}
-	if err := PullAndPush(isWorkflow, owner, repo); err != nil {
-		return fmt.Errorf("failed to push changes: %w", err)
-	}
-
-	return nil
-}
-
-func CommitAllAndPush(auth *AuthConfig, branchName, commitMsg string) error {
-	if err := SwitchToBranchIfNeeded(auth, branchName); err != nil {
-		return err
-	}
-
-	if err := StageAll(); err != nil {
-		return fmt.Errorf("failed to stage all changes: %w", err)
-	}
-
-	if err := Commit(commitMsg); err != nil {
-		return fmt.Errorf("failed to commit review findings: %w", err)
-	}
-
-	isWorkflow := auth != nil
-	var owner, repo string
-	if auth != nil {
-		owner, repo = auth.Owner, auth.Repo
-	}
-	if err := PullAndPush(isWorkflow, owner, repo); err != nil {
-		return fmt.Errorf("failed to push changes: %w", err)
-	}
-
-	return nil
 }
 
 func performCommit(message string) error {
