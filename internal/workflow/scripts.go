@@ -26,53 +26,36 @@ func buildParameters(params map[string]string) []map[string]interface{} {
 }
 
 func buildConfigMapVolumeMount(name string, destFile, destDir string, index int) map[string]interface{} {
+	return buildVolumeMount(name, destFile, destDir, index, "/configmaps/"+name)
+}
+
+func buildSecretVolumeMount(name string, destFile, destDir string, index int) map[string]interface{} {
+	return buildVolumeMount(name, destFile, destDir, index, "/secrets/"+name)
+}
+
+func buildVolumeMount(name string, destFile, destDir string, index int, fallbackMountPath string) map[string]interface{} {
 	mount := map[string]interface{}{
 		"name":     sanitizeName(name),
 		"readOnly": true,
 	}
-	if destFile != "" {
-		if filepath.IsAbs(destFile) {
-			mount["mountPath"] = destFile
-		} else {
-			mount["mountPath"] = "/workspace/" + destFile
-		}
+	switch {
+	case destFile != "":
+		mount["mountPath"] = absPath(destFile)
 		mount["subPath"] = filepath.Base(destFile)
 		mount["name"] = fmt.Sprintf("%s-%d", sanitizeName(name), index)
-	} else if destDir != "" {
-		if filepath.IsAbs(destDir) {
-			mount["mountPath"] = destDir
-		} else {
-			mount["mountPath"] = "/workspace/" + destDir
-		}
-	} else {
-		mount["mountPath"] = fmt.Sprintf("/configmaps/%s", name)
+	case destDir != "":
+		mount["mountPath"] = absPath(destDir)
+	default:
+		mount["mountPath"] = fallbackMountPath
 	}
 	return mount
 }
 
-func buildSecretVolumeMount(name string, destFile, destDir string, index int) map[string]interface{} {
-	mount := map[string]interface{}{
-		"name":     sanitizeName(name),
-		"readOnly": true,
+func absPath(path string) string {
+	if filepath.IsAbs(path) {
+		return path
 	}
-	if destFile != "" {
-		if filepath.IsAbs(destFile) {
-			mount["mountPath"] = destFile
-		} else {
-			mount["mountPath"] = "/workspace/" + destFile
-		}
-		mount["subPath"] = filepath.Base(destFile)
-		mount["name"] = fmt.Sprintf("%s-%d", sanitizeName(name), index)
-	} else if destDir != "" {
-		if filepath.IsAbs(destDir) {
-			mount["mountPath"] = destDir
-		} else {
-			mount["mountPath"] = "/workspace/" + destDir
-		}
-	} else {
-		mount["mountPath"] = fmt.Sprintf("/secrets/%s", name)
-	}
-	return mount
+	return "/workspace/" + path
 }
 
 func buildConfigMapVolume(name string, destFile string, index int) map[string]interface{} {
