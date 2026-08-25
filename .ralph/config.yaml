@@ -7,7 +7,7 @@ cleanup: true
 loops:
   - slug: prose
     steps:
-      - Review this repo's prose against the [prose guidelines](docs/zpecs/prose.md) and fix one problem if any
+      - Review this repo's prose against the [prose guidelines](docs/zpecs/prose.md) and fix one problem if any. Small specific problems like semicolons or em dashes should be fixed across the repo all at once
   - slug: architecture
     steps:
       - Review this repo's architecture against the [architecture guidelines](docs/zpecs/architecture.md) and fix one problem if any
