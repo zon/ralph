@@ -396,13 +396,11 @@ func loadConfigFromPath(configPath string) (*RalphConfig, error) {
 // absent, so the prompt supplies its own default steps; the comment
 // instructions fall back to the embedded default.
 func loadInstructions(configDir string) (instructions, commentInstructions string) {
-	// Load instructions from .ralph/instructions.md, leaving them unset otherwise
 	instructionsPath := filepath.Join(configDir, "instructions.md")
 	if instructionsData, err := os.ReadFile(instructionsPath); err == nil {
 		instructions = string(instructionsData)
 	}
 
-	// Load comment instructions from .ralph/comment-instructions.md or use default
 	commentInstructionsPath := filepath.Join(configDir, "comment-instructions.md")
 	if data, err := os.ReadFile(commentInstructionsPath); err == nil {
 		commentInstructions = string(data)
