@@ -33,7 +33,6 @@ type Context struct {
 	agent             string   // Agent override; overrides agent from .ralph/config.yaml
 	variant           string   // Variant override; overrides variant from .ralph/config.yaml
 	kubeContext       string   // Kubernetes context override; overrides workflow.context from .ralph/config.yaml
-	filter            string   // Filter string for reviewing specific items
 	command           []string // Command tokens for the command subcommand
 }
 
@@ -232,14 +231,6 @@ func (c *Context) SetKubeContext(kubeContext string) {
 
 func (c *Context) KubeContext() string {
 	return c.kubeContext
-}
-
-func (c *Context) SetFilter(filter string) {
-	c.filter = filter
-}
-
-func (c *Context) Filter() string {
-	return c.filter
 }
 
 func (c *Context) SetCommand(command []string) {
