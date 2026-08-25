@@ -111,7 +111,7 @@ The limit is the resolved item count plus the extra iteration count:
 limit = len(items) + extraIterations
 ```
 
-`extraIterations` comes from `--extra-iterations` or `.ralph/config.yaml`. When unset it defaults to 20% of the item count, rounded up. Reaching the limit with items still incomplete is an error — no pull request is opened, and the error names the incomplete items.
+`extraIterations` comes from `--extra-iterations` or `.ralph/config.yaml`. When unset it defaults to 20% of the item count, rounded up. Reaching the limit with items still incomplete is an error. No pull request is opened, and the error names the incomplete items.
 
 The loop also stops early when `blocked.md` exists at the start of an iteration, and stops fatally on billing or quota errors from the AI provider.
 
