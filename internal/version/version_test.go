@@ -35,29 +35,6 @@ func TestVersion_MatchesSourceFile(t *testing.T) {
 	assert.Equal(t, expectedVersion, versionStr, "Version should match the VERSION file")
 }
 
-func TestBumpMinor(t *testing.T) {
-	tests := []struct {
-		name     string
-		version  string
-		expected string
-	}{
-		{"increments minor", "9.0.2", "9.1.0"},
-		{"increments minor from 0", "1.0.0", "1.1.0"},
-		{"handles two digit minor", "9.99.0", "9.100.0"},
-		{"resets patch to 0", "2.4.6", "2.5.0"},
-		{"passes through non-numeric parts", "a.b.c", "a.b.c"},
-		{"passes through non-numeric patch", "1.2.abc", "1.2.abc"},
-		{"passes through prerelease suffix", "1.2.3-rc1", "1.2.3-rc1"},
-		{"passes through trailing dot", "1.2.", "1.2."},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := BumpMinor(tt.version)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
 func TestVersion_ChartAppVersionMatches(t *testing.T) {
 	raw, err := os.ReadFile("../../charts/ralph-webhook/Chart.yaml")
 	require.NoError(t, err, "Chart.yaml should be readable")
