@@ -35,6 +35,7 @@ type RemoteRunnerClient interface {
 
 type ExecutionSetup struct {
 	Config        *config.RalphConfig
+	Mode          string
 	BranchName    string
 	CurrentBranch string
 	BaseBranch    string
@@ -49,7 +50,7 @@ type RunFlags struct {
 	ExtraIterations int
 	Items           string
 	Cleanup         *bool
-	Local           bool
+	Mode            string
 	Follow          bool
 	Debug           string
 	Base            string
@@ -58,12 +59,15 @@ type RunFlags struct {
 	Context         string
 }
 
-func (f RunFlags) Validate() error {
-	if f.Follow && f.Local {
-		return fmt.Errorf("--follow flag is not applicable with --local flag")
+// Validate rejects flag combinations that have no valid meaning for the
+// resolved execution mode. --follow and --debug are workflow-only flags and are
+// rejected for local and worktree modes.
+func (f RunFlags) Validate(mode string) error {
+	if f.Follow && (mode == config.ModeLocal || mode == config.ModeWorktree) {
+		return fmt.Errorf("--follow flag is not applicable with --mode %s", mode)
 	}
-	if f.Debug != "" && f.Local {
-		return fmt.Errorf("--debug flag is not applicable with --local flag")
+	if f.Debug != "" && (mode == config.ModeLocal || mode == config.ModeWorktree) {
+		return fmt.Errorf("--debug flag is not applicable with --mode %s", mode)
 	}
 	return nil
 }
@@ -87,23 +91,23 @@ func (r *RunCmd) Run(flags RunFlags) error {
 	if err != nil {
 		return err
 	}
-	if err := flags.Validate(); err != nil {
-		return err
-	}
 	setup, err := r.prepareSetup(flags, input)
 	if err != nil {
 		return err
 	}
-	if flags.Local {
-		return r.local.RunLocal(input, setup.Config)
+	if err := flags.Validate(setup.Mode); err != nil {
+		return err
 	}
-	return r.remote.Run(input, RunRemoteFlags{
-		Follow:     flags.Follow,
-		Debug:      flags.Debug,
-		BaseBranch: setup.BaseBranch,
-		Items:      setup.Config.Items,
-		Cleanup:    setup.Config.Cleanup,
-	})
+	if setup.Mode == config.ModeRemote {
+		return r.remote.Run(input, RunRemoteFlags{
+			Follow:     flags.Follow,
+			Debug:      flags.Debug,
+			BaseBranch: setup.BaseBranch,
+			Items:      setup.Config.Items,
+			Cleanup:    setup.Config.Cleanup,
+		})
+	}
+	return r.local.RunLocal(input, setup.Config)
 }
 
 func (r *RunCmd) prepareSetup(flags RunFlags, input *project.InputFile) (ExecutionSetup, error) {
@@ -111,6 +115,11 @@ func (r *RunCmd) prepareSetup(flags RunFlags, input *project.InputFile) (Executi
 	if err != nil {
 		return ExecutionSetup{}, err
 	}
+	mode, err := cfg.ResolveMode(flags.Mode)
+	if err != nil {
+		return ExecutionSetup{}, err
+	}
+	cfg.Mode = mode
 	currentBranch, err := r.git.CurrentBranch()
 	if err != nil {
 		return ExecutionSetup{}, err
@@ -126,6 +135,7 @@ func (r *RunCmd) prepareSetup(flags RunFlags, input *project.InputFile) (Executi
 	cfg.Base = baseBranch
 	return ExecutionSetup{
 		Config:        cfg,
+		Mode:          mode,
 		BranchName:    projectBranch,
 		CurrentBranch: currentBranch,
 		BaseBranch:    baseBranch,

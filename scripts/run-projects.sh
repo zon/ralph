@@ -3,7 +3,7 @@ set -e
 
 # Submits every project file in projects/ as a remote Argo Workflow.
 # Each invocation of `ralph` submits the workflow and returns immediately
-# (no --local, no --follow), so projects run concurrently on the cluster.
+# (--mode remote, no --follow), so projects run concurrently on the cluster.
 
 PROJECTS_DIR="$(dirname "$0")/../projects"
 
@@ -18,5 +18,5 @@ fi
 
 for project in "${projects[@]}"; do
   echo "Submitting $(basename "$project")..."
-  ralph "$project"
+  ralph --mode remote "$project"
 done
