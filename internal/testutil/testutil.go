@@ -72,12 +72,3 @@ func WithFollow(follow bool) ContextOption {
 		ctx.SetFollow(follow)
 	}
 }
-
-// WithInstructions sets the instructions file path
-func WithInstructions(instructions string) ContextOption {
-	return func(ctx *context.Context) {
-		ctx.SetInstructions(instructions)
-	}
-}
-
-
