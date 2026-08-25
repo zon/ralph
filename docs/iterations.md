@@ -38,7 +38,7 @@ Editing the project file by hand while a run is in progress is unsupported. Noth
 
 ## Picking
 
-The picker agent receives the full project file, the incomplete items with their indices and keys — the output of `ralph get incomplete` — and the recent commit log. It selects one item based on dependencies between items, logical ordering, and impact.
+The picker agent receives the full project file, the incomplete items with their indices and keys (the output of `ralph get incomplete`), and the recent commit log. It selects one item based on dependencies between items, logical ordering, and impact.
 
 The development agent then receives that one item verbatim, plus its index and key, plus the full project file for context.
 
