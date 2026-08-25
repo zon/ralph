@@ -58,7 +58,7 @@ items: .spec.tasks                                    # deeper nesting
 items: '.issues | map(select(.state == "open"))'      # filtered
 ```
 
-The query must resolve to at least one non-empty item; empty outputs — null, `false`, `0`, blank strings, `{}`, `[]` — are dropped before indexing. Every command that reads a project file — the run command, `ralph get`, and `ralph validate` — resolves it the same way: `--items` first, then this field, then `.`. Keep the query stable for the duration of a run; it defines the indices that completion tracking uses. See [Project Format](formats/project.md#item-query) and [Iterations](iterations.md).
+The query must resolve to at least one non-empty item. Empty outputs — null, `false`, `0`, blank strings, `{}`, `[]` — are dropped before indexing. Every command that reads a project file — the run command, `ralph get`, and `ralph validate` — resolves it the same way: `--items` first, then this field, then `.`. Keep the query stable for the duration of a run. It defines the indices that completion tracking uses. See [Project Format](formats/project.md#item-query) and [Iterations](iterations.md).
 
 ## Iterations
 
@@ -111,7 +111,7 @@ loops:
 `before` defines commands that run once before services start and before the iteration loop begins.
 
 - Commands run sequentially and must exit successfully before ralph proceeds (unless marked optional)
-- Each entry requires `name` and `command`; `args`, `workDir`, and `optional` are optional
+- Each entry requires `name` and `command`. `args`, `workDir`, and `optional` are optional
 - Set `optional: true` to allow a command to fail without aborting the run (a warning is logged instead)
 - Useful for compilation, code generation, dependency installation, database migrations
 
@@ -136,7 +136,7 @@ loops:
 | `namespace` | Kubernetes namespace (default: `argo`) |
 | `configMaps` | Additional ConfigMaps to mount |
 | `secrets` | Additional Secrets to mount |
-| `env` | Environment variables to set in the container; each value is a literal string or a Kubernetes secret reference |
+| `env` | Environment variables to set in the container. Each value is a literal string or a Kubernetes secret reference |
 | `labels` | Kubernetes labels to apply to workflow pods |
 
 An `env` value can be a literal string or a reference to a key in a Kubernetes Secret. For a literal, set the value directly:
