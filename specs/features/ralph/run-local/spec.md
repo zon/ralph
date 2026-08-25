@@ -224,13 +224,13 @@ At the start of every iteration the command SHALL determine which items are comp
 
 The iteration loop SHALL invoke the AI agent repeatedly until every item is complete or the iteration limit is reached. The iteration limit SHALL be the resolved item count plus the extra iteration count. When the extra iteration count is unset (nil), it SHALL default to 20% of the item count, rounded up. Each iteration checks for a blocked state before invoking the AI.
 
-#### Scenario: All items already complete — exits after one iteration
+#### Scenario: All items already complete
 
 - GIVEN a branch whose commit log already records every item complete
 - WHEN the iteration loop runs
 - THEN the loop exits after exactly 1 iteration without invoking the AI
 
-#### Scenario: Items complete mid-loop — exits early
+#### Scenario: Items complete mid-loop
 
 - GIVEN a project with 5 items and `--extra-iterations 3` (limit = 8)
 - WHEN the last incomplete item is recorded complete during iteration 5
@@ -428,7 +428,7 @@ After each iteration the command SHALL commit any changes the AI produced. The c
 
 Before submitting a pull request the command SHALL check whether the project's spec has an orchestration document, and if so, delete it and commit the deletion.
 
-#### Scenario: Project has a spec with orchestration — orchestration removed
+#### Scenario: Project has a spec with orchestration
 
 - GIVEN the project references a spec that contains an orchestration document
 - WHEN all items are complete and the command is about to create a PR
@@ -436,13 +436,13 @@ Before submitting a pull request the command SHALL check whether the project's s
 - AND the deletion is committed before the pull request is opened
 - AND the deletion commit is pushed to the remote before the pull request is opened
 
-#### Scenario: Project has no spec — cleanup skipped
+#### Scenario: Project has no spec
 
 - GIVEN the project does not reference a spec
 - WHEN the command is about to create a PR
 - THEN no orchestration cleanup is performed
 
-#### Scenario: Project spec has no orchestration — cleanup skipped
+#### Scenario: Project spec has no orchestration
 
 - GIVEN the project references a spec that does not contain an orchestration document
 - WHEN the command is about to create a PR
@@ -512,7 +512,7 @@ The base branch used for PR creation SHALL be the value passed in by the caller,
 
 When every item is found to be complete, whether the branch already recorded them all before the first iteration or they were recorded during the loop, the command SHALL generate an AI PR summary from the branch's commit log and open a GitHub pull request from the project branch to the base branch.
 
-#### Scenario: All items complete after iterations — commits exist
+#### Scenario: All items complete after iterations
 
 - GIVEN items are recorded complete during the iteration loop
 - AND the project branch has commits not on the base branch
@@ -520,7 +520,7 @@ When every item is found to be complete, whether the branch already recorded the
 - THEN a pull request is created
 - AND the PR title is the project's `title` field, falling back to its slug
 
-#### Scenario: All items already complete at start — commits exist
+#### Scenario: All items already complete at start
 
 - GIVEN the branch already records every item complete before any iteration runs
 - AND the project branch has commits not on the base branch
@@ -535,7 +535,7 @@ When every item is found to be complete, whether the branch already recorded the
 - THEN PR creation is skipped
 - AND the command exits successfully
 
-#### Scenario: Iteration limit reached with items incomplete — PR skipped
+#### Scenario: Iteration limit reached with items incomplete
 
 - GIVEN the iteration loop exits because the iteration limit was reached
 - AND one or more items are still incomplete
