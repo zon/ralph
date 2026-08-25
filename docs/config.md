@@ -58,7 +58,7 @@ items: .spec.tasks                                    # deeper nesting
 items: '.issues | map(select(.state == "open"))'      # filtered
 ```
 
-The query must resolve to at least one non-empty item. Empty outputs — null, `false`, `0`, blank strings, `{}`, `[]` — are dropped before indexing. Every command that reads a project file — the run command, `ralph get`, and `ralph validate` — resolves it the same way: `--items` first, then this field, then `.`. Keep the query stable for the duration of a run. It defines the indices that completion tracking uses. See [Project Format](formats/project.md#item-query) and [Iterations](iterations.md).
+The query must resolve to at least one non-empty item. Empty outputs, null, `false`, `0`, blank strings, `{}`, `[]`, are dropped before indexing. Every command that reads a project file, the run command, `ralph get`, and `ralph validate`, resolves it the same way: `--items` first, then this field, then `.`. Keep the query stable for the duration of a run. It defines the indices that completion tracking uses. See [Project Format](formats/project.md#item-query) and [Iterations](iterations.md).
 
 ## Iterations
 
