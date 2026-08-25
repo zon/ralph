@@ -179,65 +179,6 @@ func TestBuildChangelogPromptDoesNotInstructCompletionTrailer(t *testing.T) {
 	assert.NotContains(t, prompt, "trailer")
 }
 
-func TestBuildReviewPRBodyPrompt(t *testing.T) {
-	tests := []struct {
-		name         string
-		reviewName   string
-		description  string
-		requirements []string
-		outputPath   string
-		check        func(t *testing.T, prompt string)
-	}{
-		{
-			name:         "happy path",
-			reviewName:   "review-2026-03-22",
-			description:  "Code review for authentication",
-			requirements: []string{"- **security**: JWT validation (✅ Passing)", "- **style**: naming conventions (❌ Not passing)"},
-			outputPath:   "/tmp/pr-body.txt",
-			check: func(t *testing.T, prompt string) {
-				assert.NotEmpty(t, prompt, "PR body prompt should not be empty")
-				assert.Contains(t, prompt, "review-2026-03-22")
-				assert.Contains(t, prompt, "Code review for authentication")
-				assert.Contains(t, prompt, "JWT validation")
-				assert.Contains(t, prompt, "/tmp/pr-body.txt")
-			},
-		},
-		{
-			name:         "no description",
-			reviewName:   "review-2026-03-22",
-			description:  "",
-			requirements: []string{"- **security**: JWT validation (✅ Passing)"},
-			outputPath:   "/tmp/pr-body.txt",
-			check: func(t *testing.T, prompt string) {
-				assert.NotEmpty(t, prompt, "PR body prompt should not be empty")
-				assert.Contains(t, prompt, "review-2026-03-22")
-				assert.NotContains(t, prompt, "Description:")
-			},
-		},
-		{
-			name:         "absolute path",
-			reviewName:   "review",
-			description:  "description",
-			requirements: []string{"req1", "req2"},
-			outputPath:   "relative/path.txt",
-			check: func(t *testing.T, prompt string) {
-				absPath, _ := filepath.Abs("relative/path.txt")
-				assert.Contains(t, prompt, absPath)
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			prompt, err := BuildReviewPRBodyPrompt(tt.reviewName, tt.description, tt.requirements, tt.outputPath)
-			require.NoError(t, err, "BuildReviewPRBodyPrompt failed")
-			if tt.check != nil {
-				tt.check(t, prompt)
-			}
-		})
-	}
-}
-
 func TestBuildProjectFixPrompt(t *testing.T) {
 	tests := []struct {
 		name       string

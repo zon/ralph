@@ -24,9 +24,6 @@ var prSummaryInstructions string
 //go:embed changelog-instructions.md
 var changelogInstructions string
 
-//go:embed review-pr-body-instructions.md
-var reviewPRBodyInstructions string
-
 //go:embed project-fix-instructions.md
 var projectFixInstructions string
 
@@ -74,13 +71,6 @@ type PRSummaryPromptData struct {
 
 type ChangelogPromptData struct {
 	OutputFile string
-}
-
-type ReviewPRBodyPromptData struct {
-	ProjectName        string
-	ProjectDescription string
-	Requirements       []string
-	AbsPath            string
 }
 
 type ReviewItemPromptData struct {
@@ -198,21 +188,6 @@ func BuildChangelogPrompt(outputFile string) (string, error) {
 
 	data := ChangelogPromptData{OutputFile: absPath}
 	return executeTemplate(changelogInstructions, data)
-}
-
-func BuildReviewPRBodyPrompt(projectName, projectDesc string, requirements []string, outputFile string) (string, error) {
-	absPath, err := filepath.Abs(outputFile)
-	if err != nil {
-		return "", fmt.Errorf("failed to get absolute path: %w", err)
-	}
-
-	data := ReviewPRBodyPromptData{
-		ProjectName:        projectName,
-		ProjectDescription: projectDesc,
-		Requirements:       requirements,
-		AbsPath:            absPath,
-	}
-	return executeTemplate(reviewPRBodyInstructions, data)
 }
 
 func BuildLoopItemPrompt(content, functionName, functionPath string) (string, error) {
@@ -505,33 +480,6 @@ func GenerateChangelog(ctx *execcontext.Context, oc opencode.OCClient) (err erro
 	}
 
 	return nil
-}
-
-func GenerateReviewPRBody(ctx *execcontext.Context, oc opencode.OCClient, projectName, projectDesc string, requirementSummaries []string) (summary string, err error) {
-	f, err := createTempFile("review-pr-body.md")
-	if err != nil {
-		return "", fmt.Errorf("failed to create temporary review PR body file: %w", err)
-	}
-	f.Close()
-	tmpFile := f.Name()
-	defer os.Remove(tmpFile)
-
-	reviewPrompt, err := BuildReviewPRBodyPrompt(projectName, projectDesc, requirementSummaries, tmpFile)
-	if err != nil {
-		return "", fmt.Errorf("failed to build review PR body prompt: %w", err)
-	}
-
-	if ctx.IsVerbose() {
-		ctx.Output().Debug(reviewPrompt)
-	}
-
-	model := resolveModel(ctx)
-	summary, err = runOpenCodeAndReadResult(ctx, oc, model, reviewPrompt, tmpFile)
-	if err != nil {
-		return "", err
-	}
-
-	return summary, nil
 }
 
 // usableSlug reports whether the AI proposed a usable slug: non-empty after
