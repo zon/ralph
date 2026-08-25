@@ -130,8 +130,6 @@ func configureAuth(auth *AuthConfig) error {
 	return authConfigurator.ConfigureGitAuth(context.Background(), auth.Owner, auth.Repo, authConfigurator.DefaultSecretsDir())
 }
 
-var ErrFatalPushError = errors.New("fatal push error")
-
 func PullAndPush(isWorkflow bool, owner, repo string) error {
 	var auth *AuthConfig
 	if isWorkflow {
