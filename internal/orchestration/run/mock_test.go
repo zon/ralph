@@ -400,12 +400,6 @@ func withGit(gc GitClient) runnerOption {
 	}
 }
 
-func withGitHub(gc GitHubClient) runnerOption {
-	return func(r *Runner) {
-		r.github = gc
-	}
-}
-
 func withEnv(ec EnvClient) runnerOption {
 	return func(r *Runner) {
 		r.env = ec

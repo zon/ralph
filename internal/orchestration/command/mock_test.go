@@ -69,15 +69,6 @@ func (h *workflowCommandHelper) withWorkspace(wc WorkspaceSetupClient) workflowC
 	}
 }
 
-func (h *workflowCommandHelper) withExec(ec ExecClient) workflowCommandOption {
-	return func(cmd *WorkflowCommandCmd) {
-		cmd.exec = ec
-		if m, ok := ec.(*mockExecClient); ok {
-			mockExec = m
-		}
-	}
-}
-
 type workspaceHelper struct{}
 
 var workspace = &workspaceHelper{}

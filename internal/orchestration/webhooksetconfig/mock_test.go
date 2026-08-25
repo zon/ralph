@@ -144,15 +144,6 @@ func (h *webhooksetconfigHelper) withSecrets(sc SecretsClient) webhooksetconfigO
 	}
 }
 
-func (h *webhooksetconfigHelper) withGitHub(gc GitHubClient) webhooksetconfigOption {
-	return func(cmd *SetConfigCmd) {
-		cmd.GitHub = gc
-		if m, ok := gc.(*mockGitHubClient); ok {
-			mockGH = m
-		}
-	}
-}
-
 type configHelper struct{}
 
 var config = &configHelper{}

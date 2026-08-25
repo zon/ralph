@@ -108,13 +108,11 @@ func (m *mockConfigClient) LoadOptional() (*ralphcfg.RalphConfig, error) {
 }
 
 type mockProjectClient struct {
-	resolveFunc   func(string, string) (*ralphproj.Project, error)
-	resolveCalled bool
-	lastQuery     string
+	resolveFunc func(string, string) (*ralphproj.Project, error)
+	lastQuery   string
 }
 
 func (m *mockProjectClient) Resolve(path, query string) (*ralphproj.Project, error) {
-	m.resolveCalled = true
 	m.lastQuery = query
 	if m.resolveFunc != nil {
 		return m.resolveFunc(path, query)
@@ -214,15 +212,6 @@ func (r *runHelper) withGit(gc GitClient) runOption {
 	}
 }
 
-func (r *runHelper) withAI(ac AIClient) runOption {
-	return func(cmd *WorkflowRunCmd) {
-		cmd.ai = ac
-		if m, ok := ac.(*mockAIClient); ok {
-			mockAI = m
-		}
-	}
-}
-
 func (r *runHelper) withConfig(cc ConfigClient) runOption {
 	return func(cmd *WorkflowRunCmd) {
 		cmd.config = cc
@@ -246,15 +235,6 @@ func (r *runHelper) withDebug(dc DebugClient) runOption {
 		cmd.debug = dc
 		if m, ok := dc.(*mockDebugClient); ok {
 			mockDebug = m
-		}
-	}
-}
-
-func (r *runHelper) withOutput(oc OutputClient) runOption {
-	return func(cmd *WorkflowRunCmd) {
-		cmd.output = oc
-		if m, ok := oc.(*mockOutputClient); ok {
-			mockOutput = m
 		}
 	}
 }
@@ -358,17 +338,6 @@ func (h *projectHelper) thatFailsResolve() *mockProjectClient {
 			return nil, errMock
 		},
 	}
-}
-
-func (h *projectHelper) loadCalled() bool {
-	return mockProj != nil && mockProj.resolveCalled
-}
-
-func (h *projectHelper) lastQuery() string {
-	if mockProj == nil {
-		return ""
-	}
-	return mockProj.lastQuery
 }
 
 type outputHelper struct{}

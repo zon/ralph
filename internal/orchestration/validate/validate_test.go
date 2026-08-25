@@ -203,14 +203,6 @@ func (m *mockReporter) Warnf(format string, a ...any) {
 	m.warns = append(m.warns, fmt.Sprintf(format, a...))
 }
 
-func (m *mockReporter) messages() []string {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	out := make([]string, len(m.warns))
-	copy(out, m.warns)
-	return out
-}
-
 func thatParses(doc *projectfile.Document) ProjectFile {
 	return &mockProjectFile{
 		parseFunc: func(path string) (*projectfile.Document, error) {

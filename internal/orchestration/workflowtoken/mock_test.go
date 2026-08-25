@@ -96,15 +96,6 @@ func (h *workflowtokenHelper) withGitHub(gc GitHubClient) workflowtokenOption {
 	}
 }
 
-func (h *workflowtokenHelper) withGit(gc GitClient) workflowtokenOption {
-	return func(cmd *WorkflowTokenCmd) {
-		cmd.Git = gc
-		if m, ok := gc.(*mockGitClient); ok {
-			mockGit = m
-		}
-	}
-}
-
 type flagsHelper struct{}
 
 var flags = &flagsHelper{}
@@ -151,10 +142,6 @@ func (h *repoHelper) lastResolved() (string, string) {
 		return mockRepo.lastOwner, mockRepo.lastRepo
 	}
 	return "", ""
-}
-
-func (h *repoHelper) explicit(owner, repo string) (string, string) {
-	return owner, repo
 }
 
 type githubHelper struct{}
