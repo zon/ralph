@@ -56,7 +56,7 @@ modules:
     description: Orchestrates the workflow comment subcommand.
     category: orchestration
   - path: internal/project
-    description: Resolves a project file into its item array, reconciles completion trailers from the branch commit log, and projects item arrays into indices or values.
+    description: Owns the project domain model, resolving files into item arrays and tracking item completion from commit trailers.
     category: implementation
   - path: internal/orchestration/get
     description: Orchestrates the get complete and get incomplete subcommands by resolving the item array and subtracting the indices recorded in the commit log.
