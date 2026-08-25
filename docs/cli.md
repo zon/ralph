@@ -87,7 +87,7 @@ $ ralph get incomplete projects/csv-export.yaml --index
 [1, 4]
 ```
 
-An empty array means every item is complete — the condition that ends the iteration loop.
+An empty array means every item is complete: that condition ends the iteration loop.
 
 ### Flags
 
