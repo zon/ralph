@@ -44,31 +44,9 @@ func WithVerbose(verbose bool) ContextOption {
 	}
 }
 
-// WithNoNotify sets the no-notify flag
-// Note: Tests should always use NoNotify: true (the default)
-func WithNoNotify(noNotify bool) ContextOption {
-	return func(ctx *context.Context) {
-		ctx.SetNoNotify(noNotify)
-	}
-}
-
 // WithNoServices sets the no-services flag
 func WithNoServices(noServices bool) ContextOption {
 	return func(ctx *context.Context) {
 		ctx.SetNoServices(noServices)
-	}
-}
-
-// WithLocal sets the local flag
-func WithLocal(local bool) ContextOption {
-	return func(ctx *context.Context) {
-		ctx.SetLocal(local)
-	}
-}
-
-// WithFollow sets the follow flag
-func WithFollow(follow bool) ContextOption {
-	return func(ctx *context.Context) {
-		ctx.SetFollow(follow)
 	}
 }
