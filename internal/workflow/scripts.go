@@ -12,15 +12,9 @@ import (
 // buildParameters builds workflow parameters from the params map
 func buildParameters(params map[string]string) []map[string]interface{} {
 	allParams := []string{"project-path", "instructions-md", "comment-body", "pr-number", "base-branch"}
-	var parameters []map[string]interface{}
+	parameters := make([]map[string]interface{}, 0, len(allParams))
 	for _, name := range allParams {
-		param := map[string]interface{}{"name": name}
-		if value, exists := params[name]; exists {
-			param["value"] = value
-		} else {
-			param["value"] = ""
-		}
-		parameters = append(parameters, param)
+		parameters = append(parameters, map[string]interface{}{"name": name, "value": params[name]})
 	}
 	return parameters
 }
