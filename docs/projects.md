@@ -37,7 +37,7 @@ ralph projects/csv-export.yaml --items '.spec.tasks'
 The query is evaluated and its outputs collected:
 
 - **One output, and it is an array** — the array's elements are the items. `.requirements`
-- **Any other case** — each output is an item. `.requirements[]` and `.backend[], .frontend[]` both work; a query returning a single scalar yields a single item.
+- **Any other case** — each output is an item. `.requirements[]` and `.backend[], .frontend[]` both work. A query returning a single scalar yields a single item.
 
 Empty outputs are then dropped, so resolution produces either nothing at all or a list in which every item has content. An output is empty when it is null, `false`, `0`, a string that is empty or only whitespace, `{}`, or `[]`.
 
