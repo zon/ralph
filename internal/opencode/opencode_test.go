@@ -164,7 +164,9 @@ exit 0
 	client := New()
 	err = client.RunCommand(context.Background(), "test-model", "", "", "test-prompt", &stdout, &stderr)
 	require.NoError(t, err)
-	assert.Contains(t, stdout.String(), "run output: run --model test-model test-prompt")
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	assert.Contains(t, stdout.String(), "run output: run --model test-model --dir "+cwd+" test-prompt")
 }
 
 func TestRunCommandWithAgent(t *testing.T) {
@@ -189,7 +191,9 @@ exit 0
 	client := New()
 	err = client.RunCommand(context.Background(), "test-model", "", "test-agent", "test-prompt", &stdout, &stderr)
 	require.NoError(t, err)
-	assert.Contains(t, stdout.String(), "run output: run --model test-model --agent test-agent test-prompt")
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	assert.Contains(t, stdout.String(), "run output: run --model test-model --agent test-agent --dir "+cwd+" test-prompt")
 }
 
 func TestRunAgentWithAgent(t *testing.T) {
