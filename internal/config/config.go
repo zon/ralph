@@ -379,7 +379,6 @@ func loadConfigFromPath(configPath string) (*RalphConfig, error) {
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			// Missing config file is allowed (use zero values)
 			return &config, nil
 		}
 		return nil, fmt.Errorf("failed to read config file: %w", err)
