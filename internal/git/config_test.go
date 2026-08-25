@@ -16,9 +16,9 @@ func TestConfig(t *testing.T) {
 		err := Config(false, "user.testkey", "testvalue")
 		require.NoError(t, err)
 
-		value, err := ConfigGet("user.testkey")
+		output, err := ConfigList(false)
 		require.NoError(t, err)
-		assert.Equal(t, "testvalue", value)
+		assert.Contains(t, output, "user.testkey=testvalue")
 	})
 
 	t.Run("overwrites existing config", func(t *testing.T) {
@@ -31,9 +31,9 @@ func TestConfig(t *testing.T) {
 		err = Config(false, "user.overwritekey", "second")
 		require.NoError(t, err)
 
-		value, err := ConfigGet("user.overwritekey")
+		output, err := ConfigList(false)
 		require.NoError(t, err)
-		assert.Equal(t, "second", value)
+		assert.Contains(t, output, "user.overwritekey=second")
 	})
 }
 
@@ -71,37 +71,16 @@ func TestConfigUnset(t *testing.T) {
 		err := Config(false, "user.unsettest", "unsetvalue")
 		require.NoError(t, err)
 
-		value, err := ConfigGet("user.unsettest")
+		output, err := ConfigList(false)
 		require.NoError(t, err)
-		assert.Equal(t, "unsetvalue", value)
+		assert.Contains(t, output, "user.unsettest=unsetvalue")
 
 		err = ConfigUnset(false, "user.unsettest")
 		require.NoError(t, err)
 
-		_, err = ConfigGet("user.unsettest")
-		assert.Error(t, err)
-	})
-
-}
-
-func TestConfigGet(t *testing.T) {
-	t.Run("retrieves existing config", func(t *testing.T) {
-		tempDir := setupTestRepo(t)
-		t.Chdir(tempDir)
-
-		err := Config(false, "user.gettest", "getvalue")
+		output, err = ConfigList(false)
 		require.NoError(t, err)
-
-		value, err := ConfigGet("user.gettest")
-		require.NoError(t, err)
-		assert.Equal(t, "getvalue", value)
+		assert.NotContains(t, output, "user.unsettest=unsetvalue")
 	})
 
-	t.Run("returns error for non-existent key", func(t *testing.T) {
-		tempDir := setupTestRepo(t)
-		t.Chdir(tempDir)
-
-		_, err := ConfigGet("user.nonexistent")
-		assert.Error(t, err)
-	})
 }
