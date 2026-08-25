@@ -46,6 +46,6 @@ The full project file is available at: `{{.ProjectFilePath}}`. Do not modify the
 
 ## Output
 
-- Write a concise report to `report.md` formatted as a git commit message: brief summary of what was implemented and what tests were added; no code snippets or implementation details.
+- Write a concise report to `report.md` formatted as a git commit message: a brief summary of what was implemented and what tests were added. Omit code snippets and implementation details.
 - When the item is finished, the last line of `report.md` MUST be the completion trailer for the supplied branch and index. Use exactly this line for this item: `{{.Trailer}}`. When the item is not finished, end `report.md` with no completion trailer.
 - If completely blocked, write a summary to `blocked.md` (with no completion trailer) explaining what blocked you and what you tried.
