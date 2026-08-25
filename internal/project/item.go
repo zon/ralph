@@ -41,6 +41,24 @@ func (it Item) Key() string {
 	return ""
 }
 
+// ItemIndices returns the 0-based index of each item, in array order.
+func ItemIndices(items []Item) []int {
+	indices := make([]int, len(items))
+	for i, it := range items {
+		indices[i] = it.Index
+	}
+	return indices
+}
+
+// ItemValues returns the raw value of each item, in array order.
+func ItemValues(items []Item) []any {
+	values := make([]any, len(items))
+	for i, it := range items {
+		values[i] = it.Value
+	}
+	return values
+}
+
 // isScalar reports whether v is a scalar value rather than a collection or
 // null, so it can serve as an item key.
 func isScalar(v any) bool {

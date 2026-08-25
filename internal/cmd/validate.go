@@ -4,9 +4,8 @@ import (
 	"os"
 
 	"github.com/zon/ralph/internal/config"
-	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/opencode"
-	"github.com/zon/ralph/internal/orchestration/validate"
+	"github.com/zon/ralph/internal/output"
 )
 
 type ValidateCmd struct {
@@ -28,7 +27,7 @@ func (v *ValidateCmd) Run() error {
 		}
 	}
 
-	validator := validate.New(ctx, opencode.New())
+	validator := newValidateValidator(ctx, opencode.New())
 	res, err := validator.Validate(v.ProjectFile, query)
 	if err != nil {
 		return err

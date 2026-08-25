@@ -1,4 +1,4 @@
-package validate
+package cmd
 
 import (
 	"context"
@@ -24,11 +24,11 @@ func writeRalphConfig(t *testing.T, content string) {
 	t.Chdir(dir)
 }
 
-// TestAgentClientFixProjectNeverPassesAgent covers all four branches of agent
-// resolution. In each branch the repair prompt runs with opencode's primary
-// agent and keeps its model resolution. It still carries the file path and the
-// parse error.
-func TestAgentClientFixProjectNeverPassesAgent(t *testing.T) {
+// TestValidateAgentClientFixProjectNeverPassesAgent covers all four branches of
+// agent resolution. In each branch the repair prompt runs with opencode's
+// primary agent and keeps its model resolution. It still carries the file path
+// and the parse error.
+func TestValidateAgentClientFixProjectNeverPassesAgent(t *testing.T) {
 	tests := []struct {
 		name        string
 		flagAgent   string
@@ -63,7 +63,7 @@ func TestAgentClientFixProjectNeverPassesAgent(t *testing.T) {
 				},
 			}
 
-			client := &agentClient{ctx: ctx, oc: mockOC}
+			client := &validateAgentClient{ctx: ctx, oc: mockOC}
 			err := client.FixProject(anyPath, &mockParseError{msg: "boom"}, "validate-model")
 			require.NoError(t, err)
 
@@ -76,22 +76,28 @@ func TestAgentClientFixProjectNeverPassesAgent(t *testing.T) {
 	}
 }
 
-// TestNewResolvesValidateSpecificModel covers that the validate repair prompt
-// keeps its model resolution: when validate.model is set in the config, the
-// validator resolves that model.
-func TestNewResolvesValidateSpecificModel(t *testing.T) {
+// TestResolveValidateModelResolvesValidateSpecificModel covers that the
+// validate repair prompt keeps its model resolution: when validate.model is set
+// in the config, the validator resolves that model.
+func TestResolveValidateModelResolvesValidateSpecificModel(t *testing.T) {
 	writeRalphConfig(t, "model: main-model\nvalidate:\n  model: validate-model\n")
-	ctx := execcontext.NewContext()
-	validator := New(ctx, &opencode.MockOC{})
-	require.Equal(t, "validate-model", validator.model)
+	require.Equal(t, "validate-model", resolveValidateModel())
 }
 
-// TestNewFallsBackToMainModel covers that the validate repair prompt keeps its
-// model resolution: without a validate-specific model, the top-level config
-// model is the fallback.
-func TestNewFallsBackToMainModel(t *testing.T) {
+// TestResolveValidateModelFallsBackToMainModel covers that the validate repair
+// prompt keeps its model resolution: without a validate-specific model, the
+// top-level config model is the fallback.
+func TestResolveValidateModelFallsBackToMainModel(t *testing.T) {
 	writeRalphConfig(t, "model: main-model\n")
-	ctx := execcontext.NewContext()
-	validator := New(ctx, &opencode.MockOC{})
-	require.Equal(t, "main-model", validator.model)
+	require.Equal(t, "main-model", resolveValidateModel())
+}
+
+const anyPath = "/workspace/repo/projects/test-project.yaml"
+
+type mockParseError struct {
+	msg string
+}
+
+func (e *mockParseError) Error() string {
+	return e.msg
 }

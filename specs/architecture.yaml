@@ -26,13 +26,6 @@ categories:
       - pure functions
       - unit tests
 
-  - slug: lifecycle
-    description: Modules that manage process-level concerns such as startup, shutdown, and signal handling. Stateful but infrastructural; not part of the domain.
-    signatures:
-      - signal handling
-      - process shutdown
-      - startup initialization
-
   - slug: pipeline
     description: Modules that direct in-process flow — routing I/O streams and carrying runtime state across the application.
     signatures:
@@ -48,46 +41,46 @@ modules:
     description: Service entrypoint that loads configuration and starts the webhook HTTP server.
     category: entry
   - path: internal/cmd
-    description: Command structs that parse flags, wire real dependencies into the run orchestration, and drive local and remote execution paths.
+    description: Command structs that parse flags, wire real dependencies into the subcommand orchestrations, and drive local and remote execution paths.
     category: entry
   - path: internal/orchestration/run
     description: Orchestrates the full run command from input validation through local and remote execution dispatch.
     category: orchestration
   - path: internal/orchestration/workspace
-    description: Bootstraps the container environment for all workflow subcommands — GitHub auth, AI credentials, git identity, repo clone, branch checkout, and symlinks.
+    description: Bootstraps the container environment for the workflow subcommands.
     category: orchestration
   - path: internal/orchestration/workflowrun
-    description: Orchestrates the workflow run subcommand — workspace setup, base branch sync, optional debug mode setup, and project execution.
+    description: Orchestrates the workflow run subcommand.
     category: orchestration
   - path: internal/orchestration/comment
-    description: Orchestrates the workflow comment subcommand — workspace setup, AI agent invocation with a rendered comment prompt, commit, and PR reply.
+    description: Orchestrates the workflow comment subcommand.
     category: orchestration
   - path: internal/project
-    description: Resolves a project file into its item array and reads item completion, coordinating the project file reader, the branch commit log, and completion trailer parsing.
-    category: orchestration
+    description: Owns the project domain model, resolving files into item arrays and tracking item completion from commit trailers.
+    category: implementation
   - path: internal/orchestration/get
     description: Orchestrates the get complete and get incomplete subcommands by resolving the item array and subtracting the indices recorded in the commit log.
     category: orchestration
   - path: internal/orchestration/loop
-    description: Orchestrates the ralph loop command, resolving the steps and branch slug, switching to the loop-<slug> branch so the agent works on its own state, building the prompt, and running it as an iteration loop that commits each iteration that did work to the loop branch, opens a pull request for the loop branch when the loop made commits, and stops when the agent reports nothing to do or after max iterations. It also submits the loop workflow for remote execution after verifying the current branch is in sync with the remote, streams the submitted workflow logs and waits for the workflow to finish when following, sending a success or error notification for the slug on completion, and prepares the container workspace that runs the loop in-process with the submitted slug and steps.
+    description: Orchestrates the ralph loop command.
     category: orchestration
   - path: internal/orchestration/validate
     description: Orchestrates a bounded fix loop that repairs unparseable project files using an AI agent, then checks the item query resolves.
     category: orchestration
   - path: internal/orchestration/setconfig
-    description: Orchestrates the ralph CLI set-config subcommand — resolving the Kubernetes context and configuring GitHub and OpenCode credentials.
+    description: Orchestrates the ralph CLI set-config subcommand.
     category: orchestration
   - path: internal/orchestration/webhooksetconfig
-    description: Orchestrates the ralph-webhook set-config subcommand — building and writing service configuration, generating and writing secrets, and registering webhooks.
+    description: Orchestrates the ralph-webhook set-config subcommand.
     category: orchestration
   - path: internal/orchestration/workflowtoken
     description: Orchestrates generating a scoped GitHub workflow token for a repository and configuring git to authenticate with it.
     category: orchestration
   - path: internal/webhook
     description: HTTP server that receives GitHub webhook events and dispatches corresponding workflow runs.
-    category: orchestration
+    category: implementation
   - path: internal/workflow
-    description: Generates and submits workflow manifests for run operations. Constructs workflows from webhook events.
+    description: Generates and submits workflow manifests for the workflow subcommands and builds workflows from webhook events.
     category: implementation
 
   - path: internal/services
@@ -115,28 +108,25 @@ modules:
     description: Thin wrapper around the git CLI for repository operations.
     category: implementation
   - path: internal/workspace
-    description: Filesystem helpers for preparing the container workspace — credential placement, repo checkout, and directory changes.
+    description: Filesystem helpers for preparing the container workspace.
     category: implementation
   - path: internal/github
-    description: Wrapper around the gh CLI for GitHub API operations, authentication, and webhook payload parsing.
+    description: Wraps the gh CLI and the GitHub App API for GitHub operations, authentication, and webhook payload parsing.
     category: implementation
   - path: internal/projectfile
-    description: Reads and writes project files — YAML and JSON parsing, jq item-query evaluation via gojq, canonical YAML output that preserves the document's content and key order, and project file removal.
+    description: Reads and writes project files and evaluates jq item queries.
     category: implementation
   - path: internal/config
     description: Loads and parses the ralph configuration file.
     category: implementation
   - path: internal/webhookconfig
-    description: Loads, validates, builds, and provisions the ralph-webhook service configuration and secrets, including Kubernetes configmap/secret read/write via internal/k8s and GitHub webhook registration via internal/github.
+    description: Loads, validates, builds, and provisions the ralph-webhook service configuration and secrets.
     category: implementation
   - path: internal/context
     description: Carries runtime execution settings across the application.
     category: pipeline
-  - path: internal/cleanup
-    description: Registers shutdown callbacks and handles OS signal-based graceful termination.
-    category: lifecycle
   - path: internal/output
-    description: Routes debug, info, warn, error, and success messages to configurable output and error streams with ANSI color.
+    description: Routes log messages and JSON output to configurable output and error streams.
     category: pipeline
   - path: internal/notify
     description: Desktop notification helper for success and error events.
@@ -149,6 +139,9 @@ modules:
     category: pure
   - path: internal/docker
     description: Test-only package that validates the repository Containerfile, image push script, and container build CI workflow.
+    category: implementation
+  - path: internal/repostructure
+    description: Test-only package that validates repository structure, documentation consistency, and references to removed modules.
     category: implementation
   - path: internal/testutil
     description: Shared test helpers and factories used across the test suite.

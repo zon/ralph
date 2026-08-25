@@ -1,6 +1,7 @@
 package output
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -67,4 +68,17 @@ func (c *Client) Success(msg string) {
 
 func (c *Client) Successf(format string, a ...any) {
 	successColor.Fprintf(c.out, "✓ "+format+"\n", a...)
+}
+
+// PrintJSON writes v marshaled as JSON followed by a newline to w.
+func PrintJSON(w io.Writer, v any) error {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	if _, err := w.Write(data); err != nil {
+		return err
+	}
+	_, err = fmt.Fprintln(w)
+	return err
 }

@@ -21,6 +21,20 @@ func writeTempProject(t *testing.T, name, content string) string {
 	return path
 }
 
+// realProjectFile returns a ProjectFile backed by the projectfile module so the
+// integration-style tests exercise real file I/O without the orchestration
+// package depending on a concrete adapter.
+func realProjectFile() ProjectFile {
+	return &mockProjectFile{
+		parseFunc:        projectfile.Parse,
+		resolveItemsFunc: projectfile.ResolveItems,
+		readFileFunc:     os.ReadFile,
+		writeCanonicalFn: projectfile.WriteCanonical,
+		removeFn:         projectfile.Remove,
+		canonicalPathFn:  projectfile.CanonicalPath,
+	}
+}
+
 type mockProjectFile struct {
 	parseFunc        func(path string) (*projectfile.Document, error)
 	resolveItemsFunc func(doc *projectfile.Document, query string) ([]any, error)
@@ -436,7 +450,7 @@ func TestValidateAcceptsUnrecognizedFields(t *testing.T) {
 	ResetFixCalls()
 	content := "slug: csv-export\nunrelated: [1, 2, 3]\nrequirements:\n  - slug: one\n"
 	path := writeTempProject(t, "project.yaml", content)
-	svc := withMocks(withProject(&projectFile{}), withAgent(&mockAgentClient{}))
+	svc := withMocks(withProject(realProjectFile()), withAgent(&mockAgentClient{}))
 
 	result, err := svc.Validate(path, ".requirements")
 	require.NoError(t, err)
@@ -456,7 +470,7 @@ func TestValidateAcceptsUnrecognizedFields(t *testing.T) {
 func TestValidateAcceptsTopLevelArrayOfStrings(t *testing.T) {
 	ResetFixCalls()
 	path := writeTempProject(t, "project.yaml", "- Add a CSV serializer\n- Add an export endpoint\n")
-	svc := withMocks(withProject(&projectFile{}), withAgent(&mockAgentClient{}))
+	svc := withMocks(withProject(realProjectFile()), withAgent(&mockAgentClient{}))
 
 	result, err := svc.Validate(path, ".")
 	require.NoError(t, err)
@@ -470,7 +484,7 @@ func TestValidateAcceptsTopLevelArrayOfStrings(t *testing.T) {
 func TestValidateQueryEvaluationFailureInvokesNoAgent(t *testing.T) {
 	ResetFixCalls()
 	path := writeTempProject(t, "project.yaml", "foo: 1\n")
-	svc := withMocks(withProject(&projectFile{}), withAgent(&mockAgentClient{}))
+	svc := withMocks(withProject(realProjectFile()), withAgent(&mockAgentClient{}))
 
 	_, err := svc.Validate(path, ".foo.bar")
 	require.Error(t, err)
@@ -485,7 +499,7 @@ func TestValidateQueryEvaluationFailureInvokesNoAgent(t *testing.T) {
 func TestValidateNoItemsInvokesNoAgent(t *testing.T) {
 	ResetFixCalls()
 	path := writeTempProject(t, "project.yaml", "requirements: []\n")
-	svc := withMocks(withProject(&projectFile{}), withAgent(&mockAgentClient{}))
+	svc := withMocks(withProject(realProjectFile()), withAgent(&mockAgentClient{}))
 
 	_, err := svc.Validate(path, ".requirements")
 	require.Error(t, err)
@@ -526,7 +540,7 @@ func TestValidateRewritesFileInCanonicalFormat(t *testing.T) {
 	ResetFixCalls()
 	content := "slug: csv-export\nrequirements:\n  - slug: one\n  - slug: two\n"
 	path := writeTempProject(t, "project.yaml", content)
-	svc := withMocks(withProject(&projectFile{}), withAgent(&mockAgentClient{}))
+	svc := withMocks(withProject(realProjectFile()), withAgent(&mockAgentClient{}))
 
 	before, err := projectfile.Parse(path)
 	require.NoError(t, err)
@@ -548,7 +562,7 @@ func TestValidateUnrecognizedFieldsSurviveRewrite(t *testing.T) {
 	ResetFixCalls()
 	content := "slug: csv-export\nunrelated: [1, 2, 3]\nforeign:\n  note: keep me\nrequirements:\n  - slug: one\n"
 	path := writeTempProject(t, "project.yaml", content)
-	svc := withMocks(withProject(&projectFile{}), withAgent(&mockAgentClient{}))
+	svc := withMocks(withProject(realProjectFile()), withAgent(&mockAgentClient{}))
 
 	_, err := svc.Validate(path, ".requirements")
 	require.NoError(t, err)
@@ -571,7 +585,7 @@ func TestValidateJSONRenamedToYAML(t *testing.T) {
 	ResetFixCalls()
 	jsonContent := `{"slug":"csv-export","requirements":[{"slug":"one"}]}`
 	path := writeTempProject(t, "project.json", jsonContent)
-	svc := withMocks(withProject(&projectFile{}), withAgent(&mockAgentClient{}))
+	svc := withMocks(withProject(realProjectFile()), withAgent(&mockAgentClient{}))
 
 	result, err := svc.Validate(path, ".requirements")
 	require.NoError(t, err)
@@ -598,7 +612,7 @@ func TestValidateCanonicalYAMLUnchanged(t *testing.T) {
 	ResetFixCalls()
 	content := "slug: csv-export\nrequirements:\n    - slug: one\n      items:\n        - a\n"
 	path := writeTempProject(t, "project.yaml", content)
-	svc := withMocks(withProject(&projectFile{}), withAgent(&mockAgentClient{}))
+	svc := withMocks(withProject(realProjectFile()), withAgent(&mockAgentClient{}))
 
 	_, err := svc.Validate(path, ".requirements")
 	require.NoError(t, err)
@@ -633,7 +647,7 @@ func TestValidateRepairedFileRewrittenInCanonicalFormat(t *testing.T) {
 	broken := "slug: [unclosed\nrequirements:\n"
 	fixed := "slug: csv-export\nrequirements:\n  - slug: one\n"
 	path := writeTempProject(t, "project.yaml", broken)
-	svc := withMocks(withProject(&projectFile{}), withAgent(&mockAgentClient{
+	svc := withMocks(withProject(realProjectFile()), withAgent(&mockAgentClient{
 		fixFunc: func(p string, parseErr error, model string) error {
 			return os.WriteFile(p, []byte(fixed), 0o644)
 		},
