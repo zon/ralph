@@ -22,25 +22,3 @@ func ForSpecInput(path string) *InputFile {
 	}
 }
 
-var anyPathValue = "/workspace/repo/projects/test-project.yaml"
-
-func AnyPath() string {
-	return anyPathValue
-}
-
-var anyJSONPathValue = "/workspace/repo/projects/test-project.json"
-
-func AnyJSONPath() string {
-	return anyJSONPathValue
-}
-
-var lastSavedValue *Project
-
-func LastSaved() *Project {
-	return lastSavedValue
-}
-
-func SetLastSaved(p *Project) {
-	lastSavedValue = p
-}
-

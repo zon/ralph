@@ -45,13 +45,11 @@ func GenerateAppJWT(appID string, privateKeyPEM []byte) (string, error) {
 		return "", fmt.Errorf("private key cannot be empty")
 	}
 
-	// Parse the private key
 	privateKey, err := parsePrivateKey(privateKeyPEM)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse private key: %w", err)
 	}
 
-	// Create the JWT claims
 	now := time.Now()
 	claims := jwt.RegisteredClaims{
 		Issuer:    appID,
@@ -59,7 +57,6 @@ func GenerateAppJWT(appID string, privateKeyPEM []byte) (string, error) {
 		ExpiresAt: jwt.NewNumericDate(now.Add(10 * time.Minute)), // GitHub Apps JWTs expire after 10 minutes
 	}
 
-	// Create and sign the token
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	signedToken, err := token.SignedString(privateKey)
 	if err != nil {
@@ -371,7 +368,6 @@ func parsePrivateKey(privateKeyPEM []byte) (*rsa.PrivateKey, error) {
 
 	privateKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
 	if err != nil {
-		// Try PKCS8 format
 		key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse private key: %w", err)

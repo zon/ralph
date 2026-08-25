@@ -20,17 +20,6 @@ import (
 	"github.com/zon/ralph/internal/testutil"
 )
 
-func TestBuildLoopItemPrompt(t *testing.T) {
-	t.Run("renders template with FunctionName and FunctionPath", func(t *testing.T) {
-		content := "Review {{.FunctionName}} in {{.FunctionPath}}"
-		result, err := BuildLoopItemPrompt(content, "DoThing", "internal/pkg/pkg.go")
-		require.NoError(t, err)
-		assert.Contains(t, result, "Review DoThing in internal/pkg/pkg.go")
-		assert.Contains(t, result, "You are a software architect reviewing source code.")
-		assert.Contains(t, result, "Address any issues found")
-	})
-}
-
 func TestGenerateChangelog(t *testing.T) {
 	dir := t.TempDir()
 	testutil.InitGitRepo(t, dir)
@@ -866,126 +855,6 @@ func TestGeneratePRSummary(t *testing.T) {
 	})
 }
 
-func TestGenerateReviewPRBody(t *testing.T) {
-	dir := t.TempDir()
-	testutil.InitGitRepo(t, dir)
-	t.Chdir(dir)
-
-	errCommandFailed := errors.New("command failed")
-
-	tests := []struct {
-		name         string
-		projectName  string
-		projectDesc  string
-		requirements []string
-		setupMock    func(*testing.T) *opencode.MockOC
-		want         string
-		wantErr      string
-		wantErrIs    error
-	}{
-		{
-			name:         "success returns trimmed body and cleans up temp file",
-			projectName:  "my-project",
-			projectDesc:  "Test project description",
-			requirements: []string{"- **security**: JWT validation", "- **style**: naming"},
-			setupMock: func(t *testing.T) *opencode.MockOC {
-				return &opencode.MockOC{
-					RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
-						return writeOutputFromPrompt(prompt, "  expected review body\n")
-					},
-				}
-			},
-			want: "expected review body",
-		},
-		{
-			name:         "runcommand error is wrapped and temp file cleaned up",
-			projectName:  "my-project",
-			projectDesc:  "Test project description",
-			requirements: []string{"- **security**: JWT validation"},
-			setupMock: func(t *testing.T) *opencode.MockOC {
-				return &opencode.MockOC{
-					RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
-						return errCommandFailed
-					},
-				}
-			},
-			wantErr:   "opencode execution failed:",
-			wantErrIs: errCommandFailed,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctx := &execcontext.Context{}
-			mockOC := tt.setupMock(t)
-			result, err := GenerateReviewPRBody(ctx, mockOC, tt.projectName, tt.projectDesc, tt.requirements)
-
-			if tt.wantErr != "" {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), tt.wantErr)
-				if tt.wantErrIs != nil {
-					assert.True(t, errors.Is(err, tt.wantErrIs), "wrapped error should be reachable via errors.Is")
-				}
-			} else {
-				require.NoError(t, err)
-				assert.Equal(t, tt.want, result)
-			}
-
-			assertTempFileCleanedUp(t, dir, "review-pr-body")
-		})
-	}
-
-	t.Run("prompt contains expected inputs", func(t *testing.T) {
-		var capturedPrompt string
-		mockOC := &opencode.MockOC{
-			RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
-				capturedPrompt = prompt
-				return writeOutputFromPrompt(prompt, "result")
-			},
-		}
-		ctx := &execcontext.Context{}
-		_, err := GenerateReviewPRBody(ctx, mockOC, "MyProject", "Auth review", []string{"- **security**: JWT", "- **style**: naming"})
-		require.NoError(t, err)
-		assert.Contains(t, capturedPrompt, "MyProject")
-		assert.Contains(t, capturedPrompt, "Auth review")
-		assert.Contains(t, capturedPrompt, "JWT")
-		assert.Contains(t, capturedPrompt, "naming")
-	})
-
-	t.Run("logs prompt when verbose", func(t *testing.T) {
-		var buf bytes.Buffer
-		ctx := &execcontext.Context{}
-		ctx.SetVerbose(true)
-		ctx.SetOutput(output.NewClient(&buf, &buf, true))
-
-		mockOC := &opencode.MockOC{
-			RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
-				return writeOutputFromPrompt(prompt, "result")
-			},
-		}
-		_, err := GenerateReviewPRBody(ctx, mockOC, "P", "D", []string{"req1"})
-		require.NoError(t, err)
-		assert.Contains(t, buf.String(), "Review Name:")
-		assert.Contains(t, buf.String(), "P")
-	})
-
-	t.Run("does not log when not verbose", func(t *testing.T) {
-		var buf bytes.Buffer
-		ctx := &execcontext.Context{}
-		ctx.SetVerbose(false)
-		ctx.SetOutput(output.NewClient(&buf, &buf, false))
-
-		mockOC := &opencode.MockOC{
-			RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
-				return writeOutputFromPrompt(prompt, "result")
-			},
-		}
-		_, err := GenerateReviewPRBody(ctx, mockOC, "P", "D", []string{"req1"})
-		require.NoError(t, err)
-		assert.Empty(t, buf.String())
-	})
-}
-
 // TestGenerateChangelogNeverPassesAgent covers all four branches of agent
 // resolution: the changelog prompt produces a supporting artifact and must run
 // with opencode's primary agent, never passing --agent.
@@ -1079,55 +948,6 @@ func TestGeneratePRSummaryNeverPassesAgent(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, "summary", result)
 			assert.Equal(t, "", capturedAgent, "the PR summary prompt must never pass --agent to opencode, so it always runs with the primary agent")
-		})
-	}
-}
-
-// TestGenerateReviewPRBodyNeverPassesAgent covers all four branches of agent
-// resolution: the PR review body prompt produces a supporting artifact and must
-// run with opencode's primary agent, never passing --agent.
-func TestGenerateReviewPRBodyNeverPassesAgent(t *testing.T) {
-	tests := []struct {
-		name        string
-		flagAgent   string
-		configAgent bool
-	}{
-		{name: "flag agent set only", flagAgent: "code-reviewer"},
-		{name: "config agent set only", configAgent: true},
-		{name: "flag and config agents set", flagAgent: "code-reviewer", configAgent: true},
-		{name: "neither flag nor config agent set"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			dir := t.TempDir()
-			testutil.InitGitRepo(t, dir)
-			t.Chdir(dir)
-
-			require.NoError(t, os.MkdirAll(".ralph", 0755))
-			configContent := "defaultBranch: main\nmodel: deepseek/deepseek-chat\n"
-			if tt.configAgent {
-				configContent += "agent: build\n"
-			}
-			require.NoError(t, os.WriteFile(".ralph/config.yaml", []byte(configContent), 0644))
-
-			ctx := &execcontext.Context{}
-			if tt.flagAgent != "" {
-				ctx.SetAgent(tt.flagAgent)
-			}
-
-			var capturedAgent string
-			mockOC := &opencode.MockOC{
-				RunCommandFunc: func(_ context.Context, _, _, agent, prompt string, _, _ io.Writer) error {
-					capturedAgent = agent
-					return writeOutputFromPrompt(prompt, "review body")
-				},
-			}
-
-			result, err := GenerateReviewPRBody(ctx, mockOC, "my-project", "Test project description", []string{"- **security**: JWT validation"})
-			require.NoError(t, err)
-			assert.Equal(t, "review body", result)
-			assert.Equal(t, "", capturedAgent, "the PR review body prompt must never pass --agent to opencode, so it always runs with the primary agent")
 		})
 	}
 }

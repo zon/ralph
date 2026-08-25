@@ -133,28 +133,6 @@ func GenerateLoopWorkflow(ctx *execcontext.Context, slug string, steps []string,
 	}, nil
 }
 
-// GenerateCommentWorkflowWithGitInfo builds a Workflow for a comment-triggered event.
-// The container script will call `ralph comment` with the provided body and PR number.
-func GenerateCommentWorkflowWithGitInfo(projectName, repoURL, cloneBranch, projectBranch, relProjectPath, commentBody, prNumber string, opts WorkflowOptions) (*Workflow, error) {
-	repo, err := githubpkg.ParseRemoteURL(repoURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse repository from URL: %w", err)
-	}
-
-	return &Workflow{
-		ProjectName:   projectName,
-		Repo:          repo,
-		CloneBranch:   cloneBranch,
-		ProjectBranch: projectBranch,
-		ProjectPath:   relProjectPath,
-		CommentBody:   commentBody,
-		PRNumber:      prNumber,
-		Image:         opts.Image,
-		KubeContext:   opts.KubeContext,
-		Namespace:     opts.Namespace,
-	}, nil
-}
-
 // GenerateCommandWorkflow builds a Workflow for remote command execution,
 // cloning the current branch and running the supplied command.
 // remoteURL is resolved by the caller so that git discovery is decoupled

@@ -17,7 +17,6 @@ func resolveKubeContext(ctx context.Context, client k8s.Client, ralphConfig *con
 
 	var k8sCtx k8s.Context
 
-	// 1. Resolve Context Name
 	if flagContext != "" {
 		out.Debugf("Using Kubernetes context: %s", flagContext)
 		k8sCtx.Name = flagContext
@@ -31,11 +30,9 @@ func resolveKubeContext(ctx context.Context, client k8s.Client, ralphConfig *con
 		}
 		out.Debugf("Using current Kubernetes context: %s", current.Name)
 		k8sCtx.Name = current.Name
-		// Store the default namespace from kubectl as a fallback
 		k8sCtx.Namespace = current.Namespace
 	}
 
-	// 2. Resolve Namespace
 	if flagNamespace != "" {
 		out.Debugf("Using namespace: %s", flagNamespace)
 		k8sCtx.Namespace = flagNamespace
@@ -47,7 +44,6 @@ func resolveKubeContext(ctx context.Context, client k8s.Client, ralphConfig *con
 		k8sCtx.Namespace = "config"
 	}
 
-	// 3. Final fallback to "default" if still empty
 	if k8sCtx.Namespace == "" {
 		out.Debugf("Using namespace: %s (default)", "default")
 		k8sCtx.Namespace = "default"
