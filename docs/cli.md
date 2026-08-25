@@ -13,7 +13,7 @@ ralph my-feature.yaml --items '.requirements'
 
 ### Project Steps
 
-1. Creates branch `ralph/<slug>` — from the file's `slug` field, or its base name
+1. Creates branch `ralph/<slug>` from the file's `slug` field, or its base name
 2. Resolves the item array with the [item query](formats/project.md#item-query)
 3. Iterates until every item is recorded complete
 4. Optionally cleans up the project file in its own commit
