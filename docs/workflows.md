@@ -11,7 +11,7 @@ When you run `ralph my-feature.yaml`, ralph:
 3. The container clones your repository, checks out the current branch, and runs ralph
 4. Branches and pull requests are created just like local execution
 
-The item query is resolved once at submission time and travels with the workflow, so a remote run indexes items consistently for its whole lifetime even if `.ralph/config.yaml` changes underneath it. Completion is read from the branch's commit log inside the container, which means a run that is stopped and resubmitted against the same branch resumes where it left off — see [Iterations](iterations.md).
+The item query is resolved once at submission time and travels with the workflow, so a remote run indexes items consistently for its whole lifetime even if `.ralph/config.yaml` changes underneath it. Completion is read from the branch's commit log inside the container, which means a run that is stopped and resubmitted against the same branch resumes where it left off. See [Iterations](iterations.md).
 
 To run locally instead:
 
