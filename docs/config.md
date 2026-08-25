@@ -169,7 +169,7 @@ ralph config pulumi     # Pulumi access token
 
 ## Custom Instructions
 
-Create `.ralph/instructions.md` to replace the development steps in the AI prompt. The file supplies the prompt's instruction steps only — the surrounding prompt still carries the selected item, the project file path, the git history, and the report contract. If not present, ralph's [default steps](../internal/ai/development-item-instructions.md) are used.
+Create `.ralph/instructions.md` to replace the development steps in the AI prompt. The file supplies the prompt's instruction steps only. The surrounding prompt still carries the selected item, the project file path, the git history, and the report contract. If not present, ralph's [default steps](../internal/ai/development-item-instructions.md) are used.
 
 The default steps are deliberately generic: they send the agent to the repository's own agent instructions for how project items are read, where code belongs, and how tests are written. Custom instructions replace those steps, so state the standards they should follow.
 
