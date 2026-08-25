@@ -1,6 +1,6 @@
 # CLI Reference
 
-Ralph is a command-line tool that runs AI-driven development workflows defined in project files — any YAML or JSON file containing an array of work items.
+Ralph is a command-line tool that runs AI-driven development workflows defined in project files: any YAML or JSON file containing an array of work items.
 
 ## ralph \<project-file\>
 
