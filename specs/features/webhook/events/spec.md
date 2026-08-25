@@ -4,7 +4,7 @@
 
 Receive GitHub webhook events for pull requests and dispatch Argo Workflows to implement comment requests.
 
-The service never merges a pull request. Ralph opens the PR and responds to review comments; approving and merging are the repository's own process, performed by its reviewers.
+The service never merges a pull request. Ralph opens the PR and responds to review comments. Approving and merging are the repository's own process, performed by its reviewers.
 
 ## Requirements
 
