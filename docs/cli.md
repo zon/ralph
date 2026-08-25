@@ -1,6 +1,6 @@
 # CLI Reference
 
-Ralph is a command-line tool that runs AI-driven development workflows defined in project files — any YAML or JSON file containing an array of work items.
+Ralph is a command-line tool that runs AI-driven development workflows defined in project files: any YAML or JSON file containing an array of work items.
 
 ## ralph \<project-file\>
 
@@ -48,7 +48,7 @@ See [Iterations](iterations.md) for the completion model.
 
 ## ralph get
 
-Inspects completion state. Both subcommands emit JSON on stdout, are read-only, and make no AI calls — they are what the picker agent is built from, and they are the way to check a run's progress from a script or by hand.
+Inspects completion state. Both subcommands emit JSON on stdout, are read-only, and make no AI calls. They are what the picker agent is built from, and they are the way to check a run's progress from a script or by hand.
 
 ### ralph get complete
 
@@ -87,7 +87,7 @@ $ ralph get incomplete projects/csv-export.yaml --index
 [1, 4]
 ```
 
-An empty array means every item is complete — the condition that ends the iteration loop.
+An empty array means every item is complete: that condition ends the iteration loop.
 
 ### Flags
 
@@ -112,9 +112,9 @@ Checks that the file parses as YAML or JSON, that the item query evaluates again
 |------|-------------|
 | `--items` | jq query selecting the item array (default: config `items`, else `.`) |
 
-`--items` resolves the same way it does for a run: the flag first, then `items` in `.ralph/config.yaml`, then `.`. Validate with the query the run will use — a file that validates under `.` and runs under `.requirements` has not been checked.
+`--items` resolves the same way it does for a run: the flag first, then `items` in `.ralph/config.yaml`, then `.`. Validate with the query the run will use. A file that validates under `.` and runs under `.requirements` has not been checked.
 
-Note that a successful validation rewrites the file in canonical YAML, and converts a `.json` input to `.yaml`. That is fine for project files you own, but it is not what you want on a file borrowed from another tool; skip validate for those and confirm the query with `ralph get incomplete` instead, which only reads.
+Note that a successful validation rewrites the file in canonical YAML, and converts a `.json` input to `.yaml`. That is fine for project files you own, but it is not what you want on a file borrowed from another tool. Skip validate for those and confirm the query with `ralph get incomplete` instead, which only reads.
 
 ## ralph review
 

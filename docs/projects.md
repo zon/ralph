@@ -1,8 +1,8 @@
 # Project Files
 
-A project is any YAML or JSON file that contains an array of work items. Ralph imposes no schema on a project file — it needs exactly one thing from it: a [jq](https://jqlang.org/manual/) query that resolves to an array. Each element of that array is an **item** — one unit of work, one iteration. Everything else in the file is opaque to ralph and is passed through to the AI agent as-is.
+A project is any YAML or JSON file that contains an array of work items. Ralph imposes no schema on a project file. It needs exactly one thing from it: a [jq](https://jqlang.org/manual/) query that resolves to an array. Each element of that array is an **item** — one unit of work, one iteration. Everything else in the file is opaque to ralph and is passed through to the AI agent as-is.
 
-What a project file should contain beyond that — the conventional shape of an item and the fields a well-formed project carries — is defined outside ralph. See [Project Format](zpecs/project.md) in the installed spec documents.
+What a project file should contain beyond that is defined outside ralph: the conventional shape of an item and the fields a well-formed project carries. See [Project Format](zpecs/project.md) in the installed spec documents.
 
 ## File Location
 
@@ -37,7 +37,7 @@ ralph projects/csv-export.yaml --items '.spec.tasks'
 The query is evaluated and its outputs collected:
 
 - **One output, and it is an array** — the array's elements are the items. `.requirements`
-- **Any other case** — each output is an item. `.requirements[]` and `.backend[], .frontend[]` both work; a query returning a single scalar yields a single item.
+- **Any other case** — each output is an item. `.requirements[]` and `.backend[], .frontend[]` both work. A query returning a single scalar yields a single item.
 
 Empty outputs are then dropped, so resolution produces either nothing at all or a list in which every item has content. An output is empty when it is null, `false`, `0`, a string that is empty or only whitespace, `{}`, or `[]`.
 
@@ -51,7 +51,7 @@ requirements:
 
 Dropping happens before indices are assigned, so an index is a position in the surviving list. Every command resolves the same way, so `ralph run`, `ralph get`, and `ralph validate` all agree on it.
 
-When nothing survives — no output at all, or only empty outputs — the command that needs the items reports `item query yielded no items: <query>` and does no work. For a run that means it stops before the first iteration rather than opening a pull request on an empty project.
+When nothing survives (no output at all, or only empty outputs), the command that needs the items reports `item query yielded no items: <query>` and does no work. For a run that means it stops before the first iteration rather than opening a pull request on an empty project.
 
 Because both `.requirements` and `.requirements[]` produce the same result, either form is fine. Prefer the array form.
 
@@ -65,7 +65,7 @@ items: '.issues | map(select(.state == "open"))'   # an exported issue list
 items: '.tasks[] | select(.assignee == "ralph")'   # a task file, filtered
 ```
 
-Filtering in the query is fine — the resolved array *is* the project as far as ralph is concerned, including for item indexing and completion tracking. The query is resolved once per run and stays fixed for that run's lifetime; see [Iterations](iterations.md#the-project-file-is-immutable).
+Filtering in the query is fine. The resolved array is the project as far as ralph is concerned, including for item indexing and completion tracking. The query is resolved once per run and stays fixed for that run's lifetime. See [Iterations](iterations.md#the-project-file-is-immutable).
 
 ## Item Index
 
@@ -73,7 +73,7 @@ The item's 0-based position in the resolved array. Always present, and the only 
 
 ## Item Key
 
-If the item is a mapping with a scalar `slug`, `id`, or `name` field — checked in that order — that value is the item's **key**.
+If the item is a mapping with a scalar `slug`, `id`, or `name` field, checked in that order, that value is the item's **key**.
 
 ```yaml
 - slug: csv-serializer      # key: "csv-serializer"
@@ -127,4 +127,4 @@ Validation checks only what ralph depends on:
 2. The item query evaluates without error.
 3. The query resolves to at least one non-empty item.
 
-There is no schema check — anything that parses and yields non-empty items is a valid project. When a file fails to parse, `ralph validate` still runs its bounded AI fix loop to repair the syntax, then rewrites the file in canonical YAML.
+There is no schema check: anything that parses and yields non-empty items is a valid project. When a file fails to parse, `ralph validate` still runs its bounded AI fix loop to repair the syntax, then rewrites the file in canonical YAML.

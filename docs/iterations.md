@@ -1,6 +1,6 @@
 # Iterations
 
-A ralph run turns a project file into a sequence of iterations. Each iteration works on exactly one item and, when the work lands, records that item as complete in the commit message. The branch's commit log — not the project file — is the record of what is done, and the project file is never written to while the run is in progress.
+A ralph run turns a project file into a sequence of iterations. Each iteration works on exactly one item and, when the work lands, records that item as complete in the commit message. The branch's commit log, not the project file, is the record of what is done, and the project file is never written to while the run is in progress.
 
 ## The Loop
 
@@ -19,14 +19,14 @@ Each iteration:
 4. **Start services** — run configured `before` commands and services (see [Configuration](config.md)).
 5. **Pick** — the picker agent selects one incomplete item.
 6. **Develop** — the development agent works the picked item.
-7. **Commit** — commit whatever the agent produced, using the agent's `report.md` as the message; its last line is the completion trailer when the item is done.
+7. **Commit** — commit whatever the agent produced, using the agent's `report.md` as the message. Its last line is the completion trailer when the item is done.
 8. **Stop services**.
 
 ## The Project File Is Immutable
 
 For the duration of a run, the project file is read-only:
 
-- The development agent is instructed not to edit it, and has no reason to — it reports completion in its commit message.
+- The development agent is instructed not to edit it, and has no reason to. It reports completion in its commit message.
 - Ralph does not rewrite, normalize, reformat, or stage the project file between iterations.
 - The item query is resolved once at the start of the run and reused for every iteration.
 
@@ -38,11 +38,11 @@ Editing the project file by hand while a run is in progress is unsupported. Noth
 
 ## Picking
 
-The picker agent receives the full project file, the incomplete items with their indices and keys — the output of `ralph get incomplete` — and the recent commit log. It selects one item based on dependencies between items, logical ordering, and impact — the same prioritization it has always done, now over a generic array rather than a requirements list.
+The picker agent receives the full project file, the incomplete items with their indices and keys (the output of `ralph get incomplete`), and the recent commit log. It selects one item based on dependencies between items, logical ordering, and impact.
 
 The development agent then receives that one item verbatim, plus its index and key, plus the full project file for context.
 
-Ralph does not pick in array order. Order the array however you like; the picker reads it as a set of available work, and dependency ordering is one of its inputs.
+Ralph does not pick in array order. Order the array however you like. The picker reads it as a set of available work, and dependency ordering is one of its inputs.
 
 ## Recording Completion
 
@@ -78,9 +78,7 @@ A trailer with an index outside the resolved array is ignored with a warning. Th
 
 ## Reading Completion
 
-At the start of each iteration ralph scans the commit messages on the project branch that are not on the base branch, collects every completion trailer, and marks the item at each trailer's index complete. Only trailers naming the current branch count. A trailer naming any other branch is ignored without a warning, so a project branched from another project's branch never inherits that project's completion. A trailer whose index is out of range for the current array is ignored with a warning.
-
-Matching is by branch and index. Because [the project file is immutable](#the-project-file-is-immutable) during a run, the index resolved in iteration 1 refers to the same item in iteration 9, and no further reconciliation is needed.
+At the start of each iteration ralph scans the commit messages on the project branch that are not on the base branch, collects every completion trailer, and marks the item at each trailer's index complete. Only trailers naming the current branch count. A trailer naming any other branch is ignored without a warning, so a project branched from another project's branch never inherits that project's completion. Matching is by branch and index. Because [the project file is immutable](#the-project-file-is-immutable) during a run, the index resolved in iteration 1 refers to the same item in iteration 9, and no further reconciliation is needed.
 
 The same two steps are exposed as commands, and they are the ones the loop itself uses:
 
@@ -111,7 +109,7 @@ The limit is the resolved item count plus the extra iteration count:
 limit = len(items) + extraIterations
 ```
 
-`extraIterations` comes from `--extra-iterations` or `.ralph/config.yaml`. When unset it defaults to 20% of the item count, rounded up. Reaching the limit with items still incomplete is an error — no pull request is opened, and the error names the incomplete items.
+`extraIterations` comes from `--extra-iterations` or `.ralph/config.yaml`. When unset it defaults to 20% of the item count, rounded up. Reaching the limit with items still incomplete is an error. No pull request is opened, and the error names the incomplete items.
 
 The loop also stops early when `blocked.md` exists at the start of an iteration, and stops fatally on billing or quota errors from the AI provider.
 
@@ -120,14 +118,14 @@ The loop also stops early when `blocked.md` exists at the start of an iteration,
 When every item is complete:
 
 1. Ralph generates a PR summary from the branch's commit log.
-2. If cleanup is enabled, ralph deletes the project file and commits the deletion on its own — `chore: clean up completed project <path>` — with no completion trailer.
+2. If cleanup is enabled, ralph deletes the project file and commits the deletion on its own with the message `chore: clean up completed project <path>` and no completion trailer.
 3. Ralph opens a pull request from the project branch to the base branch.
 
 Cleanup is off by default. Enable it with `--cleanup` or `cleanup: true` in `.ralph/config.yaml`. It is a separate commit so that the commit that removes the file does not also carry code changes, and so the completion history stays readable in the PR after the file is gone.
 
-Opening the pull request is where ralph stops. It does not merge, and approving a PR does not trigger anything — review and merge are the repository's own process. Ralph does respond to review *comments* on an open PR; see [Workflows](workflows.md).
+Opening the pull request is where ralph stops. It does not merge, and approving a PR does not trigger anything. Review and merge are the repository's own process. Ralph does respond to review *comments* on an open PR. See [Workflows](workflows.md).
 
-Cleaning up the project file does not erase the completion record — the trailers stay in the branch's history, so a re-run against the same branch still reads the project as complete.
+Cleaning up the project file does not erase the completion record. The trailers stay in the branch's history, so a re-run against the same branch still reads the project as complete.
 
 ## Foreign Project Files
 

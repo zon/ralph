@@ -32,7 +32,7 @@ Select the highest-priority incomplete item and report its index. Do not make an
 
 ## Definitions
 
-**Item** — one element of the project's resolved item array. Each item is identified by its 0-based index in that array and is labelled by an optional key (the scalar `slug`, `id`, or `name` field of its value). The index alone identifies the item; the key is only a label.
+**Item** — one element of the project's resolved item array. Each item is identified by its 0-based index in that array and is labelled by an optional key (the scalar `slug`, `id`, or `name` field of its value). The index alone identifies the item. The key is only a label.
 
 ## Instructions
 

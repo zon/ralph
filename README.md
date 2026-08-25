@@ -40,7 +40,7 @@ feat: issue JWT tokens on successful authentication
 user-authentication-2
 ```
 
-That line is the whole tracking mechanism. Ralph reads the branch's commit log each iteration to see what is left, and opens a pull request when nothing is.
+That line is the whole tracking mechanism. Ralph reads the branch's commit log each iteration to see what is left, and opens a pull request when nothing is left.
 
 Items can be structured instead of plain strings, and the array can be nested anywhere in the file. Point ralph at it with a [jq](https://jqlang.org/manual/) query:
 
@@ -49,7 +49,7 @@ Items can be structured instead of plain strings, and the array can be nested an
 items: .requirements
 ```
 
-The shape below is one convention among many. Ralph reads only the item array out of a project file. A top-level list, or any other document with a list of work in it, works the same way.
+The shape below is one convention among many. Ralph reads only the item array out of a project file.
 
 ```yaml
 # projects/user-authentication.yaml
@@ -75,7 +75,7 @@ requirements:
 
 Ralph never writes to the project file during a run. An item's `slug`, `id`, or `name` just labels it in logs and picker output. See [Project Files](docs/projects.md) and [Iterations](docs/iterations.md).
 
-The spec, orchestration, architecture, and project conventions are published separately and installed into a repository at `docs/zpecs/` — see the [specs repository](https://github.com/zon/specs). Ralph itself only runs what it is given.
+The spec, orchestration, architecture, and project conventions are published separately and installed into a repository at `docs/zpecs/`. See the [specs repository](https://github.com/zon/specs). Ralph itself only runs what it is given.
 
 ## Installation
 

@@ -51,7 +51,7 @@ The command SHALL resolve the item query with the same two-level precedence a ru
 
 ### Requirement: Validation Checks
 
-The command MUST check exactly three things, in order: the file parses as YAML or JSON; the item query evaluates against the parsed document without error; the query resolves to at least one non-empty item. There MUST be no schema check — no field is required, and no field is rejected.
+The command MUST check exactly three things, in order: the file parses as YAML or JSON; the item query evaluates against the parsed document without error; the query resolves to at least one non-empty item. There MUST be no schema check: no field is required, and no field is rejected.
 
 #### Scenario: Well-formed project
 
@@ -181,7 +181,7 @@ The fix loop MUST be capped at 10 total parse attempts (the initial attempt plus
 
 ### Requirement: Canonical Formatting
 
-After all three checks pass, the command MUST write the parsed document back to disk as YAML. Because ralph has no project schema, the rewrite MUST preserve the document's full content and key order — only formatting is normalized. No field is dropped for being unrecognized, and no field is added.
+After all three checks pass, the command MUST write the parsed document back to disk as YAML. Because ralph has no project schema, the rewrite MUST preserve the document's full content and key order. Only formatting is normalized. No field is dropped for being unrecognized, and no field is added.
 
 #### Scenario: File rewritten in canonical format
 
