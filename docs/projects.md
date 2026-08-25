@@ -65,7 +65,7 @@ items: '.issues | map(select(.state == "open"))'   # an exported issue list
 items: '.tasks[] | select(.assignee == "ralph")'   # a task file, filtered
 ```
 
-Filtering in the query is fine — the resolved array *is* the project as far as ralph is concerned, including for item indexing and completion tracking. The query is resolved once per run and stays fixed for that run's lifetime; see [Iterations](iterations.md#the-project-file-is-immutable).
+Filtering in the query is fine — the resolved array *is* the project as far as ralph is concerned, including for item indexing and completion tracking. The query is resolved once per run and stays fixed for that run's lifetime. See [Iterations](iterations.md#the-project-file-is-immutable).
 
 ## Item Index
 
