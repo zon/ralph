@@ -14,6 +14,13 @@ func WithVariant(v string) *RalphConfig {
 	return cfg
 }
 
+// WithMode returns a config with the given execution mode.
+func WithMode(mode string) *RalphConfig {
+	cfg := Any()
+	cfg.Mode = mode
+	return cfg
+}
+
 func WithExtraIterations(n int) *RalphConfig {
 	cfg := Any()
 	v := n

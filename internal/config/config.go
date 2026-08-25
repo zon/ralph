@@ -192,6 +192,28 @@ var validLoopTypes = map[string]bool{
 	LoopTypeDomainFunction: true,
 }
 
+const (
+	ModeLocal    = "local"
+	ModeWorktree = "worktree"
+	ModeRemote   = "remote"
+	DefaultMode  = ModeWorktree
+)
+
+var validModes = map[string]bool{
+	ModeLocal:    true,
+	ModeWorktree: true,
+	ModeRemote:   true,
+}
+
+// ValidateMode returns an error when mode is not one of local, worktree, or
+// remote.
+func ValidateMode(mode string) error {
+	if !validModes[mode] {
+		return fmt.Errorf("invalid mode: %s (expected local, worktree, or remote)", mode)
+	}
+	return nil
+}
+
 // ReviewItem represents a single review item with exactly one source (Text, File, or URL)
 type ReviewItem struct {
 	Text string `yaml:"text,omitempty"` // Inline string content
@@ -220,6 +242,7 @@ type LoopConfig struct {
 // RalphConfig represents the .ralph/config.yaml structure
 type RalphConfig struct {
 	Variant             string         `yaml:"variant,omitempty"`
+	Mode                string         `yaml:"mode,omitempty"`    // Execution mode: local, worktree, or remote (default: worktree)
 	Items               string         `yaml:"items,omitempty"`   // jq query selecting the item array from a project file (default: .)
 	Cleanup             bool           `yaml:"cleanup,omitempty"` // Delete the project file once every item is complete (default: false)
 	Base                string         `yaml:"-"`                 // Base branch resolved by the caller, bounding the commit log completion is read from
@@ -301,6 +324,9 @@ func applyDefaults(config *RalphConfig) {
 	if config.Items == "" {
 		config.Items = "."
 	}
+	if config.Mode == "" {
+		config.Mode = DefaultMode
+	}
 	if config.DefaultBranch == "" {
 		config.DefaultBranch = "main"
 	}
@@ -341,6 +367,23 @@ func (c *RalphConfig) ResolveCleanup(flag *bool) bool {
 		return *flag
 	}
 	return c.Cleanup
+}
+
+// ResolveMode returns the effective execution mode for a run: the flag when
+// passed, otherwise the config `mode` field, otherwise worktree. A mode value
+// other than local, worktree, or remote is rejected with a descriptive error.
+func (c *RalphConfig) ResolveMode(flag string) (string, error) {
+	mode := c.Mode
+	if flag != "" {
+		mode = flag
+	}
+	if mode == "" {
+		mode = DefaultMode
+	}
+	if err := ValidateMode(mode); err != nil {
+		return "", err
+	}
+	return mode, nil
 }
 
 // LoopSteps returns the steps of the first loop config matching the slug, or
@@ -432,6 +475,10 @@ func LoadConfig() (*RalphConfig, error) {
 	config.CommentInstructions = commentInstructions
 
 	applyDefaults(config)
+
+	if err := ValidateMode(config.Mode); err != nil {
+		return nil, err
+	}
 
 	if config.Review.Items != nil || config.Review.Model != "" {
 		if err := ValidateReviewConfig(&config.Review); err != nil {
