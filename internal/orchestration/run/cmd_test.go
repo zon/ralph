@@ -146,16 +146,16 @@ func flagsWithExtraIterations(n int) RunFlags {
 	return RunFlags{InputFile: "/fake/project.yaml", ExtraIterations: n}
 }
 
-func flagsWithLocal() RunFlags {
-	return RunFlags{InputFile: "/fake/project.yaml", Local: true}
+func flagsWithMode(mode string) RunFlags {
+	return RunFlags{InputFile: "/fake/project.yaml", Mode: mode}
 }
 
-func flagsWithFollowAndLocal() RunFlags {
-	return RunFlags{InputFile: "/fake/project.yaml", Follow: true, Local: true}
+func flagsWithFollowAndMode(mode string) RunFlags {
+	return RunFlags{InputFile: "/fake/project.yaml", Follow: true, Mode: mode}
 }
 
-func flagsWithDebugAndLocal() RunFlags {
-	return RunFlags{InputFile: "/fake/project.yaml", Debug: "feature-x", Local: true}
+func flagsWithDebugAndMode(mode string) RunFlags {
+	return RunFlags{InputFile: "/fake/project.yaml", Debug: "feature-x", Mode: mode}
 }
 
 func flagsWithWorkingDir(dir string) RunFlags {
@@ -166,8 +166,8 @@ func flagsWithItems(query string) RunFlags {
 	return RunFlags{InputFile: "/fake/project.yaml", Items: query}
 }
 
-func flagsWithLocalAndItems(query string) RunFlags {
-	return RunFlags{InputFile: "/fake/project.yaml", Local: true, Items: query}
+func flagsWithModeAndItems(mode, query string) RunFlags {
+	return RunFlags{InputFile: "/fake/project.yaml", Mode: mode, Items: query}
 }
 
 func flagsWithCleanup() RunFlags {
@@ -175,9 +175,9 @@ func flagsWithCleanup() RunFlags {
 	return RunFlags{InputFile: "/fake/project.yaml", Cleanup: &v}
 }
 
-func flagsWithLocalAndCleanup() RunFlags {
+func flagsWithModeAndCleanup(mode string) RunFlags {
 	v := true
-	return RunFlags{InputFile: "/fake/project.yaml", Local: true, Cleanup: &v}
+	return RunFlags{InputFile: "/fake/project.yaml", Mode: mode, Cleanup: &v}
 }
 
 func flagsWithCleanupDisabled() RunFlags {
@@ -326,6 +326,13 @@ func configWithItems(query string) config.Loader {
 	}
 }
 
+func configWithMode(mode string) config.Loader {
+	cfg := config.WithMode(mode)
+	return &config.MockLoader{
+		LoadFn: func() (*config.RalphConfig, error) { return cfg, nil },
+	}
+}
+
 func configWithCleanup() config.Loader {
 	cfg := config.WithCleanup()
 	return &config.MockLoader{
@@ -413,25 +420,39 @@ func TestRunInputFileNotFoundErrorMessage(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Scenario tests: --follow with --local rejected
+// Scenario tests: --follow rejected for local and worktree modes
 // ---------------------------------------------------------------------------
 
-func TestRunFollowWithLocalRejected(t *testing.T) {
+func TestRunFollowRejectedForLocalMode(t *testing.T) {
 	cmd := cmdWithMocks()
-	err := cmd.Run(flagsWithFollowAndLocal())
+	err := cmd.Run(flagsWithFollowAndMode(config.ModeLocal))
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "--follow flag is not applicable with --local flag")
+	require.Contains(t, err.Error(), "--follow flag is not applicable with --mode local")
+}
+
+func TestRunFollowRejectedForWorktreeMode(t *testing.T) {
+	cmd := cmdWithMocks()
+	err := cmd.Run(flagsWithFollowAndMode(config.ModeWorktree))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "--follow flag is not applicable with --mode worktree")
 }
 
 // ---------------------------------------------------------------------------
-// Scenario tests: --debug with --local rejected
+// Scenario tests: --debug rejected for local and worktree modes
 // ---------------------------------------------------------------------------
 
-func TestRunDebugWithLocalRejected(t *testing.T) {
+func TestRunDebugRejectedForLocalMode(t *testing.T) {
 	cmd := cmdWithMocks()
-	err := cmd.Run(flagsWithDebugAndLocal())
+	err := cmd.Run(flagsWithDebugAndMode(config.ModeLocal))
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "--debug flag is not applicable with --local flag")
+	require.Contains(t, err.Error(), "--debug flag is not applicable with --mode local")
+}
+
+func TestRunDebugRejectedForWorktreeMode(t *testing.T) {
+	cmd := cmdWithMocks()
+	err := cmd.Run(flagsWithDebugAndMode(config.ModeWorktree))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "--debug flag is not applicable with --mode worktree")
 }
 
 // ---------------------------------------------------------------------------
@@ -483,7 +504,15 @@ func TestBranchNameAllInvalidCharacters(t *testing.T) {
 
 func TestRunLocalDispatchesToLocalRunner(t *testing.T) {
 	cmd := cmdWithMocks()
-	err := cmd.Run(flagsWithLocal())
+	err := cmd.Run(flagsWithMode(config.ModeLocal))
+	require.NoError(t, err)
+	require.True(t, localRunLocalCalled(cmd))
+	require.False(t, remoteRunCalled(cmd))
+}
+
+func TestRunWorktreeDispatchesToLocalRunner(t *testing.T) {
+	cmd := cmdWithMocks()
+	err := cmd.Run(flagsWithMode(config.ModeWorktree))
 	require.NoError(t, err)
 	require.True(t, localRunLocalCalled(cmd))
 	require.False(t, remoteRunCalled(cmd))
@@ -491,7 +520,7 @@ func TestRunLocalDispatchesToLocalRunner(t *testing.T) {
 
 func TestRunRemoteDispatchesToRemoteRunner(t *testing.T) {
 	cmd := cmdWithMocks()
-	err := cmd.Run(flagsAny())
+	err := cmd.Run(flagsWithMode(config.ModeRemote))
 	require.NoError(t, err)
 	require.True(t, remoteRunCalled(cmd))
 	require.False(t, localRunLocalCalled(cmd))
@@ -516,7 +545,7 @@ func TestRunInputFileNotFoundAbortsEarly(t *testing.T) {
 
 func TestRunIncompatibleFlagsAbortBeforeSetup(t *testing.T) {
 	cmd := cmdWithMocks()
-	err := cmd.Run(flagsWithFollowAndLocal())
+	err := cmd.Run(flagsWithFollowAndMode(config.ModeLocal))
 	require.Error(t, err)
 	require.False(t, localRunLocalCalled(cmd))
 	require.False(t, remoteRunCalled(cmd))
@@ -534,7 +563,7 @@ func TestRunLocalDispatchesWithOrchestrationInput(t *testing.T) {
 		cmdWithProject(proj),
 		cmdWithLocal(&mockLocalRunnerClient{}),
 	)
-	err := cmd.Run(flagsWithLocal())
+	err := cmd.Run(flagsWithMode(config.ModeLocal))
 	require.NoError(t, err)
 	require.True(t, localRunLocalCalled(cmd))
 	require.NotNil(t, localLastInput(cmd))
@@ -549,7 +578,7 @@ func TestRunLocalDispatchesWithSpecInput(t *testing.T) {
 		cmdWithProject(proj),
 		cmdWithLocal(&mockLocalRunnerClient{}),
 	)
-	err := cmd.Run(flagsWithLocal())
+	err := cmd.Run(flagsWithMode(config.ModeLocal))
 	require.NoError(t, err)
 	require.True(t, localRunLocalCalled(cmd))
 	require.NotNil(t, localLastInput(cmd))
@@ -564,7 +593,7 @@ func TestRunRemoteDispatchesWithOrchestrationInput(t *testing.T) {
 		cmdWithProject(proj),
 		cmdWithRemote(&mockRemoteRunnerClient{}),
 	)
-	err := cmd.Run(flagsAny())
+	err := cmd.Run(flagsWithMode(config.ModeRemote))
 	require.NoError(t, err)
 	require.True(t, remoteRunCalled(cmd))
 	require.NotNil(t, remoteLastInput(cmd))
@@ -579,7 +608,7 @@ func TestRunRemoteDispatchesWithSpecInput(t *testing.T) {
 		cmdWithProject(proj),
 		cmdWithRemote(&mockRemoteRunnerClient{}),
 	)
-	err := cmd.Run(flagsAny())
+	err := cmd.Run(flagsWithMode(config.ModeRemote))
 	require.NoError(t, err)
 	require.True(t, remoteRunCalled(cmd))
 	require.NotNil(t, remoteLastInput(cmd))
@@ -599,7 +628,7 @@ func TestRunInputFileNotFoundAbortsBeforeFlagValidation(t *testing.T) {
 	cmd := cmdWithMocks(
 		cmdWithProject(proj),
 	)
-	err := cmd.Run(flagsWithFollowAndLocal())
+	err := cmd.Run(flagsWithFollowAndMode(config.ModeLocal))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "input file not found")
 }
@@ -610,7 +639,7 @@ func TestRunInputFileNotFoundAbortsBeforeFlagValidation(t *testing.T) {
 
 func TestRunIncompatibleFlagsRejectedBeforeSetupForProjectInput(t *testing.T) {
 	cmd := cmdWithMocks()
-	err := cmd.Run(flagsWithFollowAndLocal())
+	err := cmd.Run(flagsWithFollowAndMode(config.ModeLocal))
 	require.Error(t, err)
 	require.False(t, localRunLocalCalled(cmd))
 	require.False(t, remoteRunCalled(cmd))
@@ -665,7 +694,7 @@ func TestRunResolvedQueryPassedToLocalRunner(t *testing.T) {
 		cmdWithLocal(local),
 	)
 	// WHEN execution is dispatched to run-local
-	err := cmd.Run(flagsWithLocalAndItems(".spec.tasks"))
+	err := cmd.Run(flagsWithModeAndItems(config.ModeLocal, ".spec.tasks"))
 	require.NoError(t, err)
 	// THEN the resolved query is passed down as a parameter
 	require.True(t, local.RunLocalCalled)
@@ -680,7 +709,7 @@ func TestRunResolvedQueryPassedToRemoteRunner(t *testing.T) {
 		cmdWithRemote(remote),
 	)
 	// WHEN execution is dispatched to run-remote
-	err := cmd.Run(flagsWithItems(".spec.tasks"))
+	err := cmd.Run(flagsWithModeAndItems(config.ModeRemote, ".spec.tasks"))
 	require.NoError(t, err)
 	// THEN the resolved query is passed down as a parameter
 	require.True(t, remote.RunCalled)
@@ -693,7 +722,7 @@ func TestRunLocalRunnerDoesNotReResolveQueryFromConfig(t *testing.T) {
 		cmdWithConfig(configWithItems(".requirements")),
 		cmdWithLocal(local),
 	)
-	err := cmd.Run(flagsWithLocalAndItems(".spec.tasks"))
+	err := cmd.Run(flagsWithModeAndItems(config.ModeLocal, ".spec.tasks"))
 	require.NoError(t, err)
 	require.Equal(t, ".spec.tasks", local.LastConfig.Items)
 }
@@ -704,7 +733,7 @@ func TestRunResolvedDefaultQueryPassedToRemoteRunner(t *testing.T) {
 		cmdWithConfig(configWithItems("")),
 		cmdWithRemote(remote),
 	)
-	err := cmd.Run(flagsAny())
+	err := cmd.Run(flagsWithMode(config.ModeRemote))
 	require.NoError(t, err)
 	require.True(t, remote.RunCalled)
 	require.Equal(t, ".", remote.LastFlags.Items)
@@ -728,7 +757,7 @@ func TestRunCleanupFlagEnablesCleanup(t *testing.T) {
 func TestRunCleanupFlagEnablesCleanupForLocalRun(t *testing.T) {
 	local := &mockLocalRunnerClient{}
 	cmd := cmdWithMocks(cmdWithLocal(local))
-	err := cmd.Run(flagsWithLocalAndCleanup())
+	err := cmd.Run(flagsWithModeAndCleanup(config.ModeLocal))
 	require.NoError(t, err)
 	require.True(t, local.LastConfig.Cleanup)
 }
@@ -751,7 +780,7 @@ func TestRunCleanupDisabledByDefault(t *testing.T) {
 func TestRunCleanupDisabledByDefaultForLocalRun(t *testing.T) {
 	local := &mockLocalRunnerClient{}
 	cmd := cmdWithMocks(cmdWithLocal(local))
-	err := cmd.Run(flagsWithLocal())
+	err := cmd.Run(flagsWithMode(config.ModeLocal))
 	require.NoError(t, err)
 	require.False(t, local.LastConfig.Cleanup)
 }
@@ -804,4 +833,94 @@ func TestRunCleanupResolvesFlagThenConfigThenDisabled(t *testing.T) {
 		require.NoError(t, err)
 		require.False(t, setup.Config.Cleanup)
 	})
+}
+
+// ---------------------------------------------------------------------------
+// Scenario tests: mode resolution order
+// ---------------------------------------------------------------------------
+
+func TestRunModeResolvesFlagThenConfigThenWorktree(t *testing.T) {
+	t.Run("flag overrides configured mode", func(t *testing.T) {
+		cmd := cmdWithMocks(cmdWithConfig(configWithMode(config.ModeRemote)))
+		setup, err := cmd.prepareSetup(flagsWithMode(config.ModeLocal), project.ForProjectInput(project.Any()))
+		require.NoError(t, err)
+		require.Equal(t, config.ModeLocal, setup.Mode)
+		require.Equal(t, config.ModeLocal, setup.Config.Mode)
+	})
+
+	t.Run("configured mode used when no flag", func(t *testing.T) {
+		cmd := cmdWithMocks(cmdWithConfig(configWithMode(config.ModeRemote)))
+		setup, err := cmd.prepareSetup(flagsAny(), project.ForProjectInput(project.Any()))
+		require.NoError(t, err)
+		require.Equal(t, config.ModeRemote, setup.Mode)
+	})
+
+	t.Run("worktree default when flag and config unset", func(t *testing.T) {
+		cmd := cmdWithMocks()
+		setup, err := cmd.prepareSetup(flagsAny(), project.ForProjectInput(project.Any()))
+		require.NoError(t, err)
+		require.Equal(t, config.ModeWorktree, setup.Mode)
+	})
+}
+
+func TestRunInvalidModeRejectedBeforeExecution(t *testing.T) {
+	cmd := cmdWithMocks()
+	err := cmd.Run(flagsWithMode("sandbox"))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid mode: sandbox (expected local, worktree, or remote)")
+	require.False(t, localRunLocalCalled(cmd))
+	require.False(t, remoteRunCalled(cmd))
+}
+
+func TestRunInvalidConfigModeRejectedBeforeExecution(t *testing.T) {
+	cfg := config.Any()
+	cfg.Mode = "sandbox"
+	cmd := cmdWithMocks(cmdWithConfig(&config.MockLoader{
+		LoadFn: func() (*config.RalphConfig, error) { return cfg, nil },
+	}))
+	err := cmd.Run(flagsAny())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid mode: sandbox (expected local, worktree, or remote)")
+	require.False(t, localRunLocalCalled(cmd))
+	require.False(t, remoteRunCalled(cmd))
+}
+
+// ---------------------------------------------------------------------------
+// Scenario tests: dispatch from the configured mode
+// ---------------------------------------------------------------------------
+
+func TestRunConfigModeLocalDispatchesToLocalRunner(t *testing.T) {
+	cmd := cmdWithMocks(cmdWithConfig(configWithMode(config.ModeLocal)))
+	err := cmd.Run(flagsAny())
+	require.NoError(t, err)
+	require.True(t, localRunLocalCalled(cmd))
+	require.False(t, remoteRunCalled(cmd))
+}
+
+func TestRunConfigModeRemoteDispatchesToRemoteRunner(t *testing.T) {
+	cmd := cmdWithMocks(cmdWithConfig(configWithMode(config.ModeRemote)))
+	err := cmd.Run(flagsAny())
+	require.NoError(t, err)
+	require.True(t, remoteRunCalled(cmd))
+	require.False(t, localRunLocalCalled(cmd))
+}
+
+// ---------------------------------------------------------------------------
+// Scenario tests: --follow and --debug allowed for remote mode
+// ---------------------------------------------------------------------------
+
+func TestRunFollowAllowedForRemoteMode(t *testing.T) {
+	cmd := cmdWithMocks()
+	err := cmd.Run(flagsWithFollowAndMode(config.ModeRemote))
+	require.NoError(t, err)
+	require.True(t, remoteRunCalled(cmd))
+	require.False(t, localRunLocalCalled(cmd))
+}
+
+func TestRunDebugAllowedForRemoteMode(t *testing.T) {
+	cmd := cmdWithMocks()
+	err := cmd.Run(flagsWithDebugAndMode(config.ModeRemote))
+	require.NoError(t, err)
+	require.True(t, remoteRunCalled(cmd))
+	require.False(t, localRunLocalCalled(cmd))
 }

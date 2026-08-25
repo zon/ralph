@@ -17,8 +17,8 @@ type RunCmd struct {
 	NoNotify        bool   `help:"Disable desktop notifications" default:"false"`
 	NoServices      bool   `help:"Skip service startup" default:"false"`
 	Verbose         bool   `help:"Enable verbose logging" default:"false"`
-	Local           bool   `help:"Run on this machine instead of in Argo Workflows" default:"false"`
-	Follow          bool   `help:"Follow workflow logs after submission (only applicable without --local)" short:"f" default:"false"`
+	Mode            string `help:"Execution mode: local, worktree, or remote (default: worktree)" name:"mode" optional:""`
+	Follow          bool   `help:"Follow workflow logs after submission (only applicable with --mode remote)" short:"f" default:"false"`
 	Debug           string `help:"Checkout the given ralph repo branch in the workflow container and invoke ralph via 'go run' instead of the built binary" name:"debug" optional:""`
 	Base            string `help:"Override the base branch for PR creation (default: detects from current branch)" name:"base" optional:"" short:"B"`
 	Items           string `help:"jq query selecting the item array from the project file (default: from config or .)" name:"items" optional:""`
@@ -45,7 +45,7 @@ func (r *RunCmd) Run() error {
 		WorkingDir:      r.WorkingDir,
 		InputFile:       r.InputFile,
 		ExtraIterations: r.ExtraIterations,
-		Local:           r.Local,
+		Mode:            r.Mode,
 		Follow:          r.Follow,
 		Debug:           r.Debug,
 		Base:            r.Base,
@@ -67,7 +67,6 @@ func (r *RunCmd) newExecutionContext() *execcontext.Context {
 	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, r.Verbose))
 	ctx.SetNoNotify(r.NoNotify)
 	ctx.SetNoServices(r.NoServices)
-	ctx.SetLocal(r.Local)
 	ctx.SetFollow(r.Follow)
 	ctx.SetDebugBranch(r.Debug)
 	ctx.SetBaseBranch(r.Base)
