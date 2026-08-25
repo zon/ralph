@@ -6,7 +6,7 @@ Any YAML or JSON file that contains an array of work items. Ralph imposes no sch
 
 ## Item
 
-One element of a project's resolved array, and the unit of one iteration. An item can be any value — a string, a mapping, a nested structure. Ralph identifies it by its index in the array, which is stable because the project file is not written to during a run.
+One element of a project's resolved array, and the unit of one iteration. An item can be any value: a string, a mapping, a nested structure. Ralph identifies it by its index in the array, which is stable because the project file is not written to during a run.
 
 ## Item Query
 
