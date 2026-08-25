@@ -19,5 +19,3 @@ func (r *realNotifier) Notify(title, message, appIcon string) error {
 }
 
 var _ Notifier = (*realNotifier)(nil)
-
-var defaultNotifier Notifier = &realNotifier{}

@@ -251,10 +251,6 @@ func (h *gitHelper) committedAndPushed() bool {
 	return mockGit != nil && mockGit.committedAndPushed
 }
 
-type aiHelper struct{}
-
-var ai = &aiHelper{}
-
 type servicesHelper struct{}
 
 var svcs = &servicesHelper{}
