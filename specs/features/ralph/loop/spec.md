@@ -211,7 +211,7 @@ When `--step` flags are provided without a slug argument, the command SHALL invo
 
 ### Requirement: Prompt construction
 
-The command SHALL build a prompt that embeds the resolved steps, in order. The prompt SHALL instruct the AI to follow the steps and to write a brief summary of what was done to `report.md`. The prompt SHALL also instruct the AI that when nothing was necessary, it MUST write exactly the constant string `NOTHING_TO_DO` to `report.md` instead of a summary.
+The command SHALL build a prompt that embeds the resolved steps, in order. The prompt SHALL instruct the AI to follow the steps and to write a brief and simple summary of what was done to `report.md`. The prompt SHALL instruct the AI that the summary describes only what was done in response to the steps and SHALL NOT restate the steps themselves. The prompt SHALL also instruct the AI that when nothing was necessary, it MUST write exactly the constant string `NOTHING_TO_DO` to `report.md` instead of a summary.
 
 #### Scenario: Config steps embedded
 
@@ -229,7 +229,14 @@ The command SHALL build a prompt that embeds the resolved steps, in order. The p
 
 - GIVEN the prompt is built
 - WHEN the AI reads it
-- THEN the prompt instructs the AI to write a brief summary of what it did to `report.md`
+- THEN the prompt instructs the AI to write a brief and simple summary of what it did to `report.md`
+
+#### Scenario: Prompt summary excludes the loop steps
+
+- GIVEN the prompt is built
+- WHEN the AI reads it
+- THEN the prompt instructs the AI that the summary describes only what was done in response
+- AND the summary does not restate the loop steps
 
 #### Scenario: Prompt names the nothing-to-do constant
 

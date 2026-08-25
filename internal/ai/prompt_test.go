@@ -643,10 +643,17 @@ func TestBuildLoopPrompt(t *testing.T) {
 			},
 		},
 		{
-			name:  "instructs the agent to write a brief summary to report.md",
+			name:  "instructs the agent to write a brief and simple summary to report.md",
 			steps: []string{"run gofmt"},
 			check: func(t *testing.T, prompt string) {
-				assert.Contains(t, prompt, "Write a brief summary of what you did to `report.md`")
+				assert.Contains(t, prompt, "Write a brief and simple summary of what you did in response to `report.md`")
+			},
+		},
+		{
+			name:  "instructs the summary to describe only what was done, not the steps",
+			steps: []string{"run gofmt"},
+			check: func(t *testing.T, prompt string) {
+				assert.Contains(t, prompt, "Do not restate the loop steps")
 			},
 		},
 		{

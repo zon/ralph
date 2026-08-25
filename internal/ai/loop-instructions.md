@@ -6,5 +6,5 @@ Follow these steps in order:
 {{range .Steps}}- {{.}}
 {{end}}
 
-Write a brief summary of what you did to `report.md`.
+Write a brief and simple summary of what you did in response to `report.md`. Do not restate the loop steps.
 When nothing was necessary, write exactly `NOTHING_TO_DO` to `report.md`.
