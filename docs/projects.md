@@ -51,7 +51,7 @@ requirements:
 
 Dropping happens before indices are assigned, so an index is a position in the surviving list. Every command resolves the same way, so `ralph run`, `ralph get`, and `ralph validate` all agree on it.
 
-When nothing survives — no output at all, or only empty outputs — the command that needs the items reports `item query yielded no items: <query>` and does no work. For a run that means it stops before the first iteration rather than opening a pull request on an empty project.
+When nothing survives (no output at all, or only empty outputs), the command that needs the items reports `item query yielded no items: <query>` and does no work. For a run that means it stops before the first iteration rather than opening a pull request on an empty project.
 
 Because both `.requirements` and `.requirements[]` produce the same result, either form is fine. Prefer the array form.
 
