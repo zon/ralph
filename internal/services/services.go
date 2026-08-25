@@ -58,7 +58,6 @@ type Process struct {
 	Name    string
 	service config.Service
 	cmd     *exec.Cmd
-	pid     int
 	logFile *os.File // {service}.log in the repo root, capturing output during startup
 	out     *output.Client
 }
@@ -139,7 +138,6 @@ func createAndStartProcess(svc config.Service, cmdStr string, out *output.Client
 		Name:    svc.Name,
 		service: svc,
 		cmd:     cmd,
-		pid:     cmd.Process.Pid,
 		logFile: logFile,
 		out:     out,
 	}, nil
