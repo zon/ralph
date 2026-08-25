@@ -57,7 +57,11 @@ func NewClient(ctx *context.Context, baseBranch string, gh GHClient, oc opencode
 	}
 }
 
-func (a *Client) CreatePR(proj *project.Project) error {
+// CreatePR generates an AI PR summary from the commits on the head branch that
+// are not on the base branch and opens a pull request from head to base. When
+// there are no commits ahead of the base, no pull request is opened and the
+// call succeeds.
+func (a *Client) CreatePR(proj *project.Project, head string) error {
 	commitLog, err := a.commitLog.GetCommitLog(a.baseBranch, 100)
 	if err != nil {
 		return fmt.Errorf("failed to get commit log: %w", err)
@@ -73,22 +77,7 @@ func (a *Client) CreatePR(proj *project.Project) error {
 		return fmt.Errorf("failed to generate PR summary: %w", err)
 	}
 
-	return a.openPullRequest(proj, git.SanitizeBranchName(proj.Slug), a.baseBranch, prSummary)
-}
-
-// OpenLoopPullRequest opens a pull request from loop-<slug> to the base branch
-// when the loop branch has commits ahead of the base. When there are no commits
-// ahead of the base, no pull request is opened and the call succeeds.
-func (a *Client) OpenLoopPullRequest(slug string) error {
-	commitLog, err := a.commitLog.GetCommitLog(a.baseBranch, 100)
-	if err != nil {
-		return fmt.Errorf("failed to get commit log: %w", err)
-	}
-	if strings.TrimSpace(commitLog) == "" {
-		a.ctx.Output().Debug("No commits ahead of base branch; skipping PR creation")
-		return nil
-	}
-	return a.openPullRequest(&project.Project{Slug: slug}, git.LoopBranch(slug), a.baseBranch, commitLog)
+	return a.openPullRequest(proj, head, a.baseBranch, prSummary)
 }
 
 func (a *Client) openPullRequest(proj *project.Project, head, base, body string) error {

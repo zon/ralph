@@ -89,7 +89,7 @@ func TestClientCreatePR_DelegatesToCreatePullRequest(t *testing.T) {
 	client := withMockCommitLog(NewClient(ctx, "main", mock, mockOC), "abc: feat\n")
 	proj := &project.Project{Slug: "some-branch", Title: "Test Title"}
 
-	err := client.CreatePR(proj)
+	err := client.CreatePR(proj, "some-branch")
 	assert.NoError(t, err)
 	assert.True(t, createPRCalled, "expected GHClient.CreatePR to be called")
 }
@@ -113,7 +113,7 @@ func TestClientCreatePR_UsesTitleAsPRTitle(t *testing.T) {
 	client := withMockCommitLog(NewClient(ctx, "main", mock, mockOC), "abc: feat\n")
 	proj := &project.Project{Slug: "some-branch", Title: "This is a detailed title"}
 
-	err := client.CreatePR(proj)
+	err := client.CreatePR(proj, "some-branch")
 	assert.NoError(t, err)
 }
 
@@ -135,7 +135,7 @@ func TestClientCreatePR_SummaryGeneratedFromCommitLog(t *testing.T) {
 	client := withMockCommitLog(NewClient(ctx, "main", mock, mockOC), "abc: feat serializer\ndef: add endpoint\n")
 	proj := &project.Project{Slug: "some-branch", Title: "Test Title"}
 
-	err := client.CreatePR(proj)
+	err := client.CreatePR(proj, "some-branch")
 	assert.NoError(t, err)
 	assert.Contains(t, capturedPrompt, "abc: feat serializer")
 	assert.Contains(t, capturedPrompt, "def: add endpoint")
@@ -162,7 +162,7 @@ func TestClientCreatePR_SkipsWhenNoCommitsAhead(t *testing.T) {
 	client := withMockCommitLog(NewClient(ctx, "main", mock, mockOC), "")
 	proj := &project.Project{Slug: "some-branch", Title: "Test Title"}
 
-	err := client.CreatePR(proj)
+	err := client.CreatePR(proj, "some-branch")
 	assert.NoError(t, err)
 	assert.False(t, createPRCalled, "expected PR creation to be skipped when no commits exist ahead of base")
 	assert.Contains(t, buf.String(), "No commits ahead of base branch; skipping PR creation")
@@ -185,7 +185,7 @@ func TestClientCreatePR_SentinelNoCommitsSkipsWithoutError(t *testing.T) {
 	client := withMockCommitLog(NewClient(ctx, "main", mock, mockOC), "abc: feat\n")
 	proj := &project.Project{Slug: "some-branch", Title: "Test Title"}
 
-	err := client.CreatePR(proj)
+	err := client.CreatePR(proj, "some-branch")
 	assert.NoError(t, err)
 	assert.Contains(t, buf.String(), "No commits ahead of base branch; skipping PR creation")
 }
@@ -219,7 +219,7 @@ func TestClientCreatePR_WorkflowExecutionCallsConfigureGitAuth(t *testing.T) {
 	client.gitAuthConfigurer = mockGitAuth
 	proj := &project.Project{Slug: "some-branch", Title: "Test Title"}
 
-	err := client.CreatePR(proj)
+	err := client.CreatePR(proj, "some-branch")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to refresh GitHub credentials")
 	assert.True(t, called, "expected ConfigureGitAuth to be called")
@@ -245,7 +245,7 @@ func TestClientCreatePR_SkipsConfigureGitAuthWhenNotWorkflow(t *testing.T) {
 	client := withMockCommitLog(NewClient(ctx, "main", mock, mockOC), "abc: feat\n")
 	proj := &project.Project{Slug: "some-branch", Title: "Test Title"}
 
-	err := client.CreatePR(proj)
+	err := client.CreatePR(proj, "some-branch")
 	assert.NoError(t, err)
 	assert.True(t, createPRCalled, "expected CreatePR to succeed without ConfigureGitAuth")
 }
@@ -266,106 +266,41 @@ func TestClientCreatePR_PropagatesCreatePullRequestError(t *testing.T) {
 	client := withMockCommitLog(NewClient(ctx, "main", mock, mockOC), "abc: feat\n")
 	proj := &project.Project{Slug: "some-branch", Title: "Test Title"}
 
-	err := client.CreatePR(proj)
+	err := client.CreatePR(proj, "some-branch")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to create pull request")
 }
 
-func TestClientOpenLoopPullRequest_DelegatesToCreatePullRequest(t *testing.T) {
+// TestClientCreatePR_LoopUsageGeneratesSummary asserts the loop branch's pull
+// request is opened through the same CreatePR path as `ralph run`: the head is
+// the loop branch, the title falls back to the slug, and the body is an
+// AI-generated summary of the commit log rather than the raw log.
+func TestClientCreatePR_LoopUsageGeneratesSummary(t *testing.T) {
+	var capturedBody, capturedHead string
 	mock := &MockGH{
 		IsReadyFn: func() bool { return true },
 		CreatePRFn: func(title, body, base, head string) (string, error) {
 			assert.Equal(t, "fmt", title)
 			assert.Equal(t, "main", base)
-			assert.Equal(t, "loop-fmt", head)
-			assert.Contains(t, body, "abc: feat")
+			capturedHead = head
+			capturedBody = body
 			return "https://github.com/owner/repo/pull/2", nil
 		},
 	}
 	ctx := execcontext.NewContext()
 	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
-	mockOC := &opencode.MockOC{}
+	mockOC := &opencode.MockOC{
+		RunCommandFunc: func(_ context.Context, _, _, _, prompt string, _, _ io.Writer) error {
+			return writeMockSummary(t, prompt)
+		},
+		GetStatsFunc: func() (opencode.Stats, error) { return opencode.Stats{}, nil },
+	}
 	client := withMockCommitLog(NewClient(ctx, "main", mock, mockOC), "abc: feat\n")
 
-	err := client.OpenLoopPullRequest("fmt")
+	err := client.CreatePR(&project.Project{Slug: "fmt"}, "loop-fmt")
 	assert.NoError(t, err)
-}
-
-func TestClientOpenLoopPullRequest_SkipsWhenNoCommitsAhead(t *testing.T) {
-	createPRCalled := false
-	mock := &MockGH{
-		IsReadyFn: func() bool { return true },
-		CreatePRFn: func(title, body, base, head string) (string, error) {
-			createPRCalled = true
-			return "https://github.com/o/r/p/2", nil
-		},
-	}
-	var buf bytes.Buffer
-	ctx := execcontext.NewContext()
-	ctx.SetOutput(output.NewClient(&buf, &buf, true))
-	client := withMockCommitLog(NewClient(ctx, "main", mock, &opencode.MockOC{}), "")
-
-	err := client.OpenLoopPullRequest("fmt")
-	assert.NoError(t, err)
-	assert.False(t, createPRCalled, "expected PR creation to be skipped when no commits exist ahead of base")
-	assert.Contains(t, buf.String(), "No commits ahead of base branch; skipping PR creation")
-}
-
-func TestClientOpenLoopPullRequest_SentinelNoCommitsSkipsWithoutError(t *testing.T) {
-	mock := &MockGH{
-		IsReadyFn:  func() bool { return true },
-		CreatePRFn: func(title, body, base, head string) (string, error) { return "", ErrNoCommitsBetweenBranches },
-	}
-	var buf bytes.Buffer
-	ctx := execcontext.NewContext()
-	ctx.SetOutput(output.NewClient(&buf, &buf, true))
-	client := withMockCommitLog(NewClient(ctx, "main", mock, &opencode.MockOC{}), "abc: feat\n")
-
-	err := client.OpenLoopPullRequest("fmt")
-	assert.NoError(t, err)
-	assert.Contains(t, buf.String(), "No commits ahead of base branch; skipping PR creation")
-}
-
-func TestClientOpenLoopPullRequest_WorkflowExecutionCallsConfigureGitAuth(t *testing.T) {
-	called := false
-	mockGitAuth := &mockGitAuthConfigurer{
-		configureGitAuthFn: func(_ context.Context, owner, repo, _ string) error {
-			called = true
-			assert.Equal(t, "test-owner", owner)
-			assert.Equal(t, "test-repo", repo)
-			return errors.New("mock git auth error")
-		},
-	}
-	mock := &MockGH{
-		IsReadyFn:  func() bool { return true },
-		CreatePRFn: func(title, body, base, head string) (string, error) { return "https://github.com/o/r/p/2", nil },
-	}
-	ctx := execcontext.NewContext()
-	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
-	ctx.SetWorkflowExecution(true)
-	ctx.SetRepoOwner("test-owner")
-	ctx.SetRepoName("test-repo")
-	client := withMockCommitLog(NewClient(ctx, "main", mock, &opencode.MockOC{}), "abc: feat\n")
-	client.gitAuthConfigurer = mockGitAuth
-
-	err := client.OpenLoopPullRequest("fmt")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to refresh GitHub credentials")
-	assert.True(t, called, "expected ConfigureGitAuth to be called")
-}
-
-func TestClientOpenLoopPullRequest_PropagatesCreatePullRequestError(t *testing.T) {
-	mock := &MockGH{
-		IsReadyFn:  func() bool { return true },
-		CreatePRFn: func(title, body, base, head string) (string, error) { return "", assert.AnError },
-	}
-	ctx := execcontext.NewContext()
-	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
-	client := withMockCommitLog(NewClient(ctx, "main", mock, &opencode.MockOC{}), "abc: feat\n")
-
-	err := client.OpenLoopPullRequest("fmt")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to create pull request")
+	assert.Equal(t, "loop-fmt", capturedHead, "the PR is opened from the loop branch")
+	assert.Equal(t, "Mock PR summary", capturedBody, "the PR body is the AI-generated summary, not the raw commit log")
 }
 
 func writeMockSummary(t *testing.T, prompt string) error {

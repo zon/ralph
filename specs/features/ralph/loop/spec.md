@@ -335,13 +335,19 @@ After each iteration whose report is not the nothing-to-do constant, the command
 
 ### Requirement: Pull request on completion
 
-When the loop ends, the command SHALL open a pull request from the branch `loop-<slug>` to the branch it was created from, if and only if at least one commit was made on `loop-<slug>`. When no commits were made, the command SHALL NOT open a pull request and SHALL exit successfully.
+When the loop ends, the command SHALL open a pull request from the branch `loop-<slug>` to the branch it was created from, if and only if at least one commit was made on `loop-<slug>`. The pull request body SHALL be an AI-generated summary of the commit log, generated the same way `ralph run` generates its PR summary. When no commits were made, the command SHALL NOT open a pull request and SHALL exit successfully.
 
 #### Scenario: Pull request opened when commits exist
 
 - GIVEN the loop ended after committing changes on `loop-<slug>`
 - WHEN the loop finishes
 - THEN a pull request is opened from `loop-<slug>` to the branch it was created from
+
+#### Scenario: Pull request body is an AI-generated summary
+
+- GIVEN the loop ended after committing changes on `loop-<slug>`
+- WHEN a pull request is opened
+- THEN the pull request body is an AI-generated summary of the commits on `loop-<slug>`
 
 #### Scenario: No pull request when nothing was committed
 

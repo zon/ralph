@@ -194,7 +194,7 @@ type mockGitHub struct {
 	createPRCalled bool
 }
 
-func (m *mockGitHub) CreatePR(proj *project.Project) error {
+func (m *mockGitHub) CreatePR(proj *project.Project, head string) error {
 	m.createPRCalled = true
 	return nil
 }

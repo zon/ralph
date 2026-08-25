@@ -2,6 +2,7 @@ package run
 
 import (
 	"github.com/zon/ralph/internal/config"
+	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/project"
 	"github.com/zon/ralph/internal/services"
 )
@@ -54,7 +55,7 @@ type WorkflowClient interface {
 }
 
 type GitHubClient interface {
-	CreatePR(proj *project.Project) error
+	CreatePR(proj *project.Project, head string) error
 }
 
 type ServicesClient interface {
@@ -126,7 +127,7 @@ func (r *Runner) RunLocal(input *project.InputFile, cfg *config.RalphConfig) err
 		r.notify.Error(proj.Slug)
 		return err
 	}
-	if err := r.github.CreatePR(proj); err != nil {
+	if err := r.github.CreatePR(proj, git.SanitizeBranchName(proj.Slug)); err != nil {
 		r.notify.Error(proj.Slug)
 		return err
 	}

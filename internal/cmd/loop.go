@@ -13,6 +13,7 @@ import (
 	"github.com/zon/ralph/internal/opencode"
 	"github.com/zon/ralph/internal/orchestration/loop"
 	"github.com/zon/ralph/internal/output"
+	"github.com/zon/ralph/internal/project"
 )
 
 // LoopCmd is the `ralph loop` command. It resolves the loop config steps by
@@ -138,7 +139,7 @@ func (c *LoopCmd) runLocal(ctx *execcontext.Context) error {
 		if err != nil {
 			return err
 		}
-		prClient = github.NewClient(ctx, baseBranch, github.NewGH(ctx.Output()), opencode.New())
+		prClient = &loopPullRequestOpener{client: github.NewClient(ctx, baseBranch, github.NewGH(ctx.Output()), opencode.New())}
 	}
 
 	result, err := loop.NewCmd(&config.Client{}, &loopPromptBuilder{}, propose, aiClient, reportReader, gitClient, prClient, &SystemEnvClient{}).Run(c.Slug, c.Steps, c.Max)
@@ -204,4 +205,16 @@ type loopReportReader struct{}
 // ReadReport reads the agent's report from report.md.
 func (r *loopReportReader) ReadReport() (ai.Report, error) {
 	return ai.ReadReport()
+}
+
+// loopPullRequestOpener opens the loop branch's pull request through the shared
+// github client, so the loop PR is generated exactly like `ralph run`: an AI
+// summary of the commits on the head branch.
+type loopPullRequestOpener struct {
+	client *github.Client
+}
+
+// OpenLoopPullRequest opens the loop-<slug> pull request.
+func (o *loopPullRequestOpener) OpenLoopPullRequest(slug string) error {
+	return o.client.CreatePR(&project.Project{Slug: slug}, git.LoopBranch(slug))
 }
