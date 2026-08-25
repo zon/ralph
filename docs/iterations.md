@@ -78,9 +78,7 @@ A trailer with an index outside the resolved array is ignored with a warning. Th
 
 ## Reading Completion
 
-At the start of each iteration ralph scans the commit messages on the project branch that are not on the base branch, collects every completion trailer, and marks the item at each trailer's index complete. Only trailers naming the current branch count. A trailer naming any other branch is ignored without a warning, so a project branched from another project's branch never inherits that project's completion. A trailer whose index is out of range for the current array is ignored with a warning.
-
-Matching is by branch and index. Because [the project file is immutable](#the-project-file-is-immutable) during a run, the index resolved in iteration 1 refers to the same item in iteration 9, and no further reconciliation is needed.
+At the start of each iteration ralph scans the commit messages on the project branch that are not on the base branch, collects every completion trailer, and marks the item at each trailer's index complete. Only trailers naming the current branch count. A trailer naming any other branch is ignored without a warning, so a project branched from another project's branch never inherits that project's completion. Matching is by branch and index. Because [the project file is immutable](#the-project-file-is-immutable) during a run, the index resolved in iteration 1 refers to the same item in iteration 9, and no further reconciliation is needed.
 
 The same two steps are exposed as commands, and they are the ones the loop itself uses:
 
