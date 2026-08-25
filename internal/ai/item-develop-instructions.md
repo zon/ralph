@@ -12,7 +12,7 @@ Implement the selected item and report what was done.
 
 {{.ItemValue}}
 
-The full project file is available at: `{{.ProjectFilePath}}`. Do not modify the project file — completion is recorded in the commit message, not in the file. The item is identified by its index, so the file is read-only for the whole run. Do not edit any completion field, because no field in the file records completion.
+The full project file is available at: `{{.ProjectFilePath}}`. Do not modify the project file. Completion is recorded in the commit message, not in the file. The item is identified by its index, so the file is read-only for the whole run. Do not edit any completion field, because no field in the file records completion.
 {{- if .Notes}}
 
 **System Notes:**
