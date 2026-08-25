@@ -38,12 +38,12 @@ func TestNotifyClientImplementsInterface(t *testing.T) {
 
 func TestClientNotify_SendsCorrectNotification(t *testing.T) {
 	tests := []struct {
-		name     string
-		method   func(client *Client, slug string)
-		slug     string
+		name      string
+		method    func(client *Client, slug string)
+		slug      string
 		wantTitle string
-		wantMsg  string
-		wantIcon string
+		wantMsg   string
+		wantIcon  string
 	}{
 		{
 			name:      "Success",

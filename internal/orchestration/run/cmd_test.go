@@ -31,10 +31,10 @@ func (m *mockWorkspaceClient) ChangeDirectory(path string) error {
 }
 
 type mockProjectRepo struct {
-	ResolveInputFileFunc  func(string) (*project.InputFile, error)
+	ResolveInputFileFunc   func(string) (*project.InputFile, error)
 	ResolveInputFileCalled bool
-	InputFile             *project.InputFile
-	Err                   error
+	InputFile              *project.InputFile
+	Err                    error
 }
 
 func (m *mockProjectRepo) ResolveInputFile(path string) (*project.InputFile, error) {
@@ -69,10 +69,10 @@ func (m *mockLocalRunnerClient) RunLocal(input *project.InputFile, cfg *config.R
 }
 
 type mockRemoteRunnerClient struct {
-	RunFunc    func(*project.InputFile, RunRemoteFlags) error
-	LastInput  *project.InputFile
-	LastFlags  RunRemoteFlags
-	RunCalled  bool
+	RunFunc   func(*project.InputFile, RunRemoteFlags) error
+	LastInput *project.InputFile
+	LastFlags RunRemoteFlags
+	RunCalled bool
 }
 
 func (m *mockRemoteRunnerClient) Run(input *project.InputFile, flags RunRemoteFlags) error {

@@ -109,12 +109,12 @@ func (m *mockServicesClient) Stop(svc *ralphsvc.Manager) {
 }
 
 type mockGitClient struct {
-	hasChangesFunc             func() bool
-	reportExistsFunc           func() bool
+	hasChangesFunc              func() bool
+	reportExistsFunc            func() bool
 	commitAndPushFromReportFunc func() error
-	hasChangesCalled           bool
-	reportExistsCalled         bool
-	committedAndPushed         bool
+	hasChangesCalled            bool
+	reportExistsCalled          bool
+	committedAndPushed          bool
 }
 
 func (m *mockGitClient) HasChanges() bool {

@@ -22,12 +22,12 @@ func (m *mockContextClient) Resolve(flagContext, flagNamespace string) (K8sConte
 }
 
 type mockConfigClient struct {
-	buildFunc     func(K8sContext, string) webhookconfig.AppConfig
-	writeFunc     func(K8sContext, webhookconfig.AppConfig) error
-	readFunc      func(K8sContext) (webhookconfig.AppConfig, error)
-	buildCalled   bool
-	writeCalled   bool
-	readCalled    bool
+	buildFunc   func(K8sContext, string) webhookconfig.AppConfig
+	writeFunc   func(K8sContext, webhookconfig.AppConfig) error
+	readFunc    func(K8sContext) (webhookconfig.AppConfig, error)
+	buildCalled bool
+	writeCalled bool
+	readCalled  bool
 }
 
 func (m *mockConfigClient) Build(k8sCtx K8sContext, configPath string) webhookconfig.AppConfig {

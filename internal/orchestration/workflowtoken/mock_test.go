@@ -7,10 +7,10 @@ import (
 var errMock = errors.New("mock error")
 
 type mockRepoClient struct {
-	resolveFunc    func(owner, repo string) (string, string, error)
-	resolveCalled  bool
-	lastOwner      string
-	lastRepo       string
+	resolveFunc   func(owner, repo string) (string, string, error)
+	resolveCalled bool
+	lastOwner     string
+	lastRepo      string
 }
 
 func (m *mockRepoClient) Resolve(owner, repo string) (string, string, error) {
@@ -24,8 +24,8 @@ func (m *mockRepoClient) Resolve(owner, repo string) (string, string, error) {
 }
 
 type mockGitHubClient struct {
-	generateTokenFunc     func(owner, repo, secretsDir string) (string, error)
-	generateTokenCalled   bool
+	generateTokenFunc      func(owner, repo, secretsDir string) (string, error)
+	generateTokenCalled    bool
 	generateTokenLastOwner string
 	generateTokenLastRepo  string
 }

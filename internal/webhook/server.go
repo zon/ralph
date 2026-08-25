@@ -126,4 +126,3 @@ func (s *Server) submitWorkflow(result *workflow.WorkflowResult, owner, repoName
 	s.out.Debugf("submitted run workflow %s for %s/%s", name, owner, repoName)
 	s.out.Debugf("To watch logs, run: argo logs -n %s -f %s", result.Namespace, name)
 }
-

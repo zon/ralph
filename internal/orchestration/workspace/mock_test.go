@@ -40,17 +40,17 @@ func (m *mockWorkspaceClient) SetupSymlinks() error {
 
 // mockGitClient
 type mockGitClient struct {
-	configureUserFunc        func(name, email string)
-	cloneFunc                func(branch string) error
-	remoteBranchExistsFunc   func(branch string) (bool, error)
-	fetchAndCheckoutFunc     func(branch string) error
-	createAndCheckoutFunc    func(branch string) error
+	configureUserFunc      func(name, email string)
+	cloneFunc              func(branch string) error
+	remoteBranchExistsFunc func(branch string) (bool, error)
+	fetchAndCheckoutFunc   func(branch string) error
+	createAndCheckoutFunc  func(branch string) error
 
-	configureUserCalled        bool
-	cloneCalled                bool
-	remoteBranchExistsCalled   bool
-	fetchAndCheckoutCalled     bool
-	createAndCheckoutCalled    bool
+	configureUserCalled      bool
+	cloneCalled              bool
+	remoteBranchExistsCalled bool
+	fetchAndCheckoutCalled   bool
+	createAndCheckoutCalled  bool
 }
 
 func (m *mockGitClient) ConfigureUser(name, email string) {

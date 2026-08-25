@@ -12,8 +12,8 @@ import (
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/opencode"
-	wksp "github.com/zon/ralph/internal/orchestration/workspace"
 	orchestrationWorkflow "github.com/zon/ralph/internal/orchestration/workflowrun"
+	wksp "github.com/zon/ralph/internal/orchestration/workspace"
 	"github.com/zon/ralph/internal/project"
 	"github.com/zon/ralph/internal/workspace"
 )
@@ -213,5 +213,3 @@ func (a *debugAdapter) Setup(branch string) error {
 	a.ctx.SetDebugBranch(branch)
 	return nil
 }
-
-

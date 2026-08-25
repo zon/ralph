@@ -68,5 +68,3 @@ type workflowTokenGitClient struct{}
 func (c *workflowTokenGitClient) ConfigureAuth(token string) error {
 	return github.ConfigureTokenAuth(context.Background(), token)
 }
-
-

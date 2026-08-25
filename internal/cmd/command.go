@@ -7,8 +7,8 @@ import (
 	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
 	githubpkg "github.com/zon/ralph/internal/github"
-	"github.com/zon/ralph/internal/output"
 	orchestrationCommand "github.com/zon/ralph/internal/orchestration/command"
+	"github.com/zon/ralph/internal/output"
 	internalwf "github.com/zon/ralph/internal/workflow"
 )
 

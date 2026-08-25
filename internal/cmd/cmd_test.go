@@ -47,7 +47,7 @@ func TestLocalFlagValidation(t *testing.T) {
 			expectError: true,
 			errorMsg:    "--debug flag is not applicable with --local flag",
 		},
-{
+		{
 			name:        "default command - follow with local should fail",
 			args:        []string{"--follow", "--local", "test.yaml"},
 			expectError: true,

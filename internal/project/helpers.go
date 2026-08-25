@@ -21,4 +21,3 @@ func ForSpecInput(path string) *InputFile {
 		kind: inputSpec,
 	}
 }
-

@@ -73,6 +73,3 @@ func buildGetConfigMapDataArgs(name, namespace, kubeContext string) []string {
 	}
 	return args
 }
-
-
-

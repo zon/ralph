@@ -24,9 +24,9 @@ func (m *mockWorkspaceSetupClient) Setup(flags wksp.WorkspaceFlags) error {
 }
 
 type mockExecClient struct {
-	runFunc    func([]string) error
-	runCalled  bool
-	runTokens  []string
+	runFunc   func([]string) error
+	runCalled bool
+	runTokens []string
 }
 
 func (m *mockExecClient) Run(tokens []string) error {
