@@ -2,8 +2,6 @@ package github
 
 import (
 	"context"
-
-	"github.com/zon/ralph/internal/project"
 )
 
 type MockGH struct {
@@ -53,17 +51,6 @@ func (m *MockGH) ListCollaborators(ctx context.Context, owner, repo string) ([]s
 func (m *MockGH) RegisterWebhook(ctx context.Context, owner, repo, webhookURL, secret string) error {
 	if m.RegisterWebhookFn != nil {
 		return m.RegisterWebhookFn(ctx, owner, repo, webhookURL, secret)
-	}
-	return nil
-}
-
-type MockClient struct {
-	CreatePRFunc func(*project.Project) error
-}
-
-func (m *MockClient) CreatePR(proj *project.Project) error {
-	if m.CreatePRFunc != nil {
-		return m.CreatePRFunc(proj)
 	}
 	return nil
 }

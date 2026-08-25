@@ -74,5 +74,5 @@ func TestCleanupItem_CommitContainsOnlyProjectFileDeletion(t *testing.T) {
 	out, err := runGit("show", "--name-status", "--format=", "HEAD")
 	require.NoError(t, err)
 	assert.Equal(t, "D\tprojects/test-project.yaml", strings.TrimSpace(out), "the cleanup commit contains no file changes other than the project file deletion")
-	assert.True(t, IsFileModifiedOrNew("README.md"), "changes to other files are left uncommitted")
+	assert.True(t, HasUncommittedChanges(), "changes to other files are left uncommitted")
 }

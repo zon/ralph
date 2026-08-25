@@ -167,5 +167,3 @@ func (w *WorkflowRunCmd) applyFlags(proj *ralphproj.Project, cfg *ralphcfg.Ralph
 		cfg.Services = nil
 	}
 }
-
-

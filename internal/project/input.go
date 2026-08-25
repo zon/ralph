@@ -18,12 +18,12 @@ type InputFile struct {
 type inputFileKind int
 
 const (
-	inputProject      inputFileKind = iota
+	inputProject inputFileKind = iota
 	inputOrchestration
 	inputSpec
 )
 
-func (f *InputFile) IsProject() bool      { return f.kind == inputProject }
+func (f *InputFile) IsProject() bool       { return f.kind == inputProject }
 func (f *InputFile) IsSpec() bool          { return f.kind == inputSpec }
 func (f *InputFile) IsOrchestration() bool { return f.kind == inputOrchestration }
 func (f *InputFile) Project() *Project     { return f.project }

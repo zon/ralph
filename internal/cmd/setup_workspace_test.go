@@ -43,11 +43,11 @@ func (m *mockSWWorkspaceClient) SetupSymlinks() error {
 }
 
 type mockSWGitClient struct {
-	configureUserFn        func(name, email string)
-	cloneFn                func(branch string) error
-	remoteBranchExistsFn   func(branch string) (bool, error)
-	fetchAndCheckoutFn     func(branch string) error
-	createAndCheckoutFn    func(branch string) error
+	configureUserFn      func(name, email string)
+	cloneFn              func(branch string) error
+	remoteBranchExistsFn func(branch string) (bool, error)
+	fetchAndCheckoutFn   func(branch string) error
+	createAndCheckoutFn  func(branch string) error
 }
 
 func (m *mockSWGitClient) ConfigureUser(name, email string) {

@@ -24,9 +24,9 @@ func (m *mockWorkspaceSetupClient) Setup(flags wksp.WorkspaceFlags) error {
 }
 
 type mockExecClient struct {
-	runFunc    func([]string) error
-	runCalled  bool
-	runTokens  []string
+	runFunc   func([]string) error
+	runCalled bool
+	runTokens []string
 }
 
 func (m *mockExecClient) Run(tokens []string) error {
@@ -65,15 +65,6 @@ func (h *workflowCommandHelper) withWorkspace(wc WorkspaceSetupClient) workflowC
 		cmd.workspace = wc
 		if m, ok := wc.(*mockWorkspaceSetupClient); ok {
 			mockWksp = m
-		}
-	}
-}
-
-func (h *workflowCommandHelper) withExec(ec ExecClient) workflowCommandOption {
-	return func(cmd *WorkflowCommandCmd) {
-		cmd.exec = ec
-		if m, ok := ec.(*mockExecClient); ok {
-			mockExec = m
 		}
 	}
 }

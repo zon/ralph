@@ -56,19 +56,7 @@ func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL,
 		return nil, fmt.Errorf("failed to parse repository from URL: %w", err)
 	}
 
-	workflowOptions := WorkflowOptions{
-		Image:      MakeImage(cfg.Workflow.Image.Repository, cfg.Workflow.Image.Tag),
-		ConfigMaps: cfg.Workflow.ConfigMaps,
-		Secrets:    cfg.Workflow.Secrets,
-		Env:        cfg.Workflow.Env,
-		Namespace:  cfg.Workflow.Namespace,
-		Labels:     cfg.Workflow.Labels,
-	}
-
-	kubeContext := ctx.KubeContext()
-	if kubeContext == "" {
-		kubeContext = cfg.Workflow.Context
-	}
+	workflowOptions := workflowOptionsFromConfig(cfg, ctx)
 
 	return &Workflow{
 		ProjectName:   projectName,
@@ -86,7 +74,7 @@ func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL,
 		ConfigMaps:    workflowOptions.ConfigMaps,
 		Secrets:       workflowOptions.Secrets,
 		Env:           workflowOptions.Env,
-		KubeContext:   kubeContext,
+		KubeContext:   workflowOptions.KubeContext,
 		Namespace:     workflowOptions.Namespace,
 		NoServices:    ctx.NoServices(),
 		Model:         ctx.Model(),

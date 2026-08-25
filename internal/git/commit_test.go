@@ -26,7 +26,7 @@ func TestStageFile(t *testing.T) {
 	require.NoError(t, err, "StageFile failed")
 
 	// Verify the file is staged by checking git status
-	status, err := RevParse("--verify", ":newfile.txt")
+	status, err := runGit("rev-parse", "--verify", ":newfile.txt")
 	require.NoError(t, err, "Failed to verify staged file")
 	assert.NotEmpty(t, status)
 }

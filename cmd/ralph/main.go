@@ -21,7 +21,6 @@ func main() {
 
 	c := &cmd.Cmd{}
 	c.SetVersion(version.Version(), Date)
-	c.SetCleanupRegistrar(cleanupManager.RegisterCleanup)
 
 	ctx := kong.Parse(c,
 		kong.Name("ralph"),

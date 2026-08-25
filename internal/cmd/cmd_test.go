@@ -47,7 +47,7 @@ func TestLocalFlagValidation(t *testing.T) {
 			expectError: true,
 			errorMsg:    "--debug flag is not applicable with --local flag",
 		},
-{
+		{
 			name:        "default command - follow with local should fail",
 			args:        []string{"--follow", "--local", "test.yaml"},
 			expectError: true,
@@ -438,15 +438,6 @@ func TestWorkflowRunItemFlagsParsed(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "", cmd2.Workflow.Run.Items)
 	require.False(t, cmd2.Workflow.Run.Cleanup)
-}
-
-func TestCommandSubcommandCleanupRegistrarWiring(t *testing.T) {
-	cmd := &Cmd{}
-	require.Nil(t, cmd.Command.cleanupRegistrar, "CommandCmd.cleanupRegistrar should be nil before SetCleanupRegistrar")
-
-	cmd.SetCleanupRegistrar(func(registrar func()) {})
-
-	require.NotNil(t, cmd.Command.cleanupRegistrar, "CommandCmd.cleanupRegistrar should be set after SetCleanupRegistrar")
 }
 
 // TestTopLevelHelpListsNoMergeCommand asserts the top-level help lists no merge

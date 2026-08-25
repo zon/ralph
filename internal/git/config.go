@@ -2,7 +2,6 @@ package git
 
 import (
 	"fmt"
-	"strings"
 )
 
 func Config(global bool, key, value string) error {
@@ -44,12 +43,4 @@ func ConfigUnset(global bool, key string) error {
 		return fmt.Errorf("failed to unset git config %s: %w", key, err)
 	}
 	return nil
-}
-
-func ConfigGet(key string) (string, error) {
-	output, err := runGit("config", "--get", key)
-	if err != nil {
-		return "", fmt.Errorf("failed to get git config %s: %w", key, err)
-	}
-	return strings.TrimSpace(output), nil
 }

@@ -49,16 +49,6 @@ func StageAll() error {
 	return nil
 }
 
-// IsFileModifiedOrNew returns true if the given file has uncommitted modifications
-// or is an untracked new file. Works for both tracked and untracked files.
-func IsFileModifiedOrNew(path string) bool {
-	out, err := runGit("status", "--porcelain", "--", path)
-	if err != nil {
-		return false
-	}
-	return strings.TrimSpace(out) != ""
-}
-
 // HasStagedChanges checks if there are any staged changes ready to commit
 func HasStagedChanges() bool {
 	// git diff --cached --quiet: exit 0 = no staged changes, exit 1 = has staged changes

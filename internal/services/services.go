@@ -58,7 +58,6 @@ type Process struct {
 	Name    string
 	service config.Service
 	cmd     *exec.Cmd
-	pid     int
 	logFile *os.File // {service}.log in the repo root, capturing output during startup
 	out     *output.Client
 }
@@ -139,7 +138,6 @@ func createAndStartProcess(svc config.Service, cmdStr string, out *output.Client
 		Name:    svc.Name,
 		service: svc,
 		cmd:     cmd,
-		pid:     cmd.Process.Pid,
 		logFile: logFile,
 		out:     out,
 	}, nil
@@ -203,34 +201,18 @@ func (p *Process) IsRunning() bool {
 	return err == nil
 }
 
-// joinArgs joins command arguments into a string for display
-func joinArgs(ctx []string) string {
-	if len(ctx) == 0 {
-		return ""
-	}
-
-	result := ""
-	for i, arg := range ctx {
-		if i > 0 {
-			result += " "
-		}
-		if containsSpace(arg) {
-			result += fmt.Sprintf("'%s'", arg)
+// joinArgs joins command arguments into a string for display, quoting any
+// argument that contains spaces.
+func joinArgs(args []string) string {
+	quoted := make([]string, len(args))
+	for i, arg := range args {
+		if strings.Contains(arg, " ") {
+			quoted[i] = fmt.Sprintf("'%s'", arg)
 		} else {
-			result += arg
+			quoted[i] = arg
 		}
 	}
-	return result
-}
-
-// containsSpace checks if a string contains spaces
-func containsSpace(s string) bool {
-	for _, r := range s {
-		if r == ' ' {
-			return true
-		}
-	}
-	return false
+	return strings.Join(quoted, " ")
 }
 
 // logServiceOutput logs the contents of the service's log file, if any

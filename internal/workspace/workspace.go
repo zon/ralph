@@ -20,7 +20,7 @@ func ReadOpenCodeCredentials(authFilePath string) ([]byte, error) {
 	authFileContent, err := os.ReadFile(authFilePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("OpenCode auth.json not found at %s\n\nPlease ensure OpenCode is configured and the auth.json file exists.", authFilePath)
+			return nil, fmt.Errorf("OpenCode auth.json not found at %s\n\nPlease ensure OpenCode is configured and the auth.json file exists", authFilePath)
 		}
 		return nil, fmt.Errorf("failed to read auth.json: %w", err)
 	}

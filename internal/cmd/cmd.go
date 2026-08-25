@@ -14,9 +14,8 @@ type Cmd struct {
 	Logs     LogsCmd       `cmd:"" help:"Get logs of an Argo workflow"`
 	Loop     LoopCmd       `cmd:"" help:"Run AI iterations over a set of steps"`
 
-	version          string       `kong:"-"`
-	date             string       `kong:"-"`
-	cleanupRegistrar func(func()) `kong:"-"`
+	version string `kong:"-"`
+	date    string `kong:"-"`
 }
 
 // WorkflowGroup defines the workflow subcommand group
@@ -34,14 +33,4 @@ func (c *Cmd) SetVersion(version, date string) {
 	c.date = date
 	c.Run.version = version
 	c.Run.date = date
-}
-
-// SetCleanupRegistrar sets the cleanup registrar function
-func (c *Cmd) SetCleanupRegistrar(cleanupRegistrar func(func())) {
-	c.cleanupRegistrar = cleanupRegistrar
-	c.Run.cleanupRegistrar = cleanupRegistrar
-	c.Command.cleanupRegistrar = cleanupRegistrar
-	c.Workflow.Run.cleanupRegistrar = cleanupRegistrar
-	c.Workflow.Comment.cleanupRegistrar = cleanupRegistrar
-	c.Workflow.Command.cleanupRegistrar = cleanupRegistrar
 }

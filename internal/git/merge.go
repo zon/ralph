@@ -41,4 +41,3 @@ func NeedsMerge(branch string) (bool, error) {
 	}
 	return strings.TrimSpace(mergeBase) != strings.TrimSpace(baseCommit), nil
 }
-

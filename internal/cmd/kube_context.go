@@ -26,7 +26,7 @@ func resolveKubeContext(ctx context.Context, client k8s.Client, ralphConfig *con
 	} else {
 		current, err := client.GetCurrentContext(ctx)
 		if err != nil {
-			return k8s.Context{}, fmt.Errorf("failed to get current Kubernetes context: %w\n\nMake sure kubectl is installed and configured.", err)
+			return k8s.Context{}, fmt.Errorf("failed to get current Kubernetes context: %w\n\nMake sure kubectl is installed and configured", err)
 		}
 		out.Debugf("Using current Kubernetes context: %s", current.Name)
 		k8sCtx.Name = current.Name

@@ -23,8 +23,6 @@ type WorkflowRunCmd struct {
 	ExtraIterations int    `help:"Extra iterations beyond requirement count (default: 20% of requirements)" name:"extra-iterations"`
 	Model           string `help:"Override the AI model from config" name:"model"`
 	Agent           string `help:"Override the opencode agent from config" name:"agent"`
-
-	cleanupRegistrar func(func()) `kong:"-"`
 }
 
 func (w *WorkflowRunCmd) Run() error {
@@ -50,7 +48,7 @@ func (w *WorkflowRunCmd) Run() error {
 
 	cloneBranch := os.Getenv("GIT_BRANCH")
 
-	cmd := newOrchestrationWorkflowRunCmd(ctx, w.cleanupRegistrar)
+	cmd := newOrchestrationWorkflowRunCmd(ctx)
 	flags := orchestrationWorkflow.WorkflowRunFlags{
 		Repo:            w.Repo,
 		CloneBranch:     cloneBranch,

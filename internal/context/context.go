@@ -22,7 +22,6 @@ type Context struct {
 	repoOwner         string
 	repoName          string
 	notes             []string // Runtime notes to pass to the agent
-	instructions      string   // Path to an instructions file that overrides the default instructions
 	instructionsMD    string   // Inline instructions content; overrides .ralph/instructions.md when set
 	branch            string   // Branch override; skips local git GetCurrentBranch + sync check
 	debugBranch       string   // When set, workflows checkout this ralph repo branch and invoke ralph via `go run`
@@ -45,13 +44,6 @@ func NewContext() *Context {
 
 func (c *Context) GoContext() context.Context {
 	return c.goCtx
-}
-
-// WithGoContext returns a new Context with the provided standard context.Context.
-func (c *Context) WithGoContext(goCtx context.Context) *Context {
-	newCtx := *c
-	newCtx.goCtx = goCtx
-	return &newCtx
 }
 
 func (c *Context) Output() *output.Client {
@@ -94,17 +86,6 @@ func (c *Context) RepoOwnerAndName() (owner, name string) {
 	return c.repoOwner, c.repoName
 }
 
-func (c *Context) AddNote(note string) {
-	if c.notes == nil {
-		c.notes = []string{}
-	}
-	c.notes = append(c.notes, note)
-}
-
-func (c *Context) HasNotes() bool {
-	return len(c.notes) > 0
-}
-
 func (c *Context) SetVerbose(verbose bool) {
 	c.verbose = verbose
 }
@@ -127,10 +108,6 @@ func (c *Context) SetFollow(follow bool) {
 
 func (c *Context) SetProjectFile(projectFile string) {
 	c.projectFile = projectFile
-}
-
-func (c *Context) SetInstructions(instructions string) {
-	c.instructions = instructions
 }
 
 func (c *Context) SetInstructionsMD(instructionsMD string) {
@@ -177,24 +154,12 @@ func (c *Context) BaseBranch() string {
 	return c.baseBranch
 }
 
-func (c *Context) BotName() string {
-	return c.botName
-}
-
-func (c *Context) BotEmail() string {
-	return c.botEmail
-}
-
 func (c *Context) ProjectFile() string {
 	return c.projectFile
 }
 
 func (c *Context) InstructionsMD() string {
 	return c.instructionsMD
-}
-
-func (c *Context) Instructions() string {
-	return c.instructions
 }
 
 func (c *Context) Notes() []string {

@@ -12,17 +12,17 @@ import (
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/opencode"
-	wksp "github.com/zon/ralph/internal/orchestration/workspace"
 	orchestrationWorkflow "github.com/zon/ralph/internal/orchestration/workflowrun"
+	wksp "github.com/zon/ralph/internal/orchestration/workspace"
 	"github.com/zon/ralph/internal/project"
 	"github.com/zon/ralph/internal/workspace"
 )
 
-func newOrchestrationWorkflowRunCmd(ctx *execcontext.Context, cleanupRegistrar func(func())) *orchestrationWorkflow.WorkflowRunCmd {
+func newOrchestrationWorkflowRunCmd(ctx *execcontext.Context) *orchestrationWorkflow.WorkflowRunCmd {
 	return orchestrationWorkflow.NewWorkflowRunCmd(
 		&workspaceSetupAdapter{ctx: ctx},
 		&gitAdapter{},
-		&aiAdapter{ctx: ctx, cleanupRegistrar: cleanupRegistrar},
+		&aiAdapter{ctx: ctx},
 		&runnerAdapter{ctx: ctx, baseBranch: ctx.BaseBranch()},
 		&configOptionalAdapter{},
 		&projectResolveAdapter{ctx: ctx},
@@ -145,8 +145,7 @@ func (a *gitAdapter) AbortMerge() {
 // ---------------------------------------------------------------------------
 
 type aiAdapter struct {
-	ctx              *execcontext.Context
-	cleanupRegistrar func(func())
+	ctx *execcontext.Context
 }
 
 func (a *aiAdapter) ResolveMergeConflicts(baseBranch, projectBranch string) error {
@@ -213,5 +212,3 @@ func (a *debugAdapter) Setup(branch string) error {
 	a.ctx.SetDebugBranch(branch)
 	return nil
 }
-
-

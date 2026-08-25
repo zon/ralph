@@ -7,12 +7,6 @@ import (
 	"strings"
 )
 
-// isGitRepository checks if the current directory is inside a git repository
-func isGitRepository() bool {
-	_, err := runGit("rev-parse", "--git-dir")
-	return err == nil
-}
-
 // FindRepoRoot returns the root directory of the git repository
 func FindRepoRoot() (string, error) {
 	repoRoot, err := runGit("rev-parse", "--show-toplevel")
@@ -43,31 +37,4 @@ func TmpPath(name string) (string, error) {
 	base := strings.TrimSuffix(name, ext)
 	pidName := fmt.Sprintf("%s-%d%s", base, os.Getpid(), ext)
 	return filepath.Join(tmpDir, pidName), nil
-}
-
-// isDetachedHead checks if the repository is in a detached HEAD state
-func isDetachedHead() (bool, error) {
-	_, err := runGit("symbolic-ref", "-q", "HEAD")
-	return err != nil, nil
-}
-
-// RepoRootOrCwd returns the root directory of the git repository containing the current working directory,
-// or the current working directory if not inside a git repository.
-func RepoRootOrCwd() string {
-	root, err := FindRepoRoot()
-	if err != nil {
-		cwd, _ := os.Getwd()
-		return cwd
-	}
-	return root
-}
-
-// RevParse executes git rev-parse with the given arguments
-func RevParse(args ...string) (string, error) {
-	fullArgs := append([]string{"rev-parse"}, args...)
-	out, err := runGit(fullArgs...)
-	if err != nil {
-		return "", fmt.Errorf("rev-parse failed: %w", err)
-	}
-	return strings.TrimSpace(out), nil
 }

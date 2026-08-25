@@ -7,8 +7,8 @@ import (
 	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
 	githubpkg "github.com/zon/ralph/internal/github"
-	"github.com/zon/ralph/internal/output"
 	orchestrationCommand "github.com/zon/ralph/internal/orchestration/command"
+	"github.com/zon/ralph/internal/output"
 	internalwf "github.com/zon/ralph/internal/workflow"
 )
 
@@ -16,8 +16,6 @@ type CommandCmd struct {
 	Command  []string `arg:"" name:"command" help:"Command to run" optional:""`
 	NoFollow bool     `help:"Skip following workflow logs" name:"no-follow" default:"false"`
 	Verbose  bool     `help:"Enable verbose logging" default:"false"`
-
-	cleanupRegistrar func(func()) `kong:"-"`
 }
 
 func (c *CommandCmd) Run() error {

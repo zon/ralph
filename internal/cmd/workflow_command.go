@@ -16,8 +16,6 @@ type WorkflowCommandCmd struct {
 	BotName     string   `help:"Git user name for commits" default:"ralph-zon[bot]"`
 	BotEmail    string   `help:"Git user email for commits" default:"ralph-zon[bot]@users.noreply.github.com"`
 	Command     []string `arg:"" name:"command" help:"Command to run" required:""`
-
-	cleanupRegistrar func(func()) `kong:"-"`
 }
 
 func (w *WorkflowCommandCmd) Run() error {

@@ -550,9 +550,12 @@ func TestExecuteTemplate(t *testing.T) {
 		expected string
 	}{
 		{
-			name:     "success",
-			tmpl:     "Name: {{.Name}}, Age: {{.Age}}",
-			data:     struct{ Name string; Age int }{Name: "Alice", Age: 30},
+			name: "success",
+			tmpl: "Name: {{.Name}}, Age: {{.Age}}",
+			data: struct {
+				Name string
+				Age  int
+			}{Name: "Alice", Age: 30},
 			expected: "Name: Alice, Age: 30",
 		},
 		{
@@ -563,9 +566,9 @@ func TestExecuteTemplate(t *testing.T) {
 			errMsg:  "failed to parse template",
 		},
 		{
-			name: "execute error",
-			tmpl: "{{.Age}}",
-			data: struct{ Name string }{Name: "Bob"},
+			name:    "execute error",
+			tmpl:    "{{.Age}}",
+			data:    struct{ Name string }{Name: "Bob"},
 			wantErr: true,
 			errMsg:  "failed to execute template",
 		},

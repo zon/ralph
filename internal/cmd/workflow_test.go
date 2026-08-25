@@ -5,10 +5,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zon/ralph/internal/config"
 	orchestrationWorkflow "github.com/zon/ralph/internal/orchestration/workflowrun"
 	"github.com/zon/ralph/internal/orchestration/workspace"
 	"github.com/zon/ralph/internal/project"
-	"github.com/zon/ralph/internal/config"
 )
 
 func TestGitAdapterFetchBranch_NoRemoteReturnsError(t *testing.T) {
@@ -179,14 +179,14 @@ func TestWorkflowRunCmd_FlagPropagation(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name               string
-		flags              orchestrationWorkflow.WorkflowRunFlags
-		debugBranch        string
-		wantBase           string
-		wantModel          string
-		wantAgent          string
-		wantExtraIter      int
-		wantNoServices     bool
+		name           string
+		flags          orchestrationWorkflow.WorkflowRunFlags
+		debugBranch    string
+		wantBase       string
+		wantModel      string
+		wantAgent      string
+		wantExtraIter  int
+		wantNoServices bool
 	}{
 		{
 			name: "propagates all flags to orchestration",
@@ -282,7 +282,7 @@ func TestWorkflowRunCmd_FlagPropagation(t *testing.T) {
 			if tt.wantBase != "" {
 				assert.Equal(t, tt.wantBase, capturedProj.BaseBranch)
 			}
-					if tt.wantModel != "" {
+			if tt.wantModel != "" {
 				assert.Equal(t, tt.wantModel, capturedCfg.Model)
 			}
 			if tt.wantAgent != "" {

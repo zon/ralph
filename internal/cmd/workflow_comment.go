@@ -28,8 +28,6 @@ type WorkflowCommentCmd struct {
 	RepoName         string `help:"Repository name" name:"repo-name" required:""`
 	NoServices       bool   `help:"Skip service startup" default:"false"`
 	InstructionsFile string `help:"Path to instructions file" name:"instructions-file"`
-
-	cleanupRegistrar func(func()) `kong:"-"`
 }
 
 func (w *WorkflowCommentCmd) Run() error {
@@ -93,7 +91,7 @@ func (c *workflowCommentAIClient) RenderCommentPrompt(ctx orchestrationComment.C
 	}
 
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("# Comment Context\n\n"))
+	b.WriteString("# Comment Context\n\n")
 	b.WriteString(fmt.Sprintf("Comment: %s\n", ctx.CommentBody))
 	b.WriteString(fmt.Sprintf("PR Number: %d\n", ctx.PRNumber))
 	b.WriteString(fmt.Sprintf("PR Branch: %s\n", ctx.PRBranch))
