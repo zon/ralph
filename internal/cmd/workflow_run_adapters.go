@@ -18,11 +18,11 @@ import (
 	"github.com/zon/ralph/internal/workspace"
 )
 
-func newOrchestrationWorkflowRunCmd(ctx *execcontext.Context, cleanupRegistrar func(func())) *orchestrationWorkflow.WorkflowRunCmd {
+func newOrchestrationWorkflowRunCmd(ctx *execcontext.Context) *orchestrationWorkflow.WorkflowRunCmd {
 	return orchestrationWorkflow.NewWorkflowRunCmd(
 		&workspaceSetupAdapter{ctx: ctx},
 		&gitAdapter{},
-		&aiAdapter{ctx: ctx, cleanupRegistrar: cleanupRegistrar},
+		&aiAdapter{ctx: ctx},
 		&runnerAdapter{ctx: ctx, baseBranch: ctx.BaseBranch()},
 		&configOptionalAdapter{},
 		&projectResolveAdapter{ctx: ctx},
@@ -145,8 +145,7 @@ func (a *gitAdapter) AbortMerge() {
 // ---------------------------------------------------------------------------
 
 type aiAdapter struct {
-	ctx              *execcontext.Context
-	cleanupRegistrar func(func())
+	ctx *execcontext.Context
 }
 
 func (a *aiAdapter) ResolveMergeConflicts(baseBranch, projectBranch string) error {

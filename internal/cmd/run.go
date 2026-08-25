@@ -29,9 +29,8 @@ type RunCmd struct {
 	Context         string `help:"Kubernetes context to use" name:"context" optional:""`
 	ShowVersion     bool   `help:"Show version information" short:"v" name:"version"`
 
-	version          string       `kong:"-"`
-	date             string       `kong:"-"`
-	cleanupRegistrar func(func()) `kong:"-"`
+	version string `kong:"-"`
+	date    string `kong:"-"`
 }
 
 // Run executes the run command (implements kong.Run interface)

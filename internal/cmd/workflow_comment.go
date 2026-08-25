@@ -28,8 +28,6 @@ type WorkflowCommentCmd struct {
 	RepoName         string `help:"Repository name" name:"repo-name" required:""`
 	NoServices       bool   `help:"Skip service startup" default:"false"`
 	InstructionsFile string `help:"Path to instructions file" name:"instructions-file"`
-
-	cleanupRegistrar func(func()) `kong:"-"`
 }
 
 func (w *WorkflowCommentCmd) Run() error {

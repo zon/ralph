@@ -440,15 +440,6 @@ func TestWorkflowRunItemFlagsParsed(t *testing.T) {
 	require.False(t, cmd2.Workflow.Run.Cleanup)
 }
 
-func TestCommandSubcommandCleanupRegistrarWiring(t *testing.T) {
-	cmd := &Cmd{}
-	require.Nil(t, cmd.Command.cleanupRegistrar, "CommandCmd.cleanupRegistrar should be nil before SetCleanupRegistrar")
-
-	cmd.SetCleanupRegistrar(func(registrar func()) {})
-
-	require.NotNil(t, cmd.Command.cleanupRegistrar, "CommandCmd.cleanupRegistrar should be set after SetCleanupRegistrar")
-}
-
 // TestTopLevelHelpListsNoMergeCommand asserts the top-level help lists no merge
 // command now that the merge feature is removed.
 func TestTopLevelHelpListsNoMergeCommand(t *testing.T) {
