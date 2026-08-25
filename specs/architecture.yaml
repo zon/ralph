@@ -47,13 +47,13 @@ modules:
     description: Orchestrates the full run command from input validation through local and remote execution dispatch.
     category: orchestration
   - path: internal/orchestration/workspace
-    description: Bootstraps the container environment for all workflow subcommands — GitHub auth, AI credentials, git identity, repo clone, branch checkout, and symlinks.
+    description: Bootstraps the container environment for the workflow subcommands.
     category: orchestration
   - path: internal/orchestration/workflowrun
-    description: Orchestrates the workflow run subcommand — workspace setup, base branch sync, optional debug mode setup, and project execution.
+    description: Orchestrates the workflow run subcommand.
     category: orchestration
   - path: internal/orchestration/comment
-    description: Orchestrates the workflow comment subcommand — workspace setup, AI agent invocation with a rendered comment prompt, commit, and PR reply.
+    description: Orchestrates the workflow comment subcommand.
     category: orchestration
   - path: internal/project
     description: Resolves a project file into its item array, reconciles completion trailers from the branch commit log, and projects item arrays into indices or values.
@@ -62,16 +62,16 @@ modules:
     description: Orchestrates the get complete and get incomplete subcommands by resolving the item array and subtracting the indices recorded in the commit log.
     category: orchestration
   - path: internal/orchestration/loop
-    description: Orchestrates the ralph loop command — local iteration, remote submission, and in-workflow execution.
+    description: Orchestrates the ralph loop command.
     category: orchestration
   - path: internal/orchestration/validate
     description: Orchestrates a bounded fix loop that repairs unparseable project files using an AI agent, then checks the item query resolves.
     category: orchestration
   - path: internal/orchestration/setconfig
-    description: Orchestrates the ralph CLI set-config subcommand — resolving the Kubernetes context and configuring GitHub and OpenCode credentials.
+    description: Orchestrates the ralph CLI set-config subcommand.
     category: orchestration
   - path: internal/orchestration/webhooksetconfig
-    description: Orchestrates the ralph-webhook set-config subcommand — building and writing service configuration, generating and writing secrets, and registering webhooks.
+    description: Orchestrates the ralph-webhook set-config subcommand.
     category: orchestration
   - path: internal/orchestration/workflowtoken
     description: Orchestrates generating a scoped GitHub workflow token for a repository and configuring git to authenticate with it.
@@ -108,7 +108,7 @@ modules:
     description: Thin wrapper around the git CLI for repository operations.
     category: implementation
   - path: internal/workspace
-    description: Filesystem helpers for preparing the container workspace — credential placement, repo checkout, and directory changes.
+    description: Filesystem helpers for preparing the container workspace.
     category: implementation
   - path: internal/github
     description: Wraps the gh CLI and the GitHub App API for GitHub operations, authentication, and webhook payload parsing.
@@ -126,7 +126,7 @@ modules:
     description: Carries runtime execution settings across the application.
     category: pipeline
   - path: internal/output
-    description: Routes debug, info, warn, error, and success messages and JSON output to configurable output and error streams with ANSI color.
+    description: Routes log messages and JSON output to configurable output and error streams.
     category: pipeline
   - path: internal/notify
     description: Desktop notification helper for success and error events.
