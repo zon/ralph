@@ -120,7 +120,7 @@ The loop also stops early when `blocked.md` exists at the start of an iteration,
 When every item is complete:
 
 1. Ralph generates a PR summary from the branch's commit log.
-2. If cleanup is enabled, ralph deletes the project file and commits the deletion on its own — `chore: clean up completed project <path>` — with no completion trailer.
+2. If cleanup is enabled, ralph deletes the project file and commits the deletion on its own with the message `chore: clean up completed project <path>` and no completion trailer.
 3. Ralph opens a pull request from the project branch to the base branch.
 
 Cleanup is off by default. Enable it with `--cleanup` or `cleanup: true` in `.ralph/config.yaml`. It is a separate commit so that the commit that removes the file does not also carry code changes, and so the completion history stays readable in the PR after the file is gone.
