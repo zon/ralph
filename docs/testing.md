@@ -10,7 +10,7 @@ Use `github.com/stretchr/testify` (`assert` and `require`) for all assertions.
 
 ## External Dependencies
 
-Tests must not invoke any external tools or services — no `git`, `gh`, `opencode`, or any other CLI or network call. Any function that calls an external dependency must support a dry-run mode. In dry-run mode the function skips the real call and returns inspectable state describing what it would have done. Tests enable dry-run and assert on that state.
+Tests must not invoke any external tools or services. No `git`, `gh`, `opencode`, or any other CLI or network call. Any function that calls an external dependency must support a dry-run mode. In dry-run mode the function skips the real call and returns inspectable state describing what it would have done. Tests enable dry-run and assert on that state.
 
 ## Structure
 
