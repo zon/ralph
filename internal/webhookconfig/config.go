@@ -133,14 +133,12 @@ func LoadConfig(configPath, secretsPath string) (*Config, error) {
 
 // ValidateConfig validates that required secrets are present
 func ValidateConfig(cfg *Config) error {
-	// Build a lookup of repo secrets for validation
 	secretsByRepo := make(map[string]string)
 	for _, rs := range cfg.Secrets.Repos {
 		key := repoKey(rs.Owner, rs.Name)
 		secretsByRepo[key] = rs.WebhookSecret
 	}
 
-	// Every repo in config must have a namespace and a webhook secret
 	for _, repo := range cfg.App.Repos {
 		if repo.Namespace == "" {
 			return fmt.Errorf("namespace is required for repo %s/%s", repo.Owner, repo.Name)
