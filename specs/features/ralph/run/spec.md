@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The `run` command is ralph's primary entry point. Given a project file, an orchestration document, or a spec document, it drives an AI coding agent through iterative development cycles until every item in the project is recorded complete, then opens a GitHub pull request. A project file is any YAML or JSON file containing an array of work items; the array is selected with the [item query](../../../../docs/projects.md#item-query) and completion is recorded in the branch's commit messages, not in the file. When an orchestration or spec is provided instead of a project, ralph generates the missing artifacts and commits them before running. Execution can be delegated to an Argo Workflow (default) or run directly on the local machine (`--local`).
+The `run` command is ralph's primary entry point. Given a project file, an orchestration document, or a spec document, it drives an AI coding agent through iterative development cycles until every item in the project is recorded complete, then opens a GitHub pull request. A project file is any YAML or JSON file containing an array of work items. The array is selected with the [item query](../../../../docs/projects.md#item-query), and completion is recorded in the branch's commit messages, not in the file. When an orchestration or spec is provided instead of a project, ralph generates the missing artifacts and commits them before running. Execution can be delegated to an Argo Workflow (default) or run directly on the local machine (`--local`).
 
 Mode-specific behaviors are defined in:
 - [run-local/spec.md](../run-local/spec.md) — `--local` flag: runs the development loop in-process
