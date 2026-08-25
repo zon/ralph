@@ -112,7 +112,7 @@ Checks that the file parses as YAML or JSON, that the item query evaluates again
 |------|-------------|
 | `--items` | jq query selecting the item array (default: config `items`, else `.`) |
 
-`--items` resolves the same way it does for a run: the flag first, then `items` in `.ralph/config.yaml`, then `.`. Validate with the query the run will use — a file that validates under `.` and runs under `.requirements` has not been checked.
+`--items` resolves the same way it does for a run: the flag first, then `items` in `.ralph/config.yaml`, then `.`. Validate with the query the run will use. A file that validates under `.` and runs under `.requirements` has not been checked.
 
 Note that a successful validation rewrites the file in canonical YAML, and converts a `.json` input to `.yaml`. That is fine for project files you own, but it is not what you want on a file borrowed from another tool. Skip validate for those and confirm the query with `ralph get incomplete` instead, which only reads.
 
