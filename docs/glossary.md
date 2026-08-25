@@ -2,7 +2,7 @@
 
 ## Project
 
-Any YAML or JSON file that contains an array of work items. Ralph imposes no schema on a project file — it reads an array out of it with the item query and treats everything else as opaque context for the AI agent. See [Project Files](projects.md).
+Any YAML or JSON file that contains an array of work items. Ralph imposes no schema on a project file. It reads an array out of it with the item query and treats everything else as opaque context for the AI agent. See [Project Files](projects.md).
 
 ## Item
 
