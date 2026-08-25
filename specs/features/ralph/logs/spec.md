@@ -38,7 +38,7 @@ The system SHALL provide a `ralph logs` command that accepts an optional workflo
 
 ### Requirement: Workflow Name Resolution
 
-When no workflow name is provided, the system SHALL select the workflow at the top of the `ralph list` output, the first workflow row shown by `ralph list`, and log that workflow. When the list is empty, the system SHALL return an error instead of logging nothing.
+When no workflow name is provided, the system SHALL select the workflow at the top of the `ralph list` output and log that workflow. When the list is empty, the system SHALL return an error instead of logging nothing.
 
 #### Scenario: Top of the list selected
 
