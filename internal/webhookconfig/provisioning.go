@@ -68,16 +68,17 @@ func BuildWebhookAppConfig(ctx context.Context, out *output.Client, base, update
 	}
 
 	for i, r := range cfg.Repos {
-		if len(r.AllowedUsers) == 0 {
-			users, err := gh.ListCollaborators(ctx, r.Owner, r.Name)
-			if err != nil {
-				if out != nil {
-					out.Warnf("Failed to fetch collaborators for %s/%s: %v (skipping AllowedUsers)", r.Owner, r.Name, err)
-				}
-			} else {
-				cfg.Repos[i].AllowedUsers = users
-			}
+		if len(r.AllowedUsers) != 0 {
+			continue
 		}
+		users, err := gh.ListCollaborators(ctx, r.Owner, r.Name)
+		if err != nil {
+			if out != nil {
+				out.Warnf("Failed to fetch collaborators for %s/%s: %v (skipping AllowedUsers)", r.Owner, r.Name, err)
+			}
+			continue
+		}
+		cfg.Repos[i].AllowedUsers = users
 	}
 
 	return cfg
