@@ -93,7 +93,7 @@ func (c *workflowCommentAIClient) RenderCommentPrompt(ctx orchestrationComment.C
 	}
 
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("# Comment Context\n\n"))
+	b.WriteString("# Comment Context\n\n")
 	b.WriteString(fmt.Sprintf("Comment: %s\n", ctx.CommentBody))
 	b.WriteString(fmt.Sprintf("PR Number: %d\n", ctx.PRNumber))
 	b.WriteString(fmt.Sprintf("PR Branch: %s\n", ctx.PRBranch))
