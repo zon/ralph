@@ -48,7 +48,7 @@ See [Iterations](iterations.md) for the completion model.
 
 ## ralph get
 
-Inspects completion state. Both subcommands emit JSON on stdout, are read-only, and make no AI calls — they are what the picker agent is built from, and they are the way to check a run's progress from a script or by hand.
+Inspects completion state. Both subcommands emit JSON on stdout, are read-only, and make no AI calls. They are what the picker agent is built from, and they are the way to check a run's progress from a script or by hand.
 
 ### ralph get complete
 
