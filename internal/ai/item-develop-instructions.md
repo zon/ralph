@@ -36,7 +36,7 @@ The full project file is available at: `{{.ProjectFilePath}}`. Do not modify the
 
 ## Definitions
 
-**Item** — one element of the project's resolved item array, presented above verbatim with its 0-based index and its key when it has one. An item has no fixed schema: every field is optional, and an item may be a mapping, a plain string, or any other shape. The project format the repository has installed defines what its fields mean; read it before interpreting them.
+**Item** — one element of the project's resolved item array, presented above verbatim with its 0-based index and its key when it has one. An item has no fixed schema: every field is optional, and an item may be a mapping, a plain string, or any other shape. The project format the repository has installed defines what its fields mean. Read it before interpreting them.
 
 **Completion** — the completion trailer is the only way an item is marked complete: a bare `<branch>-<index>` line such as `csv-export-2` at the end of a commit message on the project branch. A trailer naming a different branch is not evidence of completion.
 
