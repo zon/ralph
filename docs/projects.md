@@ -2,7 +2,7 @@
 
 A project is any YAML or JSON file that contains an array of work items. Ralph imposes no schema on a project file. It needs exactly one thing from it: a [jq](https://jqlang.org/manual/) query that resolves to an array. Each element of that array is an **item** — one unit of work, one iteration. Everything else in the file is opaque to ralph and is passed through to the AI agent as-is.
 
-What a project file should contain beyond that — the conventional shape of an item and the fields a well-formed project carries — is defined outside ralph. See [Project Format](zpecs/project.md) in the installed spec documents.
+What a project file should contain beyond that is defined outside ralph: the conventional shape of an item and the fields a well-formed project carries. See [Project Format](zpecs/project.md) in the installed spec documents.
 
 ## File Location
 
