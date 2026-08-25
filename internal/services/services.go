@@ -94,21 +94,13 @@ func (m *Manager) Start(services []config.Service) (config.Service, error) {
 	return config.Service{}, nil
 }
 
-// Stop stops all tracked services and clears the process list
-// Can be called multiple times safely - subsequent calls are no-ops
+// Stop stops all tracked services and clears the process list.
+// Can be called multiple times safely - subsequent calls are no-ops.
 func (m *Manager) Stop() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	// If no processes, nothing to do
-	if len(m.processes) == 0 {
-		return
-	}
-
-	// Stop all services
 	stopAllServices(m.processes, m.out)
-
-	// Clear the process list so subsequent calls are no-ops
 	m.processes = nil
 }
 
