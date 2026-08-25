@@ -4,7 +4,7 @@
 
 Behavior of `ralph run --local`: runs the full development loop in-process on the local machine without submitting an Argo Workflow. This is the execution mode used inside workflow containers and for local development.
 
-Each iteration works on exactly one [item](../../../../docs/glossary.md#item) of the project's resolved item array, and the branch's commit log — not the project file — records which items are done. See [Iterations](../../../../docs/iterations.md).
+Each iteration works on exactly one [item](../../../../docs/glossary.md#item) of the project's resolved item array, and the branch's commit log (not the project file) records which items are done. See [Iterations](../../../../docs/iterations.md).
 
 ## Requirements
 
@@ -88,7 +88,7 @@ When the input is a **spec document**, the command generates an orchestration do
 
 The command SHALL resolve the item array by evaluating the item query supplied by the caller (see [run/spec.md](../run/spec.md)) against the parsed project file, and SHALL do so exactly once, before the first iteration. Every iteration SHALL use that same resolved array, so an item's index means the same thing from the first iteration to the last.
 
-Resolution discards empty outputs, so the resolved array is either empty or made entirely of non-empty items; see [write-project/spec.md](../write-project/spec.md). An empty resolved array SHALL abort the run before the first iteration, because a run with nothing to do MUST NOT reach the pull request step as though the project had completed.
+Resolution discards empty outputs, so the resolved array is either empty or made entirely of non-empty items. See [write-project/spec.md](../write-project/spec.md). An empty resolved array SHALL abort the run before the first iteration, because a run with nothing to do MUST NOT reach the pull request step as though the project had completed.
 
 #### Scenario: Query resolved before the first iteration
 
@@ -341,7 +341,7 @@ After selection, the command SHALL invoke the development agent with the selecte
 
 ### Requirement: Agent scope across the loop
 
-The command SHALL apply the configured agent, resolved as described in [run/spec.md](../run/spec.md), only to prompts that write repository code: item development and service-startup fixes. Prompts that produce supporting artifacts — item selection, artifact generation, changelogs, and PR summaries — SHALL run with opencode's primary agent and SHALL NOT receive the configured agent.
+The command SHALL apply the configured agent, resolved as described in [run/spec.md](../run/spec.md), only to prompts that write repository code: item development and service-startup fixes. Prompts that produce supporting artifacts (item selection, artifact generation, changelogs, and PR summaries) SHALL run with opencode's primary agent and SHALL NOT receive the configured agent.
 
 #### Scenario: Item development prompt receives the configured agent
 
@@ -377,7 +377,7 @@ The command SHALL apply the configured agent, resolved as described in [run/spec
 
 ### Requirement: Commit after each iteration
 
-After each iteration the command SHALL commit any changes the AI produced. The commit message comes from `report.md` if present; otherwise the AI generates a changelog. The command SHALL commit `report.md` verbatim and SHALL NOT append, rewrite, or remove a completion trailer.
+After each iteration the command SHALL commit any changes the AI produced. The commit message comes from `report.md` if present. Otherwise the AI generates a changelog. The command SHALL commit `report.md` verbatim and SHALL NOT append, rewrite, or remove a completion trailer.
 
 #### Scenario: AI produces `report.md`
 
@@ -510,7 +510,7 @@ The base branch used for PR creation SHALL be the value passed in by the caller,
 
 ### Requirement: PR creation when all items are complete
 
-When every item is found to be complete — whether the branch already recorded them all before the first iteration or they were recorded during the loop — the command SHALL generate an AI PR summary from the branch's commit log and open a GitHub pull request from the project branch to the base branch.
+When every item is found to be complete, whether the branch already recorded them all before the first iteration or they were recorded during the loop, the command SHALL generate an AI PR summary from the branch's commit log and open a GitHub pull request from the project branch to the base branch.
 
 #### Scenario: All items complete after iterations — commits exist
 

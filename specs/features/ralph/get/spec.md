@@ -40,9 +40,9 @@ The system SHALL provide a `ralph get` command with two subcommands: `complete` 
 
 ### Requirement: Item Query Resolution
 
-Both subcommands SHALL resolve the item array from the project file using a jq query resolved with two-level precedence: `--items` at the command line takes priority; otherwise the `items` field in `.ralph/config.yaml` is used; otherwise the query defaults to `.`. This is the same resolution the run command and `ralph validate` use, so all three agree on what the items are — and on their indices — by default.
+Both subcommands SHALL resolve the item array from the project file using a jq query resolved with two-level precedence: `--items` at the command line takes priority. Otherwise the `items` field in `.ralph/config.yaml` is used. Otherwise the query defaults to `.`. This is the same resolution the run command and `ralph validate` use, so all three agree on what the items are, and on their indices, by default.
 
-Resolution discards empty outputs, so the resolved array is either empty or made entirely of non-empty items; see [write-project/spec.md](../write-project/spec.md). An empty resolved array SHALL be reported as an error, because there are no items to report on.
+Resolution discards empty outputs, so the resolved array is either empty or made entirely of non-empty items. See [write-project/spec.md](../write-project/spec.md). An empty resolved array SHALL be reported as an error, because there are no items to report on.
 
 #### Scenario: `--items` flag takes precedence
 
@@ -108,7 +108,7 @@ Both subcommands SHALL bound the commit log by a base branch, resolved from `--b
 
 ### Requirement: Completion Trailer Parsing
 
-The system SHALL treat a commit as recording an item complete when its message contains a trailer of the form `<branch>-<index>`, where `<branch>` is the project branch the trailer belongs to and `<index>` is the item's 0-based position in the resolved array. A single commit MAY carry more than one trailer. The index alone identifies the item. Only trailers whose branch matches the current branch SHALL be honored; a trailer from any other branch is ignored without a warning, so a project branched from another project's branch never inherits that project's completion.
+The system SHALL treat a commit as recording an item complete when its message contains a trailer of the form `<branch>-<index>`, where `<branch>` is the project branch the trailer belongs to and `<index>` is the item's 0-based position in the resolved array. A single commit MAY carry more than one trailer. The index alone identifies the item. Only trailers whose branch matches the current branch SHALL be honored. A trailer from any other branch is ignored without a warning, so a project branched from another project's branch never inherits that project's completion.
 
 #### Scenario: Trailer on the current branch recognized
 
