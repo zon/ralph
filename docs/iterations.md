@@ -26,7 +26,7 @@ Each iteration:
 
 For the duration of a run, the project file is read-only:
 
-- The development agent is instructed not to edit it, and has no reason to — it reports completion in its commit message.
+- The development agent is instructed not to edit it, and has no reason to. It reports completion in its commit message.
 - Ralph does not rewrite, normalize, reformat, or stage the project file between iterations.
 - The item query is resolved once at the start of the run and reused for every iteration.
 
