@@ -41,7 +41,7 @@ See [Iterations](iterations.md) for the completion model.
 | `--cleanup` | Delete the project file in its own commit once complete |
 | `--extra-iterations` | Iterations allowed beyond the item count |
 | `--once` | Run one iteration without branching or PR |
-| `--local` | Run on this machine instead of submitting remotely |
+| `--mode` | Execution mode: `local`, `worktree` (default), or `remote` |
 | `--watch` | Submit remotely and monitor progress |
 | `-B, --base` | Override base branch for PR creation |
 | `--no-services` | Skip service management |
@@ -139,7 +139,7 @@ ralph review
 | `-p, --project` | Path to output project YAML file (default: `projects/review-YYYY-MM-DD.yaml`) |
 | `-m, --model` | Override AI model from config |
 | `-B, --base` | Override base branch for PR creation |
-| `--local` | Run on this machine instead of submitting remotely |
+| `--mode` | Execution mode: `local`, `worktree` (default), or `remote` |
 | `--verbose` | Enable verbose logging |
 | `--context` | Kubernetes context to use |
 

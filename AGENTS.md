@@ -16,7 +16,7 @@
 
 **IMPORTANT**: Before writing any tests, read [docs/testing.md](docs/testing.md) to understand patterns, conventions, and the webhook service integration testing strategy.
 
-**WARNING**: Be careful when executing ralph with the `--local` flag, as it will apply changes to the local environment.
+**WARNING**: Be careful when executing ralph with `--mode local` or the default `--mode worktree`, as they apply changes to the local repository.
 
 ## Installed Standards
 

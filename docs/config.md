@@ -5,6 +5,7 @@ Ralph looks for `.ralph/config.yaml` in your project root for optional settings.
 ## Format
 
 ```yaml
+mode: worktree                 # default execution mode (worktree, local, or remote; default: worktree)
 items: .requirements           # jq query selecting the item array from a project file (default: .)
 cleanup: false                 # Delete the project file in its own commit once complete (default: false)
 extraIterations:               # Extra iterations beyond item count (unset = 20% of items, rounded up)
@@ -47,6 +48,22 @@ workflow:
 ```
 
 **Note:** API keys are managed by OpenCode, not Ralph. Configure them with `opencode auth`.
+
+## Mode
+
+`mode` selects the default execution mode for `ralph run` and `ralph loop`. It can be one of:
+
+| Value | Description |
+|-------|-------------|
+| `worktree` | Runs the loop in-process in a Git worktree created in a sibling directory, leaving the current checkout untouched (default) |
+| `local` | Runs the loop in-process in the current checkout |
+| `remote` | Submits an Argo Workflow to Kubernetes and runs the loop in the container |
+
+`--mode` on the command line takes priority over this field, which takes priority over the `worktree` default.
+
+```yaml
+mode: remote
+```
 
 ## Items
 

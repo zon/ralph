@@ -1,8 +1,8 @@
-# Run Remote Specification
+# Run Remote Mode Specification
 
 ## Purpose
 
-Default behavior of `ralph run` (without `--local`): submits an Argo Workflow to a Kubernetes cluster and returns after submission. The workflow runs ralph in a container, executing the development loop remotely.
+Behavior of the `remote` execution mode (`ralph run --mode remote`): submits an Argo Workflow to a Kubernetes cluster and returns after submission. The workflow runs ralph in a container, executing the development loop remotely.
 
 ## Requirements
 

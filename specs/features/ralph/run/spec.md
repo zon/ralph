@@ -2,17 +2,80 @@
 
 ## Purpose
 
-The `run` command is ralph's primary entry point. Given a project file, an orchestration document, or a spec document, it drives an AI coding agent through iterative development cycles until every item in the project is recorded complete, then opens a GitHub pull request. A project file is any YAML or JSON file containing an array of work items. The array is selected with the [item query](../../../../docs/projects.md#item-query), and completion is recorded in the branch's commit messages, not in the file. When an orchestration or spec is provided instead of a project, ralph generates the missing artifacts and commits them before running. Execution can be delegated to an Argo Workflow (default) or run directly on the local machine (`--local`).
+The `run` command is ralph's primary entry point. Given a project file, an orchestration document, or a spec document, it drives an AI coding agent through iterative development cycles until every item in the project is recorded complete, then opens a GitHub pull request. A project file is any YAML or JSON file containing an array of work items. The array is selected with the [item query](../../../../docs/projects.md#item-query), and completion is recorded in the branch's commit messages, not in the file. When an orchestration or spec is provided instead of a project, ralph generates the missing artifacts and commits them before running. Execution runs in one of three modes selected with `--mode`: `worktree` (default), which runs the loop in-process in a local Git worktree, `local`, which runs it in-process in the current checkout, or `remote`, which submits an Argo Workflow to Kubernetes.
 
 Mode-specific behaviors are defined in:
-- [run-local/spec.md](../run-local/spec.md) — `--local` flag: runs the development loop in-process
-- [run-remote/spec.md](../run-remote/spec.md) — default: submits an Argo Workflow to Kubernetes
+- [run-local/spec.md](../run-local/spec.md) — `local` mode: runs the development loop in-process in the current checkout
+- [run-worktree/spec.md](../run-worktree/spec.md) — `worktree` mode: runs the development loop in-process in a local Git worktree
+- [run-remote/spec.md](../run-remote/spec.md) — `remote` mode: submits an Argo Workflow to Kubernetes
 
 ## Requirements
 
+### Requirement: Execution mode
+
+The command SHALL accept `--mode` to select the execution mode. The option SHALL accept exactly one of `local`, `worktree`, or `remote`.
+
+Mode resolution follows a three-level precedence: `--mode` at the command line takes priority; otherwise the top-level `mode` field in `.ralph/config.yaml` is used; otherwise the mode defaults to `worktree`.
+
+- `local` runs the development loop in-process in the current checkout.
+- `worktree` runs the development loop in-process in a Git worktree created for the project branch, leaving the current checkout untouched; see [run-worktree/spec.md](../run-worktree/spec.md).
+- `remote` submits an Argo Workflow to Kubernetes and returns after submission; the loop runs inside the workflow container; see [run-remote/spec.md](../run-remote/spec.md).
+
+The `--follow` and `--debug` flags are workflow-only and are rejected for `local` and `worktree` modes; see [Incompatible flags are rejected](#requirement-incompatible-flags-are-rejected).
+
+#### Scenario: `--mode local` runs in the current checkout
+
+- GIVEN the user passes `--mode local`
+- WHEN the command starts
+- THEN the development loop runs in-process in the current checkout
+- AND no workflow is submitted
+
+#### Scenario: `--mode worktree` runs in a Git worktree
+
+- GIVEN the user passes `--mode worktree`
+- WHEN the command starts
+- THEN a Git worktree is created for the project branch
+- AND the development loop runs in-process inside that worktree
+
+#### Scenario: `--mode remote` submits a workflow
+
+- GIVEN the user passes `--mode remote`
+- WHEN the command starts
+- THEN an Argo Workflow is submitted to Kubernetes
+- AND the loop runs inside the workflow container
+
+#### Scenario: Default mode is `worktree`
+
+- GIVEN neither `--mode` nor `mode` in `.ralph/config.yaml` is set
+- WHEN the command starts
+- THEN execution runs in `worktree` mode
+
+#### Scenario: Config mode used when no flag is passed
+
+- GIVEN `mode: remote` is set in `.ralph/config.yaml`
+- AND no `--mode` flag is passed
+- WHEN the command starts
+- THEN execution runs in `remote` mode
+
+#### Scenario: `--mode` overrides the configured mode
+
+- GIVEN `mode: remote` is set in `.ralph/config.yaml`
+- AND the user passes `--mode local`
+- WHEN the command starts
+- THEN execution runs in `local` mode instead of the config value
+
+#### Scenario: Invalid mode value rejected
+
+- GIVEN the user passes `--mode sandbox`
+- WHEN the command starts
+- THEN an error is returned: `invalid mode: sandbox (expected local, worktree, or remote)`
+- AND no execution begins
+
+---
+
 ### Requirement: Input file is required
 
-The command SHALL require a positional argument that is a path to one of: a project file (`.yaml`, `.yml`, or `.json`), an orchestration document (`orchestration.md`), or a spec document (`spec.md`). The file must exist on disk before execution proceeds. When an orchestration or spec is provided, the actual project generation and artifact commits happen inside the execution mode; see [run-local/spec.md](../run-local/spec.md).
+The command SHALL require a positional argument that is a path to one of: a project file (`.yaml`, `.yml`, or `.json`), an orchestration document (`orchestration.md`), or a spec document (`spec.md`). The file must exist on disk before execution proceeds. When an orchestration or spec is provided, the actual project generation and artifact commits happen inside the execution mode; see [run-local/spec.md](../run-local/spec.md) and [run-worktree/spec.md](../run-worktree/spec.md).
 
 #### Scenario: Project file provided
 
@@ -190,23 +253,35 @@ Agent resolution follows a two-level precedence: `--agent` at the command line t
 
 The command SHALL reject flag combinations that have no valid meaning before any execution begins.
 
-#### Scenario: `--follow` with `--local`
+#### Scenario: `--follow` with `--mode local`
 
-- GIVEN the user passes both `--follow` and `--local`
+- GIVEN the user passes both `--follow` and `--mode local`
 - WHEN the command validates flag combinations
-- THEN an error is returned: `--follow flag is not applicable with --local flag`
+- THEN an error is returned: `--follow flag is not applicable with --mode local`
 
-#### Scenario: `--debug` with `--local`
+#### Scenario: `--follow` with `--mode worktree`
 
-- GIVEN the user passes `--debug <branch>` and `--local`
+- GIVEN the user passes both `--follow` and `--mode worktree`
 - WHEN the command validates flag combinations
-- THEN an error is returned: `--debug flag is not applicable with --local flag`
+- THEN an error is returned: `--follow flag is not applicable with --mode worktree`
+
+#### Scenario: `--debug` with `--mode local`
+
+- GIVEN the user passes `--debug <branch>` and `--mode local`
+- WHEN the command validates flag combinations
+- THEN an error is returned: `--debug flag is not applicable with --mode local`
+
+#### Scenario: `--debug` with `--mode worktree`
+
+- GIVEN the user passes `--debug <branch>` and `--mode worktree`
+- WHEN the command validates flag combinations
+- THEN an error is returned: `--debug flag is not applicable with --mode worktree`
 
 ---
 
 ### Requirement: Base branch resolution
 
-The command SHALL determine the base branch for PR creation by the following priority: explicit `--base` flag > current branch (when different from project branch) > config default branch. This resolution SHALL happen once, locally, before dispatching to either run-local or run-remote, and the resolved value SHALL be passed down as a parameter rather than recomputed by the runner.
+The command SHALL determine the base branch for PR creation by the following priority: explicit `--base` flag > current branch (when different from project branch) > config default branch. This resolution SHALL happen once, locally, before dispatching to run-local, run-worktree, or run-remote, and the resolved value SHALL be passed down as a parameter rather than recomputed by the runner.
 
 #### Scenario: Explicit `--base` flag
 
@@ -231,15 +306,23 @@ The command SHALL determine the base branch for PR creation by the following pri
 #### Scenario: Resolved base branch passed to run-local
 
 - GIVEN the base branch has been resolved locally
-- AND the command runs with `--local`
+- AND the command runs in `local` mode
 - WHEN execution is dispatched
 - THEN the resolved base branch is passed to the run-local behavior described in [run-local/spec.md](../run-local/spec.md)
 - AND run-local does not recompute the base branch
 
+#### Scenario: Resolved base branch passed to run-worktree
+
+- GIVEN the base branch has been resolved locally
+- AND the command runs in `worktree` mode
+- WHEN execution is dispatched
+- THEN the resolved base branch is passed to the run-worktree behavior described in [run-worktree/spec.md](../run-worktree/spec.md)
+- AND run-worktree does not recompute the base branch
+
 #### Scenario: Resolved base branch passed to run-remote
 
 - GIVEN the base branch has been resolved locally
-- AND the command runs without `--local`
+- AND the command runs in `remote` mode
 - WHEN execution is dispatched
 - THEN the resolved base branch is passed to the run-remote behavior described in [run-remote/spec.md](../run-remote/spec.md)
 - AND run-remote does not recompute the base branch
@@ -248,7 +331,7 @@ The command SHALL determine the base branch for PR creation by the following pri
 
 ### Requirement: Item query resolution
 
-The command SHALL accept `--items` to set the jq query that selects the item array from the project file. The query SHALL be resolved once, locally, before dispatching to either execution mode, and the resolved value SHALL be passed down so that the whole run — local or remote — indexes items against the same query.
+The command SHALL accept `--items` to set the jq query that selects the item array from the project file. The query SHALL be resolved once, locally, before dispatching to the selected execution mode, and the resolved value SHALL be passed down so that the whole run — whichever mode — indexes items against the same query.
 
 Item query resolution follows a three-level precedence: `--items` at the command line takes priority; otherwise the `items` field in `.ralph/config.yaml` is used; otherwise the query defaults to `.`.
 
@@ -276,7 +359,7 @@ Item query resolution follows a three-level precedence: `--items` at the command
 #### Scenario: Resolved query passed to the execution mode
 
 - GIVEN the item query has been resolved locally
-- WHEN execution is dispatched to run-local or run-remote
+- WHEN execution is dispatched to the selected mode (run-local, run-worktree, or run-remote)
 - THEN the resolved query is passed down as a parameter
 - AND the execution mode does not re-resolve it from config
 

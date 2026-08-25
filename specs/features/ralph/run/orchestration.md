@@ -32,10 +32,14 @@ func (r *Runner) Run(inputPath string, cfg *config.RalphConfig) error {
     if err := r.cmd.ValidateFlags(cfg); err != nil {
         return err
     }
-    if cfg.Local {
+    switch cfg.Mode {
+    case "local":
         return r.RunLocal(input, cfg)
+    case "remote":
+        return r.remote.RunRemote(input, cfg)
+    default:
+        return r.RunWorktree(input, cfg)
     }
-    return r.remote.RunRemote(input, cfg)
 }
 ```
 
@@ -43,8 +47,9 @@ func (r *Runner) Run(inputPath string, cfg *config.RalphConfig) error {
 
 - **`r.cmd.ChangeWorkingDir(cfg)`** — changes the process working directory to `cfg.WorkingDir` before anything else; no-op when unset
 - **`r.cmd.ResolveInput(inputPath)`** — verifies the file exists on disk, detects its type (project YAML, `orchestration.md`, or `spec.md`), and returns an `InputFile`; returns an error when the file is missing or the type is unrecognized
-- **`r.cmd.ValidateFlags(cfg)`** — rejects incompatible flag combinations such as `--follow` with `--local` and `--debug` with `--local`
-- **`r.RunLocal(input, cfg)`** — drives the development loop in-process on the local machine
+- **`r.cmd.ValidateFlags(cfg)`** — rejects incompatible flag combinations such as `--follow` and `--debug` with `local` or `worktree` mode
+- **`r.RunLocal(input, cfg)`** — drives the development loop in-process in the current checkout
+- **`r.RunWorktree(input, cfg)`** — creates a Git worktree for the project branch and drives the development loop in-process inside it
 - **`r.remote.RunRemote(input, cfg)`** — submits an Argo Workflow to Kubernetes and returns after submission
 
 ## Tests
@@ -90,26 +95,38 @@ func TestRunUnrecognizedInputFileType(t *testing.T) {
 
 func TestRunIncompatibleFlagsRejected(t *testing.T) {
     runner := run.withMocks()
-    err := runner.Run("projects/foo.yaml", config.withFollowAndLocal())
+    err := runner.Run("projects/foo.yaml", config.withFollowAndLocalMode())
     require.Error(t, err)
     require.False(t, local.runCalled())
     require.False(t, remote.runCalled())
+    require.False(t, worktree.runCalled())
 }
 
-func TestRunDispatchesToLocalWhenFlagSet(t *testing.T) {
+func TestRunDispatchesToLocalMode(t *testing.T) {
     runner := run.withMocks()
-    err := runner.Run("projects/foo.yaml", config.withLocal())
+    err := runner.Run("projects/foo.yaml", config.withMode("local"))
     require.NoError(t, err)
     require.True(t, local.runCalled())
     require.False(t, remote.runCalled())
+    require.False(t, worktree.runCalled())
 }
 
-func TestRunDispatchesToRemoteByDefault(t *testing.T) {
+func TestRunDispatchesToRemoteMode(t *testing.T) {
     runner := run.withMocks()
-    err := runner.Run("projects/foo.yaml", config.any())
+    err := runner.Run("projects/foo.yaml", config.withMode("remote"))
     require.NoError(t, err)
     require.True(t, remote.runCalled())
     require.False(t, local.runCalled())
+    require.False(t, worktree.runCalled())
+}
+
+func TestRunDispatchesToWorktreeByDefault(t *testing.T) {
+    runner := run.withMocks()
+    err := runner.Run("projects/foo.yaml", config.any())
+    require.NoError(t, err)
+    require.True(t, worktree.runCalled())
+    require.False(t, local.runCalled())
+    require.False(t, remote.runCalled())
 }
 ```
 
@@ -126,7 +143,8 @@ func TestRunDispatchesToRemoteByDefault(t *testing.T) {
 - **`cmd.flagsValidated()`** — returns true when `ValidateFlags` was called
 - **`config.any()`** — returns a valid ralph config in a default state; owned by `internal/config`
 - **`config.withWorkingDir(path)`** — returns a config with `WorkingDir` set to `path`; owned by `internal/config`
-- **`config.withLocal()`** — returns a config with the `Local` flag set; owned by `internal/config`
-- **`config.withFollowAndLocal()`** — returns a config with both `Follow` and `Local` flags set; owned by `internal/config`
+- **`config.withMode(mode)`** — returns a config with `Mode` set to `mode`; owned by `internal/config`
+- **`config.withFollowAndLocalMode()`** — returns a config with both `Follow` and `Mode=local` set; owned by `internal/config`
 - **`local.runCalled()`** — returns true when `RunLocal` was called on the runner
+- **`worktree.runCalled()`** — returns true when `RunWorktree` was called on the runner
 - **`remote.runCalled()`** — returns true when `RunRemote` was called on the remote client

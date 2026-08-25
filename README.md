@@ -26,11 +26,13 @@ A project is any YAML or JSON file containing an array of work items. The simple
 - Login redirects to the dashboard on success
 ```
 
-Run it locally:
+Run it in a Git worktree (the default mode, leaving your checkout untouched):
 
 ```bash
-ralph user-authentication.yaml --local
+ralph user-authentication.yaml
 ```
+
+Pass `--mode local` to run in the current checkout, or `--mode remote` to submit an Argo Workflow to Kubernetes.
 
 Ralph creates a branch and picks one item per iteration. The AI agent implements it and ends its commit message with a bare `<branch>-<index>` line naming which item it finished:
 

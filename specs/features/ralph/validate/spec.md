@@ -110,7 +110,7 @@ The command MUST check exactly three things, in order: the file parses as YAML o
 
 When the file fails to parse, the command MUST invoke an AI agent locally to repair the file in place, then retry parsing. The loop MUST continue until the file parses or the attempt limit is reached.
 
-The agent MUST be run locally on the current machine (the same execution mode as `ralph run --local`), never delegated to a remote workflow runner. The agent MUST use the model resolved from the ralph config file, with no command-line override required.
+The agent MUST be run locally on the current machine (the `local` execution mode, selected with `--mode local`), never delegated to a remote workflow runner. The agent MUST use the model resolved from the ralph config file, with no command-line override required.
 
 Model resolution follows a two-level precedence: if `validate.model` is set in `.ralph/config.yaml` that model is used; otherwise the top-level `model` field is used as the fallback.
 
@@ -128,7 +128,7 @@ The repair prompt SHALL run with opencode's primary agent and SHALL NOT receive 
 
 - GIVEN any failed parse
 - WHEN the fix loop invokes the agent
-- THEN the agent runs on the local machine using the same path used by `ralph run --local`
+- THEN the agent runs on the local machine using the same path used by the `local` execution mode of `ralph run`
 - AND no Argo workflow or remote runner is involved
 
 #### Scenario: Validate-specific model used when configured

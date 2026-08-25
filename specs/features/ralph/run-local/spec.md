@@ -1,8 +1,8 @@
-# Run --local Specification
+# Run Local Mode Specification
 
 ## Purpose
 
-Behavior of `ralph run --local`: runs the full development loop in-process on the local machine without submitting an Argo Workflow. This is the execution mode used inside workflow containers and for local development.
+Behavior of the `local` execution mode (`ralph run --mode local`): runs the full development loop in-process in the current checkout without submitting an Argo Workflow. This is the execution mode used inside workflow containers and for local development.
 
 Each iteration works on exactly one [item](../../../../docs/glossary.md#item) of the project's resolved item array, and the branch's commit log — not the project file — records which items are done. See [Iterations](../../../../docs/iterations.md).
 

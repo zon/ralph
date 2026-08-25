@@ -2,35 +2,73 @@
 
 ## Purpose
 
-The `loop` command runs a bounded AI iteration loop over a list of steps. Given a slug, ralph looks up the matching loop config in the `loops:` section of `.ralph/config.yaml`, embeds that config's `steps` in a prompt, and runs the prompt until the agent reports nothing left to do or the `--max` cap is reached. Before iterating, ralph switches to the `loop-<slug>` branch, creating it from the current branch when it does not exist, so the agent works on the loop branch's own state. Every iteration that does real work is committed and pushed to `loop-<slug>`. When the loop ends with commits on that branch, ralph opens a pull request. Steps can also be supplied directly with `--step` flags, which replace the config's `steps`. When steps are supplied without a slug, ralph asks the AI to read the steps and propose a slug. Execution can be delegated to an Argo Workflow (default) or run directly on the local machine (`--local`).
+The `loop` command runs a bounded AI iteration loop over a list of steps. Given a slug, ralph looks up the matching loop config in the `loops:` section of `.ralph/config.yaml`, embeds that config's `steps` in a prompt, and runs the prompt until the agent reports nothing left to do or the `--max` cap is reached. Before iterating, ralph switches to the `loop-<slug>` branch, creating it from the current branch when it does not exist, so the agent works on the loop branch's own state. Every iteration that does real work is committed and pushed to `loop-<slug>`. When the loop ends with commits on that branch, ralph opens a pull request. Steps can also be supplied directly with `--step` flags, which replace the config's `steps`. When steps are supplied without a slug, ralph asks the AI to read the steps and propose a slug. Execution runs in one of three modes selected with `--mode`: `worktree` (default), which runs the loop in-process in a local Git worktree, `local`, which runs it in-process on the local machine, or `remote`, which submits an Argo Workflow to Kubernetes.
 
 Mode-specific behaviors are defined in:
-- [run-remote/spec.md](../run-remote/spec.md) — default: submits an Argo Workflow to Kubernetes, with the same remote defaults and config as `ralph run`
-- `--local`: runs the loop in-process on the local machine, as described by the requirements below
+- [run-local/spec.md](../run-local/spec.md) — `local` mode: runs the loop in-process in the current checkout
+- [run-worktree/spec.md](../run-worktree/spec.md) — `worktree` mode: runs the loop in-process in a local Git worktree
+- [run-remote/spec.md](../run-remote/spec.md) — `remote` mode: submits an Argo Workflow to Kubernetes, with the same remote defaults and config as `ralph run`
 
 ## Requirements
 
 ### Requirement: Execution mode selection
 
-The command SHALL support two execution modes. By default the command SHALL submit an Argo Workflow to Kubernetes, and the loop SHALL run inside the workflow container. With `--local`, the command SHALL run the loop in-process on the local machine without submitting a workflow. The loop body (slug and step resolution, prompt construction, iteration, commit and push, and pull request opening) SHALL behave identically in both modes.
+The command SHALL accept `--mode` to select the execution mode. The option SHALL accept exactly one of `local`, `worktree`, or `remote`.
 
-#### Scenario: Default mode submits a workflow
+Mode resolution follows a three-level precedence: `--mode` at the command line takes priority; otherwise the top-level `mode` field in `.ralph/config.yaml` is used; otherwise the mode defaults to `worktree`.
 
-- GIVEN no `--local` flag is passed
-- WHEN the command starts
-- THEN an Argo Workflow is submitted to Kubernetes
-- AND the loop runs inside the workflow container
+- `local` runs the loop in-process in the current checkout.
+- `worktree` runs the loop in-process in a Git worktree created for the `loop-<slug>` branch, leaving the current checkout untouched; see [run-worktree/spec.md](../run-worktree/spec.md).
+- `remote` submits an Argo Workflow to Kubernetes, and the loop runs inside the workflow container; see [run-remote/spec.md](../run-remote/spec.md).
 
-#### Scenario: `--local` runs in-process
+The `--follow` flag is workflow-only and is rejected for `local` and `worktree` modes; see [Incompatible flags are rejected](#requirement-incompatible-flags-are-rejected).
 
-- GIVEN the user passes `--local`
+The loop body (slug and step resolution, prompt construction, iteration, commit and push, and pull request opening) SHALL behave identically across all three modes.
+
+#### Scenario: `--mode local` runs in-process
+
+- GIVEN the user passes `--mode local`
 - WHEN the command starts
 - THEN the loop runs in-process on the local machine
 - AND no workflow is submitted
 
-#### Scenario: Loop body runs in both modes
+#### Scenario: `--mode worktree` runs in a Git worktree
 
-- GIVEN either `--local` or the default remote mode
+- GIVEN the user passes `--mode worktree`
+- WHEN the command starts
+- THEN a Git worktree is created for the `loop-<slug>` branch
+- AND the loop runs in-process inside that worktree
+
+#### Scenario: `--mode remote` submits a workflow
+
+- GIVEN the user passes `--mode remote`
+- WHEN the command starts
+- THEN an Argo Workflow is submitted to Kubernetes
+- AND the loop runs inside the workflow container
+
+#### Scenario: Default mode runs in a worktree
+
+- GIVEN neither `--mode` nor `mode` in `.ralph/config.yaml` is set
+- WHEN the command starts
+- THEN execution runs in `worktree` mode
+
+#### Scenario: Config mode used when no flag is passed
+
+- GIVEN `mode: local` is set in `.ralph/config.yaml`
+- AND no `--mode` flag is passed
+- WHEN the command starts
+- THEN execution runs in `local` mode
+
+#### Scenario: `--mode` overrides the configured mode
+
+- GIVEN `mode: remote` is set in `.ralph/config.yaml`
+- AND the user passes `--mode worktree`
+- WHEN the command starts
+- THEN execution runs in `worktree` mode instead of the config value
+
+#### Scenario: Loop body runs in all three modes
+
+- GIVEN the mode resolves to `local`, `worktree`, or `remote`
 - WHEN the loop executes
 - THEN the requirements below for slug and step resolution, prompt construction, iteration, commit and push, and pull request opening apply unchanged
 
@@ -40,11 +78,17 @@ The command SHALL support two execution modes. By default the command SHALL subm
 
 The command SHALL reject flag combinations that have no valid meaning before any execution begins.
 
-#### Scenario: `--follow` with `--local`
+#### Scenario: `--follow` with `--mode local`
 
-- GIVEN the user passes both `--follow` and `--local`
+- GIVEN the user passes both `--follow` and `--mode local`
 - WHEN the command validates flag combinations
-- THEN an error is returned: `--follow flag is not applicable with --local flag`
+- THEN an error is returned: `--follow flag is not applicable with --mode local`
+
+#### Scenario: `--follow` with `--mode worktree`
+
+- GIVEN the user passes both `--follow` and `--mode worktree`
+- WHEN the command validates flag combinations
+- THEN an error is returned: `--follow flag is not applicable with --mode worktree`
 
 ---
 
