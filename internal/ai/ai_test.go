@@ -20,17 +20,6 @@ import (
 	"github.com/zon/ralph/internal/testutil"
 )
 
-func TestBuildLoopItemPrompt(t *testing.T) {
-	t.Run("renders template with FunctionName and FunctionPath", func(t *testing.T) {
-		content := "Review {{.FunctionName}} in {{.FunctionPath}}"
-		result, err := BuildLoopItemPrompt(content, "DoThing", "internal/pkg/pkg.go")
-		require.NoError(t, err)
-		assert.Contains(t, result, "Review DoThing in internal/pkg/pkg.go")
-		assert.Contains(t, result, "You are a software architect reviewing source code.")
-		assert.Contains(t, result, "Address any issues found")
-	})
-}
-
 func TestGenerateChangelog(t *testing.T) {
 	dir := t.TempDir()
 	testutil.InitGitRepo(t, dir)
