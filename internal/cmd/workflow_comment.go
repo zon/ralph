@@ -3,13 +3,13 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"strings"
 
 	"github.com/zon/ralph/internal/ai"
 	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
+	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/opencode"
 	orchestrationComment "github.com/zon/ralph/internal/orchestration/comment"
 	"github.com/zon/ralph/internal/output"
@@ -68,7 +68,7 @@ func newOrchestrationWorkflowCommentCmd(ctx *execcontext.Context) *orchestration
 		&workflowCommentAIClient{ctx: ctx},
 		&workflowCommentServicesClient{ctx: ctx},
 		&workflowCommentGitClient{},
-		&workflowCommentGitHubClient{},
+		&workflowCommentGitHubClient{gh: github.NewGH(ctx.Output())},
 	)
 }
 
@@ -166,13 +166,10 @@ func (c *workflowCommentGitClient) CommitAndPushFromReport() error {
 // workflowCommentGitHubClient implements orchestration/comment.GitHubClient
 // ---------------------------------------------------------------------------
 
-type workflowCommentGitHubClient struct{}
+type workflowCommentGitHubClient struct {
+	gh github.GHClient
+}
 
 func (c *workflowCommentGitHubClient) PostComment(prNumber int, body string) error {
-	cmd := exec.Command("gh", "pr", "comment", fmt.Sprintf("%d", prNumber), "--body", body)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("failed to post comment on PR #%d: %w (output: %s)", prNumber, err, output)
-	}
-	return nil
+	return c.gh.PostComment(prNumber, body)
 }
