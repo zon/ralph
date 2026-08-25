@@ -47,13 +47,6 @@ func (c *Context) GoContext() context.Context {
 	return c.goCtx
 }
 
-// WithGoContext returns a new Context with the provided standard context.Context.
-func (c *Context) WithGoContext(goCtx context.Context) *Context {
-	newCtx := *c
-	newCtx.goCtx = goCtx
-	return &newCtx
-}
-
 func (c *Context) Output() *output.Client {
 	return c.out
 }
@@ -92,17 +85,6 @@ func (c *Context) SetWorkflowExecution(workflowExecution bool) {
 
 func (c *Context) RepoOwnerAndName() (owner, name string) {
 	return c.repoOwner, c.repoName
-}
-
-func (c *Context) AddNote(note string) {
-	if c.notes == nil {
-		c.notes = []string{}
-	}
-	c.notes = append(c.notes, note)
-}
-
-func (c *Context) HasNotes() bool {
-	return len(c.notes) > 0
 }
 
 func (c *Context) SetVerbose(verbose bool) {
