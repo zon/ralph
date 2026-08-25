@@ -19,7 +19,7 @@ Each iteration:
 4. **Start services** — run configured `before` commands and services (see [Configuration](config.md)).
 5. **Pick** — the picker agent selects one incomplete item.
 6. **Develop** — the development agent works the picked item.
-7. **Commit** — commit whatever the agent produced, using the agent's `report.md` as the message; its last line is the completion trailer when the item is done.
+7. **Commit** — commit whatever the agent produced, using the agent's `report.md` as the message. Its last line is the completion trailer when the item is done.
 8. **Stop services**.
 
 ## The Project File Is Immutable
