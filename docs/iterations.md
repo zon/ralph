@@ -1,6 +1,6 @@
 # Iterations
 
-A ralph run turns a project file into a sequence of iterations. Each iteration works on exactly one item and, when the work lands, records that item as complete in the commit message. The branch's commit log — not the project file — is the record of what is done, and the project file is never written to while the run is in progress.
+A ralph run turns a project file into a sequence of iterations. Each iteration works on exactly one item and, when the work lands, records that item as complete in the commit message. The branch's commit log, not the project file, is the record of what is done, and the project file is never written to while the run is in progress.
 
 ## The Loop
 
