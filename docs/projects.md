@@ -127,4 +127,4 @@ Validation checks only what ralph depends on:
 2. The item query evaluates without error.
 3. The query resolves to at least one non-empty item.
 
-There is no schema check — anything that parses and yields non-empty items is a valid project. When a file fails to parse, `ralph validate` still runs its bounded AI fix loop to repair the syntax, then rewrites the file in canonical YAML.
+There is no schema check: anything that parses and yields non-empty items is a valid project. When a file fails to parse, `ralph validate` still runs its bounded AI fix loop to repair the syntax, then rewrites the file in canonical YAML.
