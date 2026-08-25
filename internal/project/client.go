@@ -40,7 +40,7 @@ func NewClient(log CommitLog, out WarnOutput) *Client {
 // and resolved item array. It reads and parses nothing itself, delegating file
 // reading, parsing, and query evaluation, then builds the domain values from
 // the results. Returns an error when the file does not parse, the query fails,
-// or the query yields no items — resolution discards empty outputs, so a query
+// or the query yields no items. Resolution discards empty outputs, so a query
 // that produces nothing but empty values leaves no work to run.
 func (c *Client) Resolve(path string, query string) (*Project, error) {
 	doc, err := projectfile.Parse(path)

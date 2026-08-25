@@ -65,7 +65,7 @@ func NewValidator(file ProjectFile, agent AgentClient, model string, reporter Re
 
 // Validate performs exactly three checks, in order: the file parses as YAML or
 // JSON, the item query evaluates against the parsed document without error, and
-// the query resolves to at least one item. There is no schema check — no field
+// the query resolves to at least one item. There is no schema check: no field
 // is required and no field is rejected. A parse failure enters the bounded fix
 // loop; a query that cannot be evaluated or yields no items is returned as an
 // error without invoking the agent. When all three checks pass, the file is

@@ -11,7 +11,7 @@ var ErrExtraIterationsReached = errors.New("iteration limit reached")
 
 // Project carries a resolved project file: the file path, the metadata derived
 // from its document, the parsed document, and the resolved item array. It is
-// never written back to YAML — the project file module preserves the parsed
+// never written back to YAML. The project file module preserves the parsed
 // document instead. The yaml tags retain a readable rendering for prompts that
 // fall back to marshaling when the raw document was not retained.
 type Project struct {

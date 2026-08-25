@@ -48,7 +48,7 @@ The system SHALL clone the target repository into the container workspace before
 
 ### Requirement: Branch Checkout
 
-After cloning, the system SHALL check out the target branch for the subcommand. The calling subcommand provides the target branch; if none is specified, the clone branch remains checked out.
+After cloning, the system SHALL check out the target branch for the subcommand. The calling subcommand provides the target branch. If none is specified, the clone branch remains checked out.
 
 #### Scenario: Checkout existing branch
 

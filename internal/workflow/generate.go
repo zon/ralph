@@ -22,10 +22,10 @@ func DefaultContainerVersion() string {
 // projectBranch is the branch the container will create and work on (derived from the project file name).
 // baseBranch is the already-resolved base branch for PR creation (see specs/features/ralph/run/spec.md).
 // items is the already-resolved item query selecting the item array, and cleanup reports whether the
-// project file should be deleted once every item is complete — both resolved by the caller so the
+// project file should be deleted once every item is complete. Both are resolved by the caller so the
 // workflow container does not re-resolve them from config.
-// repoURL is the git remote URL and relProjectPath is the project file path relative to the repo root —
-// both are resolved by the caller so that git and GitHub discovery are decoupled from generation logic.
+// repoURL is the git remote URL and relProjectPath is the project file path relative to the repo root.
+// Both are resolved by the caller so that git and GitHub discovery are decoupled from generation logic.
 func GenerateWorkflow(ctx *execcontext.Context, projectName, cloneBranch, projectBranch, baseBranch, items string, cleanup bool, verbose bool, repoURL, relProjectPath string) (*Workflow, error) {
 	cfg, err := config.LoadConfig()
 	if err != nil {
@@ -48,7 +48,7 @@ func GenerateWorkflow(ctx *execcontext.Context, projectName, cloneBranch, projec
 }
 
 // GenerateWorkflowWithGitInfo builds a Workflow with provided git information, config,
-// and instructions. It does not perform any I/O itself — the caller supplies the loaded
+// and instructions. It does not perform any I/O itself. The caller supplies the loaded
 // config and instructions so that test doubles can be provided.
 func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL, cloneBranch, projectBranch, baseBranch, items string, cleanup bool, relProjectPath string, verbose bool, cfg *config.RalphConfig, instructions string) (*Workflow, error) {
 	repo, err := githubpkg.ParseRemoteURL(repoURL)
@@ -85,7 +85,7 @@ func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL,
 
 // GenerateLoopWorkflow builds a Workflow that runs the ralph loop inside the
 // container. cloneBranch is the branch the container clones (the current local
-// branch) and remoteURL is the git remote URL — both resolved by the caller so
+// branch) and remoteURL is the git remote URL. Both are resolved by the caller so
 // that git and GitHub discovery are decoupled from generation logic. The slug,
 // steps, and max iterations are carried into the container as CLI arguments to
 // `ralph workflow loop`.

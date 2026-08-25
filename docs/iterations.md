@@ -97,7 +97,7 @@ $ ralph get incomplete projects/csv-export.yaml --index
 
 ### Resuming and re-running
 
-The completion record belongs to the branch, so a run that is interrupted, stopped, or resubmitted picks up where it left off simply by reading the log again. Nothing needs to be restored.
+The completion record belongs to the branch, so a run that is interrupted, stopped, or resubmitted picks up where it left off by reading the log again. Nothing needs to be restored.
 
 Re-running against a branch after editing the project file *between* runs is where indices can go stale. An item inserted at the top shifts everything after it, and old trailers then point at different work. For a project file that has changed shape, start a fresh branch.
 

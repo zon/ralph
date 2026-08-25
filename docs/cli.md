@@ -13,7 +13,7 @@ ralph my-feature.yaml --items '.requirements'
 
 ### Project Steps
 
-1. Creates branch `ralph/<slug>` — from the file's `slug` field, or its base name
+1. Creates branch `ralph/<slug>` from the file's `slug` field, or its base name
 2. Resolves the item array with the [item query](formats/project.md#item-query)
 3. Iterates until every item is recorded complete
 4. Optionally cleans up the project file in its own commit
@@ -114,7 +114,7 @@ Checks that the file parses as YAML or JSON, that the item query evaluates again
 
 `--items` resolves the same way it does for a run: the flag first, then `items` in `.ralph/config.yaml`, then `.`. Validate with the query the run will use. A file that validates under `.` and runs under `.requirements` has not been checked.
 
-Note that a successful validation rewrites the file in canonical YAML, and converts a `.json` input to `.yaml`. That is fine for project files you own, but it is not what you want on a file borrowed from another tool. Skip validate for those and confirm the query with `ralph get incomplete` instead, which only reads.
+A successful validation rewrites the file in canonical YAML, and converts a `.json` input to `.yaml`. That is fine for project files you own, but it is not what you want on a file borrowed from another tool. Skip validate for those and confirm the query with `ralph get incomplete` instead, which only reads.
 
 ## ralph review
 
