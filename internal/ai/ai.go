@@ -215,11 +215,6 @@ func BuildReviewPRBodyPrompt(projectName, projectDesc string, requirements []str
 	return executeTemplate(reviewPRBodyInstructions, data)
 }
 
-func BuildReviewItemPrompt(content string) (string, error) {
-	data := ReviewItemPromptData{ItemContent: content}
-	return executeTemplate(reviewInstructions, data)
-}
-
 func BuildLoopItemPrompt(content, functionName, functionPath string) (string, error) {
 	loopData := LoopItemPromptData{
 		FunctionName: functionName,
