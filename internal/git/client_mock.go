@@ -1,21 +1,18 @@
 package git
 
 type MockClient struct {
-	SwitchToBranchFunc               func(slug string) error
-	SwitchToLoopBranchFunc           func(slug string) error
-	BlockedFileExistsFunc            func() bool
-	WriteBlockedFileFunc             func(err error)
-	HasChangesFunc                   func() bool
-	ReportExistsFunc                 func() bool
-	CommitFromReportFunc             func(slug string) error
-	CurrentBranchFunc                func() (string, error)
-	IsBranchSyncedWithRemoteFunc     func(branch string) error
-	CommitOrchestrationRemovalFunc   func(slug string) error
-	CommitOrchestrationRemovalCalled bool
-	CommitGeneratedArtifactsFunc     func(slug string) error
-	CommitGeneratedArtifactsCalled   bool
-	CommitProjectRemovalFunc         func(path string) error
-	CommitProjectRemovalCalled       bool
+	SwitchToBranchFunc             func(slug string) error
+	SwitchToLoopBranchFunc         func(slug string) error
+	BlockedFileExistsFunc          func() bool
+	WriteBlockedFileFunc           func(err error)
+	HasChangesFunc                 func() bool
+	ReportExistsFunc               func() bool
+	CommitFromReportFunc           func(slug string) error
+	CurrentBranchFunc              func() (string, error)
+	IsBranchSyncedWithRemoteFunc   func(branch string) error
+	CommitOrchestrationRemovalFunc func(slug string) error
+	CommitGeneratedArtifactsFunc   func(slug string) error
+	CommitProjectRemovalFunc       func(path string) error
 }
 
 func (m *MockClient) SwitchToBranch(slug string) error {
@@ -81,7 +78,6 @@ func (m *MockClient) IsBranchSyncedWithRemote(branch string) error {
 }
 
 func (m *MockClient) CommitOrchestrationRemoval(slug string) error {
-	m.CommitOrchestrationRemovalCalled = true
 	if m.CommitOrchestrationRemovalFunc != nil {
 		return m.CommitOrchestrationRemovalFunc(slug)
 	}
@@ -89,7 +85,6 @@ func (m *MockClient) CommitOrchestrationRemoval(slug string) error {
 }
 
 func (m *MockClient) CommitGeneratedArtifacts(slug string) error {
-	m.CommitGeneratedArtifactsCalled = true
 	if m.CommitGeneratedArtifactsFunc != nil {
 		return m.CommitGeneratedArtifactsFunc(slug)
 	}
@@ -97,7 +92,6 @@ func (m *MockClient) CommitGeneratedArtifacts(slug string) error {
 }
 
 func (m *MockClient) CommitProjectRemoval(path string) error {
-	m.CommitProjectRemovalCalled = true
 	if m.CommitProjectRemovalFunc != nil {
 		return m.CommitProjectRemovalFunc(path)
 	}

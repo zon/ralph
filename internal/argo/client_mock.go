@@ -9,15 +9,10 @@ type MockClient struct {
 	LogsFunc              func(ctx K8sContext, workflowName string, follow bool) error
 	SubmitYAMLFunc        func(ctx context.Context, workflowYAML string, kubeCtx K8sContext) (string, error)
 
-	ListWorkflowsCalled     bool
-	ListWorkflowNamesCalled bool
-	StopWorkflowCalled      bool
-	LogsCalled              bool
-	SubmitYAMLCalled        bool
+	SubmitYAMLCalled bool
 }
 
 func (m *MockClient) ListWorkflows(ctx K8sContext) error {
-	m.ListWorkflowsCalled = true
 	if m.ListWorkflowsFunc != nil {
 		return m.ListWorkflowsFunc(ctx)
 	}
@@ -25,7 +20,6 @@ func (m *MockClient) ListWorkflows(ctx K8sContext) error {
 }
 
 func (m *MockClient) StopWorkflow(ctx K8sContext, workflowName string) error {
-	m.StopWorkflowCalled = true
 	if m.StopWorkflowFunc != nil {
 		return m.StopWorkflowFunc(ctx, workflowName)
 	}
@@ -33,7 +27,6 @@ func (m *MockClient) StopWorkflow(ctx K8sContext, workflowName string) error {
 }
 
 func (m *MockClient) ListWorkflowNames(ctx K8sContext) ([]string, error) {
-	m.ListWorkflowNamesCalled = true
 	if m.ListWorkflowNamesFunc != nil {
 		return m.ListWorkflowNamesFunc(ctx)
 	}
@@ -41,7 +34,6 @@ func (m *MockClient) ListWorkflowNames(ctx K8sContext) ([]string, error) {
 }
 
 func (m *MockClient) Logs(ctx K8sContext, workflowName string, follow bool) error {
-	m.LogsCalled = true
 	if m.LogsFunc != nil {
 		return m.LogsFunc(ctx, workflowName, follow)
 	}
