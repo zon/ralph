@@ -11,12 +11,14 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/zon/ralph/internal/ai"
+	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
+	"github.com/zon/ralph/internal/git"
 )
 
 // TestLoopCmdParsing covers the `ralph loop` command surface. It checks the
 // optional slug argument, the repeatable --step flags, the --max default of
-// 20, the --verbose flag, the --local, --follow, and --no-notify flags, and
+// 20, the --verbose flag, the --mode, --follow, and --no-notify flags, and
 // the usage errors produced by Validate.
 func TestLoopCmdParsing(t *testing.T) {
 	tests := []struct {
@@ -26,7 +28,7 @@ func TestLoopCmdParsing(t *testing.T) {
 		wantSteps    []string
 		wantMax      int
 		wantVerbose  bool
-		wantLocal    bool
+		wantMode     string
 		wantFollow   bool
 		wantNoNotify bool
 		wantModel    string
@@ -66,11 +68,25 @@ func TestLoopCmdParsing(t *testing.T) {
 			wantVerbose: true,
 		},
 		{
-			name:      "--local parses",
-			args:      []string{"loop", "feature-x", "--local"},
-			wantSlug:  "feature-x",
-			wantMax:   20,
-			wantLocal: true,
+			name:     "--mode local parses",
+			args:     []string{"loop", "feature-x", "--mode", "local"},
+			wantSlug: "feature-x",
+			wantMax:  20,
+			wantMode: "local",
+		},
+		{
+			name:     "--mode worktree parses",
+			args:     []string{"loop", "feature-x", "--mode", "worktree"},
+			wantSlug: "feature-x",
+			wantMax:  20,
+			wantMode: "worktree",
+		},
+		{
+			name:     "--mode remote parses",
+			args:     []string{"loop", "feature-x", "--mode", "remote"},
+			wantSlug: "feature-x",
+			wantMax:  20,
+			wantMode: "remote",
 		},
 		{
 			name:       "--follow parses",
@@ -131,14 +147,9 @@ func TestLoopCmdParsing(t *testing.T) {
 			wantErr: "--max must be positive",
 		},
 		{
-			name:    "--follow rejected together with --local before execution",
-			args:    []string{"loop", "feature-x", "--local", "--follow"},
-			wantErr: "--follow flag is not applicable with --local flag",
-		},
-		{
-			name:    "--follow rejected together with --local in short form before execution",
-			args:    []string{"loop", "feature-x", "--local", "-f"},
-			wantErr: "--follow flag is not applicable with --local flag",
+			name:    "unknown --local flag rejected before execution",
+			args:    []string{"loop", "feature-x", "--local"},
+			wantErr: "unknown flag --local",
 		},
 	}
 
@@ -162,7 +173,7 @@ func TestLoopCmdParsing(t *testing.T) {
 			assert.Equal(t, tt.wantSteps, cmd.Loop.Steps)
 			assert.Equal(t, tt.wantMax, cmd.Loop.Max)
 			assert.Equal(t, tt.wantVerbose, cmd.Loop.Verbose)
-			assert.Equal(t, tt.wantLocal, cmd.Loop.Local)
+			assert.Equal(t, tt.wantMode, cmd.Loop.Mode)
 			assert.Equal(t, tt.wantFollow, cmd.Loop.Follow)
 			assert.Equal(t, tt.wantNoNotify, cmd.Loop.NoNotify)
 			assert.Equal(t, tt.wantModel, cmd.Loop.Model)
@@ -180,11 +191,11 @@ func TestLoopApplyToContextWiresModelAndContext(t *testing.T) {
 		name         string
 		model        string
 		context      string
+		follow       bool
 		noNotify     bool
 		wantModel    string
 		wantContext  string
 		wantVerbose  bool
-		wantLocal    bool
 		wantFollow   bool
 		wantNoNotify bool
 	}{
@@ -194,6 +205,11 @@ func TestLoopApplyToContextWiresModelAndContext(t *testing.T) {
 			context:     "prod-cluster",
 			wantModel:   "gpt-4",
 			wantContext: "prod-cluster",
+		},
+		{
+			name:       "--follow flows into the context",
+			follow:     true,
+			wantFollow: true,
 		},
 		{
 			name:         "--no-notify flows into the context",
@@ -209,14 +225,13 @@ func TestLoopApplyToContextWiresModelAndContext(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := &LoopCmd{Model: tt.model, Context: tt.context, Verbose: tt.wantVerbose, Local: tt.wantLocal, Follow: tt.wantFollow, NoNotify: tt.noNotify}
+			cmd := &LoopCmd{Model: tt.model, Context: tt.context, Verbose: tt.wantVerbose, Follow: tt.follow, NoNotify: tt.noNotify}
 			ctx := execcontext.NewContext()
 			cmd.applyToContext(ctx)
 
 			assert.Equal(t, tt.wantModel, ctx.Model(), "the model override is applied to the context")
 			assert.Equal(t, tt.wantContext, ctx.KubeContext(), "the kube context override is applied to the context")
 			assert.Equal(t, tt.wantVerbose, ctx.IsVerbose())
-			assert.Equal(t, tt.wantLocal, ctx.IsLocal())
 			assert.Equal(t, tt.wantFollow, ctx.ShouldFollow())
 			assert.Equal(t, tt.wantNoNotify, ctx.NoNotify())
 		})
@@ -232,7 +247,7 @@ func TestLoopCmdHelpText(t *testing.T) {
 	assert.Contains(t, output, "--max")
 	assert.Contains(t, output, "--step")
 	assert.Contains(t, output, "--verbose")
-	assert.Contains(t, output, "--local")
+	assert.Contains(t, output, "--mode")
 	assert.Contains(t, output, "--follow")
 	assert.Contains(t, output, "--no-notify")
 	assert.Contains(t, output, "--model")
@@ -276,7 +291,7 @@ func TestLoopRunWithMatchingSlug(t *testing.T) {
 `)
 
 	proposer := &fakeSlugProposer{slug: "should-not-be-used"}
-	cmd := &LoopCmd{Local: true, Slug: "fmt", slugProposer: proposer, aiClient: &fakeAIClient{}, reportReader: &fakeReportReader{content: "NOTHING_TO_DO"}, gitClient: &fakeGitClient{}, prClient: &fakePullRequestOpener{}}
+	cmd := &LoopCmd{Mode: config.ModeLocal, Slug: "fmt", slugProposer: proposer, aiClient: &fakeAIClient{}, reportReader: &fakeReportReader{content: "NOTHING_TO_DO"}, gitClient: &fakeGitClient{}, prClient: &fakePullRequestOpener{}}
 	err := cmd.Run()
 	require.NoError(t, err)
 	assert.False(t, proposer.called, "the slug proposer is not called when a slug is given")
@@ -296,21 +311,21 @@ func TestLoopRunWithMissingSlug(t *testing.T) {
 `)
 
 	proposer := &fakeSlugProposer{slug: "should-not-be-used"}
-	err := (&LoopCmd{Local: true, Slug: "missing", slugProposer: proposer, aiClient: &fakeAIClient{}, reportReader: &fakeReportReader{content: "NOTHING_TO_DO"}, prClient: &fakePullRequestOpener{}}).Run()
+	err := (&LoopCmd{Mode: config.ModeLocal, Slug: "missing", slugProposer: proposer, aiClient: &fakeAIClient{}, reportReader: &fakeReportReader{content: "NOTHING_TO_DO"}, prClient: &fakePullRequestOpener{}}).Run()
 	require.Error(t, err)
 	assert.EqualError(t, err, "loop config not found: missing")
 	assert.False(t, proposer.called, "the slug proposer is not called when a slug is given")
 }
 
-// TestLoopRunWithStepsWithoutSlug asserts Run accepts steps without a slug and
-// needs no config file present. The injected fake proposer supplies the slug,
-// so the real AI (opencode) is never consulted. The proposed slug and the
-// passed steps are retained on the command.
+// TestLoopRunWithStepsWithoutSlug asserts Run accepts steps without a slug.
+// The injected fake proposer supplies the slug, so the real AI (opencode) is
+// never consulted. The proposed slug and the passed steps are retained on the
+// command.
 func TestLoopRunWithStepsWithoutSlug(t *testing.T) {
-	t.Chdir(t.TempDir())
+	writeLoopConfig(t, "")
 
 	proposer := &fakeSlugProposer{slug: "gofmt"}
-	cmd := &LoopCmd{Local: true, Steps: []string{"run gofmt"}, slugProposer: proposer, aiClient: &fakeAIClient{}, reportReader: &fakeReportReader{content: "NOTHING_TO_DO"}, gitClient: &fakeGitClient{}, prClient: &fakePullRequestOpener{}}
+	cmd := &LoopCmd{Mode: config.ModeLocal, Steps: []string{"run gofmt"}, slugProposer: proposer, aiClient: &fakeAIClient{}, reportReader: &fakeReportReader{content: "NOTHING_TO_DO"}, gitClient: &fakeGitClient{}, prClient: &fakePullRequestOpener{}}
 	err := cmd.Run()
 	require.NoError(t, err)
 	assert.True(t, proposer.called, "the slug proposer is asked for a slug when none is given")
@@ -323,11 +338,11 @@ func TestLoopRunWithStepsWithoutSlug(t *testing.T) {
 // slug proposer fails (the "AI produces no usable slug" path), Run returns that
 // error unchanged.
 func TestLoopRunWithStepsWithoutSlugPropagatesProposalError(t *testing.T) {
-	t.Chdir(t.TempDir())
+	writeLoopConfig(t, "")
 
 	proposeErr := errors.New("no usable slug proposed by the AI")
 	proposer := &fakeSlugProposer{err: proposeErr}
-	err := (&LoopCmd{Local: true, Steps: []string{"run gofmt"}, slugProposer: proposer, aiClient: &fakeAIClient{}, reportReader: &fakeReportReader{content: "NOTHING_TO_DO"}, prClient: &fakePullRequestOpener{}}).Run()
+	err := (&LoopCmd{Mode: config.ModeLocal, Steps: []string{"run gofmt"}, slugProposer: proposer, aiClient: &fakeAIClient{}, reportReader: &fakeReportReader{content: "NOTHING_TO_DO"}, prClient: &fakePullRequestOpener{}}).Run()
 	require.Error(t, err)
 	assert.Equal(t, proposeErr, err)
 	assert.True(t, proposer.called, "the slug proposer is consulted before failing")
@@ -346,7 +361,7 @@ func TestLoopRunWithSlugAndStepsUsesPassedSteps(t *testing.T) {
 
 	proposer := &fakeSlugProposer{slug: "should-not-be-used"}
 	passed := []string{"write code", "run tests"}
-	cmd := &LoopCmd{Local: true, Slug: "fmt", Steps: passed, slugProposer: proposer, aiClient: &fakeAIClient{}, reportReader: &fakeReportReader{content: "NOTHING_TO_DO"}, gitClient: &fakeGitClient{}, prClient: &fakePullRequestOpener{}}
+	cmd := &LoopCmd{Mode: config.ModeLocal, Slug: "fmt", Steps: passed, slugProposer: proposer, aiClient: &fakeAIClient{}, reportReader: &fakeReportReader{content: "NOTHING_TO_DO"}, gitClient: &fakeGitClient{}, prClient: &fakePullRequestOpener{}}
 	err := cmd.Run()
 	require.NoError(t, err)
 	assert.False(t, proposer.called, "the slug proposer is not called when a slug is given")
@@ -434,6 +449,45 @@ func (f *fakeGitClient) CommitIterationAndPush(slug string) error {
 	return nil
 }
 
+// fakeWorktreeClient records the worktree operations the command asks for, so
+// tests never touch a real git worktree.
+type fakeWorktreeClient struct {
+	createdBranch string
+	removedBranch string
+	checkedOut    bool
+	created       bool
+	removed       bool
+	detected      bool
+}
+
+func (f *fakeWorktreeClient) CreateWorktree(branch string, dryRun bool) (*git.WorktreeCommand, error) {
+	f.created = true
+	f.createdBranch = branch
+	return &git.WorktreeCommand{Args: []string{"worktree", "add", "-b", branch, "/sibling/repo-" + branch}, Path: "/sibling/repo-" + branch}, nil
+}
+
+func (f *fakeWorktreeClient) BranchCheckedOutInWorktree(branch string, dryRun bool) (*git.WorktreeCommand, bool, error) {
+	f.detected = true
+	return &git.WorktreeCommand{Args: []string{"worktree", "list", "--porcelain"}}, f.checkedOut, nil
+}
+
+func (f *fakeWorktreeClient) RemoveWorktree(branch string, dryRun bool) (*git.WorktreeCommand, error) {
+	f.removed = true
+	f.removedBranch = branch
+	return &git.WorktreeCommand{Args: []string{"worktree", "remove", "--force"}}, nil
+}
+
+// fakeWorkspaceClient records the directories the command changes into, so
+// tests never touch the real working directory.
+type fakeWorkspaceClient struct {
+	dirs []string
+}
+
+func (f *fakeWorkspaceClient) ChangeDirectory(path string) error {
+	f.dirs = append(f.dirs, path)
+	return nil
+}
+
 // fakePullRequestOpener records the slugs it opened pull requests for and
 // returns an injected error when set, so tests never touch the real GitHub
 // client.
@@ -461,7 +515,7 @@ func TestLoopRunInvokesAIWithLoopPrompt(t *testing.T) {
 
 	ai := &fakeAIClient{}
 	cmd := &LoopCmd{
-		Local:        true,
+		Mode:         config.ModeLocal,
 		Slug:         "fmt",
 		Max:          10,
 		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
@@ -489,7 +543,7 @@ func TestLoopRunStopsAfterMaxIterations(t *testing.T) {
 	ai := &fakeAIClient{}
 	git := &fakeGitClient{}
 	cmd := &LoopCmd{
-		Local:        true,
+		Mode:         config.ModeLocal,
 		Slug:         "fmt",
 		Max:          3,
 		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
@@ -524,7 +578,7 @@ func TestLoopRunNothingToDoDoesNotCommit(t *testing.T) {
 	ai := &fakeAIClient{}
 	git := &fakeGitClient{}
 	cmd := &LoopCmd{
-		Local:        true,
+		Mode:         config.ModeLocal,
 		Slug:         "fmt",
 		Max:          10,
 		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
@@ -555,7 +609,7 @@ func TestLoopRunPropagatesIterationCommitError(t *testing.T) {
 	commitErr := errors.New("failed to push loop-fmt: boom")
 	git := &fakeGitClient{err: commitErr}
 	cmd := &LoopCmd{
-		Local:        true,
+		Mode:         config.ModeLocal,
 		Slug:         "fmt",
 		Max:          10,
 		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
@@ -584,7 +638,7 @@ func TestLoopRunPropagatesAIError(t *testing.T) {
 	aiErr := errors.New("opencode execution failed: boom")
 	ai := &fakeAIClient{err: aiErr}
 	cmd := &LoopCmd{
-		Local:        true,
+		Mode:         config.ModeLocal,
 		Slug:         "fmt",
 		Max:          10,
 		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
@@ -611,7 +665,7 @@ func TestLoopRunSwitchesToLoopBranchBeforeIteration(t *testing.T) {
 
 	git := &fakeGitClient{}
 	cmd := &LoopCmd{
-		Local:        true,
+		Mode:         config.ModeLocal,
 		Slug:         "fmt",
 		Max:          10,
 		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
@@ -640,7 +694,7 @@ func TestLoopRunPropagatesSwitchToLoopBranchError(t *testing.T) {
 	git := &fakeGitClient{switchErr: switchErr}
 	ai := &fakeAIClient{}
 	cmd := &LoopCmd{
-		Local:        true,
+		Mode:         config.ModeLocal,
 		Slug:         "fmt",
 		Max:          10,
 		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
@@ -670,7 +724,7 @@ func TestLoopRunOpensPullRequestAfterCommits(t *testing.T) {
 	git := &fakeGitClient{}
 	pr := &fakePullRequestOpener{}
 	cmd := &LoopCmd{
-		Local:        true,
+		Mode:         config.ModeLocal,
 		Slug:         "fmt",
 		Max:          1,
 		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
@@ -704,7 +758,7 @@ func TestLoopRunDelegatesPullRequestWhenNothingCommitted(t *testing.T) {
 	git := &fakeGitClient{}
 	pr := &fakePullRequestOpener{}
 	cmd := &LoopCmd{
-		Local:        true,
+		Mode:         config.ModeLocal,
 		Slug:         "fmt",
 		Max:          10,
 		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
@@ -734,7 +788,7 @@ func TestLoopRunPropagatesPullRequestOpenError(t *testing.T) {
 	prErr := errors.New("failed to open loop pull request: boom")
 	pr := &fakePullRequestOpener{err: prErr}
 	cmd := &LoopCmd{
-		Local:        true,
+		Mode:         config.ModeLocal,
 		Slug:         "fmt",
 		Max:          10,
 		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
@@ -769,18 +823,18 @@ func (f *fakeLoopRemoteRunner) Run(slug string, steps []string, max int, follow 
 	return f.err
 }
 
-// TestLoopRunRemoteSubmitsWorkflow asserts the default (without --local) run
-// path delegates to the remote runner, which submits the loop workflow carrying
-// the slug, steps, and max iterations. No loop config is needed because the
+// TestLoopRunRemoteSubmitsWorkflow asserts the --mode remote run path
+// delegates to the remote runner, which submits the loop workflow carrying the
+// slug, steps, and max iterations. No loop config entry is needed because the
 // remote path never runs the loop in-process.
 func TestLoopRunRemoteSubmitsWorkflow(t *testing.T) {
-	t.Chdir(t.TempDir())
+	writeLoopConfig(t, "")
 
 	runner := &fakeLoopRemoteRunner{}
-	cmd := &LoopCmd{Slug: "fmt", Steps: []string{"run gofmt"}, Max: 3, remoteRunner: runner}
+	cmd := &LoopCmd{Mode: config.ModeRemote, Slug: "fmt", Steps: []string{"run gofmt"}, Max: 3, remoteRunner: runner}
 	err := cmd.Run()
 	require.NoError(t, err)
-	assert.True(t, runner.called, "the remote runner is consulted without --local")
+	assert.True(t, runner.called, "the remote runner is consulted in remote mode")
 	assert.Equal(t, "fmt", runner.slug, "the remote runner receives the slug")
 	assert.Equal(t, []string{"run gofmt"}, runner.steps, "the remote runner receives the steps")
 	assert.Equal(t, 3, runner.max, "the remote runner receives the max iterations")
@@ -788,36 +842,37 @@ func TestLoopRunRemoteSubmitsWorkflow(t *testing.T) {
 	assert.Empty(t, cmd.resolvedSlug, "no slug is retained in local-mode fields on the remote path")
 }
 
-// TestLoopRunRemoteFollowPassesFollowFlag asserts the default run path passes
+// TestLoopRunRemoteFollowPassesFollowFlag asserts the remote run path passes
 // the --follow flag through to the remote runner so it streams the workflow
 // logs and waits for the workflow to finish.
 func TestLoopRunRemoteFollowPassesFollowFlag(t *testing.T) {
-	t.Chdir(t.TempDir())
+	writeLoopConfig(t, "")
 
 	runner := &fakeLoopRemoteRunner{}
-	cmd := &LoopCmd{Slug: "fmt", Max: 3, Follow: true, remoteRunner: runner}
+	cmd := &LoopCmd{Mode: config.ModeRemote, Slug: "fmt", Max: 3, Follow: true, remoteRunner: runner}
 	err := cmd.Run()
 	require.NoError(t, err)
-	assert.True(t, runner.called, "the remote runner is consulted without --local")
+	assert.True(t, runner.called, "the remote runner is consulted in remote mode")
 	assert.True(t, runner.follow, "the --follow flag is passed through to the remote runner")
 }
 
 // TestLoopRunRemotePropagatesSubmitError asserts a workflow submission failure
-// aborts the default run path and is returned unchanged.
+// aborts the remote run path and is returned unchanged.
 func TestLoopRunRemotePropagatesSubmitError(t *testing.T) {
-	t.Chdir(t.TempDir())
+	writeLoopConfig(t, "")
 
 	submitErr := errors.New("failed to submit workflow: boom")
 	runner := &fakeLoopRemoteRunner{err: submitErr}
-	cmd := &LoopCmd{Slug: "fmt", Max: 10, remoteRunner: runner}
+	cmd := &LoopCmd{Mode: config.ModeRemote, Slug: "fmt", Max: 10, remoteRunner: runner}
 	err := cmd.Run()
 	require.Error(t, err)
 	assert.Equal(t, submitErr, err, "the workflow submission error is returned unchanged")
 	assert.True(t, runner.called, "the remote runner is consulted before failing")
 }
 
-// TestLoopRunLocalDoesNotSubmitWorkflow asserts --local runs the loop in-process
-// and never consults the remote runner, so no workflow is submitted.
+// TestLoopRunLocalDoesNotSubmitWorkflow asserts --mode local runs the loop
+// in-process and never consults the remote runner, so no workflow is
+// submitted.
 func TestLoopRunLocalDoesNotSubmitWorkflow(t *testing.T) {
 	writeLoopConfig(t, `loops:
   - slug: fmt
@@ -827,7 +882,7 @@ func TestLoopRunLocalDoesNotSubmitWorkflow(t *testing.T) {
 
 	runner := &fakeLoopRemoteRunner{}
 	cmd := &LoopCmd{
-		Local:        true,
+		Mode:         config.ModeLocal,
 		Slug:         "fmt",
 		Max:          10,
 		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
@@ -839,6 +894,70 @@ func TestLoopRunLocalDoesNotSubmitWorkflow(t *testing.T) {
 	}
 	err := cmd.Run()
 	require.NoError(t, err)
-	assert.False(t, runner.called, "the remote runner is never consulted with --local")
-	assert.Equal(t, "fmt", cmd.resolvedSlug, "the loop runs in-process with --local")
+	assert.False(t, runner.called, "the remote runner is never consulted with --mode local")
+	assert.Equal(t, "fmt", cmd.resolvedSlug, "the loop runs in-process with --mode local")
+}
+
+// TestLoopRunWorktreeCreatesWorktreeOnLoopBranch asserts --mode worktree
+// creates a worktree on the loop-<slug> branch, runs the loop in-process inside
+// it, removes the worktree when the loop ends, and retains the resolved slug.
+func TestLoopRunWorktreeCreatesWorktreeOnLoopBranch(t *testing.T) {
+	writeLoopConfig(t, `loops:
+  - slug: fmt
+    steps:
+      - run gofmt
+`)
+
+	wt := &fakeWorktreeClient{}
+	ws := &fakeWorkspaceClient{}
+	cmd := &LoopCmd{
+		Mode:         config.ModeWorktree,
+		Slug:         "fmt",
+		Max:          10,
+		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
+		aiClient:     &fakeAIClient{},
+		reportReader: &fakeReportReader{content: "NOTHING_TO_DO"},
+		gitClient:    &fakeGitClient{},
+		prClient:     &fakePullRequestOpener{},
+		worktree:     wt,
+		workspace:    ws,
+	}
+	err := cmd.Run()
+	require.NoError(t, err)
+	assert.True(t, wt.detected, "the loop branch is checked before the worktree is created")
+	assert.True(t, wt.created, "a worktree is created for the loop branch")
+	assert.Equal(t, "loop-fmt", wt.createdBranch, "the worktree is created on the loop-<slug> branch")
+	assert.True(t, wt.removed, "the worktree is removed when the loop ends")
+	assert.Equal(t, "loop-fmt", wt.removedBranch)
+	assert.Equal(t, "fmt", cmd.resolvedSlug, "the resolved slug is retained on the command")
+}
+
+// TestLoopRunWorktreeBranchAlreadyCheckedOut asserts --mode worktree returns
+// an error and creates no worktree when the loop branch is already checked out
+// in another worktree.
+func TestLoopRunWorktreeBranchAlreadyCheckedOut(t *testing.T) {
+	writeLoopConfig(t, `loops:
+  - slug: fmt
+    steps:
+      - run gofmt
+`)
+
+	wt := &fakeWorktreeClient{checkedOut: true}
+	cmd := &LoopCmd{
+		Mode:         config.ModeWorktree,
+		Slug:         "fmt",
+		Max:          10,
+		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
+		aiClient:     &fakeAIClient{},
+		reportReader: &fakeReportReader{content: "NOTHING_TO_DO"},
+		gitClient:    &fakeGitClient{},
+		prClient:     &fakePullRequestOpener{},
+		worktree:     wt,
+		workspace:    &fakeWorkspaceClient{},
+	}
+	err := cmd.Run()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "branch 'loop-fmt' is already checked out in another worktree")
+	assert.False(t, wt.created, "no worktree is created when the loop branch is already checked out")
+	assert.False(t, wt.removed, "no worktree is removed when none was created")
 }

@@ -15,7 +15,8 @@ import (
 
 // WorkflowLoopCmd is the `ralph workflow loop` command that runs inside the
 // workflow container. It prepares the workspace and runs the submitted loop
-// in-process, so the loop body behaves identically to `ralph loop --local`.
+// in-process, so the loop body behaves identically to `ralph loop --mode
+// local`.
 type WorkflowLoopCmd struct {
 	Repo        string   `help:"GitHub repository (owner/repo)" required:""`
 	CloneBranch string   `help:"Branch to clone"`
