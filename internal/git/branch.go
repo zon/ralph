@@ -33,11 +33,7 @@ func CheckoutOrCreateBranch(name string) error {
 		return CheckoutBranch(name)
 	}
 
-	_, err := runGit("checkout", "-b", name)
-	if err != nil {
-		return fmt.Errorf("failed to create branch '%s': %w", name, err)
-	}
-	return nil
+	return CreateBranch(name)
 }
 
 // CheckoutBranch switches to the specified git branch
