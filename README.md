@@ -49,7 +49,7 @@ Items can be structured instead of plain strings, and the array can be nested an
 items: .requirements
 ```
 
-The shape below is one convention among many. Ralph reads only the item array out of a project file. A top-level list, or any other document with a list of work in it, works the same way.
+The shape below is one convention among many. Ralph reads only the item array out of a project file.
 
 ```yaml
 # projects/user-authentication.yaml
