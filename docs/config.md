@@ -46,7 +46,7 @@ workflow:
     team: platform
 ```
 
-**Note:** API keys are managed by OpenCode, not Ralph. Configure them with `opencode auth`.
+API keys are managed by OpenCode, not Ralph. Configure them with `opencode auth`.
 
 ## Items
 
@@ -173,4 +173,4 @@ Create `.ralph/instructions.md` to replace the development steps in the AI promp
 
 The default steps are deliberately generic: they send the agent to the repository's own agent instructions for how project items are read, where code belongs, and how tests are written. Custom instructions replace those steps, so state the standards they should follow.
 
-**Note:** The prompt tells the agent to write its commit message to `report.md` and to end that message with a completion trailer, a bare `<branch>-<index>` line, when the item is finished. That trailer is the only way an item is ever marked complete, and it is stated outside the instruction steps, so a custom `instructions.md` cannot drop it.
+The prompt tells the agent to write its commit message to `report.md` and to end that message with a completion trailer, a bare `<branch>-<index>` line, when the item is finished. That trailer is the only way an item is ever marked complete, and it is stated outside the instruction steps, so a custom `instructions.md` cannot drop it.
