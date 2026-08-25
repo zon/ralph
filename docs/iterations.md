@@ -42,7 +42,7 @@ The picker agent receives the full project file, the incomplete items with their
 
 The development agent then receives that one item verbatim, plus its index and key, plus the full project file for context.
 
-Ralph does not pick in array order. Order the array however you like; the picker reads it as a set of available work, and dependency ordering is one of its inputs.
+Ralph does not pick in array order. Order the array however you like. The picker reads it as a set of available work, and dependency ordering is one of its inputs.
 
 ## Recording Completion
 
