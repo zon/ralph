@@ -125,7 +125,7 @@ When every item is complete:
 
 Cleanup is off by default. Enable it with `--cleanup` or `cleanup: true` in `.ralph/config.yaml`. It is a separate commit so that the commit that removes the file does not also carry code changes, and so the completion history stays readable in the PR after the file is gone.
 
-Opening the pull request is where ralph stops. It does not merge, and approving a PR does not trigger anything — review and merge are the repository's own process. Ralph does respond to review *comments* on an open PR. See [Workflows](workflows.md).
+Opening the pull request is where ralph stops. It does not merge, and approving a PR does not trigger anything. Review and merge are the repository's own process. Ralph does respond to review *comments* on an open PR. See [Workflows](workflows.md).
 
 Cleaning up the project file does not erase the completion record — the trailers stay in the branch's history, so a re-run against the same branch still reads the project as complete.
 
