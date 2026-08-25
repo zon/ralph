@@ -51,6 +51,18 @@ type Validator struct {
 	reporter Reporter
 }
 
+// NewValidator wires the validator's file, agent, model, and reporter
+// collaborators. The concrete collaborators live in an implementation module;
+// the orchestration module only knows their interfaces.
+func NewValidator(file ProjectFile, agent AgentClient, model string, reporter Reporter) *Validator {
+	return &Validator{
+		file:     file,
+		agent:    agent,
+		model:    model,
+		reporter: reporter,
+	}
+}
+
 // Validate performs exactly three checks, in order: the file parses as YAML or
 // JSON, the item query evaluates against the parsed document without error, and
 // the query resolves to at least one item. There is no schema check — no field
