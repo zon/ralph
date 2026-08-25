@@ -12,7 +12,7 @@ Mode-specific behaviors are defined in:
 
 ### Requirement: Execution mode selection
 
-The command SHALL support two execution modes. By default the command SHALL submit an Argo Workflow to Kubernetes, and the loop SHALL run inside the workflow container. With `--local`, the command SHALL run the loop in-process on the local machine without submitting a workflow. The loop body — slug and step resolution, prompt construction, iteration, commit and push, and pull request opening — SHALL behave identically in both modes.
+The command SHALL support two execution modes. By default the command SHALL submit an Argo Workflow to Kubernetes, and the loop SHALL run inside the workflow container. With `--local`, the command SHALL run the loop in-process on the local machine without submitting a workflow. The loop body (slug and step resolution, prompt construction, iteration, commit and push, and pull request opening) SHALL behave identically in both modes.
 
 #### Scenario: Default mode submits a workflow
 
