@@ -118,6 +118,31 @@ func TestGitClientCommitFromReport(t *testing.T) {
 	assert.True(t, os.IsNotExist(err), "report.md should be deleted after commit")
 }
 
+func TestGitClientCommitFromReportDoesNotCommitReportFile(t *testing.T) {
+	workDir := t.TempDir()
+	t.Chdir(workDir)
+	testutil.InitGitRepo(t, workDir)
+	testutil.MakeInitialCommit(t, workDir)
+	setupLocalRemote(t, workDir)
+
+	ctx := context.NewContext()
+	client := git.NewClient(ctx)
+
+	const report = "feat: add serializer\n\ncsv-export-0\n"
+	require.NoError(t, os.WriteFile("report.md", []byte(report), 0644))
+	require.NoError(t, os.WriteFile("newfile.txt", []byte("change"), 0644))
+
+	err := client.CommitFromReport("test-slug")
+	require.NoError(t, err)
+
+	assert.NotContains(t, lsTreeFiles(t, workDir, "HEAD"), "report.md", "the commit tree must not contain report.md")
+	assert.Contains(t, lsTreeFiles(t, workDir, "HEAD"), "newfile.txt", "the code change is committed")
+	assert.Equal(t, strings.TrimRight(report, "\n"), lastCommitMessage(t, workDir), "the report is the commit message, verbatim")
+	_, err = os.Stat("report.md")
+	assert.True(t, os.IsNotExist(err), "report.md should be deleted after the commit")
+	assert.Empty(t, gitStatusPorcelain(t, workDir), "the working tree must be clean after the commit")
+}
+
 func TestGitClientCommitFromReportPreservesTrailer(t *testing.T) {
 	workDir := t.TempDir()
 	t.Chdir(workDir)
@@ -163,10 +188,6 @@ func TestGitClientCommitFromReportCreatesEmptyCommitWhenNoChanges(t *testing.T) 
 	t.Chdir(workDir)
 	testutil.InitGitRepo(t, workDir)
 	testutil.MakeInitialCommit(t, workDir)
-	require.NoError(t, os.WriteFile(".gitignore", []byte("report.md\n"), 0644))
-	require.NoError(t, os.WriteFile("report.md", []byte("report content\n"), 0644))
-	require.NoError(t, git.StageFile(".gitignore"))
-	require.NoError(t, git.Commit("chore: ignore report.md"))
 	setupLocalRemote(t, workDir)
 
 	ctx := context.NewContext()

@@ -76,18 +76,22 @@ func (a *Client) CommitIterationAndPush(slug string) error {
 	return CommitChangesAllowEmpty(a.ctx.IsWorkflowExecution(), owner, repo, string(data))
 }
 
+// CommitFromReport commits the iteration's changes with the report content as
+// the commit message, creating an empty commit when the working tree has no
+// changes. It removes report.md before the commit so the file is never
+// included in the commit, in both the code-changing and empty-commit paths.
 func (a *Client) CommitFromReport(slug string) error {
 	data, err := os.ReadFile("report.md")
 	if err != nil {
 		return fmt.Errorf("failed to read report.md: %w", err)
 	}
+	if err := os.Remove("report.md"); err != nil {
+		return fmt.Errorf("failed to remove report.md: %w", err)
+	}
 	message := string(data)
 	owner, repo := a.ctx.RepoOwnerAndName()
 	if err := CommitChangesAllowEmpty(a.ctx.IsWorkflowExecution(), owner, repo, message); err != nil {
 		return err
-	}
-	if err := os.Remove("report.md"); err != nil {
-		return fmt.Errorf("failed to remove report.md: %w", err)
 	}
 	return nil
 }
