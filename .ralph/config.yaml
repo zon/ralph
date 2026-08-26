@@ -1,3 +1,4 @@
+mode: remote
 workflow:
   namespace: ralph
 model: deepseek/deepseek-v4-flash
