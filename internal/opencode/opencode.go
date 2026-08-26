@@ -85,7 +85,14 @@ func waitForGroupExit(pid int) error {
 	}
 }
 
-func (c *Client) RunCommand(ctx context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+// runArgs builds the argument list for an `opencode run` invocation, pinning
+// the agent to the current working directory with --dir. ralph relies on
+// os.Chdir to place the process inside the run's worktree, but opencode can
+// re-resolve its project root to a different checkout (for example the main
+// repo of a git worktree), which sends the agent's edits and report.md to the
+// wrong directory. Passing the process working directory explicitly keeps the
+// agent in the same directory ralph reads and commits from.
+func runArgs(model, variant, agent, prompt string) ([]string, error) {
 	args := []string{"run", "--model", model}
 	if variant != "" {
 		args = append(args, "--variant", variant)
@@ -93,7 +100,19 @@ func (c *Client) RunCommand(ctx context.Context, model, variant, agent, prompt s
 	if agent != "" {
 		args = append(args, "--agent", agent)
 	}
-	args = append(args, prompt)
+	dir, err := os.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("failed to determine working directory: %w", err)
+	}
+	args = append(args, "--dir", dir, prompt)
+	return args, nil
+}
+
+func (c *Client) RunCommand(ctx context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+	args, err := runArgs(model, variant, agent, prompt)
+	if err != nil {
+		return err
+	}
 	if stdoutWriter == nil {
 		stdoutWriter = os.Stdout
 	}
@@ -104,14 +123,10 @@ func (c *Client) RunCommand(ctx context.Context, model, variant, agent, prompt s
 }
 
 func (c *Client) RunAgent(ctx context.Context, model, variant, agent, prompt string) error {
-	args := []string{"run", "--model", model}
-	if variant != "" {
-		args = append(args, "--variant", variant)
+	args, err := runArgs(model, variant, agent, prompt)
+	if err != nil {
+		return err
 	}
-	if agent != "" {
-		args = append(args, "--agent", agent)
-	}
-	args = append(args, prompt)
 	ring := &ringWriter{n: 10}
 	stdout := io.MultiWriter(os.Stdout, ring)
 	stderr := io.MultiWriter(os.Stderr, ring)
