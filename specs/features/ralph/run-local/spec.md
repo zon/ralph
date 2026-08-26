@@ -377,13 +377,14 @@ The command SHALL apply the configured agent, resolved as described in [run/spec
 
 ### Requirement: Commit after each iteration
 
-After each iteration the command SHALL commit any changes the AI produced. The commit message comes from `report.md` if present. Otherwise the AI generates a changelog. The command SHALL commit `report.md` verbatim and SHALL NOT append, rewrite, or remove a completion trailer.
+After each iteration the command SHALL commit any changes the AI produced. The commit message comes from `report.md` if present. Otherwise the AI generates a changelog. When the agent wrote `report.md` but the working tree has no changes, the command SHALL create an empty commit with `report.md` as the commit message, so a completion trailer in the report is recorded even when no code was written. When the working tree has no changes and no `report.md` exists, the command SHALL create no commit. The command SHALL use `report.md` verbatim as the commit message and SHALL NOT append, rewrite, or remove a completion trailer. The `report.md` file SHALL NOT be committed and SHALL be deleted after the commit.
 
 #### Scenario: AI produces `report.md`
 
 - GIVEN the AI wrote `report.md` during the iteration
 - WHEN changes are committed
 - THEN `report.md` is used as the commit message unmodified
+- AND the `report.md` file is not included in the commit
 - AND `report.md` is deleted after the commit
 
 #### Scenario: Trailer preserved in the commit message
@@ -392,6 +393,15 @@ After each iteration the command SHALL commit any changes the AI produced. The c
 - AND the project branch is `csv-export`
 - WHEN changes are committed
 - THEN the commit message ends with that line
+- AND the next iteration reads item 1 as complete
+
+#### Scenario: No code needed records completion
+
+- GIVEN the agent wrote `report.md` ending with the completion trailer `csv-export-1`
+- AND the working tree has no changes
+- WHEN the commit step runs
+- THEN an empty commit is created with `report.md` as its commit message
+- AND `report.md` is deleted after the commit
 - AND the next iteration reads item 1 as complete
 
 #### Scenario: Report without a trailer leaves the item incomplete
