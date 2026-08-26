@@ -25,6 +25,19 @@ func TestCommitTrailerScenario_ReportWithoutTrailerLeavesItemIncomplete(t *testi
 	require.Equal(t, []int{0, 1, 2}, aiLastPickerIndices(runner), "the picker may select the same item again in a later iteration")
 }
 
+func TestCommitTrailerScenario_NoCodeNeededRecordsCompletion(t *testing.T) {
+	const report = "feat: no code needed\n\ncsv-export-1"
+	runner := withMocks(
+		withProject(project.ThatReportsIncompleteUntil(2)),
+		withGit(gitWithReportNoChanges(report)),
+	)
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.Any())
+	require.NoError(t, err)
+	require.True(t, gitCommittedFromReport(runner), "an empty commit is created from the report")
+	require.Equal(t, report, gitLastCommitMessage(runner), "the report is used verbatim as the commit message")
+	require.Zero(t, aiChangelogCalls(runner), "no changelog is generated while the report exists")
+}
+
 func TestCommitTrailerScenario_ChangesWithoutReportGenerateChangelog(t *testing.T) {
 	const changelog = "feat: wire the item array through run-local\n\nThe generated changelog never contains a completion trailer"
 	gitMock := gitWithChangesButNoReport()
