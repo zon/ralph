@@ -246,13 +246,14 @@ func (r *Runner) removeProjectFile(proj *project.Project, cfg *config.RalphConfi
 }
 
 func (r *Runner) commitIteration(proj *project.Project) error {
+	if r.git.ReportExists() {
+		return r.git.CommitFromReport(proj.Slug)
+	}
 	if !r.git.HasChanges() {
 		return nil
 	}
-	if !r.git.ReportExists() {
-		if err := r.ai.GenerateChangelog(proj); err != nil {
-			return err
-		}
+	if err := r.ai.GenerateChangelog(proj); err != nil {
+		return err
 	}
 	return r.git.CommitFromReport(proj.Slug)
 }

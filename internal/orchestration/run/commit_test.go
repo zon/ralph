@@ -51,3 +51,16 @@ func TestCommitIterationSkipsCommitWhenNoChanges(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, gitCommittedFromReport(runner))
 }
+
+func TestCommitIterationCreatesEmptyCommitWhenNoChangesButReport(t *testing.T) {
+	const report = "feat: no code needed\n\nempty-commit-no-code-0"
+	runner := withMocks(
+		withProject(project.ThatReportsIncompleteUntil(1)),
+		withGit(gitWithReportNoChanges(report)),
+	)
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.Any())
+	require.NoError(t, err)
+	require.True(t, gitCommittedFromReport(runner), "an empty commit is created from the report when the working tree has no changes")
+	require.Equal(t, report, gitLastCommitMessage(runner), "the report is used verbatim as the commit message")
+	require.Zero(t, aiChangelogCalls(runner), "no changelog is generated while the report exists")
+}

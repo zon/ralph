@@ -57,11 +57,13 @@ func (a *Client) ReportExists() bool {
 }
 
 // CommitIterationAndPush commits the iteration's changes with the report
-// content as the commit message and pushes the loop branch. The caller
-// switches to the loop branch first via SwitchToLoopBranch, so this method
-// never switches branches while the agent's edits are uncommitted. It removes
-// report.md before the commit so it never lands on the loop branch and the
-// working tree stays clean.
+// content as the commit message and pushes the loop branch. When the working
+// tree has no changes it creates an empty commit, so a completion trailer in
+// the report is recorded even when no code was written. The caller switches to
+// the loop branch first via SwitchToLoopBranch, so this method never switches
+// branches while the agent's edits are uncommitted. It removes report.md
+// before the commit so it never lands on the loop branch and the working tree
+// stays clean.
 func (a *Client) CommitIterationAndPush(slug string) error {
 	data, err := os.ReadFile("report.md")
 	if err != nil {
@@ -71,21 +73,25 @@ func (a *Client) CommitIterationAndPush(slug string) error {
 		return fmt.Errorf("failed to remove report.md: %w", err)
 	}
 	owner, repo := a.ctx.RepoOwnerAndName()
-	return CommitChanges(a.ctx.IsWorkflowExecution(), owner, repo, string(data))
+	return CommitChangesAllowEmpty(a.ctx.IsWorkflowExecution(), owner, repo, string(data))
 }
 
+// CommitFromReport commits the iteration's changes with the report content as
+// the commit message, creating an empty commit when the working tree has no
+// changes. It removes report.md before the commit so the file is never
+// included in the commit, in both the code-changing and empty-commit paths.
 func (a *Client) CommitFromReport(slug string) error {
 	data, err := os.ReadFile("report.md")
 	if err != nil {
 		return fmt.Errorf("failed to read report.md: %w", err)
 	}
-	message := string(data)
-	owner, repo := a.ctx.RepoOwnerAndName()
-	if err := CommitChanges(a.ctx.IsWorkflowExecution(), owner, repo, message); err != nil {
-		return err
-	}
 	if err := os.Remove("report.md"); err != nil {
 		return fmt.Errorf("failed to remove report.md: %w", err)
+	}
+	message := string(data)
+	owner, repo := a.ctx.RepoOwnerAndName()
+	if err := CommitChangesAllowEmpty(a.ctx.IsWorkflowExecution(), owner, repo, message); err != nil {
+		return err
 	}
 	return nil
 }

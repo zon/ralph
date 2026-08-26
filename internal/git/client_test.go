@@ -118,6 +118,31 @@ func TestGitClientCommitFromReport(t *testing.T) {
 	assert.True(t, os.IsNotExist(err), "report.md should be deleted after commit")
 }
 
+func TestGitClientCommitFromReportDoesNotCommitReportFile(t *testing.T) {
+	workDir := t.TempDir()
+	t.Chdir(workDir)
+	testutil.InitGitRepo(t, workDir)
+	testutil.MakeInitialCommit(t, workDir)
+	setupLocalRemote(t, workDir)
+
+	ctx := context.NewContext()
+	client := git.NewClient(ctx)
+
+	const report = "feat: add serializer\n\ncsv-export-0\n"
+	require.NoError(t, os.WriteFile("report.md", []byte(report), 0644))
+	require.NoError(t, os.WriteFile("newfile.txt", []byte("change"), 0644))
+
+	err := client.CommitFromReport("test-slug")
+	require.NoError(t, err)
+
+	assert.NotContains(t, lsTreeFiles(t, workDir, "HEAD"), "report.md", "the commit tree must not contain report.md")
+	assert.Contains(t, lsTreeFiles(t, workDir, "HEAD"), "newfile.txt", "the code change is committed")
+	assert.Equal(t, strings.TrimRight(report, "\n"), lastCommitMessage(t, workDir), "the report is the commit message, verbatim")
+	_, err = os.Stat("report.md")
+	assert.True(t, os.IsNotExist(err), "report.md should be deleted after the commit")
+	assert.Empty(t, gitStatusPorcelain(t, workDir), "the working tree must be clean after the commit")
+}
+
 func TestGitClientCommitFromReportPreservesTrailer(t *testing.T) {
 	workDir := t.TempDir()
 	t.Chdir(workDir)
@@ -156,6 +181,29 @@ func TestGitClientCommitFromReportFailsWhenNoReport(t *testing.T) {
 	err := client.CommitFromReport("test-slug")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "report.md")
+}
+
+func TestGitClientCommitFromReportCreatesEmptyCommitWhenNoChanges(t *testing.T) {
+	workDir := t.TempDir()
+	t.Chdir(workDir)
+	testutil.InitGitRepo(t, workDir)
+	testutil.MakeInitialCommit(t, workDir)
+	setupLocalRemote(t, workDir)
+
+	ctx := context.NewContext()
+	client := git.NewClient(ctx)
+
+	const report = "feat: no code needed\n\ncsv-export-1\n"
+	require.NoError(t, os.WriteFile("report.md", []byte(report), 0644))
+
+	err := client.CommitFromReport("test-slug")
+	require.NoError(t, err)
+
+	_, err = os.Stat("report.md")
+	assert.True(t, os.IsNotExist(err), "report.md should be deleted after the empty commit")
+	assert.Empty(t, gitStatusPorcelain(t, workDir), "the working tree must be clean after the empty commit")
+	assert.Equal(t, strings.TrimRight(report, "\n"), lastCommitMessage(t, workDir), "the report is the empty commit message, verbatim")
+	assertTreesEqual(t, workDir, "HEAD", "HEAD^", "the commit is empty when no code was written")
 }
 
 func TestGitClientCommitIterationAndPush(t *testing.T) {
@@ -234,6 +282,35 @@ func TestGitClientCommitIterationAndPushFailsWhenNoReport(t *testing.T) {
 	err := client.CommitIterationAndPush("fmt")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "report.md")
+}
+
+func TestGitClientCommitIterationAndPushCreatesEmptyCommitWhenNoChanges(t *testing.T) {
+	workDir := t.TempDir()
+	t.Chdir(workDir)
+	testutil.InitGitRepo(t, workDir)
+	testutil.MakeInitialCommit(t, workDir)
+	setupLocalRemote(t, workDir)
+
+	ctx := context.NewContext()
+	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
+	client := git.NewClient(ctx)
+
+	baseHead := revParse(t, workDir, "HEAD")
+	require.NoError(t, client.SwitchToLoopBranch("fmt"), "the loop branch is switched to before the iteration runs")
+
+	const report = "feat: no code needed\n\nloop-fmt-0\n"
+	require.NoError(t, os.WriteFile("report.md", []byte(report), 0644))
+
+	err := client.CommitIterationAndPush("fmt")
+	require.NoError(t, err)
+
+	assert.Equal(t, revParse(t, workDir, "HEAD"), revParse(t, workDir, "origin/loop-fmt"), "the empty iteration commit is pushed to the loop branch")
+	assert.Equal(t, baseHead, revParse(t, workDir, "main"), "the base branch still points at its original HEAD, so the loop branch was created from it")
+	_, err = os.Stat("report.md")
+	assert.True(t, os.IsNotExist(err), "report.md should be deleted after the empty commit")
+	assert.Equal(t, strings.TrimRight(report, "\n"), lastCommitMessage(t, workDir), "the last commit message is the report content, verbatim")
+	assert.Empty(t, gitStatusPorcelain(t, workDir), "the working tree must be clean after the empty commit")
+	assertTreesEqual(t, workDir, "HEAD", "HEAD^", "the iteration commit is empty when no code was written")
 }
 
 func TestGitClientSwitchToLoopBranch(t *testing.T) {
@@ -389,6 +466,20 @@ func revParse(t *testing.T, dir, ref string) string {
 	c.Dir = dir
 	out, err := c.CombinedOutput()
 	require.NoError(t, err, "git rev-parse %s", ref)
+	return strings.TrimSpace(string(out))
+}
+
+func assertTreesEqual(t *testing.T, dir, refA, refB string, msgAndArgs ...interface{}) {
+	t.Helper()
+	assert.Equal(t, revParseTree(t, dir, refA), revParseTree(t, dir, refB), msgAndArgs...)
+}
+
+func revParseTree(t *testing.T, dir, ref string) string {
+	t.Helper()
+	c := exec.Command("git", "rev-parse", ref+"^{tree}")
+	c.Dir = dir
+	out, err := c.CombinedOutput()
+	require.NoError(t, err, "git rev-parse %s^{tree}", ref)
 	return strings.TrimSpace(string(out))
 }
 

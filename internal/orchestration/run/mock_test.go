@@ -356,6 +356,10 @@ func gitWithReport(message string) *mockGit {
 	return &mockGit{hasChanges: true, reportExists: true, reportMessage: message}
 }
 
+func gitWithReportNoChanges(message string) *mockGit {
+	return &mockGit{hasChanges: false, reportExists: true, reportMessage: message}
+}
+
 func gitWithChangesButNoReport() *mockGit {
 	return &mockGit{hasChanges: true, reportExists: false}
 }

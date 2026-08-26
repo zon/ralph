@@ -62,7 +62,7 @@ func TestPerformCommit_WithStagedChanges(t *testing.T) {
 
 	require.NoError(t, StageFile("test.txt"))
 
-	err = performCommit("Add test file")
+	err = performCommit("Add test file", false)
 	require.NoError(t, err, "performCommit failed")
 
 	hasStaged := HasStagedChanges()
@@ -79,7 +79,7 @@ func TestPerformCommit_EmptyMessage(t *testing.T) {
 
 	require.NoError(t, StageFile("test.txt"))
 
-	err = performCommit("")
+	err = performCommit("", false)
 	require.Error(t, err, "performCommit should fail with empty message")
 	assert.Contains(t, err.Error(), "empty commit message")
 }
@@ -88,9 +88,40 @@ func TestPerformCommit_NoStagedChanges(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	t.Chdir(tempDir)
 
-	err := performCommit("Some commit message")
+	err := performCommit("Some commit message", false)
 	require.Error(t, err, "performCommit should fail with no staged changes")
 	assert.True(t, errors.Is(err, ErrNoChanges), "Expected ErrNoChanges, got: %v", err)
+}
+
+func TestPerformCommit_AllowEmptyCreatesEmptyCommitWhenNoChanges(t *testing.T) {
+	tempDir := setupTestRepo(t)
+	t.Chdir(tempDir)
+
+	message := "feat: no code needed\n\ncsv-export-1"
+	err := performCommit(message, true)
+	require.NoError(t, err, "performCommit with allowEmpty should succeed with no staged changes")
+
+	cmd := exec.Command("git", "log", "-1", "--format=%B")
+	cmd.Dir = tempDir
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err)
+	assert.Equal(t, message, strings.TrimSpace(string(out)), "the empty commit carries the message verbatim")
+	assertTreesEqual(t, tempDir, "HEAD", "HEAD^", "the empty commit carries no file changes")
+}
+
+func TestCommitEmpty(t *testing.T) {
+	tempDir := setupTestRepo(t)
+	t.Chdir(tempDir)
+
+	err := CommitEmpty("chore: empty commit")
+	require.NoError(t, err)
+
+	cmd := exec.Command("git", "log", "-1", "--format=%B")
+	cmd.Dir = tempDir
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err)
+	assert.Equal(t, "chore: empty commit", strings.TrimSpace(string(out)))
+	assertTreesEqual(t, tempDir, "HEAD", "HEAD^", "the empty commit carries no file changes")
 }
 
 func TestCommitChanges_WithStagedChanges(t *testing.T) {
@@ -148,6 +179,23 @@ func TestCommitChanges_NoStagedChanges(t *testing.T) {
 	assert.True(t, errors.Is(err, ErrNoChanges), "Expected ErrNoChanges, got: %v", err)
 }
 
+func TestCommitChangesAllowEmpty_CreatesEmptyCommitWhenNoChanges(t *testing.T) {
+	workDir, _ := setupBareRemoteRepo(t)
+	t.Chdir(workDir)
+
+	message := "feat: no code needed\n\ncsv-export-1"
+	err := CommitChangesAllowEmpty(false, "", "", message)
+	require.NoError(t, err, "CommitChangesAllowEmpty should succeed with no staged changes")
+
+	cmd := exec.Command("git", "log", "-1", "--format=%B")
+	cmd.Dir = workDir
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err)
+	assert.Equal(t, message, strings.TrimSpace(string(out)), "the empty commit carries the report verbatim")
+	assertTreesEqual(t, workDir, "HEAD", "HEAD^", "the empty commit carries no file changes")
+	assert.False(t, HasUncommittedChanges(), "the working tree stays clean after the empty commit")
+}
+
 func TestCommitWorkingTree(t *testing.T) {
 	t.Run("is a no-op on a clean tree", func(t *testing.T) {
 		tempDir := setupTestRepo(t)
@@ -171,4 +219,18 @@ func TestCommitWorkingTree(t *testing.T) {
 		require.NoError(t, err, "git log failed")
 		assert.Equal(t, "chore: sweep", strings.TrimSpace(string(out)))
 	})
+}
+
+func assertTreesEqual(t *testing.T, dir, refA, refB string, msgAndArgs ...interface{}) {
+	t.Helper()
+	assert.Equal(t, revParseTree(t, dir, refA), revParseTree(t, dir, refB), msgAndArgs...)
+}
+
+func revParseTree(t *testing.T, dir, ref string) string {
+	t.Helper()
+	c := exec.Command("git", "rev-parse", ref+"^{tree}")
+	c.Dir = dir
+	out, err := c.CombinedOutput()
+	require.NoError(t, err, "git rev-parse %s^{tree}", ref)
+	return strings.TrimSpace(string(out))
 }

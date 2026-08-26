@@ -48,6 +48,8 @@ Ralph does not pick in array order. Order the array however you like. The picker
 
 There is no command for this. The iteration prompt tells the development agent that when it has finished the item, the last line of its commit message must be the completion trailer. The agent writes that message itself, as `report.md`. Ralph commits `report.md` verbatim.
 
+Committing does not require code. When the working tree has no changes but `report.md` exists, ralph creates an empty commit with the report verbatim as the message. A completion trailer in the report marks the item complete even though no code was written. When the working tree has no changes and no `report.md` either, ralph creates no commit.
+
 ```
 feat: add CSV serializer for report entries
 

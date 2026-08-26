@@ -75,6 +75,17 @@ func Commit(message string) error {
 	return nil
 }
 
+// CommitEmpty creates an empty commit with the specified message. It is used
+// when an iteration produced a report but no code changes, so the report's
+// completion trailer still records the item as complete.
+func CommitEmpty(message string) error {
+	_, err := runGit("commit", "--allow-empty", "-m", message)
+	if err != nil {
+		return fmt.Errorf("failed to create empty commit: %w", err)
+	}
+	return nil
+}
+
 // CommitProjectRemoval commits the staged project file deletion on its own with
 // a message naming the project file, and no completion trailer.
 func CommitProjectRemoval(path string) error {
@@ -116,14 +127,17 @@ func GetCommitLog(base string, limit int) (string, error) {
 	return output, nil
 }
 
-func performCommit(message string) error {
+func performCommit(message string, allowEmpty bool) error {
 	message = strings.TrimSpace(message)
 	if message == "" {
 		return fmt.Errorf("empty commit message: cannot proceed without a descriptive message")
 	}
 
 	if !HasStagedChanges() {
-		return ErrNoChanges
+		if !allowEmpty {
+			return ErrNoChanges
+		}
+		return CommitEmpty(message)
 	}
 
 	if err := Commit(message); err != nil {
@@ -133,12 +147,26 @@ func performCommit(message string) error {
 	return nil
 }
 
+// CommitChanges stages and commits all changes and pushes to the remote. It
+// fails with ErrNoChanges when the working tree has no changes.
 func CommitChanges(isWorkflow bool, owner, repo, message string) error {
+	return commitChanges(isWorkflow, owner, repo, message, false)
+}
+
+// CommitChangesAllowEmpty is CommitChanges for the iteration commit path: when
+// the working tree has no changes it creates an empty commit instead of
+// failing, so a report's completion trailer is recorded even when no code was
+// written.
+func CommitChangesAllowEmpty(isWorkflow bool, owner, repo, message string) error {
+	return commitChanges(isWorkflow, owner, repo, message, true)
+}
+
+func commitChanges(isWorkflow bool, owner, repo, message string, allowEmpty bool) error {
 	if err := StageAll(); err != nil {
 		return fmt.Errorf("failed to stage changes: %w", err)
 	}
 
-	if err := performCommit(message); err != nil {
+	if err := performCommit(message, allowEmpty); err != nil {
 		return err
 	}
 
