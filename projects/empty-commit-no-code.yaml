@@ -1,0 +1,4 @@
+- The iteration commit step creates an empty commit when the working tree has no changes but `report.md` exists, using the report verbatim as the commit message, so a completion trailer in the report records the item as complete even when no code was written
+- The `report.md` file is never committed to the branch: it is used only as the source of the commit message and is removed after the commit, in both the code-changing and empty-commit paths
+- Update `docs/iterations.md` to describe the empty-commit case alongside the existing commit behavior
+- Apply a semver minor bump to the app version
