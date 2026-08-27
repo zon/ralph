@@ -1,6 +1,8 @@
 package workflow
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -56,6 +58,53 @@ func TestWorkflowRender_ResourcesFromConfig(t *testing.T) {
 
 	wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", "git@github.com:test/repo.git", "main", "test-project", "main", "", false, "project.yaml", false, cfg, "")
 	require.NoError(t, err, "GenerateWorkflowWithGitInfo failed")
+
+	assert.Equal(t, "1Gi", wf.Resources.Requests.Memory, "Workflow must carry the config memory request")
+	assert.Equal(t, "500m", wf.Resources.Requests.CPU, "Workflow must carry the config cpu request")
+	assert.Equal(t, "2Gi", wf.Resources.Limits.Memory, "Workflow must carry the config memory limit")
+	assert.Equal(t, "1", wf.Resources.Limits.CPU, "Workflow must carry the config cpu limit")
+
+	workflowYAML, err := wf.Render()
+	require.NoError(t, err, "Render failed")
+
+	resources := resourcesFromRenderedWorkflow(t, workflowYAML)
+	require.NotNil(t, resources, "executor container must carry a resources block")
+
+	requests, ok := resources["requests"].(map[string]interface{})
+	require.True(t, ok, "resources must have a requests map")
+	assert.Equal(t, "1Gi", requests["memory"])
+	assert.Equal(t, "500m", requests["cpu"])
+
+	limits, ok := resources["limits"].(map[string]interface{})
+	require.True(t, ok, "resources must have a limits map")
+	assert.Equal(t, "2Gi", limits["memory"])
+	assert.Equal(t, "1", limits["cpu"])
+}
+
+// TestWorkflowRun_AppliesConfiguredResources asserts the workflow-run submit
+// path loads resources from .ralph/config.yaml and applies them to the executor
+// container in the rendered workflow.
+func TestWorkflowRun_AppliesConfiguredResources(t *testing.T) {
+	tmpDir := t.TempDir()
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	require.NoError(t, os.Mkdir(ralphDir, 0755))
+
+	configContent := `workflow:
+  resources:
+    requests:
+      memory: 1Gi
+      cpu: 500m
+    limits:
+      memory: 2Gi
+      cpu: "1"
+`
+	require.NoError(t, os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte(configContent), 0644))
+
+	t.Chdir(tmpDir)
+
+	ctx := &execcontext.Context{}
+	wf, err := GenerateWorkflow(ctx, "test-project", "main", "test-project", "main", ".", false, false, "git@github.com:test/repo.git", "project.yaml")
+	require.NoError(t, err, "GenerateWorkflow failed")
 
 	assert.Equal(t, "1Gi", wf.Resources.Requests.Memory, "Workflow must carry the config memory request")
 	assert.Equal(t, "500m", wf.Resources.Requests.CPU, "Workflow must carry the config cpu request")
