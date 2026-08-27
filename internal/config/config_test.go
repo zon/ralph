@@ -435,6 +435,151 @@ func TestLoadConfig_WithWorkflowLabels(t *testing.T) {
 	assert.Equal(t, "ralph", config.Workflow.Labels["app.kubernetes.io/name"])
 }
 
+func TestLoadConfig_WithWorkflowResources(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	require.NoError(t, os.Mkdir(ralphDir, 0755))
+
+	configContent := `workflow:
+  resources:
+    requests:
+      memory: 1Gi
+      cpu: 500m
+    limits:
+      memory: 2Gi
+      cpu: "1"
+`
+	configPath := filepath.Join(ralphDir, "config.yaml")
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
+
+	t.Chdir(tmpDir)
+
+	config, err := LoadConfig()
+	require.NoError(t, err, "LoadConfig() unexpected error")
+
+	assert.Equal(t, "1Gi", config.Workflow.Resources.Requests.Memory)
+	assert.Equal(t, "500m", config.Workflow.Resources.Requests.CPU)
+	assert.Equal(t, "2Gi", config.Workflow.Resources.Limits.Memory)
+	assert.Equal(t, "1", config.Workflow.Resources.Limits.CPU)
+}
+
+// TestValidateWorkflowResources asserts the validator accepts well-formed
+// resources and rejects malformed quantities and limits below requests with a
+// descriptive error.
+func TestValidateWorkflowResources(t *testing.T) {
+	tests := []struct {
+		name      string
+		resources WorkflowResources
+		wantErr   string
+	}{
+		{
+			name: "valid resources",
+			resources: WorkflowResources{
+				Requests: ResourceList{Memory: "1Gi", CPU: "500m"},
+				Limits:   ResourceList{Memory: "2Gi", CPU: "1"},
+			},
+		},
+		{
+			name:      "empty resources",
+			resources: WorkflowResources{},
+		},
+		{
+			name: "partial requests only",
+			resources: WorkflowResources{
+				Requests: ResourceList{Memory: "512Mi"},
+			},
+		},
+		{
+			name: "memory limit below request",
+			resources: WorkflowResources{
+				Requests: ResourceList{Memory: "2Gi"},
+				Limits:   ResourceList{Memory: "1Gi"},
+			},
+			wantErr: `memory limit "1Gi" is below its request "2Gi"`,
+		},
+		{
+			name: "cpu limit below request",
+			resources: WorkflowResources{
+				Requests: ResourceList{CPU: "2"},
+				Limits:   ResourceList{CPU: "500m"},
+			},
+			wantErr: `cpu limit "500m" is below its request "2"`,
+		},
+		{
+			name: "unknown memory request quantity",
+			resources: WorkflowResources{
+				Requests: ResourceList{Memory: "banana"},
+			},
+			wantErr: `invalid memory request "banana"`,
+		},
+		{
+			name: "unknown cpu limit quantity",
+			resources: WorkflowResources{
+				Limits: ResourceList{CPU: "10bananas"},
+			},
+			wantErr: `invalid cpu limit "10bananas"`,
+		},
+		{
+			name: "quantity with unknown suffix",
+			resources: WorkflowResources{
+				Requests: ResourceList{Memory: "1foo"},
+			},
+			wantErr: `invalid memory request "1foo"`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateWorkflowResources(tt.resources)
+			if tt.wantErr == "" {
+				require.NoError(t, err, "ValidateWorkflowResources unexpected error")
+				return
+			}
+			require.Error(t, err, "ValidateWorkflowResources must reject malformed resources")
+			assert.Contains(t, err.Error(), tt.wantErr)
+		})
+	}
+}
+
+// TestParseResourceQuantity asserts the quantity parser accepts the Kubernetes
+// quantity forms used for CPU and memory.
+func TestParseResourceQuantity(t *testing.T) {
+	tests := []struct {
+		value   string
+		want    float64
+		wantErr bool
+	}{
+		{value: "1", want: 1},
+		{value: "0.5", want: 0.5},
+		{value: "500m", want: 0.5},
+		{value: "1Gi", want: 1073741824},
+		{value: "512Mi", want: 536870912},
+		{value: "2K", want: 2000},
+		{value: "2Ki", want: 2048},
+		{value: "1e3", want: 1000},
+		{value: "1e-3", want: 0.001},
+		{value: "-1Gi", want: -1073741824},
+		{value: "banana", wantErr: true},
+		{value: "1foo", wantErr: true},
+		{value: "1e", wantErr: true},
+		{value: "1.2.3", wantErr: true},
+		{value: "1e3Ki", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.value, func(t *testing.T) {
+			got, err := parseResourceQuantity(tt.value)
+			if tt.wantErr {
+				require.Error(t, err, "parseResourceQuantity must reject %q", tt.value)
+				return
+			}
+			require.NoError(t, err, "parseResourceQuantity(%q) unexpected error", tt.value)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
 func TestLoadConfig_WithoutWorkflowConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 

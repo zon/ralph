@@ -80,6 +80,7 @@ func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL,
 		Model:         ctx.Model(),
 		Agent:         ctx.Agent(),
 		Labels:        workflowOptions.Labels,
+		Resources:     workflowOptions.Resources,
 	}, nil
 }
 
@@ -117,6 +118,7 @@ func GenerateLoopWorkflow(ctx *execcontext.Context, slug string, steps []string,
 		Model:       ctx.Model(),
 		Agent:       ctx.Agent(),
 		Labels:      opts.Labels,
+		Resources:   opts.Resources,
 		Verbose:     ctx.IsVerbose(),
 	}, nil
 }
@@ -155,6 +157,7 @@ func GenerateCommandWorkflow(ctx *execcontext.Context, cloneBranch, remoteURL st
 		KubeContext: opts.KubeContext,
 		Namespace:   opts.Namespace,
 		Labels:      opts.Labels,
+		Resources:   opts.Resources,
 	}, nil
 }
 

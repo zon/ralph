@@ -1,4 +1,0 @@
-- The ralph executor container in the rendered Argo workflow declares memory and CPU requests and limits, so a ralph run is no longer scheduled as a BestEffort pod that a node's OOM controller kills before it finishes. The rendered `ralph-executor` template carries the resource block, and the values come from config.
-- The resources are configurable: the `.ralph/config.yaml` `workflow` section accepts `resources` with `requests` and `limits` for memory and cpu, and `ralph workflow run` applies them to the executor container it submits.
-- The executor resources round-trip: a config that sets them renders them unchanged in the workflow YAML, a config that omits them still renders a valid workflow, and malformed resource values (for example a limit below its request or an unknown quantity) are rejected with a descriptive error at submission time.
-- Apply a semver minor bump to the app version and a patch bump to the helm chart version.

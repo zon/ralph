@@ -65,6 +65,8 @@ type Workflow struct {
 	Agent string
 	// Labels are the Kubernetes labels to apply to the workflow pod.
 	Labels map[string]string
+	// Resources holds the CPU and memory requests and limits for the executor container.
+	Resources config.WorkflowResources
 	// Command is the command tokens to pass to `ralph workflow --command -- <tokens>`.
 	Command []string
 	// Loop carries the loop invocation the container runs when set. When set,
@@ -137,7 +139,11 @@ func (w *Workflow) Render() (string, error) {
 }
 
 // Submit renders and submits this Workflow to Argo, returning the workflow name.
+// Malformed resource values are rejected here, before anything is handed to Argo.
 func (w *Workflow) Submit(ctx context.Context, client argo.Client) (string, error) {
+	if err := config.ValidateWorkflowResources(w.Resources); err != nil {
+		return "", fmt.Errorf("invalid workflow resources: %w", err)
+	}
 	workflowYAML, err := w.Render()
 	if err != nil {
 		return "", err
@@ -251,17 +257,22 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 		}
 	}
 
+	container := map[string]interface{}{
+		"image":        resolveImage(w.Image.Repository, w.Image.Tag),
+		"command":      command,
+		"args":         args,
+		"env":          w.buildEnvVars(),
+		"volumeMounts": buildVolumeMounts(w.ConfigMaps, w.Secrets),
+		"workingDir":   "/workspace",
+	}
+	if resources := buildResources(w.Resources); len(resources) > 0 {
+		container["resources"] = resources
+	}
+
 	template := map[string]interface{}{
-		"name": "ralph-executor",
-		"container": map[string]interface{}{
-			"image":        resolveImage(w.Image.Repository, w.Image.Tag),
-			"command":      command,
-			"args":         args,
-			"env":          w.buildEnvVars(),
-			"volumeMounts": buildVolumeMounts(w.ConfigMaps, w.Secrets),
-			"workingDir":   "/workspace",
-		},
-		"volumes": buildVolumes(w.ConfigMaps, w.Secrets),
+		"name":      "ralph-executor",
+		"container": container,
+		"volumes":   buildVolumes(w.ConfigMaps, w.Secrets),
 	}
 
 	if len(w.Labels) > 0 {

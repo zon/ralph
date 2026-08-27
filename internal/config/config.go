@@ -3,8 +3,11 @@ package config
 import (
 	_ "embed"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 
 	"gopkg.in/yaml.v3"
 )
@@ -119,6 +122,135 @@ func (e EnvVar) MarshalYAML() (interface{}, error) {
 	return e.Value, nil
 }
 
+// ResourceList holds the memory and CPU quantities of a single resources entry.
+type ResourceList struct {
+	Memory string `yaml:"memory,omitempty"`
+	CPU    string `yaml:"cpu,omitempty"`
+}
+
+// WorkflowResources holds the CPU and memory requests and limits for the ralph
+// executor container.
+type WorkflowResources struct {
+	Requests ResourceList `yaml:"requests,omitempty"`
+	Limits   ResourceList `yaml:"limits,omitempty"`
+}
+
+// ValidateWorkflowResources returns an error when any configured resource
+// quantity is malformed or a limit is set below its request. An empty
+// resources block is valid.
+func ValidateWorkflowResources(r WorkflowResources) error {
+	for _, list := range []struct {
+		label string
+		value ResourceList
+	}{
+		{"request", r.Requests},
+		{"limit", r.Limits},
+	} {
+		for _, quantity := range []struct {
+			resource string
+			value    string
+		}{
+			{"memory", list.value.Memory},
+			{"cpu", list.value.CPU},
+		} {
+			if quantity.value == "" {
+				continue
+			}
+			if _, err := parseResourceQuantity(quantity.value); err != nil {
+				return fmt.Errorf("invalid %s %s %q", quantity.resource, list.label, quantity.value)
+			}
+		}
+	}
+
+	for _, resource := range []struct {
+		name           string
+		request, limit string
+	}{
+		{"memory", r.Requests.Memory, r.Limits.Memory},
+		{"cpu", r.Requests.CPU, r.Limits.CPU},
+	} {
+		if resource.request == "" || resource.limit == "" {
+			continue
+		}
+		request, err := parseResourceQuantity(resource.request)
+		if err != nil {
+			return err
+		}
+		limit, err := parseResourceQuantity(resource.limit)
+		if err != nil {
+			return err
+		}
+		if limit < request {
+			return fmt.Errorf("%s limit %q is below its request %q", resource.name, resource.limit, resource.request)
+		}
+	}
+
+	return nil
+}
+
+// resourceQuantitySuffixes maps resource quantity suffixes to their multiplier
+// in the base unit. Binary suffixes (Ki, Mi, ...) multiply by powers of 1024;
+// SI suffixes multiply by powers of 1000.
+var resourceQuantitySuffixes = map[string]float64{
+	"n":  1e-9,
+	"u":  1e-6,
+	"m":  1e-3,
+	"k":  1e3,
+	"K":  1e3,
+	"M":  1e6,
+	"G":  1e9,
+	"T":  1e12,
+	"P":  1e15,
+	"E":  1e18,
+	"Ki": 1024,
+	"Mi": 1024 * 1024,
+	"Gi": 1024 * 1024 * 1024,
+	"Ti": 1024 * 1024 * 1024 * 1024,
+	"Pi": 1024 * 1024 * 1024 * 1024 * 1024,
+	"Ei": 1024 * 1024 * 1024 * 1024 * 1024 * 1024,
+}
+
+// resourceQuantityRE matches a Kubernetes resource quantity: an optional sign,
+// a number, an optional decimal exponent, and an optional suffix. The groups
+// capture the number, exponent, and suffix separately.
+var resourceQuantityRE = regexp.MustCompile(`^([+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+))((?:[eE][+-]?[0-9]+)?)((?:Ei|Ki|Mi|Gi|Ti|Pi|n|u|m|k|K|M|G|T|P|E)?)$`)
+
+// parseResourceQuantity parses a Kubernetes resource quantity and returns its
+// value in the base unit. It rejects unknown suffixes, malformed numbers, and
+// quantities that combine an exponent with a suffix.
+func parseResourceQuantity(q string) (float64, error) {
+	match := resourceQuantityRE.FindStringSubmatch(q)
+	if match == nil {
+		return 0, fmt.Errorf("invalid quantity %q", q)
+	}
+
+	value, err := strconv.ParseFloat(match[1], 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid quantity %q", q)
+	}
+
+	if exponent := match[2]; exponent != "" {
+		if match[3] != "" {
+			return 0, fmt.Errorf("invalid quantity %q", q)
+		}
+		exp, err := strconv.Atoi(exponent[1:])
+		if err != nil {
+			return 0, fmt.Errorf("invalid quantity %q", q)
+		}
+		return value * math.Pow10(exp), nil
+	}
+
+	if match[3] == "" {
+		return value, nil
+	}
+
+	multiplier, ok := resourceQuantitySuffixes[match[3]]
+	if !ok {
+		return 0, fmt.Errorf("invalid quantity %q", q)
+	}
+	return value * multiplier, nil
+}
+
 // WorkflowConfig represents Argo Workflow configuration options
 type WorkflowConfig struct {
 	Image      ImageConfig       `yaml:"image,omitempty"`
@@ -128,6 +260,7 @@ type WorkflowConfig struct {
 	Context    string            `yaml:"context,omitempty"`
 	Namespace  string            `yaml:"namespace,omitempty"`
 	Labels     map[string]string `yaml:"labels,omitempty"`
+	Resources  WorkflowResources `yaml:"resources,omitempty"`
 }
 
 // UnmarshalYAML implements yaml.Unmarshaler so a null workflow.env entry is

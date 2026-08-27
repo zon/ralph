@@ -13,6 +13,7 @@ type WorkflowOptions struct {
 	KubeContext string
 	Namespace   string
 	Labels      map[string]string
+	Resources   config.WorkflowResources
 }
 
 func workflowOptionsFromConfig(cfg *config.RalphConfig, ctx *execcontext.Context) WorkflowOptions {
@@ -24,6 +25,7 @@ func workflowOptionsFromConfig(cfg *config.RalphConfig, ctx *execcontext.Context
 		KubeContext: cfg.Workflow.Context,
 		Namespace:   cfg.Workflow.Namespace,
 		Labels:      cfg.Workflow.Labels,
+		Resources:   cfg.Workflow.Resources,
 	}
 
 	if ctx != nil && ctx.KubeContext() != "" {
