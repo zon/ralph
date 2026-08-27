@@ -1,6 +1,7 @@
 package workflow
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -9,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
+	"github.com/zon/ralph/internal/argo"
 	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
 	githubpkg "github.com/zon/ralph/internal/github"
@@ -171,4 +173,145 @@ func TestWorkflowRender_PartialResources(t *testing.T) {
 	assert.NotContains(t, requests, "cpu", "unset cpu request must be omitted")
 
 	assert.NotContains(t, resources, "limits", "unset limits must be omitted")
+}
+
+// TestWorkflowSubmit_ResourcesRoundTrip asserts configured resources render
+// unchanged in the workflow YAML handed to Argo at submission time.
+func TestWorkflowSubmit_ResourcesRoundTrip(t *testing.T) {
+	wf := &Workflow{
+		ProjectName:   "test-project",
+		Repo:          githubpkg.MakeRepo("owner", "repo"),
+		CloneBranch:   "main",
+		ProjectBranch: "feature-branch",
+		ProjectPath:   "project.yaml",
+		Resources: config.WorkflowResources{
+			Requests: config.ResourceList{Memory: "1Gi", CPU: "500m"},
+			Limits:   config.ResourceList{Memory: "2Gi", CPU: "1"},
+		},
+	}
+
+	var submittedYAML string
+	client := &argo.MockClient{
+		SubmitYAMLFunc: func(ctx context.Context, workflowYAML string, kubeCtx argo.K8sContext) (string, error) {
+			submittedYAML = workflowYAML
+			return "test-workflow", nil
+		},
+	}
+
+	_, err := wf.Submit(context.Background(), client)
+	require.NoError(t, err, "Submit failed")
+	require.True(t, client.SubmitYAMLCalled, "SubmitYAML must be called")
+
+	resources := resourcesFromRenderedWorkflow(t, submittedYAML)
+	require.NotNil(t, resources, "executor container must carry a resources block")
+
+	requests, ok := resources["requests"].(map[string]interface{})
+	require.True(t, ok, "resources must have a requests map")
+	assert.Equal(t, "1Gi", requests["memory"])
+	assert.Equal(t, "500m", requests["cpu"])
+
+	limits, ok := resources["limits"].(map[string]interface{})
+	require.True(t, ok, "resources must have a limits map")
+	assert.Equal(t, "2Gi", limits["memory"])
+	assert.Equal(t, "1", limits["cpu"])
+}
+
+// TestWorkflowSubmit_ResourcesOmitted asserts a workflow without resources is
+// still submitted with a valid YAML that carries no resources block.
+func TestWorkflowSubmit_ResourcesOmitted(t *testing.T) {
+	wf := &Workflow{
+		ProjectName:   "test-project",
+		Repo:          githubpkg.MakeRepo("owner", "repo"),
+		CloneBranch:   "main",
+		ProjectBranch: "feature-branch",
+		ProjectPath:   "project.yaml",
+	}
+
+	var submittedYAML string
+	client := &argo.MockClient{
+		SubmitYAMLFunc: func(ctx context.Context, workflowYAML string, kubeCtx argo.K8sContext) (string, error) {
+			submittedYAML = workflowYAML
+			return "test-workflow", nil
+		},
+	}
+
+	_, err := wf.Submit(context.Background(), client)
+	require.NoError(t, err, "Submit failed")
+	require.True(t, client.SubmitYAMLCalled, "SubmitYAML must be called")
+
+	assert.NotContains(t, submittedYAML, "resources:", "submitted workflow YAML must not carry a resources block when none are configured")
+}
+
+// TestWorkflowSubmit_RejectsMalformedResources asserts malformed resource
+// values are rejected with a descriptive error at submission time and the
+// workflow is not handed to Argo.
+func TestWorkflowSubmit_RejectsMalformedResources(t *testing.T) {
+	tests := []struct {
+		name      string
+		resources config.WorkflowResources
+		wantErr   string
+	}{
+		{
+			name: "memory limit below request",
+			resources: config.WorkflowResources{
+				Requests: config.ResourceList{Memory: "2Gi"},
+				Limits:   config.ResourceList{Memory: "1Gi"},
+			},
+			wantErr: `memory limit "1Gi" is below its request "2Gi"`,
+		},
+		{
+			name: "cpu limit below request",
+			resources: config.WorkflowResources{
+				Requests: config.ResourceList{CPU: "2"},
+				Limits:   config.ResourceList{CPU: "1"},
+			},
+			wantErr: `cpu limit "1" is below its request "2"`,
+		},
+		{
+			name: "unknown memory request quantity",
+			resources: config.WorkflowResources{
+				Requests: config.ResourceList{Memory: "banana"},
+			},
+			wantErr: `invalid memory request "banana"`,
+		},
+		{
+			name: "unknown cpu limit quantity",
+			resources: config.WorkflowResources{
+				Limits: config.ResourceList{CPU: "10bananas"},
+			},
+			wantErr: `invalid cpu limit "10bananas"`,
+		},
+		{
+			name: "quantity with unknown suffix",
+			resources: config.WorkflowResources{
+				Requests: config.ResourceList{Memory: "1foo"},
+			},
+			wantErr: `invalid memory request "1foo"`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			wf := &Workflow{
+				ProjectName:   "test-project",
+				Repo:          githubpkg.MakeRepo("owner", "repo"),
+				CloneBranch:   "main",
+				ProjectBranch: "feature-branch",
+				ProjectPath:   "project.yaml",
+				Resources:     tt.resources,
+			}
+
+			client := &argo.MockClient{
+				SubmitYAMLFunc: func(ctx context.Context, workflowYAML string, kubeCtx argo.K8sContext) (string, error) {
+					return "test-workflow", nil
+				},
+			}
+
+			_, err := wf.Submit(context.Background(), client)
+			require.Error(t, err, "Submit must reject malformed resources")
+			assert.Contains(t, err.Error(), "workflow resources", "error must name the workflow resources")
+			assert.Contains(t, err.Error(), tt.wantErr)
+			assert.False(t, client.SubmitYAMLCalled, "Submit must not call Argo for malformed resources")
+		})
+	}
 }

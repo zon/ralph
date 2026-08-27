@@ -139,7 +139,11 @@ func (w *Workflow) Render() (string, error) {
 }
 
 // Submit renders and submits this Workflow to Argo, returning the workflow name.
+// Malformed resource values are rejected here, before anything is handed to Argo.
 func (w *Workflow) Submit(ctx context.Context, client argo.Client) (string, error) {
+	if err := config.ValidateWorkflowResources(w.Resources); err != nil {
+		return "", fmt.Errorf("invalid workflow resources: %w", err)
+	}
 	workflowYAML, err := w.Render()
 	if err != nil {
 		return "", err
