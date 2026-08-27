@@ -1,5 +1,6 @@
 mode: remote
 workflow:
+  context: lab
   namespace: ralph
 model: deepseek/deepseek-v4-flash
 variant: high
