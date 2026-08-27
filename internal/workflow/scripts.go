@@ -144,6 +144,32 @@ func buildVolumes(configMaps []config.ConfigMapMount, secrets []config.SecretMou
 	return volumes
 }
 
+// buildResources returns the container resources block from the configured
+// requests and limits, omitting entries that are unset. An empty result means
+// no resources were configured.
+func buildResources(r config.WorkflowResources) map[string]interface{} {
+	resources := map[string]interface{}{}
+	if req := resourceListMap(r.Requests); len(req) > 0 {
+		resources["requests"] = req
+	}
+	if lim := resourceListMap(r.Limits); len(lim) > 0 {
+		resources["limits"] = lim
+	}
+	return resources
+}
+
+// resourceListMap returns a resources entry mapping only the set quantities.
+func resourceListMap(l config.ResourceList) map[string]interface{} {
+	entry := map[string]interface{}{}
+	if l.Memory != "" {
+		entry["memory"] = l.Memory
+	}
+	if l.CPU != "" {
+		entry["cpu"] = l.CPU
+	}
+	return entry
+}
+
 // sanitizeName sanitizes a name for use as a Kubernetes volume/resource name.
 func sanitizeName(name string) string {
 	sanitized := strings.ReplaceAll(name, "_", "-")

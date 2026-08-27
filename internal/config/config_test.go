@@ -435,6 +435,35 @@ func TestLoadConfig_WithWorkflowLabels(t *testing.T) {
 	assert.Equal(t, "ralph", config.Workflow.Labels["app.kubernetes.io/name"])
 }
 
+func TestLoadConfig_WithWorkflowResources(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	ralphDir := filepath.Join(tmpDir, ".ralph")
+	require.NoError(t, os.Mkdir(ralphDir, 0755))
+
+	configContent := `workflow:
+  resources:
+    requests:
+      memory: 1Gi
+      cpu: 500m
+    limits:
+      memory: 2Gi
+      cpu: "1"
+`
+	configPath := filepath.Join(ralphDir, "config.yaml")
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
+
+	t.Chdir(tmpDir)
+
+	config, err := LoadConfig()
+	require.NoError(t, err, "LoadConfig() unexpected error")
+
+	assert.Equal(t, "1Gi", config.Workflow.Resources.Requests.Memory)
+	assert.Equal(t, "500m", config.Workflow.Resources.Requests.CPU)
+	assert.Equal(t, "2Gi", config.Workflow.Resources.Limits.Memory)
+	assert.Equal(t, "1", config.Workflow.Resources.Limits.CPU)
+}
+
 func TestLoadConfig_WithoutWorkflowConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 

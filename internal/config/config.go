@@ -119,6 +119,19 @@ func (e EnvVar) MarshalYAML() (interface{}, error) {
 	return e.Value, nil
 }
 
+// ResourceList holds the memory and CPU quantities of a single resources entry.
+type ResourceList struct {
+	Memory string `yaml:"memory,omitempty"`
+	CPU    string `yaml:"cpu,omitempty"`
+}
+
+// WorkflowResources holds the CPU and memory requests and limits for the ralph
+// executor container.
+type WorkflowResources struct {
+	Requests ResourceList `yaml:"requests,omitempty"`
+	Limits   ResourceList `yaml:"limits,omitempty"`
+}
+
 // WorkflowConfig represents Argo Workflow configuration options
 type WorkflowConfig struct {
 	Image      ImageConfig       `yaml:"image,omitempty"`
@@ -128,6 +141,7 @@ type WorkflowConfig struct {
 	Context    string            `yaml:"context,omitempty"`
 	Namespace  string            `yaml:"namespace,omitempty"`
 	Labels     map[string]string `yaml:"labels,omitempty"`
+	Resources  WorkflowResources `yaml:"resources,omitempty"`
 }
 
 // UnmarshalYAML implements yaml.Unmarshaler so a null workflow.env entry is
