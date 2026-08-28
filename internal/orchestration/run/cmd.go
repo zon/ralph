@@ -3,6 +3,8 @@ package run
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/git"
@@ -158,13 +160,43 @@ func (r *RunCmd) runWorktree(input *project.InputFile, setup ExecutionSetup) (re
 		}
 	}()
 
+	// Capture the starting repo root before changing into the worktree: the
+	// input file is tracked in the repository, so the worktree holds it at the
+	// same repo-relative path as the checkout the run started from. Worktree
+	// creation has already confirmed we are in a repository, so this is
+	// best-effort.
+	repoRoot, repoRootErr := git.FindRepoRoot()
+	if repoRootErr != nil {
+		repoRoot = ""
+	}
 	if err := r.workspace.ChangeDirectory(worktree.Path); err != nil {
 		return err
 	}
+	input = r.relocateInput(input, repoRoot, worktree.Path)
 	if err := r.local.RunLocalInWorktree(input, setup.Config); err != nil {
 		return err
 	}
 	return nil
+}
+
+// relocateInput points the input at its copy inside the worktree, so the whole
+// run operates on the worktree checkout: deleting and staging the copy during
+// cleanup leaves the starting checkout untouched and keeps git commands inside
+// the worktree's repository. When the input is outside the starting repository
+// or has no copy in the worktree, it is returned unchanged.
+func (r *RunCmd) relocateInput(input *project.InputFile, repoRoot, worktreePath string) *project.InputFile {
+	if repoRoot == "" {
+		return input
+	}
+	rel, err := filepath.Rel(repoRoot, input.Path())
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return input
+	}
+	path := filepath.Join(worktreePath, rel)
+	if _, err := os.Stat(path); err != nil {
+		return input
+	}
+	return input.Relocate(path)
 }
 
 func (r *RunCmd) prepareSetup(flags RunFlags, input *project.InputFile) (ExecutionSetup, error) {

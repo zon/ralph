@@ -29,6 +29,18 @@ func (f *InputFile) IsOrchestration() bool { return f.kind == inputOrchestration
 func (f *InputFile) Project() *Project     { return f.project }
 func (f *InputFile) Path() string          { return f.path }
 
+// Relocate returns a copy of the input whose path is replaced with the given
+// path, keeping the kind and any resolved project. It points the input at the
+// copy of a file inside a git worktree, so the run operates on the worktree
+// checkout rather than the checkout it started from.
+func (f *InputFile) Relocate(path string) *InputFile {
+	return &InputFile{
+		path:    path,
+		kind:    f.kind,
+		project: f.project,
+	}
+}
+
 func (f *InputFile) Slug() string {
 	if f.kind == inputProject {
 		return f.project.Slug

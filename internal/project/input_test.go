@@ -197,6 +197,32 @@ func TestResolveInputFile_UnparseableProject(t *testing.T) {
 	})
 }
 
+func TestInputFileRelocate(t *testing.T) {
+	t.Run("replaces path keeping kind, project, and slug", func(t *testing.T) {
+		p := &Project{Slug: "my-project"}
+		f := &InputFile{path: "/start/projects/my-project.yaml", kind: inputProject, project: p}
+		relocated := f.Relocate("/worktree/projects/my-project.yaml")
+		assert.Equal(t, "/worktree/projects/my-project.yaml", relocated.Path())
+		assert.True(t, relocated.IsProject())
+		assert.Equal(t, p, relocated.Project())
+		assert.Equal(t, "my-project", relocated.Slug())
+	})
+
+	t.Run("leaves the original input unchanged", func(t *testing.T) {
+		f := &InputFile{path: "/start/projects/my-project.yaml", kind: inputProject}
+		_ = f.Relocate("/worktree/projects/my-project.yaml")
+		assert.Equal(t, "/start/projects/my-project.yaml", f.Path())
+	})
+
+	t.Run("relocates orchestration input", func(t *testing.T) {
+		f := &InputFile{path: "/start/specs/features/x/orchestration.md", kind: inputOrchestration}
+		relocated := f.Relocate("/worktree/specs/features/x/orchestration.md")
+		assert.True(t, relocated.IsOrchestration())
+		assert.Equal(t, "/worktree/specs/features/x/orchestration.md", relocated.Path())
+		assert.Nil(t, relocated.Project())
+	})
+}
+
 func TestTestHelpers(t *testing.T) {
 	t.Run("ForProjectInput creates InputFile with project kind", func(t *testing.T) {
 		p := &Project{Slug: "test-project", Path: "/tmp/test.yaml"}

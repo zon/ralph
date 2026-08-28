@@ -3,6 +3,7 @@ package run
 import (
 	"errors"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -10,6 +11,7 @@ import (
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/project"
+	"github.com/zon/ralph/internal/testutil"
 )
 
 // ---------------------------------------------------------------------------
@@ -261,4 +263,72 @@ func TestRunWorktreePassesResolvedConfigToLoop(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, local.RunLocalInWorktreeCalled)
 	require.Equal(t, ".spec.tasks", local.LastConfig.Items)
+}
+
+// ---------------------------------------------------------------------------
+// Scenario tests: input relocation into the worktree
+// ---------------------------------------------------------------------------
+
+// TestRelocateInput asserts the input is pointed at its copy in the worktree
+// when it lives inside the starting repository, and returned unchanged when it
+// is outside the repository or has no copy in the worktree.
+func TestRelocateInput(t *testing.T) {
+	repo := t.TempDir()
+	worktreePath := filepath.Join(filepath.Dir(repo), filepath.Base(repo)+"-branch")
+	rel := filepath.Join("projects", "feature.yaml")
+	require.NoError(t, os.MkdirAll(filepath.Join(worktreePath, "projects"), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(worktreePath, rel), []byte("slug: feature\n"), 0644))
+
+	cmd := cmdWithMocks()
+	relocated := cmd.relocateInput(project.ForProjectInput(&project.Project{Slug: "feature", Path: filepath.Join(repo, rel)}), repo, worktreePath)
+	require.Equal(t, filepath.Join(worktreePath, rel), relocated.Path())
+	require.True(t, relocated.IsProject())
+
+	missing := filepath.Join("projects", "untracked.yaml")
+	unchanged := cmd.relocateInput(project.ForProjectInput(&project.Project{Slug: "untracked", Path: filepath.Join(repo, missing)}), repo, worktreePath)
+	require.Equal(t, filepath.Join(repo, missing), unchanged.Path())
+
+	outside := filepath.Join(t.TempDir(), "outside.yaml")
+	unchanged = cmd.relocateInput(project.ForProjectInput(&project.Project{Slug: "outside", Path: outside}), repo, worktreePath)
+	require.Equal(t, outside, unchanged.Path())
+
+	unchanged = cmd.relocateInput(project.ForProjectInput(&project.Project{Slug: "no-root", Path: filepath.Join(repo, rel)}), "", worktreePath)
+	require.Equal(t, filepath.Join(repo, rel), unchanged.Path())
+}
+
+// TestRunWorktreeRelocatesInputIntoWorktree asserts worktree mode points the
+// input at its copy inside the worktree before the loop runs, so cleanup
+// operates on the worktree checkout and the starting checkout stays untouched.
+func TestRunWorktreeRelocatesInputIntoWorktree(t *testing.T) {
+	repo := t.TempDir()
+	testutil.InitGitRepo(t, repo)
+	testutil.MakeInitialCommit(t, repo)
+	t.Chdir(repo)
+
+	rel := filepath.Join("projects", "retire-legacy.yaml")
+	require.NoError(t, os.MkdirAll(filepath.Join(repo, "projects"), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(repo, rel), []byte("slug: retire-legacy\nrequirements: []\n"), 0644))
+
+	wtDir := filepath.Join(filepath.Dir(repo), filepath.Base(repo)+"-retire-legacy")
+	require.NoError(t, os.MkdirAll(filepath.Join(wtDir, "projects"), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(wtDir, rel), []byte("slug: retire-legacy\nrequirements: []\n"), 0644))
+
+	inputPath := filepath.Join(repo, rel)
+	local := &mockLocalRunnerClient{}
+	wt := &mockWorktreeClient{
+		CreateWorktreeFunc: func(string, bool) (*git.WorktreeCommand, error) {
+			return &git.WorktreeCommand{Args: []string{"worktree", "add", "-b", "retire-legacy", wtDir}, Path: wtDir}, nil
+		},
+	}
+	cmd := cmdWithMocks(
+		cmdWithWorktree(wt),
+		cmdWithLocal(local),
+		cmdWithProject(&mockProjectRepo{
+			InputFile: project.ForProjectInput(&project.Project{Slug: "retire-legacy", Path: inputPath}),
+		}),
+	)
+
+	require.NoError(t, cmd.Run(flagsWithMode(config.ModeWorktree)))
+	require.True(t, local.RunLocalInWorktreeCalled)
+	require.Equal(t, filepath.Join(wtDir, rel), local.LastInput.Path())
 }
