@@ -20,6 +20,8 @@ type GitHubCredentialsClient interface {
 	Validate(keyPath string) error
 	Configure(k8sCtx K8sContext, keyPath string) error
 	ConfigureToken(k8sCtx K8sContext, token string) error
+	TokenFromGHCli() string
+	TokenFromEnv() string
 }
 
 type OpenCodeCredentialsClient interface {
@@ -73,8 +75,20 @@ func (c *SetConfigCmd) configureGitHub(k8sCtx K8sContext, flags Flags) error {
 	if err != nil {
 		return err
 	}
-	if !exists {
+	if exists {
+		return nil
+	}
+
+	return c.configureTokenFromFallback(k8sCtx)
+}
+
+func (c *SetConfigCmd) configureTokenFromFallback(k8sCtx K8sContext) error {
+	token := c.GitHub.TokenFromGHCli()
+	if token == "" {
+		token = c.GitHub.TokenFromEnv()
+	}
+	if token == "" {
 		return ErrNoGitHubKey
 	}
-	return nil
+	return c.GitHub.ConfigureToken(k8sCtx, token)
 }

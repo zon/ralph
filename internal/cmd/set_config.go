@@ -102,6 +102,14 @@ func (c *setconfigGitHubClient) Configure(k8sCtx setconfig.K8sContext, keyPath s
 	return nil
 }
 
+func (c *setconfigGitHubClient) TokenFromGHCli() string {
+	return github.GHCliToken()
+}
+
+func (c *setconfigGitHubClient) TokenFromEnv() string {
+	return os.Getenv("GITHUB_TOKEN")
+}
+
 func (c *setconfigGitHubClient) ConfigureToken(k8sCtx setconfig.K8sContext, token string) error {
 	c.out.Infof("Creating/updating Kubernetes secret '%s'...", k8s.GitHubSecretName)
 

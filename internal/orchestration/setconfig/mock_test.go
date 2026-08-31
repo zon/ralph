@@ -24,10 +24,15 @@ type mockGitHubCredentialsClient struct {
 	validateFunc         func(string) error
 	configureFunc        func(K8sContext, string) error
 	configureTokenFunc   func(K8sContext, string) error
+	ghCliTokenFunc       func() string
+	envTokenFunc         func() string
 	secretExistsCalled   bool
 	validateCalled       bool
 	configureCalled      bool
 	configureTokenCalled bool
+	ghCliTokenCalled     bool
+	envTokenCalled       bool
+	configuredToken      string
 }
 
 func (m *mockGitHubCredentialsClient) SecretExists(k8sCtx K8sContext) (bool, error) {
@@ -56,10 +61,27 @@ func (m *mockGitHubCredentialsClient) Configure(k8sCtx K8sContext, keyPath strin
 
 func (m *mockGitHubCredentialsClient) ConfigureToken(k8sCtx K8sContext, token string) error {
 	m.configureTokenCalled = true
+	m.configuredToken = token
 	if m.configureTokenFunc != nil {
 		return m.configureTokenFunc(k8sCtx, token)
 	}
 	return nil
+}
+
+func (m *mockGitHubCredentialsClient) TokenFromGHCli() string {
+	m.ghCliTokenCalled = true
+	if m.ghCliTokenFunc != nil {
+		return m.ghCliTokenFunc()
+	}
+	return ""
+}
+
+func (m *mockGitHubCredentialsClient) TokenFromEnv() string {
+	m.envTokenCalled = true
+	if m.envTokenFunc != nil {
+		return m.envTokenFunc()
+	}
+	return ""
 }
 
 type mockOpenCodeCredentialsClient struct {
@@ -135,6 +157,18 @@ func (h *githubHelper) validateCalled() bool {
 	return mockGH != nil && mockGH.validateCalled
 }
 
+func (h *githubHelper) configuredToken() string {
+	return mockGH.configuredToken
+}
+
+func (h *githubHelper) envTokenCalled() bool {
+	return mockGH != nil && mockGH.envTokenCalled
+}
+
+func (h *githubHelper) ghCliTokenCalled() bool {
+	return mockGH != nil && mockGH.ghCliTokenCalled
+}
+
 func (h *githubHelper) configureCalled() bool {
 	return mockGH != nil && mockGH.configureCalled
 }
@@ -177,6 +211,21 @@ func (h *githubHelper) withExistingSecret() *mockGitHubCredentialsClient {
 func (h *githubHelper) withNoExistingSecret() *mockGitHubCredentialsClient {
 	return &mockGitHubCredentialsClient{
 		secretExistsFunc: func(K8sContext) (bool, error) { return false, nil },
+	}
+}
+
+func (h *githubHelper) withGHCliToken(tok string) *mockGitHubCredentialsClient {
+	return &mockGitHubCredentialsClient{
+		secretExistsFunc: func(K8sContext) (bool, error) { return false, nil },
+		ghCliTokenFunc:   func() string { return tok },
+		envTokenFunc:     func() string { return "ghp_env_token" },
+	}
+}
+
+func (h *githubHelper) withEnvToken(tok string) *mockGitHubCredentialsClient {
+	return &mockGitHubCredentialsClient{
+		secretExistsFunc: func(K8sContext) (bool, error) { return false, nil },
+		envTokenFunc:     func() string { return tok },
 	}
 }
 

@@ -3,6 +3,8 @@ package cmd
 import (
 	"context"
 	"io"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/alecthomas/kong"
@@ -92,6 +94,35 @@ func TestSetConfigGitHubClientConfigureTokenWritesSecret(t *testing.T) {
 	assert.Equal(t, "argo", capturedNamespace)
 	assert.Equal(t, "staging", capturedContext)
 	assert.Equal(t, map[string]string{"token": "ghp_test_token"}, capturedData)
+}
+
+func TestSetConfigGitHubClientTokenFromGHCli(t *testing.T) {
+	t.Run("returns gh auth token", func(t *testing.T) {
+		writeFakeGHCLIScript(t, `printf 'ghp_cli_token\n'`)
+		client := &setconfigGitHubClient{}
+		assert.Equal(t, "ghp_cli_token", client.TokenFromGHCli())
+	})
+
+	t.Run("returns empty when gh not authenticated", func(t *testing.T) {
+		writeFakeGHCLIScript(t, `exit 1`)
+		client := &setconfigGitHubClient{}
+		assert.Empty(t, client.TokenFromGHCli())
+	})
+}
+
+func TestSetConfigGitHubClientTokenFromEnv(t *testing.T) {
+	t.Setenv("GITHUB_TOKEN", "ghp_env_token")
+	client := &setconfigGitHubClient{}
+	assert.Equal(t, "ghp_env_token", client.TokenFromEnv())
+}
+
+func writeFakeGHCLIScript(t *testing.T, body string) {
+	t.Helper()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "gh")
+	require.NoError(t, os.WriteFile(path, []byte("#!/bin/sh\n"+body+"\n"), 0755))
+	origPath := os.Getenv("PATH")
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+origPath)
 }
 
 func TestSetConfigGitHubClientConfigureTokenPropagatesError(t *testing.T) {
