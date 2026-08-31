@@ -17,6 +17,7 @@ type GitHubCredentialsClient interface {
 	SecretExists(k8sCtx K8sContext) (bool, error)
 	Validate(keyPath string) error
 	Configure(k8sCtx K8sContext, keyPath string) error
+	ConfigureToken(k8sCtx K8sContext, token string) error
 }
 
 type OpenCodeCredentialsClient interface {
@@ -30,9 +31,10 @@ type SetConfigCmd struct {
 }
 
 type Flags struct {
-	Context   string
-	Namespace string
-	GithubKey string
+	Context     string
+	Namespace   string
+	GithubKey   string
+	GithubToken string
 }
 
 func (c *SetConfigCmd) Run(flags Flags) error {
@@ -41,28 +43,32 @@ func (c *SetConfigCmd) Run(flags Flags) error {
 		return err
 	}
 
-	if err := c.configureGitHub(k8sCtx, flags.GithubKey); err != nil {
+	if err := c.configureGitHub(k8sCtx, flags); err != nil {
 		return err
 	}
 
 	return c.OpenCode.Configure(k8sCtx)
 }
 
-func (c *SetConfigCmd) configureGitHub(k8sCtx K8sContext, keyPath string) error {
-	if keyPath == "" {
-		exists, err := c.GitHub.SecretExists(k8sCtx)
-		if err != nil {
+func (c *SetConfigCmd) configureGitHub(k8sCtx K8sContext, flags Flags) error {
+	if flags.GithubToken != "" {
+		return c.GitHub.ConfigureToken(k8sCtx, flags.GithubToken)
+	}
+
+	if flags.GithubKey != "" {
+		if err := c.GitHub.Validate(flags.GithubKey); err != nil {
 			return err
 		}
-		if !exists {
-			return ErrNoGitHubKey
-		}
-		return nil
+
+		return c.GitHub.Configure(k8sCtx, flags.GithubKey)
 	}
 
-	if err := c.GitHub.Validate(keyPath); err != nil {
+	exists, err := c.GitHub.SecretExists(k8sCtx)
+	if err != nil {
 		return err
 	}
-
-	return c.GitHub.Configure(k8sCtx, keyPath)
+	if !exists {
+		return ErrNoGitHubKey
+	}
+	return nil
 }

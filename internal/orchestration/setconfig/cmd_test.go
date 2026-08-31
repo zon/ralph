@@ -75,3 +75,22 @@ func TestRunHaltsOnGitHubConfigureFailure(t *testing.T) {
 	err := cmd.Run(flags.withKey())
 	require.Error(t, err)
 }
+
+func TestRunConfiguresGitHubTokenWithoutValidation(t *testing.T) {
+	cmd := setconfig.withMocks()
+	err := cmd.Run(flags.withToken())
+	require.NoError(t, err)
+	require.True(t, github.configureTokenCalled())
+	require.False(t, github.validateCalled())
+	require.False(t, github.configureCalled())
+	require.True(t, opencode.configureCalled())
+}
+
+func TestRunHaltsOnGitHubTokenConfigureFailure(t *testing.T) {
+	cmd := setconfig.withMocks(
+		setconfig.withGitHub(github.thatFailsConfigureToken()),
+	)
+	err := cmd.Run(flags.withToken())
+	require.Error(t, err)
+	require.False(t, opencode.configureCalled())
+}
