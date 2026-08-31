@@ -4,6 +4,8 @@ import "errors"
 
 var ErrNoGitHubKey = errors.New("--github-key is required when no existing GitHub credentials secret is found")
 
+var ErrBothGitHubFlags = errors.New("--github-key and --github-token are mutually exclusive")
+
 type K8sContext struct {
 	Name      string
 	Namespace string
@@ -38,6 +40,10 @@ type Flags struct {
 }
 
 func (c *SetConfigCmd) Run(flags Flags) error {
+	if flags.GithubKey != "" && flags.GithubToken != "" {
+		return ErrBothGitHubFlags
+	}
+
 	k8sCtx, err := c.Ctx.Resolve(flags.Context, flags.Namespace)
 	if err != nil {
 		return err

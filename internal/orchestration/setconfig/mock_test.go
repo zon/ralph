@@ -198,6 +198,10 @@ type ctxHelper struct{}
 
 var ctx = &ctxHelper{}
 
+func (h *ctxHelper) resolveCalled() bool {
+	return mockCtx != nil && mockCtx.resolveCalled
+}
+
 func (h *ctxHelper) thatFails() *mockContextClient {
 	return &mockContextClient{
 		resolveFunc: func(string, string) (K8sContext, error) { return K8sContext{}, errMock },
@@ -220,6 +224,15 @@ func (h *flagsHelper) withToken() Flags {
 	return Flags{
 		Context:     "test-context",
 		Namespace:   "test-ns",
+		GithubToken: "ghp_test_token",
+	}
+}
+
+func (h *flagsHelper) withKeyAndToken() Flags {
+	return Flags{
+		Context:     "test-context",
+		Namespace:   "test-ns",
+		GithubKey:   "/path/to/key.pem",
 		GithubToken: "ghp_test_token",
 	}
 }
