@@ -175,39 +175,78 @@ func cleanupStaleTokenRewrites(ctx context.Context) {
 	}
 }
 
-// ConfigureGitAuth fetches a GitHub App installation token from secretsDir and
-// configures git globally to authenticate HTTPS requests with it.
-// owner and repo are used to look up the installation; if either is empty they
-// are autodetected from the git remote.
+// ConfigureGitAuth configures git HTTPS authentication and the gh CLI from
+// credentials in secretsDir. GitHub App credentials are preferred: when both
+// app-id and private-key are mounted, they are exchanged for a short-lived
+// installation token. Otherwise the token stored in the token file is used, so
+// a token-only secret is sufficient for remote runs.
 //
 // Any previously set x-access-token insteadOf rewrites for github.com are
 // removed before the new entry is written. This prevents stale (expired) tokens
 // from being chosen by git when multiple rewrites match the same URL.
 func ConfigureGitAuth(ctx context.Context, owner, repo, secretsDir string) error {
-	owner, repo, err := resolveRepoDetails(ctx, owner, repo)
+	token, err := ResolveAuthToken(ctx, owner, repo, secretsDir)
 	if err != nil {
 		return err
 	}
 
-	appID, privateKeyBytes, err := readAppCredentials(secretsDir)
-	if err != nil {
+	if err := configureGitAuth(ctx, token); err != nil {
 		return err
 	}
 
-	installationToken, err := obtainInstallationToken(ctx, owner, repo, appID, privateKeyBytes)
-	if err != nil {
-		return err
-	}
-
-	if err := configureGitAuth(ctx, installationToken); err != nil {
-		return err
-	}
-
-	if err := authenticateGHCLI(ctx, installationToken); err != nil {
+	if err := authenticateGHCLI(ctx, token); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+// ResolveAuthToken returns the token to use for git HTTPS authentication and
+// gh CLI authentication from credentials mounted in secretsDir. When both
+// app-id and private-key are mounted, the GitHub App credentials are preferred
+// and exchanged for a short-lived installation token. Otherwise the token
+// stored in the token file is returned, so a token-only secret is sufficient.
+func ResolveAuthToken(ctx context.Context, owner, repo, secretsDir string) (string, error) {
+	if !appCredentialsPresent(secretsDir) {
+		return readStoredToken(secretsDir)
+	}
+
+	owner, repo, err := resolveRepoDetails(ctx, owner, repo)
+	if err != nil {
+		return "", err
+	}
+
+	appID, privateKeyBytes, err := readAppCredentials(secretsDir)
+	if err != nil {
+		return "", err
+	}
+
+	return obtainInstallationToken(ctx, owner, repo, appID, privateKeyBytes)
+}
+
+// appCredentialsPresent reports whether both the app-id and private-key files
+// are mounted at the secrets directory.
+func appCredentialsPresent(secretsDir string) bool {
+	for _, name := range []string{"app-id", "private-key"} {
+		if _, err := os.Stat(filepath.Join(secretsDir, name)); err != nil {
+			return false
+		}
+	}
+	return true
+}
+
+// readStoredToken reads the token stored at the token file in secretsDir.
+func readStoredToken(secretsDir string) (string, error) {
+	tokenPath := filepath.Join(secretsDir, "token")
+	tokenBytes, err := os.ReadFile(tokenPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read token from %s: %w", tokenPath, err)
+	}
+	token := strings.TrimSpace(string(tokenBytes))
+	if token == "" {
+		return "", fmt.Errorf("token is empty in %s", tokenPath)
+	}
+	return token, nil
 }
 
 func resolveRepoDetails(ctx context.Context, owner, repo string) (string, string, error) {
@@ -276,14 +315,11 @@ func obtainInstallationToken(ctx context.Context, owner, repo, appID string, pri
 	return installationToken, nil
 }
 
-// GenerateInstallationToken reads GitHub App credentials from secretsDir and
-// returns an installation access token for the given owner/repo.
+// GenerateInstallationToken returns the token to use for git authentication
+// from secretsDir, preferring GitHub App credentials when both app-id and
+// private-key are mounted and falling back to the stored token file.
 func GenerateInstallationToken(ctx context.Context, owner, repo, secretsDir string) (string, error) {
-	appID, privateKeyBytes, err := readAppCredentials(secretsDir)
-	if err != nil {
-		return "", err
-	}
-	return obtainInstallationToken(ctx, owner, repo, appID, privateKeyBytes)
+	return ResolveAuthToken(ctx, owner, repo, secretsDir)
 }
 
 // ConfigureTokenAuth configures git to authenticate HTTPS requests with the
