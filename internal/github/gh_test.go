@@ -22,6 +22,18 @@ func writeFakeGHScript(t *testing.T, body string) {
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+origPath)
 }
 
+func TestGHCliToken(t *testing.T) {
+	t.Run("returns gh auth token", func(t *testing.T) {
+		writeFakeGHScript(t, `case "$*" in *"auth token"*) printf 'ghp_cli_token\n';; *) exit 1;; esac`)
+		assert.Equal(t, "ghp_cli_token", GHCliToken())
+	})
+
+	t.Run("returns empty when gh fails", func(t *testing.T) {
+		writeFakeGHScript(t, `exit 1`)
+		assert.Empty(t, GHCliToken())
+	})
+}
+
 func TestGH_IsReady(t *testing.T) {
 	t.Run("both version and auth succeed", func(t *testing.T) {
 		writeFakeGHScript(t, `case "$1" in --version) exit 0;; auth) exit 0;; *) exit 1;; esac`)

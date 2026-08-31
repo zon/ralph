@@ -36,6 +36,17 @@ func NewGH(out *output.Client) *GH {
 	return &GH{out: out}
 }
 
+// GHCliToken returns the token stored by the gh CLI login, or an empty string
+// when gh is not installed or not authenticated.
+func GHCliToken() string {
+	cmd := exec.Command("gh", "auth", "token")
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
 func (g *GH) IsReady() bool {
 	cmd := exec.Command("gh", "--version")
 	if err := cmd.Run(); err != nil {

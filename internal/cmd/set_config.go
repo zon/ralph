@@ -14,9 +14,10 @@ import (
 )
 
 type SetConfigCmd struct {
-	GithubKey string `help:"Path to GitHub App private key (.pem file)" name:"github-key" optional:""`
-	Context   string `help:"Kubernetes context to use" name:"context" optional:""`
-	Namespace string `help:"Kubernetes namespace to use" short:"n" optional:""`
+	GithubKey   string `help:"Path to GitHub App private key (.pem file)" name:"github-key" optional:""`
+	GithubToken string `help:"GitHub personal access token" name:"github-token" optional:""`
+	Context     string `help:"Kubernetes context to use" name:"context" optional:""`
+	Namespace   string `help:"Kubernetes namespace to use" short:"n" optional:""`
 }
 
 func (c *SetConfigCmd) Run() error {
@@ -39,9 +40,10 @@ func (c *SetConfigCmd) Run() error {
 	}
 
 	return cmd.Run(setconfig.Flags{
-		Context:   c.Context,
-		Namespace: c.Namespace,
-		GithubKey: c.GithubKey,
+		Context:     c.Context,
+		Namespace:   c.Namespace,
+		GithubKey:   c.GithubKey,
+		GithubToken: c.GithubToken,
 	})
 }
 
@@ -89,6 +91,30 @@ func (c *setconfigGitHubClient) Configure(k8sCtx setconfig.K8sContext, keyPath s
 	secretData := map[string]string{
 		"app-id":      config.DefaultAppID,
 		"private-key": string(privateKeyBytes),
+	}
+
+	if err := c.k8sClient.CreateOrUpdateSecret(c.ctx, k8s.GitHubSecretName, k8sCtx.Namespace, k8sCtx.Name, secretData); err != nil {
+		return fmt.Errorf("failed to create/update secret: %w", err)
+	}
+
+	c.out.Successf("Secret '%s' created/updated successfully", k8s.GitHubSecretName)
+	c.out.Infof("Configuration complete! The secret '%s' is ready for use in namespace '%s'.", k8s.GitHubSecretName, k8sCtx.Namespace)
+	return nil
+}
+
+func (c *setconfigGitHubClient) TokenFromGHCli() string {
+	return github.GHCliToken()
+}
+
+func (c *setconfigGitHubClient) TokenFromEnv() string {
+	return os.Getenv("GITHUB_TOKEN")
+}
+
+func (c *setconfigGitHubClient) ConfigureToken(k8sCtx setconfig.K8sContext, token string) error {
+	c.out.Infof("Creating/updating Kubernetes secret '%s'...", k8s.GitHubSecretName)
+
+	secretData := map[string]string{
+		"token": token,
 	}
 
 	if err := c.k8sClient.CreateOrUpdateSecret(c.ctx, k8s.GitHubSecretName, k8sCtx.Namespace, k8sCtx.Name, secretData); err != nil {

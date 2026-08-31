@@ -48,6 +48,11 @@ func TestRunErrorsWhenNoKeyAndNoExistingSecret(t *testing.T) {
 	)
 	err := cmd.Run(flags.withoutKey())
 	require.ErrorIs(t, err, ErrNoGitHubKey)
+	require.True(t, github.ghCliTokenCalled())
+	require.True(t, github.envTokenCalled())
+	require.False(t, github.configureTokenCalled())
+	require.False(t, github.configureCalled())
+	require.False(t, opencode.configureCalled())
 }
 
 func TestRunPropagatesContextResolutionFailure(t *testing.T) {
@@ -74,4 +79,58 @@ func TestRunHaltsOnGitHubConfigureFailure(t *testing.T) {
 	)
 	err := cmd.Run(flags.withKey())
 	require.Error(t, err)
+}
+
+func TestRunConfiguresGitHubTokenWithoutValidation(t *testing.T) {
+	cmd := setconfig.withMocks()
+	err := cmd.Run(flags.withToken())
+	require.NoError(t, err)
+	require.True(t, github.configureTokenCalled())
+	require.False(t, github.validateCalled())
+	require.False(t, github.configureCalled())
+	require.True(t, opencode.configureCalled())
+}
+
+func TestRunHaltsOnGitHubTokenConfigureFailure(t *testing.T) {
+	cmd := setconfig.withMocks(
+		setconfig.withGitHub(github.thatFailsConfigureToken()),
+	)
+	err := cmd.Run(flags.withToken())
+	require.Error(t, err)
+	require.False(t, opencode.configureCalled())
+}
+
+func TestRunErrorsWhenBothKeyAndTokenProvided(t *testing.T) {
+	cmd := setconfig.withMocks()
+	err := cmd.Run(flags.withKeyAndToken())
+	require.ErrorIs(t, err, ErrBothGitHubFlags)
+	require.False(t, ctx.resolveCalled())
+	require.False(t, github.validateCalled())
+	require.False(t, github.configureCalled())
+	require.False(t, github.configureTokenCalled())
+	require.False(t, opencode.configureCalled())
+}
+
+func TestRunFallsBackToGHCliTokenWhenNoSecret(t *testing.T) {
+	cmd := setconfig.withMocks(
+		setconfig.withGitHub(github.withGHCliToken("ghp_cli_token")),
+	)
+	err := cmd.Run(flags.withoutKey())
+	require.NoError(t, err)
+	require.True(t, github.configureTokenCalled())
+	require.Equal(t, "ghp_cli_token", github.configuredToken())
+	require.False(t, github.envTokenCalled())
+	require.True(t, opencode.configureCalled())
+}
+
+func TestRunFallsBackToEnvTokenWhenNoSecretAndNoGHCliToken(t *testing.T) {
+	cmd := setconfig.withMocks(
+		setconfig.withGitHub(github.withEnvToken("ghp_env_token")),
+	)
+	err := cmd.Run(flags.withoutKey())
+	require.NoError(t, err)
+	require.True(t, github.configureTokenCalled())
+	require.Equal(t, "ghp_env_token", github.configuredToken())
+	require.True(t, github.ghCliTokenCalled())
+	require.True(t, opencode.configureCalled())
 }

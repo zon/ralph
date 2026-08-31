@@ -430,7 +430,7 @@ func TestGenerateInstallationToken_MissingSecretsDir(t *testing.T) {
 	ctx := context.Background()
 	_, err := GenerateInstallationToken(ctx, "owner", "repo", "/nonexistent/secrets")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to read app ID")
+	assert.Contains(t, err.Error(), "failed to read token")
 }
 
 func TestGenerateInstallationToken_EmptyAppID(t *testing.T) {
@@ -455,6 +455,74 @@ func TestGenerateInstallationToken_EmptyPrivateKey(t *testing.T) {
 	assert.Contains(t, err.Error(), "private key is empty")
 }
 
+func TestGenerateInstallationToken_TokenOnlyFallback(t *testing.T) {
+	secretsDir := t.TempDir()
+	storedToken := "github_pat_fallback-token"
+	os.WriteFile(filepath.Join(secretsDir, "token"), []byte(storedToken+"\n"), 0644)
+
+	ctx := context.Background()
+	token, err := GenerateInstallationToken(ctx, "", "", secretsDir)
+	require.NoError(t, err)
+	assert.Equal(t, storedToken, token)
+}
+
+func TestResolveAuthToken_AppCredentialsPreferred(t *testing.T) {
+	installationToken := "ghs_test-app-preferred-token"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.Contains(r.URL.Path, "/access_tokens"):
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(map[string]string{"token": installationToken})
+		case strings.Contains(r.URL.Path, "/installation"):
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(map[string]int64{"id": int64(87654321)})
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	serverURL := strings.TrimPrefix(server.URL, "http://")
+	oldClient := httpClient
+	httpClient = &http.Client{Transport: &rewriteTransport{old: http.DefaultTransport, serverURL: serverURL}}
+	defer func() { httpClient = oldClient }()
+
+	secretsDir := t.TempDir()
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+	privateKeyPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(privateKey),
+	})
+	os.WriteFile(filepath.Join(secretsDir, "app-id"), []byte("12345"), 0644)
+	os.WriteFile(filepath.Join(secretsDir, "private-key"), privateKeyPEM, 0644)
+	os.WriteFile(filepath.Join(secretsDir, "token"), []byte("github_pat_stale-token"), 0644)
+
+	ctx := context.Background()
+	token, err := ResolveAuthToken(ctx, "test-owner", "test-repo", secretsDir)
+	require.NoError(t, err)
+	assert.Equal(t, installationToken, token, "App credentials should be preferred over the stored token")
+}
+
+func TestResolveAuthToken_TokenOnlySecret(t *testing.T) {
+	secretsDir := t.TempDir()
+	storedToken := "github_pat_stored-token"
+	os.WriteFile(filepath.Join(secretsDir, "token"), []byte(storedToken+"\n"), 0644)
+
+	ctx := context.Background()
+	token, err := ResolveAuthToken(ctx, "", "", secretsDir)
+	require.NoError(t, err)
+	assert.Equal(t, storedToken, token)
+}
+
+func TestResolveAuthToken_MissingCredentials(t *testing.T) {
+	secretsDir := t.TempDir()
+
+	ctx := context.Background()
+	_, err := ResolveAuthToken(ctx, "test-owner", "test-repo", secretsDir)
+	require.Error(t, err)
+}
+
 func TestConfigureTokenAuth_GitConfig(t *testing.T) {
 	withIsolatedGitHome(t, func() {
 		ctx := context.Background()
@@ -473,6 +541,89 @@ func TestConfigureTokenAuth_GitConfig(t *testing.T) {
 			}
 		}
 		assert.True(t, found, "git config should contain the token insteadOf rewrite")
+
+		// gh auth will fail in test environment, but that's expected
+		if err != nil {
+			assert.Contains(t, err.Error(), "gh")
+		}
+	})
+}
+
+func TestConfigureGitAuth_TokenOnlySecret(t *testing.T) {
+	withIsolatedGitHome(t, func() {
+		secretsDir := t.TempDir()
+		storedToken := "github_pat_configure-token"
+		os.WriteFile(filepath.Join(secretsDir, "token"), []byte(storedToken), 0644)
+
+		ctx := context.Background()
+		err := ConfigureGitAuth(ctx, "test-owner", "test-repo", secretsDir)
+
+		after := gitListGlobal(t)
+		found := false
+		for _, l := range after {
+			if strings.Contains(strings.ToLower(l), "x-access-token:github_pat_configure-token@github.com/.insteadof") {
+				found = true
+			}
+		}
+		assert.True(t, found, "git config should contain the stored token insteadOf rewrite")
+
+		// gh auth will fail in test environment, but that's expected
+		if err != nil {
+			assert.Contains(t, err.Error(), "gh")
+		}
+	})
+}
+
+func TestConfigureGitAuth_AppCredentialsPreferred(t *testing.T) {
+	withIsolatedGitHome(t, func() {
+		installationToken := "ghs_test-configure-app-preferred"
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch {
+			case strings.Contains(r.URL.Path, "/access_tokens"):
+				w.WriteHeader(http.StatusCreated)
+				json.NewEncoder(w).Encode(map[string]string{"token": installationToken})
+			case strings.Contains(r.URL.Path, "/installation"):
+				w.WriteHeader(http.StatusOK)
+				json.NewEncoder(w).Encode(map[string]int64{"id": int64(87654321)})
+			default:
+				w.WriteHeader(http.StatusNotFound)
+			}
+		}))
+		defer server.Close()
+
+		serverURL := strings.TrimPrefix(server.URL, "http://")
+		oldClient := httpClient
+		httpClient = &http.Client{Transport: &rewriteTransport{old: http.DefaultTransport, serverURL: serverURL}}
+		defer func() { httpClient = oldClient }()
+
+		secretsDir := t.TempDir()
+		privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+		require.NoError(t, err)
+		privateKeyPEM := pem.EncodeToMemory(&pem.Block{
+			Type:  "RSA PRIVATE KEY",
+			Bytes: x509.MarshalPKCS1PrivateKey(privateKey),
+		})
+		os.WriteFile(filepath.Join(secretsDir, "app-id"), []byte("12345"), 0644)
+		os.WriteFile(filepath.Join(secretsDir, "private-key"), privateKeyPEM, 0644)
+		os.WriteFile(filepath.Join(secretsDir, "token"), []byte("github_pat_stale-token"), 0644)
+
+		ctx := context.Background()
+		err = ConfigureGitAuth(ctx, "test-owner", "test-repo", secretsDir)
+
+		after := gitListGlobal(t)
+		foundInstallation := false
+		foundStale := false
+		for _, l := range after {
+			lower := strings.ToLower(l)
+			if strings.Contains(lower, "x-access-token:ghs_test-configure-app-preferred@github.com/.insteadof") {
+				foundInstallation = true
+			}
+			if strings.Contains(lower, "x-access-token:github_pat_stale-token@github.com/.insteadof") {
+				foundStale = true
+			}
+		}
+		assert.True(t, foundInstallation, "git config should contain the installation token insteadOf rewrite")
+		assert.False(t, foundStale, "git config should not contain the stale stored token")
 
 		// gh auth will fail in test environment, but that's expected
 		if err != nil {
