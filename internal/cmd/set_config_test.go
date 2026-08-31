@@ -111,9 +111,17 @@ func TestSetConfigGitHubClientTokenFromGHCli(t *testing.T) {
 }
 
 func TestSetConfigGitHubClientTokenFromEnv(t *testing.T) {
-	t.Setenv("GITHUB_TOKEN", "ghp_env_token")
-	client := &setconfigGitHubClient{}
-	assert.Equal(t, "ghp_env_token", client.TokenFromEnv())
+	t.Run("returns environment token", func(t *testing.T) {
+		t.Setenv("GITHUB_TOKEN", "ghp_env_token")
+		client := &setconfigGitHubClient{}
+		assert.Equal(t, "ghp_env_token", client.TokenFromEnv())
+	})
+
+	t.Run("returns empty when GITHUB_TOKEN is unset", func(t *testing.T) {
+		t.Setenv("GITHUB_TOKEN", "")
+		client := &setconfigGitHubClient{}
+		assert.Empty(t, client.TokenFromEnv())
+	})
 }
 
 func writeFakeGHCLIScript(t *testing.T, body string) {

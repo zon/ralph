@@ -48,6 +48,11 @@ func TestRunErrorsWhenNoKeyAndNoExistingSecret(t *testing.T) {
 	)
 	err := cmd.Run(flags.withoutKey())
 	require.ErrorIs(t, err, ErrNoGitHubKey)
+	require.True(t, github.ghCliTokenCalled())
+	require.True(t, github.envTokenCalled())
+	require.False(t, github.configureTokenCalled())
+	require.False(t, github.configureCalled())
+	require.False(t, opencode.configureCalled())
 }
 
 func TestRunPropagatesContextResolutionFailure(t *testing.T) {
