@@ -11,10 +11,10 @@
 - [run-local](features/ralph/run-local/spec.md) — Runs the development loop in-process in the current checkout (the `local` execution mode).
 - [run-remote](features/ralph/run-remote/spec.md) — Submits an Argo Workflow to a Kubernetes cluster and returns after submission for remote execution (the `remote` execution mode).
 - [run-worktree](features/ralph/run-worktree/spec.md) — Runs the development loop in-process in a Git worktree created in a sibling directory, leaving the current checkout untouched (the default `worktree` execution mode).
-- [set-config](features/ralph/set-config/spec.md) — One-shot setup of all Kubernetes credentials required for ralph remote execution on Argo Workflows.
+- [set-config](features/ralph/set-config/spec.md) — One-shot setup of all Kubernetes credentials required for ralph remote execution on Argo Workflows, accepting a GitHub App key or a personal access token.
 - [validate](features/ralph/validate/spec.md) — Checks that a project file parses and that the item query resolves, repairs it via a local agent if not, and rewrites it in canonical format.
 - [workflow-command](features/ralph/workflow-command/spec.md) — Container entrypoint that clones the current branch and runs supplied command tokens in the ralph environment.
-- [workflow-token](features/ralph/workflow-token/spec.md) — Generate a GitHub App installation token and configure git HTTPS authentication for use inside Argo Workflow containers.
+- [workflow-token](features/ralph/workflow-token/spec.md) — Configure git HTTPS authentication inside Argo Workflow containers from GitHub App credentials or a stored token, preferring the App credentials when both are present.
 - [workflow-comment](features/ralph/workflow-comment/spec.md) — Prompts the AI agent with a PR comment body and runs one development iteration against its instructions.
 - [workflow-run](features/ralph/workflow-run/spec.md) — Executes the project loop after workspace setup by synchronizing the base branch and delegating to run-local.
 - [workflow-workspace](features/ralph/workflow-workspace/spec.md) — Shared container bootstrap for all workflow subcommands: auth, credentials, git setup, clone, and checkout.

@@ -1,0 +1,6 @@
+- The `ralph set config --github-token <token>` command accepts a GitHub personal access token and writes it to the `token` key of the `github-credentials` Kubernetes Secret in the target context and namespace, without validating it against the GitHub API.
+- The `ralph set config` command returns an error before any step runs when both `--github-key` and `--github-token` are provided, since the two identity types are mutually exclusive.
+- When `ralph set config` runs with neither GitHub flag and no `github-credentials` Secret exists, the command falls back to the token from the `gh` CLI login, then to the `GITHUB_TOKEN` environment variable, and writes the found token to the `token` key of the Secret.
+- When `ralph set config` runs with neither GitHub flag, no existing `github-credentials` Secret, and no token from the `gh` login or `GITHUB_TOKEN`, the command returns an error before any step runs.
+- Git authentication in workflow containers (`ralph workflow token` and the shared workspace bootstrap) prefers GitHub App credentials when both `app-id` and `private-key` and a `token` file are mounted at the secrets directory, and otherwise configures git HTTPS authentication and the `gh` CLI with the stored token, so a token-only secret is sufficient for remote runs.
+- Apply a semver minor bump to the app version and a patch bump to the helm chart version.

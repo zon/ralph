@@ -2,21 +2,33 @@
 
 ## Purpose
 
-Generate a GitHub App installation token and configure git HTTPS authentication for use inside Argo Workflow containers.
+Configure git HTTPS authentication inside Argo Workflow containers from GitHub App credentials or a stored personal access token, preferring the App credentials when both are present.
 
 ## Requirements
 
-### Requirement: Installation Token Generation
+### Requirement: Git Authentication
 
-The system SHALL generate a GitHub App installation token via `ralph workflow token` by reading App credentials from a mounted secrets directory, exchanging them for a short-lived installation token via the GitHub API, and configuring git HTTPS authentication with that token.
+The system SHALL configure git HTTPS authentication via `ralph workflow token` from credentials in a mounted secrets directory. The system SHALL prefer GitHub App credentials over a stored token when both are present. If `app-id` and `private-key` are present, the system SHALL exchange them for a short-lived installation token via the GitHub API. If only a `token` file is present, the system SHALL configure git with the stored token directly.
 
-#### Scenario: Successful token generation
+#### Scenario: App credentials present
 
 - GIVEN GitHub App credentials (`app-id` and `private-key`) are present at `--secrets-dir` (default: `/secrets/github`)
 - AND the App is installed on the target repository
 - WHEN the user runs `ralph workflow token`
 - THEN a GitHub App installation token is generated
 - AND git HTTPS authentication is configured so subsequent git operations authenticate as the App
+
+#### Scenario: App credentials preferred over token
+
+- GIVEN both App credentials and a `token` file are present at the secrets directory
+- WHEN the user runs `ralph workflow token`
+- THEN the App installation token flow is used
+
+#### Scenario: Token credentials present
+
+- GIVEN only a `token` file is present at the secrets directory
+- WHEN the user runs `ralph workflow token`
+- THEN git HTTPS authentication is configured with the stored token
 
 #### Scenario: Missing credentials
 
@@ -38,7 +50,8 @@ The command SHALL accept `--owner` and `--repo` flags to identify the target rep
 
 - GIVEN `--owner myorg --repo myrepo` is passed
 - WHEN `ralph workflow token` runs
-- THEN the installation token is scoped to that repository
+- THEN the target repository is resolved to `myorg/myrepo`
+- AND git HTTPS authentication is configured for that repository
 
 #### Scenario: Auto-detection from git remote
 

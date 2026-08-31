@@ -27,7 +27,31 @@ ralph my-feature.yaml --mode remote --watch
 
 See [Configuration](config.md#mode) for the `mode` config setting and its precedence.
 
-Before running remotely, configure Kubernetes credentials once with `ralph config git`, `ralph config github`, and `ralph config opencode`. See [CLI reference](cli.md) for all flags and commands, and [Configuration](config.md) for workflow settings including custom images, namespaces, and environment variables.
+## Setup
+
+Configure the Kubernetes credentials once with `ralph set config`, then run remotely. Credentials are stored as Secrets in the target cluster and namespace. See [Configuration](config.md) for workflow settings including custom images, namespaces, and environment variables.
+
+### Quickstart: personal access token
+
+The simplest path reuses your existing GitHub login. With `gh` authenticated, configure everything with one command:
+
+```bash
+ralph set config
+```
+
+When no key or token is given, ralph stores the token from your `gh` login, or from `GITHUB_TOKEN` if set. To provide a token explicitly:
+
+```bash
+ralph set config --github-token <token>
+```
+
+### Recommended: GitHub App
+
+For teams, a GitHub App gives short-lived installation tokens and fine-grained, repo-scoped access as a bot identity. Create an App, install it on the target repositories, then:
+
+```bash
+ralph set config --github-key <key.pem>
+```
 
 ### Prerequisites
 

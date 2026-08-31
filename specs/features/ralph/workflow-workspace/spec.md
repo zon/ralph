@@ -8,13 +8,20 @@ Shared container bootstrap for all `ralph workflow` subcommands: authenticate to
 
 ### Requirement: GitHub Authentication
 
-The system SHALL generate a GitHub App installation token and configure git HTTPS authentication before any git operations are performed.
+The system SHALL configure git HTTPS authentication from credentials mounted at `/secrets/github` before any git operations are performed. The system SHALL prefer GitHub App credentials over a stored token when both are available.
 
-#### Scenario: GitHub App token setup
+#### Scenario: App credentials preferred over token
 
-- GIVEN GitHub App credentials mounted at `/secrets/github`
+- GIVEN GitHub App credentials (`app-id` and `private-key`) mounted at `/secrets/github`
+- AND a `token` file is also present
 - WHEN the workflow container starts
 - THEN a GitHub App installation token is generated and git HTTPS authentication is configured for the target repo
+
+#### Scenario: Token credentials
+
+- GIVEN only a `token` file mounted at `/secrets/github`
+- WHEN the workflow container starts
+- THEN git HTTPS authentication is configured for the target repo with the stored token
 
 ### Requirement: AI Credentials
 

@@ -145,47 +145,29 @@ ralph review
 
 ## Other Commands
 
-### ralph config git
+### ralph set config
 
 ```bash
-ralph config git
+ralph set config --github-key <key.pem>
+ralph set config --github-token <token>
+ralph set config
 ```
 
-Generates an Ed25519 SSH key pair, creates a Kubernetes Secret with the private key, and prints the public key to add to GitHub. Required for remote execution.
+Configures the Kubernetes credentials needed for remote execution in one shot: a GitHub identity and the OpenCode AI credentials. See [Workflows](workflows.md) for setup.
 
-### ralph config github
+GitHub credentials accept either a GitHub App private key or a personal access token. A GitHub App is recommended for teams; a personal access token is the quickest way to start. When neither is provided and no existing Secret is found, ralph falls back to the token from your `gh` login, then to `GITHUB_TOKEN`.
 
-```bash
-ralph config github
-```
+The OpenCode credentials are read from `~/.local/share/opencode/auth.json`.
 
-Prompts for a GitHub personal access token and stores it as a Kubernetes Secret. The token needs `repo` and `workflow` permissions.
-
-### ralph config opencode
-
-```bash
-ralph config opencode
-```
-
-Reads `~/.local/share/opencode/auth.json` and stores it as a Kubernetes Secret with all configured AI providers.
+| Flag | Description |
+|------|-------------|
+| `--github-key` | Path to a GitHub App private key (`.pem` file) |
+| `--github-token` | GitHub personal access token |
+| `--context` | Kubernetes context to use |
+| `-n, --namespace` | Kubernetes namespace to target |
 
 Use `--context` and `--namespace` to target a specific cluster:
 
 ```bash
-ralph config git --context production --namespace argo
-```
-
-### ralph config pulumi
-
-```bash
-ralph config pulumi
-```
-
-Prompts for a Pulumi access token and stores it as a Kubernetes Secret. The token is required for remote execution with Pulumi-based workflows.
-
-You can provide the token as an argument, via the `PULUMI_ACCESS_TOKEN` environment variable, or enter it interactively when prompted:
-
-```bash
-ralph config pulumi <your-token>
-ralph config pulumi --context production --namespace argo
+ralph set config --context production --namespace argo
 ```
