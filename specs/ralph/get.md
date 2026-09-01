@@ -42,7 +42,7 @@ The system SHALL provide a `ralph get` command with two subcommands: `complete` 
 
 Both subcommands SHALL resolve the item array from the project file using a jq query resolved with two-level precedence: `--items` at the command line takes priority. Otherwise the `items` field in `.ralph/config.yaml` is used. Otherwise the query defaults to `.`. This is the same resolution the run command and `ralph validate` use, so all three agree on what the items are, and on their indices, by default.
 
-Resolution discards empty outputs, so the resolved array is either empty or made entirely of non-empty items. See [write-project/spec.md](../write-project/spec.md). An empty resolved array SHALL be reported as an error, because there are no items to report on.
+Resolution discards empty outputs, so the resolved array is either empty or made entirely of non-empty items. See [the project file format](../../docs/projects.md#item-query). An empty resolved array SHALL be reported as an error, because there are no items to report on.
 
 #### Scenario: `--items` flag takes precedence
 

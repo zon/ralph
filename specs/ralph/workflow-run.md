@@ -8,7 +8,7 @@
 
 ### Requirement: Workspace Setup
 
-The system SHALL prepare the container workspace as defined in [workflow-workspace/spec.md](../workflow-workspace/spec.md) before doing any work.
+The system SHALL prepare the container workspace as defined in [workflow-workspace.md](workflow-workspace.md) before doing any work.
 
 ### Requirement: Execution Parameters
 
@@ -140,4 +140,4 @@ The system SHOULD support a debug mode that clones a specific ralph branch and i
 
 ### Requirement: Project Execution
 
-After base-branch synchronization, the system SHALL execute the project by invoking the run-local behavior defined in [run-local/spec.md](../run-local/spec.md).
+After base-branch synchronization, the system SHALL execute the project by invoking the run-local behavior defined in [run-local.md](run-local.md).

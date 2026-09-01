@@ -2,12 +2,12 @@
 
 ## Purpose
 
-The `run` command is ralph's primary entry point. Given a project file, an orchestration document, or a spec document, it drives an AI coding agent through iterative development cycles until every item in the project is recorded complete, then opens a GitHub pull request. A project file is any YAML or JSON file containing an array of work items. The array is selected with the [item query](../../../../docs/projects.md#item-query), and completion is recorded in the branch's commit messages, not in the file. When an orchestration or spec is provided instead of a project, ralph generates the missing artifacts and commits them before running. Execution runs in one of three modes selected with `--mode`: `worktree` (default), which runs the loop in-process in a local Git worktree, `local`, which runs it in-process in the current checkout, or `remote`, which submits an Argo Workflow to Kubernetes.
+The `run` command is ralph's primary entry point. Given a project file, an orchestration document, or a spec document, it drives an AI coding agent through iterative development cycles until every item in the project is recorded complete, then opens a GitHub pull request. A project file is any YAML or JSON file containing an array of work items. The array is selected with the [item query](../../docs/projects.md#item-query), and completion is recorded in the branch's commit messages, not in the file. When an orchestration or spec is provided instead of a project, ralph generates the missing artifacts and commits them before running. Execution runs in one of three modes selected with `--mode`: `worktree` (default), which runs the loop in-process in a local Git worktree, `local`, which runs it in-process in the current checkout, or `remote`, which submits an Argo Workflow to Kubernetes.
 
 Mode-specific behaviors are defined in:
-- [run-local/spec.md](../run-local/spec.md) — `local` mode: runs the development loop in-process in the current checkout
-- [run-worktree/spec.md](../run-worktree/spec.md) — `worktree` mode: runs the development loop in-process in a local Git worktree
-- [run-remote/spec.md](../run-remote/spec.md) — `remote` mode: submits an Argo Workflow to Kubernetes
+- [run-local.md](run-local.md) — `local` mode: runs the development loop in-process in the current checkout
+- [run-worktree.md](run-worktree.md) — `worktree` mode: runs the development loop in-process in a local Git worktree
+- [run-remote.md](run-remote.md) — `remote` mode: submits an Argo Workflow to Kubernetes
 
 ## Requirements
 
@@ -18,8 +18,8 @@ The command SHALL accept `--mode` to select the execution mode. The option SHALL
 Mode resolution follows a three-level precedence: `--mode` at the command line takes priority; otherwise the top-level `mode` field in `.ralph/config.yaml` is used; otherwise the mode defaults to `worktree`.
 
 - `local` runs the development loop in-process in the current checkout.
-- `worktree` runs the development loop in-process in a Git worktree created for the project branch, leaving the current checkout untouched; see [run-worktree/spec.md](../run-worktree/spec.md).
-- `remote` submits an Argo Workflow to Kubernetes and returns after submission; the loop runs inside the workflow container; see [run-remote/spec.md](../run-remote/spec.md).
+- `worktree` runs the development loop in-process in a Git worktree created for the project branch, leaving the current checkout untouched; see [run-worktree.md](run-worktree.md).
+- `remote` submits an Argo Workflow to Kubernetes and returns after submission; the loop runs inside the workflow container; see [run-remote.md](run-remote.md).
 
 The `--follow` and `--debug` flags are workflow-only and are rejected for `local` and `worktree` modes; see [Incompatible flags are rejected](#requirement-incompatible-flags-are-rejected).
 
@@ -75,7 +75,7 @@ The `--follow` and `--debug` flags are workflow-only and are rejected for `local
 
 ### Requirement: Input file is required
 
-The command SHALL require a positional argument that is a path to one of: a project file (`.yaml`, `.yml`, or `.json`), an orchestration document (`orchestration.md`), or a spec document (`spec.md`). The file must exist on disk before execution proceeds. When an orchestration or spec is provided, the actual project generation and artifact commits happen inside the execution mode; see [run-local/spec.md](../run-local/spec.md) and [run-worktree/spec.md](../run-worktree/spec.md).
+The command SHALL require a positional argument that is a path to one of: a project file (`.yaml`, `.yml`, or `.json`), an orchestration document (`orchestration.md`), or a spec document (`spec.md`). The file must exist on disk before execution proceeds. When an orchestration or spec is provided, the actual project generation and artifact commits happen inside the execution mode; see [run-local.md](run-local.md) and [run-worktree.md](run-worktree.md).
 
 #### Scenario: Project file provided
 
@@ -125,7 +125,7 @@ The command SHALL change its working directory to the path given by `--working-d
 
 ### Requirement: AI model and Kubernetes context overrides
 
-The command SHALL accept `--model` to override the AI model from config and `--context` to override the Kubernetes context used for remote workflow submission. The shared `--context` and `--namespace` targeting contract is defined in [kubectl/spec.md](../kubectl/spec.md).
+The command SHALL accept `--model` to override the AI model from config and `--context` to override the Kubernetes context used for remote workflow submission. The shared `--context` and `--namespace` targeting contract is defined in [kubectl.md](kubectl.md).
 
 Model resolution follows a two-level precedence: `--model` at the command line takes priority. Otherwise the top-level `model` field in `.ralph/config.yaml` is used, defaulting to `deepseek/deepseek-chat` when unset.
 
@@ -308,7 +308,7 @@ The command SHALL determine the base branch for PR creation by the following pri
 - GIVEN the base branch has been resolved locally
 - AND the command runs in `local` mode
 - WHEN execution is dispatched
-- THEN the resolved base branch is passed to the run-local behavior described in [run-local/spec.md](../run-local/spec.md)
+- THEN the resolved base branch is passed to the run-local behavior described in [run-local.md](run-local.md)
 - AND run-local does not recompute the base branch
 
 #### Scenario: Resolved base branch passed to run-worktree
@@ -316,7 +316,7 @@ The command SHALL determine the base branch for PR creation by the following pri
 - GIVEN the base branch has been resolved locally
 - AND the command runs in `worktree` mode
 - WHEN execution is dispatched
-- THEN the resolved base branch is passed to the run-worktree behavior described in [run-worktree/spec.md](../run-worktree/spec.md)
+- THEN the resolved base branch is passed to the run-worktree behavior described in [run-worktree.md](run-worktree.md)
 - AND run-worktree does not recompute the base branch
 
 #### Scenario: Resolved base branch passed to run-remote
@@ -324,7 +324,7 @@ The command SHALL determine the base branch for PR creation by the following pri
 - GIVEN the base branch has been resolved locally
 - AND the command runs in `remote` mode
 - WHEN execution is dispatched
-- THEN the resolved base branch is passed to the run-remote behavior described in [run-remote/spec.md](../run-remote/spec.md)
+- THEN the resolved base branch is passed to the run-remote behavior described in [run-remote.md](run-remote.md)
 - AND run-remote does not recompute the base branch
 
 ---
@@ -367,7 +367,7 @@ Item query resolution follows a three-level precedence: `--items` at the command
 
 ### Requirement: Cleanup resolution
 
-The command SHALL accept `--cleanup` to request that the project file be deleted in its own commit once every item is complete. The resolved value SHALL be passed down to the execution mode, which performs the deletion. See [run-local/spec.md](../run-local/spec.md).
+The command SHALL accept `--cleanup` to request that the project file be deleted in its own commit once every item is complete. The resolved value SHALL be passed down to the execution mode, which performs the deletion. See [run-local.md](run-local.md).
 
 Cleanup resolution follows a three-level precedence: `--cleanup` at the command line takes priority. Otherwise the `cleanup` field in `.ralph/config.yaml` is used. Otherwise cleanup is disabled.
 

@@ -22,7 +22,7 @@ func TestRunLocalInWorktreeRunsFullLoop(t *testing.T) {
 	runner := withMocks(
 		withProject(project.ThatReportsAllComplete()),
 	)
-	err := runner.RunLocalInWorktree(project.ForOrchestrationInput("specs/features/ralph/run/orchestration.md"), config.Any())
+	err := runner.RunLocalInWorktree(project.ForOrchestrationInput("specs/ralph/orchestration.md"), config.Any())
 	require.NoError(t, err)
 	require.False(t, gitBranchSwitched(runner))
 	require.True(t, aiWriteProjectCalled(runner), "artifact generation runs in the worktree")

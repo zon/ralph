@@ -707,7 +707,7 @@ func TestRunIncompatibleFlagsAbortBeforeSetup(t *testing.T) {
 
 func TestRunLocalDispatchesWithOrchestrationInput(t *testing.T) {
 	proj := &mockProjectRepo{
-		InputFile: project.ForOrchestrationInput("specs/features/ralph/run/orchestration.md"),
+		InputFile: project.ForOrchestrationInput("specs/ralph/orchestration.md"),
 	}
 	cmd := cmdWithMocks(
 		cmdWithProject(proj),
@@ -722,7 +722,7 @@ func TestRunLocalDispatchesWithOrchestrationInput(t *testing.T) {
 
 func TestRunLocalDispatchesWithSpecInput(t *testing.T) {
 	proj := &mockProjectRepo{
-		InputFile: project.ForSpecInput("specs/features/ralph/run/spec.md"),
+		InputFile: project.ForSpecInput("specs/ralph/run.md"),
 	}
 	cmd := cmdWithMocks(
 		cmdWithProject(proj),
@@ -737,7 +737,7 @@ func TestRunLocalDispatchesWithSpecInput(t *testing.T) {
 
 func TestRunRemoteDispatchesWithOrchestrationInput(t *testing.T) {
 	proj := &mockProjectRepo{
-		InputFile: project.ForOrchestrationInput("specs/features/ralph/run/orchestration.md"),
+		InputFile: project.ForOrchestrationInput("specs/ralph/orchestration.md"),
 	}
 	cmd := cmdWithMocks(
 		cmdWithProject(proj),
@@ -752,7 +752,7 @@ func TestRunRemoteDispatchesWithOrchestrationInput(t *testing.T) {
 
 func TestRunRemoteDispatchesWithSpecInput(t *testing.T) {
 	proj := &mockProjectRepo{
-		InputFile: project.ForSpecInput("specs/features/ralph/run/spec.md"),
+		InputFile: project.ForSpecInput("specs/ralph/run.md"),
 	}
 	cmd := cmdWithMocks(
 		cmdWithProject(proj),
@@ -801,7 +801,7 @@ func TestRunIncompatibleFlagsRejectedBeforeSetupForProjectInput(t *testing.T) {
 
 func TestPrepareSetupWithOrchestrationInputResolvesBaseBranch(t *testing.T) {
 	cmd := cmdWithMocks()
-	input := project.ForOrchestrationInput("specs/features/ralph/run/orchestration.md")
+	input := project.ForOrchestrationInput("specs/ralph/orchestration.md")
 	setup, err := cmd.prepareSetup(flagsAny(), input)
 	require.NoError(t, err)
 	require.Equal(t, "main", setup.BaseBranch)
@@ -809,7 +809,7 @@ func TestPrepareSetupWithOrchestrationInputResolvesBaseBranch(t *testing.T) {
 
 func TestPrepareSetupWithSpecInputResolvesBaseBranch(t *testing.T) {
 	cmd := cmdWithMocks()
-	input := project.ForSpecInput("specs/features/ralph/run/spec.md")
+	input := project.ForSpecInput("specs/ralph/run.md")
 	setup, err := cmd.prepareSetup(flagsAny(), input)
 	require.NoError(t, err)
 	require.Equal(t, "main", setup.BaseBranch)

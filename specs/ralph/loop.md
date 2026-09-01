@@ -5,9 +5,9 @@
 The `loop` command runs a bounded AI iteration loop over a list of steps. Given a slug, ralph looks up the matching loop config in the `loops:` section of `.ralph/config.yaml`, embeds that config's `steps` in a prompt, and runs the prompt until the agent reports nothing left to do or the `--max` cap is reached. Before iterating, ralph switches to the `loop-<slug>` branch, creating it from the current branch when it does not exist, so the agent works on the loop branch's own state. Every iteration that does real work is committed and pushed to `loop-<slug>`. When the loop ends with commits on that branch, ralph opens a pull request. Steps can also be supplied directly with `--step` flags, which replace the config's `steps`. When steps are supplied without a slug, ralph asks the AI to read the steps and propose a slug. Execution runs in one of three modes selected with `--mode`: `worktree` (default), which runs the loop in-process in a local Git worktree, `local`, which runs it in-process on the local machine, or `remote`, which submits an Argo Workflow to Kubernetes.
 
 Mode-specific behaviors are defined in:
-- [run-local/spec.md](../run-local/spec.md) — `local` mode: runs the loop in-process in the current checkout
-- [run-worktree/spec.md](../run-worktree/spec.md) — `worktree` mode: runs the loop in-process in a local Git worktree
-- [run-remote/spec.md](../run-remote/spec.md) — `remote` mode: submits an Argo Workflow to Kubernetes, with the same remote defaults and config as `ralph run`
+- [run-local.md](run-local.md) — `local` mode: runs the loop in-process in the current checkout
+- [run-worktree.md](run-worktree.md) — `worktree` mode: runs the loop in-process in a local Git worktree
+- [run-remote.md](run-remote.md) — `remote` mode: submits an Argo Workflow to Kubernetes, with the same remote defaults and config as `ralph run`
 
 ## Requirements
 
@@ -18,8 +18,8 @@ The command SHALL accept `--mode` to select the execution mode. The option SHALL
 Mode resolution follows a three-level precedence: `--mode` at the command line takes priority; otherwise the top-level `mode` field in `.ralph/config.yaml` is used; otherwise the mode defaults to `worktree`.
 
 - `local` runs the loop in-process in the current checkout.
-- `worktree` runs the loop in-process in a Git worktree created for the `loop-<slug>` branch, leaving the current checkout untouched; see [run-worktree/spec.md](../run-worktree/spec.md).
-- `remote` submits an Argo Workflow to Kubernetes, and the loop runs inside the workflow container; see [run-remote/spec.md](../run-remote/spec.md).
+- `worktree` runs the loop in-process in a Git worktree created for the `loop-<slug>` branch, leaving the current checkout untouched; see [run-worktree.md](run-worktree.md).
+- `remote` submits an Argo Workflow to Kubernetes, and the loop runs inside the workflow container; see [run-remote.md](run-remote.md).
 
 The `--follow` flag is workflow-only and is rejected for `local` and `worktree` modes; see [Incompatible flags are rejected](#requirement-incompatible-flags-are-rejected).
 
@@ -94,9 +94,9 @@ The command SHALL reject flag combinations that have no valid meaning before any
 
 ### Requirement: Remote behavior matches `ralph run`
 
-The command SHALL reuse the remote defaults and config of `ralph run` as defined in [run/spec.md](../run/spec.md) and [run-remote/spec.md](../run-remote/spec.md). The resolved model, Kubernetes context, base branch, branch-sync check, ralph-owned workflow label, and notification behavior SHALL be the same as for `ralph run`.
+The command SHALL reuse the remote defaults and config of `ralph run` as defined in [run.md](run.md) and [run-remote.md](run-remote.md). The resolved model, Kubernetes context, base branch, branch-sync check, ralph-owned workflow label, and notification behavior SHALL be the same as for `ralph run`.
 
-Model resolution SHALL follow the same two-level precedence as `ralph run`: `--model` at the command line takes priority. Otherwise the top-level `model` field in `.ralph/config.yaml` is used, defaulting to `deepseek/deepseek-chat` when unset. `--context` SHALL override the Kubernetes context used for workflow submission, per the shared [kubectl/spec.md](../kubectl/spec.md) contract. Before submission the command SHALL verify, exactly as `ralph run` does, that the current branch exists on the remote and that local and remote are at the same commit.
+Model resolution SHALL follow the same two-level precedence as `ralph run`: `--model` at the command line takes priority. Otherwise the top-level `model` field in `.ralph/config.yaml` is used, defaulting to `deepseek/deepseek-chat` when unset. `--context` SHALL override the Kubernetes context used for workflow submission, per the shared [kubectl.md](kubectl.md) contract. Before submission the command SHALL verify, exactly as `ralph run` does, that the current branch exists on the remote and that local and remote are at the same commit.
 
 #### Scenario: Config model used when no flag is passed
 
@@ -135,7 +135,7 @@ Model resolution SHALL follow the same two-level precedence as `ralph run`: `--m
 
 ### Requirement: `--follow` streams logs after submission
 
-The command SHALL accept `--follow`. With `--follow`, the command SHALL stream the workflow logs and wait for the workflow to finish before returning. Without `--follow`, the command SHALL print the `argo logs` command the user can run to follow the workflow and return after submission. Notification behavior on followed workflows SHALL match [run-remote/spec.md](../run-remote/spec.md).
+The command SHALL accept `--follow`. With `--follow`, the command SHALL stream the workflow logs and wait for the workflow to finish before returning. Without `--follow`, the command SHALL print the `argo logs` command the user can run to follow the workflow and return after submission. Notification behavior on followed workflows SHALL match [run-remote.md](run-remote.md).
 
 #### Scenario: Log hint printed after submission
 
@@ -405,7 +405,7 @@ When the loop ends, the command SHALL open a pull request from the branch `loop-
 
 ### Requirement: Token usage and cost reporting
 
-When running inside a workflow container the command SHALL print accumulated AI token usage and cost statistics at the end of execution, regardless of whether the loop succeeded or failed, matching the behavior of `ralph run` described in [run-local/spec.md](../run-local/spec.md).
+When running inside a workflow container the command SHALL print accumulated AI token usage and cost statistics at the end of execution, regardless of whether the loop succeeded or failed, matching the behavior of `ralph run` described in [run-local.md](run-local.md).
 
 #### Scenario: Stats reported on successful workflow loop
 

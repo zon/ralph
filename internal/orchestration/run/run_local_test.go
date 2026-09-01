@@ -62,7 +62,7 @@ func TestRunLocalOrchestrationInputGeneratesAndCommitsProject(t *testing.T) {
 	runner := withMocks(
 		withProject(project.ThatReportsAllComplete()),
 	)
-	err := runner.RunLocal(project.ForOrchestrationInput("specs/features/ralph/run/orchestration.md"), config.Any())
+	err := runner.RunLocal(project.ForOrchestrationInput("specs/ralph/orchestration.md"), config.Any())
 	require.NoError(t, err)
 	require.False(t, aiWriteOrchestrationCalled(runner))
 	require.True(t, aiWriteProjectCalled(runner))
@@ -73,7 +73,7 @@ func TestRunLocalSpecInputGeneratesOrchestrationThenProject(t *testing.T) {
 	runner := withMocks(
 		withProject(project.ThatReportsAllComplete()),
 	)
-	err := runner.RunLocal(project.ForSpecInput("specs/features/ralph/run/spec.md"), config.Any())
+	err := runner.RunLocal(project.ForSpecInput("specs/ralph/run.md"), config.Any())
 	require.NoError(t, err)
 	require.True(t, aiWriteOrchestrationCalled(runner))
 	require.True(t, aiWriteProjectCalled(runner))
@@ -84,7 +84,7 @@ func TestRunLocalOrchestrationWriteProjectFailureSendsErrorNotification(t *testi
 	runner := withMocks(
 		withAI(aiThatFailsWriteProject()),
 	)
-	err := runner.RunLocal(project.ForOrchestrationInput("specs/features/ralph/run/orchestration.md"), config.Any())
+	err := runner.RunLocal(project.ForOrchestrationInput("specs/ralph/orchestration.md"), config.Any())
 	require.Error(t, err)
 	require.NotEmpty(t, notifyErrors(runner))
 	require.Zero(t, aiPickCalls(runner))
@@ -94,7 +94,7 @@ func TestRunLocalSpecWriteOrchestrationFailureSendsErrorNotification(t *testing.
 	runner := withMocks(
 		withAI(aiThatFailsWriteOrchestration()),
 	)
-	err := runner.RunLocal(project.ForSpecInput("specs/features/ralph/run/spec.md"), config.Any())
+	err := runner.RunLocal(project.ForSpecInput("specs/ralph/run.md"), config.Any())
 	require.Error(t, err)
 	require.NotEmpty(t, notifyErrors(runner))
 	require.False(t, aiWriteProjectCalled(runner))
@@ -106,7 +106,7 @@ func TestRunLocalGenerationHappensAfterBranchSwitch(t *testing.T) {
 		withGit(gitNewMock()),
 		withProject(project.ThatReportsAllComplete()),
 	)
-	err := runner.RunLocal(project.ForOrchestrationInput("specs/features/ralph/run/orchestration.md"), config.Any())
+	err := runner.RunLocal(project.ForOrchestrationInput("specs/ralph/orchestration.md"), config.Any())
 	require.NoError(t, err)
 	require.True(t, gitSwitchedBeforeArtifactsCommitted(runner))
 }

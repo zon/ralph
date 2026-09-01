@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Behavior of the `remote` execution mode (`ralph run --mode remote`): submits an Argo Workflow to a Kubernetes cluster and returns after submission. The workflow runs ralph in a container, executing the development loop remotely. The shared `--context` and `--namespace` targeting contract is defined in [kubectl/spec.md](../kubectl/spec.md).
+Behavior of the `remote` execution mode (`ralph run --mode remote`): submits an Argo Workflow to a Kubernetes cluster and returns after submission. The workflow runs ralph in a container, executing the development loop remotely. The shared `--context` and `--namespace` targeting contract is defined in [kubectl.md](kubectl.md).
 
 ## Requirements
 
@@ -108,7 +108,7 @@ With `--debug <branch>`, the generated workflow SHALL check out the specified ra
 
 ### Requirement: Base branch delivered to the workflow via `--base` argument
 
-The base branch SHALL be resolved locally (see [run/spec.md](../run/spec.md)) and passed to the generated workflow as the `--base` CLI argument to `ralph workflow run`. The container SHALL NOT recompute the base branch.
+The base branch SHALL be resolved locally (see [run.md](run.md)) and passed to the generated workflow as the `--base` CLI argument to `ralph workflow run`. The container SHALL NOT recompute the base branch.
 
 #### Scenario: Resolved base branch passed as `--base` argument
 
@@ -120,7 +120,7 @@ The base branch SHALL be resolved locally (see [run/spec.md](../run/spec.md)) an
 
 ### Requirement: Item query delivered to the workflow via `--items` argument
 
-The item query SHALL be resolved locally (see [run/spec.md](../run/spec.md)) and passed to the generated workflow as the `--items` CLI argument to `ralph workflow run`, so the query travels with the workflow rather than being re-read from `.ralph/config.yaml` inside the container. A remote run therefore indexes items consistently for its whole lifetime even if the repository's config changes underneath it.
+The item query SHALL be resolved locally (see [run.md](run.md)) and passed to the generated workflow as the `--items` CLI argument to `ralph workflow run`, so the query travels with the workflow rather than being re-read from `.ralph/config.yaml` inside the container. A remote run therefore indexes items consistently for its whole lifetime even if the repository's config changes underneath it.
 
 #### Scenario: Resolved item query passed as `--items` argument
 
@@ -145,7 +145,7 @@ The item query SHALL be resolved locally (see [run/spec.md](../run/spec.md)) and
 
 ### Requirement: Cleanup setting delivered to the workflow
 
-The cleanup setting SHALL be resolved locally (see [run/spec.md](../run/spec.md)) and passed to the generated workflow as the `--cleanup` CLI argument to `ralph workflow run` when enabled.
+The cleanup setting SHALL be resolved locally (see [run.md](run.md)) and passed to the generated workflow as the `--cleanup` CLI argument to `ralph workflow run` when enabled.
 
 #### Scenario: Cleanup enabled
 

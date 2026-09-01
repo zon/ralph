@@ -20,7 +20,7 @@ func DefaultContainerVersion() string {
 // GenerateWorkflow builds a Workflow for remote execution.
 // cloneBranch is the branch the container will clone (current local branch).
 // projectBranch is the branch the container will create and work on (derived from the project file name).
-// baseBranch is the already-resolved base branch for PR creation (see specs/features/ralph/run/spec.md).
+// baseBranch is the already-resolved base branch for PR creation (see specs/ralph/run.md).
 // items is the already-resolved item query selecting the item array, and cleanup reports whether the
 // project file should be deleted once every item is complete. Both are resolved by the caller so the
 // workflow container does not re-resolve them from config.

@@ -8,7 +8,7 @@
 
 ### Requirement: Workspace Setup
 
-The system SHALL prepare the container workspace as defined in [workflow-workspace/spec.md](../workflow-workspace/spec.md) before running the command.
+The system SHALL prepare the container workspace as defined in [workflow-workspace.md](workflow-workspace.md) before running the command.
 
 ### Requirement: Command Execution
 

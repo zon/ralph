@@ -59,7 +59,7 @@ func TestRunLocalGeneratedProjectResolvesUnderItemQuery(t *testing.T) {
 		runner := withMocks(
 			withProject(projMock),
 		)
-		err := runner.RunLocal(project.ForOrchestrationInput("specs/features/ralph/run/orchestration.md"), config.WithItems(".requirements"))
+		err := runner.RunLocal(project.ForOrchestrationInput("specs/ralph/orchestration.md"), config.WithItems(".requirements"))
 		require.NoError(t, err)
 		require.True(t, aiWriteProjectCalled(runner))
 		require.Equal(t, "projects/generated.yaml", projMock.LastPath())
@@ -71,7 +71,7 @@ func TestRunLocalGeneratedProjectResolvesUnderItemQuery(t *testing.T) {
 		runner := withMocks(
 			withProject(projMock),
 		)
-		err := runner.RunLocal(project.ForSpecInput("specs/features/ralph/run/spec.md"), config.WithItems(".items"))
+		err := runner.RunLocal(project.ForSpecInput("specs/ralph/run.md"), config.WithItems(".items"))
 		require.NoError(t, err)
 		require.True(t, aiWriteOrchestrationCalled(runner))
 		require.True(t, aiWriteProjectCalled(runner))
@@ -84,7 +84,7 @@ func TestRunLocalGeneratedProjectYieldingNoItemsAborts(t *testing.T) {
 	runner := withMocks(
 		withProject(project.ThatFailsResolution()),
 	)
-	err := runner.RunLocal(project.ForOrchestrationInput("specs/features/ralph/run/orchestration.md"), config.Any())
+	err := runner.RunLocal(project.ForOrchestrationInput("specs/ralph/orchestration.md"), config.Any())
 	require.Error(t, err)
 	require.NotEmpty(t, notifyErrors(runner))
 	require.False(t, gitArtifactsCommitted(runner))

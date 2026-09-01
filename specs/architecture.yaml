@@ -1,133 +1,107 @@
-categories:
-  - slug: entry
-    description: Main packages that wire real dependencies and start the application.
-    signatures:
-      - main function
-      - dependency wiring
+- path: cmd/ralph
+  description: CLI entrypoint that wires up command parsing and dispatches to subcommand handlers.
+  orchestration: true
 
-  - slug: orchestration
-    description: Domain logic modules that define and coordinate core business processes.
-    orchestration: true
-    signatures:
-      - domain logic
-      - domain logic integration tests
+- path: internal/cmd
+  description: Command structs that parse flags, wire real dependencies into the subcommand orchestrations, and drive local, worktree, and remote execution paths.
+  orchestration: true
 
-  - slug: implementation
-    description: Real dependency implementations and mocks that back the domain interfaces.
-    signatures:
-      - real dependency implementations
-      - mocks
-      - unit tests
+- path: internal/orchestration/run
+  description: Orchestrates the full run command from input validation through local, worktree, and remote execution dispatch.
+  orchestration: true
 
-  - slug: pure
-    description: Stateless modules containing only value objects and pure functions with no side effects.
-    signatures:
-      - value objects
-      - pure functions
-      - unit tests
+- path: internal/orchestration/workspace
+  description: Bootstraps the container environment for the workflow subcommands.
+  orchestration: true
 
-  - slug: pipeline
-    description: Modules that direct in-process flow by routing I/O streams and carrying runtime state across the application.
-    signatures:
-      - I/O routing
-      - runtime state
-      - unit tests
+- path: internal/orchestration/workflowrun
+  description: Orchestrates the workflow run subcommand.
+  orchestration: true
 
-modules:
-  - path: cmd/ralph
-    description: CLI entrypoint that wires up command parsing and dispatches to subcommand handlers.
-    category: entry
-  - path: internal/cmd
-    description: Command structs that parse flags, wire real dependencies into the subcommand orchestrations, and drive local, worktree, and remote execution paths.
-    category: entry
-  - path: internal/orchestration/run
-    description: Orchestrates the full run command from input validation through local, worktree, and remote execution dispatch.
-    category: orchestration
-  - path: internal/orchestration/workspace
-    description: Bootstraps the container environment for the workflow subcommands.
-    category: orchestration
-  - path: internal/orchestration/workflowrun
-    description: Orchestrates the workflow run subcommand.
-    category: orchestration
-  - path: internal/project
-    description: Owns the project domain model, resolving files into item arrays and tracking item completion from commit trailers.
-    category: implementation
-  - path: internal/orchestration/get
-    description: Orchestrates the get complete and get incomplete subcommands by resolving the item array and subtracting the indices recorded in the commit log.
-    category: orchestration
-  - path: internal/orchestration/loop
-    description: Orchestrates the ralph loop command.
-    category: orchestration
-  - path: internal/orchestration/validate
-    description: Orchestrates a bounded fix loop that repairs unparseable project files using an AI agent, then checks the item query resolves.
-    category: orchestration
-  - path: internal/orchestration/setconfig
-    description: Orchestrates the ralph CLI set-config subcommand.
-    category: orchestration
-  - path: internal/orchestration/workflowtoken
-    description: Orchestrates generating a scoped GitHub workflow token for a repository and configuring git to authenticate with it.
-    category: orchestration
-  - path: internal/workflow
-    description: Generates and submits workflow manifests for the workflow subcommands.
-    category: implementation
+- path: internal/project
+  description: Owns the project domain model, resolving files into item arrays and tracking item completion from commit trailers.
 
-  - path: internal/services
-    description: Manages the lifecycle of before-commands and long-running services declared in project configuration.
-    category: implementation
-  - path: internal/orchestration/argo
-    description: Orchestrates argo workflow subcommands by resolving the Kubernetes context and delegating to the argo client.
-    category: orchestration
-  - path: internal/orchestration/command
-    description: Orchestrates both the client-side command submission (Argo workflow) and the container-side command execution (workspace setup + exec).
-    category: orchestration
-  - path: internal/ai
-    description: Runs AI prompts against embedded instruction templates to generate ralph artifacts and reads the agent's report output.
-    category: implementation
-  - path: internal/opencode
-    description: Thin wrapper around the opencode CLI for invoking AI models.
-    category: implementation
-  - path: internal/argo
-    description: Thin wrapper around the argo CLI for workflow management.
-    category: implementation
-  - path: internal/k8s
-    description: Thin wrapper around kubectl for managing Kubernetes resources.
-    category: implementation
-  - path: internal/git
-    description: Thin wrapper around the git CLI for repository operations.
-    category: implementation
-  - path: internal/workspace
-    description: Filesystem helpers for preparing the container workspace.
-    category: implementation
-  - path: internal/github
-    description: Wraps the gh CLI and the GitHub App API for GitHub operations and authentication.
-    category: implementation
-  - path: internal/projectfile
-    description: Reads and writes project files and evaluates jq item queries.
-    category: implementation
-  - path: internal/config
-    description: Loads and parses the ralph configuration file.
-    category: implementation
-  - path: internal/context
-    description: Carries runtime execution settings across the application.
-    category: pipeline
-  - path: internal/output
-    description: Routes log messages and JSON output to configurable output and error streams.
-    category: pipeline
-  - path: internal/notify
-    description: Desktop notification helper for success and error events.
-    category: implementation
-  - path: internal/trailer
-    description: Formats and parses ralph completion trailers in commit messages.
-    category: pure
-  - path: internal/version
-    description: Exposes the current application version string.
-    category: pure
-  - path: internal/docker
-    description: Test-only package that validates the repository Containerfile, image push script, and container build CI workflow.
-    category: implementation
-  - path: internal/repostructure
-    description: Test-only package that validates repository structure, documentation consistency, and references to removed modules.
-    category: implementation
-  - path: internal/testutil
-    description: Shared test helpers and factories used across the test suite.
-    category: implementation
+- path: internal/orchestration/get
+  description: Orchestrates the get complete and get incomplete subcommands by resolving the item array and subtracting the indices recorded in the commit log.
+  orchestration: true
+
+- path: internal/orchestration/loop
+  description: Orchestrates the ralph loop command.
+  orchestration: true
+
+- path: internal/orchestration/validate
+  description: Orchestrates a bounded fix loop that repairs unparseable project files using an AI agent, then checks the item query resolves.
+  orchestration: true
+
+- path: internal/orchestration/setconfig
+  description: Orchestrates the ralph CLI set-config subcommand.
+  orchestration: true
+
+- path: internal/orchestration/workflowtoken
+  description: Orchestrates generating a scoped GitHub workflow token for a repository and configuring git to authenticate with it.
+  orchestration: true
+
+- path: internal/workflow
+  description: Generates and submits workflow manifests for the workflow subcommands.
+
+- path: internal/services
+  description: Manages the lifecycle of before-commands and long-running services declared in project configuration.
+
+- path: internal/orchestration/argo
+  description: Orchestrates argo workflow subcommands by resolving the Kubernetes context and delegating to the argo client.
+  orchestration: true
+
+- path: internal/orchestration/command
+  description: Orchestrates both the client-side command submission (Argo workflow) and the container-side command execution (workspace setup + exec).
+  orchestration: true
+
+- path: internal/ai
+  description: Runs AI prompts against embedded instruction templates to generate ralph artifacts and reads the agent's report output.
+
+- path: internal/opencode
+  description: Thin wrapper around the opencode CLI for invoking AI models.
+
+- path: internal/argo
+  description: Thin wrapper around the argo CLI for workflow management.
+
+- path: internal/k8s
+  description: Thin wrapper around kubectl for managing Kubernetes resources.
+
+- path: internal/git
+  description: Thin wrapper around the git CLI for repository operations.
+
+- path: internal/workspace
+  description: Filesystem helpers for preparing the container workspace.
+
+- path: internal/github
+  description: Wraps the gh CLI and the GitHub App API for GitHub operations and authentication.
+
+- path: internal/projectfile
+  description: Reads and writes project files and evaluates jq item queries.
+
+- path: internal/config
+  description: Loads and parses the ralph configuration file.
+
+- path: internal/context
+  description: Carries runtime execution settings across the application.
+
+- path: internal/output
+  description: Routes log messages and JSON output to configurable output and error streams.
+
+- path: internal/notify
+  description: Desktop notification helper for success and error events.
+
+- path: internal/trailer
+  description: Formats and parses ralph completion trailers in commit messages.
+
+- path: internal/version
+  description: Exposes the current application version string.
+
+- path: internal/docker
+  description: Test-only package that validates the repository Containerfile, image push script, and container build CI workflow.
+
+- path: internal/repostructure
+  description: Test-only package that validates repository structure, documentation consistency, and references to removed modules.
+
+- path: internal/testutil
+  description: Shared test helpers and factories used across the test suite.

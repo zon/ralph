@@ -4,7 +4,7 @@
 
 Behavior of the `local` execution mode (`ralph run --mode local`): runs the full development loop in-process in the current checkout without submitting an Argo Workflow. This is the execution mode used inside workflow containers and for local development.
 
-Each iteration works on exactly one [item](../../../../docs/glossary.md#item) of the project's resolved item array, and the branch's commit log (not the project file) records which items are done. See [Iterations](../../../../docs/iterations.md).
+Each iteration works on exactly one [item](../../docs/glossary.md#item) of the project's resolved item array, and the branch's commit log (not the project file) records which items are done. See [Iterations](../../docs/iterations.md).
 
 ## Requirements
 
@@ -86,9 +86,9 @@ When the input is a **spec document**, the command generates an orchestration do
 
 ### Requirement: Item array resolved once per run
 
-The command SHALL resolve the item array by evaluating the item query supplied by the caller (see [run/spec.md](../run/spec.md)) against the parsed project file, and SHALL do so exactly once, before the first iteration. Every iteration SHALL use that same resolved array, so an item's index means the same thing from the first iteration to the last.
+The command SHALL resolve the item array by evaluating the item query supplied by the caller (see [run.md](run.md)) against the parsed project file, and SHALL do so exactly once, before the first iteration. Every iteration SHALL use that same resolved array, so an item's index means the same thing from the first iteration to the last.
 
-Resolution discards empty outputs, so the resolved array is either empty or made entirely of non-empty items. See [write-project/spec.md](../write-project/spec.md). An empty resolved array SHALL abort the run before the first iteration, because a run with nothing to do MUST NOT reach the pull request step as though the project had completed.
+Resolution discards empty outputs, so the resolved array is either empty or made entirely of non-empty items. See [the project file format](../../docs/projects.md#item-query). An empty resolved array SHALL abort the run before the first iteration, because a run with nothing to do MUST NOT reach the pull request step as though the project had completed.
 
 #### Scenario: Query resolved before the first iteration
 
@@ -180,7 +180,7 @@ Before each iteration the system SHALL start configured services and stop them a
 
 ### Requirement: Completion read from the commit log
 
-At the start of every iteration the command SHALL determine which items are complete by reading the [completion trailers](../../../../docs/iterations.md#recording-completion) in the commit messages on the project branch that are not on the base branch, exactly as `ralph get complete` does (see [get/spec.md](../get/spec.md)). The project file SHALL NOT be consulted for completion state.
+At the start of every iteration the command SHALL determine which items are complete by reading the [completion trailers](../../docs/iterations.md#recording-completion) in the commit messages on the project branch that are not on the base branch, exactly as `ralph get complete` does (see [get.md](get.md)). The project file SHALL NOT be consulted for completion state.
 
 #### Scenario: Completion recomputed each iteration
 
@@ -341,7 +341,7 @@ After selection, the command SHALL invoke the development agent with the selecte
 
 ### Requirement: Agent scope across the loop
 
-The command SHALL apply the configured agent, resolved as described in [run/spec.md](../run/spec.md), only to prompts that write repository code: item development and service-startup fixes. Prompts that produce supporting artifacts (item selection, artifact generation, changelogs, and PR summaries) SHALL run with opencode's primary agent and SHALL NOT receive the configured agent.
+The command SHALL apply the configured agent, resolved as described in [run.md](run.md), only to prompts that write repository code: item development and service-startup fixes. Prompts that produce supporting artifacts (item selection, artifact generation, changelogs, and PR summaries) SHALL run with opencode's primary agent and SHALL NOT receive the configured agent.
 
 #### Scenario: Item development prompt receives the configured agent
 
@@ -462,7 +462,7 @@ Before submitting a pull request the command SHALL check whether the project's s
 
 ### Requirement: Project file cleanup before PR
 
-When cleanup is enabled by the caller (see [run/spec.md](../run/spec.md)) and every item is complete, the command SHALL delete the project file and commit the deletion on its own, before the pull request is opened. The cleanup commit SHALL carry no completion trailer and SHALL contain no other changes. Cleanup SHALL be skipped when it is not enabled.
+When cleanup is enabled by the caller (see [run.md](run.md)) and every item is complete, the command SHALL delete the project file and commit the deletion on its own, before the pull request is opened. The cleanup commit SHALL carry no completion trailer and SHALL contain no other changes. Cleanup SHALL be skipped when it is not enabled.
 
 #### Scenario: Project file deleted in its own commit
 
@@ -502,7 +502,7 @@ When cleanup is enabled by the caller (see [run/spec.md](../run/spec.md)) and ev
 
 ### Requirement: Base branch for PR creation
 
-The base branch used for PR creation SHALL be the value passed in by the caller, resolved according to [run/spec.md](../run/spec.md). The command SHALL NOT recompute or override this value. The same base branch SHALL bound the commit log that completion is read from.
+The base branch used for PR creation SHALL be the value passed in by the caller, resolved according to [run.md](run.md). The command SHALL NOT recompute or override this value. The same base branch SHALL bound the commit log that completion is read from.
 
 #### Scenario: PR opened against the supplied base branch
 
