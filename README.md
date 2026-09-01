@@ -34,12 +34,12 @@ ralph user-authentication.yaml
 
 Pass `--mode local` to run in the current checkout, or `--mode remote` to submit an Argo Workflow to Kubernetes.
 
-Ralph creates a branch and picks one item per iteration. The AI agent implements it and ends its commit message with a bare `<branch>-<index>` line naming which item it finished:
+Ralph creates a branch and picks one item per iteration. The AI agent implements it and ends its commit message with a bare `<branch>-<hash>` line naming which item it finished:
 
 ```
 feat: issue JWT tokens on successful authentication
 
-user-authentication-2
+user-authentication-IYAWN02
 ```
 
 That line is the whole tracking mechanism. Ralph reads the branch's commit log each iteration to see what is left, and opens a pull request when nothing is left.

@@ -27,7 +27,7 @@ func TestCleanupScenario_CommitCarriesNoTrailer(t *testing.T) {
 
 	require.NoError(t, os.WriteFile("serializer.go", []byte("package main\n"), 0o644))
 	require.NoError(t, StageFile("serializer.go"))
-	require.NoError(t, Commit("feat: add serializer\n\ncleanup-branch-0"))
+	require.NoError(t, Commit("feat: add serializer\n\ncleanup-branch-1Q5RvYo"))
 
 	before, err := CommitMessages(base)
 	require.NoError(t, err)

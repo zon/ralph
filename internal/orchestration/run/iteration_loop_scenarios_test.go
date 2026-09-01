@@ -13,9 +13,9 @@ import (
 	"github.com/zon/ralph/internal/project"
 )
 
-// scenarioCommitLog returns an out-of-range completion trailer on the first
-// query and every item complete on later queries, so a run can continue past
-// a trailer that names no item.
+// scenarioCommitLog returns a completion trailer naming no resolved item on the
+// first query and every item complete on later queries, so a run can continue
+// past a trailer that matches no item.
 type scenarioCommitLog struct {
 	calls int
 }
@@ -27,10 +27,11 @@ func (s *scenarioCommitLog) CurrentBranch() (string, error) {
 func (s *scenarioCommitLog) CommitMessages(base string) ([]string, error) {
 	s.calls++
 	if s.calls == 1 {
-		return []string{"feat: first iteration\n\ncsv-export-5"}, nil
+		return []string{"feat: first iteration\n\ncsv-export-" + project.NewItems([]any{"four"})[0].Hash()}, nil
 	}
+	items := project.NewItems([]any{"one", "two", "three"})
 	return []string{
-		"feat: finished\n\ncsv-export-0\ncsv-export-1\ncsv-export-2",
+		"feat: finished\n\ncsv-export-" + items[0].Hash() + "\ncsv-export-" + items[1].Hash() + "\ncsv-export-" + items[2].Hash(),
 	}, nil
 }
 
@@ -72,8 +73,8 @@ func TestIterationLoopScenario_OutOfRangeTrailerIgnoredWithWarning(t *testing.T)
 	)
 	err := runner.RunLocal(project.ForProjectInput(proj), config.Any())
 	require.NoError(t, err)
-	require.Contains(t, out.String(), "outside the resolved item array")
-	require.Contains(t, out.String(), "5")
+	require.Contains(t, out.String(), "matches no resolved item")
+	require.Contains(t, out.String(), project.NewItems([]any{"four"})[0].Hash())
 	require.Equal(t, 1, aiPickCalls(runner), "the run continues with the remaining items")
 }
 

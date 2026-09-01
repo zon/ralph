@@ -86,19 +86,20 @@ func TestDuplicateKeysAreNotAnError(t *testing.T) {
 	assert.NotEqual(t, items[0].Index, items[1].Index)
 }
 
-func TestScenarioIndexIdentifiesItem(t *testing.T) {
+func TestScenarioHashIdentifiesItem(t *testing.T) {
 	items := NewItems([]any{"one", "two", "three", "four"})
 
 	selected := items[2]
 	assert.Equal(t, 2, selected.Index)
-	assert.Equal(t, "csv-export-2", trailer.Format("csv-export", selected.Index))
+	assert.Equal(t, "csv-export-"+selected.Hash(), trailer.Format("csv-export", selected.Hash()))
+	assert.Equal(t, selected.Hash(), trailer.Hash("three"))
 }
 
 func TestScenarioKeyTakenFromSlug(t *testing.T) {
 	item := NewItems([]any{map[string]any{"slug": "csv-serializer"}})[0]
 
 	assert.Equal(t, "csv-serializer", item.Key())
-	assert.Equal(t, "csv-export-0", trailer.Format("csv-export", item.Index))
+	assert.Equal(t, "csv-export-"+item.Hash(), trailer.Format("csv-export", item.Hash()))
 }
 
 func TestScenarioKeyFallsBackToIDThenName(t *testing.T) {
@@ -112,18 +113,22 @@ func TestScenarioItemWithNoKey(t *testing.T) {
 	plain := NewItems([]any{"Add a CSV serializer"})[0]
 
 	assert.Empty(t, plain.Key())
-	assert.Equal(t, "csv-export-0", trailer.Format("csv-export", plain.Index))
+	assert.Equal(t, "csv-export-"+plain.Hash(), trailer.Format("csv-export", plain.Hash()))
 	assert.Equal(t, 0, plain.Index, "tracked exactly as any keyed item is")
 	assert.Equal(t, keyed.Index, plain.Index)
 }
 
-func TestScenarioDuplicateKeysAreNotAnError(t *testing.T) {
+func TestScenarioIdenticalTextSharesHash(t *testing.T) {
 	items := NewItems([]any{
 		map[string]any{"slug": "duplicate"},
 		map[string]any{"slug": "duplicate"},
 	})
 	require.Len(t, items, 2)
-	assert.Equal(t, 0, items[0].Index)
-	assert.Equal(t, 1, items[1].Index)
-	assert.Equal(t, items[0].Key(), items[1].Key())
+	assert.Equal(t, items[0].Hash(), items[1].Hash())
+	assert.Equal(t, trailer.Hash("slug: duplicate"), items[0].Hash())
+}
+
+func TestScenarioDistinctTextHasDifferentHash(t *testing.T) {
+	items := NewItems([]any{"Add a CSV serializer", "Add a JSON serializer"})
+	assert.NotEqual(t, items[0].Hash(), items[1].Hash())
 }

@@ -117,7 +117,7 @@ Resolution discards empty outputs, so the resolved array is either empty or made
 - GIVEN a project file whose item list holds two work items with a null entry between them
 - WHEN the item array is resolved
 - THEN the loop iterates two items, indexed 0 and 1
-- AND the completion trailers record those indices
+- AND the completion trailers record those items' hashes
 
 #### Scenario: Query resolution does not depend on the file's shape
 
@@ -144,11 +144,11 @@ The command SHALL NOT write, normalize, reformat, or stage the project file at a
 - WHEN the iteration completes
 - THEN no normalization or staging is applied to the project file
 
-#### Scenario: Item indices stay stable
+#### Scenario: Item hashes stay stable
 
 - GIVEN an item at index 3 in the first iteration
 - WHEN the ninth iteration resolves incomplete items
-- THEN index 3 still refers to that same item
+- THEN item 3 still resolves to the same text, and so to the same hash, as in the first iteration
 
 ---
 
@@ -187,26 +187,27 @@ At the start of every iteration the command SHALL determine which items are comp
 - GIVEN an iteration is about to begin
 - WHEN completion is determined
 - THEN the branch's commit log is read and every completion trailer on it is collected
-- AND items at those indices are treated as complete
+- AND items whose hashes those trailers name are treated as complete
 
 #### Scenario: Trailer written in a previous iteration is honored
 
-- GIVEN iteration 1 committed a message ending with `csv-export-0`
+- GIVEN iteration 1 committed a message ending with `csv-export-IXBRf1x`
+- AND the hash `IXBRf1x` matches the text of a resolved item
 - AND the project branch is `csv-export`
 - WHEN iteration 2 determines completion
-- THEN item 0 is complete and is not offered to the picker
+- THEN that item is complete and is not offered to the picker
 
 #### Scenario: Parent project's trailers are ignored
 
 - GIVEN the project branch `csv-export` is branched from another project's branch `feature-a`
-- AND the commit log contains trailers `feature-a-0` and `csv-export-1`
+- AND the commit log contains trailers `feature-a-IXBRf1x` and `csv-export-D3XocZs`
 - WHEN completion is determined
-- THEN only item 1 is treated as complete
-- AND item 0 is still offered to the picker
+- THEN only the item named by `csv-export-D3XocZs` is treated as complete
+- AND the item named by `feature-a-IXBRf1x` is still offered to the picker
 
-#### Scenario: Out-of-range trailer ignored with a warning
+#### Scenario: Unmatched trailer ignored with a warning
 
-- GIVEN a completion trailer whose index is outside the resolved item array
+- GIVEN a completion trailer whose hash matches no resolved item
 - WHEN completion is determined
 - THEN a warning is emitted and the trailer is ignored
 - AND the run continues
@@ -322,14 +323,14 @@ After selection, the command SHALL invoke the development agent with the selecte
 - AND the project branch is `csv-export`
 - WHEN the development agent is invoked
 - THEN the prompt supplies index 2 and key `export-endpoint`
-- AND instructs the agent to end its commit message with `csv-export-2` when the item is done
+- AND instructs the agent to end its commit message with `csv-export-9d8LxCD` when the item is done
 
 #### Scenario: Item without a key
 
 - GIVEN the selected item at index 2 is a plain string with no `slug`, `id`, or `name`
 - AND the project branch is `csv-export`
 - WHEN the development agent is invoked
-- THEN the prompt supplies the trailer line `csv-export-2`
+- THEN the prompt supplies the trailer line `csv-export-9d8LxCD`
 
 #### Scenario: Agent instructed not to edit the project file
 
@@ -389,15 +390,15 @@ After each iteration the command SHALL commit any changes the AI produced. The c
 
 #### Scenario: Trailer preserved in the commit message
 
-- GIVEN `report.md` ends with `csv-export-1`
+- GIVEN `report.md` ends with `csv-export-D3XocZs`
 - AND the project branch is `csv-export`
 - WHEN changes are committed
 - THEN the commit message ends with that line
-- AND the next iteration reads item 1 as complete
+- AND the next iteration reads the item named by that hash as complete
 
 #### Scenario: No code needed records completion
 
-- GIVEN the agent wrote `report.md` ending with the completion trailer `csv-export-1`
+- GIVEN the agent wrote `report.md` ending with the completion trailer `csv-export-D3XocZs`
 - AND the working tree has no changes
 - WHEN the commit step runs
 - THEN an empty commit is created with `report.md` as its commit message

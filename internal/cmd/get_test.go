@@ -10,13 +10,13 @@ import (
 
 func TestGetCmdHelpListsCompleteAndIncomplete(t *testing.T) {
 	output := captureHelpOutput(&Cmd{}, []string{"get", "--help"})
-	assert.Contains(t, output, "List the item indices recorded complete in the commit log")
+	assert.Contains(t, output, "List the completion hashes recorded complete in the commit log")
 	assert.Contains(t, output, "List the items that are not complete")
 }
 
 func TestGetCompleteCmdHelpText(t *testing.T) {
 	output := captureHelpOutput(&Cmd{}, []string{"get", "complete", "--help"})
-	assert.Contains(t, output, "List the item indices recorded complete in the commit log")
+	assert.Contains(t, output, "List the completion hashes recorded complete in the commit log")
 	assert.Contains(t, output, "jq query selecting the item array")
 	assert.Contains(t, output, "Base branch bounding the commit log")
 }
@@ -32,7 +32,7 @@ func TestGetCompleteRejectsIndex(t *testing.T) {
 	err := cmd.Run()
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "--index is not applicable to get complete")
-	assert.Contains(t, err.Error(), "it already emits indices")
+	assert.Contains(t, err.Error(), "it already emits completion hashes")
 }
 
 func TestGetCommandsParsed(t *testing.T) {

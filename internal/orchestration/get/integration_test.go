@@ -59,6 +59,12 @@ func newGetCmd(buf *bytes.Buffer) *Cmd {
 	return NewCmd(client, buf)
 }
 
+// itemHash returns the completion hash of a plain-string item, so a trailer
+// commit can name the exact item a resolved array would produce.
+func itemHash(v string) string {
+	return project.NewItems([]any{v})[0].Hash()
+}
+
 func TestScenarioRepositoryLeftUntouched(t *testing.T) {
 	dir := setupGetRepo(t)
 	t.Chdir(dir)
@@ -70,7 +76,7 @@ func TestScenarioRepositoryLeftUntouched(t *testing.T) {
 	runGit(t, dir, "add", projectPath)
 	runGit(t, dir, "commit", "-m", "add project file")
 	runGit(t, dir, "checkout", "-b", "feature")
-	addTrailerCommit(t, dir, "feat: serializer\n\nfeature-0")
+	addTrailerCommit(t, dir, "feat: serializer\n\nfeature-"+itemHash("item 0"))
 
 	before, err := os.ReadFile(projectPath)
 	require.NoError(t, err)
@@ -84,11 +90,11 @@ func TestScenarioRepositoryLeftUntouched(t *testing.T) {
 	cmd := newGetCmd(&buf)
 
 	require.NoError(t, cmd.Complete(cfg, Flags{}))
-	assert.Equal(t, "[0]", strings.TrimSpace(buf.String()), "completion read from the log with no item array resolved")
+	assert.Equal(t, `["`+itemHash("item 0")+`"]`, strings.TrimSpace(buf.String()), "completion read from the log with no item array resolved")
 
 	buf.Reset()
 	require.NoError(t, cmd.Complete(cfg, Flags{ProjectFile: projectPath}))
-	assert.Equal(t, "[0]", strings.TrimSpace(buf.String()), "resolved item array bounds the reported indices")
+	assert.Equal(t, `["`+itemHash("item 0")+`"]`, strings.TrimSpace(buf.String()), "resolved item array bounds the reported hashes")
 
 	buf.Reset()
 	require.NoError(t, cmd.Incomplete(cfg, Flags{ProjectFile: projectPath}, true))
@@ -108,10 +114,10 @@ func TestScenarioCompletionScopedToCurrentBranch(t *testing.T) {
 	t.Chdir(dir)
 
 	runGit(t, dir, "checkout", "-b", "develop")
-	addTrailerCommit(t, dir, "feat: on develop\n\ndevelop-1")
+	addTrailerCommit(t, dir, "feat: on develop\n\ndevelop-"+itemHash("item 1"))
 
 	runGit(t, dir, "checkout", "-b", "feature")
-	addTrailerCommit(t, dir, "feat: on feature\n\nfeature-0")
+	addTrailerCommit(t, dir, "feat: on feature\n\nfeature-"+itemHash("item 0"))
 
 	cfg, err := config.LoadConfig()
 	require.NoError(t, err)
@@ -123,7 +129,7 @@ func TestScenarioCompletionScopedToCurrentBranch(t *testing.T) {
 	// Feature is forked from develop, so the develop-1 trailer is in the
 	// main..HEAD log range. It names develop, not feature, so it is not counted.
 	require.NoError(t, cmd.Complete(cfg, Flags{}))
-	assert.Equal(t, "[0]", strings.TrimSpace(buf.String()), "completion on the current branch only")
+	assert.Equal(t, `["`+itemHash("item 0")+`"]`, strings.TrimSpace(buf.String()), "completion on the current branch only")
 }
 
 func TestScenarioBaseOverridesConfiguredDefaultBranch(t *testing.T) {
@@ -131,13 +137,13 @@ func TestScenarioBaseOverridesConfiguredDefaultBranch(t *testing.T) {
 	t.Chdir(dir)
 
 	runGit(t, dir, "checkout", "-b", "feature")
-	addTrailerCommit(t, dir, "feat: on feature\n\nfeature-0")
+	addTrailerCommit(t, dir, "feat: on feature\n\nfeature-"+itemHash("item 0"))
 
 	runGit(t, dir, "checkout", "-b", "develop")
-	addTrailerCommit(t, dir, "feat: on develop\n\ndevelop-1")
+	addTrailerCommit(t, dir, "feat: on develop\n\ndevelop-"+itemHash("item 2"))
 
 	runGit(t, dir, "checkout", "feature")
-	addTrailerCommit(t, dir, "feat: on feature\n\nfeature-1")
+	addTrailerCommit(t, dir, "feat: on feature\n\nfeature-"+itemHash("item 1"))
 
 	cfg, err := config.LoadConfig()
 	require.NoError(t, err)
@@ -147,14 +153,14 @@ func TestScenarioBaseOverridesConfiguredDefaultBranch(t *testing.T) {
 	cmd := newGetCmd(&buf)
 
 	require.NoError(t, cmd.Complete(cfg, Flags{}))
-	assert.Equal(t, "[0,1]", strings.TrimSpace(buf.String()), "the configured default branch bounds the log")
+	assert.Equal(t, `["`+itemHash("item 1")+`","`+itemHash("item 0")+`"]`, strings.TrimSpace(buf.String()), "the configured default branch bounds the log")
 
 	buf.Reset()
 	require.NoError(t, cmd.Complete(cfg, Flags{Base: "develop"}))
-	assert.Equal(t, "[1]", strings.TrimSpace(buf.String()), "--base overrides the configured default branch")
+	assert.Equal(t, `["`+itemHash("item 1")+`"]`, strings.TrimSpace(buf.String()), "--base overrides the configured default branch")
 }
 
-func TestScenarioOutOfRangeIndexWarnedByGetComplete(t *testing.T) {
+func TestScenarioUnmatchedHashWarnedByGetComplete(t *testing.T) {
 	dir := setupGetRepo(t)
 	t.Chdir(dir)
 
@@ -166,7 +172,7 @@ func TestScenarioOutOfRangeIndexWarnedByGetComplete(t *testing.T) {
 	runGit(t, dir, "commit", "-m", "add project file")
 
 	runGit(t, dir, "checkout", "-b", "csv-export")
-	addTrailerCommit(t, dir, "feat: out of range\n\ncsv-export-9")
+	addTrailerCommit(t, dir, "feat: unmatched\n\ncsv-export-"+itemHash("item 9"))
 
 	cfg, err := config.LoadConfig()
 	require.NoError(t, err)
@@ -178,7 +184,7 @@ func TestScenarioOutOfRangeIndexWarnedByGetComplete(t *testing.T) {
 	cmd := NewCmd(client, &buf)
 
 	require.NoError(t, cmd.Complete(cfg, Flags{ProjectFile: projectPath}))
-	assert.Equal(t, "[]", strings.TrimSpace(buf.String()), "the out-of-range index is not reported as complete")
-	assert.Contains(t, warnBuf.String(), "9", "the warning names the out-of-range index")
-	assert.Contains(t, warnBuf.String(), "outside", "the warning says the index is outside the resolved item array")
+	assert.Equal(t, "[]", strings.TrimSpace(buf.String()), "a hash matching no resolved item is not reported as complete")
+	assert.Contains(t, warnBuf.String(), itemHash("item 9"), "the warning names the unmatched hash")
+	assert.Contains(t, warnBuf.String(), "matches no resolved item", "the warning says the hash matches no resolved item")
 }

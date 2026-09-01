@@ -97,7 +97,7 @@ func TestPerformCommit_AllowEmptyCreatesEmptyCommitWhenNoChanges(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	t.Chdir(tempDir)
 
-	message := "feat: no code needed\n\ncsv-export-1"
+	message := "feat: no code needed\n\ncsv-export-7FhX6dT"
 	err := performCommit(message, true)
 	require.NoError(t, err, "performCommit with allowEmpty should succeed with no staged changes")
 
@@ -183,7 +183,7 @@ func TestCommitChangesAllowEmpty_CreatesEmptyCommitWhenNoChanges(t *testing.T) {
 	workDir, _ := setupBareRemoteRepo(t)
 	t.Chdir(workDir)
 
-	message := "feat: no code needed\n\ncsv-export-1"
+	message := "feat: no code needed\n\ncsv-export-7FhX6dT"
 	err := CommitChangesAllowEmpty(false, "", "", message)
 	require.NoError(t, err, "CommitChangesAllowEmpty should succeed with no staged changes")
 

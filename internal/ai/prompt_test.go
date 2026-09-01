@@ -346,7 +346,7 @@ func TestBuildItemDevelopPrompt(t *testing.T) {
 		ItemIndex:       2,
 		ItemKey:         "export-endpoint",
 		ItemValue:       "slug: export-endpoint\ndescription: Build the export endpoint",
-		Trailer:         "csv-export-2",
+		Trailer:         "csv-export-IYAWN02",
 		ProjectFilePath: "projects/csv-export.yaml",
 		Services:        nil,
 	}
@@ -380,14 +380,14 @@ func TestBuildItemDevelopPrompt(t *testing.T) {
 		prompt, err := BuildItemDevelopPrompt(keyed)
 		require.NoError(t, err)
 		assert.Contains(t, prompt, "last line of `report.md` MUST be the completion trailer")
-		assert.Contains(t, prompt, "csv-export-2")
+		assert.Contains(t, prompt, "csv-export-IYAWN02")
 	})
 
-	t.Run("describes the trailer as a bare branch-index line", func(t *testing.T) {
+	t.Run("describes the trailer as a bare branch-hash line", func(t *testing.T) {
 		prompt, err := BuildItemDevelopPrompt(keyed)
 		require.NoError(t, err)
-		assert.Contains(t, prompt, "`<branch>-<index>`")
-		assert.Contains(t, prompt, "`csv-export-2`")
+		assert.Contains(t, prompt, "`<branch>-<hash>`")
+		assert.Contains(t, prompt, "`csv-export-IYAWN02`")
 	})
 
 	t.Run("notes that a trailer naming a different branch is not evidence of completion", func(t *testing.T) {
@@ -497,10 +497,10 @@ func TestBuildItemPickPrompt(t *testing.T) {
 		assert.Contains(t, prompt, "Select exactly one of the listed items")
 	})
 
-	t.Run("describes trailers as bare branch-index lines and ignores other branches", func(t *testing.T) {
+	t.Run("describes trailers as bare branch-hash lines and ignores other branches", func(t *testing.T) {
 		prompt, err := BuildItemPickPrompt(data)
 		require.NoError(t, err)
-		assert.Contains(t, prompt, "`<branch>-<index>`")
+		assert.Contains(t, prompt, "`<branch>-<hash>`")
 		assert.Contains(t, prompt, "A trailer naming a different branch is not evidence of completion")
 	})
 

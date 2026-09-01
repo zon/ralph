@@ -9,7 +9,7 @@ import (
 
 type ProjectClient interface {
 	Resolve(path string, query string) (*project.Project, error)
-	Complete(proj *project.Project, base string) ([]int, error)
+	Complete(proj *project.Project, base string) ([]string, error)
 	Incomplete(proj *project.Project, base string) ([]project.Item, error)
 	ExtraIterations(proj *project.Project, cfg *config.RalphConfig) int
 	IncompleteError(proj *project.Project, base string) error

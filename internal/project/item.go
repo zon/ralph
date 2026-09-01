@@ -1,13 +1,22 @@
 package project
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+
+	"gopkg.in/yaml.v3"
+
+	"github.com/zon/ralph/internal/trailer"
+)
 
 // Item is one element of a project's resolved item array.
 //
-// Index is the item's 0-based position in the array and the only identifier
-// ralph uses. Value is the raw value the item was resolved from, unchanged, so
+// Index is the item's 0-based position in the array, used for ordering and
+// display. Value is the raw value the item was resolved from, unchanged, so
 // it can be handed to an agent verbatim. Key is an optional convenience label
-// derived from Value; it is never used to identify or match items.
+// derived from Value; it is never used to identify or match items. Completion
+// identifies items by Hash, a stable hash of the item's text, so an item is
+// the same item across runs as long as its text is unchanged.
 type Item struct {
 	Index int
 	Value any
@@ -39,6 +48,22 @@ func (it Item) Key() string {
 		}
 	}
 	return ""
+}
+
+// Text renders the item's raw value as canonical YAML text, so the same value
+// always produces the same text and therefore the same completion hash.
+func (it Item) Text() string {
+	data, err := yaml.Marshal(it.Value)
+	if err != nil {
+		return fmt.Sprint(it.Value)
+	}
+	return strings.TrimRight(string(data), "\n")
+}
+
+// Hash returns the item's completion hash: a 7-character base-62 hash of the
+// item's canonical text. Two items whose text is identical share a hash.
+func (it Item) Hash() string {
+	return trailer.Hash(it.Text())
 }
 
 // ItemIndices returns the 0-based index of each item, in array order.

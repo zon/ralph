@@ -30,11 +30,11 @@ For the duration of a run, the project file is read-only:
 - Ralph does not rewrite, normalize, reformat, or stage the project file between iterations.
 - The item query is resolved once at the start of the run and reused for every iteration.
 
-So the item array is identical on every iteration, and an item's index means the same thing from the first iteration to the last. This is what makes an index a sufficient identifier, and it is why there is no reconciliation step, no schema for ralph to keep in sync, and no way for a half-written project file to corrupt a run.
+So the item array is identical on every iteration, and an item's text means the same thing from the first iteration to the last. This is what makes the item's completion hash a sufficient identifier, and it is why there is no reconciliation step, no schema for ralph to keep in sync, and no way for a half-written project file to corrupt a run.
 
 The only writes ralph makes to the project file are outside the loop: the optional [cleanup commit](#completing-a-project) after every item is complete, and `ralph validate`, which is a separate command that is not part of a run.
 
-Editing the project file by hand while a run is in progress is unsupported. Nothing enforces it, and ralph will not notice, but indices resolved before the edit no longer refer to the same work.
+Editing the project file by hand while a run is in progress is unsupported. Nothing enforces it, and ralph will not notice, but items whose text was edited before the next iteration resolve to new hashes and are treated as new work.
 
 ## Picking
 
@@ -56,18 +56,18 @@ feat: add CSV serializer for report entries
 Converts report entries to RFC 4180 CSV bytes and wires the
 serializer into the reports package.
 
-csv-export-2
+csv-export-IYAWN02
 ```
 
 The trailer format is:
 
 ```
-<branch>-<index>
+<branch>-<hash>
 ```
 
-The branch is the project branch and the index identifies the item. The trailer is the message's own trailing paragraph, and one commit may carry several if the iteration finished more than the item it was assigned.
+The branch is the project branch and the hash identifies the item: a 7-character base-62 encoding of a SHA-256 digest of the item's text, normalized by trimming surrounding whitespace and lower-casing. The trailer is the message's own trailing paragraph, and one commit may carry several if the iteration finished more than the item it was assigned.
 
-The prompt supplies the branch and index of the picked item, so the agent has the exact line to write rather than deriving it. Ralph does not append or rewrite anything. A trailer exists because the agent decided the item was done and said so.
+The prompt supplies the branch and hash of the picked item, so the agent has the exact line to write rather than deriving it. Ralph does not append or rewrite anything. A trailer exists because the agent decided the item was done and said so.
 
 ### When no trailer is written
 
@@ -76,17 +76,17 @@ Not writing one is the normal way to report unfinished work:
 - **The agent wrote `report.md` without a trailer** — the iteration commits, the item stays incomplete, and the picker can choose it again. Partial progress carries forward in the branch, and the next iteration sees it in the commit log.
 - **The agent wrote no `report.md`** — ralph falls back to generating a changelog for the commit message. That path never produces a trailer, so it never completes an item.
 
-A trailer with an index outside the resolved array is ignored with a warning. The run continues and the item it was aimed at stays incomplete.
+A trailer whose hash matches no resolved item is ignored with a warning. The run continues and the item it was aimed at stays incomplete.
 
 ## Reading Completion
 
-At the start of each iteration ralph scans the commit messages on the project branch that are not on the base branch, collects every completion trailer, and marks the item at each trailer's index complete. Only trailers naming the current branch count. A trailer naming any other branch is ignored without a warning, so a project branched from another project's branch never inherits that project's completion. Matching is by branch and index. Because [the project file is immutable](#the-project-file-is-immutable) during a run, the index resolved in iteration 1 refers to the same item in iteration 9, and no further reconciliation is needed.
+At the start of each iteration ralph scans the commit messages on the project branch that are not on the base branch, collects every completion trailer, and marks complete the item whose hash the trailer names. Only trailers naming the current branch count. A trailer naming any other branch is ignored without a warning, so a project branched from another project's branch never inherits that project's completion. Matching is by branch and hash. Because [the project file is immutable](#the-project-file-is-immutable) during a run, the item's text, and so its hash, is the same in iteration 9 as in iteration 1, and no further reconciliation is needed.
 
 The same two steps are exposed as commands, and they are the ones the loop itself uses:
 
 ```bash
-$ ralph get complete                                  # indices, from the commit log
-[0, 2]
+$ ralph get complete                                  # completion hashes, from the commit log
+["IYAWN02", "9d8LxCD"]
 
 $ ralph get incomplete projects/csv-export.yaml       # the items that are left
 [{"slug": "export-endpoint", ...}, {"slug": "export-error-handling", ...}]
@@ -101,7 +101,7 @@ $ ralph get incomplete projects/csv-export.yaml --index
 
 The completion record belongs to the branch, so a run that is interrupted, stopped, or resubmitted picks up where it left off by reading the log again. Nothing needs to be restored.
 
-Re-running against a branch after editing the project file *between* runs is where indices can go stale. An item inserted at the top shifts everything after it, and old trailers then point at different work. For a project file that has changed shape, start a fresh branch.
+Re-running against a branch after editing the project file *between* runs is where hashes can go stale. Editing an item's text changes its hash, so the item's old completion trailer no longer matches and the item is treated as new work; unchanged items keep their completion. For a project file that has changed shape, start a fresh branch.
 
 ## Iteration Limit
 

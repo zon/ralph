@@ -180,7 +180,7 @@ func TestAgentClientRunDeveloperUsesItemBasedInstructionsByDefault(t *testing.T)
 	require.NoError(t, err)
 
 	assert.Contains(t, developPrompt, "one item of this project")
-	assert.Contains(t, developPrompt, "test-project-0")
+	assert.Contains(t, developPrompt, "test-project-"+proj.Items[0].Hash())
 }
 
 func TestAgentClientRunDeveloperHonorsCustomInstructions(t *testing.T) {
@@ -306,7 +306,7 @@ func TestAgentClientDevelopPromptSuppliesIndexKeyAndTrailer(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Contains(t, developPrompt, "(index 2, key export-endpoint)", "the prompt supplies index 2 and the key export-endpoint")
-	assert.Contains(t, developPrompt, "`csv-export-2`", "the prompt instructs the exact trailer line")
+	assert.Contains(t, developPrompt, "`csv-export-"+proj.Items[2].Hash()+"`", "the prompt instructs the exact trailer line")
 }
 
 func TestAgentClientDevelopPromptKeylessItemUsesBareTrailer(t *testing.T) {
@@ -331,7 +331,7 @@ func TestAgentClientDevelopPromptKeylessItemUsesBareTrailer(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Contains(t, developPrompt, "(index 2)", "a plain string item is supplied with its index only")
-	assert.Contains(t, developPrompt, "`csv-export-2`", "a keyless item still uses the bare branch-index trailer")
+	assert.Contains(t, developPrompt, "`csv-export-"+proj.Items[2].Hash()+"`", "a keyless item still uses the bare branch-hash trailer")
 }
 
 func TestAgentClientDevelopPromptTrailerComesFromSharedFormatter(t *testing.T) {
@@ -364,7 +364,7 @@ func TestAgentClientDevelopPromptTrailerComesFromSharedFormatter(t *testing.T) {
 			err := client.RunDeveloper(proj, item)
 			require.NoError(t, err)
 
-			assert.Contains(t, developPrompt, "`"+trailer.Format(proj.Slug, item.Index)+"`", "the trailer is produced by the shared trailer formatter")
+			assert.Contains(t, developPrompt, "`"+trailer.Format(proj.Slug, item.Hash())+"`", "the trailer is produced by the shared trailer formatter")
 		})
 	}
 }

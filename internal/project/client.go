@@ -90,12 +90,13 @@ func titleFrom(doc *projectfile.Document, slug string) string {
 
 // Complete reads the completion trailers from the commit messages on the
 // current branch that are not on the base branch and returns the ascending,
-// deduplicated indices they name. Only trailers naming the current branch
+// deduplicated hashes they name. Only trailers naming the current branch
 // count. A trailer naming any other branch is ignored without a warning. When
-// proj is non-nil and its item array was resolved, an index outside the array
-// is dropped with a warning naming it. When no item array was resolved, every
-// trailer that passes the branch filter is reported without a range check.
-func (c *Client) Complete(proj *Project, base string) ([]int, error) {
+// proj is non-nil and its item array was resolved, a hash matching no resolved
+// item is dropped with a warning naming it. When no item array was resolved,
+// every trailer that passes the branch filter is reported without a range
+// check.
+func (c *Client) Complete(proj *Project, base string) ([]string, error) {
 	branch, err := c.log.CurrentBranch()
 	if err != nil {
 		return nil, err
@@ -111,34 +112,43 @@ func (c *Client) Complete(proj *Project, base string) ([]int, error) {
 	return c.reconcile(refs, branch, proj), nil
 }
 
-// reconcile keeps the refs naming the current branch and applies the range
-// check only when an item array was resolved. The comparison is an exact
-// string match, so the trailer writer must stamp the branch name the run loop
-// checks out.
-func (c *Client) reconcile(refs []trailer.Ref, branch string, proj *Project) []int {
+// reconcile keeps the refs naming the current branch and applies the resolved
+// item check only when an item array was resolved. A hash is matched against
+// the resolved items by the item's own hash, so an item whose text changed
+// between runs is no longer the same item. The comparison is an exact string
+// match, so the trailer writer must stamp the branch name the run loop checks
+// out.
+func (c *Client) reconcile(refs []trailer.Ref, branch string, proj *Project) []string {
 	resolved := proj != nil && proj.Items != nil
-	seen := make(map[int]struct{}, len(refs))
+	var known map[string]struct{}
+	if resolved {
+		known = make(map[string]struct{}, len(proj.Items))
+		for _, it := range proj.Items {
+			known[it.Hash()] = struct{}{}
+		}
+	}
+	seen := make(map[string]struct{}, len(refs))
 	for _, r := range refs {
 		if r.Branch != branch {
 			continue
 		}
 		if resolved {
-			if r.Index >= len(proj.Items) {
-				c.out.Warnf("completion trailer names index %d which is outside the resolved item array (%d items); ignoring", r.Index, len(proj.Items))
+			if _, ok := known[r.Hash]; !ok {
+				c.out.Warnf("completion trailer names hash %s which matches no resolved item; ignoring", r.Hash)
 				continue
 			}
 		}
-		seen[r.Index] = struct{}{}
+		seen[r.Hash] = struct{}{}
 	}
-	indices := make([]int, 0, len(seen))
-	for i := range seen {
-		indices = append(indices, i)
+	hashes := make([]string, 0, len(seen))
+	for h := range seen {
+		hashes = append(hashes, h)
 	}
-	sort.Ints(indices)
-	return indices
+	sort.Strings(hashes)
+	return hashes
 }
 
-// Incomplete returns the items of proj.Items whose indices are not reported
+// Incomplete returns the items of proj.Items whose hashes are not reported
 // complete in the branch commit log, in array order. An empty result is the
 // iteration loop's exit condition.
 func (c *Client) Incomplete(proj *Project, base string) ([]Item, error) {
@@ -146,13 +156,13 @@ func (c *Client) Incomplete(proj *Project, base string) ([]Item, error) {
 	if err != nil {
 		return nil, err
 	}
-	completeSet := make(map[int]struct{}, len(complete))
-	for _, i := range complete {
-		completeSet[i] = struct{}{}
+	completeSet := make(map[string]struct{}, len(complete))
+	for _, h := range complete {
+		completeSet[h] = struct{}{}
 	}
 	incomplete := make([]Item, 0, len(proj.Items))
 	for _, it := range proj.Items {
-		if _, ok := completeSet[it.Index]; !ok {
+		if _, ok := completeSet[it.Hash()]; !ok {
 			incomplete = append(incomplete, it)
 		}
 	}

@@ -163,7 +163,7 @@ func TestGlossaryKeepsOnlyRalphRuntimeVocabulary(t *testing.T) {
 func TestUserFacingDocsDescribeBareTrailer(t *testing.T) {
 	// GIVEN the user-facing documentation
 	// WHEN a reader looks for the completion trailer
-	// THEN it is described as a bare <branch>-<index> line and never as
+	// THEN it is described as a bare <branch>-<hash> line and never as
 	// "Ralph item ... completed"
 	for _, rel := range []string{
 		"README.md",
@@ -174,7 +174,7 @@ func TestUserFacingDocsDescribeBareTrailer(t *testing.T) {
 		"docs/cli.md",
 	} {
 		content := string(readRepoFile(t, rel))
-		assert.Contains(t, content, "<branch>-<index>", "%s must describe the trailer as <branch>-<index>", rel)
+		assert.Contains(t, content, "<branch>-<hash>", "%s must describe the trailer as <branch>-<hash>", rel)
 		assert.NotContains(t, content, "Ralph item", "%s must not describe the old Ralph item ... completed form", rel)
 	}
 	iterations := string(readRepoFile(t, "docs/iterations.md"))

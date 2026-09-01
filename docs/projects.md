@@ -65,11 +65,11 @@ items: '.issues | map(select(.state == "open"))'   # an exported issue list
 items: '.tasks[] | select(.assignee == "ralph")'   # a task file, filtered
 ```
 
-Filtering in the query is fine. The resolved array is the project as far as ralph is concerned, including for item indexing and completion tracking. The query is resolved once per run and stays fixed for that run's lifetime. See [Iterations](iterations.md#the-project-file-is-immutable).
+Filtering in the query is fine. The resolved array is the project as far as ralph is concerned, including for item hashing and completion tracking. The query is resolved once per run and stays fixed for that run's lifetime. See [Iterations](iterations.md#the-project-file-is-immutable).
 
-## Item Index
+## Item Hash
 
-The item's 0-based position in the resolved array. Always present, and the only thing that identifies an item to ralph.
+The 7-character base-62 hash of the item's text, computed as a SHA-256 digest of the text normalized by trimming surrounding whitespace and lower-casing. Always present, and the only thing that identifies an item to ralph. The same text always yields the same hash, so an item keeps its completion across runs as long as its text is unchanged.
 
 ## Item Key
 
@@ -82,7 +82,7 @@ If the item is a mapping with a scalar `slug`, `id`, or `name` field, checked in
 - Add a CSV serializer      # no key
 ```
 
-The key is a convenience: it labels the item in logs and picker output. It is not an identifier. Ralph tracks items by index. Keys need not be unique and nothing breaks if they are not.
+The key is a convenience: it labels the item in logs and picker output. It is not an identifier. Ralph tracks items by hash. Keys need not be unique and nothing breaks if they are not.
 
 ## Optional Metadata
 
@@ -97,12 +97,12 @@ A project file that is a top-level array has neither, so both derive from the fi
 
 ## No Completion State in the File
 
-Items do not carry a completion field. Neither the AI agent nor ralph writes progress back into the project file. Completion is recorded in the branch's commit messages instead, as a bare `<branch>-<index>` trailer line:
+Items do not carry a completion field. Neither the AI agent nor ralph writes progress back into the project file. Completion is recorded in the branch's commit messages instead, as a bare `<branch>-<hash>` trailer line:
 
 ```
 feat: add CSV serializer for report entries
 
-csv-export-2
+csv-export-IYAWN02
 ```
 
 Ralph reads `git log <base>..HEAD` at the start of every iteration to determine which items are done. The project file is read-only from the first iteration to the last. See [Iterations](iterations.md#the-project-file-is-immutable).

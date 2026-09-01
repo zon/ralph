@@ -41,16 +41,16 @@ func TestCleanupScenario_CompletionStillReadableAfterCleanup(t *testing.T) {
 
 	require.NoError(t, os.WriteFile("serializer.go", []byte("package main\n"), 0o644))
 	require.NoError(t, git.StageFile("serializer.go"))
-	require.NoError(t, git.Commit("feat: add serializer\n\ncleanup-branch-0\ncleanup-branch-1"))
+	require.NoError(t, git.Commit("feat: add serializer\n\ncleanup-branch-8xt8Szl\ncleanup-branch-4oxMK9s"))
 
 	require.NoError(t, os.Remove(projectPath))
 	require.NoError(t, git.StageFile(projectPath))
 	require.NoError(t, git.CommitProjectRemoval(projectPath))
 
 	client := NewClient(realCommitLog{}, &captureOutput{})
-	indices, err := client.Complete(completedProject("one", "two"), base)
+	hashes, err := client.Complete(completedProject("one", "two"), base)
 	require.NoError(t, err)
-	require.Equal(t, []int{0, 1}, indices, "the trailers in the branch's history still report every item complete after cleanup deleted the project file")
+	require.Equal(t, []string{"4oxMK9s", "8xt8Szl"}, hashes, "the trailers in the branch's history still report every item complete after cleanup deleted the project file")
 }
 
 func TestCleanupScenario_ArchitectureDocumentLeftUntouched(t *testing.T) {
@@ -76,14 +76,14 @@ func TestCleanupScenario_ArchitectureDocumentLeftUntouched(t *testing.T) {
 
 	require.NoError(t, os.WriteFile("serializer.go", []byte("package main\n"), 0o644))
 	require.NoError(t, git.StageFile("serializer.go"))
-	require.NoError(t, git.Commit("feat: add exporter\n\ncleanup-branch-0"))
+	require.NoError(t, git.Commit("feat: add exporter\n\ncleanup-branch-9izELVK"))
 
 	client := NewClient(realCommitLog{}, &captureOutput{})
 	proj, err := client.Resolve(projectPath, ".")
 	require.NoError(t, err)
 	complete, err := client.Complete(proj, base)
 	require.NoError(t, err)
-	require.Equal(t, []int{0}, complete, "the completed iteration is recorded from the branch's commit trailer")
+	require.Equal(t, []string{"9izELVK"}, complete, "the completed iteration is recorded from the branch's commit trailer")
 
 	require.NoError(t, client.Remove(proj))
 	require.NoError(t, git.CommitProjectRemoval(projectPath))

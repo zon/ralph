@@ -22,7 +22,7 @@ The system SHALL provide a `ralph get` command with two subcommands: `complete` 
 
 - GIVEN the user runs `ralph get complete ./projects/csv-export.yaml`
 - WHEN the command starts
-- THEN the item array is resolved from that file and used to bound the reported indices
+- THEN the item array is resolved from that file and used to bound the reported hashes
 
 #### Scenario: Incomplete invoked without a project file
 
@@ -82,7 +82,7 @@ Resolution discards empty outputs, so the resolved array is either empty or made
 - GIVEN a project file whose item list holds two work items with a null entry between them
 - WHEN the item array is resolved
 - THEN two items are reported, indexed 0 and 1
-- AND completion is matched against those indices, the same ones a run records
+- AND completion is matched against those items' hashes, the same ones a run records
 
 ---
 
@@ -108,60 +108,62 @@ Both subcommands SHALL bound the commit log by a base branch, resolved from `--b
 
 ### Requirement: Completion Trailer Parsing
 
-The system SHALL treat a commit as recording an item complete when its message contains a trailer of the form `<branch>-<index>`, where `<branch>` is the project branch the trailer belongs to and `<index>` is the item's 0-based position in the resolved array. A single commit MAY carry more than one trailer. The index alone identifies the item. Only trailers whose branch matches the current branch SHALL be honored. A trailer from any other branch is ignored without a warning, so a project branched from another project's branch never inherits that project's completion.
+The system SHALL treat a commit as recording an item complete when its message contains a trailer of the form `<branch>-<hash>`, where `<branch>` is the project branch the trailer belongs to and `<hash>` is a 7-character base-62 encoding of a SHA-256 digest of the item's text, normalized by trimming surrounding whitespace and lower-casing. A single commit MAY carry more than one trailer. The hash alone identifies the item. Only trailers whose branch matches the current branch SHALL be honored. A trailer from any other branch is ignored without a warning, so a project branched from another project's branch never inherits that project's completion.
 
 #### Scenario: Trailer on the current branch recognized
 
-- GIVEN a commit whose message ends with `csv-export-0`
+- GIVEN a commit whose message ends with `csv-export-IXBRf1x`
+- AND the hash `IXBRf1x` matches the text of a resolved item
 - AND the current branch is `csv-export`
 - WHEN completion is read
-- THEN item 0 is reported complete
+- THEN that item is reported complete
 
 #### Scenario: Trailer from another branch ignored
 
-- GIVEN a commit whose message ends with `feature-a-2`
+- GIVEN a commit whose message ends with `feature-a-D3XocZs`
 - AND the current branch is `csv-export`
 - WHEN completion is read
 - THEN no item is reported complete, because the trailer names a different project branch
 
 #### Scenario: Multiple trailers in one commit
 
-- GIVEN a commit whose message ends with a paragraph containing `csv-export-1` and `csv-export-2`
+- GIVEN a commit whose message ends with a paragraph containing `csv-export-D3XocZs` and `csv-export-9d8LxCD`
+- AND those hashes match the texts of two resolved items
 - WHEN completion is read
-- THEN both item 1 and item 2 are reported complete
+- THEN both of those items are reported complete
 
 #### Scenario: Commit without a trailer completes nothing
 
 - GIVEN a commit whose message contains no completion trailer
 - WHEN completion is read
-- THEN that commit contributes no completed indices
+- THEN that commit contributes no completed hashes
 
-#### Scenario: Out-of-range index ignored with a warning
+#### Scenario: Unmatched hash ignored with a warning
 
-- GIVEN a trailer `csv-export-9` whose index is greater than or equal to the number of resolved items
+- GIVEN a trailer `csv-export-BEAT2F1` whose hash matches no resolved item
 - AND a project file was provided
 - WHEN completion is read
-- THEN a warning is emitted naming the out-of-range index
-- AND that index is not reported complete
+- THEN a warning is emitted naming the unmatched hash
+- AND that hash is not reported complete
 
 ---
 
 ### Requirement: Complete Output
 
-`ralph get complete` SHALL print the completed item indices to stdout as a JSON array, ascending and deduplicated, and exit with status 0.
+`ralph get complete` SHALL print the completed item hashes to stdout as a JSON array, sorted and deduplicated, and exit with status 0.
 
-#### Scenario: Completed indices printed
+#### Scenario: Completed hashes printed
 
 - GIVEN the branch's commit log records items 2, 0, and 3 complete
 - WHEN `ralph get complete` runs
-- THEN `[0, 2, 3]` is printed to stdout
+- THEN the three item hashes are printed to stdout as a JSON array
 - AND the command exits with status 0
 
 #### Scenario: Duplicate trailers collapse
 
-- GIVEN two commits on the branch both record item 1 complete
+- GIVEN two commits on the branch both record the same item complete
 - WHEN `ralph get complete` runs
-- THEN index 1 appears exactly once in the output
+- THEN that item's hash appears exactly once in the output
 
 #### Scenario: Nothing complete
 
@@ -173,15 +175,15 @@ The system SHALL treat a commit as recording an item complete when its message c
 #### Scenario: Unbounded output without a project file
 
 - GIVEN no project file is provided
-- AND the log contains a trailer `csv-export-9` on the current branch `csv-export`
+- AND the log contains a trailer `csv-export-BEAT2F1` on the current branch `csv-export`
 - WHEN `ralph get complete` runs
-- THEN index 9 is reported without a range check, because no item array was resolved
+- THEN the hash `BEAT2F1` is reported without a resolved item check, because no item array was resolved
 
 #### Scenario: Works after the project file is removed
 
 - GIVEN the project file was deleted by a cleanup commit on this branch
 - WHEN `ralph get complete` runs without a project file argument
-- THEN the completed indices are still reported from the commit log
+- THEN the completed hashes are still reported from the commit log
 
 ---
 
@@ -208,7 +210,7 @@ The system SHALL treat a commit as recording an item complete when its message c
 
 ### Requirement: Incomplete Index Output
 
-`ralph get incomplete` SHALL accept an `--index` flag that emits the indices of the incomplete items rather than the items themselves, in the same JSON array form `ralph get complete` uses.
+`ralph get incomplete` SHALL accept an `--index` flag that emits the indices of the incomplete items rather than the items themselves, in the same JSON array form.
 
 #### Scenario: Indices emitted instead of items
 
@@ -221,7 +223,7 @@ The system SHALL treat a commit as recording an item complete when its message c
 
 - GIVEN the user runs `ralph get complete --index`
 - WHEN the command validates its flags
-- THEN an error is returned, because `complete` already emits indices
+- THEN an error is returned, because `complete` already emits hashes
 
 ---
 

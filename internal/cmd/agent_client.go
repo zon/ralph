@@ -84,8 +84,8 @@ func (a *AgentClient) RunDeveloper(proj *project.Project, item project.Item) err
 		ProjectContent:  projectContent(proj),
 		ItemIndex:       item.Index,
 		ItemKey:         item.Key(),
-		ItemValue:       renderItemValue(item.Value),
-		Trailer:         trailer.Format(proj.Slug, item.Index),
+		ItemValue:       item.Text(),
+		Trailer:         trailer.Format(proj.Slug, item.Hash()),
 		ProjectFilePath: proj.Path,
 		Services:        cfg.Services,
 		Instructions:    cfg.Instructions,
@@ -120,21 +120,12 @@ func renderItems(items []project.Item) string {
 	var b strings.Builder
 	for _, it := range items {
 		if key := it.Key(); key != "" {
-			fmt.Fprintf(&b, "item %d (%s):\n%s\n", it.Index, key, renderItemValue(it.Value))
+			fmt.Fprintf(&b, "item %d (%s):\n%s\n", it.Index, key, it.Text())
 		} else {
-			fmt.Fprintf(&b, "item %d:\n%s\n", it.Index, renderItemValue(it.Value))
+			fmt.Fprintf(&b, "item %d:\n%s\n", it.Index, it.Text())
 		}
 	}
 	return strings.TrimRight(b.String(), "\n")
-}
-
-// renderItemValue renders an item's raw resolved value verbatim as YAML.
-func renderItemValue(v any) string {
-	data, err := yaml.Marshal(v)
-	if err != nil {
-		return fmt.Sprint(v)
-	}
-	return strings.TrimRight(string(data), "\n")
 }
 
 // readPickedIndex reads the 0-based index the picker agent wrote to

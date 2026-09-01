@@ -11,6 +11,16 @@ import (
 	"github.com/zon/ralph/internal/project"
 )
 
+// pickerScenarioItems are the four items the picker scenario project resolves
+// to, shared between the project file the run reads and the commit log that
+// records completion, so the trailer hashes match the resolved items.
+var pickerScenarioItems = []any{
+	map[string]any{"slug": "one", "description": "first"},
+	map[string]any{"slug": "exporter", "description": "export endpoint"},
+	map[string]any{"slug": "two", "description": "second"},
+	map[string]any{"slug": "importer", "description": "import endpoint"},
+}
+
 // pickerScenarioCommitLog records items 0 and 2 complete on the first query and
 // every item complete on later queries, so a run offers only the remaining
 // items to the picker once and then ends.
@@ -23,15 +33,16 @@ func (s *pickerScenarioCommitLog) CurrentBranch() (string, error) {
 }
 
 func (s *pickerScenarioCommitLog) CommitMessages(base string) ([]string, error) {
+	items := project.NewItems(pickerScenarioItems)
 	s.calls++
 	if s.calls == 1 {
 		return []string{
-			"feat: first\n\ncsv-export-0",
-			"feat: second\n\ncsv-export-2",
+			"feat: first\n\ncsv-export-" + items[0].Hash(),
+			"feat: second\n\ncsv-export-" + items[2].Hash(),
 		}, nil
 	}
 	return []string{
-		"feat: finished\n\ncsv-export-0\ncsv-export-1\ncsv-export-2\ncsv-export-3",
+		"feat: finished\n\ncsv-export-" + items[0].Hash() + "\ncsv-export-" + items[1].Hash() + "\ncsv-export-" + items[2].Hash() + "\ncsv-export-" + items[3].Hash(),
 	}, nil
 }
 

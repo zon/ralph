@@ -26,7 +26,7 @@ func TestCommitTrailerScenario_ReportWithoutTrailerLeavesItemIncomplete(t *testi
 }
 
 func TestCommitTrailerScenario_NoCodeNeededRecordsCompletion(t *testing.T) {
-	const report = "feat: no code needed\n\ncsv-export-1"
+	const report = "feat: no code needed\n\ncsv-export-7FhX6dT"
 	runner := withMocks(
 		withProject(project.ThatReportsIncompleteUntil(2)),
 		withGit(gitWithReportNoChanges(report)),

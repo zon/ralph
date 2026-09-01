@@ -16,7 +16,7 @@ import (
 
 type mockProject struct {
 	resolveErr    error
-	complete      []int
+	complete      []string
 	completeErr   error
 	incomplete    []project.Item
 	incompleteErr error
@@ -39,7 +39,7 @@ func (m *mockProject) Resolve(path string, query string) (*project.Project, erro
 	return project.WithItems(5), nil
 }
 
-func (m *mockProject) Complete(proj *project.Project, base string) ([]int, error) {
+func (m *mockProject) Complete(proj *project.Project, base string) ([]string, error) {
 	m.completeProj = proj
 	m.lastBase = base
 	return m.complete, m.completeErr
@@ -80,21 +80,21 @@ func TestScenarioCompleteWithProjectFile(t *testing.T) {
 	assert.NotNil(t, m.completeProj, "the resolved item array bounds the reported indices")
 }
 
-func TestScenarioCompletedIndicesPrinted(t *testing.T) {
+func TestScenarioCompletedHashesPrinted(t *testing.T) {
 	m, buf := newMock()
-	m.complete = []int{0, 2, 3}
+	m.complete = []string{"abc1234", "efg5678", "hij9012"}
 	err := NewCmd(m, buf).Complete(defaultConfig(), Flags{})
 	require.NoError(t, err)
-	assert.Equal(t, "[0,2,3]", strings.TrimSpace(buf.String()))
+	assert.Equal(t, `["abc1234","efg5678","hij9012"]`, strings.TrimSpace(buf.String()))
 }
 
 func TestScenarioCompleteWorksAfterProjectFileRemoved(t *testing.T) {
 	m, buf := newMock()
-	m.complete = []int{0, 2, 3}
+	m.complete = []string{"abc1234", "efg5678", "hij9012"}
 	err := NewCmd(m, buf).Complete(defaultConfig(), Flags{})
 	require.NoError(t, err)
 	assert.False(t, m.resolveCalled, "no project file is read when none is given")
-	assert.Equal(t, "[0,2,3]", strings.TrimSpace(buf.String()))
+	assert.Equal(t, `["abc1234","efg5678","hij9012"]`, strings.TrimSpace(buf.String()))
 }
 
 func TestScenarioRemainingItemsPrinted(t *testing.T) {

@@ -7,6 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/zon/ralph/internal/trailer"
 )
 
 type stubCommitLog struct {
@@ -44,32 +46,38 @@ func completedProject(values ...any) *Project {
 	return &Project{Items: NewItems(values)}
 }
 
-func TestCompleteReportsBareTrailer(t *testing.T) {
-	c, _, _ := testClient("feat: add serializer\n\ncsv-export-0")
-	indices, err := c.Complete(completedProject("a"), "main")
-	require.NoError(t, err)
-	assert.Equal(t, []int{0}, indices)
+// itemHash returns the completion hash of a plain-string item, matching what
+// Item.Hash produces for an item whose value is that string.
+func itemHash(v string) string {
+	return trailer.Hash(v)
 }
 
-func TestCompleteReportsTrailerByIndex(t *testing.T) {
-	c, _, _ := testClient("feat: export\n\ncsv-export-3")
-	indices, err := c.Complete(completedProject("a", "b", "c", "d"), "main")
+func TestCompleteReportsBareTrailer(t *testing.T) {
+	c, _, _ := testClient("feat: add serializer\n\ncsv-export-" + itemHash("a"))
+	hashes, err := c.Complete(completedProject("a"), "main")
 	require.NoError(t, err)
-	assert.Equal(t, []int{3}, indices)
+	assert.Equal(t, []string{itemHash("a")}, hashes)
+}
+
+func TestCompleteReportsTrailerByHash(t *testing.T) {
+	c, _, _ := testClient("feat: export\n\ncsv-export-" + itemHash("d"))
+	hashes, err := c.Complete(completedProject("a", "b", "c", "d"), "main")
+	require.NoError(t, err)
+	assert.Equal(t, []string{itemHash("d")}, hashes)
 }
 
 func TestCompleteCollectsTrailersAcrossCommits(t *testing.T) {
 	c, _, _ := testClient(
-		"csv-export-1",
-		"csv-export-2",
+		"csv-export-"+itemHash("b"),
+		"csv-export-"+itemHash("c"),
 	)
-	indices, err := c.Complete(completedProject("a", "b", "c"), "main")
+	hashes, err := c.Complete(completedProject("a", "b", "c"), "main")
 	require.NoError(t, err)
-	assert.Equal(t, []int{1, 2}, indices)
+	assert.Equal(t, []string{itemHash("c"), itemHash("b")}, hashes, "trailers are sorted lexicographically")
 }
 
 func TestCompleteReadsAgainstSuppliedBase(t *testing.T) {
-	c, log, _ := testClient("csv-export-0")
+	c, log, _ := testClient("csv-export-" + itemHash("a"))
 	_, err := c.Complete(completedProject("a"), "develop")
 	require.NoError(t, err)
 	assert.Equal(t, "develop", log.base)
@@ -83,50 +91,50 @@ func TestCompleteSurfacesCommitLogError(t *testing.T) {
 	assert.Contains(t, err.Error(), "boom")
 }
 
-func TestCompleteAscendingAndDeduplicated(t *testing.T) {
+func TestCompleteSortedAndDeduplicated(t *testing.T) {
 	c, _, _ := testClient(
-		"csv-export-2\ncsv-export-0",
-		"csv-export-3\ncsv-export-2",
+		"csv-export-"+itemHash("c")+"\ncsv-export-"+itemHash("a"),
+		"csv-export-"+itemHash("d")+"\ncsv-export-"+itemHash("c"),
 	)
-	indices, err := c.Complete(completedProject("a", "b", "c", "d", "e"), "main")
+	hashes, err := c.Complete(completedProject("a", "b", "c", "d", "e"), "main")
 	require.NoError(t, err)
-	assert.Equal(t, []int{0, 2, 3}, indices)
+	assert.Equal(t, []string{itemHash("d"), itemHash("c"), itemHash("a")}, hashes, "hashes are deduplicated and sorted lexicographically")
 }
 
-func TestScenarioOutOfRangeIndexIgnoredWithWarning(t *testing.T) {
-	c, _, out := testClient("csv-export-5")
+func TestScenarioUnmatchedHashIgnoredWithWarning(t *testing.T) {
+	c, _, out := testClient("csv-export-" + itemHash("z"))
 	proj := completedProject("a", "b", "c")
 
-	indices, err := c.Complete(proj, "main")
+	hashes, err := c.Complete(proj, "main")
 	require.NoError(t, err)
-	assert.Empty(t, indices)
-	assert.Contains(t, out.String(), "5")
-	assert.Contains(t, out.String(), "outside")
+	assert.Empty(t, hashes)
+	assert.Contains(t, out.String(), itemHash("z"))
+	assert.Contains(t, out.String(), "matches no resolved item")
 }
 
 func TestScenarioDuplicateTrailersCollapse(t *testing.T) {
 	c, _, _ := testClient(
-		"feat: a\n\ncsv-export-1",
-		"feat: b\n\ncsv-export-1",
+		"feat: a\n\ncsv-export-"+itemHash("b"),
+		"feat: b\n\ncsv-export-"+itemHash("b"),
 	)
-	indices, err := c.Complete(completedProject("a", "b", "c"), "main")
+	hashes, err := c.Complete(completedProject("a", "b", "c"), "main")
 	require.NoError(t, err)
-	assert.Equal(t, []int{1}, indices)
+	assert.Equal(t, []string{itemHash("b")}, hashes)
 }
 
-func TestCompleteNoItemArraySkipsRangeCheck(t *testing.T) {
-	c, _, out := testClient("csv-export-9")
-	indices, err := c.Complete(nil, "main")
+func TestCompleteNoItemArraySkipsResolvedItemCheck(t *testing.T) {
+	c, _, out := testClient("csv-export-" + itemHash("z"))
+	hashes, err := c.Complete(nil, "main")
 	require.NoError(t, err)
-	assert.Equal(t, []int{9}, indices)
+	assert.Equal(t, []string{itemHash("z")}, hashes)
 	assert.Empty(t, out.String(), "no warning is emitted without a resolved array")
 }
 
-func TestCompleteNilItemsProjectSkipsRangeCheck(t *testing.T) {
-	c, _, out := testClient("csv-export-7")
-	indices, err := c.Complete(&Project{}, "main")
+func TestCompleteNilItemsProjectSkipsResolvedItemCheck(t *testing.T) {
+	c, _, out := testClient("csv-export-" + itemHash("z"))
+	hashes, err := c.Complete(&Project{}, "main")
 	require.NoError(t, err)
-	assert.Equal(t, []int{7}, indices)
+	assert.Equal(t, []string{itemHash("z")}, hashes)
 	assert.Empty(t, out.String())
 }
 
@@ -135,51 +143,51 @@ func TestCompleteOnlyCountsCurrentBranchTrailers(t *testing.T) {
 		name     string
 		messages []string
 		branch   string
-		want     []int
+		want     []string
 	}{
 		{
 			name:     "mixed branches keep only the current branch",
-			messages: []string{"csv-export-0\nother-branch-1"},
+			messages: []string{"csv-export-" + itemHash("a") + "\nother-branch-" + itemHash("b")},
 			branch:   "csv-export",
-			want:     []int{0},
+			want:     []string{itemHash("a")},
 		},
 		{
 			name:     "other branch trailers alone yield nothing",
-			messages: []string{"other-branch-0", "another-branch-2"},
+			messages: []string{"other-branch-" + itemHash("a"), "another-branch-" + itemHash("c")},
 			branch:   "csv-export",
-			want:     []int{},
+			want:     []string{},
 		},
 		{
 			name:     "current branch trailers still count",
-			messages: []string{"csv-export-1\nother-branch-4"},
+			messages: []string{"csv-export-" + itemHash("b") + "\nother-branch-" + itemHash("d")},
 			branch:   "csv-export",
-			want:     []int{1},
+			want:     []string{itemHash("b")},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			log := &stubCommitLog{messages: tt.messages, branch: tt.branch}
 			c := NewClient(log, &captureOutput{})
-			indices, err := c.Complete(completedProject("a", "b", "c", "d", "e"), "main")
+			hashes, err := c.Complete(completedProject("a", "b", "c", "d", "e"), "main")
 			require.NoError(t, err)
-			assert.Equal(t, tt.want, indices)
+			assert.Equal(t, tt.want, hashes)
 		})
 	}
 }
 
 func TestCompleteOtherBranchTrailerIgnoredWithoutWarning(t *testing.T) {
-	c, _, out := testClient("csv-export-0", "other-branch-5")
-	indices, err := c.Complete(completedProject("a", "b", "c"), "main")
+	c, _, out := testClient("csv-export-"+itemHash("a"), "other-branch-"+itemHash("e"))
+	hashes, err := c.Complete(completedProject("a", "b", "c"), "main")
 	require.NoError(t, err)
-	assert.Equal(t, []int{0}, indices)
+	assert.Equal(t, []string{itemHash("a")}, hashes)
 	assert.Empty(t, out.String(), "a trailer from another branch is ignored without a warning")
 }
 
 func TestCompleteNoItemArrayStillFiltersByBranch(t *testing.T) {
-	c, _, out := testClient("other-branch-9")
-	indices, err := c.Complete(nil, "main")
+	c, _, out := testClient("other-branch-" + itemHash("z"))
+	hashes, err := c.Complete(nil, "main")
 	require.NoError(t, err)
-	assert.Empty(t, indices)
+	assert.Empty(t, hashes)
 	assert.Empty(t, out.String())
 }
 
@@ -191,11 +199,11 @@ func TestCompleteSurfacesCurrentBranchError(t *testing.T) {
 	assert.Contains(t, err.Error(), "detached head")
 }
 
-func TestCompleteMultiDigitIndexRoundTripsThroughBranchFilter(t *testing.T) {
-	c, _, out := testClient("csv-export-23")
-	indices, err := c.Complete(nil, "main")
+func TestCompleteHashRoundTripsThroughBranchFilter(t *testing.T) {
+	c, _, out := testClient("csv-export-" + itemHash("z"))
+	hashes, err := c.Complete(nil, "main")
 	require.NoError(t, err)
-	assert.Equal(t, []int{23}, indices)
+	assert.Equal(t, []string{itemHash("z")}, hashes)
 	assert.Empty(t, out.String(), "no warning is emitted without a resolved array")
 }
 
@@ -204,28 +212,28 @@ func TestCompleteBranchEndingInDigitStillParsesAndMatches(t *testing.T) {
 		name     string
 		branch   string
 		messages []string
-		want     []int
+		want     []string
 	}{
 		{
 			name:     "trailing digit stays part of the branch",
 			branch:   "csv-export-2",
-			messages: []string{"csv-export-2-3"},
-			want:     []int{3},
+			messages: []string{"csv-export-2-" + itemHash("c")},
+			want:     []string{itemHash("c")},
 		},
 		{
 			name:     "trailer with digit-ending branch does not match a shorter branch",
 			branch:   "csv-export",
-			messages: []string{"csv-export-2-3"},
-			want:     []int{},
+			messages: []string{"csv-export-2-" + itemHash("c")},
+			want:     []string{},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			log := &stubCommitLog{messages: tt.messages, branch: tt.branch}
 			c := NewClient(log, &captureOutput{})
-			indices, err := c.Complete(completedProject("a", "b", "c", "d"), "main")
+			hashes, err := c.Complete(completedProject("a", "b", "c", "d"), "main")
 			require.NoError(t, err)
-			assert.Equal(t, tt.want, indices)
+			assert.Equal(t, tt.want, hashes)
 		})
 	}
 }

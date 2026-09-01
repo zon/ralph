@@ -154,11 +154,15 @@ func (m *MockProject) Resolve(path string, query string) (*Project, error) {
 	return m.proj, nil
 }
 
-// Complete records the base branch and returns the configured complete
-// indices.
-func (m *MockProject) Complete(proj *Project, base string) ([]int, error) {
+// Complete records the base branch and returns the hashes of the configured
+// complete indices' items.
+func (m *MockProject) Complete(proj *Project, base string) ([]string, error) {
 	m.lastBase = base
-	return m.completeIndices, nil
+	hashes := make([]string, 0, len(m.completeIndices))
+	for _, i := range m.completeIndices {
+		hashes = append(hashes, proj.Items[i].Hash())
+	}
+	return hashes, nil
 }
 
 // Incomplete records the base branch and returns the items the configured
@@ -180,13 +184,13 @@ func (m *MockProject) Incomplete(proj *Project, base string) ([]Item, error) {
 		if m.thenAllComplete && m.incompleteCount > 1 {
 			return nil, nil
 		}
-		complete := make(map[int]struct{}, len(m.completeIndices))
+		complete := make(map[string]struct{}, len(m.completeIndices))
 		for _, i := range m.completeIndices {
-			complete[i] = struct{}{}
+			complete[proj.Items[i].Hash()] = struct{}{}
 		}
 		incomplete := make([]Item, 0, len(proj.Items))
 		for _, it := range proj.Items {
-			if _, ok := complete[it.Index]; !ok {
+			if _, ok := complete[it.Hash()]; !ok {
 				incomplete = append(incomplete, it)
 			}
 		}

@@ -128,7 +128,7 @@ func TestGitClientCommitFromReportDoesNotCommitReportFile(t *testing.T) {
 	ctx := context.NewContext()
 	client := git.NewClient(ctx)
 
-	const report = "feat: add serializer\n\ncsv-export-0\n"
+	const report = "feat: add serializer\n\ncsv-export-IYAWN02\n"
 	require.NoError(t, os.WriteFile("report.md", []byte(report), 0644))
 	require.NoError(t, os.WriteFile("newfile.txt", []byte("change"), 0644))
 
@@ -153,7 +153,7 @@ func TestGitClientCommitFromReportPreservesTrailer(t *testing.T) {
 	ctx := context.NewContext()
 	client := git.NewClient(ctx)
 
-	const trailer = "csv-export-0"
+	const trailer = "csv-export-IYAWN02"
 	reportContent := "feat: add serializer\n\n" + trailer + "\n"
 	require.NoError(t, os.WriteFile("report.md", []byte(reportContent), 0644))
 	require.NoError(t, os.WriteFile("newfile.txt", []byte("change"), 0644))
@@ -193,7 +193,7 @@ func TestGitClientCommitFromReportCreatesEmptyCommitWhenNoChanges(t *testing.T) 
 	ctx := context.NewContext()
 	client := git.NewClient(ctx)
 
-	const report = "feat: no code needed\n\ncsv-export-1\n"
+	const report = "feat: no code needed\n\ncsv-export-7FhX6dT\n"
 	require.NoError(t, os.WriteFile("report.md", []byte(report), 0644))
 
 	err := client.CommitFromReport("test-slug")

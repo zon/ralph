@@ -13,23 +13,23 @@ import (
 
 // GetCmd is the read-only `ralph get` command group.
 type GetCmd struct {
-	Complete   GetCompleteCmd   `cmd:"" help:"List the item indices recorded complete in the commit log"`
+	Complete   GetCompleteCmd   `cmd:"" help:"List the completion hashes recorded complete in the commit log"`
 	Incomplete GetIncompleteCmd `cmd:"" help:"List the items that are not complete"`
 }
 
-// GetCompleteCmd reports which item indices are recorded complete. The project
-// file is optional: without one the completion trailers are read from the
-// commit log with no item array resolved.
+// GetCompleteCmd reports which items are recorded complete. The project file
+// is optional: without one the completion trailers are read from the commit
+// log with no item array resolved.
 type GetCompleteCmd struct {
 	ProjectFile string `arg:"" optional:"" help:"Path to project file (optional)"`
 	Items       string `help:"jq query selecting the item array" name:"items"`
 	Base        string `help:"Base branch bounding the commit log" name:"base" short:"B"`
-	Index       bool   `help:"Rejected: complete already emits indices" name:"index"`
+	Index       bool   `help:"Rejected: complete already emits hashes" name:"index"`
 }
 
 func (c *GetCompleteCmd) Run() error {
 	if c.Index {
-		return fmt.Errorf("--index is not applicable to get complete; it already emits indices")
+		return fmt.Errorf("--index is not applicable to get complete; it already emits completion hashes")
 	}
 	ctx := createExecutionContext()
 	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))

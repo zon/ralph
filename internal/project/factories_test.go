@@ -66,7 +66,7 @@ func TestThatReportsComplete(t *testing.T) {
 	proj := WithItems(4)
 	complete, err := client.Complete(proj, "main")
 	require.NoError(t, err)
-	assert.Equal(t, []int{0, 2}, complete)
+	assert.Equal(t, []string{proj.Items[0].Hash(), proj.Items[2].Hash()}, complete)
 	incomplete, err := client.Incomplete(proj, "main")
 	require.NoError(t, err)
 	assert.Equal(t, []int{1, 3}, []int{incomplete[0].Index, incomplete[1].Index})

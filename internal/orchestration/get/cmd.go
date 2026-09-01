@@ -15,13 +15,13 @@ import (
 // branches.
 type ProjectClient interface {
 	Resolve(path string, query string) (*project.Project, error)
-	Complete(proj *project.Project, base string) ([]int, error)
+	Complete(proj *project.Project, base string) ([]string, error)
 	Incomplete(proj *project.Project, base string) ([]project.Item, error)
 	ValidateFile(path string) error
 }
 
 // Cmd orchestrates the get complete and get incomplete subcommands by
-// resolving the item array and subtracting the indices recorded in the commit
+// resolving the item array and subtracting the hashes recorded in the commit
 // log, printing the result to out as a JSON array.
 type Cmd struct {
 	project ProjectClient
@@ -39,9 +39,9 @@ type Flags struct {
 	Base        string
 }
 
-// Complete prints the indices recorded complete in the branch commit log as a
+// Complete prints the hashes recorded complete in the branch commit log as a
 // JSON array. When a project file is given, its resolved item array bounds the
-// reported indices; without one every trailer found in the log is reported
+// reported hashes; without one every trailer found in the log is reported
 // without a range check.
 func (c *Cmd) Complete(cfg *config.RalphConfig, flags Flags) error {
 	var proj *project.Project

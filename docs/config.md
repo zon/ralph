@@ -75,7 +75,7 @@ items: .spec.tasks                                    # deeper nesting
 items: '.issues | map(select(.state == "open"))'      # filtered
 ```
 
-The query must resolve to at least one non-empty item. Empty outputs, null, `false`, `0`, blank strings, `{}`, `[]`, are dropped before indexing. Every command that reads a project file, the run command, `ralph get`, and `ralph validate`, resolves it the same way: `--items` first, then this field, then `.`. Keep the query stable for the duration of a run. It defines the indices that completion tracking uses. See [Project Format](formats/project.md#item-query) and [Iterations](iterations.md).
+The query must resolve to at least one non-empty item. Empty outputs, null, `false`, `0`, blank strings, `{}`, `[]`, are dropped before indexing. Every command that reads a project file, the run command, `ralph get`, and `ralph validate`, resolves it the same way: `--items` first, then this field, then `.`. Keep the query stable for the duration of a run. It defines the items that completion tracking hashes. See [Project Format](formats/project.md#item-query) and [Iterations](iterations.md).
 
 ## Iterations
 
@@ -189,4 +189,4 @@ Create `.ralph/instructions.md` to replace the development steps in the AI promp
 
 The default steps are deliberately generic: they send the agent to the repository's own agent instructions for how project items are read, where code belongs, and how tests are written. Custom instructions replace those steps, so state the standards they should follow.
 
-The prompt tells the agent to write its commit message to `report.md` and to end that message with a completion trailer, a bare `<branch>-<index>` line, when the item is finished. That trailer is the only way an item is ever marked complete, and it is stated outside the instruction steps, so a custom `instructions.md` cannot drop it.
+The prompt tells the agent to write its commit message to `report.md` and to end that message with a completion trailer, a bare `<branch>-<hash>` line, when the item is finished. That trailer is the only way an item is ever marked complete, and it is stated outside the instruction steps, so a custom `instructions.md` cannot drop it.
