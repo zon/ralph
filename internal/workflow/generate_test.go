@@ -520,6 +520,39 @@ func TestKubeContextOverride(t *testing.T) {
 	})
 }
 
+// TestNamespaceOverride asserts the namespace flag override takes precedence
+// over the workflow namespace in .ralph/config.yaml for remote workflow
+// submission and followed logs, and falls back to the config value when no
+// override is given.
+func TestNamespaceOverride(t *testing.T) {
+	cfg := &config.RalphConfig{
+		DefaultBranch: "main",
+		Workflow: config.WorkflowConfig{
+			Context:   "config-context",
+			Namespace: "config-namespace",
+		},
+	}
+
+	t.Run("namespace override takes precedence over config", func(t *testing.T) {
+		ctx := &execcontext.Context{}
+		ctx.SetKubeNamespace("override-namespace")
+
+		wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", "git@github.com:test/repo.git", "main", "test-project", "main", "", false, "project.yaml", false, cfg, "")
+		require.NoError(t, err, "GenerateWorkflowWithGitInfo failed")
+
+		assert.Equal(t, "override-namespace", wf.Namespace, "Namespace should be set from the namespace override")
+	})
+
+	t.Run("falls back to config when namespace override is empty", func(t *testing.T) {
+		ctx := &execcontext.Context{}
+
+		wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", "git@github.com:test/repo.git", "main", "test-project", "main", "", false, "project.yaml", false, cfg, "")
+		require.NoError(t, err)
+
+		assert.Equal(t, "config-namespace", wf.Namespace, "Namespace should fall back to config")
+	})
+}
+
 func TestWorkflowRender_CommandField(t *testing.T) {
 	wf := &Workflow{
 		ProjectName:   "test-project",

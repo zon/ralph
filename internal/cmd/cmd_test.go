@@ -551,3 +551,62 @@ func TestBaseFlagParsing(t *testing.T) {
 		})
 	}
 }
+
+func TestNamespaceFlagParsing(t *testing.T) {
+	tests := []struct {
+		name            string
+		args            []string
+		expectedContext string
+		expectedNs      string
+	}{
+		{
+			name:            "default value is empty when not provided",
+			args:            []string{"run", "test.yaml"},
+			expectedContext: "",
+			expectedNs:      "",
+		},
+		{
+			name:            "explicit --namespace value is parsed correctly",
+			args:            []string{"run", "--namespace", "argo", "test.yaml"},
+			expectedContext: "",
+			expectedNs:      "argo",
+		},
+		{
+			name:            "explicit -n short form is parsed correctly",
+			args:            []string{"run", "-n", "staging", "test.yaml"},
+			expectedContext: "",
+			expectedNs:      "staging",
+		},
+		{
+			name:            "--namespace parses alongside --context",
+			args:            []string{"run", "--context", "prod", "--namespace", "argo", "test.yaml"},
+			expectedContext: "prod",
+			expectedNs:      "argo",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := &Cmd{}
+			parser, err := kong.New(cmd,
+				kong.Name("ralph"),
+				kong.Exit(func(int) {}),
+			)
+			if err != nil {
+				t.Fatalf("failed to create parser: %v", err)
+			}
+
+			_, err = parser.Parse(tt.args)
+			if err != nil {
+				t.Fatalf("failed to parse args: %v", err)
+			}
+
+			if cmd.Run.Context != tt.expectedContext {
+				t.Errorf("expected Context=%q, got %q", tt.expectedContext, cmd.Run.Context)
+			}
+			if cmd.Run.Namespace != tt.expectedNs {
+				t.Errorf("expected Namespace=%q, got %q", tt.expectedNs, cmd.Run.Namespace)
+			}
+		})
+	}
+}

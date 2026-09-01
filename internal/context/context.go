@@ -32,6 +32,7 @@ type Context struct {
 	agent             string   // Agent override; overrides agent from .ralph/config.yaml
 	variant           string   // Variant override; overrides variant from .ralph/config.yaml
 	kubeContext       string   // Kubernetes context override; overrides workflow.context from .ralph/config.yaml
+	kubeNamespace     string   // Kubernetes namespace override; overrides workflow.namespace from .ralph/config.yaml
 	command           []string // Command tokens for the command subcommand
 }
 
@@ -196,6 +197,14 @@ func (c *Context) SetKubeContext(kubeContext string) {
 
 func (c *Context) KubeContext() string {
 	return c.kubeContext
+}
+
+func (c *Context) SetKubeNamespace(kubeNamespace string) {
+	c.kubeNamespace = kubeNamespace
+}
+
+func (c *Context) KubeNamespace() string {
+	return c.kubeNamespace
 }
 
 func (c *Context) SetCommand(command []string) {

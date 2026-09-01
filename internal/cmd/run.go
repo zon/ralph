@@ -27,6 +27,7 @@ type RunCmd struct {
 	Agent           string `help:"Override the opencode agent from config" name:"agent" optional:""`
 	Variant         string `help:"Override the model variant from config" name:"variant" optional:""`
 	Context         string `help:"Kubernetes context to use" name:"context" optional:""`
+	Namespace       string `help:"Kubernetes namespace to use" name:"namespace" short:"n" optional:""`
 	ShowVersion     bool   `help:"Show version information" short:"v" name:"version"`
 
 	version string `kong:"-"`
@@ -74,6 +75,7 @@ func (r *RunCmd) newExecutionContext() *execcontext.Context {
 	ctx.SetAgent(r.Agent)
 	ctx.SetVariant(r.Variant)
 	ctx.SetKubeContext(r.Context)
+	ctx.SetKubeNamespace(r.Namespace)
 	return ctx
 }
 
