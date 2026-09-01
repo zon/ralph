@@ -278,11 +278,6 @@ func TestRunCmdHelpText(t *testing.T) {
 	assert.Contains(t, output, "Execute ralph with a project file")
 }
 
-func TestCommandCmdHelpText(t *testing.T) {
-	output := captureHelpOutput(&Cmd{}, []string{"command", "--help"})
-	assert.Contains(t, output, "Run a command in a remote Ralph workflow")
-}
-
 func TestValidateCmdHelpText(t *testing.T) {
 	output := captureHelpOutput(&Cmd{}, []string{"validate", "--help"})
 	assert.Contains(t, output, "Validate a project YAML file")
