@@ -153,3 +153,36 @@ func TestRemoteArgumentsAgentScenario(t *testing.T) {
 func TestRemoteArgumentsAgentOmittedWhenUnset(t *testing.T) {
 	assert.NotContains(t, renderRemoteRunArgs(t, ".requirements", false), "--agent")
 }
+
+// TestRemoteArgumentsVariantScenario covers the "Variant override" scenario:
+// when a variant is set on the context, the container args for
+// `ralph workflow run` include `--variant <hint>`.
+func TestRemoteArgumentsVariantScenario(t *testing.T) {
+	// GIVEN a variant override is set on the context
+	ctx := &execcontext.Context{}
+	ctx.SetVariant("high")
+	cfg := &config.RalphConfig{DefaultBranch: "main"}
+	wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", "git@github.com:test/repo.git", "main", "test-project", "main", "", false, "project.yaml", false, cfg, "")
+	require.NoError(t, err, "GenerateWorkflowWithGitInfo failed")
+	workflowYAML, err := wf.Render()
+	require.NoError(t, err, "Render failed")
+
+	var workflow map[string]interface{}
+	require.NoError(t, yaml.Unmarshal([]byte(workflowYAML), &workflow), "Failed to parse generated workflow YAML")
+	spec := workflow["spec"].(map[string]interface{})
+	templates := spec["templates"].([]interface{})
+	require.NotEmpty(t, templates, "templates is empty")
+	tmpl := templates[0].(map[string]interface{})
+	container := tmpl["container"].(map[string]interface{})
+	args := container["args"].([]interface{})
+
+	// THEN the container args for `ralph workflow run` include `--variant high`
+	assert.Contains(t, args, "--variant")
+	assert.Contains(t, args, "high")
+}
+
+// TestRemoteArgumentsVariantOmittedWhenUnset covers the item that the
+// `--variant` flag appears in the container args only when a variant is set.
+func TestRemoteArgumentsVariantOmittedWhenUnset(t *testing.T) {
+	assert.NotContains(t, renderRemoteRunArgs(t, ".requirements", false), "--variant")
+}

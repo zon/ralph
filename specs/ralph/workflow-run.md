@@ -12,7 +12,7 @@ The system SHALL prepare the container workspace as defined in [workflow-workspa
 
 ### Requirement: Execution Parameters
 
-The system SHALL apply run-specific flags to the execution context before starting the project loop.
+The system SHALL apply run-specific flags to the execution context before starting the project loop. Model and variant overrides follow the shared [model-options.md](model-options.md) contract.
 
 #### Scenario: Instructions injection
 
@@ -40,12 +40,6 @@ The system SHALL apply run-specific flags to the execution context before starti
 - WHEN every item is complete
 - THEN the project file is deleted and the deletion committed on its own before the pull request is opened
 - AND when `--cleanup` is absent, the project file is left in place
-
-#### Scenario: Model override
-
-- GIVEN `--model` is provided
-- WHEN `ralph workflow run` starts
-- THEN the specified model is used instead of the model in `.ralph/config.yaml`
 
 #### Scenario: Agent override
 

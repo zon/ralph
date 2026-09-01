@@ -74,6 +74,18 @@ The loop body (slug and step resolution, prompt construction, iteration, commit 
 
 ---
 
+### Requirement: AI model and variant overrides
+
+The command SHALL accept `--model` and `--variant` to override the AI model and its provider-specific reasoning-effort variant from config, per the shared [model-options.md](model-options.md) contract. The overrides SHALL apply to every prompt the loop runs: the slug proposal and each iteration prompt. For `remote` mode, the same resolution SHALL be carried into the container.
+
+#### Scenario: Overrides reach the remote container
+
+- GIVEN the user passes `--model gpt-4 --variant high`
+- WHEN a remote workflow is submitted
+- THEN the container runs the loop with `--model gpt-4 --variant high`
+
+---
+
 ### Requirement: Incompatible flags are rejected
 
 The command SHALL reject flag combinations that have no valid meaning before any execution begins.
@@ -94,23 +106,9 @@ The command SHALL reject flag combinations that have no valid meaning before any
 
 ### Requirement: Remote behavior matches `ralph run`
 
-The command SHALL reuse the remote defaults and config of `ralph run` as defined in [run.md](run.md) and [run-remote.md](run-remote.md). The resolved model, Kubernetes context, base branch, branch-sync check, ralph-owned workflow label, and notification behavior SHALL be the same as for `ralph run`.
+The command SHALL reuse the remote defaults and config of `ralph run` as defined in [run.md](run.md) and [run-remote.md](run-remote.md). The resolved model and variant, Kubernetes context, base branch, branch-sync check, ralph-owned workflow label, and notification behavior SHALL be the same as for `ralph run`.
 
-Model resolution SHALL follow the same two-level precedence as `ralph run`: `--model` at the command line takes priority. Otherwise the top-level `model` field in `.ralph/config.yaml` is used, defaulting to `deepseek/deepseek-chat` when unset. `--context` SHALL override the Kubernetes context used for workflow submission, per the shared [kube-options.md](kube-options.md) contract. Before submission the command SHALL verify, exactly as `ralph run` does, that the current branch exists on the remote and that local and remote are at the same commit.
-
-#### Scenario: Config model used when no flag is passed
-
-- GIVEN `model: anthropic/claude-sonnet-4-6` is set in `.ralph/config.yaml`
-- AND no `--model` flag is passed
-- WHEN the command runs
-- THEN `anthropic/claude-sonnet-4-6` is used as the AI model
-
-#### Scenario: Default model used when config is unset
-
-- GIVEN `model` is not set in `.ralph/config.yaml`
-- AND no `--model` flag is passed
-- WHEN the command runs
-- THEN `deepseek/deepseek-chat` is used as the AI model
+`--context` SHALL override the Kubernetes context used for workflow submission, per the shared [kube-options.md](kube-options.md) contract. Model and variant resolution SHALL follow the shared contract in [model-options.md](model-options.md). Before submission the command SHALL verify, exactly as `ralph run` does, that the current branch exists on the remote and that local and remote are at the same commit.
 
 #### Scenario: `--context` overrides the Kubernetes context
 

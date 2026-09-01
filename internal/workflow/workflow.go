@@ -58,6 +58,8 @@ type Workflow struct {
 	Model string
 	// Agent overrides the opencode agent from config.
 	Agent string
+	// Variant overrides the model variant from config.
+	Variant string
 	// Labels are the Kubernetes labels to apply to the workflow pod.
 	Labels map[string]string
 	// Resources holds the CPU and memory requests and limits for the executor container.
@@ -187,6 +189,9 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 		if w.Model != "" {
 			args = append(args, "--model", w.Model)
 		}
+		if w.Variant != "" {
+			args = append(args, "--variant", w.Variant)
+		}
 		if w.Agent != "" {
 			args = append(args, "--agent", w.Agent)
 		}
@@ -219,6 +224,9 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 		}
 		if w.Model != "" {
 			args = append(args, "--model", w.Model)
+		}
+		if w.Variant != "" {
+			args = append(args, "--variant", w.Variant)
 		}
 		if w.Agent != "" {
 			args = append(args, "--agent", w.Agent)

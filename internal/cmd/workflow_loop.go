@@ -28,6 +28,7 @@ type WorkflowLoopCmd struct {
 	Verbose     bool     `help:"Enable verbose logging" default:"false"`
 	Model       string   `help:"Override the AI model from config" name:"model"`
 	Agent       string   `help:"Override the opencode agent from config" name:"agent"`
+	Variant     string   `help:"Override the model variant from config" name:"variant"`
 
 	// workspaceSetup prepares the container workspace before the loop runs.
 	// Tests inject a fake. When nil, Run builds the real adapter.
@@ -51,6 +52,7 @@ func (w *WorkflowLoopCmd) Run() error {
 	ctx.SetBotEmail(w.BotEmail)
 	ctx.SetModel(w.Model)
 	ctx.SetAgent(w.Agent)
+	ctx.SetVariant(w.Variant)
 	ctx.SetLocal(true)
 	ctx.SetNoNotify(true)
 	ctx.SetWorkflowExecution(true)

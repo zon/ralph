@@ -32,6 +32,7 @@ func TestLoopCmdParsing(t *testing.T) {
 		wantFollow    bool
 		wantNoNotify  bool
 		wantModel     string
+		wantVariant   string
 		wantContext   string
 		wantNamespace string
 		wantErr       string
@@ -133,6 +134,13 @@ func TestLoopCmdParsing(t *testing.T) {
 			wantContext: "prod-cluster",
 		},
 		{
+			name:        "--variant parses",
+			args:        []string{"loop", "feature-x", "--variant", "high"},
+			wantSlug:    "feature-x",
+			wantMax:     20,
+			wantVariant: "high",
+		},
+		{
 			name:          "--namespace parses",
 			args:          []string{"loop", "feature-x", "--namespace", "argo"},
 			wantSlug:      "feature-x",
@@ -200,25 +208,28 @@ func TestLoopCmdParsing(t *testing.T) {
 			assert.Equal(t, tt.wantFollow, cmd.Loop.Follow)
 			assert.Equal(t, tt.wantNoNotify, cmd.Loop.NoNotify)
 			assert.Equal(t, tt.wantModel, cmd.Loop.Model)
+			assert.Equal(t, tt.wantVariant, cmd.Loop.Variant)
 			assert.Equal(t, tt.wantContext, cmd.Loop.Context)
 			assert.Equal(t, tt.wantNamespace, cmd.Loop.Namespace)
 		})
 	}
 }
 
-// TestLoopApplyToContextWiresModelAndContext asserts the --model and --context
-// flags are resolved into the execution context the same way `ralph run`
-// resolves them, so the local AI path and the remote workflow generation read
-// the overrides downstream.
+// TestLoopApplyToContextWiresModelAndContext asserts the --model, --variant,
+// and --context flags are resolved into the execution context the same way
+// `ralph run` resolves them, so the local AI path and the remote workflow
+// generation read the overrides downstream.
 func TestLoopApplyToContextWiresModelAndContext(t *testing.T) {
 	tests := []struct {
 		name          string
 		model         string
+		variant       string
 		context       string
 		namespace     string
 		follow        bool
 		noNotify      bool
 		wantModel     string
+		wantVariant   string
 		wantContext   string
 		wantNamespace string
 		wantVerbose   bool
@@ -228,9 +239,11 @@ func TestLoopApplyToContextWiresModelAndContext(t *testing.T) {
 		{
 			name:          "overrides flow into the context",
 			model:         "gpt-4",
+			variant:       "high",
 			context:       "prod-cluster",
 			namespace:     "argo",
 			wantModel:     "gpt-4",
+			wantVariant:   "high",
 			wantContext:   "prod-cluster",
 			wantNamespace: "argo",
 		},
@@ -247,6 +260,7 @@ func TestLoopApplyToContextWiresModelAndContext(t *testing.T) {
 		{
 			name:          "unset flags leave the context empty for config fallback",
 			wantModel:     "",
+			wantVariant:   "",
 			wantContext:   "",
 			wantNamespace: "",
 		},
@@ -254,11 +268,12 @@ func TestLoopApplyToContextWiresModelAndContext(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := &LoopCmd{Model: tt.model, Context: tt.context, Namespace: tt.namespace, Verbose: tt.wantVerbose, Follow: tt.follow, NoNotify: tt.noNotify}
+			cmd := &LoopCmd{Model: tt.model, Variant: tt.variant, Context: tt.context, Namespace: tt.namespace, Verbose: tt.wantVerbose, Follow: tt.follow, NoNotify: tt.noNotify}
 			ctx := execcontext.NewContext()
 			cmd.applyToContext(ctx)
 
 			assert.Equal(t, tt.wantModel, ctx.Model(), "the model override is applied to the context")
+			assert.Equal(t, tt.wantVariant, ctx.Variant(), "the variant override is applied to the context")
 			assert.Equal(t, tt.wantContext, ctx.KubeContext(), "the kube context override is applied to the context")
 			assert.Equal(t, tt.wantNamespace, ctx.KubeNamespace(), "the kube namespace override is applied to the context")
 			assert.Equal(t, tt.wantVerbose, ctx.IsVerbose())
@@ -281,6 +296,7 @@ func TestLoopCmdHelpText(t *testing.T) {
 	assert.Contains(t, output, "--follow")
 	assert.Contains(t, output, "--no-notify")
 	assert.Contains(t, output, "--model")
+	assert.Contains(t, output, "--variant")
 	assert.Contains(t, output, "--context")
 	assert.Contains(t, output, "--namespace")
 	assert.Contains(t, output, "-n")

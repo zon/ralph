@@ -402,10 +402,14 @@ func TestWorkflowRunItemFlagsParsed(t *testing.T) {
 		"--base", "main",
 		"--items", ".spec.tasks",
 		"--cleanup",
+		"--model", "gpt-4",
+		"--variant", "high",
 	})
 	require.NoError(t, err)
 	require.Equal(t, ".spec.tasks", cmd.Workflow.Run.Items)
 	require.True(t, cmd.Workflow.Run.Cleanup)
+	require.Equal(t, "gpt-4", cmd.Workflow.Run.Model)
+	require.Equal(t, "high", cmd.Workflow.Run.Variant)
 
 	cmd2 := &Cmd{}
 	parser2, err := kong.New(cmd2,

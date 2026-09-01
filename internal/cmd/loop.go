@@ -43,6 +43,7 @@ type LoopCmd struct {
 	Follow    bool     `help:"Follow workflow logs after submission (only applicable with --mode remote)" short:"f" default:"false"`
 	NoNotify  bool     `help:"Disable desktop notifications" default:"false"`
 	Model     string   `help:"Override the AI model from config" name:"model" optional:""`
+	Variant   string   `help:"Override the model variant from config" name:"variant" optional:""`
 	Context   string   `help:"Kubernetes context to use" name:"context" optional:""`
 	Namespace string   `help:"Kubernetes namespace to use" name:"namespace" short:"n" optional:""`
 
@@ -135,6 +136,7 @@ func (c *LoopCmd) applyToContext(ctx *execcontext.Context) {
 	ctx.SetFollow(c.Follow)
 	ctx.SetNoNotify(c.NoNotify)
 	ctx.SetModel(c.Model)
+	ctx.SetVariant(c.Variant)
 	ctx.SetKubeContext(c.Context)
 	ctx.SetKubeNamespace(c.Namespace)
 }

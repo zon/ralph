@@ -7,6 +7,7 @@
 - [get](ralph/get.md) — Read-only commands that report which project items are complete and which are left, from the branch's commit trailers.
 - [kube-options](ralph/kube-options.md) — Shared contract for every ralph CLI command that interacts with a Kubernetes cluster through kubectl: all such commands support `--context` and `--namespace` to target a cluster and namespace.
 - [logs](ralph/logs.md) — Print the pod logs of a ralph-owned Argo Workflow, defaulting to the workflow at the top of the list and streaming with `--follow`.
+- [model-options](ralph/model-options.md) — Shared contract for every ralph CLI command that prompts an AI model: `ralph run`, `ralph loop`, and `ralph workflow run` support `--model` and `--variant` to override the model and its reasoning-effort variant from `.ralph/config.yaml`.
 - [loop](ralph/loop.md) — Bounded AI iteration loop over a configured or flag-supplied list of steps, committing to a `loop-<slug>` branch and opening a pull request when the loop ends, running with `--mode` in a Git worktree by default, in-process locally, or in an Argo Workflow.
 - [run](ralph/run.md) — Primary entry point that drives an AI coding agent through iterative development cycles until every project item is complete, selecting the execution mode with `--mode`.
 - [run-local](ralph/run-local.md) — Runs the development loop in-process in the current checkout (the `local` execution mode).

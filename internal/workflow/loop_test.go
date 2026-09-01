@@ -152,10 +152,12 @@ func TestGenerateLoopWorkflow(t *testing.T) {
 func TestGenerateLoopWorkflowCarriesModelOverride(t *testing.T) {
 	ctx := &execcontext.Context{}
 	ctx.SetModel("gpt-4")
+	ctx.SetVariant("high")
 
 	wf, err := GenerateLoopWorkflow(ctx, "fmt", []string{"run gofmt"}, 3, "main", "git@github.com:test/repo.git")
 	require.NoError(t, err, "GenerateLoopWorkflow failed")
 	assert.Equal(t, "gpt-4", wf.Model, "the model override is carried in the workflow")
+	assert.Equal(t, "high", wf.Variant, "the variant override is carried in the workflow")
 
 	workflowYAML, err := wf.Render()
 	require.NoError(t, err, "Render failed")
@@ -169,6 +171,7 @@ func TestGenerateLoopWorkflowCarriesModelOverride(t *testing.T) {
 	args := container["args"].([]interface{})
 
 	assert.Equal(t, "gpt-4", argValue(args, "--model"), "the model override is passed to the container command")
+	assert.Equal(t, "high", argValue(args, "--variant"), "the variant override is passed to the container command")
 }
 
 // TestGenerateLoopWorkflowOmitsModelWhenUnset asserts a loop workflow carries no
@@ -180,6 +183,7 @@ func TestGenerateLoopWorkflowOmitsModelWhenUnset(t *testing.T) {
 	wf, err := GenerateLoopWorkflow(ctx, "fmt", []string{"run gofmt"}, 3, "main", "git@github.com:test/repo.git")
 	require.NoError(t, err, "GenerateLoopWorkflow failed")
 	assert.Empty(t, wf.Model, "no model override is carried when the context model is unset")
+	assert.Empty(t, wf.Variant, "no variant override is carried when the context variant is unset")
 
 	workflowYAML, err := wf.Render()
 	require.NoError(t, err, "Render failed")
@@ -193,6 +197,7 @@ func TestGenerateLoopWorkflowOmitsModelWhenUnset(t *testing.T) {
 	args := container["args"].([]interface{})
 
 	assert.NotContains(t, args, "--model", "no --model argument is passed when the model override is unset")
+	assert.NotContains(t, args, "--variant", "no --variant argument is passed when the variant override is unset")
 }
 
 // TestGenerateLoopWorkflowKubeContextOverride asserts the context kube context

@@ -112,6 +112,8 @@ When the file fails to parse, the command MUST invoke an AI agent locally to rep
 
 The agent MUST be run locally on the current machine (the `local` execution mode, selected with `--mode local`), never delegated to a remote workflow runner. The agent MUST use the model resolved from the ralph config file, with no command-line override required.
 
+The shared `--model` and `--variant` options contract is defined in [model-options.md](model-options.md). `ralph validate` does not expose those options and resolves its model from config alone.
+
 Model resolution follows a two-level precedence: if `validate.model` is set in `.ralph/config.yaml` that model is used. Otherwise the top-level `model` field is used as the fallback.
 
 The repair prompt SHALL run with opencode's primary agent and SHALL NOT receive the configured agent, so a configured agent that denies file writes cannot block the repair. This scoping leaves the model resolution above unchanged.

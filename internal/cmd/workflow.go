@@ -23,6 +23,7 @@ type WorkflowRunCmd struct {
 	ExtraIterations int    `help:"Extra iterations beyond requirement count (default: 20% of requirements)" name:"extra-iterations"`
 	Model           string `help:"Override the AI model from config" name:"model"`
 	Agent           string `help:"Override the opencode agent from config" name:"agent"`
+	Variant         string `help:"Override the model variant from config" name:"variant"`
 }
 
 func (w *WorkflowRunCmd) Run() error {
@@ -41,6 +42,7 @@ func (w *WorkflowRunCmd) Run() error {
 	ctx.SetBotEmail(w.BotEmail)
 	ctx.SetModel(w.Model)
 	ctx.SetAgent(w.Agent)
+	ctx.SetVariant(w.Variant)
 	ctx.SetNoServices(w.NoServices)
 	ctx.SetLocal(true)
 	ctx.SetNoNotify(true)
