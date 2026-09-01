@@ -1,6 +1,0 @@
-apiVersion: v2
-name: ralph-webhook
-description: Helm chart for the ralph-webhook service with RBAC and ingress support
-type: application
-version: 2.0.114
-appVersion: "22.3.0"

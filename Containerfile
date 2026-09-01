@@ -81,9 +81,6 @@ COPY container/opencode.json /root/.config/opencode/opencode.json
 # Copy ralph binary from builder
 COPY --from=builder /build/ralph /usr/local/bin/ralph
 
-# Copy ralph-webhook binary from builder
-COPY --from=builder /build/ralph-webhook /usr/local/bin/ralph-webhook
-
 # Set up working directory
 WORKDIR /workspace
 
