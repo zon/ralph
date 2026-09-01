@@ -24,7 +24,6 @@ type GHClient interface {
 	CreatePR(title, body, base, head string) (string, error)
 	PostComment(prNumber int, body string) error
 	ListCollaborators(ctx context.Context, owner, repo string) ([]string, error)
-	RegisterWebhook(ctx context.Context, owner, repo, webhookURL, secret string) error
 }
 
 // GH implements GHClient by shelling out to the gh CLI.
