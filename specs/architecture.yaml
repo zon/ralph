@@ -37,9 +37,6 @@ modules:
   - path: cmd/ralph
     description: CLI entrypoint that wires up command parsing and dispatches to subcommand handlers.
     category: entry
-  - path: cmd/ralph-webhook
-    description: Service entrypoint that loads configuration and starts the webhook HTTP server.
-    category: entry
   - path: internal/cmd
     description: Command structs that parse flags, wire real dependencies into the subcommand orchestrations, and drive local, worktree, and remote execution paths.
     category: entry
@@ -51,9 +48,6 @@ modules:
     category: orchestration
   - path: internal/orchestration/workflowrun
     description: Orchestrates the workflow run subcommand.
-    category: orchestration
-  - path: internal/orchestration/comment
-    description: Orchestrates the workflow comment subcommand.
     category: orchestration
   - path: internal/project
     description: Owns the project domain model, resolving files into item arrays and tracking item completion from commit trailers.
@@ -70,17 +64,11 @@ modules:
   - path: internal/orchestration/setconfig
     description: Orchestrates the ralph CLI set-config subcommand.
     category: orchestration
-  - path: internal/orchestration/webhooksetconfig
-    description: Orchestrates the ralph-webhook set-config subcommand.
-    category: orchestration
   - path: internal/orchestration/workflowtoken
     description: Orchestrates generating a scoped GitHub workflow token for a repository and configuring git to authenticate with it.
     category: orchestration
-  - path: internal/webhook
-    description: HTTP server that receives GitHub webhook events and dispatches corresponding workflow runs.
-    category: implementation
   - path: internal/workflow
-    description: Generates and submits workflow manifests for the workflow subcommands and builds workflows from webhook events.
+    description: Generates and submits workflow manifests for the workflow subcommands.
     category: implementation
 
   - path: internal/services
@@ -111,16 +99,13 @@ modules:
     description: Filesystem helpers for preparing the container workspace.
     category: implementation
   - path: internal/github
-    description: Wraps the gh CLI and the GitHub App API for GitHub operations, authentication, and webhook payload parsing.
+    description: Wraps the gh CLI and the GitHub App API for GitHub operations and authentication.
     category: implementation
   - path: internal/projectfile
     description: Reads and writes project files and evaluates jq item queries.
     category: implementation
   - path: internal/config
     description: Loads and parses the ralph configuration file.
-    category: implementation
-  - path: internal/webhookconfig
-    description: Loads, validates, builds, and provisions the ralph-webhook service configuration and secrets.
     category: implementation
   - path: internal/context
     description: Carries runtime execution settings across the application.
