@@ -19,14 +19,19 @@ func NewLoopRemoteRunner(ctx *execcontext.Context) *loop.RemoteRunner {
 // loopWorkflowClientAdapter implements loop.WorkflowSubmitter and submits a
 // loop workflow that runs the loop inside the container.
 type loopWorkflowClientAdapter struct {
-	ctx         *execcontext.Context
-	argoClient  argo.Client
-	namespace   string
-	kubeContext string
+	ctx           *execcontext.Context
+	argoClient    argo.Client
+	namespace     string
+	kubeContext   string
+	currentBranch func() (string, error)
 }
 
 func (a *loopWorkflowClientAdapter) Submit(slug string, steps []string, max int) (string, error) {
-	cloneBranch, err := git.GetCurrentBranch()
+	currentBranch := a.currentBranch
+	if currentBranch == nil {
+		currentBranch = git.GetCurrentBranch
+	}
+	cloneBranch, err := currentBranch()
 	if err != nil {
 		return "", err
 	}

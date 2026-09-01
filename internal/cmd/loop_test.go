@@ -22,18 +22,19 @@ import (
 // the usage errors produced by Validate.
 func TestLoopCmdParsing(t *testing.T) {
 	tests := []struct {
-		name         string
-		args         []string
-		wantSlug     string
-		wantSteps    []string
-		wantMax      int
-		wantVerbose  bool
-		wantMode     string
-		wantFollow   bool
-		wantNoNotify bool
-		wantModel    string
-		wantContext  string
-		wantErr      string
+		name          string
+		args          []string
+		wantSlug      string
+		wantSteps     []string
+		wantMax       int
+		wantVerbose   bool
+		wantMode      string
+		wantFollow    bool
+		wantNoNotify  bool
+		wantModel     string
+		wantContext   string
+		wantNamespace string
+		wantErr       string
 	}{
 		{
 			name:     "slug argument parses and max defaults to 20",
@@ -132,6 +133,28 @@ func TestLoopCmdParsing(t *testing.T) {
 			wantContext: "prod-cluster",
 		},
 		{
+			name:          "--namespace parses",
+			args:          []string{"loop", "feature-x", "--namespace", "argo"},
+			wantSlug:      "feature-x",
+			wantMax:       20,
+			wantNamespace: "argo",
+		},
+		{
+			name:          "-n short form parses",
+			args:          []string{"loop", "feature-x", "-n", "staging"},
+			wantSlug:      "feature-x",
+			wantMax:       20,
+			wantNamespace: "staging",
+		},
+		{
+			name:          "--namespace parses alongside --context",
+			args:          []string{"loop", "feature-x", "--context", "prod", "--namespace", "argo"},
+			wantSlug:      "feature-x",
+			wantMax:       20,
+			wantContext:   "prod",
+			wantNamespace: "argo",
+		},
+		{
 			name:    "usage error when neither slug nor step given",
 			args:    []string{"loop"},
 			wantErr: "a slug or at least one --step is required",
@@ -178,6 +201,7 @@ func TestLoopCmdParsing(t *testing.T) {
 			assert.Equal(t, tt.wantNoNotify, cmd.Loop.NoNotify)
 			assert.Equal(t, tt.wantModel, cmd.Loop.Model)
 			assert.Equal(t, tt.wantContext, cmd.Loop.Context)
+			assert.Equal(t, tt.wantNamespace, cmd.Loop.Namespace)
 		})
 	}
 }
@@ -188,23 +212,27 @@ func TestLoopCmdParsing(t *testing.T) {
 // the overrides downstream.
 func TestLoopApplyToContextWiresModelAndContext(t *testing.T) {
 	tests := []struct {
-		name         string
-		model        string
-		context      string
-		follow       bool
-		noNotify     bool
-		wantModel    string
-		wantContext  string
-		wantVerbose  bool
-		wantFollow   bool
-		wantNoNotify bool
+		name          string
+		model         string
+		context       string
+		namespace     string
+		follow        bool
+		noNotify      bool
+		wantModel     string
+		wantContext   string
+		wantNamespace string
+		wantVerbose   bool
+		wantFollow    bool
+		wantNoNotify  bool
 	}{
 		{
-			name:        "overrides flow into the context",
-			model:       "gpt-4",
-			context:     "prod-cluster",
-			wantModel:   "gpt-4",
-			wantContext: "prod-cluster",
+			name:          "overrides flow into the context",
+			model:         "gpt-4",
+			context:       "prod-cluster",
+			namespace:     "argo",
+			wantModel:     "gpt-4",
+			wantContext:   "prod-cluster",
+			wantNamespace: "argo",
 		},
 		{
 			name:       "--follow flows into the context",
@@ -217,20 +245,22 @@ func TestLoopApplyToContextWiresModelAndContext(t *testing.T) {
 			wantNoNotify: true,
 		},
 		{
-			name:        "unset flags leave the context empty for config fallback",
-			wantModel:   "",
-			wantContext: "",
+			name:          "unset flags leave the context empty for config fallback",
+			wantModel:     "",
+			wantContext:   "",
+			wantNamespace: "",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := &LoopCmd{Model: tt.model, Context: tt.context, Verbose: tt.wantVerbose, Follow: tt.follow, NoNotify: tt.noNotify}
+			cmd := &LoopCmd{Model: tt.model, Context: tt.context, Namespace: tt.namespace, Verbose: tt.wantVerbose, Follow: tt.follow, NoNotify: tt.noNotify}
 			ctx := execcontext.NewContext()
 			cmd.applyToContext(ctx)
 
 			assert.Equal(t, tt.wantModel, ctx.Model(), "the model override is applied to the context")
 			assert.Equal(t, tt.wantContext, ctx.KubeContext(), "the kube context override is applied to the context")
+			assert.Equal(t, tt.wantNamespace, ctx.KubeNamespace(), "the kube namespace override is applied to the context")
 			assert.Equal(t, tt.wantVerbose, ctx.IsVerbose())
 			assert.Equal(t, tt.wantFollow, ctx.ShouldFollow())
 			assert.Equal(t, tt.wantNoNotify, ctx.NoNotify())
@@ -252,6 +282,8 @@ func TestLoopCmdHelpText(t *testing.T) {
 	assert.Contains(t, output, "--no-notify")
 	assert.Contains(t, output, "--model")
 	assert.Contains(t, output, "--context")
+	assert.Contains(t, output, "--namespace")
+	assert.Contains(t, output, "-n")
 }
 
 // TestLoopMaxNegativeSpaceFormRejected asserts kong rejects a negative --max
