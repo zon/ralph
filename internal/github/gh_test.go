@@ -80,23 +80,6 @@ func TestGH_FindExistingPR(t *testing.T) {
 	})
 }
 
-func TestGH_PostComment(t *testing.T) {
-	t.Run("posts the comment successfully", func(t *testing.T) {
-		writeFakeGHScript(t, `exit 0`)
-		g := NewGH(nil)
-		err := g.PostComment(42, "done")
-		require.NoError(t, err)
-	})
-
-	t.Run("returns error on non-zero exit", func(t *testing.T) {
-		writeFakeGHScript(t, `echo "boom"; exit 1`)
-		g := NewGH(nil)
-		err := g.PostComment(42, "done")
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to post comment on PR #42")
-	})
-}
-
 func TestGH_ListCollaborators(t *testing.T) {
 	t.Run("returns logins", func(t *testing.T) {
 		writeFakeGHScript(t, `printf 'alice\nbob\ncharlie\n'`)
@@ -120,61 +103,5 @@ func TestGH_ListCollaborators(t *testing.T) {
 		_, err := g.ListCollaborators(context.Background(), "owner", "repo")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to list collaborators")
-	})
-}
-
-func TestGH_RegisterWebhook(t *testing.T) {
-	t.Run("creates new webhook when no existing hook", func(t *testing.T) {
-		writeFakeGHScript(t, `
-			case "$*" in
-				*--method*POST*) exit 0;;
-				*) echo ""; exit 0;;
-			esac
-			exit 1
-		`)
-		g := NewGH(nil)
-		err := g.RegisterWebhook(context.Background(), "owner", "repo", "https://example.com/hook", "secret")
-		assert.NoError(t, err)
-	})
-
-	t.Run("updates existing webhook when hook ID found", func(t *testing.T) {
-		writeFakeGHScript(t, `
-			case "$*" in
-				*--method*PATCH*) exit 0;;
-				*) echo "42"; exit 0;;
-			esac
-			exit 1
-		`)
-		g := NewGH(nil)
-		err := g.RegisterWebhook(context.Background(), "owner", "repo", "https://example.com/hook", "secret")
-		assert.NoError(t, err)
-	})
-
-	t.Run("returns error when create fails", func(t *testing.T) {
-		writeFakeGHScript(t, `
-			case "$*" in
-				*--method*POST*) exit 1;;
-				*) echo ""; exit 0;;
-			esac
-			exit 1
-		`)
-		g := NewGH(nil)
-		err := g.RegisterWebhook(context.Background(), "owner", "repo", "https://example.com/hook", "secret")
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to create webhook")
-	})
-
-	t.Run("returns error when update fails", func(t *testing.T) {
-		writeFakeGHScript(t, `
-			case "$*" in
-				*--method*PATCH*) exit 1;;
-				*) echo "42"; exit 0;;
-			esac
-			exit 1
-		`)
-		g := NewGH(nil)
-		err := g.RegisterWebhook(context.Background(), "owner", "repo", "https://example.com/hook", "secret")
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to update webhook")
 	})
 }

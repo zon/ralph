@@ -253,44 +253,6 @@ func TestSubmitWorkflow_ArgoNotInstalled(t *testing.T) {
 	assert.True(t, strings.Contains(err.Error(), "argo CLI not found"), "Error message should mention argo CLI not found, got: %v", err)
 }
 
-func TestWorkflowRender_CommentBranching(t *testing.T) {
-	commentBody := "Please review this PR"
-	prNumber := "123"
-
-	wf := &Workflow{
-		ProjectName:   "test-project",
-		Repo:          githubpkg.MakeRepo("owner", "repo"),
-		CloneBranch:   "main",
-		ProjectBranch: "feature-branch",
-		ProjectPath:   "project.yaml",
-		CommentBody:   commentBody,
-		PRNumber:      prNumber,
-	}
-
-	workflowYAML, err := wf.Render()
-	require.NoError(t, err, "Render failed")
-
-	assert.True(t, strings.Contains(workflowYAML, commentBody), "Rendered YAML should contain comment body %q", commentBody)
-
-	var wfData map[string]interface{}
-	require.NoError(t, yaml.Unmarshal([]byte(workflowYAML), &wfData), "Failed to parse workflow YAML")
-
-	spec := wfData["spec"].(map[string]interface{})
-	templates := spec["templates"].([]interface{})
-	tmpl := templates[0].(map[string]interface{})
-	container := tmpl["container"].(map[string]interface{})
-
-	command := container["command"].([]interface{})
-	args := container["args"].([]interface{})
-
-	assert.Equal(t, "ralph", command[0], "Command should be 'ralph' for comment workflow")
-	assert.Equal(t, "workflow", args[0], "First arg should be 'workflow'")
-	assert.Equal(t, "comment", args[1], "Second arg should be 'comment'")
-	assert.Equal(t, "--comment-body", args[8], "Should have --comment-body flag")
-	assert.Equal(t, commentBody, args[9], "Comment body should be passed as arg")
-	assert.Equal(t, "--pr", args[10], "Should have --pr flag")
-}
-
 func TestWorkflowRender_RunBranching(t *testing.T) {
 	wf := &Workflow{
 		ProjectName:   "test-project",
@@ -298,8 +260,6 @@ func TestWorkflowRender_RunBranching(t *testing.T) {
 		CloneBranch:   "main",
 		ProjectBranch: "feature-branch",
 		ProjectPath:   "project.yaml",
-		CommentBody:   "",
-		PRNumber:      "",
 	}
 
 	workflowYAML, err := wf.Render()

@@ -21,7 +21,6 @@ type Cmd struct {
 // WorkflowGroup defines the workflow subcommand group
 type WorkflowGroup struct {
 	Run     WorkflowRunCmd     `cmd:"" help:"Run a project via the workflow engine"`
-	Comment WorkflowCommentCmd `cmd:"" help:"Run a comment-triggered workflow iteration"`
 	Command WorkflowCommandCmd `cmd:"" help:"Run an arbitrary command via workflow"`
 	Token   WorkflowTokenCmd   `cmd:"" help:"Generate a GitHub App installation token and configure git HTTPS authentication"`
 	Loop    WorkflowLoopCmd    `cmd:"" help:"Run a loop via the workflow engine"`

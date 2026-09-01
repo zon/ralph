@@ -14,7 +14,7 @@
 
 ## Testing and Execution
 
-**IMPORTANT**: Before writing any tests, read [docs/testing.md](docs/testing.md) to understand patterns, conventions, and the webhook service integration testing strategy.
+**IMPORTANT**: Before writing any tests, read [docs/testing.md](docs/testing.md) to understand patterns and conventions.
 
 **WARNING**: Be careful when executing ralph with `--mode local` or the default `--mode worktree`, as they apply changes to the local repository.
 
@@ -24,8 +24,4 @@ The documents under [docs/zpecs/](docs/zpecs/README.md) are installed, not autho
 
 ## Versioning
 
-When bumping the version, update **both** files together:
-- `internal/version/VERSION`
-- `charts/ralph-webhook/Chart.yaml` (`appVersion` and `version`)
-
-Always do a **patch bump** on the chart `version` field alongside any `appVersion` change.
+When bumping the version, update `internal/version/VERSION`.

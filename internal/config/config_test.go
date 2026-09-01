@@ -25,7 +25,6 @@ func TestLoadConfig_Defaults(t *testing.T) {
 	assert.Equal(t, "main", config.DefaultBranch)
 	assert.Empty(t, config.Services)
 	assert.Empty(t, config.Instructions, "LoadConfig() Instructions must stay unset so the prompt supplies its default steps")
-	assert.True(t, strings.Contains(config.CommentInstructions, "# Comment Instructions"), "LoadConfig() CommentInstructions missing expected header")
 }
 
 func TestLoadConfig_FromFile(t *testing.T) {
@@ -705,29 +704,6 @@ services:
 	assert.Equal(t, 60, config.Services[0].Timeout)
 }
 
-func TestLoadConfig_CommentInstructionsFromFile(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	ralphDir := filepath.Join(tmpDir, ".ralph")
-	require.NoError(t, os.Mkdir(ralphDir, 0755))
-
-	configContent := `maxIterations: 3
- `
-	configPath := filepath.Join(ralphDir, "config.yaml")
-	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0644))
-
-	customCommentInstructions := "Custom comment instructions for PR comments"
-	commentInstructionsPath := filepath.Join(ralphDir, "comment-instructions.md")
-	require.NoError(t, os.WriteFile(commentInstructionsPath, []byte(customCommentInstructions), 0644))
-
-	t.Chdir(tmpDir)
-
-	config, err := LoadConfig()
-	require.NoError(t, err, "LoadConfig() unexpected error")
-
-	assert.Equal(t, customCommentInstructions, config.CommentInstructions)
-}
-
 func TestLoadConfig_DefaultInstructionsWhenFilesNotExist(t *testing.T) {
 	tmpDir := t.TempDir()
 
@@ -744,12 +720,11 @@ func TestLoadConfig_DefaultInstructionsWhenFilesNotExist(t *testing.T) {
 	config, err := LoadConfig()
 	require.NoError(t, err, "LoadConfig() unexpected error")
 
-	assert.NotEmpty(t, config.CommentInstructions, "CommentInstructions is empty, expected default instructions")
 	assert.Empty(t, config.Instructions, "Instructions must stay unset so the prompt supplies its default steps")
 }
 
 // Item test: the ralph config no longer reads `.ralph/merge-instructions.md`.
-// The file is ignored, so the config keeps the default comment instructions and
+// The file is ignored, so the config keeps no default comment instructions and
 // no development instructions.
 func TestLoadConfig_MergeInstructionsFileIgnored(t *testing.T) {
 	tmpDir := t.TempDir()
@@ -766,9 +741,7 @@ func TestLoadConfig_MergeInstructionsFileIgnored(t *testing.T) {
 
 	config, err := LoadConfig()
 	require.NoError(t, err)
-	assert.Empty(t, config.Instructions)
-	assert.NotContains(t, config.CommentInstructions, "Custom merge instructions", "the merge instructions file must not be read")
-	assert.Contains(t, config.CommentInstructions, "# Comment Instructions", "comment instructions must still fall back to the embedded default")
+	assert.Empty(t, config.Instructions, "the merge instructions file must not be read")
 }
 
 // Item test: the embedded default merge instructions file is gone and no longer
@@ -779,14 +752,13 @@ func TestLoadInstructions_MergeInstructionsFileIgnored(t *testing.T) {
 	configDir := filepath.Join(tmpDir, ".ralph")
 	require.NoError(t, os.Mkdir(configDir, 0755))
 
-	instructions, commentInstructions := loadInstructions(configDir)
+	instructions := loadInstructions(configDir)
 
 	require.NoError(t, os.WriteFile(filepath.Join(configDir, "merge-instructions.md"), []byte("Custom merge instructions"), 0644))
 
-	withMerge, withMergeComment := loadInstructions(configDir)
+	withMerge := loadInstructions(configDir)
 	assert.Equal(t, instructions, withMerge, "merge-instructions.md must not be read into development instructions")
-	assert.Equal(t, commentInstructions, withMergeComment, "merge-instructions.md must not be read into comment instructions")
-	assert.Contains(t, commentInstructions, "# Comment Instructions")
+	assert.Empty(t, withMerge)
 }
 
 func TestLoadConfig_InvalidYAML(t *testing.T) {
@@ -1129,43 +1101,24 @@ func TestConfigExtraIterations_ConfigValueReturnedWhenSet(t *testing.T) {
 }
 
 func TestLoadInstructions(t *testing.T) {
-	t.Run("all files missing leaves development instructions to the prompt", func(t *testing.T) {
+	t.Run("missing file leaves development instructions to the prompt", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		configDir := filepath.Join(tmpDir, ".ralph")
 		require.NoError(t, os.Mkdir(configDir, 0755))
 
-		instructions, commentInstructions := loadInstructions(configDir)
+		instructions := loadInstructions(configDir)
 		assert.Empty(t, instructions)
-		assert.Contains(t, commentInstructions, "# Comment Instructions")
 	})
 
-	t.Run("custom instructions loaded from files", func(t *testing.T) {
-		tmpDir := t.TempDir()
-		configDir := filepath.Join(tmpDir, ".ralph")
-		require.NoError(t, os.Mkdir(configDir, 0755))
-
-		customInstructions := "Custom instructions"
-		customComment := "Custom comment instructions"
-
-		require.NoError(t, os.WriteFile(filepath.Join(configDir, "instructions.md"), []byte(customInstructions), 0644))
-		require.NoError(t, os.WriteFile(filepath.Join(configDir, "comment-instructions.md"), []byte(customComment), 0644))
-
-		instructions, commentInstructions := loadInstructions(configDir)
-		assert.Equal(t, customInstructions, instructions)
-		assert.Equal(t, customComment, commentInstructions)
-	})
-
-	t.Run("mixed presence uses defaults for missing files", func(t *testing.T) {
+	t.Run("custom instructions loaded from file", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		configDir := filepath.Join(tmpDir, ".ralph")
 		require.NoError(t, os.Mkdir(configDir, 0755))
 
 		customInstructions := "Custom instructions"
 		require.NoError(t, os.WriteFile(filepath.Join(configDir, "instructions.md"), []byte(customInstructions), 0644))
-		// comment-instructions.md missing
 
-		instructions, commentInstructions := loadInstructions(configDir)
+		instructions := loadInstructions(configDir)
 		assert.Equal(t, customInstructions, instructions)
-		assert.Contains(t, commentInstructions, "# Comment Instructions")
 	})
 }

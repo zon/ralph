@@ -27,11 +27,6 @@ type Workflow struct {
 	ProjectPath string
 	// Instructions is the contents of the instructions file to inject into the container (may be empty).
 	Instructions string
-	// CommentBody is the raw PR comment body for comment-triggered workflows.
-	// When set, the container script calls `ralph comment` instead of `ralph run`.
-	CommentBody string
-	// PRNumber is the pull request number, used with CommentBody for ralph comment invocations.
-	PRNumber string
 	// Verbose controls whether the ralph command inside the container runs with --verbose.
 	Verbose bool
 	// DebugBranch, when non-empty, causes the workflow to checkout that branch of the ralph repo
@@ -87,8 +82,6 @@ func (w *Workflow) Render() (string, error) {
 	params := map[string]string{
 		"project-path":    w.ProjectPath,
 		"instructions-md": w.Instructions,
-		"comment-body":    w.CommentBody,
-		"pr-number":       w.PRNumber,
 		"base-branch":     w.BaseBranch,
 	}
 
@@ -156,31 +149,6 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 	var args []string
 
 	switch {
-	case w.CommentBody != "":
-		command = []string{"ralph"}
-		args = []string{
-			"workflow", "comment",
-			"--repo", w.Repo.Owner + "/" + w.Repo.Name,
-			"--clone-branch", w.CloneBranch,
-			"--project-branch", w.ProjectBranch,
-			"--comment-body", w.CommentBody,
-			"--pr", w.PRNumber,
-			"--bot-name", config.DefaultAppName + "[bot]",
-			"--bot-email", config.DefaultAppName + "[bot]@users.noreply.github.com",
-		}
-		if w.Verbose {
-			args = append(args, "--verbose")
-		}
-		if w.NoServices {
-			args = append(args, "--no-services")
-		}
-		if w.Model != "" {
-			args = append(args, "--model", w.Model)
-		}
-		if w.Agent != "" {
-			args = append(args, "--agent", w.Agent)
-		}
-
 	case len(w.Command) > 0:
 		command = []string{"ralph"}
 		args = []string{"workflow", "--command", "--"}
@@ -293,8 +261,6 @@ func (w *Workflow) buildEnvVars() []map[string]interface{} {
 		{"name": "PROJECT_BRANCH", "value": w.ProjectBranch},
 		{"name": "PROJECT_PATH", "value": "{{workflow.parameters.project-path}}"},
 		{"name": "INSTRUCTIONS_MD", "value": "{{workflow.parameters.instructions-md}}"},
-		{"name": "COMMENT_BODY", "value": "{{workflow.parameters.comment-body}}"},
-		{"name": "PR_NUMBER", "value": "{{workflow.parameters.pr-number}}"},
 		{"name": "RALPH_WORKFLOW_EXECUTION", "value": "true"},
 		{"name": "RALPH_DEBUG_BRANCH", "value": w.DebugBranch},
 		{"name": "RALPH_VERBOSE", "value": fmt.Sprintf("%t", w.Verbose)},

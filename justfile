@@ -3,9 +3,7 @@ build_date := `date -u +%Y-%m-%dT%H:%M:%SZ`
 git_commit := `git rev-parse --short HEAD 2>/dev/null || echo "unknown"`
 
 binary := "ralph"
-webhook_binary := "ralph-webhook"
 main_path := "./cmd/ralph"
-webhook_main_path := "./cmd/ralph-webhook"
 install_path := `go env GOPATH` + "/bin"
 
 ldflags := "-X main.Date=" + build_date
@@ -14,23 +12,17 @@ ldflags := "-X main.Date=" + build_date
 default:
     @just --list
 
-# Build the ralph and ralph-webhook binaries
+# Build the ralph binary
 build:
     @echo "Building {{binary}} v{{version}}..."
     go build -ldflags "{{ldflags}}" -o {{binary}} {{main_path}}
     @echo "Build complete: ./{{binary}}"
-    @echo "Building {{webhook_binary}} v{{version}}..."
-    go build -ldflags "{{ldflags}}" -o {{webhook_binary}} {{webhook_main_path}}
-    @echo "Build complete: ./{{webhook_binary}}"
 
-# Install ralph and ralph-webhook to GOPATH/bin
+# Install ralph to GOPATH/bin
 install:
     @echo "Installing {{binary}} v{{version}} to {{install_path}}..."
     go install -ldflags "{{ldflags}}" {{main_path}}
     @echo "Installation complete: {{install_path}}/{{binary}}"
-    @echo "Installing {{webhook_binary}} v{{version}} to {{install_path}}..."
-    go install -ldflags "{{ldflags}}" {{webhook_main_path}}
-    @echo "Installation complete: {{install_path}}/{{webhook_binary}}"
 
 # Display version information
 show-version:
@@ -40,7 +32,7 @@ show-version:
 
 # Remove built binaries
 clean:
-    rm -f {{binary}} {{webhook_binary}}
+    rm -f {{binary}}
 
 # Run tests
 test:

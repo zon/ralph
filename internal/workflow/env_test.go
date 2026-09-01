@@ -133,8 +133,6 @@ func TestWorkflowSubmit_MixedEnvVars(t *testing.T) {
 		"PROJECT_BRANCH":           "feature-branch",
 		"PROJECT_PATH":             "{{workflow.parameters.project-path}}",
 		"INSTRUCTIONS_MD":          "{{workflow.parameters.instructions-md}}",
-		"COMMENT_BODY":             "{{workflow.parameters.comment-body}}",
-		"PR_NUMBER":                "{{workflow.parameters.pr-number}}",
 		"RALPH_WORKFLOW_EXECUTION": "true",
 		"RALPH_DEBUG_BRANCH":       "",
 		"RALPH_VERBOSE":            "false",
