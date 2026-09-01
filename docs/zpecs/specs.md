@@ -85,6 +85,10 @@ Avoid in specs:
 - Step-by-step implementation details
 - Detailed execution plans. Those belong in a [project](project.md)
 
+## Shared Contracts
+
+When two specs rely on the same contract, define it in one place and link from the others. Link to the spec that owns the contract rather than restating it.
+
 ## Keep It Light
 
 Use the lightest level that still makes the change verifiable.

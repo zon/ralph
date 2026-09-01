@@ -280,7 +280,7 @@ func TestRunCmdHelpText(t *testing.T) {
 
 func TestCommandCmdHelpText(t *testing.T) {
 	output := captureHelpOutput(&Cmd{}, []string{"command", "--help"})
-	assert.Contains(t, output, "Run a command in the ralph environment")
+	assert.Contains(t, output, "Run a command in a remote Ralph workflow")
 }
 
 func TestValidateCmdHelpText(t *testing.T) {

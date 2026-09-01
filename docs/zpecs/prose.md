@@ -16,3 +16,4 @@ How to write and organize prose.
 
 * Documents, sections, and paragraphs should have a narrow self-evident purpose
 * Link content instead of repeating it
+* Newlines only separate text blocks. Don't use them as line breaks
