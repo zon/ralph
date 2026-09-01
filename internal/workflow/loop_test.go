@@ -224,6 +224,35 @@ func TestGenerateLoopWorkflowKubeContextOverride(t *testing.T) {
 	})
 }
 
+// TestGenerateLoopWorkflowNamespaceOverride asserts the namespace override
+// takes precedence over the workflow namespace in .ralph/config.yaml for loop
+// workflow submission and followed logs, and falls back to the config value
+// when no override is given.
+func TestGenerateLoopWorkflowNamespaceOverride(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".ralph"), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".ralph", "config.yaml"), []byte("workflow:\n  context: config-context\n  namespace: config-namespace\n"), 0644))
+
+	t.Run("namespace override takes precedence over config", func(t *testing.T) {
+		t.Chdir(dir)
+		ctx := &execcontext.Context{}
+		ctx.SetKubeNamespace("override-namespace")
+
+		wf, err := GenerateLoopWorkflow(ctx, "fmt", nil, 3, "main", "git@github.com:test/repo.git")
+		require.NoError(t, err, "GenerateLoopWorkflow failed")
+		assert.Equal(t, "override-namespace", wf.Namespace, "the namespace override wins over the config value")
+	})
+
+	t.Run("falls back to config when namespace override is empty", func(t *testing.T) {
+		t.Chdir(dir)
+		ctx := &execcontext.Context{}
+
+		wf, err := GenerateLoopWorkflow(ctx, "fmt", nil, 3, "main", "git@github.com:test/repo.git")
+		require.NoError(t, err, "GenerateLoopWorkflow failed")
+		assert.Equal(t, "config-namespace", wf.Namespace, "the workflow falls back to the config namespace")
+	})
+}
+
 // TestGenerateLoopWorkflowWithoutSteps asserts a steps-only loop keeps an empty
 // slug in the loop spec so the container proposes one.
 func TestGenerateLoopWorkflowWithoutSteps(t *testing.T) {

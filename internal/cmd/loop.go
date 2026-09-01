@@ -32,18 +32,19 @@ import (
 // the slug on completion, suppressed by --no-notify. The --model and --context
 // flags resolve the same way `ralph run` resolves them: --model overrides the
 // top-level model field in .ralph/config.yaml, which defaults to
-// deepseek/deepseek-chat when unset, and --context overrides the Kubernetes
-// context used for workflow submission.
+// deepseek/deepseek-chat when unset, and --context and --namespace override the
+// Kubernetes context and namespace used for workflow submission.
 type LoopCmd struct {
-	Slug     string   `arg:"" optional:"" help:"Slug of the loop configuration in .ralph/config.yaml"`
-	Steps    []string `help:"Step to run in the loop (repeatable)" name:"step"`
-	Max      int      `help:"Maximum number of iterations" name:"max" default:"20"`
-	Verbose  bool     `help:"Enable verbose logging" default:"false"`
-	Mode     string   `help:"Execution mode: local, worktree, or remote (default: worktree)" name:"mode" optional:""`
-	Follow   bool     `help:"Follow workflow logs after submission (only applicable with --mode remote)" short:"f" default:"false"`
-	NoNotify bool     `help:"Disable desktop notifications" default:"false"`
-	Model    string   `help:"Override the AI model from config" name:"model" optional:""`
-	Context  string   `help:"Kubernetes context to use" name:"context" optional:""`
+	Slug      string   `arg:"" optional:"" help:"Slug of the loop configuration in .ralph/config.yaml"`
+	Steps     []string `help:"Step to run in the loop (repeatable)" name:"step"`
+	Max       int      `help:"Maximum number of iterations" name:"max" default:"20"`
+	Verbose   bool     `help:"Enable verbose logging" default:"false"`
+	Mode      string   `help:"Execution mode: local, worktree, or remote (default: worktree)" name:"mode" optional:""`
+	Follow    bool     `help:"Follow workflow logs after submission (only applicable with --mode remote)" short:"f" default:"false"`
+	NoNotify  bool     `help:"Disable desktop notifications" default:"false"`
+	Model     string   `help:"Override the AI model from config" name:"model" optional:""`
+	Context   string   `help:"Kubernetes context to use" name:"context" optional:""`
+	Namespace string   `help:"Kubernetes namespace to use" name:"namespace" short:"n" optional:""`
 
 	// slugProposer proposes a branch slug from steps. Tests inject a fake. When
 	// nil, buildLoopCmd builds the real adapter that consults the AI.
@@ -124,9 +125,10 @@ func (c *LoopCmd) Run() error {
 }
 
 // applyToContext resolves the command flags into the execution context. The
-// --model override and the --context override resolve the same way `ralph run`
-// resolves them: the flag wins, otherwise the value from .ralph/config.yaml
-// (the model defaulting to deepseek/deepseek-chat) is used downstream.
+// --model override and the --context and --namespace overrides resolve the
+// same way `ralph run` resolves them: the flag wins, otherwise the value from
+// .ralph/config.yaml (the model defaulting to deepseek/deepseek-chat) is used
+// downstream.
 func (c *LoopCmd) applyToContext(ctx *execcontext.Context) {
 	ctx.SetVerbose(c.Verbose)
 	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, c.Verbose))
@@ -134,6 +136,7 @@ func (c *LoopCmd) applyToContext(ctx *execcontext.Context) {
 	ctx.SetNoNotify(c.NoNotify)
 	ctx.SetModel(c.Model)
 	ctx.SetKubeContext(c.Context)
+	ctx.SetKubeNamespace(c.Namespace)
 }
 
 // newOrchestrationLoopCmd wires the loop orchestration with the real git,

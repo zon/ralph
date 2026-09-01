@@ -32,5 +32,9 @@ func workflowOptionsFromConfig(cfg *config.RalphConfig, ctx *execcontext.Context
 		opts.KubeContext = ctx.KubeContext()
 	}
 
+	if ctx != nil && ctx.KubeNamespace() != "" {
+		opts.Namespace = ctx.KubeNamespace()
+	}
+
 	return opts
 }

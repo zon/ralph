@@ -13,9 +13,11 @@ import (
 )
 
 type CommandCmd struct {
-	Command  []string `arg:"" name:"command" help:"Command to run" optional:""`
-	NoFollow bool     `help:"Skip following workflow logs" name:"no-follow" default:"false"`
-	Verbose  bool     `help:"Enable verbose logging" default:"false"`
+	Command   []string `arg:"" name:"command" help:"Command to run" optional:""`
+	NoFollow  bool     `help:"Skip following workflow logs" name:"no-follow" default:"false"`
+	Verbose   bool     `help:"Enable verbose logging" default:"false"`
+	Context   string   `help:"Kubernetes context to use" name:"context" optional:""`
+	Namespace string   `help:"Kubernetes namespace to use" name:"namespace" short:"n" optional:""`
 }
 
 func (c *CommandCmd) Run() error {
@@ -37,23 +39,35 @@ func (c *CommandCmd) newExecutionContext() *execcontext.Context {
 	ctx.SetCommand(c.Command)
 	ctx.SetVerbose(c.Verbose)
 	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, c.Verbose))
+	ctx.SetKubeContext(c.Context)
+	ctx.SetKubeNamespace(c.Namespace)
 	return ctx
 }
 
 type commandWorkflowClient struct {
-	ctx         *execcontext.Context
-	argoClient  argo.Client
-	namespace   string
-	kubeContext string
+	ctx           *execcontext.Context
+	argoClient    argo.Client
+	namespace     string
+	kubeContext   string
+	currentBranch func() (string, error)
+	branchSynced  func(branch string) error
 }
 
 func (c *commandWorkflowClient) Submit(command []string) (string, error) {
-	currentBranch, err := git.GetCurrentBranch()
+	currentBranch := c.currentBranch
+	if currentBranch == nil {
+		currentBranch = git.GetCurrentBranch
+	}
+	cloneBranch, err := currentBranch()
 	if err != nil {
 		return "", err
 	}
 
-	if err := git.IsBranchSyncedWithRemote(currentBranch); err != nil {
+	branchSynced := c.branchSynced
+	if branchSynced == nil {
+		branchSynced = git.IsBranchSyncedWithRemote
+	}
+	if err := branchSynced(cloneBranch); err != nil {
 		return "", err
 	}
 
@@ -68,7 +82,7 @@ func (c *commandWorkflowClient) Submit(command []string) (string, error) {
 		}
 	}
 
-	wf, err := internalwf.GenerateCommandWorkflow(c.ctx, currentBranch, remoteURL)
+	wf, err := internalwf.GenerateCommandWorkflow(c.ctx, cloneBranch, remoteURL)
 	if err != nil {
 		return "", err
 	}

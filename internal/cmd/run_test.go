@@ -58,6 +58,22 @@ func TestRunCmdFlagCleanup(t *testing.T) {
 	assert.Contains(t, string(out), "--cleanup")
 }
 
+func TestRunCmdFlagNamespace(t *testing.T) {
+	repoRoot := findRepoRoot(t)
+	binary := filepath.Join(t.TempDir(), "ralph")
+	build := exec.Command("go", "build", "-o", binary, "./cmd/ralph")
+	build.Dir = repoRoot
+	out, err := build.CombinedOutput()
+	require.NoError(t, err, "build failed: %s", string(out))
+
+	cmd := exec.Command(binary, "run", "--help")
+	cmd.Dir = repoRoot
+	out, err = cmd.CombinedOutput()
+	require.NoError(t, err)
+	assert.Contains(t, string(out), "--namespace")
+	assert.Contains(t, string(out), "-n")
+}
+
 // TestMergeCommandRejected asserts that invoking `ralph merge` exits non-zero
 // with an unknown-command error now that the merge command is removed.
 func TestMergeCommandRejected(t *testing.T) {
