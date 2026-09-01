@@ -178,9 +178,9 @@ env:
 Store credentials as Kubernetes Secrets for remote execution. See [Workflows](workflows.md) for setup.
 
 ```bash
-ralph set config                          # quickstart: reuses your gh login token
-ralph set config --github-key <key.pem>   # GitHub App private key
-ralph set config --github-token <token>   # GitHub personal access token
+ralph set remote                          # quickstart: reuses your gh login token
+ralph set remote --github-key <key.pem>   # GitHub App private key
+ralph set remote --github-token <token>   # GitHub personal access token
 ```
 
 ## Custom Instructions

@@ -293,15 +293,15 @@ func TestStopCmdHelpText(t *testing.T) {
 	assert.Contains(t, output, "Stop an Argo workflow")
 }
 
-func TestSetConfigCmdHelpText(t *testing.T) {
-	output := captureHelpOutput(&Cmd{}, []string{"set", "config", "--help"})
+func TestSetRemoteCmdHelpText(t *testing.T) {
+	output := captureHelpOutput(&Cmd{}, []string{"set", "remote", "--help"})
 	assert.Contains(t, output, "Configure credentials for remote execution")
 }
 
 func TestSetHelpDoesNotListSkills(t *testing.T) {
 	output := captureHelpOutput(&Cmd{}, []string{"set", "--help"})
 	assert.NotContains(t, output, "skills")
-	assert.Contains(t, output, "config")
+	assert.Contains(t, output, "remote")
 }
 
 func TestWorkflowRunCmdHelpText(t *testing.T) {
@@ -329,7 +329,7 @@ func TestTopLevelCommandsParsed(t *testing.T) {
 		{name: "validate", args: []string{"validate", "test.yaml"}},
 		{name: "list", args: []string{"list"}},
 		{name: "stop", args: []string{"stop", "test-workflow"}},
-		{name: "set config", args: []string{"set", "config"}},
+		{name: "set remote", args: []string{"set", "remote"}},
 	}
 
 	for _, tt := range tests {

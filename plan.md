@@ -12,7 +12,7 @@ and report or fix any gaps found.
 - [x] `internal/orchestration/merge`
 - [x] `internal/project` — gaps found, project: `projects/clean-up-project-helpers.yaml`
 - [x] `internal/orchestration/validate`
-- [x] `internal/orchestration/setconfig`
+- [x] `internal/orchestration/setremote`
 - [x] `internal/orchestration/workflowtoken` — minor gofmt/dead-code cleanup noted, no project
 - [x] `internal/services` — gaps found, project: `projects/services-implementation-category.yaml`
 - [x] `internal/orchestration/argo`

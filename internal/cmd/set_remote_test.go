@@ -11,11 +11,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zon/ralph/internal/k8s"
-	"github.com/zon/ralph/internal/orchestration/setconfig"
+	"github.com/zon/ralph/internal/orchestration/setremote"
 	"github.com/zon/ralph/internal/output"
 )
 
-func TestSetConfigCmd_FlagParsing(t *testing.T) {
+func TestSetRemoteCmd_FlagParsing(t *testing.T) {
 	tests := []struct {
 		name        string
 		args        []string
@@ -52,7 +52,7 @@ func TestSetConfigCmd_FlagParsing(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := &SetConfigCmd{}
+			cmd := &SetRemoteCmd{}
 
 			parser, err := kong.New(cmd,
 				kong.Name("ralph"),
@@ -71,7 +71,7 @@ func TestSetConfigCmd_FlagParsing(t *testing.T) {
 	}
 }
 
-func TestSetConfigGitHubClientConfigureTokenWritesSecret(t *testing.T) {
+func TestSetRemoteGitHubClientConfigureTokenWritesSecret(t *testing.T) {
 	var capturedSecretName, capturedNamespace, capturedContext string
 	var capturedData map[string]string
 
@@ -86,9 +86,9 @@ func TestSetConfigGitHubClientConfigureTokenWritesSecret(t *testing.T) {
 	}
 
 	out := output.NewClient(io.Discard, io.Discard, false)
-	client := &setconfigGitHubClient{ctx: context.Background(), k8sClient: k8sClient, out: out}
+	client := &setremoteGitHubClient{ctx: context.Background(), k8sClient: k8sClient, out: out}
 
-	err := client.ConfigureToken(setconfig.K8sContext{Name: "staging", Namespace: "argo"}, "ghp_test_token")
+	err := client.ConfigureToken(setremote.K8sContext{Name: "staging", Namespace: "argo"}, "ghp_test_token")
 	require.NoError(t, err)
 	assert.Equal(t, k8s.GitHubSecretName, capturedSecretName)
 	assert.Equal(t, "argo", capturedNamespace)
@@ -96,30 +96,30 @@ func TestSetConfigGitHubClientConfigureTokenWritesSecret(t *testing.T) {
 	assert.Equal(t, map[string]string{"token": "ghp_test_token"}, capturedData)
 }
 
-func TestSetConfigGitHubClientTokenFromGHCli(t *testing.T) {
+func TestSetRemoteGitHubClientTokenFromGHCli(t *testing.T) {
 	t.Run("returns gh auth token", func(t *testing.T) {
 		writeFakeGHCLIScript(t, `printf 'ghp_cli_token\n'`)
-		client := &setconfigGitHubClient{}
+		client := &setremoteGitHubClient{}
 		assert.Equal(t, "ghp_cli_token", client.TokenFromGHCli())
 	})
 
 	t.Run("returns empty when gh not authenticated", func(t *testing.T) {
 		writeFakeGHCLIScript(t, `exit 1`)
-		client := &setconfigGitHubClient{}
+		client := &setremoteGitHubClient{}
 		assert.Empty(t, client.TokenFromGHCli())
 	})
 }
 
-func TestSetConfigGitHubClientTokenFromEnv(t *testing.T) {
+func TestSetRemoteGitHubClientTokenFromEnv(t *testing.T) {
 	t.Run("returns environment token", func(t *testing.T) {
 		t.Setenv("GITHUB_TOKEN", "ghp_env_token")
-		client := &setconfigGitHubClient{}
+		client := &setremoteGitHubClient{}
 		assert.Equal(t, "ghp_env_token", client.TokenFromEnv())
 	})
 
 	t.Run("returns empty when GITHUB_TOKEN is unset", func(t *testing.T) {
 		t.Setenv("GITHUB_TOKEN", "")
-		client := &setconfigGitHubClient{}
+		client := &setremoteGitHubClient{}
 		assert.Empty(t, client.TokenFromEnv())
 	})
 }
@@ -133,7 +133,7 @@ func writeFakeGHCLIScript(t *testing.T, body string) {
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+origPath)
 }
 
-func TestSetConfigGitHubClientConfigureTokenPropagatesError(t *testing.T) {
+func TestSetRemoteGitHubClientConfigureTokenPropagatesError(t *testing.T) {
 	k8sClient := &k8s.MockClient{
 		CreateOrUpdateSecretFunc: func(ctx context.Context, name, namespace, kubeContext string, data map[string]string) error {
 			return assert.AnError
@@ -141,8 +141,8 @@ func TestSetConfigGitHubClientConfigureTokenPropagatesError(t *testing.T) {
 	}
 
 	out := output.NewClient(io.Discard, io.Discard, false)
-	client := &setconfigGitHubClient{ctx: context.Background(), k8sClient: k8sClient, out: out}
+	client := &setremoteGitHubClient{ctx: context.Background(), k8sClient: k8sClient, out: out}
 
-	err := client.ConfigureToken(setconfig.K8sContext{Name: "staging", Namespace: "argo"}, "ghp_test_token")
+	err := client.ConfigureToken(setremote.K8sContext{Name: "staging", Namespace: "argo"}, "ghp_test_token")
 	require.Error(t, err)
 }

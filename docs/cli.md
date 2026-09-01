@@ -189,12 +189,12 @@ ralph review
 
 ## Other Commands
 
-### ralph set config
+### ralph set remote
 
 ```bash
-ralph set config --github-key <key.pem>
-ralph set config --github-token <token>
-ralph set config
+ralph set remote --github-key <key.pem>
+ralph set remote --github-token <token>
+ralph set remote
 ```
 
 Configures the Kubernetes credentials needed for remote execution in one shot: a GitHub identity and the OpenCode AI credentials. See [Workflows](workflows.md) for setup.
@@ -213,5 +213,5 @@ The OpenCode credentials are read from `~/.local/share/opencode/auth.json`.
 Use `--context` and `--namespace` to target a specific cluster:
 
 ```bash
-ralph set config --context production --namespace argo
+ralph set remote --context production --namespace argo
 ```

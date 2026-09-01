@@ -21,6 +21,6 @@ func TestSetHelpListsConfigOnly(t *testing.T) {
 	cmd.Dir = repoRoot
 	out, err = cmd.CombinedOutput()
 	require.NoError(t, err)
-	assert.Contains(t, string(out), "config")
+	assert.Contains(t, string(out), "remote")
 	assert.NotContains(t, string(out), "skills")
 }

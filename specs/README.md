@@ -13,7 +13,7 @@
 - [run-local](ralph/run-local.md) — Runs the development loop in-process in the current checkout (the `local` execution mode).
 - [run-remote](ralph/run-remote.md) — Submits an Argo Workflow to a Kubernetes cluster and returns after submission for remote execution (the `remote` execution mode).
 - [run-worktree](ralph/run-worktree.md) — Runs the development loop in-process in a Git worktree created in a sibling directory, leaving the current checkout untouched (the default `worktree` execution mode).
-- [set-config](ralph/set-config.md) — One-shot setup of all Kubernetes credentials required for ralph remote execution on Argo Workflows, accepting a GitHub App key or a personal access token.
+- [set-remote](ralph/set-remote.md) — One-shot setup of all Kubernetes credentials required for ralph remote execution on Argo Workflows, accepting a GitHub App key or a personal access token.
 - [validate](ralph/validate.md) — Checks that a project file parses and that the item query resolves, repairs it via a local agent if not, and rewrites it in canonical format.
 - [workflow-command](ralph/workflow-command.md) — Container entrypoint that clones the current branch and runs supplied command tokens in the ralph environment.
 - [workflow-token](ralph/workflow-token.md) — Configure git HTTPS authentication inside Argo Workflow containers from GitHub App credentials or a stored token, preferring the App credentials when both are present.

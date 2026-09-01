@@ -1,4 +1,4 @@
-package setconfig
+package setremote
 
 var errMock = &mockError{"mock error"}
 
@@ -101,17 +101,17 @@ var mockCtx *mockContextClient
 var mockGH *mockGitHubCredentialsClient
 var mockOC *mockOpenCodeCredentialsClient
 
-type setconfigHelper struct{}
+type setremoteHelper struct{}
 
-type setconfigOption func(*SetConfigCmd)
+type setremoteOption func(*SetRemoteCmd)
 
-var setconfig = &setconfigHelper{}
+var setremote = &setremoteHelper{}
 
-func (h *setconfigHelper) withMocks(opts ...setconfigOption) *SetConfigCmd {
+func (h *setremoteHelper) withMocks(opts ...setremoteOption) *SetRemoteCmd {
 	mockCtx = &mockContextClient{}
 	mockGH = &mockGitHubCredentialsClient{}
 	mockOC = &mockOpenCodeCredentialsClient{}
-	cmd := &SetConfigCmd{
+	cmd := &SetRemoteCmd{
 		Ctx:      mockCtx,
 		GitHub:   mockGH,
 		OpenCode: mockOC,
@@ -122,8 +122,8 @@ func (h *setconfigHelper) withMocks(opts ...setconfigOption) *SetConfigCmd {
 	return cmd
 }
 
-func (h *setconfigHelper) withContext(cc ContextClient) setconfigOption {
-	return func(cmd *SetConfigCmd) {
+func (h *setremoteHelper) withContext(cc ContextClient) setremoteOption {
+	return func(cmd *SetRemoteCmd) {
 		cmd.Ctx = cc
 		if m, ok := cc.(*mockContextClient); ok {
 			mockCtx = m
@@ -131,8 +131,8 @@ func (h *setconfigHelper) withContext(cc ContextClient) setconfigOption {
 	}
 }
 
-func (h *setconfigHelper) withGitHub(gc GitHubCredentialsClient) setconfigOption {
-	return func(cmd *SetConfigCmd) {
+func (h *setremoteHelper) withGitHub(gc GitHubCredentialsClient) setremoteOption {
+	return func(cmd *SetRemoteCmd) {
 		cmd.GitHub = gc
 		if m, ok := gc.(*mockGitHubCredentialsClient); ok {
 			mockGH = m
@@ -140,8 +140,8 @@ func (h *setconfigHelper) withGitHub(gc GitHubCredentialsClient) setconfigOption
 	}
 }
 
-func (h *setconfigHelper) withOpenCode(oc OpenCodeCredentialsClient) setconfigOption {
-	return func(cmd *SetConfigCmd) {
+func (h *setremoteHelper) withOpenCode(oc OpenCodeCredentialsClient) setremoteOption {
+	return func(cmd *SetRemoteCmd) {
 		cmd.OpenCode = oc
 		if m, ok := oc.(*mockOpenCodeCredentialsClient); ok {
 			mockOC = m

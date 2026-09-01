@@ -1,4 +1,4 @@
-package setconfig
+package setremote
 
 import (
 	"testing"
@@ -7,7 +7,7 @@ import (
 )
 
 func TestRunConfiguresGitHubAndOpenCode(t *testing.T) {
-	cmd := setconfig.withMocks()
+	cmd := setremote.withMocks()
 	err := cmd.Run(flags.withKey())
 	require.NoError(t, err)
 	require.True(t, github.validateCalled())
@@ -16,8 +16,8 @@ func TestRunConfiguresGitHubAndOpenCode(t *testing.T) {
 }
 
 func TestRunHaltsOnGitHubValidationFailure(t *testing.T) {
-	cmd := setconfig.withMocks(
-		setconfig.withGitHub(github.thatFailsValidation()),
+	cmd := setremote.withMocks(
+		setremote.withGitHub(github.thatFailsValidation()),
 	)
 	err := cmd.Run(flags.withKey())
 	require.Error(t, err)
@@ -25,16 +25,16 @@ func TestRunHaltsOnGitHubValidationFailure(t *testing.T) {
 }
 
 func TestRunHaltsOnOpenCodeFailure(t *testing.T) {
-	cmd := setconfig.withMocks(
-		setconfig.withOpenCode(opencode.thatFails()),
+	cmd := setremote.withMocks(
+		setremote.withOpenCode(opencode.thatFails()),
 	)
 	err := cmd.Run(flags.withKey())
 	require.Error(t, err)
 }
 
 func TestRunReusesExistingSecretWhenNoKeyProvided(t *testing.T) {
-	cmd := setconfig.withMocks(
-		setconfig.withGitHub(github.withExistingSecret()),
+	cmd := setremote.withMocks(
+		setremote.withGitHub(github.withExistingSecret()),
 	)
 	err := cmd.Run(flags.withoutKey())
 	require.NoError(t, err)
@@ -43,8 +43,8 @@ func TestRunReusesExistingSecretWhenNoKeyProvided(t *testing.T) {
 }
 
 func TestRunErrorsWhenNoKeyAndNoExistingSecret(t *testing.T) {
-	cmd := setconfig.withMocks(
-		setconfig.withGitHub(github.withNoExistingSecret()),
+	cmd := setremote.withMocks(
+		setremote.withGitHub(github.withNoExistingSecret()),
 	)
 	err := cmd.Run(flags.withoutKey())
 	require.ErrorIs(t, err, ErrNoGitHubKey)
@@ -56,8 +56,8 @@ func TestRunErrorsWhenNoKeyAndNoExistingSecret(t *testing.T) {
 }
 
 func TestRunPropagatesContextResolutionFailure(t *testing.T) {
-	cmd := setconfig.withMocks(
-		setconfig.withContext(ctx.thatFails()),
+	cmd := setremote.withMocks(
+		setremote.withContext(ctx.thatFails()),
 	)
 	err := cmd.Run(flags.withKey())
 	require.Error(t, err)
@@ -65,8 +65,8 @@ func TestRunPropagatesContextResolutionFailure(t *testing.T) {
 }
 
 func TestRunHaltsOnSecretExistsError(t *testing.T) {
-	cmd := setconfig.withMocks(
-		setconfig.withGitHub(github.thatFailsSecretExists()),
+	cmd := setremote.withMocks(
+		setremote.withGitHub(github.thatFailsSecretExists()),
 	)
 	err := cmd.Run(flags.withoutKey())
 	require.Error(t, err)
@@ -74,15 +74,15 @@ func TestRunHaltsOnSecretExistsError(t *testing.T) {
 }
 
 func TestRunHaltsOnGitHubConfigureFailure(t *testing.T) {
-	cmd := setconfig.withMocks(
-		setconfig.withGitHub(github.thatFailsConfigure()),
+	cmd := setremote.withMocks(
+		setremote.withGitHub(github.thatFailsConfigure()),
 	)
 	err := cmd.Run(flags.withKey())
 	require.Error(t, err)
 }
 
 func TestRunConfiguresGitHubTokenWithoutValidation(t *testing.T) {
-	cmd := setconfig.withMocks()
+	cmd := setremote.withMocks()
 	err := cmd.Run(flags.withToken())
 	require.NoError(t, err)
 	require.True(t, github.configureTokenCalled())
@@ -92,8 +92,8 @@ func TestRunConfiguresGitHubTokenWithoutValidation(t *testing.T) {
 }
 
 func TestRunHaltsOnGitHubTokenConfigureFailure(t *testing.T) {
-	cmd := setconfig.withMocks(
-		setconfig.withGitHub(github.thatFailsConfigureToken()),
+	cmd := setremote.withMocks(
+		setremote.withGitHub(github.thatFailsConfigureToken()),
 	)
 	err := cmd.Run(flags.withToken())
 	require.Error(t, err)
@@ -101,7 +101,7 @@ func TestRunHaltsOnGitHubTokenConfigureFailure(t *testing.T) {
 }
 
 func TestRunErrorsWhenBothKeyAndTokenProvided(t *testing.T) {
-	cmd := setconfig.withMocks()
+	cmd := setremote.withMocks()
 	err := cmd.Run(flags.withKeyAndToken())
 	require.ErrorIs(t, err, ErrBothGitHubFlags)
 	require.False(t, ctx.resolveCalled())
@@ -112,8 +112,8 @@ func TestRunErrorsWhenBothKeyAndTokenProvided(t *testing.T) {
 }
 
 func TestRunFallsBackToGHCliTokenWhenNoSecret(t *testing.T) {
-	cmd := setconfig.withMocks(
-		setconfig.withGitHub(github.withGHCliToken("ghp_cli_token")),
+	cmd := setremote.withMocks(
+		setremote.withGitHub(github.withGHCliToken("ghp_cli_token")),
 	)
 	err := cmd.Run(flags.withoutKey())
 	require.NoError(t, err)
@@ -124,8 +124,8 @@ func TestRunFallsBackToGHCliTokenWhenNoSecret(t *testing.T) {
 }
 
 func TestRunFallsBackToEnvTokenWhenNoSecretAndNoGHCliToken(t *testing.T) {
-	cmd := setconfig.withMocks(
-		setconfig.withGitHub(github.withEnvToken("ghp_env_token")),
+	cmd := setremote.withMocks(
+		setremote.withGitHub(github.withEnvToken("ghp_env_token")),
 	)
 	err := cmd.Run(flags.withoutKey())
 	require.NoError(t, err)
