@@ -125,7 +125,7 @@ The command SHALL change its working directory to the path given by `--working-d
 
 ### Requirement: AI model and Kubernetes context overrides
 
-The command SHALL accept `--model` to override the AI model from config and `--context` to override the Kubernetes context used for remote workflow submission.
+The command SHALL accept `--model` to override the AI model from config and `--context` to override the Kubernetes context used for remote workflow submission. The shared `--context` and `--namespace` targeting contract is defined in [kubectl/spec.md](../kubectl/spec.md).
 
 Model resolution follows a two-level precedence: `--model` at the command line takes priority. Otherwise the top-level `model` field in `.ralph/config.yaml` is used, defaulting to `deepseek/deepseek-chat` when unset.
 

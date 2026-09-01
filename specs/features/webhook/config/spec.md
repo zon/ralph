@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Configure the ralph-webhook service with per-repo settings, webhook secrets, and global defaults.
+Configure the ralph-webhook service with per-repo settings, webhook secrets, and global defaults. The service submits workflows to a Kubernetes cluster. The shared Kubernetes targeting contract is defined in [kubectl/spec.md](../../ralph/kubectl/spec.md).
 
 ## Requirements
 

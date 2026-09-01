@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Receive GitHub webhook events for pull requests and dispatch Argo Workflows to implement comment requests.
+Receive GitHub webhook events for pull requests and dispatch Argo Workflows to implement comment requests. The dispatched workflows run on a Kubernetes cluster. The shared Kubernetes targeting contract is defined in [kubectl/spec.md](../../ralph/kubectl/spec.md).
 
 The service never merges a pull request. Ralph opens the PR and responds to review comments. Approving and merging are the repository's own process, performed by its reviewers.
 

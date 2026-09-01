@@ -96,7 +96,7 @@ The command SHALL reject flag combinations that have no valid meaning before any
 
 The command SHALL reuse the remote defaults and config of `ralph run` as defined in [run/spec.md](../run/spec.md) and [run-remote/spec.md](../run-remote/spec.md). The resolved model, Kubernetes context, base branch, branch-sync check, ralph-owned workflow label, and notification behavior SHALL be the same as for `ralph run`.
 
-Model resolution SHALL follow the same two-level precedence as `ralph run`: `--model` at the command line takes priority. Otherwise the top-level `model` field in `.ralph/config.yaml` is used, defaulting to `deepseek/deepseek-chat` when unset. `--context` SHALL override the Kubernetes context used for workflow submission. Before submission the command SHALL verify, exactly as `ralph run` does, that the current branch exists on the remote and that local and remote are at the same commit.
+Model resolution SHALL follow the same two-level precedence as `ralph run`: `--model` at the command line takes priority. Otherwise the top-level `model` field in `.ralph/config.yaml` is used, defaulting to `deepseek/deepseek-chat` when unset. `--context` SHALL override the Kubernetes context used for workflow submission, per the shared [kubectl/spec.md](../kubectl/spec.md) contract. Before submission the command SHALL verify, exactly as `ralph run` does, that the current branch exists on the remote and that local and remote are at the same commit.
 
 #### Scenario: Config model used when no flag is passed
 

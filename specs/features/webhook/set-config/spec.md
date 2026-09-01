@@ -2,7 +2,7 @@
 
 ## Purpose
 
-One-shot setup of all Kubernetes resources required for the ralph-webhook service to receive and handle GitHub webhook events.
+One-shot setup of all Kubernetes resources required for the ralph-webhook service to receive and handle GitHub webhook events. The shared `--context` and `--namespace` targeting contract is defined in [kubectl/spec.md](../../ralph/kubectl/spec.md).
 
 ## Requirements
 
@@ -69,7 +69,7 @@ The command SHALL accept an optional `--partial-config` flag pointing to a parti
 
 ### Requirement: Kubernetes Context Targeting
 
-The command SHALL accept `--context` and `--namespace` flags. The namespace SHALL default to `ralph-webhook`.
+The command SHALL accept `--context` and `--namespace` flags. The namespace SHALL default to `ralph-webhook`. Context and namespace targeting follow the shared contract in [kubectl/spec.md](../../ralph/kubectl/spec.md).
 
 #### Scenario: Default namespace
 

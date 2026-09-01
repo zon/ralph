@@ -5,6 +5,7 @@
 - [argo](features/ralph/argo/spec.md) — Convenience CLI commands for inspecting and managing Argo Workflows created by ralph.
 - [command](features/ralph/command/spec.md) — Submit an arbitrary command as an Argo Workflow and stream its logs without AI iteration.
 - [get](features/ralph/get/spec.md) — Read-only commands that report which project items are complete and which are left, from the branch's commit trailers.
+- [kubectl](features/ralph/kubectl/spec.md) — Shared contract for every ralph CLI command that interacts with a Kubernetes cluster through kubectl: all such commands support `--context` and `--namespace` to target a cluster and namespace.
 - [logs](features/ralph/logs/spec.md) — Print the pod logs of a ralph-owned Argo Workflow, defaulting to the workflow at the top of the list and streaming with `--follow`.
 - [loop](features/ralph/loop/spec.md) — Bounded AI iteration loop over a configured or flag-supplied list of steps, committing to a `loop-<slug>` branch and opening a pull request when the loop ends, running with `--mode` in a Git worktree by default, in-process locally, or in an Argo Workflow.
 - [run](features/ralph/run/spec.md) — Primary entry point that drives an AI coding agent through iterative development cycles until every project item is complete, selecting the execution mode with `--mode`.
