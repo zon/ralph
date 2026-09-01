@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Convenience commands for inspecting and managing Argo Workflows created by ralph. Both commands scope to the ralph config namespace by default and support optional overrides for Kubernetes context and namespace. The shared `--context` and `--namespace` targeting contract is defined in [kubectl.md](kubectl.md).
+Convenience commands for inspecting and managing Argo Workflows created by ralph. Both commands scope to the ralph config namespace by default and support optional overrides for Kubernetes context and namespace. The shared `--context` and `--namespace` targeting contract is defined in [kube-options.md](kube-options.md).
 
 ## Requirements
 

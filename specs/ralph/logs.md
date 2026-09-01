@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Define the behavior of `ralph logs`, the command that prints the pod logs of a ralph-owned Argo Workflow. It takes an optional workflow name. When the name is omitted, ralph logs the workflow at the top of the `ralph list` output, the most recently created ralph workflow. Logs are printed once by default and streamed with `--follow` (`-f`). Like `ralph list` and `ralph stop`, it scopes to the ralph config namespace by default and supports overrides for Kubernetes context and namespace. The shared `--context` and `--namespace` targeting contract is defined in [kubectl.md](kubectl.md).
+Define the behavior of `ralph logs`, the command that prints the pod logs of a ralph-owned Argo Workflow. It takes an optional workflow name. When the name is omitted, ralph logs the workflow at the top of the `ralph list` output, the most recently created ralph workflow. Logs are printed once by default and streamed with `--follow` (`-f`). Like `ralph list` and `ralph stop`, it scopes to the ralph config namespace by default and supports overrides for Kubernetes context and namespace. The shared `--context` and `--namespace` targeting contract is defined in [kube-options.md](kube-options.md).
 
 ## Requirements
 

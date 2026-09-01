@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Submit an arbitrary command as an Argo Workflow on the current branch and stream its logs. Intended for testing ralph workflow configuration without AI iteration or PR creation. The shared `--context` and `--namespace` targeting contract is defined in [kubectl.md](kubectl.md).
+Submit an arbitrary command as an Argo Workflow on the current branch and stream its logs. Intended for testing ralph workflow configuration without AI iteration or PR creation. The shared `--context` and `--namespace` targeting contract is defined in [kube-options.md](kube-options.md).
 
 ## Requirements
 

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Behavior of the `remote` execution mode (`ralph run --mode remote`): submits an Argo Workflow to a Kubernetes cluster and returns after submission. The workflow runs ralph in a container, executing the development loop remotely. The shared `--context` and `--namespace` targeting contract is defined in [kubectl.md](kubectl.md).
+Behavior of the `remote` execution mode (`ralph run --mode remote`): submits an Argo Workflow to a Kubernetes cluster and returns after submission. The workflow runs ralph in a container, executing the development loop remotely. The shared `--context` and `--namespace` targeting contract is defined in [kube-options.md](kube-options.md).
 
 ## Requirements
 
