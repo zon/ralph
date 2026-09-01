@@ -45,6 +45,50 @@ See [Iterations](iterations.md) for the completion model.
 | `--watch` | Submit remotely and monitor progress |
 | `-B, --base` | Override base branch for PR creation |
 | `--no-services` | Skip service management |
+| `--context` | Kubernetes context to use |
+| `-n, --namespace` | Kubernetes namespace to use |
+
+## ralph loop
+
+`ralph loop` runs an AI iteration over a set of steps. Resolve the steps from a named [loop](config.md#loops) entry in `.ralph/config.yaml` by slug, or pass them directly with the repeated `--step` flag:
+
+```bash
+ralph loop update-deps
+ralph loop --step "check for outdated dependencies" --step "update the dependency manifest"
+```
+
+The execution mode resolves like a run: the `--mode` flag, then the `mode` field in `.ralph/config.yaml`, then `worktree`. Local mode runs the loop in the current checkout. Worktree mode runs it in a sibling git worktree on the `loop-<slug>` branch. Remote mode submits an Argo Workflow so the loop runs inside the workflow container, with `--follow` streaming its logs.
+
+### Flags
+
+| Flag | Description |
+|------|-------------|
+| `--step` | Step to run in the loop (repeatable) |
+| `--max` | Maximum number of iterations (default: 20) |
+| `--verbose` | Enable verbose logging |
+| `--mode` | Execution mode: `local`, `worktree` (default), or `remote` |
+| `-f, --follow` | Follow workflow logs after submission (only with `--mode remote`) |
+| `--no-notify` | Disable desktop notifications |
+| `--model` | Override the AI model from config |
+| `--context` | Kubernetes context to use |
+| `-n, --namespace` | Kubernetes namespace to use |
+
+## ralph command
+
+`ralph command` runs a single command inside a remote Ralph workflow container and streams its logs. The container clones the current branch, so the command runs against the checked-out branch:
+
+```bash
+ralph command go test ./...
+```
+
+### Flags
+
+| Flag | Description |
+|------|-------------|
+| `--no-follow` | Skip following workflow logs |
+| `--verbose` | Enable verbose logging |
+| `--context` | Kubernetes context to use |
+| `-n, --namespace` | Kubernetes namespace to use |
 
 ## ralph get
 
