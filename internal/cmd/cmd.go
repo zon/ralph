@@ -4,7 +4,7 @@ package cmd
 type Cmd struct {
 	// Subcommands
 	Run      RunCmd        `cmd:"" default:"withargs" help:"Execute ralph with a project file (default command)"`
-	Command  CommandCmd    `cmd:"" help:"Run a command in the ralph environment"`
+	Command  CommandCmd    `cmd:"" help:"Run a command in a remote Ralph workflow"`
 	Set      SetCmd        `cmd:"" help:"Configure ralph settings"`
 	Get      GetCmd        `cmd:"" help:"Report which items are complete and which are left"`
 	Workflow WorkflowGroup `cmd:"" help:"Run ralph workflow subcommands in a container"`
