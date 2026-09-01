@@ -314,11 +314,6 @@ func TestWorkflowRunCmdHelpText(t *testing.T) {
 	assert.Contains(t, output, "Run a project via the workflow engine")
 }
 
-func TestWorkflowCommentCmdHelpText(t *testing.T) {
-	output := captureHelpOutput(&Cmd{}, []string{"workflow", "comment", "--help"})
-	assert.Contains(t, output, "Run a comment-triggered workflow iteration")
-}
-
 func TestWorkflowCommandCmdHelpText(t *testing.T) {
 	output := captureHelpOutput(&Cmd{}, []string{"workflow", "command", "--help"})
 	assert.Contains(t, output, "Run an arbitrary command via workflow")
@@ -375,7 +370,6 @@ func TestWorkflowSubcommandsParsed(t *testing.T) {
 		args []string
 	}{
 		{name: "workflow run", args: []string{"workflow", "run", "--repo", "owner/repo", "--project-path", "test.yaml", "--base", "main"}},
-		{name: "workflow comment", args: []string{"workflow", "comment", "--repo", "owner/repo", "--project-branch", "feature", "--comment-body", "test", "--pr", "1", "--repo-owner", "owner", "--repo-name", "repo"}},
 		{name: "workflow command", args: []string{"workflow", "command", "--repo", "owner/repo", "echo", "hello"}},
 		{name: "workflow token", args: []string{"workflow", "token"}},
 	}
@@ -447,6 +441,13 @@ func TestTopLevelHelpListsNoMergeCommand(t *testing.T) {
 func TestWorkflowHelpListsNoMergeSubcommand(t *testing.T) {
 	output := captureHelpOutput(&Cmd{}, []string{"workflow", "--help"})
 	assert.NotContains(t, output, "merge")
+}
+
+// TestWorkflowHelpListsNoCommentSubcommand asserts the workflow group help
+// lists no comment subcommand now that the workflow comment feature is removed.
+func TestWorkflowHelpListsNoCommentSubcommand(t *testing.T) {
+	output := captureHelpOutput(&Cmd{}, []string{"workflow", "--help"})
+	assert.NotContains(t, output, "comment")
 }
 
 func TestExtraIterationsFlagParsing(t *testing.T) {

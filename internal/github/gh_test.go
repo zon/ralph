@@ -80,23 +80,6 @@ func TestGH_FindExistingPR(t *testing.T) {
 	})
 }
 
-func TestGH_PostComment(t *testing.T) {
-	t.Run("posts the comment successfully", func(t *testing.T) {
-		writeFakeGHScript(t, `exit 0`)
-		g := NewGH(nil)
-		err := g.PostComment(42, "done")
-		require.NoError(t, err)
-	})
-
-	t.Run("returns error on non-zero exit", func(t *testing.T) {
-		writeFakeGHScript(t, `echo "boom"; exit 1`)
-		g := NewGH(nil)
-		err := g.PostComment(42, "done")
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to post comment on PR #42")
-	})
-}
-
 func TestGH_ListCollaborators(t *testing.T) {
 	t.Run("returns logins", func(t *testing.T) {
 		writeFakeGHScript(t, `printf 'alice\nbob\ncharlie\n'`)

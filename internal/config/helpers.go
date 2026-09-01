@@ -1,9 +1,7 @@
 package config
 
 func Any() *RalphConfig {
-	cfg := &RalphConfig{
-		CommentInstructions: defaultCommentInstructions,
-	}
+	cfg := &RalphConfig{}
 	applyDefaults(cfg)
 	return cfg
 }

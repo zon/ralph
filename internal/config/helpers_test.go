@@ -1,7 +1,6 @@
 package config
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -18,8 +17,6 @@ func TestAny_ReturnsDefaultConfig(t *testing.T) {
 	assert.Empty(t, cfg.Before)
 	assert.Empty(t, cfg.Services)
 	assert.Empty(t, cfg.Instructions, "development instructions come from the prompt unless the repository supplies its own")
-	assert.NotEmpty(t, cfg.CommentInstructions)
-	assert.True(t, strings.Contains(cfg.CommentInstructions, "# Comment Instructions"))
 }
 
 func TestAny_ReturnsValidNonNilConfig(t *testing.T) {
@@ -36,7 +33,6 @@ func TestWithVariant_ReturnsBaselineConfig(t *testing.T) {
 	cfg := WithVariant("custom")
 	assert.Equal(t, "main", cfg.DefaultBranch)
 	assert.Equal(t, "deepseek/deepseek-chat", cfg.Model)
-	assert.NotEmpty(t, cfg.CommentInstructions)
 }
 
 func TestWithVariant_EmptyString(t *testing.T) {

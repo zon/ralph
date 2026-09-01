@@ -22,7 +22,6 @@ type GHClient interface {
 	IsReady() bool
 	FindExistingPR(head string) (string, error)
 	CreatePR(title, body, base, head string) (string, error)
-	PostComment(prNumber int, body string) error
 	ListCollaborators(ctx context.Context, owner, repo string) ([]string, error)
 }
 
@@ -118,13 +117,4 @@ func (g *GH) CreatePR(title, body, base, head string) (string, error) {
 	}
 
 	return parsePRURL(g.out, out.String())
-}
-
-func (g *GH) PostComment(prNumber int, body string) error {
-	cmd := exec.Command("gh", "pr", "comment", fmt.Sprintf("%d", prNumber), "--body", body)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("failed to post comment on PR #%d: %w (output: %s)", prNumber, err, output)
-	}
-	return nil
 }

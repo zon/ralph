@@ -12,9 +12,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-//go:embed comment-instructions.md
-var defaultCommentInstructions string
-
 //go:embed fix-service-instructions.md
 var defaultFixServiceInstructions string
 
@@ -374,29 +371,24 @@ type LoopConfig struct {
 
 // RalphConfig represents the .ralph/config.yaml structure
 type RalphConfig struct {
-	Variant             string         `yaml:"variant,omitempty"`
-	Mode                string         `yaml:"mode,omitempty"`    // Execution mode: local, worktree, or remote (default: worktree)
-	Items               string         `yaml:"items,omitempty"`   // jq query selecting the item array from a project file (default: .)
-	Cleanup             bool           `yaml:"cleanup,omitempty"` // Delete the project file once every item is complete (default: false)
-	Base                string         `yaml:"-"`                 // Base branch resolved by the caller, bounding the commit log completion is read from
-	ExtraIterations     *int           `yaml:"extraIterations,omitempty"`
-	DefaultBranch       string         `yaml:"defaultBranch,omitempty"`
-	Model               string         `yaml:"model,omitempty"` // AI model to use for coding and PR summary (default: deepseek/deepseek-chat)
-	Agent               string         `yaml:"agent,omitempty"` // opencode agent to use for coding (default: opencode's primary agent)
-	Before              []Before       `yaml:"before,omitempty"`
-	Services            []Service      `yaml:"services,omitempty"`
-	Workflow            WorkflowConfig `yaml:"workflow,omitempty"`
-	App                 AppInfo        `yaml:"app,omitempty"`
-	Review              ReviewConfig   `yaml:"review,omitempty"`
-	Validate            ValidateConfig `yaml:"validate,omitempty"`
-	Loops               []LoopConfig   `yaml:"loops,omitempty"`
-	ConfigPath          string         `yaml:"-"` // Path to the loaded config file
-	Instructions        string         `yaml:"-"` // Not persisted in YAML, loaded from .ralph/instructions.md
-	CommentInstructions string         `yaml:"-"` // Not persisted in YAML, loaded from .ralph/comment-instructions.md
-}
-
-func DefaultCommentInstructions() string {
-	return defaultCommentInstructions
+	Variant         string         `yaml:"variant,omitempty"`
+	Mode            string         `yaml:"mode,omitempty"`    // Execution mode: local, worktree, or remote (default: worktree)
+	Items           string         `yaml:"items,omitempty"`   // jq query selecting the item array from a project file (default: .)
+	Cleanup         bool           `yaml:"cleanup,omitempty"` // Delete the project file once every item is complete (default: false)
+	Base            string         `yaml:"-"`                 // Base branch resolved by the caller, bounding the commit log completion is read from
+	ExtraIterations *int           `yaml:"extraIterations,omitempty"`
+	DefaultBranch   string         `yaml:"defaultBranch,omitempty"`
+	Model           string         `yaml:"model,omitempty"` // AI model to use for coding and PR summary (default: deepseek/deepseek-chat)
+	Agent           string         `yaml:"agent,omitempty"` // opencode agent to use for coding (default: opencode's primary agent)
+	Before          []Before       `yaml:"before,omitempty"`
+	Services        []Service      `yaml:"services,omitempty"`
+	Workflow        WorkflowConfig `yaml:"workflow,omitempty"`
+	App             AppInfo        `yaml:"app,omitempty"`
+	Review          ReviewConfig   `yaml:"review,omitempty"`
+	Validate        ValidateConfig `yaml:"validate,omitempty"`
+	Loops           []LoopConfig   `yaml:"loops,omitempty"`
+	ConfigPath      string         `yaml:"-"` // Path to the loaded config file
+	Instructions    string         `yaml:"-"` // Not persisted in YAML, loaded from .ralph/instructions.md
 }
 
 func DefaultFixServiceInstructions() string {
@@ -566,24 +558,16 @@ func loadConfigFromPath(configPath string) (*RalphConfig, error) {
 	return &config, nil
 }
 
-// loadInstructions loads the instruction files from the config directory.
+// loadInstructions loads the instruction file from the config directory.
 // Development instructions are left empty when .ralph/instructions.md is
-// absent, so the prompt supplies its own default steps; the comment
-// instructions fall back to the embedded default.
-func loadInstructions(configDir string) (instructions, commentInstructions string) {
+// absent, so the prompt supplies its own default steps.
+func loadInstructions(configDir string) string {
 	instructionsPath := filepath.Join(configDir, "instructions.md")
+	var instructions string
 	if instructionsData, err := os.ReadFile(instructionsPath); err == nil {
 		instructions = string(instructionsData)
 	}
-
-	commentInstructionsPath := filepath.Join(configDir, "comment-instructions.md")
-	if data, err := os.ReadFile(commentInstructionsPath); err == nil {
-		commentInstructions = string(data)
-	} else {
-		commentInstructions = defaultCommentInstructions
-	}
-
-	return
+	return instructions
 }
 
 // LoadConfig searches upwards for a .ralph directory and loads config.yaml from it.
@@ -603,9 +587,7 @@ func LoadConfig() (*RalphConfig, error) {
 		return nil, err
 	}
 
-	instructions, commentInstructions := loadInstructions(configDir)
-	config.Instructions = instructions
-	config.CommentInstructions = commentInstructions
+	config.Instructions = loadInstructions(configDir)
 
 	applyDefaults(config)
 
