@@ -195,7 +195,7 @@ func worktreeCreateBranch(cmd *RunCmd) string {
 // Tests: mode resolution
 // ---------------------------------------------------------------------------
 
-func TestRunModeResolvesFlagThenConfigThenWorktree(t *testing.T) {
+func TestRunModeResolvesFlagThenConfigThenLocal(t *testing.T) {
 	t.Run("flag overrides configured mode", func(t *testing.T) {
 		cmd := runWithMocks(runWithConfig(configWithMode(config.ModeRemote)))
 		result, err := cmd.Run(loopFlagsWithMode(config.ModeLocal))
@@ -214,13 +214,13 @@ func TestRunModeResolvesFlagThenConfigThenWorktree(t *testing.T) {
 		require.True(t, cmd.remote.(*mockRemoteRunner).called, "remote is consulted when the config says remote")
 	})
 
-	t.Run("worktree default when flag and config unset", func(t *testing.T) {
+	t.Run("local default when flag and config unset", func(t *testing.T) {
 		cmd := runWithMocks()
 		result, err := cmd.Run(loopFlagsAny())
 		require.NoError(t, err)
-		require.NotNil(t, result, "worktree mode resolves the loop in-process")
-		require.True(t, worktreeCreated(cmd), "the worktree default creates a worktree")
-		require.False(t, cmd.remote.(*mockRemoteRunner).called, "remote is not consulted for the worktree default")
+		require.NotNil(t, result, "local mode resolves the loop in-process")
+		require.False(t, worktreeCreated(cmd), "the local default creates no worktree")
+		require.False(t, cmd.remote.(*mockRemoteRunner).called, "remote is not consulted for the local default")
 	})
 }
 
@@ -267,11 +267,11 @@ func TestRunFollowRejectedWhenWorktreeFromConfig(t *testing.T) {
 	require.False(t, worktreeCreated(cmd))
 }
 
-func TestRunFollowRejectedAgainstWorktreeDefault(t *testing.T) {
+func TestRunFollowRejectedAgainstLocalDefault(t *testing.T) {
 	cmd := runWithMocks()
 	_, err := cmd.Run(loopFlagsWithFollow())
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "--follow flag is not applicable with --mode worktree")
+	require.Contains(t, err.Error(), "--follow flag is not applicable with --mode local")
 	require.False(t, worktreeCreated(cmd))
 	require.False(t, cmd.remote.(*mockRemoteRunner).called)
 }

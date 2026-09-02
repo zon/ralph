@@ -23,7 +23,7 @@ import (
 // and runs it as an iteration loop. It retains the resolved slug and steps on
 // the command for the later loop phases. The execution mode resolves the same
 // way `ralph run` resolves it: the --mode flag, then the mode field in
-// .ralph/config.yaml, then worktree. --mode local runs the loop in-process on
+// .ralph/config.yaml, then local. --mode local runs the loop in-process on
 // the local machine, --mode worktree runs it in-process inside a sibling git
 // worktree on the loop-<slug> branch, and --mode remote submits an Argo
 // Workflow so the loop runs inside the workflow container. --follow is
@@ -39,7 +39,7 @@ type LoopCmd struct {
 	Steps     []string `help:"Step to run in the loop (repeatable)" name:"step"`
 	Max       int      `help:"Maximum number of iterations" name:"max" default:"20"`
 	Verbose   bool     `help:"Enable verbose logging" default:"false"`
-	Mode      string   `help:"Execution mode: local, worktree, or remote (default: worktree)" name:"mode" optional:""`
+	Mode      string   `help:"Execution mode: local, worktree, or remote (default: local)" name:"mode" optional:""`
 	Follow    bool     `help:"Follow workflow logs after submission (only applicable with --mode remote)" short:"f" default:"false"`
 	NoNotify  bool     `help:"Disable desktop notifications" default:"false"`
 	Model     string   `help:"The model to use in format of provider/model" name:"model" optional:"" short:"m"`

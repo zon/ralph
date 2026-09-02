@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Behavior of the `worktree` execution mode (`ralph run --mode worktree`): runs the full development loop in-process in a Git worktree created for the project branch, leaving the current checkout untouched. This is the default execution mode.
+Behavior of the `worktree` execution mode (`ralph run --mode worktree`): runs the full development loop in-process in a Git worktree created for the project branch, leaving the current checkout untouched.
 
 ## Requirements
 

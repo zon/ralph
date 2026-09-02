@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The `run` command is Ralph's primary entry point. Given a project file, an orchestration document, or a spec document, it drives an AI coding agent through iterative development cycles until every item in the project is recorded complete, then opens a GitHub pull request. A project file is any YAML or JSON file containing an array of work items. The array is selected with the [item query](../../docs/glossary.md#item-query), and completion is recorded in the branch's commit messages, not in the file. When an orchestration or spec is provided instead of a project, Ralph generates the missing artifacts and commits them before running. Execution runs in one of three modes selected with `--mode`: `worktree` (default), which runs the loop in-process in a local Git worktree, `local`, which runs it in-process in the current checkout, or `remote`, which submits an Argo Workflow to Kubernetes.
+The `run` command is Ralph's primary entry point. Given a project file, an orchestration document, or a spec document, it drives an AI coding agent through iterative development cycles until every item in the project is recorded complete, then opens a GitHub pull request. A project file is any YAML or JSON file containing an array of work items. The array is selected with the [item query](../../docs/glossary.md#item-query), and completion is recorded in the branch's commit messages, not in the file. When an orchestration or spec is provided instead of a project, Ralph generates the missing artifacts and commits them before running. Execution runs in one of three modes selected with `--mode`: `local` (default), which runs the loop in-process in the current checkout, `worktree`, which runs it in-process in a local Git worktree, or `remote`, which submits an Argo Workflow to Kubernetes.
 
 Mode-specific behaviors are defined in:
 - [run-local.md](run-local.md) — `local` mode: runs the development loop in-process in the current checkout
@@ -15,7 +15,7 @@ Mode-specific behaviors are defined in:
 
 The command SHALL accept `--mode` to select the execution mode. The option SHALL accept exactly one of `local`, `worktree`, or `remote`.
 
-Mode resolution follows a three-level precedence: `--mode` at the command line takes priority; otherwise the top-level `mode` field in `.ralph/config.yaml` is used; otherwise the mode defaults to `worktree`.
+Mode resolution follows a three-level precedence: `--mode` at the command line takes priority; otherwise the top-level `mode` field in `.ralph/config.yaml` is used; otherwise the mode defaults to `local`.
 
 - `local` runs the development loop in-process in the current checkout.
 - `worktree` runs the development loop in-process in a Git worktree created for the project branch, leaving the current checkout untouched; see [run-worktree.md](run-worktree.md).
@@ -44,11 +44,11 @@ The `--follow` and `--debug` flags are workflow-only and are rejected for `local
 - THEN an Argo Workflow is submitted to Kubernetes
 - AND the loop runs inside the workflow container
 
-#### Scenario: Default mode is `worktree`
+#### Scenario: Default mode is `local`
 
 - GIVEN neither `--mode` nor `mode` in `.ralph/config.yaml` is set
 - WHEN the command starts
-- THEN execution runs in `worktree` mode
+- THEN execution runs in `local` mode
 
 #### Scenario: Config mode used when no flag is passed
 

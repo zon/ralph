@@ -17,7 +17,7 @@ type RunCmd struct {
 	NoNotify        bool   `help:"Disable desktop notifications" default:"false"`
 	NoServices      bool   `help:"Skip service startup" default:"false"`
 	Verbose         bool   `help:"Enable verbose logging" default:"false"`
-	Mode            string `help:"Execution mode: local, worktree, or remote (default: worktree)" name:"mode" optional:""`
+	Mode            string `help:"Execution mode: local, worktree, or remote (default: local)" name:"mode" optional:""`
 	Follow          bool   `help:"Follow workflow logs after submission (only applicable with --mode remote)" short:"f" default:"false"`
 	Debug           string `help:"Checkout the given Ralph repo branch in the workflow container and invoke Ralph via 'go run' instead of the built binary (only applicable with --mode remote)" name:"debug" optional:""`
 	Base            string `help:"Override the base branch for PR creation (default: detects from current branch)" name:"base" optional:"" short:"B"`

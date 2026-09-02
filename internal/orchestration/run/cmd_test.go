@@ -568,7 +568,7 @@ func TestRunFollowAndDebugAcceptedForRemoteMode(t *testing.T) {
 // Scenario tests: mode resolution and rejection
 // ---------------------------------------------------------------------------
 
-func TestRunModeResolvesFlagThenConfigThenWorktree(t *testing.T) {
+func TestRunModeResolvesFlagThenConfigThenLocal(t *testing.T) {
 	t.Run("flag overrides configured mode", func(t *testing.T) {
 		cmd := cmdWithMocks(cmdWithConfig(configWithMode(config.ModeRemote)))
 		err := cmd.Run(flagsWithMode(config.ModeLocal))
@@ -585,13 +585,13 @@ func TestRunModeResolvesFlagThenConfigThenWorktree(t *testing.T) {
 		require.False(t, localRunLocalCalled(cmd))
 	})
 
-	t.Run("worktree default when flag and config unset", func(t *testing.T) {
+	t.Run("local default when flag and config unset", func(t *testing.T) {
 		cmd := cmdWithMocks()
 		err := cmd.Run(flagsAny())
 		require.NoError(t, err)
-		require.True(t, localRunLocalInWorktreeCalled(cmd))
+		require.True(t, localRunLocalCalled(cmd))
 		require.False(t, remoteRunCalled(cmd))
-		require.False(t, localRunLocalCalled(cmd))
+		require.False(t, localRunLocalInWorktreeCalled(cmd))
 	})
 }
 

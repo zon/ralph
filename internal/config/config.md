@@ -8,11 +8,11 @@ Ralph looks for `.ralph/config.yaml` in your project root. Every option is optio
 
 | Value | Description |
 |-------|-------------|
-| `worktree` | Runs the loop in-process in a Git worktree created in a sibling directory, leaving the current checkout untouched (default) |
-| `local` | Runs the loop in-process in the current checkout |
+| `local` | Runs the loop in-process in the current checkout (default) |
+| `worktree` | Runs the loop in-process in a Git worktree created in a sibling directory, leaving the current checkout untouched |
 | `remote` | Submits an Argo Workflow to Kubernetes and runs the loop in the container |
 
-`--mode` on the command line takes priority over this field, which takes priority over the `worktree` default.
+`--mode` on the command line takes priority over this field, which takes priority over the `local` default.
 
 ```yaml
 mode: remote

@@ -18,7 +18,7 @@
 
 **IMPORTANT**: Before writing any tests, read [docs/testing.md](docs/testing.md) to understand patterns and conventions.
 
-**WARNING**: Be careful when executing ralph with `--mode local` or the default `--mode worktree`, as they apply changes to the local repository.
+**WARNING**: Be careful when executing ralph in the default `--mode local` or in `--mode worktree`, as they apply changes to the local repository.
 
 ## Installed Standards
 

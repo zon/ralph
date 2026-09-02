@@ -50,10 +50,10 @@ func TestModeFlagValidation(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name:        "follow alone should fail with the worktree default",
+			name:        "follow alone should fail with the local default",
 			args:        []string{"run", "--follow", "test.yaml"},
 			expectError: true,
-			errorMsg:    "--follow flag is not applicable with --mode worktree",
+			errorMsg:    "--follow flag is not applicable with --mode local",
 		},
 		{
 			name:        "debug with local should fail",
@@ -197,11 +197,11 @@ func TestFlagParsing(t *testing.T) {
 }
 
 // validateRunFlags extracts the validation logic for testing. The mode
-// resolves as the --mode flag when passed, otherwise the worktree default.
+// resolves as the --mode flag when passed, otherwise the local default.
 func validateRunFlags(r *RunCmd) error {
 	mode := r.Mode
 	if mode == "" {
-		mode = config.ModeWorktree
+		mode = config.ModeLocal
 	}
 	if r.Follow && (mode == config.ModeLocal || mode == config.ModeWorktree) {
 		return fmt.Errorf("--follow flag is not applicable with --mode %s", mode)

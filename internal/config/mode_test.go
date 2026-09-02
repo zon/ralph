@@ -51,7 +51,7 @@ func TestLoadConfig_ModeField(t *testing.T) {
 	}
 }
 
-func TestLoadConfig_ModeDefaultsToWorktree(t *testing.T) {
+func TestLoadConfig_ModeDefaultsToLocal(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	ralphDir := filepath.Join(tmpDir, ".ralph")
@@ -64,7 +64,7 @@ func TestLoadConfig_ModeDefaultsToWorktree(t *testing.T) {
 
 	config, err := LoadConfig()
 	require.NoError(t, err, "LoadConfig() unexpected error")
-	assert.Equal(t, "worktree", config.Mode)
+	assert.Equal(t, "local", config.Mode)
 }
 
 func TestLoadConfig_InvalidModeRejected(t *testing.T) {
@@ -119,11 +119,11 @@ func TestResolveMode(t *testing.T) {
 		assert.Equal(t, "remote", mode)
 	})
 
-	t.Run("worktree default when flag and config unset", func(t *testing.T) {
+	t.Run("local default when flag and config unset", func(t *testing.T) {
 		cfg := &RalphConfig{}
 		mode, err := cfg.ResolveMode("")
 		require.NoError(t, err)
-		assert.Equal(t, "worktree", mode)
+		assert.Equal(t, "local", mode)
 	})
 
 	t.Run("invalid flag value rejected", func(t *testing.T) {

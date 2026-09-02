@@ -329,7 +329,7 @@ const (
 	ModeLocal    = "local"
 	ModeWorktree = "worktree"
 	ModeRemote   = "remote"
-	DefaultMode  = ModeWorktree
+	DefaultMode  = ModeLocal
 )
 
 var validModes = map[string]bool{
@@ -375,7 +375,7 @@ type LoopConfig struct {
 // RalphConfig represents the .ralph/config.yaml structure
 type RalphConfig struct {
 	Variant         string         `yaml:"variant,omitempty"`
-	Mode            string         `yaml:"mode,omitempty"`    // Execution mode: local, worktree, or remote (default: worktree)
+	Mode            string         `yaml:"mode,omitempty"`    // Execution mode: local, worktree, or remote (default: local)
 	Items           string         `yaml:"items,omitempty"`   // jq query selecting the item array from a project file (default: .)
 	Cleanup         bool           `yaml:"cleanup,omitempty"` // Delete the project file once every item is complete (default: false)
 	Base            string         `yaml:"-"`                 // Base branch resolved by the caller, bounding the commit log completion is read from
@@ -504,7 +504,7 @@ func (c *RalphConfig) ResolveCleanup(flag *bool) bool {
 }
 
 // ResolveMode returns the effective execution mode for a run: the flag when
-// passed, otherwise the config `mode` field, otherwise worktree. A mode value
+// passed, otherwise the config `mode` field, otherwise local. A mode value
 // other than local, worktree, or remote is rejected with a descriptive error.
 func (c *RalphConfig) ResolveMode(flag string) (string, error) {
 	mode := c.Mode

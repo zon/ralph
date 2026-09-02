@@ -43,9 +43,9 @@ type WorkspaceClient interface {
 }
 
 // RunCmd orchestrates the ralph loop command. It resolves the execution mode
-// as the --mode flag, then the mode field in .ralph/config.yaml, then
-// worktree, the same resolution `ralph run` uses, validates the flags against
-// it, and dispatches between local, worktree, and remote execution. It returns
+// as the --mode flag, then the mode field in .ralph/config.yaml, then local,
+// the same resolution `ralph run` uses, validates the flags against it, and
+// dispatches between local, worktree, and remote execution. It returns
 // the resolved slug and steps for the in-process modes so the caller can retain
 // them.
 type RunCmd struct {
