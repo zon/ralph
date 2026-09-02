@@ -114,5 +114,4 @@ See [OpenCode authentication docs](https://opencode.ai/docs/cli/#auth) for setup
 
 - CLI reference: run `ralph --help`
 - [Project files](internal/projectfile/project.md)
-- [Remote execution workflows](docs/workflows.md)
 - [Configuration reference](internal/config/config.md)
