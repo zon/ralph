@@ -75,7 +75,7 @@ requirements:
       - Session tokens expire after 24 hours
 ```
 
-Ralph never writes to the project file during a run. An item's `slug`, `id`, or `name` just labels it in logs and picker output. See [Project Files](docs/projects.md).
+Ralph never writes to the project file during a run. An item's `slug`, `id`, or `name` just labels it in logs and picker output. See [Project Files](internal/projectfile/project.md).
 
 The spec, orchestration, architecture, and project conventions are published separately and installed into a repository at `docs/zpecs/`. See the [specs repository](https://github.com/zon/specs). Ralph itself only runs what it is given.
 
@@ -113,6 +113,6 @@ See [OpenCode authentication docs](https://opencode.ai/docs/cli/#auth) for setup
 ## More
 
 - CLI reference: run `ralph --help`
-- [Project files](docs/projects.md)
+- [Project files](internal/projectfile/project.md)
 - [Remote execution workflows](docs/workflows.md)
 - [Configuration reference](internal/config/config.md)

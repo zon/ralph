@@ -88,7 +88,7 @@ When the input is a **spec document**, the command generates an orchestration do
 
 The command SHALL resolve the item array by evaluating the item query supplied by the caller (see [run.md](run.md)) against the parsed project file, and SHALL do so exactly once, before the first iteration. Every iteration SHALL use that same resolved array, so an item's index means the same thing from the first iteration to the last.
 
-Resolution discards empty outputs, so the resolved array is either empty or made entirely of non-empty items. See [the project file format](../../docs/projects.md#item-query). An empty resolved array SHALL abort the run before the first iteration, because a run with nothing to do MUST NOT reach the pull request step as though the project had completed.
+Resolution discards empty outputs, so the resolved array is either empty or made entirely of non-empty items. See [the item query](../../docs/glossary.md#item-query). An empty resolved array SHALL abort the run before the first iteration, because a run with nothing to do MUST NOT reach the pull request step as though the project had completed.
 
 #### Scenario: Query resolved before the first iteration
 

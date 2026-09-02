@@ -2,7 +2,7 @@
 
 ## Project
 
-Any YAML or JSON file that contains an array of work items. Ralph imposes no schema on a project file. It reads an array out of it with the item query and treats everything else as opaque context for the AI agent. See [Project Files](projects.md).
+Any YAML or JSON file that contains an array of work items. Ralph imposes no schema on a project file. It reads an array out of it with the item query and treats everything else as opaque context for the AI agent. See [Project Files](../internal/projectfile/project.md).
 
 ## Item
 
@@ -10,7 +10,7 @@ One element of a project's resolved array, and the unit of one iteration. An ite
 
 ## Item Query
 
-A [jq](https://jqlang.org/manual/) expression that resolves a project file to its item array. Defaults to `.`, which fits a file whose top level is already an array. Configured with `items` in `.ralph/config.yaml` or `--items`.
+A [jq](https://jqlang.org/manual/) expression that resolves a project file to its item array. Defaults to `.`, which fits a file whose top level is already an array. Configured with `items` in `.ralph/config.yaml` or `--items`. Resolution collects the query's outputs: one output that is an array makes its elements the items, and any other case makes each output an item. Empty outputs are dropped before indices are assigned.
 
 ## Item Key
 

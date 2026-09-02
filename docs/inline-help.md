@@ -4,7 +4,7 @@ How to write the doc files built into the Ralph app: the markdown documents that
 
 ## Scope
 
-The guide covers the markdown documents the app itself displays: the configuration reference behind `ralph help config` and the project file guide behind `ralph help project`. Those are embedded from [../internal/config/config.md](../internal/config/config.md) and [../internal/projectfile/project.md](../internal/projectfile/project.md). It does not cover repository guides like [projects.md](projects.md) or prompt instructions fed to agents.
+The guide covers the markdown documents the app itself displays: the configuration reference behind `ralph help config` and the project file guide behind `ralph help project`. Those are embedded from [../internal/config/config.md](../internal/config/config.md) and [../internal/projectfile/project.md](../internal/projectfile/project.md). It does not cover repository guides like [workflows.md](workflows.md) or prompt instructions fed to agents.
 
 ## References
 

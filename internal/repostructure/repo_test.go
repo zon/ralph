@@ -118,6 +118,7 @@ func TestNoDanglingReferencesToRemovedDocuments(t *testing.T) {
 		"docs/prompts.md",
 		"docs/cli.md",
 		"docs/iterations.md",
+		"docs/projects.md",
 	}
 	for _, rel := range files(t) {
 		if isTestFile(rel) {
@@ -131,22 +132,22 @@ func TestNoDanglingReferencesToRemovedDocuments(t *testing.T) {
 	}
 }
 
-func TestProjectMechanicsSurviveTheSplit(t *testing.T) {
-	// GIVEN docs/projects.md
+func TestProjectGuideDocumentsItemQueryMechanics(t *testing.T) {
+	// GIVEN the embedded project guide behind `ralph help project`
 	// WHEN a reader looks for how an item index is assigned
-	// THEN the resolution rules and the dropping of empty outputs are still documented
-	content := string(readRepoFile(t, "docs/projects.md"))
+	// THEN the resolution rules and the dropping of empty outputs are documented there
+	content := string(readRepoFile(t, "internal/projectfile/project.md"))
 	assert.Contains(t, content, "## Item Query")
 	assert.Contains(t, content, "Dropping happens before indices are assigned")
 	assert.Contains(t, content, "item query yielded no items")
 }
 
-func TestProjectOpinionDoesNotSurviveTheSplit(t *testing.T) {
-	// GIVEN docs/projects.md
-	// WHEN a reader looks for the requirements list or a code entry
-	// THEN the document defers to docs/zpecs/project.md instead of describing them
-	content := string(readRepoFile(t, "docs/projects.md"))
-	assert.Contains(t, content, "[Project Format](zpecs/project.md)")
+func TestProjectGuideLeavesShapeToTheProjectFormat(t *testing.T) {
+	// GIVEN the embedded project guide behind `ralph help project`
+	// WHEN a reader looks for the conventional item shape
+	// THEN the guide points outside Ralph instead of describing it
+	content := string(readRepoFile(t, "internal/projectfile/project.md"))
+	assert.Contains(t, content, "defined outside Ralph")
 	assert.NotContains(t, content, "## Requirements")
 	assert.NotContains(t, content, "## Items")
 	assert.NotContains(t, content, "## Code and Tests")
@@ -170,7 +171,7 @@ func TestUserFacingDocsDescribeBareTrailer(t *testing.T) {
 	for _, rel := range []string{
 		"README.md",
 		"docs/glossary.md",
-		"docs/projects.md",
+		"internal/projectfile/project.md",
 		"internal/config/config.md",
 	} {
 		content := string(readRepoFile(t, rel))
