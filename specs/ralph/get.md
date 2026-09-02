@@ -187,6 +187,25 @@ The system SHALL treat a commit as recording an item complete when its message c
 
 ---
 
+### Requirement: Complete JSON Output
+
+`ralph get complete` SHALL accept a `--json` flag that prints the same sorted and deduplicated hashes as a JSON array instead of one hash per line.
+
+#### Scenario: Completed hashes printed as a JSON array
+
+- GIVEN the branch's commit log records items 2, 0, and 3 complete
+- WHEN `ralph get complete --json` runs
+- THEN the three item hashes are printed to stdout as a JSON array
+- AND the command exits with status 0
+
+#### Scenario: Nothing complete prints an empty array
+
+- GIVEN no commit on the branch carries a completion trailer
+- WHEN `ralph get complete --json` runs
+- THEN `[]` is printed to stdout
+
+---
+
 ### Requirement: Incomplete Output
 
 `ralph get incomplete` SHALL resolve the item array, remove the items reported complete, and print the remaining items to stdout as a JSON array in their original array order.
@@ -205,19 +224,6 @@ The system SHALL treat a commit as recording an item complete when its message c
 - WHEN `ralph get incomplete <file>` runs
 - THEN `[]` is printed to stdout
 - AND the command exits with status 0
-
----
-
-### Requirement: Incomplete Index Output
-
-`ralph get incomplete` SHALL accept an `--index` flag that emits the indices of the incomplete items rather than the items themselves, in the same JSON array form.
-
-#### Scenario: Indices emitted instead of items
-
-- GIVEN a project resolving to 5 items
-- AND items 0, 2, and 3 are recorded complete
-- WHEN `ralph get incomplete <file> --index` runs
-- THEN `[1, 4]` is printed to stdout
 
 ---
 

@@ -13,7 +13,7 @@ import (
 // GetCmd is the read-only `ralph get` command group.
 type GetCmd struct {
 	Complete   GetCompleteCmd   `cmd:"" help:"List the completion hashes recorded in the commit log of this branch"`
-	Incomplete GetIncompleteCmd `cmd:"" help:"List the items that are not complete"`
+	Incomplete GetIncompleteCmd `cmd:"" help:"List project items not complete in this branch"`
 }
 
 // GetCompleteCmd reports which items are recorded complete. The project file
@@ -23,6 +23,7 @@ type GetCompleteCmd struct {
 	ProjectFile string `arg:"" optional:"" help:"Path to project file (optional)"`
 	Items       string `help:"jq query selecting the project item list (default: .)" name:"items" short:"i"`
 	Base        string `help:"Base branch bounding the commit log" name:"base" short:"B"`
+	JSON        bool   `help:"Print the hashes as a JSON array" name:"json"`
 }
 
 func (c *GetCompleteCmd) Run() error {
@@ -37,6 +38,7 @@ func (c *GetCompleteCmd) Run() error {
 		ProjectFile: c.ProjectFile,
 		Items:       c.Items,
 		Base:        c.Base,
+		JSON:        c.JSON,
 	})
 }
 
@@ -46,7 +48,6 @@ type GetIncompleteCmd struct {
 	ProjectFile string `arg:"" help:"Path to project file"`
 	Items       string `help:"jq query selecting the project item list (default: .)" name:"items" short:"i"`
 	Base        string `help:"Base branch bounding the commit log" name:"base" short:"B"`
-	Index       bool   `help:"Emit indices instead of items" name:"index"`
 }
 
 func (c *GetIncompleteCmd) Run() error {
@@ -61,5 +62,5 @@ func (c *GetIncompleteCmd) Run() error {
 		ProjectFile: c.ProjectFile,
 		Items:       c.Items,
 		Base:        c.Base,
-	}, c.Index)
+	})
 }

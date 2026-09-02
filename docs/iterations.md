@@ -91,9 +91,6 @@ IYAWN02
 
 $ ralph get incomplete projects/csv-export.yaml       # the items that are left
 [{"slug": "export-endpoint", ...}, {"slug": "export-error-handling", ...}]
-
-$ ralph get incomplete projects/csv-export.yaml --index
-[1, 3]
 ```
 
 `ralph get complete` needs only the branch and the base. It parses trailers and nothing else, so it works even after the project file has been removed. `ralph get incomplete` is that result subtracted from the resolved item array. An empty array from it is the loop's exit condition, and its non-empty output is what the picker chooses from. Both are read-only and make no AI calls, which makes them the way to check on a run in progress or debug a stuck one. See [CLI reference](cli.md#ralph-get).

@@ -108,7 +108,14 @@ IYAWN02
 9d8LxCD
 ```
 
-The project file is optional. When given, trailers whose hash matches no resolved item are dropped. Without it, every current-branch trailer found in the log is reported. Prints nothing and exits 0 when nothing is complete.
+Pass `--json` to receive the same hashes as a JSON array:
+
+```bash
+$ ralph get complete --json
+["IYAWN02","9d8LxCD"]
+```
+
+The project file is optional. When given, trailers whose hash matches no resolved item are dropped. Without it, every current-branch trailer found in the log is reported. Prints nothing and exits 0 when nothing is complete; with `--json` an empty list prints as `[]`.
 
 ### ralph get incomplete
 
@@ -125,13 +132,6 @@ Resolves the item array, removes the items reported by `ralph get complete`, and
 ]
 ```
 
-Pass `--index` to get the items' 0-based array positions instead of the items themselves:
-
-```bash
-$ ralph get incomplete projects/csv-export.yaml --index
-[1, 4]
-```
-
 An empty array means every item is complete: that condition ends the iteration loop.
 
 ### Flags
@@ -140,7 +140,7 @@ An empty array means every item is complete: that condition ends the iteration l
 |------|-------------|
 | `-i, --items` | jq query selecting the project item list (default: `.`) |
 | `-B, --base` | Base branch bounding the commit log (default: config `defaultBranch`) |
-| `--index` | `incomplete` only: emit indices rather than items |
+| `--json` | `complete` only: print the hashes as a JSON array |
 
 ## ralph validate
 

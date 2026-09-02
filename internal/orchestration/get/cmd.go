@@ -33,17 +33,20 @@ func NewCmd(project ProjectClient, out io.Writer) *Cmd {
 	return &Cmd{project: project, out: out}
 }
 
-// Flags carries the flags shared by both get subcommands.
+// Flags carries the flags shared by both get subcommands plus the per-command
+// output options exposed on the CLI. JSON, exposed only by complete, requests
+// a JSON array of hashes instead of one hash per line.
 type Flags struct {
 	ProjectFile string
 	Items       string
 	Base        string
+	JSON        bool
 }
 
 // Complete prints the hashes recorded complete in the branch commit log, one
-// per line. When a project file is given, its resolved item array bounds the
-// reported hashes; without one every trailer found in the log is reported
-// without a range check.
+// per line, or as a JSON array when flags.JSON is set. When a project file is
+// given, its resolved item array bounds the reported hashes; without one every
+// trailer found in the log is reported without a range check.
 func (c *Cmd) Complete(cfg *config.RalphConfig, flags Flags) error {
 	var proj *project.Project
 	if flags.ProjectFile != "" {
@@ -57,6 +60,9 @@ func (c *Cmd) Complete(cfg *config.RalphConfig, flags Flags) error {
 	if err != nil {
 		return err
 	}
+	if flags.JSON {
+		return output.PrintJSON(c.out, complete)
+	}
 	for _, hash := range complete {
 		if _, err := fmt.Fprintln(c.out, hash); err != nil {
 			return err
@@ -66,9 +72,8 @@ func (c *Cmd) Complete(cfg *config.RalphConfig, flags Flags) error {
 }
 
 // Incomplete requires a project file and prints the items whose indices are
-// not recorded complete, in array order. When indexOnly is true it prints the
-// indices of those items instead of the items themselves.
-func (c *Cmd) Incomplete(cfg *config.RalphConfig, flags Flags, indexOnly bool) error {
+// not recorded complete, in array order.
+func (c *Cmd) Incomplete(cfg *config.RalphConfig, flags Flags) error {
 	if flags.ProjectFile == "" {
 		return errors.New("project file path is required")
 	}
@@ -79,9 +84,6 @@ func (c *Cmd) Incomplete(cfg *config.RalphConfig, flags Flags, indexOnly bool) e
 	incomplete, err := c.project.Incomplete(proj, resolveBase(flags.Base, cfg.DefaultBranch))
 	if err != nil {
 		return err
-	}
-	if indexOnly {
-		return output.PrintJSON(c.out, project.ItemIndices(incomplete))
 	}
 	return output.PrintJSON(c.out, project.ItemValues(incomplete))
 }

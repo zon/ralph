@@ -66,15 +66,6 @@ func (it Item) Hash() string {
 	return trailer.Hash(it.Text())
 }
 
-// ItemIndices returns the 0-based index of each item, in array order.
-func ItemIndices(items []Item) []int {
-	indices := make([]int, len(items))
-	for i, it := range items {
-		indices[i] = it.Index
-	}
-	return indices
-}
-
 // ItemValues returns the raw value of each item, in array order.
 func ItemValues(items []Item) []any {
 	values := make([]any, len(items))

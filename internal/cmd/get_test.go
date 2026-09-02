@@ -11,7 +11,7 @@ import (
 func TestGetCmdHelpListsCompleteAndIncomplete(t *testing.T) {
 	output := captureHelpOutput(&Cmd{}, []string{"get", "--help"})
 	assert.Contains(t, output, "List the completion hashes recorded in the commit log of this branch")
-	assert.Contains(t, output, "List the items that are not complete")
+	assert.Contains(t, output, "List project items not complete in this branch")
 }
 
 func TestGetCompleteCmdHelpText(t *testing.T) {
@@ -19,12 +19,13 @@ func TestGetCompleteCmdHelpText(t *testing.T) {
 	assert.Contains(t, output, "List the completion hashes recorded in the commit log of this branch")
 	assert.Contains(t, output, "jq query selecting the project item list (default: .)")
 	assert.Contains(t, output, "Base branch bounding the commit log")
+	assert.Contains(t, output, "Print the hashes as a JSON array")
 }
 
 func TestGetIncompleteCmdHelpText(t *testing.T) {
 	output := captureHelpOutput(&Cmd{}, []string{"get", "incomplete", "--help"})
-	assert.Contains(t, output, "List the items that are not complete")
-	assert.Contains(t, output, "Emit indices instead of items")
+	assert.Contains(t, output, "List project items not complete in this branch")
+	assert.NotContains(t, output, "index")
 }
 
 func TestGetCommandsParsed(t *testing.T) {
@@ -36,8 +37,8 @@ func TestGetCommandsParsed(t *testing.T) {
 		{name: "get complete with file", args: []string{"get", "complete", "projects/csv-export.yaml"}},
 		{name: "get complete with items and base", args: []string{"get", "complete", "--items", ".requirements", "--base", "main", "p.yaml"}},
 		{name: "get complete short base", args: []string{"get", "complete", "-B", "main", "p.yaml"}},
+		{name: "get complete with json", args: []string{"get", "complete", "--json", "projects/csv-export.yaml"}},
 		{name: "get incomplete", args: []string{"get", "incomplete", "p.yaml"}},
-		{name: "get incomplete with index", args: []string{"get", "incomplete", "--index", "p.yaml"}},
 	}
 
 	for _, tt := range tests {

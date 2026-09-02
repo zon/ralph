@@ -97,8 +97,12 @@ func TestScenarioRepositoryLeftUntouched(t *testing.T) {
 	assert.Equal(t, itemHash("item 0")+"\n", buf.String(), "resolved item array bounds the reported hashes")
 
 	buf.Reset()
-	require.NoError(t, cmd.Incomplete(cfg, Flags{ProjectFile: projectPath}, true))
-	assert.Equal(t, "[1,2]", strings.TrimSpace(buf.String()), "the remaining items are the ones without a trailer")
+	require.NoError(t, cmd.Complete(cfg, Flags{ProjectFile: projectPath, JSON: true}))
+	assert.Equal(t, `["`+itemHash("item 0")+`"]`+"\n", buf.String(), "--json prints the hashes as a JSON array")
+
+	buf.Reset()
+	require.NoError(t, cmd.Incomplete(cfg, Flags{ProjectFile: projectPath}))
+	assert.Equal(t, `["item 1","item 2"]`, strings.TrimSpace(buf.String()), "the remaining items are the ones without a trailer")
 
 	assert.False(t, git.HasUncommittedChanges(), "the working tree must remain clean")
 	branchAfter, err := git.GetCurrentBranch()
