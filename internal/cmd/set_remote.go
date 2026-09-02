@@ -16,8 +16,8 @@ import (
 type SetRemoteCmd struct {
 	GithubKey   string `help:"Path to GitHub App private key (.pem file)" name:"github-key" optional:""`
 	GithubToken string `help:"GitHub personal access token" name:"github-token" optional:""`
-	Context     string `help:"Kubernetes context to use" name:"context" optional:""`
-	Namespace   string `help:"Kubernetes namespace to use" short:"n" optional:""`
+	Context     string `help:"The name of the Kubernetes context to use" name:"context" optional:""`
+	Namespace   string `help:"The name of the Kubernetes namespace to use" short:"n" optional:""`
 }
 
 func (c *SetRemoteCmd) Run() error {

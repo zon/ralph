@@ -45,8 +45,8 @@ See [Iterations](iterations.md) for the completion model.
 | `--watch` | Submit remotely and monitor progress |
 | `-B, --base` | Override base branch for PR creation |
 | `--no-services` | Skip service management |
-| `--context` | Kubernetes context to use |
-| `-n, --namespace` | Kubernetes namespace to use |
+| `--context` | The name of the Kubernetes context to use |
+| `-n, --namespace` | The name of the Kubernetes namespace to use |
 
 ## ralph loop
 
@@ -69,9 +69,9 @@ The execution mode resolves like a run: the `--mode` flag, then the `mode` field
 | `--mode` | Execution mode: `local`, `worktree` (default), or `remote` |
 | `-f, --follow` | Follow workflow logs after submission (only with `--mode remote`) |
 | `--no-notify` | Disable desktop notifications |
-| `--model` | Override the AI model from config |
-| `--context` | Kubernetes context to use |
-| `-n, --namespace` | Kubernetes namespace to use |
+| `-m, --model` | The model to use in format of provider/model |
+| `--context` | The name of the Kubernetes context to use |
+| `-n, --namespace` | The name of the Kubernetes namespace to use |
 
 ## ralph command
 
@@ -87,8 +87,8 @@ ralph command go test ./...
 |------|-------------|
 | `--no-follow` | Skip following workflow logs |
 | `--verbose` | Enable verbose logging |
-| `--context` | Kubernetes context to use |
-| `-n, --namespace` | Kubernetes namespace to use |
+| `--context` | The name of the Kubernetes context to use |
+| `-n, --namespace` | The name of the Kubernetes namespace to use |
 
 ## ralph get
 
@@ -181,11 +181,11 @@ ralph review
 | Flag | Description |
 |------|-------------|
 | `-p, --project` | Path to output project YAML file (default: `projects/review-YYYY-MM-DD.yaml`) |
-| `-m, --model` | Override AI model from config |
+| `-m, --model` | The model to use in format of provider/model |
 | `-B, --base` | Override base branch for PR creation |
 | `--mode` | Execution mode: `local`, `worktree` (default), or `remote` |
 | `--verbose` | Enable verbose logging |
-| `--context` | Kubernetes context to use |
+| `--context` | The name of the Kubernetes context to use |
 
 ## Other Commands
 
@@ -207,8 +207,8 @@ The OpenCode credentials are read from `~/.local/share/opencode/auth.json`.
 |------|-------------|
 | `--github-key` | Path to a GitHub App private key (`.pem` file) |
 | `--github-token` | GitHub personal access token |
-| `--context` | Kubernetes context to use |
-| `-n, --namespace` | Kubernetes namespace to target |
+| `--context` | The name of the Kubernetes context to use |
+| `-n, --namespace` | The name of the Kubernetes namespace to use |
 
 Use `--context` and `--namespace` to target a specific cluster:
 

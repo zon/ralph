@@ -16,8 +16,8 @@ type CommandCmd struct {
 	Command   []string `arg:"" name:"command" help:"Command to run" optional:""`
 	NoFollow  bool     `help:"Skip following workflow logs" name:"no-follow" default:"false"`
 	Verbose   bool     `help:"Enable verbose logging" default:"false"`
-	Context   string   `help:"Kubernetes context to use" name:"context" optional:""`
-	Namespace string   `help:"Kubernetes namespace to use" name:"namespace" short:"n" optional:""`
+	Context   string   `help:"The name of the Kubernetes context to use" name:"context" optional:""`
+	Namespace string   `help:"The name of the Kubernetes namespace to use" name:"namespace" short:"n" optional:""`
 }
 
 func (c *CommandCmd) Run() error {

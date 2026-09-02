@@ -42,10 +42,10 @@ type LoopCmd struct {
 	Mode      string   `help:"Execution mode: local, worktree, or remote (default: worktree)" name:"mode" optional:""`
 	Follow    bool     `help:"Follow workflow logs after submission (only applicable with --mode remote)" short:"f" default:"false"`
 	NoNotify  bool     `help:"Disable desktop notifications" default:"false"`
-	Model     string   `help:"Override the AI model from config" name:"model" optional:""`
-	Variant   string   `help:"Override the model variant from config" name:"variant" optional:""`
-	Context   string   `help:"Kubernetes context to use" name:"context" optional:""`
-	Namespace string   `help:"Kubernetes namespace to use" name:"namespace" short:"n" optional:""`
+	Model     string   `help:"The model to use in format of provider/model" name:"model" optional:"" short:"m"`
+	Variant   string   `help:"The model variant (provider-specific reasoning effort, e.g., high, max, minimal)" name:"variant" optional:""`
+	Context   string   `help:"The name of the Kubernetes context to use" name:"context" optional:""`
+	Namespace string   `help:"The name of the Kubernetes namespace to use" name:"namespace" short:"n" optional:""`
 
 	// slugProposer proposes a branch slug from steps. Tests inject a fake. When
 	// nil, buildLoopCmd builds the real adapter that consults the AI.

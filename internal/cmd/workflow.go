@@ -21,9 +21,9 @@ type WorkflowRunCmd struct {
 	NoServices      bool   `help:"Skip service startup" default:"false"`
 	InstructionsMD  string `help:"Inline instructions content" name:"instructions-md"`
 	ExtraIterations int    `help:"Extra iterations beyond requirement count (default: 20% of requirements)" name:"extra-iterations"`
-	Model           string `help:"Override the AI model from config" name:"model"`
+	Model           string `help:"The model to use in format of provider/model" name:"model" short:"m"`
 	Agent           string `help:"Override the opencode agent from config" name:"agent"`
-	Variant         string `help:"Override the model variant from config" name:"variant"`
+	Variant         string `help:"The model variant (provider-specific reasoning effort, e.g., high, max, minimal)" name:"variant"`
 }
 
 func (w *WorkflowRunCmd) Run() error {

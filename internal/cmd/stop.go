@@ -6,8 +6,8 @@ import (
 
 type StopCmd struct {
 	WorkflowName string `arg:"" help:"Name of the workflow to stop"`
-	Context      string `help:"Kubernetes context to use"`
-	Namespace    string `help:"Kubernetes namespace to use" short:"n"`
+	Context      string `help:"The name of the Kubernetes context to use"`
+	Namespace    string `help:"The name of the Kubernetes namespace to use" short:"n"`
 }
 
 func (s *StopCmd) Run() error {

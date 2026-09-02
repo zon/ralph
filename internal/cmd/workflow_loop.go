@@ -26,9 +26,9 @@ type WorkflowLoopCmd struct {
 	Steps       []string `help:"Step to run in the loop (repeatable)" name:"step"`
 	Max         int      `help:"Maximum number of iterations" name:"max" default:"20"`
 	Verbose     bool     `help:"Enable verbose logging" default:"false"`
-	Model       string   `help:"Override the AI model from config" name:"model"`
+	Model       string   `help:"The model to use in format of provider/model" name:"model" short:"m"`
 	Agent       string   `help:"Override the opencode agent from config" name:"agent"`
-	Variant     string   `help:"Override the model variant from config" name:"variant"`
+	Variant     string   `help:"The model variant (provider-specific reasoning effort, e.g., high, max, minimal)" name:"variant"`
 
 	// workspaceSetup prepares the container workspace before the loop runs.
 	// Tests inject a fake. When nil, Run builds the real adapter.

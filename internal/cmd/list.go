@@ -10,8 +10,8 @@ import (
 )
 
 type ListCmd struct {
-	Context   string `help:"Kubernetes context to use"`
-	Namespace string `help:"Kubernetes namespace to use" short:"n"`
+	Context   string `help:"The name of the Kubernetes context to use"`
+	Namespace string `help:"The name of the Kubernetes namespace to use" short:"n"`
 }
 
 func (l *ListCmd) Run() error {

@@ -23,11 +23,11 @@ type RunCmd struct {
 	Base            string `help:"Override the base branch for PR creation (default: detects from current branch)" name:"base" optional:"" short:"B"`
 	Items           string `help:"jq query selecting the item array from the project file (default: from config or .)" name:"items" optional:""`
 	Cleanup         *bool  `help:"Delete the project file in its own commit once every item is complete" name:"cleanup"`
-	Model           string `help:"Override the AI model from config" name:"model" optional:""`
+	Model           string `help:"The model to use in format of provider/model" name:"model" optional:"" short:"m"`
 	Agent           string `help:"Override the opencode agent from config" name:"agent" optional:""`
-	Variant         string `help:"Override the model variant from config" name:"variant" optional:""`
-	Context         string `help:"Kubernetes context to use" name:"context" optional:""`
-	Namespace       string `help:"Kubernetes namespace to use" name:"namespace" short:"n" optional:""`
+	Variant         string `help:"The model variant (provider-specific reasoning effort, e.g., high, max, minimal)" name:"variant" optional:""`
+	Context         string `help:"The name of the Kubernetes context to use" name:"context" optional:""`
+	Namespace       string `help:"The name of the Kubernetes namespace to use" name:"namespace" short:"n" optional:""`
 	ShowVersion     bool   `help:"Show version information" short:"v" name:"version"`
 
 	version string `kong:"-"`
