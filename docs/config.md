@@ -11,6 +11,8 @@ cleanup: false                 # Delete the project file in its own commit once 
 extraIterations:               # Extra iterations beyond item count (unset = 20% of items, rounded up)
 defaultBranch: main             # Default branch for PRs (default: main)
 model: deepseek/deepseek-chat  # AI model (default: deepseek/deepseek-chat)
+agent: build                   # opencode agent used for coding (optional; default: opencode's primary agent)
+variant: high                  # provider-specific reasoning effort (optional)
 
 before:
   - name: compile
@@ -27,15 +29,13 @@ services:
 workflow:
   image:
     repository: ghcr.io/zon/ralph
-    tag: latest
+    tag: latest                # optional; defaults to the current Ralph version
   context: my-cluster          # kubectl context (optional)
-  namespace: argo              # workflow namespace (default: argo)
+  namespace: argo              # workflow namespace (optional)
   configMaps:                  # additional ConfigMaps to mount (optional)
-    - name: my-config
-      mountPath: /config
+    - name: app-config         # name of the ConfigMap
   secrets:                     # additional Secrets to mount (optional)
-    - name: my-secret
-      mountPath: /secrets
+    - name: api-keys           # name of the Secret
   env:                         # environment variables (optional)
     DEBUG: "true"
     API_KEY:                   # value from a Kubernetes secret
@@ -45,6 +45,13 @@ workflow:
   labels:                      # Kubernetes labels for workflow pods (optional)
     environment: production
     team: platform
+  resources:                   # CPU and memory requests and limits (optional)
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
 ```
 
 API keys are managed by OpenCode, not Ralph. Configure them with `opencode auth`.
@@ -75,34 +82,13 @@ items: .spec.tasks                                    # deeper nesting
 items: '.issues | map(select(.state == "open"))'      # filtered
 ```
 
-The query must resolve to at least one non-empty item. Empty outputs, null, `false`, `0`, blank strings, `{}`, `[]`, are dropped before indexing. Every command that reads a project file, the run command, `ralph get`, and `ralph validate`, resolves it the same way: `--items` first, then this field, then `.`. Keep the query stable for the duration of a run. It defines the items that completion tracking hashes. See [Project Format](formats/project.md#item-query) and [Iterations](iterations.md).
+The query must resolve to at least one non-empty item. Empty outputs, null, `false`, `0`, blank strings, `{}`, `[]`, are dropped before indexing. Every command that reads a project file, the run command, `ralph get`, and `ralph validate`, resolves it the same way: `--items` first, then this field, then `.`. Keep the query stable for the duration of a run. It defines the items that completion tracking hashes. See [Project Files](projects.md#item-query) and [Iterations](iterations.md).
 
 ## Iterations
 
 `extraIterations` sets how many iterations the loop may run beyond the item count. The limit is `len(items) + extraIterations`. When unset it defaults to 20% of the item count, rounded up. `--extra` overrides it.
 
 `cleanup` deletes the project file once every item is complete, in a commit of its own, before the pull request is opened. Off by default. `--cleanup` enables it for a single run. Completion history lives in the branch's commit trailers, so cleaning up the file does not lose it.
-
-## Review
-
-`review` configures the `ralph review` command. It defines the standards or guidelines for the AI to review the codebase against.
-
-```yaml
-review:
-  model: google/gemini-2.5-pro  # optional: AI model override (falls back to root 'model')
-  items:
-    - text: "All functions must have unit tests."
-    - file: docs/coding-standards.md
-    - url: https://example.com/style-guide
-```
-
-Each item requires exactly one source:
-
-| Field | Description |
-|-------|-------------|
-| `text` | Inline string content |
-| `file` | Path to a file relative to the repo root |
-| `url` | HTTP URL returning plain text |
 
 ## Loops
 
@@ -141,6 +127,15 @@ loops:
 - Services are stopped gracefully (SIGTERM) after execution
 - Use `--no-services` to skip service management
 
+## Validate
+
+`validate` configures the AI repair prompt behind `ralph validate`. When a project file fails to parse, `ralph validate` runs a bounded fix loop using the `validate.model`, falling back to the top-level `model` when it is unset:
+
+```yaml
+validate:
+  model: google/gemini-2.5-pro   # optional: AI model override (default: the root 'model')
+```
+
 ## Workflow
 
 `workflow` configures remote execution on Kubernetes via Argo Workflows. All fields are optional.
@@ -148,13 +143,36 @@ loops:
 | Field | Description |
 |-------|-------------|
 | `image.repository` | Container image (default: `ghcr.io/zon/ralph`) |
-| `image.tag` | Image tag (default: `latest`) |
-| `context` | kubectl context to use |
-| `namespace` | Kubernetes namespace (default: `argo`) |
-| `configMaps` | Additional ConfigMaps to mount |
-| `secrets` | Additional Secrets to mount |
+| `image.tag` | Image tag (default: the current Ralph version) |
+| `context` | kubectl context to use (optional) |
+| `namespace` | Kubernetes namespace for the workflow and its credentials (optional) |
+| `configMaps` | Additional ConfigMaps to mount into the container |
+| `secrets` | Additional Secrets to mount into the container |
 | `env` | Environment variables to set in the container. Each value is a literal string or a Kubernetes secret reference |
 | `labels` | Kubernetes labels to apply to workflow pods |
+| `resources` | CPU and memory requests and limits for the container |
+
+A `configMaps` or `secrets` entry names a Kubernetes ConfigMap or Secret to mount:
+
+| Field | Description |
+|-------|-------------|
+| `name` | Name of the ConfigMap or Secret |
+| `destDir` | Mount the whole ConfigMap or Secret at this directory |
+| `destFile` | Mount a single key at this file path. The key mounted is the file's base name |
+| `link` | When `true`, symlink the mounted file or directory into the repository working directory (default: `false`) |
+
+```yaml
+configMaps:
+  - name: app-config            # mounts the whole ConfigMap at /configmaps/app-config
+  - name: build-tools
+    destDir: /tools             # mounts the whole ConfigMap at /tools instead
+secrets:
+  - name: api-keys
+    destFile: api-keys.json     # mounts only the api-keys.json key at /workspace/api-keys.json
+  - name: deploy
+    destDir: ci                 # mounts at /workspace/ci
+    link: true                  # also symlinks it into the repo working directory at ci/
+```
 
 An `env` value can be a literal string or a reference to a key in a Kubernetes Secret. For a literal, set the value directly:
 
@@ -171,6 +189,18 @@ env:
     secretKeyRef:
       name: my-secret
       key: api-key
+```
+
+`resources` sets the CPU and memory requests and limits for the executor container as [Kubernetes quantities](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/):
+
+```yaml
+resources:
+  requests:
+    cpu: 500m
+    memory: 512Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi
 ```
 
 ### Remote Credentials
