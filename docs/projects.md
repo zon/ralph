@@ -90,7 +90,7 @@ Two top-level fields are read when present, and only when the file's top level i
 
 | Field | Used for | Fallback |
 |-------|----------|----------|
-| `slug` | Branch name `ralph/<slug>` | The project file's base name |
+| `slug` | Branch name `<slug>` | The project file's base name |
 | `title` | Pull request title | The slug |
 
 A project file that is a top-level array has neither, so both derive from the file name.

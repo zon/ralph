@@ -35,7 +35,7 @@ func TestHelpConfigCmdHelpText(t *testing.T) {
 // documentation rendered as plain text with no ANSI escapes.
 func TestPrintConfigDocumentationNonInteractive(t *testing.T) {
 	var buf bytes.Buffer
-	err := printConfigDocumentation(&buf, false)
+	err := printDocumentation(&buf, "configuration", config.ConfigDocumentation())
 	require.NoError(t, err)
 
 	rendered := buf.String()
@@ -59,7 +59,7 @@ func TestConfigDocumentationEmbedded(t *testing.T) {
 // a terminal: resizing fills the viewport, scrolling moves it, and the quit
 // keys stop the program.
 func TestConfigPagerScrollsAndQuits(t *testing.T) {
-	p := newConfigPager(config.ConfigDocumentation())
+	p := newDocumentationPager(config.ConfigDocumentation())
 	_, _ = p.Update(tea.WindowSizeMsg{Width: 100, Height: 20})
 	require.True(t, p.ready)
 	assert.Contains(t, p.viewport.View(), "Configuration")
@@ -74,7 +74,7 @@ func TestConfigPagerScrollsAndQuits(t *testing.T) {
 		tea.KeyMsg(tea.Key{Type: tea.KeyRunes, Runes: []rune("q")}),
 		tea.KeyMsg(tea.Key{Type: tea.KeyEsc}),
 	} {
-		p := newConfigPager(config.ConfigDocumentation())
+		p := newDocumentationPager(config.ConfigDocumentation())
 		_, _ = p.Update(tea.WindowSizeMsg{Width: 100, Height: 20})
 		_, cmd := p.Update(quitKey)
 		assert.NotNil(t, cmd, "%q must stop the pager", quitKey.String())
@@ -86,21 +86,21 @@ func TestConfigPagerScrollsAndQuits(t *testing.T) {
 // asynchronous probe reports a light terminal, never blocking first paint on
 // the probe.
 func TestConfigPagerDetectsStyleAsynchronously(t *testing.T) {
-	p := newConfigPager(config.ConfigDocumentation())
+	p := newDocumentationPager(config.ConfigDocumentation())
 	assert.Equal(t, styles.DarkStyle, p.style, "the pager must default to the dark style")
 	assert.NotNil(t, p.Init(), "Init must run the background style probe")
 
 	_, _ = p.Update(tea.WindowSizeMsg{Width: 100, Height: 20})
-	_, _ = p.Update(configStyleMsg{dark: false})
+	_, _ = p.Update(documentationStyleMsg{dark: false})
 	assert.Equal(t, styles.LightStyle, p.style, "a light terminal must flip the style to light")
 	assert.Contains(t, p.viewport.View(), "Configuration")
 
-	_, _ = p.Update(configStyleMsg{dark: true})
+	_, _ = p.Update(documentationStyleMsg{dark: true})
 	assert.Equal(t, styles.LightStyle, p.style, "a dark terminal must not flip the style")
 }
 
 func TestConfigPagerFooterFitsHeight(t *testing.T) {
-	p := newConfigPager(config.ConfigDocumentation())
+	p := newDocumentationPager(config.ConfigDocumentation())
 	_, _ = p.Update(tea.WindowSizeMsg{Width: 100, Height: 20})
 	require.True(t, p.ready)
 	lines := strings.Split(p.View(), "\n")

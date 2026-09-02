@@ -30,7 +30,8 @@ type WorkflowGroup struct {
 
 // HelpGroup defines the help subcommand group
 type HelpGroup struct {
-	Config HelpConfigCmd `cmd:"" help:"Display the configuration reference"`
+	Config  HelpConfigCmd  `cmd:"" help:"Display the configuration reference"`
+	Project HelpProjectCmd `cmd:"" help:"Display the project file guide"`
 }
 
 // SetVersion sets the version information

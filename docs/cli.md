@@ -13,7 +13,7 @@ ralph my-feature.yaml --items '.requirements'
 
 ### Project Steps
 
-1. Creates branch `ralph/<slug>` from the file's `slug` field, or its base name
+1. Creates branch `<slug>` from the file's `slug` field, or its base name
 2. Resolves the item array with the [item query](formats/project.md#item-query)
 3. Iterates until every item is recorded complete
 4. Optionally cleans up the project file in its own commit
@@ -200,6 +200,14 @@ ralph help config
 ```
 
 Shows the [configuration reference](../internal/config/config.md) for `.ralph/config.yaml`. Interactive terminals render the markdown and page it with the usual pager keys (`↑`/`↓` or `j`/`k` scroll, `space`/`pgdn` and `pgup` page, `q` quits); redirected output prints plain text.
+
+## ralph help project
+
+```bash
+ralph help project
+```
+
+Shows a [guide to writing a project file](../internal/projectfile/project.md): what a project is, how to write a simple project and its items, and how to validate it. Interactive terminals render the markdown and page it with the usual pager keys; redirected output prints plain text.
 
 ## Other Commands
 

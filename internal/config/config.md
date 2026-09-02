@@ -30,7 +30,7 @@ items: '.issues | map(select(.state == "open"))'      # filtered
 
 The query must resolve to at least one non-empty item. Empty outputs, null, `false`, `0`, blank strings, `{}`, and `[]` are dropped before indexing.
 
-Every command that reads a project file resolves the query the same way: `--items` first, then this field, then `.`. That covers the run command, `ralph complete`, `ralph incomplete`, and `ralph validate`. Keep the query stable for the duration of a run, since it defines the items that completion tracking hashes. See [Project Files](../../docs/projects.md#item-query) and [Iterations](../../docs/iterations.md).
+Every command that reads a project file resolves the query the same way: `--items` first, then this field, then `.`. That covers the run command, `ralph complete`, `ralph incomplete`, and `ralph validate`. Keep the query stable for the duration of a run, since it defines the items that completion tracking hashes.
 
 ## Iterations
 
@@ -187,7 +187,7 @@ resources:
 
 ## Custom Instructions
 
-Create `.ralph/instructions.md` to replace the development steps in the AI prompt. The file supplies the prompt's instruction steps only. The surrounding prompt still carries the selected item, the project file path, the git history, and the report contract. If not present, Ralph's [default steps](../ai/development-item-instructions.md) are used.
+Create `.ralph/instructions.md` to replace the development steps in the AI prompt. The file supplies the prompt's instruction steps only. The surrounding prompt still carries the selected item, the project file path, the git history, and the report contract. If not present, Ralph's default steps are used.
 
 The default steps are deliberately generic: they send the agent to the repository's own agent instructions for how project items are read, where code belongs, and how tests are written. Custom instructions replace those steps, so state the standards they should follow.
 
