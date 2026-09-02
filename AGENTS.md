@@ -12,6 +12,8 @@
 
 **IMPORTANT**: Follow [docs/zpecs/prose.md](docs/zpecs/prose.md) when writing prose.
 
+**IMPORTANT**: Follow [docs/inline-help.md](docs/inline-help.md) when writing doc files built into the Ralph app: the markdown documents that Ralph embeds in its binary and renders as help inside the running app, such as `internal/config/config.md` behind `ralph help config`.
+
 ## Testing and Execution
 
 **IMPORTANT**: Before writing any tests, read [docs/testing.md](docs/testing.md) to understand patterns and conventions.
