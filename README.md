@@ -116,4 +116,4 @@ See [OpenCode authentication docs](https://opencode.ai/docs/cli/#auth) for setup
 - [Project files](docs/projects.md)
 - [Iterations and completion](docs/iterations.md)
 - [Remote execution workflows](docs/workflows.md)
-- [Configuration reference](docs/config.md)
+- [Configuration reference](internal/config/config.md)

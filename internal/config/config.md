@@ -82,7 +82,7 @@ items: .spec.tasks                                    # deeper nesting
 items: '.issues | map(select(.state == "open"))'      # filtered
 ```
 
-The query must resolve to at least one non-empty item. Empty outputs, null, `false`, `0`, blank strings, `{}`, `[]`, are dropped before indexing. Every command that reads a project file, the run command, `ralph get`, and `ralph validate`, resolves it the same way: `--items` first, then this field, then `.`. Keep the query stable for the duration of a run. It defines the items that completion tracking hashes. See [Project Files](projects.md#item-query) and [Iterations](iterations.md).
+The query must resolve to at least one non-empty item. Empty outputs, null, `false`, `0`, blank strings, `{}`, `[]`, are dropped before indexing. Every command that reads a project file, the run command, `ralph get`, and `ralph validate`, resolves it the same way: `--items` first, then this field, then `.`. Keep the query stable for the duration of a run. It defines the items that completion tracking hashes. See [Project Files](../../docs/projects.md#item-query) and [Iterations](../../docs/iterations.md).
 
 ## Iterations
 
@@ -205,7 +205,7 @@ resources:
 
 ### Remote Credentials
 
-Store credentials as Kubernetes Secrets for remote execution. See [Workflows](workflows.md) for setup.
+Store credentials as Kubernetes Secrets for remote execution. See [Workflows](../../docs/workflows.md) for setup.
 
 ```bash
 ralph set remote                          # quickstart: reuses your gh login token
@@ -215,7 +215,7 @@ ralph set remote --github-token <token>   # GitHub personal access token
 
 ## Custom Instructions
 
-Create `.ralph/instructions.md` to replace the development steps in the AI prompt. The file supplies the prompt's instruction steps only. The surrounding prompt still carries the selected item, the project file path, the git history, and the report contract. If not present, Ralph's [default steps](../internal/ai/development-item-instructions.md) are used.
+Create `.ralph/instructions.md` to replace the development steps in the AI prompt. The file supplies the prompt's instruction steps only. The surrounding prompt still carries the selected item, the project file path, the git history, and the report contract. If not present, Ralph's [default steps](../ai/development-item-instructions.md) are used.
 
 The default steps are deliberately generic: they send the agent to the repository's own agent instructions for how project items are read, where code belongs, and how tests are written. Custom instructions replace those steps, so state the standards they should follow.
 

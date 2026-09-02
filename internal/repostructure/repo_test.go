@@ -170,7 +170,7 @@ func TestUserFacingDocsDescribeBareTrailer(t *testing.T) {
 		"docs/iterations.md",
 		"docs/glossary.md",
 		"docs/projects.md",
-		"docs/config.md",
+		"internal/config/config.md",
 		"docs/cli.md",
 	} {
 		content := string(readRepoFile(t, rel))

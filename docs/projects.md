@@ -19,7 +19,7 @@ The item query is a [jq](https://jqlang.org/manual/) expression evaluated agains
 - Return 404 for unknown report IDs
 ```
 
-Set `items` in [`.ralph/config.yaml`](config.md) to pull the array out of a nested document:
+Set `items` in [`.ralph/config.yaml`](../internal/config/config.md) to pull the array out of a nested document:
 
 ```yaml
 # .ralph/config.yaml

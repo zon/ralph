@@ -25,11 +25,11 @@ To submit remotely and monitor progress in real time:
 ralph my-feature.yaml --mode remote --watch
 ```
 
-See [Configuration](config.md#mode) for the `mode` config setting and its precedence.
+See [Configuration](../internal/config/config.md#mode) for the `mode` config setting and its precedence.
 
 ## Setup
 
-Configure the Kubernetes credentials once with `ralph set remote`, then run remotely. Credentials are stored as Secrets in the target cluster and namespace. See [Configuration](config.md) for workflow settings including custom images, namespaces, and environment variables.
+Configure the Kubernetes credentials once with `ralph set remote`, then run remotely. Credentials are stored as Secrets in the target cluster and namespace. See [Configuration](../internal/config/config.md) for workflow settings including custom images, namespaces, and environment variables.
 
 ### Quickstart: personal access token
 

@@ -50,7 +50,7 @@ See [Iterations](iterations.md) for the completion model.
 
 ## ralph loop
 
-`ralph loop` runs an AI iteration over a set of steps. Resolve the steps from a named [loop](config.md#loops) entry in `.ralph/config.yaml` by slug, or pass them directly with the repeated `--step` flag:
+`ralph loop` runs an AI iteration over a set of steps. Resolve the steps from a named [loop](../internal/config/config.md#loops) entry in `.ralph/config.yaml` by slug, or pass them directly with the repeated `--step` flag:
 
 ```bash
 ralph loop update-deps
@@ -187,6 +187,14 @@ ralph review
 | `--mode` | Execution mode: `local`, `worktree` (default), or `remote` |
 | `--verbose` | Enable verbose logging |
 | `--context` | The name of the Kubernetes context to use |
+
+## ralph config
+
+```bash
+ralph config
+```
+
+Shows the [configuration reference](../internal/config/config.md) for `.ralph/config.yaml`. Interactive terminals render the markdown and page it with the usual pager keys (`↑`/`↓` or `j`/`k` scroll, `space`/`pgdn` and `pgup` page, `q` quits); redirected output prints plain text.
 
 ## Other Commands
 

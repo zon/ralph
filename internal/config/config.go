@@ -15,6 +15,9 @@ import (
 //go:embed fix-service-instructions.md
 var defaultFixServiceInstructions string
 
+//go:embed config.md
+var configDocumentation string
+
 // Before represents a command to run before starting services
 type Before struct {
 	Name     string   `yaml:"name"`
@@ -393,6 +396,12 @@ type RalphConfig struct {
 
 func DefaultFixServiceInstructions() string {
 	return defaultFixServiceInstructions
+}
+
+// ConfigDocumentation returns the embedded configuration reference shown by
+// `ralph config`.
+func ConfigDocumentation() string {
+	return configDocumentation
 }
 
 // ValidateReviewConfig validates the review configuration

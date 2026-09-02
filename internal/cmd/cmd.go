@@ -9,6 +9,7 @@ type Cmd struct {
 	Get      GetCmd        `cmd:"" help:"Report which items are complete and which are left"`
 	Workflow WorkflowGroup `cmd:"" help:"Run Ralph workflow subcommands in a container"`
 	Validate ValidateCmd   `cmd:"" help:"Validate a project YAML file"`
+	Config   ConfigCmd     `cmd:"" help:"Display the configuration reference"`
 	List     ListCmd       `cmd:"" help:"List Argo workflows"`
 	Stop     StopCmd       `cmd:"" help:"Stop an Argo workflow"`
 	Logs     LogsCmd       `cmd:"" help:"Get logs of an Argo workflow"`

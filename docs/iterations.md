@@ -16,7 +16,7 @@ Each iteration:
 1. **Resolve** — parse the project file and evaluate the [item query](projects.md#item-query) to get the item array. Empty outputs are dropped, and a run whose array comes back empty stops here.
 2. **Read completions** — parse `git log <base>..HEAD` for completion trailers and mark the matching items complete (`ralph get complete`).
 3. **Exit check** — if nothing is left, leave the loop (`ralph get incomplete` is empty).
-4. **Start services** — run configured `before` commands and services (see [Configuration](config.md)).
+4. **Start services** — run configured `before` commands and services (see [Configuration](../internal/config/config.md)).
 5. **Pick** — the picker agent selects one incomplete item.
 6. **Develop** — the development agent works the picked item.
 7. **Commit** — commit whatever the agent produced, using the agent's `report.md` as the message. Its last line is the completion trailer when the item is done.
