@@ -36,8 +36,9 @@ type RunCmd struct {
 
 // Run executes the run command (implements kong.Run interface)
 func (r *RunCmd) Run() error {
-	if err := r.handleVersionFlag(); err != nil {
-		return err
+	if r.ShowVersion {
+		r.printVersion()
+		return nil
 	}
 
 	ctx := r.newExecutionContext()
@@ -79,14 +80,10 @@ func (r *RunCmd) newExecutionContext() *execcontext.Context {
 	return ctx
 }
 
-func (r *RunCmd) handleVersionFlag() error {
-	if !r.ShowVersion {
-		return nil
-	}
+func (r *RunCmd) printVersion() {
 	if r.date != "unknown" {
-		fmt.Printf("ralph version %s (%s)\n", r.version, r.date)
+		fmt.Printf("%s (%s)\n", r.version, r.date)
 	} else {
-		fmt.Printf("ralph version %s\n", r.version)
+		fmt.Printf("%s\n", r.version)
 	}
-	return nil
 }
