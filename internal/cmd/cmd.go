@@ -22,7 +22,7 @@ type Cmd struct {
 type WorkflowGroup struct {
 	Run     WorkflowRunCmd     `cmd:"" help:"Invoked by workflows to execute a project"`
 	Command WorkflowCommandCmd `cmd:"" help:"Invoked by workflows to execute a command"`
-	Token   WorkflowTokenCmd   `cmd:"" help:"Invoked by workflows to set up a GitHub token"`
+	Token   WorkflowTokenCmd   `cmd:"" help:"Invoked by workflows to configure git and gh auth"`
 	Loop    WorkflowLoopCmd    `cmd:"" help:"Invoked by workflows to execute a loop"`
 }
 

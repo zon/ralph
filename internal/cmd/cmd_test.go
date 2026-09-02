@@ -316,7 +316,7 @@ func TestWorkflowCommandCmdHelpText(t *testing.T) {
 
 func TestWorkflowTokenCmdHelpText(t *testing.T) {
 	output := captureHelpOutput(&Cmd{}, []string{"workflow", "token", "--help"})
-	assert.Contains(t, output, "Invoked by workflows to set up a GitHub token")
+	assert.Contains(t, output, "Invoked by workflows to configure git and gh auth")
 }
 
 func TestTopLevelCommandsParsed(t *testing.T) {
