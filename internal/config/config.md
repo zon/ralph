@@ -1,60 +1,6 @@
 # Configuration
 
-Ralph looks for `.ralph/config.yaml` in your project root for optional settings.
-
-## Format
-
-```yaml
-mode: worktree                 # default execution mode (worktree, local, or remote; default: worktree)
-items: .requirements           # jq query selecting the item array from a project file (default: .)
-cleanup: false                 # Delete the project file in its own commit once complete (default: false)
-extraIterations:               # Extra iterations beyond item count (unset = 20% of items, rounded up)
-defaultBranch: main             # Default branch for PRs (default: main)
-model: deepseek/deepseek-chat  # AI model (default: deepseek/deepseek-chat)
-agent: build                   # opencode agent used for coding (optional; default: opencode's primary agent)
-variant: high                  # provider-specific reasoning effort (optional)
-
-before:
-  - name: compile
-    command: go
-    args: [build, -o, bin/app, ./cmd/app]
-    workDir: /path/to/project  # optional
-
-services:
-  - name: api-server
-    command: npm
-    args: [run, dev]
-    port: 3000                 # optional: port for health checking
-
-workflow:
-  image:
-    repository: ghcr.io/zon/ralph
-    tag: latest                # optional; defaults to the current Ralph version
-  context: my-cluster          # kubectl context (optional)
-  namespace: argo              # workflow namespace (optional)
-  configMaps:                  # additional ConfigMaps to mount (optional)
-    - name: app-config         # name of the ConfigMap
-  secrets:                     # additional Secrets to mount (optional)
-    - name: api-keys           # name of the Secret
-  env:                         # environment variables (optional)
-    DEBUG: "true"
-    API_KEY:                   # value from a Kubernetes secret
-      secretKeyRef:
-        name: my-secret
-        key: api-key
-  labels:                      # Kubernetes labels for workflow pods (optional)
-    environment: production
-    team: platform
-  resources:                   # CPU and memory requests and limits (optional)
-    requests:
-      cpu: 500m
-      memory: 512Mi
-    limits:
-      cpu: "1"
-      memory: 1Gi
-```
-
-API keys are managed by OpenCode, not Ralph. Configure them with `opencode auth`.
+Ralph looks for `.ralph/config.yaml` in your project root. Every option is optional and a section below documents each one. API keys are managed by OpenCode, not Ralph. Configure them with `opencode auth`.
 
 ## Mode
 
@@ -82,13 +28,47 @@ items: .spec.tasks                                    # deeper nesting
 items: '.issues | map(select(.state == "open"))'      # filtered
 ```
 
-The query must resolve to at least one non-empty item. Empty outputs, null, `false`, `0`, blank strings, `{}`, `[]`, are dropped before indexing. Every command that reads a project file, the run command, `ralph complete`, `ralph incomplete`, and `ralph validate`, resolves it the same way: `--items` first, then this field, then `.`. Keep the query stable for the duration of a run. It defines the items that completion tracking hashes. See [Project Files](../../docs/projects.md#item-query) and [Iterations](../../docs/iterations.md).
+The query must resolve to at least one non-empty item. Empty outputs, null, `false`, `0`, blank strings, `{}`, and `[]` are dropped before indexing.
+
+Every command that reads a project file resolves the query the same way: `--items` first, then this field, then `.`. That covers the run command, `ralph complete`, `ralph incomplete`, and `ralph validate`. Keep the query stable for the duration of a run, since it defines the items that completion tracking hashes. See [Project Files](../../docs/projects.md#item-query) and [Iterations](../../docs/iterations.md).
 
 ## Iterations
 
 `extraIterations` sets how many iterations the loop may run beyond the item count. The limit is `len(items) + extraIterations`. When unset it defaults to 20% of the item count, rounded up. `--extra` overrides it.
 
 `cleanup` deletes the project file once every item is complete, in a commit of its own, before the pull request is opened. Off by default. `--cleanup` enables it for a single run. Completion history lives in the branch's commit trailers, so cleaning up the file does not lose it.
+
+## Default Branch
+
+`defaultBranch` is the base branch for pull requests and the branch completion is read from. It defaults to `main`. `--base` overrides it per command.
+
+```yaml
+defaultBranch: main
+```
+
+## Model
+
+`model` sets the AI model used for coding and pull request summaries. It defaults to `deepseek/deepseek-chat`.
+
+```yaml
+model: deepseek/deepseek-chat
+```
+
+## Agent
+
+`agent` selects the opencode agent used for coding. When unset, opencode's primary agent is used.
+
+```yaml
+agent: build
+```
+
+## Variant
+
+`variant` sets a provider-specific reasoning effort, such as `high` or `max`.
+
+```yaml
+variant: high
+```
 
 ## Loops
 
@@ -113,8 +93,8 @@ loops:
 
 `before` defines commands that run once before services start and before the iteration loop begins.
 
-- Commands run sequentially and must exit successfully before Ralph proceeds (unless marked optional)
-- Each entry requires `name` and `command`. `args`, `workDir`, and `optional` are optional
+- Commands run sequentially and must exit successfully before Ralph proceeds
+- Each entry requires `name` and `command`. `args` holds the argument list and `workDir` the working directory
 - Set `optional: true` to allow a command to fail without aborting the run (a warning is logged instead)
 - Useful for compilation, code generation, dependency installation, database migrations
 
@@ -129,23 +109,23 @@ loops:
 
 ## Validate
 
-`validate` configures the AI repair prompt behind `ralph validate`. When a project file fails to parse, `ralph validate` runs a bounded fix loop using the `validate.model`, falling back to the top-level `model` when it is unset:
+`validate` configures the AI repair prompt behind `ralph validate`. When a project file fails to parse, `ralph validate` runs a bounded fix loop. `validate.model` selects the model for that loop and falls back to the top-level `model` when unset:
 
 ```yaml
 validate:
-  model: google/gemini-2.5-pro   # optional: AI model override (default: the root 'model')
+  model: google/gemini-2.5-pro
 ```
 
 ## Workflow
 
-`workflow` configures remote execution on Kubernetes via Argo Workflows. All fields are optional.
+`workflow` configures remote execution on Kubernetes via Argo Workflows.
 
 | Field | Description |
 |-------|-------------|
 | `image.repository` | Container image (default: `ghcr.io/zon/ralph`) |
 | `image.tag` | Image tag (default: the current Ralph version) |
-| `context` | kubectl context to use (optional) |
-| `namespace` | Kubernetes namespace for the workflow and its credentials (optional) |
+| `context` | kubectl context to use |
+| `namespace` | Kubernetes namespace for the workflow and its credentials |
 | `configMaps` | Additional ConfigMaps to mount into the container |
 | `secrets` | Additional Secrets to mount into the container |
 | `env` | Environment variables to set in the container. Each value is a literal string or a Kubernetes secret reference |
@@ -161,17 +141,19 @@ A `configMaps` or `secrets` entry names a Kubernetes ConfigMap or Secret to moun
 | `destFile` | Mount a single key at this file path. The key mounted is the file's base name |
 | `link` | When `true`, symlink the mounted file or directory into the repository working directory (default: `false`) |
 
+A ConfigMap or Secret with no destination mounts at `/configmaps/<name>` or `/secrets/<name>`. The fields above change where it mounts and whether `link` also symlinks it into the repository working directory:
+
 ```yaml
 configMaps:
-  - name: app-config            # mounts the whole ConfigMap at /configmaps/app-config
+  - name: app-config
   - name: build-tools
-    destDir: /tools             # mounts the whole ConfigMap at /tools instead
+    destDir: /tools
 secrets:
   - name: api-keys
-    destFile: api-keys.json     # mounts only the api-keys.json key at /workspace/api-keys.json
+    destFile: api-keys.json
   - name: deploy
-    destDir: ci                 # mounts at /workspace/ci
-    link: true                  # also symlinks it into the repo working directory at ci/
+    destDir: ci
+    link: true
 ```
 
 An `env` value can be a literal string or a reference to a key in a Kubernetes Secret. For a literal, set the value directly:
@@ -201,16 +183,6 @@ resources:
   limits:
     cpu: "1"
     memory: 1Gi
-```
-
-### Remote Credentials
-
-Store credentials as Kubernetes Secrets for remote execution. See [Workflows](../../docs/workflows.md) for setup.
-
-```bash
-ralph setup                          # quickstart: reuses your gh login token
-ralph setup --github-key <key.pem>   # GitHub App private key
-ralph setup --github-token <token>   # GitHub personal access token
 ```
 
 ## Custom Instructions
