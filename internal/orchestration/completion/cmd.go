@@ -1,4 +1,4 @@
-package get
+package completion
 
 import (
 	"errors"
@@ -10,10 +10,10 @@ import (
 	"github.com/zon/ralph/internal/project"
 )
 
-// ProjectClient is the read-only surface of the project client the get command
-// needs: validate the project file, resolve its item array, and read completion
-// from the branch commit log. None of the methods write, commit, or switch
-// branches.
+// ProjectClient is the read-only surface of the project client the complete
+// and incomplete commands need: validate the project file, resolve its item
+// array, and read completion from the branch commit log. None of the methods
+// write, commit, or switch branches.
 type ProjectClient interface {
 	Resolve(path string, query string) (*project.Project, error)
 	Complete(proj *project.Project, base string) ([]string, error)
@@ -21,9 +21,9 @@ type ProjectClient interface {
 	ValidateFile(path string) error
 }
 
-// Cmd orchestrates the get complete and get incomplete subcommands by
-// resolving the item array and subtracting the hashes recorded in the commit
-// log, printing the result to out.
+// Cmd orchestrates the complete and incomplete commands by resolving the item
+// array and subtracting the hashes recorded in the commit log, printing the
+// result to out.
 type Cmd struct {
 	project ProjectClient
 	out     io.Writer
@@ -33,9 +33,9 @@ func NewCmd(project ProjectClient, out io.Writer) *Cmd {
 	return &Cmd{project: project, out: out}
 }
 
-// Flags carries the flags shared by both get subcommands plus the per-command
-// output options exposed on the CLI. JSON, exposed only by complete, requests
-// a JSON array of hashes instead of one hash per line.
+// Flags carries the flags shared by both complete and incomplete plus the
+// per-command output options exposed on the CLI. JSON, exposed only by
+// complete, requests a JSON array of hashes instead of one hash per line.
 type Flags struct {
 	ProjectFile string
 	Items       string
@@ -71,8 +71,8 @@ func (c *Cmd) Complete(cfg *config.RalphConfig, flags Flags) error {
 	return nil
 }
 
-// Incomplete requires a project file and prints the items whose indices are
-// not recorded complete, in array order.
+// Incomplete requires a project file and prints the items that are not
+// recorded complete, in array order.
 func (c *Cmd) Incomplete(cfg *config.RalphConfig, flags Flags) error {
 	if flags.ProjectFile == "" {
 		return errors.New("project file path is required")

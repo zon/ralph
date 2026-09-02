@@ -180,7 +180,7 @@ Before each iteration the system SHALL start configured services and stop them a
 
 ### Requirement: Completion read from the commit log
 
-At the start of every iteration the command SHALL determine which items are complete by reading the [completion trailers](../../docs/iterations.md#recording-completion) in the commit messages on the project branch that are not on the base branch, exactly as `ralph get complete` does (see [get.md](get.md)). The project file SHALL NOT be consulted for completion state.
+At the start of every iteration the command SHALL determine which items are complete by reading the [completion trailers](../../docs/iterations.md#recording-completion) in the commit messages on the project branch that are not on the base branch, exactly as `ralph complete` does (see [completion.md](completion.md)). The project file SHALL NOT be consulted for completion state.
 
 #### Scenario: Completion recomputed each iteration
 

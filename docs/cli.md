@@ -90,15 +90,11 @@ ralph command go test ./...
 | `--context` | The name of the Kubernetes context to use |
 | `-n, --namespace` | The name of the Kubernetes namespace to use |
 
-## ralph get
-
-Inspects completion state. Both subcommands are read-only and make no AI calls. `complete` prints completion hashes, one per line, and `incomplete` emits JSON. They are what the picker agent is built from, and they are the way to check a run's progress from a script or by hand.
-
-### ralph get complete
+## ralph complete
 
 ```bash
-ralph get complete
-ralph get complete projects/csv-export.yaml
+ralph complete
+ralph complete projects/csv-export.yaml
 ```
 
 Reads the commit messages on the current branch that are not on the base branch, parses the [completion trailers](iterations.md#recording-completion), and prints the completion hashes of the finished items, one per line, sorted and deduplicated. Only trailers naming the current branch count. A trailer naming any other branch is ignored without a warning:
@@ -111,19 +107,29 @@ IYAWN02
 Pass `--json` to receive the same hashes as a JSON array:
 
 ```bash
-$ ralph get complete --json
+$ ralph complete --json
 ["IYAWN02","9d8LxCD"]
 ```
 
 The project file is optional. When given, trailers whose hash matches no resolved item are dropped. Without it, every current-branch trailer found in the log is reported. Prints nothing and exits 0 when nothing is complete; with `--json` an empty list prints as `[]`.
 
-### ralph get incomplete
+`ralph complete` is read-only and makes no AI calls. Together with `ralph incomplete` it is what the picker agent is built from, and the way to check a run's progress from a script or by hand.
+
+### Flags
+
+| Flag | Description |
+|------|-------------|
+| `-i, --items` | jq query selecting the project item list (default: `.`) |
+| `-B, --base` | Base branch bounding the commit log (default: config `defaultBranch`) |
+| `--json` | Print the hashes as a JSON array |
+
+## ralph incomplete
 
 ```bash
-ralph get incomplete projects/csv-export.yaml
+ralph incomplete projects/csv-export.yaml
 ```
 
-Resolves the item array, removes the items reported by `ralph get complete`, and prints what is left as a JSON array of the items themselves:
+Resolves the item array, removes the items reported by `ralph complete`, and prints what is left as a JSON array of the items themselves:
 
 ```json
 [
@@ -132,7 +138,7 @@ Resolves the item array, removes the items reported by `ralph get complete`, and
 ]
 ```
 
-An empty array means every item is complete: that condition ends the iteration loop.
+An empty array means every item is complete: that condition ends the iteration loop. Like `ralph complete`, it is read-only and makes no AI calls.
 
 ### Flags
 
@@ -140,7 +146,6 @@ An empty array means every item is complete: that condition ends the iteration l
 |------|-------------|
 | `-i, --items` | jq query selecting the project item list (default: `.`) |
 | `-B, --base` | Base branch bounding the commit log (default: config `defaultBranch`) |
-| `--json` | `complete` only: print the hashes as a JSON array |
 
 ## ralph validate
 
@@ -159,7 +164,7 @@ Checks that the file parses as YAML or JSON, that the item query evaluates again
 
 `-i, --items` resolves the same way it does for a run: the flag first, then `items` in `.ralph/config.yaml`, then `.`. Validate with the query the run will use. A file that validates under `.` and runs under `.requirements` has not been checked.
 
-A successful validation rewrites the file in canonical YAML, and converts a `.json` input to `.yaml`. That is fine for project files you own, but it is not what you want on a file borrowed from another tool. Skip validate for those and confirm the query with `ralph get incomplete` instead, which only reads.
+A successful validation rewrites the file in canonical YAML, and converts a `.json` input to `.yaml`. That is fine for project files you own, but it is not what you want on a file borrowed from another tool. Skip validate for those and confirm the query with `ralph incomplete` instead, which only reads.
 
 ## ralph review
 

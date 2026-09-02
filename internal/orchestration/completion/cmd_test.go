@@ -1,4 +1,4 @@
-package get
+package completion
 
 import (
 	"bytes"

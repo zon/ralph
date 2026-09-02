@@ -1,4 +1,4 @@
-package get
+package completion
 
 import (
 	"bytes"
@@ -19,7 +19,7 @@ import (
 	"github.com/zon/ralph/internal/testutil"
 )
 
-func setupGetRepo(t *testing.T) string {
+func setupCompletionRepo(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
 	testutil.InitGitRepo(t, dir)
@@ -53,7 +53,7 @@ func addTrailerCommit(t *testing.T, dir, message string) {
 	runGit(t, dir, "commit", "-m", message)
 }
 
-func newGetCmd(buf *bytes.Buffer) *Cmd {
+func newCompletionCmd(buf *bytes.Buffer) *Cmd {
 	ctx := testutil.NewContext()
 	client := project.NewClient(git.NewClient(ctx), output.NewClient(io.Discard, io.Discard, false))
 	return NewCmd(client, buf)
@@ -66,7 +66,7 @@ func itemHash(v string) string {
 }
 
 func TestScenarioRepositoryLeftUntouched(t *testing.T) {
-	dir := setupGetRepo(t)
+	dir := setupCompletionRepo(t)
 	t.Chdir(dir)
 
 	projectContent := "- item 0\n- item 1\n- item 2\n"
@@ -87,7 +87,7 @@ func TestScenarioRepositoryLeftUntouched(t *testing.T) {
 	require.NoError(t, err)
 
 	var buf bytes.Buffer
-	cmd := newGetCmd(&buf)
+	cmd := newCompletionCmd(&buf)
 
 	require.NoError(t, cmd.Complete(cfg, Flags{}))
 	assert.Equal(t, itemHash("item 0")+"\n", buf.String(), "completion read from the log with no item array resolved")
@@ -114,7 +114,7 @@ func TestScenarioRepositoryLeftUntouched(t *testing.T) {
 }
 
 func TestScenarioCompletionScopedToCurrentBranch(t *testing.T) {
-	dir := setupGetRepo(t)
+	dir := setupCompletionRepo(t)
 	t.Chdir(dir)
 
 	runGit(t, dir, "checkout", "-b", "develop")
@@ -128,7 +128,7 @@ func TestScenarioCompletionScopedToCurrentBranch(t *testing.T) {
 	require.Equal(t, "main", cfg.DefaultBranch)
 
 	var buf bytes.Buffer
-	cmd := newGetCmd(&buf)
+	cmd := newCompletionCmd(&buf)
 
 	// Feature is forked from develop, so the develop-1 trailer is in the
 	// main..HEAD log range. It names develop, not feature, so it is not counted.
@@ -137,7 +137,7 @@ func TestScenarioCompletionScopedToCurrentBranch(t *testing.T) {
 }
 
 func TestScenarioBaseOverridesConfiguredDefaultBranch(t *testing.T) {
-	dir := setupGetRepo(t)
+	dir := setupCompletionRepo(t)
 	t.Chdir(dir)
 
 	runGit(t, dir, "checkout", "-b", "feature")
@@ -154,7 +154,7 @@ func TestScenarioBaseOverridesConfiguredDefaultBranch(t *testing.T) {
 	require.Equal(t, "main", cfg.DefaultBranch)
 
 	var buf bytes.Buffer
-	cmd := newGetCmd(&buf)
+	cmd := newCompletionCmd(&buf)
 
 	require.NoError(t, cmd.Complete(cfg, Flags{}))
 	assert.Equal(t, itemHash("item 1")+"\n"+itemHash("item 0")+"\n", buf.String(), "the configured default branch bounds the log")
@@ -164,8 +164,8 @@ func TestScenarioBaseOverridesConfiguredDefaultBranch(t *testing.T) {
 	assert.Equal(t, itemHash("item 1")+"\n", buf.String(), "--base overrides the configured default branch")
 }
 
-func TestScenarioUnmatchedHashWarnedByGetComplete(t *testing.T) {
-	dir := setupGetRepo(t)
+func TestScenarioUnmatchedHashWarnedByComplete(t *testing.T) {
+	dir := setupCompletionRepo(t)
 	t.Chdir(dir)
 
 	projectContent := "- item 0\n- item 1\n- item 2\n"

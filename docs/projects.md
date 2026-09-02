@@ -49,7 +49,7 @@ requirements:
   - Add GET /reports/:id/export              # index 1, not 3
 ```
 
-Dropping happens before indices are assigned, so an index is a position in the surviving list. Every command resolves the same way, so `ralph run`, `ralph get`, and `ralph validate` all agree on it.
+Dropping happens before indices are assigned, so an index is a position in the surviving list. Every command resolves the same way, so `ralph run`, `ralph complete`, `ralph incomplete`, and `ralph validate` all agree on it.
 
 When nothing survives (no output at all, or only empty outputs), the command that needs the items reports `item query yielded no items: <query>` and does no work. For a run that means it stops before the first iteration rather than opening a pull request on an empty project.
 
@@ -110,8 +110,8 @@ Ralph reads `git log <base>..HEAD` at the start of every iteration to determine 
 To see that state for a given file, ask Ralph:
 
 ```bash
-ralph get complete                                 # completion hashes, one per line
-ralph get incomplete ./projects/<slug>.yaml        # the items still to do
+ralph complete                                   # completion hashes, one per line
+ralph incomplete ./projects/<slug>.yaml          # the items still to do
 ```
 
 ## Validation

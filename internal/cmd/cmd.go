@@ -3,17 +3,18 @@ package cmd
 // Cmd defines the command-line arguments and execution context
 type Cmd struct {
 	// Subcommands
-	Run      RunCmd        `cmd:"" default:"withargs" help:"Execute Ralph with a project file (default command)"`
-	Command  CommandCmd    `cmd:"" help:"Run a command in a remote Ralph workflow"`
-	Set      SetCmd        `cmd:"" help:"Configure Ralph settings"`
-	Get      GetCmd        `cmd:"" help:"Report which items are complete and which are left"`
-	Workflow WorkflowGroup `cmd:"" help:"Run Ralph workflow subcommands in a container"`
-	Validate ValidateCmd   `cmd:"" help:"Validate a project YAML file"`
-	Config   ConfigCmd     `cmd:"" help:"Display the configuration reference"`
-	List     ListCmd       `cmd:"" help:"List Argo workflows"`
-	Stop     StopCmd       `cmd:"" help:"Stop an Argo workflow"`
-	Logs     LogsCmd       `cmd:"" help:"Get logs of an Argo workflow"`
-	Loop     LoopCmd       `cmd:"" help:"Run AI iterations over a set of steps"`
+	Run        RunCmd        `cmd:"" default:"withargs" help:"Execute Ralph with a project file (default command)"`
+	Command    CommandCmd    `cmd:"" help:"Run a command in a remote Ralph workflow"`
+	Set        SetCmd        `cmd:"" help:"Configure Ralph settings"`
+	Complete   CompleteCmd   `cmd:"" help:"List the completion hashes recorded in the commit log of this branch"`
+	Incomplete IncompleteCmd `cmd:"" help:"List project items not complete in this branch"`
+	Workflow   WorkflowGroup `cmd:"" help:"Run Ralph workflow subcommands in a container"`
+	Validate   ValidateCmd   `cmd:"" help:"Validate a project YAML file"`
+	Config     ConfigCmd     `cmd:"" help:"Display the configuration reference"`
+	List       ListCmd       `cmd:"" help:"List Argo workflows"`
+	Stop       StopCmd       `cmd:"" help:"Stop an Argo workflow"`
+	Logs       LogsCmd       `cmd:"" help:"Get logs of an Argo workflow"`
+	Loop       LoopCmd       `cmd:"" help:"Run AI iterations over a set of steps"`
 
 	version string `kong:"-"`
 	date    string `kong:"-"`

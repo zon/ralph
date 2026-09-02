@@ -114,7 +114,7 @@ When a covered command must resolve a Kubernetes context and kubectl is missing,
 
 ### Requirement: Commands without a cluster interaction do not require the options
 
-The `--context` and `--namespace` options SHALL be meaningful only where a command interacts with the cluster. Commands that run entirely in-process (`ralph get`, `ralph validate`, and `ralph run`/`ralph loop` in `local` or `worktree` mode) SHALL NOT require these options and SHALL accept them without effect.
+The `--context` and `--namespace` options SHALL be meaningful only where a command interacts with the cluster. Commands that run entirely in-process (`ralph complete`, `ralph incomplete`, `ralph validate`, and `ralph run`/`ralph loop` in `local` or `worktree` mode) SHALL NOT require these options and SHALL accept them without effect.
 
 #### Scenario: Local run ignores the options
 

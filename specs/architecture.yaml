@@ -21,8 +21,8 @@
 - path: internal/project
   description: Owns the project domain model, resolving files into item arrays and tracking item completion from commit trailers.
 
-- path: internal/orchestration/get
-  description: Orchestrates the get complete and get incomplete subcommands by resolving the item array and subtracting the indices recorded in the commit log.
+- path: internal/orchestration/completion
+  description: Orchestrates the ralph CLI complete and incomplete commands by resolving the item array and subtracting the hashes recorded in the commit log.
   orchestration: true
 
 - path: internal/orchestration/loop

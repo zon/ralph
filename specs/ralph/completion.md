@@ -1,8 +1,8 @@
-# Get Command Specification
+# Completion Commands Specification
 
 ## Purpose
 
-Define the behavior of `ralph get complete` and `ralph get incomplete`, the read-only primitives that report which items of a project are done and which are left. Completion is recorded in the commit messages on the project branch, not in the project file, so these commands read the branch's commit log and the resolved item array and report the difference. Both are the same operations the iteration loop performs, exposed so a run can be inspected from a script or by hand.
+Define the behavior of `ralph complete` and `ralph incomplete`, the read-only primitives that report which items of a project are done and which are left. Completion is recorded in the commit messages on the project branch, not in the project file, so these commands read the branch's commit log and the resolved item array and report the difference. Both are the same operations the iteration loop performs, exposed so a run can be inspected from a script or by hand.
 
 Neither command invokes an AI agent and neither writes to the repository.
 
@@ -10,37 +10,37 @@ Neither command invokes an AI agent and neither writes to the repository.
 
 ### Requirement: Command Invocation
 
-The system SHALL provide a `ralph get` command with two subcommands: `complete` and `incomplete`. `complete` accepts an optional project file path. `incomplete` requires a project file path.
+The system SHALL provide `ralph complete` and `ralph incomplete`, two separate commands. `ralph complete` accepts an optional project file path. `ralph incomplete` requires a project file path.
 
 #### Scenario: Complete invoked without a project file
 
-- GIVEN the user runs `ralph get complete`
+- GIVEN the user runs `ralph complete`
 - WHEN the command starts
 - THEN the completion trailers are read from the commit log with no item array resolved
 
 #### Scenario: Complete invoked with a project file
 
-- GIVEN the user runs `ralph get complete ./projects/csv-export.yaml`
+- GIVEN the user runs `ralph complete ./projects/csv-export.yaml`
 - WHEN the command starts
 - THEN the item array is resolved from that file and used to bound the reported hashes
 
 #### Scenario: Incomplete invoked without a project file
 
-- GIVEN the user runs `ralph get incomplete` with no positional argument
+- GIVEN the user runs `ralph incomplete` with no positional argument
 - WHEN the command starts
 - THEN the command exits with a non-zero status and reports that a project file path is required
 
 #### Scenario: Project file not found
 
 - GIVEN a project file path that does not exist on disk
-- WHEN either subcommand runs with that path
+- WHEN either command runs with that path
 - THEN the command exits with a non-zero status and reports that the file was not found
 
 ---
 
 ### Requirement: Item Query Resolution
 
-Both subcommands SHALL resolve the item array from the project file using a jq query resolved with two-level precedence: `--items` at the command line takes priority. Otherwise the `items` field in `.ralph/config.yaml` is used. Otherwise the query defaults to `.`. This is the same resolution the run command and `ralph validate` use, so all three agree on what the items are, and on their indices, by default.
+Both commands SHALL resolve the item array from the project file using a jq query resolved with two-level precedence: `--items` at the command line takes priority. Otherwise the `items` field in `.ralph/config.yaml` is used. Otherwise the query defaults to `.`. This is the same resolution the run command and `ralph validate` use, so `ralph run`, `ralph complete`, `ralph incomplete`, and `ralph validate` agree on what the items are, and on their indices, by default.
 
 Resolution discards empty outputs, so the resolved array is either empty or made entirely of non-empty items. See [the project file format](../../docs/projects.md#item-query). An empty resolved array SHALL be reported as an error, because there are no items to report on.
 
@@ -88,7 +88,7 @@ Resolution discards empty outputs, so the resolved array is either empty or made
 
 ### Requirement: Base Branch Resolution
 
-Both subcommands SHALL bound the commit log by a base branch, resolved from `--base` (`-B`) when provided and otherwise from the `defaultBranch` field in `.ralph/config.yaml`. The commits considered are those on the current branch that are not on the base branch.
+Both commands SHALL bound the commit log by a base branch, resolved from `--base` (`-B`) when provided and otherwise from the `defaultBranch` field in `.ralph/config.yaml`. The commits considered are those on the current branch that are not on the base branch.
 
 #### Scenario: `--base` overrides the configured default branch
 
@@ -150,25 +150,25 @@ The system SHALL treat a commit as recording an item complete when its message c
 
 ### Requirement: Complete Output
 
-`ralph get complete` SHALL print the completed item hashes to stdout, one per line, sorted and deduplicated, and exit with status 0.
+`ralph complete` SHALL print the completed item hashes to stdout, one per line, sorted and deduplicated, and exit with status 0.
 
 #### Scenario: Completed hashes printed
 
 - GIVEN the branch's commit log records items 2, 0, and 3 complete
-- WHEN `ralph get complete` runs
+- WHEN `ralph complete` runs
 - THEN the three item hashes are printed to stdout, one per line
 - AND the command exits with status 0
 
 #### Scenario: Duplicate trailers collapse
 
 - GIVEN two commits on the branch both record the same item complete
-- WHEN `ralph get complete` runs
+- WHEN `ralph complete` runs
 - THEN that item's hash appears exactly once in the output
 
 #### Scenario: Nothing complete
 
 - GIVEN no commit on the branch carries a completion trailer
-- WHEN `ralph get complete` runs
+- WHEN `ralph complete` runs
 - THEN nothing is printed to stdout
 - AND the command exits with status 0
 
@@ -176,52 +176,52 @@ The system SHALL treat a commit as recording an item complete when its message c
 
 - GIVEN no project file is provided
 - AND the log contains a trailer `csv-export-BEAT2F1` on the current branch `csv-export`
-- WHEN `ralph get complete` runs
+- WHEN `ralph complete` runs
 - THEN the hash `BEAT2F1` is reported without a resolved item check, because no item array was resolved
 
 #### Scenario: Works after the project file is removed
 
 - GIVEN the project file was deleted by a cleanup commit on this branch
-- WHEN `ralph get complete` runs without a project file argument
+- WHEN `ralph complete` runs without a project file argument
 - THEN the completed hashes are still reported from the commit log
 
 ---
 
 ### Requirement: Complete JSON Output
 
-`ralph get complete` SHALL accept a `--json` flag that prints the same sorted and deduplicated hashes as a JSON array instead of one hash per line.
+`ralph complete` SHALL accept a `--json` flag that prints the same sorted and deduplicated hashes as a JSON array instead of one hash per line.
 
 #### Scenario: Completed hashes printed as a JSON array
 
 - GIVEN the branch's commit log records items 2, 0, and 3 complete
-- WHEN `ralph get complete --json` runs
+- WHEN `ralph complete --json` runs
 - THEN the three item hashes are printed to stdout as a JSON array
 - AND the command exits with status 0
 
 #### Scenario: Nothing complete prints an empty array
 
 - GIVEN no commit on the branch carries a completion trailer
-- WHEN `ralph get complete --json` runs
+- WHEN `ralph complete --json` runs
 - THEN `[]` is printed to stdout
 
 ---
 
 ### Requirement: Incomplete Output
 
-`ralph get incomplete` SHALL resolve the item array, remove the items reported complete, and print the remaining items to stdout as a JSON array in their original array order.
+`ralph incomplete` SHALL resolve the item array, remove the items reported complete, and print the remaining items to stdout as a JSON array in their original array order.
 
 #### Scenario: Remaining items printed
 
 - GIVEN a project resolving to 4 items
 - AND items 0 and 2 are recorded complete
-- WHEN `ralph get incomplete <file>` runs
+- WHEN `ralph incomplete <file>` runs
 - THEN the items at indices 1 and 3 are printed as a JSON array, in that order
 - AND each item is printed exactly as it appears in the resolved array
 
 #### Scenario: Every item complete
 
 - GIVEN every resolved item is recorded complete
-- WHEN `ralph get incomplete <file>` runs
+- WHEN `ralph incomplete <file>` runs
 - THEN `[]` is printed to stdout
 - AND the command exits with status 0
 
@@ -229,17 +229,17 @@ The system SHALL treat a commit as recording an item complete when its message c
 
 ### Requirement: Read-Only Execution
 
-Both subcommands SHALL be read-only and SHALL NOT invoke an AI agent. No file is written, no commit is created, and no branch is switched.
+Both commands SHALL be read-only and SHALL NOT invoke an AI agent. No file is written, no commit is created, and no branch is switched.
 
 #### Scenario: No AI invocation
 
-- GIVEN either subcommand runs
+- GIVEN either command runs
 - WHEN it resolves items and reads the commit log
 - THEN no AI agent is invoked
 
 #### Scenario: Repository left untouched
 
-- GIVEN either subcommand runs against a repository with a clean working tree
+- GIVEN either command runs against a repository with a clean working tree
 - WHEN the command finishes
 - THEN the working tree is still clean and the current branch is unchanged
 - AND the project file is byte-identical to what it was before the command ran

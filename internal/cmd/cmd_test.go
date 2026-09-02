@@ -330,6 +330,8 @@ func TestTopLevelCommandsParsed(t *testing.T) {
 		{name: "list", args: []string{"list"}},
 		{name: "stop", args: []string{"stop", "test-workflow"}},
 		{name: "set remote", args: []string{"set", "remote"}},
+		{name: "complete", args: []string{"complete"}},
+		{name: "incomplete", args: []string{"incomplete", "test.yaml"}},
 	}
 
 	for _, tt := range tests {

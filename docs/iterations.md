@@ -14,8 +14,8 @@ resolve items ──► pick an item ──► develop it ──► commit (+ co
 Each iteration:
 
 1. **Resolve** — parse the project file and evaluate the [item query](projects.md#item-query) to get the item array. Empty outputs are dropped, and a run whose array comes back empty stops here.
-2. **Read completions** — parse `git log <base>..HEAD` for completion trailers and mark the matching items complete (`ralph get complete`).
-3. **Exit check** — if nothing is left, leave the loop (`ralph get incomplete` is empty).
+2. **Read completions** — parse `git log <base>..HEAD` for completion trailers and mark the matching items complete (`ralph complete`).
+3. **Exit check** — if nothing is left, leave the loop (`ralph incomplete` is empty).
 4. **Start services** — run configured `before` commands and services (see [Configuration](../internal/config/config.md)).
 5. **Pick** — the picker agent selects one incomplete item.
 6. **Develop** — the development agent works the picked item.
@@ -38,7 +38,7 @@ Editing the project file by hand while a run is in progress is unsupported. Noth
 
 ## Picking
 
-The picker agent receives the full project file, the incomplete items with their indices and keys (the output of `ralph get incomplete`), and the recent commit log. It selects one item based on dependencies between items, logical ordering, and impact.
+The picker agent receives the full project file, the incomplete items with their indices and keys (the output of `ralph incomplete`), and the recent commit log. It selects one item based on dependencies between items, logical ordering, and impact.
 
 The development agent then receives that one item verbatim, plus its index and key, plus the full project file for context.
 
@@ -85,15 +85,15 @@ At the start of each iteration Ralph scans the commit messages on the project br
 The same two steps are exposed as commands, and they are the ones the loop itself uses:
 
 ```bash
-$ ralph get complete                                  # completion hashes, one per line, from the commit log
+$ ralph complete                                      # completion hashes, one per line, from the commit log
 IYAWN02
 9d8LxCD
 
-$ ralph get incomplete projects/csv-export.yaml       # the items that are left
+$ ralph incomplete projects/csv-export.yaml           # the items that are left
 [{"slug": "export-endpoint", ...}, {"slug": "export-error-handling", ...}]
 ```
 
-`ralph get complete` needs only the branch and the base. It parses trailers and nothing else, so it works even after the project file has been removed. `ralph get incomplete` is that result subtracted from the resolved item array. An empty array from it is the loop's exit condition, and its non-empty output is what the picker chooses from. Both are read-only and make no AI calls, which makes them the way to check on a run in progress or debug a stuck one. See [CLI reference](cli.md#ralph-get).
+`ralph complete` needs only the branch and the base. It parses trailers and nothing else, so it works even after the project file has been removed. `ralph incomplete` is that result subtracted from the resolved item array. An empty array from it is the loop's exit condition, and its non-empty output is what the picker chooses from. Both are read-only and make no AI calls, which makes them the way to check on a run in progress or debug a stuck one. See [CLI reference](cli.md#ralph-complete).
 
 ### Resuming and re-running
 
