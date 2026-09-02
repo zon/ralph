@@ -85,8 +85,9 @@ At the start of each iteration Ralph scans the commit messages on the project br
 The same two steps are exposed as commands, and they are the ones the loop itself uses:
 
 ```bash
-$ ralph get complete                                  # completion hashes, from the commit log
-["IYAWN02", "9d8LxCD"]
+$ ralph get complete                                  # completion hashes, one per line, from the commit log
+IYAWN02
+9d8LxCD
 
 $ ralph get incomplete projects/csv-export.yaml       # the items that are left
 [{"slug": "export-endpoint", ...}, {"slug": "export-error-handling", ...}]

@@ -150,13 +150,13 @@ The system SHALL treat a commit as recording an item complete when its message c
 
 ### Requirement: Complete Output
 
-`ralph get complete` SHALL print the completed item hashes to stdout as a JSON array, sorted and deduplicated, and exit with status 0.
+`ralph get complete` SHALL print the completed item hashes to stdout, one per line, sorted and deduplicated, and exit with status 0.
 
 #### Scenario: Completed hashes printed
 
 - GIVEN the branch's commit log records items 2, 0, and 3 complete
 - WHEN `ralph get complete` runs
-- THEN the three item hashes are printed to stdout as a JSON array
+- THEN the three item hashes are printed to stdout, one per line
 - AND the command exits with status 0
 
 #### Scenario: Duplicate trailers collapse
@@ -169,7 +169,7 @@ The system SHALL treat a commit as recording an item complete when its message c
 
 - GIVEN no commit on the branch carries a completion trailer
 - WHEN `ralph get complete` runs
-- THEN `[]` is printed to stdout
+- THEN nothing is printed to stdout
 - AND the command exits with status 0
 
 #### Scenario: Unbounded output without a project file
@@ -218,12 +218,6 @@ The system SHALL treat a commit as recording an item complete when its message c
 - AND items 0, 2, and 3 are recorded complete
 - WHEN `ralph get incomplete <file> --index` runs
 - THEN `[1, 4]` is printed to stdout
-
-#### Scenario: `--index` rejected on complete
-
-- GIVEN the user runs `ralph get complete --index`
-- WHEN the command validates its flags
-- THEN an error is returned, because `complete` already emits hashes
 
 ---
 

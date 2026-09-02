@@ -90,11 +90,11 @@ func TestScenarioRepositoryLeftUntouched(t *testing.T) {
 	cmd := newGetCmd(&buf)
 
 	require.NoError(t, cmd.Complete(cfg, Flags{}))
-	assert.Equal(t, `["`+itemHash("item 0")+`"]`, strings.TrimSpace(buf.String()), "completion read from the log with no item array resolved")
+	assert.Equal(t, itemHash("item 0")+"\n", buf.String(), "completion read from the log with no item array resolved")
 
 	buf.Reset()
 	require.NoError(t, cmd.Complete(cfg, Flags{ProjectFile: projectPath}))
-	assert.Equal(t, `["`+itemHash("item 0")+`"]`, strings.TrimSpace(buf.String()), "resolved item array bounds the reported hashes")
+	assert.Equal(t, itemHash("item 0")+"\n", buf.String(), "resolved item array bounds the reported hashes")
 
 	buf.Reset()
 	require.NoError(t, cmd.Incomplete(cfg, Flags{ProjectFile: projectPath}, true))
@@ -129,7 +129,7 @@ func TestScenarioCompletionScopedToCurrentBranch(t *testing.T) {
 	// Feature is forked from develop, so the develop-1 trailer is in the
 	// main..HEAD log range. It names develop, not feature, so it is not counted.
 	require.NoError(t, cmd.Complete(cfg, Flags{}))
-	assert.Equal(t, `["`+itemHash("item 0")+`"]`, strings.TrimSpace(buf.String()), "completion on the current branch only")
+	assert.Equal(t, itemHash("item 0")+"\n", buf.String(), "completion on the current branch only")
 }
 
 func TestScenarioBaseOverridesConfiguredDefaultBranch(t *testing.T) {
@@ -153,11 +153,11 @@ func TestScenarioBaseOverridesConfiguredDefaultBranch(t *testing.T) {
 	cmd := newGetCmd(&buf)
 
 	require.NoError(t, cmd.Complete(cfg, Flags{}))
-	assert.Equal(t, `["`+itemHash("item 1")+`","`+itemHash("item 0")+`"]`, strings.TrimSpace(buf.String()), "the configured default branch bounds the log")
+	assert.Equal(t, itemHash("item 1")+"\n"+itemHash("item 0")+"\n", buf.String(), "the configured default branch bounds the log")
 
 	buf.Reset()
 	require.NoError(t, cmd.Complete(cfg, Flags{Base: "develop"}))
-	assert.Equal(t, `["`+itemHash("item 1")+`"]`, strings.TrimSpace(buf.String()), "--base overrides the configured default branch")
+	assert.Equal(t, itemHash("item 1")+"\n", buf.String(), "--base overrides the configured default branch")
 }
 
 func TestScenarioUnmatchedHashWarnedByGetComplete(t *testing.T) {
@@ -184,7 +184,7 @@ func TestScenarioUnmatchedHashWarnedByGetComplete(t *testing.T) {
 	cmd := NewCmd(client, &buf)
 
 	require.NoError(t, cmd.Complete(cfg, Flags{ProjectFile: projectPath}))
-	assert.Equal(t, "[]", strings.TrimSpace(buf.String()), "a hash matching no resolved item is not reported as complete")
+	assert.Equal(t, "", buf.String(), "a hash matching no resolved item is not reported as complete")
 	assert.Contains(t, warnBuf.String(), itemHash("item 9"), "the warning names the unmatched hash")
 	assert.Contains(t, warnBuf.String(), "matches no resolved item", "the warning says the hash matches no resolved item")
 }

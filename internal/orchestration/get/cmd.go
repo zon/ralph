@@ -2,6 +2,7 @@ package get
 
 import (
 	"errors"
+	"fmt"
 	"io"
 
 	"github.com/zon/ralph/internal/config"
@@ -22,7 +23,7 @@ type ProjectClient interface {
 
 // Cmd orchestrates the get complete and get incomplete subcommands by
 // resolving the item array and subtracting the hashes recorded in the commit
-// log, printing the result to out as a JSON array.
+// log, printing the result to out.
 type Cmd struct {
 	project ProjectClient
 	out     io.Writer
@@ -39,8 +40,8 @@ type Flags struct {
 	Base        string
 }
 
-// Complete prints the hashes recorded complete in the branch commit log as a
-// JSON array. When a project file is given, its resolved item array bounds the
+// Complete prints the hashes recorded complete in the branch commit log, one
+// per line. When a project file is given, its resolved item array bounds the
 // reported hashes; without one every trailer found in the log is reported
 // without a range check.
 func (c *Cmd) Complete(cfg *config.RalphConfig, flags Flags) error {
@@ -56,7 +57,12 @@ func (c *Cmd) Complete(cfg *config.RalphConfig, flags Flags) error {
 	if err != nil {
 		return err
 	}
-	return output.PrintJSON(c.out, complete)
+	for _, hash := range complete {
+		if _, err := fmt.Fprintln(c.out, hash); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Incomplete requires a project file and prints the items whose indices are

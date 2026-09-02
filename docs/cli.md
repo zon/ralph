@@ -92,7 +92,7 @@ ralph command go test ./...
 
 ## ralph get
 
-Inspects completion state. Both subcommands emit JSON on stdout, are read-only, and make no AI calls. They are what the picker agent is built from, and they are the way to check a run's progress from a script or by hand.
+Inspects completion state. Both subcommands are read-only and make no AI calls. `complete` prints completion hashes, one per line, and `incomplete` emits JSON. They are what the picker agent is built from, and they are the way to check a run's progress from a script or by hand.
 
 ### ralph get complete
 
@@ -101,13 +101,14 @@ ralph get complete
 ralph get complete projects/csv-export.yaml
 ```
 
-Reads the commit messages on the current branch that are not on the base branch, parses the [completion trailers](iterations.md#recording-completion), and prints the completion hashes of the finished items as a JSON array, sorted and deduplicated. Only trailers naming the current branch count. A trailer naming any other branch is ignored without a warning:
+Reads the commit messages on the current branch that are not on the base branch, parses the [completion trailers](iterations.md#recording-completion), and prints the completion hashes of the finished items, one per line, sorted and deduplicated. Only trailers naming the current branch count. A trailer naming any other branch is ignored without a warning:
 
-```json
-["IYAWN02", "9d8LxCD"]
+```bash
+IYAWN02
+9d8LxCD
 ```
 
-The project file is optional. When given, trailers whose hash matches no resolved item are dropped. Without it, every current-branch trailer found in the log is reported. Prints `[]` and exits 0 when nothing is complete.
+The project file is optional. When given, trailers whose hash matches no resolved item are dropped. Without it, every current-branch trailer found in the log is reported. Prints nothing and exits 0 when nothing is complete.
 
 ### ralph get incomplete
 

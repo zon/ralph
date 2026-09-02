@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/zon/ralph/internal/config"
@@ -13,7 +12,7 @@ import (
 
 // GetCmd is the read-only `ralph get` command group.
 type GetCmd struct {
-	Complete   GetCompleteCmd   `cmd:"" help:"List the completion hashes recorded complete in the commit log"`
+	Complete   GetCompleteCmd   `cmd:"" help:"List the completion hashes recorded in the commit log of this branch"`
 	Incomplete GetIncompleteCmd `cmd:"" help:"List the items that are not complete"`
 }
 
@@ -24,13 +23,9 @@ type GetCompleteCmd struct {
 	ProjectFile string `arg:"" optional:"" help:"Path to project file (optional)"`
 	Items       string `help:"jq query selecting the project item list (default: .)" name:"items" short:"i"`
 	Base        string `help:"Base branch bounding the commit log" name:"base" short:"B"`
-	Index       bool   `help:"Rejected: complete already emits hashes" name:"index"`
 }
 
 func (c *GetCompleteCmd) Run() error {
-	if c.Index {
-		return fmt.Errorf("--index is not applicable to get complete; it already emits completion hashes")
-	}
 	ctx := createExecutionContext()
 	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
 	cfg, err := config.LoadConfig()

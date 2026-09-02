@@ -85,7 +85,14 @@ func TestScenarioCompletedHashesPrinted(t *testing.T) {
 	m.complete = []string{"abc1234", "efg5678", "hij9012"}
 	err := NewCmd(m, buf).Complete(defaultConfig(), Flags{})
 	require.NoError(t, err)
-	assert.Equal(t, `["abc1234","efg5678","hij9012"]`, strings.TrimSpace(buf.String()))
+	assert.Equal(t, "abc1234\nefg5678\nhij9012\n", buf.String())
+}
+
+func TestScenarioNothingCompletePrintsNothing(t *testing.T) {
+	m, buf := newMock()
+	err := NewCmd(m, buf).Complete(defaultConfig(), Flags{})
+	require.NoError(t, err)
+	assert.Equal(t, "", buf.String())
 }
 
 func TestScenarioCompleteWorksAfterProjectFileRemoved(t *testing.T) {
@@ -94,7 +101,7 @@ func TestScenarioCompleteWorksAfterProjectFileRemoved(t *testing.T) {
 	err := NewCmd(m, buf).Complete(defaultConfig(), Flags{})
 	require.NoError(t, err)
 	assert.False(t, m.resolveCalled, "no project file is read when none is given")
-	assert.Equal(t, `["abc1234","efg5678","hij9012"]`, strings.TrimSpace(buf.String()))
+	assert.Equal(t, "abc1234\nefg5678\nhij9012\n", buf.String())
 }
 
 func TestScenarioRemainingItemsPrinted(t *testing.T) {

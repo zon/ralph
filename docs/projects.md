@@ -110,7 +110,7 @@ Ralph reads `git log <base>..HEAD` at the start of every iteration to determine 
 To see that state for a given file, ask Ralph:
 
 ```bash
-ralph get complete                                 # [0, 2]
+ralph get complete                                 # completion hashes, one per line
 ralph get incomplete ./projects/<slug>.yaml        # the items still to do
 ```
 
