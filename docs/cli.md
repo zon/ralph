@@ -193,10 +193,10 @@ ralph review
 | `--verbose` | Enable verbose logging |
 | `--context` | The name of the Kubernetes context to use |
 
-## ralph config
+## ralph help config
 
 ```bash
-ralph config
+ralph help config
 ```
 
 Shows the [configuration reference](../internal/config/config.md) for `.ralph/config.yaml`. Interactive terminals render the markdown and page it with the usual pager keys (`↑`/`↓` or `j`/`k` scroll, `space`/`pgdn` and `pgup` page, `q` quits); redirected output prints plain text.

@@ -399,7 +399,7 @@ func DefaultFixServiceInstructions() string {
 }
 
 // ConfigDocumentation returns the embedded configuration reference shown by
-// `ralph config`.
+// `ralph help config`.
 func ConfigDocumentation() string {
 	return configDocumentation
 }

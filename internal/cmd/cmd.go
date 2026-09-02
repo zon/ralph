@@ -10,7 +10,7 @@ type Cmd struct {
 	Incomplete IncompleteCmd `cmd:"" help:"List project items not complete in this branch"`
 	Workflow   WorkflowGroup `cmd:"" help:"Run Ralph workflow subcommands in a container"`
 	Validate   ValidateCmd   `cmd:"" help:"Validate a project YAML file"`
-	Config     ConfigCmd     `cmd:"" help:"Display the configuration reference"`
+	Help       HelpGroup     `cmd:"" help:"Show help for Ralph topics"`
 	List       ListCmd       `cmd:"" help:"List Argo workflows"`
 	Stop       StopCmd       `cmd:"" help:"Stop an Argo workflow"`
 	Logs       LogsCmd       `cmd:"" help:"Get logs of an Argo workflow"`
@@ -26,6 +26,11 @@ type WorkflowGroup struct {
 	Command WorkflowCommandCmd `cmd:"" help:"Invoked by workflows to execute a command"`
 	Token   WorkflowTokenCmd   `cmd:"" help:"Invoked by workflows to configure git and gh auth"`
 	Loop    WorkflowLoopCmd    `cmd:"" help:"Invoked by workflows to execute a loop"`
+}
+
+// HelpGroup defines the help subcommand group
+type HelpGroup struct {
+	Config HelpConfigCmd `cmd:"" help:"Display the configuration reference"`
 }
 
 // SetVersion sets the version information

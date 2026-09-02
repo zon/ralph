@@ -14,7 +14,7 @@ import (
 	"github.com/zon/ralph/internal/config"
 )
 
-func TestConfigSubcommandParsed(t *testing.T) {
+func TestHelpConfigSubcommandParsed(t *testing.T) {
 	cmd := &Cmd{}
 	parser, err := kong.New(cmd,
 		kong.Name("ralph"),
@@ -22,12 +22,12 @@ func TestConfigSubcommandParsed(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	_, err = parser.Parse([]string{"config"})
+	_, err = parser.Parse([]string{"help", "config"})
 	require.NoError(t, err)
 }
 
-func TestConfigCmdHelpText(t *testing.T) {
-	output := captureHelpOutput(&Cmd{}, []string{"config", "--help"})
+func TestHelpConfigCmdHelpText(t *testing.T) {
+	output := captureHelpOutput(&Cmd{}, []string{"help", "config", "--help"})
 	assert.Contains(t, output, "Display the configuration reference")
 }
 
@@ -45,7 +45,7 @@ func TestPrintConfigDocumentationNonInteractive(t *testing.T) {
 }
 
 // TestConfigDocumentationEmbedded asserts the embedded documentation covers
-// the configuration sections a reader of `ralph config` expects.
+// the configuration sections a reader of `ralph help config` expects.
 func TestConfigDocumentationEmbedded(t *testing.T) {
 	doc := config.ConfigDocumentation()
 	require.NotEmpty(t, doc)

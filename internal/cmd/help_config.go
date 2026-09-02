@@ -16,13 +16,13 @@ import (
 	"github.com/zon/ralph/internal/config"
 )
 
-// ConfigCmd displays the .ralph/config.yaml reference documentation.
-type ConfigCmd struct{}
+// HelpConfigCmd displays the .ralph/config.yaml reference documentation.
+type HelpConfigCmd struct{}
 
 // Run prints the configuration documentation. When the process runs on an
 // interactive terminal, glamour renders the markdown and Bubble Tea pages it;
 // otherwise the markdown is rendered as plain text.
-func (c *ConfigCmd) Run() error {
+func (c *HelpConfigCmd) Run() error {
 	return printConfigDocumentation(os.Stdout, interactiveTerminal())
 }
 
