@@ -37,7 +37,7 @@ See [Iterations](iterations.md) for the completion model.
 
 | Flag | Description |
 |------|-------------|
-| `-i, --items` | jq query selecting the item array (default: config `items`, else `.`) |
+| `-i, --items` | jq query selecting the project item list (default: `.`) |
 | `--cleanup` | Delete the project file in its own commit once complete |
 | `--extra` | Extra iterations beyond project item count (default: 20% item count) |
 | `--once` | Run one iteration without branching or PR |
@@ -137,7 +137,7 @@ An empty array means every item is complete: that condition ends the iteration l
 
 | Flag | Description |
 |------|-------------|
-| `-i, --items` | jq query selecting the item array (default: config `items`, else `.`) |
+| `-i, --items` | jq query selecting the project item list (default: `.`) |
 | `-B, --base` | Base branch bounding the commit log (default: config `defaultBranch`) |
 | `--index` | `incomplete` only: emit indices rather than items |
 
@@ -154,7 +154,7 @@ Checks that the file parses as YAML or JSON, that the item query evaluates again
 
 | Flag | Description |
 |------|-------------|
-| `-i, --items` | jq query selecting the item array (default: config `items`, else `.`) |
+| `-i, --items` | jq query selecting the project item list (default: `.`) |
 
 `-i, --items` resolves the same way it does for a run: the flag first, then `items` in `.ralph/config.yaml`, then `.`. Validate with the query the run will use. A file that validates under `.` and runs under `.requirements` has not been checked.
 

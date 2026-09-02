@@ -21,7 +21,7 @@ type RunCmd struct {
 	Follow          bool   `help:"Follow workflow logs after submission (only applicable with --mode remote)" short:"f" default:"false"`
 	Debug           string `help:"Checkout the given Ralph repo branch in the workflow container and invoke Ralph via 'go run' instead of the built binary (only applicable with --mode remote)" name:"debug" optional:""`
 	Base            string `help:"Override the base branch for PR creation (default: detects from current branch)" name:"base" optional:"" short:"B"`
-	Items           string `help:"jq query selecting the item array from the project file (default: from config or .)" name:"items" optional:"" short:"i"`
+	Items           string `help:"jq query selecting the project item list (default: .)" name:"items" optional:"" short:"i"`
 	Cleanup         *bool  `help:"Delete the project file in its own commit once every item is complete" name:"cleanup"`
 	Model           string `help:"The model to use in format of provider/model" name:"model" optional:"" short:"m"`
 	Agent           string `help:"Override the opencode agent from config" name:"agent" optional:""`

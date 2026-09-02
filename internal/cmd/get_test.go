@@ -17,7 +17,7 @@ func TestGetCmdHelpListsCompleteAndIncomplete(t *testing.T) {
 func TestGetCompleteCmdHelpText(t *testing.T) {
 	output := captureHelpOutput(&Cmd{}, []string{"get", "complete", "--help"})
 	assert.Contains(t, output, "List the completion hashes recorded complete in the commit log")
-	assert.Contains(t, output, "jq query selecting the item array")
+	assert.Contains(t, output, "jq query selecting the project item list (default: .)")
 	assert.Contains(t, output, "Base branch bounding the commit log")
 }
 

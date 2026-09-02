@@ -10,7 +10,7 @@ import (
 
 type ValidateCmd struct {
 	ProjectFile string `arg:"" help:"Path to project YAML file"`
-	Items       string `help:"jq query selecting the item array from the project file (default: from config or .)" name:"items" optional:"" short:"i"`
+	Items       string `help:"jq query selecting the project item list (default: .)" name:"items" optional:"" short:"i"`
 }
 
 func (v *ValidateCmd) Run() error {

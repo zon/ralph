@@ -16,7 +16,7 @@ type WorkflowRunCmd struct {
 	BotName         string `help:"Git user name for commits" default:"ralph-zon[bot]"`
 	BotEmail        string `help:"Git user email for commits" default:"ralph-zon[bot]@users.noreply.github.com"`
 	Debug           string `help:"Ralph branch to use for debug mode" name:"debug"`
-	Items           string `help:"jq query selecting the item array from the project file" name:"items" short:"i"`
+	Items           string `help:"jq query selecting the project item list (default: .)" name:"items" short:"i"`
 	Cleanup         bool   `help:"Delete the project file in its own commit once every item is complete" name:"cleanup"`
 	NoServices      bool   `help:"Skip service startup" default:"false"`
 	InstructionsMD  string `help:"Inline instructions content" name:"instructions-md"`

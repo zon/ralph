@@ -22,7 +22,7 @@ type GetCmd struct {
 // log with no item array resolved.
 type GetCompleteCmd struct {
 	ProjectFile string `arg:"" optional:"" help:"Path to project file (optional)"`
-	Items       string `help:"jq query selecting the item array" name:"items"`
+	Items       string `help:"jq query selecting the project item list (default: .)" name:"items" short:"i"`
 	Base        string `help:"Base branch bounding the commit log" name:"base" short:"B"`
 	Index       bool   `help:"Rejected: complete already emits hashes" name:"index"`
 }
@@ -49,7 +49,7 @@ func (c *GetCompleteCmd) Run() error {
 // required.
 type GetIncompleteCmd struct {
 	ProjectFile string `arg:"" help:"Path to project file"`
-	Items       string `help:"jq query selecting the item array" name:"items"`
+	Items       string `help:"jq query selecting the project item list (default: .)" name:"items" short:"i"`
 	Base        string `help:"Base branch bounding the commit log" name:"base" short:"B"`
 	Index       bool   `help:"Emit indices instead of items" name:"index"`
 }
