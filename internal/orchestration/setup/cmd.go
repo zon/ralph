@@ -1,4 +1,4 @@
-package setremote
+package setup
 
 import "errors"
 
@@ -28,7 +28,7 @@ type OpenCodeCredentialsClient interface {
 	Configure(k8sCtx K8sContext) error
 }
 
-type SetRemoteCmd struct {
+type SetupCmd struct {
 	Ctx      ContextClient
 	GitHub   GitHubCredentialsClient
 	OpenCode OpenCodeCredentialsClient
@@ -41,7 +41,7 @@ type Flags struct {
 	GithubToken string
 }
 
-func (c *SetRemoteCmd) Run(flags Flags) error {
+func (c *SetupCmd) Run(flags Flags) error {
 	if flags.GithubKey != "" && flags.GithubToken != "" {
 		return ErrBothGitHubFlags
 	}
@@ -58,7 +58,7 @@ func (c *SetRemoteCmd) Run(flags Flags) error {
 	return c.OpenCode.Configure(k8sCtx)
 }
 
-func (c *SetRemoteCmd) configureGitHub(k8sCtx K8sContext, flags Flags) error {
+func (c *SetupCmd) configureGitHub(k8sCtx K8sContext, flags Flags) error {
 	if flags.GithubToken != "" {
 		return c.GitHub.ConfigureToken(k8sCtx, flags.GithubToken)
 	}
@@ -82,7 +82,7 @@ func (c *SetRemoteCmd) configureGitHub(k8sCtx K8sContext, flags Flags) error {
 	return c.configureTokenFromFallback(k8sCtx)
 }
 
-func (c *SetRemoteCmd) configureTokenFromFallback(k8sCtx K8sContext) error {
+func (c *SetupCmd) configureTokenFromFallback(k8sCtx K8sContext) error {
 	token := c.GitHub.TokenFromGHCli()
 	if token == "" {
 		token = c.GitHub.TokenFromEnv()

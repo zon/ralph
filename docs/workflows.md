@@ -29,20 +29,20 @@ See [Configuration](../internal/config/config.md#mode) for the `mode` config set
 
 ## Setup
 
-Configure the Kubernetes credentials once with `ralph set remote`, then run remotely. Credentials are stored as Secrets in the target cluster and namespace. See [Configuration](../internal/config/config.md) for workflow settings including custom images, namespaces, and environment variables.
+Configure the Kubernetes credentials once with `ralph setup`, then run remotely. Credentials are stored as Secrets in the target cluster and namespace. See [Configuration](../internal/config/config.md) for workflow settings including custom images, namespaces, and environment variables.
 
 ### Quickstart: personal access token
 
 The simplest path reuses your existing GitHub login. With `gh` authenticated, configure everything with one command:
 
 ```bash
-ralph set remote
+ralph setup
 ```
 
 When no key or token is given, Ralph stores the token from your `gh` login, or from `GITHUB_TOKEN` if set. To provide a token explicitly:
 
 ```bash
-ralph set remote --github-token <token>
+ralph setup --github-token <token>
 ```
 
 ### Recommended: GitHub App
@@ -50,7 +50,7 @@ ralph set remote --github-token <token>
 For teams, a GitHub App gives short-lived installation tokens and fine-grained, repo-scoped access as a bot identity. Create an App, install it on the target repositories, then:
 
 ```bash
-ralph set remote --github-key <key.pem>
+ralph setup --github-key <key.pem>
 ```
 
 ### Prerequisites

@@ -5,7 +5,7 @@ type Cmd struct {
 	// Subcommands
 	Run        RunCmd        `cmd:"" default:"withargs" help:"Execute Ralph with a project file (default command)"`
 	Command    CommandCmd    `cmd:"" help:"Run a command in a remote Ralph workflow"`
-	Set        SetCmd        `cmd:"" help:"Configure Ralph settings"`
+	Setup      SetupCmd      `cmd:"" help:"Configure credentials for remote execution"`
 	Complete   CompleteCmd   `cmd:"" help:"List the completion hashes recorded in the commit log of this branch"`
 	Incomplete IncompleteCmd `cmd:"" help:"List project items not complete in this branch"`
 	Workflow   WorkflowGroup `cmd:"" help:"Run Ralph workflow subcommands in a container"`

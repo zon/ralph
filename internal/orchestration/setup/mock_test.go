@@ -1,4 +1,4 @@
-package setremote
+package setup
 
 var errMock = &mockError{"mock error"}
 
@@ -101,17 +101,17 @@ var mockCtx *mockContextClient
 var mockGH *mockGitHubCredentialsClient
 var mockOC *mockOpenCodeCredentialsClient
 
-type setremoteHelper struct{}
+type setupHelper struct{}
 
-type setremoteOption func(*SetRemoteCmd)
+type setupOption func(*SetupCmd)
 
-var setremote = &setremoteHelper{}
+var setup = &setupHelper{}
 
-func (h *setremoteHelper) withMocks(opts ...setremoteOption) *SetRemoteCmd {
+func (h *setupHelper) withMocks(opts ...setupOption) *SetupCmd {
 	mockCtx = &mockContextClient{}
 	mockGH = &mockGitHubCredentialsClient{}
 	mockOC = &mockOpenCodeCredentialsClient{}
-	cmd := &SetRemoteCmd{
+	cmd := &SetupCmd{
 		Ctx:      mockCtx,
 		GitHub:   mockGH,
 		OpenCode: mockOC,
@@ -122,8 +122,8 @@ func (h *setremoteHelper) withMocks(opts ...setremoteOption) *SetRemoteCmd {
 	return cmd
 }
 
-func (h *setremoteHelper) withContext(cc ContextClient) setremoteOption {
-	return func(cmd *SetRemoteCmd) {
+func (h *setupHelper) withContext(cc ContextClient) setupOption {
+	return func(cmd *SetupCmd) {
 		cmd.Ctx = cc
 		if m, ok := cc.(*mockContextClient); ok {
 			mockCtx = m
@@ -131,8 +131,8 @@ func (h *setremoteHelper) withContext(cc ContextClient) setremoteOption {
 	}
 }
 
-func (h *setremoteHelper) withGitHub(gc GitHubCredentialsClient) setremoteOption {
-	return func(cmd *SetRemoteCmd) {
+func (h *setupHelper) withGitHub(gc GitHubCredentialsClient) setupOption {
+	return func(cmd *SetupCmd) {
 		cmd.GitHub = gc
 		if m, ok := gc.(*mockGitHubCredentialsClient); ok {
 			mockGH = m
@@ -140,8 +140,8 @@ func (h *setremoteHelper) withGitHub(gc GitHubCredentialsClient) setremoteOption
 	}
 }
 
-func (h *setremoteHelper) withOpenCode(oc OpenCodeCredentialsClient) setremoteOption {
-	return func(cmd *SetRemoteCmd) {
+func (h *setupHelper) withOpenCode(oc OpenCodeCredentialsClient) setupOption {
+	return func(cmd *SetupCmd) {
 		cmd.OpenCode = oc
 		if m, ok := oc.(*mockOpenCodeCredentialsClient); ok {
 			mockOC = m

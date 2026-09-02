@@ -1,4 +1,4 @@
-# Set Remote Specification
+# Setup Specification
 
 ## Purpose
 
@@ -8,12 +8,12 @@ One-shot setup of all Kubernetes credentials required for Ralph remote execution
 
 ### Requirement: Sequential Credential Setup
 
-The system SHALL run credential setup steps in order via `ralph set remote`: (1) resolve Kubernetes context, (2) validate and write GitHub credentials, (3) read and write OpenCode credentials. If any step fails, the command SHALL exit immediately without proceeding to subsequent steps.
+The system SHALL run credential setup steps in order via `ralph setup`: (1) resolve Kubernetes context, (2) validate and write GitHub credentials, (3) read and write OpenCode credentials. If any step fails, the command SHALL exit immediately without proceeding to subsequent steps.
 
 #### Scenario: App credentials configured successfully
 
 - GIVEN a valid GitHub App private key `.pem` file and an OpenCode `auth.json` present on the local machine
-- WHEN the user runs `ralph set remote --github-key <key.pem>`
+- WHEN the user runs `ralph setup --github-key <key.pem>`
 - THEN the GitHub App credentials are validated against the GitHub API
 - AND a Kubernetes Secret is written with `app-id` and `private-key`
 - AND the OpenCode `auth.json` is written as a Kubernetes Secret
@@ -22,7 +22,7 @@ The system SHALL run credential setup steps in order via `ralph set remote`: (1)
 #### Scenario: Token credentials configured successfully
 
 - GIVEN a GitHub personal access token and an OpenCode `auth.json` present on the local machine
-- WHEN the user runs `ralph set remote --github-token <token>`
+- WHEN the user runs `ralph setup --github-token <token>`
 - THEN a Kubernetes Secret is written with `token`
 - AND the OpenCode `auth.json` is written as a Kubernetes Secret
 - AND the command exits with success
@@ -30,14 +30,14 @@ The system SHALL run credential setup steps in order via `ralph set remote`: (1)
 #### Scenario: GitHub credential failure halts setup
 
 - GIVEN an invalid or empty GitHub App private key file
-- WHEN the user runs `ralph set remote --github-key <key.pem>`
+- WHEN the user runs `ralph setup --github-key <key.pem>`
 - THEN an error is returned after the GitHub credential step
 - AND the OpenCode credential step is not attempted
 
 #### Scenario: Missing OpenCode credentials
 
 - GIVEN valid GitHub credentials and no `auth.json` at `~/.local/share/opencode/auth.json`
-- WHEN the user runs `ralph set remote --github-key <key.pem>`
+- WHEN the user runs `ralph setup --github-key <key.pem>`
 - THEN the GitHub credential step completes successfully
 - AND an error is returned for the missing OpenCode credentials
 
@@ -48,7 +48,7 @@ The command SHALL accept `--context` and `--namespace` flags to target a specifi
 #### Scenario: Context override
 
 - GIVEN `--context staging --namespace argo` is passed
-- WHEN `ralph set remote` runs
+- WHEN `ralph setup` runs
 - THEN both credential secrets are written to the `staging` context in the `argo` namespace
 
 ### Requirement: GitHub Key Flag
@@ -58,7 +58,7 @@ The command SHALL accept an optional `--github-key` flag pointing to an existing
 #### Scenario: Flag provided writes the secret with a new key
 
 - GIVEN `--github-key <key.pem>` is provided
-- WHEN the user runs `ralph set remote`
+- WHEN the user runs `ralph setup`
 - THEN the key is validated against the GitHub API
 - AND the credentials secret is created or updated with the new key
 
@@ -66,7 +66,7 @@ The command SHALL accept an optional `--github-key` flag pointing to an existing
 
 - GIVEN `--github-key` is not provided
 - AND the GitHub credentials secret already exists in the target namespace
-- WHEN the user runs `ralph set remote`
+- WHEN the user runs `ralph setup`
 - THEN the GitHub credential step succeeds without reading a local key file
 
 ### Requirement: GitHub Token Flag
@@ -78,13 +78,13 @@ When neither `--github-key` nor `--github-token` is provided and no credentials 
 #### Scenario: Flag provided writes the token secret
 
 - GIVEN `--github-token <token>` is provided
-- WHEN the user runs `ralph set remote`
+- WHEN the user runs `ralph setup`
 - THEN the credentials secret is created or updated with the `token` key set to the token
 
 #### Scenario: Both flags are mutually exclusive
 
 - GIVEN both `--github-key <key.pem>` and `--github-token <token>` are provided
-- WHEN the user runs `ralph set remote`
+- WHEN the user runs `ralph setup`
 - THEN an error is returned before any step is attempted
 
 #### Scenario: No flags falls back to gh login token
@@ -92,7 +92,7 @@ When neither `--github-key` nor `--github-token` is provided and no credentials 
 - GIVEN neither flag is provided
 - AND no GitHub credentials secret exists in the target namespace
 - AND `gh` is authenticated
-- WHEN the user runs `ralph set remote`
+- WHEN the user runs `ralph setup`
 - THEN the token is read from the `gh` CLI login
 - AND the credentials secret is created with the `token` key set to that token
 
@@ -102,7 +102,7 @@ When neither `--github-key` nor `--github-token` is provided and no credentials 
 - AND no GitHub credentials secret exists in the target namespace
 - AND `gh` is not authenticated
 - AND `GITHUB_TOKEN` is set
-- WHEN the user runs `ralph set remote`
+- WHEN the user runs `ralph setup`
 - THEN the credentials secret is created with the `token` key set to the environment token
 
 #### Scenario: No flags and no credentials available
@@ -110,5 +110,5 @@ When neither `--github-key` nor `--github-token` is provided and no credentials 
 - GIVEN neither flag is provided
 - AND no GitHub credentials secret exists in the target namespace
 - AND no `gh` token or `GITHUB_TOKEN` is available
-- WHEN the user runs `ralph set remote`
+- WHEN the user runs `ralph setup`
 - THEN an error is returned before any steps are attempted

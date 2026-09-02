@@ -8,7 +8,7 @@ Shared contract for every Ralph CLI command that interacts with a Kubernetes clu
 
 ### Requirement: Covered commands
 
-The commands that interact with kubectl are: `ralph list`, `ralph stop`, `ralph logs`, `ralph run` (in `remote` mode), `ralph loop` (in `remote` mode), `ralph command`, and `ralph set remote`. Each SHALL accept the `--context` and `--namespace` options described below.
+The commands that interact with kubectl are: `ralph list`, `ralph stop`, `ralph logs`, `ralph run` (in `remote` mode), `ralph loop` (in `remote` mode), `ralph command`, and `ralph setup`. Each SHALL accept the `--context` and `--namespace` options described below.
 
 #### Scenario: Every covered command exposes both options
 

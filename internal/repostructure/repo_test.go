@@ -192,7 +192,7 @@ func TestNoSkillsShipInTheRepository(t *testing.T) {
 
 func TestNoReferencesToRemovedModules(t *testing.T) {
 	// GIVEN the modules have been deleted
-	// WHEN the repository is searched for imports of internal/skills or internal/orchestration/setup
+	// WHEN the repository is searched for imports of internal/skills or internal/architecture
 	// THEN no match is found and the full test suite builds
 	for _, rel := range files(t) {
 		if filepath.Ext(rel) != ".go" {
@@ -201,13 +201,10 @@ func TestNoReferencesToRemovedModules(t *testing.T) {
 		data, err := os.ReadFile(filepath.Join(repoRoot(t), rel))
 		require.NoError(t, err)
 		assert.NotContains(t, string(data), `"github.com/zon/ralph/internal/skills"`, "%s must not import the removed skills module", rel)
-		assert.NotContains(t, string(data), `"github.com/zon/ralph/internal/orchestration/setup"`, "%s must not import the removed setup module", rel)
 		assert.NotContains(t, string(data), `"github.com/zon/ralph/internal/architecture"`, "%s must not import the removed architecture module", rel)
 	}
 	_, err := os.Stat(filepath.Join(repoRoot(t), "internal", "skills"))
 	assert.True(t, os.IsNotExist(err), "internal/skills must be deleted")
-	_, err = os.Stat(filepath.Join(repoRoot(t), "internal", "orchestration", "setup"))
-	assert.True(t, os.IsNotExist(err), "internal/orchestration/setup must be deleted")
 	_, err = os.Stat(filepath.Join(repoRoot(t), "internal", "architecture"))
 	assert.True(t, os.IsNotExist(err), "internal/architecture must be deleted")
 }

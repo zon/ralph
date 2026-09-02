@@ -8,19 +8,19 @@ import (
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/k8s"
-	"github.com/zon/ralph/internal/orchestration/setremote"
+	"github.com/zon/ralph/internal/orchestration/setup"
 	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/workspace"
 )
 
-type SetRemoteCmd struct {
+type SetupCmd struct {
 	GithubKey   string `help:"Path to GitHub App private key (.pem file)" name:"github-key" optional:""`
 	GithubToken string `help:"GitHub personal access token" name:"github-token" optional:""`
 	Context     string `help:"The name of the Kubernetes context to use" name:"context" optional:""`
 	Namespace   string `help:"The name of the Kubernetes namespace to use" short:"n" optional:""`
 }
 
-func (c *SetRemoteCmd) Run() error {
+func (c *SetupCmd) Run() error {
 	ctx := context.Background()
 
 	out := output.NewClient(os.Stdout, os.Stderr, false)
@@ -33,13 +33,13 @@ func (c *SetRemoteCmd) Run() error {
 
 	k8sClient := k8s.NewClient()
 
-	cmd := &setremote.SetRemoteCmd{
-		Ctx:      &setremoteContextClient{ctx: ctx, k8sClient: k8sClient, ralphConfig: ralphConfig},
-		GitHub:   &setremoteGitHubClient{ctx: ctx, k8sClient: k8sClient, out: out},
-		OpenCode: &setremoteOpenCodeClient{ctx: ctx, k8sClient: k8sClient, out: out},
+	cmd := &setup.SetupCmd{
+		Ctx:      &setupContextClient{ctx: ctx, k8sClient: k8sClient, ralphConfig: ralphConfig},
+		GitHub:   &setupGitHubClient{ctx: ctx, k8sClient: k8sClient, out: out},
+		OpenCode: &setupOpenCodeClient{ctx: ctx, k8sClient: k8sClient, out: out},
 	}
 
-	return cmd.Run(setremote.Flags{
+	return cmd.Run(setup.Flags{
 		Context:     c.Context,
 		Namespace:   c.Namespace,
 		GithubKey:   c.GithubKey,
@@ -47,31 +47,31 @@ func (c *SetRemoteCmd) Run() error {
 	})
 }
 
-type setremoteContextClient struct {
+type setupContextClient struct {
 	ctx         context.Context
 	k8sClient   k8s.Client
 	ralphConfig *config.RalphConfig
 }
 
-func (a *setremoteContextClient) Resolve(flagContext, flagNamespace string) (setremote.K8sContext, error) {
+func (a *setupContextClient) Resolve(flagContext, flagNamespace string) (setup.K8sContext, error) {
 	k8sCtx, err := resolveKubeContext(a.ctx, a.k8sClient, a.ralphConfig, nil, flagContext, flagNamespace)
 	if err != nil {
-		return setremote.K8sContext{}, err
+		return setup.K8sContext{}, err
 	}
-	return setremote.K8sContext{Name: k8sCtx.Name, Namespace: k8sCtx.Namespace}, nil
+	return setup.K8sContext{Name: k8sCtx.Name, Namespace: k8sCtx.Namespace}, nil
 }
 
-type setremoteGitHubClient struct {
+type setupGitHubClient struct {
 	ctx       context.Context
 	k8sClient k8s.Client
 	out       *output.Client
 }
 
-func (c *setremoteGitHubClient) SecretExists(k8sCtx setremote.K8sContext) (bool, error) {
+func (c *setupGitHubClient) SecretExists(k8sCtx setup.K8sContext) (bool, error) {
 	return c.k8sClient.SecretExists(c.ctx, k8s.GitHubSecretName, k8sCtx.Namespace, k8sCtx.Name)
 }
 
-func (c *setremoteGitHubClient) Validate(keyPath string) error {
+func (c *setupGitHubClient) Validate(keyPath string) error {
 	c.out.Info("Validating credentials...")
 	if err := github.ValidateAppCredentials(c.ctx, keyPath, config.DefaultAppID); err != nil {
 		return err
@@ -80,7 +80,7 @@ func (c *setremoteGitHubClient) Validate(keyPath string) error {
 	return nil
 }
 
-func (c *setremoteGitHubClient) Configure(k8sCtx setremote.K8sContext, keyPath string) error {
+func (c *setupGitHubClient) Configure(k8sCtx setup.K8sContext, keyPath string) error {
 	privateKeyBytes, err := github.ReadGitHubAppCredentials(keyPath)
 	if err != nil {
 		return err
@@ -102,15 +102,15 @@ func (c *setremoteGitHubClient) Configure(k8sCtx setremote.K8sContext, keyPath s
 	return nil
 }
 
-func (c *setremoteGitHubClient) TokenFromGHCli() string {
+func (c *setupGitHubClient) TokenFromGHCli() string {
 	return github.GHCliToken()
 }
 
-func (c *setremoteGitHubClient) TokenFromEnv() string {
+func (c *setupGitHubClient) TokenFromEnv() string {
 	return os.Getenv("GITHUB_TOKEN")
 }
 
-func (c *setremoteGitHubClient) ConfigureToken(k8sCtx setremote.K8sContext, token string) error {
+func (c *setupGitHubClient) ConfigureToken(k8sCtx setup.K8sContext, token string) error {
 	c.out.Infof("Creating/updating Kubernetes secret '%s'...", k8s.GitHubSecretName)
 
 	secretData := map[string]string{
@@ -126,13 +126,13 @@ func (c *setremoteGitHubClient) ConfigureToken(k8sCtx setremote.K8sContext, toke
 	return nil
 }
 
-type setremoteOpenCodeClient struct {
+type setupOpenCodeClient struct {
 	ctx       context.Context
 	k8sClient k8s.Client
 	out       *output.Client
 }
 
-func (c *setremoteOpenCodeClient) Configure(k8sCtx setremote.K8sContext) error {
+func (c *setupOpenCodeClient) Configure(k8sCtx setup.K8sContext) error {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return fmt.Errorf("failed to get user home directory: %w", err)
