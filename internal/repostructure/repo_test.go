@@ -116,6 +116,7 @@ func TestNoDanglingReferencesToRemovedDocuments(t *testing.T) {
 		"docs/code.md",
 		"docs/writing-requirements.md",
 		"docs/prompts.md",
+		"docs/cli.md",
 	}
 	for _, rel := range files(t) {
 		if isTestFile(rel) {
@@ -171,7 +172,6 @@ func TestUserFacingDocsDescribeBareTrailer(t *testing.T) {
 		"docs/glossary.md",
 		"docs/projects.md",
 		"internal/config/config.md",
-		"docs/cli.md",
 	} {
 		content := string(readRepoFile(t, rel))
 		assert.Contains(t, content, "<branch>-<hash>", "%s must describe the trailer as <branch>-<hash>", rel)

@@ -112,7 +112,7 @@ See [OpenCode authentication docs](https://opencode.ai/docs/cli/#auth) for setup
 
 ## More
 
-- [CLI reference](docs/cli.md)
+- CLI reference: run `ralph --help`
 - [Project files](docs/projects.md)
 - [Iterations and completion](docs/iterations.md)
 - [Remote execution workflows](docs/workflows.md)
