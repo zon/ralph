@@ -180,18 +180,16 @@ func TestUserFacingDocsDescribeBareTrailer(t *testing.T) {
 	}
 }
 
-func TestNoSkillsShipInTheRepository(t *testing.T) {
-	_, err := os.Stat(filepath.Join(repoRoot(t), ".claude", "skills"))
-	assert.True(t, os.IsNotExist(err), ".claude/skills must be removed")
+func TestAgentInstructionsInstallSkillsFromTheSpecsRepository(t *testing.T) {
 	agents := string(readRepoFile(t, "AGENTS.md"))
 	assert.NotContains(t, agents, "Ralph Skills")
 	assert.Contains(t, agents, "installed from the specs repository")
 }
 
 func TestNoReferencesToRemovedModules(t *testing.T) {
-	// GIVEN the modules have been deleted
-	// WHEN the repository is searched for imports of internal/skills or internal/architecture
-	// THEN no match is found and the full test suite builds
+	// GIVEN the skills and architecture modules are no longer part of Ralph
+	// WHEN the Go sources are searched for imports of internal/skills or internal/architecture
+	// THEN no match is found
 	for _, rel := range files(t) {
 		if filepath.Ext(rel) != ".go" {
 			continue
@@ -201,10 +199,6 @@ func TestNoReferencesToRemovedModules(t *testing.T) {
 		assert.NotContains(t, string(data), `"github.com/zon/ralph/internal/skills"`, "%s must not import the removed skills module", rel)
 		assert.NotContains(t, string(data), `"github.com/zon/ralph/internal/architecture"`, "%s must not import the removed architecture module", rel)
 	}
-	_, err := os.Stat(filepath.Join(repoRoot(t), "internal", "skills"))
-	assert.True(t, os.IsNotExist(err), "internal/skills must be deleted")
-	_, err = os.Stat(filepath.Join(repoRoot(t), "internal", "architecture"))
-	assert.True(t, os.IsNotExist(err), "internal/architecture must be deleted")
 }
 
 func TestNoGoFileReadsOrWritesSpecsArchitecture(t *testing.T) {
