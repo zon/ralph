@@ -306,17 +306,17 @@ func TestSetHelpDoesNotListSkills(t *testing.T) {
 
 func TestWorkflowRunCmdHelpText(t *testing.T) {
 	output := captureHelpOutput(&Cmd{}, []string{"workflow", "run", "--help"})
-	assert.Contains(t, output, "Run a project via the workflow engine")
+	assert.Contains(t, output, "Invoked by workflows to execute a project")
 }
 
 func TestWorkflowCommandCmdHelpText(t *testing.T) {
 	output := captureHelpOutput(&Cmd{}, []string{"workflow", "command", "--help"})
-	assert.Contains(t, output, "Run an arbitrary command via workflow")
+	assert.Contains(t, output, "Invoked by workflows to execute a command")
 }
 
 func TestWorkflowTokenCmdHelpText(t *testing.T) {
 	output := captureHelpOutput(&Cmd{}, []string{"workflow", "token", "--help"})
-	assert.Contains(t, output, "Generate a GitHub App installation token")
+	assert.Contains(t, output, "Invoked by workflows to set up a GitHub token")
 }
 
 func TestTopLevelCommandsParsed(t *testing.T) {

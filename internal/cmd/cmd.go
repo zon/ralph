@@ -20,10 +20,10 @@ type Cmd struct {
 
 // WorkflowGroup defines the workflow subcommand group
 type WorkflowGroup struct {
-	Run     WorkflowRunCmd     `cmd:"" help:"Run a project via the workflow engine"`
-	Command WorkflowCommandCmd `cmd:"" help:"Run an arbitrary command via workflow"`
-	Token   WorkflowTokenCmd   `cmd:"" help:"Generate a GitHub App installation token and configure git HTTPS authentication"`
-	Loop    WorkflowLoopCmd    `cmd:"" help:"Run a loop via the workflow engine"`
+	Run     WorkflowRunCmd     `cmd:"" help:"Invoked by workflows to execute a project"`
+	Command WorkflowCommandCmd `cmd:"" help:"Invoked by workflows to execute a command"`
+	Token   WorkflowTokenCmd   `cmd:"" help:"Invoked by workflows to set up a GitHub token"`
+	Loop    WorkflowLoopCmd    `cmd:"" help:"Invoked by workflows to execute a loop"`
 }
 
 // SetVersion sets the version information

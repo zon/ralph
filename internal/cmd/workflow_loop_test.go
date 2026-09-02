@@ -65,7 +65,7 @@ func TestWorkflowLoopCmdDefaults(t *testing.T) {
 // the workflow group help.
 func TestWorkflowLoopCmdHelpText(t *testing.T) {
 	output := captureHelpOutput(&Cmd{}, []string{"workflow", "--help"})
-	assert.Contains(t, output, "Run a loop via the workflow engine")
+	assert.Contains(t, output, "Invoked by workflows to execute a loop")
 }
 
 // fakeWorkspaceSetupClient records the workspace flags and returns an injected
