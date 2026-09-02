@@ -4,7 +4,7 @@
 
 Behavior of the `local` execution mode (`ralph run --mode local`): runs the full development loop in-process in the current checkout without submitting an Argo Workflow. This is the execution mode used inside workflow containers and for local development.
 
-Each iteration works on exactly one [item](../../docs/glossary.md#item) of the project's resolved item array, and the branch's commit log (not the project file) records which items are done. See [Iterations](../../docs/iterations.md).
+Each iteration works on exactly one [item](../../docs/glossary.md#item) of the project's resolved item array, and the branch's commit log (not the project file) records which items are done. Completion trailers are defined in [completion.md](completion.md#requirement-completion-trailer-parsing).
 
 ## Requirements
 
@@ -180,7 +180,7 @@ Before each iteration the system SHALL start configured services and stop them a
 
 ### Requirement: Completion read from the commit log
 
-At the start of every iteration the command SHALL determine which items are complete by reading the [completion trailers](../../docs/iterations.md#recording-completion) in the commit messages on the project branch that are not on the base branch, exactly as `ralph complete` does (see [completion.md](completion.md)). The project file SHALL NOT be consulted for completion state.
+At the start of every iteration the command SHALL determine which items are complete by reading the [completion trailers](completion.md#requirement-completion-trailer-parsing) in the commit messages on the project branch that are not on the base branch, exactly as `ralph complete` does (see [completion.md](completion.md)). The project file SHALL NOT be consulted for completion state.
 
 #### Scenario: Completion recomputed each iteration
 

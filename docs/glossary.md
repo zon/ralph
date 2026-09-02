@@ -18,4 +18,4 @@ The value of an item's `slug`, `id`, or `name` field, checked in that order. A c
 
 ## Completion Trailer
 
-The last line of an iteration's commit message, written by the development agent to record that an item is finished: a bare `<branch>-<hash>` line, for example `csv-export-IYAWN02`, where the branch is the project branch and the hash is a 7-character base-62 encoding of a SHA-256 digest of the item's text, normalized by trimming surrounding whitespace and lower-casing. Only trailers naming the current branch count. The set of trailers on the branch is Ralph's only record of progress. See [Iterations](iterations.md).
+The last line of an iteration's commit message, written by the development agent to record that an item is finished: a bare `<branch>-<hash>` line, for example `csv-export-IYAWN02`, where the branch is the project branch and the hash is a 7-character base-62 encoding of a SHA-256 digest of the item's text, normalized by trimming surrounding whitespace and lower-casing. Only trailers naming the current branch count. The set of trailers on the branch is Ralph's only record of progress.

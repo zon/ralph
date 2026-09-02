@@ -65,7 +65,7 @@ items: '.issues | map(select(.state == "open"))'   # an exported issue list
 items: '.tasks[] | select(.assignee == "ralph")'   # a task file, filtered
 ```
 
-Filtering in the query is fine. The resolved array is the project as far as Ralph is concerned, including for item hashing and completion tracking. The query is resolved once per run and stays fixed for that run's lifetime. See [Iterations](iterations.md#the-project-file-is-immutable).
+Filtering in the query is fine. The resolved array is the project as far as Ralph is concerned, including for item hashing and completion tracking. The query is resolved once per run and stays fixed for that run's lifetime.
 
 ## Item Hash
 
@@ -105,7 +105,7 @@ feat: add CSV serializer for report entries
 csv-export-IYAWN02
 ```
 
-Ralph reads `git log <base>..HEAD` at the start of every iteration to determine which items are done. The project file is read-only from the first iteration to the last. See [Iterations](iterations.md#the-project-file-is-immutable).
+Ralph reads `git log <base>..HEAD` at the start of every iteration to determine which items are done. You can edit the project file during a run. Ralph re-evaluates any item whose text you changed. When a project file has changed shape, start a fresh branch.
 
 To see that state for a given file, ask Ralph:
 

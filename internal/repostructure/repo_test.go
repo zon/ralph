@@ -117,6 +117,7 @@ func TestNoDanglingReferencesToRemovedDocuments(t *testing.T) {
 		"docs/writing-requirements.md",
 		"docs/prompts.md",
 		"docs/cli.md",
+		"docs/iterations.md",
 	}
 	for _, rel := range files(t) {
 		if isTestFile(rel) {
@@ -168,7 +169,6 @@ func TestUserFacingDocsDescribeBareTrailer(t *testing.T) {
 	// "Ralph item ... completed"
 	for _, rel := range []string{
 		"README.md",
-		"docs/iterations.md",
 		"docs/glossary.md",
 		"docs/projects.md",
 		"internal/config/config.md",
@@ -177,9 +177,6 @@ func TestUserFacingDocsDescribeBareTrailer(t *testing.T) {
 		assert.Contains(t, content, "<branch>-<hash>", "%s must describe the trailer as <branch>-<hash>", rel)
 		assert.NotContains(t, content, "Ralph item", "%s must not describe the old Ralph item ... completed form", rel)
 	}
-	iterations := string(readRepoFile(t, "docs/iterations.md"))
-	assert.NotContains(t, iterations, "key mismatch", "docs/iterations.md must drop the key-mismatch warning")
-	assert.NotContains(t, iterations, "carries a key", "docs/iterations.md must drop the key-mismatch warning")
 }
 
 func TestNoSkillsShipInTheRepository(t *testing.T) {
