@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Shared contract for every ralph CLI command that prompts an AI model through opencode. These commands SHALL accept `--model` and `--variant` options to override the model and its provider-specific reasoning-effort variant from `.ralph/config.yaml`. Individual command specs link here for the shared behavior.
+Shared contract for every Ralph CLI command that prompts an AI model through opencode. These commands SHALL accept `--model` and `--variant` options to override the model and its provider-specific reasoning-effort variant from `.ralph/config.yaml`. Individual command specs link here for the shared behavior.
 
 ## Requirements
 

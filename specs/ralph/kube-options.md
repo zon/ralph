@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Shared contract for every ralph CLI command that interacts with a Kubernetes cluster through kubectl. These commands SHALL accept `--context` and `--namespace` options to target a specific cluster and namespace, overriding the values in `.ralph/config.yaml`. Individual command specs link here for the shared behavior.
+Shared contract for every Ralph CLI command that interacts with a Kubernetes cluster through kubectl. These commands SHALL accept `--context` and `--namespace` options to target a specific cluster and namespace, overriding the values in `.ralph/config.yaml`. Individual command specs link here for the shared behavior.
 
 ## Requirements
 

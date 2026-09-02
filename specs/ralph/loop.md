@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The `loop` command runs a bounded AI iteration loop over a list of steps. Given a slug, ralph looks up the matching loop config in the `loops:` section of `.ralph/config.yaml`, embeds that config's `steps` in a prompt, and runs the prompt until the agent reports nothing left to do or the `--max` cap is reached. Before iterating, ralph switches to the `loop-<slug>` branch, creating it from the current branch when it does not exist, so the agent works on the loop branch's own state. Every iteration that does real work is committed and pushed to `loop-<slug>`. When the loop ends with commits on that branch, ralph opens a pull request. Steps can also be supplied directly with `--step` flags, which replace the config's `steps`. When steps are supplied without a slug, ralph asks the AI to read the steps and propose a slug. Execution runs in one of three modes selected with `--mode`: `worktree` (default), which runs the loop in-process in a local Git worktree, `local`, which runs it in-process on the local machine, or `remote`, which submits an Argo Workflow to Kubernetes.
+The `loop` command runs a bounded AI iteration loop over a list of steps. Given a slug, Ralph looks up the matching loop config in the `loops:` section of `.ralph/config.yaml`, embeds that config's `steps` in a prompt, and runs the prompt until the agent reports nothing left to do or the `--max` cap is reached. Before iterating, Ralph switches to the `loop-<slug>` branch, creating it from the current branch when it does not exist, so the agent works on the loop branch's own state. Every iteration that does real work is committed and pushed to `loop-<slug>`. When the loop ends with commits on that branch, Ralph opens a pull request. Steps can also be supplied directly with `--step` flags, which replace the config's `steps`. When steps are supplied without a slug, Ralph asks the AI to read the steps and propose a slug. Execution runs in one of three modes selected with `--mode`: `worktree` (default), which runs the loop in-process in a local Git worktree, `local`, which runs it in-process on the local machine, or `remote`, which submits an Argo Workflow to Kubernetes.
 
 Mode-specific behaviors are defined in:
 - [run-local.md](run-local.md) — `local` mode: runs the loop in-process in the current checkout
@@ -106,7 +106,7 @@ The command SHALL reject flag combinations that have no valid meaning before any
 
 ### Requirement: Remote behavior matches `ralph run`
 
-The command SHALL reuse the remote defaults and config of `ralph run` as defined in [run.md](run.md) and [run-remote.md](run-remote.md). The resolved model and variant, Kubernetes context, base branch, branch-sync check, ralph-owned workflow label, and notification behavior SHALL be the same as for `ralph run`.
+The command SHALL reuse the remote defaults and config of `ralph run` as defined in [run.md](run.md) and [run-remote.md](run-remote.md). The resolved model and variant, Kubernetes context, base branch, branch-sync check, Ralph-owned workflow label, and notification behavior SHALL be the same as for `ralph run`.
 
 `--context` SHALL override the Kubernetes context used for workflow submission, per the shared [kube-options.md](kube-options.md) contract. Model and variant resolution SHALL follow the shared contract in [model-options.md](model-options.md). Before submission the command SHALL verify, exactly as `ralph run` does, that the current branch exists on the remote and that local and remote are at the same commit.
 
@@ -139,7 +139,7 @@ The command SHALL accept `--follow`. With `--follow`, the command SHALL stream t
 
 - GIVEN a workflow is submitted without `--follow`
 - WHEN the workflow name is printed
-- THEN ralph also prints the `argo logs` command the user can run to follow the workflow
+- THEN Ralph also prints the `argo logs` command the user can run to follow the workflow
 - AND the command returns without waiting
 
 #### Scenario: `--follow` waits for completion
@@ -147,7 +147,7 @@ The command SHALL accept `--follow`. With `--follow`, the command SHALL stream t
 - GIVEN the user passes `--follow`
 - AND the workflow is submitted successfully
 - WHEN the workflow runs
-- THEN ralph streams the Argo workflow logs and blocks until the workflow finishes
+- THEN Ralph streams the Argo workflow logs and blocks until the workflow finishes
 
 ---
 
@@ -407,20 +407,20 @@ When running inside a workflow container the command SHALL print accumulated AI 
 
 #### Scenario: Stats reported on successful workflow loop
 
-- GIVEN ralph is executing inside a workflow container
+- GIVEN Ralph is executing inside a workflow container
 - AND the loop completes successfully
 - WHEN execution finishes
 - THEN input tokens, output tokens, and total cost across the entire loop are printed to the log
 
 #### Scenario: Stats reported on failed workflow loop
 
-- GIVEN ralph is executing inside a workflow container
+- GIVEN Ralph is executing inside a workflow container
 - AND the loop exits with an error (iteration limit reached, fatal AI error, or any other failure)
 - WHEN execution finishes
 - THEN input tokens, output tokens, and total cost across the entire loop are printed to the log before the error is surfaced
 
 #### Scenario: Stats not printed outside a workflow
 
-- GIVEN ralph is executing locally (not inside a workflow container)
+- GIVEN Ralph is executing locally (not inside a workflow container)
 - WHEN the loop completes or fails
 - THEN no token usage or cost statistics are printed

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-`ralph workflow command` is the container entrypoint for arbitrary command execution: clone the current branch and run the supplied command tokens in the ralph container environment.
+`ralph workflow command` is the container entrypoint for arbitrary command execution: clone the current branch and run the supplied command tokens in the Ralph container environment.
 
 ## Requirements
 

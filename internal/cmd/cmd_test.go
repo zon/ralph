@@ -275,7 +275,7 @@ func captureHelpOutput(cmd interface{}, args []string) string {
 
 func TestRunCmdHelpText(t *testing.T) {
 	output := captureHelpOutput(&Cmd{}, []string{"run", "--help"})
-	assert.Contains(t, output, "Execute ralph with a project file")
+	assert.Contains(t, output, "Execute Ralph with a project file")
 }
 
 func TestValidateCmdHelpText(t *testing.T) {

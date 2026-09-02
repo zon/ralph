@@ -1,14 +1,14 @@
 # Workflows
 
-With `--mode remote`, ralph runs your project remotely on Kubernetes using [Argo Workflows](https://argo-workflows.readthedocs.io/). This gives you isolated, containerized execution with proper resource management.
+With `--mode remote`, Ralph runs your project remotely on Kubernetes using [Argo Workflows](https://argo-workflows.readthedocs.io/). This gives you isolated, containerized execution with proper resource management.
 
 ## Overview
 
-When you run `ralph my-feature.yaml --mode remote`, ralph:
+When you run `ralph my-feature.yaml --mode remote`, Ralph:
 
 1. Generates an Argo Workflow that embeds your project file, the resolved item query, and config
 2. Submits it to your Kubernetes cluster
-3. The container clones your repository, checks out the current branch, and runs ralph
+3. The container clones your repository, checks out the current branch, and runs Ralph
 4. Branches and pull requests are created just like local execution
 
 The item query is resolved once at submission time and travels with the workflow, so a remote run indexes items consistently for its whole lifetime even if `.ralph/config.yaml` changes underneath it. Completion is read from the branch's commit log inside the container, which means a run that is stopped and resubmitted against the same branch resumes where it left off. See [Iterations](iterations.md).
@@ -39,7 +39,7 @@ The simplest path reuses your existing GitHub login. With `gh` authenticated, co
 ralph set remote
 ```
 
-When no key or token is given, ralph stores the token from your `gh` login, or from `GITHUB_TOKEN` if set. To provide a token explicitly:
+When no key or token is given, Ralph stores the token from your `gh` login, or from `GITHUB_TOKEN` if set. To provide a token explicitly:
 
 ```bash
 ralph set remote --github-token <token>

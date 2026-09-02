@@ -127,7 +127,7 @@ loops:
 
 `before` defines commands that run once before services start and before the iteration loop begins.
 
-- Commands run sequentially and must exit successfully before ralph proceeds (unless marked optional)
+- Commands run sequentially and must exit successfully before Ralph proceeds (unless marked optional)
 - Each entry requires `name` and `command`. `args`, `workDir`, and `optional` are optional
 - Set `optional: true` to allow a command to fail without aborting the run (a warning is logged instead)
 - Useful for compilation, code generation, dependency installation, database migrations
@@ -185,7 +185,7 @@ ralph set remote --github-token <token>   # GitHub personal access token
 
 ## Custom Instructions
 
-Create `.ralph/instructions.md` to replace the development steps in the AI prompt. The file supplies the prompt's instruction steps only. The surrounding prompt still carries the selected item, the project file path, the git history, and the report contract. If not present, ralph's [default steps](../internal/ai/development-item-instructions.md) are used.
+Create `.ralph/instructions.md` to replace the development steps in the AI prompt. The file supplies the prompt's instruction steps only. The surrounding prompt still carries the selected item, the project file path, the git history, and the report contract. If not present, Ralph's [default steps](../internal/ai/development-item-instructions.md) are used.
 
 The default steps are deliberately generic: they send the agent to the repository's own agent instructions for how project items are read, where code belongs, and how tests are written. Custom instructions replace those steps, so state the standards they should follow.
 

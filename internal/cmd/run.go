@@ -11,7 +11,7 @@ import (
 
 // RunCmd is the default command for executing ralph
 type RunCmd struct {
-	WorkingDir      string `help:"Working directory to run ralph in" type:"path" short:"C"`
+	WorkingDir      string `help:"Working directory to run Ralph in" type:"path" short:"C"`
 	InputFile       string `arg:"" optional:"" help:"Path to input file (project YAML, orchestration.md, or spec.md)"`
 	ExtraIterations int    `help:"Extra iterations beyond project item count (default: 20% item count)" name:"extra"`
 	NoNotify        bool   `help:"Disable desktop notifications" default:"false"`
@@ -19,7 +19,7 @@ type RunCmd struct {
 	Verbose         bool   `help:"Enable verbose logging" default:"false"`
 	Mode            string `help:"Execution mode: local, worktree, or remote (default: worktree)" name:"mode" optional:""`
 	Follow          bool   `help:"Follow workflow logs after submission (only applicable with --mode remote)" short:"f" default:"false"`
-	Debug           string `help:"Checkout the given ralph repo branch in the workflow container and invoke ralph via 'go run' instead of the built binary (only applicable with --mode remote)" name:"debug" optional:""`
+	Debug           string `help:"Checkout the given Ralph repo branch in the workflow container and invoke Ralph via 'go run' instead of the built binary (only applicable with --mode remote)" name:"debug" optional:""`
 	Base            string `help:"Override the base branch for PR creation (default: detects from current branch)" name:"base" optional:"" short:"B"`
 	Items           string `help:"jq query selecting the item array from the project file (default: from config or .)" name:"items" optional:"" short:"i"`
 	Cleanup         *bool  `help:"Delete the project file in its own commit once every item is complete" name:"cleanup"`

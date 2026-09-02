@@ -122,15 +122,15 @@ The system SHALL attempt to merge the base branch into the project branch before
 
 ### Requirement: Debug Mode
 
-The system SHOULD support a debug mode that clones a specific ralph branch and invokes ralph via `go run` instead of the built binary.
+The system SHOULD support a debug mode that clones a specific Ralph branch and invokes Ralph via `go run` instead of the built binary.
 
 #### Scenario: Debug branch set
 
 - GIVEN `--debug <branch>` is provided
 - WHEN `ralph workflow run` starts
-- THEN the specified ralph source branch is checked out into `/workspace/ralph`
+- THEN the specified Ralph source branch is checked out into `/workspace/ralph`
 - AND a wrapper script is written to `/usr/local/bin/ralph` that invokes `go run ./cmd/ralph/main.go` from the cloned source
-- AND subsequent ralph invocations use that wrapper instead of the installed binary
+- AND subsequent Ralph invocations use that wrapper instead of the installed binary
 
 ### Requirement: Project Execution
 

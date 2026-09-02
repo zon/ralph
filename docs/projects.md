@@ -1,8 +1,8 @@
 # Project Files
 
-A project is any YAML or JSON file that contains an array of work items. Ralph imposes no schema on a project file. It needs exactly one thing from it: a [jq](https://jqlang.org/manual/) query that resolves to an array. Each element of that array is an **item**: one unit of work, one iteration. Everything else in the file is opaque to ralph and is passed through to the AI agent as-is.
+A project is any YAML or JSON file that contains an array of work items. Ralph imposes no schema on a project file. It needs exactly one thing from it: a [jq](https://jqlang.org/manual/) query that resolves to an array. Each element of that array is an **item**: one unit of work, one iteration. Everything else in the file is opaque to Ralph and is passed through to the AI agent as-is.
 
-What a project file should contain beyond that is defined outside ralph: the conventional shape of an item and the fields a well-formed project carries. See [Project Format](zpecs/project.md) in the installed spec documents.
+What a project file should contain beyond that is defined outside Ralph: the conventional shape of an item and the fields a well-formed project carries. See [Project Format](zpecs/project.md) in the installed spec documents.
 
 ## File Location
 
@@ -57,7 +57,7 @@ Because both `.requirements` and `.requirements[]` produce the same result, eith
 
 ### Choosing a query for foreign files
 
-The point of the query is that a project does not have to be a ralph file. Any YAML or JSON document with a list of work in it can drive a run:
+The point of the query is that a project does not have to be a Ralph file. Any YAML or JSON document with a list of work in it can drive a run:
 
 ```yaml
 items: .jobs                              # a CI config
@@ -65,11 +65,11 @@ items: '.issues | map(select(.state == "open"))'   # an exported issue list
 items: '.tasks[] | select(.assignee == "ralph")'   # a task file, filtered
 ```
 
-Filtering in the query is fine. The resolved array is the project as far as ralph is concerned, including for item hashing and completion tracking. The query is resolved once per run and stays fixed for that run's lifetime. See [Iterations](iterations.md#the-project-file-is-immutable).
+Filtering in the query is fine. The resolved array is the project as far as Ralph is concerned, including for item hashing and completion tracking. The query is resolved once per run and stays fixed for that run's lifetime. See [Iterations](iterations.md#the-project-file-is-immutable).
 
 ## Item Hash
 
-The 7-character base-62 hash of the item's text, computed as a SHA-256 digest of the text normalized by trimming surrounding whitespace and lower-casing. Always present, and the only thing that identifies an item to ralph. The same text always yields the same hash, so an item keeps its completion across runs as long as its text is unchanged.
+The 7-character base-62 hash of the item's text, computed as a SHA-256 digest of the text normalized by trimming surrounding whitespace and lower-casing. Always present, and the only thing that identifies an item to Ralph. The same text always yields the same hash, so an item keeps its completion across runs as long as its text is unchanged.
 
 ## Item Key
 
@@ -97,7 +97,7 @@ A project file that is a top-level array has neither, so both derive from the fi
 
 ## No Completion State in the File
 
-Items do not carry a completion field. Neither the AI agent nor ralph writes progress back into the project file. Completion is recorded in the branch's commit messages instead, as a bare `<branch>-<hash>` trailer line:
+Items do not carry a completion field. Neither the AI agent nor Ralph writes progress back into the project file. Completion is recorded in the branch's commit messages instead, as a bare `<branch>-<hash>` trailer line:
 
 ```
 feat: add CSV serializer for report entries
@@ -107,7 +107,7 @@ csv-export-IYAWN02
 
 Ralph reads `git log <base>..HEAD` at the start of every iteration to determine which items are done. The project file is read-only from the first iteration to the last. See [Iterations](iterations.md#the-project-file-is-immutable).
 
-To see that state for a given file, ask ralph:
+To see that state for a given file, ask Ralph:
 
 ```bash
 ralph get complete                                 # [0, 2]
@@ -121,7 +121,7 @@ ralph validate ./projects/<slug>.yaml
 ralph validate ./projects/<slug>.yaml --items '.requirements'
 ```
 
-Validation checks only what ralph depends on:
+Validation checks only what Ralph depends on:
 
 1. The file parses as YAML or JSON.
 2. The item query evaluates without error.

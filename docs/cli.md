@@ -199,7 +199,7 @@ ralph set remote
 
 Configures the Kubernetes credentials needed for remote execution in one shot: a GitHub identity and the OpenCode AI credentials. See [Workflows](workflows.md) for setup.
 
-GitHub credentials accept either a GitHub App private key or a personal access token. A GitHub App is recommended for teams; a personal access token is the quickest way to start. When neither is provided and no existing Secret is found, ralph falls back to the token from your `gh` login, then to `GITHUB_TOKEN`.
+GitHub credentials accept either a GitHub App private key or a personal access token. A GitHub App is recommended for teams; a personal access token is the quickest way to start. When neither is provided and no existing Secret is found, Ralph falls back to the token from your `gh` login, then to `GITHUB_TOKEN`.
 
 The OpenCode credentials are read from `~/.local/share/opencode/auth.json`.
 

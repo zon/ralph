@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Behavior of the `remote` execution mode (`ralph run --mode remote`): submits an Argo Workflow to a Kubernetes cluster and returns after submission. The workflow runs ralph in a container, executing the development loop remotely. The shared `--context` and `--namespace` targeting contract is defined in [kube-options.md](kube-options.md).
+Behavior of the `remote` execution mode (`ralph run --mode remote`): submits an Argo Workflow to a Kubernetes cluster and returns after submission. The workflow runs Ralph in a container, executing the development loop remotely. The shared `--context` and `--namespace` targeting contract is defined in [kube-options.md](kube-options.md).
 
 ## Requirements
 
@@ -46,7 +46,7 @@ The command SHALL generate an Argo Workflow for the project and submit it to the
 
 - GIVEN a workflow is submitted without `--follow`
 - WHEN the workflow name is printed
-- THEN ralph also prints the `argo logs` command the user can run to follow the workflow
+- THEN Ralph also prints the `argo logs` command the user can run to follow the workflow
 
 ---
 
@@ -71,7 +71,7 @@ With `--follow`, the command SHALL stream the workflow logs and wait for the wor
 - GIVEN the user passes `--follow`
 - AND the workflow is submitted successfully
 - WHEN the workflow runs
-- THEN ralph streams the Argo workflow logs and blocks until the workflow finishes
+- THEN Ralph streams the Argo workflow logs and blocks until the workflow finishes
 
 #### Scenario: Notification on followed workflow success
 
@@ -93,16 +93,16 @@ With `--follow`, the command SHALL stream the workflow logs and wait for the wor
 
 ---
 
-### Requirement: `--debug` runs ralph from source inside the container
+### Requirement: `--debug` runs Ralph from source inside the container
 
-With `--debug <branch>`, the generated workflow SHALL check out the specified ralph source branch inside the container and invoke ralph via `go run` instead of the built binary.
+With `--debug <branch>`, the generated workflow SHALL check out the specified Ralph source branch inside the container and invoke Ralph via `go run` instead of the built binary.
 
-#### Scenario: `--debug <branch>` selects a ralph source branch
+#### Scenario: `--debug <branch>` selects a Ralph source branch
 
 - GIVEN the user passes `--debug my-fix`
 - WHEN the workflow YAML is generated
-- THEN the container checks out the `my-fix` branch of the ralph repository
-- AND invokes ralph via `go run` instead of the pre-built binary
+- THEN the container checks out the `my-fix` branch of the Ralph repository
+- AND invokes Ralph via `go run` instead of the pre-built binary
 
 ---
 

@@ -1,6 +1,6 @@
 # Iterations
 
-A ralph run turns a project file into a sequence of iterations. Each iteration works on exactly one item and, when the work lands, records that item as complete in the commit message. The branch's commit log, not the project file, is the record of what is done, and the project file is never written to while the run is in progress.
+A Ralph run turns a project file into a sequence of iterations. Each iteration works on exactly one item and, when the work lands, records that item as complete in the commit message. The branch's commit log, not the project file, is the record of what is done, and the project file is never written to while the run is in progress.
 
 ## The Loop
 
@@ -30,11 +30,11 @@ For the duration of a run, the project file is read-only:
 - Ralph does not rewrite, normalize, reformat, or stage the project file between iterations.
 - The item query is resolved once at the start of the run and reused for every iteration.
 
-So the item array is identical on every iteration, and an item's text means the same thing from the first iteration to the last. This is what makes the item's completion hash a sufficient identifier, and it is why there is no reconciliation step, no schema for ralph to keep in sync, and no way for a half-written project file to corrupt a run.
+So the item array is identical on every iteration, and an item's text means the same thing from the first iteration to the last. This is what makes the item's completion hash a sufficient identifier, and it is why there is no reconciliation step, no schema for Ralph to keep in sync, and no way for a half-written project file to corrupt a run.
 
-The only writes ralph makes to the project file are outside the loop: the optional [cleanup commit](#completing-a-project) after every item is complete, and `ralph validate`, which is a separate command that is not part of a run.
+The only writes Ralph makes to the project file are outside the loop: the optional [cleanup commit](#completing-a-project) after every item is complete, and `ralph validate`, which is a separate command that is not part of a run.
 
-Editing the project file by hand while a run is in progress is unsupported. Nothing enforces it, and ralph will not notice, but items whose text was edited before the next iteration resolve to new hashes and are treated as new work.
+Editing the project file by hand while a run is in progress is unsupported. Nothing enforces it, and Ralph will not notice, but items whose text was edited before the next iteration resolve to new hashes and are treated as new work.
 
 ## Picking
 
@@ -48,7 +48,7 @@ Ralph does not pick in array order. Order the array however you like. The picker
 
 There is no command for this. The iteration prompt tells the development agent that when it has finished the item, the last line of its commit message must be the completion trailer. The agent writes that message itself, as `report.md`. Ralph commits `report.md` verbatim.
 
-Committing does not require code. When the working tree has no changes but `report.md` exists, ralph creates an empty commit with the report verbatim as the message. A completion trailer in the report marks the item complete even though no code was written. When the working tree has no changes and no `report.md` either, ralph creates no commit.
+Committing does not require code. When the working tree has no changes but `report.md` exists, Ralph creates an empty commit with the report verbatim as the message. A completion trailer in the report marks the item complete even though no code was written. When the working tree has no changes and no `report.md` either, Ralph creates no commit.
 
 ```
 feat: add CSV serializer for report entries
@@ -74,13 +74,13 @@ The prompt supplies the branch and hash of the picked item, so the agent has the
 Not writing one is the normal way to report unfinished work:
 
 - **The agent wrote `report.md` without a trailer** — the iteration commits, the item stays incomplete, and the picker can choose it again. Partial progress carries forward in the branch, and the next iteration sees it in the commit log.
-- **The agent wrote no `report.md`** — ralph falls back to generating a changelog for the commit message. That path never produces a trailer, so it never completes an item.
+- **The agent wrote no `report.md`** — Ralph falls back to generating a changelog for the commit message. That path never produces a trailer, so it never completes an item.
 
 A trailer whose hash matches no resolved item is ignored with a warning. The run continues and the item it was aimed at stays incomplete.
 
 ## Reading Completion
 
-At the start of each iteration ralph scans the commit messages on the project branch that are not on the base branch, collects every completion trailer, and marks complete the item whose hash the trailer names. Only trailers naming the current branch count. A trailer naming any other branch is ignored without a warning, so a project branched from another project's branch never inherits that project's completion. Matching is by branch and hash. Because [the project file is immutable](#the-project-file-is-immutable) during a run, the item's text, and so its hash, is the same in iteration 9 as in iteration 1, and no further reconciliation is needed.
+At the start of each iteration Ralph scans the commit messages on the project branch that are not on the base branch, collects every completion trailer, and marks complete the item whose hash the trailer names. Only trailers naming the current branch count. A trailer naming any other branch is ignored without a warning, so a project branched from another project's branch never inherits that project's completion. Matching is by branch and hash. Because [the project file is immutable](#the-project-file-is-immutable) during a run, the item's text, and so its hash, is the same in iteration 9 as in iteration 1, and no further reconciliation is needed.
 
 The same two steps are exposed as commands, and they are the ones the loop itself uses:
 
@@ -120,15 +120,15 @@ The loop also stops early when `blocked.md` exists at the start of an iteration,
 When every item is complete:
 
 1. Ralph generates a PR summary from the branch's commit log.
-2. If cleanup is enabled, ralph deletes the project file and commits the deletion on its own with the message `chore: clean up completed project <path>` and no completion trailer.
+2. If cleanup is enabled, Ralph deletes the project file and commits the deletion on its own with the message `chore: clean up completed project <path>` and no completion trailer.
 3. Ralph opens a pull request from the project branch to the base branch.
 
 Cleanup is off by default. Enable it with `--cleanup` or `cleanup: true` in `.ralph/config.yaml`. It is a separate commit so that the commit that removes the file does not also carry code changes, and so the completion history stays readable in the PR after the file is gone.
 
-Opening the pull request is where ralph stops. It does not merge, and approving a PR does not trigger anything. Review and merge are the repository's own process. Ralph does respond to review *comments* on an open PR. See [Workflows](workflows.md).
+Opening the pull request is where Ralph stops. It does not merge, and approving a PR does not trigger anything. Review and merge are the repository's own process. Ralph does respond to review *comments* on an open PR. See [Workflows](workflows.md).
 
 Cleaning up the project file does not erase the completion record. The trailers stay in the branch's history, so a re-run against the same branch still reads the project as complete.
 
 ## Foreign Project Files
 
-Because ralph writes completion to git rather than to the project file, the file can belong to another tool entirely. A CI config, an exported issue list, or a task file checked in by a different system can drive a run without ralph mutating it, and without ralph needing to understand any of its fields beyond the item query. See [Choosing a query for foreign files](projects.md#choosing-a-query-for-foreign-files).
+Because Ralph writes completion to git rather than to the project file, the file can belong to another tool entirely. A CI config, an exported issue list, or a task file checked in by a different system can drive a run without Ralph mutating it, and without Ralph needing to understand any of its fields beyond the item query. See [Choosing a query for foreign files](projects.md#choosing-a-query-for-foreign-files).

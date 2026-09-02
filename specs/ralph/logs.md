@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Define the behavior of `ralph logs`, the command that prints the pod logs of a ralph-owned Argo Workflow. It takes an optional workflow name. When the name is omitted, ralph logs the workflow at the top of the `ralph list` output, the most recently created ralph workflow. Logs are printed once by default and streamed with `--follow` (`-f`). Like `ralph list` and `ralph stop`, it scopes to the ralph config namespace by default and supports overrides for Kubernetes context and namespace. The shared `--context` and `--namespace` targeting contract is defined in [kube-options.md](kube-options.md).
+Define the behavior of `ralph logs`, the command that prints the pod logs of a Ralph-owned Argo Workflow. It takes an optional workflow name. When the name is omitted, Ralph logs the workflow at the top of the `ralph list` output, the most recently created Ralph workflow. Logs are printed once by default and streamed with `--follow` (`-f`). Like `ralph list` and `ralph stop`, it scopes to the Ralph config namespace by default and supports overrides for Kubernetes context and namespace. The shared `--context` and `--namespace` targeting contract is defined in [kube-options.md](kube-options.md).
 
 ## Requirements
 
@@ -18,7 +18,7 @@ The system SHALL provide a `ralph logs` command that accepts an optional workflo
 
 #### Scenario: Logs with no workflow name
 
-- GIVEN at least one ralph-owned workflow exists
+- GIVEN at least one Ralph-owned workflow exists
 - WHEN the user runs `ralph logs`
 - THEN the pod logs of the workflow at the top of the `ralph list` output are printed
 
@@ -49,7 +49,7 @@ When no workflow name is provided, the system SHALL select the workflow at the t
 
 #### Scenario: No workflows to log
 
-- GIVEN no ralph-owned workflows exist in the resolved namespace
+- GIVEN no Ralph-owned workflows exist in the resolved namespace
 - WHEN the user runs `ralph logs` without a workflow name argument
 - THEN an error is returned stating that no workflows were found
 - AND no pod logs are fetched
@@ -87,19 +87,19 @@ The system SHALL print the pod logs of the resolved workflow, targeting the pod 
 The command SHALL resolve the namespace using the following precedence (highest to lowest):
 
 1. `--namespace` / `-n` flag value
-2. Namespace from the ralph config
+2. Namespace from the Ralph config
 3. Default namespace of the active Kubernetes context
 
 #### Scenario: Flag overrides config namespace
 
-- GIVEN the ralph config specifies namespace `default`
+- GIVEN the Ralph config specifies namespace `default`
 - AND the user passes `-n staging`
 - WHEN `ralph logs` runs
 - THEN the `staging` namespace is used
 
 #### Scenario: Config namespace used when no flag given
 
-- GIVEN the ralph config specifies namespace `platform`
+- GIVEN the Ralph config specifies namespace `platform`
 - AND no `--namespace` flag is given
 - WHEN `ralph logs` runs
 - THEN the `platform` namespace is used

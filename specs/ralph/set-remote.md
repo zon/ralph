@@ -2,7 +2,7 @@
 
 ## Purpose
 
-One-shot setup of all Kubernetes credentials required for ralph remote execution on Argo Workflows. The shared `--context` and `--namespace` targeting contract is defined in [kube-options.md](kube-options.md).
+One-shot setup of all Kubernetes credentials required for Ralph remote execution on Argo Workflows. The shared `--context` and `--namespace` targeting contract is defined in [kube-options.md](kube-options.md).
 
 ## Requirements
 

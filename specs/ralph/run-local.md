@@ -22,7 +22,7 @@ Before starting the iteration loop, the command SHALL run any configured `before
 
 - GIVEN the project slug is `my-feature` and the current branch is `main`
 - WHEN local execution starts
-- THEN ralph switches to (or creates) the branch `my-feature` before running any iterations
+- THEN Ralph switches to (or creates) the branch `my-feature` before running any iterations
 
 ---
 
@@ -174,7 +174,7 @@ Before each iteration the system SHALL start configured services and stop them a
 
 - GIVEN a service has a `port` field configured
 - WHEN the service starts during an iteration
-- THEN ralph waits for a TCP connection to that port to succeed before proceeding
+- THEN Ralph waits for a TCP connection to that port to succeed before proceeding
 
 ---
 
@@ -562,21 +562,21 @@ When running inside a workflow container the command SHALL print accumulated AI 
 
 #### Scenario: Stats reported on successful workflow run
 
-- GIVEN ralph is executing inside a workflow container
+- GIVEN Ralph is executing inside a workflow container
 - AND the run completes successfully
 - WHEN execution finishes
 - THEN input tokens, output tokens, and total cost across the entire run are printed to the log
 
 #### Scenario: Stats reported on failed workflow run
 
-- GIVEN ralph is executing inside a workflow container
+- GIVEN Ralph is executing inside a workflow container
 - AND the run exits with an error (iteration limit reached, blocked, fatal AI error, or any other failure)
 - WHEN execution finishes
 - THEN input tokens, output tokens, and total cost across the entire run are printed to the log before the error is surfaced
 
 #### Scenario: Stats not printed outside a workflow
 
-- GIVEN ralph is executing locally (not inside a workflow container)
+- GIVEN Ralph is executing locally (not inside a workflow container)
 - WHEN the run completes or fails
 - THEN no token usage or cost statistics are printed
 

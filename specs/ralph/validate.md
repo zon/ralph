@@ -62,7 +62,7 @@ The command MUST check exactly three things, in order: the file parses as YAML o
 
 #### Scenario: Unrecognized fields accepted
 
-- GIVEN a file that parses and yields items but contains fields ralph does not read
+- GIVEN a file that parses and yields items but contains fields Ralph does not read
 - WHEN `ralph validate <file>` is run
 - THEN validation succeeds and the unrecognized fields are left untouched
 
@@ -110,7 +110,7 @@ The command MUST check exactly three things, in order: the file parses as YAML o
 
 When the file fails to parse, the command MUST invoke an AI agent locally to repair the file in place, then retry parsing. The loop MUST continue until the file parses or the attempt limit is reached.
 
-The agent MUST be run locally on the current machine (the `local` execution mode, selected with `--mode local`), never delegated to a remote workflow runner. The agent MUST use the model resolved from the ralph config file, with no command-line override required.
+The agent MUST be run locally on the current machine (the `local` execution mode, selected with `--mode local`), never delegated to a remote workflow runner. The agent MUST use the model resolved from the Ralph config file, with no command-line override required.
 
 The shared `--model` and `--variant` options contract is defined in [model-options.md](model-options.md). `ralph validate` does not expose those options and resolves its model from config alone.
 
@@ -183,7 +183,7 @@ The fix loop MUST be capped at 10 total parse attempts (the initial attempt plus
 
 ### Requirement: Canonical Formatting
 
-After all three checks pass, the command MUST write the parsed document back to disk as YAML. Because ralph has no project schema, the rewrite MUST preserve the document's full content and key order. Only formatting is normalized. No field is dropped for being unrecognized, and no field is added.
+After all three checks pass, the command MUST write the parsed document back to disk as YAML. Because Ralph has no project schema, the rewrite MUST preserve the document's full content and key order. Only formatting is normalized. No field is dropped for being unrecognized, and no field is added.
 
 #### Scenario: File rewritten in canonical format
 
@@ -200,7 +200,7 @@ After all three checks pass, the command MUST write the parsed document back to 
 
 #### Scenario: Unrecognized fields survive the rewrite
 
-- GIVEN a project file containing fields ralph does not read
+- GIVEN a project file containing fields Ralph does not read
 - WHEN the file is rewritten in canonical format
 - THEN those fields are present in the output with their original values
 
@@ -229,5 +229,5 @@ Validation MUST be an optional convenience, not a precondition for a run. A run 
 #### Scenario: Foreign project file run without validation
 
 - GIVEN a project file owned by another tool, whose formatting must not be rewritten
-- WHEN the user runs ralph against it without validating first
+- WHEN the user runs Ralph against it without validating first
 - THEN the run resolves items normally and the file is not reformatted

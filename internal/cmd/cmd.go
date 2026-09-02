@@ -3,11 +3,11 @@ package cmd
 // Cmd defines the command-line arguments and execution context
 type Cmd struct {
 	// Subcommands
-	Run      RunCmd        `cmd:"" default:"withargs" help:"Execute ralph with a project file (default command)"`
+	Run      RunCmd        `cmd:"" default:"withargs" help:"Execute Ralph with a project file (default command)"`
 	Command  CommandCmd    `cmd:"" help:"Run a command in a remote Ralph workflow"`
-	Set      SetCmd        `cmd:"" help:"Configure ralph settings"`
+	Set      SetCmd        `cmd:"" help:"Configure Ralph settings"`
 	Get      GetCmd        `cmd:"" help:"Report which items are complete and which are left"`
-	Workflow WorkflowGroup `cmd:"" help:"Run ralph workflow subcommands in a container"`
+	Workflow WorkflowGroup `cmd:"" help:"Run Ralph workflow subcommands in a container"`
 	Validate ValidateCmd   `cmd:"" help:"Validate a project YAML file"`
 	List     ListCmd       `cmd:"" help:"List Argo workflows"`
 	Stop     StopCmd       `cmd:"" help:"Stop an Argo workflow"`

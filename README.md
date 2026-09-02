@@ -44,7 +44,7 @@ user-authentication-IYAWN02
 
 That line is the whole tracking mechanism. Ralph reads the branch's commit log each iteration to see what is left, and opens a pull request when nothing is left.
 
-Items can be structured instead of plain strings, and the array can be nested anywhere in the file. Point ralph at it with a [jq](https://jqlang.org/manual/) query:
+Items can be structured instead of plain strings, and the array can be nested anywhere in the file. Point Ralph at it with a [jq](https://jqlang.org/manual/) query:
 
 ```yaml
 # .ralph/config.yaml
