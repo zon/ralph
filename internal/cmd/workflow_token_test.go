@@ -32,14 +32,14 @@ func TestWorkflowTokenCmd_FlagParsing(t *testing.T) {
 		},
 		{
 			name:        "custom secrets directory",
-			args:        []string{"--secrets-dir", "/custom/secrets"},
+			args:        []string{"--secrets", "/custom/secrets"},
 			wantOwner:   "",
 			wantRepo:    "",
 			wantSecrets: "/custom/secrets",
 		},
 		{
 			name:        "all custom flags",
-			args:        []string{"--owner", "owner", "--repo", "repo", "--secrets-dir", "/path/to/secrets"},
+			args:        []string{"--owner", "owner", "--repo", "repo", "--secrets", "/path/to/secrets"},
 			wantOwner:   "owner",
 			wantRepo:    "repo",
 			wantSecrets: "/path/to/secrets",

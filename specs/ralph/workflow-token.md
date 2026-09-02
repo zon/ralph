@@ -12,7 +12,7 @@ The system SHALL configure git HTTPS authentication via `ralph workflow token` f
 
 #### Scenario: App credentials present
 
-- GIVEN GitHub App credentials (`app-id` and `private-key`) are present at `--secrets-dir` (default: `/secrets/github`)
+- GIVEN GitHub App credentials (`app-id` and `private-key`) are present at `--secrets` (default: `/secrets/github`)
 - AND the App is installed on the target repository
 - WHEN the user runs `ralph workflow token`
 - THEN a GitHub App installation token is generated

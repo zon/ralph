@@ -12,7 +12,7 @@ import (
 type WorkflowTokenCmd struct {
 	Owner      string `help:"Repository owner (default: autodetected from git remote)" short:"o"`
 	Repo       string `help:"Repository name (default: autodetected from git remote)" short:"r"`
-	SecretsDir string `help:"Directory containing GitHub App credentials (default: /secrets/github)" default:"/secrets/github"`
+	SecretsDir string `help:"Directory containing GitHub App credentials (default: /secrets/github)" default:"/secrets/github" name:"secrets"`
 }
 
 // Run executes the workflow token command

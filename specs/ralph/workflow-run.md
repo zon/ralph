@@ -16,7 +16,7 @@ The system SHALL apply run-specific flags to the execution context before starti
 
 #### Scenario: Instructions injection
 
-- GIVEN `--instructions-md` is provided with inline instructions content
+- GIVEN `--instructions` is provided with inline instructions content
 - WHEN `ralph workflow run` starts
 - THEN the instructions are passed into the execution context for the AI agent
 

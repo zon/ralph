@@ -173,7 +173,7 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 		}
 		args = append(args,
 			"--repo", w.Repo.Owner+"/"+w.Repo.Name,
-			"--clone-branch", w.CloneBranch,
+			"--clone", w.CloneBranch,
 			"--bot-name", config.DefaultAppName+"[bot]",
 			"--bot-email", config.DefaultAppName+"[bot]@users.noreply.github.com",
 		)

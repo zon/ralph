@@ -19,7 +19,7 @@ import (
 // local`.
 type WorkflowLoopCmd struct {
 	Repo        string   `help:"GitHub repository (owner/repo)" required:""`
-	CloneBranch string   `help:"Branch to clone"`
+	CloneBranch string   `help:"Branch to clone" name:"clone"`
 	BotName     string   `help:"Git user name for commits" default:"ralph-zon[bot]"`
 	BotEmail    string   `help:"Git user email for commits" default:"ralph-zon[bot]@users.noreply.github.com"`
 	Slug        string   `help:"Slug of the loop configuration in .ralph/config.yaml"`

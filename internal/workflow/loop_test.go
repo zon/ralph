@@ -96,7 +96,7 @@ func TestWorkflowRender_Loop(t *testing.T) {
 	assert.Equal(t, "loop", args[1], "Second arg should be 'loop'")
 	assert.Equal(t, "fmt", argValue(args, "--slug"), "The slug value is passed")
 	assert.Equal(t, "owner/repo", argValue(args, "--repo"), "The repo value is passed")
-	assert.Equal(t, "main", argValue(args, "--clone-branch"), "The clone branch value is passed")
+	assert.Equal(t, "main", argValue(args, "--clone"), "The clone branch value is passed")
 	assert.Equal(t, "3", argValue(args, "--max"), "The max iterations value is passed")
 	assert.Equal(t, "ralph-zon[bot]", argValue(args, "--bot-name"), "The bot name value is passed")
 	assert.Equal(t, "ralph-zon[bot]@users.noreply.github.com", argValue(args, "--bot-email"), "The bot email value is passed")

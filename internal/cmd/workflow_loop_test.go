@@ -28,7 +28,7 @@ func TestWorkflowLoopCmdParsing(t *testing.T) {
 	_, err = parser.Parse([]string{
 		"workflow", "loop",
 		"--repo", "owner/repo",
-		"--clone-branch", "main",
+		"--clone", "main",
 		"--slug", "fmt",
 		"--step", "run gofmt",
 		"--step", "run go vet",

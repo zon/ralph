@@ -19,7 +19,7 @@ type WorkflowRunCmd struct {
 	Items           string `help:"jq query selecting the project item list (default: .)" name:"items" short:"i"`
 	Cleanup         bool   `help:"Delete the project file in its own commit once every item is complete" name:"cleanup"`
 	NoServices      bool   `help:"Skip service startup" default:"false"`
-	InstructionsMD  string `help:"Inline instructions content" name:"instructions-md"`
+	InstructionsMD  string `help:"Inline instructions Markdown" name:"instructions"`
 	ExtraIterations int    `help:"Extra iterations beyond project item count (default: 20% item count)" name:"extra"`
 	Model           string `help:"The model to use in format of provider/model" name:"model" short:"m"`
 	Agent           string `help:"Override the opencode agent from config" name:"agent"`
