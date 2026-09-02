@@ -25,7 +25,7 @@ func TestRunCmdFlagExtraIterations(t *testing.T) {
 	cmd.Dir = repoRoot
 	out, err = cmd.CombinedOutput()
 	require.NoError(t, err)
-	assert.Contains(t, string(out), "--extra-iterations")
+	assert.Contains(t, string(out), "--extra")
 }
 
 func TestRunCmdFlagItems(t *testing.T) {

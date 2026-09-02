@@ -79,7 +79,7 @@ The query must resolve to at least one non-empty item. Empty outputs, null, `fal
 
 ## Iterations
 
-`extraIterations` sets how many iterations the loop may run beyond the item count. The limit is `len(items) + extraIterations`. When unset it defaults to 20% of the item count, rounded up. `--extra-iterations` overrides it.
+`extraIterations` sets how many iterations the loop may run beyond the item count. The limit is `len(items) + extraIterations`. When unset it defaults to 20% of the item count, rounded up. `--extra` overrides it.
 
 `cleanup` deletes the project file once every item is complete, in a commit of its own, before the pull request is opened. Off by default. `--cleanup` enables it for a single run. Completion history lives in the branch's commit trailers, so cleaning up the file does not lose it.
 

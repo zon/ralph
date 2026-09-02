@@ -462,12 +462,12 @@ func TestExtraIterationsFlagParsing(t *testing.T) {
 		},
 		{
 			name:          "explicit value is parsed correctly",
-			args:          []string{"run", "--extra-iterations", "3", "test.yaml"},
+			args:          []string{"run", "--extra", "3", "test.yaml"},
 			expectedValue: 3,
 		},
 		{
 			name:          "default command with explicit value",
-			args:          []string{"--extra-iterations", "5", "test.yaml"},
+			args:          []string{"--extra", "5", "test.yaml"},
 			expectedValue: 5,
 		},
 	}

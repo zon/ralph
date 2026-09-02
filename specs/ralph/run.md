@@ -352,27 +352,27 @@ Cleanup resolution follows a three-level precedence: `--cleanup` at the command 
 
 ### Requirement: Extra iterations resolution
 
-The command SHALL accept `--extra-iterations` to set a finite extra iteration count. The resolved extra iteration value SHALL be passed down to the execution mode, which determines the default when the value is unset.
+The command SHALL accept `--extra` to set a finite extra iteration count. The resolved extra iteration value SHALL be passed down to the execution mode, which determines the default when the value is unset.
 
-Extra iterations resolution follows a two-level precedence: `--extra-iterations` at the command line takes priority. Otherwise the `extraIterations` field in `.ralph/config.yaml` is used. The resolved value SHALL be passed to the execution mode as-is (nil/unset propagates to the runner).
+Extra iterations resolution follows a two-level precedence: `--extra` at the command line takes priority. Otherwise the `extraIterations` field in `.ralph/config.yaml` is used. The resolved value SHALL be passed to the execution mode as-is (nil/unset propagates to the runner).
 
 #### Scenario: Flag takes precedence over config
 
 - GIVEN `extraIterations: 5` in `.ralph/config.yaml`
-- AND the user passes `--extra-iterations 2`
+- AND the user passes `--extra 2`
 - WHEN the extra iteration count is resolved
 - THEN the resolved value is 2
 
 #### Scenario: Config value used when flag is absent
 
 - GIVEN `extraIterations: 3` in `.ralph/config.yaml`
-- AND no `--extra-iterations` flag is passed
+- AND no `--extra` flag is passed
 - WHEN the extra iteration count is resolved
 - THEN the resolved value is 3
 
 #### Scenario: Both flag and config are unset
 
-- GIVEN neither `extraIterations` in config nor `--extra-iterations` flag is set
+- GIVEN neither `extraIterations` in config nor `--extra` flag is set
 - WHEN the extra iteration count is resolved
 - THEN the resolved value is nil/unset
 - AND the execution mode applies its default behavior

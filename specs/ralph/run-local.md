@@ -233,28 +233,28 @@ The iteration loop SHALL invoke the AI agent repeatedly until every item is comp
 
 #### Scenario: Items complete mid-loop
 
-- GIVEN a project with 5 items and `--extra-iterations 3` (limit = 8)
+- GIVEN a project with 5 items and `--extra 3` (limit = 8)
 - WHEN the last incomplete item is recorded complete during iteration 5
 - THEN the loop exits after iteration 5
 - AND does not consume additional iterations
 
 #### Scenario: Default extra iterations is 20% when unset
 
-- GIVEN neither `extraIterations` in config nor `--extra-iterations` flag is set
+- GIVEN neither `extraIterations` in config nor `--extra` flag is set
 - AND the project resolves to 10 items
 - WHEN the iteration loop starts
 - THEN the iteration limit is 12 (10 items + 20% of 10)
 
 #### Scenario: Default extra iterations rounds up
 
-- GIVEN neither `extraIterations` in config nor `--extra-iterations` flag is set
+- GIVEN neither `extraIterations` in config nor `--extra` flag is set
 - AND the project resolves to 3 items
 - WHEN the iteration loop starts
 - THEN the iteration limit is 4 (3 items + 20% of 3 rounded up from 0.6 to 1)
 
 #### Scenario: Extra iterations exhausted with items incomplete
 
-- GIVEN a project with 1 item and `--extra-iterations 0` (limit = 1)
+- GIVEN a project with 1 item and `--extra 0` (limit = 1)
 - AND the item is still incomplete after iteration 1
 - WHEN the iteration loop finishes
 - THEN an error is returned indicating the iteration limit was reached

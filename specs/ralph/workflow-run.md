@@ -22,10 +22,10 @@ The system SHALL apply run-specific flags to the execution context before starti
 
 #### Scenario: Extra iterations
 
-- GIVEN `--extra-iterations` is provided
+- GIVEN `--extra` is provided
 - WHEN the project loop executes
 - THEN the provided extra iteration count is passed to the run-local behavior
-- AND when `--extra-iterations` is absent, no extra iteration value is passed and run-local applies its default
+- AND when `--extra` is absent, no extra iteration value is passed and run-local applies its default
 
 #### Scenario: Item query
 

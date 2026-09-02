@@ -13,7 +13,7 @@ import (
 type RunCmd struct {
 	WorkingDir      string `help:"Working directory to run ralph in" type:"path" short:"C"`
 	InputFile       string `arg:"" optional:"" help:"Path to input file (project YAML, orchestration.md, or spec.md)"`
-	ExtraIterations int    `help:"Extra iterations beyond requirement count (default: 20% of requirements)" name:"extra-iterations"`
+	ExtraIterations int    `help:"Extra iterations beyond project item count (default: 20% item count)" name:"extra"`
 	NoNotify        bool   `help:"Disable desktop notifications" default:"false"`
 	NoServices      bool   `help:"Skip service startup" default:"false"`
 	Verbose         bool   `help:"Enable verbose logging" default:"false"`
@@ -21,7 +21,7 @@ type RunCmd struct {
 	Follow          bool   `help:"Follow workflow logs after submission (only applicable with --mode remote)" short:"f" default:"false"`
 	Debug           string `help:"Checkout the given ralph repo branch in the workflow container and invoke ralph via 'go run' instead of the built binary (only applicable with --mode remote)" name:"debug" optional:""`
 	Base            string `help:"Override the base branch for PR creation (default: detects from current branch)" name:"base" optional:"" short:"B"`
-	Items           string `help:"jq query selecting the item array from the project file (default: from config or .)" name:"items" optional:""`
+	Items           string `help:"jq query selecting the item array from the project file (default: from config or .)" name:"items" optional:"" short:"i"`
 	Cleanup         *bool  `help:"Delete the project file in its own commit once every item is complete" name:"cleanup"`
 	Model           string `help:"The model to use in format of provider/model" name:"model" optional:"" short:"m"`
 	Agent           string `help:"Override the opencode agent from config" name:"agent" optional:""`

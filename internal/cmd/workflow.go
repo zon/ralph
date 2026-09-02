@@ -16,11 +16,11 @@ type WorkflowRunCmd struct {
 	BotName         string `help:"Git user name for commits" default:"ralph-zon[bot]"`
 	BotEmail        string `help:"Git user email for commits" default:"ralph-zon[bot]@users.noreply.github.com"`
 	Debug           string `help:"Ralph branch to use for debug mode" name:"debug"`
-	Items           string `help:"jq query selecting the item array from the project file" name:"items"`
+	Items           string `help:"jq query selecting the item array from the project file" name:"items" short:"i"`
 	Cleanup         bool   `help:"Delete the project file in its own commit once every item is complete" name:"cleanup"`
 	NoServices      bool   `help:"Skip service startup" default:"false"`
 	InstructionsMD  string `help:"Inline instructions content" name:"instructions-md"`
-	ExtraIterations int    `help:"Extra iterations beyond requirement count (default: 20% of requirements)" name:"extra-iterations"`
+	ExtraIterations int    `help:"Extra iterations beyond project item count (default: 20% item count)" name:"extra"`
 	Model           string `help:"The model to use in format of provider/model" name:"model" short:"m"`
 	Agent           string `help:"Override the opencode agent from config" name:"agent"`
 	Variant         string `help:"The model variant (provider-specific reasoning effort, e.g., high, max, minimal)" name:"variant"`

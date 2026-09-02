@@ -37,9 +37,9 @@ See [Iterations](iterations.md) for the completion model.
 
 | Flag | Description |
 |------|-------------|
-| `--items` | jq query selecting the item array (default: config `items`, else `.`) |
+| `-i, --items` | jq query selecting the item array (default: config `items`, else `.`) |
 | `--cleanup` | Delete the project file in its own commit once complete |
-| `--extra-iterations` | Iterations allowed beyond the item count |
+| `--extra` | Extra iterations beyond project item count (default: 20% item count) |
 | `--once` | Run one iteration without branching or PR |
 | `--mode` | Execution mode: `local`, `worktree` (default), or `remote` |
 | `--watch` | Submit remotely and monitor progress |
@@ -137,7 +137,7 @@ An empty array means every item is complete: that condition ends the iteration l
 
 | Flag | Description |
 |------|-------------|
-| `--items` | jq query selecting the item array (default: config `items`, else `.`) |
+| `-i, --items` | jq query selecting the item array (default: config `items`, else `.`) |
 | `-B, --base` | Base branch bounding the commit log (default: config `defaultBranch`) |
 | `--index` | `incomplete` only: emit indices rather than items |
 
@@ -154,9 +154,9 @@ Checks that the file parses as YAML or JSON, that the item query evaluates again
 
 | Flag | Description |
 |------|-------------|
-| `--items` | jq query selecting the item array (default: config `items`, else `.`) |
+| `-i, --items` | jq query selecting the item array (default: config `items`, else `.`) |
 
-`--items` resolves the same way it does for a run: the flag first, then `items` in `.ralph/config.yaml`, then `.`. Validate with the query the run will use. A file that validates under `.` and runs under `.requirements` has not been checked.
+`-i, --items` resolves the same way it does for a run: the flag first, then `items` in `.ralph/config.yaml`, then `.`. Validate with the query the run will use. A file that validates under `.` and runs under `.requirements` has not been checked.
 
 A successful validation rewrites the file in canonical YAML, and converts a `.json` input to `.yaml`. That is fine for project files you own, but it is not what you want on a file borrowed from another tool. Skip validate for those and confirm the query with `ralph get incomplete` instead, which only reads.
 
