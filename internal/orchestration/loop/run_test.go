@@ -474,6 +474,80 @@ func TestRunLoopMaxFlagCapsLocalIterations(t *testing.T) {
 	require.Equal(t, 3, ai.calls, "the loop runs exactly --max iterations, ahead of the config entry's max")
 }
 
+// TestRunLoopMaxConfigEntryCapsWorktreeIterations asserts worktree mode runs
+// the loop at most the loop config entry's max iterations when --max is not
+// passed, so the cap resolution carries into the worktree dispatch path.
+func TestRunLoopMaxConfigEntryCapsWorktreeIterations(t *testing.T) {
+	ai := &mockAIClient{}
+	lc := NewCmd(
+		&mockLoopConfigClient{loops: map[string][]string{"fmt": {"run gofmt"}}},
+		&mockPromptBuilder{},
+		&mockSlugProposer{slug: "proposed"},
+		ai,
+		&mockReportReader{reports: []string{"did the work"}},
+		&mockGitClient{},
+		&mockPullRequestOpener{},
+		envNotInWorkflow(),
+	)
+	cmd := runWithMocks(runWithConfig(configWithLoopMax("fmt", 3)), runWithLoop(lc))
+
+	result, err := cmd.Run(LoopFlags{Slug: "fmt", Mode: config.ModeWorktree})
+	require.NoError(t, err)
+	require.NotNil(t, result, "worktree mode resolves the loop in-process")
+	require.Equal(t, 3, ai.calls, "the loop runs exactly the config entry's max iterations inside the worktree")
+	require.True(t, worktreeCreated(cmd), "the loop runs inside a worktree")
+	require.True(t, worktreeRemoved(cmd), "the worktree is removed when the loop ends")
+}
+
+// TestRunLoopMaxFlagCapsWorktreeIterations asserts an explicitly passed --max
+// caps worktree iterations ahead of the loop config entry's max field.
+func TestRunLoopMaxFlagCapsWorktreeIterations(t *testing.T) {
+	ai := &mockAIClient{}
+	lc := NewCmd(
+		&mockLoopConfigClient{loops: map[string][]string{"fmt": {"run gofmt"}}},
+		&mockPromptBuilder{},
+		&mockSlugProposer{slug: "proposed"},
+		ai,
+		&mockReportReader{reports: []string{"did the work"}},
+		&mockGitClient{},
+		&mockPullRequestOpener{},
+		envNotInWorkflow(),
+	)
+	cmd := runWithMocks(runWithConfig(configWithLoopMax("fmt", 30)), runWithLoop(lc))
+
+	result, err := cmd.Run(LoopFlags{Slug: "fmt", Max: intPtr(3), Mode: config.ModeWorktree})
+	require.NoError(t, err)
+	require.NotNil(t, result, "worktree mode resolves the loop in-process")
+	require.Equal(t, 3, ai.calls, "the loop runs exactly --max iterations, ahead of the config entry's max")
+	require.True(t, worktreeCreated(cmd), "the loop runs inside a worktree")
+	require.True(t, worktreeRemoved(cmd), "the worktree is removed when the loop ends")
+}
+
+// TestRunLoopMaxDefaultCapsWorktreeIterations asserts worktree mode runs the
+// loop at most the default of 20 iterations when neither --max nor the loop
+// config entry's max sets a cap.
+func TestRunLoopMaxDefaultCapsWorktreeIterations(t *testing.T) {
+	ai := &mockAIClient{}
+	lc := NewCmd(
+		&mockLoopConfigClient{loops: map[string][]string{"fmt": {"run gofmt"}}},
+		&mockPromptBuilder{},
+		&mockSlugProposer{slug: "proposed"},
+		ai,
+		&mockReportReader{reports: []string{"did the work"}},
+		&mockGitClient{},
+		&mockPullRequestOpener{},
+		envNotInWorkflow(),
+	)
+	cmd := runWithMocks(runWithConfig(configWithLoopMaxNoMax("fmt")), runWithLoop(lc))
+
+	result, err := cmd.Run(LoopFlags{Slug: "fmt", Mode: config.ModeWorktree})
+	require.NoError(t, err)
+	require.NotNil(t, result, "worktree mode resolves the loop in-process")
+	require.Equal(t, 20, ai.calls, "the loop runs at most the default of 20 iterations inside the worktree")
+	require.True(t, worktreeCreated(cmd), "the loop runs inside a worktree")
+	require.True(t, worktreeRemoved(cmd), "the worktree is removed when the loop ends")
+}
+
 // ---------------------------------------------------------------------------
 // Tests: worktree mode
 // ---------------------------------------------------------------------------
