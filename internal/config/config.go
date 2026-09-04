@@ -366,10 +366,12 @@ type ValidateConfig struct {
 	Model string `yaml:"model,omitempty"`
 }
 
-// LoopConfig represents a named loop configuration with a slug and steps
+// LoopConfig represents a named loop configuration with a slug, steps, and an
+// optional iteration cap.
 type LoopConfig struct {
 	Slug  string   `yaml:"slug"`
 	Steps []string `yaml:"steps"`
+	Max   *int     `yaml:"max,omitempty"`
 }
 
 // RalphConfig represents the .ralph/config.yaml structure
@@ -529,6 +531,17 @@ func (c *RalphConfig) LoopSteps(slug string) ([]string, error) {
 		}
 	}
 	return nil, fmt.Errorf("loop config not found: %s", slug)
+}
+
+// LoopMax returns the configured iteration cap of the first loop config
+// matching the slug, or nil when no entry matches or no entry sets a max.
+func (c *RalphConfig) LoopMax(slug string) *int {
+	for _, loop := range c.Loops {
+		if loop.Slug == slug {
+			return loop.Max
+		}
+	}
+	return nil
 }
 
 // FindConfigDir searches upwards from startDir for a .ralph directory

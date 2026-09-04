@@ -25,9 +25,69 @@ func TestLoadConfig_LoopsSectionParsed(t *testing.T) {
 
 	assert.Equal(t, "fmt", cfg.Loops[0].Slug)
 	assert.Equal(t, []string{"run gofmt", "run go vet"}, cfg.Loops[0].Steps)
+	require.Nil(t, cfg.Loops[0].Max, "an entry without max leaves the cap unset")
 
 	assert.Equal(t, "test", cfg.Loops[1].Slug)
 	assert.Equal(t, []string{"run the test suite", "fix failures"}, cfg.Loops[1].Steps)
+	require.Nil(t, cfg.Loops[1].Max, "an entry without max leaves the cap unset")
+}
+
+func TestLoopConfig_OptionalMaxFieldParsed(t *testing.T) {
+	cfg := loadConfigWithContent(t, `loops:
+  - slug: fmt
+    steps:
+      - run gofmt
+    max: 30
+  - slug: lint
+    steps:
+      - run the linter
+`)
+
+	require.Len(t, cfg.Loops, 2)
+	require.NotNil(t, cfg.Loops[0].Max, "the entry's max field is parsed")
+	assert.Equal(t, 30, *cfg.Loops[0].Max)
+	require.Nil(t, cfg.Loops[1].Max, "an entry without max leaves the cap unset")
+}
+
+func TestLoopMax_MatchingSlugReturnsConfiguredMax(t *testing.T) {
+	cfg := loadConfigWithContent(t, `loops:
+  - slug: fmt
+    steps:
+      - run gofmt
+    max: 30
+  - slug: lint
+    steps:
+      - run the linter
+`)
+
+	assert.NotNil(t, cfg.LoopMax("fmt"))
+	assert.Equal(t, 30, *cfg.LoopMax("fmt"))
+}
+
+func TestLoopMax_EntryWithoutMaxReturnsNil(t *testing.T) {
+	cfg := loadConfigWithContent(t, `loops:
+  - slug: fmt
+    steps:
+      - run gofmt
+`)
+
+	assert.Nil(t, cfg.LoopMax("fmt"))
+}
+
+func TestLoopMax_NoMatchingSlugReturnsNil(t *testing.T) {
+	cfg := loadConfigWithContent(t, `loops:
+  - slug: fmt
+    steps:
+      - run gofmt
+`)
+
+	assert.Nil(t, cfg.LoopMax("missing"))
+}
+
+func TestLoopMax_NoLoopsSectionReturnsNil(t *testing.T) {
+	cfg := loadConfigWithContent(t, "defaultBranch: main\n")
+
+	assert.Nil(t, cfg.LoopMax("fmt"))
 }
 
 func TestLoopSteps_MatchingSlugReturnsSteps(t *testing.T) {

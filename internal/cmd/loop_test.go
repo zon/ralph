@@ -16,17 +16,23 @@ import (
 	"github.com/zon/ralph/internal/git"
 )
 
+// intPtr returns a pointer to the given int, standing for a --max flag value
+// that was explicitly passed on the command line.
+func intPtr(v int) *int {
+	return &v
+}
+
 // TestLoopCmdParsing covers the `ralph loop` command surface. It checks the
-// optional slug argument, the repeatable --step flags, the --max default of
-// 20, the --verbose flag, the --mode, --follow, and --no-notify flags, and
-// the usage errors produced by Validate.
+// optional slug argument, the repeatable --step flags, the optional --max flag
+// (left nil when not passed), the --verbose flag, the --mode, --follow, and
+// --no-notify flags, and the usage errors produced by Validate.
 func TestLoopCmdParsing(t *testing.T) {
 	tests := []struct {
 		name          string
 		args          []string
 		wantSlug      string
 		wantSteps     []string
-		wantMax       int
+		wantMax       *int
 		wantVerbose   bool
 		wantMode      string
 		wantFollow    bool
@@ -38,98 +44,85 @@ func TestLoopCmdParsing(t *testing.T) {
 		wantErr       string
 	}{
 		{
-			name:     "slug argument parses and max defaults to 20",
+			name:     "slug argument parses with no --max flag",
 			args:     []string{"loop", "feature-x"},
 			wantSlug: "feature-x",
-			wantMax:  20,
 		},
 		{
 			name:      "repeatable --step flags preserve order",
 			args:      []string{"loop", "--step", "write code", "--step", "run tests"},
 			wantSteps: []string{"write code", "run tests"},
-			wantMax:   20,
 		},
 		{
 			name:      "slug plus steps",
 			args:      []string{"loop", "feature-x", "--step", "write code"},
 			wantSlug:  "feature-x",
 			wantSteps: []string{"write code"},
-			wantMax:   20,
 		},
 		{
 			name:     "explicit --max is parsed",
 			args:     []string{"loop", "feature-x", "--max", "3"},
 			wantSlug: "feature-x",
-			wantMax:  3,
+			wantMax:  intPtr(3),
 		},
 		{
 			name:        "explicit --verbose parses",
 			args:        []string{"loop", "feature-x", "--verbose"},
 			wantSlug:    "feature-x",
-			wantMax:     20,
 			wantVerbose: true,
 		},
 		{
 			name:     "--mode local parses",
 			args:     []string{"loop", "feature-x", "--mode", "local"},
 			wantSlug: "feature-x",
-			wantMax:  20,
 			wantMode: "local",
 		},
 		{
 			name:     "--mode worktree parses",
 			args:     []string{"loop", "feature-x", "--mode", "worktree"},
 			wantSlug: "feature-x",
-			wantMax:  20,
 			wantMode: "worktree",
 		},
 		{
 			name:     "--mode remote parses",
 			args:     []string{"loop", "feature-x", "--mode", "remote"},
 			wantSlug: "feature-x",
-			wantMax:  20,
 			wantMode: "remote",
 		},
 		{
 			name:       "--follow parses",
 			args:       []string{"loop", "feature-x", "--follow"},
 			wantSlug:   "feature-x",
-			wantMax:    20,
 			wantFollow: true,
 		},
 		{
 			name:       "-f short form parses",
 			args:       []string{"loop", "feature-x", "-f"},
 			wantSlug:   "feature-x",
-			wantMax:    20,
 			wantFollow: true,
 		},
 		{
 			name:         "--no-notify parses",
 			args:         []string{"loop", "feature-x", "--no-notify"},
 			wantSlug:     "feature-x",
-			wantMax:      20,
 			wantNoNotify: true,
 		},
 		{
 			name:      "--model parses",
 			args:      []string{"loop", "feature-x", "--model", "gpt-4"},
 			wantSlug:  "feature-x",
-			wantMax:   20,
 			wantModel: "gpt-4",
 		},
 		{
 			name:        "--context parses",
 			args:        []string{"loop", "feature-x", "--context", "prod-cluster"},
 			wantSlug:    "feature-x",
-			wantMax:     20,
 			wantContext: "prod-cluster",
 		},
 		{
 			name:        "--model and --context parse together",
 			args:        []string{"loop", "feature-x", "--model", "gpt-4", "--context", "prod-cluster"},
 			wantSlug:    "feature-x",
-			wantMax:     20,
 			wantModel:   "gpt-4",
 			wantContext: "prod-cluster",
 		},
@@ -137,28 +130,24 @@ func TestLoopCmdParsing(t *testing.T) {
 			name:        "--variant parses",
 			args:        []string{"loop", "feature-x", "--variant", "high"},
 			wantSlug:    "feature-x",
-			wantMax:     20,
 			wantVariant: "high",
 		},
 		{
 			name:          "--namespace parses",
 			args:          []string{"loop", "feature-x", "--namespace", "argo"},
 			wantSlug:      "feature-x",
-			wantMax:       20,
 			wantNamespace: "argo",
 		},
 		{
 			name:          "-n short form parses",
 			args:          []string{"loop", "feature-x", "-n", "staging"},
 			wantSlug:      "feature-x",
-			wantMax:       20,
 			wantNamespace: "staging",
 		},
 		{
 			name:          "--namespace parses alongside --context",
 			args:          []string{"loop", "feature-x", "--context", "prod", "--namespace", "argo"},
 			wantSlug:      "feature-x",
-			wantMax:       20,
 			wantContext:   "prod",
 			wantNamespace: "argo",
 		},
@@ -565,7 +554,7 @@ func TestLoopRunInvokesAIWithLoopPrompt(t *testing.T) {
 	cmd := &LoopCmd{
 		Mode:         config.ModeLocal,
 		Slug:         "fmt",
-		Max:          10,
+		Max:          intPtr(10),
 		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
 		aiClient:     ai,
 		reportReader: &fakeReportReader{content: "NOTHING_TO_DO"},
@@ -593,7 +582,7 @@ func TestLoopRunStopsAfterMaxIterations(t *testing.T) {
 	cmd := &LoopCmd{
 		Mode:         config.ModeLocal,
 		Slug:         "fmt",
-		Max:          3,
+		Max:          intPtr(3),
 		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
 		aiClient:     ai,
 		reportReader: &fakeReportReader{content: "did the work"},
@@ -612,6 +601,84 @@ func TestLoopRunStopsAfterMaxIterations(t *testing.T) {
 	assert.Equal(t, []string{"fmt"}, git.switched, "the loop branch switch receives the resolved slug")
 }
 
+// TestLoopRunUsesConfigEntryMaxWhenFlagNotPassed asserts `ralph loop <slug>`
+// without --max runs at most the matching loop config entry's max iterations.
+func TestLoopRunUsesConfigEntryMaxWhenFlagNotPassed(t *testing.T) {
+	writeLoopConfig(t, `loops:
+  - slug: fmt
+    steps:
+      - run gofmt
+    max: 3
+`)
+
+	ai := &fakeAIClient{}
+	git := &fakeGitClient{}
+	cmd := &LoopCmd{
+		Mode:         config.ModeLocal,
+		Slug:         "fmt",
+		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
+		aiClient:     ai,
+		reportReader: &fakeReportReader{content: "did the work"},
+		gitClient:    git,
+		prClient:     &fakePullRequestOpener{},
+	}
+	err := cmd.Run()
+	require.NoError(t, err)
+	assert.Equal(t, 3, ai.calls, "the loop runs exactly the loop config entry's max iterations when --max is not passed")
+	assert.Equal(t, 3, git.calls, "each non-nothing-to-do iteration is committed exactly once")
+}
+
+// TestLoopRunDefaultsToTwentyIterationsWhenNothingSetsMax asserts `ralph loop
+// <slug>` without --max and with no loop config max runs at most the default
+// of 20 iterations.
+func TestLoopRunDefaultsToTwentyIterationsWhenNothingSetsMax(t *testing.T) {
+	writeLoopConfig(t, `loops:
+  - slug: fmt
+    steps:
+      - run gofmt
+`)
+
+	ai := &fakeAIClient{}
+	cmd := &LoopCmd{
+		Mode:         config.ModeLocal,
+		Slug:         "fmt",
+		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
+		aiClient:     ai,
+		reportReader: &fakeReportReader{content: "did the work"},
+		gitClient:    &fakeGitClient{},
+		prClient:     &fakePullRequestOpener{},
+	}
+	err := cmd.Run()
+	require.NoError(t, err)
+	assert.Equal(t, 20, ai.calls, "the loop runs at most the default of 20 iterations when nothing sets a max")
+}
+
+// TestLoopRunFlagMaxOverridesConfigEntryMax asserts an explicitly passed --max
+// caps the loop ahead of the matching loop config entry's max field.
+func TestLoopRunFlagMaxOverridesConfigEntryMax(t *testing.T) {
+	writeLoopConfig(t, `loops:
+  - slug: fmt
+    steps:
+      - run gofmt
+    max: 30
+`)
+
+	ai := &fakeAIClient{}
+	cmd := &LoopCmd{
+		Mode:         config.ModeLocal,
+		Slug:         "fmt",
+		Max:          intPtr(2),
+		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
+		aiClient:     ai,
+		reportReader: &fakeReportReader{content: "did the work"},
+		gitClient:    &fakeGitClient{},
+		prClient:     &fakePullRequestOpener{},
+	}
+	err := cmd.Run()
+	require.NoError(t, err)
+	assert.Equal(t, 2, ai.calls, "--max caps the loop ahead of the loop config entry's max")
+}
+
 // TestLoopRunNothingToDoDoesNotCommit asserts an iteration whose report says
 // nothing to do runs the AI once but commits nothing: the git client switches
 // to the loop branch but is never asked to commit. The resolved slug is still
@@ -628,7 +695,7 @@ func TestLoopRunNothingToDoDoesNotCommit(t *testing.T) {
 	cmd := &LoopCmd{
 		Mode:         config.ModeLocal,
 		Slug:         "fmt",
-		Max:          10,
+		Max:          intPtr(10),
 		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
 		aiClient:     ai,
 		reportReader: &fakeReportReader{content: "NOTHING_TO_DO"},
@@ -659,7 +726,7 @@ func TestLoopRunPropagatesIterationCommitError(t *testing.T) {
 	cmd := &LoopCmd{
 		Mode:         config.ModeLocal,
 		Slug:         "fmt",
-		Max:          10,
+		Max:          intPtr(10),
 		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
 		aiClient:     &fakeAIClient{},
 		reportReader: &fakeReportReader{content: "did the work"},
@@ -688,7 +755,7 @@ func TestLoopRunPropagatesAIError(t *testing.T) {
 	cmd := &LoopCmd{
 		Mode:         config.ModeLocal,
 		Slug:         "fmt",
-		Max:          10,
+		Max:          intPtr(10),
 		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
 		aiClient:     ai,
 		reportReader: &fakeReportReader{content: "did the work"},
@@ -715,7 +782,7 @@ func TestLoopRunSwitchesToLoopBranchBeforeIteration(t *testing.T) {
 	cmd := &LoopCmd{
 		Mode:         config.ModeLocal,
 		Slug:         "fmt",
-		Max:          10,
+		Max:          intPtr(10),
 		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
 		aiClient:     &fakeAIClient{},
 		reportReader: &fakeReportReader{content: "NOTHING_TO_DO"},
@@ -744,7 +811,7 @@ func TestLoopRunPropagatesSwitchToLoopBranchError(t *testing.T) {
 	cmd := &LoopCmd{
 		Mode:         config.ModeLocal,
 		Slug:         "fmt",
-		Max:          10,
+		Max:          intPtr(10),
 		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
 		aiClient:     ai,
 		reportReader: &fakeReportReader{content: "did the work"},
@@ -774,7 +841,7 @@ func TestLoopRunOpensPullRequestAfterCommits(t *testing.T) {
 	cmd := &LoopCmd{
 		Mode:         config.ModeLocal,
 		Slug:         "fmt",
-		Max:          1,
+		Max:          intPtr(1),
 		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
 		aiClient:     ai,
 		reportReader: &fakeReportReader{content: "did the work"},
@@ -808,7 +875,7 @@ func TestLoopRunDelegatesPullRequestWhenNothingCommitted(t *testing.T) {
 	cmd := &LoopCmd{
 		Mode:         config.ModeLocal,
 		Slug:         "fmt",
-		Max:          10,
+		Max:          intPtr(10),
 		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
 		aiClient:     &fakeAIClient{},
 		reportReader: &fakeReportReader{content: "NOTHING_TO_DO"},
@@ -838,7 +905,7 @@ func TestLoopRunPropagatesPullRequestOpenError(t *testing.T) {
 	cmd := &LoopCmd{
 		Mode:         config.ModeLocal,
 		Slug:         "fmt",
-		Max:          10,
+		Max:          intPtr(10),
 		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
 		aiClient:     &fakeAIClient{},
 		reportReader: &fakeReportReader{content: "NOTHING_TO_DO"},
@@ -879,7 +946,7 @@ func TestLoopRunRemoteSubmitsWorkflow(t *testing.T) {
 	writeLoopConfig(t, "")
 
 	runner := &fakeLoopRemoteRunner{}
-	cmd := &LoopCmd{Mode: config.ModeRemote, Slug: "fmt", Steps: []string{"run gofmt"}, Max: 3, remoteRunner: runner}
+	cmd := &LoopCmd{Mode: config.ModeRemote, Slug: "fmt", Steps: []string{"run gofmt"}, Max: intPtr(3), remoteRunner: runner}
 	err := cmd.Run()
 	require.NoError(t, err)
 	assert.True(t, runner.called, "the remote runner is consulted in remote mode")
@@ -897,7 +964,7 @@ func TestLoopRunRemoteFollowPassesFollowFlag(t *testing.T) {
 	writeLoopConfig(t, "")
 
 	runner := &fakeLoopRemoteRunner{}
-	cmd := &LoopCmd{Mode: config.ModeRemote, Slug: "fmt", Max: 3, Follow: true, remoteRunner: runner}
+	cmd := &LoopCmd{Mode: config.ModeRemote, Slug: "fmt", Max: intPtr(3), Follow: true, remoteRunner: runner}
 	err := cmd.Run()
 	require.NoError(t, err)
 	assert.True(t, runner.called, "the remote runner is consulted in remote mode")
@@ -911,7 +978,7 @@ func TestLoopRunRemotePropagatesSubmitError(t *testing.T) {
 
 	submitErr := errors.New("failed to submit workflow: boom")
 	runner := &fakeLoopRemoteRunner{err: submitErr}
-	cmd := &LoopCmd{Mode: config.ModeRemote, Slug: "fmt", Max: 10, remoteRunner: runner}
+	cmd := &LoopCmd{Mode: config.ModeRemote, Slug: "fmt", Max: intPtr(10), remoteRunner: runner}
 	err := cmd.Run()
 	require.Error(t, err)
 	assert.Equal(t, submitErr, err, "the workflow submission error is returned unchanged")
@@ -932,7 +999,7 @@ func TestLoopRunLocalDoesNotSubmitWorkflow(t *testing.T) {
 	cmd := &LoopCmd{
 		Mode:         config.ModeLocal,
 		Slug:         "fmt",
-		Max:          10,
+		Max:          intPtr(10),
 		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
 		aiClient:     &fakeAIClient{},
 		reportReader: &fakeReportReader{content: "NOTHING_TO_DO"},
@@ -961,7 +1028,7 @@ func TestLoopRunWorktreeCreatesWorktreeOnLoopBranch(t *testing.T) {
 	cmd := &LoopCmd{
 		Mode:         config.ModeWorktree,
 		Slug:         "fmt",
-		Max:          10,
+		Max:          intPtr(10),
 		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
 		aiClient:     &fakeAIClient{},
 		reportReader: &fakeReportReader{content: "NOTHING_TO_DO"},
@@ -994,7 +1061,7 @@ func TestLoopRunWorktreeBranchAlreadyCheckedOut(t *testing.T) {
 	cmd := &LoopCmd{
 		Mode:         config.ModeWorktree,
 		Slug:         "fmt",
-		Max:          10,
+		Max:          intPtr(10),
 		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
 		aiClient:     &fakeAIClient{},
 		reportReader: &fakeReportReader{content: "NOTHING_TO_DO"},
