@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The `loop` command runs a bounded AI iteration loop over a list of steps. Given a slug, Ralph looks up the matching loop config in the `loops:` section of `.ralph/config.yaml`, embeds that config's `steps` in a prompt, and runs the prompt until the agent reports nothing left to do or the `--max` cap is reached. Before iterating, Ralph switches to the `loop-<slug>` branch, creating it from the current branch when it does not exist, so the agent works on the loop branch's own state. Every iteration that does real work is committed and pushed to `loop-<slug>`. When the loop ends with commits on that branch, Ralph opens a pull request. Steps can also be supplied directly with `--step` flags, which replace the config's `steps`. When steps are supplied without a slug, Ralph asks the AI to read the steps and propose a slug. Execution runs in one of three modes selected with `--mode`: `local` (default), which runs the loop in-process on the local machine, `worktree`, which runs it in-process in a local Git worktree, or `remote`, which submits an Argo Workflow to Kubernetes.
+The `loop` command runs a bounded AI iteration loop over a list of steps. Given a slug, Ralph looks up the matching loop config in the `loops:` section of `.ralph/config.yaml`, embeds that config's `steps` in a prompt, and runs the prompt until the agent reports nothing left to do or the iteration cap is reached. The cap comes from `--max`, else the loop config's `max` field, else 20. Before iterating, Ralph switches to the `loop-<slug>` branch, creating it from the current branch when it does not exist, so the agent works on the loop branch's own state. Every iteration that does real work is committed and pushed to `loop-<slug>`. When the loop ends with commits on that branch, Ralph opens a pull request. Steps can also be supplied directly with `--step` flags, which replace the config's `steps`. When steps are supplied without a slug, Ralph asks the AI to read the steps and propose a slug. Execution runs in one of three modes selected with `--mode`: `local` (default), which runs the loop in-process on the local machine, `worktree`, which runs it in-process in a local Git worktree, or `remote`, which submits an Argo Workflow to Kubernetes.
 
 Mode-specific behaviors are defined in:
 - [run-local.md](run-local.md) — `local` mode: runs the loop in-process in the current checkout
@@ -129,6 +129,13 @@ The command SHALL reuse the remote defaults and config of `ralph run` as defined
 - WHEN the workflow YAML is generated
 - THEN the container runs the loop with the slug `fmt` and the resolved steps
 
+#### Scenario: Workflow carries the resolved iteration cap into the container
+
+- GIVEN a `loops:` entry with `slug: fmt` and `max: 30`
+- AND the user runs `ralph loop fmt --mode remote` with no `--max` flag
+- WHEN the workflow YAML is generated
+- THEN the container runs the loop with an iteration cap of 30
+
 ---
 
 ### Requirement: `--follow` streams logs after submission
@@ -178,7 +185,7 @@ The command SHALL accept an optional positional slug argument and any number of 
 
 ### Requirement: Loop config resolution
 
-When a slug argument is provided, the command SHALL load `.ralph/config.yaml` and find the entry in its `loops:` section whose `slug` matches the argument. The matching entry's `steps` SHALL be the resolved steps, unless `--step` flags override them (see [Steps override](#requirement-steps-override)). When no entry matches the slug, the command SHALL return an error and no execution begins.
+When a slug argument is provided, the command SHALL load `.ralph/config.yaml` and find the entry in its `loops:` section whose `slug` matches the argument. The matching entry's `steps` SHALL be the resolved steps, unless `--step` flags override them (see [Steps override](#requirement-steps-override)). The entry MAY carry an optional `max` field that sets the iteration cap when `--max` is not passed (see [Iteration loop](#requirement-iteration-loop)). A `max` that is not a positive integer SHALL fail config loading with an error that names the loop slug. When no entry matches the slug, the command SHALL return an error and no execution begins.
 
 #### Scenario: Matching loop config found
 
@@ -200,6 +207,13 @@ When a slug argument is provided, the command SHALL load `.ralph/config.yaml` an
 - AND no `loops:` entry has `slug: fmt`
 - WHEN the command resolves the loop config
 - THEN an error is returned: `loop config not found: fmt`
+- AND no prompt runs
+
+#### Scenario: Non-positive config `max` rejected
+
+- GIVEN `.ralph/config.yaml` has a `loops:` entry with `slug: fmt` and `max: 0`
+- WHEN the config is loaded
+- THEN an error is returned that names the loop `fmt`
 - AND no prompt runs
 
 ---
@@ -290,7 +304,9 @@ The command SHALL build a prompt that embeds the resolved steps, in order. The p
 
 ### Requirement: Iteration loop
 
-Before running the prompt, the command SHALL switch to the branch `loop-<slug>`, creating it from the current branch when it does not already exist. The command SHALL then run the prompt repeatedly as an iteration loop. Each iteration SHALL invoke the AI with the prompt and then read `report.md`. The loop SHALL stop when the report content equals the constant string `NOTHING_TO_DO` (trimmed of surrounding whitespace) or when the number of iterations reaches the `--max` cap, whichever comes first. The `--max` flag SHALL default to `20` and SHALL be a positive integer.
+Before running the prompt, the command SHALL switch to the branch `loop-<slug>`, creating it from the current branch when it does not already exist. The command SHALL then run the prompt repeatedly as an iteration loop. Each iteration SHALL invoke the AI with the prompt and then read `report.md`. The loop SHALL stop when the report content equals the constant string `NOTHING_TO_DO` (trimmed of surrounding whitespace) or when the number of iterations reaches the iteration cap, whichever comes first.
+
+The cap follows a three-level precedence. `--max` at the command line takes priority. Otherwise the matching loop config's `max` field is used. Otherwise the cap defaults to `20`. The cap SHALL be a positive integer. Steps supplied without a slug have no loop config, so the cap is `--max` or the default.
 
 #### Scenario: Switches to the loop branch before the first iteration
 
@@ -320,16 +336,32 @@ Before running the prompt, the command SHALL switch to the branch `loop-<slug>`,
 - THEN the loop stops after iteration 3
 - AND no fourth iteration runs
 
-#### Scenario: Default `--max` is 20
+#### Scenario: Default cap is 20
 
 - GIVEN no `--max` flag is passed
+- AND the loop config has no `max` field
 - AND the AI never writes `NOTHING_TO_DO`
 - WHEN the loop runs
 - THEN the loop runs at most 20 iterations
 
+#### Scenario: Config `max` used when no flag is passed
+
+- GIVEN a `loops:` entry with `slug: fmt` and `max: 30`
+- AND the user runs `ralph loop fmt` with no `--max` flag
+- WHEN the loop runs
+- THEN the loop runs at most 30 iterations
+
+#### Scenario: `--max` overrides the config `max`
+
+- GIVEN a `loops:` entry with `slug: fmt` and `max: 30`
+- AND the user runs `ralph loop fmt --max 5`
+- WHEN the loop runs
+- THEN the loop runs at most 5 iterations
+
 #### Scenario: Custom `--max` overrides the default
 
 - GIVEN the user passes `--max 5`
+- AND the loop config has no `max` field
 - WHEN the loop runs
 - THEN the loop runs at most 5 iterations
 
