@@ -55,6 +55,33 @@ func TestConfigDocumentationEmbedded(t *testing.T) {
 	assert.Contains(t, doc, "<branch>-<hash>", "the documentation must describe the completion trailer")
 }
 
+// TestConfigDocumentationLoopMax asserts the Loops section of the embedded
+// configuration reference documents the loop entry's optional max field and
+// its precedence with the --max flag.
+func TestConfigDocumentationLoopMax(t *testing.T) {
+	doc := config.ConfigDocumentation()
+	require.NotEmpty(t, doc)
+	assert.Contains(t, doc, "## Loops")
+	loops := loopsSection(t, doc)
+
+	assert.Contains(t, loops, "max", "the Loops section must document the max field")
+	assert.Contains(t, loops, "--max", "the Loops section must document the --max flag")
+	assert.Contains(t, loops, "takes priority over", "the Loops section must state the --max flag's precedence over the max field")
+}
+
+// loopsSection returns the body of the Loops section, from its header to the
+// next section header.
+func loopsSection(t *testing.T, doc string) string {
+	t.Helper()
+	const header = "## Loops"
+	start := strings.Index(doc, header)
+	require.NotEqual(t, -1, start, "the documentation must contain a Loops section")
+	body := doc[start+len(header):]
+	next := strings.Index(body, "\n## ")
+	require.NotEqual(t, -1, next, "the Loops section must be followed by another section")
+	return body[:next]
+}
+
 // TestConfigPagerScrollsAndQuits exercises the Bubble Tea pager model without
 // a terminal: resizing fills the viewport, scrolling moves it, and the quit
 // keys stop the program.
