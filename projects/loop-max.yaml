@@ -1,6 +1,0 @@
-- A loop entry in `.ralph/config.yaml` accepts an optional `max` field that sets the iteration limit for `ralph loop <slug>` when `--max` is not given
-- The `--max` flag takes priority over the loop entry's `max` field, which takes priority over the default of 20
-- In remote mode the submitted workflow runs the loop with the same resolved iteration limit as local mode
-- A loop entry whose `max` is zero or negative fails config loading with an error that names the loop slug
-- The Loops section of `ralph help config` documents the `max` field and its precedence with `--max`
-- Apply a semver minor bump to the app version

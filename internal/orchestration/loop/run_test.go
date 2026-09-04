@@ -89,6 +89,12 @@ func (m *mockRemoteRunner) Run(slug string, steps []string, max int, follow bool
 // Builders
 // ---------------------------------------------------------------------------
 
+// intPtr returns a pointer to the given int, standing for a --max flag value
+// that was explicitly passed on the command line.
+func intPtr(v int) *int {
+	return &v
+}
+
 type runOption func(*RunCmd)
 
 func runWithConfig(cfg config.Loader) runOption {
@@ -145,24 +151,49 @@ func loopCmdWithGit(gitClient *mockGitClient) *Cmd {
 }
 
 func loopFlagsAny() LoopFlags {
-	return LoopFlags{Slug: "fmt", Max: 10}
+	return LoopFlags{Slug: "fmt", Max: intPtr(10)}
 }
 
 func loopFlagsWithMode(mode string) LoopFlags {
-	return LoopFlags{Slug: "fmt", Max: 10, Mode: mode}
+	return LoopFlags{Slug: "fmt", Max: intPtr(10), Mode: mode}
 }
 
 func loopFlagsWithFollow() LoopFlags {
-	return LoopFlags{Slug: "fmt", Max: 10, Follow: true}
+	return LoopFlags{Slug: "fmt", Max: intPtr(10), Follow: true}
 }
 
 func loopFlagsWithFollowAndMode(mode string) LoopFlags {
-	return LoopFlags{Slug: "fmt", Max: 10, Follow: true, Mode: mode}
+	return LoopFlags{Slug: "fmt", Max: intPtr(10), Follow: true, Mode: mode}
 }
 
 func configWithMode(mode string) config.Loader {
 	return &config.MockLoader{
 		LoadFn: func() (*config.RalphConfig, error) { return config.WithMode(mode), nil },
+	}
+}
+
+// configWithLoopMax returns a loader whose config has a loops entry for the
+// slug carrying the given max iteration cap.
+func configWithLoopMax(slug string, max int) config.Loader {
+	return &config.MockLoader{
+		LoadFn: func() (*config.RalphConfig, error) {
+			cfg := config.Any()
+			m := max
+			cfg.Loops = []config.LoopConfig{{Slug: slug, Steps: []string{"run gofmt"}, Max: &m}}
+			return cfg, nil
+		},
+	}
+}
+
+// configWithLoopMaxNoMax returns a loader whose config has a loops entry for
+// the slug without a max field.
+func configWithLoopMaxNoMax(slug string) config.Loader {
+	return &config.MockLoader{
+		LoadFn: func() (*config.RalphConfig, error) {
+			cfg := config.Any()
+			cfg.Loops = []config.LoopConfig{{Slug: slug, Steps: []string{"run gofmt"}}}
+			return cfg, nil
+		},
 	}
 }
 
@@ -333,6 +364,188 @@ func TestRunRemotePropagatesSubmitError(t *testing.T) {
 	require.Error(t, err)
 	require.Equal(t, submitErr, err)
 	require.True(t, runner.called)
+}
+
+// ---------------------------------------------------------------------------
+// Tests: iteration cap resolution
+// ---------------------------------------------------------------------------
+
+// TestRunLoopMaxResolution asserts the iteration cap follows the three-level
+// precedence: --max when passed, otherwise the matching loop config entry's
+// max field, otherwise the default of 20. Remote mode surfaces the resolved
+// cap on the workflow submission.
+func TestRunLoopMaxResolution(t *testing.T) {
+	tests := []struct {
+		name    string
+		config  config.Loader
+		flags   LoopFlags
+		wantMax int
+	}{
+		{
+			name:    "flag overrides the config entry's max",
+			config:  configWithLoopMax("fmt", 30),
+			flags:   LoopFlags{Slug: "fmt", Max: intPtr(5), Mode: config.ModeRemote},
+			wantMax: 5,
+		},
+		{
+			name:    "config entry's max used when no flag is passed",
+			config:  configWithLoopMax("fmt", 30),
+			flags:   LoopFlags{Slug: "fmt", Mode: config.ModeRemote},
+			wantMax: 30,
+		},
+		{
+			name:    "default of 20 when the config entry sets no max",
+			config:  configWithLoopMaxNoMax("fmt"),
+			flags:   LoopFlags{Slug: "fmt", Mode: config.ModeRemote},
+			wantMax: 20,
+		},
+		{
+			name:    "default of 20 when no entry matches the slug",
+			config:  configWithLoopMax("other", 30),
+			flags:   LoopFlags{Slug: "fmt", Mode: config.ModeRemote},
+			wantMax: 20,
+		},
+		{
+			name:    "default of 20 when the config has no loops",
+			config:  &config.MockLoader{},
+			flags:   LoopFlags{Slug: "fmt", Mode: config.ModeRemote},
+			wantMax: 20,
+		},
+		{
+			name:    "steps without a slug ignore every config entry's max",
+			config:  configWithLoopMax("fmt", 30),
+			flags:   LoopFlags{Steps: []string{"run gofmt"}, Mode: config.ModeRemote},
+			wantMax: 20,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := runWithMocks(runWithConfig(tt.config))
+			_, err := cmd.Run(tt.flags)
+			require.NoError(t, err)
+			require.Equal(t, tt.wantMax, cmd.remote.(*mockRemoteRunner).max, "the workflow submission carries the resolved cap")
+		})
+	}
+}
+
+// TestRunLoopMaxConfigEntryCapsLocalIterations asserts local mode runs the
+// loop at most the loop config entry's max iterations when --max is not
+// passed.
+func TestRunLoopMaxConfigEntryCapsLocalIterations(t *testing.T) {
+	ai := &mockAIClient{}
+	lc := NewCmd(
+		&mockLoopConfigClient{loops: map[string][]string{"fmt": {"run gofmt"}}},
+		&mockPromptBuilder{},
+		&mockSlugProposer{slug: "proposed"},
+		ai,
+		&mockReportReader{reports: []string{"did the work"}},
+		&mockGitClient{},
+		&mockPullRequestOpener{},
+		envNotInWorkflow(),
+	)
+	cmd := runWithMocks(runWithConfig(configWithLoopMax("fmt", 3)), runWithLoop(lc))
+
+	result, err := cmd.Run(LoopFlags{Slug: "fmt", Mode: config.ModeLocal})
+	require.NoError(t, err)
+	require.NotNil(t, result, "local mode resolves the loop in-process")
+	require.Equal(t, 3, ai.calls, "the loop runs exactly the config entry's max iterations")
+}
+
+// TestRunLoopMaxFlagCapsLocalIterations asserts an explicitly passed --max
+// caps local iterations ahead of the loop config entry's max field.
+func TestRunLoopMaxFlagCapsLocalIterations(t *testing.T) {
+	ai := &mockAIClient{}
+	lc := NewCmd(
+		&mockLoopConfigClient{loops: map[string][]string{"fmt": {"run gofmt"}}},
+		&mockPromptBuilder{},
+		&mockSlugProposer{slug: "proposed"},
+		ai,
+		&mockReportReader{reports: []string{"did the work"}},
+		&mockGitClient{},
+		&mockPullRequestOpener{},
+		envNotInWorkflow(),
+	)
+	cmd := runWithMocks(runWithConfig(configWithLoopMax("fmt", 30)), runWithLoop(lc))
+
+	result, err := cmd.Run(LoopFlags{Slug: "fmt", Max: intPtr(3), Mode: config.ModeLocal})
+	require.NoError(t, err)
+	require.NotNil(t, result, "local mode resolves the loop in-process")
+	require.Equal(t, 3, ai.calls, "the loop runs exactly --max iterations, ahead of the config entry's max")
+}
+
+// TestRunLoopMaxConfigEntryCapsWorktreeIterations asserts worktree mode runs
+// the loop at most the loop config entry's max iterations when --max is not
+// passed, so the cap resolution carries into the worktree dispatch path.
+func TestRunLoopMaxConfigEntryCapsWorktreeIterations(t *testing.T) {
+	ai := &mockAIClient{}
+	lc := NewCmd(
+		&mockLoopConfigClient{loops: map[string][]string{"fmt": {"run gofmt"}}},
+		&mockPromptBuilder{},
+		&mockSlugProposer{slug: "proposed"},
+		ai,
+		&mockReportReader{reports: []string{"did the work"}},
+		&mockGitClient{},
+		&mockPullRequestOpener{},
+		envNotInWorkflow(),
+	)
+	cmd := runWithMocks(runWithConfig(configWithLoopMax("fmt", 3)), runWithLoop(lc))
+
+	result, err := cmd.Run(LoopFlags{Slug: "fmt", Mode: config.ModeWorktree})
+	require.NoError(t, err)
+	require.NotNil(t, result, "worktree mode resolves the loop in-process")
+	require.Equal(t, 3, ai.calls, "the loop runs exactly the config entry's max iterations inside the worktree")
+	require.True(t, worktreeCreated(cmd), "the loop runs inside a worktree")
+	require.True(t, worktreeRemoved(cmd), "the worktree is removed when the loop ends")
+}
+
+// TestRunLoopMaxFlagCapsWorktreeIterations asserts an explicitly passed --max
+// caps worktree iterations ahead of the loop config entry's max field.
+func TestRunLoopMaxFlagCapsWorktreeIterations(t *testing.T) {
+	ai := &mockAIClient{}
+	lc := NewCmd(
+		&mockLoopConfigClient{loops: map[string][]string{"fmt": {"run gofmt"}}},
+		&mockPromptBuilder{},
+		&mockSlugProposer{slug: "proposed"},
+		ai,
+		&mockReportReader{reports: []string{"did the work"}},
+		&mockGitClient{},
+		&mockPullRequestOpener{},
+		envNotInWorkflow(),
+	)
+	cmd := runWithMocks(runWithConfig(configWithLoopMax("fmt", 30)), runWithLoop(lc))
+
+	result, err := cmd.Run(LoopFlags{Slug: "fmt", Max: intPtr(3), Mode: config.ModeWorktree})
+	require.NoError(t, err)
+	require.NotNil(t, result, "worktree mode resolves the loop in-process")
+	require.Equal(t, 3, ai.calls, "the loop runs exactly --max iterations, ahead of the config entry's max")
+	require.True(t, worktreeCreated(cmd), "the loop runs inside a worktree")
+	require.True(t, worktreeRemoved(cmd), "the worktree is removed when the loop ends")
+}
+
+// TestRunLoopMaxDefaultCapsWorktreeIterations asserts worktree mode runs the
+// loop at most the default of 20 iterations when neither --max nor the loop
+// config entry's max sets a cap.
+func TestRunLoopMaxDefaultCapsWorktreeIterations(t *testing.T) {
+	ai := &mockAIClient{}
+	lc := NewCmd(
+		&mockLoopConfigClient{loops: map[string][]string{"fmt": {"run gofmt"}}},
+		&mockPromptBuilder{},
+		&mockSlugProposer{slug: "proposed"},
+		ai,
+		&mockReportReader{reports: []string{"did the work"}},
+		&mockGitClient{},
+		&mockPullRequestOpener{},
+		envNotInWorkflow(),
+	)
+	cmd := runWithMocks(runWithConfig(configWithLoopMaxNoMax("fmt")), runWithLoop(lc))
+
+	result, err := cmd.Run(LoopFlags{Slug: "fmt", Mode: config.ModeWorktree})
+	require.NoError(t, err)
+	require.NotNil(t, result, "worktree mode resolves the loop in-process")
+	require.Equal(t, 20, ai.calls, "the loop runs at most the default of 20 iterations inside the worktree")
+	require.True(t, worktreeCreated(cmd), "the loop runs inside a worktree")
+	require.True(t, worktreeRemoved(cmd), "the worktree is removed when the loop ends")
 }
 
 // ---------------------------------------------------------------------------
@@ -525,7 +738,7 @@ func TestRunWorktreeResolvesSlugBeforeCreatingWorktree(t *testing.T) {
 	wt := &mockWorktreeClient{}
 	cmd := runWithMocks(runWithWorktree(wt), runWithLoop(lc))
 
-	result, err := cmd.Run(LoopFlags{Steps: []string{"run gofmt"}, Max: 10, Mode: config.ModeWorktree})
+	result, err := cmd.Run(LoopFlags{Steps: []string{"run gofmt"}, Max: intPtr(10), Mode: config.ModeWorktree})
 	require.NoError(t, err)
 	require.True(t, proposer.called, "the slug proposer is consulted before the worktree is created")
 	require.Equal(t, "gofmt", result.Slug, "the proposed slug is resolved")

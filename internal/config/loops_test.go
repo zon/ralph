@@ -25,9 +25,120 @@ func TestLoadConfig_LoopsSectionParsed(t *testing.T) {
 
 	assert.Equal(t, "fmt", cfg.Loops[0].Slug)
 	assert.Equal(t, []string{"run gofmt", "run go vet"}, cfg.Loops[0].Steps)
+	require.Nil(t, cfg.Loops[0].Max, "an entry without max leaves the cap unset")
 
 	assert.Equal(t, "test", cfg.Loops[1].Slug)
 	assert.Equal(t, []string{"run the test suite", "fix failures"}, cfg.Loops[1].Steps)
+	require.Nil(t, cfg.Loops[1].Max, "an entry without max leaves the cap unset")
+}
+
+func TestLoopConfig_OptionalMaxFieldParsed(t *testing.T) {
+	cfg := loadConfigWithContent(t, `loops:
+  - slug: fmt
+    steps:
+      - run gofmt
+    max: 30
+  - slug: lint
+    steps:
+      - run the linter
+`)
+
+	require.Len(t, cfg.Loops, 2)
+	require.NotNil(t, cfg.Loops[0].Max, "the entry's max field is parsed")
+	assert.Equal(t, 30, *cfg.Loops[0].Max)
+	require.Nil(t, cfg.Loops[1].Max, "an entry without max leaves the cap unset")
+}
+
+func TestLoopMax_MatchingSlugReturnsConfiguredMax(t *testing.T) {
+	cfg := loadConfigWithContent(t, `loops:
+  - slug: fmt
+    steps:
+      - run gofmt
+    max: 30
+  - slug: lint
+    steps:
+      - run the linter
+`)
+
+	assert.NotNil(t, cfg.LoopMax("fmt"))
+	assert.Equal(t, 30, *cfg.LoopMax("fmt"))
+}
+
+func TestLoopMax_EntryWithoutMaxReturnsNil(t *testing.T) {
+	cfg := loadConfigWithContent(t, `loops:
+  - slug: fmt
+    steps:
+      - run gofmt
+`)
+
+	assert.Nil(t, cfg.LoopMax("fmt"))
+}
+
+func TestLoopMax_NoMatchingSlugReturnsNil(t *testing.T) {
+	cfg := loadConfigWithContent(t, `loops:
+  - slug: fmt
+    steps:
+      - run gofmt
+`)
+
+	assert.Nil(t, cfg.LoopMax("missing"))
+}
+
+func TestLoopMax_NoLoopsSectionReturnsNil(t *testing.T) {
+	cfg := loadConfigWithContent(t, "defaultBranch: main\n")
+
+	assert.Nil(t, cfg.LoopMax("fmt"))
+}
+
+func TestLoadConfig_NonPositiveLoopMaxRejected(t *testing.T) {
+	tests := []struct {
+		name    string
+		maxYAML string
+	}{
+		{name: "zero max rejected", maxYAML: "max: 0"},
+		{name: "negative max rejected", maxYAML: "max: -1"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			content := "loops:\n  - slug: fmt\n    steps:\n      - run gofmt\n    " + tt.maxYAML + "\n"
+
+			_, err := loadConfigErrorWithContent(t, content)
+			require.Error(t, err, "LoadConfig() expected error for a loop entry whose max is zero or negative")
+			assert.Contains(t, err.Error(), "fmt", "the error must name the loop slug")
+		})
+	}
+}
+
+func TestLoadConfig_NonPositiveLoopMaxNamesOffendingSlug(t *testing.T) {
+	content := `loops:
+  - slug: fmt
+    steps:
+      - run gofmt
+    max: 30
+  - slug: lint
+    steps:
+      - run the linter
+    max: 0
+`
+
+	_, err := loadConfigErrorWithContent(t, content)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "lint", "the error must name the offending loop slug")
+	assert.NotContains(t, err.Error(), "fmt", "the error must not name a valid loop entry")
+}
+
+func TestLoadConfig_PositiveLoopMaxAccepted(t *testing.T) {
+	cfg := loadConfigWithContent(t, `loops:
+  - slug: fmt
+    steps:
+      - run gofmt
+    max: 1
+`)
+
+	require.Len(t, cfg.Loops, 1)
+	require.NotNil(t, cfg.Loops[0].Max)
+	assert.Equal(t, 1, *cfg.Loops[0].Max)
 }
 
 func TestLoopSteps_MatchingSlugReturnsSteps(t *testing.T) {
