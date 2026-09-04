@@ -439,6 +439,17 @@ func ValidateReviewConfig(r *ReviewConfig) error {
 	return nil
 }
 
+// validateLoopConfigs rejects loop entries whose max is set but not a positive
+// integer, naming the offending loop's slug.
+func validateLoopConfigs(loops []LoopConfig) error {
+	for _, loop := range loops {
+		if loop.Max != nil && *loop.Max <= 0 {
+			return fmt.Errorf("loop %q max must be a positive integer", loop.Slug)
+		}
+	}
+	return nil
+}
+
 // validateWorkflowEnv rejects env entries whose secretKeyRef lacks a name or key.
 func validateWorkflowEnv(env map[string]EnvVar) error {
 	for name, envVar := range env {
@@ -625,6 +636,10 @@ func LoadConfig() (*RalphConfig, error) {
 
 	if err := validateWorkflowEnv(config.Workflow.Env); err != nil {
 		return nil, fmt.Errorf("invalid workflow env: %w", err)
+	}
+
+	if err := validateLoopConfigs(config.Loops); err != nil {
+		return nil, err
 	}
 
 	return config, nil
