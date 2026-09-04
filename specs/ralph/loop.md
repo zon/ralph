@@ -15,13 +15,13 @@ Mode-specific behaviors are defined in:
 
 The command SHALL accept `--mode` to select the execution mode. The option SHALL accept exactly one of `local`, `worktree`, or `remote`.
 
-Mode resolution follows a three-level precedence: `--mode` at the command line takes priority; otherwise the top-level `mode` field in `.ralph/config.yaml` is used; otherwise the mode defaults to `local`.
+Mode resolution follows a three-level precedence: `--mode` at the command line takes priority. Otherwise the top-level `mode` field in `.ralph/config.yaml` is used. Otherwise the mode defaults to `local`.
 
 - `local` runs the loop in-process in the current checkout.
-- `worktree` runs the loop in-process in a Git worktree created for the `loop-<slug>` branch, leaving the current checkout untouched; see [run-worktree.md](run-worktree.md).
-- `remote` submits an Argo Workflow to Kubernetes, and the loop runs inside the workflow container; see [run-remote.md](run-remote.md).
+- `worktree` runs the loop in-process in a Git worktree created for the `loop-<slug>` branch, leaving the current checkout untouched. See [run-worktree.md](run-worktree.md).
+- `remote` submits an Argo Workflow to Kubernetes, and the loop runs inside the workflow container. See [run-remote.md](run-remote.md).
 
-The `--follow` flag is workflow-only and is rejected for `local` and `worktree` modes; see [Incompatible flags are rejected](#requirement-incompatible-flags-are-rejected).
+The `--follow` flag is workflow-only and is rejected for `local` and `worktree` modes. See [Incompatible flags are rejected](#requirement-incompatible-flags-are-rejected).
 
 The loop body (slug and step resolution, prompt construction, iteration, commit and push, and pull request opening) SHALL behave identically across all three modes.
 

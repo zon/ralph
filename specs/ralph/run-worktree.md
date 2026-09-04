@@ -65,7 +65,7 @@ The development loop SHALL behave identically to the `local` mode described in [
 
 ### Requirement: Worktree removal
 
-After the run ends — whether every item completed and a PR was opened, the iteration limit was reached with items incomplete, or the run failed — the command SHALL remove the worktree.
+After the run ends, whether every item completed and a PR was opened, the iteration limit was reached with items incomplete, or the run failed, the command SHALL remove the worktree.
 
 #### Scenario: Worktree removed after a successful run
 

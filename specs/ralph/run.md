@@ -15,13 +15,13 @@ Mode-specific behaviors are defined in:
 
 The command SHALL accept `--mode` to select the execution mode. The option SHALL accept exactly one of `local`, `worktree`, or `remote`.
 
-Mode resolution follows a three-level precedence: `--mode` at the command line takes priority; otherwise the top-level `mode` field in `.ralph/config.yaml` is used; otherwise the mode defaults to `local`.
+Mode resolution follows a three-level precedence: `--mode` at the command line takes priority. Otherwise the top-level `mode` field in `.ralph/config.yaml` is used. Otherwise the mode defaults to `local`.
 
 - `local` runs the development loop in-process in the current checkout.
-- `worktree` runs the development loop in-process in a Git worktree created for the project branch, leaving the current checkout untouched; see [run-worktree.md](run-worktree.md).
-- `remote` submits an Argo Workflow to Kubernetes and returns after submission; the loop runs inside the workflow container; see [run-remote.md](run-remote.md).
+- `worktree` runs the development loop in-process in a Git worktree created for the project branch, leaving the current checkout untouched. See [run-worktree.md](run-worktree.md).
+- `remote` submits an Argo Workflow to Kubernetes and returns after submission. The loop runs inside the workflow container. See [run-remote.md](run-remote.md).
 
-The `--follow` and `--debug` flags are workflow-only and are rejected for `local` and `worktree` modes; see [Incompatible flags are rejected](#requirement-incompatible-flags-are-rejected).
+The `--follow` and `--debug` flags are workflow-only and are rejected for `local` and `worktree` modes. See [Incompatible flags are rejected](#requirement-incompatible-flags-are-rejected).
 
 #### Scenario: `--mode local` runs in the current checkout
 
@@ -75,7 +75,7 @@ The `--follow` and `--debug` flags are workflow-only and are rejected for `local
 
 ### Requirement: Input file is required
 
-The command SHALL require a positional argument that is a path to one of: a project file (`.yaml`, `.yml`, or `.json`), an orchestration document (`orchestration.md`), or a spec document (`spec.md`). The file must exist on disk before execution proceeds. When an orchestration or spec is provided, the actual project generation and artifact commits happen inside the execution mode; see [run-local.md](run-local.md) and [run-worktree.md](run-worktree.md).
+The command SHALL require a positional argument that is a path to one of: a project file (`.yaml`, `.yml`, or `.json`), an orchestration document (`orchestration.md`), or a spec document (`spec.md`). The file must exist on disk before execution proceeds. When an orchestration or spec is provided, the actual project generation and artifact commits happen inside the execution mode. See [run-local.md](run-local.md) and [run-worktree.md](run-worktree.md).
 
 #### Scenario: Project file provided
 
