@@ -166,6 +166,42 @@ func TestSetupLocalReadinessClientConfirmOpenCodeReady(t *testing.T) {
 	})
 }
 
+func TestSetupLocalReadinessClientConfirmKubectlReady(t *testing.T) {
+	t.Run("fails when kubectl is not installed", func(t *testing.T) {
+		t.Setenv("PATH", t.TempDir())
+		client, _ := newSetupReadinessClient(t)
+		err := client.ConfirmKubectlReady()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "kubectl is not installed")
+	})
+
+	t.Run("succeeds when kubectl is installed", func(t *testing.T) {
+		writeFakeTool(t, "kubectl", `exit 0`)
+		client, buf := newSetupReadinessClient(t)
+		err := client.ConfirmKubectlReady()
+		require.NoError(t, err)
+		assert.Contains(t, buf.String(), "\u2713 kubectl ready")
+	})
+}
+
+func TestSetupLocalReadinessClientConfirmArgoReady(t *testing.T) {
+	t.Run("fails when argo is not installed", func(t *testing.T) {
+		t.Setenv("PATH", t.TempDir())
+		client, _ := newSetupReadinessClient(t)
+		err := client.ConfirmArgoReady()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "argo CLI is not installed")
+	})
+
+	t.Run("succeeds when argo is installed", func(t *testing.T) {
+		writeFakeTool(t, "argo", `exit 0`)
+		client, buf := newSetupReadinessClient(t)
+		err := client.ConfirmArgoReady()
+		require.NoError(t, err)
+		assert.Contains(t, buf.String(), "\u2713 argo ready")
+	})
+}
+
 func TestSetupLocalReadinessClientPrintsFailedChecks(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
 	tests := []struct {
@@ -192,6 +228,20 @@ func TestSetupLocalReadinessClientPrintsFailedChecks(t *testing.T) {
 			cmd:  "opencode",
 			confirm: func(client *setupLocalReadinessClient) error {
 				return client.ConfirmOpenCodeReady()
+			},
+		},
+		{
+			name: "kubectl not installed",
+			cmd:  "kubectl",
+			confirm: func(client *setupLocalReadinessClient) error {
+				return client.ConfirmKubectlReady()
+			},
+		},
+		{
+			name: "argo not installed",
+			cmd:  "argo",
+			confirm: func(client *setupLocalReadinessClient) error {
+				return client.ConfirmArgoReady()
 			},
 		},
 	}

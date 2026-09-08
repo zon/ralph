@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Confirm that the local machine is ready to run Ralph with git, the GitHub CLI (`gh`), and OpenCode. When a namespace is available from the `--namespace` flag or `workflow.namespace` in `.ralph/config.yaml`, additionally prepare that Kubernetes namespace for Ralph's remote execution on Argo Workflows by writing the GitHub and OpenCode credentials remote workflows consume. Context targeting for the namespace preparation step is defined in [kube-options.md](kube-options.md), with the exception that `ralph setup` prepares a namespace only when the namespace comes from the flag or the config value, never from the kubeconfig context's default namespace.
+Confirm that the local machine is ready to run Ralph with git, the GitHub CLI (`gh`), and OpenCode. When a namespace is available from the `--namespace` flag or `workflow.namespace` in `.ralph/config.yaml`, additionally confirm that kubectl and the Argo CLI are installed and prepare that Kubernetes namespace for Ralph's remote execution on Argo Workflows by writing the GitHub and OpenCode credentials remote workflows consume. Context targeting for the namespace preparation step is defined in [kube-options.md](kube-options.md), with the exception that `ralph setup` prepares a namespace only when the namespace comes from the flag or the config value, never from the kubeconfig context's default namespace.
 
 ## Requirements
 
@@ -92,9 +92,52 @@ The system SHALL prepare a Kubernetes namespace for Ralph workflows only after a
 - WHEN the user runs `ralph setup`
 - THEN namespace preparation is not attempted
 
+### Requirement: Kubernetes Tooling Readiness
+
+When namespace preparation runs, the system SHALL confirm that the kubectl and argo CLIs are installed before writing any credentials. The confirmation SHALL run in order: (1) kubectl, (2) argo. If either CLI is missing, the command SHALL exit immediately after that step's failure without attempting the remaining confirmation step or any credential write. When no namespace is targeted, the system SHALL NOT confirm kubectl or argo.
+
+#### Scenario: Cluster tooling ready
+
+- GIVEN a namespace is targeted via config or `--namespace`
+- AND kubectl is installed
+- AND the argo CLI is installed
+- AND the local readiness confirmation succeeds
+- WHEN the user runs `ralph setup`
+- THEN the command confirms kubectl and argo are ready
+- AND namespace preparation proceeds to write the credential secrets
+
+#### Scenario: kubectl not installed halts preparation
+
+- GIVEN a namespace is targeted via config or `--namespace`
+- AND kubectl is not installed
+- AND the local readiness confirmation succeeds
+- WHEN the user runs `ralph setup`
+- THEN an error is returned telling the user kubectl is not installed
+- AND the argo confirmation is not attempted
+- AND no credential is written
+
+#### Scenario: argo not installed halts preparation
+
+- GIVEN a namespace is targeted via config or `--namespace`
+- AND kubectl is installed
+- AND the argo CLI is not installed
+- AND the local readiness confirmation succeeds
+- WHEN the user runs `ralph setup`
+- THEN an error is returned telling the user the argo CLI is not installed
+- AND no credential is written
+
+#### Scenario: Cluster tooling not confirmed without a targeted namespace
+
+- GIVEN neither `--namespace` nor `workflow.namespace` is set
+- AND kubectl is not installed
+- AND the local readiness confirmation succeeds
+- WHEN the user runs `ralph setup`
+- THEN kubectl and argo are not confirmed
+- AND the command exits successfully on the local readiness confirmation alone
+
 ### Requirement: Sequential Namespace Preparation
 
-When namespace preparation runs, the system SHALL run preparation steps in order: (1) resolve the Kubernetes context, (2) validate and write GitHub credentials, (3) read and write OpenCode credentials. If any step fails, the command SHALL exit immediately without proceeding to subsequent steps.
+When namespace preparation runs, the system SHALL run preparation steps in order: (1) resolve the Kubernetes context, (2) confirm the kubectl and argo CLIs are installed, (3) validate and write GitHub credentials, (4) read and write OpenCode credentials. If any step fails, the command SHALL exit immediately without proceeding to subsequent steps.
 
 #### Scenario: App credentials prepared successfully
 

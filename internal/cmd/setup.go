@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/zon/ralph/internal/argo"
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/github"
@@ -116,6 +117,22 @@ func (c *setupLocalReadinessClient) ConfirmOpenCodeReady() error {
 		return c.notReady("opencode", err.Error())
 	}
 	c.out.Success("opencode ready")
+	return nil
+}
+
+func (c *setupLocalReadinessClient) ConfirmKubectlReady() error {
+	if !k8s.Installed() {
+		return c.notReady("kubectl", "kubectl is not installed")
+	}
+	c.out.Success("kubectl ready")
+	return nil
+}
+
+func (c *setupLocalReadinessClient) ConfirmArgoReady() error {
+	if !argo.Installed() {
+		return c.notReady("argo", "argo CLI is not installed - install it to run Ralph workflows on Kubernetes: https://github.com/argoproj/argo-workflows/releases")
+	}
+	c.out.Success("argo ready")
 	return nil
 }
 

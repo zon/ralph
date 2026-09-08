@@ -30,6 +30,12 @@ func NewClient() Client {
 	return &client{}
 }
 
+// Installed reports whether the argo CLI is on the PATH.
+func Installed() bool {
+	_, err := exec.LookPath("argo")
+	return err == nil
+}
+
 func (c *client) ListWorkflows(ctx K8sContext) error {
 	output, err := runList(ctx)
 	if err != nil {

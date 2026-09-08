@@ -12,7 +12,7 @@ type Cmd struct {
 	List       ListCmd       `cmd:"" help:"List Argo workflows"`
 	Stop       StopCmd       `cmd:"" help:"Stop an Argo workflow"`
 	Logs       LogsCmd       `cmd:"" help:"Get logs of an Argo workflow"`
-	Setup      SetupCmd      `cmd:"" help:"Confirm git, gh, and OpenCode are ready to run Ralph. Prepare a Kubernetes namespace only when one is targeted"`
+	Setup      SetupCmd      `cmd:"" help:"Confirm git, gh, and OpenCode are ready to run Ralph. Prepare a Kubernetes namespace only when one is targeted, confirming kubectl and argo are installed first"`
 	Workflow   WorkflowGroup `cmd:"" help:"Run Ralph workflow subcommands in a container"`
 	Help       HelpGroup     `cmd:"" help:"Show help for Ralph topics"`
 

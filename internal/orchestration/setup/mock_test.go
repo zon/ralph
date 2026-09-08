@@ -10,9 +10,13 @@ type mockLocalReadinessClient struct {
 	confirmGitFunc         func() error
 	confirmGitHubCLIFunc   func() error
 	confirmOpenCodeFunc    func() error
+	confirmKubectlFunc     func() error
+	confirmArgoFunc        func() error
 	confirmGitCalled       bool
 	confirmGitHubCLICalled bool
 	confirmOpenCodeCalled  bool
+	confirmKubectlCalled   bool
+	confirmArgoCalled      bool
 }
 
 func (m *mockLocalReadinessClient) ConfirmGitReady() error {
@@ -35,6 +39,22 @@ func (m *mockLocalReadinessClient) ConfirmOpenCodeReady() error {
 	m.confirmOpenCodeCalled = true
 	if m.confirmOpenCodeFunc != nil {
 		return m.confirmOpenCodeFunc()
+	}
+	return nil
+}
+
+func (m *mockLocalReadinessClient) ConfirmKubectlReady() error {
+	m.confirmKubectlCalled = true
+	if m.confirmKubectlFunc != nil {
+		return m.confirmKubectlFunc()
+	}
+	return nil
+}
+
+func (m *mockLocalReadinessClient) ConfirmArgoReady() error {
+	m.confirmArgoCalled = true
+	if m.confirmArgoFunc != nil {
+		return m.confirmArgoFunc()
 	}
 	return nil
 }
@@ -328,6 +348,14 @@ func (h *readinessHelper) confirmOpenCodeCalled() bool {
 	return mockReadiness != nil && mockReadiness.confirmOpenCodeCalled
 }
 
+func (h *readinessHelper) confirmKubectlCalled() bool {
+	return mockReadiness != nil && mockReadiness.confirmKubectlCalled
+}
+
+func (h *readinessHelper) confirmArgoCalled() bool {
+	return mockReadiness != nil && mockReadiness.confirmArgoCalled
+}
+
 func (h *readinessHelper) thatFailsGit() *mockLocalReadinessClient {
 	return &mockLocalReadinessClient{
 		confirmGitFunc: func() error { return errMock },
@@ -343,6 +371,31 @@ func (h *readinessHelper) thatFailsGitHubCLI() *mockLocalReadinessClient {
 func (h *readinessHelper) thatFailsOpenCode() *mockLocalReadinessClient {
 	return &mockLocalReadinessClient{
 		confirmOpenCodeFunc: func() error { return errMock },
+	}
+}
+
+func (h *readinessHelper) thatFailsKubectl() *mockLocalReadinessClient {
+	return &mockLocalReadinessClient{
+		confirmKubectlFunc: func() error { return errMock },
+	}
+}
+
+func (h *readinessHelper) thatFailsArgo() *mockLocalReadinessClient {
+	return &mockLocalReadinessClient{
+		confirmArgoFunc: func() error { return errMock },
+	}
+}
+
+func (h *readinessHelper) thatRecordsClusterTooling(order *[]string) *mockLocalReadinessClient {
+	return &mockLocalReadinessClient{
+		confirmKubectlFunc: func() error {
+			*order = append(*order, "confirm-kubectl")
+			return nil
+		},
+		confirmArgoFunc: func() error {
+			*order = append(*order, "confirm-argo")
+			return nil
+		},
 	}
 }
 

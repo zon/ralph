@@ -36,6 +36,8 @@ type LocalReadinessClient interface {
 	ConfirmGitReady() error
 	ConfirmGitHubCLIReady() error
 	ConfirmOpenCodeReady() error
+	ConfirmKubectlReady() error
+	ConfirmArgoReady() error
 }
 
 type SetupCmd struct {
@@ -72,6 +74,10 @@ func (c *SetupCmd) Run(flags Flags) error {
 		return err
 	}
 
+	if err := c.confirmClusterTooling(); err != nil {
+		return err
+	}
+
 	if err := c.configureGitHub(k8sCtx, flags); err != nil {
 		return err
 	}
@@ -87,6 +93,13 @@ func (c *SetupCmd) confirmLocalReadiness() error {
 		return err
 	}
 	return c.Readiness.ConfirmOpenCodeReady()
+}
+
+func (c *SetupCmd) confirmClusterTooling() error {
+	if err := c.Readiness.ConfirmKubectlReady(); err != nil {
+		return err
+	}
+	return c.Readiness.ConfirmArgoReady()
 }
 
 func (c *SetupCmd) configureGitHub(k8sCtx K8sContext, flags Flags) error {

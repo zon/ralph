@@ -7,6 +7,12 @@ import (
 	"os/exec"
 )
 
+// Installed reports whether the kubectl CLI is on the PATH.
+func Installed() bool {
+	_, err := exec.LookPath("kubectl")
+	return err == nil
+}
+
 func runKubectl(ctx context.Context, stdin *bytes.Buffer, args ...string) (*bytes.Buffer, error) {
 	if _, err := exec.LookPath("kubectl"); err != nil {
 		return nil, fmt.Errorf("kubectl not found in PATH - please install kubectl")

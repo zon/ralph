@@ -11,6 +11,7 @@ func TestRunAppCredentialsPreparedSuccessfully(t *testing.T) {
 	var githubCtx, opencodeCtx K8sContext
 
 	cmd := setup.withMocks(
+		setup.withReadiness(readiness.thatRecordsClusterTooling(&order)),
 		setup.withContext(&mockContextClient{
 			resolveFunc: func(flagContext, flagNamespace string) (K8sContext, error) {
 				order = append(order, "resolve")
@@ -39,7 +40,7 @@ func TestRunAppCredentialsPreparedSuccessfully(t *testing.T) {
 
 	err := cmd.Run(Flags{Context: "staging", Namespace: "argo", GithubKey: "/path/to/key.pem"})
 	require.NoError(t, err)
-	require.Equal(t, []string{"resolve", "validate-github", "write-github", "write-opencode"}, order)
+	require.Equal(t, []string{"resolve", "confirm-kubectl", "confirm-argo", "validate-github", "write-github", "write-opencode"}, order)
 	require.Equal(t, K8sContext{Name: "staging", Namespace: "argo"}, githubCtx)
 	require.Equal(t, K8sContext{Name: "staging", Namespace: "argo"}, opencodeCtx)
 }
@@ -49,6 +50,7 @@ func TestRunTokenCredentialsPreparedSuccessfully(t *testing.T) {
 	var githubCtx, opencodeCtx K8sContext
 
 	cmd := setup.withMocks(
+		setup.withReadiness(readiness.thatRecordsClusterTooling(&order)),
 		setup.withContext(&mockContextClient{
 			resolveFunc: func(flagContext, flagNamespace string) (K8sContext, error) {
 				order = append(order, "resolve")
@@ -73,7 +75,7 @@ func TestRunTokenCredentialsPreparedSuccessfully(t *testing.T) {
 
 	err := cmd.Run(Flags{Context: "staging", Namespace: "argo", GithubToken: "ghp_test_token"})
 	require.NoError(t, err)
-	require.Equal(t, []string{"resolve", "write-github", "write-opencode"}, order)
+	require.Equal(t, []string{"resolve", "confirm-kubectl", "confirm-argo", "write-github", "write-opencode"}, order)
 	require.Equal(t, K8sContext{Name: "staging", Namespace: "argo"}, githubCtx)
 	require.Equal(t, K8sContext{Name: "staging", Namespace: "argo"}, opencodeCtx)
 }

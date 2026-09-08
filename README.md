@@ -74,7 +74,7 @@ And configure OpenCode. See [OpenCode authentication docs](https://opencode.ai/d
 
 ## Remote workflows
 
-When you target a Kubernetes namespace, `ralph setup` prepares it for Ralph workflows. Target one with `--namespace` or `workflow.namespace` in `.ralph/config.yaml`. With no targeted namespace, `ralph setup` only confirms the local tools.
+When you target a Kubernetes namespace, `ralph setup` confirms kubectl and argo are installed, then prepares it for Ralph workflows. Target one with `--namespace` or `workflow.namespace` in `.ralph/config.yaml`. With no targeted namespace, `ralph setup` only confirms the local tools.
 
 ## Help
 
@@ -86,6 +86,4 @@ ralph --help
 
 Or add these instructions to your `AGENTS.md` file:
 
-```markdown
-We use Ralph to run coding projects. Run `ralph --help` to learn more.
-```
+> We use Ralph to run coding projects. Run `ralph --help` to learn more.
