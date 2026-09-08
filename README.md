@@ -40,47 +40,28 @@ Ralph runs projects like this:
 
 ## Installation
 
-### 1. Install Dependencies
+Ralph ships as a Homebrew formula. The formula installs Ralph and the CLI commands it runs — Git, GitHub CLI, OpenCode, kubectl, and the Argo CLI — and tracks the newest tagged release.
 
-- **[Go](https://go.dev/doc/install)**
-- **[Git](https://git-scm.com/install/)**
-- **[GitHub CLI](https://cli.github.com/)**
-- **[OpenCode CLI](https://opencode.ai/docs/#install)**
-
-### 2. Install Ralph
+OpenCode and the Argo CLI live outside Homebrew core, so add their taps before installing:
 
 ```bash
-go install github.com/zon/ralph/cmd/ralph@latest
+brew tap anomalyco/tap
+brew tap argoproj/tap
 ```
-
-Ensure `$GOPATH/bin` is in your PATH:
 
 ```bash
-export PATH=$PATH:$(go env GOPATH)/bin
+brew install https://raw.githubusercontent.com/zon/ralph/main/Formula/ralph.rb
 ```
 
-### 3. Authenticate GitHub
+Install from source instead? Follow the [manual install guide](docs/manual-install.md).
+
+Then authenticate GitHub:
 
 ```bash
 gh auth login
 ```
 
-### 4. Configure OpenCode
-
-See [OpenCode authentication docs](https://opencode.ai/docs/cli/#auth) for setup instructions.
-
-### 5. Optional Remote Workflows
-
-Install if you want to run Argo Workflows:
-
-- **[kubectl](https://kubernetes.io/docs/tasks/tools/)**
-- **[Argo Workflows](https://argo-workflows.readthedocs.io/en/latest/installation/)**
-
-Use the setup command to prepare a Kubernetes namespace for Ralph:
-
-```bash
-ralph setup --help
-```
+And configure OpenCode. See [OpenCode authentication docs](https://opencode.ai/docs/cli/#auth).
 
 ## Help
 

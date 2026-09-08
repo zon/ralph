@@ -1,0 +1,95 @@
+name: Version Tag
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - internal/version/VERSION
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read version
+        id: version
+        run: echo "VERSION=$(cat internal/version/VERSION)" >> "$GITHUB_OUTPUT"
+
+      - name: Check for existing tag
+        id: tag_exists
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/v${VERSION}" >/dev/null 2>&1; then
+            echo "Tag v${VERSION} already exists; nothing to release." >> "$GITHUB_STEP_SUMMARY"
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create and push tag
+        if: steps.tag_exists.outputs.exists == 'false'
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "v${VERSION}" -m "Ralph v${VERSION}"
+          git push origin "v${VERSION}"
+
+      - name: Create GitHub release
+        if: steps.tag_exists.outputs.exists == 'false'
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "v${VERSION}" --repo "$GITHUB_REPOSITORY" \
+            --title "Ralph v${VERSION}" \
+            --generate-notes
+
+      - name: Compute source archive checksum
+        id: checksum
+        if: steps.tag_exists.outputs.exists == 'false'
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+        run: |
+          url="https://codeload.github.com/${GITHUB_REPOSITORY}/tar.gz/refs/tags/v${VERSION}"
+          for attempt in $(seq 1 30); do
+            if curl -fsSL -o ralph.tar.gz "$url"; then
+              break
+            fi
+            sleep 5
+          done
+          test -s ralph.tar.gz
+          echo "SHA256=$(shasum -a 256 ralph.tar.gz | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Point formula at the new tag
+        if: steps.tag_exists.outputs.exists == 'false'
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+          SHA256: ${{ steps.checksum.outputs.SHA256 }}
+        run: |
+          sed -i -E "s|url \"https://github.com/[^\"]*/archive/refs/tags/v[^\"]*\"|url \"https://github.com/${GITHUB_REPOSITORY}/archive/refs/tags/v${VERSION}.tar.gz\"|" Formula/ralph.rb
+          sed -i -E "s|sha256 \"[0-9a-f]{64}\"|sha256 \"${SHA256}\"|" Formula/ralph.rb
+          ruby -c Formula/ralph.rb
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/ralph.rb
+          git commit -m "chore: point Homebrew formula at v${VERSION}"
+          git push origin main
+
+      - name: Summarize release
+        if: steps.tag_exists.outputs.exists == 'false'
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+        run: |
+          echo "Released v${VERSION}: https://github.com/${GITHUB_REPOSITORY}/releases/tag/v${VERSION}" >> "$GITHUB_STEP_SUMMARY"
