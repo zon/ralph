@@ -40,17 +40,18 @@ Ralph runs projects like this:
 
 ## Installation
 
-Ralph ships as a Homebrew formula. The formula installs Ralph and the CLI commands it runs — Git, GitHub CLI, OpenCode, kubectl, and the Argo CLI — and tracks the newest tagged release.
+Ralph ships in a Homebrew tap. The formula installs Ralph and the CLI commands it runs — Git, GitHub CLI, OpenCode, kubectl, and the Argo CLI — and tracks the newest tagged release.
 
 OpenCode and the Argo CLI live outside Homebrew core, so add their taps before installing:
 
 ```bash
+brew tap zon/tap
 brew tap anomalyco/tap
 brew tap argoproj/tap
 ```
 
 ```bash
-brew install https://raw.githubusercontent.com/zon/ralph/main/Formula/ralph.rb
+brew install ralph
 ```
 
 Install from source instead? Follow the [manual install guide](docs/manual-install.md).
