@@ -8,7 +8,7 @@ Shared contract for every Ralph CLI command that interacts with a Kubernetes clu
 
 ### Requirement: Covered commands
 
-The commands that interact with kubectl are: `ralph list`, `ralph stop`, `ralph logs`, `ralph run` (in `remote` mode), `ralph loop` (in `remote` mode), `ralph command`, and `ralph setup`. Each SHALL accept the `--context` and `--namespace` options described below.
+The commands that interact with kubectl are: `ralph list`, `ralph stop`, `ralph logs`, `ralph run` (in `remote` mode), `ralph loop` (in `remote` mode), `ralph command`, and `ralph setup`. Each SHALL accept the `--context` and `--namespace` options described below. `ralph setup` interacts with the cluster only when it prepares a namespace, as described under `--namespace` selection.
 
 #### Scenario: Every covered command exposes both options
 
@@ -67,6 +67,8 @@ Namespace resolution SHALL follow this precedence (highest to lowest):
 2. `namespace` in the `workflow:` section of `.ralph/config.yaml`
 3. Default namespace of the resolved Kubernetes context
 
+`ralph setup` is the exception: it SHALL NOT fall back to the default namespace of the resolved context. It prepares a namespace only when the `--namespace` flag or `workflow.namespace` in `.ralph/config.yaml` provides one, and otherwise skips namespace preparation entirely. See [setup.md](setup.md) for the gating contract.
+
 #### Scenario: Flag overrides the configured namespace
 
 - GIVEN `workflow.namespace: default` is set in `.ralph/config.yaml`
@@ -87,6 +89,14 @@ Namespace resolution SHALL follow this precedence (highest to lowest):
 - AND the resolved context carries a default namespace `argo`
 - WHEN the command interacts with the cluster
 - THEN the `argo` namespace is used
+
+#### Scenario: Setup skips preparation when namespace is unset
+
+- GIVEN the user runs `ralph setup`
+- AND neither `--namespace` nor `workflow.namespace` is set
+- AND the resolved context carries a default namespace `argo`
+- THEN no namespace is prepared
+- AND the command succeeds on the local readiness confirmation alone
 
 ---
 
