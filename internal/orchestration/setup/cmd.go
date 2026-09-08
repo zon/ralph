@@ -8,6 +8,8 @@ var ErrBothGitHubFlags = errors.New("--github-key and --github-token are mutuall
 
 var ErrNoTargetedNamespace = errors.New("no namespace targeted; skipping namespace preparation")
 
+var ErrNoNamespaceForCredentials = errors.New("writing credentials requires a targeted namespace: pass --namespace or set workflow.namespace in .ralph/config.yaml")
+
 type K8sContext struct {
 	Name      string
 	Namespace string
@@ -61,6 +63,9 @@ func (c *SetupCmd) Run(flags Flags) error {
 
 	k8sCtx, err := c.Ctx.Resolve(flags.Context, flags.Namespace)
 	if errors.Is(err, ErrNoTargetedNamespace) {
+		if flags.GithubKey != "" || flags.GithubToken != "" {
+			return ErrNoNamespaceForCredentials
+		}
 		return nil
 	}
 	if err != nil {

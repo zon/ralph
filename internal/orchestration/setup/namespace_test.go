@@ -32,3 +32,35 @@ func TestRunReturnsErrorWhenNamespaceResolveFails(t *testing.T) {
 	require.False(t, github.configureCalled())
 	require.False(t, opencode.configureCalled())
 }
+
+func TestRunErrorsWhenGithubKeyFlagGivenWithoutTargetedNamespace(t *testing.T) {
+	cmd := setup.withMocks(
+		setup.withContext(ctx.thatTargetsNoNamespace()),
+	)
+	err := cmd.Run(Flags{Context: "test-context", GithubKey: "/path/to/key.pem"})
+	require.ErrorIs(t, err, ErrNoNamespaceForCredentials)
+	require.True(t, readiness.confirmGitCalled())
+	require.True(t, readiness.confirmGitHubCLICalled())
+	require.True(t, readiness.confirmOpenCodeCalled())
+	require.False(t, github.validateCalled())
+	require.False(t, github.configureCalled())
+	require.False(t, github.configureTokenCalled())
+	require.False(t, github.secretExistsCalled())
+	require.False(t, opencode.configureCalled())
+}
+
+func TestRunErrorsWhenGithubTokenFlagGivenWithoutTargetedNamespace(t *testing.T) {
+	cmd := setup.withMocks(
+		setup.withContext(ctx.thatTargetsNoNamespace()),
+	)
+	err := cmd.Run(Flags{Context: "test-context", GithubToken: "ghp_test_token"})
+	require.ErrorIs(t, err, ErrNoNamespaceForCredentials)
+	require.True(t, readiness.confirmGitCalled())
+	require.True(t, readiness.confirmGitHubCLICalled())
+	require.True(t, readiness.confirmOpenCodeCalled())
+	require.False(t, github.validateCalled())
+	require.False(t, github.configureCalled())
+	require.False(t, github.configureTokenCalled())
+	require.False(t, github.secretExistsCalled())
+	require.False(t, opencode.configureCalled())
+}
