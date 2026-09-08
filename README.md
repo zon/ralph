@@ -2,7 +2,7 @@
 
 I made a [Ralph](https://ghuntley.com/ralph/).
 
-Ralph runs coding projects. Ralph can work on a local Git repo or run in a remote [Argo Workflow](https://argoproj.github.io/workflows/). Ralph works like a developer checking out a Git branch, making commits, and submiting a pull request when it's done.
+Ralph runs coding projects. Ralph can work on a local Git repo or run in a remote [Argo Workflow](https://argoproj.github.io/workflows/). Ralph works like a developer checking out a Git branch, making commits, and submitting a pull request when it's done.
 
 ## Projects
 
@@ -35,7 +35,7 @@ Ralph runs projects like this:
 ## Additional features
 
 - 🚀 Service management: run dev services required by the project
-- 🚧 Blocked: Ralph can ask for help by commiting a `blocked.md` file when it reaches a dead end
+- 🚧 Blocked: Ralph can ask for help by committing a `blocked.md` file when it reaches a dead end
 - 🔁 `ralph loop`: run the same steps repeatedly until nothing needs to be done
 
 ## Installation
