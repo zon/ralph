@@ -6,6 +6,10 @@ var ErrNoGitHubKey = errors.New("--github-key is required when no existing GitHu
 
 var ErrBothGitHubFlags = errors.New("--github-key and --github-token are mutually exclusive")
 
+var ErrNoTargetedNamespace = errors.New("no namespace targeted; skipping namespace preparation")
+
+var ErrNoNamespaceForCredentials = errors.New("writing credentials requires a targeted namespace: pass --namespace or set workflow.namespace in .ralph/config.yaml")
+
 type K8sContext struct {
 	Name      string
 	Namespace string
@@ -28,10 +32,17 @@ type OpenCodeCredentialsClient interface {
 	Configure(k8sCtx K8sContext) error
 }
 
+type LocalReadinessClient interface {
+	ConfirmGitReady() error
+	ConfirmGitHubCLIReady() error
+	ConfirmOpenCodeReady() error
+}
+
 type SetupCmd struct {
-	Ctx      ContextClient
-	GitHub   GitHubCredentialsClient
-	OpenCode OpenCodeCredentialsClient
+	Readiness LocalReadinessClient
+	Ctx       ContextClient
+	GitHub    GitHubCredentialsClient
+	OpenCode  OpenCodeCredentialsClient
 }
 
 type Flags struct {
@@ -46,7 +57,17 @@ func (c *SetupCmd) Run(flags Flags) error {
 		return ErrBothGitHubFlags
 	}
 
+	if err := c.confirmLocalReadiness(); err != nil {
+		return err
+	}
+
 	k8sCtx, err := c.Ctx.Resolve(flags.Context, flags.Namespace)
+	if errors.Is(err, ErrNoTargetedNamespace) {
+		if flags.GithubKey != "" || flags.GithubToken != "" {
+			return ErrNoNamespaceForCredentials
+		}
+		return nil
+	}
 	if err != nil {
 		return err
 	}
@@ -56,6 +77,16 @@ func (c *SetupCmd) Run(flags Flags) error {
 	}
 
 	return c.OpenCode.Configure(k8sCtx)
+}
+
+func (c *SetupCmd) confirmLocalReadiness() error {
+	if err := c.Readiness.ConfirmGitReady(); err != nil {
+		return err
+	}
+	if err := c.Readiness.ConfirmGitHubCLIReady(); err != nil {
+		return err
+	}
+	return c.Readiness.ConfirmOpenCodeReady()
 }
 
 func (c *SetupCmd) configureGitHub(k8sCtx K8sContext, flags Flags) error {

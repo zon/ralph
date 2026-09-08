@@ -36,6 +36,12 @@ func New() *Client {
 	return &Client{}
 }
 
+// Installed reports whether the opencode CLI is on the PATH.
+func Installed() bool {
+	_, err := exec.LookPath("opencode")
+	return err == nil
+}
+
 func execOpenCode(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	if ctx == nil {
 		ctx = context.Background()

@@ -231,6 +231,18 @@ func TestEveryReadmeLinkResolves(t *testing.T) {
 	}
 }
 
+func TestReadmeSetupDescribesReadinessAndTargetedPreparation(t *testing.T) {
+	// GIVEN the README Setup and Remote workflows sections
+	// WHEN a reader looks for what ralph setup does
+	// THEN they describe confirming git, gh, and OpenCode are ready to run
+	// Ralph and preparing a namespace only when one is targeted, never as a
+	// one-shot remote credential configuration
+	content := string(readRepoFile(t, "README.md"))
+	assert.Contains(t, content, "`ralph setup` confirms git, `gh`, and OpenCode are ready to run Ralph")
+	assert.Contains(t, content, "only confirms the local tools")
+	assert.NotContains(t, content, "ralph setup --help")
+}
+
 // markdownLinks extracts the link targets of markdown links in content.
 func markdownLinks(content string) []string {
 	var links []string

@@ -32,6 +32,8 @@ Ralph runs projects like this:
 4. Git commit with the report and push
 5. Submit a pull request if all items are complete. Otherwise return to step 2
 
+Ralph marks an item complete when the report it commits ends with a bare `<branch>-<hash>` line.
+
 ## Additional features
 
 - 🚀 Service management: run dev services required by the project
@@ -62,7 +64,7 @@ Follow the [manual install instructions](docs/manual-install.md) to install from
 
 ## Setup
 
-Auth:
+`ralph setup` confirms git, `gh`, and OpenCode are ready to run Ralph. Get them ready first:
 
 ```bash
 gh auth login
@@ -72,7 +74,7 @@ And configure OpenCode. See [OpenCode authentication docs](https://opencode.ai/d
 
 ## Remote workflows
 
-Prepare a Kubernetes namespace for Ralph with `ralph setup --help`.
+When you target a Kubernetes namespace, `ralph setup` prepares it for Ralph workflows. Target one with `--namespace` or `workflow.namespace` in `.ralph/config.yaml`. With no targeted namespace, `ralph setup` only confirms the local tools.
 
 ## Help
 

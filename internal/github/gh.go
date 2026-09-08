@@ -34,6 +34,12 @@ func NewGH(out *output.Client) *GH {
 	return &GH{out: out}
 }
 
+// GHInstalled reports whether the gh CLI is on the PATH.
+func GHInstalled() bool {
+	_, err := exec.LookPath("gh")
+	return err == nil
+}
+
 // GHCliToken returns the token stored by the gh CLI login, or an empty string
 // when gh is not installed or not authenticated.
 func GHCliToken() string {

@@ -295,7 +295,9 @@ func TestStopCmdHelpText(t *testing.T) {
 
 func TestSetupCmdHelpText(t *testing.T) {
 	output := captureHelpOutput(&Cmd{}, []string{"setup", "--help"})
-	assert.Contains(t, output, "Configure credentials for remote execution")
+	assert.Contains(t, output, "Confirm git, gh, and OpenCode are ready to run Ralph.")
+	assert.Contains(t, output, "namespace only when one is targeted")
+	assert.NotContains(t, output, "Configure credentials for remote execution")
 }
 
 func TestWorkflowRunCmdHelpText(t *testing.T) {
