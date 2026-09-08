@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"os"
@@ -222,4 +223,33 @@ func TestSetupGitHubClientConfigureTokenPropagatesError(t *testing.T) {
 
 	err := client.ConfigureToken(setup.K8sContext{Name: "staging", Namespace: "argo"}, "ghp_test_token")
 	require.Error(t, err)
+}
+
+func TestSetupGitHubClientPrintsSecretNotReadyOnFailure(t *testing.T) {
+	k8sClient := &k8s.MockClient{
+		CreateOrUpdateSecretFunc: func(ctx context.Context, name, namespace, kubeContext string, data map[string]string) error {
+			return assert.AnError
+		},
+	}
+
+	outBuf := &bytes.Buffer{}
+	errBuf := &bytes.Buffer{}
+	client := &setupGitHubClient{ctx: context.Background(), k8sClient: k8sClient, out: output.NewClient(outBuf, errBuf, false)}
+
+	err := client.ConfigureToken(setup.K8sContext{Name: "staging", Namespace: "argo"}, "ghp_test_token")
+	require.Error(t, err)
+	assert.Contains(t, errBuf.String(), "\u2717 argo/github-credentials secret not ready")
+	assert.Empty(t, outBuf.String())
+}
+
+func TestSetupOpenCodeClientPrintsSecretNotReadyOnFailure(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	outBuf := &bytes.Buffer{}
+	errBuf := &bytes.Buffer{}
+	client := &setupOpenCodeClient{ctx: context.Background(), k8sClient: &k8s.MockClient{}, out: output.NewClient(outBuf, errBuf, false)}
+
+	err := client.Configure(setup.K8sContext{Name: "staging", Namespace: "argo"})
+	require.Error(t, err)
+	assert.Contains(t, errBuf.String(), "\u2717 argo/opencode-credentials secret not ready")
 }

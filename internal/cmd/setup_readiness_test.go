@@ -80,7 +80,7 @@ func TestSetupLocalReadinessClientConfirmGitReady(t *testing.T) {
 		client, buf := newSetupReadinessClient(t)
 		err := client.ConfirmGitReady()
 		require.NoError(t, err)
-		assert.Contains(t, buf.String(), "git is ready")
+		assert.Contains(t, buf.String(), "\u2713 git ready")
 	})
 }
 
@@ -108,7 +108,7 @@ func TestSetupLocalReadinessClientConfirmGitHubCLIReady(t *testing.T) {
 		client, buf := newSetupReadinessClient(t)
 		err := client.ConfirmGitHubCLIReady()
 		require.NoError(t, err)
-		assert.Contains(t, buf.String(), "GitHub CLI is ready")
+		assert.Contains(t, buf.String(), "\u2713 gh ready")
 	})
 
 	t.Run("succeeds with GITHUB_TOKEN set", func(t *testing.T) {
@@ -117,7 +117,7 @@ func TestSetupLocalReadinessClientConfirmGitHubCLIReady(t *testing.T) {
 		client, buf := newSetupReadinessClient(t)
 		err := client.ConfirmGitHubCLIReady()
 		require.NoError(t, err)
-		assert.Contains(t, buf.String(), "GitHub CLI is ready")
+		assert.Contains(t, buf.String(), "\u2713 gh ready")
 	})
 }
 
@@ -162,6 +162,59 @@ func TestSetupLocalReadinessClientConfirmOpenCodeReady(t *testing.T) {
 		client, buf := newSetupReadinessClient(t)
 		err := client.ConfirmOpenCodeReady()
 		require.NoError(t, err)
-		assert.Contains(t, buf.String(), "OpenCode is ready")
+		assert.Contains(t, buf.String(), "\u2713 opencode ready")
 	})
+}
+
+func TestSetupLocalReadinessClientPrintsFailedChecks(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+	tests := []struct {
+		name    string
+		cmd     string
+		confirm func(client *setupLocalReadinessClient) error
+	}{
+		{
+			name: "git not installed",
+			cmd:  "git",
+			confirm: func(client *setupLocalReadinessClient) error {
+				return client.ConfirmGitReady()
+			},
+		},
+		{
+			name: "gh not installed",
+			cmd:  "gh",
+			confirm: func(client *setupLocalReadinessClient) error {
+				return client.ConfirmGitHubCLIReady()
+			},
+		},
+		{
+			name: "opencode not installed",
+			cmd:  "opencode",
+			confirm: func(client *setupLocalReadinessClient) error {
+				return client.ConfirmOpenCodeReady()
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			outBuf := &bytes.Buffer{}
+			errBuf := &bytes.Buffer{}
+			client := &setupLocalReadinessClient{out: output.NewClient(outBuf, errBuf, false)}
+			err := tt.confirm(client)
+			require.Error(t, err)
+			assert.Contains(t, errBuf.String(), "\u2717 "+tt.cmd+" not ready")
+			assert.Empty(t, outBuf.String())
+		})
+	}
+}
+
+func TestSetupLocalReadinessClientFailureReportsReason(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+	outBuf := &bytes.Buffer{}
+	errBuf := &bytes.Buffer{}
+	client := &setupLocalReadinessClient{out: output.NewClient(outBuf, errBuf, false)}
+	err := client.ConfirmGitReady()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "git is not installed")
 }

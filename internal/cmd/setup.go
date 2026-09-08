@@ -28,7 +28,6 @@ func (c *SetupCmd) Run() error {
 	ctx := context.Background()
 
 	out := output.NewClient(os.Stdout, os.Stderr, false)
-	out.Info("Configuring credentials for Ralph remote execution...")
 
 	ralphConfig, err := config.LoadConfig()
 	if err != nil {
@@ -37,6 +36,14 @@ func (c *SetupCmd) Run() error {
 
 	k8sClient := k8s.NewClient()
 
+	// A namespace is targeted by the --namespace flag or workflow.namespace in
+	// .ralph/config.yaml. setupContextClient.Resolve skips preparation under
+	// the same condition, so only a non-empty target reports secret results.
+	targetNamespace := c.Namespace
+	if targetNamespace == "" && ralphConfig != nil {
+		targetNamespace = ralphConfig.Workflow.Namespace
+	}
+
 	cmd := &setup.SetupCmd{
 		Readiness: &setupLocalReadinessClient{out: out},
 		Ctx:       &setupContextClient{ctx: ctx, k8sClient: k8sClient, ralphConfig: ralphConfig},
@@ -44,56 +51,71 @@ func (c *SetupCmd) Run() error {
 		OpenCode:  &setupOpenCodeClient{ctx: ctx, k8sClient: k8sClient, out: out},
 	}
 
-	return cmd.Run(setup.Flags{
+	if err := cmd.Run(setup.Flags{
 		Context:     c.Context,
 		Namespace:   c.Namespace,
 		GithubKey:   c.GithubKey,
 		GithubToken: c.GithubToken,
-	})
+	}); err != nil {
+		return err
+	}
+
+	if targetNamespace != "" {
+		out.Successf("%s/%s secret ready", targetNamespace, k8s.GitHubSecretName)
+		out.Successf("%s/%s secret ready", targetNamespace, k8s.OpenCodeSecretName)
+	}
+	return nil
 }
 
 type setupLocalReadinessClient struct {
 	out *output.Client
 }
 
+// notReady prints the failed check line for cmd and returns reason as the
+// error the caller reports as the brief description.
+func (c *setupLocalReadinessClient) notReady(cmd, reason string) error {
+	c.out.Error("\u2717 " + cmd + " not ready")
+	return errors.New(reason)
+}
+
 func (c *setupLocalReadinessClient) ConfirmGitReady() error {
 	if !git.Installed() {
-		return errors.New("git is not ready: git is not installed")
+		return c.notReady("git", "git is not installed")
 	}
 	if !git.InsideRepository() {
-		return errors.New("git is not ready: current directory is not inside a git repository")
+		return c.notReady("git", "not inside a git repository")
 	}
 	if git.ConfigGet("user.name") == "" || git.ConfigGet("user.email") == "" {
-		return errors.New("git is not ready: configure a git identity with user.name and user.email")
+		return c.notReady("git", "configure a git identity with user.name and user.email")
 	}
-	c.out.Success("git is ready")
+	c.out.Success("git ready")
 	return nil
 }
 
 func (c *setupLocalReadinessClient) ConfirmGitHubCLIReady() error {
 	if !github.GHInstalled() {
-		return errors.New("GitHub CLI is not ready: gh is not installed")
+		return c.notReady("gh", "gh is not installed")
 	}
 	if github.GHCliToken() == "" && os.Getenv("GITHUB_TOKEN") == "" {
-		return errors.New("GitHub CLI is not ready: no token available - authenticate with gh auth login or set GITHUB_TOKEN")
+		return c.notReady("gh", "no token available - authenticate with gh auth login or set GITHUB_TOKEN")
 	}
-	c.out.Success("GitHub CLI is ready")
+	c.out.Success("gh ready")
 	return nil
 }
 
 func (c *setupLocalReadinessClient) ConfirmOpenCodeReady() error {
 	if !opencode.Installed() {
-		return errors.New("OpenCode is not ready: opencode is not installed")
+		return c.notReady("opencode", "opencode is not installed")
 	}
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		return fmt.Errorf("OpenCode is not ready: failed to get user home directory: %w", err)
+		return c.notReady("opencode", fmt.Sprintf("failed to get user home directory: %v", err))
 	}
 	authFilePath := filepath.Join(homeDir, ".local/share/opencode/auth.json")
 	if _, err := workspace.ReadOpenCodeCredentials(authFilePath); err != nil {
-		return fmt.Errorf("OpenCode is not ready: %w", err)
+		return c.notReady("opencode", err.Error())
 	}
-	c.out.Success("OpenCode is ready")
+	c.out.Success("opencode ready")
 	return nil
 }
 
@@ -125,21 +147,21 @@ func (c *setupGitHubClient) SecretExists(k8sCtx setup.K8sContext) (bool, error) 
 }
 
 func (c *setupGitHubClient) Validate(keyPath string) error {
-	c.out.Info("Validating credentials...")
-	if err := github.ValidateAppCredentials(c.ctx, keyPath, config.DefaultAppID); err != nil {
-		return err
-	}
-	c.out.Success("Credentials validated successfully")
-	return nil
+	return github.ValidateAppCredentials(c.ctx, keyPath, config.DefaultAppID)
+}
+
+// reportSecretNotReady prints the failed check line for the GitHub credentials
+// secret and returns err as the description the caller reports.
+func (c *setupGitHubClient) reportSecretNotReady(k8sCtx setup.K8sContext, err error) error {
+	c.out.Errorf("\u2717 %s/%s secret not ready", k8sCtx.Namespace, k8s.GitHubSecretName)
+	return err
 }
 
 func (c *setupGitHubClient) Configure(k8sCtx setup.K8sContext, keyPath string) error {
 	privateKeyBytes, err := github.ReadGitHubAppCredentials(keyPath)
 	if err != nil {
-		return err
+		return c.reportSecretNotReady(k8sCtx, err)
 	}
-
-	c.out.Infof("Creating/updating Kubernetes secret '%s'...", k8s.GitHubSecretName)
 
 	secretData := map[string]string{
 		"app-id":      config.DefaultAppID,
@@ -147,11 +169,9 @@ func (c *setupGitHubClient) Configure(k8sCtx setup.K8sContext, keyPath string) e
 	}
 
 	if err := c.k8sClient.CreateOrUpdateSecret(c.ctx, k8s.GitHubSecretName, k8sCtx.Namespace, k8sCtx.Name, secretData); err != nil {
-		return fmt.Errorf("failed to create/update secret: %w", err)
+		return c.reportSecretNotReady(k8sCtx, fmt.Errorf("failed to create/update secret: %w", err))
 	}
 
-	c.out.Successf("Secret '%s' created/updated successfully", k8s.GitHubSecretName)
-	c.out.Infof("Configuration complete! The secret '%s' is ready for use in namespace '%s'.", k8s.GitHubSecretName, k8sCtx.Namespace)
 	return nil
 }
 
@@ -164,18 +184,14 @@ func (c *setupGitHubClient) TokenFromEnv() string {
 }
 
 func (c *setupGitHubClient) ConfigureToken(k8sCtx setup.K8sContext, token string) error {
-	c.out.Infof("Creating/updating Kubernetes secret '%s'...", k8s.GitHubSecretName)
-
 	secretData := map[string]string{
 		"token": token,
 	}
 
 	if err := c.k8sClient.CreateOrUpdateSecret(c.ctx, k8s.GitHubSecretName, k8sCtx.Namespace, k8sCtx.Name, secretData); err != nil {
-		return fmt.Errorf("failed to create/update secret: %w", err)
+		return c.reportSecretNotReady(k8sCtx, fmt.Errorf("failed to create/update secret: %w", err))
 	}
 
-	c.out.Successf("Secret '%s' created/updated successfully", k8s.GitHubSecretName)
-	c.out.Infof("Configuration complete! The secret '%s' is ready for use in namespace '%s'.", k8s.GitHubSecretName, k8sCtx.Namespace)
 	return nil
 }
 
@@ -188,30 +204,30 @@ type setupOpenCodeClient struct {
 func (c *setupOpenCodeClient) Configure(k8sCtx setup.K8sContext) error {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		return fmt.Errorf("failed to get user home directory: %w", err)
+		return c.reportSecretNotReady(k8sCtx, fmt.Errorf("failed to get user home directory: %w", err))
 	}
 
-	authFilePath := homeDir + "/.local/share/opencode/auth.json"
-	c.out.Infof("Reading OpenCode credentials from: %s", authFilePath)
+	authFilePath := filepath.Join(homeDir, ".local/share/opencode/auth.json")
 
 	authFileContent, err := workspace.ReadOpenCodeCredentials(authFilePath)
 	if err != nil {
-		return err
+		return c.reportSecretNotReady(k8sCtx, err)
 	}
-
-	c.out.Success("OpenCode credentials read successfully")
-
-	c.out.Infof("Creating/updating Kubernetes secret '%s'...", k8s.OpenCodeSecretName)
 
 	secretData := map[string]string{
 		"auth.json": string(authFileContent),
 	}
 
 	if err := c.k8sClient.CreateOrUpdateSecret(c.ctx, k8s.OpenCodeSecretName, k8sCtx.Namespace, k8sCtx.Name, secretData); err != nil {
-		return fmt.Errorf("failed to create/update secret: %w", err)
+		return c.reportSecretNotReady(k8sCtx, fmt.Errorf("failed to create/update secret: %w", err))
 	}
 
-	c.out.Successf("Secret '%s' created/updated successfully", k8s.OpenCodeSecretName)
-	c.out.Infof("Configuration complete! The secret '%s' is ready for use in namespace '%s'.", k8s.OpenCodeSecretName, k8sCtx.Namespace)
 	return nil
+}
+
+// reportSecretNotReady prints the failed check line for the OpenCode
+// credentials secret and returns err as the description the caller reports.
+func (c *setupOpenCodeClient) reportSecretNotReady(k8sCtx setup.K8sContext, err error) error {
+	c.out.Errorf("\u2717 %s/%s secret not ready", k8sCtx.Namespace, k8s.OpenCodeSecretName)
+	return err
 }
