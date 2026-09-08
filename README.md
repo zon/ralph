@@ -2,11 +2,11 @@
 
 I made a [Ralph](https://ghuntley.com/ralph/).
 
-Ralph runs coding projects. A project is any YAML or JSON file with a list of instructions or requirements. Projects run locally, on a [Git Worktree](https://git-scm.com/docs/git-worktree), or isolated in an [Argo Workflow](https://argoproj.github.io/workflows/). Ralph uses [OpenCode](https://opencode.ai/), Git, and the [GitHub CLI](https://cli.github.com/) to branch, code, and submit a pull request when the project is done.
+Ralph runs coding projects. Ralph can work on a local Git repo or run in a remote [Argo Workflow](https://argoproj.github.io/workflows/). Ralph works like a developer checking out a Git branch, making commits, and submiting a pull request when it's done.
 
 ## Projects
 
-A project might look like this:
+A project is any YAML or JSON file with a list of instructions or requirements. A project file might have these contents:
 
 ```yaml
 - Reports can be exported as CSV from GET /reports/:id/export
@@ -14,9 +14,15 @@ A project might look like this:
 - A malformed report ID returns 400 with an error message
 ```
 
-Ralph runs a project like this:
+This command might run the project:
 
-1. Check out a branch named after the project
+```bash
+ralph projects/csv-export.yaml
+```
+
+Ralph runs projects like this:
+
+1. Check out a Git branch
 2. Pick the best incomplete project item
 3. Run a new OpenCode context with
     - The selected project item
@@ -29,6 +35,7 @@ Ralph runs a project like this:
 ## Additional features
 
 - 🚀 Service management: run dev services required by the project
+- 🚧 Blocked: Ralph can ask for help by commiting a `blocked.md` file when it reaches a dead end
 - 🔁 `ralph loop`: run the same steps repeatedly until nothing needs to be done
 
 ## Installation
