@@ -6,27 +6,30 @@ Ralph runs coding projects. A project is any YAML or JSON file with a list of in
 
 ## Projects
 
-How Ralph runs a project:
+A project might look like this:
+
+```yaml
+- Reports can be exported as CSV from GET /reports/:id/export
+- A request for a missing report ID returns 404
+- A malformed report ID returns 400 with an error message
+```
+
+Ralph runs projects like this:
 
 1. Check out a branch named after the project
 2. Pick the best incomplete project item
 3. Run a new OpenCode context with
-  - The selected project item
-  - Branch Git history
-  - A test-based development process (by default)
-  - Instructions to report what was done
+    - The selected project item
+    - Branch Git history
+    - A test-based development process (by default)
+    - Instructions to report what was done
 4. Git commit with the report and push
 5. Submit a pull request if all items are complete. Otherwise return to step 2
 
-## Features
+## Additional features
 
-- 🤖 AI-driven development with OpenCode
-- 🔄 One iteration per item, until every item is done
-- 📋 Any YAML or JSON file with a list in it can be a project
-- 🌿 Automated git operations (branch, commit, push, PR)
-- 📝 Completion tracked in the commit log, not in your files
-- 🚀 Service management (start/stop dev services)
-- 🐙 Remote execution via Argo Workflows on Kubernetes
+- 🚀 Service management: run dev services required by the project
+- 🔁 `ralph loop`: run the same steps repeatedly until nothing needs to be done
 
 ## Installation
 
