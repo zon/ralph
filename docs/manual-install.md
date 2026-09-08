@@ -8,6 +8,8 @@ Install Ralph from source instead of [Homebrew](../README.md#installation). Ralp
 - [Git](https://git-scm.com/install/)
 - [GitHub CLI](https://cli.github.com/)
 - [OpenCode](https://opencode.ai/docs/#install)
+- [kubectl](https://kubernetes.io/docs/tasks/tools/)
+- [Argo Workflows CLI](https://argo-workflows.readthedocs.io/en/latest/installation/)
 
 ## Install Ralph
 
@@ -21,21 +23,10 @@ Ensure `$GOPATH/bin` is on your PATH:
 export PATH=$PATH:$(go env GOPATH)/bin
 ```
 
-## Authenticate
+## Run
 
-Authenticate GitHub:
+Run help to get started:
 
 ```bash
-gh auth login
+ralph --help
 ```
-
-Configure OpenCode. See [OpenCode authentication docs](https://opencode.ai/docs/cli/#auth).
-
-## Remote workflows
-
-Remote workflows run on Kubernetes through Argo Workflows. To use them, also install kubectl and the Argo CLI:
-
-- [kubectl](https://kubernetes.io/docs/tasks/tools/)
-- [Argo Workflows CLI](https://argo-workflows.readthedocs.io/en/latest/installation/)
-
-The Homebrew formula installs both, so skip this section when you install Ralph with Homebrew. Prepare a Kubernetes namespace for Ralph with `ralph setup --help`.
