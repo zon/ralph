@@ -14,7 +14,7 @@ A project might look like this:
 - A malformed report ID returns 400 with an error message
 ```
 
-Ralph runs projects like this:
+Ralph runs a project like this:
 
 1. Check out a branch named after the project
 2. Pick the best incomplete project item
