@@ -4,11 +4,9 @@ I made a [Ralph](https://ghuntley.com/ralph/).
 
 Ralph is a coding agent that runs project files. Ralph can run in a local Git repo or in an [Argo Workflow](https://argoproj.github.io/workflows/). Ralph works like a developer checking out a Git branch, making commits, and submitting a pull request when it's done.
 
-## Install
+## Homebrew Install
 
-### Homebrew
-
-Taps for Ralph, OpenCode, and Argo is required:
+Taps for Ralph, OpenCode, and Argo are required:
 
 ```bash
 brew tap zon/tap # Ralph
@@ -22,13 +20,13 @@ Install Ralph and it's dependencies. Includes Git, GitHub CLI, OpenCode, kubectl
 brew install ralph
 ```
 
-### Manual
+## Manual Install
 
 Follow the [manual install instructions](docs/manual-install.md) to install from source.
 
 ## Setup
 
-Run the setup command to confirm Ralph is ready to work in a Git repo:
+Run the setup command in a Git repo to confirm Ralph is ready to work there:
 
 ```bash
 ralph setup
@@ -61,8 +59,6 @@ Ralph runs projects like this:
     - Instructions to report what was done
 4. Git commit with the report and push
 5. Submit a pull request if all items are complete. Otherwise return to step 2
-
-Ralph marks an item complete when the report it commits ends with a bare `<branch>-<hash>` line.
 
 ## Additional features
 
