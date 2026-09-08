@@ -4,6 +4,36 @@ I made a [Ralph](https://ghuntley.com/ralph/).
 
 Ralph is a coding agent that runs project files. Ralph can run in a local Git repo or in an [Argo Workflow](https://argoproj.github.io/workflows/). Ralph works like a developer checking out a Git branch, making commits, and submitting a pull request when it's done.
 
+## Install
+
+### Homebrew
+
+Taps for Ralph, OpenCode, and Argo is required:
+
+```bash
+brew tap zon/tap # Ralph
+brew tap anomalyco/tap # OpenCode
+brew tap argoproj/tap # Argo
+```
+
+Install Ralph and it's dependencies. Includes Git, GitHub CLI, OpenCode, kubectl, and the Argo CLI:
+
+```bash
+brew install ralph
+```
+
+### Manual
+
+Follow the [manual install instructions](docs/manual-install.md) to install from source.
+
+## Setup
+
+Run the setup command to confirm Ralph is ready to work in a Git repo:
+
+```bash
+ralph setup
+```
+
 ## Projects
 
 A project is any YAML or JSON file with a list of instructions or requirements. A project file might have these contents:
@@ -39,36 +69,6 @@ Ralph marks an item complete when the report it commits ends with a bare `<branc
 - 🚀 Service management: run dev services required by the project
 - 🚧 Blocked: Ralph can ask for help by committing a `blocked.md` file when it reaches a dead end
 - 🔁 `ralph loop`: run the same steps repeatedly until nothing needs to be done
-
-## Install
-
-### Homebrew
-
-Taps for Ralph, OpenCode, and Argo is required:
-
-```bash
-brew tap zon/tap # Ralph
-brew tap anomalyco/tap # OpenCode
-brew tap argoproj/tap # Argo
-```
-
-Install Ralph and it's dependencies. Includes Git, GitHub CLI, OpenCode, kubectl, and the Argo CLI:
-
-```bash
-brew install ralph
-```
-
-### Manual
-
-Follow the [manual install instructions](docs/manual-install.md) to install from source.
-
-## Setup
-
-Run the setup command to confirm Ralph is ready to work in a Git repo:
-
-```bash
-ralph setup
-```
 
 ## Help
 
