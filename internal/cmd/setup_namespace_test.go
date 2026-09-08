@@ -10,6 +10,73 @@ import (
 	"github.com/zon/ralph/internal/orchestration/setup"
 )
 
+func TestSetupContextClientResolveContextTargeting(t *testing.T) {
+	tests := []struct {
+		name          string
+		ralphConfig   *config.RalphConfig
+		flagContext   string
+		flagNamespace string
+		current       k8s.Context
+		wantName      string
+		wantNamespace string
+		wantLookup    bool
+	}{
+		{
+			name:          "context flag overrides the configured context",
+			ralphConfig:   &config.RalphConfig{Workflow: config.WorkflowConfig{Context: "lab", Namespace: "ralph"}},
+			flagContext:   "staging",
+			wantName:      "staging",
+			wantNamespace: "ralph",
+		},
+		{
+			name:          "context override targets the flag context and namespace",
+			ralphConfig:   &config.RalphConfig{Workflow: config.WorkflowConfig{Context: "lab", Namespace: "dev"}},
+			flagContext:   "staging",
+			flagNamespace: "argo",
+			wantName:      "staging",
+			wantNamespace: "argo",
+		},
+		{
+			name:          "config context targeted when no flag context is passed",
+			ralphConfig:   &config.RalphConfig{Workflow: config.WorkflowConfig{Context: "lab", Namespace: "ralph"}},
+			wantName:      "lab",
+			wantNamespace: "ralph",
+		},
+		{
+			name:          "current kubeconfig context targeted when flag and config context are unset",
+			ralphConfig:   &config.RalphConfig{Workflow: config.WorkflowConfig{Namespace: "argo"}},
+			current:       k8s.Context{Name: "prod", Namespace: "kube-default"},
+			wantName:      "prod",
+			wantNamespace: "argo",
+			wantLookup:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			lookups := 0
+			k8sClient := &k8s.MockClient{
+				GetCurrentContextFunc: func(ctx context.Context) (k8s.Context, error) {
+					lookups++
+					return tt.current, nil
+				},
+			}
+
+			client := &setupContextClient{ctx: context.Background(), k8sClient: k8sClient, ralphConfig: tt.ralphConfig}
+
+			k8sCtx, err := client.Resolve(tt.flagContext, tt.flagNamespace)
+			require.NoError(t, err)
+			require.Equal(t, tt.wantName, k8sCtx.Name)
+			require.Equal(t, tt.wantNamespace, k8sCtx.Namespace)
+			if tt.wantLookup {
+				require.Equal(t, 1, lookups)
+			} else {
+				require.Zero(t, lookups, "a flag or config context must not require a kubectl lookup")
+			}
+		})
+	}
+}
+
 func TestSetupContextClientResolveNamespaceTargeting(t *testing.T) {
 	tests := []struct {
 		name          string

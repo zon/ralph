@@ -10,6 +10,7 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/k8s"
 	"github.com/zon/ralph/internal/orchestration/setup"
 	"github.com/zon/ralph/internal/output"
@@ -94,6 +95,82 @@ func TestSetupGitHubClientConfigureTokenWritesSecret(t *testing.T) {
 	assert.Equal(t, "argo", capturedNamespace)
 	assert.Equal(t, "staging", capturedContext)
 	assert.Equal(t, map[string]string{"token": "ghp_test_token"}, capturedData)
+}
+
+func TestSetupGitHubClientConfigureWritesAppSecretToTargetedContext(t *testing.T) {
+	keyDir := t.TempDir()
+	keyPath := filepath.Join(keyDir, "key.pem")
+	require.NoError(t, os.WriteFile(keyPath, []byte("private key content"), 0644))
+
+	var capturedSecretName, capturedNamespace, capturedContext string
+	var capturedData map[string]string
+
+	k8sClient := &k8s.MockClient{
+		CreateOrUpdateSecretFunc: func(ctx context.Context, name, namespace, kubeContext string, data map[string]string) error {
+			capturedSecretName = name
+			capturedNamespace = namespace
+			capturedContext = kubeContext
+			capturedData = data
+			return nil
+		},
+	}
+
+	out := output.NewClient(io.Discard, io.Discard, false)
+	client := &setupGitHubClient{ctx: context.Background(), k8sClient: k8sClient, out: out}
+
+	err := client.Configure(setup.K8sContext{Name: "staging", Namespace: "argo"}, keyPath)
+	require.NoError(t, err)
+	assert.Equal(t, k8s.GitHubSecretName, capturedSecretName)
+	assert.Equal(t, "argo", capturedNamespace)
+	assert.Equal(t, "staging", capturedContext)
+	assert.Equal(t, map[string]string{
+		"app-id":      config.DefaultAppID,
+		"private-key": "private key content",
+	}, capturedData)
+}
+
+func TestSetupOpenCodeClientConfigureWritesAuthSecretToTargetedContext(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	authDir := filepath.Join(home, ".local", "share", "opencode")
+	require.NoError(t, os.MkdirAll(authDir, 0755))
+	authContent := `{"tokens":{"anthropic":"sk-test"}}`
+	require.NoError(t, os.WriteFile(filepath.Join(authDir, "auth.json"), []byte(authContent), 0644))
+
+	var capturedSecretName, capturedNamespace, capturedContext string
+	var capturedData map[string]string
+
+	k8sClient := &k8s.MockClient{
+		CreateOrUpdateSecretFunc: func(ctx context.Context, name, namespace, kubeContext string, data map[string]string) error {
+			capturedSecretName = name
+			capturedNamespace = namespace
+			capturedContext = kubeContext
+			capturedData = data
+			return nil
+		},
+	}
+
+	out := output.NewClient(io.Discard, io.Discard, false)
+	client := &setupOpenCodeClient{ctx: context.Background(), k8sClient: k8sClient, out: out}
+
+	err := client.Configure(setup.K8sContext{Name: "staging", Namespace: "argo"})
+	require.NoError(t, err)
+	assert.Equal(t, k8s.OpenCodeSecretName, capturedSecretName)
+	assert.Equal(t, "argo", capturedNamespace)
+	assert.Equal(t, "staging", capturedContext)
+	assert.Equal(t, map[string]string{"auth.json": authContent}, capturedData)
+}
+
+func TestSetupOpenCodeClientConfigurePropagatesError(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	k8sClient := &k8s.MockClient{}
+	out := output.NewClient(io.Discard, io.Discard, false)
+	client := &setupOpenCodeClient{ctx: context.Background(), k8sClient: k8sClient, out: out}
+
+	err := client.Configure(setup.K8sContext{Name: "staging", Namespace: "argo"})
+	require.Error(t, err)
 }
 
 func TestSetupGitHubClientTokenFromGHCli(t *testing.T) {
