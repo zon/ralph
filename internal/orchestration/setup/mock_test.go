@@ -6,6 +6,39 @@ type mockError struct{ msg string }
 
 func (e *mockError) Error() string { return e.msg }
 
+type mockLocalReadinessClient struct {
+	confirmGitFunc         func() error
+	confirmGitHubCLIFunc   func() error
+	confirmOpenCodeFunc    func() error
+	confirmGitCalled       bool
+	confirmGitHubCLICalled bool
+	confirmOpenCodeCalled  bool
+}
+
+func (m *mockLocalReadinessClient) ConfirmGitReady() error {
+	m.confirmGitCalled = true
+	if m.confirmGitFunc != nil {
+		return m.confirmGitFunc()
+	}
+	return nil
+}
+
+func (m *mockLocalReadinessClient) ConfirmGitHubCLIReady() error {
+	m.confirmGitHubCLICalled = true
+	if m.confirmGitHubCLIFunc != nil {
+		return m.confirmGitHubCLIFunc()
+	}
+	return nil
+}
+
+func (m *mockLocalReadinessClient) ConfirmOpenCodeReady() error {
+	m.confirmOpenCodeCalled = true
+	if m.confirmOpenCodeFunc != nil {
+		return m.confirmOpenCodeFunc()
+	}
+	return nil
+}
+
 type mockContextClient struct {
 	resolveFunc   func(string, string) (K8sContext, error)
 	resolveCalled bool
@@ -100,6 +133,7 @@ func (m *mockOpenCodeCredentialsClient) Configure(k8sCtx K8sContext) error {
 var mockCtx *mockContextClient
 var mockGH *mockGitHubCredentialsClient
 var mockOC *mockOpenCodeCredentialsClient
+var mockReadiness *mockLocalReadinessClient
 
 type setupHelper struct{}
 
@@ -111,15 +145,26 @@ func (h *setupHelper) withMocks(opts ...setupOption) *SetupCmd {
 	mockCtx = &mockContextClient{}
 	mockGH = &mockGitHubCredentialsClient{}
 	mockOC = &mockOpenCodeCredentialsClient{}
+	mockReadiness = &mockLocalReadinessClient{}
 	cmd := &SetupCmd{
-		Ctx:      mockCtx,
-		GitHub:   mockGH,
-		OpenCode: mockOC,
+		Readiness: mockReadiness,
+		Ctx:       mockCtx,
+		GitHub:    mockGH,
+		OpenCode:  mockOC,
 	}
 	for _, opt := range opts {
 		opt(cmd)
 	}
 	return cmd
+}
+
+func (h *setupHelper) withReadiness(rc LocalReadinessClient) setupOption {
+	return func(cmd *SetupCmd) {
+		cmd.Readiness = rc
+		if m, ok := rc.(*mockLocalReadinessClient); ok {
+			mockReadiness = m
+		}
+	}
 }
 
 func (h *setupHelper) withContext(cc ContextClient) setupOption {
@@ -254,6 +299,40 @@ func (h *ctxHelper) resolveCalled() bool {
 func (h *ctxHelper) thatFails() *mockContextClient {
 	return &mockContextClient{
 		resolveFunc: func(string, string) (K8sContext, error) { return K8sContext{}, errMock },
+	}
+}
+
+type readinessHelper struct{}
+
+var readiness = &readinessHelper{}
+
+func (h *readinessHelper) confirmGitCalled() bool {
+	return mockReadiness != nil && mockReadiness.confirmGitCalled
+}
+
+func (h *readinessHelper) confirmGitHubCLICalled() bool {
+	return mockReadiness != nil && mockReadiness.confirmGitHubCLICalled
+}
+
+func (h *readinessHelper) confirmOpenCodeCalled() bool {
+	return mockReadiness != nil && mockReadiness.confirmOpenCodeCalled
+}
+
+func (h *readinessHelper) thatFailsGit() *mockLocalReadinessClient {
+	return &mockLocalReadinessClient{
+		confirmGitFunc: func() error { return errMock },
+	}
+}
+
+func (h *readinessHelper) thatFailsGitHubCLI() *mockLocalReadinessClient {
+	return &mockLocalReadinessClient{
+		confirmGitHubCLIFunc: func() error { return errMock },
+	}
+}
+
+func (h *readinessHelper) thatFailsOpenCode() *mockLocalReadinessClient {
+	return &mockLocalReadinessClient{
+		confirmOpenCodeFunc: func() error { return errMock },
 	}
 }
 

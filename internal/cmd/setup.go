@@ -2,12 +2,16 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/zon/ralph/internal/config"
+	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/k8s"
+	"github.com/zon/ralph/internal/opencode"
 	"github.com/zon/ralph/internal/orchestration/setup"
 	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/workspace"
@@ -34,9 +38,10 @@ func (c *SetupCmd) Run() error {
 	k8sClient := k8s.NewClient()
 
 	cmd := &setup.SetupCmd{
-		Ctx:      &setupContextClient{ctx: ctx, k8sClient: k8sClient, ralphConfig: ralphConfig},
-		GitHub:   &setupGitHubClient{ctx: ctx, k8sClient: k8sClient, out: out},
-		OpenCode: &setupOpenCodeClient{ctx: ctx, k8sClient: k8sClient, out: out},
+		Readiness: &setupLocalReadinessClient{out: out},
+		Ctx:       &setupContextClient{ctx: ctx, k8sClient: k8sClient, ralphConfig: ralphConfig},
+		GitHub:    &setupGitHubClient{ctx: ctx, k8sClient: k8sClient, out: out},
+		OpenCode:  &setupOpenCodeClient{ctx: ctx, k8sClient: k8sClient, out: out},
 	}
 
 	return cmd.Run(setup.Flags{
@@ -45,6 +50,51 @@ func (c *SetupCmd) Run() error {
 		GithubKey:   c.GithubKey,
 		GithubToken: c.GithubToken,
 	})
+}
+
+type setupLocalReadinessClient struct {
+	out *output.Client
+}
+
+func (c *setupLocalReadinessClient) ConfirmGitReady() error {
+	if !git.Installed() {
+		return errors.New("git is not ready: git is not installed")
+	}
+	if !git.InsideRepository() {
+		return errors.New("git is not ready: current directory is not inside a git repository")
+	}
+	if git.ConfigGet("user.name") == "" || git.ConfigGet("user.email") == "" {
+		return errors.New("git is not ready: configure a git identity with user.name and user.email")
+	}
+	c.out.Success("git is ready")
+	return nil
+}
+
+func (c *setupLocalReadinessClient) ConfirmGitHubCLIReady() error {
+	if !github.GHInstalled() {
+		return errors.New("GitHub CLI is not ready: gh is not installed")
+	}
+	if github.GHCliToken() == "" && os.Getenv("GITHUB_TOKEN") == "" {
+		return errors.New("GitHub CLI is not ready: no token available - authenticate with gh auth login or set GITHUB_TOKEN")
+	}
+	c.out.Success("GitHub CLI is ready")
+	return nil
+}
+
+func (c *setupLocalReadinessClient) ConfirmOpenCodeReady() error {
+	if !opencode.Installed() {
+		return errors.New("OpenCode is not ready: opencode is not installed")
+	}
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("OpenCode is not ready: failed to get user home directory: %w", err)
+	}
+	authFilePath := filepath.Join(homeDir, ".local/share/opencode/auth.json")
+	if _, err := workspace.ReadOpenCodeCredentials(authFilePath); err != nil {
+		return fmt.Errorf("OpenCode is not ready: %w", err)
+	}
+	c.out.Success("OpenCode is ready")
+	return nil
 }
 
 type setupContextClient struct {

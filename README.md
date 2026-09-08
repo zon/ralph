@@ -32,6 +32,8 @@ Ralph runs projects like this:
 4. Git commit with the report and push
 5. Submit a pull request if all items are complete. Otherwise return to step 2
 
+Ralph marks an item complete when the report it commits ends with a bare `<branch>-<hash>` line.
+
 ## Additional features
 
 - 🚀 Service management: run dev services required by the project
