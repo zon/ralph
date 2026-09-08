@@ -366,10 +366,12 @@ type ValidateConfig struct {
 	Model string `yaml:"model,omitempty"`
 }
 
-// LoopConfig represents a named loop configuration with a slug and steps
+// LoopConfig represents a named loop configuration with a slug, steps, and an
+// optional iteration cap.
 type LoopConfig struct {
 	Slug  string   `yaml:"slug"`
 	Steps []string `yaml:"steps"`
+	Max   *int     `yaml:"max,omitempty"`
 }
 
 // RalphConfig represents the .ralph/config.yaml structure
@@ -434,6 +436,17 @@ func ValidateReviewConfig(r *ReviewConfig) error {
 		}
 	}
 
+	return nil
+}
+
+// validateLoopConfigs rejects loop entries whose max is set but not a positive
+// integer, naming the offending loop's slug.
+func validateLoopConfigs(loops []LoopConfig) error {
+	for _, loop := range loops {
+		if loop.Max != nil && *loop.Max <= 0 {
+			return fmt.Errorf("loop %q max must be a positive integer", loop.Slug)
+		}
+	}
 	return nil
 }
 
@@ -531,6 +544,17 @@ func (c *RalphConfig) LoopSteps(slug string) ([]string, error) {
 	return nil, fmt.Errorf("loop config not found: %s", slug)
 }
 
+// LoopMax returns the configured iteration cap of the first loop config
+// matching the slug, or nil when no entry matches or no entry sets a max.
+func (c *RalphConfig) LoopMax(slug string) *int {
+	for _, loop := range c.Loops {
+		if loop.Slug == slug {
+			return loop.Max
+		}
+	}
+	return nil
+}
+
 // FindConfigDir searches upwards from startDir for a .ralph directory
 func FindConfigDir(startDir string) (string, error) {
 	curr := startDir
@@ -612,6 +636,10 @@ func LoadConfig() (*RalphConfig, error) {
 
 	if err := validateWorkflowEnv(config.Workflow.Env); err != nil {
 		return nil, fmt.Errorf("invalid workflow env: %w", err)
+	}
+
+	if err := validateLoopConfigs(config.Loops); err != nil {
+		return nil, err
 	}
 
 	return config, nil

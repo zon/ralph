@@ -14,15 +14,22 @@ import (
 // loads it with LoadConfig.
 func loadConfigWithContent(t *testing.T, content string) *RalphConfig {
 	t.Helper()
+	cfg, err := loadConfigErrorWithContent(t, content)
+	require.NoError(t, err)
+	return cfg
+}
+
+// loadConfigErrorWithContent writes a .ralph/config.yaml with the given content
+// and returns the error LoadConfig reports for it, if any.
+func loadConfigErrorWithContent(t *testing.T, content string) (*RalphConfig, error) {
+	t.Helper()
 	tmpDir := t.TempDir()
 	ralphDir := filepath.Join(tmpDir, ".ralph")
 	require.NoError(t, os.Mkdir(ralphDir, 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte(content), 0644))
 	t.Chdir(tmpDir)
 
-	cfg, err := LoadConfig()
-	require.NoError(t, err)
-	return cfg
+	return LoadConfig()
 }
 
 func TestResolveItems_ConfigQueryUsedWhenNoFlag(t *testing.T) {

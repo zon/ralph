@@ -37,7 +37,7 @@ import (
 type LoopCmd struct {
 	Slug      string   `arg:"" optional:"" help:"Slug of the loop configuration in .ralph/config.yaml"`
 	Steps     []string `help:"Step to run in the loop (repeatable)" name:"step"`
-	Max       int      `help:"Maximum number of iterations" name:"max" default:"20"`
+	Max       *int     `help:"Maximum number of iterations (default: 20)" name:"max"`
 	Verbose   bool     `help:"Enable verbose logging" default:"false"`
 	Mode      string   `help:"Execution mode: local, worktree, or remote (default: local)" name:"mode" optional:""`
 	Follow    bool     `help:"Follow workflow logs after submission (only applicable with --mode remote)" short:"f" default:"false"`
@@ -94,8 +94,8 @@ func (c *LoopCmd) Validate() error {
 	if c.Slug == "" && len(c.Steps) == 0 {
 		return errors.New("a slug or at least one --step is required")
 	}
-	if c.Max < 1 {
-		return fmt.Errorf("--max must be positive, got %d", c.Max)
+	if c.Max != nil && *c.Max < 1 {
+		return fmt.Errorf("--max must be positive, got %d", *c.Max)
 	}
 	return nil
 }

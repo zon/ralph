@@ -8,12 +8,16 @@ import (
 	"github.com/zon/ralph/internal/git"
 )
 
+// DefaultLoopMax is the iteration cap when neither --max nor the loop config
+// entry's max field sets one.
+const DefaultLoopMax = 20
+
 // LoopFlags carries the parsed `ralph loop` command line into the
-// orchestration.
+// orchestration. Max is nil when --max is not passed.
 type LoopFlags struct {
 	Slug   string
 	Steps  []string
-	Max    int
+	Max    *int
 	Mode   string
 	Follow bool
 }
@@ -60,11 +64,14 @@ func NewRunCmd(config config.Loader, newLoop func() (*Cmd, error), worktree Work
 	return &RunCmd{config: config, newLoop: newLoop, worktree: worktree, workspace: workspace, remote: remote}
 }
 
-// Run resolves the execution mode, validates the flags, and dispatches to the
-// matching execution path. Remote mode submits a loop workflow. Local mode runs
-// the loop in-process in the current checkout. Worktree mode runs the loop
-// in-process inside a sibling directory worktree. For the in-process modes it
-// returns the resolved slug and steps; for remote mode it returns no result.
+// Run resolves the execution mode, resolves the iteration cap, and dispatches
+// to the matching execution path. The cap follows a three-level precedence:
+// --max takes priority, otherwise the matching loop config entry's max field,
+// otherwise the default of 20. Remote mode submits a loop workflow. Local mode
+// runs the loop in-process in the current checkout. Worktree mode runs the
+// loop in-process inside a sibling directory worktree. For the in-process
+// modes it returns the resolved slug and steps; for remote mode it returns no
+// result.
 func (r *RunCmd) Run(flags LoopFlags) (*Result, error) {
 	cfg, err := r.config.Load()
 	if err != nil {
@@ -77,21 +84,39 @@ func (r *RunCmd) Run(flags LoopFlags) (*Result, error) {
 	if err := flags.Validate(mode); err != nil {
 		return nil, err
 	}
+	max := resolveLoopMax(cfg, flags)
 	switch mode {
 	case config.ModeRemote:
-		if err := r.remote.Run(flags.Slug, flags.Steps, flags.Max, flags.Follow); err != nil {
+		if err := r.remote.Run(flags.Slug, flags.Steps, max, flags.Follow); err != nil {
 			return nil, err
 		}
 		return nil, nil
 	case config.ModeWorktree:
-		return r.runWorktree(flags)
+		return r.runWorktree(flags, max)
 	default:
 		loopCmd, err := r.newLoop()
 		if err != nil {
 			return nil, err
 		}
-		return loopCmd.Run(flags.Slug, flags.Steps, flags.Max)
+		return loopCmd.Run(flags.Slug, flags.Steps, max)
 	}
+}
+
+// resolveLoopMax returns the effective iteration cap for the invocation: the
+// --max flag when passed, otherwise the max field of the loop config entry
+// matching the slug when it sets a positive cap, otherwise the default of 20.
+// Steps passed without a slug have no loop config entry, so only --max and the
+// default apply.
+func resolveLoopMax(cfg *config.RalphConfig, flags LoopFlags) int {
+	if flags.Max != nil {
+		return *flags.Max
+	}
+	if flags.Slug != "" {
+		if configured := cfg.LoopMax(flags.Slug); configured != nil && *configured > 0 {
+			return *configured
+		}
+	}
+	return DefaultLoopMax
 }
 
 // runWorktree creates a git worktree on the loop-<slug> branch in a sibling
@@ -99,7 +124,7 @@ func (r *RunCmd) Run(flags LoopFlags) (*Result, error) {
 // the loop ends, whether it succeeds or fails, leaving the current checkout
 // untouched. When the loop branch is already checked out in a worktree, it
 // returns an error and creates no worktree.
-func (r *RunCmd) runWorktree(flags LoopFlags) (result *Result, retErr error) {
+func (r *RunCmd) runWorktree(flags LoopFlags, max int) (result *Result, retErr error) {
 	loopCmd, err := r.newLoop()
 	if err != nil {
 		return nil, err
@@ -136,7 +161,7 @@ func (r *RunCmd) runWorktree(flags LoopFlags) (result *Result, retErr error) {
 	if err := r.workspace.ChangeDirectory(worktree.Path); err != nil {
 		return nil, err
 	}
-	if err := loopCmd.RunResolvedInWorktree(result, flags.Max); err != nil {
+	if err := loopCmd.RunResolvedInWorktree(result, max); err != nil {
 		return nil, err
 	}
 	return result, nil

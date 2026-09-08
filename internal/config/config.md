@@ -72,7 +72,7 @@ variant: high
 
 ## Loops
 
-`loops` defines named step lists for the `ralph loop` command. Each entry has a `slug` and `steps`.
+`loops` defines named step lists for the `ralph loop` command. Each entry has a `slug`, `steps`, and an optional `max`.
 
 ```yaml
 loops:
@@ -81,6 +81,7 @@ loops:
       - run gofmt
       - run go vet
   - slug: update-deps
+    max: 5
     steps:
       - check for outdated dependencies
       - update the dependency manifest
@@ -88,6 +89,8 @@ loops:
 ```
 
 `ralph loop <slug>` uses the entry whose `slug` matches and embeds its `steps` in the prompt. When no entry matches, it returns `loop config not found: <slug>`.
+
+`max` caps how many times the loop iterates. `--max` on the command line takes priority over this field, which takes priority over the default of 20.
 
 ## Before
 
