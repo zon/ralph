@@ -3,7 +3,13 @@ set -e
 
 # Configuration variables
 REPOSITORY="${RALPH_IMAGE_REPOSITORY:-ghcr.io/zon/ralph}"
-TAG="${RALPH_IMAGE_TAG:-$(cat internal/version/VERSION)}"
+BASE_VERSION="$(cat internal/version/VERSION)"
+VERSION="${BASE_VERSION}"
+BRANCH="$(git branch --show-current 2>/dev/null || echo unknown)"
+if [ "${BRANCH}" != "main" ]; then
+  VERSION="${VERSION}-dev"
+fi
+TAG="${RALPH_IMAGE_TAG:-${VERSION}}"
 IMAGE="${REPOSITORY}:${TAG}"
 
 echo "Building Ralph default image..."
@@ -43,16 +49,21 @@ podman push "${IMAGE}"
 echo ""
 echo "Image pushed successfully with tag: ${TAG}"
 
-# Also tag and push as latest
-LATEST_IMAGE="${REPOSITORY}:latest"
-echo "Tagging and pushing as latest..."
-podman tag "${IMAGE}" "${LATEST_IMAGE}"
-podman push "${LATEST_IMAGE}"
+# Also tag and push under a rolling tag: latest on main, dev otherwise
+if [ "${BRANCH}" = "main" ]; then
+  ALIAS_TAG="latest"
+else
+  ALIAS_TAG="dev"
+fi
+ALIAS_IMAGE="${REPOSITORY}:${ALIAS_TAG}"
+echo "Tagging and pushing as ${ALIAS_TAG}..."
+podman tag "${IMAGE}" "${ALIAS_IMAGE}"
+podman push "${ALIAS_IMAGE}"
 
 echo ""
 echo "Images pushed successfully!"
 echo "  - ${IMAGE}"
-echo "  - ${LATEST_IMAGE}"
+echo "  - ${ALIAS_IMAGE}"
 echo ""
 echo "You can now use this image in your workflow configuration:"
 echo ""

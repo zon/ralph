@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - dev
 
 permissions:
   packages: write
@@ -27,7 +28,17 @@ jobs:
 
       - name: Read version
         id: version
-        run: echo "VERSION=$(cat internal/version/VERSION)" >> $GITHUB_OUTPUT
+        run: |
+          BASE_VERSION="$(cat internal/version/VERSION)"
+          if [ "${GITHUB_REF_NAME}" = "main" ]; then
+            VERSION="${BASE_VERSION}"
+            ALIAS="latest"
+          else
+            VERSION="${BASE_VERSION}-dev"
+            ALIAS="dev"
+          fi
+          echo "VERSION=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "ALIAS=${ALIAS}" >> "$GITHUB_OUTPUT"
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -36,7 +47,7 @@ jobs:
           file: Containerfile
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ steps.version.outputs.ALIAS }}
             ghcr.io/${{ github.repository }}:${{ steps.version.outputs.VERSION }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

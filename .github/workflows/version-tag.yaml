@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - dev
     paths:
       - internal/version/VERSION
 
@@ -25,7 +26,14 @@ jobs:
 
       - name: Read version
         id: version
-        run: echo "VERSION=$(cat internal/version/VERSION)" >> "$GITHUB_OUTPUT"
+        run: |
+          BASE_VERSION="$(cat internal/version/VERSION)"
+          if [ "${GITHUB_REF_NAME}" = "main" ]; then
+            VERSION="${BASE_VERSION}"
+          else
+            VERSION="${BASE_VERSION}-dev"
+          fi
+          echo "VERSION=${VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Check for existing tag
         id: tag_exists
@@ -53,15 +61,16 @@ jobs:
         if: steps.tag_exists.outputs.exists == 'false'
         env:
           VERSION: ${{ steps.version.outputs.VERSION }}
+          PRERELEASE: ${{ github.ref != 'refs/heads/main' && '--prerelease' || '' }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create "v${VERSION}" --repo "$GITHUB_REPOSITORY" \
             --title "Ralph v${VERSION}" \
-            --generate-notes
+            --generate-notes ${PRERELEASE}
 
       - name: Compute source archive checksum
         id: checksum
-        if: steps.tag_exists.outputs.exists == 'false'
+        if: steps.tag_exists.outputs.exists == 'false' && github.ref == 'refs/heads/main'
         env:
           VERSION: ${{ steps.version.outputs.VERSION }}
         run: |
@@ -76,7 +85,7 @@ jobs:
           echo "SHA256=$(shasum -a 256 ralph.tar.gz | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
 
       - name: Point Homebrew tap at the new tag
-        if: steps.tag_exists.outputs.exists == 'false'
+        if: steps.tag_exists.outputs.exists == 'false' && github.ref == 'refs/heads/main'
         env:
           VERSION: ${{ steps.version.outputs.VERSION }}
           SHA256: ${{ steps.checksum.outputs.SHA256 }}
