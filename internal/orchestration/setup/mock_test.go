@@ -222,6 +222,10 @@ func (h *githubHelper) configureTokenCalled() bool {
 	return mockGH != nil && mockGH.configureTokenCalled
 }
 
+func (h *githubHelper) secretExistsCalled() bool {
+	return mockGH != nil && mockGH.secretExistsCalled
+}
+
 func (h *githubHelper) thatFailsSecretExists() *mockGitHubCredentialsClient {
 	return &mockGitHubCredentialsClient{
 		secretExistsFunc: func(K8sContext) (bool, error) { return false, errMock },
@@ -302,6 +306,12 @@ func (h *ctxHelper) thatFails() *mockContextClient {
 	}
 }
 
+func (h *ctxHelper) thatTargetsNoNamespace() *mockContextClient {
+	return &mockContextClient{
+		resolveFunc: func(string, string) (K8sContext, error) { return K8sContext{}, ErrNoTargetedNamespace },
+	}
+}
+
 type readinessHelper struct{}
 
 var readiness = &readinessHelper{}
@@ -369,5 +379,11 @@ func (h *flagsHelper) withoutKey() Flags {
 	return Flags{
 		Context:   "test-context",
 		Namespace: "test-ns",
+	}
+}
+
+func (h *flagsHelper) withoutNamespace() Flags {
+	return Flags{
+		Context: "test-context",
 	}
 }

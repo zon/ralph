@@ -6,6 +6,8 @@ var ErrNoGitHubKey = errors.New("--github-key is required when no existing GitHu
 
 var ErrBothGitHubFlags = errors.New("--github-key and --github-token are mutually exclusive")
 
+var ErrNoTargetedNamespace = errors.New("no namespace targeted; skipping namespace preparation")
+
 type K8sContext struct {
 	Name      string
 	Namespace string
@@ -58,6 +60,9 @@ func (c *SetupCmd) Run(flags Flags) error {
 	}
 
 	k8sCtx, err := c.Ctx.Resolve(flags.Context, flags.Namespace)
+	if errors.Is(err, ErrNoTargetedNamespace) {
+		return nil
+	}
 	if err != nil {
 		return err
 	}

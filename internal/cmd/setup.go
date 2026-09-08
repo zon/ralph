@@ -104,6 +104,9 @@ type setupContextClient struct {
 }
 
 func (a *setupContextClient) Resolve(flagContext, flagNamespace string) (setup.K8sContext, error) {
+	if flagNamespace == "" && (a.ralphConfig == nil || a.ralphConfig.Workflow.Namespace == "") {
+		return setup.K8sContext{}, setup.ErrNoTargetedNamespace
+	}
 	k8sCtx, err := resolveKubeContext(a.ctx, a.k8sClient, a.ralphConfig, nil, flagContext, flagNamespace)
 	if err != nil {
 		return setup.K8sContext{}, err
