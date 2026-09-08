@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSetupHelpDescribesCredentialFlags(t *testing.T) {
+func TestSetupHelpDescribesReadinessAndTargetedPreparation(t *testing.T) {
 	repoRoot := findRepoRoot(t)
 	binary := filepath.Join(t.TempDir(), "ralph")
 	build := exec.Command("go", "build", "-o", binary, "./cmd/ralph")
@@ -21,6 +21,8 @@ func TestSetupHelpDescribesCredentialFlags(t *testing.T) {
 	cmd.Dir = repoRoot
 	out, err = cmd.CombinedOutput()
 	require.NoError(t, err)
-	assert.Contains(t, string(out), "Configure credentials for remote execution")
+	assert.Contains(t, string(out), "Confirm git, gh, and OpenCode are ready to run Ralph.")
+	assert.Contains(t, string(out), "namespace only when one is targeted")
+	assert.NotContains(t, string(out), "Configure credentials for remote execution")
 	assert.NotContains(t, string(out), "skills")
 }

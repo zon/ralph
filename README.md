@@ -64,7 +64,7 @@ Follow the [manual install instructions](docs/manual-install.md) to install from
 
 ## Setup
 
-Auth:
+`ralph setup` confirms git, `gh`, and OpenCode are ready to run Ralph. Get them ready first:
 
 ```bash
 gh auth login
@@ -74,7 +74,7 @@ And configure OpenCode. See [OpenCode authentication docs](https://opencode.ai/d
 
 ## Remote workflows
 
-Prepare a Kubernetes namespace for Ralph with `ralph setup --help`.
+When you target a Kubernetes namespace, `ralph setup` prepares it for Ralph workflows. Target one with `--namespace` or `workflow.namespace` in `.ralph/config.yaml`. With no targeted namespace, `ralph setup` only confirms the local tools.
 
 ## Help
 
