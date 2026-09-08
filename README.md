@@ -6,7 +6,7 @@ Ralph is a coding agent that runs project files. Ralph can run in a local Git re
 
 ## Homebrew Install
 
-Taps for Ralph, OpenCode, and Argo are required:
+Install with [Homebrew](https://brew.sh/). Taps for Ralph, OpenCode, and Argo are required:
 
 ```bash
 brew tap zon/tap # Ralph
