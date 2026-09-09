@@ -687,6 +687,72 @@ func TestRunOpenCodeAndReadDeliverable(t *testing.T) {
 	})
 }
 
+func TestRunOpenCodeAndReadValidated(t *testing.T) {
+	originalErr := errors.New("command failed")
+
+	t.Run("re-runs while the validator rejects the content", func(t *testing.T) {
+		outputFile := filepath.Join(t.TempDir(), "output.md")
+		runs := 0
+		mockOC := &opencode.MockOC{
+			RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+				runs++
+				if runs < 3 {
+					return os.WriteFile(outputFile, []byte("not a usable slug"), 0644)
+				}
+				return os.WriteFile(outputFile, []byte("fix-formatting"), 0644)
+			},
+		}
+
+		result, err := runOpenCodeAndReadValidated(&execcontext.Context{}, mockOC, "some-model", "some prompt", outputFile, func(content string) error {
+			if content != "fix-formatting" {
+				return errors.New("no usable slug proposed by the AI")
+			}
+			return nil
+		})
+		require.NoError(t, err)
+		assert.Equal(t, "fix-formatting", result)
+		assert.Equal(t, 3, runs, "content the validator rejects is retried until it accepts")
+	})
+
+	t.Run("gives up after three rejected attempts and names the attempt limit and reason", func(t *testing.T) {
+		outputFile := filepath.Join(t.TempDir(), "output.md")
+		runs := 0
+		mockOC := &opencode.MockOC{
+			RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+				runs++
+				return os.WriteFile(outputFile, []byte("not a usable slug"), 0644)
+			},
+		}
+
+		_, err := runOpenCodeAndReadValidated(&execcontext.Context{}, mockOC, "some-model", "some prompt", outputFile, func(content string) error {
+			return errors.New("no usable slug proposed by the AI")
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "3-attempt limit")
+		assert.Contains(t, err.Error(), "no usable slug proposed by the AI")
+		assert.Equal(t, 3, runs, "the prompt is re-run up to three attempts")
+	})
+
+	t.Run("execution failure is wrapped and not retried", func(t *testing.T) {
+		outputFile := filepath.Join(t.TempDir(), "output.md")
+		runs := 0
+		mockOC := &opencode.MockOC{
+			RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+				runs++
+				return originalErr
+			},
+		}
+
+		_, err := runOpenCodeAndReadValidated(&execcontext.Context{}, mockOC, "some-model", "some prompt", outputFile, func(content string) error {
+			return errors.New("no usable slug proposed by the AI")
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "opencode execution failed:")
+		assert.True(t, errors.Is(err, originalErr), "wrapped error should be reachable via errors.Is")
+		assert.Equal(t, 1, runs, "an opencode execution failure must not be retried")
+	})
+}
+
 func TestRunOpenCodeAndReadDeliverableNeverPassesAgent(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".ralph"), 0755))
@@ -1208,7 +1274,7 @@ func TestProposeLoopSlug(t *testing.T) {
 			wantErrIs: errCommandFailed,
 		},
 		{
-			name: "whitespace-only output returns no usable slug error",
+			name: "whitespace-only output is an empty output file error",
 			setupMock: func(t *testing.T) *opencode.MockOC {
 				return &opencode.MockOC{
 					RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
@@ -1216,7 +1282,7 @@ func TestProposeLoopSlug(t *testing.T) {
 					},
 				}
 			},
-			wantErr: "no usable slug proposed by the AI",
+			wantErr: "output file is empty",
 		},
 		{
 			name: "output containing a space returns no usable slug error",
@@ -1389,6 +1455,100 @@ func TestProposeLoopSlug(t *testing.T) {
 		_, err := ProposeLoopSlug(ctx, mockOC, []string{"run gofmt"})
 		require.NoError(t, err)
 		assert.Empty(t, buf.String())
+	})
+
+	t.Run("does not retry an opencode execution failure", func(t *testing.T) {
+		runs := 0
+		mockOC := &opencode.MockOC{
+			RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+				runs++
+				return errCommandFailed
+			},
+		}
+		ctx := &execcontext.Context{}
+		_, err := ProposeLoopSlug(ctx, mockOC, []string{"run gofmt"})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "opencode execution failed:")
+		assert.True(t, errors.Is(err, errCommandFailed), "wrapped error should be reachable via errors.Is")
+		assert.Equal(t, 1, runs, "an opencode execution failure must not be retried")
+		assertTempFileCleanedUp(t, dir, "loop-slug")
+	})
+
+	t.Run("re-runs the prompt when an earlier attempt proposes no usable slug", func(t *testing.T) {
+		runs := 0
+		mockOC := &opencode.MockOC{
+			RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+				runs++
+				if runs < 3 {
+					return writeOutputFromSlugPrompt(prompt, "not a usable slug")
+				}
+				return writeOutputFromSlugPrompt(prompt, "fix-formatting")
+			},
+		}
+		ctx := &execcontext.Context{}
+		result, err := ProposeLoopSlug(ctx, mockOC, []string{"run gofmt"})
+		require.NoError(t, err)
+		assert.Equal(t, "fix-formatting", result)
+		assert.Equal(t, 3, runs, "the same prompt is re-run until a usable slug appears")
+		assertTempFileCleanedUp(t, dir, "loop-slug")
+	})
+
+	t.Run("re-runs the prompt when an earlier attempt leaves the output file empty", func(t *testing.T) {
+		runs := 0
+		mockOC := &opencode.MockOC{
+			RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+				runs++
+				if runs == 1 {
+					return writeOutputFromSlugPrompt(prompt, "   \n")
+				}
+				return writeOutputFromSlugPrompt(prompt, "fix-formatting")
+			},
+		}
+		ctx := &execcontext.Context{}
+		result, err := ProposeLoopSlug(ctx, mockOC, []string{"run gofmt"})
+		require.NoError(t, err)
+		assert.Equal(t, "fix-formatting", result)
+		assert.Equal(t, 2, runs, "an empty output file is an unusable slug that is retried")
+		assertTempFileCleanedUp(t, dir, "loop-slug")
+	})
+
+	t.Run("re-runs the prompt when the output file is missing", func(t *testing.T) {
+		runs := 0
+		mockOC := &opencode.MockOC{
+			RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+				runs++
+				if runs == 1 {
+					path, err := outputPathFromPromptWithPrefix("Write the slug to the file: ", prompt)
+					require.NoError(t, err)
+					require.NoError(t, os.Remove(path))
+					return nil
+				}
+				return writeOutputFromSlugPrompt(prompt, "fix-formatting")
+			},
+		}
+		ctx := &execcontext.Context{}
+		result, err := ProposeLoopSlug(ctx, mockOC, []string{"run gofmt"})
+		require.NoError(t, err)
+		assert.Equal(t, "fix-formatting", result)
+		assert.Equal(t, 2, runs, "a missing output file is an unusable slug that is retried")
+		assertTempFileCleanedUp(t, dir, "loop-slug")
+	})
+
+	t.Run("gives up after three unusable attempts and names the attempt limit", func(t *testing.T) {
+		runs := 0
+		mockOC := &opencode.MockOC{
+			RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+				runs++
+				return writeOutputFromSlugPrompt(prompt, "not a usable slug")
+			},
+		}
+		ctx := &execcontext.Context{}
+		_, err := ProposeLoopSlug(ctx, mockOC, []string{"run gofmt"})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "3-attempt limit")
+		assert.Contains(t, err.Error(), "no usable slug proposed by the AI")
+		assert.Equal(t, 3, runs, "the prompt is re-run up to three attempts")
+		assertTempFileCleanedUp(t, dir, "loop-slug")
 	})
 }
 
