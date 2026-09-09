@@ -1,6 +1,6 @@
 # Configuration
 
-Ralph looks for `.ralph/config.yaml` in your project root. Every option is optional and a section below documents each one. API keys are managed by OpenCode, not Ralph. Configure them with `opencode auth`.
+Ralph looks for `.ralph/config.yaml` in your project root. Every option is optional and a section below documents each one. Ralph runs on defaults for every option when the file is absent, so a project needs no configuration file to run. API keys are managed by OpenCode, not Ralph. Configure them with `opencode auth`.
 
 ## Mode
 

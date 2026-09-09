@@ -125,8 +125,15 @@ func TestResolveKubeContext(t *testing.T) {
 			expectError:     true,
 		},
 		{
-			name:        "error when .ralph directory is missing",
-			expectError: true,
+			name:              "current context used when .ralph directory is missing",
+			flagContext:       "",
+			flagNamespace:     "",
+			configContext:     "",
+			configNamespace:   "",
+			mockContext:       "kubectl-context",
+			mockNamespace:     "kubectl-namespace",
+			expectedContext:   "kubectl-context",
+			expectedNamespace: "kubectl-namespace",
 		},
 	}
 
@@ -137,7 +144,7 @@ func TestResolveKubeContext(t *testing.T) {
 			dir := t.TempDir()
 			t.Chdir(dir)
 
-			if tt.name != "error when .ralph directory is missing" {
+			if tt.name != "current context used when .ralph directory is missing" {
 				ralphDir := filepath.Join(dir, ".ralph")
 				err := os.MkdirAll(ralphDir, 0755)
 				require.NoError(t, err)

@@ -74,12 +74,26 @@ func TestClientLoopSteps_NotFoundReturnsError(t *testing.T) {
 	assert.EqualError(t, err, "loop config not found: missing")
 }
 
-func TestClientLoopSteps_PropagatesLoadError(t *testing.T) {
-	// GIVEN no .ralph directory in the working directory, so LoadConfig fails
+func TestClientLoad_NoRALPHDirectoryAppliesDefaults(t *testing.T) {
+	// GIVEN no .ralph directory in the working directory
+	t.Chdir(t.TempDir())
+
+	config, err := (&Client{}).Load()
+	require.NoError(t, err, "Load() must succeed without a .ralph directory")
+	require.NotNil(t, config)
+
+	assert.Equal(t, "main", config.DefaultBranch)
+	assert.Equal(t, "local", config.Mode)
+	assert.Equal(t, ".", config.Items)
+}
+
+func TestClientLoopSteps_MissingSlugWithoutConfig(t *testing.T) {
+	// GIVEN no .ralph directory in the working directory, so loading falls back
+	// to a config of defaults with no loop entries
 	t.Chdir(t.TempDir())
 
 	client := &Client{}
 	_, err := client.LoopSteps("fmt")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to find .ralph directory")
+	assert.EqualError(t, err, "loop config not found: fmt")
 }

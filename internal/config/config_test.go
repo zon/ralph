@@ -12,17 +12,14 @@ import (
 )
 
 func TestLoadConfig_Defaults(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	t.Chdir(tmpDir)
-
-	// Create .ralph directory to satisfy new LoadConfig requirement
-	require.NoError(t, os.Mkdir(filepath.Join(tmpDir, ".ralph"), 0755))
+	t.Chdir(t.TempDir())
 
 	config, err := LoadConfig()
-	require.NoError(t, err, "LoadConfig() unexpected error")
+	require.NoError(t, err, "LoadConfig() must succeed without a .ralph directory")
 
 	assert.Equal(t, "main", config.DefaultBranch)
+	assert.Equal(t, "local", config.Mode)
+	assert.Equal(t, ".", config.Items)
 	assert.Empty(t, config.Services)
 	assert.Empty(t, config.Instructions, "LoadConfig() Instructions must stay unset so the prompt supplies its default steps")
 }

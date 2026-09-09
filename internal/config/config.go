@@ -2,6 +2,7 @@ package config
 
 import (
 	_ "embed"
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -603,24 +604,26 @@ func loadInstructions(configDir string) string {
 	return instructions
 }
 
-// LoadConfig searches upwards for a .ralph directory and loads config.yaml from it.
+// LoadConfig searches upwards for a .ralph directory and loads config.yaml from
+// it. When no .ralph directory exists, it returns a config holding only
+// defaults so ralph runs without configuration. A config file that exists but
+// cannot be read or parsed still returns an error.
 func LoadConfig() (*RalphConfig, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get working directory: %w", err)
 	}
 
-	configDir, err := FindConfigDir(cwd)
-	if err != nil {
+	config := &RalphConfig{}
+	if configDir, err := FindConfigDir(cwd); err == nil {
+		config, err = loadConfigFromPath(filepath.Join(configDir, "config.yaml"))
+		if err != nil {
+			return nil, err
+		}
+		config.Instructions = loadInstructions(configDir)
+	} else if !errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("failed to find .ralph directory: %w", err)
 	}
-
-	config, err := loadConfigFromPath(filepath.Join(configDir, "config.yaml"))
-	if err != nil {
-		return nil, err
-	}
-
-	config.Instructions = loadInstructions(configDir)
 
 	applyDefaults(config)
 
