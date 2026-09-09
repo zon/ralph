@@ -87,6 +87,15 @@ func TestIterationLoopScenario_DefaultExtraIterationsRoundsUp(t *testing.T) {
 	require.Equal(t, 4, aiPickCalls(runner))
 }
 
+func TestIterationLoopScenario_DefaultExtraIterationsIs30PercentWhenUnset(t *testing.T) {
+	runner := withMocks(
+		withProject(project.ThatAlwaysReportsIncomplete().WithResolvedItems(10)),
+	)
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(10)), config.Any())
+	require.Error(t, err)
+	require.Equal(t, 13, aiPickCalls(runner))
+}
+
 func TestIterationLoopNeverConsultsProjectFileForCompletion(t *testing.T) {
 	projMock := project.ThatReportsIncompleteUntil(2)
 	runner := withMocks(

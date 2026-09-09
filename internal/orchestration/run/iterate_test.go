@@ -76,13 +76,13 @@ func TestIterateRespectsExtraIterations(t *testing.T) {
 	require.Equal(t, 5, aiPickCalls(runner))
 }
 
-func TestIterateDefaultsToTwentyPercentExtra(t *testing.T) {
+func TestIterateDefaultsToThirtyPercentExtra(t *testing.T) {
 	runner := withMocks(
 		withProject(project.ThatAlwaysReportsIncomplete().WithResolvedItems(10)),
 	)
 	err := runner.RunLocal(project.ForProjectInput(project.WithItems(10)), config.Any())
 	require.Error(t, err)
-	require.Equal(t, 12, aiPickCalls(runner))
+	require.Equal(t, 13, aiPickCalls(runner))
 }
 
 func TestIterateDefaultsRoundsUp(t *testing.T) {

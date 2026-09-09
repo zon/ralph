@@ -151,7 +151,7 @@ func TestMockProjectIncompleteError(t *testing.T) {
 func TestMockProjectExtraIterations(t *testing.T) {
 	proj := WithItems(10)
 	client := ThatAlwaysReportsIncomplete()
-	assert.Equal(t, 2, client.ExtraIterations(proj, &config.RalphConfig{}))
+	assert.Equal(t, 3, client.ExtraIterations(proj, &config.RalphConfig{}))
 	v := 5
 	assert.Equal(t, 5, client.ExtraIterations(proj, &config.RalphConfig{ExtraIterations: &v}))
 }

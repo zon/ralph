@@ -217,7 +217,7 @@ func (c *Client) ExtraIterations(proj *Project, cfg *config.RalphConfig) int {
 		return *cfg.ExtraIterations
 	}
 	count := len(proj.Items)
-	extra := int(math.Ceil(float64(count) * 0.2))
+	extra := int(math.Ceil(float64(count) * 0.3))
 	return extra
 }
 
