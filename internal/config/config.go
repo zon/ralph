@@ -384,7 +384,7 @@ type RalphConfig struct {
 	Base            string         `yaml:"-"`                 // Base branch resolved by the caller, bounding the commit log completion is read from
 	ExtraIterations *int           `yaml:"extraIterations,omitempty"`
 	DefaultBranch   string         `yaml:"defaultBranch,omitempty"`
-	Model           string         `yaml:"model,omitempty"` // AI model to use for coding and PR summary (default: deepseek/deepseek-chat)
+	Model           string         `yaml:"model,omitempty"` // AI model to use for coding and PR summary (default: opencode's configured default when unset)
 	Agent           string         `yaml:"agent,omitempty"` // opencode agent to use for coding (default: opencode's primary agent)
 	Before          []Before       `yaml:"before,omitempty"`
 	Services        []Service      `yaml:"services,omitempty"`
@@ -477,9 +477,6 @@ func applyDefaults(config *RalphConfig) {
 	}
 	if config.DefaultBranch == "" {
 		config.DefaultBranch = "main"
-	}
-	if config.Model == "" {
-		config.Model = "deepseek/deepseek-chat"
 	}
 	if config.App.Name == "" {
 		config.App.Name = DefaultAppName

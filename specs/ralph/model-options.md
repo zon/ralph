@@ -26,7 +26,7 @@ Model resolution SHALL follow this precedence (highest to lowest):
 
 1. `--model` flag value
 2. `model` in the top level of `.ralph/config.yaml`
-3. `deepseek/deepseek-chat`
+3. Omitted from the opencode invocation, leaving opencode's configured default model to be used
 
 #### Scenario: Flag overrides the configured model
 
@@ -42,11 +42,11 @@ Model resolution SHALL follow this precedence (highest to lowest):
 - WHEN the command runs a prompt
 - THEN `anthropic/claude-sonnet-4-6` is used
 
-#### Scenario: Default model used when flag and config are unset
+#### Scenario: Model option omitted when flag and config are unset
 
 - GIVEN neither `--model` nor `model` in `.ralph/config.yaml` is set
 - WHEN the command runs a prompt
-- THEN `deepseek/deepseek-chat` is used
+- THEN the `--model` option is omitted from the opencode invocation, leaving opencode's default model to be used
 
 ---
 

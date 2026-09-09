@@ -31,8 +31,8 @@ import (
 // logs for remote mode, sending a success or error desktop notification for
 // the slug on completion, suppressed by --no-notify. The --model and --context
 // flags resolve the same way `ralph run` resolves them: --model overrides the
-// top-level model field in .ralph/config.yaml, which defaults to
-// deepseek/deepseek-chat when unset, and --context and --namespace override the
+// top-level model field in .ralph/config.yaml, which is omitted (leaving
+// opencode's configured default) when unset, and --context and --namespace override the
 // Kubernetes context and namespace used for workflow submission.
 type LoopCmd struct {
 	Slug      string   `arg:"" optional:"" help:"Slug of the loop configuration in .ralph/config.yaml"`
@@ -128,8 +128,8 @@ func (c *LoopCmd) Run() error {
 // applyToContext resolves the command flags into the execution context. The
 // --model override and the --context and --namespace overrides resolve the
 // same way `ralph run` resolves them: the flag wins, otherwise the value from
-// .ralph/config.yaml (the model defaulting to deepseek/deepseek-chat) is used
-// downstream.
+// .ralph/config.yaml is used downstream, with the model omitted (leaving
+// opencode's configured default) when unset.
 func (c *LoopCmd) applyToContext(ctx *execcontext.Context) {
 	ctx.SetVerbose(c.Verbose)
 	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, c.Verbose))

@@ -616,7 +616,7 @@ func TestApplyDefaults_Model(t *testing.T) {
 	config, err := LoadConfig()
 	require.NoError(t, err, "LoadConfig() unexpected error")
 
-	assert.Equal(t, "deepseek/deepseek-chat", config.Model)
+	assert.Empty(t, config.Model)
 }
 
 func TestApplyDefaults_AppFields(t *testing.T) {

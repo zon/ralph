@@ -295,7 +295,7 @@ func resolveModel(ctx *execcontext.Context) string {
 	}
 	ralphConfig, err := config.LoadConfig()
 	if err != nil {
-		return "deepseek/deepseek-chat"
+		return ""
 	}
 	return ralphConfig.Model
 }

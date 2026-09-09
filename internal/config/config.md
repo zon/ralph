@@ -48,10 +48,10 @@ defaultBranch: main
 
 ## Model
 
-`model` sets the AI model used for coding and pull request summaries. It defaults to `deepseek/deepseek-chat`.
+`model` sets the AI model used for coding and pull request summaries. When unset, the `--model` option is omitted from the opencode invocation and opencode's configured default model is used.
 
 ```yaml
-model: deepseek/deepseek-chat
+model: deepseek/deepseek-v4-flash
 ```
 
 ## Agent

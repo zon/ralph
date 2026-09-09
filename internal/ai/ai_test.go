@@ -136,8 +136,8 @@ func TestResolveModel(t *testing.T) {
 			},
 		},
 		{
-			name: "falls back to default when config load fails",
-			want: "deepseek/deepseek-chat",
+			name: "omits model when flag and config are unset",
+			want: "",
 			setup: func(t *testing.T) {
 				t.Chdir(t.TempDir())
 			},

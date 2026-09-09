@@ -98,8 +98,14 @@ func waitForGroupExit(pid int) error {
 // repo of a git worktree), which sends the agent's edits and report.md to the
 // wrong directory. Passing the process working directory explicitly keeps the
 // agent in the same directory ralph reads and commits from.
+//
+// When no model is configured, the --model option is omitted entirely so
+// opencode falls back to its own configured default model.
 func runArgs(model, variant, agent, prompt string) ([]string, error) {
-	args := []string{"run", "--model", model}
+	args := []string{"run"}
+	if model != "" {
+		args = append(args, "--model", model)
+	}
 	if variant != "" {
 		args = append(args, "--variant", variant)
 	}

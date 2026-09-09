@@ -196,6 +196,34 @@ exit 0
 	assert.Contains(t, stdout.String(), "run output: run --model test-model --agent test-agent --dir "+cwd+" test-prompt")
 }
 
+func TestRunCommandOmitsModelWhenUnset(t *testing.T) {
+	tmpDir := t.TempDir()
+	scriptPath := filepath.Join(tmpDir, "fake-opencode.sh")
+
+	scriptContent := `#!/bin/bash
+echo "run output: $@"
+exit 0
+`
+	err := os.WriteFile(scriptPath, []byte(scriptContent), 0755)
+	require.NoError(t, err)
+
+	opencodePath := filepath.Join(tmpDir, "opencode")
+	err = os.Symlink(scriptPath, opencodePath)
+	require.NoError(t, err)
+
+	origPath := os.Getenv("PATH")
+	t.Setenv("PATH", tmpDir+":"+origPath)
+
+	var stdout, stderr bytes.Buffer
+	client := New()
+	err = client.RunCommand(context.Background(), "", "high", "", "test-prompt", &stdout, &stderr)
+	require.NoError(t, err)
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	assert.NotContains(t, stdout.String(), "--model")
+	assert.Contains(t, stdout.String(), "run output: run --variant high --dir "+cwd+" test-prompt")
+}
+
 func TestRunAgentWithAgent(t *testing.T) {
 	tmpDir := t.TempDir()
 	scriptPath := filepath.Join(tmpDir, "fake-opencode.sh")
