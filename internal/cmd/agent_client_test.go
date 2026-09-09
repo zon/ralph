@@ -749,6 +749,158 @@ func TestAgentClientRunPickerNeverPassesAgent(t *testing.T) {
 	}
 }
 
+// pickerProject is a two-item project the picker retry tests run against.
+var pickerProject = &project.Project{
+	Slug: "test-project",
+	Items: project.NewItems([]any{
+		map[string]any{"slug": "exporter", "description": "export endpoint"},
+		map[string]any{"slug": "importer", "description": "import endpoint"},
+	}),
+}
+
+// newRunPickerTestClient sets up a temporary git repo with a ralph config and
+// returns an AgentClient whose mock opencode records every picker prompt.
+// runAgent decides what each picker run leaves on disk; when nil the run leaves
+// no picked-item-index.txt.
+func newRunPickerTestClient(t *testing.T, runAgent func(prompt string) error) (*AgentClient, *[]string) {
+	t.Helper()
+
+	workDir := t.TempDir()
+	t.Chdir(workDir)
+
+	testutil.InitGitRepo(t, workDir)
+	testutil.MakeInitialCommit(t, workDir)
+	testutil.CreateRalphConfig(t, workDir)
+
+	prompts := &[]string{}
+	mockOC := &opencode.MockOC{
+		RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
+			*prompts = append(*prompts, prompt)
+			if runAgent != nil {
+				return runAgent(prompt)
+			}
+			return nil
+		},
+	}
+	return NewAgentClient(execcontext.NewContext(), mockOC), prompts
+}
+
+func TestAgentClientRunPickerReRunsPromptUntilUsableSelection(t *testing.T) {
+	tests := []struct {
+		name      string
+		runAgent  func(t *testing.T, runs *int) error
+		wantIndex int
+	}{
+		{
+			name: "missing index file on an earlier attempt",
+			runAgent: func(t *testing.T, runs *int) error {
+				*runs++
+				if *runs == 1 {
+					return nil
+				}
+				return os.WriteFile("picked-item-index.txt", []byte("1"), 0644)
+			},
+			wantIndex: 1,
+		},
+		{
+			name: "non-integer index on an earlier attempt",
+			runAgent: func(t *testing.T, runs *int) error {
+				*runs++
+				if *runs == 1 {
+					return os.WriteFile("picked-item-index.txt", []byte("not-an-index"), 0644)
+				}
+				return os.WriteFile("picked-item-index.txt", []byte("0"), 0644)
+			},
+			wantIndex: 0,
+		},
+		{
+			name: "out-of-range index on an earlier attempt",
+			runAgent: func(t *testing.T, runs *int) error {
+				*runs++
+				if *runs == 1 {
+					return os.WriteFile("picked-item-index.txt", []byte("7"), 0644)
+				}
+				return os.WriteFile("picked-item-index.txt", []byte("1"), 0644)
+			},
+			wantIndex: 1,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			runs := 0
+			client, prompts := newRunPickerTestClient(t, func(_ string) error {
+				return tc.runAgent(t, &runs)
+			})
+
+			item, err := client.RunPicker(pickerProject, pickerProject.Items)
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantIndex, item.Index)
+			assert.Equal(t, 2, runs, "an unusable selection is retried")
+			require.Len(t, *prompts, 2)
+			assert.Equal(t, (*prompts)[0], (*prompts)[1], "the same prompt is re-run")
+		})
+	}
+}
+
+func TestAgentClientRunPickerGivesUpAfterThreeUnusableAttempts(t *testing.T) {
+	tests := []struct {
+		name     string
+		runAgent func(t *testing.T, runs *int) error
+	}{
+		{
+			name: "missing index file on every attempt",
+			runAgent: func(t *testing.T, runs *int) error {
+				*runs++
+				return nil
+			},
+		},
+		{
+			name: "non-integer index on every attempt",
+			runAgent: func(t *testing.T, runs *int) error {
+				*runs++
+				return os.WriteFile("picked-item-index.txt", []byte("not-an-index"), 0644)
+			},
+		},
+		{
+			name: "out-of-range index on every attempt",
+			runAgent: func(t *testing.T, runs *int) error {
+				*runs++
+				return os.WriteFile("picked-item-index.txt", []byte("7"), 0644)
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			runs := 0
+			client, _ := newRunPickerTestClient(t, func(_ string) error {
+				return tc.runAgent(t, &runs)
+			})
+
+			_, err := client.RunPicker(pickerProject, pickerProject.Items)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "3-attempt limit")
+			assert.Equal(t, 3, runs, "the prompt is re-run up to three attempts")
+		})
+	}
+}
+
+func TestAgentClientRunPickerDoesNotRetryExecutionFailure(t *testing.T) {
+	originalErr := errors.New("command failed")
+
+	runs := 0
+	client, _ := newRunPickerTestClient(t, func(_ string) error {
+		runs++
+		return originalErr
+	})
+
+	_, err := client.RunPicker(pickerProject, pickerProject.Items)
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, originalErr), "wrapped error should be reachable via errors.Is")
+	assert.Equal(t, 1, runs, "an opencode execution failure must not be retried")
+}
+
 // TestAgentClientGenerateChangelogNeverPassesAgent covers all four branches of
 // agent resolution: the changelog prompt produces a supporting artifact and
 // must run with opencode's primary agent, never passing --agent. Changelog

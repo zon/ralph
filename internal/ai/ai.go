@@ -366,39 +366,66 @@ func createTempFile(name string) (*os.File, error) {
 	return os.Create(path)
 }
 
-// runOpenCodeAndReadContent runs opencode with the given prompt and returns the
-// trimmed content of the output file. Unlike runOpenCodeAndReadResult it does
-// not treat an empty result as an error, so callers can apply their own
-// validation.
-func runOpenCodeAndReadContent(ctx *execcontext.Context, oc opencode.OCClient, model, prompt, outputFile string) (string, error) {
+// maxDeliverableAttempts is how many times a prompt that must leave a usable
+// deliverable is run before the command reports an error naming the limit.
+const maxDeliverableAttempts = 3
+
+// runOpenCodeAndReadValidated runs opencode with the given prompt and returns
+// the trimmed content of the output file the agent must write, provided the
+// validate function accepts it. When opencode finishes without a usable
+// deliverable — an output file that is missing or empty, or content that the
+// validate function rejects — the same prompt is re-run until
+// maxDeliverableAttempts attempts have been made. When every attempt is
+// unusable the returned error names the attempt limit. An opencode execution
+// failure is returned immediately and is never retried. A nil validate
+// function accepts any content that reads from the output file.
+func runOpenCodeAndReadValidated(ctx *execcontext.Context, oc opencode.OCClient, model, prompt, outputFile string, validate func(string) error) (string, error) {
 	var stdoutWriter, stderrWriter io.Writer
 	if ctx.IsVerbose() {
 		stdoutWriter = os.Stdout
 		stderrWriter = os.Stderr
 	}
 
-	if err := oc.RunCommand(ctx.GoContext(), model, resolveVariant(ctx), "", prompt, stdoutWriter, stderrWriter); err != nil {
-		return "", fmt.Errorf("opencode execution failed: %w", err)
-	}
+	var lastErr error
+	for attempt := 1; attempt <= maxDeliverableAttempts; attempt++ {
+		if err := oc.RunCommand(ctx.GoContext(), model, resolveVariant(ctx), "", prompt, stdoutWriter, stderrWriter); err != nil {
+			return "", fmt.Errorf("opencode execution failed: %w", err)
+		}
 
-	summaryBytes, err := os.ReadFile(outputFile)
+		content, err := readDeliverable(outputFile)
+		if err == nil && validate != nil {
+			err = validate(content)
+		}
+		if err == nil {
+			return content, nil
+		}
+		lastErr = err
+	}
+	return "", fmt.Errorf("no usable deliverable after the %d-attempt limit: %w", maxDeliverableAttempts, lastErr)
+}
+
+// runOpenCodeAndReadDeliverable runs opencode with the given prompt and returns
+// the trimmed content of the output file the agent must write. When opencode
+// finishes without a usable deliverable — an output file that is missing or
+// empty — the same prompt is re-run until maxDeliverableAttempts attempts have
+// been made. When every attempt is unusable the returned error names the
+// attempt limit. An opencode execution failure is returned immediately and is
+// never retried.
+func runOpenCodeAndReadDeliverable(ctx *execcontext.Context, oc opencode.OCClient, model, prompt, outputFile string) (string, error) {
+	return runOpenCodeAndReadValidated(ctx, oc, model, prompt, outputFile, nil)
+}
+
+// readDeliverable reads and trims the content of the agent's output file. An
+// output file that is missing or empty leaves no usable deliverable.
+func readDeliverable(outputFile string) (string, error) {
+	data, err := os.ReadFile(outputFile)
 	if err != nil {
 		return "", fmt.Errorf("failed to read output file: %w", err)
 	}
-
-	return strings.TrimSpace(string(summaryBytes)), nil
-}
-
-func runOpenCodeAndReadResult(ctx *execcontext.Context, oc opencode.OCClient, model, prompt, outputFile string) (string, error) {
-	content, err := runOpenCodeAndReadContent(ctx, oc, model, prompt, outputFile)
-	if err != nil {
-		return "", err
-	}
-
+	content := strings.TrimSpace(string(data))
 	if content == "" {
-		return "", fmt.Errorf("output file is empty")
+		return "", errors.New("output file is empty")
 	}
-
 	return content, nil
 }
 
@@ -421,7 +448,7 @@ func GeneratePRSummary(ctx *execcontext.Context, oc opencode.OCClient, projectDe
 	}
 
 	model := resolveModel(ctx)
-	summary, err = runOpenCodeAndReadResult(ctx, oc, model, prPrompt, tmpFile)
+	summary, err = runOpenCodeAndReadDeliverable(ctx, oc, model, prPrompt, tmpFile)
 	if err != nil {
 		return "", err
 	}
@@ -448,7 +475,7 @@ func GenerateChangelog(ctx *execcontext.Context, oc opencode.OCClient) (err erro
 	}
 
 	model := resolveModel(ctx)
-	_, err = runOpenCodeAndReadResult(ctx, oc, model, changelogPrompt, tmpFile)
+	_, err = runOpenCodeAndReadDeliverable(ctx, oc, model, changelogPrompt, tmpFile)
 	if err != nil {
 		return err
 	}
@@ -477,8 +504,10 @@ func usableSlug(s string) bool {
 }
 
 // ProposeLoopSlug asks the AI to read the loop steps and propose a short slug
-// for the git branch that will run them. It returns an error when the AI
-// produces no usable slug.
+// for the git branch that will run them. A proposed slug is usable only when
+// the output file holds non-empty content that passes slug validation; when a
+// run leaves no usable slug, the same prompt is re-run up to three attempts
+// before an error naming the attempt limit is returned.
 func ProposeLoopSlug(ctx *execcontext.Context, oc opencode.OCClient, steps []string) (slug string, err error) {
 	f, err := createTempFile("loop-slug.md")
 	if err != nil {
@@ -498,13 +527,14 @@ func ProposeLoopSlug(ctx *execcontext.Context, oc opencode.OCClient, steps []str
 	}
 
 	model := resolveModel(ctx)
-	content, err := runOpenCodeAndReadContent(ctx, oc, model, slugPrompt, tmpFile)
+	content, err := runOpenCodeAndReadValidated(ctx, oc, model, slugPrompt, tmpFile, func(content string) error {
+		if !usableSlug(content) {
+			return errors.New("no usable slug proposed by the AI")
+		}
+		return nil
+	})
 	if err != nil {
 		return "", err
-	}
-
-	if !usableSlug(content) {
-		return "", errors.New("no usable slug proposed by the AI")
 	}
 
 	return content, nil

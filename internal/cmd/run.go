@@ -13,7 +13,7 @@ import (
 type RunCmd struct {
 	WorkingDir      string `help:"Working directory to run Ralph in" type:"path" short:"C"`
 	InputFile       string `arg:"" optional:"" help:"Path to input file (project YAML, orchestration.md, or spec.md)"`
-	ExtraIterations int    `help:"Extra iterations beyond project item count (default: 20% item count)" name:"extra"`
+	ExtraIterations int    `help:"Extra iterations beyond project item count (default: 30% item count)" name:"extra"`
 	NoNotify        bool   `help:"Disable desktop notifications" default:"false"`
 	NoServices      bool   `help:"Skip service startup" default:"false"`
 	Verbose         bool   `help:"Enable verbose logging" default:"false"`

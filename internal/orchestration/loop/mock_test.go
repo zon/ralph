@@ -108,19 +108,26 @@ func envNotInWorkflow() *mockEnvClient {
 }
 
 // mockReportReader serves a sequence of report contents, one per read, and
-// returns an injected error when set. Reads past the end of the sequence
-// repeat the last report, as the real report file keeps its content until the
-// agent rewrites it. An empty sequence returns an empty report.
+// returns an injected error when set. When readErrs is set, the read whose
+// 1-based number matches a key returns that read's error instead of serving
+// the next report content, standing for an agent pass that left report.md
+// missing or unreadable. Reads past the end of the sequence repeat the last
+// report, as the real report file keeps its content until the agent rewrites
+// it. An empty sequence returns an empty report.
 type mockReportReader struct {
-	reports []string
-	err     error
-	reads   int
+	reports  []string
+	err      error
+	readErrs map[int]error
+	reads    int
 }
 
 func (m *mockReportReader) ReadReport() (ai.Report, error) {
 	m.reads++
 	if m.err != nil {
 		return ai.Report{}, m.err
+	}
+	if err, ok := m.readErrs[m.reads]; ok {
+		return ai.Report{}, err
 	}
 	content := ""
 	if len(m.reports) > 0 {

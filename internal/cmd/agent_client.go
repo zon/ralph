@@ -28,6 +28,17 @@ func NewAgentClient(ctx *context.Context, oc opencode.OCClient) *AgentClient {
 	return &AgentClient{ctx: ctx, oc: oc}
 }
 
+// maxPickerAttempts is how many times the picker prompt is run before the
+// command reports an error naming the limit.
+const maxPickerAttempts = 3
+
+// RunPicker asks the AI to select one incomplete item and returns it. A
+// selection is usable only when picked-item-index.txt holds an integer that
+// names an index inside the resolved item array; when a run leaves no usable
+// selection — the index file missing, not an integer, or out of range — the
+// same prompt is re-run until maxPickerAttempts attempts have been made. When
+// every attempt is unusable the returned error names the attempt limit. An
+// opencode execution failure is returned immediately and is never retried.
 func (a *AgentClient) RunPicker(proj *project.Project, incomplete []project.Item) (project.Item, error) {
 	cfg, err := config.LoadConfig()
 	if err != nil {
@@ -53,18 +64,23 @@ func (a *AgentClient) RunPicker(proj *project.Project, incomplete []project.Item
 		a.ctx.Output().Debug(prompt)
 	}
 
-	if err := ai.RunAgentPrimary(a.ctx, a.oc, prompt); err != nil {
-		return project.Item{}, err
-	}
+	var lastErr error
+	for attempt := 1; attempt <= maxPickerAttempts; attempt++ {
+		if err := ai.RunAgentPrimary(a.ctx, a.oc, prompt); err != nil {
+			return project.Item{}, err
+		}
 
-	idx, err := readPickedIndex()
-	if err != nil {
-		return project.Item{}, err
+		idx, err := readPickedIndex()
+		if err == nil {
+			if idx < 0 || idx >= len(proj.Items) {
+				err = fmt.Errorf("picker reported index %d which is outside the resolved item array (%d items)", idx, len(proj.Items))
+			} else {
+				return proj.Items[idx], nil
+			}
+		}
+		lastErr = err
 	}
-	if idx < 0 || idx >= len(proj.Items) {
-		return project.Item{}, fmt.Errorf("picker reported index %d which is outside the resolved item array (%d items)", idx, len(proj.Items))
-	}
-	return proj.Items[idx], nil
+	return project.Item{}, fmt.Errorf("no usable selection after the %d-attempt limit: %w", maxPickerAttempts, lastErr)
 }
 
 func (a *AgentClient) RunDeveloper(proj *project.Project, item project.Item) error {

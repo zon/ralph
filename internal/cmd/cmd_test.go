@@ -278,6 +278,22 @@ func TestRunCmdHelpText(t *testing.T) {
 	assert.Contains(t, output, "Execute Ralph with a project file")
 }
 
+func TestRunCmdExtraIterationsHelpDescribesThirtyPercentDefault(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		args []string
+	}{
+		{name: "run", args: []string{"run", "--help"}},
+		{name: "workflow run", args: []string{"workflow", "run", "--help"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			output := captureHelpOutput(&Cmd{}, tc.args)
+			assert.Contains(t, output, "--extra")
+			assert.Contains(t, output, "default: 30% item count")
+		})
+	}
+}
+
 func TestValidateCmdHelpText(t *testing.T) {
 	output := captureHelpOutput(&Cmd{}, []string{"validate", "--help"})
 	assert.Contains(t, output, "Validate a project YAML file")

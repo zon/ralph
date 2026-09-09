@@ -14,10 +14,10 @@ func withItems(n int) *project.Project {
 	return &project.Project{Items: project.NewItems(make([]any, n))}
 }
 
-func TestExtraIterationsDefaultTwentyPercent(t *testing.T) {
+func TestExtraIterationsDefaultThirtyPercent(t *testing.T) {
 	cfg := &config.RalphConfig{}
 	c := &project.Client{}
-	assert.Equal(t, 2, c.ExtraIterations(withItems(10), cfg))
+	assert.Equal(t, 3, c.ExtraIterations(withItems(10), cfg))
 }
 
 func TestExtraIterationsRoundsUp(t *testing.T) {

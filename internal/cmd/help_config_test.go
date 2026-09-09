@@ -69,6 +69,33 @@ func TestConfigDocumentationLoopMax(t *testing.T) {
 	assert.Contains(t, loops, "takes priority over", "the Loops section must state the --max flag's precedence over the max field")
 }
 
+// TestConfigDocumentationExtraIterationsDefault asserts the Iterations section
+// of the embedded configuration reference documents the 30% default the loop
+// applies when extraIterations is unset.
+func TestConfigDocumentationExtraIterationsDefault(t *testing.T) {
+	doc := config.ConfigDocumentation()
+	require.NotEmpty(t, doc)
+	assert.Contains(t, doc, "## Iterations")
+	iterations := iterationsSection(t, doc)
+
+	assert.Contains(t, iterations, "extraIterations", "the Iterations section must document the extraIterations field")
+	assert.Contains(t, iterations, "30%", "the Iterations section must state the 30% default")
+	assert.Contains(t, iterations, "--extra", "the Iterations section must document the --extra flag")
+}
+
+// iterationsSection returns the body of the Iterations section, from its
+// header to the next section header.
+func iterationsSection(t *testing.T, doc string) string {
+	t.Helper()
+	const header = "## Iterations"
+	start := strings.Index(doc, header)
+	require.NotEqual(t, -1, start, "the documentation must contain an Iterations section")
+	body := doc[start+len(header):]
+	next := strings.Index(body, "\n## ")
+	require.NotEqual(t, -1, next, "the Iterations section must be followed by another section")
+	return body[:next]
+}
+
 // loopsSection returns the body of the Loops section, from its header to the
 // next section header.
 func loopsSection(t *testing.T, doc string) string {

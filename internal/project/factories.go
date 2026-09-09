@@ -199,13 +199,13 @@ func (m *MockProject) Incomplete(proj *Project, base string) ([]Item, error) {
 	return nil, nil
 }
 
-// ExtraIterations returns the configured extra iteration count, or 20% of the
+// ExtraIterations returns the configured extra iteration count, or 30% of the
 // item count rounded up when unset.
 func (m *MockProject) ExtraIterations(proj *Project, cfg *config.RalphConfig) int {
 	if cfg.ExtraIterations != nil {
 		return *cfg.ExtraIterations
 	}
-	return int(math.Ceil(float64(len(proj.Items)) * 0.2))
+	return int(math.Ceil(float64(len(proj.Items)) * 0.3))
 }
 
 // IncompleteError returns an error naming the items that are still incomplete,
