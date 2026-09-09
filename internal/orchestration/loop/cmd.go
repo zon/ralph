@@ -80,11 +80,13 @@ type Result struct {
 // Run resolves the branch slug and the steps to run, switches to the loop
 // branch so the agent works on its own state, builds the loop prompt embedding
 // the steps, and runs it as an iteration loop. The loop stops when the agent
-// reports nothing to do or after max iterations, whichever comes first. After
-// the loop ends it opens the loop branch's pull request. It returns the
-// resolution so the caller can derive the branch name from the slug. Inside a
-// workflow container the accumulated AI token usage and cost statistics are
-// printed at the end of execution, whether the loop succeeded or failed.
+// reports nothing to do or after max iterations, whichever comes first. An
+// iteration whose agent pass leaves report.md missing or unreadable is not
+// committed and the loop runs its next iteration. After the loop ends it opens
+// the loop branch's pull request. It returns the resolution so the caller can
+// derive the branch name from the slug. Inside a workflow container the
+// accumulated AI token usage and cost statistics are printed at the end of
+// execution, whether the loop succeeded or failed.
 func (c *Cmd) Run(slug string, steps []string, max int) (*Result, error) {
 	result, err := c.Resolve(slug, steps)
 	if err != nil {
@@ -135,9 +137,12 @@ func (c *Cmd) runResolved(result *Result, max int, inWorktree bool) error {
 }
 
 // iterate runs the loop prompt as an iteration loop. Each iteration invokes
-// the AI, reads the agent's report, and commits the iteration when the report
-// says work was done. The loop stops when the report says nothing to do or
-// after max iterations, whichever comes first.
+// the AI and reads the agent's report. An iteration whose agent pass leaves
+// report.md missing or unreadable is not committed: the loop moves on to the
+// next iteration instead of returning an error, still bounded by the iteration
+// cap. Otherwise the iteration commits when the report says work was done. The
+// loop stops when the report says nothing to do or after max iterations,
+// whichever comes first.
 func (c *Cmd) iterate(prompt string, max int, slug string) error {
 	for i := 0; i < max; i++ {
 		if err := c.ai.RunAgent(prompt); err != nil {
@@ -145,7 +150,7 @@ func (c *Cmd) iterate(prompt string, max int, slug string) error {
 		}
 		report, err := c.report.ReadReport()
 		if err != nil {
-			return err
+			continue
 		}
 		if report.IsNothingToDo() {
 			return nil

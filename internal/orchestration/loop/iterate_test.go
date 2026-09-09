@@ -110,24 +110,72 @@ func TestRunPropagatesAIError(t *testing.T) {
 	assert.Equal(t, 0, report.reads, "the report is not read when the AI pass fails")
 }
 
-// TestRunPropagatesReportReadError asserts a report read failure aborts the
-// loop and is returned unchanged.
-func TestRunPropagatesReportReadError(t *testing.T) {
+// TestRunContinuesWhenReportUnreadable asserts an iteration whose agent pass
+// leaves report.md missing or unreadable makes no commit and the loop moves on
+// to the next iteration without returning an error. The loop is still bounded
+// by the iteration cap: an agent pass that never leaves a readable report runs
+// every iteration up to max, committing nothing.
+func TestRunContinuesWhenReportUnreadable(t *testing.T) {
 	steps := []string{"run gofmt"}
-	client := &mockLoopConfigClient{loops: map[string][]string{"fmt": steps}}
-	prompt := &mockPromptBuilder{}
-	proposer := &mockSlugProposer{slug: "proposed"}
-	ai := &mockAIClient{}
 	readErr := errors.New("failed to read report.md: boom")
-	report := &mockReportReader{err: readErr}
+	tests := []struct {
+		name         string
+		reports      []string
+		alwaysErr    error
+		readErrs     map[int]error
+		max          int
+		wantAICalls  int
+		wantReads    int
+		wantGitCalls int
+	}{
+		{
+			name:         "skips the unreadable iteration then commits the next work report",
+			reports:      []string{"did the work"},
+			readErrs:     map[int]error{1: readErr},
+			max:          2,
+			wantAICalls:  2,
+			wantReads:    2,
+			wantGitCalls: 1,
+		},
+		{
+			name:         "commits nothing for an unreadable report and stops on a later nothing-to-do report",
+			reports:      []string{"NOTHING_TO_DO"},
+			readErrs:     map[int]error{1: readErr},
+			max:          5,
+			wantAICalls:  2,
+			wantReads:    2,
+			wantGitCalls: 0,
+		},
+		{
+			name:         "an unreadable report on every iteration runs to the cap without committing",
+			reports:      []string{"did the work"},
+			alwaysErr:    readErr,
+			max:          3,
+			wantAICalls:  3,
+			wantReads:    3,
+			wantGitCalls: 0,
+		},
+	}
 
-	result, err := NewCmd(client, prompt, proposer, ai, report, &mockGitClient{}, &mockPullRequestOpener{}, envNotInWorkflow()).Run("fmt", steps, 10)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := &mockLoopConfigClient{loops: map[string][]string{"fmt": steps}}
+			prompt := &mockPromptBuilder{}
+			proposer := &mockSlugProposer{slug: "proposed"}
+			ai := &mockAIClient{}
+			report := &mockReportReader{reports: tt.reports, err: tt.alwaysErr, readErrs: tt.readErrs}
+			git := &mockGitClient{}
 
-	require.Error(t, err)
-	assert.Nil(t, result, "no resolution is returned when the report read fails")
-	assert.Equal(t, readErr, err, "the report read error is returned unchanged")
-	assert.Equal(t, 1, ai.calls, "the AI is invoked once before the read fails")
-	assert.Equal(t, 1, report.reads, "the report is read once before failing")
+			result, err := NewCmd(client, prompt, proposer, ai, report, git, &mockPullRequestOpener{}, envNotInWorkflow()).Run("fmt", steps, tt.max)
+
+			require.NoError(t, err, "an unreadable report must not fail the loop")
+			assertResolved(t, result, "fmt", steps)
+			assert.Equal(t, tt.wantAICalls, ai.calls, "the AI runs once per iteration until the loop stops or the cap is reached")
+			assert.Equal(t, tt.wantReads, report.reads, "the report is read once per iteration until the loop stops or the cap is reached")
+			assert.Equal(t, tt.wantGitCalls, git.calls, "only iterations whose report is readable and reports work are committed")
+			assert.Equal(t, tt.wantGitCalls, len(git.slugs), "every commit records the slug it was called with")
+		})
+	}
 }
 
 // TestRunPropagatesIterationCommitError asserts a commit failure aborts the
