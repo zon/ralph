@@ -223,7 +223,7 @@ At the start of every iteration the command SHALL determine which items are comp
 
 ### Requirement: Iteration loop
 
-The iteration loop SHALL invoke the AI agent repeatedly until every item is complete or the iteration limit is reached. The iteration limit SHALL be the resolved item count plus the extra iteration count. When the extra iteration count is unset (nil), it SHALL default to 20% of the item count, rounded up. Each iteration checks for a blocked state before invoking the AI.
+The iteration loop SHALL invoke the AI agent repeatedly until every item is complete or the iteration limit is reached. The iteration limit SHALL be the resolved item count plus the extra iteration count. When the extra iteration count is unset (nil), it SHALL default to 30% of the item count, rounded up. Each iteration checks for a blocked state before invoking the AI.
 
 #### Scenario: All items already complete
 
@@ -238,19 +238,19 @@ The iteration loop SHALL invoke the AI agent repeatedly until every item is comp
 - THEN the loop exits after iteration 5
 - AND does not consume additional iterations
 
-#### Scenario: Default extra iterations is 20% when unset
+#### Scenario: Default extra iterations is 30% when unset
 
 - GIVEN neither `extraIterations` in config nor `--extra` flag is set
 - AND the project resolves to 10 items
 - WHEN the iteration loop starts
-- THEN the iteration limit is 12 (10 items + 20% of 10)
+- THEN the iteration limit is 13 (10 items + 30% of 10)
 
 #### Scenario: Default extra iterations rounds up
 
 - GIVEN neither `extraIterations` in config nor `--extra` flag is set
 - AND the project resolves to 3 items
 - WHEN the iteration loop starts
-- THEN the iteration limit is 4 (3 items + 20% of 3 rounded up from 0.6 to 1)
+- THEN the iteration limit is 4 (3 items + 30% of 3 rounded up from 0.9 to 1)
 
 #### Scenario: Extra iterations exhausted with items incomplete
 
