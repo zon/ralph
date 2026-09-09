@@ -212,24 +212,7 @@ func TestRunItemsAbsentLeavesConfigQuery(t *testing.T) {
 	require.Equal(t, ".", capturedCfg.Items)
 }
 
-func TestRunCleanupAppliedToConfig(t *testing.T) {
-	var capturedCfg *ralphcfg.RalphConfig
-	mockRunner := &mockRunnerClient{
-		runLocalFunc: func(proj *ralphproj.Project, cfg *ralphcfg.RalphConfig) error {
-			capturedCfg = cfg
-			return nil
-		},
-	}
-	cmd := run.withMocks(
-		run.withRunner(mockRunner),
-	)
-	err := cmd.Run(flags.withCleanup())
-	require.NoError(t, err)
-	require.NotNil(t, capturedCfg)
-	require.True(t, capturedCfg.Cleanup)
-}
-
-func TestRunCleanupAbsentLeavesCleanupDisabled(t *testing.T) {
+func TestRunCleanupEnabledByDefault(t *testing.T) {
 	var capturedCfg *ralphcfg.RalphConfig
 	mockRunner := &mockRunnerClient{
 		runLocalFunc: func(proj *ralphproj.Project, cfg *ralphcfg.RalphConfig) error {
@@ -243,5 +226,25 @@ func TestRunCleanupAbsentLeavesCleanupDisabled(t *testing.T) {
 	err := cmd.Run(flags.any())
 	require.NoError(t, err)
 	require.NotNil(t, capturedCfg)
-	require.False(t, capturedCfg.Cleanup)
+	require.True(t, capturedCfg.Cleanup, "cleanup should be enabled by default")
+}
+
+func TestRunCleanupDisabledByConfig(t *testing.T) {
+	var capturedCfg *ralphcfg.RalphConfig
+	mockRunner := &mockRunnerClient{
+		runLocalFunc: func(proj *ralphproj.Project, cfg *ralphcfg.RalphConfig) error {
+			capturedCfg = cfg
+			return nil
+		},
+	}
+	cmd := run.withMocks(
+		run.withConfig(&mockConfigClient{
+			loadOptionalFunc: func() (*ralphcfg.RalphConfig, error) { return ralphcfg.WithoutCleanup(), nil },
+		}),
+		run.withRunner(mockRunner),
+	)
+	err := cmd.Run(flags.any())
+	require.NoError(t, err)
+	require.NotNil(t, capturedCfg)
+	require.False(t, capturedCfg.Cleanup, "cleanup: false in the config file keeps the project file")
 }

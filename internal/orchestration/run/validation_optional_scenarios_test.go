@@ -78,7 +78,7 @@ func TestRunLocalForeignFileNotReformatted(t *testing.T) {
 	)
 
 	// WHEN the user runs ralph against it without validating first
-	err := runner.RunLocal(project.ForProjectInput(&project.Project{Path: path}), config.WithItems(".jobs"))
+	err := runner.RunLocal(project.ForProjectInput(&project.Project{Path: path}), config.WithItems(".jobs").WithoutCleanup())
 	require.NoError(t, err)
 
 	// THEN the run resolves items normally
@@ -103,7 +103,7 @@ func TestRunLocalNeverValidatedFileRunnable(t *testing.T) {
 		withProject(client),
 	)
 
-	err := runner.RunLocal(project.ForProjectInput(&project.Project{Path: path}), config.WithItems(".jobs"))
+	err := runner.RunLocal(project.ForProjectInput(&project.Project{Path: path}), config.WithItems(".jobs").WithoutCleanup())
 	require.NoError(t, err)
 	require.Equal(t, 1, client.resolveCount)
 }

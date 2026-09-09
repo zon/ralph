@@ -14,10 +14,21 @@ func TestRemoveProjectFileSkippedWhenCleanupDisabled(t *testing.T) {
 	runner := withMocks(
 		withProject(projMock),
 	)
-	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.Any())
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.WithoutCleanup())
 	require.NoError(t, err)
 	require.False(t, projMock.Removed())
 	require.False(t, gitProjectRemovalCommitted(runner))
+}
+
+func TestRemoveProjectFileRemovesByDefault(t *testing.T) {
+	projMock := project.ThatReportsAllComplete()
+	runner := withMocks(
+		withProject(projMock),
+	)
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.Any())
+	require.NoError(t, err)
+	require.True(t, projMock.Removed(), "cleanup should be enabled by default")
+	require.True(t, gitProjectRemovalCommitted(runner))
 }
 
 func TestRemoveProjectFileRemovesAndCommitsWhenCleanupEnabled(t *testing.T) {

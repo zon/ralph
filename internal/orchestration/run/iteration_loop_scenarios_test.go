@@ -71,7 +71,7 @@ func TestIterationLoopScenario_OutOfRangeTrailerIgnoredWithWarning(t *testing.T)
 	runner := withMocks(
 		withProject(client),
 	)
-	err := runner.RunLocal(project.ForProjectInput(proj), config.Any())
+	err := runner.RunLocal(project.ForProjectInput(proj), config.Any().WithoutCleanup())
 	require.NoError(t, err)
 	require.Contains(t, out.String(), "matches no resolved item")
 	require.Contains(t, out.String(), project.NewItems([]any{"four"})[0].Hash())

@@ -463,7 +463,7 @@ Before submitting a pull request the command SHALL check whether the project's s
 
 ### Requirement: Project file cleanup before PR
 
-When cleanup is enabled by the caller (see [run.md](run.md)) and every item is complete, the command SHALL delete the project file and commit the deletion on its own, before the pull request is opened. The cleanup commit SHALL carry no completion trailer and SHALL contain no other changes. Cleanup SHALL be skipped when it is not enabled.
+When cleanup is enabled (see [run.md](run.md)) and every item is complete, the command SHALL delete the project file and commit the deletion on its own, before the pull request is opened. The cleanup commit SHALL carry no completion trailer and SHALL contain no other changes. Cleanup SHALL be skipped when it is not enabled. Cleanup is enabled by default and disabled only when `.ralph/config.yaml` sets `cleanup: false`.
 
 #### Scenario: Project file deleted in its own commit
 
@@ -482,7 +482,7 @@ When cleanup is enabled by the caller (see [run.md](run.md)) and every item is c
 
 #### Scenario: Cleanup disabled leaves the file in place
 
-- GIVEN cleanup is not enabled
+- GIVEN `cleanup: false` is set in `.ralph/config.yaml`
 - WHEN all items are complete
 - THEN the project file is left in the repository and no cleanup commit is created
 

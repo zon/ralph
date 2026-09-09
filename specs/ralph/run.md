@@ -321,30 +321,19 @@ Item query resolution follows a three-level precedence: `--items` at the command
 
 ---
 
-### Requirement: Cleanup resolution
+### Requirement: Project file cleanup
 
-The command SHALL accept `--cleanup` to request that the project file be deleted in its own commit once every item is complete. The resolved value SHALL be passed down to the execution mode, which performs the deletion. See [run-local.md](run-local.md).
+The command SHALL delete the project file in its own commit once every item is complete, before the pull request is opened. Cleanup is enabled by default; it is disabled only when `cleanup: false` is set in `.ralph/config.yaml`. The resolved value SHALL be honored by the execution mode, which performs the deletion. See [run-local.md](run-local.md).
 
-Cleanup resolution follows a three-level precedence: `--cleanup` at the command line takes priority. Otherwise the `cleanup` field in `.ralph/config.yaml` is used. Otherwise cleanup is disabled.
-
-#### Scenario: `--cleanup` enables cleanup for one run
+#### Scenario: Cleanup enabled by default
 
 - GIVEN `cleanup` is not set in `.ralph/config.yaml`
-- AND the user passes `--cleanup`
-- WHEN cleanup is resolved
-- THEN cleanup is enabled for this run
-
-#### Scenario: Config value used when no flag is passed
-
-- GIVEN `cleanup: true` is set in `.ralph/config.yaml`
-- AND no `--cleanup` flag is passed
 - WHEN cleanup is resolved
 - THEN cleanup is enabled
 
-#### Scenario: Cleanup disabled by default
+#### Scenario: Config value disables cleanup
 
-- GIVEN `cleanup` is not set in `.ralph/config.yaml`
-- AND no `--cleanup` flag is passed
+- GIVEN `cleanup: false` is set in `.ralph/config.yaml`
 - WHEN cleanup is resolved
 - THEN cleanup is disabled and the project file survives the run
 

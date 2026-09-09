@@ -143,18 +143,24 @@ The item query SHALL be resolved locally (see [run.md](run.md)) and passed to th
 
 ---
 
-### Requirement: Cleanup setting delivered to the workflow
+### Requirement: Project file cleanup in the container
 
-The cleanup setting SHALL be resolved locally (see [run.md](run.md)) and passed to the generated workflow as the `--cleanup` CLI argument to `ralph workflow run` when enabled.
+Project file cleanup is enabled by default (see [run.md](run.md)) and is not delivered to the container as an argument: the `--cleanup` flag was removed when cleanup became the default. The container reads the `cleanup` field from the repository's own `.ralph/config.yaml`, so `cleanup: false` committed there keeps the project file in the pull request.
 
-#### Scenario: Cleanup enabled
+#### Scenario: Cleanup enabled by default
 
-- GIVEN cleanup resolved to enabled before workflow submission
-- WHEN the workflow YAML is generated
-- THEN the container args for `ralph workflow run` include `--cleanup`
+- GIVEN the repository's `.ralph/config.yaml` does not set `cleanup: false`
+- WHEN the container runs the project
+- THEN the project file is deleted in its own commit once every item is complete, before the pull request is opened
 
-#### Scenario: Cleanup disabled
+#### Scenario: Cleanup disabled by repository config
 
-- GIVEN cleanup resolved to disabled
-- WHEN the workflow YAML is generated
-- THEN the container args contain no `--cleanup` flag
+- GIVEN `cleanup: false` is set in the repository's `.ralph/config.yaml`
+- WHEN the container runs the project
+- THEN the project file is left in the repository and no cleanup commit is created
+
+#### Scenario: No cleanup argument in the workflow
+
+- GIVEN a workflow is generated for a run
+- WHEN the container args for `ralph workflow run` are built
+- THEN they contain no `--cleanup` flag

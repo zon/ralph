@@ -399,8 +399,9 @@ func TestWorkflowSubcommandsParsed(t *testing.T) {
 }
 
 // TestWorkflowRunItemFlagsParsed covers the items that `ralph workflow run`
-// accepts an `--items` flag holding the item query and a `--cleanup` flag for
-// the cleanup setting, with `--items` defaulting to empty when absent.
+// accepts an `--items` flag holding the item query, with `--items` defaulting
+// to empty when absent. The `--cleanup` flag is removed now that project file
+// cleanup is enabled by default.
 func TestWorkflowRunItemFlagsParsed(t *testing.T) {
 	cmd := &Cmd{}
 	parser, err := kong.New(cmd,
@@ -415,13 +416,11 @@ func TestWorkflowRunItemFlagsParsed(t *testing.T) {
 		"--project-path", "test.yaml",
 		"--base", "main",
 		"--items", ".spec.tasks",
-		"--cleanup",
 		"--model", "gpt-4",
 		"--variant", "high",
 	})
 	require.NoError(t, err)
 	require.Equal(t, ".spec.tasks", cmd.Workflow.Run.Items)
-	require.True(t, cmd.Workflow.Run.Cleanup)
 	require.Equal(t, "gpt-4", cmd.Workflow.Run.Model)
 	require.Equal(t, "high", cmd.Workflow.Run.Variant)
 
@@ -439,7 +438,6 @@ func TestWorkflowRunItemFlagsParsed(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, "", cmd2.Workflow.Run.Items)
-	require.False(t, cmd2.Workflow.Run.Cleanup)
 }
 
 // TestTopLevelHelpListsNoMergeCommand asserts the top-level help lists no merge

@@ -380,7 +380,8 @@ type RalphConfig struct {
 	Variant         string         `yaml:"variant,omitempty"`
 	Mode            string         `yaml:"mode,omitempty"`    // Execution mode: local, worktree, or remote (default: local)
 	Items           string         `yaml:"items,omitempty"`   // jq query selecting the item array from a project file (default: .)
-	Cleanup         bool           `yaml:"cleanup,omitempty"` // Delete the project file once every item is complete (default: false)
+	Cleanup         bool           `yaml:"cleanup,omitempty"` // Delete the project file once every item is complete (default: true; set false to keep the file)
+	cleanupSet      bool           `yaml:"-"`                 // Whether the config file explicitly set cleanup
 	Base            string         `yaml:"-"`                 // Base branch resolved by the caller, bounding the commit log completion is read from
 	ExtraIterations *int           `yaml:"extraIterations,omitempty"`
 	DefaultBranch   string         `yaml:"defaultBranch,omitempty"`
@@ -484,6 +485,11 @@ func applyDefaults(config *RalphConfig) {
 	if config.App.ID == "" {
 		config.App.ID = DefaultAppID
 	}
+	// Project file cleanup defaults to enabled and is disabled only when the
+	// config file explicitly sets `cleanup: false`.
+	if !config.cleanupSet {
+		config.Cleanup = true
+	}
 
 	for i := range config.Services {
 		if config.Services[i].Timeout == 0 {
@@ -502,16 +508,6 @@ func (c *RalphConfig) ResolveItems(flag string) string {
 		return c.Items
 	}
 	return "."
-}
-
-// ResolveCleanup returns whether project file cleanup is enabled for a run:
-// the flag when passed, otherwise the config `cleanup` field, otherwise false.
-// A nil flag means the flag was not passed.
-func (c *RalphConfig) ResolveCleanup(flag *bool) bool {
-	if flag != nil {
-		return *flag
-	}
-	return c.Cleanup
 }
 
 // ResolveMode returns the effective execution mode for a run: the flag when
@@ -586,7 +582,33 @@ func loadConfigFromPath(configPath string) (*RalphConfig, error) {
 		return nil, fmt.Errorf("failed to parse config YAML: %w", err)
 	}
 	config.ConfigPath = configPath
+	// Cleanup defaults to enabled, so record whether the file explicitly set
+	// it: an absent `cleanup` key must not read as `cleanup: false`.
+	config.cleanupSet = hasCleanupKey(data)
 	return &config, nil
+}
+
+// hasCleanupKey reports whether the YAML document's top-level mapping carries a
+// `cleanup` key. A plain boolean field cannot distinguish an absent key from an
+// explicit `cleanup: false`, so presence is read from the raw document.
+func hasCleanupKey(data []byte) bool {
+	var root yaml.Node
+	if err := yaml.Unmarshal(data, &root); err != nil {
+		return false
+	}
+	if len(root.Content) == 0 {
+		return false
+	}
+	doc := root.Content[0]
+	if doc.Kind != yaml.MappingNode {
+		return false
+	}
+	for i := 0; i+1 < len(doc.Content); i += 2 {
+		if doc.Content[i].Value == "cleanup" {
+			return true
+		}
+	}
+	return false
 }
 
 // loadInstructions loads the instruction file from the config directory.

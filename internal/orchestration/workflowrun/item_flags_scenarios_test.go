@@ -107,11 +107,13 @@ func TestWorkflowRunItemQueryScenario(t *testing.T) {
 }
 
 // TestWorkflowRunCleanupScenario covers the "Cleanup" scenario at the workflow
-// run boundary: the --cleanup flag is passed through to the local execution
-// behavior, which deletes and commits the project file before the pull request
-// when every item is complete and leaves it in place when the flag is absent.
+// run boundary: project file cleanup is enabled by default and disabled only
+// when the repository's config file sets `cleanup: false`. The loaded config is
+// passed through to the local execution behavior, which deletes and commits the
+// project file before the pull request when every item is complete and leaves
+// it in place when cleanup is disabled.
 func TestWorkflowRunCleanupScenario(t *testing.T) {
-	t.Run("cleanup provided is passed through", func(t *testing.T) {
+	t.Run("cleanup enabled by default", func(t *testing.T) {
 		var capturedCfg *ralphcfg.RalphConfig
 		runnerMock := &mockRunnerClient{
 			runLocalFunc: func(proj *ralphproj.Project, cfg *ralphcfg.RalphConfig) error {
@@ -122,13 +124,13 @@ func TestWorkflowRunCleanupScenario(t *testing.T) {
 		cmd := run.withMocks(
 			run.withRunner(runnerMock),
 		)
-		err := cmd.Run(flags.withCleanup())
+		err := cmd.Run(flags.any())
 		require.NoError(t, err)
 		require.NotNil(t, capturedCfg)
 		require.True(t, capturedCfg.Cleanup)
 	})
 
-	t.Run("cleanup absent leaves file in place", func(t *testing.T) {
+	t.Run("cleanup: false leaves file in place", func(t *testing.T) {
 		var capturedCfg *ralphcfg.RalphConfig
 		runnerMock := &mockRunnerClient{
 			runLocalFunc: func(proj *ralphproj.Project, cfg *ralphcfg.RalphConfig) error {
@@ -137,6 +139,9 @@ func TestWorkflowRunCleanupScenario(t *testing.T) {
 			},
 		}
 		cmd := run.withMocks(
+			run.withConfig(&mockConfigClient{
+				loadOptionalFunc: func() (*ralphcfg.RalphConfig, error) { return ralphcfg.WithoutCleanup(), nil },
+			}),
 			run.withRunner(runnerMock),
 		)
 		err := cmd.Run(flags.any())

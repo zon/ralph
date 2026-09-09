@@ -34,12 +34,12 @@ The system SHALL apply run-specific flags to the execution context before starti
 - THEN that query is used to resolve the item array
 - AND the `items` field in `.ralph/config.yaml` is not consulted
 
-#### Scenario: Cleanup
+#### Scenario: Project file cleanup
 
-- GIVEN `--cleanup` is provided
+- GIVEN the repository's `.ralph/config.yaml` does not disable cleanup
 - WHEN every item is complete
 - THEN the project file is deleted and the deletion committed on its own before the pull request is opened
-- AND when `--cleanup` is absent, the project file is left in place
+- AND when `cleanup: false` is set in `.ralph/config.yaml`, the project file is left in place
 
 #### Scenario: Agent override
 

@@ -40,10 +40,21 @@ func WithBase(branch string) *RalphConfig {
 	return cfg
 }
 
-// WithCleanup returns a config with project file cleanup enabled.
+// WithCleanup returns a config with project file cleanup enabled. Cleanup is
+// enabled by default, so this is a no-op kept for callers that make the
+// behavior explicit.
 func WithCleanup() *RalphConfig {
 	cfg := Any()
 	cfg.Cleanup = true
+	return cfg
+}
+
+// WithoutCleanup returns a config with project file cleanup disabled, as if
+// the config file set `cleanup: false`.
+func WithoutCleanup() *RalphConfig {
+	cfg := Any()
+	cfg.Cleanup = false
+	cfg.cleanupSet = true
 	return cfg
 }
 
@@ -59,9 +70,18 @@ func (c *RalphConfig) WithBase(branch string) *RalphConfig {
 	return c
 }
 
-// WithCleanup chains project file cleanup onto a config.
+// WithCleanup chains project file cleanup onto a config. Cleanup is enabled by
+// default, so this is a no-op kept for callers that make the behavior explicit.
 func (c *RalphConfig) WithCleanup() *RalphConfig {
 	c.Cleanup = true
+	return c
+}
+
+// WithoutCleanup chains project file cleanup disabled onto a config, as if the
+// config file set `cleanup: false`.
+func (c *RalphConfig) WithoutCleanup() *RalphConfig {
+	c.Cleanup = false
+	c.cleanupSet = true
 	return c
 }
 

@@ -49,7 +49,7 @@ type GitClient interface {
 }
 
 type WorkflowClient interface {
-	Submit(input *project.InputFile, cloneBranch string, debug string, baseBranch string, items string, cleanup bool) (string, error)
+	Submit(input *project.InputFile, cloneBranch string, debug string, baseBranch string, items string) (string, error)
 	FollowLogs(workflowName string) error
 	PrintLogHint(workflowName string)
 }

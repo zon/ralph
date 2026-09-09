@@ -49,7 +49,7 @@ func TestGenerateWorkflow(t *testing.T) {
 	projectBranch := "test-project"
 	relProjectPath := "project.yaml"
 
-	wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", repoURL, cloneBranch, projectBranch, "main", "", false, relProjectPath, false, cfg, instructions)
+	wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", repoURL, cloneBranch, projectBranch, "main", "", relProjectPath, false, cfg, instructions)
 	require.NoError(t, err, "GenerateWorkflowWithGitInfo failed")
 	workflowYAML, err := wf.Render()
 	require.NoError(t, err, "Render failed")
@@ -223,7 +223,7 @@ func TestGenerateWorkflow_DefaultImage(t *testing.T) {
 		DefaultBranch: "main",
 	}
 	ctx := &execcontext.Context{}
-	wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", "git@github.com:test/repo.git", "main", "test-project", "main", "", false, "project.yaml", false, cfg, "")
+	wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", "git@github.com:test/repo.git", "main", "test-project", "main", "", "project.yaml", false, cfg, "")
 	require.NoError(t, err, "GenerateWorkflowWithGitInfo failed")
 	workflowYAML, err := wf.Render()
 	require.NoError(t, err, "Render failed")
@@ -374,7 +374,7 @@ func TestBaseBranchPassedToWorkflow(t *testing.T) {
 	projectBranch := "test-project"
 	relProjectPath := "project.yaml"
 
-	wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", repoURL, cloneBranch, projectBranch, "override-branch", "", false, relProjectPath, false, cfg, "")
+	wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", repoURL, cloneBranch, projectBranch, "override-branch", "", relProjectPath, false, cfg, "")
 	require.NoError(t, err, "GenerateWorkflowWithGitInfo failed")
 
 	assert.Equal(t, "override-branch", wf.BaseBranch, "BaseBranch should be set from the resolved baseBranch parameter")
@@ -418,7 +418,7 @@ func TestBaseBranchPassedToWorkflow(t *testing.T) {
 	assert.True(t, hasBaseArg, "--base override-branch should be passed as a container arg")
 }
 
-func TestItemsAndCleanupPassedToWorkflow(t *testing.T) {
+func TestItemsPassedToWorkflow(t *testing.T) {
 	cfg := &config.RalphConfig{
 		DefaultBranch: "main",
 		Workflow: config.WorkflowConfig{
@@ -427,11 +427,10 @@ func TestItemsAndCleanupPassedToWorkflow(t *testing.T) {
 	}
 	ctx := &execcontext.Context{}
 
-	wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", "git@github.com:test/repo.git", "main", "test-project", "main", ".spec.tasks", true, "project.yaml", false, cfg, "")
+	wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", "git@github.com:test/repo.git", "main", "test-project", "main", ".spec.tasks", "project.yaml", false, cfg, "")
 	require.NoError(t, err, "GenerateWorkflowWithGitInfo failed")
 
 	assert.Equal(t, ".spec.tasks", wf.Items, "Items should be set from the resolved items parameter")
-	assert.True(t, wf.Cleanup, "Cleanup should be set from the resolved cleanup parameter")
 
 	workflowYAML, err := wf.Render()
 	require.NoError(t, err, "Render failed")
@@ -454,17 +453,10 @@ func TestItemsAndCleanupPassedToWorkflow(t *testing.T) {
 	}
 	assert.True(t, hasItemsArg, "--items .spec.tasks should be passed as a container arg")
 
-	var hasCleanupArg bool
-	for _, a := range args {
-		if a == "--cleanup" {
-			hasCleanupArg = true
-			break
-		}
-	}
-	assert.True(t, hasCleanupArg, "--cleanup should be passed as a container arg")
+	assert.NotContains(t, args, "--cleanup", "args should not carry --cleanup now that cleanup is the default")
 }
 
-func TestItemsDefaultsToExplicitDotAndCleanupOmittedWhenUnset(t *testing.T) {
+func TestItemsDefaultsToExplicitDot(t *testing.T) {
 	cfg := &config.RalphConfig{
 		DefaultBranch: "main",
 		Workflow: config.WorkflowConfig{
@@ -473,7 +465,7 @@ func TestItemsDefaultsToExplicitDotAndCleanupOmittedWhenUnset(t *testing.T) {
 	}
 	ctx := &execcontext.Context{}
 
-	wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", "git@github.com:test/repo.git", "main", "test-project", "main", "", false, "project.yaml", false, cfg, "")
+	wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", "git@github.com:test/repo.git", "main", "test-project", "main", "", "project.yaml", false, cfg, "")
 	require.NoError(t, err, "GenerateWorkflowWithGitInfo failed")
 
 	workflowYAML, err := wf.Render()
@@ -490,7 +482,7 @@ func TestItemsDefaultsToExplicitDotAndCleanupOmittedWhenUnset(t *testing.T) {
 	args := container["args"].([]interface{})
 	assert.Contains(t, args, "--items", "args should always carry the item query as --items")
 	assert.Contains(t, args, ".", "args should carry the default item query . when the resolved query is unset")
-	assert.NotContains(t, args, "--cleanup", "args should not contain --cleanup when unset")
+	assert.NotContains(t, args, "--cleanup", "args should not contain --cleanup")
 }
 
 func TestKubeContextOverride(t *testing.T) {
@@ -506,7 +498,7 @@ func TestKubeContextOverride(t *testing.T) {
 		ctx := &execcontext.Context{}
 		ctx.SetKubeContext("override-context")
 
-		wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", "git@github.com:test/repo.git", "main", "test-project", "main", "", false, "project.yaml", false, cfg, "")
+		wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", "git@github.com:test/repo.git", "main", "test-project", "main", "", "project.yaml", false, cfg, "")
 		require.NoError(t, err, "GenerateWorkflowWithGitInfo failed")
 
 		assert.Equal(t, "override-context", wf.KubeContext, "KubeContext should be set from context override")
@@ -515,7 +507,7 @@ func TestKubeContextOverride(t *testing.T) {
 	t.Run("falls back to config when context override is empty", func(t *testing.T) {
 		ctx := &execcontext.Context{}
 
-		wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", "git@github.com:test/repo.git", "main", "test-project", "main", "", false, "project.yaml", false, cfg, "")
+		wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", "git@github.com:test/repo.git", "main", "test-project", "main", "", "project.yaml", false, cfg, "")
 		require.NoError(t, err)
 
 		assert.Equal(t, "config-context", wf.KubeContext, "KubeContext should fall back to config")
@@ -539,7 +531,7 @@ func TestNamespaceOverride(t *testing.T) {
 		ctx := &execcontext.Context{}
 		ctx.SetKubeNamespace("override-namespace")
 
-		wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", "git@github.com:test/repo.git", "main", "test-project", "main", "", false, "project.yaml", false, cfg, "")
+		wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", "git@github.com:test/repo.git", "main", "test-project", "main", "", "project.yaml", false, cfg, "")
 		require.NoError(t, err, "GenerateWorkflowWithGitInfo failed")
 
 		assert.Equal(t, "override-namespace", wf.Namespace, "Namespace should be set from the namespace override")
@@ -548,7 +540,7 @@ func TestNamespaceOverride(t *testing.T) {
 	t.Run("falls back to config when namespace override is empty", func(t *testing.T) {
 		ctx := &execcontext.Context{}
 
-		wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", "git@github.com:test/repo.git", "main", "test-project", "main", "", false, "project.yaml", false, cfg, "")
+		wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", "git@github.com:test/repo.git", "main", "test-project", "main", "", "project.yaml", false, cfg, "")
 		require.NoError(t, err)
 
 		assert.Equal(t, "config-namespace", wf.Namespace, "Namespace should fall back to config")

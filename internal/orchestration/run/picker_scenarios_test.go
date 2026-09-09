@@ -64,7 +64,7 @@ func TestPickerScenario_ChoosesFromIncompleteItemsOnly(t *testing.T) {
 	runner := withMocks(
 		withProject(client),
 	)
-	err := runner.RunLocal(project.ForProjectInput(proj), config.WithBase("main"))
+	err := runner.RunLocal(project.ForProjectInput(proj), config.WithBase("main").WithoutCleanup())
 	require.NoError(t, err)
 
 	items := aiLastPickerItems(runner)

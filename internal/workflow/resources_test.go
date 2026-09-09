@@ -58,7 +58,7 @@ func TestWorkflowRender_ResourcesFromConfig(t *testing.T) {
 	}
 	ctx := &execcontext.Context{}
 
-	wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", "git@github.com:test/repo.git", "main", "test-project", "main", "", false, "project.yaml", false, cfg, "")
+	wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", "git@github.com:test/repo.git", "main", "test-project", "main", "", "project.yaml", false, cfg, "")
 	require.NoError(t, err, "GenerateWorkflowWithGitInfo failed")
 
 	assert.Equal(t, "1Gi", wf.Resources.Requests.Memory, "Workflow must carry the config memory request")
@@ -105,7 +105,7 @@ func TestWorkflowRun_AppliesConfiguredResources(t *testing.T) {
 	t.Chdir(tmpDir)
 
 	ctx := &execcontext.Context{}
-	wf, err := GenerateWorkflow(ctx, "test-project", "main", "test-project", "main", ".", false, false, "git@github.com:test/repo.git", "project.yaml")
+	wf, err := GenerateWorkflow(ctx, "test-project", "main", "test-project", "main", ".", false, "git@github.com:test/repo.git", "project.yaml")
 	require.NoError(t, err, "GenerateWorkflow failed")
 
 	assert.Equal(t, "1Gi", wf.Resources.Requests.Memory, "Workflow must carry the config memory request")
@@ -136,7 +136,7 @@ func TestWorkflowRender_ResourcesOmitted(t *testing.T) {
 	cfg := &config.RalphConfig{DefaultBranch: "main"}
 	ctx := &execcontext.Context{}
 
-	wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", "git@github.com:test/repo.git", "main", "test-project", "main", "", false, "project.yaml", false, cfg, "")
+	wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", "git@github.com:test/repo.git", "main", "test-project", "main", "", "project.yaml", false, cfg, "")
 	require.NoError(t, err, "GenerateWorkflowWithGitInfo failed")
 
 	assert.Empty(t, wf.Resources, "Workflow Resources must stay unset when the config omits them")

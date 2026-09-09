@@ -7,7 +7,6 @@ type RunRemoteFlags struct {
 	Debug      string
 	BaseBranch string
 	Items      string
-	Cleanup    bool
 }
 
 type RemoteRunner struct {
@@ -32,7 +31,7 @@ func (r *RemoteRunner) Run(input *project.InputFile, flags RunRemoteFlags) error
 	if err := r.git.IsBranchSyncedWithRemote(branch); err != nil {
 		return err
 	}
-	workflowName, err := r.workflow.Submit(input, branch, flags.Debug, flags.BaseBranch, flags.Items, flags.Cleanup)
+	workflowName, err := r.workflow.Submit(input, branch, flags.Debug, flags.BaseBranch, flags.Items)
 	if err != nil {
 		return err
 	}

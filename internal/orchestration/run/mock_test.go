@@ -655,10 +655,6 @@ func runRemoteFlagsWithItems(query string) RunRemoteFlags {
 	return RunRemoteFlags{Items: query}
 }
 
-func runRemoteFlagsWithCleanup() RunRemoteFlags {
-	return RunRemoteFlags{Cleanup: true}
-}
-
 func remoteWorkflowSubmitted(runner *RemoteRunner) bool {
 	if m, ok := runner.workflow.(*workflow.MockClient); ok {
 		return m.SubmitCalled
@@ -692,13 +688,6 @@ func remoteWorkflowLastItems(runner *RemoteRunner) string {
 		return m.LastItems
 	}
 	return ""
-}
-
-func remoteWorkflowLastCleanup(runner *RemoteRunner) bool {
-	if m, ok := runner.workflow.(*workflow.MockClient); ok {
-		return m.LastCleanup
-	}
-	return false
 }
 
 func remoteNotifySuccessSent(runner *RemoteRunner) bool {

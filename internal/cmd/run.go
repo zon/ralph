@@ -22,7 +22,6 @@ type RunCmd struct {
 	Debug           string `help:"Checkout the given Ralph repo branch in the workflow container and invoke Ralph via 'go run' instead of the built binary (only applicable with --mode remote)" name:"debug" optional:""`
 	Base            string `help:"Override the base branch for PR creation (default: detects from current branch)" name:"base" optional:"" short:"B"`
 	Items           string `help:"jq query selecting the project item list (default: .)" name:"items" optional:"" short:"i"`
-	Cleanup         *bool  `help:"Delete the project file in its own commit once every item is complete" name:"cleanup"`
 	Model           string `help:"The model to use in format of provider/model" name:"model" optional:"" short:"m"`
 	Agent           string `help:"Override the opencode agent from config" name:"agent" optional:""`
 	Variant         string `help:"The model variant (provider-specific reasoning effort, e.g., high, max, minimal)" name:"variant" optional:""`
@@ -52,7 +51,6 @@ func (r *RunCmd) Run() error {
 		Debug:           r.Debug,
 		Base:            r.Base,
 		Items:           r.Items,
-		Cleanup:         r.Cleanup,
 		Model:           r.Model,
 		Agent:           r.Agent,
 		Context:         r.Context,

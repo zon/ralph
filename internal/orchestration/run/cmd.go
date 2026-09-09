@@ -63,7 +63,6 @@ type RunFlags struct {
 	InputFile       string
 	ExtraIterations int
 	Items           string
-	Cleanup         *bool
 	Mode            string
 	Follow          bool
 	Debug           string
@@ -120,7 +119,6 @@ func (r *RunCmd) Run(flags RunFlags) error {
 			Debug:      flags.Debug,
 			BaseBranch: setup.BaseBranch,
 			Items:      setup.Config.Items,
-			Cleanup:    setup.Config.Cleanup,
 		})
 	case config.ModeWorktree:
 		return r.runWorktree(input, setup)
@@ -220,7 +218,6 @@ func (r *RunCmd) prepareSetup(flags RunFlags, input *project.InputFile) (Executi
 		cfg.ExtraIterations = &v
 	}
 	cfg.Items = cfg.ResolveItems(flags.Items)
-	cfg.Cleanup = cfg.ResolveCleanup(flags.Cleanup)
 	cfg.Base = baseBranch
 	return ExecutionSetup{
 		Config:        cfg,

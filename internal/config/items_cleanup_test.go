@@ -44,18 +44,6 @@ func TestResolveItems_ConfigQueryUsedWhenNoFlag(t *testing.T) {
 	assert.Equal(t, ".requirements", resolved)
 }
 
-func TestResolveCleanup_ConfigValueUsedWhenNoFlag(t *testing.T) {
-	// GIVEN `cleanup: true` is set in `.ralph/config.yaml`
-	cfg := loadConfigWithContent(t, "cleanup: true\n")
-
-	// AND no `--cleanup` flag is passed
-	// WHEN cleanup is resolved
-	resolved := cfg.ResolveCleanup(nil)
-
-	// THEN cleanup is enabled
-	assert.True(t, resolved)
-}
-
 func TestResolveItems_FlagOverridesConfig(t *testing.T) {
 	cfg := loadConfigWithContent(t, "items: .requirements\n")
 	assert.Equal(t, ".spec.tasks", cfg.ResolveItems(".spec.tasks"))
@@ -64,17 +52,6 @@ func TestResolveItems_FlagOverridesConfig(t *testing.T) {
 func TestResolveItems_DefaultsToDotWhenFlagAndConfigUnset(t *testing.T) {
 	cfg := loadConfigWithContent(t, "")
 	assert.Equal(t, ".", cfg.ResolveItems(""))
-}
-
-func TestResolveCleanup_FlagOverridesConfig(t *testing.T) {
-	cfg := loadConfigWithContent(t, "cleanup: true\n")
-	flag := false
-	assert.False(t, cfg.ResolveCleanup(&flag))
-}
-
-func TestResolveCleanup_DisabledWhenFlagAndConfigUnset(t *testing.T) {
-	cfg := loadConfigWithContent(t, "")
-	assert.False(t, cfg.ResolveCleanup(nil))
 }
 
 func TestLoadConfig_ItemsFieldParsed(t *testing.T) {
@@ -92,9 +69,23 @@ func TestLoadConfig_CleanupFieldParsed(t *testing.T) {
 	assert.True(t, cfg.Cleanup)
 }
 
-func TestLoadConfig_CleanupDefaultsToFalse(t *testing.T) {
+func TestLoadConfig_CleanupDefaultsToTrue(t *testing.T) {
 	cfg := loadConfigWithContent(t, "")
-	assert.False(t, cfg.Cleanup)
+	assert.True(t, cfg.Cleanup, "cleanup should be enabled when the config file does not set it")
+}
+
+func TestLoadConfig_CleanupDisabledByConfig(t *testing.T) {
+	cfg := loadConfigWithContent(t, "cleanup: false\n")
+	assert.False(t, cfg.Cleanup, "cleanup: false in the config file disables project file cleanup")
+}
+
+func TestLoadConfig_CleanupDefaultsToTrueWhenNoConfigDir(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Chdir(tmpDir)
+
+	cfg, err := LoadConfig()
+	require.NoError(t, err)
+	assert.True(t, cfg.Cleanup, "cleanup should default to enabled when no .ralph directory exists")
 }
 
 func TestConfigItemsSerializedWhenSet(t *testing.T) {

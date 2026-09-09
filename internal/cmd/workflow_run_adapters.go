@@ -179,7 +179,9 @@ type configOptionalAdapter struct{}
 func (a *configOptionalAdapter) LoadOptional() (*config.RalphConfig, error) {
 	cfg, err := config.LoadConfig()
 	if err != nil {
-		return &config.RalphConfig{}, nil
+		// A broken config file falls back to defaults; project file cleanup is
+		// enabled by default, matching the no-config behavior of LoadConfig.
+		return &config.RalphConfig{Cleanup: true}, nil
 	}
 	return cfg, nil
 }

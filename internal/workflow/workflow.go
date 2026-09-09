@@ -50,8 +50,6 @@ type Workflow struct {
 	// caller. The manifest always carries it as an explicit --items argument. An
 	// empty value falls back to ".", so the container never re-resolves it from config.
 	Items string
-	// Cleanup reports whether the project file should be deleted once every item is complete.
-	Cleanup bool
 	// NoServices controls whether the ralph command inside the container runs with --no-services.
 	NoServices bool
 	// Model overrides the AI model from config.
@@ -213,9 +211,6 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 			itemsQuery = "."
 		}
 		args = append(args, "--items", itemsQuery)
-		if w.Cleanup {
-			args = append(args, "--cleanup")
-		}
 		if w.NoServices {
 			args = append(args, "--no-services")
 		}

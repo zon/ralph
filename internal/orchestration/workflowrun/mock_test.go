@@ -396,9 +396,3 @@ func (h *flagsHelper) withItems(query string) WorkflowRunFlags {
 	f.Items = query
 	return f
 }
-
-func (h *flagsHelper) withCleanup() WorkflowRunFlags {
-	f := h.any()
-	f.Cleanup = true
-	return f
-}

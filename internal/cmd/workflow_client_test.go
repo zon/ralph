@@ -44,7 +44,7 @@ func TestWorkflowClientNamespaceOverride(t *testing.T) {
 
 	adapter := &workflowClientAdapter{ctx: ctx, argoClient: argoClient}
 
-	workflowName, err := adapter.Submit(project.ForProjectInput(project.Any()), "main", "", "main", "", false)
+	workflowName, err := adapter.Submit(project.ForProjectInput(project.Any()), "main", "", "main", "")
 	require.NoError(t, err, "Submit failed")
 	require.Equal(t, "test-workflow", workflowName)
 
@@ -88,7 +88,7 @@ func TestWorkflowClientNamespaceFallsBackToConfig(t *testing.T) {
 
 	adapter := &workflowClientAdapter{ctx: ctx, argoClient: argoClient}
 
-	workflowName, err := adapter.Submit(project.ForProjectInput(project.Any()), "main", "", "main", "", false)
+	workflowName, err := adapter.Submit(project.ForProjectInput(project.Any()), "main", "", "main", "")
 	require.NoError(t, err, "Submit failed")
 
 	assert.Equal(t, "config-context", submitCtx.Name, "the submission falls back to the config context")

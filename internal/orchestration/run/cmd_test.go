@@ -234,21 +234,6 @@ func flagsWithModeAndItems(mode, query string) RunFlags {
 	return RunFlags{InputFile: "/fake/project.yaml", Mode: mode, Items: query}
 }
 
-func flagsWithCleanup() RunFlags {
-	v := true
-	return RunFlags{InputFile: "/fake/project.yaml", Cleanup: &v}
-}
-
-func flagsWithModeAndCleanup(mode string) RunFlags {
-	v := true
-	return RunFlags{InputFile: "/fake/project.yaml", Mode: mode, Cleanup: &v}
-}
-
-func flagsWithCleanupDisabled() RunFlags {
-	v := false
-	return RunFlags{InputFile: "/fake/project.yaml", Cleanup: &v}
-}
-
 // ---------------------------------------------------------------------------
 // Config mock builders
 // ---------------------------------------------------------------------------
@@ -399,6 +384,13 @@ func configWithItems(query string) config.Loader {
 
 func configWithCleanup() config.Loader {
 	cfg := config.WithCleanup()
+	return &config.MockLoader{
+		LoadFn: func() (*config.RalphConfig, error) { return cfg, nil },
+	}
+}
+
+func configWithoutCleanup() config.Loader {
+	cfg := config.WithoutCleanup()
 	return &config.MockLoader{
 		LoadFn: func() (*config.RalphConfig, error) { return cfg, nil },
 	}
@@ -890,46 +882,44 @@ func TestRunResolvedDefaultQueryPassedToRemoteRunner(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Scenario tests: --cleanup enables cleanup for one run
+// Scenario tests: project file cleanup enabled by default
 // ---------------------------------------------------------------------------
 
-func TestRunCleanupFlagEnablesCleanup(t *testing.T) {
+func TestRunCleanupEnabledByDefault(t *testing.T) {
 	// GIVEN `cleanup` is not set in `.ralph/config.yaml`
 	cmd := cmdWithMocks()
-	// AND the user passes `--cleanup`
-	// WHEN cleanup is resolved
-	setup, err := cmd.prepareSetup(flagsWithCleanup(), project.ForProjectInput(project.Any()))
+	// WHEN the run setup is prepared
+	setup, err := cmd.prepareSetup(flagsAny(), project.ForProjectInput(project.Any()))
 	require.NoError(t, err)
 	// THEN cleanup is enabled for this run
 	require.True(t, setup.Config.Cleanup)
 }
 
-func TestRunCleanupFlagEnablesCleanupForLocalRun(t *testing.T) {
+func TestRunCleanupEnabledByDefaultForLocalRun(t *testing.T) {
 	local := &mockLocalRunnerClient{}
 	cmd := cmdWithMocks(cmdWithLocal(local))
-	err := cmd.Run(flagsWithModeAndCleanup(config.ModeLocal))
+	err := cmd.Run(flagsWithMode(config.ModeLocal))
 	require.NoError(t, err)
 	require.True(t, local.LastConfig.Cleanup)
 }
 
 // ---------------------------------------------------------------------------
-// Scenario tests: cleanup disabled by default
+// Scenario tests: cleanup: false disables cleanup
 // ---------------------------------------------------------------------------
 
-func TestRunCleanupDisabledByDefault(t *testing.T) {
-	// GIVEN `cleanup` is not set in `.ralph/config.yaml`
-	cmd := cmdWithMocks()
-	// AND no `--cleanup` flag is passed
-	// WHEN cleanup is resolved
+func TestRunCleanupDisabledByConfig(t *testing.T) {
+	// GIVEN `cleanup: false` is set in `.ralph/config.yaml`
+	cmd := cmdWithMocks(cmdWithConfig(configWithoutCleanup()))
+	// WHEN the run setup is prepared
 	setup, err := cmd.prepareSetup(flagsAny(), project.ForProjectInput(project.Any()))
 	require.NoError(t, err)
 	// THEN cleanup is disabled and the project file survives the run
 	require.False(t, setup.Config.Cleanup)
 }
 
-func TestRunCleanupDisabledByDefaultForLocalRun(t *testing.T) {
+func TestRunCleanupDisabledByConfigForLocalRun(t *testing.T) {
 	local := &mockLocalRunnerClient{}
-	cmd := cmdWithMocks(cmdWithLocal(local))
+	cmd := cmdWithMocks(cmdWithConfig(configWithoutCleanup()), cmdWithLocal(local))
 	err := cmd.Run(flagsWithMode(config.ModeLocal))
 	require.NoError(t, err)
 	require.False(t, local.LastConfig.Cleanup)
@@ -962,25 +952,25 @@ func TestRunItemsResolvesFlagThenConfigThenDefault(t *testing.T) {
 	})
 }
 
-func TestRunCleanupResolvesFlagThenConfigThenDisabled(t *testing.T) {
-	t.Run("flag overrides configured cleanup", func(t *testing.T) {
-		cmd := cmdWithMocks(cmdWithConfig(configWithCleanup()))
-		setup, err := cmd.prepareSetup(flagsWithCleanupDisabled(), project.ForProjectInput(project.Any()))
-		require.NoError(t, err)
-		require.False(t, setup.Config.Cleanup)
-	})
-
-	t.Run("configured cleanup used when no flag", func(t *testing.T) {
+func TestRunCleanupResolvesConfigValue(t *testing.T) {
+	t.Run("configured cleanup used when set", func(t *testing.T) {
 		cmd := cmdWithMocks(cmdWithConfig(configWithCleanup()))
 		setup, err := cmd.prepareSetup(flagsAny(), project.ForProjectInput(project.Any()))
 		require.NoError(t, err)
 		require.True(t, setup.Config.Cleanup)
 	})
 
-	t.Run("cleanup disabled when flag and config unset", func(t *testing.T) {
-		cmd := cmdWithMocks()
+	t.Run("cleanup disabled by config", func(t *testing.T) {
+		cmd := cmdWithMocks(cmdWithConfig(configWithoutCleanup()))
 		setup, err := cmd.prepareSetup(flagsAny(), project.ForProjectInput(project.Any()))
 		require.NoError(t, err)
 		require.False(t, setup.Config.Cleanup)
+	})
+
+	t.Run("cleanup enabled when config unset", func(t *testing.T) {
+		cmd := cmdWithMocks()
+		setup, err := cmd.prepareSetup(flagsAny(), project.ForProjectInput(project.Any()))
+		require.NoError(t, err)
+		require.True(t, setup.Config.Cleanup)
 	})
 }

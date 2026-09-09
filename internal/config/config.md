@@ -36,7 +36,11 @@ Every command that reads a project file resolves the query the same way: `--item
 
 `extraIterations` sets how many iterations the loop may run beyond the item count. The limit is `len(items) + extraIterations`. When unset it defaults to 30% of the item count, rounded up. `--extra` overrides it.
 
-`cleanup` deletes the project file once every item is complete, in a commit of its own, before the pull request is opened. Off by default. `--cleanup` enables it for a single run. Completion history lives in the branch's commit trailers, so cleaning up the file does not lose it.
+`cleanup` deletes the project file once every item is complete, in a commit of its own, before the pull request is opened. It defaults to enabled. Set `cleanup: false` to keep the project file in the repository after a completed run. Completion history lives in the branch's commit trailers, so cleaning up the file does not lose it.
+
+```yaml
+cleanup: false
+```
 
 ## Default Branch
 

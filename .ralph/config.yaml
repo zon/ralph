@@ -5,7 +5,6 @@ workflow:
   namespace: ralph
 model: deepseek/deepseek-v4-flash
 variant: high
-cleanup: true
 
 loops:
   - slug: prose

@@ -12,9 +12,9 @@ import (
 )
 
 // renderRemoteRunArgs generates a run workflow for a project named test-project
-// on a main branch with the supplied resolved item query and cleanup setting,
-// and returns the container args of the ralph-executor template.
-func renderRemoteRunArgs(t *testing.T, items string, cleanup bool) []interface{} {
+// on a main branch with the supplied resolved item query, and returns the
+// container args of the ralph-executor template.
+func renderRemoteRunArgs(t *testing.T, items string) []interface{} {
 	t.Helper()
 	cfg := &config.RalphConfig{
 		DefaultBranch: "main",
@@ -23,7 +23,7 @@ func renderRemoteRunArgs(t *testing.T, items string, cleanup bool) []interface{}
 		},
 	}
 	ctx := &execcontext.Context{}
-	wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", "git@github.com:test/repo.git", "main", "test-project", "main", items, cleanup, "project.yaml", false, cfg, "")
+	wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", "git@github.com:test/repo.git", "main", "test-project", "main", items, "project.yaml", false, cfg, "")
 	require.NoError(t, err, "GenerateWorkflowWithGitInfo failed")
 	workflowYAML, err := wf.Render()
 	require.NoError(t, err, "Render failed")
@@ -57,7 +57,7 @@ func itemsArgValue(args []interface{}) string {
 func TestRemoteArgumentsResolvedItemsScenario(t *testing.T) {
 	// GIVEN the item query resolved locally to .requirements
 	// WHEN the workflow YAML is generated
-	args := renderRemoteRunArgs(t, ".requirements", false)
+	args := renderRemoteRunArgs(t, ".requirements")
 
 	// THEN the container args for `ralph workflow run` include `--items .requirements`
 	require.Equal(t, ".requirements", itemsArgValue(args))
@@ -71,32 +71,21 @@ func TestRemoteArgumentsDefaultQueryPassedExplicitlyScenario(t *testing.T) {
 	// GIVEN neither `--items` nor `items` in `.ralph/config.yaml` is set,
 	// so the query resolves to `.`
 	// WHEN the workflow YAML is generated
-	args := renderRemoteRunArgs(t, "", false)
+	args := renderRemoteRunArgs(t, "")
 
 	// THEN the container args include `--items .`, so the container does not
 	// re-resolve the query
 	require.Equal(t, ".", itemsArgValue(args))
 }
 
-// TestRemoteArgumentsCleanupEnabledScenario covers the "Cleanup enabled"
-// scenario: when cleanup resolved to enabled before workflow submission, the
-// container args for `ralph workflow run` include `--cleanup`.
-func TestRemoteArgumentsCleanupEnabledScenario(t *testing.T) {
-	// GIVEN cleanup resolved to enabled before workflow submission
+// TestRemoteArgumentsCleanupNotPlumbedScenario covers the item that project
+// file cleanup is no longer delivered to the container as an argument: the
+// `--cleanup` flag was removed when cleanup became the default, so the
+// container args for `ralph workflow run` never include it. The container reads
+// the `cleanup` field from the repository's own .ralph/config.yaml instead.
+func TestRemoteArgumentsCleanupNotPlumbedScenario(t *testing.T) {
 	// WHEN the workflow YAML is generated
-	args := renderRemoteRunArgs(t, ".requirements", true)
-
-	// THEN the container args for `ralph workflow run` include `--cleanup`
-	assert.Contains(t, args, "--cleanup")
-}
-
-// TestRemoteArgumentsCleanupDisabledScenario covers the "Cleanup disabled"
-// scenario: when cleanup resolved to disabled, the container args contain no
-// `--cleanup` flag.
-func TestRemoteArgumentsCleanupDisabledScenario(t *testing.T) {
-	// GIVEN cleanup resolved to disabled
-	// WHEN the workflow YAML is generated
-	args := renderRemoteRunArgs(t, ".requirements", false)
+	args := renderRemoteRunArgs(t, ".requirements")
 
 	// THEN the container args contain no `--cleanup` flag
 	assert.NotContains(t, args, "--cleanup")
@@ -107,18 +96,11 @@ func TestRemoteArgumentsCleanupDisabledScenario(t *testing.T) {
 // manifest carries a `--items` argument even when the query falls back to the
 // default `.`, so the container never re-resolves it from the repository config.
 func TestRemoteArgumentsItemQueryAlwaysPassedExplicitly(t *testing.T) {
-	args := renderRemoteRunArgs(t, "", true)
+	args := renderRemoteRunArgs(t, "")
 	require.Equal(t, ".", itemsArgValue(args), "--items must always be present with the resolved query")
 
-	args = renderRemoteRunArgs(t, ".requirements", false)
+	args = renderRemoteRunArgs(t, ".requirements")
 	require.Equal(t, ".requirements", itemsArgValue(args))
-}
-
-// TestRemoteArgumentsCleanupOnlyWhenEnabled covers the item that the cleanup
-// flag appears in the container args only when cleanup is enabled.
-func TestRemoteArgumentsCleanupOnlyWhenEnabled(t *testing.T) {
-	assert.NotContains(t, renderRemoteRunArgs(t, ".requirements", false), "--cleanup")
-	assert.Contains(t, renderRemoteRunArgs(t, ".requirements", true), "--cleanup")
 }
 
 // TestRemoteArgumentsAgentScenario covers the "Agent override" scenario: when
@@ -129,7 +111,7 @@ func TestRemoteArgumentsAgentScenario(t *testing.T) {
 	ctx := &execcontext.Context{}
 	ctx.SetAgent("code-reviewer")
 	cfg := &config.RalphConfig{DefaultBranch: "main"}
-	wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", "git@github.com:test/repo.git", "main", "test-project", "main", "", false, "project.yaml", false, cfg, "")
+	wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", "git@github.com:test/repo.git", "main", "test-project", "main", "", "project.yaml", false, cfg, "")
 	require.NoError(t, err, "GenerateWorkflowWithGitInfo failed")
 	workflowYAML, err := wf.Render()
 	require.NoError(t, err, "Render failed")
@@ -151,7 +133,7 @@ func TestRemoteArgumentsAgentScenario(t *testing.T) {
 // TestRemoteArgumentsAgentOmittedWhenUnset covers the item that the `--agent`
 // flag appears in the container args only when an agent is set.
 func TestRemoteArgumentsAgentOmittedWhenUnset(t *testing.T) {
-	assert.NotContains(t, renderRemoteRunArgs(t, ".requirements", false), "--agent")
+	assert.NotContains(t, renderRemoteRunArgs(t, ".requirements"), "--agent")
 }
 
 // TestRemoteArgumentsVariantScenario covers the "Variant override" scenario:
@@ -162,7 +144,7 @@ func TestRemoteArgumentsVariantScenario(t *testing.T) {
 	ctx := &execcontext.Context{}
 	ctx.SetVariant("high")
 	cfg := &config.RalphConfig{DefaultBranch: "main"}
-	wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", "git@github.com:test/repo.git", "main", "test-project", "main", "", false, "project.yaml", false, cfg, "")
+	wf, err := GenerateWorkflowWithGitInfo(ctx, "test-project", "git@github.com:test/repo.git", "main", "test-project", "main", "", "project.yaml", false, cfg, "")
 	require.NoError(t, err, "GenerateWorkflowWithGitInfo failed")
 	workflowYAML, err := wf.Render()
 	require.NoError(t, err, "Render failed")
@@ -184,5 +166,5 @@ func TestRemoteArgumentsVariantScenario(t *testing.T) {
 // TestRemoteArgumentsVariantOmittedWhenUnset covers the item that the
 // `--variant` flag appears in the container args only when a variant is set.
 func TestRemoteArgumentsVariantOmittedWhenUnset(t *testing.T) {
-	assert.NotContains(t, renderRemoteRunArgs(t, ".requirements", false), "--variant")
+	assert.NotContains(t, renderRemoteRunArgs(t, ".requirements"), "--variant")
 }
