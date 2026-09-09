@@ -92,7 +92,7 @@ Two optional fields are read when present, and only when the file's top level is
 | Field | Used for | Fallback |
 |-------|----------|----------|
 | `slug` | Branch name `<slug>` | The file's base name |
-| `title` | Pull request title | The slug |
+| `title` | Pull request title when the AI description has no title of its own | The slug |
 
 A project file whose top level is an array has neither, so both come from the file name.
 

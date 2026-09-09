@@ -521,7 +521,7 @@ The base branch used for PR creation SHALL be the value passed in by the caller,
 
 ### Requirement: PR creation when all items are complete
 
-When every item is found to be complete, whether the branch already recorded them all before the first iteration or they were recorded during the loop, the command SHALL generate an AI PR summary from the branch's commit log and open a GitHub pull request from the project branch to the base branch.
+When every item is found to be complete, whether the branch already recorded them all before the first iteration or they were recorded during the loop, the command SHALL generate an AI PR description from the branch's commit log and open a GitHub pull request from the project branch to the base branch. The description SHALL begin with an H1 title that names the pull request, followed by a short summary of the pull request, a `## Changes` section itemizing the new code, and a `## Testing` section itemizing the test code changes. When there are no test code changes, the `## Testing` section SHALL be omitted. The PR title SHALL be that H1 title, falling back to the project's `title` field and then its slug when the description has no title.
 
 #### Scenario: All items complete after iterations
 
@@ -529,7 +529,7 @@ When every item is found to be complete, whether the branch already recorded the
 - AND the project branch has commits not on the base branch
 - WHEN the PR creation step runs
 - THEN a pull request is created
-- AND the PR title is the project's `title` field, falling back to its slug
+- AND the PR title is the H1 title that opens the AI PR description, falling back to the project's `title` field and then its slug
 
 #### Scenario: All items already complete at start
 

@@ -4,7 +4,7 @@ You are a software developer writing the pull request description for this branc
 
 ## Task
 
-Write a concise PR description (3-5 paragraphs max) for the pull request opened by this branch, and save it to the file given in Output. Make no code changes.
+Write the PR description for the pull request opened by this branch, and save it to the file given in Output. Make no code changes.
 
 ## Context
 
@@ -18,9 +18,19 @@ Write a concise PR description (3-5 paragraphs max) for the pull request opened 
 
 ## Instructions
 
-1. Base the summary on the commit log above. Read changed files only to confirm what each commit did; do not audit anything outside the branch.
-2. Cover what was implemented/changed, the key technical decisions, and any notable considerations or future work.
-3. Be concise and focus on what matters for code review.
+Base the description on the commit log above. Read changed files only to confirm what each commit did; do not audit anything outside the branch.
+
+Write the description file with this exact layout:
+
+1. A single H1 heading naming the pull request, as the first line. Ralph reads this line and uses it as the pull request title, so keep it brief.
+2. One short paragraph summarizing what the pull request does.
+3. A `## Changes` section listing the code changes as an itemized, high-level summary of the new code. Use one bullet per change.
+4. A `## Testing` section listing the test code changes as an itemized, high-level summary, using one bullet per change. When there are no test changes, omit the section entirely.
+5. Be concise and focus on what matters for code review.
+{{if .Usage}}
+6. End the description with a `## Usage` section.
+{{end}}
+
 {{if .Usage}}
 ## AI Usage
 

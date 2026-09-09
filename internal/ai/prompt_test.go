@@ -108,6 +108,8 @@ func TestBuildPRSummaryPrompt(t *testing.T) {
 				assert.Contains(t, prompt, "main..HEAD")
 				assert.Contains(t, prompt, "abc123: Initial commit")
 				assert.Contains(t, prompt, "/tmp/pr-summary.txt")
+				assert.Contains(t, prompt, "## Changes")
+				assert.Contains(t, prompt, "## Testing")
 			},
 		},
 		{

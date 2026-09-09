@@ -94,7 +94,7 @@ func TestClientCreatePR_DelegatesToCreatePullRequest(t *testing.T) {
 	assert.True(t, createPRCalled, "expected GHClient.CreatePR to be called")
 }
 
-func TestClientCreatePR_UsesTitleAsPRTitle(t *testing.T) {
+func TestClientCreatePR_FallsBackToProjectTitleWhenSummaryHasNoTitle(t *testing.T) {
 	mock := &MockGH{
 		IsReadyFn: func() bool { return true },
 		CreatePRFn: func(title, body, base, head string) (string, error) {
@@ -115,6 +115,33 @@ func TestClientCreatePR_UsesTitleAsPRTitle(t *testing.T) {
 
 	err := client.CreatePR(proj, "some-branch")
 	assert.NoError(t, err)
+}
+
+func TestClientCreatePR_UsesSummaryTitleAsPRTitle(t *testing.T) {
+	var capturedBody string
+	mock := &MockGH{
+		IsReadyFn: func() bool { return true },
+		CreatePRFn: func(title, body, base, head string) (string, error) {
+			assert.Equal(t, "Serialize reports to CSV", title)
+			capturedBody = body
+			return "https://github.com/mock/repo/pull/1", nil
+		},
+	}
+	ctx := execcontext.NewContext()
+	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
+	mockOC := &opencode.MockOC{
+		RunCommandFunc: func(_ context.Context, _, _, _, prompt string, _, _ io.Writer) error {
+			return writeMockSummaryWithTitle(t, prompt)
+		},
+		GetStatsFunc: func() (opencode.Stats, error) { return opencode.Stats{}, nil },
+	}
+	client := withMockCommitLog(NewClient(ctx, "main", mock, mockOC), "abc: feat\n")
+	proj := &project.Project{Slug: "some-branch", Title: "This is a detailed title"}
+
+	err := client.CreatePR(proj, "some-branch")
+	assert.NoError(t, err)
+	assert.Contains(t, capturedBody, "Adds the export endpoint")
+	assert.NotContains(t, capturedBody, "# Serialize reports to CSV")
 }
 
 func TestClientCreatePR_SummaryGeneratedFromCommitLog(t *testing.T) {
@@ -358,12 +385,25 @@ func TestClientCreatePR_OutsideWorkflowDoesNotFetchStats(t *testing.T) {
 
 func writeMockSummary(t *testing.T, prompt string) error {
 	t.Helper()
+	return writeMockSummaryContent(t, prompt, "Mock PR summary")
+}
+
+// writeMockSummaryWithTitle writes a summary in the same shape the PR summary
+// agent produces: an H1 title on the first line, then the body.
+func writeMockSummaryWithTitle(t *testing.T, prompt string) error {
+	t.Helper()
+	summary := "# Serialize reports to CSV\n\nAdds the export endpoint.\n\n## Changes\n\n- Adds the serializer\n\n## Testing\n\n- Unit tests for the serializer\n"
+	return writeMockSummaryContent(t, prompt, summary)
+}
+
+func writeMockSummaryContent(t *testing.T, prompt string, content string) error {
+	t.Helper()
 	if idx := strings.Index(prompt, "Write your summary to the file:"); idx >= 0 {
 		rest := prompt[idx+len("Write your summary to the file:"):]
 		rest = strings.TrimSpace(rest)
 		lines := strings.SplitN(rest, "\n", 2)
 		filePath := strings.TrimSpace(lines[0])
-		os.WriteFile(filePath, []byte("Mock PR summary"), 0644)
+		os.WriteFile(filePath, []byte(content), 0644)
 	}
 	return nil
 }
