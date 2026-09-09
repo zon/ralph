@@ -367,9 +367,8 @@ func createTempFile(name string) (*os.File, error) {
 }
 
 // runOpenCodeAndReadContent runs opencode with the given prompt and returns the
-// trimmed content of the output file. Unlike runOpenCodeAndReadResult it does
-// not treat an empty result as an error, so callers can apply their own
-// validation.
+// trimmed content of the output file. It does not treat an empty result as an
+// error, so callers can apply their own validation.
 func runOpenCodeAndReadContent(ctx *execcontext.Context, oc opencode.OCClient, model, prompt, outputFile string) (string, error) {
 	var stdoutWriter, stderrWriter io.Writer
 	if ctx.IsVerbose() {
@@ -389,16 +388,50 @@ func runOpenCodeAndReadContent(ctx *execcontext.Context, oc opencode.OCClient, m
 	return strings.TrimSpace(string(summaryBytes)), nil
 }
 
-func runOpenCodeAndReadResult(ctx *execcontext.Context, oc opencode.OCClient, model, prompt, outputFile string) (string, error) {
-	content, err := runOpenCodeAndReadContent(ctx, oc, model, prompt, outputFile)
+// maxDeliverableAttempts is how many times a prompt that must leave a usable
+// deliverable is run before the command reports an error naming the limit.
+const maxDeliverableAttempts = 3
+
+// runOpenCodeAndReadDeliverable runs opencode with the given prompt and returns
+// the trimmed content of the output file the agent must write. When opencode
+// finishes without a usable deliverable — an output file that is missing or
+// empty — the same prompt is re-run until maxDeliverableAttempts attempts have
+// been made. When every attempt is unusable the returned error names the
+// attempt limit. An opencode execution failure is returned immediately and is
+// never retried.
+func runOpenCodeAndReadDeliverable(ctx *execcontext.Context, oc opencode.OCClient, model, prompt, outputFile string) (string, error) {
+	var stdoutWriter, stderrWriter io.Writer
+	if ctx.IsVerbose() {
+		stdoutWriter = os.Stdout
+		stderrWriter = os.Stderr
+	}
+
+	var lastErr error
+	for attempt := 1; attempt <= maxDeliverableAttempts; attempt++ {
+		if err := oc.RunCommand(ctx.GoContext(), model, resolveVariant(ctx), "", prompt, stdoutWriter, stderrWriter); err != nil {
+			return "", fmt.Errorf("opencode execution failed: %w", err)
+		}
+
+		content, err := readDeliverable(outputFile)
+		if err == nil {
+			return content, nil
+		}
+		lastErr = err
+	}
+	return "", fmt.Errorf("no usable deliverable after the %d-attempt limit: %w", maxDeliverableAttempts, lastErr)
+}
+
+// readDeliverable reads and trims the content of the agent's output file. An
+// output file that is missing or empty leaves no usable deliverable.
+func readDeliverable(outputFile string) (string, error) {
+	data, err := os.ReadFile(outputFile)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to read output file: %w", err)
 	}
-
+	content := strings.TrimSpace(string(data))
 	if content == "" {
-		return "", fmt.Errorf("output file is empty")
+		return "", errors.New("output file is empty")
 	}
-
 	return content, nil
 }
 
@@ -421,7 +454,7 @@ func GeneratePRSummary(ctx *execcontext.Context, oc opencode.OCClient, projectDe
 	}
 
 	model := resolveModel(ctx)
-	summary, err = runOpenCodeAndReadResult(ctx, oc, model, prPrompt, tmpFile)
+	summary, err = runOpenCodeAndReadDeliverable(ctx, oc, model, prPrompt, tmpFile)
 	if err != nil {
 		return "", err
 	}
@@ -448,7 +481,7 @@ func GenerateChangelog(ctx *execcontext.Context, oc opencode.OCClient) (err erro
 	}
 
 	model := resolveModel(ctx)
-	_, err = runOpenCodeAndReadResult(ctx, oc, model, changelogPrompt, tmpFile)
+	_, err = runOpenCodeAndReadDeliverable(ctx, oc, model, changelogPrompt, tmpFile)
 	if err != nil {
 		return err
 	}
