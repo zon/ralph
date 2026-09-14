@@ -30,6 +30,8 @@ type mockAI struct {
 	resolveConflictsCalled   bool
 	writeOrchestrationCalled bool
 	writeProjectCalled       bool
+	lastResolveBase          string
+	lastResolveProject       string
 	lastPickerIndices        []int
 	lastPickerItems          []project.Item
 	lastDevelopedIndex       int
@@ -88,6 +90,8 @@ func (m *mockAI) FixServiceStartup(cfg *config.RalphConfig, err error) error {
 
 func (m *mockAI) ResolveMergeConflicts(baseBranch, projectBranch string) error {
 	m.resolveConflictsCalled = true
+	m.lastResolveBase = baseBranch
+	m.lastResolveProject = projectBranch
 	if m.resolveConflictsFunc != nil {
 		return m.resolveConflictsFunc(baseBranch, projectBranch)
 	}
@@ -630,6 +634,20 @@ func aiResolveConflictsCalled(r *Runner) bool {
 		return m.resolveConflictsCalled
 	}
 	return false
+}
+
+func aiResolveBase(r *Runner) string {
+	if m, ok := r.ai.(*mockAI); ok {
+		return m.lastResolveBase
+	}
+	return ""
+}
+
+func aiResolveProject(r *Runner) string {
+	if m, ok := r.ai.(*mockAI); ok {
+		return m.lastResolveProject
+	}
+	return ""
 }
 
 func outputWarnings(r *Runner) []string {

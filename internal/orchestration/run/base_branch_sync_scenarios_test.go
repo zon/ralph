@@ -82,3 +82,32 @@ func TestRunLocalConflictResolutionFailureAbortsRun(t *testing.T) {
 	require.Zero(t, aiPickCalls(runner), "a failed resolution stops the run before any iteration")
 	require.NotEmpty(t, notifyErrors(runner))
 }
+
+func TestRunLocalInWorktreeSyncsBaseBranchBeforeFirstIteration(t *testing.T) {
+	runner := withMocks(
+		withGit(gitThatNeedsMerge()),
+		withProject(project.ThatReportsIncompleteUntil(1)),
+	)
+	err := runner.RunLocalInWorktree(project.ForProjectInput(project.WithItems(3)), config.WithBase("main"))
+	require.NoError(t, err)
+	require.True(t, gitFetchCalled(runner))
+	require.True(t, gitMergeCalled(runner))
+	require.Equal(t, "main", gitLastFetchedBranch(runner))
+	require.Equal(t, "origin/main", gitLastMergedBranch(runner), "the fetched remote base is merged so a base branch checked out in the main checkout is not moved")
+	require.False(t, gitBranchSwitched(runner), "worktree mode leaves the current checkout on its branch")
+	require.NotZero(t, aiPickCalls(runner), "the first iteration runs after synchronization")
+}
+
+func TestRunLocalInWorktreeConflictResolvedWithFetchedBase(t *testing.T) {
+	runner := withMocks(
+		withGit(gitThatConflicts()),
+		withProject(project.ThatReportsIncompleteUntil(1)),
+	)
+	err := runner.RunLocalInWorktree(project.ForProjectInput(project.WithItems(3)), config.WithBase("main"))
+	require.NoError(t, err)
+	require.True(t, gitMergeAborted(runner))
+	require.True(t, aiResolveConflictsCalled(runner))
+	require.Equal(t, "origin/main", aiResolveBase(runner), "the agent merges the same fetched ref that conflicted")
+	require.Equal(t, "test-project", aiResolveProject(runner))
+	require.NotZero(t, aiPickCalls(runner), "the run continues after conflict resolution")
+}

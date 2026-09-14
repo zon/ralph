@@ -137,7 +137,7 @@ func (r *Runner) runLocal(input *project.InputFile, cfg *config.RalphConfig, inW
 			return err
 		}
 	}
-	if err := r.syncBaseBranch(cfg, git.SanitizeBranchName(input.Slug())); err != nil {
+	if err := r.syncBaseBranch(cfg, git.SanitizeBranchName(input.Slug()), inWorktree); err != nil {
 		r.notify.Error(input.Slug())
 		return err
 	}
@@ -171,7 +171,7 @@ func (r *Runner) runLocal(input *project.InputFile, cfg *config.RalphConfig, inW
 // first iteration. A fetch failure is warned about and skipped. A conflicting
 // merge is aborted and handed to the configured AI agent to resolve, run tests,
 // and stage; a failed resolution is returned so the run stops.
-func (r *Runner) syncBaseBranch(cfg *config.RalphConfig, projectBranch string) error {
+func (r *Runner) syncBaseBranch(cfg *config.RalphConfig, projectBranch string, inWorktree bool) error {
 	if cfg.Base == "" {
 		return nil
 	}
@@ -179,18 +179,29 @@ func (r *Runner) syncBaseBranch(cfg *config.RalphConfig, projectBranch string) e
 		r.output.Warnf("Failed to fetch base branch %q: %v", cfg.Base, err)
 		return nil
 	}
-	needsMerge, err := r.git.NeedsMerge(cfg.Base)
+	baseRef := mergeRef(cfg.Base, inWorktree)
+	needsMerge, err := r.git.NeedsMerge(baseRef)
 	if err != nil {
 		return err
 	}
 	if !needsMerge {
 		return nil
 	}
-	if err := r.git.Merge(cfg.Base); err != nil {
+	if err := r.git.Merge(baseRef); err != nil {
 		_ = r.git.AbortMerge()
-		return r.ai.ResolveMergeConflicts(cfg.Base, projectBranch)
+		return r.ai.ResolveMergeConflicts(baseRef, projectBranch)
 	}
 	return nil
+}
+
+// mergeRef is the ref synchronization merges. In a worktree the base branch is
+// normally checked out in the main checkout, so it cannot be moved without
+// changing that checkout; the fetched remote-tracking ref is merged instead.
+func mergeRef(base string, inWorktree bool) string {
+	if inWorktree {
+		return "origin/" + base
+	}
+	return base
 }
 
 func (r *Runner) generateArtifacts(input *project.InputFile, cfg *config.RalphConfig) (*project.Project, error) {
