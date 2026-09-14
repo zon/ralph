@@ -60,6 +60,8 @@ Ralph runs projects like this:
 4. Git commit with the report and push
 5. Submit a pull request if all items are complete. Otherwise return to step 2
 
+A run or loop merges the base branch into its working branch before the first iteration and again before submitting the pull request. The second merge is pushed, so the pull request contains the base branch's latest changes.
+
 ## Additional features
 
 - 🚀 Service management: run dev services required by the project

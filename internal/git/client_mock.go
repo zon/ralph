@@ -13,6 +13,11 @@ type MockClient struct {
 	CommitOrchestrationRemovalFunc func(slug string) error
 	CommitGeneratedArtifactsFunc   func(slug string) error
 	CommitProjectRemovalFunc       func(path string) error
+	FetchBranchFunc                func(branch string) error
+	NeedsMergeFunc                 func(branch string) (bool, error)
+	MergeFunc                      func(branch string) error
+	AbortMergeFunc                 func() error
+	PushFunc                       func() error
 }
 
 func (m *MockClient) SwitchToBranch(slug string) error {
@@ -94,6 +99,41 @@ func (m *MockClient) CommitGeneratedArtifacts(slug string) error {
 func (m *MockClient) CommitProjectRemoval(path string) error {
 	if m.CommitProjectRemovalFunc != nil {
 		return m.CommitProjectRemovalFunc(path)
+	}
+	return nil
+}
+
+func (m *MockClient) FetchBranch(branch string) error {
+	if m.FetchBranchFunc != nil {
+		return m.FetchBranchFunc(branch)
+	}
+	return nil
+}
+
+func (m *MockClient) NeedsMerge(branch string) (bool, error) {
+	if m.NeedsMergeFunc != nil {
+		return m.NeedsMergeFunc(branch)
+	}
+	return false, nil
+}
+
+func (m *MockClient) Merge(branch string) error {
+	if m.MergeFunc != nil {
+		return m.MergeFunc(branch)
+	}
+	return nil
+}
+
+func (m *MockClient) AbortMerge() error {
+	if m.AbortMergeFunc != nil {
+		return m.AbortMergeFunc()
+	}
+	return nil
+}
+
+func (m *MockClient) Push() error {
+	if m.PushFunc != nil {
+		return m.PushFunc()
 	}
 	return nil
 }

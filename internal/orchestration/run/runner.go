@@ -1,6 +1,7 @@
 package run
 
 import (
+	"github.com/zon/ralph/internal/basesync"
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/project"
@@ -25,6 +26,7 @@ type AIClient interface {
 	IsFatal(err error) bool
 	GenerateChangelog(proj *project.Project) error
 	FixServiceStartup(cfg *config.RalphConfig, err error) error
+	ResolveMergeConflicts(baseBranch, projectBranch string) error
 	PrintStats()
 	WriteOrchestration(input *project.InputFile) error
 	WriteProject(input *project.InputFile) (string, error)
@@ -46,6 +48,15 @@ type GitClient interface {
 	CommitOrchestrationRemoval(slug string) error
 	CommitGeneratedArtifacts(slug string) error
 	CommitProjectRemoval(path string) error
+	FetchBranch(branch string) error
+	NeedsMerge(branch string) (bool, error)
+	Merge(branch string) error
+	AbortMerge() error
+	Push() error
+}
+
+type OutputClient interface {
+	Warnf(format string, a ...any)
 }
 
 type WorkflowClient interface {
@@ -78,9 +89,10 @@ type Runner struct {
 	services ServicesClient
 	notify   NotifyClient
 	env      EnvClient
+	output   OutputClient
 }
 
-func NewRunner(project ProjectClient, ai AIClient, git GitClient, github GitHubClient, services ServicesClient, notify NotifyClient, env EnvClient) *Runner {
+func NewRunner(project ProjectClient, ai AIClient, git GitClient, github GitHubClient, services ServicesClient, notify NotifyClient, env EnvClient, output OutputClient) *Runner {
 	return &Runner{
 		project:  project,
 		ai:       ai,
@@ -89,6 +101,7 @@ func NewRunner(project ProjectClient, ai AIClient, git GitClient, github GitHubC
 		services: services,
 		notify:   notify,
 		env:      env,
+		output:   output,
 	}
 }
 
@@ -126,6 +139,10 @@ func (r *Runner) runLocal(input *project.InputFile, cfg *config.RalphConfig, inW
 			return err
 		}
 	}
+	if _, err := r.syncBaseBranch(cfg, git.SanitizeBranchName(input.Slug()), inWorktree); err != nil {
+		r.notify.Error(input.Slug())
+		return err
+	}
 	proj, err := r.generateArtifacts(input, cfg)
 	if err != nil {
 		r.notify.Error(input.Slug())
@@ -143,12 +160,38 @@ func (r *Runner) runLocal(input *project.InputFile, cfg *config.RalphConfig, inW
 		r.notify.Error(proj.Slug)
 		return err
 	}
+	if err := r.syncBaseBranchBeforePR(cfg, git.SanitizeBranchName(proj.Slug), inWorktree); err != nil {
+		r.notify.Error(proj.Slug)
+		return err
+	}
 	if err := r.github.CreatePR(proj, git.SanitizeBranchName(proj.Slug)); err != nil {
 		r.notify.Error(proj.Slug)
 		return err
 	}
 	r.notify.Success(proj.Slug)
 	return nil
+}
+
+// syncBaseBranch fetches the resolved base branch and merges it into the
+// project branch when the base branch is not already contained, before the
+// first iteration. It reports whether a merge was performed.
+func (r *Runner) syncBaseBranch(cfg *config.RalphConfig, projectBranch string, inWorktree bool) (bool, error) {
+	return basesync.Sync(r.git, r.ai, r.output, cfg.Base, projectBranch, inWorktree)
+}
+
+// syncBaseBranchBeforePR fetches and merges the base branch immediately before
+// the pull request is opened and pushes the merge so the pull request contains
+// the base branch's latest changes. A fetch failure is warned about and skipped
+// like the start-of-run synchronization.
+func (r *Runner) syncBaseBranchBeforePR(cfg *config.RalphConfig, projectBranch string, inWorktree bool) error {
+	merged, err := r.syncBaseBranch(cfg, projectBranch, inWorktree)
+	if err != nil {
+		return err
+	}
+	if !merged {
+		return nil
+	}
+	return r.git.Push()
 }
 
 func (r *Runner) generateArtifacts(input *project.InputFile, cfg *config.RalphConfig) (*project.Project, error) {

@@ -757,3 +757,5 @@ func (e *eventAIClient) RunAgent(prompt string) error {
 }
 
 func (e *eventAIClient) PrintStats() {}
+
+func (e *eventAIClient) ResolveMergeConflicts(string, string) error { return nil }

@@ -6,12 +6,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/zon/ralph/internal/ai"
 	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/github"
-	"github.com/zon/ralph/internal/opencode"
 	orchestrationWorkflow "github.com/zon/ralph/internal/orchestration/workflowrun"
 	wksp "github.com/zon/ralph/internal/orchestration/workspace"
 	"github.com/zon/ralph/internal/project"
@@ -21,13 +19,10 @@ import (
 func newOrchestrationWorkflowRunCmd(ctx *execcontext.Context) *orchestrationWorkflow.WorkflowRunCmd {
 	return orchestrationWorkflow.NewWorkflowRunCmd(
 		&workspaceSetupAdapter{ctx: ctx},
-		&gitAdapter{},
-		&aiAdapter{ctx: ctx},
-		&runnerAdapter{ctx: ctx, baseBranch: ctx.BaseBranch()},
+		&runnerAdapter{ctx: ctx},
 		&configOptionalAdapter{},
 		&projectResolveAdapter{ctx: ctx},
 		&debugAdapter{ctx: ctx},
-		ctx.Output(),
 	)
 }
 
@@ -119,54 +114,15 @@ func (c *workspaceGitClient) CreateAndCheckout(branch string) error {
 }
 
 // ---------------------------------------------------------------------------
-// gitAdapter
-// ---------------------------------------------------------------------------
-
-type gitAdapter struct{}
-
-func (a *gitAdapter) FetchBranch(branch string) error {
-	return git.FetchBranch(branch)
-}
-
-func (a *gitAdapter) NeedsMerge(branch string) (bool, error) {
-	return git.NeedsMerge(branch)
-}
-
-func (a *gitAdapter) Merge(branch string) error {
-	return git.Merge(branch)
-}
-
-func (a *gitAdapter) AbortMerge() {
-	_ = git.AbortMerge()
-}
-
-// ---------------------------------------------------------------------------
-// aiAdapter
-// ---------------------------------------------------------------------------
-
-type aiAdapter struct {
-	ctx *execcontext.Context
-}
-
-func (a *aiAdapter) ResolveMergeConflicts(baseBranch, projectBranch string) error {
-	prompt, err := ai.BuildResolveMergeConflictsPrompt(baseBranch, projectBranch)
-	if err != nil {
-		return err
-	}
-	return ai.RunAgent(a.ctx, opencode.New(), prompt)
-}
-
-// ---------------------------------------------------------------------------
 // runnerAdapter
 // ---------------------------------------------------------------------------
 
 type runnerAdapter struct {
-	ctx        *execcontext.Context
-	baseBranch string
+	ctx *execcontext.Context
 }
 
 func (a *runnerAdapter) RunLocal(proj *project.Project, cfg *config.RalphConfig) error {
-	runner := NewLocalRunner(a.ctx, a.baseBranch)
+	runner := NewLocalRunner(a.ctx, cfg.Base)
 	return runner.RunLocal(project.ForProjectInput(proj), cfg)
 }
 

@@ -1,6 +1,8 @@
 package run
 
 import (
+	"fmt"
+
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/notify"
 	"github.com/zon/ralph/internal/project"
@@ -16,6 +18,7 @@ type mockAI struct {
 	isFatalFunc            func(err error) bool
 	changelogFunc          func() error
 	fixServiceFunc         func(*config.RalphConfig, error) error
+	resolveConflictsFunc   func(baseBranch, projectBranch string) error
 	writeOrchestrationFunc func(input *project.InputFile) error
 	writeProjectFunc       func(input *project.InputFile) (string, error)
 
@@ -24,8 +27,11 @@ type mockAI struct {
 	developCalls             int
 	changelogCalls           int
 	fixServiceCalled         bool
+	resolveConflictsCalled   bool
 	writeOrchestrationCalled bool
 	writeProjectCalled       bool
+	lastResolveBase          string
+	lastResolveProject       string
 	lastPickerIndices        []int
 	lastPickerItems          []project.Item
 	lastDevelopedIndex       int
@@ -82,6 +88,16 @@ func (m *mockAI) FixServiceStartup(cfg *config.RalphConfig, err error) error {
 	return nil
 }
 
+func (m *mockAI) ResolveMergeConflicts(baseBranch, projectBranch string) error {
+	m.resolveConflictsCalled = true
+	m.lastResolveBase = baseBranch
+	m.lastResolveProject = projectBranch
+	if m.resolveConflictsFunc != nil {
+		return m.resolveConflictsFunc(baseBranch, projectBranch)
+	}
+	return nil
+}
+
 func (m *mockAI) WriteOrchestration(input *project.InputFile) error {
 	m.writeOrchestrationCalled = true
 	if m.writeOrchestrationFunc != nil {
@@ -122,12 +138,28 @@ type mockGit struct {
 	reportMessage string
 	order         []string
 
+	fetchBranchErr error
+	needsMerge     bool
+	needsMergeErr  error
+	mergeErr       error
+	mergeErrAfter  int
+	pushErr        error
+
 	switchToBranchCalled             bool
 	writeBlockedFileCalled           bool
 	commitFromReportCalled           bool
 	commitOrchestrationRemovalCalled bool
 	commitGeneratedArtifactsCalled   bool
 	commitProjectRemovalCalled       bool
+	fetchBranchCalled                bool
+	needsMergeCalled                 bool
+	mergeCalled                      bool
+	abortMergeCalled                 bool
+	pushCalled                       bool
+	fetchBranchCalls                 int
+	mergeCalls                       int
+	lastFetchedBranch                string
+	lastMergedBranch                 string
 	lastCommitMessage                string
 }
 
@@ -167,6 +199,45 @@ func (m *mockGit) CurrentBranch() (string, error) {
 	return "main", nil
 }
 
+func (m *mockGit) FetchBranch(branch string) error {
+	m.fetchBranchCalled = true
+	m.fetchBranchCalls++
+	m.lastFetchedBranch = branch
+	m.order = append(m.order, "fetch")
+	return m.fetchBranchErr
+}
+
+func (m *mockGit) NeedsMerge(branch string) (bool, error) {
+	m.needsMergeCalled = true
+	return m.needsMerge, m.needsMergeErr
+}
+
+func (m *mockGit) Merge(branch string) error {
+	m.mergeCalled = true
+	m.mergeCalls++
+	m.lastMergedBranch = branch
+	m.order = append(m.order, "merge")
+	if m.mergeErrAfter > 0 {
+		if m.mergeCalls <= m.mergeErrAfter {
+			return nil
+		}
+		return m.mergeErr
+	}
+	return m.mergeErr
+}
+
+func (m *mockGit) AbortMerge() error {
+	m.abortMergeCalled = true
+	m.order = append(m.order, "abort-merge")
+	return nil
+}
+
+func (m *mockGit) Push() error {
+	m.pushCalled = true
+	m.order = append(m.order, "push")
+	return m.pushErr
+}
+
 func (m *mockGit) IsBranchSyncedWithRemote(branch string) error {
 	return nil
 }
@@ -192,10 +263,14 @@ func (m *mockGit) CommitProjectRemoval(path string) error {
 // mockGitHub implements GitHubClient and records whether CreatePR was called.
 type mockGitHub struct {
 	createPRCalled bool
+	createPRFunc   func(proj *project.Project, head string) error
 }
 
 func (m *mockGitHub) CreatePR(proj *project.Project, head string) error {
 	m.createPRCalled = true
+	if m.createPRFunc != nil {
+		return m.createPRFunc(proj, head)
+	}
 	return nil
 }
 
@@ -244,6 +319,15 @@ func envInWorkflow() *mockEnv {
 
 func envNotInWorkflow() *mockEnv {
 	return &mockEnv{inWorkflow: false}
+}
+
+// mockOutput implements OutputClient and records the warnings it receives.
+type mockOutput struct {
+	warnings []string
+}
+
+func (m *mockOutput) Warnf(format string, a ...any) {
+	m.warnings = append(m.warnings, fmt.Sprintf(format, a...))
 }
 
 var errFatal = &mockError{"billing limit exceeded"}
@@ -368,6 +452,29 @@ func gitWithNoChanges() *mockGit {
 	return &mockGit{hasChanges: false, reportExists: false}
 }
 
+func gitThatFailsFetch() *mockGit {
+	return &mockGit{fetchBranchErr: errNonFatal}
+}
+
+func gitThatNeedsMerge() *mockGit {
+	return &mockGit{needsMerge: true}
+}
+
+func gitThatConflicts() *mockGit {
+	return &mockGit{needsMerge: true, mergeErr: errNonFatal}
+}
+
+func gitThatFailsPush() *mockGit {
+	return &mockGit{needsMerge: true, pushErr: errNonFatal}
+}
+
+// gitThatConflictsOnSecondMerge succeeds the start-of-run merge and conflicts
+// on the merge before the pull request, so the pre-pull-request conflict path
+// can be exercised without the start-of-run synchronization aborting first.
+func gitThatConflictsOnSecondMerge() *mockGit {
+	return &mockGit{needsMerge: true, mergeErr: errNonFatal, mergeErrAfter: 1}
+}
+
 // ---------------------------------------------------------------------------
 // Services client builders
 // ---------------------------------------------------------------------------
@@ -410,6 +517,12 @@ func withEnv(ec EnvClient) runnerOption {
 	}
 }
 
+func withGitHub(gc GitHubClient) runnerOption {
+	return func(r *Runner) {
+		r.github = gc
+	}
+}
+
 func withServices(sc ServicesClient) runnerOption {
 	return func(r *Runner) {
 		r.services = sc
@@ -425,6 +538,7 @@ func withMocks(opts ...runnerOption) *Runner {
 		services: &mockServices{},
 		notify:   &notify.MockClient{},
 		env:      envNotInWorkflow(),
+		output:   &mockOutput{},
 	}
 	for _, opt := range opts {
 		opt(r)
@@ -518,6 +632,90 @@ func gitBranchSwitched(r *Runner) bool {
 		return m.switchToBranchCalled
 	}
 	return false
+}
+
+func gitFetchCalled(r *Runner) bool {
+	if m, ok := r.git.(*mockGit); ok {
+		return m.fetchBranchCalled
+	}
+	return false
+}
+
+func gitMergeCalled(r *Runner) bool {
+	if m, ok := r.git.(*mockGit); ok {
+		return m.mergeCalled
+	}
+	return false
+}
+
+func gitFetchCalls(r *Runner) int {
+	if m, ok := r.git.(*mockGit); ok {
+		return m.fetchBranchCalls
+	}
+	return 0
+}
+
+func gitMergeCalls(r *Runner) int {
+	if m, ok := r.git.(*mockGit); ok {
+		return m.mergeCalls
+	}
+	return 0
+}
+
+func gitPushCalled(r *Runner) bool {
+	if m, ok := r.git.(*mockGit); ok {
+		return m.pushCalled
+	}
+	return false
+}
+
+func gitLastFetchedBranch(r *Runner) string {
+	if m, ok := r.git.(*mockGit); ok {
+		return m.lastFetchedBranch
+	}
+	return ""
+}
+
+func gitLastMergedBranch(r *Runner) string {
+	if m, ok := r.git.(*mockGit); ok {
+		return m.lastMergedBranch
+	}
+	return ""
+}
+
+func gitMergeAborted(r *Runner) bool {
+	if m, ok := r.git.(*mockGit); ok {
+		return m.abortMergeCalled
+	}
+	return false
+}
+
+func aiResolveConflictsCalled(r *Runner) bool {
+	if m, ok := r.ai.(*mockAI); ok {
+		return m.resolveConflictsCalled
+	}
+	return false
+}
+
+func aiResolveBase(r *Runner) string {
+	if m, ok := r.ai.(*mockAI); ok {
+		return m.lastResolveBase
+	}
+	return ""
+}
+
+func aiResolveProject(r *Runner) string {
+	if m, ok := r.ai.(*mockAI); ok {
+		return m.lastResolveProject
+	}
+	return ""
+}
+
+func outputWarnings(r *Runner) []string {
+	if m, ok := r.output.(*mockOutput); ok {
+		return m.warnings
+	}
+	return nil
 }
 
 func gitArtifactsCommitted(r *Runner) bool {

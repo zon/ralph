@@ -70,13 +70,18 @@ func nothingToDoReports() []string {
 	return []string{"NOTHING_TO_DO"}
 }
 
-// mockAIClient records the prompts it ran and returns an injected error when
-// set.
+// mockAIClient records the prompts it ran and the merge conflicts it resolved
+// and returns an injected error when set.
 type mockAIClient struct {
 	prompts      []string
 	err          error
 	calls        int
 	statsPrinted bool
+
+	resolveConflictsErr    error
+	resolveConflictsCalled bool
+	lastResolveBase        string
+	lastResolveProject     string
 }
 
 func (m *mockAIClient) RunAgent(prompt string) error {
@@ -87,6 +92,13 @@ func (m *mockAIClient) RunAgent(prompt string) error {
 
 func (m *mockAIClient) PrintStats() {
 	m.statsPrinted = true
+}
+
+func (m *mockAIClient) ResolveMergeConflicts(baseBranch, projectBranch string) error {
+	m.resolveConflictsCalled = true
+	m.lastResolveBase = baseBranch
+	m.lastResolveProject = projectBranch
+	return m.resolveConflictsErr
 }
 
 // mockEnvClient reports whether the command is executing inside a workflow
@@ -140,8 +152,8 @@ func (m *mockReportReader) ReadReport() (ai.Report, error) {
 	return ai.Report{Content: content}, nil
 }
 
-// mockGitClient records the slugs it switched to and committed and returns an
-// injected error when set.
+// mockGitClient records the slugs it switched to and committed and the base
+// branch synchronization it performed, and returns an injected error when set.
 type mockGitClient struct {
 	slugs       []string
 	switchSlugs []string
@@ -149,6 +161,33 @@ type mockGitClient struct {
 	switchErr   error
 	calls       int
 	switchCalls int
+
+	currentBranch     string
+	currentBranchErr  error
+	currentBranchFunc func() (string, error)
+	fetchErr          error
+	needsMerge        bool
+	needsMergeErr     error
+	mergeErr          error
+	mergeErrAfter     int
+	pushErr           error
+
+	fetchBranchCalled bool
+	fetchCalls        int
+	mergeCalled       bool
+	mergeCalls        int
+	abortMergeCalled  bool
+	pushCalled        bool
+	pushCalls         int
+	lastFetchedBranch string
+	lastMergedBranch  string
+}
+
+func (m *mockGitClient) CurrentBranch() (string, error) {
+	if m.currentBranchFunc != nil {
+		return m.currentBranchFunc()
+	}
+	return m.currentBranch, m.currentBranchErr
 }
 
 func (m *mockGitClient) SwitchToLoopBranch(slug string) error {
@@ -169,16 +208,64 @@ func (m *mockGitClient) CommitIterationAndPush(slug string) error {
 	return nil
 }
 
+func (m *mockGitClient) FetchBranch(branch string) error {
+	m.fetchBranchCalled = true
+	m.fetchCalls++
+	m.lastFetchedBranch = branch
+	return m.fetchErr
+}
+
+func (m *mockGitClient) NeedsMerge(branch string) (bool, error) {
+	return m.needsMerge, m.needsMergeErr
+}
+
+func (m *mockGitClient) Merge(branch string) error {
+	m.mergeCalled = true
+	m.mergeCalls++
+	m.lastMergedBranch = branch
+	if m.mergeErrAfter > 0 {
+		if m.mergeCalls <= m.mergeErrAfter {
+			return nil
+		}
+		return m.mergeErr
+	}
+	return m.mergeErr
+}
+
+func (m *mockGitClient) AbortMerge() error {
+	m.abortMergeCalled = true
+	return nil
+}
+
+func (m *mockGitClient) Push() error {
+	m.pushCalled = true
+	m.pushCalls++
+	return m.pushErr
+}
+
+// mockOutput records the warnings synchronization logs.
+type mockOutput struct {
+	warnings []string
+}
+
+func (m *mockOutput) Warnf(format string, a ...any) {
+	m.warnings = append(m.warnings, fmt.Sprintf(format, a...))
+}
+
 // mockPullRequestOpener records the slugs it opened pull requests for and
 // returns an injected error when set.
 type mockPullRequestOpener struct {
-	slugs []string
-	err   error
-	calls int
+	slugs    []string
+	err      error
+	calls    int
+	openFunc func(slug string) error
 }
 
 func (m *mockPullRequestOpener) OpenLoopPullRequest(slug string) error {
 	m.calls++
 	m.slugs = append(m.slugs, slug)
+	if m.openFunc != nil {
+		return m.openFunc(slug)
+	}
 	return m.err
 }

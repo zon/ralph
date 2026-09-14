@@ -37,6 +37,14 @@ func (mockLoopNotifyClient) Success(string) {}
 // the branch-sync check are faked, so no external tool is invoked.
 func newRemoteLoopRunnerForTest(t *testing.T, submittedYAML *string) loop.RemoteRunnerClient {
 	t.Helper()
+	return newRemoteLoopRunnerForBranch(t, submittedYAML, "main")
+}
+
+// newRemoteLoopRunnerForBranch wires the remote loop execution path with a
+// caller-supplied current branch, so tests can assert the branch the loop
+// branch is created from reaches the container.
+func newRemoteLoopRunnerForBranch(t *testing.T, submittedYAML *string, branch string) loop.RemoteRunnerClient {
+	t.Helper()
 	argoClient := &argo.MockClient{
 		SubmitYAMLFunc: func(ctx context.Context, workflowYAML string, kubeCtx argo.K8sContext) (string, error) {
 			*submittedYAML = workflowYAML
@@ -47,7 +55,7 @@ func newRemoteLoopRunnerForTest(t *testing.T, submittedYAML *string) loop.Remote
 	adapterCtx.SetOutput(output.NewClient(io.Discard, io.Discard, false))
 	adapterCtx.SetRepoOwner("owner")
 	adapterCtx.SetRepoName("repo")
-	adapter := &loopWorkflowClientAdapter{ctx: adapterCtx, argoClient: argoClient, currentBranch: func() (string, error) { return "main", nil }}
+	adapter := &loopWorkflowClientAdapter{ctx: adapterCtx, argoClient: argoClient, currentBranch: func() (string, error) { return branch, nil }}
 	return loop.NewRemoteRunner(mockLoopBranchSyncClient{}, adapter, mockLoopNotifyClient{})
 }
 
@@ -145,4 +153,26 @@ func TestLoopRunRemoteSubmitsWorkflowWithResolvedIterationCap(t *testing.T) {
 			require.Equal(t, tt.wantMax, submittedArgValue(args, "--max"), "the container runs the loop with the resolved iteration cap")
 		})
 	}
+}
+
+// TestLoopRunRemoteDeliversBranchItWasCreatedFrom asserts remote loop
+// submission captures the branch the loop branch will be created from and
+// delivers it to the container as the clone branch, so the container
+// synchronizes against exactly that branch.
+func TestLoopRunRemoteDeliversBranchItWasCreatedFrom(t *testing.T) {
+	writeLoopConfig(t, `loops:
+  - slug: fmt
+    steps:
+      - run gofmt
+`)
+
+	var submittedYAML string
+	cmd := &LoopCmd{Mode: config.ModeRemote, Slug: "fmt", remoteRunner: newRemoteLoopRunnerForBranch(t, &submittedYAML, "feature-x")}
+
+	err := cmd.Run()
+	require.NoError(t, err)
+	require.NotEmpty(t, submittedYAML, "a loop workflow is submitted in remote mode")
+
+	args := submittedLoopContainerArgs(t, submittedYAML)
+	require.Equal(t, "feature-x", submittedArgValue(args, "--clone"), "the branch the loop branch is created from is delivered to the container")
 }

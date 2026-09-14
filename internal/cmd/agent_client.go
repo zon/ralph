@@ -169,6 +169,17 @@ func (a *AgentClient) GenerateChangelog(proj *project.Project) error {
 	return ai.GenerateChangelog(a.ctx, a.oc)
 }
 
+// ResolveMergeConflicts invokes the configured agent to resolve a base-branch
+// merge conflict, run the tests, and stage the resolved files. It runs with the
+// configured agent because resolving conflicts writes repository code.
+func (a *AgentClient) ResolveMergeConflicts(baseBranch, projectBranch string) error {
+	prompt, err := ai.BuildResolveMergeConflictsPrompt(baseBranch, projectBranch)
+	if err != nil {
+		return err
+	}
+	return ai.RunAgent(a.ctx, a.oc, prompt)
+}
+
 func (a *AgentClient) FixServiceStartup(cfg *config.RalphConfig, err error) error {
 	svcMgr := services.NewManager(a.ctx.Output())
 	if failedSvc, startErr := svcMgr.Start(cfg.Services); startErr != nil {

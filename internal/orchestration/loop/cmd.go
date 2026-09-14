@@ -2,6 +2,8 @@ package loop
 
 import (
 	"github.com/zon/ralph/internal/ai"
+	"github.com/zon/ralph/internal/basesync"
+	"github.com/zon/ralph/internal/git"
 )
 
 // LoopConfigClient resolves the steps of the loop config entry matching the
@@ -20,11 +22,20 @@ type SlugProposer interface {
 	ProposeSlug(steps []string) (string, error)
 }
 
-// AIClient runs the loop prompt as one AI agent pass.
+// AIClient runs the loop prompt as one AI agent pass and resolves a
+// conflicting base-branch merge.
 type AIClient interface {
 	RunAgent(prompt string) error
 	// PrintStats prints the accumulated AI token usage and cost statistics.
 	PrintStats()
+	// ResolveMergeConflicts resolves a base-branch merge conflict, runs the
+	// tests, and stages the resolved files.
+	ResolveMergeConflicts(baseBranch, projectBranch string) error
+}
+
+// OutputClient logs the warning emitted when the base branch cannot be fetched.
+type OutputClient interface {
+	Warnf(format string, a ...any)
 }
 
 // EnvClient reports whether the command is executing inside a workflow
@@ -38,11 +49,18 @@ type ReportReader interface {
 	ReadReport() (ai.Report, error)
 }
 
-// GitClient switches the loop to its branch before the agent runs and commits
-// each iteration to the loop branch, pushing it.
+// GitClient switches the loop to its branch before the agent runs, commits
+// each iteration to the loop branch, pushing it, and synchronizes the loop
+// branch with the branch it was created from.
 type GitClient interface {
+	CurrentBranch() (string, error)
 	SwitchToLoopBranch(slug string) error
 	CommitIterationAndPush(slug string) error
+	FetchBranch(branch string) error
+	NeedsMerge(branch string) (bool, error)
+	Merge(branch string) error
+	AbortMerge() error
+	Push() error
 }
 
 // PullRequestOpener opens a pull request for the loop branch after the
@@ -64,11 +82,31 @@ type Cmd struct {
 	git     GitClient
 	pr      PullRequestOpener
 	env     EnvClient
+	output  OutputClient
+	base    string
 }
 
-func NewCmd(cfg LoopConfigClient, prompt PromptBuilder, propose SlugProposer, ai AIClient, report ReportReader, git GitClient, pr PullRequestOpener, env EnvClient) *Cmd {
-	return &Cmd{cfg: cfg, prompt: prompt, propose: propose, ai: ai, report: report, git: git, pr: pr, env: env}
+// Option configures optional dependencies of the loop command.
+type Option func(*Cmd)
+
+// WithOutput sets the client that logs synchronization warnings.
+func WithOutput(output OutputClient) Option {
+	return func(c *Cmd) { c.output = output }
 }
+
+func NewCmd(cfg LoopConfigClient, prompt PromptBuilder, propose SlugProposer, ai AIClient, report ReportReader, git GitClient, pr PullRequestOpener, env EnvClient, opts ...Option) *Cmd {
+	c := &Cmd{cfg: cfg, prompt: prompt, propose: propose, ai: ai, report: report, git: git, pr: pr, env: env, output: noopOutput{}}
+	for _, opt := range opts {
+		opt(c)
+	}
+	return c
+}
+
+// noopOutput discards warnings when no output client is wired, so
+// synchronization never fails on a missing logger.
+type noopOutput struct{}
+
+func (noopOutput) Warnf(string, ...any) {}
 
 // Result carries the resolution of a loop invocation: the branch slug and the
 // steps to run.
@@ -78,8 +116,9 @@ type Result struct {
 }
 
 // Run resolves the branch slug and the steps to run, switches to the loop
-// branch so the agent works on its own state, builds the loop prompt embedding
-// the steps, and runs it as an iteration loop. The loop stops when the agent
+// branch so the agent works on its own state, synchronizes the loop branch
+// with the branch it was created from, builds the loop prompt embedding the
+// steps, and runs it as an iteration loop. The loop stops when the agent
 // reports nothing to do or after max iterations, whichever comes first. An
 // iteration whose agent pass leaves report.md missing or unreadable is not
 // committed and the loop runs its next iteration. After the loop ends it opens
@@ -99,10 +138,21 @@ func (c *Cmd) Run(slug string, steps []string, max int) (*Result, error) {
 }
 
 // Resolve returns the branch slug and steps to run for the invocation without
-// running the loop. Worktree mode resolves before creating the loop branch's
-// worktree, so the branch name is known ahead of the in-process run.
+// running the loop, and records the branch the loop branch is created from as
+// the base branch synchronization merges. Worktree mode resolves before
+// creating the loop branch's worktree, so the branch name is known ahead of
+// the in-process run and the base is still the current checkout's branch.
 func (c *Cmd) Resolve(slug string, steps []string) (*Result, error) {
-	return c.resolve(slug, steps)
+	result, err := c.resolve(slug, steps)
+	if err != nil {
+		return nil, err
+	}
+	base, err := c.git.CurrentBranch()
+	if err != nil {
+		return nil, err
+	}
+	c.base = base
+	return result, nil
 }
 
 // RunResolvedInWorktree runs the loop in-process inside an existing worktree
@@ -113,10 +163,11 @@ func (c *Cmd) RunResolvedInWorktree(result *Result, max int) error {
 	return c.runResolved(result, max, true)
 }
 
-// runResolved builds the loop prompt embedding the resolved steps and runs it
-// as an iteration loop, opening the loop branch's pull request afterwards.
-// In worktree mode the branch switch is skipped because the worktree already
-// has the loop branch checked out.
+// runResolved synchronizes the loop branch with the branch it was created from,
+// builds the loop prompt embedding the resolved steps, and runs it as an
+// iteration loop, opening the loop branch's pull request afterwards. In
+// worktree mode the branch switch is skipped because the worktree already has
+// the loop branch checked out.
 func (c *Cmd) runResolved(result *Result, max int, inWorktree bool) error {
 	if c.env.InWorkflow() {
 		defer c.ai.PrintStats()
@@ -126,6 +177,9 @@ func (c *Cmd) runResolved(result *Result, max int, inWorktree bool) error {
 			return err
 		}
 	}
+	if _, err := basesync.Sync(c.git, c.ai, c.output, c.base, git.LoopBranch(result.Slug), inWorktree); err != nil {
+		return err
+	}
 	prompt, err := c.prompt.BuildLoopPrompt(result.Steps)
 	if err != nil {
 		return err
@@ -133,7 +187,25 @@ func (c *Cmd) runResolved(result *Result, max int, inWorktree bool) error {
 	if err := c.iterate(prompt, max, result.Slug); err != nil {
 		return err
 	}
+	if err := c.syncBaseBranchBeforePR(result, inWorktree); err != nil {
+		return err
+	}
 	return c.pr.OpenLoopPullRequest(result.Slug)
+}
+
+// syncBaseBranchBeforePR fetches and merges the branch the loop branch was
+// created from immediately before the pull request is opened and pushes the
+// merge so the pull request contains the base branch's latest changes. A fetch
+// failure is warned about and skipped like the start-of-run synchronization.
+func (c *Cmd) syncBaseBranchBeforePR(result *Result, inWorktree bool) error {
+	merged, err := basesync.Sync(c.git, c.ai, c.output, c.base, git.LoopBranch(result.Slug), inWorktree)
+	if err != nil {
+		return err
+	}
+	if !merged {
+		return nil
+	}
+	return c.git.Push()
 }
 
 // iterate runs the loop prompt as an iteration loop. Each iteration invokes

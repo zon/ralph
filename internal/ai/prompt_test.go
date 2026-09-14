@@ -621,6 +621,8 @@ func TestBuildResolveMergeConflictsPrompt(t *testing.T) {
 	assert.Contains(t, prompt, "main")
 	assert.Contains(t, prompt, "feature-branch")
 	assert.Contains(t, prompt, "git merge main")
+	assert.Contains(t, prompt, "Run tests", "the agent is told to run the tests")
+	assert.Contains(t, prompt, "git add", "the agent is told to stage the resolved files")
 }
 
 func TestBuildLoopPrompt(t *testing.T) {

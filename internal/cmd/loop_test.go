@@ -424,13 +424,18 @@ func (f *fakeSlugProposer) ProposeSlug(steps []string) (string, error) {
 	return f.slug, nil
 }
 
-// fakeAIClient records the prompts it ran and returns an injected error when
-// set, so tests never invoke the real AI.
+// fakeAIClient records the prompts it ran and the merge conflicts it resolved
+// and returns an injected error when set, so tests never invoke the real AI.
 type fakeAIClient struct {
 	prompts      []string
 	err          error
 	calls        int
 	statsPrinted bool
+
+	resolveErr             error
+	resolveConflictsCalled bool
+	lastResolveBase        string
+	lastResolveProject     string
 }
 
 func (f *fakeAIClient) RunAgent(prompt string) error {
@@ -441,6 +446,13 @@ func (f *fakeAIClient) RunAgent(prompt string) error {
 
 func (f *fakeAIClient) PrintStats() {
 	f.statsPrinted = true
+}
+
+func (f *fakeAIClient) ResolveMergeConflicts(baseBranch, projectBranch string) error {
+	f.resolveConflictsCalled = true
+	f.lastResolveBase = baseBranch
+	f.lastResolveProject = projectBranch
+	return f.resolveErr
 }
 
 // fakeReportReader returns an injected report content or error, so tests never
@@ -457,8 +469,9 @@ func (f *fakeReportReader) ReadReport() (ai.Report, error) {
 	return ai.Report{Content: f.content}, nil
 }
 
-// fakeGitClient records the slugs it switched to and committed and returns an
-// injected error when set, so tests never touch a real git repository.
+// fakeGitClient records the slugs it switched to and committed and the base
+// branch synchronization it performed, and returns an injected error when set,
+// so tests never touch a real git repository.
 type fakeGitClient struct {
 	slugs       []string
 	switched    []string
@@ -466,6 +479,25 @@ type fakeGitClient struct {
 	switchErr   error
 	calls       int
 	switchCalls int
+
+	currentBranch    string
+	currentBranchErr error
+	fetchErr         error
+	needsMerge       bool
+	needsMergeErr    error
+	mergeErr         error
+
+	fetchBranchCalled bool
+	fetchCalls        int
+	mergeCalled       bool
+	mergeCalls        int
+	abortMergeCalled  bool
+	lastFetchedBranch string
+	lastMergedBranch  string
+}
+
+func (f *fakeGitClient) CurrentBranch() (string, error) {
+	return f.currentBranch, f.currentBranchErr
 }
 
 func (f *fakeGitClient) SwitchToLoopBranch(slug string) error {
@@ -483,6 +515,33 @@ func (f *fakeGitClient) CommitIterationAndPush(slug string) error {
 	if f.err != nil {
 		return f.err
 	}
+	return nil
+}
+
+func (f *fakeGitClient) FetchBranch(branch string) error {
+	f.fetchBranchCalled = true
+	f.fetchCalls++
+	f.lastFetchedBranch = branch
+	return f.fetchErr
+}
+
+func (f *fakeGitClient) NeedsMerge(branch string) (bool, error) {
+	return f.needsMerge, f.needsMergeErr
+}
+
+func (f *fakeGitClient) Merge(branch string) error {
+	f.mergeCalled = true
+	f.mergeCalls++
+	f.lastMergedBranch = branch
+	return f.mergeErr
+}
+
+func (f *fakeGitClient) AbortMerge() error {
+	f.abortMergeCalled = true
+	return nil
+}
+
+func (f *fakeGitClient) Push() error {
 	return nil
 }
 

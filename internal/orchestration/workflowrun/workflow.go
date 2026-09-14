@@ -14,17 +14,6 @@ type WorkspaceSetupClient interface {
 	Setup(flags wksp.WorkspaceFlags) error
 }
 
-type GitClient interface {
-	FetchBranch(branch string) error
-	NeedsMerge(branch string) (bool, error)
-	Merge(branch string) error
-	AbortMerge()
-}
-
-type AIClient interface {
-	ResolveMergeConflicts(baseBranch, projectBranch string) error
-}
-
 type RunnerClient interface {
 	RunLocal(proj *ralphproj.Project, cfg *ralphcfg.RalphConfig) error
 }
@@ -41,32 +30,22 @@ type DebugClient interface {
 	Setup(branch string) error
 }
 
-type OutputClient interface {
-	Warnf(format string, a ...any)
-}
-
-func NewWorkflowRunCmd(workspace WorkspaceSetupClient, git GitClient, ai AIClient, runner RunnerClient, config ConfigClient, project ProjectClient, debug DebugClient, output OutputClient) *WorkflowRunCmd {
+func NewWorkflowRunCmd(workspace WorkspaceSetupClient, runner RunnerClient, config ConfigClient, project ProjectClient, debug DebugClient) *WorkflowRunCmd {
 	return &WorkflowRunCmd{
 		workspace: workspace,
-		git:       git,
-		ai:        ai,
 		runner:    runner,
 		config:    config,
 		project:   project,
 		debug:     debug,
-		output:    output,
 	}
 }
 
 type WorkflowRunCmd struct {
 	workspace WorkspaceSetupClient
-	git       GitClient
-	ai        AIClient
 	runner    RunnerClient
 	config    ConfigClient
 	project   ProjectClient
 	debug     DebugClient
-	output    OutputClient
 }
 
 type WorkflowRunFlags struct {
@@ -118,29 +97,7 @@ func (w *WorkflowRunCmd) Run(flags WorkflowRunFlags) error {
 	}
 	cfg.Items = query
 	w.applyFlags(proj, cfg, flags)
-	if err := w.syncBaseBranch(flags.BaseBranch, flags.ProjectBranch); err != nil {
-		return err
-	}
 	return w.runner.RunLocal(proj, cfg)
-}
-
-func (w *WorkflowRunCmd) syncBaseBranch(baseBranch, projectBranch string) error {
-	if err := w.git.FetchBranch(baseBranch); err != nil {
-		w.output.Warnf("Failed to fetch base branch %q: %v", baseBranch, err)
-		return nil
-	}
-	needsMerge, err := w.git.NeedsMerge(baseBranch)
-	if err != nil {
-		return err
-	}
-	if !needsMerge {
-		return nil
-	}
-	if err := w.git.Merge(baseBranch); err != nil {
-		w.git.AbortMerge()
-		return w.ai.ResolveMergeConflicts(baseBranch, projectBranch)
-	}
-	return nil
 }
 
 func (w *WorkflowRunCmd) applyFlags(proj *ralphproj.Project, cfg *ralphcfg.RalphConfig, flags WorkflowRunFlags) {

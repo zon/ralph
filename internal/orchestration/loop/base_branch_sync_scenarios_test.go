@@ -1,0 +1,443 @@
+package loop
+
+import (
+	"errors"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/zon/ralph/internal/config"
+)
+
+// loopWithSync builds an in-process loop command whose git and AI clients are
+// the supplied mocks, so the base-branch synchronization scenarios can assert
+// what the loop did without touching a real repository or AI.
+func loopWithSync(git *mockGitClient, ai *mockAIClient, output OutputClient) *Cmd {
+	return NewCmd(
+		&mockLoopConfigClient{loops: map[string][]string{"fmt": {"run gofmt"}}},
+		&mockPromptBuilder{},
+		&mockSlugProposer{},
+		ai,
+		&mockReportReader{reports: nothingToDoReports()},
+		git,
+		&mockPullRequestOpener{},
+		envNotInWorkflow(),
+		WithOutput(output),
+	)
+}
+
+// loopWithSyncAndPR builds an in-process loop command whose git, AI, and pull
+// request opener are the supplied mocks, so the pre-pull-request
+// synchronization scenarios can assert what the loop did before opening the
+// pull request.
+func loopWithSyncAndPR(git *mockGitClient, ai *mockAIClient, pr *mockPullRequestOpener, output OutputClient) *Cmd {
+	return NewCmd(
+		&mockLoopConfigClient{loops: map[string][]string{"fmt": {"run gofmt"}}},
+		&mockPromptBuilder{},
+		&mockSlugProposer{},
+		ai,
+		&mockReportReader{reports: nothingToDoReports()},
+		git,
+		pr,
+		envNotInWorkflow(),
+		WithOutput(output),
+	)
+}
+
+// TestRunLocalSyncsBaseBranchBeforeFirstIteration covers the "Merged before the
+// first iteration" scenario: the loop fetches the branch the loop branch was
+// created from and merges it into loop-<slug> before the first iteration runs.
+func TestRunLocalSyncsBaseBranchBeforeFirstIteration(t *testing.T) {
+	git := &mockGitClient{currentBranch: "main", needsMerge: true}
+	ai := &mockAIClient{}
+	cmd := loopWithSync(git, ai, &mockOutput{})
+
+	result, err := cmd.Run("fmt", []string{"run gofmt"}, 10)
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.True(t, git.fetchBranchCalled, "the base branch is fetched before the first iteration")
+	assert.True(t, git.mergeCalled, "the base branch is merged before the first iteration")
+	assert.Equal(t, "main", git.lastFetchedBranch, "the branch the loop branch was created from is fetched")
+	assert.Equal(t, "main", git.lastMergedBranch, "local mode merges the local base branch")
+	assert.NotZero(t, ai.calls, "the first iteration runs after synchronization")
+}
+
+// TestRunInWorkflowSyncsBaseBranchBeforeFirstIteration covers the
+// "Synchronization in a workflow container" scenario for loops: inside the
+// workflow container the loop fetches and merges the branch the loop branch was
+// created from, which is the branch the container checked out, before the first
+// iteration runs.
+func TestRunInWorkflowSyncsBaseBranchBeforeFirstIteration(t *testing.T) {
+	git := &mockGitClient{currentBranch: "main", needsMerge: true}
+	ai := &mockAIClient{}
+	cmd := NewCmd(
+		&mockLoopConfigClient{loops: map[string][]string{"fmt": {"run gofmt"}}},
+		&mockPromptBuilder{},
+		&mockSlugProposer{},
+		ai,
+		&mockReportReader{reports: nothingToDoReports()},
+		git,
+		&mockPullRequestOpener{},
+		envInWorkflow(),
+		WithOutput(&mockOutput{}),
+	)
+
+	_, err := cmd.Run("fmt", []string{"run gofmt"}, 10)
+
+	require.NoError(t, err)
+	assert.True(t, git.fetchBranchCalled, "the container fetches the base branch before the first iteration")
+	assert.Equal(t, "main", git.lastFetchedBranch, "the branch the loop branch was created from is fetched")
+	assert.True(t, git.mergeCalled, "the container merges the base branch before the first iteration")
+	assert.Equal(t, "main", git.lastMergedBranch, "the container merges the local base branch")
+	assert.NotZero(t, ai.calls, "the first iteration runs after synchronization")
+}
+
+// TestRunLocalSyncSkippedWhenBaseUnset asserts no fetch or merge happens when
+// the branch the loop branch was created from is unknown.
+func TestRunLocalSyncSkippedWhenBaseUnset(t *testing.T) {
+	git := &mockGitClient{}
+	ai := &mockAIClient{}
+	cmd := loopWithSync(git, ai, &mockOutput{})
+
+	_, err := cmd.Run("fmt", []string{"run gofmt"}, 10)
+
+	require.NoError(t, err)
+	assert.False(t, git.fetchBranchCalled, "no base branch is fetched when none is resolved")
+	assert.False(t, git.mergeCalled, "no merge is attempted when no base branch is resolved")
+}
+
+// TestRunLocalSkipsMergeWhenBaseAlreadyContained covers the "Branch is
+// up-to-date" scenario: the base branch is fetched but no merge runs when its
+// tip is already contained in the loop branch.
+func TestRunLocalSkipsMergeWhenBaseAlreadyContained(t *testing.T) {
+	git := &mockGitClient{currentBranch: "main", needsMerge: false}
+	ai := &mockAIClient{}
+	cmd := loopWithSync(git, ai, &mockOutput{})
+
+	_, err := cmd.Run("fmt", []string{"run gofmt"}, 10)
+
+	require.NoError(t, err)
+	assert.True(t, git.fetchBranchCalled, "the base branch is still fetched")
+	assert.False(t, git.mergeCalled, "an up-to-date base branch is not merged")
+}
+
+// TestRunLocalFetchFailureWarnsAndContinues covers the "Base branch fetch
+// failure" scenario: a fetch failure logs a warning and the loop runs without
+// merging.
+func TestRunLocalFetchFailureWarnsAndContinues(t *testing.T) {
+	out := &mockOutput{}
+	git := &mockGitClient{currentBranch: "main", fetchErr: errors.New("fetch boom")}
+	ai := &mockAIClient{}
+	cmd := loopWithSync(git, ai, out)
+
+	_, err := cmd.Run("fmt", []string{"run gofmt"}, 10)
+
+	require.NoError(t, err)
+	assert.NotEmpty(t, out.warnings, "a fetch failure is warned about")
+	assert.False(t, git.mergeCalled, "a failed fetch skips the merge")
+	assert.NotZero(t, ai.calls, "the loop continues without merging")
+}
+
+// TestRunLocalConflictAbortsAndResolvesWithAI covers the "Conflicts resolved by
+// AI" scenario: a conflicting merge is aborted and the configured agent is
+// asked to resolve it against the loop branch.
+func TestRunLocalConflictAbortsAndResolvesWithAI(t *testing.T) {
+	git := &mockGitClient{currentBranch: "main", needsMerge: true, mergeErr: errors.New("conflict")}
+	ai := &mockAIClient{}
+	cmd := loopWithSync(git, ai, &mockOutput{})
+
+	_, err := cmd.Run("fmt", []string{"run gofmt"}, 10)
+
+	require.NoError(t, err)
+	assert.True(t, git.abortMergeCalled, "the conflicting merge is aborted")
+	assert.True(t, ai.resolveConflictsCalled, "the configured agent resolves the conflict")
+	assert.Equal(t, "main", ai.lastResolveBase, "the agent resolves the same base branch that conflicted")
+	assert.Equal(t, "loop-fmt", ai.lastResolveProject, "the agent resolves conflicts on the loop branch")
+	assert.NotZero(t, ai.calls, "the loop continues after conflict resolution")
+}
+
+// TestRunLocalConflictResolutionFailureAbortsRun covers the "Conflict
+// resolution failure aborts the run" scenario: a failed resolution returns an
+// error and no iteration runs.
+func TestRunLocalConflictResolutionFailureAbortsRun(t *testing.T) {
+	resolveErr := errors.New("resolution boom")
+	git := &mockGitClient{currentBranch: "main", needsMerge: true, mergeErr: errors.New("conflict")}
+	ai := &mockAIClient{resolveConflictsErr: resolveErr}
+	pr := &mockPullRequestOpener{}
+	cmd := NewCmd(
+		&mockLoopConfigClient{loops: map[string][]string{"fmt": {"run gofmt"}}},
+		&mockPromptBuilder{},
+		&mockSlugProposer{},
+		ai,
+		&mockReportReader{reports: nothingToDoReports()},
+		git,
+		pr,
+		envNotInWorkflow(),
+		WithOutput(&mockOutput{}),
+	)
+
+	_, err := cmd.Run("fmt", []string{"run gofmt"}, 10)
+
+	require.Error(t, err)
+	assert.Equal(t, resolveErr, err, "the resolution error is returned unchanged")
+	assert.Zero(t, ai.calls, "a failed resolution stops the loop before any iteration")
+	assert.Zero(t, pr.calls, "a failed resolution opens no pull request")
+}
+
+// TestRunWorktreeSyncMergesRemoteBase covers the worktree merge ref: inside a
+// worktree the fetched remote-tracking base is merged, because the base branch
+// is normally checked out in the main checkout and cannot be moved.
+func TestRunWorktreeSyncMergesRemoteBase(t *testing.T) {
+	git := &mockGitClient{currentBranch: "main", needsMerge: true}
+	ai := &mockAIClient{}
+	cmd := loopWithSync(git, ai, &mockOutput{})
+	cmd.base = "main"
+
+	err := cmd.RunResolvedInWorktree(&Result{Slug: "fmt", Steps: []string{"run gofmt"}}, 10)
+
+	require.NoError(t, err)
+	assert.True(t, git.mergeCalled, "the fetched remote base is merged inside the worktree")
+	assert.Equal(t, "origin/main", git.lastMergedBranch, "the worktree merges the fetched remote base")
+	assert.Zero(t, git.switchCalls, "worktree execution leaves the current checkout on its branch")
+}
+
+// TestRunWorktreeSyncsBaseBranchInsideWorktree covers the "Synchronization in a
+// worktree" scenario through the worktree dispatch: the base is captured from
+// the current checkout before the worktree is created, then fetched and merged
+// as the remote-tracking ref inside the worktree, leaving the current checkout
+// on its branch. The first iteration runs against the merged state.
+func TestRunWorktreeSyncsBaseBranchInsideWorktree(t *testing.T) {
+	wt := &mockWorktreeClient{}
+	gitClient := &mockGitClient{
+		needsMerge: true,
+		currentBranchFunc: func() (string, error) {
+			require.False(t, wt.CreateWorktreeCalled, "the base branch is captured before the worktree is created")
+			return "main", nil
+		},
+	}
+	ai := &mockAIClient{}
+	lc := NewCmd(
+		&mockLoopConfigClient{loops: map[string][]string{"fmt": {"run gofmt"}}},
+		&mockPromptBuilder{},
+		&mockSlugProposer{},
+		ai,
+		&mockReportReader{reports: nothingToDoReports()},
+		gitClient,
+		&mockPullRequestOpener{},
+		envNotInWorkflow(),
+	)
+	cmd := runWithMocks(runWithWorktree(wt), runWithLoop(lc))
+
+	result, err := cmd.Run(loopFlagsWithMode(config.ModeWorktree))
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.True(t, wt.CreateWorktreeCalled, "the loop runs inside a worktree")
+	assert.Equal(t, "main", gitClient.lastFetchedBranch, "the branch the loop branch was created from is fetched")
+	assert.Equal(t, "origin/main", gitClient.lastMergedBranch, "the fetched remote base is merged inside the worktree")
+	assert.Zero(t, gitClient.switchCalls, "worktree execution leaves the current checkout on its branch")
+	assert.NotZero(t, ai.calls, "the first iteration runs after synchronization")
+}
+
+// TestRunWorktreeConflictResolvedWithFetchedBase asserts a conflicting merge
+// inside the worktree is aborted and the configured agent resolves the same
+// fetched remote base against the loop branch, leaving the current checkout on
+// its branch.
+func TestRunWorktreeConflictResolvedWithFetchedBase(t *testing.T) {
+	gitClient := &mockGitClient{currentBranch: "main", needsMerge: true, mergeErr: errors.New("conflict")}
+	ai := &mockAIClient{}
+	lc := NewCmd(
+		&mockLoopConfigClient{loops: map[string][]string{"fmt": {"run gofmt"}}},
+		&mockPromptBuilder{},
+		&mockSlugProposer{},
+		ai,
+		&mockReportReader{reports: nothingToDoReports()},
+		gitClient,
+		&mockPullRequestOpener{},
+		envNotInWorkflow(),
+	)
+	cmd := runWithMocks(runWithWorktree(&mockWorktreeClient{}), runWithLoop(lc))
+
+	_, err := cmd.Run(loopFlagsWithMode(config.ModeWorktree))
+
+	require.NoError(t, err)
+	assert.True(t, gitClient.abortMergeCalled, "the conflicting merge is aborted")
+	assert.True(t, ai.resolveConflictsCalled, "the configured agent resolves the conflict")
+	assert.Equal(t, "origin/main", ai.lastResolveBase, "the agent resolves the fetched remote base that conflicted")
+	assert.Equal(t, "loop-fmt", ai.lastResolveProject, "the agent resolves conflicts on the loop branch")
+	assert.Zero(t, gitClient.switchCalls, "the current checkout is not switched")
+	assert.NotZero(t, ai.calls, "the loop continues after conflict resolution")
+}
+
+// TestRunPropagatesCurrentBranchError asserts a failure to resolve the branch
+// the loop branch was created from aborts the loop before it runs.
+func TestRunPropagatesCurrentBranchError(t *testing.T) {
+	branchErr := errors.New("detached HEAD")
+	git := &mockGitClient{currentBranchErr: branchErr}
+	ai := &mockAIClient{}
+	cmd := loopWithSync(git, ai, &mockOutput{})
+
+	result, err := cmd.Run("fmt", []string{"run gofmt"}, 10)
+
+	require.Error(t, err)
+	assert.Nil(t, result, "no resolution is returned when the base branch cannot be resolved")
+	assert.Equal(t, branchErr, err, "the current-branch error is returned unchanged")
+	assert.Zero(t, ai.calls, "the loop does not run when the base branch cannot be resolved")
+}
+
+// TestRunLocalSyncsBaseBranchAgainBeforePR covers the "Merged again before the
+// pull request" scenario: once the loop ends, the base branch is fetched and
+// merged again and the merge is pushed before the pull request is opened.
+func TestRunLocalSyncsBaseBranchAgainBeforePR(t *testing.T) {
+	git := &mockGitClient{currentBranch: "main", needsMerge: true}
+	ai := &mockAIClient{}
+	pr := &mockPullRequestOpener{}
+	pr.openFunc = func(string) error {
+		assert.True(t, git.pushCalled, "the merge is pushed before the pull request is opened")
+		return nil
+	}
+	cmd := loopWithSyncAndPR(git, ai, pr, &mockOutput{})
+
+	_, err := cmd.Run("fmt", []string{"run gofmt"}, 10)
+
+	require.NoError(t, err)
+	assert.Equal(t, 2, git.fetchCalls, "the base branch is fetched before the first iteration and again before the pull request")
+	assert.Equal(t, 2, git.mergeCalls, "the base branch is merged before the first iteration and again before the pull request")
+	assert.True(t, git.pushCalled, "the merge is pushed before the pull request is opened")
+	assert.NotZero(t, pr.calls, "the pull request is opened after synchronization")
+}
+
+// TestRunLocalPRSyncSkipsPushWhenBaseAlreadyContained asserts an up-to-date base
+// branch leaves nothing to push but the pull request still opens.
+func TestRunLocalPRSyncSkipsPushWhenBaseAlreadyContained(t *testing.T) {
+	git := &mockGitClient{currentBranch: "main", needsMerge: false}
+	ai := &mockAIClient{}
+	pr := &mockPullRequestOpener{}
+	cmd := loopWithSyncAndPR(git, ai, pr, &mockOutput{})
+
+	_, err := cmd.Run("fmt", []string{"run gofmt"}, 10)
+
+	require.NoError(t, err)
+	assert.False(t, git.mergeCalled, "an up-to-date base branch is not merged")
+	assert.False(t, git.pushCalled, "an up-to-date base branch leaves nothing to push")
+	assert.NotZero(t, pr.calls, "the pull request still opens")
+}
+
+// TestRunLocalPRSyncFetchFailureWarnsAndStillCreatesPR asserts a fetch failure
+// during the pre-pull-request synchronization warns and the pull request still
+// opens.
+func TestRunLocalPRSyncFetchFailureWarnsAndStillCreatesPR(t *testing.T) {
+	git := &mockGitClient{currentBranch: "main", fetchErr: errors.New("fetch boom")}
+	ai := &mockAIClient{}
+	pr := &mockPullRequestOpener{}
+	out := &mockOutput{}
+	cmd := loopWithSyncAndPR(git, ai, pr, out)
+
+	_, err := cmd.Run("fmt", []string{"run gofmt"}, 10)
+
+	require.NoError(t, err)
+	assert.NotEmpty(t, out.warnings, "a fetch failure is warned about")
+	assert.False(t, git.pushCalled)
+	assert.NotZero(t, pr.calls, "a fetch failure does not stop the pull request")
+}
+
+// TestRunLocalPRSyncPushFailureAbortsBeforePR asserts a failed push returns an
+// error and the pull request is not opened.
+func TestRunLocalPRSyncPushFailureAbortsBeforePR(t *testing.T) {
+	git := &mockGitClient{currentBranch: "main", needsMerge: true, pushErr: errors.New("push boom")}
+	ai := &mockAIClient{}
+	pr := &mockPullRequestOpener{}
+	cmd := loopWithSyncAndPR(git, ai, pr, &mockOutput{})
+
+	_, err := cmd.Run("fmt", []string{"run gofmt"}, 10)
+
+	require.Error(t, err)
+	assert.True(t, git.pushCalled, "the merge is pushed")
+	assert.Zero(t, pr.calls, "a failed push stops the loop before the pull request is opened")
+}
+
+// TestRunLocalPRConflictResolvedThenPushed asserts a pre-pull-request merge
+// conflict is aborted, resolved by the configured agent, and pushed before the
+// pull request opens.
+func TestRunLocalPRConflictResolvedThenPushed(t *testing.T) {
+	git := &mockGitClient{currentBranch: "main", needsMerge: true, mergeErr: errors.New("conflict"), mergeErrAfter: 1}
+	ai := &mockAIClient{}
+	pr := &mockPullRequestOpener{}
+	cmd := loopWithSyncAndPR(git, ai, pr, &mockOutput{})
+
+	_, err := cmd.Run("fmt", []string{"run gofmt"}, 10)
+
+	require.NoError(t, err)
+	assert.True(t, git.abortMergeCalled, "the pre-pull-request merge conflict is aborted")
+	assert.True(t, ai.resolveConflictsCalled, "the configured agent resolves the conflict")
+	assert.True(t, git.pushCalled, "the resolved merge is pushed before the pull request")
+	assert.NotZero(t, pr.calls, "the pull request opens after resolution")
+}
+
+// TestRunLocalPRConflictResolutionFailureSkipsPR asserts a failed
+// pre-pull-request conflict resolution returns an error, pushes nothing, and
+// opens no pull request.
+func TestRunLocalPRConflictResolutionFailureSkipsPR(t *testing.T) {
+	resolveErr := errors.New("resolution boom")
+	git := &mockGitClient{currentBranch: "main", needsMerge: true, mergeErr: errors.New("conflict"), mergeErrAfter: 1}
+	ai := &mockAIClient{resolveConflictsErr: resolveErr}
+	pr := &mockPullRequestOpener{}
+	cmd := loopWithSyncAndPR(git, ai, pr, &mockOutput{})
+
+	_, err := cmd.Run("fmt", []string{"run gofmt"}, 10)
+
+	require.Error(t, err)
+	assert.True(t, git.abortMergeCalled, "the conflicting merge is aborted")
+	assert.False(t, git.pushCalled)
+	assert.Zero(t, pr.calls, "a failed resolution opens no pull request")
+}
+
+// TestRunWorktreeSyncsBaseBranchAgainBeforePR asserts the worktree loop merges
+// the fetched remote base again before the pull request and pushes it, leaving
+// the current checkout on its branch.
+func TestRunWorktreeSyncsBaseBranchAgainBeforePR(t *testing.T) {
+	git := &mockGitClient{currentBranch: "main", needsMerge: true}
+	ai := &mockAIClient{}
+	pr := &mockPullRequestOpener{}
+	cmd := loopWithSyncAndPR(git, ai, pr, &mockOutput{})
+	cmd.base = "main"
+
+	err := cmd.RunResolvedInWorktree(&Result{Slug: "fmt", Steps: []string{"run gofmt"}}, 10)
+
+	require.NoError(t, err)
+	assert.Equal(t, 2, git.mergeCalls, "the fetched remote base is merged before the first iteration and again before the pull request")
+	assert.Equal(t, "origin/main", git.lastMergedBranch, "the worktree merges the fetched remote base again before the pull request")
+	assert.True(t, git.pushCalled, "the worktree pushes the pre-pull-request merge")
+	assert.NotZero(t, pr.calls, "the pull request opens after synchronization")
+	assert.Zero(t, git.switchCalls, "worktree execution leaves the current checkout on its branch")
+}
+
+// TestRunInWorkflowSyncsDeliveredBaseAgainBeforePR asserts the workflow
+// container syncs the delivered base again and pushes the merge before the pull
+// request opens.
+func TestRunInWorkflowSyncsDeliveredBaseAgainBeforePR(t *testing.T) {
+	git := &mockGitClient{currentBranch: "main", needsMerge: true}
+	ai := &mockAIClient{}
+	pr := &mockPullRequestOpener{}
+	cmd := NewCmd(
+		&mockLoopConfigClient{loops: map[string][]string{"fmt": {"run gofmt"}}},
+		&mockPromptBuilder{},
+		&mockSlugProposer{},
+		ai,
+		&mockReportReader{reports: nothingToDoReports()},
+		git,
+		pr,
+		envInWorkflow(),
+		WithOutput(&mockOutput{}),
+	)
+
+	_, err := cmd.Run("fmt", []string{"run gofmt"}, 10)
+
+	require.NoError(t, err)
+	assert.Equal(t, 2, git.fetchCalls, "the container syncs the delivered base again before the pull request")
+	assert.Equal(t, 2, git.mergeCalls)
+	assert.True(t, git.pushCalled, "the container pushes the pre-pull-request merge")
+	assert.NotZero(t, pr.calls, "the pull request opens after synchronization")
+}

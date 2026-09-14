@@ -11,30 +11,6 @@ import (
 	"github.com/zon/ralph/internal/project"
 )
 
-func TestGitAdapterFetchBranch_NoRemoteReturnsError(t *testing.T) {
-	t.Parallel()
-
-	adapter := &gitAdapter{}
-	err := adapter.FetchBranch("nonexistent-branch")
-	require.Error(t, err)
-}
-
-func TestGitAdapterNeedsMerge_NoBranchReturnsFalse(t *testing.T) {
-	t.Parallel()
-
-	adapter := &gitAdapter{}
-	needs, err := adapter.NeedsMerge("nonexistent-branch")
-	require.NoError(t, err)
-	assert.False(t, needs)
-}
-
-func TestGitAdapterAbortMerge_NoMergeInProgressDoesNotPanic(t *testing.T) {
-	t.Parallel()
-
-	adapter := &gitAdapter{}
-	adapter.AbortMerge()
-}
-
 // ---------------------------------------------------------------------------
 // Mocks for orchestration WorkflowRunCmd tests
 // ---------------------------------------------------------------------------
@@ -46,51 +22,6 @@ type mockWorWorkspaceSetupClient struct {
 func (m *mockWorWorkspaceSetupClient) Setup(flags workspace.WorkspaceFlags) error {
 	if m.setupFn != nil {
 		return m.setupFn(flags)
-	}
-	return nil
-}
-
-type mockWorGitClient struct {
-	fetchBranchFn func(branch string) error
-	needsMergeFn  func(branch string) (bool, error)
-	mergeFn       func(branch string) error
-	abortMergeFn  func()
-}
-
-func (m *mockWorGitClient) FetchBranch(branch string) error {
-	if m.fetchBranchFn != nil {
-		return m.fetchBranchFn(branch)
-	}
-	return nil
-}
-
-func (m *mockWorGitClient) NeedsMerge(branch string) (bool, error) {
-	if m.needsMergeFn != nil {
-		return m.needsMergeFn(branch)
-	}
-	return false, nil
-}
-
-func (m *mockWorGitClient) Merge(branch string) error {
-	if m.mergeFn != nil {
-		return m.mergeFn(branch)
-	}
-	return nil
-}
-
-func (m *mockWorGitClient) AbortMerge() {
-	if m.abortMergeFn != nil {
-		m.abortMergeFn()
-	}
-}
-
-type mockWorAIClient struct {
-	resolveMergeConflictsFn func(baseBranch, projectBranch string) error
-}
-
-func (m *mockWorAIClient) ResolveMergeConflicts(baseBranch, projectBranch string) error {
-	if m.resolveMergeConflictsFn != nil {
-		return m.resolveMergeConflictsFn(baseBranch, projectBranch)
 	}
 	return nil
 }
@@ -139,16 +70,6 @@ func (m *mockWorDebugClient) Setup(branch string) error {
 	return nil
 }
 
-type mockWorOutputClient struct {
-	warnfFn func(format string, a ...any)
-}
-
-func (m *mockWorOutputClient) Warnf(format string, a ...any) {
-	if m.warnfFn != nil {
-		m.warnfFn(format, a...)
-	}
-}
-
 // ---------------------------------------------------------------------------
 // Tests for orchestration WorkflowRunCmd.Run
 // ---------------------------------------------------------------------------
@@ -158,13 +79,10 @@ func TestWorkflowRunCmd_MissingProjectPath(t *testing.T) {
 
 	cmd := orchestrationWorkflow.NewWorkflowRunCmd(
 		&mockWorWorkspaceSetupClient{},
-		&mockWorGitClient{},
-		&mockWorAIClient{},
 		&mockWorRunnerClient{},
 		&mockWorConfigClient{},
 		&mockWorProjectClient{},
 		&mockWorDebugClient{},
-		&mockWorOutputClient{},
 	)
 
 	flags := orchestrationWorkflow.WorkflowRunFlags{
@@ -241,11 +159,6 @@ func TestWorkflowRunCmd_FlagPropagation(t *testing.T) {
 						return nil
 					},
 				},
-				&mockWorGitClient{
-					fetchBranchFn: func(branch string) error { return nil },
-					needsMergeFn:  func(branch string) (bool, error) { return false, nil },
-				},
-				&mockWorAIClient{},
 				&mockWorRunnerClient{
 					runLocalFn: func(proj *project.Project, cfg *config.RalphConfig) error {
 						capturedProj = proj
@@ -269,7 +182,6 @@ func TestWorkflowRunCmd_FlagPropagation(t *testing.T) {
 						return nil
 					},
 				},
-				&mockWorOutputClient{},
 			)
 
 			err := cmd.Run(tt.flags)
@@ -308,13 +220,10 @@ func TestWorkflowRunCmd_WorkspaceSetupError(t *testing.T) {
 				return assert.AnError
 			},
 		},
-		&mockWorGitClient{},
-		&mockWorAIClient{},
 		&mockWorRunnerClient{},
 		&mockWorConfigClient{},
 		&mockWorProjectClient{},
 		&mockWorDebugClient{},
-		&mockWorOutputClient{},
 	)
 
 	err := cmd.Run(orchestrationWorkflow.WorkflowRunFlags{ProjectPath: "test.yaml"})
@@ -326,8 +235,6 @@ func TestWorkflowRunCmd_ProjectLoadError(t *testing.T) {
 
 	cmd := orchestrationWorkflow.NewWorkflowRunCmd(
 		&mockWorWorkspaceSetupClient{},
-		&mockWorGitClient{},
-		&mockWorAIClient{},
 		&mockWorRunnerClient{},
 		&mockWorConfigClient{},
 		&mockWorProjectClient{
@@ -336,7 +243,6 @@ func TestWorkflowRunCmd_ProjectLoadError(t *testing.T) {
 			},
 		},
 		&mockWorDebugClient{},
-		&mockWorOutputClient{},
 	)
 
 	err := cmd.Run(orchestrationWorkflow.WorkflowRunFlags{ProjectPath: "test.yaml"})
@@ -353,11 +259,6 @@ func TestWorkflowRunCmd_RunnerCalledWithLoadedProjectAndConfig(t *testing.T) {
 
 	cmd := orchestrationWorkflow.NewWorkflowRunCmd(
 		&mockWorWorkspaceSetupClient{},
-		&mockWorGitClient{
-			fetchBranchFn: func(branch string) error { return nil },
-			needsMergeFn:  func(branch string) (bool, error) { return false, nil },
-		},
-		&mockWorAIClient{},
 		&mockWorRunnerClient{
 			runLocalFn: func(proj *project.Project, cfg *config.RalphConfig) error {
 				capturedProj = proj
@@ -376,7 +277,6 @@ func TestWorkflowRunCmd_RunnerCalledWithLoadedProjectAndConfig(t *testing.T) {
 			},
 		},
 		&mockWorDebugClient{},
-		&mockWorOutputClient{},
 	)
 
 	err := cmd.Run(orchestrationWorkflow.WorkflowRunFlags{
