@@ -46,6 +46,36 @@ func TestRunLocalSyncsBaseBranchBeforeFirstIteration(t *testing.T) {
 	assert.NotZero(t, ai.calls, "the first iteration runs after synchronization")
 }
 
+// TestRunInWorkflowSyncsBaseBranchBeforeFirstIteration covers the
+// "Synchronization in a workflow container" scenario for loops: inside the
+// workflow container the loop fetches and merges the branch the loop branch was
+// created from, which is the branch the container checked out, before the first
+// iteration runs.
+func TestRunInWorkflowSyncsBaseBranchBeforeFirstIteration(t *testing.T) {
+	git := &mockGitClient{currentBranch: "main", needsMerge: true}
+	ai := &mockAIClient{}
+	cmd := NewCmd(
+		&mockLoopConfigClient{loops: map[string][]string{"fmt": {"run gofmt"}}},
+		&mockPromptBuilder{},
+		&mockSlugProposer{},
+		ai,
+		&mockReportReader{reports: nothingToDoReports()},
+		git,
+		&mockPullRequestOpener{},
+		envInWorkflow(),
+		WithOutput(&mockOutput{}),
+	)
+
+	_, err := cmd.Run("fmt", []string{"run gofmt"}, 10)
+
+	require.NoError(t, err)
+	assert.True(t, git.fetchBranchCalled, "the container fetches the base branch before the first iteration")
+	assert.Equal(t, "main", git.lastFetchedBranch, "the branch the loop branch was created from is fetched")
+	assert.True(t, git.mergeCalled, "the container merges the base branch before the first iteration")
+	assert.Equal(t, "main", git.lastMergedBranch, "the container merges the local base branch")
+	assert.NotZero(t, ai.calls, "the first iteration runs after synchronization")
+}
+
 // TestRunLocalSyncSkippedWhenBaseUnset asserts no fetch or merge happens when
 // the branch the loop branch was created from is unknown.
 func TestRunLocalSyncSkippedWhenBaseUnset(t *testing.T) {

@@ -235,6 +235,47 @@ func TestWorkflowLoopCmdRunRunsLoopBodyIdenticalToLocal(t *testing.T) {
 	assert.Equal(t, []string{"fmt"}, pr.slugs, "the pull request is opened for the resolved slug")
 }
 
+// TestWorkflowLoopCmdRunSyncsBranchItWasCreatedFrom asserts the container-side
+// loop command synchronizes the loop branch with the branch it was created from
+// before the first iteration: the branch the workspace checked out is fetched
+// and merged into loop-<slug>.
+func TestWorkflowLoopCmdRunSyncsBranchItWasCreatedFrom(t *testing.T) {
+	writeLoopConfig(t, `loops:
+  - slug: fmt
+    steps:
+      - run gofmt
+`)
+
+	git := &fakeGitClient{currentBranch: "feature-x", needsMerge: true}
+	runner := &inProcessLoopRunner{
+		cfg:     &config.Client{},
+		prompt:  &loopPromptBuilder{},
+		propose: &fakeSlugProposer{slug: "should-not-be-used"},
+		ai:      &fakeAIClient{},
+		report:  &fakeReportReader{content: "NOTHING_TO_DO"},
+		git:     git,
+		pr:      &fakePullRequestOpener{},
+	}
+	cmd := &WorkflowLoopCmd{
+		Repo:           "owner/repo",
+		CloneBranch:    "feature-x",
+		BotName:        "ralph-zon[bot]",
+		BotEmail:       "ralph-zon[bot]@users.noreply.github.com",
+		Slug:           "fmt",
+		Max:            1,
+		workspaceSetup: &fakeWorkspaceSetupClient{},
+		loopRunner:     runner,
+	}
+
+	err := cmd.Run()
+
+	require.NoError(t, err)
+	assert.True(t, git.fetchBranchCalled, "the container fetches the branch the loop branch was created from")
+	assert.Equal(t, "feature-x", git.lastFetchedBranch, "the branch the loop branch was created from is fetched")
+	assert.True(t, git.mergeCalled, "the container merges the base into the loop branch before the first iteration")
+	assert.Equal(t, "feature-x", git.lastMergedBranch, "the container merges the branch it was created from")
+}
+
 // TestWorkflowLoopCmdPrintsStatsInWorkflow asserts the container-side workflow
 // loop command prints the accumulated AI token usage and cost statistics after
 // the loop succeeds, matching `ralph run` in the workflow container.
