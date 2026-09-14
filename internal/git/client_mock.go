@@ -17,6 +17,7 @@ type MockClient struct {
 	NeedsMergeFunc                 func(branch string) (bool, error)
 	MergeFunc                      func(branch string) error
 	AbortMergeFunc                 func() error
+	PushFunc                       func() error
 }
 
 func (m *MockClient) SwitchToBranch(slug string) error {
@@ -126,6 +127,13 @@ func (m *MockClient) Merge(branch string) error {
 func (m *MockClient) AbortMerge() error {
 	if m.AbortMergeFunc != nil {
 		return m.AbortMergeFunc()
+	}
+	return nil
+}
+
+func (m *MockClient) Push() error {
+	if m.PushFunc != nil {
+		return m.PushFunc()
 	}
 	return nil
 }

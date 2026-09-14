@@ -130,3 +130,120 @@ func TestRunLocalInWorktreeConflictResolvedWithFetchedBase(t *testing.T) {
 	require.Equal(t, "test-project", aiResolveProject(runner))
 	require.NotZero(t, aiPickCalls(runner), "the run continues after conflict resolution")
 }
+
+// TestRunLocalSyncsBaseBranchAgainBeforePR covers the "Synchronized again before
+// the pull request" scenario: once the work is complete, the base branch is
+// fetched and merged again and the merge is pushed before the pull request is
+// opened.
+func TestRunLocalSyncsBaseBranchAgainBeforePR(t *testing.T) {
+	g := gitThatNeedsMerge()
+	gh := &mockGitHub{}
+	gh.createPRFunc = func(*project.Project, string) error {
+		require.True(t, g.pushCalled, "the merge is pushed before the pull request is opened")
+		return nil
+	}
+	runner := withMocks(
+		withGit(g),
+		withGitHub(gh),
+		withProject(project.ThatReportsIncompleteUntil(1)),
+	)
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.WithBase("main"))
+	require.NoError(t, err)
+	require.Equal(t, 2, gitFetchCalls(runner), "the base branch is fetched before the first iteration and again before the pull request")
+	require.Equal(t, 2, gitMergeCalls(runner), "the base branch is merged before the first iteration and again before the pull request")
+	require.True(t, gitPushCalled(runner))
+	require.True(t, githubCreatePRCalled(runner))
+}
+
+func TestRunLocalPRSyncSkipsPushWhenBaseAlreadyContained(t *testing.T) {
+	runner := withMocks(
+		withGit(gitNewMock()),
+		withProject(project.ThatReportsIncompleteUntil(1)),
+	)
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.WithBase("main"))
+	require.NoError(t, err)
+	require.False(t, gitMergeCalled(runner))
+	require.False(t, gitPushCalled(runner), "an up-to-date base branch leaves nothing to push")
+	require.True(t, githubCreatePRCalled(runner))
+}
+
+func TestRunLocalPRSyncFetchFailureWarnsAndStillCreatesPR(t *testing.T) {
+	runner := withMocks(
+		withGit(gitThatFailsFetch()),
+		withProject(project.ThatReportsIncompleteUntil(1)),
+	)
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.WithBase("main"))
+	require.NoError(t, err)
+	require.NotEmpty(t, outputWarnings(runner))
+	require.False(t, gitPushCalled(runner))
+	require.True(t, githubCreatePRCalled(runner), "a fetch failure does not stop the pull request")
+}
+
+func TestRunLocalPRSyncPushFailureAbortsBeforePR(t *testing.T) {
+	runner := withMocks(
+		withGit(gitThatFailsPush()),
+		withProject(project.ThatReportsIncompleteUntil(1)),
+	)
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.WithBase("main"))
+	require.Error(t, err)
+	require.True(t, gitPushCalled(runner))
+	require.False(t, githubCreatePRCalled(runner), "a failed push stops the run before the pull request is opened")
+	require.NotEmpty(t, notifyErrors(runner))
+}
+
+func TestRunLocalPRConflictResolvedThenPushed(t *testing.T) {
+	runner := withMocks(
+		withGit(gitThatConflictsOnSecondMerge()),
+		withProject(project.ThatReportsIncompleteUntil(1)),
+	)
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.WithBase("main"))
+	require.NoError(t, err)
+	require.True(t, gitMergeAborted(runner), "the pre-pull-request merge conflict is aborted")
+	require.True(t, aiResolveConflictsCalled(runner))
+	require.True(t, gitPushCalled(runner), "the resolved merge is pushed before the pull request")
+	require.True(t, githubCreatePRCalled(runner))
+}
+
+func TestRunLocalPRConflictResolutionFailureSkipsPR(t *testing.T) {
+	runner := withMocks(
+		withGit(gitThatConflictsOnSecondMerge()),
+		withAI(&mockAI{
+			resolveConflictsFunc: func(string, string) error { return errNonFatal },
+		}),
+		withProject(project.ThatReportsIncompleteUntil(1)),
+	)
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.WithBase("main"))
+	require.Error(t, err)
+	require.True(t, gitMergeAborted(runner))
+	require.False(t, gitPushCalled(runner))
+	require.False(t, githubCreatePRCalled(runner), "a failed resolution opens no pull request")
+	require.NotEmpty(t, notifyErrors(runner))
+}
+
+func TestRunLocalInWorktreeSyncsBaseBranchAgainBeforePR(t *testing.T) {
+	runner := withMocks(
+		withGit(gitThatNeedsMerge()),
+		withProject(project.ThatReportsIncompleteUntil(1)),
+	)
+	err := runner.RunLocalInWorktree(project.ForProjectInput(project.WithItems(3)), config.WithBase("main"))
+	require.NoError(t, err)
+	require.Equal(t, 2, gitMergeCalls(runner))
+	require.Equal(t, "origin/main", gitLastMergedBranch(runner), "the worktree merges the fetched remote base again before the pull request")
+	require.True(t, gitPushCalled(runner))
+	require.True(t, githubCreatePRCalled(runner))
+	require.False(t, gitBranchSwitched(runner))
+}
+
+func TestRunInWorkflowSyncsDeliveredBaseAgainBeforePR(t *testing.T) {
+	runner := withMocks(
+		withEnv(envInWorkflow()),
+		withGit(gitThatNeedsMerge()),
+		withProject(project.ThatReportsIncompleteUntil(1)),
+	)
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.WithBase("main"))
+	require.NoError(t, err)
+	require.Equal(t, 2, gitFetchCalls(runner), "the container syncs the delivered base again before the pull request")
+	require.Equal(t, 2, gitMergeCalls(runner))
+	require.True(t, gitPushCalled(runner))
+	require.True(t, githubCreatePRCalled(runner))
+}

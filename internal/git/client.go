@@ -120,6 +120,13 @@ func (a *Client) AbortMerge() error {
 	return AbortMerge()
 }
 
+// Push pushes the current branch to the remote so a pre-pull-request base-branch
+// merge lands before the pull request is opened.
+func (a *Client) Push() error {
+	owner, repo := a.ctx.RepoOwnerAndName()
+	return PullAndPush(a.ctx.IsWorkflowExecution(), owner, repo)
+}
+
 func (a *Client) CommitMessages(base string) ([]string, error) {
 	return CommitMessages(base)
 }

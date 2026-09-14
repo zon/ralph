@@ -51,6 +51,7 @@ type GitClient interface {
 	NeedsMerge(branch string) (bool, error)
 	Merge(branch string) error
 	AbortMerge() error
+	Push() error
 }
 
 type OutputClient interface {
@@ -137,7 +138,7 @@ func (r *Runner) runLocal(input *project.InputFile, cfg *config.RalphConfig, inW
 			return err
 		}
 	}
-	if err := r.syncBaseBranch(cfg, git.SanitizeBranchName(input.Slug()), inWorktree); err != nil {
+	if _, err := r.syncBaseBranch(cfg, git.SanitizeBranchName(input.Slug()), inWorktree); err != nil {
 		r.notify.Error(input.Slug())
 		return err
 	}
@@ -158,6 +159,10 @@ func (r *Runner) runLocal(input *project.InputFile, cfg *config.RalphConfig, inW
 		r.notify.Error(proj.Slug)
 		return err
 	}
+	if err := r.syncBaseBranchBeforePR(cfg, git.SanitizeBranchName(proj.Slug), inWorktree); err != nil {
+		r.notify.Error(proj.Slug)
+		return err
+	}
 	if err := r.github.CreatePR(proj, git.SanitizeBranchName(proj.Slug)); err != nil {
 		r.notify.Error(proj.Slug)
 		return err
@@ -170,28 +175,47 @@ func (r *Runner) runLocal(input *project.InputFile, cfg *config.RalphConfig, inW
 // project branch when the base branch is not already contained, before the
 // first iteration. A fetch failure is warned about and skipped. A conflicting
 // merge is aborted and handed to the configured AI agent to resolve, run tests,
-// and stage; a failed resolution is returned so the run stops.
-func (r *Runner) syncBaseBranch(cfg *config.RalphConfig, projectBranch string, inWorktree bool) error {
+// and stage; a failed resolution is returned so the run stops. It reports
+// whether a merge was performed.
+func (r *Runner) syncBaseBranch(cfg *config.RalphConfig, projectBranch string, inWorktree bool) (bool, error) {
 	if cfg.Base == "" {
-		return nil
+		return false, nil
 	}
 	if err := r.git.FetchBranch(cfg.Base); err != nil {
 		r.output.Warnf("Failed to fetch base branch %q: %v", cfg.Base, err)
-		return nil
+		return false, nil
 	}
 	baseRef := mergeRef(cfg.Base, inWorktree)
 	needsMerge, err := r.git.NeedsMerge(baseRef)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if !needsMerge {
-		return nil
+		return false, nil
 	}
 	if err := r.git.Merge(baseRef); err != nil {
 		_ = r.git.AbortMerge()
-		return r.ai.ResolveMergeConflicts(baseRef, projectBranch)
+		if err := r.ai.ResolveMergeConflicts(baseRef, projectBranch); err != nil {
+			return false, err
+		}
+		return true, nil
 	}
-	return nil
+	return true, nil
+}
+
+// syncBaseBranchBeforePR fetches and merges the base branch immediately before
+// the pull request is opened and pushes the merge so the pull request contains
+// the base branch's latest changes. A fetch failure is warned about and skipped
+// like the start-of-run synchronization.
+func (r *Runner) syncBaseBranchBeforePR(cfg *config.RalphConfig, projectBranch string, inWorktree bool) error {
+	merged, err := r.syncBaseBranch(cfg, projectBranch, inWorktree)
+	if err != nil {
+		return err
+	}
+	if !merged {
+		return nil
+	}
+	return r.git.Push()
 }
 
 // mergeRef is the ref synchronization merges. In a worktree the base branch is
