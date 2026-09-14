@@ -243,6 +243,18 @@ func TestReadmeSetupDescribesReadinessAndTargetedPreparation(t *testing.T) {
 	assert.NotContains(t, content, "ralph setup --help")
 }
 
+func TestReadmeDescribesBaseBranchSynchronization(t *testing.T) {
+	// GIVEN the README
+	// WHEN a reader looks for how Ralph keeps its working branch current
+	// THEN it describes merging the base branch before the first iteration
+	// and again before submitting the pull request
+	content := string(readRepoFile(t, "README.md"))
+	assert.Contains(t, content, "base branch", "the README must name the base branch")
+	assert.Contains(t, content, "run or loop", "the README must describe the behavior for runs and loops")
+	assert.Contains(t, content, "before the first iteration", "the README must state the start-of-run synchronization point")
+	assert.Contains(t, content, "before submitting the pull request", "the README must state the pre-pull-request synchronization point")
+}
+
 // markdownLinks extracts the link targets of markdown links in content.
 func markdownLinks(content string) []string {
 	var links []string
