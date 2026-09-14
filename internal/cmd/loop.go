@@ -196,7 +196,7 @@ func (c *LoopCmd) buildLoopCmd(ctx *execcontext.Context) (*loop.Cmd, error) {
 		prClient = &loopPullRequestOpener{client: github.NewClient(ctx, baseBranch, github.NewGH(ctx.Output()), opencode.New())}
 	}
 
-	return loop.NewCmd(&config.Client{}, &loopPromptBuilder{}, propose, aiClient, reportReader, gitClient, prClient, &SystemEnvClient{}), nil
+	return loop.NewCmd(&config.Client{}, &loopPromptBuilder{}, propose, aiClient, reportReader, gitClient, prClient, &SystemEnvClient{}, loop.WithOutput(ctx.Output())), nil
 }
 
 // loopSlugProposer adapts ai.ProposeLoopSlug to the orchestration's
@@ -233,6 +233,13 @@ func (a *loopAIClient) RunAgent(prompt string) error {
 // the same formatting as `ralph run`.
 func (a *loopAIClient) PrintStats() {
 	NewAgentClient(a.ctx, opencode.New()).PrintStats()
+}
+
+// ResolveMergeConflicts resolves a conflicting base-branch merge, runs the
+// tests, and stages the resolved files, using the configured agent because
+// resolving conflicts writes repository code.
+func (a *loopAIClient) ResolveMergeConflicts(baseBranch, projectBranch string) error {
+	return NewAgentClient(a.ctx, opencode.New()).ResolveMergeConflicts(baseBranch, projectBranch)
 }
 
 // loopReportReader adapts ai.ReadReport to the orchestration's ReportReader

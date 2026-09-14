@@ -70,6 +70,9 @@
 - path: internal/git
   description: Thin wrapper around the git CLI for repository operations.
 
+- path: internal/basesync
+  description: Fetches a base branch and merges it into a working branch, delegating conflicts to the configured AI agent, for runs and loops.
+
 - path: internal/workspace
   description: Filesystem helpers for preparing the container workspace.
 

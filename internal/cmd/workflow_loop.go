@@ -103,6 +103,7 @@ func (a *loopWorkflowRunnerAdapter) Run(slug string, steps []string, max int) er
 		git.NewClient(a.ctx),
 		&loopPullRequestOpener{client: github.NewClient(a.ctx, baseBranch, github.NewGH(a.ctx.Output()), opencode.New())},
 		&SystemEnvClient{},
+		orchestrationLoop.WithOutput(a.ctx.Output()),
 	)
 	_, err = cmd.Run(slug, steps, max)
 	return err

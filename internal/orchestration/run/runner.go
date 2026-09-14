@@ -1,6 +1,7 @@
 package run
 
 import (
+	"github.com/zon/ralph/internal/basesync"
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/project"
@@ -173,34 +174,9 @@ func (r *Runner) runLocal(input *project.InputFile, cfg *config.RalphConfig, inW
 
 // syncBaseBranch fetches the resolved base branch and merges it into the
 // project branch when the base branch is not already contained, before the
-// first iteration. A fetch failure is warned about and skipped. A conflicting
-// merge is aborted and handed to the configured AI agent to resolve, run tests,
-// and stage; a failed resolution is returned so the run stops. It reports
-// whether a merge was performed.
+// first iteration. It reports whether a merge was performed.
 func (r *Runner) syncBaseBranch(cfg *config.RalphConfig, projectBranch string, inWorktree bool) (bool, error) {
-	if cfg.Base == "" {
-		return false, nil
-	}
-	if err := r.git.FetchBranch(cfg.Base); err != nil {
-		r.output.Warnf("Failed to fetch base branch %q: %v", cfg.Base, err)
-		return false, nil
-	}
-	baseRef := mergeRef(cfg.Base, inWorktree)
-	needsMerge, err := r.git.NeedsMerge(baseRef)
-	if err != nil {
-		return false, err
-	}
-	if !needsMerge {
-		return false, nil
-	}
-	if err := r.git.Merge(baseRef); err != nil {
-		_ = r.git.AbortMerge()
-		if err := r.ai.ResolveMergeConflicts(baseRef, projectBranch); err != nil {
-			return false, err
-		}
-		return true, nil
-	}
-	return true, nil
+	return basesync.Sync(r.git, r.ai, r.output, cfg.Base, projectBranch, inWorktree)
 }
 
 // syncBaseBranchBeforePR fetches and merges the base branch immediately before
@@ -216,16 +192,6 @@ func (r *Runner) syncBaseBranchBeforePR(cfg *config.RalphConfig, projectBranch s
 		return nil
 	}
 	return r.git.Push()
-}
-
-// mergeRef is the ref synchronization merges. In a worktree the base branch is
-// normally checked out in the main checkout, so it cannot be moved without
-// changing that checkout; the fetched remote-tracking ref is merged instead.
-func mergeRef(base string, inWorktree bool) string {
-	if inWorktree {
-		return "origin/" + base
-	}
-	return base
 }
 
 func (r *Runner) generateArtifacts(input *project.InputFile, cfg *config.RalphConfig) (*project.Project, error) {
