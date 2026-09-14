@@ -6,6 +6,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/zon/ralph/internal/config"
 )
 
 // loopWithSync builds an in-process loop command whose git and AI clients are
@@ -151,6 +153,74 @@ func TestRunWorktreeSyncMergesRemoteBase(t *testing.T) {
 	assert.True(t, git.mergeCalled, "the fetched remote base is merged inside the worktree")
 	assert.Equal(t, "origin/main", git.lastMergedBranch, "the worktree merges the fetched remote base")
 	assert.Zero(t, git.switchCalls, "worktree execution leaves the current checkout on its branch")
+}
+
+// TestRunWorktreeSyncsBaseBranchInsideWorktree covers the "Synchronization in a
+// worktree" scenario through the worktree dispatch: the base is captured from
+// the current checkout before the worktree is created, then fetched and merged
+// as the remote-tracking ref inside the worktree, leaving the current checkout
+// on its branch. The first iteration runs against the merged state.
+func TestRunWorktreeSyncsBaseBranchInsideWorktree(t *testing.T) {
+	wt := &mockWorktreeClient{}
+	gitClient := &mockGitClient{
+		needsMerge: true,
+		currentBranchFunc: func() (string, error) {
+			require.False(t, wt.CreateWorktreeCalled, "the base branch is captured before the worktree is created")
+			return "main", nil
+		},
+	}
+	ai := &mockAIClient{}
+	lc := NewCmd(
+		&mockLoopConfigClient{loops: map[string][]string{"fmt": {"run gofmt"}}},
+		&mockPromptBuilder{},
+		&mockSlugProposer{},
+		ai,
+		&mockReportReader{reports: nothingToDoReports()},
+		gitClient,
+		&mockPullRequestOpener{},
+		envNotInWorkflow(),
+	)
+	cmd := runWithMocks(runWithWorktree(wt), runWithLoop(lc))
+
+	result, err := cmd.Run(loopFlagsWithMode(config.ModeWorktree))
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.True(t, wt.CreateWorktreeCalled, "the loop runs inside a worktree")
+	assert.Equal(t, "main", gitClient.lastFetchedBranch, "the branch the loop branch was created from is fetched")
+	assert.Equal(t, "origin/main", gitClient.lastMergedBranch, "the fetched remote base is merged inside the worktree")
+	assert.Zero(t, gitClient.switchCalls, "worktree execution leaves the current checkout on its branch")
+	assert.NotZero(t, ai.calls, "the first iteration runs after synchronization")
+}
+
+// TestRunWorktreeConflictResolvedWithFetchedBase asserts a conflicting merge
+// inside the worktree is aborted and the configured agent resolves the same
+// fetched remote base against the loop branch, leaving the current checkout on
+// its branch.
+func TestRunWorktreeConflictResolvedWithFetchedBase(t *testing.T) {
+	gitClient := &mockGitClient{currentBranch: "main", needsMerge: true, mergeErr: errors.New("conflict")}
+	ai := &mockAIClient{}
+	lc := NewCmd(
+		&mockLoopConfigClient{loops: map[string][]string{"fmt": {"run gofmt"}}},
+		&mockPromptBuilder{},
+		&mockSlugProposer{},
+		ai,
+		&mockReportReader{reports: nothingToDoReports()},
+		gitClient,
+		&mockPullRequestOpener{},
+		envNotInWorkflow(),
+	)
+	cmd := runWithMocks(runWithWorktree(&mockWorktreeClient{}), runWithLoop(lc))
+
+	_, err := cmd.Run(loopFlagsWithMode(config.ModeWorktree))
+
+	require.NoError(t, err)
+	assert.True(t, gitClient.abortMergeCalled, "the conflicting merge is aborted")
+	assert.True(t, ai.resolveConflictsCalled, "the configured agent resolves the conflict")
+	assert.Equal(t, "origin/main", ai.lastResolveBase, "the agent resolves the fetched remote base that conflicted")
+	assert.Equal(t, "loop-fmt", ai.lastResolveProject, "the agent resolves conflicts on the loop branch")
+	assert.Zero(t, gitClient.switchCalls, "the current checkout is not switched")
+	assert.NotZero(t, ai.calls, "the loop continues after conflict resolution")
 }
 
 // TestRunPropagatesCurrentBranchError asserts a failure to resolve the branch

@@ -162,12 +162,13 @@ type mockGitClient struct {
 	calls       int
 	switchCalls int
 
-	currentBranch    string
-	currentBranchErr error
-	fetchErr         error
-	needsMerge       bool
-	needsMergeErr    error
-	mergeErr         error
+	currentBranch     string
+	currentBranchErr  error
+	currentBranchFunc func() (string, error)
+	fetchErr          error
+	needsMerge        bool
+	needsMergeErr     error
+	mergeErr          error
 
 	fetchBranchCalled bool
 	fetchCalls        int
@@ -179,6 +180,9 @@ type mockGitClient struct {
 }
 
 func (m *mockGitClient) CurrentBranch() (string, error) {
+	if m.currentBranchFunc != nil {
+		return m.currentBranchFunc()
+	}
 	return m.currentBranch, m.currentBranchErr
 }
 
