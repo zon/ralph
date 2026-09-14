@@ -2,6 +2,7 @@ package basesync
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -17,6 +18,7 @@ type fakeGit struct {
 	mergeErr      error
 
 	fetchBranchCalled bool
+	needsMergeCalled  bool
 	mergeCalled       bool
 	abortMergeCalled  bool
 	lastFetchedBranch string
@@ -30,6 +32,7 @@ func (f *fakeGit) FetchBranch(branch string) error {
 }
 
 func (f *fakeGit) NeedsMerge(branch string) (bool, error) {
+	f.needsMergeCalled = true
 	return f.needsMerge, f.needsMergeErr
 }
 
@@ -65,91 +68,98 @@ type fakeOutput struct {
 }
 
 func (f *fakeOutput) Warnf(format string, a ...any) {
-	f.warnings = append(f.warnings, format)
+	f.warnings = append(f.warnings, fmt.Sprintf(format, a...))
 }
 
 func TestSync(t *testing.T) {
 	tests := []struct {
-		name          string
-		base          string
-		inWorktree    bool
-		git           *fakeGit
-		ai            *fakeAI
-		wantMerged    bool
-		wantErr       bool
-		wantFetch     bool
-		wantMerge     bool
-		wantAbort     bool
-		wantResolve   bool
-		wantWarnings  int
-		wantMergedRef string
+		name           string
+		base           string
+		inWorktree     bool
+		git            *fakeGit
+		ai             *fakeAI
+		wantMerged     bool
+		wantErr        bool
+		wantFetch      bool
+		wantNeedsMerge bool
+		wantMerge      bool
+		wantAbort      bool
+		wantResolve    bool
+		wantWarnings   int
+		wantMergedRef  string
 	}{
 		{
 			name: "no base branch skips synchronization",
 			base: "",
 		},
 		{
-			name:      "up-to-date base branch fetches without merging",
-			base:      "main",
-			git:       &fakeGit{needsMerge: false},
-			wantFetch: true,
-			wantMerge: false,
+			name:           "up-to-date base branch fetches without merging",
+			base:           "main",
+			git:            &fakeGit{needsMerge: false},
+			wantFetch:      true,
+			wantNeedsMerge: true,
+			wantMerge:      false,
 		},
 		{
-			name:          "clean merge reports a merge",
-			base:          "main",
-			git:           &fakeGit{needsMerge: true},
-			wantFetch:     true,
-			wantMerge:     true,
-			wantMerged:    true,
-			wantMergedRef: "main",
+			name:           "clean merge reports a merge",
+			base:           "main",
+			git:            &fakeGit{needsMerge: true},
+			wantFetch:      true,
+			wantNeedsMerge: true,
+			wantMerge:      true,
+			wantMerged:     true,
+			wantMergedRef:  "main",
 		},
 		{
-			name:         "fetch failure warns and continues",
+			name:         "fetch failure warns and continues without merging",
 			base:         "main",
 			git:          &fakeGit{fetchErr: errors.New("fetch boom")},
 			wantFetch:    true,
 			wantWarnings: 1,
 		},
 		{
-			name:      "needs merge error is returned",
-			base:      "main",
-			git:       &fakeGit{needsMergeErr: errors.New("needs merge boom")},
-			wantFetch: true,
-			wantErr:   true,
+			name:           "needs merge error is returned",
+			base:           "main",
+			git:            &fakeGit{needsMergeErr: errors.New("needs merge boom")},
+			wantFetch:      true,
+			wantNeedsMerge: true,
+			wantErr:        true,
 		},
 		{
-			name:          "conflict is aborted and resolved by the agent",
-			base:          "main",
-			git:           &fakeGit{needsMerge: true, mergeErr: errors.New("conflict")},
-			ai:            &fakeAI{},
-			wantFetch:     true,
-			wantMerge:     true,
-			wantAbort:     true,
-			wantResolve:   true,
-			wantMerged:    true,
-			wantMergedRef: "main",
+			name:           "conflict is aborted and resolved by the agent",
+			base:           "main",
+			git:            &fakeGit{needsMerge: true, mergeErr: errors.New("conflict")},
+			ai:             &fakeAI{},
+			wantFetch:      true,
+			wantNeedsMerge: true,
+			wantMerge:      true,
+			wantAbort:      true,
+			wantResolve:    true,
+			wantMerged:     true,
+			wantMergedRef:  "main",
 		},
 		{
-			name:        "failed conflict resolution returns the error",
-			base:        "main",
-			git:         &fakeGit{needsMerge: true, mergeErr: errors.New("conflict")},
-			ai:          &fakeAI{resolveErr: errors.New("resolve boom")},
-			wantFetch:   true,
-			wantMerge:   true,
-			wantAbort:   true,
-			wantResolve: true,
-			wantErr:     true,
+			name:           "failed conflict resolution returns the error",
+			base:           "main",
+			git:            &fakeGit{needsMerge: true, mergeErr: errors.New("conflict")},
+			ai:             &fakeAI{resolveErr: errors.New("resolve boom")},
+			wantFetch:      true,
+			wantNeedsMerge: true,
+			wantMerge:      true,
+			wantAbort:      true,
+			wantResolve:    true,
+			wantErr:        true,
 		},
 		{
-			name:          "worktree merges the fetched remote base",
-			base:          "main",
-			inWorktree:    true,
-			git:           &fakeGit{needsMerge: true},
-			wantFetch:     true,
-			wantMerge:     true,
-			wantMerged:    true,
-			wantMergedRef: "origin/main",
+			name:           "worktree merges the fetched remote base",
+			base:           "main",
+			inWorktree:     true,
+			git:            &fakeGit{needsMerge: true},
+			wantFetch:      true,
+			wantNeedsMerge: true,
+			wantMerge:      true,
+			wantMerged:     true,
+			wantMergedRef:  "origin/main",
 		},
 	}
 
@@ -174,6 +184,7 @@ func TestSync(t *testing.T) {
 			}
 			assert.Equal(t, tt.wantMerged, merged, "the merge report")
 			assert.Equal(t, tt.wantFetch, git.fetchBranchCalled, "whether the base branch is fetched")
+			assert.Equal(t, tt.wantNeedsMerge, git.needsMergeCalled, "whether the base branch containment is checked")
 			assert.Equal(t, tt.wantMerge, git.mergeCalled, "whether a merge is attempted")
 			assert.Equal(t, tt.wantAbort, git.abortMergeCalled, "whether the conflicting merge is aborted")
 			assert.Equal(t, tt.wantResolve, ai.resolveCalled, "whether the agent resolves conflicts")
@@ -183,6 +194,9 @@ func TestSync(t *testing.T) {
 			}
 			if tt.wantMergedRef != "" {
 				assert.Equal(t, tt.wantMergedRef, git.lastMergedBranch, "the merged ref")
+			}
+			if tt.wantWarnings > 0 {
+				assert.Contains(t, out.warnings[0], tt.base, "the warning names the base branch")
 			}
 		})
 	}
