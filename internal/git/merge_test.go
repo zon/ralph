@@ -80,6 +80,90 @@ func TestMerge_Conflict(t *testing.T) {
 	assert.Contains(t, err.Error(), "merge failed")
 }
 
+// TestNeedsMerge covers the check synchronization uses to skip a merge when the
+// base branch tip is already contained in the working branch.
+func TestNeedsMerge(t *testing.T) {
+	t.Run("identical base tip needs no merge", func(t *testing.T) {
+		tempDir := setupTestRepo(t)
+		t.Chdir(tempDir)
+
+		base, err := GetCurrentBranch()
+		require.NoError(t, err)
+
+		needsMerge, err := NeedsMerge(base)
+		require.NoError(t, err)
+		assert.False(t, needsMerge, "the working branch is the base branch, so no merge is needed")
+	})
+
+	t.Run("contained base tip needs no merge", func(t *testing.T) {
+		tempDir := setupTestRepo(t)
+		t.Chdir(tempDir)
+
+		base, err := GetCurrentBranch()
+		require.NoError(t, err)
+
+		require.NoError(t, CreateBranch("feature"))
+		writeAndCommit(t, tempDir, "feature.txt", "feature commit")
+
+		needsMerge, err := NeedsMerge(base)
+		require.NoError(t, err)
+		assert.False(t, needsMerge, "the base branch tip is an ancestor of the working branch")
+	})
+
+	t.Run("advanced base needs a merge", func(t *testing.T) {
+		tempDir := setupTestRepo(t)
+		t.Chdir(tempDir)
+
+		base, err := GetCurrentBranch()
+		require.NoError(t, err)
+
+		require.NoError(t, CreateBranch("feature"))
+		require.NoError(t, CheckoutBranch(base))
+		writeAndCommit(t, tempDir, "base.txt", "base commit")
+		require.NoError(t, CheckoutBranch("feature"))
+
+		needsMerge, err := NeedsMerge(base)
+		require.NoError(t, err)
+		assert.True(t, needsMerge, "the working branch does not contain the advanced base tip")
+	})
+
+	t.Run("diverged base needs a merge", func(t *testing.T) {
+		tempDir := setupTestRepo(t)
+		t.Chdir(tempDir)
+
+		base, err := GetCurrentBranch()
+		require.NoError(t, err)
+
+		require.NoError(t, CreateBranch("feature"))
+		writeAndCommit(t, tempDir, "feature.txt", "feature commit")
+		require.NoError(t, CheckoutBranch(base))
+		writeAndCommit(t, tempDir, "base.txt", "base commit")
+		require.NoError(t, CheckoutBranch("feature"))
+
+		needsMerge, err := NeedsMerge(base)
+		require.NoError(t, err)
+		assert.True(t, needsMerge, "the working branch and the base branch have diverged")
+	})
+
+	t.Run("missing base needs no merge", func(t *testing.T) {
+		tempDir := setupTestRepo(t)
+		t.Chdir(tempDir)
+
+		needsMerge, err := NeedsMerge("does-not-exist")
+		require.NoError(t, err)
+		assert.False(t, needsMerge, "a base branch that cannot be resolved needs no merge")
+	})
+}
+
+// writeAndCommit stages a file with the given content and commits it on the
+// current branch.
+func writeAndCommit(t *testing.T, dir, name, message string) {
+	t.Helper()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, name), []byte(message), 0644))
+	require.NoError(t, StageFile(name))
+	require.NoError(t, Commit(message))
+}
+
 func TestAbortMerge(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	t.Chdir(tempDir)
