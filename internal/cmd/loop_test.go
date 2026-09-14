@@ -541,6 +541,10 @@ func (f *fakeGitClient) AbortMerge() error {
 	return nil
 }
 
+func (f *fakeGitClient) Push() error {
+	return nil
+}
+
 // fakeWorktreeClient records the worktree operations the command asks for, so
 // tests never touch a real git worktree.
 type fakeWorktreeClient struct {

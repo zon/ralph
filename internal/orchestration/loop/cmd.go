@@ -60,6 +60,7 @@ type GitClient interface {
 	NeedsMerge(branch string) (bool, error)
 	Merge(branch string) error
 	AbortMerge() error
+	Push() error
 }
 
 // PullRequestOpener opens a pull request for the loop branch after the
@@ -186,7 +187,25 @@ func (c *Cmd) runResolved(result *Result, max int, inWorktree bool) error {
 	if err := c.iterate(prompt, max, result.Slug); err != nil {
 		return err
 	}
+	if err := c.syncBaseBranchBeforePR(result, inWorktree); err != nil {
+		return err
+	}
 	return c.pr.OpenLoopPullRequest(result.Slug)
+}
+
+// syncBaseBranchBeforePR fetches and merges the branch the loop branch was
+// created from immediately before the pull request is opened and pushes the
+// merge so the pull request contains the base branch's latest changes. A fetch
+// failure is warned about and skipped like the start-of-run synchronization.
+func (c *Cmd) syncBaseBranchBeforePR(result *Result, inWorktree bool) error {
+	merged, err := basesync.Sync(c.git, c.ai, c.output, c.base, git.LoopBranch(result.Slug), inWorktree)
+	if err != nil {
+		return err
+	}
+	if !merged {
+		return nil
+	}
+	return c.git.Push()
 }
 
 // iterate runs the loop prompt as an iteration loop. Each iteration invokes

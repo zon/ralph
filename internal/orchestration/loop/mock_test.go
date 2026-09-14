@@ -169,12 +169,16 @@ type mockGitClient struct {
 	needsMerge        bool
 	needsMergeErr     error
 	mergeErr          error
+	mergeErrAfter     int
+	pushErr           error
 
 	fetchBranchCalled bool
 	fetchCalls        int
 	mergeCalled       bool
 	mergeCalls        int
 	abortMergeCalled  bool
+	pushCalled        bool
+	pushCalls         int
 	lastFetchedBranch string
 	lastMergedBranch  string
 }
@@ -219,12 +223,24 @@ func (m *mockGitClient) Merge(branch string) error {
 	m.mergeCalled = true
 	m.mergeCalls++
 	m.lastMergedBranch = branch
+	if m.mergeErrAfter > 0 {
+		if m.mergeCalls <= m.mergeErrAfter {
+			return nil
+		}
+		return m.mergeErr
+	}
 	return m.mergeErr
 }
 
 func (m *mockGitClient) AbortMerge() error {
 	m.abortMergeCalled = true
 	return nil
+}
+
+func (m *mockGitClient) Push() error {
+	m.pushCalled = true
+	m.pushCalls++
+	return m.pushErr
 }
 
 // mockOutput records the warnings synchronization logs.
@@ -239,13 +255,17 @@ func (m *mockOutput) Warnf(format string, a ...any) {
 // mockPullRequestOpener records the slugs it opened pull requests for and
 // returns an injected error when set.
 type mockPullRequestOpener struct {
-	slugs []string
-	err   error
-	calls int
+	slugs    []string
+	err      error
+	calls    int
+	openFunc func(slug string) error
 }
 
 func (m *mockPullRequestOpener) OpenLoopPullRequest(slug string) error {
 	m.calls++
 	m.slugs = append(m.slugs, slug)
+	if m.openFunc != nil {
+		return m.openFunc(slug)
+	}
 	return m.err
 }
