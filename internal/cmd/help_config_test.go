@@ -49,10 +49,40 @@ func TestPrintConfigDocumentationNonInteractive(t *testing.T) {
 func TestConfigDocumentationEmbedded(t *testing.T) {
 	doc := config.ConfigDocumentation()
 	require.NotEmpty(t, doc)
-	for _, section := range []string{"# Configuration", "## Mode", "## Items", "## Iterations", "## Loops", "## Before", "## Services", "## Workflow", "## Custom Instructions"} {
+	for _, section := range []string{"# Configuration", "## Mode", "## Items", "## Iterations", "## Default Branch", "## Base Branch Synchronization", "## Loops", "## Before", "## Services", "## Workflow", "## Custom Instructions"} {
 		assert.Contains(t, doc, section)
 	}
 	assert.Contains(t, doc, "<branch>-<hash>", "the documentation must describe the completion trailer")
+}
+
+// TestConfigDocumentationBaseBranchSync asserts the embedded configuration
+// reference describes when and how Ralph synchronizes the base branch for runs
+// and loops.
+func TestConfigDocumentationBaseBranchSync(t *testing.T) {
+	doc := config.ConfigDocumentation()
+	require.NotEmpty(t, doc)
+	sync := baseBranchSyncSection(t, doc)
+
+	assert.Contains(t, sync, "base branch", "the section must name the base branch")
+	assert.Contains(t, sync, "first iteration", "the section must state the start-of-run synchronization point")
+	assert.Contains(t, sync, "pull request", "the section must state the pre-pull-request synchronization point")
+	assert.Contains(t, sync, "worktree", "the section must cover worktree mode")
+	assert.Contains(t, sync, "remote", "the section must cover remote mode")
+	assert.Contains(t, sync, "warning", "the section must describe the fetch-failure warning")
+	assert.Contains(t, sync, "AI agent", "the section must describe conflict resolution by the AI agent")
+}
+
+// baseBranchSyncSection returns the body of the Base Branch Synchronization
+// section, from its header to the next section header.
+func baseBranchSyncSection(t *testing.T, doc string) string {
+	t.Helper()
+	const header = "## Base Branch Synchronization"
+	start := strings.Index(doc, header)
+	require.NotEqual(t, -1, start, "the documentation must contain a Base Branch Synchronization section")
+	body := doc[start+len(header):]
+	next := strings.Index(body, "\n## ")
+	require.NotEqual(t, -1, next, "the Base Branch Synchronization section must be followed by another section")
+	return body[:next]
 }
 
 // TestConfigDocumentationLoopMax asserts the Loops section of the embedded

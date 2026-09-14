@@ -50,6 +50,16 @@ cleanup: false
 defaultBranch: main
 ```
 
+## Base Branch Synchronization
+
+`ralph run` and `ralph loop` keep their working branch current with its base branch. The base branch is the one resolved by the command: `--base` for a run, and the branch the loop branch was created from for a loop.
+
+Synchronization happens before the first iteration and again immediately before the pull request is opened. The second merge is pushed, so the pull request contains the base branch's latest changes. It runs in every mode: in the current checkout in `local` mode, inside the worktree in `worktree` mode, and inside the workflow container in `remote` mode.
+
+Synchronization fetches the base branch and merges it only when the base branch is not already contained in the working branch. When the fetch fails, Ralph logs a warning and continues without merging.
+
+When the merge conflicts, Ralph aborts it and asks the configured AI agent to resolve the conflicts, run the tests, and stage the result. If the agent fails, the command returns an error and no pull request is opened.
+
 ## Model
 
 `model` sets the AI model used for coding and pull request summaries. When unset, the `--model` option is omitted from the opencode invocation and opencode's configured default model is used.
