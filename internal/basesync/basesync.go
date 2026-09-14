@@ -27,8 +27,9 @@ type OutputClient interface {
 // base branch is not already contained, before the first iteration. A fetch
 // failure is warned about and skipped. A conflicting merge is aborted and
 // handed to the configured AI agent to resolve, run tests, and stage; a failed
-// resolution is returned so execution stops. It reports whether a merge was
-// performed.
+// resolution is returned so execution stops, and the merge the agent left
+// behind is aborted so the repository is not left mid-merge. It reports whether
+// a merge was performed.
 func Sync(git GitClient, ai AIClient, output OutputClient, base, projectBranch string, inWorktree bool) (bool, error) {
 	if base == "" {
 		return false, nil
@@ -48,6 +49,7 @@ func Sync(git GitClient, ai AIClient, output OutputClient, base, projectBranch s
 	if err := git.Merge(baseRef); err != nil {
 		_ = git.AbortMerge()
 		if err := ai.ResolveMergeConflicts(baseRef, projectBranch); err != nil {
+			_ = git.AbortMerge()
 			return false, err
 		}
 		return true, nil

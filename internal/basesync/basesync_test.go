@@ -20,7 +20,7 @@ type fakeGit struct {
 	fetchBranchCalled bool
 	needsMergeCalled  bool
 	mergeCalled       bool
-	abortMergeCalled  bool
+	abortMergeCalls   int
 	lastFetchedBranch string
 	lastMergedBranch  string
 }
@@ -43,7 +43,7 @@ func (f *fakeGit) Merge(branch string) error {
 }
 
 func (f *fakeGit) AbortMerge() error {
-	f.abortMergeCalled = true
+	f.abortMergeCalls++
 	return nil
 }
 
@@ -83,7 +83,7 @@ func TestSync(t *testing.T) {
 		wantFetch      bool
 		wantNeedsMerge bool
 		wantMerge      bool
-		wantAbort      bool
+		wantAborts     int
 		wantResolve    bool
 		wantWarnings   int
 		wantMergedRef  string
@@ -133,7 +133,7 @@ func TestSync(t *testing.T) {
 			wantFetch:      true,
 			wantNeedsMerge: true,
 			wantMerge:      true,
-			wantAbort:      true,
+			wantAborts:     1,
 			wantResolve:    true,
 			wantMerged:     true,
 			wantMergedRef:  "main",
@@ -146,7 +146,7 @@ func TestSync(t *testing.T) {
 			wantFetch:      true,
 			wantNeedsMerge: true,
 			wantMerge:      true,
-			wantAbort:      true,
+			wantAborts:     2,
 			wantResolve:    true,
 			wantErr:        true,
 		},
@@ -186,7 +186,7 @@ func TestSync(t *testing.T) {
 			assert.Equal(t, tt.wantFetch, git.fetchBranchCalled, "whether the base branch is fetched")
 			assert.Equal(t, tt.wantNeedsMerge, git.needsMergeCalled, "whether the base branch containment is checked")
 			assert.Equal(t, tt.wantMerge, git.mergeCalled, "whether a merge is attempted")
-			assert.Equal(t, tt.wantAbort, git.abortMergeCalled, "whether the conflicting merge is aborted")
+			assert.Equal(t, tt.wantAborts, git.abortMergeCalls, "how many times a conflicting merge is aborted")
 			assert.Equal(t, tt.wantResolve, ai.resolveCalled, "whether the agent resolves conflicts")
 			assert.Len(t, out.warnings, tt.wantWarnings, "the number of warnings logged")
 			if tt.wantFetch {
@@ -213,4 +213,18 @@ func TestSyncConflictResolutionReceivesRefs(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "main", ai.lastBase)
 	assert.Equal(t, "loop-fmt", ai.lastProject)
+}
+
+// TestSyncFailedResolutionAbortsLeftoverMerge covers the "Failed merge leaves no
+// half-finished state" scenario: when the agent fails to resolve the conflict,
+// the merge the agent started is aborted again so the repository is not left
+// mid-merge.
+func TestSyncFailedResolutionAbortsLeftoverMerge(t *testing.T) {
+	git := &fakeGit{needsMerge: true, mergeErr: errors.New("conflict")}
+	ai := &fakeAI{resolveErr: errors.New("resolve boom")}
+
+	_, err := Sync(git, ai, &fakeOutput{}, "main", "loop-fmt", false)
+
+	require.Error(t, err)
+	assert.Equal(t, 2, git.abortMergeCalls, "the failed resolution's leftover merge is aborted")
 }

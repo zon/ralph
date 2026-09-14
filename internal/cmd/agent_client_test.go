@@ -1077,3 +1077,70 @@ func TestAgentClientFixServiceStartupReceivesConfiguredAgent(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "code-reviewer", capturedAgent, "service-startup fixes are code-writing and receive the flag agent")
 }
+
+// TestAgentClientResolveMergeConflictsInvokesAgent asserts the configured agent
+// is invoked with instructions to resolve the conflict between the base and
+// project branches, run the tests, and stage the resolved files.
+func TestAgentClientResolveMergeConflictsInvokesAgent(t *testing.T) {
+	var capturedPrompt string
+	mockOC := &opencode.MockOC{
+		RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
+			capturedPrompt = prompt
+			return nil
+		},
+	}
+	client := NewAgentClient(execcontext.NewContext(), mockOC)
+
+	require.NoError(t, client.ResolveMergeConflicts("main", "loop-fmt"))
+
+	assert.Contains(t, capturedPrompt, "main")
+	assert.Contains(t, capturedPrompt, "loop-fmt")
+	assert.Contains(t, capturedPrompt, "git merge main")
+	assert.Contains(t, capturedPrompt, "Run tests", "the agent is told to run the tests")
+	assert.Contains(t, capturedPrompt, "git add", "the agent is told to stage the resolved files")
+}
+
+// TestAgentClientResolveMergeConflictsReturnsAgentError asserts a failed
+// resolution is returned so the caller stops without opening a pull request.
+func TestAgentClientResolveMergeConflictsReturnsAgentError(t *testing.T) {
+	agentErr := errors.New("agent boom")
+	mockOC := &opencode.MockOC{
+		RunAgentFunc: func(_ context.Context, _, _, _, _ string) error {
+			return agentErr
+		},
+	}
+	client := NewAgentClient(execcontext.NewContext(), mockOC)
+
+	err := client.ResolveMergeConflicts("main", "loop-fmt")
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, agentErr, "the agent error is returned unchanged")
+}
+
+// TestAgentClientResolveMergeConflictsReceivesConfiguredAgent asserts
+// merge-conflict resolution writes repository code, so it receives the
+// configured agent like the other code-writing prompts.
+func TestAgentClientResolveMergeConflictsReceivesConfiguredAgent(t *testing.T) {
+	workDir := t.TempDir()
+	t.Chdir(workDir)
+
+	testutil.InitGitRepo(t, workDir)
+	testutil.MakeInitialCommit(t, workDir)
+	testutil.CreateRalphConfig(t, workDir)
+	appendAgentToConfig(t, workDir)
+
+	ctx := execcontext.NewContext()
+	ctx.SetAgent("code-reviewer")
+
+	var capturedAgent string
+	mockOC := &opencode.MockOC{
+		RunAgentFunc: func(_ context.Context, _, _, agent, prompt string) error {
+			capturedAgent = agent
+			return nil
+		},
+	}
+	client := NewAgentClient(ctx, mockOC)
+
+	require.NoError(t, client.ResolveMergeConflicts("main", "loop-fmt"))
+	assert.Equal(t, "code-reviewer", capturedAgent, "merge-conflict resolution writes code and receives the flag agent")
+}
