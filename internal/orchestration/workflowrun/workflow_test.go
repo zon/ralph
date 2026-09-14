@@ -43,51 +43,22 @@ func TestRunMissingConfigProceedsWithDefaults(t *testing.T) {
 	require.True(t, runner.runLocalCalled())
 }
 
-func TestRunMalformedConfigAbortsBeforeSync(t *testing.T) {
+func TestRunMalformedConfigAbortsBeforeRunLocal(t *testing.T) {
 	cmd := run.withMocks(
 		run.withConfig(config.thatFailsParsing()),
 	)
 	err := cmd.Run(flags.any())
 	require.Error(t, err)
-	require.False(t, git.fetchCalled())
+	require.False(t, runner.runLocalCalled())
 }
 
-func TestRunProjectLoadFailureAbortsBeforeSync(t *testing.T) {
+func TestRunProjectLoadFailureAbortsBeforeRunLocal(t *testing.T) {
 	cmd := run.withMocks(
 		run.withProject(project.thatFailsResolve()),
 	)
 	err := cmd.Run(flags.any())
 	require.Error(t, err)
-	require.False(t, git.fetchCalled())
-}
-
-func TestSyncBaseBranchFetchFailureContinues(t *testing.T) {
-	cmd := run.withMocks(
-		run.withGit(git.thatFailsFetch()),
-	)
-	err := cmd.Run(flags.any())
-	require.NoError(t, err)
-	require.True(t, runner.runLocalCalled())
-	require.True(t, output.warnfCalled())
-}
-
-func TestSyncBaseBranchUpToDateSkipsMerge(t *testing.T) {
-	cmd := run.withMocks(
-		run.withGit(git.thatReportsUpToDate()),
-	)
-	err := cmd.Run(flags.any())
-	require.NoError(t, err)
-	require.False(t, git.mergeCalled())
-}
-
-func TestSyncBaseBranchConflictsAbortAndInvokeAI(t *testing.T) {
-	cmd := run.withMocks(
-		run.withGit(git.thatNeedsMerge().thatProducesConflicts()),
-	)
-	err := cmd.Run(flags.any())
-	require.NoError(t, err)
-	require.True(t, git.mergeAborted())
-	require.True(t, ai.conflictsResolved())
+	require.False(t, runner.runLocalCalled())
 }
 
 func TestRunDelegatesToLocalRunner(t *testing.T) {

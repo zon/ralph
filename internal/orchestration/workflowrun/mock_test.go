@@ -25,62 +25,6 @@ func (m *mockWorkspaceSetupClient) Setup(flags wksp.WorkspaceFlags) error {
 	return nil
 }
 
-type mockGitClient struct {
-	fetchBranchFunc func(string) error
-	needsMergeFunc  func(string) (bool, error)
-	mergeFunc       func(string) error
-	abortMergeFunc  func()
-
-	fetchBranchCalled bool
-	needsMergeCalled  bool
-	mergeCalled       bool
-	abortMergeCalled  bool
-}
-
-func (m *mockGitClient) FetchBranch(branch string) error {
-	m.fetchBranchCalled = true
-	if m.fetchBranchFunc != nil {
-		return m.fetchBranchFunc(branch)
-	}
-	return nil
-}
-
-func (m *mockGitClient) NeedsMerge(branch string) (bool, error) {
-	m.needsMergeCalled = true
-	if m.needsMergeFunc != nil {
-		return m.needsMergeFunc(branch)
-	}
-	return false, nil
-}
-
-func (m *mockGitClient) Merge(branch string) error {
-	m.mergeCalled = true
-	if m.mergeFunc != nil {
-		return m.mergeFunc(branch)
-	}
-	return nil
-}
-
-func (m *mockGitClient) AbortMerge() {
-	m.abortMergeCalled = true
-	if m.abortMergeFunc != nil {
-		m.abortMergeFunc()
-	}
-}
-
-type mockAIClient struct {
-	resolveMergeConflictsFunc   func(string, string) error
-	resolveMergeConflictsCalled bool
-}
-
-func (m *mockAIClient) ResolveMergeConflicts(baseBranch, projectBranch string) error {
-	m.resolveMergeConflictsCalled = true
-	if m.resolveMergeConflictsFunc != nil {
-		return m.resolveMergeConflictsFunc(baseBranch, projectBranch)
-	}
-	return nil
-}
-
 type mockRunnerClient struct {
 	runLocalFunc   func(*ralphproj.Project, *ralphcfg.RalphConfig) error
 	runLocalCalled bool
@@ -133,26 +77,11 @@ func (m *mockDebugClient) Setup(branch string) error {
 	return nil
 }
 
-type mockOutputClient struct {
-	warnfFunc   func(string, ...any)
-	warnfCalled bool
-}
-
-func (m *mockOutputClient) Warnf(format string, a ...any) {
-	m.warnfCalled = true
-	if m.warnfFunc != nil {
-		m.warnfFunc(format, a...)
-	}
-}
-
 var mockWksp *mockWorkspaceSetupClient
-var mockGit *mockGitClient
-var mockAI *mockAIClient
 var mockRunner *mockRunnerClient
 var mockCfg *mockConfigClient
 var mockProj *mockProjectClient
 var mockDebug *mockDebugClient
-var mockOutput *mockOutputClient
 
 type runHelper struct{}
 
@@ -171,22 +100,16 @@ func (r *runHelper) withRunner(rc RunnerClient) runOption {
 
 func (r *runHelper) withMocks(opts ...runOption) *WorkflowRunCmd {
 	mockWksp = &mockWorkspaceSetupClient{}
-	mockGit = &mockGitClient{}
-	mockAI = &mockAIClient{}
 	mockRunner = &mockRunnerClient{}
 	mockCfg = &mockConfigClient{}
 	mockProj = &mockProjectClient{}
 	mockDebug = &mockDebugClient{}
-	mockOutput = &mockOutputClient{}
 	cmd := &WorkflowRunCmd{
 		workspace: mockWksp,
-		git:       mockGit,
-		ai:        mockAI,
 		runner:    mockRunner,
 		config:    mockCfg,
 		project:   mockProj,
 		debug:     mockDebug,
-		output:    mockOutput,
 	}
 	for _, opt := range opts {
 		opt(cmd)
@@ -199,15 +122,6 @@ func (r *runHelper) withWorkspace(wc WorkspaceSetupClient) runOption {
 		cmd.workspace = wc
 		if m, ok := wc.(*mockWorkspaceSetupClient); ok {
 			mockWksp = m
-		}
-	}
-}
-
-func (r *runHelper) withGit(gc GitClient) runOption {
-	return func(cmd *WorkflowRunCmd) {
-		cmd.git = gc
-		if m, ok := gc.(*mockGitClient); ok {
-			mockGit = m
 		}
 	}
 }
@@ -273,53 +187,6 @@ func (h *configHelper) loadCalled() bool {
 	return mockCfg != nil && mockCfg.loadOptionalCalled
 }
 
-type gitHelper struct{}
-
-var git = &gitHelper{}
-
-func (h *gitHelper) thatFailsFetch() *mockGitClient {
-	return &mockGitClient{
-		fetchBranchFunc: func(string) error { return errMock },
-	}
-}
-
-func (h *gitHelper) thatReportsUpToDate() *mockGitClient {
-	return &mockGitClient{
-		needsMergeFunc: func(string) (bool, error) { return false, nil },
-	}
-}
-
-func (h *gitHelper) thatNeedsMerge() *mockGitClient {
-	return &mockGitClient{
-		needsMergeFunc: func(string) (bool, error) { return true, nil },
-	}
-}
-
-func (m *mockGitClient) thatProducesConflicts() *mockGitClient {
-	m.mergeFunc = func(string) error { return errMock }
-	return m
-}
-
-func (h *gitHelper) fetchCalled() bool {
-	return mockGit != nil && mockGit.fetchBranchCalled
-}
-
-func (h *gitHelper) mergeCalled() bool {
-	return mockGit != nil && mockGit.mergeCalled
-}
-
-func (h *gitHelper) mergeAborted() bool {
-	return mockGit != nil && mockGit.abortMergeCalled
-}
-
-type aiHelper struct{}
-
-var ai = &aiHelper{}
-
-func (h *aiHelper) conflictsResolved() bool {
-	return mockAI != nil && mockAI.resolveMergeConflictsCalled
-}
-
 type runnerHelper struct{}
 
 var runner = &runnerHelper{}
@@ -338,14 +205,6 @@ func (h *projectHelper) thatFailsResolve() *mockProjectClient {
 			return nil, errMock
 		},
 	}
-}
-
-type outputHelper struct{}
-
-var output = &outputHelper{}
-
-func (h *outputHelper) warnfCalled() bool {
-	return mockOutput != nil && mockOutput.warnfCalled
 }
 
 type debugHelper struct{}

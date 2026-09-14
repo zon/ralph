@@ -20,5 +20,6 @@ func NewLocalRunner(ctx *context.Context, baseBranch string) *orchestrationRun.R
 		services.NewClient(ctx.Output()),
 		notify.NewClient(ctx),
 		&SystemEnvClient{},
+		ctx.Output(),
 	)
 }

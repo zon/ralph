@@ -49,9 +49,9 @@ func TestWorkflowRunItemsAbsentUsesConfigQuery(t *testing.T) {
 }
 
 // TestWorkflowRunValidationFailsBeforeSync covers the item that input
-// validation after workspace setup fails before base-branch synchronization
-// when the project file is missing, does not parse, or yields no items under
-// the supplied item query.
+// validation after workspace setup fails before the run-local behavior is
+// invoked when the project file is missing, does not parse, or yields no items
+// under the supplied item query.
 func TestWorkflowRunValidationFailsBeforeSync(t *testing.T) {
 	cfg := ralphcfg.Any()
 	cfg.Items = ".missing"
@@ -64,7 +64,6 @@ func TestWorkflowRunValidationFailsBeforeSync(t *testing.T) {
 
 	err := cmd.Run(flags.any())
 	require.Error(t, err)
-	require.False(t, git.fetchCalled())
 	require.False(t, runner.runLocalCalled())
 }
 
@@ -154,7 +153,7 @@ func TestWorkflowRunCleanupScenario(t *testing.T) {
 // TestWorkflowRunProjectFileLoadFailureScenario covers the "Project file load
 // failure" scenario: after the workspace is ready, a project file that is
 // missing, does not parse, or yields no items under the supplied item query
-// returns an error before base-branch synchronization begins. The real project
+// returns an error before the run-local behavior is invoked. The real project
 // client resolves the file exactly as a run does.
 func TestWorkflowRunProjectFileLoadFailureScenario(t *testing.T) {
 	client := ralphproj.NewClient(&emptyCommitLog{}, &warnNop{})
@@ -165,7 +164,7 @@ func TestWorkflowRunProjectFileLoadFailureScenario(t *testing.T) {
 		)
 		err := cmd.Run(flags.withItems(".requirements"))
 		require.Error(t, err)
-		require.False(t, git.fetchCalled())
+		require.False(t, runner.runLocalCalled())
 	})
 
 	t.Run("file does not parse", func(t *testing.T) {
@@ -177,7 +176,7 @@ func TestWorkflowRunProjectFileLoadFailureScenario(t *testing.T) {
 		)
 		err := cmd.Run(cf)
 		require.Error(t, err)
-		require.False(t, git.fetchCalled())
+		require.False(t, runner.runLocalCalled())
 	})
 
 	t.Run("query yields no items", func(t *testing.T) {
@@ -190,6 +189,6 @@ func TestWorkflowRunProjectFileLoadFailureScenario(t *testing.T) {
 		err := cmd.Run(cf)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "item query yielded no items: .requirements")
-		require.False(t, git.fetchCalled())
+		require.False(t, runner.runLocalCalled())
 	})
 }

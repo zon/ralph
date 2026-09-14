@@ -100,6 +100,26 @@ func (a *Client) CurrentBranch() (string, error) {
 	return GetCurrentBranch()
 }
 
+// FetchBranch fetches the given branch from origin, updating the local branch.
+func (a *Client) FetchBranch(branch string) error {
+	return FetchBranch(branch)
+}
+
+// NeedsMerge reports whether the current branch is behind the given branch.
+func (a *Client) NeedsMerge(branch string) (bool, error) {
+	return NeedsMerge(branch)
+}
+
+// Merge merges the given branch into the current branch.
+func (a *Client) Merge(branch string) error {
+	return Merge(branch)
+}
+
+// AbortMerge aborts an in-progress merge.
+func (a *Client) AbortMerge() error {
+	return AbortMerge()
+}
+
 func (a *Client) CommitMessages(base string) ([]string, error) {
 	return CommitMessages(base)
 }
