@@ -285,6 +285,30 @@ The command SHALL determine the base branch for PR creation by the following pri
 
 ---
 
+### Requirement: Base branch synchronization in every mode
+
+Whatever the execution mode, the command SHALL synchronize the project branch with the resolved base branch before the first iteration and again immediately before the pull request is opened, following the shared behavior in [base-branch-sync.md](base-branch-sync.md). Synchronization uses the base branch resolved by [Base branch resolution](#requirement-base-branch-resolution).
+
+#### Scenario: Local mode synchronizes the base branch
+
+- GIVEN the command runs in `local` mode
+- WHEN the run starts and when it opens the pull request
+- THEN the base branch is fetched and merged into the project branch as defined in [base-branch-sync.md](base-branch-sync.md)
+
+#### Scenario: Worktree mode synchronizes the base branch
+
+- GIVEN the command runs in `worktree` mode
+- WHEN the run starts and when it opens the pull request
+- THEN the base branch is fetched and merged inside the worktree as defined in [base-branch-sync.md](base-branch-sync.md)
+
+#### Scenario: Remote mode synchronizes the base branch
+
+- GIVEN the command runs in `remote` mode
+- WHEN the container runs the project and when it opens the pull request
+- THEN the base branch delivered as `--base` is fetched and merged inside the container as defined in [base-branch-sync.md](base-branch-sync.md)
+
+---
+
 ### Requirement: Item query resolution
 
 The command SHALL accept `--items` to set the jq query that selects the item array from the project file. The query SHALL be resolved once, locally, before dispatching to the selected execution mode, and the resolved value SHALL be passed down so that the whole run, whichever mode, indexes items against the same query.

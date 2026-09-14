@@ -3,6 +3,7 @@
 ## Ralph
 
 - [argo](ralph/argo.md) — Convenience CLI commands for inspecting and managing Argo Workflows created by Ralph.
+- [base-branch-sync](ralph/base-branch-sync.md) — Shared behavior that `ralph run` and `ralph loop` use in every execution mode to merge the base branch before the first iteration and again before opening the pull request.
 - [command](ralph/command.md) — Submit an arbitrary command as an Argo Workflow and stream its logs without AI iteration.
 - [completion](ralph/completion.md) — Read-only commands (`ralph complete` and `ralph incomplete`) that report which project items are complete and which are left, from the branch's commit trailers.
 - [kube-options](ralph/kube-options.md) — Shared contract for every Ralph CLI command that interacts with a Kubernetes cluster through kubectl: all such commands support `--context` and `--namespace` to target a cluster and namespace.
@@ -17,5 +18,5 @@
 - [validate](ralph/validate.md) — Checks that a project file parses and that the item query resolves, repairs it via a local agent if not, and rewrites it in canonical format.
 - [workflow-command](ralph/workflow-command.md) — Container entrypoint that clones the current branch and runs supplied command tokens in the Ralph environment.
 - [workflow-token](ralph/workflow-token.md) — Configure git HTTPS authentication inside Argo Workflow containers from GitHub App credentials or a stored token, preferring the App credentials when both are present.
-- [workflow-run](ralph/workflow-run.md) — Executes the project loop after workspace setup by synchronizing the base branch and delegating to run-local.
+- [workflow-run](ralph/workflow-run.md) — Executes the project loop after workspace setup by delegating to run-local, which synchronizes the base branch before the run and before the pull request.
 - [workflow-workspace](ralph/workflow-workspace.md) — Shared container bootstrap for all workflow subcommands: auth, credentials, git setup, clone, and checkout.

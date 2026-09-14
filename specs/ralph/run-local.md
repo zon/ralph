@@ -26,6 +26,12 @@ Before starting the iteration loop, the command SHALL run any configured `before
 
 ---
 
+### Requirement: Base branch synchronization
+
+After switching to the project branch and before the first iteration, and again immediately before the pull request is opened, the command SHALL synchronize the project branch with the caller-supplied base branch, following the shared behavior in [base-branch-sync.md](base-branch-sync.md). The base branch is the value supplied by the caller (see [run.md](run.md)); the command SHALL NOT recompute it.
+
+---
+
 ### Requirement: Just-in-time artifact generation
 
 When the input is an orchestration or spec document rather than a project file, the command SHALL use the AI agent to generate the missing artifacts and commit them after switching to the project branch, so that the generation commits and the coding work share the same branch.
@@ -503,7 +509,7 @@ When cleanup is enabled (see [run.md](run.md)) and every item is complete, the c
 
 ### Requirement: Base branch for PR creation
 
-The base branch used for PR creation SHALL be the value passed in by the caller, resolved according to [run.md](run.md). The command SHALL NOT recompute or override this value. The same base branch SHALL bound the commit log that completion is read from.
+The base branch used for PR creation SHALL be the value passed in by the caller, resolved according to [run.md](run.md). The command SHALL NOT recompute or override this value. The same base branch SHALL bound the commit log that completion is read from and SHALL be the branch merged by [base-branch-sync.md](base-branch-sync.md).
 
 #### Scenario: PR opened against the supplied base branch
 

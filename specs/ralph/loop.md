@@ -70,7 +70,40 @@ The loop body (slug and step resolution, prompt construction, iteration, commit 
 
 - GIVEN the mode resolves to `local`, `worktree`, or `remote`
 - WHEN the loop executes
-- THEN the requirements below for slug and step resolution, prompt construction, iteration, commit and push, and pull request opening apply unchanged
+- THEN the requirements below for slug and step resolution, base branch synchronization, prompt construction, iteration, commit and push, and pull request opening apply unchanged
+
+---
+
+### Requirement: Base branch synchronization
+
+Before the first iteration, and again immediately before the pull request is opened, the command SHALL synchronize the `loop-<slug>` branch with the branch the loop branch was created from, following the shared behavior in [base-branch-sync.md](base-branch-sync.md). Synchronization applies in every execution mode, including inside the workflow container, and the branch merged is the same branch the pull request targets.
+
+#### Scenario: Merged before the first iteration
+
+- GIVEN the `loop-<slug>` branch has been checked out and the branch it was created from has commits it does not contain
+- WHEN the loop is about to run its first iteration
+- THEN the base branch is fetched and merged into `loop-<slug>`
+- AND the first iteration runs against the merged state
+
+#### Scenario: Merged again before the pull request
+
+- GIVEN the loop has ended and at least one commit was made on `loop-<slug>`
+- AND the base branch has advanced since `loop-<slug>` last merged it
+- WHEN the command is about to open the pull request
+- THEN the base branch is fetched and merged into `loop-<slug>`
+- AND the merge is pushed before the pull request is opened
+
+#### Scenario: Synchronized in every mode
+
+- GIVEN the mode resolves to `local`, `worktree`, or `remote`
+- WHEN the loop runs
+- THEN the base branch is synchronized before the first iteration and before the pull request in that mode
+
+#### Scenario: No pull request to synchronize
+
+- GIVEN no commit was made on `loop-<slug>`
+- WHEN the loop ends
+- THEN no pull request is opened and no pre-pull-request synchronization is required
 
 ---
 
@@ -304,7 +337,7 @@ The command SHALL build a prompt that embeds the resolved steps, in order. The p
 
 ### Requirement: Iteration loop
 
-Before running the prompt, the command SHALL switch to the branch `loop-<slug>`, creating it from the current branch when it does not already exist. The command SHALL then run the prompt repeatedly as an iteration loop. Each iteration SHALL invoke the AI with the prompt and then read `report.md`. The loop SHALL stop when the report content equals the constant string `NOTHING_TO_DO` (trimmed of surrounding whitespace) or when the number of iterations reaches the iteration cap, whichever comes first.
+Before running the prompt, the command SHALL switch to the branch `loop-<slug>`, creating it from the current branch when it does not already exist, and then synchronize it with the base branch as defined in [Base branch synchronization](#requirement-base-branch-synchronization). The command SHALL then run the prompt repeatedly as an iteration loop. Each iteration SHALL invoke the AI with the prompt and then read `report.md`. The loop SHALL stop when the report content equals the constant string `NOTHING_TO_DO` (trimmed of surrounding whitespace) or when the number of iterations reaches the iteration cap, whichever comes first.
 
 The cap follows a three-level precedence. `--max` at the command line takes priority. Otherwise the matching loop config's `max` field is used. Otherwise the cap defaults to `20`. The cap SHALL be a positive integer. Steps supplied without a slug have no loop config, so the cap is `--max` or the default.
 

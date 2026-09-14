@@ -108,13 +108,19 @@ With `--debug <branch>`, the generated workflow SHALL check out the specified Ra
 
 ### Requirement: Base branch delivered to the workflow via `--base` argument
 
-The base branch SHALL be resolved locally (see [run.md](run.md)) and passed to the generated workflow as the `--base` CLI argument to `ralph workflow run`. The container SHALL NOT recompute the base branch.
+The base branch SHALL be resolved locally (see [run.md](run.md)) and passed to the generated workflow as the `--base` CLI argument to `ralph workflow run`. The container SHALL NOT recompute the base branch. The container SHALL use that base branch to synchronize the project branch before the first iteration and again before opening the pull request (see [base-branch-sync.md](base-branch-sync.md)).
 
 #### Scenario: Resolved base branch passed as `--base` argument
 
 - GIVEN a base branch has been resolved locally before workflow submission
 - WHEN the workflow YAML is generated
 - THEN the container args for `ralph workflow run` include `--base <resolved-base-branch>`
+
+#### Scenario: Container synchronizes the base branch
+
+- GIVEN a base branch has been delivered to the container as `--base`
+- WHEN the container runs the project and when it opens the pull request
+- THEN the project branch is fetched and merged with that base branch as defined in [base-branch-sync.md](base-branch-sync.md)
 
 ---
 

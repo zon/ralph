@@ -41,7 +41,7 @@ Before running the loop, the command SHALL create a Git worktree for the project
 
 ### Requirement: Development loop runs in the worktree
 
-The development loop SHALL behave identically to the `local` mode described in [run-local.md](run-local.md): item array resolution, per-iteration service management, completion read from the commit log, item selection and development, commit after each iteration, cleanup, and PR creation. All work SHALL happen inside the worktree.
+The development loop SHALL behave identically to the `local` mode described in [run-local.md](run-local.md): item array resolution, base branch synchronization, per-iteration service management, completion read from the commit log, item selection and development, commit after each iteration, cleanup, and PR creation. All work SHALL happen inside the worktree.
 
 #### Scenario: Loop runs inside the worktree
 
@@ -54,6 +54,12 @@ The development loop SHALL behave identically to the `local` mode described in [
 - GIVEN the input is an `orchestration.md` or `spec.md` file
 - WHEN just-in-time artifact generation runs
 - THEN the generated artifacts are committed on the project branch inside the worktree, as described in [run-local.md](run-local.md)
+
+#### Scenario: Base branch synchronized inside the worktree
+
+- GIVEN a worktree has been created for the project branch
+- WHEN the run starts and when the pull request is opened
+- THEN the base branch is fetched and merged inside the worktree, per [base-branch-sync.md](base-branch-sync.md)
 
 #### Scenario: Pull request opened from the worktree's branch
 

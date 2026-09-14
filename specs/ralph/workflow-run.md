@@ -2,7 +2,7 @@
 
 ## Purpose
 
-`ralph workflow run` executes the project loop after the workspace is ready: synchronize the base branch, then delegate to the run-local behavior.
+`ralph workflow run` executes the project loop after the workspace is ready by delegating to the run-local behavior, which synchronizes the base branch before the project starts and again before the pull request is opened.
 
 ## Requirements
 
@@ -62,7 +62,7 @@ The system SHALL apply run-specific flags to the execution context before starti
 
 ### Requirement: Input and Configuration Validation
 
-The system SHALL validate all required inputs and load configuration before performing any base-branch synchronization or AI agent invocations.
+The system SHALL validate all required inputs and load configuration before invoking the run-local behavior, so validation completes before base-branch synchronization or any AI agent invocation begins.
 
 #### Scenario: Missing project path
 
@@ -90,35 +90,7 @@ The system SHALL validate all required inputs and load configuration before perf
 
 ### Requirement: Base Branch Synchronization
 
-The system SHALL attempt to merge the base branch into the project branch before running the project.
-
-#### Scenario: Branch is up-to-date
-
-- GIVEN the project branch's merge-base with the base branch equals the base branch tip
-- WHEN synchronization runs
-- THEN no merge is performed and execution continues
-
-#### Scenario: Clean merge
-
-- GIVEN the project branch is behind the base branch with no conflicts
-- WHEN synchronization runs
-- THEN the base branch is merged into the project branch (fast-forward or auto-merge)
-- AND execution continues
-
-#### Scenario: Merge conflicts resolved by AI
-
-- GIVEN a merge attempt produces conflicts
-- WHEN the merge fails
-- THEN the merge is aborted
-- AND an AI agent is invoked with instructions to resolve all conflicts, run tests, and stage the resolved files
-- AND the invocation receives the configured agent, because resolving conflicts writes repository code
-- AND execution continues after resolution
-
-#### Scenario: Base branch fetch failure
-
-- GIVEN the base branch cannot be fetched (e.g., network error)
-- WHEN synchronization runs
-- THEN a warning is logged and execution continues without merging
+The system SHALL rely on the run-local behavior it delegates to for base-branch synchronization, as defined in [base-branch-sync.md](base-branch-sync.md). Synchronization happens before the first iteration and again immediately before the pull request is opened.
 
 ### Requirement: Debug Mode
 
@@ -134,4 +106,4 @@ The system SHOULD support a debug mode that clones a specific Ralph branch and i
 
 ### Requirement: Project Execution
 
-After base-branch synchronization, the system SHALL execute the project by invoking the run-local behavior defined in [run-local.md](run-local.md).
+After validation, the system SHALL execute the project by invoking the run-local behavior defined in [run-local.md](run-local.md).

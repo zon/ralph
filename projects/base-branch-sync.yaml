@@ -1,0 +1,14 @@
+- In `local` mode, `ralph run` fetches the resolved base branch and merges it into the project branch before the first iteration
+- In `worktree` mode, `ralph run` performs the start-of-run base-branch merge inside the worktree, leaving the current checkout untouched
+- In `remote` mode, the workflow container performs the start-of-run base-branch merge using the `--base` branch delivered to it
+- In every mode, `ralph run` fetches and merges the resolved base branch immediately before opening the pull request, and pushes the merge so the pull request contains the base branch's latest changes
+- In `local` mode, `ralph loop` fetches the branch the loop branch was created from and merges it into `loop-<slug>` before the first iteration
+- In `worktree` mode, `ralph loop` performs the start-of-run base-branch merge inside the worktree, leaving the current checkout untouched
+- In `remote` mode, the loop workflow container performs the start-of-run base-branch merge using the branch the loop branch was created from
+- In every mode, `ralph loop` fetches and merges the base branch immediately before opening the pull request, and pushes the merge so the pull request contains the base branch's latest changes
+- Synchronization performs no merge when the base branch tip is already contained in the branch being synchronized
+- When the base branch cannot be fetched, a warning is logged and execution continues without merging
+- A conflicting merge is aborted and resolved by the configured AI agent, which runs the tests and stages the result; failure to resolve returns an error and no pull request is opened
+- The `ralph help config` documentation describes when and how Ralph synchronizes the base branch for runs and loops
+- The README describes that a run or loop merges the base branch before starting and again before submitting the pull request
+- Apply a semver minor bump to the app version
