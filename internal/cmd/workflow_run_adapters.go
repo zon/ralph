@@ -19,7 +19,7 @@ import (
 func newOrchestrationWorkflowRunCmd(ctx *execcontext.Context) *orchestrationWorkflow.WorkflowRunCmd {
 	return orchestrationWorkflow.NewWorkflowRunCmd(
 		&workspaceSetupAdapter{ctx: ctx},
-		&runnerAdapter{ctx: ctx, baseBranch: ctx.BaseBranch()},
+		&runnerAdapter{ctx: ctx},
 		&configOptionalAdapter{},
 		&projectResolveAdapter{ctx: ctx},
 		&debugAdapter{ctx: ctx},
@@ -118,12 +118,11 @@ func (c *workspaceGitClient) CreateAndCheckout(branch string) error {
 // ---------------------------------------------------------------------------
 
 type runnerAdapter struct {
-	ctx        *execcontext.Context
-	baseBranch string
+	ctx *execcontext.Context
 }
 
 func (a *runnerAdapter) RunLocal(proj *project.Project, cfg *config.RalphConfig) error {
-	runner := NewLocalRunner(a.ctx, a.baseBranch)
+	runner := NewLocalRunner(a.ctx, cfg.Base)
 	return runner.RunLocal(project.ForProjectInput(proj), cfg)
 }
 

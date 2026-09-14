@@ -83,6 +83,25 @@ func TestRunLocalConflictResolutionFailureAbortsRun(t *testing.T) {
 	require.NotEmpty(t, notifyErrors(runner))
 }
 
+// TestRunInWorkflowSyncsDeliveredBaseBeforeFirstIteration covers the
+// "Synchronization in a workflow container" scenario: when the run executes
+// inside the workflow container, the start-of-run synchronization fetches and
+// merges the base branch delivered to the container before the first iteration.
+func TestRunInWorkflowSyncsDeliveredBaseBeforeFirstIteration(t *testing.T) {
+	runner := withMocks(
+		withEnv(envInWorkflow()),
+		withGit(gitThatNeedsMerge()),
+		withProject(project.ThatReportsIncompleteUntil(1)),
+	)
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.WithBase("main"))
+	require.NoError(t, err)
+	require.True(t, gitFetchCalled(runner))
+	require.True(t, gitMergeCalled(runner))
+	require.Equal(t, "main", gitLastFetchedBranch(runner))
+	require.Equal(t, "main", gitLastMergedBranch(runner))
+	require.NotZero(t, aiPickCalls(runner), "the first iteration runs after synchronization")
+}
+
 func TestRunLocalInWorktreeSyncsBaseBranchBeforeFirstIteration(t *testing.T) {
 	runner := withMocks(
 		withGit(gitThatNeedsMerge()),
