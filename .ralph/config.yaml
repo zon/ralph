@@ -3,7 +3,7 @@ defaultBranch: dev
 workflow:
   context: lab
   namespace: ralph
-model: deepseek/deepseek-v4-flash
+model: deepseek/deepseek-flash
 variant: high
 
 loops:
