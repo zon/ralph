@@ -32,35 +32,6 @@ After switching to the project branch and before the first iteration, and again 
 
 ---
 
-### Requirement: Just-in-time artifact generation
-
-When the input is a spec document rather than a project file, the command SHALL use the AI agent to generate the project file and commit it after switching to the project branch, so that the generation commit and the coding work share the same branch.
-
-#### Scenario: Project generated and committed from spec
-
-- GIVEN the input is a `spec.md` file
-- AND the command has switched to the project branch
-- WHEN just-in-time generation runs
-- THEN the AI agent generates a project file in `projects/` that implements the spec
-- AND the generated project file is committed to the project branch
-- AND execution proceeds using the generated project
-
-#### Scenario: Generated project resolves under the run's item query
-
-- GIVEN the input is a `spec.md` file
-- WHEN the project file is generated
-- THEN it is written in a shape that the run's resolved item query selects an item array from
-- AND generation fails if the resolved query yields no non-empty items from the generated file
-
-#### Scenario: Project generation failure from spec aborts run
-
-- GIVEN the input is a `spec.md` file
-- AND the AI agent fails to generate a valid project
-- WHEN the generation step runs
-- THEN an error is returned and no further execution begins
-
----
-
 ### Requirement: Item array resolved once per run
 
 The command SHALL resolve the item array by evaluating the item query supplied by the caller (see [run.md](run.md)) against the parsed project file, and SHALL do so exactly once, before the first iteration. Every iteration SHALL use that same resolved array, so an item's index means the same thing from the first iteration to the last.
@@ -319,7 +290,7 @@ After selection, the command SHALL invoke the development agent with the selecte
 
 ### Requirement: Agent scope across the loop
 
-The command SHALL apply the configured agent, resolved as described in [run.md](run.md), only to prompts that write repository code: item development and service-startup fixes. Prompts that produce supporting artifacts (item selection, artifact generation, changelogs, and PR summaries) SHALL run with opencode's primary agent and SHALL NOT receive the configured agent.
+The command SHALL apply the configured agent, resolved as described in [run.md](run.md), only to prompts that write repository code: item development and service-startup fixes. Prompts that produce supporting artifacts (item selection, changelogs, and PR summaries) SHALL run with opencode's primary agent and SHALL NOT receive the configured agent.
 
 #### Scenario: Item development prompt receives the configured agent
 
@@ -337,12 +308,6 @@ The command SHALL apply the configured agent, resolved as described in [run.md](
 
 - GIVEN the agent resolves to `build`
 - WHEN the picker runs
-- THEN the `--agent` option is omitted from its opencode invocation, and opencode's primary agent is used
-
-#### Scenario: Artifact generation runs without the configured agent
-
-- GIVEN the agent resolves to `build`
-- WHEN a project generation prompt runs
 - THEN the `--agent` option is omitted from its opencode invocation, and opencode's primary agent is used
 
 #### Scenario: Changelog and PR summary run without the configured agent

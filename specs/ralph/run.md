@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The `run` command is Ralph's primary entry point. Given a project file or a spec document, it drives an AI coding agent through iterative development cycles until every item in the project is recorded complete, then opens a GitHub pull request. A project file is any YAML or JSON file containing an array of work items. The array is selected with the [item query](../../docs/glossary.md#item-query), and completion is recorded in the branch's commit messages, not in the file. When a spec is provided instead of a project, Ralph generates the project and commits it before running. Execution runs in one of three modes selected with `--mode`: `local` (default), which runs the loop in-process in the current checkout, `worktree`, which runs it in-process in a local Git worktree, or `remote`, which submits an Argo Workflow to Kubernetes.
+The `run` command is Ralph's primary entry point. Given a project file, it drives an AI coding agent through iterative development cycles until every item in the project is recorded complete, then opens a GitHub pull request. A project file is any YAML or JSON file containing an array of work items. The array is selected with the [item query](../../docs/glossary.md#item-query), and completion is recorded in the branch's commit messages, not in the file. Execution runs in one of three modes selected with `--mode`: `local` (default), which runs the loop in-process in the current checkout, `worktree`, which runs it in-process in a local Git worktree, or `remote`, which submits an Argo Workflow to Kubernetes.
 
 Mode-specific behaviors are defined in:
 - [run-local.md](run-local.md) — `local` mode: runs the development loop in-process in the current checkout
@@ -75,19 +75,13 @@ The `--follow` and `--debug` flags are workflow-only and are rejected for `local
 
 ### Requirement: Input file is required
 
-The command SHALL require a positional argument that is a path to one of: a project file (`.yaml`, `.yml`, or `.json`) or a spec document (`spec.md`). The file must exist on disk before execution proceeds. When a spec is provided, the actual project generation and artifact commit happen inside the execution mode. See [run-local.md](run-local.md) and [run-worktree.md](run-worktree.md).
+The command SHALL require a positional argument that is a path to a project file (`.yaml`, `.yml`, or `.json`). The file must exist on disk before execution proceeds.
 
 #### Scenario: Project file provided
 
 - GIVEN the user provides a path to a project file that parses and yields items
 - WHEN the command starts
 - THEN the project file is loaded and execution proceeds
-
-#### Scenario: Spec file provided
-
-- GIVEN the user provides a path to a file named `spec.md`
-- WHEN the command starts
-- THEN the input is forwarded to the execution mode for just-in-time project generation
 
 #### Scenario: Input file not found
 
@@ -98,7 +92,14 @@ The command SHALL require a positional argument that is a path to one of: a proj
 
 #### Scenario: Unrecognized file type
 
-- GIVEN the user provides a path to a file that is not a `.yaml`/`.yml`/`.json` file or `spec.md`
+- GIVEN the user provides a path to a file that is not a `.yaml`, `.yml`, or `.json` file
+- WHEN the command starts
+- THEN an error is returned: `unrecognized input file type: <path>`
+- AND no execution begins
+
+#### Scenario: Spec file rejected
+
+- GIVEN the user provides a path to a file named `spec.md`
 - WHEN the command starts
 - THEN an error is returned: `unrecognized input file type: <path>`
 - AND no execution begins
@@ -131,7 +132,7 @@ The command SHALL accept `--model` and `--variant` to override the AI model and 
 
 ### Requirement: opencode agent override
 
-The command SHALL accept `--agent` to select which opencode agent runs the AI prompts that write repository code. The agent SHALL apply only to prompts that change code: item development, merge-conflict resolution, PR comment implementation, and service-startup fixes. Prompts that produce supporting artifacts without touching repository code (item selection, project generation, changelogs, PR summaries, and PR review bodies) SHALL run with opencode's primary agent and SHALL NOT receive the configured agent.
+The command SHALL accept `--agent` to select which opencode agent runs the AI prompts that write repository code. The agent SHALL apply only to prompts that change code: item development, merge-conflict resolution, PR comment implementation, and service-startup fixes. Prompts that produce supporting artifacts without touching repository code (item selection, changelogs, PR summaries, and PR review bodies) SHALL run with opencode's primary agent and SHALL NOT receive the configured agent.
 
 Agent resolution follows a two-level precedence: `--agent` at the command line takes priority. Otherwise the top-level `agent` field in `.ralph/config.yaml` is used. When both are unset, no agent is passed to any prompt.
 
@@ -170,12 +171,6 @@ Agent resolution follows a two-level precedence: `--agent` at the command line t
 
 - GIVEN the agent resolves to `build`
 - WHEN the item picker prompt runs
-- THEN the `--agent` option is omitted from its opencode invocation, and opencode's primary agent is used
-
-#### Scenario: Artifact generation runs without the agent
-
-- GIVEN the agent resolves to `build`
-- WHEN a project generation prompt runs
 - THEN the `--agent` option is omitted from its opencode invocation, and opencode's primary agent is used
 
 #### Scenario: Changelog, PR summary, and review prompts run without the agent

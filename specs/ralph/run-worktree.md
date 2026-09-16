@@ -49,12 +49,6 @@ The development loop SHALL behave identically to the `local` mode described in [
 - WHEN the iteration loop runs
 - THEN every iteration, commit, and branch operation happens inside the worktree
 
-#### Scenario: Artifact generation happens in the worktree
-
-- GIVEN the input is a `spec.md` file
-- WHEN just-in-time artifact generation runs
-- THEN the generated project is committed on the project branch inside the worktree, as described in [run-local.md](run-local.md)
-
 #### Scenario: Base branch synchronized inside the worktree
 
 - GIVEN a worktree has been created for the project branch
