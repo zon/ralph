@@ -264,36 +264,22 @@ func TestBuildWriteProjectPrompt(t *testing.T) {
 				assert.Contains(t, prompt, "project format document installed in the repository")
 				assert.NotContains(t, prompt, "ralph-write-project")
 				assert.NotContains(t, prompt, "docs/formats/")
-				assert.NotContains(t, prompt, "Also read the orchestration document")
+				assert.NotContains(t, prompt, "orchestration document")
 			},
 		},
 		{
-			name: "spec input with orchestration",
-			data: WriteProjectPromptData{
-				InputPath:         "specs/features/my-feature/spec.md",
-				InputType:         "specification file",
-				HasOrchestration:  true,
-				OrchestrationPath: "specs/features/my-feature/orchestration.md",
-			},
-			check: func(t *testing.T, prompt string) {
-				assert.Contains(t, prompt, "specification file")
-				assert.Contains(t, prompt, "specs/features/my-feature/spec.md")
-				assert.Contains(t, prompt, "specs/features/my-feature/orchestration.md")
-				assert.Contains(t, prompt, "project format document installed in the repository")
-				assert.NotContains(t, prompt, "ralph-write-project")
-				assert.NotContains(t, prompt, "docs/formats/")
-				assert.Contains(t, prompt, "Also read the orchestration document")
-			},
-		},
-		{
-			name: "spec input without orchestration",
+			name: "spec input",
 			data: WriteProjectPromptData{
 				InputPath: "specs/features/my-feature/spec.md",
 				InputType: "specification file",
 			},
 			check: func(t *testing.T, prompt string) {
 				assert.Contains(t, prompt, "specification file")
-				assert.NotContains(t, prompt, "Also read the orchestration document")
+				assert.Contains(t, prompt, "specs/features/my-feature/spec.md")
+				assert.Contains(t, prompt, "project format document installed in the repository")
+				assert.NotContains(t, prompt, "ralph-write-project")
+				assert.NotContains(t, prompt, "docs/formats/")
+				assert.NotContains(t, prompt, "orchestration document")
 			},
 		},
 	}
@@ -302,37 +288,6 @@ func TestBuildWriteProjectPrompt(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			prompt, err := BuildWriteProjectPrompt(tt.data)
 			require.NoError(t, err, "BuildWriteProjectPrompt failed")
-			if tt.check != nil {
-				tt.check(t, prompt)
-			}
-		})
-	}
-}
-
-func TestBuildWriteOrchestrationPrompt(t *testing.T) {
-	tests := []struct {
-		name  string
-		data  WriteOrchestrationPromptData
-		check func(t *testing.T, prompt string)
-	}{
-		{
-			name: "spec input",
-			data: WriteOrchestrationPromptData{
-				SpecPath: "specs/features/my-feature/spec.md",
-			},
-			check: func(t *testing.T, prompt string) {
-				assert.Contains(t, prompt, "specs/features/my-feature/spec.md")
-				assert.Contains(t, prompt, "orchestration.md")
-				assert.Contains(t, prompt, "orchestration format document installed in the repository")
-				assert.NotContains(t, prompt, "docs/formats/")
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			prompt, err := BuildWriteOrchestrationPrompt(tt.data)
-			require.NoError(t, err, "BuildWriteOrchestrationPrompt failed")
 			if tt.check != nil {
 				tt.check(t, prompt)
 			}

@@ -27,9 +27,6 @@ var changelogInstructions string
 //go:embed project-fix-instructions.md
 var projectFixInstructions string
 
-//go:embed write-orchestration-instructions.md
-var writeOrchestrationInstructions string
-
 //go:embed write-project-instructions.md
 var writeProjectInstructions string
 
@@ -84,14 +81,8 @@ type LoopSlugPromptData struct {
 }
 
 type WriteProjectPromptData struct {
-	InputPath         string
-	InputType         string
-	HasOrchestration  bool
-	OrchestrationPath string
-}
-
-type WriteOrchestrationPromptData struct {
-	SpecPath string
+	InputPath string
+	InputType string
 }
 
 type ResolveMergeConflictsPromptData struct {
@@ -207,10 +198,6 @@ type ProjectFixPromptData struct {
 
 func BuildWriteProjectPrompt(data WriteProjectPromptData) (string, error) {
 	return executeTemplate(writeProjectInstructions, data)
-}
-
-func BuildWriteOrchestrationPrompt(data WriteOrchestrationPromptData) (string, error) {
-	return executeTemplate(writeOrchestrationInstructions, data)
 }
 
 func BuildResolveMergeConflictsPrompt(baseBranch, projectBranch string) (string, error) {
