@@ -151,10 +151,6 @@ func (r *Runner) runLocal(input *project.InputFile, cfg *config.RalphConfig, inW
 		r.notify.Error(proj.Slug)
 		return err
 	}
-	if err := r.removeOrchestration(proj); err != nil {
-		r.notify.Error(proj.Slug)
-		return err
-	}
 	if err := r.removeProjectFile(proj, cfg); err != nil {
 		r.notify.Error(proj.Slug)
 		return err
@@ -257,19 +253,6 @@ func (r *Runner) blockAndReturn(err error) error {
 		r.git.WriteBlockedFile(err)
 	}
 	return err
-}
-
-func (r *Runner) removeOrchestration(proj *project.Project) error {
-	if !r.project.HasSpec(proj) {
-		return nil
-	}
-	if !r.project.HasOrchestration(proj) {
-		return nil
-	}
-	if err := r.project.RemoveOrchestration(proj); err != nil {
-		return err
-	}
-	return r.git.CommitOrchestrationRemoval(proj.Slug)
 }
 
 func (r *Runner) removeProjectFile(proj *project.Project, cfg *config.RalphConfig) error {
