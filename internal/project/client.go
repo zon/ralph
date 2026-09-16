@@ -220,31 +220,3 @@ func (c *Client) ExtraIterations(proj *Project, cfg *config.RalphConfig) int {
 	extra := int(math.Ceil(float64(count) * 0.3))
 	return extra
 }
-
-func (c *Client) HasSpec(proj *Project) bool {
-	return proj.Feature != ""
-}
-
-func (c *Client) HasOrchestration(proj *Project) bool {
-	if proj.Feature == "" {
-		return false
-	}
-	repoRoot, err := git.FindRepoRoot()
-	if err != nil {
-		return false
-	}
-	_, err = os.Stat(filepath.Join(repoRoot, proj.Feature, "orchestration.md"))
-	return err == nil
-}
-
-func (c *Client) RemoveOrchestration(proj *Project) error {
-	repoRoot, err := git.FindRepoRoot()
-	if err != nil {
-		return err
-	}
-	orchestrationPath := filepath.Join(repoRoot, proj.Feature, "orchestration.md")
-	if err := os.Remove(orchestrationPath); err != nil {
-		return err
-	}
-	return git.StageFile(orchestrationPath)
-}

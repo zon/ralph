@@ -13,29 +13,27 @@ import (
 // mockAI implements AIClient with configurable behaviors and recorded call
 // history for the item-based run flow.
 type mockAI struct {
-	runPickerFunc          func(proj *project.Project, incomplete []project.Item) (project.Item, error)
-	runDeveloperFunc       func(proj *project.Project, item project.Item) error
-	isFatalFunc            func(err error) bool
-	changelogFunc          func() error
-	fixServiceFunc         func(*config.RalphConfig, error) error
-	resolveConflictsFunc   func(baseBranch, projectBranch string) error
-	writeOrchestrationFunc func(input *project.InputFile) error
-	writeProjectFunc       func(input *project.InputFile) (string, error)
+	runPickerFunc        func(proj *project.Project, incomplete []project.Item) (project.Item, error)
+	runDeveloperFunc     func(proj *project.Project, item project.Item) error
+	isFatalFunc          func(err error) bool
+	changelogFunc        func() error
+	fixServiceFunc       func(*config.RalphConfig, error) error
+	resolveConflictsFunc func(baseBranch, projectBranch string) error
+	writeProjectFunc     func(input *project.InputFile) (string, error)
 
-	statsPrinted             bool
-	pickCalls                int
-	developCalls             int
-	changelogCalls           int
-	fixServiceCalled         bool
-	resolveConflictsCalled   bool
-	writeOrchestrationCalled bool
-	writeProjectCalled       bool
-	lastResolveBase          string
-	lastResolveProject       string
-	lastPickerIndices        []int
-	lastPickerItems          []project.Item
-	lastDevelopedIndex       int
-	lastDevelopedValue       any
+	statsPrinted           bool
+	pickCalls              int
+	developCalls           int
+	changelogCalls         int
+	fixServiceCalled       bool
+	resolveConflictsCalled bool
+	writeProjectCalled     bool
+	lastResolveBase        string
+	lastResolveProject     string
+	lastPickerIndices      []int
+	lastPickerItems        []project.Item
+	lastDevelopedIndex     int
+	lastDevelopedValue     any
 }
 
 func (m *mockAI) RunPicker(proj *project.Project, incomplete []project.Item) (project.Item, error) {
@@ -98,14 +96,6 @@ func (m *mockAI) ResolveMergeConflicts(baseBranch, projectBranch string) error {
 	return nil
 }
 
-func (m *mockAI) WriteOrchestration(input *project.InputFile) error {
-	m.writeOrchestrationCalled = true
-	if m.writeOrchestrationFunc != nil {
-		return m.writeOrchestrationFunc(input)
-	}
-	return nil
-}
-
 func (m *mockAI) WriteProject(input *project.InputFile) (string, error) {
 	m.writeProjectCalled = true
 	if m.writeProjectFunc != nil {
@@ -145,22 +135,21 @@ type mockGit struct {
 	mergeErrAfter  int
 	pushErr        error
 
-	switchToBranchCalled             bool
-	writeBlockedFileCalled           bool
-	commitFromReportCalled           bool
-	commitOrchestrationRemovalCalled bool
-	commitGeneratedArtifactsCalled   bool
-	commitProjectRemovalCalled       bool
-	fetchBranchCalled                bool
-	needsMergeCalled                 bool
-	mergeCalled                      bool
-	abortMergeCalled                 bool
-	pushCalled                       bool
-	fetchBranchCalls                 int
-	mergeCalls                       int
-	lastFetchedBranch                string
-	lastMergedBranch                 string
-	lastCommitMessage                string
+	switchToBranchCalled           bool
+	writeBlockedFileCalled         bool
+	commitFromReportCalled         bool
+	commitGeneratedArtifactsCalled bool
+	commitProjectRemovalCalled     bool
+	fetchBranchCalled              bool
+	needsMergeCalled               bool
+	mergeCalled                    bool
+	abortMergeCalled               bool
+	pushCalled                     bool
+	fetchBranchCalls               int
+	mergeCalls                     int
+	lastFetchedBranch              string
+	lastMergedBranch               string
+	lastCommitMessage              string
 }
 
 func gitNewMock() *mockGit {
@@ -239,12 +228,6 @@ func (m *mockGit) Push() error {
 }
 
 func (m *mockGit) IsBranchSyncedWithRemote(branch string) error {
-	return nil
-}
-
-func (m *mockGit) CommitOrchestrationRemoval(slug string) error {
-	m.commitOrchestrationRemovalCalled = true
-	m.order = append(m.order, "commit-orchestration-removal")
 	return nil
 }
 
@@ -357,12 +340,6 @@ func aiThatAlwaysFails() *mockAI {
 func aiThatFailsServiceFix() *mockAI {
 	return &mockAI{
 		fixServiceFunc: func(_ *config.RalphConfig, _ error) error { return errNonFatal },
-	}
-}
-
-func aiThatFailsWriteOrchestration() *mockAI {
-	return &mockAI{
-		writeOrchestrationFunc: func(*project.InputFile) error { return errNonFatal },
 	}
 }
 
@@ -585,13 +562,6 @@ func aiServiceFixCalled(r *Runner) bool {
 	return false
 }
 
-func aiWriteOrchestrationCalled(r *Runner) bool {
-	if m, ok := r.ai.(*mockAI); ok {
-		return m.writeOrchestrationCalled
-	}
-	return false
-}
-
 func aiWriteProjectCalled(r *Runner) bool {
 	if m, ok := r.ai.(*mockAI); ok {
 		return m.writeProjectCalled
@@ -732,18 +702,27 @@ func gitCommittedFromReport(r *Runner) bool {
 	return false
 }
 
-func gitOrchestrationRemovalCommitted(r *Runner) bool {
-	if m, ok := r.git.(*mockGit); ok {
-		return m.commitOrchestrationRemovalCalled
-	}
-	return false
-}
-
 func gitProjectRemovalCommitted(r *Runner) bool {
 	if m, ok := r.git.(*mockGit); ok {
 		return m.commitProjectRemovalCalled
 	}
 	return false
+}
+
+func gitEventOrder(r *Runner) []string {
+	if m, ok := r.git.(*mockGit); ok {
+		return m.order
+	}
+	return nil
+}
+
+func gitEventIndex(order []string, event string) int {
+	for i, e := range order {
+		if e == event {
+			return i
+		}
+	}
+	return -1
 }
 
 func gitBlockedFileWritten(r *Runner) bool {

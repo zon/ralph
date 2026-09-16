@@ -19,15 +19,13 @@ type inputFileKind int
 
 const (
 	inputProject inputFileKind = iota
-	inputOrchestration
 	inputSpec
 )
 
-func (f *InputFile) IsProject() bool       { return f.kind == inputProject }
-func (f *InputFile) IsSpec() bool          { return f.kind == inputSpec }
-func (f *InputFile) IsOrchestration() bool { return f.kind == inputOrchestration }
-func (f *InputFile) Project() *Project     { return f.project }
-func (f *InputFile) Path() string          { return f.path }
+func (f *InputFile) IsProject() bool   { return f.kind == inputProject }
+func (f *InputFile) IsSpec() bool      { return f.kind == inputSpec }
+func (f *InputFile) Project() *Project { return f.project }
+func (f *InputFile) Path() string      { return f.path }
 
 // Relocate returns a copy of the input whose path is replaced with the given
 // path, keeping the kind and any resolved project. It points the input at the
@@ -50,9 +48,9 @@ func (f *InputFile) Slug() string {
 	return git.SanitizeBranchName(base)
 }
 
-// ResolveInputFile classifies the file at path as a project document, an
-// orchestration, or a spec, and resolves a project document through the client
-// so the returned InputFile carries its Project.
+// ResolveInputFile classifies the file at path as a project document or a
+// spec, and resolves a project document through the client so the returned
+// InputFile carries its Project.
 func (c *Client) ResolveInputFile(path string) (*InputFile, error) {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
@@ -78,13 +76,6 @@ func (c *Client) ResolveInputFile(path string) (*InputFile, error) {
 			path:    absPath,
 			kind:    inputProject,
 			project: proj,
-		}, nil
-	}
-
-	if strings.ToLower(base) == "orchestration.md" {
-		return &InputFile{
-			path: absPath,
-			kind: inputOrchestration,
 		}, nil
 	}
 

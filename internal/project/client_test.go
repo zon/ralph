@@ -33,25 +33,6 @@ func TestExtraIterationsUsesConfigValue(t *testing.T) {
 	assert.Equal(t, 5, c.ExtraIterations(withItems(10), cfg))
 }
 
-func TestProjectAdapterHasSpec(t *testing.T) {
-	client := &project.Client{}
-
-	t.Run("returns true when feature is set", func(t *testing.T) {
-		proj := &project.Project{
-			Slug:    "test",
-			Feature: "specs/my-feature",
-		}
-		assert.True(t, client.HasSpec(proj))
-	})
-
-	t.Run("returns false when feature is empty", func(t *testing.T) {
-		proj := &project.Project{
-			Slug: "test",
-		}
-		assert.False(t, client.HasSpec(proj))
-	})
-}
-
 func TestProjectAdapterImplementsInterfaces(t *testing.T) {
 	var _ orchestrationRun.ProjectClient = &project.Client{}
 	var _ orchestrationRun.ProjectRepo = &project.Client{}

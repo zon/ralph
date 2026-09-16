@@ -15,9 +15,6 @@ type ProjectClient interface {
 	ExtraIterations(proj *project.Project, cfg *config.RalphConfig) int
 	IncompleteError(proj *project.Project, base string) error
 	Remove(proj *project.Project) error
-	HasSpec(proj *project.Project) bool
-	HasOrchestration(proj *project.Project) bool
-	RemoveOrchestration(proj *project.Project) error
 }
 
 type AIClient interface {
@@ -28,7 +25,6 @@ type AIClient interface {
 	FixServiceStartup(cfg *config.RalphConfig, err error) error
 	ResolveMergeConflicts(baseBranch, projectBranch string) error
 	PrintStats()
-	WriteOrchestration(input *project.InputFile) error
 	WriteProject(input *project.InputFile) (string, error)
 }
 
@@ -45,7 +41,6 @@ type GitClient interface {
 	CommitFromReport(slug string) error
 	CurrentBranch() (string, error)
 	IsBranchSyncedWithRemote(branch string) error
-	CommitOrchestrationRemoval(slug string) error
 	CommitGeneratedArtifacts(slug string) error
 	CommitProjectRemoval(path string) error
 	FetchBranch(branch string) error
@@ -152,15 +147,11 @@ func (r *Runner) runLocal(input *project.InputFile, cfg *config.RalphConfig, inW
 		r.notify.Error(proj.Slug)
 		return err
 	}
-	if err := r.removeOrchestration(proj); err != nil {
+	if err := r.syncBaseBranchBeforePR(cfg, git.SanitizeBranchName(proj.Slug), inWorktree); err != nil {
 		r.notify.Error(proj.Slug)
 		return err
 	}
 	if err := r.removeProjectFile(proj, cfg); err != nil {
-		r.notify.Error(proj.Slug)
-		return err
-	}
-	if err := r.syncBaseBranchBeforePR(cfg, git.SanitizeBranchName(proj.Slug), inWorktree); err != nil {
 		r.notify.Error(proj.Slug)
 		return err
 	}
@@ -197,11 +188,6 @@ func (r *Runner) syncBaseBranchBeforePR(cfg *config.RalphConfig, projectBranch s
 func (r *Runner) generateArtifacts(input *project.InputFile, cfg *config.RalphConfig) (*project.Project, error) {
 	if input.IsProject() {
 		return r.project.Resolve(input.Path(), cfg.Items)
-	}
-	if input.IsSpec() {
-		if err := r.ai.WriteOrchestration(input); err != nil {
-			return nil, err
-		}
 	}
 	path, err := r.ai.WriteProject(input)
 	if err != nil {
@@ -263,19 +249,6 @@ func (r *Runner) blockAndReturn(err error) error {
 		r.git.WriteBlockedFile(err)
 	}
 	return err
-}
-
-func (r *Runner) removeOrchestration(proj *project.Project) error {
-	if !r.project.HasSpec(proj) {
-		return nil
-	}
-	if !r.project.HasOrchestration(proj) {
-		return nil
-	}
-	if err := r.project.RemoveOrchestration(proj); err != nil {
-		return err
-	}
-	return r.git.CommitOrchestrationRemoval(proj.Slug)
 }
 
 func (r *Runner) removeProjectFile(proj *project.Project, cfg *config.RalphConfig) error {

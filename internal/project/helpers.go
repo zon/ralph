@@ -8,13 +8,6 @@ func ForProjectInput(p *Project) *InputFile {
 	}
 }
 
-func ForOrchestrationInput(path string) *InputFile {
-	return &InputFile{
-		path: path,
-		kind: inputOrchestration,
-	}
-}
-
 func ForSpecInput(path string) *InputFile {
 	return &InputFile{
 		path: path,

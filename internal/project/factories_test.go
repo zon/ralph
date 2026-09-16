@@ -156,48 +156,17 @@ func TestMockProjectExtraIterations(t *testing.T) {
 	assert.Equal(t, 5, client.ExtraIterations(proj, &config.RalphConfig{ExtraIterations: &v}))
 }
 
-func TestMockProjectOrchestrationFlow(t *testing.T) {
-	t.Run("has spec and orchestration modifiers", func(t *testing.T) {
-		assert.False(t, ThatReportsAllComplete().WithNoSpec().HasSpec(nil))
-		assert.True(t, ThatReportsAllComplete().WithSpecButNoOrchestration().HasSpec(nil))
-		assert.False(t, ThatReportsAllComplete().WithSpecButNoOrchestration().HasOrchestration(nil))
-		assert.True(t, ThatReportsAllComplete().WithOrchestration().HasSpec(nil))
-		assert.True(t, ThatReportsAllComplete().WithOrchestration().HasOrchestration(nil))
-	})
-	t.Run("remove orchestration records and can fail", func(t *testing.T) {
-		client := ThatReportsAllComplete().WithOrchestration()
-		require.NoError(t, client.RemoveOrchestration(nil))
-		assert.True(t, client.OrchestrationRemoved())
-		failing := ThatReportsAllComplete().WithOrchestration().ThatFailsRemoval()
-		require.Error(t, failing.RemoveOrchestration(nil))
-		assert.True(t, failing.OrchestrationRemoved())
-	})
-	t.Run("project removal can fail", func(t *testing.T) {
-		client := ThatReportsAllComplete().ThatFailsProjectRemoval()
-		require.Error(t, client.Remove(nil))
-		assert.True(t, client.Removed())
-	})
-}
-
 func TestInputFactories(t *testing.T) {
 	t.Run("wraps a project as an input file", func(t *testing.T) {
 		p := WithItems(2)
 		f := ForProjectInput(p)
 		assert.True(t, f.IsProject())
 		assert.False(t, f.IsSpec())
-		assert.False(t, f.IsOrchestration())
 		assert.Equal(t, p, f.Project())
-	})
-	t.Run("wraps an orchestration document as an input file", func(t *testing.T) {
-		f := ForOrchestrationInput("/tmp/orchestration.md")
-		assert.True(t, f.IsOrchestration())
-		assert.False(t, f.IsProject())
-		assert.False(t, f.IsSpec())
 	})
 	t.Run("wraps a spec document as an input file", func(t *testing.T) {
 		f := ForSpecInput("/tmp/spec.md")
 		assert.True(t, f.IsSpec())
 		assert.False(t, f.IsProject())
-		assert.False(t, f.IsOrchestration())
 	})
 }

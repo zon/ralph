@@ -694,23 +694,8 @@ func TestRunIncompatibleFlagsAbortBeforeSetup(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Tests: Orchestration and spec inputs dispatch through RunCmd
+// Tests: Spec inputs dispatch through RunCmd
 // ---------------------------------------------------------------------------
-
-func TestRunLocalDispatchesWithOrchestrationInput(t *testing.T) {
-	proj := &mockProjectRepo{
-		InputFile: project.ForOrchestrationInput("specs/ralph/orchestration.md"),
-	}
-	cmd := cmdWithMocks(
-		cmdWithProject(proj),
-		cmdWithLocal(&mockLocalRunnerClient{}),
-	)
-	err := cmd.Run(flagsWithMode(config.ModeLocal))
-	require.NoError(t, err)
-	require.True(t, localRunLocalCalled(cmd))
-	require.NotNil(t, localLastInput(cmd))
-	require.True(t, localLastInput(cmd).IsOrchestration())
-}
 
 func TestRunLocalDispatchesWithSpecInput(t *testing.T) {
 	proj := &mockProjectRepo{
@@ -725,21 +710,6 @@ func TestRunLocalDispatchesWithSpecInput(t *testing.T) {
 	require.True(t, localRunLocalCalled(cmd))
 	require.NotNil(t, localLastInput(cmd))
 	require.True(t, localLastInput(cmd).IsSpec())
-}
-
-func TestRunRemoteDispatchesWithOrchestrationInput(t *testing.T) {
-	proj := &mockProjectRepo{
-		InputFile: project.ForOrchestrationInput("specs/ralph/orchestration.md"),
-	}
-	cmd := cmdWithMocks(
-		cmdWithProject(proj),
-		cmdWithRemote(&mockRemoteRunnerClient{}),
-	)
-	err := cmd.Run(flagsWithMode(config.ModeRemote))
-	require.NoError(t, err)
-	require.True(t, remoteRunCalled(cmd))
-	require.NotNil(t, remoteLastInput(cmd))
-	require.True(t, remoteLastInput(cmd).IsOrchestration())
 }
 
 func TestRunRemoteDispatchesWithSpecInput(t *testing.T) {
@@ -790,14 +760,6 @@ func TestRunIncompatibleFlagsRejectedBeforeSetupForProjectInput(t *testing.T) {
 // ---------------------------------------------------------------------------
 // Tests: prepareSetup with non-project inputs
 // ---------------------------------------------------------------------------
-
-func TestPrepareSetupWithOrchestrationInputResolvesBaseBranch(t *testing.T) {
-	cmd := cmdWithMocks()
-	input := project.ForOrchestrationInput("specs/ralph/orchestration.md")
-	setup, err := cmd.prepareSetup(flagsAny(), input)
-	require.NoError(t, err)
-	require.Equal(t, "main", setup.BaseBranch)
-}
 
 func TestPrepareSetupWithSpecInputResolvesBaseBranch(t *testing.T) {
 	cmd := cmdWithMocks()

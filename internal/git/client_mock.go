@@ -10,7 +10,6 @@ type MockClient struct {
 	CommitFromReportFunc           func(slug string) error
 	CurrentBranchFunc              func() (string, error)
 	IsBranchSyncedWithRemoteFunc   func(branch string) error
-	CommitOrchestrationRemovalFunc func(slug string) error
 	CommitGeneratedArtifactsFunc   func(slug string) error
 	CommitProjectRemovalFunc       func(path string) error
 	FetchBranchFunc                func(branch string) error
@@ -78,13 +77,6 @@ func (m *MockClient) CurrentBranch() (string, error) {
 func (m *MockClient) IsBranchSyncedWithRemote(branch string) error {
 	if m.IsBranchSyncedWithRemoteFunc != nil {
 		return m.IsBranchSyncedWithRemoteFunc(branch)
-	}
-	return nil
-}
-
-func (m *MockClient) CommitOrchestrationRemoval(slug string) error {
-	if m.CommitOrchestrationRemovalFunc != nil {
-		return m.CommitOrchestrationRemovalFunc(slug)
 	}
 	return nil
 }

@@ -44,19 +44,15 @@ type MockProject struct {
 	incompleteUntil        int
 	completeIndices        []int
 	thenAllComplete        bool
-	hasSpec                bool
-	hasOrchestration       bool
-	removeOrchestrationErr error
 	removeErr              error
 
-	lastQuery            string
-	lastPath             string
-	lastBase             string
-	resolveCount         int
-	incompleteCount      int
-	written              bool
-	removed              bool
-	orchestrationRemoved bool
+	lastQuery       string
+	lastPath        string
+	lastBase        string
+	resolveCount    int
+	incompleteCount int
+	written         bool
+	removed         bool
 }
 
 // ThatReportsAllComplete returns a project client whose Incomplete always
@@ -95,34 +91,6 @@ func ThatFailsResolution() *MockProject {
 // report every item complete, ending the loop after one iteration.
 func (m *MockProject) ThenAllComplete() *MockProject {
 	m.thenAllComplete = true
-	return m
-}
-
-// WithNoSpec chains a modifier so HasSpec returns false.
-func (m *MockProject) WithNoSpec() *MockProject {
-	m.hasSpec = false
-	return m
-}
-
-// WithSpecButNoOrchestration chains a modifier so HasSpec returns true and
-// HasOrchestration returns false.
-func (m *MockProject) WithSpecButNoOrchestration() *MockProject {
-	m.hasSpec = true
-	m.hasOrchestration = false
-	return m
-}
-
-// WithOrchestration chains a modifier so HasSpec and HasOrchestration both
-// return true.
-func (m *MockProject) WithOrchestration() *MockProject {
-	m.hasSpec = true
-	m.hasOrchestration = true
-	return m
-}
-
-// ThatFailsRemoval chains a modifier so RemoveOrchestration returns an error.
-func (m *MockProject) ThatFailsRemoval() *MockProject {
-	m.removeOrchestrationErr = errors.New("orchestration removal failed")
 	return m
 }
 
@@ -241,21 +209,6 @@ func (m *MockProject) Write(proj *Project) {
 	m.written = true
 }
 
-func (m *MockProject) HasSpec(proj *Project) bool {
-	return m.hasSpec
-}
-
-func (m *MockProject) HasOrchestration(proj *Project) bool {
-	return m.hasOrchestration
-}
-
-// RemoveOrchestration records that the orchestration document was removed and
-// returns the configured removal error.
-func (m *MockProject) RemoveOrchestration(proj *Project) error {
-	m.orchestrationRemoved = true
-	return m.removeOrchestrationErr
-}
-
 // LastQuery returns the item query passed to the most recent Resolve call.
 func (m *MockProject) LastQuery() string {
 	return m.lastQuery
@@ -289,11 +242,6 @@ func (m *MockProject) Written() bool {
 // Removed returns whether Remove was called.
 func (m *MockProject) Removed() bool {
 	return m.removed
-}
-
-// OrchestrationRemoved returns whether RemoveOrchestration was called.
-func (m *MockProject) OrchestrationRemoved() bool {
-	return m.orchestrationRemoved
 }
 
 func cloneItems(items []Item) []Item {

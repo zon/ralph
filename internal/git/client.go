@@ -135,13 +135,6 @@ func (a *Client) IsBranchSyncedWithRemote(branch string) error {
 	return IsBranchSyncedWithRemote(branch)
 }
 
-func (a *Client) CommitOrchestrationRemoval(_ string) error {
-	if err := Commit("chore: remove orchestration doc before PR"); err != nil {
-		return err
-	}
-	return a.pushAfterCommit()
-}
-
 func (a *Client) CommitGeneratedArtifacts(slug string) error {
 	if err := StageAll(); err != nil {
 		return err

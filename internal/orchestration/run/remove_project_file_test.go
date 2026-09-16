@@ -54,6 +54,36 @@ func TestRemoveProjectFileCommitsBeforePR(t *testing.T) {
 	require.True(t, githubPRCreated(runner))
 }
 
+// TestRemoveProjectFileRunsAfterBaseSyncAsLastCommitBeforePR asserts the run's
+// own cleanup lands after the pre-pull-request base-branch synchronization and
+// immediately before the pull request is opened, so the deletion is the branch's
+// last commit.
+func TestRemoveProjectFileRunsAfterBaseSyncAsLastCommitBeforePR(t *testing.T) {
+	g := gitThatNeedsMerge()
+	gh := &mockGitHub{}
+	gh.createPRFunc = func(*project.Project, string) error {
+		require.True(t, g.commitProjectRemovalCalled, "the project deletion is committed before the pull request is opened")
+		return nil
+	}
+	runner := withMocks(
+		withGit(g),
+		withGitHub(gh),
+		withProject(project.ThatReportsAllComplete()),
+	)
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.WithBase("main").WithCleanup())
+	require.NoError(t, err)
+
+	order := gitEventOrder(runner)
+	mergeIdx := gitEventIndex(order, "merge")
+	removalIdx := gitEventIndex(order, "commit-project-removal")
+	require.NotEqual(t, -1, mergeIdx)
+	require.NotEqual(t, -1, removalIdx)
+	require.Less(t, mergeIdx, removalIdx, "the base branch is synchronized before the project file is deleted")
+	require.Less(t, gitEventIndex(order, "push"), removalIdx, "the base-branch merge is pushed before the project file is deleted")
+	require.Equal(t, "commit-project-removal", order[len(order)-1], "the project file deletion is the last event before the pull request is opened")
+	require.True(t, githubCreatePRCalled(runner))
+}
+
 func TestRemoveProjectFileSkippedWhenIterationLimitReached(t *testing.T) {
 	projMock := project.ThatAlwaysReportsIncomplete()
 	runner := withMocks(

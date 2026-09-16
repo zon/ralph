@@ -376,39 +376,6 @@ func TestAgentClientPrintStatsDoesNotPanicOnError(t *testing.T) {
 	require.NotPanics(t, func() { client.PrintStats() })
 }
 
-func TestAgentClientWriteProjectWithOrchestrationInput(t *testing.T) {
-	dir := t.TempDir()
-	t.Chdir(dir)
-
-	require.NoError(t, os.MkdirAll("projects", 0755))
-
-	projectYAML := `slug: test-project
-title: Test Project
-requirements:
-  - slug: req-1
-    description: Test requirement
-    items:
-      - Item 1
-`
-
-	mockOC := &opencode.MockOC{
-		RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
-			assert.Contains(t, prompt, "orchestration file")
-			assert.Contains(t, prompt, "orchestration.md")
-			assert.Contains(t, prompt, "project format document installed in the repository")
-			return os.WriteFile("projects/generated.yaml", []byte(projectYAML), 0644)
-		},
-	}
-
-	ctx := execcontext.NewContext()
-	client := NewAgentClient(ctx, mockOC)
-
-	input := project.ForOrchestrationInput("specs/features/test/orchestration.md")
-	path, err := client.WriteProject(input)
-	require.NoError(t, err)
-	assert.Equal(t, "projects/generated.yaml", path)
-}
-
 func TestAgentClientWriteProjectWithSpecInput(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
@@ -428,7 +395,8 @@ requirements:
 		RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
 			assert.Contains(t, prompt, "specification file")
 			assert.Contains(t, prompt, "spec.md")
-			assert.Contains(t, prompt, "orchestration.md")
+			assert.NotContains(t, prompt, "orchestration.md")
+			assert.NotContains(t, prompt, "Also read the orchestration document")
 			assert.Contains(t, prompt, "project format document installed in the repository")
 			return os.WriteFile("projects/generated.yaml", []byte(projectYAML), 0644)
 		},
@@ -454,7 +422,7 @@ func TestAgentClientWriteProjectAgentFailureReturnsError(t *testing.T) {
 	}
 
 	client := NewAgentClient(ctx, mockOC)
-	input := project.ForOrchestrationInput("specs/features/test/orchestration.md")
+	input := project.ForSpecInput("specs/features/test/spec.md")
 	path, err := client.WriteProject(input)
 	require.Error(t, err)
 	assert.Empty(t, path)
@@ -475,7 +443,7 @@ func TestAgentClientWriteProjectNoProjectFileCreatedReturnsError(t *testing.T) {
 	ctx := execcontext.NewContext()
 	client := NewAgentClient(ctx, mockOC)
 
-	input := project.ForOrchestrationInput("specs/features/test/orchestration.md")
+	input := project.ForSpecInput("specs/features/test/spec.md")
 	path, err := client.WriteProject(input)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no project file found")
@@ -516,7 +484,7 @@ requirements:
 	ctx := execcontext.NewContext()
 	client := NewAgentClient(ctx, mockOC)
 
-	input := project.ForOrchestrationInput("specs/features/test/orchestration.md")
+	input := project.ForSpecInput("specs/features/test/spec.md")
 	path, err := client.WriteProject(input)
 	require.NoError(t, err)
 	assert.Equal(t, "projects/new.yaml", path)
@@ -537,7 +505,7 @@ func TestAgentClientWriteProjectReturnsPathForUnresolvableFile(t *testing.T) {
 	ctx := execcontext.NewContext()
 	client := NewAgentClient(ctx, mockOC)
 
-	input := project.ForOrchestrationInput("specs/features/test/orchestration.md")
+	input := project.ForSpecInput("specs/features/test/spec.md")
 	path, err := client.WriteProject(input)
 	require.NoError(t, err)
 	// WriteProject only reports the generated file's path; resolving it against
@@ -573,45 +541,10 @@ requirements:
 	}
 
 	client := NewAgentClient(ctx, mockOC)
-	input := project.ForOrchestrationInput("specs/features/test/orchestration.md")
+	input := project.ForSpecInput("specs/features/test/spec.md")
 	_, err := client.WriteProject(input)
 	require.NoError(t, err)
 	assert.Contains(t, buf.String(), "project format document installed in the repository")
-}
-
-func TestAgentClientWriteOrchestrationWithSpecInput(t *testing.T) {
-	var promptUsed string
-	mockOC := &opencode.MockOC{
-		RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
-			promptUsed = prompt
-			return nil
-		},
-	}
-
-	ctx := execcontext.NewContext()
-	client := NewAgentClient(ctx, mockOC)
-
-	input := project.ForSpecInput("specs/features/test/spec.md")
-	err := client.WriteOrchestration(input)
-	require.NoError(t, err)
-	assert.Contains(t, promptUsed, "specs/features/test/spec.md")
-	assert.Contains(t, promptUsed, "orchestration.md")
-	assert.Contains(t, promptUsed, "orchestration format document installed in the repository")
-}
-
-func TestAgentClientWriteOrchestrationFailureReturnsError(t *testing.T) {
-	mockOC := &opencode.MockOC{
-		RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
-			return errors.New("agent failed")
-		},
-	}
-
-	ctx := execcontext.NewContext()
-	client := NewAgentClient(ctx, mockOC)
-
-	input := project.ForSpecInput("specs/features/test/spec.md")
-	err := client.WriteOrchestration(input)
-	require.Error(t, err)
 }
 
 func TestAgentClientWriteProjectNoProjectsDirReturnsError(t *testing.T) {
@@ -627,7 +560,7 @@ func TestAgentClientWriteProjectNoProjectsDirReturnsError(t *testing.T) {
 	ctx := execcontext.NewContext()
 	client := NewAgentClient(ctx, mockOC)
 
-	input := project.ForOrchestrationInput("specs/features/test/orchestration.md")
+	input := project.ForSpecInput("specs/features/test/spec.md")
 	path, err := client.WriteProject(input)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to read projects directory")
@@ -984,32 +917,6 @@ func TestAgentClientRunDeveloperReceivesConfiguredAgent(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "build", capturedAgent, "item development is code-writing and falls back to the config agent")
 	})
-}
-
-// TestAgentClientWriteOrchestrationNeverPassesAgent covers all four branches of
-// agent resolution.
-func TestAgentClientWriteOrchestrationNeverPassesAgent(t *testing.T) {
-	tests := []struct {
-		name              string
-		flagAgent         string
-		appendConfigAgent bool
-	}{
-		{name: "flag agent set only", flagAgent: "code-reviewer", appendConfigAgent: false},
-		{name: "config agent set only", appendConfigAgent: true},
-		{name: "flag and config agents set", flagAgent: "code-reviewer", appendConfigAgent: true},
-		{name: "neither flag nor config agent set"},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			client, capturedAgent := newNeverPassesAgentClient(t, tc.flagAgent, tc.appendConfigAgent, false, nil, nil)
-
-			input := project.ForSpecInput("specs/features/test/spec.md")
-			err := client.WriteOrchestration(input)
-			require.NoError(t, err)
-			assert.Equal(t, "", *capturedAgent, "orchestration generation must never pass --agent to opencode, so it always runs with the primary agent")
-		})
-	}
 }
 
 // TestAgentClientWriteProjectNeverPassesAgent covers all four branches of agent

@@ -17,7 +17,6 @@ var ErrExtraIterationsReached = errors.New("iteration limit reached")
 type Project struct {
 	Slug       string                `yaml:"slug"`
 	Title      string                `yaml:"title,omitempty"`
-	Feature    string                `yaml:"feature,omitempty"`
 	Items      []Item                `yaml:"-"`
 	Path       string                `yaml:"-"`
 	BaseBranch string                `yaml:"-"`
