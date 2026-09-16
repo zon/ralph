@@ -6,7 +6,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/project"
 )
 
@@ -51,29 +50,4 @@ func TestProjectClientInterfaceKeepsSingleProjectFileRemoval(t *testing.T) {
 	typ := reflect.TypeOf((*ProjectClient)(nil)).Elem()
 	_, ok := typ.MethodByName("Remove")
 	require.True(t, ok, "ProjectClient must keep the single-file Remove the run loop uses for cleanup")
-}
-
-func TestRunLocalGeneratedProjectResolvesUnderItemQuery(t *testing.T) {
-	t.Run("spec input", func(t *testing.T) {
-		projMock := project.ThatReportsAllComplete()
-		runner := withMocks(
-			withProject(projMock),
-		)
-		err := runner.RunLocal(project.ForSpecInput("specs/ralph/run.md"), config.WithItems(".items"))
-		require.NoError(t, err)
-		require.True(t, aiWriteProjectCalled(runner))
-		require.Equal(t, "projects/generated.yaml", projMock.LastPath())
-		require.Equal(t, ".items", projMock.LastQuery())
-	})
-}
-
-func TestRunLocalGeneratedProjectYieldingNoItemsAborts(t *testing.T) {
-	runner := withMocks(
-		withProject(project.ThatFailsResolution()),
-	)
-	err := runner.RunLocal(project.ForSpecInput("specs/ralph/run.md"), config.Any())
-	require.Error(t, err)
-	require.NotEmpty(t, notifyErrors(runner))
-	require.False(t, gitArtifactsCommitted(runner))
-	require.Zero(t, aiPickCalls(runner))
 }

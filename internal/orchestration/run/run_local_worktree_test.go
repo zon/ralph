@@ -18,17 +18,6 @@ func TestRunLocalInWorktreeSkipsBranchSwitch(t *testing.T) {
 	require.False(t, gitBranchSwitched(runner), "worktree mode must not switch branches in the current checkout")
 }
 
-func TestRunLocalInWorktreeRunsFullLoop(t *testing.T) {
-	runner := withMocks(
-		withProject(project.ThatReportsAllComplete()),
-	)
-	err := runner.RunLocalInWorktree(project.ForSpecInput("specs/ralph/run.md"), config.Any())
-	require.NoError(t, err)
-	require.False(t, gitBranchSwitched(runner))
-	require.True(t, aiWriteProjectCalled(runner), "artifact generation runs in the worktree")
-	require.True(t, gitArtifactsCommitted(runner))
-}
-
 func TestRunLocalInWorktreeIteratesAndCreatesPR(t *testing.T) {
 	runner := withMocks(
 		withProject(project.ThatReportsIncompleteUntil(1)),

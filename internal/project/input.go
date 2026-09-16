@@ -5,8 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/zon/ralph/internal/git"
 )
 
 type InputFile struct {
@@ -19,11 +17,9 @@ type inputFileKind int
 
 const (
 	inputProject inputFileKind = iota
-	inputSpec
 )
 
 func (f *InputFile) IsProject() bool   { return f.kind == inputProject }
-func (f *InputFile) IsSpec() bool      { return f.kind == inputSpec }
 func (f *InputFile) Project() *Project { return f.project }
 func (f *InputFile) Path() string      { return f.path }
 
@@ -40,12 +36,7 @@ func (f *InputFile) Relocate(path string) *InputFile {
 }
 
 func (f *InputFile) Slug() string {
-	if f.kind == inputProject {
-		return f.project.Slug
-	}
-	dir := filepath.Dir(f.path)
-	base := filepath.Base(dir)
-	return git.SanitizeBranchName(base)
+	return f.project.Slug
 }
 
 // ResolveInputFile classifies the file at path as a project document and

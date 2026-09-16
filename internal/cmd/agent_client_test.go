@@ -376,7 +376,7 @@ func TestAgentClientPrintStatsDoesNotPanicOnError(t *testing.T) {
 	require.NotPanics(t, func() { client.PrintStats() })
 }
 
-func TestAgentClientWriteProjectWithSpecInput(t *testing.T) {
+func TestAgentClientWriteProjectBuildsPrompt(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
 
@@ -405,7 +405,7 @@ requirements:
 	ctx := execcontext.NewContext()
 	client := NewAgentClient(ctx, mockOC)
 
-	input := project.ForSpecInput("specs/features/test/spec.md")
+	input := project.ForProjectInput(&project.Project{Path: "specs/features/test/spec.md"})
 	path, err := client.WriteProject(input)
 	require.NoError(t, err)
 	assert.Equal(t, "projects/generated.yaml", path)
@@ -422,7 +422,7 @@ func TestAgentClientWriteProjectAgentFailureReturnsError(t *testing.T) {
 	}
 
 	client := NewAgentClient(ctx, mockOC)
-	input := project.ForSpecInput("specs/features/test/spec.md")
+	input := project.ForProjectInput(&project.Project{Path: "specs/features/test/spec.md"})
 	path, err := client.WriteProject(input)
 	require.Error(t, err)
 	assert.Empty(t, path)
@@ -443,7 +443,7 @@ func TestAgentClientWriteProjectNoProjectFileCreatedReturnsError(t *testing.T) {
 	ctx := execcontext.NewContext()
 	client := NewAgentClient(ctx, mockOC)
 
-	input := project.ForSpecInput("specs/features/test/spec.md")
+	input := project.ForProjectInput(&project.Project{Path: "specs/features/test/spec.md"})
 	path, err := client.WriteProject(input)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no project file found")
@@ -484,7 +484,7 @@ requirements:
 	ctx := execcontext.NewContext()
 	client := NewAgentClient(ctx, mockOC)
 
-	input := project.ForSpecInput("specs/features/test/spec.md")
+	input := project.ForProjectInput(&project.Project{Path: "specs/features/test/spec.md"})
 	path, err := client.WriteProject(input)
 	require.NoError(t, err)
 	assert.Equal(t, "projects/new.yaml", path)
@@ -505,7 +505,7 @@ func TestAgentClientWriteProjectReturnsPathForUnresolvableFile(t *testing.T) {
 	ctx := execcontext.NewContext()
 	client := NewAgentClient(ctx, mockOC)
 
-	input := project.ForSpecInput("specs/features/test/spec.md")
+	input := project.ForProjectInput(&project.Project{Path: "specs/features/test/spec.md"})
 	path, err := client.WriteProject(input)
 	require.NoError(t, err)
 	// WriteProject only reports the generated file's path; resolving it against
@@ -541,7 +541,7 @@ requirements:
 	}
 
 	client := NewAgentClient(ctx, mockOC)
-	input := project.ForSpecInput("specs/features/test/spec.md")
+	input := project.ForProjectInput(&project.Project{Path: "specs/features/test/spec.md"})
 	_, err := client.WriteProject(input)
 	require.NoError(t, err)
 	assert.Contains(t, buf.String(), "project format document installed in the repository")
@@ -560,7 +560,7 @@ func TestAgentClientWriteProjectNoProjectsDirReturnsError(t *testing.T) {
 	ctx := execcontext.NewContext()
 	client := NewAgentClient(ctx, mockOC)
 
-	input := project.ForSpecInput("specs/features/test/spec.md")
+	input := project.ForProjectInput(&project.Project{Path: "specs/features/test/spec.md"})
 	path, err := client.WriteProject(input)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to read projects directory")
@@ -949,7 +949,7 @@ requirements:
 			}, nil)
 			require.NoError(t, os.MkdirAll("projects", 0755))
 
-			input := project.ForSpecInput("specs/features/test/spec.md")
+			input := project.ForProjectInput(&project.Project{Path: "specs/features/test/spec.md"})
 			path, err := client.WriteProject(input)
 			require.NoError(t, err)
 			assert.Equal(t, "projects/generated.yaml", path)

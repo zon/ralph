@@ -58,36 +58,6 @@ func TestRunLocalProjectInputSkipsGeneration(t *testing.T) {
 	require.False(t, gitArtifactsCommitted(runner))
 }
 
-func TestRunLocalSpecInputGeneratesAndCommitsProject(t *testing.T) {
-	runner := withMocks(
-		withProject(project.ThatReportsAllComplete()),
-	)
-	err := runner.RunLocal(project.ForSpecInput("specs/ralph/run.md"), config.Any())
-	require.NoError(t, err)
-	require.True(t, aiWriteProjectCalled(runner))
-	require.True(t, gitArtifactsCommitted(runner))
-}
-
-func TestRunLocalSpecWriteProjectFailureSendsErrorNotification(t *testing.T) {
-	runner := withMocks(
-		withAI(aiThatFailsWriteProject()),
-	)
-	err := runner.RunLocal(project.ForSpecInput("specs/ralph/run.md"), config.Any())
-	require.Error(t, err)
-	require.NotEmpty(t, notifyErrors(runner))
-	require.Zero(t, aiPickCalls(runner))
-}
-
-func TestRunLocalGenerationHappensAfterBranchSwitch(t *testing.T) {
-	runner := withMocks(
-		withGit(gitNewMock()),
-		withProject(project.ThatReportsAllComplete()),
-	)
-	err := runner.RunLocal(project.ForSpecInput("specs/ralph/run.md"), config.Any())
-	require.NoError(t, err)
-	require.True(t, gitSwitchedBeforeArtifactsCommitted(runner))
-}
-
 func TestRunLocalResolvesItemsWithConfiguredQuery(t *testing.T) {
 	projMock := project.ThatReportsAllComplete()
 	runner := withMocks(
