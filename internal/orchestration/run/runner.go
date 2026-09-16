@@ -41,7 +41,6 @@ type GitClient interface {
 	CommitFromReport(slug string) error
 	CurrentBranch() (string, error)
 	IsBranchSyncedWithRemote(branch string) error
-	CommitGeneratedArtifacts(slug string) error
 	CommitProjectRemoval(path string) error
 	FetchBranch(branch string) error
 	NeedsMerge(branch string) (bool, error)
@@ -138,7 +137,7 @@ func (r *Runner) runLocal(input *project.InputFile, cfg *config.RalphConfig, inW
 		r.notify.Error(input.Slug())
 		return err
 	}
-	proj, err := r.generateArtifacts(input, cfg)
+	proj, err := r.project.Resolve(input.Path(), cfg.Items)
 	if err != nil {
 		r.notify.Error(input.Slug())
 		return err
@@ -183,21 +182,6 @@ func (r *Runner) syncBaseBranchBeforePR(cfg *config.RalphConfig, projectBranch s
 		return nil
 	}
 	return r.git.Push()
-}
-
-func (r *Runner) generateArtifacts(input *project.InputFile, cfg *config.RalphConfig) (*project.Project, error) {
-	if input.IsProject() {
-		return r.project.Resolve(input.Path(), cfg.Items)
-	}
-	path, err := r.ai.WriteProject(input)
-	if err != nil {
-		return nil, err
-	}
-	proj, err := r.project.Resolve(path, cfg.Items)
-	if err != nil {
-		return nil, err
-	}
-	return proj, r.git.CommitGeneratedArtifacts(proj.Slug)
 }
 
 func (r *Runner) iterate(proj *project.Project, cfg *config.RalphConfig) error {

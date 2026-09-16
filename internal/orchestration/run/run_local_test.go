@@ -48,14 +48,18 @@ func TestRunLocalBeforeCommandFailureAbortsEarly(t *testing.T) {
 	require.False(t, gitBranchSwitched(runner))
 }
 
-func TestRunLocalProjectInputSkipsGeneration(t *testing.T) {
+func TestRunLocalResolvesProjectFileDirectly(t *testing.T) {
+	proj := project.Any()
+	proj.Path = "projects/demo.yaml"
+	projMock := project.ThatReportsAllComplete()
 	runner := withMocks(
-		withProject(project.ThatReportsAllComplete()),
+		withProject(projMock),
 	)
-	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.Any())
+	err := runner.RunLocal(project.ForProjectInput(proj), config.Any())
 	require.NoError(t, err)
-	require.False(t, aiWriteProjectCalled(runner))
-	require.False(t, gitArtifactsCommitted(runner))
+	require.Equal(t, "projects/demo.yaml", projMock.LastPath(), "the run resolves the supplied project file directly")
+	require.Equal(t, 1, projMock.ResolveCount())
+	require.False(t, aiWriteProjectCalled(runner), "the run must not invoke an AI to generate a project")
 }
 
 func TestRunLocalResolvesItemsWithConfiguredQuery(t *testing.T) {

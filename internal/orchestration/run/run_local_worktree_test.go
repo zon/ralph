@@ -30,6 +30,19 @@ func TestRunLocalInWorktreeIteratesAndCreatesPR(t *testing.T) {
 	require.False(t, gitBranchSwitched(runner))
 }
 
+func TestRunLocalInWorktreeResolvesProjectFileDirectly(t *testing.T) {
+	proj := project.Any()
+	proj.Path = "projects/demo.yaml"
+	projMock := project.ThatReportsAllComplete()
+	runner := withMocks(
+		withProject(projMock),
+	)
+	err := runner.RunLocalInWorktree(project.ForProjectInput(proj), config.Any())
+	require.NoError(t, err)
+	require.Equal(t, "projects/demo.yaml", projMock.LastPath(), "worktree execution resolves the supplied project file directly")
+	require.False(t, aiWriteProjectCalled(runner), "worktree execution must not invoke an AI to generate a project")
+}
+
 func TestRunLocalInWorktreeFailureSkipsBranchSwitch(t *testing.T) {
 	runner := withMocks(
 		withAI(aiThatAlwaysFails()),

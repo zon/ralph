@@ -135,21 +135,20 @@ type mockGit struct {
 	mergeErrAfter  int
 	pushErr        error
 
-	switchToBranchCalled           bool
-	writeBlockedFileCalled         bool
-	commitFromReportCalled         bool
-	commitGeneratedArtifactsCalled bool
-	commitProjectRemovalCalled     bool
-	fetchBranchCalled              bool
-	needsMergeCalled               bool
-	mergeCalled                    bool
-	abortMergeCalled               bool
-	pushCalled                     bool
-	fetchBranchCalls               int
-	mergeCalls                     int
-	lastFetchedBranch              string
-	lastMergedBranch               string
-	lastCommitMessage              string
+	switchToBranchCalled       bool
+	writeBlockedFileCalled     bool
+	commitFromReportCalled     bool
+	commitProjectRemovalCalled bool
+	fetchBranchCalled          bool
+	needsMergeCalled           bool
+	mergeCalled                bool
+	abortMergeCalled           bool
+	pushCalled                 bool
+	fetchBranchCalls           int
+	mergeCalls                 int
+	lastFetchedBranch          string
+	lastMergedBranch           string
+	lastCommitMessage          string
 }
 
 func gitNewMock() *mockGit {
@@ -228,12 +227,6 @@ func (m *mockGit) Push() error {
 }
 
 func (m *mockGit) IsBranchSyncedWithRemote(branch string) error {
-	return nil
-}
-
-func (m *mockGit) CommitGeneratedArtifacts(slug string) error {
-	m.commitGeneratedArtifactsCalled = true
-	m.order = append(m.order, "commit-artifacts")
 	return nil
 }
 
@@ -688,13 +681,6 @@ func outputWarnings(r *Runner) []string {
 	return nil
 }
 
-func gitArtifactsCommitted(r *Runner) bool {
-	if m, ok := r.git.(*mockGit); ok {
-		return m.commitGeneratedArtifactsCalled
-	}
-	return false
-}
-
 func gitCommittedFromReport(r *Runner) bool {
 	if m, ok := r.git.(*mockGit); ok {
 		return m.commitFromReportCalled
@@ -737,23 +723,6 @@ func gitLastCommitMessage(r *Runner) string {
 		return m.lastCommitMessage
 	}
 	return ""
-}
-
-func gitSwitchedBeforeArtifactsCommitted(r *Runner) bool {
-	m, ok := r.git.(*mockGit)
-	if !ok {
-		return false
-	}
-	switchIdx, artifactsIdx := -1, -1
-	for i, event := range m.order {
-		switch event {
-		case "switch":
-			switchIdx = i
-		case "commit-artifacts":
-			artifactsIdx = i
-		}
-	}
-	return switchIdx >= 0 && artifactsIdx >= 0 && switchIdx < artifactsIdx
 }
 
 func githubPRCreated(r *Runner) bool {

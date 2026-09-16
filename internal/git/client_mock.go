@@ -1,22 +1,21 @@
 package git
 
 type MockClient struct {
-	SwitchToBranchFunc             func(slug string) error
-	SwitchToLoopBranchFunc         func(slug string) error
-	BlockedFileExistsFunc          func() bool
-	WriteBlockedFileFunc           func(err error)
-	HasChangesFunc                 func() bool
-	ReportExistsFunc               func() bool
-	CommitFromReportFunc           func(slug string) error
-	CurrentBranchFunc              func() (string, error)
-	IsBranchSyncedWithRemoteFunc   func(branch string) error
-	CommitGeneratedArtifactsFunc   func(slug string) error
-	CommitProjectRemovalFunc       func(path string) error
-	FetchBranchFunc                func(branch string) error
-	NeedsMergeFunc                 func(branch string) (bool, error)
-	MergeFunc                      func(branch string) error
-	AbortMergeFunc                 func() error
-	PushFunc                       func() error
+	SwitchToBranchFunc           func(slug string) error
+	SwitchToLoopBranchFunc       func(slug string) error
+	BlockedFileExistsFunc        func() bool
+	WriteBlockedFileFunc         func(err error)
+	HasChangesFunc               func() bool
+	ReportExistsFunc             func() bool
+	CommitFromReportFunc         func(slug string) error
+	CurrentBranchFunc            func() (string, error)
+	IsBranchSyncedWithRemoteFunc func(branch string) error
+	CommitProjectRemovalFunc     func(path string) error
+	FetchBranchFunc              func(branch string) error
+	NeedsMergeFunc               func(branch string) (bool, error)
+	MergeFunc                    func(branch string) error
+	AbortMergeFunc               func() error
+	PushFunc                     func() error
 }
 
 func (m *MockClient) SwitchToBranch(slug string) error {
@@ -77,13 +76,6 @@ func (m *MockClient) CurrentBranch() (string, error) {
 func (m *MockClient) IsBranchSyncedWithRemote(branch string) error {
 	if m.IsBranchSyncedWithRemoteFunc != nil {
 		return m.IsBranchSyncedWithRemoteFunc(branch)
-	}
-	return nil
-}
-
-func (m *MockClient) CommitGeneratedArtifacts(slug string) error {
-	if m.CommitGeneratedArtifactsFunc != nil {
-		return m.CommitGeneratedArtifactsFunc(slug)
 	}
 	return nil
 }

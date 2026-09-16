@@ -375,41 +375,6 @@ func TestGitClientSwitchToLoopBranchReusesDivergedRemoteBranch(t *testing.T) {
 	assert.Empty(t, gitStatusPorcelain(t, workDir), "the working tree must be clean after the iteration commit")
 }
 
-func TestGitClientCommitGeneratedArtifacts(t *testing.T) {
-	workDir := t.TempDir()
-	t.Chdir(workDir)
-	testutil.InitGitRepo(t, workDir)
-	testutil.MakeInitialCommit(t, workDir)
-	setupLocalRemote(t, workDir)
-
-	client := git.NewClient(context.NewContext())
-
-	require.NoError(t, os.MkdirAll(filepath.Join(workDir, "projects"), 0755))
-	require.NoError(t, os.WriteFile(filepath.Join(workDir, "projects", "test.yaml"), []byte("slug: my-feature\n"), 0644))
-
-	err := client.CommitGeneratedArtifacts("my-feature")
-	require.NoError(t, err)
-
-	cmd := exec.Command("git", "log", "-1", "--format=%B")
-	cmd.Dir = workDir
-	out, err := cmd.CombinedOutput()
-	require.NoError(t, err)
-	assert.Equal(t, "chore: generate project for my-feature", strings.TrimSpace(string(out)))
-}
-
-func TestGitClientCommitGeneratedArtifactsNoChanges(t *testing.T) {
-	workDir := t.TempDir()
-	t.Chdir(workDir)
-	testutil.InitGitRepo(t, workDir)
-	testutil.MakeInitialCommit(t, workDir)
-	setupLocalRemote(t, workDir)
-
-	client := git.NewClient(context.NewContext())
-
-	err := client.CommitGeneratedArtifacts("empty-feature")
-	require.Error(t, err)
-}
-
 func TestGitClientCommitProjectRemovalPushesToRemote(t *testing.T) {
 	workDir := t.TempDir()
 	t.Chdir(workDir)
