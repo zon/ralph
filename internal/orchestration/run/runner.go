@@ -15,9 +15,6 @@ type ProjectClient interface {
 	ExtraIterations(proj *project.Project, cfg *config.RalphConfig) int
 	IncompleteError(proj *project.Project, base string) error
 	Remove(proj *project.Project) error
-	HasSpec(proj *project.Project) bool
-	HasOrchestration(proj *project.Project) bool
-	RemoveOrchestration(proj *project.Project) error
 }
 
 type AIClient interface {
@@ -44,7 +41,6 @@ type GitClient interface {
 	CommitFromReport(slug string) error
 	CurrentBranch() (string, error)
 	IsBranchSyncedWithRemote(branch string) error
-	CommitOrchestrationRemoval(slug string) error
 	CommitGeneratedArtifacts(slug string) error
 	CommitProjectRemoval(path string) error
 	FetchBranch(branch string) error

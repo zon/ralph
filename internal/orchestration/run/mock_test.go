@@ -135,22 +135,21 @@ type mockGit struct {
 	mergeErrAfter  int
 	pushErr        error
 
-	switchToBranchCalled             bool
-	writeBlockedFileCalled           bool
-	commitFromReportCalled           bool
-	commitOrchestrationRemovalCalled bool
-	commitGeneratedArtifactsCalled   bool
-	commitProjectRemovalCalled       bool
-	fetchBranchCalled                bool
-	needsMergeCalled                 bool
-	mergeCalled                      bool
-	abortMergeCalled                 bool
-	pushCalled                       bool
-	fetchBranchCalls                 int
-	mergeCalls                       int
-	lastFetchedBranch                string
-	lastMergedBranch                 string
-	lastCommitMessage                string
+	switchToBranchCalled           bool
+	writeBlockedFileCalled         bool
+	commitFromReportCalled         bool
+	commitGeneratedArtifactsCalled bool
+	commitProjectRemovalCalled     bool
+	fetchBranchCalled              bool
+	needsMergeCalled               bool
+	mergeCalled                    bool
+	abortMergeCalled               bool
+	pushCalled                     bool
+	fetchBranchCalls               int
+	mergeCalls                     int
+	lastFetchedBranch              string
+	lastMergedBranch               string
+	lastCommitMessage              string
 }
 
 func gitNewMock() *mockGit {
@@ -229,12 +228,6 @@ func (m *mockGit) Push() error {
 }
 
 func (m *mockGit) IsBranchSyncedWithRemote(branch string) error {
-	return nil
-}
-
-func (m *mockGit) CommitOrchestrationRemoval(slug string) error {
-	m.commitOrchestrationRemovalCalled = true
-	m.order = append(m.order, "commit-orchestration-removal")
 	return nil
 }
 
@@ -705,13 +698,6 @@ func gitArtifactsCommitted(r *Runner) bool {
 func gitCommittedFromReport(r *Runner) bool {
 	if m, ok := r.git.(*mockGit); ok {
 		return m.commitFromReportCalled
-	}
-	return false
-}
-
-func gitOrchestrationRemovalCommitted(r *Runner) bool {
-	if m, ok := r.git.(*mockGit); ok {
-		return m.commitOrchestrationRemovalCalled
 	}
 	return false
 }

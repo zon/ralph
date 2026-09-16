@@ -435,31 +435,6 @@ func TestGitClientCommitProjectRemovalPushesToRemote(t *testing.T) {
 	assert.Equal(t, revParse(t, workDir, "HEAD"), revParse(t, workDir, "origin/main"), "the cleanup commit is pushed to the remote")
 }
 
-func TestGitClientCommitOrchestrationRemovalPushesToRemote(t *testing.T) {
-	workDir := t.TempDir()
-	t.Chdir(workDir)
-	testutil.InitGitRepo(t, workDir)
-	testutil.MakeInitialCommit(t, workDir)
-	setupLocalRemote(t, workDir)
-
-	orchPath := "specs/features/ralph/export/orchestration.md"
-	require.NoError(t, os.MkdirAll(filepath.Dir(orchPath), 0755))
-	require.NoError(t, os.WriteFile(orchPath, []byte("# orchestration\n"), 0644))
-	require.NoError(t, git.StageFile(orchPath))
-	require.NoError(t, git.Commit("chore: add orchestration"))
-	_, err := git.Push(nil, "main")
-	require.NoError(t, err)
-
-	require.NoError(t, os.Remove(orchPath))
-	require.NoError(t, git.StageFile(orchPath))
-
-	client := git.NewClient(context.NewContext())
-	require.NoError(t, client.CommitOrchestrationRemoval("export"))
-
-	assert.Equal(t, "chore: remove orchestration doc before PR", lastCommitMessage(t, workDir))
-	assert.Equal(t, revParse(t, workDir, "HEAD"), revParse(t, workDir, "origin/main"), "the orchestration removal commit is pushed to the remote")
-}
-
 func revParse(t *testing.T, dir, ref string) string {
 	t.Helper()
 	c := exec.Command("git", "rev-parse", ref)
