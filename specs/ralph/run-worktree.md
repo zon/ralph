@@ -51,9 +51,9 @@ The development loop SHALL behave identically to the `local` mode described in [
 
 #### Scenario: Artifact generation happens in the worktree
 
-- GIVEN the input is an `orchestration.md` or `spec.md` file
+- GIVEN the input is a `spec.md` file
 - WHEN just-in-time artifact generation runs
-- THEN the generated artifacts are committed on the project branch inside the worktree, as described in [run-local.md](run-local.md)
+- THEN the generated project is committed on the project branch inside the worktree, as described in [run-local.md](run-local.md)
 
 #### Scenario: Base branch synchronized inside the worktree
 

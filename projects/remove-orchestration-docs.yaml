@@ -1,0 +1,8 @@
+- "`ralph run` accepts a project file or a `spec.md` as its input and rejects a file named `orchestration.md` with `unrecognized input file type`, and the `run` help text describes only project files and `spec.md`"
+- "When `ralph run` is given a `spec.md`, it generates a project file that implements the spec and commits it, without generating or reading an orchestration document"
+- "The AI project-generation prompt refers to the input spec only, and the write-orchestration prompt and its instruction template are removed"
+- "A run never reads, generates, or deletes an orchestration document, so the orchestration cleanup step that ran before the pull request is removed"
+- "When every item is complete, `ralph run` deletes the project file after synchronizing the base branch and immediately before opening the pull request, so the deletion is the last commit on the branch and is pushed before the pull request is opened"
+- "The orchestration input kind and its detection are removed, so input resolution classifies a file as a project file or a `spec.md` only"
+- "The `HasOrchestration` and `RemoveOrchestration` project operations and the git `CommitOrchestrationRemoval` operation are removed, along with the now-dead `Feature` field and `HasSpec`, while the `internal/orchestration` packages that implement the orchestration pattern are unchanged"
+- "Apply a semver major bump to the app version"

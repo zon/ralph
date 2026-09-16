@@ -28,64 +28,35 @@ Before starting the iteration loop, the command SHALL run any configured `before
 
 ### Requirement: Base branch synchronization
 
-After switching to the project branch and before the first iteration, and again immediately before the pull request is opened, the command SHALL synchronize the project branch with the caller-supplied base branch, following the shared behavior in [base-branch-sync.md](base-branch-sync.md). The base branch is the value supplied by the caller (see [run.md](run.md)); the command SHALL NOT recompute it.
+After switching to the project branch and before the first iteration, and again before the pull request is opened, the command SHALL synchronize the project branch with the caller-supplied base branch, following the shared behavior in [base-branch-sync.md](base-branch-sync.md). The base branch is the value supplied by the caller (see [run.md](run.md)); the command SHALL NOT recompute it.
 
 ---
 
 ### Requirement: Just-in-time artifact generation
 
-When the input is an orchestration or spec document rather than a project file, the command SHALL use the AI agent to generate the missing artifacts and commit them after switching to the project branch, so that the generation commits and the coding work share the same branch.
+When the input is a spec document rather than a project file, the command SHALL use the AI agent to generate the project file and commit it after switching to the project branch, so that the generation commit and the coding work share the same branch.
 
-When the input is an **orchestration document**, the command generates a project file and commits it, then proceeds using the generated project.
-
-When the input is a **spec document**, the command generates an orchestration document in the same directory as the spec, then generates a project file, commits both, and proceeds using the generated project.
-
-#### Scenario: Project generated and committed from orchestration
-
-- GIVEN the input is an `orchestration.md` file
-- AND the command has switched to the project branch
-- WHEN just-in-time generation runs
-- THEN the AI agent generates a project file in `projects/` that implements the orchestration
-- AND the generated project file is committed to the project branch
-- AND execution proceeds using the generated project
-
-#### Scenario: Orchestration and project generated and committed from spec
+#### Scenario: Project generated and committed from spec
 
 - GIVEN the input is a `spec.md` file
 - AND the command has switched to the project branch
 - WHEN just-in-time generation runs
-- THEN the AI agent generates an `orchestration.md` file in the same directory as the spec
-- AND the AI agent generates a project file in `projects/` that implements the spec and orchestration
-- AND both generated files are committed to the project branch
+- THEN the AI agent generates a project file in `projects/` that implements the spec
+- AND the generated project file is committed to the project branch
 - AND execution proceeds using the generated project
 
 #### Scenario: Generated project resolves under the run's item query
 
-- GIVEN the input is an `orchestration.md` or `spec.md` file
+- GIVEN the input is a `spec.md` file
 - WHEN the project file is generated
 - THEN it is written in a shape that the run's resolved item query selects an item array from
 - AND generation fails if the resolved query yields no non-empty items from the generated file
 
-#### Scenario: Project generation failure from orchestration aborts run
+#### Scenario: Project generation failure from spec aborts run
 
-- GIVEN the input is an `orchestration.md` file
+- GIVEN the input is a `spec.md` file
 - AND the AI agent fails to generate a valid project
 - WHEN the generation step runs
-- THEN an error is returned and no further execution begins
-
-#### Scenario: Orchestration generation failure from spec aborts run
-
-- GIVEN the input is a `spec.md` file
-- AND the AI agent fails to generate an orchestration
-- WHEN the orchestration generation step runs
-- THEN an error is returned and no further execution begins
-
-#### Scenario: Project generation failure from spec aborts run after orchestration succeeds
-
-- GIVEN the input is a `spec.md` file
-- AND the orchestration is generated and committed successfully
-- AND the AI agent fails to generate a valid project
-- WHEN the project generation step runs
 - THEN an error is returned and no further execution begins
 
 ---
@@ -371,7 +342,7 @@ The command SHALL apply the configured agent, resolved as described in [run.md](
 #### Scenario: Artifact generation runs without the configured agent
 
 - GIVEN the agent resolves to `build`
-- WHEN an orchestration or project generation prompt runs
+- WHEN a project generation prompt runs
 - THEN the `--agent` option is omitted from its opencode invocation, and opencode's primary agent is used
 
 #### Scenario: Changelog and PR summary run without the configured agent
@@ -441,35 +412,18 @@ After each iteration the command SHALL commit any changes the AI produced. The c
 
 ---
 
-### Requirement: Orchestration cleanup before PR
-
-Before submitting a pull request the command SHALL check whether the project's spec has an orchestration document, and if so, delete it and commit the deletion.
-
-#### Scenario: Project has a spec with orchestration
-
-- GIVEN the project references a spec that contains an orchestration document
-- WHEN all items are complete and the command is about to create a PR
-- THEN the orchestration document is deleted from the repository
-- AND the deletion is committed before the pull request is opened
-- AND the deletion commit is pushed to the remote before the pull request is opened
-
-#### Scenario: Project has no spec
-
-- GIVEN the project does not reference a spec
-- WHEN the command is about to create a PR
-- THEN no orchestration cleanup is performed
-
-#### Scenario: Project spec has no orchestration
-
-- GIVEN the project references a spec that does not contain an orchestration document
-- WHEN the command is about to create a PR
-- THEN no orchestration cleanup is performed
-
----
-
 ### Requirement: Project file cleanup before PR
 
-When cleanup is enabled (see [run.md](run.md)) and every item is complete, the command SHALL delete the project file and commit the deletion on its own, before the pull request is opened. The cleanup commit SHALL carry no completion trailer and SHALL contain no other changes. Cleanup SHALL be skipped when it is not enabled. Cleanup is enabled by default and disabled only when `.ralph/config.yaml` sets `cleanup: false`.
+When cleanup is enabled (see [run.md](run.md)) and every item is complete, the command SHALL delete the project file and commit the deletion on its own after the base branch is synchronized (see [base-branch-sync.md](base-branch-sync.md)) and immediately before the pull request is opened. The cleanup commit SHALL be the last commit on the branch, SHALL carry no completion trailer, and SHALL contain no other changes. Cleanup SHALL be skipped when it is not enabled. Cleanup is enabled by default and disabled only when `.ralph/config.yaml` sets `cleanup: false`.
+
+#### Scenario: Cleanup runs after base-branch synchronization
+
+- GIVEN cleanup is enabled and every item is complete
+- AND the base branch has advanced since the working branch last merged it
+- WHEN the command reaches the end of the run
+- THEN the base branch is synchronized before the project file is deleted
+- AND the project file deletion is the last commit on the branch
+- AND the deletion commit is pushed before the pull request is opened
 
 #### Scenario: Project file deleted in its own commit
 

@@ -157,7 +157,7 @@ Project file cleanup is enabled by default (see [run.md](run.md)) and is not del
 
 - GIVEN the repository's `.ralph/config.yaml` does not set `cleanup: false`
 - WHEN the container runs the project
-- THEN the project file is deleted in its own commit once every item is complete, before the pull request is opened
+- THEN the project file is deleted in its own commit once every item is complete, after the base branch is synchronized and before the pull request is opened
 
 #### Scenario: Cleanup disabled by repository config
 

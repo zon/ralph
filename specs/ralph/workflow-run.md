@@ -38,7 +38,7 @@ The system SHALL apply run-specific flags to the execution context before starti
 
 - GIVEN the repository's `.ralph/config.yaml` does not disable cleanup
 - WHEN every item is complete
-- THEN the project file is deleted and the deletion committed on its own before the pull request is opened
+- THEN the project file is deleted and the deletion committed on its own after the base branch is synchronized and before the pull request is opened
 - AND when `cleanup: false` is set in `.ralph/config.yaml`, the project file is left in place
 
 #### Scenario: Agent override
@@ -90,7 +90,7 @@ The system SHALL validate all required inputs and load configuration before invo
 
 ### Requirement: Base Branch Synchronization
 
-The system SHALL rely on the run-local behavior it delegates to for base-branch synchronization, as defined in [base-branch-sync.md](base-branch-sync.md). Synchronization happens before the first iteration and again immediately before the pull request is opened.
+The system SHALL rely on the run-local behavior it delegates to for base-branch synchronization, as defined in [base-branch-sync.md](base-branch-sync.md). Synchronization happens before the first iteration and again before the pull request is opened.
 
 ### Requirement: Debug Mode
 

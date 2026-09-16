@@ -8,7 +8,7 @@ The shared behavior that `ralph run` and `ralph loop` use in every execution mod
 
 ### Requirement: Synchronization points
 
-The command SHALL synchronize the working branch with its base branch before the first iteration and again immediately before the pull request is opened. Synchronization SHALL run in every execution mode: `local` in the current checkout, `worktree` inside the worktree, and `remote` inside the workflow container.
+The command SHALL synchronize the working branch with its base branch before the first iteration and again before the pull request is opened. Synchronization SHALL run in every execution mode: `local` in the current checkout, `worktree` inside the worktree, and `remote` inside the workflow container.
 
 The base branch is the one resolved by the calling command: the value passed to `ralph run` (see [run.md](run.md)) or the branch the loop branch was created from (see [loop.md](loop.md)). The command SHALL NOT recompute the base branch during synchronization.
 
