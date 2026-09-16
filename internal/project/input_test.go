@@ -118,15 +118,16 @@ func TestResolveInputFile(t *testing.T) {
 		assert.Equal(t, "unrecognized input file type: "+absPath, err.Error())
 	})
 
-	t.Run("detects spec.md file", func(t *testing.T) {
+	t.Run("rejects spec.md file", func(t *testing.T) {
 		dir := t.TempDir()
 		path := filepath.Join(dir, "spec.md")
 		require.NoError(t, os.WriteFile(path, []byte("# Spec\n"), 0644))
 
-		f, err := inputClient().ResolveInputFile(path)
-		require.NoError(t, err)
-		assert.True(t, f.IsSpec())
-		assert.Equal(t, filepath.Base(dir), f.Slug())
+		_, err := inputClient().ResolveInputFile(path)
+		require.Error(t, err)
+		absPath, absErr := filepath.Abs(path)
+		require.NoError(t, absErr)
+		assert.Equal(t, "unrecognized input file type: "+absPath, err.Error())
 	})
 
 	t.Run("returns error when file does not exist", func(t *testing.T) {
