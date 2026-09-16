@@ -723,6 +723,22 @@ func gitProjectRemovalCommitted(r *Runner) bool {
 	return false
 }
 
+func gitEventOrder(r *Runner) []string {
+	if m, ok := r.git.(*mockGit); ok {
+		return m.order
+	}
+	return nil
+}
+
+func gitEventIndex(order []string, event string) int {
+	for i, e := range order {
+		if e == event {
+			return i
+		}
+	}
+	return -1
+}
+
 func gitBlockedFileWritten(r *Runner) bool {
 	if m, ok := r.git.(*mockGit); ok {
 		return m.writeBlockedFileCalled

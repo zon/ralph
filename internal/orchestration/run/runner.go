@@ -151,11 +151,11 @@ func (r *Runner) runLocal(input *project.InputFile, cfg *config.RalphConfig, inW
 		r.notify.Error(proj.Slug)
 		return err
 	}
-	if err := r.removeProjectFile(proj, cfg); err != nil {
+	if err := r.syncBaseBranchBeforePR(cfg, git.SanitizeBranchName(proj.Slug), inWorktree); err != nil {
 		r.notify.Error(proj.Slug)
 		return err
 	}
-	if err := r.syncBaseBranchBeforePR(cfg, git.SanitizeBranchName(proj.Slug), inWorktree); err != nil {
+	if err := r.removeProjectFile(proj, cfg); err != nil {
 		r.notify.Error(proj.Slug)
 		return err
 	}
