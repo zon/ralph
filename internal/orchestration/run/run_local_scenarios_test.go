@@ -73,7 +73,6 @@ func TestRunLocalGeneratedProjectResolvesUnderItemQuery(t *testing.T) {
 		)
 		err := runner.RunLocal(project.ForSpecInput("specs/ralph/run.md"), config.WithItems(".items"))
 		require.NoError(t, err)
-		require.True(t, aiWriteOrchestrationCalled(runner))
 		require.True(t, aiWriteProjectCalled(runner))
 		require.Equal(t, "projects/generated.yaml", projMock.LastPath())
 		require.Equal(t, ".items", projMock.LastQuery())

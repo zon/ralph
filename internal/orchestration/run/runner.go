@@ -28,7 +28,6 @@ type AIClient interface {
 	FixServiceStartup(cfg *config.RalphConfig, err error) error
 	ResolveMergeConflicts(baseBranch, projectBranch string) error
 	PrintStats()
-	WriteOrchestration(input *project.InputFile) error
 	WriteProject(input *project.InputFile) (string, error)
 }
 
@@ -197,11 +196,6 @@ func (r *Runner) syncBaseBranchBeforePR(cfg *config.RalphConfig, projectBranch s
 func (r *Runner) generateArtifacts(input *project.InputFile, cfg *config.RalphConfig) (*project.Project, error) {
 	if input.IsProject() {
 		return r.project.Resolve(input.Path(), cfg.Items)
-	}
-	if input.IsSpec() {
-		if err := r.ai.WriteOrchestration(input); err != nil {
-			return nil, err
-		}
 	}
 	path, err := r.ai.WriteProject(input)
 	if err != nil {

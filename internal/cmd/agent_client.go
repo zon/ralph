@@ -192,34 +192,15 @@ func (a *AgentClient) FixServiceStartup(cfg *config.RalphConfig, err error) erro
 	return nil
 }
 
-func (a *AgentClient) WriteOrchestration(input *project.InputFile) error {
-	prompt, err := ai.BuildWriteOrchestrationPrompt(ai.WriteOrchestrationPromptData{
-		SpecPath: input.Path(),
-	})
-	if err != nil {
-		return fmt.Errorf("failed to build write orchestration prompt: %w", err)
-	}
-
-	if a.ctx.IsVerbose() {
-		a.ctx.Output().Debug(prompt)
-	}
-
-	return ai.RunAgentPrimary(a.ctx, a.oc, prompt)
-}
-
 func (a *AgentClient) WriteProject(input *project.InputFile) (string, error) {
 	inputType := "orchestration file"
-	var orchestrationPath string
 	if input.IsSpec() {
 		inputType = "specification file"
-		orchestrationPath = filepath.Join(filepath.Dir(input.Path()), "orchestration.md")
 	}
 
 	prompt, err := ai.BuildWriteProjectPrompt(ai.WriteProjectPromptData{
-		InputPath:         input.Path(),
-		InputType:         inputType,
-		HasOrchestration:  input.IsSpec(),
-		OrchestrationPath: orchestrationPath,
+		InputPath: input.Path(),
+		InputType: inputType,
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to build write project prompt: %w", err)

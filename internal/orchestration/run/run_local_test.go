@@ -64,18 +64,16 @@ func TestRunLocalOrchestrationInputGeneratesAndCommitsProject(t *testing.T) {
 	)
 	err := runner.RunLocal(project.ForOrchestrationInput("specs/ralph/orchestration.md"), config.Any())
 	require.NoError(t, err)
-	require.False(t, aiWriteOrchestrationCalled(runner))
 	require.True(t, aiWriteProjectCalled(runner))
 	require.True(t, gitArtifactsCommitted(runner))
 }
 
-func TestRunLocalSpecInputGeneratesOrchestrationThenProject(t *testing.T) {
+func TestRunLocalSpecInputGeneratesAndCommitsProject(t *testing.T) {
 	runner := withMocks(
 		withProject(project.ThatReportsAllComplete()),
 	)
 	err := runner.RunLocal(project.ForSpecInput("specs/ralph/run.md"), config.Any())
 	require.NoError(t, err)
-	require.True(t, aiWriteOrchestrationCalled(runner))
 	require.True(t, aiWriteProjectCalled(runner))
 	require.True(t, gitArtifactsCommitted(runner))
 }
@@ -90,14 +88,13 @@ func TestRunLocalOrchestrationWriteProjectFailureSendsErrorNotification(t *testi
 	require.Zero(t, aiPickCalls(runner))
 }
 
-func TestRunLocalSpecWriteOrchestrationFailureSendsErrorNotification(t *testing.T) {
+func TestRunLocalSpecWriteProjectFailureSendsErrorNotification(t *testing.T) {
 	runner := withMocks(
-		withAI(aiThatFailsWriteOrchestration()),
+		withAI(aiThatFailsWriteProject()),
 	)
 	err := runner.RunLocal(project.ForSpecInput("specs/ralph/run.md"), config.Any())
 	require.Error(t, err)
 	require.NotEmpty(t, notifyErrors(runner))
-	require.False(t, aiWriteProjectCalled(runner))
 	require.Zero(t, aiPickCalls(runner))
 }
 

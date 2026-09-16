@@ -428,7 +428,8 @@ requirements:
 		RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
 			assert.Contains(t, prompt, "specification file")
 			assert.Contains(t, prompt, "spec.md")
-			assert.Contains(t, prompt, "orchestration.md")
+			assert.NotContains(t, prompt, "orchestration.md")
+			assert.NotContains(t, prompt, "Also read the orchestration document")
 			assert.Contains(t, prompt, "project format document installed in the repository")
 			return os.WriteFile("projects/generated.yaml", []byte(projectYAML), 0644)
 		},
@@ -577,41 +578,6 @@ requirements:
 	_, err := client.WriteProject(input)
 	require.NoError(t, err)
 	assert.Contains(t, buf.String(), "project format document installed in the repository")
-}
-
-func TestAgentClientWriteOrchestrationWithSpecInput(t *testing.T) {
-	var promptUsed string
-	mockOC := &opencode.MockOC{
-		RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
-			promptUsed = prompt
-			return nil
-		},
-	}
-
-	ctx := execcontext.NewContext()
-	client := NewAgentClient(ctx, mockOC)
-
-	input := project.ForSpecInput("specs/features/test/spec.md")
-	err := client.WriteOrchestration(input)
-	require.NoError(t, err)
-	assert.Contains(t, promptUsed, "specs/features/test/spec.md")
-	assert.Contains(t, promptUsed, "orchestration.md")
-	assert.Contains(t, promptUsed, "orchestration format document installed in the repository")
-}
-
-func TestAgentClientWriteOrchestrationFailureReturnsError(t *testing.T) {
-	mockOC := &opencode.MockOC{
-		RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
-			return errors.New("agent failed")
-		},
-	}
-
-	ctx := execcontext.NewContext()
-	client := NewAgentClient(ctx, mockOC)
-
-	input := project.ForSpecInput("specs/features/test/spec.md")
-	err := client.WriteOrchestration(input)
-	require.Error(t, err)
 }
 
 func TestAgentClientWriteProjectNoProjectsDirReturnsError(t *testing.T) {
@@ -984,32 +950,6 @@ func TestAgentClientRunDeveloperReceivesConfiguredAgent(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "build", capturedAgent, "item development is code-writing and falls back to the config agent")
 	})
-}
-
-// TestAgentClientWriteOrchestrationNeverPassesAgent covers all four branches of
-// agent resolution.
-func TestAgentClientWriteOrchestrationNeverPassesAgent(t *testing.T) {
-	tests := []struct {
-		name              string
-		flagAgent         string
-		appendConfigAgent bool
-	}{
-		{name: "flag agent set only", flagAgent: "code-reviewer", appendConfigAgent: false},
-		{name: "config agent set only", appendConfigAgent: true},
-		{name: "flag and config agents set", flagAgent: "code-reviewer", appendConfigAgent: true},
-		{name: "neither flag nor config agent set"},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			client, capturedAgent := newNeverPassesAgentClient(t, tc.flagAgent, tc.appendConfigAgent, false, nil, nil)
-
-			input := project.ForSpecInput("specs/features/test/spec.md")
-			err := client.WriteOrchestration(input)
-			require.NoError(t, err)
-			assert.Equal(t, "", *capturedAgent, "orchestration generation must never pass --agent to opencode, so it always runs with the primary agent")
-		})
-	}
 }
 
 // TestAgentClientWriteProjectNeverPassesAgent covers all four branches of agent

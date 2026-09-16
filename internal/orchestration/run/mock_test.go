@@ -13,29 +13,27 @@ import (
 // mockAI implements AIClient with configurable behaviors and recorded call
 // history for the item-based run flow.
 type mockAI struct {
-	runPickerFunc          func(proj *project.Project, incomplete []project.Item) (project.Item, error)
-	runDeveloperFunc       func(proj *project.Project, item project.Item) error
-	isFatalFunc            func(err error) bool
-	changelogFunc          func() error
-	fixServiceFunc         func(*config.RalphConfig, error) error
-	resolveConflictsFunc   func(baseBranch, projectBranch string) error
-	writeOrchestrationFunc func(input *project.InputFile) error
-	writeProjectFunc       func(input *project.InputFile) (string, error)
+	runPickerFunc        func(proj *project.Project, incomplete []project.Item) (project.Item, error)
+	runDeveloperFunc     func(proj *project.Project, item project.Item) error
+	isFatalFunc          func(err error) bool
+	changelogFunc        func() error
+	fixServiceFunc       func(*config.RalphConfig, error) error
+	resolveConflictsFunc func(baseBranch, projectBranch string) error
+	writeProjectFunc     func(input *project.InputFile) (string, error)
 
-	statsPrinted             bool
-	pickCalls                int
-	developCalls             int
-	changelogCalls           int
-	fixServiceCalled         bool
-	resolveConflictsCalled   bool
-	writeOrchestrationCalled bool
-	writeProjectCalled       bool
-	lastResolveBase          string
-	lastResolveProject       string
-	lastPickerIndices        []int
-	lastPickerItems          []project.Item
-	lastDevelopedIndex       int
-	lastDevelopedValue       any
+	statsPrinted           bool
+	pickCalls              int
+	developCalls           int
+	changelogCalls         int
+	fixServiceCalled       bool
+	resolveConflictsCalled bool
+	writeProjectCalled     bool
+	lastResolveBase        string
+	lastResolveProject     string
+	lastPickerIndices      []int
+	lastPickerItems        []project.Item
+	lastDevelopedIndex     int
+	lastDevelopedValue     any
 }
 
 func (m *mockAI) RunPicker(proj *project.Project, incomplete []project.Item) (project.Item, error) {
@@ -94,14 +92,6 @@ func (m *mockAI) ResolveMergeConflicts(baseBranch, projectBranch string) error {
 	m.lastResolveProject = projectBranch
 	if m.resolveConflictsFunc != nil {
 		return m.resolveConflictsFunc(baseBranch, projectBranch)
-	}
-	return nil
-}
-
-func (m *mockAI) WriteOrchestration(input *project.InputFile) error {
-	m.writeOrchestrationCalled = true
-	if m.writeOrchestrationFunc != nil {
-		return m.writeOrchestrationFunc(input)
 	}
 	return nil
 }
@@ -360,12 +350,6 @@ func aiThatFailsServiceFix() *mockAI {
 	}
 }
 
-func aiThatFailsWriteOrchestration() *mockAI {
-	return &mockAI{
-		writeOrchestrationFunc: func(*project.InputFile) error { return errNonFatal },
-	}
-}
-
 func aiThatFailsWriteProject() *mockAI {
 	return &mockAI{
 		writeProjectFunc: func(*project.InputFile) (string, error) { return "", errNonFatal },
@@ -581,13 +565,6 @@ func aiChangelogCalls(r *Runner) int {
 func aiServiceFixCalled(r *Runner) bool {
 	if m, ok := r.ai.(*mockAI); ok {
 		return m.fixServiceCalled
-	}
-	return false
-}
-
-func aiWriteOrchestrationCalled(r *Runner) bool {
-	if m, ok := r.ai.(*mockAI); ok {
-		return m.writeOrchestrationCalled
 	}
 	return false
 }
