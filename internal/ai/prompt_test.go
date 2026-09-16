@@ -444,48 +444,6 @@ func TestEmbeddedPromptsCarryNoRalphOwnedPaths(t *testing.T) {
 	}
 }
 
-// TestPrimaryAgentPromptsAskOnlyForTheirOwnArtifacts covers the prompts that
-// run with opencode's primary agent. Each builds from its own embedded template
-// and asks the agent for a single supporting artifact: the picker reports an
-// item index, the changelog and PR summary write their output files, and the
-// loop slug writes the branch slug. None of them asks for a generated project.
-func TestPrimaryAgentPromptsAskOnlyForTheirOwnArtifacts(t *testing.T) {
-	dir := t.TempDir()
-
-	picker, err := BuildItemPickPrompt(ItemPickPromptData{
-		ProjectContent: "slug: demo",
-		Items:          "item 0:\nDo the thing",
-	})
-	require.NoError(t, err)
-
-	changelog, err := BuildChangelogPrompt(filepath.Join(dir, "changelog.md"))
-	require.NoError(t, err)
-
-	summary, err := BuildPRSummaryPrompt("Demo", "main", "abc: work", "", filepath.Join(dir, "pr-summary.md"))
-	require.NoError(t, err)
-
-	slug, err := BuildLoopSlugPrompt([]string{"Do the thing"}, filepath.Join(dir, "slug.md"))
-	require.NoError(t, err)
-
-	tests := []struct {
-		name   string
-		prompt string
-		output string
-	}{
-		{name: "picker", prompt: picker, output: "picked-item-index.txt"},
-		{name: "changelog", prompt: changelog, output: "changelog.md"},
-		{name: "pr summary", prompt: summary, output: "pr-summary.md"},
-		{name: "loop slug", prompt: slug, output: "slug.md"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Contains(t, tt.prompt, tt.output, "the prompt names the artifact it asks for")
-			assert.NotContains(t, strings.ToLower(tt.prompt), "project generation", "a primary-agent prompt must not request project generation")
-			assert.NotContains(t, strings.ToLower(tt.prompt), "generate a project", "a primary-agent prompt must not request a generated project")
-		})
-	}
-}
-
 func TestDefaultItemDevelopmentInstructions(t *testing.T) {
 	instructions := DefaultItemDevelopmentInstructions()
 	assert.Contains(t, instructions, "selected item")

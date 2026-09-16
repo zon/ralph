@@ -301,13 +301,6 @@ func inputResolved(cmd *RunCmd) bool {
 	return false
 }
 
-func remoteLastInput(cmd *RunCmd) *project.InputFile {
-	if m, ok := cmd.remote.(*mockRemoteRunnerClient); ok {
-		return m.LastInput
-	}
-	return nil
-}
-
 func localRunLocalCalled(cmd *RunCmd) bool {
 	if m, ok := cmd.local.(*mockLocalRunnerClient); ok {
 		return m.RunLocalCalled
@@ -327,13 +320,6 @@ func remoteRunCalled(cmd *RunCmd) bool {
 		return m.RunCalled
 	}
 	return false
-}
-
-func localLastInput(cmd *RunCmd) *project.InputFile {
-	if m, ok := cmd.local.(*mockLocalRunnerClient); ok {
-		return m.LastInput
-	}
-	return nil
 }
 
 // ---------------------------------------------------------------------------
