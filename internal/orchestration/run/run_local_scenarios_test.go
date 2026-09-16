@@ -54,18 +54,6 @@ func TestProjectClientInterfaceKeepsSingleProjectFileRemoval(t *testing.T) {
 }
 
 func TestRunLocalGeneratedProjectResolvesUnderItemQuery(t *testing.T) {
-	t.Run("orchestration input", func(t *testing.T) {
-		projMock := project.ThatReportsAllComplete()
-		runner := withMocks(
-			withProject(projMock),
-		)
-		err := runner.RunLocal(project.ForOrchestrationInput("specs/ralph/orchestration.md"), config.WithItems(".requirements"))
-		require.NoError(t, err)
-		require.True(t, aiWriteProjectCalled(runner))
-		require.Equal(t, "projects/generated.yaml", projMock.LastPath())
-		require.Equal(t, ".requirements", projMock.LastQuery())
-	})
-
 	t.Run("spec input", func(t *testing.T) {
 		projMock := project.ThatReportsAllComplete()
 		runner := withMocks(
@@ -83,7 +71,7 @@ func TestRunLocalGeneratedProjectYieldingNoItemsAborts(t *testing.T) {
 	runner := withMocks(
 		withProject(project.ThatFailsResolution()),
 	)
-	err := runner.RunLocal(project.ForOrchestrationInput("specs/ralph/orchestration.md"), config.Any())
+	err := runner.RunLocal(project.ForSpecInput("specs/ralph/run.md"), config.Any())
 	require.Error(t, err)
 	require.NotEmpty(t, notifyErrors(runner))
 	require.False(t, gitArtifactsCommitted(runner))

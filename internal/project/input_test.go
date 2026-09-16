@@ -21,21 +21,12 @@ func TestInputFilePredicates(t *testing.T) {
 		f := &InputFile{kind: inputProject}
 		assert.True(t, f.IsProject())
 		assert.False(t, f.IsSpec())
-		assert.False(t, f.IsOrchestration())
 	})
 
 	t.Run("IsSpec returns true for spec kind", func(t *testing.T) {
 		f := &InputFile{kind: inputSpec}
 		assert.True(t, f.IsSpec())
 		assert.False(t, f.IsProject())
-		assert.False(t, f.IsOrchestration())
-	})
-
-	t.Run("IsOrchestration returns true for orchestration kind", func(t *testing.T) {
-		f := &InputFile{kind: inputOrchestration}
-		assert.True(t, f.IsOrchestration())
-		assert.False(t, f.IsProject())
-		assert.False(t, f.IsSpec())
 	})
 
 	t.Run("Path returns the stored path", func(t *testing.T) {
@@ -55,22 +46,6 @@ func TestInputFileSlug(t *testing.T) {
 		f := &InputFile{
 			kind:    inputProject,
 			project: &Project{Slug: "my-feature"},
-		}
-		assert.Equal(t, "my-feature", f.Slug())
-	})
-
-	t.Run("orchestration input derives slug from parent directory", func(t *testing.T) {
-		f := &InputFile{
-			path: "/workspace/repo/specs/features/my-feature/orchestration.md",
-			kind: inputOrchestration,
-		}
-		assert.Equal(t, "my-feature", f.Slug())
-	})
-
-	t.Run("orchestration input sanitizes directory name with spaces", func(t *testing.T) {
-		f := &InputFile{
-			path: "/tmp/My Feature/orchestration.md",
-			kind: inputOrchestration,
 		}
 		assert.Equal(t, "my-feature", f.Slug())
 	})
@@ -215,11 +190,11 @@ func TestInputFileRelocate(t *testing.T) {
 		assert.Equal(t, "/start/projects/my-project.yaml", f.Path())
 	})
 
-	t.Run("relocates orchestration input", func(t *testing.T) {
-		f := &InputFile{path: "/start/specs/features/x/orchestration.md", kind: inputOrchestration}
-		relocated := f.Relocate("/worktree/specs/features/x/orchestration.md")
-		assert.True(t, relocated.IsOrchestration())
-		assert.Equal(t, "/worktree/specs/features/x/orchestration.md", relocated.Path())
+	t.Run("relocates spec input", func(t *testing.T) {
+		f := &InputFile{path: "/start/specs/features/x/spec.md", kind: inputSpec}
+		relocated := f.Relocate("/worktree/specs/features/x/spec.md")
+		assert.True(t, relocated.IsSpec())
+		assert.Equal(t, "/worktree/specs/features/x/spec.md", relocated.Path())
 		assert.Nil(t, relocated.Project())
 	})
 }
@@ -231,13 +206,6 @@ func TestTestHelpers(t *testing.T) {
 		assert.Equal(t, p.Path, f.Path())
 		assert.True(t, f.IsProject())
 		assert.Equal(t, p, f.Project())
-	})
-
-	t.Run("ForOrchestrationInput creates InputFile with orchestration kind", func(t *testing.T) {
-		f := ForOrchestrationInput("/tmp/orchestration.md")
-		assert.True(t, f.IsOrchestration())
-		assert.Equal(t, "/tmp/orchestration.md", f.Path())
-		assert.Nil(t, f.Project())
 	})
 
 	t.Run("ForSpecInput creates InputFile with spec kind", func(t *testing.T) {

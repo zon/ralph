@@ -193,14 +193,9 @@ func (a *AgentClient) FixServiceStartup(cfg *config.RalphConfig, err error) erro
 }
 
 func (a *AgentClient) WriteProject(input *project.InputFile) (string, error) {
-	inputType := "orchestration file"
-	if input.IsSpec() {
-		inputType = "specification file"
-	}
-
 	prompt, err := ai.BuildWriteProjectPrompt(ai.WriteProjectPromptData{
 		InputPath: input.Path(),
-		InputType: inputType,
+		InputType: "specification file",
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to build write project prompt: %w", err)

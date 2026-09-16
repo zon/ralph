@@ -185,19 +185,11 @@ func TestInputFactories(t *testing.T) {
 		f := ForProjectInput(p)
 		assert.True(t, f.IsProject())
 		assert.False(t, f.IsSpec())
-		assert.False(t, f.IsOrchestration())
 		assert.Equal(t, p, f.Project())
-	})
-	t.Run("wraps an orchestration document as an input file", func(t *testing.T) {
-		f := ForOrchestrationInput("/tmp/orchestration.md")
-		assert.True(t, f.IsOrchestration())
-		assert.False(t, f.IsProject())
-		assert.False(t, f.IsSpec())
 	})
 	t.Run("wraps a spec document as an input file", func(t *testing.T) {
 		f := ForSpecInput("/tmp/spec.md")
 		assert.True(t, f.IsSpec())
 		assert.False(t, f.IsProject())
-		assert.False(t, f.IsOrchestration())
 	})
 }

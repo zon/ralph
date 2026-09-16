@@ -19,15 +19,13 @@ type inputFileKind int
 
 const (
 	inputProject inputFileKind = iota
-	inputOrchestration
 	inputSpec
 )
 
-func (f *InputFile) IsProject() bool       { return f.kind == inputProject }
-func (f *InputFile) IsSpec() bool          { return f.kind == inputSpec }
-func (f *InputFile) IsOrchestration() bool { return f.kind == inputOrchestration }
-func (f *InputFile) Project() *Project     { return f.project }
-func (f *InputFile) Path() string          { return f.path }
+func (f *InputFile) IsProject() bool   { return f.kind == inputProject }
+func (f *InputFile) IsSpec() bool      { return f.kind == inputSpec }
+func (f *InputFile) Project() *Project { return f.project }
+func (f *InputFile) Path() string      { return f.path }
 
 // Relocate returns a copy of the input whose path is replaced with the given
 // path, keeping the kind and any resolved project. It points the input at the
