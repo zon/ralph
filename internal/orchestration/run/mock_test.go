@@ -19,7 +19,6 @@ type mockAI struct {
 	changelogFunc        func() error
 	fixServiceFunc       func(*config.RalphConfig, error) error
 	resolveConflictsFunc func(baseBranch, projectBranch string) error
-	writeProjectFunc     func(input *project.InputFile) (string, error)
 
 	statsPrinted           bool
 	pickCalls              int
@@ -27,7 +26,6 @@ type mockAI struct {
 	changelogCalls         int
 	fixServiceCalled       bool
 	resolveConflictsCalled bool
-	writeProjectCalled     bool
 	lastResolveBase        string
 	lastResolveProject     string
 	lastPickerIndices      []int
@@ -94,14 +92,6 @@ func (m *mockAI) ResolveMergeConflicts(baseBranch, projectBranch string) error {
 		return m.resolveConflictsFunc(baseBranch, projectBranch)
 	}
 	return nil
-}
-
-func (m *mockAI) WriteProject(input *project.InputFile) (string, error) {
-	m.writeProjectCalled = true
-	if m.writeProjectFunc != nil {
-		return m.writeProjectFunc(input)
-	}
-	return "projects/generated.yaml", nil
 }
 
 func itemIndices(items []project.Item) []int {
@@ -336,12 +326,6 @@ func aiThatFailsServiceFix() *mockAI {
 	}
 }
 
-func aiThatFailsWriteProject() *mockAI {
-	return &mockAI{
-		writeProjectFunc: func(*project.InputFile) (string, error) { return "", errNonFatal },
-	}
-}
-
 func aiThatPicksIndex(i int) *mockAI {
 	return &mockAI{
 		runPickerFunc: func(proj *project.Project, incomplete []project.Item) (project.Item, error) {
@@ -551,13 +535,6 @@ func aiChangelogCalls(r *Runner) int {
 func aiServiceFixCalled(r *Runner) bool {
 	if m, ok := r.ai.(*mockAI); ok {
 		return m.fixServiceCalled
-	}
-	return false
-}
-
-func aiWriteProjectCalled(r *Runner) bool {
-	if m, ok := r.ai.(*mockAI); ok {
-		return m.writeProjectCalled
 	}
 	return false
 }

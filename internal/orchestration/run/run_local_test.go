@@ -59,7 +59,6 @@ func TestRunLocalResolvesProjectFileDirectly(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "projects/demo.yaml", projMock.LastPath(), "the run resolves the supplied project file directly")
 	require.Equal(t, 1, projMock.ResolveCount())
-	require.False(t, aiWriteProjectCalled(runner), "the run must not invoke an AI to generate a project")
 }
 
 func TestRunLocalResolvesItemsWithConfiguredQuery(t *testing.T) {

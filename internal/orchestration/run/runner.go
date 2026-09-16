@@ -25,7 +25,6 @@ type AIClient interface {
 	FixServiceStartup(cfg *config.RalphConfig, err error) error
 	ResolveMergeConflicts(baseBranch, projectBranch string) error
 	PrintStats()
-	WriteProject(input *project.InputFile) (string, error)
 }
 
 type EnvClient interface {
