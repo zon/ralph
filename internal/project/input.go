@@ -50,9 +50,9 @@ func (f *InputFile) Slug() string {
 	return git.SanitizeBranchName(base)
 }
 
-// ResolveInputFile classifies the file at path as a project document, an
-// orchestration, or a spec, and resolves a project document through the client
-// so the returned InputFile carries its Project.
+// ResolveInputFile classifies the file at path as a project document or a
+// spec, and resolves a project document through the client so the returned
+// InputFile carries its Project.
 func (c *Client) ResolveInputFile(path string) (*InputFile, error) {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
@@ -78,13 +78,6 @@ func (c *Client) ResolveInputFile(path string) (*InputFile, error) {
 			path:    absPath,
 			kind:    inputProject,
 			project: proj,
-		}, nil
-	}
-
-	if strings.ToLower(base) == "orchestration.md" {
-		return &InputFile{
-			path: absPath,
-			kind: inputOrchestration,
 		}, nil
 	}
 

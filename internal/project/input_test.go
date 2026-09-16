@@ -131,15 +131,16 @@ func TestResolveInputFile(t *testing.T) {
 		assert.Len(t, f.Project().Items, 2)
 	})
 
-	t.Run("detects orchestration.md file", func(t *testing.T) {
+	t.Run("rejects orchestration.md file", func(t *testing.T) {
 		dir := t.TempDir()
 		path := filepath.Join(dir, "orchestration.md")
 		require.NoError(t, os.WriteFile(path, []byte("# Orchestration\n"), 0644))
 
-		f, err := inputClient().ResolveInputFile(path)
-		require.NoError(t, err)
-		assert.True(t, f.IsOrchestration())
-		assert.Equal(t, filepath.Base(dir), f.Slug())
+		_, err := inputClient().ResolveInputFile(path)
+		require.Error(t, err)
+		absPath, absErr := filepath.Abs(path)
+		require.NoError(t, absErr)
+		assert.Equal(t, "unrecognized input file type: "+absPath, err.Error())
 	})
 
 	t.Run("detects spec.md file", func(t *testing.T) {
