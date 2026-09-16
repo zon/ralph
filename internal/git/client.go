@@ -135,13 +135,6 @@ func (a *Client) IsBranchSyncedWithRemote(branch string) error {
 	return IsBranchSyncedWithRemote(branch)
 }
 
-func (a *Client) CommitGeneratedArtifacts(slug string) error {
-	if err := StageAll(); err != nil {
-		return err
-	}
-	return Commit(fmt.Sprintf("chore: generate project for %s", slug))
-}
-
 func (a *Client) CommitProjectRemoval(path string) error {
 	if err := CommitProjectRemoval(path); err != nil {
 		return err

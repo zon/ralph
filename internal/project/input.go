@@ -5,8 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/zon/ralph/internal/git"
 )
 
 type InputFile struct {
@@ -19,11 +17,9 @@ type inputFileKind int
 
 const (
 	inputProject inputFileKind = iota
-	inputSpec
 )
 
 func (f *InputFile) IsProject() bool   { return f.kind == inputProject }
-func (f *InputFile) IsSpec() bool      { return f.kind == inputSpec }
 func (f *InputFile) Project() *Project { return f.project }
 func (f *InputFile) Path() string      { return f.path }
 
@@ -40,17 +36,11 @@ func (f *InputFile) Relocate(path string) *InputFile {
 }
 
 func (f *InputFile) Slug() string {
-	if f.kind == inputProject {
-		return f.project.Slug
-	}
-	dir := filepath.Dir(f.path)
-	base := filepath.Base(dir)
-	return git.SanitizeBranchName(base)
+	return f.project.Slug
 }
 
-// ResolveInputFile classifies the file at path as a project document or a
-// spec, and resolves a project document through the client so the returned
-// InputFile carries its Project.
+// ResolveInputFile classifies the file at path as a project document and
+// resolves it through the client so the returned InputFile carries its Project.
 func (c *Client) ResolveInputFile(path string) (*InputFile, error) {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
@@ -76,13 +66,6 @@ func (c *Client) ResolveInputFile(path string) (*InputFile, error) {
 			path:    absPath,
 			kind:    inputProject,
 			project: proj,
-		}, nil
-	}
-
-	if strings.ToLower(base) == "spec.md" {
-		return &InputFile{
-			path: absPath,
-			kind: inputSpec,
 		}, nil
 	}
 

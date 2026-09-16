@@ -278,9 +278,9 @@ func TestRunCmdHelpText(t *testing.T) {
 	assert.Contains(t, output, "Execute Ralph with a project file")
 }
 
-func TestRunCmdInputHelpDescribesOnlyProjectFileAndSpec(t *testing.T) {
+func TestRunCmdInputHelpDescribesOnlyProjectFile(t *testing.T) {
 	output := captureHelpOutput(&Cmd{}, []string{"run", "--help"})
-	assert.Contains(t, output, "Path to input file (project YAML or spec.md)")
+	assert.Contains(t, output, "Path to project file (YAML or JSON)")
 	assert.NotContains(t, output, "orchestration.md")
 }
 

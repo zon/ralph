@@ -19,7 +19,6 @@ type mockAI struct {
 	changelogFunc        func() error
 	fixServiceFunc       func(*config.RalphConfig, error) error
 	resolveConflictsFunc func(baseBranch, projectBranch string) error
-	writeProjectFunc     func(input *project.InputFile) (string, error)
 
 	statsPrinted           bool
 	pickCalls              int
@@ -27,7 +26,6 @@ type mockAI struct {
 	changelogCalls         int
 	fixServiceCalled       bool
 	resolveConflictsCalled bool
-	writeProjectCalled     bool
 	lastResolveBase        string
 	lastResolveProject     string
 	lastPickerIndices      []int
@@ -96,14 +94,6 @@ func (m *mockAI) ResolveMergeConflicts(baseBranch, projectBranch string) error {
 	return nil
 }
 
-func (m *mockAI) WriteProject(input *project.InputFile) (string, error) {
-	m.writeProjectCalled = true
-	if m.writeProjectFunc != nil {
-		return m.writeProjectFunc(input)
-	}
-	return "projects/generated.yaml", nil
-}
-
 func itemIndices(items []project.Item) []int {
 	indices := make([]int, len(items))
 	for i, it := range items {
@@ -135,21 +125,20 @@ type mockGit struct {
 	mergeErrAfter  int
 	pushErr        error
 
-	switchToBranchCalled           bool
-	writeBlockedFileCalled         bool
-	commitFromReportCalled         bool
-	commitGeneratedArtifactsCalled bool
-	commitProjectRemovalCalled     bool
-	fetchBranchCalled              bool
-	needsMergeCalled               bool
-	mergeCalled                    bool
-	abortMergeCalled               bool
-	pushCalled                     bool
-	fetchBranchCalls               int
-	mergeCalls                     int
-	lastFetchedBranch              string
-	lastMergedBranch               string
-	lastCommitMessage              string
+	switchToBranchCalled       bool
+	writeBlockedFileCalled     bool
+	commitFromReportCalled     bool
+	commitProjectRemovalCalled bool
+	fetchBranchCalled          bool
+	needsMergeCalled           bool
+	mergeCalled                bool
+	abortMergeCalled           bool
+	pushCalled                 bool
+	fetchBranchCalls           int
+	mergeCalls                 int
+	lastFetchedBranch          string
+	lastMergedBranch           string
+	lastCommitMessage          string
 }
 
 func gitNewMock() *mockGit {
@@ -228,12 +217,6 @@ func (m *mockGit) Push() error {
 }
 
 func (m *mockGit) IsBranchSyncedWithRemote(branch string) error {
-	return nil
-}
-
-func (m *mockGit) CommitGeneratedArtifacts(slug string) error {
-	m.commitGeneratedArtifactsCalled = true
-	m.order = append(m.order, "commit-artifacts")
 	return nil
 }
 
@@ -340,12 +323,6 @@ func aiThatAlwaysFails() *mockAI {
 func aiThatFailsServiceFix() *mockAI {
 	return &mockAI{
 		fixServiceFunc: func(_ *config.RalphConfig, _ error) error { return errNonFatal },
-	}
-}
-
-func aiThatFailsWriteProject() *mockAI {
-	return &mockAI{
-		writeProjectFunc: func(*project.InputFile) (string, error) { return "", errNonFatal },
 	}
 }
 
@@ -562,13 +539,6 @@ func aiServiceFixCalled(r *Runner) bool {
 	return false
 }
 
-func aiWriteProjectCalled(r *Runner) bool {
-	if m, ok := r.ai.(*mockAI); ok {
-		return m.writeProjectCalled
-	}
-	return false
-}
-
 func aiLastPickerIndices(r *Runner) []int {
 	if m, ok := r.ai.(*mockAI); ok {
 		return m.lastPickerIndices
@@ -688,13 +658,6 @@ func outputWarnings(r *Runner) []string {
 	return nil
 }
 
-func gitArtifactsCommitted(r *Runner) bool {
-	if m, ok := r.git.(*mockGit); ok {
-		return m.commitGeneratedArtifactsCalled
-	}
-	return false
-}
-
 func gitCommittedFromReport(r *Runner) bool {
 	if m, ok := r.git.(*mockGit); ok {
 		return m.commitFromReportCalled
@@ -737,23 +700,6 @@ func gitLastCommitMessage(r *Runner) string {
 		return m.lastCommitMessage
 	}
 	return ""
-}
-
-func gitSwitchedBeforeArtifactsCommitted(r *Runner) bool {
-	m, ok := r.git.(*mockGit)
-	if !ok {
-		return false
-	}
-	switchIdx, artifactsIdx := -1, -1
-	for i, event := range m.order {
-		switch event {
-		case "switch":
-			switchIdx = i
-		case "commit-artifacts":
-			artifactsIdx = i
-		}
-	}
-	return switchIdx >= 0 && artifactsIdx >= 0 && switchIdx < artifactsIdx
 }
 
 func githubPRCreated(r *Runner) bool {

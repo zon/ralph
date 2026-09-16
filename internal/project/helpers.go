@@ -7,10 +7,3 @@ func ForProjectInput(p *Project) *InputFile {
 		project: p,
 	}
 }
-
-func ForSpecInput(path string) *InputFile {
-	return &InputFile{
-		path: path,
-		kind: inputSpec,
-	}
-}

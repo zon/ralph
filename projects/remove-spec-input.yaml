@@ -1,7 +1,0 @@
-- "`ralph run` requires a project file (`.yaml`, `.yml`, or `.json`) as its positional input and rejects a path to `spec.md` with `unrecognized input file type`, and the `run` help text describes the input as a project file only"
-- "Input resolution classifies every accepted input as a project file, removing the spec input kind, its `IsSpec` predicate, and its `ForSpecInput` factory so no code path can construct or dispatch a spec input"
-- "A run resolves the supplied project file directly and never invokes an AI to generate a project, so the just-in-time project generation step is removed from local and worktree execution"
-- "The AI project-generation prompt is removed: the `WriteProject` client operation, its prompt builder, the embedded write-project instruction template, and the newest-project-file lookup are deleted"
-- "The prompts that run with opencode's primary agent no longer name project generation, while the agent behavior for every remaining prompt is unchanged"
-- "Tests no longer reference spec inputs, the removed project generation step, or the removed project-generation prompt"
-- "Apply a semver major bump to the app version"

@@ -301,13 +301,6 @@ func inputResolved(cmd *RunCmd) bool {
 	return false
 }
 
-func remoteLastInput(cmd *RunCmd) *project.InputFile {
-	if m, ok := cmd.remote.(*mockRemoteRunnerClient); ok {
-		return m.LastInput
-	}
-	return nil
-}
-
 func localRunLocalCalled(cmd *RunCmd) bool {
 	if m, ok := cmd.local.(*mockLocalRunnerClient); ok {
 		return m.RunLocalCalled
@@ -327,13 +320,6 @@ func remoteRunCalled(cmd *RunCmd) bool {
 		return m.RunCalled
 	}
 	return false
-}
-
-func localLastInput(cmd *RunCmd) *project.InputFile {
-	if m, ok := cmd.local.(*mockLocalRunnerClient); ok {
-		return m.LastInput
-	}
-	return nil
 }
 
 // ---------------------------------------------------------------------------
@@ -694,40 +680,6 @@ func TestRunIncompatibleFlagsAbortBeforeSetup(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Tests: Spec inputs dispatch through RunCmd
-// ---------------------------------------------------------------------------
-
-func TestRunLocalDispatchesWithSpecInput(t *testing.T) {
-	proj := &mockProjectRepo{
-		InputFile: project.ForSpecInput("specs/ralph/run.md"),
-	}
-	cmd := cmdWithMocks(
-		cmdWithProject(proj),
-		cmdWithLocal(&mockLocalRunnerClient{}),
-	)
-	err := cmd.Run(flagsWithMode(config.ModeLocal))
-	require.NoError(t, err)
-	require.True(t, localRunLocalCalled(cmd))
-	require.NotNil(t, localLastInput(cmd))
-	require.True(t, localLastInput(cmd).IsSpec())
-}
-
-func TestRunRemoteDispatchesWithSpecInput(t *testing.T) {
-	proj := &mockProjectRepo{
-		InputFile: project.ForSpecInput("specs/ralph/run.md"),
-	}
-	cmd := cmdWithMocks(
-		cmdWithProject(proj),
-		cmdWithRemote(&mockRemoteRunnerClient{}),
-	)
-	err := cmd.Run(flagsWithMode(config.ModeRemote))
-	require.NoError(t, err)
-	require.True(t, remoteRunCalled(cmd))
-	require.NotNil(t, remoteLastInput(cmd))
-	require.True(t, remoteLastInput(cmd).IsSpec())
-}
-
-// ---------------------------------------------------------------------------
 // Tests: Input file not found aborts before flag validation and setup
 // ---------------------------------------------------------------------------
 
@@ -755,18 +707,6 @@ func TestRunIncompatibleFlagsRejectedBeforeSetupForProjectInput(t *testing.T) {
 	require.Error(t, err)
 	require.False(t, localRunLocalCalled(cmd))
 	require.False(t, remoteRunCalled(cmd))
-}
-
-// ---------------------------------------------------------------------------
-// Tests: prepareSetup with non-project inputs
-// ---------------------------------------------------------------------------
-
-func TestPrepareSetupWithSpecInputResolvesBaseBranch(t *testing.T) {
-	cmd := cmdWithMocks()
-	input := project.ForSpecInput("specs/ralph/run.md")
-	setup, err := cmd.prepareSetup(flagsAny(), input)
-	require.NoError(t, err)
-	require.Equal(t, "main", setup.BaseBranch)
 }
 
 // ---------------------------------------------------------------------------

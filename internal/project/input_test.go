@@ -20,13 +20,6 @@ func TestInputFilePredicates(t *testing.T) {
 	t.Run("IsProject returns true for project kind", func(t *testing.T) {
 		f := &InputFile{kind: inputProject}
 		assert.True(t, f.IsProject())
-		assert.False(t, f.IsSpec())
-	})
-
-	t.Run("IsSpec returns true for spec kind", func(t *testing.T) {
-		f := &InputFile{kind: inputSpec}
-		assert.True(t, f.IsSpec())
-		assert.False(t, f.IsProject())
 	})
 
 	t.Run("Path returns the stored path", func(t *testing.T) {
@@ -46,14 +39,6 @@ func TestInputFileSlug(t *testing.T) {
 		f := &InputFile{
 			kind:    inputProject,
 			project: &Project{Slug: "my-feature"},
-		}
-		assert.Equal(t, "my-feature", f.Slug())
-	})
-
-	t.Run("spec input derives slug from parent directory", func(t *testing.T) {
-		f := &InputFile{
-			path: "/tmp/specs/features/my-feature/spec.md",
-			kind: inputSpec,
 		}
 		assert.Equal(t, "my-feature", f.Slug())
 	})
@@ -118,15 +103,16 @@ func TestResolveInputFile(t *testing.T) {
 		assert.Equal(t, "unrecognized input file type: "+absPath, err.Error())
 	})
 
-	t.Run("detects spec.md file", func(t *testing.T) {
+	t.Run("rejects spec.md file", func(t *testing.T) {
 		dir := t.TempDir()
 		path := filepath.Join(dir, "spec.md")
 		require.NoError(t, os.WriteFile(path, []byte("# Spec\n"), 0644))
 
-		f, err := inputClient().ResolveInputFile(path)
-		require.NoError(t, err)
-		assert.True(t, f.IsSpec())
-		assert.Equal(t, filepath.Base(dir), f.Slug())
+		_, err := inputClient().ResolveInputFile(path)
+		require.Error(t, err)
+		absPath, absErr := filepath.Abs(path)
+		require.NoError(t, absErr)
+		assert.Equal(t, "unrecognized input file type: "+absPath, err.Error())
 	})
 
 	t.Run("returns error when file does not exist", func(t *testing.T) {
@@ -189,14 +175,6 @@ func TestInputFileRelocate(t *testing.T) {
 		_ = f.Relocate("/worktree/projects/my-project.yaml")
 		assert.Equal(t, "/start/projects/my-project.yaml", f.Path())
 	})
-
-	t.Run("relocates spec input", func(t *testing.T) {
-		f := &InputFile{path: "/start/specs/features/x/spec.md", kind: inputSpec}
-		relocated := f.Relocate("/worktree/specs/features/x/spec.md")
-		assert.True(t, relocated.IsSpec())
-		assert.Equal(t, "/worktree/specs/features/x/spec.md", relocated.Path())
-		assert.Nil(t, relocated.Project())
-	})
 }
 
 func TestTestHelpers(t *testing.T) {
@@ -206,12 +184,5 @@ func TestTestHelpers(t *testing.T) {
 		assert.Equal(t, p.Path, f.Path())
 		assert.True(t, f.IsProject())
 		assert.Equal(t, p, f.Project())
-	})
-
-	t.Run("ForSpecInput creates InputFile with spec kind", func(t *testing.T) {
-		f := ForSpecInput("/tmp/spec.md")
-		assert.True(t, f.IsSpec())
-		assert.Equal(t, "/tmp/spec.md", f.Path())
-		assert.Nil(t, f.Project())
 	})
 }

@@ -161,12 +161,6 @@ func TestInputFactories(t *testing.T) {
 		p := WithItems(2)
 		f := ForProjectInput(p)
 		assert.True(t, f.IsProject())
-		assert.False(t, f.IsSpec())
 		assert.Equal(t, p, f.Project())
-	})
-	t.Run("wraps a spec document as an input file", func(t *testing.T) {
-		f := ForSpecInput("/tmp/spec.md")
-		assert.True(t, f.IsSpec())
-		assert.False(t, f.IsProject())
 	})
 }

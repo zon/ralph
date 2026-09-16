@@ -48,44 +48,17 @@ func TestRunLocalBeforeCommandFailureAbortsEarly(t *testing.T) {
 	require.False(t, gitBranchSwitched(runner))
 }
 
-func TestRunLocalProjectInputSkipsGeneration(t *testing.T) {
+func TestRunLocalResolvesProjectFileDirectly(t *testing.T) {
+	proj := project.Any()
+	proj.Path = "projects/demo.yaml"
+	projMock := project.ThatReportsAllComplete()
 	runner := withMocks(
-		withProject(project.ThatReportsAllComplete()),
+		withProject(projMock),
 	)
-	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.Any())
+	err := runner.RunLocal(project.ForProjectInput(proj), config.Any())
 	require.NoError(t, err)
-	require.False(t, aiWriteProjectCalled(runner))
-	require.False(t, gitArtifactsCommitted(runner))
-}
-
-func TestRunLocalSpecInputGeneratesAndCommitsProject(t *testing.T) {
-	runner := withMocks(
-		withProject(project.ThatReportsAllComplete()),
-	)
-	err := runner.RunLocal(project.ForSpecInput("specs/ralph/run.md"), config.Any())
-	require.NoError(t, err)
-	require.True(t, aiWriteProjectCalled(runner))
-	require.True(t, gitArtifactsCommitted(runner))
-}
-
-func TestRunLocalSpecWriteProjectFailureSendsErrorNotification(t *testing.T) {
-	runner := withMocks(
-		withAI(aiThatFailsWriteProject()),
-	)
-	err := runner.RunLocal(project.ForSpecInput("specs/ralph/run.md"), config.Any())
-	require.Error(t, err)
-	require.NotEmpty(t, notifyErrors(runner))
-	require.Zero(t, aiPickCalls(runner))
-}
-
-func TestRunLocalGenerationHappensAfterBranchSwitch(t *testing.T) {
-	runner := withMocks(
-		withGit(gitNewMock()),
-		withProject(project.ThatReportsAllComplete()),
-	)
-	err := runner.RunLocal(project.ForSpecInput("specs/ralph/run.md"), config.Any())
-	require.NoError(t, err)
-	require.True(t, gitSwitchedBeforeArtifactsCommitted(runner))
+	require.Equal(t, "projects/demo.yaml", projMock.LastPath(), "the run resolves the supplied project file directly")
+	require.Equal(t, 1, projMock.ResolveCount())
 }
 
 func TestRunLocalResolvesItemsWithConfiguredQuery(t *testing.T) {

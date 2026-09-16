@@ -27,9 +27,6 @@ var changelogInstructions string
 //go:embed project-fix-instructions.md
 var projectFixInstructions string
 
-//go:embed write-project-instructions.md
-var writeProjectInstructions string
-
 //go:embed resolve-merge-conflicts-instructions.md
 var resolveMergeConflictsInstructions string
 
@@ -78,11 +75,6 @@ type LoopPromptData struct {
 type LoopSlugPromptData struct {
 	Steps      []string
 	OutputFile string
-}
-
-type WriteProjectPromptData struct {
-	InputPath string
-	InputType string
 }
 
 type ResolveMergeConflictsPromptData struct {
@@ -194,10 +186,6 @@ func BuildLoopSlugPrompt(steps []string, outputPath string) (string, error) {
 type ProjectFixPromptData struct {
 	ProjectFile string
 	LoadError   string
-}
-
-func BuildWriteProjectPrompt(data WriteProjectPromptData) (string, error) {
-	return executeTemplate(writeProjectInstructions, data)
 }
 
 func BuildResolveMergeConflictsPrompt(baseBranch, projectBranch string) (string, error) {

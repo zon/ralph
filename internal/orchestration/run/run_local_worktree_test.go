@@ -18,17 +18,6 @@ func TestRunLocalInWorktreeSkipsBranchSwitch(t *testing.T) {
 	require.False(t, gitBranchSwitched(runner), "worktree mode must not switch branches in the current checkout")
 }
 
-func TestRunLocalInWorktreeRunsFullLoop(t *testing.T) {
-	runner := withMocks(
-		withProject(project.ThatReportsAllComplete()),
-	)
-	err := runner.RunLocalInWorktree(project.ForSpecInput("specs/ralph/run.md"), config.Any())
-	require.NoError(t, err)
-	require.False(t, gitBranchSwitched(runner))
-	require.True(t, aiWriteProjectCalled(runner), "artifact generation runs in the worktree")
-	require.True(t, gitArtifactsCommitted(runner))
-}
-
 func TestRunLocalInWorktreeIteratesAndCreatesPR(t *testing.T) {
 	runner := withMocks(
 		withProject(project.ThatReportsIncompleteUntil(1)),
@@ -39,6 +28,18 @@ func TestRunLocalInWorktreeIteratesAndCreatesPR(t *testing.T) {
 	require.Greater(t, aiPickCalls(runner), 0, "the loop iterates over items in the worktree")
 	require.True(t, githubPRCreated(runner))
 	require.False(t, gitBranchSwitched(runner))
+}
+
+func TestRunLocalInWorktreeResolvesProjectFileDirectly(t *testing.T) {
+	proj := project.Any()
+	proj.Path = "projects/demo.yaml"
+	projMock := project.ThatReportsAllComplete()
+	runner := withMocks(
+		withProject(projMock),
+	)
+	err := runner.RunLocalInWorktree(project.ForProjectInput(proj), config.Any())
+	require.NoError(t, err)
+	require.Equal(t, "projects/demo.yaml", projMock.LastPath(), "worktree execution resolves the supplied project file directly")
 }
 
 func TestRunLocalInWorktreeFailureSkipsBranchSwitch(t *testing.T) {
