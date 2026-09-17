@@ -139,6 +139,16 @@ When namespace preparation runs, the system SHALL confirm that the kubectl and a
 
 When namespace preparation runs, the system SHALL run preparation steps in order: (1) resolve the Kubernetes context, (2) confirm the kubectl and argo CLIs are installed, (3) validate and write GitHub credentials, (4) read and write OpenCode credentials. If any step fails, the command SHALL exit immediately without proceeding to subsequent steps.
 
+The OpenCode credentials SHALL always be written to the `opencode-credentials` Secret. `workflow.opencodeSecret` picks the Secret the workflow mounts, not where a developer's own credentials are stored, so a repository that points its workflow at another Secret keeps that Secret free of developer keys. When the two names differ, the command SHALL say which Secret the workflow reads.
+
+#### Scenario: The workflow reads another Secret
+
+- GIVEN `workflow.opencodeSecret: opencode-ai-gateway` is set in `.ralph/config.yaml`
+- AND a namespace is targeted
+- WHEN the user runs `ralph setup`
+- THEN the OpenCode `auth.json` is written to the `opencode-credentials` Secret
+- AND the output says the workflow mounts `opencode-ai-gateway` instead
+
 #### Scenario: App credentials prepared successfully
 
 - GIVEN `workflow.namespace: argo` is set in `.ralph/config.yaml`

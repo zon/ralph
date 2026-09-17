@@ -113,6 +113,33 @@ func TestConfigDocumentationExtraIterationsDefault(t *testing.T) {
 	assert.Contains(t, iterations, "--extra", "the Iterations section must document the --extra flag")
 }
 
+// TestConfigDocumentationOpenCodeSecret asserts the Workflow section of the
+// embedded configuration reference documents the opencodeSecret field and the
+// Secret ralph setup writes.
+func TestConfigDocumentationOpenCodeSecret(t *testing.T) {
+	doc := config.ConfigDocumentation()
+	require.NotEmpty(t, doc)
+	assert.Contains(t, doc, "## Workflow")
+	workflow := workflowSection(t, doc)
+
+	assert.Contains(t, workflow, "opencodeSecret", "the Workflow section must document the opencodeSecret field")
+	assert.Contains(t, workflow, "ralph setup", "the Workflow section must state that ralph setup writes the default Secret")
+	assert.Contains(t, workflow, "opencode-credentials", "the Workflow section must name the Secret ralph setup writes")
+}
+
+// workflowSection returns the body of the Workflow section, from its header to
+// the next section header.
+func workflowSection(t *testing.T, doc string) string {
+	t.Helper()
+	const header = "## Workflow"
+	start := strings.Index(doc, header)
+	require.NotEqual(t, -1, start, "the documentation must contain a Workflow section")
+	body := doc[start+len(header):]
+	next := strings.Index(body, "\n## ")
+	require.NotEqual(t, -1, next, "the Workflow section must be followed by another section")
+	return body[:next]
+}
+
 // iterationsSection returns the body of the Iterations section, from its
 // header to the next section header.
 func iterationsSection(t *testing.T, doc string) string {

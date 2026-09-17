@@ -11,6 +11,8 @@ import (
 	"strconv"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/zon/ralph/internal/k8s"
 )
 
 //go:embed fix-service-instructions.md
@@ -254,14 +256,19 @@ func parseResourceQuantity(q string) (float64, error) {
 
 // WorkflowConfig represents Argo Workflow configuration options
 type WorkflowConfig struct {
-	Image      ImageConfig       `yaml:"image,omitempty"`
-	ConfigMaps []ConfigMapMount  `yaml:"configMaps,omitempty"`
-	Secrets    []SecretMount     `yaml:"secrets,omitempty"`
-	Env        map[string]EnvVar `yaml:"env,omitempty"`
-	Context    string            `yaml:"context,omitempty"`
-	Namespace  string            `yaml:"namespace,omitempty"`
-	Labels     map[string]string `yaml:"labels,omitempty"`
-	Resources  WorkflowResources `yaml:"resources,omitempty"`
+	Image          ImageConfig       `yaml:"image,omitempty"`
+	ConfigMaps     []ConfigMapMount  `yaml:"configMaps,omitempty"`
+	Secrets        []SecretMount     `yaml:"secrets,omitempty"`
+	Env            map[string]EnvVar `yaml:"env,omitempty"`
+	Context        string            `yaml:"context,omitempty"`
+	Namespace      string            `yaml:"namespace,omitempty"`
+	OpenCodeSecret string            `yaml:"opencodeSecret,omitempty"`
+	Labels         map[string]string `yaml:"labels,omitempty"`
+	Resources      WorkflowResources `yaml:"resources,omitempty"`
+
+	// opencodeSecretSet records whether the config file set opencodeSecret, so
+	// an omitted key takes the default while an explicit empty value is rejected.
+	opencodeSecretSet bool `yaml:"-"`
 }
 
 // UnmarshalYAML implements yaml.Unmarshaler so a null workflow.env entry is
@@ -278,6 +285,7 @@ func (w *WorkflowConfig) UnmarshalYAML(node *yaml.Node) error {
 		return err
 	}
 	*w = WorkflowConfig(p)
+	w.opencodeSecretSet = mappingValue(node, "opencodeSecret") != nil
 	return nil
 }
 
@@ -468,6 +476,15 @@ func validateWorkflowEnv(env map[string]EnvVar) error {
 	return nil
 }
 
+// validateWorkflowOpenCodeSecret rejects an explicitly empty opencodeSecret,
+// which names no Secret for the workflow to mount.
+func validateWorkflowOpenCodeSecret(workflow WorkflowConfig) error {
+	if workflow.opencodeSecretSet && workflow.OpenCodeSecret == "" {
+		return fmt.Errorf("opencodeSecret must not be empty")
+	}
+	return nil
+}
+
 // applyDefaults fills in zero-value fields with their default values.
 func applyDefaults(config *RalphConfig) {
 	if config.Items == "" {
@@ -489,6 +506,12 @@ func applyDefaults(config *RalphConfig) {
 	// config file explicitly sets `cleanup: false`.
 	if !config.cleanupSet {
 		config.Cleanup = true
+	}
+
+	// The workflow mounts the Secret ralph setup writes unless the config file
+	// names another one.
+	if !config.Workflow.opencodeSecretSet {
+		config.Workflow.OpenCodeSecret = k8s.OpenCodeSecretName
 	}
 
 	for i := range config.Services {
@@ -658,6 +681,10 @@ func LoadConfig() (*RalphConfig, error) {
 
 	if err := validateWorkflowEnv(config.Workflow.Env); err != nil {
 		return nil, fmt.Errorf("invalid workflow env: %w", err)
+	}
+
+	if err := validateWorkflowOpenCodeSecret(config.Workflow); err != nil {
+		return nil, fmt.Errorf("invalid workflow: %w", err)
 	}
 
 	if err := validateLoopConfigs(config.Loops); err != nil {

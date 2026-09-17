@@ -6,26 +6,28 @@ import (
 )
 
 type WorkflowOptions struct {
-	Image       Image
-	ConfigMaps  []config.ConfigMapMount
-	Secrets     []config.SecretMount
-	Env         map[string]config.EnvVar
-	KubeContext string
-	Namespace   string
-	Labels      map[string]string
-	Resources   config.WorkflowResources
+	Image          Image
+	ConfigMaps     []config.ConfigMapMount
+	Secrets        []config.SecretMount
+	OpenCodeSecret string
+	Env            map[string]config.EnvVar
+	KubeContext    string
+	Namespace      string
+	Labels         map[string]string
+	Resources      config.WorkflowResources
 }
 
 func workflowOptionsFromConfig(cfg *config.RalphConfig, ctx *execcontext.Context) WorkflowOptions {
 	opts := WorkflowOptions{
-		Image:       MakeImage(cfg.Workflow.Image.Repository, cfg.Workflow.Image.Tag),
-		ConfigMaps:  cfg.Workflow.ConfigMaps,
-		Secrets:     cfg.Workflow.Secrets,
-		Env:         cfg.Workflow.Env,
-		KubeContext: cfg.Workflow.Context,
-		Namespace:   cfg.Workflow.Namespace,
-		Labels:      cfg.Workflow.Labels,
-		Resources:   cfg.Workflow.Resources,
+		Image:          MakeImage(cfg.Workflow.Image.Repository, cfg.Workflow.Image.Tag),
+		ConfigMaps:     cfg.Workflow.ConfigMaps,
+		Secrets:        cfg.Workflow.Secrets,
+		OpenCodeSecret: cfg.Workflow.OpenCodeSecret,
+		Env:            cfg.Workflow.Env,
+		KubeContext:    cfg.Workflow.Context,
+		Namespace:      cfg.Workflow.Namespace,
+		Labels:         cfg.Workflow.Labels,
+		Resources:      cfg.Workflow.Resources,
 	}
 
 	if ctx != nil && ctx.KubeContext() != "" {

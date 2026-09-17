@@ -25,13 +25,27 @@ The system SHALL configure git HTTPS authentication from credentials mounted at 
 
 ### Requirement: AI Credentials
 
-The system SHALL place OpenCode credentials in the expected location before any subcommand logic runs.
+The workflow SHALL mount the Secret `workflow.opencodeSecret` names in `.ralph/config.yaml` at `/secrets/opencode`. The default is `opencode-credentials`, the Secret `ralph setup` writes. The system SHALL place that mount's `auth.json`, when it has one, where OpenCode reads credentials before any subcommand logic runs. A Secret with no `auth.json` places nothing, so OpenCode holds only the credentials its own configuration supplies, such as a token read by an auth command.
 
 #### Scenario: OpenCode credential setup
 
 - GIVEN OpenCode provider credentials mounted at `/secrets/opencode`
 - WHEN the workflow container starts
 - THEN the credentials are placed in the expected location for the AI agent to use
+
+#### Scenario: A named Secret is mounted instead
+
+- GIVEN `workflow.opencodeSecret: opencode-ai-gateway` in `.ralph/config.yaml`
+- WHEN the workflow is submitted
+- THEN its pod mounts the `opencode-ai-gateway` Secret at `/secrets/opencode`
+- AND mounts no `opencode-credentials` Secret
+
+#### Scenario: A Secret without credentials places nothing
+
+- GIVEN the mounted Secret holds no `auth.json`, only other files such as an OpenCode configuration
+- WHEN the workflow container starts
+- THEN no credentials file is written for OpenCode
+- AND the container continues
 
 ### Requirement: Git Identity
 

@@ -15,6 +15,7 @@ import (
 	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
 	githubpkg "github.com/zon/ralph/internal/github"
+	"github.com/zon/ralph/internal/k8s"
 	"gopkg.in/yaml.v3"
 )
 
@@ -603,6 +604,97 @@ func TestWorkflowRender_CommandFieldEmpty(t *testing.T) {
 	args := container["args"].([]interface{})
 
 	assert.NotContains(t, args, "--command", "Args should not contain --command when Command is empty/nil")
+}
+
+// TestGenerateWorkflow_OpenCodeSecret asserts the workflow pod mounts the
+// Secret workflow.opencodeSecret names at /secrets/opencode. When the field is
+// unset the pod keeps the default opencode-credentials volume, and the
+// github-credentials mount is unaffected either way.
+func TestGenerateWorkflow_OpenCodeSecret(t *testing.T) {
+	tests := []struct {
+		name           string
+		openCodeSecret string
+		wantVolumeName string
+		wantSecretName string
+	}{
+		{
+			name:           "unset mounts the default Secret",
+			wantVolumeName: k8s.OpenCodeSecretName,
+			wantSecretName: k8s.OpenCodeSecretName,
+		},
+		{
+			name:           "set mounts the named Secret",
+			openCodeSecret: "opencode-ai-gateway",
+			wantVolumeName: "opencode-ai-gateway",
+			wantSecretName: "opencode-ai-gateway",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &config.RalphConfig{
+				Workflow: config.WorkflowConfig{OpenCodeSecret: tt.openCodeSecret},
+			}
+
+			wf, err := GenerateWorkflowWithGitInfo(&execcontext.Context{}, "test-project", "git@github.com:test/repo.git", "main", "test-project", "main", "", "project.yaml", false, cfg, "")
+			require.NoError(t, err, "GenerateWorkflowWithGitInfo failed")
+			workflowYAML, err := wf.Render()
+			require.NoError(t, err, "Render failed")
+
+			var workflow map[string]interface{}
+			require.NoError(t, yaml.Unmarshal([]byte(workflowYAML), &workflow), "Failed to parse generated workflow YAML")
+
+			spec := workflow["spec"].(map[string]interface{})
+			templates := spec["templates"].([]interface{})
+			tmpl := templates[0].(map[string]interface{})
+			container := tmpl["container"].(map[string]interface{})
+			volumes := tmpl["volumes"].([]interface{})
+			mounts := container["volumeMounts"].([]interface{})
+
+			vol := volumeByName(volumes, tt.wantVolumeName)
+			require.NotNil(t, vol, "volume %q not found", tt.wantVolumeName)
+			secret := vol["secret"].(map[string]interface{})
+			assert.Equal(t, tt.wantSecretName, secret["secretName"], "volume should mount the named Secret")
+
+			if tt.wantSecretName != k8s.OpenCodeSecretName {
+				assert.Nil(t, volumeByName(volumes, k8s.OpenCodeSecretName), "no volume should mount the default Secret")
+			}
+
+			mount := mountByName(mounts, tt.wantVolumeName)
+			require.NotNil(t, mount, "mount %q not found", tt.wantVolumeName)
+			assert.Equal(t, "/secrets/opencode", mount["mountPath"], "opencode mount path should be fixed")
+			assert.Equal(t, true, mount["readOnly"], "opencode mount should be read-only")
+
+			githubVol := volumeByName(volumes, "github-credentials")
+			require.NotNil(t, githubVol, "github-credentials volume not found")
+			githubSecret := githubVol["secret"].(map[string]interface{})
+			assert.Equal(t, k8s.GitHubSecretName, githubSecret["secretName"], "github volume should be unaffected")
+
+			githubMount := mountByName(mounts, "github-credentials")
+			require.NotNil(t, githubMount, "github-credentials mount not found")
+			assert.Equal(t, "/secrets/github", githubMount["mountPath"], "github mount should be unaffected")
+		})
+	}
+}
+
+func volumeByName(volumes []interface{}, name string) map[string]interface{} {
+	for _, v := range volumes {
+		vol, ok := v.(map[string]interface{})
+		if ok && vol["name"] == name {
+			return vol
+		}
+	}
+	return nil
+}
+
+func mountByName(mounts []interface{}, name string) map[string]interface{} {
+	for _, m := range mounts {
+		mount, ok := m.(map[string]interface{})
+		if ok && mount["name"] == name {
+			return mount
+		}
+	}
+	return nil
 }
 
 func TestGenerateCommandWorkflow(t *testing.T) {

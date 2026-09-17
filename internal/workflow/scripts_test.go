@@ -4,8 +4,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/zon/ralph/internal/config"
+	"github.com/zon/ralph/internal/k8s"
 )
 
 func TestBuildVolumeMounts_WorkspacePrefix(t *testing.T) {
@@ -18,7 +20,7 @@ func TestBuildVolumeMounts_WorkspacePrefix(t *testing.T) {
 		{Name: "my-secret-dir", DestDir: "config/auth"},
 	}
 
-	mounts := buildVolumeMounts(configMaps, secrets)
+	mounts := buildVolumeMounts(configMaps, secrets, "")
 
 	expected := map[string]string{
 		"my-config-0":   "/workspace/config/main.yaml",
@@ -145,17 +147,67 @@ func TestBuildSecretVolumeMount(t *testing.T) {
 }
 
 func TestBuildCredentialMounts(t *testing.T) {
-	mounts := buildCredentialMounts()
-	assert.Len(t, mounts, 2, "should have 2 credential mounts")
-	assert.Equal(t, "github-credentials", mounts[0]["name"], "first mount name should match")
-	assert.Equal(t, "opencode-credentials", mounts[1]["name"], "second mount name should match")
+	tests := []struct {
+		name           string
+		openCodeSecret string
+		wantName       string
+	}{
+		{
+			name:     "unset mounts the default Secret",
+			wantName: "opencode-credentials",
+		},
+		{
+			name:           "set mounts the named Secret",
+			openCodeSecret: "opencode-ai-gateway",
+			wantName:       "opencode-ai-gateway",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mounts := buildCredentialMounts(tt.openCodeSecret)
+			require.Len(t, mounts, 2, "should have 2 credential mounts")
+			assert.Equal(t, "github-credentials", mounts[0]["name"], "github mount name should be unaffected")
+			assert.Equal(t, "/secrets/github", mounts[0]["mountPath"], "github mount path should be unaffected")
+			assert.Equal(t, tt.wantName, mounts[1]["name"], "opencode mount name should match the mounted Secret")
+			assert.Equal(t, "/secrets/opencode", mounts[1]["mountPath"], "opencode mount path should be fixed")
+			assert.Equal(t, true, mounts[1]["readOnly"], "opencode mount should be read-only")
+		})
+	}
 }
 
 func TestBuildCredentialVolumes(t *testing.T) {
-	volumes := buildCredentialVolumes()
-	assert.Len(t, volumes, 2, "should have 2 credential volumes")
-	assert.Equal(t, "github-credentials", volumes[0]["name"], "first volume name should match")
-	assert.Equal(t, "opencode-credentials", volumes[1]["name"], "second volume name should match")
+	tests := []struct {
+		name           string
+		openCodeSecret string
+		wantName       string
+		wantSecretName string
+	}{
+		{
+			name:           "unset mounts the default Secret",
+			wantName:       "opencode-credentials",
+			wantSecretName: "opencode-credentials",
+		},
+		{
+			name:           "set mounts the named Secret",
+			openCodeSecret: "opencode-ai-gateway",
+			wantName:       "opencode-ai-gateway",
+			wantSecretName: "opencode-ai-gateway",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			volumes := buildCredentialVolumes(tt.openCodeSecret)
+			require.Len(t, volumes, 2, "should have 2 credential volumes")
+			assert.Equal(t, "github-credentials", volumes[0]["name"], "github volume name should be unaffected")
+			githubSecret := volumes[0]["secret"].(map[string]interface{})
+			assert.Equal(t, k8s.GitHubSecretName, githubSecret["secretName"], "github Secret should be unaffected")
+			assert.Equal(t, tt.wantName, volumes[1]["name"], "opencode volume name should match the mounted Secret")
+			openCodeSecret := volumes[1]["secret"].(map[string]interface{})
+			assert.Equal(t, tt.wantSecretName, openCodeSecret["secretName"], "opencode volume should mount the named Secret")
+		})
+	}
 }
 
 func TestBuildConfigMapVolume(t *testing.T) {
