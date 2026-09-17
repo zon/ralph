@@ -62,10 +62,24 @@ func (c *SetupCmd) Run() error {
 	}
 
 	if targetNamespace != "" {
-		out.Successf("%s/%s secret ready", targetNamespace, k8s.GitHubSecretName)
-		out.Successf("%s/%s secret ready", targetNamespace, k8s.OpenCodeSecretName)
+		openCodeSecret := ""
+		if ralphConfig != nil {
+			openCodeSecret = ralphConfig.Workflow.OpenCodeSecret
+		}
+		printSecretResults(out, targetNamespace, openCodeSecret)
 	}
 	return nil
+}
+
+// printSecretResults prints the ready lines for the credential Secrets setup
+// wrote. When the workflow mounts a different OpenCode Secret, it names that
+// Secret so the developer knows where the workflow reads credentials.
+func printSecretResults(out *output.Client, namespace, openCodeSecret string) {
+	out.Successf("%s/%s secret ready", namespace, k8s.GitHubSecretName)
+	out.Successf("%s/%s secret ready", namespace, k8s.OpenCodeSecretName)
+	if openCodeSecret != "" && openCodeSecret != k8s.OpenCodeSecretName {
+		out.Infof("workflow mounts %s instead", openCodeSecret)
+	}
 }
 
 type setupLocalReadinessClient struct {
