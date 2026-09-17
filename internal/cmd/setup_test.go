@@ -162,6 +162,43 @@ func TestSetupOpenCodeClientConfigureWritesAuthSecretToTargetedContext(t *testin
 	assert.Equal(t, map[string]string{"auth.json": authContent}, capturedData)
 }
 
+func TestPrintSecretResultsNamesWorkflowMount(t *testing.T) {
+	tests := []struct {
+		name           string
+		openCodeSecret string
+		wantMountLine  string
+	}{
+		{
+			name:           "named Secret differs from the one setup writes",
+			openCodeSecret: "opencode-ai-gateway",
+			wantMountLine:  "workflow mounts opencode-ai-gateway instead",
+		},
+		{
+			name:           "named Secret matches the one setup writes",
+			openCodeSecret: k8s.OpenCodeSecretName,
+			wantMountLine:  "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			buf := &bytes.Buffer{}
+			out := output.NewClient(buf, io.Discard, false)
+
+			printSecretResults(out, "argo", tt.openCodeSecret)
+
+			got := buf.String()
+			assert.Contains(t, got, "\u2713 argo/github-credentials secret ready")
+			assert.Contains(t, got, "\u2713 argo/opencode-credentials secret ready")
+			if tt.wantMountLine == "" {
+				assert.NotContains(t, got, "workflow mounts")
+			} else {
+				assert.Contains(t, got, tt.wantMountLine)
+			}
+		})
+	}
+}
+
 func TestSetupOpenCodeClientConfigurePropagatesError(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

@@ -92,7 +92,17 @@ func buildSecretVolume(name string, destFile string, index int) map[string]inter
 	}
 }
 
-func buildCredentialVolumes() []map[string]interface{} {
+// resolveOpenCodeSecretName returns the Secret the workflow mounts for
+// OpenCode. An unset name takes the default, the Secret ralph setup writes.
+func resolveOpenCodeSecretName(openCodeSecret string) string {
+	if openCodeSecret == "" {
+		return k8s.OpenCodeSecretName
+	}
+	return openCodeSecret
+}
+
+func buildCredentialVolumes(openCodeSecret string) []map[string]interface{} {
+	openCodeSecret = resolveOpenCodeSecretName(openCodeSecret)
 	return []map[string]interface{}{
 		{
 			"name": "github-credentials",
@@ -101,23 +111,24 @@ func buildCredentialVolumes() []map[string]interface{} {
 			},
 		},
 		{
-			"name": "opencode-credentials",
+			"name": sanitizeName(openCodeSecret),
 			"secret": map[string]interface{}{
-				"secretName": k8s.OpenCodeSecretName,
+				"secretName": openCodeSecret,
 			},
 		},
 	}
 }
 
-func buildCredentialMounts() []map[string]interface{} {
+func buildCredentialMounts(openCodeSecret string) []map[string]interface{} {
+	openCodeSecret = resolveOpenCodeSecretName(openCodeSecret)
 	return []map[string]interface{}{
 		{"name": "github-credentials", "mountPath": "/secrets/github", "readOnly": true},
-		{"name": "opencode-credentials", "mountPath": "/secrets/opencode", "readOnly": true},
+		{"name": sanitizeName(openCodeSecret), "mountPath": "/secrets/opencode", "readOnly": true},
 	}
 }
 
-func buildVolumeMounts(configMaps []config.ConfigMapMount, secrets []config.SecretMount) []map[string]interface{} {
-	mounts := buildCredentialMounts()
+func buildVolumeMounts(configMaps []config.ConfigMapMount, secrets []config.SecretMount, openCodeSecret string) []map[string]interface{} {
+	mounts := buildCredentialMounts(openCodeSecret)
 
 	for i, cm := range configMaps {
 		mounts = append(mounts, buildConfigMapVolumeMount(cm.Name, cm.DestFile, cm.DestDir, i))
@@ -130,8 +141,8 @@ func buildVolumeMounts(configMaps []config.ConfigMapMount, secrets []config.Secr
 	return mounts
 }
 
-func buildVolumes(configMaps []config.ConfigMapMount, secrets []config.SecretMount) []map[string]interface{} {
-	volumes := buildCredentialVolumes()
+func buildVolumes(configMaps []config.ConfigMapMount, secrets []config.SecretMount, openCodeSecret string) []map[string]interface{} {
+	volumes := buildCredentialVolumes(openCodeSecret)
 
 	for i, cm := range configMaps {
 		volumes = append(volumes, buildConfigMapVolume(cm.Name, cm.DestFile, i))

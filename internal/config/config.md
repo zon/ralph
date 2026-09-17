@@ -133,11 +133,14 @@ validate:
 | `image.tag` | Image tag (default: the current Ralph version) |
 | `context` | kubectl context to use |
 | `namespace` | Kubernetes namespace for the workflow and its credentials |
+| `opencodeSecret` | Secret the workflow mounts for OpenCode (default: `opencode-credentials`) |
 | `configMaps` | Additional ConfigMaps to mount into the container |
 | `secrets` | Additional Secrets to mount into the container |
 | `env` | Environment variables to set in the container. Each value is a literal string or a Kubernetes secret reference |
 | `labels` | Kubernetes labels to apply to workflow pods |
 | `resources` | CPU and memory requests and limits for the container |
+
+`ralph setup` always writes `opencode-credentials`, and `opencodeSecret` picks the Secret the workflow mounts.
 
 A `configMaps` or `secrets` entry names a Kubernetes ConfigMap or Secret to mount:
 
