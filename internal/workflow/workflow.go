@@ -38,6 +38,9 @@ type Workflow struct {
 	ConfigMaps []config.ConfigMapMount
 	// Secrets are the Secrets to mount into the container.
 	Secrets []config.SecretMount
+	// OpenCodeSecret is the Secret mounted for OpenCode at /secrets/opencode.
+	// An empty value falls back to the default, the Secret ralph setup writes.
+	OpenCodeSecret string
 	// Env is the environment variables to set in the container.
 	Env map[string]config.EnvVar
 	// KubeContext is the Argo workflow context label.
@@ -233,7 +236,7 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 		"command":      command,
 		"args":         args,
 		"env":          w.buildEnvVars(),
-		"volumeMounts": buildVolumeMounts(w.ConfigMaps, w.Secrets),
+		"volumeMounts": buildVolumeMounts(w.ConfigMaps, w.Secrets, w.OpenCodeSecret),
 		"workingDir":   "/workspace",
 	}
 	if resources := buildResources(w.Resources); len(resources) > 0 {
@@ -243,7 +246,7 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 	template := map[string]interface{}{
 		"name":      "ralph-executor",
 		"container": container,
-		"volumes":   buildVolumes(w.ConfigMaps, w.Secrets),
+		"volumes":   buildVolumes(w.ConfigMaps, w.Secrets, w.OpenCodeSecret),
 	}
 
 	if len(w.Labels) > 0 {
