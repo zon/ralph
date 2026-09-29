@@ -850,8 +850,9 @@ func TestLoopRunPropagatesIterationCommitError(t *testing.T) {
 }
 
 // TestLoopRunPropagatesFatalAIError asserts a fatal AI failure aborts the wired
-// command and leaves the command without a resolved slug, because the loop
-// fails before the resolution is retained.
+// command immediately and is returned unchanged, so no further prompt runs, and
+// leaves the command without a resolved slug, because the loop fails before the
+// resolution is retained.
 func TestLoopRunPropagatesFatalAIError(t *testing.T) {
 	writeLoopConfig(t, `loops:
   - slug: fmt
@@ -874,6 +875,9 @@ func TestLoopRunPropagatesFatalAIError(t *testing.T) {
 	err := cmd.Run()
 	require.Error(t, err)
 	assert.Equal(t, aiErr, err, "the AI error is returned unchanged")
+	assert.Equal(t, 1, ai.calls, "the loop stops immediately, so only the fatal pass runs")
+	require.Len(t, ai.prompts, 1, "no further prompt is built or run after a fatal failure")
+	assert.Contains(t, ai.prompts[0], "run gofmt", "the fatal pass still ran the built loop prompt")
 	assert.Empty(t, cmd.resolvedSlug, "no slug is retained when the loop fails")
 }
 
