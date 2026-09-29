@@ -177,6 +177,67 @@ func TestIterateDoesNotCommitFailedIteration(t *testing.T) {
 	require.Equal(t, 1, git.commitFromReportCalls, "only the successful iteration is committed")
 }
 
+// TestIterateFatalPickFailureAbortsWithoutBlocking asserts a fatal picker
+// failure, such as a billing or quota error, stops the run immediately and is
+// returned unchanged: no development prompt runs, no retry happens, the failed
+// iteration is not committed, and the run cannot write blocked.md.
+func TestIterateFatalPickFailureAbortsWithoutBlocking(t *testing.T) {
+	typ := reflect.TypeOf((*GitClient)(nil)).Elem()
+	_, ok := typ.MethodByName("WriteBlockedFile")
+	require.False(t, ok, "the run must not be able to write blocked.md")
+
+	git := gitWithChangesAndReport()
+	runner := withMocks(
+		withProject(project.ThatReportsIncompleteUntil(2).WithResolvedItems(3)),
+		withGit(git),
+		withAI(aiThatReturnsFatalPickError()),
+	)
+
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.WithExtraIterations(0))
+	require.ErrorIs(t, err, errFatal, "the fatal error is returned unchanged")
+	require.Equal(t, 1, aiPickCalls(runner), "the fatal picker failure is not retried")
+	require.Zero(t, aiDevelopCalls(runner), "no development prompt runs after a fatal failure")
+	require.Zero(t, git.commitFromReportCalls, "the fatal iteration is not committed")
+}
+
+// TestIterateFatalDevelopFailureAbortsWithoutBlocking asserts a fatal
+// development failure stops the run immediately and is returned unchanged,
+// without committing the failed iteration.
+func TestIterateFatalDevelopFailureAbortsWithoutBlocking(t *testing.T) {
+	git := gitWithChangesAndReport()
+	runner := withMocks(
+		withProject(project.ThatReportsIncompleteUntil(2).WithResolvedItems(3)),
+		withGit(git),
+		withAI(aiThatReturnsFatalDevelopError()),
+	)
+
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.WithExtraIterations(0))
+	require.ErrorIs(t, err, errFatal, "the fatal error is returned unchanged")
+	require.Equal(t, 1, aiDevelopCalls(runner), "the fatal development failure is not retried")
+	require.Zero(t, git.commitFromReportCalls, "the fatal iteration is not committed")
+}
+
+// TestIterateFatalServiceFixFailureAborts asserts a fatal service-startup fix
+// failure stops the run immediately, before the picker runs, and is returned
+// unchanged.
+func TestIterateFatalServiceFixFailureAborts(t *testing.T) {
+	svc := &mockServices{startErr: errFatal}
+	ai := &mockAI{
+		fixServiceFunc: func(*config.RalphConfig, error) error { return errFatal },
+		isFatalFunc:    func(err error) bool { return err == errFatal },
+	}
+	runner := withMocks(
+		withProject(project.ThatReportsIncompleteUntil(2).WithResolvedItems(3)),
+		withServices(svc),
+		withAI(ai),
+	)
+
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.WithExtraIterations(0))
+	require.ErrorIs(t, err, errFatal, "the fatal error is returned unchanged")
+	require.Equal(t, 1, svc.startCount, "service startup is not retried after a fatal fix failure")
+	require.Zero(t, aiPickCalls(runner), "no picker prompt runs after a fatal failure")
+}
+
 // TestIterateNonFatalFailureWritesNoBlockedFile asserts a failed iteration
 // cannot write blocked.md: the run's git surface exposes no blocked-file
 // writer, so blocked.md stays only the signal the agent itself leaves, and the
