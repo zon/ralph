@@ -406,6 +406,41 @@ func TestLoopRunWithSlugAndStepsUsesPassedSteps(t *testing.T) {
 	assert.Equal(t, passed, cmd.resolvedSteps, "the passed steps replace the config entry's steps on the command")
 }
 
+// TestLoopRunCarriesNonFatalAIFailureIntoNextPrompt asserts the loop command
+// recovers from a non-fatal AI pass failure: the loop continues, and the next
+// iteration's prompt, rendered by the real loop prompt builder, carries the
+// recorded error as the failure of the previous attempt so the agent can
+// address its cause.
+func TestLoopRunCarriesNonFatalAIFailureIntoNextPrompt(t *testing.T) {
+	writeLoopConfig(t, `loops:
+  - slug: fmt
+    steps:
+      - run gofmt
+`)
+
+	aiErr := errors.New("opencode execution failed: boom")
+	aiClient := &fakeAIClient{errs: []error{aiErr, nil}}
+	cmd := &LoopCmd{
+		Mode:         config.ModeLocal,
+		Slug:         "fmt",
+		Max:          intPtr(3),
+		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
+		aiClient:     aiClient,
+		reportReader: &fakeReportReader{content: "NOTHING_TO_DO"},
+		gitClient:    &fakeGitClient{},
+		prClient:     &fakePullRequestOpener{},
+	}
+
+	err := cmd.Run()
+
+	require.NoError(t, err, "a non-fatal AI failure does not stop the loop")
+	require.Len(t, aiClient.prompts, 2, "the loop runs a second iteration after the failure")
+	assert.NotContains(t, aiClient.prompts[0], "Previous Attempt Failed", "the first prompt carries no previous failure")
+	assert.NotContains(t, aiClient.prompts[0], aiErr.Error(), "the first prompt carries no previous error")
+	assert.Contains(t, aiClient.prompts[1], "Previous Attempt Failed", "the next prompt is labelled with the previous failure")
+	assert.Contains(t, aiClient.prompts[1], aiErr.Error(), "the next prompt carries the recorded error")
+}
+
 // fakeSlugProposer records the steps it was called with and returns an injected
 // slug or error, so tests never invoke the real AI.
 type fakeSlugProposer struct {
@@ -429,6 +464,8 @@ func (f *fakeSlugProposer) ProposeSlug(steps []string) (string, error) {
 type fakeAIClient struct {
 	prompts      []string
 	err          error
+	errs         []error
+	isFatalFunc  func(error) bool
 	calls        int
 	statsPrinted bool
 
@@ -441,7 +478,20 @@ type fakeAIClient struct {
 func (f *fakeAIClient) RunAgent(prompt string) error {
 	f.calls++
 	f.prompts = append(f.prompts, prompt)
+	if f.errs != nil {
+		if idx := f.calls - 1; idx < len(f.errs) {
+			return f.errs[idx]
+		}
+		return nil
+	}
 	return f.err
+}
+
+func (f *fakeAIClient) IsFatal(err error) bool {
+	if f.isFatalFunc != nil {
+		return f.isFatalFunc(err)
+	}
+	return false
 }
 
 func (f *fakeAIClient) PrintStats() {
@@ -799,10 +849,11 @@ func TestLoopRunPropagatesIterationCommitError(t *testing.T) {
 	assert.Empty(t, cmd.resolvedSlug, "no slug is retained when the iteration commit fails")
 }
 
-// TestLoopRunPropagatesAIError asserts an AI failure aborts the wired command
-// and leaves the command without a resolved slug, because the loop fails before
-// the resolution is retained.
-func TestLoopRunPropagatesAIError(t *testing.T) {
+// TestLoopRunPropagatesFatalAIError asserts a fatal AI failure aborts the wired
+// command immediately and is returned unchanged, so no further prompt runs, and
+// leaves the command without a resolved slug, because the loop fails before the
+// resolution is retained.
+func TestLoopRunPropagatesFatalAIError(t *testing.T) {
 	writeLoopConfig(t, `loops:
   - slug: fmt
     steps:
@@ -810,7 +861,7 @@ func TestLoopRunPropagatesAIError(t *testing.T) {
 `)
 
 	aiErr := errors.New("opencode execution failed: boom")
-	ai := &fakeAIClient{err: aiErr}
+	ai := &fakeAIClient{err: aiErr, isFatalFunc: func(error) bool { return true }}
 	cmd := &LoopCmd{
 		Mode:         config.ModeLocal,
 		Slug:         "fmt",
@@ -824,6 +875,9 @@ func TestLoopRunPropagatesAIError(t *testing.T) {
 	err := cmd.Run()
 	require.Error(t, err)
 	assert.Equal(t, aiErr, err, "the AI error is returned unchanged")
+	assert.Equal(t, 1, ai.calls, "the loop stops immediately, so only the fatal pass runs")
+	require.Len(t, ai.prompts, 1, "no further prompt is built or run after a fatal failure")
+	assert.Contains(t, ai.prompts[0], "run gofmt", "the fatal pass still ran the built loop prompt")
 	assert.Empty(t, cmd.resolvedSlug, "no slug is retained when the loop fails")
 }
 

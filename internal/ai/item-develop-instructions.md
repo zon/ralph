@@ -33,6 +33,16 @@ The full project file is available at: `{{.ProjectFilePath}}`. Do not modify the
 {{range .Services}}- `{{.Name}}.log`
 {{end}}
 {{- end}}
+{{- if .PreviousError}}
+
+**Previous Attempt Failed:**
+
+The previous iteration failed with this error:
+
+{{.PreviousError}}
+
+Address its cause before continuing.
+{{- end}}
 
 ## Definitions
 

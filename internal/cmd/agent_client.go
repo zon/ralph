@@ -38,7 +38,7 @@ const maxPickerAttempts = 3
 // same prompt is re-run until maxPickerAttempts attempts have been made. When
 // every attempt is unusable the returned error names the attempt limit. An
 // opencode execution failure is returned immediately and is never retried.
-func (a *AgentClient) RunPicker(proj *project.Project, incomplete []project.Item) (project.Item, error) {
+func (a *AgentClient) RunPicker(proj *project.Project, incomplete []project.Item, previousErr error) (project.Item, error) {
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		return project.Item{}, fmt.Errorf("failed to load config: %w", err)
@@ -54,6 +54,7 @@ func (a *AgentClient) RunPicker(proj *project.Project, incomplete []project.Item
 		CommitLog:      commitLog,
 		ProjectContent: projectContent(proj),
 		Items:          renderItems(incomplete),
+		PreviousError:  previousErr,
 	})
 	if err != nil {
 		return project.Item{}, fmt.Errorf("failed to build pick prompt: %w", err)
@@ -82,7 +83,7 @@ func (a *AgentClient) RunPicker(proj *project.Project, incomplete []project.Item
 	return project.Item{}, fmt.Errorf("no usable selection after the %d-attempt limit: %w", maxPickerAttempts, lastErr)
 }
 
-func (a *AgentClient) RunDeveloper(proj *project.Project, item project.Item) error {
+func (a *AgentClient) RunDeveloper(proj *project.Project, item project.Item, previousErr error) error {
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
@@ -104,6 +105,7 @@ func (a *AgentClient) RunDeveloper(proj *project.Project, item project.Item) err
 		ProjectFilePath: proj.Path,
 		Services:        cfg.Services,
 		Instructions:    cfg.Instructions,
+		PreviousError:   previousErr,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to build development prompt: %w", err)

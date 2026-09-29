@@ -1,6 +1,16 @@
 # Loop Steps
 
 You are an AI agent running one pass of a loop.
+{{- if .PreviousError}}
+
+**Previous Attempt Failed:**
+
+The previous iteration failed with this error:
+
+{{.PreviousError}}
+
+Address its cause before continuing.
+{{- end}}
 
 Follow these steps in order:
 {{range .Steps}}- {{.}}

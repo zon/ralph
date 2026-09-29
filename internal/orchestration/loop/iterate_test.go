@@ -90,15 +90,15 @@ func TestRunIterationLoop(t *testing.T) {
 	}
 }
 
-// TestRunPropagatesAIError asserts an AI failure aborts the loop and is
-// returned unchanged, without reading the report.
-func TestRunPropagatesAIError(t *testing.T) {
+// TestRunPropagatesFatalAIError asserts a fatal AI failure aborts the loop and
+// is returned unchanged, without reading the report.
+func TestRunPropagatesFatalAIError(t *testing.T) {
 	steps := []string{"run gofmt"}
 	client := &mockLoopConfigClient{loops: map[string][]string{"fmt": steps}}
 	prompt := &mockPromptBuilder{}
 	proposer := &mockSlugProposer{slug: "proposed"}
 	aiErr := errors.New("opencode execution failed: boom")
-	ai := &mockAIClient{err: aiErr}
+	ai := &mockAIClient{err: aiErr, isFatalFunc: func(error) bool { return true }}
 	report := &mockReportReader{reports: []string{"did the work"}}
 
 	result, err := NewCmd(client, prompt, proposer, ai, report, &mockGitClient{}, &mockPullRequestOpener{}, envNotInWorkflow()).Run("fmt", steps, 10)

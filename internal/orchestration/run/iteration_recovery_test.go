@@ -1,0 +1,272 @@
+package run
+
+import (
+	"reflect"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/zon/ralph/internal/config"
+	"github.com/zon/ralph/internal/project"
+	"github.com/zon/ralph/internal/services"
+)
+
+// TestIterateNonFatalPickFailureCarriesErrorIntoNextPrompts asserts a
+// non-fatal picker failure does not stop the run: the loop continues and the
+// next iteration's picker and development prompts both carry the failure.
+func TestIterateNonFatalPickFailureCarriesErrorIntoNextPrompts(t *testing.T) {
+	picks := 0
+	ai := &mockAI{
+		runPickerFunc: func(_ *project.Project, incomplete []project.Item, _ error) (project.Item, error) {
+			picks++
+			if picks == 1 {
+				return project.Item{}, errNonFatal
+			}
+			return incomplete[0], nil
+		},
+	}
+	runner := withMocks(
+		withProject(project.ThatReportsIncompleteUntil(2).WithResolvedItems(3)),
+		withAI(ai),
+	)
+
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.WithExtraIterations(0))
+	require.NoError(t, err)
+	require.Equal(t, []error{nil, errNonFatal}, ai.pickerPreviousErrs)
+	require.Equal(t, []error{errNonFatal}, ai.developPreviousErrs)
+}
+
+// TestIterateNonFatalDevelopFailureCarriesErrorIntoNextPrompts asserts a
+// non-fatal developer failure is recorded and carried into the next
+// iteration's picker and development prompts.
+func TestIterateNonFatalDevelopFailureCarriesErrorIntoNextPrompts(t *testing.T) {
+	develops := 0
+	ai := &mockAI{
+		runDeveloperFunc: func(_ *project.Project, _ project.Item, _ error) error {
+			develops++
+			if develops == 1 {
+				return errNonFatal
+			}
+			return nil
+		},
+	}
+	runner := withMocks(
+		withProject(project.ThatReportsIncompleteUntil(2).WithResolvedItems(3)),
+		withAI(ai),
+	)
+
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.WithExtraIterations(0))
+	require.NoError(t, err)
+	require.Equal(t, []error{nil, errNonFatal}, ai.pickerPreviousErrs)
+	require.Equal(t, []error{nil, errNonFatal}, ai.developPreviousErrs)
+}
+
+// TestIterateSuccessfulIterationClearsPreviousError asserts a successful
+// iteration clears the recorded failure, so a later prompt carries none.
+func TestIterateSuccessfulIterationClearsPreviousError(t *testing.T) {
+	picks := 0
+	ai := &mockAI{
+		runPickerFunc: func(_ *project.Project, incomplete []project.Item, _ error) (project.Item, error) {
+			picks++
+			if picks == 1 {
+				return project.Item{}, errNonFatal
+			}
+			return incomplete[0], nil
+		},
+	}
+	runner := withMocks(
+		withProject(project.ThatReportsIncompleteUntil(3).WithResolvedItems(3)),
+		withAI(ai),
+	)
+
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.WithExtraIterations(0))
+	require.NoError(t, err)
+	require.Equal(t, []error{nil, errNonFatal, nil}, ai.pickerPreviousErrs)
+}
+
+// TestIterateCarriesOnlyMostRecentFailure asserts that when consecutive
+// iterations fail, the next prompt carries only the immediately preceding
+// failure.
+func TestIterateCarriesOnlyMostRecentFailure(t *testing.T) {
+	picks := 0
+	ai := &mockAI{
+		runPickerFunc: func(_ *project.Project, incomplete []project.Item, _ error) (project.Item, error) {
+			picks++
+			switch picks {
+			case 1:
+				return project.Item{}, errNonFatal
+			case 2:
+				return project.Item{}, errNonFatalOther
+			default:
+				return incomplete[0], nil
+			}
+		},
+	}
+	runner := withMocks(
+		withProject(project.ThatReportsIncompleteUntil(3).WithResolvedItems(3)),
+		withAI(ai),
+	)
+
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.WithExtraIterations(1))
+	require.NoError(t, err)
+	require.Equal(t, []error{nil, errNonFatal, errNonFatalOther}, ai.pickerPreviousErrs)
+}
+
+// TestIterateServiceFixFailureCarriesErrorIntoNextPicker asserts a non-fatal
+// service-startup fix failure is recorded and carried into the next
+// iteration's picker prompt instead of stopping the run.
+func TestIterateServiceFixFailureCarriesErrorIntoNextPicker(t *testing.T) {
+	svc := &mockServices{}
+	svc.startFunc = func() (*services.Manager, error) {
+		if svc.startCount == 1 {
+			return nil, errNonFatal
+		}
+		return &services.Manager{}, nil
+	}
+	ai := &mockAI{
+		fixServiceFunc: func(*config.RalphConfig, error) error { return errNonFatal },
+	}
+	runner := withMocks(
+		withProject(project.ThatReportsIncompleteUntil(2).WithResolvedItems(3)),
+		withServices(svc),
+		withAI(ai),
+	)
+
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.WithExtraIterations(0))
+	require.NoError(t, err)
+	require.True(t, aiServiceFixCalled(runner))
+	require.Equal(t, []error{errNonFatal}, ai.pickerPreviousErrs)
+}
+
+// TestIterateNonFatalFailureConsumesAnIteration asserts a failed iteration
+// still counts against the loop's cap: a prompt that always fails non-fatally
+// runs the cap's worth of AI passes and then ends.
+func TestIterateNonFatalFailureConsumesAnIteration(t *testing.T) {
+	runner := withMocks(
+		withProject(project.ThatAlwaysReportsIncomplete().WithResolvedItems(3)),
+		withAI(aiThatAlwaysFails()),
+	)
+
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.WithExtraIterations(0))
+	require.Error(t, err)
+	require.Equal(t, 3, aiPickCalls(runner))
+}
+
+// TestIterateDoesNotCommitFailedIteration asserts a non-fatal failure is not
+// committed: the loop carries on but the failed iteration leaves no commit.
+func TestIterateDoesNotCommitFailedIteration(t *testing.T) {
+	picks := 0
+	ai := &mockAI{
+		runPickerFunc: func(_ *project.Project, incomplete []project.Item, _ error) (project.Item, error) {
+			picks++
+			if picks == 1 {
+				return project.Item{}, errNonFatal
+			}
+			return incomplete[0], nil
+		},
+	}
+	git := gitWithChangesAndReport()
+	runner := withMocks(
+		withProject(project.ThatReportsIncompleteUntil(2).WithResolvedItems(3)),
+		withGit(git),
+		withAI(ai),
+	)
+
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.WithExtraIterations(0))
+	require.NoError(t, err)
+	require.Equal(t, 1, git.commitFromReportCalls, "only the successful iteration is committed")
+}
+
+// TestIterateFatalPickFailureAbortsWithoutBlocking asserts a fatal picker
+// failure, such as a billing or quota error, stops the run immediately and is
+// returned unchanged: no development prompt runs, no retry happens, the failed
+// iteration is not committed, and the run cannot write blocked.md.
+func TestIterateFatalPickFailureAbortsWithoutBlocking(t *testing.T) {
+	typ := reflect.TypeOf((*GitClient)(nil)).Elem()
+	_, ok := typ.MethodByName("WriteBlockedFile")
+	require.False(t, ok, "the run must not be able to write blocked.md")
+
+	git := gitWithChangesAndReport()
+	runner := withMocks(
+		withProject(project.ThatReportsIncompleteUntil(2).WithResolvedItems(3)),
+		withGit(git),
+		withAI(aiThatReturnsFatalPickError()),
+	)
+
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.WithExtraIterations(0))
+	require.ErrorIs(t, err, errFatal, "the fatal error is returned unchanged")
+	require.Equal(t, 1, aiPickCalls(runner), "the fatal picker failure is not retried")
+	require.Zero(t, aiDevelopCalls(runner), "no development prompt runs after a fatal failure")
+	require.Zero(t, git.commitFromReportCalls, "the fatal iteration is not committed")
+}
+
+// TestIterateFatalDevelopFailureAbortsWithoutBlocking asserts a fatal
+// development failure stops the run immediately and is returned unchanged,
+// without committing the failed iteration.
+func TestIterateFatalDevelopFailureAbortsWithoutBlocking(t *testing.T) {
+	git := gitWithChangesAndReport()
+	runner := withMocks(
+		withProject(project.ThatReportsIncompleteUntil(2).WithResolvedItems(3)),
+		withGit(git),
+		withAI(aiThatReturnsFatalDevelopError()),
+	)
+
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.WithExtraIterations(0))
+	require.ErrorIs(t, err, errFatal, "the fatal error is returned unchanged")
+	require.Equal(t, 1, aiDevelopCalls(runner), "the fatal development failure is not retried")
+	require.Zero(t, git.commitFromReportCalls, "the fatal iteration is not committed")
+}
+
+// TestIterateFatalServiceFixFailureAborts asserts a fatal service-startup fix
+// failure stops the run immediately, before the picker runs, and is returned
+// unchanged.
+func TestIterateFatalServiceFixFailureAborts(t *testing.T) {
+	svc := &mockServices{startErr: errFatal}
+	ai := &mockAI{
+		fixServiceFunc: func(*config.RalphConfig, error) error { return errFatal },
+		isFatalFunc:    func(err error) bool { return err == errFatal },
+	}
+	runner := withMocks(
+		withProject(project.ThatReportsIncompleteUntil(2).WithResolvedItems(3)),
+		withServices(svc),
+		withAI(ai),
+	)
+
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.WithExtraIterations(0))
+	require.ErrorIs(t, err, errFatal, "the fatal error is returned unchanged")
+	require.Equal(t, 1, svc.startCount, "service startup is not retried after a fatal fix failure")
+	require.Zero(t, aiPickCalls(runner), "no picker prompt runs after a fatal failure")
+}
+
+// TestIterateNonFatalFailureWritesNoBlockedFile asserts a failed iteration
+// cannot write blocked.md: the run's git surface exposes no blocked-file
+// writer, so blocked.md stays only the signal the agent itself leaves, and the
+// loop still stops when it finds that file at the start of an iteration.
+func TestIterateNonFatalFailureWritesNoBlockedFile(t *testing.T) {
+	typ := reflect.TypeOf((*GitClient)(nil)).Elem()
+	_, ok := typ.MethodByName("WriteBlockedFile")
+	require.False(t, ok, "the run must not be able to write blocked.md")
+
+	picks := 0
+	ai := &mockAI{
+		runPickerFunc: func(_ *project.Project, incomplete []project.Item, _ error) (project.Item, error) {
+			picks++
+			if picks == 1 {
+				return project.Item{}, errNonFatal
+			}
+			return incomplete[0], nil
+		},
+	}
+	git := gitWithChangesAndReport()
+	runner := withMocks(
+		withProject(project.ThatReportsIncompleteUntil(2).WithResolvedItems(3)),
+		withGit(git),
+		withAI(ai),
+	)
+
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.WithExtraIterations(0))
+	require.NoError(t, err)
+	require.Equal(t, []error{nil, errNonFatal}, ai.pickerPreviousErrs)
+	require.Equal(t, []error{errNonFatal}, ai.developPreviousErrs)
+	require.Equal(t, 1, git.commitFromReportCalls, "the failed iteration is not committed")
+}

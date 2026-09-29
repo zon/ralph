@@ -43,24 +43,6 @@ func TestGitClientBlockedFileExists(t *testing.T) {
 	})
 }
 
-func TestGitClientWriteBlockedFile(t *testing.T) {
-	workDir := t.TempDir()
-	t.Chdir(workDir)
-	testutil.InitGitRepo(t, workDir)
-	testutil.MakeInitialCommit(t, workDir)
-
-	client := git.NewClient(context.NewContext())
-	err := &testBlockedError{"connection refused"}
-
-	client.WriteBlockedFile(err)
-
-	blockedPath := filepath.Join(workDir, "blocked.md")
-	data, readErr := os.ReadFile(blockedPath)
-	require.NoError(t, readErr)
-	assert.Contains(t, string(data), "connection refused")
-	assert.Contains(t, string(data), "# Blocked")
-}
-
 func TestGitClientHasChanges(t *testing.T) {
 	workDir := t.TempDir()
 	t.Chdir(workDir)
@@ -474,12 +456,4 @@ func gitStatusPorcelain(t *testing.T, dir string) string {
 	out, err := c.CombinedOutput()
 	require.NoError(t, err, "git status --porcelain failed")
 	return string(out)
-}
-
-type testBlockedError struct {
-	msg string
-}
-
-func (e *testBlockedError) Error() string {
-	return e.msg
 }

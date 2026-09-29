@@ -111,16 +111,6 @@ func TestIterateFatalPickErrorIsNotRetried(t *testing.T) {
 	require.Error(t, err)
 	require.Equal(t, 1, aiPickCalls(runner))
 	require.Zero(t, aiDevelopCalls(runner))
-	require.False(t, gitBlockedFileWritten(runner))
-}
-
-func TestIterateNonFatalPickErrorWritesBlockedFile(t *testing.T) {
-	runner := withMocks(
-		withAI(aiThatReturnsNonFatalPickError()),
-	)
-	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.Any())
-	require.Error(t, err)
-	require.True(t, gitBlockedFileWritten(runner))
 }
 
 func TestIterateFatalDevelopErrorIsNotRetried(t *testing.T) {
@@ -130,14 +120,4 @@ func TestIterateFatalDevelopErrorIsNotRetried(t *testing.T) {
 	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.Any())
 	require.Error(t, err)
 	require.Equal(t, 1, aiDevelopCalls(runner))
-	require.False(t, gitBlockedFileWritten(runner))
-}
-
-func TestIterateNonFatalDevelopErrorWritesBlockedFile(t *testing.T) {
-	runner := withMocks(
-		withAI(aiThatReturnsNonFatalDevelopError()),
-	)
-	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.Any())
-	require.Error(t, err)
-	require.True(t, gitBlockedFileWritten(runner))
 }

@@ -12,9 +12,10 @@ type LoopConfigClient interface {
 	LoopSteps(slug string) ([]string, error)
 }
 
-// PromptBuilder builds the loop prompt that embeds the resolved steps.
+// PromptBuilder builds the loop prompt that embeds the resolved steps and,
+// when non-nil, the error the previous iteration's AI pass failed with.
 type PromptBuilder interface {
-	BuildLoopPrompt(steps []string) (string, error)
+	BuildLoopPrompt(steps []string, previousErr error) (string, error)
 }
 
 // SlugProposer proposes a branch slug for the given steps.
@@ -26,6 +27,9 @@ type SlugProposer interface {
 // conflicting base-branch merge.
 type AIClient interface {
 	RunAgent(prompt string) error
+	// IsFatal reports whether an AI pass failure is fatal and must stop the
+	// loop immediately rather than be carried forward.
+	IsFatal(err error) bool
 	// PrintStats prints the accumulated AI token usage and cost statistics.
 	PrintStats()
 	// ResolveMergeConflicts resolves a base-branch merge conflict, runs the
@@ -164,10 +168,9 @@ func (c *Cmd) RunResolvedInWorktree(result *Result, max int) error {
 }
 
 // runResolved synchronizes the loop branch with the branch it was created from,
-// builds the loop prompt embedding the resolved steps, and runs it as an
-// iteration loop, opening the loop branch's pull request afterwards. In
-// worktree mode the branch switch is skipped because the worktree already has
-// the loop branch checked out.
+// runs the resolved steps as an iteration loop, opening the loop branch's pull
+// request afterwards. In worktree mode the branch switch is skipped because the
+// worktree already has the loop branch checked out.
 func (c *Cmd) runResolved(result *Result, max int, inWorktree bool) error {
 	if c.env.InWorkflow() {
 		defer c.ai.PrintStats()
@@ -180,11 +183,7 @@ func (c *Cmd) runResolved(result *Result, max int, inWorktree bool) error {
 	if _, err := basesync.Sync(c.git, c.ai, c.output, c.base, git.LoopBranch(result.Slug), inWorktree); err != nil {
 		return err
 	}
-	prompt, err := c.prompt.BuildLoopPrompt(result.Steps)
-	if err != nil {
-		return err
-	}
-	if err := c.iterate(prompt, max, result.Slug); err != nil {
+	if err := c.iterate(result.Steps, max, result.Slug); err != nil {
 		return err
 	}
 	if err := c.syncBaseBranchBeforePR(result, inWorktree); err != nil {
@@ -208,18 +207,31 @@ func (c *Cmd) syncBaseBranchBeforePR(result *Result, inWorktree bool) error {
 	return c.git.Push()
 }
 
-// iterate runs the loop prompt as an iteration loop. Each iteration invokes
-// the AI and reads the agent's report. An iteration whose agent pass leaves
-// report.md missing or unreadable is not committed: the loop moves on to the
-// next iteration instead of returning an error, still bounded by the iteration
-// cap. Otherwise the iteration commits when the report says work was done. The
-// loop stops when the report says nothing to do or after max iterations,
-// whichever comes first.
-func (c *Cmd) iterate(prompt string, max int, slug string) error {
+// iterate runs the resolved steps as an iteration loop. Each iteration builds
+// the loop prompt, invokes the AI, and reads the agent's report. A non-fatal AI
+// pass failure is recorded and the loop moves on to the next iteration, whose
+// prompt carries the recorded error as the failure of the previous attempt; a
+// successful AI pass clears it. A fatal failure stops the loop immediately and
+// is returned. An iteration whose agent pass leaves report.md missing or
+// unreadable is not committed: the loop moves on to the next iteration instead
+// of returning an error, still bounded by the iteration cap. Otherwise the
+// iteration commits when the report says work was done. The loop stops when the
+// report says nothing to do or after max iterations, whichever comes first.
+func (c *Cmd) iterate(steps []string, max int, slug string) error {
+	var previousErr error
 	for i := 0; i < max; i++ {
-		if err := c.ai.RunAgent(prompt); err != nil {
+		prompt, err := c.prompt.BuildLoopPrompt(steps, previousErr)
+		if err != nil {
 			return err
 		}
+		if err := c.ai.RunAgent(prompt); err != nil {
+			if c.ai.IsFatal(err) {
+				return err
+			}
+			previousErr = err
+			continue
+		}
+		previousErr = nil
 		report, err := c.report.ReadReport()
 		if err != nil {
 			continue

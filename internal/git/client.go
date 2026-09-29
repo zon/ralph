@@ -38,15 +38,6 @@ func (a *Client) BlockedFileExists() bool {
 	return err == nil
 }
 
-func (a *Client) WriteBlockedFile(err error) {
-	repoRoot, repoErr := FindRepoRoot()
-	if repoErr != nil {
-		return
-	}
-	content := fmt.Sprintf("# Blocked\n\nError: %s\n", err.Error())
-	_ = os.WriteFile(filepath.Join(repoRoot, "blocked.md"), []byte(content), 0644)
-}
-
 func (a *Client) HasChanges() bool {
 	return HasUncommittedChanges()
 }
