@@ -171,7 +171,7 @@ At the start of every iteration the command SHALL determine which items are comp
 
 ### Requirement: Iteration loop
 
-The iteration loop SHALL invoke the AI agent repeatedly until every item is complete or the iteration limit is reached. The iteration limit SHALL be the resolved item count plus the extra iteration count. When the extra iteration count is unset (nil), it SHALL default to 30% of the item count, rounded up. Each iteration checks for a blocked state before invoking the AI.
+The iteration loop SHALL invoke the AI agent repeatedly until every item is complete or the iteration limit is reached. The iteration limit SHALL be the resolved item count plus the extra iteration count. When the extra iteration count is unset (nil), it SHALL default to 30% of the item count, rounded up. Each iteration checks for a blocked state before invoking the AI. When an iteration's AI pass fails with a non-fatal error, the loop SHALL continue and carry the error into the next iteration's prompts, following [iteration-recovery.md](iteration-recovery.md).
 
 #### Scenario: All items already complete
 
@@ -221,6 +221,14 @@ The iteration loop SHALL invoke the AI agent repeatedly until every item is comp
 - WHEN the iteration processes the error
 - THEN a fatal error is returned
 - AND the loop does not retry
+
+#### Scenario: Non-fatal AI error is carried forward
+
+- GIVEN the AI agent returns a non-fatal error during an iteration
+- WHEN the iteration processes the error
+- THEN the loop continues to the next iteration
+- AND the error is included in the next iteration's picker and development prompts
+- AND no `blocked.md` is written
 
 ---
 
@@ -368,12 +376,11 @@ After each iteration the command SHALL commit any changes the AI produced. The c
 - WHEN the commit step runs
 - THEN no commit is created and no error is returned
 
-#### Scenario: `blocked.md` written on AI agent failure
+#### Scenario: Failed iteration is not committed
 
-- GIVEN the AI agent exits with a non-fatal error
-- WHEN the iteration processes the failure
-- THEN `blocked.md` is written to the repository root containing the failure reason
-- AND subsequent iterations detect it and stop
+- GIVEN an iteration's AI pass fails with a non-fatal error
+- WHEN the loop moves on to the next iteration
+- THEN no commit is created for the failed iteration
 
 ---
 

@@ -1,0 +1,30 @@
+# Carry a failed AI iteration's error into the next prompt so the agent can
+# correct course. Spec: `specs/ralph/iteration-recovery.md`. Build to it.
+#
+# Why. A coding prompt can fail for a reason the agent could fix if it knew
+# about it, such as a rejected directory permission or a failed build
+# command. Today a non-fatal failure stops the run and writes `blocked.md`,
+# so no later prompt learns what went wrong and the same mistake can repeat.
+# Carrying the error forward lets the agent address its cause. Fatal billing
+# and quota failures still stop the loop.
+#
+# Where things are. `internal/orchestration/run/runner.go`'s `iterate` and
+# `runIteration` drive the item loop, and `blockAndReturn` writes
+# `blocked.md`. `internal/orchestration/loop/cmd.go`'s `iterate` drives the
+# loop command. `internal/cmd/agent_client.go` builds the picker and
+# development prompts, and `internal/cmd/loop.go`'s `loopPromptBuilder`
+# builds the loop prompt. Prompt data lives in `internal/ai/ai.go` and the
+# embedded templates are `item-pick-instructions.md`,
+# `item-develop-instructions.md`, and `loop-instructions.md`. Tests follow
+# `docs/testing.md`.
+#
+# Applying. Nothing here touches a cluster. The behavior change lands with
+# the release.
+- "When an item iteration in `ralph run` fails with a non-fatal error from any prompt it runs, such as the picker, the development prompt, or a service-startup fix, the run records that error and continues to the next iteration instead of stopping, and the next iteration's picker and development prompts both include the recorded error as the failure of the previous attempt; an iteration in which those prompts succeed clears the recorded error."
+- "A non-fatal item iteration failure no longer writes `blocked.md`, and the failed iteration is not committed. `blocked.md` remains only the signal the agent writes when it is completely blocked, and the loop still stops when that file is present at the start of an iteration."
+- "A fatal item iteration failure, such as a billing or quota error, still stops `ralph run` immediately and is returned without writing `blocked.md` and without retrying. A failed iteration consumes one iteration from the loop's limit, so carrying failures forward never extends the run past its limit."
+- "When a `ralph loop` iteration's AI pass fails with a non-fatal error, the loop records the error and continues to the next iteration, and that iteration's prompt includes the recorded error as the failure of the previous attempt; a successful iteration clears the recorded error."
+- "A fatal `ralph loop` iteration failure stops the loop immediately and is returned, so no further prompt runs."
+- "The item-picker, item-development, and loop prompt templates each render the previous iteration's error in a clearly labelled section, and render nothing when no error was recorded."
+- "Embedded prompt tests cover the previous-error section appearing when an error is supplied and being absent when it is not, for all three prompts, and the run and loop tests cover a non-fatal failure continuing with the error in the next prompt and a fatal failure aborting."
+- "Apply a semver minor bump to the app version."

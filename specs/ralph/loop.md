@@ -337,7 +337,7 @@ The command SHALL build a prompt that embeds the resolved steps, in order. The p
 
 ### Requirement: Iteration loop
 
-Before running the prompt, the command SHALL switch to the branch `loop-<slug>`, creating it from the current branch when it does not already exist, and then synchronize it with the base branch as defined in [Base branch synchronization](#requirement-base-branch-synchronization). The command SHALL then run the prompt repeatedly as an iteration loop. Each iteration SHALL invoke the AI with the prompt and then read `report.md`. The loop SHALL stop when the report content equals the constant string `NOTHING_TO_DO` (trimmed of surrounding whitespace) or when the number of iterations reaches the iteration cap, whichever comes first.
+Before running the prompt, the command SHALL switch to the branch `loop-<slug>`, creating it from the current branch when it does not already exist, and then synchronize it with the base branch as defined in [Base branch synchronization](#requirement-base-branch-synchronization). The command SHALL then run the prompt repeatedly as an iteration loop. Each iteration SHALL invoke the AI with the prompt and then read `report.md`. The loop SHALL stop when the report content equals the constant string `NOTHING_TO_DO` (trimmed of surrounding whitespace) or when the number of iterations reaches the iteration cap, whichever comes first. When an iteration's AI pass fails with a non-fatal error, the loop SHALL continue and carry the error into the next iteration's prompt, following [iteration-recovery.md](iteration-recovery.md). A fatal error SHALL stop the loop and be returned.
 
 The cap follows a three-level precedence. `--max` at the command line takes priority. Otherwise the matching loop config's `max` field is used. Otherwise the cap defaults to `20`. The cap SHALL be a positive integer. Steps supplied without a slug have no loop config, so the cap is `--max` or the default.
 
@@ -368,6 +368,20 @@ The cap follows a three-level precedence. `--max` at the command line takes prio
 - WHEN the loop reaches the third iteration
 - THEN the loop stops after iteration 3
 - AND no fourth iteration runs
+
+#### Scenario: Non-fatal AI failure is carried into the next prompt
+
+- GIVEN an iteration's AI pass fails with a non-fatal error
+- WHEN the loop builds the next iteration's prompt
+- THEN the prompt includes the previous iteration's error
+- AND the loop continues until it stops or reaches the cap
+
+#### Scenario: Fatal AI failure stops the loop
+
+- GIVEN an iteration's AI pass fails with a fatal error
+- WHEN the failure is processed
+- THEN the loop stops immediately
+- AND the fatal error is returned
 
 #### Scenario: Default cap is 20
 

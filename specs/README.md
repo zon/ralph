@@ -6,6 +6,7 @@
 - [base-branch-sync](ralph/base-branch-sync.md) — Shared behavior that `ralph run` and `ralph loop` use in every execution mode to merge the base branch before the first iteration and again before opening the pull request.
 - [command](ralph/command.md) — Submit an arbitrary command as an Argo Workflow and stream its logs without AI iteration.
 - [completion](ralph/completion.md) — Read-only commands (`ralph complete` and `ralph incomplete`) that report which project items are complete and which are left, from the branch's commit trailers.
+- [iteration-recovery](ralph/iteration-recovery.md) — Shared behavior that `ralph run` and `ralph loop` use when an AI iteration fails: capture the failure, carry it into the next prompt, and keep the loop going unless the failure is fatal.
 - [kube-options](ralph/kube-options.md) — Shared contract for every Ralph CLI command that interacts with a Kubernetes cluster through kubectl: all such commands support `--context` and `--namespace` to target a cluster and namespace.
 - [logs](ralph/logs.md) — Print the pod logs of a Ralph-owned Argo Workflow, defaulting to the workflow at the top of the list and streaming with `--follow`.
 - [model-options](ralph/model-options.md) — Shared contract for every Ralph CLI command that prompts an AI model: `ralph run`, `ralph loop`, and `ralph workflow run` support `--model` and `--variant` to override the model and its reasoning-effort variant from `.ralph/config.yaml`.
