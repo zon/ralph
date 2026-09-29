@@ -354,6 +354,22 @@ func TestBuildItemDevelopPrompt(t *testing.T) {
 		require.NoError(t, err)
 		assert.Contains(t, prompt, "project format the repository has installed")
 	})
+
+	t.Run("renders the previous error when one is supplied", func(t *testing.T) {
+		data := keyed
+		data.PreviousError = errors.New("opencode execution failed: boom")
+		prompt, err := BuildItemDevelopPrompt(data)
+		require.NoError(t, err)
+		assert.Contains(t, prompt, "**Previous Attempt Failed:**")
+		assert.Contains(t, prompt, "opencode execution failed: boom")
+	})
+
+	t.Run("renders no previous error section when none is supplied", func(t *testing.T) {
+		prompt, err := BuildItemDevelopPrompt(keyed)
+		require.NoError(t, err)
+		assert.NotContains(t, prompt, "**Previous Attempt Failed:**")
+		assert.NotContains(t, prompt, "previous iteration")
+	})
 }
 
 func TestBuildItemPickPrompt(t *testing.T) {
@@ -425,6 +441,22 @@ func TestBuildItemPickPrompt(t *testing.T) {
 		assert.Contains(t, prompt, "**Incomplete Items:**")
 		assert.Contains(t, prompt, "**Recent Git History:**")
 		assert.NotContains(t, prompt, "**System Notes:**")
+	})
+
+	t.Run("renders the previous error when one is supplied", func(t *testing.T) {
+		data := data
+		data.PreviousError = errors.New("opencode execution failed: boom")
+		prompt, err := BuildItemPickPrompt(data)
+		require.NoError(t, err)
+		assert.Contains(t, prompt, "**Previous Attempt Failed:**")
+		assert.Contains(t, prompt, "opencode execution failed: boom")
+	})
+
+	t.Run("renders no previous error section when none is supplied", func(t *testing.T) {
+		prompt, err := BuildItemPickPrompt(data)
+		require.NoError(t, err)
+		assert.NotContains(t, prompt, "**Previous Attempt Failed:**")
+		assert.NotContains(t, prompt, "previous iteration")
 	})
 }
 
@@ -533,9 +565,10 @@ func TestBuildResolveMergeConflictsPrompt(t *testing.T) {
 
 func TestBuildLoopPrompt(t *testing.T) {
 	tests := []struct {
-		name  string
-		steps []string
-		check func(t *testing.T, prompt string)
+		name        string
+		steps       []string
+		previousErr error
+		check       func(t *testing.T, prompt string)
 	}{
 		{
 			name:  "embeds a single step",
@@ -599,11 +632,28 @@ func TestBuildLoopPrompt(t *testing.T) {
 				assert.Contains(t, prompt, "nothing was necessary")
 			},
 		},
+		{
+			name:        "renders the previous error when one is supplied",
+			steps:       []string{"run gofmt"},
+			previousErr: errors.New("opencode execution failed: boom"),
+			check: func(t *testing.T, prompt string) {
+				assert.Contains(t, prompt, "**Previous Attempt Failed:**")
+				assert.Contains(t, prompt, "opencode execution failed: boom")
+			},
+		},
+		{
+			name:  "renders no previous error section when none is supplied",
+			steps: []string{"run gofmt"},
+			check: func(t *testing.T, prompt string) {
+				assert.NotContains(t, prompt, "**Previous Attempt Failed:**")
+				assert.NotContains(t, prompt, "previous iteration")
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			prompt, err := BuildLoopPrompt(tt.steps)
+			prompt, err := BuildLoopPrompt(tt.steps, tt.previousErr)
 			require.NoError(t, err, "BuildLoopPrompt failed")
 			if tt.check != nil {
 				tt.check(t, prompt)

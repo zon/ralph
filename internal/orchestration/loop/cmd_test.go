@@ -347,7 +347,7 @@ func TestRunLoopStatsPrintedOnSuccess(t *testing.T) {
 func TestRunLoopStatsPrintedOnFailure(t *testing.T) {
 	aiErr := errors.New("opencode execution failed: boom")
 	client := &mockLoopConfigClient{loops: map[string][]string{"fmt": {"run gofmt"}}}
-	ai := &mockAIClient{err: aiErr}
+	ai := &mockAIClient{err: aiErr, isFatalFunc: func(error) bool { return true }}
 	cmd := NewCmd(client, &mockPromptBuilder{}, &mockSlugProposer{}, ai, &mockReportReader{reports: nothingToDoReports()}, &mockGitClient{}, &mockPullRequestOpener{}, envInWorkflow())
 
 	result, err := cmd.Run("fmt", nil, 10)
@@ -411,9 +411,9 @@ func TestRunResolvedInWorktreeRunsFullLoop(t *testing.T) {
 
 // TestRunResolvedInWorktreePropagatesAIError asserts an AI failure inside the
 // worktree aborts the loop and is returned unchanged.
-func TestRunResolvedInWorktreePropagatesAIError(t *testing.T) {
+func TestRunResolvedInWorktreePropagatesFatalAIError(t *testing.T) {
 	aiErr := errors.New("opencode execution failed: boom")
-	ai := &mockAIClient{err: aiErr}
+	ai := &mockAIClient{err: aiErr, isFatalFunc: func(error) bool { return true }}
 	git := &mockGitClient{}
 	pr := &mockPullRequestOpener{}
 	cmd := NewCmd(&mockLoopConfigClient{}, &mockPromptBuilder{}, &mockSlugProposer{}, ai, &mockReportReader{reports: nothingToDoReports()}, git, pr, envNotInWorkflow())

@@ -65,9 +65,11 @@ type ChangelogPromptData struct {
 	OutputFile string
 }
 
-// LoopPromptData carries the steps of the loop.
+// LoopPromptData carries the steps of the loop and the error the previous
+// iteration's AI pass failed with, when there was one.
 type LoopPromptData struct {
-	Steps []string
+	Steps         []string
+	PreviousError error
 }
 
 // LoopSlugPromptData carries the steps of the loop and the output file path
@@ -83,18 +85,21 @@ type ResolveMergeConflictsPromptData struct {
 }
 
 // ItemPickPromptData carries the context for the picker agent: the full project
-// file, the incomplete items each labelled with its index and key, and the
-// recent commit log. The agent selects one item and reports its index.
+// file, the incomplete items each labelled with its index and key, the recent
+// commit log, and the error the previous iteration's AI pass failed with, when
+// there was one. The agent selects one item and reports its index.
 type ItemPickPromptData struct {
 	Notes          []string
 	CommitLog      string
 	ProjectContent string
 	Items          string
+	PreviousError  error
 }
 
 // ItemDevelopPromptData carries the context for the development agent: the full
-// project file, the selected item verbatim with its index and key, and the
-// completion trailer the agent must use when the item is finished.
+// project file, the selected item verbatim with its index and key, the
+// completion trailer the agent must use when the item is finished, and the
+// error the previous iteration's AI pass failed with, when there was one.
 type ItemDevelopPromptData struct {
 	Notes           []string
 	CommitLog       string
@@ -106,6 +111,7 @@ type ItemDevelopPromptData struct {
 	ProjectFilePath string
 	Services        []config.Service
 	Instructions    string
+	PreviousError   error
 }
 
 func executeTemplate(templateContent string, data interface{}) (string, error) {
@@ -163,9 +169,11 @@ func BuildChangelogPrompt(outputFile string) (string, error) {
 	return executeTemplate(changelogInstructions, data)
 }
 
-// BuildLoopPrompt renders the loop prompt embedding the given steps in order.
-func BuildLoopPrompt(steps []string) (string, error) {
-	return executeTemplate(loopInstructions, LoopPromptData{Steps: steps})
+// BuildLoopPrompt renders the loop prompt embedding the given steps in order
+// and, when previousErr is non-nil, the error the previous iteration's AI pass
+// failed with.
+func BuildLoopPrompt(steps []string, previousErr error) (string, error) {
+	return executeTemplate(loopInstructions, LoopPromptData{Steps: steps, PreviousError: previousErr})
 }
 
 // BuildLoopSlugPrompt renders the loop slug prompt embedding the given steps in
@@ -211,11 +219,13 @@ func BuildItemPickPrompt(data ItemPickPromptData) (string, error) {
 		CommitLog      string
 		ProjectContent string
 		Items          string
+		PreviousError  error
 	}{
 		Notes:          data.Notes,
 		CommitLog:      data.CommitLog,
 		ProjectContent: strings.TrimRight(data.ProjectContent, "\n"),
 		Items:          strings.TrimRight(data.Items, "\n"),
+		PreviousError:  data.PreviousError,
 	}
 	return executeTemplate(itemPickInstructions, tmplData)
 }
@@ -239,6 +249,7 @@ func BuildItemDevelopPrompt(data ItemDevelopPromptData) (string, error) {
 		ProjectFilePath string
 		Services        []config.Service
 		Instructions    string
+		PreviousError   error
 	}{
 		Notes:           data.Notes,
 		CommitLog:       data.CommitLog,
@@ -250,6 +261,7 @@ func BuildItemDevelopPrompt(data ItemDevelopPromptData) (string, error) {
 		ProjectFilePath: data.ProjectFilePath,
 		Services:        data.Services,
 		Instructions:    data.Instructions,
+		PreviousError:   data.PreviousError,
 	}
 	return executeTemplate(itemDevelopInstructions, tmplData)
 }

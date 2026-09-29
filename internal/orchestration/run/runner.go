@@ -18,8 +18,8 @@ type ProjectClient interface {
 }
 
 type AIClient interface {
-	RunPicker(proj *project.Project, incomplete []project.Item) (project.Item, error)
-	RunDeveloper(proj *project.Project, item project.Item) error
+	RunPicker(proj *project.Project, incomplete []project.Item, previousErr error) (project.Item, error)
+	RunDeveloper(proj *project.Project, item project.Item, previousErr error) error
 	IsFatal(err error) bool
 	GenerateChangelog(proj *project.Project) error
 	FixServiceStartup(cfg *config.RalphConfig, err error) error
@@ -34,7 +34,6 @@ type EnvClient interface {
 type GitClient interface {
 	SwitchToBranch(slug string) error
 	BlockedFileExists() bool
-	WriteBlockedFile(err error)
 	HasChanges() bool
 	ReportExists() bool
 	CommitFromReport(slug string) error
@@ -183,9 +182,18 @@ func (r *Runner) syncBaseBranchBeforePR(cfg *config.RalphConfig, projectBranch s
 	return r.git.Push()
 }
 
+// iterate drives the item loop. A non-fatal failure from an iteration's
+// prompts is recorded and the loop continues to the next iteration, whose
+// picker and development prompts carry it as the previous attempt's failure; a
+// successful iteration clears it. A fatal failure stops the loop and is
+// returned. A failed iteration is not committed, and since a failure still
+// consumes one iteration from the limit, carrying failures forward never
+// extends the run past it. The loop stops when no items remain incomplete or
+// when the agent leaves blocked.md at the start of an iteration.
 func (r *Runner) iterate(proj *project.Project, cfg *config.RalphConfig) error {
 	extra := r.project.ExtraIterations(proj, cfg)
 	limit := len(proj.Items) + extra
+	var previousErr error
 	for i := 0; i < limit; i++ {
 		incomplete, err := r.project.Incomplete(proj, cfg.Base)
 		if err != nil {
@@ -197,9 +205,14 @@ func (r *Runner) iterate(proj *project.Project, cfg *config.RalphConfig) error {
 		if r.git.BlockedFileExists() {
 			return ErrBlocked
 		}
-		if err := r.runIteration(proj, incomplete, cfg); err != nil {
-			return err
+		if err := r.runIteration(proj, incomplete, cfg, previousErr); err != nil {
+			if r.ai.IsFatal(err) {
+				return err
+			}
+			previousErr = err
+			continue
 		}
+		previousErr = nil
 		if err := r.commitIteration(proj); err != nil {
 			return err
 		}
@@ -207,7 +220,7 @@ func (r *Runner) iterate(proj *project.Project, cfg *config.RalphConfig) error {
 	return r.project.IncompleteError(proj, cfg.Base)
 }
 
-func (r *Runner) runIteration(proj *project.Project, incomplete []project.Item, cfg *config.RalphConfig) error {
+func (r *Runner) runIteration(proj *project.Project, incomplete []project.Item, cfg *config.RalphConfig, previousErr error) error {
 	svc, err := r.services.Start(cfg)
 	if err != nil {
 		if fixErr := r.ai.FixServiceStartup(cfg, err); fixErr != nil {
@@ -217,21 +230,11 @@ func (r *Runner) runIteration(proj *project.Project, incomplete []project.Item, 
 	}
 	defer r.services.Stop(svc)
 	defer r.services.RemoveLogs(cfg)
-	item, err := r.ai.RunPicker(proj, incomplete)
+	item, err := r.ai.RunPicker(proj, incomplete, previousErr)
 	if err != nil {
-		return r.blockAndReturn(err)
+		return err
 	}
-	if err := r.ai.RunDeveloper(proj, item); err != nil {
-		return r.blockAndReturn(err)
-	}
-	return nil
-}
-
-func (r *Runner) blockAndReturn(err error) error {
-	if !r.ai.IsFatal(err) {
-		r.git.WriteBlockedFile(err)
-	}
-	return err
+	return r.ai.RunDeveloper(proj, item, previousErr)
 }
 
 func (r *Runner) removeProjectFile(proj *project.Project, cfg *config.RalphConfig) error {

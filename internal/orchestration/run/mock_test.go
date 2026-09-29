@@ -13,8 +13,8 @@ import (
 // mockAI implements AIClient with configurable behaviors and recorded call
 // history for the item-based run flow.
 type mockAI struct {
-	runPickerFunc        func(proj *project.Project, incomplete []project.Item) (project.Item, error)
-	runDeveloperFunc     func(proj *project.Project, item project.Item) error
+	runPickerFunc        func(proj *project.Project, incomplete []project.Item, previousErr error) (project.Item, error)
+	runDeveloperFunc     func(proj *project.Project, item project.Item, previousErr error) error
 	isFatalFunc          func(err error) bool
 	changelogFunc        func() error
 	fixServiceFunc       func(*config.RalphConfig, error) error
@@ -32,14 +32,17 @@ type mockAI struct {
 	lastPickerItems        []project.Item
 	lastDevelopedIndex     int
 	lastDevelopedValue     any
+	pickerPreviousErrs     []error
+	developPreviousErrs    []error
 }
 
-func (m *mockAI) RunPicker(proj *project.Project, incomplete []project.Item) (project.Item, error) {
+func (m *mockAI) RunPicker(proj *project.Project, incomplete []project.Item, previousErr error) (project.Item, error) {
 	m.pickCalls++
 	m.lastPickerIndices = itemIndices(incomplete)
 	m.lastPickerItems = cloneProjectItems(incomplete)
+	m.pickerPreviousErrs = append(m.pickerPreviousErrs, previousErr)
 	if m.runPickerFunc != nil {
-		return m.runPickerFunc(proj, incomplete)
+		return m.runPickerFunc(proj, incomplete, previousErr)
 	}
 	if len(incomplete) > 0 {
 		return incomplete[0], nil
@@ -47,12 +50,13 @@ func (m *mockAI) RunPicker(proj *project.Project, incomplete []project.Item) (pr
 	return project.Item{}, nil
 }
 
-func (m *mockAI) RunDeveloper(proj *project.Project, item project.Item) error {
+func (m *mockAI) RunDeveloper(proj *project.Project, item project.Item, previousErr error) error {
 	m.developCalls++
 	m.lastDevelopedIndex = item.Index
 	m.lastDevelopedValue = item.Value
+	m.developPreviousErrs = append(m.developPreviousErrs, previousErr)
 	if m.runDeveloperFunc != nil {
-		return m.runDeveloperFunc(proj, item)
+		return m.runDeveloperFunc(proj, item, previousErr)
 	}
 	return nil
 }
@@ -126,8 +130,8 @@ type mockGit struct {
 	pushErr        error
 
 	switchToBranchCalled       bool
-	writeBlockedFileCalled     bool
 	commitFromReportCalled     bool
+	commitFromReportCalls      int
 	commitProjectRemovalCalled bool
 	fetchBranchCalled          bool
 	needsMergeCalled           bool
@@ -155,10 +159,6 @@ func (m *mockGit) BlockedFileExists() bool {
 	return m.blockedFile
 }
 
-func (m *mockGit) WriteBlockedFile(err error) {
-	m.writeBlockedFileCalled = true
-}
-
 func (m *mockGit) HasChanges() bool {
 	return m.hasChanges
 }
@@ -169,6 +169,7 @@ func (m *mockGit) ReportExists() bool {
 
 func (m *mockGit) CommitFromReport(slug string) error {
 	m.commitFromReportCalled = true
+	m.commitFromReportCalls++
 	m.lastCommitMessage = m.reportMessage
 	return nil
 }
@@ -245,6 +246,7 @@ func (m *mockGitHub) CreatePR(proj *project.Project, head string) error {
 type mockServices struct {
 	runBeforeErr    error
 	startErr        error
+	startFunc       func() (*services.Manager, error)
 	startCount      int
 	stopCount       int
 	removeLogsCount int
@@ -256,6 +258,9 @@ func (m *mockServices) RunBeforeCommands(cfg *config.RalphConfig) error {
 
 func (m *mockServices) Start(cfg *config.RalphConfig) (*services.Manager, error) {
 	m.startCount++
+	if m.startFunc != nil {
+		return m.startFunc()
+	}
 	if m.startErr != nil {
 		return nil, m.startErr
 	}
@@ -298,6 +303,7 @@ func (m *mockOutput) Warnf(format string, a ...any) {
 
 var errFatal = &mockError{"billing limit exceeded"}
 var errNonFatal = &mockError{"non-fatal error"}
+var errNonFatalOther = &mockError{"another non-fatal error"}
 
 type mockError struct {
 	msg string
@@ -313,7 +319,7 @@ func (e *mockError) Error() string {
 
 func aiThatAlwaysFails() *mockAI {
 	return &mockAI{
-		runPickerFunc: func(_ *project.Project, _ []project.Item) (project.Item, error) {
+		runPickerFunc: func(_ *project.Project, _ []project.Item, _ error) (project.Item, error) {
 			return project.Item{}, errNonFatal
 		},
 		isFatalFunc: func(err error) bool { return false },
@@ -328,7 +334,7 @@ func aiThatFailsServiceFix() *mockAI {
 
 func aiThatPicksIndex(i int) *mockAI {
 	return &mockAI{
-		runPickerFunc: func(proj *project.Project, incomplete []project.Item) (project.Item, error) {
+		runPickerFunc: func(proj *project.Project, incomplete []project.Item, _ error) (project.Item, error) {
 			for _, it := range incomplete {
 				if it.Index == i {
 					return it, nil
@@ -344,33 +350,17 @@ func aiThatPicksIndex(i int) *mockAI {
 
 func aiThatReturnsFatalPickError() *mockAI {
 	return &mockAI{
-		runPickerFunc: func(_ *project.Project, _ []project.Item) (project.Item, error) {
+		runPickerFunc: func(_ *project.Project, _ []project.Item, _ error) (project.Item, error) {
 			return project.Item{}, errFatal
 		},
 		isFatalFunc: func(err error) bool { return err == errFatal },
 	}
 }
 
-func aiThatReturnsNonFatalPickError() *mockAI {
-	return &mockAI{
-		runPickerFunc: func(_ *project.Project, _ []project.Item) (project.Item, error) {
-			return project.Item{}, errNonFatal
-		},
-		isFatalFunc: func(err error) bool { return false },
-	}
-}
-
 func aiThatReturnsFatalDevelopError() *mockAI {
 	return &mockAI{
-		runDeveloperFunc: func(_ *project.Project, _ project.Item) error { return errFatal },
+		runDeveloperFunc: func(_ *project.Project, _ project.Item, _ error) error { return errFatal },
 		isFatalFunc:      func(err error) bool { return err == errFatal },
-	}
-}
-
-func aiThatReturnsNonFatalDevelopError() *mockAI {
-	return &mockAI{
-		runDeveloperFunc: func(_ *project.Project, _ project.Item) error { return errNonFatal },
-		isFatalFunc:      func(err error) bool { return false },
 	}
 }
 
@@ -553,6 +543,20 @@ func aiLastPickerItems(r *Runner) []project.Item {
 	return nil
 }
 
+func aiPickerPreviousErrors(r *Runner) []error {
+	if m, ok := r.ai.(*mockAI); ok {
+		return m.pickerPreviousErrs
+	}
+	return nil
+}
+
+func aiDevelopPreviousErrors(r *Runner) []error {
+	if m, ok := r.ai.(*mockAI); ok {
+		return m.developPreviousErrs
+	}
+	return nil
+}
+
 func aiLastDevelopedIndex(r *Runner) int {
 	if m, ok := r.ai.(*mockAI); ok {
 		return m.lastDevelopedIndex
@@ -686,13 +690,6 @@ func gitEventIndex(order []string, event string) int {
 		}
 	}
 	return -1
-}
-
-func gitBlockedFileWritten(r *Runner) bool {
-	if m, ok := r.git.(*mockGit); ok {
-		return m.writeBlockedFileCalled
-	}
-	return false
 }
 
 func gitLastCommitMessage(r *Runner) string {

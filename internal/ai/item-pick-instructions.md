@@ -29,6 +29,16 @@ Select the highest-priority incomplete item and report its index. Do not make an
 **Incomplete Items:**
 
 {{.Items}}
+{{- if .PreviousError}}
+
+**Previous Attempt Failed:**
+
+The previous iteration failed with this error:
+
+{{.PreviousError}}
+
+Address its cause before continuing.
+{{- end}}
 
 ## Definitions
 

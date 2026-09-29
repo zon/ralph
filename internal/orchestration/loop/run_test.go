@@ -624,7 +624,7 @@ func TestRunWorktreeReturnsToMainCheckoutBeforeRemoval(t *testing.T) {
 
 func TestRunWorktreeRemovesWorktreeWhenLoopFails(t *testing.T) {
 	aiErr := errors.New("opencode execution failed: boom")
-	ai := &mockAIClient{err: aiErr}
+	ai := &mockAIClient{err: aiErr, isFatalFunc: func(error) bool { return true }}
 	lc := NewCmd(
 		&mockLoopConfigClient{loops: map[string][]string{"fmt": {"run gofmt"}}},
 		&mockPromptBuilder{},
@@ -659,7 +659,7 @@ func TestRunWorktreeRemovalErrorReportedWhenRunSucceeds(t *testing.T) {
 
 func TestRunWorktreeLoopErrorTakesPrecedenceOverRemovalError(t *testing.T) {
 	aiErr := errors.New("iteration failed")
-	ai := &mockAIClient{err: aiErr}
+	ai := &mockAIClient{err: aiErr, isFatalFunc: func(error) bool { return true }}
 	lc := NewCmd(
 		&mockLoopConfigClient{loops: map[string][]string{"fmt": {"run gofmt"}}},
 		&mockPromptBuilder{},
@@ -755,6 +755,8 @@ func (e *eventAIClient) RunAgent(prompt string) error {
 	*e.events = append(*e.events, "ran-loop")
 	return nil
 }
+
+func (e *eventAIClient) IsFatal(error) bool { return false }
 
 func (e *eventAIClient) PrintStats() {}
 

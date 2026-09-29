@@ -214,9 +214,10 @@ func (p *loopSlugProposer) ProposeSlug(steps []string) (string, error) {
 // PromptBuilder interface.
 type loopPromptBuilder struct{}
 
-// BuildLoopPrompt builds the loop prompt embedding the given steps.
-func (b *loopPromptBuilder) BuildLoopPrompt(steps []string) (string, error) {
-	return ai.BuildLoopPrompt(steps)
+// BuildLoopPrompt builds the loop prompt embedding the given steps and, when
+// non-nil, the error the previous iteration's AI pass failed with.
+func (b *loopPromptBuilder) BuildLoopPrompt(steps []string, previousErr error) (string, error) {
+	return ai.BuildLoopPrompt(steps, previousErr)
 }
 
 // loopAIClient adapts ai.RunAgent to the orchestration's AIClient interface.
@@ -227,6 +228,12 @@ type loopAIClient struct {
 // RunAgent runs the loop prompt with opencode's configured agent.
 func (a *loopAIClient) RunAgent(prompt string) error {
 	return ai.RunAgent(a.ctx, opencode.New(), prompt)
+}
+
+// IsFatal reports whether an AI pass failure is fatal and must stop the loop
+// immediately rather than be carried forward.
+func (a *loopAIClient) IsFatal(err error) bool {
+	return opencode.IsFatalError(err)
 }
 
 // PrintStats prints the accumulated AI token usage and cost statistics, using

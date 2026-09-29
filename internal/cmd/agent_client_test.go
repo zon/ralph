@@ -91,11 +91,11 @@ func TestAgentClientPickAndDevelop_MockAI(t *testing.T) {
 	client := NewAgentClient(ctx, mockOC)
 
 	proj := &project.Project{Slug: "test-project", Items: project.NewItems([]any{"csv-serializer"})}
-	item, err := client.RunPicker(proj, proj.Items)
+	item, err := client.RunPicker(proj, proj.Items, nil)
 	require.NoError(t, err)
 	require.Equal(t, 0, item.Index)
 
-	err = client.RunDeveloper(proj, item)
+	err = client.RunDeveloper(proj, item, nil)
 	require.NoError(t, err)
 }
 
@@ -141,7 +141,7 @@ func TestAgentClientRunPickerGivesOnlyIncompleteItemsEachLabelledWithIndexAndKey
 		},
 	}
 
-	item, err := client.RunPicker(proj, []project.Item{proj.Items[1], proj.Items[3]})
+	item, err := client.RunPicker(proj, []project.Item{proj.Items[1], proj.Items[3]}, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, item.Index)
 
@@ -175,7 +175,7 @@ func TestAgentClientRunDeveloperUsesItemBasedInstructionsByDefault(t *testing.T)
 	client := NewAgentClient(execcontext.NewContext(), mockOC)
 
 	proj := &project.Project{Slug: "test-project", Path: "projects/test.yaml", Items: project.NewItems([]any{map[string]any{"slug": "csv-serializer", "description": "CSV serializer"}})}
-	err := client.RunDeveloper(proj, proj.Items[0])
+	err := client.RunDeveloper(proj, proj.Items[0], nil)
 	require.NoError(t, err)
 
 	assert.Contains(t, developPrompt, "one item of this project")
@@ -203,7 +203,7 @@ func TestAgentClientRunDeveloperHonorsCustomInstructions(t *testing.T) {
 	client := NewAgentClient(execcontext.NewContext(), mockOC)
 
 	proj := &project.Project{Slug: "test-project", Items: project.NewItems([]any{"csv-serializer"})}
-	err := client.RunDeveloper(proj, proj.Items[0])
+	err := client.RunDeveloper(proj, proj.Items[0], nil)
 	require.NoError(t, err)
 
 	assert.Contains(t, developPrompt, custom)
@@ -240,7 +240,7 @@ func TestAgentClientRunPickerCarriesFullProjectFileAsContext(t *testing.T) {
 		Doc: &projectfile.Document{Raw: raw},
 	}
 
-	_, err := client.RunPicker(proj, proj.Items)
+	_, err := client.RunPicker(proj, proj.Items, nil)
 	require.NoError(t, err)
 	assert.Contains(t, pickPrompt, strings.TrimRight(raw, "\n"), "the whole project file is included in the prompt as context")
 	assert.Contains(t, pickPrompt, "owner: platform", "content outside the item array is retained")
@@ -271,7 +271,7 @@ func TestAgentClientDevelopPromptCarriesSelectedItemVerbatim(t *testing.T) {
 	}
 	proj := &project.Project{Slug: "csv-export", Path: "projects/csv-export.yaml", Items: project.NewItems(values)}
 	item := proj.Items[2]
-	err := client.RunDeveloper(proj, item)
+	err := client.RunDeveloper(proj, item, nil)
 	require.NoError(t, err)
 
 	rendered, err := yaml.Marshal(item.Value)
@@ -301,7 +301,7 @@ func TestAgentClientDevelopPromptSuppliesIndexKeyAndTrailer(t *testing.T) {
 		Path:  "projects/csv-export.yaml",
 		Items: project.NewItems([]any{"exporter", "importer", map[string]any{"slug": "export-endpoint", "description": "build the export endpoint"}}),
 	}
-	err := client.RunDeveloper(proj, proj.Items[2])
+	err := client.RunDeveloper(proj, proj.Items[2], nil)
 	require.NoError(t, err)
 
 	assert.Contains(t, developPrompt, "(index 2, key export-endpoint)", "the prompt supplies index 2 and the key export-endpoint")
@@ -326,7 +326,7 @@ func TestAgentClientDevelopPromptKeylessItemUsesBareTrailer(t *testing.T) {
 	client := NewAgentClient(execcontext.NewContext(), mockOC)
 
 	proj := &project.Project{Slug: "csv-export", Path: "projects/csv-export.yaml", Items: project.NewItems([]any{"exporter", "importer", "writer"})}
-	err := client.RunDeveloper(proj, proj.Items[2])
+	err := client.RunDeveloper(proj, proj.Items[2], nil)
 	require.NoError(t, err)
 
 	assert.Contains(t, developPrompt, "(index 2)", "a plain string item is supplied with its index only")
@@ -360,12 +360,48 @@ func TestAgentClientDevelopPromptTrailerComesFromSharedFormatter(t *testing.T) {
 
 			proj := &project.Project{Slug: "csv-export", Path: "projects/csv-export.yaml", Items: project.NewItems([]any{"exporter", "importer", tc.value})}
 			item := proj.Items[2]
-			err := client.RunDeveloper(proj, item)
+			err := client.RunDeveloper(proj, item, nil)
 			require.NoError(t, err)
 
 			assert.Contains(t, developPrompt, "`"+trailer.Format(proj.Slug, item.Hash())+"`", "the trailer is produced by the shared trailer formatter")
 		})
 	}
+}
+
+// TestAgentClientPromptsCarryPreviousIterationError asserts the recorded error
+// of the previous attempt reaches both the picker and the development prompt.
+func TestAgentClientPromptsCarryPreviousIterationError(t *testing.T) {
+	workDir := t.TempDir()
+	t.Chdir(workDir)
+
+	testutil.InitGitRepo(t, workDir)
+	testutil.MakeInitialCommit(t, workDir)
+	testutil.CreateRalphConfig(t, workDir)
+
+	var pickPrompt, developPrompt string
+	mockOC := &opencode.MockOC{
+		RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
+			if strings.Contains(strings.ToLower(prompt), "picker") {
+				pickPrompt = prompt
+				return os.WriteFile("picked-item-index.txt", []byte("0"), 0644)
+			}
+			developPrompt = prompt
+			return nil
+		},
+	}
+	client := NewAgentClient(execcontext.NewContext(), mockOC)
+
+	proj := &project.Project{Slug: "test-project", Items: project.NewItems([]any{"csv-serializer"})}
+	previousErr := errors.New("previous attempt failed: boom")
+
+	_, err := client.RunPicker(proj, proj.Items, previousErr)
+	require.NoError(t, err)
+	require.NoError(t, client.RunDeveloper(proj, proj.Items[0], previousErr))
+
+	assert.Contains(t, pickPrompt, "**Previous Attempt Failed:**")
+	assert.Contains(t, pickPrompt, previousErr.Error())
+	assert.Contains(t, developPrompt, "**Previous Attempt Failed:**")
+	assert.Contains(t, developPrompt, previousErr.Error())
 }
 
 func TestAgentClientPrintStatsDoesNotPanicOnError(t *testing.T) {
@@ -483,7 +519,7 @@ func TestAgentClientRunPickerNeverPassesAgent(t *testing.T) {
 			}, nil)
 
 			proj := &project.Project{Slug: "test-project", Items: project.NewItems([]any{"csv-serializer"})}
-			_, err := client.RunPicker(proj, proj.Items)
+			_, err := client.RunPicker(proj, proj.Items, nil)
 			require.NoError(t, err)
 			assert.Equal(t, "", *capturedAgent, "the picker must never pass --agent to opencode, so it always runs with the primary agent")
 		})
@@ -574,7 +610,7 @@ func TestAgentClientRunPickerReRunsPromptUntilUsableSelection(t *testing.T) {
 				return tc.runAgent(t, &runs)
 			})
 
-			item, err := client.RunPicker(pickerProject, pickerProject.Items)
+			item, err := client.RunPicker(pickerProject, pickerProject.Items, nil)
 			require.NoError(t, err)
 			assert.Equal(t, tc.wantIndex, item.Index)
 			assert.Equal(t, 2, runs, "an unusable selection is retried")
@@ -619,7 +655,7 @@ func TestAgentClientRunPickerGivesUpAfterThreeUnusableAttempts(t *testing.T) {
 				return tc.runAgent(t, &runs)
 			})
 
-			_, err := client.RunPicker(pickerProject, pickerProject.Items)
+			_, err := client.RunPicker(pickerProject, pickerProject.Items, nil)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), "3-attempt limit")
 			assert.Equal(t, 3, runs, "the prompt is re-run up to three attempts")
@@ -636,7 +672,7 @@ func TestAgentClientRunPickerDoesNotRetryExecutionFailure(t *testing.T) {
 		return originalErr
 	})
 
-	_, err := client.RunPicker(pickerProject, pickerProject.Items)
+	_, err := client.RunPicker(pickerProject, pickerProject.Items, nil)
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, originalErr), "wrapped error should be reachable via errors.Is")
 	assert.Equal(t, 1, runs, "an opencode execution failure must not be retried")
@@ -695,7 +731,7 @@ func TestAgentClientRunDeveloperReceivesConfiguredAgent(t *testing.T) {
 		client := NewAgentClient(ctx, mockOC)
 
 		proj := &project.Project{Slug: "test-project", Items: project.NewItems([]any{"csv-serializer"})}
-		err := client.RunDeveloper(proj, proj.Items[0])
+		err := client.RunDeveloper(proj, proj.Items[0], nil)
 		require.NoError(t, err)
 		assert.Equal(t, "code-reviewer", capturedAgent, "item development is code-writing and receives the flag agent")
 	})
@@ -721,7 +757,7 @@ func TestAgentClientRunDeveloperReceivesConfiguredAgent(t *testing.T) {
 		client := NewAgentClient(ctx, mockOC)
 
 		proj := &project.Project{Slug: "test-project", Items: project.NewItems([]any{"csv-serializer"})}
-		err := client.RunDeveloper(proj, proj.Items[0])
+		err := client.RunDeveloper(proj, proj.Items[0], nil)
 		require.NoError(t, err)
 		assert.Equal(t, "build", capturedAgent, "item development is code-writing and falls back to the config agent")
 	})

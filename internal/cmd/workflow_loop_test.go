@@ -326,7 +326,7 @@ func TestWorkflowLoopCmdPrintsStatsOnFailureInWorkflow(t *testing.T) {
 `)
 
 	aiErr := errors.New("loop boom")
-	ai := &fakeAIClient{err: aiErr}
+	ai := &fakeAIClient{err: aiErr, isFatalFunc: func(error) bool { return true }}
 	runner := &inProcessLoopRunner{
 		cfg:     &config.Client{},
 		prompt:  &loopPromptBuilder{},

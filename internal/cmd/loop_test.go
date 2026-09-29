@@ -429,6 +429,8 @@ func (f *fakeSlugProposer) ProposeSlug(steps []string) (string, error) {
 type fakeAIClient struct {
 	prompts      []string
 	err          error
+	errs         []error
+	isFatalFunc  func(error) bool
 	calls        int
 	statsPrinted bool
 
@@ -441,7 +443,20 @@ type fakeAIClient struct {
 func (f *fakeAIClient) RunAgent(prompt string) error {
 	f.calls++
 	f.prompts = append(f.prompts, prompt)
+	if f.errs != nil {
+		if idx := f.calls - 1; idx < len(f.errs) {
+			return f.errs[idx]
+		}
+		return nil
+	}
 	return f.err
+}
+
+func (f *fakeAIClient) IsFatal(err error) bool {
+	if f.isFatalFunc != nil {
+		return f.isFatalFunc(err)
+	}
+	return false
 }
 
 func (f *fakeAIClient) PrintStats() {
@@ -799,10 +814,10 @@ func TestLoopRunPropagatesIterationCommitError(t *testing.T) {
 	assert.Empty(t, cmd.resolvedSlug, "no slug is retained when the iteration commit fails")
 }
 
-// TestLoopRunPropagatesAIError asserts an AI failure aborts the wired command
-// and leaves the command without a resolved slug, because the loop fails before
-// the resolution is retained.
-func TestLoopRunPropagatesAIError(t *testing.T) {
+// TestLoopRunPropagatesFatalAIError asserts a fatal AI failure aborts the wired
+// command and leaves the command without a resolved slug, because the loop
+// fails before the resolution is retained.
+func TestLoopRunPropagatesFatalAIError(t *testing.T) {
 	writeLoopConfig(t, `loops:
   - slug: fmt
     steps:
@@ -810,7 +825,7 @@ func TestLoopRunPropagatesAIError(t *testing.T) {
 `)
 
 	aiErr := errors.New("opencode execution failed: boom")
-	ai := &fakeAIClient{err: aiErr}
+	ai := &fakeAIClient{err: aiErr, isFatalFunc: func(error) bool { return true }}
 	cmd := &LoopCmd{
 		Mode:         config.ModeLocal,
 		Slug:         "fmt",

@@ -6,17 +6,19 @@ import (
 	"github.com/zon/ralph/internal/ai"
 )
 
-// mockPromptBuilder records the steps it was called with and returns an
-// injected error when set.
+// mockPromptBuilder records the steps and previous iteration errors it was
+// called with and returns an injected error when set.
 type mockPromptBuilder struct {
-	steps  []string
-	err    error
-	called bool
+	steps          []string
+	previousErrors []error
+	err            error
+	called         bool
 }
 
-func (m *mockPromptBuilder) BuildLoopPrompt(steps []string) (string, error) {
+func (m *mockPromptBuilder) BuildLoopPrompt(steps []string, previousErr error) (string, error) {
 	m.called = true
 	m.steps = steps
+	m.previousErrors = append(m.previousErrors, previousErr)
 	if m.err != nil {
 		return "", m.err
 	}
@@ -75,6 +77,8 @@ func nothingToDoReports() []string {
 type mockAIClient struct {
 	prompts      []string
 	err          error
+	errs         []error
+	isFatalFunc  func(error) bool
 	calls        int
 	statsPrinted bool
 
@@ -87,7 +91,20 @@ type mockAIClient struct {
 func (m *mockAIClient) RunAgent(prompt string) error {
 	m.calls++
 	m.prompts = append(m.prompts, prompt)
+	if m.errs != nil {
+		if idx := m.calls - 1; idx < len(m.errs) {
+			return m.errs[idx]
+		}
+		return nil
+	}
 	return m.err
+}
+
+func (m *mockAIClient) IsFatal(err error) bool {
+	if m.isFatalFunc != nil {
+		return m.isFatalFunc(err)
+	}
+	return false
 }
 
 func (m *mockAIClient) PrintStats() {
