@@ -4,7 +4,6 @@ type MockClient struct {
 	SwitchToBranchFunc           func(slug string) error
 	SwitchToLoopBranchFunc       func(slug string) error
 	BlockedFileExistsFunc        func() bool
-	WriteBlockedFileFunc         func(err error)
 	HasChangesFunc               func() bool
 	ReportExistsFunc             func() bool
 	CommitFromReportFunc         func(slug string) error
@@ -37,12 +36,6 @@ func (m *MockClient) BlockedFileExists() bool {
 		return m.BlockedFileExistsFunc()
 	}
 	return false
-}
-
-func (m *MockClient) WriteBlockedFile(err error) {
-	if m.WriteBlockedFileFunc != nil {
-		m.WriteBlockedFileFunc(err)
-	}
 }
 
 func (m *MockClient) HasChanges() bool {

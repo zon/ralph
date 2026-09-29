@@ -1,6 +1,7 @@
 package run
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -174,4 +175,37 @@ func TestIterateDoesNotCommitFailedIteration(t *testing.T) {
 	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.WithExtraIterations(0))
 	require.NoError(t, err)
 	require.Equal(t, 1, git.commitFromReportCalls, "only the successful iteration is committed")
+}
+
+// TestIterateNonFatalFailureWritesNoBlockedFile asserts a failed iteration
+// cannot write blocked.md: the run's git surface exposes no blocked-file
+// writer, so blocked.md stays only the signal the agent itself leaves, and the
+// loop still stops when it finds that file at the start of an iteration.
+func TestIterateNonFatalFailureWritesNoBlockedFile(t *testing.T) {
+	typ := reflect.TypeOf((*GitClient)(nil)).Elem()
+	_, ok := typ.MethodByName("WriteBlockedFile")
+	require.False(t, ok, "the run must not be able to write blocked.md")
+
+	picks := 0
+	ai := &mockAI{
+		runPickerFunc: func(_ *project.Project, incomplete []project.Item, _ error) (project.Item, error) {
+			picks++
+			if picks == 1 {
+				return project.Item{}, errNonFatal
+			}
+			return incomplete[0], nil
+		},
+	}
+	git := gitWithChangesAndReport()
+	runner := withMocks(
+		withProject(project.ThatReportsIncompleteUntil(2).WithResolvedItems(3)),
+		withGit(git),
+		withAI(ai),
+	)
+
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.WithExtraIterations(0))
+	require.NoError(t, err)
+	require.Equal(t, []error{nil, errNonFatal}, ai.pickerPreviousErrs)
+	require.Equal(t, []error{errNonFatal}, ai.developPreviousErrs)
+	require.Equal(t, 1, git.commitFromReportCalls, "the failed iteration is not committed")
 }
