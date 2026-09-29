@@ -406,6 +406,41 @@ func TestLoopRunWithSlugAndStepsUsesPassedSteps(t *testing.T) {
 	assert.Equal(t, passed, cmd.resolvedSteps, "the passed steps replace the config entry's steps on the command")
 }
 
+// TestLoopRunCarriesNonFatalAIFailureIntoNextPrompt asserts the loop command
+// recovers from a non-fatal AI pass failure: the loop continues, and the next
+// iteration's prompt, rendered by the real loop prompt builder, carries the
+// recorded error as the failure of the previous attempt so the agent can
+// address its cause.
+func TestLoopRunCarriesNonFatalAIFailureIntoNextPrompt(t *testing.T) {
+	writeLoopConfig(t, `loops:
+  - slug: fmt
+    steps:
+      - run gofmt
+`)
+
+	aiErr := errors.New("opencode execution failed: boom")
+	aiClient := &fakeAIClient{errs: []error{aiErr, nil}}
+	cmd := &LoopCmd{
+		Mode:         config.ModeLocal,
+		Slug:         "fmt",
+		Max:          intPtr(3),
+		slugProposer: &fakeSlugProposer{slug: "should-not-be-used"},
+		aiClient:     aiClient,
+		reportReader: &fakeReportReader{content: "NOTHING_TO_DO"},
+		gitClient:    &fakeGitClient{},
+		prClient:     &fakePullRequestOpener{},
+	}
+
+	err := cmd.Run()
+
+	require.NoError(t, err, "a non-fatal AI failure does not stop the loop")
+	require.Len(t, aiClient.prompts, 2, "the loop runs a second iteration after the failure")
+	assert.NotContains(t, aiClient.prompts[0], "Previous Attempt Failed", "the first prompt carries no previous failure")
+	assert.NotContains(t, aiClient.prompts[0], aiErr.Error(), "the first prompt carries no previous error")
+	assert.Contains(t, aiClient.prompts[1], "Previous Attempt Failed", "the next prompt is labelled with the previous failure")
+	assert.Contains(t, aiClient.prompts[1], aiErr.Error(), "the next prompt carries the recorded error")
+}
+
 // fakeSlugProposer records the steps it was called with and returns an injected
 // slug or error, so tests never invoke the real AI.
 type fakeSlugProposer struct {
