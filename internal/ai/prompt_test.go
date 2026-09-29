@@ -662,6 +662,58 @@ func TestBuildLoopPrompt(t *testing.T) {
 	}
 }
 
+func TestPromptsRenderPreviousErrorSection(t *testing.T) {
+	// GIVEN the item-picker, item-development, and loop prompt templates
+	// WHEN each is built with the previous iteration's error and without one
+	// THEN the error is rendered in a clearly labelled section, and the section
+	// is entirely absent when no error was recorded.
+	previousErr := errors.New("opencode execution failed: boom")
+	const header = "**Previous Attempt Failed:**"
+	const guidance = "Address its cause before continuing."
+
+	builders := []struct {
+		name  string
+		build func(previousErr error) (string, error)
+	}{
+		{
+			name: "item picker",
+			build: func(previousErr error) (string, error) {
+				return BuildItemPickPrompt(ItemPickPromptData{PreviousError: previousErr})
+			},
+		},
+		{
+			name: "item development",
+			build: func(previousErr error) (string, error) {
+				return BuildItemDevelopPrompt(ItemDevelopPromptData{PreviousError: previousErr})
+			},
+		},
+		{
+			name: "loop",
+			build: func(previousErr error) (string, error) {
+				return BuildLoopPrompt([]string{"run gofmt"}, previousErr)
+			},
+		},
+	}
+
+	for _, b := range builders {
+		t.Run(b.name+" renders the previous error in a labelled section", func(t *testing.T) {
+			prompt, err := b.build(previousErr)
+			require.NoError(t, err)
+			assert.Contains(t, prompt, header)
+			assert.Contains(t, prompt, previousErr.Error())
+			assert.Contains(t, prompt, guidance)
+		})
+
+		t.Run(b.name+" renders nothing when no error was recorded", func(t *testing.T) {
+			prompt, err := b.build(nil)
+			require.NoError(t, err)
+			assert.NotContains(t, prompt, header)
+			assert.NotContains(t, prompt, guidance)
+			assert.NotContains(t, prompt, "previous iteration")
+		})
+	}
+}
+
 func TestBuildLoopSlugPrompt(t *testing.T) {
 	tests := []struct {
 		name       string
