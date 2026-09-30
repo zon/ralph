@@ -28,6 +28,7 @@ func TestRunLocalRestoresStartingBranchAfterPR(t *testing.T) {
 				config.Any().WithStartingBranch(tt.starting),
 			)
 			require.NoError(t, err)
+			require.True(t, githubPRCreated(runner), "the run opens the pull request before restoring the checkout")
 			require.True(t, gitCheckoutBranchCalled(runner), "the run checks out a branch after opening the pull request")
 			require.Equal(t, tt.starting, gitLastCheckedOutBranch(runner))
 		})
