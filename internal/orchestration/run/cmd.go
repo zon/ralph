@@ -219,6 +219,7 @@ func (r *RunCmd) prepareSetup(flags RunFlags, input *project.InputFile) (Executi
 	}
 	cfg.Items = cfg.ResolveItems(flags.Items)
 	cfg.Base = baseBranch
+	cfg.StartingBranch = currentBranch
 	return ExecutionSetup{
 		Config:        cfg,
 		Mode:          mode,

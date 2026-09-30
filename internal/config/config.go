@@ -391,6 +391,7 @@ type RalphConfig struct {
 	Cleanup         bool           `yaml:"cleanup,omitempty"` // Delete the project file once every item is complete (default: true; set false to keep the file)
 	cleanupSet      bool           `yaml:"-"`                 // Whether the config file explicitly set cleanup
 	Base            string         `yaml:"-"`                 // Base branch resolved by the caller, bounding the commit log completion is read from
+	StartingBranch  string         `yaml:"-"`                 // Branch the run started on, restored after the pull request
 	ExtraIterations *int           `yaml:"extraIterations,omitempty"`
 	DefaultBranch   string         `yaml:"defaultBranch,omitempty"`
 	Model           string         `yaml:"model,omitempty"` // AI model to use for coding and PR summary (default: opencode's configured default when unset)

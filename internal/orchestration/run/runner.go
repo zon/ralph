@@ -40,6 +40,8 @@ type GitClient interface {
 	CommitFromReport(slug string) error
 	CommitFromBlocked(slug string) error
 	CurrentBranch() (string, error)
+	CheckoutBranch(name string) error
+	HasCommitsAhead(base string) (bool, error)
 	IsBranchSyncedWithRemote(branch string) error
 	CommitProjectRemoval(path string) error
 	FetchBranch(branch string) error
@@ -158,8 +160,34 @@ func (r *Runner) runLocal(input *project.InputFile, cfg *config.RalphConfig, inW
 		r.notify.Error(proj.Slug)
 		return err
 	}
+	if err := r.restoreStartingBranch(cfg, git.SanitizeBranchName(proj.Slug), inWorktree); err != nil {
+		r.notify.Error(proj.Slug)
+		return err
+	}
 	r.notify.Success(proj.Slug)
 	return nil
+}
+
+// restoreStartingBranch checks the starting checkout back out after a pull
+// request is opened, so a local run leaves the user on the branch they started
+// from rather than the project branch it switched to. The checkout stays put in
+// worktree mode, when the run began on the project branch, and when the project
+// branch has no commits ahead of the base branch so no pull request is opened.
+func (r *Runner) restoreStartingBranch(cfg *config.RalphConfig, projectBranch string, inWorktree bool) error {
+	if inWorktree {
+		return nil
+	}
+	if cfg.StartingBranch == "" || cfg.StartingBranch == projectBranch {
+		return nil
+	}
+	ahead, err := r.git.HasCommitsAhead(cfg.Base)
+	if err != nil {
+		return err
+	}
+	if !ahead {
+		return nil
+	}
+	return r.git.CheckoutBranch(cfg.StartingBranch)
 }
 
 // syncBaseBranch fetches the resolved base branch and merges it into the
