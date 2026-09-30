@@ -1,0 +1,31 @@
+# Return the checkout to the branch the run started from after the pull
+# request is opened in local mode. Spec: the Branch restored after the pull
+# request requirement in `specs/ralph/run-local.md` and in
+# `specs/ralph/loop.md`. Build to them.
+#
+# Why. In local mode Ralph switches the current checkout to the project branch
+# (`ralph run`) or `loop-<slug>` (`ralph loop`) and never switches back, so the
+# user is left on a branch they did not ask for. Worktree mode already leaves
+# the current checkout untouched. The checkout should return to where the run
+# began once a pull request has been opened, and stay put when no pull request
+# is opened.
+#
+# Where things are. `internal/orchestration/run/runner.go`'s `runLocal` calls
+# `r.git.SwitchToBranch` at the start and `r.github.CreatePR` at the end;
+# `internal/orchestration/run/cmd.go`'s `prepareSetup` already resolves the
+# starting branch as `CurrentBranch` and passes `setup.Config` to
+# `RunLocal`. `internal/orchestration/loop/cmd.go`'s `runResolved` calls
+# `c.git.SwitchToLoopBranch` and `c.pr.OpenLoopPullRequest`, and `c.base`
+# already holds the branch the loop branch was created from.
+# `internal/git/branch.go` provides `CheckoutBranch`. The runner and loop tests
+# and their mocks live in `internal/orchestration/run` and
+# `internal/orchestration/loop`, following `docs/testing.md`.
+#
+# Applying. Nothing here touches a cluster. The behavior change lands with the
+# release.
+- "In local mode, `ralph run` checks out the branch that was current when the run started after it opens the pull request, so a run started on `main` returns to `main` and a run started on a feature branch returns to that feature branch; a run that already started on the project branch is left on it."
+- "In local mode, `ralph loop` checks out the branch the loop branch was created from after it opens the pull request."
+- "When `ralph run` in local mode does not open a pull request, whether the iteration loop ended with items incomplete or the project branch had no commits ahead of the base branch, the checkout stays on the project branch; `ralph loop` in local mode likewise stays on `loop-<slug>` when it makes no commits."
+- "Worktree mode is unchanged: opening the pull request does not switch the starting checkout, which stays on the branch it was on when the run or loop began."
+- "Run and loop tests cover the local-mode restore after a pull request, the no-switch path when no pull request is opened, and the untouched starting checkout in worktree mode, following `docs/testing.md`."
+- "Apply a semver minor bump to the app version."

@@ -480,6 +480,31 @@ When the loop ends, the command SHALL open a pull request from the branch `loop-
 
 ---
 
+### Requirement: Branch restored after the pull request
+
+When the loop opens a pull request, local execution SHALL check out the branch the loop branch was created from, which is the branch that was current when the loop started. The command SHALL NOT switch the checkout when no pull request is opened, which happens when the loop made no commits on `loop-<slug>`. The restore SHALL NOT apply in `worktree` mode, where the current checkout is never switched (see [run-worktree.md](run-worktree.md)).
+
+#### Scenario: Starting branch restored after a pull request
+
+- GIVEN the loop started on `main` and the loop branch is `loop-fmt`
+- AND the loop opens a pull request from `loop-fmt` to `main`
+- WHEN the pull request is opened
+- THEN the command checks out `main`
+
+#### Scenario: Checkout stays on the loop branch when nothing was committed
+
+- GIVEN no commit was made on `loop-<slug>`
+- WHEN the loop ends without opening a pull request
+- THEN the checkout stays on `loop-<slug>`
+
+#### Scenario: Worktree mode does not switch the starting checkout
+
+- GIVEN the loop executes in `worktree` mode
+- WHEN the pull request is opened
+- THEN the starting checkout remains on the branch it was on when the loop began
+
+---
+
 ### Requirement: Token usage and cost reporting
 
 When running inside a workflow container the command SHALL print accumulated AI token usage and cost statistics at the end of execution, regardless of whether the loop succeeded or failed, matching the behavior of `ralph run` described in [run-local.md](run-local.md).

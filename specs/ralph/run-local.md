@@ -539,6 +539,51 @@ When every item is found to be complete, whether the branch already recorded the
 
 ---
 
+### Requirement: Branch restored after the pull request
+
+When the pull request step opens a pull request, local execution SHALL check out the branch that was current when the run started, so the checkout the run switched away from is returned to where the run began. The command SHALL NOT switch the checkout when no pull request is opened: when the iteration loop ends with items still incomplete, or when PR creation is skipped because the project branch has no commits ahead of the base branch. The restore SHALL NOT apply in `worktree` mode, where the current checkout is never switched (see [run-worktree.md](run-worktree.md)).
+
+#### Scenario: Starting branch restored after a pull request
+
+- GIVEN the run started on `main` and the project branch is `my-feature`
+- AND the run opens a pull request from `my-feature`
+- WHEN the pull request is opened
+- THEN the command checks out `main`
+
+#### Scenario: Checkout returns to the caller's feature branch
+
+- GIVEN the run started on `feature-x`
+- AND the run opens a pull request from the project branch to `feature-x`
+- WHEN the pull request is opened
+- THEN the command checks out `feature-x`
+
+#### Scenario: Start already on the project branch
+
+- GIVEN the run started on the project branch
+- AND the run opens a pull request
+- WHEN the pull request is opened
+- THEN the checkout remains on the project branch
+
+#### Scenario: No pull request when items are incomplete
+
+- GIVEN the iteration loop ends with items still incomplete
+- WHEN the run ends without opening a pull request
+- THEN the checkout stays on the project branch
+
+#### Scenario: No pull request when there is nothing to submit
+
+- GIVEN every item is already complete and the project branch has no commits ahead of the base branch
+- WHEN PR creation is skipped
+- THEN the checkout stays on the project branch
+
+#### Scenario: Worktree mode does not switch the starting checkout
+
+- GIVEN the run executes in `worktree` mode
+- WHEN the pull request is opened
+- THEN the starting checkout remains on the branch it was on when the run began
+
+---
+
 ### Requirement: Token usage and cost reporting
 
 When running inside a workflow container the command SHALL print accumulated AI token usage and cost statistics at the end of execution, regardless of whether the run succeeded or failed.
