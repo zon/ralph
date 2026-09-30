@@ -54,12 +54,15 @@ type ReportReader interface {
 }
 
 // GitClient switches the loop to its branch before the agent runs, commits
-// each iteration to the loop branch, pushing it, and synchronizes the loop
-// branch with the branch it was created from.
+// each iteration to the loop branch, pushing it, synchronizes the loop branch
+// with the branch it was created from, and checks the starting checkout back
+// out after the pull request opens.
 type GitClient interface {
 	CurrentBranch() (string, error)
 	SwitchToLoopBranch(slug string) error
 	CommitIterationAndPush(slug string) error
+	CheckoutBranch(name string) error
+	HasCommitsAhead(base string) (bool, error)
 	FetchBranch(branch string) error
 	NeedsMerge(branch string) (bool, error)
 	Merge(branch string) error
@@ -126,7 +129,8 @@ type Result struct {
 // reports nothing to do or after max iterations, whichever comes first. An
 // iteration whose agent pass leaves report.md missing or unreadable is not
 // committed and the loop runs its next iteration. After the loop ends it opens
-// the loop branch's pull request. It returns the resolution so the caller can
+// the loop branch's pull request and, in local mode, checks the starting
+// checkout back out. It returns the resolution so the caller can
 // derive the branch name from the slug. Inside a workflow container the
 // accumulated AI token usage and cost statistics are printed at the end of
 // execution, whether the loop succeeded or failed.
@@ -169,8 +173,9 @@ func (c *Cmd) RunResolvedInWorktree(result *Result, max int) error {
 
 // runResolved synchronizes the loop branch with the branch it was created from,
 // runs the resolved steps as an iteration loop, opening the loop branch's pull
-// request afterwards. In worktree mode the branch switch is skipped because the
-// worktree already has the loop branch checked out.
+// request afterwards and restoring the starting checkout once it is open. In
+// worktree mode the branch switch is skipped because the worktree already has
+// the loop branch checked out.
 func (c *Cmd) runResolved(result *Result, max int, inWorktree bool) error {
 	if c.env.InWorkflow() {
 		defer c.ai.PrintStats()
@@ -189,7 +194,32 @@ func (c *Cmd) runResolved(result *Result, max int, inWorktree bool) error {
 	if err := c.syncBaseBranchBeforePR(result, inWorktree); err != nil {
 		return err
 	}
-	return c.pr.OpenLoopPullRequest(result.Slug)
+	if err := c.pr.OpenLoopPullRequest(result.Slug); err != nil {
+		return err
+	}
+	return c.restoreStartingBranch(result, inWorktree)
+}
+
+// restoreStartingBranch checks the starting checkout back out after a pull
+// request is opened, so a local loop leaves the user on the branch the loop
+// branch was created from rather than loop-<slug>. The checkout stays put in
+// worktree mode, when the loop began on the loop branch, and when the loop
+// branch has no commits ahead of the base branch so no pull request is opened.
+func (c *Cmd) restoreStartingBranch(result *Result, inWorktree bool) error {
+	if inWorktree {
+		return nil
+	}
+	if c.base == "" || c.base == git.LoopBranch(result.Slug) {
+		return nil
+	}
+	ahead, err := c.git.HasCommitsAhead(c.base)
+	if err != nil {
+		return err
+	}
+	if !ahead {
+		return nil
+	}
+	return c.git.CheckoutBranch(c.base)
 }
 
 // syncBaseBranchBeforePR fetches and merges the branch the loop branch was

@@ -536,14 +536,18 @@ type fakeGitClient struct {
 	needsMerge       bool
 	needsMergeErr    error
 	mergeErr         error
+	checkoutErr      error
+	commitsAhead     bool
 
-	fetchBranchCalled bool
-	fetchCalls        int
-	mergeCalled       bool
-	mergeCalls        int
-	abortMergeCalled  bool
-	lastFetchedBranch string
-	lastMergedBranch  string
+	fetchBranchCalled    bool
+	fetchCalls           int
+	mergeCalled          bool
+	mergeCalls           int
+	abortMergeCalled     bool
+	checkoutBranchCalled bool
+	lastFetchedBranch    string
+	lastMergedBranch     string
+	lastCheckedOutBranch string
 }
 
 func (f *fakeGitClient) CurrentBranch() (string, error) {
@@ -566,6 +570,16 @@ func (f *fakeGitClient) CommitIterationAndPush(slug string) error {
 		return f.err
 	}
 	return nil
+}
+
+func (f *fakeGitClient) CheckoutBranch(name string) error {
+	f.checkoutBranchCalled = true
+	f.lastCheckedOutBranch = name
+	return f.checkoutErr
+}
+
+func (f *fakeGitClient) HasCommitsAhead(base string) (bool, error) {
+	return f.commitsAhead, nil
 }
 
 func (f *fakeGitClient) FetchBranch(branch string) error {

@@ -179,15 +179,21 @@ type mockGitClient struct {
 	calls       int
 	switchCalls int
 
-	currentBranch     string
-	currentBranchErr  error
-	currentBranchFunc func() (string, error)
-	fetchErr          error
-	needsMerge        bool
-	needsMergeErr     error
-	mergeErr          error
-	mergeErrAfter     int
-	pushErr           error
+	currentBranch      string
+	currentBranchErr   error
+	currentBranchFunc  func() (string, error)
+	fetchErr           error
+	checkoutErr        error
+	commitsAhead       bool
+	hasCommitsAheadErr error
+
+	checkoutBranchCalled bool
+	lastCheckedOutBranch string
+	needsMerge           bool
+	needsMergeErr        error
+	mergeErr             error
+	mergeErrAfter        int
+	pushErr              error
 
 	fetchBranchCalled bool
 	fetchCalls        int
@@ -223,6 +229,16 @@ func (m *mockGitClient) CommitIterationAndPush(slug string) error {
 		return m.err
 	}
 	return nil
+}
+
+func (m *mockGitClient) CheckoutBranch(name string) error {
+	m.checkoutBranchCalled = true
+	m.lastCheckedOutBranch = name
+	return m.checkoutErr
+}
+
+func (m *mockGitClient) HasCommitsAhead(base string) (bool, error) {
+	return m.commitsAhead, m.hasCommitsAheadErr
 }
 
 func (m *mockGitClient) FetchBranch(branch string) error {
