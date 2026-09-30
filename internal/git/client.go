@@ -42,6 +42,12 @@ func (a *Client) HasChanges() bool {
 	return HasUncommittedChanges()
 }
 
+// StageAll stages every change in the working tree, including untracked files,
+// so a caller that inspects the staged diff sees the whole iteration's changes.
+func (a *Client) StageAll() error {
+	return StageAll()
+}
+
 func (a *Client) ReportExists() bool {
 	_, err := os.Stat("report.md")
 	return err == nil
@@ -85,6 +91,20 @@ func (a *Client) CommitFromReport(slug string) error {
 		return err
 	}
 	return nil
+}
+
+// CommitFromBlocked commits the iteration's changes with the blocked.md
+// content as the commit message, so a blocked iteration never invokes the
+// changelog agent. It leaves blocked.md in the working tree, so the next check
+// for the blocked state still finds it and a resumed run sees why the agent
+// stopped.
+func (a *Client) CommitFromBlocked(slug string) error {
+	data, err := os.ReadFile("blocked.md")
+	if err != nil {
+		return fmt.Errorf("failed to read blocked.md: %w", err)
+	}
+	owner, repo := a.ctx.RepoOwnerAndName()
+	return CommitChangesAllowEmpty(a.ctx.IsWorkflowExecution(), owner, repo, string(data))
 }
 
 func (a *Client) CurrentBranch() (string, error) {

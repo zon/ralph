@@ -52,6 +52,99 @@ func TestCommitIterationSkipsCommitWhenNoChanges(t *testing.T) {
 	require.False(t, gitCommittedFromReport(runner))
 }
 
+// TestCommitIterationStagesChangesBeforeChangelog asserts the commit step stages
+// every change in the working tree before it invokes the changelog agent, so the
+// staged diff the agent is asked to describe holds the whole iteration's
+// changes.
+func TestCommitIterationStagesChangesBeforeChangelog(t *testing.T) {
+	gitMock := gitWithChangesButNoReport()
+	gitMock.reportMessage = "feat: describe every staged change"
+
+	stagedBeforeChangelog := false
+	aiMock := &mockAI{
+		changelogFunc: func() error {
+			stagedBeforeChangelog = gitMock.stageAllCalled
+			gitMock.reportExists = true
+			return nil
+		},
+	}
+	runner := withMocks(
+		withProject(project.ThatReportsIncompleteUntil(1)),
+		withGit(gitMock),
+		withAI(aiMock),
+	)
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.Any())
+	require.NoError(t, err)
+	require.True(t, gitStagedAll(runner), "the commit step stages the working tree")
+	require.True(t, stagedBeforeChangelog, "the working tree is staged before the changelog agent runs")
+	require.Equal(t, 1, aiChangelogCalls(runner))
+}
+
+func TestCommitIterationBlockedWithoutReportCommitsBlockedFile(t *testing.T) {
+	const blocked = "blocked: cannot reach the upstream API\n\nTried the documented endpoint and a fallback."
+	gitMock := gitWithChangesButNoReport()
+	gitMock.blockedMessage = blocked
+	runner := withMocks(
+		withProject(project.ThatAlwaysReportsIncomplete()),
+		withGit(gitMock),
+		withAI(&mockAI{
+			runDeveloperFunc: func(_ *project.Project, _ project.Item, _ error) error {
+				gitMock.blockedFile = true
+				return nil
+			},
+		}),
+	)
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.Any())
+	require.ErrorIs(t, err, ErrBlocked)
+	require.True(t, gitCommittedFromBlocked(runner), "the blocked iteration is committed from blocked.md")
+	require.Equal(t, blocked, gitLastCommitMessage(runner), "the commit message is the content of blocked.md")
+	require.Zero(t, aiChangelogCalls(runner), "a blocked iteration never invokes the changelog agent")
+	require.True(t, gitBlockedFileExists(runner), "blocked.md remains in the working tree")
+}
+
+func TestCommitIterationBlockedWithReportUsesReportMessage(t *testing.T) {
+	const report = "feat: partial work\n\ntest-project-IYAWN02"
+	gitMock := gitWithReport(report)
+	gitMock.blockedMessage = "blocked: stopped after the report was written"
+	runner := withMocks(
+		withProject(project.ThatAlwaysReportsIncomplete()),
+		withGit(gitMock),
+		withAI(&mockAI{
+			runDeveloperFunc: func(_ *project.Project, _ project.Item, _ error) error {
+				gitMock.blockedFile = true
+				return nil
+			},
+		}),
+	)
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.Any())
+	require.ErrorIs(t, err, ErrBlocked)
+	require.True(t, gitCommittedFromReport(runner), "report.md stays the commit message")
+	require.False(t, gitCommittedFromBlocked(runner), "blocked.md does not replace the report message")
+	require.Equal(t, report, gitLastCommitMessage(runner))
+	require.Zero(t, aiChangelogCalls(runner))
+	require.True(t, gitBlockedFileExists(runner), "blocked.md remains in the working tree")
+}
+
+func TestCommitIterationBlockedWithNoOtherChangesCommitsBlockedFile(t *testing.T) {
+	const blocked = "blocked: no code path available"
+	gitMock := &mockGit{hasChanges: false, reportExists: false, blockedMessage: blocked}
+	runner := withMocks(
+		withProject(project.ThatAlwaysReportsIncomplete()),
+		withGit(gitMock),
+		withAI(&mockAI{
+			runDeveloperFunc: func(_ *project.Project, _ project.Item, _ error) error {
+				gitMock.blockedFile = true
+				return nil
+			},
+		}),
+	)
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.Any())
+	require.ErrorIs(t, err, ErrBlocked)
+	require.True(t, gitCommittedFromBlocked(runner), "a commit holding only blocked.md is created")
+	require.Equal(t, blocked, gitLastCommitMessage(runner))
+	require.Zero(t, aiChangelogCalls(runner))
+}
+
 func TestCommitIterationCreatesEmptyCommitWhenNoChangesButReport(t *testing.T) {
 	const report = "feat: no code needed\n\nempty-commit-no-code-0"
 	runner := withMocks(

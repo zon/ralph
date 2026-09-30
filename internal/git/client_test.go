@@ -188,6 +188,54 @@ func TestGitClientCommitFromReportCreatesEmptyCommitWhenNoChanges(t *testing.T) 
 	assertTreesEqual(t, workDir, "HEAD", "HEAD^", "the commit is empty when no code was written")
 }
 
+func TestGitClientCommitFromBlocked(t *testing.T) {
+	workDir := t.TempDir()
+	t.Chdir(workDir)
+	testutil.InitGitRepo(t, workDir)
+	testutil.MakeInitialCommit(t, workDir)
+	setupLocalRemote(t, workDir)
+
+	client := git.NewClient(context.NewContext())
+
+	const blocked = "blocked: cannot reach the upstream API\n\nTried the documented endpoint and a fallback.\n"
+	require.NoError(t, os.WriteFile("blocked.md", []byte(blocked), 0644))
+	require.NoError(t, os.WriteFile("newfile.txt", []byte("change"), 0644))
+
+	err := client.CommitFromBlocked("test-slug")
+	require.NoError(t, err)
+
+	assert.Contains(t, lsTreeFiles(t, workDir, "HEAD"), "blocked.md", "blocked.md lands in the commit")
+	assert.Contains(t, lsTreeFiles(t, workDir, "HEAD"), "newfile.txt", "the other change lands in the commit")
+	assert.Equal(t, strings.TrimRight(blocked, "\n"), lastCommitMessage(t, workDir), "the blocked content is the commit message, verbatim")
+	content, err := os.ReadFile("blocked.md")
+	require.NoError(t, err, "blocked.md remains in the working tree")
+	assert.Equal(t, blocked, string(content), "blocked.md is left untouched on disk")
+}
+
+func TestGitClientCommitFromReportAlsoCommitsBlockedFile(t *testing.T) {
+	workDir := t.TempDir()
+	t.Chdir(workDir)
+	testutil.InitGitRepo(t, workDir)
+	testutil.MakeInitialCommit(t, workDir)
+	setupLocalRemote(t, workDir)
+
+	client := git.NewClient(context.NewContext())
+
+	const report = "feat: partial work\n\ncsv-export-IYAWN02\n"
+	require.NoError(t, os.WriteFile("report.md", []byte(report), 0644))
+	require.NoError(t, os.WriteFile("blocked.md", []byte("blocked: stopped"), 0644))
+	require.NoError(t, os.WriteFile("newfile.txt", []byte("change"), 0644))
+
+	err := client.CommitFromReport("test-slug")
+	require.NoError(t, err)
+
+	assert.Contains(t, lsTreeFiles(t, workDir, "HEAD"), "blocked.md", "blocked.md is committed alongside the report")
+	assert.NotContains(t, lsTreeFiles(t, workDir, "HEAD"), "report.md", "report.md is not committed")
+	assert.Equal(t, strings.TrimRight(report, "\n"), lastCommitMessage(t, workDir), "the report stays the commit message")
+	_, err = os.Stat("blocked.md")
+	assert.NoError(t, err, "blocked.md remains in the working tree")
+}
+
 func TestGitClientCommitIterationAndPush(t *testing.T) {
 	workDir := t.TempDir()
 	t.Chdir(workDir)
