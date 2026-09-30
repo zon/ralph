@@ -78,6 +78,48 @@ func TestIterationLoopScenario_OutOfRangeTrailerIgnoredWithWarning(t *testing.T)
 	require.Equal(t, 1, aiPickCalls(runner), "the run continues with the remaining items")
 }
 
+// TestIterationLoopScenario_BlockedDuringIterationStopsLoop covers the
+// `blocked.md` written during an iteration scenario: the iteration is
+// committed and the loop stops with a blocked error without starting another
+// iteration, so the picker is not invoked again even though iterations remain
+// in the limit.
+func TestIterationLoopScenario_BlockedDuringIterationStopsLoop(t *testing.T) {
+	gitMock := gitWithChangesButNoReport()
+	gitMock.blockedMessage = "blocked: cannot reach the upstream API"
+	projMock := project.ThatAlwaysReportsIncomplete().WithResolvedItems(3)
+	runner := withMocks(
+		withProject(projMock),
+		withGit(gitMock),
+		withAI(&mockAI{
+			runDeveloperFunc: func(_ *project.Project, _ project.Item, _ error) error {
+				gitMock.blockedFile = true
+				return nil
+			},
+		}),
+	)
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.WithExtraIterations(3))
+	require.ErrorIs(t, err, ErrBlocked)
+	require.True(t, gitCommittedFromBlocked(runner), "the blocked iteration is committed before the loop stops")
+	require.Equal(t, 1, aiPickCalls(runner), "the picker is not invoked again after the blocked iteration")
+	require.Equal(t, 1, projMock.IncompleteCallCount(), "the loop does not start another iteration")
+}
+
+// TestIterationLoopScenario_BlockedOnBranchStopsResumedRun covers the
+// `blocked.md` on the branch scenario: a run started against a branch that
+// already carries blocked.md stops with a blocked error before invoking the
+// AI.
+func TestIterationLoopScenario_BlockedOnBranchStopsResumedRun(t *testing.T) {
+	runner := withMocks(
+		withProject(project.ThatAlwaysReportsIncomplete().WithResolvedItems(3)),
+		withGit(gitWithBlockedFile()),
+	)
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.WithExtraIterations(3))
+	require.ErrorIs(t, err, ErrBlocked)
+	require.Zero(t, aiPickCalls(runner), "the resumed run is stopped before the picker runs")
+	require.Zero(t, aiDevelopCalls(runner), "the resumed run is stopped before the developer runs")
+	require.False(t, gitCommittedFromBlocked(runner), "the resumed run commits nothing before stopping")
+}
+
 func TestIterationLoopScenario_DefaultExtraIterationsRoundsUp(t *testing.T) {
 	runner := withMocks(
 		withProject(project.ThatAlwaysReportsIncomplete().WithResolvedItems(3)),

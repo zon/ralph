@@ -189,8 +189,10 @@ func (r *Runner) syncBaseBranchBeforePR(cfg *config.RalphConfig, projectBranch s
 // successful iteration clears it. A fatal failure stops the loop and is
 // returned. A failed iteration is not committed, and since a failure still
 // consumes one iteration from the limit, carrying failures forward never
-// extends the run past it. The loop stops when no items remain incomplete or
-// when the agent leaves blocked.md at the start of an iteration.
+// extends the run past it. The loop stops when no items remain incomplete, when
+// the agent leaves blocked.md at the start of an iteration, or immediately
+// after committing an iteration that left blocked.md, before another iteration
+// starts.
 func (r *Runner) iterate(proj *project.Project, cfg *config.RalphConfig) error {
 	extra := r.project.ExtraIterations(proj, cfg)
 	limit := len(proj.Items) + extra
@@ -216,6 +218,9 @@ func (r *Runner) iterate(proj *project.Project, cfg *config.RalphConfig) error {
 		previousErr = nil
 		if err := r.commitIteration(proj); err != nil {
 			return err
+		}
+		if r.git.BlockedFileExists() {
+			return ErrBlocked
 		}
 	}
 	return r.project.IncompleteError(proj, cfg.Base)
