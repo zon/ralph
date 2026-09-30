@@ -35,6 +35,7 @@ type GitClient interface {
 	SwitchToBranch(slug string) error
 	BlockedFileExists() bool
 	HasChanges() bool
+	StageAll() error
 	ReportExists() bool
 	CommitFromReport(slug string) error
 	CommitFromBlocked(slug string) error
@@ -262,6 +263,9 @@ func (r *Runner) commitIteration(proj *project.Project) error {
 	}
 	if !r.git.HasChanges() {
 		return nil
+	}
+	if err := r.git.StageAll(); err != nil {
+		return err
 	}
 	if err := r.ai.GenerateChangelog(proj); err != nil {
 		return err

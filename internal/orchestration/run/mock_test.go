@@ -134,6 +134,7 @@ type mockGit struct {
 	commitFromReportCalled     bool
 	commitFromReportCalls      int
 	commitFromBlockedCalled    bool
+	stageAllCalled             bool
 	commitProjectRemovalCalled bool
 	fetchBranchCalled          bool
 	needsMergeCalled           bool
@@ -163,6 +164,12 @@ func (m *mockGit) BlockedFileExists() bool {
 
 func (m *mockGit) HasChanges() bool {
 	return m.hasChanges
+}
+
+func (m *mockGit) StageAll() error {
+	m.stageAllCalled = true
+	m.order = append(m.order, "stage")
+	return nil
 }
 
 func (m *mockGit) ReportExists() bool {
@@ -673,6 +680,13 @@ func outputWarnings(r *Runner) []string {
 func gitCommittedFromReport(r *Runner) bool {
 	if m, ok := r.git.(*mockGit); ok {
 		return m.commitFromReportCalled
+	}
+	return false
+}
+
+func gitStagedAll(r *Runner) bool {
+	if m, ok := r.git.(*mockGit); ok {
+		return m.stageAllCalled
 	}
 	return false
 }

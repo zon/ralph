@@ -42,6 +42,12 @@ func (a *Client) HasChanges() bool {
 	return HasUncommittedChanges()
 }
 
+// StageAll stages every change in the working tree, including untracked files,
+// so a caller that inspects the staged diff sees the whole iteration's changes.
+func (a *Client) StageAll() error {
+	return StageAll()
+}
+
 func (a *Client) ReportExists() bool {
 	_, err := os.Stat("report.md")
 	return err == nil

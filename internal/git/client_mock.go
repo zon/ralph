@@ -5,6 +5,7 @@ type MockClient struct {
 	SwitchToLoopBranchFunc       func(slug string) error
 	BlockedFileExistsFunc        func() bool
 	HasChangesFunc               func() bool
+	StageAllFunc                 func() error
 	ReportExistsFunc             func() bool
 	CommitFromReportFunc         func(slug string) error
 	CommitFromBlockedFunc        func(slug string) error
@@ -44,6 +45,13 @@ func (m *MockClient) HasChanges() bool {
 		return m.HasChangesFunc()
 	}
 	return false
+}
+
+func (m *MockClient) StageAll() error {
+	if m.StageAllFunc != nil {
+		return m.StageAllFunc()
+	}
+	return nil
 }
 
 func (m *MockClient) ReportExists() bool {

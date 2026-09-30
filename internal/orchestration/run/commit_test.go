@@ -52,6 +52,34 @@ func TestCommitIterationSkipsCommitWhenNoChanges(t *testing.T) {
 	require.False(t, gitCommittedFromReport(runner))
 }
 
+// TestCommitIterationStagesChangesBeforeChangelog asserts the commit step stages
+// every change in the working tree before it invokes the changelog agent, so the
+// staged diff the agent is asked to describe holds the whole iteration's
+// changes.
+func TestCommitIterationStagesChangesBeforeChangelog(t *testing.T) {
+	gitMock := gitWithChangesButNoReport()
+	gitMock.reportMessage = "feat: describe every staged change"
+
+	stagedBeforeChangelog := false
+	aiMock := &mockAI{
+		changelogFunc: func() error {
+			stagedBeforeChangelog = gitMock.stageAllCalled
+			gitMock.reportExists = true
+			return nil
+		},
+	}
+	runner := withMocks(
+		withProject(project.ThatReportsIncompleteUntil(1)),
+		withGit(gitMock),
+		withAI(aiMock),
+	)
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.Any())
+	require.NoError(t, err)
+	require.True(t, gitStagedAll(runner), "the commit step stages the working tree")
+	require.True(t, stagedBeforeChangelog, "the working tree is staged before the changelog agent runs")
+	require.Equal(t, 1, aiChangelogCalls(runner))
+}
+
 func TestCommitIterationBlockedWithoutReportCommitsBlockedFile(t *testing.T) {
 	const blocked = "blocked: cannot reach the upstream API\n\nTried the documented endpoint and a fallback."
 	gitMock := gitWithChangesButNoReport()

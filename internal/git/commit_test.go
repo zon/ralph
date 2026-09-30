@@ -40,6 +40,24 @@ func TestStageFile_NonExistent(t *testing.T) {
 	require.Error(t, err, "Expected error when staging non-existent file")
 }
 
+func TestStageAllStagesModifiedAndUntrackedFiles(t *testing.T) {
+	tempDir := setupTestRepo(t)
+	t.Chdir(tempDir)
+
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "README.md"), []byte("modified\n"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "new.txt"), []byte("new\n"), 0644))
+
+	require.NoError(t, StageAll())
+
+	staged, err := runGit("diff", "--cached", "--name-only")
+	require.NoError(t, err)
+	assert.Contains(t, staged, "README.md", "the modified tracked file is staged")
+	assert.Contains(t, staged, "new.txt", "the new untracked file is staged")
+	status, err := runGit("status", "--porcelain")
+	require.NoError(t, err)
+	assert.NotContains(t, status, "??", "no untracked file is left unstaged")
+}
+
 func TestHasUncommittedChanges(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	t.Chdir(tempDir)
