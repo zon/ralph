@@ -171,7 +171,7 @@ At the start of every iteration the command SHALL determine which items are comp
 
 ### Requirement: Iteration loop
 
-The iteration loop SHALL invoke the AI agent repeatedly until every item is complete or the iteration limit is reached. The iteration limit SHALL be the resolved item count plus the extra iteration count. When the extra iteration count is unset (nil), it SHALL default to 30% of the item count, rounded up. Each iteration checks for a blocked state before invoking the AI. When an iteration's AI pass fails with a non-fatal error, the loop SHALL continue and carry the error into the next iteration's prompts, following [iteration-recovery.md](iteration-recovery.md).
+The iteration loop SHALL invoke the AI agent repeatedly until every item is complete or the iteration limit is reached. The iteration limit SHALL be the resolved item count plus the extra iteration count. When the extra iteration count is unset (nil), it SHALL default to 30% of the item count, rounded up. Each iteration checks for a blocked state before invoking the AI. An iteration that leaves `blocked.md` is committed and then stops the loop with a blocked error, without starting another iteration. When an iteration's AI pass fails with a non-fatal error, the loop SHALL continue and carry the error into the next iteration's prompts, following [iteration-recovery.md](iteration-recovery.md).
 
 #### Scenario: All items already complete
 
@@ -214,6 +214,21 @@ The iteration loop SHALL invoke the AI agent repeatedly until every item is comp
 - WHEN the loop checks for the blocked state
 - THEN the loop stops immediately with a blocked error
 - AND the AI is not invoked
+
+#### Scenario: `blocked.md` written during an iteration
+
+- GIVEN a project with 3 items and iterations left in the limit
+- AND the development agent writes `blocked.md` during the iteration
+- WHEN the iteration ends
+- THEN the iteration is committed as described in [Commit after each iteration](#requirement-commit-after-each-iteration)
+- AND the loop stops with a blocked error
+- AND no further iteration starts, so the picker is not invoked again
+
+#### Scenario: `blocked.md` on the branch stops a resumed run
+
+- GIVEN an earlier run committed `blocked.md` to the project branch
+- WHEN local execution is started again against the same branch
+- THEN the loop stops with a blocked error before invoking the AI
 
 #### Scenario: Fatal AI error (billing/quota)
 
@@ -328,7 +343,11 @@ The command SHALL apply the configured agent, resolved as described in [run.md](
 
 ### Requirement: Commit after each iteration
 
-After each iteration the command SHALL commit any changes the AI produced. The commit message comes from `report.md` if present. Otherwise the AI generates a changelog. When the agent wrote `report.md` but the working tree has no changes, the command SHALL create an empty commit with `report.md` as the commit message, so a completion trailer in the report is recorded even when no code was written. When the working tree has no changes and no `report.md` exists, the command SHALL create no commit. The command SHALL use `report.md` verbatim as the commit message and SHALL NOT append, rewrite, or remove a completion trailer. The `report.md` file SHALL NOT be committed and SHALL be deleted after the commit.
+After each iteration the command SHALL commit any changes the AI produced. The commit message comes from `report.md` if present. Otherwise, when `blocked.md` is present, the commit message comes from `blocked.md`. Otherwise the AI generates a changelog. When the agent wrote `report.md` but the working tree has no changes, the command SHALL create an empty commit with `report.md` as the commit message, so a completion trailer in the report is recorded even when no code was written. When the working tree has no changes and no `report.md` exists, the command SHALL create no commit. The command SHALL use `report.md` verbatim as the commit message and SHALL NOT append, rewrite, or remove a completion trailer. The `report.md` file SHALL NOT be committed and SHALL be deleted after the commit.
+
+When `blocked.md` exists after the iteration, the command SHALL commit it together with any other changes so the file lands on the project branch, where the pull request and a resumed run can see it. The command SHALL NOT generate a changelog for a blocked iteration. `blocked.md` SHALL stay in the working tree after the commit, so the next check for the blocked state finds it.
+
+Before the changelog agent runs, the command SHALL stage every change in the working tree, including untracked files, so the staged diff the agent is asked to describe holds the whole iteration's changes.
 
 #### Scenario: AI produces `report.md`
 
@@ -369,6 +388,38 @@ After each iteration the command SHALL commit any changes the AI produced. The c
 - THEN the AI is called to generate a changelog, producing `report.md`
 - AND that content is used as the commit message
 - AND the generated changelog contains no completion trailer, so no item is marked complete
+
+#### Scenario: Changelog agent sees every change staged
+
+- GIVEN the working tree has a modified tracked file and a new untracked file and no `report.md`
+- WHEN the changelog agent is invoked
+- THEN both files are already staged
+- AND the changelog describes both changes
+
+#### Scenario: Blocked iteration without `report.md`
+
+- GIVEN the agent wrote `blocked.md` and no `report.md`
+- AND the working tree has other uncommitted changes
+- WHEN the commit step runs
+- THEN one commit is created holding `blocked.md` and the other changes
+- AND the commit message is the content of `blocked.md`
+- AND no changelog agent is invoked
+- AND `blocked.md` remains in the working tree
+
+#### Scenario: Blocked iteration with `report.md`
+
+- GIVEN the agent wrote both `blocked.md` and `report.md`
+- WHEN the commit step runs
+- THEN the commit message is the content of `report.md`
+- AND `blocked.md` is included in the commit
+- AND `report.md` is not included in the commit and is deleted
+
+#### Scenario: Blocked iteration with no other changes
+
+- GIVEN the agent wrote `blocked.md` and nothing else changed
+- WHEN the commit step runs
+- THEN a commit is created holding only `blocked.md`
+- AND the commit message is the content of `blocked.md`
 
 #### Scenario: No changes and no `report.md`
 
