@@ -37,6 +37,7 @@ type GitClient interface {
 	HasChanges() bool
 	ReportExists() bool
 	CommitFromReport(slug string) error
+	CommitFromBlocked(slug string) error
 	CurrentBranch() (string, error)
 	IsBranchSyncedWithRemote(branch string) error
 	CommitProjectRemoval(path string) error
@@ -250,6 +251,9 @@ func (r *Runner) removeProjectFile(proj *project.Project, cfg *config.RalphConfi
 func (r *Runner) commitIteration(proj *project.Project) error {
 	if r.git.ReportExists() {
 		return r.git.CommitFromReport(proj.Slug)
+	}
+	if r.git.BlockedFileExists() {
+		return r.git.CommitFromBlocked(proj.Slug)
 	}
 	if !r.git.HasChanges() {
 		return nil

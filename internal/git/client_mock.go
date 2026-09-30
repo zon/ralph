@@ -7,6 +7,7 @@ type MockClient struct {
 	HasChangesFunc               func() bool
 	ReportExistsFunc             func() bool
 	CommitFromReportFunc         func(slug string) error
+	CommitFromBlockedFunc        func(slug string) error
 	CurrentBranchFunc            func() (string, error)
 	IsBranchSyncedWithRemoteFunc func(branch string) error
 	CommitProjectRemovalFunc     func(path string) error
@@ -55,6 +56,13 @@ func (m *MockClient) ReportExists() bool {
 func (m *MockClient) CommitFromReport(slug string) error {
 	if m.CommitFromReportFunc != nil {
 		return m.CommitFromReportFunc(slug)
+	}
+	return nil
+}
+
+func (m *MockClient) CommitFromBlocked(slug string) error {
+	if m.CommitFromBlockedFunc != nil {
+		return m.CommitFromBlockedFunc(slug)
 	}
 	return nil
 }

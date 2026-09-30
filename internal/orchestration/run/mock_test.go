@@ -115,12 +115,13 @@ func cloneProjectItems(items []project.Item) []project.Item {
 // mockGit implements GitClient with configurable behaviors, a call-order log,
 // and recorded commit history.
 type mockGit struct {
-	commitsAhead  bool
-	blockedFile   bool
-	hasChanges    bool
-	reportExists  bool
-	reportMessage string
-	order         []string
+	commitsAhead   bool
+	blockedFile    bool
+	hasChanges     bool
+	reportExists   bool
+	reportMessage  string
+	blockedMessage string
+	order          []string
 
 	fetchBranchErr error
 	needsMerge     bool
@@ -132,6 +133,7 @@ type mockGit struct {
 	switchToBranchCalled       bool
 	commitFromReportCalled     bool
 	commitFromReportCalls      int
+	commitFromBlockedCalled    bool
 	commitProjectRemovalCalled bool
 	fetchBranchCalled          bool
 	needsMergeCalled           bool
@@ -171,6 +173,12 @@ func (m *mockGit) CommitFromReport(slug string) error {
 	m.commitFromReportCalled = true
 	m.commitFromReportCalls++
 	m.lastCommitMessage = m.reportMessage
+	return nil
+}
+
+func (m *mockGit) CommitFromBlocked(slug string) error {
+	m.commitFromBlockedCalled = true
+	m.lastCommitMessage = m.blockedMessage
 	return nil
 }
 
@@ -665,6 +673,20 @@ func outputWarnings(r *Runner) []string {
 func gitCommittedFromReport(r *Runner) bool {
 	if m, ok := r.git.(*mockGit); ok {
 		return m.commitFromReportCalled
+	}
+	return false
+}
+
+func gitCommittedFromBlocked(r *Runner) bool {
+	if m, ok := r.git.(*mockGit); ok {
+		return m.commitFromBlockedCalled
+	}
+	return false
+}
+
+func gitBlockedFileExists(r *Runner) bool {
+	if m, ok := r.git.(*mockGit); ok {
+		return m.blockedFile
 	}
 	return false
 }
