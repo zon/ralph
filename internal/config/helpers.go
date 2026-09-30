@@ -40,6 +40,14 @@ func WithBase(branch string) *RalphConfig {
 	return cfg
 }
 
+// WithStartingBranch returns a config whose starting branch is the given
+// branch, standing for the branch the run started on.
+func WithStartingBranch(branch string) *RalphConfig {
+	cfg := Any()
+	cfg.StartingBranch = branch
+	return cfg
+}
+
 // WithCleanup returns a config with project file cleanup enabled. Cleanup is
 // enabled by default, so this is a no-op kept for callers that make the
 // behavior explicit.
@@ -67,6 +75,12 @@ func (c *RalphConfig) WithItems(query string) *RalphConfig {
 // WithBase chains the base branch onto a config.
 func (c *RalphConfig) WithBase(branch string) *RalphConfig {
 	c.Base = branch
+	return c
+}
+
+// WithStartingBranch chains the branch the run started on onto a config.
+func (c *RalphConfig) WithStartingBranch(branch string) *RalphConfig {
+	c.StartingBranch = branch
 	return c
 }
 

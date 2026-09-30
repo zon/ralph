@@ -111,6 +111,22 @@ func (a *Client) CurrentBranch() (string, error) {
 	return GetCurrentBranch()
 }
 
+// CheckoutBranch switches the checkout to the named branch.
+func (a *Client) CheckoutBranch(name string) error {
+	return CheckoutBranch(name)
+}
+
+// HasCommitsAhead reports whether the current branch has commits the given base
+// branch does not, so a run can tell whether opening a pull request is
+// meaningful.
+func (a *Client) HasCommitsAhead(base string) (bool, error) {
+	messages, err := CommitMessages(base)
+	if err != nil {
+		return false, err
+	}
+	return len(messages) > 0, nil
+}
+
 // FetchBranch fetches the given branch from origin, updating the local branch.
 func (a *Client) FetchBranch(branch string) error {
 	return FetchBranch(branch)

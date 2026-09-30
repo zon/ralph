@@ -131,6 +131,8 @@ type mockGit struct {
 	pushErr        error
 
 	switchToBranchCalled       bool
+	checkoutBranchCalled       bool
+	lastCheckedOutBranch       string
 	commitFromReportCalled     bool
 	commitFromReportCalls      int
 	commitFromBlockedCalled    bool
@@ -191,6 +193,17 @@ func (m *mockGit) CommitFromBlocked(slug string) error {
 
 func (m *mockGit) CurrentBranch() (string, error) {
 	return "main", nil
+}
+
+func (m *mockGit) CheckoutBranch(name string) error {
+	m.checkoutBranchCalled = true
+	m.lastCheckedOutBranch = name
+	m.order = append(m.order, "checkout")
+	return nil
+}
+
+func (m *mockGit) HasCommitsAhead(base string) (bool, error) {
+	return m.commitsAhead, nil
 }
 
 func (m *mockGit) FetchBranch(branch string) error {
@@ -591,6 +604,20 @@ func gitBranchSwitched(r *Runner) bool {
 		return m.switchToBranchCalled
 	}
 	return false
+}
+
+func gitCheckoutBranchCalled(r *Runner) bool {
+	if m, ok := r.git.(*mockGit); ok {
+		return m.checkoutBranchCalled
+	}
+	return false
+}
+
+func gitLastCheckedOutBranch(r *Runner) string {
+	if m, ok := r.git.(*mockGit); ok {
+		return m.lastCheckedOutBranch
+	}
+	return ""
 }
 
 func gitFetchCalled(r *Runner) bool {
