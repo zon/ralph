@@ -1,9 +1,0 @@
-# Trivy on ghcr.io/zon/ralph:28.2.1 (2026-10-01) reports one CRITICAL and
-# about a hundred HIGH findings. Every one is in software the Containerfile
-# installs, not in Ralph's own code.
-- The image's npm is 12 or later, so npm's bundled tar carries no finding at CRITICAL (CVE-2026-59873) and its bundled tar, brace-expansion, ip-address, pacote, picomatch and sigstore carry none at HIGH
-- The image's argo CLI is v4.1.4 or later and its helm is v4.3.0 or later, so neither binary carries a HIGH finding in argo-workflows, go-git, oras-go, grpc, x/crypto, x/net, x/text or the Go standard library
-- The ralph binary in the image carries no HIGH finding in golang.org/x/net or golang.org/x/text
-- The runtime stage builds on the newest Playwright noble image and applies Ubuntu's security updates, so openssl and libssl3t64 carry no HIGH finding
-- A Scan workflow builds the Containerfile on every pull request, runs Trivy on the image at MEDIUM and above, uploads the JSON and a table report as an artifact, and fails the check on any CRITICAL finding
-- Apply a semver patch bump to the app version
