@@ -87,6 +87,55 @@ func TestDockerfileUsesMultiStageBuilds(t *testing.T) {
 	assert.Contains(t, dockerfile, "COPY --from=", "Containerfile should copy artifacts from build stage")
 }
 
+func TestDockerfileUsesNewestPlaywrightNobleBase(t *testing.T) {
+	projectRoot := filepath.Join("..", "..")
+	containerfilePath := filepath.Join(projectRoot, "Containerfile")
+
+	content, err := os.ReadFile(containerfilePath)
+	require.NoError(t, err, "Should be able to read Containerfile")
+
+	dockerfile := string(content)
+
+	pattern := regexp.MustCompile(`mcr\.microsoft\.com/playwright:v(\d+)\.(\d+)\.(\d+)-noble`)
+	match := pattern.FindStringSubmatch(dockerfile)
+	require.NotNil(t, match, "Containerfile should build on a Playwright noble image")
+
+	var version [3]int
+	for i := range version {
+		part, err := strconv.Atoi(match[i+1])
+		require.NoError(t, err, "Playwright version should have numeric parts")
+		version[i] = part
+	}
+
+	minimum := [3]int{1, 63, 0}
+	assert.GreaterOrEqual(t, compareVersions(version, minimum), 0,
+		"Containerfile should build on Playwright noble v%d.%d.%d or later, got v%d.%d.%d",
+		minimum[0], minimum[1], minimum[2], version[0], version[1], version[2])
+}
+
+func TestDockerfileAppliesUbuntuSecurityUpdates(t *testing.T) {
+	projectRoot := filepath.Join("..", "..")
+	containerfilePath := filepath.Join(projectRoot, "Containerfile")
+
+	content, err := os.ReadFile(containerfilePath)
+	require.NoError(t, err, "Should be able to read Containerfile")
+
+	runtime := runtimeStage(t, string(content))
+
+	upgradePattern := regexp.MustCompile(`apt-get\s+(?:dist-)?upgrade\s+-y`)
+	assert.Regexp(t, upgradePattern, runtime,
+		"Runtime stage should apply Ubuntu security updates with apt-get upgrade")
+}
+
+func runtimeStage(t *testing.T, dockerfile string) string {
+	t.Helper()
+
+	marker := "mcr.microsoft.com/playwright:"
+	idx := strings.Index(dockerfile, marker)
+	require.GreaterOrEqual(t, idx, 0, "Containerfile should use the Playwright base image")
+	return dockerfile[idx:]
+}
+
 func TestDockerfileUpgradesNpm(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
 	containerfilePath := filepath.Join(projectRoot, "Containerfile")

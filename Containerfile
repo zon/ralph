@@ -16,10 +16,14 @@ COPY . .
 RUN just build
 
 # Runtime stage - use official Playwright image with all browsers pre-installed
-FROM mcr.microsoft.com/playwright:v1.60.0-noble
+FROM mcr.microsoft.com/playwright:v1.63.0-noble
 
-# Install additional system dependencies (Playwright deps already included)
-RUN apt-get update && apt-get install -y \
+# Apply Ubuntu's security updates and install additional system dependencies
+# (Playwright deps already included) so base packages such as openssl and
+# libssl3t64 carry no known high-severity findings
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && apt-get install -y \
     just \
     unzip \
     net-tools \
