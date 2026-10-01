@@ -110,6 +110,63 @@ func TestDockerfileUpgradesNpm(t *testing.T) {
 		"Containerfile should install npm 12 or later, got %s", match[1])
 }
 
+func TestDockerfileUpgradesArgoAndHelm(t *testing.T) {
+	projectRoot := filepath.Join("..", "..")
+	containerfilePath := filepath.Join(projectRoot, "Containerfile")
+
+	content, err := os.ReadFile(containerfilePath)
+	require.NoError(t, err, "Should be able to read Containerfile")
+
+	dockerfile := string(content)
+
+	cases := []struct {
+		name    string
+		envVar  string
+		minimum [3]int
+	}{
+		{"argo CLI", "ARGO_VERSION", [3]int{4, 1, 4}},
+		{"helm", "HELM_VERSION", [3]int{4, 3, 0}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			version := containerfileVersion(t, dockerfile, tc.envVar)
+			assert.GreaterOrEqual(t, compareVersions(version, tc.minimum), 0,
+				"Containerfile should pin %s at v%d.%d.%d or later, got v%d.%d.%d",
+				tc.envVar, tc.minimum[0], tc.minimum[1], tc.minimum[2],
+				version[0], version[1], version[2])
+		})
+	}
+}
+
+func containerfileVersion(t *testing.T, dockerfile, envVar string) [3]int {
+	t.Helper()
+
+	pattern := regexp.MustCompile(`ENV\s+` + envVar + `=v?(\d+)\.(\d+)\.(\d+)`)
+	match := pattern.FindStringSubmatch(dockerfile)
+	require.NotNil(t, match, "Containerfile should pin %s", envVar)
+
+	var version [3]int
+	for i := range version {
+		part, err := strconv.Atoi(match[i+1])
+		require.NoError(t, err, "%s should have numeric version parts", envVar)
+		version[i] = part
+	}
+	return version
+}
+
+func compareVersions(a, b [3]int) int {
+	for i := range a {
+		if a[i] != b[i] {
+			if a[i] > b[i] {
+				return 1
+			}
+			return -1
+		}
+	}
+	return 0
+}
+
 func TestPushScriptExists(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
 	scriptPath := filepath.Join(projectRoot, "scripts", "push-image.sh")
