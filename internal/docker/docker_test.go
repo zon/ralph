@@ -3,6 +3,8 @@ package docker
 import (
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -83,6 +85,179 @@ func TestDockerfileUsesMultiStageBuilds(t *testing.T) {
 	assert.True(t, strings.Contains(dockerfile, "AS builder") || strings.Contains(dockerfile, "AS build"),
 		"Containerfile should use multi-stage builds")
 	assert.Contains(t, dockerfile, "COPY --from=", "Containerfile should copy artifacts from build stage")
+}
+
+func TestDockerfileUsesNewestPlaywrightNobleBase(t *testing.T) {
+	projectRoot := filepath.Join("..", "..")
+	containerfilePath := filepath.Join(projectRoot, "Containerfile")
+
+	content, err := os.ReadFile(containerfilePath)
+	require.NoError(t, err, "Should be able to read Containerfile")
+
+	dockerfile := string(content)
+
+	pattern := regexp.MustCompile(`mcr\.microsoft\.com/playwright:v(\d+)\.(\d+)\.(\d+)-noble`)
+	match := pattern.FindStringSubmatch(dockerfile)
+	require.NotNil(t, match, "Containerfile should build on a Playwright noble image")
+
+	var version [3]int
+	for i := range version {
+		part, err := strconv.Atoi(match[i+1])
+		require.NoError(t, err, "Playwright version should have numeric parts")
+		version[i] = part
+	}
+
+	minimum := [3]int{1, 63, 0}
+	assert.GreaterOrEqual(t, compareVersions(version, minimum), 0,
+		"Containerfile should build on Playwright noble v%d.%d.%d or later, got v%d.%d.%d",
+		minimum[0], minimum[1], minimum[2], version[0], version[1], version[2])
+}
+
+func TestDockerfileAppliesUbuntuSecurityUpdates(t *testing.T) {
+	projectRoot := filepath.Join("..", "..")
+	containerfilePath := filepath.Join(projectRoot, "Containerfile")
+
+	content, err := os.ReadFile(containerfilePath)
+	require.NoError(t, err, "Should be able to read Containerfile")
+
+	runtime := runtimeStage(t, string(content))
+
+	upgradePattern := regexp.MustCompile(`apt-get\s+(?:dist-)?upgrade\s+-y`)
+	assert.Regexp(t, upgradePattern, runtime,
+		"Runtime stage should apply Ubuntu security updates with apt-get upgrade")
+}
+
+func runtimeStage(t *testing.T, dockerfile string) string {
+	t.Helper()
+
+	marker := "mcr.microsoft.com/playwright:"
+	idx := strings.Index(dockerfile, marker)
+	require.GreaterOrEqual(t, idx, 0, "Containerfile should use the Playwright base image")
+	return dockerfile[idx:]
+}
+
+func TestDockerfileUpgradesNpm(t *testing.T) {
+	projectRoot := filepath.Join("..", "..")
+	containerfilePath := filepath.Join(projectRoot, "Containerfile")
+
+	content, err := os.ReadFile(containerfilePath)
+	require.NoError(t, err, "Should be able to read Containerfile")
+
+	dockerfile := string(content)
+
+	assert.Contains(t, dockerfile, "npm install -g npm@${NPM_VERSION}",
+		"Containerfile should upgrade the bundled npm to the pinned NPM_VERSION")
+
+	versionPattern := regexp.MustCompile(`ENV\s+NPM_VERSION=(\S+)`)
+	match := versionPattern.FindStringSubmatch(dockerfile)
+	require.NotNil(t, match, "Containerfile should pin NPM_VERSION")
+
+	major := strings.SplitN(match[1], ".", 2)[0]
+	majorVersion, err := strconv.Atoi(major)
+	require.NoError(t, err, "NPM_VERSION major should be numeric, got %q", match[1])
+	assert.GreaterOrEqual(t, majorVersion, 12,
+		"Containerfile should install npm 12 or later, got %s", match[1])
+}
+
+func TestDockerfileUpgradesArgoAndHelm(t *testing.T) {
+	projectRoot := filepath.Join("..", "..")
+	containerfilePath := filepath.Join(projectRoot, "Containerfile")
+
+	content, err := os.ReadFile(containerfilePath)
+	require.NoError(t, err, "Should be able to read Containerfile")
+
+	dockerfile := string(content)
+
+	cases := []struct {
+		name    string
+		envVar  string
+		minimum [3]int
+	}{
+		{"argo CLI", "ARGO_VERSION", [3]int{4, 1, 4}},
+		{"helm", "HELM_VERSION", [3]int{4, 3, 0}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			version := containerfileVersion(t, dockerfile, tc.envVar)
+			assert.GreaterOrEqual(t, compareVersions(version, tc.minimum), 0,
+				"Containerfile should pin %s at v%d.%d.%d or later, got v%d.%d.%d",
+				tc.envVar, tc.minimum[0], tc.minimum[1], tc.minimum[2],
+				version[0], version[1], version[2])
+		})
+	}
+}
+
+func TestRalphBinaryHasPatchedGoDependencies(t *testing.T) {
+	projectRoot := filepath.Join("..", "..")
+	goModPath := filepath.Join(projectRoot, "go.mod")
+
+	content, err := os.ReadFile(goModPath)
+	require.NoError(t, err, "Should be able to read go.mod")
+
+	goMod := string(content)
+
+	cases := []struct {
+		module  string
+		minimum [3]int
+	}{
+		{"golang.org/x/net", [3]int{0, 56, 0}},
+		{"golang.org/x/text", [3]int{0, 39, 0}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.module, func(t *testing.T) {
+			version := goModVersion(t, goMod, tc.module)
+			assert.GreaterOrEqual(t, compareVersions(version, tc.minimum), 0,
+				"go.mod should require %s v%d.%d.%d or later, got v%d.%d.%d",
+				tc.module, tc.minimum[0], tc.minimum[1], tc.minimum[2],
+				version[0], version[1], version[2])
+		})
+	}
+}
+
+func goModVersion(t *testing.T, goMod, module string) [3]int {
+	t.Helper()
+
+	pattern := regexp.MustCompile(`(?m)^\s*` + regexp.QuoteMeta(module) + `\s+v(\d+)\.(\d+)\.(\d+)`)
+	match := pattern.FindStringSubmatch(goMod)
+	require.NotNil(t, match, "go.mod should require %s", module)
+
+	var version [3]int
+	for i := range version {
+		part, err := strconv.Atoi(match[i+1])
+		require.NoError(t, err, "%s should have numeric version parts", module)
+		version[i] = part
+	}
+	return version
+}
+
+func containerfileVersion(t *testing.T, dockerfile, envVar string) [3]int {
+	t.Helper()
+
+	pattern := regexp.MustCompile(`ENV\s+` + envVar + `=v?(\d+)\.(\d+)\.(\d+)`)
+	match := pattern.FindStringSubmatch(dockerfile)
+	require.NotNil(t, match, "Containerfile should pin %s", envVar)
+
+	var version [3]int
+	for i := range version {
+		part, err := strconv.Atoi(match[i+1])
+		require.NoError(t, err, "%s should have numeric version parts", envVar)
+		version[i] = part
+	}
+	return version
+}
+
+func compareVersions(a, b [3]int) int {
+	for i := range a {
+		if a[i] != b[i] {
+			if a[i] > b[i] {
+				return 1
+			}
+			return -1
+		}
+	}
+	return 0
 }
 
 func TestPushScriptExists(t *testing.T) {

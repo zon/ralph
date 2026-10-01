@@ -16,15 +16,23 @@ COPY . .
 RUN just build
 
 # Runtime stage - use official Playwright image with all browsers pre-installed
-FROM mcr.microsoft.com/playwright:v1.60.0-noble
+FROM mcr.microsoft.com/playwright:v1.63.0-noble
 
-# Install additional system dependencies (Playwright deps already included)
-RUN apt-get update && apt-get install -y \
+# Apply Ubuntu's security updates and install additional system dependencies
+# (Playwright deps already included) so base packages such as openssl and
+# libssl3t64 carry no known high-severity findings
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && apt-get install -y \
     just \
     unzip \
     net-tools \
     jq \
     && rm -rf /var/lib/apt/lists/*
+
+# Upgrade npm so its bundled dependencies carry no known vulnerabilities
+ENV NPM_VERSION=12.2.0
+RUN npm install -g npm@${NPM_VERSION}
 
 # Install GitHub CLI
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
@@ -60,14 +68,14 @@ RUN bun install -g opencode-ai \
     && ln -s ${BUN_INSTALL}/bin/opencode /usr/local/bin/opencode
 
 # Install Argo Workflows CLI
-ENV ARGO_VERSION=v4.0.5
+ENV ARGO_VERSION=v4.1.4
 RUN curl -sLO "https://github.com/argoproj/argo-workflows/releases/download/${ARGO_VERSION}/argo-linux-amd64.gz" \
     && gunzip argo-linux-amd64.gz \
     && chmod +x argo-linux-amd64 \
     && mv argo-linux-amd64 /usr/local/bin/argo
 
 # Install Helm
-ENV HELM_VERSION=v4.2.0
+ENV HELM_VERSION=v4.3.0
 RUN curl -fsSL "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz" | tar -xz \
     && mv linux-amd64/helm /usr/local/bin/helm \
     && rm -rf linux-amd64

@@ -1,0 +1,54 @@
+name: Scan
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t ralph:scan -f Containerfile .
+
+      - name: Scan image with Trivy (JSON)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ralph:scan
+          format: json
+          severity: MEDIUM,HIGH,CRITICAL
+          output: trivy-report.json
+          exit-code: '0'
+
+      - name: Scan image with Trivy (table)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ralph:scan
+          format: table
+          severity: MEDIUM,HIGH,CRITICAL
+          output: trivy-report.txt
+          exit-code: '0'
+          skip-setup-trivy: 'true'
+
+      - name: Fail on CRITICAL findings
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ralph:scan
+          format: table
+          severity: CRITICAL
+          exit-code: '1'
+          skip-setup-trivy: 'true'
+
+      - name: Upload Trivy reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-reports
+          path: |
+            trivy-report.json
+            trivy-report.txt

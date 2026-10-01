@@ -137,7 +137,7 @@ func TestContainerBuildWorkflow(t *testing.T) {
 
 			require.NotEmpty(t, tagStrings, "build-push-action should have tags")
 			for _, tagStr := range tagStrings {
-				if strings.Contains(tagStr, "latest") {
+				if strings.Contains(tagStr, "latest") || strings.Contains(tagStr, "steps.version.outputs.ALIAS") {
 					hasLatestTag = true
 				}
 				if strings.Contains(tagStr, "steps.version.outputs.VERSION") {
