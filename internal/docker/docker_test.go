@@ -139,6 +139,50 @@ func TestDockerfileUpgradesArgoAndHelm(t *testing.T) {
 	}
 }
 
+func TestRalphBinaryHasPatchedGoDependencies(t *testing.T) {
+	projectRoot := filepath.Join("..", "..")
+	goModPath := filepath.Join(projectRoot, "go.mod")
+
+	content, err := os.ReadFile(goModPath)
+	require.NoError(t, err, "Should be able to read go.mod")
+
+	goMod := string(content)
+
+	cases := []struct {
+		module  string
+		minimum [3]int
+	}{
+		{"golang.org/x/net", [3]int{0, 56, 0}},
+		{"golang.org/x/text", [3]int{0, 39, 0}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.module, func(t *testing.T) {
+			version := goModVersion(t, goMod, tc.module)
+			assert.GreaterOrEqual(t, compareVersions(version, tc.minimum), 0,
+				"go.mod should require %s v%d.%d.%d or later, got v%d.%d.%d",
+				tc.module, tc.minimum[0], tc.minimum[1], tc.minimum[2],
+				version[0], version[1], version[2])
+		})
+	}
+}
+
+func goModVersion(t *testing.T, goMod, module string) [3]int {
+	t.Helper()
+
+	pattern := regexp.MustCompile(`(?m)^\s*` + regexp.QuoteMeta(module) + `\s+v(\d+)\.(\d+)\.(\d+)`)
+	match := pattern.FindStringSubmatch(goMod)
+	require.NotNil(t, match, "go.mod should require %s", module)
+
+	var version [3]int
+	for i := range version {
+		part, err := strconv.Atoi(match[i+1])
+		require.NoError(t, err, "%s should have numeric version parts", module)
+		version[i] = part
+	}
+	return version
+}
+
 func containerfileVersion(t *testing.T, dockerfile, envVar string) [3]int {
 	t.Helper()
 
