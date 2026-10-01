@@ -26,6 +26,10 @@ RUN apt-get update && apt-get install -y \
     jq \
     && rm -rf /var/lib/apt/lists/*
 
+# Upgrade npm so its bundled dependencies carry no known vulnerabilities
+ENV NPM_VERSION=12.2.0
+RUN npm install -g npm@${NPM_VERSION}
+
 # Install GitHub CLI
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
     && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \

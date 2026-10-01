@@ -3,6 +3,8 @@ package docker
 import (
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -83,6 +85,29 @@ func TestDockerfileUsesMultiStageBuilds(t *testing.T) {
 	assert.True(t, strings.Contains(dockerfile, "AS builder") || strings.Contains(dockerfile, "AS build"),
 		"Containerfile should use multi-stage builds")
 	assert.Contains(t, dockerfile, "COPY --from=", "Containerfile should copy artifacts from build stage")
+}
+
+func TestDockerfileUpgradesNpm(t *testing.T) {
+	projectRoot := filepath.Join("..", "..")
+	containerfilePath := filepath.Join(projectRoot, "Containerfile")
+
+	content, err := os.ReadFile(containerfilePath)
+	require.NoError(t, err, "Should be able to read Containerfile")
+
+	dockerfile := string(content)
+
+	assert.Contains(t, dockerfile, "npm install -g npm@${NPM_VERSION}",
+		"Containerfile should upgrade the bundled npm to the pinned NPM_VERSION")
+
+	versionPattern := regexp.MustCompile(`ENV\s+NPM_VERSION=(\S+)`)
+	match := versionPattern.FindStringSubmatch(dockerfile)
+	require.NotNil(t, match, "Containerfile should pin NPM_VERSION")
+
+	major := strings.SplitN(match[1], ".", 2)[0]
+	majorVersion, err := strconv.Atoi(major)
+	require.NoError(t, err, "NPM_VERSION major should be numeric, got %q", match[1])
+	assert.GreaterOrEqual(t, majorVersion, 12,
+		"Containerfile should install npm 12 or later, got %s", match[1])
 }
 
 func TestPushScriptExists(t *testing.T) {
