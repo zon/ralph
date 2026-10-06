@@ -183,6 +183,7 @@ func cmdWithMocks(opts ...cmdOption) *RunCmd {
 		worktree:  &mockWorktreeClient{},
 		local:     &mockLocalRunnerClient{},
 		remote:    &mockRemoteRunnerClient{},
+		output:    &mockOutput{},
 	}
 	for _, opt := range opts {
 		opt(cmd)
@@ -320,6 +321,13 @@ func remoteRunCalled(cmd *RunCmd) bool {
 		return m.RunCalled
 	}
 	return false
+}
+
+func runCmdWarnings(cmd *RunCmd) []string {
+	if m, ok := cmd.output.(*mockOutput); ok {
+		return m.warnings
+	}
+	return nil
 }
 
 // ---------------------------------------------------------------------------
@@ -468,10 +476,10 @@ func TestRunInputFileNotFoundErrorMessage(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Scenario tests: --follow rejected for local and worktree modes
+// Scenario tests: --follow warned about and ignored for local and worktree modes
 // ---------------------------------------------------------------------------
 
-func TestRunFollowRejectedForLocalAndWorktreeModes(t *testing.T) {
+func TestRunFollowWarnedAndIgnoredForLocalAndWorktreeModes(t *testing.T) {
 	tests := []struct {
 		name string
 		mode string
@@ -483,20 +491,24 @@ func TestRunFollowRejectedForLocalAndWorktreeModes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cmd := cmdWithMocks()
 			err := cmd.Run(flagsWithFollowAndMode(tt.mode))
-			require.Error(t, err)
-			require.Contains(t, err.Error(), "--follow flag is not applicable with --mode "+tt.mode)
-			require.False(t, localRunLocalCalled(cmd))
+			require.NoError(t, err)
+			require.Contains(t, runCmdWarnings(cmd), "--follow flag is not applicable with --mode "+tt.mode+"; ignoring")
 			require.False(t, remoteRunCalled(cmd))
+			if tt.mode == config.ModeLocal {
+				require.True(t, localRunLocalCalled(cmd), "the local run proceeds despite --follow")
+			} else {
+				require.True(t, localRunLocalInWorktreeCalled(cmd), "the worktree run proceeds despite --follow")
+			}
 		})
 	}
 }
 
-func TestRunFollowRejectedWhenWorktreeFromConfig(t *testing.T) {
+func TestRunFollowWarnedWhenWorktreeFromConfig(t *testing.T) {
 	cmd := cmdWithMocks(cmdWithConfig(configWithMode(config.ModeWorktree)))
 	err := cmd.Run(flagsWithFollow())
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "--follow flag is not applicable with --mode worktree")
-	require.False(t, localRunLocalCalled(cmd))
+	require.NoError(t, err)
+	require.Contains(t, runCmdWarnings(cmd), "--follow flag is not applicable with --mode worktree; ignoring")
+	require.True(t, localRunLocalInWorktreeCalled(cmd))
 	require.False(t, remoteRunCalled(cmd))
 }
 
@@ -673,7 +685,7 @@ func TestRunInputFileNotFoundAbortsEarly(t *testing.T) {
 
 func TestRunIncompatibleFlagsAbortBeforeSetup(t *testing.T) {
 	cmd := cmdWithMocks()
-	err := cmd.Run(flagsWithFollowAndMode(config.ModeLocal))
+	err := cmd.Run(flagsWithDebugAndMode(config.ModeLocal))
 	require.Error(t, err)
 	require.False(t, localRunLocalCalled(cmd))
 	require.False(t, remoteRunCalled(cmd))
@@ -703,7 +715,7 @@ func TestRunInputFileNotFoundAbortsBeforeFlagValidation(t *testing.T) {
 
 func TestRunIncompatibleFlagsRejectedBeforeSetupForProjectInput(t *testing.T) {
 	cmd := cmdWithMocks()
-	err := cmd.Run(flagsWithFollowAndMode(config.ModeLocal))
+	err := cmd.Run(flagsWithDebugAndMode(config.ModeLocal))
 	require.Error(t, err)
 	require.False(t, localRunLocalCalled(cmd))
 	require.False(t, remoteRunCalled(cmd))

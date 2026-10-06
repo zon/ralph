@@ -23,16 +23,14 @@ func TestModeFlagValidation(t *testing.T) {
 		errorMsg    string
 	}{
 		{
-			name:        "follow with local should fail",
+			name:        "follow with local should warn and proceed",
 			args:        []string{"run", "--follow", "--mode", "local", "test.yaml"},
-			expectError: true,
-			errorMsg:    "--follow flag is not applicable with --mode local",
+			expectError: false,
 		},
 		{
-			name:        "follow with worktree should fail",
+			name:        "follow with worktree should warn and proceed",
 			args:        []string{"run", "--follow", "--mode", "worktree", "test.yaml"},
-			expectError: true,
-			errorMsg:    "--follow flag is not applicable with --mode worktree",
+			expectError: false,
 		},
 		{
 			name:        "local alone should succeed validation",
@@ -50,10 +48,9 @@ func TestModeFlagValidation(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name:        "follow alone should fail with the local default",
+			name:        "follow alone should warn and proceed with the local default",
 			args:        []string{"run", "--follow", "test.yaml"},
-			expectError: true,
-			errorMsg:    "--follow flag is not applicable with --mode local",
+			expectError: false,
 		},
 		{
 			name:        "debug with local should fail",
@@ -68,10 +65,9 @@ func TestModeFlagValidation(t *testing.T) {
 			errorMsg:    "--debug flag is not applicable with --mode worktree",
 		},
 		{
-			name:        "default command - follow with local should fail",
+			name:        "default command - follow with local should warn and proceed",
 			args:        []string{"--follow", "--mode", "local", "test.yaml"},
-			expectError: true,
-			errorMsg:    "--follow flag is not applicable with --mode local",
+			expectError: false,
 		},
 	}
 
@@ -198,13 +194,11 @@ func TestFlagParsing(t *testing.T) {
 
 // validateRunFlags extracts the validation logic for testing. The mode
 // resolves as the --mode flag when passed, otherwise the local default.
+// --follow is a warning and never an error.
 func validateRunFlags(r *RunCmd) error {
 	mode := r.Mode
 	if mode == "" {
 		mode = config.ModeLocal
-	}
-	if r.Follow && (mode == config.ModeLocal || mode == config.ModeWorktree) {
-		return fmt.Errorf("--follow flag is not applicable with --mode %s", mode)
 	}
 	if r.Debug != "" && (mode == config.ModeLocal || mode == config.ModeWorktree) {
 		return fmt.Errorf("--debug flag is not applicable with --mode %s", mode)

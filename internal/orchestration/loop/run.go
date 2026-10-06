@@ -22,16 +22,6 @@ type LoopFlags struct {
 	Follow bool
 }
 
-// Validate rejects flag combinations that have no valid meaning for the
-// resolved execution mode. --follow is a workflow-only flag and is rejected
-// for local and worktree modes.
-func (f LoopFlags) Validate(mode string) error {
-	if f.Follow && (mode == config.ModeLocal || mode == config.ModeWorktree) {
-		return fmt.Errorf("--follow flag is not applicable with --mode %s", mode)
-	}
-	return nil
-}
-
 // WorktreeClient creates, detects, and removes git worktrees. Worktree mode
 // uses it to run the loop in a sibling directory worktree while leaving the
 // current checkout untouched.
@@ -48,20 +38,29 @@ type WorkspaceClient interface {
 
 // RunCmd orchestrates the ralph loop command. It resolves the execution mode
 // as the --mode flag, then the mode field in .ralph/config.yaml, then local,
-// the same resolution `ralph run` uses, validates the flags against it, and
-// dispatches between local, worktree, and remote execution. It returns
-// the resolved slug and steps for the in-process modes so the caller can retain
-// them.
+// the same resolution `ralph run` uses, warns about and ignores workflow-only
+// flags that do not apply, and dispatches between local, worktree, and remote
+// execution. It returns the resolved slug and steps for the in-process modes so
+// the caller can retain them.
 type RunCmd struct {
 	config    config.Loader
 	newLoop   func() (*Cmd, error)
 	worktree  WorktreeClient
 	workspace WorkspaceClient
 	remote    RemoteRunnerClient
+	output    OutputClient
 }
 
-func NewRunCmd(config config.Loader, newLoop func() (*Cmd, error), worktree WorktreeClient, workspace WorkspaceClient, remote RemoteRunnerClient) *RunCmd {
-	return &RunCmd{config: config, newLoop: newLoop, worktree: worktree, workspace: workspace, remote: remote}
+func NewRunCmd(config config.Loader, newLoop func() (*Cmd, error), worktree WorktreeClient, workspace WorkspaceClient, remote RemoteRunnerClient, output OutputClient) *RunCmd {
+	return &RunCmd{config: config, newLoop: newLoop, worktree: worktree, workspace: workspace, remote: remote, output: output}
+}
+
+// warnf logs a warning through the wired output client. It is a no-op when no
+// output client is wired.
+func (r *RunCmd) warnf(format string, a ...any) {
+	if r.output != nil {
+		r.output.Warnf(format, a...)
+	}
 }
 
 // Run resolves the execution mode, resolves the iteration cap, and dispatches
@@ -81,8 +80,9 @@ func (r *RunCmd) Run(flags LoopFlags) (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := flags.Validate(mode); err != nil {
-		return nil, err
+	if flags.Follow && (mode == config.ModeLocal || mode == config.ModeWorktree) {
+		r.warnf("--follow flag is not applicable with --mode %s; ignoring", mode)
+		flags.Follow = false
 	}
 	max := resolveLoopMax(cfg, flags)
 	switch mode {

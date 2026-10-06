@@ -19,6 +19,7 @@ type RunCmd struct {
 	config    config.Loader
 	local     LocalRunnerClient
 	remote    RemoteRunnerClient
+	output    OutputClient
 }
 
 type WorkspaceClient interface {
@@ -73,19 +74,16 @@ type RunFlags struct {
 }
 
 // Validate rejects flag combinations that have no valid meaning for the
-// resolved execution mode. --follow and --debug are workflow-only flags and are
-// rejected for local and worktree modes.
+// resolved execution mode. --debug is a workflow-only flag and is rejected for
+// local and worktree modes.
 func (f RunFlags) Validate(mode string) error {
-	if f.Follow && (mode == config.ModeLocal || mode == config.ModeWorktree) {
-		return fmt.Errorf("--follow flag is not applicable with --mode %s", mode)
-	}
 	if f.Debug != "" && (mode == config.ModeLocal || mode == config.ModeWorktree) {
 		return fmt.Errorf("--debug flag is not applicable with --mode %s", mode)
 	}
 	return nil
 }
 
-func NewRunCmd(workspace WorkspaceClient, project ProjectRepo, git GitClient, worktree WorktreeClient, config config.Loader, local LocalRunnerClient, remote RemoteRunnerClient) *RunCmd {
+func NewRunCmd(workspace WorkspaceClient, project ProjectRepo, git GitClient, worktree WorktreeClient, config config.Loader, local LocalRunnerClient, remote RemoteRunnerClient, output OutputClient) *RunCmd {
 	return &RunCmd{
 		workspace: workspace,
 		project:   project,
@@ -94,6 +92,15 @@ func NewRunCmd(workspace WorkspaceClient, project ProjectRepo, git GitClient, wo
 		config:    config,
 		local:     local,
 		remote:    remote,
+		output:    output,
+	}
+}
+
+// warnf logs a warning through the wired output client. It is a no-op when no
+// output client is wired.
+func (r *RunCmd) warnf(format string, a ...any) {
+	if r.output != nil {
+		r.output.Warnf(format, a...)
 	}
 }
 
@@ -111,6 +118,10 @@ func (r *RunCmd) Run(flags RunFlags) error {
 	}
 	if err := flags.Validate(setup.Mode); err != nil {
 		return err
+	}
+	if flags.Follow && (setup.Mode == config.ModeLocal || setup.Mode == config.ModeWorktree) {
+		r.warnf("--follow flag is not applicable with --mode %s; ignoring", setup.Mode)
+		flags.Follow = false
 	}
 	switch setup.Mode {
 	case config.ModeRemote:

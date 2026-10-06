@@ -19,5 +19,6 @@ func newOrchestrationRunCmd(ctx *execcontext.Context) *orchestrationRun.RunCmd {
 		&config.Client{},
 		NewLocalRunnerClient(ctx),
 		NewRemoteRunnerClient(ctx),
+		ctx.Output(),
 	)
 }

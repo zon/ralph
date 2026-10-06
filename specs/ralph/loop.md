@@ -21,7 +21,7 @@ Mode resolution follows a three-level precedence: `--mode` at the command line t
 - `worktree` runs the loop in-process in a Git worktree created for the `loop-<slug>` branch, leaving the current checkout untouched. See [run-worktree.md](run-worktree.md).
 - `remote` submits an Argo Workflow to Kubernetes, and the loop runs inside the workflow container. See [run-remote.md](run-remote.md).
 
-The `--follow` flag is workflow-only and is rejected for `local` and `worktree` modes. See [Incompatible flags are rejected](#requirement-incompatible-flags-are-rejected).
+The `--follow` flag is workflow-only. For `local` and `worktree` modes it is warned about and ignored. See [Workflow-only flags](#requirement-workflow-only-flags).
 
 The loop body (slug and step resolution, prompt construction, iteration, commit and push, and pull request opening) SHALL behave identically across all three modes.
 
@@ -119,21 +119,23 @@ The command SHALL accept `--model` and `--variant` to override the AI model and 
 
 ---
 
-### Requirement: Incompatible flags are rejected
+### Requirement: Workflow-only flags
 
-The command SHALL reject flag combinations that have no valid meaning before any execution begins.
+The command SHALL warn about and ignore `--follow` when it has no meaning, before any execution begins.
 
 #### Scenario: `--follow` with `--mode local`
 
 - GIVEN the user passes both `--follow` and `--mode local`
 - WHEN the command validates flag combinations
-- THEN an error is returned: `--follow flag is not applicable with --mode local`
+- THEN the warning `--follow flag is not applicable with --mode local; ignoring` is printed
+- AND the loop runs in `local` mode
 
 #### Scenario: `--follow` with `--mode worktree`
 
 - GIVEN the user passes both `--follow` and `--mode worktree`
 - WHEN the command validates flag combinations
-- THEN an error is returned: `--follow flag is not applicable with --mode worktree`
+- THEN the warning `--follow flag is not applicable with --mode worktree; ignoring` is printed
+- AND the loop runs in `worktree` mode
 
 ---
 

@@ -21,7 +21,7 @@ Mode resolution follows a three-level precedence: `--mode` at the command line t
 - `worktree` runs the development loop in-process in a Git worktree created for the project branch, leaving the current checkout untouched. See [run-worktree.md](run-worktree.md).
 - `remote` submits an Argo Workflow to Kubernetes and returns after submission. The loop runs inside the workflow container. See [run-remote.md](run-remote.md).
 
-The `--follow` and `--debug` flags are workflow-only and are rejected for `local` and `worktree` modes. See [Incompatible flags are rejected](#requirement-incompatible-flags-are-rejected).
+The `--follow` and `--debug` flags are workflow-only. For `local` and `worktree` modes `--follow` is warned about and ignored, while `--debug` is rejected. See [Workflow-only flags](#requirement-workflow-only-flags).
 
 #### Scenario: `--mode local` runs in the current checkout
 
@@ -194,21 +194,23 @@ Agent resolution follows a two-level precedence: `--agent` at the command line t
 
 ---
 
-### Requirement: Incompatible flags are rejected
+### Requirement: Workflow-only flags
 
-The command SHALL reject flag combinations that have no valid meaning before any execution begins.
+The command SHALL warn about and ignore `--follow` when it has no meaning, and SHALL reject `--debug` when it has no meaning, before any execution begins.
 
 #### Scenario: `--follow` with `--mode local`
 
 - GIVEN the user passes both `--follow` and `--mode local`
 - WHEN the command validates flag combinations
-- THEN an error is returned: `--follow flag is not applicable with --mode local`
+- THEN the warning `--follow flag is not applicable with --mode local; ignoring` is printed
+- AND execution proceeds in `local` mode
 
 #### Scenario: `--follow` with `--mode worktree`
 
 - GIVEN the user passes both `--follow` and `--mode worktree`
 - WHEN the command validates flag combinations
-- THEN an error is returned: `--follow flag is not applicable with --mode worktree`
+- THEN the warning `--follow flag is not applicable with --mode worktree; ignoring` is printed
+- AND execution proceeds in `worktree` mode
 
 #### Scenario: `--debug` with `--mode local`
 

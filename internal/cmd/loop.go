@@ -163,6 +163,7 @@ func newOrchestrationLoopCmd(ctx *execcontext.Context, c *LoopCmd) *loop.RunCmd 
 		worktreeClient,
 		workspaceClient,
 		remoteRunner,
+		ctx.Output(),
 	)
 }
 
