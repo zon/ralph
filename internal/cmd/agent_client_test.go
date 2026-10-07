@@ -81,9 +81,9 @@ func TestAgentClientPickAndDevelop_MockAI(t *testing.T) {
 
 	mockOC := &opencode.MockOC{
 		RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
-			// The picker agent writes the selected item's index to disk.
+			// The picker agent writes the selected item's text to disk.
 			if strings.Contains(strings.ToLower(prompt), "picker") {
-				return os.WriteFile("picked-item-index.txt", []byte("0"), 0644)
+				return os.WriteFile("picked-item.txt", []byte("csv-serializer"), 0644)
 			}
 			return nil
 		},
@@ -106,22 +106,13 @@ func TestAgentClientImplementsInterface(t *testing.T) {
 	var _ orchestrationRun.AIClient = client
 }
 
-func TestAgentClientRunPickerGivesOnlyIncompleteItemsEachLabelledWithIndexAndKey(t *testing.T) {
+func TestAgentClientRunPickerGivesOnlyIncompleteItemsWithTheirKeysAndText(t *testing.T) {
 	workDir := t.TempDir()
 	t.Chdir(workDir)
 
 	testutil.InitGitRepo(t, workDir)
 	testutil.MakeInitialCommit(t, workDir)
 	testutil.CreateRalphConfig(t, workDir)
-
-	var pickPrompt string
-	mockOC := &opencode.MockOC{
-		RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
-			pickPrompt = prompt
-			return os.WriteFile("picked-item-index.txt", []byte("1"), 0644)
-		},
-	}
-	client := NewAgentClient(execcontext.NewContext(), mockOC)
 
 	proj := &project.Project{
 		Slug: "test-project",
@@ -141,20 +132,29 @@ func TestAgentClientRunPickerGivesOnlyIncompleteItemsEachLabelledWithIndexAndKey
 		},
 	}
 
+	var pickPrompt string
+	mockOC := &opencode.MockOC{
+		RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
+			pickPrompt = prompt
+			return os.WriteFile("picked-item.txt", []byte(proj.Items[1].Text()), 0644)
+		},
+	}
+	client := NewAgentClient(execcontext.NewContext(), mockOC)
+
 	item, err := client.RunPicker(proj, []project.Item{proj.Items[1], proj.Items[3]}, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, item.Index)
 
 	assert.Contains(t, pickPrompt, "slug: test-project", "the full project file is carried in the prompt")
-	assert.Contains(t, pickPrompt, "item 1 (exporter):", "the remaining item is labelled with its index and key")
+	assert.Contains(t, pickPrompt, "**exporter**", "the remaining item is labelled with its key")
 	assert.Contains(t, pickPrompt, "slug: exporter")
-	assert.Contains(t, pickPrompt, "item 3 (importer):", "the remaining item is labelled with its index and key")
+	assert.Contains(t, pickPrompt, "**importer**", "the remaining item is labelled with its key")
 	assert.Contains(t, pickPrompt, "slug: importer")
-	assert.NotContains(t, pickPrompt, "item 0 (", "the complete item is not offered to the picker")
-	assert.NotContains(t, pickPrompt, "item 2 (", "the complete item is not offered to the picker")
+	assert.NotContains(t, pickPrompt, "**one**", "the complete item is not offered to the picker")
+	assert.NotContains(t, pickPrompt, "**two**", "the complete item is not offered to the picker")
 	assert.Contains(t, pickPrompt, "not constrained to array order")
 	assert.Contains(t, pickPrompt, "Do not make any code changes")
-	assert.Contains(t, pickPrompt, "picked-item-index.txt", "the agent reports the index it selected")
+	assert.Contains(t, pickPrompt, "picked-item.txt", "the agent reports the text it selected")
 }
 
 func TestAgentClientRunDeveloperUsesItemBasedInstructionsByDefault(t *testing.T) {
@@ -221,15 +221,6 @@ func TestAgentClientRunPickerCarriesFullProjectFileAsContext(t *testing.T) {
 	raw := "title: CSV Export\nnotes:\n  owner: platform\ntasks:\n" +
 		"  - slug: exporter\n    description: export endpoint\n" +
 		"  - slug: importer\n    description: import endpoint\n"
-	var pickPrompt string
-	mockOC := &opencode.MockOC{
-		RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
-			pickPrompt = prompt
-			return os.WriteFile("picked-item-index.txt", []byte("0"), 0644)
-		},
-	}
-	client := NewAgentClient(execcontext.NewContext(), mockOC)
-
 	proj := &project.Project{
 		Slug: "csv-export",
 		Path: "projects/csv-export.yaml",
@@ -239,6 +230,15 @@ func TestAgentClientRunPickerCarriesFullProjectFileAsContext(t *testing.T) {
 		}),
 		Doc: &projectfile.Document{Raw: raw},
 	}
+
+	var pickPrompt string
+	mockOC := &opencode.MockOC{
+		RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
+			pickPrompt = prompt
+			return os.WriteFile("picked-item.txt", []byte(proj.Items[0].Text()), 0644)
+		},
+	}
+	client := NewAgentClient(execcontext.NewContext(), mockOC)
 
 	_, err := client.RunPicker(proj, proj.Items, nil)
 	require.NoError(t, err)
@@ -383,7 +383,7 @@ func TestAgentClientPromptsCarryPreviousIterationError(t *testing.T) {
 		RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
 			if strings.Contains(strings.ToLower(prompt), "picker") {
 				pickPrompt = prompt
-				return os.WriteFile("picked-item-index.txt", []byte("0"), 0644)
+				return os.WriteFile("picked-item.txt", []byte("csv-serializer"), 0644)
 			}
 			developPrompt = prompt
 			return nil
@@ -515,7 +515,7 @@ func TestAgentClientRunPickerNeverPassesAgent(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			client, capturedAgent := newNeverPassesAgentClient(t, tc.flagAgent, tc.appendConfigAgent, true, func(_ string) error {
-				return os.WriteFile("picked-item-index.txt", []byte("0"), 0644)
+				return os.WriteFile("picked-item.txt", []byte("csv-serializer"), 0644)
 			}, nil)
 
 			proj := &project.Project{Slug: "test-project", Items: project.NewItems([]any{"csv-serializer"})}
@@ -538,7 +538,7 @@ var pickerProject = &project.Project{
 // newRunPickerTestClient sets up a temporary git repo with a ralph config and
 // returns an AgentClient whose mock opencode records every picker prompt.
 // runAgent decides what each picker run leaves on disk; when nil the run leaves
-// no picked-item-index.txt.
+// no picked-item.txt.
 func newRunPickerTestClient(t *testing.T, runAgent func(prompt string) error) (*AgentClient, *[]string) {
 	t.Helper()
 
@@ -569,35 +569,35 @@ func TestAgentClientRunPickerReRunsPromptUntilUsableSelection(t *testing.T) {
 		wantIndex int
 	}{
 		{
-			name: "missing index file on an earlier attempt",
+			name: "missing item file on an earlier attempt",
 			runAgent: func(t *testing.T, runs *int) error {
 				*runs++
 				if *runs == 1 {
 					return nil
 				}
-				return os.WriteFile("picked-item-index.txt", []byte("1"), 0644)
+				return os.WriteFile("picked-item.txt", []byte(pickerProject.Items[1].Text()), 0644)
 			},
 			wantIndex: 1,
 		},
 		{
-			name: "non-integer index on an earlier attempt",
+			name: "empty item text on an earlier attempt",
 			runAgent: func(t *testing.T, runs *int) error {
 				*runs++
 				if *runs == 1 {
-					return os.WriteFile("picked-item-index.txt", []byte("not-an-index"), 0644)
+					return os.WriteFile("picked-item.txt", []byte("   \n"), 0644)
 				}
-				return os.WriteFile("picked-item-index.txt", []byte("0"), 0644)
+				return os.WriteFile("picked-item.txt", []byte(pickerProject.Items[1].Text()), 0644)
 			},
-			wantIndex: 0,
+			wantIndex: 1,
 		},
 		{
-			name: "out-of-range index on an earlier attempt",
+			name: "text naming no incomplete item on an earlier attempt",
 			runAgent: func(t *testing.T, runs *int) error {
 				*runs++
 				if *runs == 1 {
-					return os.WriteFile("picked-item-index.txt", []byte("7"), 0644)
+					return os.WriteFile("picked-item.txt", []byte("not a listed item"), 0644)
 				}
-				return os.WriteFile("picked-item-index.txt", []byte("1"), 0644)
+				return os.WriteFile("picked-item.txt", []byte(pickerProject.Items[1].Text()), 0644)
 			},
 			wantIndex: 1,
 		},
@@ -626,24 +626,24 @@ func TestAgentClientRunPickerGivesUpAfterThreeUnusableAttempts(t *testing.T) {
 		runAgent func(t *testing.T, runs *int) error
 	}{
 		{
-			name: "missing index file on every attempt",
+			name: "missing item file on every attempt",
 			runAgent: func(t *testing.T, runs *int) error {
 				*runs++
 				return nil
 			},
 		},
 		{
-			name: "non-integer index on every attempt",
+			name: "empty item text on every attempt",
 			runAgent: func(t *testing.T, runs *int) error {
 				*runs++
-				return os.WriteFile("picked-item-index.txt", []byte("not-an-index"), 0644)
+				return os.WriteFile("picked-item.txt", []byte("   \n"), 0644)
 			},
 		},
 		{
-			name: "out-of-range index on every attempt",
+			name: "text naming no incomplete item on every attempt",
 			runAgent: func(t *testing.T, runs *int) error {
 				*runs++
-				return os.WriteFile("picked-item-index.txt", []byte("7"), 0644)
+				return os.WriteFile("picked-item.txt", []byte("not a listed item"), 0644)
 			},
 		},
 	}

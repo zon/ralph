@@ -249,13 +249,20 @@ The iteration loop SHALL invoke the AI agent repeatedly until every item is comp
 
 ### Requirement: Item selection
 
-Each iteration SHALL invoke a picker agent to select exactly one incomplete item. The picker SHALL receive the full project file, the incomplete items with their indices and keys, and the recent commit log, and SHALL choose based on dependencies between items, logical ordering, and impact. Selection SHALL NOT be constrained to array order.
+Each iteration SHALL invoke a picker agent to select exactly one incomplete item. The picker SHALL receive the full project file, the incomplete items each rendered with its key and text, and the recent commit log, and SHALL choose based on dependencies between items, logical ordering, and impact. The picker SHALL report the selected item's text, and the command SHALL resolve that text to the item by its completion hash. Selection SHALL NOT be constrained to array order.
 
 #### Scenario: Picker chooses from incomplete items only
 
 - GIVEN items 0 and 2 are recorded complete
 - WHEN the picker runs
-- THEN it is given only the remaining items, each with its index and key
+- THEN it is given only the remaining items, each with its key and text
+
+#### Scenario: Picker reports the selected item's text
+
+- GIVEN the picker is given the incomplete items
+- WHEN the picker selects one
+- THEN it writes that item's text to `picked-item.txt`
+- AND the command resolves the text to one of the incomplete items by its hash
 
 #### Scenario: Picker receives the full project file
 

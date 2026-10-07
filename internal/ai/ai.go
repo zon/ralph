@@ -85,9 +85,9 @@ type ResolveMergeConflictsPromptData struct {
 }
 
 // ItemPickPromptData carries the context for the picker agent: the full project
-// file, the incomplete items each labelled with its index and key, the recent
-// commit log, and the error the previous iteration's AI pass failed with, when
-// there was one. The agent selects one item and reports its index.
+// file, the incomplete items each labelled with its key, the recent commit log,
+// and the error the previous iteration's AI pass failed with, when there was
+// one. The agent selects one item and reports its text.
 type ItemPickPromptData struct {
 	Notes          []string
 	CommitLog      string
@@ -212,7 +212,7 @@ func DefaultItemDevelopmentInstructions() string {
 }
 
 // BuildItemPickPrompt renders the picker prompt from the project file content,
-// the incomplete items rendered with their indices and keys, and the commit log.
+// the incomplete items rendered with their keys and text, and the commit log.
 func BuildItemPickPrompt(data ItemPickPromptData) (string, error) {
 	tmplData := struct {
 		Notes          []string

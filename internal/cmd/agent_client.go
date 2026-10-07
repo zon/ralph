@@ -1,9 +1,9 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -32,12 +32,12 @@ func NewAgentClient(ctx *context.Context, oc opencode.OCClient) *AgentClient {
 const maxPickerAttempts = 3
 
 // RunPicker asks the AI to select one incomplete item and returns it. A
-// selection is usable only when picked-item-index.txt holds an integer that
-// names an index inside the resolved item array; when a run leaves no usable
-// selection — the index file missing, not an integer, or out of range — the
-// same prompt is re-run until maxPickerAttempts attempts have been made. When
-// every attempt is unusable the returned error names the attempt limit. An
-// opencode execution failure is returned immediately and is never retried.
+// selection is usable only when picked-item.txt holds the text of one of the
+// incomplete items; when a run leaves no usable selection — the file missing,
+// empty, or naming no incomplete item — the same prompt is re-run until
+// maxPickerAttempts attempts have been made. When every attempt is unusable the
+// returned error names the attempt limit. An opencode execution failure is
+// returned immediately and is never retried.
 func (a *AgentClient) RunPicker(proj *project.Project, incomplete []project.Item, previousErr error) (project.Item, error) {
 	cfg, err := config.LoadConfig()
 	if err != nil {
@@ -70,12 +70,13 @@ func (a *AgentClient) RunPicker(proj *project.Project, incomplete []project.Item
 			return project.Item{}, err
 		}
 
-		idx, err := readPickedIndex()
+		text, err := readPickedItem()
 		if err == nil {
-			if idx < 0 || idx >= len(proj.Items) {
-				err = fmt.Errorf("picker reported index %d which is outside the resolved item array (%d items)", idx, len(proj.Items))
+			item, ok := findItemByText(incomplete, text)
+			if !ok {
+				err = fmt.Errorf("picker wrote text that names no incomplete item: %q", text)
 			} else {
-				return proj.Items[idx], nil
+				return item, nil
 			}
 		}
 		lastErr = err
@@ -131,35 +132,50 @@ func projectContent(proj *project.Project) string {
 	return string(data)
 }
 
-// renderItems renders each incomplete item with its index and key so the picker
-// can select one of them.
+// renderItems renders each incomplete item with its key, when it has one, above
+// the item's exact text, so the picker can choose one and echo its text.
 func renderItems(items []project.Item) string {
 	var b strings.Builder
-	for _, it := range items {
-		if key := it.Key(); key != "" {
-			fmt.Fprintf(&b, "item %d (%s):\n%s\n", it.Index, key, it.Text())
-		} else {
-			fmt.Fprintf(&b, "item %d:\n%s\n", it.Index, it.Text())
+	for i, it := range items {
+		if i > 0 {
+			b.WriteString("\n")
 		}
+		if key := it.Key(); key != "" {
+			fmt.Fprintf(&b, "**%s**\n\n", key)
+		}
+		fmt.Fprintf(&b, "%s\n", it.Text())
 	}
 	return strings.TrimRight(b.String(), "\n")
 }
 
-// readPickedIndex reads the 0-based index the picker agent wrote to
-// picked-item-index.txt.
-func readPickedIndex() (int, error) {
-	data, err := os.ReadFile("picked-item-index.txt")
+// findItemByText returns the incomplete item whose completion hash matches the
+// picked text. Matching by the item's own hash, rather than by a position,
+// keeps the selection tied to the item's identity however the array is ordered.
+func findItemByText(incomplete []project.Item, text string) (project.Item, bool) {
+	hash := trailer.Hash(text)
+	for _, it := range incomplete {
+		if it.Hash() == hash {
+			return it, true
+		}
+	}
+	return project.Item{}, false
+}
+
+// readPickedItem reads the item text the picker agent wrote to
+// picked-item.txt.
+func readPickedItem() (string, error) {
+	data, err := os.ReadFile("picked-item.txt")
 	if err != nil {
-		return 0, fmt.Errorf("failed to read picked item index: %w", err)
+		return "", fmt.Errorf("failed to read picked item: %w", err)
 	}
-	idx, err := strconv.Atoi(strings.TrimSpace(string(data)))
-	if err != nil {
-		return 0, fmt.Errorf("picked item index is not an integer: %q", strings.TrimSpace(string(data)))
+	text := strings.TrimSpace(string(data))
+	if text == "" {
+		return "", errors.New("picked item is empty")
 	}
-	if err := os.Remove("picked-item-index.txt"); err != nil {
-		return 0, fmt.Errorf("failed to remove picked-item-index.txt: %w", err)
+	if err := os.Remove("picked-item.txt"); err != nil {
+		return "", fmt.Errorf("failed to remove picked-item.txt: %w", err)
 	}
-	return idx, nil
+	return text, nil
 }
 
 func (a *AgentClient) IsFatal(err error) bool {
