@@ -7,7 +7,7 @@ Install Ralph from source instead of [Homebrew](../README.md#installation). Ralp
 - [Go](https://go.dev/doc/install)
 - [Git](https://git-scm.com/install/)
 - [GitHub CLI](https://cli.github.com/)
-- [OpenCode](https://opencode.ai/docs/#install)
+- [OpenCode](https://opencode.ai/v2/docs/cli/)
 - [kubectl](https://kubernetes.io/docs/tasks/tools/)
 - [Argo Workflows CLI](https://argo-workflows.readthedocs.io/en/latest/installation/)
 

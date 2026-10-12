@@ -64,7 +64,7 @@ RUN curl -fsSL https://bun.sh/install | bash \
     && ln -s ${BUN_INSTALL}/bin/bunx /usr/local/bin/bunx
 
 # Install OpenCode CLI
-RUN bun install -g opencode-ai \
+RUN bun install -g @opencode/cli \
     && ln -s ${BUN_INSTALL}/bin/opencode /usr/local/bin/opencode
 
 # Install Argo Workflows CLI

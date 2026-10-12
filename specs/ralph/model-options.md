@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Shared contract for every Ralph CLI command that prompts an AI model through opencode. These commands SHALL accept `--model` and `--variant` options to override the model and its provider-specific reasoning-effort variant from `.ralph/config.yaml`. Individual command specs link here for the shared behavior.
+Shared contract for every Ralph CLI command that prompts an AI model through opencode. These commands SHALL accept `--model` and `--variant` options to override the model and its provider-specific reasoning-effort variant from `.ralph/config.yaml`. OpenCode 2 encodes the variant in the model reference as `provider/model#variant`, so Ralph passes the variant by appending it to the model rather than as a separate option. Individual command specs link here for the shared behavior.
 
 ## Requirements
 
@@ -52,7 +52,7 @@ Model resolution SHALL follow this precedence (highest to lowest):
 
 ### Requirement: `--variant` sets the reasoning effort
 
-The system SHALL accept `--variant <hint>` on every covered command to pass a provider-specific reasoning effort hint (e.g., `high`, `max`, `minimal`) to opencode. When neither the flag nor the `variant` field in `.ralph/config.yaml` is set, the `--variant` option is omitted entirely from the opencode invocation.
+The system SHALL accept `--variant <hint>` on every covered command to set a provider-specific reasoning effort (e.g., `high`, `max`, `minimal`). Because OpenCode 2 encodes the variant in the model reference, the system SHALL append the variant to the resolved model as `provider/model#variant` when it invokes opencode. When neither the flag nor the `variant` field in `.ralph/config.yaml` is set, the variant is omitted entirely from the model reference.
 
 Variant resolution SHALL follow this precedence (highest to lowest):
 
@@ -60,25 +60,36 @@ Variant resolution SHALL follow this precedence (highest to lowest):
 2. `variant` in the top level of `.ralph/config.yaml`
 3. Omitted from the opencode invocation
 
+OpenCode 2 has no standalone variant option. When a variant resolves but no model does, the command SHALL fail with an error naming the missing model rather than silently dropping the variant.
+
 #### Scenario: Flag passes the variant to opencode
 
 - GIVEN the user passes `--variant high`
+- AND a model resolves to `anthropic/claude-sonnet-4-6`
 - WHEN the command runs a prompt
-- THEN `--variant high` is included in the opencode invocation
+- THEN `--model anthropic/claude-sonnet-4-6#high` is included in the opencode invocation
 
 #### Scenario: Config variant used when no flag is passed
 
 - GIVEN `variant: max` is set in `.ralph/config.yaml`
+- AND a model resolves to `anthropic/claude-sonnet-4-6`
 - AND no `--variant` flag is passed
 - WHEN the command runs a prompt
-- THEN `--variant max` is included in the opencode invocation
+- THEN `--model anthropic/claude-sonnet-4-6#max` is included in the opencode invocation
 
 #### Scenario: Variant omitted when flag and config are unset
 
 - GIVEN `variant` is not set in `.ralph/config.yaml`
 - AND no `--variant` flag is passed
 - WHEN the command runs a prompt
-- THEN the `--variant` option is omitted from the opencode invocation
+- THEN no variant is appended to the model reference
+
+#### Scenario: Variant without a model fails
+
+- GIVEN a variant resolves from the `--variant` flag or `.ralph/config.yaml`
+- AND no model resolves from the `--model` flag or `.ralph/config.yaml`
+- WHEN the command runs a prompt
+- THEN the command fails with an error naming the missing model
 
 ---
 

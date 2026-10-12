@@ -28,12 +28,8 @@ func TestNewClient(t *testing.T) {
 }
 
 func TestStatsParsing(t *testing.T) {
-	output := ` Session Stats
- Input           3.5M │
- Output          542.0K │
- Total Cost      $12.34 │
-`
-	stats, err := parseStatsOutput(output)
+	output := `{"tokens":{"input":3500000,"output":542000,"reasoning":12},"cost":12.34}`
+	stats, err := parseStatsJSON([]byte(output))
 	require.NoError(t, err)
 	assert.Equal(t, int64(3500000), stats.InputTokens)
 	assert.Equal(t, int64(542000), stats.OutputTokens)
@@ -41,40 +37,17 @@ func TestStatsParsing(t *testing.T) {
 }
 
 func TestStatsParsingZeroValues(t *testing.T) {
-	output := ` Session Stats
- Input           0 │
- Output          0 │
- Total Cost      $0.00 │
-`
-	stats, err := parseStatsOutput(output)
+	output := `{"tokens":{"input":0,"output":0},"cost":0}`
+	stats, err := parseStatsJSON([]byte(output))
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), stats.InputTokens)
 	assert.Equal(t, int64(0), stats.OutputTokens)
 	assert.InDelta(t, 0.00, stats.Cost, 0.001)
 }
 
-func TestStatsParsingKMValues(t *testing.T) {
-	tests := []struct {
-		input    string
-		expected int64
-	}{
-		{"1K", 1000},
-		{"1.5K", 1500},
-		{"542.0K", 542000},
-		{"1M", 1000000},
-		{"3.5M", 3500000},
-		{"10.123M", 10123000},
-		{"0K", 0},
-		{"0M", 0},
-		{"123", 123},
-		{"0.5K", 500},
-	}
-
-	for _, tt := range tests {
-		val, err := parseTokenValue(tt.input)
-		require.NoError(t, err)
-		assert.Equal(t, tt.expected, val, "input: %s", tt.input)
-	}
+func TestStatsParsingInvalidJSON(t *testing.T) {
+	_, err := parseStatsJSON([]byte("not json"))
+	require.Error(t, err)
 }
 
 func TestIsFatalError(t *testing.T) {
@@ -164,9 +137,7 @@ exit 0
 	client := New()
 	err = client.RunCommand(context.Background(), "test-model", "", "", "test-prompt", &stdout, &stderr)
 	require.NoError(t, err)
-	cwd, err := os.Getwd()
-	require.NoError(t, err)
-	assert.Contains(t, stdout.String(), "run output: run --model test-model --dir "+cwd+" test-prompt")
+	assert.Contains(t, stdout.String(), "run output: run --standalone --model test-model test-prompt")
 }
 
 func TestRunCommandWithAgent(t *testing.T) {
@@ -191,9 +162,7 @@ exit 0
 	client := New()
 	err = client.RunCommand(context.Background(), "test-model", "", "test-agent", "test-prompt", &stdout, &stderr)
 	require.NoError(t, err)
-	cwd, err := os.Getwd()
-	require.NoError(t, err)
-	assert.Contains(t, stdout.String(), "run output: run --model test-model --agent test-agent --dir "+cwd+" test-prompt")
+	assert.Contains(t, stdout.String(), "run output: run --standalone --model test-model --agent test-agent test-prompt")
 }
 
 func TestRunCommandOmitsModelWhenUnset(t *testing.T) {
@@ -216,12 +185,44 @@ exit 0
 
 	var stdout, stderr bytes.Buffer
 	client := New()
-	err = client.RunCommand(context.Background(), "", "high", "", "test-prompt", &stdout, &stderr)
-	require.NoError(t, err)
-	cwd, err := os.Getwd()
+	err = client.RunCommand(context.Background(), "", "", "", "test-prompt", &stdout, &stderr)
 	require.NoError(t, err)
 	assert.NotContains(t, stdout.String(), "--model")
-	assert.Contains(t, stdout.String(), "run output: run --variant high --dir "+cwd+" test-prompt")
+	assert.Contains(t, stdout.String(), "run output: run --standalone test-prompt")
+}
+
+func TestRunCommandJoinsVariantIntoModel(t *testing.T) {
+	tmpDir := t.TempDir()
+	scriptPath := filepath.Join(tmpDir, "fake-opencode.sh")
+
+	scriptContent := `#!/bin/bash
+echo "run output: $@"
+exit 0
+`
+	err := os.WriteFile(scriptPath, []byte(scriptContent), 0755)
+	require.NoError(t, err)
+
+	opencodePath := filepath.Join(tmpDir, "opencode")
+	err = os.Symlink(scriptPath, opencodePath)
+	require.NoError(t, err)
+
+	origPath := os.Getenv("PATH")
+	t.Setenv("PATH", tmpDir+":"+origPath)
+
+	var stdout, stderr bytes.Buffer
+	client := New()
+	err = client.RunCommand(context.Background(), "test-model", "high", "", "test-prompt", &stdout, &stderr)
+	require.NoError(t, err)
+	assert.NotContains(t, stdout.String(), "--variant")
+	assert.Contains(t, stdout.String(), "run output: run --standalone --model test-model#high test-prompt")
+}
+
+func TestRunCommandVariantRequiresModel(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	client := New()
+	err := client.RunCommand(context.Background(), "", "high", "", "test-prompt", &stdout, &stderr)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "requires a model")
 }
 
 func TestRunAgentWithAgent(t *testing.T) {
@@ -354,10 +355,7 @@ func TestGetStats(t *testing.T) {
 
 	scriptContent := `#!/bin/bash
 if [ "$1" = "stats" ]; then
-  echo ' Session Stats'
-  echo ' Input           3.5M │'
-  echo ' Output          542.0K │'
-  echo ' Total Cost      $12.34 │'
+  echo '{"tokens":{"input":3500000,"output":542000},"cost":12.34}'
   exit 0
 fi
 exit 1

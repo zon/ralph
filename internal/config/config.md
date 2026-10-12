@@ -78,7 +78,7 @@ agent: build
 
 ## Variant
 
-`variant` sets a provider-specific reasoning effort, such as `high` or `max`.
+`variant` sets a provider-specific reasoning effort, such as `high` or `max`. OpenCode 2 encodes the variant in the model reference as `provider/model#variant`, so a variant requires a `model`. When `variant` is set but no model is configured, Ralph fails the run with an error rather than silently dropping the variant.
 
 ```yaml
 variant: high
