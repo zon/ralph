@@ -3,12 +3,12 @@ package opencode
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -91,32 +91,37 @@ func waitForGroupExit(pid int) error {
 	}
 }
 
-// runArgs builds the argument list for an `opencode run` invocation, pinning
-// the agent to the current working directory with --dir. ralph relies on
-// os.Chdir to place the process inside the run's worktree, but opencode can
-// re-resolve its project root to a different checkout (for example the main
-// repo of a git worktree), which sends the agent's edits and report.md to the
-// wrong directory. Passing the process working directory explicitly keeps the
-// agent in the same directory ralph reads and commits from.
+// runArgs builds the argument list for an `opencode run` invocation.
+//
+// opencode 2 removed the --dir and --variant options from `run`. The project
+// directory now comes from the process working directory, so ralph relies on
+// os.Chdir to place the process inside the run's worktree, and the reasoning
+// variant is encoded in the model reference as provider/model#variant.
+//
+// --standalone runs the prompt against a private server instead of opencode's
+// shared background service. Ralph drains the process group after each run
+// (see execOpenCode), so the server must be a child of the CLI rather than a
+// detached daemon.
 //
 // When no model is configured, the --model option is omitted entirely so
-// opencode falls back to its own configured default model.
+// opencode falls back to its own configured default model. A variant cannot be
+// requested on its own: opencode 2 has no standalone variant option, so it is
+// an error to ask for a variant without a model.
 func runArgs(model, variant, agent, prompt string) ([]string, error) {
-	args := []string{"run"}
+	args := []string{"run", "--standalone"}
 	if model != "" {
-		args = append(args, "--model", model)
-	}
-	if variant != "" {
-		args = append(args, "--variant", variant)
+		ref := model
+		if variant != "" && !strings.Contains(ref, "#") {
+			ref = ref + "#" + variant
+		}
+		args = append(args, "--model", ref)
+	} else if variant != "" {
+		return nil, fmt.Errorf("variant %q requires a model: opencode 2 encodes the variant in the model reference (provider/model#variant)", variant)
 	}
 	if agent != "" {
 		args = append(args, "--agent", agent)
 	}
-	dir, err := os.Getwd()
-	if err != nil {
-		return nil, fmt.Errorf("failed to determine working directory: %w", err)
-	}
-	args = append(args, "--dir", dir, prompt)
+	args = append(args, prompt)
 	return args, nil
 }
 
@@ -173,107 +178,38 @@ func formatTokens(n int64) string {
 
 func (c *Client) GetStats() (Stats, error) {
 	var stdout bytes.Buffer
-	err := execOpenCode(context.Background(), []string{"stats"}, &stdout, io.Discard)
+	err := execOpenCode(context.Background(), []string{"stats", "--standalone", "--json"}, &stdout, io.Discard)
 	if err != nil {
 		return Stats{}, err
 	}
-	return parseStatsOutput(stdout.String())
+	return parseStatsJSON(stdout.Bytes())
 }
 
 func (c *Client) DisplayStats() error {
-	return execOpenCode(context.Background(), []string{"stats"}, os.Stdout, os.Stderr)
+	return execOpenCode(context.Background(), []string{"stats", "--standalone"}, os.Stdout, os.Stderr)
 }
 
-func parseStatsOutput(output string) (Stats, error) {
-	var stats Stats
-	var foundInput, foundOutput, foundCost bool
-	lines := strings.Split(output, "\n")
-
-	for _, line := range lines {
-		var value string
-		if strings.Contains(line, "Input") {
-			value = extractValue(line)
-			if value == "" {
-				continue
-			}
-			tokens, err := parseTokenValue(value)
-			if err != nil {
-				return Stats{}, fmt.Errorf("failed to parse input tokens from %q: %w", value, err)
-			}
-			stats.InputTokens = tokens
-			foundInput = true
-		} else if strings.Contains(line, "Output") {
-			value = extractValue(line)
-			if value == "" {
-				continue
-			}
-			tokens, err := parseTokenValue(value)
-			if err != nil {
-				return Stats{}, fmt.Errorf("failed to parse output tokens from %q: %w", value, err)
-			}
-			stats.OutputTokens = tokens
-			foundOutput = true
-		} else if strings.Contains(line, "Total Cost") {
-			value = extractValue(line)
-			if value == "" {
-				continue
-			}
-			cost, err := parseCostValue(value)
-			if err != nil {
-				return Stats{}, fmt.Errorf("failed to parse cost from %q: %w", value, err)
-			}
-			stats.Cost = cost
-			foundCost = true
-		}
-	}
-
-	if !foundInput || !foundOutput || !foundCost {
-		return Stats{}, fmt.Errorf("failed to parse stats output: missing required fields (input=%v, output=%v, cost=%v)", foundInput, foundOutput, foundCost)
-	}
-
-	return stats, nil
+// statsJSON mirrors the subset of `opencode stats --json` that ralph reports.
+// opencode 2 emits machine-readable JSON (tokens.input, tokens.output, cost)
+// instead of the box-drawing table opencode 1 printed.
+type statsJSON struct {
+	Tokens struct {
+		Input  int64 `json:"input"`
+		Output int64 `json:"output"`
+	} `json:"tokens"`
+	Cost float64 `json:"cost"`
 }
 
-func extractValue(line string) string {
-	line = strings.TrimRight(line, " ")
-	sep := "│"
-	if idx := strings.LastIndex(line, sep); idx >= 0 {
-		line = strings.TrimSpace(line[:idx])
+func parseStatsJSON(data []byte) (Stats, error) {
+	var payload statsJSON
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return Stats{}, fmt.Errorf("failed to parse stats output: %w", err)
 	}
-	parts := strings.Fields(line)
-	if len(parts) == 0 {
-		return ""
-	}
-	return parts[len(parts)-1]
-}
-
-func parseTokenValue(s string) (int64, error) {
-	if s == "" {
-		return 0, fmt.Errorf("empty token value")
-	}
-	var multiplier int64 = 1
-	last := s[len(s)-1]
-	switch last {
-	case 'K', 'k':
-		multiplier = 1000
-		s = s[:len(s)-1]
-	case 'M', 'm':
-		multiplier = 1000000
-		s = s[:len(s)-1]
-	}
-	val, err := strconv.ParseFloat(s, 64)
-	if err != nil {
-		return 0, fmt.Errorf("invalid token value %q: %w", s, err)
-	}
-	return int64(val * float64(multiplier)), nil
-}
-
-func parseCostValue(s string) (float64, error) {
-	s = strings.TrimPrefix(s, "$")
-	if s == "" {
-		return 0, fmt.Errorf("empty cost value")
-	}
-	return strconv.ParseFloat(s, 64)
+	return Stats{
+		InputTokens:  payload.Tokens.Input,
+		OutputTokens: payload.Tokens.Output,
+		Cost:         payload.Cost,
+	}, nil
 }
 
 type ringWriter struct {
