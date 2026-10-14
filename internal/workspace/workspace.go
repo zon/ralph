@@ -82,9 +82,16 @@ func PrepareWorkspace(out *output.Client, repoURL, branch, workDir string) error
 	return nil
 }
 
+// Chdir changes the process working directory and keeps PWD in step. The
+// OpenCode CLI resolves its project directory from PWD rather than the real
+// working directory, so a bare os.Chdir would leave a worktree run pointed at
+// the checkout the run started from.
 func Chdir(dir string) error {
 	if err := os.Chdir(dir); err != nil {
 		return fmt.Errorf("failed to change directory to %s: %w", dir, err)
+	}
+	if wd, err := os.Getwd(); err == nil {
+		_ = os.Setenv("PWD", wd)
 	}
 	return nil
 }

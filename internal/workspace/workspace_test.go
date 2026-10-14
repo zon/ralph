@@ -41,6 +41,26 @@ func TestChdir(t *testing.T) {
 	require.Equal(t, tmpDir, cwd)
 }
 
+func TestChdirUpdatesPWD(t *testing.T) {
+	t.Run("sets PWD to the new working directory", func(t *testing.T) {
+		t.Setenv("PWD", "/stale/starting/directory")
+
+		tmpDir := t.TempDir()
+		require.NoError(t, Chdir(tmpDir))
+
+		cwd, err := os.Getwd()
+		require.NoError(t, err)
+		assert.Equal(t, cwd, os.Getenv("PWD"), "PWD must track the working directory so child processes resolve it")
+	})
+
+	t.Run("leaves PWD untouched when the directory does not exist", func(t *testing.T) {
+		t.Setenv("PWD", "/stale/starting/directory")
+
+		require.Error(t, Chdir("/nonexistent/path/that/does/not/exist"))
+		assert.Equal(t, "/stale/starting/directory", os.Getenv("PWD"))
+	})
+}
+
 func TestChdirNonexistent(t *testing.T) {
 	err := Chdir("/nonexistent/path/that/does/not/exist")
 	require.Error(t, err)
