@@ -249,7 +249,7 @@ The iteration loop SHALL invoke the AI agent repeatedly until every item is comp
 
 ### Requirement: Item selection
 
-Each iteration SHALL invoke a picker agent to select exactly one incomplete item. The picker SHALL receive the full project file, the incomplete items each rendered with its key and text, and the recent commit log, and SHALL choose based on dependencies between items, logical ordering, and impact. The picker SHALL report the selected item's text, and the command SHALL resolve that text to the item by its completion hash. Selection SHALL NOT be constrained to array order.
+Each iteration SHALL invoke a picker agent to select exactly one incomplete item. The picker SHALL receive the full project file, the incomplete items each rendered with its key and text, and the recent commit log, and SHALL choose based on dependencies between items, logical ordering, and impact. A string item's text SHALL be the item's own value, without the quoting and escaping a YAML rendering would add, and any other item's text SHALL be its canonical YAML. The picker SHALL report the selected item's text, and the command SHALL resolve that text to one of the incomplete items by matching the item's text or its completion hash. Selection SHALL NOT be constrained to array order.
 
 #### Scenario: Picker chooses from incomplete items only
 
@@ -263,6 +263,13 @@ Each iteration SHALL invoke a picker agent to select exactly one incomplete item
 - WHEN the picker selects one
 - THEN it writes that item's text to `picked-item.txt`
 - AND the command resolves the text to one of the incomplete items by its hash
+
+#### Scenario: Picker sees a string item without YAML quoting
+
+- GIVEN an incomplete item is a string a YAML rendering would quote, such as one beginning with a backtick
+- WHEN the picker is given the incomplete items
+- THEN the item is shown as its own value, without surrounding quotes or doubled escapes
+- AND the command resolves the item when the picker reports that text
 
 #### Scenario: Picker receives the full project file
 

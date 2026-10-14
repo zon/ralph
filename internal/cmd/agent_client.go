@@ -133,7 +133,7 @@ func projectContent(proj *project.Project) string {
 }
 
 // renderItems renders each incomplete item with its key, when it has one, above
-// the item's exact text, so the picker can choose one and echo its text.
+// the item's pick text, so the picker can choose one and echo its text.
 func renderItems(items []project.Item) string {
 	var b strings.Builder
 	for i, it := range items {
@@ -143,18 +143,20 @@ func renderItems(items []project.Item) string {
 		if key := it.Key(); key != "" {
 			fmt.Fprintf(&b, "**%s**\n\n", key)
 		}
-		fmt.Fprintf(&b, "%s\n", it.Text())
+		fmt.Fprintf(&b, "%s\n", it.PickText())
 	}
 	return strings.TrimRight(b.String(), "\n")
 }
 
-// findItemByText returns the incomplete item whose completion hash matches the
-// picked text. Matching by the item's own hash, rather than by a position,
-// keeps the selection tied to the item's identity however the array is ordered.
+// findItemByText returns the incomplete item the picked text names. Matching by
+// the item's own text, rather than by a position, keeps the selection tied to
+// the item's identity however the array is ordered. The picker is shown the
+// item's pick text, so that rendering matches too; for a string item it is the
+// value itself, and it differs from the canonical text YAML quotes.
 func findItemByText(incomplete []project.Item, text string) (project.Item, bool) {
 	hash := trailer.Hash(text)
 	for _, it := range incomplete {
-		if it.Hash() == hash {
+		if it.Hash() == hash || trailer.Hash(it.PickText()) == hash {
 			return it, true
 		}
 	}

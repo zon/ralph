@@ -106,6 +106,33 @@ func TestAgentClientImplementsInterface(t *testing.T) {
 	var _ orchestrationRun.AIClient = client
 }
 
+func TestRenderItemsShowsStringItemsWithoutYAMLQuoting(t *testing.T) {
+	items := project.NewItems([]any{"`abnch get tasks` lists the inferred repo's tasks"})
+
+	assert.Equal(t, "`abnch get tasks` lists the inferred repo's tasks", renderItems(items))
+}
+
+func TestFindItemByTextAcceptsPickTextAndCanonicalText(t *testing.T) {
+	items := project.NewItems([]any{"`abnch get tasks` lists the inferred repo's tasks"})
+
+	t.Run("accepts the item's own text", func(t *testing.T) {
+		item, ok := findItemByText(items, items[0].PickText())
+		require.True(t, ok)
+		assert.Equal(t, 0, item.Index)
+	})
+
+	t.Run("accepts the canonical YAML text", func(t *testing.T) {
+		item, ok := findItemByText(items, items[0].Text())
+		require.True(t, ok)
+		assert.Equal(t, 0, item.Index)
+	})
+
+	t.Run("rejects text that names no item", func(t *testing.T) {
+		_, ok := findItemByText(items, "not an item")
+		assert.False(t, ok)
+	})
+}
+
 func TestAgentClientRunPickerGivesOnlyIncompleteItemsWithTheirKeysAndText(t *testing.T) {
 	workDir := t.TempDir()
 	t.Chdir(workDir)
@@ -155,6 +182,32 @@ func TestAgentClientRunPickerGivesOnlyIncompleteItemsWithTheirKeysAndText(t *tes
 	assert.Contains(t, pickPrompt, "not constrained to array order")
 	assert.Contains(t, pickPrompt, "Do not make any code changes")
 	assert.Contains(t, pickPrompt, "picked-item.txt", "the agent reports the text it selected")
+}
+
+func TestAgentClientRunPickerAcceptsStringTextYAMLWouldQuote(t *testing.T) {
+	workDir := t.TempDir()
+	t.Chdir(workDir)
+
+	testutil.InitGitRepo(t, workDir)
+	testutil.MakeInitialCommit(t, workDir)
+	testutil.CreateRalphConfig(t, workDir)
+
+	value := "`abnch get tasks` lists the inferred repo's tasks"
+	proj := &project.Project{Slug: "test-project", Path: "projects/test.yaml", Items: project.NewItems([]any{value, "second item"})}
+
+	var pickPrompt string
+	mockOC := &opencode.MockOC{
+		RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
+			pickPrompt = prompt
+			return os.WriteFile("picked-item.txt", []byte(value), 0644)
+		},
+	}
+	client := NewAgentClient(execcontext.NewContext(), mockOC)
+
+	item, err := client.RunPicker(proj, proj.Items, nil)
+	require.NoError(t, err, "the picker's own text is accepted even though YAML would quote it")
+	require.Equal(t, 0, item.Index)
+	assert.Contains(t, pickPrompt, value, "the picker is offered the item's own text")
 }
 
 func TestAgentClientRunDeveloperUsesItemBasedInstructionsByDefault(t *testing.T) {

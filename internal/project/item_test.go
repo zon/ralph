@@ -132,3 +132,16 @@ func TestScenarioDistinctTextHasDifferentHash(t *testing.T) {
 	items := NewItems([]any{"Add a CSV serializer", "Add a JSON serializer"})
 	assert.NotEqual(t, items[0].Hash(), items[1].Hash())
 }
+
+func TestItemPickTextUsesStringValueDirectly(t *testing.T) {
+	item := NewItems([]any{"`abnch get tasks` lists the inferred repo's tasks"})[0]
+
+	assert.Equal(t, "`abnch get tasks` lists the inferred repo's tasks", item.PickText())
+	assert.NotEqual(t, item.Text(), item.PickText(), "the pick text omits the quoting YAML adds to a scalar")
+}
+
+func TestItemPickTextRendersNonStringsAsCanonicalText(t *testing.T) {
+	item := NewItems([]any{map[string]any{"slug": "exporter", "description": "export endpoint"}})[0]
+
+	assert.Equal(t, item.Text(), item.PickText())
+}

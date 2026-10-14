@@ -60,6 +60,18 @@ func (it Item) Text() string {
 	return strings.TrimRight(string(data), "\n")
 }
 
+// PickText renders the item's value for the picker: a string value as its own
+// text, and any other value as its canonical YAML text. The picker copies the
+// text back to name its selection, so showing a string as its own value keeps
+// the agent from having to reproduce the quoting and escaping YAML adds, which
+// it does not reliably do.
+func (it Item) PickText() string {
+	if s, ok := it.Value.(string); ok {
+		return s
+	}
+	return it.Text()
+}
+
 // Hash returns the item's completion hash: a 7-character base-62 hash of the
 // item's canonical text. Two items whose text is identical share a hash.
 func (it Item) Hash() string {
