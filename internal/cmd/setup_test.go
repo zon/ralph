@@ -131,12 +131,8 @@ func TestSetupGitHubClientConfigureWritesAppSecretToTargetedContext(t *testing.T
 }
 
 func TestSetupOpenCodeClientConfigureWritesAuthSecretToTargetedContext(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	authDir := filepath.Join(home, ".local", "share", "opencode")
-	require.NoError(t, os.MkdirAll(authDir, 0755))
-	authContent := `{"tokens":{"anthropic":"sk-test"}}`
-	require.NoError(t, os.WriteFile(filepath.Join(authDir, "auth.json"), []byte(authContent), 0644))
+	credentials := `[{"integrationID":"deepseek","value":{"type":"key","key":"sk-test"}}]`
+	writeFakeTool(t, "opencode", `printf '`+credentials+`'`)
 
 	var capturedSecretName, capturedNamespace, capturedContext string
 	var capturedData map[string]string
@@ -159,7 +155,7 @@ func TestSetupOpenCodeClientConfigureWritesAuthSecretToTargetedContext(t *testin
 	assert.Equal(t, k8s.OpenCodeSecretName, capturedSecretName)
 	assert.Equal(t, "argo", capturedNamespace)
 	assert.Equal(t, "staging", capturedContext)
-	assert.Equal(t, map[string]string{"auth.json": authContent}, capturedData)
+	assert.Equal(t, map[string]string{"auth.json": credentials}, capturedData)
 }
 
 func TestPrintSecretResultsNamesWorkflowMount(t *testing.T) {
@@ -200,8 +196,7 @@ func TestPrintSecretResultsNamesWorkflowMount(t *testing.T) {
 }
 
 func TestSetupOpenCodeClientConfigurePropagatesError(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
+	writeFakeTool(t, "opencode", `exit 1`)
 
 	k8sClient := &k8s.MockClient{}
 	out := output.NewClient(io.Discard, io.Discard, false)
@@ -280,7 +275,7 @@ func TestSetupGitHubClientPrintsSecretNotReadyOnFailure(t *testing.T) {
 }
 
 func TestSetupOpenCodeClientPrintsSecretNotReadyOnFailure(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	writeFakeTool(t, "opencode", `exit 1`)
 
 	outBuf := &bytes.Buffer{}
 	errBuf := &bytes.Buffer{}

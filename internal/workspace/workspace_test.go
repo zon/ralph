@@ -1,6 +1,7 @@
 package workspace
 
 import (
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,22 +14,44 @@ import (
 )
 
 func TestSetupOpenCodeCredentials(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
-	out := output.NewClient(os.Stdout, os.Stderr, false)
-
-	err := SetupOpenCodeCredentials(out)
-	require.NoError(t, err)
-
-	openCodeDir := filepath.Join(os.Getenv("HOME"), ".local", "share", "opencode")
-	_, err = os.Stat(openCodeDir)
-	assert.NoError(t, err, "opencode directory should be created")
-
-	srcAuthFile := filepath.Join(DefaultOpenCodeSecretsDir, "auth.json")
-	if _, err := os.Stat(srcAuthFile); os.IsNotExist(err) {
-		destAuthFile := filepath.Join(openCodeDir, "auth.json")
-		_, err := os.Stat(destAuthFile)
-		assert.True(t, os.IsNotExist(err), "auth.json should not be created when no source credentials exist")
+	out := func() *output.Client {
+		return output.NewClient(io.Discard, io.Discard, false)
 	}
+
+	t.Run("imports the mounted credentials", func(t *testing.T) {
+		dir := t.TempDir()
+		credentialsFile := filepath.Join(dir, "auth.json")
+		require.NoError(t, os.WriteFile(credentialsFile, []byte(`[{"integrationID":"deepseek"}]`), 0644))
+
+		var imported string
+		err := setupOpenCodeCredentials(dir, out(), func(path string) error {
+			imported = path
+			return nil
+		})
+		require.NoError(t, err)
+		assert.Equal(t, credentialsFile, imported)
+	})
+
+	t.Run("places nothing when the Secret has no credentials", func(t *testing.T) {
+		called := false
+		err := setupOpenCodeCredentials(t.TempDir(), out(), func(string) error {
+			called = true
+			return nil
+		})
+		require.NoError(t, err)
+		assert.False(t, called, "OpenCode must not be invoked without a credentials document")
+	})
+
+	t.Run("returns the import error", func(t *testing.T) {
+		dir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "auth.json"), []byte(`[{"integrationID":"deepseek"}]`), 0644))
+
+		err := setupOpenCodeCredentials(dir, out(), func(string) error {
+			return assert.AnError
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to import OpenCode credentials")
+	})
 }
 
 func TestChdir(t *testing.T) {

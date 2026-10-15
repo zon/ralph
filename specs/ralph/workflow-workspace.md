@@ -25,13 +25,13 @@ The system SHALL configure git HTTPS authentication from credentials mounted at 
 
 ### Requirement: AI Credentials
 
-The workflow SHALL mount the Secret `workflow.opencodeSecret` names in `.ralph/config.yaml` at `/secrets/opencode`. The default is `opencode-credentials`, the Secret `ralph setup` writes. The system SHALL place that mount's `auth.json`, when it has one, where OpenCode reads credentials before any subcommand logic runs. A Secret with no `auth.json` places nothing, so OpenCode holds only the credentials its own configuration supplies, such as a token read by an auth command.
+The workflow SHALL mount the Secret `workflow.opencodeSecret` names in `.ralph/config.yaml` at `/secrets/opencode`. The default is `opencode-credentials`, the Secret `ralph setup` writes. The system SHALL load that mount's `auth.json` credential document, when it has one, into OpenCode's credential store before any subcommand logic runs. A Secret with no `auth.json` loads nothing, so OpenCode holds only the credentials its own configuration supplies, such as a token read by an auth command.
 
 #### Scenario: OpenCode credential setup
 
 - GIVEN OpenCode provider credentials mounted at `/secrets/opencode`
 - WHEN the workflow container starts
-- THEN the credentials are placed in the expected location for the AI agent to use
+- THEN the credentials are loaded into OpenCode's credential store for the AI agent to use
 
 #### Scenario: A named Secret is mounted instead
 
@@ -42,9 +42,9 @@ The workflow SHALL mount the Secret `workflow.opencodeSecret` names in `.ralph/c
 
 #### Scenario: A Secret without credentials places nothing
 
-- GIVEN the mounted Secret holds no `auth.json`, only other files such as an OpenCode configuration
+- GIVEN the mounted Secret holds no `auth.json` credential document, only other files such as an OpenCode configuration
 - WHEN the workflow container starts
-- THEN no credentials file is written for OpenCode
+- THEN no credentials are loaded into OpenCode
 - AND the container continues
 
 ### Requirement: Git Identity

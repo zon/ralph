@@ -464,3 +464,63 @@ func TestWaitForGroupExit(t *testing.T) {
 		assert.Contains(t, err.Error(), "still active")
 	})
 }
+
+func fakeOpenCode(t *testing.T, body string) {
+	t.Helper()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "opencode")
+	require.NoError(t, os.WriteFile(path, []byte("#!/bin/sh\n"+body+"\n"), 0755))
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+}
+
+func TestExportCredentials(t *testing.T) {
+	fakeOpenCode(t, `printf '%s' '[{"integrationID":"deepseek","value":{"type":"key","key":"sk-test"}}]'`)
+
+	credentials, err := ExportCredentials()
+	require.NoError(t, err)
+	assert.JSONEq(t, `[{"integrationID":"deepseek","value":{"type":"key","key":"sk-test"}}]`, string(credentials))
+}
+
+func TestExportCredentialsEmpty(t *testing.T) {
+	fakeOpenCode(t, `printf '[]'`)
+
+	_, err := ExportCredentials()
+	require.ErrorIs(t, err, ErrNoCredentials)
+}
+
+func TestExportCredentialsParseFailure(t *testing.T) {
+	fakeOpenCode(t, `printf 'not json'`)
+
+	_, err := ExportCredentials()
+	require.Error(t, err)
+	assert.NotErrorIs(t, err, ErrNoCredentials)
+}
+
+func TestExportCredentialsCommandFailure(t *testing.T) {
+	fakeOpenCode(t, `echo 'boom' >&2
+exit 1`)
+
+	_, err := ExportCredentials()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "opencode command failed")
+	assert.Contains(t, err.Error(), "boom")
+}
+
+func TestImportCredentials(t *testing.T) {
+	argsFile := filepath.Join(t.TempDir(), "args")
+	fakeOpenCode(t, `printf '%s\n' "$@" > `+argsFile)
+
+	require.NoError(t, ImportCredentials("/secrets/opencode/auth.json"))
+
+	args, err := os.ReadFile(argsFile)
+	require.NoError(t, err)
+	assert.Equal(t, "auth\nimport\n--standalone\n/secrets/opencode/auth.json\n", string(args))
+}
+
+func TestImportCredentialsFailure(t *testing.T) {
+	fakeOpenCode(t, `exit 1`)
+
+	err := ImportCredentials("/secrets/opencode/auth.json")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "opencode command failed")
+}

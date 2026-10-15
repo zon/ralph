@@ -130,35 +130,24 @@ func TestSetupLocalReadinessClientConfirmOpenCodeReady(t *testing.T) {
 		assert.Contains(t, err.Error(), "opencode is not installed")
 	})
 
-	t.Run("fails when auth.json is missing", func(t *testing.T) {
-		writeFakeTool(t, "opencode", `exit 0`)
-		t.Setenv("HOME", t.TempDir())
+	t.Run("fails when OpenCode holds no credentials", func(t *testing.T) {
+		writeFakeTool(t, "opencode", `printf '[]'`)
 		client, _ := newSetupReadinessClient(t)
 		err := client.ConfirmOpenCodeReady()
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "auth.json")
+		assert.Contains(t, err.Error(), "no credentials")
 	})
 
-	t.Run("fails when auth.json holds no credentials", func(t *testing.T) {
-		writeFakeTool(t, "opencode", `exit 0`)
-		home := t.TempDir()
-		t.Setenv("HOME", home)
-		authDir := filepath.Join(home, ".local", "share", "opencode")
-		require.NoError(t, os.MkdirAll(authDir, 0755))
-		require.NoError(t, os.WriteFile(filepath.Join(authDir, "auth.json"), nil, 0644))
+	t.Run("fails when credentials cannot be read", func(t *testing.T) {
+		writeFakeTool(t, "opencode", `exit 1`)
 		client, _ := newSetupReadinessClient(t)
 		err := client.ConfirmOpenCodeReady()
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "auth.json is empty")
+		assert.Contains(t, err.Error(), "opencode command failed")
 	})
 
-	t.Run("succeeds when auth.json holds credentials", func(t *testing.T) {
-		writeFakeTool(t, "opencode", `exit 0`)
-		home := t.TempDir()
-		t.Setenv("HOME", home)
-		authDir := filepath.Join(home, ".local", "share", "opencode")
-		require.NoError(t, os.MkdirAll(authDir, 0755))
-		require.NoError(t, os.WriteFile(filepath.Join(authDir, "auth.json"), []byte(`{"tokens":{}}`), 0644))
+	t.Run("succeeds when OpenCode holds credentials", func(t *testing.T) {
+		writeFakeTool(t, "opencode", `printf '[{"integrationID":"deepseek"}]'`)
 		client, buf := newSetupReadinessClient(t)
 		err := client.ConfirmOpenCodeReady()
 		require.NoError(t, err)

@@ -7,6 +7,7 @@ import (
 
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/git"
+	"github.com/zon/ralph/internal/opencode"
 	"github.com/zon/ralph/internal/output"
 )
 
@@ -16,45 +17,28 @@ const (
 	DefaultWorkDir            = "/workspace/repo"
 )
 
-func ReadOpenCodeCredentials(authFilePath string) ([]byte, error) {
-	authFileContent, err := os.ReadFile(authFilePath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("OpenCode auth.json not found at %s\n\nPlease ensure OpenCode is configured and the auth.json file exists", authFilePath)
-		}
-		return nil, fmt.Errorf("failed to read auth.json: %w", err)
-	}
-
-	if len(authFileContent) == 0 {
-		return nil, fmt.Errorf("auth.json is empty at %s", authFilePath)
-	}
-
-	return authFileContent, nil
+// SetupOpenCodeCredentials loads the OpenCode credentials mounted at
+// DefaultOpenCodeSecretsDir into OpenCode's credential store. A Secret without
+// a credentials document places nothing.
+func SetupOpenCodeCredentials(out *output.Client) error {
+	return setupOpenCodeCredentials(DefaultOpenCodeSecretsDir, out, opencode.ImportCredentials)
 }
 
-func SetupOpenCodeCredentials(out *output.Client) error {
+func setupOpenCodeCredentials(secretsDir string, out *output.Client, importCredentials func(path string) error) error {
 	out.Info("Setting up OpenCode credentials...")
 
-	openCodeDir := filepath.Join(os.Getenv("HOME"), ".local", "share", "opencode")
-	if err := os.MkdirAll(openCodeDir, 0755); err != nil {
-		return fmt.Errorf("failed to create OpenCode directory: %w", err)
+	credentialsFile := filepath.Join(secretsDir, "auth.json")
+	switch _, err := os.Stat(credentialsFile); {
+	case os.IsNotExist(err):
+		return nil
+	case err != nil:
+		return fmt.Errorf("failed to check OpenCode credentials: %w", err)
 	}
 
-	authFile := filepath.Join(DefaultOpenCodeSecretsDir, "auth.json")
-	if _, err := os.Stat(authFile); err == nil {
-		destPath := filepath.Join(openCodeDir, "auth.json")
-		data, err := os.ReadFile(authFile)
-		if err != nil {
-			return fmt.Errorf("failed to read auth file: %w", err)
-		}
-		if err := os.WriteFile(destPath, data, 0644); err != nil {
-			return fmt.Errorf("failed to write auth file: %w", err)
-		}
-		out.Infof("Copied OpenCode credentials to %s", destPath)
-	} else if !os.IsNotExist(err) {
-		return fmt.Errorf("failed to check auth file: %w", err)
+	if err := importCredentials(credentialsFile); err != nil {
+		return fmt.Errorf("failed to import OpenCode credentials: %w", err)
 	}
-
+	out.Infof("Imported OpenCode credentials from %s", credentialsFile)
 	return nil
 }
 
