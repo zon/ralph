@@ -10,7 +10,7 @@ Confirm that the local machine is ready to run Ralph with git, the GitHub CLI (`
 
 The system SHALL confirm via `ralph setup` that the local environment is ready to run Ralph, running confirmation steps in order: (1) git, (2) the GitHub CLI, (3) OpenCode. If any step fails, the command SHALL exit immediately without proceeding to subsequent steps or to namespace preparation.
 
-The git step SHALL confirm that git is installed, that the current directory is inside a git repository, and that `user.name` and `user.email` are configured. The GitHub CLI step SHALL confirm that `gh` is installed and that a GitHub token is available to it, from the `gh` login or the `GITHUB_TOKEN` environment variable. The OpenCode step SHALL confirm that OpenCode is installed and that its `auth.json` contains credentials.
+The git step SHALL confirm that git is installed, that the current directory is inside a git repository, and that `user.name` and `user.email` are configured. The GitHub CLI step SHALL confirm that `gh` is installed and that a GitHub token is available to it, from the `gh` login or the `GITHUB_TOKEN` environment variable. The OpenCode step SHALL confirm that OpenCode is installed and holds stored credentials.
 
 #### Scenario: Local environment fully ready
 
@@ -54,7 +54,7 @@ The git step SHALL confirm that git is installed, that the current directory is 
 
 - GIVEN the git step succeeds
 - AND the GitHub CLI step succeeds
-- AND no OpenCode `auth.json` with credentials exists
+- AND OpenCode holds no stored credentials
 - WHEN the user runs `ralph setup`
 - THEN an error is returned after the OpenCode step
 - AND no namespace preparation is attempted
@@ -146,7 +146,7 @@ The OpenCode credentials SHALL always be written to the `opencode-credentials` S
 - GIVEN `workflow.opencodeSecret: opencode-ai-gateway` is set in `.ralph/config.yaml`
 - AND a namespace is targeted
 - WHEN the user runs `ralph setup`
-- THEN the OpenCode `auth.json` is written to the `opencode-credentials` Secret
+- THEN the OpenCode credentials are written to the `opencode-credentials` Secret
 - AND the output says the workflow mounts `opencode-ai-gateway` instead
 
 #### Scenario: App credentials prepared successfully
@@ -157,7 +157,7 @@ The OpenCode credentials SHALL always be written to the `opencode-credentials` S
 - WHEN the user runs `ralph setup --github-key <key.pem>`
 - THEN the GitHub App credentials are validated against the GitHub API
 - AND a Kubernetes Secret is written with `app-id` and `private-key`
-- AND the OpenCode `auth.json` is written as a Kubernetes Secret
+- AND the OpenCode credentials are written as a Kubernetes Secret
 - AND the command exits with success
 
 #### Scenario: Token credentials prepared successfully
@@ -167,7 +167,7 @@ The OpenCode credentials SHALL always be written to the `opencode-credentials` S
 - AND a GitHub personal access token is available
 - WHEN the user runs `ralph setup --github-token <token>`
 - THEN a Kubernetes Secret is written with `token`
-- AND the OpenCode `auth.json` is written as a Kubernetes Secret
+- AND the OpenCode credentials are written as a Kubernetes Secret
 - AND the command exits with success
 
 #### Scenario: GitHub credential failure halts preparation

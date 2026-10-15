@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/zon/ralph/internal/argo"
 	"github.com/zon/ralph/internal/config"
@@ -15,7 +14,6 @@ import (
 	"github.com/zon/ralph/internal/opencode"
 	"github.com/zon/ralph/internal/orchestration/setup"
 	"github.com/zon/ralph/internal/output"
-	"github.com/zon/ralph/internal/workspace"
 )
 
 type SetupCmd struct {
@@ -122,12 +120,7 @@ func (c *setupLocalReadinessClient) ConfirmOpenCodeReady() error {
 	if !opencode.Installed() {
 		return c.notReady("opencode", "opencode is not installed")
 	}
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return c.notReady("opencode", fmt.Sprintf("failed to get user home directory: %v", err))
-	}
-	authFilePath := filepath.Join(homeDir, ".local/share/opencode/auth.json")
-	if _, err := workspace.ReadOpenCodeCredentials(authFilePath); err != nil {
+	if _, err := opencode.ExportCredentials(); err != nil {
 		return c.notReady("opencode", err.Error())
 	}
 	c.out.Success("opencode ready")
@@ -233,20 +226,13 @@ type setupOpenCodeClient struct {
 }
 
 func (c *setupOpenCodeClient) Configure(k8sCtx setup.K8sContext) error {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return c.reportSecretNotReady(k8sCtx, fmt.Errorf("failed to get user home directory: %w", err))
-	}
-
-	authFilePath := filepath.Join(homeDir, ".local/share/opencode/auth.json")
-
-	authFileContent, err := workspace.ReadOpenCodeCredentials(authFilePath)
+	credentials, err := opencode.ExportCredentials()
 	if err != nil {
 		return c.reportSecretNotReady(k8sCtx, err)
 	}
 
 	secretData := map[string]string{
-		"auth.json": string(authFileContent),
+		"auth.json": string(credentials),
 	}
 
 	if err := c.k8sClient.CreateOrUpdateSecret(c.ctx, k8s.OpenCodeSecretName, k8sCtx.Namespace, k8sCtx.Name, secretData); err != nil {

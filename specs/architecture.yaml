@@ -59,7 +59,7 @@
   description: Runs AI prompts against embedded instruction templates to generate ralph artifacts and reads the agent's report output.
 
 - path: internal/opencode
-  description: Thin wrapper around the opencode CLI for invoking AI models.
+  description: Thin wrapper around the opencode CLI for invoking AI models and reading and writing stored credentials.
 
 - path: internal/argo
   description: Thin wrapper around the argo CLI for workflow management.
