@@ -87,7 +87,14 @@ RUN curl -fsSL "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz" | t
 
 # Note: Playwright and all browsers are pre-installed in the base image
 
-# Configure OpenCode
+# Configure OpenCode as an unattended coding agent whose sandbox is this
+# container. The config is the machine-wide global file so every run inherits
+# it. It allows every tool action, because the agent runs non-interactively
+# inside the container and the container boundary is the sandbox: a rule that
+# resolved to "ask" would stall a run with no client to answer. OpenCode's own
+# agent policies still append after these rules, so built-in agents keep their
+# role restrictions. Updates are disabled so the pinned OPENCODE_VERSION is the
+# version every run uses.
 RUN mkdir -p /root/.config/opencode
 COPY container/opencode.json /root/.config/opencode/opencode.json
 

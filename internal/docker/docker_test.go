@@ -1,6 +1,7 @@
 package docker
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -208,6 +209,61 @@ func TestDockerfileInstallsPinnedOpenCode(t *testing.T) {
 	assert.GreaterOrEqual(t, compareVersions(version, minimum), 0,
 		"Containerfile should pin OPENCODE_VERSION at v%d.%d.%d or later, got v%d.%d.%d",
 		minimum[0], minimum[1], minimum[2], version[0], version[1], version[2])
+}
+
+type openCodePermissionRule struct {
+	Action   string `json:"action"`
+	Resource string `json:"resource"`
+	Effect   string `json:"effect"`
+}
+
+type openCodeContainerConfig struct {
+	Schema       string                   `json:"$schema"`
+	Update       string                   `json:"update"`
+	Permissions  []openCodePermissionRule `json:"permissions"`
+	Experimental map[string]any           `json:"experimental"`
+}
+
+func TestContainerOpenCodeConfigServesSandbox(t *testing.T) {
+	projectRoot := filepath.Join("..", "..")
+	configPath := filepath.Join(projectRoot, "container", "opencode.json")
+
+	content, err := os.ReadFile(configPath)
+	require.NoError(t, err, "Should be able to read container/opencode.json")
+
+	var cfg openCodeContainerConfig
+	require.NoError(t, json.Unmarshal(content, &cfg), "container/opencode.json should be valid JSON")
+
+	assert.Equal(t, "https://opencode.ai/config.json", cfg.Schema,
+		"config should declare the published schema")
+
+	assert.Equal(t, "disable", cfg.Update,
+		"config should disable updates so the pinned OpenCode version is the one runs use")
+
+	allowsEverything := false
+	for _, rule := range cfg.Permissions {
+		assert.NotEqual(t, "ask", rule.Effect,
+			"an unattended container has no client to answer %q on %q", rule.Effect, rule.Resource)
+		if rule.Action == "*" && rule.Resource == "*" && rule.Effect == "allow" {
+			allowsEverything = true
+		}
+	}
+	assert.True(t, allowsEverything,
+		"config should allow every tool action because the container is the sandbox")
+
+	_, ok := cfg.Experimental["subagent_depth"]
+	assert.True(t, ok, "config should keep the configured subagent depth")
+}
+
+func TestContainerfileConfiguresOpenCode(t *testing.T) {
+	projectRoot := filepath.Join("..", "..")
+	containerfilePath := filepath.Join(projectRoot, "Containerfile")
+
+	content, err := os.ReadFile(containerfilePath)
+	require.NoError(t, err, "Should be able to read Containerfile")
+
+	assert.Contains(t, string(content), "COPY container/opencode.json /root/.config/opencode/opencode.json",
+		"Containerfile should install the container OpenCode configuration as the global config")
 }
 
 func TestRalphBinaryHasPatchedGoDependencies(t *testing.T) {
