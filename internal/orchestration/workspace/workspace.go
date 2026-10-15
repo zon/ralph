@@ -42,7 +42,9 @@ type WorkspaceFlags struct {
 	CreateBranch bool
 	BotName      string
 	BotEmail     string
-	Symlinks     bool
+	// NoSymlinks disables symlinking the mounted ConfigMap and Secret files
+	// into the working directory. Setup symlinks the mounts by default.
+	NoSymlinks bool
 }
 
 func (w *WorkspaceSetup) Setup(flags WorkspaceFlags) error {
@@ -61,7 +63,7 @@ func (w *WorkspaceSetup) Setup(flags WorkspaceFlags) error {
 			return err
 		}
 	}
-	if flags.Symlinks {
+	if !flags.NoSymlinks {
 		return w.workspace.SetupSymlinks()
 	}
 	return nil

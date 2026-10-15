@@ -253,7 +253,7 @@ func TestWorkspaceSetup_CreateBranch(t *testing.T) {
 	assert.Equal(t, "new-branch", createdBranch)
 }
 
-func TestWorkspaceSetup_Symlinks(t *testing.T) {
+func TestWorkspaceSetup_SymlinksByDefault(t *testing.T) {
 	t.Parallel()
 
 	var symlinksCalled bool
@@ -270,9 +270,32 @@ func TestWorkspaceSetup_Symlinks(t *testing.T) {
 	)
 
 	err := ws.Setup(workspace.WorkspaceFlags{
-		Repo:     "owner/repo",
-		Symlinks: true,
+		Repo: "owner/repo",
 	})
 	require.NoError(t, err)
 	assert.True(t, symlinksCalled)
+}
+
+func TestWorkspaceSetup_NoSymlinksSkipsSetup(t *testing.T) {
+	t.Parallel()
+
+	var symlinksCalled bool
+
+	ws := workspace.New(
+		&mockSWGitHubClient{},
+		&mockSWWorkspaceClient{
+			setupSymlinksFn: func() error {
+				symlinksCalled = true
+				return nil
+			},
+		},
+		&mockSWGitClient{},
+	)
+
+	err := ws.Setup(workspace.WorkspaceFlags{
+		Repo:       "owner/repo",
+		NoSymlinks: true,
+	})
+	require.NoError(t, err)
+	assert.False(t, symlinksCalled)
 }

@@ -130,7 +130,6 @@ func flagsAny() WorkspaceFlags {
 	return WorkspaceFlags{
 		Repo:        "owner/repo",
 		CloneBranch: "main",
-		Symlinks:    true,
 	}
 }
 
@@ -146,7 +145,6 @@ func flagsWithTargetBranch(branch string) WorkspaceFlags {
 		Repo:         "owner/repo",
 		CloneBranch:  "main",
 		TargetBranch: branch,
-		Symlinks:     true,
 	}
 }
 
@@ -159,14 +157,7 @@ func flagsWithSymlinksDisabled() WorkspaceFlags {
 	return WorkspaceFlags{
 		Repo:        "owner/repo",
 		CloneBranch: "main",
-	}
-}
-
-func flagsWithSymlinksEnabled() WorkspaceFlags {
-	return WorkspaceFlags{
-		Repo:        "owner/repo",
-		CloneBranch: "main",
-		Symlinks:    true,
+		NoSymlinks:  true,
 	}
 }
 

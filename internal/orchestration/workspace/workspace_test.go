@@ -75,9 +75,9 @@ func TestSetupSymlinksDisabledSkipsSetup(t *testing.T) {
 	require.False(t, symlinksSetUp(cmd))
 }
 
-func TestSetupSymlinksEnabledCallsSetup(t *testing.T) {
+func TestSetupSymlinksByDefaultCallsSetup(t *testing.T) {
 	cmd := withMocks()
-	err := cmd.Setup(flagsWithSymlinksEnabled())
+	err := cmd.Setup(flagsAny())
 	require.NoError(t, err)
 	require.True(t, symlinksSetUp(cmd))
 }
