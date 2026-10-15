@@ -63,8 +63,13 @@ RUN curl -fsSL https://bun.sh/install | bash \
     && ln -s ${BUN_INSTALL}/bin/bun /usr/local/bin/bun \
     && ln -s ${BUN_INSTALL}/bin/bunx /usr/local/bin/bunx
 
-# Install OpenCode CLI
-RUN bun install -g @opencode/cli \
+# Install OpenCode CLI, pinned so the layer does not freeze at whatever was
+# latest when it was first built. Bun never runs a dependency's lifecycle
+# scripts, so --trust is required for the package's postinstall to select the
+# native opencode binary for this platform; without it the install leaves the
+# shebang-less bin/opencode.exe stub that fails as "exec format error".
+ENV OPENCODE_VERSION=2.0.29
+RUN bun install -g --trust @opencode/cli@${OPENCODE_VERSION} \
     && ln -s ${BUN_INSTALL}/bin/opencode /usr/local/bin/opencode
 
 # Install Argo Workflows CLI

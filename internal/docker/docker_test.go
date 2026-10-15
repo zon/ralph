@@ -188,6 +188,28 @@ func TestDockerfileUpgradesArgoAndHelm(t *testing.T) {
 	}
 }
 
+func TestDockerfileInstallsPinnedOpenCode(t *testing.T) {
+	projectRoot := filepath.Join("..", "..")
+	containerfilePath := filepath.Join(projectRoot, "Containerfile")
+
+	content, err := os.ReadFile(containerfilePath)
+	require.NoError(t, err, "Should be able to read Containerfile")
+
+	dockerfile := string(content)
+
+	// Bun never runs a dependency's lifecycle scripts, so the install must
+	// trust the package or its postinstall leaves the bin/opencode.exe stub
+	// that fails to exec.
+	assert.Contains(t, dockerfile, "bun install -g --trust @opencode/cli@${OPENCODE_VERSION}",
+		"Containerfile should install the trusted, pinned OpenCode CLI")
+
+	version := containerfileVersion(t, dockerfile, "OPENCODE_VERSION")
+	minimum := [3]int{2, 0, 29}
+	assert.GreaterOrEqual(t, compareVersions(version, minimum), 0,
+		"Containerfile should pin OPENCODE_VERSION at v%d.%d.%d or later, got v%d.%d.%d",
+		minimum[0], minimum[1], minimum[2], version[0], version[1], version[2])
+}
+
 func TestRalphBinaryHasPatchedGoDependencies(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
 	goModPath := filepath.Join(projectRoot, "go.mod")
