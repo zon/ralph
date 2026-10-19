@@ -16,6 +16,10 @@ A [jq](https://jqlang.org/manual/) expression that resolves a project file to it
 
 The value of an item's `slug`, `id`, or `name` field, checked in that order. A convenience label that names the item in logs and picker output. It is not an identifier. Items are tracked by hash whether or not they have a key.
 
+## Pick Reference
+
+The completion hash the picker reports to select an item, shown above the item in the picker prompt as `ref: <hash>` and written to `picked-item.txt`. It identifies the item without asking the agent to reproduce the item's text, whose quoting and escaping a YAML rendering can change.
+
 ## Completion Trailer
 
 The last line of an iteration's commit message, written by the development agent to record that an item is finished: a bare `<branch>-<hash>` line, for example `csv-export-IYAWN02`, where the branch is the project branch and the hash is a 7-character base-62 encoding of a SHA-256 digest of the item's text, normalized by trimming surrounding whitespace and lower-casing. Only trailers naming the current branch count. The set of trailers on the branch is Ralph's only record of progress.

@@ -32,12 +32,12 @@ func NewAgentClient(ctx *context.Context, oc opencode.OCClient) *AgentClient {
 const maxPickerAttempts = 3
 
 // RunPicker asks the AI to select one incomplete item and returns it. A
-// selection is usable only when picked-item.txt holds the text of one of the
-// incomplete items; when a run leaves no usable selection — the file missing,
-// empty, or naming no incomplete item — the same prompt is re-run until
-// maxPickerAttempts attempts have been made. When every attempt is unusable the
-// returned error names the attempt limit. An opencode execution failure is
-// returned immediately and is never retried.
+// selection is usable only when picked-item.txt holds the reference of one of
+// the incomplete items; when a run leaves no usable selection — the file
+// missing, empty, or naming no incomplete item — the same prompt is re-run
+// until maxPickerAttempts attempts have been made. When every attempt is
+// unusable the returned error names the attempt limit. An opencode execution
+// failure is returned immediately and is never retried.
 func (a *AgentClient) RunPicker(proj *project.Project, incomplete []project.Item, previousErr error) (project.Item, error) {
 	cfg, err := config.LoadConfig()
 	if err != nil {
@@ -72,9 +72,9 @@ func (a *AgentClient) RunPicker(proj *project.Project, incomplete []project.Item
 
 		text, err := readPickedItem()
 		if err == nil {
-			item, ok := findItemByText(incomplete, text)
+			item, ok := project.DecodePickRef(incomplete, text)
 			if !ok {
-				err = fmt.Errorf("picker wrote text that names no incomplete item: %q", text)
+				err = fmt.Errorf("picker wrote a report that names no incomplete item: %q", text)
 			} else {
 				return item, nil
 			}
@@ -132,8 +132,9 @@ func projectContent(proj *project.Project) string {
 	return string(data)
 }
 
-// renderItems renders each incomplete item with its key, when it has one, above
-// the item's pick text, so the picker can choose one and echo its text.
+// renderItems renders each incomplete item with its key when it has one, its
+// pick reference, and its pick text, so the picker can choose one and report
+// its reference without reproducing the text's quoting or escaping.
 func renderItems(items []project.Item) string {
 	var b strings.Builder
 	for i, it := range items {
@@ -143,27 +144,12 @@ func renderItems(items []project.Item) string {
 		if key := it.Key(); key != "" {
 			fmt.Fprintf(&b, "**%s**\n\n", key)
 		}
-		fmt.Fprintf(&b, "%s\n", it.PickText())
+		fmt.Fprintf(&b, "%s\n\n%s\n", it.PickRefLine(), it.PickText())
 	}
 	return strings.TrimRight(b.String(), "\n")
 }
 
-// findItemByText returns the incomplete item the picked text names. Matching by
-// the item's own text, rather than by a position, keeps the selection tied to
-// the item's identity however the array is ordered. The picker is shown the
-// item's pick text, so that rendering matches too; for a string item it is the
-// value itself, and it differs from the canonical text YAML quotes.
-func findItemByText(incomplete []project.Item, text string) (project.Item, bool) {
-	hash := trailer.Hash(text)
-	for _, it := range incomplete {
-		if it.Hash() == hash || trailer.Hash(it.PickText()) == hash {
-			return it, true
-		}
-	}
-	return project.Item{}, false
-}
-
-// readPickedItem reads the item text the picker agent wrote to
+// readPickedItem reads the reference the picker agent wrote to
 // picked-item.txt.
 func readPickedItem() (string, error) {
 	data, err := os.ReadFile("picked-item.txt")

@@ -79,18 +79,19 @@ func TestAgentClientPickAndDevelop_MockAI(t *testing.T) {
 	ctx := execcontext.NewContext()
 	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, true))
 
+	proj := &project.Project{Slug: "test-project", Items: project.NewItems([]any{"csv-serializer"})}
+
 	mockOC := &opencode.MockOC{
 		RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
-			// The picker agent writes the selected item's text to disk.
+			// The picker agent writes the selected item's reference to disk.
 			if strings.Contains(strings.ToLower(prompt), "picker") {
-				return os.WriteFile("picked-item.txt", []byte("csv-serializer"), 0644)
+				return os.WriteFile("picked-item.txt", []byte(proj.Items[0].PickRefLine()), 0644)
 			}
 			return nil
 		},
 	}
 	client := NewAgentClient(ctx, mockOC)
 
-	proj := &project.Project{Slug: "test-project", Items: project.NewItems([]any{"csv-serializer"})}
 	item, err := client.RunPicker(proj, proj.Items, nil)
 	require.NoError(t, err)
 	require.Equal(t, 0, item.Index)
@@ -106,31 +107,19 @@ func TestAgentClientImplementsInterface(t *testing.T) {
 	var _ orchestrationRun.AIClient = client
 }
 
-func TestRenderItemsShowsStringItemsWithoutYAMLQuoting(t *testing.T) {
-	items := project.NewItems([]any{"`abnch get tasks` lists the inferred repo's tasks"})
-
-	assert.Equal(t, "`abnch get tasks` lists the inferred repo's tasks", renderItems(items))
-}
-
-func TestFindItemByTextAcceptsPickTextAndCanonicalText(t *testing.T) {
-	items := project.NewItems([]any{"`abnch get tasks` lists the inferred repo's tasks"})
-
-	t.Run("accepts the item's own text", func(t *testing.T) {
-		item, ok := findItemByText(items, items[0].PickText())
-		require.True(t, ok)
-		assert.Equal(t, 0, item.Index)
+func TestRenderItemsShowsEachItemWithItsReferenceAndPickText(t *testing.T) {
+	items := project.NewItems([]any{
+		"`abnch get tasks` lists the inferred repo's tasks",
+		map[string]any{"slug": "exporter", "description": "export endpoint"},
 	})
 
-	t.Run("accepts the canonical YAML text", func(t *testing.T) {
-		item, ok := findItemByText(items, items[0].Text())
-		require.True(t, ok)
-		assert.Equal(t, 0, item.Index)
-	})
+	rendered := renderItems(items)
 
-	t.Run("rejects text that names no item", func(t *testing.T) {
-		_, ok := findItemByText(items, "not an item")
-		assert.False(t, ok)
-	})
+	assert.Contains(t, rendered, items[0].PickRefLine())
+	assert.Contains(t, rendered, items[0].PickText(), "a string item is shown without YAML quoting")
+	assert.Contains(t, rendered, "**exporter**")
+	assert.Contains(t, rendered, items[1].PickRefLine())
+	assert.Contains(t, rendered, items[1].Text())
 }
 
 func TestAgentClientRunPickerGivesOnlyIncompleteItemsWithTheirKeysAndText(t *testing.T) {
@@ -163,7 +152,7 @@ func TestAgentClientRunPickerGivesOnlyIncompleteItemsWithTheirKeysAndText(t *tes
 	mockOC := &opencode.MockOC{
 		RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
 			pickPrompt = prompt
-			return os.WriteFile("picked-item.txt", []byte(proj.Items[1].Text()), 0644)
+			return os.WriteFile("picked-item.txt", []byte(proj.Items[1].PickRefLine()), 0644)
 		},
 	}
 	client := NewAgentClient(execcontext.NewContext(), mockOC)
@@ -175,16 +164,20 @@ func TestAgentClientRunPickerGivesOnlyIncompleteItemsWithTheirKeysAndText(t *tes
 	assert.Contains(t, pickPrompt, "slug: test-project", "the full project file is carried in the prompt")
 	assert.Contains(t, pickPrompt, "**exporter**", "the remaining item is labelled with its key")
 	assert.Contains(t, pickPrompt, "slug: exporter")
+	assert.Contains(t, pickPrompt, proj.Items[1].PickRefLine(), "the remaining item is offered with its reference")
 	assert.Contains(t, pickPrompt, "**importer**", "the remaining item is labelled with its key")
 	assert.Contains(t, pickPrompt, "slug: importer")
+	assert.Contains(t, pickPrompt, proj.Items[3].PickRefLine(), "the remaining item is offered with its reference")
 	assert.NotContains(t, pickPrompt, "**one**", "the complete item is not offered to the picker")
 	assert.NotContains(t, pickPrompt, "**two**", "the complete item is not offered to the picker")
+	assert.NotContains(t, pickPrompt, proj.Items[0].PickRefLine(), "the complete item's reference is not offered")
+	assert.NotContains(t, pickPrompt, proj.Items[2].PickRefLine(), "the complete item's reference is not offered")
 	assert.Contains(t, pickPrompt, "not constrained to array order")
 	assert.Contains(t, pickPrompt, "Do not make any code changes")
-	assert.Contains(t, pickPrompt, "picked-item.txt", "the agent reports the text it selected")
+	assert.Contains(t, pickPrompt, "picked-item.txt", "the agent reports the reference it selected")
 }
 
-func TestAgentClientRunPickerAcceptsStringTextYAMLWouldQuote(t *testing.T) {
+func TestAgentClientRunPickerAcceptsReferenceForStringTextYAMLWouldQuote(t *testing.T) {
 	workDir := t.TempDir()
 	t.Chdir(workDir)
 
@@ -199,15 +192,38 @@ func TestAgentClientRunPickerAcceptsStringTextYAMLWouldQuote(t *testing.T) {
 	mockOC := &opencode.MockOC{
 		RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
 			pickPrompt = prompt
-			return os.WriteFile("picked-item.txt", []byte(value), 0644)
+			return os.WriteFile("picked-item.txt", []byte(proj.Items[0].PickRefLine()), 0644)
 		},
 	}
 	client := NewAgentClient(execcontext.NewContext(), mockOC)
 
 	item, err := client.RunPicker(proj, proj.Items, nil)
-	require.NoError(t, err, "the picker's own text is accepted even though YAML would quote it")
+	require.NoError(t, err, "the reference is accepted without the picker reproducing YAML quoting")
 	require.Equal(t, 0, item.Index)
+	assert.Contains(t, pickPrompt, proj.Items[0].PickRefLine(), "the picker is offered the item's reference")
 	assert.Contains(t, pickPrompt, value, "the picker is offered the item's own text")
+}
+
+func TestAgentClientRunPickerAcceptsTextWithYAMLSourceEscaping(t *testing.T) {
+	workDir := t.TempDir()
+	t.Chdir(workDir)
+
+	testutil.InitGitRepo(t, workDir)
+	testutil.MakeInitialCommit(t, workDir)
+	testutil.CreateRalphConfig(t, workDir)
+
+	proj := &project.Project{Slug: "test-project", Items: project.NewItems([]any{`tables = ["AuditLogs"]`})}
+
+	mockOC := &opencode.MockOC{
+		RunAgentFunc: func(_ context.Context, _, _, _, _ string) error {
+			return os.WriteFile("picked-item.txt", []byte(`tables = [\"AuditLogs\"]`), 0644)
+		},
+	}
+	client := NewAgentClient(execcontext.NewContext(), mockOC)
+
+	item, err := client.RunPicker(proj, proj.Items, nil)
+	require.NoError(t, err, "text copied from a YAML source resolves to the item it escapes")
+	require.Equal(t, 0, item.Index)
 }
 
 func TestAgentClientRunDeveloperUsesItemBasedInstructionsByDefault(t *testing.T) {
@@ -288,7 +304,7 @@ func TestAgentClientRunPickerCarriesFullProjectFileAsContext(t *testing.T) {
 	mockOC := &opencode.MockOC{
 		RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
 			pickPrompt = prompt
-			return os.WriteFile("picked-item.txt", []byte(proj.Items[0].Text()), 0644)
+			return os.WriteFile("picked-item.txt", []byte(proj.Items[0].PickRefLine()), 0644)
 		},
 	}
 	client := NewAgentClient(execcontext.NewContext(), mockOC)
@@ -431,12 +447,14 @@ func TestAgentClientPromptsCarryPreviousIterationError(t *testing.T) {
 	testutil.MakeInitialCommit(t, workDir)
 	testutil.CreateRalphConfig(t, workDir)
 
+	proj := &project.Project{Slug: "test-project", Items: project.NewItems([]any{"csv-serializer"})}
+
 	var pickPrompt, developPrompt string
 	mockOC := &opencode.MockOC{
 		RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
 			if strings.Contains(strings.ToLower(prompt), "picker") {
 				pickPrompt = prompt
-				return os.WriteFile("picked-item.txt", []byte("csv-serializer"), 0644)
+				return os.WriteFile("picked-item.txt", []byte(proj.Items[0].PickRefLine()), 0644)
 			}
 			developPrompt = prompt
 			return nil
@@ -444,7 +462,6 @@ func TestAgentClientPromptsCarryPreviousIterationError(t *testing.T) {
 	}
 	client := NewAgentClient(execcontext.NewContext(), mockOC)
 
-	proj := &project.Project{Slug: "test-project", Items: project.NewItems([]any{"csv-serializer"})}
 	previousErr := errors.New("previous attempt failed: boom")
 
 	_, err := client.RunPicker(proj, proj.Items, previousErr)
@@ -567,11 +584,11 @@ func TestAgentClientRunPickerNeverPassesAgent(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			proj := &project.Project{Slug: "test-project", Items: project.NewItems([]any{"csv-serializer"})}
 			client, capturedAgent := newNeverPassesAgentClient(t, tc.flagAgent, tc.appendConfigAgent, true, func(_ string) error {
-				return os.WriteFile("picked-item.txt", []byte("csv-serializer"), 0644)
+				return os.WriteFile("picked-item.txt", []byte(proj.Items[0].PickRefLine()), 0644)
 			}, nil)
 
-			proj := &project.Project{Slug: "test-project", Items: project.NewItems([]any{"csv-serializer"})}
 			_, err := client.RunPicker(proj, proj.Items, nil)
 			require.NoError(t, err)
 			assert.Equal(t, "", *capturedAgent, "the picker must never pass --agent to opencode, so it always runs with the primary agent")
@@ -628,7 +645,7 @@ func TestAgentClientRunPickerReRunsPromptUntilUsableSelection(t *testing.T) {
 				if *runs == 1 {
 					return nil
 				}
-				return os.WriteFile("picked-item.txt", []byte(pickerProject.Items[1].Text()), 0644)
+				return os.WriteFile("picked-item.txt", []byte(pickerProject.Items[1].PickRefLine()), 0644)
 			},
 			wantIndex: 1,
 		},
@@ -639,7 +656,7 @@ func TestAgentClientRunPickerReRunsPromptUntilUsableSelection(t *testing.T) {
 				if *runs == 1 {
 					return os.WriteFile("picked-item.txt", []byte("   \n"), 0644)
 				}
-				return os.WriteFile("picked-item.txt", []byte(pickerProject.Items[1].Text()), 0644)
+				return os.WriteFile("picked-item.txt", []byte(pickerProject.Items[1].PickRefLine()), 0644)
 			},
 			wantIndex: 1,
 		},
@@ -650,7 +667,7 @@ func TestAgentClientRunPickerReRunsPromptUntilUsableSelection(t *testing.T) {
 				if *runs == 1 {
 					return os.WriteFile("picked-item.txt", []byte("not a listed item"), 0644)
 				}
-				return os.WriteFile("picked-item.txt", []byte(pickerProject.Items[1].Text()), 0644)
+				return os.WriteFile("picked-item.txt", []byte(pickerProject.Items[1].PickRefLine()), 0644)
 			},
 			wantIndex: 1,
 		},

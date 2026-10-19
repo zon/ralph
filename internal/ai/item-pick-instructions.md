@@ -4,7 +4,7 @@ You are a software developer prioritizing work for this project.
 
 ## Task
 
-Select the highest-priority incomplete item and report its text. Do not make any code changes.
+Select the highest-priority incomplete item and report its reference. Do not make any code changes.
 
 ## Context
 
@@ -42,7 +42,7 @@ Address its cause before continuing.
 
 ## Definitions
 
-**Item** — one element of the project's resolved item array. An optional key (the scalar `slug`, `id`, or `name` field of its value) labels it. The item's text identifies it: the text shown above for the item, beneath its key when it has one.
+**Item** — one element of the project's resolved item array. An optional key (the scalar `slug`, `id`, or `name` field of its value) labels it. Each item is shown with a `ref:` line, its completion hash. The reference identifies the item without requiring its text to be repeated, so quoting and escaping cannot change which item it names.
 
 ## Instructions
 
@@ -54,4 +54,4 @@ Address its cause before continuing.
 
 ## Output
 
-Write the text of the item you selected to `picked-item.txt`, exactly as it appears above and nothing else, and make no other changes.
+Write the reference of the item you selected to `picked-item.txt` as a single line, `ref: <hash>`, using the `ref:` value shown above the item. Write nothing else, and make no other changes. Do not copy the item's text.

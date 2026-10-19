@@ -377,7 +377,7 @@ func TestBuildItemPickPrompt(t *testing.T) {
 		Notes:          nil,
 		CommitLog:      "abc123 feat: add exporter\n",
 		ProjectContent: "slug: csv-export\ntitle: CSV Export\ntasks:\n  - slug: exporter\n    description: Exporter\n  - slug: importer\n    description: Importer\n",
-		Items:          "**exporter**\n\nslug: exporter\ndescription: Exporter\n\n**importer**\n\nslug: importer\ndescription: Importer",
+		Items:          "**exporter**\n\nref: abc1234\n\nslug: exporter\ndescription: Exporter\n\n**importer**\n\nref: def5678\n\nslug: importer\ndescription: Importer",
 	}
 
 	t.Run("frames the agent as an item picker", func(t *testing.T) {
@@ -393,7 +393,9 @@ func TestBuildItemPickPrompt(t *testing.T) {
 		assert.Contains(t, prompt, "slug: csv-export")
 		assert.Contains(t, prompt, "title: CSV Export")
 		assert.Contains(t, prompt, "**exporter**")
+		assert.Contains(t, prompt, "ref: abc1234")
 		assert.Contains(t, prompt, "**importer**")
+		assert.Contains(t, prompt, "ref: def5678")
 		assert.Contains(t, prompt, "abc123 feat: add exporter")
 	})
 
@@ -406,11 +408,13 @@ func TestBuildItemPickPrompt(t *testing.T) {
 		assert.Contains(t, prompt, "not constrained to array order")
 	})
 
-	t.Run("reports the picked item's text to a file", func(t *testing.T) {
+	t.Run("reports the picked item's reference to a file", func(t *testing.T) {
 		prompt, err := BuildItemPickPrompt(data)
 		require.NoError(t, err)
 		assert.Contains(t, prompt, "picked-item.txt")
-		assert.Contains(t, prompt, "text of the item you selected")
+		assert.Contains(t, prompt, "reference of the item you selected")
+		assert.Contains(t, prompt, "ref: <hash>")
+		assert.Contains(t, prompt, "Do not copy the item's text")
 	})
 
 	t.Run("treats the incomplete list as authoritative and forbids auditing wider history", func(t *testing.T) {

@@ -249,7 +249,7 @@ The iteration loop SHALL invoke the AI agent repeatedly until every item is comp
 
 ### Requirement: Item selection
 
-Each iteration SHALL invoke a picker agent to select exactly one incomplete item. The picker SHALL receive the full project file, the incomplete items each rendered with its key and text, and the recent commit log, and SHALL choose based on dependencies between items, logical ordering, and impact. A string item's text SHALL be the item's own value, without the quoting and escaping a YAML rendering would add, and any other item's text SHALL be its canonical YAML. The picker SHALL report the selected item's text, and the command SHALL resolve that text to one of the incomplete items by matching the item's text or its completion hash. Selection SHALL NOT be constrained to array order.
+Each iteration SHALL invoke a picker agent to select exactly one incomplete item. The picker SHALL receive the full project file, the incomplete items each rendered with its key, text, and pick reference, and the recent commit log, and SHALL choose based on dependencies between items, logical ordering, and impact. A string item's text SHALL be the item's own value, without the quoting and escaping a YAML rendering would add, and any other item's text SHALL be its canonical YAML. An item's pick reference SHALL be its completion hash, shown on a `ref:` line so the picker reports an identity without reproducing the text. The picker SHALL report the selected item's reference, and the command SHALL resolve it to one of the incomplete items. The command SHALL also resolve a report of the item's text, its canonical YAML, or a quoting the YAML source adds, so a picker that copies text still names its selection. Selection SHALL NOT be constrained to array order.
 
 #### Scenario: Picker chooses from incomplete items only
 
@@ -257,19 +257,31 @@ Each iteration SHALL invoke a picker agent to select exactly one incomplete item
 - WHEN the picker runs
 - THEN it is given only the remaining items, each with its key and text
 
-#### Scenario: Picker reports the selected item's text
+#### Scenario: Picker reports the selected item's reference
 
-- GIVEN the picker is given the incomplete items
+- GIVEN the picker is given the incomplete items, each with a `ref:` line
 - WHEN the picker selects one
-- THEN it writes that item's text to `picked-item.txt`
-- AND the command resolves the text to one of the incomplete items by its hash
+- THEN it writes that item's reference to `picked-item.txt` as `ref: <hash>`
+- AND the command resolves the reference to one of the incomplete items
 
 #### Scenario: Picker sees a string item without YAML quoting
 
 - GIVEN an incomplete item is a string a YAML rendering would quote, such as one beginning with a backtick
 - WHEN the picker is given the incomplete items
 - THEN the item is shown as its own value, without surrounding quotes or doubled escapes
-- AND the command resolves the item when the picker reports that text
+- AND its reference is shown on a separate `ref:` line
+
+#### Scenario: Reference survives YAML escaping
+
+- GIVEN an incomplete item's text contains quotes or backslashes that its YAML source escapes
+- WHEN the picker reports the item's `ref:` value
+- THEN the command resolves the item without depending on the text's escaping
+
+#### Scenario: Picker reports text instead of a reference
+
+- GIVEN the picker writes an incomplete item's text, canonical YAML, or a source-escaped form of its text
+- WHEN the command decodes the report
+- THEN it resolves the report to the item whose text it names
 
 #### Scenario: Picker receives the full project file
 
