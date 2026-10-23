@@ -51,9 +51,9 @@ func TestWorktreeBaseBranchSyncLeavesCheckoutUntouched(t *testing.T) {
 }
 
 // advanceRemoteBranch clones the bare remote into a temporary directory, adds a
-// commit on branch, and pushes it back, so the remote base tip advances without
-// touching the working checkout.
-func advanceRemoteBranch(t *testing.T, remoteDir, branch, filename string) {
+// commit on branch, and pushes it back, so the remote tip advances without
+// touching the working checkout. It returns the new remote tip.
+func advanceRemoteBranch(t *testing.T, remoteDir, branch, filename string) string {
 	t.Helper()
 	dir := t.TempDir()
 	c := exec.Command("git", "clone", remoteDir, dir)
@@ -62,8 +62,10 @@ func advanceRemoteBranch(t *testing.T, remoteDir, branch, filename string) {
 
 	runGitForTest(t, dir, "config", "user.email", "test@example.com")
 	runGitForTest(t, dir, "config", "user.name", "Test User")
+	runGitForTest(t, dir, "checkout", branch)
 	require.NoError(t, os.WriteFile(filepath.Join(dir, filename), []byte("advance\n"), 0644))
 	runGitForTest(t, dir, "add", ".")
-	runGitForTest(t, dir, "commit", "-m", "advance base")
+	runGitForTest(t, dir, "commit", "-m", "advance "+branch)
 	runGitForTest(t, dir, "push", "origin", branch)
+	return runGitForTest(t, dir, "rev-parse", "HEAD")
 }

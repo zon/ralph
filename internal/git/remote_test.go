@@ -206,6 +206,93 @@ func TestRemoteURL(t *testing.T) {
 	})
 }
 
+func TestRebaseInProgress(t *testing.T) {
+	tests := []struct {
+		name string
+		dir  string
+	}{
+		{name: "no rebase directory"},
+		{name: "merge backend", dir: "rebase-merge"},
+		{name: "apply backend", dir: "rebase-apply"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			workDir := setupTestRepo(t)
+			t.Chdir(workDir)
+
+			if tt.dir == "" {
+				assert.False(t, rebaseInProgress())
+				return
+			}
+			require.NoError(t, os.MkdirAll(filepath.Join(workDir, ".git", tt.dir), 0755))
+			assert.True(t, rebaseInProgress())
+		})
+	}
+}
+
+// TestPullAndPush_AbortsConflictingRebase verifies that a pull which stops on a
+// conflict is aborted, so the run fails with the local commit and a clean
+// checkout instead of conflict markers and a half-applied rebase.
+func TestPullAndPush_AbortsConflictingRebase(t *testing.T) {
+	workDir, remoteDir := setupBareRemoteRepo(t)
+	t.Chdir(workDir)
+	branch := currentBranchForTest(t, workDir)
+
+	require.NoError(t, os.WriteFile(filepath.Join(workDir, "shared.txt"), []byte("one\n"), 0644))
+	require.NoError(t, StageAll())
+	require.NoError(t, Commit("add shared file"))
+	_, err := Push(nil, branch)
+	require.NoError(t, err)
+
+	// Advance the remote from another checkout so both sides edit the same line.
+	other := t.TempDir()
+	out, err := exec.Command("git", "clone", remoteDir, other).CombinedOutput()
+	require.NoError(t, err, "git clone: %s", out)
+	runGitForTest(t, other, "config", "user.email", "test@example.com")
+	runGitForTest(t, other, "config", "user.name", "Test User")
+	require.NoError(t, os.WriteFile(filepath.Join(other, "shared.txt"), []byte("two\n"), 0644))
+	runGitForTest(t, other, "add", ".")
+	runGitForTest(t, other, "commit", "-m", "remote edit")
+	runGitForTest(t, other, "push", "origin", branch)
+
+	require.NoError(t, os.WriteFile(filepath.Join(workDir, "shared.txt"), []byte("three\n"), 0644))
+	require.NoError(t, StageAll())
+	require.NoError(t, Commit("local edit"))
+	localTip := runGitForTest(t, workDir, "rev-parse", "HEAD")
+
+	err = PullAndPush(false, "", "")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to pull before push")
+	assert.False(t, rebaseInProgress(), "the conflicting rebase is aborted")
+
+	assert.Equal(t, localTip, runGitForTest(t, workDir, "rev-parse", "HEAD"), "the local commit survives the abort")
+	content, err := os.ReadFile(filepath.Join(workDir, "shared.txt"))
+	require.NoError(t, err)
+	assert.Equal(t, "three\n", string(content), "the working tree holds the local edit, not conflict markers")
+	assert.Empty(t, runGitForTest(t, workDir, "status", "--porcelain"), "the checkout is clean")
+}
+
+// TestPullRebase_LeavesRunningRebaseAlone verifies that a rebase which was
+// already running before the pull is not aborted by the pull's cleanup.
+func TestPullRebase_LeavesRunningRebaseAlone(t *testing.T) {
+	workDir, remoteDir := setupBareRemoteRepo(t)
+	t.Chdir(workDir)
+	branch := currentBranchForTest(t, workDir)
+
+	// Make the pull rebase local work onto a moved remote, then leave a rebase
+	// that started before the pull in place.
+	require.NoError(t, os.WriteFile(filepath.Join(workDir, "local.txt"), []byte("local\n"), 0644))
+	require.NoError(t, StageAll())
+	require.NoError(t, Commit("add local work"))
+	advanceRemoteBranch(t, remoteDir, branch, "advance.txt")
+	rebaseDir := filepath.Join(workDir, ".git", "rebase-merge")
+	require.NoError(t, os.MkdirAll(rebaseDir, 0755))
+
+	require.Error(t, PullRebase(nil))
+	assert.DirExists(t, rebaseDir, "a rebase that was already running is left alone")
+}
+
 func TestFetchBranch(t *testing.T) {
 	t.Run("fetches branch with refspec", func(t *testing.T) {
 		workDir, _ := setupBareRemoteRepo(t)

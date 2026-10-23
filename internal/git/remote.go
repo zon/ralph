@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 )
 
@@ -64,12 +65,34 @@ func PullRebase(auth *AuthConfig) error {
 		return fmt.Errorf("failed to commit working tree before pull: %w", err)
 	}
 
+	// A pull that stops on a conflict leaves conflict markers and a detached
+	// HEAD behind, which breaks every later git step, so abort the rebase this
+	// pull started. A rebase that was already running belongs to the user.
+	rebaseAlreadyRunning := rebaseInProgress()
 	_, err = runGit("pull", "--rebase", "origin", branch)
 	if err != nil {
+		if !rebaseAlreadyRunning {
+			_, _ = runGit("rebase", "--abort")
+		}
 		return fmt.Errorf("failed to pull --rebase: %w", err)
 	}
 
 	return nil
+}
+
+// rebaseInProgress reports whether a rebase stopped part-way and can be
+// aborted.
+func rebaseInProgress() bool {
+	for _, dir := range []string{"rebase-merge", "rebase-apply"} {
+		path, err := runGit("rev-parse", "--git-path", dir)
+		if err != nil {
+			return false
+		}
+		if _, err := os.Stat(path); err == nil {
+			return true
+		}
+	}
+	return false
 }
 
 func RemoteURL() (string, error) {

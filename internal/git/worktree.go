@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -39,28 +40,95 @@ func worktreePath(branch string, dryRun bool) (string, error) {
 }
 
 // CreateWorktree creates a Git worktree for branch in a sibling directory
-// named from the branch. When the branch does not exist it is created from the
-// current HEAD. In dry-run mode it returns the git command it would run
-// without executing it, reporting the branch-creating command.
+// named from the branch. The worktree starts from the branch tip origin holds,
+// so a run never builds on work the remote has moved past. When origin has no
+// such branch the local branch is used, and when neither has one the branch is
+// created from the current HEAD. In dry-run mode it returns the
+// branch-creating command it would run without executing it.
 func CreateWorktree(branch string, dryRun bool) (*WorktreeCommand, error) {
 	path, err := worktreePath(branch, dryRun)
 	if err != nil {
 		return nil, err
 	}
-	var args []string
-	if !dryRun && branchExists(branch) {
-		args = []string{"worktree", "add", path, branch}
-	} else {
-		args = []string{"worktree", "add", "-b", branch, path}
-	}
-	cmd := &WorktreeCommand{Args: args, Path: path}
 	if dryRun {
-		return cmd, nil
+		return &WorktreeCommand{Args: []string{"worktree", "add", "-b", branch, path}, Path: path}, nil
 	}
+	onRemote, err := alignBranchWithRemote(branch)
+	if err != nil {
+		return nil, err
+	}
+	args := worktreeAddArgs(path, branch, onRemote)
+	cmd := &WorktreeCommand{Args: args, Path: path}
 	if _, err := runGit(args...); err != nil {
 		return nil, fmt.Errorf("failed to create worktree for branch '%s': %w", branch, err)
 	}
 	return cmd, nil
+}
+
+// worktreeAddArgs returns the arguments that add the worktree at path: an
+// existing local branch is attached, a branch only origin has is created from
+// its remote tip, and a branch neither has is created from the current HEAD.
+func worktreeAddArgs(path, branch string, onRemote bool) []string {
+	if branchExists(branch) {
+		return []string{"worktree", "add", path, branch}
+	}
+	if onRemote {
+		return []string{"worktree", "add", "-b", branch, path, "origin/" + branch}
+	}
+	return []string{"worktree", "add", "-b", branch, path}
+}
+
+// alignBranchWithRemote fetches branch from origin and reports whether origin
+// has it. It moves the local branch onto the fetched tip when the local branch
+// has no commits the remote is missing. History that diverged is an error: the
+// run would build on commits the remote does not share, and choosing which side
+// to keep is the user's decision.
+func alignBranchWithRemote(branch string) (bool, error) {
+	if !remoteBranchExists(branch) {
+		return false, nil
+	}
+	if _, err := runGit("fetch", "origin", branch); err != nil {
+		return false, fmt.Errorf("failed to fetch branch '%s' from origin: %w", branch, err)
+	}
+	if !branchExists(branch) {
+		return true, nil
+	}
+	localOnly, remoteOnly, err := commitsAheadBehind(branch, "origin/"+branch)
+	if err != nil {
+		return false, err
+	}
+	if localOnly > 0 && remoteOnly > 0 {
+		return false, fmt.Errorf("branch '%s' has diverged from 'origin/%s': the local branch has %d commits the remote is missing - push or delete it before running in a worktree", branch, branch, localOnly)
+	}
+	if remoteOnly == 0 {
+		return true, nil
+	}
+	if _, err := runGit("branch", "-f", branch, "origin/"+branch); err != nil {
+		return false, fmt.Errorf("failed to move branch '%s' to its remote tip: %w", branch, err)
+	}
+	return true, nil
+}
+
+// commitsAheadBehind reports how many commits left has that right lacks and how
+// many right has that left lacks.
+func commitsAheadBehind(left, right string) (ahead, behind int, err error) {
+	output, err := runGit("rev-list", "--left-right", "--count", left+"..."+right)
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to compare '%s' with '%s': %w", left, right, err)
+	}
+	counts := strings.Fields(output)
+	if len(counts) != 2 {
+		return 0, 0, fmt.Errorf("unexpected commit counts comparing '%s' with '%s': %q", left, right, output)
+	}
+	ahead, err = strconv.Atoi(counts[0])
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to read commit count %q: %w", counts[0], err)
+	}
+	behind, err = strconv.Atoi(counts[1])
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to read commit count %q: %w", counts[1], err)
+	}
+	return ahead, behind, nil
 }
 
 // branchExists reports whether branch exists as a local branch.
