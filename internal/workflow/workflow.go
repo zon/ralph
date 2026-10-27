@@ -6,6 +6,7 @@ import (
 	"maps"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/zon/ralph/internal/argo"
 	"github.com/zon/ralph/internal/config"
@@ -70,6 +71,10 @@ type Workflow struct {
 	// Loop carries the loop invocation the container runs when set. When set,
 	// the container script calls `ralph workflow loop` instead of `ralph workflow run`.
 	Loop *LoopSpec
+	// Prompt carries the prompt invocation the container runs when set. When
+	// set, the container script calls `ralph workflow prompt` instead of
+	// `ralph workflow run`.
+	Prompt *PromptSpec
 }
 
 // LoopSpec carries the loop invocation a loop workflow runs: the slug, steps,
@@ -78,6 +83,13 @@ type LoopSpec struct {
 	Slug  string
 	Steps []string
 	Max   int
+}
+
+// PromptSpec carries the prompt invocation a prompt workflow runs: the prompt
+// branch and the prompt text. The text is sent as one container argument.
+type PromptSpec struct {
+	Branch string
+	Text   string
 }
 
 // Render produces the Argo Workflow YAML string for this Workflow.
@@ -114,7 +126,7 @@ func (w *Workflow) Render() (string, error) {
 			"synchronization": map[string]interface{}{
 				"mutexes": []interface{}{
 					map[string]interface{}{
-						"name": sanitizeName(w.ProjectBranch),
+						"name": sanitizeName(w.lockBranch()),
 					},
 				},
 			},
@@ -197,6 +209,35 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 			args = append(args, "--agent", w.Agent)
 		}
 
+	case w.Prompt != nil:
+		command = []string{"ralph"}
+		args = []string{
+			"workflow", "prompt",
+			"--repo", w.Repo.Owner + "/" + w.Repo.Name,
+			"--clone", w.CloneBranch,
+			"--branch", w.promptBranch(),
+			"--base", w.BaseBranch,
+		}
+		if w.DebugBranch != "" {
+			args = append(args, "--debug", w.DebugBranch)
+		}
+		if w.NoServices {
+			args = append(args, "--no-services")
+		}
+		if w.Verbose {
+			args = append(args, "--verbose")
+		}
+		if w.Model != "" {
+			args = append(args, "--model", w.Model)
+		}
+		if w.Variant != "" {
+			args = append(args, "--variant", w.Variant)
+		}
+		if w.Agent != "" {
+			args = append(args, "--agent", w.Agent)
+		}
+		args = appendPromptArg(args, w.Prompt.Text)
+
 	default:
 		command = []string{"ralph"}
 		args = []string{
@@ -256,6 +297,34 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 	}
 
 	return template
+}
+
+// promptBranch returns the branch a prompt workflow checks out. The branch on
+// the prompt spec wins, falling back to the workflow's project branch so the
+// lock and the container argument name the same branch.
+func (w *Workflow) promptBranch() string {
+	if w.Prompt != nil && w.Prompt.Branch != "" {
+		return w.Prompt.Branch
+	}
+	return w.ProjectBranch
+}
+
+// lockBranch returns the branch whose workflow lock the manifest takes.
+func (w *Workflow) lockBranch() string {
+	if w.Prompt != nil {
+		return w.promptBranch()
+	}
+	return w.ProjectBranch
+}
+
+// appendPromptArg appends the prompt text as one container argument. A prompt
+// that starts with a dash uses the equals form so the container parser does not
+// mistake it for a flag.
+func appendPromptArg(args []string, prompt string) []string {
+	if strings.HasPrefix(prompt, "-") {
+		return append(args, "--prompt="+prompt)
+	}
+	return append(args, "--prompt", prompt)
 }
 
 func (w *Workflow) buildEnvVars() []map[string]interface{} {

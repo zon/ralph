@@ -10,11 +10,13 @@ import (
 	"github.com/mattn/go-isatty"
 
 	"github.com/zon/ralph/internal/ai"
+	"github.com/zon/ralph/internal/argo"
 	"github.com/zon/ralph/internal/basesync"
 	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/github"
+	"github.com/zon/ralph/internal/notify"
 	"github.com/zon/ralph/internal/opencode"
 	orchestrationRun "github.com/zon/ralph/internal/orchestration/run"
 	"github.com/zon/ralph/internal/output"
@@ -40,6 +42,7 @@ type promptGitClient interface {
 	HeadCommit() (string, error)
 	Push() error
 	CheckoutBranch(name string) error
+	IsBranchSyncedWithRemote(branch string) error
 }
 
 // promptPRClient generates a pull request summary from the prompt and opens a
@@ -129,6 +132,8 @@ type PromptCmd struct {
 	ai              promptAIClient        `kong:"-"`
 	pr              promptPRClient        `kong:"-"`
 	output          promptOutputClient    `kong:"-"`
+	remote          promptRemoteClient    `kong:"-"`
+	notify          promptNotifyClient    `kong:"-"`
 
 	// promptBranch is the branch the prompt runs on. The slug step supplies
 	// it; base resolution needs it to decide when to fall back to the
@@ -220,9 +225,10 @@ func (c *PromptCmd) resolve(cfg *config.RalphConfig, mode, slug string) (*prompt
 // and runs the setup and pass. Local mode runs the before commands before
 // switching the current checkout, then synchronizes, starts services, and runs
 // the pass. Worktree mode creates a sibling worktree, runs the before commands
-// inside it, and removes it when the command ends. Remote mode creates the
-// branch and runs the setup inside the workflow container, so the client does
-// no local branch or setup work.
+// inside it, and removes it when the command ends. Remote mode checks that the
+// starting branch is on the remote, then submits a workflow that creates the
+// prompt branch and runs the setup inside the container; it does no local
+// branch or setup work.
 func (c *PromptCmd) enterPromptBranch(prompt string) error {
 	switch c.resolved.Mode {
 	case config.ModeWorktree:
@@ -235,6 +241,8 @@ func (c *PromptCmd) enterPromptBranch(prompt string) error {
 			return err
 		}
 		return c.runSetupAndPass(prompt, false)
+	case config.ModeRemote:
+		return c.runRemote(prompt)
 	default:
 		return nil
 	}
@@ -279,6 +287,35 @@ func (c *PromptCmd) runWorktree(prompt string) (retErr error) {
 		return err
 	}
 	return c.runSetupAndPass(prompt, true)
+}
+
+// runRemote checks that the starting branch exists on the remote at the same
+// commit, submits the prompt workflow, and follows it unless --no-follow is
+// set. A followed failure sends an error notification and returns the failure;
+// a followed success sends a success notification.
+func (c *PromptCmd) runRemote(prompt string) error {
+	if err := c.gitClient().IsBranchSyncedWithRemote(c.resolved.CurrentBranch); err != nil {
+		return err
+	}
+	workflowName, err := c.remoteClient().Submit(promptRemoteSubmission{
+		CloneBranch:  c.resolved.CurrentBranch,
+		PromptBranch: c.resolved.PromptBranch,
+		BaseBranch:   c.resolved.BaseBranch,
+		Prompt:       prompt,
+	})
+	if err != nil {
+		return err
+	}
+	if c.NoFollow {
+		c.remoteClient().PrintLogHint(workflowName)
+		return nil
+	}
+	if err := c.remoteClient().FollowLogs(workflowName); err != nil {
+		c.notifyClient().Error(c.resolved.Slug)
+		return err
+	}
+	c.notifyClient().Success(c.resolved.Slug)
+	return nil
 }
 
 // runBeforeCommands runs the configured before commands once. A required
@@ -482,6 +519,24 @@ func (c *PromptCmd) outputClient() promptOutputClient {
 		return c.output
 	}
 	return c.realOutputClient()
+}
+
+// remoteClient returns the wired remote workflow client, building the real one
+// lazily so local and worktree modes never touch Argo.
+func (c *PromptCmd) remoteClient() promptRemoteClient {
+	if c.remote == nil {
+		c.remote = &promptWorkflowClient{ctx: c.executionContext(), argoClient: argo.NewClient()}
+	}
+	return c.remote
+}
+
+// notifyClient returns the wired notification client, building the real one
+// lazily from the execution context so --no-notify and follow are honored.
+func (c *PromptCmd) notifyClient() promptNotifyClient {
+	if c.notify == nil {
+		c.notify = notify.NewClient(c.executionContext())
+	}
+	return c.notify
 }
 
 // realOutputClient builds the output client backed by the process streams.

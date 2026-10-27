@@ -222,6 +222,12 @@ func preparePromptRun(cmd *PromptCmd) {
 	if cmd.output == nil {
 		cmd.output = &promptOutputRecorder{}
 	}
+	if cmd.remote == nil {
+		cmd.remote = &promptRemoteRecorder{}
+	}
+	if cmd.notify == nil {
+		cmd.notify = &promptNotifyRecorder{}
+	}
 }
 
 // TestReadPromptSources covers every prompt input source and the conflicting
@@ -534,6 +540,7 @@ func TestPromptCmdDebugRejection(t *testing.T) {
 				worktree:     &promptWorktreeRecorder{},
 				workspace:    &promptWorkspaceRecorder{},
 			}
+			preparePromptRun(cmd)
 			err := cmd.Run()
 			if tt.wantErr != "" {
 				require.Error(t, err)
@@ -1732,6 +1739,225 @@ func TestPromptCmdPullRequestAfterPush(t *testing.T) {
 			} else {
 				assert.Empty(t, worktree.created)
 			}
+		})
+	}
+}
+
+// promptRemoteRecorder records the submissions and log operations made for a
+// remote prompt and returns canned failures.
+type promptRemoteRecorder struct {
+	submissions   []promptRemoteSubmission
+	submitErr     error
+	followErr     error
+	hints         []string
+	followed      []string
+	submitCalls   int
+	hintCalls     int
+	followLogsCnt int
+}
+
+func (r *promptRemoteRecorder) Submit(submission promptRemoteSubmission) (string, error) {
+	r.submitCalls++
+	r.submissions = append(r.submissions, submission)
+	if r.submitErr != nil {
+		return "", r.submitErr
+	}
+	return "ralph-prompt-abcde", nil
+}
+
+func (r *promptRemoteRecorder) PrintLogHint(workflowName string) {
+	r.hintCalls++
+	r.hints = append(r.hints, workflowName)
+}
+
+func (r *promptRemoteRecorder) FollowLogs(workflowName string) error {
+	r.followLogsCnt++
+	r.followed = append(r.followed, workflowName)
+	return r.followErr
+}
+
+// promptNotifyRecorder records completion notifications.
+type promptNotifyRecorder struct {
+	successes []string
+	errors    []string
+}
+
+func (n *promptNotifyRecorder) Success(slug string) {
+	n.successes = append(n.successes, slug)
+}
+
+func (n *promptNotifyRecorder) Error(slug string) {
+	n.errors = append(n.errors, slug)
+}
+
+// TestPromptCmdRemoteSubmission covers remote mode resolving the slug, prompt
+// branch, base branch, and prompt locally, checking the starting branch
+// against the remote, and submitting those resolved values.
+func TestPromptCmdRemoteSubmission(t *testing.T) {
+	var synced []string
+	remote := &promptRemoteRecorder{}
+	cmd := &PromptCmd{
+		Prompt:       []string{"do", "work"},
+		Mode:         config.ModeRemote,
+		NoFollow:     true,
+		config:       &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+		slugProposer: promptSlugProposerFunc(func(string) (string, error) { return "my-feature", nil }),
+		remote:       remote,
+		git: &git.MockClient{
+			CurrentBranchFunc: func() (string, error) { return "main", nil },
+			IsBranchSyncedWithRemoteFunc: func(branch string) error {
+				synced = append(synced, branch)
+				return nil
+			},
+			SwitchToBranchFunc: func(string) error {
+				t.Fatal("remote mode must not switch the local checkout")
+				return nil
+			},
+		},
+		worktree: &promptWorktreeRecorder{},
+	}
+	preparePromptRun(cmd)
+
+	require.NoError(t, cmd.Run())
+	assert.Equal(t, []string{"main"}, synced, "the starting branch is checked against the remote")
+	require.Equal(t, 1, remote.submitCalls)
+	assert.Equal(t, promptRemoteSubmission{
+		CloneBranch:  "main",
+		PromptBranch: "my-feature",
+		BaseBranch:   "main",
+		Prompt:       "do work",
+	}, remote.submissions[0])
+	assert.Empty(t, cmd.worktree.(*promptWorktreeRecorder).created, "remote mode creates no local worktree")
+}
+
+// TestPromptCmdRemoteBranchSyncRejection covers a starting branch missing from
+// the remote or out of sync: submission fails before a workflow is created.
+func TestPromptCmdRemoteBranchSyncRejection(t *testing.T) {
+	syncErr := errors.New("branch 'main' has not been pushed to remote")
+	remote := &promptRemoteRecorder{}
+	cmd := &PromptCmd{
+		Prompt:       []string{"do work"},
+		Mode:         config.ModeRemote,
+		NoFollow:     true,
+		config:       &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+		slugProposer: promptSlugProposerFunc(func(string) (string, error) { return "my-feature", nil }),
+		remote:       remote,
+		git: &git.MockClient{
+			CurrentBranchFunc:            func() (string, error) { return "main", nil },
+			IsBranchSyncedWithRemoteFunc: func(string) error { return syncErr },
+		},
+	}
+
+	err := cmd.Run()
+	require.ErrorIs(t, err, syncErr)
+	assert.Zero(t, remote.submitCalls, "a rejected branch submits no workflow")
+}
+
+// TestPromptCmdRemoteReadsPromptLocally covers a prompt read from a file and
+// from standard input before submission, sent as text to the remote workflow.
+func TestPromptCmdRemoteReadsPromptLocally(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "prompt.txt")
+	require.NoError(t, os.WriteFile(path, []byte("from the file\n"), 0644))
+
+	tests := []struct {
+		name string
+		cmd  *PromptCmd
+		want string
+	}{
+		{
+			name: "file prompt",
+			cmd:  &PromptCmd{File: path},
+			want: "from the file\n",
+		},
+		{
+			name: "standard input prompt",
+			cmd: &PromptCmd{
+				stdin:           strings.NewReader("from standard input"),
+				stdinIsTerminal: func() bool { return false },
+			},
+			want: "from standard input",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			remote := &promptRemoteRecorder{}
+			cmd := tt.cmd
+			cmd.Mode = config.ModeRemote
+			cmd.NoFollow = true
+			cmd.config = &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }}
+			cmd.slugProposer = promptSlugProposerFunc(func(string) (string, error) { return "my-feature", nil })
+			cmd.remote = remote
+			cmd.git = &git.MockClient{CurrentBranchFunc: func() (string, error) { return "main", nil }}
+			preparePromptRun(cmd)
+
+			require.NoError(t, cmd.Run())
+			require.Equal(t, 1, remote.submitCalls)
+			assert.Equal(t, tt.want, remote.submissions[0].Prompt)
+		})
+	}
+}
+
+// TestPromptCmdRemoteFollow covers the default follow and the no-follow hint,
+// including the completion notification.
+func TestPromptCmdRemoteFollow(t *testing.T) {
+	tests := []struct {
+		name         string
+		noFollow     bool
+		followErr    error
+		wantHint     bool
+		wantFollow   bool
+		wantSuccess  []string
+		wantErrors   []string
+		wantRunError bool
+	}{
+		{
+			name:        "remote follows by default and notifies success",
+			wantFollow:  true,
+			wantSuccess: []string{"my-feature"},
+		},
+		{
+			name:       "no-follow prints the log hint",
+			noFollow:   true,
+			wantHint:   true,
+			wantFollow: false,
+		},
+		{
+			name:         "a followed failure notifies the error",
+			followErr:    errors.New("workflow failed"),
+			wantFollow:   true,
+			wantErrors:   []string{"my-feature"},
+			wantRunError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			remote := &promptRemoteRecorder{followErr: tt.followErr}
+			notifier := &promptNotifyRecorder{}
+			cmd := &PromptCmd{
+				Prompt:       []string{"do work"},
+				Mode:         config.ModeRemote,
+				NoFollow:     tt.noFollow,
+				config:       &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+				slugProposer: promptSlugProposerFunc(func(string) (string, error) { return "my-feature", nil }),
+				remote:       remote,
+				notify:       notifier,
+				git:          &git.MockClient{CurrentBranchFunc: func() (string, error) { return "main", nil }},
+			}
+			preparePromptRun(cmd)
+
+			err := cmd.Run()
+			if tt.wantRunError {
+				require.ErrorIs(t, err, tt.followErr)
+			} else {
+				require.NoError(t, err)
+			}
+			assert.Equal(t, tt.wantHint, remote.hintCalls > 0)
+			assert.Equal(t, tt.wantFollow, remote.followLogsCnt > 0)
+			assert.Equal(t, tt.wantSuccess, notifier.successes)
+			assert.Equal(t, tt.wantErrors, notifier.errors)
 		})
 	}
 }
