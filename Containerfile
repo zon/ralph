@@ -68,7 +68,7 @@ RUN curl -fsSL https://bun.sh/install | bash \
 # scripts, so --trust is required for the package's postinstall to select the
 # native opencode binary for this platform; without it the install leaves the
 # shebang-less bin/opencode.exe stub that fails as "exec format error".
-ENV OPENCODE_VERSION=2.0.29
+ENV OPENCODE_VERSION=2.2.0
 RUN bun install -g --trust @opencode/cli@${OPENCODE_VERSION} \
     && ln -s ${BUN_INSTALL}/bin/opencode /usr/local/bin/opencode
 
