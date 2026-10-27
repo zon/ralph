@@ -32,4 +32,3 @@ func TestVersion_MatchesSourceFile(t *testing.T) {
 
 	assert.Equal(t, expectedVersion, versionStr, "Version should match the VERSION file")
 }
-
