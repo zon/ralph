@@ -223,7 +223,7 @@ func (r *RunCmd) prepareSetup(flags RunFlags, input *project.InputFile) (Executi
 		return ExecutionSetup{}, err
 	}
 	projectBranch := git.SanitizeBranchName(input.Slug())
-	baseBranch := resolveBaseBranch(flags.Base, currentBranch, projectBranch, cfg.DefaultBranch)
+	baseBranch := ResolveBaseBranch(flags.Base, currentBranch, projectBranch, cfg.DefaultBranch)
 	if flags.ExtraIterations != 0 {
 		v := flags.ExtraIterations
 		cfg.ExtraIterations = &v

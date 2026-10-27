@@ -26,6 +26,15 @@ func GetCurrentBranch() (string, error) {
 	return branch, nil
 }
 
+// HeadCommit returns the commit hash at the current branch tip.
+func HeadCommit() (string, error) {
+	commit, err := runGit("rev-parse", "HEAD")
+	if err != nil {
+		return "", fmt.Errorf("failed to get branch tip: %w", err)
+	}
+	return strings.TrimSpace(commit), nil
+}
+
 // CheckoutOrCreateBranch checks out the named branch if it exists on the remote
 // (after a prior Fetch), otherwise creates and checks out a new local branch.
 func CheckoutOrCreateBranch(name string) error {

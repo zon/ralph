@@ -45,6 +45,9 @@ var loopInstructions string
 //go:embed loop-slug-instructions.md
 var loopSlugInstructions string
 
+//go:embed prompt-slug-instructions.md
+var promptSlugInstructions string
+
 type FixServicePromptData struct {
 	Notes       []string
 	ServiceName string
@@ -76,6 +79,13 @@ type LoopPromptData struct {
 // where the AI must write the proposed branch slug.
 type LoopSlugPromptData struct {
 	Steps      []string
+	OutputFile string
+}
+
+// PromptSlugPromptData carries the prompt and the output file path where the
+// AI must write the proposed branch slug.
+type PromptSlugPromptData struct {
+	Prompt     string
 	OutputFile string
 }
 
@@ -190,6 +200,21 @@ func BuildLoopSlugPrompt(steps []string, outputPath string) (string, error) {
 		OutputFile: absPath,
 	}
 	return executeTemplate(loopSlugInstructions, data)
+}
+
+// BuildPromptSlugPrompt renders the prompt slug prompt embedding the prompt
+// text and the absolute path of the file the AI must write the slug to.
+func BuildPromptSlugPrompt(prompt, outputPath string) (string, error) {
+	absPath, err := filepath.Abs(outputPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path: %w", err)
+	}
+
+	data := PromptSlugPromptData{
+		Prompt:     prompt,
+		OutputFile: absPath,
+	}
+	return executeTemplate(promptSlugInstructions, data)
 }
 
 type ProjectFixPromptData struct {
@@ -527,4 +552,30 @@ func ProposeLoopSlug(ctx *execcontext.Context, oc opencode.OCClient, steps []str
 	}
 
 	return content, nil
+}
+
+// ProposePromptSlug asks the AI to propose a short slug for the branch that
+// will run the prompt. The proposal is returned as the AI wrote it so the
+// caller can clean it like a project branch. An empty or missing deliverable
+// is retried up to the shared attempt limit before an error is returned.
+func ProposePromptSlug(ctx *execcontext.Context, oc opencode.OCClient, prompt string) (slug string, err error) {
+	f, err := createTempFile("prompt-slug.md")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temporary prompt slug file: %w", err)
+	}
+	f.Close()
+	tmpFile := f.Name()
+	defer os.Remove(tmpFile)
+
+	slugPrompt, err := BuildPromptSlugPrompt(prompt, tmpFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to build prompt slug prompt: %w", err)
+	}
+
+	if ctx.IsVerbose() {
+		ctx.Output().Debug(slugPrompt)
+	}
+
+	model := resolveModel(ctx)
+	return runOpenCodeAndReadDeliverable(ctx, oc, model, slugPrompt, tmpFile)
 }

@@ -773,3 +773,51 @@ func TestBuildLoopSlugPrompt(t *testing.T) {
 		})
 	}
 }
+
+func TestBuildPromptSlugPrompt(t *testing.T) {
+	tests := []struct {
+		name       string
+		prompt     string
+		outputPath string
+		check      func(t *testing.T, prompt string)
+	}{
+		{
+			name:       "embeds the prompt text",
+			prompt:     "update the readme and fix the typo",
+			outputPath: "/tmp/prompt-slug.txt",
+			check: func(t *testing.T, prompt string) {
+				assert.Contains(t, prompt, "update the readme and fix the typo")
+			},
+		},
+		{
+			name:       "resolves the output path to an absolute path",
+			prompt:     "do work",
+			outputPath: "relative/prompt-slug.txt",
+			check: func(t *testing.T, prompt string) {
+				absPath, _ := filepath.Abs("relative/prompt-slug.txt")
+				assert.Contains(t, prompt, absPath)
+			},
+		},
+		{
+			name:       "instructs the AI to write only the slug",
+			prompt:     "do work",
+			outputPath: "/tmp/prompt-slug.txt",
+			check: func(t *testing.T, prompt string) {
+				assert.Contains(t, prompt, "Write the slug to the file: /tmp/prompt-slug.txt")
+				assert.Contains(t, prompt, "lowercase letters")
+				assert.Contains(t, prompt, "hyphens")
+				assert.NotContains(t, prompt, "docs/formats/")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			prompt, err := BuildPromptSlugPrompt(tt.prompt, tt.outputPath)
+			require.NoError(t, err, "BuildPromptSlugPrompt failed")
+			if tt.check != nil {
+				tt.check(t, prompt)
+			}
+		})
+	}
+}

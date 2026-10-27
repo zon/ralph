@@ -111,6 +111,11 @@ func (a *Client) CurrentBranch() (string, error) {
 	return GetCurrentBranch()
 }
 
+// HeadCommit returns the commit hash at the current branch tip.
+func (a *Client) HeadCommit() (string, error) {
+	return HeadCommit()
+}
+
 // CheckoutBranch switches the checkout to the named branch.
 func (a *Client) CheckoutBranch(name string) error {
 	return CheckoutBranch(name)
