@@ -8,7 +8,7 @@ Shared contract for every Ralph CLI command that prompts an AI model through ope
 
 ### Requirement: Covered commands
 
-The commands that prompt an AI model are: `ralph run`, `ralph loop`, and `ralph workflow run`. Each SHALL accept the `--model` and `--variant` options described below.
+The commands that prompt an AI model are: `ralph run`, `ralph loop`, `ralph prompt`, and `ralph workflow run`. Each SHALL accept the `--model` and `--variant` options described below.
 
 #### Scenario: Every covered command exposes both options
 

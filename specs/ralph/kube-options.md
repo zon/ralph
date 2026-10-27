@@ -8,7 +8,7 @@ Shared contract for every Ralph CLI command that interacts with a Kubernetes clu
 
 ### Requirement: Covered commands
 
-The commands that interact with kubectl are: `ralph list`, `ralph stop`, `ralph logs`, `ralph run` (in `remote` mode), `ralph loop` (in `remote` mode), `ralph command`, and `ralph setup`. Each SHALL accept the `--context` and `--namespace` options described below. `ralph setup` interacts with the cluster only when it prepares a namespace, as described under `--namespace` selection.
+The commands that interact with kubectl are: `ralph list`, `ralph stop`, `ralph logs`, `ralph run` (in `remote` mode), `ralph loop` (in `remote` mode), `ralph prompt` (in `remote` mode), `ralph command`, and `ralph setup`. Each SHALL accept the `--context` and `--namespace` options described below. `ralph setup` interacts with the cluster only when it prepares a namespace, as described under `--namespace` selection.
 
 #### Scenario: Every covered command exposes both options
 
@@ -124,7 +124,7 @@ When a covered command must resolve a Kubernetes context and kubectl is missing,
 
 ### Requirement: Commands without a cluster interaction do not require the options
 
-The `--context` and `--namespace` options SHALL be meaningful only where a command interacts with the cluster. Commands that run entirely in-process (`ralph complete`, `ralph incomplete`, `ralph validate`, and `ralph run`/`ralph loop` in `local` or `worktree` mode) SHALL NOT require these options and SHALL accept them without effect.
+The `--context` and `--namespace` options SHALL be meaningful only where a command interacts with the cluster. Commands that run entirely in-process (`ralph complete`, `ralph incomplete`, `ralph validate`, and `ralph run`/`ralph loop`/`ralph prompt` in `local` or `worktree` mode) SHALL NOT require these options and SHALL accept them without effect.
 
 #### Scenario: Local run ignores the options
 
