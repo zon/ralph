@@ -80,7 +80,7 @@ RUN curl -sLO "https://github.com/argoproj/argo-workflows/releases/download/${AR
     && mv argo-linux-amd64 /usr/local/bin/argo
 
 # Install Helm
-ENV HELM_VERSION=v4.3.0
+ENV HELM_VERSION=v4.3.1
 RUN curl -fsSL "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz" | tar -xz \
     && mv linux-amd64/helm /usr/local/bin/helm \
     && rm -rf linux-amd64
