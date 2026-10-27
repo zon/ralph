@@ -125,6 +125,48 @@ func GenerateLoopWorkflow(ctx *execcontext.Context, slug string, steps []string,
 	}, nil
 }
 
+// GeneratePromptWorkflow builds a Workflow that runs one OpenCode prompt inside
+// the container. The prompt branch, base branch, and prompt text are resolved
+// locally by the caller, so the container does not recompute them. cloneBranch
+// is the branch the container clones and remoteURL is the git remote URL.
+func GeneratePromptWorkflow(ctx *execcontext.Context, promptBranch, baseBranch, promptText, cloneBranch, remoteURL string) (*Workflow, error) {
+	ralphConfig, err := config.LoadConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	repo, err := githubpkg.ParseRemoteURL(remoteURL)
+	if err != nil {
+		return nil, err
+	}
+
+	opts := workflowOptionsFromConfig(ralphConfig, ctx)
+
+	return &Workflow{
+		ProjectName:    "prompt",
+		Repo:           repo,
+		CloneBranch:    cloneBranch,
+		ProjectBranch:  promptBranch,
+		BaseBranch:     baseBranch,
+		Prompt:         &PromptSpec{Branch: promptBranch, Text: promptText},
+		DebugBranch:    ctx.DebugBranch(),
+		NoServices:     ctx.NoServices(),
+		Model:          ctx.Model(),
+		Agent:          ctx.Agent(),
+		Variant:        ctx.Variant(),
+		Image:          opts.Image,
+		ConfigMaps:     opts.ConfigMaps,
+		Secrets:        opts.Secrets,
+		OpenCodeSecret: opts.OpenCodeSecret,
+		Env:            opts.Env,
+		KubeContext:    opts.KubeContext,
+		Namespace:      opts.Namespace,
+		Labels:         opts.Labels,
+		Resources:      opts.Resources,
+		Verbose:        ctx.IsVerbose(),
+	}, nil
+}
+
 // GenerateCommandWorkflow builds a Workflow for remote command execution,
 // cloning the current branch and running the supplied command.
 // remoteURL is resolved by the caller so that git discovery is decoupled

@@ -6,10 +6,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/glamour"
-	styles "github.com/charmbracelet/glamour/styles"
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/glamour/v2"
+	styles "charm.land/glamour/v2/styles"
 	"github.com/mattn/go-isatty"
 	"github.com/muesli/termenv"
 )
@@ -23,7 +23,7 @@ func printDocumentation(out io.Writer, topic, markdown string) error {
 		return writeRenderedDocumentation(markdown, defaultDocWidth, styles.NoTTYStyle, out)
 	}
 
-	p := tea.NewProgram(newDocumentationPager(markdown), tea.WithAltScreen())
+	p := tea.NewProgram(newDocumentationPager(markdown))
 	if _, err := p.Run(); err != nil {
 		return fmt.Errorf("failed to display %s documentation: %w", topic, err)
 	}
@@ -118,11 +118,11 @@ func (m *documentationPager) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if !m.ready {
 			// The footer occupies the last row.
-			m.viewport = viewport.New(msg.Width, msg.Height-1)
+			m.viewport = viewport.New(viewport.WithWidth(msg.Width), viewport.WithHeight(msg.Height-1))
 			m.ready = true
 		} else {
-			m.viewport.Width = msg.Width
-			m.viewport.Height = msg.Height - 1
+			m.viewport.SetWidth(msg.Width)
+			m.viewport.SetHeight(msg.Height - 1)
 		}
 		m.width = msg.Width
 		if err := m.refresh(); err != nil {
@@ -141,7 +141,7 @@ func (m *documentationPager) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "q", "ctrl+c", "esc":
 			return m, tea.Quit
@@ -164,11 +164,14 @@ func (m *documentationPager) refresh() error {
 	return nil
 }
 
-func (m *documentationPager) View() string {
-	if !m.ready {
-		return ""
+func (m *documentationPager) View() tea.View {
+	content := ""
+	if m.ready {
+		content = m.viewport.View() + "\n" + m.footer()
 	}
-	return m.viewport.View() + "\n" + m.footer()
+	v := tea.NewView(content)
+	v.AltScreen = true
+	return v
 }
 
 func (m *documentationPager) footer() string {

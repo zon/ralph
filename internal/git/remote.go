@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 )
 
@@ -12,11 +13,13 @@ type AuthConfig struct {
 	Repo  string
 }
 
-var ErrWorkflowPermission = errors.New("push rejected: GitHub App token requires `workflows` permission to push workflow files")
+var ErrWorkflowPermission = errors.New("push rejected: the GitHub token requires the `workflow` scope or the Workflows permission to push workflow files")
 
 func isWorkflowPermissionError(output string) bool {
 	return strings.Contains(output, "refusing to allow a GitHub App to create or update workflow") ||
-		strings.Contains(output, "without `workflows` permission")
+		strings.Contains(output, "refusing to allow an OAuth App to create or update workflow") ||
+		strings.Contains(output, "without `workflows` permission") ||
+		strings.Contains(output, "without `workflow` scope")
 }
 
 type GitAuthConfigurator interface {
@@ -64,12 +67,34 @@ func PullRebase(auth *AuthConfig) error {
 		return fmt.Errorf("failed to commit working tree before pull: %w", err)
 	}
 
+	// A pull that stops on a conflict leaves conflict markers and a detached
+	// HEAD behind, which breaks every later git step, so abort the rebase this
+	// pull started. A rebase that was already running belongs to the user.
+	rebaseAlreadyRunning := rebaseInProgress()
 	_, err = runGit("pull", "--rebase", "origin", branch)
 	if err != nil {
+		if !rebaseAlreadyRunning {
+			_, _ = runGit("rebase", "--abort")
+		}
 		return fmt.Errorf("failed to pull --rebase: %w", err)
 	}
 
 	return nil
+}
+
+// rebaseInProgress reports whether a rebase stopped part-way and can be
+// aborted.
+func rebaseInProgress() bool {
+	for _, dir := range []string{"rebase-merge", "rebase-apply"} {
+		path, err := runGit("rev-parse", "--git-path", dir)
+		if err != nil {
+			return false
+		}
+		if _, err := os.Stat(path); err == nil {
+			return true
+		}
+	}
+	return false
 }
 
 func RemoteURL() (string, error) {

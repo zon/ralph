@@ -50,12 +50,13 @@ func (c *SetupCmd) Run() error {
 		OpenCode:  &setupOpenCodeClient{ctx: ctx, k8sClient: k8sClient, out: out},
 	}
 
-	if err := cmd.Run(setup.Flags{
+	result, err := cmd.Run(setup.Flags{
 		Context:     c.Context,
 		Namespace:   c.Namespace,
 		GithubKey:   c.GithubKey,
 		GithubToken: c.GithubToken,
-	}); err != nil {
+	})
+	if err != nil {
 		return err
 	}
 
@@ -64,19 +65,27 @@ func (c *SetupCmd) Run() error {
 		if ralphConfig != nil {
 			openCodeSecret = ralphConfig.Workflow.OpenCodeSecret
 		}
-		printSecretResults(out, targetNamespace, openCodeSecret)
+		printSecretResults(out, targetNamespace, openCodeSecret, result)
 	}
 	return nil
 }
 
-// printSecretResults prints the ready lines for the credential Secrets setup
-// wrote. When the workflow mounts a different OpenCode Secret, it names that
+// printSecretResults prints the lines for the credential Secrets setup wrote or
+// reused. When the workflow mounts a different OpenCode Secret, it names that
 // Secret so the developer knows where the workflow reads credentials.
-func printSecretResults(out *output.Client, namespace, openCodeSecret string) {
-	out.Successf("%s/%s secret ready", namespace, k8s.GitHubSecretName)
+func printSecretResults(out *output.Client, namespace, openCodeSecret string, result setup.Result) {
+	if result.GitHubSecretReused {
+		out.Infof("%s/%s secret unchanged - reused existing", namespace, k8s.GitHubSecretName)
+	} else {
+		out.Successf("%s/%s secret ready", namespace, k8s.GitHubSecretName)
+	}
 	out.Successf("%s/%s secret ready", namespace, k8s.OpenCodeSecretName)
 	if openCodeSecret != "" && openCodeSecret != k8s.OpenCodeSecretName {
 		out.Infof("workflow mounts %s instead", openCodeSecret)
+	}
+	if result.WorkflowScopeKnown && !result.WorkflowScopePresent {
+		out.Warn("GitHub token lacks the `workflow` scope - pushes that change workflow files will be rejected")
+		out.Info("Add the scope with 'gh auth refresh -s workflow', then run 'ralph setup --github-token \"$(gh auth token)\"'")
 	}
 }
 
@@ -205,6 +214,18 @@ func (c *setupGitHubClient) TokenFromGHCli() string {
 
 func (c *setupGitHubClient) TokenFromEnv() string {
 	return os.Getenv("GITHUB_TOKEN")
+}
+
+func (c *setupGitHubClient) TokenFromSecret(k8sCtx setup.K8sContext) (string, error) {
+	data, err := c.k8sClient.GetSecretData(c.ctx, k8s.GitHubSecretName, k8sCtx.Namespace, k8sCtx.Name)
+	if err != nil {
+		return "", err
+	}
+	return data["token"], nil
+}
+
+func (c *setupGitHubClient) TokenWorkflowScope(token string) (bool, bool, error) {
+	return github.TokenWorkflowScope(c.ctx, token)
 }
 
 func (c *setupGitHubClient) ConfigureToken(k8sCtx setup.K8sContext, token string) error {

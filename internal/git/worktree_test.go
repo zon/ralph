@@ -120,6 +120,109 @@ func TestCreateWorktreeCreatesBranch(t *testing.T) {
 	assert.Equal(t, "main", currentBranchForTest(t, workDir), "the current checkout stays on its branch")
 }
 
+func TestCreateWorktreeStartsFromRemoteTip(t *testing.T) {
+	workDir, _ := setupBareRemoteRepo(t)
+	t.Chdir(workDir)
+	base := currentBranchForTest(t, workDir)
+
+	// Build the project branch on the remote, then drop the local branch, as a
+	// run in another checkout leaves it.
+	require.NoError(t, CheckoutOrCreateBranch("project"))
+	require.NoError(t, os.WriteFile(filepath.Join(workDir, "remote-work.txt"), []byte("remote\n"), 0644))
+	require.NoError(t, StageAll())
+	require.NoError(t, Commit("add remote work"))
+	_, err := Push(nil, "project")
+	require.NoError(t, err)
+	remoteTip := runGitForTest(t, workDir, "rev-parse", "project")
+	require.NoError(t, CheckoutBranch(base))
+	runGitForTest(t, workDir, "branch", "-D", "project")
+
+	cmd, err := CreateWorktree("project", false)
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"worktree", "add", "-b", "project", cmd.Path, "origin/project"}, cmd.Args)
+	assert.Equal(t, remoteTip, runGitForTest(t, cmd.Path, "rev-parse", "HEAD"), "the worktree starts from the remote tip")
+	assert.FileExists(t, filepath.Join(cmd.Path, "remote-work.txt"), "the worktree holds the remote's work")
+
+	_, err = RemoveWorktree("project", false)
+	require.NoError(t, err)
+}
+
+func TestCreateWorktreeFastForwardsLocalBranch(t *testing.T) {
+	workDir, remoteDir := setupBareRemoteRepo(t)
+	t.Chdir(workDir)
+	base := currentBranchForTest(t, workDir)
+
+	require.NoError(t, CheckoutOrCreateBranch("project"))
+	require.NoError(t, os.WriteFile(filepath.Join(workDir, "first.txt"), []byte("first\n"), 0644))
+	require.NoError(t, StageAll())
+	require.NoError(t, Commit("add first work"))
+	_, err := Push(nil, "project")
+	require.NoError(t, err)
+	require.NoError(t, CheckoutBranch(base))
+
+	remoteTip := advanceRemoteBranch(t, remoteDir, "project", "advance.txt")
+
+	cmd, err := CreateWorktree("project", false)
+	require.NoError(t, err)
+
+	assert.Equal(t, remoteTip, runGitForTest(t, workDir, "rev-parse", "project"), "the local branch moves to the remote tip")
+	assert.Equal(t, remoteTip, runGitForTest(t, cmd.Path, "rev-parse", "HEAD"))
+	assert.FileExists(t, filepath.Join(cmd.Path, "advance.txt"))
+
+	_, err = RemoveWorktree("project", false)
+	require.NoError(t, err)
+}
+
+func TestCreateWorktreeKeepsLocalCommitsAheadOfRemote(t *testing.T) {
+	workDir, _ := setupBareRemoteRepo(t)
+	t.Chdir(workDir)
+	base := currentBranchForTest(t, workDir)
+
+	require.NoError(t, CheckoutOrCreateBranch("project"))
+	require.NoError(t, os.WriteFile(filepath.Join(workDir, "pushed.txt"), []byte("pushed\n"), 0644))
+	require.NoError(t, StageAll())
+	require.NoError(t, Commit("add pushed work"))
+	_, err := Push(nil, "project")
+	require.NoError(t, err)
+
+	require.NoError(t, os.WriteFile(filepath.Join(workDir, "unpushed.txt"), []byte("unpushed\n"), 0644))
+	require.NoError(t, StageAll())
+	require.NoError(t, Commit("add unpushed work"))
+	localTip := runGitForTest(t, workDir, "rev-parse", "HEAD")
+	require.NoError(t, CheckoutBranch(base))
+
+	cmd, err := CreateWorktree("project", false)
+	require.NoError(t, err)
+
+	assert.Equal(t, localTip, runGitForTest(t, cmd.Path, "rev-parse", "HEAD"), "local commits the remote lacks are kept")
+
+	_, err = RemoveWorktree("project", false)
+	require.NoError(t, err)
+}
+
+func TestCreateWorktreeRefusesDivergedBranch(t *testing.T) {
+	workDir, remoteDir := setupBareRemoteRepo(t)
+	t.Chdir(workDir)
+
+	require.NoError(t, CheckoutOrCreateBranch("project"))
+	require.NoError(t, os.WriteFile(filepath.Join(workDir, "shared.txt"), []byte("shared\n"), 0644))
+	require.NoError(t, StageAll())
+	require.NoError(t, Commit("add shared work"))
+	_, err := Push(nil, "project")
+	require.NoError(t, err)
+
+	advanceRemoteBranch(t, remoteDir, "project", "advance.txt")
+	require.NoError(t, os.WriteFile(filepath.Join(workDir, "local.txt"), []byte("local\n"), 0644))
+	require.NoError(t, StageAll())
+	require.NoError(t, Commit("add local work"))
+
+	_, err = CreateWorktree("project", false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "diverged")
+	assert.NoDirExists(t, filepath.Join(filepath.Dir(workDir), filepath.Base(workDir)+"-project"), "no worktree is created for a diverged branch")
+}
+
 func TestBranchCheckedOutInWorktree(t *testing.T) {
 	workDir := setupTestRepo(t)
 	t.Chdir(workDir)

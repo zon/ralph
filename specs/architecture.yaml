@@ -29,6 +29,10 @@
   description: Orchestrates the ralph loop command.
   orchestration: true
 
+- path: internal/orchestration/prompt
+  description: Orchestrates the workflow prompt subcommand.
+  orchestration: true
+
 - path: internal/orchestration/validate
   description: Orchestrates a bounded fix loop that repairs unparseable project files using an AI agent, then checks the item query resolves.
   orchestration: true

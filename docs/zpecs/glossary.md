@@ -37,7 +37,3 @@ A module that contains only value objects and pure functions: no I/O, no shared 
 ## Implementation Module
 
 A module that does the low-level work: database queries, API calls, file I/O, data transformations. See [Architecture Guidelines](architecture.md).
-
-## Orchestration Module
-
-A module that coordinates other modules. See [Orchestration Pattern](orchestration.md).

@@ -10,8 +10,11 @@ type MockClient struct {
 	CommitFromReportFunc         func(slug string) error
 	CommitFromBlockedFunc        func(slug string) error
 	CurrentBranchFunc            func() (string, error)
+	HeadCommitFunc               func() (string, error)
 	CheckoutBranchFunc           func(name string) error
+	RenameBranchFunc             func(oldName, newName string) error
 	HasCommitsAheadFunc          func(base string) (bool, error)
+	GetCommitLogFunc             func(base string, limit int) (string, error)
 	IsBranchSyncedWithRemoteFunc func(branch string) error
 	CommitProjectRemovalFunc     func(path string) error
 	FetchBranchFunc              func(branch string) error
@@ -84,11 +87,32 @@ func (m *MockClient) CurrentBranch() (string, error) {
 	return "main", nil
 }
 
+func (m *MockClient) HeadCommit() (string, error) {
+	if m.HeadCommitFunc != nil {
+		return m.HeadCommitFunc()
+	}
+	return "head", nil
+}
+
 func (m *MockClient) CheckoutBranch(name string) error {
 	if m.CheckoutBranchFunc != nil {
 		return m.CheckoutBranchFunc(name)
 	}
 	return nil
+}
+
+func (m *MockClient) RenameBranch(oldName, newName string) error {
+	if m.RenameBranchFunc != nil {
+		return m.RenameBranchFunc(oldName, newName)
+	}
+	return nil
+}
+
+func (m *MockClient) GetCommitLog(base string, limit int) (string, error) {
+	if m.GetCommitLogFunc != nil {
+		return m.GetCommitLogFunc(base, limit)
+	}
+	return "", nil
 }
 
 func (m *MockClient) HasCommitsAhead(base string) (bool, error) {

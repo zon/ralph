@@ -24,11 +24,30 @@ func TestNotifyClientNew(t *testing.T) {
 }
 
 func TestNotifyClientShouldNotifyFromContext(t *testing.T) {
-	ctx := context.NewContext()
-	ctx.SetNoNotify(false)
-	ctx.SetLocal(true)
-	client := NewClient(ctx)
-	assert.True(t, client.shouldNotify)
+	tests := []struct {
+		name     string
+		local    bool
+		follow   bool
+		noNotify bool
+		want     bool
+	}{
+		{name: "local run", local: true, want: true},
+		{name: "followed remote run", follow: true, want: true},
+		{name: "local run with notifications disabled", local: true, noNotify: true, want: false},
+		{name: "followed remote run with notifications disabled", follow: true, noNotify: true, want: false},
+		{name: "unfollowed remote run", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.NewContext()
+			ctx.SetLocal(tt.local)
+			ctx.SetFollow(tt.follow)
+			ctx.SetNoNotify(tt.noNotify)
+			client := NewClient(ctx)
+			assert.Equal(t, tt.want, client.shouldNotify)
+		})
+	}
 }
 
 func TestNotifyClientImplementsInterface(t *testing.T) {

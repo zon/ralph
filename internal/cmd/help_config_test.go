@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
+	"charm.land/glamour/v2/styles"
 	"github.com/alecthomas/kong"
-	tea "github.com/charmbracelet/bubbletea"
-	styles "github.com/charmbracelet/glamour/styles"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -175,15 +175,15 @@ func TestConfigPagerScrollsAndQuits(t *testing.T) {
 	require.True(t, p.ready)
 	assert.Contains(t, p.viewport.View(), "Configuration")
 
-	before := p.viewport.YOffset
-	_, cmd := p.Update(tea.KeyMsg(tea.Key{Type: tea.KeyDown}))
-	assert.Greater(t, p.viewport.YOffset, before, "down must scroll the viewport")
+	before := p.viewport.YOffset()
+	_, cmd := p.Update(tea.KeyPressMsg{Code: tea.KeyDown})
+	assert.Greater(t, p.viewport.YOffset(), before, "down must scroll the viewport")
 	assert.Nil(t, cmd, "scrolling must not stop the pager")
 
-	for _, quitKey := range []tea.KeyMsg{
-		tea.KeyMsg(tea.Key{Type: tea.KeyCtrlC}),
-		tea.KeyMsg(tea.Key{Type: tea.KeyRunes, Runes: []rune("q")}),
-		tea.KeyMsg(tea.Key{Type: tea.KeyEsc}),
+	for _, quitKey := range []tea.KeyPressMsg{
+		{Code: 'c', Mod: tea.ModCtrl},
+		{Code: 'q', Text: "q"},
+		{Code: tea.KeyEsc},
 	} {
 		p := newDocumentationPager(config.ConfigDocumentation())
 		_, _ = p.Update(tea.WindowSizeMsg{Width: 100, Height: 20})
@@ -214,7 +214,7 @@ func TestConfigPagerFooterFitsHeight(t *testing.T) {
 	p := newDocumentationPager(config.ConfigDocumentation())
 	_, _ = p.Update(tea.WindowSizeMsg{Width: 100, Height: 20})
 	require.True(t, p.ready)
-	lines := strings.Split(p.View(), "\n")
+	lines := strings.Split(p.View().Content, "\n")
 	assert.Len(t, lines, 20, "the pager must fill exactly one terminal height, footer included")
 	assert.Contains(t, lines[len(lines)-1], "q: quit")
 }

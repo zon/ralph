@@ -254,3 +254,44 @@ When neither `--github-key` nor `--github-token` is provided and no credentials 
 - AND `GITHUB_TOKEN` is set
 - WHEN the user runs `ralph setup`
 - THEN the credentials secret is created with the `token` key set to the environment token
+
+### Requirement: Reused Credential Reporting
+
+When namespace preparation uses an existing GitHub credentials Secret and no credential flag, the system SHALL report that the Secret was reused. The system SHALL NOT report a reused Secret as newly written.
+
+#### Scenario: Existing Secret reused
+
+- GIVEN a namespace is targeted via config or `--namespace`
+- AND neither `--github-key` nor `--github-token` is provided
+- AND the GitHub credentials Secret exists in the target namespace
+- WHEN the user runs `ralph setup`
+- THEN the GitHub credentials Secret is not written
+- AND the output reports that the existing Secret was reused
+
+### Requirement: Workflow Scope Advisory
+
+When namespace preparation uses a token for GitHub credentials, the system SHALL read the OAuth scopes GitHub reports for that token and warn when the `workflow` scope is absent. The advisory SHALL cover a provided token, a fallback token, and a token in a reused Secret. The system SHALL NOT fail preparation when the scope is absent or when GitHub does not report scopes.
+
+#### Scenario: Provided token lacks the workflow scope
+
+- GIVEN a namespace is targeted via config or `--namespace`
+- AND `--github-token` provides a token without the `workflow` scope
+- WHEN the user runs `ralph setup`
+- THEN the token is written to the Secret
+- AND the output warns that pushes changing workflow files will be rejected
+
+#### Scenario: Reused token lacks the workflow scope
+
+- GIVEN a namespace is targeted via config or `--namespace`
+- AND the GitHub credentials Secret holds a token without the `workflow` scope
+- AND neither credential flag is provided
+- WHEN the user runs `ralph setup`
+- THEN the output reports that the Secret was reused
+- AND the output warns that pushes changing workflow files will be rejected
+
+#### Scenario: Token type does not report scopes
+
+- GIVEN a namespace is targeted via config or `--namespace`
+- AND the token is a fine-grained personal access token or a GitHub App token
+- WHEN the user runs `ralph setup`
+- THEN the credentials are prepared without a workflow scope warning

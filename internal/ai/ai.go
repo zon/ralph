@@ -45,6 +45,9 @@ var loopInstructions string
 //go:embed loop-slug-instructions.md
 var loopSlugInstructions string
 
+//go:embed prompt-slug-instructions.md
+var promptSlugInstructions string
+
 type FixServicePromptData struct {
 	Notes       []string
 	ServiceName string
@@ -77,6 +80,13 @@ type LoopPromptData struct {
 type LoopSlugPromptData struct {
 	Steps      []string
 	OutputFile string
+}
+
+// PromptSlugPromptData carries a description of the branch's work and the
+// output file path where the AI must write the proposed branch slug.
+type PromptSlugPromptData struct {
+	Description string
+	OutputFile  string
 }
 
 type ResolveMergeConflictsPromptData struct {
@@ -190,6 +200,22 @@ func BuildLoopSlugPrompt(steps []string, outputPath string) (string, error) {
 		OutputFile: absPath,
 	}
 	return executeTemplate(loopSlugInstructions, data)
+}
+
+// BuildPromptSlugPrompt renders the prompt slug prompt embedding a description
+// of the branch's work and the absolute path of the file the AI must write the
+// slug to.
+func BuildPromptSlugPrompt(description, outputPath string) (string, error) {
+	absPath, err := filepath.Abs(outputPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path: %w", err)
+	}
+
+	data := PromptSlugPromptData{
+		Description: description,
+		OutputFile:  absPath,
+	}
+	return executeTemplate(promptSlugInstructions, data)
 }
 
 type ProjectFixPromptData struct {
@@ -362,8 +388,8 @@ const maxDeliverableAttempts = 3
 // runOpenCodeAndReadValidated runs opencode with the given prompt and returns
 // the trimmed content of the output file the agent must write, provided the
 // validate function accepts it. When opencode finishes without a usable
-// deliverable — an output file that is missing or empty, or content that the
-// validate function rejects — the same prompt is re-run until
+// deliverable (an output file that is missing or empty, or content that the
+// validate function rejects), the same prompt is re-run until
 // maxDeliverableAttempts attempts have been made. When every attempt is
 // unusable the returned error names the attempt limit. An opencode execution
 // failure is returned immediately and is never retried. A nil validate
@@ -395,8 +421,8 @@ func runOpenCodeAndReadValidated(ctx *execcontext.Context, oc opencode.OCClient,
 
 // runOpenCodeAndReadDeliverable runs opencode with the given prompt and returns
 // the trimmed content of the output file the agent must write. When opencode
-// finishes without a usable deliverable — an output file that is missing or
-// empty — the same prompt is re-run until maxDeliverableAttempts attempts have
+// finishes without a usable deliverable (an output file that is missing or
+// empty), the same prompt is re-run until maxDeliverableAttempts attempts have
 // been made. When every attempt is unusable the returned error names the
 // attempt limit. An opencode execution failure is returned immediately and is
 // never retried.
@@ -527,4 +553,32 @@ func ProposeLoopSlug(ctx *execcontext.Context, oc opencode.OCClient, steps []str
 	}
 
 	return content, nil
+}
+
+// ProposePromptSlug asks the AI to propose a short slug for a prompt branch
+// from a description of its work. The description is the prompt before the
+// pass and the commit log before the pull request. The proposal is returned as
+// the AI wrote it so the caller can clean it like a project branch. An empty or
+// missing deliverable is retried up to the shared attempt limit before an error
+// is returned.
+func ProposePromptSlug(ctx *execcontext.Context, oc opencode.OCClient, description string) (slug string, err error) {
+	f, err := createTempFile("prompt-slug.md")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temporary prompt slug file: %w", err)
+	}
+	f.Close()
+	tmpFile := f.Name()
+	defer os.Remove(tmpFile)
+
+	slugPrompt, err := BuildPromptSlugPrompt(description, tmpFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to build prompt slug prompt: %w", err)
+	}
+
+	if ctx.IsVerbose() {
+		ctx.Output().Debug(slugPrompt)
+	}
+
+	model := resolveModel(ctx)
+	return runOpenCodeAndReadDeliverable(ctx, oc, model, slugPrompt, tmpFile)
 }

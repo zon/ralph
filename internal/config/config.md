@@ -9,10 +9,12 @@ Ralph looks for `.ralph/config.yaml` in your project root. Every option is optio
 | Value | Description |
 |-------|-------------|
 | `local` | Runs the loop in-process in the current checkout (default) |
-| `worktree` | Runs the loop in-process in a Git worktree created in a sibling directory, leaving the current checkout untouched |
+| `worktree` | Runs the loop in-process in a Git worktree created in a sibling directory from the project branch's remote tip, leaving the current checkout untouched |
 | `remote` | Submits an Argo Workflow to Kubernetes and runs the loop in the container |
 
 `--mode` on the command line takes priority over this field, which takes priority over the `local` default.
+
+A worktree run starts from the tip `origin` holds for the project branch, so it builds on the work the remote already has. The run stops when the local branch and the remote have both moved ahead, because continuing would build on commits the remote does not share. Push or delete the local branch and run again.
 
 ```yaml
 mode: remote

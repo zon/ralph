@@ -148,6 +148,19 @@ func TestCheckoutOrCreateBranch_CreateNew(t *testing.T) {
 	assert.Equal(t, branchName, currentBranch)
 }
 
+func TestRenameBranch(t *testing.T) {
+	tempDir := setupTestRepo(t)
+	t.Chdir(tempDir)
+
+	require.NoError(t, CreateBranch("old-name"))
+	require.NoError(t, RenameBranch("old-name", "new-name"))
+
+	currentBranch, err := GetCurrentBranch()
+	require.NoError(t, err)
+	assert.Equal(t, "new-name", currentBranch, "the working tree follows the renamed branch")
+	assert.False(t, branchExists("old-name"), "the old branch name is gone")
+}
+
 func TestHasCommits(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	t.Chdir(tempDir)

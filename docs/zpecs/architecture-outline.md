@@ -11,28 +11,25 @@ The architecture document lives at **`/specs/architecture.yaml`** and describes 
 The architecture document is a YAML list. A component is a collection of resources that serve one concern: source code, scripts, runtimes, assets, or config. Each entry has the following fields:
 
 - **path** (required, string): The file path or directory path where the component lives. Relative to the repo root.
-- **description** (required, string): A single short sentence stating the component's purpose and role. Do not include method names, route lists, interface names, or error types. Details like these churn every time the component grows.
-- **orchestration** (optional, boolean): Whether the component is an [orchestration module](glossary.md#orchestration-module) rather than an [implementation module](glossary.md#implementation-module). Defaults to `false` if omitted.
+- **description** (required, string): A high-level overview of the component in one short sentence. State what it is for, not what it contains. Do not list behaviors, method names, routes, interfaces, or error types. Details like these churn every time the component grows.
 
 ## Example
 
 ```yaml
 - path: cmd/myapp
-  description: Wires real dependencies into the application and starts the server.
-  orchestration: true
+  description: Wires dependencies and starts the server.
 
 - path: internal/orders
-  description: Orchestrates order placement, fulfillment, and cancellation workflows.
-  orchestration: true
+  description: Coordinates the order lifecycle.
 
 - path: internal/postgres
-  description: PostgreSQL-backed implementations of the domain repository interfaces.
+  description: Stores domain data in PostgreSQL.
 
 - path: internal/httpapi
-  description: HTTP handlers that translate requests into domain calls and format responses.
+  description: Exposes the domain over HTTP.
 
 - path: deploy/containers
-  description: Container images and runtime configuration for deploying the application.
+  description: Builds and configures the deployed containers.
 ```
 
 ## How the Architecture Is Used

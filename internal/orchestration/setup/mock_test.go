@@ -73,19 +73,24 @@ func (m *mockContextClient) Resolve(flagContext, flagNamespace string) (K8sConte
 }
 
 type mockGitHubCredentialsClient struct {
-	secretExistsFunc     func(K8sContext) (bool, error)
-	validateFunc         func(string) error
-	configureFunc        func(K8sContext, string) error
-	configureTokenFunc   func(K8sContext, string) error
-	ghCliTokenFunc       func() string
-	envTokenFunc         func() string
-	secretExistsCalled   bool
-	validateCalled       bool
-	configureCalled      bool
-	configureTokenCalled bool
-	ghCliTokenCalled     bool
-	envTokenCalled       bool
-	configuredToken      string
+	secretExistsFunc       func(K8sContext) (bool, error)
+	validateFunc           func(string) error
+	configureFunc          func(K8sContext, string) error
+	configureTokenFunc     func(K8sContext, string) error
+	ghCliTokenFunc         func() string
+	envTokenFunc           func() string
+	tokenFromSecretFunc    func(K8sContext) (string, error)
+	tokenWorkflowScopeFunc func(string) (bool, bool, error)
+	secretExistsCalled     bool
+	validateCalled         bool
+	configureCalled        bool
+	configureTokenCalled   bool
+	ghCliTokenCalled       bool
+	envTokenCalled         bool
+	tokenFromSecretCalled  bool
+	workflowScopeCalled    bool
+	configuredToken        string
+	scopedToken            string
 }
 
 func (m *mockGitHubCredentialsClient) SecretExists(k8sCtx K8sContext) (bool, error) {
@@ -135,6 +140,23 @@ func (m *mockGitHubCredentialsClient) TokenFromEnv() string {
 		return m.envTokenFunc()
 	}
 	return ""
+}
+
+func (m *mockGitHubCredentialsClient) TokenFromSecret(k8sCtx K8sContext) (string, error) {
+	m.tokenFromSecretCalled = true
+	if m.tokenFromSecretFunc != nil {
+		return m.tokenFromSecretFunc(k8sCtx)
+	}
+	return "", nil
+}
+
+func (m *mockGitHubCredentialsClient) TokenWorkflowScope(token string) (bool, bool, error) {
+	m.workflowScopeCalled = true
+	m.scopedToken = token
+	if m.tokenWorkflowScopeFunc != nil {
+		return m.tokenWorkflowScopeFunc(token)
+	}
+	return true, true, nil
 }
 
 type mockOpenCodeCredentialsClient struct {
@@ -244,6 +266,21 @@ func (h *githubHelper) configureTokenCalled() bool {
 
 func (h *githubHelper) secretExistsCalled() bool {
 	return mockGH != nil && mockGH.secretExistsCalled
+}
+
+func (h *githubHelper) tokenFromSecretCalled() bool {
+	return mockGH != nil && mockGH.tokenFromSecretCalled
+}
+
+func (h *githubHelper) workflowScopeCalled() bool {
+	return mockGH != nil && mockGH.workflowScopeCalled
+}
+
+func (h *githubHelper) scopedToken() string {
+	if mockGH == nil {
+		return ""
+	}
+	return mockGH.scopedToken
 }
 
 func (h *githubHelper) thatFailsSecretExists() *mockGitHubCredentialsClient {

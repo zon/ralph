@@ -26,6 +26,15 @@ func GetCurrentBranch() (string, error) {
 	return branch, nil
 }
 
+// HeadCommit returns the commit hash at the current branch tip.
+func HeadCommit() (string, error) {
+	commit, err := runGit("rev-parse", "HEAD")
+	if err != nil {
+		return "", fmt.Errorf("failed to get branch tip: %w", err)
+	}
+	return strings.TrimSpace(commit), nil
+}
+
 // CheckoutOrCreateBranch checks out the named branch if it exists on the remote
 // (after a prior Fetch), otherwise creates and checks out a new local branch.
 func CheckoutOrCreateBranch(name string) error {
@@ -97,6 +106,15 @@ func CreateBranch(name string) error {
 	_, err := runGit("checkout", "-b", name)
 	if err != nil {
 		return fmt.Errorf("failed to create branch '%s': %w", name, err)
+	}
+	return nil
+}
+
+// RenameBranch renames a local branch without changing the working tree.
+func RenameBranch(oldName, newName string) error {
+	_, err := runGit("branch", "-m", oldName, newName)
+	if err != nil {
+		return fmt.Errorf("failed to rename branch '%s' to '%s': %w", oldName, newName, err)
 	}
 	return nil
 }

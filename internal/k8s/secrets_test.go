@@ -1,10 +1,12 @@
 package k8s
 
 import (
+	"encoding/base64"
 	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBuildSecretArgs(t *testing.T) {
@@ -143,6 +145,85 @@ func TestBuildSecretApplyArgs(t *testing.T) {
 			if tt.expectContext {
 				assert.True(t, slices.Contains(args, "--context"), "Should contain --context flag")
 			}
+		})
+	}
+}
+
+func TestBuildGetSecretDataArgs(t *testing.T) {
+	tests := []struct {
+		name         string
+		secretName   string
+		namespace    string
+		kubeContext  string
+		expectedArgs []string
+	}{
+		{
+			name:         "basic secret read",
+			secretName:   "github-credentials",
+			namespace:    "argo",
+			kubeContext:  "",
+			expectedArgs: []string{"get", "secret", "github-credentials", "-n", "argo", "-o", "json"},
+		},
+		{
+			name:         "secret read with context",
+			secretName:   "github-credentials",
+			namespace:    "argo",
+			kubeContext:  "staging",
+			expectedArgs: []string{"get", "secret", "github-credentials", "-n", "argo", "-o", "json", "--context", "staging"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			args := buildGetSecretDataArgs(tt.secretName, tt.namespace, tt.kubeContext)
+
+			assert.Equal(t, tt.expectedArgs, args)
+		})
+	}
+}
+
+func TestParseSecretData(t *testing.T) {
+	encode := func(value string) string {
+		return base64.StdEncoding.EncodeToString([]byte(value))
+	}
+
+	tests := []struct {
+		name    string
+		raw     string
+		want    map[string]string
+		wantErr bool
+	}{
+		{
+			name: "decodes values",
+			raw:  `{"data":{"token":"` + encode("gho_token") + `","other":"` + encode("value") + `"}}`,
+			want: map[string]string{"token": "gho_token", "other": "value"},
+		},
+		{
+			name: "empty data",
+			raw:  `{"data":{}}`,
+			want: map[string]string{},
+		},
+		{
+			name:    "invalid json",
+			raw:     `not json`,
+			wantErr: true,
+		},
+		{
+			name:    "invalid base64",
+			raw:     `{"data":{"token":"!"}}`,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseSecretData([]byte(tt.raw))
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

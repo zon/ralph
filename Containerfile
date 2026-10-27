@@ -1,5 +1,5 @@
 # Build stage - compile ralph
-FROM docker.io/library/golang:1.26-bookworm AS builder
+FROM docker.io/library/golang:1.27-bookworm AS builder
 
 WORKDIR /build
 
@@ -16,7 +16,7 @@ COPY . .
 RUN just build
 
 # Runtime stage - use official Playwright image with all browsers pre-installed
-FROM mcr.microsoft.com/playwright:v1.63.0-noble
+FROM mcr.microsoft.com/playwright:v1.64.1-noble
 
 # Apply Ubuntu's security updates and install additional system dependencies
 # (Playwright deps already included) so base packages such as openssl and
@@ -31,7 +31,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # Upgrade npm so its bundled dependencies carry no known vulnerabilities
-ENV NPM_VERSION=12.2.0
+ENV NPM_VERSION=12.2.1
 RUN npm install -g npm@${NPM_VERSION}
 
 # Install GitHub CLI
@@ -43,7 +43,7 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | d
     && rm -rf /var/lib/apt/lists/*
 
 # Install Go toolchain
-ENV GO_VERSION=1.26.7
+ENV GO_VERSION=1.27.3
 RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" | tar -C /usr/local -xzf - \
     && ln -s /usr/local/go/bin/go /usr/local/bin/go \
     && ln -s /usr/local/go/bin/gofmt /usr/local/bin/gofmt
@@ -68,19 +68,19 @@ RUN curl -fsSL https://bun.sh/install | bash \
 # scripts, so --trust is required for the package's postinstall to select the
 # native opencode binary for this platform; without it the install leaves the
 # shebang-less bin/opencode.exe stub that fails as "exec format error".
-ENV OPENCODE_VERSION=2.0.29
+ENV OPENCODE_VERSION=2.2.0
 RUN bun install -g --trust @opencode/cli@${OPENCODE_VERSION} \
     && ln -s ${BUN_INSTALL}/bin/opencode /usr/local/bin/opencode
 
 # Install Argo Workflows CLI
-ENV ARGO_VERSION=v4.1.4
+ENV ARGO_VERSION=v4.1.6
 RUN curl -sLO "https://github.com/argoproj/argo-workflows/releases/download/${ARGO_VERSION}/argo-linux-amd64.gz" \
     && gunzip argo-linux-amd64.gz \
     && chmod +x argo-linux-amd64 \
     && mv argo-linux-amd64 /usr/local/bin/argo
 
 # Install Helm
-ENV HELM_VERSION=v4.3.0
+ENV HELM_VERSION=v4.3.1
 RUN curl -fsSL "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz" | tar -xz \
     && mv linux-amd64/helm /usr/local/bin/helm \
     && rm -rf linux-amd64

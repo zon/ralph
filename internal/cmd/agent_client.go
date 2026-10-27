@@ -33,8 +33,8 @@ const maxPickerAttempts = 3
 
 // RunPicker asks the AI to select one incomplete item and returns it. A
 // selection is usable only when picked-item.txt holds the reference of one of
-// the incomplete items; when a run leaves no usable selection — the file
-// missing, empty, or naming no incomplete item — the same prompt is re-run
+// the incomplete items. When a run leaves no usable selection (the file
+// missing, empty, or naming no incomplete item), the same prompt is re-run
 // until maxPickerAttempts attempts have been made. When every attempt is
 // unusable the returned error names the attempt limit. An opencode execution
 // failure is returned immediately and is never retried.

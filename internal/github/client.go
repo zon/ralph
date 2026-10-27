@@ -62,6 +62,20 @@ func NewClient(ctx *context.Context, baseBranch string, gh GHClient, oc opencode
 // there are no commits ahead of the base, no pull request is opened and the
 // call succeeds.
 func (a *Client) CreatePR(proj *project.Project, head string) error {
+	return a.createPR(proj.Title, proj, head)
+}
+
+// CreatePromptPR generates an AI PR summary from the commits on the head
+// branch with the prompt text in place of a project description and opens a
+// pull request from head to base. The branch slug is the title fallback when
+// the summary has no H1 heading.
+func (a *Client) CreatePromptPR(prompt, slug, head string) error {
+	return a.createPR(prompt, &project.Project{Slug: slug}, head)
+}
+
+// createPR generates the summary from the commit log and opens the pull request
+// to the client's base branch.
+func (a *Client) createPR(description string, proj *project.Project, head string) error {
 	commitLog, err := a.commitLog.GetCommitLog(a.baseBranch, 100)
 	if err != nil {
 		return fmt.Errorf("failed to get commit log: %w", err)
@@ -72,7 +86,7 @@ func (a *Client) CreatePR(proj *project.Project, head string) error {
 		return nil
 	}
 
-	prSummary, err := ai.GeneratePRSummary(a.ctx, a.oc, proj.Title, a.baseBranch, commitLog, a.runUsage())
+	prSummary, err := ai.GeneratePRSummary(a.ctx, a.oc, description, a.baseBranch, commitLog, a.runUsage())
 	if err != nil {
 		return fmt.Errorf("failed to generate PR summary: %w", err)
 	}

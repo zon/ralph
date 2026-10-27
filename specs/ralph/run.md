@@ -5,9 +5,9 @@
 The `run` command is Ralph's primary entry point. Given a project file, it drives an AI coding agent through iterative development cycles until every item in the project is recorded complete, then opens a GitHub pull request. A project file is any YAML or JSON file containing an array of work items. The array is selected with the [item query](../../docs/glossary.md#item-query), and completion is recorded in the branch's commit messages, not in the file. Execution runs in one of three modes selected with `--mode`: `local` (default), which runs the loop in-process in the current checkout, `worktree`, which runs it in-process in a local Git worktree, or `remote`, which submits an Argo Workflow to Kubernetes.
 
 Mode-specific behaviors are defined in:
-- [run-local.md](run-local.md) — `local` mode: runs the development loop in-process in the current checkout
-- [run-worktree.md](run-worktree.md) — `worktree` mode: runs the development loop in-process in a local Git worktree
-- [run-remote.md](run-remote.md) — `remote` mode: submits an Argo Workflow to Kubernetes
+- [run-local.md](run-local.md) - `local` mode: runs the development loop in-process in the current checkout
+- [run-worktree.md](run-worktree.md) - `worktree` mode: runs the development loop in-process in a local Git worktree
+- [run-remote.md](run-remote.md) - `remote` mode: submits an Argo Workflow to Kubernetes
 
 ## Requirements
 

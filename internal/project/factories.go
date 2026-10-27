@@ -37,14 +37,14 @@ func Any() *Project {
 // call history so tests can assert the item query used, the base branch used,
 // and how often resolution and completion queries were made.
 type MockProject struct {
-	proj                   *Project
-	resolveErr             error
-	allComplete            bool
-	alwaysIncomplete       bool
-	incompleteUntil        int
-	completeIndices        []int
-	thenAllComplete        bool
-	removeErr              error
+	proj             *Project
+	resolveErr       error
+	allComplete      bool
+	alwaysIncomplete bool
+	incompleteUntil  int
+	completeIndices  []int
+	thenAllComplete  bool
+	removeErr        error
 
 	lastQuery       string
 	lastPath        string

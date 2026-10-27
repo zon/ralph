@@ -59,7 +59,7 @@ Dropping happens before indices are assigned, so an index is a position in the s
 ```yaml
 requirements:
   - Add a CSV serializer for report entries
-  -                                          # null — dropped
+  -                                          # null - dropped
   - ""                                       # dropped
   - Add GET /reports/:id/export              # index 1, not 3
 ```
