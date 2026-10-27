@@ -9,14 +9,39 @@ import (
 
 	"github.com/mattn/go-isatty"
 
+	"github.com/zon/ralph/internal/ai"
 	"github.com/zon/ralph/internal/config"
+	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
+	"github.com/zon/ralph/internal/opencode"
 	orchestrationRun "github.com/zon/ralph/internal/orchestration/run"
+	"github.com/zon/ralph/internal/workspace"
 )
 
-// promptGitClient reports the branch the prompt starts from.
+// promptSlugProposer proposes a branch slug from the prompt.
+type promptSlugProposer interface {
+	ProposeSlug(prompt string) (string, error)
+}
+
+// promptGitClient reports the branch the prompt starts from and switches the
+// current checkout to the prompt branch.
 type promptGitClient interface {
 	CurrentBranch() (string, error)
+	SwitchToBranch(slug string) error
+}
+
+// promptWorktreeClient creates, detects, and removes git worktrees. Worktree
+// mode runs the prompt in a sibling directory worktree while leaving the
+// starting checkout untouched.
+type promptWorktreeClient interface {
+	CreateWorktree(branch string, dryRun bool) (*git.WorktreeCommand, error)
+	BranchCheckedOutInWorktree(branch string, dryRun bool) (*git.WorktreeCommand, bool, error)
+	RemoveWorktree(branch string, dryRun bool) (*git.WorktreeCommand, error)
+}
+
+// promptWorkspaceClient changes the process working directory.
+type promptWorkspaceClient interface {
+	ChangeDirectory(path string) error
 }
 
 // promptResolution carries the mode and branches resolved once for a prompt
@@ -25,6 +50,7 @@ type promptGitClient interface {
 type promptResolution struct {
 	Config        *config.RalphConfig
 	Mode          string
+	Slug          string
 	CurrentBranch string
 	PromptBranch  string
 	BaseBranch    string
@@ -49,12 +75,15 @@ type PromptCmd struct {
 	Debug      string   `help:"Checkout the given Ralph repo branch in the workflow container and invoke Ralph via 'go run' instead of the built binary (only applicable with --mode remote)" name:"debug" optional:""`
 	Verbose    bool     `help:"Enable verbose logging" default:"false"`
 
-	stdin           io.Reader       `kong:"-"`
-	stdinIsTerminal func() bool     `kong:"-"`
-	config          config.Loader   `kong:"-"`
-	git             promptGitClient `kong:"-"`
+	stdin           io.Reader             `kong:"-"`
+	stdinIsTerminal func() bool           `kong:"-"`
+	config          config.Loader         `kong:"-"`
+	git             promptGitClient       `kong:"-"`
+	slugProposer    promptSlugProposer    `kong:"-"`
+	worktree        promptWorktreeClient  `kong:"-"`
+	workspace       promptWorkspaceClient `kong:"-"`
 
-	// promptBranch is the branch the prompt runs on. The branch step supplies
+	// promptBranch is the branch the prompt runs on. The slug step supplies
 	// it; base resolution needs it to decide when to fall back to the
 	// configured default branch.
 	promptBranch string `kong:"-"`
@@ -74,18 +103,33 @@ func (c *PromptCmd) Validate() error {
 	return nil
 }
 
-// Run validates the prompt source before resolving the mode and branches. The
-// prompt flow builds on the stored resolution.
+// Run validates the prompt source, resolves the mode, proposes the slug, and
+// resolves the branches. A failed slug proposal returns before any branch or
+// worktree work starts. The command then enters the prompt branch according to
+// the resolved mode.
 func (c *PromptCmd) Run() error {
-	if _, err := c.readPrompt(); err != nil {
+	prompt, err := c.readPrompt()
+	if err != nil {
 		return err
 	}
-	resolved, err := c.resolve()
+	cfg, mode, err := c.resolveMode()
+	if err != nil {
+		return err
+	}
+	if err := validatePromptDebug(c.Debug, mode); err != nil {
+		return err
+	}
+	slug, err := c.proposeSlug(prompt)
+	if err != nil {
+		return err
+	}
+	c.promptBranch = git.SanitizeBranchName(slug)
+	resolved, err := c.resolve(cfg, mode, slug)
 	if err != nil {
 		return err
 	}
 	c.resolved = resolved
-	return nil
+	return c.enterPromptBranch()
 }
 
 // readPrompt reads the prompt from the source selected by the flags. Tests
@@ -102,17 +146,10 @@ func (c *PromptCmd) readPrompt() (string, error) {
 	return ReadPrompt(c.Prompt, c.File, stdin, isTerminal())
 }
 
-// resolve resolves the execution mode and both branches once. The mode is
-// resolved and the mode-dependent flags are checked before the current branch
-// is read, so an invalid mode or a rejected --debug starts no git work.
-func (c *PromptCmd) resolve() (*promptResolution, error) {
-	cfg, mode, err := c.resolveMode()
-	if err != nil {
-		return nil, err
-	}
-	if err := validatePromptDebug(c.Debug, mode); err != nil {
-		return nil, err
-	}
+// resolve resolves both branches once from the already resolved mode and
+// prompt branch. The current branch is read only after the slug proposal, so a
+// failed proposal starts no git work.
+func (c *PromptCmd) resolve(cfg *config.RalphConfig, mode, slug string) (*promptResolution, error) {
 	currentBranch, err := c.currentBranch()
 	if err != nil {
 		return nil, err
@@ -124,10 +161,71 @@ func (c *PromptCmd) resolve() (*promptResolution, error) {
 	return &promptResolution{
 		Config:        cfg,
 		Mode:          mode,
+		Slug:          slug,
 		CurrentBranch: currentBranch,
 		PromptBranch:  c.promptBranch,
 		BaseBranch:    baseBranch,
 	}, nil
+}
+
+// enterPromptBranch enters the prompt branch according to the resolved mode.
+// Local mode switches the current checkout. Worktree mode creates a sibling
+// worktree on the branch and removes it when the command ends. Remote mode
+// creates the branch inside the workflow container, so the client does no
+// local branch work.
+func (c *PromptCmd) enterPromptBranch() error {
+	switch c.resolved.Mode {
+	case config.ModeWorktree:
+		return c.runWorktree()
+	case config.ModeLocal:
+		return c.gitClient().SwitchToBranch(c.resolved.PromptBranch)
+	default:
+		return nil
+	}
+}
+
+// runWorktree creates a worktree on the prompt branch in a sibling directory,
+// changes into it for the rest of the command, and removes it when the command
+// ends. The starting checkout stays on its original branch. A prompt branch
+// already checked out in another worktree is refused before one is created.
+func (c *PromptCmd) runWorktree() (retErr error) {
+	branch := c.resolved.PromptBranch
+	worktree := c.worktreeClient()
+	_, checkedOut, err := worktree.BranchCheckedOutInWorktree(branch, false)
+	if err != nil {
+		return err
+	}
+	if checkedOut {
+		return fmt.Errorf("branch '%s' is already checked out in another worktree", branch)
+	}
+	originalDir, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	created, err := worktree.CreateWorktree(branch, false)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		// git refuses to remove the worktree of the current directory, so change
+		// back to the main checkout before removing it.
+		_ = c.workspaceClient().ChangeDirectory(originalDir)
+		if _, removeErr := worktree.RemoveWorktree(branch, false); removeErr != nil && retErr == nil {
+			retErr = fmt.Errorf("failed to remove worktree for branch '%s': %w", branch, removeErr)
+		}
+	}()
+
+	return c.workspaceClient().ChangeDirectory(created.Path)
+}
+
+// proposeSlug asks the AI for a branch slug from the prompt. The proposal is
+// returned before it is cleaned, so the caller controls the branch name.
+func (c *PromptCmd) proposeSlug(prompt string) (string, error) {
+	proposer := c.slugProposer
+	if proposer == nil {
+		proposer = &promptAISlugProposer{ctx: createExecutionContext()}
+	}
+	return proposer.ProposeSlug(prompt)
 }
 
 // resolveMode resolves the execution mode from the --mode flag, then the
@@ -151,11 +249,33 @@ func (c *PromptCmd) resolveMode() (*config.RalphConfig, string, error) {
 
 // currentBranch reads the branch the prompt starts from.
 func (c *PromptCmd) currentBranch() (string, error) {
-	client := c.git
-	if client == nil {
-		client = git.NewClient(createExecutionContext())
+	return c.gitClient().CurrentBranch()
+}
+
+// gitClient returns the wired git client, building the real one lazily.
+func (c *PromptCmd) gitClient() promptGitClient {
+	if c.git != nil {
+		return c.git
 	}
-	return client.CurrentBranch()
+	return git.NewClient(createExecutionContext())
+}
+
+// worktreeClient returns the wired worktree client, building the real one
+// lazily.
+func (c *PromptCmd) worktreeClient() promptWorktreeClient {
+	if c.worktree != nil {
+		return c.worktree
+	}
+	return git.NewClient(createExecutionContext())
+}
+
+// workspaceClient returns the wired workspace client, building the real one
+// lazily.
+func (c *PromptCmd) workspaceClient() promptWorkspaceClient {
+	if c.workspace != nil {
+		return c.workspace
+	}
+	return &workspace.Client{}
 }
 
 // ReadPrompt returns the prompt from exactly one source: positional text
@@ -201,6 +321,18 @@ func ReadPrompt(text []string, file string, stdin io.Reader, terminal bool) (str
 		return "", errors.New("prompt is empty")
 	}
 	return prompt, nil
+}
+
+// promptAISlugProposer adapts ai.ProposePromptSlug to the command's slug
+// proposer. The slug proposal is a supporting prompt, so it runs with
+// OpenCode's primary agent.
+type promptAISlugProposer struct {
+	ctx *execcontext.Context
+}
+
+// ProposeSlug asks the AI to propose a branch slug for the prompt.
+func (p *promptAISlugProposer) ProposeSlug(prompt string) (string, error) {
+	return ai.ProposePromptSlug(p.ctx, opencode.New(), prompt)
 }
 
 // validatePromptDebug rejects --debug outside remote mode, where there is no

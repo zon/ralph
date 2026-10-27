@@ -15,6 +15,68 @@ import (
 	"github.com/zon/ralph/internal/git"
 )
 
+// promptSlugProposerFunc adapts a function to the command's slug proposer.
+type promptSlugProposerFunc func(prompt string) (string, error)
+
+func (f promptSlugProposerFunc) ProposeSlug(prompt string) (string, error) {
+	return f(prompt)
+}
+
+// promptWorktreeRecorder records worktree operations and returns canned
+// results so worktree mode can be tested without git.
+type promptWorktreeRecorder struct {
+	checkedOut  bool
+	path        string
+	createErr   error
+	checkErr    error
+	removeErr   error
+	checked     []string
+	created     []string
+	removed     []string
+	createCalls int
+}
+
+func (w *promptWorktreeRecorder) CreateWorktree(branch string, dryRun bool) (*git.WorktreeCommand, error) {
+	w.created = append(w.created, branch)
+	w.createCalls++
+	if w.createErr != nil {
+		return nil, w.createErr
+	}
+	path := w.path
+	if path == "" {
+		path = "/worktree/" + branch
+	}
+	return &git.WorktreeCommand{Args: []string{"worktree", "add", path, branch}, Path: path}, nil
+}
+
+func (w *promptWorktreeRecorder) BranchCheckedOutInWorktree(branch string, dryRun bool) (*git.WorktreeCommand, bool, error) {
+	w.checked = append(w.checked, branch)
+	if w.checkErr != nil {
+		return nil, false, w.checkErr
+	}
+	return &git.WorktreeCommand{Args: []string{"worktree", "list", "--porcelain"}}, w.checkedOut, nil
+}
+
+func (w *promptWorktreeRecorder) RemoveWorktree(branch string, dryRun bool) (*git.WorktreeCommand, error) {
+	w.removed = append(w.removed, branch)
+	if w.removeErr != nil {
+		return nil, w.removeErr
+	}
+	return &git.WorktreeCommand{Args: []string{"worktree", "remove", branch}}, nil
+}
+
+// promptWorkspaceRecorder records directory changes so worktree cleanup can be
+// asserted without moving the test process.
+type promptWorkspaceRecorder struct {
+	dirs []string
+	err  error
+}
+
+func (w *promptWorkspaceRecorder) ChangeDirectory(path string) error {
+	w.dirs = append(w.dirs, path)
+	return w.err
+}
+
 // TestReadPromptSources covers every prompt input source and the conflicting
 // and empty input failures.
 func TestReadPromptSources(t *testing.T) {
@@ -320,7 +382,10 @@ func TestPromptCmdDebugRejection(t *testing.T) {
 				config: &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) {
 					return tt.config(), nil
 				}},
-				git: &git.MockClient{CurrentBranchFunc: func() (string, error) { return "main", nil }},
+				git:          &git.MockClient{CurrentBranchFunc: func() (string, error) { return "main", nil }},
+				slugProposer: promptSlugProposerFunc(func(string) (string, error) { return "do-work", nil }),
+				worktree:     &promptWorktreeRecorder{},
+				workspace:    &promptWorkspaceRecorder{},
 			}
 			err := cmd.Run()
 			if tt.wantErr != "" {
@@ -408,6 +473,7 @@ func TestPromptCmdModeResolution(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			branchReads := 0
+			slugProposals := 0
 			cmd := &PromptCmd{
 				Prompt: []string{"do work"},
 				Mode:   tt.mode,
@@ -418,6 +484,12 @@ func TestPromptCmdModeResolution(t *testing.T) {
 					branchReads++
 					return "main", nil
 				}},
+				slugProposer: promptSlugProposerFunc(func(string) (string, error) {
+					slugProposals++
+					return "do-work", nil
+				}),
+				worktree:  &promptWorktreeRecorder{},
+				workspace: &promptWorkspaceRecorder{},
 			}
 
 			err := cmd.Run()
@@ -426,12 +498,14 @@ func TestPromptCmdModeResolution(t *testing.T) {
 				assert.Contains(t, err.Error(), tt.wantErr)
 				assert.Nil(t, cmd.resolved)
 				assert.Zero(t, branchReads, "an invalid mode must not start branch work")
+				assert.Zero(t, slugProposals, "an invalid mode must not propose a slug")
 				return
 			}
 			require.NoError(t, err)
 			require.NotNil(t, cmd.resolved)
 			assert.Equal(t, tt.want, cmd.resolved.Mode)
 			assert.Equal(t, 1, branchReads)
+			assert.Equal(t, 1, slugProposals)
 		})
 	}
 }
@@ -476,21 +550,24 @@ func TestPromptCmdBaseResolution(t *testing.T) {
 			cfg := config.Any()
 			cfg.DefaultBranch = tt.defaultBranch
 			cmd := &PromptCmd{
-				Prompt:       []string{"do work"},
-				Base:         tt.base,
-				promptBranch: tt.promptBranch,
+				Prompt: []string{"do work"},
+				Base:   tt.base,
 				config: &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) {
 					return cfg, nil
 				}},
 				git: &git.MockClient{CurrentBranchFunc: func() (string, error) {
 					return tt.current, nil
 				}},
+				slugProposer: promptSlugProposerFunc(func(string) (string, error) {
+					return tt.promptBranch, nil
+				}),
 			}
 
 			require.NoError(t, cmd.Run())
 			require.NotNil(t, cmd.resolved)
 			assert.Equal(t, tt.want, cmd.resolved.BaseBranch)
 			assert.Equal(t, tt.current, cmd.resolved.CurrentBranch)
+			assert.Equal(t, tt.promptBranch, cmd.resolved.Slug)
 			assert.Equal(t, tt.promptBranch, cmd.resolved.PromptBranch)
 			assert.Equal(t, tt.want, cfg.Base)
 			assert.Equal(t, tt.current, cfg.StartingBranch)
@@ -507,6 +584,7 @@ func TestPromptCmdCurrentBranchError(t *testing.T) {
 		git: &git.MockClient{CurrentBranchFunc: func() (string, error) {
 			return "", errors.New("not a git repository")
 		}},
+		slugProposer: promptSlugProposerFunc(func(string) (string, error) { return "do-work", nil }),
 	}
 
 	err := cmd.Run()
@@ -523,8 +601,185 @@ func TestPromptCmdResolvesModeAndPrompt(t *testing.T) {
 		stdinIsTerminal: func() bool { return false },
 		config:          &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
 		git:             &git.MockClient{CurrentBranchFunc: func() (string, error) { return "main", nil }},
+		slugProposer:    promptSlugProposerFunc(func(string) (string, error) { return "piped-prompt", nil }),
 	}
 	require.NoError(t, cmd.Run())
 	require.NotNil(t, cmd.resolved)
 	assert.Equal(t, config.ModeLocal, cmd.resolved.Mode)
+}
+
+// TestPromptCmdSlugCleanup covers cleaning a proposed slug like a project
+// branch before it becomes the prompt branch name.
+func TestPromptCmdSlugCleanup(t *testing.T) {
+	tests := []struct {
+		name     string
+		proposal string
+		want     string
+	}{
+		{
+			name:     "spaces become hyphens",
+			proposal: "update the readme",
+			want:     "update-the-readme",
+		},
+		{
+			name:     "capitals are lowered",
+			proposal: "UPPER_CASE",
+			want:     "upper-case",
+		},
+		{
+			name:     "special characters are removed",
+			proposal: "Fix: Auth/Bug!",
+			want:     "fix-authbug",
+		},
+		{
+			name:     "dots, underscores, and surrounding space are cleaned",
+			proposal: "  My_Feature.Work  ",
+			want:     "my-feature-work",
+		},
+		{
+			name:     "an already clean slug is unchanged",
+			proposal: "already-clean",
+			want:     "already-clean",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var switched string
+			cmd := &PromptCmd{
+				Prompt:       []string{"do work"},
+				config:       &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+				git:          &git.MockClient{SwitchToBranchFunc: func(slug string) error { switched = slug; return nil }},
+				slugProposer: promptSlugProposerFunc(func(string) (string, error) { return tt.proposal, nil }),
+			}
+
+			require.NoError(t, cmd.Run())
+			require.NotNil(t, cmd.resolved)
+			assert.Equal(t, tt.want, cmd.resolved.PromptBranch)
+			assert.Equal(t, tt.want, switched)
+		})
+	}
+}
+
+// TestPromptCmdFailedSlugProposalStopsBeforeBranchWork asserts a failed
+// proposal returns before the current branch is read, the branch is switched,
+// or a worktree is created.
+func TestPromptCmdFailedSlugProposalStopsBeforeBranchWork(t *testing.T) {
+	proposalErr := errors.New("opencode execution failed: quota")
+	branchReads := 0
+	switchCalls := 0
+	worktree := &promptWorktreeRecorder{}
+	cmd := &PromptCmd{
+		Prompt: []string{"do work"},
+		config: &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+		git: &git.MockClient{
+			CurrentBranchFunc: func() (string, error) { branchReads++; return "main", nil },
+			SwitchToBranchFunc: func(string) error {
+				switchCalls++
+				return nil
+			},
+		},
+		slugProposer: promptSlugProposerFunc(func(string) (string, error) { return "", proposalErr }),
+		worktree:     worktree,
+		workspace:    &promptWorkspaceRecorder{},
+	}
+
+	err := cmd.Run()
+	require.Error(t, err)
+	assert.ErrorIs(t, err, proposalErr)
+	assert.Nil(t, cmd.resolved)
+	assert.Zero(t, branchReads, "a failed proposal must not read the starting branch")
+	assert.Zero(t, switchCalls, "a failed proposal must not switch branches")
+	assert.Empty(t, worktree.created, "a failed proposal must not create a worktree")
+}
+
+// TestPromptCmdLocalBranches covers local mode switching the current checkout
+// to the prompt branch.
+func TestPromptCmdLocalBranches(t *testing.T) {
+	var switched string
+	currentReads := 0
+	worktree := &promptWorktreeRecorder{}
+	cmd := &PromptCmd{
+		Prompt: []string{"do work"},
+		config: &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+		git: &git.MockClient{
+			CurrentBranchFunc: func() (string, error) { currentReads++; return "main", nil },
+			SwitchToBranchFunc: func(slug string) error {
+				switched = slug
+				return nil
+			},
+		},
+		slugProposer: promptSlugProposerFunc(func(string) (string, error) { return "my-feature", nil }),
+		worktree:     worktree,
+	}
+
+	require.NoError(t, cmd.Run())
+	assert.Equal(t, 1, currentReads)
+	assert.Equal(t, "my-feature", switched)
+	assert.Equal(t, "my-feature", cmd.resolved.PromptBranch)
+	assert.Empty(t, worktree.created, "local mode creates no worktree")
+}
+
+// TestPromptCmdWorktreeRefusesCheckedOutBranch covers refusing a prompt branch
+// already checked out in another worktree before creating one.
+func TestPromptCmdWorktreeRefusesCheckedOutBranch(t *testing.T) {
+	switchCalls := 0
+	worktree := &promptWorktreeRecorder{checkedOut: true}
+	cmd := &PromptCmd{
+		Prompt: []string{"do work"},
+		Mode:   config.ModeWorktree,
+		config: &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+		git: &git.MockClient{
+			CurrentBranchFunc: func() (string, error) { return "main", nil },
+			SwitchToBranchFunc: func(string) error {
+				switchCalls++
+				return nil
+			},
+		},
+		slugProposer: promptSlugProposerFunc(func(string) (string, error) { return "my-feature", nil }),
+		worktree:     worktree,
+		workspace:    &promptWorkspaceRecorder{},
+	}
+
+	err := cmd.Run()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "branch 'my-feature' is already checked out in another worktree")
+	assert.Equal(t, []string{"my-feature"}, worktree.checked)
+	assert.Zero(t, worktree.createCalls, "no worktree is created for a refused branch")
+	assert.Empty(t, worktree.removed)
+	assert.Zero(t, switchCalls, "worktree mode does not switch the starting checkout")
+}
+
+// TestPromptCmdWorktreeCreatesAndRemoves covers creating the worktree on the
+// prompt branch, working inside it, and removing it when the command ends while
+// the starting checkout stays on its original branch.
+func TestPromptCmdWorktreeCreatesAndRemoves(t *testing.T) {
+	originalDir, err := os.Getwd()
+	require.NoError(t, err)
+	switchCalls := 0
+	worktree := &promptWorktreeRecorder{path: "/worktree/my-feature"}
+	workspace := &promptWorkspaceRecorder{}
+	cmd := &PromptCmd{
+		Prompt: []string{"do work"},
+		Mode:   config.ModeWorktree,
+		config: &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+		git: &git.MockClient{
+			CurrentBranchFunc: func() (string, error) { return "main", nil },
+			SwitchToBranchFunc: func(string) error {
+				switchCalls++
+				return nil
+			},
+		},
+		slugProposer: promptSlugProposerFunc(func(string) (string, error) { return "my-feature", nil }),
+		worktree:     worktree,
+		workspace:    workspace,
+	}
+
+	require.NoError(t, cmd.Run())
+	assert.Equal(t, []string{"my-feature"}, worktree.checked)
+	assert.Equal(t, []string{"my-feature"}, worktree.created)
+	assert.Equal(t, []string{"my-feature"}, worktree.removed)
+	assert.Equal(t, []string{"/worktree/my-feature", originalDir}, workspace.dirs)
+	assert.Zero(t, switchCalls, "the starting checkout stays on its original branch")
+	assert.Equal(t, "main", cmd.resolved.CurrentBranch)
 }

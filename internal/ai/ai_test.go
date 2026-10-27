@@ -1600,3 +1600,106 @@ func TestProposeLoopSlugNeverPassesAgent(t *testing.T) {
 		})
 	}
 }
+
+func TestProposePromptSlug(t *testing.T) {
+	dir := t.TempDir()
+	testutil.InitGitRepo(t, dir)
+	t.Chdir(dir)
+
+	errCommandFailed := errors.New("command failed")
+
+	tests := []struct {
+		name      string
+		setupMock func(*testing.T) *opencode.MockOC
+		want      string
+		wantErr   string
+		wantErrIs error
+	}{
+		{
+			name: "success returns the proposal trimmed and cleans up the temp file",
+			setupMock: func(t *testing.T) *opencode.MockOC {
+				return &opencode.MockOC{
+					RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+						return writeOutputFromSlugPrompt(prompt, "  My Feature Work\n")
+					},
+				}
+			},
+			want: "My Feature Work",
+		},
+		{
+			name: "runcommand error is wrapped and the temp file is cleaned up",
+			setupMock: func(t *testing.T) *opencode.MockOC {
+				return &opencode.MockOC{
+					RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+						return errCommandFailed
+					},
+				}
+			},
+			wantErr:   "opencode execution failed:",
+			wantErrIs: errCommandFailed,
+		},
+		{
+			name: "an empty proposal fails after the attempt limit",
+			setupMock: func(t *testing.T) *opencode.MockOC {
+				return &opencode.MockOC{
+					RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+						return writeOutputFromSlugPrompt(prompt, "   \n")
+					},
+				}
+			},
+			wantErr: "3-attempt limit",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockOC := tt.setupMock(t)
+			result, err := ProposePromptSlug(&execcontext.Context{}, mockOC, "update the readme")
+
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+				if tt.wantErrIs != nil {
+					assert.True(t, errors.Is(err, tt.wantErrIs), "wrapped error should be reachable via errors.Is")
+				}
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.want, result)
+			}
+
+			assertTempFileCleanedUp(t, dir, "prompt-slug")
+		})
+	}
+
+	t.Run("prompt passed to opencode embeds the prompt and the output path", func(t *testing.T) {
+		var capturedPrompt string
+		mockOC := &opencode.MockOC{
+			RunCommandFunc: func(_ context.Context, model, variant, agent, prompt string, stdoutWriter, stderrWriter io.Writer) error {
+				capturedPrompt = prompt
+				return writeOutputFromSlugPrompt(prompt, "update-readme")
+			},
+		}
+		_, err := ProposePromptSlug(&execcontext.Context{}, mockOC, "update the readme")
+		require.NoError(t, err)
+		assert.Contains(t, capturedPrompt, "update the readme")
+		assert.Contains(t, capturedPrompt, filepath.Join(dir, "tmp", "prompt-slug-"))
+	})
+
+	t.Run("never passes the configured agent", func(t *testing.T) {
+		require.NoError(t, os.MkdirAll(".ralph", 0755))
+		require.NoError(t, os.WriteFile(".ralph/config.yaml", []byte("agent: build\n"), 0644))
+
+		var capturedAgent string
+		mockOC := &opencode.MockOC{
+			RunCommandFunc: func(_ context.Context, _, _, agent, prompt string, _, _ io.Writer) error {
+				capturedAgent = agent
+				return writeOutputFromSlugPrompt(prompt, "update-readme")
+			},
+		}
+		ctx := &execcontext.Context{}
+		ctx.SetAgent("code-reviewer")
+		_, err := ProposePromptSlug(ctx, mockOC, "update the readme")
+		require.NoError(t, err)
+		assert.Equal(t, "", capturedAgent, "the prompt slug must run with the primary agent")
+	})
+}
