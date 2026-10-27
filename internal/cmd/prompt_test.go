@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,6 +14,8 @@ import (
 
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/git"
+	"github.com/zon/ralph/internal/output"
+	"github.com/zon/ralph/internal/services"
 )
 
 // promptSlugProposerFunc adapts a function to the command's slug proposer.
@@ -30,6 +33,7 @@ type promptWorktreeRecorder struct {
 	createErr   error
 	checkErr    error
 	removeErr   error
+	order       *[]string
 	checked     []string
 	created     []string
 	removed     []string
@@ -39,6 +43,7 @@ type promptWorktreeRecorder struct {
 func (w *promptWorktreeRecorder) CreateWorktree(branch string, dryRun bool) (*git.WorktreeCommand, error) {
 	w.created = append(w.created, branch)
 	w.createCalls++
+	promptEvent(w.order, "create-worktree")
 	if w.createErr != nil {
 		return nil, w.createErr
 	}
@@ -51,6 +56,7 @@ func (w *promptWorktreeRecorder) CreateWorktree(branch string, dryRun bool) (*gi
 
 func (w *promptWorktreeRecorder) BranchCheckedOutInWorktree(branch string, dryRun bool) (*git.WorktreeCommand, bool, error) {
 	w.checked = append(w.checked, branch)
+	promptEvent(w.order, "check-worktree")
 	if w.checkErr != nil {
 		return nil, false, w.checkErr
 	}
@@ -59,6 +65,7 @@ func (w *promptWorktreeRecorder) BranchCheckedOutInWorktree(branch string, dryRu
 
 func (w *promptWorktreeRecorder) RemoveWorktree(branch string, dryRun bool) (*git.WorktreeCommand, error) {
 	w.removed = append(w.removed, branch)
+	promptEvent(w.order, "remove-worktree")
 	if w.removeErr != nil {
 		return nil, w.removeErr
 	}
@@ -68,13 +75,130 @@ func (w *promptWorktreeRecorder) RemoveWorktree(branch string, dryRun bool) (*gi
 // promptWorkspaceRecorder records directory changes so worktree cleanup can be
 // asserted without moving the test process.
 type promptWorkspaceRecorder struct {
-	dirs []string
-	err  error
+	dirs  []string
+	order *[]string
+	err   error
 }
 
 func (w *promptWorkspaceRecorder) ChangeDirectory(path string) error {
 	w.dirs = append(w.dirs, path)
+	promptEvent(w.order, "change-directory")
 	return w.err
+}
+
+// promptServicesRecorder records the before, start, stop, and log-cleanup calls
+// made around the pass and returns canned failures.
+type promptServicesRecorder struct {
+	order           *[]string
+	runBeforeErr    error
+	startErr        error
+	manager         *services.Manager
+	runBeforeCalls  int
+	startCalls      int
+	stopCalls       int
+	removeLogsCalls int
+}
+
+func (s *promptServicesRecorder) RunBeforeCommands(cfg *config.RalphConfig) error {
+	s.runBeforeCalls++
+	promptEvent(s.order, "before")
+	return s.runBeforeErr
+}
+
+func (s *promptServicesRecorder) Start(cfg *config.RalphConfig) (*services.Manager, error) {
+	s.startCalls++
+	promptEvent(s.order, "start-services")
+	if s.startErr != nil {
+		return nil, s.startErr
+	}
+	if s.manager != nil {
+		return s.manager, nil
+	}
+	return &services.Manager{}, nil
+}
+
+func (s *promptServicesRecorder) Stop(svc *services.Manager) {
+	s.stopCalls++
+	promptEvent(s.order, "stop-services")
+}
+
+func (s *promptServicesRecorder) RemoveLogs(cfg *config.RalphConfig) {
+	s.removeLogsCalls++
+	promptEvent(s.order, "remove-logs")
+}
+
+// promptAIRecorder records the prompt pass and the supporting service-fix and
+// conflict-resolution passes.
+type promptAIRecorder struct {
+	order        *[]string
+	passFunc     func(string) error
+	fixFunc      func(*config.RalphConfig, error) error
+	resolveFunc  func(string, string) error
+	prompts      []string
+	passCalls    int
+	fixCalls     int
+	resolveCalls int
+}
+
+func (a *promptAIRecorder) RunPrompt(prompt string) error {
+	a.passCalls++
+	a.prompts = append(a.prompts, prompt)
+	promptEvent(a.order, "pass")
+	if a.passFunc != nil {
+		return a.passFunc(prompt)
+	}
+	return nil
+}
+
+func (a *promptAIRecorder) FixServiceStartup(cfg *config.RalphConfig, err error) error {
+	a.fixCalls++
+	promptEvent(a.order, "service-fix")
+	if a.fixFunc != nil {
+		return a.fixFunc(cfg, err)
+	}
+	return nil
+}
+
+func (a *promptAIRecorder) ResolveMergeConflicts(baseBranch, promptBranch string) error {
+	a.resolveCalls++
+	promptEvent(a.order, "resolve-conflicts")
+	if a.resolveFunc != nil {
+		return a.resolveFunc(baseBranch, promptBranch)
+	}
+	return nil
+}
+
+// promptOutputRecorder captures the warnings emitted during base
+// synchronization.
+type promptOutputRecorder struct {
+	warnings []string
+}
+
+func (o *promptOutputRecorder) Warnf(format string, a ...any) {
+	o.warnings = append(o.warnings, fmt.Sprintf(format, a...))
+}
+
+// promptEvent appends an event to an optional order log shared by the mock
+// clients.
+func promptEvent(order *[]string, event string) {
+	if order != nil {
+		*order = append(*order, event)
+	}
+}
+
+// preparePromptRun gives a command the mock setup clients its flow needs, so
+// tests that only care about an earlier step do not start real services or run
+// OpenCode.
+func preparePromptRun(cmd *PromptCmd) {
+	if cmd.services == nil {
+		cmd.services = &promptServicesRecorder{}
+	}
+	if cmd.ai == nil {
+		cmd.ai = &promptAIRecorder{}
+	}
+	if cmd.output == nil {
+		cmd.output = &promptOutputRecorder{}
+	}
 }
 
 // TestReadPromptSources covers every prompt input source and the conflicting
@@ -492,6 +616,7 @@ func TestPromptCmdModeResolution(t *testing.T) {
 				workspace: &promptWorkspaceRecorder{},
 			}
 
+			preparePromptRun(cmd)
 			err := cmd.Run()
 			if tt.wantErr != "" {
 				require.Error(t, err)
@@ -563,6 +688,7 @@ func TestPromptCmdBaseResolution(t *testing.T) {
 				}),
 			}
 
+			preparePromptRun(cmd)
 			require.NoError(t, cmd.Run())
 			require.NotNil(t, cmd.resolved)
 			assert.Equal(t, tt.want, cmd.resolved.BaseBranch)
@@ -603,6 +729,7 @@ func TestPromptCmdResolvesModeAndPrompt(t *testing.T) {
 		git:             &git.MockClient{CurrentBranchFunc: func() (string, error) { return "main", nil }},
 		slugProposer:    promptSlugProposerFunc(func(string) (string, error) { return "piped-prompt", nil }),
 	}
+	preparePromptRun(cmd)
 	require.NoError(t, cmd.Run())
 	require.NotNil(t, cmd.resolved)
 	assert.Equal(t, config.ModeLocal, cmd.resolved.Mode)
@@ -653,6 +780,7 @@ func TestPromptCmdSlugCleanup(t *testing.T) {
 				slugProposer: promptSlugProposerFunc(func(string) (string, error) { return tt.proposal, nil }),
 			}
 
+			preparePromptRun(cmd)
 			require.NoError(t, cmd.Run())
 			require.NotNil(t, cmd.resolved)
 			assert.Equal(t, tt.want, cmd.resolved.PromptBranch)
@@ -713,6 +841,7 @@ func TestPromptCmdLocalBranches(t *testing.T) {
 		worktree:     worktree,
 	}
 
+	preparePromptRun(cmd)
 	require.NoError(t, cmd.Run())
 	assert.Equal(t, 1, currentReads)
 	assert.Equal(t, "my-feature", switched)
@@ -775,6 +904,7 @@ func TestPromptCmdWorktreeCreatesAndRemoves(t *testing.T) {
 		workspace:    workspace,
 	}
 
+	preparePromptRun(cmd)
 	require.NoError(t, cmd.Run())
 	assert.Equal(t, []string{"my-feature"}, worktree.checked)
 	assert.Equal(t, []string{"my-feature"}, worktree.created)
@@ -782,4 +912,268 @@ func TestPromptCmdWorktreeCreatesAndRemoves(t *testing.T) {
 	assert.Equal(t, []string{"/worktree/my-feature", originalDir}, workspace.dirs)
 	assert.Zero(t, switchCalls, "the starting checkout stays on its original branch")
 	assert.Equal(t, "main", cmd.resolved.CurrentBranch)
+}
+
+// TestPromptCmdSetupOrder covers the pre-pass order in local mode: the before
+// commands run before the branch switch, then the base branch is synchronized,
+// the services start, and the pass runs.
+func TestPromptCmdSetupOrder(t *testing.T) {
+	var order []string
+	servicesClient := &promptServicesRecorder{order: &order}
+	aiClient := &promptAIRecorder{order: &order}
+	cmd := &PromptCmd{
+		Prompt:       []string{"do work"},
+		config:       &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+		slugProposer: promptSlugProposerFunc(func(string) (string, error) { return "my-feature", nil }),
+		services:     servicesClient,
+		ai:           aiClient,
+		output:       &promptOutputRecorder{},
+		git: &git.MockClient{
+			CurrentBranchFunc: func() (string, error) { return "main", nil },
+			SwitchToBranchFunc: func(string) error {
+				promptEvent(&order, "switch-branch")
+				return nil
+			},
+			FetchBranchFunc: func(branch string) error {
+				assert.Equal(t, "main", branch)
+				promptEvent(&order, "fetch-base")
+				return nil
+			},
+			NeedsMergeFunc: func(string) (bool, error) {
+				promptEvent(&order, "needs-merge")
+				return false, nil
+			},
+		},
+	}
+
+	require.NoError(t, cmd.Run())
+	assert.Equal(t, []string{
+		"before",
+		"switch-branch",
+		"fetch-base",
+		"needs-merge",
+		"start-services",
+		"pass",
+		"stop-services",
+		"remove-logs",
+	}, order)
+	assert.Equal(t, []string{"do work"}, aiClient.prompts)
+	assert.Equal(t, 1, servicesClient.runBeforeCalls)
+	assert.Equal(t, 1, servicesClient.startCalls)
+	assert.Equal(t, 1, servicesClient.stopCalls)
+}
+
+// TestPromptCmdWorktreeBeforeCommandsRunInside covers the before commands,
+// base synchronization, services, and pass all running inside the new
+// worktree.
+func TestPromptCmdWorktreeBeforeCommandsRunInside(t *testing.T) {
+	var order []string
+	worktree := &promptWorktreeRecorder{path: "/worktree/my-feature", order: &order}
+	workspace := &promptWorkspaceRecorder{order: &order}
+	servicesClient := &promptServicesRecorder{order: &order}
+	aiClient := &promptAIRecorder{order: &order}
+	cmd := &PromptCmd{
+		Prompt:       []string{"do work"},
+		Mode:         config.ModeWorktree,
+		config:       &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+		slugProposer: promptSlugProposerFunc(func(string) (string, error) { return "my-feature", nil }),
+		services:     servicesClient,
+		ai:           aiClient,
+		output:       &promptOutputRecorder{},
+		worktree:     worktree,
+		workspace:    workspace,
+		git: &git.MockClient{
+			CurrentBranchFunc: func() (string, error) { return "main", nil },
+			FetchBranchFunc: func(string) error {
+				promptEvent(&order, "fetch-base")
+				return nil
+			},
+			NeedsMergeFunc: func(string) (bool, error) {
+				promptEvent(&order, "needs-merge")
+				return false, nil
+			},
+		},
+	}
+
+	require.NoError(t, cmd.Run())
+	before := promptIndex(order, "before")
+	changeDir := promptIndex(order, "change-directory")
+	fetch := promptIndex(order, "fetch-base")
+	start := promptIndex(order, "start-services")
+	pass := promptIndex(order, "pass")
+	require.NotEqual(t, -1, before)
+	assert.Less(t, changeDir, before, "before commands run after entering the worktree")
+	assert.Less(t, before, fetch, "the before commands run before synchronization")
+	assert.Less(t, fetch, start, "synchronization runs before services start")
+	assert.Less(t, start, pass, "services start before the pass")
+	assert.Equal(t, []string{"my-feature"}, worktree.removed)
+}
+
+// TestPromptCmdRequiredBeforeFailure covers a required before command failing
+// and stopping the command before any later setup or pass work.
+func TestPromptCmdRequiredBeforeFailure(t *testing.T) {
+	beforeErr := errors.New("required before command failed")
+	var order []string
+	servicesClient := &promptServicesRecorder{order: &order, runBeforeErr: beforeErr}
+	aiClient := &promptAIRecorder{order: &order}
+	switchCalls := 0
+	cmd := &PromptCmd{
+		Prompt:       []string{"do work"},
+		config:       &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+		slugProposer: promptSlugProposerFunc(func(string) (string, error) { return "my-feature", nil }),
+		services:     servicesClient,
+		ai:           aiClient,
+		output:       &promptOutputRecorder{},
+		git: &git.MockClient{
+			CurrentBranchFunc: func() (string, error) { return "main", nil },
+			SwitchToBranchFunc: func(string) error {
+				switchCalls++
+				return nil
+			},
+			FetchBranchFunc: func(string) error {
+				promptEvent(&order, "fetch-base")
+				return nil
+			},
+		},
+	}
+
+	err := cmd.Run()
+	require.ErrorIs(t, err, beforeErr)
+	assert.Equal(t, []string{"before"}, order)
+	assert.Zero(t, switchCalls, "a failed required before command must not switch branches")
+	assert.Zero(t, servicesClient.startCalls, "a failed required before command must not start services")
+	assert.Zero(t, aiClient.passCalls, "a failed required before command must not run the pass")
+}
+
+// TestPromptCmdBeforeHelper exits non-zero when run as a before command by the
+// optional-failure test. The environment variable keeps it inert during the
+// normal test run.
+func TestPromptCmdBeforeHelper(t *testing.T) {
+	if os.Getenv("RALPH_PROMPT_BEFORE_HELPER") != "1" {
+		return
+	}
+	os.Exit(1)
+}
+
+// TestPromptCmdOptionalBeforeFailureContinues covers an optional before command
+// failing: Ralph warns, continues the setup, and runs the pass.
+func TestPromptCmdOptionalBeforeFailureContinues(t *testing.T) {
+	t.Setenv("RALPH_PROMPT_BEFORE_HELPER", "1")
+	var outBuf strings.Builder
+	cfg := config.Any()
+	cfg.Before = []config.Before{{
+		Name:     "optional",
+		Command:  os.Args[0],
+		Args:     []string{"-test.run=TestPromptCmdBeforeHelper"},
+		Optional: true,
+	}}
+	aiClient := &promptAIRecorder{}
+	cmd := &PromptCmd{
+		Prompt:       []string{"do work"},
+		config:       &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return cfg, nil }},
+		slugProposer: promptSlugProposerFunc(func(string) (string, error) { return "my-feature", nil }),
+		services:     services.NewClient(output.NewClient(&outBuf, &outBuf, false)),
+		ai:           aiClient,
+		output:       &promptOutputRecorder{},
+		git: &git.MockClient{
+			CurrentBranchFunc: func() (string, error) { return "main", nil },
+		},
+	}
+
+	require.NoError(t, cmd.Run())
+	assert.Contains(t, outBuf.String(), "Optional before optional failed")
+	assert.Equal(t, 1, aiClient.passCalls)
+}
+
+// TestPromptCmdServiceFixSuccess covers a service startup failure repaired by
+// the service-fix prompt: the pass continues without services.
+func TestPromptCmdServiceFixSuccess(t *testing.T) {
+	startErr := errors.New("service failed to start")
+	var order []string
+	servicesClient := &promptServicesRecorder{order: &order, startErr: startErr}
+	aiClient := &promptAIRecorder{order: &order}
+	cmd := &PromptCmd{
+		Prompt:       []string{"do work"},
+		config:       &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+		slugProposer: promptSlugProposerFunc(func(string) (string, error) { return "my-feature", nil }),
+		services:     servicesClient,
+		ai:           aiClient,
+		output:       &promptOutputRecorder{},
+		git: &git.MockClient{
+			CurrentBranchFunc: func() (string, error) { return "main", nil },
+		},
+	}
+
+	require.NoError(t, cmd.Run())
+	assert.Equal(t, []string{"before", "start-services", "service-fix", "pass", "remove-logs"}, order)
+	assert.Equal(t, 1, aiClient.fixCalls)
+	assert.Equal(t, 1, aiClient.passCalls)
+	assert.Zero(t, servicesClient.stopCalls, "a fixed startup failure continues without services")
+}
+
+// TestPromptCmdServiceFixFailure covers a service startup failure whose fix
+// prompt also fails: the command fails and the pass does not run.
+func TestPromptCmdServiceFixFailure(t *testing.T) {
+	startErr := errors.New("service failed to start")
+	fixErr := errors.New("service fix failed")
+	var order []string
+	servicesClient := &promptServicesRecorder{order: &order, startErr: startErr}
+	aiClient := &promptAIRecorder{order: &order, fixFunc: func(*config.RalphConfig, error) error { return fixErr }}
+	cmd := &PromptCmd{
+		Prompt:       []string{"do work"},
+		config:       &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+		slugProposer: promptSlugProposerFunc(func(string) (string, error) { return "my-feature", nil }),
+		services:     servicesClient,
+		ai:           aiClient,
+		output:       &promptOutputRecorder{},
+		git: &git.MockClient{
+			CurrentBranchFunc: func() (string, error) { return "main", nil },
+		},
+	}
+
+	err := cmd.Run()
+	require.ErrorIs(t, err, fixErr)
+	assert.Equal(t, []string{"before", "start-services", "service-fix", "remove-logs"}, order)
+	assert.Zero(t, aiClient.passCalls, "a failed service fix must not run the pass")
+	assert.Zero(t, servicesClient.stopCalls)
+}
+
+// TestPromptCmdNoServices covers --no-services skipping service startup and the
+// fix prompt while still running the before commands and the pass.
+func TestPromptCmdNoServices(t *testing.T) {
+	startErr := errors.New("service failed to start")
+	var order []string
+	servicesClient := &promptServicesRecorder{order: &order, startErr: startErr}
+	aiClient := &promptAIRecorder{order: &order, fixFunc: func(*config.RalphConfig, error) error {
+		return errors.New("the fix prompt must not run")
+	}}
+	cmd := &PromptCmd{
+		Prompt:       []string{"do work"},
+		NoServices:   true,
+		config:       &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+		slugProposer: promptSlugProposerFunc(func(string) (string, error) { return "my-feature", nil }),
+		services:     servicesClient,
+		ai:           aiClient,
+		output:       &promptOutputRecorder{},
+		git: &git.MockClient{
+			CurrentBranchFunc: func() (string, error) { return "main", nil },
+		},
+	}
+
+	require.NoError(t, cmd.Run())
+	assert.Equal(t, []string{"before", "pass", "remove-logs"}, order)
+	assert.Equal(t, 1, servicesClient.runBeforeCalls)
+	assert.Zero(t, servicesClient.startCalls, "--no-services must not start services")
+	assert.Zero(t, aiClient.fixCalls, "--no-services must not run the service-fix prompt")
+	assert.Equal(t, 1, aiClient.passCalls)
+}
+
+// promptIndex returns the position of event in the recorded order, or -1.
+func promptIndex(order []string, event string) int {
+	for i, got := range order {
+		if got == event {
+			return i
+		}
+	}
+	return -1
 }

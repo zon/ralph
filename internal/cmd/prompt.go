@@ -10,11 +10,14 @@ import (
 	"github.com/mattn/go-isatty"
 
 	"github.com/zon/ralph/internal/ai"
+	"github.com/zon/ralph/internal/basesync"
 	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/opencode"
 	orchestrationRun "github.com/zon/ralph/internal/orchestration/run"
+	"github.com/zon/ralph/internal/output"
+	"github.com/zon/ralph/internal/services"
 	"github.com/zon/ralph/internal/workspace"
 )
 
@@ -23,11 +26,40 @@ type promptSlugProposer interface {
 	ProposeSlug(prompt string) (string, error)
 }
 
-// promptGitClient reports the branch the prompt starts from and switches the
-// current checkout to the prompt branch.
+// promptGitClient reports the branch the prompt starts from, switches the
+// current checkout to the prompt branch, and synchronizes the prompt branch
+// with its base branch.
 type promptGitClient interface {
 	CurrentBranch() (string, error)
 	SwitchToBranch(slug string) error
+	FetchBranch(branch string) error
+	NeedsMerge(branch string) (bool, error)
+	Merge(branch string) error
+	AbortMerge() error
+}
+
+// promptServicesClient runs the before commands and starts, stops, and cleans
+// up the configured services around the prompt pass.
+type promptServicesClient interface {
+	RunBeforeCommands(cfg *config.RalphConfig) error
+	Start(cfg *config.RalphConfig) (*services.Manager, error)
+	Stop(svc *services.Manager)
+	RemoveLogs(cfg *config.RalphConfig)
+}
+
+// promptAIClient runs the prompt pass, fixes a service that fails to start,
+// and resolves a conflicting base-branch merge. All three may write repository
+// code, so they run with the configured agent.
+type promptAIClient interface {
+	RunPrompt(prompt string) error
+	FixServiceStartup(cfg *config.RalphConfig, err error) error
+	ResolveMergeConflicts(baseBranch, promptBranch string) error
+}
+
+// promptOutputClient logs the warning emitted when the base branch cannot be
+// fetched.
+type promptOutputClient interface {
+	Warnf(format string, a ...any)
 }
 
 // promptWorktreeClient creates, detects, and removes git worktrees. Worktree
@@ -82,6 +114,9 @@ type PromptCmd struct {
 	slugProposer    promptSlugProposer    `kong:"-"`
 	worktree        promptWorktreeClient  `kong:"-"`
 	workspace       promptWorkspaceClient `kong:"-"`
+	services        promptServicesClient  `kong:"-"`
+	ai              promptAIClient        `kong:"-"`
+	output          promptOutputClient    `kong:"-"`
 
 	// promptBranch is the branch the prompt runs on. The slug step supplies
 	// it; base resolution needs it to decide when to fall back to the
@@ -105,8 +140,8 @@ func (c *PromptCmd) Validate() error {
 
 // Run validates the prompt source, resolves the mode, proposes the slug, and
 // resolves the branches. A failed slug proposal returns before any branch or
-// worktree work starts. The command then enters the prompt branch according to
-// the resolved mode.
+// worktree work starts. The command then enters the prompt branch, synchronizes
+// the base branch, starts the services, and runs the pass.
 func (c *PromptCmd) Run() error {
 	prompt, err := c.readPrompt()
 	if err != nil {
@@ -129,7 +164,7 @@ func (c *PromptCmd) Run() error {
 		return err
 	}
 	c.resolved = resolved
-	return c.enterPromptBranch()
+	return c.enterPromptBranch(prompt)
 }
 
 // readPrompt reads the prompt from the source selected by the flags. Tests
@@ -168,27 +203,36 @@ func (c *PromptCmd) resolve(cfg *config.RalphConfig, mode, slug string) (*prompt
 	}, nil
 }
 
-// enterPromptBranch enters the prompt branch according to the resolved mode.
-// Local mode switches the current checkout. Worktree mode creates a sibling
-// worktree on the branch and removes it when the command ends. Remote mode
-// creates the branch inside the workflow container, so the client does no
-// local branch work.
-func (c *PromptCmd) enterPromptBranch() error {
+// enterPromptBranch enters the prompt branch according to the resolved mode
+// and runs the setup and pass. Local mode runs the before commands before
+// switching the current checkout, then synchronizes, starts services, and runs
+// the pass. Worktree mode creates a sibling worktree, runs the before commands
+// inside it, and removes it when the command ends. Remote mode creates the
+// branch and runs the setup inside the workflow container, so the client does
+// no local branch or setup work.
+func (c *PromptCmd) enterPromptBranch(prompt string) error {
 	switch c.resolved.Mode {
 	case config.ModeWorktree:
-		return c.runWorktree()
+		return c.runWorktree(prompt)
 	case config.ModeLocal:
-		return c.gitClient().SwitchToBranch(c.resolved.PromptBranch)
+		if err := c.runBeforeCommands(); err != nil {
+			return err
+		}
+		if err := c.gitClient().SwitchToBranch(c.resolved.PromptBranch); err != nil {
+			return err
+		}
+		return c.runSetupAndPass(prompt, false)
 	default:
 		return nil
 	}
 }
 
 // runWorktree creates a worktree on the prompt branch in a sibling directory,
-// changes into it for the rest of the command, and removes it when the command
-// ends. The starting checkout stays on its original branch. A prompt branch
-// already checked out in another worktree is refused before one is created.
-func (c *PromptCmd) runWorktree() (retErr error) {
+// changes into it for the rest of the command, runs the before commands and
+// pass inside it, and removes it when the command ends. The starting checkout
+// stays on its original branch. A prompt branch already checked out in another
+// worktree is refused before one is created.
+func (c *PromptCmd) runWorktree(prompt string) (retErr error) {
 	branch := c.resolved.PromptBranch
 	worktree := c.worktreeClient()
 	_, checkedOut, err := worktree.BranchCheckedOutInWorktree(branch, false)
@@ -215,7 +259,62 @@ func (c *PromptCmd) runWorktree() (retErr error) {
 		}
 	}()
 
-	return c.workspaceClient().ChangeDirectory(created.Path)
+	if err := c.workspaceClient().ChangeDirectory(created.Path); err != nil {
+		return err
+	}
+	if err := c.runBeforeCommands(); err != nil {
+		return err
+	}
+	return c.runSetupAndPass(prompt, true)
+}
+
+// runBeforeCommands runs the configured before commands once. A required
+// failure is returned and stops the command; an optional failure is warned
+// about by the services client and execution continues.
+func (c *PromptCmd) runBeforeCommands() error {
+	return c.servicesClient().RunBeforeCommands(c.resolved.Config)
+}
+
+// runSetupAndPass synchronizes the base branch, starts the configured
+// services, and runs the prompt pass. A service that fails to start or become
+// healthy triggers the service-fix prompt; a successful fix continues the pass
+// without services, while a failed fix fails the command. --no-services skips
+// startup and the fix prompt without affecting the before commands.
+func (c *PromptCmd) runSetupAndPass(prompt string, inWorktree bool) error {
+	cfg := c.resolved.Config
+	aiClient := c.aiClient()
+	if _, err := basesync.Sync(c.gitClient(), aiClient, c.outputClient(), c.resolved.BaseBranch, c.resolved.PromptBranch, inWorktree); err != nil {
+		return err
+	}
+	defer c.servicesClient().RemoveLogs(cfg)
+
+	svc, err := c.startServices()
+	if err != nil {
+		return err
+	}
+	if svc != nil {
+		defer c.servicesClient().Stop(svc)
+	}
+
+	return aiClient.RunPrompt(prompt)
+}
+
+// startServices starts the configured services unless --no-services is set.
+// When startup or the health check fails, it runs the service-fix prompt and
+// returns no services when the fix succeeds.
+func (c *PromptCmd) startServices() (*services.Manager, error) {
+	if c.NoServices {
+		return nil, nil
+	}
+	cfg := c.resolved.Config
+	svc, err := c.servicesClient().Start(cfg)
+	if err != nil {
+		if fixErr := c.aiClient().FixServiceStartup(cfg, err); fixErr != nil {
+			return nil, fixErr
+		}
+		return nil, nil
+	}
+	return svc, nil
 }
 
 // proposeSlug asks the AI for a branch slug from the prompt. The proposal is
@@ -278,6 +377,38 @@ func (c *PromptCmd) workspaceClient() promptWorkspaceClient {
 	return &workspace.Client{}
 }
 
+// servicesClient returns the wired services client, building the real one
+// lazily.
+func (c *PromptCmd) servicesClient() promptServicesClient {
+	if c.services != nil {
+		return c.services
+	}
+	return services.NewClient(c.realOutputClient())
+}
+
+// aiClient returns the wired AI client, building the real one lazily.
+func (c *PromptCmd) aiClient() promptAIClient {
+	if c.ai != nil {
+		return c.ai
+	}
+	ctx := createExecutionContext()
+	oc := opencode.New()
+	return &promptAIClientAdapter{ctx: ctx, oc: oc, agent: NewAgentClient(ctx, oc)}
+}
+
+// outputClient returns the wired output client, building the real one lazily.
+func (c *PromptCmd) outputClient() promptOutputClient {
+	if c.output != nil {
+		return c.output
+	}
+	return c.realOutputClient()
+}
+
+// realOutputClient builds the output client backed by the process streams.
+func (c *PromptCmd) realOutputClient() *output.Client {
+	return output.NewClient(os.Stdout, os.Stderr, c.Verbose)
+}
+
 // ReadPrompt returns the prompt from exactly one source: positional text
 // joined with single spaces, a file, or standard input. Standard input is used
 // when neither positional text nor --file is given and it is not a terminal,
@@ -333,6 +464,31 @@ type promptAISlugProposer struct {
 // ProposeSlug asks the AI to propose a branch slug for the prompt.
 func (p *promptAISlugProposer) ProposeSlug(prompt string) (string, error) {
 	return ai.ProposePromptSlug(p.ctx, opencode.New(), prompt)
+}
+
+// promptAIClientAdapter adapts the AI entry points to the command's AI client.
+// The prompt pass, the service fix, and conflict resolution all run with the
+// configured agent because they may write repository code.
+type promptAIClientAdapter struct {
+	ctx   *execcontext.Context
+	oc    opencode.OCClient
+	agent *AgentClient
+}
+
+// RunPrompt runs the prompt text as one non-interactive OpenCode pass.
+func (a *promptAIClientAdapter) RunPrompt(prompt string) error {
+	return ai.RunAgent(a.ctx, a.oc, prompt)
+}
+
+// FixServiceStartup runs the service-fix prompt with the configured agent.
+func (a *promptAIClientAdapter) FixServiceStartup(cfg *config.RalphConfig, err error) error {
+	return a.agent.FixServiceStartup(cfg, err)
+}
+
+// ResolveMergeConflicts runs the conflict-resolution prompt with the
+// configured agent.
+func (a *promptAIClientAdapter) ResolveMergeConflicts(baseBranch, promptBranch string) error {
+	return a.agent.ResolveMergeConflicts(baseBranch, promptBranch)
 }
 
 // validatePromptDebug rejects --debug outside remote mode, where there is no
