@@ -21,9 +21,3 @@ Prints the pod logs of a workflow. The workflow name is optional. Without it, Ra
 ## Targeting
 
 All three accept `--context` and `--namespace` (`-n`). Context resolves from the flag, then `workflow.context`, then the current kubeconfig context. Namespace resolves from the flag, then `workflow.namespace`, then the context's default namespace. See [Kubernetes Design](kube.md).
-
-## Related
-
-* [Remote Mode Design](remote.md)
-* [Kubernetes Design](kube.md)
-* [Config Design](app/ralph-config.md)

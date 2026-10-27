@@ -43,17 +43,3 @@ A flag with no meaning in the chosen mode is ignored with a warning or rejected 
 ## Documentation
 
 Ralph embeds its own reference documents. `ralph help config` prints the [config reference](ralph-config.md). `ralph help project` prints the project file guide. Both come from files in the repository, so the help in a running binary matches its source.
-
-## Related
-
-* [Config Design](ralph-config.md)
-* [Project Design](../project.md)
-* [Completion Design](../completion.md)
-* [Run Design](../run.md)
-* [Loop Design](../loop.md)
-* [Prompt Design](../prompt.md)
-* [Remote Mode Design](../remote.md)
-* [Setup Design](../setup.md)
-* [Validate Design](../validate.md)
-* [Services Design](../services.md)
-* [Argo Design](../argo.md)

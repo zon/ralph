@@ -13,8 +13,3 @@ A failed iteration is not committed. It still consumes one iteration from the ca
 ## Fatal Failures
 
 A fatal failure stops the loop immediately and is returned as an error. Billing and quota errors are fatal. No further prompt is built or run.
-
-## Related
-
-* [Run Design](run.md)
-* [Loop Design](loop.md)

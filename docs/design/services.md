@@ -33,10 +33,3 @@ A prompt invokes the same fix prompt. If the fix prompt succeeds, the pass conti
 ## Skipping
 
 `ralph run --no-services` skips service startup and the fix prompt. `ralph prompt --no-services` skips both as well. Before commands still run. The remote workflow passes the same choice into the container.
-
-## Related
-
-* [Run Design](run.md)
-* [Prompt Design](prompt.md)
-* [Config Design](app/ralph-config.md)
-* [Remote Mode Design](remote.md)

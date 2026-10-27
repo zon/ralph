@@ -36,8 +36,3 @@ A credential flag with no targeted namespace fails, because there is nowhere to 
 ### OpenCode Credentials
 
 Ralph always writes the local OpenCode credentials to the `opencode-credentials` Secret, as `auth.json`. `workflow.opencodeSecret` chooses the Secret a workflow mounts. When it names another Secret, the output says so, and the local credentials still go to `opencode-credentials`.
-
-## Related
-
-* [Remote Mode Design](remote.md)
-* [Config Design](app/ralph-config.md)

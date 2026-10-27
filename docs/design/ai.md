@@ -47,11 +47,3 @@ Ralph classifies an agent failure as fatal or non-fatal. Billing and quota error
 A direct prompt is one pass, so an agent failure fails the command. It has no next iteration. The prompt slug runs first, and a failed slug fails the command before the prompt starts. A service failure or base conflict can run the matching fix prompt before the direct prompt. When the pass leaves commits, the PR summary prompt runs before the pull request.
 
 Inside a workflow container, Ralph prints accumulated token usage and cost when the run ends.
-
-## Related
-
-* [Run Design](run.md)
-* [Loop Design](loop.md)
-* [Prompt Design](prompt.md)
-* [Config Design](app/ralph-config.md)
-* [Remote Mode Design](remote.md)

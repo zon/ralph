@@ -50,9 +50,3 @@ The picker writes it to `picked-item.txt`. A reference names the item without as
 `ralph incomplete <project>` resolves the items, removes the complete ones, and prints the rest as a JSON array in array order.
 
 Both commands are read-only. They do not invoke an agent, write a file, or switch a branch.
-
-## Related
-
-* [Project Design](project.md)
-* [Run Design](run.md)
-* [Loop Design](loop.md)

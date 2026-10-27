@@ -27,10 +27,3 @@ The namespace resolves from highest to lowest:
 `ralph run` and `ralph loop` reach the cluster only in `remote` mode. Local and worktree modes run without one. `complete`, `incomplete`, and `validate` have no cluster options, because they never reach a cluster.
 
 `ralph setup` reaches the cluster only when it prepares a namespace.
-
-## Related
-
-* [Remote Mode Design](remote.md)
-* [Argo Design](argo.md)
-* [Setup Design](setup.md)
-* [Config Design](app/ralph-config.md)

@@ -82,17 +82,3 @@ Remote mode follows logs by default and waits for the workflow to finish. `--no-
 * A prompt does not continue a conversation. Each invocation is a fresh OpenCode session.
 * A prompt does not manage project items, completion, report contracts, or completion trailers.
 * A prompt does not choose the commit message or commit the working tree. The prompt owns its commits.
-
-## Related
-
-* [Run Design](run.md)
-* [Loop Design](loop.md)
-* [AI Design](ai.md)
-* [Local Mode Design](local.md)
-* [Worktree Mode Design](worktree.md)
-* [Remote Mode Design](remote.md)
-* [Workflow Container Design](workflow.md)
-* [Services Design](services.md)
-* [Base Branch Synchronization Design](base-branch-sync.md)
-* [Config Design](app/ralph-config.md)
-* [CLI Design](app/ralph.md)

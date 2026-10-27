@@ -29,9 +29,3 @@ When all checks pass, Ralph rewrites the file in canonical YAML. The rewrite pre
 ## Output
 
 On success, Ralph prints the validated path and the item count, and exits 0. On failure, it exits non-zero with the parse or query error.
-
-## Related
-
-* [Project Design](project.md)
-* [Config Design](app/ralph-config.md)
-* [Run Design](run.md)

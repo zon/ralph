@@ -36,11 +36,3 @@ The base branch is the branch the loop branch was created from. Ralph synchroniz
 When the loop ends with at least one commit on `loop-<slug>`, Ralph generates a pull request description from the commit log and opens a pull request to the starting branch. When no commit was made, it opens no pull request and exits successfully.
 
 After opening the pull request, a local loop checks the starting branch back out. A worktree loop leaves the starting checkout untouched.
-
-## Related
-
-* [Run Design](run.md)
-* [Base Branch Synchronization Design](base-branch-sync.md)
-* [Iteration Recovery Design](iteration-recovery.md)
-* [Remote Mode Design](remote.md)
-* [Config Design](app/ralph-config.md)

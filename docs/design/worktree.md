@@ -23,11 +23,3 @@ The run uses the [local mode](local.md) body. It resolves the project file copy 
 ## Removal
 
 The command removes the worktree when the run ends, whether it succeeds, fails, or finds nothing to do. The starting checkout keeps its branch and working tree.
-
-## Related
-
-* [Run Design](run.md)
-* [Loop Design](loop.md)
-* [Prompt Design](prompt.md)
-* [Local Mode Design](local.md)
-* [Base Branch Synchronization Design](base-branch-sync.md)

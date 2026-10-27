@@ -21,12 +21,3 @@ Each iteration runs in the checkout. [Services](services.md) start before the pi
 After the loop, the run synchronizes the base branch, removes the project file when cleanup is on, opens the pull request, and restores the starting branch. Restoring happens only when a pull request opens and the run started on another branch.
 
 A local run resumes from the branch. Completion is read from the commit log at every iteration, so a run stopped after some items restarts with the remaining items.
-
-## Related
-
-* [Run Design](run.md)
-* [Loop Design](loop.md)
-* [Prompt Design](prompt.md)
-* [Workflow Container Design](workflow.md)
-* [Services Design](services.md)
-* [Base Branch Synchronization Design](base-branch-sync.md)

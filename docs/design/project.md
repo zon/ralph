@@ -44,11 +44,3 @@ The only write Ralph makes to a project file is the cleanup deletion after every
 ## Validation
 
 `ralph validate` checks that the file parses, that the query evaluates, and that at least one non-empty item survives. It makes no schema check. See [Validate Design](validate.md).
-
-## Related
-
-* [Completion Design](completion.md)
-* [Run Design](run.md)
-* [Loop Design](loop.md)
-* [Validate Design](validate.md)
-* [Config Design](app/ralph-config.md)

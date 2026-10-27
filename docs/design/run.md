@@ -42,14 +42,3 @@ Every mode runs the same iteration body. The mode decides where it runs and how 
 A run synchronizes the [base branch](base-branch-sync.md) again before the pull request. It deletes the project file in its own commit when cleanup is on, then generates a summary from the commit log and opens a pull request. No pull request opens when items remain incomplete or the branch has no commits ahead of the base branch.
 
 The pull request title is the first H1 in the generated summary, falling back to the project title and then the slug. See [Project Design](project.md).
-
-## Related
-
-* [Project Design](project.md)
-* [Completion Design](completion.md)
-* [AI Design](ai.md)
-* [Local Mode Design](local.md)
-* [Worktree Mode Design](worktree.md)
-* [Remote Mode Design](remote.md)
-* [Loop Design](loop.md)
-* [Base Branch Synchronization Design](base-branch-sync.md)

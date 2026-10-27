@@ -37,10 +37,3 @@ A deployment supplies credentials as Kubernetes Secrets, not in the image:
 * `opencode-credentials` holds `auth.json`.
 
 `ralph setup` writes both. The workflow mounts them at `/secrets/github` and `/secrets/opencode`. See [Setup Design](setup.md) and [Workflow Container Design](workflow.md).
-
-## Related
-
-* [Workflow Container Design](workflow.md)
-* [Remote Mode Design](remote.md)
-* [Setup Design](setup.md)
-* [Config Design](app/ralph-config.md)

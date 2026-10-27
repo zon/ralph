@@ -70,11 +70,3 @@ The `workflow` section describes remote execution. It names the container image,
 `.ralph/instructions.md` replaces the development steps in the prompt. The rest of the prompt still carries the selected item, the project file path, git history, and the report contract. The completion trailer instruction sits outside the steps, so custom instructions cannot drop it. See [Run Design](../run.md).
 
 A [direct prompt](../prompt.md) is verbatim, so custom instructions do not apply.
-
-## Related
-
-* [CLI Design](ralph.md)
-* [Project Design](../project.md)
-* [Services Design](../services.md)
-* [Remote Mode Design](../remote.md)
-* [Setup Design](../setup.md)

@@ -40,11 +40,3 @@ Configures git and GitHub authentication and nothing else. It resolves the repos
 ## Debug
 
 `--debug <branch>` checks out that branch of the Ralph repository into `/workspace/ralph` and writes a wrapper that runs Ralph with `go run`. Every later Ralph invocation in the container uses the wrapper instead of the installed binary.
-
-## Related
-
-* [Remote Mode Design](remote.md)
-* [Prompt Design](prompt.md)
-* [Deployment Design](deployment.md)
-* [Setup Design](setup.md)
-* [AI Design](ai.md)
