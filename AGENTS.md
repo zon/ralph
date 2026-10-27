@@ -49,6 +49,7 @@ High level design docs.
 * [Workflow Container](docs/design/workflow.md) - The container workspace and workflow subcommands
 * [AI](docs/design/ai.md) - Prompts, model and agent selection, and agent reports
 * [Loop](docs/design/loop.md) - The step loop behind `ralph loop`
+* [Prompt](docs/design/prompt.md) - One OpenCode pass on a prompt branch with services and an optional pull request
 * [Base Branch Sync](docs/design/base-branch-sync.md) - How runs and loops merge their base branch
 * [Iteration Recovery](docs/design/iteration-recovery.md) - How a failed iteration is carried forward
 * [Kubernetes](docs/design/kube.md) - Context and namespace targeting

@@ -1,12 +1,12 @@
 # Remote Mode Design
 
-Remote mode submits an Argo Workflow and returns after submission. The workflow runs the same loop as local mode inside the Ralph container. See [Workflow Container Design](workflow.md).
+Remote mode submits an Argo Workflow and returns after submission. The workflow runs the same body as local mode inside the Ralph container. See [Workflow Container Design](workflow.md).
 
 ## Submission
 
-Before submission, the command confirms that the current branch exists on the remote at the same commit. The workflow clones that branch, so a run never builds on commits the remote cannot see.
+Before submission, the command confirms that the current branch exists on the remote at the same commit. The workflow clones that branch, so a workflow never builds on commits the remote cannot see.
 
-The command generates a workflow from the resolved run inputs:
+A run generates a workflow from the resolved inputs:
 
 * the repository and clone branch
 * the project path and project branch
@@ -31,9 +31,14 @@ Without `--follow`, the command prints the workflow name and an `argo logs` hint
 
 `ralph command -- <tokens>` uses the same submission path without an AI iteration or a pull request. It checks branch sync, submits the workflow, streams logs by default, and waits for the workflow to finish. `--no-follow` submits without streaming. See [Workflow Container Design](workflow.md).
 
+## Prompt
+
+`ralph prompt` uses the same submission path for one OpenCode pass. It proposes the prompt branch, resolves the base branch, checks branch sync, and submits a `ralph-prompt-` workflow. The container checks out the prompt branch, synchronizes the base branch, and runs the configured before commands and services around the pass. When the pass leaves commits, the container synchronizes the base branch again, pushes the branch, and opens the pull request. Logs follow by default, and `--no-follow` submits without streaming. See [Prompt Design](prompt.md).
+
 ## Related
 
 * [Run Design](run.md)
+* [Prompt Design](prompt.md)
 * [Workflow Container Design](workflow.md)
 * [Argo Design](argo.md)
 * [Kubernetes Design](kube.md)

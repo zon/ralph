@@ -1,6 +1,10 @@
 # Worktree Mode Design
 
-Worktree mode runs a [run](run.md) or [loop](loop.md) in a Git worktree beside the current checkout. The user's checkout and working tree stay untouched.
+Worktree mode runs a [run](run.md), [loop](loop.md), or [prompt](prompt.md) in a Git worktree beside the current checkout. The user's checkout and working tree stay untouched.
+
+## Prompt
+
+A worktree prompt creates the worktree on the prompt branch, runs the before commands, synchronizes the base branch, starts the services, and runs one OpenCode pass. When the pass leaves commits, Ralph synchronizes the base branch again, pushes the branch, and opens the pull request. The worktree is removed when the command ends, and the prompt branch remains. See [Prompt Design](prompt.md).
 
 ## Creation
 
@@ -24,5 +28,6 @@ The command removes the worktree when the run ends, whether it succeeds, fails, 
 
 * [Run Design](run.md)
 * [Loop Design](loop.md)
+* [Prompt Design](prompt.md)
 * [Local Mode Design](local.md)
 * [Base Branch Synchronization Design](base-branch-sync.md)

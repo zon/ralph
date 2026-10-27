@@ -1,6 +1,10 @@
 # Local Mode Design
 
-Local mode runs a [run](run.md) or [loop](loop.md) in the current checkout. It is the default mode, and it is the mode a [workflow container](workflow.md) uses.
+Local mode runs a [run](run.md), [loop](loop.md), or [prompt](prompt.md) in the current checkout. It is the default mode, and it is the mode a [workflow container](workflow.md) uses.
+
+## Prompt
+
+A local prompt runs the before commands, checks out the prompt branch, synchronizes the base branch, starts the services, and runs one OpenCode pass. When the pass leaves commits, Ralph synchronizes the base branch again, pushes the branch, opens the pull request, and restores the starting branch. When it leaves no commits, the command succeeds without a push or pull request and the prompt branch stays checked out. See [Prompt Design](prompt.md).
 
 ## Setup
 
@@ -22,6 +26,7 @@ A local run resumes from the branch. Completion is read from the commit log at e
 
 * [Run Design](run.md)
 * [Loop Design](loop.md)
+* [Prompt Design](prompt.md)
 * [Workflow Container Design](workflow.md)
 * [Services Design](services.md)
 * [Base Branch Synchronization Design](base-branch-sync.md)

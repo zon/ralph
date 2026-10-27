@@ -1,6 +1,6 @@
 # Workflow Container Design
 
-A remote run executes `ralph workflow <subcommand>` inside the Ralph container. The `run`, `loop`, and `command` subcommands prepare the same workspace first. The `token` subcommand configures authentication alone.
+A remote workflow executes `ralph workflow <subcommand>` inside the Ralph container. The `run`, `loop`, `prompt`, and `command` subcommands prepare the same workspace first. The `token` subcommand configures authentication alone.
 
 ## Workspace
 
@@ -25,6 +25,10 @@ Runs one project. It validates the project path, the config, and the item query,
 
 Runs one loop. It receives the slug, steps, and iteration cap from the workflow and runs the same loop body as a local loop.
 
+### `ralph workflow prompt`
+
+Runs one OpenCode prompt. It receives the branch, base, prompt, model, variant, agent, and service choice from the workflow and validates the prompt before workspace setup. It prepares the workspace, runs the before commands, checks out the prompt branch, synchronizes the base branch, starts the services, then runs the pass in the cloned repository. When the pass leaves commits, it synchronizes the base branch again, pushes the branch, and opens the pull request. See [Prompt Design](prompt.md).
+
 ### `ralph workflow command`
 
 Runs the supplied command tokens in the cloned repository. It backs `ralph command`. A missing command fails before any work runs.
@@ -40,6 +44,7 @@ Configures git and GitHub authentication and nothing else. It resolves the repos
 ## Related
 
 * [Remote Mode Design](remote.md)
+* [Prompt Design](prompt.md)
 * [Deployment Design](deployment.md)
 * [Setup Design](setup.md)
 * [AI Design](ai.md)

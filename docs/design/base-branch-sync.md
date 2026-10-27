@@ -1,15 +1,19 @@
 # Base Branch Synchronization Design
 
-`ralph run` and `ralph loop` keep their working branch current with its base branch. The behavior is shared so a run and a loop merge the same way in every execution mode.
+`ralph run`, `ralph loop`, and `ralph prompt` keep their working branch current with its base branch. The behavior is shared so all three merge the same way in every execution mode.
+
+All three synchronize before their first work and again before the pull request. See [Prompt Design](prompt.md).
 
 ## Synchronization Points
 
-Ralph synchronizes the working branch twice:
+The synchronization points are the same for all three:
 
-* Before the first iteration, so the work starts from the base branch's latest commits.
+* Before the first iteration or pass, so the work starts from the base branch's latest commits.
 * Immediately before the pull request, so the pull request contains those commits.
 
-The base branch is resolved by the calling command. A run resolves it from `--base`, the current branch, or the config. A loop uses the branch its loop branch was created from. Synchronization never recomputes it.
+A prompt that leaves no commits opens no pull request and therefore has no second point.
+
+The base branch is resolved by the calling command. A run and a prompt resolve it from `--base`, the current branch, or the config. A loop uses the branch its loop branch was created from. Synchronization never recomputes it.
 
 Synchronization runs in every mode. In `local` mode it runs in the current checkout, in `worktree` mode inside the worktree, and in `remote` mode inside the workflow container.
 
@@ -17,7 +21,7 @@ Synchronization runs in every mode. In `local` mode it runs in the current check
 
 Ralph fetches the base branch and merges it only when the base branch is not already contained in the working branch. An up-to-date branch is left alone.
 
-When the fetch fails, Ralph logs a warning and continues without merging, so a network problem does not end a run.
+When the fetch fails, Ralph logs a warning and continues without merging, so a network problem does not end a run, loop, or prompt.
 
 After the pre-pull-request merge, Ralph pushes the merge so the pull request sees it.
 
@@ -31,4 +35,5 @@ If the agent fails, the command returns an error and, before a pull request, ope
 
 * [Run Design](run.md)
 * [Loop Design](loop.md)
+* [Prompt Design](prompt.md)
 * [Remote Mode Design](remote.md)
