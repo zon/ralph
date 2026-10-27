@@ -346,11 +346,25 @@ func (c *PromptCmd) runRemote(prompt string) error {
 		return nil
 	}
 	if err := c.remoteClient().FollowLogs(workflowName); err != nil {
-		c.notifyClient().Error(c.resolved.Slug)
+		c.notifyCompletion(false, c.resolved.Slug)
 		return err
 	}
-	c.notifyClient().Success(c.resolved.Slug)
+	c.notifyCompletion(true, c.resolved.Slug)
 	return nil
+}
+
+// notifyCompletion sends a completion notification for a followed remote
+// prompt unless --no-notify is set. The guard stays in the command so a wired
+// notification client cannot bypass the flag.
+func (c *PromptCmd) notifyCompletion(success bool, slug string) {
+	if c.NoNotify {
+		return
+	}
+	if success {
+		c.notifyClient().Success(slug)
+		return
+	}
+	c.notifyClient().Error(slug)
 }
 
 // runBeforeCommands runs the configured before commands once. A required

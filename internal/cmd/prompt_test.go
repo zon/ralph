@@ -1899,12 +1899,14 @@ func TestPromptCmdRemoteReadsPromptLocally(t *testing.T) {
 	}
 }
 
-// TestPromptCmdRemoteFollow covers the default follow and the no-follow hint,
-// including the completion notification.
+// TestPromptCmdRemoteFollow covers the default follow, the no-follow hint and
+// zero exit, completion notifications, notification suppression, and the
+// followed failure exit.
 func TestPromptCmdRemoteFollow(t *testing.T) {
 	tests := []struct {
 		name         string
 		noFollow     bool
+		noNotify     bool
 		followErr    error
 		wantHint     bool
 		wantFollow   bool
@@ -1918,7 +1920,7 @@ func TestPromptCmdRemoteFollow(t *testing.T) {
 			wantSuccess: []string{"my-feature"},
 		},
 		{
-			name:       "no-follow prints the log hint",
+			name:       "no-follow prints the log hint and exits zero",
 			noFollow:   true,
 			wantHint:   true,
 			wantFollow: false,
@@ -1928,6 +1930,20 @@ func TestPromptCmdRemoteFollow(t *testing.T) {
 			followErr:    errors.New("workflow failed"),
 			wantFollow:   true,
 			wantErrors:   []string{"my-feature"},
+			wantRunError: true,
+		},
+		{
+			name:        "no-notify suppresses a followed success",
+			noNotify:    true,
+			wantFollow:  true,
+			wantSuccess: nil,
+		},
+		{
+			name:         "no-notify suppresses a followed failure",
+			noNotify:     true,
+			followErr:    errors.New("workflow failed"),
+			wantFollow:   true,
+			wantErrors:   nil,
 			wantRunError: true,
 		},
 	}
@@ -1940,6 +1956,7 @@ func TestPromptCmdRemoteFollow(t *testing.T) {
 				Prompt:       []string{"do work"},
 				Mode:         config.ModeRemote,
 				NoFollow:     tt.noFollow,
+				NoNotify:     tt.noNotify,
 				config:       &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
 				slugProposer: promptSlugProposerFunc(func(string) (string, error) { return "my-feature", nil }),
 				remote:       remote,
@@ -1950,12 +1967,16 @@ func TestPromptCmdRemoteFollow(t *testing.T) {
 
 			err := cmd.Run()
 			if tt.wantRunError {
-				require.ErrorIs(t, err, tt.followErr)
+				require.ErrorIs(t, err, tt.followErr, "a followed failure exits non-zero")
 			} else {
-				require.NoError(t, err)
+				require.NoError(t, err, "an accepted submission exits zero")
 			}
+			assert.Equal(t, 1, remote.submitCalls, "exactly one workflow is submitted")
 			assert.Equal(t, tt.wantHint, remote.hintCalls > 0)
 			assert.Equal(t, tt.wantFollow, remote.followLogsCnt > 0)
+			if tt.wantHint {
+				assert.Equal(t, []string{"ralph-prompt-abcde"}, remote.hints)
+			}
 			assert.Equal(t, tt.wantSuccess, notifier.successes)
 			assert.Equal(t, tt.wantErrors, notifier.errors)
 		})

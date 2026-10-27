@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -144,4 +145,59 @@ func TestPromptWorkflowClientPrintsHintAndFollows(t *testing.T) {
 	assert.Equal(t, "config-context", logsCtx.Name)
 	assert.Equal(t, "config-namespace", logsCtx.Namespace)
 	assert.True(t, follow)
+	assert.Contains(t, out.String(), "ralph-prompt-abcde", "the submitted workflow name is printed")
+}
+
+// TestPromptWorkflowClientFollowLeavesWorkflowRunning covers the detached
+// workflow: a normal follow and an interrupted follow both leave the submitted
+// workflow running instead of stopping it.
+func TestPromptWorkflowClientFollowLeavesWorkflowRunning(t *testing.T) {
+	tests := []struct {
+		name      string
+		followErr error
+	}{
+		{name: "completed follow", followErr: nil},
+		{name: "interrupted follow", followErr: errors.New("signal: interrupt")},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			require.NoError(t, os.MkdirAll(filepath.Join(dir, ".ralph"), 0755))
+			require.NoError(t, os.WriteFile(filepath.Join(dir, ".ralph", "config.yaml"), []byte("workflow:\n  context: config-context\n  namespace: config-namespace\n"), 0644))
+			t.Chdir(dir)
+
+			stopped := false
+			argoClient := &argo.MockClient{
+				SubmitYAMLFunc: func(context.Context, string, argo.K8sContext) (string, error) {
+					return "ralph-prompt-abcde", nil
+				},
+				LogsFunc: func(argo.K8sContext, string, bool) error {
+					return tt.followErr
+				},
+				StopWorkflowFunc: func(argo.K8sContext, string) error {
+					stopped = true
+					return nil
+				},
+			}
+
+			var out strings.Builder
+			ctx := execcontext.NewContext()
+			ctx.SetOutput(output.NewClient(&out, &out, false))
+			ctx.SetRepoOwner("owner")
+			ctx.SetRepoName("repo")
+
+			client := &promptWorkflowClient{ctx: ctx, argoClient: argoClient}
+			name, err := client.Submit(promptRemoteSubmission{CloneBranch: "main", PromptBranch: "my-feature", BaseBranch: "main", Prompt: "do work"})
+			require.NoError(t, err)
+
+			err = client.FollowLogs(name)
+			if tt.followErr != nil {
+				require.ErrorIs(t, err, tt.followErr)
+			} else {
+				require.NoError(t, err)
+			}
+			assert.False(t, stopped, "following logs must not stop the workflow")
+		})
+	}
 }
