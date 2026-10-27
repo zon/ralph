@@ -31,7 +31,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # Upgrade npm so its bundled dependencies carry no known vulnerabilities
-ENV NPM_VERSION=12.2.0
+ENV NPM_VERSION=12.2.1
 RUN npm install -g npm@${NPM_VERSION}
 
 # Install GitHub CLI
