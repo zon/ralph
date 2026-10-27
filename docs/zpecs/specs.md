@@ -87,7 +87,7 @@ Avoid in specs:
 
 ## Shared Contracts
 
-When two specs rely on the same contract, define it in one place and link from the others. Link to the spec that owns the contract rather than restating it.
+When two specs rely on the same contract, define it in one place and link from the others. Link to the spec that owns the contract rather than restating it. Write the link as a markdown link, not a path in plain text.
 
 ## Keep It Light
 

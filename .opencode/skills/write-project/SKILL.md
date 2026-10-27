@@ -1,6 +1,6 @@
 ---
 name: write-project
-description: Creates and validates a project file listing the requirements a coding agent works through, one per iteration.
+description: Creates and validates a project file listing the requirements a coding agent works through, one per iteration. Use when the user wants to plan work for the agent or create or update a project file.
 ---
 
 # Write Project

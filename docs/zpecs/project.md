@@ -4,7 +4,7 @@ A project is a YAML or JSON file holding a list of requirements. Each entry is o
 
 ## File Location
 
-Project files live at `./projects/<slug>.yaml`, under the repo root. The base name is the slug, which a runner conventionally uses as the branch name.
+Project files live at `./projects/<slug>.yaml`, under the repo root. The base name is the slug, which a runner conventionally uses as the branch name. Prefix the slug with a number only when several projects are created together, to order them. A project created on its own uses its slug alone.
 
 ## Shape
 

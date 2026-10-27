@@ -15,7 +15,7 @@ Write the architecture document at **`specs/architecture.yaml`**, recording the 
 
 3. **Clarify the scope.** If the user's request is vague, ask clarifying questions before proceeding.
 
-4. **Survey the codebase.** Find the components the application is built from, as the [Architecture Format](docs/zpecs/architecture-outline.md) defines. For each candidate component, confirm its path, responsibilities, and whether it is an orchestration module.
+4. **Survey the codebase.** Find the components the application is built from, as the [Architecture Format](docs/zpecs/architecture-outline.md) defines. For each candidate component, confirm its path, responsibilities.
 
 5. **Draft the architecture** following the format in step 1.
 

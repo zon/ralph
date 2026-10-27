@@ -14,7 +14,6 @@ Keep the component set as small as it can be. Each component should earn its pla
 
 Create a new component only for one of these reasons:
 
-- **Separate orchestration from implementation.** Create one component for coordination and one for the low-level work it delegates. See [Orchestration Pattern](orchestration.md).
 - **Separate major concerns.** Give each major concern its own [deep module](glossary.md#deep-module): a simple interface over a complex implementation.
 - **Share common logic.** Move logic that several major concerns use into a shared component.
 
@@ -26,16 +25,7 @@ Look for a component whose only caller is one other component. When two componen
 
 ## Component Types
 
-`specs/architecture.yaml` sets each component's type: [implementation module](glossary.md#implementation-module) by default, [orchestration module](glossary.md#orchestration-module) when it sets `orchestration: true`. A component with no code is neither.
-
-Coordination logic belongs in an [orchestration module](glossary.md#orchestration-module), low-level work in an [implementation module](glossary.md#implementation-module). See [Orchestration Pattern](orchestration.md).
-
-### Orchestration Modules
-
-- A small app typically has one.
-- Do not add code to an orchestration module unless its orchestration calls it.
-- If an orchestration module is accumulating logic that is not pure coordination, move that logic into an implementation module.
-- Split a growing orchestration module along deep concern boundaries.
+`specs/architecture.yaml` sets each component's type: [implementation module](glossary.md#implementation-module) by default. A component with no code is neither.
 
 ### Implementation Modules
 
@@ -47,4 +37,4 @@ Coordination logic belongs in an [orchestration module](glossary.md#orchestratio
 
 ## Related
 
-- [Glossary](glossary.md) — definitions of deep, pure, orchestration, and implementation modules
+- [Glossary](glossary.md) — definitions of deep, pure, and implementation modules
