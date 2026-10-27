@@ -362,8 +362,8 @@ const maxDeliverableAttempts = 3
 // runOpenCodeAndReadValidated runs opencode with the given prompt and returns
 // the trimmed content of the output file the agent must write, provided the
 // validate function accepts it. When opencode finishes without a usable
-// deliverable — an output file that is missing or empty, or content that the
-// validate function rejects — the same prompt is re-run until
+// deliverable (an output file that is missing or empty, or content that the
+// validate function rejects), the same prompt is re-run until
 // maxDeliverableAttempts attempts have been made. When every attempt is
 // unusable the returned error names the attempt limit. An opencode execution
 // failure is returned immediately and is never retried. A nil validate
@@ -395,8 +395,8 @@ func runOpenCodeAndReadValidated(ctx *execcontext.Context, oc opencode.OCClient,
 
 // runOpenCodeAndReadDeliverable runs opencode with the given prompt and returns
 // the trimmed content of the output file the agent must write. When opencode
-// finishes without a usable deliverable — an output file that is missing or
-// empty — the same prompt is re-run until maxDeliverableAttempts attempts have
+// finishes without a usable deliverable (an output file that is missing or
+// empty), the same prompt is re-run until maxDeliverableAttempts attempts have
 // been made. When every attempt is unusable the returned error names the
 // attempt limit. An opencode execution failure is returned immediately and is
 // never retried.

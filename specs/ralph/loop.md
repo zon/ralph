@@ -5,9 +5,9 @@
 The `loop` command runs a bounded AI iteration loop over a list of steps. Given a slug, Ralph looks up the matching loop config in the `loops:` section of `.ralph/config.yaml`, embeds that config's `steps` in a prompt, and runs the prompt until the agent reports nothing left to do or the iteration cap is reached. The cap comes from `--max`, else the loop config's `max` field, else 20. Before iterating, Ralph switches to the `loop-<slug>` branch, creating it from the current branch when it does not exist, so the agent works on the loop branch's own state. Every iteration that does real work is committed and pushed to `loop-<slug>`. When the loop ends with commits on that branch, Ralph opens a pull request. Steps can also be supplied directly with `--step` flags, which replace the config's `steps`. When steps are supplied without a slug, Ralph asks the AI to read the steps and propose a slug. Execution runs in one of three modes selected with `--mode`: `local` (default), which runs the loop in-process on the local machine, `worktree`, which runs it in-process in a local Git worktree, or `remote`, which submits an Argo Workflow to Kubernetes.
 
 Mode-specific behaviors are defined in:
-- [run-local.md](run-local.md) — `local` mode: runs the loop in-process in the current checkout
-- [run-worktree.md](run-worktree.md) — `worktree` mode: runs the loop in-process in a local Git worktree
-- [run-remote.md](run-remote.md) — `remote` mode: submits an Argo Workflow to Kubernetes, with the same remote defaults and config as `ralph run`
+- [run-local.md](run-local.md) - `local` mode: runs the loop in-process in the current checkout
+- [run-worktree.md](run-worktree.md) - `worktree` mode: runs the loop in-process in a local Git worktree
+- [run-remote.md](run-remote.md) - `remote` mode: submits an Argo Workflow to Kubernetes, with the same remote defaults and config as `ralph run`
 
 ## Requirements
 

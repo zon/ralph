@@ -20,7 +20,7 @@ The namespace resolves from highest to lowest:
 2. `workflow.namespace` in the config
 3. The default namespace of the resolved context
 
-`setup` is the exception. It prepares a namespace only when the flag or config names one, and never falls back to the context default. With no namespace, it skips preparation. See [Setup Design](setup.md).
+`setup` is the exception. It prepares a namespace only when the flag or config names one, and skips preparation otherwise. See [Setup Design](setup.md).
 
 ## When a Cluster Is Needed
 

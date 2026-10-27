@@ -42,7 +42,7 @@ Address its cause before continuing.
 
 ## Definitions
 
-**Item** — one element of the project's resolved item array. An optional key (the scalar `slug`, `id`, or `name` field of its value) labels it. Each item is shown with a `ref:` line, its completion hash. The reference identifies the item without requiring its text to be repeated, so quoting and escaping cannot change which item it names.
+**Item** - one element of the project's resolved item array. An optional key (the scalar `slug`, `id`, or `name` field of its value) labels it. Each item is shown with a `ref:` line, its completion hash. The reference identifies the item without requiring its text to be repeated, so quoting and escaping cannot change which item it names.
 
 ## Instructions
 

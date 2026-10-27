@@ -4,12 +4,12 @@
 
 ## Non-Fatal Failures
 
-A non-fatal failure is recorded and the loop continues. The next iteration's prompts include the error as the failure of the previous attempt, so the agent can address its cause. The picker and the development prompt both carry it.
+Ralph records a non-fatal failure and continues the loop. The next iteration's prompts include the error as the failure of the previous attempt, so the agent can address its cause. The picker and the development prompt both carry it.
 
-A successful iteration clears the recorded error. Only the most recent failure is carried, so consecutive failures do not accumulate a history.
+A successful iteration clears the recorded error. Ralph carries only the most recent failure, so consecutive failures do not accumulate a history.
 
-A failed iteration is not committed. It still consumes one iteration from the cap, so retrying a failure never runs past the limit.
+Ralph does not commit a failed iteration. It still consumes one iteration from the cap, so retrying a failure never runs past the limit.
 
 ## Fatal Failures
 
-A fatal failure stops the loop immediately and is returned as an error. Billing and quota errors are fatal. No further prompt is built or run.
+A fatal failure stops the loop immediately, and Ralph returns an error. Billing and quota errors are fatal. Ralph builds and runs no further prompt.

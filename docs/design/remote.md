@@ -15,9 +15,9 @@ A run generates a workflow from the resolved inputs:
 * the services setting
 * the configured image, mounts, environment, labels, and resources
 
-The base branch and item query are resolved locally and delivered as arguments. The container does not resolve them again. A config change after submission therefore cannot change a running workflow's items.
+The base branch and item query are resolved locally and passed as arguments, so a config change after submission cannot change a running workflow's items.
 
-The workflow carries the label `app.kubernetes.io/managed-by=ralph`, so [Argo commands](argo.md) can find it. A mutex keeps two workflows for one project branch from running at once. A TTL and pod garbage collection clean the workflow up after it completes. It targets the resolved Kubernetes context and namespace. See [Kubernetes Design](kube.md).
+The workflow carries the label `app.kubernetes.io/managed-by=ralph`, so [Argo commands](argo.md) can find it. A lock keeps two workflows for one project branch from running at once. A TTL and pod garbage collection clean the workflow up after it completes. It targets the resolved Kubernetes context and namespace. See [Kubernetes Design](kube.md).
 
 The workflow runs the image named by `workflow.image`, which defaults to the Ralph image at the running version. See [Config Design](app/ralph-config.md) and [Deployment Design](deployment.md).
 
@@ -33,4 +33,4 @@ Without `--follow`, the command prints the workflow name and an `argo logs` hint
 
 ## Prompt
 
-`ralph prompt` uses the same submission path for one OpenCode pass. It proposes the prompt branch, resolves the base branch, checks branch sync, and submits a `ralph-prompt-` workflow. The container checks out the prompt branch, synchronizes the base branch, and runs the configured before commands and services around the pass. When the pass leaves commits, the container synchronizes the base branch again, pushes the branch, and opens the pull request. Logs follow by default, and `--no-follow` submits without streaming. See [Prompt Design](prompt.md).
+`ralph prompt` uses the same submission path for one OpenCode pass. It proposes the prompt branch, resolves the base branch, checks branch sync, and submits a `ralph-prompt-` workflow. The container runs the [Prompt Design](prompt.md) flow. Logs follow by default, and `--no-follow` submits without streaming.

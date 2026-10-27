@@ -335,7 +335,7 @@ func TestBuildItemDevelopPrompt(t *testing.T) {
 
 	t.Run("uses the repository's own instructions when supplied", func(t *testing.T) {
 		data := keyed
-		data.Instructions = "1. **Ship** — do it the house way."
+		data.Instructions = "1. **Ship** - do it the house way."
 		prompt, err := BuildItemDevelopPrompt(data)
 		require.NoError(t, err)
 		assert.Contains(t, prompt, "do it the house way")

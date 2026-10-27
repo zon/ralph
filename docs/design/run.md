@@ -1,6 +1,6 @@
 # Run Design
 
-A run drives an AI coding agent through the items of a [project file](project.md) until every item is complete, then opens a pull request. It is Ralph's default command. Progress lives in the branch's [completion trailers](completion.md), not in the project file.
+A run drives an AI coding agent through the items of a [project file](project.md) until every item is complete, then opens a pull request. It is Ralph's default command. Progress lives in the branch's [completion trailers](completion.md).
 
 ## Inputs
 
@@ -21,11 +21,11 @@ Each iteration works on one item:
 5. Commit the changes with the agent's report as the message.
 6. Stop the services.
 
-The development agent ends the report with the item's completion trailer when the item is finished. Any report produces a commit, even when no code changed. A report that ends with a trailer marks the item complete. A report without one leaves the item incomplete, even when it committed code. The report file is never committed. Without a report, a changelog prompt supplies the commit message and completes nothing.
+Any report produces a commit, even when no code changed. A report that ends with the item's completion trailer marks the item complete. Without that trailer the item stays incomplete, even when the commit changed code. Ralph never commits the report file. Without a report, a changelog prompt supplies the commit message and completes nothing. See [AI Design](ai.md).
 
-A non-fatal agent failure leaves the loop running and passes the failure to the next iteration. A fatal failure stops the run. See [Iteration Recovery Design](iteration-recovery.md).
+An agent failure follows [Iteration Recovery Design](iteration-recovery.md).
 
-The loop stops when no item is incomplete, when it reaches the iteration limit, or when the agent leaves `blocked.md`. An iteration that leaves `blocked.md` is committed, then the run returns an error. A run that finds `blocked.md` at the start of an iteration stops without invoking the agent. The limit is the item count plus the extra iterations. The extra count defaults to 30% of the item count, rounded up.
+The loop stops when no item is incomplete, when it reaches the iteration limit, or when the agent leaves `blocked.md`. Ralph commits an iteration that leaves `blocked.md`, then returns an error. A run that finds `blocked.md` at the start of an iteration stops without invoking the agent. The limit is the item count plus the extra iterations. The extra count defaults to 30% of the item count, rounded up.
 
 ## Execution Modes
 

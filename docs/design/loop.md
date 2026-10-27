@@ -1,6 +1,6 @@
 # Loop Design
 
-`ralph loop` runs a bounded AI iteration loop over a list of steps. It is the sibling of `ralph run`, which iterates over project items instead of steps.
+`ralph loop` runs a bounded AI iteration loop over a list of steps. It is the companion of `ralph run`, which iterates over project items.
 
 ## Invocation
 
@@ -29,7 +29,7 @@ The base branch is the branch the loop branch was created from. Ralph synchroniz
 
 `--mode` resolves and behaves as it does for `ralph run`: `local`, `worktree`, or `remote`. See [Run Design](run.md) and [Remote Mode Design](remote.md).
 
-`--follow` applies only to `remote` mode. Ralph warns and ignores it otherwise. The loop body is the same in every mode.
+`--follow` follows logs in `remote` mode. Ralph warns and ignores it in the other modes. The loop body is the same in every mode.
 
 ## Finishing
 

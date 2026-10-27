@@ -24,11 +24,11 @@ Both are configured in `.ralph/config.yaml`. See [Config Design](app/ralph-confi
 
 ## Startup Failure
 
-When a service fails to start or does not become healthy, a run invokes the development agent with a prompt to diagnose and fix the startup failure. The prompt receives the service and its error. The iteration then continues, and the development prompt can read the service logs.
+When a service fails to start or does not become healthy, a run asks the development agent to diagnose and fix the startup failure. The prompt receives the service and its error. The iteration then continues, and the development prompt can read the service logs.
 
 If the fix prompt fails, the iteration fails. A non-fatal failure follows [Iteration Recovery Design](iteration-recovery.md).
 
-A prompt invokes the same fix prompt. If the fix prompt succeeds, the pass continues without services. If it fails, the command fails. See [Prompt Design](prompt.md).
+A prompt runs the same fix prompt. If the fix succeeds, the pass continues without services. If it fails, the command fails. See [Prompt Design](prompt.md).
 
 ## Skipping
 

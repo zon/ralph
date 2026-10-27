@@ -57,9 +57,9 @@ workflow:
 
 A command-line flag wins over the config field. The config field wins over the default. The affected options are `--mode`, `--items`, `--model`, `--variant`, `--agent`, `--context`, `--namespace`, and `--extra`. `--base` overrides `defaultBranch` for one command.
 
-Model fields describe one model. `variant` requires a `model`, because OpenCode encodes the variant in the model reference as `provider/model#variant`. A variant with no model fails instead of being dropped.
+Model fields describe one model. `variant` requires a `model`, because OpenCode encodes the variant in the model reference as `provider/model#variant`. A variant with no model fails.
 
-An unset `model` leaves the choice to OpenCode, as does an unset `agent`. See [CLI Design](ralph.md).
+See [AI Design](../ai.md) for model and agent defaults.
 
 ## Workflow Config
 
@@ -69,4 +69,4 @@ The `workflow` section describes remote execution. It names the container image,
 
 `.ralph/instructions.md` replaces the development steps in the prompt. The rest of the prompt still carries the selected item, the project file path, git history, and the report contract. The completion trailer instruction sits outside the steps, so custom instructions cannot drop it. See [Run Design](../run.md).
 
-A [direct prompt](../prompt.md) is verbatim, so custom instructions do not apply.
+A [direct prompt](../prompt.md) bypasses this. See [Prompt Design](../prompt.md).

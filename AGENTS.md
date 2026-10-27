@@ -14,6 +14,10 @@
 
 The documents under [docs/zpecs/](docs/zpecs/README.md) are installed, not authored here. They are synced by the `zpecs` CLI from the [specs repository](https://github.com/zon/specs). Changes to those documents belong in the specs repository, not in this one. Skills for authoring specs, orchestrations, architectures, and projects are likewise installed from the specs repository rather than shipped here.
 
+## Prose
+
+Use hyphens as list separators, like `label - description`. Do not use em dashes.
+
 ## Versioning
 
 When bumping the version, update `internal/version/VERSION`.

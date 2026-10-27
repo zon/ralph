@@ -14,19 +14,19 @@ The project file at `{{.ProjectFile}}` failed to load. Rewrite it so it parses a
 
 String values that contain any of the following characters **must** be wrapped in single quotes (`'...'`) or double quotes (`"..."`):
 
-- `{` or `}` — YAML parses these as flow mappings (e.g. `{"key": "value"}` becomes a map, not a string)
-- `[` or `]` — YAML parses these as flow sequences
-- `:` followed by a space — YAML parses this as a key/value separator
-- `#` preceded by a space — YAML parses this as a comment
+- `{` or `}` - YAML parses these as flow mappings (e.g. `{"key": "value"}` becomes a map, not a string)
+- `[` or `]` - YAML parses these as flow sequences
+- `:` followed by a space - YAML parses this as a key/value separator
+- `#` preceded by a space - YAML parses this as a comment
 - `|`, `>`, `&`, `*`, `!`, `%` at the start of a value
 
 Example of the `{` problem and its fix:
 ```yaml
-# WRONG — YAML parses {"key": "value"} as a map, not a string
+# WRONG - YAML parses {"key": "value"} as a map, not a string
 items:
   - the handler returns {"key": "value"}
 
-# CORRECT — single-quoted so the braces are literal
+# CORRECT - single-quoted so the braces are literal
 items:
   - 'the handler returns {"key": "value"}'
 ```

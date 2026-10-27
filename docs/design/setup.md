@@ -18,8 +18,8 @@ Namespace preparation runs only when `--namespace` or `workflow.namespace` names
 
 Preparation then:
 
-1. Resolves the Kubernetes context. `--context` wins over `workflow.context`, which wins over the current context.
-2. Confirms kubectl and the argo CLI are installed.
+1. Resolves the Kubernetes [context](kube.md).
+2. Checks for kubectl and the argo CLI.
 3. Writes GitHub credentials to the `github-credentials` Secret.
 4. Writes OpenCode credentials to the `opencode-credentials` Secret.
 
@@ -28,11 +28,11 @@ Preparation then:
 * `--github-key <file>` validates a GitHub App private key and writes `app-id` and `private-key`.
 * `--github-token <token>` writes the token without validation.
 * The flags are mutually exclusive.
-* With neither flag, an existing `github-credentials` Secret is reused.
+* With neither flag, Ralph reuses an existing `github-credentials` Secret.
 * When there is no Secret, Ralph writes the `gh` login token, then `GITHUB_TOKEN`.
 
 A credential flag with no targeted namespace fails, because there is nowhere to write it.
 
 ### OpenCode Credentials
 
-Ralph always writes the local OpenCode credentials to the `opencode-credentials` Secret, as `auth.json`. `workflow.opencodeSecret` chooses the Secret a workflow mounts. When it names another Secret, the output says so, and the local credentials still go to `opencode-credentials`.
+Ralph always writes the local OpenCode credentials to the `opencode-credentials` Secret, as `auth.json`. When `workflow.opencodeSecret` names another Secret, the output says so, and Ralph still writes the local credentials to `opencode-credentials`. See [Workflow Container Design](workflow.md).
