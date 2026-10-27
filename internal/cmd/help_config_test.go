@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
+	"charm.land/glamour/v2/styles"
 	"github.com/alecthomas/kong"
 	tea "github.com/charmbracelet/bubbletea"
-	styles "github.com/charmbracelet/glamour/styles"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 

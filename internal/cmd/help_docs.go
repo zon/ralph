@@ -6,10 +6,10 @@ import (
 	"os"
 	"strings"
 
+	"charm.land/glamour/v2"
+	styles "charm.land/glamour/v2/styles"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/glamour"
-	styles "github.com/charmbracelet/glamour/styles"
 	"github.com/mattn/go-isatty"
 	"github.com/muesli/termenv"
 )
