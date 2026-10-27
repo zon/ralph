@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/zon/ralph/internal/config"
+	"github.com/zon/ralph/internal/git"
 )
 
 // TestReadPromptSources covers every prompt input source and the conflicting
@@ -319,6 +320,7 @@ func TestPromptCmdDebugRejection(t *testing.T) {
 				config: &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) {
 					return tt.config(), nil
 				}},
+				git: &git.MockClient{CurrentBranchFunc: func() (string, error) { return "main", nil }},
 			}
 			err := cmd.Run()
 			if tt.wantErr != "" {
@@ -346,6 +348,173 @@ func TestPromptCmdInputErrorsPrecedeModeWork(t *testing.T) {
 	assert.NotContains(t, err.Error(), loadErr.Error())
 }
 
+// TestPromptCmdModeResolution covers every mode level and an invalid mode at
+// both the flag and config levels. An invalid mode fails before the current
+// branch is read.
+func TestPromptCmdModeResolution(t *testing.T) {
+	tests := []struct {
+		name    string
+		mode    string
+		config  *config.RalphConfig
+		want    string
+		wantErr string
+	}{
+		{
+			name:   "flag local overrides config",
+			mode:   config.ModeLocal,
+			config: config.WithMode(config.ModeRemote),
+			want:   config.ModeLocal,
+		},
+		{
+			name:   "flag worktree overrides config",
+			mode:   config.ModeWorktree,
+			config: config.WithMode(config.ModeLocal),
+			want:   config.ModeWorktree,
+		},
+		{
+			name:   "flag remote overrides config",
+			mode:   config.ModeRemote,
+			config: config.WithMode(config.ModeWorktree),
+			want:   config.ModeRemote,
+		},
+		{
+			name:   "config worktree without a flag",
+			config: config.WithMode(config.ModeWorktree),
+			want:   config.ModeWorktree,
+		},
+		{
+			name:   "config remote without a flag",
+			config: config.WithMode(config.ModeRemote),
+			want:   config.ModeRemote,
+		},
+		{
+			name:   "local is the default",
+			config: &config.RalphConfig{DefaultBranch: "main"},
+			want:   config.ModeLocal,
+		},
+		{
+			name:    "invalid flag is rejected",
+			mode:    "sandbox",
+			config:  config.WithMode(config.ModeRemote),
+			wantErr: "invalid mode: sandbox (expected local, worktree, or remote)",
+		},
+		{
+			name:    "invalid config is rejected",
+			config:  config.WithMode("sandbox"),
+			wantErr: "invalid mode: sandbox (expected local, worktree, or remote)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			branchReads := 0
+			cmd := &PromptCmd{
+				Prompt: []string{"do work"},
+				Mode:   tt.mode,
+				config: &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) {
+					return tt.config, nil
+				}},
+				git: &git.MockClient{CurrentBranchFunc: func() (string, error) {
+					branchReads++
+					return "main", nil
+				}},
+			}
+
+			err := cmd.Run()
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+				assert.Nil(t, cmd.resolved)
+				assert.Zero(t, branchReads, "an invalid mode must not start branch work")
+				return
+			}
+			require.NoError(t, err)
+			require.NotNil(t, cmd.resolved)
+			assert.Equal(t, tt.want, cmd.resolved.Mode)
+			assert.Equal(t, 1, branchReads)
+		})
+	}
+}
+
+// TestPromptCmdBaseResolution covers every base branch level, including the
+// current branch already being the prompt branch.
+func TestPromptCmdBaseResolution(t *testing.T) {
+	tests := []struct {
+		name          string
+		base          string
+		current       string
+		promptBranch  string
+		defaultBranch string
+		want          string
+	}{
+		{
+			name:          "base flag wins",
+			base:          "release",
+			current:       "main",
+			promptBranch:  "feature",
+			defaultBranch: "develop",
+			want:          "release",
+		},
+		{
+			name:          "current branch differs from the prompt branch",
+			current:       "main",
+			promptBranch:  "feature",
+			defaultBranch: "develop",
+			want:          "main",
+		},
+		{
+			name:          "config default when already on the prompt branch",
+			current:       "feature",
+			promptBranch:  "feature",
+			defaultBranch: "develop",
+			want:          "develop",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := config.Any()
+			cfg.DefaultBranch = tt.defaultBranch
+			cmd := &PromptCmd{
+				Prompt:       []string{"do work"},
+				Base:         tt.base,
+				promptBranch: tt.promptBranch,
+				config: &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) {
+					return cfg, nil
+				}},
+				git: &git.MockClient{CurrentBranchFunc: func() (string, error) {
+					return tt.current, nil
+				}},
+			}
+
+			require.NoError(t, cmd.Run())
+			require.NotNil(t, cmd.resolved)
+			assert.Equal(t, tt.want, cmd.resolved.BaseBranch)
+			assert.Equal(t, tt.current, cmd.resolved.CurrentBranch)
+			assert.Equal(t, tt.promptBranch, cmd.resolved.PromptBranch)
+			assert.Equal(t, tt.want, cfg.Base)
+			assert.Equal(t, tt.current, cfg.StartingBranch)
+		})
+	}
+}
+
+// TestPromptCmdCurrentBranchError covers a failure to read the branch the
+// prompt starts from.
+func TestPromptCmdCurrentBranchError(t *testing.T) {
+	cmd := &PromptCmd{
+		Prompt: []string{"do work"},
+		config: &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+		git: &git.MockClient{CurrentBranchFunc: func() (string, error) {
+			return "", errors.New("not a git repository")
+		}},
+	}
+
+	err := cmd.Run()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not a git repository")
+	assert.Nil(t, cmd.resolved)
+}
+
 // TestPromptCmdResolvesModeAndPrompt covers the successful command path with
 // standard input injected.
 func TestPromptCmdResolvesModeAndPrompt(t *testing.T) {
@@ -353,6 +522,9 @@ func TestPromptCmdResolvesModeAndPrompt(t *testing.T) {
 		stdin:           strings.NewReader("piped prompt"),
 		stdinIsTerminal: func() bool { return false },
 		config:          &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+		git:             &git.MockClient{CurrentBranchFunc: func() (string, error) { return "main", nil }},
 	}
 	require.NoError(t, cmd.Run())
+	require.NotNil(t, cmd.resolved)
+	assert.Equal(t, config.ModeLocal, cmd.resolved.Mode)
 }

@@ -10,7 +10,25 @@ import (
 	"github.com/mattn/go-isatty"
 
 	"github.com/zon/ralph/internal/config"
+	"github.com/zon/ralph/internal/git"
+	orchestrationRun "github.com/zon/ralph/internal/orchestration/run"
 )
+
+// promptGitClient reports the branch the prompt starts from.
+type promptGitClient interface {
+	CurrentBranch() (string, error)
+}
+
+// promptResolution carries the mode and branches resolved once for a prompt
+// invocation. Base synchronization and the pull request read the same
+// BaseBranch value.
+type promptResolution struct {
+	Config        *config.RalphConfig
+	Mode          string
+	CurrentBranch string
+	PromptBranch  string
+	BaseBranch    string
+}
 
 // PromptCmd runs one user-supplied prompt as a single OpenCode pass. The prompt
 // comes from positional text, --file, or standard input. The command has no
@@ -31,9 +49,19 @@ type PromptCmd struct {
 	Debug      string   `help:"Checkout the given Ralph repo branch in the workflow container and invoke Ralph via 'go run' instead of the built binary (only applicable with --mode remote)" name:"debug" optional:""`
 	Verbose    bool     `help:"Enable verbose logging" default:"false"`
 
-	stdin           io.Reader     `kong:"-"`
-	stdinIsTerminal func() bool   `kong:"-"`
-	config          config.Loader `kong:"-"`
+	stdin           io.Reader       `kong:"-"`
+	stdinIsTerminal func() bool     `kong:"-"`
+	config          config.Loader   `kong:"-"`
+	git             promptGitClient `kong:"-"`
+
+	// promptBranch is the branch the prompt runs on. The branch step supplies
+	// it; base resolution needs it to decide when to fall back to the
+	// configured default branch.
+	promptBranch string `kong:"-"`
+
+	// resolved retains the mode and branches resolved for this invocation so
+	// later steps reuse them instead of recomputing.
+	resolved *promptResolution `kong:"-"`
 }
 
 // Validate rejects the conflicting prompt sources during command-line parsing.
@@ -46,17 +74,18 @@ func (c *PromptCmd) Validate() error {
 	return nil
 }
 
-// Run validates the prompt source and the flags that depend on the resolved
-// mode. The prompt flow itself is built on top of this resolution.
+// Run validates the prompt source before resolving the mode and branches. The
+// prompt flow builds on the stored resolution.
 func (c *PromptCmd) Run() error {
 	if _, err := c.readPrompt(); err != nil {
 		return err
 	}
-	mode, err := c.resolveMode()
+	resolved, err := c.resolve()
 	if err != nil {
 		return err
 	}
-	return validatePromptDebug(c.Debug, mode)
+	c.resolved = resolved
+	return nil
 }
 
 // readPrompt reads the prompt from the source selected by the flags. Tests
@@ -73,18 +102,60 @@ func (c *PromptCmd) readPrompt() (string, error) {
 	return ReadPrompt(c.Prompt, c.File, stdin, isTerminal())
 }
 
+// resolve resolves the execution mode and both branches once. The mode is
+// resolved and the mode-dependent flags are checked before the current branch
+// is read, so an invalid mode or a rejected --debug starts no git work.
+func (c *PromptCmd) resolve() (*promptResolution, error) {
+	cfg, mode, err := c.resolveMode()
+	if err != nil {
+		return nil, err
+	}
+	if err := validatePromptDebug(c.Debug, mode); err != nil {
+		return nil, err
+	}
+	currentBranch, err := c.currentBranch()
+	if err != nil {
+		return nil, err
+	}
+	baseBranch := orchestrationRun.ResolveBaseBranch(c.Base, currentBranch, c.promptBranch, cfg.DefaultBranch)
+	cfg.Mode = mode
+	cfg.Base = baseBranch
+	cfg.StartingBranch = currentBranch
+	return &promptResolution{
+		Config:        cfg,
+		Mode:          mode,
+		CurrentBranch: currentBranch,
+		PromptBranch:  c.promptBranch,
+		BaseBranch:    baseBranch,
+	}, nil
+}
+
 // resolveMode resolves the execution mode from the --mode flag, then the
-// config mode, then local.
-func (c *PromptCmd) resolveMode() (string, error) {
+// config mode, then local, and returns the loaded config with the effective
+// mode.
+func (c *PromptCmd) resolveMode() (*config.RalphConfig, string, error) {
 	loader := c.config
 	if loader == nil {
 		loader = &config.Client{}
 	}
 	cfg, err := loader.Load()
 	if err != nil {
-		return "", err
+		return nil, "", err
 	}
-	return cfg.ResolveMode(c.Mode)
+	mode, err := cfg.ResolveMode(c.Mode)
+	if err != nil {
+		return nil, "", err
+	}
+	return cfg, mode, nil
+}
+
+// currentBranch reads the branch the prompt starts from.
+func (c *PromptCmd) currentBranch() (string, error) {
+	client := c.git
+	if client == nil {
+		client = git.NewClient(createExecutionContext())
+	}
+	return client.CurrentBranch()
 }
 
 // ReadPrompt returns the prompt from exactly one source: positional text
