@@ -27,8 +27,8 @@ type promptSlugProposer interface {
 }
 
 // promptGitClient reports the branch the prompt starts from, switches the
-// current checkout to the prompt branch, and synchronizes the prompt branch
-// with its base branch.
+// current checkout to the prompt branch, records the branch tip, synchronizes
+// the prompt branch with its base branch, and pushes the branch after commits.
 type promptGitClient interface {
 	CurrentBranch() (string, error)
 	SwitchToBranch(slug string) error
@@ -36,6 +36,8 @@ type promptGitClient interface {
 	NeedsMerge(branch string) (bool, error)
 	Merge(branch string) error
 	AbortMerge() error
+	HeadCommit() (string, error)
+	Push() error
 }
 
 // promptServicesClient runs the before commands and starts, stops, and cleans
@@ -277,15 +279,23 @@ func (c *PromptCmd) runBeforeCommands() error {
 	return c.servicesClient().RunBeforeCommands(c.resolved.Config)
 }
 
-// runSetupAndPass synchronizes the base branch, starts the configured
-// services, and runs the prompt pass. A service that fails to start or become
-// healthy triggers the service-fix prompt; a successful fix continues the pass
-// without services, while a failed fix fails the command. --no-services skips
-// startup and the fix prompt without affecting the before commands.
+// runSetupAndPass synchronizes the base branch, records the prompt branch tip,
+// starts the configured services, and runs the prompt pass. A service that
+// fails to start or become healthy triggers the service-fix prompt; a
+// successful fix continues the pass without services, while a failed fix fails
+// the command. --no-services skips startup and the fix prompt without affecting
+// the before commands. After a successful pass it publishes the branch only
+// when the tip advanced, so a prompt that made no commits succeeds without a
+// second synchronization or push.
 func (c *PromptCmd) runSetupAndPass(prompt string, inWorktree bool) error {
 	cfg := c.resolved.Config
 	aiClient := c.aiClient()
-	if _, err := basesync.Sync(c.gitClient(), aiClient, c.outputClient(), c.resolved.BaseBranch, c.resolved.PromptBranch, inWorktree); err != nil {
+	gitClient := c.gitClient()
+	if _, err := basesync.Sync(gitClient, aiClient, c.outputClient(), c.resolved.BaseBranch, c.resolved.PromptBranch, inWorktree); err != nil {
+		return err
+	}
+	tip, err := gitClient.HeadCommit()
+	if err != nil {
 		return err
 	}
 	defer c.servicesClient().RemoveLogs(cfg)
@@ -298,7 +308,28 @@ func (c *PromptCmd) runSetupAndPass(prompt string, inWorktree bool) error {
 		defer c.servicesClient().Stop(svc)
 	}
 
-	return aiClient.RunPrompt(prompt)
+	if err := aiClient.RunPrompt(prompt); err != nil {
+		return err
+	}
+	return c.publishIfAdvanced(gitClient, aiClient, tip, inWorktree)
+}
+
+// publishIfAdvanced compares the prompt branch tip with the one recorded after
+// the first synchronization. An unchanged tip means the prompt made no commits,
+// so the command succeeds without a second synchronization or push. An advanced
+// tip synchronizes the base branch again and pushes the prompt branch.
+func (c *PromptCmd) publishIfAdvanced(gitClient promptGitClient, aiClient promptAIClient, tip string, inWorktree bool) error {
+	after, err := gitClient.HeadCommit()
+	if err != nil {
+		return err
+	}
+	if after == tip {
+		return nil
+	}
+	if _, err := basesync.Sync(gitClient, aiClient, c.outputClient(), c.resolved.BaseBranch, c.resolved.PromptBranch, inWorktree); err != nil {
+		return err
+	}
+	return gitClient.Push()
 }
 
 // startServices starts the configured services unless --no-services is set.

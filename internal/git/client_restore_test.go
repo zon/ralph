@@ -30,6 +30,24 @@ func TestClientHasCommitsAhead(t *testing.T) {
 	require.True(t, ahead, "a branch with its own commit is ahead of the base")
 }
 
+func TestClientHeadCommit(t *testing.T) {
+	tempDir := setupTestRepo(t)
+	t.Chdir(tempDir)
+
+	client := NewClient(nil)
+	before, err := client.HeadCommit()
+	require.NoError(t, err)
+	require.NotEmpty(t, before)
+
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "tip.txt"), []byte("tip"), 0644))
+	require.NoError(t, StageFile("tip.txt"))
+	require.NoError(t, Commit("feat: advance the tip"))
+
+	after, err := client.HeadCommit()
+	require.NoError(t, err)
+	require.NotEqual(t, before, after, "a new commit advances the branch tip")
+}
+
 func TestClientCheckoutBranch(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	t.Chdir(tempDir)

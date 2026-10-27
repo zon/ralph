@@ -10,6 +10,7 @@ type MockClient struct {
 	CommitFromReportFunc         func(slug string) error
 	CommitFromBlockedFunc        func(slug string) error
 	CurrentBranchFunc            func() (string, error)
+	HeadCommitFunc               func() (string, error)
 	CheckoutBranchFunc           func(name string) error
 	HasCommitsAheadFunc          func(base string) (bool, error)
 	IsBranchSyncedWithRemoteFunc func(branch string) error
@@ -82,6 +83,13 @@ func (m *MockClient) CurrentBranch() (string, error) {
 		return m.CurrentBranchFunc()
 	}
 	return "main", nil
+}
+
+func (m *MockClient) HeadCommit() (string, error) {
+	if m.HeadCommitFunc != nil {
+		return m.HeadCommitFunc()
+	}
+	return "head", nil
 }
 
 func (m *MockClient) CheckoutBranch(name string) error {

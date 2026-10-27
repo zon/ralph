@@ -1337,10 +1337,290 @@ func TestPromptCmdPassFailureFailsCommand(t *testing.T) {
 	assert.Equal(t, 1, aiClient.passCalls, "a failed pass is not retried")
 }
 
+// TestPromptCmdTipComparison covers the branch tip recorded after base
+// synchronization and compared after a successful pass. An unchanged tip skips
+// the second synchronization and the push, leaving uncommitted changes in a
+// local checkout and discarding them with the worktree. An advanced tip
+// synchronizes the base branch again and pushes the prompt branch. A failed
+// pass makes no push.
+func TestPromptCmdTipComparison(t *testing.T) {
+	passErr := errors.New("opencode execution failed: exit status 1")
+
+	tests := []struct {
+		name          string
+		mode          string
+		advance       bool
+		passErr       error
+		wantFetches   int
+		wantMerges    int
+		wantMergedRef string
+		wantPush      bool
+		wantRemoved   bool
+	}{
+		{
+			name:        "local unchanged tip skips the second sync and the push",
+			mode:        config.ModeLocal,
+			wantFetches: 1,
+		},
+		{
+			name:          "local advanced tip synchronizes again and pushes",
+			mode:          config.ModeLocal,
+			advance:       true,
+			wantFetches:   2,
+			wantMerges:    1,
+			wantMergedRef: "main",
+			wantPush:      true,
+		},
+		{
+			name:        "worktree unchanged tip discards uncommitted changes with the worktree",
+			mode:        config.ModeWorktree,
+			wantFetches: 1,
+			wantRemoved: true,
+		},
+		{
+			name:          "worktree advanced tip synchronizes again and pushes",
+			mode:          config.ModeWorktree,
+			advance:       true,
+			wantFetches:   2,
+			wantMerges:    1,
+			wantMergedRef: "origin/main",
+			wantPush:      true,
+			wantRemoved:   true,
+		},
+		{
+			name:        "local failed pass skips the second sync and the push",
+			mode:        config.ModeLocal,
+			passErr:     passErr,
+			wantFetches: 1,
+		},
+		{
+			name:        "worktree failed pass skips the second sync and the push",
+			mode:        config.ModeWorktree,
+			passErr:     passErr,
+			wantFetches: 1,
+			wantRemoved: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tip := "tip-before"
+			fetches := 0
+			merges := 0
+			pushes := 0
+			needsMergeCalls := 0
+			mergedRef := ""
+			var order []string
+
+			gitClient := &git.MockClient{
+				CurrentBranchFunc: func() (string, error) { return "main", nil },
+				HeadCommitFunc:    func() (string, error) { return tip, nil },
+				FetchBranchFunc: func(branch string) error {
+					assert.Equal(t, "main", branch)
+					fetches++
+					promptEvent(&order, "fetch-base")
+					return nil
+				},
+				NeedsMergeFunc: func(string) (bool, error) {
+					needsMergeCalls++
+					return needsMergeCalls == 2, nil
+				},
+				MergeFunc: func(branch string) error {
+					merges++
+					mergedRef = branch
+					promptEvent(&order, "merge-base")
+					return nil
+				},
+				PushFunc: func() error {
+					pushes++
+					promptEvent(&order, "push")
+					return nil
+				},
+			}
+			aiClient := &promptAIRecorder{
+				order: &order,
+				passFunc: func(string) error {
+					if tt.advance {
+						tip = "tip-after"
+					}
+					return tt.passErr
+				},
+			}
+			worktree := &promptWorktreeRecorder{path: "/worktree/my-feature"}
+			workspace := &promptWorkspaceRecorder{}
+			cmd := &PromptCmd{
+				Prompt:       []string{"do work"},
+				Mode:         tt.mode,
+				config:       &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+				slugProposer: promptSlugProposerFunc(func(string) (string, error) { return "my-feature", nil }),
+				git:          gitClient,
+				worktree:     worktree,
+				workspace:    workspace,
+				services:     &promptServicesRecorder{order: &order},
+				ai:           aiClient,
+				output:       &promptOutputRecorder{},
+			}
+
+			err := cmd.Run()
+			if tt.passErr != nil {
+				require.ErrorIs(t, err, tt.passErr)
+			} else {
+				require.NoError(t, err)
+			}
+			assert.Equal(t, tt.wantFetches, fetches)
+			assert.Equal(t, tt.wantMerges, merges)
+			assert.Equal(t, tt.wantMergedRef, mergedRef)
+			assert.Equal(t, tt.wantPush, pushes > 0)
+			if tt.wantPush {
+				assert.Less(t, promptIndex(order, "pass"), promptIndex(order, "push"), "the push follows the pass")
+			}
+			if tt.advance {
+				assert.Less(t, promptIndex(order, "pass"), promptLastIndex(order, "fetch-base"), "the second synchronization follows the pass")
+			}
+			if tt.wantRemoved {
+				assert.Equal(t, []string{"my-feature"}, worktree.removed)
+			} else {
+				assert.Empty(t, worktree.created, "local mode does not create a worktree")
+				assert.Empty(t, worktree.removed, "local mode keeps uncommitted changes in the checkout")
+			}
+		})
+	}
+}
+
+// TestPromptCmdRecordsTipAfterFirstSync covers recording the tip after the
+// first synchronization, so a merge performed by that synchronization is not
+// mistaken for a prompt commit when the pass leaves the tip unchanged.
+func TestPromptCmdRecordsTipAfterFirstSync(t *testing.T) {
+	tip := "tip-before"
+	merges := 0
+	pushes := 0
+	cmd := &PromptCmd{
+		Prompt:       []string{"do work"},
+		config:       &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+		slugProposer: promptSlugProposerFunc(func(string) (string, error) { return "my-feature", nil }),
+		git: &git.MockClient{
+			CurrentBranchFunc: func() (string, error) { return "main", nil },
+			HeadCommitFunc:    func() (string, error) { return tip, nil },
+			NeedsMergeFunc:    func(string) (bool, error) { return merges == 0, nil },
+			MergeFunc: func(string) error {
+				merges++
+				tip = "tip-after-merge"
+				return nil
+			},
+			PushFunc: func() error {
+				pushes++
+				return nil
+			},
+		},
+		output: &promptOutputRecorder{},
+	}
+	preparePromptRun(cmd)
+
+	require.NoError(t, cmd.Run())
+	assert.Equal(t, 1, merges, "the first synchronization merges the base branch")
+	assert.Zero(t, pushes, "a merge from the first synchronization is not a prompt commit")
+}
+
+// TestPromptCmdPushFailureFails covers a push failure after a prompt commit.
+func TestPromptCmdPushFailureFails(t *testing.T) {
+	pushErr := errors.New("push failed")
+	tip := "tip-before"
+	cmd := &PromptCmd{
+		Prompt:       []string{"do work"},
+		config:       &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+		slugProposer: promptSlugProposerFunc(func(string) (string, error) { return "my-feature", nil }),
+		git: &git.MockClient{
+			CurrentBranchFunc: func() (string, error) { return "main", nil },
+			HeadCommitFunc:    func() (string, error) { return tip, nil },
+			PushFunc:          func() error { return pushErr },
+		},
+		ai:     &promptAIRecorder{passFunc: func(string) error { tip = "tip-after"; return nil }},
+		output: &promptOutputRecorder{},
+	}
+	preparePromptRun(cmd)
+
+	err := cmd.Run()
+	require.ErrorIs(t, err, pushErr)
+}
+
+// TestPromptCmdSecondSyncFailureSkipsPush covers a failed second
+// synchronization: the command fails before pushing anything.
+func TestPromptCmdSecondSyncFailureSkipsPush(t *testing.T) {
+	syncErr := errors.New("cannot compare branches")
+	pushCalled := false
+	needsMergeCalls := 0
+	tip := "tip-before"
+	cmd := &PromptCmd{
+		Prompt:       []string{"do work"},
+		config:       &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+		slugProposer: promptSlugProposerFunc(func(string) (string, error) { return "my-feature", nil }),
+		git: &git.MockClient{
+			CurrentBranchFunc: func() (string, error) { return "main", nil },
+			HeadCommitFunc:    func() (string, error) { return tip, nil },
+			NeedsMergeFunc: func(string) (bool, error) {
+				needsMergeCalls++
+				if needsMergeCalls == 2 {
+					return false, syncErr
+				}
+				return false, nil
+			},
+			PushFunc: func() error {
+				pushCalled = true
+				return nil
+			},
+		},
+		ai:     &promptAIRecorder{passFunc: func(string) error { tip = "tip-after"; return nil }},
+		output: &promptOutputRecorder{},
+	}
+	preparePromptRun(cmd)
+
+	err := cmd.Run()
+	require.ErrorIs(t, err, syncErr)
+	assert.False(t, pushCalled, "a failed second synchronization pushes nothing")
+}
+
+// TestPromptCmdTipReadFailure fails the command when the branch tip cannot be
+// read after the first synchronization or after the pass.
+func TestPromptCmdTipReadFailure(t *testing.T) {
+	readErr := errors.New("cannot read branch tip")
+	reads := 0
+	cmd := &PromptCmd{
+		Prompt:       []string{"do work"},
+		config:       &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+		slugProposer: promptSlugProposerFunc(func(string) (string, error) { return "my-feature", nil }),
+		git: &git.MockClient{
+			CurrentBranchFunc: func() (string, error) { return "main", nil },
+			HeadCommitFunc: func() (string, error) {
+				reads++
+				if reads == 2 {
+					return "", readErr
+				}
+				return "tip", nil
+			},
+		},
+		output: &promptOutputRecorder{},
+	}
+	preparePromptRun(cmd)
+
+	err := cmd.Run()
+	require.ErrorIs(t, err, readErr)
+	assert.Equal(t, 2, reads)
+}
+
 // promptIndex returns the position of event in the recorded order, or -1.
 func promptIndex(order []string, event string) int {
 	for i, got := range order {
 		if got == event {
+			return i
+		}
+	}
+	return -1
+}
+
+// promptLastIndex returns the position of the last occurrence of event, or -1.
+func promptLastIndex(order []string, event string) int {
+	for i := len(order) - 1; i >= 0; i-- {
+		if order[i] == event {
 			return i
 		}
 	}
