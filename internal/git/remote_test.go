@@ -51,6 +51,16 @@ func TestIsWorkflowPermissionError(t *testing.T) {
 			expected: true,
 		},
 		{
+			name:     "OAuth App workflow rejection message",
+			output:   "! [remote rejected] ci-container-build -> ci-container-build (refusing to allow an OAuth App to create or update workflow `.github/workflows/container-build.yaml` without `workflow` scope)\nerror: failed to push some refs",
+			expected: true,
+		},
+		{
+			name:     "scope fragment",
+			output:   "without `workflow` scope",
+			expected: true,
+		},
+		{
 			name:     "regular push failure",
 			output:   "error: failed to push some refs to 'https://github.com/foo/bar.git'",
 			expected: false,

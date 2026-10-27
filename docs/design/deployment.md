@@ -33,7 +33,7 @@ The image and the release share the version in `internal/version/VERSION`.
 
 A deployment supplies credentials as Kubernetes Secrets:
 
-* `github-credentials` holds either App credentials or a token.
+* `github-credentials` holds either App credentials or a token. A token needs the `workflow` scope to push changes to workflow files.
 * `opencode-credentials` holds `auth.json`.
 
 `ralph setup` writes both. The workflow mounts them at `/secrets/github` and `/secrets/opencode`. See [Setup Design](setup.md) and [Workflow Container Design](workflow.md).

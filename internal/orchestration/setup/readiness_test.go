@@ -8,7 +8,7 @@ import (
 
 func TestRunConfirmsLocalReadinessBeforeClusterWork(t *testing.T) {
 	cmd := setup.withMocks()
-	err := cmd.Run(flags.withKey())
+	_, err := cmd.Run(flags.withKey())
 	require.NoError(t, err)
 	require.True(t, readiness.confirmGitCalled())
 	require.True(t, readiness.confirmGitHubCLICalled())
@@ -22,7 +22,7 @@ func TestRunHaltsBeforeGitHubCLIWhenGitNotReady(t *testing.T) {
 	cmd := setup.withMocks(
 		setup.withReadiness(readiness.thatFailsGit()),
 	)
-	err := cmd.Run(flags.withKey())
+	_, err := cmd.Run(flags.withKey())
 	require.Error(t, err)
 	require.False(t, readiness.confirmGitHubCLICalled())
 	require.False(t, readiness.confirmOpenCodeCalled())
@@ -35,7 +35,7 @@ func TestRunHaltsBeforeOpenCodeWhenGitHubCLINotReady(t *testing.T) {
 	cmd := setup.withMocks(
 		setup.withReadiness(readiness.thatFailsGitHubCLI()),
 	)
-	err := cmd.Run(flags.withKey())
+	_, err := cmd.Run(flags.withKey())
 	require.Error(t, err)
 	require.True(t, readiness.confirmGitCalled())
 	require.False(t, readiness.confirmOpenCodeCalled())
@@ -46,7 +46,7 @@ func TestRunHaltsBeforeClusterWorkWhenOpenCodeNotReady(t *testing.T) {
 	cmd := setup.withMocks(
 		setup.withReadiness(readiness.thatFailsOpenCode()),
 	)
-	err := cmd.Run(flags.withKey())
+	_, err := cmd.Run(flags.withKey())
 	require.Error(t, err)
 	require.True(t, readiness.confirmGitCalled())
 	require.True(t, readiness.confirmGitHubCLICalled())
@@ -59,7 +59,7 @@ func TestRunHaltsBeforeArgoWhenKubectlNotReady(t *testing.T) {
 	cmd := setup.withMocks(
 		setup.withReadiness(readiness.thatFailsKubectl()),
 	)
-	err := cmd.Run(flags.withKey())
+	_, err := cmd.Run(flags.withKey())
 	require.Error(t, err)
 	require.True(t, readiness.confirmKubectlCalled())
 	require.False(t, readiness.confirmArgoCalled())
@@ -72,7 +72,7 @@ func TestRunHaltsBeforeGitHubWhenArgoNotReady(t *testing.T) {
 	cmd := setup.withMocks(
 		setup.withReadiness(readiness.thatFailsArgo()),
 	)
-	err := cmd.Run(flags.withKey())
+	_, err := cmd.Run(flags.withKey())
 	require.Error(t, err)
 	require.True(t, readiness.confirmKubectlCalled())
 	require.True(t, readiness.confirmArgoCalled())

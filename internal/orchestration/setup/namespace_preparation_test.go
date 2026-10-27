@@ -38,7 +38,7 @@ func TestRunAppCredentialsPreparedSuccessfully(t *testing.T) {
 		}),
 	)
 
-	err := cmd.Run(Flags{Context: "staging", Namespace: "argo", GithubKey: "/path/to/key.pem"})
+	_, err := cmd.Run(Flags{Context: "staging", Namespace: "argo", GithubKey: "/path/to/key.pem"})
 	require.NoError(t, err)
 	require.Equal(t, []string{"resolve", "confirm-kubectl", "confirm-argo", "validate-github", "write-github", "write-opencode"}, order)
 	require.Equal(t, K8sContext{Name: "staging", Namespace: "argo"}, githubCtx)
@@ -73,7 +73,7 @@ func TestRunTokenCredentialsPreparedSuccessfully(t *testing.T) {
 		}),
 	)
 
-	err := cmd.Run(Flags{Context: "staging", Namespace: "argo", GithubToken: "ghp_test_token"})
+	_, err := cmd.Run(Flags{Context: "staging", Namespace: "argo", GithubToken: "ghp_test_token"})
 	require.NoError(t, err)
 	require.Equal(t, []string{"resolve", "confirm-kubectl", "confirm-argo", "write-github", "write-opencode"}, order)
 	require.Equal(t, K8sContext{Name: "staging", Namespace: "argo"}, githubCtx)
@@ -108,7 +108,7 @@ func TestRunGitHubCredentialFailureHaltsPreparation(t *testing.T) {
 			cmd := setup.withMocks(
 				setup.withGitHub(tt.gh),
 			)
-			err := cmd.Run(tt.flags)
+			_, err := cmd.Run(tt.flags)
 			require.Error(t, err)
 			require.False(t, opencode.configureCalled())
 		})
@@ -119,7 +119,7 @@ func TestRunSecretExistsFailureHaltsPreparation(t *testing.T) {
 	cmd := setup.withMocks(
 		setup.withGitHub(github.thatFailsSecretExists()),
 	)
-	err := cmd.Run(flags.withoutKey())
+	_, err := cmd.Run(flags.withoutKey())
 	require.Error(t, err)
 	require.False(t, opencode.configureCalled())
 }

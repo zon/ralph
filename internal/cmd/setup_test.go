@@ -181,7 +181,7 @@ func TestPrintSecretResultsNamesWorkflowMount(t *testing.T) {
 			buf := &bytes.Buffer{}
 			out := output.NewClient(buf, io.Discard, false)
 
-			printSecretResults(out, "argo", tt.openCodeSecret)
+			printSecretResults(out, "argo", tt.openCodeSecret, setup.Result{})
 
 			got := buf.String()
 			assert.Contains(t, got, "\u2713 argo/github-credentials secret ready")
@@ -190,6 +190,59 @@ func TestPrintSecretResultsNamesWorkflowMount(t *testing.T) {
 				assert.NotContains(t, got, "workflow mounts")
 			} else {
 				assert.Contains(t, got, tt.wantMountLine)
+			}
+		})
+	}
+}
+
+func TestPrintSecretResultsReportsReusedSecret(t *testing.T) {
+	buf := &bytes.Buffer{}
+	out := output.NewClient(buf, io.Discard, false)
+
+	printSecretResults(out, "argo", "", setup.Result{GitHubSecretReused: true})
+
+	got := buf.String()
+	assert.Contains(t, got, "argo/github-credentials secret unchanged - reused existing")
+	assert.NotContains(t, got, "argo/github-credentials secret ready")
+	assert.Contains(t, got, "\u2713 argo/opencode-credentials secret ready")
+}
+
+func TestPrintSecretResultsReportsWorkflowScope(t *testing.T) {
+	tests := []struct {
+		name     string
+		result   setup.Result
+		wantWarn bool
+	}{
+		{
+			name:     "workflow scope missing",
+			result:   setup.Result{WorkflowScopeKnown: true, WorkflowScopePresent: false},
+			wantWarn: true,
+		},
+		{
+			name:     "workflow scope present",
+			result:   setup.Result{WorkflowScopeKnown: true, WorkflowScopePresent: true},
+			wantWarn: false,
+		},
+		{
+			name:     "scope unknown",
+			result:   setup.Result{},
+			wantWarn: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			buf := &bytes.Buffer{}
+			out := output.NewClient(buf, io.Discard, false)
+
+			printSecretResults(out, "argo", "", tt.result)
+
+			got := buf.String()
+			if tt.wantWarn {
+				assert.Contains(t, got, "lacks the `workflow` scope")
+				assert.Contains(t, got, "gh auth refresh -s workflow")
+			} else {
+				assert.NotContains(t, got, "lacks the `workflow` scope")
 			}
 		})
 	}
@@ -232,6 +285,30 @@ func TestSetupGitHubClientTokenFromEnv(t *testing.T) {
 		client := &setupGitHubClient{}
 		assert.Empty(t, client.TokenFromEnv())
 	})
+}
+
+func TestSetupGitHubClientTokenFromSecret(t *testing.T) {
+	var capturedName, capturedNamespace, capturedContext string
+
+	k8sClient := &k8s.MockClient{
+		GetSecretDataFunc: func(ctx context.Context, name, namespace, kubeContext string) (map[string]string, error) {
+			capturedName = name
+			capturedNamespace = namespace
+			capturedContext = kubeContext
+			return map[string]string{"token": "gho_stored_token"}, nil
+		},
+	}
+
+	out := output.NewClient(io.Discard, io.Discard, false)
+	client := &setupGitHubClient{ctx: context.Background(), k8sClient: k8sClient, out: out}
+
+	token, err := client.TokenFromSecret(setup.K8sContext{Name: "lab", Namespace: "ralph-abnch"})
+
+	require.NoError(t, err)
+	assert.Equal(t, "gho_stored_token", token)
+	assert.Equal(t, k8s.GitHubSecretName, capturedName)
+	assert.Equal(t, "ralph-abnch", capturedNamespace)
+	assert.Equal(t, "lab", capturedContext)
 }
 
 func writeFakeGHCLIScript(t *testing.T, body string) {

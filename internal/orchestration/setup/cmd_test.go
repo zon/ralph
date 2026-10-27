@@ -8,7 +8,7 @@ import (
 
 func TestRunConfiguresGitHubAndOpenCode(t *testing.T) {
 	cmd := setup.withMocks()
-	err := cmd.Run(flags.withKey())
+	_, err := cmd.Run(flags.withKey())
 	require.NoError(t, err)
 	require.True(t, github.validateCalled())
 	require.True(t, github.configureCalled())
@@ -19,7 +19,7 @@ func TestRunHaltsOnGitHubValidationFailure(t *testing.T) {
 	cmd := setup.withMocks(
 		setup.withGitHub(github.thatFailsValidation()),
 	)
-	err := cmd.Run(flags.withKey())
+	_, err := cmd.Run(flags.withKey())
 	require.Error(t, err)
 	require.False(t, opencode.configureCalled())
 }
@@ -28,7 +28,7 @@ func TestRunHaltsOnOpenCodeFailure(t *testing.T) {
 	cmd := setup.withMocks(
 		setup.withOpenCode(opencode.thatFails()),
 	)
-	err := cmd.Run(flags.withKey())
+	_, err := cmd.Run(flags.withKey())
 	require.Error(t, err)
 }
 
@@ -36,8 +36,9 @@ func TestRunReusesExistingSecretWhenNoKeyProvided(t *testing.T) {
 	cmd := setup.withMocks(
 		setup.withGitHub(github.withExistingSecret()),
 	)
-	err := cmd.Run(flags.withoutKey())
+	result, err := cmd.Run(flags.withoutKey())
 	require.NoError(t, err)
+	require.True(t, result.GitHubSecretReused)
 	require.False(t, github.validateCalled())
 	require.False(t, github.configureCalled())
 }
@@ -46,7 +47,7 @@ func TestRunErrorsWhenNoKeyAndNoExistingSecret(t *testing.T) {
 	cmd := setup.withMocks(
 		setup.withGitHub(github.withNoExistingSecret()),
 	)
-	err := cmd.Run(flags.withoutKey())
+	_, err := cmd.Run(flags.withoutKey())
 	require.ErrorIs(t, err, ErrNoGitHubKey)
 	require.True(t, github.ghCliTokenCalled())
 	require.True(t, github.envTokenCalled())
@@ -59,7 +60,7 @@ func TestRunPropagatesContextResolutionFailure(t *testing.T) {
 	cmd := setup.withMocks(
 		setup.withContext(ctx.thatFails()),
 	)
-	err := cmd.Run(flags.withKey())
+	_, err := cmd.Run(flags.withKey())
 	require.Error(t, err)
 	require.False(t, github.validateCalled())
 }
@@ -68,7 +69,7 @@ func TestRunHaltsOnSecretExistsError(t *testing.T) {
 	cmd := setup.withMocks(
 		setup.withGitHub(github.thatFailsSecretExists()),
 	)
-	err := cmd.Run(flags.withoutKey())
+	_, err := cmd.Run(flags.withoutKey())
 	require.Error(t, err)
 	require.False(t, github.validateCalled())
 }
@@ -77,13 +78,13 @@ func TestRunHaltsOnGitHubConfigureFailure(t *testing.T) {
 	cmd := setup.withMocks(
 		setup.withGitHub(github.thatFailsConfigure()),
 	)
-	err := cmd.Run(flags.withKey())
+	_, err := cmd.Run(flags.withKey())
 	require.Error(t, err)
 }
 
 func TestRunConfiguresGitHubTokenWithoutValidation(t *testing.T) {
 	cmd := setup.withMocks()
-	err := cmd.Run(flags.withToken())
+	_, err := cmd.Run(flags.withToken())
 	require.NoError(t, err)
 	require.True(t, github.configureTokenCalled())
 	require.False(t, github.validateCalled())
@@ -95,14 +96,14 @@ func TestRunHaltsOnGitHubTokenConfigureFailure(t *testing.T) {
 	cmd := setup.withMocks(
 		setup.withGitHub(github.thatFailsConfigureToken()),
 	)
-	err := cmd.Run(flags.withToken())
+	_, err := cmd.Run(flags.withToken())
 	require.Error(t, err)
 	require.False(t, opencode.configureCalled())
 }
 
 func TestRunErrorsWhenBothKeyAndTokenProvided(t *testing.T) {
 	cmd := setup.withMocks()
-	err := cmd.Run(flags.withKeyAndToken())
+	_, err := cmd.Run(flags.withKeyAndToken())
 	require.ErrorIs(t, err, ErrBothGitHubFlags)
 	require.False(t, ctx.resolveCalled())
 	require.False(t, github.validateCalled())
@@ -115,7 +116,7 @@ func TestRunFallsBackToGHCliTokenWhenNoSecret(t *testing.T) {
 	cmd := setup.withMocks(
 		setup.withGitHub(github.withGHCliToken("ghp_cli_token")),
 	)
-	err := cmd.Run(flags.withoutKey())
+	_, err := cmd.Run(flags.withoutKey())
 	require.NoError(t, err)
 	require.True(t, github.configureTokenCalled())
 	require.Equal(t, "ghp_cli_token", github.configuredToken())
@@ -127,10 +128,78 @@ func TestRunFallsBackToEnvTokenWhenNoSecretAndNoGHCliToken(t *testing.T) {
 	cmd := setup.withMocks(
 		setup.withGitHub(github.withEnvToken("ghp_env_token")),
 	)
-	err := cmd.Run(flags.withoutKey())
+	_, err := cmd.Run(flags.withoutKey())
 	require.NoError(t, err)
 	require.True(t, github.configureTokenCalled())
 	require.Equal(t, "ghp_env_token", github.configuredToken())
 	require.True(t, github.ghCliTokenCalled())
+	require.True(t, opencode.configureCalled())
+}
+
+func TestRunChecksWorkflowScopeOfReusedToken(t *testing.T) {
+	cmd := setup.withMocks(
+		setup.withGitHub(&mockGitHubCredentialsClient{
+			secretExistsFunc: func(K8sContext) (bool, error) { return true, nil },
+			tokenFromSecretFunc: func(K8sContext) (string, error) {
+				return "gho_reused", nil
+			},
+			tokenWorkflowScopeFunc: func(string) (bool, bool, error) {
+				return false, true, nil
+			},
+		}),
+	)
+
+	result, err := cmd.Run(flags.withoutKey())
+
+	require.NoError(t, err)
+	require.True(t, result.GitHubSecretReused)
+	require.True(t, github.tokenFromSecretCalled())
+	require.True(t, github.workflowScopeCalled())
+	require.Equal(t, "gho_reused", github.scopedToken())
+	require.True(t, result.WorkflowScopeKnown)
+	require.False(t, result.WorkflowScopePresent)
+}
+
+func TestRunChecksWorkflowScopeOfProvidedToken(t *testing.T) {
+	cmd := setup.withMocks(
+		setup.withGitHub(&mockGitHubCredentialsClient{
+			tokenWorkflowScopeFunc: func(string) (bool, bool, error) {
+				return true, true, nil
+			},
+		}),
+	)
+
+	result, err := cmd.Run(flags.withToken())
+
+	require.NoError(t, err)
+	require.False(t, result.GitHubSecretReused)
+	require.True(t, github.workflowScopeCalled())
+	require.True(t, result.WorkflowScopeKnown)
+	require.True(t, result.WorkflowScopePresent)
+}
+
+func TestRunSkipsWorkflowScopeCheckForAppCredentials(t *testing.T) {
+	cmd := setup.withMocks()
+
+	_, err := cmd.Run(flags.withKey())
+
+	require.NoError(t, err)
+	require.False(t, github.workflowScopeCalled())
+}
+
+func TestRunLeavesWorkflowScopeUnknownWhenCheckFails(t *testing.T) {
+	cmd := setup.withMocks(
+		setup.withGitHub(&mockGitHubCredentialsClient{
+			tokenWorkflowScopeFunc: func(string) (bool, bool, error) {
+				return false, false, errMock
+			},
+		}),
+	)
+
+	result, err := cmd.Run(flags.withToken())
+
+	require.NoError(t, err)
+	require.False(t, result.WorkflowScopeKnown)
+	require.False(t, result.WorkflowScopePresent)
 	require.True(t, opencode.configureCalled())
 }

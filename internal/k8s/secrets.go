@@ -3,6 +3,8 @@ package k8s
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 )
 
@@ -68,4 +70,41 @@ func (c *client) SecretExists(ctx context.Context, name, namespace, kubeContext 
 		return false, err
 	}
 	return true, nil
+}
+
+func (c *client) GetSecretData(ctx context.Context, name, namespace, kubeContext string) (map[string]string, error) {
+	stdout, err := runKubectl(ctx, nil, buildGetSecretDataArgs(name, namespace, kubeContext)...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read secret '%s' from namespace '%s': %w", name, namespace, err)
+	}
+
+	return parseSecretData(stdout.Bytes())
+}
+
+func buildGetSecretDataArgs(name, namespace, kubeContext string) []string {
+	args := []string{"get", "secret", name, "-n", namespace, "-o", "json"}
+	if kubeContext != "" {
+		args = append(args, "--context", kubeContext)
+	}
+	return args
+}
+
+func parseSecretData(raw []byte) (map[string]string, error) {
+	var document struct {
+		Data map[string]string `json:"data"`
+	}
+	if err := json.Unmarshal(raw, &document); err != nil {
+		return nil, fmt.Errorf("failed to parse secret: %w", err)
+	}
+
+	data := make(map[string]string, len(document.Data))
+	for key, value := range document.Data {
+		decoded, err := base64.StdEncoding.DecodeString(value)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode secret key '%s': %w", key, err)
+		}
+		data[key] = string(decoded)
+	}
+
+	return data, nil
 }

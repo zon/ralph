@@ -26,6 +26,8 @@ type GitHubCredentialsClient interface {
 	ConfigureToken(k8sCtx K8sContext, token string) error
 	TokenFromGHCli() string
 	TokenFromEnv() string
+	TokenFromSecret(k8sCtx K8sContext) (string, error)
+	TokenWorkflowScope(token string) (present, known bool, err error)
 }
 
 type OpenCodeCredentialsClient interface {
@@ -54,35 +56,73 @@ type Flags struct {
 	GithubToken string
 }
 
-func (c *SetupCmd) Run(flags Flags) error {
+// Result reports what namespace preparation changed.
+type Result struct {
+	GitHubSecretReused   bool
+	WorkflowScopeKnown   bool
+	WorkflowScopePresent bool
+}
+
+type githubSetup struct {
+	reused bool
+	token  string
+}
+
+func (c *SetupCmd) Run(flags Flags) (Result, error) {
 	if flags.GithubKey != "" && flags.GithubToken != "" {
-		return ErrBothGitHubFlags
+		return Result{}, ErrBothGitHubFlags
 	}
 
 	if err := c.confirmLocalReadiness(); err != nil {
-		return err
+		return Result{}, err
 	}
 
 	k8sCtx, err := c.Ctx.Resolve(flags.Context, flags.Namespace)
 	if errors.Is(err, ErrNoTargetedNamespace) {
 		if flags.GithubKey != "" || flags.GithubToken != "" {
-			return ErrNoNamespaceForCredentials
+			return Result{}, ErrNoNamespaceForCredentials
 		}
-		return nil
+		return Result{}, nil
 	}
 	if err != nil {
-		return err
+		return Result{}, err
 	}
 
 	if err := c.confirmClusterTooling(); err != nil {
-		return err
+		return Result{}, err
 	}
 
-	if err := c.configureGitHub(k8sCtx, flags); err != nil {
-		return err
+	credentials, err := c.configureGitHub(k8sCtx, flags)
+	if err != nil {
+		return Result{}, err
 	}
 
-	return c.OpenCode.Configure(k8sCtx)
+	result := c.checkWorkflowScope(credentials)
+
+	if err := c.OpenCode.Configure(k8sCtx); err != nil {
+		return Result{}, err
+	}
+
+	return result, nil
+}
+
+// checkWorkflowScope reports the workflow scope of the token setup wrote or
+// reused. The check is advisory, so an unavailable answer leaves the scope
+// unknown instead of failing preparation.
+func (c *SetupCmd) checkWorkflowScope(credentials githubSetup) Result {
+	result := Result{GitHubSecretReused: credentials.reused}
+	if credentials.token == "" {
+		return result
+	}
+
+	present, known, err := c.GitHub.TokenWorkflowScope(credentials.token)
+	if err != nil {
+		return result
+	}
+
+	result.WorkflowScopePresent = present
+	result.WorkflowScopeKnown = known
+	return result
 }
 
 func (c *SetupCmd) confirmLocalReadiness() error {
@@ -102,37 +142,41 @@ func (c *SetupCmd) confirmClusterTooling() error {
 	return c.Readiness.ConfirmArgoReady()
 }
 
-func (c *SetupCmd) configureGitHub(k8sCtx K8sContext, flags Flags) error {
+func (c *SetupCmd) configureGitHub(k8sCtx K8sContext, flags Flags) (githubSetup, error) {
 	if flags.GithubToken != "" {
-		return c.GitHub.ConfigureToken(k8sCtx, flags.GithubToken)
+		return githubSetup{token: flags.GithubToken}, c.GitHub.ConfigureToken(k8sCtx, flags.GithubToken)
 	}
 
 	if flags.GithubKey != "" {
 		if err := c.GitHub.Validate(flags.GithubKey); err != nil {
-			return err
+			return githubSetup{}, err
 		}
 
-		return c.GitHub.Configure(k8sCtx, flags.GithubKey)
+		return githubSetup{}, c.GitHub.Configure(k8sCtx, flags.GithubKey)
 	}
 
 	exists, err := c.GitHub.SecretExists(k8sCtx)
 	if err != nil {
-		return err
+		return githubSetup{}, err
 	}
 	if exists {
-		return nil
+		token, err := c.GitHub.TokenFromSecret(k8sCtx)
+		if err != nil {
+			return githubSetup{reused: true}, nil
+		}
+		return githubSetup{reused: true, token: token}, nil
 	}
 
 	return c.configureTokenFromFallback(k8sCtx)
 }
 
-func (c *SetupCmd) configureTokenFromFallback(k8sCtx K8sContext) error {
+func (c *SetupCmd) configureTokenFromFallback(k8sCtx K8sContext) (githubSetup, error) {
 	token := c.GitHub.TokenFromGHCli()
 	if token == "" {
 		token = c.GitHub.TokenFromEnv()
 	}
 	if token == "" {
-		return ErrNoGitHubKey
+		return githubSetup{}, ErrNoGitHubKey
 	}
-	return c.GitHub.ConfigureToken(k8sCtx, token)
+	return githubSetup{token: token}, c.GitHub.ConfigureToken(k8sCtx, token)
 }

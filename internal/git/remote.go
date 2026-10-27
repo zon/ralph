@@ -13,11 +13,13 @@ type AuthConfig struct {
 	Repo  string
 }
 
-var ErrWorkflowPermission = errors.New("push rejected: GitHub App token requires `workflows` permission to push workflow files")
+var ErrWorkflowPermission = errors.New("push rejected: the GitHub token requires the `workflow` scope or the Workflows permission to push workflow files")
 
 func isWorkflowPermissionError(output string) bool {
 	return strings.Contains(output, "refusing to allow a GitHub App to create or update workflow") ||
-		strings.Contains(output, "without `workflows` permission")
+		strings.Contains(output, "refusing to allow an OAuth App to create or update workflow") ||
+		strings.Contains(output, "without `workflows` permission") ||
+		strings.Contains(output, "without `workflow` scope")
 }
 
 type GitAuthConfigurator interface {

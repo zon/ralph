@@ -28,8 +28,9 @@ Preparation then:
 * `--github-key <file>` validates a GitHub App private key and writes `app-id` and `private-key`.
 * `--github-token <token>` writes the token without validation.
 * The flags are mutually exclusive.
-* With neither flag, Ralph reuses an existing `github-credentials` Secret.
+* With neither flag, Ralph reuses an existing `github-credentials` Secret and reports that the Secret is unchanged.
 * When there is no Secret, Ralph writes the `gh` login token, then `GITHUB_TOKEN`.
+* After preparing token credentials, Ralph reads the OAuth scopes GitHub reports and warns when the `workflow` scope is absent. GitHub rejects pushes that change workflow files without it. Fine-grained and GitHub App tokens report no scopes, so the warning is skipped.
 
 A credential flag with no targeted namespace fails, because there is nowhere to write it.
 
