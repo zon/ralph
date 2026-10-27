@@ -181,6 +181,26 @@ func (o *promptOutputRecorder) Warnf(format string, a ...any) {
 	o.warnings = append(o.warnings, fmt.Sprintf(format, a...))
 }
 
+// promptPRRecorder records the pull request summary input and the branch it
+// opens from, and returns a canned failure.
+type promptPRRecorder struct {
+	order   *[]string
+	err     error
+	prompts []string
+	slugs   []string
+	heads   []string
+	calls   int
+}
+
+func (p *promptPRRecorder) CreatePromptPR(prompt, slug, head string) error {
+	p.calls++
+	p.prompts = append(p.prompts, prompt)
+	p.slugs = append(p.slugs, slug)
+	p.heads = append(p.heads, head)
+	promptEvent(p.order, "pull-request")
+	return p.err
+}
+
 // promptEvent appends an event to an optional order log shared by the mock
 // clients.
 func promptEvent(order *[]string, event string) {
@@ -1436,6 +1456,10 @@ func TestPromptCmdTipComparison(t *testing.T) {
 					promptEvent(&order, "push")
 					return nil
 				},
+				CheckoutBranchFunc: func(name string) error {
+					promptEvent(&order, "checkout-"+name)
+					return nil
+				},
 			}
 			aiClient := &promptAIRecorder{
 				order: &order,
@@ -1446,6 +1470,7 @@ func TestPromptCmdTipComparison(t *testing.T) {
 					return tt.passErr
 				},
 			}
+			prClient := &promptPRRecorder{order: &order}
 			worktree := &promptWorktreeRecorder{path: "/worktree/my-feature"}
 			workspace := &promptWorkspaceRecorder{}
 			cmd := &PromptCmd{
@@ -1458,6 +1483,7 @@ func TestPromptCmdTipComparison(t *testing.T) {
 				workspace:    workspace,
 				services:     &promptServicesRecorder{order: &order},
 				ai:           aiClient,
+				pr:           prClient,
 				output:       &promptOutputRecorder{},
 			}
 
@@ -1473,6 +1499,9 @@ func TestPromptCmdTipComparison(t *testing.T) {
 			assert.Equal(t, tt.wantPush, pushes > 0)
 			if tt.wantPush {
 				assert.Less(t, promptIndex(order, "pass"), promptIndex(order, "push"), "the push follows the pass")
+				assert.Less(t, promptIndex(order, "push"), promptIndex(order, "pull-request"), "the pull request follows the push")
+			} else {
+				assert.Zero(t, prClient.calls, "no pull request opens without a push")
 			}
 			if tt.advance {
 				assert.Less(t, promptIndex(order, "pass"), promptLastIndex(order, "fetch-base"), "the second synchronization follows the pass")
@@ -1605,6 +1634,106 @@ func TestPromptCmdTipReadFailure(t *testing.T) {
 	err := cmd.Run()
 	require.ErrorIs(t, err, readErr)
 	assert.Equal(t, 2, reads)
+}
+
+// TestPromptCmdPullRequestAfterPush covers the pull request opened after a
+// successful push: the summary receives the prompt text, the pull request uses
+// the prompt branch, a failure after the push leaves the pushed branch, and a
+// local success restores the starting branch while worktree mode leaves the
+// starting checkout untouched.
+func TestPromptCmdPullRequestAfterPush(t *testing.T) {
+	prErr := errors.New("pull request summary failed")
+	tests := []struct {
+		name         string
+		mode         string
+		prErr        error
+		wantCheckout []string
+		wantRemoved  bool
+	}{
+		{
+			name:         "local success restores the starting branch",
+			mode:         config.ModeLocal,
+			wantCheckout: []string{"main"},
+		},
+		{
+			name:        "worktree success leaves the starting checkout untouched",
+			mode:        config.ModeWorktree,
+			wantRemoved: true,
+		},
+		{
+			name:  "local failure after the push leaves the pushed branch",
+			mode:  config.ModeLocal,
+			prErr: prErr,
+		},
+		{
+			name:        "worktree failure after the push leaves the pushed branch",
+			mode:        config.ModeWorktree,
+			prErr:       prErr,
+			wantRemoved: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tip := "tip-before"
+			pushes := 0
+			var checkouts []string
+			var order []string
+			prClient := &promptPRRecorder{order: &order, err: tt.prErr}
+			worktree := &promptWorktreeRecorder{path: "/worktree/my-feature"}
+			cmd := &PromptCmd{
+				Prompt:       []string{"do work"},
+				Mode:         tt.mode,
+				config:       &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+				slugProposer: promptSlugProposerFunc(func(string) (string, error) { return "my-feature", nil }),
+				services:     &promptServicesRecorder{order: &order},
+				ai: &promptAIRecorder{
+					order:    &order,
+					passFunc: func(string) error { tip = "tip-after"; return nil },
+				},
+				pr:        prClient,
+				output:    &promptOutputRecorder{},
+				worktree:  worktree,
+				workspace: &promptWorkspaceRecorder{},
+				git: &git.MockClient{
+					CurrentBranchFunc: func() (string, error) { return "main", nil },
+					HeadCommitFunc:    func() (string, error) { return tip, nil },
+					PushFunc: func() error {
+						pushes++
+						promptEvent(&order, "push")
+						return nil
+					},
+					CheckoutBranchFunc: func(name string) error {
+						checkouts = append(checkouts, name)
+						promptEvent(&order, "checkout-"+name)
+						return nil
+					},
+				},
+			}
+
+			err := cmd.Run()
+			if tt.prErr != nil {
+				require.ErrorIs(t, err, tt.prErr)
+			} else {
+				require.NoError(t, err)
+			}
+			assert.Equal(t, 1, pushes, "the branch is pushed before the pull request step")
+			require.Equal(t, 1, prClient.calls, "the advanced tip opens one pull request")
+			assert.Equal(t, []string{"do work"}, prClient.prompts, "the summary receives the prompt text")
+			assert.Equal(t, []string{"my-feature"}, prClient.slugs, "the summary title falls back to the prompt slug")
+			assert.Equal(t, []string{"my-feature"}, prClient.heads, "the pull request opens from the prompt branch")
+			assert.Less(t, promptIndex(order, "push"), promptIndex(order, "pull-request"), "the pull request follows the push")
+			assert.Equal(t, tt.wantCheckout, checkouts)
+			if len(tt.wantCheckout) > 0 {
+				assert.Less(t, promptIndex(order, "pull-request"), promptIndex(order, "checkout-main"), "the starting branch is restored after the pull request")
+			}
+			if tt.wantRemoved {
+				assert.Equal(t, []string{"my-feature"}, worktree.removed)
+			} else {
+				assert.Empty(t, worktree.created)
+			}
+		})
+	}
 }
 
 // promptIndex returns the position of event in the recorded order, or -1.

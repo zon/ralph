@@ -298,6 +298,113 @@ func TestClientCreatePR_PropagatesCreatePullRequestError(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to create pull request")
 }
 
+// TestClientCreatePRPrompt_UsesPromptAsDescription covers a prompt pull
+// request: the summary prompt receives the prompt text in place of a project
+// description, and an H1 summary titles the pull request.
+func TestClientCreatePRPrompt_UsesPromptAsDescription(t *testing.T) {
+	var capturedPrompt, capturedTitle, capturedBody, capturedHead string
+	mock := &MockGH{
+		IsReadyFn: func() bool { return true },
+		CreatePRFn: func(title, body, base, head string) (string, error) {
+			capturedTitle = title
+			capturedBody = body
+			capturedHead = head
+			assert.Equal(t, "main", base)
+			return "https://github.com/owner/repo/pull/1", nil
+		},
+	}
+	ctx := execcontext.NewContext()
+	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
+	mockOC := &opencode.MockOC{
+		RunCommandFunc: func(_ context.Context, _, _, _, prompt string, _, _ io.Writer) error {
+			capturedPrompt = prompt
+			return writeMockSummaryWithTitle(t, prompt)
+		},
+		GetStatsFunc: func() (opencode.Stats, error) { return opencode.Stats{}, nil },
+	}
+	client := withMockCommitLog(NewClient(ctx, "main", mock, mockOC), "abc: add endpoint\n")
+
+	prompt := "Add a GET /health endpoint and cover it with a test."
+	err := client.CreatePromptPR(prompt, "add-health-endpoint", "add-health-endpoint")
+	require.NoError(t, err)
+	assert.Contains(t, capturedPrompt, prompt, "the summary prompt receives the prompt text in place of a project description")
+	assert.Equal(t, "Serialize reports to CSV", capturedTitle, "the summary H1 titles the pull request")
+	assert.Contains(t, capturedBody, "Adds the export endpoint")
+	assert.Equal(t, "add-health-endpoint", capturedHead)
+}
+
+// TestClientCreatePRPrompt_FallsBackToSlug covers a prompt pull request whose
+// summary has no H1 heading: the prompt slug titles the pull request.
+func TestClientCreatePRPrompt_FallsBackToSlug(t *testing.T) {
+	var capturedTitle string
+	mock := &MockGH{
+		IsReadyFn: func() bool { return true },
+		CreatePRFn: func(title, body, base, head string) (string, error) {
+			capturedTitle = title
+			assert.Equal(t, "add-health-endpoint", head)
+			return "https://github.com/owner/repo/pull/1", nil
+		},
+	}
+	ctx := execcontext.NewContext()
+	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
+	mockOC := &opencode.MockOC{
+		RunCommandFunc: func(_ context.Context, _, _, _, prompt string, _, _ io.Writer) error {
+			return writeMockSummary(t, prompt)
+		},
+		GetStatsFunc: func() (opencode.Stats, error) { return opencode.Stats{}, nil },
+	}
+	client := withMockCommitLog(NewClient(ctx, "main", mock, mockOC), "abc: add endpoint\n")
+
+	err := client.CreatePromptPR("Add a health endpoint.", "add-health-endpoint", "add-health-endpoint")
+	require.NoError(t, err)
+	assert.Equal(t, "add-health-endpoint", capturedTitle, "a summary without an H1 falls back to the prompt slug")
+}
+
+// TestClientCreatePRPrompt_SkipsWithoutCommits covers a prompt pull request
+// with no commits ahead of the base: no summary or pull request is created.
+func TestClientCreatePRPrompt_SkipsWithoutCommits(t *testing.T) {
+	prCalled := false
+	mock := &MockGH{
+		IsReadyFn: func() bool { return true },
+		CreatePRFn: func(title, body, base, head string) (string, error) {
+			prCalled = true
+			return "", nil
+		},
+	}
+	ctx := execcontext.NewContext()
+	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
+	client := withMockCommitLog(NewClient(ctx, "main", mock, &opencode.MockOC{}), "")
+
+	require.NoError(t, client.CreatePromptPR("do work", "do-work", "do-work"))
+	assert.False(t, prCalled, "no commits opens no pull request")
+}
+
+// TestClientCreatePRPrompt_PropagatesSummaryFailure covers a failed summary:
+// the error is returned before any pull request opens.
+func TestClientCreatePRPrompt_PropagatesSummaryFailure(t *testing.T) {
+	prCalled := false
+	mock := &MockGH{
+		IsReadyFn: func() bool { return true },
+		CreatePRFn: func(title, body, base, head string) (string, error) {
+			prCalled = true
+			return "", nil
+		},
+	}
+	ctx := execcontext.NewContext()
+	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
+	summaryErr := errors.New("summary failed")
+	mockOC := &opencode.MockOC{
+		RunCommandFunc: func(_ context.Context, _, _, _, _ string, _, _ io.Writer) error {
+			return summaryErr
+		},
+	}
+	client := withMockCommitLog(NewClient(ctx, "main", mock, mockOC), "abc: add endpoint\n")
+
+	err := client.CreatePromptPR("do work", "do-work", "do-work")
+	require.ErrorIs(t, err, summaryErr)
+	assert.False(t, prCalled, "a failed summary opens no pull request")
+}
+
 // TestClientCreatePR_LoopUsageGeneratesSummary asserts the loop branch's pull
 // request is opened through the same CreatePR path as `ralph run`: the head is
 // the loop branch, the title falls back to the slug, and the body is an

@@ -14,6 +14,7 @@ import (
 	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
+	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/opencode"
 	orchestrationRun "github.com/zon/ralph/internal/orchestration/run"
 	"github.com/zon/ralph/internal/output"
@@ -38,6 +39,13 @@ type promptGitClient interface {
 	AbortMerge() error
 	HeadCommit() (string, error)
 	Push() error
+	CheckoutBranch(name string) error
+}
+
+// promptPRClient generates a pull request summary from the prompt and opens a
+// pull request to the resolved base branch.
+type promptPRClient interface {
+	CreatePromptPR(prompt, slug, head string) error
 }
 
 // promptServicesClient runs the before commands and starts, stops, and cleans
@@ -119,6 +127,7 @@ type PromptCmd struct {
 	workspace       promptWorkspaceClient `kong:"-"`
 	services        promptServicesClient  `kong:"-"`
 	ai              promptAIClient        `kong:"-"`
+	pr              promptPRClient        `kong:"-"`
 	output          promptOutputClient    `kong:"-"`
 
 	// promptBranch is the branch the prompt runs on. The slug step supplies
@@ -311,14 +320,15 @@ func (c *PromptCmd) runSetupAndPass(prompt string, inWorktree bool) error {
 	if err := aiClient.RunPrompt(prompt); err != nil {
 		return err
 	}
-	return c.publishIfAdvanced(gitClient, aiClient, tip, inWorktree)
+	return c.publishIfAdvanced(prompt, gitClient, aiClient, tip, inWorktree)
 }
 
 // publishIfAdvanced compares the prompt branch tip with the one recorded after
 // the first synchronization. An unchanged tip means the prompt made no commits,
 // so the command succeeds without a second synchronization or push. An advanced
-// tip synchronizes the base branch again and pushes the prompt branch.
-func (c *PromptCmd) publishIfAdvanced(gitClient promptGitClient, aiClient promptAIClient, tip string, inWorktree bool) error {
+// tip synchronizes the base branch again, pushes the prompt branch, opens a pull
+// request, and restores the starting branch in local mode.
+func (c *PromptCmd) publishIfAdvanced(prompt string, gitClient promptGitClient, aiClient promptAIClient, tip string, inWorktree bool) error {
 	after, err := gitClient.HeadCommit()
 	if err != nil {
 		return err
@@ -329,7 +339,34 @@ func (c *PromptCmd) publishIfAdvanced(gitClient promptGitClient, aiClient prompt
 	if _, err := basesync.Sync(gitClient, aiClient, c.outputClient(), c.resolved.BaseBranch, c.resolved.PromptBranch, inWorktree); err != nil {
 		return err
 	}
-	return gitClient.Push()
+	if err := gitClient.Push(); err != nil {
+		return err
+	}
+	if err := c.createPullRequest(prompt); err != nil {
+		return err
+	}
+	return c.restoreStartingBranch(gitClient, inWorktree)
+}
+
+// createPullRequest generates the pull request description from the prompt and
+// the commit log and opens a pull request from the prompt branch to the
+// resolved base branch. The prompt slug names the pull request when the summary
+// has no H1 heading.
+func (c *PromptCmd) createPullRequest(prompt string) error {
+	return c.prClient().CreatePromptPR(prompt, c.resolved.PromptBranch, c.resolved.PromptBranch)
+}
+
+// restoreStartingBranch checks the starting checkout back out after a pull
+// request is opened. Worktree mode leaves the starting checkout untouched, and
+// the checkout stays put when the prompt began on the prompt branch.
+func (c *PromptCmd) restoreStartingBranch(gitClient promptGitClient, inWorktree bool) error {
+	if inWorktree {
+		return nil
+	}
+	if c.resolved.CurrentBranch == "" || c.resolved.CurrentBranch == c.resolved.PromptBranch {
+		return nil
+	}
+	return gitClient.CheckoutBranch(c.resolved.CurrentBranch)
 }
 
 // startServices starts the configured services unless --no-services is set.
@@ -427,6 +464,16 @@ func (c *PromptCmd) aiClient() promptAIClient {
 	ctx := c.executionContext()
 	oc := opencode.New()
 	return &promptAIClientAdapter{ctx: ctx, oc: oc, agent: NewAgentClient(ctx, oc)}
+}
+
+// prClient returns the wired pull request client, building the real one lazily
+// with the resolved base branch.
+func (c *PromptCmd) prClient() promptPRClient {
+	if c.pr != nil {
+		return c.pr
+	}
+	ctx := c.executionContext()
+	return github.NewClient(ctx, c.resolved.BaseBranch, github.NewGH(ctx.Output()), opencode.New())
 }
 
 // outputClient returns the wired output client, building the real one lazily.
