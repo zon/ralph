@@ -1743,6 +1743,175 @@ func TestPromptCmdPullRequestAfterPush(t *testing.T) {
 	}
 }
 
+// TestPromptCmdRenamesBranchAfterWork covers renaming the prompt branch to a
+// slug proposed from the commits the pass made. The rename happens before the
+// second synchronization, the push, and the pull request, which all use the new
+// branch. A worktree is still removed by the branch it was created for.
+func TestPromptCmdRenamesBranchAfterWork(t *testing.T) {
+	tests := []struct {
+		name       string
+		mode       string
+		workSlug   string
+		wantRename bool
+	}{
+		{
+			name:       "local renames the branch",
+			mode:       config.ModeLocal,
+			workSlug:   "actual-work",
+			wantRename: true,
+		},
+		{
+			name:       "worktree renames the branch",
+			mode:       config.ModeWorktree,
+			workSlug:   "actual-work",
+			wantRename: true,
+		},
+		{
+			name:     "a slug that cleans to the branch name leaves it alone",
+			mode:     config.ModeLocal,
+			workSlug: "prompt-slug",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tip := "tip-before"
+			var order []string
+			var proposals []string
+			var renames [][2]string
+			var checkouts []string
+			worktree := &promptWorktreeRecorder{path: "/worktree/prompt-slug", order: &order}
+			prClient := &promptPRRecorder{order: &order}
+			cmd := &PromptCmd{
+				Prompt: []string{"do work"},
+				Mode:   tt.mode,
+				config: &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+				slugProposer: promptSlugProposerFunc(func(description string) (string, error) {
+					proposals = append(proposals, description)
+					if len(proposals) == 1 {
+						return "prompt-slug", nil
+					}
+					return tt.workSlug, nil
+				}),
+				services:  &promptServicesRecorder{order: &order},
+				ai:        &promptAIRecorder{order: &order, passFunc: func(string) error { tip = "tip-after"; return nil }},
+				pr:        prClient,
+				output:    &promptOutputRecorder{},
+				worktree:  worktree,
+				workspace: &promptWorkspaceRecorder{order: &order},
+				git: &git.MockClient{
+					CurrentBranchFunc: func() (string, error) { return "main", nil },
+					HeadCommitFunc:    func() (string, error) { return tip, nil },
+					GetCommitLogFunc: func(base string, limit int) (string, error) {
+						assert.Equal(t, "tip-before", base, "the commits are read after the pre-pass tip")
+						assert.Equal(t, 100, limit)
+						return "abc123: add the actual feature", nil
+					},
+					RenameBranchFunc: func(oldName, newName string) error {
+						renames = append(renames, [2]string{oldName, newName})
+						promptEvent(&order, "rename")
+						return nil
+					},
+					PushFunc: func() error {
+						promptEvent(&order, "push")
+						return nil
+					},
+					CheckoutBranchFunc: func(name string) error {
+						checkouts = append(checkouts, name)
+						promptEvent(&order, "checkout-"+name)
+						return nil
+					},
+				},
+			}
+
+			require.NoError(t, cmd.Run())
+			require.Len(t, proposals, 2, "the branch slug is proposed before the pass and again before the pull request")
+			assert.Equal(t, "do work", proposals[0])
+			assert.Equal(t, "abc123: add the actual feature", proposals[1])
+
+			head := "prompt-slug"
+			if tt.wantRename {
+				head = "actual-work"
+				assert.Equal(t, [][2]string{{"prompt-slug", "actual-work"}}, renames)
+				assert.Less(t, promptIndex(order, "rename"), promptIndex(order, "push"), "the branch is renamed before the push")
+			} else {
+				assert.Empty(t, renames, "an unchanged branch name is not renamed")
+			}
+			assert.Equal(t, []string{head}, prClient.heads, "the pull request opens from the renamed branch")
+			assert.Equal(t, []string{head}, prClient.slugs, "the pull request title falls back to the renamed branch")
+
+			if tt.mode == config.ModeWorktree {
+				assert.Equal(t, []string{"prompt-slug"}, worktree.removed, "the worktree is removed by its original branch")
+			} else {
+				assert.Equal(t, []string{"main"}, checkouts, "the starting branch is restored")
+			}
+		})
+	}
+}
+
+// TestPromptCmdBranchRenameFailure covers a failed commit-log read and a failed
+// rename: the command fails before the second synchronization, the push, or the
+// pull request.
+func TestPromptCmdBranchRenameFailure(t *testing.T) {
+	tests := []struct {
+		name      string
+		commitErr error
+		renameErr error
+		wantErr   string
+	}{
+		{
+			name:      "commit log failure",
+			commitErr: errors.New("cannot read the commit log"),
+			wantErr:   "cannot read the commit log",
+		},
+		{
+			name:      "rename failure",
+			renameErr: errors.New("cannot rename the branch"),
+			wantErr:   "cannot rename the branch",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tip := "tip-before"
+			pushCalled := false
+			prClient := &promptPRRecorder{}
+			proposals := 0
+			cmd := &PromptCmd{
+				Prompt: []string{"do work"},
+				config: &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+				slugProposer: promptSlugProposerFunc(func(string) (string, error) {
+					proposals++
+					if proposals == 1 {
+						return "prompt-slug", nil
+					}
+					return "actual-work", nil
+				}),
+				ai:     &promptAIRecorder{passFunc: func(string) error { tip = "tip-after"; return nil }},
+				pr:     prClient,
+				output: &promptOutputRecorder{},
+				git: &git.MockClient{
+					CurrentBranchFunc: func() (string, error) { return "main", nil },
+					HeadCommitFunc:    func() (string, error) { return tip, nil },
+					GetCommitLogFunc:  func(string, int) (string, error) { return "", tt.commitErr },
+					RenameBranchFunc:  func(string, string) error { return tt.renameErr },
+					PushFunc: func() error {
+						pushCalled = true
+						return nil
+					},
+				},
+			}
+			preparePromptRun(cmd)
+
+			err := cmd.Run()
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.wantErr)
+			assert.False(t, pushCalled, "a failed rename pushes nothing")
+			assert.Zero(t, prClient.calls, "a failed rename opens no pull request")
+		})
+	}
+}
+
 // promptRemoteRecorder records the submissions and log operations made for a
 // remote prompt and returns canned failures.
 type promptRemoteRecorder struct {

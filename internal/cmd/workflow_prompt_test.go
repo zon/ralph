@@ -263,6 +263,67 @@ func TestPromptCmdRunInWorkspaceRunsThePreparedFlow(t *testing.T) {
 	assert.Zero(t, prClient.calls, "an unchanged tip opens no pull request")
 }
 
+// TestPromptCmdRunInWorkspaceRenamesBranchBeforePR asserts the container-side
+// flow renames the prompt branch from the commit log before the push and pull
+// request, without switching or restoring branches in the prepared checkout.
+func TestPromptCmdRunInWorkspaceRenamesBranchBeforePR(t *testing.T) {
+	var order []string
+	var renames [][2]string
+	tip := "before"
+	prClient := &promptPRRecorder{order: &order}
+	gitClient := &git.MockClient{
+		CurrentBranchFunc: func() (string, error) {
+			t.Fatal("the prepared flow must not read the starting branch")
+			return "", nil
+		},
+		SwitchToBranchFunc: func(string) error {
+			t.Fatal("the prepared flow must not switch branches")
+			return nil
+		},
+		CheckoutBranchFunc: func(string) error {
+			t.Fatal("the prepared flow must not restore a starting branch")
+			return nil
+		},
+		FetchBranchFunc: func(string) error { return nil },
+		NeedsMergeFunc:  func(string) (bool, error) { return false, nil },
+		HeadCommitFunc:  func() (string, error) { return tip, nil },
+		GetCommitLogFunc: func(base string, limit int) (string, error) {
+			assert.Equal(t, "before", base, "the commits are read after the pre-pass tip")
+			return "abc123: add the actual feature", nil
+		},
+		RenameBranchFunc: func(oldName, newName string) error {
+			renames = append(renames, [2]string{oldName, newName})
+			promptEvent(&order, "rename")
+			return nil
+		},
+		PushFunc: func() error {
+			promptEvent(&order, "push")
+			return nil
+		},
+	}
+	cmd := &PromptCmd{
+		config:   &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+		git:      gitClient,
+		services: &promptServicesRecorder{order: &order},
+		ai:       &promptAIRecorder{order: &order, passFunc: func(string) error { tip = "after"; return nil }},
+		pr:       prClient,
+		output:   &promptOutputRecorder{},
+		slugProposer: promptSlugProposerFunc(func(description string) (string, error) {
+			assert.Equal(t, "abc123: add the actual feature", description)
+			return "actual-work", nil
+		}),
+		NoServices: true,
+	}
+
+	err := cmd.RunInWorkspace("do work", "my-feature", "release")
+
+	require.NoError(t, err)
+	assert.Equal(t, [][2]string{{"my-feature", "actual-work"}}, renames)
+	assert.Less(t, promptIndex(order, "rename"), promptIndex(order, "push"))
+	assert.Equal(t, []string{"actual-work"}, prClient.heads)
+	assert.Equal(t, "actual-work", cmd.resolved.PromptBranch)
+}
+
 // TestPromptCmdRunInWorkspaceRejectsEmptyPrompt asserts the prepared entrypoint
 // rejects an empty prompt before loading the configuration.
 func TestPromptCmdRunInWorkspaceRejectsEmptyPrompt(t *testing.T) {

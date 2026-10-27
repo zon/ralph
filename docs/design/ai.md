@@ -12,7 +12,7 @@ Ralph's agents run through the OpenCode CLI. Ralph embeds most prompts as instru
 * Merge conflicts - resolve conflicts, run tests, and stage the result. Writes repository code.
 * Loop - run a configured step list. Writes `report.md`.
 * Loop slug - propose a slug from steps. Writes a temporary file.
-* Prompt slug - propose a branch slug from the prompt. Writes a temporary file.
+* Prompt slug - propose a branch slug from the prompt before the pass and from the commit log before the pull request. Writes a temporary file.
 * Direct prompt - run the user's text. Writes repository code when the prompt asks.
 
 The development prompt gives the item's exact text with its index and key. It states the completion trailer to write when the item is done, and tells the agent not to edit the project file. See [Completion Design](completion.md).
@@ -44,6 +44,6 @@ A direct prompt has no report contract. Its transcript is the output. The prompt
 
 Ralph classifies an agent failure as fatal or non-fatal. See [Iteration Recovery Design](iteration-recovery.md).
 
-A direct prompt is one pass, so an agent failure fails the command. It has no next iteration. The prompt slug runs first, and a failed slug fails the command before the prompt starts. A service failure or base conflict can run the matching fix prompt before the direct prompt. When the pass leaves commits, the PR summary prompt runs before the pull request.
+A direct prompt is one pass, so an agent failure fails the command. It has no next iteration. The prompt slug runs first, and a failed slug fails the command before the prompt starts. A service failure or base conflict can run the matching fix prompt before the direct prompt. When the pass leaves commits, a second prompt slug names the branch from the commit log, and the PR summary prompt runs before the pull request.
 
 Inside a workflow container, Ralph prints accumulated token usage and cost when the run ends.

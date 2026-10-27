@@ -121,6 +121,11 @@ func (a *Client) CheckoutBranch(name string) error {
 	return CheckoutBranch(name)
 }
 
+// RenameBranch renames a local branch without changing the working tree.
+func (a *Client) RenameBranch(oldName, newName string) error {
+	return RenameBranch(oldName, newName)
+}
+
 // HasCommitsAhead reports whether the current branch has commits the given base
 // branch does not, so a run can tell whether opening a pull request is
 // meaningful.
@@ -161,6 +166,12 @@ func (a *Client) Push() error {
 
 func (a *Client) CommitMessages(base string) ([]string, error) {
 	return CommitMessages(base)
+}
+
+// GetCommitLog returns the commits on the current branch that are not on the
+// base branch, formatted with their short hash and full message.
+func (a *Client) GetCommitLog(base string, limit int) (string, error) {
+	return GetCommitLog(base, limit)
 }
 
 func (a *Client) IsBranchSyncedWithRemote(branch string) error {

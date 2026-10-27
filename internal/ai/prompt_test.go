@@ -782,10 +782,11 @@ func TestBuildPromptSlugPrompt(t *testing.T) {
 		check      func(t *testing.T, prompt string)
 	}{
 		{
-			name:       "embeds the prompt text",
+			name:       "embeds the work description",
 			prompt:     "update the readme and fix the typo",
 			outputPath: "/tmp/prompt-slug.txt",
 			check: func(t *testing.T, prompt string) {
+				assert.Contains(t, prompt, "## Description")
 				assert.Contains(t, prompt, "update the readme and fix the typo")
 			},
 		},

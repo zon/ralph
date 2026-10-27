@@ -1,6 +1,6 @@
 # Prompt Design
 
-`ralph prompt` runs one user prompt on a branch named from the prompt slug and streams the OpenCode output. It is the companion of [run](run.md) and [loop](loop.md): no project items, no iteration, and no report contract. The prompt owns its commits. If the pass leaves commits, Ralph pushes the branch and opens a pull request.
+`ralph prompt` runs one user prompt on a branch named from the prompt slug and streams the OpenCode output. It is the companion of [run](run.md) and [loop](loop.md): no project items, no iteration, and no report contract. The prompt owns its commits. If the pass leaves commits, Ralph renames the branch to the work it actually did, pushes the branch, and opens a pull request.
 
 ## Invocation
 
@@ -20,11 +20,13 @@ The prompt is used as written, so [custom instructions](app/ralph-config.md#cust
 
 ## Flow
 
-A prompt runs the before commands, checks out the prompt branch, synchronizes the base branch, starts the services, and runs the pass. When the pass leaves commits, Ralph synchronizes the base branch again, pushes the branch, opens the pull request, and, in local mode, restores the starting branch.
+A prompt runs the before commands, checks out the prompt branch, synchronizes the base branch, starts the services, and runs the pass. When the pass leaves commits, Ralph renames the branch from the commit log, synchronizes the base branch again, pushes the branch, opens the pull request, and, in local mode, restores the starting branch.
 
 ## Branch
 
 Ralph asks the AI for a short slug from the prompt and uses it as the branch name, cleaned up like a project branch. A failed slug proposal fails the command before any branch or service work. The branch follows the creation and checkout behavior of a run.
+
+Before the pull request, Ralph asks the AI for a slug from the commit log the pass made and renames the branch to it. The pull request head and title fallback use the new name. A failed proposal or rename fails the command before the push.
 
 * Local mode checks out the prompt branch in the current checkout, creating it from the current branch when it does not exist.
 * Worktree mode creates the worktree on the prompt branch with the same origin and local rules as a run, and refuses a branch already checked out in another worktree.
@@ -37,7 +39,7 @@ Ralph does not stage or commit the prompt's working tree and does not choose the
 Ralph records the branch tip after base synchronization. After a successful pass it compares the tip:
 
 * If the tip did not advance, the prompt made no commits. The command succeeds without a push or pull request. Uncommitted changes remain in a local checkout, and Ralph discards them in worktree and remote modes.
-* If the tip advanced, the prompt made commits. Ralph synchronizes the base branch again, pushes the prompt branch, generates a pull request description from the commit log with the PR summary prompt, and opens a pull request to the base branch. The summary prompt receives the prompt text in place of a project description. The title is the first H1 in the summary, falling back to the prompt slug.
+* If the tip advanced, the prompt made commits. Ralph renames the prompt branch from the commit log, synchronizes the base branch again, pushes the branch, generates a pull request description from the commit log with the PR summary prompt, and opens a pull request to the base branch. The summary prompt receives the prompt text in place of a project description. The title is the first H1 in the summary, falling back to the renamed branch.
 
 A failed pass makes no push or pull request. If the summary or pull request step fails, the command fails and the pushed prompt branch remains.
 

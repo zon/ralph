@@ -11,7 +11,7 @@
 - [logs](ralph/logs.md) - Print the pod logs of a Ralph-owned Argo Workflow, defaulting to the workflow at the top of the list and streaming with `--follow`.
 - [model-options](ralph/model-options.md) - Shared contract for every Ralph CLI command that prompts an AI model: `ralph run`, `ralph loop`, `ralph prompt`, and `ralph workflow run` support `--model` and `--variant` to override the model and its reasoning-effort variant from `.ralph/config.yaml`.
 - [loop](ralph/loop.md) - Bounded AI iteration loop over a configured or flag-supplied list of steps, committing to a `loop-<slug>` branch and opening a pull request when the loop ends, running with `--mode` in-process locally, in a Git worktree, or in an Argo Workflow.
-- [prompt](ralph/prompt.md) - Runs one user-supplied prompt as a single OpenCode pass on a branch named from the prompt slug and opens a pull request when the pass commits.
+- [prompt](ralph/prompt.md) - Runs one user-supplied prompt as a single OpenCode pass on a branch named from the prompt slug, renames the branch from the work it did, and opens a pull request when the pass commits.
 - [run](ralph/run.md) - Primary entry point that drives an AI coding agent through iterative development cycles until every project item is complete, selecting the execution mode with `--mode`.
 - [run-local](ralph/run-local.md) - Runs the development loop in-process in the current checkout (the `local` execution mode).
 - [run-remote](ralph/run-remote.md) - Submits an Argo Workflow to a Kubernetes cluster and returns after submission for remote execution (the `remote` execution mode).

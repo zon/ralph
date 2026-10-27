@@ -67,7 +67,7 @@ func (a *Client) CreatePR(proj *project.Project, head string) error {
 
 // CreatePromptPR generates an AI PR summary from the commits on the head
 // branch with the prompt text in place of a project description and opens a
-// pull request from head to base. The prompt slug is the title fallback when
+// pull request from head to base. The branch slug is the title fallback when
 // the summary has no H1 heading.
 func (a *Client) CreatePromptPR(prompt, slug, head string) error {
 	return a.createPR(prompt, &project.Project{Slug: slug}, head)

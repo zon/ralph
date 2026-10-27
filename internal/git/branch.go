@@ -110,6 +110,15 @@ func CreateBranch(name string) error {
 	return nil
 }
 
+// RenameBranch renames a local branch without changing the working tree.
+func RenameBranch(oldName, newName string) error {
+	_, err := runGit("branch", "-m", oldName, newName)
+	if err != nil {
+		return fmt.Errorf("failed to rename branch '%s' to '%s': %w", oldName, newName, err)
+	}
+	return nil
+}
+
 func SanitizeBranchName(name string) string {
 	name = strings.ToLower(name)
 	name = strings.ReplaceAll(name, " ", "-")

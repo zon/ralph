@@ -24,14 +24,16 @@ import (
 	"github.com/zon/ralph/internal/workspace"
 )
 
-// promptSlugProposer proposes a branch slug from the prompt.
+// promptSlugProposer proposes a branch slug from a description of the branch's
+// work.
 type promptSlugProposer interface {
-	ProposeSlug(prompt string) (string, error)
+	ProposeSlug(description string) (string, error)
 }
 
 // promptGitClient reports the branch the prompt starts from, switches the
-// current checkout to the prompt branch, records the branch tip, synchronizes
-// the prompt branch with its base branch, and pushes the branch after commits.
+// current checkout to the prompt branch, records the branch tip, reads the
+// commits the pass made, renames the prompt branch, synchronizes the prompt
+// branch with its base branch, and pushes the branch after commits.
 type promptGitClient interface {
 	CurrentBranch() (string, error)
 	SwitchToBranch(slug string) error
@@ -40,6 +42,8 @@ type promptGitClient interface {
 	Merge(branch string) error
 	AbortMerge() error
 	HeadCommit() (string, error)
+	GetCommitLog(base string, limit int) (string, error)
+	RenameBranch(oldName, newName string) error
 	Push() error
 	CheckoutBranch(name string) error
 	IsBranchSyncedWithRemote(branch string) error
@@ -412,8 +416,9 @@ func (c *PromptCmd) runSetupAndPass(prompt string, inWorktree bool) error {
 // publishIfAdvanced compares the prompt branch tip with the one recorded after
 // the first synchronization. An unchanged tip means the prompt made no commits,
 // so the command succeeds without a second synchronization or push. An advanced
-// tip synchronizes the base branch again, pushes the prompt branch, opens a pull
-// request, and restores the starting branch in local mode.
+// tip renames the prompt branch after the work it actually did, synchronizes the
+// base branch again, pushes the branch, opens a pull request, and restores the
+// starting branch in local mode.
 func (c *PromptCmd) publishIfAdvanced(prompt string, gitClient promptGitClient, aiClient promptAIClient, tip string, inWorktree bool) error {
 	after, err := gitClient.HeadCommit()
 	if err != nil {
@@ -421,6 +426,9 @@ func (c *PromptCmd) publishIfAdvanced(prompt string, gitClient promptGitClient, 
 	}
 	if after == tip {
 		return nil
+	}
+	if err := c.renamePromptBranch(gitClient, tip); err != nil {
+		return err
 	}
 	if _, err := basesync.Sync(gitClient, aiClient, c.outputClient(), c.resolved.BaseBranch, c.resolved.PromptBranch, inWorktree); err != nil {
 		return err
@@ -432,6 +440,45 @@ func (c *PromptCmd) publishIfAdvanced(prompt string, gitClient promptGitClient, 
 		return err
 	}
 	return c.restoreStartingBranch(gitClient, inWorktree)
+}
+
+// renamePromptBranch renames the prompt branch to a slug proposed from the
+// commits the pass made since tip, so the pull request branch describes the
+// work that landed rather than the prompt's original wording. A slug that
+// cleans to the current branch name leaves the branch as it is.
+func (c *PromptCmd) renamePromptBranch(gitClient promptGitClient, tip string) error {
+	commitLog, err := gitClient.GetCommitLog(tip, 100)
+	if err != nil {
+		return err
+	}
+	slug, err := c.proposeSlug(commitLog)
+	if err != nil {
+		return err
+	}
+	name := git.SanitizeBranchName(slug)
+	if name == c.resolved.PromptBranch {
+		return nil
+	}
+	if err := gitClient.RenameBranch(c.resolved.PromptBranch, name); err != nil {
+		return err
+	}
+	c.setPromptBranch(name)
+	return nil
+}
+
+// setPromptBranch updates the branch the later steps use after a rename. The
+// starting branch follows the rename when it was the prompt branch, so the
+// restore step leaves the checkout where it started.
+func (c *PromptCmd) setPromptBranch(name string) {
+	previous := c.resolved.PromptBranch
+	c.promptBranch = name
+	c.resolved.PromptBranch = name
+	if c.resolved.CurrentBranch == previous {
+		c.resolved.CurrentBranch = name
+	}
+	if c.resolved.Config != nil && c.resolved.Config.StartingBranch == previous {
+		c.resolved.Config.StartingBranch = name
+	}
 }
 
 // createPullRequest generates the pull request description from the prompt and
@@ -473,14 +520,15 @@ func (c *PromptCmd) startServices() (*services.Manager, error) {
 	return svc, nil
 }
 
-// proposeSlug asks the AI for a branch slug from the prompt. The proposal is
-// returned before it is cleaned, so the caller controls the branch name.
-func (c *PromptCmd) proposeSlug(prompt string) (string, error) {
+// proposeSlug asks the AI for a branch slug from a description of the branch's
+// work. The proposal is returned before it is cleaned, so the caller controls
+// the branch name.
+func (c *PromptCmd) proposeSlug(description string) (string, error) {
 	proposer := c.slugProposer
 	if proposer == nil {
 		proposer = &promptAISlugProposer{ctx: c.executionContext(), oc: opencode.New()}
 	}
-	return proposer.ProposeSlug(prompt)
+	return proposer.ProposeSlug(description)
 }
 
 // resolveMode resolves the execution mode from the --mode flag, then the
@@ -681,13 +729,14 @@ type promptAISlugProposer struct {
 	oc  opencode.OCClient
 }
 
-// ProposeSlug asks the AI to propose a branch slug for the prompt.
-func (p *promptAISlugProposer) ProposeSlug(prompt string) (string, error) {
+// ProposeSlug asks the AI to propose a branch slug from a description of the
+// branch's work.
+func (p *promptAISlugProposer) ProposeSlug(description string) (string, error) {
 	oc := p.oc
 	if oc == nil {
 		oc = opencode.New()
 	}
-	return ai.ProposePromptSlug(p.ctx, oc, prompt)
+	return ai.ProposePromptSlug(p.ctx, oc, description)
 }
 
 // promptAIClientAdapter adapts the AI entry points to the command's AI client.

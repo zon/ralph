@@ -6,7 +6,7 @@ Ralph is a command line tool that runs projects, loops, and direct prompts with 
 
 * `ralph run <project>` - run a project to completion and open a pull request
 * `ralph loop <slug>` - run a configured step list until nothing is left
-* `ralph prompt [text]` - run one OpenCode prompt from text, a file, or standard input on a prompt branch and open a pull request when it commits
+* `ralph prompt [text]` - run one OpenCode prompt from text, a file, or standard input on a prompt branch, rename the branch from the work it did, and open a pull request when it commits
 * `ralph validate <project>` - check that a project file parses and yields items
 * `ralph complete [project]` - print the completion hashes on this branch
 * `ralph incomplete <project>` - print the project items that are not complete

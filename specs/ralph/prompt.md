@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The `prompt` command runs one user-supplied prompt as a single non-interactive OpenCode pass. It is the companion of `run` and `loop` for work that comes from neither a project file nor a step list. Ralph asks the AI for a branch slug, runs the pass on the prompt branch, and opens a pull request when the pass leaves commits. It has no project items, iteration cap, report contract, completion trailer, or iteration recovery.
+The `prompt` command runs one user-supplied prompt as a single non-interactive OpenCode pass. It is the companion of `run` and `loop` for work that comes from neither a project file nor a step list. Ralph asks the AI for a branch slug, runs the pass on the prompt branch, renames the branch from the work it did, and opens a pull request when the pass leaves commits. It has no project items, iteration cap, report contract, completion trailer, or iteration recovery.
 
 Execution runs in one of three modes selected with `--mode`: `local` (default), `worktree`, or `remote`. The pass body is the same in every mode. The mode decides where it runs and how the result reaches the remote branch. Mode resolution, base branch synchronization, services, and workflow submission follow the shared contracts linked below.
 
@@ -243,7 +243,9 @@ The prompt SHALL be used as written. Custom instructions from `.ralph/config.yam
 
 Ralph SHALL ask the AI for a short slug from the prompt and use the cleaned slug as the prompt branch name. Branch name cleanup SHALL match a [project branch](run.md#requirement-branch-name-derived-from-project-slug).
 
-A failed slug proposal SHALL fail the command before any branch, service, or pass work starts.
+Before the pull request, Ralph SHALL ask the AI for a short slug from the commits the pass made and rename the prompt branch to the cleaned slug. The pull request SHALL use the renamed branch as its head.
+
+A failed slug proposal SHALL fail the command before any branch, service, or pass work starts. A failed branch rename SHALL fail the command before the push or pull request.
 
 The prompt branch SHALL be created and checked out according to the execution mode:
 
@@ -296,6 +298,30 @@ The prompt branch SHALL be created and checked out according to the execution mo
 - WHEN the container prepares the workspace
 - THEN it clones the current branch
 - AND it creates the prompt branch from that clone branch
+
+#### Scenario: Branch is renamed from the work before the pull request
+
+- GIVEN the pass leaves commits
+- AND the AI proposes a slug from the commit log that differs from the prompt branch
+- WHEN Ralph prepares the pull request
+- THEN the prompt branch is renamed to the cleaned slug
+- AND the push and pull request use the renamed branch
+
+#### Scenario: A slug that matches the branch leaves the name alone
+
+- GIVEN the pass leaves commits
+- AND the AI proposes a slug from the commit log that cleans to the prompt branch name
+- WHEN Ralph prepares the pull request
+- THEN the prompt branch keeps its name
+
+#### Scenario: Failed branch proposal or rename stops the pull request
+
+- GIVEN the pass leaves commits
+- AND the AI fails to propose a slug from the commit log, or the rename fails
+- WHEN Ralph prepares the pull request
+- THEN the command fails
+- AND no branch is pushed
+- AND no pull request opens
 
 ---
 
@@ -428,9 +454,9 @@ Ralph SHALL NOT stage or commit the prompt's working tree and SHALL NOT choose t
 Ralph SHALL record the prompt branch tip after base branch synchronization. After a successful pass it SHALL compare the tip:
 
 - If the tip did not advance, the prompt made no commits. The command SHALL succeed without a push or pull request. Uncommitted changes SHALL remain in a `local` checkout. `worktree` and `remote` modes SHALL discard them.
-- If the tip advanced, the prompt made commits. Ralph SHALL synchronize the base branch again, push the prompt branch, generate a pull request description from the commit log with the pull request summary prompt, and open a pull request to the base branch.
+- If the tip advanced, the prompt made commits. Ralph SHALL rename the prompt branch from the commit log, synchronize the base branch again, push the renamed branch, generate a pull request description from the commit log with the pull request summary prompt, and open a pull request to the base branch.
 
-The pull request summary prompt SHALL receive the prompt text in place of a project description. The pull request title SHALL be the first H1 in the summary, falling back to the prompt slug.
+The pull request summary prompt SHALL receive the prompt text in place of a project description. The pull request title SHALL be the first H1 in the summary, falling back to the renamed branch name.
 
 A failed pass SHALL make no push and open no pull request. If the summary or pull request step fails, the command SHALL fail and the pushed prompt branch SHALL remain.
 
@@ -460,8 +486,9 @@ A failed pass SHALL make no push and open no pull request. If the summary or pul
 
 - GIVEN the pass advances the branch tip
 - WHEN the pass succeeds
-- THEN the base branch is synchronized again
-- AND the prompt branch is pushed
+- THEN the prompt branch is renamed from the commit log
+- AND the base branch is synchronized again
+- AND the renamed branch is pushed
 - AND a pull request opens to the base branch
 
 #### Scenario: Summary receives the prompt text
@@ -476,11 +503,11 @@ A failed pass SHALL make no push and open no pull request. If the summary or pul
 - WHEN the pull request opens
 - THEN its title is that H1 text
 
-#### Scenario: Pull request title falls back to the slug
+#### Scenario: Pull request title falls back to the branch name
 
 - GIVEN the summary contains no H1 heading
 - WHEN the pull request opens
-- THEN its title is the prompt slug
+- THEN its title is the renamed branch name
 
 #### Scenario: Failed pass makes no push
 
