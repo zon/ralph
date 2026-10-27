@@ -5,6 +5,7 @@ type Cmd struct {
 	// Subcommands
 	Run        RunCmd        `cmd:"" default:"withargs" help:"Execute Ralph with a project file (default command)"`
 	Loop       LoopCmd       `cmd:"" help:"Run AI iterations over a set of steps"`
+	Prompt     PromptCmd     `cmd:"" help:"Run one prompt as a single OpenCode pass"`
 	Command    CommandCmd    `cmd:"" help:"Run a command in a remote Ralph workflow"`
 	Validate   ValidateCmd   `cmd:"" help:"Validate a project YAML file"`
 	Complete   CompleteCmd   `cmd:"" help:"List the completion hashes recorded in the commit log of this branch"`

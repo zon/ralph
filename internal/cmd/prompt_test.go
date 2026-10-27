@@ -1,0 +1,358 @@
+package cmd
+
+import (
+	"errors"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/alecthomas/kong"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/zon/ralph/internal/config"
+)
+
+// TestReadPromptSources covers every prompt input source and the conflicting
+// and empty input failures.
+func TestReadPromptSources(t *testing.T) {
+	dir := t.TempDir()
+	filePrompt := filepath.Join(dir, "prompt.txt")
+	require.NoError(t, os.WriteFile(filePrompt, []byte("from the file\n"), 0644))
+	emptyFile := filepath.Join(dir, "empty.txt")
+	require.NoError(t, os.WriteFile(emptyFile, []byte("  \n\t"), 0644))
+
+	tests := []struct {
+		name     string
+		text     []string
+		file     string
+		stdin    string
+		terminal bool
+		want     string
+		wantErr  string
+	}{
+		{
+			name: "positional text is joined with single spaces",
+			text: []string{"update", "the", "readme"},
+			want: "update the readme",
+		},
+		{
+			name:     "positional text ignores standard input",
+			text:     []string{"use this"},
+			stdin:    "not this",
+			terminal: true,
+			want:     "use this",
+		},
+		{
+			name: "file contents become the prompt",
+			file: filePrompt,
+			want: "from the file\n",
+		},
+		{
+			name:  "file does not read standard input",
+			file:  filePrompt,
+			stdin: "not this",
+			want:  "from the file\n",
+		},
+		{
+			name:  "piped standard input becomes the prompt",
+			stdin: "from standard input",
+			want:  "from standard input",
+		},
+		{
+			name:     "explicit standard input is read from a terminal",
+			file:     "-",
+			stdin:    "explicit standard input",
+			terminal: true,
+			want:     "explicit standard input",
+		},
+		{
+			name:    "positional text with a file fails",
+			text:    []string{"text"},
+			file:    filePrompt,
+			wantErr: "cannot use positional prompt text with --file",
+		},
+		{
+			name:     "missing prompt fails on a terminal",
+			terminal: true,
+			wantErr:  "prompt is required",
+		},
+		{
+			name:    "whitespace-only positional text fails",
+			text:    []string{" ", "\t"},
+			wantErr: "prompt is empty",
+		},
+		{
+			name:    "whitespace-only file fails",
+			file:    emptyFile,
+			wantErr: "prompt is empty",
+		},
+		{
+			name:    "whitespace-only standard input fails",
+			stdin:   " \n\t",
+			wantErr: "prompt is empty",
+		},
+		{
+			name:    "missing file fails",
+			file:    filepath.Join(dir, "missing.txt"),
+			wantErr: "failed to read prompt file",
+		},
+		{
+			name:    "directory path is not a readable prompt file",
+			file:    dir,
+			wantErr: "failed to read prompt file",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ReadPrompt(tt.text, tt.file, strings.NewReader(tt.stdin), tt.terminal)
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+// failingReader reports a read failure so the standard input error path is
+// covered.
+type failingReader struct{}
+
+func (failingReader) Read([]byte) (int, error) {
+	return 0, errors.New("read failed")
+}
+
+func TestReadPromptStandardInputError(t *testing.T) {
+	_, err := ReadPrompt(nil, "-", failingReader{}, true)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to read prompt from standard input")
+}
+
+// TestPromptCmdParsing covers the command option surface and rejects the
+// project and item options.
+func TestPromptCmdParsing(t *testing.T) {
+	tests := []struct {
+		name          string
+		args          []string
+		wantPrompt    []string
+		wantFile      string
+		wantMode      string
+		wantBase      string
+		wantModel     string
+		wantVariant   string
+		wantAgent     string
+		wantContext   string
+		wantNamespace string
+		wantNoSvc     bool
+		wantNoFollow  bool
+		wantNoNotify  bool
+		wantDebug     string
+		wantVerbose   bool
+		wantErr       string
+	}{
+		{
+			name:       "positional tokens are kept in order",
+			args:       []string{"prompt", "update", "the", "readme"},
+			wantPrompt: []string{"update", "the", "readme"},
+		},
+		{
+			name:     "--file parses",
+			args:     []string{"prompt", "--file", "prompt.txt"},
+			wantFile: "prompt.txt",
+		},
+		{
+			name:          "all options parse",
+			args:          []string{"prompt", "text", "--mode", "remote", "--base", "release", "--model", "gpt-4", "--variant", "high", "--agent", "build", "--context", "prod", "--namespace", "argo", "--no-services", "--no-follow", "--no-notify", "--debug", "feature", "--verbose"},
+			wantPrompt:    []string{"text"},
+			wantMode:      "remote",
+			wantBase:      "release",
+			wantModel:     "gpt-4",
+			wantVariant:   "high",
+			wantAgent:     "build",
+			wantContext:   "prod",
+			wantNamespace: "argo",
+			wantNoSvc:     true,
+			wantNoFollow:  true,
+			wantNoNotify:  true,
+			wantDebug:     "feature",
+			wantVerbose:   true,
+		},
+		{
+			name:       "--base short form parses",
+			args:       []string{"prompt", "text", "-B", "main"},
+			wantPrompt: []string{"text"},
+			wantBase:   "main",
+		},
+		{
+			name:          "--namespace short form parses",
+			args:          []string{"prompt", "text", "-n", "staging"},
+			wantPrompt:    []string{"text"},
+			wantNamespace: "staging",
+		},
+		{
+			name:       "leading dash prompt is accepted after the separator",
+			args:       []string{"prompt", "--", "--version"},
+			wantPrompt: []string{"--version"},
+		},
+		{
+			name:    "positional text with a file is rejected at parse time",
+			args:    []string{"prompt", "text", "--file", "prompt.txt"},
+			wantErr: "cannot use positional prompt text with --file",
+		},
+		{
+			name:    "--items is rejected",
+			args:    []string{"prompt", "text", "--items", "."},
+			wantErr: "unknown flag --items",
+		},
+		{
+			name:    "--extra is rejected",
+			args:    []string{"prompt", "text", "--extra", "3"},
+			wantErr: "unknown flag --extra",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := &Cmd{}
+			parser, err := kong.New(cmd,
+				kong.Name("ralph"),
+				kong.Exit(func(int) {}),
+			)
+			require.NoError(t, err)
+
+			_, err = parser.Parse(tt.args)
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantPrompt, cmd.Prompt.Prompt)
+			assert.Equal(t, tt.wantFile, cmd.Prompt.File)
+			assert.Equal(t, tt.wantMode, cmd.Prompt.Mode)
+			assert.Equal(t, tt.wantBase, cmd.Prompt.Base)
+			assert.Equal(t, tt.wantModel, cmd.Prompt.Model)
+			assert.Equal(t, tt.wantVariant, cmd.Prompt.Variant)
+			assert.Equal(t, tt.wantAgent, cmd.Prompt.Agent)
+			assert.Equal(t, tt.wantContext, cmd.Prompt.Context)
+			assert.Equal(t, tt.wantNamespace, cmd.Prompt.Namespace)
+			assert.Equal(t, tt.wantNoSvc, cmd.Prompt.NoServices)
+			assert.Equal(t, tt.wantNoFollow, cmd.Prompt.NoFollow)
+			assert.Equal(t, tt.wantNoNotify, cmd.Prompt.NoNotify)
+			assert.Equal(t, tt.wantDebug, cmd.Prompt.Debug)
+			assert.Equal(t, tt.wantVerbose, cmd.Prompt.Verbose)
+		})
+	}
+}
+
+func TestPromptCmdHelpListsOptions(t *testing.T) {
+	output := captureHelpOutput(&Cmd{}, []string{"prompt", "--help"})
+	for _, option := range []string{
+		"--mode", "--base", "-B", "--model", "--variant", "--agent",
+		"--context", "--namespace", "-n", "--no-services", "--no-follow",
+		"--no-notify", "--debug", "--verbose",
+	} {
+		assert.Contains(t, output, option)
+	}
+	assert.NotContains(t, output, "--items")
+	assert.NotContains(t, output, "--extra")
+}
+
+func TestPromptCmdListedInTopLevelHelp(t *testing.T) {
+	output := captureHelpOutput(&Cmd{}, []string{"--help"})
+	assert.Contains(t, output, "prompt")
+	assert.Contains(t, output, "Run one prompt as a single OpenCode pass")
+}
+
+// TestPromptCmdDebugRejection covers --debug for every resolved mode level.
+func TestPromptCmdDebugRejection(t *testing.T) {
+	tests := []struct {
+		name    string
+		mode    string
+		config  func() *config.RalphConfig
+		wantErr string
+	}{
+		{
+			name:    "local flag rejects debug",
+			mode:    config.ModeLocal,
+			config:  func() *config.RalphConfig { return config.Any() },
+			wantErr: "--debug flag is not applicable with --mode local",
+		},
+		{
+			name:    "worktree flag rejects debug",
+			mode:    config.ModeWorktree,
+			config:  func() *config.RalphConfig { return config.Any() },
+			wantErr: "--debug flag is not applicable with --mode worktree",
+		},
+		{
+			name:    "local default rejects debug",
+			config:  func() *config.RalphConfig { return config.Any() },
+			wantErr: "--debug flag is not applicable with --mode local",
+		},
+		{
+			name:    "config worktree rejects debug",
+			config:  func() *config.RalphConfig { return config.WithMode(config.ModeWorktree) },
+			wantErr: "--debug flag is not applicable with --mode worktree",
+		},
+		{
+			name:   "remote flag accepts debug",
+			mode:   config.ModeRemote,
+			config: func() *config.RalphConfig { return config.Any() },
+		},
+		{
+			name:   "config remote accepts debug",
+			config: func() *config.RalphConfig { return config.WithMode(config.ModeRemote) },
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := &PromptCmd{
+				Prompt: []string{"do work"},
+				Mode:   tt.mode,
+				Debug:  "feature",
+				config: &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) {
+					return tt.config(), nil
+				}},
+			}
+			err := cmd.Run()
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
+
+// TestPromptCmdInputErrorsPrecedeModeWork asserts a bad prompt is rejected
+// before the config is loaded for mode resolution.
+func TestPromptCmdInputErrorsPrecedeModeWork(t *testing.T) {
+	loadErr := errors.New("config should not be loaded")
+	cmd := &PromptCmd{
+		Prompt:          []string{" "},
+		stdinIsTerminal: func() bool { return true },
+		config:          &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return nil, loadErr }},
+	}
+	err := cmd.Run()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "prompt is empty")
+	assert.NotContains(t, err.Error(), loadErr.Error())
+}
+
+// TestPromptCmdResolvesModeAndPrompt covers the successful command path with
+// standard input injected.
+func TestPromptCmdResolvesModeAndPrompt(t *testing.T) {
+	cmd := &PromptCmd{
+		stdin:           strings.NewReader("piped prompt"),
+		stdinIsTerminal: func() bool { return false },
+		config:          &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+	}
+	require.NoError(t, cmd.Run())
+}
