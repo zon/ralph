@@ -73,7 +73,7 @@ RUN bun install -g --trust @opencode/cli@${OPENCODE_VERSION} \
     && ln -s ${BUN_INSTALL}/bin/opencode /usr/local/bin/opencode
 
 # Install Argo Workflows CLI
-ENV ARGO_VERSION=v4.1.4
+ENV ARGO_VERSION=v4.1.6
 RUN curl -sLO "https://github.com/argoproj/argo-workflows/releases/download/${ARGO_VERSION}/argo-linux-amd64.gz" \
     && gunzip argo-linux-amd64.gz \
     && chmod +x argo-linux-amd64 \
