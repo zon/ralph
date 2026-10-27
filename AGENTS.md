@@ -1,16 +1,6 @@
 # Agent Instructions
 
-## Coding Standard
-
-**IMPORTANT**: Follow [docs/zpecs/code.md](docs/zpecs/code.md) when writing code.
-
-**IMPORTANT**: Read [docs/zpecs/architecture.md](docs/zpecs/architecture.md) when planning the structure of code.
-
-**IMPORTANT**: Read the [Architecture Format](docs/zpecs/architecture-outline.md) when adding or changing a component.
-
-## Prose Standard
-
-**IMPORTANT**: Follow [docs/zpecs/prose.md](docs/zpecs/prose.md) when writing prose.
+## Inline Help
 
 **IMPORTANT**: Follow [docs/inline-help.md](docs/inline-help.md) when writing doc files built into the Ralph app: the markdown documents that Ralph embeds in its binary and renders as help inside the running app, such as `internal/config/config.md` behind `ralph help config`.
 
@@ -27,3 +17,19 @@ The documents under [docs/zpecs/](docs/zpecs/README.md) are installed, not autho
 ## Versioning
 
 When bumping the version, update `internal/version/VERSION`.
+
+## Zpecs
+
+* [Milestones](docs/milestones.md) - High level objectives
+* [Regressions](regressions.md) - How to organize and resolve bugs and problems found during other work
+* [Code](docs/zpecs/code.md) - Read before writing code
+  * [Architecture](docs/zpecs/architecture.md) - Read before planning code structure
+  * [Dependencies](docs/zpecs/dependencies.md) - Read before adding or changing code dependencies
+  * [Containers](docs/zpecs/containers.md) - Read before building or delivering a container image
+* [Prose](docs/zpecs/prose.md) - Read before writing any kind of prose
+* [Prompts](docs/zpecs/prompts.md) - Read before writing an agent prompt
+* [Spec](docs/zpecs/specs.md) - Read before writing a spec
+* [Project](docs/zpecs/project.md) - Read before writing a project
+* [Glossary](docs/zpecs/glossary.md) - Read when a term is unclear
+* [Process](docs/zpecs/process.md) - Read before planning milestones, projects, or regressions
+* [Design](docs/zpecs/design.md) - Read before writing a high level design doc
