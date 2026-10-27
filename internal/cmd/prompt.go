@@ -109,6 +109,7 @@ type PromptCmd struct {
 
 	stdin           io.Reader             `kong:"-"`
 	stdinIsTerminal func() bool           `kong:"-"`
+	ctx             *execcontext.Context  `kong:"-"`
 	config          config.Loader         `kong:"-"`
 	git             promptGitClient       `kong:"-"`
 	slugProposer    promptSlugProposer    `kong:"-"`
@@ -154,6 +155,7 @@ func (c *PromptCmd) Run() error {
 	if err := validatePromptDebug(c.Debug, mode); err != nil {
 		return err
 	}
+	c.executionContext()
 	slug, err := c.proposeSlug(prompt)
 	if err != nil {
 		return err
@@ -322,7 +324,7 @@ func (c *PromptCmd) startServices() (*services.Manager, error) {
 func (c *PromptCmd) proposeSlug(prompt string) (string, error) {
 	proposer := c.slugProposer
 	if proposer == nil {
-		proposer = &promptAISlugProposer{ctx: createExecutionContext()}
+		proposer = &promptAISlugProposer{ctx: c.executionContext(), oc: opencode.New()}
 	}
 	return proposer.ProposeSlug(prompt)
 }
@@ -356,7 +358,7 @@ func (c *PromptCmd) gitClient() promptGitClient {
 	if c.git != nil {
 		return c.git
 	}
-	return git.NewClient(createExecutionContext())
+	return git.NewClient(c.executionContext())
 }
 
 // worktreeClient returns the wired worktree client, building the real one
@@ -365,7 +367,7 @@ func (c *PromptCmd) worktreeClient() promptWorktreeClient {
 	if c.worktree != nil {
 		return c.worktree
 	}
-	return git.NewClient(createExecutionContext())
+	return git.NewClient(c.executionContext())
 }
 
 // workspaceClient returns the wired workspace client, building the real one
@@ -391,7 +393,7 @@ func (c *PromptCmd) aiClient() promptAIClient {
 	if c.ai != nil {
 		return c.ai
 	}
-	ctx := createExecutionContext()
+	ctx := c.executionContext()
 	oc := opencode.New()
 	return &promptAIClientAdapter{ctx: ctx, oc: oc, agent: NewAgentClient(ctx, oc)}
 }
@@ -407,6 +409,36 @@ func (c *PromptCmd) outputClient() promptOutputClient {
 // realOutputClient builds the output client backed by the process streams.
 func (c *PromptCmd) realOutputClient() *output.Client {
 	return output.NewClient(os.Stdout, os.Stderr, c.Verbose)
+}
+
+// executionContext returns the command's execution context, creating it once
+// from the command flags. The same context reaches the slug, git, worktree, and
+// AI clients, so the configured model, variant, and agent apply to every pass.
+func (c *PromptCmd) executionContext() *execcontext.Context {
+	if c.ctx == nil {
+		c.ctx = createExecutionContext()
+		c.applyToContext(c.ctx)
+	}
+	return c.ctx
+}
+
+// applyToContext resolves the command flags into the execution context. The
+// model, variant, and agent flags override their config values, and the direct
+// prompt's context is left without custom instructions so the prompt runs as
+// written.
+func (c *PromptCmd) applyToContext(ctx *execcontext.Context) {
+	ctx.SetVerbose(c.Verbose)
+	ctx.SetOutput(c.realOutputClient())
+	ctx.SetNoNotify(c.NoNotify)
+	ctx.SetNoServices(c.NoServices)
+	ctx.SetFollow(!c.NoFollow)
+	ctx.SetDebugBranch(c.Debug)
+	ctx.SetBaseBranch(c.Base)
+	ctx.SetModel(c.Model)
+	ctx.SetVariant(c.Variant)
+	ctx.SetAgent(c.Agent)
+	ctx.SetKubeContext(c.Context)
+	ctx.SetKubeNamespace(c.Namespace)
 }
 
 // ReadPrompt returns the prompt from exactly one source: positional text
@@ -459,11 +491,16 @@ func ReadPrompt(text []string, file string, stdin io.Reader, terminal bool) (str
 // OpenCode's primary agent.
 type promptAISlugProposer struct {
 	ctx *execcontext.Context
+	oc  opencode.OCClient
 }
 
 // ProposeSlug asks the AI to propose a branch slug for the prompt.
 func (p *promptAISlugProposer) ProposeSlug(prompt string) (string, error) {
-	return ai.ProposePromptSlug(p.ctx, opencode.New(), prompt)
+	oc := p.oc
+	if oc == nil {
+		oc = opencode.New()
+	}
+	return ai.ProposePromptSlug(p.ctx, oc, prompt)
 }
 
 // promptAIClientAdapter adapts the AI entry points to the command's AI client.

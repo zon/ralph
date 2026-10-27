@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -13,7 +14,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/zon/ralph/internal/config"
+	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
+	"github.com/zon/ralph/internal/opencode"
 	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/services"
 )
@@ -1166,6 +1169,172 @@ func TestPromptCmdNoServices(t *testing.T) {
 	assert.Zero(t, servicesClient.startCalls, "--no-services must not start services")
 	assert.Zero(t, aiClient.fixCalls, "--no-services must not run the service-fix prompt")
 	assert.Equal(t, 1, aiClient.passCalls)
+}
+
+// TestPromptCmdExecutionContextCarriesAISelection covers the command flags
+// reaching the execution context used by the pass, the slug, and the git
+// clients. Custom instructions are never placed on the context, so the direct
+// prompt runs as written.
+func TestPromptCmdExecutionContextCarriesAISelection(t *testing.T) {
+	cmd := &PromptCmd{
+		Model:   "gpt-4",
+		Variant: "high",
+		Agent:   "build",
+		Verbose: true,
+	}
+
+	ctx := cmd.executionContext()
+	assert.Equal(t, "gpt-4", ctx.Model())
+	assert.Equal(t, "high", ctx.Variant())
+	assert.Equal(t, "build", ctx.Agent())
+	assert.True(t, ctx.IsVerbose())
+	assert.Empty(t, ctx.InstructionsMD(), "custom instructions must not apply to a direct prompt")
+	assert.Same(t, ctx, cmd.executionContext(), "the command resolves its execution context once")
+}
+
+// TestPromptAIClientRunPrompt covers the direct prompt pass: one non-interactive
+// pass with the prompt as written, the configured model, variant, and agent, no
+// custom instructions, and a failure that is returned without a retry.
+func TestPromptAIClientRunPrompt(t *testing.T) {
+	newAdapter := func(t *testing.T, mock *opencode.MockOC) *promptAIClientAdapter {
+		ctx := execcontext.NewContext()
+		ctx.SetModel("gpt-4")
+		ctx.SetVariant("high")
+		ctx.SetAgent("build")
+		return &promptAIClientAdapter{ctx: ctx, oc: mock}
+	}
+
+	t.Run("runs one pass with the configured model, variant, and agent", func(t *testing.T) {
+		var calls int
+		var gotModel, gotVariant, gotAgent, gotPrompt string
+		mock := &opencode.MockOC{RunAgentFunc: func(_ context.Context, model, variant, agent, prompt string) error {
+			calls++
+			gotModel, gotVariant, gotAgent, gotPrompt = model, variant, agent, prompt
+			return nil
+		}}
+		prompt := "Add the endpoint.\n\nRun the tests before committing.\n"
+		require.NoError(t, newAdapter(t, mock).RunPrompt(prompt))
+		assert.Equal(t, 1, calls, "the prompt runs as one pass")
+		assert.Equal(t, "gpt-4", gotModel)
+		assert.Equal(t, "high", gotVariant)
+		assert.Equal(t, "build", gotAgent)
+		assert.Equal(t, prompt, gotPrompt, "the prompt is sent exactly as written")
+	})
+
+	t.Run("leaves tool access to the agent", func(t *testing.T) {
+		var gotPrompt string
+		mock := &opencode.MockOC{RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
+			gotPrompt = prompt
+			return nil
+		}}
+		prompt := "Use git and shell commands to commit the change yourself."
+		require.NoError(t, newAdapter(t, mock).RunPrompt(prompt))
+		assert.Equal(t, prompt, gotPrompt, "the prompt is unchanged, so no tool restrictions are added")
+	})
+
+	t.Run("custom instructions do not apply", func(t *testing.T) {
+		dir := t.TempDir()
+		require.NoError(t, os.MkdirAll(filepath.Join(dir, ".ralph"), 0755))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, ".ralph", "instructions.md"), []byte("Custom instructions: always add a changelog"), 0644))
+		t.Chdir(dir)
+
+		var gotPrompt string
+		mock := &opencode.MockOC{RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
+			gotPrompt = prompt
+			return nil
+		}}
+		prompt := "Fix the typo in the readme."
+		require.NoError(t, newAdapter(t, mock).RunPrompt(prompt))
+		assert.Equal(t, prompt, gotPrompt)
+		assert.NotContains(t, gotPrompt, "Custom instructions", "a direct prompt must not receive the repository's custom instructions")
+	})
+
+	t.Run("each invocation starts a fresh pass", func(t *testing.T) {
+		var prompts []string
+		mock := &opencode.MockOC{RunAgentFunc: func(_ context.Context, _, _, _, prompt string) error {
+			prompts = append(prompts, prompt)
+			return nil
+		}}
+		adapter := newAdapter(t, mock)
+		require.NoError(t, adapter.RunPrompt("first prompt"))
+		require.NoError(t, adapter.RunPrompt("second prompt"))
+		assert.Equal(t, []string{"first prompt", "second prompt"}, prompts, "every invocation is its own pass")
+	})
+
+	t.Run("a failing pass fails without retrying", func(t *testing.T) {
+		passErr := errors.New("opencode execution failed: exit status 1")
+		calls := 0
+		mock := &opencode.MockOC{RunAgentFunc: func(_ context.Context, _, _, _, _ string) error {
+			calls++
+			return passErr
+		}}
+		err := newAdapter(t, mock).RunPrompt("do work")
+		require.ErrorIs(t, err, passErr)
+		assert.Equal(t, 1, calls, "a failed pass is not retried")
+	})
+}
+
+// TestPromptAIClientResolveMergeConflictsUsesConfiguredAgent covers the adapter
+// routing conflict resolution to the configured agent, because it writes
+// repository code.
+func TestPromptAIClientResolveMergeConflictsUsesConfiguredAgent(t *testing.T) {
+	ctx := execcontext.NewContext()
+	ctx.SetAgent("build")
+
+	var capturedAgent string
+	mock := &opencode.MockOC{RunAgentFunc: func(_ context.Context, _, _, agent, _ string) error {
+		capturedAgent = agent
+		return nil
+	}}
+	adapter := &promptAIClientAdapter{ctx: ctx, oc: mock, agent: NewAgentClient(ctx, mock)}
+
+	require.NoError(t, adapter.ResolveMergeConflicts("main", "feature"))
+	assert.Equal(t, "build", capturedAgent)
+}
+
+// TestPromptCmdRunsOnePassWithoutReportOrBlockContract covers the command
+// running exactly one pass and reading no report or blocked file. Both are
+// directories, so a read would fail the command.
+func TestPromptCmdRunsOnePassWithoutReportOrBlockContract(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.Mkdir(filepath.Join(dir, "report.md"), 0755))
+	require.NoError(t, os.Mkdir(filepath.Join(dir, "blocked.md"), 0755))
+	t.Chdir(dir)
+
+	aiClient := &promptAIRecorder{}
+	cmd := &PromptCmd{
+		Prompt:       []string{"do", "work"},
+		config:       &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+		slugProposer: promptSlugProposerFunc(func(string) (string, error) { return "my-feature", nil }),
+		ai:           aiClient,
+		git:          &git.MockClient{},
+	}
+	preparePromptRun(cmd)
+
+	require.NoError(t, cmd.Run())
+	assert.Equal(t, []string{"do work"}, aiClient.prompts)
+	assert.Equal(t, 1, aiClient.passCalls, "the prompt runs exactly once")
+	assert.Zero(t, aiClient.fixCalls)
+	assert.Zero(t, aiClient.resolveCalls)
+}
+
+// TestPromptCmdPassFailureFailsCommand covers a non-zero OpenCode exit failing
+// the command after a single pass.
+func TestPromptCmdPassFailureFailsCommand(t *testing.T) {
+	passErr := errors.New("opencode execution failed: exit status 1")
+	aiClient := &promptAIRecorder{passFunc: func(string) error { return passErr }}
+	cmd := &PromptCmd{
+		Prompt:       []string{"do work"},
+		config:       &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+		slugProposer: promptSlugProposerFunc(func(string) (string, error) { return "my-feature", nil }),
+		ai:           aiClient,
+		git:          &git.MockClient{},
+	}
+	preparePromptRun(cmd)
+
+	err := cmd.Run()
+	require.ErrorIs(t, err, passErr)
+	assert.Equal(t, 1, aiClient.passCalls, "a failed pass is not retried")
 }
 
 // promptIndex returns the position of event in the recorded order, or -1.
