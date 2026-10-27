@@ -185,6 +185,41 @@ func (c *PromptCmd) Run() error {
 	return c.enterPromptBranch(prompt)
 }
 
+// RunInWorkspace runs the prompt flow in an already prepared workflow checkout.
+// The workflow supplies the prompt branch and base branch, and the workspace
+// has already cloned the repository and checked out the prompt branch. It
+// therefore skips slug proposal, mode resolution, remote submission, and the
+// branch switch, then runs the same before commands, base synchronization,
+// services, pass, and pull request flow as a local prompt.
+func (c *PromptCmd) RunInWorkspace(prompt, branch, base string) error {
+	if strings.TrimSpace(prompt) == "" {
+		return errors.New("prompt is required")
+	}
+	cfg, err := c.loadConfig()
+	if err != nil {
+		return err
+	}
+	if base == "" {
+		base = cfg.DefaultBranch
+	}
+	c.promptBranch = branch
+	cfg.Mode = config.ModeLocal
+	cfg.Base = base
+	cfg.StartingBranch = branch
+	c.resolved = &promptResolution{
+		Config:        cfg,
+		Mode:          config.ModeLocal,
+		Slug:          branch,
+		CurrentBranch: branch,
+		PromptBranch:  branch,
+		BaseBranch:    base,
+	}
+	if err := c.runBeforeCommands(); err != nil {
+		return err
+	}
+	return c.runSetupAndPass(prompt, false)
+}
+
 // readPrompt reads the prompt from the source selected by the flags. Tests
 // inject standard input and terminal detection through the command fields.
 func (c *PromptCmd) readPrompt() (string, error) {
@@ -438,11 +473,7 @@ func (c *PromptCmd) proposeSlug(prompt string) (string, error) {
 // config mode, then local, and returns the loaded config with the effective
 // mode.
 func (c *PromptCmd) resolveMode() (*config.RalphConfig, string, error) {
-	loader := c.config
-	if loader == nil {
-		loader = &config.Client{}
-	}
-	cfg, err := loader.Load()
+	cfg, err := c.loadConfig()
 	if err != nil {
 		return nil, "", err
 	}
@@ -451,6 +482,15 @@ func (c *PromptCmd) resolveMode() (*config.RalphConfig, string, error) {
 		return nil, "", err
 	}
 	return cfg, mode, nil
+}
+
+// loadConfig loads the repository configuration through the wired loader.
+func (c *PromptCmd) loadConfig() (*config.RalphConfig, error) {
+	loader := c.config
+	if loader == nil {
+		loader = &config.Client{}
+	}
+	return loader.Load()
 }
 
 // currentBranch reads the branch the prompt starts from.
