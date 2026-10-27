@@ -43,7 +43,7 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | d
     && rm -rf /var/lib/apt/lists/*
 
 # Install Go toolchain
-ENV GO_VERSION=1.26.7
+ENV GO_VERSION=1.26.10
 RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" | tar -C /usr/local -xzf - \
     && ln -s /usr/local/go/bin/go /usr/local/bin/go \
     && ln -s /usr/local/go/bin/gofmt /usr/local/bin/gofmt
