@@ -108,7 +108,7 @@ func TestDockerfileUsesNewestPlaywrightNobleBase(t *testing.T) {
 		version[i] = part
 	}
 
-	minimum := [3]int{1, 63, 0}
+	minimum := [3]int{1, 64, 1}
 	assert.GreaterOrEqual(t, compareVersions(version, minimum), 0,
 		"Containerfile should build on Playwright noble v%d.%d.%d or later, got v%d.%d.%d",
 		minimum[0], minimum[1], minimum[2], version[0], version[1], version[2])
