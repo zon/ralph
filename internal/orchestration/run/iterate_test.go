@@ -100,6 +100,7 @@ func TestIterateStopsOnBlockedFile(t *testing.T) {
 	)
 	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.Any())
 	require.ErrorIs(t, err, ErrBlocked)
+	require.Contains(t, err.Error(), "blocked.md", "the blocked error points at blocked.md")
 	require.Zero(t, aiPickCalls(runner))
 }
 

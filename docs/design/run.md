@@ -25,7 +25,7 @@ Any report produces a commit, even when no code changed. A report that ends with
 
 An agent failure follows [Iteration Recovery Design](iteration-recovery.md).
 
-The loop stops when no item is incomplete, when it reaches the iteration limit, or when the agent leaves `blocked.md`. Ralph commits an iteration that leaves `blocked.md`, then returns an error. A run that finds `blocked.md` at the start of an iteration stops without invoking the agent. The limit is the item count plus the extra iterations. The extra count defaults to 30% of the item count, rounded up.
+The loop stops when no item is incomplete, when it reaches the iteration limit, or when the agent leaves `blocked.md`. Ralph commits an iteration that leaves `blocked.md`, then prints a final message naming the file and returns an error. The message is the last output before Ralph exits. A run that finds `blocked.md` at the start does the same without invoking the agent. The limit is the item count plus the extra iterations. The extra count defaults to 30% of the item count, rounded up.
 
 ## Execution Modes
 

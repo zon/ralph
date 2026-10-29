@@ -235,7 +235,7 @@ func (r *Runner) iterate(proj *project.Project, cfg *config.RalphConfig) error {
 			return nil
 		}
 		if r.git.BlockedFileExists() {
-			return ErrBlocked
+			return &blockedError{message: "Ralph stopped because blocked.md is present. Fix the block and delete the file to resume."}
 		}
 		if err := r.runIteration(proj, incomplete, cfg, previousErr); err != nil {
 			if r.ai.IsFatal(err) {
@@ -249,7 +249,7 @@ func (r *Runner) iterate(proj *project.Project, cfg *config.RalphConfig) error {
 			return err
 		}
 		if r.git.BlockedFileExists() {
-			return ErrBlocked
+			return &blockedError{message: "Ralph stopped after committing blocked.md. Fix the block and delete the file to resume."}
 		}
 	}
 	return r.project.IncompleteError(proj, cfg.Base)

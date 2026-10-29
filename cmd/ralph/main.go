@@ -1,10 +1,13 @@
 package main
 
 import (
+	"errors"
+	"fmt"
 	"os"
 
 	"github.com/alecthomas/kong"
 	"github.com/zon/ralph/internal/cmd"
+	orchestrationRun "github.com/zon/ralph/internal/orchestration/run"
 	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/version"
 )
@@ -32,5 +35,9 @@ func main() {
 	)
 
 	err := ctx.Run()
+	if errors.Is(err, orchestrationRun.ErrBlocked) {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 	ctx.FatalIfErrorf(err)
 }

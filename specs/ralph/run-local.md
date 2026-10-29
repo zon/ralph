@@ -171,7 +171,7 @@ At the start of every iteration the command SHALL determine which items are comp
 
 ### Requirement: Iteration loop
 
-The iteration loop SHALL invoke the AI agent repeatedly until every item is complete or the iteration limit is reached. The iteration limit SHALL be the resolved item count plus the extra iteration count. When the extra iteration count is unset (nil), it SHALL default to 30% of the item count, rounded up. Each iteration checks for a blocked state before invoking the AI. An iteration that leaves `blocked.md` is committed and then stops the loop with a blocked error, without starting another iteration. When an iteration's AI pass fails with a non-fatal error, the loop SHALL continue and carry the error into the next iteration's prompts, following [iteration-recovery.md](iteration-recovery.md).
+The iteration loop SHALL invoke the AI agent repeatedly until every item is complete or the iteration limit is reached. The iteration limit SHALL be the resolved item count plus the extra iteration count. When the extra iteration count is unset (nil), it SHALL default to 30% of the item count, rounded up. Each iteration checks for a blocked state before invoking the AI. An iteration that leaves `blocked.md` is committed and then stops the loop with a blocked error, without starting another iteration. When the loop stops because of `blocked.md`, it SHALL print a final message naming the file and saying that Ralph stopped. The message SHALL be the last output before Ralph exits. When an iteration's AI pass fails with a non-fatal error, the loop SHALL continue and carry the error into the next iteration's prompts, following [iteration-recovery.md](iteration-recovery.md).
 
 #### Scenario: All items already complete
 
@@ -213,6 +213,7 @@ The iteration loop SHALL invoke the AI agent repeatedly until every item is comp
 - GIVEN `blocked.md` exists in the repository root at the start of an iteration
 - WHEN the loop checks for the blocked state
 - THEN the loop stops immediately with a blocked error
+- AND a message says Ralph stopped because `blocked.md` is present
 - AND the AI is not invoked
 
 #### Scenario: `blocked.md` written during an iteration
@@ -222,6 +223,7 @@ The iteration loop SHALL invoke the AI agent repeatedly until every item is comp
 - WHEN the iteration ends
 - THEN the iteration is committed as described in [Commit after each iteration](#requirement-commit-after-each-iteration)
 - AND the loop stops with a blocked error
+- AND a message says Ralph stopped after committing `blocked.md`
 - AND no further iteration starts, so the picker is not invoked again
 
 #### Scenario: `blocked.md` on the branch stops a resumed run
@@ -229,6 +231,7 @@ The iteration loop SHALL invoke the AI agent repeatedly until every item is comp
 - GIVEN an earlier run committed `blocked.md` to the project branch
 - WHEN local execution is started again against the same branch
 - THEN the loop stops with a blocked error before invoking the AI
+- AND a message says Ralph stopped because `blocked.md` is present
 
 #### Scenario: Fatal AI error (billing/quota)
 
