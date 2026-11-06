@@ -48,11 +48,15 @@ RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" | tar -C /
     && ln -s /usr/local/go/bin/go /usr/local/bin/go \
     && ln -s /usr/local/go/bin/gofmt /usr/local/bin/gofmt
 
-# Install Go development tools (air for live reload, templ for templates)
+# Install Go development tools (air for live reload, templ for templates),
+# pinned so the layer does not freeze at whatever was latest when it was first
+# built
 ENV GOPATH=/root/go
 ENV PATH="${GOPATH}/bin:${PATH}"
-RUN go install github.com/air-verse/air@latest \
-    && go install github.com/a-h/templ/cmd/templ@latest \
+ENV AIR_VERSION=v1.67.4
+ENV TEMPL_VERSION=v0.3.1100
+RUN go install github.com/air-verse/air@${AIR_VERSION} \
+    && go install github.com/a-h/templ/cmd/templ@${TEMPL_VERSION} \
     && ln -s /root/go/bin/air /usr/local/bin/air \
     && ln -s /root/go/bin/templ /usr/local/bin/templ
 
