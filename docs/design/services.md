@@ -19,7 +19,8 @@ Both are configured in `.ralph/config.yaml`. See [Config Design](app/ralph-confi
 * They start in order.
 * A service with a `port` is not ready until a TCP connection to that port succeeds.
 * Service output goes to `<name>.log` in the repository root, where the agent can read it. Ralph removes the log at the end of the iteration or prompt.
-* Stop sends SIGTERM, waits, then sends SIGKILL if the process is still running.
+* A service starts in its own process group, and stop signals the whole group. A service is often a wrapper chain such as `pnpm dev`, and a wrapper does not reliably forward a signal to the process that holds the port.
+* Stop sends SIGTERM to the group, waits until the service and every process in its group have exited, then sends SIGKILL to the group if any process remains. A service that exits while a descendant keeps running is not stopped.
 * A service with a `port` is also checked for port release after it stops.
 
 ## Startup Failure
