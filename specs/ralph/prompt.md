@@ -85,7 +85,7 @@ Positional tokens SHALL be joined with single spaces. `--file -` SHALL read stan
 
 ### Requirement: Command options
 
-The command SHALL accept `--mode`, `--base` (`-B`), `--model`, `--variant`, `--agent`, `--context`, `--namespace` (`-n`), `--no-services`, `--no-follow`, `--no-notify`, `--debug <branch>`, and `--verbose`.
+The command SHALL accept `--mode`, `--base` (`-B`), `--branch <name>`, `--model`, `--variant`, `--agent`, `--context`, `--namespace` (`-n`), `--no-services`, `--no-follow`, `--no-notify`, `--debug <branch>`, and `--verbose`.
 
 The command SHALL NOT accept project or item options, including `--items` and `--extra`.
 
@@ -247,6 +247,8 @@ Before the pull request, Ralph SHALL ask the AI for a short slug from the commit
 
 A failed slug proposal SHALL fail the command before any branch, service, or pass work starts. A failed branch rename SHALL fail the command before the push or pull request.
 
+`--branch <name>` SHALL name the prompt branch in place of the AI slug. Ralph SHALL use the name as written, without cleanup, and SHALL NOT ask the AI for a slug from the prompt. A name Git rejects SHALL fail the command before any branch, service, or pass work starts. The rename before the pull request SHALL still apply.
+
 The prompt branch SHALL be created and checked out according to the execution mode:
 
 - `local` checks out the prompt branch in the current checkout, creating it from the current branch when it does not exist.
@@ -265,6 +267,28 @@ The prompt branch SHALL be created and checked out according to the execution mo
 - GIVEN the AI proposes a slug with spaces, capitals, or special characters
 - WHEN the prompt branch is named
 - THEN the name is cleaned up like a project branch
+
+#### Scenario: A named branch skips the slug
+
+- GIVEN the user passes `--branch update/run-1`
+- WHEN the command starts
+- THEN the prompt branch is `update/run-1`
+- AND Ralph does not ask the AI for a slug from the prompt
+
+#### Scenario: A named branch is not cleaned
+
+- GIVEN the user passes `--branch Update/Run_1`
+- WHEN the prompt branch is named
+- THEN the name is `Update/Run_1`
+
+#### Scenario: A rejected branch name stops the command
+
+- GIVEN the user passes `--branch "not a branch"`
+- WHEN the command starts
+- THEN the command fails
+- AND no branch is created
+- AND no services start
+- AND no pass runs
 
 #### Scenario: Failed slug proposal stops the command
 

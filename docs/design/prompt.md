@@ -6,7 +6,7 @@
 
 `ralph prompt <text>` joins one or more positional tokens with single spaces. `ralph prompt --file <path>` reads the prompt from a file. Using positional text and `--file` together fails. With neither, Ralph reads standard input when it is not a terminal. `--file -` reads standard input explicitly, even from a terminal. A missing, empty, or whitespace-only prompt fails before any mode work starts. A prompt that starts with `-` needs `--` before it.
 
-The command accepts `--mode`, `--base` (`-B`), `--model`, `--variant`, `--agent`, `--context`, `--namespace`, `--no-services`, `--no-follow`, `--no-notify`, `--debug`, and `--verbose`. It accepts no project or item options.
+The command accepts `--mode`, `--base` (`-B`), `--branch`, `--model`, `--variant`, `--agent`, `--context`, `--namespace`, `--no-services`, `--no-follow`, `--no-notify`, `--debug`, and `--verbose`. It accepts no project or item options.
 
 ## Resolution
 
@@ -25,6 +25,8 @@ A prompt runs the before commands, checks out the prompt branch, synchronizes th
 ## Branch
 
 Ralph asks the AI for a short slug from the prompt and uses it as the branch name, cleaned up like a project branch. A failed slug proposal fails the command before any branch or service work. The branch follows the creation and checkout behavior of a run.
+
+`--branch <name>` names the prompt branch instead. Ralph uses the name as written, so a caller can pick a unique name or a name with a prefix such as `update/`. It asks the AI for no slug. A name Git rejects fails the command before any branch or service work. The rename before the pull request still applies.
 
 Before the pull request, Ralph asks the AI for a slug from the commit log the pass made and renames the branch to it. The pull request head and title fallback use the new name. A failed proposal or rename fails the command before the push.
 
