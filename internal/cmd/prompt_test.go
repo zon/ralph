@@ -937,6 +937,190 @@ func TestPromptCmdNamedBranchReachesPassWithoutOpenCodeCredentials(t *testing.T)
 	}
 }
 
+// TestPromptCmdNamedBranchRenamesFromWork covers a --branch prompt whose pass
+// leaves commits: the named branch is still renamed from the commit log before
+// the second synchronization, the push, and the pull request. --branch skips
+// only the slug proposal from the prompt, not the rename from the work.
+func TestPromptCmdNamedBranchRenamesFromWork(t *testing.T) {
+	tests := []struct {
+		name       string
+		mode       string
+		branch     string
+		workSlug   string
+		wantRename bool
+	}{
+		{
+			name:       "local renames the named branch",
+			mode:       config.ModeLocal,
+			branch:     "update/run-1",
+			workSlug:   "actual-work",
+			wantRename: true,
+		},
+		{
+			name:       "worktree renames the named branch",
+			mode:       config.ModeWorktree,
+			branch:     "Update/Run_1",
+			workSlug:   "actual-work",
+			wantRename: true,
+		},
+		{
+			name:     "a work slug matching the named branch leaves it alone",
+			mode:     config.ModeLocal,
+			branch:   "actual-work",
+			workSlug: "actual-work",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tip := "tip-before"
+			var order []string
+			var proposals []string
+			var renames [][2]string
+			var checkouts []string
+			worktree := &promptWorktreeRecorder{path: "/worktree/" + tt.branch, order: &order}
+			prClient := &promptPRRecorder{order: &order}
+			cmd := &PromptCmd{
+				Prompt: []string{"do work"},
+				Branch: tt.branch,
+				Mode:   tt.mode,
+				config: &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+				slugProposer: promptSlugProposerFunc(func(description string) (string, error) {
+					proposals = append(proposals, description)
+					return tt.workSlug, nil
+				}),
+				services:  &promptServicesRecorder{order: &order},
+				ai:        &promptAIRecorder{order: &order, passFunc: func(string) error { tip = "tip-after"; return nil }},
+				pr:        prClient,
+				output:    &promptOutputRecorder{},
+				worktree:  worktree,
+				workspace: &promptWorkspaceRecorder{order: &order},
+				git: &git.MockClient{
+					CurrentBranchFunc: func() (string, error) { return "main", nil },
+					HeadCommitFunc:    func() (string, error) { return tip, nil },
+					GetCommitLogFunc: func(base string, limit int) (string, error) {
+						assert.Equal(t, "tip-before", base, "the commits are read after the pre-pass tip")
+						assert.Equal(t, 100, limit)
+						return "abc123: add the actual feature", nil
+					},
+					RenameBranchFunc: func(oldName, newName string) error {
+						renames = append(renames, [2]string{oldName, newName})
+						promptEvent(&order, "rename")
+						return nil
+					},
+					PushFunc: func() error {
+						promptEvent(&order, "push")
+						return nil
+					},
+					CheckoutBranchFunc: func(name string) error {
+						checkouts = append(checkouts, name)
+						promptEvent(&order, "checkout-"+name)
+						return nil
+					},
+				},
+			}
+
+			require.NoError(t, cmd.Run())
+			assert.Equal(t, []string{"abc123: add the actual feature"}, proposals,
+				"--branch skips the prompt slug but still proposes one from the commits")
+
+			head := tt.branch
+			if tt.wantRename {
+				head = tt.workSlug
+				assert.Equal(t, [][2]string{{tt.branch, tt.workSlug}}, renames)
+				assert.Less(t, promptIndex(order, "rename"), promptIndex(order, "push"), "the branch is renamed before the push")
+			} else {
+				assert.Empty(t, renames, "a matching work slug leaves the named branch alone")
+			}
+			assert.Equal(t, []string{head}, prClient.heads, "the pull request opens from the renamed branch")
+			assert.Equal(t, []string{head}, prClient.slugs, "the pull request title falls back to the renamed branch")
+
+			if tt.mode == config.ModeWorktree {
+				assert.Equal(t, []string{tt.branch}, worktree.removed, "the worktree is removed by the branch it was created for")
+			} else {
+				assert.Equal(t, []string{"main"}, checkouts, "the starting branch is restored")
+			}
+		})
+	}
+}
+
+// TestPromptCmdNamedBranchNoCommitsPushesNothing covers a --branch pass that
+// leaves no commits: as without --branch, the command succeeds without a
+// rename, a second synchronization, a push, or a pull request.
+func TestPromptCmdNamedBranchNoCommitsPushesNothing(t *testing.T) {
+	tests := []struct {
+		name   string
+		mode   string
+		branch string
+	}{
+		{name: "local", mode: config.ModeLocal, branch: "update/run-1"},
+		{name: "worktree", mode: config.ModeWorktree, branch: "Update/Run_1"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tip := "tip-before"
+			var order []string
+			proposerCalls := 0
+			commitLogCalls := 0
+			renameCalls := 0
+			pushCalls := 0
+			prClient := &promptPRRecorder{order: &order}
+			worktree := &promptWorktreeRecorder{path: "/worktree/" + tt.branch, order: &order}
+			cmd := &PromptCmd{
+				Prompt: []string{"do work"},
+				Branch: tt.branch,
+				Mode:   tt.mode,
+				config: &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+				slugProposer: promptSlugProposerFunc(func(string) (string, error) {
+					proposerCalls++
+					return "actual-work", nil
+				}),
+				services:  &promptServicesRecorder{order: &order},
+				ai:        &promptAIRecorder{order: &order},
+				pr:        prClient,
+				output:    &promptOutputRecorder{},
+				worktree:  worktree,
+				workspace: &promptWorkspaceRecorder{order: &order},
+				git: &git.MockClient{
+					CurrentBranchFunc: func() (string, error) { return "main", nil },
+					HeadCommitFunc:    func() (string, error) { return tip, nil },
+					GetCommitLogFunc: func(string, int) (string, error) {
+						commitLogCalls++
+						return "abc123: no work", nil
+					},
+					RenameBranchFunc: func(string, string) error {
+						renameCalls++
+						return nil
+					},
+					PushFunc: func() error {
+						pushCalls++
+						return nil
+					},
+					CheckoutBranchFunc: func(name string) error {
+						promptEvent(&order, "checkout-"+name)
+						return nil
+					},
+				},
+			}
+
+			require.NoError(t, cmd.Run())
+			assert.Equal(t, tt.branch, cmd.resolved.PromptBranch, "a pass without commits keeps the named branch")
+			assert.Zero(t, proposerCalls, "--branch does not ask the AI for a slug")
+			assert.Zero(t, commitLogCalls, "no commits mean no commit log or rename")
+			assert.Zero(t, renameCalls)
+			assert.Zero(t, pushCalls, "a pass that leaves no commits pushes nothing")
+			assert.Zero(t, prClient.calls, "no push means no pull request")
+			if tt.mode == config.ModeWorktree {
+				assert.Equal(t, []string{tt.branch}, worktree.created)
+				assert.Equal(t, []string{tt.branch}, worktree.removed, "the worktree is removed and discards uncommitted changes")
+			} else {
+				assert.Empty(t, worktree.created, "local mode creates no worktree")
+			}
+		})
+	}
+}
+
 // TestPromptCmdNamedBranchRemoteSubmission covers --branch reaching a remote
 // submission as written without a slug proposal.
 func TestPromptCmdNamedBranchRemoteSubmission(t *testing.T) {
