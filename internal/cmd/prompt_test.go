@@ -889,6 +889,54 @@ func TestPromptCmdNamedBranchSkipsSlugAndKeepsName(t *testing.T) {
 	}
 }
 
+// TestPromptCmdNamedBranchReachesPassWithoutOpenCodeCredentials covers a
+// --branch run whose OpenCode slug proposal would fail for missing credentials.
+// Ralph asks for no slug from the prompt, so local and worktree runs reach the
+// pass instead of failing before any branch or service work starts.
+func TestPromptCmdNamedBranchReachesPassWithoutOpenCodeCredentials(t *testing.T) {
+	tests := []struct {
+		name   string
+		mode   string
+		branch string
+	}{
+		{name: "local", mode: config.ModeLocal, branch: "update/run-1"},
+		{name: "worktree", mode: config.ModeWorktree, branch: "update/run-1"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			proposerCalls := 0
+			aiClient := &promptAIRecorder{}
+			worktree := &promptWorktreeRecorder{path: "/worktree/" + tt.branch}
+			cmd := &PromptCmd{
+				Prompt: []string{"do work"},
+				Branch: tt.branch,
+				Mode:   tt.mode,
+				config: &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+				git: &git.MockClient{
+					CurrentBranchFunc: func() (string, error) { return "main", nil },
+					SwitchToBranchFunc: func(string) error {
+						return nil
+					},
+				},
+				slugProposer: promptSlugProposerFunc(func(string) (string, error) {
+					proposerCalls++
+					return "", opencode.ErrNoCredentials
+				}),
+				worktree:  worktree,
+				workspace: &promptWorkspaceRecorder{},
+				ai:        aiClient,
+			}
+
+			preparePromptRun(cmd)
+			require.NoError(t, cmd.Run())
+			assert.Zero(t, proposerCalls, "--branch does not ask the AI for a slug from the prompt")
+			assert.Equal(t, 1, aiClient.passCalls, "the run reaches the pass without OpenCode credentials")
+			assert.Equal(t, []string{"do work"}, aiClient.prompts)
+		})
+	}
+}
+
 // TestPromptCmdNamedBranchRemoteSubmission covers --branch reaching a remote
 // submission as written without a slug proposal.
 func TestPromptCmdNamedBranchRemoteSubmission(t *testing.T) {
