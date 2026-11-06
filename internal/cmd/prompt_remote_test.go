@@ -14,7 +14,9 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/zon/ralph/internal/argo"
+	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
+	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/output"
 )
 
@@ -95,8 +97,62 @@ workflow:
 	assert.Contains(t, args, "--no-services")
 }
 
-// TestPromptWorkflowClientPrintsHintAndFollows covers the log hint and followed
-// logs using the submitted workflow's namespace and context.
+// TestPromptCmdNamedBranchRemoteWorkflowBranchAndLock covers a named --branch
+// reaching the submitted remote prompt workflow: the container checks out the
+// name as written and the prompt branch lock is keyed by that branch rather
+// than the clone branch, cleaned the way a run cleans a project branch.
+func TestPromptCmdNamedBranchRemoteWorkflowBranchAndLock(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".ralph"), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".ralph", "config.yaml"), []byte("{}\n"), 0644))
+	t.Chdir(dir)
+
+	var submittedYAML string
+	argoClient := &argo.MockClient{
+		SubmitYAMLFunc: func(_ context.Context, workflowYAML string, _ argo.K8sContext) (string, error) {
+			submittedYAML = workflowYAML
+			return "ralph-prompt-abcde", nil
+		},
+	}
+
+	ctx := execcontext.NewContext()
+	ctx.SetOutput(output.NewClient(io.Discard, io.Discard, false))
+	ctx.SetRepoOwner("owner")
+	ctx.SetRepoName("repo")
+
+	cmd := &PromptCmd{
+		Prompt:   []string{"do work"},
+		Branch:   "Update/Run_1",
+		Mode:     config.ModeRemote,
+		NoFollow: true,
+		ctx:      ctx,
+		config:   &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+		git: &git.MockClient{
+			CurrentBranchFunc:            func() (string, error) { return "main", nil },
+			IsBranchSyncedWithRemoteFunc: func(string) error { return nil },
+		},
+		remote: &promptWorkflowClient{ctx: ctx, argoClient: argoClient},
+	}
+	preparePromptRun(cmd)
+
+	require.NoError(t, cmd.Run())
+
+	var data map[string]interface{}
+	require.NoError(t, yaml.Unmarshal([]byte(submittedYAML), &data))
+
+	spec := data["spec"].(map[string]interface{})
+	mutexes := spec["synchronization"].(map[string]interface{})["mutexes"].([]interface{})
+	require.Len(t, mutexes, 1)
+	assert.Equal(t, "update-run-1", mutexes[0].(map[string]interface{})["name"],
+		"the lock is keyed by the prompt branch, cleaned like a run's branch")
+
+	templates := spec["templates"].([]interface{})
+	container := templates[0].(map[string]interface{})["container"].(map[string]interface{})
+	args := container["args"].([]interface{})
+	assert.Equal(t, "Update/Run_1", promptArgValue(args, "--branch"),
+		"the container checks out the named branch as written")
+}
+
 // promptArgValue returns the value following the named argument, or "".
 func promptArgValue(args []interface{}, flag string) string {
 	for i, arg := range args {
@@ -109,6 +165,8 @@ func promptArgValue(args []interface{}, flag string) string {
 	return ""
 }
 
+// TestPromptWorkflowClientPrintsHintAndFollows covers the log hint and followed
+// logs using the submitted workflow's namespace and context.
 func TestPromptWorkflowClientPrintsHintAndFollows(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".ralph"), 0755))

@@ -73,6 +73,57 @@ func TestSanitizeBranchName(t *testing.T) {
 	}
 }
 
+func TestValidateBranchName(t *testing.T) {
+	tests := []struct {
+		name    string
+		branch  string
+		wantErr bool
+	}{
+		{name: "simple name", branch: "fix-pagination"},
+		{name: "slash prefix", branch: "update/run-1"},
+		{name: "capitals and underscores", branch: "Update/Run_1"},
+		{name: "nested components", branch: "feature/auth/login"},
+		{name: "intermediate component ending with a dot", branch: "feature./auth"},
+		{name: "trailing hyphen", branch: "fix-pagination-"},
+		{name: "at sign", branch: "@"},
+		{name: "empty name", branch: "", wantErr: true},
+		{name: "space", branch: "not a branch", wantErr: true},
+		{name: "leading hyphen", branch: "-feature", wantErr: true},
+		{name: "reserved HEAD", branch: "HEAD", wantErr: true},
+		{name: "leading dot component", branch: ".feature", wantErr: true},
+		{name: "nested leading dot component", branch: "feature/.auth", wantErr: true},
+		{name: "trailing dot", branch: "feature.", wantErr: true},
+		{name: "consecutive dots", branch: "feature..work", wantErr: true},
+		{name: "lock suffix", branch: "feature.lock", wantErr: true},
+		{name: "nested lock suffix", branch: "feature/work.lock", wantErr: true},
+		{name: "uppercase lock suffix", branch: "feature.LOCK"},
+		{name: "tilde", branch: "feature~work", wantErr: true},
+		{name: "caret", branch: "feature^work", wantErr: true},
+		{name: "colon", branch: "feature:work", wantErr: true},
+		{name: "question mark", branch: "feature?work", wantErr: true},
+		{name: "asterisk", branch: "feature*work", wantErr: true},
+		{name: "open bracket", branch: "feature[work", wantErr: true},
+		{name: "backslash", branch: "feature\\work", wantErr: true},
+		{name: "at brace", branch: "feature@{work", wantErr: true},
+		{name: "leading slash", branch: "/feature", wantErr: true},
+		{name: "trailing slash", branch: "feature/", wantErr: true},
+		{name: "double slash", branch: "feature//work", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateBranchName(tt.branch)
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "invalid branch name")
+				assert.Contains(t, err.Error(), tt.branch)
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
+
 func TestLoopBranch(t *testing.T) {
 	tests := []struct {
 		name         string

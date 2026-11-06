@@ -145,6 +145,64 @@ func SanitizeBranchName(name string) string {
 	return finalName
 }
 
+// ValidateBranchName returns an error when Git would reject name as a branch.
+// The checks follow git check-ref-format --branch, so a caller-supplied branch
+// fails before any branch, service, or pass work starts.
+func ValidateBranchName(name string) error {
+	if reason := branchNameProblem(name); reason != "" {
+		return fmt.Errorf("invalid branch name '%s': %s", name, reason)
+	}
+	return nil
+}
+
+func branchNameProblem(name string) string {
+	if name == "" {
+		return "name is empty"
+	}
+	if name == "HEAD" {
+		return "name is reserved"
+	}
+	if strings.HasPrefix(name, "-") {
+		return "name starts with a hyphen"
+	}
+	if strings.Contains(name, "..") {
+		return "name contains '..'"
+	}
+	if strings.Contains(name, "@{") {
+		return "name contains '@{'"
+	}
+	for i := 0; i < len(name); i++ {
+		if invalidBranchCharacter(name[i]) {
+			return "name contains an invalid character"
+		}
+	}
+	for _, component := range strings.Split(name, "/") {
+		switch {
+		case component == "":
+			return "name has an empty path component"
+		case strings.HasPrefix(component, "."):
+			return "name has a path component starting with '.'"
+		case strings.HasSuffix(component, ".lock"):
+			return "name has a path component ending with '.lock'"
+		}
+	}
+	if strings.HasSuffix(name, ".") {
+		return "name ends with '.'"
+	}
+	return ""
+}
+
+func invalidBranchCharacter(ch byte) bool {
+	if ch < 0x20 || ch == 0x7f {
+		return true
+	}
+	switch ch {
+	case ' ', '~', '^', ':', '?', '*', '[', '\\':
+		return true
+	}
+	return false
+}
+
 func ValidateGitStateAndSwitchBranch(ctx *context.Context, branchName string) error {
 	currentBranch, err := GetCurrentBranch()
 	if err != nil {
