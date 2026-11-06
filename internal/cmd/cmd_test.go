@@ -398,6 +398,35 @@ func TestWorkflowSubcommandsParsed(t *testing.T) {
 	}
 }
 
+// TestWorkflowCommandGeneratedArgsParsed asserts `ralph workflow command`
+// parses the args the generated workflow passes it: the repo, clone branch,
+// and verbose flags before --, and every token after -- kept as the command,
+// including tokens that look like flags.
+func TestWorkflowCommandGeneratedArgsParsed(t *testing.T) {
+	cmd := &Cmd{}
+	parser, err := kong.New(cmd,
+		kong.Name("ralph"),
+		kong.Exit(func(int) {}),
+	)
+	require.NoError(t, err)
+
+	_, err = parser.Parse([]string{
+		"workflow", "command",
+		"--repo", "owner/repo",
+		"--clone", "main",
+		"--verbose",
+		"--",
+		"bash", "-c", "echo hi", "--model",
+	})
+	require.NoError(t, err)
+
+	got := cmd.Workflow.Command
+	assert.Equal(t, "owner/repo", got.Repo)
+	assert.Equal(t, "main", got.CloneBranch)
+	assert.True(t, got.Verbose)
+	assert.Equal(t, []string{"bash", "-c", "echo hi", "--model"}, got.Command)
+}
+
 // TestWorkflowRunItemFlagsParsed covers the items that `ralph workflow run`
 // accepts an `--items` flag holding the item query, with `--items` defaulting
 // to empty when absent. The `--cleanup` flag is removed now that project file
