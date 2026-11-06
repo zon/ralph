@@ -918,6 +918,77 @@ func TestPromptCmdNamedBranchRemoteSubmission(t *testing.T) {
 	assert.Equal(t, "update/run-1", remote.submissions[0].PromptBranch)
 }
 
+// TestPromptCmdRejectedNamedBranchStopsBeforeBranchWork covers a --branch name
+// Git rejects: the command fails with an error naming the branch before any
+// slug, branch, service, or pass work starts in every mode.
+func TestPromptCmdRejectedNamedBranchStopsBeforeBranchWork(t *testing.T) {
+	tests := []struct {
+		name   string
+		mode   string
+		branch string
+	}{
+		{name: "local", mode: config.ModeLocal, branch: "not a branch"},
+		{name: "worktree", mode: config.ModeWorktree, branch: "not a branch"},
+		{name: "remote", mode: config.ModeRemote, branch: "not a branch"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			currentReads := 0
+			switchCalls := 0
+			proposerCalls := 0
+			worktree := &promptWorktreeRecorder{}
+			servicesClient := &promptServicesRecorder{}
+			aiClient := &promptAIRecorder{}
+			remote := &promptRemoteRecorder{}
+			cmd := &PromptCmd{
+				Prompt: []string{"do work"},
+				Branch: tt.branch,
+				Mode:   tt.mode,
+				config: &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) {
+					return config.Any(), nil
+				}},
+				git: &git.MockClient{
+					CurrentBranchFunc: func() (string, error) {
+						currentReads++
+						return "main", nil
+					},
+					SwitchToBranchFunc: func(string) error {
+						switchCalls++
+						return nil
+					},
+				},
+				slugProposer: promptSlugProposerFunc(func(string) (string, error) {
+					proposerCalls++
+					return "ai-slug", nil
+				}),
+				worktree:  worktree,
+				workspace: &promptWorkspaceRecorder{},
+				services:  servicesClient,
+				ai:        aiClient,
+				output:    &promptOutputRecorder{},
+				remote:    remote,
+				notify:    &promptNotifyRecorder{},
+			}
+
+			err := cmd.Run()
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "invalid branch name")
+			assert.Contains(t, err.Error(), tt.branch)
+			assert.Nil(t, cmd.resolved)
+			assert.Zero(t, currentReads, "a rejected branch must not read the starting branch")
+			assert.Zero(t, switchCalls, "a rejected branch must not switch branches")
+			assert.Zero(t, proposerCalls, "--branch does not ask the AI for a slug")
+			assert.Empty(t, worktree.checked, "a rejected branch must not inspect worktrees")
+			assert.Empty(t, worktree.created, "a rejected branch must not create a worktree")
+			assert.Zero(t, servicesClient.runBeforeCalls, "a rejected branch must not run before commands")
+			assert.Zero(t, servicesClient.startCalls, "a rejected branch must not start services")
+			assert.Zero(t, aiClient.passCalls, "a rejected branch must not run the pass")
+			assert.Zero(t, remote.submitCalls, "a rejected branch must not submit a workflow")
+		})
+	}
+}
+
 // TestPromptCmdFailedSlugProposalStopsBeforeBranchWork asserts a failed
 // proposal returns before the current branch is read, the branch is switched,
 // or a worktree is created.

@@ -192,10 +192,14 @@ func (c *PromptCmd) Run() error {
 }
 
 // resolvePromptBranch returns the branch to run the prompt on. --branch names
-// the branch as written, without cleanup, and skips the slug proposal. Without
-// it, the proposed slug is cleaned like a project branch.
+// the branch as written, without cleanup, and skips the slug proposal. A name
+// Git rejects fails before any branch or service work starts. Without --branch,
+// the proposed slug is cleaned like a project branch.
 func (c *PromptCmd) resolvePromptBranch(prompt string) (string, string, error) {
 	if c.Branch != "" {
+		if err := git.ValidateBranchName(c.Branch); err != nil {
+			return "", "", err
+		}
 		return c.Branch, c.Branch, nil
 	}
 	slug, err := c.proposeSlug(prompt)
