@@ -482,6 +482,18 @@ func TestPromptCmdHelpListsOptions(t *testing.T) {
 	assert.NotContains(t, output, "--extra")
 }
 
+// TestPromptCmdHelpDescribesBranch pins the inline help for --branch. The flag
+// must be visible with the description that says it replaces the AI-proposed
+// slug, so a reader can find it without the design document.
+func TestPromptCmdHelpDescribesBranch(t *testing.T) {
+	output := captureHelpOutput(&Cmd{}, []string{"prompt", "--help"})
+	// Help wraps long descriptions at the terminal width, so compare the
+	// text with its line breaks collapsed.
+	help := strings.Join(strings.Fields(output), " ")
+	assert.Contains(t, help, "--branch")
+	assert.Contains(t, help, "Use this branch name for the prompt instead of an AI-proposed slug")
+}
+
 func TestPromptCmdListedInTopLevelHelp(t *testing.T) {
 	output := captureHelpOutput(&Cmd{}, []string{"--help"})
 	assert.Contains(t, output, "prompt")
