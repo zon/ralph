@@ -113,6 +113,7 @@ type PromptCmd struct {
 	File       string   `help:"Read the prompt from a file, or - for standard input" name:"file" optional:""`
 	Mode       string   `help:"Execution mode: local, worktree, or remote (default: local)" name:"mode" optional:""`
 	Base       string   `help:"Override the base branch for PR creation (default: detects from current branch)" name:"base" optional:"" short:"B"`
+	Branch     string   `help:"Use this branch name for the prompt instead of an AI-proposed slug" name:"branch" optional:""`
 	Model      string   `help:"The model to use in format of provider/model" name:"model" optional:""`
 	Variant    string   `help:"The model variant (provider-specific reasoning effort, e.g., high, max, minimal)" name:"variant" optional:""`
 	Agent      string   `help:"Override the opencode agent from config" name:"agent" optional:""`
@@ -139,9 +140,9 @@ type PromptCmd struct {
 	remote          promptRemoteClient    `kong:"-"`
 	notify          promptNotifyClient    `kong:"-"`
 
-	// promptBranch is the branch the prompt runs on. The slug step supplies
-	// it; base resolution needs it to decide when to fall back to the
-	// configured default branch.
+	// promptBranch is the branch the prompt runs on. Either --branch or the
+	// cleaned slug supplies it; base resolution needs it to decide when to
+	// fall back to the configured default branch.
 	promptBranch string `kong:"-"`
 
 	// resolved retains the mode and branches resolved for this invocation so
@@ -159,10 +160,11 @@ func (c *PromptCmd) Validate() error {
 	return nil
 }
 
-// Run validates the prompt source, resolves the mode, proposes the slug, and
-// resolves the branches. A failed slug proposal returns before any branch or
-// worktree work starts. The command then enters the prompt branch, synchronizes
-// the base branch, starts the services, and runs the pass.
+// Run validates the prompt source, resolves the mode, proposes the slug unless
+// --branch names the branch, and resolves the branches. A failed slug proposal
+// returns before any branch or worktree work starts. The command then enters
+// the prompt branch, synchronizes the base branch, starts the services, and
+// runs the pass.
 func (c *PromptCmd) Run() error {
 	prompt, err := c.readPrompt()
 	if err != nil {
@@ -176,17 +178,31 @@ func (c *PromptCmd) Run() error {
 		return err
 	}
 	c.executionContext()
-	slug, err := c.proposeSlug(prompt)
+	slug, promptBranch, err := c.resolvePromptBranch(prompt)
 	if err != nil {
 		return err
 	}
-	c.promptBranch = git.SanitizeBranchName(slug)
+	c.promptBranch = promptBranch
 	resolved, err := c.resolve(cfg, mode, slug)
 	if err != nil {
 		return err
 	}
 	c.resolved = resolved
 	return c.enterPromptBranch(prompt)
+}
+
+// resolvePromptBranch returns the branch to run the prompt on. --branch names
+// the branch as written, without cleanup, and skips the slug proposal. Without
+// it, the proposed slug is cleaned like a project branch.
+func (c *PromptCmd) resolvePromptBranch(prompt string) (string, string, error) {
+	if c.Branch != "" {
+		return c.Branch, c.Branch, nil
+	}
+	slug, err := c.proposeSlug(prompt)
+	if err != nil {
+		return "", "", err
+	}
+	return slug, git.SanitizeBranchName(slug), nil
 }
 
 // RunInWorkspace runs the prompt flow in an already prepared workflow checkout.
@@ -239,8 +255,8 @@ func (c *PromptCmd) readPrompt() (string, error) {
 }
 
 // resolve resolves both branches once from the already resolved mode and
-// prompt branch. The current branch is read only after the slug proposal, so a
-// failed proposal starts no git work.
+// prompt branch. The current branch is read only after the branch name is
+// resolved, so a failed slug proposal starts no git work.
 func (c *PromptCmd) resolve(cfg *config.RalphConfig, mode, slug string) (*promptResolution, error) {
 	currentBranch, err := c.currentBranch()
 	if err != nil {

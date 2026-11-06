@@ -359,6 +359,7 @@ func TestPromptCmdParsing(t *testing.T) {
 		wantFile      string
 		wantMode      string
 		wantBase      string
+		wantBranch    string
 		wantModel     string
 		wantVariant   string
 		wantAgent     string
@@ -383,10 +384,11 @@ func TestPromptCmdParsing(t *testing.T) {
 		},
 		{
 			name:          "all options parse",
-			args:          []string{"prompt", "text", "--mode", "remote", "--base", "release", "--model", "gpt-4", "--variant", "high", "--agent", "build", "--context", "prod", "--namespace", "argo", "--no-services", "--no-follow", "--no-notify", "--debug", "feature", "--verbose"},
+			args:          []string{"prompt", "text", "--mode", "remote", "--base", "release", "--branch", "update/run-1", "--model", "gpt-4", "--variant", "high", "--agent", "build", "--context", "prod", "--namespace", "argo", "--no-services", "--no-follow", "--no-notify", "--debug", "feature", "--verbose"},
 			wantPrompt:    []string{"text"},
 			wantMode:      "remote",
 			wantBase:      "release",
+			wantBranch:    "update/run-1",
 			wantModel:     "gpt-4",
 			wantVariant:   "high",
 			wantAgent:     "build",
@@ -452,6 +454,7 @@ func TestPromptCmdParsing(t *testing.T) {
 			assert.Equal(t, tt.wantFile, cmd.Prompt.File)
 			assert.Equal(t, tt.wantMode, cmd.Prompt.Mode)
 			assert.Equal(t, tt.wantBase, cmd.Prompt.Base)
+			assert.Equal(t, tt.wantBranch, cmd.Prompt.Branch)
 			assert.Equal(t, tt.wantModel, cmd.Prompt.Model)
 			assert.Equal(t, tt.wantVariant, cmd.Prompt.Variant)
 			assert.Equal(t, tt.wantAgent, cmd.Prompt.Agent)
@@ -469,7 +472,7 @@ func TestPromptCmdParsing(t *testing.T) {
 func TestPromptCmdHelpListsOptions(t *testing.T) {
 	output := captureHelpOutput(&Cmd{}, []string{"prompt", "--help"})
 	for _, option := range []string{
-		"--mode", "--base", "-B", "--model", "--variant", "--agent",
+		"--mode", "--base", "-B", "--branch", "--model", "--variant", "--agent",
 		"--context", "--namespace", "-n", "--no-services", "--no-follow",
 		"--no-notify", "--debug", "--verbose",
 	} {
@@ -817,6 +820,102 @@ func TestPromptCmdSlugCleanup(t *testing.T) {
 			assert.Equal(t, tt.want, switched)
 		})
 	}
+}
+
+// TestPromptCmdNamedBranchSkipsSlugAndKeepsName covers --branch naming the
+// prompt branch as written in local and worktree modes, without cleaning the
+// name and without asking the AI for a slug.
+func TestPromptCmdNamedBranchSkipsSlugAndKeepsName(t *testing.T) {
+	tests := []struct {
+		name   string
+		mode   string
+		branch string
+	}{
+		{
+			name:   "local keeps a slash prefix",
+			mode:   config.ModeLocal,
+			branch: "update/run-1",
+		},
+		{
+			name:   "local keeps capitals and underscores",
+			mode:   config.ModeLocal,
+			branch: "Update/Run_1",
+		},
+		{
+			name:   "worktree keeps a slash prefix",
+			mode:   config.ModeWorktree,
+			branch: "update/run-1",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			proposerCalls := 0
+			var switched string
+			worktree := &promptWorktreeRecorder{path: "/worktree/" + tt.branch}
+			cmd := &PromptCmd{
+				Prompt: []string{"do work"},
+				Branch: tt.branch,
+				Mode:   tt.mode,
+				config: &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+				git: &git.MockClient{
+					CurrentBranchFunc: func() (string, error) { return "main", nil },
+					SwitchToBranchFunc: func(name string) error {
+						switched = name
+						return nil
+					},
+				},
+				slugProposer: promptSlugProposerFunc(func(string) (string, error) {
+					proposerCalls++
+					return "ai-slug", nil
+				}),
+				worktree:  worktree,
+				workspace: &promptWorkspaceRecorder{},
+			}
+
+			preparePromptRun(cmd)
+			require.NoError(t, cmd.Run())
+			assert.Zero(t, proposerCalls, "--branch does not ask the AI for a slug")
+			assert.Equal(t, tt.branch, cmd.resolved.PromptBranch)
+			assert.Equal(t, tt.branch, cmd.resolved.Slug)
+			if tt.mode == config.ModeWorktree {
+				assert.Equal(t, []string{tt.branch}, worktree.created)
+				assert.Empty(t, switched, "worktree mode does not switch the starting checkout")
+				return
+			}
+			assert.Equal(t, tt.branch, switched)
+			assert.Empty(t, worktree.created, "local mode creates no worktree")
+		})
+	}
+}
+
+// TestPromptCmdNamedBranchRemoteSubmission covers --branch reaching a remote
+// submission as written without a slug proposal.
+func TestPromptCmdNamedBranchRemoteSubmission(t *testing.T) {
+	proposerCalls := 0
+	remote := &promptRemoteRecorder{}
+	cmd := &PromptCmd{
+		Prompt:   []string{"do work"},
+		Branch:   "update/run-1",
+		Mode:     config.ModeRemote,
+		NoFollow: true,
+		config:   &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+		git: &git.MockClient{
+			CurrentBranchFunc:            func() (string, error) { return "main", nil },
+			IsBranchSyncedWithRemoteFunc: func(string) error { return nil },
+		},
+		slugProposer: promptSlugProposerFunc(func(string) (string, error) {
+			proposerCalls++
+			return "ai-slug", nil
+		}),
+		remote: remote,
+	}
+
+	preparePromptRun(cmd)
+	require.NoError(t, cmd.Run())
+	assert.Zero(t, proposerCalls, "--branch does not ask the AI for a slug")
+	require.Equal(t, 1, remote.submitCalls)
+	assert.Equal(t, "update/run-1", remote.submissions[0].PromptBranch)
 }
 
 // TestPromptCmdFailedSlugProposalStopsBeforeBranchWork asserts a failed
