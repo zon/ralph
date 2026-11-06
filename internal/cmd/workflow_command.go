@@ -15,12 +15,14 @@ type WorkflowCommandCmd struct {
 	CloneBranch string   `help:"Branch to clone" name:"clone"`
 	BotName     string   `help:"Git user name for commits" default:"ralph-zon[bot]"`
 	BotEmail    string   `help:"Git user email for commits" default:"ralph-zon[bot]@users.noreply.github.com"`
+	Verbose     bool     `help:"Enable verbose logging" default:"false"`
 	Command     []string `arg:"" name:"command" help:"Command to run" required:""`
 }
 
 func (w *WorkflowCommandCmd) Run() error {
 	ctx := createExecutionContext()
-	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
+	ctx.SetVerbose(w.Verbose)
+	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, w.Verbose))
 	ctx.SetNoNotify(true)
 	ctx.SetWorkflowExecution(true)
 

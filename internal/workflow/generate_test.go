@@ -556,6 +556,8 @@ func TestWorkflowRender_CommandField(t *testing.T) {
 		ProjectBranch: "feature-branch",
 		ProjectPath:   "project.yaml",
 		Command:       []string{"echo", "hello world"},
+		Model:         "provider/model",
+		Agent:         "some-agent",
 	}
 
 	workflowYAML, err := wf.Render()
@@ -573,11 +575,13 @@ func TestWorkflowRender_CommandField(t *testing.T) {
 	args := container["args"].([]interface{})
 
 	assert.Equal(t, "ralph", command[0], "Command should be 'ralph'")
-	assert.Equal(t, "workflow", args[0], "First arg should be 'workflow'")
-	assert.Equal(t, "--command", args[1], "Second arg should be '--command'")
-	assert.Equal(t, "--", args[2], "Third arg should be '--'")
-	assert.Equal(t, "echo", args[3], "Fourth arg should be command token 'echo'")
-	assert.Equal(t, "hello world", args[4], "Fifth arg should be command token 'hello world'")
+	assert.Equal(t, []interface{}{
+		"workflow", "command",
+		"--repo", "owner/repo",
+		"--clone", "main",
+		"--",
+		"echo", "hello world",
+	}, args, "Args should invoke `ralph workflow command` with the repo, clone branch, and command tokens after --")
 }
 
 func TestWorkflowRender_CommandFieldEmpty(t *testing.T) {
@@ -748,12 +752,14 @@ func TestGenerateCommandWorkflow(t *testing.T) {
 	args := container["args"].([]interface{})
 
 	assert.Equal(t, "ralph", command[0], "Command should be 'ralph'")
-	assert.Equal(t, "workflow", args[0], "First arg should be 'workflow'")
-	assert.Equal(t, "--command", args[1], "Second arg should be '--command'")
-	assert.Equal(t, "--", args[2], "Third arg should be '--'")
-	assert.Equal(t, "echo", args[3], "Fourth arg should be command token 'echo'")
-	assert.Equal(t, "hello", args[4], "Fifth arg should be command token 'hello'")
-	assert.Equal(t, "--verbose", args[5], "Sixth arg should be '--verbose'")
+	assert.Equal(t, []interface{}{
+		"workflow", "command",
+		"--repo", "testowner/testrepo",
+		"--clone", "main",
+		"--verbose",
+		"--",
+		"echo", "hello",
+	}, args, "Flags should come before -- so they are not read as command tokens")
 }
 
 // TestGenerateCommandWorkflowKubeTargetingOverride asserts the --context and

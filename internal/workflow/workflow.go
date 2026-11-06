@@ -66,7 +66,7 @@ type Workflow struct {
 	Labels map[string]string
 	// Resources holds the CPU and memory requests and limits for the executor container.
 	Resources config.WorkflowResources
-	// Command is the command tokens to pass to `ralph workflow --command -- <tokens>`.
+	// Command is the command tokens to pass to `ralph workflow command -- <tokens>`.
 	Command []string
 	// Loop carries the loop invocation the container runs when set. When set,
 	// the container script calls `ralph workflow loop` instead of `ralph workflow run`.
@@ -166,17 +166,16 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 	switch {
 	case len(w.Command) > 0:
 		command = []string{"ralph"}
-		args = []string{"workflow", "--command", "--"}
-		args = append(args, w.Command...)
+		args = []string{
+			"workflow", "command",
+			"--repo", w.Repo.Owner + "/" + w.Repo.Name,
+			"--clone", w.CloneBranch,
+		}
 		if w.Verbose {
 			args = append(args, "--verbose")
 		}
-		if w.Model != "" {
-			args = append(args, "--model", w.Model)
-		}
-		if w.Agent != "" {
-			args = append(args, "--agent", w.Agent)
-		}
+		args = append(args, "--")
+		args = append(args, w.Command...)
 
 	case w.Loop != nil:
 		command = []string{"ralph"}
