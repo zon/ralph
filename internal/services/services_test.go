@@ -1,8 +1,12 @@
 package services
 
 import (
+	"errors"
 	"net"
 	"os"
+	"path/filepath"
+	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -100,6 +104,84 @@ func TestForceKillAfterTimeout(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 	assert.False(t, proc.IsRunning(), "Process should have been killed")
+}
+
+// processGroupGone reports whether no process remains in the process group.
+// Signal 0 delivers nothing, and fails with ESRCH once the group is empty.
+func processGroupGone(pgid int) bool {
+	return errors.Is(syscall.Kill(-pgid, 0), syscall.ESRCH)
+}
+
+// startGroupService starts a service whose command is a shell script, and
+// waits until the script has started its children. The script touches {ready}
+// once they run, which keeps a test from stopping the service before there is
+// anything to leave behind. It kills whatever is left of the process group
+// when the test ends, so a failing test does not leak sleeping processes.
+func startGroupService(t *testing.T, name, script string) *Process {
+	t.Helper()
+
+	ready := filepath.Join(t.TempDir(), "ready")
+	svc := config.Service{
+		Name:    name,
+		Command: "sh",
+		Args:    []string{"-c", strings.ReplaceAll(script, "{ready}", ready)},
+	}
+	t.Cleanup(func() { cleanupLogs(t, []config.Service{svc}) })
+
+	proc, err := startService(svc, output.NewClient(os.Stdout, os.Stderr, false))
+	require.NoError(t, err, "Failed to start service")
+	t.Cleanup(func() { _ = syscall.Kill(-proc.cmd.Process.Pid, syscall.SIGKILL) })
+
+	require.Eventually(t, func() bool {
+		_, err := os.Stat(ready)
+		return err == nil
+	}, 5*time.Second, 10*time.Millisecond, "Service should start its children")
+
+	return proc
+}
+
+// A service is usually a wrapper chain such as pnpm, then sh, then a watcher,
+// then the app. Stopping only the leader leaves the rest running and holding
+// the service's port, so Stop must reach every process in the group.
+func TestStopSignalsEveryProcessInTheGroup(t *testing.T) {
+	proc := startGroupService(t, "group-service", "sleep 30 & touch {ready}; sleep 30")
+	pgid := proc.cmd.Process.Pid
+
+	require.False(t, processGroupGone(pgid), "Group should be running")
+
+	require.NoError(t, proc.Stop(), "Stop should not fail")
+
+	assert.True(t, processGroupGone(pgid), "No process of the service should survive Stop")
+}
+
+// The leader can die on SIGTERM while a descendant ignores it. The SIGKILL
+// escalation must still run, so it cannot wait on the leader alone.
+func TestStopKillsGroupMembersThatIgnoreTerm(t *testing.T) {
+	proc := startGroupService(t, "ignoring-member",
+		`sh -c 'trap "" TERM; touch {ready}; sleep 30' & wait`)
+	pgid := proc.cmd.Process.Pid
+
+	start := time.Now()
+	require.NoError(t, proc.StopWithTimeout(500*time.Millisecond), "StopWithTimeout should not fail")
+
+	assert.True(t, processGroupGone(pgid), "A member that ignores SIGTERM should be killed")
+	assert.GreaterOrEqual(t, time.Since(start), 400*time.Millisecond,
+		"Stop should wait out the timeout before sending SIGKILL")
+}
+
+// A service whose leader already exited, such as a crashed pnpm, can leave
+// members running. Stop must still clear them.
+func TestStopClearsMembersLeftByAnExitedLeader(t *testing.T) {
+	proc := startGroupService(t, "exited-leader", "sleep 30 & touch {ready}; exit 0")
+	pgid := proc.cmd.Process.Pid
+
+	// The leader exits right after it touches the marker.
+	time.Sleep(200 * time.Millisecond)
+	require.False(t, processGroupGone(pgid), "A member should still be running")
+
+	require.NoError(t, proc.Stop(), "Stop should not fail")
+
+	assert.True(t, processGroupGone(pgid), "Stop should clear members left by an exited leader")
 }
 
 func TestStopAllServicesOrder(t *testing.T) {

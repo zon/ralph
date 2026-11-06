@@ -2,6 +2,7 @@ package services
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -152,43 +153,98 @@ func openLogFile(svc config.Service) (*os.File, error) {
 	return logFile, nil
 }
 
-// Stop gracefully stops a service process
+// killWait is how long Stop waits for a service's processes to exit after
+// SIGKILL, which they cannot ignore.
+const killWait = 5 * time.Second
+
+// Stop gracefully stops a service and every process in its group
 // It sends SIGTERM, waits for graceful shutdown, then sends SIGKILL if still running
 func (p *Process) Stop() error {
 	return p.StopWithTimeout(5 * time.Second)
 }
 
-// StopWithTimeout gracefully stops a service process with a custom timeout
-// It sends SIGTERM, waits up to timeout for graceful shutdown, then sends SIGKILL if still running
+// StopWithTimeout gracefully stops a service and every process in its group
+// with a custom timeout.
+//
+// A service is usually a wrapper chain such as pnpm, then sh, then a watcher,
+// then the app, and a wrapper does not reliably forward a signal to its child.
+// Signalling only the leader leaves the rest running and holding the service's
+// port. The service starts in its own process group, so the group id is the
+// leader's pid, and the signals go to the whole group.
+//
+// It sends SIGTERM, waits up to timeout until the leader has exited and the
+// group is empty, then sends SIGKILL to the group if any process remains. It
+// waits on the group and not the leader alone, because the leader can exit
+// while a descendant keeps running.
 func (p *Process) StopWithTimeout(timeout time.Duration) error {
 	if p.cmd == nil || p.cmd.Process == nil {
 		return fmt.Errorf("no process to stop for service: %s", p.Name)
 	}
 
-	if err := p.cmd.Process.Signal(syscall.SIGTERM); err != nil {
-		p.out.Warnf("Failed to send SIGTERM to %s: %v", p.Name, err)
+	pgid := p.cmd.Process.Pid
+
+	if err := syscall.Kill(-pgid, syscall.SIGTERM); err != nil {
+		if !errors.Is(err, syscall.ESRCH) {
+			p.out.Warnf("Failed to send SIGTERM to %s: %v", p.Name, err)
+		}
 		return nil
 	}
 
-	done := make(chan error, 1)
+	leaderReaped := make(chan struct{})
 	go func() {
-		done <- p.cmd.Wait()
+		_ = p.cmd.Wait()
+		close(leaderReaped)
 	}()
 
-	select {
-	case <-done:
-		p.out.Infof("Service %s stopped", p.Name)
-		return nil
-	case <-time.After(timeout):
-		p.out.Warnf("Service %s did not stop gracefully, sending SIGKILL", p.Name)
-		if err := p.cmd.Process.Kill(); err != nil {
-			p.out.Errorf("Failed to kill service %s: %v", p.Name, err)
-			return fmt.Errorf("failed to kill service %s: %w", p.Name, err)
-		}
-		<-done
+	if waitForGroupExit(pgid, leaderReaped, timeout) {
 		p.out.Infof("Service %s stopped", p.Name)
 		return nil
 	}
+
+	p.out.Warnf("Service %s did not stop gracefully, sending SIGKILL", p.Name)
+	if err := syscall.Kill(-pgid, syscall.SIGKILL); err != nil && !errors.Is(err, syscall.ESRCH) {
+		p.out.Errorf("Failed to kill service %s: %v", p.Name, err)
+		return fmt.Errorf("failed to kill service %s: %w", p.Name, err)
+	}
+	if !waitForGroupExit(pgid, leaderReaped, killWait) {
+		p.out.Errorf("Service %s is still running after SIGKILL", p.Name)
+		return fmt.Errorf("service %s is still running after SIGKILL", p.Name)
+	}
+	p.out.Infof("Service %s stopped", p.Name)
+	return nil
+}
+
+// waitForGroupExit waits until the leader has been reaped and no process
+// remains in the process group, and reports whether that happened within
+// timeout.
+func waitForGroupExit(pgid int, leaderReaped <-chan struct{}, timeout time.Duration) bool {
+	deadline := time.After(timeout)
+
+	select {
+	case <-leaderReaped:
+	case <-deadline:
+		return false
+	}
+
+	ticker := time.NewTicker(20 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		if !groupHasMembers(pgid) {
+			return true
+		}
+		select {
+		case <-deadline:
+			return false
+		case <-ticker.C:
+		}
+	}
+}
+
+// groupHasMembers reports whether any process remains in the process group.
+// Signal 0 delivers nothing, and fails with ESRCH once the group is empty.
+func groupHasMembers(pgid int) bool {
+	return !errors.Is(syscall.Kill(-pgid, 0), syscall.ESRCH)
 }
 
 // IsRunning checks if the process is still running
