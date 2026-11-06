@@ -27,6 +27,7 @@ The `workflow` group is not for people. It holds the entrypoints a container run
 
 * `--mode` selects `local`, `worktree`, or `remote` for `run`, `loop`, and `prompt`. See [Run Design](../run.md).
 * `--base` (`-B`) sets the base branch for `run` and `prompt`.
+* `--branch` names the prompt branch for `prompt`, in place of an AI slug.
 * `--model` and `--variant` override the model and its reasoning-effort variant for `run`, `loop`, and `prompt`. See [Config Design](ralph-config.md).
 * `--agent` overrides the OpenCode agent for code-writing prompts in `run`, `loop`, and `prompt`.
 * `--items` overrides the jq query for commands that resolve project items.
