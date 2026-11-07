@@ -1,0 +1,24 @@
+ralph-launcher is installed in namespace {{ .Release.Namespace }}.
+
+Repository subject:
+
+  {{ include "ralph-launcher.subject" . }}
+
+Workflow template:
+
+  {{ include "ralph-launcher.fullname" . }}
+
+The sensor runs ralph workflow prompt on {{ .Values.repo.cloneBranch }} and
+creates or checks out {{ include "ralph-launcher.promptBranch" . }}.
+
+Prompt ConfigMap:
+
+  {{ include "ralph-launcher.fullname" . }}-prompt
+
+Update the prompt with:
+
+  kubectl -n {{ .Release.Namespace }} edit configmap {{ include "ralph-launcher.fullname" . }}-prompt
+
+The workflow expects the github-credentials and opencode-credentials Secrets in
+namespace {{ .Release.Namespace }}. Run `ralph setup --namespace {{ .Release.Namespace }}`
+to create them.

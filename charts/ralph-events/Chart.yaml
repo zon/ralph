@@ -1,0 +1,6 @@
+apiVersion: v2
+name: ralph-events
+description: Cluster-wide GitHub webhook intake that routes repository events to NATS JetStream subjects
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

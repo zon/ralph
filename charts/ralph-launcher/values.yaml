@@ -1,0 +1,103 @@
+nameOverride: ""
+fullnameOverride: ""
+
+nats:
+  # Existing NATS JetStream server on the cluster. The chart does not install
+  # NATS. Use the same URL as ralph-events, for example:
+  # nats://nats.argo-events.svc.cluster.local:4222
+  url: ""
+  # Defaults to ralph.repo.<owner>.<name>.
+  subject: ""
+  # Maximum reconnect attempts for the NATS event source. A negative value
+  # keeps reconnecting forever.
+  maxReconnects: -1
+
+repo:
+  owner: zon
+  name: ralph
+  cloneBranch: main
+  baseBranch: main
+
+prompt:
+  # The prompt text is stored in a ConfigMap and read by each workflow.
+  text: |
+    Review the repository and make one small improvement.
+  # Defaults to ralph-prompt-<namespace>.
+  branch: ""
+  configMapKey: prompt.md
+
+image:
+  repository: ghcr.io/zon/ralph
+  tag: ""
+  pullPolicy: IfNotPresent
+
+workflow:
+  serviceAccountName: ""
+  model: ""
+  variant: ""
+  agent: ""
+  noServices: false
+  verbose: false
+  labels: {}
+  env: []
+  resources: {}
+  ttlSecondsAfterCompletion: 86400
+  podGC:
+    strategy: OnWorkflowCompletion
+    deleteDelayDuration: 10m
+  mutex:
+    enabled: true
+    name: ""
+  credentials:
+    githubSecret: github-credentials
+    opencodeSecret: opencode-credentials
+  extraVolumes: []
+  extraVolumeMounts: []
+
+eventBus:
+  # The launcher creates an Argo Events EventBus in its own namespace that uses
+  # the existing NATS JetStream server. Set create to false when another release
+  # in the namespace already owns the bus.
+  create: true
+  name: default
+  streamConfig: |
+    maxAge: 24h
+    replicas: 1
+
+sensor:
+  eventSource:
+    create: true
+    name: ""
+    connectionBackoff:
+      duration: 1s
+      factor: 2
+      steps: 5
+  replicas: 1
+  # GitHub event names that start a workflow. Use an empty list for every
+  # event, or a list such as [push] or [push, pull_request].
+  events:
+    - push
+  # Only run the prompt for pushes to the base branch. Set to false to run on
+  # every event delivered to the repository subject.
+  defaultBranchOnly: true
+  # The branch filter follows repo.baseBranch. Set branch to override it.
+  branch: ""
+  # Pushes from these GitHub users do not start another prompt run.
+  ignoreUsers:
+    - "ralph-zon[bot]"
+  # Additional Argo Events data filters. Paths are relative to the NATS event
+  # data, whose event key holds the GitHub event name and payload key holds the
+  # GitHub event body.
+  filters: []
+  retry:
+    steps: 3
+  serviceAccount:
+    create: true
+    name: ""
+  rbac:
+    create: true
+
+podAnnotations: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}

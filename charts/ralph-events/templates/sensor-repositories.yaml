@@ -1,0 +1,53 @@
+{{- range $repo := .Values.repositories }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Sensor
+metadata:
+  name: {{ include "ralph-events.sensorName" (dict "root" $ "repo" $repo) }}
+  labels:
+    {{- include "ralph-events.labels" $ | nindent 4 }}
+spec:
+  eventBusName: {{ $.Values.eventbus.name }}
+  {{- with $.Values.sensor.serviceAccountName }}
+  template:
+    serviceAccountName: {{ . | quote }}
+  {{- end }}
+  dependencies:
+    - name: github
+      eventSourceName: {{ include "ralph-events.githubEventSourceName" $ }}
+      eventName: github
+      filters:
+        data:
+          - path: body.repository.full_name
+            type: string
+            value:
+              - {{ printf "%s/%s" $repo.owner $repo.name | quote }}
+          {{- with $repo.events }}
+          - path: headers.X-Github-Event
+            type: string
+            value:
+              {{- range . }}
+              - {{ . | quote }}
+              {{- end }}
+          {{- end }}
+          {{- with $repo.filters }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
+  triggers:
+    - template:
+        name: nats
+        nats:
+          url: {{ include "ralph-events.natsUrl" $ | quote }}
+          subject: {{ include "ralph-events.repoSubject" (dict "repo" $repo) | quote }}
+          payload:
+            - src:
+                dependencyName: github
+                dataKey: headers.X-Github-Event.0
+              dest: event
+            - src:
+                dependencyName: github
+                dataKey: body
+              dest: payload
+        retryStrategy:
+          steps: {{ $.Values.sensor.trigger.retry.steps }}
+{{- end }}

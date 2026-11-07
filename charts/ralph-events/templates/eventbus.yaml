@@ -1,0 +1,15 @@
+{{- if .Values.eventbus.create }}
+apiVersion: argoproj.io/v1alpha1
+kind: EventBus
+metadata:
+  name: {{ .Values.eventbus.name }}
+  labels:
+    {{- include "ralph-events.labels" . | nindent 4 }}
+spec:
+  jetstreamExotic:
+    url: {{ include "ralph-events.natsUrl" . | quote }}
+    {{- with .Values.eventbus.jetstream.streamConfig }}
+    streamConfig: |
+{{ . | indent 6 }}
+    {{- end }}
+{{- end }}
