@@ -59,17 +59,8 @@ workflow:
   extraVolumeMounts: []
 
 eventBus:
-  # The launcher creates an Argo Events EventBus in its own namespace that uses
-  # the existing NATS JetStream server. Set create to false when another release
-  # in the namespace already owns the bus.
-  create: true
+  # Name of the EventBus the ralph-events chart creates in this namespace.
   name: default
-  # Existing Secret and key holding the EventBus credentials file
-  # (username and password).
-  accessSecret: {}
-  streamConfig: |
-    maxAge: 24h
-    replicas: 1
 
 sensor:
   eventSource:
