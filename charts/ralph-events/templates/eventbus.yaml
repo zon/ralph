@@ -1,19 +1,21 @@
-{{- if .Values.eventbus.create }}
+{{- range .Values.eventbus.instances }}
+---
 apiVersion: argoproj.io/v1alpha1
 kind: EventBus
 metadata:
-  name: {{ .Values.eventbus.name }}
+  name: {{ default $.Values.eventbus.name .name }}
+  namespace: {{ default $.Release.Namespace .namespace }}
   labels:
-    {{- include "ralph-events.labels" . | nindent 4 }}
+    {{- include "ralph-events.labels" $ | nindent 4 }}
 spec:
   jetstreamExotic:
-    url: {{ include "ralph-events.natsUrl" . | quote }}
-    {{- if .Values.eventbus.accessSecret.name }}
+    url: {{ include "ralph-events.natsUrl" $ | quote }}
+    {{- if .accessSecret.name }}
     accessSecret:
-      name: {{ .Values.eventbus.accessSecret.name | quote }}
-      key: {{ default "auth.yaml" .Values.eventbus.accessSecret.key | quote }}
+      name: {{ .accessSecret.name | quote }}
+      key: {{ default "auth.yaml" .accessSecret.key | quote }}
     {{- end }}
-    {{- with .Values.eventbus.jetstream.streamConfig }}
+    {{- with $.Values.eventbus.jetstream.streamConfig }}
     streamConfig: |
 {{ . | indent 6 }}
     {{- end }}
