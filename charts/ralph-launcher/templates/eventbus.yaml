@@ -8,6 +8,11 @@ metadata:
 spec:
   jetstreamExotic:
     url: {{ required "nats.url is required" .Values.nats.url | quote }}
+    {{- if .Values.eventBus.accessSecret.name }}
+    accessSecret:
+      name: {{ .Values.eventBus.accessSecret.name | quote }}
+      key: {{ default "auth.yaml" .Values.eventBus.accessSecret.key | quote }}
+    {{- end }}
     {{- with .Values.eventBus.streamConfig }}
     streamConfig: |
 {{ . | indent 6 }}

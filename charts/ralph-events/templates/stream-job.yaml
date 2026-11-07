@@ -28,24 +28,38 @@ spec:
               value: {{ .Values.stream.name | quote }}
             - name: SUBJECTS
               value: {{ join "," .Values.stream.subjects | quote }}
+            {{- if .Values.nats.auth.tokenSecret.name }}
+            - name: NATS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.nats.auth.tokenSecret.name | quote }}
+                  key: {{ default "token" .Values.nats.auth.tokenSecret.key | quote }}
+            {{- end }}
           command:
             - sh
             - -c
           args:
             - |
               set -eu
+              nats_cmd() {
+                if [ -n "${NATS_TOKEN:-}" ]; then
+                  nats --server "$NATS_URL" --token "$NATS_TOKEN" "$@"
+                else
+                  nats --server "$NATS_URL" "$@"
+                fi
+              }
               attempt=0
               while [ "$attempt" -lt 60 ]; do
-                if nats --server "$NATS_URL" stream info "$STREAM" >/dev/null 2>&1; then
+                if nats_cmd stream info "$STREAM" >/dev/null 2>&1; then
                   echo "stream $STREAM already exists"
                   exit 0
                 fi
-                if nats --server "$NATS_URL" stream add "$STREAM" \
+                if nats_cmd stream add "$STREAM" \
                   --subjects "$SUBJECTS" \
                   --storage {{ .Values.stream.storage }} \
                   --retention {{ .Values.stream.retention }} \
                   --max-age {{ .Values.stream.maxAge }} \
-                  --max-bytes {{ .Values.stream.maxBytes }} \
+                  --max-bytes={{ .Values.stream.maxBytes }} \
                   --replicas {{ .Values.stream.replicas }} \
                   --defaults; then
                   echo "created stream $STREAM"

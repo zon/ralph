@@ -12,7 +12,7 @@ The chart lives in `charts/ralph-launcher`.
 4. The `WorkflowTemplate` runs `ralph workflow prompt` in the Ralph image.
 5. The container clones `repo.cloneBranch`, checks out `prompt.branch`, runs the prompt text, pushes the branch, and opens a pull request.
 
-The launcher owns the namespace event bus, the event source, the sensor, the `WorkflowTemplate`, and the prompt ConfigMap. Argo Workflows owns the pods the workflow creates. The launcher assumes a NATS JetStream server already runs on the cluster and does not install NATS.
+The launcher owns the namespace event bus, the event source, the sensor, the `WorkflowTemplate`, and the prompt ConfigMap. Argo Workflows owns the pods the workflow creates. The launcher assumes a NATS JetStream server already runs on the cluster and does not install NATS. Its NATS event source presents the service account token from `nats.auth.tokenSecret`. The namespace maps to a NATS account in the auth callout.
 
 ## Prompt ConfigMap
 

@@ -8,6 +8,11 @@ metadata:
 spec:
   jetstreamExotic:
     url: {{ include "ralph-events.natsUrl" . | quote }}
+    {{- if .Values.eventbus.accessSecret.name }}
+    accessSecret:
+      name: {{ .Values.eventbus.accessSecret.name | quote }}
+      key: {{ default "auth.yaml" .Values.eventbus.accessSecret.key | quote }}
+    {{- end }}
     {{- with .Values.eventbus.jetstream.streamConfig }}
     streamConfig: |
 {{ . | indent 6 }}

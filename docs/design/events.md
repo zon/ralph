@@ -14,6 +14,10 @@ The chart lives in `charts/ralph-events`.
 
 The event source and the routing sensors share an Argo Events `EventBus`. The chart assumes a NATS JetStream server already runs on the cluster and connects to it with `nats.url`. It does not install NATS.
 
+## NATS Authentication
+
+The chart sends the Kubernetes service account token from `nats.auth.tokenSecret` as the NATS token on the routing trigger and the stream bootstrap job. The token's namespace maps to a NATS account in the auth callout. The EventBus reads its own credentials file from `eventbus.accessSecret`.
+
 ## Subjects
 
 The default subject is the repository path in dot form:

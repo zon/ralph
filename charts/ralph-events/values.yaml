@@ -17,6 +17,10 @@ nats:
   # Existing NATS JetStream server on the cluster. This chart does not install
   # NATS. Use a URL reachable from every namespace that runs a launcher.
   url: ""
+  # Existing Secret whose key holds the Kubernetes service account token the
+  # NATS auth callout exchanges for an account-scoped user JWT.
+  auth:
+    tokenSecret: {}
 
 stream:
   # Create the JetStream stream that retains repository events for launchers.
@@ -43,6 +47,9 @@ eventbus:
   # The GitHub event source and the repo routing sensors share this event bus.
   create: true
   name: default
+  # Existing Secret and key holding the EventBus credentials file
+  # (username and password).
+  accessSecret: {}
   jetstream:
     streamConfig: |
       maxAge: 24h
@@ -67,6 +74,12 @@ github:
   # Existing Secret holding a GitHub API token. When set, Argo Events registers
   # webhooks for the repositories below.
   apiTokenSecret: {}
+  # GitHub App credentials for webhook registration. Takes the place of
+  # apiTokenSecret.
+  githubApp:
+    appID: 0
+    installationID: 0
+    privateKeySecret: {}
   # Existing Secret holding the GitHub webhook HMAC secret.
   webhookSecret: {}
 

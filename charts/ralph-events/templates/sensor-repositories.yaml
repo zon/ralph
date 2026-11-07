@@ -39,6 +39,12 @@ spec:
         nats:
           url: {{ include "ralph-events.natsUrl" $ | quote }}
           subject: {{ include "ralph-events.repoSubject" (dict "repo" $repo) | quote }}
+          {{- if $.Values.nats.auth.tokenSecret.name }}
+          auth:
+            token:
+              name: {{ $.Values.nats.auth.tokenSecret.name | quote }}
+              key: {{ default "token" $.Values.nats.auth.tokenSecret.key | quote }}
+          {{- end }}
           payload:
             - src:
                 dependencyName: github

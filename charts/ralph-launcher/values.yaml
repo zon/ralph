@@ -6,6 +6,10 @@ nats:
   # NATS. Use the same URL as ralph-events, for example:
   # nats://nats.argo-events.svc.cluster.local:4222
   url: ""
+  # Existing Secret whose key holds the Kubernetes service account token the
+  # NATS auth callout exchanges for an account-scoped user JWT.
+  auth:
+    tokenSecret: {}
   # Defaults to ralph.repo.<owner>.<name>.
   subject: ""
   # Maximum reconnect attempts for the NATS event source. A negative value
@@ -60,6 +64,9 @@ eventBus:
   # in the namespace already owns the bus.
   create: true
   name: default
+  # Existing Secret and key holding the EventBus credentials file
+  # (username and password).
+  accessSecret: {}
   streamConfig: |
     maxAge: 24h
     replicas: 1

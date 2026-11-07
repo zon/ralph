@@ -41,6 +41,14 @@ spec:
         name: {{ .Values.github.apiTokenSecret.name | quote }}
         key: {{ default "token" .Values.github.apiTokenSecret.key | quote }}
       {{- end }}
+      {{- if .Values.github.githubApp.appID }}
+      githubApp:
+        appID: {{ .Values.github.githubApp.appID | int64 }}
+        installationID: {{ .Values.github.githubApp.installationID | int64 }}
+        privateKey:
+          name: {{ .Values.github.githubApp.privateKeySecret.name | quote }}
+          key: {{ default "private-key" .Values.github.githubApp.privateKeySecret.key | quote }}
+      {{- end }}
       {{- if .Values.github.webhookSecret.name }}
       webhookSecret:
         name: {{ .Values.github.webhookSecret.name | quote }}
