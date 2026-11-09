@@ -1,4 +1,5 @@
 {{- range $repo := .Values.repositories }}
+{{- $tokenSecret := include "ralph-events.natsTokenSecretName" $ }}
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Sensor
@@ -39,11 +40,11 @@ spec:
         nats:
           url: {{ include "ralph-events.natsUrl" $ | quote }}
           subject: {{ include "ralph-events.repoSubject" (dict "repo" $repo) | quote }}
-          {{- if $.Values.nats.auth.tokenSecret.name }}
+          {{- if $tokenSecret }}
           auth:
             token:
-              name: {{ $.Values.nats.auth.tokenSecret.name | quote }}
-              key: {{ default "token" $.Values.nats.auth.tokenSecret.key | quote }}
+              name: {{ $tokenSecret | quote }}
+              key: {{ include "ralph-events.natsTokenSecretKey" $ | quote }}
           {{- end }}
           payload:
             - src:

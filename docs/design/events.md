@@ -16,7 +16,13 @@ The event source and the routing sensors share an Argo Events `EventBus`. Argo E
 
 ## NATS Authentication
 
-The chart sends the Kubernetes service account token from `nats.auth.tokenSecret` as the NATS token on the routing trigger and the stream bootstrap job. The token's namespace maps to a NATS account in the auth callout. The EventBus reads its own credentials file from `eventbus.accessSecret`.
+The routing trigger and the stream bootstrap job authenticate with a Kubernetes service account token. The token namespace maps to a NATS account in the auth callout.
+
+Set `nats.auth.serviceAccount.create` to have the chart create a dedicated ServiceAccount and its token Secret. The ServiceAccount name defaults to the release full name plus `-nats`.
+
+Set `nats.auth.tokenSecret` to use an existing Secret instead. Its key defaults to `token`. The chart ignores `nats.auth.serviceAccount` when `tokenSecret.name` is set.
+
+The EventBus reads its own credentials file from `eventbus.accessSecret`.
 
 ## Subjects
 

@@ -28,12 +28,12 @@ spec:
               value: {{ .Values.stream.name | quote }}
             - name: SUBJECTS
               value: {{ join "," .Values.stream.subjects | quote }}
-            {{- if .Values.nats.auth.tokenSecret.name }}
+            {{- if include "ralph-events.natsTokenSecretName" . }}
             - name: NATS_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.nats.auth.tokenSecret.name | quote }}
-                  key: {{ default "token" .Values.nats.auth.tokenSecret.key | quote }}
+                  name: {{ include "ralph-events.natsTokenSecretName" . | quote }}
+                  key: {{ include "ralph-events.natsTokenSecretKey" . | quote }}
             {{- end }}
           command:
             - sh

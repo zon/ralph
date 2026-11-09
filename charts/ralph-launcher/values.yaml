@@ -6,9 +6,15 @@ nats:
   # NATS. Use the same URL as ralph-events, for example:
   # nats://nats.argo-events.svc.cluster.local:4222
   url: ""
-  # Existing Secret whose key holds the Kubernetes service account token the
-  # NATS auth callout exchanges for an account-scoped user JWT.
   auth:
+    # Create a dedicated ServiceAccount and its token Secret for the NATS auth
+    # callout. The ServiceAccount namespace maps to a NATS account. Ignored
+    # when tokenSecret.name is set.
+    serviceAccount:
+      create: false
+      name: ""
+    # Existing Secret whose key holds the Kubernetes service account token the
+    # NATS auth callout exchanges for an account-scoped user JWT.
     tokenSecret: {}
   # Defaults to ralph.repo.<owner>.<name>.
   subject: ""

@@ -32,6 +32,22 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- required "nats.url is required" .Values.nats.url -}}
 {{- end -}}
 
+{{- define "ralph-events.natsServiceAccountName" -}}
+{{- default (printf "%s-nats" (include "ralph-events.fullname" .)) .Values.nats.auth.serviceAccount.name | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+{{- define "ralph-events.natsTokenSecretName" -}}
+{{- if .Values.nats.auth.tokenSecret.name -}}
+{{- .Values.nats.auth.tokenSecret.name -}}
+{{- else if .Values.nats.auth.serviceAccount.create -}}
+{{- printf "%s-token" (include "ralph-events.natsServiceAccountName" .) | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "ralph-events.natsTokenSecretKey" -}}
+{{- default "token" .Values.nats.auth.tokenSecret.key -}}
+{{- end -}}
+
 {{- define "ralph-events.githubEventSourceName" -}}
 {{- default (include "ralph-events.fullname" . | replace "." "-") .Values.github.eventSourceName -}}
 {{- end -}}
