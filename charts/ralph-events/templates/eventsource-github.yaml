@@ -1,0 +1,56 @@
+{{- if not .Values.repositories }}
+{{- fail "repositories must contain at least one entry" }}
+{{- end }}
+apiVersion: argoproj.io/v1alpha1
+kind: EventSource
+metadata:
+  name: {{ include "ralph-events.githubEventSourceName" . }}
+  labels:
+    {{- include "ralph-events.labels" . | nindent 4 }}
+spec:
+  eventBusName: {{ .Values.eventbus.name }}
+  service:
+    ports:
+      - name: github
+        port: {{ .Values.github.webhook.port }}
+        targetPort: {{ .Values.github.webhook.port }}
+  github:
+    github:
+      {{- with .Values.repositories }}
+      repositories:
+        {{- range . }}
+        - owner: {{ .owner | quote }}
+          names:
+            - {{ .name | quote }}
+        {{- end }}
+      {{- end }}
+      webhook:
+        endpoint: {{ .Values.github.webhook.endpoint | quote }}
+        port: {{ .Values.github.webhook.port | quote }}
+        method: {{ .Values.github.webhook.method | quote }}
+        {{- with .Values.github.webhook.url }}
+        url: {{ . | quote }}
+        {{- end }}
+      events:
+        {{- toYaml .Values.github.events | nindent 8 }}
+      contentType: {{ .Values.github.contentType | quote }}
+      insecure: {{ .Values.github.webhook.insecure }}
+      active: {{ .Values.github.webhook.active }}
+      {{- if .Values.github.apiTokenSecret.name }}
+      apiToken:
+        name: {{ .Values.github.apiTokenSecret.name | quote }}
+        key: {{ default "token" .Values.github.apiTokenSecret.key | quote }}
+      {{- end }}
+      {{- if .Values.github.githubApp.appID }}
+      githubApp:
+        appID: {{ .Values.github.githubApp.appID | int64 }}
+        installationID: {{ .Values.github.githubApp.installationID | int64 }}
+        privateKey:
+          name: {{ .Values.github.githubApp.privateKeySecret.name | quote }}
+          key: {{ default "private-key" .Values.github.githubApp.privateKeySecret.key | quote }}
+      {{- end }}
+      {{- if .Values.github.webhookSecret.name }}
+      webhookSecret:
+        name: {{ .Values.github.webhookSecret.name | quote }}
+        key: {{ default "secret" .Values.github.webhookSecret.key | quote }}
+      {{- end }}

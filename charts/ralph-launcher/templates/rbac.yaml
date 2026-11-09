@@ -1,0 +1,51 @@
+{{- if .Values.sensor.serviceAccount.create }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "ralph-launcher.serviceAccountName" . }}
+  labels:
+    {{- include "ralph-launcher.labels" . | nindent 4 }}
+---
+{{- end }}
+{{- if .Values.sensor.rbac.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "ralph-launcher.fullname" . }}-sensor
+  labels:
+    {{- include "ralph-launcher.labels" . | nindent 4 }}
+rules:
+  - apiGroups:
+      - argoproj.io
+    resources:
+      - workflows
+    verbs:
+      - create
+      - get
+      - list
+      - watch
+      - update
+      - patch
+  - apiGroups:
+      - argoproj.io
+    resources:
+      - workflowtemplates
+    verbs:
+      - get
+      - list
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "ralph-launcher.fullname" . }}-sensor
+  labels:
+    {{- include "ralph-launcher.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "ralph-launcher.fullname" . }}-sensor
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "ralph-launcher.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}

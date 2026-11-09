@@ -1,0 +1,25 @@
+ralph-events is installed in namespace {{ .Release.Namespace }}.
+
+GitHub webhook URL:
+
+  {{- if .Values.github.webhook.url }}
+  {{ .Values.github.webhook.url }}
+  {{- else }}
+  Add an Ingress for {{ include "ralph-events.githubEventSourceName" . }}-eventsource-svc
+  on port {{ .Values.github.webhook.port }} and path {{ .Values.github.webhook.endpoint }}.
+  {{- end }}
+
+NATS JetStream URL for launchers:
+
+  {{ include "ralph-events.natsUrl" . }}
+
+The release creates one EventBus for each eventbus.instances entry.
+
+Repository subjects:
+
+{{- range .Values.repositories }}
+  {{ include "ralph-events.repoSubject" (dict "repo" .) }}
+{{- end }}
+
+Create one ralph-launcher release per Ralph namespace with that namespace's
+NATS URL and repository subject.

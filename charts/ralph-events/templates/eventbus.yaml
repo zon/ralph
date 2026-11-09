@@ -1,0 +1,44 @@
+{{- $instances := .Values.eventbus.instances | default (list) }}
+{{- if $instances }}
+{{- range $instance := $instances }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: EventBus
+metadata:
+  name: {{ $instance.name }}
+  namespace: {{ $instance.namespace }}
+  labels:
+    {{- include "ralph-events.labels" $ | nindent 4 }}
+spec:
+  jetstreamExotic:
+    url: {{ include "ralph-events.natsUrl" $ | quote }}
+    {{- with $instance.accessSecret }}
+    accessSecret:
+      name: {{ .name | quote }}
+      key: {{ default "auth.yaml" .key | quote }}
+    {{- end }}
+    {{- with $.Values.eventbus.jetstream.streamConfig }}
+    streamConfig: |
+{{ . | indent 6 }}
+    {{- end }}
+{{- end }}
+{{- else if .Values.eventbus.create }}
+apiVersion: argoproj.io/v1alpha1
+kind: EventBus
+metadata:
+  name: {{ .Values.eventbus.name }}
+  labels:
+    {{- include "ralph-events.labels" . | nindent 4 }}
+spec:
+  jetstreamExotic:
+    url: {{ include "ralph-events.natsUrl" . | quote }}
+    {{- if .Values.eventbus.accessSecret.name }}
+    accessSecret:
+      name: {{ .Values.eventbus.accessSecret.name | quote }}
+      key: {{ default "auth.yaml" .Values.eventbus.accessSecret.key | quote }}
+    {{- end }}
+    {{- with .Values.eventbus.jetstream.streamConfig }}
+    streamConfig: |
+{{ . | indent 6 }}
+    {{- end }}
+{{- end }}

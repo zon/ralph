@@ -1,0 +1,110 @@
+nameOverride: ""
+fullnameOverride: ""
+
+# Repositories routed from GitHub to NATS. Each entry creates one sensor that
+# filters the shared GitHub event source by repository and publishes the event
+# body to ralph.repo.<owner>.<name> unless subject overrides it.
+repositories:
+  - owner: zon
+    name: ralph
+    subject: ""
+    # GitHub event names to route. Use an empty list for every event, or a
+    # list such as [push] or [push, pull_request].
+    events: []
+    filters: []
+
+nats:
+  # Existing NATS JetStream server on the cluster. This chart does not install
+  # NATS. Use a URL reachable from every namespace that runs a launcher.
+  url: ""
+  auth:
+    # Existing Secret with the NATS username and password. The repo routing
+    # sensors and the stream job read this Secret.
+    secret:
+      name: ""
+      usernameKey: username
+      passwordKey: password
+
+stream:
+  # Create the JetStream stream that retains repository events for launchers.
+  # The job leaves an existing stream unchanged, so edit the stream by hand
+  # after changing subjects.
+  create: true
+  name: RALPH
+  subjects:
+    - "ralph.repo.>"
+  storage: file
+  retention: limits
+  maxAge: "168h"
+  maxBytes: "-1"
+  replicas: 1
+  job:
+    image:
+      repository: natsio/nats-box
+      tag: "0.20.2"
+      pullPolicy: IfNotPresent
+    backoffLimit: 6
+    activeDeadlineSeconds: 300
+
+eventbus:
+  # Create the EventBus in the release namespace that the GitHub event source
+  # and the repo routing sensors use. Set create to false when another release
+  # in the namespace owns the bus.
+  create: true
+  name: default
+  # Create one EventBus per entry and skip the release-namespace bus. Each
+  # entry needs a namespace, a name, and an accessSecret.
+  instances: []
+  # Existing Secret and key holding the EventBus credentials file
+  # (username and password).
+  accessSecret: {}
+  jetstream:
+    streamConfig: |
+      maxAge: 24h
+      replicas: 1
+
+github:
+  # Defaults to the release full name.
+  eventSourceName: ""
+  # Events GitHub sends to the webhook. Use ["*"] for every event.
+  events:
+    - "*"
+  contentType: json
+  webhook:
+    endpoint: /github
+    port: 12000
+    method: POST
+    # The public URL GitHub calls. Required when apiTokenSecret is set so
+    # Argo Events can register the webhook automatically.
+    url: ""
+    insecure: false
+    active: true
+  # Existing Secret holding a GitHub API token. When set, Argo Events registers
+  # webhooks for the repositories below.
+  apiTokenSecret: {}
+  # GitHub App credentials for webhook registration. Takes the place of
+  # apiTokenSecret.
+  githubApp:
+    appID: 0
+    installationID: 0
+    privateKeySecret: {}
+  # Existing Secret holding the GitHub webhook HMAC secret.
+  webhookSecret: {}
+
+sensor:
+  # Extra sensor template settings.
+  serviceAccountName: ""
+  trigger:
+    retry:
+      steps: 3
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: ralph-events.example.com
+      paths:
+        - path: /github
+          pathType: Prefix
+  tls: []

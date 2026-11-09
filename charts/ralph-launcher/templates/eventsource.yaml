@@ -1,0 +1,26 @@
+{{- if .Values.sensor.eventSource.create }}
+apiVersion: argoproj.io/v1alpha1
+kind: EventSource
+metadata:
+  name: {{ include "ralph-launcher.eventSourceName" . }}
+  labels:
+    {{- include "ralph-launcher.labels" . | nindent 4 }}
+spec:
+  eventBusName: {{ .Values.eventBus.name }}
+  nats:
+    repo:
+      url: {{ required "nats.url is required" .Values.nats.url | quote }}
+      subject: {{ include "ralph-launcher.subject" . | quote }}
+      auth:
+        basic:
+          username:
+            name: {{ include "ralph-launcher.natsAuthSecretName" . | quote }}
+            key: {{ include "ralph-launcher.natsAuthUsernameKey" . | quote }}
+          password:
+            name: {{ include "ralph-launcher.natsAuthSecretName" . | quote }}
+            key: {{ include "ralph-launcher.natsAuthPasswordKey" . | quote }}
+      jsonBody: true
+      maxReconnects: {{ .Values.nats.maxReconnects }}
+      connectionBackoff:
+        {{- toYaml .Values.sensor.eventSource.connectionBackoff | nindent 8 }}
+{{- end }}

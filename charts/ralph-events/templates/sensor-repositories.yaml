@@ -1,0 +1,62 @@
+{{- range $repo := .Values.repositories }}
+{{- $authSecret := include "ralph-events.natsAuthSecretName" $ }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Sensor
+metadata:
+  name: {{ include "ralph-events.sensorName" (dict "root" $ "repo" $repo) }}
+  labels:
+    {{- include "ralph-events.labels" $ | nindent 4 }}
+spec:
+  eventBusName: {{ $.Values.eventbus.name }}
+  {{- with $.Values.sensor.serviceAccountName }}
+  template:
+    serviceAccountName: {{ . | quote }}
+  {{- end }}
+  dependencies:
+    - name: github
+      eventSourceName: {{ include "ralph-events.githubEventSourceName" $ }}
+      eventName: github
+      filters:
+        data:
+          - path: body.repository.full_name
+            type: string
+            value:
+              - {{ printf "%s/%s" $repo.owner $repo.name | quote }}
+          {{- with $repo.events }}
+          - path: headers.X-Github-Event
+            type: string
+            value:
+              {{- range . }}
+              - {{ . | quote }}
+              {{- end }}
+          {{- end }}
+          {{- with $repo.filters }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
+  triggers:
+    - template:
+        name: nats
+        nats:
+          url: {{ include "ralph-events.natsUrl" $ | quote }}
+          subject: {{ include "ralph-events.repoSubject" (dict "repo" $repo) | quote }}
+          auth:
+            basic:
+              username:
+                name: {{ $authSecret | quote }}
+                key: {{ include "ralph-events.natsAuthUsernameKey" $ | quote }}
+              password:
+                name: {{ $authSecret | quote }}
+                key: {{ include "ralph-events.natsAuthPasswordKey" $ | quote }}
+          payload:
+            - src:
+                dependencyName: github
+                dataKey: headers.X-Github-Event.0
+              dest: event
+            - src:
+                dependencyName: github
+                dataKey: body
+              dest: payload
+        retryStrategy:
+          steps: {{ $.Values.sensor.trigger.retry.steps }}
+{{- end }}

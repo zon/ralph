@@ -1,0 +1,73 @@
+{{- if .Values.stream.create }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "ralph-events.fullname" . }}-stream
+  labels:
+    {{- include "ralph-events.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: {{ .Values.stream.job.backoffLimit }}
+  activeDeadlineSeconds: {{ .Values.stream.job.activeDeadlineSeconds }}
+  template:
+    metadata:
+      labels:
+        {{- include "ralph-events.selectorLabels" . | nindent 8 }}
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: stream
+          image: "{{ .Values.stream.job.image.repository }}:{{ .Values.stream.job.image.tag }}"
+          imagePullPolicy: {{ .Values.stream.job.image.pullPolicy }}
+          env:
+            - name: NATS_URL
+              value: {{ include "ralph-events.natsUrl" . | quote }}
+            - name: STREAM
+              value: {{ .Values.stream.name | quote }}
+            - name: SUBJECTS
+              value: {{ join "," .Values.stream.subjects | quote }}
+            - name: NATS_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ralph-events.natsAuthSecretName" . | quote }}
+                  key: {{ include "ralph-events.natsAuthUsernameKey" . | quote }}
+            - name: NATS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ralph-events.natsAuthSecretName" . | quote }}
+                  key: {{ include "ralph-events.natsAuthPasswordKey" . | quote }}
+          command:
+            - sh
+            - -c
+          args:
+            - |
+              set -eu
+              nats_cmd() {
+                nats --server "$NATS_URL" --user "$NATS_USER" --password "$NATS_PASSWORD" "$@"
+              }
+              attempt=0
+              while [ "$attempt" -lt 60 ]; do
+                if nats_cmd stream info "$STREAM" >/dev/null 2>&1; then
+                  echo "stream $STREAM already exists"
+                  exit 0
+                fi
+                if nats_cmd stream add "$STREAM" \
+                  --subjects "$SUBJECTS" \
+                  --storage {{ .Values.stream.storage }} \
+                  --retention {{ .Values.stream.retention }} \
+                  --max-age {{ .Values.stream.maxAge }} \
+                  --max-bytes={{ .Values.stream.maxBytes }} \
+                  --replicas {{ .Values.stream.replicas }} \
+                  --defaults; then
+                  echo "created stream $STREAM"
+                  exit 0
+                fi
+                attempt=$((attempt + 1))
+                echo "NATS is not ready or stream creation failed, retrying ($attempt/60)"
+                sleep 2
+              done
+              echo "giving up"
+              exit 1
+{{- end }}

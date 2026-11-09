@@ -1,0 +1,20 @@
+{{- if .Values.eventBus.create }}
+apiVersion: argoproj.io/v1alpha1
+kind: EventBus
+metadata:
+  name: {{ .Values.eventBus.name }}
+  labels:
+    {{- include "ralph-launcher.labels" . | nindent 4 }}
+spec:
+  jetstreamExotic:
+    url: {{ required "nats.url is required" .Values.nats.url | quote }}
+    {{- if .Values.eventBus.accessSecret.name }}
+    accessSecret:
+      name: {{ .Values.eventBus.accessSecret.name | quote }}
+      key: {{ default "auth.yaml" .Values.eventBus.accessSecret.key | quote }}
+    {{- end }}
+    {{- with .Values.eventBus.streamConfig }}
+    streamConfig: |
+{{ . | indent 6 }}
+    {{- end }}
+{{- end }}
