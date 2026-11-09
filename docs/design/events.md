@@ -12,7 +12,7 @@ The chart lives in `charts/ralph-events`.
 4. The sensor publishes an envelope with the GitHub event type and body to `ralph.repo.<owner>.<name>`.
 5. The `RALPH` JetStream stream retains the message for `stream.maxAge`.
 
-The event source and the routing sensors share an Argo Events `EventBus`. Argo Events is namespace-scoped, so the chart creates one `EventBus` per namespace in `eventbus.instances`. Every namespace that runs a launcher must appear there. The chart assumes a NATS JetStream server already runs on the cluster and connects to it with `nats.url`. It does not install NATS.
+The event source and the routing sensors share an Argo Events `EventBus` in the release namespace. The chart assumes a NATS JetStream server already runs on the cluster and connects to it with `nats.url`. It does not install NATS. Each `ralph-launcher` release creates the `EventBus` for its own namespace.
 
 ## NATS Authentication
 
@@ -24,7 +24,7 @@ Set `nats.auth.serviceAccount.create` to have the chart create a dedicated Servi
 
 Set `nats.auth.tokenSecret` to use an existing Secret instead. Its key defaults to `token`. The chart ignores `nats.auth.serviceAccount` when `tokenSecret.name` is set.
 
-The EventBus reads its own credentials file from `eventbus.accessSecret`.
+The EventBus reads its own credentials file from `eventbus.accessSecret`. These credentials use basic authentication and are separate from the service account token.
 
 ## Subjects
 

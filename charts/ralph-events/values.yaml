@@ -50,17 +50,14 @@ stream:
     activeDeadlineSeconds: 300
 
 eventbus:
-  # Name of the EventBus in the release namespace that the GitHub event source
-  # and the repo routing sensors use.
+  # Create the EventBus in the release namespace that the GitHub event source
+  # and the repo routing sensors use. Set create to false when another release
+  # in the namespace owns the bus.
+  create: true
   name: default
-  # Argo Events is namespace-scoped, so every namespace that runs a launcher
-  # needs its own EventBus. This chart owns all of them.
-  instances:
-    - namespace: ""
-      name: default
-      # Existing Secret and key holding the EventBus credentials file
-      # (username and password).
-      accessSecret: {}
+  # Existing Secret and key holding the EventBus credentials file
+  # (username and password).
+  accessSecret: {}
   jetstream:
     streamConfig: |
       maxAge: 24h

@@ -12,7 +12,7 @@ The chart lives in `charts/ralph-launcher`.
 4. The `WorkflowTemplate` runs `ralph workflow prompt` in the Ralph image.
 5. The container clones `repo.cloneBranch`, checks out `prompt.branch`, runs the prompt text, pushes the branch, and opens a pull request.
 
-The launcher owns the event source, the sensor, the `WorkflowTemplate`, and the prompt ConfigMap. The `ralph-events` chart owns the namespace `EventBus`. Argo Workflows owns the pods the workflow creates. The launcher assumes a NATS JetStream server already runs on the cluster and does not install NATS. Its NATS event source authenticates with a Kubernetes service account token. Set `nats.auth.serviceAccount.create` to have the chart create the ServiceAccount and token Secret, or set `nats.auth.tokenSecret` to use an existing Secret. The namespace maps to a NATS account in the auth callout.
+The launcher owns the event source, the sensor, the namespace `EventBus`, the `WorkflowTemplate`, and the prompt ConfigMap. Argo Workflows owns the pods the workflow creates. The launcher assumes a NATS JetStream server already runs on the cluster and does not install NATS. Its NATS event source authenticates with a Kubernetes service account token. Set `nats.auth.serviceAccount.create` to have the chart create the ServiceAccount and token Secret, or set `nats.auth.tokenSecret` to use an existing Secret. The namespace maps to a NATS account in the auth callout.
 
 ## Prompt ConfigMap
 
@@ -50,7 +50,9 @@ The workflow mounts `github-credentials` at `/secrets/github` and `opencode-cred
 
 ## Event Bus
 
-Each namespace needs an Argo Events event bus. The `ralph-events` chart creates the bus in every namespace listed in `eventbus.instances`, with `jetstreamExotic` pointing at the existing NATS server.
+Each namespace needs an Argo Events event bus. The launcher creates a bus named `default` with `jetstreamExotic` pointing at the existing NATS server. Set `eventBus.create=false` when another release in the namespace owns the bus, such as a `ralph-events` release in the same namespace.
+
+The EventBus reads its credentials file from `eventBus.accessSecret`. These credentials use basic authentication and are separate from the service account token that the event source uses.
 
 All launcher releases share one NATS JetStream instance. The sensor and event source names include the release namespace so their NATS subjects and consumers do not collide with another launcher. Every `EventBus` that points at the shared NATS server uses the same stream settings.
 
