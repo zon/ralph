@@ -28,20 +28,16 @@ app.kubernetes.io/name: {{ include "ralph-launcher.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 
-{{- define "ralph-launcher.natsServiceAccountName" -}}
-{{- default (printf "%s-nats" (include "ralph-launcher.fullname" .)) .Values.nats.auth.serviceAccount.name | trunc 63 | trimSuffix "-" -}}
+{{- define "ralph-launcher.natsAuthSecretName" -}}
+{{- required "nats.auth.secret.name is required" .Values.nats.auth.secret.name -}}
 {{- end -}}
 
-{{- define "ralph-launcher.natsTokenSecretName" -}}
-{{- if .Values.nats.auth.tokenSecret.name -}}
-{{- .Values.nats.auth.tokenSecret.name -}}
-{{- else if .Values.nats.auth.serviceAccount.create -}}
-{{- printf "%s-token" (include "ralph-launcher.natsServiceAccountName" .) | trunc 63 | trimSuffix "-" -}}
-{{- end -}}
+{{- define "ralph-launcher.natsAuthUsernameKey" -}}
+{{- default "username" .Values.nats.auth.secret.usernameKey -}}
 {{- end -}}
 
-{{- define "ralph-launcher.natsTokenSecretKey" -}}
-{{- default "token" .Values.nats.auth.tokenSecret.key -}}
+{{- define "ralph-launcher.natsAuthPasswordKey" -}}
+{{- default "password" .Values.nats.auth.secret.passwordKey -}}
 {{- end -}}
 
 {{- define "ralph-launcher.subject" -}}

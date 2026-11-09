@@ -14,11 +14,11 @@ The chart lives in `charts/ralph-launcher`.
 
 ## Components
 
-The launcher owns the event source, the sensor, the namespace `EventBus`, the `WorkflowTemplate`, and the prompt ConfigMap. Argo Workflows owns the pods the workflow creates.
+The launcher owns the event source, the sensor, the `WorkflowTemplate`, and the prompt ConfigMap. It consumes the namespace `EventBus`. Argo Workflows owns the pods the workflow creates.
 
 ## NATS Authentication
 
-Its NATS event source authenticates with a Kubernetes service account token. See [NATS Authentication](events.md#nats-authentication) for the `nats.auth` settings.
+Its NATS event source authenticates with the username and password in `nats.auth.secret`. See [NATS Authentication](events.md#nats-authentication) for the `nats.auth` settings.
 
 ## Prompt ConfigMap
 
@@ -56,9 +56,11 @@ The workflow mounts `github-credentials` at `/secrets/github` and `opencode-cred
 
 ## Event Bus
 
-Each namespace needs an Argo Events event bus. The launcher creates a bus named `default` with `jetstreamExotic` pointing at the existing NATS server. Set `eventBus.create=false` when another release in the namespace owns the bus, such as a `ralph-events` release in the same namespace.
+The launcher consumes an Argo Events event bus named `eventBus.name`. The [ralph-events](events.md) release creates the bus in each launcher namespace with `eventbus.instances`.
 
-The EventBus reads its credentials from `eventBus.accessSecret`, separate from the service account token that the event source uses. See [Event Bus Credentials](events.md#event-bus-credentials).
+Set `eventBus.create=true` to have the launcher create the bus itself, with `jetstreamExotic` pointing at the existing NATS server. The launcher does not create a bus by default.
+
+The EventBus reads its credentials from `eventBus.accessSecret`. The event source uses the username and password keys from `nats.auth.secret`. See [Event Bus Credentials](events.md#event-bus-credentials).
 
 The sensor and event source names include the release namespace, so their NATS subjects and consumers do not collide with another launcher. Every `EventBus` that points at the [shared NATS server](events.md#prerequisites) uses the same stream settings.
 

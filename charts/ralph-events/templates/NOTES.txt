@@ -13,6 +13,8 @@ NATS JetStream URL for launchers:
 
   {{ include "ralph-events.natsUrl" . }}
 
+The release creates one EventBus for each eventbus.instances entry.
+
 Repository subjects:
 
 {{- range .Values.repositories }}

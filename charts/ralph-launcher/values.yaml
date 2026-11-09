@@ -7,15 +7,12 @@ nats:
   # nats://nats.argo-events.svc.cluster.local:4222
   url: ""
   auth:
-    # Create a dedicated ServiceAccount and its token Secret for the NATS auth
-    # callout. The ServiceAccount namespace maps to a NATS account. Ignored
-    # when tokenSecret.name is set.
-    serviceAccount:
-      create: false
+    # Existing Secret with the NATS username and password. The NATS event
+    # source reads this Secret.
+    secret:
       name: ""
-    # Existing Secret whose key holds the Kubernetes service account token the
-    # NATS auth callout exchanges for an account-scoped user JWT.
-    tokenSecret: {}
+      usernameKey: username
+      passwordKey: password
   # Defaults to ralph.repo.<owner>.<name>.
   subject: ""
   # Maximum reconnect attempts for the NATS event source. A negative value
@@ -66,9 +63,9 @@ workflow:
 
 eventBus:
   # Create an Argo Events EventBus in this namespace that uses the existing
-  # NATS JetStream server. Set create to false when another release in the
+  # NATS JetStream server. Set create to true only when no other release in the
   # namespace owns the bus.
-  create: true
+  create: false
   name: default
   # Existing Secret and key holding the EventBus credentials file
   # (username and password).

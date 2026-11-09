@@ -18,15 +18,12 @@ nats:
   # NATS. Use a URL reachable from every namespace that runs a launcher.
   url: ""
   auth:
-    # Create a dedicated ServiceAccount and its token Secret for the NATS auth
-    # callout. The ServiceAccount namespace maps to a NATS account. Ignored
-    # when tokenSecret.name is set.
-    serviceAccount:
-      create: false
+    # Existing Secret with the NATS username and password. The repo routing
+    # sensors and the stream job read this Secret.
+    secret:
       name: ""
-    # Existing Secret whose key holds the Kubernetes service account token the
-    # NATS auth callout exchanges for an account-scoped user JWT.
-    tokenSecret: {}
+      usernameKey: username
+      passwordKey: password
 
 stream:
   # Create the JetStream stream that retains repository events for launchers.
@@ -55,6 +52,9 @@ eventbus:
   # in the namespace owns the bus.
   create: true
   name: default
+  # Create one EventBus per entry and skip the release-namespace bus. Each
+  # entry needs a namespace, a name, and an accessSecret.
+  instances: []
   # Existing Secret and key holding the EventBus credentials file
   # (username and password).
   accessSecret: {}

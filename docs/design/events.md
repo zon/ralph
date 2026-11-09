@@ -12,21 +12,21 @@ The chart lives in `charts/ralph-events`.
 4. The sensor publishes an envelope with the GitHub event type and body to `ralph.repo.<owner>.<name>`.
 5. The `RALPH` JetStream stream retains the message for `stream.maxAge`.
 
-The event source and the routing sensors share an Argo Events `EventBus` in the release namespace. The chart connects to an existing NATS JetStream server with `nats.url`.
+The event source and the routing sensors share an Argo Events `EventBus`. The chart connects to an existing NATS JetStream server with `nats.url`.
 
 ## NATS Authentication
 
-The routing sensor and the stream bootstrap job authenticate with a Kubernetes service account token. The token namespace maps to a NATS account in the auth callout. The callout exchanges the token for a short-lived NATS user JWT.
+The routing sensors and the stream bootstrap job authenticate with a username and password from `nats.auth.secret`. The Secret must exist in the release namespace.
 
-The routing sensor reconnects with the same token, so the token must not expire. A token from `kubectl create token` or a projected volume expires. The token in a `kubernetes.io/service-account-token` Secret never expires.
+The Secret has `username` and `password` keys. Set `nats.auth.secret.usernameKey` and `passwordKey` when the keys have other names.
 
-Set `nats.auth.serviceAccount.create` to have the chart create a dedicated ServiceAccount and its token Secret. The ServiceAccount name defaults to the release full name plus `-nats`. The ServiceAccount is only an identity, so it needs no RBAC permissions.
-
-Set `nats.auth.tokenSecret` to use an existing Secret instead. Its key defaults to `token`. The chart ignores `nats.auth.serviceAccount` when `tokenSecret.name` is set.
+All Ralph event bus clients use the same NATS user. The ralph-launcher chart uses the same `nats.auth.secret` settings.
 
 ## Event Bus Credentials
 
-The EventBus reads its own credentials file from `eventbus.accessSecret`. These credentials use basic authentication and are separate from the service account token.
+The EventBus reads its own credentials file from `eventbus.accessSecret`. These credentials use basic authentication. The key defaults to `auth.yaml` and holds `username` and `password`.
+
+Set `eventbus.instances` to create one EventBus per namespace. This lets the events release own the bus that each launcher consumes. Each entry needs `namespace`, `name`, and `accessSecret`. When `instances` is empty, the chart creates the release-namespace bus from `eventbus.create`.
 
 ## Subjects
 

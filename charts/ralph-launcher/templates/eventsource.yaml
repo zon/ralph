@@ -11,12 +11,14 @@ spec:
     repo:
       url: {{ required "nats.url is required" .Values.nats.url | quote }}
       subject: {{ include "ralph-launcher.subject" . | quote }}
-      {{- if include "ralph-launcher.natsTokenSecretName" . }}
       auth:
-        token:
-          name: {{ include "ralph-launcher.natsTokenSecretName" . | quote }}
-          key: {{ include "ralph-launcher.natsTokenSecretKey" . | quote }}
-      {{- end }}
+        basic:
+          username:
+            name: {{ include "ralph-launcher.natsAuthSecretName" . | quote }}
+            key: {{ include "ralph-launcher.natsAuthUsernameKey" . | quote }}
+          password:
+            name: {{ include "ralph-launcher.natsAuthSecretName" . | quote }}
+            key: {{ include "ralph-launcher.natsAuthPasswordKey" . | quote }}
       jsonBody: true
       maxReconnects: {{ .Values.nats.maxReconnects }}
       connectionBackoff:
