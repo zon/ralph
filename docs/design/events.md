@@ -16,9 +16,11 @@ The event source and the routing sensors share an Argo Events `EventBus`. Argo E
 
 ## NATS Authentication
 
-The routing trigger and the stream bootstrap job authenticate with a Kubernetes service account token. The token namespace maps to a NATS account in the auth callout.
+The routing sensor and the stream bootstrap job authenticate with a Kubernetes service account token. The token namespace maps to a NATS account in the auth callout. The callout exchanges the token for a short-lived NATS user JWT.
 
-Set `nats.auth.serviceAccount.create` to have the chart create a dedicated ServiceAccount and its token Secret. The ServiceAccount name defaults to the release full name plus `-nats`.
+The token must be long-lived. The routing sensor reconnects with the same token, and a token from `kubectl create token` or copied from a projected volume expires. The token in a `kubernetes.io/service-account-token` Secret never expires.
+
+Set `nats.auth.serviceAccount.create` to have the chart create a dedicated ServiceAccount and its token Secret. The ServiceAccount name defaults to the release full name plus `-nats`. The ServiceAccount is only an identity, so it needs no RBAC permissions.
 
 Set `nats.auth.tokenSecret` to use an existing Secret instead. Its key defaults to `token`. The chart ignores `nats.auth.serviceAccount` when `tokenSecret.name` is set.
 
@@ -77,4 +79,4 @@ The `RALPH` stream keeps events for `stream.maxAge`, one week by default. The la
 
 The cluster needs a NATS JetStream server, Argo Events, and Argo Workflows. The chart creates `EventSource`, `Sensor`, and `EventBus` resources, so those CRDs must already exist.
 
-The chart connects to NATS without credentials. Run NATS with its own authentication and network policy, or keep it reachable only from the cluster. Every `ralph-launcher` release must use the same NATS server.
+Every namespace that runs a launcher must reach NATS, and every `ralph-launcher` release must use the same NATS server.
