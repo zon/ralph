@@ -48,7 +48,7 @@ RUN mkdir /tmp/templ && cd /tmp/templ \
 # directory, which only the server uses; like upstream's own CLI build, give it
 # a placeholder instead of building the UI.
 ENV ARGO_VERSION=v4.1.6
-ENV ARGO_JOSE_VERSION=v4.1.8
+ENV ARGO_JOSE_VERSION=v4.1.9
 RUN git clone --quiet --depth 1 --branch ${ARGO_VERSION} https://github.com/argoproj/argo-workflows.git /tmp/argo \
     && cd /tmp/argo \
     && mkdir -p ui/dist/app && touch ui/dist/app/placeholder \
