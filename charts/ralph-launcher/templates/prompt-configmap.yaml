@@ -4,6 +4,7 @@ metadata:
   name: {{ include "ralph-launcher.fullname" . }}-prompt
   labels:
     {{- include "ralph-launcher.labels" . | nindent 4 }}
+    workflows.argoproj.io/configmap-type: Parameter
 data:
   {{ .Values.prompt.configMapKey | quote }}: |
 {{ required "prompt.text is required" .Values.prompt.text | indent 4 }}
