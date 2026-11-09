@@ -1,6 +1,6 @@
 # Events Design
 
-`ralph-events` is one cluster-wide release. It receives GitHub webhooks, routes each event by repository, and publishes it to a NATS JetStream subject. A `ralph-launcher` release in each Ralph namespace consumes the subject for its repository.
+`ralph-events` is one release for the whole cluster. It receives GitHub webhooks, routes each event by repository, and publishes it to a NATS JetStream subject. A [ralph-launcher](launcher.md) release in each Ralph namespace consumes the subject for its repository.
 
 The chart lives in `charts/ralph-events`.
 
@@ -12,17 +12,19 @@ The chart lives in `charts/ralph-events`.
 4. The sensor publishes an envelope with the GitHub event type and body to `ralph.repo.<owner>.<name>`.
 5. The `RALPH` JetStream stream retains the message for `stream.maxAge`.
 
-The event source and the routing sensors share an Argo Events `EventBus` in the release namespace. The chart assumes a NATS JetStream server already runs on the cluster and connects to it with `nats.url`. It does not install NATS. Each `ralph-launcher` release creates the `EventBus` for its own namespace.
+The event source and the routing sensors share an Argo Events `EventBus` in the release namespace. The chart connects to an existing NATS JetStream server with `nats.url`.
 
 ## NATS Authentication
 
 The routing sensor and the stream bootstrap job authenticate with a Kubernetes service account token. The token namespace maps to a NATS account in the auth callout. The callout exchanges the token for a short-lived NATS user JWT.
 
-The token must be long-lived. The routing sensor reconnects with the same token, and a token from `kubectl create token` or copied from a projected volume expires. The token in a `kubernetes.io/service-account-token` Secret never expires.
+The routing sensor reconnects with the same token, so the token must not expire. A token from `kubectl create token` or a projected volume expires. The token in a `kubernetes.io/service-account-token` Secret never expires.
 
 Set `nats.auth.serviceAccount.create` to have the chart create a dedicated ServiceAccount and its token Secret. The ServiceAccount name defaults to the release full name plus `-nats`. The ServiceAccount is only an identity, so it needs no RBAC permissions.
 
 Set `nats.auth.tokenSecret` to use an existing Secret instead. Its key defaults to `token`. The chart ignores `nats.auth.serviceAccount` when `tokenSecret.name` is set.
+
+## Event Bus Credentials
 
 The EventBus reads its own credentials file from `eventbus.accessSecret`. These credentials use basic authentication and are separate from the service account token.
 
@@ -73,10 +75,10 @@ The chart registers webhooks when `github.apiTokenSecret` names a Secret with a 
 
 ## Retention
 
-The `RALPH` stream keeps events for `stream.maxAge`, one week by default. The launcher event source subscribes with core NATS, so a launcher that is down does not replay retained events on its own. The stream keeps the history for inspection and manual replay.
+The `RALPH` stream keeps events for `stream.maxAge`, one week by default, for inspection and manual replay. The launcher event source subscribes with core NATS, so a launcher that is down does not replay retained events.
 
 ## Prerequisites
 
-The cluster needs a NATS JetStream server, Argo Events, and Argo Workflows. The chart creates `EventSource`, `Sensor`, and `EventBus` resources, so those CRDs must already exist.
+The cluster needs a NATS JetStream server, Argo Events, and Argo Workflows. The chart does not install them. It creates `EventSource`, `Sensor`, and `EventBus` resources, so those CRDs must already exist.
 
 Every namespace that runs a launcher must reach NATS, and every `ralph-launcher` release must use the same NATS server.
