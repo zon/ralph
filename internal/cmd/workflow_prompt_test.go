@@ -153,7 +153,7 @@ func TestWorkflowPromptCmdRunPreparesWorkspaceAndCarriesOptions(t *testing.T) {
 	cmd := &WorkflowPromptCmd{
 		Repo:           "owner/repo",
 		CloneBranch:    "main",
-		Branch:         "my-feature",
+		Branch:         "update/my-feature",
 		Prefix:         "update",
 		Base:           "release",
 		Prompt:         "Add the endpoint.",
@@ -175,14 +175,14 @@ func TestWorkflowPromptCmdRunPreparesWorkspaceAndCarriesOptions(t *testing.T) {
 	require.True(t, workspace.called, "the workspace is prepared before the prompt runs")
 	assert.Equal(t, "owner/repo", workspace.flags.Repo)
 	assert.Equal(t, "main", workspace.flags.CloneBranch)
-	assert.Equal(t, "my-feature", workspace.flags.TargetBranch, "the workspace checks out the prompt branch")
+	assert.Equal(t, "update/my-feature", workspace.flags.TargetBranch, "the workspace checks out the prompt branch")
 	assert.True(t, workspace.flags.CreateBranch, "the workspace creates the prompt branch when missing")
 	assert.Equal(t, "ralph-zon[bot]", workspace.flags.BotName)
 	assert.Equal(t, "ralph-zon[bot]@users.noreply.github.com", workspace.flags.BotEmail)
 
 	require.True(t, runner.called, "the prompt runs after the workspace is prepared")
 	assert.Equal(t, "Add the endpoint.", runner.flags.Prompt)
-	assert.Equal(t, "my-feature", runner.flags.Branch)
+	assert.Equal(t, "update/my-feature", runner.flags.Branch)
 	assert.Equal(t, "update", runner.flags.Prefix)
 	assert.Equal(t, "release", runner.flags.BaseBranch)
 	assert.Equal(t, "gpt-4", runner.flags.Model)
@@ -450,6 +450,175 @@ func TestPromptCmdRunInWorkspacePrefixWithoutMatchContinues(t *testing.T) {
 	assert.Equal(t, 1, prClient.listCalls, "the prefix lists open pull requests once")
 	assert.Equal(t, "update/my-feature", cmd.resolved.PromptBranch)
 	assert.Equal(t, 1, aiClient.passCalls, "an empty listing continues to the pass")
+}
+
+// TestPromptCmdRunInWorkspacePrefixWithoutBranchProposesAndCreatesBranch covers
+// a workflow prompt that names only a prefix: the prefix is checked, the prompt
+// slug is proposed, and the prefixed branch is created before the prompt runs.
+func TestPromptCmdRunInWorkspacePrefixWithoutBranchProposesAndCreatesBranch(t *testing.T) {
+	var order []string
+	var switched string
+	var proposed string
+	prClient := &promptPRRecorder{order: &order}
+	servicesClient := &promptServicesRecorder{order: &order}
+	aiClient := &promptAIRecorder{order: &order}
+	gitClient := &git.MockClient{
+		SwitchToBranchFunc: func(name string) error {
+			switched = name
+			promptEvent(&order, "switch")
+			return nil
+		},
+	}
+	cmd := &PromptCmd{
+		config:     &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+		git:        gitClient,
+		services:   servicesClient,
+		ai:         aiClient,
+		pr:         prClient,
+		output:     &promptOutputRecorder{},
+		NoServices: true,
+		slugProposer: promptSlugProposerFunc(func(description string) (string, error) {
+			proposed = description
+			promptEvent(&order, "propose")
+			return "Fix Auth", nil
+		}),
+	}
+
+	err := cmd.RunInWorkspace("do work", "", "main", "update/")
+
+	require.NoError(t, err)
+	assert.Equal(t, "do work", proposed, "the slug is proposed from the prompt")
+	assert.Equal(t, "update/fix-auth", switched, "the prefixed branch is created in the checkout")
+	require.NotNil(t, cmd.resolved)
+	assert.Equal(t, "update/fix-auth", cmd.resolved.PromptBranch)
+	assert.Equal(t, "update", cmd.resolved.Prefix)
+	assert.Equal(t, []string{"update"}, prClient.listPrefixes, "the normalized prefix is checked")
+	assert.Equal(t, 1, aiClient.passCalls, "the prompt runs after the branch is created")
+	assert.Less(t, promptIndex(order, "list-pull-requests"), promptIndex(order, "propose"), "the prefix is checked before the slug proposal")
+	assert.Less(t, promptIndex(order, "propose"), promptIndex(order, "switch"), "the branch is created after the slug proposal")
+}
+
+// TestPromptCmdRunInWorkspacePrefixWithoutBranchMatchingPullRequestSkips covers
+// a prefix-only prompt stopping before the slug proposal when an open pull
+// request already has the prefix.
+func TestPromptCmdRunInWorkspacePrefixWithoutBranchMatchingPullRequestSkips(t *testing.T) {
+	output := &promptOutputRecorder{}
+	prClient := &promptPRRecorder{
+		listFunc: func(prefix string) ([]github.PullRequest, error) {
+			assert.Equal(t, "update", prefix)
+			return []github.PullRequest{
+				{URL: "https://github.com/owner/repo/pull/8", HeadRefName: "update/fix-auth", BaseRefName: "main"},
+			}, nil
+		},
+	}
+	proposerCalls := 0
+	switchCalls := 0
+	servicesClient := &promptServicesRecorder{}
+	aiClient := &promptAIRecorder{}
+	cmd := &PromptCmd{
+		config:       &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+		git:          &git.MockClient{SwitchToBranchFunc: func(string) error { switchCalls++; return nil }},
+		services:     servicesClient,
+		ai:           aiClient,
+		pr:           prClient,
+		output:       output,
+		slugProposer: promptSlugProposerFunc(func(string) (string, error) { proposerCalls++; return "fix-auth", nil }),
+	}
+
+	err := cmd.RunInWorkspace("do work", "", "main", "update")
+
+	require.NoError(t, err)
+	assert.Nil(t, cmd.resolved, "a matching pull request skips before branch setup")
+	assert.Zero(t, proposerCalls, "a matching pull request proposes no slug")
+	assert.Zero(t, switchCalls, "a matching pull request creates no branch")
+	assert.Equal(t, []string{"https://github.com/owner/repo/pull/8"}, output.infos)
+	assert.Zero(t, servicesClient.runBeforeCalls, "a matching pull request runs no before command")
+	assert.Zero(t, aiClient.passCalls, "a matching pull request runs no pass")
+}
+
+// TestPromptCmdRunInWorkspacePrefixWithoutBranchStopsOnBranchFailure covers a
+// failed slug proposal or branch creation stopping before any before command or
+// pass work.
+func TestPromptCmdRunInWorkspacePrefixWithoutBranchStopsOnBranchFailure(t *testing.T) {
+	proposalErr := errors.New("proposal boom")
+	createErr := errors.New("create boom")
+	tests := []struct {
+		name        string
+		proposerErr error
+		createErr   error
+		wantErr     error
+	}{
+		{name: "slug proposal fails", proposerErr: proposalErr, wantErr: proposalErr},
+		{name: "branch creation fails", createErr: createErr, wantErr: createErr},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			servicesClient := &promptServicesRecorder{}
+			aiClient := &promptAIRecorder{}
+			cmd := &PromptCmd{
+				config:   &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+				git:      &git.MockClient{SwitchToBranchFunc: func(string) error { return tt.createErr }},
+				services: servicesClient,
+				ai:       aiClient,
+				pr:       &promptPRRecorder{},
+				output:   &promptOutputRecorder{},
+				slugProposer: promptSlugProposerFunc(func(string) (string, error) {
+					return "fix-auth", tt.proposerErr
+				}),
+			}
+
+			err := cmd.RunInWorkspace("do work", "", "main", "update")
+
+			require.ErrorIs(t, err, tt.wantErr)
+			assert.Nil(t, cmd.resolved, "a failed branch resolution skips branch setup")
+			assert.Zero(t, servicesClient.runBeforeCalls, "a failed branch resolution runs no before command")
+			assert.Zero(t, aiClient.passCalls, "a failed branch resolution runs no pass")
+		})
+	}
+}
+
+// TestPromptCmdRunInWorkspaceSuppliedBranchMustStartWithPrefix covers the
+// container-side rule that a supplied branch stays under the supplied prefix.
+func TestPromptCmdRunInWorkspaceSuppliedBranchMustStartWithPrefix(t *testing.T) {
+	tests := []struct {
+		name   string
+		branch string
+	}{
+		{name: "another prefix", branch: "other/fix-auth"},
+		{name: "the prefix alone", branch: "update"},
+		{name: "a case-different prefix", branch: "Update/fix-auth"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			proposerCalls := 0
+			switchCalls := 0
+			prClient := &promptPRRecorder{}
+			servicesClient := &promptServicesRecorder{}
+			aiClient := &promptAIRecorder{}
+			cmd := &PromptCmd{
+				config:       &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+				git:          &git.MockClient{SwitchToBranchFunc: func(string) error { switchCalls++; return nil }},
+				services:     servicesClient,
+				ai:           aiClient,
+				pr:           prClient,
+				output:       &promptOutputRecorder{},
+				slugProposer: promptSlugProposerFunc(func(string) (string, error) { proposerCalls++; return "fix-auth", nil }),
+			}
+
+			err := cmd.RunInWorkspace("do work", tt.branch, "main", "update")
+
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "must start with")
+			assert.Contains(t, err.Error(), "update/")
+			assert.Zero(t, proposerCalls, "a mismatched branch proposes no slug")
+			assert.Zero(t, switchCalls, "a mismatched branch creates no branch")
+			assert.Zero(t, prClient.listCalls, "a mismatched branch lists no pull requests")
+			assert.Zero(t, servicesClient.runBeforeCalls, "a mismatched branch runs no before command")
+			assert.Zero(t, aiClient.passCalls, "a mismatched branch runs no pass")
+		})
+	}
 }
 
 // TestPromptWorkflowRunnerAdapterCarriesPrompt asserts the in-process adapter

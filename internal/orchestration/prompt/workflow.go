@@ -2,6 +2,7 @@ package prompt
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	wksp "github.com/zon/ralph/internal/orchestration/workspace"
@@ -26,6 +27,20 @@ type RunnerClient interface {
 func ValidatePrompt(prompt string) error {
 	if strings.TrimSpace(prompt) == "" {
 		return ErrMissingPrompt
+	}
+	return nil
+}
+
+// validateBranchPrefix rejects a supplied branch that is not under the
+// normalized prefix. A branch or prefix alone imposes no constraint: a prefix
+// without a branch resolves its own prefixed branch in the prompt flow.
+func validateBranchPrefix(prefix, branch string) error {
+	prefix = strings.TrimRight(prefix, "/")
+	if prefix == "" || branch == "" {
+		return nil
+	}
+	if !strings.HasPrefix(branch, prefix+"/") {
+		return fmt.Errorf("branch '%s' must start with prefix '%s/'", branch, prefix)
 	}
 	return nil
 }
@@ -78,6 +93,9 @@ func NewWorkflowPromptCmd(workspace WorkspaceSetupClient, runner RunnerClient) *
 
 func (w *WorkflowPromptCmd) Run(flags WorkflowPromptFlags) error {
 	if err := ValidatePrompt(flags.Prompt); err != nil {
+		return err
+	}
+	if err := validateBranchPrefix(flags.Prefix, flags.Branch); err != nil {
 		return err
 	}
 	if err := w.workspace.Setup(flags.WorkspaceFlags()); err != nil {

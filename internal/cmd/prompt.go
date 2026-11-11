@@ -275,13 +275,28 @@ func (c *PromptCmd) checkOpenPullRequestsForPrefix(prefix string) (bool, error) 
 	return len(matches) > 0, nil
 }
 
+// validatePromptBranchPrefix rejects a supplied branch that is not under the
+// normalized prefix. A missing branch or prefix imposes no constraint; a prefix
+// without a branch resolves its own prefixed branch in the prompt flow.
+func validatePromptBranchPrefix(prefix, branch string) error {
+	if prefix == "" || branch == "" {
+		return nil
+	}
+	if !strings.HasPrefix(branch, prefix+"/") {
+		return fmt.Errorf("branch '%s' must start with prefix '%s/'", branch, prefix)
+	}
+	return nil
+}
+
 // RunInWorkspace runs the prompt flow in an already prepared workflow checkout.
 // The workflow supplies the prompt branch, base branch, and optional prefix, and
 // the workspace has already cloned the repository and checked out the prompt
-// branch. It therefore skips slug proposal, mode resolution, remote submission,
-// and the branch switch. With a prefix it checks again for an open pull request
-// before any before command or pass work, then runs the same before commands,
-// base synchronization, services, pass, and pull request flow as a local prompt.
+// branch. It therefore skips mode resolution and remote submission. With a
+// prefix it checks again for an open pull request before any before command or
+// pass work. When the prefix has no branch, it proposes a prompt slug and
+// creates <prefix>/<prompt-slug> in the checkout. A supplied branch must stay
+// under the prefix. It then runs the same before commands, base synchronization,
+// services, pass, and pull request flow as a local prompt.
 func (c *PromptCmd) RunInWorkspace(prompt, branch, base string, prefix ...string) error {
 	if strings.TrimSpace(prompt) == "" {
 		return errors.New("prompt is required")
@@ -296,12 +311,27 @@ func (c *PromptCmd) RunInWorkspace(prompt, branch, base string, prefix ...string
 	if base == "" {
 		base = cfg.DefaultBranch
 	}
-	skipped, err := c.checkOpenPullRequestsForPrefix(c.promptPrefix())
+	normalizedPrefix := c.promptPrefix()
+	if normalizedPrefix != "" {
+		if err := git.ValidateBranchName(normalizedPrefix); err != nil {
+			return err
+		}
+	}
+	if err := validatePromptBranchPrefix(normalizedPrefix, branch); err != nil {
+		return err
+	}
+	skipped, err := c.checkOpenPullRequestsForPrefix(normalizedPrefix)
 	if err != nil {
 		return err
 	}
 	if skipped {
 		return nil
+	}
+	if branch == "" && normalizedPrefix != "" {
+		branch, err = c.proposeWorkspacePromptBranch(prompt)
+		if err != nil {
+			return err
+		}
 	}
 	c.promptBranch = branch
 	cfg.Mode = config.ModeLocal
@@ -320,6 +350,24 @@ func (c *PromptCmd) RunInWorkspace(prompt, branch, base string, prefix ...string
 		return err
 	}
 	return c.runSetupAndPass(prompt, false)
+}
+
+// proposeWorkspacePromptBranch proposes a prompt slug and creates the branch
+// under the normalized prefix in the prepared checkout. It runs only for a
+// workflow prompt that names a prefix without a branch.
+func (c *PromptCmd) proposeWorkspacePromptBranch(prompt string) (string, error) {
+	slug, err := c.proposeSlug(prompt)
+	if err != nil {
+		return "", err
+	}
+	name := c.promptPrefix() + "/" + git.SanitizeBranchName(slug)
+	if err := git.ValidateBranchName(name); err != nil {
+		return "", err
+	}
+	if err := c.gitClient().SwitchToBranch(name); err != nil {
+		return "", err
+	}
+	return name, nil
 }
 
 // readPrompt reads the prompt from the source selected by the flags. Tests
