@@ -17,6 +17,7 @@ type WorkflowPromptCmd struct {
 	Repo        string `help:"GitHub repository (owner/repo)" required:""`
 	CloneBranch string `help:"Branch to clone" name:"clone"`
 	Branch      string `help:"Prompt branch to create or check out" name:"branch"`
+	Prefix      string `help:"Work-stream prefix to check before running the prompt" name:"prefix"`
 	Base        string `help:"Base branch for PR creation" name:"base" short:"B"`
 	Prompt      string `help:"Prompt text to run" name:"prompt"`
 	BotName     string `help:"Git user name for commits" default:"ralph-zon[bot]"`
@@ -62,6 +63,7 @@ func (w *WorkflowPromptCmd) Run() error {
 		Repo:        w.Repo,
 		CloneBranch: w.CloneBranch,
 		Branch:      w.Branch,
+		Prefix:      w.Prefix,
 		BaseBranch:  w.Base,
 		Prompt:      w.Prompt,
 		BotName:     w.BotName,
@@ -101,5 +103,5 @@ func (a *promptWorkflowRunnerAdapter) Run(flags orchestrationPrompt.WorkflowProm
 		ctx:        a.ctx,
 		NoServices: flags.NoServices,
 	}
-	return cmd.RunInWorkspace(flags.Prompt, flags.Branch, flags.BaseBranch)
+	return cmd.RunInWorkspace(flags.Prompt, flags.Branch, flags.BaseBranch, flags.Prefix)
 }

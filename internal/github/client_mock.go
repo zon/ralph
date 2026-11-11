@@ -5,10 +5,11 @@ import (
 )
 
 type MockGH struct {
-	IsReadyFn           func() bool
-	FindExistingPRFn    func(head string) (string, error)
-	CreatePRFn          func(title, body, base, head string) (string, error)
-	ListCollaboratorsFn func(ctx context.Context, owner, repo string) ([]string, error)
+	IsReadyFn              func() bool
+	FindExistingPRFn       func(head string) (string, error)
+	CreatePRFn             func(title, body, base, head string) (string, error)
+	ListOpenPullRequestsFn func() ([]PullRequest, error)
+	ListCollaboratorsFn    func(ctx context.Context, owner, repo string) ([]string, error)
 }
 
 func (m *MockGH) IsReady() bool {
@@ -30,6 +31,13 @@ func (m *MockGH) CreatePR(title, body, base, head string) (string, error) {
 		return m.CreatePRFn(title, body, base, head)
 	}
 	return "", nil
+}
+
+func (m *MockGH) ListOpenPullRequests() ([]PullRequest, error) {
+	if m.ListOpenPullRequestsFn != nil {
+		return m.ListOpenPullRequestsFn()
+	}
+	return nil, nil
 }
 
 func (m *MockGH) ListCollaborators(ctx context.Context, owner, repo string) ([]string, error) {

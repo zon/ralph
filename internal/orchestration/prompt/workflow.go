@@ -2,6 +2,7 @@ package prompt
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	wksp "github.com/zon/ralph/internal/orchestration/workspace"
@@ -30,14 +31,29 @@ func ValidatePrompt(prompt string) error {
 	return nil
 }
 
+// validateBranchPrefix rejects a supplied branch that is not under the
+// normalized prefix. A branch or prefix alone imposes no constraint: a prefix
+// without a branch resolves its own prefixed branch in the prompt flow.
+func validateBranchPrefix(prefix, branch string) error {
+	prefix = strings.TrimRight(prefix, "/")
+	if prefix == "" || branch == "" {
+		return nil
+	}
+	if !strings.HasPrefix(branch, prefix+"/") {
+		return fmt.Errorf("branch '%s' must start with prefix '%s/'", branch, prefix)
+	}
+	return nil
+}
+
 // WorkflowPromptFlags carries the workflow-side prompt invocation: the repo
-// and clone branch used to prepare the workspace, the prompt branch, base
-// branch, prompt text, and the model, variant, agent, service, debug, and
-// verbose choices the workflow passed.
+// and clone branch used to prepare the workspace, the prompt branch, work-stream
+// prefix, base branch, prompt text, and the model, variant, agent, service,
+// debug, and verbose choices the workflow passed.
 type WorkflowPromptFlags struct {
 	Repo        string
 	CloneBranch string
 	Branch      string
+	Prefix      string
 	BaseBranch  string
 	Prompt      string
 	BotName     string
@@ -77,6 +93,9 @@ func NewWorkflowPromptCmd(workspace WorkspaceSetupClient, runner RunnerClient) *
 
 func (w *WorkflowPromptCmd) Run(flags WorkflowPromptFlags) error {
 	if err := ValidatePrompt(flags.Prompt); err != nil {
+		return err
+	}
+	if err := validateBranchPrefix(flags.Prefix, flags.Branch); err != nil {
 		return err
 	}
 	if err := w.workspace.Setup(flags.WorkspaceFlags()); err != nil {

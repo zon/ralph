@@ -69,6 +69,58 @@ func TestGeneratePromptWorkflow(t *testing.T) {
 	assert.True(t, wf.Verbose)
 }
 
+// TestGeneratePromptWorkflowCarriesPrefix asserts the generator carries the
+// work-stream prefix into the prompt specification and the container command so
+// the container can check it again before its own work.
+func TestGeneratePromptWorkflowCarriesPrefix(t *testing.T) {
+	ctx := &execcontext.Context{}
+
+	wf, err := GeneratePromptWorkflow(ctx, "update/fix-auth", "main", "Add the endpoint.", "main", "git@github.com:test/repo.git", "update")
+	require.NoError(t, err, "GeneratePromptWorkflow failed")
+
+	require.NotNil(t, wf.Prompt)
+	assert.Equal(t, "update/fix-auth", wf.Prompt.Branch)
+	assert.Equal(t, "update", wf.Prompt.Prefix)
+	assert.Equal(t, "Add the endpoint.", wf.Prompt.Text)
+
+	args := promptContainerArgs(t, wf)
+	assert.Equal(t, "update/fix-auth", argValue(args, "--branch"))
+	assert.Equal(t, "update", argValue(args, "--prefix"))
+	assert.Equal(t, "Add the endpoint.", argValue(args, "--prompt"))
+}
+
+// TestGeneratePromptWorkflowWithoutPrefixOmitsPrefix asserts a prompt without a
+// prefix does not pass a prefix argument to the container.
+func TestGeneratePromptWorkflowWithoutPrefixOmitsPrefix(t *testing.T) {
+	ctx := &execcontext.Context{}
+
+	wf, err := GeneratePromptWorkflow(ctx, "my-feature", "main", "Add the endpoint.", "main", "git@github.com:test/repo.git")
+	require.NoError(t, err, "GeneratePromptWorkflow failed")
+
+	require.NotNil(t, wf.Prompt)
+	assert.Empty(t, wf.Prompt.Prefix)
+	args := promptContainerArgs(t, wf)
+	assert.NotContains(t, args, "--prefix")
+}
+
+// TestWorkflowRender_PromptPrefix asserts a prefix on the prompt spec is passed
+// as its own container argument.
+func TestWorkflowRender_PromptPrefix(t *testing.T) {
+	wf := &Workflow{
+		ProjectName:   "prompt",
+		Repo:          githubpkg.MakeRepo("owner", "repo"),
+		CloneBranch:   "main",
+		ProjectBranch: "update/my-feature",
+		BaseBranch:    "main",
+		Prompt:        &PromptSpec{Branch: "update/my-feature", Prefix: "update", Text: "Add the endpoint."},
+	}
+
+	args := promptContainerArgs(t, wf)
+
+	assert.Equal(t, "update", argValue(args, "--prefix"))
+	assert.Equal(t, "update/my-feature", argValue(args, "--branch"))
+}
+
 // TestWorkflowRender_Prompt asserts the prompt workflow is named and labeled
 // for Ralph, uses the same TTL and pod garbage collection as the other
 // workflows, takes the prompt branch lock, and passes the prompt as one

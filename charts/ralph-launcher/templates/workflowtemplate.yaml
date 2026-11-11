@@ -1,8 +1,10 @@
+{{- include "ralph-launcher.validatePromptEntries" . -}}
 {{- $repo := "{{inputs.parameters.repo}}" -}}
 {{- $cloneBranch := "{{inputs.parameters.clone-branch}}" -}}
-{{- $promptBranch := "{{inputs.parameters.prompt-branch}}" -}}
+{{- $prefix := "{{inputs.parameters.prefix}}" -}}
 {{- $baseBranch := "{{inputs.parameters.base-branch}}" -}}
 {{- $prompt := "{{inputs.parameters.prompt}}" -}}
+{{- $defaultEntry := first .Values.prompt.entries -}}
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
 metadata:
@@ -13,14 +15,14 @@ spec:
   entrypoint: ralph-prompt
   arguments:
     parameters:
-      {{- include "ralph-launcher.workflowParameters" . | nindent 6 }}
+      {{- include "ralph-launcher.workflowParameters" (dict "root" . "entry" $defaultEntry) | nindent 6 }}
   templates:
     - name: ralph-prompt
       inputs:
         parameters:
           - name: repo
           - name: clone-branch
-          - name: prompt-branch
+          - name: prefix
           - name: base-branch
           - name: prompt
           - name: model
@@ -43,8 +45,8 @@ spec:
           - {{ $repo | quote }}
           - --clone
           - {{ $cloneBranch | quote }}
-          - --branch
-          - {{ $promptBranch | quote }}
+          - --prefix
+          - {{ $prefix | quote }}
           - --base
           - {{ $baseBranch | quote }}
           - --prompt

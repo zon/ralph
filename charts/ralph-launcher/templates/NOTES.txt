@@ -8,14 +8,18 @@ Workflow template:
 
   {{ include "ralph-launcher.fullname" . }}
 
-The sensor runs ralph workflow prompt on {{ .Values.repo.cloneBranch }} and
-creates or checks out {{ include "ralph-launcher.promptBranch" . }}.
+The sensor runs ralph workflow prompt on {{ .Values.repo.cloneBranch }} for
+these work streams:
+
+{{- range .Values.prompt.entries }}
+  {{ .slug }} - {{ if hasKey . "events" }}{{ if .events }}{{ join ", " .events }}{{ else }}every event{{ end }}{{ else }}push{{ end }}
+{{- end }}
 
 Prompt ConfigMap:
 
   {{ include "ralph-launcher.fullname" . }}-prompt
 
-Update the prompt with:
+Update a prompt with:
 
   kubectl -n {{ .Release.Namespace }} edit configmap {{ include "ralph-launcher.fullname" . }}-prompt
 

@@ -16,6 +16,7 @@ import (
 	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
+	"github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/opencode"
 	"github.com/zon/ralph/internal/output"
 	"github.com/zon/ralph/internal/services"
@@ -171,10 +172,15 @@ func (a *promptAIRecorder) ResolveMergeConflicts(baseBranch, promptBranch string
 	return nil
 }
 
-// promptOutputRecorder captures the warnings emitted during base
-// synchronization.
+// promptOutputRecorder captures the information and warnings emitted during a
+// prompt run.
 type promptOutputRecorder struct {
+	infos    []string
 	warnings []string
+}
+
+func (o *promptOutputRecorder) Info(msg string) {
+	o.infos = append(o.infos, msg)
 }
 
 func (o *promptOutputRecorder) Warnf(format string, a ...any) {
@@ -182,23 +188,39 @@ func (o *promptOutputRecorder) Warnf(format string, a ...any) {
 }
 
 // promptPRRecorder records the pull request summary input and the branch it
-// opens from, and returns a canned failure.
+// opens from, records open pull request listings, and returns canned failures.
 type promptPRRecorder struct {
-	order   *[]string
-	err     error
-	prompts []string
-	slugs   []string
-	heads   []string
-	calls   int
+	order        *[]string
+	err          error
+	listErr      error
+	listFunc     func(prefix string) ([]github.PullRequest, error)
+	prompts      []string
+	prefixes     []string
+	slugs        []string
+	heads        []string
+	listPrefixes []string
+	calls        int
+	listCalls    int
 }
 
-func (p *promptPRRecorder) CreatePromptPR(prompt, slug, head string) error {
+func (p *promptPRRecorder) CreatePromptPR(prompt, prefix, slug, head string) error {
 	p.calls++
 	p.prompts = append(p.prompts, prompt)
+	p.prefixes = append(p.prefixes, prefix)
 	p.slugs = append(p.slugs, slug)
 	p.heads = append(p.heads, head)
 	promptEvent(p.order, "pull-request")
 	return p.err
+}
+
+func (p *promptPRRecorder) ListOpenPullRequests(prefix string) ([]github.PullRequest, error) {
+	p.listCalls++
+	p.listPrefixes = append(p.listPrefixes, prefix)
+	promptEvent(p.order, "list-pull-requests")
+	if p.listFunc != nil {
+		return p.listFunc(prefix)
+	}
+	return nil, p.listErr
 }
 
 // promptEvent appends an event to an optional order log shared by the mock
@@ -221,6 +243,9 @@ func preparePromptRun(cmd *PromptCmd) {
 	}
 	if cmd.output == nil {
 		cmd.output = &promptOutputRecorder{}
+	}
+	if cmd.pr == nil {
+		cmd.pr = &promptPRRecorder{}
 	}
 	if cmd.remote == nil {
 		cmd.remote = &promptRemoteRecorder{}
@@ -360,6 +385,7 @@ func TestPromptCmdParsing(t *testing.T) {
 		wantMode      string
 		wantBase      string
 		wantBranch    string
+		wantPrefix    string
 		wantModel     string
 		wantVariant   string
 		wantAgent     string
@@ -401,6 +427,12 @@ func TestPromptCmdParsing(t *testing.T) {
 			wantVerbose:   true,
 		},
 		{
+			name:       "--prefix parses",
+			args:       []string{"prompt", "text", "--prefix", "update"},
+			wantPrompt: []string{"text"},
+			wantPrefix: "update",
+		},
+		{
 			name:       "--base short form parses",
 			args:       []string{"prompt", "text", "-B", "main"},
 			wantPrompt: []string{"text"},
@@ -421,6 +453,11 @@ func TestPromptCmdParsing(t *testing.T) {
 			name:    "positional text with a file is rejected at parse time",
 			args:    []string{"prompt", "text", "--file", "prompt.txt"},
 			wantErr: "cannot use positional prompt text with --file",
+		},
+		{
+			name:    "branch and prefix are rejected at parse time",
+			args:    []string{"prompt", "text", "--branch", "update/run-1", "--prefix", "update"},
+			wantErr: "cannot use --branch with --prefix",
 		},
 		{
 			name:    "--items is rejected",
@@ -455,6 +492,7 @@ func TestPromptCmdParsing(t *testing.T) {
 			assert.Equal(t, tt.wantMode, cmd.Prompt.Mode)
 			assert.Equal(t, tt.wantBase, cmd.Prompt.Base)
 			assert.Equal(t, tt.wantBranch, cmd.Prompt.Branch)
+			assert.Equal(t, tt.wantPrefix, cmd.Prompt.Prefix)
 			assert.Equal(t, tt.wantModel, cmd.Prompt.Model)
 			assert.Equal(t, tt.wantVariant, cmd.Prompt.Variant)
 			assert.Equal(t, tt.wantAgent, cmd.Prompt.Agent)
@@ -472,7 +510,7 @@ func TestPromptCmdParsing(t *testing.T) {
 func TestPromptCmdHelpListsOptions(t *testing.T) {
 	output := captureHelpOutput(&Cmd{}, []string{"prompt", "--help"})
 	for _, option := range []string{
-		"--mode", "--base", "-B", "--branch", "--model", "--variant", "--agent",
+		"--mode", "--base", "-B", "--branch", "--prefix", "--model", "--variant", "--agent",
 		"--context", "--namespace", "-n", "--no-services", "--no-follow",
 		"--no-notify", "--debug", "--verbose",
 	} {
@@ -834,6 +872,485 @@ func TestPromptCmdSlugCleanup(t *testing.T) {
 	}
 }
 
+// TestPromptCmdPrefixNamesBranch covers --prefix placing the cleaned prompt
+// slug under the prefix in local and worktree modes. A trailing slash is
+// dropped and the prefix keeps its case.
+func TestPromptCmdPrefixNamesBranch(t *testing.T) {
+	tests := []struct {
+		name     string
+		mode     string
+		prefix   string
+		proposal string
+		want     string
+	}{
+		{
+			name:     "prefix names the branch",
+			mode:     config.ModeLocal,
+			prefix:   "update",
+			proposal: "fix-auth",
+			want:     "update/fix-auth",
+		},
+		{
+			name:     "prefix keeps its case",
+			mode:     config.ModeLocal,
+			prefix:   "Update",
+			proposal: "Fix Auth",
+			want:     "Update/fix-auth",
+		},
+		{
+			name:     "trailing slash on the prefix is dropped",
+			mode:     config.ModeLocal,
+			prefix:   "update/",
+			proposal: "fix-auth",
+			want:     "update/fix-auth",
+		},
+		{
+			name:     "worktree uses the prefixed branch",
+			mode:     config.ModeWorktree,
+			prefix:   "update",
+			proposal: "fix-auth",
+			want:     "update/fix-auth",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var switched string
+			worktree := &promptWorktreeRecorder{path: "/worktree/" + tt.want}
+			cmd := &PromptCmd{
+				Prompt: []string{"do work"},
+				Mode:   tt.mode,
+				Prefix: tt.prefix,
+				config: &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+				git: &git.MockClient{
+					CurrentBranchFunc: func() (string, error) { return "main", nil },
+					SwitchToBranchFunc: func(name string) error {
+						switched = name
+						return nil
+					},
+				},
+				slugProposer: promptSlugProposerFunc(func(string) (string, error) { return tt.proposal, nil }),
+				worktree:     worktree,
+				workspace:    &promptWorkspaceRecorder{},
+			}
+
+			preparePromptRun(cmd)
+			require.NoError(t, cmd.Run())
+			assert.Equal(t, tt.want, cmd.resolved.PromptBranch)
+			if tt.mode == config.ModeWorktree {
+				assert.Equal(t, []string{tt.want}, worktree.created)
+				assert.Empty(t, switched, "worktree mode does not switch the starting checkout")
+				return
+			}
+			assert.Equal(t, tt.want, switched)
+			assert.Empty(t, worktree.created, "local mode creates no worktree")
+		})
+	}
+}
+
+// TestPromptCmdPrefixMatchingPullRequestSkips covers --prefix stopping the
+// command when an open pull request has a head branch under the prefix on any
+// base branch. The matches print and no slug, branch, service, or pass work
+// starts in any mode.
+func TestPromptCmdPrefixMatchingPullRequestSkips(t *testing.T) {
+	tests := []struct {
+		name    string
+		mode    string
+		prefix  string
+		matches []github.PullRequest
+	}{
+		{
+			name:   "local prefix match on another base branch",
+			mode:   config.ModeLocal,
+			prefix: "update",
+			matches: []github.PullRequest{
+				{URL: "https://github.com/owner/repo/pull/1", HeadRefName: "update/fix-auth", BaseRefName: "release"},
+			},
+		},
+		{
+			name:   "trailing slash still matches",
+			mode:   config.ModeLocal,
+			prefix: "update/",
+			matches: []github.PullRequest{
+				{URL: "https://github.com/owner/repo/pull/2", HeadRefName: "update/fix-docs", BaseRefName: "main"},
+			},
+		},
+		{
+			name:   "multiple matches print in order",
+			mode:   config.ModeLocal,
+			prefix: "update",
+			matches: []github.PullRequest{
+				{URL: "https://github.com/owner/repo/pull/3", HeadRefName: "update/first", BaseRefName: "main"},
+				{URL: "https://github.com/owner/repo/pull/4", HeadRefName: "update/second", BaseRefName: "release"},
+			},
+		},
+		{
+			name:   "worktree prefix match",
+			mode:   config.ModeWorktree,
+			prefix: "update",
+			matches: []github.PullRequest{
+				{URL: "https://github.com/owner/repo/pull/5", HeadRefName: "update/fix-auth", BaseRefName: "main"},
+			},
+		},
+		{
+			name:   "remote prefix match",
+			mode:   config.ModeRemote,
+			prefix: "update",
+			matches: []github.PullRequest{
+				{URL: "https://github.com/owner/repo/pull/6", HeadRefName: "update/fix-auth", BaseRefName: "main"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			proposerCalls := 0
+			currentReads := 0
+			switchCalls := 0
+			worktree := &promptWorktreeRecorder{}
+			servicesClient := &promptServicesRecorder{}
+			aiClient := &promptAIRecorder{}
+			remote := &promptRemoteRecorder{}
+			output := &promptOutputRecorder{}
+			prClient := &promptPRRecorder{
+				listFunc: func(prefix string) ([]github.PullRequest, error) {
+					assert.Equal(t, strings.TrimRight(tt.prefix, "/"), prefix)
+					return tt.matches, nil
+				},
+			}
+			cmd := &PromptCmd{
+				Prompt: []string{"do work"},
+				Mode:   tt.mode,
+				Prefix: tt.prefix,
+				config: &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+				git: &git.MockClient{
+					CurrentBranchFunc: func() (string, error) {
+						currentReads++
+						return "main", nil
+					},
+					SwitchToBranchFunc: func(string) error {
+						switchCalls++
+						return nil
+					},
+				},
+				slugProposer: promptSlugProposerFunc(func(string) (string, error) {
+					proposerCalls++
+					return "fix-auth", nil
+				}),
+				worktree:  worktree,
+				workspace: &promptWorkspaceRecorder{},
+				services:  servicesClient,
+				ai:        aiClient,
+				pr:        prClient,
+				output:    output,
+				remote:    remote,
+				notify:    &promptNotifyRecorder{},
+			}
+
+			require.NoError(t, cmd.Run())
+			assert.Nil(t, cmd.resolved, "a matching pull request skips before branch resolution")
+			assert.Equal(t, []string{strings.TrimRight(tt.prefix, "/")}, prClient.listPrefixes)
+			wantInfos := make([]string, len(tt.matches))
+			for i, pr := range tt.matches {
+				wantInfos[i] = pr.URL
+			}
+			assert.Equal(t, wantInfos, output.infos, "the matches print")
+			assert.Zero(t, proposerCalls, "a matching pull request proposes no slug")
+			assert.Zero(t, currentReads, "a matching pull request reads no starting branch")
+			assert.Zero(t, switchCalls, "a matching pull request switches no branch")
+			assert.Empty(t, worktree.checked, "a matching pull request inspects no worktree")
+			assert.Empty(t, worktree.created, "a matching pull request creates no worktree")
+			assert.Zero(t, servicesClient.runBeforeCalls, "a matching pull request runs no before command")
+			assert.Zero(t, servicesClient.startCalls, "a matching pull request starts no service")
+			assert.Zero(t, aiClient.passCalls, "a matching pull request runs no pass")
+			assert.Zero(t, remote.submitCalls, "a matching pull request submits no workflow")
+		})
+	}
+}
+
+// TestPromptCmdPrefixListingFailureFailsBeforeWork covers a failed open pull
+// request listing failing the command before slug, branch, service, or pass
+// work.
+func TestPromptCmdPrefixListingFailureFailsBeforeWork(t *testing.T) {
+	proposerCalls := 0
+	currentReads := 0
+	switchCalls := 0
+	worktree := &promptWorktreeRecorder{}
+	servicesClient := &promptServicesRecorder{}
+	aiClient := &promptAIRecorder{}
+	prClient := &promptPRRecorder{listErr: errors.New("listing failed")}
+	cmd := &PromptCmd{
+		Prompt: []string{"do work"},
+		Prefix: "update",
+		config: &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+		git: &git.MockClient{
+			CurrentBranchFunc: func() (string, error) {
+				currentReads++
+				return "main", nil
+			},
+			SwitchToBranchFunc: func(string) error {
+				switchCalls++
+				return nil
+			},
+		},
+		slugProposer: promptSlugProposerFunc(func(string) (string, error) {
+			proposerCalls++
+			return "fix-auth", nil
+		}),
+		worktree:  worktree,
+		workspace: &promptWorkspaceRecorder{},
+		services:  servicesClient,
+		ai:        aiClient,
+		pr:        prClient,
+		output:    &promptOutputRecorder{},
+	}
+
+	preparePromptRun(cmd)
+	err := cmd.Run()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "listing failed")
+	assert.Nil(t, cmd.resolved)
+	assert.Equal(t, 1, prClient.listCalls, "the listing is attempted once")
+	assert.Zero(t, proposerCalls, "a failed listing proposes no slug")
+	assert.Zero(t, currentReads, "a failed listing reads no starting branch")
+	assert.Zero(t, switchCalls, "a failed listing switches no branch")
+	assert.Empty(t, worktree.checked, "a failed listing inspects no worktree")
+	assert.Empty(t, worktree.created, "a failed listing creates no worktree")
+	assert.Zero(t, servicesClient.runBeforeCalls, "a failed listing runs no before command")
+	assert.Zero(t, servicesClient.startCalls, "a failed listing starts no service")
+	assert.Zero(t, aiClient.passCalls, "a failed listing runs no pass")
+}
+
+// TestPromptCmdNoPrefixSkipsPullRequestListing covers a prompt without a prefix
+// never listing open pull requests and continuing with the prompt flow.
+func TestPromptCmdNoPrefixSkipsPullRequestListing(t *testing.T) {
+	proposerCalls := 0
+	prClient := &promptPRRecorder{}
+	aiClient := &promptAIRecorder{}
+	cmd := &PromptCmd{
+		Prompt:       []string{"do work"},
+		config:       &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+		git:          &git.MockClient{},
+		slugProposer: promptSlugProposerFunc(func(string) (string, error) { proposerCalls++; return "fix-auth", nil }),
+		ai:           aiClient,
+		pr:           prClient,
+	}
+
+	preparePromptRun(cmd)
+	require.NoError(t, cmd.Run())
+	assert.Zero(t, prClient.listCalls, "a prompt without a prefix lists no pull requests")
+	assert.Equal(t, 1, proposerCalls, "the prompt continues to its slug proposal")
+	assert.Equal(t, 1, aiClient.passCalls, "the prompt continues to its pass")
+}
+
+// TestPromptCmdPrefixWithoutMatchingPullRequestContinues covers an empty
+// listing continuing with the prompt flow under the prefix.
+func TestPromptCmdPrefixWithoutMatchingPullRequestContinues(t *testing.T) {
+	var switched string
+	prClient := &promptPRRecorder{}
+	aiClient := &promptAIRecorder{}
+	cmd := &PromptCmd{
+		Prompt:       []string{"do work"},
+		Prefix:       "update",
+		config:       &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+		git:          &git.MockClient{SwitchToBranchFunc: func(name string) error { switched = name; return nil }},
+		slugProposer: promptSlugProposerFunc(func(string) (string, error) { return "fix-auth", nil }),
+		ai:           aiClient,
+		pr:           prClient,
+	}
+
+	preparePromptRun(cmd)
+	require.NoError(t, cmd.Run())
+	assert.Equal(t, 1, prClient.listCalls, "the prefix lists open pull requests once")
+	assert.Equal(t, "update/fix-auth", cmd.resolved.PromptBranch)
+	assert.Equal(t, "update/fix-auth", switched)
+	assert.Equal(t, 1, aiClient.passCalls)
+}
+
+// TestPromptCmdPrefixRenameKeepsPrefix covers renaming a prefixed prompt branch
+// from the commits the pass made. The prefix stays in front of the cleaned
+// commit slug, and the pull request opens from the renamed branch.
+func TestPromptCmdPrefixRenameKeepsPrefix(t *testing.T) {
+	tests := []struct {
+		name          string
+		prefix        string
+		promptSlug    string
+		commitSlug    string
+		wantPrompt    string
+		wantRenamed   string
+		wantRenameHit bool
+	}{
+		{
+			name:          "rename keeps the prefix",
+			prefix:        "Update",
+			promptSlug:    "fix-auth",
+			commitSlug:    "actual-work",
+			wantPrompt:    "Update/fix-auth",
+			wantRenamed:   "Update/actual-work",
+			wantRenameHit: true,
+		},
+		{
+			name:        "a commit slug matching the prompt slug leaves the branch alone",
+			prefix:      "update/",
+			promptSlug:  "fix-auth",
+			commitSlug:  "fix-auth",
+			wantPrompt:  "update/fix-auth",
+			wantRenamed: "update/fix-auth",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tip := "tip-before"
+			var proposals []string
+			var renames [][2]string
+			prClient := &promptPRRecorder{}
+			cmd := &PromptCmd{
+				Prompt: []string{"do work"},
+				Prefix: tt.prefix,
+				config: &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+				slugProposer: promptSlugProposerFunc(func(description string) (string, error) {
+					proposals = append(proposals, description)
+					if len(proposals) == 1 {
+						return tt.promptSlug, nil
+					}
+					return tt.commitSlug, nil
+				}),
+				services: &promptServicesRecorder{},
+				ai:       &promptAIRecorder{passFunc: func(string) error { tip = "tip-after"; return nil }},
+				pr:       prClient,
+				output:   &promptOutputRecorder{},
+				git: &git.MockClient{
+					CurrentBranchFunc: func() (string, error) { return "main", nil },
+					HeadCommitFunc:    func() (string, error) { return tip, nil },
+					GetCommitLogFunc:  func(string, int) (string, error) { return "abc123: actual work", nil },
+					RenameBranchFunc: func(oldName, newName string) error {
+						renames = append(renames, [2]string{oldName, newName})
+						return nil
+					},
+				},
+			}
+
+			require.NoError(t, cmd.Run())
+			require.Len(t, proposals, 2)
+			assert.Equal(t, tt.wantRenamed, cmd.resolved.PromptBranch)
+			if tt.wantRenameHit {
+				assert.Equal(t, [][2]string{{tt.wantPrompt, tt.wantRenamed}}, renames)
+			} else {
+				assert.Empty(t, renames, "an unchanged prefixed branch name is not renamed")
+			}
+			assert.Equal(t, []string{tt.wantRenamed}, prClient.heads)
+			assert.Equal(t, []string{tt.wantRenamed}, prClient.slugs, "the branch slug remains the title fallback")
+			assert.Equal(t, []string{strings.TrimRight(tt.prefix, "/")}, prClient.prefixes, "the pull request carries the prefix for its title")
+		})
+	}
+}
+
+// TestPromptCmdRejectedPrefixStopsBeforeBranchWork covers a prefix Git rejects
+// as part of the branch name: the command fails before reading or switching the
+// starting branch, creating a worktree, running services, passing, or submitting
+// a workflow.
+func TestPromptCmdRejectedPrefixStopsBeforeBranchWork(t *testing.T) {
+	tests := []struct {
+		name string
+		mode string
+	}{
+		{name: "local", mode: config.ModeLocal},
+		{name: "worktree", mode: config.ModeWorktree},
+		{name: "remote", mode: config.ModeRemote},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			currentReads := 0
+			switchCalls := 0
+			worktree := &promptWorktreeRecorder{}
+			servicesClient := &promptServicesRecorder{}
+			aiClient := &promptAIRecorder{}
+			remote := &promptRemoteRecorder{}
+			cmd := &PromptCmd{
+				Prompt: []string{"do work"},
+				Mode:   tt.mode,
+				Prefix: "not a prefix",
+				config: &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+				git: &git.MockClient{
+					CurrentBranchFunc: func() (string, error) {
+						currentReads++
+						return "main", nil
+					},
+					SwitchToBranchFunc: func(string) error {
+						switchCalls++
+						return nil
+					},
+				},
+				slugProposer: promptSlugProposerFunc(func(string) (string, error) { return "do-work", nil }),
+				worktree:     worktree,
+				workspace:    &promptWorkspaceRecorder{},
+				services:     servicesClient,
+				ai:           aiClient,
+				output:       &promptOutputRecorder{},
+				remote:       remote,
+				notify:       &promptNotifyRecorder{},
+			}
+
+			err := cmd.Run()
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "invalid branch name")
+			assert.Contains(t, err.Error(), "not a prefix")
+			assert.Nil(t, cmd.resolved)
+			assert.Zero(t, currentReads, "a rejected prefix must not read the starting branch")
+			assert.Zero(t, switchCalls, "a rejected prefix must not switch branches")
+			assert.Empty(t, worktree.checked, "a rejected prefix must not inspect worktrees")
+			assert.Empty(t, worktree.created, "a rejected prefix must not create a worktree")
+			assert.Zero(t, servicesClient.runBeforeCalls, "a rejected prefix must not run before commands")
+			assert.Zero(t, servicesClient.startCalls, "a rejected prefix must not start services")
+			assert.Zero(t, aiClient.passCalls, "a rejected prefix must not run the pass")
+			assert.Zero(t, remote.submitCalls, "a rejected prefix must not submit a workflow")
+		})
+	}
+}
+
+// TestPromptCmdBranchAndPrefixConflictStopsBeforeWork covers a direct run with
+// both --branch and --prefix: the command fails without proposing a slug or
+// starting any branch or pass work.
+func TestPromptCmdBranchAndPrefixConflictStopsBeforeWork(t *testing.T) {
+	proposerCalls := 0
+	currentReads := 0
+	switchCalls := 0
+	aiClient := &promptAIRecorder{}
+	cmd := &PromptCmd{
+		Prompt: []string{"do work"},
+		Branch: "update/run-1",
+		Prefix: "update",
+		config: &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+		git: &git.MockClient{
+			CurrentBranchFunc: func() (string, error) {
+				currentReads++
+				return "main", nil
+			},
+			SwitchToBranchFunc: func(string) error {
+				switchCalls++
+				return nil
+			},
+		},
+		slugProposer: promptSlugProposerFunc(func(string) (string, error) {
+			proposerCalls++
+			return "ai-slug", nil
+		}),
+		ai:     aiClient,
+		output: &promptOutputRecorder{},
+	}
+	preparePromptRun(cmd)
+
+	err := cmd.Run()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot use --branch with --prefix")
+	assert.Zero(t, proposerCalls, "the conflicting flags propose no slug")
+	assert.Zero(t, currentReads, "the conflicting flags read no starting branch")
+	assert.Zero(t, switchCalls, "the conflicting flags switch no branch")
+	assert.Zero(t, aiClient.passCalls, "the conflicting flags run no pass")
+}
+
 // TestPromptCmdNamedBranchSkipsSlugAndKeepsName covers --branch naming the
 // prompt branch as written in local and worktree modes, without cleaning the
 // name and without asking the AI for a slug.
@@ -864,6 +1381,7 @@ func TestPromptCmdNamedBranchSkipsSlugAndKeepsName(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			proposerCalls := 0
 			var switched string
+			prClient := &promptPRRecorder{}
 			worktree := &promptWorktreeRecorder{path: "/worktree/" + tt.branch}
 			cmd := &PromptCmd{
 				Prompt: []string{"do work"},
@@ -883,11 +1401,13 @@ func TestPromptCmdNamedBranchSkipsSlugAndKeepsName(t *testing.T) {
 				}),
 				worktree:  worktree,
 				workspace: &promptWorkspaceRecorder{},
+				pr:        prClient,
 			}
 
 			preparePromptRun(cmd)
 			require.NoError(t, cmd.Run())
 			assert.Zero(t, proposerCalls, "--branch does not ask the AI for a slug")
+			assert.Zero(t, prClient.listCalls, "--branch lists no pull requests")
 			assert.Equal(t, tt.branch, cmd.resolved.PromptBranch)
 			assert.Equal(t, tt.branch, cmd.resolved.Slug)
 			if tt.mode == config.ModeWorktree {
@@ -2411,6 +2931,43 @@ func TestPromptCmdRemoteSubmission(t *testing.T) {
 		Prompt:       "do work",
 	}, remote.submissions[0])
 	assert.Empty(t, cmd.worktree.(*promptWorktreeRecorder).created, "remote mode creates no local worktree")
+}
+
+// TestPromptCmdRemoteSubmissionCarriesPrefix covers remote mode sending the
+// normalized prefix with the locally resolved prefixed branch, so the container
+// can check it again.
+func TestPromptCmdRemoteSubmissionCarriesPrefix(t *testing.T) {
+	remote := &promptRemoteRecorder{}
+	output := &promptOutputRecorder{}
+	cmd := &PromptCmd{
+		Prompt:       []string{"do", "work"},
+		Prefix:       "Update/",
+		Mode:         config.ModeRemote,
+		NoFollow:     true,
+		config:       &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+		slugProposer: promptSlugProposerFunc(func(string) (string, error) { return "my-feature", nil }),
+		remote:       remote,
+		output:       output,
+		git: &git.MockClient{
+			CurrentBranchFunc:            func() (string, error) { return "main", nil },
+			IsBranchSyncedWithRemoteFunc: func(string) error { return nil },
+			SwitchToBranchFunc: func(string) error {
+				t.Fatal("remote mode must not switch the local checkout")
+				return nil
+			},
+		},
+	}
+	preparePromptRun(cmd)
+
+	require.NoError(t, cmd.Run())
+	require.Equal(t, 1, remote.submitCalls)
+	assert.Equal(t, promptRemoteSubmission{
+		CloneBranch:  "main",
+		PromptBranch: "Update/my-feature",
+		Prefix:       "Update",
+		BaseBranch:   "main",
+		Prompt:       "do work",
+	}, remote.submissions[0])
 }
 
 // TestPromptCmdRemoteBranchSyncRejection covers a starting branch missing from

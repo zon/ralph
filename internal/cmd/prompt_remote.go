@@ -9,11 +9,12 @@ import (
 )
 
 // promptRemoteSubmission carries the values resolved locally for one remote
-// prompt: the branch the container clones, the prompt branch, the base branch,
-// and the prompt text read locally.
+// prompt: the branch the container clones, the prompt branch, the optional
+// work-stream prefix, the base branch, and the prompt text read locally.
 type promptRemoteSubmission struct {
 	CloneBranch  string
 	PromptBranch string
+	Prefix       string
 	BaseBranch   string
 	Prompt       string
 }
@@ -64,6 +65,7 @@ func (c *promptWorkflowClient) Submit(submission promptRemoteSubmission) (string
 		submission.Prompt,
 		submission.CloneBranch,
 		remoteURL,
+		submission.Prefix,
 	)
 	if err != nil {
 		return "", err
