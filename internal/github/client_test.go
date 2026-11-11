@@ -19,6 +19,70 @@ import (
 	"github.com/zon/ralph/internal/project"
 )
 
+// TestClientListOpenPullRequests covers filtering the repository's open pull
+// requests by a case-sensitive head branch prefix on any base branch.
+func TestClientListOpenPullRequests(t *testing.T) {
+	all := []PullRequest{
+		{Number: 1, URL: "https://github.com/owner/repo/pull/1", HeadRefName: "update/fix-auth", BaseRefName: "main"},
+		{Number: 2, URL: "https://github.com/owner/repo/pull/2", HeadRefName: "update/fix-docs", BaseRefName: "release"},
+		{Number: 3, URL: "https://github.com/owner/repo/pull/3", HeadRefName: "Update/fix-case", BaseRefName: "main"},
+		{Number: 4, URL: "https://github.com/owner/repo/pull/4", HeadRefName: "update-suffix", BaseRefName: "main"},
+		{Number: 5, URL: "https://github.com/owner/repo/pull/5", HeadRefName: "prefixed/update", BaseRefName: "main"},
+	}
+
+	tests := []struct {
+		name   string
+		prefix string
+		want   []PullRequest
+	}{
+		{
+			name:   "matches on any base branch",
+			prefix: "update",
+			want:   all[:2],
+		},
+		{
+			name:   "match is exact and case-sensitive",
+			prefix: "Update",
+			want:   []PullRequest{all[2]},
+		},
+		{
+			name:   "head branch must start with the prefix and a slash",
+			prefix: "update-suffix",
+			want:   nil,
+		},
+		{
+			name:   "no matches",
+			prefix: "missing",
+			want:   nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := &MockGH{ListOpenPullRequestsFn: func() ([]PullRequest, error) {
+				return all, nil
+			}}
+			client := NewClient(execcontext.NewContext(), "main", mock, &opencode.MockOC{})
+
+			got, err := client.ListOpenPullRequests(tt.prefix)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+// TestClientListOpenPullRequestsPropagatesError covers a failed listing.
+func TestClientListOpenPullRequestsPropagatesError(t *testing.T) {
+	listErr := errors.New("gh failed")
+	mock := &MockGH{ListOpenPullRequestsFn: func() ([]PullRequest, error) {
+		return nil, listErr
+	}}
+	client := NewClient(execcontext.NewContext(), "main", mock, &opencode.MockOC{})
+
+	_, err := client.ListOpenPullRequests("update")
+	require.ErrorIs(t, err, listErr)
+}
+
 // mockCommitLog implements CommitLogGetter with a configurable commit log.
 type mockCommitLog struct {
 	getCommitLogFn func(base string, limit int) (string, error)

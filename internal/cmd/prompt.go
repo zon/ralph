@@ -49,9 +49,11 @@ type promptGitClient interface {
 	IsBranchSyncedWithRemote(branch string) error
 }
 
-// promptPRClient generates a pull request summary from the prompt and opens a
-// pull request to the resolved base branch.
+// promptPRClient lists open pull requests for a prefix and generates a pull
+// request summary from the prompt to open a pull request to the resolved base
+// branch.
 type promptPRClient interface {
+	ListOpenPullRequests(prefix string) ([]github.PullRequest, error)
 	CreatePromptPR(prompt, slug, head string) error
 }
 
@@ -73,9 +75,10 @@ type promptAIClient interface {
 	ResolveMergeConflicts(baseBranch, promptBranch string) error
 }
 
-// promptOutputClient logs the warning emitted when the base branch cannot be
-// fetched.
+// promptOutputClient logs the matches for a prefix and the warning emitted when
+// the base branch cannot be fetched.
 type promptOutputClient interface {
+	Info(msg string)
 	Warnf(format string, a ...any)
 }
 
@@ -183,6 +186,13 @@ func (c *PromptCmd) Run() error {
 		return err
 	}
 	c.executionContext()
+	skipped, err := c.checkPrefixPullRequests()
+	if err != nil {
+		return err
+	}
+	if skipped {
+		return nil
+	}
 	slug, promptBranch, err := c.resolvePromptBranch(prompt)
 	if err != nil {
 		return err
@@ -230,6 +240,32 @@ func (c *PromptCmd) resolvePromptBranch(prompt string) (string, string, error) {
 // The prefix keeps its case.
 func (c *PromptCmd) promptPrefix() string {
 	return strings.TrimRight(c.Prefix, "/")
+}
+
+// checkPrefixPullRequests reports whether an open pull request already has a
+// head branch under the prefix. A named branch has no prefix to check. The
+// prefix is validated before the listing, and a failed listing fails the
+// command. When matches are found they print and the command skips before any
+// slug, branch, service, or pass work.
+func (c *PromptCmd) checkPrefixPullRequests() (bool, error) {
+	if c.Branch != "" {
+		return false, nil
+	}
+	prefix := c.promptPrefix()
+	if prefix == "" {
+		return false, nil
+	}
+	if err := git.ValidateBranchName(prefix); err != nil {
+		return false, err
+	}
+	matches, err := c.prClient().ListOpenPullRequests(prefix)
+	if err != nil {
+		return false, err
+	}
+	for _, pr := range matches {
+		c.outputClient().Info(pr.URL)
+	}
+	return len(matches) > 0, nil
 }
 
 // RunInWorkspace runs the prompt flow in an already prepared workflow checkout.
@@ -660,7 +696,11 @@ func (c *PromptCmd) prClient() promptPRClient {
 		return c.pr
 	}
 	ctx := c.executionContext()
-	return github.NewClient(ctx, c.resolved.BaseBranch, github.NewGH(ctx.Output()), opencode.New())
+	baseBranch := ""
+	if c.resolved != nil {
+		baseBranch = c.resolved.BaseBranch
+	}
+	return github.NewClient(ctx, baseBranch, github.NewGH(ctx.Output()), opencode.New())
 }
 
 // outputClient returns the wired output client, building the real one lazily.

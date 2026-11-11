@@ -73,6 +73,29 @@ func (a *Client) CreatePromptPR(prompt, slug, head string) error {
 	return a.createPR(prompt, &project.Project{Slug: slug}, head)
 }
 
+// ListOpenPullRequests returns the repository's open pull requests whose head
+// branch starts with "<prefix>/", on any base branch. The match is exact and
+// case-sensitive.
+func (a *Client) ListOpenPullRequests(prefix string) ([]PullRequest, error) {
+	lister, ok := a.gh.(OpenPullRequestLister)
+	if !ok {
+		return nil, errors.New("failed to list open pull requests: listing is not supported")
+	}
+	prs, err := lister.ListOpenPullRequests()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list open pull requests: %w", err)
+	}
+
+	headPrefix := prefix + "/"
+	var matches []PullRequest
+	for _, pr := range prs {
+		if strings.HasPrefix(pr.HeadRefName, headPrefix) {
+			matches = append(matches, pr)
+		}
+	}
+	return matches, nil
+}
+
 // createPR generates the summary from the commit log and opens the pull request
 // to the client's base branch.
 func (a *Client) createPR(description string, proj *project.Project, head string) error {

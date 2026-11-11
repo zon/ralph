@@ -80,6 +80,46 @@ func TestGH_FindExistingPR(t *testing.T) {
 	})
 }
 
+func TestGH_ListOpenPullRequests(t *testing.T) {
+	t.Run("returns open pull requests", func(t *testing.T) {
+		writeFakeGHScript(t, `printf '[{"number":1,"url":"https://github.com/owner/repo/pull/1","title":"Fix auth","headRefName":"update/fix-auth","baseRefName":"release"}]\n'`)
+		g := NewGH(nil)
+		prs, err := g.ListOpenPullRequests()
+		require.NoError(t, err)
+		assert.Equal(t, []PullRequest{{
+			Number:      1,
+			URL:         "https://github.com/owner/repo/pull/1",
+			Title:       "Fix auth",
+			HeadRefName: "update/fix-auth",
+			BaseRefName: "release",
+		}}, prs)
+	})
+
+	t.Run("returns an empty list", func(t *testing.T) {
+		writeFakeGHScript(t, `echo '[]'`)
+		g := NewGH(nil)
+		prs, err := g.ListOpenPullRequests()
+		require.NoError(t, err)
+		assert.Empty(t, prs)
+	})
+
+	t.Run("returns error on non-zero exit", func(t *testing.T) {
+		writeFakeGHScript(t, `exit 1`)
+		g := NewGH(nil)
+		_, err := g.ListOpenPullRequests()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to list open pull requests")
+	})
+
+	t.Run("returns error on invalid JSON", func(t *testing.T) {
+		writeFakeGHScript(t, `echo 'not json'`)
+		g := NewGH(nil)
+		_, err := g.ListOpenPullRequests()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to parse open pull requests")
+	})
+}
+
 func TestGH_ListCollaborators(t *testing.T) {
 	t.Run("returns logins", func(t *testing.T) {
 		writeFakeGHScript(t, `printf 'alice\nbob\ncharlie\n'`)

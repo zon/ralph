@@ -3,6 +3,7 @@ package github
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os/exec"
@@ -17,12 +18,28 @@ import (
 // run started, so there is nothing to open a PR for.
 var ErrNoCommitsBetweenBranches = errors.New("no commits between branches")
 
+// PullRequest is one open pull request returned by the GitHub CLI.
+type PullRequest struct {
+	Number      int    `json:"number"`
+	URL         string `json:"url"`
+	Title       string `json:"title"`
+	HeadRefName string `json:"headRefName"`
+	BaseRefName string `json:"baseRefName"`
+}
+
 // GHClient is the interface for GitHub CLI operations.
 type GHClient interface {
 	IsReady() bool
 	FindExistingPR(head string) (string, error)
 	CreatePR(title, body, base, head string) (string, error)
 	ListCollaborators(ctx context.Context, owner, repo string) ([]string, error)
+}
+
+// OpenPullRequestLister lists the repository's open pull requests across every
+// base branch. GHClient implementations that support prefix prompt checks
+// implement it.
+type OpenPullRequestLister interface {
+	ListOpenPullRequests() ([]PullRequest, error)
 }
 
 // GH implements GHClient by shelling out to the gh CLI.
@@ -94,6 +111,31 @@ func (g *GH) FindExistingPR(head string) (string, error) {
 	}
 
 	return "", nil
+}
+
+// ListOpenPullRequests lists the repository's open pull requests on every base
+// branch. The caller filters them by head branch.
+func (g *GH) ListOpenPullRequests() ([]PullRequest, error) {
+	cmd := exec.Command("gh", "pr", "list",
+		"--state", "open",
+		"--json", "number,url,title,headRefName,baseRefName",
+		"--limit", "1000",
+	)
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("failed to list open pull requests: %w (stderr: %s)", err, stderr.String())
+	}
+
+	var prs []PullRequest
+	if err := json.Unmarshal(stdout.Bytes(), &prs); err != nil {
+		return nil, fmt.Errorf("failed to parse open pull requests: %w", err)
+	}
+	return prs, nil
 }
 
 func (g *GH) CreatePR(title, body, base, head string) (string, error) {
