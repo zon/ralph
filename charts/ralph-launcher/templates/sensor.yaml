@@ -12,13 +12,7 @@ spec:
     serviceAccountName: {{ include "ralph-launcher.serviceAccountName" . }}
   dependencies:
     {{- range $entry := .Values.prompt.entries }}
-    {{- $events := list "push" }}
-    {{- if hasKey $entry "events" }}
-    {{- $events = $entry.events }}
-    {{- end }}
-    {{- if not $events }}
-    {{- $events = list "" }}
-    {{- end }}
+    {{- $events := include "ralph-launcher.entryEvents" $entry | fromJsonArray }}
     {{- range $event := $events }}
     - name: {{ include "ralph-launcher.entryName" (dict "slug" $entry.slug "event" $event) | quote }}
       eventSourceName: {{ include "ralph-launcher.eventSourceName" $ }}
@@ -28,13 +22,7 @@ spec:
     {{- end }}
   triggers:
     {{- range $entry := .Values.prompt.entries }}
-    {{- $events := list "push" }}
-    {{- if hasKey $entry "events" }}
-    {{- $events = $entry.events }}
-    {{- end }}
-    {{- if not $events }}
-    {{- $events = list "" }}
-    {{- end }}
+    {{- $events := include "ralph-launcher.entryEvents" $entry | fromJsonArray }}
     {{- range $event := $events }}
     {{- $name := include "ralph-launcher.entryName" (dict "slug" $entry.slug "event" $event) }}
     - template:

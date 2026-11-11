@@ -61,6 +61,17 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 {{- end -}}
 
+{{- define "ralph-launcher.entryEvents" -}}
+{{- $events := list "push" -}}
+{{- if hasKey . "events" -}}
+{{- $events = .events -}}
+{{- end -}}
+{{- if not $events -}}
+{{- $events = list "" -}}
+{{- end -}}
+{{- toJson $events -}}
+{{- end -}}
+
 {{- define "ralph-launcher.safeName" -}}
 {{- . | lower | replace "/" "-" | replace "_" "-" | replace "." "-" | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
