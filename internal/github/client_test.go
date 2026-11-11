@@ -389,12 +389,80 @@ func TestClientCreatePRPrompt_UsesPromptAsDescription(t *testing.T) {
 	client := withMockCommitLog(NewClient(ctx, "main", mock, mockOC), "abc: add endpoint\n")
 
 	prompt := "Add a GET /health endpoint and cover it with a test."
-	err := client.CreatePromptPR(prompt, "add-health-endpoint", "add-health-endpoint")
+	err := client.CreatePromptPR(prompt, "", "add-health-endpoint", "add-health-endpoint")
 	require.NoError(t, err)
 	assert.Contains(t, capturedPrompt, prompt, "the summary prompt receives the prompt text in place of a project description")
 	assert.Equal(t, "Serialize reports to CSV", capturedTitle, "the summary H1 titles the pull request")
 	assert.Contains(t, capturedBody, "Adds the export endpoint")
 	assert.Equal(t, "add-health-endpoint", capturedHead)
+}
+
+// TestClientCreatePRPrompt_PrefixesTitle covers a prefixed prompt: the prefix
+// goes in front of the summary H1, and a title that falls back to the branch
+// strips the prefix before adding it back so it is not repeated.
+func TestClientCreatePRPrompt_PrefixesTitle(t *testing.T) {
+	tests := []struct {
+		name      string
+		summary   func(*testing.T, string) error
+		prefix    string
+		slug      string
+		wantTitle string
+	}{
+		{
+			name:      "summary H1 gets the prefix",
+			summary:   writeMockSummaryWithTitle,
+			prefix:    "update",
+			slug:      "update/add-health-endpoint",
+			wantTitle: "[update] Serialize reports to CSV",
+		},
+		{
+			name:      "branch fallback drops the repeated prefix",
+			summary:   writeMockSummary,
+			prefix:    "update",
+			slug:      "update/fix-auth",
+			wantTitle: "[update] fix-auth",
+		},
+		{
+			name:      "prefix keeps its case",
+			summary:   writeMockSummary,
+			prefix:    "Update",
+			slug:      "Update/fix-auth",
+			wantTitle: "[Update] fix-auth",
+		},
+		{
+			name:      "trailing slash drops before the title and fallback",
+			summary:   writeMockSummary,
+			prefix:    "update/",
+			slug:      "update/fix-auth",
+			wantTitle: "[update] fix-auth",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var capturedTitle string
+			mock := &MockGH{
+				IsReadyFn: func() bool { return true },
+				CreatePRFn: func(title, body, base, head string) (string, error) {
+					capturedTitle = title
+					return "https://github.com/owner/repo/pull/1", nil
+				},
+			}
+			ctx := execcontext.NewContext()
+			ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
+			mockOC := &opencode.MockOC{
+				RunCommandFunc: func(_ context.Context, _, _, _, prompt string, _, _ io.Writer) error {
+					return tt.summary(t, prompt)
+				},
+				GetStatsFunc: func() (opencode.Stats, error) { return opencode.Stats{}, nil },
+			}
+			client := withMockCommitLog(NewClient(ctx, "main", mock, mockOC), "abc: add endpoint\n")
+
+			err := client.CreatePromptPR("Add a health endpoint.", tt.prefix, tt.slug, tt.slug)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantTitle, capturedTitle)
+		})
+	}
 }
 
 // TestClientCreatePRPrompt_FallsBackToSlug covers a prompt pull request whose
@@ -419,7 +487,7 @@ func TestClientCreatePRPrompt_FallsBackToSlug(t *testing.T) {
 	}
 	client := withMockCommitLog(NewClient(ctx, "main", mock, mockOC), "abc: add endpoint\n")
 
-	err := client.CreatePromptPR("Add a health endpoint.", "add-health-endpoint", "add-health-endpoint")
+	err := client.CreatePromptPR("Add a health endpoint.", "", "add-health-endpoint", "add-health-endpoint")
 	require.NoError(t, err)
 	assert.Equal(t, "add-health-endpoint", capturedTitle, "a summary without an H1 falls back to the prompt slug")
 }
@@ -439,7 +507,7 @@ func TestClientCreatePRPrompt_SkipsWithoutCommits(t *testing.T) {
 	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
 	client := withMockCommitLog(NewClient(ctx, "main", mock, &opencode.MockOC{}), "")
 
-	require.NoError(t, client.CreatePromptPR("do work", "do-work", "do-work"))
+	require.NoError(t, client.CreatePromptPR("do work", "", "do-work", "do-work"))
 	assert.False(t, prCalled, "no commits opens no pull request")
 }
 
@@ -464,7 +532,7 @@ func TestClientCreatePRPrompt_PropagatesSummaryFailure(t *testing.T) {
 	}
 	client := withMockCommitLog(NewClient(ctx, "main", mock, mockOC), "abc: add endpoint\n")
 
-	err := client.CreatePromptPR("do work", "do-work", "do-work")
+	err := client.CreatePromptPR("do work", "", "do-work", "do-work")
 	require.ErrorIs(t, err, summaryErr)
 	assert.False(t, prCalled, "a failed summary opens no pull request")
 }

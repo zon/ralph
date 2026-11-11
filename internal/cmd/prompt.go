@@ -54,7 +54,7 @@ type promptGitClient interface {
 // branch.
 type promptPRClient interface {
 	ListOpenPullRequests(prefix string) ([]github.PullRequest, error)
-	CreatePromptPR(prompt, slug, head string) error
+	CreatePromptPR(prompt, prefix, slug, head string) error
 }
 
 // promptServicesClient runs the before commands and starts, stops, and cleans
@@ -567,10 +567,10 @@ func (c *PromptCmd) setPromptBranch(name string) {
 
 // createPullRequest generates the pull request description from the prompt and
 // the commit log and opens a pull request from the prompt branch to the
-// resolved base branch. The prompt slug names the pull request when the summary
-// has no H1 heading.
+// resolved base branch. The branch slug names the pull request when the summary
+// has no H1 heading, and the prefix goes in front of the resolved title.
 func (c *PromptCmd) createPullRequest(prompt string) error {
-	return c.prClient().CreatePromptPR(prompt, c.resolved.PromptBranch, c.resolved.PromptBranch)
+	return c.prClient().CreatePromptPR(prompt, c.promptPrefix(), c.resolved.PromptBranch, c.resolved.PromptBranch)
 }
 
 // restoreStartingBranch checks the starting checkout back out after a pull

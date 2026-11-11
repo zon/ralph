@@ -195,6 +195,7 @@ type promptPRRecorder struct {
 	listErr      error
 	listFunc     func(prefix string) ([]github.PullRequest, error)
 	prompts      []string
+	prefixes     []string
 	slugs        []string
 	heads        []string
 	listPrefixes []string
@@ -202,9 +203,10 @@ type promptPRRecorder struct {
 	listCalls    int
 }
 
-func (p *promptPRRecorder) CreatePromptPR(prompt, slug, head string) error {
+func (p *promptPRRecorder) CreatePromptPR(prompt, prefix, slug, head string) error {
 	p.calls++
 	p.prompts = append(p.prompts, prompt)
+	p.prefixes = append(p.prefixes, prefix)
 	p.slugs = append(p.slugs, slug)
 	p.heads = append(p.heads, head)
 	promptEvent(p.order, "pull-request")
@@ -1238,6 +1240,8 @@ func TestPromptCmdPrefixRenameKeepsPrefix(t *testing.T) {
 				assert.Empty(t, renames, "an unchanged prefixed branch name is not renamed")
 			}
 			assert.Equal(t, []string{tt.wantRenamed}, prClient.heads)
+			assert.Equal(t, []string{tt.wantRenamed}, prClient.slugs, "the branch slug remains the title fallback")
+			assert.Equal(t, []string{strings.TrimRight(tt.prefix, "/")}, prClient.prefixes, "the pull request carries the prefix for its title")
 		})
 	}
 }
