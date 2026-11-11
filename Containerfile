@@ -23,7 +23,7 @@ RUN just build
 # fix, and keeps the Go module cache out of the runtime image. Drop an override
 # once a release of that tool ships the fixed version. The Go version here must
 # stay at or above the fix for helm's standard library finding (1.27.3).
-FROM docker.io/library/golang:1.27.3-bookworm AS go-tools
+FROM docker.io/library/golang:1.27.4-bookworm AS go-tools
 
 ENV CGO_ENABLED=0
 RUN mkdir /out
@@ -91,7 +91,7 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | d
     && rm -rf /var/lib/apt/lists/*
 
 # Install Go toolchain
-ENV GO_VERSION=1.27.3
+ENV GO_VERSION=1.27.4
 RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" | tar -C /usr/local -xzf - \
     && ln -s /usr/local/go/bin/go /usr/local/bin/go \
     && ln -s /usr/local/go/bin/gofmt /usr/local/bin/gofmt
