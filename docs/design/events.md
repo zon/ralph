@@ -2,7 +2,7 @@
 
 `ralph-events` is one release for the whole cluster. It receives GitHub webhooks, routes each event by repository, and publishes it to a NATS JetStream subject. A [ralph-launcher](launcher.md) release in each Ralph namespace consumes the subject for its repository.
 
-The chart lives in `charts/ralph-events`.
+The chart lives in `charts/ralph-events`. A push to `main` or `dev` publishes it to `oci://ghcr.io/zon/charts/ralph-events`.
 
 ## Flow
 

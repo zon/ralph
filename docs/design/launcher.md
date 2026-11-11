@@ -2,7 +2,7 @@
 
 `ralph-launcher` is one release per Ralph namespace. It listens to the repository subject published by [ralph-events](events.md) and starts a Ralph prompt workflow in its namespace.
 
-The chart lives in `charts/ralph-launcher`.
+The chart lives in `charts/ralph-launcher`. A push to `main` or `dev` publishes it to `oci://ghcr.io/zon/charts/ralph-launcher`.
 
 ## Flow
 

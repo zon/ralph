@@ -1,0 +1,60 @@
+name: Chart Publish
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: charts-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v4.3.1
+
+      - name: Login to Container Registry
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$GH_TOKEN" | helm registry login ghcr.io \
+            --username "${{ github.actor }}" \
+            --password-stdin
+
+      - name: Package and push charts
+        env:
+          BRANCH: ${{ github.ref_name }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          owner="$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')"
+          repository="oci://ghcr.io/${owner}/charts"
+          mkdir -p dist
+          for chart in charts/*/Chart.yaml; do
+            directory="$(dirname "$chart")"
+            helm lint "$directory"
+            name="$(helm show chart "$directory" | awk '$1 == "name:" { print $2; exit }')"
+            version="$(helm show chart "$directory" | awk '$1 == "version:" { print $2; exit }')"
+            if [ "$BRANCH" = "main" ]; then
+              chart_version="$version"
+            else
+              chart_version="${version}-dev"
+            fi
+            package="dist/${name}-${chart_version}.tgz"
+            helm package "$directory" --version "$chart_version" --destination dist
+            helm push "$package" "$repository"
+            echo "Published ${name} ${chart_version}: ${repository}/${name}:${chart_version}" >> "$GITHUB_STEP_SUMMARY"
+          done

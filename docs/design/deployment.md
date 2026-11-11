@@ -25,6 +25,7 @@ The image also carries a global OpenCode configuration that lets the agent act w
 GitHub Actions builds and delivers the project:
 
 * A push to `main` or `dev` builds the image and pushes it. `main` gets the version tag and `latest`. `dev` gets the version plus `-dev` and `dev`.
+* A push to `main` or `dev` packages every chart under `charts/` and pushes it to `oci://ghcr.io/zon/charts`. `main` uses the chart version and `dev` appends `-dev`, for example `0.3.1-dev`.
 * A pull request builds the image, scans it with Trivy, and keeps the reports as artifacts. A critical finding fails the scan.
 * A version change creates a GitHub release and tags it. On `main` it also points the Homebrew tap at the new source archive. A `dev` release is a prerelease and leaves the tap alone.
 
