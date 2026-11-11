@@ -100,6 +100,7 @@ type promptResolution struct {
 	Config        *config.RalphConfig
 	Mode          string
 	Slug          string
+	Prefix        string
 	CurrentBranch string
 	PromptBranch  string
 	BaseBranch    string
@@ -114,6 +115,7 @@ type PromptCmd struct {
 	Mode       string   `help:"Execution mode: local, worktree, or remote (default: local)" name:"mode" optional:""`
 	Base       string   `help:"Override the base branch for PR creation (default: detects from current branch)" name:"base" optional:"" short:"B"`
 	Branch     string   `help:"Use this branch name for the prompt instead of an AI-proposed slug" name:"branch" optional:""`
+	Prefix     string   `help:"Group the prompt in a named work stream" name:"prefix" optional:""`
 	Model      string   `help:"The model to use in format of provider/model" name:"model" optional:""`
 	Variant    string   `help:"The model variant (provider-specific reasoning effort, e.g., high, max, minimal)" name:"variant" optional:""`
 	Agent      string   `help:"Override the opencode agent from config" name:"agent" optional:""`
@@ -157,6 +159,9 @@ func (c *PromptCmd) Validate() error {
 	if len(c.Prompt) > 0 && c.File != "" {
 		return errors.New("cannot use positional prompt text with --file")
 	}
+	if c.Branch != "" && c.Prefix != "" {
+		return errors.New("cannot use --branch with --prefix")
+	}
 	return nil
 }
 
@@ -194,9 +199,14 @@ func (c *PromptCmd) Run() error {
 // resolvePromptBranch returns the branch to run the prompt on. --branch names
 // the branch as written, without cleanup, and skips the slug proposal. A name
 // Git rejects fails before any branch or service work starts. Without --branch,
-// the proposed slug is cleaned like a project branch.
+// the proposed slug is cleaned like a project branch and put under --prefix when
+// one is set. A prefix Git rejects fails before any branch or service work
+// starts.
 func (c *PromptCmd) resolvePromptBranch(prompt string) (string, string, error) {
 	if c.Branch != "" {
+		if c.Prefix != "" {
+			return "", "", errors.New("cannot use --branch with --prefix")
+		}
 		if err := git.ValidateBranchName(c.Branch); err != nil {
 			return "", "", err
 		}
@@ -206,7 +216,20 @@ func (c *PromptCmd) resolvePromptBranch(prompt string) (string, string, error) {
 	if err != nil {
 		return "", "", err
 	}
-	return slug, git.SanitizeBranchName(slug), nil
+	name := git.SanitizeBranchName(slug)
+	if prefix := c.promptPrefix(); prefix != "" {
+		name = prefix + "/" + name
+		if err := git.ValidateBranchName(name); err != nil {
+			return "", "", err
+		}
+	}
+	return slug, name, nil
+}
+
+// promptPrefix returns the work-stream prefix with any trailing slash dropped.
+// The prefix keeps its case.
+func (c *PromptCmd) promptPrefix() string {
+	return strings.TrimRight(c.Prefix, "/")
 }
 
 // RunInWorkspace runs the prompt flow in an already prepared workflow checkout.
@@ -234,6 +257,7 @@ func (c *PromptCmd) RunInWorkspace(prompt, branch, base string) error {
 		Config:        cfg,
 		Mode:          config.ModeLocal,
 		Slug:          branch,
+		Prefix:        c.promptPrefix(),
 		CurrentBranch: branch,
 		PromptBranch:  branch,
 		BaseBranch:    base,
@@ -274,6 +298,7 @@ func (c *PromptCmd) resolve(cfg *config.RalphConfig, mode, slug string) (*prompt
 		Config:        cfg,
 		Mode:          mode,
 		Slug:          slug,
+		Prefix:        c.promptPrefix(),
 		CurrentBranch: currentBranch,
 		PromptBranch:  c.promptBranch,
 		BaseBranch:    baseBranch,
@@ -476,6 +501,9 @@ func (c *PromptCmd) renamePromptBranch(gitClient promptGitClient, tip string) er
 		return err
 	}
 	name := git.SanitizeBranchName(slug)
+	if prefix := c.promptPrefix(); prefix != "" {
+		name = prefix + "/" + name
+	}
 	if name == c.resolved.PromptBranch {
 		return nil
 	}
