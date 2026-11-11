@@ -251,7 +251,14 @@ func (c *PromptCmd) checkPrefixPullRequests() (bool, error) {
 	if c.Branch != "" {
 		return false, nil
 	}
-	prefix := c.promptPrefix()
+	return c.checkOpenPullRequestsForPrefix(c.promptPrefix())
+}
+
+// checkOpenPullRequestsForPrefix lists the open pull requests under a normalized
+// prefix, prints each match, and reports whether one was found. An empty prefix
+// lists nothing. The prefix is validated before the listing so an invalid
+// prefix fails before any work starts.
+func (c *PromptCmd) checkOpenPullRequestsForPrefix(prefix string) (bool, error) {
 	if prefix == "" {
 		return false, nil
 	}
@@ -269,14 +276,18 @@ func (c *PromptCmd) checkPrefixPullRequests() (bool, error) {
 }
 
 // RunInWorkspace runs the prompt flow in an already prepared workflow checkout.
-// The workflow supplies the prompt branch and base branch, and the workspace
-// has already cloned the repository and checked out the prompt branch. It
-// therefore skips slug proposal, mode resolution, remote submission, and the
-// branch switch, then runs the same before commands, base synchronization,
-// services, pass, and pull request flow as a local prompt.
-func (c *PromptCmd) RunInWorkspace(prompt, branch, base string) error {
+// The workflow supplies the prompt branch, base branch, and optional prefix, and
+// the workspace has already cloned the repository and checked out the prompt
+// branch. It therefore skips slug proposal, mode resolution, remote submission,
+// and the branch switch. With a prefix it checks again for an open pull request
+// before any before command or pass work, then runs the same before commands,
+// base synchronization, services, pass, and pull request flow as a local prompt.
+func (c *PromptCmd) RunInWorkspace(prompt, branch, base string, prefix ...string) error {
 	if strings.TrimSpace(prompt) == "" {
 		return errors.New("prompt is required")
+	}
+	if len(prefix) > 0 {
+		c.Prefix = prefix[0]
 	}
 	cfg, err := c.loadConfig()
 	if err != nil {
@@ -284,6 +295,13 @@ func (c *PromptCmd) RunInWorkspace(prompt, branch, base string) error {
 	}
 	if base == "" {
 		base = cfg.DefaultBranch
+	}
+	skipped, err := c.checkOpenPullRequestsForPrefix(c.promptPrefix())
+	if err != nil {
+		return err
+	}
+	if skipped {
+		return nil
 	}
 	c.promptBranch = branch
 	cfg.Mode = config.ModeLocal
@@ -420,6 +438,7 @@ func (c *PromptCmd) runRemote(prompt string) error {
 	workflowName, err := c.remoteClient().Submit(promptRemoteSubmission{
 		CloneBranch:  c.resolved.CurrentBranch,
 		PromptBranch: c.resolved.PromptBranch,
+		Prefix:       c.resolved.Prefix,
 		BaseBranch:   c.resolved.BaseBranch,
 		Prompt:       prompt,
 	})

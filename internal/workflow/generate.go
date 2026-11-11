@@ -126,10 +126,12 @@ func GenerateLoopWorkflow(ctx *execcontext.Context, slug string, steps []string,
 }
 
 // GeneratePromptWorkflow builds a Workflow that runs one OpenCode prompt inside
-// the container. The prompt branch, base branch, and prompt text are resolved
-// locally by the caller, so the container does not recompute them. cloneBranch
-// is the branch the container clones and remoteURL is the git remote URL.
-func GeneratePromptWorkflow(ctx *execcontext.Context, promptBranch, baseBranch, promptText, cloneBranch, remoteURL string) (*Workflow, error) {
+// the container. The prompt branch, base branch, prefix, and prompt text are
+// resolved locally by the caller, so the container does not recompute them.
+// cloneBranch is the branch the container clones and remoteURL is the git remote
+// URL. The optional prefix is the work-stream prefix the container checks again
+// before its own prompt work.
+func GeneratePromptWorkflow(ctx *execcontext.Context, promptBranch, baseBranch, promptText, cloneBranch, remoteURL string, prefix ...string) (*Workflow, error) {
 	ralphConfig, err := config.LoadConfig()
 	if err != nil {
 		return nil, err
@@ -142,13 +144,18 @@ func GeneratePromptWorkflow(ctx *execcontext.Context, promptBranch, baseBranch, 
 
 	opts := workflowOptionsFromConfig(ralphConfig, ctx)
 
+	promptPrefix := ""
+	if len(prefix) > 0 {
+		promptPrefix = prefix[0]
+	}
+
 	return &Workflow{
 		ProjectName:    "prompt",
 		Repo:           repo,
 		CloneBranch:    cloneBranch,
 		ProjectBranch:  promptBranch,
 		BaseBranch:     baseBranch,
-		Prompt:         &PromptSpec{Branch: promptBranch, Text: promptText},
+		Prompt:         &PromptSpec{Branch: promptBranch, Prefix: promptPrefix, Text: promptText},
 		DebugBranch:    ctx.DebugBranch(),
 		NoServices:     ctx.NoServices(),
 		Model:          ctx.Model(),

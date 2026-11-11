@@ -31,13 +31,14 @@ func ValidatePrompt(prompt string) error {
 }
 
 // WorkflowPromptFlags carries the workflow-side prompt invocation: the repo
-// and clone branch used to prepare the workspace, the prompt branch, base
-// branch, prompt text, and the model, variant, agent, service, debug, and
-// verbose choices the workflow passed.
+// and clone branch used to prepare the workspace, the prompt branch, work-stream
+// prefix, base branch, prompt text, and the model, variant, agent, service,
+// debug, and verbose choices the workflow passed.
 type WorkflowPromptFlags struct {
 	Repo        string
 	CloneBranch string
 	Branch      string
+	Prefix      string
 	BaseBranch  string
 	Prompt      string
 	BotName     string

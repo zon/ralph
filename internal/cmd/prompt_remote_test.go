@@ -97,6 +97,52 @@ workflow:
 	assert.Contains(t, args, "--no-services")
 }
 
+// TestPromptWorkflowClientSubmitPrefix covers a prefixed remote prompt: the
+// workflow carries the prefix to the container and locks the prefixed branch.
+func TestPromptWorkflowClientSubmitPrefix(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".ralph"), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".ralph", "config.yaml"), []byte("{}\n"), 0644))
+	t.Chdir(dir)
+
+	var submittedYAML string
+	argoClient := &argo.MockClient{
+		SubmitYAMLFunc: func(_ context.Context, workflowYAML string, _ argo.K8sContext) (string, error) {
+			submittedYAML = workflowYAML
+			return "ralph-prompt-abcde", nil
+		},
+	}
+
+	ctx := execcontext.NewContext()
+	ctx.SetOutput(output.NewClient(io.Discard, io.Discard, false))
+	ctx.SetRepoOwner("owner")
+	ctx.SetRepoName("repo")
+
+	client := &promptWorkflowClient{ctx: ctx, argoClient: argoClient}
+	_, err := client.Submit(promptRemoteSubmission{
+		CloneBranch:  "main",
+		PromptBranch: "update/my-feature",
+		Prefix:       "update",
+		BaseBranch:   "main",
+		Prompt:       "Add the endpoint.",
+	})
+	require.NoError(t, err)
+
+	var data map[string]interface{}
+	require.NoError(t, yaml.Unmarshal([]byte(submittedYAML), &data))
+
+	spec := data["spec"].(map[string]interface{})
+	mutexes := spec["synchronization"].(map[string]interface{})["mutexes"].([]interface{})
+	require.Len(t, mutexes, 1)
+	assert.Equal(t, "update-my-feature", mutexes[0].(map[string]interface{})["name"])
+
+	templates := spec["templates"].([]interface{})
+	container := templates[0].(map[string]interface{})["container"].(map[string]interface{})
+	args := container["args"].([]interface{})
+	assert.Equal(t, "update/my-feature", promptArgValue(args, "--branch"))
+	assert.Equal(t, "update", promptArgValue(args, "--prefix"))
+}
+
 // TestPromptCmdNamedBranchRemoteWorkflowBranchAndLock covers a named --branch
 // reaching the submitted remote prompt workflow: the container checks out the
 // name as written and the prompt branch lock is keyed by that branch rather

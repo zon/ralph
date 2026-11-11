@@ -2933,6 +2933,43 @@ func TestPromptCmdRemoteSubmission(t *testing.T) {
 	assert.Empty(t, cmd.worktree.(*promptWorktreeRecorder).created, "remote mode creates no local worktree")
 }
 
+// TestPromptCmdRemoteSubmissionCarriesPrefix covers remote mode sending the
+// normalized prefix with the locally resolved prefixed branch, so the container
+// can check it again.
+func TestPromptCmdRemoteSubmissionCarriesPrefix(t *testing.T) {
+	remote := &promptRemoteRecorder{}
+	output := &promptOutputRecorder{}
+	cmd := &PromptCmd{
+		Prompt:       []string{"do", "work"},
+		Prefix:       "Update/",
+		Mode:         config.ModeRemote,
+		NoFollow:     true,
+		config:       &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+		slugProposer: promptSlugProposerFunc(func(string) (string, error) { return "my-feature", nil }),
+		remote:       remote,
+		output:       output,
+		git: &git.MockClient{
+			CurrentBranchFunc:            func() (string, error) { return "main", nil },
+			IsBranchSyncedWithRemoteFunc: func(string) error { return nil },
+			SwitchToBranchFunc: func(string) error {
+				t.Fatal("remote mode must not switch the local checkout")
+				return nil
+			},
+		},
+	}
+	preparePromptRun(cmd)
+
+	require.NoError(t, cmd.Run())
+	require.Equal(t, 1, remote.submitCalls)
+	assert.Equal(t, promptRemoteSubmission{
+		CloneBranch:  "main",
+		PromptBranch: "Update/my-feature",
+		Prefix:       "Update",
+		BaseBranch:   "main",
+		Prompt:       "do work",
+	}, remote.submissions[0])
+}
+
 // TestPromptCmdRemoteBranchSyncRejection covers a starting branch missing from
 // the remote or out of sync: submission fails before a workflow is created.
 func TestPromptCmdRemoteBranchSyncRejection(t *testing.T) {

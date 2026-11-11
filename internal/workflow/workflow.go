@@ -86,9 +86,12 @@ type LoopSpec struct {
 }
 
 // PromptSpec carries the prompt invocation a prompt workflow runs: the prompt
-// branch and the prompt text. The text is sent as one container argument.
+// branch, the optional work-stream prefix, and the prompt text. The prefix is
+// checked again in the container and the text is sent as one container
+// argument.
 type PromptSpec struct {
 	Branch string
+	Prefix string
 	Text   string
 }
 
@@ -216,6 +219,9 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 			"--clone", w.CloneBranch,
 			"--branch", w.promptBranch(),
 			"--base", w.BaseBranch,
+		}
+		if w.Prompt.Prefix != "" {
+			args = append(args, "--prefix", w.Prompt.Prefix)
 		}
 		if w.DebugBranch != "" {
 			args = append(args, "--debug", w.DebugBranch)

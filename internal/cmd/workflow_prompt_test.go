@@ -11,6 +11,7 @@ import (
 	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
+	"github.com/zon/ralph/internal/github"
 	orchestrationPrompt "github.com/zon/ralph/internal/orchestration/prompt"
 	wksp "github.com/zon/ralph/internal/orchestration/workspace"
 )
@@ -58,6 +59,7 @@ func TestWorkflowPromptCmdParsing(t *testing.T) {
 		"--repo", "owner/repo",
 		"--clone", "main",
 		"--branch", "my-feature",
+		"--prefix", "update",
 		"--base", "release",
 		"--prompt", "Add the endpoint.",
 		"--model", "gpt-4",
@@ -72,6 +74,7 @@ func TestWorkflowPromptCmdParsing(t *testing.T) {
 	assert.Equal(t, "owner/repo", cmd.Workflow.Prompt.Repo)
 	assert.Equal(t, "main", cmd.Workflow.Prompt.CloneBranch)
 	assert.Equal(t, "my-feature", cmd.Workflow.Prompt.Branch)
+	assert.Equal(t, "update", cmd.Workflow.Prompt.Prefix)
 	assert.Equal(t, "release", cmd.Workflow.Prompt.Base)
 	assert.Equal(t, "Add the endpoint.", cmd.Workflow.Prompt.Prompt)
 	assert.Equal(t, "gpt-4", cmd.Workflow.Prompt.Model)
@@ -151,6 +154,7 @@ func TestWorkflowPromptCmdRunPreparesWorkspaceAndCarriesOptions(t *testing.T) {
 		Repo:           "owner/repo",
 		CloneBranch:    "main",
 		Branch:         "my-feature",
+		Prefix:         "update",
 		Base:           "release",
 		Prompt:         "Add the endpoint.",
 		BotName:        "ralph-zon[bot]",
@@ -179,6 +183,7 @@ func TestWorkflowPromptCmdRunPreparesWorkspaceAndCarriesOptions(t *testing.T) {
 	require.True(t, runner.called, "the prompt runs after the workspace is prepared")
 	assert.Equal(t, "Add the endpoint.", runner.flags.Prompt)
 	assert.Equal(t, "my-feature", runner.flags.Branch)
+	assert.Equal(t, "update", runner.flags.Prefix)
 	assert.Equal(t, "release", runner.flags.BaseBranch)
 	assert.Equal(t, "gpt-4", runner.flags.Model)
 	assert.Equal(t, "high", runner.flags.Variant)
@@ -260,6 +265,7 @@ func TestPromptCmdRunInWorkspaceRunsThePreparedFlow(t *testing.T) {
 	assert.Equal(t, "release", cmd.resolved.BaseBranch)
 	assert.Equal(t, []string{"before", "fetch-base", "needs-merge", "pass", "remove-logs"}, order)
 	assert.Equal(t, []string{"do work"}, aiClient.prompts)
+	assert.Zero(t, prClient.listCalls, "a prompt without a prefix lists no pull requests")
 	assert.Zero(t, prClient.calls, "an unchanged tip opens no pull request")
 }
 
@@ -340,6 +346,110 @@ func TestPromptCmdRunInWorkspaceRejectsEmptyPrompt(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "prompt is required")
 	assert.Zero(t, loadCalls)
+}
+
+// TestPromptCmdRunInWorkspacePrefixMatchingPullRequestSkips covers the
+// container-side prefix check stopping the prompt when an open pull request
+// appeared after submission. The prefix is normalized and listed once, the
+// matches print, and no before command or pass runs.
+func TestPromptCmdRunInWorkspacePrefixMatchingPullRequestSkips(t *testing.T) {
+	output := &promptOutputRecorder{}
+	servicesClient := &promptServicesRecorder{}
+	aiClient := &promptAIRecorder{}
+	prClient := &promptPRRecorder{
+		listFunc: func(prefix string) ([]github.PullRequest, error) {
+			assert.Equal(t, "update", prefix)
+			return []github.PullRequest{
+				{URL: "https://github.com/owner/repo/pull/7", HeadRefName: "update/fix-auth", BaseRefName: "main"},
+			}, nil
+		},
+	}
+	cmd := &PromptCmd{
+		config:   &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+		git:      &git.MockClient{},
+		services: servicesClient,
+		ai:       aiClient,
+		pr:       prClient,
+		output:   output,
+	}
+
+	err := cmd.RunInWorkspace("do work", "update/my-feature", "main", "update/")
+
+	require.NoError(t, err)
+	assert.Nil(t, cmd.resolved, "a matching pull request skips before branch setup")
+	assert.Equal(t, []string{"update"}, prClient.listPrefixes)
+	assert.Equal(t, []string{"https://github.com/owner/repo/pull/7"}, output.infos)
+	assert.Zero(t, servicesClient.runBeforeCalls, "a matching pull request runs no before command")
+	assert.Zero(t, servicesClient.startCalls, "a matching pull request starts no service")
+	assert.Zero(t, aiClient.passCalls, "a matching pull request runs no pass")
+}
+
+// TestPromptCmdRunInWorkspacePrefixListingFailureFailsBeforeWork covers a
+// failed container-side listing failing the command before any before command
+// or pass work.
+func TestPromptCmdRunInWorkspacePrefixListingFailureFailsBeforeWork(t *testing.T) {
+	servicesClient := &promptServicesRecorder{}
+	aiClient := &promptAIRecorder{}
+	prClient := &promptPRRecorder{listErr: errors.New("listing failed")}
+	cmd := &PromptCmd{
+		config:   &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+		git:      &git.MockClient{},
+		services: servicesClient,
+		ai:       aiClient,
+		pr:       prClient,
+		output:   &promptOutputRecorder{},
+	}
+
+	err := cmd.RunInWorkspace("do work", "update/my-feature", "main", "update")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "listing failed")
+	assert.Zero(t, servicesClient.runBeforeCalls, "a failed listing runs no before command")
+	assert.Zero(t, aiClient.passCalls, "a failed listing runs no pass")
+}
+
+// TestPromptCmdRunInWorkspaceInvalidPrefixFailsBeforeListing covers a prefix Git
+// rejects failing the container check before any listing or prompt work.
+func TestPromptCmdRunInWorkspaceInvalidPrefixFailsBeforeListing(t *testing.T) {
+	prClient := &promptPRRecorder{}
+	aiClient := &promptAIRecorder{}
+	cmd := &PromptCmd{
+		config: &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+		git:    &git.MockClient{},
+		ai:     aiClient,
+		pr:     prClient,
+		output: &promptOutputRecorder{},
+	}
+
+	err := cmd.RunInWorkspace("do work", "my-feature", "main", "not a prefix")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not a prefix")
+	assert.Zero(t, prClient.listCalls, "an invalid prefix is not listed")
+	assert.Zero(t, aiClient.passCalls, "an invalid prefix runs no pass")
+}
+
+// TestPromptCmdRunInWorkspacePrefixWithoutMatchContinues covers an empty
+// container-side listing continuing with the prepared prompt flow.
+func TestPromptCmdRunInWorkspacePrefixWithoutMatchContinues(t *testing.T) {
+	prClient := &promptPRRecorder{}
+	aiClient := &promptAIRecorder{}
+	cmd := &PromptCmd{
+		config:   &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+		git:      &git.MockClient{},
+		services: &promptServicesRecorder{},
+		ai:       aiClient,
+		pr:       prClient,
+		output:   &promptOutputRecorder{},
+	}
+
+	err := cmd.RunInWorkspace("do work", "update/my-feature", "main", "update")
+
+	require.NoError(t, err)
+	require.NotNil(t, cmd.resolved)
+	assert.Equal(t, 1, prClient.listCalls, "the prefix lists open pull requests once")
+	assert.Equal(t, "update/my-feature", cmd.resolved.PromptBranch)
+	assert.Equal(t, 1, aiClient.passCalls, "an empty listing continues to the pass")
 }
 
 // TestPromptWorkflowRunnerAdapterCarriesPrompt asserts the in-process adapter
