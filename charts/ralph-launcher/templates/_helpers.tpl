@@ -48,19 +48,37 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 {{- end -}}
 
-{{- define "ralph-launcher.promptBranch" -}}
-{{- if .Values.prompt.branch -}}
-{{- .Values.prompt.branch -}}
-{{- else -}}
-{{- printf "ralph-prompt-%s" .Release.Namespace -}}
+{{- define "ralph-launcher.validatePromptEntries" -}}
+{{- $entries := required "prompt.entries is required" .Values.prompt.entries -}}
+{{- $slugs := dict -}}
+{{- range $entry := $entries -}}
+{{- $slug := required "prompt.entries[].slug is required" $entry.slug -}}
+{{- if hasKey $slugs $slug -}}
+{{- fail (printf "duplicate prompt entry slug %q" $slug) -}}
+{{- end -}}
+{{- $_ := set $slugs $slug true -}}
+{{- $_ := required (printf "prompt.entries[%s].text is required" $slug) $entry.text -}}
 {{- end -}}
 {{- end -}}
 
+{{- define "ralph-launcher.safeName" -}}
+{{- . | lower | replace "/" "-" | replace "_" "-" | replace "." "-" | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+{{- define "ralph-launcher.entryName" -}}
+{{- $name := .slug -}}
+{{- if .event -}}
+{{- $name = printf "%s-%s" .slug .event -}}
+{{- end -}}
+{{- include "ralph-launcher.safeName" $name -}}
+{{- end -}}
+
 {{- define "ralph-launcher.mutexName" -}}
-{{- if .Values.workflow.mutex.name -}}
-{{- .Values.workflow.mutex.name -}}
+{{- $root := .root -}}
+{{- if $root.Values.workflow.mutex.name -}}
+{{- $root.Values.workflow.mutex.name -}}
 {{- else -}}
-{{- include "ralph-launcher.promptBranch" . | lower | replace "/" "-" | replace "_" "-" | replace "." "-" | trunc 63 | trimSuffix "-" -}}
+{{- include "ralph-launcher.safeName" .entry.slug -}}
 {{- end -}}
 {{- end -}}
 
@@ -85,27 +103,61 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 
 {{- define "ralph-launcher.workflowParameters" -}}
+{{- $root := .root -}}
+{{- $entry := .entry -}}
 - name: repo
-  value: {{ printf "%s/%s" .Values.repo.owner .Values.repo.name | quote }}
+  value: {{ printf "%s/%s" $root.Values.repo.owner $root.Values.repo.name | quote }}
 - name: clone-branch
-  value: {{ .Values.repo.cloneBranch | quote }}
-- name: prompt-branch
-  value: {{ include "ralph-launcher.promptBranch" . | quote }}
+  value: {{ $root.Values.repo.cloneBranch | quote }}
+- name: prefix
+  value: {{ $entry.slug | quote }}
 - name: base-branch
-  value: {{ .Values.repo.baseBranch | quote }}
+  value: {{ $root.Values.repo.baseBranch | quote }}
 - name: prompt
   valueFrom:
     configMapKeyRef:
-      name: {{ include "ralph-launcher.fullname" . }}-prompt
-      key: {{ .Values.prompt.configMapKey | quote }}
+      name: {{ include "ralph-launcher.fullname" $root }}-prompt
+      key: {{ $entry.slug | quote }}
 - name: model
-  value: {{ .Values.workflow.model | quote }}
+  value: {{ $root.Values.workflow.model | quote }}
 - name: variant
-  value: {{ .Values.workflow.variant | quote }}
+  value: {{ $root.Values.workflow.variant | quote }}
 - name: agent
-  value: {{ .Values.workflow.agent | quote }}
+  value: {{ $root.Values.workflow.agent | quote }}
 - name: no-services
-  value: {{ .Values.workflow.noServices | quote }}
+  value: {{ $root.Values.workflow.noServices | quote }}
 - name: verbose
-  value: {{ .Values.workflow.verbose | quote }}
+  value: {{ $root.Values.workflow.verbose | quote }}
+{{- end -}}
+
+{{- define "ralph-launcher.dependencyFilters" -}}
+{{- $root := .root -}}
+{{- $event := .event -}}
+{{- $pushBranch := and (eq $event "push") $root.Values.sensor.defaultBranchOnly -}}
+{{- if or $event $pushBranch $root.Values.sensor.ignoreUsers $root.Values.sensor.filters -}}
+filters:
+  data:
+    {{- if $event }}
+    - path: body.event
+      type: string
+      value:
+        - {{ $event | quote }}
+    {{- end }}
+    {{- if $pushBranch }}
+    - path: body.payload.ref
+      type: string
+      value:
+        - {{ include "ralph-launcher.pushRef" $root | quote }}
+    {{- end }}
+    {{- range $root.Values.sensor.ignoreUsers }}
+    - path: body.payload.sender.login
+      type: string
+      comparator: "!="
+      value:
+        - {{ . | quote }}
+    {{- end }}
+    {{- with $root.Values.sensor.filters }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- end }}
 {{- end -}}

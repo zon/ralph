@@ -1,3 +1,4 @@
+{{- include "ralph-launcher.validatePromptEntries" . -}}
 apiVersion: argoproj.io/v1alpha1
 kind: Sensor
 metadata:
@@ -10,40 +11,35 @@ spec:
   template:
     serviceAccountName: {{ include "ralph-launcher.serviceAccountName" . }}
   dependencies:
-    - name: repo
-      eventSourceName: {{ include "ralph-launcher.eventSourceName" . }}
+    {{- range $entry := .Values.prompt.entries }}
+    {{- $events := list "push" }}
+    {{- if hasKey $entry "events" }}
+    {{- $events = $entry.events }}
+    {{- end }}
+    {{- if not $events }}
+    {{- $events = list "" }}
+    {{- end }}
+    {{- range $event := $events }}
+    - name: {{ include "ralph-launcher.entryName" (dict "slug" $entry.slug "event" $event) | quote }}
+      eventSourceName: {{ include "ralph-launcher.eventSourceName" $ }}
       eventName: repo
-      {{- if or .Values.sensor.events .Values.sensor.defaultBranchOnly .Values.sensor.ignoreUsers .Values.sensor.filters }}
-      filters:
-        data:
-          {{- with .Values.sensor.events }}
-          - path: body.event
-            type: string
-            value:
-              {{- range . }}
-              - {{ . | quote }}
-              {{- end }}
-          {{- end }}
-          {{- if .Values.sensor.defaultBranchOnly }}
-          - path: body.payload.ref
-            type: string
-            value:
-              - {{ include "ralph-launcher.pushRef" . | quote }}
-          {{- end }}
-          {{- range .Values.sensor.ignoreUsers }}
-          - path: body.payload.sender.login
-            type: string
-            comparator: "!="
-            value:
-              - {{ . | quote }}
-          {{- end }}
-          {{- with .Values.sensor.filters }}
-          {{- toYaml . | nindent 10 }}
-          {{- end }}
-      {{- end }}
+      {{- include "ralph-launcher.dependencyFilters" (dict "root" $ "event" $event) | nindent 6 }}
+    {{- end }}
+    {{- end }}
   triggers:
+    {{- range $entry := .Values.prompt.entries }}
+    {{- $events := list "push" }}
+    {{- if hasKey $entry "events" }}
+    {{- $events = $entry.events }}
+    {{- end }}
+    {{- if not $events }}
+    {{- $events = list "" }}
+    {{- end }}
+    {{- range $event := $events }}
+    {{- $name := include "ralph-launcher.entryName" (dict "slug" $entry.slug "event" $event) }}
     - template:
-        name: ralph-prompt
+        name: {{ $name | quote }}
+        conditions: {{ $name | quote }}
         argoWorkflow:
           operation: submit
           source:
@@ -51,29 +47,31 @@ spec:
               apiVersion: argoproj.io/v1alpha1
               kind: Workflow
               metadata:
-                generateName: {{ printf "ralph-prompt-%s-" (include "ralph-launcher.name" .) | quote }}
+                generateName: {{ printf "ralph-prompt-%s-" (include "ralph-launcher.name" $) | quote }}
                 labels:
                   app.kubernetes.io/managed-by: ralph
-                  app.kubernetes.io/name: {{ include "ralph-launcher.name" . | quote }}
-                  app.kubernetes.io/instance: {{ .Release.Name | quote }}
-                  {{- with .Values.workflow.labels }}
+                  app.kubernetes.io/name: {{ include "ralph-launcher.name" $ | quote }}
+                  app.kubernetes.io/instance: {{ $.Release.Name | quote }}
+                  {{- with $.Values.workflow.labels }}
                   {{- toYaml . | nindent 18 }}
                   {{- end }}
               spec:
                 workflowTemplateRef:
-                  name: {{ include "ralph-launcher.fullname" . }}
+                  name: {{ include "ralph-launcher.fullname" $ }}
                 arguments:
                   parameters:
-                    {{- include "ralph-launcher.workflowParameters" . | nindent 20 }}
+                    {{- include "ralph-launcher.workflowParameters" (dict "root" $ "entry" $entry) | nindent 20 }}
                 ttlStrategy:
-                  secondsAfterCompletion: {{ .Values.workflow.ttlSecondsAfterCompletion }}
+                  secondsAfterCompletion: {{ $.Values.workflow.ttlSecondsAfterCompletion }}
                 podGC:
-                  strategy: {{ .Values.workflow.podGC.strategy | quote }}
-                  deleteDelayDuration: {{ .Values.workflow.podGC.deleteDelayDuration | quote }}
-                {{- if .Values.workflow.mutex.enabled }}
+                  strategy: {{ $.Values.workflow.podGC.strategy | quote }}
+                  deleteDelayDuration: {{ $.Values.workflow.podGC.deleteDelayDuration | quote }}
+                {{- if $.Values.workflow.mutex.enabled }}
                 synchronization:
                   mutexes:
-                    - name: {{ include "ralph-launcher.mutexName" . | quote }}
+                    - name: {{ include "ralph-launcher.mutexName" (dict "root" $ "entry" $entry) | quote }}
                 {{- end }}
         retryStrategy:
-          steps: {{ .Values.sensor.retry.steps }}
+          steps: {{ $.Values.sensor.retry.steps }}
+    {{- end }}
+    {{- end }}

@@ -26,12 +26,13 @@ repo:
   baseBranch: main
 
 prompt:
-  # The prompt text is stored in a ConfigMap and read by each workflow.
-  text: |
-    Review the repository and make one small improvement.
-  # Defaults to ralph-prompt-<namespace>.
-  branch: ""
-  configMapKey: prompt.md
+  # Each entry starts a workflow with its slug as the work-stream prefix and
+  # its text as the prompt. events lists the GitHub event names that start the
+  # entry. Omit events for push, or use an empty list for every event.
+  entries:
+    - slug: review
+      text: |
+        Review the repository and make one small improvement.
 
 image:
   repository: ghcr.io/zon/ralph
@@ -83,12 +84,8 @@ sensor:
       factor: 2
       steps: 5
   replicas: 1
-  # GitHub event names that start a workflow. Use an empty list for every
-  # event, or a list such as [push] or [push, pull_request].
-  events:
-    - push
-  # Only run the prompt for pushes to the base branch. Set to false to run on
-  # every event delivered to the repository subject.
+  # Only run an entry's push dependency for pushes to the base branch. Set to
+  # false to run on every push delivered to the repository subject.
   defaultBranchOnly: true
   # The branch filter follows repo.baseBranch. Set branch to override it.
   branch: ""
