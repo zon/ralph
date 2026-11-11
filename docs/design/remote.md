@@ -33,4 +33,4 @@ Without `--follow`, the command prints the workflow name and an `argo logs` hint
 
 ## Prompt
 
-`ralph prompt` uses the same submission path for one OpenCode pass. It proposes the prompt branch, resolves the base branch, checks branch sync, and submits a `ralph-prompt-` workflow. The container runs the [Prompt Design](prompt.md) flow. Logs follow by default, and `--no-follow` submits without streaming.
+`ralph prompt` uses the same submission path for one OpenCode pass. It proposes the prompt branch, resolves the base branch, checks branch sync, and submits a `ralph-prompt-` workflow. With a prefix, it checks for an open pull request at that prefix before submission, and the container checks again. The container runs the [Prompt Design](prompt.md) flow. Logs follow by default, and `--no-follow` submits without streaming.

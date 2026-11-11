@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The `prompt` command runs one user-supplied prompt as a single non-interactive OpenCode pass. It is the companion of `run` and `loop` for work that comes from neither a project file nor a step list. Ralph asks the AI for a branch slug, runs the pass on the prompt branch, renames the branch from the work it did, and opens a pull request when the pass leaves commits. It has no project items, iteration cap, report contract, completion trailer, or iteration recovery.
+The `prompt` command runs one user-supplied prompt as a single non-interactive OpenCode pass. It is the companion of `run` and `loop` for work that comes from neither a project file nor a step list. Ralph asks the AI for a branch slug, runs the pass on the prompt branch, renames the branch from the work it did, and opens a pull request when the pass leaves commits. A prefix can group the run into a named work stream and stop it when an open pull request already has that prefix. It has no project items, iteration cap, report contract, completion trailer, or iteration recovery.
 
 Execution runs in one of three modes selected with `--mode`: `local` (default), `worktree`, or `remote`. The pass body is the same in every mode. The mode decides where it runs and how the result reaches the remote branch. Mode resolution, base branch synchronization, services, and workflow submission follow the shared contracts linked below.
 
@@ -85,9 +85,11 @@ Positional tokens SHALL be joined with single spaces. `--file -` SHALL read stan
 
 ### Requirement: Command options
 
-The command SHALL accept `--mode`, `--base` (`-B`), `--branch <name>`, `--model`, `--variant`, `--agent`, `--context`, `--namespace` (`-n`), `--no-services`, `--no-follow`, `--no-notify`, `--debug <branch>`, and `--verbose`.
+The command SHALL accept `--mode`, `--base` (`-B`), `--branch <name>`, `--prefix <prefix>`, `--model`, `--variant`, `--agent`, `--context`, `--namespace` (`-n`), `--no-services`, `--no-follow`, `--no-notify`, `--debug <branch>`, and `--verbose`.
 
 The command SHALL NOT accept project or item options, including `--items` and `--extra`.
+
+`--branch` and `--prefix` SHALL NOT be used together.
 
 `--context` and `--namespace` SHALL apply only in `remote` mode. `--no-follow` SHALL apply only in `remote` mode. `--debug` SHALL be rejected in `local` and `worktree` modes.
 
@@ -241,9 +243,9 @@ The prompt SHALL be used as written. Custom instructions from `.ralph/config.yam
 
 ### Requirement: Prompt branch
 
-Ralph SHALL ask the AI for a short slug from the prompt and use the cleaned slug as the prompt branch name. Branch name cleanup SHALL match a [project branch](run.md#requirement-branch-name-derived-from-project-slug).
+Ralph SHALL ask the AI for a short prompt slug from the prompt and use the cleaned slug as the prompt branch name. When `--prefix` is set, the prompt branch name SHALL be `<prefix>/<cleaned prompt slug>`. Branch name cleanup SHALL match a [project branch](run.md#requirement-branch-name-derived-from-project-slug).
 
-Before the pull request, Ralph SHALL ask the AI for a short slug from the commits the pass made and rename the prompt branch to the cleaned slug. The pull request SHALL use the renamed branch as its head.
+Before the pull request, Ralph SHALL ask the AI for a short commit slug from the commits the pass made and rename the prompt branch to `<prefix>/<cleaned commit slug>`, or to the cleaned commit slug when no prefix is set. The pull request SHALL use the renamed branch as its head.
 
 A failed slug proposal SHALL fail the command before any branch, service, or pass work starts. A failed branch rename SHALL fail the command before the push or pull request.
 
@@ -267,6 +269,33 @@ The prompt branch SHALL be created and checked out according to the execution mo
 - GIVEN the AI proposes a slug with spaces, capitals, or special characters
 - WHEN the prompt branch is named
 - THEN the name is cleaned up like a project branch
+
+#### Scenario: Prefix names the branch
+
+- GIVEN the user passes `--prefix update`
+- AND the AI proposes the prompt slug `fix-auth`
+- WHEN the prompt branch is created
+- THEN the prompt branch is `update/fix-auth`
+
+#### Scenario: Prefix keeps its case
+
+- GIVEN the user passes `--prefix Update`
+- WHEN the prompt branch is created
+- THEN the branch starts with `Update/`
+
+#### Scenario: Trailing slash on the prefix is dropped
+
+- GIVEN the user passes `--prefix update/`
+- WHEN the prompt branch is created
+- THEN the branch starts with `update/`
+
+#### Scenario: Rename keeps the prefix
+
+- GIVEN the user passes `--prefix update`
+- AND the pass leaves commits
+- AND the AI proposes the commit slug `fix-auth`
+- WHEN Ralph renames the branch
+- THEN the branch is `update/fix-auth`
 
 #### Scenario: A named branch skips the slug
 
@@ -346,6 +375,84 @@ The prompt branch SHALL be created and checked out according to the execution mo
 - THEN the command fails
 - AND no branch is pushed
 - AND no pull request opens
+
+---
+
+### Requirement: Prefix work stream
+
+`--prefix <prefix>` SHALL put the prompt in a named work stream. Ralph SHALL use the prefix in the prompt branch name and the pull request title.
+
+A trailing slash on the prefix SHALL be dropped. The prefix SHALL keep its case.
+
+Before proposing the prompt slug, Ralph SHALL list the repository's open pull requests on any base branch and match a head branch that starts with `<prefix>/`. The match SHALL be exact and case-sensitive.
+
+When one or more pull requests match, Ralph SHALL print them and exit successfully without proposing a slug, switching branches, running a before command or service, or running the pass.
+
+When none match, the command SHALL continue.
+
+A failure to list open pull requests SHALL fail the command.
+
+Ralph SHALL validate the prefix as part of the branch name `<prefix>/<prompt-slug>`. A prefix Git rejects SHALL fail the command before any branch, service, or pass work starts.
+
+`--branch` names the branch outright. It SHALL skip the open pull request check and SHALL NOT be used with a prefix.
+
+#### Scenario: Open pull request skips the command
+
+- GIVEN an open pull request has a head branch starting with `update/`
+- WHEN the user passes `--prefix update`
+- THEN the command prints the pull request
+- AND it exits successfully
+- AND no slug is proposed
+- AND no branch is switched
+- AND no before command, service, or pass runs
+
+#### Scenario: Matching pull request on another base branch
+
+- GIVEN an open pull request targets a base branch other than the command's base branch
+- AND its head branch starts with `update/`
+- WHEN the user passes `--prefix update`
+- THEN the command skips
+
+#### Scenario: No matching pull request continues
+
+- GIVEN no open pull request has a head branch starting with `update/`
+- WHEN the user passes `--prefix update`
+- THEN the command continues with the prompt flow
+
+#### Scenario: Pull request listing failure
+
+- GIVEN the open pull request listing fails
+- WHEN the user passes `--prefix update`
+- THEN the command fails
+- AND no branch, service, or pass work starts
+
+#### Scenario: Prefix match is case-sensitive
+
+- GIVEN an open pull request has a head branch starting with `Update/`
+- WHEN the user passes `--prefix update`
+- THEN the branches do not match
+
+#### Scenario: Invalid prefix rejected
+
+- GIVEN the user passes `--prefix "not a prefix"`
+- WHEN the command starts
+- THEN the command fails
+- AND no branch is created
+- AND no services start
+- AND no pass runs
+
+#### Scenario: Branch and prefix together fail
+
+- GIVEN the user passes `--branch update/run-1` and `--prefix update`
+- WHEN the command starts
+- THEN the command fails with an error
+- AND no prompt pass runs
+
+#### Scenario: No prefix skips the check
+
+- GIVEN the user does not pass `--prefix`
+- WHEN the command starts
+- THEN Ralph does not list open pull requests
 
 ---
 
@@ -480,7 +587,7 @@ Ralph SHALL record the prompt branch tip after base branch synchronization. Afte
 - If the tip did not advance, the prompt made no commits. The command SHALL succeed without a push or pull request. Uncommitted changes SHALL remain in a `local` checkout. `worktree` and `remote` modes SHALL discard them.
 - If the tip advanced, the prompt made commits. Ralph SHALL rename the prompt branch from the commit log, synchronize the base branch again, push the renamed branch, generate a pull request description from the commit log with the pull request summary prompt, and open a pull request to the base branch.
 
-The pull request summary prompt SHALL receive the prompt text in place of a project description. The pull request title SHALL be the first H1 in the summary, falling back to the renamed branch name.
+The pull request summary prompt SHALL receive the prompt text in place of a project description. The pull request title SHALL be the first H1 in the summary, falling back to the renamed branch name without the prefix. When a prefix is set, the title SHALL be `[<prefix>] ` followed by the title.
 
 A failed pass SHALL make no push and open no pull request. If the summary or pull request step fails, the command SHALL fail and the pushed prompt branch SHALL remain.
 
@@ -533,6 +640,21 @@ A failed pass SHALL make no push and open no pull request. If the summary or pul
 - WHEN the pull request opens
 - THEN its title is the renamed branch name
 
+#### Scenario: Prefix is added to the pull request title
+
+- GIVEN the user passes `--prefix update`
+- AND the pass leaves commits
+- WHEN the pull request opens
+- THEN its title starts with `[update] `
+
+#### Scenario: Prefix is not repeated in the fallback title
+
+- GIVEN the user passes `--prefix update`
+- AND the summary contains no H1 heading
+- AND the renamed branch is `update/fix-auth`
+- WHEN the pull request opens
+- THEN its title is `[update] fix-auth`
+
 #### Scenario: Failed pass makes no push
 
 - GIVEN the pass fails
@@ -575,6 +697,8 @@ In `remote` mode the command SHALL require the current branch to exist on the re
 
 The command SHALL resolve the prompt slug, prompt branch, and base branch locally. A prompt read from a file or standard input SHALL be read locally before submission and sent as text.
 
+With a prefix, the command SHALL check for an open pull request at the prefix locally before submission. A match SHALL end the command successfully without a workflow. The workflow SHALL receive the prefix and SHALL check again before its own work.
+
 The workflow SHALL use the `ralph-prompt-` name prefix, carry the Ralph ownership label, and use the configured image, mounts, environment, labels, and resources. It SHALL target the resolved Kubernetes context and namespace, and use the same TTL and pod garbage collection as the other workflows. It SHALL take the prompt branch lock, as a run does.
 
 Ralph SHALL embed the prompt in the workflow manifest as one container argument. The prompt is therefore visible to anyone who can read workflows in the namespace.
@@ -594,6 +718,19 @@ Remote mode SHALL follow logs by default and wait for the workflow to finish. `-
 - GIVEN the checkout has uncommitted changes
 - WHEN the workflow is submitted
 - THEN only the current branch's remote commits are sent
+
+#### Scenario: Local prefix match skips submission
+
+- GIVEN an open pull request has a head branch starting with `update/`
+- WHEN the user runs a remote prompt with `--prefix update`
+- THEN the command exits successfully without submitting a workflow
+
+#### Scenario: Container re-checks the prefix
+
+- GIVEN a remote prompt was submitted with `--prefix update`
+- AND an open pull request matches the prefix before the container starts
+- WHEN the container runs
+- THEN it exits successfully without branch, service, or pass work
 
 #### Scenario: Workflow is named and labeled for Ralph
 
@@ -648,7 +785,11 @@ Remote mode SHALL follow logs by default and wait for the workflow to finish. `-
 
 `ralph workflow prompt` SHALL be the container entrypoint. It SHALL validate the prompt, prepare the workspace, and run the flow defined in this specification in the cloned checkout.
 
-It SHALL accept the branch, base, prompt, model, variant, agent, and `--no-services` from the workflow. It SHALL validate the prompt before workspace setup.
+It SHALL accept the branch, prefix, base, prompt, model, variant, agent, and `--no-services` from the workflow. It SHALL validate the prompt before workspace setup.
+
+When it receives a branch and a prefix, the branch SHALL start with `<prefix>/`.
+
+When it receives a prefix without a branch, the workspace SHALL clone the branch named by `--clone`. The prompt flow SHALL then check for an open pull request at the prefix, propose a prompt slug, run the before commands, and create `<prefix>/<prompt-slug>` before the rest of the setup.
 
 #### Scenario: Container runs the prompt flow
 
@@ -669,3 +810,33 @@ It SHALL accept the branch, base, prompt, model, variant, agent, and `--no-servi
 - GIVEN the workflow was submitted with `--no-services`
 - WHEN the entrypoint runs
 - THEN it skips service startup and the service-fix prompt
+
+#### Scenario: Prefix-only entrypoint derives the branch
+
+- GIVEN the workflow supplies `--prefix update` and no branch
+- WHEN the entrypoint runs
+- THEN the workspace clones the branch named by `--clone`
+- AND it checks for an open pull request at `update/`
+- AND it proposes a prompt slug
+- AND it creates the branch `update/<prompt-slug>`
+- AND the pass runs on that branch
+
+#### Scenario: Prefix-only entrypoint skips for an open pull request
+
+- GIVEN the workflow supplies `--prefix update` and no branch
+- AND an open pull request has a head branch starting with `update/`
+- WHEN the entrypoint runs
+- THEN it exits successfully without branch, service, or pass work
+
+#### Scenario: Branch and prefix must agree
+
+- GIVEN the workflow supplies `--prefix update` and branch `other/run`
+- WHEN the entrypoint starts
+- THEN it fails before the pass
+
+#### Scenario: Branch without a prefix keeps its behavior
+
+- GIVEN the workflow supplies a branch and no prefix
+- WHEN the entrypoint runs
+- THEN it does not check for an open pull request at a prefix
+- AND it runs on the supplied branch
