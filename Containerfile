@@ -30,7 +30,7 @@ RUN mkdir /out
 
 # air for live reload, built with a fixed golang.org/x/text
 ENV AIR_VERSION=v1.67.4
-ENV AIR_TEXT_VERSION=v0.43.0
+ENV AIR_TEXT_VERSION=v0.44.0
 RUN mkdir /tmp/air && cd /tmp/air \
     && go mod init tools \
     && GOFLAGS=-mod=mod go get github.com/air-verse/air@${AIR_VERSION} golang.org/x/text@${AIR_TEXT_VERSION} \
