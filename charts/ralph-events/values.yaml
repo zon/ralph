@@ -2,10 +2,10 @@ nameOverride: ""
 fullnameOverride: ""
 
 routing:
-  # Render the repository routing sensors and the stream job. Set to false when
-  # every launcher in the cluster uses delivery: bus; the release still renders
-  # the GitHub event source and the event bus. The stream settings below apply
-  # only while routing is enabled.
+  # Render the repository routing sensors and the stream job. Defaults to true.
+  # A cluster whose launchers all use delivery: bus sets routing.enabled to
+  # false. The release still renders the GitHub event source and the event bus.
+  # The stream settings below apply only while routing is enabled.
   enabled: true
 
 # Repositories routed from GitHub to NATS. Each entry creates one sensor that

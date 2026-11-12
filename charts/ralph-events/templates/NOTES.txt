@@ -18,12 +18,16 @@ The release creates one EventBus for each eventbus.instances entry.
 Routing:
 
 {{- if .Values.routing.enabled }}
-  Enabled. Repository events are routed to the subjects below.
+  Enabled. The release renders the repository routing sensors and the stream
+  job, and routes repository events to the subjects below.
 {{- else }}
-  Disabled. A cluster whose launchers all use delivery: bus sets
-  routing.enabled to false. The stream settings apply only while routing is
-  enabled.
+  Disabled. The release renders no repository routing sensor and no stream
+  job. It still renders the GitHub event source and the event bus.
 {{- end }}
+
+  routing.enabled defaults to true. A cluster whose launchers all use
+  delivery: bus sets routing.enabled to false. The stream settings apply only
+  while routing is enabled.
 
 {{- if .Values.routing.enabled }}
 
