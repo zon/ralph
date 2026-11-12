@@ -15,34 +15,24 @@ COPY . .
 # Build ralph binary using justfile (includes version injection)
 RUN just build
 
-# Go tools stage - build the Go command line tools from source. The latest
-# release of each still ships a dependency with a known HIGH vulnerability
-# (air: golang.org/x/text, templ: golang.org/x/net, argo: go-jose, helm: the Go
-# standard library), and a released binary cannot be patched. Building from the
-# release tag lets us raise that dependency, or build with a Go that carries the
-# fix, and keeps the Go module cache out of the runtime image. Drop an override
-# once a release of that tool ships the fixed version. The Go version here must
-# stay at or above the fix for helm's standard library finding (1.27.3).
-FROM docker.io/library/golang:1.27.4-bookworm AS go-tools
+# Git stage - Ubuntu's git package depends on the full Perl runtime. Keep the
+# package out of the runtime and copy only the compiled git files, which link
+# against the shared libraries the runtime installs.
+FROM ubuntu:24.04 AS git
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Argo stage - build the Argo Workflows CLI from its release tag. Its latest
+# release still ships go-jose with a known HIGH vulnerability, and a released
+# binary cannot be patched. Building from the release tag lets us raise that
+# dependency and keeps the Go module cache out of the runtime image. Drop the
+# override once a release ships the fixed version.
+FROM docker.io/library/golang:1.27.4-bookworm AS argo
 
 ENV CGO_ENABLED=0
 RUN mkdir /out
-
-# air for live reload, built with a fixed golang.org/x/text
-ENV AIR_VERSION=v1.67.4
-ENV AIR_TEXT_VERSION=v0.44.0
-RUN mkdir /tmp/air && cd /tmp/air \
-    && go mod init tools \
-    && GOFLAGS=-mod=mod go get github.com/air-verse/air@${AIR_VERSION} golang.org/x/text@${AIR_TEXT_VERSION} \
-    && GOFLAGS=-mod=mod go build -trimpath -ldflags "-s -w" -o /out/air github.com/air-verse/air
-
-# templ for templates, built with a fixed golang.org/x/net
-ENV TEMPL_VERSION=v0.3.1118
-ENV TEMPL_NET_VERSION=v0.62.0
-RUN mkdir /tmp/templ && cd /tmp/templ \
-    && go mod init tools \
-    && GOFLAGS=-mod=mod go get github.com/a-h/templ/cmd/templ@${TEMPL_VERSION} golang.org/x/net@${TEMPL_NET_VERSION} \
-    && GOFLAGS=-mod=mod go build -trimpath -ldflags "-s -w" -o /out/templ github.com/a-h/templ/cmd/templ
 
 # Argo Workflows CLI, built with a fixed go-jose. The CLI embeds the UI
 # directory, which only the server uses; like upstream's own CLI build, give it
@@ -57,69 +47,60 @@ RUN git clone --quiet --depth 1 --branch ${ARGO_VERSION} https://github.com/argo
         -ldflags "-s -w -X github.com/argoproj/argo-workflows/v4.version=${ARGO_VERSION}" \
         -o /out/argo ./cmd/argo
 
-# Helm, built with this stage's Go for its standard library
-ENV HELM_VERSION=v4.3.1
-RUN GOBIN=/out go install -trimpath \
-    -ldflags "-s -w -X helm.sh/helm/v4/internal/version.version=${HELM_VERSION}" \
-    helm.sh/helm/v4/cmd/helm@${HELM_VERSION}
+# OpenCode stage - install the pinned OpenCode CLI in a Bun image and keep only
+# the native linux/amd64 binary. The module cache and the platform packages for
+# musl, baseline, and other operating systems stay in this stage.
+FROM --platform=linux/amd64 docker.io/oven/bun:1.4.4-slim AS opencode
 
-# Runtime stage - use official Playwright image with all browsers pre-installed
-FROM mcr.microsoft.com/playwright:v1.65.0-noble
+ENV BUN_INSTALL=/usr/local/bun
+ENV BUN_INSTALL_BIN=${BUN_INSTALL}/bin
+ENV PATH="${BUN_INSTALL}/bin:${PATH}"
 
-# Apply Ubuntu's security updates and install additional system dependencies
-# (Playwright deps already included) so base packages such as openssl and
-# libssl3t64 carry no known high-severity findings
+# Bun never runs a dependency's lifecycle scripts, so --trust is required for
+# the package's postinstall to select the native OpenCode binary; without it
+# the install leaves the shebang-less bin/opencode.exe stub that fails as
+# "exec format error".
+ENV OPENCODE_VERSION=2.2.7
+RUN bun install -g --trust @opencode/cli@${OPENCODE_VERSION} \
+    && mkdir -p /out \
+    && cp "$(readlink -f "$(command -v opencode)")" /out/opencode
+
+# Runtime stage - Ubuntu with the runtime Ralph, argo, and OpenCode need
+FROM ubuntu:24.04
+
+# Apply Ubuntu's security updates and install the system dependencies so base
+# packages such as openssl and libssl3t64 carry no known high-severity findings
 RUN apt-get update \
     && apt-get upgrade -y \
-    && apt-get install -y \
-    just \
-    unzip \
-    net-tools \
-    jq \
-    && rm -rf /var/lib/apt/lists/*
-
-# Upgrade npm so its bundled dependencies carry no known vulnerabilities
-ENV NPM_VERSION=12.2.2
-RUN npm install -g npm@${NPM_VERSION}
+    && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    libcurl3t64-gnutls \
+    libexpat1 \
+    libpcre2-8-0 \
+    && rm -rf /var/lib/apt/lists/* /usr/share/doc/* /usr/share/info/*
 
 # Install GitHub CLI
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
-    && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
+    && chmod a+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
     && apt-get update \
-    && apt-get install -y gh \
-    && rm -rf /var/lib/apt/lists/*
+    && apt-get install -y --no-install-recommends gh \
+    && rm -rf /var/lib/apt/lists/* /usr/share/doc/* /usr/share/info/*
 
-# Install Go toolchain
-ENV GO_VERSION=1.27.4
-RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" | tar -C /usr/local -xzf - \
-    && ln -s /usr/local/go/bin/go /usr/local/bin/go \
-    && ln -s /usr/local/go/bin/gofmt /usr/local/bin/gofmt
+# Copy only the compiled git commands and templates. The scripts and docs from
+# the git package stay in its build stage.
+COPY --from=git /usr/bin/git /usr/bin/git-shell /usr/bin/scalar /usr/bin/
+COPY --from=git /usr/lib/git-core /usr/lib/git-core
+COPY --from=git /usr/share/git-core /usr/share/git-core
 
-# Go development tools (air for live reload, templ for templates), the Argo
-# Workflows CLI, and Helm come from the go-tools stage, built from source at
-# the versions pinned there
-ENV GOPATH=/root/go
-ENV PATH="${GOPATH}/bin:${PATH}"
-COPY --from=go-tools /out/ /usr/local/bin/
+# The Argo Workflows CLI comes from the argo stage, built from source at the
+# version pinned there
+COPY --from=argo /out/argo /usr/local/bin/argo
 
-# Install Bun runtime
-ENV BUN_INSTALL=/usr/local/bun
-ENV PATH="${BUN_INSTALL}/bin:${PATH}"
-RUN curl -fsSL https://bun.sh/install | bash \
-    && ln -s ${BUN_INSTALL}/bin/bun /usr/local/bin/bun \
-    && ln -s ${BUN_INSTALL}/bin/bunx /usr/local/bin/bunx
-
-# Install OpenCode CLI, pinned so the layer does not freeze at whatever was
-# latest when it was first built. Bun never runs a dependency's lifecycle
-# scripts, so --trust is required for the package's postinstall to select the
-# native opencode binary for this platform; without it the install leaves the
-# shebang-less bin/opencode.exe stub that fails as "exec format error".
-ENV OPENCODE_VERSION=2.2.7
-RUN bun install -g --trust @opencode/cli@${OPENCODE_VERSION} \
-    && ln -s ${BUN_INSTALL}/bin/opencode /usr/local/bin/opencode
-
-# Note: Playwright and all browsers are pre-installed in the base image
+# Copy only the native OpenCode binary from its build stage. The module cache
+# and the platform packages stay out of the runtime.
+COPY --from=opencode /out/opencode /usr/local/bin/opencode
 
 # Configure OpenCode as an unattended coding agent whose sandbox is this
 # container. The config is the machine-wide global file so every run inherits
@@ -127,8 +108,8 @@ RUN bun install -g --trust @opencode/cli@${OPENCODE_VERSION} \
 # inside the container and the container boundary is the sandbox: a rule that
 # resolved to "ask" would stall a run with no client to answer. OpenCode's own
 # agent policies still append after these rules, so built-in agents keep their
-# role restrictions. Updates are disabled so the pinned OPENCODE_VERSION is the
-# version every run uses.
+# role restrictions. Updates are disabled so the version pinned in the OpenCode
+# build stage is the version every run uses.
 RUN mkdir -p /root/.config/opencode
 COPY container/opencode.json /root/.config/opencode/opencode.json
 

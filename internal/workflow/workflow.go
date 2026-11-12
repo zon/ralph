@@ -302,12 +302,17 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 	return template
 }
 
-// debugWrapperScript clones the Ralph source branch into /workspace/ralph and
-// installs a ralph wrapper that runs the clone with go run. The workflow
-// container runs this script in place of the normal ralph command when a debug
-// branch is set. The branch arrives through RALPH_DEBUG_BRANCH so a branch name
-// is never interpolated into the shell script.
+// debugWrapperScript checks for the Go toolchain, clones the Ralph source
+// branch into /workspace/ralph, and installs a ralph wrapper that runs the
+// clone with go run. The workflow container runs this script in place of the
+// normal ralph command when a debug branch is set. The branch arrives through
+// RALPH_DEBUG_BRANCH so a branch name is never interpolated into the shell
+// script. A missing toolchain fails before the clone so no project work runs.
 const debugWrapperScript = `set -e
+if ! command -v go >/dev/null 2>&1; then
+  echo "error: debug mode requires the Go toolchain, which the default Ralph image does not include. Set workflow.image to ghcr.io/zon/ralph-go." >&2
+  exit 1
+fi
 echo "Debug mode: cloning ralph branch '${RALPH_DEBUG_BRANCH}' to /workspace/ralph..."
 git clone -b "${RALPH_DEBUG_BRANCH}" https://github.com/zon/ralph.git /workspace/ralph
 cat > /usr/local/bin/ralph <<'RALPH_DEBUG_WRAPPER'

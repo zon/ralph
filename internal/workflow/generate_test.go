@@ -285,6 +285,23 @@ func TestWorkflowRender_RunBranching(t *testing.T) {
 	assert.Equal(t, "--repo", args[2], "Third arg should be '--repo'")
 }
 
+// TestDebugWrapperScriptRequiresGo asserts the debug wrapper rejects a missing
+// Go toolchain before it clones the Ralph source, so no project work runs and
+// the message names the toolchain image.
+func TestDebugWrapperScriptRequiresGo(t *testing.T) {
+	goCheck := strings.Index(debugWrapperScript, "command -v go")
+	require.NotEqual(t, -1, goCheck, "Debug script should check for the go command")
+
+	clone := strings.Index(debugWrapperScript, "git clone")
+	require.NotEqual(t, -1, clone, "Debug script should clone the Ralph source")
+	assert.Less(t, goCheck, clone, "Debug script should check for go before it clones the Ralph source")
+
+	assert.Contains(t, debugWrapperScript, "ghcr.io/zon/ralph-go",
+		"The missing-toolchain error should name the Go toolchain image")
+	assert.Regexp(t, `(?m)^\s*exit 1\s*$`, debugWrapperScript,
+		"The debug script should exit non-zero when go is missing")
+}
+
 func TestWorkflowRender_DebugBranch(t *testing.T) {
 	debugBranch := "feat/debug-mode"
 	wf := &Workflow{

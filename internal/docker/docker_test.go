@@ -21,55 +21,32 @@ func TestDockerfileExists(t *testing.T) {
 	require.NoError(t, err, "Containerfile should exist at %s", containerfilePath)
 }
 
-func TestDockerfileContainsRequiredComponents(t *testing.T) {
+func TestDockerfileRuntimeCarriesRequiredComponents(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
 	containerfilePath := filepath.Join(projectRoot, "Containerfile")
 
 	content, err := os.ReadFile(containerfilePath)
 	require.NoError(t, err, "Should be able to read Containerfile")
 
-	dockerfile := string(content)
+	runtime := runtimeStage(t, string(content))
 
 	requiredComponents := []struct {
-		name        string
-		searchTerms []string
+		name string
+		line string
 	}{
-		{
-			name:        "Go toolchain",
-			searchTerms: []string{"golang", "go"},
-		},
-		{
-			name:        "Bun runtime",
-			searchTerms: []string{"bun"},
-		},
-		{
-			name:        "Playwright",
-			searchTerms: []string{"playwright"},
-		},
-		{
-			name:        "Ralph binary",
-			searchTerms: []string{"ralph"},
-		},
-		{
-			name:        "Git",
-			searchTerms: []string{"git"},
-		},
-		{
-			name:        "jq",
-			searchTerms: []string{"jq"},
-		},
+		{"Ralph binary", "COPY --from=builder /build/ralph /usr/local/bin/ralph"},
+		{"argo CLI", "COPY --from=argo /out/argo /usr/local/bin/argo"},
+		{"OpenCode", "COPY --from=opencode /out/opencode /usr/local/bin/opencode"},
+		{"Git", "COPY --from=git /usr/bin/git /usr/bin/git-shell /usr/bin/scalar /usr/bin/"},
+		{"GitHub CLI", "apt-get install -y --no-install-recommends gh"},
+		{"shell", `CMD ["/bin/sh"]`},
+		{"CA certificates", "ca-certificates"},
 	}
 
 	for _, component := range requiredComponents {
 		t.Run(component.name, func(t *testing.T) {
-			found := false
-			for _, term := range component.searchTerms {
-				if strings.Contains(strings.ToLower(dockerfile), strings.ToLower(term)) {
-					found = true
-					break
-				}
-			}
-			assert.True(t, found, "Containerfile should contain required component: %s", component.name)
+			assert.Contains(t, runtime, component.line,
+				"Runtime stage should carry required component: %s", component.name)
 		})
 	}
 }
@@ -88,30 +65,45 @@ func TestDockerfileUsesMultiStageBuilds(t *testing.T) {
 	assert.Contains(t, dockerfile, "COPY --from=", "Containerfile should copy artifacts from build stage")
 }
 
-func TestDockerfileUsesNewestPlaywrightNobleBase(t *testing.T) {
+func TestDockerfileUsesUbuntuNobleRuntimeBase(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
 	containerfilePath := filepath.Join(projectRoot, "Containerfile")
 
 	content, err := os.ReadFile(containerfilePath)
 	require.NoError(t, err, "Should be able to read Containerfile")
 
-	dockerfile := string(content)
+	runtime := runtimeStage(t, string(content))
 
-	pattern := regexp.MustCompile(`mcr\.microsoft\.com/playwright:v(\d+)\.(\d+)\.(\d+)-noble`)
-	match := pattern.FindStringSubmatch(dockerfile)
-	require.NotNil(t, match, "Containerfile should build on a Playwright noble image")
+	pattern := regexp.MustCompile(`(?m)^FROM\s+\S*ubuntu:24\.04(?:\s|$)`)
+	assert.Regexp(t, pattern, runtime,
+		"Runtime stage should build on ubuntu:24.04")
+	assert.NotContains(t, strings.ToLower(runtime), "playwright",
+		"Runtime stage should not build on the Playwright image")
+}
 
-	var version [3]int
-	for i := range version {
-		part, err := strconv.Atoi(match[i+1])
-		require.NoError(t, err, "Playwright version should have numeric parts")
-		version[i] = part
+func runtimeStage(t *testing.T, dockerfile string) string {
+	t.Helper()
+
+	fromPattern := regexp.MustCompile(`(?m)^FROM\s+`)
+	matches := fromPattern.FindAllStringIndex(dockerfile, -1)
+	require.NotEmpty(t, matches, "Containerfile should declare a stage")
+
+	return dockerfile[matches[len(matches)-1][0]:]
+}
+
+func containerfileStage(t *testing.T, dockerfile, name string) string {
+	t.Helper()
+
+	header := regexp.MustCompile(`(?mi)^FROM\s+.*\s+AS\s+` + regexp.QuoteMeta(name) + `\s*$`)
+	location := header.FindStringIndex(dockerfile)
+	require.NotNil(t, location, "Containerfile should declare stage %q", name)
+
+	end := len(dockerfile)
+	rest := dockerfile[location[1]:]
+	if next := regexp.MustCompile(`(?m)^FROM\s+`).FindStringIndex(rest); next != nil {
+		end = location[1] + next[0]
 	}
-
-	minimum := [3]int{1, 65, 0}
-	assert.GreaterOrEqual(t, compareVersions(version, minimum), 0,
-		"Containerfile should build on Playwright noble v%d.%d.%d or later, got v%d.%d.%d",
-		minimum[0], minimum[1], minimum[2], version[0], version[1], version[2])
+	return dockerfile[location[0]:end]
 }
 
 func TestDockerfileAppliesUbuntuSecurityUpdates(t *testing.T) {
@@ -128,16 +120,25 @@ func TestDockerfileAppliesUbuntuSecurityUpdates(t *testing.T) {
 		"Runtime stage should apply Ubuntu security updates with apt-get upgrade")
 }
 
-func runtimeStage(t *testing.T, dockerfile string) string {
-	t.Helper()
+func TestDockerfileUpgradesArgo(t *testing.T) {
+	projectRoot := filepath.Join("..", "..")
+	containerfilePath := filepath.Join(projectRoot, "Containerfile")
 
-	marker := "mcr.microsoft.com/playwright:"
-	idx := strings.Index(dockerfile, marker)
-	require.GreaterOrEqual(t, idx, 0, "Containerfile should use the Playwright base image")
-	return dockerfile[idx:]
+	content, err := os.ReadFile(containerfilePath)
+	require.NoError(t, err, "Should be able to read Containerfile")
+
+	version := containerfileVersion(t, string(content), "ARGO_VERSION")
+	minimum := [3]int{4, 1, 4}
+	assert.GreaterOrEqual(t, compareVersions(version, minimum), 0,
+		"Containerfile should pin ARGO_VERSION at v%d.%d.%d or later, got v%d.%d.%d",
+		minimum[0], minimum[1], minimum[2], version[0], version[1], version[2])
 }
 
-func TestDockerfileUpgradesNpm(t *testing.T) {
+// TestDockerfileBuildsArgoWithPatchedGoJose covers the argo CLI, whose latest
+// release still ships go-jose with a known HIGH vulnerability. The Containerfile
+// builds it from its release tag in its own stage, raises go-jose, and keeps
+// the Go module cache out of the runtime image.
+func TestDockerfileBuildsArgoWithPatchedGoJose(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
 	containerfilePath := filepath.Join(projectRoot, "Containerfile")
 
@@ -145,111 +146,47 @@ func TestDockerfileUpgradesNpm(t *testing.T) {
 	require.NoError(t, err, "Should be able to read Containerfile")
 
 	dockerfile := string(content)
+	argo := containerfileStage(t, dockerfile, "argo")
+	runtime := runtimeStage(t, dockerfile)
 
-	assert.Contains(t, dockerfile, "npm install -g npm@${NPM_VERSION}",
-		"Containerfile should upgrade the bundled npm to the pinned NPM_VERSION")
+	basePattern := regexp.MustCompile(`(?m)^FROM\s+\S*golang:\d+\.\d+\.\d+-\S+\s+AS\s+argo\s*$`)
+	assert.Regexp(t, basePattern, argo,
+		"argo stage should build on a golang image pinned to a patch version")
 
-	versionPattern := regexp.MustCompile(`ENV\s+NPM_VERSION=(\S+)`)
-	match := versionPattern.FindStringSubmatch(dockerfile)
-	require.NotNil(t, match, "Containerfile should pin NPM_VERSION")
+	assert.Contains(t, argo, "git clone", "argo stage should build from its release tag")
+	assert.Contains(t, argo, "--branch ${ARGO_VERSION}")
+	assert.Contains(t, argo, "https://github.com/argoproj/argo-workflows.git")
+	assert.Contains(t, argo, "go get github.com/go-jose/go-jose/v4@${ARGO_JOSE_VERSION}")
+	assert.Contains(t, argo, "-o /out/argo ./cmd/argo")
 
-	major := strings.SplitN(match[1], ".", 2)[0]
-	majorVersion, err := strconv.Atoi(major)
-	require.NoError(t, err, "NPM_VERSION major should be numeric, got %q", match[1])
-	assert.GreaterOrEqual(t, majorVersion, 12,
-		"Containerfile should install npm 12 or later, got %s", match[1])
-}
-
-func TestDockerfileUpgradesArgoAndHelm(t *testing.T) {
-	projectRoot := filepath.Join("..", "..")
-	containerfilePath := filepath.Join(projectRoot, "Containerfile")
-
-	content, err := os.ReadFile(containerfilePath)
-	require.NoError(t, err, "Should be able to read Containerfile")
-
-	dockerfile := string(content)
-
-	cases := []struct {
-		name    string
-		envVar  string
-		minimum [3]int
-	}{
-		{"argo CLI", "ARGO_VERSION", [3]int{4, 1, 4}},
-		{"helm", "HELM_VERSION", [3]int{4, 3, 0}},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			version := containerfileVersion(t, dockerfile, tc.envVar)
-			assert.GreaterOrEqual(t, compareVersions(version, tc.minimum), 0,
-				"Containerfile should pin %s at v%d.%d.%d or later, got v%d.%d.%d",
-				tc.envVar, tc.minimum[0], tc.minimum[1], tc.minimum[2],
-				version[0], version[1], version[2])
-		})
-	}
-}
-
-// TestDockerfileBuildsGoToolsWithPatchedDependencies covers the Go tools whose
-// latest releases still ship a dependency with a known HIGH vulnerability. The
-// Containerfile builds each from source in its own stage, so the dependency
-// can be raised past the fix and the Go module cache stays out of the runtime
-// image.
-func TestDockerfileBuildsGoToolsWithPatchedDependencies(t *testing.T) {
-	projectRoot := filepath.Join("..", "..")
-	containerfilePath := filepath.Join(projectRoot, "Containerfile")
-
-	content, err := os.ReadFile(containerfilePath)
-	require.NoError(t, err, "Should be able to read Containerfile")
-
-	dockerfile := string(content)
-
-	assert.Contains(t, dockerfile, "AS go-tools", "Containerfile should build the Go tools in their own stage")
-	assert.Contains(t, dockerfile, "COPY --from=go-tools",
-		"Containerfile should copy the built Go tools into the runtime stage")
-	assert.NotContains(t, runtimeStage(t, dockerfile), "go install",
+	assert.Contains(t, runtime, "COPY --from=argo /out/argo /usr/local/bin/argo",
+		"Runtime stage should copy the argo CLI from its build stage")
+	assert.NotContains(t, runtime, "go install",
 		"runtime stage should not build Go tools, which would leave the module cache in the image")
 
-	t.Run("go-tools Go toolchain", func(t *testing.T) {
-		// helm is built with this stage's Go, so its standard library is
-		// the one Trivy reports on.
-		pattern := regexp.MustCompile(`FROM\s+\S*golang:(\d+)\.(\d+)\.(\d+)-\S+\s+AS\s+go-tools`)
-		match := pattern.FindStringSubmatch(dockerfile)
-		require.NotNil(t, match, "go-tools stage should build on a golang image pinned to a patch version")
+	version := containerfileVersion(t, argo, "ARGO_JOSE_VERSION")
+	minimum := [3]int{4, 1, 6}
+	assert.GreaterOrEqual(t, compareVersions(version, minimum), 0,
+		"Containerfile should build with ARGO_JOSE_VERSION v%d.%d.%d or later, got v%d.%d.%d",
+		minimum[0], minimum[1], minimum[2], version[0], version[1], version[2])
 
-		var version [3]int
-		for i := range version {
-			part, err := strconv.Atoi(match[i+1])
-			require.NoError(t, err, "golang image version should have numeric parts")
-			version[i] = part
+	t.Run("no air, templ, or helm", func(t *testing.T) {
+		for _, term := range []string{
+			"AIR_VERSION",
+			"TEMPL_VERSION",
+			"HELM_VERSION",
+			"github.com/air-verse/air",
+			"github.com/a-h/templ",
+			"helm.sh/helm",
+			"AS go-tools",
+		} {
+			assert.NotContains(t, dockerfile, term,
+				"Containerfile should no longer build or name %s", term)
 		}
-		minimum := [3]int{1, 27, 3}
-		assert.GreaterOrEqual(t, compareVersions(version, minimum), 0,
-			"go-tools should build on Go v%d.%d.%d or later for helm's standard library, got v%d.%d.%d",
-			minimum[0], minimum[1], minimum[2], version[0], version[1], version[2])
 	})
-
-	cases := []struct {
-		name    string
-		envVar  string
-		minimum [3]int
-	}{
-		{"air golang.org/x/text", "AIR_TEXT_VERSION", [3]int{0, 41, 0}},
-		{"templ golang.org/x/net", "TEMPL_NET_VERSION", [3]int{0, 60, 0}},
-		{"argo go-jose", "ARGO_JOSE_VERSION", [3]int{4, 1, 6}},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			version := containerfileVersion(t, dockerfile, tc.envVar)
-			assert.GreaterOrEqual(t, compareVersions(version, tc.minimum), 0,
-				"Containerfile should build with %s v%d.%d.%d or later, got v%d.%d.%d",
-				tc.name, tc.minimum[0], tc.minimum[1], tc.minimum[2],
-				version[0], version[1], version[2])
-		})
-	}
 }
 
-func TestDockerfileInstallsPinnedOpenCode(t *testing.T) {
+func TestDockerfileInstallsPinnedOpenCodeInOwnStage(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
 	containerfilePath := filepath.Join(projectRoot, "Containerfile")
 
@@ -257,18 +194,171 @@ func TestDockerfileInstallsPinnedOpenCode(t *testing.T) {
 	require.NoError(t, err, "Should be able to read Containerfile")
 
 	dockerfile := string(content)
+	opencode := containerfileStage(t, dockerfile, "opencode")
+
+	basePattern := regexp.MustCompile(`(?m)^FROM\s+(?:--platform=\S+\s+)?\S*bun:\d+\.\d+\.\d+`)
+	assert.Regexp(t, basePattern, opencode,
+		"OpenCode should build in its own stage on a pinned Bun image")
 
 	// Bun never runs a dependency's lifecycle scripts, so the install must
 	// trust the package or its postinstall leaves the bin/opencode.exe stub
 	// that fails to exec.
-	assert.Contains(t, dockerfile, "bun install -g --trust @opencode/cli@${OPENCODE_VERSION}",
-		"Containerfile should install the trusted, pinned OpenCode CLI")
+	assert.Contains(t, opencode, "bun install -g --trust @opencode/cli@${OPENCODE_VERSION}",
+		"OpenCode stage should install the trusted, pinned OpenCode CLI")
 
-	version := containerfileVersion(t, dockerfile, "OPENCODE_VERSION")
+	version := containerfileVersion(t, opencode, "OPENCODE_VERSION")
 	minimum := [3]int{2, 0, 29}
 	assert.GreaterOrEqual(t, compareVersions(version, minimum), 0,
 		"Containerfile should pin OPENCODE_VERSION at v%d.%d.%d or later, got v%d.%d.%d",
 		minimum[0], minimum[1], minimum[2], version[0], version[1], version[2])
+
+	assert.Contains(t, opencode, "/out/opencode",
+		"OpenCode stage should keep only the native binary as its output")
+}
+
+func TestDockerfileCopiesGitFromOwnStage(t *testing.T) {
+	projectRoot := filepath.Join("..", "..")
+	containerfilePath := filepath.Join(projectRoot, "Containerfile")
+
+	content, err := os.ReadFile(containerfilePath)
+	require.NoError(t, err, "Should be able to read Containerfile")
+
+	dockerfile := string(content)
+	git := containerfileStage(t, dockerfile, "git")
+	runtime := runtimeStage(t, dockerfile)
+
+	assert.Contains(t, git, "apt-get install -y --no-install-recommends git",
+		"git stage should install the git package")
+
+	assert.Contains(t, runtime, "COPY --from=git /usr/bin/git /usr/bin/git-shell /usr/bin/scalar /usr/bin/",
+		"Runtime stage should copy only the compiled git commands")
+	assert.Contains(t, runtime, "COPY --from=git /usr/lib/git-core /usr/lib/git-core")
+	assert.Contains(t, runtime, "COPY --from=git /usr/share/git-core /usr/share/git-core")
+	assert.NotContains(t, strings.ToLower(runtime), "git-man",
+		"Runtime stage should not carry the git documentation package")
+
+	for _, library := range []string{"libcurl3t64-gnutls", "libexpat1", "libpcre2-8-0"} {
+		assert.Contains(t, runtime, library,
+			"Runtime stage should install the shared library git links against: %s", library)
+	}
+}
+
+var forbiddenRuntimeTools = []struct {
+	name    string
+	pattern *regexp.Regexp
+}{
+	{"Go", regexp.MustCompile(`(?i)\bgo\b|\bgofmt\b|\bgopath\b|\bgoroot\b|/usr/local/go|go\.dev|\bGO_VERSION\b|\bGOFLAGS\b`)},
+	{"Bun", regexp.MustCompile(`(?i)\bbun(?:x)?\b`)},
+	{"Node", regexp.MustCompile(`(?i)\bnode(?:\.?js)?\b|node_modules`)},
+	{"npm", regexp.MustCompile(`(?i)\bnpm\b|\bnpx\b|npmjs`)},
+	{"Rust", regexp.MustCompile(`(?i)\brustc?\b|\bcargo\b`)},
+	{"Python", regexp.MustCompile(`(?i)\bpython[0-9.]*\b|\bpip[0-9.]*\b`)},
+	{"Ruby", regexp.MustCompile(`(?i)\bruby\b|\bbundler\b`)},
+	{"Java", regexp.MustCompile(`(?i)\bjava\b|\bjavac\b|\bjre\b|\bjdk\b|\bmaven\b|\bgradle\b`)},
+	{"Perl", regexp.MustCompile(`(?i)\bperl\b`)},
+	{"air", regexp.MustCompile(`(?i)\bair\b`)},
+	{"templ", regexp.MustCompile(`(?i)\btempl\b`)},
+	{"helm", regexp.MustCompile(`(?i)\bhelm\b`)},
+	{"just", regexp.MustCompile(`(?i)\bjust\b`)},
+	{"Playwright", regexp.MustCompile(`(?i)\bplaywright\b`)},
+	{"Chromium", regexp.MustCompile(`(?i)\bchromium\b`)},
+	{"Chrome", regexp.MustCompile(`(?i)\bchrome\b|\bgoogle-chrome\b`)},
+	{"Firefox", regexp.MustCompile(`(?i)\bfirefox\b`)},
+	{"jq", regexp.MustCompile(`(?i)\bjq\b`)},
+	{"unzip", regexp.MustCompile(`(?i)\bunzip\b`)},
+	{"net-tools", regexp.MustCompile(`(?i)net-tools`)},
+}
+
+func TestDockerfileRuntimeCarriesNoToolchainOrBrowser(t *testing.T) {
+	projectRoot := filepath.Join("..", "..")
+	containerfilePath := filepath.Join(projectRoot, "Containerfile")
+
+	content, err := os.ReadFile(containerfilePath)
+	require.NoError(t, err, "Should be able to read Containerfile")
+
+	runtime := runtimeStage(t, string(content))
+
+	for _, tool := range forbiddenRuntimeTools {
+		t.Run(tool.name, func(t *testing.T) {
+			assert.False(t, tool.pattern.MatchString(runtime),
+				"Runtime stage should not carry %s", tool.name)
+		})
+	}
+}
+
+func TestRuntimeToolChecksRejectReturningTools(t *testing.T) {
+	cases := []struct {
+		name string
+		line string
+	}{
+		{"Go toolchain", `RUN curl https://go.dev/dl/go1.27.4.linux-amd64.tar.gz | tar -C /usr/local -xzf -`},
+		{"Go binary", `COPY --from=builder /usr/local/go/bin/go /usr/local/bin/go`},
+		{"Bun", `COPY --from=opencode /usr/local/bun/bin/bun /usr/local/bin/bun`},
+		{"Node.js", `RUN apt-get install -y --no-install-recommends nodejs`},
+		{"npm", `RUN npm install -g @opencode/cli`},
+		{"Rust", `RUN apt-get install -y --no-install-recommends cargo`},
+		{"Python", `RUN apt-get install -y --no-install-recommends python3`},
+		{"Ruby", `RUN apt-get install -y --no-install-recommends ruby`},
+		{"Java", `RUN apt-get install -y --no-install-recommends default-jre`},
+		{"Perl", `RUN apt-get install -y --no-install-recommends perl`},
+		{"air", `COPY --from=builder /go/bin/air /usr/local/bin/air`},
+		{"templ", `COPY --from=builder /go/bin/templ /usr/local/bin/templ`},
+		{"helm", `COPY --from=builder /go/bin/helm /usr/local/bin/helm`},
+		{"just", `RUN apt-get install -y --no-install-recommends just`},
+		{"Playwright", `RUN npx playwright install`},
+		{"Chromium", `RUN apt-get install -y --no-install-recommends chromium`},
+		{"Chrome", `RUN apt-get install -y --no-install-recommends google-chrome-stable`},
+		{"Firefox", `RUN apt-get install -y --no-install-recommends firefox`},
+		{"jq", `RUN apt-get install -y --no-install-recommends jq`},
+		{"unzip", `RUN apt-get install -y --no-install-recommends unzip`},
+		{"net-tools", `RUN apt-get install -y --no-install-recommends net-tools`},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			runtime := "FROM ubuntu:24.04\n" + tc.line
+			assert.False(t, runtimeCarriesNoForbiddenTool(runtime),
+				"Runtime tool check should reject a runtime that adds %s", tc.name)
+		})
+	}
+}
+
+func runtimeCarriesNoForbiddenTool(runtime string) bool {
+	for _, tool := range forbiddenRuntimeTools {
+		if tool.pattern.MatchString(runtime) {
+			return false
+		}
+	}
+	return true
+}
+
+func TestDockerfileRuntimeReceivesOnlyOpenCodeBinary(t *testing.T) {
+	projectRoot := filepath.Join("..", "..")
+	containerfilePath := filepath.Join(projectRoot, "Containerfile")
+
+	content, err := os.ReadFile(containerfilePath)
+	require.NoError(t, err, "Should be able to read Containerfile")
+
+	runtime := runtimeStage(t, string(content))
+
+	assert.Contains(t, runtime, "COPY --from=opencode /out/opencode /usr/local/bin/opencode",
+		"Runtime stage should copy only the native OpenCode binary from its build stage")
+
+	assert.NotRegexp(t, regexp.MustCompile(`(?i)\bbun\b`), runtime,
+		"Runtime stage should not carry a Bun runtime")
+
+	lower := strings.ToLower(runtime)
+	for _, forbidden := range []string{
+		"bun install",
+		"@opencode/cli",
+		"node_modules",
+		"cli-linux",
+		"musl",
+		"baseline",
+	} {
+		assert.NotContains(t, lower, forbidden,
+			"Runtime stage should not carry the OpenCode build stage's Bun cache or platform packages: %s", forbidden)
+	}
 }
 
 type openCodePermissionRule struct {
@@ -324,6 +414,21 @@ func TestContainerfileConfiguresOpenCode(t *testing.T) {
 
 	assert.Contains(t, string(content), "COPY container/opencode.json /root/.config/opencode/opencode.json",
 		"Containerfile should install the container OpenCode configuration as the global config")
+}
+
+func TestContainerfileKeepsWorkspaceAndDefaultShell(t *testing.T) {
+	projectRoot := filepath.Join("..", "..")
+	containerfilePath := filepath.Join(projectRoot, "Containerfile")
+
+	content, err := os.ReadFile(containerfilePath)
+	require.NoError(t, err, "Should be able to read Containerfile")
+
+	runtime := runtimeStage(t, string(content))
+
+	assert.Contains(t, runtime, "WORKDIR /workspace",
+		"Runtime stage should keep the workspace directory")
+	assert.Contains(t, runtime, `CMD ["/bin/sh"]`,
+		"Runtime stage should keep the default shell command")
 }
 
 func TestRalphBinaryHasPatchedGoDependencies(t *testing.T) {
