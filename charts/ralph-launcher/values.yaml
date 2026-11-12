@@ -8,11 +8,13 @@ fullnameOverride: ""
 delivery: subject
 
 intake:
-  # The ralph-events release's GitHub event source. Required when delivery is
-  # bus; the launcher sensor names this event source in its dependencies.
+  # The ralph-events release's GitHub event source. With delivery: bus,
+  # intake.eventSource.name is required and the launcher sensor names this
+  # event source in its dependencies.
   eventSource:
     name: ""
-  # The event name inside the intake event source. Defaults to github.
+  # The event name inside the intake event source. intake.eventName defaults
+  # to github.
   eventName: github
 
 nats:
@@ -100,11 +102,12 @@ eventBus:
   # Existing Secret and key holding the EventBus credentials file
   # (username and password).
   accessSecret: {}
-  # JetStream settings for a bus that this release creates. maxAge is the
-  # retention window: a returning bus sensor receives the events retained
-  # within it, and an older event is lost. Delivery is at least once, so a
-  # launcher can see an event twice; the open pull request check and the entry
-  # mutex stop a repeat from starting a second pass.
+  # eventBus.streamConfig sets the JetStream settings for a bus that this
+  # release creates. maxAge is the bus stream retention window: a returning bus
+  # sensor receives the events retained within it, and an older event is lost.
+  # Delivery is at least once, so a launcher can see an event twice; the open
+  # pull request check and the entry mutex stop a repeat from starting a second
+  # pass.
   streamConfig: |
     maxAge: 24h
     replicas: 1
@@ -131,12 +134,13 @@ sensor:
   # delivery path.
   ignoreUsers:
     - "ralph-zon[bot]"
-  # Additional Argo Events data filters. Paths are relative to the data of the
-  # chosen delivery path. With delivery: subject the event name is body.event
-  # and the GitHub body is body.payload. With delivery: bus the data is the
-  # GitHub delivery itself: the repository is body.repository.full_name, the
-  # event name is the X-Github-Event header, the push branch is body.ref, and
-  # the sender is body.sender.login. Rewrite paths when switching delivery.
+  # Additional Argo Events data filters. Paths in sensor.filters are relative
+  # to the data of the chosen delivery path. With delivery: subject the event
+  # name is body.event and the GitHub body is body.payload. With delivery: bus
+  # the data is the GitHub delivery itself: the repository is
+  # body.repository.full_name, the event name is the X-Github-Event header, the
+  # push branch is body.ref, and the sender is body.sender.login. Rewrite paths
+  # when switching delivery.
   filters: []
   retry:
     steps: 3
