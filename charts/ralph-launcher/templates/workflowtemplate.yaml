@@ -1,9 +1,4 @@
 {{- include "ralph-launcher.validatePromptEntries" . -}}
-{{- $repo := "{{inputs.parameters.repo}}" -}}
-{{- $cloneBranch := "{{inputs.parameters.clone-branch}}" -}}
-{{- $prefix := "{{inputs.parameters.prefix}}" -}}
-{{- $baseBranch := "{{inputs.parameters.base-branch}}" -}}
-{{- $prompt := "{{inputs.parameters.prompt}}" -}}
 {{- $defaultEntry := first .Values.prompt.entries -}}
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
@@ -17,98 +12,7 @@ spec:
     parameters:
       {{- include "ralph-launcher.workflowParameters" (dict "root" . "entry" $defaultEntry) | nindent 6 }}
   templates:
-    - name: ralph-prompt
-      {{- with .Values.workflow.labels }}
-      metadata:
-        labels:
-          {{- toYaml . | nindent 10 }}
-      {{- end }}
-      inputs:
-        parameters:
-          - name: repo
-          - name: clone-branch
-          - name: prefix
-          - name: base-branch
-          - name: prompt
-          - name: model
-          - name: variant
-          - name: agent
-          - name: no-services
-          - name: verbose
-      {{- if .Values.workflow.serviceAccountName }}
-      serviceAccountName: {{ .Values.workflow.serviceAccountName | quote }}
-      {{- end }}
-      container:
-        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
-        imagePullPolicy: {{ .Values.image.pullPolicy }}
-        command:
-          - ralph
-        args:
-          - workflow
-          - prompt
-          - --repo
-          - {{ $repo | quote }}
-          - --clone
-          - {{ $cloneBranch | quote }}
-          - --prefix
-          - {{ $prefix | quote }}
-          - --base
-          - {{ $baseBranch | quote }}
-          - --prompt
-          - {{ $prompt | quote }}
-          {{- if .Values.workflow.model }}
-          - --model
-          - {{ "{{inputs.parameters.model}}" | quote }}
-          {{- end }}
-          {{- if .Values.workflow.variant }}
-          - --variant
-          - {{ "{{inputs.parameters.variant}}" | quote }}
-          {{- end }}
-          {{- if .Values.workflow.agent }}
-          - --agent
-          - {{ "{{inputs.parameters.agent}}" | quote }}
-          {{- end }}
-          {{- if .Values.workflow.noServices }}
-          - --no-services
-          {{- end }}
-          {{- if .Values.workflow.verbose }}
-          - --verbose
-          {{- end }}
-        {{- with .Values.workflow.env }}
-        env:
-          {{- toYaml . | nindent 10 }}
-        {{- end }}
-        resources:
-          {{- toYaml .Values.workflow.resources | nindent 10 }}
-        {{- if or .Values.workflow.credentials.githubSecret .Values.workflow.credentials.opencodeSecret .Values.workflow.extraVolumeMounts }}
-        volumeMounts:
-          {{- if .Values.workflow.credentials.githubSecret }}
-          - name: github-credentials
-            mountPath: /secrets/github
-            readOnly: true
-          {{- end }}
-          {{- if .Values.workflow.credentials.opencodeSecret }}
-          - name: opencode-credentials
-            mountPath: /secrets/opencode
-            readOnly: true
-          {{- end }}
-          {{- with .Values.workflow.extraVolumeMounts }}
-          {{- toYaml . | nindent 10 }}
-          {{- end }}
-        {{- end }}
-      {{- if or .Values.workflow.credentials.githubSecret .Values.workflow.credentials.opencodeSecret .Values.workflow.extraVolumes }}
-      volumes:
-        {{- if .Values.workflow.credentials.githubSecret }}
-        - name: github-credentials
-          secret:
-            secretName: {{ .Values.workflow.credentials.githubSecret | quote }}
-        {{- end }}
-        {{- if .Values.workflow.credentials.opencodeSecret }}
-        - name: opencode-credentials
-          secret:
-            secretName: {{ .Values.workflow.credentials.opencodeSecret | quote }}
-        {{- end }}
-        {{- with .Values.workflow.extraVolumes }}
-        {{- toYaml . | nindent 8 }}
-        {{- end }}
-      {{- end }}
+    {{- include "ralph-launcher.promptTemplate" (dict "root" . "target" false) | nindent 4 }}
+    {{- if include "ralph-launcher.hasTargets" . }}
+    {{- include "ralph-launcher.promptTemplate" (dict "root" . "target" true) | nindent 4 }}
+    {{- end }}

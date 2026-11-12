@@ -79,6 +79,16 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 {{- end -}}
 
+{{- define "ralph-launcher.hasTargets" -}}
+{{- $found := false -}}
+{{- range .Values.prompt.entries -}}
+{{- if .namespace -}}
+{{- $found = true -}}
+{{- end -}}
+{{- end -}}
+{{- if $found -}}true{{- end -}}
+{{- end -}}
+
 {{- define "ralph-launcher.entrySchedules" -}}
 {{- $schedules := list -}}
 {{- with .schedule -}}
@@ -160,6 +170,118 @@ repo
 {{- default (include "ralph-launcher.fullname" .) .Values.sensor.serviceAccount.name -}}
 {{- end -}}
 
+{{- define "ralph-launcher.promptTemplate" -}}
+{{- $root := .root -}}
+{{- $target := .target -}}
+{{- $repo := "{{inputs.parameters.repo}}" -}}
+{{- $cloneBranch := "{{inputs.parameters.clone-branch}}" -}}
+{{- $prefix := "{{inputs.parameters.prefix}}" -}}
+{{- $baseBranch := "{{inputs.parameters.base-branch}}" -}}
+{{- $prompt := "{{inputs.parameters.prompt}}" -}}
+- name: {{ if $target }}ralph-prompt-target{{ else }}ralph-prompt{{ end }}
+  {{- with $root.Values.workflow.labels }}
+  metadata:
+    labels:
+      {{- toYaml . | nindent 6 }}
+  {{- end }}
+  inputs:
+    parameters:
+      - name: repo
+      - name: clone-branch
+      - name: prefix
+      - name: base-branch
+      - name: prompt
+      {{- if $target }}
+      - name: namespace
+      {{- end }}
+      - name: model
+      - name: variant
+      - name: agent
+      - name: no-services
+      - name: verbose
+  {{- if $root.Values.workflow.serviceAccountName }}
+  serviceAccountName: {{ $root.Values.workflow.serviceAccountName | quote }}
+  {{- end }}
+  container:
+    image: "{{ $root.Values.image.repository }}:{{ $root.Values.image.tag | default $root.Chart.AppVersion }}"
+    imagePullPolicy: {{ $root.Values.image.pullPolicy }}
+    command:
+      - ralph
+    args:
+      - workflow
+      - prompt
+      - --repo
+      - {{ $repo | quote }}
+      - --clone
+      - {{ $cloneBranch | quote }}
+      - --prefix
+      - {{ $prefix | quote }}
+      - --base
+      - {{ $baseBranch | quote }}
+      - --prompt
+      - {{ $prompt | quote }}
+      {{- if $target }}
+      - --namespace
+      - {{ "{{inputs.parameters.namespace}}" | quote }}
+      {{- end }}
+      {{- if $root.Values.workflow.model }}
+      - --model
+      - {{ "{{inputs.parameters.model}}" | quote }}
+      {{- end }}
+      {{- if $root.Values.workflow.variant }}
+      - --variant
+      - {{ "{{inputs.parameters.variant}}" | quote }}
+      {{- end }}
+      {{- if $root.Values.workflow.agent }}
+      - --agent
+      - {{ "{{inputs.parameters.agent}}" | quote }}
+      {{- end }}
+      {{- if $root.Values.workflow.noServices }}
+      - --no-services
+      {{- end }}
+      {{- if $root.Values.workflow.verbose }}
+      - --verbose
+      {{- end }}
+    {{- with $root.Values.workflow.env }}
+    env:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    resources:
+      {{- toYaml $root.Values.workflow.resources | nindent 6 }}
+    {{- if or $root.Values.workflow.credentials.githubSecret $root.Values.workflow.credentials.opencodeSecret $root.Values.workflow.extraVolumeMounts }}
+    volumeMounts:
+      {{- if $root.Values.workflow.credentials.githubSecret }}
+      - name: github-credentials
+        mountPath: /secrets/github
+        readOnly: true
+      {{- end }}
+      {{- if $root.Values.workflow.credentials.opencodeSecret }}
+      - name: opencode-credentials
+        mountPath: /secrets/opencode
+        readOnly: true
+      {{- end }}
+      {{- with $root.Values.workflow.extraVolumeMounts }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+    {{- end }}
+  {{- if or $root.Values.workflow.credentials.githubSecret $root.Values.workflow.credentials.opencodeSecret $root.Values.workflow.extraVolumes }}
+  volumes:
+    {{- if $root.Values.workflow.credentials.githubSecret }}
+    - name: github-credentials
+      secret:
+        secretName: {{ $root.Values.workflow.credentials.githubSecret | quote }}
+    {{- end }}
+    {{- if $root.Values.workflow.credentials.opencodeSecret }}
+    - name: opencode-credentials
+      secret:
+        secretName: {{ $root.Values.workflow.credentials.opencodeSecret | quote }}
+    {{- end }}
+    {{- with $root.Values.workflow.extraVolumes }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- end }}
+{{- end -}}
+
 {{- define "ralph-launcher.pushRef" -}}
 {{- if .Values.sensor.branch -}}
 {{- .Values.sensor.branch -}}
@@ -183,6 +305,9 @@ repo
     {{- toYaml . | nindent 4 }}
     {{- end }}
 {{ .specKey }}:
+  {{- if $entry.namespace }}
+  entrypoint: ralph-prompt-target
+  {{- end }}
   workflowTemplateRef:
     name: {{ include "ralph-launcher.fullname" $root }}
   arguments:
@@ -226,6 +351,10 @@ repo
   value: {{ $root.Values.workflow.noServices | quote }}
 - name: verbose
   value: {{ $root.Values.workflow.verbose | quote }}
+{{- if $entry.namespace }}
+- name: namespace
+  value: {{ $entry.namespace | quote }}
+{{- end }}
 {{- end -}}
 
 {{- define "ralph-launcher.dependencyFilters" -}}
