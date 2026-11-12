@@ -137,6 +137,27 @@ Each workflow SHALL take a mutex named from the entry prefix. The mutex SHALL se
 
 ---
 
+### Requirement: Workflow labels
+
+`workflow.labels` SHALL add Kubernetes labels to each launcher `Workflow` and to its pod. The labels SHALL be present when the pod is created.
+
+An empty `workflow.labels` SHALL add no labels.
+
+#### Scenario: Labels reach the workflow and its pod
+
+- GIVEN `workflow.labels` sets `team: platform`
+- WHEN an entry starts a workflow
+- THEN the `Workflow` has the label `team=platform`
+- AND the pod has the label `team=platform` at creation
+
+#### Scenario: No configured labels
+
+- GIVEN `workflow.labels` is empty
+- WHEN an entry starts a workflow
+- THEN no configured label appears on the workflow or its pod
+
+---
+
 ### Requirement: Prompt branch and pull request
 
 The workflow SHALL run the prefix flow defined in [prompt.md](prompt.md#requirement-prefix-work-stream). The container SHALL propose the prompt slug and create the branch `<slug>/<prompt-slug>`.
