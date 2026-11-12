@@ -46,6 +46,7 @@ workflow:
   agent: ""
   noServices: false
   verbose: false
+  # Kubernetes labels applied to each launcher Workflow and its pod.
   labels: {}
   env: []
   resources: {}

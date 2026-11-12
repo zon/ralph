@@ -18,6 +18,11 @@ spec:
       {{- include "ralph-launcher.workflowParameters" (dict "root" . "entry" $defaultEntry) | nindent 6 }}
   templates:
     - name: ralph-prompt
+      {{- with .Values.workflow.labels }}
+      metadata:
+        labels:
+          {{- toYaml . | nindent 10 }}
+      {{- end }}
       inputs:
         parameters:
           - name: repo
