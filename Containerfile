@@ -15,6 +15,15 @@ COPY . .
 # Build ralph binary using justfile (includes version injection)
 RUN just build
 
+# Git stage - Ubuntu's git package depends on the full Perl runtime. Keep the
+# package out of the runtime and copy only the compiled git files, which link
+# against the shared libraries the runtime installs.
+FROM ubuntu:24.04 AS git
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/*
+
 # Argo stage - build the Argo Workflows CLI from its release tag. Its latest
 # release still ships go-jose with a known HIGH vulnerability, and a released
 # binary cannot be patched. Building from the release tag lets us raise that
@@ -66,31 +75,27 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
-    git \
-    just \
-    unzip \
-    net-tools \
-    jq \
-    && rm -rf /var/lib/apt/lists/*
+    libcurl3t64-gnutls \
+    libexpat1 \
+    libpcre2-8-0 \
+    && rm -rf /var/lib/apt/lists/* /usr/share/doc/* /usr/share/info/*
 
 # Install GitHub CLI
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
-    && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
+    && chmod a+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
     && apt-get update \
     && apt-get install -y --no-install-recommends gh \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* /usr/share/doc/* /usr/share/info/*
 
-# Install Go toolchain
-ENV GO_VERSION=1.27.4
-RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" | tar -C /usr/local -xzf - \
-    && ln -s /usr/local/go/bin/go /usr/local/bin/go \
-    && ln -s /usr/local/go/bin/gofmt /usr/local/bin/gofmt
+# Copy only the compiled git commands and templates. The scripts and docs from
+# the git package stay in its build stage.
+COPY --from=git /usr/bin/git /usr/bin/git-shell /usr/bin/scalar /usr/bin/
+COPY --from=git /usr/lib/git-core /usr/lib/git-core
+COPY --from=git /usr/share/git-core /usr/share/git-core
 
 # The Argo Workflows CLI comes from the argo stage, built from source at the
 # version pinned there
-ENV GOPATH=/root/go
-ENV PATH="${GOPATH}/bin:${PATH}"
 COPY --from=argo /out/argo /usr/local/bin/argo
 
 # Copy only the native OpenCode binary from its build stage. The module cache

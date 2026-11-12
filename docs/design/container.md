@@ -31,12 +31,13 @@ The apt step upgrades the base, installs with `--no-install-recommends`, and cle
 
 ## Stages
 
-The Containerfile has four stages:
+The Containerfile has five stages:
 
 1. **Ralph** - a Go image installs `just` and builds the binary with the version and build date.
-2. **Argo** - a Go image builds the argo CLI from the release tag with the go-jose override. Argo is the only tool built from source for a patched dependency.
-3. **OpenCode** - a Bun image installs the pinned `@opencode/cli` package and keeps only the native binary for this platform. The module cache and the other platform packages stay out of the image.
-4. **Runtime** - the Ubuntu base installs its packages and copies the argo CLI, the OpenCode binary, and the Ralph binary. It writes the global OpenCode configuration.
+2. **Git** - an Ubuntu image installs git, whose package depends on the full Perl runtime. The runtime copies only the compiled git commands and templates.
+3. **Argo** - a Go image builds the argo CLI from the release tag with the go-jose override. Argo is the only tool built from source for a patched dependency.
+4. **OpenCode** - a Bun image installs the pinned `@opencode/cli` package and keeps only the native binary for this platform. The module cache and the other platform packages stay out of the image.
+5. **Runtime** - the Ubuntu base installs its packages and copies git, the argo CLI, the OpenCode binary, and the Ralph binary. It writes the global OpenCode configuration.
 
 The runtime carries no Go module cache, Bun installation, or npm package tree. The OpenCode binary is about 240 MB and argo is about 100 MB. Keep the image under 650 MB.
 

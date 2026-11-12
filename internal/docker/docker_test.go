@@ -243,6 +243,69 @@ func TestDockerfileInstallsPinnedOpenCodeInOwnStage(t *testing.T) {
 		"OpenCode stage should keep only the native binary as its output")
 }
 
+func TestDockerfileCopiesGitFromOwnStage(t *testing.T) {
+	projectRoot := filepath.Join("..", "..")
+	containerfilePath := filepath.Join(projectRoot, "Containerfile")
+
+	content, err := os.ReadFile(containerfilePath)
+	require.NoError(t, err, "Should be able to read Containerfile")
+
+	dockerfile := string(content)
+	git := containerfileStage(t, dockerfile, "git")
+	runtime := runtimeStage(t, dockerfile)
+
+	assert.Contains(t, git, "apt-get install -y --no-install-recommends git",
+		"git stage should install the git package")
+
+	assert.Contains(t, runtime, "COPY --from=git /usr/bin/git /usr/bin/git-shell /usr/bin/scalar /usr/bin/",
+		"Runtime stage should copy only the compiled git commands")
+	assert.Contains(t, runtime, "COPY --from=git /usr/lib/git-core /usr/lib/git-core")
+	assert.Contains(t, runtime, "COPY --from=git /usr/share/git-core /usr/share/git-core")
+	assert.NotContains(t, strings.ToLower(runtime), "git-man",
+		"Runtime stage should not carry the git documentation package")
+
+	for _, library := range []string{"libcurl3t64-gnutls", "libexpat1", "libpcre2-8-0"} {
+		assert.Contains(t, runtime, library,
+			"Runtime stage should install the shared library git links against: %s", library)
+	}
+}
+
+func TestDockerfileRuntimeCarriesNoToolchainOrBrowser(t *testing.T) {
+	projectRoot := filepath.Join("..", "..")
+	containerfilePath := filepath.Join(projectRoot, "Containerfile")
+
+	content, err := os.ReadFile(containerfilePath)
+	require.NoError(t, err, "Should be able to read Containerfile")
+
+	runtime := runtimeStage(t, string(content))
+
+	forbidden := []struct {
+		name    string
+		pattern string
+	}{
+		{"Go", `(?i)\bgolang\b|\bgofmt\b|\bgopath\b|/usr/local/go|go\.dev|\bGO_VERSION\b|\bgo (?:build|install|run|get|mod)\b`},
+		{"Bun", `(?i)\bbun\b`},
+		{"Node", `(?i)\bnode\b|node_modules`},
+		{"npm", `(?i)\bnpm\b`},
+		{"air", `(?i)\bair\b`},
+		{"templ", `(?i)\btempl\b`},
+		{"helm", `(?i)\bhelm\b`},
+		{"just", `(?i)\bjust\b`},
+		{"Playwright", `(?i)\bplaywright\b`},
+		{"Chromium", `(?i)\bchromium\b`},
+		{"jq", `(?i)\bjq\b`},
+		{"unzip", `(?i)\bunzip\b`},
+		{"net-tools", `(?i)net-tools`},
+	}
+
+	for _, tool := range forbidden {
+		t.Run(tool.name, func(t *testing.T) {
+			assert.NotRegexp(t, regexp.MustCompile(tool.pattern), runtime,
+				"Runtime stage should not carry %s", tool.name)
+		})
+	}
+}
+
 func TestDockerfileRuntimeReceivesOnlyOpenCodeBinary(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
 	containerfilePath := filepath.Join(projectRoot, "Containerfile")
