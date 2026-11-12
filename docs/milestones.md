@@ -1,11 +1,5 @@
 # Milestones
 
-## Durable Event Delivery
-
-A launcher that is down when an event arrives receives it when it returns, within the bus retention window. A launcher chooses the subject path or the bus path. A cluster that uses only the bus path turns routing off.
-
-* [Events Delivery Design](design/events-delivery.md)
-
 ## Webhook TLS, Routes, and Cleanup
 
 The intake terminates TLS itself, attaches to a Gateway API gateway, and deletes its GitHub hooks when it stops. Each option is off by default.
