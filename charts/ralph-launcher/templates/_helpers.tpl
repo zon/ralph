@@ -58,18 +58,40 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 {{- $_ := set $slugs $slug true -}}
 {{- $_ := required (printf "prompt.entries[%s].text is required" $slug) $entry.text -}}
+{{- $_ := include "ralph-launcher.entrySchedules" $entry | fromJsonArray -}}
 {{- end -}}
+{{- end -}}
+
+{{- define "ralph-launcher.entrySchedules" -}}
+{{- $schedules := list -}}
+{{- with .schedule -}}
+{{- if kindIs "string" . -}}
+{{- $schedules = list . -}}
+{{- else if kindIs "slice" . -}}
+{{- $schedules = . -}}
+{{- else -}}
+{{- fail (printf "prompt entry %q schedule must be one cron expression or a list of expressions" $.slug) -}}
+{{- end -}}
+{{- end -}}
+{{- toJson $schedules -}}
 {{- end -}}
 
 {{- define "ralph-launcher.entryEvents" -}}
 {{- $events := list "push" -}}
 {{- if hasKey . "events" -}}
 {{- $events = .events -}}
+{{- else if include "ralph-launcher.entrySchedules" . | fromJsonArray -}}
+{{- $events = list -}}
 {{- end -}}
-{{- if not $events -}}
+{{- if and (hasKey . "events") (not $events) -}}
 {{- $events = list "" -}}
 {{- end -}}
 {{- toJson $events -}}
+{{- end -}}
+
+{{- define "ralph-launcher.scheduleTimezone" -}}
+{{- $schedule := default dict .Values.schedule -}}
+{{- default "" $schedule.timezone -}}
 {{- end -}}
 
 {{- define "ralph-launcher.safeName" -}}
@@ -111,6 +133,38 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- else -}}
 {{- printf "refs/heads/%s" .Values.repo.baseBranch -}}
 {{- end -}}
+{{- end -}}
+
+{{- define "ralph-launcher.workflowSettings" -}}
+{{- $root := .root -}}
+{{- $entry := .entry -}}
+{{ .metadataKey }}:
+  {{- with .generateName }}
+  generateName: {{ . | quote }}
+  {{- end }}
+  labels:
+    app.kubernetes.io/managed-by: ralph
+    app.kubernetes.io/name: {{ include "ralph-launcher.name" $root | quote }}
+    app.kubernetes.io/instance: {{ $root.Release.Name | quote }}
+    {{- with $root.Values.workflow.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{ .specKey }}:
+  workflowTemplateRef:
+    name: {{ include "ralph-launcher.fullname" $root }}
+  arguments:
+    parameters:
+      {{- include "ralph-launcher.workflowParameters" (dict "root" $root "entry" $entry) | nindent 6 }}
+  ttlStrategy:
+    secondsAfterCompletion: {{ $root.Values.workflow.ttlSecondsAfterCompletion }}
+  podGC:
+    strategy: {{ $root.Values.workflow.podGC.strategy | quote }}
+    deleteDelayDuration: {{ $root.Values.workflow.podGC.deleteDelayDuration | quote }}
+  {{- if $root.Values.workflow.mutex.enabled }}
+  synchronization:
+    mutexes:
+      - name: {{ include "ralph-launcher.mutexName" (dict "root" $root "entry" $entry) | quote }}
+  {{- end }}
 {{- end -}}
 
 {{- define "ralph-launcher.workflowParameters" -}}

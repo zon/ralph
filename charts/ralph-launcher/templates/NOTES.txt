@@ -8,11 +8,24 @@ Workflow template:
 
   {{ include "ralph-launcher.fullname" . }}
 
-The sensor runs ralph workflow prompt on {{ .Values.repo.cloneBranch }} for
+The launcher runs ralph workflow prompt on {{ .Values.repo.cloneBranch }} for
 these work streams:
 
 {{- range .Values.prompt.entries }}
-  {{ .slug }} - {{ if hasKey . "events" }}{{ if .events }}{{ join ", " .events }}{{ else }}every event{{ end }}{{ else }}push{{ end }}
+{{- $events := include "ralph-launcher.entryEvents" . | fromJsonArray }}
+{{- $schedules := include "ralph-launcher.entrySchedules" . | fromJsonArray }}
+{{- $starts := list }}
+{{- if $events }}
+{{- if eq (first $events) "" }}
+{{- $starts = append $starts "every event" }}
+{{- else }}
+{{- $starts = append $starts (join ", " $events) }}
+{{- end }}
+{{- end }}
+{{- if $schedules }}
+{{- $starts = append $starts "a schedule" }}
+{{- end }}
+  {{ .slug }} - {{ join " and " $starts }}
 {{- end }}
 
 Prompt ConfigMap:

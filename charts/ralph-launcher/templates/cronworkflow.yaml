@@ -1,0 +1,24 @@
+{{- include "ralph-launcher.validatePromptEntries" . -}}
+{{- range $entry := .Values.prompt.entries }}
+{{- $schedules := include "ralph-launcher.entrySchedules" $entry | fromJsonArray }}
+{{- if $schedules }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: CronWorkflow
+metadata:
+  name: {{ printf "%s-%s" (include "ralph-launcher.fullname" $) (include "ralph-launcher.safeName" $entry.slug) | trunc 63 | trimSuffix "-" }}
+  labels:
+    {{- include "ralph-launcher.labels" $ | nindent 4 }}
+spec:
+  schedules:
+    {{- range $schedule := $schedules }}
+    - {{ $schedule | quote }}
+    {{- end }}
+  {{- $timezone := include "ralph-launcher.scheduleTimezone" $ }}
+  {{- if $timezone }}
+  timezone: {{ $timezone | quote }}
+  {{- end }}
+  concurrencyPolicy: Forbid
+  {{- include "ralph-launcher.workflowSettings" (dict "root" $ "entry" $entry "metadataKey" "workflowMetadata" "specKey" "workflowSpec") | nindent 2 }}
+{{- end }}
+{{- end }}
