@@ -1,0 +1,28 @@
+{{- with .Values.gatewayRoute }}
+apiVersion: {{ default "gateway.networking.k8s.io/v1" .apiVersion }}
+kind: TLSRoute
+metadata:
+  name: {{ include "ralph-events.fullname" $ }}
+  labels:
+    {{- include "ralph-events.labels" $ | nindent 4 }}
+spec:
+  {{- with .parentRefs }}
+  parentRefs:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- $hostnames := .hostnames }}
+  {{- if not $hostnames }}
+  {{- $host := include "ralph-events.webhookHost" $ }}
+  {{- if $host }}
+  {{- $hostnames = list $host }}
+  {{- end }}
+  {{- end }}
+  {{- with $hostnames }}
+  hostnames:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    - backendRefs:
+        - name: {{ include "ralph-events.githubEventSourceName" $ }}-eventsource-svc
+          port: {{ $.Values.github.webhook.port }}
+{{- end }}

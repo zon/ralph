@@ -110,6 +110,8 @@ sensor:
     retry:
       steps: 3
 
+gatewayRoute: {}
+
 ingress:
   enabled: false
   className: ""
