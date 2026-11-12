@@ -205,6 +205,7 @@ func TestGenerateLoopWorkflowOmitsModelWhenUnset(t *testing.T) {
 // loop workflow submission, and falls back to the config value when no override
 // is given.
 func TestGenerateLoopWorkflowKubeContextOverride(t *testing.T) {
+	t.Setenv("KUBERNETES_SERVICE_HOST", "")
 	dir := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".ralph"), 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, ".ralph", "config.yaml"), []byte("workflow:\n  context: config-context\n  namespace: ralph\n"), 0644))

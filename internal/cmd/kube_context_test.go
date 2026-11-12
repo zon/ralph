@@ -14,6 +14,7 @@ import (
 )
 
 func TestResolveKubeContext(t *testing.T) {
+	t.Setenv("KUBERNETES_SERVICE_HOST", "")
 	tests := []struct {
 		name              string
 		flagContext       string
@@ -196,7 +197,90 @@ func TestResolveKubeContext(t *testing.T) {
 	}
 }
 
+func TestResolveKubeContextInCluster(t *testing.T) {
+	tests := []struct {
+		name              string
+		flagContext       string
+		flagNamespace     string
+		configContext     string
+		configNamespace   string
+		expectedNamespace string
+	}{
+		{
+			name:              "ignores flag and config context and uses the pod namespace",
+			flagContext:       "flag-context",
+			configContext:     "config-context",
+			expectedNamespace: "pod-namespace",
+		},
+		{
+			name:              "namespace flag wins over config and the pod namespace",
+			flagContext:       "flag-context",
+			flagNamespace:     "flag-namespace",
+			configContext:     "config-context",
+			configNamespace:   "config-namespace",
+			expectedNamespace: "flag-namespace",
+		},
+		{
+			name:              "config namespace wins over the pod namespace",
+			configContext:     "config-context",
+			configNamespace:   "config-namespace",
+			expectedNamespace: "config-namespace",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("KUBERNETES_SERVICE_HOST", "10.0.0.1")
+			t.Setenv("KUBECONFIG", filepath.Join(t.TempDir(), "missing-kubeconfig"))
+			t.Setenv("POD_NAMESPACE", "pod-namespace")
+
+			cfg := &config.RalphConfig{
+				Workflow: config.WorkflowConfig{
+					Context:   tt.configContext,
+					Namespace: tt.configNamespace,
+				},
+			}
+
+			lookedUp := false
+			mockClient := &k8s.MockClient{
+				GetCurrentContextFunc: func(context.Context) (k8s.Context, error) {
+					lookedUp = true
+					return k8s.Context{Name: "kube-context", Namespace: "kube-namespace"}, nil
+				},
+			}
+
+			k8sCtx, err := resolveKubeContext(context.Background(), mockClient, cfg, nil, tt.flagContext, tt.flagNamespace)
+			require.NoError(t, err)
+			assert.Empty(t, k8sCtx.Name, "an in-cluster command needs no context")
+			assert.Equal(t, tt.expectedNamespace, k8sCtx.Namespace)
+			assert.False(t, lookedUp, "an in-cluster command must not look up a current context")
+		})
+	}
+}
+
+func TestResolveKubeContextWithKubeconfigInPod(t *testing.T) {
+	dir := t.TempDir()
+	kubeconfigPath := filepath.Join(dir, "kubeconfig")
+	require.NoError(t, os.WriteFile(kubeconfigPath, []byte("apiVersion: v1\n"), 0644))
+
+	t.Setenv("KUBERNETES_SERVICE_HOST", "10.0.0.1")
+	t.Setenv("KUBECONFIG", kubeconfigPath)
+	t.Setenv("POD_NAMESPACE", "pod-namespace")
+
+	mockClient := &k8s.MockClient{
+		GetCurrentContextFunc: func(context.Context) (k8s.Context, error) {
+			return k8s.Context{Name: "kube-context", Namespace: "kube-namespace"}, nil
+		},
+	}
+
+	k8sCtx, err := resolveKubeContext(context.Background(), mockClient, nil, nil, "", "")
+	require.NoError(t, err)
+	assert.Equal(t, "kube-context", k8sCtx.Name)
+	assert.Equal(t, "kube-namespace", k8sCtx.Namespace)
+}
+
 func TestResolveKubeContext_UpwardSearch(t *testing.T) {
+	t.Setenv("KUBERNETES_SERVICE_HOST", "")
 	ctx := context.Background()
 	dir := t.TempDir()
 

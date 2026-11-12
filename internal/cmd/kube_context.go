@@ -15,6 +15,11 @@ func resolveKubeContext(ctx context.Context, client k8s.Client, ralphConfig *con
 		out = output.NewClient(io.Discard, io.Discard, false)
 	}
 
+	if k8s.InCluster() {
+		out.Debugf("Running in a pod with no kubeconfig; using the pod's ServiceAccount")
+		return resolveInClusterContext(ralphConfig, out, flagNamespace)
+	}
+
 	var k8sCtx k8s.Context
 
 	if flagContext != "" {
@@ -47,6 +52,28 @@ func resolveKubeContext(ctx context.Context, client k8s.Client, ralphConfig *con
 	if k8sCtx.Namespace == "" {
 		out.Debugf("Using namespace: %s (default)", "default")
 		k8sCtx.Namespace = "default"
+	}
+
+	return k8sCtx, nil
+}
+
+func resolveInClusterContext(ralphConfig *config.RalphConfig, out *output.Client, flagNamespace string) (k8s.Context, error) {
+	var k8sCtx k8s.Context
+
+	switch {
+	case flagNamespace != "":
+		out.Debugf("Using namespace: %s", flagNamespace)
+		k8sCtx.Namespace = flagNamespace
+	case ralphConfig != nil && ralphConfig.Workflow.Namespace != "":
+		out.Debugf("Using namespace from .ralph/config.yaml: %s", ralphConfig.Workflow.Namespace)
+		k8sCtx.Namespace = ralphConfig.Workflow.Namespace
+	default:
+		namespace, err := k8s.PodNamespace()
+		if err != nil {
+			return k8s.Context{}, err
+		}
+		out.Debugf("Using pod namespace: %s", namespace)
+		k8sCtx.Namespace = namespace
 	}
 
 	return k8sCtx, nil

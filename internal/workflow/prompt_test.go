@@ -226,6 +226,7 @@ func TestWorkflowRender_PromptLeadingDash(t *testing.T) {
 // the configured image, mounts, environment, labels, resources, context, and
 // namespace.
 func TestGeneratePromptWorkflowConfiguredOptions(t *testing.T) {
+	t.Setenv("KUBERNETES_SERVICE_HOST", "")
 	dir := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".ralph"), 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, ".ralph", "config.yaml"), []byte(`

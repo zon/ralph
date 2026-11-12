@@ -3,6 +3,7 @@ package workflow
 import (
 	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
+	"github.com/zon/ralph/internal/k8s"
 )
 
 type WorkflowOptions struct {
@@ -17,7 +18,7 @@ type WorkflowOptions struct {
 	Resources      config.WorkflowResources
 }
 
-func workflowOptionsFromConfig(cfg *config.RalphConfig, ctx *execcontext.Context) WorkflowOptions {
+func workflowOptionsFromConfig(cfg *config.RalphConfig, ctx *execcontext.Context) (WorkflowOptions, error) {
 	opts := WorkflowOptions{
 		Image:          MakeImage(cfg.Workflow.Image.Repository, cfg.Workflow.Image.Tag),
 		ConfigMaps:     cfg.Workflow.ConfigMaps,
@@ -30,6 +31,21 @@ func workflowOptionsFromConfig(cfg *config.RalphConfig, ctx *execcontext.Context
 		Resources:      cfg.Workflow.Resources,
 	}
 
+	if k8s.InCluster() {
+		opts.KubeContext = ""
+		if ctx != nil && ctx.KubeNamespace() != "" {
+			opts.Namespace = ctx.KubeNamespace()
+		}
+		if opts.Namespace == "" {
+			namespace, err := k8s.PodNamespace()
+			if err != nil {
+				return WorkflowOptions{}, err
+			}
+			opts.Namespace = namespace
+		}
+		return opts, nil
+	}
+
 	if ctx != nil && ctx.KubeContext() != "" {
 		opts.KubeContext = ctx.KubeContext()
 	}
@@ -38,5 +54,5 @@ func workflowOptionsFromConfig(cfg *config.RalphConfig, ctx *execcontext.Context
 		opts.Namespace = ctx.KubeNamespace()
 	}
 
-	return opts
+	return opts, nil
 }

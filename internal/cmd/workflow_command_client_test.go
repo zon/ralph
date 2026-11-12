@@ -20,6 +20,7 @@ import (
 // submission and its streamed logs, overriding the values in
 // .ralph/config.yaml.
 func TestCommandWorkflowClientKubeTargetingOverride(t *testing.T) {
+	t.Setenv("KUBERNETES_SERVICE_HOST", "")
 	dir := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".ralph"), 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, ".ralph", "config.yaml"), []byte("workflow:\n  context: config-context\n  namespace: config-namespace\n"), 0644))
@@ -68,6 +69,7 @@ func TestCommandWorkflowClientKubeTargetingOverride(t *testing.T) {
 // --context or --namespace override is passed, the command workflow uses the
 // values from .ralph/config.yaml for the submission and its streamed logs.
 func TestCommandWorkflowClientKubeTargetingFallsBackToConfig(t *testing.T) {
+	t.Setenv("KUBERNETES_SERVICE_HOST", "")
 	dir := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".ralph"), 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, ".ralph", "config.yaml"), []byte("workflow:\n  context: config-context\n  namespace: config-namespace\n"), 0644))
