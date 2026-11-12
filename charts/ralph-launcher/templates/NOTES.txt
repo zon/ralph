@@ -9,8 +9,7 @@ Intake event source:
 
   {{ .Values.intake.eventSource.name }} (event {{ include "ralph-launcher.dependencyEventName" . }})
 
-The namespace EventBus {{ .Values.eventBus.name }} must point at the same NATS
-server and account as the intake's bus.
+The namespace EventBus {{ .Values.eventBus.name }} must point at the same NATS server and account as the intake's bus.
 {{- else }}
 
 Repository subject:
