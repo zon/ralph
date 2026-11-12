@@ -48,6 +48,24 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- default (include "ralph-events.fullname" . | replace "." "-") .Values.github.eventSourceName -}}
 {{- end -}}
 
+{{- define "ralph-events.webhookHost" -}}
+{{- $url := .Values.github.webhook.url -}}
+{{- if $url -}}
+{{- (urlParse $url).hostname -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "ralph-events.validateWebhookTLS" -}}
+{{- $tls := default dict .Values.github.webhook.tls -}}
+{{- $url := .Values.github.webhook.url -}}
+{{- if and $tls.secretName $url (not (regexMatch "(?i)^https://" $url)) -}}
+{{- fail "github.webhook.url must use the https scheme when github.webhook.tls is set" -}}
+{{- end -}}
+{{- if and .Values.gatewayRoute (not $tls.secretName) -}}
+{{- fail "gatewayRoute requires github.webhook.tls" -}}
+{{- end -}}
+{{- end -}}
+
 {{- define "ralph-events.repoSubject" -}}
 {{- $repo := .repo -}}
 {{- if $repo.subject -}}

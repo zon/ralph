@@ -1,3 +1,4 @@
+{{- include "ralph-events.validateWebhookTLS" . }}
 {{- if not .Values.repositories }}
 {{- fail "repositories must contain at least one entry" }}
 {{- end }}
@@ -30,6 +31,17 @@ spec:
         method: {{ .Values.github.webhook.method | quote }}
         {{- with .Values.github.webhook.url }}
         url: {{ . | quote }}
+        {{- end }}
+        deleteHookOnFinish: {{ .Values.github.webhook.deleteHookOnFinish | default false }}
+        {{- with .Values.github.webhook.tls }}
+        {{- with .secretName }}
+        serverCertSecret:
+          name: {{ . | quote }}
+          key: {{ default "tls.crt" $.Values.github.webhook.tls.certKey | quote }}
+        serverKeySecret:
+          name: {{ . | quote }}
+          key: {{ default "tls.key" $.Values.github.webhook.tls.keyKey | quote }}
+        {{- end }}
         {{- end }}
       events:
         {{- toYaml .Values.github.events | nindent 8 }}
