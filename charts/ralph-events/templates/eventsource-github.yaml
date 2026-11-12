@@ -1,3 +1,4 @@
+{{- include "ralph-events.validateWebhookTLS" . }}
 {{- if not .Values.repositories }}
 {{- fail "repositories must contain at least one entry" }}
 {{- end }}
