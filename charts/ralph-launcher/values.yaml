@@ -27,18 +27,23 @@ repo:
 
 prompt:
   # Each entry starts a workflow with its slug as the work-stream prefix and
-  # its text as the prompt. events lists the GitHub event names that start the
-  # entry. When omitted, an entry with a schedule starts no workflows from
-  # events, and an entry without a schedule starts on push. An empty events list
-  # accepts every event. schedule holds one cron expression or a list of
-  # expressions.
+  # its text as the prompt.
+  #
+  # events lists the GitHub event names that start the entry. When omitted, an
+  # entry with a schedule starts no workflows from events, and an entry without
+  # a schedule starts on push. An empty events list accepts every event.
+  #
+  # schedule holds one cron expression or a list of expressions, for example
+  # "0 8 * * *". The chart renders one CronWorkflow for each scheduled entry.
+  # An entry may combine events and schedule.
   entries:
     - slug: review
       text: |
         Review the repository and make one small improvement.
+      # schedule: "0 8 * * *"
 
 schedule:
-  # schedule.timezone applies one time zone to every prompt entry schedule, for
+  # schedule.timezone sets the time zone for every prompt entry schedule, for
   # example America/New_York. Leave empty to use the Argo Workflows controller's
   # time zone.
   timezone: ""
