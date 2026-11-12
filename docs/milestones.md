@@ -1,17 +1,5 @@
 # Milestones
 
-## Launcher Pod Labels
-
-Launcher workflow pods carry `workflow.labels`, as remote run pods do. A cluster that needs a pod label at creation can run launcher prompts.
-
-* [Launcher Design](design/launcher.md#workflow)
-
-## Scheduled Launcher Entries
-
-A launcher entry runs on a cron schedule, with or without events. A schedule covers work that no event starts and events a launcher missed.
-
-* [Launcher Schedule Design](design/launcher-schedule.md)
-
 ## Durable Event Delivery
 
 A launcher that is down when an event arrives receives it when it returns, within the bus retention window. A launcher chooses the subject path or the bus path. A cluster that uses only the bus path turns routing off.
