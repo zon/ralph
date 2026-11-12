@@ -37,7 +37,7 @@ RUN mkdir /tmp/air && cd /tmp/air \
     && GOFLAGS=-mod=mod go build -trimpath -ldflags "-s -w" -o /out/air github.com/air-verse/air
 
 # templ for templates, built with a fixed golang.org/x/net
-ENV TEMPL_VERSION=v0.3.1100
+ENV TEMPL_VERSION=v0.3.1118
 ENV TEMPL_NET_VERSION=v0.62.0
 RUN mkdir /tmp/templ && cd /tmp/templ \
     && go mod init tools \
