@@ -2,5 +2,5 @@ apiVersion: v2
 name: ralph-launcher
 description: Per-namespace Argo Events sensor that runs Ralph prompt workflows from a repository NATS subject
 type: application
-version: 0.8.0
-appVersion: "28.8.1"
+version: 0.9.0
+appVersion: "28.9.0"
