@@ -118,6 +118,21 @@ func runtimeStage(t *testing.T, dockerfile string) string {
 	return dockerfile[matches[len(matches)-1][0]:]
 }
 
+func containerfileStage(t *testing.T, dockerfile, name string) string {
+	t.Helper()
+
+	header := regexp.MustCompile(`(?mi)^FROM\s+.*\s+AS\s+` + regexp.QuoteMeta(name) + `\s*$`)
+	location := header.FindStringIndex(dockerfile)
+	require.NotNil(t, location, "Containerfile should declare stage %q", name)
+
+	end := len(dockerfile)
+	rest := dockerfile[location[1]:]
+	if next := regexp.MustCompile(`(?m)^FROM\s+`).FindStringIndex(rest); next != nil {
+		end = location[1] + next[0]
+	}
+	return dockerfile[location[0]:end]
+}
+
 func TestDockerfileAppliesUbuntuSecurityUpdates(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
 	containerfilePath := filepath.Join(projectRoot, "Containerfile")
@@ -221,7 +236,7 @@ func TestDockerfileBuildsGoToolsWithPatchedDependencies(t *testing.T) {
 	}
 }
 
-func TestDockerfileInstallsPinnedOpenCode(t *testing.T) {
+func TestDockerfileInstallsPinnedOpenCodeInOwnStage(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
 	containerfilePath := filepath.Join(projectRoot, "Containerfile")
 
@@ -229,18 +244,55 @@ func TestDockerfileInstallsPinnedOpenCode(t *testing.T) {
 	require.NoError(t, err, "Should be able to read Containerfile")
 
 	dockerfile := string(content)
+	opencode := containerfileStage(t, dockerfile, "opencode")
+
+	basePattern := regexp.MustCompile(`(?m)^FROM\s+(?:--platform=\S+\s+)?\S*bun:\d+\.\d+\.\d+`)
+	assert.Regexp(t, basePattern, opencode,
+		"OpenCode should build in its own stage on a pinned Bun image")
 
 	// Bun never runs a dependency's lifecycle scripts, so the install must
 	// trust the package or its postinstall leaves the bin/opencode.exe stub
 	// that fails to exec.
-	assert.Contains(t, dockerfile, "bun install -g --trust @opencode/cli@${OPENCODE_VERSION}",
-		"Containerfile should install the trusted, pinned OpenCode CLI")
+	assert.Contains(t, opencode, "bun install -g --trust @opencode/cli@${OPENCODE_VERSION}",
+		"OpenCode stage should install the trusted, pinned OpenCode CLI")
 
-	version := containerfileVersion(t, dockerfile, "OPENCODE_VERSION")
+	version := containerfileVersion(t, opencode, "OPENCODE_VERSION")
 	minimum := [3]int{2, 0, 29}
 	assert.GreaterOrEqual(t, compareVersions(version, minimum), 0,
 		"Containerfile should pin OPENCODE_VERSION at v%d.%d.%d or later, got v%d.%d.%d",
 		minimum[0], minimum[1], minimum[2], version[0], version[1], version[2])
+
+	assert.Contains(t, opencode, "/out/opencode",
+		"OpenCode stage should keep only the native binary as its output")
+}
+
+func TestDockerfileRuntimeReceivesOnlyOpenCodeBinary(t *testing.T) {
+	projectRoot := filepath.Join("..", "..")
+	containerfilePath := filepath.Join(projectRoot, "Containerfile")
+
+	content, err := os.ReadFile(containerfilePath)
+	require.NoError(t, err, "Should be able to read Containerfile")
+
+	runtime := runtimeStage(t, string(content))
+
+	assert.Contains(t, runtime, "COPY --from=opencode /out/opencode /usr/local/bin/opencode",
+		"Runtime stage should copy only the native OpenCode binary from its build stage")
+
+	assert.NotRegexp(t, regexp.MustCompile(`(?i)\bbun\b`), runtime,
+		"Runtime stage should not carry a Bun runtime")
+
+	lower := strings.ToLower(runtime)
+	for _, forbidden := range []string{
+		"bun install",
+		"@opencode/cli",
+		"node_modules",
+		"cli-linux",
+		"musl",
+		"baseline",
+	} {
+		assert.NotContains(t, lower, forbidden,
+			"Runtime stage should not carry the OpenCode build stage's Bun cache or platform packages: %s", forbidden)
+	}
 }
 
 type openCodePermissionRule struct {

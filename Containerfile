@@ -63,6 +63,24 @@ RUN GOBIN=/out go install -trimpath \
     -ldflags "-s -w -X helm.sh/helm/v4/internal/version.version=${HELM_VERSION}" \
     helm.sh/helm/v4/cmd/helm@${HELM_VERSION}
 
+# OpenCode stage - install the pinned OpenCode CLI in a Bun image and keep only
+# the native linux/amd64 binary. The module cache and the platform packages for
+# musl, baseline, and other operating systems stay in this stage.
+FROM --platform=linux/amd64 docker.io/oven/bun:1.4.4-slim AS opencode
+
+ENV BUN_INSTALL=/usr/local/bun
+ENV BUN_INSTALL_BIN=${BUN_INSTALL}/bin
+ENV PATH="${BUN_INSTALL}/bin:${PATH}"
+
+# Bun never runs a dependency's lifecycle scripts, so --trust is required for
+# the package's postinstall to select the native OpenCode binary; without it
+# the install leaves the shebang-less bin/opencode.exe stub that fails as
+# "exec format error".
+ENV OPENCODE_VERSION=2.2.7
+RUN bun install -g --trust @opencode/cli@${OPENCODE_VERSION} \
+    && mkdir -p /out \
+    && cp "$(readlink -f "$(command -v opencode)")" /out/opencode
+
 # Runtime stage - Ubuntu with the runtime Ralph, argo, and OpenCode need
 FROM ubuntu:24.04
 
@@ -101,21 +119,9 @@ ENV GOPATH=/root/go
 ENV PATH="${GOPATH}/bin:${PATH}"
 COPY --from=go-tools /out/ /usr/local/bin/
 
-# Install Bun runtime
-ENV BUN_INSTALL=/usr/local/bun
-ENV PATH="${BUN_INSTALL}/bin:${PATH}"
-RUN curl -fsSL https://bun.sh/install | bash \
-    && ln -s ${BUN_INSTALL}/bin/bun /usr/local/bin/bun \
-    && ln -s ${BUN_INSTALL}/bin/bunx /usr/local/bin/bunx
-
-# Install OpenCode CLI, pinned so the layer does not freeze at whatever was
-# latest when it was first built. Bun never runs a dependency's lifecycle
-# scripts, so --trust is required for the package's postinstall to select the
-# native opencode binary for this platform; without it the install leaves the
-# shebang-less bin/opencode.exe stub that fails as "exec format error".
-ENV OPENCODE_VERSION=2.2.7
-RUN bun install -g --trust @opencode/cli@${OPENCODE_VERSION} \
-    && ln -s ${BUN_INSTALL}/bin/opencode /usr/local/bin/opencode
+# Copy only the native OpenCode binary from its build stage. The module cache
+# and the platform packages stay out of the runtime.
+COPY --from=opencode /out/opencode /usr/local/bin/opencode
 
 # Configure OpenCode as an unattended coding agent whose sandbox is this
 # container. The config is the machine-wide global file so every run inherits
@@ -123,8 +129,8 @@ RUN bun install -g --trust @opencode/cli@${OPENCODE_VERSION} \
 # inside the container and the container boundary is the sandbox: a rule that
 # resolved to "ask" would stall a run with no client to answer. OpenCode's own
 # agent policies still append after these rules, so built-in agents keep their
-# role restrictions. Updates are disabled so the pinned OPENCODE_VERSION is the
-# version every run uses.
+# role restrictions. Updates are disabled so the version pinned in the OpenCode
+# build stage is the version every run uses.
 RUN mkdir -p /root/.config/opencode
 COPY container/opencode.json /root/.config/opencode/opencode.json
 
