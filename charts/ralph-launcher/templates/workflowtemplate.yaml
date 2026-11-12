@@ -12,7 +12,4 @@ spec:
     parameters:
       {{- include "ralph-launcher.workflowParameters" (dict "root" . "entry" $defaultEntry) | nindent 6 }}
   templates:
-    {{- include "ralph-launcher.promptTemplate" (dict "root" . "target" false) | nindent 4 }}
-    {{- if include "ralph-launcher.hasTargets" . }}
-    {{- include "ralph-launcher.promptTemplate" (dict "root" . "target" true) | nindent 4 }}
-    {{- end }}
+    {{- include "ralph-launcher.promptTemplate" (dict "root" .) | nindent 4 }}

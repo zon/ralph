@@ -1,6 +1,6 @@
 # Launcher Target Design
 
-A [launcher](launcher.md) runs each prompt in a pod of its own namespace by default. A target namespace moves the agent. The launcher pod clones the repository, submits one remote run into the target namespace, and waits for it.
+A [launcher](launcher.md) does not run the agent in its own pod. The launcher pod clones the repository, submits one remote run into a target namespace, and waits for it. An entry that sets no `namespace` targets the launcher's own namespace.
 
 ## Purpose
 
@@ -10,7 +10,7 @@ The launcher pod holds the GitHub credentials and the right to submit workflows 
 
 ## Entry
 
-An entry can set `namespace`. The chart passes it to the workflow as a parameter, and the container passes it to `ralph workflow prompt --namespace`. Without it, the entry runs in the launcher pod.
+An entry can set `namespace`. When it is unset, the chart uses the release namespace. The chart passes the result to the workflow as a parameter, and the container passes it to `ralph workflow prompt --namespace`. Every launcher run passes `--namespace`, so no entry runs the agent in the launcher pod.
 
 The target is a namespace of the launcher's own cluster. Another cluster is outside this design.
 
@@ -30,7 +30,7 @@ A failed target workflow fails the launcher workflow. Stopping the launcher work
 
 ## Rights
 
-The pod reaches the cluster with its ServiceAccount. For each target namespace, the chart renders a Role and a RoleBinding in that namespace for the workflow ServiceAccount. The Role allows:
+The pod reaches the cluster with its ServiceAccount. For each distinct target namespace, the chart renders a Role and a RoleBinding in that namespace for the workflow ServiceAccount. The release namespace is a target whenever an entry sets no `namespace` or names it. The Role allows:
 
 * `create`, `get`, `list`, and `watch` on workflows
 * `get`, `list`, and `watch` on pods and pod logs
@@ -39,7 +39,7 @@ The pod reaches the cluster with its ServiceAccount. For each target namespace, 
 
 ## OpenCode Credentials
 
-The launcher mounts one OpenCode Secret for every entry. A release whose entries all name a target leaves `workflow.credentials.opencodeSecret` empty, so no OpenCode credential reaches the launcher pod.
+The launcher pod never runs the agent, so it needs no OpenCode credential. Leave `workflow.credentials.opencodeSecret` empty to mount none. When it names a Secret, the launcher still mounts it.
 
 ## Mutex and Lock
 

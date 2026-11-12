@@ -2,13 +2,13 @@
 
 ## Purpose
 
-A launcher entry can set a target namespace. The launcher pod then submits the entry's prompt as a remote run in that namespace and waits for it, so the agent runs with the repository's own config and the launcher pod holds no agent credentials. An entry with no target runs in the launcher pod as defined in [launcher.md](launcher.md).
+The launcher pod submits each entry's prompt as a remote run in a target namespace and waits for it, so the agent runs with the repository's own config and the launcher pod holds no agent credentials. A launcher pod never runs the agent. An entry that sets a `namespace` targets it, and an entry with no `namespace` targets the launcher's own namespace, as defined in [launcher.md](launcher.md).
 
 ## Requirements
 
 ### Requirement: Entry namespace
 
-Each prompt entry MAY have a `namespace`. When it is set, the chart SHALL pass the namespace to the launcher workflow, and the workflow SHALL pass it to `ralph workflow prompt` as `--namespace`. When it is unset, the chart SHALL NOT pass `--namespace`, and the entry SHALL run in the launcher pod as it does without this requirement.
+Each prompt entry MAY have a `namespace`. When it is set, the chart SHALL pass the namespace to the launcher workflow. When it is unset, the chart SHALL pass the release namespace. In both cases the workflow SHALL pass the namespace to `ralph workflow prompt` as `--namespace`. The chart SHALL NOT render a launcher workflow that omits `--namespace`.
 
 The target SHALL be a namespace of the launcher's own cluster. The chart SHALL NOT accept a target in another cluster.
 
@@ -18,12 +18,13 @@ The target SHALL be a namespace of the launcher's own cluster. The chart SHALL N
 - WHEN its workflow is submitted
 - THEN `ralph workflow prompt` receives `--namespace team-a`
 
-#### Scenario: An entry without a namespace runs in the launcher pod
+#### Scenario: An entry without a namespace targets the release namespace
 
-- GIVEN an entry has no `namespace`
+- GIVEN a launcher is released in namespace `ralph`
+- AND an entry has no `namespace`
 - WHEN its workflow is submitted
-- THEN `ralph workflow prompt` receives no `--namespace`
-- AND the prompt runs in the launcher pod
+- THEN `ralph workflow prompt` receives `--namespace ralph`
+- AND no prompt pass runs in the launcher pod
 
 #### Scenario: Entries target different namespaces
 
@@ -97,7 +98,7 @@ The `--namespace` flag SHALL win over `workflow.namespace` in the checkout's con
 #### Scenario: Config change reaches the next run
 
 - GIVEN the clone branch's `.ralph/config.yaml` sets a new `workflow.image`
-- WHEN the next targeted run is submitted
+- WHEN the next launcher run is submitted
 - THEN the target workflow uses that image
 - AND the launcher release is unchanged
 
@@ -119,9 +120,9 @@ The `--namespace` flag SHALL win over `workflow.namespace` in the checkout's con
 
 ### Requirement: Target rights
 
-For each distinct target namespace, the chart SHALL render a Role and a RoleBinding in that namespace for the workflow ServiceAccount. The Role SHALL allow `create`, `get`, `list`, and `watch` on workflows, and `get`, `list`, and `watch` on pods and pod logs. It SHALL allow nothing else.
+For each distinct target namespace, the chart SHALL render a Role and a RoleBinding in that namespace for the workflow ServiceAccount. The release namespace is a target namespace whenever an entry sets no `namespace` or names it. The Role SHALL allow `create`, `get`, `list`, and `watch` on workflows, and `get`, `list`, and `watch` on pods and pod logs. It SHALL allow nothing else.
 
-`target.rbac.create: false` SHALL skip the Role and RoleBinding. A release with no entry namespace SHALL render no target Role or RoleBinding.
+`target.rbac.create: false` SHALL skip the Role and RoleBinding.
 
 #### Scenario: A target namespace gets a Role and RoleBinding
 
@@ -149,29 +150,37 @@ For each distinct target namespace, the chart SHALL render a Role and a RoleBind
 - WHEN the chart renders
 - THEN no target Role or RoleBinding is rendered
 
-#### Scenario: No target renders no target RBAC
+#### Scenario: An entry without a namespace gets a Role in the release namespace
 
-- GIVEN no entry has a `namespace`
+- GIVEN a launcher is released in namespace `ralph`
+- AND no entry has a `namespace`
 - WHEN the chart renders
-- THEN no target Role or RoleBinding is rendered
+- THEN `ralph` holds a Role and a RoleBinding for the workflow ServiceAccount
+
+#### Scenario: The release namespace is not rendered twice
+
+- GIVEN a launcher is released in namespace `ralph`
+- AND one entry has no `namespace` and another has `namespace: ralph`
+- WHEN the chart renders
+- THEN `ralph` holds one target Role and one target RoleBinding
 
 ---
 
 ### Requirement: No agent credentials in the launcher pod
 
-The launcher SHALL mount the OpenCode Secret named by `workflow.credentials.opencodeSecret` for every entry. A release whose entries all name a target MAY leave `workflow.credentials.opencodeSecret` empty, and the launcher pod SHALL then mount no OpenCode Secret. A launcher pod with no OpenCode mount SHALL start and run a targeted entry, because the OpenCode credentials step loads nothing when the mount is absent.
+The launcher pod never runs the agent, so a release MAY leave `workflow.credentials.opencodeSecret` empty, and the launcher pod SHALL then mount no OpenCode Secret. When `workflow.credentials.opencodeSecret` names a Secret, the launcher pod SHALL mount it. A launcher pod with no OpenCode mount SHALL start and run any entry, because the OpenCode credentials step loads nothing when the mount is absent.
 
-#### Scenario: All entries target a namespace
+#### Scenario: No OpenCode Secret is set
 
-- GIVEN every entry has a `namespace`
-- AND `workflow.credentials.opencodeSecret` is empty
+- GIVEN `workflow.credentials.opencodeSecret` is empty
+- AND an entry has no `namespace`
 - WHEN the chart renders
 - THEN the launcher pod mounts no OpenCode Secret
 
-#### Scenario: A targeted run starts without the mount
+#### Scenario: A run starts without the mount
 
 - GIVEN the launcher pod has no OpenCode mount
-- WHEN a targeted entry runs
+- WHEN an entry runs
 - THEN workspace preparation succeeds
 - AND the target workflow is submitted
 
@@ -189,13 +198,13 @@ The launcher mutex SHALL keep serializing runs of one entry. The target workflow
 
 #### Scenario: Runs of one entry queue
 
-- GIVEN two events start the same targeted entry
+- GIVEN two events start the same entry
 - WHEN both workflows are submitted
 - THEN the second waits for the first launcher workflow
 - AND the second target workflow starts only after the first has finished
 
 #### Scenario: The target takes the branch lock
 
-- GIVEN a targeted run submits its workflow
+- GIVEN a launcher run submits its workflow
 - WHEN the target workflow starts
 - THEN it takes the prompt branch lock

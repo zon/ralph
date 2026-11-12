@@ -79,14 +79,8 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 {{- end -}}
 
-{{- define "ralph-launcher.hasTargets" -}}
-{{- $found := false -}}
-{{- range .Values.prompt.entries -}}
-{{- if .namespace -}}
-{{- $found = true -}}
-{{- end -}}
-{{- end -}}
-{{- if $found -}}true{{- end -}}
+{{- define "ralph-launcher.entryNamespace" -}}
+{{- default .root.Release.Namespace .entry.namespace -}}
 {{- end -}}
 
 {{- define "ralph-launcher.entrySchedules" -}}
@@ -176,23 +170,21 @@ repo
 
 {{- define "ralph-launcher.targetNamespaces" -}}
 {{- $namespaces := dict -}}
+{{- $root := . -}}
 {{- range .Values.prompt.entries -}}
-{{- if .namespace -}}
-{{- $_ := set $namespaces .namespace true -}}
-{{- end -}}
+{{- $_ := set $namespaces (include "ralph-launcher.entryNamespace" (dict "root" $root "entry" .)) true -}}
 {{- end -}}
 {{- toJson (keys $namespaces | sortAlpha) -}}
 {{- end -}}
 
 {{- define "ralph-launcher.promptTemplate" -}}
 {{- $root := .root -}}
-{{- $target := .target -}}
 {{- $repo := "{{inputs.parameters.repo}}" -}}
 {{- $cloneBranch := "{{inputs.parameters.clone-branch}}" -}}
 {{- $prefix := "{{inputs.parameters.prefix}}" -}}
 {{- $baseBranch := "{{inputs.parameters.base-branch}}" -}}
 {{- $prompt := "{{inputs.parameters.prompt}}" -}}
-- name: {{ if $target }}ralph-prompt-target{{ else }}ralph-prompt{{ end }}
+- name: ralph-prompt
   {{- with $root.Values.workflow.labels }}
   metadata:
     labels:
@@ -205,9 +197,7 @@ repo
       - name: prefix
       - name: base-branch
       - name: prompt
-      {{- if $target }}
       - name: namespace
-      {{- end }}
       - name: model
       - name: variant
       - name: agent
@@ -234,10 +224,8 @@ repo
       - {{ $baseBranch | quote }}
       - --prompt
       - {{ $prompt | quote }}
-      {{- if $target }}
       - --namespace
       - {{ "{{inputs.parameters.namespace}}" | quote }}
-      {{- end }}
       {{- if $root.Values.workflow.model }}
       - --model
       - {{ "{{inputs.parameters.model}}" | quote }}
@@ -319,9 +307,6 @@ repo
     {{- toYaml . | nindent 4 }}
     {{- end }}
 {{ .specKey }}:
-  {{- if $entry.namespace }}
-  entrypoint: ralph-prompt-target
-  {{- end }}
   workflowTemplateRef:
     name: {{ include "ralph-launcher.fullname" $root }}
   arguments:
@@ -365,10 +350,8 @@ repo
   value: {{ $root.Values.workflow.noServices | quote }}
 - name: verbose
   value: {{ $root.Values.workflow.verbose | quote }}
-{{- if $entry.namespace }}
 - name: namespace
-  value: {{ $entry.namespace | quote }}
-{{- end }}
+  value: {{ include "ralph-launcher.entryNamespace" (dict "root" $root "entry" $entry) | quote }}
 {{- end -}}
 
 {{- define "ralph-launcher.dependencyFilters" -}}

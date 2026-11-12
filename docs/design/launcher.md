@@ -1,6 +1,6 @@
 # Launcher Design
 
-`ralph-launcher` is one release per Ralph namespace. It listens to the repository subject published by [ralph-events](events.md) and starts Ralph prompt workflows in its namespace. One launcher maps several GitHub event types to prompt entries, each with its own slug and prompt. An entry can also run on a [schedule](launcher-schedule.md) or in a [target namespace](launcher-target.md).
+`ralph-launcher` is one release per Ralph namespace. It listens to the repository subject published by [ralph-events](events.md) and starts Ralph prompt workflows in its namespace. One launcher maps several GitHub event types to prompt entries, each with its own slug and prompt. An entry can also run on a [schedule](launcher-schedule.md). Each launcher workflow submits the agent run into a [target namespace](launcher-target.md), which is the launcher's own namespace unless the entry names another.
 
 The chart lives in `charts/ralph-launcher`. A push to `main` or `dev` publishes it to `oci://ghcr.io/zon/charts/ralph-launcher`.
 
@@ -11,7 +11,8 @@ The chart lives in `charts/ralph-launcher`. A push to `main` or `dev` publishes 
 3. The sensor dependency for the matching entry and event passes the event to its trigger.
 4. The trigger starts a `Workflow`.
 5. The `WorkflowTemplate` runs `ralph workflow prompt` in the Ralph image.
-6. The container clones `repo.cloneBranch`, checks for an open pull request at the entry prefix, proposes a prompt slug, checks out `<prefix>/<prompt-slug>`, runs the prompt text, pushes the branch, and opens a pull request.
+6. The container clones `repo.cloneBranch`, checks for an open pull request at the entry prefix, and proposes a prompt slug.
+7. The container submits a remote run of the prompt text into the target namespace and waits for it. The target workflow checks out `<prefix>/<prompt-slug>`, runs the prompt, pushes the branch, and opens a pull request.
 
 ## Components
 
@@ -69,13 +70,14 @@ The `WorkflowTemplate` passes these values to the container:
 ```text
 ralph workflow prompt --repo <owner/name> --clone <clone-branch>
   --prefix <entry-slug> --base <base-branch> --prompt <prompt>
+  --namespace <target-namespace>
 ```
 
 It adds `--model`, `--variant`, `--agent`, `--no-services`, and `--verbose` when the values set them.
 
 Each workflow takes a mutex named from the entry prefix, normalized to a Kubernetes name. The mutex serializes runs of the same work stream, because the branch name is not known until the container proposes its slug. `workflow.mutex.name` overrides the name for every entry.
 
-The workflow mounts `github-credentials` at `/secrets/github` and `opencode-credentials` at `/secrets/opencode`. `ralph setup` writes both Secrets. See [Setup Design](setup.md) and [Workflow Container Design](workflow.md).
+The workflow mounts `github-credentials` at `/secrets/github`, and `opencode-credentials` at `/secrets/opencode` when `workflow.credentials.opencodeSecret` is set. The launcher pod never runs the agent, so it can leave the OpenCode Secret out. `ralph setup` writes both Secrets. See [Setup Design](setup.md) and [Workflow Container Design](workflow.md).
 
 `workflow.labels` apply to the workflow pods, as they do in a [remote run](remote.md), and to the `Workflow` itself. The `WorkflowTemplate` carries them as pod template labels, so a webhook that reads a pod label at creation, such as for identity injection, sees them.
 
@@ -91,4 +93,4 @@ The sensor and event source names include the release namespace, so their NATS s
 
 ## RBAC
 
-The sensor uses a ServiceAccount with permission to create and inspect workflows and read workflow templates. The chart creates the ServiceAccount, Role, and RoleBinding. A target namespace adds a Role and RoleBinding there. See [Launcher Target Design](launcher-target.md#rights). The workflow pods use the namespace default ServiceAccount unless `workflow.serviceAccountName` names another one.
+The sensor uses a ServiceAccount with permission to create and inspect workflows and read workflow templates. The chart creates the ServiceAccount, Role, and RoleBinding. Every target namespace, including the release namespace, adds a Role and RoleBinding for the workflow ServiceAccount. See [Launcher Target Design](launcher-target.md#rights). The workflow pods use the namespace default ServiceAccount unless `workflow.serviceAccountName` names another one.

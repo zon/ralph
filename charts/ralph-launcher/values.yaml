@@ -53,9 +53,10 @@ prompt:
   # "0 8 * * *". The chart renders one CronWorkflow for each scheduled entry.
   # An entry may combine events and schedule.
   #
-  # namespace names a target namespace for the entry. A targeted entry runs the
-  # agent with the repository's own .ralph/config.yaml. The target must be a
-  # namespace of the launcher's own cluster.
+  # namespace names the namespace the entry's agent workflow runs in. The agent
+  # runs with the repository's own .ralph/config.yaml. When omitted, the entry
+  # targets the release namespace. The namespace must belong to the launcher's
+  # own cluster.
   entries:
     - slug: review
       text: |
@@ -94,17 +95,18 @@ workflow:
     name: ""
   credentials:
     githubSecret: github-credentials
-    # opencodeSecret names the Secret mounted at /secrets/opencode. A release
-    # whose entries all name a target namespace can leave it empty. The launcher
-    # pod then mounts no OpenCode Secret and carries no agent credentials.
+    # opencodeSecret names the Secret mounted at /secrets/opencode. The launcher
+    # pod never runs the agent, so it can leave this empty. The pod then mounts
+    # no OpenCode Secret and carries no agent credentials.
     opencodeSecret: opencode-credentials
   extraVolumes: []
   extraVolumeMounts: []
 
 target:
   # rbac.create renders a Role and RoleBinding for the workflow ServiceAccount
-  # in each target namespace. Set it to false to have the operator grant the
-  # rights another way.
+  # in each target namespace, including the release namespace when an entry
+  # sets no namespace. Set it to false to have the operator grant the rights
+  # another way.
   rbac:
     create: true
 

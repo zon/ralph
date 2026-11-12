@@ -40,19 +40,17 @@ these work streams:
 {{- end }}
   {{ .slug }} - {{ join " and " $starts }}
 {{- end }}
-{{- if include "ralph-launcher.hasTargets" . }}
 
-Target namespaces:
+Target namespaces (an entry with no namespace targets {{ .Release.Namespace }}):
 
 {{- range $namespace := include "ralph-launcher.targetNamespaces" . | fromJsonArray }}
 {{- $slugs := list }}
 {{- range $entry := $.Values.prompt.entries }}
-{{- if eq $entry.namespace $namespace }}
+{{- if eq (include "ralph-launcher.entryNamespace" (dict "root" $ "entry" $entry)) $namespace }}
 {{- $slugs = append $slugs $entry.slug }}
 {{- end }}
 {{- end }}
   {{ $namespace }} - {{ join ", " $slugs }}
-{{- end }}
 {{- end }}
 
 Prompt ConfigMap:
@@ -63,6 +61,7 @@ Update a prompt with:
 
   kubectl -n {{ .Release.Namespace }} edit configmap {{ include "ralph-launcher.fullname" . }}-prompt
 
-The workflow expects the github-credentials and opencode-credentials Secrets in
-namespace {{ .Release.Namespace }}. Run `ralph setup --namespace {{ .Release.Namespace }}`
-to create them.
+The launcher workflow expects the {{ .Values.workflow.credentials.githubSecret }} Secret in namespace
+{{ .Release.Namespace }}. Each target namespace needs the credentials the repository's
+.ralph/config.yaml names for the agent workflow. Run
+`ralph setup --namespace <namespace>` to create them.
