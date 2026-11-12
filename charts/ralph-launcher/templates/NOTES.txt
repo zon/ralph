@@ -40,6 +40,20 @@ these work streams:
 {{- end }}
   {{ .slug }} - {{ join " and " $starts }}
 {{- end }}
+{{- if include "ralph-launcher.hasTargets" . }}
+
+Target namespaces:
+
+{{- range $namespace := include "ralph-launcher.targetNamespaces" . | fromJsonArray }}
+{{- $slugs := list }}
+{{- range $entry := $.Values.prompt.entries }}
+{{- if eq $entry.namespace $namespace }}
+{{- $slugs = append $slugs $entry.slug }}
+{{- end }}
+{{- end }}
+  {{ $namespace }} - {{ join ", " $slugs }}
+{{- end }}
+{{- end }}
 
 Prompt ConfigMap:
 
