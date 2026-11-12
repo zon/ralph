@@ -19,10 +19,6 @@ spec:
   timezone: {{ $timezone | quote }}
   {{- end }}
   concurrencyPolicy: Forbid
-  workflowMetadata:
-    labels:
-      {{- include "ralph-launcher.workflowLabels" $ | nindent 6 }}
-  workflowSpec:
-    {{- include "ralph-launcher.workflowSpec" (dict "root" $ "entry" $entry) | nindent 4 }}
+  {{- include "ralph-launcher.workflowSettings" (dict "root" $ "entry" $entry "metadataKey" "workflowMetadata" "specKey" "workflowSpec") | nindent 2 }}
 {{- end }}
 {{- end }}

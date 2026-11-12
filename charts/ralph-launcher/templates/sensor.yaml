@@ -34,12 +34,7 @@ spec:
             resource:
               apiVersion: argoproj.io/v1alpha1
               kind: Workflow
-              metadata:
-                generateName: {{ printf "ralph-prompt-%s-" (include "ralph-launcher.name" $) | quote }}
-                labels:
-                  {{- include "ralph-launcher.workflowLabels" $ | nindent 18 }}
-              spec:
-                {{- include "ralph-launcher.workflowSpec" (dict "root" $ "entry" $entry) | nindent 16 }}
+              {{- include "ralph-launcher.workflowSettings" (dict "root" $ "entry" $entry "metadataKey" "metadata" "specKey" "spec" "generateName" (printf "ralph-prompt-%s-" (include "ralph-launcher.name" $))) | nindent 14 }}
         retryStrategy:
           steps: {{ $.Values.sensor.retry.steps }}
     {{- end }}
