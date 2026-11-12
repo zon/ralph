@@ -71,11 +71,13 @@ The routing sensor compares `events` with the `headers.X-Github-Event` field. An
 
 The chart registers webhooks when `github.apiTokenSecret` names a Secret with a GitHub token and `github.webhook.url` is set. Without a token, create the webhook in GitHub by hand and point it at the event source service or the optional Ingress.
 
+The event source can terminate TLS itself, sit behind a Gateway API route, and delete its hooks when it stops. See [Events Webhook Design](events-webhook.md).
+
 `github.webhookSecret` names the Secret that holds the HMAC secret. Set it so the event source rejects unsigned requests.
 
 ## Retention
 
-The `RALPH` stream keeps events for `stream.maxAge`, one week by default, for inspection and manual replay. The launcher event source subscribes with core NATS, so a launcher that is down does not replay retained events.
+The `RALPH` stream keeps events for `stream.maxAge`, one week by default, for inspection and manual replay. The launcher event source subscribes with core NATS, so a launcher that is down does not replay retained events. A launcher that needs them uses the bus path. See [Events Delivery Design](events-delivery.md).
 
 ## Prerequisites
 

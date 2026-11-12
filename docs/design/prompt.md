@@ -88,3 +88,5 @@ Remote mode follows logs by default and waits for the workflow to finish. `--no-
 Remote `ralph prompt` sends a branch and a prefix together. Ralph resolved the branch locally, and the container requires it to start with `<prefix>/`.
 
 The launcher sends a prefix alone. The container clones the branch named by `--clone`, checks for an open pull request at the prefix, proposes a prompt slug, and creates `<prefix>/<prompt-slug>` before the pass.
+
+With `--namespace`, the container submits the prompt as a remote run in that namespace instead of running the pass. See [Launcher Target Design](launcher-target.md).

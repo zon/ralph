@@ -1,6 +1,6 @@
 # Launcher Design
 
-`ralph-launcher` is one release per Ralph namespace. It listens to the repository subject published by [ralph-events](events.md) and starts Ralph prompt workflows in its namespace. One launcher maps several GitHub event types to prompt entries, each with its own slug and prompt.
+`ralph-launcher` is one release per Ralph namespace. It listens to the repository subject published by [ralph-events](events.md) and starts Ralph prompt workflows in its namespace. One launcher maps several GitHub event types to prompt entries, each with its own slug and prompt. An entry can also run on a [schedule](launcher-schedule.md) or in a [target namespace](launcher-target.md).
 
 The chart lives in `charts/ralph-launcher`. A push to `main` or `dev` publishes it to `oci://ghcr.io/zon/charts/ralph-launcher`.
 
@@ -38,7 +38,7 @@ prompt:
 
 Because the chart adds nothing to the slug, every event for an entry shares one prefix, so the open pull request check applies to the whole entry.
 
-`events` lists the GitHub event names the entry handles. When omitted it defaults to `[push]`, and an empty list accepts every event. More than one entry may list the same event, and every matching entry runs.
+`events` lists the GitHub event names the entry handles. When omitted it defaults to `[push]`, and an empty list accepts every event. An entry with a [schedule](launcher-schedule.md) and no `events` handles no events. More than one entry may list the same event, and every matching entry runs.
 
 `text` is required and holds the prompt text. The chart writes one ConfigMap key per entry, so an entry has its own prompt.
 
@@ -77,9 +77,11 @@ Each workflow takes a mutex named from the entry prefix, normalized to a Kuberne
 
 The workflow mounts `github-credentials` at `/secrets/github` and `opencode-credentials` at `/secrets/opencode`. `ralph setup` writes both Secrets. See [Setup Design](setup.md) and [Workflow Container Design](workflow.md).
 
+`workflow.labels` apply to the workflow pods, as they do in a [remote run](remote.md), and to the `Workflow` itself. The `WorkflowTemplate` carries them as pod template labels, so a webhook that reads a pod label at creation, such as for identity injection, sees them.
+
 ## Event Bus
 
-The launcher consumes an Argo Events event bus named `eventBus.name`. The [ralph-events](events.md) release creates the bus in each launcher namespace with `eventbus.instances`.
+The launcher consumes an Argo Events event bus named `eventBus.name`. With `delivery: bus` it also reads the intake's events from the shared bus and renders no event source. See [Events Delivery Design](events-delivery.md). The [ralph-events](events.md) release creates the bus in each launcher namespace with `eventbus.instances`.
 
 Set `eventBus.create=true` to have the launcher create the bus itself, with `jetstreamExotic` pointing at the existing NATS server. The launcher does not create a bus by default.
 
@@ -89,4 +91,4 @@ The sensor and event source names include the release namespace, so their NATS s
 
 ## RBAC
 
-The sensor uses a ServiceAccount with permission to create and inspect workflows and read workflow templates. The chart creates the ServiceAccount, Role, and RoleBinding. The workflow pods use the namespace default ServiceAccount unless `workflow.serviceAccountName` names another one.
+The sensor uses a ServiceAccount with permission to create and inspect workflows and read workflow templates. The chart creates the ServiceAccount, Role, and RoleBinding. A target namespace adds a Role and RoleBinding there. See [Launcher Target Design](launcher-target.md#rights). The workflow pods use the namespace default ServiceAccount unless `workflow.serviceAccountName` names another one.

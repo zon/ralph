@@ -10,6 +10,8 @@ The context resolves from highest to lowest:
 2. `workflow.context` in [config](app/ralph-config.md)
 3. The current kubeconfig context
 
+In a pod with no kubeconfig, there is no context to resolve. See [In-Cluster](#in-cluster).
+
 When kubectl is missing and no flag or config value names a context, the command fails and tells the user. It does not guess.
 
 ## Namespace
@@ -27,3 +29,9 @@ The namespace resolves from highest to lowest:
 `ralph run` and `ralph loop` reach the cluster only in `remote` mode. Local and worktree modes run without one. `complete`, `incomplete`, and `validate` have no cluster options, because they never reach a cluster.
 
 `ralph setup` reaches the cluster only when it prepares a namespace.
+
+## In-Cluster
+
+A command that runs in a pod with no kubeconfig reaches its own cluster with the pod's ServiceAccount. It needs no context, and a `--context` flag or `workflow.context` value is ignored there. The namespace resolves as above, so the pod acts in the namespace the flag or config names, and in the pod's own namespace when neither does.
+
+The ServiceAccount's rights decide what the command can do.

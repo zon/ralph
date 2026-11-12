@@ -29,6 +29,8 @@ Runs one loop. It receives the slug, steps, and iteration cap from the workflow 
 
 Runs one OpenCode prompt. It receives the branch or prefix, base, prompt, model, variant, agent, and service choice from the workflow and validates the prompt before workspace setup. With a prefix and no branch, it clones the branch named by `--clone`, checks for an open pull request at the prefix, proposes a prompt slug, and creates `<prefix>/<prompt-slug>` in the checkout. It then runs the [Prompt Design](prompt.md) flow in the cloned repository.
 
+With `--namespace`, it runs the remote flow from the clone instead and exits with the submitted workflow's result. The image, mounts, and environment come from the clone's config. See [Launcher Target Design](launcher-target.md).
+
 ### `ralph workflow command`
 
 Runs the supplied command tokens in the cloned repository. It backs `ralph command`. A missing command fails before any work runs.

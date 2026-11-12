@@ -64,3 +64,7 @@ High level design docs.
 * [Deployment](docs/design/deployment.md) - The binary, the container image, and credentials
 * [Events](docs/design/events.md) - Cluster-wide GitHub webhook intake and NATS JetStream repository subjects
 * [Launcher](docs/design/launcher.md) - Per-namespace prompt workflows started by repository events
+  * [Schedule](docs/design/launcher-schedule.md) - Launcher entries that run on a cron schedule
+  * [Target](docs/design/launcher-target.md) - Launcher entries that submit the run into another namespace
+* [Events Delivery](docs/design/events-delivery.md) - The subject and bus paths from the intake to a launcher, and what survives an outage
+* [Events Webhook](docs/design/events-webhook.md) - Webhook TLS, Gateway API routes, and hook cleanup
