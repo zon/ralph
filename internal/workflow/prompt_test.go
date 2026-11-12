@@ -169,8 +169,8 @@ func TestWorkflowRender_Prompt(t *testing.T) {
 }
 
 // TestWorkflowRender_PromptCarriesOptions asserts the prompt workflow passes
-// the configured model, variant, agent, services, verbose, and debug choices to
-// the container command.
+// the configured model, variant, agent, services, and verbose choices to the
+// container command, and installs the debug wrapper when a debug branch is set.
 func TestWorkflowRender_PromptCarriesOptions(t *testing.T) {
 	wf := &Workflow{
 		ProjectName:   "prompt",
@@ -194,7 +194,15 @@ func TestWorkflowRender_PromptCarriesOptions(t *testing.T) {
 	assert.Equal(t, "build", argValue(args, "--agent"))
 	assert.Contains(t, args, "--no-services")
 	assert.Contains(t, args, "--verbose")
-	assert.Equal(t, "feature", argValue(args, "--debug"))
+
+	script, ok := args[0].(string)
+	require.True(t, ok, "First arg should be the debug script")
+	assert.Contains(t, script, `exec go run ./cmd/ralph/main.go "$@"`)
+	assert.Equal(t, "ralph-debug", args[1], "The script name should be its $0")
+	assert.Equal(t, "ralph", args[2], "Script should run the ralph command")
+	assert.Equal(t, "workflow", args[3], "First command arg should be 'workflow'")
+	assert.Equal(t, "prompt", args[4], "Second command arg should be 'prompt'")
+	assert.NotContains(t, args, "--debug", "The inner command should not receive --debug")
 }
 
 // TestWorkflowRender_PromptLeadingDash asserts a prompt that starts with a dash
