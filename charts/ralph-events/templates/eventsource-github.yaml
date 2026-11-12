@@ -31,6 +31,16 @@ spec:
         {{- with .Values.github.webhook.url }}
         url: {{ . | quote }}
         {{- end }}
+        {{- with .Values.github.webhook.tls }}
+        {{- with .secretName }}
+        serverCertSecret:
+          name: {{ . | quote }}
+          key: {{ default "tls.crt" $.Values.github.webhook.tls.certKey | quote }}
+        serverKeySecret:
+          name: {{ . | quote }}
+          key: {{ default "tls.key" $.Values.github.webhook.tls.keyKey | quote }}
+        {{- end }}
+        {{- end }}
       events:
         {{- toYaml .Values.github.events | nindent 8 }}
       contentType: {{ .Values.github.contentType | quote }}

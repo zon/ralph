@@ -86,6 +86,10 @@ github:
     url: ""
     insecure: false
     active: true
+    tls:
+      secretName: ""
+      certKey: tls.crt
+      keyKey: tls.key
   # Existing Secret holding a GitHub API token. When set, Argo Events registers
   # webhooks for the repositories below.
   apiTokenSecret: {}
