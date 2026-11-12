@@ -25,7 +25,7 @@ When bumping the version, update `internal/version/VERSION`.
 ## Zpecs
 
 * [Milestones](docs/milestones.md) - High level objectives
-* [Regressions](regressions.md) - How to organize and resolve bugs and problems found during other work
+* [Regressions](docs/zpecs/regressions.md) - How to organize and resolve bugs and problems found during other work
 * [Code](docs/zpecs/code.md) - Read before writing code
   * [Architecture](docs/zpecs/architecture.md) - Read before planning code structure
   * [Dependencies](docs/zpecs/dependencies.md) - Read before adding or changing code dependencies

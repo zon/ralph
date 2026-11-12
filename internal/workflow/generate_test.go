@@ -310,10 +310,25 @@ func TestWorkflowRender_DebugBranch(t *testing.T) {
 	command := container["command"].([]interface{})
 	args := container["args"].([]interface{})
 
-	assert.Equal(t, "ralph", command[0], "Command should be 'ralph' for debug workflow")
-	assert.Equal(t, "run", args[1], "Second arg should be 'run'")
-	assert.Equal(t, "--debug", args[10], "Should have --debug flag")
-	assert.Equal(t, debugBranch, args[11], "Debug branch should be passed as arg")
+	require.Equal(t, []interface{}{"/bin/sh", "-c"}, command, "Debug workflow should run a setup script")
+	require.GreaterOrEqual(t, len(args), 3, "Debug workflow should pass the script and the command")
+
+	script, ok := args[0].(string)
+	require.True(t, ok, "First arg should be the debug script")
+	assert.Contains(t, script, `git clone -b "${RALPH_DEBUG_BRANCH}" https://github.com/zon/ralph.git /workspace/ralph`,
+		"Script should clone the Ralph source branch")
+	assert.Contains(t, script, "cat > /usr/local/bin/ralph",
+		"Script should write the ralph wrapper")
+	assert.Contains(t, script, `exec go run ./cmd/ralph/main.go "$@"`,
+		"Wrapper should run Ralph from the cloned source")
+	assert.Contains(t, script, `exec "$@"`,
+		"Script should run the workflow command through the wrapper")
+
+	assert.Equal(t, "ralph-debug", args[1], "The script name should be its $0")
+	assert.Equal(t, "ralph", args[2], "Script should run the ralph command after installing the wrapper")
+	assert.Equal(t, "workflow", args[3], "First command arg should be 'workflow'")
+	assert.Equal(t, "run", args[4], "Second command arg should be 'run'")
+	assert.NotContains(t, args, "--debug", "The inner command should not receive --debug")
 
 	env := container["env"].([]interface{})
 	foundDebugBranch := false
@@ -325,6 +340,51 @@ func TestWorkflowRender_DebugBranch(t *testing.T) {
 		}
 	}
 	assert.True(t, foundDebugBranch, "RALPH_DEBUG_BRANCH environment variable not found")
+}
+
+// TestWorkflowRender_DebugBranchSelectsWrapper asserts a workflow without a
+// debug branch keeps the installed binary as its command and carries no setup
+// script.
+func TestWorkflowRender_DebugBranchSelectsWrapper(t *testing.T) {
+	tests := []struct {
+		name        string
+		debugBranch string
+		wantCommand []interface{}
+	}{
+		{
+			name:        "installed binary without debug branch",
+			debugBranch: "",
+			wantCommand: []interface{}{"ralph"},
+		},
+		{
+			name:        "debug script with debug branch",
+			debugBranch: "feat/debug-mode",
+			wantCommand: []interface{}{"/bin/sh", "-c"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			wf := &Workflow{
+				ProjectName:   "test-project",
+				Repo:          githubpkg.MakeRepo("owner", "repo"),
+				CloneBranch:   "main",
+				ProjectBranch: "feature-branch",
+				ProjectPath:   "project.yaml",
+				DebugBranch:   tt.debugBranch,
+			}
+
+			workflowYAML, err := wf.Render()
+			require.NoError(t, err, "Render failed")
+
+			var wfData map[string]interface{}
+			require.NoError(t, yaml.Unmarshal([]byte(workflowYAML), &wfData), "Failed to parse workflow YAML")
+
+			spec := wfData["spec"].(map[string]interface{})
+			container := spec["templates"].([]interface{})[0].(map[string]interface{})["container"].(map[string]interface{})
+			assert.Equal(t, tt.wantCommand, container["command"])
+		})
+	}
 }
 
 func TestWorkflowRender_WithLabels(t *testing.T) {

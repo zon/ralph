@@ -223,9 +223,6 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 		if w.Prompt.Prefix != "" {
 			args = append(args, "--prefix", w.Prompt.Prefix)
 		}
-		if w.DebugBranch != "" {
-			args = append(args, "--debug", w.DebugBranch)
-		}
 		if w.NoServices {
 			args = append(args, "--no-services")
 		}
@@ -252,9 +249,6 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 			"--project-branch", w.ProjectBranch,
 			"--base", w.BaseBranch,
 		}
-		if w.DebugBranch != "" {
-			args = append(args, "--debug", w.DebugBranch)
-		}
 		itemsQuery := w.Items
 		if itemsQuery == "" {
 			itemsQuery = "."
@@ -275,6 +269,10 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 		if w.Agent != "" {
 			args = append(args, "--agent", w.Agent)
 		}
+	}
+
+	if w.DebugBranch != "" {
+		command, args = debugContainerCommand(command, args)
 	}
 
 	container := map[string]interface{}{
@@ -302,6 +300,32 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 	}
 
 	return template
+}
+
+// debugWrapperScript clones the Ralph source branch into /workspace/ralph and
+// installs a ralph wrapper that runs the clone with go run. The workflow
+// container runs this script in place of the normal ralph command when a debug
+// branch is set. The branch arrives through RALPH_DEBUG_BRANCH so a branch name
+// is never interpolated into the shell script.
+const debugWrapperScript = `set -e
+echo "Debug mode: cloning ralph branch '${RALPH_DEBUG_BRANCH}' to /workspace/ralph..."
+git clone -b "${RALPH_DEBUG_BRANCH}" https://github.com/zon/ralph.git /workspace/ralph
+cat > /usr/local/bin/ralph <<'RALPH_DEBUG_WRAPPER'
+#!/bin/sh
+cd /workspace/ralph && exec go run ./cmd/ralph/main.go "$@"
+RALPH_DEBUG_WRAPPER
+chmod +x /usr/local/bin/ralph
+exec "$@"
+`
+
+// debugContainerCommand wraps the container command in the debug shell script.
+// The script name takes $0 and the original command and its arguments become
+// "$@", so the script runs the command unchanged after installing the wrapper,
+// without quoting or re-parsing any argument.
+func debugContainerCommand(command, args []string) ([]string, []string) {
+	debugArgs := append([]string{debugWrapperScript, "ralph-debug"}, command...)
+	debugArgs = append(debugArgs, args...)
+	return []string{"/bin/sh", "-c"}, debugArgs
 }
 
 // promptBranch returns the branch a prompt workflow checks out. The branch on
