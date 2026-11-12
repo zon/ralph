@@ -95,16 +95,27 @@ func (w *WorkflowPromptCmd) newOrchestrationWorkflowPromptCmd(ctx *execcontext.C
 	return orchestrationPrompt.NewWorkflowPromptCmd(workspace, runner)
 }
 
-// promptWorkflowRunnerAdapter runs the prompt flow in-process after the
-// workspace is prepared.
+// promptWorkflowRunnerAdapter runs the prompt flow after the workspace is
+// prepared. A target namespace submits the prompt as a remote run from the
+// clone instead of running the pass in this pod.
 type promptWorkflowRunnerAdapter struct {
-	ctx *execcontext.Context
+	ctx          *execcontext.Context
+	newPromptCmd func(*execcontext.Context) *PromptCmd
 }
 
 func (a *promptWorkflowRunnerAdapter) Run(flags orchestrationPrompt.WorkflowPromptFlags) error {
-	cmd := &PromptCmd{
-		ctx:        a.ctx,
-		NoServices: flags.NoServices,
+	cmd := a.promptCmd()
+	cmd.NoServices = flags.NoServices
+	if flags.Namespace != "" {
+		cmd.NoNotify = true
+		return cmd.RunRemoteFromClone(flags.Prompt, flags.Branch, flags.BaseBranch, flags.Prefix)
 	}
 	return cmd.RunInWorkspace(flags.Prompt, flags.Branch, flags.BaseBranch, flags.Prefix)
+}
+
+func (a *promptWorkflowRunnerAdapter) promptCmd() *PromptCmd {
+	if a.newPromptCmd != nil {
+		return a.newPromptCmd(a.ctx)
+	}
+	return &PromptCmd{ctx: a.ctx}
 }

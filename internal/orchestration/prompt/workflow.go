@@ -68,13 +68,21 @@ type WorkflowPromptFlags struct {
 }
 
 // WorkspaceFlags prepares the clone and checks out the prompt branch, creating
-// it from the clone branch when it does not exist on the remote.
+// it from the clone branch when it does not exist on the remote. A target
+// namespace clones only the clone branch, leaving the remote prompt flow to
+// resolve and create its own branch in the target workflow.
 func (f WorkflowPromptFlags) WorkspaceFlags() wksp.WorkspaceFlags {
+	targetBranch := f.Branch
+	createBranch := true
+	if f.Namespace != "" {
+		targetBranch = ""
+		createBranch = false
+	}
 	return wksp.WorkspaceFlags{
 		Repo:         f.Repo,
 		CloneBranch:  f.CloneBranch,
-		TargetBranch: f.Branch,
-		CreateBranch: true,
+		TargetBranch: targetBranch,
+		CreateBranch: createBranch,
 		BotName:      f.BotName,
 		BotEmail:     f.BotEmail,
 	}

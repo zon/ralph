@@ -352,19 +352,89 @@ func (c *PromptCmd) RunInWorkspace(prompt, branch, base string, prefix ...string
 	return c.runSetupAndPass(prompt, false)
 }
 
+// RunRemoteFromClone runs the prompt as a remote run from an already prepared
+// clone. It checks the prefix for an open pull request, proposes the prompt
+// branch when only a prefix is supplied, resolves the base branch, checks the
+// clone branch against the remote, and submits a prompt workflow. It runs no
+// pass or service in the current pod.
+func (c *PromptCmd) RunRemoteFromClone(prompt, branch, base string, prefix ...string) error {
+	if strings.TrimSpace(prompt) == "" {
+		return errors.New("prompt is required")
+	}
+	if len(prefix) > 0 {
+		c.Prefix = prefix[0]
+	}
+	cfg, err := c.loadConfig()
+	if err != nil {
+		return err
+	}
+	normalizedPrefix := c.promptPrefix()
+	if normalizedPrefix != "" {
+		if err := git.ValidateBranchName(normalizedPrefix); err != nil {
+			return err
+		}
+	}
+	if err := validatePromptBranchPrefix(normalizedPrefix, branch); err != nil {
+		return err
+	}
+	skipped, err := c.checkOpenPullRequestsForPrefix(normalizedPrefix)
+	if err != nil {
+		return err
+	}
+	if skipped {
+		return nil
+	}
+	if branch == "" && normalizedPrefix != "" {
+		branch, err = c.proposeRemotePromptBranch(prompt)
+		if err != nil {
+			return err
+		}
+	}
+	currentBranch, err := c.currentBranch()
+	if err != nil {
+		return err
+	}
+	baseBranch := orchestrationRun.ResolveBaseBranch(base, currentBranch, branch, cfg.DefaultBranch)
+	c.promptBranch = branch
+	cfg.Mode = config.ModeRemote
+	cfg.Base = baseBranch
+	cfg.StartingBranch = currentBranch
+	c.resolved = &promptResolution{
+		Config:        cfg,
+		Mode:          config.ModeRemote,
+		Slug:          branch,
+		Prefix:        normalizedPrefix,
+		CurrentBranch: currentBranch,
+		PromptBranch:  branch,
+		BaseBranch:    baseBranch,
+	}
+	return c.runRemote(prompt)
+}
+
 // proposeWorkspacePromptBranch proposes a prompt slug and creates the branch
 // under the normalized prefix in the prepared checkout. It runs only for a
 // workflow prompt that names a prefix without a branch.
 func (c *PromptCmd) proposeWorkspacePromptBranch(prompt string) (string, error) {
+	name, err := c.proposeRemotePromptBranch(prompt)
+	if err != nil {
+		return "", err
+	}
+	if err := c.gitClient().SwitchToBranch(name); err != nil {
+		return "", err
+	}
+	return name, nil
+}
+
+// proposeRemotePromptBranch proposes a prompt slug and returns the prefixed
+// branch name without creating it. The remote workflow creates the branch in
+// the target namespace.
+func (c *PromptCmd) proposeRemotePromptBranch(prompt string) (string, error) {
 	slug, err := c.proposeSlug(prompt)
 	if err != nil {
 		return "", err
 	}
 	name := c.promptPrefix() + "/" + git.SanitizeBranchName(slug)
 	if err := git.ValidateBranchName(name); err != nil {
-		return "", err
-	}
-	if err := c.gitClient().SwitchToBranch(name); err != nil {
 		return "", err
 	}
 	return name, nil
