@@ -1,0 +1,26 @@
+{{- $tls := default dict .Values.github.webhook.tls }}
+{{- $certificate := default dict $tls.certificate }}
+{{- $issuer := default dict $certificate.issuerRef }}
+{{- if $issuer.name }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ printf "%s-webhook-tls" (include "ralph-events.fullname" .) | trunc 63 | trimSuffix "-" }}
+  labels:
+    {{- include "ralph-events.labels" . | nindent 4 }}
+spec:
+  secretName: {{ $tls.secretName | quote }}
+  {{- $dnsNames := $certificate.dnsNames }}
+  {{- if not $dnsNames }}
+  {{- $host := include "ralph-events.webhookHost" . }}
+  {{- if $host }}
+  {{- $dnsNames = list $host }}
+  {{- end }}
+  {{- end }}
+  {{- with $dnsNames }}
+  dnsNames:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  issuerRef:
+    {{- toYaml $issuer | nindent 4 }}
+{{- end }}

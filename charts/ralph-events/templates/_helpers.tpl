@@ -48,6 +48,13 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- default (include "ralph-events.fullname" . | replace "." "-") .Values.github.eventSourceName -}}
 {{- end -}}
 
+{{- define "ralph-events.webhookHost" -}}
+{{- $url := .Values.github.webhook.url -}}
+{{- if $url -}}
+{{- (urlParse $url).hostname -}}
+{{- end -}}
+{{- end -}}
+
 {{- define "ralph-events.validateWebhookTLS" -}}
 {{- $tls := default dict .Values.github.webhook.tls -}}
 {{- $url := .Values.github.webhook.url -}}
