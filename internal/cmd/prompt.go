@@ -849,10 +849,14 @@ func (c *PromptCmd) outputClient() promptOutputClient {
 }
 
 // remoteClient returns the wired remote workflow client, building the real one
-// lazily so local and worktree modes never touch Argo.
+// lazily so local and worktree modes never touch Argo. The client generates its
+// workflow from the config already loaded for the checkout.
 func (c *PromptCmd) remoteClient() promptRemoteClient {
 	if c.remote == nil {
 		c.remote = &promptWorkflowClient{ctx: c.executionContext(), argoClient: argo.NewClient()}
+	}
+	if client, ok := c.remote.(*promptWorkflowClient); ok && client.config == nil && c.resolved != nil {
+		client.config = c.resolved.Config
 	}
 	return c.remote
 }

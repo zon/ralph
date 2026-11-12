@@ -143,6 +143,14 @@ func GeneratePromptWorkflow(ctx *execcontext.Context, promptBranch, baseBranch, 
 		return nil, err
 	}
 
+	return GeneratePromptWorkflowWithConfig(ctx, ralphConfig, promptBranch, baseBranch, promptText, cloneBranch, remoteURL, prefix...)
+}
+
+// GeneratePromptWorkflowWithConfig builds a prompt workflow from the supplied
+// config. A caller that has already loaded the cloned repository's config uses
+// it so the workflow's image, mounts, environment, labels, and resources come
+// from that checkout without reading the config again.
+func GeneratePromptWorkflowWithConfig(ctx *execcontext.Context, ralphConfig *config.RalphConfig, promptBranch, baseBranch, promptText, cloneBranch, remoteURL string, prefix ...string) (*Workflow, error) {
 	repo, err := githubpkg.ParseRemoteURL(remoteURL)
 	if err != nil {
 		return nil, err

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"github.com/zon/ralph/internal/argo"
+	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
 	githubpkg "github.com/zon/ralph/internal/github"
@@ -37,7 +38,10 @@ type promptNotifyClient interface {
 // retains the workflow's Kubernetes target so followed logs use the same
 // context and namespace as the submission.
 type promptWorkflowClient struct {
-	ctx         *execcontext.Context
+	ctx *execcontext.Context
+	// config is the config already loaded for the checkout. When set, the
+	// generated workflow uses it instead of reading the config again.
+	config      *config.RalphConfig
 	argoClient  argo.Client
 	namespace   string
 	kubeContext string
@@ -58,15 +62,32 @@ func (c *promptWorkflowClient) Submit(submission promptRemoteSubmission) (string
 		}
 	}
 
-	wf, err := internalwf.GeneratePromptWorkflow(
-		c.ctx,
-		submission.PromptBranch,
-		submission.BaseBranch,
-		submission.Prompt,
-		submission.CloneBranch,
-		remoteURL,
-		submission.Prefix,
+	var (
+		wf  *internalwf.Workflow
+		err error
 	)
+	if c.config != nil {
+		wf, err = internalwf.GeneratePromptWorkflowWithConfig(
+			c.ctx,
+			c.config,
+			submission.PromptBranch,
+			submission.BaseBranch,
+			submission.Prompt,
+			submission.CloneBranch,
+			remoteURL,
+			submission.Prefix,
+		)
+	} else {
+		wf, err = internalwf.GeneratePromptWorkflow(
+			c.ctx,
+			submission.PromptBranch,
+			submission.BaseBranch,
+			submission.Prompt,
+			submission.CloneBranch,
+			remoteURL,
+			submission.Prefix,
+		)
+	}
 	if err != nil {
 		return "", err
 	}

@@ -1,17 +1,22 @@
 package cmd
 
 import (
+	"context"
 	"errors"
+	"io"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 
+	"github.com/zon/ralph/internal/argo"
 	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/git"
 	"github.com/zon/ralph/internal/github"
 	orchestrationPrompt "github.com/zon/ralph/internal/orchestration/prompt"
+	"github.com/zon/ralph/internal/output"
 )
 
 // TestPromptCmdRunRemoteFromCloneSubmits covers a target prompt run from the
@@ -287,6 +292,128 @@ func TestPromptWorkflowRunnerAdapterTargetNamespaceSubmitsRemote(t *testing.T) {
 	assert.Zero(t, servicesClient.runBeforeCalls, "the target namespace runs no local before command")
 	assert.Empty(t, notifier.successes, "completion notifications are off")
 	assert.Empty(t, notifier.errors, "completion notifications are off")
+}
+
+// TestPromptCmdRunRemoteFromCloneUsesCloneConfig covers a target prompt whose
+// submitted workflow takes its image, mounts, environment, labels, and
+// resources from the config loaded for the clone. The target namespace wins
+// over the configured namespace, and the configured context does not apply in a
+// pod without a kubeconfig.
+func TestPromptCmdRunRemoteFromCloneUsesCloneConfig(t *testing.T) {
+	t.Setenv("KUBERNETES_SERVICE_HOST", "10.0.0.1")
+	t.Setenv("KUBECONFIG", t.TempDir()+"/missing-kubeconfig")
+	t.Setenv("POD_NAMESPACE", "pod-namespace")
+
+	cfg := config.Any()
+	cfg.Workflow = config.WorkflowConfig{
+		Image: config.ImageConfig{
+			Repository: "registry.example/clone",
+			Tag:        "clone-v1",
+		},
+		ConfigMaps: []config.ConfigMapMount{{Name: "clone-config"}},
+		Secrets:    []config.SecretMount{{Name: "clone-secret"}},
+		Env:        map[string]config.EnvVar{"CLONE_VAR": {Value: "clone-value"}},
+		Context:    "clone-context",
+		Namespace:  "clone-namespace",
+		Labels:     map[string]string{"team": "clone-team"},
+		Resources: config.WorkflowResources{
+			Requests: config.ResourceList{CPU: "100m", Memory: "128Mi"},
+			Limits:   config.ResourceList{CPU: "500m", Memory: "512Mi"},
+		},
+	}
+
+	var submittedYAML string
+	var submittedCtx argo.K8sContext
+	argoClient := &argo.MockClient{
+		SubmitYAMLFunc: func(_ context.Context, workflowYAML string, kubeCtx argo.K8sContext) (string, error) {
+			submittedYAML = workflowYAML
+			submittedCtx = kubeCtx
+			return "ralph-prompt-abcde", nil
+		},
+	}
+
+	ctx := execcontext.NewContext()
+	ctx.SetOutput(output.NewClient(io.Discard, io.Discard, false))
+	ctx.SetRepoOwner("owner")
+	ctx.SetRepoName("repo")
+	ctx.SetKubeNamespace("target-ns")
+
+	cmd := &PromptCmd{
+		config: &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return cfg, nil }},
+		git: &git.MockClient{
+			CurrentBranchFunc:            func() (string, error) { return "main", nil },
+			IsBranchSyncedWithRemoteFunc: func(string) error { return nil },
+		},
+		pr:       &promptPRRecorder{},
+		output:   &promptOutputRecorder{},
+		remote:   &promptWorkflowClient{ctx: ctx, argoClient: argoClient},
+		NoFollow: true,
+	}
+
+	require.NoError(t, cmd.RunRemoteFromClone("do work", "update/fix-auth", "main", "update"))
+
+	assert.Equal(t, "target-ns", submittedCtx.Namespace, "the target namespace wins over the configured namespace")
+	assert.Empty(t, submittedCtx.Name, "the configured context does not apply in a pod")
+
+	var data map[string]interface{}
+	require.NoError(t, yaml.Unmarshal([]byte(submittedYAML), &data))
+
+	metadata := data["metadata"].(map[string]interface{})
+	labels := metadata["labels"].(map[string]interface{})
+	assert.Equal(t, "clone-team", labels["team"])
+
+	spec := data["spec"].(map[string]interface{})
+	templates := spec["templates"].([]interface{})
+	tmpl := templates[0].(map[string]interface{})
+	container := tmpl["container"].(map[string]interface{})
+	assert.Equal(t, "registry.example/clone:clone-v1", container["image"])
+	require.NotEmpty(t, container["resources"])
+
+	hasEnv := func(env []interface{}, name, value string) bool {
+		for _, entry := range env {
+			envVar, ok := entry.(map[string]interface{})
+			if ok && envVar["name"] == name && envVar["value"] == value {
+				return true
+			}
+		}
+		return false
+	}
+	hasMount := func(mounts interface{}, name, path string) bool {
+		entries, ok := mounts.([]interface{})
+		if !ok {
+			return false
+		}
+		for _, entry := range entries {
+			mount, ok := entry.(map[string]interface{})
+			if ok && mount["name"] == name && mount["mountPath"] == path {
+				return true
+			}
+		}
+		return false
+	}
+	hasVolume := func(volumes interface{}, name string) bool {
+		entries, ok := volumes.([]interface{})
+		if !ok {
+			return false
+		}
+		for _, entry := range entries {
+			volume, ok := entry.(map[string]interface{})
+			if ok && volume["name"] == name {
+				return true
+			}
+		}
+		return false
+	}
+
+	env := container["env"].([]interface{})
+	assert.True(t, hasEnv(env, "CLONE_VAR", "clone-value"), "the clone environment reaches the workflow")
+
+	assert.True(t, hasMount(container["volumeMounts"], "clone-config", "/configmaps/clone-config"),
+		"the clone ConfigMap reaches the workflow")
+	assert.True(t, hasMount(container["volumeMounts"], "clone-secret", "/secrets/clone-secret"),
+		"the clone Secret reaches the workflow")
+	assert.True(t, hasVolume(tmpl["volumes"], "clone-config"), "the clone ConfigMap volume reaches the workflow")
+	assert.True(t, hasVolume(tmpl["volumes"], "clone-secret"), "the clone Secret volume reaches the workflow")
 }
 
 // TestPromptWorkflowRunnerAdapterWithoutNamespaceRunsInPod covers a prompt with
