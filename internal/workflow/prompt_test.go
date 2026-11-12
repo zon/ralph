@@ -121,6 +121,27 @@ func TestWorkflowRender_PromptPrefix(t *testing.T) {
 	assert.Equal(t, "update/my-feature", argValue(args, "--branch"))
 }
 
+// TestWorkflowRender_PromptPrefixWithoutBranch asserts a prompt that names only
+// a prefix sends no branch and takes no lock. The container proposes the prompt
+// slug, and a lock named from the prefix would collide with the launcher mutex
+// that waits for this workflow.
+func TestWorkflowRender_PromptPrefixWithoutBranch(t *testing.T) {
+	wf := &Workflow{
+		ProjectName: "prompt",
+		Repo:        githubpkg.MakeRepo("owner", "repo"),
+		CloneBranch: "main",
+		BaseBranch:  "main",
+		Prompt:      &PromptSpec{Prefix: "review", Text: "Review the repository."},
+	}
+
+	args := promptContainerArgs(t, wf)
+	assert.Equal(t, "review", argValue(args, "--prefix"))
+	assert.NotContains(t, args, "--branch", "the container proposes the branch")
+
+	spec := promptWorkflowData(t, wf)["spec"].(map[string]interface{})
+	assert.NotContains(t, spec, "synchronization", "an unnamed branch has no lock to take")
+}
+
 // TestWorkflowRender_Prompt asserts the prompt workflow is named and labeled
 // for Ralph, uses the same TTL and pod garbage collection as the other
 // workflows, takes the prompt branch lock, and passes the prompt as one

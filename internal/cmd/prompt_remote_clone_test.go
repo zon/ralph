@@ -20,13 +20,14 @@ import (
 )
 
 // TestPromptCmdRunRemoteFromCloneSubmits covers a target prompt run from the
-// prepared clone: the prefix is checked, the prompt branch and base branch are
-// resolved, the clone branch is checked against the remote, and one workflow is
-// submitted. No local pass or service work runs.
+// prepared clone: the prefix is checked, the base branch is resolved, the clone
+// branch is checked against the remote, and one workflow is submitted. The
+// prompt slug is left to the target workflow, so the launcher pod asks the AI
+// for nothing. No local pass or service work runs.
 func TestPromptCmdRunRemoteFromCloneSubmits(t *testing.T) {
 	var order []string
 	var synced []string
-	var proposed string
+	var proposals int
 	remote := &promptRemoteRecorder{}
 	aiClient := &promptAIRecorder{order: &order}
 	servicesClient := &promptServicesRecorder{order: &order}
@@ -44,9 +45,8 @@ func TestPromptCmdRunRemoteFromCloneSubmits(t *testing.T) {
 				return nil
 			},
 		},
-		slugProposer: promptSlugProposerFunc(func(description string) (string, error) {
-			proposed = description
-			promptEvent(&order, "propose")
+		slugProposer: promptSlugProposerFunc(func(string) (string, error) {
+			proposals++
 			return "Fix Auth", nil
 		}),
 		services: servicesClient,
@@ -61,23 +61,21 @@ func TestPromptCmdRunRemoteFromCloneSubmits(t *testing.T) {
 	err := cmd.RunRemoteFromClone("do work", "", "release", "update/")
 
 	require.NoError(t, err)
-	assert.Equal(t, "do work", proposed, "the slug is proposed from the prompt")
+	assert.Zero(t, proposals, "the launcher pod proposes no slug")
 	assert.Equal(t, []string{"main"}, synced, "the clone branch is checked against the remote")
 	require.Equal(t, 1, remote.submitCalls, "exactly one target workflow is submitted")
 	assert.Equal(t, promptRemoteSubmission{
-		CloneBranch:  "main",
-		PromptBranch: "update/fix-auth",
-		Prefix:       "update",
-		BaseBranch:   "release",
-		Prompt:       "do work",
-	}, remote.submissions[0])
+		CloneBranch: "main",
+		Prefix:      "update",
+		BaseBranch:  "release",
+		Prompt:      "do work",
+	}, remote.submissions[0], "a prefix alone is sent with no prompt branch")
 	require.NotNil(t, cmd.resolved)
 	assert.Equal(t, config.ModeRemote, cmd.resolved.Mode)
-	assert.Equal(t, "update/fix-auth", cmd.resolved.PromptBranch)
+	assert.Empty(t, cmd.resolved.PromptBranch)
 	assert.Equal(t, "update", cmd.resolved.Prefix)
 	assert.Equal(t, "release", cmd.resolved.BaseBranch)
-	assert.Less(t, promptIndex(order, "list-pull-requests"), promptIndex(order, "propose"), "the prefix is checked before the slug proposal")
-	assert.Less(t, promptIndex(order, "propose"), promptIndex(order, "current"), "the branches resolve after the slug proposal")
+	assert.Less(t, promptIndex(order, "list-pull-requests"), promptIndex(order, "current"), "the prefix is checked before the branches resolve")
 	assert.Less(t, promptIndex(order, "current"), promptIndex(order, "sync"), "the base is resolved before the sync check")
 	assert.Zero(t, servicesClient.runBeforeCalls, "a target run runs no local before command")
 	assert.Zero(t, servicesClient.startCalls, "a target run starts no local service")
