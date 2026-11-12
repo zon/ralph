@@ -21,59 +21,32 @@ func TestDockerfileExists(t *testing.T) {
 	require.NoError(t, err, "Containerfile should exist at %s", containerfilePath)
 }
 
-func TestDockerfileContainsRequiredComponents(t *testing.T) {
+func TestDockerfileRuntimeCarriesRequiredComponents(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
 	containerfilePath := filepath.Join(projectRoot, "Containerfile")
 
 	content, err := os.ReadFile(containerfilePath)
 	require.NoError(t, err, "Should be able to read Containerfile")
 
-	dockerfile := string(content)
+	runtime := runtimeStage(t, string(content))
 
 	requiredComponents := []struct {
-		name        string
-		searchTerms []string
+		name string
+		line string
 	}{
-		{
-			name:        "Ralph binary",
-			searchTerms: []string{"ralph"},
-		},
-		{
-			name:        "argo CLI",
-			searchTerms: []string{"argo"},
-		},
-		{
-			name:        "OpenCode",
-			searchTerms: []string{"opencode"},
-		},
-		{
-			name:        "Git",
-			searchTerms: []string{"git"},
-		},
-		{
-			name:        "GitHub CLI",
-			searchTerms: []string{"cli.github.com", "gh"},
-		},
-		{
-			name:        "shell",
-			searchTerms: []string{"/bin/sh"},
-		},
-		{
-			name:        "CA certificates",
-			searchTerms: []string{"ca-certificates"},
-		},
+		{"Ralph binary", "COPY --from=builder /build/ralph /usr/local/bin/ralph"},
+		{"argo CLI", "COPY --from=argo /out/argo /usr/local/bin/argo"},
+		{"OpenCode", "COPY --from=opencode /out/opencode /usr/local/bin/opencode"},
+		{"Git", "COPY --from=git /usr/bin/git /usr/bin/git-shell /usr/bin/scalar /usr/bin/"},
+		{"GitHub CLI", "apt-get install -y --no-install-recommends gh"},
+		{"shell", `CMD ["/bin/sh"]`},
+		{"CA certificates", "ca-certificates"},
 	}
 
 	for _, component := range requiredComponents {
 		t.Run(component.name, func(t *testing.T) {
-			found := false
-			for _, term := range component.searchTerms {
-				if strings.Contains(strings.ToLower(dockerfile), strings.ToLower(term)) {
-					found = true
-					break
-				}
-			}
-			assert.True(t, found, "Containerfile should contain required component: %s", component.name)
+			assert.Contains(t, runtime, component.line,
+				"Runtime stage should carry required component: %s", component.name)
 		})
 	}
 }
@@ -270,6 +243,32 @@ func TestDockerfileCopiesGitFromOwnStage(t *testing.T) {
 	}
 }
 
+var forbiddenRuntimeTools = []struct {
+	name    string
+	pattern *regexp.Regexp
+}{
+	{"Go", regexp.MustCompile(`(?i)\bgo\b|\bgofmt\b|\bgopath\b|\bgoroot\b|/usr/local/go|go\.dev|\bGO_VERSION\b|\bGOFLAGS\b`)},
+	{"Bun", regexp.MustCompile(`(?i)\bbun(?:x)?\b`)},
+	{"Node", regexp.MustCompile(`(?i)\bnode(?:\.?js)?\b|node_modules`)},
+	{"npm", regexp.MustCompile(`(?i)\bnpm\b|\bnpx\b|npmjs`)},
+	{"Rust", regexp.MustCompile(`(?i)\brustc?\b|\bcargo\b`)},
+	{"Python", regexp.MustCompile(`(?i)\bpython[0-9.]*\b|\bpip[0-9.]*\b`)},
+	{"Ruby", regexp.MustCompile(`(?i)\bruby\b|\bbundler\b`)},
+	{"Java", regexp.MustCompile(`(?i)\bjava\b|\bjavac\b|\bjre\b|\bjdk\b|\bmaven\b|\bgradle\b`)},
+	{"Perl", regexp.MustCompile(`(?i)\bperl\b`)},
+	{"air", regexp.MustCompile(`(?i)\bair\b`)},
+	{"templ", regexp.MustCompile(`(?i)\btempl\b`)},
+	{"helm", regexp.MustCompile(`(?i)\bhelm\b`)},
+	{"just", regexp.MustCompile(`(?i)\bjust\b`)},
+	{"Playwright", regexp.MustCompile(`(?i)\bplaywright\b`)},
+	{"Chromium", regexp.MustCompile(`(?i)\bchromium\b`)},
+	{"Chrome", regexp.MustCompile(`(?i)\bchrome\b|\bgoogle-chrome\b`)},
+	{"Firefox", regexp.MustCompile(`(?i)\bfirefox\b`)},
+	{"jq", regexp.MustCompile(`(?i)\bjq\b`)},
+	{"unzip", regexp.MustCompile(`(?i)\bunzip\b`)},
+	{"net-tools", regexp.MustCompile(`(?i)net-tools`)},
+}
+
 func TestDockerfileRuntimeCarriesNoToolchainOrBrowser(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
 	containerfilePath := filepath.Join(projectRoot, "Containerfile")
@@ -279,31 +278,58 @@ func TestDockerfileRuntimeCarriesNoToolchainOrBrowser(t *testing.T) {
 
 	runtime := runtimeStage(t, string(content))
 
-	forbidden := []struct {
-		name    string
-		pattern string
-	}{
-		{"Go", `(?i)\bgolang\b|\bgofmt\b|\bgopath\b|/usr/local/go|go\.dev|\bGO_VERSION\b|\bgo (?:build|install|run|get|mod)\b`},
-		{"Bun", `(?i)\bbun\b`},
-		{"Node", `(?i)\bnode\b|node_modules`},
-		{"npm", `(?i)\bnpm\b`},
-		{"air", `(?i)\bair\b`},
-		{"templ", `(?i)\btempl\b`},
-		{"helm", `(?i)\bhelm\b`},
-		{"just", `(?i)\bjust\b`},
-		{"Playwright", `(?i)\bplaywright\b`},
-		{"Chromium", `(?i)\bchromium\b`},
-		{"jq", `(?i)\bjq\b`},
-		{"unzip", `(?i)\bunzip\b`},
-		{"net-tools", `(?i)net-tools`},
-	}
-
-	for _, tool := range forbidden {
+	for _, tool := range forbiddenRuntimeTools {
 		t.Run(tool.name, func(t *testing.T) {
-			assert.NotRegexp(t, regexp.MustCompile(tool.pattern), runtime,
+			assert.False(t, tool.pattern.MatchString(runtime),
 				"Runtime stage should not carry %s", tool.name)
 		})
 	}
+}
+
+func TestRuntimeToolChecksRejectReturningTools(t *testing.T) {
+	cases := []struct {
+		name string
+		line string
+	}{
+		{"Go toolchain", `RUN curl https://go.dev/dl/go1.27.4.linux-amd64.tar.gz | tar -C /usr/local -xzf -`},
+		{"Go binary", `COPY --from=builder /usr/local/go/bin/go /usr/local/bin/go`},
+		{"Bun", `COPY --from=opencode /usr/local/bun/bin/bun /usr/local/bin/bun`},
+		{"Node.js", `RUN apt-get install -y --no-install-recommends nodejs`},
+		{"npm", `RUN npm install -g @opencode/cli`},
+		{"Rust", `RUN apt-get install -y --no-install-recommends cargo`},
+		{"Python", `RUN apt-get install -y --no-install-recommends python3`},
+		{"Ruby", `RUN apt-get install -y --no-install-recommends ruby`},
+		{"Java", `RUN apt-get install -y --no-install-recommends default-jre`},
+		{"Perl", `RUN apt-get install -y --no-install-recommends perl`},
+		{"air", `COPY --from=builder /go/bin/air /usr/local/bin/air`},
+		{"templ", `COPY --from=builder /go/bin/templ /usr/local/bin/templ`},
+		{"helm", `COPY --from=builder /go/bin/helm /usr/local/bin/helm`},
+		{"just", `RUN apt-get install -y --no-install-recommends just`},
+		{"Playwright", `RUN npx playwright install`},
+		{"Chromium", `RUN apt-get install -y --no-install-recommends chromium`},
+		{"Chrome", `RUN apt-get install -y --no-install-recommends google-chrome-stable`},
+		{"Firefox", `RUN apt-get install -y --no-install-recommends firefox`},
+		{"jq", `RUN apt-get install -y --no-install-recommends jq`},
+		{"unzip", `RUN apt-get install -y --no-install-recommends unzip`},
+		{"net-tools", `RUN apt-get install -y --no-install-recommends net-tools`},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			runtime := "FROM ubuntu:24.04\n" + tc.line
+			assert.False(t, runtimeCarriesNoForbiddenTool(runtime),
+				"Runtime tool check should reject a runtime that adds %s", tc.name)
+		})
+	}
+}
+
+func runtimeCarriesNoForbiddenTool(runtime string) bool {
+	for _, tool := range forbiddenRuntimeTools {
+		if tool.pattern.MatchString(runtime) {
+			return false
+		}
+	}
+	return true
 }
 
 func TestDockerfileRuntimeReceivesOnlyOpenCodeBinary(t *testing.T) {
