@@ -120,12 +120,15 @@ sensor:
       factor: 2
       steps: 5
   replicas: 1
-  # Only run an entry's push dependency for pushes to the base branch. Set to
-  # false to run on every push delivered by the chosen delivery path.
+  # Only run an entry's push dependency for pushes to the base branch. This
+  # applies on either delivery path. Set to false to run on every push
+  # delivered by the chosen path.
   defaultBranchOnly: true
-  # The branch filter follows repo.baseBranch. Set branch to override it.
+  # The branch filter follows repo.baseBranch on either delivery path. Set
+  # branch to override the ref it matches.
   branch: ""
-  # Pushes from these GitHub users do not start another prompt run.
+  # Pushes from these GitHub users do not start another prompt run on either
+  # delivery path.
   ignoreUsers:
     - "ralph-zon[bot]"
   # Additional Argo Events data filters. Paths are relative to the data of the
