@@ -705,7 +705,7 @@ Ralph SHALL embed the prompt in the workflow manifest as one container argument.
 
 Remote mode SHALL follow logs by default and wait for the workflow to finish. `--no-follow` SHALL submit and return with the workflow name and an `argo logs` hint. A followed workflow SHALL send a completion notification unless `--no-notify` is set. Stopping the local command SHALL NOT stop the workflow. A followed failure SHALL exit non-zero. A submission without follow SHALL exit zero once the workflow is accepted.
 
-`--debug <branch>` SHALL run Ralph from that source branch inside the container.
+`--debug <branch>` SHALL run Ralph from that source branch inside the container. The workflow image SHALL provide the Go toolchain. When `go` is missing, the container SHALL exit with an error that names the Go toolchain image before any pass runs.
 
 #### Scenario: Branch must be in sync with the remote
 
@@ -778,6 +778,15 @@ Remote mode SHALL follow logs by default and wait for the workflow to finish. `-
 - AND the user passes `--debug feature-branch`
 - WHEN the workflow runs
 - THEN the container runs Ralph from `feature-branch` instead of the installed binary
+
+#### Scenario: Debug without the Go toolchain
+
+- GIVEN the mode is `remote`
+- AND the configured image does not provide `go`
+- AND the user passes `--debug feature-branch`
+- WHEN the workflow runs
+- THEN the container exits with an error that names the Go toolchain image
+- AND no prompt pass runs
 
 ---
 

@@ -97,12 +97,22 @@ With `--follow`, the command SHALL stream the workflow logs and wait for the wor
 
 With `--debug <branch>`, the generated workflow SHALL check out the specified Ralph source branch inside the container and invoke Ralph via `go run` instead of the built binary.
 
+The workflow image SHALL provide the Go toolchain. When `go` is missing, the container SHALL exit with an error that names the Go toolchain image before any project work runs.
+
 #### Scenario: `--debug <branch>` selects a Ralph source branch
 
 - GIVEN the user passes `--debug my-fix`
 - WHEN the workflow YAML is generated
 - THEN the container checks out the `my-fix` branch of the Ralph repository
 - AND invokes Ralph via `go run` instead of the pre-built binary
+
+#### Scenario: Debug image without the Go toolchain
+
+- GIVEN the workflow image does not provide `go`
+- AND the user passes `--debug my-fix`
+- WHEN the container starts
+- THEN it exits with an error that names the Go toolchain image
+- AND no project work runs
 
 ---
 

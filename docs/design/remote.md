@@ -25,7 +25,7 @@ The workflow runs the image named by `workflow.image`, which defaults to the Ral
 
 Without `--follow`, the command prints the workflow name and an `argo logs` hint, then returns. With `--follow`, it streams logs and waits for the workflow to finish. A followed workflow sends a desktop notification on completion unless notifications are off. See [CLI Design](app/ralph.md).
 
-`--debug <branch>` builds Ralph from that source branch inside the container instead of using the installed binary.
+`--debug <branch>` builds Ralph from that source branch inside the container instead of using the installed binary. It needs a toolchain image with the Go toolchain. See [Container Design](container.md#debug).
 
 ## Command
 

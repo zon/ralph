@@ -96,6 +96,8 @@ The system SHALL rely on the run-local behavior it delegates to for base-branch 
 
 The system SHOULD support a debug mode that clones a specific Ralph branch and invokes Ralph via `go run` instead of the built binary.
 
+The workflow image SHALL provide the Go toolchain. When `go` is missing, the wrapper SHALL exit with an error that names the Go toolchain image before any project work runs.
+
 #### Scenario: Debug branch set
 
 - GIVEN `--debug <branch>` is provided
@@ -103,6 +105,14 @@ The system SHOULD support a debug mode that clones a specific Ralph branch and i
 - THEN the specified Ralph source branch is checked out into `/workspace/ralph`
 - AND a wrapper script is written to `/usr/local/bin/ralph` that invokes `go run ./cmd/ralph/main.go` from the cloned source
 - AND subsequent Ralph invocations use that wrapper instead of the installed binary
+
+#### Scenario: Debug image without the Go toolchain
+
+- GIVEN `--debug <branch>` is provided
+- AND the workflow image does not provide `go`
+- WHEN `ralph workflow run` starts
+- THEN the wrapper exits with an error that names the Go toolchain image
+- AND no project work runs
 
 ### Requirement: Project Execution
 

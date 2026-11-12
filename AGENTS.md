@@ -61,6 +61,7 @@ High level design docs.
 * [Validate](docs/design/validate.md) - Project validation and the repair loop
 * [Services](docs/design/services.md) - Before commands and per-iteration services
 * [Argo](docs/design/argo.md) - Listing, stopping, and reading workflow logs
+* [Container](docs/design/container.md) - The container image, its contents, and toolchain images
 * [Deployment](docs/design/deployment.md) - The binary, the container image, and credentials
 * [Events](docs/design/events.md) - Cluster-wide GitHub webhook intake and NATS JetStream repository subjects
 * [Launcher](docs/design/launcher.md) - Per-namespace prompt workflows started by repository events

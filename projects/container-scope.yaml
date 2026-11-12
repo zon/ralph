@@ -1,0 +1,7 @@
+- "The final runtime stage builds on `ubuntu:24.04` and carries Ralph, the argo CLI, OpenCode, git, gh, a shell, and CA certificates. The global OpenCode configuration, the workspace directory, and the default shell command remain as they are."
+- "The final image carries no language toolchain and no browser: no Go, Bun, Node, npm, air, templ, helm, just, Playwright, Chromium, jq, unzip, or net-tools. A local `just container-build` produces an image no larger than 650 MB on linux/amd64."
+- "OpenCode installs in its own build stage at the pinned version, and the runtime receives only the native binary for linux/amd64. The Bun module cache and the platform packages for musl, baseline, and other operating systems stay out of the image."
+- "The argo CLI still builds from its release tag with the patched go-jose dependency, and its build stage no longer builds air, templ, or helm."
+- "The debug wrapper checks for `go` before it clones the Ralph source. When `go` is missing, it prints an error that names `ghcr.io/zon/ralph-go` and exits non-zero, so no project work runs."
+- "Container tests assert the runtime base, the required binaries, and the absence of every language toolchain, build tool, and browser. They fail if a removed tool returns to the runtime."
+- "Apply a semver major bump to the Ralph app version."

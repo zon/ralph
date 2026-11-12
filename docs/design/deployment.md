@@ -8,13 +8,14 @@ Ralph ships as a binary and as a container image. The binary runs local, worktre
 
 ## Image
 
-The image is `ghcr.io/zon/ralph`, tagged with the version. `workflow.image` in the [config](app/ralph-config.md) overrides the repository and tag, so a workflow can pin a different image.
+The image is `ghcr.io/zon/ralph`, tagged with the version. `workflow.image` in the [config](app/ralph-config.md) overrides the repository and tag, so a workflow can pin a different image. Toolchain images in `zon/ralph-containers` layer a language toolchain on the Ralph image. See [Container Design](container.md).
 
-The Containerfile has three stages:
+The Containerfile has four stages:
 
 * A Go builder compiles the binary with the version and build date.
-* A Go tools stage builds `air`, `templ`, the Argo CLI, and Helm from source at pinned versions. The latest release of each still ships a dependency with a known HIGH vulnerability, so the stage raises that dependency, or builds with a Go that carries the fix, and keeps the Go module cache out of the runtime image. An override goes away once a release of the tool ships the fixed version.
-* A Playwright runtime provides the browsers, then adds git tooling, the GitHub CLI, Go, Bun, OpenCode, the built Go tools, and the Ralph binary.
+* A Go stage builds the Argo CLI from source at a pinned version. The latest release still ships a dependency with a known HIGH vulnerability, so the stage raises that dependency and keeps the Go module cache out of the runtime image. An override goes away once a release of the tool ships the fixed version.
+* A Bun stage installs the pinned OpenCode package and keeps only the native binary for this platform.
+* An Ubuntu runtime provides git and the GitHub CLI, then adds the Argo CLI, OpenCode, and the Ralph binary. It carries no language toolchain and no browser.
 
 The image also carries a global OpenCode configuration that lets the agent act without a client to answer permission prompts. The container boundary is the sandbox. The image disables OpenCode updates, so the pinned version is the version every run uses.
 

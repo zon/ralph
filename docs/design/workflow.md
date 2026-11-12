@@ -42,3 +42,5 @@ Configures git and GitHub authentication and nothing else. It resolves the repos
 ## Debug
 
 `--debug <branch>` checks out that branch of the Ralph repository into `/workspace/ralph` and writes a wrapper that runs Ralph with `go run`. Every later Ralph invocation in the container uses the wrapper instead of the installed binary.
+
+The default image has no Go toolchain. The wrapper exits with a message that names the toolchain image when `go` is missing. Run debug with `workflow.image` pointing at `ghcr.io/zon/ralph-go`. See [Container Design](container.md#debug).
