@@ -63,31 +63,29 @@ RUN GOBIN=/out go install -trimpath \
     -ldflags "-s -w -X helm.sh/helm/v4/internal/version.version=${HELM_VERSION}" \
     helm.sh/helm/v4/cmd/helm@${HELM_VERSION}
 
-# Runtime stage - use official Playwright image with all browsers pre-installed
-FROM mcr.microsoft.com/playwright:v1.65.0-noble
+# Runtime stage - Ubuntu with the runtime Ralph, argo, and OpenCode need
+FROM ubuntu:24.04
 
-# Apply Ubuntu's security updates and install additional system dependencies
-# (Playwright deps already included) so base packages such as openssl and
-# libssl3t64 carry no known high-severity findings
+# Apply Ubuntu's security updates and install the system dependencies so base
+# packages such as openssl and libssl3t64 carry no known high-severity findings
 RUN apt-get update \
     && apt-get upgrade -y \
-    && apt-get install -y \
+    && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    git \
     just \
     unzip \
     net-tools \
     jq \
     && rm -rf /var/lib/apt/lists/*
 
-# Upgrade npm so its bundled dependencies carry no known vulnerabilities
-ENV NPM_VERSION=12.2.2
-RUN npm install -g npm@${NPM_VERSION}
-
 # Install GitHub CLI
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
     && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
     && apt-get update \
-    && apt-get install -y gh \
+    && apt-get install -y --no-install-recommends gh \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Go toolchain
@@ -118,8 +116,6 @@ RUN curl -fsSL https://bun.sh/install | bash \
 ENV OPENCODE_VERSION=2.2.7
 RUN bun install -g --trust @opencode/cli@${OPENCODE_VERSION} \
     && ln -s ${BUN_INSTALL}/bin/opencode /usr/local/bin/opencode
-
-# Note: Playwright and all browsers are pre-installed in the base image
 
 # Configure OpenCode as an unattended coding agent whose sandbox is this
 # container. The config is the machine-wide global file so every run inherits

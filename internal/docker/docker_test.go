@@ -35,28 +35,32 @@ func TestDockerfileContainsRequiredComponents(t *testing.T) {
 		searchTerms []string
 	}{
 		{
-			name:        "Go toolchain",
-			searchTerms: []string{"golang", "go"},
-		},
-		{
-			name:        "Bun runtime",
-			searchTerms: []string{"bun"},
-		},
-		{
-			name:        "Playwright",
-			searchTerms: []string{"playwright"},
-		},
-		{
 			name:        "Ralph binary",
 			searchTerms: []string{"ralph"},
+		},
+		{
+			name:        "argo CLI",
+			searchTerms: []string{"argo"},
+		},
+		{
+			name:        "OpenCode",
+			searchTerms: []string{"opencode"},
 		},
 		{
 			name:        "Git",
 			searchTerms: []string{"git"},
 		},
 		{
-			name:        "jq",
-			searchTerms: []string{"jq"},
+			name:        "GitHub CLI",
+			searchTerms: []string{"cli.github.com", "gh"},
+		},
+		{
+			name:        "shell",
+			searchTerms: []string{"/bin/sh"},
+		},
+		{
+			name:        "CA certificates",
+			searchTerms: []string{"ca-certificates"},
 		},
 	}
 
@@ -88,30 +92,30 @@ func TestDockerfileUsesMultiStageBuilds(t *testing.T) {
 	assert.Contains(t, dockerfile, "COPY --from=", "Containerfile should copy artifacts from build stage")
 }
 
-func TestDockerfileUsesNewestPlaywrightNobleBase(t *testing.T) {
+func TestDockerfileUsesUbuntuNobleRuntimeBase(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
 	containerfilePath := filepath.Join(projectRoot, "Containerfile")
 
 	content, err := os.ReadFile(containerfilePath)
 	require.NoError(t, err, "Should be able to read Containerfile")
 
-	dockerfile := string(content)
+	runtime := runtimeStage(t, string(content))
 
-	pattern := regexp.MustCompile(`mcr\.microsoft\.com/playwright:v(\d+)\.(\d+)\.(\d+)-noble`)
-	match := pattern.FindStringSubmatch(dockerfile)
-	require.NotNil(t, match, "Containerfile should build on a Playwright noble image")
+	pattern := regexp.MustCompile(`(?m)^FROM\s+\S*ubuntu:24\.04(?:\s|$)`)
+	assert.Regexp(t, pattern, runtime,
+		"Runtime stage should build on ubuntu:24.04")
+	assert.NotContains(t, strings.ToLower(runtime), "playwright",
+		"Runtime stage should not build on the Playwright image")
+}
 
-	var version [3]int
-	for i := range version {
-		part, err := strconv.Atoi(match[i+1])
-		require.NoError(t, err, "Playwright version should have numeric parts")
-		version[i] = part
-	}
+func runtimeStage(t *testing.T, dockerfile string) string {
+	t.Helper()
 
-	minimum := [3]int{1, 65, 0}
-	assert.GreaterOrEqual(t, compareVersions(version, minimum), 0,
-		"Containerfile should build on Playwright noble v%d.%d.%d or later, got v%d.%d.%d",
-		minimum[0], minimum[1], minimum[2], version[0], version[1], version[2])
+	fromPattern := regexp.MustCompile(`(?m)^FROM\s+`)
+	matches := fromPattern.FindAllStringIndex(dockerfile, -1)
+	require.NotEmpty(t, matches, "Containerfile should declare a stage")
+
+	return dockerfile[matches[len(matches)-1][0]:]
 }
 
 func TestDockerfileAppliesUbuntuSecurityUpdates(t *testing.T) {
@@ -126,38 +130,6 @@ func TestDockerfileAppliesUbuntuSecurityUpdates(t *testing.T) {
 	upgradePattern := regexp.MustCompile(`apt-get\s+(?:dist-)?upgrade\s+-y`)
 	assert.Regexp(t, upgradePattern, runtime,
 		"Runtime stage should apply Ubuntu security updates with apt-get upgrade")
-}
-
-func runtimeStage(t *testing.T, dockerfile string) string {
-	t.Helper()
-
-	marker := "mcr.microsoft.com/playwright:"
-	idx := strings.Index(dockerfile, marker)
-	require.GreaterOrEqual(t, idx, 0, "Containerfile should use the Playwright base image")
-	return dockerfile[idx:]
-}
-
-func TestDockerfileUpgradesNpm(t *testing.T) {
-	projectRoot := filepath.Join("..", "..")
-	containerfilePath := filepath.Join(projectRoot, "Containerfile")
-
-	content, err := os.ReadFile(containerfilePath)
-	require.NoError(t, err, "Should be able to read Containerfile")
-
-	dockerfile := string(content)
-
-	assert.Contains(t, dockerfile, "npm install -g npm@${NPM_VERSION}",
-		"Containerfile should upgrade the bundled npm to the pinned NPM_VERSION")
-
-	versionPattern := regexp.MustCompile(`ENV\s+NPM_VERSION=(\S+)`)
-	match := versionPattern.FindStringSubmatch(dockerfile)
-	require.NotNil(t, match, "Containerfile should pin NPM_VERSION")
-
-	major := strings.SplitN(match[1], ".", 2)[0]
-	majorVersion, err := strconv.Atoi(major)
-	require.NoError(t, err, "NPM_VERSION major should be numeric, got %q", match[1])
-	assert.GreaterOrEqual(t, majorVersion, 12,
-		"Containerfile should install npm 12 or later, got %s", match[1])
 }
 
 func TestDockerfileUpgradesArgoAndHelm(t *testing.T) {
@@ -324,6 +296,21 @@ func TestContainerfileConfiguresOpenCode(t *testing.T) {
 
 	assert.Contains(t, string(content), "COPY container/opencode.json /root/.config/opencode/opencode.json",
 		"Containerfile should install the container OpenCode configuration as the global config")
+}
+
+func TestContainerfileKeepsWorkspaceAndDefaultShell(t *testing.T) {
+	projectRoot := filepath.Join("..", "..")
+	containerfilePath := filepath.Join(projectRoot, "Containerfile")
+
+	content, err := os.ReadFile(containerfilePath)
+	require.NoError(t, err, "Should be able to read Containerfile")
+
+	runtime := runtimeStage(t, string(content))
+
+	assert.Contains(t, runtime, "WORKDIR /workspace",
+		"Runtime stage should keep the workspace directory")
+	assert.Contains(t, runtime, `CMD ["/bin/sh"]`,
+		"Runtime stage should keep the default shell command")
 }
 
 func TestRalphBinaryHasPatchedGoDependencies(t *testing.T) {
