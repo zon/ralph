@@ -75,7 +75,7 @@ Remote mode submits an Argo Workflow and runs the same setup and pass in the [wo
 
 With a prefix, Ralph checks for an open pull request locally before it submits. A match ends the command successfully without a workflow. The workflow receives the prefix and checks again before its own work, so a pull request that appears after submission stops the container pass.
 
-The workflow uses the `ralph-prompt-` name prefix, carries the Ralph label, and uses the configured image, mounts, environment, labels, and resources. It targets the resolved Kubernetes context and namespace, and uses the same TTL and pod garbage collection as the other workflows. It takes the prompt branch lock, as a run does. Ralph embeds the prompt in the workflow manifest as one container argument, so treat it as visible to anyone who can read workflows in the namespace.
+The workflow uses the `ralph-prompt-` name prefix, carries the Ralph label, and uses the configured image, mounts, environment, labels, and resources. It targets the resolved Kubernetes context and namespace, and uses the same TTL and pod garbage collection as the other workflows. It takes the prompt branch lock, as a run does, unless it carries only a prefix. Ralph embeds the prompt in the workflow manifest as one container argument, so treat it as visible to anyone who can read workflows in the namespace.
 
 Remote mode follows logs by default and waits for the workflow to finish. `--no-follow` submits and returns with the workflow name and an `argo logs` hint. A followed workflow sends a completion notification unless `--no-notify` is set. Stopping the local command does not stop the workflow. A followed failure exits non-zero, and a submission without follow exits zero once the workflow is accepted.
 
@@ -89,4 +89,4 @@ Remote `ralph prompt` sends a branch and a prefix together. Ralph resolved the b
 
 The launcher sends a prefix alone. The container clones the branch named by `--clone`, checks for an open pull request at the prefix, proposes a prompt slug, and creates `<prefix>/<prompt-slug>` before the pass.
 
-With `--namespace`, the container submits the prompt as a remote run in that namespace instead of running the pass. See [Launcher Target Design](launcher-target.md).
+With `--namespace`, the container submits the prompt as a remote run in that namespace instead of running the pass. It sends the prefix and no branch, proposes no slug, and takes no lock, so the target workflow proposes the prompt slug and the container needs no model. See [Launcher Target Design](launcher-target.md).

@@ -20,7 +20,7 @@ The target is a namespace of the launcher's own cluster. Another cluster is outs
 
 1. Prepare the [workspace](workflow.md). GitHub authentication and the clone are the same. The OpenCode credentials step loads nothing when the mount is absent.
 2. Check for an open pull request at the prefix, as any launcher run does. A match ends the command successfully.
-3. Run the prompt as a remote run from the clone, following [Prompt Design](prompt.md). Ralph proposes the prompt slug, resolves the branch and base, checks branch sync, and submits a `ralph-prompt-` workflow into the target namespace.
+3. Run the prompt as a remote run from the clone, following [Prompt Design](prompt.md). Ralph resolves the base, checks branch sync, and submits a `ralph-prompt-` workflow into the target namespace. It sends the prefix and no branch, and asks the AI for nothing. The target workflow proposes the prompt slug.
 4. Follow the logs and wait for the target workflow to finish, with notifications off.
 5. Exit with the target workflow's result.
 
@@ -39,8 +39,8 @@ The pod reaches the cluster with its ServiceAccount. For each distinct target na
 
 ## OpenCode Credentials
 
-The launcher pod never runs the agent, so it needs no OpenCode credential. Leave `workflow.credentials.opencodeSecret` empty to mount none. When it names a Secret, the launcher still mounts it.
+The launcher pod never runs the agent and never calls a model, so it needs no OpenCode credential. The target workflow proposes the prompt slug, because the launcher pod has no model configuration of its own and the model comes from the repository's `.ralph/config.yaml`. Leave `workflow.credentials.opencodeSecret` empty to mount none. When it names a Secret, the launcher still mounts it.
 
 ## Mutex and Lock
 
-The launcher mutex still queues runs of one entry. The target workflow takes the prompt branch lock, as any remote prompt does. The two never conflict, because the launcher waits for the target to finish.
+The launcher mutex still queues runs of one entry. The target workflow takes no lock, because the launcher sends no branch and a lock named from the prefix would collide with the launcher mutex while the launcher waits for the target. The launcher mutex is the only serialization a launcher run needs.

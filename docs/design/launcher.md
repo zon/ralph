@@ -11,8 +11,8 @@ The chart lives in `charts/ralph-launcher`. A push to `main` or `dev` publishes 
 3. The sensor dependency for the matching entry and event passes the event to its trigger.
 4. The trigger starts a `Workflow`.
 5. The `WorkflowTemplate` runs `ralph workflow prompt` in the Ralph image.
-6. The container clones `repo.cloneBranch`, checks for an open pull request at the entry prefix, and proposes a prompt slug.
-7. The container submits a remote run of the prompt text into the target namespace and waits for it. The target workflow checks out `<prefix>/<prompt-slug>`, runs the prompt, pushes the branch, and opens a pull request.
+6. The container clones `repo.cloneBranch` and checks for an open pull request at the entry prefix.
+7. The container submits a remote run of the prompt text and the prefix into the target namespace and waits for it. The target workflow checks again for an open pull request, proposes a prompt slug, creates `<prefix>/<prompt-slug>`, runs the prompt, pushes the branch, and opens a pull request.
 
 ## Components
 
@@ -45,7 +45,7 @@ Because the chart adds nothing to the slug, every event for an entry shares one 
 
 ## Prompt Branch
 
-After it clones the repository and before the pass, the container asks the AI for a prompt slug from the prompt text. It creates the branch `<slug>/<prompt-slug>`, so the `review` entry starts on `review/<prompt-slug>` and the chart does not name the branch. The open pull request check runs before the prompt slug proposal. When a pull request with the prefix is open, the workflow ends successfully without creating a prompt branch, starting a service, or running the pass.
+After it clones the repository and before the pass, the target workflow's container asks the AI for a prompt slug from the prompt text. The launcher pod proposes no slug, so it needs no model. The target creates the branch `<slug>/<prompt-slug>`, so the `review` entry starts on `review/<prompt-slug>` and the chart does not name the branch. The open pull request check runs in the launcher pod before it submits and again in the target before the prompt slug proposal. When a pull request with the prefix is open, the workflow ends successfully without creating a prompt branch, starting a service, or running the pass.
 
 When the pass leaves commits, Ralph asks the AI for a commit slug from the commit log and renames the branch to `<slug>/<commit-slug>` before the push and pull request. The prefix stays fixed, so the open pull request check and the mutex keep using it.
 
@@ -75,7 +75,7 @@ ralph workflow prompt --repo <owner/name> --clone <clone-branch>
 
 It adds `--model`, `--variant`, `--agent`, `--no-services`, and `--verbose` when the values set them.
 
-Each workflow takes a mutex named from the entry prefix, normalized to a Kubernetes name. The mutex serializes runs of the same work stream, because the branch name is not known until the container proposes its slug. `workflow.mutex.name` overrides the name for every entry.
+Each workflow takes a mutex named from the entry prefix, normalized to a Kubernetes name. The mutex serializes runs of the same work stream, because the branch name is not known until the target workflow proposes its slug. `workflow.mutex.name` overrides the name for every entry.
 
 The workflow mounts `github-credentials` at `/secrets/github`, and `opencode-credentials` at `/secrets/opencode` when `workflow.credentials.opencodeSecret` is set. The launcher pod never runs the agent, so it can leave the OpenCode Secret out. `ralph setup` writes both Secrets. See [Setup Design](setup.md) and [Workflow Container Design](workflow.md).
 

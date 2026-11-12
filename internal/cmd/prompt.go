@@ -353,10 +353,11 @@ func (c *PromptCmd) RunInWorkspace(prompt, branch, base string, prefix ...string
 }
 
 // RunRemoteFromClone runs the prompt as a remote run from an already prepared
-// clone. It checks the prefix for an open pull request, proposes the prompt
-// branch when only a prefix is supplied, resolves the base branch, checks the
-// clone branch against the remote, and submits a prompt workflow. It runs no
-// pass or service in the current pod.
+// clone. It checks the prefix for an open pull request, resolves the base
+// branch, checks the clone branch against the remote, and submits a prompt
+// workflow. It runs no pass or service in the current pod, and it asks the AI
+// for nothing: when only a prefix is supplied, the target workflow proposes the
+// prompt slug, so this pod needs no model.
 func (c *PromptCmd) RunRemoteFromClone(prompt, branch, base string, prefix ...string) error {
 	if strings.TrimSpace(prompt) == "" {
 		return errors.New("prompt is required")
@@ -384,12 +385,6 @@ func (c *PromptCmd) RunRemoteFromClone(prompt, branch, base string, prefix ...st
 	if skipped {
 		return nil
 	}
-	if branch == "" && normalizedPrefix != "" {
-		branch, err = c.proposeRemotePromptBranch(prompt)
-		if err != nil {
-			return err
-		}
-	}
 	currentBranch, err := c.currentBranch()
 	if err != nil {
 		return err
@@ -399,10 +394,14 @@ func (c *PromptCmd) RunRemoteFromClone(prompt, branch, base string, prefix ...st
 	cfg.Mode = config.ModeRemote
 	cfg.Base = baseBranch
 	cfg.StartingBranch = currentBranch
+	slug := branch
+	if slug == "" {
+		slug = normalizedPrefix
+	}
 	c.resolved = &promptResolution{
 		Config:        cfg,
 		Mode:          config.ModeRemote,
-		Slug:          branch,
+		Slug:          slug,
 		Prefix:        normalizedPrefix,
 		CurrentBranch: currentBranch,
 		PromptBranch:  branch,
@@ -426,8 +425,7 @@ func (c *PromptCmd) proposeWorkspacePromptBranch(prompt string) (string, error) 
 }
 
 // proposeRemotePromptBranch proposes a prompt slug and returns the prefixed
-// branch name without creating it. The remote workflow creates the branch in
-// the target namespace.
+// branch name without creating it.
 func (c *PromptCmd) proposeRemotePromptBranch(prompt string) (string, error) {
 	slug, err := c.proposeSlug(prompt)
 	if err != nil {

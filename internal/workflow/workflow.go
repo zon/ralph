@@ -88,7 +88,8 @@ type LoopSpec struct {
 // PromptSpec carries the prompt invocation a prompt workflow runs: the prompt
 // branch, the optional work-stream prefix, and the prompt text. The prefix is
 // checked again in the container and the text is sent as one container
-// argument.
+// argument. A spec with a prefix and no branch leaves the container to propose
+// the prompt slug and create <prefix>/<prompt-slug>.
 type PromptSpec struct {
 	Branch string
 	Prefix string
@@ -110,6 +111,35 @@ func (w *Workflow) Render() (string, error) {
 		wfLabels[k] = v
 	}
 
+	spec := map[string]interface{}{
+		"entrypoint": "ralph-executor",
+		"ttlStrategy": map[string]interface{}{
+			"secondsAfterCompletion": 86400,
+		},
+		"podGC": map[string]interface{}{
+			"strategy":            "OnWorkflowCompletion",
+			"deleteDelayDuration": "10m",
+		},
+		"arguments": map[string]interface{}{
+			"parameters": buildParameters(params),
+		},
+		"templates": []interface{}{
+			w.buildMainTemplate(),
+		},
+	}
+	// A prompt that names only a prefix has no branch to lock. The launcher
+	// mutex already serializes its work stream, and a lock named from the
+	// prefix would collide with that mutex and deadlock the launcher run.
+	if lock := w.lockBranch(); lock != "" {
+		spec["synchronization"] = map[string]interface{}{
+			"mutexes": []interface{}{
+				map[string]interface{}{
+					"name": sanitizeName(lock),
+				},
+			},
+		}
+	}
+
 	wf := map[string]interface{}{
 		"apiVersion": "argoproj.io/v1alpha1",
 		"kind":       "Workflow",
@@ -117,29 +147,7 @@ func (w *Workflow) Render() (string, error) {
 			"generateName": fmt.Sprintf("ralph-%s-", w.ProjectName),
 			"labels":       wfLabels,
 		},
-		"spec": map[string]interface{}{
-			"entrypoint": "ralph-executor",
-			"ttlStrategy": map[string]interface{}{
-				"secondsAfterCompletion": 86400,
-			},
-			"podGC": map[string]interface{}{
-				"strategy":            "OnWorkflowCompletion",
-				"deleteDelayDuration": "10m",
-			},
-			"synchronization": map[string]interface{}{
-				"mutexes": []interface{}{
-					map[string]interface{}{
-						"name": sanitizeName(w.lockBranch()),
-					},
-				},
-			},
-			"arguments": map[string]interface{}{
-				"parameters": buildParameters(params),
-			},
-			"templates": []interface{}{
-				w.buildMainTemplate(),
-			},
-		},
+		"spec": spec,
 	}
 
 	yamlData, err := yaml.Marshal(wf)
@@ -217,9 +225,11 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 			"workflow", "prompt",
 			"--repo", w.Repo.Owner + "/" + w.Repo.Name,
 			"--clone", w.CloneBranch,
-			"--branch", w.promptBranch(),
-			"--base", w.BaseBranch,
 		}
+		if branch := w.promptBranch(); branch != "" {
+			args = append(args, "--branch", branch)
+		}
+		args = append(args, "--base", w.BaseBranch)
 		if w.Prompt.Prefix != "" {
 			args = append(args, "--prefix", w.Prompt.Prefix)
 		}

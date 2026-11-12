@@ -40,7 +40,7 @@ The target SHALL be a namespace of the launcher's own cluster. The chart SHALL N
 
 1. Prepare the workspace as defined in [workflow-workspace.md](workflow-workspace.md): GitHub authentication, then the clone of the `--clone` branch.
 2. Check for an open pull request at the prefix. A match SHALL end the command successfully.
-3. Run the prompt as a remote run from the clone, as defined in [prompt.md](prompt.md#requirement-remote-submission). The command SHALL propose the prompt slug, resolve the prompt branch and base branch, check base branch synchronization, and submit a `ralph-prompt-` workflow into the target namespace.
+3. Run the prompt as a remote run from the clone, as defined in [prompt.md](prompt.md#requirement-remote-submission). The command SHALL resolve the base branch, check base branch synchronization, and submit a `ralph-prompt-` workflow into the target namespace with the prefix and no prompt branch. The command SHALL NOT propose a prompt slug or call a model. The target workflow SHALL propose the prompt slug, as defined in [prompt.md](prompt.md#requirement-container-entrypoint).
 4. Follow the logs and wait for the target workflow to finish, with notifications off.
 5. Exit with the target workflow's result.
 
@@ -168,7 +168,7 @@ For each distinct target namespace, the chart SHALL render a Role and a RoleBind
 
 ### Requirement: No agent credentials in the launcher pod
 
-The launcher pod never runs the agent, so a release MAY leave `workflow.credentials.opencodeSecret` empty, and the launcher pod SHALL then mount no OpenCode Secret. When `workflow.credentials.opencodeSecret` names a Secret, the launcher pod SHALL mount it. A launcher pod with no OpenCode mount SHALL start and run any entry, because the OpenCode credentials step loads nothing when the mount is absent.
+The launcher pod never runs the agent and never calls a model, so a release MAY leave `workflow.credentials.opencodeSecret` empty, and the launcher pod SHALL then mount no OpenCode Secret. When `workflow.credentials.opencodeSecret` names a Secret, the launcher pod SHALL mount it. A launcher pod with no OpenCode mount SHALL start and run any entry, because the OpenCode credentials step loads nothing when the mount is absent.
 
 #### Scenario: No OpenCode Secret is set
 
@@ -180,8 +180,10 @@ The launcher pod never runs the agent, so a release MAY leave `workflow.credenti
 #### Scenario: A run starts without the mount
 
 - GIVEN the launcher pod has no OpenCode mount
+- AND the repository's `.ralph/config.yaml` names a model
 - WHEN an entry runs
 - THEN workspace preparation succeeds
+- AND the launcher pod makes no model call
 - AND the target workflow is submitted
 
 #### Scenario: The Secret is mounted when set
@@ -194,7 +196,7 @@ The launcher pod never runs the agent, so a release MAY leave `workflow.credenti
 
 ### Requirement: Mutex and branch lock
 
-The launcher mutex SHALL keep serializing runs of one entry. The target workflow SHALL take the prompt branch lock, as any remote prompt does. The launcher workflow SHALL wait for the target workflow to finish, so the two never conflict.
+The launcher mutex SHALL keep serializing runs of one entry. The target workflow SHALL take no lock, because the launcher sends a prefix and no branch, and a lock named from the prefix would collide with the launcher mutex while the launcher workflow waits for the target. The launcher workflow SHALL wait for the target workflow to finish.
 
 #### Scenario: Runs of one entry queue
 
@@ -203,8 +205,9 @@ The launcher mutex SHALL keep serializing runs of one entry. The target workflow
 - THEN the second waits for the first launcher workflow
 - AND the second target workflow starts only after the first has finished
 
-#### Scenario: The target takes the branch lock
+#### Scenario: The target takes no lock
 
-- GIVEN a launcher run submits its workflow
+- GIVEN a launcher run submits its workflow with a prefix and no branch
 - WHEN the target workflow starts
-- THEN it takes the prompt branch lock
+- THEN it holds no mutex
+- AND it does not wait on the launcher mutex

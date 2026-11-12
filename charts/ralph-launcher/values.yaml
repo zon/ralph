@@ -96,8 +96,9 @@ workflow:
   credentials:
     githubSecret: github-credentials
     # opencodeSecret names the Secret mounted at /secrets/opencode. The launcher
-    # pod never runs the agent, so it can leave this empty. The pod then mounts
-    # no OpenCode Secret and carries no agent credentials.
+    # pod never runs the agent and never calls a model, because the target
+    # workflow proposes the prompt slug. It can leave this empty. The pod then
+    # mounts no OpenCode Secret and carries no agent credentials.
     opencodeSecret: opencode-credentials
   extraVolumes: []
   extraVolumeMounts: []
