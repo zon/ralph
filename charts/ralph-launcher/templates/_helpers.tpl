@@ -48,6 +48,23 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 {{- end -}}
 
+{{- define "ralph-launcher.delivery" -}}
+{{- include "ralph-launcher.validateDelivery" . -}}
+{{- default "subject" .Values.delivery -}}
+{{- end -}}
+
+{{- define "ralph-launcher.validateDelivery" -}}
+{{- $delivery := default "subject" .Values.delivery -}}
+{{- if not (has $delivery (list "subject" "bus")) -}}
+{{- fail (printf "delivery must be subject or bus, got %v" $delivery) -}}
+{{- end -}}
+{{- if eq $delivery "bus" -}}
+{{- $intake := default dict .Values.intake -}}
+{{- $eventSource := default dict $intake.eventSource -}}
+{{- $_ := required "intake.eventSource.name is required when delivery is bus" $eventSource.name -}}
+{{- end -}}
+{{- end -}}
+
 {{- define "ralph-launcher.validatePromptEntries" -}}
 {{- $entries := required "prompt.entries is required" .Values.prompt.entries -}}
 {{- $slugs := dict -}}
@@ -121,6 +138,22 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 
 {{- define "ralph-launcher.eventSourceName" -}}
 {{- default (printf "%s-events" (include "ralph-launcher.sensorName" .)) .Values.sensor.eventSource.name -}}
+{{- end -}}
+
+{{- define "ralph-launcher.dependencyEventSourceName" -}}
+{{- if eq (include "ralph-launcher.delivery" .) "bus" -}}
+{{- .Values.intake.eventSource.name -}}
+{{- else -}}
+{{- include "ralph-launcher.eventSourceName" . -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "ralph-launcher.dependencyEventName" -}}
+{{- if eq (include "ralph-launcher.delivery" .) "bus" -}}
+{{- default "github" .Values.intake.eventName -}}
+{{- else -}}
+repo
+{{- end -}}
 {{- end -}}
 
 {{- define "ralph-launcher.serviceAccountName" -}}
@@ -198,24 +231,31 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- define "ralph-launcher.dependencyFilters" -}}
 {{- $root := .root -}}
 {{- $event := .event -}}
+{{- $bus := eq (include "ralph-launcher.delivery" $root) "bus" -}}
 {{- $pushBranch := and (eq $event "push") $root.Values.sensor.defaultBranchOnly -}}
-{{- if or $event $pushBranch $root.Values.sensor.ignoreUsers $root.Values.sensor.filters -}}
+{{- if or $bus $event $pushBranch $root.Values.sensor.ignoreUsers $root.Values.sensor.filters -}}
 filters:
   data:
+    {{- if $bus }}
+    - path: body.repository.full_name
+      type: string
+      value:
+        - {{ printf "%s/%s" $root.Values.repo.owner $root.Values.repo.name | quote }}
+    {{- end }}
     {{- if $event }}
-    - path: body.event
+    - path: {{ if $bus }}headers.X-Github-Event{{ else }}body.event{{ end }}
       type: string
       value:
         - {{ $event | quote }}
     {{- end }}
     {{- if $pushBranch }}
-    - path: body.payload.ref
+    - path: {{ if $bus }}body.ref{{ else }}body.payload.ref{{ end }}
       type: string
       value:
         - {{ include "ralph-launcher.pushRef" $root | quote }}
     {{- end }}
     {{- range $root.Values.sensor.ignoreUsers }}
-    - path: body.payload.sender.login
+    - path: {{ if $bus }}body.sender.login{{ else }}body.payload.sender.login{{ end }}
       type: string
       comparator: "!="
       value:

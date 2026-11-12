@@ -60,7 +60,7 @@ The chart writes one ConfigMap key per entry. The workflow argument `prompt` rea
 
 Each entry and event pair becomes a sensor dependency and trigger. Each dependency filters by event name, so the default branch filter applies only to push dependencies. The global `sensor.defaultBranchOnly`, `sensor.branch`, `sensor.ignoreUsers`, and `sensor.filters` apply to every matching dependency.
 
-Set `sensor.defaultBranchOnly=false` to accept pushes to other branches. Add `sensor.filters` for extra Argo Events data filters. Fields are relative to the NATS event data, so the GitHub event name is `body.event` and the body is `body.payload`.
+Set `sensor.defaultBranchOnly=false` to accept pushes to other branches. Add `sensor.filters` for extra Argo Events data filters. Paths are relative to the data of the chosen [delivery path](events-delivery.md#filters), so switching paths rewrites them.
 
 ## Workflow
 

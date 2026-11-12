@@ -1,4 +1,4 @@
-{{- if .Values.sensor.eventSource.create }}
+{{- if and (eq (include "ralph-launcher.delivery" .) "subject") .Values.sensor.eventSource.create }}
 apiVersion: argoproj.io/v1alpha1
 kind: EventSource
 metadata:
