@@ -24,6 +24,7 @@ import (
 // prompt workflow with the resolved values, the configured workflow options,
 // and the resolved Kubernetes target.
 func TestPromptWorkflowClientSubmit(t *testing.T) {
+	t.Setenv("KUBERNETES_SERVICE_HOST", "")
 	dir := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".ralph"), 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, ".ralph", "config.yaml"), []byte(`
@@ -219,6 +220,7 @@ func promptArgValue(args []interface{}, flag string) string {
 // TestPromptWorkflowClientPrintsHintAndFollows covers the log hint and followed
 // logs using the submitted workflow's namespace and context.
 func TestPromptWorkflowClientPrintsHintAndFollows(t *testing.T) {
+	t.Setenv("KUBERNETES_SERVICE_HOST", "")
 	dir := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".ralph"), 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, ".ralph", "config.yaml"), []byte("workflow:\n  context: config-context\n  namespace: config-namespace\n"), 0644))

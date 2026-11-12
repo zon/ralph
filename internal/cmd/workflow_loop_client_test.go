@@ -19,6 +19,7 @@ import (
 // overrides on the loop command reach both the workflow submission and any
 // followed logs, overriding the values in .ralph/config.yaml.
 func TestLoopWorkflowClientNamespaceOverride(t *testing.T) {
+	t.Setenv("KUBERNETES_SERVICE_HOST", "")
 	dir := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".ralph"), 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, ".ralph", "config.yaml"), []byte("workflow:\n  context: config-context\n  namespace: config-namespace\n"), 0644))
@@ -66,6 +67,7 @@ func TestLoopWorkflowClientNamespaceOverride(t *testing.T) {
 // --namespace or --context override is passed, the loop workflow uses the
 // values from .ralph/config.yaml for the submission and any followed logs.
 func TestLoopWorkflowClientNamespaceFallsBackToConfig(t *testing.T) {
+	t.Setenv("KUBERNETES_SERVICE_HOST", "")
 	dir := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".ralph"), 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, ".ralph", "config.yaml"), []byte("workflow:\n  context: config-context\n  namespace: config-namespace\n"), 0644))

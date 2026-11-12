@@ -42,6 +42,7 @@ func promptFlags() WorkflowPromptFlags {
 		Prefix:      "update",
 		BaseBranch:  "release",
 		Prompt:      "Add the endpoint.",
+		Namespace:   "target-ns",
 		BotName:     "ralph-zon[bot]",
 		BotEmail:    "ralph-zon[bot]@users.noreply.github.com",
 		Model:       "gpt-4",
@@ -89,6 +90,7 @@ func TestWorkflowPromptCmdPreparesWorkspaceOnPromptBranch(t *testing.T) {
 	runner := &fakeRunnerClient{}
 	cmd := NewWorkflowPromptCmd(workspace, runner)
 	flags := promptFlags()
+	flags.Namespace = ""
 
 	require.NoError(t, cmd.Run(flags))
 
@@ -111,6 +113,26 @@ func TestWorkflowPromptCmdPreparesWorkspaceOnPromptBranch(t *testing.T) {
 	assert.True(t, runner.flags.NoServices)
 	assert.Equal(t, "feature", runner.flags.Debug)
 	assert.True(t, runner.flags.Verbose)
+}
+
+// TestWorkflowPromptCmdTargetNamespaceClonesOnly asserts a target namespace
+// prepares the clone branch without checking out the prompt branch, then hands
+// the namespace to the runner that submits the remote run.
+func TestWorkflowPromptCmdTargetNamespaceClonesOnly(t *testing.T) {
+	workspace := &fakeWorkspaceSetupClient{}
+	runner := &fakeRunnerClient{}
+	cmd := NewWorkflowPromptCmd(workspace, runner)
+	flags := promptFlags()
+
+	require.NoError(t, cmd.Run(flags))
+
+	assert.True(t, workspace.called, "the workspace is prepared before the remote run")
+	assert.Equal(t, "main", workspace.flags.CloneBranch)
+	assert.Empty(t, workspace.flags.TargetBranch, "only the clone branch is checked out for a remote run")
+	assert.False(t, workspace.flags.CreateBranch, "the remote workflow creates the prompt branch")
+	assert.True(t, runner.called)
+	assert.Equal(t, "target-ns", runner.flags.Namespace, "the target namespace reaches the runner")
+	assert.Equal(t, "update/my-feature", runner.flags.Branch)
 }
 
 // TestWorkflowPromptCmdPrefixWithoutBranchClonesForPrompt asserts a prefix with

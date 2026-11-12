@@ -20,6 +20,7 @@ type WorkflowPromptCmd struct {
 	Prefix      string `help:"Work-stream prefix to check before running the prompt" name:"prefix"`
 	Base        string `help:"Base branch for PR creation" name:"base" short:"B"`
 	Prompt      string `help:"Prompt text to run" name:"prompt"`
+	Namespace   string `help:"The name of the Kubernetes namespace to use" name:"namespace"`
 	BotName     string `help:"Git user name for commits" default:"ralph-zon[bot]"`
 	BotEmail    string `help:"Git user email for commits" default:"ralph-zon[bot]@users.noreply.github.com"`
 	Debug       string `help:"Ralph branch to use for debug mode" name:"debug"`
@@ -55,6 +56,7 @@ func (w *WorkflowPromptCmd) Run() error {
 	ctx.SetVariant(w.Variant)
 	ctx.SetDebugBranch(w.Debug)
 	ctx.SetNoServices(w.NoServices)
+	ctx.SetKubeNamespace(w.Namespace)
 	ctx.SetLocal(true)
 	ctx.SetNoNotify(true)
 	ctx.SetWorkflowExecution(true)
@@ -66,6 +68,7 @@ func (w *WorkflowPromptCmd) Run() error {
 		Prefix:      w.Prefix,
 		BaseBranch:  w.Base,
 		Prompt:      w.Prompt,
+		Namespace:   w.Namespace,
 		BotName:     w.BotName,
 		BotEmail:    w.BotEmail,
 		Model:       w.Model,
@@ -92,16 +95,30 @@ func (w *WorkflowPromptCmd) newOrchestrationWorkflowPromptCmd(ctx *execcontext.C
 	return orchestrationPrompt.NewWorkflowPromptCmd(workspace, runner)
 }
 
-// promptWorkflowRunnerAdapter runs the prompt flow in-process after the
-// workspace is prepared.
+// promptWorkflowRunnerAdapter runs the prompt flow after the workspace is
+// prepared. A target namespace submits the prompt as a remote run from the
+// clone instead of running the pass in this pod.
 type promptWorkflowRunnerAdapter struct {
-	ctx *execcontext.Context
+	ctx          *execcontext.Context
+	newPromptCmd func(*execcontext.Context) *PromptCmd
 }
 
 func (a *promptWorkflowRunnerAdapter) Run(flags orchestrationPrompt.WorkflowPromptFlags) error {
-	cmd := &PromptCmd{
-		ctx:        a.ctx,
-		NoServices: flags.NoServices,
+	cmd := a.promptCmd()
+	cmd.NoServices = flags.NoServices
+	if flags.Namespace != "" {
+		// A target prompt always follows the target workflow and sends no
+		// completion notification, whatever the local prompt defaults say.
+		cmd.NoFollow = false
+		cmd.NoNotify = true
+		return cmd.RunRemoteFromClone(flags.Prompt, flags.Branch, flags.BaseBranch, flags.Prefix)
 	}
 	return cmd.RunInWorkspace(flags.Prompt, flags.Branch, flags.BaseBranch, flags.Prefix)
+}
+
+func (a *promptWorkflowRunnerAdapter) promptCmd() *PromptCmd {
+	if a.newPromptCmd != nil {
+		return a.newPromptCmd(a.ctx)
+	}
+	return &PromptCmd{ctx: a.ctx}
 }

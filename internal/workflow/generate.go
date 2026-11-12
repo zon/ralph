@@ -55,7 +55,10 @@ func GenerateWorkflowWithGitInfo(ctx *execcontext.Context, projectName, repoURL,
 		return nil, fmt.Errorf("failed to parse repository from URL: %w", err)
 	}
 
-	workflowOptions := workflowOptionsFromConfig(cfg, ctx)
+	workflowOptions, err := workflowOptionsFromConfig(cfg, ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	return &Workflow{
 		ProjectName:    projectName,
@@ -101,7 +104,10 @@ func GenerateLoopWorkflow(ctx *execcontext.Context, slug string, steps []string,
 		return nil, err
 	}
 
-	opts := workflowOptionsFromConfig(ralphConfig, ctx)
+	opts, err := workflowOptionsFromConfig(ralphConfig, ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	return &Workflow{
 		ProjectName:    "loop",
@@ -137,12 +143,23 @@ func GeneratePromptWorkflow(ctx *execcontext.Context, promptBranch, baseBranch, 
 		return nil, err
 	}
 
+	return GeneratePromptWorkflowWithConfig(ctx, ralphConfig, promptBranch, baseBranch, promptText, cloneBranch, remoteURL, prefix...)
+}
+
+// GeneratePromptWorkflowWithConfig builds a prompt workflow from the supplied
+// config. A caller that has already loaded the cloned repository's config uses
+// it so the workflow's image, mounts, environment, labels, and resources come
+// from that checkout without reading the config again.
+func GeneratePromptWorkflowWithConfig(ctx *execcontext.Context, ralphConfig *config.RalphConfig, promptBranch, baseBranch, promptText, cloneBranch, remoteURL string, prefix ...string) (*Workflow, error) {
 	repo, err := githubpkg.ParseRemoteURL(remoteURL)
 	if err != nil {
 		return nil, err
 	}
 
-	opts := workflowOptionsFromConfig(ralphConfig, ctx)
+	opts, err := workflowOptionsFromConfig(ralphConfig, ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	promptPrefix := ""
 	if len(prefix) > 0 {
@@ -189,7 +206,10 @@ func GenerateCommandWorkflow(ctx *execcontext.Context, cloneBranch, remoteURL st
 		return nil, err
 	}
 
-	opts := workflowOptionsFromConfig(ralphConfig, ctx)
+	opts, err := workflowOptionsFromConfig(ralphConfig, ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	return &Workflow{
 		ProjectName:    "command",

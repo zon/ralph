@@ -42,6 +42,16 @@ func TestSetupOpenCodeCredentials(t *testing.T) {
 		assert.False(t, called, "OpenCode must not be invoked without a credentials document")
 	})
 
+	t.Run("places nothing when the mount is absent", func(t *testing.T) {
+		called := false
+		err := setupOpenCodeCredentials(filepath.Join(t.TempDir(), "missing-opencode"), out(), func(string) error {
+			called = true
+			return nil
+		})
+		require.NoError(t, err)
+		assert.False(t, called, "OpenCode must not be invoked without an OpenCode mount")
+	})
+
 	t.Run("returns the import error", func(t *testing.T) {
 		dir := t.TempDir()
 		require.NoError(t, os.WriteFile(filepath.Join(dir, "auth.json"), []byte(`[{"integrationID":"deepseek"}]`), 0644))

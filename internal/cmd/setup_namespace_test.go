@@ -11,6 +11,7 @@ import (
 )
 
 func TestSetupContextClientResolveContextTargeting(t *testing.T) {
+	t.Setenv("KUBERNETES_SERVICE_HOST", "")
 	tests := []struct {
 		name          string
 		ralphConfig   *config.RalphConfig
@@ -78,6 +79,7 @@ func TestSetupContextClientResolveContextTargeting(t *testing.T) {
 }
 
 func TestSetupContextClientResolveNamespaceTargeting(t *testing.T) {
+	t.Setenv("KUBERNETES_SERVICE_HOST", "")
 	tests := []struct {
 		name          string
 		ralphConfig   *config.RalphConfig

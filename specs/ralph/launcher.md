@@ -8,7 +8,7 @@ The `ralph-launcher` release listens to the repository subject, or to the shared
 
 ### Requirement: Prompt entries
 
-The chart SHALL read a required `prompt.entries` list. Each entry SHALL have a required `slug` and a required `text`. Each entry MAY have an `events` list, MAY have a `schedule`, and MAY have a `namespace` that moves the agent to a target namespace as defined in [launcher-target.md](launcher-target.md).
+The chart SHALL read a required `prompt.entries` list. Each entry SHALL have a required `slug` and a required `text`. Each entry MAY have an `events` list, MAY have a `schedule`, and MAY have a `namespace` that names the target namespace of the agent run. An entry with no `namespace` targets the release namespace, as defined in [launcher-target.md](launcher-target.md).
 
 A slug SHALL be a simple, branch-safe string. Slugs SHALL be unique within a launcher. The chart SHALL reject a launcher with a missing slug, a missing text, or duplicate slugs.
 

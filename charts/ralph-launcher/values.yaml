@@ -52,11 +52,17 @@ prompt:
   # schedule holds one cron expression or a list of expressions, for example
   # "0 8 * * *". The chart renders one CronWorkflow for each scheduled entry.
   # An entry may combine events and schedule.
+  #
+  # namespace names the namespace the entry's agent workflow runs in. The agent
+  # runs with the repository's own .ralph/config.yaml. When omitted, the entry
+  # targets the release namespace. The namespace must belong to the launcher's
+  # own cluster.
   entries:
     - slug: review
       text: |
         Review the repository and make one small improvement.
       # schedule: "0 8 * * *"
+      # namespace: ralph
 
 schedule:
   # schedule.timezone sets the time zone for every prompt entry schedule, for
@@ -89,9 +95,20 @@ workflow:
     name: ""
   credentials:
     githubSecret: github-credentials
+    # opencodeSecret names the Secret mounted at /secrets/opencode. The launcher
+    # pod never runs the agent, so it can leave this empty. The pod then mounts
+    # no OpenCode Secret and carries no agent credentials.
     opencodeSecret: opencode-credentials
   extraVolumes: []
   extraVolumeMounts: []
+
+target:
+  # rbac.create renders a Role and RoleBinding for the workflow ServiceAccount
+  # in each target namespace, including the release namespace when an entry
+  # sets no namespace. Set it to false to have the operator grant the rights
+  # another way.
+  rbac:
+    create: true
 
 eventBus:
   # Create an Argo Events EventBus in this namespace that uses the existing

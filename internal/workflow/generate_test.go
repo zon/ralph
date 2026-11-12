@@ -547,6 +547,7 @@ func TestItemsDefaultsToExplicitDot(t *testing.T) {
 }
 
 func TestKubeContextOverride(t *testing.T) {
+	t.Setenv("KUBERNETES_SERVICE_HOST", "")
 	cfg := &config.RalphConfig{
 		DefaultBranch: "main",
 		Workflow: config.WorkflowConfig{
@@ -828,6 +829,7 @@ func TestGenerateCommandWorkflow(t *testing.T) {
 // its streamed logs, and fall back to the config values when no override is
 // given.
 func TestGenerateCommandWorkflowKubeTargetingOverride(t *testing.T) {
+	t.Setenv("KUBERNETES_SERVICE_HOST", "")
 	dir := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".ralph"), 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, ".ralph", "config.yaml"), []byte("workflow:\n  context: config-context\n  namespace: config-namespace\n"), 0644))
