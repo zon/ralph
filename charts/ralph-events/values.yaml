@@ -86,11 +86,24 @@ github:
     url: ""
     insecure: false
     active: true
+    # Delete the webhooks the release registered when the event source stops.
+    # Defaults to false, which leaves the hooks in place. Applies only when the
+    # chart registers hooks, which needs apiTokenSecret or githubApp with
+    # github.webhook.url. A crash can leave a hook behind. With true, a
+    # repository removed from repositories loses its webhook on the next
+    # restart.
     deleteHookOnFinish: false
+    # Serve the webhook over TLS. Off by default: leave secretName empty and the
+    # event source serves plain HTTP. When set, the Secret holds the server
+    # certificate and key, and github.webhook.url must use https.
     tls:
       secretName: ""
       certKey: tls.crt
       keyKey: tls.key
+      # Create a cert-manager Certificate that fills the Secret. Off by
+      # default: leave this empty and the operator supplies the Secret. Set
+      # issuerRef to name the issuer and its kind. dnsNames defaults to the
+      # host of github.webhook.url.
       certificate: {}
   # Existing Secret holding a GitHub API token. When set, Argo Events registers
   # webhooks for the repositories below.
@@ -111,6 +124,11 @@ sensor:
     retry:
       steps: 3
 
+# Render a Gateway API TLSRoute that passes TLS through by SNI to the event
+# source on the webhook port. Off by default: leave this empty and the release
+# renders no route. Requires github.webhook.tls. Each parentRefs entry passes
+# through as written, including sectionName. hostnames defaults to the host of
+# github.webhook.url, and apiVersion defaults to gateway.networking.k8s.io/v1.
 gatewayRoute: {}
 
 ingress:
