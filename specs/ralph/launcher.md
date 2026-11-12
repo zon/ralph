@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The `ralph-launcher` release listens to the repository subject and starts prompt workflows for the prompt entries, GitHub event types, and cron schedules it is configured with. Each entry maps one event list, one schedule list, or both to one prompt and one prefix. The launcher passes the prefix to the prompt workflow and does not name the prompt branch.
+The `ralph-launcher` release listens to the repository subject, or to the shared event bus as defined in [events-delivery.md](events-delivery.md), and starts prompt workflows for the prompt entries, GitHub event types, and cron schedules it is configured with. Each entry maps one event list, one schedule list, or both to one prompt and one prefix. The launcher passes the prefix to the prompt workflow and does not name the prompt branch.
 
 ## Requirements
 
@@ -59,7 +59,7 @@ A slug SHALL be a simple, branch-safe string. Slugs SHALL be unique within a lau
 
 Each entry and event pair SHALL become a sensor dependency and trigger. An entry with an empty event list SHALL become one dependency and trigger with no event filter. Every entry whose event list contains the arriving event SHALL run. More than one entry MAY handle the same event.
 
-The global `sensor.ignoreUsers` and `sensor.filters` SHALL apply to every dependency. `sensor.defaultBranchOnly` SHALL apply only to push dependencies.
+The global `sensor.ignoreUsers` and `sensor.filters` SHALL apply to every dependency. `sensor.defaultBranchOnly` SHALL apply only to push dependencies. The data paths of these filters depend on the delivery path, as defined in [events-delivery.md](events-delivery.md#requirement-bus-filters).
 
 #### Scenario: One entry handles several event types
 
