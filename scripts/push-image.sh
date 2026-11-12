@@ -36,7 +36,7 @@ echo ""
 
 # Build the image
 echo "Building image with Podman..."
-podman build -t "${IMAGE}" -f Containerfile .
+podman build -t "${IMAGE}" -f containers/ralph/Containerfile .
 
 echo ""
 echo "Image built successfully!"

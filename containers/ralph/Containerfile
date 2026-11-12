@@ -111,7 +111,7 @@ COPY --from=opencode /out/opencode /usr/local/bin/opencode
 # role restrictions. Updates are disabled so the version pinned in the OpenCode
 # build stage is the version every run uses.
 RUN mkdir -p /root/.config/opencode
-COPY container/opencode.json /root/.config/opencode/opencode.json
+COPY containers/ralph/opencode.json /root/.config/opencode/opencode.json
 
 # Copy ralph binary from builder
 COPY --from=builder /build/ralph /usr/local/bin/ralph

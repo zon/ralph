@@ -43,9 +43,11 @@ The runtime carries no Go module cache, Bun installation, or npm package tree. T
 
 ## Toolchains
 
-Toolchain images live in `zon/ralph-containers`. Each starts from the Ralph image at a pinned version and adds one toolchain. The repository publishes them to GHCR, and a project selects one with `workflow.image`. See [Config Design](app/ralph-config.md).
+Container images live in this repository under `containers/`. The Ralph image is in `containers/ralph`, and each toolchain image has its own directory beside it. Each toolchain image starts from the Ralph image at the same version and adds one toolchain. The container build workflow pushes each one to GHCR right after the Ralph image, with the same version and alias tags, and a project selects one with `workflow.image`. See [Config Design](app/ralph-config.md).
 
-The Go image, `ralph-go`, adds:
+The base is the `RALPH_IMAGE` build argument, which defaults to `ghcr.io/zon/ralph` at `RALPH_VERSION`. A pull request builds the toolchain image on the Ralph image it just built, so a version that is not published yet still builds and scans.
+
+The Go image, `ralph-go`, is built from `containers/ralph-go/Containerfile` and adds:
 
 * the Go toolchain at a pinned version
 * air at a pinned version

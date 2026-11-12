@@ -1,0 +1,53 @@
+# The Ralph image this toolchain layers on. Pass RALPH_VERSION to select a
+# release of ghcr.io/zon/ralph, or RALPH_IMAGE to use a locally built image.
+ARG RALPH_VERSION
+ARG RALPH_IMAGE=ghcr.io/zon/ralph:${RALPH_VERSION}
+ARG GO_VERSION=1.27.4
+ARG AIR_VERSION=v1.67.4
+ARG AIR_TEXT_VERSION=v0.44.0
+ARG TEMPL_VERSION=v0.3.1118
+ARG TEMPL_NET_VERSION=v0.62.0
+
+# Build air and templ from source so their dependencies can be raised. The
+# latest release of each still ships a known HIGH finding (air:
+# golang.org/x/text, templ: golang.org/x/net), and a released binary cannot be
+# patched. This stage also provides the Go toolchain the runtime image copies.
+FROM docker.io/library/golang:${GO_VERSION}-bookworm AS go-tools
+
+ARG AIR_VERSION
+ARG AIR_TEXT_VERSION
+ARG TEMPL_VERSION
+ARG TEMPL_NET_VERSION
+
+ENV CGO_ENABLED=0
+RUN mkdir /out
+
+RUN mkdir /tmp/air && cd /tmp/air \
+    && go mod init tools \
+    && GOFLAGS=-mod=mod go get github.com/air-verse/air@${AIR_VERSION} golang.org/x/text@${AIR_TEXT_VERSION} \
+    && GOFLAGS=-mod=mod go build -trimpath -ldflags "-s -w" -o /out/air github.com/air-verse/air
+
+RUN mkdir /tmp/templ && cd /tmp/templ \
+    && go mod init tools \
+    && GOFLAGS=-mod=mod go get github.com/a-h/templ/cmd/templ@${TEMPL_VERSION} golang.org/x/net@${TEMPL_NET_VERSION} \
+    && GOFLAGS=-mod=mod go build -trimpath -ldflags "-s -w" -o /out/templ github.com/a-h/templ/cmd/templ
+
+FROM ${RALPH_IMAGE}
+
+ARG RALPH_VERSION
+ARG GO_VERSION
+
+LABEL org.opencontainers.image.title="Ralph Go" \
+      org.opencontainers.image.description="Ralph executor with the Go toolchain, air, and templ" \
+      org.opencontainers.image.source="https://github.com/zon/ralph" \
+      org.opencontainers.image.version="${RALPH_VERSION}-go-${GO_VERSION}"
+
+COPY --from=go-tools /usr/local/go /usr/local/go
+COPY --from=go-tools /out/ /usr/local/bin/
+
+ENV GOPATH=/root/go \
+    PATH=/usr/local/go/bin:/root/go/bin:${PATH}
+
+WORKDIR /workspace
+
+CMD ["/bin/sh"]

@@ -48,7 +48,24 @@ container-build:
     repository="ghcr.io/zon/ralph"
     image="$repository:{{version}}"
     echo "Building container $image..."
-    podman build -t "$image" -f Containerfile .
+    podman build -t "$image" -f containers/ralph/Containerfile .
+
+# Build the Go toolchain image on the local Ralph image
+container-build-go: container-build
+    podman build \
+      --build-arg RALPH_IMAGE=ghcr.io/zon/ralph:{{version}} \
+      --build-arg RALPH_VERSION={{version}} \
+      -t ghcr.io/zon/ralph-go:{{version}} \
+      -f containers/ralph-go/Containerfile containers/ralph-go
+
+# Confirm the Go toolchain image carries the Go toolchain, air, and templ
+container-test-go: container-build-go
+    podman run --rm --entrypoint /bin/sh ghcr.io/zon/ralph-go:{{version}} -lc \
+      'go version && command -v air && templ version'
+
+# Push the Go toolchain image to the registry
+push-go:
+    podman push ghcr.io/zon/ralph-go:{{version}}
 
 # Push container image to registry
 push:

@@ -8,7 +8,7 @@ Ralph ships as a binary and as a container image. The binary runs local, worktre
 
 ## Image
 
-The image is `ghcr.io/zon/ralph`, tagged with the version. `workflow.image` in the [config](app/ralph-config.md) overrides the repository and tag, so a workflow can pin a different image. Toolchain images in `zon/ralph-containers` layer a language toolchain on the Ralph image. See [Container Design](container.md).
+The image is `ghcr.io/zon/ralph`, tagged with the version. `workflow.image` in the [config](app/ralph-config.md) overrides the repository and tag, so a workflow can pin a different image. Toolchain images under `containers/` layer a language toolchain on the Ralph image and share its version. See [Container Design](container.md).
 
 The Containerfile has four stages:
 
@@ -19,7 +19,7 @@ The Containerfile has four stages:
 
 The image also carries a global OpenCode configuration that lets the agent act without a client to answer permission prompts. The container boundary is the sandbox. The image disables OpenCode updates, so the pinned version is the version every run uses.
 
-`just container-build` builds locally and `just push` pushes the image.
+`just container-build` builds locally and `just push` pushes the image. `just container-build-go`, `just container-test-go`, and `just push-go` do the same for the Go toolchain image.
 
 ## Delivery
 

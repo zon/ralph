@@ -15,7 +15,7 @@ import (
 
 func TestDockerfileExists(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
-	containerfilePath := filepath.Join(projectRoot, "Containerfile")
+	containerfilePath := filepath.Join(projectRoot, "containers", "ralph", "Containerfile")
 
 	_, err := os.Stat(containerfilePath)
 	require.NoError(t, err, "Containerfile should exist at %s", containerfilePath)
@@ -23,7 +23,7 @@ func TestDockerfileExists(t *testing.T) {
 
 func TestDockerfileRuntimeCarriesRequiredComponents(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
-	containerfilePath := filepath.Join(projectRoot, "Containerfile")
+	containerfilePath := filepath.Join(projectRoot, "containers", "ralph", "Containerfile")
 
 	content, err := os.ReadFile(containerfilePath)
 	require.NoError(t, err, "Should be able to read Containerfile")
@@ -53,7 +53,7 @@ func TestDockerfileRuntimeCarriesRequiredComponents(t *testing.T) {
 
 func TestDockerfileUsesMultiStageBuilds(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
-	containerfilePath := filepath.Join(projectRoot, "Containerfile")
+	containerfilePath := filepath.Join(projectRoot, "containers", "ralph", "Containerfile")
 
 	content, err := os.ReadFile(containerfilePath)
 	require.NoError(t, err, "Should be able to read Containerfile")
@@ -67,7 +67,7 @@ func TestDockerfileUsesMultiStageBuilds(t *testing.T) {
 
 func TestDockerfileUsesUbuntuNobleRuntimeBase(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
-	containerfilePath := filepath.Join(projectRoot, "Containerfile")
+	containerfilePath := filepath.Join(projectRoot, "containers", "ralph", "Containerfile")
 
 	content, err := os.ReadFile(containerfilePath)
 	require.NoError(t, err, "Should be able to read Containerfile")
@@ -108,7 +108,7 @@ func containerfileStage(t *testing.T, dockerfile, name string) string {
 
 func TestDockerfileAppliesUbuntuSecurityUpdates(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
-	containerfilePath := filepath.Join(projectRoot, "Containerfile")
+	containerfilePath := filepath.Join(projectRoot, "containers", "ralph", "Containerfile")
 
 	content, err := os.ReadFile(containerfilePath)
 	require.NoError(t, err, "Should be able to read Containerfile")
@@ -122,7 +122,7 @@ func TestDockerfileAppliesUbuntuSecurityUpdates(t *testing.T) {
 
 func TestDockerfileUpgradesArgo(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
-	containerfilePath := filepath.Join(projectRoot, "Containerfile")
+	containerfilePath := filepath.Join(projectRoot, "containers", "ralph", "Containerfile")
 
 	content, err := os.ReadFile(containerfilePath)
 	require.NoError(t, err, "Should be able to read Containerfile")
@@ -140,7 +140,7 @@ func TestDockerfileUpgradesArgo(t *testing.T) {
 // the Go module cache out of the runtime image.
 func TestDockerfileBuildsArgoWithPatchedGoJose(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
-	containerfilePath := filepath.Join(projectRoot, "Containerfile")
+	containerfilePath := filepath.Join(projectRoot, "containers", "ralph", "Containerfile")
 
 	content, err := os.ReadFile(containerfilePath)
 	require.NoError(t, err, "Should be able to read Containerfile")
@@ -188,7 +188,7 @@ func TestDockerfileBuildsArgoWithPatchedGoJose(t *testing.T) {
 
 func TestDockerfileInstallsPinnedOpenCodeInOwnStage(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
-	containerfilePath := filepath.Join(projectRoot, "Containerfile")
+	containerfilePath := filepath.Join(projectRoot, "containers", "ralph", "Containerfile")
 
 	content, err := os.ReadFile(containerfilePath)
 	require.NoError(t, err, "Should be able to read Containerfile")
@@ -218,7 +218,7 @@ func TestDockerfileInstallsPinnedOpenCodeInOwnStage(t *testing.T) {
 
 func TestDockerfileCopiesGitFromOwnStage(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
-	containerfilePath := filepath.Join(projectRoot, "Containerfile")
+	containerfilePath := filepath.Join(projectRoot, "containers", "ralph", "Containerfile")
 
 	content, err := os.ReadFile(containerfilePath)
 	require.NoError(t, err, "Should be able to read Containerfile")
@@ -271,7 +271,7 @@ var forbiddenRuntimeTools = []struct {
 
 func TestDockerfileRuntimeCarriesNoToolchainOrBrowser(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
-	containerfilePath := filepath.Join(projectRoot, "Containerfile")
+	containerfilePath := filepath.Join(projectRoot, "containers", "ralph", "Containerfile")
 
 	content, err := os.ReadFile(containerfilePath)
 	require.NoError(t, err, "Should be able to read Containerfile")
@@ -334,7 +334,7 @@ func runtimeCarriesNoForbiddenTool(runtime string) bool {
 
 func TestDockerfileRuntimeReceivesOnlyOpenCodeBinary(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
-	containerfilePath := filepath.Join(projectRoot, "Containerfile")
+	containerfilePath := filepath.Join(projectRoot, "containers", "ralph", "Containerfile")
 
 	content, err := os.ReadFile(containerfilePath)
 	require.NoError(t, err, "Should be able to read Containerfile")
@@ -376,13 +376,13 @@ type openCodeContainerConfig struct {
 
 func TestContainerOpenCodeConfigServesSandbox(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
-	configPath := filepath.Join(projectRoot, "container", "opencode.json")
+	configPath := filepath.Join(projectRoot, "containers", "ralph", "opencode.json")
 
 	content, err := os.ReadFile(configPath)
-	require.NoError(t, err, "Should be able to read container/opencode.json")
+	require.NoError(t, err, "Should be able to read containers/ralph/opencode.json")
 
 	var cfg openCodeContainerConfig
-	require.NoError(t, json.Unmarshal(content, &cfg), "container/opencode.json should be valid JSON")
+	require.NoError(t, json.Unmarshal(content, &cfg), "containers/ralph/opencode.json should be valid JSON")
 
 	assert.Equal(t, "https://opencode.ai/config.json", cfg.Schema,
 		"config should declare the published schema")
@@ -407,18 +407,18 @@ func TestContainerOpenCodeConfigServesSandbox(t *testing.T) {
 
 func TestContainerfileConfiguresOpenCode(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
-	containerfilePath := filepath.Join(projectRoot, "Containerfile")
+	containerfilePath := filepath.Join(projectRoot, "containers", "ralph", "Containerfile")
 
 	content, err := os.ReadFile(containerfilePath)
 	require.NoError(t, err, "Should be able to read Containerfile")
 
-	assert.Contains(t, string(content), "COPY container/opencode.json /root/.config/opencode/opencode.json",
+	assert.Contains(t, string(content), "COPY containers/ralph/opencode.json /root/.config/opencode/opencode.json",
 		"Containerfile should install the container OpenCode configuration as the global config")
 }
 
 func TestContainerfileKeepsWorkspaceAndDefaultShell(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
-	containerfilePath := filepath.Join(projectRoot, "Containerfile")
+	containerfilePath := filepath.Join(projectRoot, "containers", "ralph", "Containerfile")
 
 	content, err := os.ReadFile(containerfilePath)
 	require.NoError(t, err, "Should be able to read Containerfile")

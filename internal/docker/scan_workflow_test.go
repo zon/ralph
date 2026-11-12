@@ -42,7 +42,7 @@ func TestScanWorkflow(t *testing.T) {
 			if strings.Contains(step.run, "docker build") && strings.Contains(step.run, "Containerfile") {
 				found = true
 			}
-			if step.withString("file") == "Containerfile" {
+			if step.withString("file") == "containers/ralph/Containerfile" {
 				found = true
 			}
 		}

@@ -3,6 +3,8 @@ defaultBranch: dev
 workflow:
   context: lab
   namespace: ralph
+  image:
+    repository: ghcr.io/zon/ralph-go
 model: deepseek/deepseek-flash
 variant: high
 
