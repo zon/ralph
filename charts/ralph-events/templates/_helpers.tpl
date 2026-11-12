@@ -61,6 +61,9 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- if and $tls.secretName $url (not (regexMatch "(?i)^https://" $url)) -}}
 {{- fail "github.webhook.url must use the https scheme when github.webhook.tls is set" -}}
 {{- end -}}
+{{- if and .Values.gatewayRoute (not $tls.secretName) -}}
+{{- fail "gatewayRoute requires github.webhook.tls" -}}
+{{- end -}}
 {{- end -}}
 
 {{- define "ralph-events.repoSubject" -}}
