@@ -56,6 +56,7 @@ type WorkflowPromptFlags struct {
 	Prefix      string
 	BaseBranch  string
 	Prompt      string
+	Namespace   string
 	BotName     string
 	BotEmail    string
 	Model       string

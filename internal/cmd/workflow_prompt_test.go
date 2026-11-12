@@ -62,6 +62,7 @@ func TestWorkflowPromptCmdParsing(t *testing.T) {
 		"--prefix", "update",
 		"--base", "release",
 		"--prompt", "Add the endpoint.",
+		"--namespace", "target-ns",
 		"--model", "gpt-4",
 		"--variant", "high",
 		"--agent", "build",
@@ -77,6 +78,7 @@ func TestWorkflowPromptCmdParsing(t *testing.T) {
 	assert.Equal(t, "update", cmd.Workflow.Prompt.Prefix)
 	assert.Equal(t, "release", cmd.Workflow.Prompt.Base)
 	assert.Equal(t, "Add the endpoint.", cmd.Workflow.Prompt.Prompt)
+	assert.Equal(t, "target-ns", cmd.Workflow.Prompt.Namespace)
 	assert.Equal(t, "gpt-4", cmd.Workflow.Prompt.Model)
 	assert.Equal(t, "high", cmd.Workflow.Prompt.Variant)
 	assert.Equal(t, "build", cmd.Workflow.Prompt.Agent)
@@ -99,7 +101,53 @@ func TestWorkflowPromptCmdDefaults(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "ralph-zon[bot]", cmd.Workflow.Prompt.BotName)
 	assert.Equal(t, "ralph-zon[bot]@users.noreply.github.com", cmd.Workflow.Prompt.BotEmail)
+	assert.Empty(t, cmd.Workflow.Prompt.Namespace)
 	assert.False(t, cmd.Workflow.Prompt.NoServices)
+}
+
+// TestWorkflowPromptCmdNamespaceFlag covers the --namespace flag: it parses
+// when supplied and stays empty when omitted, so a command without it keeps
+// running the prompt in its own pod.
+func TestWorkflowPromptCmdNamespaceFlag(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+		want string
+	}{
+		{
+			name: "omitted namespace stays empty",
+			args: []string{"workflow", "prompt", "--repo", "owner/repo"},
+			want: "",
+		},
+		{
+			name: "supplied namespace is parsed",
+			args: []string{"workflow", "prompt", "--repo", "owner/repo", "--namespace", "target-ns"},
+			want: "target-ns",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := &Cmd{}
+			parser, err := kong.New(cmd,
+				kong.Name("ralph"),
+				kong.Exit(func(int) {}),
+			)
+			require.NoError(t, err)
+
+			_, err = parser.Parse(tt.args)
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.want, cmd.Workflow.Prompt.Namespace)
+		})
+	}
+}
+
+// TestWorkflowPromptCmdHelpListsNamespace asserts --namespace appears in the
+// workflow prompt usage.
+func TestWorkflowPromptCmdHelpListsNamespace(t *testing.T) {
+	output := captureHelpOutput(&Cmd{}, []string{"workflow", "prompt", "--help"})
+	assert.Contains(t, output, "--namespace")
 }
 
 // TestWorkflowPromptCmdHelpText asserts the workflow prompt subcommand appears

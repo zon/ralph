@@ -20,6 +20,7 @@ type WorkflowPromptCmd struct {
 	Prefix      string `help:"Work-stream prefix to check before running the prompt" name:"prefix"`
 	Base        string `help:"Base branch for PR creation" name:"base" short:"B"`
 	Prompt      string `help:"Prompt text to run" name:"prompt"`
+	Namespace   string `help:"The name of the Kubernetes namespace to use" name:"namespace"`
 	BotName     string `help:"Git user name for commits" default:"ralph-zon[bot]"`
 	BotEmail    string `help:"Git user email for commits" default:"ralph-zon[bot]@users.noreply.github.com"`
 	Debug       string `help:"Ralph branch to use for debug mode" name:"debug"`
@@ -55,6 +56,7 @@ func (w *WorkflowPromptCmd) Run() error {
 	ctx.SetVariant(w.Variant)
 	ctx.SetDebugBranch(w.Debug)
 	ctx.SetNoServices(w.NoServices)
+	ctx.SetKubeNamespace(w.Namespace)
 	ctx.SetLocal(true)
 	ctx.SetNoNotify(true)
 	ctx.SetWorkflowExecution(true)
@@ -66,6 +68,7 @@ func (w *WorkflowPromptCmd) Run() error {
 		Prefix:      w.Prefix,
 		BaseBranch:  w.Base,
 		Prompt:      w.Prompt,
+		Namespace:   w.Namespace,
 		BotName:     w.BotName,
 		BotEmail:    w.BotEmail,
 		Model:       w.Model,

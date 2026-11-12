@@ -42,6 +42,7 @@ func promptFlags() WorkflowPromptFlags {
 		Prefix:      "update",
 		BaseBranch:  "release",
 		Prompt:      "Add the endpoint.",
+		Namespace:   "target-ns",
 		BotName:     "ralph-zon[bot]",
 		BotEmail:    "ralph-zon[bot]@users.noreply.github.com",
 		Model:       "gpt-4",
@@ -105,6 +106,7 @@ func TestWorkflowPromptCmdPreparesWorkspaceOnPromptBranch(t *testing.T) {
 	assert.Equal(t, "update/my-feature", runner.flags.Branch)
 	assert.Equal(t, "update", runner.flags.Prefix)
 	assert.Equal(t, "release", runner.flags.BaseBranch)
+	assert.Equal(t, "target-ns", runner.flags.Namespace)
 	assert.Equal(t, "gpt-4", runner.flags.Model)
 	assert.Equal(t, "high", runner.flags.Variant)
 	assert.Equal(t, "build", runner.flags.Agent)
