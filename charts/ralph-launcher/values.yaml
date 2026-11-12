@@ -93,6 +93,10 @@ workflow:
   extraVolumes: []
   extraVolumeMounts: []
 
+target:
+  rbac:
+    create: true
+
 eventBus:
   # Create an Argo Events EventBus in this namespace that uses the existing
   # NATS JetStream server. Set create to true only when no other release in the

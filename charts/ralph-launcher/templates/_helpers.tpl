@@ -170,6 +170,20 @@ repo
 {{- default (include "ralph-launcher.fullname" .) .Values.sensor.serviceAccount.name -}}
 {{- end -}}
 
+{{- define "ralph-launcher.workflowServiceAccountName" -}}
+{{- default "default" .Values.workflow.serviceAccountName -}}
+{{- end -}}
+
+{{- define "ralph-launcher.targetNamespaces" -}}
+{{- $namespaces := dict -}}
+{{- range .Values.prompt.entries -}}
+{{- if .namespace -}}
+{{- $_ := set $namespaces .namespace true -}}
+{{- end -}}
+{{- end -}}
+{{- toJson (keys $namespaces | sortAlpha) -}}
+{{- end -}}
+
 {{- define "ralph-launcher.promptTemplate" -}}
 {{- $root := .root -}}
 {{- $target := .target -}}

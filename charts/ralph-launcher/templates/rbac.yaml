@@ -49,3 +49,50 @@ subjects:
     name: {{ include "ralph-launcher.serviceAccountName" . }}
     namespace: {{ .Release.Namespace }}
 {{- end }}
+{{- if .Values.target.rbac.create }}
+{{- range $namespace := include "ralph-launcher.targetNamespaces" . | fromJsonArray }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "ralph-launcher.fullname" $ }}-target
+  namespace: {{ $namespace }}
+  labels:
+    {{- include "ralph-launcher.labels" $ | nindent 4 }}
+rules:
+  - apiGroups:
+      - argoproj.io
+    resources:
+      - workflows
+    verbs:
+      - create
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+      - pods/log
+    verbs:
+      - get
+      - list
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "ralph-launcher.fullname" $ }}-target
+  namespace: {{ $namespace }}
+  labels:
+    {{- include "ralph-launcher.labels" $ | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "ralph-launcher.fullname" $ }}-target
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "ralph-launcher.workflowServiceAccountName" $ }}
+    namespace: {{ $.Release.Namespace }}
+{{- end }}
+{{- end }}
