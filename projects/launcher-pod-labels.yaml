@@ -1,2 +1,0 @@
-- "`workflow.labels` in the `ralph-launcher` chart apply to the launcher `Workflow` and to its pod, so the pod carries them at creation. An empty `workflow.labels` adds no labels."
-- "Apply a semver minor bump to the `ralph-launcher` chart version and set its appVersion to the current app version from `internal/version/VERSION`."
