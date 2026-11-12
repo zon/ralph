@@ -122,6 +122,42 @@ When a covered command must resolve a Kubernetes context and kubectl is missing,
 
 ---
 
+### Requirement: In-cluster commands
+
+A covered command that runs in a pod with no kubeconfig SHALL reach its own cluster with the pod's ServiceAccount. It SHALL NOT require a context. It SHALL ignore a `--context` flag and `workflow.context`. The namespace SHALL resolve as defined above, so the command acts in the namespace the flag or config names, and in the pod's own namespace when neither does. The ServiceAccount's rights SHALL decide what the command can do.
+
+#### Scenario: No context is required in a pod
+
+- GIVEN a covered command runs in a pod with no kubeconfig
+- AND neither `--context` nor `workflow.context` is set
+- WHEN the command interacts with the cluster
+- THEN the pod's ServiceAccount reaches the pod's own cluster
+- AND no error reports a missing kubectl context
+
+#### Scenario: A configured context is ignored in a pod
+
+- GIVEN a covered command runs in a pod with no kubeconfig
+- AND `workflow.context: staging` is set or `--context staging` is passed
+- WHEN the command interacts with the cluster
+- THEN the pod's own cluster is used
+- AND the `staging` context is not used
+
+#### Scenario: The namespace flag applies in a pod
+
+- GIVEN a covered command runs in a pod with no kubeconfig
+- AND the user passes `-n team-a`
+- WHEN the command interacts with the cluster
+- THEN the `team-a` namespace is used
+
+#### Scenario: The pod's namespace is the default
+
+- GIVEN a covered command runs in a pod with no kubeconfig
+- AND neither `--namespace` nor `workflow.namespace` is set
+- WHEN the command interacts with the cluster
+- THEN the pod's own namespace is used
+
+---
+
 ### Requirement: Commands without a cluster interaction do not require the options
 
 The `--context` and `--namespace` options SHALL be meaningful only where a command interacts with the cluster. Commands that run entirely in-process (`ralph complete`, `ralph incomplete`, `ralph validate`, and `ralph run`/`ralph loop`/`ralph prompt` in `local` or `worktree` mode) SHALL NOT require these options and SHALL accept them without effect.
