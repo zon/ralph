@@ -89,6 +89,9 @@ workflow:
     name: ""
   credentials:
     githubSecret: github-credentials
+    # opencodeSecret names the Secret mounted at /secrets/opencode. Leave it
+    # empty when every prompt entry names a target namespace, so the launcher
+    # pod carries no agent credentials.
     opencodeSecret: opencode-credentials
   extraVolumes: []
   extraVolumeMounts: []
