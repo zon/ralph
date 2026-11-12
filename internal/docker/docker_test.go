@@ -147,41 +147,25 @@ func TestDockerfileAppliesUbuntuSecurityUpdates(t *testing.T) {
 		"Runtime stage should apply Ubuntu security updates with apt-get upgrade")
 }
 
-func TestDockerfileUpgradesArgoAndHelm(t *testing.T) {
+func TestDockerfileUpgradesArgo(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
 	containerfilePath := filepath.Join(projectRoot, "Containerfile")
 
 	content, err := os.ReadFile(containerfilePath)
 	require.NoError(t, err, "Should be able to read Containerfile")
 
-	dockerfile := string(content)
-
-	cases := []struct {
-		name    string
-		envVar  string
-		minimum [3]int
-	}{
-		{"argo CLI", "ARGO_VERSION", [3]int{4, 1, 4}},
-		{"helm", "HELM_VERSION", [3]int{4, 3, 0}},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			version := containerfileVersion(t, dockerfile, tc.envVar)
-			assert.GreaterOrEqual(t, compareVersions(version, tc.minimum), 0,
-				"Containerfile should pin %s at v%d.%d.%d or later, got v%d.%d.%d",
-				tc.envVar, tc.minimum[0], tc.minimum[1], tc.minimum[2],
-				version[0], version[1], version[2])
-		})
-	}
+	version := containerfileVersion(t, string(content), "ARGO_VERSION")
+	minimum := [3]int{4, 1, 4}
+	assert.GreaterOrEqual(t, compareVersions(version, minimum), 0,
+		"Containerfile should pin ARGO_VERSION at v%d.%d.%d or later, got v%d.%d.%d",
+		minimum[0], minimum[1], minimum[2], version[0], version[1], version[2])
 }
 
-// TestDockerfileBuildsGoToolsWithPatchedDependencies covers the Go tools whose
-// latest releases still ship a dependency with a known HIGH vulnerability. The
-// Containerfile builds each from source in its own stage, so the dependency
-// can be raised past the fix and the Go module cache stays out of the runtime
-// image.
-func TestDockerfileBuildsGoToolsWithPatchedDependencies(t *testing.T) {
+// TestDockerfileBuildsArgoWithPatchedGoJose covers the argo CLI, whose latest
+// release still ships go-jose with a known HIGH vulnerability. The Containerfile
+// builds it from its release tag in its own stage, raises go-jose, and keeps
+// the Go module cache out of the runtime image.
+func TestDockerfileBuildsArgoWithPatchedGoJose(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
 	containerfilePath := filepath.Join(projectRoot, "Containerfile")
 
@@ -189,51 +173,44 @@ func TestDockerfileBuildsGoToolsWithPatchedDependencies(t *testing.T) {
 	require.NoError(t, err, "Should be able to read Containerfile")
 
 	dockerfile := string(content)
+	argo := containerfileStage(t, dockerfile, "argo")
+	runtime := runtimeStage(t, dockerfile)
 
-	assert.Contains(t, dockerfile, "AS go-tools", "Containerfile should build the Go tools in their own stage")
-	assert.Contains(t, dockerfile, "COPY --from=go-tools",
-		"Containerfile should copy the built Go tools into the runtime stage")
-	assert.NotContains(t, runtimeStage(t, dockerfile), "go install",
+	basePattern := regexp.MustCompile(`(?m)^FROM\s+\S*golang:\d+\.\d+\.\d+-\S+\s+AS\s+argo\s*$`)
+	assert.Regexp(t, basePattern, argo,
+		"argo stage should build on a golang image pinned to a patch version")
+
+	assert.Contains(t, argo, "git clone", "argo stage should build from its release tag")
+	assert.Contains(t, argo, "--branch ${ARGO_VERSION}")
+	assert.Contains(t, argo, "https://github.com/argoproj/argo-workflows.git")
+	assert.Contains(t, argo, "go get github.com/go-jose/go-jose/v4@${ARGO_JOSE_VERSION}")
+	assert.Contains(t, argo, "-o /out/argo ./cmd/argo")
+
+	assert.Contains(t, runtime, "COPY --from=argo /out/argo /usr/local/bin/argo",
+		"Runtime stage should copy the argo CLI from its build stage")
+	assert.NotContains(t, runtime, "go install",
 		"runtime stage should not build Go tools, which would leave the module cache in the image")
 
-	t.Run("go-tools Go toolchain", func(t *testing.T) {
-		// helm is built with this stage's Go, so its standard library is
-		// the one Trivy reports on.
-		pattern := regexp.MustCompile(`FROM\s+\S*golang:(\d+)\.(\d+)\.(\d+)-\S+\s+AS\s+go-tools`)
-		match := pattern.FindStringSubmatch(dockerfile)
-		require.NotNil(t, match, "go-tools stage should build on a golang image pinned to a patch version")
+	version := containerfileVersion(t, argo, "ARGO_JOSE_VERSION")
+	minimum := [3]int{4, 1, 6}
+	assert.GreaterOrEqual(t, compareVersions(version, minimum), 0,
+		"Containerfile should build with ARGO_JOSE_VERSION v%d.%d.%d or later, got v%d.%d.%d",
+		minimum[0], minimum[1], minimum[2], version[0], version[1], version[2])
 
-		var version [3]int
-		for i := range version {
-			part, err := strconv.Atoi(match[i+1])
-			require.NoError(t, err, "golang image version should have numeric parts")
-			version[i] = part
+	t.Run("no air, templ, or helm", func(t *testing.T) {
+		for _, term := range []string{
+			"AIR_VERSION",
+			"TEMPL_VERSION",
+			"HELM_VERSION",
+			"github.com/air-verse/air",
+			"github.com/a-h/templ",
+			"helm.sh/helm",
+			"AS go-tools",
+		} {
+			assert.NotContains(t, dockerfile, term,
+				"Containerfile should no longer build or name %s", term)
 		}
-		minimum := [3]int{1, 27, 3}
-		assert.GreaterOrEqual(t, compareVersions(version, minimum), 0,
-			"go-tools should build on Go v%d.%d.%d or later for helm's standard library, got v%d.%d.%d",
-			minimum[0], minimum[1], minimum[2], version[0], version[1], version[2])
 	})
-
-	cases := []struct {
-		name    string
-		envVar  string
-		minimum [3]int
-	}{
-		{"air golang.org/x/text", "AIR_TEXT_VERSION", [3]int{0, 41, 0}},
-		{"templ golang.org/x/net", "TEMPL_NET_VERSION", [3]int{0, 60, 0}},
-		{"argo go-jose", "ARGO_JOSE_VERSION", [3]int{4, 1, 6}},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			version := containerfileVersion(t, dockerfile, tc.envVar)
-			assert.GreaterOrEqual(t, compareVersions(version, tc.minimum), 0,
-				"Containerfile should build with %s v%d.%d.%d or later, got v%d.%d.%d",
-				tc.name, tc.minimum[0], tc.minimum[1], tc.minimum[2],
-				version[0], version[1], version[2])
-		})
-	}
 }
 
 func TestDockerfileInstallsPinnedOpenCodeInOwnStage(t *testing.T) {

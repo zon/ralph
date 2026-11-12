@@ -15,34 +15,15 @@ COPY . .
 # Build ralph binary using justfile (includes version injection)
 RUN just build
 
-# Go tools stage - build the Go command line tools from source. The latest
-# release of each still ships a dependency with a known HIGH vulnerability
-# (air: golang.org/x/text, templ: golang.org/x/net, argo: go-jose, helm: the Go
-# standard library), and a released binary cannot be patched. Building from the
-# release tag lets us raise that dependency, or build with a Go that carries the
-# fix, and keeps the Go module cache out of the runtime image. Drop an override
-# once a release of that tool ships the fixed version. The Go version here must
-# stay at or above the fix for helm's standard library finding (1.27.3).
-FROM docker.io/library/golang:1.27.4-bookworm AS go-tools
+# Argo stage - build the Argo Workflows CLI from its release tag. Its latest
+# release still ships go-jose with a known HIGH vulnerability, and a released
+# binary cannot be patched. Building from the release tag lets us raise that
+# dependency and keeps the Go module cache out of the runtime image. Drop the
+# override once a release ships the fixed version.
+FROM docker.io/library/golang:1.27.4-bookworm AS argo
 
 ENV CGO_ENABLED=0
 RUN mkdir /out
-
-# air for live reload, built with a fixed golang.org/x/text
-ENV AIR_VERSION=v1.67.4
-ENV AIR_TEXT_VERSION=v0.44.0
-RUN mkdir /tmp/air && cd /tmp/air \
-    && go mod init tools \
-    && GOFLAGS=-mod=mod go get github.com/air-verse/air@${AIR_VERSION} golang.org/x/text@${AIR_TEXT_VERSION} \
-    && GOFLAGS=-mod=mod go build -trimpath -ldflags "-s -w" -o /out/air github.com/air-verse/air
-
-# templ for templates, built with a fixed golang.org/x/net
-ENV TEMPL_VERSION=v0.3.1118
-ENV TEMPL_NET_VERSION=v0.62.0
-RUN mkdir /tmp/templ && cd /tmp/templ \
-    && go mod init tools \
-    && GOFLAGS=-mod=mod go get github.com/a-h/templ/cmd/templ@${TEMPL_VERSION} golang.org/x/net@${TEMPL_NET_VERSION} \
-    && GOFLAGS=-mod=mod go build -trimpath -ldflags "-s -w" -o /out/templ github.com/a-h/templ/cmd/templ
 
 # Argo Workflows CLI, built with a fixed go-jose. The CLI embeds the UI
 # directory, which only the server uses; like upstream's own CLI build, give it
@@ -56,12 +37,6 @@ RUN git clone --quiet --depth 1 --branch ${ARGO_VERSION} https://github.com/argo
     && GOFLAGS=-mod=mod go build -trimpath \
         -ldflags "-s -w -X github.com/argoproj/argo-workflows/v4.version=${ARGO_VERSION}" \
         -o /out/argo ./cmd/argo
-
-# Helm, built with this stage's Go for its standard library
-ENV HELM_VERSION=v4.3.1
-RUN GOBIN=/out go install -trimpath \
-    -ldflags "-s -w -X helm.sh/helm/v4/internal/version.version=${HELM_VERSION}" \
-    helm.sh/helm/v4/cmd/helm@${HELM_VERSION}
 
 # OpenCode stage - install the pinned OpenCode CLI in a Bun image and keep only
 # the native linux/amd64 binary. The module cache and the platform packages for
@@ -112,12 +87,11 @@ RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" | tar -C /
     && ln -s /usr/local/go/bin/go /usr/local/bin/go \
     && ln -s /usr/local/go/bin/gofmt /usr/local/bin/gofmt
 
-# Go development tools (air for live reload, templ for templates), the Argo
-# Workflows CLI, and Helm come from the go-tools stage, built from source at
-# the versions pinned there
+# The Argo Workflows CLI comes from the argo stage, built from source at the
+# version pinned there
 ENV GOPATH=/root/go
 ENV PATH="${GOPATH}/bin:${PATH}"
-COPY --from=go-tools /out/ /usr/local/bin/
+COPY --from=argo /out/argo /usr/local/bin/argo
 
 # Copy only the native OpenCode binary from its build stage. The module cache
 # and the platform packages stay out of the runtime.
