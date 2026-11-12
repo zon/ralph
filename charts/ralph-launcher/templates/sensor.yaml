@@ -37,28 +37,9 @@ spec:
               metadata:
                 generateName: {{ printf "ralph-prompt-%s-" (include "ralph-launcher.name" $) | quote }}
                 labels:
-                  app.kubernetes.io/managed-by: ralph
-                  app.kubernetes.io/name: {{ include "ralph-launcher.name" $ | quote }}
-                  app.kubernetes.io/instance: {{ $.Release.Name | quote }}
-                  {{- with $.Values.workflow.labels }}
-                  {{- toYaml . | nindent 18 }}
-                  {{- end }}
+                  {{- include "ralph-launcher.workflowLabels" $ | nindent 18 }}
               spec:
-                workflowTemplateRef:
-                  name: {{ include "ralph-launcher.fullname" $ }}
-                arguments:
-                  parameters:
-                    {{- include "ralph-launcher.workflowParameters" (dict "root" $ "entry" $entry) | nindent 20 }}
-                ttlStrategy:
-                  secondsAfterCompletion: {{ $.Values.workflow.ttlSecondsAfterCompletion }}
-                podGC:
-                  strategy: {{ $.Values.workflow.podGC.strategy | quote }}
-                  deleteDelayDuration: {{ $.Values.workflow.podGC.deleteDelayDuration | quote }}
-                {{- if $.Values.workflow.mutex.enabled }}
-                synchronization:
-                  mutexes:
-                    - name: {{ include "ralph-launcher.mutexName" (dict "root" $ "entry" $entry) | quote }}
-                {{- end }}
+                {{- include "ralph-launcher.workflowSpec" (dict "root" $ "entry" $entry) | nindent 16 }}
         retryStrategy:
           steps: {{ $.Values.sensor.retry.steps }}
     {{- end }}
