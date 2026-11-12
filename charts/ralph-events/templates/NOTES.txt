@@ -1,19 +1,86 @@
 ralph-events is installed in namespace {{ .Release.Namespace }}.
 
-GitHub webhook URL:
+{{- $tls := default dict .Values.github.webhook.tls }}
+{{- $webhookURL := .Values.github.webhook.url }}
 
-  {{- if .Values.github.webhook.url }}
-  {{ .Values.github.webhook.url }}
-  {{- else }}
-  Add an Ingress for {{ include "ralph-events.githubEventSourceName" . }}-eventsource-svc
+GitHub webhook:
+
+{{- if $webhookURL }}
+  URL: {{ $webhookURL }}
+{{- else }}
+  URL: not set. Set github.webhook.url to the URL GitHub calls.
+{{- end }}
+{{- if $tls.secretName }}
+  TLS: on. The webhook serves TLS using Secret {{ $tls.secretName }}.
+{{- else }}
+  TLS: off. The webhook serves plain HTTP.
+{{- end }}
+
+Route:
+
+{{- $gatewayRoute := .Values.gatewayRoute }}
+{{- if $gatewayRoute }}
+{{- $hostnames := $gatewayRoute.hostnames }}
+{{- if not $hostnames }}
+{{- $host := include "ralph-events.webhookHost" . }}
+{{- if $host }}
+{{- $hostnames = list $host }}
+{{- end }}
+{{- end }}
+  TLSRoute {{ include "ralph-events.fullname" . }}:
+{{- if $hostnames }}
+    hostnames: {{ join ", " $hostnames }}
+{{- else }}
+    hostnames: none
+{{- end }}
+{{- if $gatewayRoute.parentRefs }}
+    gateways:
+{{- range $gatewayRoute.parentRefs }}
+      {{ with .namespace }}{{ . }}/{{ end }}{{ .name }}
+{{- end }}
+{{- else }}
+    gateways: none
+{{- end }}
+{{- end }}
+{{- if .Values.ingress.enabled }}
+  Ingress {{ include "ralph-events.fullname" . }}:
+{{- if .Values.ingress.hosts }}
+    hosts:
+{{- range .Values.ingress.hosts }}
+      {{ .host }}
+{{- end }}
+{{- else }}
+    hosts: none
+{{- end }}
+    backend: {{ include "ralph-events.githubEventSourceName" . }}-eventsource-svc
+    port: {{ .Values.github.webhook.port }}
+    path: {{ .Values.github.webhook.endpoint }}
+{{- end }}
+{{- if and (not $gatewayRoute) (not .Values.ingress.enabled) }}
+  None. The release renders no Ingress or TLSRoute. Set ingress.enabled or
+  gatewayRoute to expose {{ include "ralph-events.githubEventSourceName" . }}-eventsource-svc
   on port {{ .Values.github.webhook.port }} and path {{ .Values.github.webhook.endpoint }}.
-  {{- end }}
+{{- end }}
 
 NATS JetStream URL for launchers:
 
   {{ include "ralph-events.natsUrl" . }}
 
 The release creates one EventBus for each eventbus.instances entry.
+
+Hook cleanup:
+
+{{- if .Values.github.webhook.deleteHookOnFinish }}
+  github.webhook.deleteHookOnFinish is on. The event source deletes the hooks
+  it registered when it stops, so a repository removed from repositories loses
+  its webhook on the next restart. A crash can leave a hook behind.
+{{- else }}
+  github.webhook.deleteHookOnFinish is off. The event source leaves its hooks
+  in place. A crash can leave a hook behind.
+{{- end }}
+
+  The option applies only when the chart registers hooks, which needs
+  github.apiTokenSecret or github.githubApp with github.webhook.url.
 
 Routing:
 
