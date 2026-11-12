@@ -1,4 +1,4 @@
-{{- if .Values.stream.create }}
+{{- if and .Values.routing.enabled .Values.stream.create }}
 apiVersion: batch/v1
 kind: Job
 metadata:

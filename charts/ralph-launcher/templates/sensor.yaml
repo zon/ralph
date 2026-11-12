@@ -15,8 +15,8 @@ spec:
     {{- $events := include "ralph-launcher.entryEvents" $entry | fromJsonArray }}
     {{- range $event := $events }}
     - name: {{ include "ralph-launcher.entryName" (dict "slug" $entry.slug "event" $event) | quote }}
-      eventSourceName: {{ include "ralph-launcher.eventSourceName" $ }}
-      eventName: repo
+      eventSourceName: {{ include "ralph-launcher.dependencyEventSourceName" $ }}
+      eventName: {{ include "ralph-launcher.dependencyEventName" $ }}
       {{- include "ralph-launcher.dependencyFilters" (dict "root" $ "event" $event) | nindent 6 }}
     {{- end }}
     {{- end }}

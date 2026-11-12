@@ -1,6 +1,20 @@
 nameOverride: ""
 fullnameOverride: ""
 
+# delivery selects how repository events reach this launcher. Use subject to
+# subscribe to the repository subject and republish it to the namespace bus, or
+# bus to read the intake's GitHub event source through the shared event bus.
+# Defaults to subject. The chart rejects any other value.
+delivery: subject
+
+intake:
+  # The ralph-events release's GitHub event source. Required when delivery is
+  # bus; the launcher sensor names this event source in its dependencies.
+  eventSource:
+    name: ""
+  # The event name inside the intake event source. Defaults to github.
+  eventName: github
+
 nats:
   # Existing NATS JetStream server on the cluster. The chart does not install
   # NATS. Use the same URL as ralph-events, for example:
@@ -86,12 +100,19 @@ eventBus:
   # Existing Secret and key holding the EventBus credentials file
   # (username and password).
   accessSecret: {}
+  # JetStream settings for a bus that this release creates. maxAge is the
+  # retention window: a returning bus sensor receives the events retained
+  # within it, and an older event is lost. Delivery is at least once, so a
+  # launcher can see an event twice; the open pull request check and the entry
+  # mutex stop a repeat from starting a second pass.
   streamConfig: |
     maxAge: 24h
     replicas: 1
 
 sensor:
   eventSource:
+    # Render the launcher event source that subscribes to the repository
+    # subject. It is rendered only with delivery: subject.
     create: true
     name: ""
     connectionBackoff:
@@ -100,16 +121,19 @@ sensor:
       steps: 5
   replicas: 1
   # Only run an entry's push dependency for pushes to the base branch. Set to
-  # false to run on every push delivered to the repository subject.
+  # false to run on every push delivered by the chosen delivery path.
   defaultBranchOnly: true
   # The branch filter follows repo.baseBranch. Set branch to override it.
   branch: ""
   # Pushes from these GitHub users do not start another prompt run.
   ignoreUsers:
     - "ralph-zon[bot]"
-  # Additional Argo Events data filters. Paths are relative to the NATS event
-  # data, whose event key holds the GitHub event name and payload key holds the
-  # GitHub event body.
+  # Additional Argo Events data filters. Paths are relative to the data of the
+  # chosen delivery path. With delivery: subject the event name is body.event
+  # and the GitHub body is body.payload. With delivery: bus the data is the
+  # GitHub delivery itself: the repository is body.repository.full_name, the
+  # event name is the X-Github-Event header, the push branch is body.ref, and
+  # the sender is body.sender.login. Rewrite paths when switching delivery.
   filters: []
   retry:
     steps: 3

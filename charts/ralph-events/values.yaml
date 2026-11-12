@@ -1,6 +1,13 @@
 nameOverride: ""
 fullnameOverride: ""
 
+routing:
+  # Render the repository routing sensors and the stream job. Set to false when
+  # every launcher in the cluster uses delivery: bus; the release still renders
+  # the GitHub event source and the event bus. The stream settings below apply
+  # only while routing is enabled.
+  enabled: true
+
 # Repositories routed from GitHub to NATS. Each entry creates one sensor that
 # filters the shared GitHub event source by repository and publishes the event
 # body to ralph.repo.<owner>.<name> unless subject overrides it.

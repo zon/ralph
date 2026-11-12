@@ -1,8 +1,22 @@
+{{- $delivery := include "ralph-launcher.delivery" . -}}
 ralph-launcher is installed in namespace {{ .Release.Namespace }}.
+
+Delivery path: {{ $delivery }}
+
+{{- if eq $delivery "bus" }}
+
+Intake event source:
+
+  {{ .Values.intake.eventSource.name }} (event {{ include "ralph-launcher.dependencyEventName" . }})
+
+The namespace EventBus {{ .Values.eventBus.name }} must point at the same NATS
+server and account as the intake's bus.
+{{- else }}
 
 Repository subject:
 
   {{ include "ralph-launcher.subject" . }}
+{{- end }}
 
 Workflow template:
 

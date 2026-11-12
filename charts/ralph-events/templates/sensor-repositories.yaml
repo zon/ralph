@@ -1,3 +1,4 @@
+{{- if .Values.routing.enabled }}
 {{- range $repo := .Values.repositories }}
 {{- $authSecret := include "ralph-events.natsAuthSecretName" $ }}
 ---
@@ -60,4 +61,5 @@ spec:
               dest: payload
         retryStrategy:
           steps: {{ $.Values.sensor.trigger.retry.steps }}
+{{- end }}
 {{- end }}
