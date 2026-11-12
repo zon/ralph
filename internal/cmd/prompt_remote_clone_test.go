@@ -290,8 +290,150 @@ func TestPromptWorkflowRunnerAdapterTargetNamespaceSubmitsRemote(t *testing.T) {
 	}, remote.submissions[0])
 	assert.Zero(t, aiClient.passCalls, "the target namespace runs no pass in this pod")
 	assert.Zero(t, servicesClient.runBeforeCalls, "the target namespace runs no local before command")
+	assert.Equal(t, []string{"ralph-prompt-abcde"}, remote.followed, "the target workflow logs are followed")
+	assert.Zero(t, remote.hintCalls, "a target prompt does not return after submission")
 	assert.Empty(t, notifier.successes, "completion notifications are off")
 	assert.Empty(t, notifier.errors, "completion notifications are off")
+}
+
+// TestPromptWorkflowRunnerAdapterTargetNamespaceFollowsAndPropagates covers the
+// target prompt waiting for the workflow to finish: a successful follow exits
+// zero, a failed follow exits non-zero, and neither sends a completion
+// notification. The target path follows even when the local prompt defaults say
+// otherwise.
+func TestPromptWorkflowRunnerAdapterTargetNamespaceFollowsAndPropagates(t *testing.T) {
+	followErr := errors.New("target workflow failed")
+	tests := []struct {
+		name      string
+		followErr error
+	}{
+		{name: "target workflow succeeds"},
+		{name: "target workflow fails", followErr: followErr},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			remote := &promptRemoteRecorder{followErr: tt.followErr}
+			notifier := &promptNotifyRecorder{}
+			promptCmd := &PromptCmd{
+				config: &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+				git: &git.MockClient{
+					CurrentBranchFunc:            func() (string, error) { return "main", nil },
+					IsBranchSyncedWithRemoteFunc: func(string) error { return nil },
+				},
+				pr:       &promptPRRecorder{},
+				output:   &promptOutputRecorder{},
+				remote:   remote,
+				notify:   notifier,
+				NoFollow: true,
+			}
+			adapter := &promptWorkflowRunnerAdapter{
+				ctx:          execcontext.NewContext(),
+				newPromptCmd: func(*execcontext.Context) *PromptCmd { return promptCmd },
+			}
+
+			err := adapter.Run(orchestrationPrompt.WorkflowPromptFlags{
+				CloneBranch: "main",
+				Branch:      "update/fix-auth",
+				Prefix:      "update",
+				BaseBranch:  "main",
+				Prompt:      "do work",
+				Namespace:   "target-ns",
+			})
+
+			if tt.followErr != nil {
+				require.ErrorIs(t, err, tt.followErr, "a failed target workflow exits non-zero")
+			} else {
+				require.NoError(t, err, "a successful target workflow exits zero")
+			}
+			assert.Equal(t, []string{"ralph-prompt-abcde"}, remote.followed, "the target workflow logs are followed")
+			assert.Zero(t, remote.hintCalls, "the target prompt waits instead of printing a hint")
+			assert.Empty(t, notifier.successes, "completion notifications are off")
+			assert.Empty(t, notifier.errors, "completion notifications are off")
+		})
+	}
+}
+
+// TestPromptCmdRunRemoteFromCloneFollowsTargetWorkflow covers a target prompt
+// following the submitted workflow in the target namespace and leaving it
+// running when the follow fails.
+func TestPromptCmdRunRemoteFromCloneFollowsTargetWorkflow(t *testing.T) {
+	t.Setenv("KUBERNETES_SERVICE_HOST", "10.0.0.1")
+	t.Setenv("KUBECONFIG", t.TempDir()+"/missing-kubeconfig")
+	t.Setenv("POD_NAMESPACE", "pod-namespace")
+
+	followErr := errors.New("target workflow failed")
+	tests := []struct {
+		name      string
+		followErr error
+	}{
+		{name: "target workflow succeeds"},
+		{name: "target workflow fails", followErr: followErr},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var logsCtx argo.K8sContext
+			var logsWorkflow string
+			var logsFollow bool
+			stopped := false
+			argoClient := &argo.MockClient{
+				SubmitYAMLFunc: func(context.Context, string, argo.K8sContext) (string, error) {
+					return "ralph-prompt-abcde", nil
+				},
+				LogsFunc: func(kubeCtx argo.K8sContext, workflowName string, followLogs bool) error {
+					logsCtx = kubeCtx
+					logsWorkflow = workflowName
+					logsFollow = followLogs
+					return tt.followErr
+				},
+				StopWorkflowFunc: func(argo.K8sContext, string) error {
+					stopped = true
+					return nil
+				},
+			}
+
+			ctx := execcontext.NewContext()
+			ctx.SetOutput(output.NewClient(io.Discard, io.Discard, false))
+			ctx.SetRepoOwner("owner")
+			ctx.SetRepoName("repo")
+			ctx.SetKubeNamespace("target-ns")
+
+			cfg := config.Any()
+			cfg.Workflow.Namespace = "clone-namespace"
+			notifier := &promptNotifyRecorder{}
+			cmd := &PromptCmd{
+				config: &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return cfg, nil }},
+				git: &git.MockClient{
+					CurrentBranchFunc:            func() (string, error) { return "main", nil },
+					IsBranchSyncedWithRemoteFunc: func(string) error { return nil },
+				},
+				pr:     &promptPRRecorder{},
+				output: &promptOutputRecorder{},
+				remote: &promptWorkflowClient{
+					ctx:        ctx,
+					argoClient: argoClient,
+				},
+				notify:   notifier,
+				NoNotify: true,
+			}
+
+			err := cmd.RunRemoteFromClone("do work", "update/fix-auth", "main", "update")
+
+			if tt.followErr != nil {
+				require.ErrorIs(t, err, tt.followErr, "a failed target workflow exits non-zero")
+			} else {
+				require.NoError(t, err, "a successful target workflow exits zero")
+			}
+			assert.Equal(t, "target-ns", logsCtx.Namespace, "the target workflow logs are followed in the target namespace")
+			assert.Empty(t, logsCtx.Name, "the configured context does not apply in a pod")
+			assert.Equal(t, "ralph-prompt-abcde", logsWorkflow)
+			assert.True(t, logsFollow, "the follow waits for the target workflow")
+			assert.False(t, stopped, "following logs leaves the target workflow running")
+			assert.Empty(t, notifier.successes, "completion notifications are off")
+			assert.Empty(t, notifier.errors, "completion notifications are off")
+		})
+	}
 }
 
 // TestPromptCmdRunRemoteFromCloneUsesCloneConfig covers a target prompt whose

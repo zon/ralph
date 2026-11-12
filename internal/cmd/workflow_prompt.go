@@ -107,6 +107,9 @@ func (a *promptWorkflowRunnerAdapter) Run(flags orchestrationPrompt.WorkflowProm
 	cmd := a.promptCmd()
 	cmd.NoServices = flags.NoServices
 	if flags.Namespace != "" {
+		// A target prompt always follows the target workflow and sends no
+		// completion notification, whatever the local prompt defaults say.
+		cmd.NoFollow = false
 		cmd.NoNotify = true
 		return cmd.RunRemoteFromClone(flags.Prompt, flags.Branch, flags.BaseBranch, flags.Prefix)
 	}
