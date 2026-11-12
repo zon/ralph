@@ -86,6 +86,7 @@ github:
     url: ""
     insecure: false
     active: true
+    deleteHookOnFinish: false
     tls:
       secretName: ""
       certKey: tls.crt
