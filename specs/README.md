@@ -7,6 +7,7 @@
 - [command](ralph/command.md) - Submit an arbitrary command as an Argo Workflow and stream its logs without AI iteration.
 - [completion](ralph/completion.md) - Read-only commands (`ralph complete` and `ralph incomplete`) that report which project items are complete and which are left, from the branch's commit trailers.
 - [events-delivery](ralph/events-delivery.md) - How a repository event reaches a launcher by the subject path or the bus path, what survives a launcher outage within the bus retention window, and how a bus-only cluster turns routing off.
+- [events-webhook](ralph/events-webhook.md) - How the `ralph-events` intake terminates TLS on its webhook server, issues its certificate, attaches to a Gateway API gateway, and deletes its GitHub hooks when it stops, each off until a release sets it.
 - [iteration-recovery](ralph/iteration-recovery.md) - Shared behavior that `ralph run` and `ralph loop` use when an AI iteration fails: capture the failure, carry it into the next prompt, and keep the loop going unless the failure is fatal.
 - [kube-options](ralph/kube-options.md) - Shared contract for every Ralph CLI command that interacts with a Kubernetes cluster through kubectl: all such commands support `--context` and `--namespace` to target a cluster and namespace.
 - [launcher](ralph/launcher.md) - Per-namespace Argo Events sensor and scheduled workflows that map repository event types and cron schedules to prompt entries, each with a slug and prompt, and start Ralph prompt workflows with that slug as the prefix.
