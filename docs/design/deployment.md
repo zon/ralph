@@ -19,15 +19,15 @@ The Containerfile has four stages:
 
 The image also carries a global OpenCode configuration that lets the agent act without a client to answer permission prompts. The container boundary is the sandbox. The image disables OpenCode updates, so the pinned version is the version every run uses.
 
-`just container-build` builds locally and `just push` pushes the image. `just container-build-go`, `just container-test-go`, and `just push-go` do the same for the Go toolchain image.
+`just container-build` builds locally and `just push` scans the image with Trivy and pushes it only when the scan passes. `just container-build-go`, `just container-test-go`, and `just push-go` do the same for the Go toolchain image.
 
 ## Delivery
 
 GitHub Actions builds and delivers the project:
 
-* A push to `main` or `dev` builds the image and pushes it. `main` gets the version tag and `latest`. `dev` gets the version plus `-dev` and `dev`.
+* A push to `main` or `dev` builds the image, scans it with Trivy, and pushes it only when the scan passes. `main` gets the version tag and `latest`. `dev` gets the version plus `-dev` and `dev`.
 * A push to `main` or `dev` packages every chart under `charts/` and pushes it to `oci://ghcr.io/zon/charts`. `main` uses the chart version and `dev` appends `-dev`, for example `0.3.1-dev`.
-* A pull request builds the image, scans it with Trivy, and keeps the reports as artifacts. A critical finding fails the scan.
+* A pull request builds the image, scans it with Trivy, and keeps the reports as artifacts. A high or critical finding fails the scan.
 * A version change creates a GitHub release and tags it. On `main` it also points the Homebrew tap at the new source archive. A `dev` release is a prerelease and leaves the tap alone.
 
 The image and the release share the version in `internal/version/VERSION`.

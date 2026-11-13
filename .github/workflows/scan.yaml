@@ -35,12 +35,12 @@ jobs:
           exit-code: '0'
           skip-setup-trivy: 'true'
 
-      - name: Fail on CRITICAL findings
+      - name: Fail on HIGH or CRITICAL findings
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ralph:scan
           format: table
-          severity: CRITICAL
+          severity: HIGH,CRITICAL
           exit-code: '1'
           skip-setup-trivy: 'true'
 
@@ -62,12 +62,12 @@ jobs:
           exit-code: '0'
           skip-setup-trivy: 'true'
 
-      - name: Fail on CRITICAL findings in the Go image
+      - name: Fail on HIGH or CRITICAL findings in the Go image
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ralph-go:scan
           format: table
-          severity: CRITICAL
+          severity: HIGH,CRITICAL
           exit-code: '1'
           skip-setup-trivy: 'true'
 

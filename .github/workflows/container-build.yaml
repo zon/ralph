@@ -43,17 +43,37 @@ jobs:
           echo "VERSION=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "ALIAS=${ALIAS}" >> "$GITHUB_OUTPUT"
 
-      - name: Build and push
+      # Load the image into the local daemon so the scan inspects exactly the
+      # image that the push step publishes.
+      - name: Build image
         uses: docker/build-push-action@v7
         with:
           context: .
           file: containers/ralph/Containerfile
-          push: true
+          load: true
           tags: |
             ghcr.io/${{ github.repository }}:${{ steps.version.outputs.ALIAS }}
             ghcr.io/${{ github.repository }}:${{ steps.version.outputs.VERSION }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Scan image with Trivy
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ghcr.io/${{ github.repository }}:${{ steps.version.outputs.ALIAS }}
+          format: table
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+
+      - name: Push image
+        env:
+          REPOSITORY: ${{ github.repository }}
+          VERSION: ${{ steps.version.outputs.VERSION }}
+          ALIAS: ${{ steps.version.outputs.ALIAS }}
+        run: |
+          set -euo pipefail
+          docker push "ghcr.io/${REPOSITORY}:${ALIAS}"
+          docker push "ghcr.io/${REPOSITORY}:${VERSION}"
 
   # The Go toolchain image layers on the Ralph image this run just pushed.
   build-go:
@@ -73,12 +93,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push Go image
+      - name: Build Go image
         uses: docker/build-push-action@v7
         with:
           context: containers/ralph-go
           file: containers/ralph-go/Containerfile
-          push: true
+          load: true
           build-args: |
             RALPH_VERSION=${{ needs.build.outputs.version }}
           tags: |
@@ -86,3 +106,21 @@ jobs:
             ghcr.io/${{ github.repository }}-go:${{ needs.build.outputs.version }}
           cache-from: type=gha,scope=go
           cache-to: type=gha,mode=max,scope=go
+
+      - name: Scan Go image with Trivy
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ghcr.io/${{ github.repository }}-go:${{ needs.build.outputs.alias }}
+          format: table
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+
+      - name: Push Go image
+        env:
+          REPOSITORY: ${{ github.repository }}
+          VERSION: ${{ needs.build.outputs.version }}
+          ALIAS: ${{ needs.build.outputs.alias }}
+        run: |
+          set -euo pipefail
+          docker push "ghcr.io/${REPOSITORY}-go:${ALIAS}"
+          docker push "ghcr.io/${REPOSITORY}-go:${VERSION}"
