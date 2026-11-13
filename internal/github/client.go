@@ -62,20 +62,20 @@ func NewClient(ctx *context.Context, baseBranch string, gh GHClient, oc opencode
 // there are no commits ahead of the base, no pull request is opened and the
 // call succeeds.
 func (a *Client) CreatePR(proj *project.Project, head string) error {
-	return a.createPR(proj.Title, proj, head, "")
+	return a.createPR(proj.Title, proj, head)
 }
 
 // CreatePromptPR generates an AI PR summary from the commits on the head
 // branch with the prompt text in place of a project description and opens a
 // pull request from head to base. The branch slug is the title fallback when
-// the summary has no H1 heading. A prefix is removed from that fallback before
-// it is added in front of the title, so the prefix is not repeated.
+// the summary has no H1 heading. A prefix is removed from that fallback, so
+// the title names the work and not the work stream.
 func (a *Client) CreatePromptPR(prompt, prefix, slug, head string) error {
 	prefix = strings.TrimRight(prefix, "/")
 	if prefix != "" {
 		slug = strings.TrimPrefix(slug, prefix+"/")
 	}
-	return a.createPR(prompt, &project.Project{Slug: slug}, head, prefix)
+	return a.createPR(prompt, &project.Project{Slug: slug}, head)
 }
 
 // ListOpenPullRequests returns the repository's open pull requests whose head
@@ -102,9 +102,8 @@ func (a *Client) ListOpenPullRequests(prefix string) ([]PullRequest, error) {
 }
 
 // createPR generates the summary from the commit log and opens the pull request
-// to the client's base branch. When titlePrefix is set, it goes in front of the
-// resolved title.
-func (a *Client) createPR(description string, proj *project.Project, head, titlePrefix string) error {
+// to the client's base branch.
+func (a *Client) createPR(description string, proj *project.Project, head string) error {
 	commitLog, err := a.commitLog.GetCommitLog(a.baseBranch, 100)
 	if err != nil {
 		return fmt.Errorf("failed to get commit log: %w", err)
@@ -120,7 +119,7 @@ func (a *Client) createPR(description string, proj *project.Project, head, title
 		return fmt.Errorf("failed to generate PR summary: %w", err)
 	}
 
-	return a.openPullRequest(proj, head, a.baseBranch, prSummary, titlePrefix)
+	return a.openPullRequest(proj, head, a.baseBranch, prSummary)
 }
 
 // runUsage returns the formatted AI token usage and cost for this run. It is
@@ -138,7 +137,7 @@ func (a *Client) runUsage() string {
 	return stats.Formatted()
 }
 
-func (a *Client) openPullRequest(proj *project.Project, head, base, body, titlePrefix string) error {
+func (a *Client) openPullRequest(proj *project.Project, head, base, body string) error {
 	if a.ctx.IsWorkflowExecution() {
 		owner, repoName := a.ctx.RepoOwnerAndName()
 		if err := a.gitAuthConfigurer.ConfigureGitAuth(gocontext.Background(), owner, repoName, DefaultSecretsDir); err != nil {
@@ -146,7 +145,7 @@ func (a *Client) openPullRequest(proj *project.Project, head, base, body, titleP
 		}
 	}
 
-	prURL, err := createPullRequest(a.ctx.Output(), a.gh, proj, head, base, body, titlePrefix)
+	prURL, err := CreatePullRequest(a.ctx.Output(), a.gh, proj, head, base, body)
 	if err != nil {
 		if errors.Is(err, ErrNoCommitsBetweenBranches) {
 			a.ctx.Output().Debug("No commits ahead of base branch; skipping PR creation")

@@ -397,10 +397,10 @@ func TestClientCreatePRPrompt_UsesPromptAsDescription(t *testing.T) {
 	assert.Equal(t, "add-health-endpoint", capturedHead)
 }
 
-// TestClientCreatePRPrompt_PrefixesTitle covers a prefixed prompt: the prefix
-// goes in front of the summary H1, and a title that falls back to the branch
-// strips the prefix before adding it back so it is not repeated.
-func TestClientCreatePRPrompt_PrefixesTitle(t *testing.T) {
+// TestClientCreatePRPrompt_PrefixNotInTitle covers a prefixed prompt: the
+// summary H1 is the title as written, and a title that falls back to the
+// branch drops the prefix.
+func TestClientCreatePRPrompt_PrefixNotInTitle(t *testing.T) {
 	tests := []struct {
 		name      string
 		summary   func(*testing.T, string) error
@@ -409,32 +409,32 @@ func TestClientCreatePRPrompt_PrefixesTitle(t *testing.T) {
 		wantTitle string
 	}{
 		{
-			name:      "summary H1 gets the prefix",
+			name:      "summary H1 is the title",
 			summary:   writeMockSummaryWithTitle,
 			prefix:    "update",
 			slug:      "update/add-health-endpoint",
-			wantTitle: "[update] Serialize reports to CSV",
+			wantTitle: "Serialize reports to CSV",
 		},
 		{
-			name:      "branch fallback drops the repeated prefix",
+			name:      "branch fallback drops the prefix",
 			summary:   writeMockSummary,
 			prefix:    "update",
 			slug:      "update/fix-auth",
-			wantTitle: "[update] fix-auth",
+			wantTitle: "fix-auth",
 		},
 		{
 			name:      "prefix keeps its case",
 			summary:   writeMockSummary,
 			prefix:    "Update",
 			slug:      "Update/fix-auth",
-			wantTitle: "[Update] fix-auth",
+			wantTitle: "fix-auth",
 		},
 		{
-			name:      "trailing slash drops before the title and fallback",
+			name:      "trailing slash drops before the fallback",
 			summary:   writeMockSummary,
 			prefix:    "update/",
 			slug:      "update/fix-auth",
-			wantTitle: "[update] fix-auth",
+			wantTitle: "fix-auth",
 		},
 	}
 

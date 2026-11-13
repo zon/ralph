@@ -9,12 +9,6 @@ import (
 )
 
 func CreatePullRequest(out *output.Client, ghClient GHClient, proj *project.Project, branchName, baseBranch, prSummary string) (string, error) {
-	return createPullRequest(out, ghClient, proj, branchName, baseBranch, prSummary, "")
-}
-
-// createPullRequest opens the pull request and adds the prefix to the resolved
-// title when one is set.
-func createPullRequest(out *output.Client, ghClient GHClient, proj *project.Project, branchName, baseBranch, prSummary, titlePrefix string) (string, error) {
 	if !ghClient.IsReady() {
 		return "", fmt.Errorf("gh CLI is not ready, please install and authenticate with 'gh auth login'")
 	}
@@ -25,9 +19,6 @@ func createPullRequest(out *output.Client, ghClient GHClient, proj *project.Proj
 	}
 	if prTitle == "" {
 		prTitle = proj.Slug
-	}
-	if prTitle != "" && titlePrefix != "" {
-		prTitle = "[" + titlePrefix + "] " + prTitle
 	}
 	if prBody == "" {
 		prBody = prSummary
