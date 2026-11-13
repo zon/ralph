@@ -42,6 +42,12 @@ echo ""
 echo "Image built successfully!"
 echo ""
 
+# Scan before pushing so a high or critical finding blocks the release
+echo "Scanning image with Trivy..."
+"$(dirname "$0")/scan-image.sh" "${IMAGE}"
+
+echo ""
+
 # Push the image with version tag
 echo "Pushing image to registry..."
 podman push "${IMAGE}"

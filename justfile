@@ -63,9 +63,12 @@ container-test-go: container-build-go
     podman run --rm --entrypoint /bin/sh ghcr.io/zon/ralph-go:{{version}} -lc \
       'go version && command -v air && templ version'
 
-# Push the Go toolchain image to the registry
+# Scan then push the Go toolchain image to the registry
 push-go:
-    podman push ghcr.io/zon/ralph-go:{{version}}
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ./scripts/scan-image.sh "ghcr.io/zon/ralph-go:{{version}}"
+    podman push "ghcr.io/zon/ralph-go:{{version}}"
 
 # Push container image to registry
 push:
