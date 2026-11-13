@@ -58,16 +58,20 @@ container-build-go: container-build
       -t ghcr.io/zon/ralph-go:{{version}} \
       -f containers/ralph-go/Containerfile containers/ralph-go
 
-# Confirm the Go toolchain image carries the Go toolchain, air, and templ
+# Confirm the Go toolchain image carries the Go toolchain, air, templ, and govulncheck
 container-test-go: container-build-go
     podman run --rm --entrypoint /bin/sh ghcr.io/zon/ralph-go:{{version}} -lc \
-      'go version && command -v air && templ version'
+      'go version && command -v air && templ version && govulncheck -version'
+
+# Scan the working tree for vulnerabilities
+scan:
+    ./scripts/scan.sh
 
 # Scan then push the Go toolchain image to the registry
 push-go:
     #!/usr/bin/env bash
     set -euo pipefail
-    ./scripts/scan-image.sh "ghcr.io/zon/ralph-go:{{version}}"
+    ./scripts/scan.sh image "ghcr.io/zon/ralph-go:{{version}}"
     podman push "ghcr.io/zon/ralph-go:{{version}}"
 
 # Push container image to registry

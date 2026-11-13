@@ -52,8 +52,9 @@ The Go image, `ralph-go`, is built from `containers/ralph-go/Containerfile` and 
 * the Go toolchain at a pinned version
 * air at a pinned version
 * templ at a pinned version
+* govulncheck at a pinned version
 
-air and templ are built from source in a Go stage with their dependencies raised, because their releases still carry a known HIGH finding. An override goes away once a release ships the fixed version.
+air and templ are built from source in a Go stage with their dependencies raised, because their releases still carry a known HIGH finding. An override goes away once a release ships the fixed version. govulncheck is built from source in the same stage, next to them, so it is available to `scripts/scan.sh` inside the container. It reads the Go vulnerability database from `vuln.go.dev`, so a container that runs it needs network access.
 
 Browser automation follows the same pattern. A repository that needs browsers selects a toolchain image that installs them. The base image does not carry them.
 
