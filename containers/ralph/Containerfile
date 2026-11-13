@@ -25,27 +25,49 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # Argo stage - build the Argo Workflows CLI from its release tag. Its latest
-# release still ships go-jose with a known HIGH vulnerability, and a released
-# binary cannot be patched. Building from the release tag lets us raise that
-# dependency and keeps the Go module cache out of the runtime image. Drop the
-# override once a release ships the fixed version.
+# release still ships go-jose and golang.org/x/net with known HIGH
+# vulnerabilities, and a released binary cannot be patched. Building from the
+# release tag lets us raise those dependencies and keeps the Go module cache
+# out of the runtime image. Drop each override once a release ships the fixed
+# version.
 FROM docker.io/library/golang:1.27.4-bookworm AS argo
 
 ENV CGO_ENABLED=0
 RUN mkdir /out
 
-# Argo Workflows CLI, built with a fixed go-jose. The CLI embeds the UI
-# directory, which only the server uses; like upstream's own CLI build, give it
-# a placeholder instead of building the UI.
+# Argo Workflows CLI, built with a fixed go-jose and x/net. The CLI embeds the
+# UI directory, which only the server uses; like upstream's own CLI build, give
+# it a placeholder instead of building the UI.
 ENV ARGO_VERSION=v4.1.6
 ENV ARGO_JOSE_VERSION=v4.1.9
+ENV ARGO_NET_VERSION=v0.62.0
 RUN git clone --quiet --depth 1 --branch ${ARGO_VERSION} https://github.com/argoproj/argo-workflows.git /tmp/argo \
     && cd /tmp/argo \
     && mkdir -p ui/dist/app && touch ui/dist/app/placeholder \
-    && GOFLAGS=-mod=mod go get github.com/go-jose/go-jose/v4@${ARGO_JOSE_VERSION} \
+    && GOFLAGS=-mod=mod go get github.com/go-jose/go-jose/v4@${ARGO_JOSE_VERSION} golang.org/x/net@${ARGO_NET_VERSION} \
     && GOFLAGS=-mod=mod go build -trimpath \
         -ldflags "-s -w -X github.com/argoproj/argo-workflows/v4.version=${ARGO_VERSION}" \
         -o /out/argo ./cmd/argo
+
+# GitHub CLI stage - build the GitHub CLI from its release tag. Its latest
+# release still ships golang.org/x/net with a known HIGH vulnerability, and a
+# released binary cannot be patched. Building from the release tag lets us
+# raise that dependency and keeps the Go module cache out of the runtime image.
+# Return to the packaged gh once a release ships the fixed version; see the
+# regression in regressions.md.
+FROM docker.io/library/golang:1.27.4-bookworm AS gh
+
+ENV CGO_ENABLED=0
+RUN mkdir /out
+
+ENV GH_VERSION=2.104.0
+ENV GH_NET_VERSION=v0.62.0
+RUN git clone --quiet --depth 1 --branch v${GH_VERSION} https://github.com/cli/cli.git /tmp/cli \
+    && cd /tmp/cli \
+    && GOFLAGS=-mod=mod go get golang.org/x/net@${GH_NET_VERSION} \
+    && GOFLAGS=-mod=mod go build -trimpath \
+        -ldflags "-s -w -X github.com/cli/cli/v2/internal/build.Version=${GH_VERSION}" \
+        -o /out/gh ./cmd/gh
 
 # OpenCode stage - install the pinned OpenCode CLI in a Bun image and keep only
 # the native linux/amd64 binary. The module cache and the platform packages for
@@ -65,7 +87,7 @@ RUN bun install -g --trust @opencode/cli@${OPENCODE_VERSION} \
     && mkdir -p /out \
     && cp "$(readlink -f "$(command -v opencode)")" /out/opencode
 
-# Runtime stage - Ubuntu with the runtime Ralph, argo, and OpenCode need
+# Runtime stage - Ubuntu with the runtime Ralph, argo, gh, and OpenCode need
 FROM ubuntu:24.04
 
 # Apply Ubuntu's security updates and install the system dependencies so base
@@ -80,14 +102,6 @@ RUN apt-get update \
     libpcre2-8-0 \
     && rm -rf /var/lib/apt/lists/* /usr/share/doc/* /usr/share/info/*
 
-# Install GitHub CLI
-RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
-    && chmod a+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
-    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends gh \
-    && rm -rf /var/lib/apt/lists/* /usr/share/doc/* /usr/share/info/*
-
 # Copy only the compiled git commands and templates. The scripts and docs from
 # the git package stay in its build stage.
 COPY --from=git /usr/bin/git /usr/bin/git-shell /usr/bin/scalar /usr/bin/
@@ -97,6 +111,10 @@ COPY --from=git /usr/share/git-core /usr/share/git-core
 # The Argo Workflows CLI comes from the argo stage, built from source at the
 # version pinned there
 COPY --from=argo /out/argo /usr/local/bin/argo
+
+# The GitHub CLI comes from the gh stage, built from source at the version
+# pinned there
+COPY --from=gh /out/gh /usr/local/bin/gh
 
 # Copy only the native OpenCode binary from its build stage. The module cache
 # and the platform packages stay out of the runtime.
