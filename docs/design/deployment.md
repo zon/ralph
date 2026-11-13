@@ -19,7 +19,9 @@ The Containerfile has four stages:
 
 The image also carries a global OpenCode configuration that lets the agent act without a client to answer permission prompts. The container boundary is the sandbox. The image disables OpenCode updates, so the pinned version is the version every run uses.
 
-`just container-build` builds locally and `just push` scans the image with Trivy and pushes it only when the scan passes. `just container-build-go`, `just container-test-go`, and `just push-go` do the same for the Go toolchain image.
+`just container-build` builds locally and `just push` pushes the image only when the scan passes. `just container-build-go`, `just container-test-go`, and `just push-go` do the same for the Go toolchain image.
+
+`scripts/scan.sh` owns scanning. It runs `govulncheck` against the Go dependencies reachable from this module, then Trivy against the working tree or a container image, and stops as soon as either reports a problem. `just scan` runs the script with no arguments to scan the working tree. Callers that scan an image run the script instead of calling Trivy directly.
 
 ## Delivery
 

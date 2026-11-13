@@ -43,8 +43,8 @@ echo "Image built successfully!"
 echo ""
 
 # Scan before pushing so a high or critical finding blocks the release
-echo "Scanning image with Trivy..."
-"$(dirname "$0")/scan-image.sh" "${IMAGE}"
+echo "Scanning vulnerabilities..."
+"$(dirname "$0")/scan.sh" image "${IMAGE}"
 
 echo ""
 

@@ -7,17 +7,20 @@ ARG AIR_VERSION=v1.67.4
 ARG AIR_TEXT_VERSION=v0.44.0
 ARG TEMPL_VERSION=v0.3.1118
 ARG TEMPL_NET_VERSION=v0.62.0
+ARG GOVULNCHECK_VERSION=v1.9.0
 
-# Build air and templ from source so their dependencies can be raised. The
-# latest release of each still ships a known HIGH finding (air:
-# golang.org/x/text, templ: golang.org/x/net), and a released binary cannot be
-# patched. This stage also provides the Go toolchain the runtime image copies.
+# Build air, templ, and govulncheck from source. The latest release of air and
+# templ still ships a known HIGH finding (air: golang.org/x/text, templ:
+# golang.org/x/net), and a released binary cannot be patched, so their
+# dependencies are raised here. This stage also provides the Go toolchain the
+# runtime image copies.
 FROM docker.io/library/golang:${GO_VERSION}-bookworm AS go-tools
 
 ARG AIR_VERSION
 ARG AIR_TEXT_VERSION
 ARG TEMPL_VERSION
 ARG TEMPL_NET_VERSION
+ARG GOVULNCHECK_VERSION
 
 ENV CGO_ENABLED=0
 RUN mkdir /out
@@ -31,6 +34,11 @@ RUN mkdir /tmp/templ && cd /tmp/templ \
     && go mod init tools \
     && GOFLAGS=-mod=mod go get github.com/a-h/templ/cmd/templ@${TEMPL_VERSION} golang.org/x/net@${TEMPL_NET_VERSION} \
     && GOFLAGS=-mod=mod go build -trimpath -ldflags "-s -w" -o /out/templ github.com/a-h/templ/cmd/templ
+
+RUN mkdir /tmp/govulncheck && cd /tmp/govulncheck \
+    && go mod init tools \
+    && GOFLAGS=-mod=mod go get golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION} \
+    && GOFLAGS=-mod=mod go build -trimpath -ldflags "-s -w" -o /out/govulncheck golang.org/x/vuln/cmd/govulncheck
 
 FROM ${RALPH_IMAGE}
 
