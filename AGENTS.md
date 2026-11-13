@@ -25,10 +25,10 @@ When bumping the version, update `internal/version/VERSION`.
 ## Zpecs
 
 * [Milestones](docs/milestones.md) - High level objectives
-* [Regressions](docs/zpecs/regressions.md) - How to organize and resolve bugs and problems found during other work
+* [Regressions](regressions.md) - How to organize and resolve bugs and problems found during other work
 * [Code](docs/zpecs/code.md) - Read before writing code
   * [Architecture](docs/zpecs/architecture.md) - Read before planning code structure
-  * [Dependencies](docs/zpecs/dependencies.md) - Read before adding or changing code dependencies
+  * [Dependencies](docs/zpecs/dependencies.md) - Read before adding, changing, or updating code dependencies
   * [Containers](docs/zpecs/containers.md) - Read before building or delivering a container image
 * [Prose](docs/zpecs/prose.md) - Read before writing any kind of prose
 * [Prompts](docs/zpecs/prompts.md) - Read before writing an agent prompt

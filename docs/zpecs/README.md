@@ -15,7 +15,7 @@ The document formats and standards for spec-driven development with AI coding ag
 - [Architecture](architecture.md) — component placement, and what belongs in each component type
 - [Writing Requirements](requirements.md) — what makes a good unit of work
 - [Agent Prompts](prompts.md) — how to structure a single-task prompt
-- [Dependencies](dependencies.md) — when to use one instead of writing your own
+- [Dependencies](dependencies.md) — when to use one instead of writing your own, and which to hold back
 - [Containers](containers.md) — how to build and deliver container images
 - [Prose Guidelines](prose.md) — how to write and organize prose
 - [Glossary](glossary.md) — terms used throughout these documents
