@@ -38,7 +38,7 @@ func TestDockerfileRuntimeCarriesRequiredComponents(t *testing.T) {
 		{"argo CLI", "COPY --from=argo /out/argo /usr/local/bin/argo"},
 		{"OpenCode", "COPY --from=opencode /out/opencode /usr/local/bin/opencode"},
 		{"Git", "COPY --from=git /usr/bin/git /usr/bin/git-shell /usr/bin/scalar /usr/bin/"},
-		{"GitHub CLI", "apt-get install -y --no-install-recommends gh"},
+		{"GitHub CLI", "COPY --from=gh /out/gh /usr/local/bin/gh"},
 		{"shell", `CMD ["/bin/sh"]`},
 		{"CA certificates", "ca-certificates"},
 	}
@@ -134,11 +134,11 @@ func TestDockerfileUpgradesArgo(t *testing.T) {
 		minimum[0], minimum[1], minimum[2], version[0], version[1], version[2])
 }
 
-// TestDockerfileBuildsArgoWithPatchedGoJose covers the argo CLI, whose latest
-// release still ships go-jose with a known HIGH vulnerability. The Containerfile
-// builds it from its release tag in its own stage, raises go-jose, and keeps
-// the Go module cache out of the runtime image.
-func TestDockerfileBuildsArgoWithPatchedGoJose(t *testing.T) {
+// TestDockerfileBuildsArgoWithPatchedDependencies covers the argo CLI, whose
+// latest release still ships go-jose and x/net with known HIGH vulnerabilities.
+// The Containerfile builds it from its release tag in its own stage, raises
+// those dependencies, and keeps the Go module cache out of the runtime image.
+func TestDockerfileBuildsArgoWithPatchedDependencies(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
 	containerfilePath := filepath.Join(projectRoot, "containers", "ralph", "Containerfile")
 
@@ -156,7 +156,7 @@ func TestDockerfileBuildsArgoWithPatchedGoJose(t *testing.T) {
 	assert.Contains(t, argo, "git clone", "argo stage should build from its release tag")
 	assert.Contains(t, argo, "--branch ${ARGO_VERSION}")
 	assert.Contains(t, argo, "https://github.com/argoproj/argo-workflows.git")
-	assert.Contains(t, argo, "go get github.com/go-jose/go-jose/v4@${ARGO_JOSE_VERSION}")
+	assert.Contains(t, argo, "go get github.com/go-jose/go-jose/v4@${ARGO_JOSE_VERSION} golang.org/x/net@${ARGO_NET_VERSION}")
 	assert.Contains(t, argo, "-o /out/argo ./cmd/argo")
 
 	assert.Contains(t, runtime, "COPY --from=argo /out/argo /usr/local/bin/argo",
@@ -169,6 +169,12 @@ func TestDockerfileBuildsArgoWithPatchedGoJose(t *testing.T) {
 	assert.GreaterOrEqual(t, compareVersions(version, minimum), 0,
 		"Containerfile should build with ARGO_JOSE_VERSION v%d.%d.%d or later, got v%d.%d.%d",
 		minimum[0], minimum[1], minimum[2], version[0], version[1], version[2])
+
+	netVersion := containerfileVersion(t, argo, "ARGO_NET_VERSION")
+	minimumNet := [3]int{0, 62, 0}
+	assert.GreaterOrEqual(t, compareVersions(netVersion, minimumNet), 0,
+		"Containerfile should build argo with ARGO_NET_VERSION v%d.%d.%d or later, got v%d.%d.%d",
+		minimumNet[0], minimumNet[1], minimumNet[2], netVersion[0], netVersion[1], netVersion[2])
 
 	t.Run("no air, templ, or helm", func(t *testing.T) {
 		for _, term := range []string{
@@ -184,6 +190,50 @@ func TestDockerfileBuildsArgoWithPatchedGoJose(t *testing.T) {
 				"Containerfile should no longer build or name %s", term)
 		}
 	})
+}
+
+// TestDockerfileBuildsGhWithPatchedXNet covers the GitHub CLI, whose latest
+// release still ships x/net with a known HIGH vulnerability. The Containerfile
+// builds it from its release tag in its own stage, raises x/net, and keeps the
+// Go module cache out of the runtime image.
+func TestDockerfileBuildsGhWithPatchedXNet(t *testing.T) {
+	projectRoot := filepath.Join("..", "..")
+	containerfilePath := filepath.Join(projectRoot, "containers", "ralph", "Containerfile")
+
+	content, err := os.ReadFile(containerfilePath)
+	require.NoError(t, err, "Should be able to read Containerfile")
+
+	dockerfile := string(content)
+	gh := containerfileStage(t, dockerfile, "gh")
+	runtime := runtimeStage(t, dockerfile)
+
+	basePattern := regexp.MustCompile(`(?m)^FROM\s+\S*golang:\d+\.\d+\.\d+-\S+\s+AS\s+gh\s*$`)
+	assert.Regexp(t, basePattern, gh,
+		"gh stage should build on a golang image pinned to a patch version")
+
+	assert.Contains(t, gh, "git clone", "gh stage should build from its release tag")
+	assert.Contains(t, gh, "--branch v${GH_VERSION}")
+	assert.Contains(t, gh, "https://github.com/cli/cli.git")
+	assert.Contains(t, gh, "go get golang.org/x/net@${GH_NET_VERSION}")
+	assert.Contains(t, gh, "-X github.com/cli/cli/v2/internal/build.Version=${GH_VERSION}")
+	assert.Contains(t, gh, "-o /out/gh ./cmd/gh")
+
+	assert.Contains(t, runtime, "COPY --from=gh /out/gh /usr/local/bin/gh",
+		"Runtime stage should copy the GitHub CLI from its build stage")
+	assert.NotContains(t, runtime, "apt-get install -y --no-install-recommends gh",
+		"Runtime stage should not install the packaged GitHub CLI while it ships a vulnerable x/net")
+
+	version := containerfileVersion(t, gh, "GH_VERSION")
+	minimum := [3]int{2, 104, 0}
+	assert.GreaterOrEqual(t, compareVersions(version, minimum), 0,
+		"Containerfile should build with GH_VERSION v%d.%d.%d or later, got v%d.%d.%d",
+		minimum[0], minimum[1], minimum[2], version[0], version[1], version[2])
+
+	netVersion := containerfileVersion(t, gh, "GH_NET_VERSION")
+	minimumNet := [3]int{0, 62, 0}
+	assert.GreaterOrEqual(t, compareVersions(netVersion, minimumNet), 0,
+		"Containerfile should build gh with GH_NET_VERSION v%d.%d.%d or later, got v%d.%d.%d",
+		minimumNet[0], minimumNet[1], minimumNet[2], netVersion[0], netVersion[1], netVersion[2])
 }
 
 func TestDockerfileInstallsPinnedOpenCodeInOwnStage(t *testing.T) {
@@ -444,7 +494,7 @@ func TestRalphBinaryHasPatchedGoDependencies(t *testing.T) {
 		module  string
 		minimum [3]int
 	}{
-		{"golang.org/x/net", [3]int{0, 60, 0}},
+		{"golang.org/x/net", [3]int{0, 62, 0}},
 		{"golang.org/x/text", [3]int{0, 39, 0}},
 	}
 
