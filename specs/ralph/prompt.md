@@ -380,7 +380,7 @@ The prompt branch SHALL be created and checked out according to the execution mo
 
 ### Requirement: Prefix work stream
 
-`--prefix <prefix>` SHALL put the prompt in a named work stream. Ralph SHALL use the prefix in the prompt branch name and the pull request title.
+`--prefix <prefix>` SHALL put the prompt in a named work stream. Ralph SHALL use the prefix in the prompt branch name.
 
 A trailing slash on the prefix SHALL be dropped. The prefix SHALL keep its case.
 
@@ -587,7 +587,7 @@ Ralph SHALL record the prompt branch tip after base branch synchronization. Afte
 - If the tip did not advance, the prompt made no commits. The command SHALL succeed without a push or pull request. Uncommitted changes SHALL remain in a `local` checkout. `worktree` and `remote` modes SHALL discard them.
 - If the tip advanced, the prompt made commits. Ralph SHALL rename the prompt branch from the commit log, synchronize the base branch again, push the renamed branch, generate a pull request description from the commit log with the pull request summary prompt, and open a pull request to the base branch.
 
-The pull request summary prompt SHALL receive the prompt text in place of a project description. The pull request title SHALL be the first H1 in the summary, falling back to the renamed branch name without the prefix. When a prefix is set, the title SHALL be `[<prefix>] ` followed by the title.
+The pull request summary prompt SHALL receive the prompt text in place of a project description. The pull request title SHALL be the first H1 in the summary, falling back to the renamed branch name without the prefix. The title SHALL NOT include the prefix.
 
 A failed pass SHALL make no push and open no pull request. If the summary or pull request step fails, the command SHALL fail and the pushed prompt branch SHALL remain.
 
@@ -640,20 +640,20 @@ A failed pass SHALL make no push and open no pull request. If the summary or pul
 - WHEN the pull request opens
 - THEN its title is the renamed branch name
 
-#### Scenario: Prefix is added to the pull request title
+#### Scenario: Prefix is not added to the pull request title
 
 - GIVEN the user passes `--prefix update`
-- AND the pass leaves commits
+- AND the summary contains an H1 heading
 - WHEN the pull request opens
-- THEN its title starts with `[update] `
+- THEN its title is that H1 text
 
-#### Scenario: Prefix is not repeated in the fallback title
+#### Scenario: Prefix is not in the fallback title
 
 - GIVEN the user passes `--prefix update`
 - AND the summary contains no H1 heading
 - AND the renamed branch is `update/fix-auth`
 - WHEN the pull request opens
-- THEN its title is `[update] fix-auth`
+- THEN its title is `fix-auth`
 
 #### Scenario: Failed pass makes no push
 

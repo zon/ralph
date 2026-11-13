@@ -265,7 +265,7 @@ An empty `workflow.labels` SHALL add no labels.
 
 The workflow SHALL run the prefix flow defined in [prompt.md](prompt.md#requirement-prefix-work-stream). The target workflow's container SHALL propose the prompt slug and create the branch `<slug>/<prompt-slug>`. The launcher pod SHALL NOT propose a slug or call a model.
 
-When an open pull request has a head branch starting with `<slug>/`, the workflow SHALL end successfully before branch, service, or pass work. The pull request title SHALL start with `[<slug>] `.
+When an open pull request has a head branch starting with `<slug>/`, the workflow SHALL end successfully before branch, service, or pass work.
 
 #### Scenario: Container chooses the branch
 
@@ -292,8 +292,3 @@ When an open pull request has a head branch starting with `<slug>/`, the workflo
 - WHEN the `review` entry starts a run from its schedule
 - THEN the run ends successfully without branch, service, or pass work
 
-#### Scenario: Pull request title carries the entry prefix
-
-- GIVEN the `review` entry opens a pull request
-- WHEN the pull request opens
-- THEN its title starts with `[review] `

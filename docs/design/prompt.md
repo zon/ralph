@@ -20,9 +20,9 @@ Ralph uses the prompt as written, so [custom instructions](app/ralph-config.md#c
 
 ## Prefix
 
-`--prefix <prefix>` puts the prompt in a named work stream. Ralph uses the prefix in the [branch](#branch) name and the pull request title, and stops the command when an open pull request has that prefix. A trailing slash is dropped, so `update` and `update/` name the same stream, and the prefix keeps its case.
+`--prefix <prefix>` puts the prompt in a named work stream. Ralph uses the prefix in the [branch](#branch) name, and stops the command when an open pull request has that prefix. A trailing slash is dropped, so `update` and `update/` name the same stream, and the prefix keeps its case.
 
-The pull request title is the first H1 in the generated summary with `[<prefix>] ` in front. When the summary has no H1, the branch slug without the prefix supplies the title and gets the same prefix.
+The pull request title is the first H1 in the generated summary. When the summary has no H1, the branch slug without the prefix supplies the title. The title never carries the prefix.
 
 Before the prompt slug proposal, Ralph lists the repository's open pull requests on any base branch and matches a head branch that starts with `<prefix>/`. The match is exact and case-sensitive. When one or more match, Ralph prints them and exits successfully without proposing a slug, switching branches, running a before command or service, or running the pass. A listing failure fails the command. The check is a point in time, not a lock. Two invocations that start before either opens its pull request can both run.
 
@@ -51,7 +51,7 @@ Ralph does not stage or commit the prompt's working tree and does not choose the
 Ralph records the branch tip after base synchronization. After a successful pass it compares the tip:
 
 * If the tip did not advance, the prompt made no commits. The command succeeds without a push or pull request. Uncommitted changes remain in a local checkout, and Ralph discards them in worktree and remote modes.
-* If the tip advanced, the prompt made commits. Ralph renames the prompt branch from the commit log, synchronizes the base branch again, pushes the branch, generates a pull request description from the commit log with the PR summary prompt, and opens a pull request to the base branch. The summary prompt receives the prompt text in place of a project description. The title is the first H1 in the summary, falling back to the branch slug. A prefix adds `[<prefix>] ` in front of the title.
+* If the tip advanced, the prompt made commits. Ralph renames the prompt branch from the commit log, synchronizes the base branch again, pushes the branch, generates a pull request description from the commit log with the PR summary prompt, and opens a pull request to the base branch. The summary prompt receives the prompt text in place of a project description. The title is the first H1 in the summary, falling back to the branch slug.
 
 A failed pass makes no push or pull request. If the summary or pull request step fails, the command fails and the pushed prompt branch remains.
 
