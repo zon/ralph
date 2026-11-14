@@ -65,7 +65,7 @@ func TestDockerfileUsesMultiStageBuilds(t *testing.T) {
 	assert.Contains(t, dockerfile, "COPY --from=", "Containerfile should copy artifacts from build stage")
 }
 
-func TestDockerfileUsesUbuntuNobleRuntimeBase(t *testing.T) {
+func TestDockerfileUsesUbuntuResoluteRuntimeBase(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
 	containerfilePath := filepath.Join(projectRoot, "containers", "ralph", "Containerfile")
 
@@ -74,9 +74,9 @@ func TestDockerfileUsesUbuntuNobleRuntimeBase(t *testing.T) {
 
 	runtime := runtimeStage(t, string(content))
 
-	pattern := regexp.MustCompile(`(?m)^FROM\s+\S*ubuntu:24\.04(?:\s|$)`)
+	pattern := regexp.MustCompile(`(?m)^FROM\s+\S*ubuntu:26\.04(?:\s|$)`)
 	assert.Regexp(t, pattern, runtime,
-		"Runtime stage should build on ubuntu:24.04")
+		"Runtime stage should build on ubuntu:26.04")
 	assert.NotContains(t, strings.ToLower(runtime), "playwright",
 		"Runtime stage should not build on the Playwright image")
 }
@@ -366,7 +366,7 @@ func TestRuntimeToolChecksRejectReturningTools(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			runtime := "FROM ubuntu:24.04\n" + tc.line
+			runtime := "FROM ubuntu:26.04\n" + tc.line
 			assert.False(t, runtimeCarriesNoForbiddenTool(runtime),
 				"Runtime tool check should reject a runtime that adds %s", tc.name)
 		})

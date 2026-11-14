@@ -18,7 +18,7 @@ RUN just build
 # Git stage - Ubuntu's git package depends on the full Perl runtime. Keep the
 # package out of the runtime and copy only the compiled git files, which link
 # against the shared libraries the runtime installs.
-FROM ubuntu:24.04 AS git
+FROM ubuntu:26.04 AS git
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends git \
@@ -88,7 +88,7 @@ RUN bun install -g --trust @opencode/cli@${OPENCODE_VERSION} \
     && cp "$(readlink -f "$(command -v opencode)")" /out/opencode
 
 # Runtime stage - Ubuntu with the runtime Ralph, argo, gh, and OpenCode need
-FROM ubuntu:24.04
+FROM ubuntu:26.04
 
 # Apply Ubuntu's security updates and install the system dependencies so base
 # packages such as openssl and libssl3t64 carry no known high-severity findings
