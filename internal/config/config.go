@@ -10,7 +10,7 @@ import (
 	"regexp"
 	"strconv"
 
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v4"
 
 	"github.com/zon/ralph/internal/k8s"
 )
@@ -272,7 +272,7 @@ type WorkflowConfig struct {
 }
 
 // UnmarshalYAML implements yaml.Unmarshaler so a null workflow.env entry is
-// rejected with a descriptive error. yaml.v3 decodes a null env entry as an
+// rejected with a descriptive error. yaml.v4 decodes a null env entry as an
 // empty EnvVar without calling EnvVar.UnmarshalYAML, so the null check runs
 // here over the workflow mapping node before normal decoding.
 func (w *WorkflowConfig) UnmarshalYAML(node *yaml.Node) error {
@@ -290,7 +290,7 @@ func (w *WorkflowConfig) UnmarshalYAML(node *yaml.Node) error {
 }
 
 // rejectNullEnvEntries returns an error when a workflow.env entry has no value
-// (a YAML null), which yaml.v3 would otherwise silently decode as an empty
+// (a YAML null), which yaml.v4 would otherwise silently decode as an empty
 // EnvVar. YAML aliases are unwrapped so anchored nulls are rejected too.
 func rejectNullEnvEntries(node *yaml.Node) error {
 	envNode := mappingValue(node, "env")

@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/itchyny/gojq"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v4"
 )
 
 // Document is a parsed project file. It preserves the file's raw content so

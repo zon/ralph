@@ -16,7 +16,7 @@ import (
 	execcontext "github.com/zon/ralph/internal/context"
 	githubpkg "github.com/zon/ralph/internal/github"
 	"github.com/zon/ralph/internal/k8s"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v4"
 )
 
 func TestGenerateWorkflow(t *testing.T) {
