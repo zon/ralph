@@ -11,7 +11,7 @@ import (
 
 	execcontext "github.com/zon/ralph/internal/context"
 	githubpkg "github.com/zon/ralph/internal/github"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v4"
 )
 
 // loopContainerArgs renders a workflow with the given loop spec and returns the

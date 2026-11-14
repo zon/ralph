@@ -8,7 +8,7 @@ import (
 
 	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v4"
 )
 
 // renderRemoteRunArgs generates a run workflow for a project named test-project

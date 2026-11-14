@@ -11,7 +11,7 @@ import (
 	"github.com/zon/ralph/internal/argo"
 	"github.com/zon/ralph/internal/config"
 	githubpkg "github.com/zon/ralph/internal/github"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v4"
 )
 
 // Workflow holds all inputs required to generate and submit an Argo Workflow for a ralph run.
