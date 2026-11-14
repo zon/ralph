@@ -17,7 +17,7 @@ The Containerfile has four stages:
 * A Bun stage installs the pinned OpenCode package and keeps only the native binary for this platform.
 * An Ubuntu runtime provides git and the GitHub CLI, then adds the Argo CLI, OpenCode, and the Ralph binary. It carries no language toolchain and no browser.
 
-The image also carries a global OpenCode configuration that lets the agent act without a client to answer permission prompts. The container boundary is the sandbox. The image disables OpenCode updates, so the pinned version is the version every run uses.
+The image also carries a global OpenCode configuration that lets the agent act without a client to answer permission prompts. The container boundary is the sandbox. Web search selects its provider automatically, because the first search otherwise asks the user to choose one, a prompt an unattended run cannot answer. A failed search is a tool error, not a stalled run, and the agent still fetches pages with webfetch and the shell. The image disables OpenCode updates, so the pinned version is the version every run uses.
 
 `just container-build` builds locally and `just push` pushes the image only when the scan passes. `just container-build-go`, `just container-test-go`, and `just push-go` do the same for the Go toolchain image.
 

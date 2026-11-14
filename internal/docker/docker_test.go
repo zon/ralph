@@ -420,6 +420,7 @@ type openCodePermissionRule struct {
 type openCodeContainerConfig struct {
 	Schema       string                   `json:"$schema"`
 	Update       string                   `json:"update"`
+	WebSearch    any                      `json:"websearch"`
 	Permissions  []openCodePermissionRule `json:"permissions"`
 	Experimental map[string]any           `json:"experimental"`
 }
@@ -440,6 +441,11 @@ func TestContainerOpenCodeConfigServesSandbox(t *testing.T) {
 	assert.Equal(t, "disable", cfg.Update,
 		"config should disable updates so the pinned OpenCode version is the one runs use")
 
+	webSearch, ok := cfg.WebSearch.(map[string]any)
+	require.True(t, ok, "config should set websearch.provider so an unattended run never gets the provider prompt")
+	assert.Equal(t, "random", webSearch["provider"],
+		"config should select a web search provider automatically")
+
 	allowsEverything := false
 	for _, rule := range cfg.Permissions {
 		assert.NotEqual(t, "ask", rule.Effect,
@@ -451,8 +457,8 @@ func TestContainerOpenCodeConfigServesSandbox(t *testing.T) {
 	assert.True(t, allowsEverything,
 		"config should allow every tool action because the container is the sandbox")
 
-	_, ok := cfg.Experimental["subagent_depth"]
-	assert.True(t, ok, "config should keep the configured subagent depth")
+	_, hasSubagentDepth := cfg.Experimental["subagent_depth"]
+	assert.True(t, hasSubagentDepth, "config should keep the configured subagent depth")
 }
 
 func TestContainerfileConfiguresOpenCode(t *testing.T) {

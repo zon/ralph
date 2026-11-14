@@ -42,6 +42,10 @@ The Containerfile has six stages:
 
 The runtime carries no Go module cache, Bun installation, or npm package tree. The OpenCode binary is about 240 MB and argo is about 100 MB. Keep the image under 650 MB.
 
+## OpenCode Configuration
+
+The runtime writes a global OpenCode configuration so every run inherits it. The configuration allows every tool action, because the container is the sandbox and a run has no client to answer a rule that asks. It selects the web search provider automatically, because the first search otherwise asks the user to choose one, another prompt an unattended run cannot answer. A failed search is a tool error, not a stalled run, and the agent can still fetch pages with webfetch and the shell. It disables updates, so the pinned OpenCode version is the version every run uses.
+
 ## Toolchains
 
 Container images live in this repository under `containers/`. The Ralph image is in `containers/ralph`, and each toolchain image has its own directory beside it. Each toolchain image starts from the Ralph image at the same version and adds one toolchain. The container build workflow pushes each one to GHCR right after the Ralph image, with the same version and alias tags, and a project selects one with `workflow.image`. See [Config Design](app/ralph-config.md).
