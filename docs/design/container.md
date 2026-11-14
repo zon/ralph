@@ -18,7 +18,7 @@ The image is the executor, not the development environment. A workflow clones a 
 
 ## Base
 
-The runtime stays on `ubuntu:24.04`, pinned by tag.
+The runtime stays on `ubuntu:26.04`, pinned by tag.
 
 * It uses glibc, which the OpenCode native binary links against.
 * It is the Ubuntu release the Playwright project supports, so a browser image can use Playwright's own install path.
