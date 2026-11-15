@@ -6,7 +6,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: CronWorkflow
 metadata:
-  name: {{ printf "%s-%s" (include "ralph-launcher.fullname" $) (include "ralph-launcher.safeName" $entry.slug) | trunc 63 | trimSuffix "-" }}
+  name: {{ printf "%s-cron" (include "ralph-launcher.entryWorkflowName" (dict "root" $ "entry" $entry)) | trunc 63 | trimSuffix "-" }}
   labels:
     {{- include "ralph-launcher.labels" $ | nindent 4 }}
 spec:

@@ -63,14 +63,29 @@ Each entry and event pair becomes a sensor dependency and trigger. Each dependen
 
 Set `sensor.defaultBranchOnly=false` to accept pushes to other branches. Add `sensor.filters` for extra Argo Events data filters. Paths are relative to the data of the chosen [delivery path](events-delivery.md#filters), so switching paths rewrites them.
 
+## Workflow Names
+
+The `prefix` value names every workflow the launcher creates and defaults to `ralph`. Each name includes the entry slug and a generated suffix where the Kubernetes API supports one:
+
+| Workflow | Name |
+| --- | --- |
+| Event-started launcher workflow | `<prefix>-<slug>-launcher-<random>` |
+| Scheduled launcher workflow | `<prefix>-<slug>-cron` |
+| Scheduled run | `<prefix>-<slug>-cron-<unix-seconds>` |
+| Target agent workflow | `<prefix>-<slug>-<random>` |
+
+The sensor trigger uses `generateName`, so Kubernetes appends a random suffix. A `CronWorkflow` cannot itself use `generateName`, so it takes the fixed `<prefix>-<slug>-cron` name and Argo names each run `<cronworkflow-name>-<unix-seconds>`. The launcher passes its `prefix` to the target as `--name-prefix`, which names the agent workflow `<prefix>-<slug>-<random>`.
+
+The prefix and slug are lowercased, and `.`, `_`, and `/` become `-`, so the names are valid Kubernetes names.
+
 ## Workflow
 
 The `WorkflowTemplate` passes these values to the container:
 
 ```text
 ralph workflow prompt --repo <owner/name> --clone <clone-branch>
-  --prefix <entry-slug> --base <base-branch> --prompt <prompt>
-  --namespace <target-namespace>
+  --prefix <entry-slug> --name-prefix <prefix> --base <base-branch>
+  --prompt <prompt> --namespace <target-namespace>
 ```
 
 It adds `--model`, `--variant`, `--agent`, `--no-services`, and `--verbose` when the values set them.

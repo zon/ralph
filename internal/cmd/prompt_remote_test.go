@@ -149,6 +149,45 @@ func TestPromptWorkflowClientSubmitPrefix(t *testing.T) {
 	assert.Equal(t, "update", promptArgValue(args, "--prefix"))
 }
 
+// TestPromptWorkflowClientSubmitNamePrefix covers a launcher target prompt: the
+// chart name prefix and the entry slug name the submitted workflow
+// <prefix>-<slug>- with the Kubernetes-generated suffix.
+func TestPromptWorkflowClientSubmitNamePrefix(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".ralph"), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".ralph", "config.yaml"), []byte("{}\n"), 0644))
+	t.Chdir(dir)
+
+	var submittedYAML string
+	argoClient := &argo.MockClient{
+		SubmitYAMLFunc: func(_ context.Context, workflowYAML string, _ argo.K8sContext) (string, error) {
+			submittedYAML = workflowYAML
+			return "ralph-review-abcde", nil
+		},
+	}
+
+	ctx := execcontext.NewContext()
+	ctx.SetOutput(output.NewClient(io.Discard, io.Discard, false))
+	ctx.SetRepoOwner("owner")
+	ctx.SetRepoName("repo")
+
+	client := &promptWorkflowClient{ctx: ctx, argoClient: argoClient}
+	_, err := client.Submit(promptRemoteSubmission{
+		CloneBranch: "main",
+		Prefix:      "review",
+		NamePrefix:  "ralph",
+		BaseBranch:  "main",
+		Prompt:      "Review the repository.",
+	})
+	require.NoError(t, err)
+
+	var data map[string]interface{}
+	require.NoError(t, yaml.Unmarshal([]byte(submittedYAML), &data))
+
+	metadata := data["metadata"].(map[string]interface{})
+	assert.Equal(t, "ralph-review-", metadata["generateName"])
+}
+
 // TestPromptCmdNamedBranchRemoteWorkflowBranchAndLock covers a named --branch
 // reaching the submitted remote prompt workflow: the container checks out the
 // name as written and the prompt branch lock is keyed by that branch rather
