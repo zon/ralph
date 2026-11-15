@@ -14,7 +14,7 @@ ARG GOVULNCHECK_VERSION=v1.9.0
 # golang.org/x/net), and a released binary cannot be patched, so their
 # dependencies are raised here. This stage also provides the Go toolchain the
 # runtime image copies.
-FROM docker.io/library/golang:${GO_VERSION}-bookworm AS go-tools
+FROM docker.io/library/golang:${GO_VERSION}-trixie AS go-tools
 
 ARG AIR_VERSION
 ARG AIR_TEXT_VERSION
