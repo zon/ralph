@@ -70,11 +70,11 @@ The `prefix` value names every workflow the launcher creates and defaults to `ra
 | Workflow | Name |
 | --- | --- |
 | Event-started launcher workflow | `<prefix>-<slug>-launcher-<random>` |
-| Scheduled launcher workflow | `<prefix>-<slug>-cron` |
-| Scheduled run | `<prefix>-<slug>-cron-<unix-seconds>` |
+| Scheduled launcher workflow | `<prefix>-<slug>-cron-launcher` |
+| Scheduled run | `<prefix>-<slug>-cron-launcher-<unix-seconds>` |
 | Target agent workflow | `<prefix>-<slug>-<random>` |
 
-The sensor trigger uses `generateName`, so Kubernetes appends a random suffix. A `CronWorkflow` cannot itself use `generateName`, so it takes the fixed `<prefix>-<slug>-cron` name and Argo names each run `<cronworkflow-name>-<unix-seconds>`. The launcher passes its `prefix` to the target as `--name-prefix`, which names the agent workflow `<prefix>-<slug>-<random>`.
+The sensor trigger uses `generateName`, so Kubernetes appends a random suffix. A `CronWorkflow` cannot itself use `generateName`, so it takes the fixed `<prefix>-<slug>-cron-launcher` name and Argo names each run `<cronworkflow-name>-<unix-seconds>`. The launcher passes its `prefix` to the target as `--name-prefix`, which names the agent workflow `<prefix>-<slug>-<random>`.
 
 The prefix and slug are lowercased, and `.`, `_`, and `/` become `-`, so the names are valid Kubernetes names.
 

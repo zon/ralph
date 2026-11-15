@@ -196,7 +196,7 @@ The chart SHALL read `prefix`, defaulting to `ralph`, and SHALL use it with the 
 
 An event-started launcher workflow SHALL use `generateName` `<prefix>-<slug>-launcher-`, so Kubernetes appends its generated random suffix.
 
-A scheduled entry SHALL render a `CronWorkflow` named `<prefix>-<slug>-cron`. A scheduled run SHALL be named `<cronworkflow-name>-<unix-seconds>`, because Argo assigns every scheduled run an explicit name.
+A scheduled entry SHALL render a `CronWorkflow` named `<prefix>-<slug>-cron-launcher`. A scheduled run SHALL be named `<cronworkflow-name>-<unix-seconds>`, because Argo assigns every scheduled run an explicit name.
 
 The launcher SHALL pass `prefix` to `ralph workflow prompt` as `--name-prefix`, so the target agent workflow is named `<prefix>-<slug>-` with a generated suffix.
 
@@ -219,8 +219,8 @@ The prefix and slug SHALL be lowercased, and `.`, `_`, and `/` SHALL become `-`,
 
 - GIVEN `prefix` is `ralph` and an entry with a schedule has the slug `review`
 - WHEN the chart renders
-- THEN the `CronWorkflow` is named `ralph-review-cron`
-- AND each run is named `ralph-review-cron-<unix-seconds>`
+- THEN the `CronWorkflow` is named `ralph-review-cron-launcher`
+- AND each run is named `ralph-review-cron-launcher-<unix-seconds>`
 
 #### Scenario: Target agent workflow carries the prefix and slug
 

@@ -14,7 +14,7 @@ A [launcher](launcher.md) entry can run on a schedule as well as on events. A sc
 
 ## Resources
 
-The chart renders one `CronWorkflow` for each scheduled entry in the release namespace, named `<prefix>-<slug>-cron`. It submits the launcher's `WorkflowTemplate` with the same arguments as the entry's sensor trigger. Argo names each run `<cronworkflow-name>-<unix-seconds>`, because a `CronWorkflow` run receives an explicit name rather than a generated one. See [Launcher Design](launcher.md#workflow-names).
+The chart renders one `CronWorkflow` for each scheduled entry in the release namespace, named `<prefix>-<slug>-cron-launcher`. It submits the launcher's `WorkflowTemplate` with the same arguments as the entry's sensor trigger. Argo names each run `<cronworkflow-name>-<unix-seconds>`, because a `CronWorkflow` run receives an explicit name rather than a generated one. See [Launcher Design](launcher.md#workflow-names).
 
 The cron and the trigger share the same workflow settings: labels, TTL, pod garbage collection, and mutex. One helper renders them for both, so they cannot drift apart.
 
