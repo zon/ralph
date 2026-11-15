@@ -1,5 +1,5 @@
 # Build stage - compile ralph
-FROM docker.io/library/golang:1.27-bookworm AS builder
+FROM docker.io/library/golang:1.27-trixie AS builder
 
 WORKDIR /build
 
@@ -30,7 +30,7 @@ RUN apt-get update \
 # release tag lets us raise those dependencies and keeps the Go module cache
 # out of the runtime image. Drop each override once a release ships the fixed
 # version.
-FROM docker.io/library/golang:1.27.4-bookworm AS argo
+FROM docker.io/library/golang:1.27.4-trixie AS argo
 
 ENV CGO_ENABLED=0
 RUN mkdir /out
@@ -55,7 +55,7 @@ RUN git clone --quiet --depth 1 --branch ${ARGO_VERSION} https://github.com/argo
 # raise that dependency and keeps the Go module cache out of the runtime image.
 # Return to the packaged gh once a release ships the fixed version; see the
 # regression in regressions.md.
-FROM docker.io/library/golang:1.27.4-bookworm AS gh
+FROM docker.io/library/golang:1.27.4-trixie AS gh
 
 ENV CGO_ENABLED=0
 RUN mkdir /out
