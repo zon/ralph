@@ -47,13 +47,14 @@ func validateBranchPrefix(prefix, branch string) error {
 
 // WorkflowPromptFlags carries the workflow-side prompt invocation: the repo
 // and clone branch used to prepare the workspace, the prompt branch, work-stream
-// prefix, base branch, prompt text, and the model, variant, agent, service,
-// debug, and verbose choices the workflow passed.
+// prefix, name prefix for the target workflow, base branch, prompt text, and the
+// model, variant, agent, service, debug, and verbose choices the workflow passed.
 type WorkflowPromptFlags struct {
 	Repo        string
 	CloneBranch string
 	Branch      string
 	Prefix      string
+	NamePrefix  string
 	BaseBranch  string
 	Prompt      string
 	Namespace   string

@@ -699,7 +699,7 @@ The command SHALL resolve the prompt slug, prompt branch, and base branch locall
 
 With a prefix, the command SHALL check for an open pull request at the prefix locally before submission. A match SHALL end the command successfully without a workflow. The workflow SHALL receive the prefix and SHALL check again before its own work.
 
-The workflow SHALL use the `ralph-prompt-` name prefix, carry the Ralph ownership label, and use the configured image, mounts, environment, labels, and resources. It SHALL target the resolved Kubernetes context and namespace, and use the same TTL and pod garbage collection as the other workflows. It SHALL take the prompt branch lock, as a run does. A workflow that receives a prefix and no branch, as a [launcher target](launcher-target.md) does, SHALL take no lock, because it has no branch to name.
+The workflow SHALL use the `ralph-prompt-` name prefix by default. When the caller supplies `--name-prefix <name-prefix>` together with a work-stream prefix, the workflow name SHALL be `<name-prefix>-<prefix>-` instead, so a [launcher target](launcher-target.md) gets `<prefix>-<slug>-<random>`. The workflow SHALL carry the Ralph ownership label and use the configured image, mounts, environment, labels, and resources. It SHALL target the resolved Kubernetes context and namespace, and use the same TTL and pod garbage collection as the other workflows. It SHALL take the prompt branch lock, as a run does. A workflow that receives a prefix and no branch, as a [launcher target](launcher-target.md) does, SHALL take no lock, because it has no branch to name.
 
 Ralph SHALL embed the prompt in the workflow manifest as one container argument. The prompt is therefore visible to anyone who can read workflows in the namespace.
 
@@ -734,10 +734,16 @@ Remote mode SHALL follow logs by default and wait for the workflow to finish. `-
 
 #### Scenario: Workflow is named and labeled for Ralph
 
-- GIVEN a remote prompt is submitted
+- GIVEN a remote prompt is submitted without `--name-prefix`
 - WHEN the workflow is created
 - THEN its name starts with `ralph-prompt-`
 - AND it carries the Ralph ownership label
+
+#### Scenario: Name prefix and work-stream prefix name the workflow
+
+- GIVEN a remote prompt is submitted with `--name-prefix ralph` and `--prefix review`
+- WHEN the workflow is created
+- THEN its name starts with `ralph-review-`
 
 #### Scenario: Prompt is one container argument
 

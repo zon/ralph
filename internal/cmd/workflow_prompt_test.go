@@ -60,6 +60,7 @@ func TestWorkflowPromptCmdParsing(t *testing.T) {
 		"--clone", "main",
 		"--branch", "my-feature",
 		"--prefix", "update",
+		"--name-prefix", "ralph",
 		"--base", "release",
 		"--prompt", "Add the endpoint.",
 		"--namespace", "target-ns",
@@ -76,6 +77,7 @@ func TestWorkflowPromptCmdParsing(t *testing.T) {
 	assert.Equal(t, "main", cmd.Workflow.Prompt.CloneBranch)
 	assert.Equal(t, "my-feature", cmd.Workflow.Prompt.Branch)
 	assert.Equal(t, "update", cmd.Workflow.Prompt.Prefix)
+	assert.Equal(t, "ralph", cmd.Workflow.Prompt.NamePrefix)
 	assert.Equal(t, "release", cmd.Workflow.Prompt.Base)
 	assert.Equal(t, "Add the endpoint.", cmd.Workflow.Prompt.Prompt)
 	assert.Equal(t, "target-ns", cmd.Workflow.Prompt.Namespace)
@@ -203,6 +205,7 @@ func TestWorkflowPromptCmdRunPreparesWorkspaceAndCarriesOptions(t *testing.T) {
 		CloneBranch:    "main",
 		Branch:         "update/my-feature",
 		Prefix:         "update",
+		NamePrefix:     "ralph",
 		Base:           "release",
 		Prompt:         "Add the endpoint.",
 		BotName:        "ralph-zon[bot]",
@@ -232,6 +235,7 @@ func TestWorkflowPromptCmdRunPreparesWorkspaceAndCarriesOptions(t *testing.T) {
 	assert.Equal(t, "Add the endpoint.", runner.flags.Prompt)
 	assert.Equal(t, "update/my-feature", runner.flags.Branch)
 	assert.Equal(t, "update", runner.flags.Prefix)
+	assert.Equal(t, "ralph", runner.flags.NamePrefix)
 	assert.Equal(t, "release", runner.flags.BaseBranch)
 	assert.Equal(t, "gpt-4", runner.flags.Model)
 	assert.Equal(t, "high", runner.flags.Variant)

@@ -20,7 +20,7 @@ The target is a namespace of the launcher's own cluster. Another cluster is outs
 
 1. Prepare the [workspace](workflow.md). GitHub authentication and the clone are the same. The OpenCode credentials step loads nothing when the mount is absent.
 2. Check for an open pull request at the prefix, as any launcher run does. A match ends the command successfully.
-3. Run the prompt as a remote run from the clone, following [Prompt Design](prompt.md). Ralph resolves the base, checks branch sync, and submits a `ralph-prompt-` workflow into the target namespace. It sends the prefix and no branch, and asks the AI for nothing. The target workflow proposes the prompt slug.
+3. Run the prompt as a remote run from the clone, following [Prompt Design](prompt.md). Ralph resolves the base, checks branch sync, and submits a `<prefix>-<slug>-` workflow into the target namespace. The launcher passes its chart `prefix` as `--name-prefix`, so the agent workflow reads `<prefix>-<entry-slug>-<random>`. It sends the prefix and no branch, and asks the AI for nothing. The target workflow proposes the prompt slug.
 4. Follow the logs and wait for the target workflow to finish, with notifications off.
 5. Exit with the target workflow's result.
 

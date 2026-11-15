@@ -16,6 +16,7 @@ type promptRemoteSubmission struct {
 	CloneBranch  string
 	PromptBranch string
 	Prefix       string
+	NamePrefix   string
 	BaseBranch   string
 	Prompt       string
 }
@@ -34,9 +35,10 @@ type promptNotifyClient interface {
 	Error(slug string)
 }
 
-// promptWorkflowClient generates and submits a ralph-prompt- workflow. It
-// retains the workflow's Kubernetes target so followed logs use the same
-// context and namespace as the submission.
+// promptWorkflowClient generates and submits a prompt workflow, named
+// ralph-prompt- by default or <name-prefix>-<prefix>- when a launcher target
+// sets one. It retains the workflow's Kubernetes target so followed logs use
+// the same context and namespace as the submission.
 type promptWorkflowClient struct {
 	ctx *execcontext.Context
 	// config is the config already loaded for the checkout. When set, the
@@ -75,6 +77,7 @@ func (c *promptWorkflowClient) Submit(submission promptRemoteSubmission) (string
 			submission.Prompt,
 			submission.CloneBranch,
 			remoteURL,
+			submission.NamePrefix,
 			submission.Prefix,
 		)
 	} else {
@@ -85,6 +88,7 @@ func (c *promptWorkflowClient) Submit(submission promptRemoteSubmission) (string
 			submission.Prompt,
 			submission.CloneBranch,
 			remoteURL,
+			submission.NamePrefix,
 			submission.Prefix,
 		)
 	}

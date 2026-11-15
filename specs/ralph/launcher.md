@@ -190,9 +190,55 @@ A scheduled run SHALL carry no event, so its prompt text is its only input.
 
 ---
 
+### Requirement: Workflow names
+
+The chart SHALL read `prefix`, defaulting to `ralph`, and SHALL use it with the entry slug to name every workflow the launcher creates.
+
+An event-started launcher workflow SHALL use `generateName` `<prefix>-<slug>-launcher-`, so Kubernetes appends its generated random suffix.
+
+A scheduled entry SHALL render a `CronWorkflow` named `<prefix>-<slug>-cron-launcher`. A scheduled run SHALL be named `<cronworkflow-name>-<unix-seconds>`, because Argo assigns every scheduled run an explicit name.
+
+The launcher SHALL pass `prefix` to `ralph workflow prompt` as `--name-prefix`, so the target agent workflow is named `<prefix>-<slug>-` with a generated suffix.
+
+The prefix and slug SHALL be lowercased, and `.`, `_`, and `/` SHALL become `-`, before they are used in a name.
+
+#### Scenario: Event workflow carries the prefix and slug
+
+- GIVEN `prefix` is `ralph` and an entry has the slug `review`
+- WHEN an event starts the entry
+- THEN the launcher workflow name starts with `ralph-review-launcher-`
+
+#### Scenario: Custom prefix names the event workflow
+
+- GIVEN `prefix` is `team`
+- AND an entry has the slug `review`
+- WHEN an event starts the entry
+- THEN the launcher workflow name starts with `team-review-launcher-`
+
+#### Scenario: Scheduled workflow has a stable name
+
+- GIVEN `prefix` is `ralph` and an entry with a schedule has the slug `review`
+- WHEN the chart renders
+- THEN the `CronWorkflow` is named `ralph-review-cron-launcher`
+- AND each run is named `ralph-review-cron-launcher-<unix-seconds>`
+
+#### Scenario: Target agent workflow carries the prefix and slug
+
+- GIVEN `prefix` is `ralph` and an entry has the slug `review`
+- WHEN the launcher submits the target agent workflow
+- THEN its name starts with `ralph-review-`
+
+#### Scenario: Name characters are normalized
+
+- GIVEN `prefix` is `Team.AI` and an entry has the slug `Review/Code`
+- WHEN the chart renders
+- THEN the names use `team-ai-review-code`
+
+---
+
 ### Requirement: Workflow submission
 
-The trigger SHALL start the launcher `WorkflowTemplate` with the entry prompt and the entry slug as `--prefix` to `ralph workflow prompt`. The launcher SHALL NOT send a prompt branch.
+The trigger SHALL start the launcher `WorkflowTemplate` with the entry prompt and the entry slug as `--prefix` to `ralph workflow prompt`. It SHALL pass the chart `prefix` as `--name-prefix`. The launcher SHALL NOT send a prompt branch.
 
 Each entry SHALL have its own ConfigMap key. The workflow `prompt` argument SHALL read the key for its entry.
 

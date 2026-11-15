@@ -49,13 +49,14 @@ func TestPromptCmdRunRemoteFromCloneSubmits(t *testing.T) {
 			proposals++
 			return "Fix Auth", nil
 		}),
-		services: servicesClient,
-		ai:       aiClient,
-		pr:       prClient,
-		output:   &promptOutputRecorder{},
-		remote:   remote,
-		notify:   &promptNotifyRecorder{},
-		NoNotify: true,
+		services:   servicesClient,
+		ai:         aiClient,
+		pr:         prClient,
+		output:     &promptOutputRecorder{},
+		remote:     remote,
+		notify:     &promptNotifyRecorder{},
+		NoNotify:   true,
+		NamePrefix: "ralph",
 	}
 
 	err := cmd.RunRemoteFromClone("do work", "", "release", "update/")
@@ -67,6 +68,7 @@ func TestPromptCmdRunRemoteFromCloneSubmits(t *testing.T) {
 	assert.Equal(t, promptRemoteSubmission{
 		CloneBranch: "main",
 		Prefix:      "update",
+		NamePrefix:  "ralph",
 		BaseBranch:  "release",
 		Prompt:      "do work",
 	}, remote.submissions[0], "a prefix alone is sent with no prompt branch")

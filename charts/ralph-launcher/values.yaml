@@ -1,6 +1,11 @@
 nameOverride: ""
 fullnameOverride: ""
 
+# prefix is the name prefix for every workflow the launcher creates. The sensor,
+# cron, and target agent workflows are named <prefix>-<slug> with a generated
+# suffix where the Kubernetes API supports one.
+prefix: ralph
+
 # delivery selects how repository events reach this launcher. Use subject to
 # subscribe to the repository subject and republish it to the namespace bus, or
 # bus to read the intake's GitHub event source through the shared event bus.

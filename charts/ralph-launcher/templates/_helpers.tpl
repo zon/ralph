@@ -119,6 +119,14 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- . | lower | replace "/" "-" | replace "_" "-" | replace "." "-" | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
+{{- define "ralph-launcher.prefix" -}}
+{{- include "ralph-launcher.safeName" (default "ralph" .Values.prefix) -}}
+{{- end -}}
+
+{{- define "ralph-launcher.entryWorkflowName" -}}
+{{- printf "%s-%s" (include "ralph-launcher.prefix" .root) (include "ralph-launcher.safeName" .entry.slug) | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
 {{- define "ralph-launcher.entryName" -}}
 {{- $name := .slug -}}
 {{- if .event -}}
@@ -195,6 +203,7 @@ repo
       - name: repo
       - name: clone-branch
       - name: prefix
+      - name: name-prefix
       - name: base-branch
       - name: prompt
       - name: namespace
@@ -220,6 +229,8 @@ repo
       - {{ $cloneBranch | quote }}
       - --prefix
       - {{ $prefix | quote }}
+      - --name-prefix
+      - {{ "{{inputs.parameters.name-prefix}}" | quote }}
       - --base
       - {{ $baseBranch | quote }}
       - --prompt
@@ -352,6 +363,8 @@ repo
   value: {{ $root.Values.workflow.verbose | quote }}
 - name: namespace
   value: {{ include "ralph-launcher.entryNamespace" (dict "root" $root "entry" $entry) | quote }}
+- name: name-prefix
+  value: {{ include "ralph-launcher.prefix" $root | quote }}
 {{- end -}}
 
 {{- define "ralph-launcher.dependencyFilters" -}}

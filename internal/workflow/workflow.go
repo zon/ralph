@@ -18,6 +18,9 @@ import (
 type Workflow struct {
 	// ProjectName is used in the workflow's generateName field (e.g. "my-feature").
 	ProjectName string
+	// GenerateName overrides the workflow's generateName field. When empty the
+	// name defaults to "ralph-<ProjectName>-".
+	GenerateName string
 	// Repo is the GitHub repository.
 	Repo githubpkg.Repo
 	// CloneBranch is the branch the container clones initially (typically the base/current branch).
@@ -140,11 +143,16 @@ func (w *Workflow) Render() (string, error) {
 		}
 	}
 
+	generateName := w.GenerateName
+	if generateName == "" {
+		generateName = fmt.Sprintf("ralph-%s-", w.ProjectName)
+	}
+
 	wf := map[string]interface{}{
 		"apiVersion": "argoproj.io/v1alpha1",
 		"kind":       "Workflow",
 		"metadata": map[string]interface{}{
-			"generateName": fmt.Sprintf("ralph-%s-", w.ProjectName),
+			"generateName": generateName,
 			"labels":       wfLabels,
 		},
 		"spec": spec,

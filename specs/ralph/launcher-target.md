@@ -40,7 +40,7 @@ The target SHALL be a namespace of the launcher's own cluster. The chart SHALL N
 
 1. Prepare the workspace as defined in [workflow-workspace.md](workflow-workspace.md): GitHub authentication, then the clone of the `--clone` branch.
 2. Check for an open pull request at the prefix. A match SHALL end the command successfully.
-3. Run the prompt as a remote run from the clone, as defined in [prompt.md](prompt.md#requirement-remote-submission). The command SHALL resolve the base branch, check base branch synchronization, and submit a `ralph-prompt-` workflow into the target namespace with the prefix and no prompt branch. The command SHALL NOT propose a prompt slug or call a model. The target workflow SHALL propose the prompt slug, as defined in [prompt.md](prompt.md#requirement-container-entrypoint).
+3. Run the prompt as a remote run from the clone, as defined in [prompt.md](prompt.md#requirement-remote-submission). The command SHALL resolve the base branch, check base branch synchronization, and submit a `<prefix>-<slug>-` workflow into the target namespace with the prefix and no prompt branch. The launcher SHALL pass its chart `prefix` as `--name-prefix`, so the agent workflow is named `<prefix>-<slug>-<random>`. The command SHALL NOT propose a prompt slug or call a model. The target workflow SHALL propose the prompt slug, as defined in [prompt.md](prompt.md#requirement-container-entrypoint).
 4. Follow the logs and wait for the target workflow to finish, with notifications off.
 5. Exit with the target workflow's result.
 
@@ -50,9 +50,9 @@ A failed target workflow SHALL fail the command. Stopping the launcher workflow 
 
 #### Scenario: The prompt runs in the target namespace
 
-- GIVEN `ralph workflow prompt --prefix review --namespace team-a`
+- GIVEN `ralph workflow prompt --prefix review --name-prefix ralph --namespace team-a`
 - WHEN the container runs
-- THEN a `ralph-prompt-` workflow is submitted into `team-a`
+- THEN a `ralph-review-` workflow is submitted into `team-a`
 - AND no prompt pass runs in the container
 
 #### Scenario: Open pull request skips the submission

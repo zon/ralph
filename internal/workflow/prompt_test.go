@@ -49,7 +49,7 @@ func TestGeneratePromptWorkflow(t *testing.T) {
 	ctx.SetDebugBranch("feature")
 	ctx.SetVerbose(true)
 
-	wf, err := GeneratePromptWorkflow(ctx, "my-feature", "main", "Add the endpoint.", "main", "git@github.com:test/repo.git")
+	wf, err := GeneratePromptWorkflow(ctx, "my-feature", "main", "Add the endpoint.", "main", "git@github.com:test/repo.git", "")
 	require.NoError(t, err, "GeneratePromptWorkflow failed")
 
 	assert.Equal(t, "prompt", wf.ProjectName)
@@ -75,7 +75,7 @@ func TestGeneratePromptWorkflow(t *testing.T) {
 func TestGeneratePromptWorkflowCarriesPrefix(t *testing.T) {
 	ctx := &execcontext.Context{}
 
-	wf, err := GeneratePromptWorkflow(ctx, "update/fix-auth", "main", "Add the endpoint.", "main", "git@github.com:test/repo.git", "update")
+	wf, err := GeneratePromptWorkflow(ctx, "update/fix-auth", "main", "Add the endpoint.", "main", "git@github.com:test/repo.git", "", "update")
 	require.NoError(t, err, "GeneratePromptWorkflow failed")
 
 	require.NotNil(t, wf.Prompt)
@@ -89,12 +89,25 @@ func TestGeneratePromptWorkflowCarriesPrefix(t *testing.T) {
 	assert.Equal(t, "Add the endpoint.", argValue(args, "--prompt"))
 }
 
+// TestGeneratePromptWorkflowCarriesNamePrefix asserts a launcher target names
+// its agent workflow <name-prefix>-<entry-slug>- so the entry reads at a glance.
+func TestGeneratePromptWorkflowCarriesNamePrefix(t *testing.T) {
+	ctx := &execcontext.Context{}
+
+	wf, err := GeneratePromptWorkflow(ctx, "", "main", "Review the repository.", "main", "git@github.com:test/repo.git", "ralph", "review")
+	require.NoError(t, err, "GeneratePromptWorkflow failed")
+
+	assert.Equal(t, "ralph-review-", wf.GenerateName)
+	data := promptWorkflowData(t, wf)
+	assert.Equal(t, "ralph-review-", data["metadata"].(map[string]interface{})["generateName"])
+}
+
 // TestGeneratePromptWorkflowWithoutPrefixOmitsPrefix asserts a prompt without a
 // prefix does not pass a prefix argument to the container.
 func TestGeneratePromptWorkflowWithoutPrefixOmitsPrefix(t *testing.T) {
 	ctx := &execcontext.Context{}
 
-	wf, err := GeneratePromptWorkflow(ctx, "my-feature", "main", "Add the endpoint.", "main", "git@github.com:test/repo.git")
+	wf, err := GeneratePromptWorkflow(ctx, "my-feature", "main", "Add the endpoint.", "main", "git@github.com:test/repo.git", "")
 	require.NoError(t, err, "GeneratePromptWorkflow failed")
 
 	require.NotNil(t, wf.Prompt)
@@ -276,7 +289,7 @@ workflow:
 	t.Chdir(dir)
 
 	ctx := &execcontext.Context{}
-	wf, err := GeneratePromptWorkflow(ctx, "my-feature", "main", "Add the endpoint.", "main", "git@github.com:test/repo.git")
+	wf, err := GeneratePromptWorkflow(ctx, "my-feature", "main", "Add the endpoint.", "main", "git@github.com:test/repo.git", "")
 	require.NoError(t, err)
 
 	assert.Equal(t, "registry.example/ralph", wf.Image.Repository)

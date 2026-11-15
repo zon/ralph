@@ -18,6 +18,7 @@ type WorkflowPromptCmd struct {
 	CloneBranch string `help:"Branch to clone" name:"clone"`
 	Branch      string `help:"Prompt branch to create or check out" name:"branch"`
 	Prefix      string `help:"Work-stream prefix to check before running the prompt" name:"prefix"`
+	NamePrefix  string `help:"Prefix for the submitted target workflow name" name:"name-prefix"`
 	Base        string `help:"Base branch for PR creation" name:"base" short:"B"`
 	Prompt      string `help:"Prompt text to run" name:"prompt"`
 	Namespace   string `help:"The name of the Kubernetes namespace to use" name:"namespace"`
@@ -66,6 +67,7 @@ func (w *WorkflowPromptCmd) Run() error {
 		CloneBranch: w.CloneBranch,
 		Branch:      w.Branch,
 		Prefix:      w.Prefix,
+		NamePrefix:  w.NamePrefix,
 		BaseBranch:  w.Base,
 		Prompt:      w.Prompt,
 		Namespace:   w.Namespace,
@@ -106,6 +108,7 @@ type promptWorkflowRunnerAdapter struct {
 func (a *promptWorkflowRunnerAdapter) Run(flags orchestrationPrompt.WorkflowPromptFlags) error {
 	cmd := a.promptCmd()
 	cmd.NoServices = flags.NoServices
+	cmd.NamePrefix = flags.NamePrefix
 	if flags.Namespace != "" {
 		// A target prompt always follows the target workflow and sends no
 		// completion notification, whatever the local prompt defaults say.

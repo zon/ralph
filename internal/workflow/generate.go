@@ -135,22 +135,23 @@ func GenerateLoopWorkflow(ctx *execcontext.Context, slug string, steps []string,
 // the container. The prompt branch, base branch, prefix, and prompt text are
 // resolved locally by the caller, so the container does not recompute them.
 // cloneBranch is the branch the container clones and remoteURL is the git remote
-// URL. The optional prefix is the work-stream prefix the container checks again
-// before its own prompt work.
-func GeneratePromptWorkflow(ctx *execcontext.Context, promptBranch, baseBranch, promptText, cloneBranch, remoteURL string, prefix ...string) (*Workflow, error) {
+// URL. namePrefix, when non-empty, names the workflow <namePrefix>-<prefix>-;
+// otherwise the workflow keeps the ralph-prompt- name. The optional prefix is
+// the work-stream prefix the container checks again before its own prompt work.
+func GeneratePromptWorkflow(ctx *execcontext.Context, promptBranch, baseBranch, promptText, cloneBranch, remoteURL, namePrefix string, prefix ...string) (*Workflow, error) {
 	ralphConfig, err := config.LoadConfig()
 	if err != nil {
 		return nil, err
 	}
 
-	return GeneratePromptWorkflowWithConfig(ctx, ralphConfig, promptBranch, baseBranch, promptText, cloneBranch, remoteURL, prefix...)
+	return GeneratePromptWorkflowWithConfig(ctx, ralphConfig, promptBranch, baseBranch, promptText, cloneBranch, remoteURL, namePrefix, prefix...)
 }
 
 // GeneratePromptWorkflowWithConfig builds a prompt workflow from the supplied
 // config. A caller that has already loaded the cloned repository's config uses
 // it so the workflow's image, mounts, environment, labels, and resources come
 // from that checkout without reading the config again.
-func GeneratePromptWorkflowWithConfig(ctx *execcontext.Context, ralphConfig *config.RalphConfig, promptBranch, baseBranch, promptText, cloneBranch, remoteURL string, prefix ...string) (*Workflow, error) {
+func GeneratePromptWorkflowWithConfig(ctx *execcontext.Context, ralphConfig *config.RalphConfig, promptBranch, baseBranch, promptText, cloneBranch, remoteURL, namePrefix string, prefix ...string) (*Workflow, error) {
 	repo, err := githubpkg.ParseRemoteURL(remoteURL)
 	if err != nil {
 		return nil, err
@@ -166,8 +167,14 @@ func GeneratePromptWorkflowWithConfig(ctx *execcontext.Context, ralphConfig *con
 		promptPrefix = prefix[0]
 	}
 
+	generateName := ""
+	if namePrefix != "" && promptPrefix != "" {
+		generateName = fmt.Sprintf("%s-%s-", sanitizeName(namePrefix), sanitizeName(promptPrefix))
+	}
+
 	return &Workflow{
 		ProjectName:    "prompt",
+		GenerateName:   generateName,
 		Repo:           repo,
 		CloneBranch:    cloneBranch,
 		ProjectBranch:  promptBranch,

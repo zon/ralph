@@ -150,6 +150,11 @@ type PromptCmd struct {
 	// fall back to the configured default branch.
 	promptBranch string `kong:"-"`
 
+	// NamePrefix names a submitted remote workflow <NamePrefix>-<Prefix>-.
+	// The launcher passes its chart prefix here; an empty value keeps the
+	// default ralph-prompt- name.
+	NamePrefix string `kong:"-"`
+
 	// resolved retains the mode and branches resolved for this invocation so
 	// later steps reuse them instead of recomputing.
 	resolved *promptResolution `kong:"-"`
@@ -555,6 +560,7 @@ func (c *PromptCmd) runRemote(prompt string) error {
 		CloneBranch:  c.resolved.CurrentBranch,
 		PromptBranch: c.resolved.PromptBranch,
 		Prefix:       c.resolved.Prefix,
+		NamePrefix:   c.NamePrefix,
 		BaseBranch:   c.resolved.BaseBranch,
 		Prompt:       prompt,
 	})
