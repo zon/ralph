@@ -11,6 +11,7 @@ import (
 func (g *GH) ListCollaborators(ctx context.Context, owner, repo string) ([]string, error) {
 	cmd := exec.CommandContext(ctx, "gh", "api",
 		fmt.Sprintf("repos/%s/%s/collaborators", owner, repo),
+		"--paginate",
 		"--jq", ".[].login",
 	)
 	var stdout, stderr bytes.Buffer

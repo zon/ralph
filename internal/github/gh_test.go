@@ -128,6 +128,14 @@ func TestGH_ListCollaborators(t *testing.T) {
 		assert.Equal(t, []string{"alice", "bob", "charlie"}, logins)
 	})
 
+	t.Run("paginates all results", func(t *testing.T) {
+		writeFakeGHScript(t, `case "$*" in *"--paginate"*) printf 'alice\n';; *) exit 1;; esac`)
+		g := NewGH(nil)
+		logins, err := g.ListCollaborators(context.Background(), "owner", "repo")
+		require.NoError(t, err)
+		assert.Equal(t, []string{"alice"}, logins)
+	})
+
 	t.Run("filters blank lines", func(t *testing.T) {
 		writeFakeGHScript(t, `printf 'alice\n\nbob\n'`)
 		g := NewGH(nil)

@@ -7256,12 +7256,12 @@ The same gap applies to `RunRemoteFromClone` when neither branch nor prefix is s
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="cfc81453-9ddf-487f-bace-a24157c1ce3f#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="cfc81453-9ddf-487f-bace-a24157c1ce3f#0" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L14</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">`gh api` returns only the first page of results (30 items by default), so repositories with more than 30 collaborators will be silently truncated and callers may make wrong authorization decisions from an incomplete list. Add `--paginate` so all pages are fetched.</div>
                 
