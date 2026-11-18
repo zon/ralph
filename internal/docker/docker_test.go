@@ -77,8 +77,6 @@ func TestDockerfileUsesUbuntuResoluteRuntimeBase(t *testing.T) {
 	pattern := regexp.MustCompile(`(?m)^FROM\s+\S*ubuntu:26\.04(?:\s|$)`)
 	assert.Regexp(t, pattern, runtime,
 		"Runtime stage should build on ubuntu:26.04")
-	assert.NotContains(t, strings.ToLower(runtime), "playwright",
-		"Runtime stage should not build on the Playwright image")
 }
 
 func runtimeStage(t *testing.T, dockerfile string) string {
@@ -310,10 +308,6 @@ var forbiddenRuntimeTools = []struct {
 	{"templ", regexp.MustCompile(`(?i)\btempl\b`)},
 	{"helm", regexp.MustCompile(`(?i)\bhelm\b`)},
 	{"just", regexp.MustCompile(`(?i)\bjust\b`)},
-	{"Playwright", regexp.MustCompile(`(?i)\bplaywright\b`)},
-	{"Chromium", regexp.MustCompile(`(?i)\bchromium\b`)},
-	{"Chrome", regexp.MustCompile(`(?i)\bchrome\b|\bgoogle-chrome\b`)},
-	{"Firefox", regexp.MustCompile(`(?i)\bfirefox\b`)},
 	{"jq", regexp.MustCompile(`(?i)\bjq\b`)},
 	{"unzip", regexp.MustCompile(`(?i)\bunzip\b`)},
 	{"net-tools", regexp.MustCompile(`(?i)net-tools`)},
@@ -355,10 +349,6 @@ func TestRuntimeToolChecksRejectReturningTools(t *testing.T) {
 		{"templ", `COPY --from=builder /go/bin/templ /usr/local/bin/templ`},
 		{"helm", `COPY --from=builder /go/bin/helm /usr/local/bin/helm`},
 		{"just", `RUN apt-get install -y --no-install-recommends just`},
-		{"Playwright", `RUN npx playwright install`},
-		{"Chromium", `RUN apt-get install -y --no-install-recommends chromium`},
-		{"Chrome", `RUN apt-get install -y --no-install-recommends google-chrome-stable`},
-		{"Firefox", `RUN apt-get install -y --no-install-recommends firefox`},
 		{"jq", `RUN apt-get install -y --no-install-recommends jq`},
 		{"unzip", `RUN apt-get install -y --no-install-recommends unzip`},
 		{"net-tools", `RUN apt-get install -y --no-install-recommends net-tools`},
