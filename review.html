@@ -8177,12 +8177,12 @@ The same gap applies to `RunRemoteFromClone` when neither branch nor prefix is s
         
             
             
-            <div class="comment-card" data-comment-card data-category="performance" data-severity="high" data-mark-id="3aef287a-bb27-472d-821d-73271920de65#0" hidden>
+            <div class="comment-card" data-comment-card data-category="performance" data-severity="high" data-mark-id="3aef287a-bb27-472d-821d-73271920de65#0" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-performance">performance</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L37</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">`httpClient` defaults to nil, and both request helpers fall back to `&amp;http.Client{}`, which has no timeout. Callers pass a plain `context.Background()` (e.g. `internal/git/remote.go:155`, `internal/cmd/workflow_run_adapters.go:62`), so there is no deadline either: a stalled TCP connection or a hung GitHub API call blocks token acquisition forever. Give the default client a bounded timeout (and keep the test override working).</div>
                 

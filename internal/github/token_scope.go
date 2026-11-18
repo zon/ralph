@@ -24,10 +24,7 @@ func TokenWorkflowScope(ctx context.Context, token string) (present, known bool,
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("User-Agent", "ralph")
 
-	client := httpClient
-	if client == nil {
-		client = &http.Client{}
-	}
+	client := githubHTTPClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		return false, false, fmt.Errorf("failed to check token scopes: %w", err)
