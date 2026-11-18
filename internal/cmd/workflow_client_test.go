@@ -8,10 +8,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.yaml.in/yaml/v4"
 
 	"github.com/zon/ralph/internal/argo"
 	execcontext "github.com/zon/ralph/internal/context"
 	"github.com/zon/ralph/internal/project"
+	"github.com/zon/ralph/internal/testutil"
 )
 
 // TestWorkflowClientNamespaceOverride asserts the --namespace and --context
@@ -99,4 +101,49 @@ func TestWorkflowClientNamespaceFallsBackToConfig(t *testing.T) {
 	require.NoError(t, adapter.FollowLogs(workflowName))
 	assert.Equal(t, "config-context", logsCtx.Name, "the followed logs fall back to the config context")
 	assert.Equal(t, "config-namespace", logsCtx.Namespace, "the followed logs fall back to the config namespace")
+}
+
+// TestWorkflowClientSubmitMakesProjectPathRepoRelative asserts that the project
+// path is made relative to the repository root even when the repository owner
+// is already known, because the container runs in a clone where the absolute
+// host path does not exist.
+func TestWorkflowClientSubmitMakesProjectPathRepoRelative(t *testing.T) {
+	t.Setenv("KUBERNETES_SERVICE_HOST", "")
+	dir := t.TempDir()
+	testutil.InitGitRepo(t, dir)
+	testutil.MakeInitialCommit(t, dir)
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "projects"), 0755))
+	projectPath := filepath.Join(dir, "projects", "test.yaml")
+	require.NoError(t, os.WriteFile(projectPath, []byte("slug: test-project\n"), 0644))
+	t.Chdir(dir)
+
+	var submittedYAML string
+	argoClient := &argo.MockClient{
+		SubmitYAMLFunc: func(_ context.Context, workflowYAML string, _ argo.K8sContext) (string, error) {
+			submittedYAML = workflowYAML
+			return "test-workflow", nil
+		},
+	}
+
+	ctx := execcontext.NewContext()
+	ctx.SetRepoOwner("owner")
+	ctx.SetRepoName("repo")
+
+	adapter := &workflowClientAdapter{ctx: ctx, argoClient: argoClient}
+	input := project.ForProjectInput(&project.Project{Slug: "test-project", Path: projectPath})
+	_, err := adapter.Submit(input, "main", "", "main", "")
+	require.NoError(t, err, "Submit failed")
+
+	var data map[string]interface{}
+	require.NoError(t, yaml.Unmarshal([]byte(submittedYAML), &data))
+
+	parameters := data["spec"].(map[string]interface{})["arguments"].(map[string]interface{})["parameters"].([]interface{})
+	projectPathParam := ""
+	for _, p := range parameters {
+		param := p.(map[string]interface{})
+		if param["name"] == "project-path" {
+			projectPathParam, _ = param["value"].(string)
+		}
+	}
+	assert.Equal(t, "projects/test.yaml", projectPathParam, "the project path should be relative to the repository root")
 }

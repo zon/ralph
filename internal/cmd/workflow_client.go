@@ -36,18 +36,18 @@ func (a *workflowClientAdapter) Submit(input *project.InputFile, cloneBranch str
 		repoURL = repo.CloneURL()
 	}
 
+	// The workflow runs inside a clone of the repository, where an absolute
+	// host path does not exist, so the project path is always made relative to
+	// the repository root.
 	relProjectPath := input.Path()
 	if filepath.IsAbs(relProjectPath) {
-		owner, _ := a.ctx.RepoOwnerAndName()
-		if owner == "" {
-			repoRoot, err := git.FindRepoRoot()
-			if err != nil {
-				return "", fmt.Errorf("failed to get repository root: %w", err)
-			}
-			relProjectPath, err = filepath.Rel(repoRoot, relProjectPath)
-			if err != nil {
-				return "", fmt.Errorf("failed to calculate relative project path: %w", err)
-			}
+		repoRoot, err := git.FindRepoRoot()
+		if err != nil {
+			return "", fmt.Errorf("failed to get repository root: %w", err)
+		}
+		relProjectPath, err = filepath.Rel(repoRoot, relProjectPath)
+		if err != nil {
+			return "", fmt.Errorf("failed to calculate relative project path: %w", err)
 		}
 	}
 
