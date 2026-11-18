@@ -49,26 +49,6 @@ RUN git clone --quiet --depth 1 --branch ${ARGO_VERSION} https://github.com/argo
         -ldflags "-s -w -X github.com/argoproj/argo-workflows/v4.version=${ARGO_VERSION}" \
         -o /out/argo ./cmd/argo
 
-# GitHub CLI stage - build the GitHub CLI from its release tag. Its latest
-# release still ships golang.org/x/net with a known HIGH vulnerability, and a
-# released binary cannot be patched. Building from the release tag lets us
-# raise that dependency and keeps the Go module cache out of the runtime image.
-# Return to the packaged gh once a release ships the fixed version; see the
-# regression in regressions.md.
-FROM docker.io/library/golang:1.27.4-trixie AS gh
-
-ENV CGO_ENABLED=0
-RUN mkdir /out
-
-ENV GH_VERSION=2.104.0
-ENV GH_NET_VERSION=v0.63.0
-RUN git clone --quiet --depth 1 --branch v${GH_VERSION} https://github.com/cli/cli.git /tmp/cli \
-    && cd /tmp/cli \
-    && GOFLAGS=-mod=mod go get golang.org/x/net@${GH_NET_VERSION} \
-    && GOFLAGS=-mod=mod go build -trimpath \
-        -ldflags "-s -w -X github.com/cli/cli/v2/internal/build.Version=${GH_VERSION}" \
-        -o /out/gh ./cmd/gh
-
 # OpenCode stage - install the pinned OpenCode CLI in a Bun image and keep only
 # the native linux/amd64 binary. The module cache and the platform packages for
 # musl, baseline, and other operating systems stay in this stage.
@@ -102,6 +82,15 @@ RUN apt-get update \
     libpcre2-8-0 \
     && rm -rf /var/lib/apt/lists/* /usr/share/doc/* /usr/share/info/*
 
+# Install the GitHub CLI from its apt repository. Its release carries a patched
+# golang.org/x/net, so the package needs no source build.
+RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
+    && chmod a+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends gh \
+    && rm -rf /var/lib/apt/lists/* /usr/share/doc/* /usr/share/info/*
+
 # Copy only the compiled git commands and templates. The scripts and docs from
 # the git package stay in its build stage.
 COPY --from=git /usr/bin/git /usr/bin/git-shell /usr/bin/scalar /usr/bin/
@@ -111,10 +100,6 @@ COPY --from=git /usr/share/git-core /usr/share/git-core
 # The Argo Workflows CLI comes from the argo stage, built from source at the
 # version pinned there
 COPY --from=argo /out/argo /usr/local/bin/argo
-
-# The GitHub CLI comes from the gh stage, built from source at the version
-# pinned there
-COPY --from=gh /out/gh /usr/local/bin/gh
 
 # Copy only the native OpenCode binary from its build stage. The module cache
 # and the platform packages stay out of the runtime.
