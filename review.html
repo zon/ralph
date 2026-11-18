@@ -4234,12 +4234,12 @@ nav.breadcrumb a:focus-visible {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="a4d06918-8aa5-4b70-8a46-fbe80727c9ae#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="a4d06918-8aa5-4b70-8a46-fbe80727c9ae#0" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L51-L55</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">When the merge conflicts, this function aborts the merge and delegates to the agent, which only resolves and *stages* the files (see `resolve-merge-conflicts-instructions.md`: &#34;the system will automatically commit&#34;). Nothing here commits, yet the function returns `true`. Callers rely on that flag to push immediately (`syncBaseBranchBeforePR` in `internal/orchestration/run/runner.go` and `internal/orchestration/loop/cmd.go` call `Sync` and then `Push` without any commit), so the pushed HEAD does not contain the merge and the PR silently omits the base branch&#39;s latest changes. The repository is also left with `MERGE_HEAD` present (an in-progress merge), which breaks later git steps. Commit the resolved merge before returning `true`, or make the contract explicit and have every caller commit.</div>
                 

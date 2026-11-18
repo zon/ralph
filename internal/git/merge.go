@@ -14,6 +14,18 @@ func Merge(branch string) error {
 	return nil
 }
 
+// CommitMerge completes an in-progress merge with the message git prepared
+// before the conflict. The AI agent that resolves a conflicting merge only
+// stages the resolved files, so without this the merge stays in progress and a
+// later push omits it.
+func CommitMerge() error {
+	_, err := runGit("commit", "--no-edit")
+	if err != nil {
+		return fmt.Errorf("failed to commit resolved merge: %w", err)
+	}
+	return nil
+}
+
 // AbortMerge aborts an in-progress merge
 func AbortMerge() error {
 	_, err := runGit("merge", "--abort")

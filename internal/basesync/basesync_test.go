@@ -12,14 +12,16 @@ import (
 // fakeGit records the synchronization git operations and returns injected
 // errors, so tests never touch a real repository.
 type fakeGit struct {
-	fetchErr      error
-	needsMerge    bool
-	needsMergeErr error
-	mergeErr      error
+	fetchErr       error
+	needsMerge     bool
+	needsMergeErr  error
+	mergeErr       error
+	commitMergeErr error
 
 	fetchBranchCalled bool
 	needsMergeCalled  bool
 	mergeCalled       bool
+	commitMergeCalled bool
 	abortMergeCalls   int
 	lastFetchedBranch string
 	lastMergedBranch  string
@@ -45,6 +47,11 @@ func (f *fakeGit) Merge(branch string) error {
 func (f *fakeGit) AbortMerge() error {
 	f.abortMergeCalls++
 	return nil
+}
+
+func (f *fakeGit) CommitMerge() error {
+	f.commitMergeCalled = true
+	return f.commitMergeErr
 }
 
 // fakeAI records the conflict resolutions and returns an injected error.
@@ -85,6 +92,7 @@ func TestSync(t *testing.T) {
 		wantMerge      bool
 		wantAborts     int
 		wantResolve    bool
+		wantCommit     bool
 		wantWarnings   int
 		wantMergedRef  string
 	}{
@@ -135,6 +143,7 @@ func TestSync(t *testing.T) {
 			wantMerge:      true,
 			wantAborts:     1,
 			wantResolve:    true,
+			wantCommit:     true,
 			wantMerged:     true,
 			wantMergedRef:  "main",
 		},
@@ -148,6 +157,19 @@ func TestSync(t *testing.T) {
 			wantMerge:      true,
 			wantAborts:     2,
 			wantResolve:    true,
+			wantErr:        true,
+		},
+		{
+			name:           "commit failure returns the error",
+			base:           "main",
+			git:            &fakeGit{needsMerge: true, mergeErr: errors.New("conflict"), commitMergeErr: errors.New("commit boom")},
+			ai:             &fakeAI{},
+			wantFetch:      true,
+			wantNeedsMerge: true,
+			wantMerge:      true,
+			wantAborts:     1,
+			wantResolve:    true,
+			wantCommit:     true,
 			wantErr:        true,
 		},
 		{
@@ -188,6 +210,7 @@ func TestSync(t *testing.T) {
 			assert.Equal(t, tt.wantMerge, git.mergeCalled, "whether a merge is attempted")
 			assert.Equal(t, tt.wantAborts, git.abortMergeCalls, "how many times a conflicting merge is aborted")
 			assert.Equal(t, tt.wantResolve, ai.resolveCalled, "whether the agent resolves conflicts")
+			assert.Equal(t, tt.wantCommit, git.commitMergeCalled, "whether the resolved merge is committed")
 			assert.Len(t, out.warnings, tt.wantWarnings, "the number of warnings logged")
 			if tt.wantFetch {
 				assert.Equal(t, tt.base, git.lastFetchedBranch, "the fetched branch")

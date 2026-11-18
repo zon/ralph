@@ -48,6 +48,7 @@ type GitClient interface {
 	NeedsMerge(branch string) (bool, error)
 	Merge(branch string) error
 	AbortMerge() error
+	CommitMerge() error
 	Push() error
 }
 

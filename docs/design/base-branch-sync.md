@@ -27,4 +27,4 @@ After the pre-pull-request merge, Ralph pushes the merge so the pull request see
 
 When the merge conflicts, Ralph aborts it and asks the configured AI agent to resolve the conflicts, run the tests, and stage the result. The agent writes repository code, so this follows the calling command's agent rules. See [Run Design](run.md) and [AI Design](ai.md).
 
-If the agent fails, the command returns an error and does not open a pull request. Ralph never leaves the repository in a conflicted, mid-merge state.
+Ralph commits the staged resolution so the merge is complete before it returns. If the agent fails, the command returns an error and does not open a pull request. Ralph never leaves the repository in a conflicted, mid-merge state.
