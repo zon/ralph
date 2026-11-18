@@ -199,6 +199,7 @@ func (a *AgentClient) ResolveMergeConflicts(baseBranch, projectBranch string) er
 
 func (a *AgentClient) FixServiceStartup(cfg *config.RalphConfig, err error) error {
 	svcMgr := services.NewManager(a.ctx.Output())
+	defer svcMgr.Stop()
 	if failedSvc, startErr := svcMgr.Start(cfg.Services); startErr != nil {
 		fixPrompt, buildErr := ai.BuildFixServicePrompt(a.ctx, failedSvc, startErr)
 		if buildErr != nil {
