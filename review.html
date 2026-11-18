@@ -12018,12 +12018,12 @@ Return the error for the first case and reap the leader before returning on ESRC
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="0376af71-4d6e-4fc1-9f45-fcf66e17c181#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="0376af71-4d6e-4fc1-9f45-fcf66e17c181#0" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L200-L204</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">`sanitizeName` never bounds the result length, yet the returned value is used as a Kubernetes volume `name`, which must be a DNS label (max 63 chars). `configConfigMapMount.Name` / `SecretMount.Name` come straight from the workflow YAML and are not length-validated anywhere in `internal/config`, so a valid ConfigMap/Secret name (up to 253 chars) produces a volume name the API server rejects. Callers add a `-&lt;index&gt;` suffix on top of this, so the budget must also leave room for that suffix.</div>
                 

@@ -1,6 +1,7 @@
 package workflow
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -57,6 +58,9 @@ func TestSanitizeName(t *testing.T) {
 		{name: "leading_digits", input: "123-branch", expected: "branch-123-branch"},
 		{name: "leading_only_dashes", input: "---test---", expected: "test"},
 		{name: "empty_string", input: "", expected: "default"},
+		{name: "long_name", input: strings.Repeat("a", 100), expected: strings.Repeat("a", 58)},
+		{name: "long_name_trailing_separator", input: strings.Repeat("a", 57) + "-" + strings.Repeat("b", 10), expected: strings.Repeat("a", 57)},
+		{name: "long_leading_digits", input: "1" + strings.Repeat("a", 100), expected: "branch-1" + strings.Repeat("a", 50)},
 	}
 
 	for _, tt := range tests {
