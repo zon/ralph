@@ -2,6 +2,7 @@ package k8s
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"slices"
 	"testing"
 
@@ -9,104 +10,74 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestBuildSecretArgs(t *testing.T) {
+func TestBuildSecretManifest(t *testing.T) {
 	tests := []struct {
-		name          string
-		secretName    string
-		namespace     string
-		kubeContext   string
-		data          map[string]string
-		expectedArgs  []string
-		expectContext bool
+		name              string
+		secretName        string
+		namespace         string
+		data              map[string]string
+		expectedNamespace string
 	}{
 		{
-			name:        "basic secret with single data entry",
-			secretName:  "my-secret",
-			namespace:   "my-namespace",
-			kubeContext: "",
-			data:        map[string]string{"key1": "value1"},
-			expectedArgs: []string{
-				"create", "secret", "generic", "my-secret",
-				"--from-literal=key1=value1",
-				"-n", "my-namespace",
-				"--dry-run=client", "-o", "yaml",
-			},
-			expectContext: false,
+			name:              "basic secret with single data entry",
+			secretName:        "my-secret",
+			namespace:         "my-namespace",
+			data:              map[string]string{"key1": "value1"},
+			expectedNamespace: "my-namespace",
 		},
 		{
-			name:        "secret with multiple data entries",
-			secretName:  "multi-secret",
-			namespace:   "default",
-			kubeContext: "",
-			data:        map[string]string{"user": "admin", "pass": "secret123"},
-			expectedArgs: []string{
-				"create", "secret", "generic", "multi-secret",
-				"-n", "default",
-				"--dry-run=client", "-o", "yaml",
-			},
-			expectContext: false,
+			name:              "secret with multiple data entries",
+			secretName:        "multi-secret",
+			namespace:         "default",
+			data:              map[string]string{"user": "admin", "pass": "secret123"},
+			expectedNamespace: "default",
 		},
 		{
-			name:        "secret with context",
-			secretName:  "context-secret",
-			namespace:   "prod",
-			kubeContext: "my-cluster",
-			data:        map[string]string{"token": "abc123"},
-			expectedArgs: []string{
-				"create", "secret", "generic", "context-secret",
-				"-n", "prod",
-				"--context", "my-cluster",
-				"--dry-run=client", "-o", "yaml",
-			},
-			expectContext: true,
+			name:              "empty namespace uses default",
+			secretName:        "default-ns-secret",
+			namespace:         "",
+			data:              map[string]string{"key": "val"},
+			expectedNamespace: "default",
 		},
 		{
-			name:        "empty namespace uses default",
-			secretName:  "default-ns-secret",
-			namespace:   "",
-			kubeContext: "",
-			data:        map[string]string{"key": "val"},
-			expectedArgs: []string{
-				"create", "secret", "generic", "default-ns-secret",
-				"-n", "default",
-				"--dry-run=client", "-o", "yaml",
-			},
-			expectContext: false,
+			name:              "empty data",
+			secretName:        "empty-secret",
+			namespace:         "argo",
+			data:              map[string]string{},
+			expectedNamespace: "argo",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			args := buildSecretArgs(tt.secretName, tt.namespace, tt.kubeContext, tt.data)
+			manifest, err := buildSecretManifest(tt.secretName, tt.namespace, tt.data)
+			require.NoError(t, err)
 
-			assert.Equal(t, "create", args[0], "First arg should be 'create'")
-			assert.Equal(t, "secret", args[1], "Second arg should be 'secret'")
-			assert.Equal(t, "generic", args[2], "Third arg should be 'generic'")
-			assert.Equal(t, tt.secretName, args[3], "Fourth arg should be secret name")
-
-			assert.Equal(t, "--dry-run=client", args[len(args)-3], "Third to last arg should be --dry-run=client")
-			assert.Equal(t, "-o", args[len(args)-2], "Second to last arg should be -o")
-			assert.Equal(t, "yaml", args[len(args)-1], "Last arg should be yaml")
-
-			nsIdx := slices.Index(args, "-n")
-			assert.NotEqual(t, -1, nsIdx, "Should have -n flag in args")
-			if tt.namespace == "" {
-				assert.Equal(t, "default", args[nsIdx+1], "Empty namespace should default to 'default'")
-			} else {
-				assert.Equal(t, tt.namespace, args[nsIdx+1], "Namespace should match")
+			var got struct {
+				APIVersion string `json:"apiVersion"`
+				Kind       string `json:"kind"`
+				Metadata   struct {
+					Name      string `json:"name"`
+					Namespace string `json:"namespace"`
+				} `json:"metadata"`
+				Type string            `json:"type"`
+				Data map[string]string `json:"data"`
 			}
+			require.NoError(t, json.Unmarshal(manifest, &got))
+
+			assert.Equal(t, "v1", got.APIVersion)
+			assert.Equal(t, "Secret", got.Kind)
+			assert.Equal(t, "Opaque", got.Type)
+			assert.Equal(t, tt.secretName, got.Metadata.Name)
+			assert.Equal(t, tt.expectedNamespace, got.Metadata.Namespace)
+			assert.Len(t, got.Data, len(tt.data))
 
 			for key, value := range tt.data {
-				expectedFlag := "--from-literal=" + key + "=" + value
-				assert.True(t, slices.Contains(args, expectedFlag), "Should contain %s in args", expectedFlag)
-			}
-
-			if tt.expectContext {
-				assert.True(t, slices.Contains(args, "--context"), "Should contain --context flag")
-				ctxIdx := slices.Index(args, "--context")
-				assert.Equal(t, tt.kubeContext, args[ctxIdx+1], "Context value should match")
-			} else {
-				assert.False(t, slices.Contains(args, "--context"), "Should not contain --context flag")
+				encoded, ok := got.Data[key]
+				require.True(t, ok, "manifest should contain key %q", key)
+				decoded, err := base64.StdEncoding.DecodeString(encoded)
+				require.NoError(t, err)
+				assert.Equal(t, value, string(decoded))
 			}
 		})
 	}

@@ -8723,12 +8723,12 @@ if info.Mode().IsRegular() {
         
             
             
-            <div class="comment-card" data-comment-card data-category="security" data-severity="high" data-mark-id="a224b6f7-cdfb-42fb-93ed-808d4734e89a#1" hidden>
+            <div class="comment-card" data-comment-card data-category="security" data-severity="high" data-mark-id="a224b6f7-cdfb-42fb-93ed-808d4734e89a#1" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-security">security</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L23-L25</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">Secret values are passed to `kubectl` as command-line arguments. On Linux `/proc/&lt;pid&gt;/cmdline` (and `ps`) is readable by other local users, so the GitHub private key / token and `auth.json` written here are exposed for the lifetime of the process. Since the generated YAML is already piped to `kubectl apply` via stdin, build the Secret manifest in-process and feed it to `apply -f -` instead of using `--from-literal`, or pass the literals through a 0600 temp file/stdin.</div>
                 
