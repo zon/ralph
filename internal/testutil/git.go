@@ -34,6 +34,23 @@ func MakeInitialCommit(t *testing.T, dir string) {
 	require.NoError(t, c.Run())
 }
 
+// AddLocalRemote adds a bare origin remote and pushes main, so tests that call
+// remote-aware git paths have an origin to query.
+func AddLocalRemote(t *testing.T, dir string) string {
+	t.Helper()
+	remoteDir := t.TempDir()
+	for _, args := range [][]string{
+		{"init", "--bare", remoteDir},
+		{"remote", "add", "origin", remoteDir},
+		{"push", "--set-upstream", "origin", "main"},
+	} {
+		c := exec.Command("git", args...)
+		c.Dir = dir
+		require.NoError(t, c.Run(), "git %v should succeed", args)
+	}
+	return remoteDir
+}
+
 func CreateRalphConfig(t *testing.T, dir string) {
 	t.Helper()
 	ralphDir := filepath.Join(dir, ".ralph")

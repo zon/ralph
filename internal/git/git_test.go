@@ -61,6 +61,8 @@ func setupTestRepo(t *testing.T) string {
 	dir := t.TempDir()
 	testutil.InitGitRepo(t, dir)
 	testutil.MakeInitialCommit(t, dir)
+
+	testutil.AddLocalRemote(t, dir)
 	return dir
 }
 

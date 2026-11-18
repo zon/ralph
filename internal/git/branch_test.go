@@ -263,6 +263,41 @@ func TestCheckoutOrCreateBranch_ExistingRemoteBranch(t *testing.T) {
 	assert.Equal(t, branchName, currentBranch)
 }
 
+func TestRemoteBranchExists(t *testing.T) {
+	t.Run("existing branch", func(t *testing.T) {
+		workDir, _ := setupBareRemoteRepo(t)
+		t.Chdir(workDir)
+
+		_, err := runGit("push", "origin", "HEAD:refs/heads/remote-branch")
+		require.NoError(t, err, "failed to push branch")
+
+		exists, err := RemoteBranchExists("remote-branch")
+		require.NoError(t, err)
+		assert.True(t, exists)
+	})
+
+	t.Run("missing branch", func(t *testing.T) {
+		workDir, _ := setupBareRemoteRepo(t)
+		t.Chdir(workDir)
+
+		exists, err := RemoteBranchExists("missing-branch")
+		require.NoError(t, err)
+		assert.False(t, exists)
+	})
+
+	t.Run("failed lookup", func(t *testing.T) {
+		dir := setupTestRepo(t)
+		t.Chdir(dir)
+		_, err := runGit("remote", "remove", "origin")
+		require.NoError(t, err, "failed to remove origin")
+
+		exists, err := RemoteBranchExists("any-branch")
+		require.Error(t, err)
+		assert.False(t, exists)
+		assert.Contains(t, err.Error(), "failed to check remote branch 'any-branch'")
+	})
+}
+
 func TestIsBranchSyncedWithRemote_Synced(t *testing.T) {
 	workDir, _ := setupBareRemoteRepo(t)
 	t.Chdir(workDir)

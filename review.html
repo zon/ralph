@@ -6219,12 +6219,12 @@ func (w *WorkflowLoopCmd) Run() error {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="b3523212-41e0-4bde-8fb5-9710c645d4a5#0" hidden>
+            <div class="comment-card" data-mark="fixed" data-comment-card data-category="bug" data-severity="high" data-mark-id="b3523212-41e0-4bde-8fb5-9710c645d4a5#0" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L91-L94</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">All `git ls-remote` failures are converted into &#34;branch does not exist&#34;. `--exit-code` only returns 2 when no ref matches; network failures, auth failures, or a missing `origin` exit 128 and are therefore reported as `(false, nil)`. Callers then act on the false negative: `CheckoutOrCreateBranch` runs `checkout -b` and can shadow an existing remote branch, `alignBranchWithRemote`/`PullRebase` silently treat the branch as new. Distinguish the &#34;no match&#34; exit code from real failures and propagate the error (which also means `remoteBranchExists` must stop discarding it).</div>
                 
