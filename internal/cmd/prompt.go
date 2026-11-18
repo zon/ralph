@@ -297,12 +297,13 @@ func validatePromptBranchPrefix(prefix, branch string) error {
 // RunInWorkspace runs the prompt flow in an already prepared workflow checkout.
 // The workflow supplies the prompt branch, base branch, and optional prefix, and
 // the workspace has already cloned the repository and checked out the prompt
-// branch. It therefore skips mode resolution and remote submission. With a
-// prefix it checks again for an open pull request before any before command or
-// pass work. When the prefix has no branch, it proposes a prompt slug and
-// creates <prefix>/<prompt-slug> in the checkout. A supplied branch must stay
-// under the prefix. It then runs the same before commands, base synchronization,
-// services, pass, and pull request flow as a local prompt.
+// branch. It therefore skips mode resolution and remote submission. It requires
+// a branch or a prefix. With a prefix it checks again for an open pull request
+// before any before command or pass work. When the prefix has no branch, it
+// proposes a prompt slug and creates <prefix>/<prompt-slug> in the checkout. A
+// supplied branch must stay under the prefix. It then runs the same before
+// commands, base synchronization, services, pass, and pull request flow as a
+// local prompt.
 func (c *PromptCmd) RunInWorkspace(prompt, branch, base string, prefix ...string) error {
 	if strings.TrimSpace(prompt) == "" {
 		return errors.New("prompt is required")
@@ -322,6 +323,9 @@ func (c *PromptCmd) RunInWorkspace(prompt, branch, base string, prefix ...string
 		if err := git.ValidateBranchName(normalizedPrefix); err != nil {
 			return err
 		}
+	}
+	if branch == "" && normalizedPrefix == "" {
+		return errors.New("branch or prefix is required")
 	}
 	if err := validatePromptBranchPrefix(normalizedPrefix, branch); err != nil {
 		return err
@@ -380,6 +384,9 @@ func (c *PromptCmd) RunRemoteFromClone(prompt, branch, base string, prefix ...st
 		if err := git.ValidateBranchName(normalizedPrefix); err != nil {
 			return err
 		}
+	}
+	if branch == "" && normalizedPrefix == "" {
+		return errors.New("branch or prefix is required")
 	}
 	if err := validatePromptBranchPrefix(normalizedPrefix, branch); err != nil {
 		return err

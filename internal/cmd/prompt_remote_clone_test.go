@@ -162,6 +162,29 @@ func TestPromptCmdRunRemoteFromCloneRejectsBranchOutsidePrefix(t *testing.T) {
 	assert.Zero(t, remote.submitCalls, "a mismatched branch submits no workflow")
 }
 
+// TestPromptCmdRunRemoteFromCloneRequiresBranchOrPrefix covers a call with
+// neither a branch nor a prefix: the command fails before reading the current
+// branch or submitting a workflow with an empty prompt branch.
+func TestPromptCmdRunRemoteFromCloneRequiresBranchOrPrefix(t *testing.T) {
+	prClient := &promptPRRecorder{}
+	remote := &promptRemoteRecorder{}
+	cmd := &PromptCmd{
+		config: &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+		git:    &git.MockClient{},
+		pr:     prClient,
+		output: &promptOutputRecorder{},
+		remote: remote,
+	}
+
+	err := cmd.RunRemoteFromClone("do work", "", "main")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "branch or prefix is required")
+	assert.Nil(t, cmd.resolved, "a missing branch and prefix resolves nothing")
+	assert.Zero(t, prClient.listCalls, "a missing branch and prefix lists no pull requests")
+	assert.Zero(t, remote.submitCalls, "a missing branch and prefix submits no workflow")
+}
+
 // TestPromptCmdRunRemoteFromCloneSyncRejection covers a clone branch missing
 // from the remote: the command fails before a workflow is submitted.
 func TestPromptCmdRunRemoteFromCloneSyncRejection(t *testing.T) {
