@@ -7,7 +7,7 @@ ARG AIR_VERSION=v1.67.4
 ARG AIR_TEXT_VERSION=v0.44.0
 ARG TEMPL_VERSION=v0.3.1118
 ARG TEMPL_NET_VERSION=v0.63.0
-ARG GOVULNCHECK_VERSION=v1.9.0
+ARG GOVULNCHECK_VERSION=v1.10.0
 
 # Build air, templ, and govulncheck from source. The latest release of air and
 # templ still ships a known HIGH finding (air: golang.org/x/text, templ:
