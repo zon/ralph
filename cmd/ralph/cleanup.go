@@ -32,12 +32,13 @@ func (m *Manager) RegisterCleanup(fn func()) {
 
 func (m *Manager) Cleanup() {
 	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	for i := len(m.cleanupFn) - 1; i >= 0; i-- {
-		m.cleanupFn[i]()
-	}
+	fns := m.cleanupFn
 	m.cleanupFn = nil
+	m.mu.Unlock()
+
+	for i := len(fns) - 1; i >= 0; i-- {
+		fns[i]()
+	}
 }
 
 func (m *Manager) SetupSignalHandlers() {
