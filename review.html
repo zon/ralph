@@ -11532,12 +11532,12 @@ func topWorkflow(names []string) (string, error) {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="e2a84ac8-b244-41d9-94dd-50e4b08d6724#2" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="e2a84ac8-b244-41d9-94dd-50e4b08d6724#2" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L186-L191</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">Two problems in this error branch:
 1. A non-ESRCH failure (e.g. EPERM) is only logged and then hidden by `return nil`, so the caller believes the service stopped even though it may still be running and holding its port.
