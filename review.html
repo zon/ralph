@@ -12093,12 +12093,12 @@ Return the error for the first case and reap the leader before returning on ESRC
         
             
             
-            <div class="comment-card" data-comment-card data-category="security" data-severity="high" data-mark-id="0376af71-4d6e-4fc1-9f45-fcf66e17c181#2" hidden>
+            <div class="comment-card" data-comment-card data-category="security" data-severity="high" data-mark-id="0376af71-4d6e-4fc1-9f45-fcf66e17c181#2" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-security">security</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L48-L53</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">`absPath` neither cleans the path nor restricts it to `/workspace`: a relative `destFile`/`destDir` such as `../etc/cron.d/x` becomes `/workspace/../etc/cron.d/x` (kubelet normalizes it out of the workspace), and an absolute value is passed through untouched. Since these destinations come from the workflow config with no validation in `internal/config`, a config can escape the workspace or target `/secrets/github` / `/secrets/opencode` and shadow/replace the credential mounts in `buildCredentialMounts` (duplicate `mountPath` also makes the pod spec invalid). Clean the result and reject anything outside `/workspace`.</div>
                 

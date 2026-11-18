@@ -71,6 +71,29 @@ func TestSanitizeName(t *testing.T) {
 	}
 }
 
+func TestAbsPath(t *testing.T) {
+	tests := []struct {
+		name     string
+		path     string
+		expected string
+	}{
+		{name: "relative", path: "config/main.yaml", expected: "/workspace/config/main.yaml"},
+		{name: "relative_dot", path: "./config/main.yaml", expected: "/workspace/config/main.yaml"},
+		{name: "relative_parent", path: "config/../main.yaml", expected: "/workspace/main.yaml"},
+		{name: "relative_escape", path: "../etc/cron.d/job", expected: "/workspace/etc/cron.d/job"},
+		{name: "relative_escape_deep", path: "a/../../etc/passwd", expected: "/workspace/etc/passwd"},
+		{name: "absolute", path: "/etc/id/backend/config.json", expected: "/etc/id/backend/config.json"},
+		{name: "absolute_parent", path: "/workspace/../etc/passwd", expected: "/etc/passwd"},
+		{name: "absolute_dot", path: "/workspace/config/./main.yaml", expected: "/workspace/config/main.yaml"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, absPath(tt.path), "absPath should return a clean path")
+		})
+	}
+}
+
 func TestBuildConfigMapVolumeMount(t *testing.T) {
 	tests := []struct {
 		name     string
