@@ -11387,12 +11387,12 @@ func topWorkflow(names []string) (string, error) {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="20d0d7bb-c906-4795-9698-bb8bb43b90bf#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="20d0d7bb-c906-4795-9698-bb8bb43b90bf#0" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-medium">medium</span>
                     <span class="comment-lines sr-only">L50</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">`Format` joins `branch` and `hash` verbatim without checking that they fall inside the charset `trailerRe` accepts (`[A-Za-z0-9._/-]` for the branch, 7 alphanumerics for the hash). Valid git branch names may legitimately contain `@`, `&#43;`, `%`, `!`, `=`, or non-ASCII characters, and project slugs are taken from an unsanitized YAML `slug` field. In those cases `Format` emits something like `release@2-ABCDEFG` or `feature/café-ABCDEFG`, which `Parse` can never match, so the completion trailer is silently dropped (nothing marks the item complete). Either validate/normalize the branch here (and surface an error to the caller), or extend `Parse`&#39;s branch class to cover the characters `Format` can emit so the two functions round-trip.</div>
                 

@@ -96,6 +96,30 @@ func TestParseBranchContainingDigit(t *testing.T) {
 	assert.Equal(t, "IYAWN02", refs[0].Hash)
 }
 
+func TestFormatParsesForBranchSymbols(t *testing.T) {
+	for _, branch := range []string{
+		"release@2",
+		"feature/café",
+		"fix+build",
+		"scope%done",
+		"urgent!",
+		"a=b",
+		"topic-1.2",
+	} {
+		t.Run(branch, func(t *testing.T) {
+			hash := Hash("item 0")
+			refs := Parse(Format(branch, hash))
+			require.Len(t, refs, 1, "branch %q should round-trip", branch)
+			assert.Equal(t, branch, refs[0].Branch)
+			assert.Equal(t, hash, refs[0].Hash)
+		})
+	}
+}
+
+func TestParseIgnoresTrailerWithBranchWhitespace(t *testing.T) {
+	assert.Empty(t, Parse("csv export-IYAWN02"), "a branch containing whitespace is not a bare trailer")
+}
+
 func TestParseMessageWithoutTrailer(t *testing.T) {
 	assert.Empty(t, Parse("feat: fix bug\n\nRefactor the parser."))
 }
