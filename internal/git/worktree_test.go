@@ -25,6 +25,29 @@ func TestCreateWorktreeDryRun(t *testing.T) {
 	assert.Equal(t, expectedPath, cmd.Path)
 }
 
+func TestWorktreePathKeepsBranchWithSeparatorsBesideCheckout(t *testing.T) {
+	workDir := t.TempDir()
+	t.Chdir(workDir)
+
+	parent := filepath.Dir(workDir)
+	repoName := filepath.Base(workDir)
+
+	for _, branch := range []string{"feature/foo", `feature\foo`, "feature/foo/bar"} {
+		t.Run(branch, func(t *testing.T) {
+			cmd, err := CreateWorktree(branch, true)
+			require.NoError(t, err)
+
+			expectedPath := filepath.Join(parent, repoName+"-"+strings.NewReplacer("/", "-", `\`, "-").Replace(branch))
+			assert.Equal(t, expectedPath, cmd.Path)
+			assert.Equal(t, parent, filepath.Dir(cmd.Path), "the worktree stays beside the checkout")
+
+			removeCmd, err := RemoveWorktree(branch, true)
+			require.NoError(t, err)
+			assert.Equal(t, expectedPath, removeCmd.Path, "removal targets the same worktree path")
+		})
+	}
+}
+
 func TestCreateWorktreeDryRunDoesNotRunGit(t *testing.T) {
 	workDir := t.TempDir()
 	t.Chdir(workDir)

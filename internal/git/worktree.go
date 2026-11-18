@@ -17,9 +17,12 @@ type WorktreeCommand struct {
 }
 
 // worktreePathFor returns the sibling directory path a worktree for branch is
-// created at, named from the branch: <parent>/<repo>-<branch>.
+// created at, named from the branch: <parent>/<repo>-<branch>. Path separators
+// in the branch become hyphens so the worktree always stays a sibling
+// directory, even for a branch such as feature/foo.
 func worktreePathFor(repoRoot, branch string) string {
-	return filepath.Join(filepath.Dir(repoRoot), filepath.Base(repoRoot)+"-"+branch)
+	name := strings.NewReplacer("/", "-", `\`, "-").Replace(branch)
+	return filepath.Join(filepath.Dir(repoRoot), filepath.Base(repoRoot)+"-"+name)
 }
 
 // worktreePath resolves the repository root and returns the sibling directory
