@@ -1,6 +1,7 @@
 package validate
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -397,6 +398,41 @@ func TestValidateFailsFastWhenAgentMakesNoChange(t *testing.T) {
 	_, err := svc.Validate(anyPath, ".")
 	require.ErrorIs(t, err, ErrNoChange)
 	require.Len(t, FixCalls(), 1)
+}
+
+func TestValidatePropagatesReadFileErrors(t *testing.T) {
+	tests := []struct {
+		name        string
+		failAtRead  int
+		wantFixCall int
+	}{
+		{name: "before the fix", failAtRead: 1, wantFixCall: 0},
+		{name: "after the fix", failAtRead: 2, wantFixCall: 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ResetFixCalls()
+			readErr := errors.New("read failed")
+			reads := 0
+			pf := &mockProjectFile{
+				parseFunc: func(path string) (*projectfile.Document, error) {
+					return nil, &mockParseError{msg: "always fails"}
+				},
+				readFileFunc: func(path string) ([]byte, error) {
+					reads++
+					if reads == tt.failAtRead {
+						return nil, readErr
+					}
+					return []byte(fmt.Sprintf("content-%d", reads)), nil
+				},
+			}
+			svc := withMocks(withProject(pf))
+			_, err := svc.Validate(anyPath, ".")
+			require.ErrorIs(t, err, readErr)
+			require.NotErrorIs(t, err, ErrNoChange)
+			require.Len(t, FixCalls(), tt.wantFixCall)
+		})
+	}
 }
 
 func TestValidatePropagatesAgentFailure(t *testing.T) {
