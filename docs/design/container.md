@@ -18,7 +18,7 @@ The image is the executor, not the development environment. A workflow clones a 
 
 ## Base
 
-The runtime stays on `ubuntu:26.04`, pinned by tag.
+The runtime stays on `ubuntu:26.10`, pinned by tag.
 
 * It uses glibc, which the OpenCode native binary links against.
 * It is the distribution most project install scripts and third-party apt sources target.
