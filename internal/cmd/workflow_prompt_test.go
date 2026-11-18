@@ -400,6 +400,32 @@ func TestPromptCmdRunInWorkspaceRejectsEmptyPrompt(t *testing.T) {
 	assert.Zero(t, loadCalls)
 }
 
+// TestPromptCmdRunInWorkspaceRequiresBranchOrPrefix asserts the prepared
+// entrypoint rejects a call with neither a branch nor a prefix, so it never
+// stores an empty prompt branch or synchronizes an empty base.
+func TestPromptCmdRunInWorkspaceRequiresBranchOrPrefix(t *testing.T) {
+	servicesClient := &promptServicesRecorder{}
+	aiClient := &promptAIRecorder{}
+	prClient := &promptPRRecorder{}
+	cmd := &PromptCmd{
+		config:   &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) { return config.Any(), nil }},
+		git:      &git.MockClient{},
+		services: servicesClient,
+		ai:       aiClient,
+		pr:       prClient,
+		output:   &promptOutputRecorder{},
+	}
+
+	err := cmd.RunInWorkspace("do work", "", "main")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "branch or prefix is required")
+	assert.Nil(t, cmd.resolved, "a missing branch and prefix resolves nothing")
+	assert.Empty(t, prClient.listPrefixes, "a missing branch and prefix lists no pull requests")
+	assert.Zero(t, servicesClient.runBeforeCalls, "a missing branch and prefix runs no before command")
+	assert.Zero(t, aiClient.passCalls, "a missing branch and prefix runs no pass")
+}
+
 // TestPromptCmdRunInWorkspacePrefixMatchingPullRequestSkips covers the
 // container-side prefix check stopping the prompt when an open pull request
 // appeared after submission. The prefix is normalized and listed once, the

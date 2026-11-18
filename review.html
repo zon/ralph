@@ -6390,12 +6390,12 @@ func (w *WorkflowLoopCmd) Run() error {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="4377dec2-289f-455b-a36c-da8a9635aee3#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="4377dec2-289f-455b-a36c-da8a9635aee3#0" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L335-L340</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">`RunInWorkspace` accepts an empty branch together with an empty prefix. It then stores empty `PromptBranch`/`StartingBranch` values and proceeds into `runSetupAndPass`, so `basesync.Sync` runs against no prompt branch (effectively the clone&#39;s checked-out branch) and, if the pass commits, `renamePromptBranch` calls `RenameBranch(&#34;&#34;, &lt;slug&gt;)`, which fails and aborts before push/PR creation. The empty branch should be rejected (or resolved) before any setup work.
 
