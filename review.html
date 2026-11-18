@@ -5176,12 +5176,12 @@ nav.breadcrumb a:focus-visible {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="fe1e79fd-12c9-4937-a14b-f502e98153b7#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="fe1e79fd-12c9-4937-a14b-f502e98153b7#0" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L25</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">The workflow generator adds `--verbose` to the `ralph workflow run` container args (see the `default` branch in internal/workflow/workflow.go) and exports `RALPH_VERBOSE=true`, but this command struct has no `Verbose` field. Kong will reject the generated invocation with &#34;unknown flag --verbose&#34;, so any verbose run fails to start in the container. Add the flag and propagate it (see the `SetOutput` line below).</div>
                 

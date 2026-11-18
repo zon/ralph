@@ -3,6 +3,7 @@ package cmd
 import (
 	"testing"
 
+	"github.com/alecthomas/kong"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zon/ralph/internal/config"
@@ -10,6 +11,31 @@ import (
 	"github.com/zon/ralph/internal/orchestration/workspace"
 	"github.com/zon/ralph/internal/project"
 )
+
+// TestWorkflowRunCmdParsing covers the `ralph workflow run` command surface that
+// runs inside the workflow container, including the --verbose flag the workflow
+// generator adds for verbose runs.
+func TestWorkflowRunCmdParsing(t *testing.T) {
+	cmd := &Cmd{}
+	parser, err := kong.New(cmd,
+		kong.Name("ralph"),
+		kong.Exit(func(int) {}),
+	)
+	require.NoError(t, err)
+
+	_, err = parser.Parse([]string{
+		"workflow", "run",
+		"--repo", "owner/repo",
+		"--project-path", "project.yaml",
+		"--base", "main",
+		"--verbose",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "owner/repo", cmd.Workflow.Run.Repo)
+	assert.Equal(t, "project.yaml", cmd.Workflow.Run.ProjectPath)
+	assert.Equal(t, "main", cmd.Workflow.Run.BaseBranch)
+	assert.True(t, cmd.Workflow.Run.Verbose, "the verbose flag parses")
+}
 
 // ---------------------------------------------------------------------------
 // Mocks for orchestration WorkflowRunCmd tests

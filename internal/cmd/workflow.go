@@ -23,11 +23,13 @@ type WorkflowRunCmd struct {
 	Model           string `help:"The model to use in format of provider/model" name:"model" short:"m"`
 	Agent           string `help:"Override the opencode agent from config" name:"agent"`
 	Variant         string `help:"The model variant (provider-specific reasoning effort, e.g., high, max, minimal)" name:"variant"`
+	Verbose         bool   `help:"Enable verbose logging" default:"false"`
 }
 
 func (w *WorkflowRunCmd) Run() error {
 	ctx := createExecutionContext()
-	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
+	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, w.Verbose))
+	ctx.SetVerbose(w.Verbose)
 	if parts := strings.SplitN(w.Repo, "/", 2); len(parts) == 2 {
 		ctx.SetRepoOwner(parts[0])
 		ctx.SetRepoName(parts[1])
