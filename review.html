@@ -12616,12 +12616,12 @@ Return the error for the first case and reap the leader before returning on ESRC
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="4fb983b0-d48e-422e-b102-1642223eb464#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="4fb983b0-d48e-422e-b102-1642223eb464#0" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L21</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">`set -e` combined with the loop means the first failing `ralph` submission aborts the whole script, so the remaining projects are silently never submitted — which contradicts the stated intent of submitting *every* project file. Also, nothing is reported at the end, so a partial run looks like a successful run. Collect per-project failures, keep going, and exit non-zero at the end (and send diagnostics to stderr):</div>
                 
