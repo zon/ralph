@@ -9592,12 +9592,12 @@ func topWorkflow(names []string) (string, error) {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="8f844c1d-d1ee-4efc-8601-8d75ef568635#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="8f844c1d-d1ee-4efc-8601-8d75ef568635#0" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L147-L149</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">Data race: os/exec copies non-*os.File stdout and stderr in two separate goroutines, and both io.MultiWriter chains here write into the same `ring` pointer. `ringWriter.lines`, `ringWriter.buf` and the final `Tail()` are therefore mutated/read concurrently without synchronization, corrupting the captured tail (and tripping `go test -race`). Add a `sync.Mutex` to `ringWriter` and lock in both `Write` and `Tail`.</div>
                 
