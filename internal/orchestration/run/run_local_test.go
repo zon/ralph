@@ -48,6 +48,30 @@ func TestRunLocalBeforeCommandFailureAbortsEarly(t *testing.T) {
 	require.False(t, gitBranchSwitched(runner))
 }
 
+func TestRunLocalSwitchesToSanitizedProjectBranch(t *testing.T) {
+	tests := []struct {
+		name string
+		slug string
+		want string
+	}{
+		{name: "uppercase and spaces", slug: "CSV Export", want: "csv-export"},
+		{name: "underscores and dots", slug: "My_Project.v2", want: "my-project-v2"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			proj := project.Any()
+			proj.Slug = tt.slug
+			runner := withMocks(
+				withProject(project.ThatReportsAllComplete()),
+			)
+			err := runner.RunLocal(project.ForProjectInput(proj), config.Any())
+			require.NoError(t, err)
+			require.Equal(t, tt.want, gitLastSwitchedBranch(runner),
+				"the run switches to the same sanitized branch it syncs and opens a pull request against")
+		})
+	}
+}
+
 func TestRunLocalResolvesProjectFileDirectly(t *testing.T) {
 	proj := project.Any()
 	proj.Path = "projects/demo.yaml"
