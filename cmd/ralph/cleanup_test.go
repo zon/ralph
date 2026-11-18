@@ -65,6 +65,41 @@ func TestCleanup(t *testing.T) {
 
 		assert.NotPanics(t, func() { m.Cleanup() })
 	})
+
+	t.Run("callbacks run without the lock held", func(t *testing.T) {
+		tests := []struct {
+			name    string
+			reenter func(*Manager)
+		}{
+			{
+				name:    "callback registers another callback",
+				reenter: func(m *Manager) { m.RegisterCleanup(func() {}) },
+			},
+			{
+				name:    "callback runs cleanup again",
+				reenter: func(m *Manager) { m.Cleanup() },
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				m := NewManager(nil)
+				done := make(chan struct{})
+				m.RegisterCleanup(func() {
+					tt.reenter(m)
+					close(done)
+				})
+
+				go m.Cleanup()
+
+				select {
+				case <-done:
+				case <-time.After(time.Second):
+					t.Fatal("cleanup did not complete while a callback re-entered the manager")
+				}
+			})
+		}
+	})
 }
 
 func TestHandleSignal(t *testing.T) {
