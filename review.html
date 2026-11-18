@@ -3960,12 +3960,12 @@ nav.breadcrumb a:focus-visible {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="26e60833-7eb1-454c-bfcf-31814ac1e781#2" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="26e60833-7eb1-454c-bfcf-31814ac1e781#2" hidden data-mark="fixed">
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L189-L190</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">If the re-run of `Start` succeeds here, the service processes it launched are never stopped: the manager is a local variable that is discarded, and the caller only receives the original error/handle it already had, so it has no way to stop these processes (the runner then proceeds with `svc = nil`). That leaves services running for the rest of the process lifetime. Stop the manager before returning, and consider whether the ignored `err` parameter should still drive the fix prompt instead of a silent retry success.</div>
                 
