@@ -150,10 +150,7 @@ func (c *client) SubmitYAML(ctx context.Context, workflowYAML string, kubeCtx K8
 
 	workflowName := extractWorkflowName(string(output))
 	if workflowName == "" {
-		lines := strings.Split(strings.TrimSpace(string(output)), "\n")
-		if len(lines) > 0 {
-			workflowName = strings.TrimSpace(lines[0])
-		}
+		return "", fmt.Errorf("failed to determine submitted workflow name from argo output: %q", string(output))
 	}
 	return workflowName, nil
 }

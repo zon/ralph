@@ -61,6 +61,57 @@ func TestExtractWorkflowName(t *testing.T) {
 	}
 }
 
+func TestSubmitYAML(t *testing.T) {
+	tests := []struct {
+		name     string
+		output   string
+		expected string
+		wantErr  string
+	}{
+		{
+			name:     "returns parsed workflow name",
+			output:   "Name: ralph-test-abc123\nNamespace: default\nStatus: Running",
+			expected: "ralph-test-abc123",
+		},
+		{
+			name:    "fails when output has no workflow name",
+			output:  "Workflow submitted successfully",
+			wantErr: "failed to determine submitted workflow name",
+		},
+		{
+			name:    "fails when output is empty",
+			output:  "",
+			wantErr: "failed to determine submitted workflow name",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			argsFile := filepath.Join(dir, "argo-args.txt")
+			script := fmt.Sprintf("#!/bin/bash\ncat > /dev/null\necho \"$@\" > %s\ncat <<'EOF'\n%s\nEOF\n", argsFile, tt.output)
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "argo"), []byte(script), 0755))
+			t.Setenv("PATH", dir+":"+os.Getenv("PATH"))
+
+			c := NewClient()
+			name, err := c.SubmitYAML(context.Background(), "workflow: {}", K8sContext{Name: "prod-cluster", Namespace: "staging"})
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+				assert.Empty(t, name)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.expected, name)
+			}
+
+			args := readArgsFile(t, argsFile)
+			assert.Contains(t, args, "submit -")
+			assert.Contains(t, args, "-n staging")
+			assert.Contains(t, args, "--context prod-cluster")
+		})
+	}
+}
+
 func TestParseWorkflowNames(t *testing.T) {
 	tests := []struct {
 		name     string

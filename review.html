@@ -3714,12 +3714,12 @@ nav.breadcrumb a:focus-visible {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="1219d8f5-d310-475e-93a6-df44c8238dd3#1" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="1219d8f5-d310-475e-93a6-df44c8238dd3#1" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L151-L158</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">`SubmitYAML` reports success with an empty workflow name when the CLI output contains no `Name:` line. Callers (`workflow.Submit` → remote runners) take the returned string as the workflow name and pass it to `Logs`/`StopWorkflow`, so a submit whose name could not be parsed silently degrades into `argo logs -n ns &#34;&#34;` instead of surfacing an error. The first-line fallback is also unsafe: it will happily return a warning/progress line as the &#34;name&#34;. Return an explicit error when the name cannot be extracted instead of guessing.</div>
                 
