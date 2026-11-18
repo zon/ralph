@@ -97,20 +97,15 @@ func (g *GH) FindExistingPR(head string) (string, error) {
 		return "", fmt.Errorf("failed to check for existing PRs: %w", err)
 	}
 
-	output := out.String()
-	if !strings.Contains(output, "url") {
+	var prs []PullRequest
+	if err := json.Unmarshal(out.Bytes(), &prs); err != nil {
+		return "", fmt.Errorf("failed to parse existing PRs: %w", err)
+	}
+	if len(prs) == 0 {
 		return "", nil
 	}
 
-	lines := strings.Split(output, "\n")
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmed, "http") {
-			return trimmed, nil
-		}
-	}
-
-	return "", nil
+	return prs[0].URL, nil
 }
 
 // ListOpenPullRequests lists the repository's open pull requests on every base

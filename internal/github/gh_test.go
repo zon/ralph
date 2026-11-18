@@ -56,27 +56,26 @@ func TestGH_IsReady(t *testing.T) {
 
 func TestGH_FindExistingPR(t *testing.T) {
 	t.Run("returns URL when present", func(t *testing.T) {
-		writeFakeGHScript(t, `printf '[{"url":"https://github.com/owner/repo/pull/123"}]\nhttps://github.com/owner/repo/pull/123\n'`)
+		writeFakeGHScript(t, `printf '[{"url":"https://github.com/owner/repo/pull/123"}]\n'`)
 		g := NewGH(nil)
 		url, err := g.FindExistingPR("my-branch")
 		require.NoError(t, err)
 		assert.Equal(t, "https://github.com/owner/repo/pull/123", url)
 	})
 
-	t.Run("returns empty when url field missing", func(t *testing.T) {
-		writeFakeGHScript(t, `echo '[{"number":1}]'`)
+	t.Run("returns empty when no PR exists", func(t *testing.T) {
+		writeFakeGHScript(t, `echo '[]'`)
 		g := NewGH(nil)
 		url, err := g.FindExistingPR("my-branch")
 		require.NoError(t, err)
 		assert.Empty(t, url)
 	})
 
-	t.Run("returns empty when no http line", func(t *testing.T) {
-		writeFakeGHScript(t, `echo '[{"url":"not-http-value"}]'`)
+	t.Run("returns error on malformed output", func(t *testing.T) {
+		writeFakeGHScript(t, `echo 'not json'`)
 		g := NewGH(nil)
-		url, err := g.FindExistingPR("my-branch")
-		require.NoError(t, err)
-		assert.Empty(t, url)
+		_, err := g.FindExistingPR("my-branch")
+		require.Error(t, err)
 	})
 }
 
