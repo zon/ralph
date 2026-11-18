@@ -10876,12 +10876,12 @@ func topWorkflow(names []string) (string, error) {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="cf443323-e3bd-4f12-b72f-5089a583895b#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="cf443323-e3bd-4f12-b72f-5089a583895b#0" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L134</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">The branch switch uses the raw `input.Slug()`, while every other branch operation in this function (base sync, PR head, restore) uses `git.SanitizeBranchName(...)`. For a slug that sanitization actually rewrites (uppercase, spaces, dots, e.g. `CSV Export`), the run checks out `CSV Export` but then fetches/merges, pushes, opens the PR for, and restores `csv-export` — a branch that was never created, so base sync/PR will fail or act on the wrong branch. This is also a second source of truth: the project is re-resolved after the switch and the downstream steps use `proj.Slug`, which need not match `input.Slug()` if the project file differs on the checked-out branch. Sanitize the slug here so all branch names are derived consistently.</div>
                 
