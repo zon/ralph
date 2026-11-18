@@ -13628,12 +13628,12 @@ concurrency:
         
             
             
-            <div class="comment-card" data-comment-card data-category="security" data-severity="high" data-mark-id="307caa1f-d8e1-4cf3-9569-c555929c24d5#3" hidden>
+            <div class="comment-card" data-comment-card data-category="security" data-severity="high" data-mark-id="307caa1f-d8e1-4cf3-9569-c555929c24d5#3" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-security">security</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L9-L10</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">Declaring `permissions` resets every unspecified scope to `none`, so this workflow has no `contents` permission at all. `actions/checkout` needs `contents: read` (it authenticates with `GITHUB_TOKEN`), so cloning can fail with a 403 — especially on private repos. `charts.yaml` in this repo already declares both scopes; mirror that here for least privilege.</div>
                 
