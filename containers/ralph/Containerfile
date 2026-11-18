@@ -40,7 +40,7 @@ RUN mkdir /out
 # it a placeholder instead of building the UI.
 ENV ARGO_VERSION=v4.1.6
 ENV ARGO_JOSE_VERSION=v4.1.9
-ENV ARGO_NET_VERSION=v0.62.0
+ENV ARGO_NET_VERSION=v0.63.0
 RUN git clone --quiet --depth 1 --branch ${ARGO_VERSION} https://github.com/argoproj/argo-workflows.git /tmp/argo \
     && cd /tmp/argo \
     && mkdir -p ui/dist/app && touch ui/dist/app/placeholder \
@@ -61,7 +61,7 @@ ENV CGO_ENABLED=0
 RUN mkdir /out
 
 ENV GH_VERSION=2.104.0
-ENV GH_NET_VERSION=v0.62.0
+ENV GH_NET_VERSION=v0.63.0
 RUN git clone --quiet --depth 1 --branch v${GH_VERSION} https://github.com/cli/cli.git /tmp/cli \
     && cd /tmp/cli \
     && GOFLAGS=-mod=mod go get golang.org/x/net@${GH_NET_VERSION} \
