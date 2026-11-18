@@ -56,6 +56,14 @@ func TestRunGit(t *testing.T) {
 	}
 }
 
+func TestRunGitRedactsCredentials(t *testing.T) {
+	_, err := runGit("not-a-command", "url.https://x-access-token:ghs_secret@github.com/.insteadOf")
+	require.Error(t, err)
+
+	assert.NotContains(t, err.Error(), "ghs_secret")
+	assert.Contains(t, err.Error(), "https://redacted:redacted@github.com/.insteadOf")
+}
+
 func setupTestRepo(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
