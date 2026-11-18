@@ -67,9 +67,13 @@ else
   ALIAS_TAG="dev"
 fi
 ALIAS_IMAGE="${REPOSITORY}:${ALIAS_TAG}"
-echo "Tagging and pushing as ${ALIAS_TAG}..."
-podman tag "${IMAGE}" "${ALIAS_IMAGE}"
-podman push "${ALIAS_IMAGE}"
+if [ "${ALIAS_IMAGE}" = "${IMAGE}" ]; then
+  echo "Tag ${ALIAS_TAG} already matches the pushed tag, skipping alias push."
+else
+  echo "Tagging and pushing as ${ALIAS_TAG}..."
+  podman tag "${IMAGE}" "${ALIAS_IMAGE}"
+  podman push "${ALIAS_IMAGE}"
+fi
 
 echo ""
 echo "Images pushed successfully!"

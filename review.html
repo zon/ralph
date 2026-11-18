@@ -12810,12 +12810,12 @@ fi</code></pre>
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="a5a1790f-13ed-4e95-980d-8c8dda78cd66#1" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="a5a1790f-13ed-4e95-980d-8c8dda78cd66#1" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L66</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">The alias tag can collide with the configured tag. If `RALPH_IMAGE_TAG` is explicitly set to `latest` (on `main`) or `dev` (off `main`), then `ALIAS_IMAGE == IMAGE`, `podman tag` fails with &#34;tag name must be different&#34; and, because of `set -e`, the script aborts **after** the version tag was already pushed, leaving the release in a half-finished state. Guard the re-tag/push.</div>
                 
