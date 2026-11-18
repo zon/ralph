@@ -6940,12 +6940,12 @@ The same gap applies to `RunRemoteFromClone` when neither branch nor prefix is s
         
             
             
-            <div class="comment-card" data-comment-card data-category="security" data-severity="high" data-mark-id="79687991-54cc-4de9-b37a-0241869d48fb#0" hidden>
+            <div class="comment-card" data-comment-card data-category="security" data-severity="high" data-mark-id="79687991-54cc-4de9-b37a-0241869d48fb#0" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-security">security</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L13</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">The error text embeds every raw argument (`%v` of `args`) and the raw git output. A reachable call path passes a secret as an argument: `github.ConfigureGitAuth` builds `url.https://x-access-token:&lt;installationToken&gt;@github.com/.insteadOf` and hands it to `git.Config` -&gt; `runGit(...)` (internal/github/app.go:380, internal/git/config.go:14). If that `git config` call fails, the installation token is written verbatim into the returned error and from there into logs/output. Trim the trimmed output for `output` too, and avoid echoing full argument values (or redact anything that looks like a credential).</div>
                 

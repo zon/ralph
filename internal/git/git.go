@@ -9,8 +9,11 @@ import (
 func runGit(args ...string) (string, error) {
 	cmd := exec.Command("git", args...)
 	output, err := cmd.CombinedOutput()
+	trimmed := strings.TrimSpace(string(output))
 	if err != nil {
-		return strings.TrimSpace(string(output)), fmt.Errorf("git %v failed: %w (output: %s)", args, err, output)
+		// Arguments and output can carry credentials, such as the installation
+		// token in an insteadOf URL, so redact them before building the error.
+		return trimmed, fmt.Errorf("git %v failed: %w (output: %s)", redactCredentials(fmt.Sprintf("%v", args)), err, redactCredentials(trimmed))
 	}
-	return strings.TrimSpace(string(output)), nil
+	return trimmed, nil
 }
