@@ -690,6 +690,16 @@ func TestAgentClientRunPickerReRunsPromptUntilUsableSelection(t *testing.T) {
 	}
 }
 
+func TestAgentClientRunPickerIgnoresLeftoverPickedItem(t *testing.T) {
+	client, prompts := newRunPickerTestClient(t, nil)
+	require.NoError(t, os.WriteFile("picked-item.txt", []byte(pickerProject.Items[0].PickRefLine()), 0644))
+
+	_, err := client.RunPicker(pickerProject, pickerProject.Items, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "3-attempt limit")
+	assert.Len(t, *prompts, 3, "a leftover report must not satisfy an attempt")
+}
+
 func TestAgentClientRunPickerGivesUpAfterThreeUnusableAttempts(t *testing.T) {
 	tests := []struct {
 		name     string

@@ -3882,12 +3882,12 @@ nav.breadcrumb a:focus-visible {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="26e60833-7eb1-454c-bfcf-31814ac1e781#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="26e60833-7eb1-454c-bfcf-31814ac1e781#0" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L67-L69</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">A stale `picked-item.txt` from a previous run (or from a previous attempt that left an empty/invalid report) can be read as the result of this attempt if the picker agent exits without writing the file. `readPickedItem` only removes the file on the success path, so nothing clears the directory before the agent runs. Remove any leftover report before invoking the agent so a usable selection provably comes from this attempt.</div>
                 
