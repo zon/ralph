@@ -55,11 +55,13 @@ Address exactly one finding per run, so the change stays small enough to review.
 
 5. **Verify against the code.** Open the named file and locate the code the finding describes. Treat the report as stale until the code matches. If the code already implements the fix, go back to step 3 for the next finding and report the stale finding. A suggested change is a proposal, not a patch: adapt it to the surrounding code and the repository's conventions.
 
-6. **Implement the fix.** Make the smallest change that resolves the finding. Follow the repository's own instructions, including its testing rules, prose rules, and version bump policy. Do not fix other findings in the same change.
+6. **Implement the fix.** Make the smallest change that resolves the finding. Follow the repository's own instructions, including its testing rules and prose rules. Do not fix other findings in the same change.
 
-7. **Verify.** Read the repository's testing rules first, such as [docs/testing.md](docs/testing.md), then run the tests for the affected package and the build wider than the change. Add or adjust tests when the finding describes untested or wrongly tested behavior. Report any failure that predates the change as unrelated and show why.
+7. **Bump the version.** Most repositories that version their output require a bump for every branch that changes it, and the branch may already carry changes without one. Find the version source the repository documents, such as `internal/version/VERSION` or a version constant, and read its bump levels. Bump once per branch, not once per finding: if the newest bump predates the branch's work, apply the level the branch's overall change calls for, usually a patch bump for a bug fix, a minor bump for a new feature, and a major bump for a breaking change. Leave the version alone when the branch already has a bump covering its work or when the repository does not version.
 
-8. **Mark the finding fixed in the file.** Edit only the matching card. Do not regenerate the report.
+8. **Verify.** Read the repository's testing rules first, such as [docs/testing.md](docs/testing.md), then run the tests for the affected package and the build wider than the change. Add or adjust tests when the finding describes untested or wrongly tested behavior. Report any failure that predates the change as unrelated and show why.
+
+9. **Mark the finding fixed in the file.** Edit only the matching card. Do not regenerate the report.
 
    The card begins:
 
@@ -83,7 +85,7 @@ Address exactly one finding per run, so the change stays small enough to review.
 
    The viewer also replays marks saved in browser `localStorage` after load, and that replay overrides the file. If the report was opened in this browser and the finding is stored as `ignored` or cleared, remove its entry from `ocr-viewer-marks:<page path>` so the file mark is what shows.
 
-9. **Report** the finding id, severity, category, and source path, what changed, the verification result, and that the card now carries `data-mark="fixed"`.
+10. **Report** the finding id, severity, category, and source path, what changed, the version bump applied or why none was needed, the verification result, and that the card now carries `data-mark="fixed"`.
 
 ## Blocking behavior
 

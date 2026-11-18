@@ -3506,12 +3506,12 @@ nav.breadcrumb a:focus-visible {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="c25b9b4e-902b-4200-a3d9-993e8927265b#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="c25b9b4e-902b-4200-a3d9-993e8927265b#0" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L37-L40</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">`Cleanup` runs arbitrary user-supplied callbacks while holding `m.mu`. Any callback that calls `RegisterCleanup`/`Cleanup` (a natural pattern for nested teardown) self-deadlocks, and a slow/blocking callback blocks every other goroutine trying to register or clean up (including main&#39;s `defer cleanupManager.Cleanup()`). Snapshot the slice under the lock, release it, then invoke the callbacks.</div>
                 
@@ -6219,12 +6219,12 @@ func (w *WorkflowLoopCmd) Run() error {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="b3523212-41e0-4bde-8fb5-9710c645d4a5#0" hidden>
+            <div class="comment-card" data-mark="fixed" data-comment-card data-category="bug" data-severity="high" data-mark-id="b3523212-41e0-4bde-8fb5-9710c645d4a5#0" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L91-L94</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">All `git ls-remote` failures are converted into &#34;branch does not exist&#34;. `--exit-code` only returns 2 when no ref matches; network failures, auth failures, or a missing `origin` exit 128 and are therefore reported as `(false, nil)`. Callers then act on the false negative: `CheckoutOrCreateBranch` runs `checkout -b` and can shadow an existing remote branch, `alignBranchWithRemote`/`PullRebase` silently treat the branch as new. Distinguish the &#34;no match&#34; exit code from real failures and propagate the error (which also means `remoteBranchExists` must stop discarding it).</div>
                 
@@ -10876,12 +10876,12 @@ func topWorkflow(names []string) (string, error) {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="cf443323-e3bd-4f12-b72f-5089a583895b#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="cf443323-e3bd-4f12-b72f-5089a583895b#0" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L134</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">The branch switch uses the raw `input.Slug()`, while every other branch operation in this function (base sync, PR head, restore) uses `git.SanitizeBranchName(...)`. For a slug that sanitization actually rewrites (uppercase, spaces, dots, e.g. `CSV Export`), the run checks out `CSV Export` but then fetches/merges, pushes, opens the PR for, and restores `csv-export` — a branch that was never created, so base sync/PR will fail or act on the wrong branch. This is also a second source of truth: the project is re-resolved after the switch and the downstream steps use `proj.Slug`, which need not match `input.Slug()` if the project file differs on the checked-out branch. Sanitize the slug here so all branch names are derived consistently.</div>
                 
@@ -11455,12 +11455,12 @@ func topWorkflow(names []string) (string, error) {
         
             
             
-            <div class="comment-card" data-comment-card data-category="security" data-severity="high" data-mark-id="e2a84ac8-b244-41d9-94dd-50e4b08d6724#0" hidden>
+            <div class="comment-card" data-comment-card data-category="security" data-severity="high" data-mark-id="e2a84ac8-b244-41d9-94dd-50e4b08d6724#0" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-security">security</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L148-L149</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">`openLogFile` builds the file path straight from the config-supplied service name. Names come from the repo/project config (no validation in `config`), so a name such as `../../home/user/.bashrc` lets `os.Create` truncate an arbitrary writable file (and `RemoveLogs`/`cleanupOutput` will later delete it). Two services sharing a name also silently truncate/overwrite each other&#39;s log while the first process is still writing to it. Validate/reject path separators and `..` (e.g. only allow `[A-Za-z0-9._-]`), and reuse `LogFileName` so the path format has a single source of truth.</div>
                 
@@ -12018,12 +12018,12 @@ Return the error for the first case and reap the leader before returning on ESRC
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="0376af71-4d6e-4fc1-9f45-fcf66e17c181#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="0376af71-4d6e-4fc1-9f45-fcf66e17c181#0" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L200-L204</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">`sanitizeName` never bounds the result length, yet the returned value is used as a Kubernetes volume `name`, which must be a DNS label (max 63 chars). `configConfigMapMount.Name` / `SecretMount.Name` come straight from the workflow YAML and are not length-validated anywhere in `internal/config`, so a valid ConfigMap/Secret name (up to 253 chars) produces a volume name the API server rejects. Callers add a `-&lt;index&gt;` suffix on top of this, so the budget must also leave room for that suffix.</div>
                 

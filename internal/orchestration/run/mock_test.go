@@ -131,6 +131,7 @@ type mockGit struct {
 	pushErr        error
 
 	switchToBranchCalled       bool
+	lastSwitchedBranch         string
 	checkoutBranchCalled       bool
 	lastCheckedOutBranch       string
 	commitFromReportCalled     bool
@@ -156,6 +157,7 @@ func gitNewMock() *mockGit {
 
 func (m *mockGit) SwitchToBranch(slug string) error {
 	m.switchToBranchCalled = true
+	m.lastSwitchedBranch = slug
 	m.order = append(m.order, "switch")
 	return nil
 }
@@ -604,6 +606,13 @@ func gitBranchSwitched(r *Runner) bool {
 		return m.switchToBranchCalled
 	}
 	return false
+}
+
+func gitLastSwitchedBranch(r *Runner) string {
+	if m, ok := r.git.(*mockGit); ok {
+		return m.lastSwitchedBranch
+	}
+	return ""
 }
 
 func gitCheckoutBranchCalled(r *Runner) bool {

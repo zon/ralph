@@ -56,7 +56,11 @@ func PullRebase(auth *AuthConfig) error {
 		return fmt.Errorf("failed to get current branch for pull: %w", err)
 	}
 
-	if !remoteBranchExists(branch) {
+	exists, err := RemoteBranchExists(branch)
+	if err != nil {
+		return err
+	}
+	if !exists {
 		return nil
 	}
 

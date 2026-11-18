@@ -84,7 +84,11 @@ func worktreeAddArgs(path, branch string, onRemote bool) []string {
 // run would build on commits the remote does not share, and choosing which side
 // to keep is the user's decision.
 func alignBranchWithRemote(branch string) (bool, error) {
-	if !remoteBranchExists(branch) {
+	onRemote, err := RemoteBranchExists(branch)
+	if err != nil {
+		return false, err
+	}
+	if !onRemote {
 		return false, nil
 	}
 	if _, err := runGit("fetch", "origin", branch); err != nil {

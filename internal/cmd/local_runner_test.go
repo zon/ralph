@@ -41,6 +41,7 @@ func TestNewLocalRunner_ProjectClientReadsCompletion(t *testing.T) {
 	dir := t.TempDir()
 	testutil.InitGitRepo(t, dir)
 	testutil.MakeInitialCommit(t, dir)
+	testutil.AddLocalRemote(t, dir)
 	t.Chdir(dir)
 
 	base, err := git.GetCurrentBranch()

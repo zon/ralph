@@ -130,12 +130,13 @@ func (r *Runner) runLocal(input *project.InputFile, cfg *config.RalphConfig, inW
 	if err := r.services.RunBeforeCommands(cfg); err != nil {
 		return err
 	}
+	projectBranch := git.SanitizeBranchName(input.Slug())
 	if !inWorktree {
-		if err := r.git.SwitchToBranch(input.Slug()); err != nil {
+		if err := r.git.SwitchToBranch(projectBranch); err != nil {
 			return err
 		}
 	}
-	if _, err := r.syncBaseBranch(cfg, git.SanitizeBranchName(input.Slug()), inWorktree); err != nil {
+	if _, err := r.syncBaseBranch(cfg, projectBranch, inWorktree); err != nil {
 		r.notify.Error(input.Slug())
 		return err
 	}
