@@ -16,7 +16,16 @@ if [ ${#projects[@]} -eq 0 ]; then
   exit 0
 fi
 
+failed=0
 for project in "${projects[@]}"; do
   echo "Submitting $(basename "$project")..."
-  ralph --mode remote "$project"
+  if ! ralph --mode remote "$project"; then
+    echo "error: failed to submit $(basename "$project")" >&2
+    failed=$((failed + 1))
+  fi
 done
+
+if [ "$failed" -ne 0 ]; then
+  echo "error: ${failed} project(s) failed to submit" >&2
+  exit 1
+fi
