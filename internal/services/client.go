@@ -41,7 +41,12 @@ func (a *Client) Stop(svc *Manager) {
 
 func (a *Client) RemoveLogs(cfg *config.RalphConfig) {
 	for _, svc := range cfg.Services {
-		logPath := LogFileName(svc.Name)
+		// An invalid name never produced a log file, so skip it rather than
+		// letting the path escape the repository root.
+		logPath, err := safeLogPath(svc.Name)
+		if err != nil {
+			continue
+		}
 		os.Remove(logPath)
 	}
 }
