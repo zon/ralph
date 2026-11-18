@@ -188,10 +188,14 @@ func (p *Process) StopWithTimeout(timeout time.Duration) error {
 	pgid := p.cmd.Process.Pid
 
 	if err := syscall.Kill(-pgid, syscall.SIGTERM); err != nil {
-		if !errors.Is(err, syscall.ESRCH) {
-			p.out.Warnf("Failed to send SIGTERM to %s: %v", p.Name, err)
+		if errors.Is(err, syscall.ESRCH) {
+			// The service already exited. Reap the leader so it does not
+			// remain a zombie for the lifetime of the process.
+			_ = p.cmd.Wait()
+			return nil
 		}
-		return nil
+		p.out.Warnf("Failed to send SIGTERM to %s: %v", p.Name, err)
+		return fmt.Errorf("failed to send SIGTERM to %s: %w", p.Name, err)
 	}
 
 	leaderReaped := make(chan struct{})

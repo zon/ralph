@@ -214,6 +214,24 @@ func TestStopClearsMembersLeftByAnExitedLeader(t *testing.T) {
 	assert.True(t, processGroupGone(pgid), "Stop should clear members left by an exited leader")
 }
 
+// A leader that another caller already reaped has no process group left, so
+// there is nothing to signal. Stop must still succeed instead of reporting a
+// failure for a process that is already gone.
+func TestStopAfterLeaderAlreadyReaped(t *testing.T) {
+	svc := config.Service{
+		Name:    "reaped-leader",
+		Command: "sh",
+		Args:    []string{"-c", "exit 0"},
+	}
+	t.Cleanup(func() { cleanupLogs(t, []config.Service{svc}) })
+
+	proc, err := startService(svc, output.NewClient(os.Stdout, os.Stderr, false))
+	require.NoError(t, err, "Failed to start service")
+	require.NoError(t, proc.cmd.Wait(), "Waiting for the leader should not fail")
+
+	require.NoError(t, proc.Stop(), "Stop should not fail for a reaped leader")
+}
+
 func TestStopAllServicesOrder(t *testing.T) {
 	services := []config.Service{
 		{Name: "service1", Command: "sleep", Args: []string{"30"}},
