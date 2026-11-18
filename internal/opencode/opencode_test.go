@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -113,6 +114,35 @@ func TestCaptureWriterTail(t *testing.T) {
 			assert.Equal(t, tt.expected, result)
 		})
 	}
+}
+
+func TestRingWriterConcurrentAccess(t *testing.T) {
+	r := &ringWriter{n: 10}
+	var wg sync.WaitGroup
+
+	// os/exec copies stdout and stderr in separate goroutines, so both writers
+	// reach the same ringWriter concurrently while the run is in progress.
+	for writer := 0; writer < 4; writer++ {
+		wg.Add(1)
+		go func(writer int) {
+			defer wg.Done()
+			for line := 0; line < 100; line++ {
+				_, _ = r.Write([]byte(fmt.Sprintf("writer %d line %d\n", writer, line)))
+			}
+		}(writer)
+	}
+	for reader := 0; reader < 4; reader++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := 0; i < 100; i++ {
+				_ = r.Tail()
+			}
+		}()
+	}
+
+	wg.Wait()
+	assert.NotEmpty(t, r.Tail())
 }
 
 func TestRunCommand(t *testing.T) {

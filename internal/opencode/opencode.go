@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -213,12 +214,15 @@ func parseStatsJSON(data []byte) (Stats, error) {
 }
 
 type ringWriter struct {
+	mu    sync.Mutex
 	n     int
 	lines []string
 	buf   string
 }
 
 func (r *ringWriter) Write(p []byte) (int, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	s := r.buf + string(p)
 	parts := strings.Split(s, "\n")
 	r.buf = parts[len(parts)-1]
@@ -232,7 +236,9 @@ func (r *ringWriter) Write(p []byte) (int, error) {
 }
 
 func (r *ringWriter) Tail() string {
-	lines := r.lines
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	lines := append([]string(nil), r.lines...)
 	if r.buf != "" {
 		lines = append(lines, r.buf)
 	}
