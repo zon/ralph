@@ -45,17 +45,19 @@ func Hash(text string) string {
 }
 
 // Format renders the completion trailer line for a branch and an item hash:
-// "<branch>-<hash>", for example "csv-export-IYAWN02".
+// "<branch>-<hash>", for example "csv-export-IYAWN02". The branch must not
+// contain whitespace, as Git branch names cannot, so the line always parses.
 func Format(branch string, hash string) string {
 	return fmt.Sprintf("%s-%s", branch, hash)
 }
 
 // trailerRe matches a whole line of the form "<branch>-<hash>": a non-empty
 // branch name and a trailing hashLength-character alphanumeric run joined by a
-// hyphen. The branch is any run of git-branch characters, so a branch
-// containing hyphens, dots, or slashes still parses; the trailing segment is
-// the hash.
-var trailerRe = regexp.MustCompile(`(?m)^([A-Za-z0-9][A-Za-z0-9._/-]*)-([A-Za-z0-9]{7})\s*$`)
+// hyphen. Git only forbids whitespace and a handful of symbols in branch
+// names, so the branch is any non-whitespace run: that covers names with
+// hyphens, dots, slashes, '@', '+', '=', or non-ASCII characters. The trailing
+// segment is the hash.
+var trailerRe = regexp.MustCompile(`(?m)^(\S+)-([A-Za-z0-9]{7})\s*$`)
 
 // Ref is one completion trailer extracted from a commit message: the branch
 // and item hash it names.
