@@ -105,7 +105,7 @@
   description: Exposes the current application version string.
 
 - path: internal/docker
-  description: Test-only package that validates the repository Containerfile, image push script, and the container build and vulnerability scan CI workflows.
+  description: Test-only package that validates the repository Containerfile, image push script, and the container build CI workflow.
 
 - path: internal/repostructure
   description: Test-only package that validates repository structure, documentation consistency, and references to removed modules.

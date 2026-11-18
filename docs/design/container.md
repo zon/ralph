@@ -48,7 +48,7 @@ The runtime writes a global OpenCode configuration so every run inherits it. The
 
 Container images live in this repository under `containers/`. The Ralph image is in `containers/ralph`, and each toolchain image has its own directory beside it. Each toolchain image starts from the Ralph image at the same version and adds one toolchain. The container build workflow pushes each one to GHCR right after the Ralph image, with the same version and alias tags, and a project selects one with `workflow.image`. See [Config Design](app/ralph-config.md).
 
-The base is the `RALPH_IMAGE` build argument, which defaults to `ghcr.io/zon/ralph` at `RALPH_VERSION`. A pull request builds the toolchain image on the Ralph image it just built, so a version that is not published yet still builds and scans.
+The base is the `RALPH_IMAGE` build argument, which defaults to `ghcr.io/zon/ralph` at `RALPH_VERSION`. The container build workflow builds each toolchain image after it pushes the Ralph image for the same version.
 
 The Go image, `ralph-go`, is built from `containers/ralph-go/Containerfile` and adds:
 
