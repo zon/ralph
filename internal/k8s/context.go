@@ -21,11 +21,10 @@ func (c *client) GetCurrentContext(ctx context.Context) (Context, error) {
 
 	args := []string{"config", "view", "-o", fmt.Sprintf("jsonpath='{.contexts[?(@.name==\"%s\")].context.namespace}'", name)}
 	stdout, err = runKubectl(ctx, nil, args...)
-
-	var namespace string
-	if err == nil {
-		namespace = strings.Trim(strings.TrimSpace(stdout.String()), "'")
+	if err != nil {
+		return Context{}, fmt.Errorf("failed to get namespace for context %q: %w", name, err)
 	}
+	namespace := strings.Trim(strings.TrimSpace(stdout.String()), "'")
 
 	return Context{
 		Name:      name,

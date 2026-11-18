@@ -8393,12 +8393,12 @@ The same gap applies to `RunRemoteFromClone` when neither branch nor prefix is s
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="43465b53-3880-4ee1-b821-eb5c8fd323f9#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="43465b53-3880-4ee1-b821-eb5c8fd323f9#0" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L25-L28</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">The error from the second `runKubectl` call is swallowed: if the `config view` query fails (kubectl missing, kubeconfig unreadable, malformed jsonpath, context renamed between the two calls), the function still returns `nil` error with an empty `Namespace`. The only caller (`resolveKubeContext` in internal/cmd/kube_context.go) then silently substitutes `&#34;default&#34;`, so commands can be executed against the wrong namespace instead of surfacing the failure. Return a wrapped error unless the best-effort behavior is explicitly intended and documented.</div>
                 
