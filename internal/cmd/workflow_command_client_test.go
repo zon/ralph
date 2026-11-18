@@ -33,7 +33,7 @@ func TestCommandWorkflowClientKubeTargetingOverride(t *testing.T) {
 			submitCtx = kubeCtx
 			return "test-workflow", nil
 		},
-		LogsFunc: func(ctx argo.K8sContext, workflowName string, follow bool) error {
+		LogsFunc: func(_ context.Context, ctx argo.K8sContext, workflowName string, follow bool) error {
 			logsCtx = ctx
 			return nil
 		},
@@ -82,7 +82,7 @@ func TestCommandWorkflowClientKubeTargetingFallsBackToConfig(t *testing.T) {
 			submitCtx = kubeCtx
 			return "test-workflow", nil
 		},
-		LogsFunc: func(ctx argo.K8sContext, workflowName string, follow bool) error {
+		LogsFunc: func(_ context.Context, ctx argo.K8sContext, workflowName string, follow bool) error {
 			logsCtx = ctx
 			return nil
 		},

@@ -381,7 +381,7 @@ func TestPromptCmdRunRemoteFromCloneFollowsTargetWorkflow(t *testing.T) {
 				SubmitYAMLFunc: func(context.Context, string, argo.K8sContext) (string, error) {
 					return "ralph-prompt-abcde", nil
 				},
-				LogsFunc: func(kubeCtx argo.K8sContext, workflowName string, followLogs bool) error {
+				LogsFunc: func(_ context.Context, kubeCtx argo.K8sContext, workflowName string, followLogs bool) error {
 					logsCtx = kubeCtx
 					logsWorkflow = workflowName
 					logsFollow = followLogs

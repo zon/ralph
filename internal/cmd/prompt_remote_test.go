@@ -271,7 +271,7 @@ func TestPromptWorkflowClientPrintsHintAndFollows(t *testing.T) {
 		SubmitYAMLFunc: func(context.Context, string, argo.K8sContext) (string, error) {
 			return "ralph-prompt-abcde", nil
 		},
-		LogsFunc: func(kubeCtx argo.K8sContext, _ string, followLogs bool) error {
+		LogsFunc: func(_ context.Context, kubeCtx argo.K8sContext, _ string, followLogs bool) error {
 			logsCtx = kubeCtx
 			follow = followLogs
 			return nil
@@ -322,7 +322,7 @@ func TestPromptWorkflowClientFollowLeavesWorkflowRunning(t *testing.T) {
 				SubmitYAMLFunc: func(context.Context, string, argo.K8sContext) (string, error) {
 					return "ralph-prompt-abcde", nil
 				},
-				LogsFunc: func(argo.K8sContext, string, bool) error {
+				LogsFunc: func(context.Context, argo.K8sContext, string, bool) error {
 					return tt.followErr
 				},
 				StopWorkflowFunc: func(argo.K8sContext, string) error {

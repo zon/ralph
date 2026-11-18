@@ -3679,12 +3679,12 @@ nav.breadcrumb a:focus-visible {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="1219d8f5-d310-475e-93a6-df44c8238dd3#0" hidden>
+            <div class="comment-card" data-comment-card data-mark="fixed" data-category="bug" data-severity="high" data-mark-id="1219d8f5-d310-475e-93a6-df44c8238dd3#0" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L121-L122</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">`Logs` runs `argo logs` without a context. With `follow=true` this blocks until the workflow ends and cannot be interrupted, even though every caller (e.g. `workflowClientAdapter.FollowLogs`) holds a cancellable context (`a.ctx.GoContext()`). Cancellation/SIGINT therefore leaves the child process running. The same lack of cancellation applies to `runList` and `StopWorkflow`. Take a `context.Context` and use `exec.CommandContext` so Ctrl-C/caller deadlines terminate the argo process.</div>
                 

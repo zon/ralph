@@ -18,7 +18,7 @@ type Client interface {
 	ListWorkflows(ctx K8sContext) error
 	ListWorkflowNames(ctx K8sContext) ([]string, error)
 	StopWorkflow(ctx K8sContext, workflowName string) error
-	Logs(ctx K8sContext, workflowName string, follow bool) error
+	Logs(ctx context.Context, k8sCtx K8sContext, workflowName string, follow bool) error
 	SubmitYAML(ctx context.Context, workflowYAML string, kubeCtx K8sContext) (string, error)
 }
 
@@ -118,8 +118,8 @@ func logsArgs(ctx K8sContext, workflowName string, follow bool) []string {
 	return append(args, workflowName)
 }
 
-func (c *client) Logs(ctx K8sContext, workflowName string, follow bool) error {
-	cmd := exec.Command("argo", logsArgs(ctx, workflowName, follow)...)
+func (c *client) Logs(ctx context.Context, k8sCtx K8sContext, workflowName string, follow bool) error {
+	cmd := exec.CommandContext(ctx, "argo", logsArgs(k8sCtx, workflowName, follow)...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 

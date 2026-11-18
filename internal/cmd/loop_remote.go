@@ -72,5 +72,5 @@ func (a *loopWorkflowClientAdapter) PrintLogHint(workflowName string) {
 // FollowLogs streams the submitted loop workflow logs and waits for the
 // workflow to finish.
 func (a *loopWorkflowClientAdapter) FollowLogs(workflowName string) error {
-	return a.argoClient.Logs(argo.K8sContext{Name: a.kubeContext, Namespace: a.namespace}, workflowName, true)
+	return a.argoClient.Logs(a.ctx.GoContext(), argo.K8sContext{Name: a.kubeContext, Namespace: a.namespace}, workflowName, true)
 }
