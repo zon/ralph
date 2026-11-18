@@ -12064,12 +12064,12 @@ Return the error for the first case and reap the leader before returning on ESRC
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="0376af71-4d6e-4fc1-9f45-fcf66e17c181#1" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="0376af71-4d6e-4fc1-9f45-fcf66e17c181#1" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L40-L41</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">Volume/mount names are not guaranteed unique. `sanitizeName` is lossy (`a.b` and `a_b` both become `a-b`), ConfigMap and Secret mounts share the same name space and the same index space (a ConfigMap at index 0 and a Secret at index 0 with the same sanitized name both yield `&lt;name&gt;-0`), and directory mounts here drop the index suffix entirely, so two distinct entries whose names sanitize to the same string emit duplicate `volumeMounts[].name` / `volumes[].name` and the pod is rejected. The static credential volumes (`github-credentials`, and the sanitized OpenCode secret name) live in that same space, so a ConfigMap literally named `github-credentials` collides as well. Consider tracking used names and appending the index or a hash on collision.</div>
                 

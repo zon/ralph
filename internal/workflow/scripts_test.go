@@ -11,7 +11,7 @@ import (
 	"github.com/zon/ralph/internal/k8s"
 )
 
-func TestBuildVolumeMounts_WorkspacePrefix(t *testing.T) {
+func TestBuildVolumeSetWorkspacePrefix(t *testing.T) {
 	configMaps := []config.ConfigMapMount{
 		{Name: "my-config", DestFile: "config/main.yaml"},
 		{Name: "my-config-dir", DestDir: "config/extra"},
@@ -21,12 +21,12 @@ func TestBuildVolumeMounts_WorkspacePrefix(t *testing.T) {
 		{Name: "my-secret-dir", DestDir: "config/auth"},
 	}
 
-	mounts := buildVolumeMounts(configMaps, secrets, "")
+	mounts, _ := buildVolumeSet(configMaps, secrets, "")
 
 	expected := map[string]string{
-		"my-config-0":   "/workspace/config/main.yaml",
+		"my-config":     "/workspace/config/main.yaml",
 		"my-config-dir": "/workspace/config/extra",
-		"my-secret-1":   "/workspace/config/secrets.yaml",
+		"my-secret":     "/workspace/config/secrets.yaml",
 		"my-secret-dir": "/workspace/config/auth",
 	}
 
@@ -37,6 +37,49 @@ func TestBuildVolumeMounts_WorkspacePrefix(t *testing.T) {
 			assert.Equal(t, want, mountPath, "mount %q should have correct mountPath", name)
 		}
 	}
+}
+
+// Every mount needs a volume with the same name, and Kubernetes rejects a pod
+// that repeats a volume name. A lossy sanitized name, a ConfigMap and a Secret
+// with the same name, and the static credential volumes all share one name
+// space.
+func TestBuildVolumeSetUniqueNames(t *testing.T) {
+	configMaps := []config.ConfigMapMount{
+		{Name: "a.b", DestDir: "config/one"},
+		{Name: "a_b", DestDir: "config/two"},
+		{Name: "github-credentials", DestFile: "config/creds.yaml"},
+	}
+	secrets := []config.SecretMount{
+		{Name: "a.b", DestFile: "secrets/one.yaml"},
+		{Name: "github_credentials", DestDir: "secrets/creds"},
+	}
+
+	mounts, volumes := buildVolumeSet(configMaps, secrets, "github.credentials")
+
+	mountNames := volumeNamesOf(mounts)
+	volumeNames := volumeNamesOf(volumes)
+
+	assert.Len(t, mountNames, len(mounts), "every mount should have a name")
+	assert.Len(t, volumeNames, len(volumes), "every volume should have a name")
+	seen := map[string]bool{}
+	for _, name := range volumeNames {
+		assert.NotEmpty(t, name, "volume name should not be empty")
+		assert.False(t, seen[name], "volume name %q should be unique", name)
+		seen[name] = true
+	}
+	assert.ElementsMatch(t, mountNames, volumeNames, "mounts and volumes should share names")
+	assert.Contains(t, volumeNames, "a-b", "the first sanitized name is kept")
+	assert.Contains(t, volumeNames, "a-b-2", "a colliding sanitized name gets a suffix")
+	assert.Contains(t, volumeNames, "github-credentials", "the static credential volume keeps its name")
+}
+
+func volumeNamesOf(entries []map[string]interface{}) []string {
+	names := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		name, _ := entry["name"].(string)
+		names = append(names, name)
+	}
+	return names
 }
 
 func TestSanitizeName(t *testing.T) {
@@ -94,116 +137,70 @@ func TestAbsPath(t *testing.T) {
 	}
 }
 
-func TestBuildConfigMapVolumeMount(t *testing.T) {
+func TestBuildVolumeMount(t *testing.T) {
 	tests := []struct {
-		name     string
-		destFile string
-		destDir  string
-		index    int
-		check    func(t *testing.T, mount map[string]interface{})
+		name       string
+		destFile   string
+		destDir    string
+		volumeName string
+		fallback   string
+		wantPath   string
+		wantSub    string
 	}{
 		{
-			name:     "my-config",
-			destFile: "config/main.yaml",
-			destDir:  "",
-			index:    0,
-			check: func(t *testing.T, mount map[string]interface{}) {
-				assert.Equal(t, "my-config-0", mount["name"], "name should match")
-				assert.Equal(t, "/workspace/config/main.yaml", mount["mountPath"], "mountPath should match")
-				assert.Equal(t, "main.yaml", mount["subPath"], "subPath should match")
-			},
+			name:       "dest file",
+			destFile:   "config/main.yaml",
+			volumeName: "my-config",
+			fallback:   "/configmaps/my-config",
+			wantPath:   "/workspace/config/main.yaml",
+			wantSub:    "main.yaml",
 		},
 		{
-			name:     "my-config",
-			destFile: "/etc/id/backend/config.json",
-			destDir:  "",
-			index:    0,
-			check: func(t *testing.T, mount map[string]interface{}) {
-				assert.Equal(t, "my-config-0", mount["name"], "name should match")
-				assert.Equal(t, "/etc/id/backend/config.json", mount["mountPath"], "mountPath should use absolute path")
-				assert.Equal(t, "config.json", mount["subPath"], "subPath should match")
-			},
+			name:       "absolute dest file",
+			destFile:   "/etc/id/backend/config.json",
+			volumeName: "my-config",
+			fallback:   "/configmaps/my-config",
+			wantPath:   "/etc/id/backend/config.json",
+			wantSub:    "config.json",
 		},
 		{
-			name:     "my-config",
-			destFile: "",
-			destDir:  "config/extra",
-			index:    0,
-			check: func(t *testing.T, mount map[string]interface{}) {
-				assert.Equal(t, "my-config", mount["name"], "name should match")
-				assert.Equal(t, "/workspace/config/extra", mount["mountPath"], "mountPath should match")
-			},
+			name:       "dest dir",
+			destDir:    "config/extra",
+			volumeName: "my-config",
+			fallback:   "/configmaps/my-config",
+			wantPath:   "/workspace/config/extra",
 		},
 		{
-			name:     "my-config",
-			destFile: "",
-			destDir:  "/etc/id/backend",
-			index:    0,
-			check: func(t *testing.T, mount map[string]interface{}) {
-				assert.Equal(t, "my-config", mount["name"], "name should match")
-				assert.Equal(t, "/etc/id/backend", mount["mountPath"], "mountPath should use absolute path")
-			},
+			name:       "absolute dest dir",
+			destDir:    "/etc/id/backend",
+			volumeName: "my-config",
+			fallback:   "/configmaps/my-config",
+			wantPath:   "/etc/id/backend",
 		},
 		{
-			name:     "my-config",
-			destFile: "",
-			destDir:  "",
-			index:    0,
-			check: func(t *testing.T, mount map[string]interface{}) {
-				assert.Equal(t, "/configmaps/my-config", mount["mountPath"], "mountPath should match")
-			},
+			name:       "fallback",
+			volumeName: "my-config",
+			fallback:   "/configmaps/my-config",
+			wantPath:   "/configmaps/my-config",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mount := buildConfigMapVolumeMount(tt.name, tt.destFile, tt.destDir, tt.index)
-			tt.check(t, mount)
+			mount := buildVolumeMount(tt.volumeName, tt.destFile, tt.destDir, tt.fallback)
+			assert.Equal(t, tt.volumeName, mount["name"], "name should match")
+			assert.Equal(t, tt.wantPath, mount["mountPath"], "mountPath should match")
+			assert.Equal(t, true, mount["readOnly"], "mount should be read-only")
+			if tt.wantSub != "" {
+				assert.Equal(t, tt.wantSub, mount["subPath"], "subPath should match")
+			} else {
+				assert.NotContains(t, mount, "subPath", "mount should not have a subPath")
+			}
 		})
 	}
 }
 
-func TestBuildSecretVolumeMount(t *testing.T) {
-	mount := buildSecretVolumeMount("my-secret", "secrets.yaml", "", 0)
-	assert.Equal(t, "my-secret-0", mount["name"], "name should match")
-	assert.Equal(t, "/workspace/secrets.yaml", mount["mountPath"], "mountPath should match")
-
-	mount = buildSecretVolumeMount("my-secret", "/etc/id/backend/secrets.json", "", 0)
-	assert.Equal(t, "my-secret-0", mount["name"], "name should match")
-	assert.Equal(t, "/etc/id/backend/secrets.json", mount["mountPath"], "mountPath should use absolute path")
-}
-
-func TestBuildCredentialMounts(t *testing.T) {
-	tests := []struct {
-		name           string
-		openCodeSecret string
-		wantName       string
-	}{
-		{
-			name:     "unset mounts the default Secret",
-			wantName: "opencode-credentials",
-		},
-		{
-			name:           "set mounts the named Secret",
-			openCodeSecret: "opencode-ai-gateway",
-			wantName:       "opencode-ai-gateway",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mounts := buildCredentialMounts(tt.openCodeSecret)
-			require.Len(t, mounts, 2, "should have 2 credential mounts")
-			assert.Equal(t, "github-credentials", mounts[0]["name"], "github mount name should be unaffected")
-			assert.Equal(t, "/secrets/github", mounts[0]["mountPath"], "github mount path should be unaffected")
-			assert.Equal(t, tt.wantName, mounts[1]["name"], "opencode mount name should match the mounted Secret")
-			assert.Equal(t, "/secrets/opencode", mounts[1]["mountPath"], "opencode mount path should be fixed")
-			assert.Equal(t, true, mounts[1]["readOnly"], "opencode mount should be read-only")
-		})
-	}
-}
-
-func TestBuildCredentialVolumes(t *testing.T) {
+func TestBuildVolumeSetCredentials(t *testing.T) {
 	tests := []struct {
 		name           string
 		openCodeSecret string
@@ -225,8 +222,16 @@ func TestBuildCredentialVolumes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			volumes := buildCredentialVolumes(tt.openCodeSecret)
+			mounts, volumes := buildVolumeSet(nil, nil, tt.openCodeSecret)
+			require.Len(t, mounts, 2, "should have 2 credential mounts")
 			require.Len(t, volumes, 2, "should have 2 credential volumes")
+
+			assert.Equal(t, "github-credentials", mounts[0]["name"], "github mount name should be unaffected")
+			assert.Equal(t, "/secrets/github", mounts[0]["mountPath"], "github mount path should be unaffected")
+			assert.Equal(t, tt.wantName, mounts[1]["name"], "opencode mount name should match the mounted Secret")
+			assert.Equal(t, "/secrets/opencode", mounts[1]["mountPath"], "opencode mount path should be fixed")
+			assert.Equal(t, true, mounts[1]["readOnly"], "opencode mount should be read-only")
+
 			assert.Equal(t, "github-credentials", volumes[0]["name"], "github volume name should be unaffected")
 			githubSecret := volumes[0]["secret"].(map[string]interface{})
 			assert.Equal(t, k8s.GitHubSecretName, githubSecret["secretName"], "github Secret should be unaffected")
@@ -238,17 +243,31 @@ func TestBuildCredentialVolumes(t *testing.T) {
 }
 
 func TestBuildConfigMapVolume(t *testing.T) {
-	vol := buildConfigMapVolume("my-config", "config/main.yaml", 0)
+	vol := buildConfigMapVolume("my-config-0", "my-config", "config/main.yaml")
 	assert.Equal(t, "my-config-0", vol["name"], "name should match")
+	configMap := vol["configMap"].(map[string]interface{})
+	assert.Equal(t, "my-config", configMap["name"], "ConfigMap should match")
+	items := configMap["items"].([]map[string]interface{})
+	require.Len(t, items, 1, "a file mount should select one item")
+	assert.Equal(t, "main.yaml", items[0]["key"], "item key should match")
+	assert.Equal(t, "main.yaml", items[0]["path"], "item path should match")
 
-	vol = buildConfigMapVolume("my-config", "", 0)
-	assert.Equal(t, "my-config", vol["name"], "name should match")
+	vol = buildConfigMapVolume("my-config", "my-config", "")
+	configMap = vol["configMap"].(map[string]interface{})
+	assert.NotContains(t, configMap, "items", "a directory mount should not select items")
 }
 
 func TestBuildSecretVolume(t *testing.T) {
-	vol := buildSecretVolume("my-secret", "secrets.yaml", 0)
+	vol := buildSecretVolume("my-secret-0", "my-secret", "secrets.yaml")
 	assert.Equal(t, "my-secret-0", vol["name"], "name should match")
+	secret := vol["secret"].(map[string]interface{})
+	assert.Equal(t, "my-secret", secret["secretName"], "Secret should match")
+	items := secret["items"].([]map[string]interface{})
+	require.Len(t, items, 1, "a file mount should select one item")
+	assert.Equal(t, "secrets.yaml", items[0]["key"], "item key should match")
+	assert.Equal(t, "secrets.yaml", items[0]["path"], "item path should match")
 
-	vol = buildSecretVolume("my-secret", "", 0)
-	assert.Equal(t, "my-secret", vol["name"], "name should match")
+	vol = buildSecretVolume("my-secret", "my-secret", "")
+	secret = vol["secret"].(map[string]interface{})
+	assert.NotContains(t, secret, "items", "a directory mount should not select items")
 }
