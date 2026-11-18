@@ -41,6 +41,7 @@ type promptGitClient interface {
 	NeedsMerge(branch string) (bool, error)
 	Merge(branch string) error
 	AbortMerge() error
+	CommitMerge() error
 	HeadCommit() (string, error)
 	GetCommitLog(base string, limit int) (string, error)
 	RenameBranch(oldName, newName string) error

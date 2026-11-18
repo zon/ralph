@@ -157,6 +157,11 @@ func (a *Client) AbortMerge() error {
 	return AbortMerge()
 }
 
+// CommitMerge completes the in-progress merge the AI agent resolved and staged.
+func (a *Client) CommitMerge() error {
+	return CommitMerge()
+}
+
 // Push pushes the current branch to the remote so a pre-pull-request base-branch
 // merge lands before the pull request is opened.
 func (a *Client) Push() error {

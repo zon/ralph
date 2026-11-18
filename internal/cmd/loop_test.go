@@ -544,6 +544,7 @@ type fakeGitClient struct {
 	mergeCalled          bool
 	mergeCalls           int
 	abortMergeCalled     bool
+	commitMergeCalled    bool
 	checkoutBranchCalled bool
 	lastFetchedBranch    string
 	lastMergedBranch     string
@@ -602,6 +603,11 @@ func (f *fakeGitClient) Merge(branch string) error {
 
 func (f *fakeGitClient) AbortMerge() error {
 	f.abortMergeCalled = true
+	return nil
+}
+
+func (f *fakeGitClient) CommitMerge() error {
+	f.commitMergeCalled = true
 	return nil
 }
 

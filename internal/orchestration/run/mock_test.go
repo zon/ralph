@@ -143,6 +143,7 @@ type mockGit struct {
 	needsMergeCalled           bool
 	mergeCalled                bool
 	abortMergeCalled           bool
+	commitMergeCalled          bool
 	pushCalled                 bool
 	fetchBranchCalls           int
 	mergeCalls                 int
@@ -238,6 +239,12 @@ func (m *mockGit) Merge(branch string) error {
 func (m *mockGit) AbortMerge() error {
 	m.abortMergeCalled = true
 	m.order = append(m.order, "abort-merge")
+	return nil
+}
+
+func (m *mockGit) CommitMerge() error {
+	m.commitMergeCalled = true
+	m.order = append(m.order, "commit-merge")
 	return nil
 }
 
