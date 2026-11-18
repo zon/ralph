@@ -1,7 +1,9 @@
 package git
 
 import (
+	"errors"
 	"fmt"
+	"os/exec"
 	"strings"
 
 	"github.com/zon/ralph/internal/context"
@@ -38,7 +40,11 @@ func HeadCommit() (string, error) {
 // CheckoutOrCreateBranch checks out the named branch if it exists on the remote
 // (after a prior Fetch), otherwise creates and checks out a new local branch.
 func CheckoutOrCreateBranch(name string) error {
-	if remoteBranchExists(name) {
+	exists, err := RemoteBranchExists(name)
+	if err != nil {
+		return err
+	}
+	if exists {
 		return CheckoutBranch(name)
 	}
 
@@ -86,19 +92,19 @@ func IsBranchSyncedWithRemote(branch string) error {
 	return nil
 }
 
-// RemoteBranchExists checks whether a branch exists on the remote.
+// RemoteBranchExists checks whether a branch exists on the remote. A missing
+// branch is not an error; a failed remote lookup is, so callers never mistake
+// an unreachable origin for a branch that does not exist.
 func RemoteBranchExists(branch string) (bool, error) {
 	_, err := runGit("ls-remote", "--exit-code", "--heads", "origin", branch)
 	if err != nil {
-		return false, nil
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && exitErr.ExitCode() == 2 {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to check remote branch '%s': %w", branch, err)
 	}
 	return true, nil
-}
-
-// remoteBranchExists checks whether a branch exists on the remote.
-func remoteBranchExists(branch string) bool {
-	ok, _ := RemoteBranchExists(branch)
-	return ok
 }
 
 // CreateBranch creates and switches to a new branch.
