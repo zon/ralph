@@ -5536,12 +5536,12 @@ Suggestion: route through `c.Load()` (and/or cache the loaded config on the clie
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="a5d17dfc-142a-47e6-a797-5c4f7185c524#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="a5d17dfc-142a-47e6-a797-5c4f7185c524#0" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L40-L42</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">`input.Path()` always comes from `project.ResolveInputFile`, which calls `filepath.Abs`, so this block always needs to convert the absolute path to a repo-relative one. Gating the conversion on `owner == &#34;&#34;` is unrelated to path relativity: when `GITHUB_REPO_OWNER`/`GITHUB_REPO_NAME` are set in the environment (or `ctx` has the repo populated for any reason), `relProjectPath` stays an absolute host path and is written to `Workflow.ProjectPath`, which the container passes to `ralph workflow run --project-path` inside the cloned repo where that path does not exist. Also, the inner `owner, _ := ...` shadows the outer `owner` and is dead state. Always relativize against the repo root:</div>
                 
