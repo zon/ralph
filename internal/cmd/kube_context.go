@@ -44,9 +44,6 @@ func resolveKubeContext(ctx context.Context, client k8s.Client, ralphConfig *con
 	} else if ralphConfig != nil && ralphConfig.Workflow.Namespace != "" {
 		out.Debugf("Using namespace from .ralph/config.yaml: %s", ralphConfig.Workflow.Namespace)
 		k8sCtx.Namespace = ralphConfig.Workflow.Namespace
-	} else if ralphConfig != nil && ralphConfig.ConfigPath != "" {
-		out.Debugf("Using default namespace: %s (config found)", "config")
-		k8sCtx.Namespace = "config"
 	}
 
 	if k8sCtx.Namespace == "" {

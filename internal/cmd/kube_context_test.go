@@ -106,7 +106,7 @@ func TestResolveKubeContext(t *testing.T) {
 			expectedNamespace: "default",
 		},
 		{
-			name:              "defaults to 'config' namespace when config file exists but no namespace set",
+			name:              "defaults to 'default' namespace when config sets a context but no namespace",
 			flagContext:       "",
 			flagNamespace:     "",
 			configContext:     "config-context",
@@ -114,7 +114,7 @@ func TestResolveKubeContext(t *testing.T) {
 			mockContext:       "kubectl-context",
 			mockNamespace:     "kubectl-namespace",
 			expectedContext:   "config-context",
-			expectedNamespace: "config",
+			expectedNamespace: "default",
 		},
 		{
 			name:            "mock context error returns error when no flag or config context",
@@ -277,6 +277,30 @@ func TestResolveKubeContextWithKubeconfigInPod(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "kube-context", k8sCtx.Name)
 	assert.Equal(t, "kube-namespace", k8sCtx.Namespace)
+}
+
+func TestResolveKubeContextConfigWithoutNamespaceUsesCurrentContextNamespace(t *testing.T) {
+	t.Setenv("KUBERNETES_SERVICE_HOST", "")
+	dir := t.TempDir()
+	ralphDir := filepath.Join(dir, ".ralph")
+	require.NoError(t, os.MkdirAll(ralphDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(ralphDir, "config.yaml"), []byte("mode: local\n"), 0644))
+	t.Chdir(dir)
+
+	cfg, err := config.LoadConfig()
+	require.NoError(t, err)
+	require.NotEmpty(t, cfg.ConfigPath, "the config file must be found")
+
+	mockClient := &k8s.MockClient{}
+	mockClient.GetCurrentContextFunc = func(context.Context) (k8s.Context, error) {
+		return k8s.Context{Name: "kubectl-context", Namespace: "kubectl-namespace"}, nil
+	}
+
+	k8sCtx, err := resolveKubeContext(context.Background(), mockClient, cfg, nil, "", "")
+
+	require.NoError(t, err)
+	assert.Equal(t, "kubectl-context", k8sCtx.Name)
+	assert.Equal(t, "kubectl-namespace", k8sCtx.Namespace)
 }
 
 func TestResolveKubeContext_UpwardSearch(t *testing.T) {

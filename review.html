@@ -4769,12 +4769,12 @@ nav.breadcrumb a:focus-visible {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="fbb79872-6b65-4060-8bde-ea7f35823b52#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="fbb79872-6b65-4060-8bde-ea7f35823b52#0" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L47-L50</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">This branch overrides the namespace with the literal string `config` whenever a `.ralph/config.yaml` exists (i.e. for essentially every project that uses Ralph), and because `LoadConfig` searches upward, `ConfigPath` is set even when the config file is in a parent directory. It also silently discards `current.Namespace` that was just read from the kubeconfig, so a user whose current context targets `prod` will instead deploy into a namespace literally named `config`. This contradicts the documented precedence in `specs/ralph/kube-options.md` (flag &gt; `workflow.namespace` &gt; the resolved context&#39;s default namespace) and no other code references a `config` namespace. The debug call is also suspicious: it passes `&#34;config&#34;` as the `%s` argument rather than printing a real resolved namespace. Remove this branch so resolution falls back to the context namespace / `default`.</div>
                 
