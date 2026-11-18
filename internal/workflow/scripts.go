@@ -181,6 +181,11 @@ func resourceListMap(l config.ResourceList) map[string]interface{} {
 	return entry
 }
 
+// maxSanitizedNameLength bounds a sanitized name so callers that use it as a
+// Kubernetes volume name stay within the 63 character DNS label limit. Mount
+// builders append a "-<index>" suffix, so five characters are kept in reserve.
+const maxSanitizedNameLength = 58
+
 // sanitizeName sanitizes a name for use as a Kubernetes volume/resource name.
 func sanitizeName(name string) string {
 	sanitized := strings.ReplaceAll(name, "_", "-")
@@ -205,6 +210,10 @@ func sanitizeName(name string) string {
 
 	if len(sanitized) > 0 && sanitized[0] >= '0' && sanitized[0] <= '9' {
 		sanitized = "branch-" + sanitized
+	}
+
+	if len(sanitized) > maxSanitizedNameLength {
+		sanitized = strings.Trim(sanitized[:maxSanitizedNameLength], "-")
 	}
 
 	return sanitized
