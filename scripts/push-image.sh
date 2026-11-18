@@ -5,7 +5,12 @@ set -e
 REPOSITORY="${RALPH_IMAGE_REPOSITORY:-ghcr.io/zon/ralph}"
 BASE_VERSION="$(cat internal/version/VERSION)"
 VERSION="${BASE_VERSION}"
-BRANCH="$(git branch --show-current 2>/dev/null || echo unknown)"
+# A detached HEAD reports either an empty name or "HEAD", so fall back to an
+# explicit override or CI metadata instead of treating that as a feature branch.
+BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+if [ -z "${BRANCH}" ] || [ "${BRANCH}" = "HEAD" ]; then
+  BRANCH="${RALPH_IMAGE_BRANCH:-${GITHUB_HEAD_REF:-${GITHUB_REF_NAME:-unknown}}}"
+fi
 if [ "${BRANCH}" != "main" ]; then
   VERSION="${VERSION}-dev"
 fi

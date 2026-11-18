@@ -12770,12 +12770,12 @@ set -euo pipefail</code></pre>
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="a5a1790f-13ed-4e95-980d-8c8dda78cd66#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="a5a1790f-13ed-4e95-980d-8c8dda78cd66#0" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L8</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">Detached-HEAD handling is broken. `git branch --show-current` exits 0 and prints an **empty** string when HEAD is detached (the normal state in CI pull-request/tag builds), so the `|| echo unknown` fallback never fires. `BRANCH` then ends up empty, which means:
 - `VERSION` gets a `-dev` suffix even when the commit is `main`,
