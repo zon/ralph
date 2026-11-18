@@ -4842,12 +4842,12 @@ nav.breadcrumb a:focus-visible {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="8f36bfe7-1dff-4da9-aa7f-fb3610b643ab#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="8f36bfe7-1dff-4da9-aa7f-fb3610b643ab#0" hidden data-mark="fixed">
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L22-L27</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">The `config.LoadConfig()` error is silently discarded. Per its documented contract (internal/config/config.go:650-654), a config file that exists but cannot be read or parsed returns an error, and every other command (list.go:27, complete.go:26, setup.go:31, etc.) propagates it. Swallowing it here means a malformed .ralph/config.yaml silently degrades the item query to the default `&#34;.&#34;`, so `validate` can report success even though the user&#39;s actual configured `items` query was never applied. Propagate the error instead of falling back to the default.</div>
                 

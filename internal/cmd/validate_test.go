@@ -227,6 +227,24 @@ func TestValidateCmdDefaultQueryWhenUnset(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// TestValidateCmdMalformedConfigReturnsError covers the malformed config
+// scenario: a `.ralph/config.yaml` that cannot be parsed is reported instead of
+// silently falling back to the default item query.
+func TestValidateCmdMalformedConfigReturnsError(t *testing.T) {
+	// GIVEN a `.ralph/config.yaml` that cannot be parsed
+	tmpDir := writeValidateConfig(t, "items: [unterminated\n")
+	filePath := filepath.Join(tmpDir, "project.yaml")
+	require.NoError(t, os.WriteFile(filePath, []byte("- one\n- two\n"), 0644))
+
+	// WHEN `ralph validate <file>` is run
+	cmd := &ValidateCmd{ProjectFile: filePath}
+	err := cmd.Run()
+
+	// THEN the config parse error is propagated
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to parse config YAML")
+}
+
 // TestValidateCmdItemsFlagParsing covers the item that `ralph validate` accepts
 // an `--items` flag holding the jq query that selects the item array.
 func TestValidateCmdItemsFlagParsing(t *testing.T) {
