@@ -7644,12 +7644,12 @@ The same gap applies to `RunRemoteFromClone` when neither branch nor prefix is s
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="2a996031-9816-4a7b-88e9-d65fa47c5ea4#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="2a996031-9816-4a7b-88e9-d65fa47c5ea4#0" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L21-L23</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">`branch` is interpolated directly into a filesystem path. Slashes are legal in branch names here (`git.ValidateBranchName` only rejects empty/dot-leading components, and `PromptCmd` builds `--branch feature/foo` or `&lt;prefix&gt;/&lt;slug&gt;` branches), so a branch like `feature/foo` maps to `&lt;parent&gt;/&lt;repo&gt;-feature/foo` instead of a sibling directory: the worktree ends up nested at a depth the caller does not expect (and `git worktree add` / `RemoveWorktree` then depend on implicit parent-directory creation). Any path separator or traversal-form input also escapes the intended sibling location, so the component should be sanitized before it is used as a directory name.</div>
                 

@@ -8,7 +8,7 @@ A prompt runs the [Prompt Design](prompt.md) flow in the worktree. Ralph removes
 
 ## Creation
 
-The command creates the worktree in a directory next to the checkout, named from the working branch, `<repo>-<branch>`. The worktree shares the repository's commits, remotes, and configuration.
+The command creates the worktree in a directory next to the checkout, named from the working branch, `<repo>-<branch>`. Path separators in the branch become hyphens, so a branch such as `feature/foo` still yields a sibling directory named `<repo>-feature-foo`. Path separators in the branch become hyphens, so a branch such as `feature/foo` still yields a sibling directory named `<repo>-feature-foo`. The worktree shares the repository's commits, remotes, and configuration.
 
 The worktree starts from the tip that `origin` holds for the branch. When the remote has moved ahead and the local branch has no commits the remote lacks, the local branch moves to the remote tip.
 
