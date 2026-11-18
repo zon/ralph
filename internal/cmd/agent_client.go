@@ -66,6 +66,9 @@ func (a *AgentClient) RunPicker(proj *project.Project, incomplete []project.Item
 
 	var lastErr error
 	for attempt := 1; attempt <= maxPickerAttempts; attempt++ {
+		if err := removePickedItem(); err != nil {
+			return project.Item{}, err
+		}
 		if err := ai.RunAgentPrimary(a.ctx, a.oc, prompt); err != nil {
 			return project.Item{}, err
 		}
@@ -147,6 +150,15 @@ func renderItems(items []project.Item) string {
 		fmt.Fprintf(&b, "%s\n\n%s\n", it.PickRefLine(), it.PickText())
 	}
 	return strings.TrimRight(b.String(), "\n")
+}
+
+// removePickedItem removes picked-item.txt so an attempt cannot read a report
+// left by an earlier run.
+func removePickedItem() error {
+	if err := os.Remove("picked-item.txt"); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("failed to remove picked-item.txt: %w", err)
+	}
+	return nil
 }
 
 // readPickedItem reads the reference the picker agent wrote to
