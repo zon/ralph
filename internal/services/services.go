@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 	"sync"
 	"syscall"
@@ -145,7 +146,10 @@ func createAndStartProcess(svc config.Service, cmdStr string, out *output.Client
 }
 
 func openLogFile(svc config.Service) (*os.File, error) {
-	logPath := fmt.Sprintf("%s.log", svc.Name)
+	logPath, err := safeLogPath(svc.Name)
+	if err != nil {
+		return nil, err
+	}
 	logFile, err := os.Create(logPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create log file for service %s: %w", svc.Name, err)
@@ -305,9 +309,22 @@ func cleanupOutput(p *Process) {
 	}
 }
 
+// serviceNameRe matches the characters allowed in a service name. The name
+// becomes a file in the repository root, so path separators and other special
+// characters are rejected rather than letting the log path escape it.
+var serviceNameRe = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
+
 // LogFileName returns the log file path for a service name
 func LogFileName(serviceName string) string {
 	return fmt.Sprintf("%s.log", serviceName)
+}
+
+// safeLogPath validates a service name and returns its log file path.
+func safeLogPath(serviceName string) (string, error) {
+	if !serviceNameRe.MatchString(serviceName) {
+		return "", fmt.Errorf("invalid service name %q: must match %s", serviceName, serviceNameRe)
+	}
+	return LogFileName(serviceName), nil
 }
 
 // startAllServices starts all services and waits for them to become healthy

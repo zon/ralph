@@ -24,6 +24,36 @@ func cleanupLogs(t *testing.T, services []config.Service) {
 	}
 }
 
+func TestSafeLogPath(t *testing.T) {
+	tests := []struct {
+		name    string
+		service string
+		want    string
+		wantErr bool
+	}{
+		{name: "simple", service: "web", want: "web.log"},
+		{name: "allowed characters", service: "web.api-1_test", want: "web.api-1_test.log"},
+		{name: "empty", service: "", wantErr: true},
+		{name: "parent directory", service: "../../home/user/.bashrc", wantErr: true},
+		{name: "absolute path", service: "/tmp/escape", wantErr: true},
+		{name: "separator", service: "a/b", wantErr: true},
+		{name: "backslash", service: `a\b`, wantErr: true},
+		{name: "space", service: "my service", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := safeLogPath(tt.service)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
 func TestCheckPort(t *testing.T) {
 	listener, err := net.Listen("tcp", "localhost:0")
 	require.NoError(t, err, "Failed to start listener")

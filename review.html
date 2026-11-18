@@ -11455,12 +11455,12 @@ func topWorkflow(names []string) (string, error) {
         
             
             
-            <div class="comment-card" data-comment-card data-category="security" data-severity="high" data-mark-id="e2a84ac8-b244-41d9-94dd-50e4b08d6724#0" hidden>
+            <div class="comment-card" data-comment-card data-category="security" data-severity="high" data-mark-id="e2a84ac8-b244-41d9-94dd-50e4b08d6724#0" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-security">security</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L148-L149</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">`openLogFile` builds the file path straight from the config-supplied service name. Names come from the repo/project config (no validation in `config`), so a name such as `../../home/user/.bashrc` lets `os.Create` truncate an arbitrary writable file (and `RemoveLogs`/`cleanupOutput` will later delete it). Two services sharing a name also silently truncate/overwrite each other&#39;s log while the first process is still writing to it. Validate/reject path separators and `..` (e.g. only allow `[A-Za-z0-9._-]`), and reuse `LogFileName` so the path format has a single source of truth.</div>
                 
