@@ -10146,12 +10146,12 @@ func topWorkflow(names []string) (string, error) {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="de41d745-7e88-43fd-8b8d-f22192c62310#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="de41d745-7e88-43fd-8b8d-f22192c62310#0" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L117-L121</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">The `ReadFile` errors are discarded. If the read fails, `before`/`after` are both `nil`, so `bytes.Equal` reports &#34;no change&#34; and the loop returns `ErrNoChange`, masking both the real I/O failure and the parse error the agent was supposed to fix. Since these reads gate the change-detection logic, their errors must be propagated (or the detection must be skipped).</div>
                 

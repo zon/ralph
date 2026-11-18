@@ -114,11 +114,17 @@ func (v *Validator) parse(path string) (*projectfile.Document, error) {
 		if v.reporter != nil {
 			v.reporter.Warnf("project file failed to parse: %v", parseErr)
 		}
-		before, _ := v.file.ReadFile(path)
+		before, err := v.file.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("read project file before fix: %w", err)
+		}
 		if err := v.agent.FixProject(path, parseErr, v.model); err != nil {
 			return nil, err
 		}
-		after, _ := v.file.ReadFile(path)
+		after, err := v.file.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("read project file after fix: %w", err)
+		}
 		if bytes.Equal(before, after) {
 			return nil, ErrNoChange
 		}
