@@ -35,6 +35,12 @@ func main() {
 	)
 
 	err := ctx.Run()
+	if err == nil {
+		return
+	}
+
+	cleanupManager.Cleanup()
+
 	if errors.Is(err, orchestrationRun.ErrBlocked) {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

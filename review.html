@@ -3460,12 +3460,12 @@ nav.breadcrumb a:focus-visible {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="10ab230e-749f-4d4a-85b2-2fbbc8e8ae36#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="10ab230e-749f-4d4a-85b2-2fbbc8e8ae36#0" hidden data-mark="fixed">
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-medium">medium</span>
                     <span class="comment-lines sr-only">L40</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">`os.Exit(1)` (and `ctx.FatalIfErrorf` below, which also calls `os.Exit`) terminates the process without running deferred functions, so the `defer cleanupManager.Cleanup()` registered at the top of `main` never executes on the blocked or any other error path. Cleanup only runs on the success path or via the signal handler, which means registered cleanup callbacks (the mechanism `Manager.RegisterCleanup` exists for) are silently skipped exactly when a run aborts. Move the exit decision into a helper that returns an exit code and call `os.Exit` from `main` after defers have run, or call `cleanupManager.Cleanup()` explicitly before exiting. Note `Manager.Cleanup` nils out its callback list, so an explicit call here is safe against the later deferred call.</div>
                 
