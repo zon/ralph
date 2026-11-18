@@ -13,26 +13,38 @@ const (
 	OpenCodeSecretName = "opencode-credentials"
 )
 
-func buildSecretArgs(name, namespace, kubeContext string, data map[string]string) []string {
+// buildSecretManifest renders a Secret manifest in-process so the values never
+// appear in kubectl's command line, where other local users could read them
+// from the process table.
+func buildSecretManifest(name, namespace string, data map[string]string) ([]byte, error) {
 	if namespace == "" {
 		namespace = "default"
 	}
 
-	args := []string{"create", "secret", "generic", name}
-
+	encoded := make(map[string]string, len(data))
 	for key, value := range data {
-		args = append(args, fmt.Sprintf("--from-literal=%s=%s", key, value))
+		encoded[key] = base64.StdEncoding.EncodeToString([]byte(value))
 	}
 
-	args = append(args, "-n", namespace)
-
-	if kubeContext != "" {
-		args = append(args, "--context", kubeContext)
+	manifest := struct {
+		APIVersion string `json:"apiVersion"`
+		Kind       string `json:"kind"`
+		Metadata   struct {
+			Name      string `json:"name"`
+			Namespace string `json:"namespace"`
+		} `json:"metadata"`
+		Type string            `json:"type"`
+		Data map[string]string `json:"data"`
+	}{
+		APIVersion: "v1",
+		Kind:       "Secret",
+		Type:       "Opaque",
+		Data:       encoded,
 	}
+	manifest.Metadata.Name = name
+	manifest.Metadata.Namespace = namespace
 
-	args = append(args, "--dry-run=client", "-o", "yaml")
-
-	return args
+	return json.Marshal(manifest)
 }
 
 func buildSecretApplyArgs(kubeContext string) []string {
@@ -44,12 +56,12 @@ func buildSecretApplyArgs(kubeContext string) []string {
 }
 
 func (c *client) CreateOrUpdateSecret(ctx context.Context, name, namespace, kubeContext string, data map[string]string) error {
-	stdout, err := runKubectl(ctx, nil, buildSecretArgs(name, namespace, kubeContext, data)...)
+	manifest, err := buildSecretManifest(name, namespace, data)
 	if err != nil {
-		return fmt.Errorf("failed to generate secret YAML: %w", err)
+		return fmt.Errorf("failed to generate secret manifest: %w", err)
 	}
 
-	_, err = runKubectl(ctx, stdout, buildSecretApplyArgs(kubeContext)...)
+	_, err = runKubectl(ctx, bytes.NewBuffer(manifest), buildSecretApplyArgs(kubeContext)...)
 	if err != nil {
 		return fmt.Errorf("failed to apply secret: %w", err)
 	}
