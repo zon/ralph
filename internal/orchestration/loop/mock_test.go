@@ -200,6 +200,7 @@ type mockGitClient struct {
 	mergeCalled       bool
 	mergeCalls        int
 	abortMergeCalled  bool
+	commitMergeCalled bool
 	pushCalled        bool
 	pushCalls         int
 	lastFetchedBranch string
@@ -267,6 +268,11 @@ func (m *mockGitClient) Merge(branch string) error {
 
 func (m *mockGitClient) AbortMerge() error {
 	m.abortMergeCalled = true
+	return nil
+}
+
+func (m *mockGitClient) CommitMerge() error {
+	m.commitMergeCalled = true
 	return nil
 }
 

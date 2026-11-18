@@ -10,6 +10,7 @@ type GitClient interface {
 	NeedsMerge(branch string) (bool, error)
 	Merge(branch string) error
 	AbortMerge() error
+	CommitMerge() error
 }
 
 // AIClient resolves a conflicting merge by running the configured agent to
@@ -26,7 +27,8 @@ type OutputClient interface {
 // Sync fetches the base branch and merges it into the working branch when the
 // base branch is not already contained, before the first iteration. A fetch
 // failure is warned about and skipped. A conflicting merge is aborted and
-// handed to the configured AI agent to resolve, run tests, and stage; a failed
+// handed to the configured AI agent to resolve, run tests, and stage; a
+// successful resolution is then committed so the merge is complete. A failed
 // resolution is returned so execution stops, and the merge the agent left
 // behind is aborted so the repository is not left mid-merge. It reports whether
 // a merge was performed.
@@ -50,6 +52,9 @@ func Sync(git GitClient, ai AIClient, output OutputClient, base, projectBranch s
 		_ = git.AbortMerge()
 		if err := ai.ResolveMergeConflicts(baseRef, projectBranch); err != nil {
 			_ = git.AbortMerge()
+			return false, err
+		}
+		if err := git.CommitMerge(); err != nil {
 			return false, err
 		}
 		return true, nil

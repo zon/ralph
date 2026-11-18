@@ -19,9 +19,11 @@ func (v *ValidateCmd) Run() error {
 
 	query := v.Items
 	if query == "" {
-		if ralphConfig, err := config.LoadConfig(); err == nil {
-			query = ralphConfig.ResolveItems("")
+		ralphConfig, err := config.LoadConfig()
+		if err != nil {
+			return err
 		}
+		query = ralphConfig.ResolveItems("")
 		if query == "" {
 			query = "."
 		}

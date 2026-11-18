@@ -46,6 +46,7 @@ func (a *argoContextClient) Resolve(flagContext, flagNamespace string) (orchestr
 }
 
 type argoClientAdapter struct {
+	ctx    context.Context
 	client argo.Client
 }
 
@@ -62,12 +63,12 @@ func (a *argoClientAdapter) ListWorkflowNames(ctx orchestrationArgo.K8sContext) 
 }
 
 func (a *argoClientAdapter) Logs(ctx orchestrationArgo.K8sContext, workflowName string, follow bool) error {
-	return a.client.Logs(argo.K8sContext{Name: ctx.Name, Namespace: ctx.Namespace}, workflowName, follow)
+	return a.client.Logs(a.ctx, argo.K8sContext{Name: ctx.Name, Namespace: ctx.Namespace}, workflowName, follow)
 }
 
 func newOrchestrationArgoCmd(ctx context.Context, k8sClient k8s.Client, ralphConfig *config.RalphConfig) *orchestrationArgo.ArgoCmd {
 	return &orchestrationArgo.ArgoCmd{
-		Argo: &argoClientAdapter{client: argo.NewClient()},
+		Argo: &argoClientAdapter{ctx: ctx, client: argo.NewClient()},
 		Ctx:  &argoContextClient{ctx: ctx, k8sClient: k8sClient, ralphConfig: ralphConfig},
 	}
 }

@@ -2,7 +2,31 @@ package git
 
 import (
 	"fmt"
+	"regexp"
 )
+
+// credentialPattern matches the password portion of a URL with embedded
+// userinfo, such as the installation token in
+// url.https://x-access-token:TOKEN@github.com/.insteadOf.
+var credentialPattern = regexp.MustCompile(`://[^:/@\s]+:[^@\s/]+@`)
+
+// redactedError wraps err and masks URL credentials in its message, so errors
+// that echo command arguments or configuration keys do not leak secrets.
+type redactedError struct {
+	err error
+}
+
+func (e redactedError) Error() string {
+	return redactCredentials(e.err.Error())
+}
+
+func (e redactedError) Unwrap() error {
+	return e.err
+}
+
+func redactCredentials(s string) string {
+	return credentialPattern.ReplaceAllString(s, "://redacted:redacted@")
+}
 
 func Config(global bool, key, value string) error {
 	args := []string{"config"}
@@ -13,7 +37,9 @@ func Config(global bool, key, value string) error {
 
 	_, err := runGit(args...)
 	if err != nil {
-		return fmt.Errorf("failed to set git config %s=%s: %w", key, value, err)
+		// The key and the wrapped git error both echo the arguments, which can
+		// carry credentials such as an installation token.
+		return fmt.Errorf("failed to set git config %s: %w", redactCredentials(key), redactedError{err})
 	}
 	return nil
 }

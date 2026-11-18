@@ -21,6 +21,7 @@ type MockClient struct {
 	NeedsMergeFunc               func(branch string) (bool, error)
 	MergeFunc                    func(branch string) error
 	AbortMergeFunc               func() error
+	CommitMergeFunc              func() error
 	PushFunc                     func() error
 }
 
@@ -160,6 +161,13 @@ func (m *MockClient) Merge(branch string) error {
 func (m *MockClient) AbortMerge() error {
 	if m.AbortMergeFunc != nil {
 		return m.AbortMergeFunc()
+	}
+	return nil
+}
+
+func (m *MockClient) CommitMerge() error {
+	if m.CommitMergeFunc != nil {
+		return m.CommitMergeFunc()
 	}
 	return nil
 }

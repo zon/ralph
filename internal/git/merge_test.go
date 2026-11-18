@@ -80,6 +80,41 @@ func TestMerge_Conflict(t *testing.T) {
 	assert.Contains(t, err.Error(), "merge failed")
 }
 
+// TestCommitMerge completes a conflicting merge after the resolved files are
+// staged, the way the AI conflict resolution leaves the repository.
+func TestCommitMerge(t *testing.T) {
+	tempDir := setupTestRepo(t)
+	t.Chdir(tempDir)
+
+	base, err := GetCurrentBranch()
+	require.NoError(t, err)
+
+	featureBranch := "commit-merge-feature"
+	require.NoError(t, CheckoutOrCreateBranch(featureBranch))
+	writeAndCommit(t, tempDir, "conflict.txt", "feature content")
+
+	require.NoError(t, CheckoutBranch(base))
+	writeAndCommit(t, tempDir, "conflict.txt", "base content")
+
+	require.Error(t, Merge(featureBranch))
+
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "conflict.txt"), []byte("resolved content"), 0644))
+	require.NoError(t, StageFile("conflict.txt"))
+
+	require.NoError(t, CommitMerge())
+
+	_, err = runGit("rev-parse", "--verify", "MERGE_HEAD")
+	require.Error(t, err, "MERGE_HEAD should not exist after the merge is committed")
+
+	status, err := runGit("status", "--porcelain")
+	require.NoError(t, err)
+	assert.Empty(t, status, "the resolved merge leaves a clean working tree")
+
+	subject, err := runGit("log", "-1", "--format=%s")
+	require.NoError(t, err)
+	assert.Contains(t, subject, featureBranch, "the merge commit keeps the message git prepared")
+}
+
 // TestNeedsMerge covers the check synchronization uses to skip a merge when the
 // base branch tip is already contained in the working branch.
 func TestNeedsMerge(t *testing.T) {

@@ -3679,12 +3679,12 @@ nav.breadcrumb a:focus-visible {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="1219d8f5-d310-475e-93a6-df44c8238dd3#0" hidden>
+            <div class="comment-card" data-comment-card data-mark="fixed" data-category="bug" data-severity="high" data-mark-id="1219d8f5-d310-475e-93a6-df44c8238dd3#0" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L121-L122</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">`Logs` runs `argo logs` without a context. With `follow=true` this blocks until the workflow ends and cannot be interrupted, even though every caller (e.g. `workflowClientAdapter.FollowLogs`) holds a cancellable context (`a.ctx.GoContext()`). Cancellation/SIGINT therefore leaves the child process running. The same lack of cancellation applies to `runList` and `StopWorkflow`. Take a `context.Context` and use `exec.CommandContext` so Ctrl-C/caller deadlines terminate the argo process.</div>
                 
@@ -4234,12 +4234,12 @@ nav.breadcrumb a:focus-visible {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="a4d06918-8aa5-4b70-8a46-fbe80727c9ae#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="a4d06918-8aa5-4b70-8a46-fbe80727c9ae#0" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L51-L55</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">When the merge conflicts, this function aborts the merge and delegates to the agent, which only resolves and *stages* the files (see `resolve-merge-conflicts-instructions.md`: &#34;the system will automatically commit&#34;). Nothing here commits, yet the function returns `true`. Callers rely on that flag to push immediately (`syncBaseBranchBeforePR` in `internal/orchestration/run/runner.go` and `internal/orchestration/loop/cmd.go` call `Sync` and then `Push` without any commit), so the pushed HEAD does not contain the merge and the PR silently omits the base branch&#39;s latest changes. The repository is also left with `MERGE_HEAD` present (an in-progress merge), which breaks later git steps. Commit the resolved merge before returning `true`, or make the contract explicit and have every caller commit.</div>
                 
@@ -4842,12 +4842,12 @@ nav.breadcrumb a:focus-visible {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="8f36bfe7-1dff-4da9-aa7f-fb3610b643ab#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="8f36bfe7-1dff-4da9-aa7f-fb3610b643ab#0" hidden data-mark="fixed">
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L22-L27</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">The `config.LoadConfig()` error is silently discarded. Per its documented contract (internal/config/config.go:650-654), a config file that exists but cannot be read or parsed returns an error, and every other command (list.go:27, complete.go:26, setup.go:31, etc.) propagates it. Swallowing it here means a malformed .ralph/config.yaml silently degrades the item query to the default `&#34;.&#34;`, so `validate` can report success even though the user&#39;s actual configured `items` query was never applied. Propagate the error instead of falling back to the default.</div>
                 
@@ -6525,12 +6525,12 @@ The same gap applies to `RunRemoteFromClone` when neither branch nor prefix is s
         
             
             
-            <div class="comment-card" data-comment-card data-category="security" data-severity="high" data-mark-id="7b22894f-2b5f-4dd1-a05c-411be51b8d9f#1" hidden>
+            <div class="comment-card" data-comment-card data-category="security" data-severity="high" data-mark-id="7b22894f-2b5f-4dd1-a05c-411be51b8d9f#1" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-security">security</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L16</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">`key` and `value` are interpolated verbatim into the returned error. One actual caller (`configureGitAuth` in internal/github/app.go) builds the key as `url.https://x-access-token:&lt;INSTALLATION_TOKEN&gt;@github.com/.insteadOf`, so any failure here (lock contention, read-only global config, etc.) turns the installation token into part of an error string that is propagated up and typically logged/printed. The wrapped `runGit` error additionally echoes the full argv, so redaction is needed here as well. Do not include the raw key/value in the message (or mask the credential portion, e.g. keep only the key suffix such as `.insteadOf`).</div>
                 
@@ -8393,12 +8393,12 @@ The same gap applies to `RunRemoteFromClone` when neither branch nor prefix is s
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="43465b53-3880-4ee1-b821-eb5c8fd323f9#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="43465b53-3880-4ee1-b821-eb5c8fd323f9#0" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L25-L28</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">The error from the second `runKubectl` call is swallowed: if the `config view` query fails (kubectl missing, kubeconfig unreadable, malformed jsonpath, context renamed between the two calls), the function still returns `nil` error with an empty `Namespace`. The only caller (`resolveKubeContext` in internal/cmd/kube_context.go) then silently substitutes `&#34;default&#34;`, so commands can be executed against the wrong namespace instead of surfacing the failure. Return a wrapped error unless the best-effort behavior is explicitly intended and documented.</div>
                 
@@ -9592,12 +9592,12 @@ func topWorkflow(names []string) (string, error) {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="8f844c1d-d1ee-4efc-8601-8d75ef568635#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="8f844c1d-d1ee-4efc-8601-8d75ef568635#0" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L147-L149</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">Data race: os/exec copies non-*os.File stdout and stderr in two separate goroutines, and both io.MultiWriter chains here write into the same `ring` pointer. `ringWriter.lines`, `ringWriter.buf` and the final `Tail()` are therefore mutated/read concurrently without synchronization, corrupting the captured tail (and tripping `go test -race`). Add a `sync.Mutex` to `ringWriter` and lock in both `Write` and `Tail`.</div>
                 
@@ -11532,12 +11532,12 @@ func topWorkflow(names []string) (string, error) {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="e2a84ac8-b244-41d9-94dd-50e4b08d6724#2" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="e2a84ac8-b244-41d9-94dd-50e4b08d6724#2" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L186-L191</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">Two problems in this error branch:
 1. A non-ESRCH failure (e.g. EPERM) is only logged and then hidden by `return nil`, so the caller believes the service stopped even though it may still be running and holding its port.
@@ -12064,12 +12064,12 @@ Return the error for the first case and reap the leader before returning on ESRC
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="0376af71-4d6e-4fc1-9f45-fcf66e17c181#1" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="0376af71-4d6e-4fc1-9f45-fcf66e17c181#1" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L40-L41</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">Volume/mount names are not guaranteed unique. `sanitizeName` is lossy (`a.b` and `a_b` both become `a-b`), ConfigMap and Secret mounts share the same name space and the same index space (a ConfigMap at index 0 and a Secret at index 0 with the same sanitized name both yield `&lt;name&gt;-0`), and directory mounts here drop the index suffix entirely, so two distinct entries whose names sanitize to the same string emit duplicate `volumeMounts[].name` / `volumes[].name` and the pod is rejected. The static credential volumes (`github-credentials`, and the sanitized OpenCode secret name) live in that same space, so a ConfigMap literally named `github-credentials` collides as well. Consider tracking used names and appending the index or a hash on collision.</div>
                 
@@ -12093,12 +12093,12 @@ Return the error for the first case and reap the leader before returning on ESRC
         
             
             
-            <div class="comment-card" data-comment-card data-category="security" data-severity="high" data-mark-id="0376af71-4d6e-4fc1-9f45-fcf66e17c181#2" hidden>
+            <div class="comment-card" data-comment-card data-category="security" data-severity="high" data-mark-id="0376af71-4d6e-4fc1-9f45-fcf66e17c181#2" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-security">security</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L48-L53</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">`absPath` neither cleans the path nor restricts it to `/workspace`: a relative `destFile`/`destDir` such as `../etc/cron.d/x` becomes `/workspace/../etc/cron.d/x` (kubelet normalizes it out of the workspace), and an absolute value is passed through untouched. Since these destinations come from the workflow config with no validation in `internal/config`, a config can escape the workspace or target `/secrets/github` / `/secrets/opencode` and shadow/replace the credential mounts in `buildCredentialMounts` (duplicate `mountPath` also makes the pod spec invalid). Clean the result and reject anything outside `/workspace`.</div>
                 
@@ -12616,12 +12616,12 @@ Return the error for the first case and reap the leader before returning on ESRC
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="4fb983b0-d48e-422e-b102-1642223eb464#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="4fb983b0-d48e-422e-b102-1642223eb464#0" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L21</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">`set -e` combined with the loop means the first failing `ralph` submission aborts the whole script, so the remaining projects are silently never submitted — which contradicts the stated intent of submitting *every* project file. Also, nothing is reported at the end, so a partial run looks like a successful run. Collect per-project failures, keep going, and exit non-zero at the end (and send diagnostics to stderr):</div>
                 
@@ -12770,12 +12770,12 @@ set -euo pipefail</code></pre>
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="a5a1790f-13ed-4e95-980d-8c8dda78cd66#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="a5a1790f-13ed-4e95-980d-8c8dda78cd66#0" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L8</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">Detached-HEAD handling is broken. `git branch --show-current` exits 0 and prints an **empty** string when HEAD is detached (the normal state in CI pull-request/tag builds), so the `|| echo unknown` fallback never fires. `BRANCH` then ends up empty, which means:
 - `VERSION` gets a `-dev` suffix even when the commit is `main`,

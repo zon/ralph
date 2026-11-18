@@ -19,24 +19,89 @@ func buildParameters(params map[string]string) []map[string]interface{} {
 	return parameters
 }
 
-func buildConfigMapVolumeMount(name string, destFile, destDir string, index int) map[string]interface{} {
-	return buildVolumeMount(name, destFile, destDir, index, "/configmaps/"+name)
+// buildVolumeSet builds the pod volumes and the container mounts that
+// reference them. Names must be unique across every mount and volume, so both
+// lists are built together from one allocator: building them separately lets a
+// ConfigMap, a Secret, and the static credential volumes collide on a name
+// after sanitizing, which makes the pod invalid.
+func buildVolumeSet(configMaps []config.ConfigMapMount, secrets []config.SecretMount, openCodeSecret string) ([]map[string]interface{}, []map[string]interface{}) {
+	names := newVolumeNameAllocator()
+	openCodeSecret = resolveOpenCodeSecretName(openCodeSecret)
+
+	githubName := names.allocate("github-credentials")
+	openCodeName := names.allocate(sanitizeName(openCodeSecret))
+
+	mounts := []map[string]interface{}{
+		{"name": githubName, "mountPath": "/secrets/github", "readOnly": true},
+		{"name": openCodeName, "mountPath": "/secrets/opencode", "readOnly": true},
+	}
+	volumes := []map[string]interface{}{
+		{"name": githubName, "secret": map[string]interface{}{"secretName": k8s.GitHubSecretName}},
+		{"name": openCodeName, "secret": map[string]interface{}{"secretName": openCodeSecret}},
+	}
+
+	for _, cm := range configMaps {
+		name := names.allocate(sanitizeName(cm.Name))
+		mounts = append(mounts, buildVolumeMount(name, cm.DestFile, cm.DestDir, "/configmaps/"+cm.Name))
+		volumes = append(volumes, buildConfigMapVolume(name, cm.Name, cm.DestFile))
+	}
+
+	for _, secret := range secrets {
+		name := names.allocate(sanitizeName(secret.Name))
+		mounts = append(mounts, buildVolumeMount(name, secret.DestFile, secret.DestDir, "/secrets/"+secret.Name))
+		volumes = append(volumes, buildSecretVolume(name, secret.Name, secret.DestFile))
+	}
+
+	return mounts, volumes
 }
 
-func buildSecretVolumeMount(name string, destFile, destDir string, index int) map[string]interface{} {
-	return buildVolumeMount(name, destFile, destDir, index, "/secrets/"+name)
+// maxVolumeNameLength is the Kubernetes DNS label limit for a volume name.
+const maxVolumeNameLength = 63
+
+// volumeNameAllocator hands out unique volume names. A sanitized name can
+// collide with another entry or with a static credential volume, so a numeric
+// suffix is appended until the name is free.
+type volumeNameAllocator struct {
+	used map[string]bool
 }
 
-func buildVolumeMount(name string, destFile, destDir string, index int, fallbackMountPath string) map[string]interface{} {
+func newVolumeNameAllocator() *volumeNameAllocator {
+	return &volumeNameAllocator{used: map[string]bool{}}
+}
+
+func (a *volumeNameAllocator) allocate(base string) string {
+	base = truncateVolumeName(base, maxVolumeNameLength)
+	candidate := base
+	for suffix := 2; a.used[candidate]; suffix++ {
+		s := fmt.Sprintf("-%d", suffix)
+		candidate = truncateVolumeName(base, maxVolumeNameLength-len(s)) + s
+	}
+	a.used[candidate] = true
+	return candidate
+}
+
+// truncateVolumeName keeps a name within limit characters without leaving a
+// trailing hyphen, which Kubernetes rejects.
+func truncateVolumeName(name string, limit int) string {
+	if len(name) > limit {
+		name = name[:limit]
+	}
+	name = strings.TrimRight(name, "-")
+	if name == "" {
+		return "volume"
+	}
+	return name
+}
+
+func buildVolumeMount(name, destFile, destDir, fallbackMountPath string) map[string]interface{} {
 	mount := map[string]interface{}{
-		"name":     sanitizeName(name),
+		"name":     name,
 		"readOnly": true,
 	}
 	switch {
 	case destFile != "":
 		mount["mountPath"] = absPath(destFile)
 		mount["subPath"] = filepath.Base(destFile)
-		mount["name"] = fmt.Sprintf("%s-%d", sanitizeName(name), index)
 	case destDir != "":
 		mount["mountPath"] = absPath(destDir)
 	default:
@@ -45,50 +110,41 @@ func buildVolumeMount(name string, destFile, destDir string, index int, fallback
 	return mount
 }
 
+// absPath resolves a mount destination to a clean absolute path. A relative
+// destination is resolved inside the workspace and cannot escape it through
+// ".." segments. An absolute destination is accepted as written because the
+// config documents mounts outside the workspace, such as /tools, but it is
+// still cleaned.
 func absPath(path string) string {
 	if filepath.IsAbs(path) {
-		return path
+		return filepath.Clean(path)
 	}
-	return "/workspace/" + path
+	return filepath.Join("/workspace", filepath.Clean("/"+path))
 }
 
-func buildConfigMapVolume(name string, destFile string, index int) map[string]interface{} {
-	volumeName := sanitizeName(name)
+func buildConfigMapVolume(volumeName, name, destFile string) map[string]interface{} {
+	configMap := map[string]interface{}{"name": name}
 	if destFile != "" {
-		volumeName = fmt.Sprintf("%s-%d", sanitizeName(name), index)
-		return map[string]interface{}{
-			"name": volumeName,
-			"configMap": map[string]interface{}{
-				"name": name,
-				"items": []map[string]interface{}{
-					{"key": filepath.Base(destFile), "path": filepath.Base(destFile)},
-				},
-			},
+		configMap["items"] = []map[string]interface{}{
+			{"key": filepath.Base(destFile), "path": filepath.Base(destFile)},
 		}
 	}
 	return map[string]interface{}{
 		"name":      volumeName,
-		"configMap": map[string]interface{}{"name": name},
+		"configMap": configMap,
 	}
 }
 
-func buildSecretVolume(name string, destFile string, index int) map[string]interface{} {
-	volumeName := sanitizeName(name)
+func buildSecretVolume(volumeName, name, destFile string) map[string]interface{} {
+	secret := map[string]interface{}{"secretName": name}
 	if destFile != "" {
-		volumeName = fmt.Sprintf("%s-%d", sanitizeName(name), index)
-		return map[string]interface{}{
-			"name": volumeName,
-			"secret": map[string]interface{}{
-				"secretName": name,
-				"items": []map[string]interface{}{
-					{"key": filepath.Base(destFile), "path": filepath.Base(destFile)},
-				},
-			},
+		secret["items"] = []map[string]interface{}{
+			{"key": filepath.Base(destFile), "path": filepath.Base(destFile)},
 		}
 	}
 	return map[string]interface{}{
 		"name":   volumeName,
-		"secret": map[string]interface{}{"secretName": name},
+		"secret": secret,
 	}
 }
 
@@ -99,60 +155,6 @@ func resolveOpenCodeSecretName(openCodeSecret string) string {
 		return k8s.OpenCodeSecretName
 	}
 	return openCodeSecret
-}
-
-func buildCredentialVolumes(openCodeSecret string) []map[string]interface{} {
-	openCodeSecret = resolveOpenCodeSecretName(openCodeSecret)
-	return []map[string]interface{}{
-		{
-			"name": "github-credentials",
-			"secret": map[string]interface{}{
-				"secretName": k8s.GitHubSecretName,
-			},
-		},
-		{
-			"name": sanitizeName(openCodeSecret),
-			"secret": map[string]interface{}{
-				"secretName": openCodeSecret,
-			},
-		},
-	}
-}
-
-func buildCredentialMounts(openCodeSecret string) []map[string]interface{} {
-	openCodeSecret = resolveOpenCodeSecretName(openCodeSecret)
-	return []map[string]interface{}{
-		{"name": "github-credentials", "mountPath": "/secrets/github", "readOnly": true},
-		{"name": sanitizeName(openCodeSecret), "mountPath": "/secrets/opencode", "readOnly": true},
-	}
-}
-
-func buildVolumeMounts(configMaps []config.ConfigMapMount, secrets []config.SecretMount, openCodeSecret string) []map[string]interface{} {
-	mounts := buildCredentialMounts(openCodeSecret)
-
-	for i, cm := range configMaps {
-		mounts = append(mounts, buildConfigMapVolumeMount(cm.Name, cm.DestFile, cm.DestDir, i))
-	}
-
-	for i, secret := range secrets {
-		mounts = append(mounts, buildSecretVolumeMount(secret.Name, secret.DestFile, secret.DestDir, i))
-	}
-
-	return mounts
-}
-
-func buildVolumes(configMaps []config.ConfigMapMount, secrets []config.SecretMount, openCodeSecret string) []map[string]interface{} {
-	volumes := buildCredentialVolumes(openCodeSecret)
-
-	for i, cm := range configMaps {
-		volumes = append(volumes, buildConfigMapVolume(cm.Name, cm.DestFile, i))
-	}
-
-	for i, secret := range secrets {
-		volumes = append(volumes, buildSecretVolume(secret.Name, secret.DestFile, i))
-	}
-
-	return volumes
 }
 
 // buildResources returns the container resources block from the configured

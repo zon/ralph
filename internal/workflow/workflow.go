@@ -293,12 +293,14 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 		command, args = debugContainerCommand(command, args)
 	}
 
+	volumeMounts, volumes := buildVolumeSet(w.ConfigMaps, w.Secrets, w.OpenCodeSecret)
+
 	container := map[string]interface{}{
 		"image":        resolveImage(w.Image.Repository, w.Image.Tag),
 		"command":      command,
 		"args":         args,
 		"env":          w.buildEnvVars(),
-		"volumeMounts": buildVolumeMounts(w.ConfigMaps, w.Secrets, w.OpenCodeSecret),
+		"volumeMounts": volumeMounts,
 		"workingDir":   "/workspace",
 	}
 	if resources := buildResources(w.Resources); len(resources) > 0 {
@@ -308,7 +310,7 @@ func (w *Workflow) buildMainTemplate() map[string]interface{} {
 	template := map[string]interface{}{
 		"name":      "ralph-executor",
 		"container": container,
-		"volumes":   buildVolumes(w.ConfigMaps, w.Secrets, w.OpenCodeSecret),
+		"volumes":   volumes,
 	}
 
 	if len(w.Labels) > 0 {
