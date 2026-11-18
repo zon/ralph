@@ -120,5 +120,5 @@ func (c *promptWorkflowClient) PrintLogHint(workflowName string) {
 // FollowLogs streams the submitted prompt workflow logs and waits for it to
 // finish.
 func (c *promptWorkflowClient) FollowLogs(workflowName string) error {
-	return c.argoClient.Logs(argo.K8sContext{Name: c.kubeContext, Namespace: c.namespace}, workflowName, true)
+	return c.argoClient.Logs(c.ctx.GoContext(), argo.K8sContext{Name: c.kubeContext, Namespace: c.namespace}, workflowName, true)
 }

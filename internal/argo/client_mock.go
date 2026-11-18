@@ -6,7 +6,7 @@ type MockClient struct {
 	ListWorkflowsFunc     func(ctx K8sContext) error
 	ListWorkflowNamesFunc func(ctx K8sContext) ([]string, error)
 	StopWorkflowFunc      func(ctx K8sContext, workflowName string) error
-	LogsFunc              func(ctx K8sContext, workflowName string, follow bool) error
+	LogsFunc              func(ctx context.Context, k8sCtx K8sContext, workflowName string, follow bool) error
 	SubmitYAMLFunc        func(ctx context.Context, workflowYAML string, kubeCtx K8sContext) (string, error)
 
 	SubmitYAMLCalled bool
@@ -33,9 +33,9 @@ func (m *MockClient) ListWorkflowNames(ctx K8sContext) ([]string, error) {
 	return nil, nil
 }
 
-func (m *MockClient) Logs(ctx K8sContext, workflowName string, follow bool) error {
+func (m *MockClient) Logs(ctx context.Context, k8sCtx K8sContext, workflowName string, follow bool) error {
 	if m.LogsFunc != nil {
-		return m.LogsFunc(ctx, workflowName, follow)
+		return m.LogsFunc(ctx, k8sCtx, workflowName, follow)
 	}
 	return nil
 }

@@ -1,6 +1,7 @@
 package argo
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -216,7 +217,7 @@ func TestLogsArgs(t *testing.T) {
 
 			c := NewClient()
 			ctx := K8sContext{Name: tt.context, Namespace: tt.namespace}
-			err := c.Logs(ctx, tt.workflow, tt.follow)
+			err := c.Logs(context.Background(), ctx, tt.workflow, tt.follow)
 			require.NoError(t, err)
 
 			args := readArgsFile(t, argsFile)
@@ -243,9 +244,23 @@ func TestLogsFailureNamesWorkflow(t *testing.T) {
 	t.Setenv("PATH", dir+":"+os.Getenv("PATH"))
 
 	c := NewClient()
-	err := c.Logs(K8sContext{Namespace: "staging"}, "ralph-test-abc123", false)
+	err := c.Logs(context.Background(), K8sContext{Namespace: "staging"}, "ralph-test-abc123", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "ralph-test-abc123")
+}
+
+func TestLogsHonorsCancellation(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "argo"), []byte("#!/bin/bash\nexit 0\n"), 0755))
+	t.Setenv("PATH", dir+":"+os.Getenv("PATH"))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	c := NewClient()
+	err := c.Logs(ctx, K8sContext{Namespace: "staging"}, "ralph-test-abc123", true)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, context.Canceled)
 }
 
 func writeArgsRecordingArgo(t *testing.T, argsFile string) {
