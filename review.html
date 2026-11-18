@@ -6525,12 +6525,12 @@ The same gap applies to `RunRemoteFromClone` when neither branch nor prefix is s
         
             
             
-            <div class="comment-card" data-comment-card data-category="security" data-severity="high" data-mark-id="7b22894f-2b5f-4dd1-a05c-411be51b8d9f#1" hidden>
+            <div class="comment-card" data-comment-card data-category="security" data-severity="high" data-mark-id="7b22894f-2b5f-4dd1-a05c-411be51b8d9f#1" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-security">security</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L16</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">`key` and `value` are interpolated verbatim into the returned error. One actual caller (`configureGitAuth` in internal/github/app.go) builds the key as `url.https://x-access-token:&lt;INSTALLATION_TOKEN&gt;@github.com/.insteadOf`, so any failure here (lock contention, read-only global config, etc.) turns the installation token into part of an error string that is propagated up and typically logged/printed. The wrapped `runGit` error additionally echoes the full argv, so redaction is needed here as well. Do not include the raw key/value in the message (or mask the credential portion, e.g. keep only the key suffix such as `.insteadOf`).</div>
                 
