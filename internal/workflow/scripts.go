@@ -45,11 +45,16 @@ func buildVolumeMount(name string, destFile, destDir string, index int, fallback
 	return mount
 }
 
+// absPath resolves a mount destination to a clean absolute path. A relative
+// destination is resolved inside the workspace and cannot escape it through
+// ".." segments. An absolute destination is accepted as written because the
+// config documents mounts outside the workspace, such as /tools, but it is
+// still cleaned.
 func absPath(path string) string {
 	if filepath.IsAbs(path) {
-		return path
+		return filepath.Clean(path)
 	}
-	return "/workspace/" + path
+	return filepath.Join("/workspace", filepath.Clean("/"+path))
 }
 
 func buildConfigMapVolume(name string, destFile string, index int) map[string]interface{} {
