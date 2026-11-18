@@ -1,6 +1,8 @@
 package run
 
 import (
+	"fmt"
+
 	"github.com/zon/ralph/internal/basesync"
 	"github.com/zon/ralph/internal/config"
 	"github.com/zon/ralph/internal/git"
@@ -36,6 +38,7 @@ type GitClient interface {
 	BlockedFileExists() bool
 	HasChanges() bool
 	StageAll() error
+	DiscardChanges() error
 	ReportExists() bool
 	CommitFromReport(slug string) error
 	CommitFromBlocked(slug string) error
@@ -242,6 +245,9 @@ func (r *Runner) iterate(proj *project.Project, cfg *config.RalphConfig) error {
 		if err := r.runIteration(proj, incomplete, cfg, previousErr); err != nil {
 			if r.ai.IsFatal(err) {
 				return err
+			}
+			if discardErr := r.git.DiscardChanges(); discardErr != nil {
+				return fmt.Errorf("failed to discard failed iteration changes: %w", discardErr)
 			}
 			previousErr = err
 			continue

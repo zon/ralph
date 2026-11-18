@@ -8,7 +8,7 @@ Ralph records a non-fatal failure and continues the loop. The next iteration's p
 
 A successful iteration clears the recorded error. Ralph carries only the most recent failure, so consecutive failures do not accumulate a history.
 
-Ralph does not commit a failed iteration. It still consumes one iteration from the cap, so retrying a failure never runs past the limit.
+Ralph does not commit a failed iteration. It discards the failed attempt's working-tree changes, including any `report.md` the agent left behind, before the next iteration starts, so a later commit cannot include them or use the stale report as its message. It still consumes one iteration from the cap, so retrying a failure never runs past the limit.
 
 ## Fatal Failures
 

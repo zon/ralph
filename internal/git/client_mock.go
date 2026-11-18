@@ -6,6 +6,7 @@ type MockClient struct {
 	BlockedFileExistsFunc        func() bool
 	HasChangesFunc               func() bool
 	StageAllFunc                 func() error
+	DiscardChangesFunc           func() error
 	ReportExistsFunc             func() bool
 	CommitFromReportFunc         func(slug string) error
 	CommitFromBlockedFunc        func(slug string) error
@@ -56,6 +57,13 @@ func (m *MockClient) HasChanges() bool {
 func (m *MockClient) StageAll() error {
 	if m.StageAllFunc != nil {
 		return m.StageAllFunc()
+	}
+	return nil
+}
+
+func (m *MockClient) DiscardChanges() error {
+	if m.DiscardChangesFunc != nil {
+		return m.DiscardChangesFunc()
 	}
 	return nil
 }
