@@ -656,3 +656,19 @@ func cloneRequest(req *http.Request) *http.Request {
 	}
 	return &newReq
 }
+
+func TestGitHubHTTPClient(t *testing.T) {
+	oldClient := httpClient
+	t.Cleanup(func() { httpClient = oldClient })
+
+	t.Run("falls back to a bounded default", func(t *testing.T) {
+		httpClient = nil
+		assert.Equal(t, defaultHTTPTimeout, githubHTTPClient().Timeout)
+	})
+
+	t.Run("uses the configured client", func(t *testing.T) {
+		custom := &http.Client{Timeout: time.Second}
+		httpClient = custom
+		assert.Same(t, custom, githubHTTPClient())
+	})
+}

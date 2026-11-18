@@ -34,7 +34,21 @@ func (g *gitAuthConfigurator) DefaultSecretsDir() string {
 	return DefaultSecretsDir
 }
 
+// defaultHTTPTimeout bounds each GitHub API request made with the fallback
+// client, so a stalled connection cannot block token acquisition when the
+// caller's context carries no deadline.
+const defaultHTTPTimeout = 30 * time.Second
+
 var httpClient *http.Client
+
+// githubHTTPClient returns the configured client, or a default client with a
+// bounded timeout when none is configured.
+func githubHTTPClient() *http.Client {
+	if httpClient != nil {
+		return httpClient
+	}
+	return &http.Client{Timeout: defaultHTTPTimeout}
+}
 
 // GenerateAppJWT generates a JWT for GitHub App authentication using RS256 signing
 func GenerateAppJWT(appID string, privateKeyPEM []byte) (string, error) {
@@ -79,10 +93,7 @@ func GetInstallationID(ctx context.Context, jwtToken, owner, repo string) (int64
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("User-Agent", "ralph")
 
-	client := httpClient
-	if client == nil {
-		client = &http.Client{}
-	}
+	client := githubHTTPClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		return 0, fmt.Errorf("failed to make request: %w", err)
@@ -118,10 +129,7 @@ func GetInstallationToken(ctx context.Context, jwtToken string, installationID i
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("User-Agent", "ralph")
 
-	client := httpClient
-	if client == nil {
-		client = &http.Client{}
-	}
+	client := githubHTTPClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("failed to make request: %w", err)
