@@ -5662,12 +5662,12 @@ Suggestion: route through `c.Load()` (and/or cache the loaded config on the clie
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="744b3688-5445-4174-91b3-a1f56753253f#1" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="744b3688-5445-4174-91b3-a1f56753253f#1" hidden data-mark="fixed">
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L136-L141</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">Swallowing every `config.LoadConfig()` error makes a genuinely broken configuration invisible: malformed/unreadable `.ralph/config.yaml`, an invalid `mode`, bad review/workflow env, etc. all silently degrade into a run that proceeds with a different config than the user wrote. `LoadConfig` already returns a defaulted config when the file is absent, so an error here only means something is actually wrong. The fallback is also inconsistent with the comment: it bypasses `applyDefaults`, so `Mode`, `DefaultBranch`, `App.Name/ID`, `Workflow.OpenCodeSecret`, etc. are left empty (only `Cleanup` is set). Prefer propagating the error; if a fallback is truly intended, build it with `config.Any()` so all defaults are applied and log the failure.</div>
                 
