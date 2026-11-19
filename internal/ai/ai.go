@@ -378,7 +378,9 @@ func createTempFile(name string) (*os.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	return os.Create(path)
+	ext := filepath.Ext(path)
+	base := strings.TrimSuffix(filepath.Base(path), ext)
+	return os.CreateTemp(filepath.Dir(path), base+"-*"+ext)
 }
 
 // maxDeliverableAttempts is how many times a prompt that must leave a usable
