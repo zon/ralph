@@ -4082,12 +4082,12 @@ nav.breadcrumb a:focus-visible {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="7b6b0661-99f7-4eac-b830-a0802ba57358#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="7b6b0661-99f7-4eac-b830-a0802ba57358#0" hidden data-mark="fixed">
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-medium">medium</span>
                     <span class="comment-lines sr-only">L25</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">The output client is created with `os.Stdout` as its primary writer, and the project client emits warnings through it (`project.Client.reconcile` calls `c.out.Warnf(...)`). Since `CompleteCmd` also writes its results (plain hashes or `--json` array) to `os.Stdout`, any warning from `Complete` is interleaved into the machine-readable output, breaking consumers such as `ralph complete --json | jq`. Route the diagnostic output to stderr (or to `io.Discard` when `--json` is set) so stdout carries only results.</div>
                 
