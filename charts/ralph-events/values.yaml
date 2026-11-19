@@ -102,8 +102,9 @@ github:
       keyKey: tls.key
       # Create a cert-manager Certificate that fills the Secret. Off by
       # default: leave this empty and the operator supplies the Secret. Set
-      # issuerRef to name the issuer and its kind. dnsNames defaults to the
-      # host of github.webhook.url.
+      # issuerRef to name the issuer and its kind, which requires
+      # github.webhook.tls.secretName to name the Secret the Certificate
+      # fills. dnsNames defaults to the host of github.webhook.url.
       certificate: {}
   # Existing Secret holding a GitHub API token. When set, Argo Events registers
   # webhooks for the repositories below.

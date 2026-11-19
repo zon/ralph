@@ -13065,12 +13065,12 @@ cd &#34;${script_dir}/..&#34;</code></pre>
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="37fa1822-81cf-4214-be55-72a1406516ef#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="37fa1822-81cf-4214-be55-72a1406516ef#0" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L12</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">`spec.secretName` is required by cert-manager, but nothing guarantees `github.webhook.tls.secretName` is set here. The Certificate is rendered as soon as `certificate.issuerRef.name` is provided, so a user who sets only `issuerRef` gets `secretName: &#34;&#34;`, which the API server rejects (`spec.secretName: Invalid value: &#34;&#34;: Required`) — or, if the Secret name differs from the one the event source reads, TLS silently breaks. Add an explicit validation before rendering, consistent with `ralph-events.validateWebhookTLS`.</div>
                 
