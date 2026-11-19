@@ -15324,12 +15324,12 @@ go.work.sum</code></pre>
         
             
             
-            <div class="comment-card" data-comment-card data-category="security" data-severity="high" data-mark-id="76cf2101-b657-4392-af8e-b766d568c928#0" hidden>
+            <div class="comment-card" data-comment-card data-category="security" data-severity="high" data-mark-id="76cf2101-b657-4392-af8e-b766d568c928#0" hidden data-mark="fixed">
                 <div class="comment-meta">
                     <span class="comment-badge cat-security">security</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L6</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">Piping a remote install script straight into `bash` as root with no pinned version and no checksum makes the build non-reproducible and gives the remote host (or anyone able to tamper with the response) arbitrary code execution in the build. Pin the `just` version and verify a checksum instead, e.g.:</div>
                 
