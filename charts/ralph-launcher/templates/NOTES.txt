@@ -41,6 +41,13 @@ these work streams:
   schedule - {{ join ", " $schedules }}
 {{- end }}
 
+Repository prompts:
+
+  The repository's .ralph/config.yaml supplies each prompt under the top-level
+  prompts map. A key is a lower camel case GitHub event name, or schedule for
+  the scheduled work stream. A value is prompt text or a mapping with a file
+  path relative to the repository root. A missing or empty prompt fails the run.
+
 Target namespace:
 
   {{ include "ralph-launcher.targetNamespace" . }}
