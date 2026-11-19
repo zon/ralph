@@ -9897,12 +9897,12 @@ func topWorkflow(names []string) (string, error) {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="4e784a31-6fb9-47c6-81dd-59b73e97c365#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="4e784a31-6fb9-47c6-81dd-59b73e97c365#0" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-medium">medium</span>
                     <span class="comment-lines sr-only">L163-L170</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">The worktree cleanup discards both cleanup errors in a way that can silently orphan the worktree. `ChangeDirectory(originalDir)` is ignored: if it fails, the process stays inside the worktree directory, `RemoveWorktree` then fails (git refuses to remove the worktree it is currently in), and because `retErr != nil` that remove error is dropped entirely — the caller only sees the primary error and no hint that a worktree was left behind. Cleanup errors should be joined with the primary error instead of discarded, and the chdir failure should not be ignored.</div>
                 

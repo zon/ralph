@@ -1,6 +1,7 @@
 package run
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -162,10 +163,13 @@ func (r *RunCmd) runWorktree(input *project.InputFile, setup ExecutionSetup) (re
 	}
 	defer func() {
 		// git refuses to remove the worktree of the current directory, so change
-		// back to the main checkout before removing it.
-		_ = r.workspace.ChangeDirectory(originalDir)
-		if _, removeErr := r.worktree.RemoveWorktree(branch, false); removeErr != nil && retErr == nil {
-			retErr = fmt.Errorf("failed to remove worktree for branch '%s': %w", branch, removeErr)
+		// back to the main checkout before removing it. Report cleanup failures
+		// alongside the primary error so a worktree left behind is not hidden.
+		if chdirErr := r.workspace.ChangeDirectory(originalDir); chdirErr != nil {
+			retErr = errors.Join(retErr, fmt.Errorf("failed to leave worktree '%s': %w", worktree.Path, chdirErr))
+		}
+		if _, removeErr := r.worktree.RemoveWorktree(branch, false); removeErr != nil {
+			retErr = errors.Join(retErr, fmt.Errorf("failed to remove worktree for branch '%s': %w", branch, removeErr))
 		}
 	}()
 
