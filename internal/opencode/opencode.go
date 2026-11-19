@@ -48,13 +48,21 @@ func execOpenCode(ctx context.Context, args []string, stdout, stderr io.Writer) 
 		ctx = context.Background()
 	}
 	cmd := exec.CommandContext(ctx, "opencode", args...)
+	// stdout and stderr are usually non-*os.File writers, so os/exec reads them
+	// through pipes and Wait blocks until every holder closes them. A
+	// --standalone server can inherit the pipes and outlive the CLI, so bound
+	// that wait; waitForGroupExit below then reports any lingering group.
+	cmd.WaitDelay = opencodeProcessGroupWaitTimeout
 	cmd.Env = append(os.Environ(), "FORCE_COLOR=1")
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 	// Run opencode in its own process group so waitForGroupExit can wait for
 	// every process it spawns to exit before the run is reported complete.
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	if err := cmd.Run(); err != nil {
+	// WaitDelay force-closes inherited pipes after a bounded wait. That turns a
+	// successful CLI run whose lingering child held the pipes into ErrWaitDelay;
+	// the CLI itself succeeded, so report the group below instead of failing.
+	if err := cmd.Run(); err != nil && !errors.Is(err, exec.ErrWaitDelay) {
 		return fmt.Errorf("opencode command failed: %w", err)
 	}
 	if err := waitForGroupExit(cmd.Process.Pid); err != nil {
