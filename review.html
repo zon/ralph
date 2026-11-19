@@ -13395,12 +13395,12 @@ concurrency:
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="cb245837-1736-4e33-b1f3-84036c32e6d5#2" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="cb245837-1736-4e33-b1f3-84036c32e6d5#2" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L53-L55</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">Dev builds always publish the exact same OCI tag (`&lt;version&gt;-dev`). OCI registries reject overwriting an existing tag, so the second push of an unchanged chart version on `dev` (or any future branch that falls into this `else` branch) will fail at `helm push` with an &#34;already exists&#34; error, and re-running a failed workflow can never succeed. Make the dev version unique per run/commit, e.g. `${version}-dev.${GITHUB_RUN_NUMBER}` (or `-dev.&lt;short sha&gt;`), and consider restricting the `else` branch to `dev` explicitly so other branches are not silently published as `-dev`.</div>
                 

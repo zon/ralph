@@ -53,6 +53,13 @@ jobs:
             else
               chart_version="${version}-dev"
             fi
+            # OCI registries reject overwriting an existing tag, so a rerun
+            # must skip charts that are already published.
+            if helm show chart "${repository}/${name}" --version "$chart_version" >/dev/null 2>&1; then
+              echo "::warning::Chart ${name} ${chart_version} already exists; skipping push."
+              echo "Skipped ${name} ${chart_version}: tag already exists." >> "$GITHUB_STEP_SUMMARY"
+              continue
+            fi
             package="dist/${name}-${chart_version}.tgz"
             helm package "$directory" --version "$chart_version" --destination dist
             helm push "$package" "$repository"

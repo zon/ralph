@@ -73,6 +73,11 @@ jobs:
           ALIAS: ${{ steps.version.outputs.ALIAS }}
         run: |
           set -euo pipefail
+          if docker manifest inspect "ghcr.io/${REPOSITORY}:${VERSION}" >/dev/null 2>&1; then
+            echo "::warning::Image ghcr.io/${REPOSITORY}:${VERSION} already exists; skipping push."
+            echo "Skipped ghcr.io/${REPOSITORY}:${VERSION}: tag already exists." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           docker push "ghcr.io/${REPOSITORY}:${ALIAS}"
           docker push "ghcr.io/${REPOSITORY}:${VERSION}"
 
@@ -123,5 +128,10 @@ jobs:
           ALIAS: ${{ needs.build.outputs.alias }}
         run: |
           set -euo pipefail
+          if docker manifest inspect "ghcr.io/${REPOSITORY}-go:${VERSION}" >/dev/null 2>&1; then
+            echo "::warning::Image ghcr.io/${REPOSITORY}-go:${VERSION} already exists; skipping push."
+            echo "Skipped ghcr.io/${REPOSITORY}-go:${VERSION}: tag already exists." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           docker push "ghcr.io/${REPOSITORY}-go:${ALIAS}"
           docker push "ghcr.io/${REPOSITORY}-go:${VERSION}"
