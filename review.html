@@ -15776,12 +15776,12 @@ RUN git --version \
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="1ed477b6-66b4-455e-87ac-56abf5cf4f81#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="1ed477b6-66b4-455e-87ac-56abf5cf4f81#0" hidden data-mark="fixed">
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L1-L2</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">All six `agent` entries reference files that do not exist in this repository: there is no `.opencode/agents/` directory (or any central `agents/` directory) at all - only `.opencode/skills/` exists. A manifest entry that points at a missing file either fails the install or silently installs nothing, so agents like `prose-editor`, `code-writer`, and `component-reviewer` would never become available. Either add the referenced agent definitions, or correct the paths (and the `agent` vs `agents` directory naming) so the manifest matches what the installer actually produces, and add a check that every path in this manifest exists.</div>
                 
