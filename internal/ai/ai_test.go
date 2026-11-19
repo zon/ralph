@@ -849,6 +849,12 @@ func TestCreateTempFile(t *testing.T) {
 	n, err := f.WriteString("test content")
 	assert.NoError(t, err)
 	assert.Positive(t, n)
+
+	second, err := createTempFile("example.md")
+	require.NoError(t, err)
+	defer second.Close()
+	assert.NotEqual(t, f.Name(), second.Name(),
+		"each call should create a uniquely named file")
 }
 
 // outputPathFromPromptWithPrefix extracts the output file path that follows the

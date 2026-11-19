@@ -4343,12 +4343,12 @@ nav.breadcrumb a:focus-visible {
         
             
             
-            <div class="comment-card" data-comment-card data-category="security" data-severity="medium" data-mark-id="a5d749a1-66a3-4056-8f11-a28d685d0054#0" hidden>
+            <div class="comment-card" data-comment-card data-category="security" data-severity="medium" data-mark-id="a5d749a1-66a3-4056-8f11-a28d685d0054#0" hidden data-mark="fixed">
                 <div class="comment-meta">
                     <span class="comment-badge cat-security">security</span>
                     <span class="comment-badge severity-medium">medium</span>
                     <span class="comment-lines sr-only">L376-L382</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">`createTempFile` opens a predictable, PID-scoped path under the repo `tmp/` directory with `os.Create`, which follows an existing symlink and truncates whatever is there. Any process that can pre-create `tmp/&lt;name&gt;-&lt;pid&gt;.*` (or a concurrent invocation in the same process, which shares the PID) can redirect the agent&#39;s deliverable write or have its file truncated/removed by another caller&#39;s `defer os.Remove`. Prefer creating a file with an unpredictable name and exclusive creation, e.g. `os.CreateTemp(filepath.Dir(path), ...)` (callers already use `f.Name()`, so the exact name need not be predictable).</div>
                 
