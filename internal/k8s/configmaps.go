@@ -67,6 +67,10 @@ func (c *client) GetConfigMapData(ctx context.Context, name, namespace, kubeCont
 }
 
 func buildGetConfigMapDataArgs(name, namespace, kubeContext string) []string {
+	if namespace == "" {
+		namespace = "default"
+	}
+
 	args := []string{"get", "configmap", name, "-n", namespace, "-o", `jsonpath={.data.config\.yaml}`}
 	if kubeContext != "" {
 		args = append(args, "--context", kubeContext)
