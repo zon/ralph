@@ -59,10 +59,21 @@ func execOpenCode(ctx context.Context, args []string, stdout, stderr io.Writer) 
 	// Run opencode in its own process group so waitForGroupExit can wait for
 	// every process it spawns to exit before the run is reported complete.
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	// exec.CommandContext would kill only the CLI process. The private server
+	// and sub-agents live in the same group, so cancellation must kill the
+	// whole group or they leak.
+	cmd.Cancel = func() error {
+		return killProcessGroup(cmd.Process.Pid)
+	}
 	// WaitDelay force-closes inherited pipes after a bounded wait. That turns a
 	// successful CLI run whose lingering child held the pipes into ErrWaitDelay;
 	// the CLI itself succeeded, so report the group below instead of failing.
 	if err := cmd.Run(); err != nil && !errors.Is(err, exec.ErrWaitDelay) {
+		if cmd.Process != nil {
+			// The CLI failed or was cancelled. Do not leave its sub-agents or
+			// server running behind it.
+			_ = killProcessGroup(cmd.Process.Pid)
+		}
 		return fmt.Errorf("opencode command failed: %w", err)
 	}
 	if err := waitForGroupExit(cmd.Process.Pid); err != nil {
@@ -73,6 +84,17 @@ func execOpenCode(ctx context.Context, args []string, stdout, stderr io.Writer) 
 		}
 	}
 	return nil
+}
+
+// killProcessGroup terminates every process in the group led by pid. A group
+// that has already exited is treated as success, so callers can use it on
+// cleanup paths without distinguishing the two cases.
+func killProcessGroup(pid int) error {
+	err := syscall.Kill(-pid, syscall.SIGKILL)
+	if errors.Is(err, syscall.ESRCH) {
+		return nil
+	}
+	return err
 }
 
 // waitForGroupExit blocks until every process in the group led by pid has

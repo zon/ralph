@@ -309,6 +309,55 @@ exit 1
 	assert.Contains(t, err.Error(), "opencode command failed")
 }
 
+func TestRunCommandTerminatesProcessGroupOnFailure(t *testing.T) {
+	tests := []struct {
+		name string
+		body func(marker string) string
+		ctx  func() (context.Context, context.CancelFunc)
+	}{
+		{
+			name: "non-zero exit",
+			body: func(marker string) string {
+				return fmt.Sprintf(`(sleep 0.5; echo alive > %q) >/dev/null 2>&1 & exit 1`, marker)
+			},
+			ctx: func() (context.Context, context.CancelFunc) {
+				return context.WithCancel(context.Background())
+			},
+		},
+		{
+			name: "cancellation",
+			body: func(marker string) string {
+				return fmt.Sprintf(`(sleep 0.5; echo alive > %q) >/dev/null 2>&1 & sleep 5`, marker)
+			},
+			ctx: func() (context.Context, context.CancelFunc) {
+				ctx, cancel := context.WithCancel(context.Background())
+				go func() {
+					time.Sleep(100 * time.Millisecond)
+					cancel()
+				}()
+				return ctx, cancel
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			marker := filepath.Join(t.TempDir(), "alive")
+			fakeOpenCode(t, tt.body(marker))
+
+			ctx, cancel := tt.ctx()
+			defer cancel()
+
+			var stdout, stderr bytes.Buffer
+			err := New().RunCommand(ctx, "", "", "", "prompt", &stdout, &stderr)
+			require.Error(t, err)
+
+			time.Sleep(700 * time.Millisecond)
+			require.NoFileExists(t, marker, "the spawned subprocess should be killed with the group")
+		})
+	}
+}
+
 func TestRunCommandBoundsInheritedPipeWait(t *testing.T) {
 	old := opencodeProcessGroupWaitTimeout
 	opencodeProcessGroupWaitTimeout = 100 * time.Millisecond

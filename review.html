@@ -10019,12 +10019,12 @@ func topWorkflow(names []string) (string, error) {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="174e31ac-af93-42a3-a17b-bf99913a5360#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="174e31ac-af93-42a3-a17b-bf99913a5360#0" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L74-L75</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">A nil return from FollowLogs only means the log stream ended; it does not establish that the workflow succeeded. The WorkflowSubmitter contract documents FollowLogs as failing on streaming errors, and `argo logs -f` (the real adapter) returns success once the workflow finishes regardless of its phase. So a followed loop workflow that fails will still send the &#34;Ralph completed successfully&#34; notification and Run will return nil, violating the spec that a followed failure exits non-zero and sends an error notification. Surface the workflow phase/outcome from FollowLogs (e.g. an error or status value) and only call notify.Success when the workflow actually succeeded; call notify.Error and return a non-nil error otherwise.</div>
                 
