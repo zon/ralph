@@ -12406,12 +12406,12 @@ Return the error for the first case and reap the leader before returning on ESRC
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="0c4bdee3-0370-456d-8ae8-752b327a954a#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="0c4bdee3-0370-456d-8ae8-752b327a954a#0" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-medium">medium</span>
                     <span class="comment-lines sr-only">L16</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">`pickRefLineRe` has no boundary before the label and no boundary after the captured 7 characters. As written it matches labels inside longer words (`href:`, `prehash:`) and truncates a longer token to its first seven alphanumerics — e.g. a report of `ref: csv-export-IYAWN02` yields the bogus candidate `csv-exp`. Because `parsePickRef` returns the first match and `DecodePickRef` tries references before the text fallback, an incidental `/href:`-style string in a report can resolve to the wrong item or make a valid report undecodable. Require boundaries around both the label and the reference.</div>
                 

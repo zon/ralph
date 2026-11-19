@@ -33,6 +33,8 @@ func TestDecodePickRef(t *testing.T) {
 		{name: "completion trailer", report: "csv-export-" + items[1].PickRef(), want: 1, ok: true},
 		{name: "JSON reference", report: `{"ref":"` + items[1].PickRef() + `"}`, want: 1, ok: true},
 		{name: "reference in prose", report: "Selected ref: " + items[1].PickRef(), want: 1, ok: true},
+		{name: "label inside a longer word", report: "href: " + items[1].PickRef(), ok: false},
+		{name: "reference longer than a hash", report: "ref: " + items[1].PickRef() + "9", ok: false},
 		{name: "fenced reference", report: "```\n" + items[1].PickRefLine() + "\n```", want: 1, ok: true},
 		{name: "item text", report: items[0].PickText(), want: 0, ok: true},
 		{name: "canonical item text", report: items[1].Text(), want: 1, ok: true},

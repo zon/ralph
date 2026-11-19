@@ -13,7 +13,7 @@ import (
 const pickRefPrefix = "ref: "
 
 var (
-	pickRefLineRe = regexp.MustCompile("(?i)(?:ralph[- ]?item|item|ref|hash)\\s*[:=]\\s*[\"'`]?([A-Za-z0-9]{7})[\"'`]?")
+	pickRefLineRe = regexp.MustCompile("(?i)\\b(?:ralph[- ]?item|item|ref|hash)\\s*[:=]\\s*[\"'`]?([A-Za-z0-9]{7})(?:[^A-Za-z0-9]|$)")
 	pickRefBareRe = regexp.MustCompile("^[\"'`]?([A-Za-z0-9]{7})[\"'`]?$")
 	pickTrailerRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._/-]*-([A-Za-z0-9]{7})$`)
 	pickJSONRefRe = regexp.MustCompile(`(?i)"(?:ref|hash)"\s*:\s*"([A-Za-z0-9]{7})"`)
