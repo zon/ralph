@@ -210,10 +210,6 @@ repo
 {{- default .Release.Namespace $target.namespace -}}
 {{- end -}}
 
-{{- define "ralph-launcher.targetNamespaces" -}}
-{{- toJson (list (include "ralph-launcher.targetNamespace" .)) -}}
-{{- end -}}
-
 {{- define "ralph-launcher.defaultEvent" -}}
 {{- $events := include "ralph-launcher.promptEvents" . | fromJsonArray -}}
 {{- $schedules := include "ralph-launcher.promptSchedules" . | fromJsonArray -}}
