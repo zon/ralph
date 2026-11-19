@@ -90,16 +90,41 @@ func TestGeneratePromptWorkflowCarriesPrefix(t *testing.T) {
 }
 
 // TestGeneratePromptWorkflowCarriesNamePrefix asserts a launcher target names
-// its agent workflow <name-prefix>-<entry-slug>- so the entry reads at a glance.
+// its agent workflow <prefix>-<event>- so each event reads at a glance.
 func TestGeneratePromptWorkflowCarriesNamePrefix(t *testing.T) {
 	ctx := &execcontext.Context{}
 
-	wf, err := GeneratePromptWorkflow(ctx, "", "main", "Review the repository.", "main", "git@github.com:test/repo.git", "ralph", "review")
+	wf, err := GeneratePromptWorkflow(ctx, "", "main", "Review the repository.", "main", "git@github.com:test/repo.git", "ralph", "pull_request")
 	require.NoError(t, err, "GeneratePromptWorkflow failed")
 
-	assert.Equal(t, "ralph-review-", wf.GenerateName)
+	assert.Equal(t, "ralph-pull-request-", wf.GenerateName)
 	data := promptWorkflowData(t, wf)
-	assert.Equal(t, "ralph-review-", data["metadata"].(map[string]interface{})["generateName"])
+	assert.Equal(t, "ralph-pull-request-", data["metadata"].(map[string]interface{})["generateName"])
+}
+
+// TestGeneratePromptWorkflowNamePrefixNormalizes asserts the target agent
+// workflow lowercases the prefix and event and replaces . _ and / with -.
+func TestGeneratePromptWorkflowNamePrefixNormalizes(t *testing.T) {
+	tests := []struct {
+		name       string
+		namePrefix string
+		prefix     string
+		want       string
+	}{
+		{name: "prefix and event", namePrefix: "Team.AI", prefix: "pull_request", want: "team-ai-pull-request-"},
+		{name: "schedule", namePrefix: "ralph", prefix: "schedule", want: "ralph-schedule-"},
+		{name: "no prefix", namePrefix: "ralph", prefix: "", want: ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			wf, err := GeneratePromptWorkflow(
+				&execcontext.Context{}, "", "main", "Review the repository.", "main",
+				"git@github.com:test/repo.git", tt.namePrefix, tt.prefix,
+			)
+			require.NoError(t, err, "GeneratePromptWorkflow failed")
+			assert.Equal(t, tt.want, wf.GenerateName)
+		})
+	}
 }
 
 // TestGeneratePromptWorkflowWithoutPrefixOmitsPrefix asserts a prompt without a

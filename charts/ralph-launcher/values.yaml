@@ -1,9 +1,10 @@
 nameOverride: ""
 fullnameOverride: ""
 
-# prefix is the name prefix for every workflow the launcher creates. The sensor,
-# cron, and target agent workflows are named <prefix>-<slug> with a generated
-# suffix where the Kubernetes API supports one.
+# prefix is the name prefix for every workflow the launcher creates. Event and
+# target agent workflows are named <prefix>-<event>, and the schedule workflow
+# <prefix>-schedule-cron-launcher, with a generated suffix where the Kubernetes
+# API supports one.
 prefix: ralph
 
 # delivery selects how repository events reach this launcher. Use subject to
