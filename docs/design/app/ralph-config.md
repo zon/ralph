@@ -34,6 +34,10 @@ loops:
     steps: [string]
     max: int
 
+prompts:
+  <event>: string | {file: string}   # lower camel case, e.g. pullRequest
+  schedule: string | {file: string}
+
 validate:
   model: provider/model
 
@@ -60,6 +64,22 @@ A command-line flag wins over the config field. The config field wins over the d
 Model fields describe one model. `variant` requires a `model`, because OpenCode encodes the variant in the model reference as `provider/model#variant`. A variant with no model fails.
 
 See [AI Design](../ai.md) for model and agent defaults.
+
+## Prompts
+
+`prompts` supplies the prompt for each event a [launcher](../launcher.md) handles. Keys use lower camel case for a GitHub event, or `schedule` for a scheduled run, so the `pull_request` event uses `pullRequest` and `issue_comment` uses `issueComment`. The launcher normalizes the delivered event name for lookup. See [Launcher Design](../launcher.md#prompts). Each value is a prompt string or a mapping with a `file` path relative to the repository root:
+
+```yaml
+prompts:
+  push: |
+    Review the repository and make one small improvement.
+  pullRequest:
+    file: .ralph/prompts/pull-request.md
+  schedule:
+    file: .ralph/prompts/daily.md
+```
+
+The launcher reads the config after it clones and fails when its event has no prompt, the prompt is empty, or the file is missing or empty. Other commands ignore `prompts`.
 
 ## Workflow Config
 

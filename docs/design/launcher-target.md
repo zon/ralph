@@ -1,6 +1,6 @@
 # Launcher Target Design
 
-A [launcher](launcher.md) does not run the agent in its own pod. The launcher pod clones the repository, submits one remote run into a target namespace, and waits for it. An entry that sets no `namespace` targets the launcher's own namespace.
+A [launcher](launcher.md) does not run the agent in its own pod. The launcher pod clones the repository, submits one remote run into a target namespace, and waits for it. Every run targets `target.namespace`, the launcher's own namespace by default.
 
 ## Purpose
 
@@ -8,9 +8,9 @@ The agent's pod takes its image, mounts, environment, labels, and resources from
 
 The launcher pod holds the GitHub credentials and the right to submit workflows into the target. It holds nothing the agent's pod holds.
 
-## Entry
+## Target
 
-An entry can set `namespace`. When it is unset, the chart uses the release namespace. The chart passes the result to the workflow as a parameter, and the container passes it to `ralph workflow prompt --namespace`. Every launcher run passes `--namespace`, so no entry runs the agent in the launcher pod.
+`target.namespace` names the namespace every launcher run targets. When it is unset, the chart uses the release namespace. The chart passes the result to the workflow as a parameter, and the container passes it to `ralph workflow prompt --namespace`. Every launcher run passes `--namespace`, so no run executes the agent in the launcher pod.
 
 The target is a namespace of the launcher's own cluster. Another cluster is outside this design.
 
@@ -19,10 +19,11 @@ The target is a namespace of the launcher's own cluster. Another cluster is outs
 `ralph workflow prompt --namespace <namespace>` runs these steps:
 
 1. Prepare the [workspace](workflow.md). GitHub authentication and the clone are the same. The OpenCode credentials step loads nothing when the mount is absent.
-2. Check for an open pull request at the prefix, as any launcher run does. A match ends the command successfully.
-3. Run the prompt as a remote run from the clone, following [Prompt Design](prompt.md). Ralph resolves the base, checks branch sync, and submits a `<prefix>-<slug>-` workflow into the target namespace. The launcher passes its chart `prefix` as `--name-prefix`, so the agent workflow reads `<prefix>-<entry-slug>-<random>`. It sends the prefix and no branch, and asks the AI for nothing. The target workflow proposes the prompt slug.
-4. Follow the logs and wait for the target workflow to finish, with notifications off.
-5. Exit with the target workflow's result.
+2. Read `.ralph/config.yaml`, normalize the event name, and select the matching `prompts` key. A missing key or an empty prompt fails the run.
+3. Check for an open pull request at the prefix, as any launcher run does. A match ends the command successfully.
+4. Run the prompt as a remote run from the clone, following [Prompt Design](prompt.md). Ralph resolves the base, checks branch sync, and submits a `<prefix>-<event>-` workflow into the target namespace. The launcher passes its chart `prefix` as `--name-prefix`, so the agent workflow reads `<prefix>-<event>-<random>`. It sends the prefix and no branch, and asks the AI for nothing. The target workflow proposes the prompt slug.
+5. Follow the logs and wait for the target workflow to finish, with notifications off.
+6. Exit with the target workflow's result.
 
 The flag wins over `workflow.namespace` in the checkout's config. The checkout's `workflow.context` does not apply, because the pod reaches only its own cluster. See [Kubernetes Design](kube.md#in-cluster).
 
@@ -30,7 +31,7 @@ A failed target workflow fails the launcher workflow. Stopping the launcher work
 
 ## Rights
 
-The pod reaches the cluster with its ServiceAccount. For each distinct target namespace, the chart renders a Role and a RoleBinding in that namespace for the workflow ServiceAccount. The release namespace is a target whenever an entry sets no `namespace` or names it. The Role allows:
+The pod reaches the cluster with its ServiceAccount. The chart renders a Role and a RoleBinding in the target namespace for the workflow ServiceAccount. The Role allows:
 
 * `create`, `get`, `list`, and `watch` on workflows
 * `get`, `list`, and `watch` on pods and pod logs
@@ -43,4 +44,4 @@ The launcher pod never runs the agent and never calls a model, so it needs no Op
 
 ## Mutex and Lock
 
-The launcher mutex still queues runs of one entry. The target workflow takes no lock, because the launcher sends no branch and a lock named from the prefix would collide with the launcher mutex while the launcher waits for the target. The launcher mutex is the only serialization a launcher run needs.
+The launcher mutex queues runs of one event. The schedule uses the `schedule` mutex. The target workflow takes no lock, because the launcher sends no branch and a lock named from the prefix would collide with the launcher mutex while the launcher waits for the target. The launcher mutex is the only serialization a launcher run needs.

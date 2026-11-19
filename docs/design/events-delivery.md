@@ -41,9 +41,9 @@ A bus dependency reads the GitHub delivery as the intake's event source publishe
 
 The bus stream's `maxAge` limits what a returning sensor receives. `eventBus.streamConfig` sets it. An event older than the window is lost.
 
-Delivery is at least once, so a launcher can see an event twice. The open pull request check and the entry mutex stop a repeat.
+Delivery is at least once, so a launcher can see an event twice. The open pull request check and the event mutex stop a repeat.
 
-An entry that must not miss a change adds a [schedule](launcher-schedule.md). The schedule runs the entry even when its event never arrived.
+A launcher that must not miss a change adds a [schedule](launcher-schedule.md). The schedule runs the work stream even when its event never arrived.
 
 ## Routing
 
