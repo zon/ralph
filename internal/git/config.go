@@ -17,14 +17,16 @@ type redactedError struct {
 }
 
 func (e redactedError) Error() string {
-	return redactCredentials(e.err.Error())
+	return RedactCredentials(e.err.Error())
 }
 
 func (e redactedError) Unwrap() error {
 	return e.err
 }
 
-func redactCredentials(s string) string {
+// RedactCredentials masks URL credentials in s so error messages and logs do
+// not leak secrets such as tokens embedded in a remote URL.
+func RedactCredentials(s string) string {
 	return credentialPattern.ReplaceAllString(s, "://redacted:redacted@")
 }
 
@@ -39,7 +41,7 @@ func Config(global bool, key, value string) error {
 	if err != nil {
 		// The key and the wrapped git error both echo the arguments, which can
 		// carry credentials such as an installation token.
-		return fmt.Errorf("failed to set git config %s: %w", redactCredentials(key), redactedError{err})
+		return fmt.Errorf("failed to set git config %s: %w", RedactCredentials(key), redactedError{err})
 	}
 	return nil
 }

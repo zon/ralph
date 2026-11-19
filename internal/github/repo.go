@@ -83,7 +83,7 @@ func ParseRemoteURL(remoteURL string) (Repo, error) {
 			repoPath = parts[1]
 		}
 	} else {
-		return Repo{}, fmt.Errorf("not a GitHub repository URL: %s", remoteURL)
+		return Repo{}, fmt.Errorf("not a GitHub repository URL: %s", git.RedactCredentials(remoteURL))
 	}
 
 	repoPath = strings.TrimSuffix(repoPath, ".git")
