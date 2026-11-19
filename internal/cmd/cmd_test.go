@@ -11,8 +11,11 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.yaml.in/yaml/v4"
 
 	"github.com/zon/ralph/internal/config"
+	execcontext "github.com/zon/ralph/internal/context"
+	"github.com/zon/ralph/internal/project"
 )
 
 func TestModeFlagValidation(t *testing.T) {
@@ -214,19 +217,57 @@ func TestRunCmdInputFileValidation(t *testing.T) {
 		assert.Contains(t, err.Error(), "input file not found")
 	})
 
-	t.Run("existing project file passes file validation", func(t *testing.T) {
+	t.Run("existing project file renders the workflow yaml", func(t *testing.T) {
+		t.Setenv("KUBERNETES_SERVICE_HOST", "")
 		dir := t.TempDir()
 		f := filepath.Join(dir, "project.yaml")
 		require.NoError(t, os.WriteFile(f, []byte("slug: test\n"), 0644))
 
-		r := &RunCmd{InputFile: f}
-		err := r.Run()
-		// Error is expected (project execution will fail without full setup),
-		// but it should NOT be an "input file not found" error.
-		if err != nil {
-			assert.NotContains(t, err.Error(), "input file not found")
-		}
+		input, err := project.NewClient(nil, nil).ResolveInputFile(f)
+		require.NoError(t, err)
+
+		ctx := execcontext.NewContext()
+		ctx.SetRepoOwner("zon")
+		ctx.SetRepoName("ralph")
+		adapter := &workflowClientAdapter{ctx: ctx}
+
+		// Render the manifest instead of submitting it, so the test measures
+		// exactly what would be sent without reaching kubectl or Argo.
+		rendered, err := adapter.Render(input, "dev", "", "dev", ".")
+		require.NoError(t, err)
+
+		var doc map[string]interface{}
+		require.NoError(t, yaml.Unmarshal([]byte(rendered), &doc))
+		assert.Equal(t, "Workflow", doc["kind"])
+
+		repoRoot := findRepoRoot(t)
+		relProjectPath, err := filepath.Rel(repoRoot, f)
+		require.NoError(t, err)
+		assert.Equal(t, relProjectPath, workflowParameter(t, doc, "project-path"))
+		assert.Equal(t, "dev", workflowParameter(t, doc, "base-branch"))
 	})
+}
+
+// workflowParameter returns the value of a workflow argument parameter from a
+// parsed manifest.
+func workflowParameter(t *testing.T, doc map[string]interface{}, name string) string {
+	t.Helper()
+	spec, ok := doc["spec"].(map[string]interface{})
+	require.True(t, ok, "spec is not a map")
+	arguments, ok := spec["arguments"].(map[string]interface{})
+	require.True(t, ok, "arguments is not a map")
+	parameters, ok := arguments["parameters"].([]interface{})
+	require.True(t, ok, "parameters is not a list")
+	for _, p := range parameters {
+		param, ok := p.(map[string]interface{})
+		require.True(t, ok, "parameter is not a map")
+		if param["name"] == name {
+			value, _ := param["value"].(string)
+			return value
+		}
+	}
+	t.Fatalf("parameter %q not found", name)
+	return ""
 }
 
 func TestCommandSubcommandRegistered(t *testing.T) {
