@@ -8614,12 +8614,12 @@ if info.Mode().IsRegular() {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="2d00dcab-d45b-4f68-ac60-91c78266679f#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="2d00dcab-d45b-4f68-ac60-91c78266679f#0" hidden data-mark="fixed">
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-medium">medium</span>
                     <span class="comment-lines sr-only">L69-L70</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">Namespace handling is inconsistent between the two helpers. `buildConfigMapArgs` forces an empty namespace to `default`, while `buildGetConfigMapDataArgs` passes the empty value straight through as `-n &#34;&#34;`. If a caller passes `namespace == &#34;&#34;` (which the create path explicitly supports), `kubectl get ... -n &#34;&#34;` falls back to the namespace of the current kubeconfig context instead of `default`. So the configmap can be created in `default` but read from a different namespace, producing misleading &#34;not found&#34;/empty results. Normalize the namespace the same way in both helpers (and keep it out of `GetConfigMapData`&#39;s error message only if truly unset).</div>
                 

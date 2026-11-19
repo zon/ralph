@@ -108,6 +108,13 @@ func TestBuildGetConfigMapDataArgs(t *testing.T) {
 			kubeContext:   "prod-cluster",
 			expectedArgs:  []string{"get", "configmap", "webhook-config", "-n", "production", "-o", `jsonpath={.data.config\.yaml}`, "--context", "prod-cluster"},
 		},
+		{
+			name:          "empty namespace uses default",
+			configMapName: "webhook-config",
+			namespace:     "",
+			kubeContext:   "",
+			expectedArgs:  []string{"get", "configmap", "webhook-config", "-n", "default", "-o", `jsonpath={.data.config\.yaml}`},
+		},
 	}
 
 	for _, tt := range tests {
