@@ -8,6 +8,9 @@ workflow:
 model: deepseek/deepseek-flash
 variant: high
 
+prompts:
+  push: Address a review finding if there is a review file. Otherwise update a dependency. Commit any changes.
+
 loops:
   - slug: prose
     steps:
