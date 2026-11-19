@@ -1,5 +1,7 @@
-# Build stage - compile ralph
-FROM docker.io/library/golang:1.27-trixie AS builder
+# Pin every stage to linux/amd64. The pinned just release and the OpenCode
+# native binary are both amd64 builds, so a host-architecture build on an arm64
+# machine would otherwise embed amd64 tools and fail at runtime.
+FROM --platform=linux/amd64 docker.io/library/golang:1.27-trixie AS builder
 
 WORKDIR /build
 
@@ -25,7 +27,7 @@ RUN just build
 # Git stage - Ubuntu's git package depends on the full Perl runtime. Keep the
 # package out of the runtime and copy only the compiled git files, which link
 # against the shared libraries the runtime installs.
-FROM ubuntu:26.10 AS git
+FROM --platform=linux/amd64 ubuntu:26.10 AS git
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends git \
@@ -37,7 +39,7 @@ RUN apt-get update \
 # release tag lets us raise those dependencies and keeps the Go module cache
 # out of the runtime image. Drop each override once a release ships the fixed
 # version.
-FROM docker.io/library/golang:1.27.4-trixie AS argo
+FROM --platform=linux/amd64 docker.io/library/golang:1.27.4-trixie AS argo
 
 ENV CGO_ENABLED=0
 RUN mkdir /out
@@ -74,8 +76,9 @@ RUN bun install -g --trust @opencode/cli@${OPENCODE_VERSION} \
     && mkdir -p /out \
     && cp "$(readlink -f "$(command -v opencode)")" /out/opencode
 
-# Runtime stage - Ubuntu with the runtime Ralph, argo, gh, and OpenCode need
-FROM ubuntu:26.10
+# Runtime stage - Ubuntu with the runtime Ralph, argo, gh, and OpenCode need.
+# It stays on linux/amd64 like the build stages so every copied binary matches.
+FROM --platform=linux/amd64 ubuntu:26.10
 
 # Apply Ubuntu's security updates and install the system dependencies so base
 # packages such as openssl and libssl3t64 carry no known high-severity findings

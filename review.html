@@ -15428,12 +15428,12 @@ RUN just build</code></pre>
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="76cf2101-b657-4392-af8e-b766d568c928#3" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="76cf2101-b657-4392-af8e-b766d568c928#3" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L75</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">Only this stage is forced to `linux/amd64`, but the final `ubuntu:26.04` stage inherits the target platform. Building on an arm64 host (podman/buildx on Apple Silicon or arm CI) therefore produces an arm64 image that embeds the amd64 OpenCode binary — the image builds fine and then fails at runtime with `exec format error`. Either pin the whole image to amd64 (add `--platform=linux/amd64` to the runtime and other stages / build with `--platform`), or derive the OpenCode stage from `$TARGETPLATFORM` so the binary always matches the target arch.</div>
                 
