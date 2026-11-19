@@ -38,7 +38,7 @@ type GitClient interface {
 	BlockedFileExists() bool
 	HasChanges() bool
 	StageAll() error
-	DiscardChanges() error
+	DiscardFeedback() error
 	ReportExists() bool
 	CommitFromReport(slug string) error
 	CommitFromBlocked(slug string) error
@@ -221,12 +221,13 @@ func (r *Runner) syncBaseBranchBeforePR(cfg *config.RalphConfig, projectBranch s
 // prompts is recorded and the loop continues to the next iteration, whose
 // picker and development prompts carry it as the previous attempt's failure; a
 // successful iteration clears it. A fatal failure stops the loop and is
-// returned. A failed iteration is not committed, and since a failure still
-// consumes one iteration from the limit, carrying failures forward never
-// extends the run past it. The loop stops when no items remain incomplete, when
-// the agent leaves blocked.md at the start of an iteration, or immediately
-// after committing an iteration that left blocked.md, before another iteration
-// starts.
+// returned. A failed iteration is not committed: its code changes stay in the
+// working tree for the next iteration, and its feedback files are discarded so
+// a later commit cannot use them. Since a failure still consumes one iteration
+// from the limit, carrying failures forward never extends the run past it. The
+// loop stops when no items remain incomplete, when the agent leaves blocked.md
+// at the start of an iteration, or immediately after committing an iteration
+// that left blocked.md, before another iteration starts.
 func (r *Runner) iterate(proj *project.Project, cfg *config.RalphConfig) error {
 	extra := r.project.ExtraIterations(proj, cfg)
 	limit := len(proj.Items) + extra
@@ -246,8 +247,8 @@ func (r *Runner) iterate(proj *project.Project, cfg *config.RalphConfig) error {
 			if r.ai.IsFatal(err) {
 				return err
 			}
-			if discardErr := r.git.DiscardChanges(); discardErr != nil {
-				return fmt.Errorf("failed to discard failed iteration changes: %w", discardErr)
+			if discardErr := r.git.DiscardFeedback(); discardErr != nil {
+				return fmt.Errorf("failed to discard failed iteration feedback: %w", discardErr)
 			}
 			previousErr = err
 			continue

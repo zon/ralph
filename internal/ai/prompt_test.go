@@ -670,32 +670,44 @@ func TestPromptsRenderPreviousErrorSection(t *testing.T) {
 	// GIVEN the item-picker, item-development, and loop prompt templates
 	// WHEN each is built with the previous iteration's error and without one
 	// THEN the error is rendered in a clearly labelled section, and the section
-	// is entirely absent when no error was recorded.
+	// is entirely absent when no error was recorded. The prompts that write code
+	// also say the failed attempt's changes are not required and the repository
+	// can be restored.
 	previousErr := errors.New("opencode execution failed: boom")
 	const header = "**Previous Attempt Failed:**"
-	const guidance = "Address its cause before continuing."
+	const pickerGuidance = "Address its cause before continuing."
+	const restoreNote = "They are not required: restore the repository to its last commit if they are not useful."
+	const treeNote = "Any changes the previous iteration left are still in the working tree."
+	const addressGuidance = "Address the cause of the failure before continuing."
 
 	builders := []struct {
-		name  string
-		build func(previousErr error) (string, error)
+		name         string
+		build        func(previousErr error) (string, error)
+		guidance     string
+		wantsRestore bool
 	}{
 		{
 			name: "item picker",
 			build: func(previousErr error) (string, error) {
 				return BuildItemPickPrompt(ItemPickPromptData{PreviousError: previousErr})
 			},
+			guidance: pickerGuidance,
 		},
 		{
 			name: "item development",
 			build: func(previousErr error) (string, error) {
 				return BuildItemDevelopPrompt(ItemDevelopPromptData{PreviousError: previousErr})
 			},
+			guidance:     addressGuidance,
+			wantsRestore: true,
 		},
 		{
 			name: "loop",
 			build: func(previousErr error) (string, error) {
 				return BuildLoopPrompt([]string{"run gofmt"}, previousErr)
 			},
+			guidance:     addressGuidance,
+			wantsRestore: true,
 		},
 	}
 
@@ -705,14 +717,23 @@ func TestPromptsRenderPreviousErrorSection(t *testing.T) {
 			require.NoError(t, err)
 			assert.Contains(t, prompt, header)
 			assert.Contains(t, prompt, previousErr.Error())
-			assert.Contains(t, prompt, guidance)
+			assert.Contains(t, prompt, b.guidance)
+			if b.wantsRestore {
+				assert.Contains(t, prompt, treeNote)
+				assert.Contains(t, prompt, restoreNote)
+			} else {
+				assert.NotContains(t, prompt, treeNote)
+				assert.NotContains(t, prompt, restoreNote)
+			}
 		})
 
 		t.Run(b.name+" renders nothing when no error was recorded", func(t *testing.T) {
 			prompt, err := b.build(nil)
 			require.NoError(t, err)
 			assert.NotContains(t, prompt, header)
-			assert.NotContains(t, prompt, guidance)
+			assert.NotContains(t, prompt, b.guidance)
+			assert.NotContains(t, prompt, treeNote)
+			assert.NotContains(t, prompt, restoreNote)
 			assert.NotContains(t, prompt, "previous iteration")
 		})
 	}

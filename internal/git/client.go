@@ -48,20 +48,16 @@ func (a *Client) StageAll() error {
 	return StageAll()
 }
 
-// DiscardChanges restores the repository to its last commit, discarding the
-// working-tree and index changes a failed iteration left behind. It removes
-// tracked changes, untracked files, and report.md, which is ignored by git, so
-// the next iteration starts from the last committed state and its commit
-// cannot include the failed attempt or use its stale report as the message.
-func (a *Client) DiscardChanges() error {
-	if _, err := runGit("reset", "--hard", "HEAD"); err != nil {
-		return fmt.Errorf("failed to reset working tree: %w", err)
-	}
-	if _, err := runGit("clean", "-fd"); err != nil {
-		return fmt.Errorf("failed to clean untracked files: %w", err)
-	}
-	if err := os.Remove("report.md"); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("failed to remove report.md: %w", err)
+// DiscardFeedback removes the feedback files an agent leaves behind, report.md
+// and blocked.md. report.md is ignored by git. A failed iteration keeps its
+// working-tree code changes, but the next iteration must not commit the stale
+// report as its message or treat the stale block as current. Ralph therefore
+// removes both files before it continues.
+func (a *Client) DiscardFeedback() error {
+	for _, name := range []string{"report.md", "blocked.md"} {
+		if err := os.Remove(name); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("failed to remove %s: %w", name, err)
+		}
 	}
 	return nil
 }

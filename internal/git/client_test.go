@@ -79,6 +79,38 @@ func TestGitClientReportExists(t *testing.T) {
 	})
 }
 
+func TestGitClientDiscardFeedback(t *testing.T) {
+	workDir := t.TempDir()
+	t.Chdir(workDir)
+	testutil.InitGitRepo(t, workDir)
+	testutil.MakeInitialCommit(t, workDir)
+
+	client := git.NewClient(context.NewContext())
+
+	t.Run("removes report.md and blocked.md and keeps code changes", func(t *testing.T) {
+		require.NoError(t, os.WriteFile("README.md", []byte("# changed"), 0644))
+		require.NoError(t, os.WriteFile("newfile.txt", []byte("change"), 0644))
+		require.NoError(t, os.WriteFile("report.md", []byte("stale report"), 0644))
+		require.NoError(t, os.WriteFile("blocked.md", []byte("stale block"), 0644))
+
+		require.NoError(t, client.DiscardFeedback())
+
+		_, err := os.Stat("report.md")
+		assert.True(t, os.IsNotExist(err), "report.md is removed")
+		_, err = os.Stat("blocked.md")
+		assert.True(t, os.IsNotExist(err), "blocked.md is removed")
+		content, err := os.ReadFile("README.md")
+		require.NoError(t, err)
+		assert.Equal(t, "# changed", string(content), "the tracked code change is kept")
+		_, err = os.Stat("newfile.txt")
+		assert.NoError(t, err, "the untracked code change is kept")
+	})
+
+	t.Run("succeeds when no feedback files exist", func(t *testing.T) {
+		require.NoError(t, client.DiscardFeedback())
+	})
+}
+
 func TestGitClientCommitFromReport(t *testing.T) {
 	workDir := t.TempDir()
 	t.Chdir(workDir)

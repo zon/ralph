@@ -41,7 +41,7 @@ The previous iteration failed with this error:
 
 {{.PreviousError}}
 
-Address its cause before continuing.
+Any changes the previous iteration left are still in the working tree. They are not required: restore the repository to its last commit if they are not useful. Address the cause of the failure before continuing.
 {{- end}}
 
 ## Definitions
