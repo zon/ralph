@@ -36,7 +36,7 @@ An agent reports results through files:
 * `picked-item.txt` holds the picker's `ref: <hash>` selection.
 * `NOTHING_TO_DO` in `report.md` ends a loop with no commit.
 
-Ralph commits the report as written. See [Run Design](run.md) and [Loop Design](loop.md).
+Ralph commits the report as written. See [Run Design](run.md) and [Loop Design](loop.md). A failed iteration keeps its code changes and discards `report.md` and `blocked.md`. See [Iteration Recovery Design](iteration-recovery.md).
 
 A direct prompt has no report contract. Its transcript is the output. The prompt commits for itself when its instructions ask. See [Prompt Design](prompt.md).
 

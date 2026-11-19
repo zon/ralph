@@ -1,6 +1,7 @@
 package run
 
 import (
+	"errors"
 	"reflect"
 	"testing"
 
@@ -175,6 +176,64 @@ func TestIterateDoesNotCommitFailedIteration(t *testing.T) {
 	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.WithExtraIterations(0))
 	require.NoError(t, err)
 	require.Equal(t, 1, git.commitFromReportCalls, "only the successful iteration is committed")
+}
+
+// TestIterateDiscardsFailedIterationFeedback asserts a non-fatal failure keeps
+// the attempt's code changes in the working tree and discards its feedback
+// files before the loop continues, so the next iteration builds on that code
+// without committing the stale report the agent left behind.
+func TestIterateDiscardsFailedIterationFeedback(t *testing.T) {
+	picks := 0
+	ai := &mockAI{
+		runPickerFunc: func(_ *project.Project, incomplete []project.Item, _ error) (project.Item, error) {
+			picks++
+			if picks == 1 {
+				return project.Item{}, errNonFatal
+			}
+			return incomplete[0], nil
+		},
+	}
+	git := gitWithChangesAndReport()
+	runner := withMocks(
+		withProject(project.ThatReportsIncompleteUntil(2).WithResolvedItems(3)),
+		withGit(git),
+		withAI(ai),
+	)
+
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.WithExtraIterations(0))
+	require.NoError(t, err)
+	require.Equal(t, 1, git.discardFeedbackCalls, "the failed iteration's feedback is discarded once")
+	require.True(t, git.hasChanges, "the failed iteration's code changes are kept")
+	require.Equal(t, 1, git.commitFromReportCalls, "only the successful iteration is committed")
+}
+
+// TestIterateDiscardFeedbackFailureStopsRun asserts the loop stops when the
+// failed iteration's feedback cannot be discarded, rather than committing it
+// with the next iteration.
+func TestIterateDiscardFeedbackFailureStopsRun(t *testing.T) {
+	picks := 0
+	ai := &mockAI{
+		runPickerFunc: func(_ *project.Project, incomplete []project.Item, _ error) (project.Item, error) {
+			picks++
+			if picks == 1 {
+				return project.Item{}, errNonFatal
+			}
+			return incomplete[0], nil
+		},
+	}
+	discardErr := errors.New("remove failed")
+	git := gitWithChangesAndReport()
+	git.discardFeedbackErr = discardErr
+	runner := withMocks(
+		withProject(project.ThatReportsIncompleteUntil(2).WithResolvedItems(3)),
+		withGit(git),
+		withAI(ai),
+	)
+
+	err := runner.RunLocal(project.ForProjectInput(project.WithItems(3)), config.WithExtraIterations(0))
+	require.ErrorIs(t, err, discardErr)
+	require.Equal(t, 1, aiPickCalls(runner), "the loop stops instead of running another iteration")
+	require.Zero(t, git.commitFromReportCalls, "the failed iteration is not committed")
 }
 
 // TestIterateFatalPickFailureAbortsWithoutBlocking asserts a fatal picker

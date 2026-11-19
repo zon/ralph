@@ -48,6 +48,20 @@ func (a *Client) StageAll() error {
 	return StageAll()
 }
 
+// DiscardFeedback removes the feedback files an agent leaves behind, report.md
+// and blocked.md. report.md is ignored by git. A failed iteration keeps its
+// working-tree code changes, but the next iteration must not commit the stale
+// report as its message or treat the stale block as current. Ralph therefore
+// removes both files before it continues.
+func (a *Client) DiscardFeedback() error {
+	for _, name := range []string{"report.md", "blocked.md"} {
+		if err := os.Remove(name); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("failed to remove %s: %w", name, err)
+		}
+	}
+	return nil
+}
+
 func (a *Client) ReportExists() bool {
 	_, err := os.Stat("report.md")
 	return err == nil

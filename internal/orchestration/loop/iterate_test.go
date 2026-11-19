@@ -111,10 +111,11 @@ func TestRunPropagatesFatalAIError(t *testing.T) {
 }
 
 // TestRunContinuesWhenReportUnreadable asserts an iteration whose agent pass
-// leaves report.md missing or unreadable makes no commit and the loop moves on
-// to the next iteration without returning an error. The loop is still bounded
-// by the iteration cap: an agent pass that never leaves a readable report runs
-// every iteration up to max, committing nothing.
+// leaves report.md missing or unreadable makes no commit, discards its feedback
+// files, and the loop moves on to the next iteration without returning an
+// error. The loop is still bounded by the iteration cap: an agent pass that
+// never leaves a readable report runs every iteration up to max, committing
+// nothing.
 func TestRunContinuesWhenReportUnreadable(t *testing.T) {
 	steps := []string{"run gofmt"}
 	readErr := errors.New("failed to read report.md: boom")
@@ -127,6 +128,7 @@ func TestRunContinuesWhenReportUnreadable(t *testing.T) {
 		wantAICalls  int
 		wantReads    int
 		wantGitCalls int
+		wantDiscards int
 	}{
 		{
 			name:         "skips the unreadable iteration then commits the next work report",
@@ -136,6 +138,7 @@ func TestRunContinuesWhenReportUnreadable(t *testing.T) {
 			wantAICalls:  2,
 			wantReads:    2,
 			wantGitCalls: 1,
+			wantDiscards: 1,
 		},
 		{
 			name:         "commits nothing for an unreadable report and stops on a later nothing-to-do report",
@@ -145,6 +148,7 @@ func TestRunContinuesWhenReportUnreadable(t *testing.T) {
 			wantAICalls:  2,
 			wantReads:    2,
 			wantGitCalls: 0,
+			wantDiscards: 1,
 		},
 		{
 			name:         "an unreadable report on every iteration runs to the cap without committing",
@@ -154,6 +158,7 @@ func TestRunContinuesWhenReportUnreadable(t *testing.T) {
 			wantAICalls:  3,
 			wantReads:    3,
 			wantGitCalls: 0,
+			wantDiscards: 3,
 		},
 	}
 
@@ -174,6 +179,7 @@ func TestRunContinuesWhenReportUnreadable(t *testing.T) {
 			assert.Equal(t, tt.wantReads, report.reads, "the report is read once per iteration until the loop stops or the cap is reached")
 			assert.Equal(t, tt.wantGitCalls, git.calls, "only iterations whose report is readable and reports work are committed")
 			assert.Equal(t, tt.wantGitCalls, len(git.slugs), "every commit records the slug it was called with")
+			assert.Equal(t, tt.wantDiscards, git.discardFeedbackCalls, "each unreadable report discards the failed iteration's feedback")
 		})
 	}
 }

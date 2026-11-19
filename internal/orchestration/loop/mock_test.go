@@ -205,6 +205,9 @@ type mockGitClient struct {
 	pushCalls         int
 	lastFetchedBranch string
 	lastMergedBranch  string
+
+	discardFeedbackCalls int
+	discardFeedbackErr   error
 }
 
 func (m *mockGitClient) CurrentBranch() (string, error) {
@@ -230,6 +233,11 @@ func (m *mockGitClient) CommitIterationAndPush(slug string) error {
 		return m.err
 	}
 	return nil
+}
+
+func (m *mockGitClient) DiscardFeedback() error {
+	m.discardFeedbackCalls++
+	return m.discardFeedbackErr
 }
 
 func (m *mockGitClient) CheckoutBranch(name string) error {

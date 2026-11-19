@@ -10909,12 +10909,12 @@ func topWorkflow(names []string) (string, error) {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="cf443323-e3bd-4f12-b72f-5089a583895b#1" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="cf443323-e3bd-4f12-b72f-5089a583895b#1" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L244-L245</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">A non-fatal iteration failure is recorded and the loop continues without discarding the failed attempt&#39;s working-tree changes. Those changes (plus any `report.md` the agent left behind) are still present when the next iteration succeeds, so `commitIteration` stages and commits them, and `ReportExists()` makes it commit the *stale* report as the message — contradicting the documented contract that &#34;a failed iteration is not committed&#34; and mixing two iterations into one commit. Discard the failed attempt&#39;s changes before continuing (e.g. add a reset/clean method to `GitClient` and call it here) so each iteration starts from the last committed state.</div>
                 

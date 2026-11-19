@@ -1,6 +1,8 @@
 package loop
 
 import (
+	"fmt"
+
 	"github.com/zon/ralph/internal/ai"
 	"github.com/zon/ralph/internal/basesync"
 	"github.com/zon/ralph/internal/git"
@@ -54,13 +56,15 @@ type ReportReader interface {
 }
 
 // GitClient switches the loop to its branch before the agent runs, commits
-// each iteration to the loop branch, pushing it, synchronizes the loop branch
-// with the branch it was created from, and checks the starting checkout back
-// out after the pull request opens.
+// each iteration to the loop branch, discards the feedback files a failed
+// iteration leaves behind, pushing it, synchronizes the loop branch with the
+// branch it was created from, and checks the starting checkout back out after
+// the pull request opens.
 type GitClient interface {
 	CurrentBranch() (string, error)
 	SwitchToLoopBranch(slug string) error
 	CommitIterationAndPush(slug string) error
+	DiscardFeedback() error
 	CheckoutBranch(name string) error
 	HasCommitsAhead(base string) (bool, error)
 	FetchBranch(branch string) error
@@ -240,14 +244,16 @@ func (c *Cmd) syncBaseBranchBeforePR(result *Result, inWorktree bool) error {
 
 // iterate runs the resolved steps as an iteration loop. Each iteration builds
 // the loop prompt, invokes the AI, and reads the agent's report. A non-fatal AI
-// pass failure is recorded and the loop moves on to the next iteration, whose
-// prompt carries the recorded error as the failure of the previous attempt; a
-// successful AI pass clears it. A fatal failure stops the loop immediately and
-// is returned. An iteration whose agent pass leaves report.md missing or
-// unreadable is not committed: the loop moves on to the next iteration instead
-// of returning an error, still bounded by the iteration cap. Otherwise the
-// iteration commits when the report says work was done. The loop stops when the
-// report says nothing to do or after max iterations, whichever comes first.
+// pass failure keeps the attempt's code changes and discards its feedback files.
+// Ralph records the error and moves on to the next iteration, whose prompt
+// carries it as the failure of the previous attempt. A successful AI pass clears
+// it. A fatal failure stops the loop immediately and is returned. An iteration
+// whose agent pass leaves report.md missing or unreadable is not committed: its
+// feedback files are discarded, its error is recorded, and the loop moves on to
+// the next iteration instead of returning an error, still bounded by the
+// iteration cap. Otherwise the iteration commits when the report says work was
+// done. The loop stops when the report says nothing to do or after max
+// iterations, whichever comes first.
 func (c *Cmd) iterate(steps []string, max int, slug string) error {
 	var previousErr error
 	for i := 0; i < max; i++ {
@@ -259,12 +265,19 @@ func (c *Cmd) iterate(steps []string, max int, slug string) error {
 			if c.ai.IsFatal(err) {
 				return err
 			}
+			if discardErr := c.git.DiscardFeedback(); discardErr != nil {
+				return fmt.Errorf("failed to discard failed iteration feedback: %w", discardErr)
+			}
 			previousErr = err
 			continue
 		}
 		previousErr = nil
 		report, err := c.report.ReadReport()
 		if err != nil {
+			if discardErr := c.git.DiscardFeedback(); discardErr != nil {
+				return fmt.Errorf("failed to discard failed iteration feedback: %w", discardErr)
+			}
+			previousErr = err
 			continue
 		}
 		if report.IsNothingToDo() {

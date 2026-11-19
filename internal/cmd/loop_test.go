@@ -549,6 +549,9 @@ type fakeGitClient struct {
 	lastFetchedBranch    string
 	lastMergedBranch     string
 	lastCheckedOutBranch string
+
+	discardFeedbackCalls int
+	discardFeedbackErr   error
 }
 
 func (f *fakeGitClient) CurrentBranch() (string, error) {
@@ -571,6 +574,11 @@ func (f *fakeGitClient) CommitIterationAndPush(slug string) error {
 		return f.err
 	}
 	return nil
+}
+
+func (f *fakeGitClient) DiscardFeedback() error {
+	f.discardFeedbackCalls++
+	return f.discardFeedbackErr
 }
 
 func (f *fakeGitClient) CheckoutBranch(name string) error {

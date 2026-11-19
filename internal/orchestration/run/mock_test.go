@@ -139,6 +139,8 @@ type mockGit struct {
 	commitFromBlockedCalled    bool
 	stageAllCalled             bool
 	commitProjectRemovalCalled bool
+	discardFeedbackCalls       int
+	discardFeedbackErr         error
 	fetchBranchCalled          bool
 	needsMergeCalled           bool
 	mergeCalled                bool
@@ -175,6 +177,12 @@ func (m *mockGit) StageAll() error {
 	m.stageAllCalled = true
 	m.order = append(m.order, "stage")
 	return nil
+}
+
+func (m *mockGit) DiscardFeedback() error {
+	m.discardFeedbackCalls++
+	m.order = append(m.order, "discard")
+	return m.discardFeedbackErr
 }
 
 func (m *mockGit) ReportExists() bool {
