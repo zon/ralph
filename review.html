@@ -13916,12 +13916,12 @@ jobs:
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="3b2ddff6-e978-4a8f-a0bc-e69b48abc4a5#2" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="3b2ddff6-e978-4a8f-a0bc-e69b48abc4a5#2" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L50-L51</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">The tag is pushed *before* the release is created and before the Homebrew tap is updated, and every later step is gated on `exists == &#39;false&#39;`. If release creation, the checksum step, or the tap update fails (transient `gh`/network error, tap deploy key missing, formula format change), the tag already exists, so re-running the workflow skips all remaining work and leaves a tag with no release and/or a stale tap formula. Make the steps individually idempotent, e.g. check the tag and the release separately (`gh release view &#34;v${VERSION}&#34; || gh release create ...`), or make the gate depend only on whether the concrete artifact already exists.</div>
                 
