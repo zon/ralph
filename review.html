@@ -7991,12 +7991,12 @@ The same gap applies to `RunRemoteFromClone` when neither branch nor prefix is s
         
             
             
-            <div class="comment-card" data-comment-card data-category="security" data-severity="medium" data-mark-id="fc42d708-4b6d-4876-8f47-75aae5735e21#1" hidden>
+            <div class="comment-card" data-comment-card data-category="security" data-severity="medium" data-mark-id="fc42d708-4b6d-4876-8f47-75aae5735e21#1" hidden data-mark="fixed">
                 <div class="comment-meta">
                     <span class="comment-badge cat-security">security</span>
                     <span class="comment-badge severity-medium">medium</span>
                     <span class="comment-lines sr-only">L86</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">The raw remote URL is embedded in the error. Remotes frequently carry embedded credentials (`https://x-access-token:ghp_xxx@host/...`, which the tests above explicitly expect to support), so a non-GitHub remote produces an error message containing a live token that will end up in logs / CI output. Redact the userinfo (`url.Redacted()` or equivalent) before formatting it.</div>
                 

@@ -9,12 +9,13 @@ import (
 
 func TestParseRemoteURL(t *testing.T) {
 	tests := []struct {
-		name        string
-		remoteURL   string
-		wantOwner   string
-		wantName    string
-		wantErr     bool
-		errContains string
+		name           string
+		remoteURL      string
+		wantOwner      string
+		wantName       string
+		wantErr        bool
+		errContains    string
+		errNotContains string
 	}{
 		{
 			name:      "SSH format with .git suffix",
@@ -45,6 +46,13 @@ func TestParseRemoteURL(t *testing.T) {
 			remoteURL:   "https://gitlab.com/acme/my-repo.git",
 			wantErr:     true,
 			errContains: "not a GitHub repository URL",
+		},
+		{
+			name:           "non-GitHub URL with credentials",
+			remoteURL:      "https://x-access-token:ghp_secret@gitlab.com/acme/my-repo.git",
+			wantErr:        true,
+			errContains:    "https://redacted:redacted@gitlab.com/acme/my-repo.git",
+			errNotContains: "ghp_secret",
 		},
 		{
 			name:        "empty URL",
@@ -78,6 +86,9 @@ func TestParseRemoteURL(t *testing.T) {
 			if tc.wantErr {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tc.errContains)
+				if tc.errNotContains != "" {
+					assert.NotContains(t, err.Error(), tc.errNotContains)
+				}
 				return
 			}
 			require.NoError(t, err)
