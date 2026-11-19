@@ -50,8 +50,13 @@ jobs:
             version="$(helm show chart "$directory" | awk '$1 == "version:" { print $2; exit }')"
             if [ "$BRANCH" = "main" ]; then
               chart_version="$version"
+            elif [ "$BRANCH" = "dev" ]; then
+              # Include the run and attempt so a rerun never pushes an OCI tag
+              # that already exists.
+              chart_version="${version}-dev.${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}"
             else
-              chart_version="${version}-dev"
+              echo "Skipping chart publish for branch ${BRANCH}"
+              exit 0
             fi
             package="dist/${name}-${chart_version}.tgz"
             helm package "$directory" --version "$chart_version" --destination dist
