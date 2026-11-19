@@ -206,8 +206,15 @@ func (c *Client) ValidateFile(path string) error {
 	if err != nil {
 		return fmt.Errorf("failed to resolve project file path: %w", err)
 	}
-	if _, err := os.Stat(absPath); os.IsNotExist(err) {
-		return fmt.Errorf("project file not found: %s", absPath)
+	info, err := os.Stat(absPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("project file not found: %s", absPath)
+		}
+		return fmt.Errorf("failed to stat project file %s: %w", absPath, err)
+	}
+	if !info.Mode().IsRegular() {
+		return fmt.Errorf("project file is not a regular file: %s", absPath)
 	}
 	return nil
 }

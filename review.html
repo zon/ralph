@@ -10787,12 +10787,12 @@ func topWorkflow(names []string) (string, error) {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="654791d6-57d9-40b4-ae8c-cb561b082788#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="654791d6-57d9-40b4-ae8c-cb561b082788#0" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-medium">medium</span>
                     <span class="comment-lines sr-only">L209-L212</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">`os.Stat`&#39;s error is only inspected via `os.IsNotExist`, so every other failure (permission denied, I/O error, dangling symlink, etc.) is silently treated as a valid file, and an existing directory also passes validation. The caller (`completion` cmd) then fails later in `Resolve` with a less obvious read/parse error. Handle the stat error explicitly and reject non-regular files.</div>
                 
