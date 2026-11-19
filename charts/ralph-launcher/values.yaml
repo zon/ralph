@@ -1,10 +1,10 @@
 nameOverride: ""
 fullnameOverride: ""
 
-# prefix is the name prefix for every workflow the launcher creates. Event and
-# target agent workflows are named <prefix>-<event>, and the schedule workflow
-# <prefix>-schedule-cron-launcher, with a generated suffix where the Kubernetes
-# API supports one.
+# prefix is the name prefix for every workflow the launcher creates. Event
+# workflows and target agent workflows are named <prefix>-<event> with a
+# generated suffix. The schedule CronWorkflow is named
+# <prefix>-schedule-cron-launcher, and each scheduled run adds a timestamp.
 prefix: ralph
 
 # delivery selects how repository events reach this launcher. Use subject to
@@ -54,8 +54,9 @@ prompt:
   # the launcher handles no events. Set events: [] to accept every event.
   #
   # schedule holds one cron expression or a list of expressions, for example
-  # "0 8 * * *". The chart renders one CronWorkflow for the launcher when it is
-  # set. The launcher may have events, a schedule, or both.
+  # "0 8 * * *" or ["0 8 * * *", "0 20 * * *"]. The chart renders one
+  # CronWorkflow for the launcher when it is set. The launcher may have events,
+  # a schedule, or both.
   #
   # The repository's .ralph/config.yaml supplies the prompt for each event and
   # for schedule. The chart holds no prompt text.
