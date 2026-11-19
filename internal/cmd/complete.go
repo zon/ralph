@@ -22,7 +22,10 @@ type CompleteCmd struct {
 
 func (c *CompleteCmd) Run() error {
 	ctx := createExecutionContext()
-	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
+	// Results go to stdout, so diagnostics such as the warnings the project
+	// client emits must go to stderr to keep --json and one-hash-per-line
+	// output machine-readable.
+	ctx.SetOutput(output.NewClient(os.Stderr, os.Stderr, false))
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		return err
