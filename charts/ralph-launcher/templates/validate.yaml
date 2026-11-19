@@ -1,1 +1,2 @@
 {{- include "ralph-launcher.validateDelivery" . -}}
+{{- include "ralph-launcher.validatePrompt" . -}}

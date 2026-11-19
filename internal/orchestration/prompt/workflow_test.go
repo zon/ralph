@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/zon/ralph/internal/config"
 	wksp "github.com/zon/ralph/internal/orchestration/workspace"
 )
 
@@ -71,7 +72,7 @@ func TestWorkflowPromptCmdRejectsMissingPromptBeforeWorkspace(t *testing.T) {
 			flags.Prompt = tt.prompt
 			workspace := &fakeWorkspaceSetupClient{}
 			runner := &fakeRunnerClient{}
-			cmd := NewWorkflowPromptCmd(workspace, runner)
+			cmd := NewWorkflowPromptCmd(workspace, runner, &config.MockLoader{})
 
 			err := cmd.Run(flags)
 
@@ -82,13 +83,122 @@ func TestWorkflowPromptCmdRejectsMissingPromptBeforeWorkspace(t *testing.T) {
 	}
 }
 
+// TestWorkflowPromptCmdEventResolvesPromptAfterWorkspace covers an event with
+// no supplied prompt: the workspace is prepared first, then the event's prompt
+// is read from the loaded repository config and handed to the prompt flow.
+func TestWorkflowPromptCmdEventResolvesPromptAfterWorkspace(t *testing.T) {
+	workspace := &fakeWorkspaceSetupClient{}
+	loader := &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) {
+		assert.True(t, workspace.called, "the config is loaded after the workspace is prepared")
+		return &config.RalphConfig{
+			Prompts: map[string]config.Prompt{
+				"pullRequest": {Text: "Review the change."},
+			},
+		}, nil
+	}}
+	runner := &fakeRunnerClient{}
+	cmd := NewWorkflowPromptCmd(workspace, runner, loader)
+	flags := promptFlags()
+	flags.Event = "pull_request"
+	flags.Prompt = ""
+
+	require.NoError(t, cmd.Run(flags))
+
+	assert.True(t, workspace.called)
+	assert.True(t, runner.called)
+	assert.Equal(t, "Review the change.", runner.flags.Prompt)
+	assert.Equal(t, "pull_request", runner.flags.Event)
+}
+
+// TestWorkflowPromptCmdEventPromptFailureAbortsBeforeRunner covers an event
+// whose key is missing or whose prompt is empty: the workspace is prepared,
+// then the command fails before the prompt flow starts.
+func TestWorkflowPromptCmdEventPromptFailureAbortsBeforeRunner(t *testing.T) {
+	tests := []struct {
+		name    string
+		event   string
+		prompts map[string]config.Prompt
+	}{
+		{name: "missing key", event: "issue_comment"},
+		{
+			name:    "empty prompt",
+			event:   "push",
+			prompts: map[string]config.Prompt{"push": {Text: "  \n\t"}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			workspace := &fakeWorkspaceSetupClient{}
+			loader := &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) {
+				return &config.RalphConfig{Prompts: tt.prompts}, nil
+			}}
+			runner := &fakeRunnerClient{}
+			cmd := NewWorkflowPromptCmd(workspace, runner, loader)
+			flags := promptFlags()
+			flags.Event = tt.event
+			flags.Prompt = ""
+
+			err := cmd.Run(flags)
+
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.event)
+			assert.True(t, workspace.called, "the workspace is prepared before the event prompt is resolved")
+			assert.False(t, runner.called, "the prompt does not run when the event has no prompt")
+		})
+	}
+}
+
+// TestWorkflowPromptCmdEventConfigFailureAbortsBeforeRunner covers a repository
+// config that cannot be loaded failing before the prompt flow starts.
+func TestWorkflowPromptCmdEventConfigFailureAbortsBeforeRunner(t *testing.T) {
+	workspace := &fakeWorkspaceSetupClient{}
+	loadErr := errors.New("config boom")
+	loader := &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) {
+		return nil, loadErr
+	}}
+	runner := &fakeRunnerClient{}
+	cmd := NewWorkflowPromptCmd(workspace, runner, loader)
+	flags := promptFlags()
+	flags.Event = "push"
+	flags.Prompt = ""
+
+	err := cmd.Run(flags)
+
+	require.ErrorIs(t, err, loadErr)
+	assert.True(t, workspace.called)
+	assert.False(t, runner.called, "the prompt does not run when the config cannot be loaded")
+}
+
+// TestWorkflowPromptCmdSuppliedPromptWinsOverEvent covers an event and a
+// supplied prompt: the supplied prompt runs and the repository config is never
+// read.
+func TestWorkflowPromptCmdSuppliedPromptWinsOverEvent(t *testing.T) {
+	workspace := &fakeWorkspaceSetupClient{}
+	loader := &config.MockLoader{LoadFn: func() (*config.RalphConfig, error) {
+		t.Fatal("the config is not loaded when a prompt is supplied")
+		return nil, nil
+	}}
+	runner := &fakeRunnerClient{}
+	cmd := NewWorkflowPromptCmd(workspace, runner, loader)
+	flags := promptFlags()
+	flags.Event = "push"
+
+	require.NoError(t, cmd.Run(flags))
+
+	assert.True(t, workspace.called)
+	assert.True(t, runner.called)
+	assert.Equal(t, "Add the endpoint.", runner.flags.Prompt)
+	assert.Equal(t, "push", runner.flags.Event)
+}
+
 // TestWorkflowPromptCmdPreparesWorkspaceOnPromptBranch asserts the workspace
 // clones the repository, checks out the prompt branch, creating it when it does
 // not exist, and then runs the prompt with every option the workflow carried.
 func TestWorkflowPromptCmdPreparesWorkspaceOnPromptBranch(t *testing.T) {
 	workspace := &fakeWorkspaceSetupClient{}
 	runner := &fakeRunnerClient{}
-	cmd := NewWorkflowPromptCmd(workspace, runner)
+	cmd := NewWorkflowPromptCmd(workspace, runner, &config.MockLoader{})
 	flags := promptFlags()
 	flags.Namespace = ""
 
@@ -121,7 +231,7 @@ func TestWorkflowPromptCmdPreparesWorkspaceOnPromptBranch(t *testing.T) {
 func TestWorkflowPromptCmdTargetNamespaceClonesOnly(t *testing.T) {
 	workspace := &fakeWorkspaceSetupClient{}
 	runner := &fakeRunnerClient{}
-	cmd := NewWorkflowPromptCmd(workspace, runner)
+	cmd := NewWorkflowPromptCmd(workspace, runner, &config.MockLoader{})
 	flags := promptFlags()
 
 	require.NoError(t, cmd.Run(flags))
@@ -141,7 +251,7 @@ func TestWorkflowPromptCmdTargetNamespaceClonesOnly(t *testing.T) {
 func TestWorkflowPromptCmdPrefixWithoutBranchClonesForPrompt(t *testing.T) {
 	workspace := &fakeWorkspaceSetupClient{}
 	runner := &fakeRunnerClient{}
-	cmd := NewWorkflowPromptCmd(workspace, runner)
+	cmd := NewWorkflowPromptCmd(workspace, runner, &config.MockLoader{})
 	flags := promptFlags()
 	flags.Branch = ""
 
@@ -172,7 +282,7 @@ func TestWorkflowPromptCmdRejectsBranchOutsidePrefixBeforeWorkspace(t *testing.T
 		t.Run(tt.name, func(t *testing.T) {
 			workspace := &fakeWorkspaceSetupClient{}
 			runner := &fakeRunnerClient{}
-			cmd := NewWorkflowPromptCmd(workspace, runner)
+			cmd := NewWorkflowPromptCmd(workspace, runner, &config.MockLoader{})
 			flags := promptFlags()
 			flags.Branch = tt.branch
 
@@ -193,7 +303,7 @@ func TestWorkflowPromptCmdWorkspaceFailureAbortsBeforePrompt(t *testing.T) {
 	workspaceErr := errors.New("workspace setup boom")
 	workspace := &fakeWorkspaceSetupClient{err: workspaceErr}
 	runner := &fakeRunnerClient{}
-	cmd := NewWorkflowPromptCmd(workspace, runner)
+	cmd := NewWorkflowPromptCmd(workspace, runner, &config.MockLoader{})
 
 	err := cmd.Run(promptFlags())
 
@@ -208,7 +318,7 @@ func TestWorkflowPromptCmdPropagatesPromptFailure(t *testing.T) {
 	promptErr := errors.New("prompt boom")
 	workspace := &fakeWorkspaceSetupClient{}
 	runner := &fakeRunnerClient{err: promptErr}
-	cmd := NewWorkflowPromptCmd(workspace, runner)
+	cmd := NewWorkflowPromptCmd(workspace, runner, &config.MockLoader{})
 
 	err := cmd.Run(promptFlags())
 

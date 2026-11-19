@@ -4,6 +4,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/zon/ralph/internal/config"
 	execcontext "github.com/zon/ralph/internal/context"
 	orchestrationPrompt "github.com/zon/ralph/internal/orchestration/prompt"
 	"github.com/zon/ralph/internal/output"
@@ -21,6 +22,7 @@ type WorkflowPromptCmd struct {
 	NamePrefix  string `help:"Prefix for the submitted target workflow name" name:"name-prefix"`
 	Base        string `help:"Base branch for PR creation" name:"base" short:"B"`
 	Prompt      string `help:"Prompt text to run" name:"prompt"`
+	Event       string `help:"Event whose configured prompt runs when no prompt is supplied, such as push or schedule" name:"event"`
 	Namespace   string `help:"The name of the Kubernetes namespace to use" name:"namespace"`
 	BotName     string `help:"Git user name for commits" default:"ralph-zon[bot]"`
 	BotEmail    string `help:"Git user email for commits" default:"ralph-zon[bot]@users.noreply.github.com"`
@@ -38,6 +40,10 @@ type WorkflowPromptCmd struct {
 	// promptRunner runs the prompt flow in-process after the workspace is
 	// prepared. Tests inject a fake. When nil, Run builds the real adapter.
 	promptRunner orchestrationPrompt.RunnerClient `kong:"-"`
+
+	// configLoader resolves an event's prompt from the cloned repository's
+	// config. Tests inject a fake. When nil, Run builds the real client.
+	configLoader config.Loader `kong:"-"`
 }
 
 func (w *WorkflowPromptCmd) Run() error {
@@ -70,6 +76,7 @@ func (w *WorkflowPromptCmd) Run() error {
 		NamePrefix:  w.NamePrefix,
 		BaseBranch:  w.Base,
 		Prompt:      w.Prompt,
+		Event:       w.Event,
 		Namespace:   w.Namespace,
 		BotName:     w.BotName,
 		BotEmail:    w.BotEmail,
@@ -94,7 +101,11 @@ func (w *WorkflowPromptCmd) newOrchestrationWorkflowPromptCmd(ctx *execcontext.C
 	if runner == nil {
 		runner = &promptWorkflowRunnerAdapter{ctx: ctx}
 	}
-	return orchestrationPrompt.NewWorkflowPromptCmd(workspace, runner)
+	loader := w.configLoader
+	if loader == nil {
+		loader = &config.Client{}
+	}
+	return orchestrationPrompt.NewWorkflowPromptCmd(workspace, runner, loader)
 }
 
 // promptWorkflowRunnerAdapter runs the prompt flow after the workspace is

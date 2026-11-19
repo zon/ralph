@@ -150,8 +150,8 @@ func TestPromptWorkflowClientSubmitPrefix(t *testing.T) {
 }
 
 // TestPromptWorkflowClientSubmitNamePrefix covers a launcher target prompt: the
-// chart name prefix and the entry slug name the submitted workflow
-// <prefix>-<slug>- with the Kubernetes-generated suffix.
+// chart name prefix and the event name the submitted workflow
+// <prefix>-<event>- with the Kubernetes-generated suffix.
 func TestPromptWorkflowClientSubmitNamePrefix(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".ralph"), 0755))
@@ -174,7 +174,7 @@ func TestPromptWorkflowClientSubmitNamePrefix(t *testing.T) {
 	client := &promptWorkflowClient{ctx: ctx, argoClient: argoClient}
 	_, err := client.Submit(promptRemoteSubmission{
 		CloneBranch: "main",
-		Prefix:      "review",
+		Prefix:      "pull_request",
 		NamePrefix:  "ralph",
 		BaseBranch:  "main",
 		Prompt:      "Review the repository.",
@@ -185,7 +185,7 @@ func TestPromptWorkflowClientSubmitNamePrefix(t *testing.T) {
 	require.NoError(t, yaml.Unmarshal([]byte(submittedYAML), &data))
 
 	metadata := data["metadata"].(map[string]interface{})
-	assert.Equal(t, "ralph-review-", metadata["generateName"])
+	assert.Equal(t, "ralph-pull-request-", metadata["generateName"])
 }
 
 // TestPromptCmdNamedBranchRemoteWorkflowBranchAndLock covers a named --branch

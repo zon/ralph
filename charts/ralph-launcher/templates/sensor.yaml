@@ -1,4 +1,6 @@
-{{- include "ralph-launcher.validatePromptEntries" . -}}
+{{- include "ralph-launcher.validatePrompt" . -}}
+{{- $events := include "ralph-launcher.promptEvents" . | fromJsonArray -}}
+{{- if $events -}}
 apiVersion: argoproj.io/v1alpha1
 kind: Sensor
 metadata:
@@ -11,20 +13,19 @@ spec:
   template:
     serviceAccountName: {{ include "ralph-launcher.serviceAccountName" . }}
   dependencies:
-    {{- range $entry := .Values.prompt.entries }}
-    {{- $events := include "ralph-launcher.entryEvents" $entry | fromJsonArray }}
     {{- range $event := $events }}
-    - name: {{ include "ralph-launcher.entryName" (dict "slug" $entry.slug "event" $event) | quote }}
+    - name: {{ include "ralph-launcher.dependencyName" (dict "event" $event) | quote }}
       eventSourceName: {{ include "ralph-launcher.dependencyEventSourceName" $ }}
       eventName: {{ include "ralph-launcher.dependencyEventName" $ }}
       {{- include "ralph-launcher.dependencyFilters" (dict "root" $ "event" $event) | nindent 6 }}
     {{- end }}
-    {{- end }}
   triggers:
-    {{- range $entry := .Values.prompt.entries }}
-    {{- $events := include "ralph-launcher.entryEvents" $entry | fromJsonArray }}
     {{- range $event := $events }}
-    {{- $name := include "ralph-launcher.entryName" (dict "slug" $entry.slug "event" $event) }}
+    {{- $name := include "ralph-launcher.dependencyName" (dict "event" $event) }}
+    {{- $generateName := printf "%s-launcher-" (include "ralph-launcher.eventWorkflowBase" (dict "root" $ "event" $event)) }}
+    {{- if not $event }}
+    {{- $generateName = printf "%s-" (include "ralph-launcher.prefix" $) }}
+    {{- end }}
     - template:
         name: {{ $name | quote }}
         conditions: {{ $name | quote }}
@@ -34,8 +35,33 @@ spec:
             resource:
               apiVersion: argoproj.io/v1alpha1
               kind: Workflow
-              {{- include "ralph-launcher.workflowSettings" (dict "root" $ "entry" $entry "metadataKey" "metadata" "specKey" "spec" "generateName" (printf "%s-launcher-" (include "ralph-launcher.entryWorkflowName" (dict "root" $ "entry" $entry)))) | nindent 14 }}
+              {{- include "ralph-launcher.workflowSettings" (dict "root" $ "event" $event "metadataKey" "metadata" "specKey" "spec" "generateName" $generateName) | nindent 14 }}
+          {{ if not $event }}
+          {{- $eventPath := include "ralph-launcher.deliveredEventPath" $ -}}
+          {{- $normalized := include "ralph-launcher.deliveredEventTemplate" $ -}}
+          {{- $workflowSuffix := printf "%s-launcher-" $normalized -}}
+          parameters:
+            - src:
+                dependencyName: {{ $name | quote }}
+                dataKey: {{ $eventPath | quote }}
+              dest: spec.arguments.parameters.2.value
+            - src:
+                dependencyName: {{ $name | quote }}
+                dataKey: {{ $eventPath | quote }}
+              dest: spec.arguments.parameters.5.value
+            - src:
+                dependencyName: {{ $name | quote }}
+                dataTemplate: {{ $workflowSuffix | quote }}
+              dest: metadata.generateName
+              operation: append
+            {{- if and $.Values.workflow.mutex.enabled (not $.Values.workflow.mutex.name) }}
+            - src:
+                dependencyName: {{ $name | quote }}
+                dataTemplate: {{ $normalized | quote }}
+              dest: spec.synchronization.mutexes.0.name
+            {{- end }}
+          {{- end }}
         retryStrategy:
           steps: {{ $.Values.sensor.retry.steps }}
     {{- end }}
-    {{- end }}
+{{- end }}
