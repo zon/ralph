@@ -9543,12 +9543,12 @@ func topWorkflow(names []string) (string, error) {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="76c0b053-9ec0-4283-8ea1-9c32df190d7e#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="76c0b053-9ec0-4283-8ea1-9c32df190d7e#0" hidden data-mark="fixed">
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-medium">medium</span>
                     <span class="comment-lines sr-only">L10-L12</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">An empty `current` is treated as a usable base branch: when the caller passes `&#34;&#34;` (e.g. a git client implementation that reports no error for a detached/unknown HEAD), this returns `&#34;&#34;` instead of falling back to `defaultBranch`, and the empty value is then stored into `cfg.Base`/`ExecutionSetup.BaseBranch` and used later as a git ref. Guard against the empty case so the default is only bypassed for a real branch.</div>
                 

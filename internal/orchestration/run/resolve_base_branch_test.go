@@ -20,3 +20,8 @@ func TestResolveBaseBranchAlreadyOnProjectBranch(t *testing.T) {
 	result := ResolveBaseBranch("", "my-project", "my-project", "main")
 	require.Equal(t, "main", result)
 }
+
+func TestResolveBaseBranchEmptyCurrentFallsBackToDefault(t *testing.T) {
+	result := ResolveBaseBranch("", "", "my-project", "main")
+	require.Equal(t, "main", result)
+}

@@ -7,7 +7,7 @@ func ResolveBaseBranch(base, current, project, defaultBranch string) string {
 	if base != "" {
 		return base
 	}
-	if current != project {
+	if current != "" && current != project {
 		return current
 	}
 	return defaultBranch
