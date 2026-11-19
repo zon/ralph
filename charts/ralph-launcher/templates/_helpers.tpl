@@ -188,6 +188,15 @@ repo
 {{- end -}}
 {{- end -}}
 
+{{- define "ralph-launcher.deliveredEventPath" -}}
+{{- ternary "headers.X-Github-Event.0" "body.event" (eq (include "ralph-launcher.delivery" .) "bus") -}}
+{{- end -}}
+
+{{- define "ralph-launcher.deliveredEventTemplate" -}}
+{{- $input := ternary "first (index .Input.headers \"X-Github-Event\")" ".Input.body.event" (eq (include "ralph-launcher.delivery" .) "bus") -}}
+{{- printf "{{ %s | lower | replace \".\" \"-\" | replace \"_\" \"-\" | replace \"/\" \"-\" | trunc 63 | trimSuffix \"-\" }}" $input -}}
+{{- end -}}
+
 {{- define "ralph-launcher.serviceAccountName" -}}
 {{- default (include "ralph-launcher.fullname" .) .Values.sensor.serviceAccount.name -}}
 {{- end -}}

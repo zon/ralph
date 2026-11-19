@@ -37,9 +37,8 @@ spec:
               kind: Workflow
               {{- include "ralph-launcher.workflowSettings" (dict "root" $ "event" $event "metadataKey" "metadata" "specKey" "spec" "generateName" $generateName) | nindent 14 }}
           {{ if not $event }}
-          {{- $eventPath := ternary "headers.X-Github-Event.0" "body.event" (eq (include "ralph-launcher.delivery" $) "bus") -}}
-          {{- $inputPath := ternary "first (index .Input.headers \"X-Github-Event\")" ".Input.body.event" (eq (include "ralph-launcher.delivery" $) "bus") -}}
-          {{- $normalized := printf "{{ %s | lower | replace \".\" \"-\" | replace \"_\" \"-\" | replace \"/\" \"-\" | trunc 63 | trimSuffix \"-\" }}" $inputPath -}}
+          {{- $eventPath := include "ralph-launcher.deliveredEventPath" $ -}}
+          {{- $normalized := include "ralph-launcher.deliveredEventTemplate" $ -}}
           {{- $workflowSuffix := printf "%s-launcher-" $normalized -}}
           parameters:
             - src:
