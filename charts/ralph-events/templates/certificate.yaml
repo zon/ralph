@@ -2,6 +2,9 @@
 {{- $certificate := default dict $tls.certificate }}
 {{- $issuer := default dict $certificate.issuerRef }}
 {{- if $issuer.name }}
+{{- if not $tls.secretName }}
+{{- fail "github.webhook.tls.secretName is required when github.webhook.tls.certificate.issuerRef.name is set" }}
+{{- end }}
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
