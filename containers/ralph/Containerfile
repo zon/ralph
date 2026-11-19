@@ -82,6 +82,12 @@ RUN apt-get update \
     libpcre2-8-0 \
     && rm -rf /var/lib/apt/lists/* /usr/share/doc/* /usr/share/info/*
 
+# Ubuntu's base image ships Pebble, its service manager, which this container
+# never starts. Its released binary carries a standard library with a known
+# HIGH vulnerability, so remove it rather than rebuild a tool the runtime does
+# not use.
+RUN rm -rf /usr/bin/pebble /var/lib/pebble
+
 # Install the GitHub CLI from its apt repository. Its release carries a patched
 # golang.org/x/net, so the package needs no source build.
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
