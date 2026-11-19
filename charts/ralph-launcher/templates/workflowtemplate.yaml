@@ -1,5 +1,5 @@
-{{- include "ralph-launcher.validatePromptEntries" . -}}
-{{- $defaultEntry := first .Values.prompt.entries -}}
+{{- include "ralph-launcher.validatePrompt" . -}}
+{{- $defaultEvent := include "ralph-launcher.defaultEvent" . -}}
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
 metadata:
@@ -10,6 +10,6 @@ spec:
   entrypoint: ralph-prompt
   arguments:
     parameters:
-      {{- include "ralph-launcher.workflowParameters" (dict "root" . "entry" $defaultEntry) | nindent 6 }}
+      {{- include "ralph-launcher.workflowParameters" (dict "root" . "event" $defaultEvent) | nindent 6 }}
   templates:
     {{- include "ralph-launcher.promptTemplate" (dict "root" .) | nindent 4 }}

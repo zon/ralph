@@ -49,7 +49,7 @@ func TestPrintConfigDocumentationNonInteractive(t *testing.T) {
 func TestConfigDocumentationEmbedded(t *testing.T) {
 	doc := config.ConfigDocumentation()
 	require.NotEmpty(t, doc)
-	for _, section := range []string{"# Configuration", "## Mode", "## Items", "## Iterations", "## Default Branch", "## Base Branch Synchronization", "## Loops", "## Before", "## Services", "## Workflow", "## Custom Instructions"} {
+	for _, section := range []string{"# Configuration", "## Mode", "## Items", "## Iterations", "## Default Branch", "## Base Branch Synchronization", "## Loops", "## Prompts", "## Before", "## Services", "## Workflow", "## Custom Instructions"} {
 		assert.Contains(t, doc, section)
 	}
 	assert.Contains(t, doc, "<branch>-<hash>", "the documentation must describe the completion trailer")
@@ -111,6 +111,37 @@ func TestConfigDocumentationExtraIterationsDefault(t *testing.T) {
 	assert.Contains(t, iterations, "extraIterations", "the Iterations section must document the extraIterations field")
 	assert.Contains(t, iterations, "30%", "the Iterations section must state the 30% default")
 	assert.Contains(t, iterations, "--extra", "the Iterations section must document the --extra flag")
+}
+
+// TestConfigDocumentationPrompts asserts the Prompts section of the embedded
+// configuration reference documents the event lookup, file form, and failures.
+func TestConfigDocumentationPrompts(t *testing.T) {
+	doc := config.ConfigDocumentation()
+	require.NotEmpty(t, doc)
+	assert.Contains(t, doc, "## Prompts")
+	prompts := promptsSection(t, doc)
+
+	assert.Contains(t, prompts, "lower camel case", "the Prompts section must describe the key casing")
+	assert.Contains(t, prompts, "pull_request", "the Prompts section must show how an event maps to its key")
+	assert.Contains(t, prompts, "schedule", "the Prompts section must document the schedule key")
+	assert.Contains(t, prompts, "removes", "the Prompts section must describe event normalization")
+	assert.Contains(t, prompts, "relative to the repository root", "the Prompts section must describe the file path")
+	assert.Contains(t, prompts, "duplicate", "the Prompts section must describe keys that normalize alike")
+	assert.Contains(t, prompts, "names the event", "the Prompts section must describe lookup failures")
+	assert.Contains(t, prompts, "Other commands ignore", "the Prompts section must state that other commands ignore it")
+}
+
+// promptsSection returns the body of the Prompts section, from its header to
+// the next section header.
+func promptsSection(t *testing.T, doc string) string {
+	t.Helper()
+	const header = "## Prompts"
+	start := strings.Index(doc, header)
+	require.NotEqual(t, -1, start, "the documentation must contain a Prompts section")
+	body := doc[start+len(header):]
+	next := strings.Index(body, "\n## ")
+	require.NotEqual(t, -1, next, "the Prompts section must be followed by another section")
+	return body[:next]
 }
 
 // TestConfigDocumentationOpenCodeSecret asserts the Workflow section of the

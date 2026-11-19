@@ -108,6 +108,22 @@ loops:
 
 `max` caps how many times the loop iterates. `--max` on the command line takes priority over this field, which takes priority over the default of 20.
 
+## Prompts
+
+`prompts` supplies the prompt for each event a launcher handles. Keys use lower camel case for a GitHub event, or `schedule` for a scheduled run, so the `pull_request` event reads the `pullRequest` key. A value is prompt text or a mapping with a `file` path relative to the repository root:
+
+```yaml
+prompts:
+  push: |
+    Review the repository and make one small improvement.
+  pullRequest:
+    file: .ralph/prompts/pull-request.md
+  schedule:
+    file: .ralph/prompts/daily.md
+```
+
+Lookup lowercases the event and each key and removes `_` and `-` before comparing them. The launcher rejects duplicate keys that normalize alike and names both keys. A missing key, an empty prompt, or a missing or empty file fails the run with an error that names the event. Other commands ignore `prompts`.
+
 ## Before
 
 `before` defines commands that run once before services start and before the iteration loop begins.

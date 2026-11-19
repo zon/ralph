@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/alecthomas/kong"
@@ -63,6 +65,7 @@ func TestWorkflowPromptCmdParsing(t *testing.T) {
 		"--name-prefix", "ralph",
 		"--base", "release",
 		"--prompt", "Add the endpoint.",
+		"--event", "pull_request",
 		"--namespace", "target-ns",
 		"--model", "gpt-4",
 		"--variant", "high",
@@ -80,6 +83,7 @@ func TestWorkflowPromptCmdParsing(t *testing.T) {
 	assert.Equal(t, "ralph", cmd.Workflow.Prompt.NamePrefix)
 	assert.Equal(t, "release", cmd.Workflow.Prompt.Base)
 	assert.Equal(t, "Add the endpoint.", cmd.Workflow.Prompt.Prompt)
+	assert.Equal(t, "pull_request", cmd.Workflow.Prompt.Event)
 	assert.Equal(t, "target-ns", cmd.Workflow.Prompt.Namespace)
 	assert.Equal(t, "gpt-4", cmd.Workflow.Prompt.Model)
 	assert.Equal(t, "high", cmd.Workflow.Prompt.Variant)
@@ -104,6 +108,7 @@ func TestWorkflowPromptCmdDefaults(t *testing.T) {
 	assert.Equal(t, "ralph-zon[bot]", cmd.Workflow.Prompt.BotName)
 	assert.Equal(t, "ralph-zon[bot]@users.noreply.github.com", cmd.Workflow.Prompt.BotEmail)
 	assert.Empty(t, cmd.Workflow.Prompt.Namespace)
+	assert.Empty(t, cmd.Workflow.Prompt.Event)
 	assert.False(t, cmd.Workflow.Prompt.NoServices)
 }
 
@@ -152,6 +157,13 @@ func TestWorkflowPromptCmdHelpListsNamespace(t *testing.T) {
 	assert.Contains(t, output, "--namespace")
 }
 
+// TestWorkflowPromptCmdHelpListsEvent asserts --event appears in the workflow
+// prompt usage.
+func TestWorkflowPromptCmdHelpListsEvent(t *testing.T) {
+	output := captureHelpOutput(&Cmd{}, []string{"workflow", "prompt", "--help"})
+	assert.Contains(t, output, "--event")
+}
+
 // TestWorkflowPromptCmdHelpText asserts the workflow prompt subcommand appears
 // in the workflow group help.
 func TestWorkflowPromptCmdHelpText(t *testing.T) {
@@ -191,6 +203,88 @@ func TestWorkflowPromptCmdMissingPromptAbortsBeforeWorkspace(t *testing.T) {
 			assert.False(t, runner.called, "the prompt does not run for an invalid prompt")
 		})
 	}
+}
+
+// TestWorkflowPromptCmdRunResolvesEventPromptFromRepositoryConfig asserts an
+// event with no supplied prompt reads the prompt from the checked-out
+// repository's config after the workspace is prepared.
+func TestWorkflowPromptCmdRunResolvesEventPromptFromRepositoryConfig(t *testing.T) {
+	tests := []struct {
+		name       string
+		event      string
+		config     string
+		file       string
+		wantPrompt string
+	}{
+		{
+			name:       "inline prompt",
+			event:      "pull_request",
+			config:     "prompts:\n  pullRequest: Review the change.\n",
+			wantPrompt: "Review the change.",
+		},
+		{
+			name:       "file prompt",
+			event:      "schedule",
+			config:     "prompts:\n  schedule:\n    file: .ralph/prompts/daily.md\n",
+			file:       "run the daily check",
+			wantPrompt: "run the daily check",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := t.TempDir()
+			require.NoError(t, os.MkdirAll(filepath.Join(root, ".ralph", "prompts"), 0755))
+			require.NoError(t, os.WriteFile(filepath.Join(root, ".ralph", "config.yaml"), []byte(tt.config), 0644))
+			if tt.file != "" {
+				require.NoError(t, os.WriteFile(filepath.Join(root, ".ralph", "prompts", "daily.md"), []byte(tt.file), 0644))
+			}
+			t.Chdir(root)
+
+			workspace := &fakeWorkflowPromptWorkspace{}
+			runner := &fakeWorkflowPromptRunner{}
+			cmd := &WorkflowPromptCmd{
+				Repo:           "owner/repo",
+				Event:          tt.event,
+				workspaceSetup: workspace,
+				promptRunner:   runner,
+			}
+
+			err := cmd.Run()
+
+			require.NoError(t, err)
+			assert.True(t, workspace.called, "the workspace is prepared before the event prompt is resolved")
+			require.True(t, runner.called, "the resolved event prompt runs after the workspace is prepared")
+			assert.Equal(t, tt.wantPrompt, runner.flags.Prompt)
+			assert.Equal(t, tt.event, runner.flags.Event)
+		})
+	}
+}
+
+// TestWorkflowPromptCmdRunEventMissingPromptAbortsBeforeRunner asserts an event
+// whose key is absent fails after the workspace is prepared and before the
+// prompt branch, service, or pass work starts.
+func TestWorkflowPromptCmdRunEventMissingPromptAbortsBeforeRunner(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, ".ralph"), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, ".ralph", "config.yaml"), []byte("prompts:\n  push: Review the change.\n"), 0644))
+	t.Chdir(root)
+
+	workspace := &fakeWorkflowPromptWorkspace{}
+	runner := &fakeWorkflowPromptRunner{}
+	cmd := &WorkflowPromptCmd{
+		Repo:           "owner/repo",
+		Event:          "issue_comment",
+		workspaceSetup: workspace,
+		promptRunner:   runner,
+	}
+
+	err := cmd.Run()
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "issue_comment")
+	assert.True(t, workspace.called, "the workspace is prepared before the event prompt is resolved")
+	assert.False(t, runner.called, "the prompt flow does not run when the event has no prompt")
 }
 
 // TestWorkflowPromptCmdRunPreparesWorkspaceAndCarriesOptions asserts the

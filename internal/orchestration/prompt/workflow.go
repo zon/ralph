@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/zon/ralph/internal/config"
 	wksp "github.com/zon/ralph/internal/orchestration/workspace"
 )
 
@@ -47,8 +48,9 @@ func validateBranchPrefix(prefix, branch string) error {
 
 // WorkflowPromptFlags carries the workflow-side prompt invocation: the repo
 // and clone branch used to prepare the workspace, the prompt branch, work-stream
-// prefix, name prefix for the target workflow, base branch, prompt text, and the
-// model, variant, agent, service, debug, and verbose choices the workflow passed.
+// prefix, name prefix for the target workflow, base branch, prompt text, event
+// whose configured prompt applies when no text is supplied, and the model,
+// variant, agent, service, debug, and verbose choices the workflow passed.
 type WorkflowPromptFlags struct {
 	Repo        string
 	CloneBranch string
@@ -57,6 +59,7 @@ type WorkflowPromptFlags struct {
 	NamePrefix  string
 	BaseBranch  string
 	Prompt      string
+	Event       string
 	Namespace   string
 	BotName     string
 	BotEmail    string
@@ -91,19 +94,29 @@ func (f WorkflowPromptFlags) WorkspaceFlags() wksp.WorkspaceFlags {
 
 // WorkflowPromptCmd orchestrates the ralph workflow prompt command that runs
 // inside the workflow container. It validates the prompt, prepares the
-// workspace, and runs the prompt flow in the cloned checkout.
+// workspace, and runs the prompt flow in the cloned checkout. With an event and
+// no supplied prompt, it reads the event's prompt from the cloned repository's
+// config.
 type WorkflowPromptCmd struct {
 	workspace WorkspaceSetupClient
 	runner    RunnerClient
+	config    config.Loader
 }
 
-func NewWorkflowPromptCmd(workspace WorkspaceSetupClient, runner RunnerClient) *WorkflowPromptCmd {
-	return &WorkflowPromptCmd{workspace: workspace, runner: runner}
+func NewWorkflowPromptCmd(workspace WorkspaceSetupClient, runner RunnerClient, loaders ...config.Loader) *WorkflowPromptCmd {
+	loader := config.Loader(&config.Client{})
+	if len(loaders) > 0 && loaders[0] != nil {
+		loader = loaders[0]
+	}
+	return &WorkflowPromptCmd{workspace: workspace, runner: runner, config: loader}
 }
 
 func (w *WorkflowPromptCmd) Run(flags WorkflowPromptFlags) error {
-	if err := ValidatePrompt(flags.Prompt); err != nil {
-		return err
+	resolveEvent := flags.Event != "" && strings.TrimSpace(flags.Prompt) == ""
+	if !resolveEvent {
+		if err := ValidatePrompt(flags.Prompt); err != nil {
+			return err
+		}
 	}
 	if err := validateBranchPrefix(flags.Prefix, flags.Branch); err != nil {
 		return err
@@ -111,5 +124,26 @@ func (w *WorkflowPromptCmd) Run(flags WorkflowPromptFlags) error {
 	if err := w.workspace.Setup(flags.WorkspaceFlags()); err != nil {
 		return err
 	}
+	if resolveEvent {
+		prompt, err := w.promptForEvent(flags.Event)
+		if err != nil {
+			return err
+		}
+		flags.Prompt = prompt
+	}
 	return w.runner.Run(flags)
+}
+
+// promptForEvent reads the cloned repository's config and returns the prompt
+// for the event. A missing key or an empty prompt fails with the event named.
+func (w *WorkflowPromptCmd) promptForEvent(event string) (string, error) {
+	loader := w.config
+	if loader == nil {
+		loader = &config.Client{}
+	}
+	cfg, err := loader.Load()
+	if err != nil {
+		return "", err
+	}
+	return cfg.PromptForEvent(event)
 }

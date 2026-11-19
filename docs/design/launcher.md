@@ -126,4 +126,4 @@ The sensor and event source names include the release namespace, so their NATS s
 
 ## RBAC
 
-The sensor uses a ServiceAccount with permission to create and inspect workflows and read workflow templates. The chart creates the ServiceAccount, Role, and RoleBinding. Every target namespace, including the release namespace, adds a Role and RoleBinding for the workflow ServiceAccount. See [Launcher Target Design](launcher-target.md#rights). The workflow pods use the namespace default ServiceAccount unless `workflow.serviceAccountName` names another one.
+The sensor uses a ServiceAccount with permission to create and inspect workflows and read workflow templates. The chart creates the ServiceAccount, Role, and RoleBinding. The target namespace, including the release namespace by default, gets one Role and RoleBinding for the workflow ServiceAccount. See [Launcher Target Design](launcher-target.md#rights). The workflow pods use the namespace default ServiceAccount unless `workflow.serviceAccountName` names another one.

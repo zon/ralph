@@ -385,26 +385,27 @@ type LoopConfig struct {
 
 // RalphConfig represents the .ralph/config.yaml structure
 type RalphConfig struct {
-	Variant         string         `yaml:"variant,omitempty"`
-	Mode            string         `yaml:"mode,omitempty"`    // Execution mode: local, worktree, or remote (default: local)
-	Items           string         `yaml:"items,omitempty"`   // jq query selecting the item array from a project file (default: .)
-	Cleanup         bool           `yaml:"cleanup,omitempty"` // Delete the project file once every item is complete (default: true; set false to keep the file)
-	cleanupSet      bool           `yaml:"-"`                 // Whether the config file explicitly set cleanup
-	Base            string         `yaml:"-"`                 // Base branch resolved by the caller, bounding the commit log completion is read from
-	StartingBranch  string         `yaml:"-"`                 // Branch the run started on, restored after the pull request
-	ExtraIterations *int           `yaml:"extraIterations,omitempty"`
-	DefaultBranch   string         `yaml:"defaultBranch,omitempty"`
-	Model           string         `yaml:"model,omitempty"` // AI model to use for coding and PR summary (default: opencode's configured default when unset)
-	Agent           string         `yaml:"agent,omitempty"` // opencode agent to use for coding (default: opencode's primary agent)
-	Before          []Before       `yaml:"before,omitempty"`
-	Services        []Service      `yaml:"services,omitempty"`
-	Workflow        WorkflowConfig `yaml:"workflow,omitempty"`
-	App             AppInfo        `yaml:"app,omitempty"`
-	Review          ReviewConfig   `yaml:"review,omitempty"`
-	Validate        ValidateConfig `yaml:"validate,omitempty"`
-	Loops           []LoopConfig   `yaml:"loops,omitempty"`
-	ConfigPath      string         `yaml:"-"` // Path to the loaded config file
-	Instructions    string         `yaml:"-"` // Not persisted in YAML, loaded from .ralph/instructions.md
+	Variant         string            `yaml:"variant,omitempty"`
+	Mode            string            `yaml:"mode,omitempty"`    // Execution mode: local, worktree, or remote (default: local)
+	Items           string            `yaml:"items,omitempty"`   // jq query selecting the item array from a project file (default: .)
+	Cleanup         bool              `yaml:"cleanup,omitempty"` // Delete the project file once every item is complete (default: true; set false to keep the file)
+	cleanupSet      bool              `yaml:"-"`                 // Whether the config file explicitly set cleanup
+	Base            string            `yaml:"-"`                 // Base branch resolved by the caller, bounding the commit log completion is read from
+	StartingBranch  string            `yaml:"-"`                 // Branch the run started on, restored after the pull request
+	ExtraIterations *int              `yaml:"extraIterations,omitempty"`
+	DefaultBranch   string            `yaml:"defaultBranch,omitempty"`
+	Model           string            `yaml:"model,omitempty"` // AI model to use for coding and PR summary (default: opencode's configured default when unset)
+	Agent           string            `yaml:"agent,omitempty"` // opencode agent to use for coding (default: opencode's primary agent)
+	Before          []Before          `yaml:"before,omitempty"`
+	Services        []Service         `yaml:"services,omitempty"`
+	Prompts         map[string]Prompt `yaml:"prompts,omitempty"`
+	Workflow        WorkflowConfig    `yaml:"workflow,omitempty"`
+	App             AppInfo           `yaml:"app,omitempty"`
+	Review          ReviewConfig      `yaml:"review,omitempty"`
+	Validate        ValidateConfig    `yaml:"validate,omitempty"`
+	Loops           []LoopConfig      `yaml:"loops,omitempty"`
+	ConfigPath      string            `yaml:"-"` // Path to the loaded config file
+	Instructions    string            `yaml:"-"` // Not persisted in YAML, loaded from .ralph/instructions.md
 }
 
 func DefaultFixServiceInstructions() string {
