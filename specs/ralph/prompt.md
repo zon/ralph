@@ -798,9 +798,13 @@ Remote mode SHALL follow logs by default and wait for the workflow to finish. `-
 
 ### Requirement: Container entrypoint
 
-`ralph workflow prompt` SHALL be the container entrypoint. It SHALL validate the prompt, prepare the workspace, and run the flow defined in this specification in the cloned checkout.
+`ralph workflow prompt` SHALL be the container entrypoint. It SHALL obtain a prompt, prepare the workspace, and run the flow defined in this specification in the cloned checkout.
 
-It SHALL accept the branch, prefix, base, prompt, model, variant, agent, and `--no-services` from the workflow. It SHALL validate the prompt before workspace setup.
+It SHALL accept the branch, prefix, base, prompt, event, model, variant, agent, and `--no-services` from the workflow. It SHALL require a prompt or an event. When both are supplied, the prompt SHALL win.
+
+A supplied prompt SHALL be validated before workspace setup.
+
+When it receives an event and no prompt, it SHALL prepare the workspace, then resolve the prompt for the event from `.ralph/config.yaml` in the clone, following [prompts.md](prompts.md). A missing key or an empty prompt SHALL fail the command after the workspace is prepared and before any branch, service, or pass work starts.
 
 When it receives a branch and a prefix, the branch SHALL start with `<prefix>/`.
 
@@ -816,9 +820,27 @@ When it receives a prefix without a branch, the workspace SHALL clone the branch
 #### Scenario: Invalid prompt fails before workspace setup
 
 - GIVEN the workflow supplies a missing or empty prompt
+- AND no event
 - WHEN the entrypoint starts
 - THEN it fails
 - AND no workspace setup runs
+
+#### Scenario: Event resolves the prompt after the clone
+
+- GIVEN the workflow supplies `--event pull_request` and no prompt
+- AND the clone's `.ralph/config.yaml` sets `prompts.pullRequest`
+- WHEN the entrypoint runs
+- THEN the workspace is prepared
+- AND the event's prompt is read from the clone
+- AND the flow runs with that prompt
+
+#### Scenario: A missing event prompt fails before branch work
+
+- GIVEN the workflow supplies `--event pull_request` and no prompt
+- AND the clone's `.ralph/config.yaml` has no prompt for the event
+- WHEN the entrypoint runs
+- THEN it fails with an error that names `pull_request`
+- AND no branch, service, or pass work starts
 
 #### Scenario: Service choice reaches the container
 

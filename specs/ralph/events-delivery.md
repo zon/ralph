@@ -66,7 +66,7 @@ A launcher that uses `delivery: bus` SHALL still require the namespace bus, and 
 
 A bus dependency SHALL read the GitHub delivery as the intake's event source publishes it, and SHALL NOT read the routing envelope. It SHALL read the repository from `body.repository.full_name`, the event name from the `X-Github-Event` header, the push branch from `body.ref`, and an ignored user from `body.sender.login`.
 
-A bus dependency SHALL filter on the launcher's repository, so an event for another repository starts no entry.
+A bus dependency SHALL filter on the launcher's repository, so an event for another repository starts no run.
 
 `sensor.defaultBranchOnly`, `sensor.branch`, and `sensor.ignoreUsers` SHALL keep their meaning on both paths. Paths in `sensor.filters` SHALL be relative to the data of the chosen path.
 
@@ -74,27 +74,27 @@ A bus dependency SHALL filter on the launcher's repository, so an event for anot
 
 - GIVEN a launcher sets `delivery: bus`
 - WHEN the intake publishes an event for a different repository
-- THEN no entry runs
+- THEN no run starts
 
 #### Scenario: A bus launcher reads the event name from the header
 
-- GIVEN a bus entry lists `pull_request`
+- GIVEN a launcher lists `pull_request`
 - WHEN a pull request event arrives
-- THEN the entry runs
+- THEN the run starts
 - AND a push event does not start it
 
 #### Scenario: Default branch filter applies to bus pushes
 
 - GIVEN `sensor.defaultBranchOnly` is enabled
-- AND a bus entry lists `push`
+- AND a launcher lists `push`
 - WHEN a push arrives on a branch other than `repo.baseBranch`
-- THEN the entry does not run
+- THEN the run does not start
 
-#### Scenario: Ignored users do not start a bus entry
+#### Scenario: Ignored users do not start a run
 
 - GIVEN a push event comes from a user in `sensor.ignoreUsers`
 - WHEN the sensor receives the event
-- THEN no entry runs
+- THEN no run starts
 
 ---
 
@@ -102,7 +102,7 @@ A bus dependency SHALL filter on the launcher's repository, so an event for anot
 
 A bus sensor SHALL hold a durable consumer on the shared event bus stream. A sensor that is down when an event arrives SHALL receive the retained events when it comes back, as long as they are within the stream's `maxAge`. An event older than `maxAge` SHALL be lost.
 
-`eventBus.streamConfig` SHALL set `maxAge` for a bus that the launcher creates. Delivery is at least once, so a launcher MAY see an event twice. The open pull request check and the entry mutex SHALL stop a repeat from starting a second pass.
+`eventBus.streamConfig` SHALL set `maxAge` for a bus that the launcher creates. Delivery is at least once, so a launcher MAY see an event twice. The open pull request check and the event mutex SHALL stop a repeat from starting a second pass.
 
 A subject launcher SHALL receive only the events published while its event source is connected.
 
@@ -111,7 +111,7 @@ A subject launcher SHALL receive only the events published while its event sourc
 - GIVEN a launcher uses `delivery: bus`
 - AND its sensor is down while an event arrives
 - WHEN the sensor comes back within the window
-- THEN the entry runs for that event
+- THEN the run starts for that event
 
 #### Scenario: An event past the window is lost
 
@@ -121,9 +121,9 @@ A subject launcher SHALL receive only the events published while its event sourc
 
 #### Scenario: A repeated event does not start a second pass
 
-- GIVEN a bus entry already started a pass for an event
+- GIVEN a launcher already started a pass for an event
 - WHEN the same event is delivered again
-- THEN the open pull request check or the entry mutex stops a second pass
+- THEN the open pull request check or the event mutex stops a second pass
 
 #### Scenario: A subject launcher does not replay
 
