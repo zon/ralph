@@ -118,6 +118,24 @@ func TestDockerfileAppliesUbuntuSecurityUpdates(t *testing.T) {
 		"Runtime stage should apply Ubuntu security updates with apt-get upgrade")
 }
 
+// TestDockerfileRemovesBasePebble covers Pebble, the service manager the
+// Ubuntu base image ships. The runtime never starts it, and its released binary
+// carries a Go stdlib with a known HIGH vulnerability, so the runtime removes
+// it instead of rebuilding a tool it does not use.
+func TestDockerfileRemovesBasePebble(t *testing.T) {
+	projectRoot := filepath.Join("..", "..")
+	containerfilePath := filepath.Join(projectRoot, "containers", "ralph", "Containerfile")
+
+	content, err := os.ReadFile(containerfilePath)
+	require.NoError(t, err, "Should be able to read Containerfile")
+
+	runtime := runtimeStage(t, string(content))
+
+	pattern := regexp.MustCompile(`(?m)^RUN\s+rm\s+-[rf]+\s+/usr/bin/pebble`)
+	assert.Regexp(t, pattern, runtime,
+		"Runtime stage should remove the base image's Pebble binary")
+}
+
 func TestDockerfileUpgradesArgo(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
 	containerfilePath := filepath.Join(projectRoot, "containers", "ralph", "Containerfile")
