@@ -15213,12 +15213,12 @@ go.work.sum</code></pre>
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="c7aa79a1-c72a-46ce-8296-70c34905169e#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="c7aa79a1-c72a-46ce-8296-70c34905169e#0" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L56-L57</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">The runtime stage ships a Go toolchain but no C compiler: the base `ghcr.io/zon/ralph` image is Ubuntu with only `ca-certificates`, `curl`, `libcurl3t64-gnutls`, `libexpat1`, and `libpcre2-8-0` installed (see containers/ralph/Containerfile). Because the copied toolchain keeps Go&#39;s default `CGO_ENABLED=1`, any `go build`/`go run`/air rebuild of a program that pulls in cgo-enabled packages (e.g. `net`, `os/user`) will fail with `cgo: C compiler &#34;gcc&#34; not found`, which is the main use case of this image. Pin `CGO_ENABLED=0` in the runtime stage (matching the `go-tools` builder) so builds behave the same way here as when the binaries were produced. While here, consider `GOTOOLCHAIN=local`: otherwise a project whose go.mod asks for a newer Go than ${GO_VERSION} will silently download a different toolchain at run time, defeating the pinned version.</div>
                 
