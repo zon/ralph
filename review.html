@@ -9622,12 +9622,12 @@ func topWorkflow(names []string) (string, error) {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="8f844c1d-d1ee-4efc-8601-8d75ef568635#1" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="8f844c1d-d1ee-4efc-8601-8d75ef568635#1" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L49-L52</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">Because `stdout`/`stderr` are non-*os.File writers here (and `&amp;stdout`/`io.Discard` in `GetStats`), os/exec creates pipes and `Wait` blocks until the pipe reaches EOF. With `--standalone`, opencode&#39;s private server inherits those descriptors, so if it outlives the CLI, `cmd.Run` hangs inside the copy goroutines and `waitForGroupExit`&#39;s 30s bound is never reached (same on cancellation). Set `cmd.WaitDelay` so `Wait` forcibly closes the pipes after a bounded delay.</div>
                 

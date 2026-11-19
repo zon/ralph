@@ -309,6 +309,23 @@ exit 1
 	assert.Contains(t, err.Error(), "opencode command failed")
 }
 
+func TestRunCommandBoundsInheritedPipeWait(t *testing.T) {
+	old := opencodeProcessGroupWaitTimeout
+	opencodeProcessGroupWaitTimeout = 100 * time.Millisecond
+	defer func() { opencodeProcessGroupWaitTimeout = old }()
+
+	// The background process inherits stdout/stderr, so without WaitDelay the
+	// copy goroutines in cmd.Wait would block until it exits.
+	fakeOpenCode(t, `sleep 2 & echo started`)
+
+	var stdout, stderr bytes.Buffer
+	start := time.Now()
+	err := New().RunCommand(context.Background(), "", "", "", "prompt", &stdout, &stderr)
+	require.NoError(t, err)
+	assert.Contains(t, stdout.String(), "started")
+	assert.Less(t, time.Since(start), time.Second, "run should not wait for the inherited pipe to close")
+}
+
 func TestRunAgent(t *testing.T) {
 	tmpDir := t.TempDir()
 	scriptPath := filepath.Join(tmpDir, "fake-opencode.sh")
