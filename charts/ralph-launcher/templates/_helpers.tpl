@@ -65,49 +65,69 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 {{- end -}}
 
-{{- define "ralph-launcher.validatePromptEntries" -}}
-{{- $entries := required "prompt.entries is required" .Values.prompt.entries -}}
-{{- $slugs := dict -}}
-{{- range $entry := $entries -}}
-{{- $slug := required "prompt.entries[].slug is required" $entry.slug -}}
-{{- if hasKey $slugs $slug -}}
-{{- fail (printf "duplicate prompt entry slug %q" $slug) -}}
-{{- end -}}
-{{- $_ := set $slugs $slug true -}}
-{{- $_ := required (printf "prompt.entries[%s].text is required" $slug) $entry.text -}}
-{{- $_ := include "ralph-launcher.entrySchedules" $entry | fromJsonArray -}}
-{{- end -}}
-{{- end -}}
-
-{{- define "ralph-launcher.entryNamespace" -}}
-{{- default .root.Release.Namespace .entry.namespace -}}
-{{- end -}}
-
-{{- define "ralph-launcher.entrySchedules" -}}
+{{- define "ralph-launcher.promptSchedules" -}}
 {{- $schedules := list -}}
-{{- with .schedule -}}
-{{- if kindIs "string" . -}}
-{{- $schedules = list . -}}
-{{- else if kindIs "slice" . -}}
-{{- $schedules = . -}}
+{{- $prompt := default dict .Values.prompt -}}
+{{- $schedule := $prompt.schedule -}}
+{{- if $schedule -}}
+{{- if kindIs "string" $schedule -}}
+{{- if trim $schedule -}}
+{{- $schedules = list $schedule -}}
+{{- end -}}
+{{- else if kindIs "slice" $schedule -}}
+{{- range $expression := $schedule -}}
+{{- if not (kindIs "string" $expression) -}}
+{{- fail "prompt.schedule must contain cron expressions as strings" -}}
+{{- end -}}
+{{- if not (trim $expression) -}}
+{{- fail "prompt.schedule must not contain an empty cron expression" -}}
+{{- end -}}
+{{- end -}}
+{{- $schedules = $schedule -}}
 {{- else -}}
-{{- fail (printf "prompt entry %q schedule must be one cron expression or a list of expressions" $.slug) -}}
+{{- fail "prompt.schedule must be one cron expression or a list of expressions" -}}
 {{- end -}}
 {{- end -}}
 {{- toJson $schedules -}}
 {{- end -}}
 
-{{- define "ralph-launcher.entryEvents" -}}
-{{- $events := list "push" -}}
-{{- if hasKey . "events" -}}
-{{- $events = .events -}}
-{{- else if include "ralph-launcher.entrySchedules" . | fromJsonArray -}}
-{{- $events = list -}}
-{{- end -}}
-{{- if and (hasKey . "events") (not $events) -}}
+{{- define "ralph-launcher.promptEvents" -}}
+{{- $prompt := default dict .Values.prompt -}}
+{{- $events := list -}}
+{{- $hasEvents := and (hasKey $prompt "events") (not (kindIs "invalid" $prompt.events)) -}}
+{{- if $hasEvents -}}
+{{- $events = $prompt.events -}}
+{{- if not $events -}}
 {{- $events = list "" -}}
 {{- end -}}
+{{- else if not (include "ralph-launcher.promptSchedules" . | fromJsonArray) -}}
+{{- $events = list "push" -}}
+{{- end -}}
 {{- toJson $events -}}
+{{- end -}}
+
+{{- define "ralph-launcher.validatePrompt" -}}
+{{- $prompt := default dict .Values.prompt -}}
+{{- $hasEvents := and (hasKey $prompt "events") (not (kindIs "invalid" $prompt.events)) -}}
+{{- if $hasEvents -}}
+{{- if not (kindIs "slice" $prompt.events) -}}
+{{- fail "prompt.events must be a list of GitHub event names" -}}
+{{- end -}}
+{{- $seen := dict -}}
+{{- range $event := $prompt.events -}}
+{{- if not (kindIs "string" $event) -}}
+{{- fail "prompt.events must contain event names as strings" -}}
+{{- end -}}
+{{- if not (trim $event) -}}
+{{- fail "prompt.events must not contain an empty event name" -}}
+{{- end -}}
+{{- if hasKey $seen $event -}}
+{{- fail (printf "duplicate prompt event %q" $event) -}}
+{{- end -}}
+{{- $_ := set $seen $event true -}}
+{{- end -}}
+{{- end -}}
+{{- $_ := include "ralph-launcher.promptSchedules" . | fromJsonArray -}}
 {{- end -}}
 
 {{- define "ralph-launcher.scheduleTimezone" -}}
@@ -123,16 +143,8 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- include "ralph-launcher.safeName" (default "ralph" .Values.prefix) -}}
 {{- end -}}
 
-{{- define "ralph-launcher.entryWorkflowName" -}}
-{{- printf "%s-%s" (include "ralph-launcher.prefix" .root) (include "ralph-launcher.safeName" .entry.slug) | trunc 63 | trimSuffix "-" -}}
-{{- end -}}
-
-{{- define "ralph-launcher.entryName" -}}
-{{- $name := .slug -}}
-{{- if .event -}}
-{{- $name = printf "%s-%s" .slug .event -}}
-{{- end -}}
-{{- include "ralph-launcher.safeName" $name -}}
+{{- define "ralph-launcher.eventWorkflowBase" -}}
+{{- printf "%s-%s" (include "ralph-launcher.prefix" .root) (include "ralph-launcher.safeName" .event) | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
 {{- define "ralph-launcher.mutexName" -}}
@@ -140,8 +152,16 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- if $root.Values.workflow.mutex.name -}}
 {{- $root.Values.workflow.mutex.name -}}
 {{- else -}}
-{{- include "ralph-launcher.safeName" .entry.slug -}}
+{{- include "ralph-launcher.safeName" .event -}}
 {{- end -}}
+{{- end -}}
+
+{{- define "ralph-launcher.dependencyName" -}}
+{{- $event := .event -}}
+{{- if not $event -}}
+{{- $event = "event" -}}
+{{- end -}}
+{{- include "ralph-launcher.safeName" $event -}}
 {{- end -}}
 
 {{- define "ralph-launcher.sensorName" -}}
@@ -176,13 +196,25 @@ repo
 {{- default "default" .Values.workflow.serviceAccountName -}}
 {{- end -}}
 
-{{- define "ralph-launcher.targetNamespaces" -}}
-{{- $namespaces := dict -}}
-{{- $root := . -}}
-{{- range .Values.prompt.entries -}}
-{{- $_ := set $namespaces (include "ralph-launcher.entryNamespace" (dict "root" $root "entry" .)) true -}}
+{{- define "ralph-launcher.targetNamespace" -}}
+{{- $target := default dict .Values.target -}}
+{{- default .Release.Namespace $target.namespace -}}
 {{- end -}}
-{{- toJson (keys $namespaces | sortAlpha) -}}
+
+{{- define "ralph-launcher.targetNamespaces" -}}
+{{- toJson (list (include "ralph-launcher.targetNamespace" .)) -}}
+{{- end -}}
+
+{{- define "ralph-launcher.defaultEvent" -}}
+{{- $events := include "ralph-launcher.promptEvents" . | fromJsonArray -}}
+{{- $schedules := include "ralph-launcher.promptSchedules" . | fromJsonArray -}}
+{{- if and $events (ne (first $events) "") -}}
+{{- first $events -}}
+{{- else if $schedules -}}
+schedule
+{{- else -}}
+push
+{{- end -}}
 {{- end -}}
 
 {{- define "ralph-launcher.promptTemplate" -}}
@@ -191,7 +223,6 @@ repo
 {{- $cloneBranch := "{{inputs.parameters.clone-branch}}" -}}
 {{- $prefix := "{{inputs.parameters.prefix}}" -}}
 {{- $baseBranch := "{{inputs.parameters.base-branch}}" -}}
-{{- $prompt := "{{inputs.parameters.prompt}}" -}}
 - name: ralph-prompt
   {{- with $root.Values.workflow.labels }}
   metadata:
@@ -205,7 +236,7 @@ repo
       - name: prefix
       - name: name-prefix
       - name: base-branch
-      - name: prompt
+      - name: event
       - name: namespace
       - name: model
       - name: variant
@@ -233,8 +264,8 @@ repo
       - {{ "{{inputs.parameters.name-prefix}}" | quote }}
       - --base
       - {{ $baseBranch | quote }}
-      - --prompt
-      - {{ $prompt | quote }}
+      - --event
+      - {{ "{{inputs.parameters.event}}" | quote }}
       - --namespace
       - {{ "{{inputs.parameters.namespace}}" | quote }}
       {{- if $root.Values.workflow.model }}
@@ -305,7 +336,7 @@ repo
 
 {{- define "ralph-launcher.workflowSettings" -}}
 {{- $root := .root -}}
-{{- $entry := .entry -}}
+{{- $event := .event -}}
 {{ .metadataKey }}:
   {{- with .generateName }}
   generateName: {{ . | quote }}
@@ -322,7 +353,7 @@ repo
     name: {{ include "ralph-launcher.fullname" $root }}
   arguments:
     parameters:
-      {{- include "ralph-launcher.workflowParameters" (dict "root" $root "entry" $entry) | nindent 6 }}
+      {{- include "ralph-launcher.workflowParameters" (dict "root" $root "event" $event) | nindent 6 }}
   ttlStrategy:
     secondsAfterCompletion: {{ $root.Values.workflow.ttlSecondsAfterCompletion }}
   podGC:
@@ -331,26 +362,27 @@ repo
   {{- if $root.Values.workflow.mutex.enabled }}
   synchronization:
     mutexes:
-      - name: {{ include "ralph-launcher.mutexName" (dict "root" $root "entry" $entry) | quote }}
+      - name: {{ include "ralph-launcher.mutexName" (dict "root" $root "event" $event) | quote }}
   {{- end }}
 {{- end -}}
 
 {{- define "ralph-launcher.workflowParameters" -}}
 {{- $root := .root -}}
-{{- $entry := .entry -}}
+{{- $event := .event -}}
 - name: repo
   value: {{ printf "%s/%s" $root.Values.repo.owner $root.Values.repo.name | quote }}
 - name: clone-branch
   value: {{ $root.Values.repo.cloneBranch | quote }}
 - name: prefix
-  value: {{ $entry.slug | quote }}
+  value: {{ $event | quote }}
+- name: name-prefix
+  value: {{ include "ralph-launcher.prefix" $root | quote }}
 - name: base-branch
   value: {{ $root.Values.repo.baseBranch | quote }}
-- name: prompt
-  valueFrom:
-    configMapKeyRef:
-      name: {{ include "ralph-launcher.fullname" $root }}-prompt
-      key: {{ $entry.slug | quote }}
+- name: event
+  value: {{ $event | quote }}
+- name: namespace
+  value: {{ include "ralph-launcher.targetNamespace" $root | quote }}
 - name: model
   value: {{ $root.Values.workflow.model | quote }}
 - name: variant
@@ -361,10 +393,6 @@ repo
   value: {{ $root.Values.workflow.noServices | quote }}
 - name: verbose
   value: {{ $root.Values.workflow.verbose | quote }}
-- name: namespace
-  value: {{ include "ralph-launcher.entryNamespace" (dict "root" $root "entry" $entry) | quote }}
-- name: name-prefix
-  value: {{ include "ralph-launcher.prefix" $root | quote }}
 {{- end -}}
 
 {{- define "ralph-launcher.dependencyFilters" -}}

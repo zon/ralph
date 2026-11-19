@@ -24,44 +24,28 @@ Workflow template:
 The launcher runs ralph workflow prompt on {{ .Values.repo.cloneBranch }} for
 these work streams:
 
-{{- range .Values.prompt.entries }}
-{{- $events := include "ralph-launcher.entryEvents" . | fromJsonArray }}
-{{- $schedules := include "ralph-launcher.entrySchedules" . | fromJsonArray }}
-{{- $starts := list }}
+{{- $events := include "ralph-launcher.promptEvents" . | fromJsonArray }}
+{{- $schedules := include "ralph-launcher.promptSchedules" . | fromJsonArray }}
 {{- if $events }}
 {{- if eq (first $events) "" }}
-{{- $starts = append $starts "every event" }}
+  every event
 {{- else }}
-{{- $starts = append $starts (join ", " $events) }}
+{{- range $event := $events }}
+  {{ $event }}
 {{- end }}
+{{- end }}
+{{- else }}
+  no events
 {{- end }}
 {{- if $schedules }}
-{{- $starts = append $starts "a schedule" }}
-{{- end }}
-  {{ .slug }} - {{ join " and " $starts }}
+  schedule - {{ join ", " $schedules }}
 {{- end }}
 
-Target namespaces (an entry with no namespace targets {{ .Release.Namespace }}):
+Target namespace:
 
-{{- range $namespace := include "ralph-launcher.targetNamespaces" . | fromJsonArray }}
-{{- $slugs := list }}
-{{- range $entry := $.Values.prompt.entries }}
-{{- if eq (include "ralph-launcher.entryNamespace" (dict "root" $ "entry" $entry)) $namespace }}
-{{- $slugs = append $slugs $entry.slug }}
-{{- end }}
-{{- end }}
-  {{ $namespace }} - {{ join ", " $slugs }}
-{{- end }}
-
-Prompt ConfigMap:
-
-  {{ include "ralph-launcher.fullname" . }}-prompt
-
-Update a prompt with:
-
-  kubectl -n {{ .Release.Namespace }} edit configmap {{ include "ralph-launcher.fullname" . }}-prompt
+  {{ include "ralph-launcher.targetNamespace" . }}
 
 The launcher workflow expects the {{ .Values.workflow.credentials.githubSecret }} Secret in namespace
-{{ .Release.Namespace }}. Each target namespace needs the credentials the repository's
+{{ .Release.Namespace }}. The target namespace needs the credentials the repository's
 .ralph/config.yaml names for the agent workflow. Run
 `ralph setup --namespace <namespace>` to create them.

@@ -1,24 +1,21 @@
-{{- include "ralph-launcher.validatePromptEntries" . -}}
-{{- range $entry := .Values.prompt.entries }}
-{{- $schedules := include "ralph-launcher.entrySchedules" $entry | fromJsonArray }}
-{{- if $schedules }}
----
+{{- include "ralph-launcher.validatePrompt" . -}}
+{{- $schedules := include "ralph-launcher.promptSchedules" . | fromJsonArray -}}
+{{- if $schedules -}}
 apiVersion: argoproj.io/v1alpha1
 kind: CronWorkflow
 metadata:
-  name: {{ printf "%s-cron-launcher" (include "ralph-launcher.entryWorkflowName" (dict "root" $ "entry" $entry)) | trunc 63 | trimSuffix "-" }}
+  name: {{ printf "%s-schedule-cron-launcher" (include "ralph-launcher.prefix" .) | trunc 63 | trimSuffix "-" }}
   labels:
-    {{- include "ralph-launcher.labels" $ | nindent 4 }}
+    {{- include "ralph-launcher.labels" . | nindent 4 }}
 spec:
   schedules:
     {{- range $schedule := $schedules }}
     - {{ $schedule | quote }}
     {{- end }}
-  {{- $timezone := include "ralph-launcher.scheduleTimezone" $ }}
+  {{- $timezone := include "ralph-launcher.scheduleTimezone" . }}
   {{- if $timezone }}
   timezone: {{ $timezone | quote }}
   {{- end }}
   concurrencyPolicy: Forbid
-  {{- include "ralph-launcher.workflowSettings" (dict "root" $ "entry" $entry "metadataKey" "workflowMetadata" "specKey" "workflowSpec") | nindent 2 }}
-{{- end }}
+  {{- include "ralph-launcher.workflowSettings" (dict "root" . "event" "schedule" "metadataKey" "workflowMetadata" "specKey" "workflowSpec") | nindent 2 }}
 {{- end }}

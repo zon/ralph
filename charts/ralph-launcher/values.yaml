@@ -47,32 +47,26 @@ repo:
   baseBranch: main
 
 prompt:
-  # Each entry starts a workflow with its slug as the work-stream prefix and
-  # its text as the prompt.
-  #
-  # events lists the GitHub event names that start the entry. When omitted, an
-  # entry with a schedule starts no workflows from events, and an entry without
-  # a schedule starts on push. An empty events list accepts every event.
+  # events lists the GitHub event names that start a run. Each event is its own
+  # work stream and becomes the prefix. When events is omitted and no schedule
+  # is set, it defaults to [push]. When events is omitted and a schedule is set,
+  # the launcher handles no events. Set events: [] to accept every event.
   #
   # schedule holds one cron expression or a list of expressions, for example
-  # "0 8 * * *". The chart renders one CronWorkflow for each scheduled entry.
-  # An entry may combine events and schedule.
+  # "0 8 * * *". The chart renders one CronWorkflow for the launcher when it is
+  # set. The launcher may have events, a schedule, or both.
   #
-  # namespace names the namespace the entry's agent workflow runs in. The agent
-  # runs with the repository's own .ralph/config.yaml. When omitted, the entry
-  # targets the release namespace. The namespace must belong to the launcher's
-  # own cluster.
-  entries:
-    - slug: review
-      text: |
-        Review the repository and make one small improvement.
-      # schedule: "0 8 * * *"
-      # namespace: ralph
+  # The repository's .ralph/config.yaml supplies the prompt for each event and
+  # for schedule. The chart holds no prompt text.
+  #
+  # events:
+  #   - push
+  # schedule: "0 8 * * *"
 
 schedule:
-  # schedule.timezone sets the time zone for every prompt entry schedule, for
-  # example America/New_York. Leave empty to use the Argo Workflows controller's
-  # time zone.
+  # schedule.timezone sets the time zone for the schedule, for example
+  # America/New_York. Leave empty to use the Argo Workflows controller's time
+  # zone.
   timezone: ""
 
 image:
@@ -109,10 +103,13 @@ workflow:
   extraVolumeMounts: []
 
 target:
+  # namespace names the namespace every launcher run targets. The agent runs
+  # with the repository's own .ralph/config.yaml. When omitted, runs target the
+  # release namespace. The namespace must belong to the launcher's own cluster.
+  namespace: ""
   # rbac.create renders a Role and RoleBinding for the workflow ServiceAccount
-  # in each target namespace, including the release namespace when an entry
-  # sets no namespace. Set it to false to have the operator grant the rights
-  # another way.
+  # in the target namespace. Set it to false to have the operator grant the
+  # rights another way.
   rbac:
     create: true
 
@@ -129,7 +126,7 @@ eventBus:
   # release creates. maxAge is the bus stream retention window: a returning bus
   # sensor receives the events retained within it, and an older event is lost.
   # Delivery is at least once, so a launcher can see an event twice; the open
-  # pull request check and the entry mutex stop a repeat from starting a second
+  # pull request check and the event mutex stop a repeat from starting a second
   # pass.
   streamConfig: |
     maxAge: 24h
@@ -146,9 +143,9 @@ sensor:
       factor: 2
       steps: 5
   replicas: 1
-  # Only run an entry's push dependency for pushes to the base branch. This
-  # applies on either delivery path. Set to false to run on every push
-  # delivered by the chosen path.
+  # Only run a push dependency for pushes to the base branch. This applies on
+  # either delivery path. Set to false to run on every push delivered by the
+  # chosen path.
   defaultBranchOnly: true
   # The branch filter follows repo.baseBranch on either delivery path. Set
   # branch to override the ref it matches.
