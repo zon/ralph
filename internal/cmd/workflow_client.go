@@ -22,6 +22,26 @@ type workflowClientAdapter struct {
 }
 
 func (a *workflowClientAdapter) Submit(input *project.InputFile, cloneBranch string, debug string, baseBranch string, items string) (string, error) {
+	wf, err := a.buildWorkflow(input, cloneBranch, debug, baseBranch, items)
+	if err != nil {
+		return "", err
+	}
+	return wf.Submit(a.ctx.GoContext(), a.argoClient)
+}
+
+// Render returns the Argo Workflow YAML that Submit would send, without
+// submitting it. It lets a caller inspect the manifest without reaching the
+// cluster.
+func (a *workflowClientAdapter) Render(input *project.InputFile, cloneBranch string, debug string, baseBranch string, items string) (string, error) {
+	wf, err := a.buildWorkflow(input, cloneBranch, debug, baseBranch, items)
+	if err != nil {
+		return "", err
+	}
+	return wf.Render()
+}
+
+// buildWorkflow assembles the Workflow for the run without handing it to Argo.
+func (a *workflowClientAdapter) buildWorkflow(input *project.InputFile, cloneBranch string, debug string, baseBranch string, items string) (*workflow.Workflow, error) {
 	projectBranch := git.SanitizeBranchName(input.Slug())
 
 	var repoURL string
@@ -31,7 +51,7 @@ func (a *workflowClientAdapter) Submit(input *project.InputFile, cloneBranch str
 	} else {
 		repo, err := githubpkg.GetRepo(a.ctx.GoContext())
 		if err != nil {
-			return "", fmt.Errorf("failed to get repository: %w", err)
+			return nil, fmt.Errorf("failed to get repository: %w", err)
 		}
 		repoURL = repo.CloneURL()
 	}
@@ -43,11 +63,11 @@ func (a *workflowClientAdapter) Submit(input *project.InputFile, cloneBranch str
 	if filepath.IsAbs(relProjectPath) {
 		repoRoot, err := git.FindRepoRoot()
 		if err != nil {
-			return "", fmt.Errorf("failed to get repository root: %w", err)
+			return nil, fmt.Errorf("failed to get repository root: %w", err)
 		}
 		relProjectPath, err = filepath.Rel(repoRoot, relProjectPath)
 		if err != nil {
-			return "", fmt.Errorf("failed to calculate relative project path: %w", err)
+			return nil, fmt.Errorf("failed to calculate relative project path: %w", err)
 		}
 	}
 
@@ -56,11 +76,11 @@ func (a *workflowClientAdapter) Submit(input *project.InputFile, cloneBranch str
 	}
 	wf, err := workflow.GenerateWorkflow(a.ctx, input.Slug(), cloneBranch, projectBranch, baseBranch, items, a.ctx.IsVerbose(), repoURL, relProjectPath)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	a.namespace = wf.Namespace
 	a.kubeContext = wf.KubeContext
-	return wf.Submit(a.ctx.GoContext(), a.argoClient)
+	return wf, nil
 }
 
 func (a *workflowClientAdapter) FollowLogs(workflowName string) error {
