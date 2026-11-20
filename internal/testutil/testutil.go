@@ -13,16 +13,18 @@ import (
 // - NoServices: false (allows service testing)
 // - Verbose: false (reduces test output noise)
 //
-// Use options to customize specific fields as needed.
+// Use options to customize specific fields as needed. The output client is
+// created after the options run so its debug mode follows the final verbosity.
 func NewContext(opts ...ContextOption) *context.Context {
 	ctx := context.NewContext()
-	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
 	ctx.SetNoNotify(true)
 	ctx.SetLocal(true)
 
 	for _, opt := range opts {
 		opt(ctx)
 	}
+
+	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, ctx.IsVerbose()))
 
 	return ctx
 }

@@ -1,9 +1,13 @@
 package testutil
 
 import (
+	"bytes"
+	"io"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewContext(t *testing.T) {
@@ -32,4 +36,39 @@ func TestNewContext_MultipleOptions(t *testing.T) {
 	)
 
 	assert.True(t, ctx.NoServices(), "NoServices should be true when NoServices=true")
+}
+
+// TestNewContext_OutputDebugFollowsVerbose asserts that WithVerbose reaches the
+// output client rather than being overwritten by a hardcoded debugging flag.
+func TestNewContext_OutputDebugFollowsVerbose(t *testing.T) {
+	tests := []struct {
+		name    string
+		verbose bool
+		want    bool
+	}{
+		{name: "verbose enables debug output", verbose: true, want: true},
+		{name: "quiet suppresses debug output", verbose: false, want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r, w, err := os.Pipe()
+			require.NoError(t, err)
+			old := os.Stdout
+			os.Stdout = w
+			defer func() { os.Stdout = old }()
+
+			ctx := NewContext(WithVerbose(tt.verbose))
+			ctx.Output().Debug("debug message")
+
+			w.Close()
+
+			var buf bytes.Buffer
+			_, err = io.Copy(&buf, r)
+			require.NoError(t, err)
+			r.Close()
+
+			assert.Equal(t, tt.want, buf.Len() > 0, "debug output presence")
+		})
+	}
 }
