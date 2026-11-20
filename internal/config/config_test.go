@@ -534,6 +534,13 @@ func TestValidateWorkflowResources(t *testing.T) {
 			},
 			wantErr: `invalid memory request "1foo"`,
 		},
+		{
+			name: "uppercase K suffix is rejected",
+			resources: WorkflowResources{
+				Requests: ResourceList{Memory: "1K"},
+			},
+			wantErr: `invalid memory request "1K"`,
+		},
 	}
 
 	for _, tt := range tests {
@@ -562,7 +569,7 @@ func TestParseResourceQuantity(t *testing.T) {
 		{value: "500m", want: 0.5},
 		{value: "1Gi", want: 1073741824},
 		{value: "512Mi", want: 536870912},
-		{value: "2K", want: 2000},
+		{value: "2K", wantErr: true},
 		{value: "2Ki", want: 2048},
 		{value: "1e3", want: 1000},
 		{value: "1e-3", want: 0.001},
