@@ -11109,12 +11109,12 @@ func topWorkflow(names []string) (string, error) {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="c61f7a3f-f7db-4817-b1dc-25c213d3ddbb#0" hidden>
+            <div class="comment-card" data-mark="fixed" data-comment-card data-category="bug" data-severity="medium" data-mark-id="c61f7a3f-f7db-4817-b1dc-25c213d3ddbb#0" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-medium">medium</span>
                     <span class="comment-lines sr-only">L19</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">The output client is created with a hardcoded `debugging=false` before options are applied, so `WithVerbose(true)` never reaches the output client and `Output().Debug/Debugf` stay silent. Production wiring always derives this flag from verbosity (e.g. `output.NewClient(os.Stdout, os.Stderr, c.Verbose)` in internal/cmd/command.go, loop.go, prompt.go, run.go), so a test using `WithVerbose(true)` cannot observe the debug output it is supposedly enabling. Apply the options first and derive the debugging flag from `ctx.IsVerbose()` (and consider a `WithOutput` option so callers can inject a buffer instead of the real stdout/stderr).</div>
                 
