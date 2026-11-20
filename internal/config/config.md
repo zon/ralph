@@ -213,6 +213,8 @@ env:
       key: api-key
 ```
 
+The workflow sets `GIT_REPO_URL`, `GITHUB_REPO_OWNER`, `GITHUB_REPO_NAME`, `GIT_BRANCH`, `PROJECT_BRANCH`, `PROJECT_PATH`, `INSTRUCTIONS_MD`, `RALPH_WORKFLOW_EXECUTION`, `RALPH_DEBUG_BRANCH`, `RALPH_VERBOSE`, and `RALPH_NO_SERVICES` itself. Naming one of them is an error, because a duplicate would silently override the value the workflow was built with.
+
 `resources` sets the CPU and memory requests and limits for the executor container as [Kubernetes quantities](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/):
 
 ```yaml
