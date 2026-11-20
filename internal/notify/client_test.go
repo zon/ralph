@@ -150,6 +150,43 @@ func TestClientNotify_WhenNotifyFails_CallsWarnf(t *testing.T) {
 	}
 }
 
+func TestClientNotify_WhenNotifyFailsAndOutputMissing_DoesNotPanic(t *testing.T) {
+	tests := []struct {
+		name   string
+		method func(client *Client, slug string)
+		slug   string
+	}{
+		{
+			name:   "Success",
+			method: (*Client).Success,
+			slug:   "test-slug",
+		},
+		{
+			name:   "Error",
+			method: (*Client).Error,
+			slug:   "test-slug",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			mockNotifier := &MockNotifier{
+				NotifyFn: func(_, _, _ string) error {
+					return errors.New("notify error")
+				},
+			}
+			client := &Client{
+				shouldNotify: true,
+				notifier:     mockNotifier,
+			}
+
+			assert.NotPanics(t, func() {
+				tc.method(client, tc.slug)
+			})
+		})
+	}
+}
+
 func TestClientNotify_WhenNotificationsDisabled_DoesNotCallNotify(t *testing.T) {
 	tests := []struct {
 		name   string
