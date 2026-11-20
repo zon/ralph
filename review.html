@@ -12481,12 +12481,12 @@ Return the error for the first case and reap the leader before returning on ESRC
         
             
             
-            <div class="comment-card" data-comment-card data-category="security" data-severity="medium" data-mark-id="b8d3f8b0-76df-4dad-ad20-3cc56a9cc2da#0" hidden>
+            <div class="comment-card" data-comment-card data-category="security" data-severity="medium" data-mark-id="b8d3f8b0-76df-4dad-ad20-3cc56a9cc2da#0" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-security">security</span>
                     <span class="comment-badge severity-medium">medium</span>
                     <span class="comment-lines sr-only">L397-L398</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">User/config `Env` entries are appended after the built-in vars without any reserved-name check. If `.ralph/config.yaml` defines `GIT_REPO_URL`, `GIT_BRANCH`, `PROJECT_BRANCH`, `RALPH_DEBUG_BRANCH`, `RALPH_WORKFLOW_EXECUTION`, etc., the rendered pod spec contains two env entries with the same name. The API server accepts duplicates and the kubelet applies last-one-wins, so the config silently overrides the repo/branch/debug values the workflow was built with (e.g. cloning a different repository/branch and sending the container&#39;s git credentials there). `config.validateWorkflowEnv` only checks `secretKeyRef`, so nothing rejects these names. Either reject reserved names during config validation, or skip them here.</div>
                 

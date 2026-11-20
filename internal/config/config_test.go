@@ -239,6 +239,17 @@ func TestLoadConfig_WorkflowEnvSecretKeyRefValidation(t *testing.T) {
 			envYAML: "    API_KEY:\n      secretKeyRef: {}\n",
 			errMsg:  `env "API_KEY": secretKeyRef requires a name`,
 		},
+		{
+			name:    "reserved workflow variable",
+			envYAML: "    GIT_REPO_URL: https://example.com/other.git\n",
+			errMsg:  `env "GIT_REPO_URL" is reserved for the workflow`,
+		},
+		{
+			name: "reserved workflow variable with secretKeyRef",
+			envYAML: "    RALPH_VERBOSE:\n      secretKeyRef:\n        name: my-secret\n" +
+				"        key: verbose\n",
+			errMsg: `env "RALPH_VERBOSE" is reserved for the workflow`,
+		},
 	}
 
 	for _, tt := range tests {

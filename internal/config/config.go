@@ -462,9 +462,32 @@ func validateLoopConfigs(loops []LoopConfig) error {
 	return nil
 }
 
-// validateWorkflowEnv rejects env entries whose secretKeyRef lacks a name or key.
+// reservedWorkflowEnv are the environment variables a workflow manifest sets
+// itself. A duplicate entry in the workflow env would render a second variable
+// with the same name, and Kubernetes applies the last one, so a config value
+// would silently override the repository, branch, or debug values the workflow
+// was built with.
+var reservedWorkflowEnv = map[string]struct{}{
+	"GIT_REPO_URL":             {},
+	"GITHUB_REPO_OWNER":        {},
+	"GITHUB_REPO_NAME":         {},
+	"GIT_BRANCH":               {},
+	"PROJECT_BRANCH":           {},
+	"PROJECT_PATH":             {},
+	"INSTRUCTIONS_MD":          {},
+	"RALPH_WORKFLOW_EXECUTION": {},
+	"RALPH_DEBUG_BRANCH":       {},
+	"RALPH_VERBOSE":            {},
+	"RALPH_NO_SERVICES":        {},
+}
+
+// validateWorkflowEnv rejects env entries that name a variable the workflow
+// sets itself, and entries whose secretKeyRef lacks a name or key.
 func validateWorkflowEnv(env map[string]EnvVar) error {
 	for name, envVar := range env {
+		if _, reserved := reservedWorkflowEnv[name]; reserved {
+			return fmt.Errorf("env %q is reserved for the workflow", name)
+		}
 		if envVar.SecretKeyRef == nil {
 			continue
 		}
