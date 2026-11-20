@@ -8802,12 +8802,12 @@ if info.Mode().IsRegular() {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="8b68b723-b9ec-4bb0-8b26-20392a5a9b37#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="8b68b723-b9ec-4bb0-8b26-20392a5a9b37#0" hidden data-mark="fixed">
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-medium">medium</span>
                     <span class="comment-lines sr-only">L16</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">`ctx.Output()` can legitimately be nil (e.g. `context.NewContext()` without `SetOutput`, which the existing tests construct), so `NewClient` can produce a `Client` whose `out` field is nil. In that case any notify failure reaches `a.out.Warnf(...)` in `Error`/`Success`, and `output.Client.Warnf` dereferences the nil receiver (`warnColor.Fprintf(c.out, ...)`) → nil-pointer panic. Since this is the best-effort error path, it should never be fatal: either fall back to a stderr-backed output client here, or add a nil check on `a.out` before logging.</div>
                 

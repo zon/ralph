@@ -28,8 +28,17 @@ func (a *Client) Error(slug string) {
 	message := "Ralph failed for " + slug
 
 	if err := a.notifier.Notify(title, message, "dialog-error"); err != nil {
-		a.out.Warnf("Failed to send desktop notification: %v", err)
+		a.warnNotifyFailure(err)
 	}
+}
+
+// warnNotifyFailure reports a failed notification without letting the best-effort
+// error path panic. A context without an output client leaves out nil.
+func (a *Client) warnNotifyFailure(err error) {
+	if a.out == nil {
+		return
+	}
+	a.out.Warnf("Failed to send desktop notification: %v", err)
 }
 
 func (a *Client) Success(slug string) {
@@ -41,6 +50,6 @@ func (a *Client) Success(slug string) {
 	message := "Ralph completed successfully for " + slug
 
 	if err := a.notifier.Notify(title, message, "dialog-information"); err != nil {
-		a.out.Warnf("Failed to send desktop notification: %v", err)
+		a.warnNotifyFailure(err)
 	}
 }
