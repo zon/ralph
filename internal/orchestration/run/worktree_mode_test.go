@@ -186,7 +186,7 @@ func TestRunWorktreeRemovalErrorReportedWhenRunSucceeds(t *testing.T) {
 	require.Contains(t, err.Error(), "failed to remove worktree")
 }
 
-func TestRunWorktreeLoopErrorTakesPrecedenceOverRemovalError(t *testing.T) {
+func TestRunWorktreeLoopErrorAndRemovalErrorAreBothReported(t *testing.T) {
 	local := &mockLocalRunnerClient{
 		RunLocalInWorktreeFunc: func(*project.InputFile, *config.RalphConfig) error {
 			return errors.New("iteration failed")
@@ -200,7 +200,31 @@ func TestRunWorktreeLoopErrorTakesPrecedenceOverRemovalError(t *testing.T) {
 
 	err := cmd.Run(flagsWithMode(config.ModeWorktree))
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "iteration failed", "the loop's error is reported, not the removal error")
+	require.Contains(t, err.Error(), "iteration failed", "the loop's error is reported")
+	require.Contains(t, err.Error(), "failed to remove worktree", "the cleanup error is reported alongside it")
+}
+
+func TestRunWorktreeChangeBackErrorReportedWhenRunSucceeds(t *testing.T) {
+	originalDir, err := os.Getwd()
+	require.NoError(t, err)
+	ws := &mockWorkspaceClient{
+		ChangeDirectoryFunc: func(dir string) error {
+			if dir == originalDir {
+				return errors.New("failed to change back")
+			}
+			return nil
+		},
+	}
+	cmd := cmdWithMocks(
+		cmdWithWorkspace(ws),
+		cmdWithProject(projectWithSlug("my-project")),
+	)
+
+	err = cmd.Run(flagsWithMode(config.ModeWorktree))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to leave worktree '/sibling/repo-my-project'")
+	require.Contains(t, err.Error(), "failed to change back")
+	require.True(t, worktreeRemoved(cmd), "removal is still attempted after a failed change back")
 }
 
 // ---------------------------------------------------------------------------
