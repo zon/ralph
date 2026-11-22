@@ -6593,12 +6593,12 @@ The same gap applies to `RunRemoteFromClone` when neither branch nor prefix is s
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="27efe797-d0d2-498c-8b29-5e0a57216905#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="27efe797-d0d2-498c-8b29-5e0a57216905#0" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-medium">medium</span>
                     <span class="comment-lines sr-only">L202</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">`K` is not a valid Kubernetes quantity suffix (only lowercase `k` is accepted; the API server rejects e.g. `memory: 1K` with &#34;unable to parse quantity&#39;s suffix&#34;). Because `validateWorkflowResources` is the only pre-submit gate for resource values, accepting `K` here lets a config pass validation and only fail later at the cluster. Drop the `K` entry so this suffix is rejected locally.</div>
                 

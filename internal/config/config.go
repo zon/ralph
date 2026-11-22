@@ -199,7 +199,6 @@ var resourceQuantitySuffixes = map[string]float64{
 	"u":  1e-6,
 	"m":  1e-3,
 	"k":  1e3,
-	"K":  1e3,
 	"M":  1e6,
 	"G":  1e9,
 	"T":  1e12,
@@ -216,7 +215,7 @@ var resourceQuantitySuffixes = map[string]float64{
 // resourceQuantityRE matches a Kubernetes resource quantity: an optional sign,
 // a number, an optional decimal exponent, and an optional suffix. The groups
 // capture the number, exponent, and suffix separately.
-var resourceQuantityRE = regexp.MustCompile(`^([+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+))((?:[eE][+-]?[0-9]+)?)((?:Ei|Ki|Mi|Gi|Ti|Pi|n|u|m|k|K|M|G|T|P|E)?)$`)
+var resourceQuantityRE = regexp.MustCompile(`^([+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+))((?:[eE][+-]?[0-9]+)?)((?:Ei|Ki|Mi|Gi|Ti|Pi|n|u|m|k|M|G|T|P|E)?)$`)
 
 // parseResourceQuantity parses a Kubernetes resource quantity and returns its
 // value in the base unit. It rejects unknown suffixes, malformed numbers, and
