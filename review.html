@@ -4514,12 +4514,12 @@ nav.breadcrumb a:focus-visible {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="60c9111f-51e5-4db7-9d41-fd7b05e44f49#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="60c9111f-51e5-4db7-9d41-fd7b05e44f49#0" hidden data-mark="fixed">
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-medium">medium</span>
                     <span class="comment-lines sr-only">L23</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">The output client is wired with os.Stdout as its `out` writer, but the command&#39;s only stdout consumer must be the JSON array printed by `completion.Cmd.Incomplete` (`os.Stdout` is passed to `completion.NewCmd` on line 30). The project client emits diagnostics through this writer: `project.Client.reconcile` calls `c.out.Warnf(...)` for a trailer hash that matches no resolved item, so any stale trailer makes that warning land on stdout ahead of the JSON array. Scripts parsing `ralph incomplete` output then receive non-JSON text (`json.loads`/`jq` on a single value fails). Route diagnostics to stderr so stdout stays a pure JSON document.</div>
                 

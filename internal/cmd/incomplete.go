@@ -20,7 +20,10 @@ type IncompleteCmd struct {
 
 func (c *IncompleteCmd) Run() error {
 	ctx := createExecutionContext()
-	ctx.SetOutput(output.NewClient(os.Stdout, os.Stderr, false))
+	// The JSON array on stdout is the command's only stdout contract. Route
+	// diagnostics, such as project reconciliation warnings, to stderr so
+	// scripts that parse the output never receive non-JSON text.
+	ctx.SetOutput(output.NewClient(os.Stderr, os.Stderr, false))
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		return err
