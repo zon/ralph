@@ -137,12 +137,17 @@ func waitForGroupExit(pid int) error {
 // When no model is configured, the --model option is omitted entirely so
 // opencode falls back to its own configured default model. A variant cannot be
 // requested on its own: opencode 2 has no standalone variant option, so it is
-// an error to ask for a variant without a model.
+// an error to ask for a variant without a model. A requested variant replaces
+// any variant already encoded in the model reference, so it is never silently
+// dropped.
 func runArgs(model, variant, agent, prompt string) ([]string, error) {
 	args := []string{"run", "--standalone"}
 	if model != "" {
 		ref := model
-		if variant != "" && !strings.Contains(ref, "#") {
+		if variant != "" {
+			if i := strings.LastIndex(ref, "#"); i >= 0 {
+				ref = ref[:i]
+			}
 			ref = ref + "#" + variant
 		}
 		args = append(args, "--model", ref)
