@@ -46,8 +46,11 @@ func (c *Client) ResolveInputFile(path string) (*InputFile, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve input file path: %w", err)
 	}
-	if _, err := os.Stat(absPath); os.IsNotExist(err) {
-		return nil, fmt.Errorf("input file not found: %s", absPath)
+	if _, err := os.Stat(absPath); err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("input file not found: %s", absPath)
+		}
+		return nil, fmt.Errorf("failed to stat input file %s: %w", absPath, err)
 	}
 
 	base := filepath.Base(absPath)

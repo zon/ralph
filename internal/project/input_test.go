@@ -133,6 +133,17 @@ func TestResolveInputFile(t *testing.T) {
 		require.NoError(t, absErr)
 		assert.Equal(t, "unrecognized input file type: "+absPath, err.Error())
 	})
+
+	t.Run("returns the stat error when the path cannot be accessed", func(t *testing.T) {
+		dir := t.TempDir()
+		file := filepath.Join(dir, "not-a-dir")
+		require.NoError(t, os.WriteFile(file, []byte("x"), 0644))
+		path := filepath.Join(file, "project.yaml")
+
+		_, err := inputClient().ResolveInputFile(path)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to stat input file")
+	})
 }
 
 func TestResolveInputFile_ProjectSlugFromYAML(t *testing.T) {
