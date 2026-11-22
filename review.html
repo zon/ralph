@@ -10363,12 +10363,12 @@ func topWorkflow(names []string) (string, error) {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="755cb5cf-a255-49b7-8c85-6471b4dcf64b#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="755cb5cf-a255-49b7-8c85-6471b4dcf64b#0" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-medium">medium</span>
                     <span class="comment-lines sr-only">L49-L51</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">`os.Stat` errors other than &#34;not exists&#34; (e.g. `EACCES` on a parent directory, `ENOTDIR` for a path component that is a regular file) are silently ignored here, so the code falls through to `Resolve` and the caller gets a misleading parse/read error (or a misleading &#34;unrecognized input file type&#34;) instead of the real filesystem failure. Only the `IsNotExist` branch should be treated as &#34;not found&#34;; every other error should be returned, wrapped with `%w` so callers can inspect it.</div>
                 
