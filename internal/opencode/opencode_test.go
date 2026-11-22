@@ -247,6 +247,41 @@ exit 0
 	assert.Contains(t, stdout.String(), "run output: run --standalone --model test-model#high test-prompt")
 }
 
+func TestRunArgsVariantOverridesModelSuffix(t *testing.T) {
+	tests := []struct {
+		name    string
+		model   string
+		variant string
+		want    string
+	}{
+		{
+			name:    "appends variant when model has none",
+			model:   "provider/model",
+			variant: "high",
+			want:    "provider/model#high",
+		},
+		{
+			name:    "replaces variant already in model",
+			model:   "provider/model#low",
+			variant: "high",
+			want:    "provider/model#high",
+		},
+		{
+			name:    "keeps model suffix when no variant requested",
+			model:   "provider/model#low",
+			variant: "",
+			want:    "provider/model#low",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			args, err := runArgs(tt.model, tt.variant, "", "prompt")
+			require.NoError(t, err)
+			assert.Equal(t, []string{"run", "--standalone", "--model", tt.want, "prompt"}, args)
+		})
+	}
+}
+
 func TestRunCommandVariantRequiresModel(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	client := New()
