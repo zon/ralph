@@ -288,6 +288,38 @@ func TestWorkflowRender_RunBranching(t *testing.T) {
 // TestDebugWrapperScriptRequiresGo asserts the debug wrapper rejects a missing
 // Go toolchain before it clones the Ralph source, so no project work runs and
 // the message names the toolchain image.
+func TestWorkflowRender_SanitizesProjectName(t *testing.T) {
+	tests := []struct {
+		name        string
+		projectName string
+		want        string
+	}{
+		{name: "clean name is unchanged", projectName: "my-feature", want: "ralph-my-feature-"},
+		{name: "uppercase and underscores are sanitized", projectName: "My_Project", want: "ralph-my-project-"},
+		{name: "path separators and spaces are sanitized", projectName: "code review/agent", want: "ralph-code-review-agent-"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			wf := &Workflow{
+				ProjectName:   tt.projectName,
+				Repo:          githubpkg.MakeRepo("owner", "repo"),
+				CloneBranch:   "main",
+				ProjectBranch: "work",
+			}
+			workflowYAML, err := wf.Render()
+			require.NoError(t, err, "Render failed")
+
+			var wfData map[string]interface{}
+			require.NoError(t, yaml.Unmarshal([]byte(workflowYAML), &wfData), "Failed to parse workflow YAML")
+
+			metadata, ok := wfData["metadata"].(map[string]interface{})
+			require.True(t, ok, "metadata is not a map")
+			assert.Equal(t, tt.want, metadata["generateName"])
+		})
+	}
+}
+
 func TestDebugWrapperScriptRequiresGo(t *testing.T) {
 	goCheck := strings.Index(debugWrapperScript, "command -v go")
 	require.NotEqual(t, -1, goCheck, "Debug script should check for the go command")
