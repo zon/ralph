@@ -4,6 +4,8 @@
 // iteration and again before the pull request is opened.
 package basesync
 
+import "errors"
+
 // GitClient is the git operations synchronization performs.
 type GitClient interface {
 	FetchBranch(branch string) error
@@ -30,8 +32,9 @@ type OutputClient interface {
 // handed to the configured AI agent to resolve, run tests, and stage; a
 // successful resolution is then committed so the merge is complete. A failed
 // resolution is returned so execution stops, and the merge the agent left
-// behind is aborted so the repository is not left mid-merge. It reports whether
-// a merge was performed.
+// behind is aborted so the repository is not left mid-merge; a failed abort is
+// warned about and joined with the returned error. It reports whether a merge
+// was performed.
 func Sync(git GitClient, ai AIClient, output OutputClient, base, projectBranch string, inWorktree bool) (bool, error) {
 	if base == "" {
 		return false, nil
@@ -49,9 +52,15 @@ func Sync(git GitClient, ai AIClient, output OutputClient, base, projectBranch s
 		return false, nil
 	}
 	if err := git.Merge(baseRef); err != nil {
-		_ = git.AbortMerge()
+		abortErr := git.AbortMerge()
+		if abortErr != nil {
+			output.Warnf("Failed to abort the conflicting merge of %q: %v", baseRef, abortErr)
+		}
 		if err := ai.ResolveMergeConflicts(baseRef, projectBranch); err != nil {
-			_ = git.AbortMerge()
+			cleanupErr := git.AbortMerge()
+			if abortErr != nil || cleanupErr != nil {
+				return false, errors.Join(err, abortErr, cleanupErr)
+			}
 			return false, err
 		}
 		if err := git.CommitMerge(); err != nil {

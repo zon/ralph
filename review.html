@@ -4266,12 +4266,12 @@ nav.breadcrumb a:focus-visible {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="a4d06918-8aa5-4b70-8a46-fbe80727c9ae#1" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="a4d06918-8aa5-4b70-8a46-fbe80727c9ae#1" hidden data-mark="fixed">
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-medium">medium</span>
                     <span class="comment-lines sr-only">L51-L52</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">The `AbortMerge` error is discarded, and only the resolution error is returned. If the abort fails, the repository stays mid-merge with conflict markers, which is exactly the state the function documentation promises to avoid (&#34;the merge the agent left behind is aborted so the repository is not left mid-merge&#34;). Preserve the abort failure with `errors.Join` (or at least log it via `output.Warnf`) instead of reporting only the resolution error. The earlier `_ = git.AbortMerge()` before invoking the agent has the same problem: if it fails, the agent receives a repository that is still mid-merge and its `git merge &lt;base&gt;` step fails with &#34;You have not concluded your merge&#34;.</div>
                 
