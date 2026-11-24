@@ -16,6 +16,7 @@ type fakeGit struct {
 	needsMerge     bool
 	needsMergeErr  error
 	mergeErr       error
+	abortMergeErr  error
 	commitMergeErr error
 
 	fetchBranchCalled bool
@@ -46,7 +47,7 @@ func (f *fakeGit) Merge(branch string) error {
 
 func (f *fakeGit) AbortMerge() error {
 	f.abortMergeCalls++
-	return nil
+	return f.abortMergeErr
 }
 
 func (f *fakeGit) CommitMerge() error {
@@ -80,21 +81,22 @@ func (f *fakeOutput) Warnf(format string, a ...any) {
 
 func TestSync(t *testing.T) {
 	tests := []struct {
-		name           string
-		base           string
-		inWorktree     bool
-		git            *fakeGit
-		ai             *fakeAI
-		wantMerged     bool
-		wantErr        bool
-		wantFetch      bool
-		wantNeedsMerge bool
-		wantMerge      bool
-		wantAborts     int
-		wantResolve    bool
-		wantCommit     bool
-		wantWarnings   int
-		wantMergedRef  string
+		name            string
+		base            string
+		inWorktree      bool
+		git             *fakeGit
+		ai              *fakeAI
+		wantMerged      bool
+		wantErr         bool
+		wantErrContains []string
+		wantFetch       bool
+		wantNeedsMerge  bool
+		wantMerge       bool
+		wantAborts      int
+		wantResolve     bool
+		wantCommit      bool
+		wantWarnings    int
+		wantMergedRef   string
 	}{
 		{
 			name: "no base branch skips synchronization",
@@ -160,6 +162,35 @@ func TestSync(t *testing.T) {
 			wantErr:        true,
 		},
 		{
+			name:           "failed abort before resolution warns and still resolves",
+			base:           "main",
+			git:            &fakeGit{needsMerge: true, mergeErr: errors.New("conflict"), abortMergeErr: errors.New("abort boom")},
+			ai:             &fakeAI{},
+			wantFetch:      true,
+			wantNeedsMerge: true,
+			wantMerge:      true,
+			wantAborts:     1,
+			wantResolve:    true,
+			wantCommit:     true,
+			wantMerged:     true,
+			wantMergedRef:  "main",
+			wantWarnings:   1,
+		},
+		{
+			name:            "failed resolution reports abort failures",
+			base:            "main",
+			git:             &fakeGit{needsMerge: true, mergeErr: errors.New("conflict"), abortMergeErr: errors.New("abort boom")},
+			ai:              &fakeAI{resolveErr: errors.New("resolve boom")},
+			wantFetch:       true,
+			wantNeedsMerge:  true,
+			wantMerge:       true,
+			wantAborts:      2,
+			wantResolve:     true,
+			wantErr:         true,
+			wantErrContains: []string{"resolve boom", "abort boom"},
+			wantWarnings:    1,
+		},
+		{
 			name:           "commit failure returns the error",
 			base:           "main",
 			git:            &fakeGit{needsMerge: true, mergeErr: errors.New("conflict"), commitMergeErr: errors.New("commit boom")},
@@ -201,6 +232,9 @@ func TestSync(t *testing.T) {
 
 			if tt.wantErr {
 				require.Error(t, err)
+				for _, want := range tt.wantErrContains {
+					assert.ErrorContains(t, err, want)
+				}
 			} else {
 				require.NoError(t, err)
 			}
