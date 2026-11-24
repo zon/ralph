@@ -39,6 +39,15 @@ func (g *gitAuthConfigurator) DefaultSecretsDir() string {
 // caller's context carries no deadline.
 const defaultHTTPTimeout = 30 * time.Second
 
+const (
+	// appJWTClockSkew backdates a JWT's issue time so a local clock that runs
+	// slightly ahead of GitHub's does not produce an "Issued at time is in the
+	// future" rejection.
+	appJWTClockSkew = 60 * time.Second
+	// appJWTLifetime is the maximum lifetime GitHub allows for an app JWT.
+	appJWTLifetime = 10 * time.Minute
+)
+
 var httpClient *http.Client
 
 // githubHTTPClient returns the configured client, or a default client with a
@@ -65,10 +74,13 @@ func GenerateAppJWT(appID string, privateKeyPEM []byte) (string, error) {
 	}
 
 	now := time.Now()
+	// Backdate the issue time to tolerate clock drift, then expire one allowed
+	// lifetime after it so the token still stays within GitHub's limit.
+	issuedAt := now.Add(-appJWTClockSkew)
 	claims := jwt.RegisteredClaims{
 		Issuer:    appID,
-		IssuedAt:  jwt.NewNumericDate(now),
-		ExpiresAt: jwt.NewNumericDate(now.Add(10 * time.Minute)), // GitHub Apps JWTs expire after 10 minutes
+		IssuedAt:  jwt.NewNumericDate(issuedAt),
+		ExpiresAt: jwt.NewNumericDate(issuedAt.Add(appJWTLifetime)),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)

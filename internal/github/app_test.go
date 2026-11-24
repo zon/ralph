@@ -57,14 +57,14 @@ func TestGenerateAppJWT(t *testing.T) {
 	iat, ok := claims["iat"].(float64)
 	require.True(t, ok, "JWT should have iat claim")
 	iatTime := time.Unix(int64(iat), 0)
-	assert.WithinDuration(t, time.Now(), iatTime, time.Minute, "JWT issued at time should be recent")
+	assert.WithinDuration(t, time.Now().Add(-appJWTClockSkew), iatTime, 5*time.Second,
+		"JWT issued at time should be backdated to tolerate clock drift")
 
 	exp, ok := claims["exp"].(float64)
 	require.True(t, ok, "JWT should have exp claim")
 	expTime := time.Unix(int64(exp), 0)
-	iatTime = time.Unix(int64(iat), 0)
-	expectedExp := iatTime.Add(10 * time.Minute)
-	assert.WithinDuration(t, expectedExp, expTime, time.Second, "JWT expiration should be 10 minutes from iat")
+	expectedExp := iatTime.Add(appJWTLifetime)
+	assert.WithinDuration(t, expectedExp, expTime, time.Second, "JWT expiration should be one lifetime from iat")
 }
 
 func TestGenerateAppJWT_InvalidKey(t *testing.T) {
