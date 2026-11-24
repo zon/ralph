@@ -8210,12 +8210,12 @@ The same gap applies to `RunRemoteFromClone` when neither branch nor prefix is s
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="3aef287a-bb27-472d-821d-73271920de65#1" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="3aef287a-bb27-472d-821d-73271920de65#1" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-medium">medium</span>
                     <span class="comment-lines sr-only">L56</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">`IssuedAt` is set to the local `now`. GitHub rejects JWTs whose `iat` is in the future (&#34;Issued at time is in the future&#34;), and the local clock can easily drift a few seconds ahead of GitHub&#39;s. Backdate `iat` by ~60 seconds, as GitHub&#39;s documentation recommends.</div>
                 
