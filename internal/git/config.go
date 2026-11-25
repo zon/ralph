@@ -35,7 +35,9 @@ func Config(global bool, key, value string) error {
 	if global {
 		args = append(args, "--global")
 	}
-	args = append(args, key, value)
+	// Stop option parsing so a key or value that starts with "-" is treated as
+	// the positional argument it is.
+	args = append(args, "--", key, value)
 
 	_, err := runGit(args...)
 	if err != nil {
@@ -64,7 +66,7 @@ func ConfigUnset(global bool, key string) error {
 	if global {
 		args = append(args, "--global")
 	}
-	args = append(args, key)
+	args = append(args, "--", key)
 
 	_, err := runGit(args...)
 	if err != nil {

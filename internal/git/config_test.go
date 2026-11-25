@@ -80,6 +80,18 @@ func TestConfig(t *testing.T) {
 		require.NoError(t, err)
 		assert.Contains(t, output, "user.overwritekey=second")
 	})
+
+	t.Run("treats a leading dash value as a value", func(t *testing.T) {
+		tempDir := setupTestRepo(t)
+		t.Chdir(tempDir)
+
+		err := Config(false, "user.dashkey", "--replace-all")
+		require.NoError(t, err)
+
+		output, err := ConfigList(false)
+		require.NoError(t, err)
+		assert.Contains(t, output, "user.dashkey=--replace-all")
+	})
 }
 
 func TestConfigList(t *testing.T) {
