@@ -3582,12 +3582,12 @@ nav.breadcrumb a:focus-visible {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="c25b9b4e-902b-4200-a3d9-993e8927265b#2" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="c25b9b4e-902b-4200-a3d9-993e8927265b#2" hidden data-mark="fixed">
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-medium">medium</span>
                     <span class="comment-lines sr-only">L45</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">`signal.Notify` stays registered after the first signal, so additional SIGINT/SIGTERM deliveries are swallowed by this channel instead of terminating the process. If a cleanup callback hangs (or the work being cancelled never returns), the user cannot stop the process with Ctrl-C anymore and must resort to SIGKILL. Call `signal.Stop(sigChan)` once the first signal is received (or re-arm a default handler) and consider bounding cleanup with a timeout.</div>
                 
