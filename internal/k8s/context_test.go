@@ -14,6 +14,7 @@ import (
 func TestGetCurrentContext(t *testing.T) {
 	tests := []struct {
 		name        string
+		contextName string
 		namespace   string
 		viewExit    int
 		wantContext Context
@@ -21,13 +22,21 @@ func TestGetCurrentContext(t *testing.T) {
 	}{
 		{
 			name:        "resolves the context namespace",
-			namespace:   "'staging'",
+			contextName: "test-context",
+			namespace:   "staging",
 			wantContext: Context{Name: "test-context", Namespace: "staging"},
 		},
 		{
-			name:     "reports a namespace lookup failure",
-			viewExit: 1,
-			wantErr:  `failed to get namespace for context "test-context"`,
+			name:        "handles quotes in the context name",
+			contextName: `weird"context`,
+			namespace:   "staging",
+			wantContext: Context{Name: `weird"context`, Namespace: "staging"},
+		},
+		{
+			name:        "reports a namespace lookup failure",
+			contextName: "test-context",
+			viewExit:    1,
+			wantErr:     `failed to get namespace for context "test-context"`,
 		},
 	}
 
@@ -36,16 +45,16 @@ func TestGetCurrentContext(t *testing.T) {
 			dir := t.TempDir()
 			script := fmt.Sprintf(`#!/bin/bash
 if [ "$1" = "config" ] && [ "$2" = "current-context" ]; then
-  echo "test-context"
+  echo '%s'
   exit 0
 fi
 if [ "$1" = "config" ] && [ "$2" = "view" ]; then
-  echo "%s"
+  echo '%s'
   echo "view failed" >&2
   exit %d
 fi
 exit 1
-`, tt.namespace, tt.viewExit)
+`, tt.contextName, tt.namespace, tt.viewExit)
 			require.NoError(t, os.WriteFile(filepath.Join(dir, "kubectl"), []byte(script), 0755))
 			t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
