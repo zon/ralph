@@ -142,11 +142,58 @@ func TestBuildGetSecretDataArgs(t *testing.T) {
 			kubeContext:  "staging",
 			expectedArgs: []string{"get", "secret", "github-credentials", "-n", "argo", "-o", "json", "--context", "staging"},
 		},
+		{
+			name:         "empty namespace uses default",
+			secretName:   "github-credentials",
+			namespace:    "",
+			kubeContext:  "",
+			expectedArgs: []string{"get", "secret", "github-credentials", "-n", "default", "-o", "json"},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			args := buildGetSecretDataArgs(tt.secretName, tt.namespace, tt.kubeContext)
+
+			assert.Equal(t, tt.expectedArgs, args)
+		})
+	}
+}
+
+func TestBuildSecretExistsArgs(t *testing.T) {
+	tests := []struct {
+		name         string
+		secretName   string
+		namespace    string
+		kubeContext  string
+		expectedArgs []string
+	}{
+		{
+			name:         "basic secret lookup",
+			secretName:   "github-credentials",
+			namespace:    "argo",
+			kubeContext:  "",
+			expectedArgs: []string{"get", "secret", "github-credentials", "-n", "argo"},
+		},
+		{
+			name:         "secret lookup with context",
+			secretName:   "github-credentials",
+			namespace:    "argo",
+			kubeContext:  "staging",
+			expectedArgs: []string{"get", "secret", "github-credentials", "-n", "argo", "--context", "staging"},
+		},
+		{
+			name:         "empty namespace uses default",
+			secretName:   "github-credentials",
+			namespace:    "",
+			kubeContext:  "",
+			expectedArgs: []string{"get", "secret", "github-credentials", "-n", "default"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			args := buildSecretExistsArgs(tt.secretName, tt.namespace, tt.kubeContext)
 
 			assert.Equal(t, tt.expectedArgs, args)
 		})

@@ -50,10 +50,18 @@ container-build:
     echo "Building container $image..."
     podman build -t "$image" -f containers/ralph/Containerfile .
 
-# Build the Go toolchain image on the local Ralph image
-container-build-go: container-build
+# Build the review image on the local Ralph image
+container-build-review: container-build
     podman build \
       --build-arg RALPH_IMAGE=ghcr.io/zon/ralph:{{version}} \
+      --build-arg RALPH_VERSION={{version}} \
+      -t ghcr.io/zon/ralph-review:{{version}} \
+      -f containers/ralph-review/Containerfile containers/ralph-review
+
+# Build the Go toolchain image on the local review image
+container-build-go: container-build-review
+    podman build \
+      --build-arg RALPH_IMAGE=ghcr.io/zon/ralph-review:{{version}} \
       --build-arg RALPH_VERSION={{version}} \
       -t ghcr.io/zon/ralph-go:{{version}} \
       -f containers/ralph-go/Containerfile containers/ralph-go
@@ -66,6 +74,13 @@ container-test-go: container-build-go
 # Scan the working tree for vulnerabilities
 scan:
     ./scripts/scan.sh
+
+# Scan then push the review image to the registry
+push-review:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ./scripts/scan.sh image "ghcr.io/zon/ralph-review:{{version}}"
+    podman push "ghcr.io/zon/ralph-review:{{version}}"
 
 # Scan then push the Go toolchain image to the registry
 push-go:

@@ -23,6 +23,6 @@ Write a skill that a coding agent can invoke by name in any repository that inst
    - **Link documents at their installed path.** Documents in this repository live at `docs/zpecs/<file>.md` and install to the same path in the target repository, so a relative markdown link resolves in both places. Use markdown links, never bare paths or code spans.
    - **Leave target-repository paths unlinked.** Paths like `./specs/<path>.md` or `specs/architecture.yaml` resolve wherever the skill runs.
    - **Use the shared frontmatter fields.** The spec requires `name` and `description`. Both Claude and opencode read the optional fields `license`, `compatibility`, and `metadata`. `allowed-tools` is experimental, so leave it out.
-   - **Keep the body short.** A runner loads the whole file once it triggers the skill, so stay under 500 lines. Move longer material to a reference file beside it and link it once from `SKILL.md`.
+   - **Keep the body short.** A runner loads the whole file once it triggers the skill, so stay under 500 lines. Move longer material to a reference file beside it and link it once from `SKILL.md`. Put scripts beside it too. The installer copies every support file beside `SKILL.md`.
 
 5. **Report** the skill path, the situations that trigger it, and a one-line summary.

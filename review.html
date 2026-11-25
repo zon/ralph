@@ -8693,12 +8693,12 @@ if info.Mode().IsRegular() {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="a224b6f7-cdfb-42fb-93ed-808d4734e89a#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="a224b6f7-cdfb-42fb-93ed-808d4734e89a#0" hidden data-mark="fixed">
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-medium">medium</span>
                     <span class="comment-lines sr-only">L17-L19</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">Namespace defaulting is inconsistent: only `buildSecretArgs` rewrites an empty namespace to `default`, while `SecretExists` and `GetSecretData` pass the empty value straight to `-n`. With an empty namespace the secret is written to `default` but reads are resolved against the kubeconfig context&#39;s namespace, so existence checks/reads can target a different namespace than the write.</div>
                 
@@ -9664,12 +9664,12 @@ func topWorkflow(names []string) (string, error) {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="8f844c1d-d1ee-4efc-8601-8d75ef568635#2" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="high" data-mark-id="8f844c1d-d1ee-4efc-8601-8d75ef568635#2" hidden data-mark="fixed">
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-high">high</span>
                     <span class="comment-lines sr-only">L56-L58</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">When `cmd.Run` fails (including context cancellation) the function returns immediately, so the process group is neither drained nor killed. `exec.CommandContext` only kills the direct child, while the private server/sub-agents live in the separate group created by `Setpgid`; a cancelled or crashed run therefore leaks running processes. Kill the whole group on failure/cancellation, e.g. set `cmd.Cancel = func() error { return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) }`, and/or drain the group on the error path before returning.</div>
                 
