@@ -12207,12 +12207,12 @@ Return the error for the first case and reap the leader before returning on ESRC
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="9d398c75-6c87-45e7-8658-4979043038ba#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="9d398c75-6c87-45e7-8658-4979043038ba#0" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-medium">medium</span>
                     <span class="comment-lines sr-only">L74-L78</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">Both branches of WriteCanonical write straight to `target` with `os.WriteFile`. For a `.yaml`/`.yml` input `target` *is* the input file, so this truncates the user&#39;s project file before the new content is written; if the process is killed, the disk fills, or the write fails partway, the only copy of the project file is left truncated/corrupted (the validator runs unattended in the orchestration path). `os.WriteFile` also silently applies `0o644` to the sibling `.yaml` created from a `.json` input, so a private `0o600` JSON file becomes world-readable. Write to a temp file in the same directory, chmod it to the source file&#39;s mode, then `os.Rename` it over the target (and factor the duplicated marshal/write out of the two branches).</div>
                 
