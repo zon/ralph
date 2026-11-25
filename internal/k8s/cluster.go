@@ -50,7 +50,7 @@ func hasKubeconfig() bool {
 			if path == "" {
 				continue
 			}
-			if _, err := os.Stat(path); err == nil {
+			if isKubeconfigFile(path) {
 				return true
 			}
 		}
@@ -61,6 +61,17 @@ func hasKubeconfig() bool {
 	if err != nil {
 		return false
 	}
-	_, err = os.Stat(filepath.Join(home, defaultKubeconfigPath))
-	return err == nil
+	return isKubeconfigFile(filepath.Join(home, defaultKubeconfigPath))
+}
+
+// isKubeconfigFile reports whether path is a regular file that can hold a
+// kubeconfig. A stat failure other than "does not exist" still counts as
+// configured, so a permission or I/O error does not silently fall back to the
+// pod ServiceAccount.
+func isKubeconfigFile(path string) bool {
+	info, err := os.Stat(path)
+	if err != nil {
+		return !os.IsNotExist(err)
+	}
+	return info.Mode().IsRegular()
 }

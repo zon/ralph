@@ -11,17 +11,25 @@ import (
 
 func TestInCluster(t *testing.T) {
 	tests := []struct {
-		name          string
-		serviceHost   string
-		kubeconfig    string
-		defaultKube   bool
-		wantInCluster bool
+		name           string
+		serviceHost    string
+		kubeconfig     string
+		kubeconfigDir  bool
+		kubeconfigGone bool
+		defaultKube    bool
+		wantInCluster  bool
 	}{
 		{
 			name:          "service host with no kubeconfig is in cluster",
 			serviceHost:   "10.0.0.1",
 			kubeconfig:    "",
 			wantInCluster: true,
+		},
+		{
+			name:           "service host with a missing kubeconfig is in cluster",
+			serviceHost:    "10.0.0.1",
+			kubeconfigGone: true,
+			wantInCluster:  true,
 		},
 		{
 			name:          "no service host is not in cluster",
@@ -33,6 +41,12 @@ func TestInCluster(t *testing.T) {
 			serviceHost:   "10.0.0.1",
 			kubeconfig:    "kubeconfig",
 			wantInCluster: false,
+		},
+		{
+			name:          "service host with a kubeconfig directory is in cluster",
+			serviceHost:   "10.0.0.1",
+			kubeconfigDir: true,
+			wantInCluster: true,
 		},
 		{
 			name:          "service host with the default kubeconfig is not in cluster",
@@ -53,6 +67,16 @@ func TestInCluster(t *testing.T) {
 				path := filepath.Join(home, tt.kubeconfig)
 				require.NoError(t, os.WriteFile(path, []byte("apiVersion: v1\n"), 0644))
 				t.Setenv("KUBECONFIG", path)
+			}
+
+			if tt.kubeconfigDir {
+				path := filepath.Join(home, "kubeconfig-dir")
+				require.NoError(t, os.Mkdir(path, 0755))
+				t.Setenv("KUBECONFIG", path)
+			}
+
+			if tt.kubeconfigGone {
+				t.Setenv("KUBECONFIG", filepath.Join(home, "missing-kubeconfig"))
 			}
 
 			if tt.defaultKube {
