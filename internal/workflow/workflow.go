@@ -145,7 +145,7 @@ func (w *Workflow) Render() (string, error) {
 
 	generateName := w.GenerateName
 	if generateName == "" {
-		generateName = fmt.Sprintf("ralph-%s-", w.ProjectName)
+		generateName = fmt.Sprintf("ralph-%s-", sanitizeName(w.ProjectName))
 	}
 
 	wf := map[string]interface{}{

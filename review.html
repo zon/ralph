@@ -12525,12 +12525,12 @@ Return the error for the first case and reap the leader before returning on ESRC
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="b8d3f8b0-76df-4dad-ad20-3cc56a9cc2da#1" hidden>
+            <div class="comment-card" data-mark="fixed" data-comment-card data-category="bug" data-severity="medium" data-mark-id="b8d3f8b0-76df-4dad-ad20-3cc56a9cc2da#1" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-medium">medium</span>
                     <span class="comment-lines sr-only">L146-L149</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">`ProjectName` is inserted into `metadata.generateName` unsanitized. It comes from the project YAML `slug` field (`project.slugFrom` returns it verbatim), and unlike `ProjectBranch` it is never passed through `git.SanitizeBranchName`; a project with `slug: My_Project` (or a slug derived from a file name with underscores/uppercase) produces an invalid Kubernetes `generateName` and Argo submission fails. Sanitize the default name (and cap/normalize its length) instead of relying on the slug being DNS-safe.</div>
                 
