@@ -6114,12 +6114,12 @@ func (w *WorkflowLoopCmd) Run() error {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="d44c1a73-98f3-4c2e-bbef-f8c3ca21b340#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="d44c1a73-98f3-4c2e-bbef-f8c3ca21b340#0" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-medium">medium</span>
                     <span class="comment-lines sr-only">L55-L56</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">`HasStagedChanges` treats *any* error as &#34;staged changes exist&#34;. `git diff --cached --quiet` only signals &#34;has staged changes&#34; via exit status 1; a hard failure (not a git repo, corrupt index, git binary missing, lock file, etc.) is indistinguishable and is reported as `true`. Downstream callers (`performCommit`) then attempt a commit and surface the real error, but `CommitWorkingTree` just proceeds to commit and the caller sees a misleading &#34;failed to commit working tree&#34; instead of the actual cause. Consider inspecting the `*exec.ExitError` exit code (1 == has staged changes, other codes == propagate the error), or change the helper to return `(bool, error)`.</div>
                 

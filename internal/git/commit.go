@@ -3,6 +3,7 @@ package git
 import (
 	"errors"
 	"fmt"
+	"os/exec"
 	"strings"
 )
 
@@ -22,7 +23,11 @@ func CommitWorkingTree(message string) error {
 	if err := StageAll(); err != nil {
 		return fmt.Errorf("failed to stage working tree: %w", err)
 	}
-	if !HasStagedChanges() {
+	staged, err := HasStagedChanges()
+	if err != nil {
+		return err
+	}
+	if !staged {
 		return nil
 	}
 	if err := Commit(message); err != nil {
@@ -49,11 +54,20 @@ func StageAll() error {
 	return nil
 }
 
-// HasStagedChanges checks if there are any staged changes ready to commit
-func HasStagedChanges() bool {
-	// git diff --cached --quiet: exit 0 = no staged changes, exit 1 = has staged changes
+// HasStagedChanges reports whether there are staged changes ready to commit.
+// git diff --cached --quiet exits 1 only when staged changes exist; any other
+// failure (no repository, unreadable index, missing git) is returned as an
+// error so callers do not mistake it for a clean tree.
+func HasStagedChanges() (bool, error) {
 	_, err := runGit("diff", "--cached", "--quiet")
-	return err != nil
+	if err == nil {
+		return false, nil
+	}
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
+		return true, nil
+	}
+	return false, fmt.Errorf("failed to check staged changes: %w", err)
 }
 
 // HasUncommittedChanges reports whether there are any uncommitted changes in the
@@ -133,7 +147,11 @@ func performCommit(message string, allowEmpty bool) error {
 		return fmt.Errorf("empty commit message: cannot proceed without a descriptive message")
 	}
 
-	if !HasStagedChanges() {
+	staged, err := HasStagedChanges()
+	if err != nil {
+		return err
+	}
+	if !staged {
 		if !allowEmpty {
 			return ErrNoChanges
 		}
