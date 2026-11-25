@@ -176,10 +176,10 @@ const DefaultSecretsDir = "/secrets/github"
 // for github.com from the global git config. This prevents stale expired tokens
 // from interfering when a fresh token is set: git picks an arbitrary match when
 // multiple insteadOf rules rewrite the same URL, so old entries must be purged.
-func cleanupStaleTokenRewrites(ctx context.Context) {
+func cleanupStaleTokenRewrites(ctx context.Context) error {
 	out, err := git.ConfigList(true)
 	if err != nil {
-		return
+		return nil
 	}
 
 	for _, line := range strings.Split(out, "\n") {
@@ -192,8 +192,11 @@ func cleanupStaleTokenRewrites(ctx context.Context) {
 			continue
 		}
 		key := parts[0]
-		git.ConfigUnset(true, key)
+		if err := git.ConfigUnset(true, key); err != nil {
+			return fmt.Errorf("failed to remove stale x-access-token rewrite: %w", err)
+		}
 	}
+	return nil
 }
 
 // ConfigureGitAuth configures git HTTPS authentication and the gh CLI from
@@ -396,7 +399,9 @@ func ReadGitHubAppCredentials(keyPath string) ([]byte, error) {
 }
 
 func configureGitAuth(ctx context.Context, installationToken string) error {
-	cleanupStaleTokenRewrites(ctx)
+	if err := cleanupStaleTokenRewrites(ctx); err != nil {
+		return err
+	}
 
 	insteadOfKey := "url.https://x-access-token:" + installationToken + "@github.com/.insteadOf"
 	if err := git.Config(true, insteadOfKey, "https://github.com/"); err != nil {
