@@ -199,6 +199,22 @@ func TestCheckoutOrCreateBranch_CreateNew(t *testing.T) {
 	assert.Equal(t, branchName, currentBranch)
 }
 
+func TestCheckoutOrCreateBranch_ExistingLocalBranch(t *testing.T) {
+	tempDir := setupTestRepo(t)
+	t.Chdir(tempDir)
+
+	branchName := "local-only-branch"
+	require.NoError(t, CreateBranch(branchName))
+	require.NoError(t, CheckoutBranch("main"))
+
+	require.NoError(t, CheckoutOrCreateBranch(branchName), "CheckoutOrCreateBranch failed")
+
+	currentBranch, err := GetCurrentBranch()
+	require.NoError(t, err, "GetCurrentBranch failed")
+
+	assert.Equal(t, branchName, currentBranch)
+}
+
 func TestRenameBranch(t *testing.T) {
 	tempDir := setupTestRepo(t)
 	t.Chdir(tempDir)
