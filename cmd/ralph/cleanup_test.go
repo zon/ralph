@@ -138,6 +138,28 @@ func TestHandleSignal(t *testing.T) {
 	}
 }
 
+func TestHandleSignalStopsNotifications(t *testing.T) {
+	m := NewManager(output.NewClient(os.Stdout, os.Stderr, false))
+
+	var stopped bool
+	m.stopFn = func(chan<- os.Signal) { stopped = true }
+
+	exited := make(chan struct{})
+	m.exitFn = func(int) { close(exited) }
+
+	sigChan := make(chan os.Signal, 1)
+	go m.handleSignal(sigChan)
+	sigChan <- syscall.SIGTERM
+
+	select {
+	case <-exited:
+	case <-time.After(time.Second):
+		t.Fatal("signal handler did not finish")
+	}
+
+	assert.True(t, stopped, "signal notifications should be stopped after the first signal")
+}
+
 func TestCleanupIsCalledOnce(t *testing.T) {
 	m := NewManager(output.NewClient(os.Stdout, os.Stderr, false))
 

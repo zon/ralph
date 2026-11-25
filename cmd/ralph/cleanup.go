@@ -13,6 +13,7 @@ type Manager struct {
 	mu        sync.Mutex
 	cleanupFn []func()
 	exitFn    func(int)
+	stopFn    func(chan<- os.Signal)
 	out       *output.Client
 }
 
@@ -20,6 +21,7 @@ func NewManager(out *output.Client) *Manager {
 	return &Manager{
 		cleanupFn: make([]func(), 0),
 		exitFn:    os.Exit,
+		stopFn:    signal.Stop,
 		out:       out,
 	}
 }
@@ -48,8 +50,11 @@ func (m *Manager) SetupSignalHandlers() {
 	go m.handleSignal(sigChan)
 }
 
-func (m *Manager) handleSignal(sigChan <-chan os.Signal) {
+func (m *Manager) handleSignal(sigChan chan os.Signal) {
 	sig := <-sigChan
+	// Stop the registration so a second signal takes its default action and
+	// terminates the process even if cleanup is still running.
+	m.stopFn(sigChan)
 	m.out.Infof("Received signal: %v", sig)
 	m.out.Info("Cleaning up...")
 	m.Cleanup()
