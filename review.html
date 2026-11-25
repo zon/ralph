@@ -8432,12 +8432,12 @@ The same gap applies to `RunRemoteFromClone` when neither branch nor prefix is s
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="43465b53-3880-4ee1-b821-eb5c8fd323f9#1" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="43465b53-3880-4ee1-b821-eb5c8fd323f9#1" hidden data-mark="fixed">
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-medium">medium</span>
                     <span class="comment-lines sr-only">L22</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">The context name obtained from kubeconfig is interpolated unescaped into a jsonpath expression. A name containing `&#34;` (or `&#39;`) breaks the filter expression and silently yields an empty namespace, and it also allows arbitrary jsonpath content to be injected into the query. Additionally, relying on shell-style quotes around the jsonpath and then stripping them with `strings.Trim(..., &#34;&#39;&#34;)` is fragile because it depends on kubectl keeping the quotes literally. Prefer fetching the config as JSON (or `kubectl config view --minify -o jsonpath={..namespace}`) so no value needs to be embedded into the query, which also lets you resolve name and namespace in a single kubectl invocation.</div>
                 
