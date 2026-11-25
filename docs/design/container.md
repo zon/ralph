@@ -40,15 +40,27 @@ The Containerfile has five stages:
 
 The runtime carries no Go module cache, Bun installation, or npm package tree. The OpenCode binary is about 240 MB and argo is about 100 MB. Keep the image under 650 MB.
 
+## Review Image
+
+The review image, `ralph-review`, adds the tools a workflow needs to work with a code review report and the spec definitions. It starts from the Ralph image at the same version.
+
+Its Containerfile has three stages:
+
+1. **zpecs** - a Go image builds the zpecs CLI from the specs repository at a pinned commit. The repository publishes no release tags, so the commit is the pin, and the build injects the version from its `VERSION` file.
+2. **Open Code Review** - an Ubuntu image downloads the pinned `opencodereview-linux-amd64` release asset and verifies its published SHA-256 checksum. The asset is a static binary, so the image needs no JavaScript runtime.
+3. **Runtime** - the Ralph image adds zpecs and `ocr`.
+
+The Go toolchain image builds on the review image, so it carries both commands.
+
 ## OpenCode Configuration
 
 The runtime writes a global OpenCode configuration so every run inherits it. The configuration allows every tool action, because the container is the sandbox and a run has no client to answer a rule that asks. It selects the web search provider automatically, because the first search otherwise asks the user to choose one, another prompt an unattended run cannot answer. A failed search is a tool error, not a stalled run, and the agent can still fetch pages with webfetch and the shell. It disables updates, so the pinned OpenCode version is the version every run uses.
 
 ## Toolchains
 
-Container images live in this repository under `containers/`. The Ralph image is in `containers/ralph`, and each toolchain image has its own directory beside it. Each toolchain image starts from the Ralph image at the same version and adds one toolchain. The container build workflow pushes each one to GHCR right after the Ralph image, with the same version and alias tags, and a project selects one with `workflow.image`. See [Config Design](app/ralph-config.md).
+Container images live in this repository under `containers/`. The Ralph image is in `containers/ralph`, the review image in `containers/ralph-review`, and each toolchain image has its own directory beside it. Each toolchain image starts from an image at the same version and adds one toolchain. The container build workflow pushes each one to GHCR after the image it layers on, with the same version and alias tags, and a project selects one with `workflow.image`. See [Config Design](app/ralph-config.md).
 
-The base is the `RALPH_IMAGE` build argument, which defaults to `ghcr.io/zon/ralph` at `RALPH_VERSION`. The container build workflow builds each toolchain image after it pushes the Ralph image for the same version.
+The base is the `RALPH_IMAGE` build argument, which defaults to the image the Containerfile layers on at `RALPH_VERSION`. The review image layers on `ghcr.io/zon/ralph`, and the Go image layers on `ghcr.io/zon/ralph-review`. The container build workflow builds each image after it pushes the image it layers on.
 
 The Go image, `ralph-go`, is built from `containers/ralph-go/Containerfile` and adds:
 

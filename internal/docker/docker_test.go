@@ -282,6 +282,101 @@ func TestDockerfileInstallsPinnedOpenCodeInOwnStage(t *testing.T) {
 		"OpenCode stage should keep only the native binary as its output")
 }
 
+func TestReviewContainerfileBuildsZpecsFromPinnedCommit(t *testing.T) {
+	projectRoot := filepath.Join("..", "..")
+	containerfilePath := filepath.Join(projectRoot, "containers", "ralph-review", "Containerfile")
+
+	content, err := os.ReadFile(containerfilePath)
+	require.NoError(t, err, "Should be able to read the review Containerfile")
+
+	dockerfile := string(content)
+	zpecs := containerfileStage(t, dockerfile, "zpecs")
+	runtime := runtimeStage(t, dockerfile)
+
+	basePattern := regexp.MustCompile(`(?m)^FROM\s+(?:--platform=\S+\s+)?\S*golang:\d+\.\d+\.\d+-\S+\s+AS\s+zpecs\s*$`)
+	assert.Regexp(t, basePattern, zpecs,
+		"zpecs stage should build on a golang image pinned to a patch version")
+
+	assert.Contains(t, zpecs, "https://github.com/zon/specs.git",
+		"zpecs stage should build from the specs repository")
+	assert.Regexp(t, regexp.MustCompile(`(?m)^ENV\s+ZPECS_COMMIT=[0-9a-f]{40}\s*$`), zpecs,
+		"zpecs stage should pin a full specs commit, because the repository publishes no release tags")
+	assert.Contains(t, zpecs, "git checkout --quiet ${ZPECS_COMMIT}",
+		"zpecs stage should check out the pinned commit")
+	assert.Contains(t, zpecs, "-X main.version=$(cat VERSION)",
+		"zpecs stage should inject the version from the pinned commit's VERSION file")
+	assert.Contains(t, zpecs, "-o /out/zpecs ./cmd/zpecs",
+		"zpecs stage should build the zpecs command")
+
+	assert.Contains(t, runtime, "COPY --from=zpecs /out/zpecs /usr/local/bin/zpecs",
+		"Review runtime stage should copy the zpecs CLI from its build stage")
+	assert.NotContains(t, runtime, "go mod download",
+		"Review runtime stage should not carry the zpecs build's module cache")
+}
+
+// TestReviewContainerfileInstallsPinnedOpenCodeReview covers the ocr command.
+// Its npm package is a JavaScript launcher, but the release publishes the same
+// static linux/amd64 binary, so the image copies that asset and needs no
+// runtime for it.
+func TestReviewContainerfileInstallsPinnedOpenCodeReview(t *testing.T) {
+	projectRoot := filepath.Join("..", "..")
+	containerfilePath := filepath.Join(projectRoot, "containers", "ralph-review", "Containerfile")
+
+	content, err := os.ReadFile(containerfilePath)
+	require.NoError(t, err, "Should be able to read the review Containerfile")
+
+	dockerfile := string(content)
+	ocr := containerfileStage(t, dockerfile, "ocr")
+	runtime := runtimeStage(t, dockerfile)
+
+	basePattern := regexp.MustCompile(`(?m)^FROM\s+(?:--platform=\S+\s+)?\S*ubuntu:\d+\.\d+\s+AS\s+ocr\s*$`)
+	assert.Regexp(t, basePattern, ocr,
+		"ocr stage should build on a pinned Ubuntu image")
+
+	assert.Contains(t, ocr, "https://github.com/alibaba/open-code-review/releases/download/v${OCR_VERSION}/opencodereview-linux-amd64",
+		"ocr stage should download the pinned linux/amd64 release asset")
+	assert.Regexp(t, regexp.MustCompile(`[0-9a-f]{64}\s+/out/ocr`), ocr,
+		"ocr stage should verify the release asset's published SHA-256 checksum")
+	assert.Contains(t, ocr, "chmod +x /out/ocr",
+		"ocr stage should mark the downloaded asset executable")
+
+	version := containerfileVersion(t, ocr, "OCR_VERSION")
+	minimum := [3]int{1, 14, 3}
+	assert.GreaterOrEqual(t, compareVersions(version, minimum), 0,
+		"Containerfile should pin OCR_VERSION at v%d.%d.%d or later, got v%d.%d.%d",
+		minimum[0], minimum[1], minimum[2], version[0], version[1], version[2])
+
+	assert.Contains(t, runtime, "COPY --from=ocr /out/ocr /usr/local/bin/ocr",
+		"Review runtime stage should copy the ocr CLI from its build stage")
+}
+
+func TestReviewContainerfileLayersOnRalphImage(t *testing.T) {
+	projectRoot := filepath.Join("..", "..")
+	containerfilePath := filepath.Join(projectRoot, "containers", "ralph-review", "Containerfile")
+
+	content, err := os.ReadFile(containerfilePath)
+	require.NoError(t, err, "Should be able to read the review Containerfile")
+
+	dockerfile := string(content)
+	runtime := runtimeStage(t, dockerfile)
+
+	assert.Contains(t, dockerfile, "ARG RALPH_IMAGE=ghcr.io/zon/ralph:${RALPH_VERSION}",
+		"review image should default to the Ralph image at the requested version")
+	assert.Contains(t, runtime, "FROM --platform=linux/amd64 ${RALPH_IMAGE}",
+		"review runtime stage should layer on the Ralph image")
+}
+
+func TestGoContainerfileLayersOnReviewImage(t *testing.T) {
+	projectRoot := filepath.Join("..", "..")
+	containerfilePath := filepath.Join(projectRoot, "containers", "ralph-go", "Containerfile")
+
+	content, err := os.ReadFile(containerfilePath)
+	require.NoError(t, err, "Should be able to read the Go Containerfile")
+
+	assert.Contains(t, string(content), "ARG RALPH_IMAGE=ghcr.io/zon/ralph-review:${RALPH_VERSION}",
+		"Go toolchain image should build on the review image by default")
+}
+
 func TestDockerfileCopiesGitFromOwnStage(t *testing.T) {
 	projectRoot := filepath.Join("..", "..")
 	containerfilePath := filepath.Join(projectRoot, "containers", "ralph", "Containerfile")

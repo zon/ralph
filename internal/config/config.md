@@ -168,7 +168,7 @@ validate:
 | `labels` | Kubernetes labels to apply to workflow pods |
 | `resources` | CPU and memory requests and limits for the container |
 
-`image` selects the executor image. It carries Ralph, the argo CLI, and OpenCode, not a language toolchain. A toolchain image such as `ghcr.io/zon/ralph-go` adds one. It shares the Ralph version tag.
+`image` selects the executor image. It carries Ralph, the argo CLI, and OpenCode, not a language toolchain. The review image `ghcr.io/zon/ralph-review` adds zpecs and the Open Code Review CLI. A toolchain image such as `ghcr.io/zon/ralph-go` adds one and builds on the review image. It shares the Ralph version tag.
 
 `ralph setup` always writes `opencode-credentials`, and `opencodeSecret` picks the Secret the workflow mounts.
 

@@ -1,0 +1,51 @@
+# The Ralph image this review image layers on. Pass RALPH_VERSION to select a
+# release of ghcr.io/zon/ralph, or RALPH_IMAGE to use a locally built image.
+ARG RALPH_VERSION
+ARG RALPH_IMAGE=ghcr.io/zon/ralph:${RALPH_VERSION}
+
+# zpecs stage - build the zpecs CLI from the specs repository. The repository
+# publishes no release tags, so the commit is the pin and the VERSION file at
+# that commit is the version the binary reports. The Go module cache stays in
+# this stage.
+FROM --platform=linux/amd64 docker.io/library/golang:1.27.4-trixie AS zpecs
+
+ENV CGO_ENABLED=0
+ENV ZPECS_COMMIT=766bb463df1c267f406491a7f4d44c9bc6c1b474
+RUN git clone --quiet https://github.com/zon/specs.git /tmp/specs \
+    && cd /tmp/specs \
+    && git checkout --quiet ${ZPECS_COMMIT} \
+    && mkdir -p /out \
+    && go build -trimpath \
+        -ldflags "-s -w -X main.version=$(cat VERSION)" \
+        -o /out/zpecs ./cmd/zpecs
+
+# Open Code Review stage - download the static linux/amd64 binary from its
+# release and verify the checksum published beside it. The package's command
+# line launcher needs a JavaScript runtime, but the release asset is the
+# self-contained binary, so the runtime needs none.
+FROM --platform=linux/amd64 ubuntu:26.10 AS ocr
+
+ENV OCR_VERSION=1.14.3
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /out \
+    && curl -fsSL "https://github.com/alibaba/open-code-review/releases/download/v${OCR_VERSION}/opencodereview-linux-amd64" -o /out/ocr \
+    && echo "17ee32cdf0af6c006a199d758defb6c2abe05ec5b4d164df3a703c0208d5155e  /out/ocr" | sha256sum -c - \
+    && chmod +x /out/ocr
+
+FROM --platform=linux/amd64 ${RALPH_IMAGE}
+
+ARG RALPH_VERSION
+
+LABEL org.opencontainers.image.title="Ralph Review" \
+      org.opencontainers.image.description="Ralph executor with zpecs and Open Code Review" \
+      org.opencontainers.image.source="https://github.com/zon/ralph" \
+      org.opencontainers.image.version="${RALPH_VERSION}"
+
+COPY --from=zpecs /out/zpecs /usr/local/bin/zpecs
+COPY --from=ocr /out/ocr /usr/local/bin/ocr
+
+WORKDIR /workspace
+
+CMD ["/bin/sh"]

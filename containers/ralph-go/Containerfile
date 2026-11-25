@@ -1,7 +1,8 @@
-# The Ralph image this toolchain layers on. Pass RALPH_VERSION to select a
-# release of ghcr.io/zon/ralph, or RALPH_IMAGE to use a locally built image.
+# The Ralph review image this toolchain layers on. It already carries zpecs and
+# Open Code Review. Pass RALPH_VERSION to select a release of
+# ghcr.io/zon/ralph-review, or RALPH_IMAGE to use a locally built image.
 ARG RALPH_VERSION
-ARG RALPH_IMAGE=ghcr.io/zon/ralph:${RALPH_VERSION}
+ARG RALPH_IMAGE=ghcr.io/zon/ralph-review:${RALPH_VERSION}
 ARG GO_VERSION=1.27.4
 ARG AIR_VERSION=v1.67.4
 ARG AIR_TEXT_VERSION=v0.44.0
