@@ -53,5 +53,15 @@ func (m *Manager) handleSignal(sigChan <-chan os.Signal) {
 	m.out.Infof("Received signal: %v", sig)
 	m.out.Info("Cleaning up...")
 	m.Cleanup()
-	m.exitFn(0)
+	m.exitFn(signalExitCode(sig))
+}
+
+// signalExitCode returns the conventional exit code for an interrupted
+// process: 128 plus the signal number, for example 130 for SIGINT and 143 for
+// SIGTERM.
+func signalExitCode(sig os.Signal) int {
+	if s, ok := sig.(syscall.Signal); ok {
+		return 128 + int(s)
+	}
+	return 1
 }

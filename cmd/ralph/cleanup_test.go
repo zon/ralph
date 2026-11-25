@@ -131,8 +131,9 @@ func TestHandleSignal(t *testing.T) {
 
 			sigChan <- tt.sig
 
+			wantExitCode := 128 + int(tt.sig.(syscall.Signal))
 			assert.Eventually(t, func() bool { return cleanupCalled }, time.Second, 10*time.Millisecond)
-			assert.Eventually(t, func() bool { return exitCode == 0 }, time.Second, 10*time.Millisecond)
+			assert.Eventually(t, func() bool { return exitCode == wantExitCode }, time.Second, 10*time.Millisecond)
 		})
 	}
 }
