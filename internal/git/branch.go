@@ -37,9 +37,14 @@ func HeadCommit() (string, error) {
 	return strings.TrimSpace(commit), nil
 }
 
-// CheckoutOrCreateBranch checks out the named branch if it exists on the remote
-// (after a prior Fetch), otherwise creates and checks out a new local branch.
+// CheckoutOrCreateBranch checks out the named branch if it exists locally or on
+// the remote (after a prior Fetch), otherwise creates and checks out a new local
+// branch.
 func CheckoutOrCreateBranch(name string) error {
+	if branchExists(name) {
+		return CheckoutBranch(name)
+	}
+
 	exists, err := RemoteBranchExists(name)
 	if err != nil {
 		return err

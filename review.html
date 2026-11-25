@@ -6262,12 +6262,12 @@ func (w *WorkflowLoopCmd) Run() error {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="b3523212-41e0-4bde-8fb5-9710c645d4a5#1" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="b3523212-41e0-4bde-8fb5-9710c645d4a5#1" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-medium">medium</span>
                     <span class="comment-lines sr-only">L41-L45</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">The decision is based only on remote existence. When the branch already exists locally but has not been pushed (e.g. a `loop-&lt;slug&gt;` branch created by a previous run whose push failed, or a project branch that only exists locally), `remoteBranchExists` is false and `CreateBranch` runs `git checkout -b name`, which fails with &#34;a branch named &#39;x&#39; already exists&#34; instead of simply checking the branch out. Check local existence first (the package already has `branchExists`).</div>
                 
