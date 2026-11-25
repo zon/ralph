@@ -70,11 +70,7 @@ func (c *client) CreateOrUpdateSecret(ctx context.Context, name, namespace, kube
 }
 
 func (c *client) SecretExists(ctx context.Context, name, namespace, kubeContext string) (bool, error) {
-	args := []string{"get", "secret", name, "-n", namespace}
-	if kubeContext != "" {
-		args = append(args, "--context", kubeContext)
-	}
-	_, err := runKubectl(ctx, nil, args...)
+	_, err := runKubectl(ctx, nil, buildSecretExistsArgs(name, namespace, kubeContext)...)
 	if err != nil {
 		if bytes.Contains([]byte(err.Error()), []byte("not found")) {
 			return false, nil
@@ -84,7 +80,23 @@ func (c *client) SecretExists(ctx context.Context, name, namespace, kubeContext 
 	return true, nil
 }
 
+func buildSecretExistsArgs(name, namespace, kubeContext string) []string {
+	if namespace == "" {
+		namespace = "default"
+	}
+
+	args := []string{"get", "secret", name, "-n", namespace}
+	if kubeContext != "" {
+		args = append(args, "--context", kubeContext)
+	}
+	return args
+}
+
 func (c *client) GetSecretData(ctx context.Context, name, namespace, kubeContext string) (map[string]string, error) {
+	if namespace == "" {
+		namespace = "default"
+	}
+
 	stdout, err := runKubectl(ctx, nil, buildGetSecretDataArgs(name, namespace, kubeContext)...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read secret '%s' from namespace '%s': %w", name, namespace, err)
@@ -94,6 +106,10 @@ func (c *client) GetSecretData(ctx context.Context, name, namespace, kubeContext
 }
 
 func buildGetSecretDataArgs(name, namespace, kubeContext string) []string {
+	if namespace == "" {
+		namespace = "default"
+	}
+
 	args := []string{"get", "secret", name, "-n", namespace, "-o", "json"}
 	if kubeContext != "" {
 		args = append(args, "--context", kubeContext)
