@@ -83,8 +83,40 @@ func TestPerformCommit_WithStagedChanges(t *testing.T) {
 	err = performCommit("Add test file", false)
 	require.NoError(t, err, "performCommit failed")
 
-	hasStaged := HasStagedChanges()
+	hasStaged, err := HasStagedChanges()
+	require.NoError(t, err)
 	assert.False(t, hasStaged, "Should have no staged changes after commit")
+}
+
+func TestHasStagedChanges(t *testing.T) {
+	t.Run("clean tree has no staged changes", func(t *testing.T) {
+		tempDir := setupTestRepo(t)
+		t.Chdir(tempDir)
+
+		staged, err := HasStagedChanges()
+		require.NoError(t, err)
+		assert.False(t, staged)
+	})
+
+	t.Run("staged file has staged changes", func(t *testing.T) {
+		tempDir := setupTestRepo(t)
+		t.Chdir(tempDir)
+
+		require.NoError(t, os.WriteFile(filepath.Join(tempDir, "new.txt"), []byte("new\n"), 0644))
+		require.NoError(t, StageFile("new.txt"))
+
+		staged, err := HasStagedChanges()
+		require.NoError(t, err)
+		assert.True(t, staged)
+	})
+
+	t.Run("git failure returns an error instead of a result", func(t *testing.T) {
+		t.Chdir(t.TempDir())
+
+		staged, err := HasStagedChanges()
+		require.Error(t, err)
+		assert.False(t, staged)
+	})
 }
 
 func TestPerformCommit_EmptyMessage(t *testing.T) {
