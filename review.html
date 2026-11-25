@@ -3549,12 +3549,12 @@ nav.breadcrumb a:focus-visible {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="c25b9b4e-902b-4200-a3d9-993e8927265b#1" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="c25b9b4e-902b-4200-a3d9-993e8927265b#1" hidden data-mark="fixed">
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-medium">medium</span>
                     <span class="comment-lines sr-only">L55</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">On SIGINT/SIGTERM the process exits with code 0, so an interrupted or aborted run is reported as success to scripts, CI, and shell wrappers (e.g. `ralph ... &amp;&amp; deploy`). Use a non-zero code that reflects the interruption, typically 128&#43;signal (130 for SIGINT, 143 for SIGTERM).</div>
                 
