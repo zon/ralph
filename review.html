@@ -6492,12 +6492,12 @@ The same gap applies to `RunRemoteFromClone` when neither branch nor prefix is s
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="7b22894f-2b5f-4dd1-a05c-411be51b8d9f#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="7b22894f-2b5f-4dd1-a05c-411be51b8d9f#0" data-mark="fixed" hidden>
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-medium">medium</span>
                     <span class="comment-lines sr-only">L12</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">No end-of-options separator is used, so a key (or value) that begins with `-` is parsed by `git config` as an option instead of a positional argument. For example `Config(false, &#34;user.name&#34;, &#34;--replace-all&#34;)` or a key like `-e` silently changes command semantics / fails with a confusing &#34;missing value&#34; error rather than setting the requested config. Since `Config` is an exported helper accepting arbitrary strings, insert `--` before the positional arguments; the same applies to the key in `ConfigUnset` (`args = append(args, &#34;--&#34;, key)`).</div>
                 
