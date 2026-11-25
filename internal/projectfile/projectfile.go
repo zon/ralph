@@ -66,16 +66,18 @@ func CanonicalPath(path string) string {
 // WriteCanonical writes a parsed document back to disk as canonical YAML,
 // preserving its content and key order. Writing a document parsed from a .json
 // path produces a sibling .yaml file; removing the original is the caller's
-// decision.
+// decision. The write is atomic, so an interrupted or failed write cannot
+// truncate an existing project file.
 func WriteCanonical(path string, doc *Document) error {
 	target := CanonicalPath(path)
+	mode := sourceMode(path)
 	node := doc.Node
 	if node == nil {
 		data, err := yaml.Marshal(doc.Root)
 		if err != nil {
 			return fmt.Errorf("failed to marshal canonical YAML: %w", err)
 		}
-		if err := os.WriteFile(target, data, 0o644); err != nil {
+		if err := writeFileAtomic(target, data, mode); err != nil {
 			return fmt.Errorf("failed to write canonical YAML: %w", err)
 		}
 		return nil
@@ -85,8 +87,50 @@ func WriteCanonical(path string, doc *Document) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal canonical YAML: %w", err)
 	}
-	if err := os.WriteFile(target, data, 0o644); err != nil {
+	if err := writeFileAtomic(target, data, mode); err != nil {
 		return fmt.Errorf("failed to write canonical YAML: %w", err)
+	}
+	return nil
+}
+
+// sourceMode returns the permission bits of the source file, so a rewritten
+// file keeps its mode even when the target is a new sibling .yaml file. It
+// falls back to 0o644 when the source cannot be inspected.
+func sourceMode(path string) os.FileMode {
+	info, err := os.Stat(path)
+	if err != nil {
+		return 0o644
+	}
+	return info.Mode().Perm()
+}
+
+// writeFileAtomic writes data to a temporary file beside target and renames it
+// into place, so a failed or interrupted write leaves any existing target
+// intact. The temporary file is removed on failure.
+func writeFileAtomic(target string, data []byte, mode os.FileMode) (err error) {
+	tmp, err := os.CreateTemp(filepath.Dir(target), "."+filepath.Base(target)+".tmp-*")
+	if err != nil {
+		return err
+	}
+	tmpName := tmp.Name()
+	defer func() {
+		if err != nil {
+			_ = os.Remove(tmpName)
+		}
+	}()
+	if _, err = tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err = tmp.Chmod(mode); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err = tmp.Close(); err != nil {
+		return err
+	}
+	if err = os.Rename(tmpName, target); err != nil {
+		return err
 	}
 	return nil
 }

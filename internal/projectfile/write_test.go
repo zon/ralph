@@ -138,6 +138,85 @@ func TestWriteCanonicalPreservesEmptyAndNilFields(t *testing.T) {
 	assert.Equal(t, origRoot, newRoot)
 }
 
+// TestWriteCanonicalReplacesExistingFileAtomically covers the item that
+// writing over an existing project file replaces it without leaving temporary
+// files behind.
+func TestWriteCanonicalReplacesExistingFileAtomically(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "project.yaml")
+	require.NoError(t, os.WriteFile(target, []byte("old: value\n"), 0o644))
+
+	path := writeProjectFile(t, "project.yaml", "slug: csv-export\n")
+	doc, err := Parse(path)
+	require.NoError(t, err)
+
+	require.NoError(t, WriteCanonical(target, doc))
+
+	rewritten, err := Parse(target)
+	require.NoError(t, err)
+	root, ok := rewritten.Root.(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "csv-export", root["slug"])
+
+	entries, err := os.ReadDir(dir)
+	require.NoError(t, err)
+	require.Len(t, entries, 1)
+	assert.Equal(t, "project.yaml", entries[0].Name())
+}
+
+// TestWriteCanonicalLeavesTargetOnWriteFailure covers the item that a failed
+// write cannot truncate or remove an existing target.
+func TestWriteCanonicalLeavesTargetOnWriteFailure(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "project.yaml")
+	require.NoError(t, os.Mkdir(target, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(target, "keep"), []byte("keep"), 0o644))
+
+	path := writeProjectFile(t, "project.yaml", "slug: csv-export\n")
+	doc, err := Parse(path)
+	require.NoError(t, err)
+
+	require.Error(t, WriteCanonical(target, doc))
+
+	// The existing target is untouched, and no temporary file is left behind.
+	entries, err := os.ReadDir(dir)
+	require.NoError(t, err)
+	require.Len(t, entries, 1)
+	assert.Equal(t, "project.yaml", entries[0].Name())
+	data, err := os.ReadFile(filepath.Join(target, "keep"))
+	require.NoError(t, err)
+	assert.Equal(t, "keep", string(data))
+}
+
+// TestWriteCanonicalPreservesSourceMode covers the item that a rewritten file
+// keeps the source file's permissions, including a private .json source whose
+// canonical .yaml sibling is created new.
+func TestWriteCanonicalPreservesSourceMode(t *testing.T) {
+	tests := []struct {
+		name    string
+		file    string
+		content string
+	}{
+		{name: "yaml in place", file: "project.yaml", content: "slug: csv-export\n"},
+		{name: "json sibling yaml", file: "project.json", content: `{"slug":"csv-export"}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			source := writeProjectFile(t, tt.file, tt.content)
+			require.NoError(t, os.Chmod(source, 0o600))
+			doc, err := Parse(source)
+			require.NoError(t, err)
+
+			require.NoError(t, WriteCanonical(source, doc))
+
+			target := CanonicalPath(source)
+			info, err := os.Stat(target)
+			require.NoError(t, err)
+			assert.Equal(t, os.FileMode(0o600), info.Mode().Perm())
+		})
+	}
+}
+
 func indexOf(t *testing.T, s, substr string) int {
 	t.Helper()
 	idx := -1
