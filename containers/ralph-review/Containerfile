@@ -19,20 +19,25 @@ RUN git clone --quiet https://github.com/zon/specs.git /tmp/specs \
         -ldflags "-s -w -X main.version=$(cat VERSION)" \
         -o /out/zpecs ./cmd/zpecs
 
-# Open Code Review stage - download the static linux/amd64 binary from its
-# release and verify the checksum published beside it. The package's command
-# line launcher needs a JavaScript runtime, but the release asset is the
-# self-contained binary, so the runtime needs none.
-FROM --platform=linux/amd64 ubuntu:26.10 AS ocr
+# Open Code Review stage - build the static linux/amd64 binary from the release
+# tag. The release asset carries a known HIGH finding (golang.org/x/net
+# CVE-2026-78661), and a released binary cannot be patched, so the dependency is
+# raised here. regressions.md records returning to the release asset once it is
+# not vulnerable. The package's command line launcher needs a JavaScript
+# runtime, but the built binary is self-contained, so the runtime needs none. The
+# Go module cache stays in this stage.
+FROM --platform=linux/amd64 docker.io/library/golang:1.27.4-trixie AS ocr
 
+ENV CGO_ENABLED=0
 ENV OCR_VERSION=1.14.3
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates curl \
-    && rm -rf /var/lib/apt/lists/* \
+ENV OCR_NET_VERSION=v0.62.0
+RUN git clone --quiet --depth 1 --branch v${OCR_VERSION} https://github.com/alibaba/open-code-review.git /tmp/ocr \
+    && cd /tmp/ocr \
+    && GOFLAGS=-mod=mod go get golang.org/x/net@${OCR_NET_VERSION} \
     && mkdir -p /out \
-    && curl -fsSL "https://github.com/alibaba/open-code-review/releases/download/v${OCR_VERSION}/opencodereview-linux-amd64" -o /out/ocr \
-    && echo "17ee32cdf0af6c006a199d758defb6c2abe05ec5b4d164df3a703c0208d5155e  /out/ocr" | sha256sum -c - \
-    && chmod +x /out/ocr
+    && GOFLAGS=-mod=mod go build -trimpath \
+        -ldflags "-s -w -X main.Version=v${OCR_VERSION}" \
+        -o /out/ocr ./cmd/opencodereview
 
 FROM --platform=linux/amd64 ${RALPH_IMAGE}
 

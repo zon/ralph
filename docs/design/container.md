@@ -47,8 +47,10 @@ The review image, `ralph-review`, adds the tools a workflow needs to work with a
 Its Containerfile has three stages:
 
 1. **zpecs** - a Go image builds the zpecs CLI from the specs repository at a pinned commit. The repository publishes no release tags, so the commit is the pin, and the build injects the version from its `VERSION` file.
-2. **Open Code Review** - an Ubuntu image downloads the pinned `opencodereview-linux-amd64` release asset and verifies its published SHA-256 checksum. The asset is a static binary, so the image needs no JavaScript runtime.
+2. **Open Code Review** - a Go image builds the command from the pinned release tag with `golang.org/x/net` raised, because the released `opencodereview-linux-amd64` asset ships v0.60.0 with CVE-2026-78661 and a released binary cannot be patched. The result is a static binary, so the image needs no JavaScript runtime.
 3. **Runtime** - the Ralph image adds zpecs and `ocr`.
+
+The override goes away once a release ships the fixed dependency. [Regressions](../../regressions.md) records returning to the release asset.
 
 The Go toolchain image builds on the review image, so it carries both commands.
 
