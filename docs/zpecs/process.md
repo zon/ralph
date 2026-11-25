@@ -19,13 +19,15 @@ High level objectives, recorded in `milestones.md`. Milestones are separated by 
 
 High level design docs in `design/` describing core concepts, their relationships, and key domain logic. Design docs define the language and structure of specs and code beneath them. A repo should gradually update its specs and code to follow the design.
 
+Design is its own step. Settle a scope's design before writing its specs or project.
+
 ## Specs
 
 We use a [simple variant of OpenSpec](specs.md) to define domain logic requirements.
 
 ## Projects
 
-We use [simple project files](project.md) to make implementation plans. Update design and specs before writing or updating a project, and keep those updates within the project's scope. The project covers only their implementation.
+We use [simple project files](project.md) to make implementation plans. Write or update design and specs first, each as its own step, and keep them within the project's scope. The project covers only implementation.
 
 ## Implementation
 
