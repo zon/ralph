@@ -8341,12 +8341,12 @@ The same gap applies to `RunRemoteFromClone` when neither branch nor prefix is s
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="3aef287a-bb27-472d-821d-73271920de65#5" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="3aef287a-bb27-472d-821d-73271920de65#5" hidden data-mark="fixed">
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-medium">medium</span>
                     <span class="comment-lines sr-only">L392-L394</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">`gh` is treated as a hard requirement: if the binary is not installed (`exec.ErrNotFound`), `ConfigureGitAuth`/`ConfigureTokenAuth` fail even though the git HTTPS credential was configured successfully. This breaks token-only flows in environments without the gh CLI. Detect `errors.Is(err, exec.ErrNotFound)` and skip gh authentication instead of failing.</div>
                 

@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -410,6 +411,11 @@ func authenticateGHCLI(ctx context.Context, installationToken string) error {
 	loginCmd.Stdout = os.Stdout
 	loginCmd.Stderr = os.Stderr
 	if err := loginCmd.Run(); err != nil {
+		// The gh CLI is optional: token-only flows authenticate git over HTTPS
+		// without it, so a missing binary is not a failure.
+		if errors.Is(err, exec.ErrNotFound) {
+			return nil
+		}
 		return fmt.Errorf("failed to authenticate gh CLI: %w", err)
 	}
 	return nil

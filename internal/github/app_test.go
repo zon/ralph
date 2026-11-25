@@ -549,6 +549,30 @@ func TestConfigureTokenAuth_GitConfig(t *testing.T) {
 	})
 }
 
+func TestConfigureTokenAuth_SkipsMissingGHCli(t *testing.T) {
+	withIsolatedGitHome(t, func() {
+		gitPath, err := exec.LookPath("git")
+		require.NoError(t, err)
+
+		// A PATH with only git makes exec.LookPath fail for gh, which must not
+		// turn the successful git HTTPS configuration into an error.
+		dir := t.TempDir()
+		require.NoError(t, os.Symlink(gitPath, filepath.Join(dir, "git")))
+		t.Setenv("PATH", dir)
+
+		err = ConfigureTokenAuth(context.Background(), "ghs_test-token")
+		require.NoError(t, err)
+
+		found := false
+		for _, l := range gitListGlobal(t) {
+			if strings.Contains(strings.ToLower(l), "x-access-token:ghs_test-token@github.com/.insteadof") {
+				found = true
+			}
+		}
+		assert.True(t, found, "git config should contain the token insteadOf rewrite")
+	})
+}
+
 func TestConfigureGitAuth_TokenOnlySecret(t *testing.T) {
 	withIsolatedGitHome(t, func() {
 		secretsDir := t.TempDir()
