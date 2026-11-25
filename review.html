@@ -8561,12 +8561,12 @@ The same gap applies to `RunRemoteFromClone` when neither branch nor prefix is s
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="72c6581e-f23b-4bf2-b60c-1655d7354eaa#0" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="72c6581e-f23b-4bf2-b60c-1655d7354eaa#0" hidden data-mark="fixed">
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-medium">medium</span>
                     <span class="comment-lines sr-only">L53-L57</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">`err == nil` only proves the path exists, not that it is a usable kubeconfig: a directory (e.g. a mounted secret dir) or a file the process cannot read is reported as &#34;has kubeconfig&#34;, and conversely every non-`nil` stat error (permission denied, I/O error) is folded into &#34;no kubeconfig&#34;. Because `InCluster()` is driven by this result, an explicit `KUBECONFIG` misconfiguration is silently overridden and Ralph falls back to the pod ServiceAccount, possibly operating on a different cluster than the operator configured. Suggest treating only `os.IsNotExist` as absent and requiring a regular file, e.g.:
 ```go
