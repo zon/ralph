@@ -8760,12 +8760,12 @@ if info.Mode().IsRegular() {
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="a224b6f7-cdfb-42fb-93ed-808d4734e89a#2" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="a224b6f7-cdfb-42fb-93ed-808d4734e89a#2" hidden data-mark="fixed">
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-medium">medium</span>
                     <span class="comment-lines sr-only">L67-L69</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">Detecting &#34;not found&#34; by substring-matching the whole kubectl error is unreliable: `runKubectl` returns &#34;kubectl not found in PATH - please install kubectl&#34; (matches `not found`), and a missing namespace returns `namespaces &#34;x&#34; not found`. In both cases this method silently reports `false, nil`, hiding a real environment/configuration failure. Prefer `kubectl get secret &lt;name&gt; -n &lt;ns&gt; --ignore-not-found -o name` and treat empty stdout as &#34;absent&#34;.</div>
                 
