@@ -173,21 +173,21 @@ func TestBuildSecretExistsArgs(t *testing.T) {
 			secretName:   "github-credentials",
 			namespace:    "argo",
 			kubeContext:  "",
-			expectedArgs: []string{"get", "secret", "github-credentials", "-n", "argo"},
+			expectedArgs: []string{"get", "secret", "github-credentials", "-n", "argo", "--ignore-not-found", "-o", "name"},
 		},
 		{
 			name:         "secret lookup with context",
 			secretName:   "github-credentials",
 			namespace:    "argo",
 			kubeContext:  "staging",
-			expectedArgs: []string{"get", "secret", "github-credentials", "-n", "argo", "--context", "staging"},
+			expectedArgs: []string{"get", "secret", "github-credentials", "-n", "argo", "--ignore-not-found", "-o", "name", "--context", "staging"},
 		},
 		{
 			name:         "empty namespace uses default",
 			secretName:   "github-credentials",
 			namespace:    "",
 			kubeContext:  "",
-			expectedArgs: []string{"get", "secret", "github-credentials", "-n", "default"},
+			expectedArgs: []string{"get", "secret", "github-credentials", "-n", "default", "--ignore-not-found", "-o", "name"},
 		},
 	}
 

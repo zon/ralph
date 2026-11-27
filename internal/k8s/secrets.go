@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 const (
@@ -70,14 +71,14 @@ func (c *client) CreateOrUpdateSecret(ctx context.Context, name, namespace, kube
 }
 
 func (c *client) SecretExists(ctx context.Context, name, namespace, kubeContext string) (bool, error) {
-	_, err := runKubectl(ctx, nil, buildSecretExistsArgs(name, namespace, kubeContext)...)
+	out, err := runKubectl(ctx, nil, buildSecretExistsArgs(name, namespace, kubeContext)...)
 	if err != nil {
-		if bytes.Contains([]byte(err.Error()), []byte("not found")) {
-			return false, nil
-		}
 		return false, err
 	}
-	return true, nil
+	// --ignore-not-found makes a missing secret a successful empty response.
+	// Other kubectl failures stay errors, so a missing binary or namespace is
+	// not mistaken for an absent secret.
+	return strings.TrimSpace(out.String()) != "", nil
 }
 
 func buildSecretExistsArgs(name, namespace, kubeContext string) []string {
@@ -85,7 +86,7 @@ func buildSecretExistsArgs(name, namespace, kubeContext string) []string {
 		namespace = "default"
 	}
 
-	args := []string{"get", "secret", name, "-n", namespace}
+	args := []string{"get", "secret", name, "-n", namespace, "--ignore-not-found", "-o", "name"}
 	if kubeContext != "" {
 		args = append(args, "--context", kubeContext)
 	}
