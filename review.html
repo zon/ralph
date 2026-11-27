@@ -8243,12 +8243,12 @@ The same gap applies to `RunRemoteFromClone` when neither branch nor prefix is s
         
             
             
-            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="3aef287a-bb27-472d-821d-73271920de65#2" hidden>
+            <div class="comment-card" data-comment-card data-category="bug" data-severity="medium" data-mark-id="3aef287a-bb27-472d-821d-73271920de65#2" hidden data-mark="fixed">
                 <div class="comment-meta">
                     <span class="comment-badge cat-bug">bug</span>
                     <span class="comment-badge severity-medium">medium</span>
                     <span class="comment-lines sr-only">L173-L174</span>
-                    <span class="comment-badge mark-chip" data-mark-chip hidden></span>
+                    <span class="comment-badge mark-chip mark-fixed" data-mark-chip>fixed</span>
                 </div>
                 <div class="comment-content">The return value of `git.ConfigUnset` is discarded. If the unset fails (e.g. a locked config file), the stale `x-access-token` rewrite survives and git may pick that expired entry over the freshly written one — the exact failure this cleanup exists to prevent. Propagate the failure (redacting the key, which contains the token) or at least surface it instead of silently continuing.</div>
                 

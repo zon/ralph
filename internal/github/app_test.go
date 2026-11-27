@@ -173,7 +173,7 @@ func TestCleanupStaleTokenRewrites(t *testing.T) {
 		}
 		assert.Equal(t, 2, tokenEntries, "should have 2 stale token entries before cleanup")
 
-		cleanupStaleTokenRewrites(ctx)
+		require.NoError(t, cleanupStaleTokenRewrites(ctx))
 
 		after := gitListGlobal(t)
 		for _, l := range after {
@@ -199,7 +199,7 @@ func TestCleanupStaleTokenRewrites_Empty(t *testing.T) {
 
 		gitConfigGlobal(t, "user.name", "Test User")
 
-		cleanupStaleTokenRewrites(ctx)
+		require.NoError(t, cleanupStaleTokenRewrites(ctx))
 
 		after := gitListGlobal(t)
 		found := false

@@ -140,4 +140,14 @@ func TestConfigUnset(t *testing.T) {
 		assert.NotContains(t, output, "user.unsettest=unsetvalue")
 	})
 
+	t.Run("redacts credentials in the key on failure", func(t *testing.T) {
+		tempDir := setupTestRepo(t)
+		t.Chdir(tempDir)
+
+		err := ConfigUnset(false, "url.https://x-access-token:ghs_secret@github.com/.insteadOf")
+		require.Error(t, err)
+		assert.NotContains(t, err.Error(), "ghs_secret")
+		assert.Contains(t, err.Error(), "https://redacted:redacted@github.com/.insteadOf")
+	})
+
 }

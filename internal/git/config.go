@@ -70,7 +70,9 @@ func ConfigUnset(global bool, key string) error {
 
 	_, err := runGit(args...)
 	if err != nil {
-		return fmt.Errorf("failed to unset git config %s: %w", key, err)
+		// The key can embed credentials such as an installation token, so
+		// redact it and the wrapped git error before returning.
+		return fmt.Errorf("failed to unset git config %s: %w", RedactCredentials(key), redactedError{err})
 	}
 	return nil
 }
